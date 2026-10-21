@@ -11,9 +11,10 @@ import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import type { Database } from "@/types/database.generated";
 import type { WatchContext } from "./with-watch-auth";
+import { WATCH_CONTRACT } from "./contract";
 
 const integer = z.number().int().safe();
-const chunkCountSchema = integer.min(1).max(1000);
+const chunkCountSchema = integer.min(1).max(WATCH_CONTRACT.maxChunkCount);
 const headerSchema = z.object({
   surfId: z.string().uuid(),
   startedAt: z.string().datetime({ offset: true }),
@@ -22,7 +23,7 @@ const headerSchema = z.object({
   partNumber: z.string(),
   deviceName: z.string(),
   appVersion: z.string(),
-  rating: integer.min(1).max(5).nullable(),
+  rating: integer.min(WATCH_CONTRACT.ratingMin).max(WATCH_CONTRACT.ratingMax).nullable(),
   waveHeightFt: z.literal(WATCH_WAVE_HEIGHTS_FT).nullable().optional(),
   chunkCount: chunkCountSchema,
 });
@@ -34,11 +35,13 @@ const chunkSchema = z.object({
   rows: z.array(z.tuple([
     integer.min(0), integer.nullable(), integer.nullable(),
     integer.min(0).nullable(), integer.min(0).max(255).nullable(), integer.nullable(),
-  ]).refine(row => (row[1] === null) === (row[2] === null))).min(1).max(300),
+  ]).refine(row => row.length === WATCH_CONTRACT.rowColumns
+    && (row[1] === null) === (row[2] === null))).min(1).max(WATCH_CONTRACT.maxRowsPerChunk),
 }).refine(chunk => (chunk.lat0 === null) === (chunk.lon0 === null))
   .refine(chunk => chunk.rows[0]?.[0] === 0);
 const surfIdSchema = z.string().uuid();
-const indexSchema = z.string().regex(/^\d+$/).transform(Number).pipe(integer.min(0).max(999));
+const indexSchema = z.string().regex(/^\d+$/).transform(Number)
+  .pipe(integer.min(0).max(WATCH_CONTRACT.maxChunkCount - 1));
 type Upload = Database["public"]["Tables"]["watch_uploads"]["Row"];
 
 function checkError(error: { message: string } | null): void {
@@ -209,7 +212,7 @@ async function processWatchImport(ctx: WatchContext, upload: Upload, importId: s
     await enqueueWatchImportNotification(ctx, upload, importId, result);
   } catch (error) {
     if (!(error instanceof TrackFileError)) throw error;
-    response = createSuccessResponse({ status: "failed", sessionId: null });
+    response = createSuccessResponse({ status: WATCH_CONTRACT.failedUploadStatus, sessionId: null });
   }
   await cleanChunks(ctx, upload);
   return response;
@@ -222,9 +225,9 @@ async function existingImport(ctx: WatchContext, upload: Upload): Promise<Respon
   if (!imported || imported.user_id !== ctx.userId) return createErrorResponse("not_found", undefined, 404);
   if (imported.status === "completed") return createSuccessResponse({ status: "completed", sessionId: imported.session_id });
   if (imported.status === "needs_beach") return createSuccessResponse({ status: "needs_beach", sessionId: null });
-  if (imported.status === "failed") {
+  if (imported.status === WATCH_CONTRACT.failedUploadStatus) {
     return createSuccessResponse({
-      status: imported.error === "duplicate" ? "duplicate" : "failed",
+      status: imported.error === "duplicate" ? "duplicate" : WATCH_CONTRACT.failedUploadStatus,
       sessionId: imported.error === "duplicate" ? imported.session_id : null,
     });
   }

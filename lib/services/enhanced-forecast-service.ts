@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
 import { getStationDistanceKm } from "@/lib/services/noaa-coops/station-resolver";
 import { getNearestTideStation } from "@/lib/services/noaa-tide-service";
+import { hasNoaaTideCoverage } from "@/lib/services/tides/tide-provider";
 import { getReviewedNwsPoint } from "@/lib/services/noaa-wavewatch/grid-utils";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { ForecastStorageService } from "./forecast/storage-service";
@@ -10,6 +11,7 @@ import {
   ForecastBuilder,
 } from "./forecast/forecast-builder";
 import { hashString } from "./forecast/batch-update-coordinator";
+import { chunk } from "@/lib/utils/chunk";
 import { describeThrownError } from "./forecast/error-message";
 import {
   DeadlineTracker,
@@ -104,6 +106,9 @@ interface ComprehensiveForecastDiagnosticResult {
   forecasts: EnhancedForecastWithRawData[];
   cdip: CDIPForecastDiagnostic;
 }
+
+/** Beaches per `v_enhanced_forecast_latest` read; ~8 ms per beach cold, so 50 stays far under the 8 s cap. */
+const LATEST_VIEW_READ_CHUNK = 50;
 
 export class EnhancedForecastService {
   private readonly warnedSchemaColumns = new Set<string>();
@@ -277,6 +282,7 @@ export class EnhancedForecastService {
         // range, so these rows never carry a far or name-matched station's tides:
         // "Scorpion Bay (San Juanico)" name-matched San Juan, Puerto Rico. No station
         // in range means no tides, as in tide_forecasts.
+        if (!hasNoaaTideCoverage(beach)) return null;
         log.warn(`No cached tides for beach ${beach.name}, falling back to live CO-OPS API`);
         if (beach.lat == null || beach.lon == null) return null;
         const station = await getNearestTideStation(beach.lat, beach.lon);
@@ -482,6 +488,7 @@ export class EnhancedForecastService {
   private async fetchCOOPSWaterTemp(beach: Beach): Promise<number | null> {
     const { lat, lon } = beach;
     if (lat == null || lon == null) return null;
+    if (!hasNoaaTideCoverage(beach)) return null;
 
     const stationId = this.dataSourceManager
       .getCOOPSService()
@@ -709,6 +716,31 @@ export class EnhancedForecastService {
   }
 
   /**
+   * Read `v_enhanced_forecast_latest` for a bounded set of beaches.
+   *
+   * The view runs a correlated lookup per beach (next-72h rows, timezone-ordered),
+   * so an unfiltered read of all ~570 beaches costs ~0.7-8 s and hits the 8 s
+   * PostgREST statement timeout on slow nights. Reading only the beaches this
+   * run can touch, in fixed-size chunks, keeps every statement well under it.
+   */
+  private async fetchLatestForecastRows<T>(
+    supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+    beachIds: readonly string[],
+    columns: string,
+  ): Promise<T[]> {
+    const rows: T[] = [];
+    for (const ids of chunk(beachIds, LATEST_VIEW_READ_CHUNK)) {
+      const { data, error } = await supabase
+        .from("v_enhanced_forecast_latest")
+        .select(columns)
+        .in("beach_id", ids);
+      if (error) throw error;
+      rows.push(...((data ?? []) as T[]));
+    }
+    return rows;
+  }
+
+  /**
    * Select beaches for update before staleness, with optional sharding.
    */
   private async selectBeachesForUpdate(
@@ -740,15 +772,15 @@ export class EnhancedForecastService {
       log.info(`Shard ${shard}/${shardCount}: ${eligibleBeaches.length}/${allBeaches.length} beaches in this shard`);
     }
 
-    // Build latest updated_at map
+    // Build latest updated_at map for the beaches this run can touch
     const latestUpdatedAtByBeachMs = new Map<string, number>();
-    const { data: latestRows, error: latestError } = await supabase
-      .from("v_enhanced_forecast_latest")
-      .select("beach_id, updated_at");
+    const latestRows = await this.fetchLatestForecastRows<{ beach_id: string; updated_at: string | null }>(
+      supabase,
+      eligibleBeaches.map((b) => b.id),
+      "beach_id, updated_at",
+    );
 
-    if (latestError) throw latestError;
-
-    for (const row of (latestRows ?? []) as Array<{ beach_id: string; updated_at: string | null }>) {
+    for (const row of latestRows) {
       if (!row?.beach_id || !row.updated_at) continue;
       const ts = new Date(row.updated_at).getTime();
       if (Number.isFinite(ts)) latestUpdatedAtByBeachMs.set(row.beach_id, ts);
@@ -886,15 +918,15 @@ export class EnhancedForecastService {
       return null;
     }
 
-    // Get latest forecast data
-    const { data: latestRows, error: latestError } = await supabase
-      .from("v_enhanced_forecast_latest")
-      .select("beach_id, updated_at, data_source");
-
-    if (latestError) throw latestError;
+    // Get latest forecast data for the CDIP-eligible beaches only
+    const latestRows = await this.fetchLatestForecastRows<{
+      beach_id: string;
+      updated_at: string | null;
+      data_source: string | null;
+    }>(supabase, cdipBeaches.map((b) => b.id), "beach_id, updated_at, data_source");
 
     const latestByBeach = new Map<string, { updated_at: string; data_source: string | null }>();
-    for (const row of (latestRows ?? []) as Array<{ beach_id: string; updated_at: string | null; data_source: string | null }>) {
+    for (const row of latestRows) {
       if (!row?.beach_id || !row.updated_at) continue;
       latestByBeach.set(row.beach_id, { updated_at: row.updated_at, data_source: row.data_source ?? null });
     }
@@ -934,6 +966,7 @@ export class EnhancedForecastService {
     // Get unique station IDs for all beaches
     const stationIds = new Set<string>();
     for (const beach of beaches) {
+      if (!hasNoaaTideCoverage(beach)) continue;
       const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
         beach.name,
         beach.lat ?? undefined,

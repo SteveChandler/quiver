@@ -8,6 +8,7 @@
  * to reduce file size and improve maintainability.
  */
 
+import { isWithinNwsCoverage } from "@/lib/utils/nws-coverage";
 import { NOAAWaveWatchService } from "../noaa-wavewatch";
 import { NOAACOOPSService } from "../noaa-coops";
 import { getNearestTideStation } from "../noaa-tide-service";
@@ -165,6 +166,10 @@ export class NOAAWeatherDataSource implements WeatherDataSource {
     location: Location,
     days: number
   ): Promise<WeatherData> {
+    // NWS has no coverage outside the US; its /points endpoint 404s or 500s there.
+    if (!isWithinNwsCoverage(Number(location.latitude), Number(location.longitude))) {
+      return { periods: [] };
+    }
     try {
       const pointsUrl = `https://api.weather.gov/points/${location.latitude},${location.longitude}`;
       const pointsResponse = await fetch(pointsUrl, {

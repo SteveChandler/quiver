@@ -25,8 +25,8 @@ describe("per-run NWS grid fetches", () => {
       ? Response.json({ properties: { forecastHourly: hourlyUrl } }) : pending.then(response => response.clone()));
     const service = new NwsWindService();
     const cache = new Map();
-    const requests = [service.fetchHourlyWindPoints(params(32, 10, 11), cache),
-      service.fetchHourlyWindPoints(params(32.001, 11, 12), cache)];
+    const requests = [service.fetchHourlyWindPoints(params(33, 10, 11), cache),
+      service.fetchHourlyWindPoints(params(33.001, 11, 12), cache)];
     await new Promise<void>(resolve => setImmediate(resolve));
     expect(fetch.mock.calls.filter(([url]) => url === hourlyUrl)).toHaveLength(1);
     release(Response.json({ properties: { periods } }));
@@ -34,11 +34,11 @@ describe("per-run NWS grid fetches", () => {
     expect(first.map(point => point.ts)).toEqual(['2026-09-09T10:00:00.000Z', '2026-09-09T11:00:00.000Z']);
     expect(second.map(point => point.ts)).toEqual(['2026-09-09T11:00:00.000Z', '2026-09-09T12:00:00.000Z']);
     expect(first[0]).toMatchObject({ wind_speed_ms: 10 * 0.44704, wind_direction_deg: 315 });
-    await service.fetchHourlyWindPoints(params(32.002, 10, 12), cache);
+    await service.fetchHourlyWindPoints(params(33.002, 10, 12), cache);
     expect(fetch.mock.calls.filter(([url]) => url === hourlyUrl)).toHaveLength(1);
-    await service.fetchHourlyWindPoints(params(32, 10, 12), new Map());
+    await service.fetchHourlyWindPoints(params(33, 10, 12), new Map());
     expect(fetch.mock.calls.filter(([url]) => url === hourlyUrl)).toHaveLength(2);
-    await service.fetchHourlyWindPoints(params(32, 10, 12));
+    await service.fetchHourlyWindPoints(params(33, 10, 12));
     expect(fetch.mock.calls.filter(([url]) => url === hourlyUrl)).toHaveLength(3);
   });
 
@@ -52,8 +52,8 @@ describe("per-run NWS grid fetches", () => {
     });
     const service = new NwsWindService();
     const cache = new Map();
-    const results = await Promise.all([service.fetchHourlyWindPoints(params(32, 10, 12), cache),
-      service.fetchHourlyWindPoints(params(32.001, 10, 12), cache)]);
+    const results = await Promise.all([service.fetchHourlyWindPoints(params(33, 10, 12), cache),
+      service.fetchHourlyWindPoints(params(33.001, 10, 12), cache)]);
     expect(results[0]).toHaveLength(3);
     expect(results[1]).toEqual(results[0]);
     expect(fetch.mock.calls.filter(([url]) => url === hourlyUrl)).toHaveLength(1);
@@ -67,10 +67,10 @@ describe("per-run NWS grid fetches", () => {
     });
     const service = new NwsWindService();
     const cache = new Map();
-    const results = await Promise.allSettled([service.fetchHourlyWindPoints(params(32, 10, 12), cache),
-      service.fetchHourlyWindPoints(params(32.001, 10, 12), cache)]);
+    const results = await Promise.allSettled([service.fetchHourlyWindPoints(params(33, 10, 12), cache),
+      service.fetchHourlyWindPoints(params(33.001, 10, 12), cache)]);
     expect(results.map(result => result.status)).toEqual(['rejected', 'rejected']);
-    await expect(service.fetchHourlyWindPoints(params(32.002, 10, 12), cache)).rejects.toThrow('grid outage');
+    await expect(service.fetchHourlyWindPoints(params(33.002, 10, 12), cache)).rejects.toThrow('grid outage');
     expect(fetch.mock.calls.filter(([url]) => url === hourlyUrl)).toHaveLength(1);
   });
 });

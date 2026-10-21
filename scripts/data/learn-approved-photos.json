@@ -141,5 +141,57 @@
     "licenseStatus": "defensible",
     "usageNotes": "Carlsbad guide crowds section image: a busy lineup at South Carlsbad State Beach. Verified the licence on the Flickr source page on 2026-10-13; stored at native resolution, no crop, no upscale.",
     "runtimeAssetPath": "public/images/learn/learn-south-carlsbad-lineup.webp"
+  },
+  {
+    "slug": "can-you-surf-in-new-jersey",
+    "name": "learn-sandy-hook-surfer",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Surfing_at_Sandy_Hook_%282042bac6-9611-4aef-a119-c7db4576893e%29.JPG",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Surfing_at_Sandy_Hook_(2042bac6-9611-4aef-a119-c7db4576893e).JPG",
+    "title": "Surfing at Sandy Hook",
+    "creator": "NPS Photo (National Park Service, Gateway National Recreation Area)",
+    "licenseCode": "Public domain (PD-USGov-NPS)",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-USGov-NPS",
+    "licenseStatus": "public-domain",
+    "usageNotes": "New Jersey guide hero/thumbnail: a wetsuited surfer on a clean grey-day wave at Sandy Hook. US federal government work, public domain. Verified the licence on the source page on 2026-10-20 (Openverse search was returning 504s, so the photo was found through the Wikimedia Commons API instead); no crop, no upscale. Stored downscaled from 5184 px to 1600 px wide.",
+    "runtimeAssetPath": "public/images/learn/learn-sandy-hook-surfer.webp"
+  },
+  {
+    "slug": "can-you-surf-in-new-jersey",
+    "name": "learn-bay-head-winter-beach-break",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/17/Surfing%2C_Bay_Head_New_Jersey_%2850995415231%29.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/jal33/50995415231/",
+    "title": "Surfing, Bay Head New Jersey",
+    "creator": "James Loesch",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "New Jersey guide season section image: an aerial of a grey December day at Bay Head with swell lines on an empty beach. Licence checked on the Flickr source page (CC BY 2.0) on 2026-10-20; found via the Wikimedia Commons mirror. No crop, no upscale; stored downscaled from 5464 px to 1600 px wide.",
+    "runtimeAssetPath": "public/images/learn/learn-bay-head-winter-beach-break.webp"
+  },
+  {
+    "slug": "can-you-surf-in-new-jersey",
+    "name": "learn-manasquan-inlet-jetty",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/62/ManasquanBeachInlet7.13.08ByLuigiNovi8.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:ManasquanBeachInlet7.13.08ByLuigiNovi8.jpg",
+    "title": "Manasquan Beach Inlet (7.13.08)",
+    "creator": "Luigi Novi (Nightscream)",
+    "licenseCode": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "New Jersey guide spots section image: the Manasquan Inlet jetty with the beach beyond it. Verified the licence on the source page on 2026-10-20 (Openverse search was returning 504s, so the photo was found through the Wikimedia Commons API instead); no crop, no upscale. Stored at native 2048 px wide.",
+    "runtimeAssetPath": "public/images/learn/learn-manasquan-inlet-jetty.webp"
+  },
+  {
+    "slug": "can-you-surf-in-new-jersey",
+    "name": "learn-cape-may-wetsuit-surfer",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/aa/Atlantic_Surfing_-_Cape_May%2C_New_Jersey.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/shivashenoy/55312082547/",
+    "title": "AtlanticSurfing (Cape May, New Jersey)",
+    "creator": "Shiva Shenoy",
+    "licenseCode": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "New Jersey guide wetsuit section image: a surfer in a full suit on a small foggy wave at Cape May. Licence checked on the Flickr source page (CC BY 4.0) on 2026-10-20; found via the Wikimedia Commons mirror. No crop, no upscale; stored downscaled from 5210 px to 1600 px wide.",
+    "runtimeAssetPath": "public/images/learn/learn-cape-may-wetsuit-surfer.webp"
   }
 ]

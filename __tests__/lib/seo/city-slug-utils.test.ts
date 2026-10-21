@@ -3,6 +3,7 @@ import {
   buildCitySlug,
   detectCityCollisions,
   resolveCityFromSlug,
+  stripCollisionStateSuffix,
 } from "@/lib/seo/city-slug-utils";
 
 describe("detectCityCollisions", () => {
@@ -179,5 +180,27 @@ describe("resolveCityFromSlug", () => {
       cityPattern: "sao paulo",
       stateFilter: null,
     });
+  });
+});
+
+describe("stripCollisionStateSuffix", () => {
+  const collisions = new Map<string, number>([
+    ["ocean-city", 2],
+    ["newport", 2],
+    ["long-beach", 3],
+  ]);
+
+  it("strips the state suffix of a collision city under its own state", () => {
+    expect(stripCollisionStateSuffix("ocean-city-nj", "nj", collisions)).toBe("ocean-city");
+    expect(stripCollisionStateSuffix("newport-or", "or", collisions)).toBe("newport");
+    expect(stripCollisionStateSuffix("Long-Beach-WA", "wa", collisions)).toBe("long-beach");
+  });
+
+  it("returns null when no redirect is needed", () => {
+    expect(stripCollisionStateSuffix("ocean-city", "nj", collisions)).toBeNull();
+    // suffix is another state's code, so the slug is not a redirect candidate
+    expect(stripCollisionStateSuffix("ocean-city-md", "nj", collisions)).toBeNull();
+    // non-collision city that merely ends in the state code
+    expect(stripCollisionStateSuffix("belmar-nj", "nj", collisions)).toBeNull();
   });
 });

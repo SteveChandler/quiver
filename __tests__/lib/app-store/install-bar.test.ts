@@ -64,6 +64,11 @@ describe("getInstallBarSurface", () => {
     ["/hi/honolulu/waikiki/", "beach_detail"],
     ["/water-temp/san-diego", "water_temp"],
     ["/beaches/usa/ca/san-diego", "city_hub"],
+    ["/surf-cams/san-diego", "surf_cams"],
+    ["/surf-cams/southern-california/", "surf_cams"],
+    ["/surf-cams", null],
+    ["/surf-cams/san-diego/blacks", null],
+    ["/cams/southern-california", null],
     ["/ca/san-diego", null],
     ["/ca/san-diego/blacks/water-temp", null],
     ["/ca/san-diego/blacks/tides", null],
@@ -109,6 +114,7 @@ describe("getInstallBarOwnedSurface", () => {
 
     expect(getInstallBarOwnedSurface({ userAgent, pathname: "/water-temp/san-diego", enabled: true })).toBe("water_temp");
     expect(getInstallBarOwnedSurface({ userAgent, pathname: "/beaches/usa/ca/san-diego", enabled: true })).toBe("city_hub");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/surf-cams/san-diego", enabled: true })).toBe("surf_cams");
   });
 });
 

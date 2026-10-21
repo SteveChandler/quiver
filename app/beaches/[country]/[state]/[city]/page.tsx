@@ -17,6 +17,7 @@ import {
 } from "@/actions/beach/beach-location-list-actions";
 import {
   getBeachHrefSafe,
+  isPlaceholderSlug,
   isValidCountrySlug,
 } from "@/lib/utils/beach-url-utils";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
@@ -43,7 +44,7 @@ export { generateMetadata } from "./city-page-metadata";
 export default async function LocationPage(props: LocationPageProps) {
   const params = await props.params;
   // Validate country parameter - reject non-country values like "beginner", "sunset", etc.
-  if (!isValidCountrySlug(params.country)) {
+  if (!isValidCountrySlug(params.country) || isPlaceholderSlug(params.city)) {
     notFound();
   }
 

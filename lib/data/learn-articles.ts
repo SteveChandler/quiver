@@ -729,6 +729,12 @@ export const learnArticles: LearnArticle[] = [
       { label: "How Swell Direction Affects Surf", href: "/learn/how-swell-direction-affects-surf", description: "Whether your break even catches the swell." },
       { label: "How Surf Forecasts Work", href: "/learn/how-surf-forecasts-work", description: "Where the swell data comes from." },
       { label: "Quiver vs Surfline", href: "/vs/surfline", description: "Per-beach calls vs a regional star." },
+      {
+        label: "Can You Surf in New Jersey?",
+        href: "/learn/can-you-surf-in-new-jersey",
+        description:
+          "How hurricane groundswell and nor'easters make the Jersey Shore's best days.",
+      },
     ],
     appHandoff: {
       eyebrow: "Read it live",
@@ -1685,6 +1691,12 @@ export const learnArticles: LearnArticle[] = [
         label: "Check Water Temperature",
         href: "/forecast",
         description: "Real-time water temps at 279+ beaches.",
+      },
+      {
+        label: "Can You Surf in New Jersey?",
+        href: "/learn/can-you-surf-in-new-jersey",
+        description:
+          "Jersey's 40 °F winters and 75 °F summers, matched to a suit by season.",
       },
     ],
   },
@@ -3154,6 +3166,12 @@ export const learnArticles: LearnArticle[] = [
         description:
           "Review current conditions and wetsuit guidance before heading out.",
       },
+      {
+        label: "Can You Surf in New Jersey?",
+        href: "/learn/can-you-surf-in-new-jersey",
+        description:
+          "A coast where the water swings from the upper 30s to the mid 70s °F in one year.",
+      },
     ],
   },
   {
@@ -3440,6 +3458,181 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver checks wave size, wind, and tide at Carlsbad's beaches every hour, so you can see whether today is small enough before you drive.",
       ctaLabel: "Check Carlsbad now",
+    },
+  },
+  {
+    slug: "can-you-surf-in-new-jersey",
+    title: "Can You Surf in New Jersey? Seasons, Spots & Wetsuits",
+    description:
+      "Yes. New Jersey has about 130 miles of beach breaks and jetties. When the Shore actually works, where people surf, and what to wear by season.",
+    readingTimeMin: 7,
+    datePublished: "2026-10-20",
+    dateModified: "2026-10-20",
+    heroImage: "/images/learn/learn-sandy-hook-surfer.webp",
+    thumbnailImage: "/images/learn/learn-sandy-hook-surfer.webp",
+    keywords: [
+      "can you surf in new jersey",
+      "can you surf in nj",
+      "surfing in new jersey",
+      "new jersey surfing",
+      "jersey shore surfing",
+      "new jersey surf spots",
+      "surf season new jersey",
+      "belmar surf",
+      "manasquan surf",
+      "ocean city nj surfing",
+      "new jersey winter surfing wetsuit",
+      "nor'easter surf",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Yes, you can surf in New Jersey, and people do all year. The state has about <strong>130 miles of Atlantic coastline</strong>, almost all of it sand-bottom beach break broken up by rock jetties, from Sandy Hook in the north to Cape May in the south. The surf depends on storms: <strong>hurricane swells in late summer and fall</strong> and <strong>nor'easters from fall through spring</strong> bring the best waves, while summer is mostly small windswell. The water swings from the upper 30s °F in late winter to the mid 70s in August, so the wetsuit you need changes more than the spots do. Check a <a href="/beaches/usa/nj">New Jersey beach</a> on Quiver, then watch a few sets from the sand before you paddle out.</p>`,
+        keyTakeaway:
+          "New Jersey surfs year-round on beach breaks and jetties. Fall is the best season, winter is the most consistent, and summer is the smallest and warmest.",
+      },
+      {
+        id: "where-the-waves-come-from",
+        heading: "Where New Jersey's Waves Come From",
+        content: `<p>The Jersey Shore faces east and southeast, so it needs swell from the <strong>east, southeast, or northeast</strong>. Three sources matter:</p><ul><li><strong>Tropical systems.</strong> From roughly late August into October, hurricanes and tropical storms tracking offshore send long-period groundswell up the coast, sometimes for days, often with clean weather on the beach. These are the days Jersey surfers plan around.</li><li><strong>Nor'easters.</strong> Coastal lows that spin up from fall through spring. While the storm sits on top of you the wind is onshore and the ocean is a mess; as it moves off, the wind swings northwest (offshore) and the leftover swell cleans up fast. That one- or two-day window after a nor'easter is classic Jersey surf.</li><li><strong>Local windswell.</strong> Summer's southerly breezes and passing fronts make short-period waves that are small, close together, and often a little mushy. Fine for learning, rarely memorable.</li></ul><p>If you are new to reading a forecast, the <a href="/learn/groundswell-vs-wind-swell">groundswell vs wind swell</a> guide explains why a 3 ft swell at 12 seconds surfs so differently from 3 ft at 6 seconds. On the East Coast that difference is most of the story.</p>`,
+        keyTakeaway:
+          "Jersey surf is storm-driven: tropical swells in late summer and fall, nor'easters in the cold months, and small local windswell in between.",
+      },
+      {
+        id: "season-by-season",
+        heading: "Season by Season: When the Jersey Shore Works",
+        content: `<p><strong>Fall (September to November)</strong> is the season locals wait for. Tropical swell overlaps with the first nor'easters, the water is still warm from summer, the summer crowds and lifeguard rules are gone, and mornings often come with light west wind. If you can only visit once, visit now.</p><p><strong>Winter (December to March)</strong> is the most consistent and the least forgiving. Nor'easters line up, the swell can be big and powerful, and the water drops into the 30s and low 40s °F. This is hooded-wetsuit, boots-and-gloves surfing for people who already know what they are doing.</p><p><strong>Spring (April to May)</strong> is the trickiest. The ocean warms far slower than the air, so a sunny 70 °F afternoon can still mean 48 °F water, and the storm track gets less reliable. There are good days, but you have to catch them.</p><p><strong>Summer (June to August)</strong> is small, warm, and busy. Most days are knee- to waist-high windswell with an afternoon sea breeze that chops it up. It is the easiest time to learn, the hardest time to find a good wave, and the only time beach badges and surfing-area rules apply. A late-season tropical swell can change all of that in a day. The <a href="/best-time-to-surf/belmar">best time to surf Belmar</a> page shows how a specific beach's good windows fall across the week.</p>`,
+        keyTakeaway:
+          "Fall for the best mix of swell and warm water, winter for consistency if you have the suit for it, summer for small learner waves.",
+        image: {
+          src: "/images/learn/learn-bay-head-winter-beach-break.webp",
+          alt: "Aerial view of a grey winter day at Bay Head, New Jersey, with lines of swell breaking along an empty sand beach",
+          position: "right",
+        },
+      },
+      {
+        id: "where-people-surf",
+        heading: "Where People Surf in New Jersey",
+        content: `<p>Almost every town on the Shore has a surfable beach, and most of them break the same way: a sandbar peak set up by a jetty or groin, best on a specific tide, shifting after every storm. The areas people talk about most:</p><ul><li><strong>Monmouth County</strong> (closest to New York and Newark): <a href="/nj/long-branch">Long Branch</a>, <a href="/nj/asbury-park">Asbury Park</a>, <a href="/nj/belmar">Belmar</a>, and <a href="/nj/manasquan">Manasquan</a>. The inlet jetty at Manasquan is the most famous wave in the state and draws a crowd on any decent swell. Belmar and Long Branch have long stretches of jetty-to-jetty beach with more room to spread out.</li><li><strong>Ocean County and Long Beach Island:</strong> open, exposed beach breaks that pick up swell well and get blown out just as easily.</li><li><strong>The southern Shore:</strong> <a href="/nj/ocean-city">Ocean City</a>, Sea Isle City, and <a href="/nj/cape-may">Cape May</a>. The coast bends toward the southwest here, so these beaches handle south and southeast swell a little differently from the northern towns and can be smaller on a pure northeast swell.</li></ul><p>None of these is a reef or a point. Sandbars move, so a jetty that was perfect last fall may be a closeout this spring. The <a href="/learn/beach-break-vs-reef-break-vs-point-break">beach break vs reef break vs point break</a> guide explains why beach breaks are forgiving to fall on but hard to predict.</p>`,
+        keyTakeaway:
+          "Monmouth County (Long Branch to Manasquan) is the most-surfed stretch and the closest to the airports; the southern Shore reads south swell better.",
+        image: {
+          src: "/images/learn/learn-manasquan-inlet-jetty.webp",
+          alt: "The Manasquan Inlet jetty on a summer day, with the beach and lineup beyond it",
+          position: "left",
+        },
+      },
+      {
+        id: "reading-a-jersey-day",
+        heading: "How to Read a New Jersey Surf Day: Wind, Swell, and Tide",
+        content: `<p>The coast faces east, so <strong>west wind is offshore</strong>. The classic Jersey morning is a light west or northwest breeze on the back of a swell, before the sea breeze fills in from the south or southeast around midday and puts chop on everything. Dawn and the first couple of hours matter here more than at most places; see <a href="/learn/offshore-vs-onshore-wind-surfing">offshore vs onshore wind</a> for why.</p><p>Watch <strong>period</strong> as much as height. Tropical swell at 10 to 14 seconds stands up on the outer bars and has real push. Six-second windswell of the same height is a different sport. If a forecast says 3 to 4 ft, check the seconds next to it before you decide which board to bring.</p><p><strong>Tide</strong> is a bigger deal than newcomers expect. Many jetty peaks are best around mid tide; dead low can turn them into closeouts and a big high tide can swamp them against the sand. The tidal range on the Shore is modest, roughly 4 to 5 ft, so the usable window is a few hours either side. Quiver's <a href="/surf-report/belmar-today">Belmar surf report</a> lays out today's tide, wind, and swell on one page, and the <a href="/learn/best-tide-for-surfing">best tide for surfing</a> guide explains the mechanics.</p>`,
+        keyTakeaway:
+          "West is offshore, mornings beat afternoons, period tells you more than height, and most jetty peaks want mid tide.",
+      },
+      {
+        id: "what-to-wear",
+        heading: "What to Wear: Jersey Water Temperature by Season",
+        content: `<p>Water temperature is the thing that decides whether a New Jersey session is pleasant, survivable, or off the table. NOAA's coastal tide stations on the Shore record roughly:</p><ul><li><strong>Late winter (February to March):</strong> upper 30s to low 40s °F. Hooded 5/4 or 6/5 mm wetsuit, 5 mm boots, gloves. Sessions are short.</li><li><strong>Spring (April to May):</strong> mid 40s climbing into the 50s. Still a 5/4 or a thick 4/3 with boots; the air fools people every year.</li><li><strong>Summer (July to August):</strong> upper 60s to mid 70s. Trunks or a spring suit, sometimes a 2 mm top on a windy morning or after an upwelling day drops the temperature overnight.</li><li><strong>Fall (September to November):</strong> 70s sliding to the 50s. A 3/2 in September, a 4/3 by Halloween, boots again by Thanksgiving.</li></ul><p>Upwelling is worth knowing about: a few days of strong southwest wind in summer can push the warm surface water offshore and drop the beach temperature 10 °F or more in a day. Check the number the morning you go, not the average. Quiver tracks it for <a href="/water-temp/belmar">Belmar</a>, <a href="/water-temp/ocean-city-nj">Ocean City</a>, and the rest of the Shore, and the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a> matches a temperature to a suit.</p>`,
+        keyTakeaway:
+          "Plan the suit around the water, not the air: trunks in August, a hooded 5/4 with boots and gloves from January to March.",
+        image: {
+          src: "/images/learn/learn-cape-may-wetsuit-surfer.webp",
+          alt: "Surfer in a full wetsuit riding a small wave on a foggy day at Cape May, New Jersey",
+          position: "right",
+        },
+      },
+      {
+        id: "rules-and-safety",
+        heading: "Summer Rules, Rip Currents, and Water Quality",
+        content: `<p><strong>Beach badges and surfing areas.</strong> Most Shore towns sell beach badges from mid-June through Labor Day and restrict surfing to marked surfing beaches during lifeguard hours. Rules vary town by town, and many let you surf anywhere before and after the guards go on duty. Read the signs at the beach entrance; the fines are real.</p><p><strong>Rip currents.</strong> Jetties and groins set up the sandbars that make Jersey waves, and they also set up rips that run out along the rocks. The National Weather Service posts a daily rip current risk for the Shore. If you are new, pick a guarded beach, stay away from the jetty itself, and read <a href="/learn/what-is-a-rip-current">what a rip current is and how to escape one</a> before your first session.</p><p><strong>After rain.</strong> New Jersey's Department of Environmental Protection tests ocean beaches for bacteria through the summer and posts advisories and closures. Heavy rain washes runoff through outfalls onto the beach, so the usual advice applies: wait after a big storm, and check for a posted advisory. The <a href="/learn/is-it-safe-to-surf-after-rain">surfing after rain</a> guide covers the 72-hour rule of thumb.</p><p>Nothing here is a promise that any beach is safe on a given day. Conditions on the Shore change fast, so look at the water from the sand first.</p>`,
+        keyTakeaway:
+          "Summer brings badges and surfing-area rules; jetties bring rip currents all year; after heavy rain, wait and check the NJ DEP advisory.",
+      },
+      {
+        id: "visiting",
+        heading: "Visiting New Jersey to Surf",
+        content: `<p>If you are flying into Newark or coming down from New York, <strong>Monmouth County</strong> is the practical choice: Long Branch, Asbury Park, Belmar, and Manasquan are roughly an hour's drive from the airport and have surf shops that rent boards and wetsuits. The southern beaches are closer to Philadelphia. Bring your own suit if you can; rental suits for a 45 °F day are a gamble.</p><p>The honest expectation for a one-day visit is this: outside of fall, the odds of scoring are modest, and a flat morning is normal. Check the forecast a few days out, then confirm on the morning. Quiver's <a href="/beginner/belmar">Belmar beginner read</a> and the <a href="/beginner/manasquan">Manasquan beginner read</a> say whether the day is small and clean enough for someone still learning, and the <a href="/beaches/usa/nj">New Jersey beaches</a> page lists every Shore town Quiver covers with today's wave height, wind, tide, and water temperature. Surf etiquette on the Shore is the same as anywhere: the <a href="/learn/surf-etiquette-rules">rules of surf etiquette</a> cover the lineup, and winter locals have earned their patience.</p>`,
+        keyTakeaway:
+          "Monmouth County is the easiest stretch for a visitor from New York or Newark; check the forecast a few days out and again on the morning.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can you surf in New Jersey?",
+        answer:
+          "Yes. New Jersey has about 130 miles of Atlantic beach break and jetty setups from Sandy Hook to Cape May, and people surf them year-round. The best waves come from hurricane swells in late summer and fall and from nor'easters in the colder months; summer is mostly small local windswell.",
+      },
+      {
+        question: "When is surf season in New Jersey?",
+        answer:
+          "Fall, roughly September through November, is the best season: tropical swells overlap with the first nor'easters, the water is still warm, and the summer crowds are gone. Winter is the most consistent but the coldest. Summer has the smallest waves and the warmest water.",
+      },
+      {
+        question: "Where is the best place to surf in New Jersey?",
+        answer:
+          "There is no single best beach, because every Shore town has jetty peaks that change with the sandbars. Manasquan Inlet is the most famous wave and the most crowded. Belmar, Long Branch, and Asbury Park give you more room, and Ocean City and Cape May handle south swell well. Check a current report and watch the sets from the sand before choosing.",
+      },
+      {
+        question: "Do you need a wetsuit to surf in New Jersey?",
+        answer:
+          "In summer, often not: July and August water is usually in the upper 60s to mid 70s °F, so trunks or a spring suit work. From roughly November through May you need a wetsuit, and from January to March the water is in the upper 30s to low 40s, which means a hooded 5/4 or 6/5 mm suit with boots and gloves.",
+      },
+      {
+        question: "Can you surf in New Jersey in the summer?",
+        answer:
+          "Yes, and it is the easiest time to learn because the waves are small and the water is warm. Expect knee- to waist-high windswell, an afternoon sea breeze, beach badges, and lifeguard rules that restrict surfing to marked areas during guarded hours. Late-summer tropical swells can bring real surf for a few days at a time.",
+      },
+      {
+        question: "Is the water cold in New Jersey?",
+        answer:
+          "It depends on the month more than almost anywhere else. August is comfortable at around 70 to 75 °F; February and March are near 40 °F or below. Summer upwelling can also drop the temperature 10 °F or more overnight after a few days of strong southwest wind, so check the current reading rather than the monthly average.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "New Jersey Surf Beaches",
+        href: "/beaches/usa/nj",
+        description:
+          "Every Shore town Quiver covers, with today's wave height, wind, tide, and water temperature.",
+      },
+      {
+        label: "Belmar Surf Report Today",
+        href: "/surf-report/belmar-today",
+        description:
+          "Today's swell, wind, and tide at Belmar on one page.",
+      },
+      {
+        label: "Belmar Water Temperature",
+        href: "/water-temp/belmar",
+        description:
+          "The current reading and what wetsuit it calls for.",
+      },
+      {
+        label: "What Wetsuit Thickness Do I Need?",
+        href: "/learn/what-wetsuit-thickness-do-i-need",
+        description:
+          "Match Jersey's 40 °F winters and 75 °F summers to the right suit.",
+      },
+      {
+        label: "Wind Swell vs Groundswell",
+        href: "/learn/groundswell-vs-wind-swell",
+        description:
+          "Why a tropical swell at 12 seconds surfs so differently from summer windswell.",
+      },
+      {
+        label: "Offshore vs Onshore Wind",
+        href: "/learn/offshore-vs-onshore-wind-surfing",
+        description:
+          "Why the west-wind morning is the Jersey window.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Jersey Shore today",
+      title: "See which Shore beach is working this morning.",
+      description:
+        "Quiver checks wave height, period, wind, tide, and water temperature at New Jersey beaches every hour, so you can see whether today is a go before you drive to the Shore.",
+      ctaLabel: "Check New Jersey beaches",
     },
   },
 ];

@@ -127,10 +127,17 @@ async function persistOutcome(outcome: PersistedOutcome): Promise<boolean> {
 
 function alertFailedOutcome(outcome: PersistedOutcome, reason: string): void {
   try {
-    Sentry.captureMessage(
-      `[cron-outcome] ${outcome.job} produced ${outcome.produced} ${outcome.unit}; expected ${outcome.expectedMin}-${outcome.expectedMax ?? "∞"}`,
-      {
+    // A handler-supplied failureReason can fire while the count is inside the
+    // expected range; the title must say why, or the alert reads as a comparator bug.
+    const outOfRange =
+      outcome.produced < outcome.expectedMin ||
+      (outcome.expectedMax !== undefined && outcome.produced > outcome.expectedMax);
+    const title = outOfRange
+      ? `[cron-outcome] ${outcome.job} produced ${outcome.produced} ${outcome.unit}; expected ${outcome.expectedMin}-${outcome.expectedMax ?? "∞"}`
+      : `[cron-outcome] ${outcome.job} reported failure (produced ${outcome.produced} ${outcome.unit}, within ${outcome.expectedMin}-${outcome.expectedMax ?? "∞"})`;
+    Sentry.captureMessage(title, {
         level: "error",
+        fingerprint: ["cron-outcome", outcome.job, outOfRange ? "out-of-range" : "handler-failure"],
         tags: {
           cron_job: outcome.job,
           cron_unit: outcome.unit,
@@ -142,8 +149,7 @@ function alertFailedOutcome(outcome: PersistedOutcome, reason: string): void {
           expected_min: outcome.expectedMin,
           expected_max: outcome.expectedMax ?? null,
         },
-      },
-    );
+    });
   } catch {
     // Alerting is best effort; it must not change the handler's result.
   }

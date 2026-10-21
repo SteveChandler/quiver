@@ -9,6 +9,7 @@ import {
 } from "@/actions/beach/beach-location-list-actions";
 import {
   cityToSlug,
+  isPlaceholderSlug,
   isValidCountrySlug,
 } from "@/lib/utils/beach-url-utils";
 import {
@@ -36,7 +37,7 @@ const NOT_FOUND_METADATA = {
 export async function generateMetadata(props: LocationPageProps) {
   const params = await props.params;
   // Validate country parameter - return not found metadata for invalid countries
-  if (!isValidCountrySlug(params.country)) {
+  if (!isValidCountrySlug(params.country) || isPlaceholderSlug(params.city)) {
     return NOT_FOUND_METADATA;
   }
 

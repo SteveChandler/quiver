@@ -16,6 +16,11 @@ export function lifecycleMaxAcceptedPerRun(): number {
 
 type ReplyCheckSummary = { status: "skipped" | "ok" | "failed"; checked?: number; recorded?: number; reason?: string };
 
+function userFailureMessage(step: string, failures: unknown[]): string {
+  const first = failures[0];
+  return `${step} failed for ${failures.length} user(s): ${(first instanceof Error ? first.message : String(first)) || "no error message"}`;
+}
+
 async function dispatchLifecycleUser(userId: string, candidate: LifecycleDecision): Promise<string> {
   if (!lifecycleEnabled()) return "disabled";
   if (candidate.status !== "due") return candidate.reason;
@@ -73,13 +78,22 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
     if (eligibility.failed > 0) errors.push(`Lifecycle eligibility refresh failed for ${eligibility.failed} user(s)`);
     if (process.env.PRO_OFFERS_ENABLED === "true") await lifecycleRpc("enroll_automatic_pro_offers");
     // 50 concurrent evaluations starve each other past the 8 s statement timeout; sequentially they total ~4 s.
-    const dueCandidates: LifecycleDecision[] = [];
+    // One slow user (57014) must not stall the cohort: a failed user stays null, so it is never recorded or sent.
+    const dueCandidates: (LifecycleDecision | null)[] = [];
+    const evaluationFailures: unknown[] = [];
     for (let offset = 0; offset < users.length; offset += 5) {
-      dueCandidates.push(...await Promise.all(users.slice(offset, offset + 5).map(async userId => lifecycleDecisionSchema.parse(
+      const results = await Promise.allSettled(users.slice(offset, offset + 5).map(async userId => lifecycleDecisionSchema.parse(
         await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }),
-      ))));
+      )));
+      for (const result of results) {
+        if (result.status === "fulfilled") { dueCandidates.push(result.value); continue; }
+        dueCandidates.push(null);
+        evaluationFailures.push(result.reason);
+        Sentry.captureException(result.reason, { tags: { component: "email-lifecycle" } });
+      }
     }
-    if (dueCandidates.some(candidate => candidate.status === "due")) {
+    if (evaluationFailures.length) errors.push(userFailureMessage("Lifecycle evaluation", evaluationFailures));
+    if (dueCandidates.some(candidate => candidate?.status === "due")) {
       try {
         replyCheck = { status: "ok", ...(await checkGmailRepliesBeforeSend()) };
       } catch (error) {
@@ -93,15 +107,26 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
       }
     }
     const rateLimiter = createResendRateLimiter();
+    const recordFailures: unknown[] = [];
     for (const [index, userId] of users.entries()) {
-      await lifecycleRpc("record_email_lifecycle_decision", { p_user_id: userId });
+      const candidate = dueCandidates[index];
+      if (!candidate) continue;
+      try {
+        await lifecycleRpc("record_email_lifecycle_decision", { p_user_id: userId });
+      } catch (error) {
+        // The claim re-runs this evaluation, so it would fail the same way and abort the run.
+        recordFailures.push(error);
+        Sentry.captureException(error, { tags: { component: "email-lifecycle" } });
+        continue;
+      }
       // Retain decisions for every enrolled user even when the burst guard is reached.
       if ((counts.accepted ?? 0) >= lifecycleMaxAcceptedPerRun()) continue;
       await rateLimiter.throttle();
-      const reason = await dispatchLifecycleUser(userId, dueCandidates[index]);
+      const reason = await dispatchLifecycleUser(userId, candidate);
       counts[reason] = (counts[reason] ?? 0) + 1;
       if (reason === "unknown") { errors.push("Email provider acceptance unknown; handoff requires reconciliation"); break; }
     }
+    if (recordFailures.length) errors.push(userFailureMessage("Lifecycle decision record", recordFailures));
     health = z.object({ due_unsent: z.number().int().nonnegative(), enrollment_pending: z.number().int().nonnegative(), approval_unavailable: z.number().int().nonnegative().default(0) }).parse(await lifecycleRpc("email_automation_health"));
     if (health.due_unsent + health.enrollment_pending + health.approval_unavailable > 0) {
       errors.push(`${health.due_unsent} due recipient(s) unsent over 30 min; ${health.enrollment_pending} enrollment pending; ${health.approval_unavailable} approval unavailable`);

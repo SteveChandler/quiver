@@ -31,7 +31,9 @@ function makeSupabaseWhoseLatestViewTimesOut() {
       }
       if (table === "v_enhanced_forecast_latest") {
         return {
-          select: () => Promise.resolve({ data: null, error: STATEMENT_TIMEOUT }),
+          select: () => ({
+            in: () => Promise.resolve({ data: null, error: STATEMENT_TIMEOUT }),
+          }),
         };
       }
       throw new Error(`Unexpected table: ${table}`);
