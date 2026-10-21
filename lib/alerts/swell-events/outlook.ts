@@ -19,9 +19,12 @@ import { swellWindowForBeach } from "./exposure";
 
 export const SWELL_OUTLOOK_PULSE_DETECTOR_VERSION = "swell-outlook-pulse.v1";
 
+// 2026-10-21: minPeriodS 9 -> 11. The buoy scorecard only counts an 11 s+ swell as truth, so 9-10 s pulses
+// (a third of issued rows) could never verify, and every long-lead 9-10 s pulse it graded was withdrawn
+// before its peak. horizonDays stays 9: 11 s+ pulses at 6-8 days lead verified best, so cutting it would drop hits.
 export const SWELL_OUTLOOK_PULSE_THRESHOLDS = {
   minFaceHeightFt: 1.5,
-  minPeriodS: 9,
+  minPeriodS: 11,
   minProminenceRatio: 0.25,
   minRegionBeaches: 3,
   regionRadiusMiles: 40,

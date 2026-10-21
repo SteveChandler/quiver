@@ -34,30 +34,30 @@ function pulses(forecasts: SwellEventForecastRow[]): BeachSwellEvent[] {
 }
 
 describe("detectBeachSwellPulses", () => {
-  it("lists a modest 2 ft, 10 s swell the notable detector misses", () => {
-    const forecasts = series([1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1], 10);
+  it("lists a modest 2 ft, 11 s swell the notable detector misses", () => {
+    const forecasts = series([1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1], 11);
     expect(detectBeachSwellEvents({ beach, forecasts, now: NOW, timezone: TIMEZONE })).toEqual([]);
     const found = pulses(forecasts);
     expect(found).toHaveLength(1);
     const [pulse] = found;
     expect(pulse.eventKey).toBe(`${beach.id}:W:${localDate(2)}:p`);
     expect(pulse.peakFaceHeightFt).toBeGreaterThanOrEqual(1.5);
-    expect(pulse.periodS).toBe(10);
+    expect(pulse.periodS).toBe(11);
     expect(pulse).toMatchObject({
       beachId: beach.id,
       directionDeg: 270,
       directionBand: "W",
       directionLabel: "W",
       peakOffshoreHeightFt: 2.2,
-      peakFaceHeightFt: 2.2,
+      peakFaceHeightFt: 2.4,
       baselineFaceHeightFt: 0,
       exposure: 1,
       arrivalAt: localIso(2, 0),
       peakAt: localIso(2, 12),
       fadeAt: localIso(3, 0),
     });
-    expect(pulse.peakEnergy).toBeCloseTo(2.2 ** 2 * 10);
-    expect(pulse.baselineEnergy).toBeCloseTo(1.2 ** 2 * 10);
+    expect(pulse.peakEnergy).toBeCloseTo(2.2 ** 2 * 11);
+    expect(pulse.baselineEnergy).toBeCloseTo(1.2 ** 2 * 11);
     expect(pulse.energyRatio).toBeCloseTo(2.2 ** 2 / 1.2 ** 2);
   });
 
@@ -74,7 +74,7 @@ describe("detectBeachSwellPulses", () => {
     expect(found[0].peakAt < found[1].peakAt).toBe(true);
   });
 
-  it("skips swells below the 1.5 ft face floor and under 9 s", () => {
+  it("skips swells below the 1.5 ft face floor and under 11 s", () => {
     expect(pulses(series([0.6, 0.6, 0.6, 0.6, 0.8, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6]))).toEqual([]);
     expect(pulses(series([1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1], 8))).toEqual([]);
   });
@@ -95,15 +95,27 @@ describe("detectBeachSwellPulses", () => {
     const before = JSON.stringify(SWELL_EVENT_THRESHOLDS);
     pulses(series([1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1]));
     expect(JSON.stringify(SWELL_EVENT_THRESHOLDS)).toBe(before);
-    expect(SWELL_OUTLOOK_PULSE_THRESHOLDS).toMatchObject({ minFaceHeightFt: 1.5, minPeriodS: 9, minProminenceRatio: 0.25, minRegionBeaches: 3 });
+    expect(SWELL_OUTLOOK_PULSE_THRESHOLDS).toMatchObject({ minFaceHeightFt: 1.5, minPeriodS: 11, minProminenceRatio: 0.25, minRegionBeaches: 3, horizonDays: 9 });
     expect(SWELL_OUTLOOK_PULSE_DETECTOR_VERSION).toBe("swell-outlook-pulse.v1");
   });
 
-  it("includes a 9 s pulse at exactly 1.5 ft face and rejects one below it", () => {
-    const found = pulses(series([0.6, 0.6, 0.6, 0.6, 1.3, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6], 9));
+  it("includes an 11 s pulse at exactly 1.5 ft face and rejects one below it", () => {
+    const found = pulses(series([0.6, 0.6, 0.6, 0.6, 1.2, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6], 11));
     expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ peakFaceHeightFt: 1.5, periodS: 9 });
-    expect(pulses(series([0.6, 0.6, 0.6, 0.6, 1.2, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6], 9))).toEqual([]);
+    expect(found[0]).toMatchObject({ peakFaceHeightFt: 1.5, periodS: 11 });
+    expect(pulses(series([0.6, 0.6, 0.6, 0.6, 1.1, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6], 11))).toEqual([]);
+  });
+
+  it("refuses a 10 s pulse the buoys cannot verify and keeps the same swell at 11 s", () => {
+    const heights = [1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1];
+    expect(pulses(series(heights, 9))).toEqual([]);
+    expect(pulses(series(heights, 10))).toEqual([]);
+    expect(pulses(series(heights, 11)).map((pulse) => [pulse.periodS, pulse.peakLocalDate])).toEqual([[11, localDate(2)]]);
+  });
+
+  it("still lists an 11 s pulse at the far end of the 9-day horizon", () => {
+    const heights = [1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 1];
+    expect(pulses(series(heights, 11)).map((pulse) => pulse.peakLocalDate)).toEqual([localDate(7)]);
   });
 
   it("defers a peak still rising on the last horizon day even with later input rows", () => {
