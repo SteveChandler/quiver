@@ -1,5 +1,7 @@
 import type { WaveWatchData } from "./types";
 
+const NWS_HALF_FOOT_M = 0.1524;
+
 function dominantSwell(point: WaveWatchData): { height: number; period: number; direction: number } {
   // NWS is period-ranked and OM is provider-ranked; compare the same height-ranked train.
   if (point.swell_2_height != null && point.swell_2_period != null
@@ -47,7 +49,9 @@ export function mergeWaveSources(noaa: WaveWatchData[], om: WaveWatchData[]): Wa
     const low = Math.min(heights[0] ?? Infinity, heights[1] ?? Infinity);
     const high = Math.max(heights[0] ?? 0, heights[1] ?? 0);
     // Operational uncertainty guard, not a claim that either model is more accurate.
-    const heightDisagreement = high - low >= 0.3 && high >= low * 1.5;
+    // NWS gridpoint heights are whole feet, so up to half a foot of the gap can be
+    // rounding; the 0.3 m floor must hold beyond it. The ratio stays on reported values.
+    const heightDisagreement = high - low - NWS_HALF_FOOT_M >= 0.3 && high >= low * 1.5;
     const nwsSwell = nws && dominantSwell(nws);
     const omSwell = meteo && dominantSwell(meteo);
     const directionDisagreement = !!nwsSwell && !!omSwell
