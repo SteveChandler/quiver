@@ -132,7 +132,8 @@ it("caps saved beaches at five and the combined list at twelve", async () => {
   const result = data.beaches as Array<{ saved: boolean; name: string }>;
   expect(result).toHaveLength(12);
   expect(result.filter((beach) => beach.saved)).toHaveLength(5);
-  expect(result.slice(5).map((beach) => beach.name)).toEqual(Array.from({ length: 7 }, (_, index) => `nearby-${index}`));
+  // A saved beach past the five pinned ones is still a nearby beach.
+  expect(result.slice(5).map((beach) => beach.name)).toEqual(["saved-8", ...Array.from({ length: 6 }, (_, index) => `nearby-${index}`)]);
 });
 
 it("maps EPIC to GOOD and rejects unknown and held labels", async () => {
@@ -185,7 +186,8 @@ it("bounds the watch's name and forecast strings", async () => {
 it("reads wind and tide only from the display forecast timestamp", async () => {
   rows.enhanced_forecasts = [
     { beach_id: "home", forecast_at: otherAt, wind_speed: "99 mph", wind_direction_deg: 180, tide_height: "8.9 ft", tide_status: "falling" },
-    { beach_id: "home", forecast_at: at, wind_speed: "8 mph", wind_direction_deg: 270, tide_height: "2.1 ft", tide_status: "rising" },
+    // PostgREST's own timestamp format for the same instant as the display row.
+    { beach_id: "home", forecast_at: "2026-10-21 15:00:00+00", wind_speed: "8 mph", wind_direction_deg: "270", tide_height: "2.1 ft", tide_status: "Rising" },
   ];
   mockBulk.mockResolvedValue(Response.json({ success: true, data: {
     displayForecasts: { home: { label: "3-4ft", forecastAt: at } },

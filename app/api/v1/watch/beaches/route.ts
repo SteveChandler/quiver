@@ -133,7 +133,6 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
       haversineDistance(origin.lat, origin.lon, a.lat, a.lon)
       - haversineDistance(origin.lat, origin.lon, b.lat, b.lon));
   }
-  const savedIds = new Set(saved.map((spot) => spot.id));
   const savedBeaches = saved.slice(0, 5);
   const selected = new Map<string, Beach>(savedBeaches.map((spot: WatchSpot) => [spot.id, {
     id: spot.id, name: spot.name, saved: true, timezone: null, held: false,
@@ -144,7 +143,7 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
     if (!nearby.success) throw new Error(nearby.error || "Nearby beach query failed");
     for (const beach of nearby.data ?? []) {
       if (selected.size >= 12) break;
-      if (!beach.id || savedIds.has(beach.id) || selected.has(beach.id)) continue;
+      if (!beach.id || selected.has(beach.id)) continue;
       selected.set(beach.id, {
         id: beach.id, name: beach.name, saved: false, timezone: beach.timezone,
         held: beach.waterQualityHold != null,
@@ -191,14 +190,15 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
       .select("beach_id, forecast_at, wind_speed, wind_direction_deg, tide_height, tide_status")
       .in("beach_id", ids).in("forecast_at", timestamps);
     if (error) throw error;
-    for (const row of rows ?? []) rowsByKey.set(`${row.beach_id}:${row.forecast_at}`, row);
+    // PostgREST and the bulk display may serialize the same instant differently.
+    for (const row of rows ?? []) rowsByKey.set(`${row.beach_id}:${Date.parse(row.forecast_at)}`, row);
   }
 
   return createSuccessResponse({
     beaches: beaches.map((beach) => {
       const display = forecast.displayForecasts?.[beach.id];
       const timestamp = display?.forecastAt;
-      const row = timestamp ? rowsByKey.get(`${beach.id}:${timestamp}`) : undefined;
+      const row = timestamp ? rowsByKey.get(`${beach.id}:${Date.parse(timestamp)}`) : undefined;
       const label = beach.held || forecast.recommendationHolds?.[beach.id]
         ? null : forecast.conditionLabels?.[beach.id];
       return {
