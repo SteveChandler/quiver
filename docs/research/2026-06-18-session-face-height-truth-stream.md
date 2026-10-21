@@ -38,6 +38,28 @@ the readiness report, the relinkability SQL, `get_session_wave_observation_analy
 drops them. Seaside's direct `sessions` readers filter the column themselves. The web
 submit event now carries the same two flags. The forecast prefill itself is unchanged.
 
+## Addition (2026-10-21): the surfer's size-vs-forecast answer
+
+The native log form's FORECAST row (Right / Kinda / Off → `sessions.forecast_accuracy`) said
+how wrong a forecast was, never which way. It now asks Smaller / Right / Bigger against the
+height the form showed. `20261021200000_session_wave_size_vs_forecast.sql` (applied separately)
+adds `sessions.wave_size_vs_forecast` (`smaller` | `about_right` | `bigger`), and native starts
+writing the existing `sessions.forecast_wave_height_ft` (the shown height) on every log.
+`forecast_accuracy` is still written for older readers (`about_right` → `accurate`, otherwise
+`inaccurate`).
+
+`sync_session_wave_observation_candidate` copies both onto every candidate
+(`reported_size_vs_forecast`, `shown_forecast_height_ft`):
+
+- prefill + `about_right`: kept as a weak observation, because it confirms the shown height;
+- prefill + `smaller`/`bigger`: still rejected as `forecast_prefilled_wave_height`, but the
+  direction stays on the row;
+- a typed height plus an answer: both kept.
+
+`get_session_wave_observation_analytics()` reports them under `size_vs_forecast`. Old
+`forecast_accuracy` answers mean something else and are not backfilled. Seaside's weekly
+feedback review reads the explicit answer before deriving a direction from heights.
+
 The sections below describe the code as of 2026-06-18 and are kept for history.
 
 ## Code Evidence (2026-06-18, superseded)
