@@ -125,14 +125,21 @@ describe("provider run receipt store", () => {
     expect(rpc).toHaveBeenCalledTimes(2);
     expect(rpc.mock.calls[1][0]).toBe("record_swell_watch_provider_run_receipt");
     expect(rpc.mock.calls[1][1].p_scopes[0].receipt.qualification.status).toBe("prototype_unqualified");
-    for (const invalid of [metadata, { ...metadata, last_run_initialisation_time: issued + 1 },
+    fetcher.mockReset().mockResolvedValue({ status: 200, text: async () => JSON.stringify(metadata) });
+    rpc.mockClear();
+    await expect(acquireProviderRunReceipts({ forecastDays: 1, scopes: [source],
+      latestAvailableAt: new Date((issued + 4299) * 1000) }, fetcher, { rpc }))
+      .resolves.toEqual({ skipped: true, reason: "latest_issuance_replicating", enqueued: 0 });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(rpc).not.toHaveBeenCalled();
+    for (const invalid of [{ ...metadata, last_run_initialisation_time: issued + 1 },
       { ...metadata, last_run_modification_time: issued - 1 }, { ...metadata, last_run_availability_time: issued },
       { ...metadata, update_interval_seconds: 1 }, { ...metadata, temporal_resolution_seconds: 0 },
       { ...metadata, last_run_initialisation_time: "invalid" }]) {
       fetcher.mockReset().mockResolvedValue({ status: 200, text: async () => JSON.stringify(invalid) });
       rpc.mockClear();
       await expect(acquireProviderRunReceipts({ forecastDays: 1, scopes: [source],
-        latestAvailableAt: new Date((issued + (invalid === metadata ? 4299 : 4300)) * 1000) }, fetcher, { rpc })).rejects.toThrow();
+        latestAvailableAt: new Date((issued + 4300) * 1000) }, fetcher, { rpc })).rejects.toThrow();
       expect(fetcher).toHaveBeenCalledTimes(1);
       expect(rpc).not.toHaveBeenCalled();
     }
