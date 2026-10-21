@@ -9,9 +9,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "best-surf-conditions-for-beginners",
-    title: "Best Surf Conditions for Beginners: Size, Wind & Tide",
+    title: "Best Surf Conditions for Beginners: Size, Tide, Wind",
     description:
-      "Learn the best beginner surf conditions: 1-3 ft waves, 12+ sec period, light offshore wind, mid tide, and lower-crowd windows before you paddle out.",
+      "Best beginner surf conditions: 1-3 ft faces, 10+ second swell, wind under 10 mph, mid tide over sand. Check today's beginner verdict at your beach.",
   },
   {
     slug: "how-accurate-are-surf-forecasts",
@@ -45,9 +45,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "best-time-of-day-to-surf",
-    title: "Best Time of Day to Surf: Why Morning Usually Wins",
+    title: "Best Time of Day to Surf in California",
     description:
-      "Dawn usually wins on wind, but not always. What makes morning surf cleaner, when an afternoon glass-off beats it, and how to check today's window.",
+      "Dawn to about 10 AM is usually glassiest in California, before the sea breeze builds. Evening glass-off and tide can beat the clock. Here's how to pick.",
   },
   {
     slug: "is-it-safe-to-surf-after-rain",
@@ -75,9 +75,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "how-long-to-learn-to-surf",
-    title: "How Long Does It Take to Learn to Surf? By Milestone",
+    title: "How Long Does It Take to Learn to Surf?",
     description:
-      "Standing in whitewater takes 1-3 sessions; riding green waves down the line takes months. The realistic timeline by milestone and what speeds it up.",
+      "Most people stand on whitewater in 1-3 sessions, catch green waves after 10-20, and paddle out at a beach break in a few months. What speeds it up.",
   },
   {
     slug: "how-are-ocean-waves-formed",
