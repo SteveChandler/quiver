@@ -132,6 +132,13 @@ describe("provider run receipt store", () => {
       .resolves.toEqual({ skipped: true, reason: "latest_issuance_replicating", enqueued: 0 });
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(rpc).not.toHaveBeenCalled();
+    for (const tooEarly of [issued + 3699, issued]) {
+      fetcher.mockReset().mockResolvedValue({ status: 200, text: async () => JSON.stringify(metadata) });
+      rpc.mockClear();
+      await expect(acquireProviderRunReceipts({ forecastDays: 1, scopes: [source],
+        latestAvailableAt: new Date(tooEarly * 1000) }, fetcher, { rpc })).rejects.toThrow("Provider run is not ready after replication delay");
+      expect(rpc).not.toHaveBeenCalled();
+    }
     for (const invalid of [{ ...metadata, last_run_initialisation_time: issued + 1 },
       { ...metadata, last_run_modification_time: issued - 1 }, { ...metadata, last_run_availability_time: issued },
       { ...metadata, update_interval_seconds: 1 }, { ...metadata, temporal_resolution_seconds: 0 },
