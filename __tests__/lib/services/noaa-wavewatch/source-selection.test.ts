@@ -73,6 +73,23 @@ describe('raw wave sources → selection → face-height contracts', () => {
     expect(selected.om_values).toEqual(om().om_values);
   });
 
+  it('allows for NWS whole-foot rounding before flagging a height disagreement', () => {
+    // Same swell trains on both sides, so only total height can disagree.
+    const { swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction } = om();
+    const nwsAt = (height: number) => ({ ...nws(), swell_1_height, swell_1_period, swell_1_direction,
+      swell_2_height, swell_2_period, swell_2_direction, significant_wave_height: height });
+    const omAt = (height: number) => ({ ...om(), significant_wave_height: height });
+    const disagree = (nwsHeight: number, omHeight: number) =>
+      mergeWaveSources([nwsAt(nwsHeight)], [omAt(omHeight)])[0].source_selection?.disagreement;
+    // Black's Beach, 2026-10-21: NWS "2 ft" can be 2.4 ft, within reach of OM's 3.2 ft.
+    expect(disagree(0.6096, 0.98)).toBe(false);
+    expect(disagree(0.9144, 0.55)).toBe(false);
+    // Rounding cannot explain 2 ft against 4.3 ft, or the reported 3 ft against 5.2 ft.
+    expect(disagree(0.6096, 1.3)).toBe(true);
+    expect(disagree(0.9144, 1.58)).toBe(true);
+    expect(mergeWaveSources([nwsAt(0.6096)], [omAt(0.98)])[0].source_selection?.noaa_height_m).toBe(0.6096);
+  });
+
   it('uses NWS when its real core inputs are complete and OM needs a synthesized swell direction', () => {
     const noaa = processNOAAGridData({ properties: { ...nwsRaw.properties, waveDirection: series(270) } }, 1, 32.887, -117.252, { baseTime: new Date(at) });
     const marine = processOpenMeteoData({ hourly: { ...omRaw.hourly!, swell_wave_direction: [] } }, 1);
