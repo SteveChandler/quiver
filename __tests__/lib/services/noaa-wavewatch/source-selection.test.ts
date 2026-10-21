@@ -183,6 +183,9 @@ describe('raw wave sources → selection → face-height contracts', () => {
     const disagree = (point: ReturnType<typeof nwsTrains>) =>
       mergeWaveSources([point], [marine])[0].source_selection?.disagreement;
     expect(disagree(nwsTrains([0.6096, 260], [0.6096, 220]))).toBe(false);
+    // The rescuing train can be either slot, and a float-noise height difference is still a tie.
+    expect(disagree({ ...nwsTrains([0.6096, 220], [0.6096, 260]), swell_1_period: 12 })).toBe(false);
+    expect(disagree(nwsTrains([0.6096 + 1e-12, 260], [0.6096, 220]))).toBe(false);
     // Neither tied train lines up with OM.
     expect(disagree(nwsTrains([0.6096, 260], [0.6096, 290]))).toBe(true);
     // A smaller NWS train does not stand in for the dominant one.

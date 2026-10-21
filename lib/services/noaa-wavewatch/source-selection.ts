@@ -2,24 +2,25 @@ import type { WaveWatchData } from "./types";
 
 function dominantSwell(point: WaveWatchData): { height: number; period: number; direction: number } {
   // NWS is period-ranked and OM is provider-ranked; compare the same height-ranked train.
-  if (point.swell_2_height != null && point.swell_2_period != null
-    && point.swell_2_direction != null && (point.swell_2_height > point.swell_1_height
-    || (point.swell_2_height === point.swell_1_height && point.swell_2_period > point.swell_1_period))) {
-    return { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction };
-  }
-  return { height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction };
+  const [first, second] = swellTrains(point);
+  return second && (second.height > first.height || (second.height === first.height && second.period > first.period))
+    ? second : first;
 }
 
 type Swell = ReturnType<typeof dominantSwell>;
 
+function swellTrains(point: WaveWatchData): [Swell, Swell?] {
+  const first = { height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction };
+  return point.swell_2_height != null && point.swell_2_period != null && point.swell_2_direction != null
+    ? [first, { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction }]
+    : [first];
+}
+
 /** Whole-foot NWS heights often tie two trains, and the period tie-break between them is arbitrary. */
 function tiedDominantSwells(point: WaveWatchData): Swell[] {
   const dominant = dominantSwell(point);
-  const second = point.swell_2_height != null && point.swell_2_period != null && point.swell_2_direction != null
-    ? { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction }
-    : null;
-  return [{ height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction }, second]
-    .filter((swell): swell is Swell => swell !== null && swell.height === dominant.height);
+  return swellTrains(point).filter((swell): swell is Swell =>
+    swell !== undefined && Math.abs(swell.height - dominant.height) < 1e-6);
 }
 
 function comparable(a: Swell, b: Swell): boolean {
@@ -70,9 +71,9 @@ export function mergeWaveSources(noaa: WaveWatchData[], om: WaveWatchData[]): Wa
     const heightDisagreement = high - low >= 0.3 && high >= low * 1.5;
     const nwsSwell = nws && dominantSwell(nws);
     const omSwell = meteo && dominantSwell(meteo);
-    const directionDisagreement = !!nws && !!nwsSwell && !!omSwell
+    const directionDisagreement = !!nwsSwell && !!omSwell
       && comparable(nwsSwell, omSwell) && degreesApart(nwsSwell, omSwell) >= 45
-      && !tiedDominantSwells(nws).some((swell) => comparable(swell, omSwell) && degreesApart(swell, omSwell) < 45);
+      && !tiedDominantSwells(nws!).some((swell) => comparable(swell, omSwell) && degreesApart(swell, omSwell) < 45);
     const disagreement = !!nws && !!meteo && (heightDisagreement || directionDisagreement);
     return {
       ...selected,
