@@ -28,10 +28,15 @@ const DEFAULT_APP_HANDOFF: LearnArticleAppHandoff = {
  * the topic. Prefer the article's own first non-learn link so a San Diego
  * beginner guide points at San Diego.
  */
+// Comparison and methodology pages aren't today's conditions; a "check it live" link must not land there.
+const NOT_LIVE_PREFIXES = ["/learn", "/vs/", "/forecast-accuracy", "/blog"];
+
 export function resolveLearnNextPaddleLink(
   article: Pick<LearnArticle, "relatedLinks">,
 ): LearnNextPaddleLink {
-  const link = article.relatedLinks.find(({ href }) => !href.startsWith("/learn"));
+  const link = article.relatedLinks.find(
+    ({ href }) => !NOT_LIVE_PREFIXES.some((prefix) => href.startsWith(prefix)),
+  );
   if (!link) return DEFAULT_NEXT_PADDLE;
   return { href: link.href, label: link.label };
 }
