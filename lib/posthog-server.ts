@@ -18,7 +18,8 @@ function getPostHogServerClient(): PostHog | null {
   if (!postHogServerClient) {
     postHogServerClient = new PostHog(token, {
       host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
-      flushAt: 1,
+      // Only the awaited flush() in capturePostHogEvent sends, so a failed send lands in its catch.
+      // flushAt: 1 also queued a background flush per capture, which console.errors every network blip.
       flushInterval: 0,
     });
   }
