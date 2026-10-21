@@ -87,6 +87,9 @@ describe('raw wave sources → selection → face-height contracts', () => {
     // Rounding cannot explain 2 ft against 4.3 ft, or the reported 3 ft against 5.2 ft.
     expect(disagree(0.6096, 1.3)).toBe(true);
     expect(disagree(0.9144, 1.58)).toBe(true);
+    // The floor sits half a foot beyond 0.3 m: 0.46 m apart flags, 0.44 m does not.
+    expect(disagree(0.6096, 1.07)).toBe(true);
+    expect(disagree(0.6096, 1.05)).toBe(false);
     expect(mergeWaveSources([nwsAt(0.6096)], [omAt(0.98)])[0].source_selection?.noaa_height_m).toBe(0.6096);
   });
 
