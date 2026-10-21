@@ -4,6 +4,8 @@ export interface ComparisonSourceLink {
   label: string;
   href: string;
   note: string;
+  /** Renders as a tracked install CTA; `href` stays for the source checker. */
+  installCta?: { source: string; surface: string; placement: string };
 }
 
 export const COMPARISON_SOURCE_REVIEW = {
@@ -19,6 +21,11 @@ export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
   {
     label: "Quiver App Store listing",
     href: `${IOS_APP_STORE_WEB_REDIRECT_PATH}&source=best_surf_forecast_app&surface=comparison&placement=source_link`,
+    installCta: {
+      source: "best_surf_forecast_app",
+      surface: "comparison",
+      placement: "source_link",
+    },
     note:
       "Quiver iPhone listing: free download; Pro in-app purchases $4.99 monthly, $39.99 annual, and $119.99 lifetime. Pro features include similarity alerts, board recommendations, and offline mode.",
   },

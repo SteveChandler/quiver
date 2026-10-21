@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import { COMPARISON_SOURCE_LINKS } from "@/app/best-surf-forecast-app/comparison-sources";
+
 /**
  * Static, deliberately coarse guard: every file that builds an install
  * handoff link must also write a click event or sit on the exemption list.
@@ -69,4 +71,33 @@ describe("install CTA click coverage", () => {
       expect(files).toContain(file);
     },
   );
+});
+
+// These pages linked to /app and /app-store with plain server-rendered anchors,
+// which the builder scan above cannot see and which wrote no click row.
+describe("comparison page install links", () => {
+  it("routes the /vs/surfline/free app link through the tracked CTA", () => {
+    const source = readFileSync(join(ROOT, "app/vs/surfline/free/page-content.tsx"), "utf8");
+
+    expect(source).toContain("<IosAppStoreCta");
+    expect(source).not.toMatch(/href=["']\/app(-store)?["'?]/);
+  });
+
+  it("gives every /best-surf-forecast-app install source link a tracked CTA", () => {
+    const installLinks = COMPARISON_SOURCE_LINKS.filter((link) =>
+      link.href.startsWith("/app"),
+    );
+
+    expect(installLinks.length).toBeGreaterThan(0);
+    for (const link of installLinks) {
+      expect(link.installCta).toEqual({
+        source: "best_surf_forecast_app",
+        surface: "comparison",
+        placement: "source_link",
+      });
+    }
+    expect(
+      readFileSync(join(ROOT, "app/best-surf-forecast-app/page.tsx"), "utf8"),
+    ).toContain("<IosAppStoreCta");
+  });
 });

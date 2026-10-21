@@ -15,6 +15,7 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
 import {
@@ -27,6 +28,8 @@ export const revalidate = 604800;
 const PAGE_PATH = "/best-surf-forecast-app";
 const PAGE_URL = `${SITE_URL}${PAGE_PATH}`;
 const APP_STORE_URL = IOS_APP_STORE_URL;
+const SOURCE_LINK_CLASS =
+  "inline-flex items-center gap-1 font-heading text-base font-black uppercase text-[#11100D] underline-offset-4 hover:text-[#9E5010] hover:underline";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Best Surf App 2026: How to Choose a Surf Forecast App",
@@ -625,15 +628,25 @@ export default function BestSurfForecastAppPage(): ReactElement {
                     key={source.label}
                     className="border-t-2 border-[#11100D]/25 pt-3"
                   >
-                    <a
-                      href={source.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 font-heading text-base font-black uppercase text-[#11100D] underline-offset-4 hover:text-[#9E5010] hover:underline"
-                    >
-                      {source.label}
-                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                    </a>
+                    {source.installCta ? (
+                      <IosAppStoreCta
+                        {...source.installCta}
+                        className={SOURCE_LINK_CLASS}
+                      >
+                        {source.label}
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                      </IosAppStoreCta>
+                    ) : (
+                      <a
+                        href={source.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={SOURCE_LINK_CLASS}
+                      >
+                        {source.label}
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                      </a>
+                    )}
                     <p className="mt-1 text-sm font-semibold leading-6 text-[#252D6B]">
                       {source.note}
                     </p>
