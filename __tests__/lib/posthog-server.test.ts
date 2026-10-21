@@ -66,7 +66,6 @@ describe("posthog-server", () => {
     expect(mockPostHogConstructor).toHaveBeenCalledTimes(1);
     expect(mockPostHogConstructor).toHaveBeenCalledWith("phc_test", {
       host: "https://us.i.posthog.com",
-      flushAt: 1,
       flushInterval: 0,
     });
     expect(mockCapture).toHaveBeenCalledWith({
