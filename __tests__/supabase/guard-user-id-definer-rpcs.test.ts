@@ -44,6 +44,10 @@ const GUARDED_FUNCTIONS = [
   "get_user_storage_stats",
 ];
 
+const INVOKER_FUNCTIONS = ["get_profile_stats", "get_most_visited_beach"];
+
+const CLIENT_ROLE = "\\b(PUBLIC|anon|authenticated)\\b";
+
 const SERVICE_ONLY_FUNCTIONS = [
   "public.notify_session_invite(uuid, uuid, uuid, jsonb)",
   "public.sync_session_wave_observation_candidate(uuid, uuid, uuid, timestamptz, text, numeric, text)",
@@ -91,12 +95,15 @@ describe("guard user-id SECURITY DEFINER RPCs migration", () => {
     );
   });
 
-  it("lets sessions RLS decide which sessions get_profile_stats counts", () => {
-    expect(migration).toContain(
-      "ALTER FUNCTION public.get_profile_stats(uuid) SECURITY INVOKER;",
-    );
-    expect(migration).not.toMatch(/REVOKE[^;]+get_profile_stats/);
-  });
+  it.each(INVOKER_FUNCTIONS)(
+    "lets sessions RLS decide which sessions %s counts",
+    (name) => {
+      expect(migration).toContain(
+        `ALTER FUNCTION public.${name}(uuid) SECURITY INVOKER;`,
+      );
+      expect(migration).not.toMatch(new RegExp(`REVOKE[^;]+${name}`));
+    },
+  );
 
   it.each(SERVICE_ONLY_FUNCTIONS)(
     "removes client roles and keeps service_role on %s",
@@ -112,16 +119,33 @@ describe("guard user-id SECURITY DEFINER RPCs migration", () => {
 
   it("is not undone by a later migration", () => {
     for (const { file, sql } of laterMigrations) {
+      expect({
+        file,
+        bulkGrant: new RegExp(
+          `GRANT[^;]+ON\\s+ALL\\s+FUNCTIONS\\s+IN\\s+SCHEMA\\s+public[^;]+TO[^;]*${CLIENT_ROLE}`,
+          "i",
+        ).test(sql),
+      }).toEqual({ file, bulkGrant: false });
+
+      // Name-list loops (see 20260521120000_supabase_advisor_cleanup.sql) build grants
+      // with format(), so a quoted name next to a dynamic client grant counts too.
+      const dynamicClientGrant = new RegExp(
+        `'GRANT[^']+TO[^']*${CLIENT_ROLE}`,
+        "i",
+      ).test(sql);
+
       for (const name of [
         "notify_session_invite",
         "sync_session_wave_observation_candidate",
       ]) {
         expect({
           file,
-          regrants: new RegExp(
-            `GRANT[^;]+FUNCTION\\s+(public\\.)?${name}\\b[^;]+TO[^;]*\\b(PUBLIC|anon|authenticated)\\b`,
-            "i",
-          ).test(sql),
+          regrants:
+            new RegExp(
+              `GRANT[^;]+FUNCTION\\s+(public\\.)?${name}\\b[^;]+TO[^;]*${CLIENT_ROLE}`,
+              "i",
+            ).test(sql) ||
+            (dynamicClientGrant && sql.includes(`'${name}'`)),
         }).toEqual({ file, regrants: false });
       }
 
@@ -132,13 +156,18 @@ describe("guard user-id SECURITY DEFINER RPCs migration", () => {
           .toEqual({ file, guarded: true });
       }
 
-      const profileStats = definition(sql, "get_profile_stats");
-      expect({
-        file,
-        definer:
-          /SECURITY\s+DEFINER/i.test(profileStats?.header ?? "") ||
-          /ALTER\s+FUNCTION\s+(public\.)?get_profile_stats\b[^;]*SECURITY\s+DEFINER/i.test(sql),
-      }).toEqual({ file, definer: false });
+      for (const name of INVOKER_FUNCTIONS) {
+        expect({
+          file,
+          name,
+          definer:
+            /SECURITY\s+DEFINER/i.test(definition(sql, name)?.header ?? "") ||
+            new RegExp(
+              `ALTER\\s+FUNCTION\\s+(public\\.)?${name}\\b[^;]*SECURITY\\s+DEFINER`,
+              "i",
+            ).test(sql),
+        }).toEqual({ file, name, definer: false });
+      }
     }
   });
 });

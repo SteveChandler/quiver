@@ -14,7 +14,7 @@
 -- get_profile_stats stays callable for other users (native UserProfileScreen shows another
 -- surfer's totals) but becomes SECURITY INVOKER, so sessions RLS limits other viewers to
 -- public sessions, the same count web's getUserMetadata already shows. Owners still see
--- every session.
+-- every session. get_most_visited_beach, read alongside it, gets the same change.
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.create_activity(p_user_id uuid, p_activity_type character varying, p_entity_type character varying, p_entity_id uuid, p_metadata jsonb DEFAULT '{}'::jsonb)
@@ -161,6 +161,8 @@ END;
 $function$;
 
 ALTER FUNCTION public.get_profile_stats(uuid) SECURITY INVOKER;
+-- Shown on the same profile card as get_profile_stats, so it must count the same sessions.
+ALTER FUNCTION public.get_most_visited_beach(uuid) SECURITY INVOKER;
 
 REVOKE EXECUTE ON FUNCTION public.notify_session_invite(uuid, uuid, uuid, jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.sync_session_wave_observation_candidate(uuid, uuid, uuid, timestamptz, text, numeric, text) FROM PUBLIC, anon, authenticated;
