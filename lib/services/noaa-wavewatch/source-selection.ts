@@ -10,6 +10,26 @@ function dominantSwell(point: WaveWatchData): { height: number; period: number; 
   return { height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction };
 }
 
+type Swell = ReturnType<typeof dominantSwell>;
+
+/** Whole-foot NWS heights often tie two trains, and the period tie-break between them is arbitrary. */
+function tiedDominantSwells(point: WaveWatchData): Swell[] {
+  const dominant = dominantSwell(point);
+  const second = point.swell_2_height != null && point.swell_2_period != null && point.swell_2_direction != null
+    ? { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction }
+    : null;
+  return [{ height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction }, second]
+    .filter((swell): swell is Swell => swell !== null && swell.height === dominant.height);
+}
+
+function comparable(a: Swell, b: Swell): boolean {
+  return Math.min(a.height, b.height) >= 0.3 && Math.min(a.period, b.period) >= 8;
+}
+
+function degreesApart(a: Swell, b: Swell): number {
+  return Math.abs(((a.direction - b.direction + 540) % 360) - 180);
+}
+
 function valid(point: WaveWatchData): boolean {
   return Number.isFinite(Date.parse(point.timestamp))
     && point.has_reported_wave_height !== false
@@ -50,10 +70,9 @@ export function mergeWaveSources(noaa: WaveWatchData[], om: WaveWatchData[]): Wa
     const heightDisagreement = high - low >= 0.3 && high >= low * 1.5;
     const nwsSwell = nws && dominantSwell(nws);
     const omSwell = meteo && dominantSwell(meteo);
-    const directionDisagreement = !!nwsSwell && !!omSwell
-      && Math.min(nwsSwell.height, omSwell.height) >= 0.3
-      && Math.min(nwsSwell.period, omSwell.period) >= 8
-      && Math.abs(((nwsSwell.direction - omSwell.direction + 540) % 360) - 180) >= 45;
+    const directionDisagreement = !!nws && !!nwsSwell && !!omSwell
+      && comparable(nwsSwell, omSwell) && degreesApart(nwsSwell, omSwell) >= 45
+      && !tiedDominantSwells(nws).some((swell) => comparable(swell, omSwell) && degreesApart(swell, omSwell) < 45);
     const disagreement = !!nws && !!meteo && (heightDisagreement || directionDisagreement);
     return {
       ...selected,

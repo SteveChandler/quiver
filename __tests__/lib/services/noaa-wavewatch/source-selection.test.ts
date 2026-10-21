@@ -173,6 +173,24 @@ describe('raw wave sources → selection → face-height contracts', () => {
     expect(mergeWaveSources([first], [{ ...second, swell_1_direction: 170 }])[0].source_selection?.disagreement).toBe(true);
   });
 
+  it('treats either of two tied NWS swell trains as dominant when comparing direction', () => {
+    // Black's Beach, 2026-10-21 11:00 PT: NWS has 2 ft at 14 s from both 260° and 220°; OM leads with 196°.
+    const nwsTrains = (first: [number, number], second: [number, number]) => ({ ...nws(), significant_wave_height: 0.9144,
+      swell_1_height: first[0], swell_1_period: 14, swell_1_direction: first[1],
+      swell_2_height: second[0], swell_2_period: 14, swell_2_direction: second[1] });
+    const marine = { ...om(), significant_wave_height: 0.96, swell_1_height: 0.82, swell_1_period: 11.9, swell_1_direction: 196,
+      swell_2_height: 0.48, swell_2_period: 8.45, swell_2_direction: 284 };
+    const disagree = (point: ReturnType<typeof nwsTrains>) =>
+      mergeWaveSources([point], [marine])[0].source_selection?.disagreement;
+    expect(disagree(nwsTrains([0.6096, 260], [0.6096, 220]))).toBe(false);
+    // Neither tied train lines up with OM.
+    expect(disagree(nwsTrains([0.6096, 260], [0.6096, 290]))).toBe(true);
+    // A smaller NWS train does not stand in for the dominant one.
+    expect(disagree(nwsTrains([0.9144, 260], [0.6096, 220]))).toBe(true);
+    // A tied train too short-period to compare does not either.
+    expect(disagree({ ...nwsTrains([0.6096, 260], [0.6096, 200]), swell_2_period: 6 })).toBe(true);
+  });
+
   it('uses reported peak periods when available; otherwise identifies mean rather than converting it', () => {
     const [peak] = processOpenMeteoData({ hourly: { ...omRaw.hourly!, wave_peak_period: [16], swell_wave_peak_period: [17] } }, 1);
     expect(peak).toMatchObject({ peak_wave_period: 16, swell_1_period: 17, period_basis: 'peak' });
