@@ -12,7 +12,9 @@ import {
   type SeoPageConfig,
 } from "@/lib/seo/funnel-pages";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
+import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { BoardRecommendationCard } from "./BoardRecommendationCard";
 import { InternalLinkCluster } from "./InternalLinkCluster";
 import { JsonLd } from "./JsonLd";
@@ -256,6 +258,19 @@ export async function SeoLocationPage({
                 Check Quiver for the freshest forecast read.
               </div>
             )}
+            <HideWhenInstallBarOwns>
+              <ContentPageAppHandoffCta
+                source={`content-surf-cams-${page.slug}`}
+                surface="surf_cams"
+                placement="after_cam_grid"
+                target={`surf-cams:${page.slug}`}
+                eyebrow={`${page.locationName} cams · next check`}
+                title="Cams checked. Is the next tide better?"
+                description={`The cams show right now. The app adds the ${page.locationName} forecast, tide, wind, and alerts, so you know when to check again.`}
+                ctaLabel="Check the forecast in the app"
+                className="mt-6"
+              />
+            </HideWhenInstallBarOwns>
           </section>
         ) : null}
 
@@ -306,10 +321,17 @@ export async function SeoLocationPage({
           />
         </div>
       </main>
-      <StickySignupBar
-        ctaText="Get the live surf forecast"
-        supportingText="Best window, tide, wind, and board notes in Quiver."
-        source={`seo-funnel-${page.type}-${page.slug}`}
+      <StickyInstallAsk
+        stickySignup={{
+          ctaText: "Get the live surf forecast",
+          supportingText: "Best window, tide, wind, and board notes in Quiver.",
+          source: `seo-funnel-${page.type}-${page.slug}`,
+        }}
+        bar={{
+          placeName: page.locationName,
+          valueLabel: null,
+          source: `${page.type}-${page.slug}`,
+        }}
       />
     </div>
   );

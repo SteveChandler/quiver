@@ -7,8 +7,8 @@ import { isInstallBarEnabled } from "@/lib/flags/install-bar";
 
 /*
  * Install bar: every iPhone visitor (any browser) on beach detail, city
- * water-temp and city hub pages gets one fixed-bottom install ask when
- * NEXT_PUBLIC_INSTALL_BAR_ENABLED=true. There is no split test; it is read
+ * water-temp, city hub and surf-cam region pages gets one fixed-bottom install
+ * ask when NEXT_PUBLIC_INSTALL_BAR_ENABLED=true. There is no split test; it is read
  * before/after (see components/app-store/ARCHITECTURE.md):
  *   - taps: `cta_click` rows with `placement = 'install_bar'`, by surface;
  *   - corroboration: App Store Connect web-referrer first-time downloads;
@@ -17,7 +17,11 @@ import { isInstallBarEnabled } from "@/lib/flags/install-bar";
  *     suppress and its taps are invisible to us, so the bar can absorb them.
  */
 
-export type InstallBarSurface = "beach_detail" | "water_temp" | "city_hub";
+export type InstallBarSurface =
+  | "beach_detail"
+  | "water_temp"
+  | "city_hub"
+  | "surf_cams";
 
 export const INSTALL_BAR_PLACEMENT = "install_bar";
 export const INSTALL_BAR_DISMISSAL_KEY = "install_bar_v1";
@@ -40,6 +44,7 @@ export const INSTALL_ASK_SELECTORS = [
 
 const SURFACE_PATTERNS: ReadonlyArray<readonly [InstallBarSurface, RegExp]> = [
   ["water_temp", /^\/water-temp\/[^/]+\/?$/],
+  ["surf_cams", /^\/surf-cams\/[^/]+\/?$/],
   ["city_hub", /^\/beaches\/[^/]+\/[^/]+\/[^/]+\/?$/],
   ["beach_detail", /^\/[a-z]{2}\/[^/]+\/[^/]+\/?$/],
 ];

@@ -13,7 +13,7 @@ import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
 import { CamsLandingNav } from "@/components/cams/cams-landing-nav";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { Button } from "@/components/ui/button";
 import { ZineSurface } from "@/components/zine";
@@ -200,10 +200,17 @@ export async function CamsRegionDirectoryPage({
           </section>
         </main>
       </ZineSurface>
-      <StickySignupBar
-        source={`cams-${region.slug}`}
-        ctaText="Get Cam Alerts"
-        supportingText="Get notified when conditions are firing"
+      <StickyInstallAsk
+        stickySignup={{
+          source: `cams-${region.slug}`,
+          ctaText: "Get Cam Alerts",
+          supportingText: "Get notified when conditions are firing",
+        }}
+        bar={{
+          placeName: region.name,
+          valueLabel: null,
+          source: `surf-cams-${region.slug}`,
+        }}
       />
     </>
   );
