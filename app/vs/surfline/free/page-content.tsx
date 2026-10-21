@@ -35,6 +35,7 @@ import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { LiveCamCard } from "@/app/vs/surfline/free/live-cam-card";
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import {
   FadeInSection,
   AnimatedStickerBadge,
@@ -591,12 +592,14 @@ export default async function VsSurflineFreePage() {
                 iOS live now · Android beta open
               </span>
             </div>
-            <Link
-              href="/app"
+            <IosAppStoreCta
+              source="vs_surfline_free"
+              surface="comparison"
+              placement="after_quick_decisions"
               className="ml-auto font-heading font-bold text-xs bg-[#11100D] text-[#F5EEDC] rounded-lg px-3 py-2"
             >
               Get the app
-            </Link>
+            </IosAppStoreCta>
           </div>
         </div>
       </section>
