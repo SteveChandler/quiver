@@ -255,6 +255,20 @@ export function isNoaaMarineForecastNotSupportedError(error: unknown): boolean {
   );
 }
 
+/**
+ * NWS answers 503 "Forecast Grid Expired" when a forecast office has not reissued its grid in time.
+ * The grid stays expired until the office publishes again, so retrying within a run cannot help;
+ * callers treat it as "no NWS weather this run".
+ */
+export function isNoaaForecastGridExpiredError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+  if (error.context?.statusCode !== 503) return false;
+  if (!(error.context?.apiUrl || "").toLowerCase().includes("api.weather.gov/gridpoints/")) return false;
+
+  const msg = (error.message || "").toLowerCase();
+  return msg.includes("forecastgridexpired") || msg.includes("forecast grid expired");
+}
+
 export class StorageError extends ForecastError {
   constructor(
     operation: string,
