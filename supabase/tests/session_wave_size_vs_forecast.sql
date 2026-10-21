@@ -144,7 +144,9 @@ VALUES
 
 SELECT assert_equal('confirmed prefill state', quality_state, 'weak'),
        assert_equal('confirmed prefill reason', rejection_reason, NULL::text),
-       assert_equal('confirmed prefill observed_m', observed_m, 0.762),
+       -- The shown 2.8 ft, not the 2.5 ft chip the prefill rounded to.
+       assert_equal('confirmed prefill observed_m', observed_m, 0.853),
+       assert_equal('confirmed prefill reported', reported_wave_height_ft, 2.5::numeric),
        assert_equal('confirmed prefill answer', reported_size_vs_forecast, 'about_right'),
        assert_equal('confirmed prefill shown', shown_forecast_height_ft, 2.8::numeric),
        assert_equal('confirmed prefill matched', ml_prediction_id IS NOT NULL, true)
@@ -178,6 +180,13 @@ UPDATE public.sessions SET forecast_wave_height_ft = 3.1 WHERE id = fixture_id(1
 SELECT assert_equal('edited shown height', shown_forecast_height_ft, 3.1::numeric)
 FROM public.session_wave_observation_candidates WHERE session_id = fixture_id(14);
 
+-- A mistyped height is rejected, but its answer still counts as a direction.
+INSERT INTO public.sessions (id, user_id, beach_id, arrival_time, status, wave_height_ft, wave_height_source, wave_size_vs_forecast)
+VALUES (fixture_id(17), fixture_id(1), fixture_id(100), '2026-10-21 16:30+00', 'completed', 60, 'user', 'bigger');
+SELECT assert_equal('mistyped height reason', rejection_reason, 'invalid_wave_height_ft'),
+       assert_equal('mistyped height answer', reported_size_vs_forecast, 'bigger')
+FROM public.session_wave_observation_candidates WHERE session_id = fixture_id(17);
+
 -- A session that never completed still gets no candidate.
 INSERT INTO public.sessions (id, user_id, beach_id, arrival_time, status, wave_height_ft, wave_size_vs_forecast)
 VALUES (fixture_id(15), fixture_id(1), fixture_id(100), '2026-10-21 16:30+00', 'planned', 2.5, 'bigger');
@@ -197,15 +206,15 @@ EXCEPTION WHEN check_violation THEN
 END;
 $$;
 
-SELECT assert_equal('answers', (a->'size_vs_forecast'->>'answers')::int, 4),
+SELECT assert_equal('answers', (a->'size_vs_forecast'->>'answers')::int, 5),
        assert_equal('about_right answers', (a->'size_vs_forecast'->'by_answer'->>'about_right')::int, 2),
-       assert_equal('bigger answers', (a->'size_vs_forecast'->'by_answer'->>'bigger')::int, 1),
+       assert_equal('bigger answers', (a->'size_vs_forecast'->'by_answer'->>'bigger')::int, 2),
        assert_equal('smaller answers', (a->'size_vs_forecast'->'by_answer'->>'smaller')::int, 1),
        assert_equal('with shown height', (a->'size_vs_forecast'->>'with_shown_height')::int, 4),
        assert_equal('confirmed prefills', (a->'size_vs_forecast'->>'confirmed_prefills')::int, 2),
        assert_equal('direction-only prefills', (a->'size_vs_forecast'->>'direction_only_prefills')::int, 1),
        assert_equal('height/answer conflicts', (a->'size_vs_forecast'->>'height_answer_conflicts')::int, 1),
-       assert_equal('existing funnel kept', (a->'funnel'->>'candidate_rows')::int, 4)
+       assert_equal('existing funnel kept', (a->'funnel'->>'candidate_rows')::int, 5)
 FROM (SELECT public.get_session_wave_observation_analytics() AS a) analytics;
 
 SELECT assert_equal(

@@ -5,7 +5,8 @@
 -- smaller / about_right / bigger. Every surfer compares against the same number, so personal
 -- size scales cancel, and a forecast-prefilled height (about half of native logs) stops being
 -- dead weight:
---   * prefill + about_right -> kept as an observation (it confirms the shown height);
+--   * prefill + about_right -> kept as an observation of the shown height (not the chip it
+--     rounded to);
 --   * prefill + smaller/bigger -> the height stays rejected as forecast_prefilled_wave_height,
 --     but the candidate keeps the direction;
 --   * a typed height + an answer -> both are kept.
@@ -228,7 +229,17 @@ BEGIN
     RETURN candidate_id;
   END IF;
 
-  observed_height_m := round((p_wave_height_ft * 0.3048)::numeric, 3);
+  -- A confirmed prefill observes the height the form showed, not the chip it rounded to.
+  observed_height_m := round((
+    CASE
+      WHEN session_height_source = 'forecast_prefill'
+        AND session_size_vs_forecast = 'about_right'
+        AND session_shown_height_ft > 0
+        AND session_shown_height_ft <= 50
+      THEN session_shown_height_ft
+      ELSE p_wave_height_ft
+    END * 0.3048
+  )::numeric, 3);
 
   SELECT p.*
   INTO nearest_prediction
@@ -466,7 +477,7 @@ BEGIN
     ),
     size_answers AS (
       -- Sessions whose size answer is usable: completed, with a beach and time. A
-      -- rejected prefill still carries its direction.
+      -- rejected prefill or a mistyped height still carries its direction.
       SELECT
         c.reported_size_vs_forecast,
         c.observed_at,
@@ -482,7 +493,8 @@ BEGIN
           OR c.rejection_reason IN (
             'no_matching_prediction',
             'forecast_prefilled_wave_height',
-            'missing_wave_height_ft'
+            'missing_wave_height_ft',
+            'invalid_wave_height_ft'
           )
         )
     )
