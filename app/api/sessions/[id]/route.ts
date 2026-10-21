@@ -166,7 +166,13 @@ export const PATCH = withAuth(
       updatePayload.forecast_accuracy = validation.data.forecast_accuracy;
     }
     if (validation.data.wave_size_vs_forecast !== undefined) {
-      updatePayload.wave_size_vs_forecast = validation.data.wave_size_vs_forecast;
+      const size = validation.data.wave_size_vs_forecast;
+      updatePayload.wave_size_vs_forecast = size;
+      // One answer, two columns: forecast_accuracy follows unless the client sent both.
+      if (validation.data.forecast_accuracy === undefined) {
+        updatePayload.forecast_accuracy =
+          size === null ? null : size === "about_right" ? "accurate" : "inaccurate";
+      }
     }
     if (validation.data.wave_characteristics !== undefined) {
       updatePayload.wave_characteristics = validation.data.wave_characteristics;
