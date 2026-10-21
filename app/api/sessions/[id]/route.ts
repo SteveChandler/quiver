@@ -48,6 +48,7 @@ const SessionUpdateSchema = z
     rating: z.number().int().min(0).max(5).optional(),
     wave_height_ft: z.number().min(0).max(100).nullable().optional(),
     forecast_accuracy: z.enum(["accurate", "somewhat", "inaccurate"]).nullable().optional(),
+    wave_size_vs_forecast: z.enum(["smaller", "about_right", "bigger"]).nullable().optional(),
     wave_characteristics: z
       .array(WaveCharacteristicSchema)
       .max(15)
@@ -163,6 +164,15 @@ export const PATCH = withAuth(
     }
     if (validation.data.forecast_accuracy !== undefined) {
       updatePayload.forecast_accuracy = validation.data.forecast_accuracy;
+    }
+    if (validation.data.wave_size_vs_forecast !== undefined) {
+      const size = validation.data.wave_size_vs_forecast;
+      updatePayload.wave_size_vs_forecast = size;
+      // One answer, two columns: forecast_accuracy follows unless the client sent both.
+      if (validation.data.forecast_accuracy === undefined) {
+        updatePayload.forecast_accuracy =
+          size === null ? null : size === "about_right" ? "accurate" : "inaccurate";
+      }
     }
     if (validation.data.wave_characteristics !== undefined) {
       updatePayload.wave_characteristics = validation.data.wave_characteristics;
