@@ -1,4 +1,5 @@
 import { runSwellAlertCron } from "@/lib/cron/swell-alert-runner";
+import { runWithWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import { withObservedCron } from "@/lib/cron/observability";
 import {
   createErrorResponse,
@@ -28,7 +29,8 @@ async function swellAlertCron(request: Request): Promise<Response> {
   }
 
   try {
-    return createSuccessResponse(await runSwellAlertCron({ now: new Date() }));
+    // Every user in the tick shares one read of each hold table.
+    return createSuccessResponse(await runWithWaterQualityReadScope(() => runSwellAlertCron({ now: new Date() })));
   } catch (error) {
     return handleApiError(error);
   }

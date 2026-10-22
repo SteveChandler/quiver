@@ -58,7 +58,7 @@ type CanonicalSurfCallResponse = SpotSurfReportResult & {
 
 type SurfCallWaterQuality = {
   status: 'advisory' | 'closure' | 'hold';
-  source: 'county' | 'sample' | 'hold';
+  source: 'county' | 'sample' | 'hold' | 'rain';
   countyKind?: 'general' | 'site';
   checkedAt?: string;
   sampleDate?: string;
@@ -77,6 +77,8 @@ function surfCallWaterQuality(
     ...(evidence.countyKind ? { countyKind: evidence.countyKind } : {}),
     ...(evidence.countyKind === 'general' && evidence.rainAdvisory ? { rainAdvisory: evidence.rainAdvisory } : {}),
     ...(evidence.checkedAt ? { checkedAt: evidence.checkedAt } : {}) };
+  if (evidence?.source === 'rain' && evidence.rainAdvisory) return { status, source: 'rain',
+    rainAdvisory: evidence.rainAdvisory };
   if (evidence?.source === 'sample') return { status, source: 'sample',
     ...(evidence.sampleDate ? { sampleDate: evidence.sampleDate } : {}) };
   return { status, source: 'hold' };

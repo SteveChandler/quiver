@@ -100,3 +100,14 @@ it("shows stored rain event start and end times in the expanded card", () => {
   expect(screen.getByText(/Rain advisory since Fri 6 AM/)).toBeInTheDocument();
   expect(screen.queryByText(/for the 72 hours to/)).not.toBeInTheDocument();
 });
+
+it("shows a San Diego gauge rain notice over a County clear until the County posts", () => {
+  render(<WaterQualityBadge waterQuality={{ ...sample, status: "advisory", county_advisory_status: "clear",
+    county_checked_at: "2026-10-22T13:00:43Z", status_reason: "Runoff after rain nearby.",
+    rain_runoff: { stations: ["KSAN", "KCRQ", "KNZY"], started_at: "2026-10-22T12:00:00Z",
+      last_rain_at: "2026-10-22T11:00:00Z", expires_at: "2099-10-25T11:00:00Z" } }} />);
+  const toggle = screen.getByRole("button", { name: /Rain runoff advisory/ });
+  fireEvent.click(toggle);
+  expect(screen.queryByText("No current county advisory")).not.toBeInTheDocument();
+  expect(screen.getByText(/Measured at airport rain gauges \(KSAN, KCRQ, KNZY\)/)).toBeInTheDocument();
+});

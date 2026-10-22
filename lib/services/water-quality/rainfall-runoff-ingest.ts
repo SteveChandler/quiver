@@ -9,7 +9,7 @@ import {
   type RainfallReading,
   type StationRainfall,
 } from "./rainfall-runoff";
-import type { MetarRainSignal } from "./rain-advisory-events";
+import { rainEventRegion, type MetarRainSignal } from "./rain-advisory-events";
 
 interface RainfallIngestDeps {
   fetchMetars: (icao: string) => Promise<AwcMetar[]>;
@@ -81,11 +81,14 @@ export async function runRainfallRunoffIngest(deps: RainfallIngestDeps): Promise
     const total = clusterRainfall(stations);
     if (Object.keys(stations).length > 0) {
       const rainTimes = Object.values(stations).map((station) => station.last_rain_at).filter((time): time is string => time !== null);
-      signals.push({ region: cluster.id, windowEnd: windowEnd.toISOString(), totalIn: total,
+      const signal = { windowEnd: windowEnd.toISOString(), totalIn: total,
         lastRainAt: rainTimes.length ? rainTimes.reduce((a, b) => Date.parse(a) > Date.parse(b) ? a : b) : null,
         dryConfirmed: dryConfirmed(cluster, stations, rainTimes.length > 0),
         stations: Object.keys(stations),
-      });
+      };
+      // San Diego rain both extends the County's event and opens our own gauge event.
+      signals.push({ region: cluster.id, ...signal });
+      if (rainEventRegion(cluster.id) !== cluster.id) signals.push({ region: rainEventRegion(cluster.id), ...signal });
     }
     if (total === null) { skipped.push(cluster.id); continue; }
     readings.push({

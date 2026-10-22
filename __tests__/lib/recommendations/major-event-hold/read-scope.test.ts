@@ -61,6 +61,7 @@ function recordingClient(options: {
     }],
     county_beach_advisories: [],
     beaches: [{ id: COUNTY_COVERED, lat: 32.8567, lon: -117.2575 }],
+    rain_advisory_events: [],
   };
 
   const client = {
@@ -169,6 +170,7 @@ describe("water-quality hold read scope", () => {
       beach_water_quality: 1,
       county_beach_advisory_runs: 1,
       county_beach_advisories: 1,
+      rain_advisory_events: 1,
     });
   });
 

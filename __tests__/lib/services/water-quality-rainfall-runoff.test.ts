@@ -3,14 +3,14 @@ import {
   RAIN_RUNOFF_THRESHOLD_IN,
   applyRainfallNotice,
   clusterRainfall,
-  pushRainClusterFor,
+  rainGaugeClusterFor,
   rainClusterFor,
   stationRainfall,
   type AwcMetar,
   type RainfallReading,
 } from "@/lib/services/water-quality/rainfall-runoff";
 import { runRainfallRunoffIngest } from "@/lib/services/water-quality/rainfall-runoff-ingest";
-import { readRainHeldBeaches, withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
+import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import { rainAdvisoryEventSchema } from "@/lib/services/water-quality/rain-advisory-events";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
@@ -27,6 +27,21 @@ function hourly(icaoId: string, precipByHour: Record<number, number | null> = {}
 const reading = (total: number, end = windowEnd): RainfallReading => ({
   cluster_id: "huntington_newport", window_end: end.toISOString(), total_in: total,
   station_totals: { KLGB: total, KSNA: 0.1 },
+});
+
+describe("rainGaugeClusterFor", () => {
+  it.each([
+    ["Solana Beach", 32.991, -117.272, "san_diego"],
+    ["Pacific Beach", 32.797, -117.257, "san_diego"],
+    ["Huntington", 33.655, -118.005, "huntington_newport"],
+  ])("assigns %s to the gauges that speak for it", (_name, lat, lon, cluster) => {
+    expect(rainGaugeClusterFor(lat, lon)?.id).toBe(cluster);
+  });
+
+  it("gives beaches outside SoCal no cluster", () => {
+    expect(rainGaugeClusterFor(36.96, -122.02)).toBeNull();
+    expect(rainGaugeClusterFor(null, null)).toBeNull();
+  });
 });
 
 describe("rainClusterFor", () => {
@@ -132,10 +147,17 @@ describe("applyRainfallNotice", () => {
     }
   });
 
-  it("never overrides any County status, including clear", () => {
-    for (const county of ["clear", "advisory", "closure", "unavailable"] as const) {
-      const row = { ...base, status: "unknown", county_advisory_status: county };
+  it("never overrides a County advisory or closure", () => {
+    for (const county of ["advisory", "closure"] as const) {
+      const row = { ...base, status: county, county_advisory_status: county };
       expect(applyRainfallNotice(row, reading(1.2), now)).toBe(row);
+    }
+  });
+
+  it("speaks where the County is clear or unavailable, since it posts hours after the rain", () => {
+    for (const county of ["clear", "unavailable"] as const) {
+      const row = { ...base, status: "unknown", county_advisory_status: county };
+      expect(applyRainfallNotice(row, reading(1.2), now).status).toBe("advisory");
     }
   });
 
@@ -231,6 +253,9 @@ describe("runRainfallRunoffIngest", () => {
       fetchMetars: async (icao) => { if (icao === "KCRQ") throw new Error("offline"); return hourly(icao); },
       writeReadings: async () => undefined });
     expect(missing.signals.find((signal) => signal.region === "san_diego")).toMatchObject({ dryConfirmed: false, totalIn: 0 });
+    // The same San Diego reading also drives the gauge event.
+    expect(missing.signals.find((signal) => signal.region === "san_diego_gauges"))
+      .toEqual({ ...missing.signals.find((signal) => signal.region === "san_diego"), region: "san_diego_gauges" });
     expectConsoleWarnings([/KCRQ unavailable/]);
     const short = await runRainfallRunoffIngest({ now: windowEnd,
       fetchMetars: async (icao) => hourly(icao, {}, icao === "KCRQ" ? 30 : 72),
@@ -301,91 +326,29 @@ describe("withRainfallNotice", () => {
   });
 
   it("skips the read when no beach is in a rain cluster", async () => {
-    const c = client([{ ...reading(1), cluster_id: "san_diego" }]);
-    await withRainfallNotice([{ beach_id: "b2", status: "good" }], [pacific], c as never, now);
+    const c = client([reading(1)]);
+    await withRainfallNotice([{ beach_id: "b3", status: "good" }], [{ id: "b3", lat: 36.96, lon: -122.02 }], c as never, now);
     expect(c.from).not.toHaveBeenCalled();
   });
-});
 
-describe("pushRainClusterFor", () => {
-  it.each([
-    ["Solana Beach", 32.991, -117.272, "san_diego"],
-    ["Pacific Beach", 32.797, -117.257, "san_diego"],
-    ["Huntington", 33.655, -118.005, "huntington_newport"],
-  ])("assigns %s to the gauges a push reads", (_name, lat, lon, cluster) => {
-    expect(pushRainClusterFor(lat, lon)?.id).toBe(cluster);
-  });
-
-  it("gives beaches outside SoCal no cluster", () => {
-    expect(pushRainClusterFor(36.96, -122.02)).toBeNull();
-    expect(pushRainClusterFor(null, null)).toBeNull();
-  });
-});
-
-describe("readRainHeldBeaches", () => {
-  // Oct 22 2026: 0.23 in at KSAN overnight, no County general advisory yet at the 6 AM Daily Call.
-  const asOf = new Date("2026-10-22T13:08:00Z");
-  const solana = { id: "65D3A4DE-1F4B-4A1D-8CE0-B5B67288EE08", lat: 32.991, lon: -117.272 };
-  const santaCruz = { id: "b3", lat: 36.96, lon: -122.02 };
-  const tonight = { beachId: solana.id, startsAt: "2026-10-23T00:00:00Z" };
-  const sanDiego = (total: number): RainfallReading => ({ cluster_id: "san_diego",
-    window_end: "2026-10-22T12:00:00Z", total_in: total, station_totals: { KSAN: total, KCRQ: 0.09, KNZY: 0.15 } });
-
-  function client(beaches: unknown[] | null, readings: unknown[] | null) {
-    return { from: jest.fn((table: string) => {
-      interface Query { select: jest.Mock; in: jest.Mock; gte: jest.Mock; order: jest.Mock; then: (resolve: (v: unknown) => unknown) => Promise<unknown> }
-      const rows = table === "beaches" ? beaches : readings;
-      const query: Query = {
-        select: jest.fn(() => query), in: jest.fn(() => query), gte: jest.fn(() => query), order: jest.fn(() => query),
-        then: (resolve: (v: unknown) => unknown) => Promise.resolve(rows === null
-          ? { data: null, error: { message: "down" } } : { data: rows, error: null }).then(resolve),
-      };
-      return query;
-    }) };
-  }
-
-  it("holds a San Diego beach on its own gauges before the County posts", async () => {
-    await expect(readRainHeldBeaches([tonight], asOf, client([solana], [sanDiego(0.23)]) as never))
-      .resolves.toEqual(new Map([[solana.id.toLowerCase(), "rain"]]));
-  });
-
-  it("clears a window that starts 72 hours after the reading", async () => {
-    const saturday = { beachId: solana.id, startsAt: "2026-10-25T12:00:00Z" };
-    await expect(readRainHeldBeaches([saturday], asOf, client([solana], [sanDiego(0.23)]) as never))
-      .resolves.toEqual(new Map());
-  });
-
-  it("clears it below the runoff threshold", async () => {
-    await expect(readRainHeldBeaches([tonight], asOf, client([solana], [sanDiego(0.1)]) as never))
-      .resolves.toEqual(new Map());
-  });
-
-  it("reads only the latest reading per cluster", async () => {
-    const older = { ...sanDiego(0.5), window_end: "2026-10-22T09:00:00Z" };
-    await expect(readRainHeldBeaches([tonight], asOf, client([solana], [sanDiego(0.1), older]) as never))
-      .resolves.toEqual(new Map());
-  });
-
-  it("holds nothing when there is no fresh reading", async () => {
-    await expect(readRainHeldBeaches([tonight], asOf, client([solana], []) as never)).resolves.toEqual(new Map());
-  });
-
-  it("skips the readings for beaches no gauge covers", async () => {
-    const c = client([santaCruz], [sanDiego(1)]);
-    await expect(readRainHeldBeaches([{ beachId: santaCruz.id, startsAt: tonight.startsAt }], asOf, c as never))
-      .resolves.toEqual(new Map());
-    expect(c.from).toHaveBeenCalledTimes(1);
-  });
-
-  it("withholds only gauged beaches when the readings cannot be read", async () => {
-    const candidates = [tonight, { beachId: santaCruz.id, startsAt: tonight.startsAt }];
-    await expect(readRainHeldBeaches(candidates, asOf, client([solana, santaCruz], null) as never))
-      .resolves.toEqual(new Map([[solana.id.toLowerCase(), "unknown"]]));
-    expectConsoleWarnings([/readings unavailable/]);
-  });
-
-  it("holds nothing when the beaches cannot be read", async () => {
-    await expect(readRainHeldBeaches([tonight], asOf, client(null, [sanDiego(1)]) as never)).resolves.toEqual(new Map());
-    expectConsoleWarnings([/beaches unavailable/]);
+  it("gives a San Diego beach the notice from its own gauge event until the County speaks", async () => {
+    const gauges = rainAdvisoryEventSchema.parse({ id: "88888888-8888-4888-8888-888888888888",
+      region: "san_diego_gauges", source: "metar_runoff", status: "active",
+      started_at: "2026-10-12T12:00:00Z", last_rain_at: "2026-10-12T11:00:00Z",
+      expires_at: "2026-10-15T11:00:00Z", ended_at: null, end_reason: null,
+      sources: { metar: { stations: ["KSAN"], total_in: 0.23, window_end: "2026-10-12T12:00:00Z" } },
+      created_at: "2026-10-12T12:00:00Z", updated_at: "2026-10-12T12:00:00Z" });
+    const rows = [{ beach_id: "b2", status: "good" }];
+    expect((await withRainfallNotice(rows, [pacific], client([], null, [gauges]) as never, now))[0])
+      .toMatchObject({ status: "advisory", rain_runoff: { expires_at: gauges.expires_at } });
+    const county = [{ beach_id: "b2", status: "advisory", county_advisory_status: "advisory" }];
+    expect(await withRainfallNotice(county, [pacific], client([], null, [gauges]) as never, now)).toEqual(county);
+    // The County projection marks a covered beach with no notice "clear" (status unknown), and a stale feed "unavailable".
+    for (const countyStatus of ["clear", "unavailable"]) {
+      const silent = [{ beach_id: "b2", status: "unknown", county_advisory_status: countyStatus }];
+      expect((await withRainfallNotice(silent, [pacific], client([], null, [gauges]) as never, now))[0])
+        .toMatchObject({ status: "advisory", rain_runoff: { expires_at: gauges.expires_at } });
+    }
   });
 });
+

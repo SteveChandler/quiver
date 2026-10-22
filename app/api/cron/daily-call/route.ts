@@ -5,6 +5,7 @@ import {
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
 import { runDailyCallCron } from "@/lib/cron/daily-call-runner";
+import { runWithWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
@@ -24,7 +25,8 @@ async function _GET(request: Request): Promise<Response> {
   }
 
   try {
-    return createSuccessResponse(await runDailyCallCron({ now: new Date() }));
+    // Every user in the tick shares one read of each hold table.
+    return createSuccessResponse(await runWithWaterQualityReadScope(() => runDailyCallCron({ now: new Date() })));
   } catch (error) {
     return handleApiError(error, "Failed to run daily call cron");
   }
