@@ -34,7 +34,7 @@ import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
 } from "@/lib/utils/beach-sub-page-crawl-copy";
-import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
+import { cityToSlug, isValidStateSlug, regionToSlug, stateToSlug } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
@@ -276,7 +276,12 @@ export async function renderBeachSubPage({
           hasWaterTempSummary && waterTempMeta ? (
             <WaterTempSummaryHero
               beachName={beach.name}
-              seasonalTrendsHref={`/water-temp/${cityToSlug(beach.city)}#seasonal-trends`}
+              seasonalTrendsHref={
+                // /water-temp/{city} guides exist only for US cities.
+                isValidStateSlug(stateToSlug(beach.state))
+                  ? `/water-temp/${cityToSlug(beach.city)}#seasonal-trends`
+                  : undefined
+              }
               seasonalTrendsLocation={beach.city || "the area"}
               waterTempData={waterTempMeta}
             />

@@ -211,16 +211,21 @@ export function EditorialLayout({
               href: bestTimeToSurfUrl ?? `/best-time-to-surf/${params.city}`,
               description: "Compare the local seasonality before choosing a day.",
             },
-            {
-              label: `Check ${displayCityName} water temperature`,
-              href: `/water-temp/${params.city}`,
-              description: "Dial in gear before you head to the beach.",
-            },
-            {
-              label: `Watch the tide window`,
-              href: `/tide/${params.city}`,
-              description: "See when tide timing helps the main breaks.",
-            },
+            // City tide/water-temp guides (/[intent]/[city]) are US-only.
+            ...(isUsa
+              ? [
+                  {
+                    label: `Check ${displayCityName} water temperature`,
+                    href: `/water-temp/${params.city}`,
+                    description: "Dial in gear before you head to the beach.",
+                  },
+                  {
+                    label: `Watch the tide window`,
+                    href: `/tide/${params.city}`,
+                    description: "See when tide timing helps the main breaks.",
+                  },
+                ]
+              : []),
           ]}
           className="mb-8"
         />
@@ -250,19 +255,21 @@ export function EditorialLayout({
           topSpotName={topSpot?.name || undefined}
         />
 
-        {/* Guides by Intent Grid */}
-        <GuidesByIntentGrid
-          cityName={editorial.city_name}
-          citySlug={params.city}
-          stateSlug={params.state}
-          featuredIntents={editorial.featured_intents}
-          beaches={beaches.map(({ slug, name, skill_level, crowd_level }) => ({
-            slug,
-            name,
-            skill_level,
-            crowd_level,
-          }))}
-        />
+        {/* Guides by Intent Grid (intent routes are US-only) */}
+        {isUsa && (
+          <GuidesByIntentGrid
+            cityName={editorial.city_name}
+            citySlug={params.city}
+            stateSlug={params.state}
+            featuredIntents={editorial.featured_intents}
+            beaches={beaches.map(({ slug, name, skill_level, crowd_level }) => ({
+              slug,
+              name,
+              skill_level,
+              crowd_level,
+            }))}
+          />
+        )}
 
         {/* Best Time to Surf cross-link for SEO indexation */}
         {bestTimeToSurfUrl && (

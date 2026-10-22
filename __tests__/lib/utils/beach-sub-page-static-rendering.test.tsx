@@ -196,6 +196,34 @@ describe("renderBeachSubPage static rendering", () => {
     expect(children.some((child) => child.type === WaterTempSummaryHero)).toBe(false);
   });
 
+  it("omits the seasonal-trends link for beaches outside US states", async () => {
+    // /water-temp/{city} is a US-only route; linking a Mexico city there 404ed.
+    jest.mocked(getBeachBySlugOrId).mockResolvedValue({
+      ...beach,
+      slug: "roberts-left",
+      name: "Roberts Left",
+      city: "Camalú",
+      state: "Baja California",
+      country: "Mexico",
+    });
+    (getWaterTempMetaData as jest.MockedFunction<typeof getWaterTempMetaData>)
+      .mockResolvedValue({ tempF: 64, wetsuitRec: "3/2mm fullsuit" });
+
+    const page = await renderBeachSubPage({
+      beachSlug: "roberts-left",
+      pageType: "water-temp",
+      beachPath: "/mexico/baja-california/camalu/roberts-left",
+    }) as PageTreeElement;
+    const beachDetail = getPageChildren(page).find(
+      (child) => child.type === BeachDetailClient,
+    );
+    const heroSummarySlot = (beachDetail?.props as { heroSummarySlot?: ReactElement } | undefined)
+      ?.heroSummarySlot;
+
+    expect(heroSummarySlot).toMatchObject({ type: WaterTempSummaryHero });
+    expect((heroSummarySlot?.props as { seasonalTrendsHref?: string }).seasonalTrendsHref).toBeUndefined();
+  });
+
   it("keeps the crawl-copy H1 and tide companion link when temperature is unavailable", async () => {
     const page = await renderBeachSubPage({
       beachSlug: "blacks",

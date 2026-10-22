@@ -5,7 +5,8 @@ import type { WaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
 interface WaterTempSummaryHeroProps {
   beachName: string;
-  seasonalTrendsHref: string;
+  /** Omitted where no city water-temp guide exists (outside US states). */
+  seasonalTrendsHref?: string;
   seasonalTrendsLocation: string;
   waterTempData: WaterTempMetaData;
 }
@@ -75,13 +76,15 @@ export function WaterTempSummaryHero({
           </p>
         ) : null}
 
-        <Link
-          href={seasonalTrendsHref}
-          className="mt-3 inline-flex min-h-11 items-center gap-1.5 font-[family-name:var(--font-mono)] text-xs font-black uppercase tracking-[0.09em] text-[#AA4918] underline decoration-2 underline-offset-4 transition-colors hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
-        >
-          Seasonal water trends for {seasonalTrendsLocation}
-          <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-        </Link>
+        {seasonalTrendsHref ? (
+          <Link
+            href={seasonalTrendsHref}
+            className="mt-3 inline-flex min-h-11 items-center gap-1.5 font-[family-name:var(--font-mono)] text-xs font-black uppercase tracking-[0.09em] text-[#AA4918] underline decoration-2 underline-offset-4 transition-colors hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
+          >
+            Seasonal water trends for {seasonalTrendsLocation}
+            <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+          </Link>
+        ) : null}
       </div>
     </div>
   );
