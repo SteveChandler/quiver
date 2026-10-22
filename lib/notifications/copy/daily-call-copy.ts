@@ -117,6 +117,23 @@ export function limitSentence(drivers: readonly WindowDriver[], endIso: string, 
   }
 }
 
+interface AlsoGoodBeach {
+  beach_name: string;
+  window_local: string;
+  wave_height_ft?: number | null;
+}
+
+/** "Also good: Del Mar 5–6 PM (3–4 ft) and Scripps 2–6 PM (3–4 ft)." */
+export function alsoGoodSentence(options: readonly AlsoGoodBeach[]): string {
+  const items = options.map((option) => {
+    const size = option.wave_height_ft == null ? "" : ` (${swellPhrase({ wave_height: option.wave_height_ft })})`;
+    // A push reads an estimated edge as a plain time.
+    return `${option.beach_name} ${option.window_local.replace(/~/g, "")}${size}`;
+  });
+  const list = items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : items[0];
+  return `Also good: ${list}.`;
+}
+
 interface ComparedBeach {
   forecast: ForecastNumbers;
   minutes: number;
