@@ -330,7 +330,7 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     }];
     const withOptions = def.validatePayload!({ ...payload, options });
     const push = def.buildPushPayload!(withOptions);
-    expect(push.body).toBe(`${payload.reason} Also: Scripps 9–11 AM.`);
+    expect(push.body).toBe(`${payload.reason} Also good: Scripps 9–11 AM.`);
     expect(JSON.parse(push.data.options as string)).toEqual(options);
     expect(JSON.parse(push.data.beaches as string)).toEqual([
       { beach_id: payload.beach_id, beach_name: payload.beach_name, rank: 1, forecast_at: payload.window_start },
