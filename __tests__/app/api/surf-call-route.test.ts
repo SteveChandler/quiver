@@ -253,6 +253,8 @@ describe("GET /api/surf/call", () => {
     ["site advisory", "advisory", { source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" }],
     ["closure", "closure", { source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" }],
     ["owner hold", undefined, { source: "hold" }],
+    ["gauge rain hold", "advisory", { source: "rain", rainAdvisory: { startedAt: "2026-10-22T12:00:00Z",
+      lastRainAt: "2026-10-22T11:00:00Z", expiresAt: "2026-10-25T11:00:00Z" } }],
   ])("exposes a held %s independent of the forecast candidate", async (_label, status, evidence) => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     canonicalContext.discovery.recommendations = [];

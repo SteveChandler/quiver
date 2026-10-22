@@ -331,6 +331,11 @@ jest.mock('@/lib/services/beach-query-service', () => ({
   }),
 }));
 
+// Rain notices have their own suite; these beaches are in San Diego, where they would read gauge events.
+jest.mock('@/lib/services/water-quality/rainfall-runoff-read', () => ({
+  withRainfallNotice: jest.fn(async (rows: unknown[]) => rows),
+}));
+
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
     from: mockSupabaseFrom,

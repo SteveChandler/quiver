@@ -117,14 +117,16 @@ function evaluateWaterQualityHold(
   }
 
   const normalizedBeachId = candidate.beachId.toLowerCase();
+  const heldUntil = resolution.heldUntilByBeachId?.[normalizedBeachId];
   const isHeld = resolution.heldBeachIds.some(
     (beachId) => beachId.toLowerCase() === normalizedBeachId,
-  );
+  ) && !(heldUntil !== undefined && Date.parse(candidate.startsAt) >= Date.parse(heldUntil));
   if (isHeld) {
     return {
       outcome: "explicit_none",
       reasonCode: "water_quality_hold",
       holdIds: [waterQualityHoldId(candidate.beachId)],
+      ...(heldUntil !== undefined ? { expiresAt: heldUntil } : {}),
       holdEpoch,
     };
   }
