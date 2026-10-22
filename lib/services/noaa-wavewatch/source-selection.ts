@@ -1,13 +1,36 @@
 import type { WaveWatchData } from "./types";
 
+const NWS_HALF_FOOT_M = 0.1524;
+
 function dominantSwell(point: WaveWatchData): { height: number; period: number; direction: number } {
   // NWS is period-ranked and OM is provider-ranked; compare the same height-ranked train.
-  if (point.swell_2_height != null && point.swell_2_period != null
-    && point.swell_2_direction != null && (point.swell_2_height > point.swell_1_height
-    || (point.swell_2_height === point.swell_1_height && point.swell_2_period > point.swell_1_period))) {
-    return { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction };
-  }
-  return { height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction };
+  const [first, second] = swellTrains(point);
+  return second && (second.height > first.height || (second.height === first.height && second.period > first.period))
+    ? second : first;
+}
+
+type Swell = ReturnType<typeof dominantSwell>;
+
+function swellTrains(point: WaveWatchData): [Swell, Swell?] {
+  const first = { height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction };
+  return point.swell_2_height != null && point.swell_2_period != null && point.swell_2_direction != null
+    ? [first, { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction }]
+    : [first];
+}
+
+/** Whole-foot NWS heights often tie two trains, and the period tie-break between them is arbitrary. */
+function tiedDominantSwells(point: WaveWatchData): Swell[] {
+  const dominant = dominantSwell(point);
+  return swellTrains(point).filter((swell): swell is Swell =>
+    swell !== undefined && Math.abs(swell.height - dominant.height) < 1e-6);
+}
+
+function comparable(a: Swell, b: Swell): boolean {
+  return Math.min(a.height, b.height) >= 0.3 && Math.min(a.period, b.period) >= 8;
+}
+
+function degreesApart(a: Swell, b: Swell): number {
+  return Math.abs(((a.direction - b.direction + 540) % 360) - 180);
 }
 
 function valid(point: WaveWatchData): boolean {
@@ -47,13 +70,14 @@ export function mergeWaveSources(noaa: WaveWatchData[], om: WaveWatchData[]): Wa
     const low = Math.min(heights[0] ?? Infinity, heights[1] ?? Infinity);
     const high = Math.max(heights[0] ?? 0, heights[1] ?? 0);
     // Operational uncertainty guard, not a claim that either model is more accurate.
-    const heightDisagreement = high - low >= 0.3 && high >= low * 1.5;
+    // NWS gridpoint heights are whole feet, so up to half a foot of the gap can be
+    // rounding; the 0.3 m floor must hold beyond it. The ratio stays on reported values.
+    const heightDisagreement = high - low - NWS_HALF_FOOT_M >= 0.3 && high >= low * 1.5;
     const nwsSwell = nws && dominantSwell(nws);
     const omSwell = meteo && dominantSwell(meteo);
     const directionDisagreement = !!nwsSwell && !!omSwell
-      && Math.min(nwsSwell.height, omSwell.height) >= 0.3
-      && Math.min(nwsSwell.period, omSwell.period) >= 8
-      && Math.abs(((nwsSwell.direction - omSwell.direction + 540) % 360) - 180) >= 45;
+      && comparable(nwsSwell, omSwell) && degreesApart(nwsSwell, omSwell) >= 45
+      && !tiedDominantSwells(nws!).some((swell) => comparable(swell, omSwell) && degreesApart(swell, omSwell) < 45);
     const disagreement = !!nws && !!meteo && (heightDisagreement || directionDisagreement);
     return {
       ...selected,

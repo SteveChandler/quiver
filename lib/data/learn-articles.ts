@@ -449,34 +449,33 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "best-surf-conditions-for-beginners",
-    title: "Best Surf Conditions for Beginners: Size, Wind & Tide",
-    description: "Learn the best beginner surf conditions: 1-3 ft waves, 12+ sec period, light offshore wind, mid tide, and lower-crowd windows before you paddle out.",
-    readingTimeMin: 5,
+    title: "Best Surf Conditions for Beginners: Size, Tide, Wind",
+    description: "Best beginner surf conditions: 1-3 ft faces, 10+ second swell, wind under 10 mph, mid tide over sand. Check today's beginner verdict at your beach.",
+    readingTimeMin: 3,
     datePublished: "2026-03-26",
+    dateModified: "2026-10-21",
     heroImage: "/4groms.jpg",
     thumbnailImage: "/4groms.jpg",
     keywords: [
       "best surf conditions for beginners",
-      "what waves are good for beginners",
-      "beginner surf conditions",
-      "learning to surf",
+      "best tide to surf for beginners",
+      "good wave height for beginner surfers",
+      "what size waves are good for beginners",
       "beginner swell size",
     ],
     sections: [
       {
-        id: "overview",
-        heading: "The Ideal Beginner Session",
-        content: `<p>You don't need big waves — you need repeatable waves. The best beginner session has small consistent surf, long period, light offshore wind, and mid-tide over sand. That combo gives you soft, predictable waves breaking in the same spot. You'll catch 10+ waves, build muscle memory, and not get worked. A <strong>2-foot swell at 14 seconds</strong> in offshore wind will teach you more than a 6-foot day with onshore chop. Your local beach probably serves this up 1-2 times a week if you know what to look for.</p>`,
-        keyTakeaway:
-          "Best beginner sessions have small consistent waves (1-3 feet), long period (12+ sec), offshore wind, and mid-tide.",
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Look for waves 1 to 3 feet on the face, wind under 10 mph (or offshore), and a mid tide over a sandy bottom. Swell period of 10 seconds or more is a bonus. Miss on two of those and stay home.</p><p>Your beach hits this a couple of mornings a week. To see whether today is one, open the <a href="/beginner/san-diego">San Diego beginner page</a> or pick your own city from <a href="/beginner/orange-county">Orange County</a>, <a href="/beginner/santa-cruz">Santa Cruz</a> or <a href="/beginner/huntington-beach">Huntington Beach</a>. Each one gives a yes, maybe or no for learners right now.</p>`,
+        keyTakeaway: "Face 1-3 ft, wind under 10 mph, mid tide. Two misses means skip it.",
         image: { src: "/images/learn/learn-surfer-walks.jpg", alt: "Surfer walking toward gentle waves at a beginner-friendly beach", position: "right" },
       },
       {
         id: "wave-height",
-        heading: "Wave Height: 1-3 Feet (Face Height) Is Ideal",
-        content: `<p><strong>1-3 foot face height</strong> is the sweet spot — roughly 0.5-2 feet significant height on a forecast. Learning to pop up takes 100+ reps, and small waves let you practice safely without getting worked. If a forecast says 2 feet, expect 3-4 foot faces (significant height is 60-70% of face height). That's borderline — still okay with long period and offshore wind. Above 4 feet significant (6+ foot faces) is intermediate territory. Simple rule: if you can't duck-dive confidently, it's too big.</p>`,
-        keyTakeaway:
-          "Start on 1-3 foot face height (0.5-2 feet on the forecast), which gives you safe, repeatable waves for practicing.",
+        heading: "What wave height is good for beginners?",
+        content: `<p>Face height of 1 to 3 feet, up to about waist to chest high on you. That's the size at Doheny on a small summer day, or Cowells on a lazy morning. You get 15 or 20 tries a session, and a wipeout is mostly just a swim.</p><p>Forecasts and lifeguards don't always measure the same way. A forecast showing 2 ft can look like 3 to 4 ft faces at the beach. Walk down and look.</p><p>If you can't duck-dive or push through whitewater yet, 4 ft is too big. Watch from the sand for 10 minutes. If you're not sure, don't paddle out.</p>`,
+        keyTakeaway: "Under 3 ft face while learning; 4 ft needs a confident duck dive.",
         image: {
           src: "/images/activities/beginner-friendly.webp",
           alt: "Beginner surfer riding small whitewater waves",
@@ -484,124 +483,107 @@ export const learnArticles: LearnArticle[] = [
         },
       },
       {
-        id: "period-for-beginners",
-        heading: "Swell Period: Why Longer Period Is Actually Easier",
-        content: `<p>Long-period waves break slower and more predictably — the opposite of what most beginners expect. A <strong>14-second period</strong> gives you 14 seconds between waves to paddle back out and regroup. A 6-second period means constant chaos. Long-period swells also stand up slower, giving you more time to pop up and set your line. A 16-second ground swell at 2 feet feels way more approachable than a 6-second wind swell at 3 feet. If your forecast shows <strong>12+ seconds</strong>, that's your best learning window.</p>`,
-        keyTakeaway:
-          "Long-period swells (12+ sec) break slower and more predictably, giving beginners time to set up and recover between waves.",
+        id: "period",
+        heading: "What swell period do beginners want?",
+        content: `<p>10 to 14 seconds. Longer gaps mean organized lines and time to paddle back out. At 6 or 7 seconds, waves stack up on each other and you spend the session getting pushed around by whitewater.</p><p>A 2 ft wave at 12 seconds is easier to catch than a 3 ft wave at 7. Past about 16 seconds the waves get powerful even when they're small, so a big long-period swell is a day for the beach.</p>`,
+        keyTakeaway: "10-14 seconds is the friendly range; under 8 is mush and chop.",
       },
       {
         id: "wind",
-        heading: "Wind: Offshore Early Morning Is Best",
-        content: `<p>Offshore wind holds up the wave face and slows the break — easier pop-ups, easier control. Early morning is almost always offshore because land cools overnight, pulling wind from shore to sea. By noon, heating reverses it to onshore. That's why every surfer wakes up at dawn. If the forecast shows offshore until 10 AM, be in the water by 7. Even <strong>5 knots offshore</strong> helps; <strong>10+ knots offshore</strong> is excellent. Onshore wind makes the same waves unrideable for beginners — pick a different day.</p>`,
-        keyTakeaway:
-          "Offshore wind holds up waves and slows breaks, making them easier to catch and control. Early morning (before heating) has the best offshore window.",
+        heading: "How much wind is too much?",
+        content: `<p>Under 10 mph is clean enough. Offshore wind, blowing from land to sea, holds the face up and gives you more time to stand. Glassy, with no wind at all, is just as good.</p><p>Onshore over 10 mph turns the face to chop. Most California beaches go onshore by late morning, so aim for the first two hours after sunrise. At Linda Mar, that's usually the difference between a lesson and a washing machine.</p>`,
+        keyTakeaway: "Under 10 mph, or offshore. Be in the water by 7 AM.",
         image: { src: "/images/learn/learn-dawn-patrol.jpg", alt: "Surfers heading out at golden hour — dawn patrol for calm offshore winds", position: "right" },
       },
       {
         id: "tide",
-        heading: "Tide: Mid-Tide on Sand Is Sweet Spot",
-        content: `<p><strong>Mid-tide on a sandy bottom</strong> is the most forgiving setup. Low tide exposes bars and creates hollow, fast sections — not beginner-friendly. High tide floods everything out, making it slow and mushy. Mid-tide (roughly 3-4 hours after low) creates balanced bar shapes where waves peel smoothly. Sand is also softer than reef when you fall. Learn your break's best tide window by surfing different tides and noting where peaks form.</p>`,
-        keyTakeaway:
-          "Mid-tide on a sandy beach creates the most forgiving, consistent waves because the bar is balanced and waves slow down gradually.",
+        heading: "What's the best tide to surf for beginners?",
+        content: `<p>Mid tide, on sand. Roughly the 2 hours either side of halfway between low and high.</p><p>Low tide on a steep beach makes waves jump up and slam down close to shore. High tide can drown a flat beach into slow, shapeless mush. Mid tide gives you a soft shoulder you can ride in.</p><p>Every break is a little different. Cowells is a slow point wave that tolerates more tides than most. A steep beach like Mission Beach is pickier. Write down what the tide was on your best day there and repeat it.</p>`,
+        keyTakeaway: "Surf the middle 4 hours of the tide, not dead low or dead high.",
       },
       {
-        id: "crowd-management",
-        heading: "Crowd Management: When to Avoid the Pack",
-        content: `<p>You'll progress faster in empty lineups than fighting 50 people for waves at a famous spot. Crowded sessions mean fewer waves, more collisions, and less room to make mistakes. Go on weekday mornings before work. Target smaller swells that don't draw the crowd. Hit lesser-known beaches with the same conditions and more space. You don't need the best wave — you need a forgiving wave with room to paddle. After 6 months of consistent practice in smaller crowds, you'll be ready for the lineups.</p>`,
-        keyTakeaway:
-          "Beginners progress faster in less crowded sessions: choose weekday mornings, smaller swells, and lesser-known spots over famous beaches.",
+        id: "spots",
+        heading: "Where does this show up in California?",
+        content: `<p>Sandy beach breaks with a wide, soft inside: Doheny and Bolsa Chica in Orange County, La Jolla Shores and Mission Beach in San Diego, Linda Mar south of San Francisco, Cowells in Santa Cruz. Our guides cover <a href="/learn/beginner-breaks-orange-county">Orange County</a> and <a href="/learn/beginner-breaks-santa-cruz">Santa Cruz</a> spot by spot.</p><p>Go on a weekday morning. Fewer people means more waves for each of you.</p>`,
+        keyTakeaway: "Weekday mornings: fewer people, more waves per session.",
         image: {
           src: "/images/blacks.webp",
           alt: "Crowded lineup at a popular surf break",
           position: "left",
         },
       },
-      {
-        id: "using-forecast",
-        heading: "Using a Forecast to Plan Your Beginner Session",
-        content: `<p>The checklist: (1) height under 3 feet significant, (2) period 12+ seconds, (3) offshore wind under 10 knots, (4) mid-tide timing. When a forecast matches all four, that's your day. Example: Tuesday 6 AM, 1.5 feet at 14 seconds, 8 knots offshore, high tide 7:30 AM — perfect beginner session. Don't paddle randomly hoping conditions work out. Use Quiver to scan the next 7 days and block the best windows. Within a few weeks, you'll spot the pattern at your break.</p>`,
-        keyTakeaway:
-          "Use forecasts to match four conditions: height under 3 feet, period 12+ sec, offshore wind, and mid-tide. Plan sessions around these windows.",
-      },
     ],
     faqs: [
       {
-        question: "Can I learn on 4-foot waves?",
+        question: "What is a good wave height for beginner surfers?",
         answer:
-          "Yes, but it's slower and harder. Small days (1-3 feet) let you practice more frequently and safely. 4-foot waves require better fitness and balance. Most beginners improve fastest on 2-3 foot waves where they can catch 15-20 waves per session instead of 5-10.",
+          "1 to 3 feet on the face. That's knee to chest high on most people. Forecasts often read lower than what you see, so a 2 ft forecast can look like 3 to 4 ft at the beach. Check it from the sand first.",
       },
       {
-        question: "Is a long-period swell really easier than short period?",
+        question: "What size waves are good for beginners?",
         answer:
-          "Yes. Long-period swells break slower and more predictably, giving you time to pop up and set your line. Short-period swells come fast and mushy, making it harder to catch and harder to ride. 14-second swell at 2 feet beats 6-second swell at 4 feet for learning.",
+          "Waist-high whitewater to chest-high green waves, around 1 to 3 feet. If you can't push through whitewater or duck-dive yet, anything near 4 feet is too big.",
       },
       {
-        question: "What's a good morning to paddle if wind is onshore?",
+        question: "What is the best tide to surf for beginners?",
         answer:
-          "Don't. Onshore wind makes waves chaotic and blown-out. Wait for an offshore day or find a break that faces a different direction so you can access an offshore window. One offshore day per week is better than five onshore days.",
+          "Mid tide over sand. Dead low can make waves dump close to shore, and dead high can leave a flat beach slow and mushy. Note which tide your local break works best on and repeat it.",
       },
       {
-        question: "Do I need to check tide if I'm just learning?",
+        question: "What wind is best for beginner surfing?",
         answer:
-          "Yes. Tide changes wave shape significantly. Low tide makes waves hollow and fast; high tide makes them slow and mushy. Mid-tide is usually best. Learn your local break's tidal window so you can time your sessions right.",
+          "Under 10 mph, or light offshore. Glassy early morning is ideal. Onshore wind over 10 mph chops up the face, which makes catching waves much harder.",
       },
       {
-        question: "How long until I can surf bigger waves?",
+        question: "Is a longer swell period easier for beginners?",
         answer:
-          "Roughly 50-100 sessions of 20-30 minutes on 2-3 foot waves. This builds paddle strength, balance, and wave sense. After that, 4-5 foot waves are manageable. Above 6 feet, you need fitness, confidence, and knowledge of your break. Small-wave practice is not wasted—it's the foundation.",
+          "Up to a point. 10 to 14 seconds gives you clean lines and time to paddle back out. Under 8 seconds is choppy, and past about 16 seconds even small waves have real push.",
       },
     ],
     relatedLinks: [
       {
         label: "What Size Surfboard Should I Get?",
         href: "/learn/what-size-surfboard-should-i-get",
-        description:
-          "Board sizing guide — why foamies accelerate learning.",
+        description: "Why a big foam board helps you learn faster.",
       },
       {
         label: "Surf Etiquette Rules",
         href: "/learn/surf-etiquette-rules",
-        description:
-          "Know the lineup rules before you paddle out.",
-      },
-      {
-        label: "How to Read Surf Conditions",
-        href: "/learn/how-to-read-surf-conditions",
-        description:
-          "Learn to read all metrics so you can identify beginner-friendly conditions.",
+        description: "Know the lineup rules before you paddle out.",
       },
       {
         label: "Swell Period Explained",
         href: "/learn/swell-period-explained",
-        description:
-          "Understand why long-period swells are easier for beginners to learn on.",
+        description: "What the seconds number on a forecast means.",
+      },
+      {
+        label: "Best Time of Day to Surf",
+        href: "/learn/best-time-of-day-to-surf",
+        description: "When the wind drops and the water cleans up.",
       },
       {
         label: "Surf Paddling for Beginners",
         href: "/learn/surf-paddling-for-beginners",
-        description:
-          "Paddling technique is the skill that gates every other one.",
+        description: "Paddling is the skill that gates every other one.",
       },
       {
-        label: "Best Beginner Surf Spots in San Diego",
+        label: "Beginner Surf Spots in San Diego",
         href: "/learn/beginner-breaks-san-diego",
-        description:
-          "Where these conditions actually show up on the San Diego coast.",
+        description: "Where these conditions show up on the San Diego coast.",
       },
       {
-        label: "Best Beginner Surf Spots in Santa Cruz",
-        href: "/learn/beginner-breaks-santa-cruz",
-        description:
-          "Where these conditions actually show up around Santa Cruz.",
-      },
-      {
-        label: "Beginner Surf Spots in Carlsbad",
-        href: "/learn/beginner-breaks-carlsbad",
-        description:
-          "Where these conditions show up on the Carlsbad coast.",
+        label: "Beginner Surf Spots in Orange County",
+        href: "/learn/beginner-breaks-orange-county",
+        description: "Doheny, Bolsa Chica and the other soft sand breaks.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Is today a beginner day?",
+      title: "See today's beginner verdict at your beach",
+      description:
+        "Quiver checks wave height, period, wind and tide at your beach and tells you yes, maybe or no for learners, plus the best time window.",
+      ctaLabel: "Check my beach",
+    },
   },
 
   {
@@ -1380,35 +1362,31 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "best-time-of-day-to-surf",
-    title: "Best Time of Day to Surf: Why Morning Usually Wins",
+    title: "Best Time of Day to Surf in California",
     description:
-      "Dawn usually wins on wind, but not always. What makes morning surf cleaner, when an afternoon glass-off beats it, and how to check today's window.",
-    readingTimeMin: 7,
+      "Dawn to about 10 AM is usually glassiest in California, before the sea breeze builds. Evening glass-off and tide can beat the clock. Here's how to pick.",
+    readingTimeMin: 3,
     datePublished: "2026-03-30",
-    dateModified: "2026-09-02",
+    dateModified: "2026-10-21",
     heroImage: "/images/learn/learn-dawn-patrol.jpg",
     thumbnailImage: "/images/learn/learn-dawn-patrol.jpg",
     keywords: [
       "best time to surf",
+      "best time of day to surf",
+      "best time to surf in california",
       "dawn patrol surfing",
-      "when to surf",
-      "glass off surfing",
       "morning surf vs afternoon",
-      "best time of day waves",
+      "glass off surfing",
       "why waves better morning",
-      "morning surf better",
-      "glassy conditions",
-      "thermal wind surfing",
-      "dawn patrol why",
-      "offshore morning",
+      "sea breeze surfing",
+      "when does the wind pick up surfing",
     ],
     sections: [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>The best time of day is the window when <strong>swell, wind, tide, daylight, and crowd level</strong> line up at your break. Dawn often wins because overnight cooling can leave light land-to-sea or calm wind before daytime heating builds an onshore sea breeze. A late-afternoon glass-off can offer a second chance when that breeze fades. Neither window is automatic: a front, trade wind, marine layer, canyon wind, or unfavorable tide can make midday or another hour the better call.</p><p>Start with the swell window, then compare wind direction and speed by hour, tide stage, and sunrise or sunset. Treat familiar times such as 5:30-8 AM or 4-6 PM as examples, not universal rules.</p>`,
-        keyTakeaway:
-          "Choose the overlap of swell, favorable wind, workable tide, and daylight; dawn is a common pattern, not a guarantee.",
+        content: `<p>Paddle out at first light and plan to be done by about 10 AM. On most California days the sea breeze builds late morning and is often blowing 10-15 mph by early afternoon, which turns a smooth face into bumps. Some evenings the wind drops again in the last hour or so before sunset and you get a second glassy window.</p><p>That's the pattern, not a promise. Open <a href="/best-time-to-surf/la-jolla">La Jolla's best time to surf</a> to see how the seasons play out at one beach, then check today's wind hour by hour before you set an alarm.</p>`,
+        keyTakeaway: "Be in the water by 7 AM and out by 10 AM.",
         image: {
           src: "/images/learn/learn-dawn-patrol.jpg",
           alt: "Surfers heading out at golden hour during dawn patrol",
@@ -1417,102 +1395,94 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         id: "thermal-cycle",
-        heading: "Why Waves Are Often Cleaner in the Morning",
-        content: `<p>Land changes temperature faster than the adjacent ocean. Overnight, the ground loses heat and the air above it cools. When that cooler, denser air flows toward relatively warmer water, a west-facing beach may receive an easterly <strong>offshore land breeze</strong>. Light offshore wind smooths small surface chop and pushes against the breaking lip, helping the face stay organized.</p><p>After sunrise, land warms. If the larger weather pattern is weak enough, rising warm air over land draws cooler marine air shoreward and establishes an <strong>onshore sea breeze</strong>. The change is a circulation, not a stopwatch. Terrain, cloud cover, season, and the land-ocean temperature contrast determine whether the switch happens early, late, or not at all.</p>`,
-        keyTakeaway:
-          "Morning quality often comes from the land-breeze side of a land-sea thermal circulation, which daytime heating may reverse.",
+        heading: "Why is the morning glassy?",
+        content: `<p>Overnight the land cools faster than the ocean. The air over the coast is calm or drifts lightly out to sea. Nothing is pushing on the water, so the faces stay smooth.</p><p>After sunrise the land heats up. Hot air rises and cooler ocean air rushes in to fill the gap. That's the sea breeze. At Huntington Beach it usually shows up between 10 and 11 AM, a little earlier when it's hot inland.</p>`,
+        keyTakeaway: "Sea breeze turns on around 10 AM; calm air before that is the prize.",
       },
       {
-        id: "wind-reading",
-        heading: "Translate Wind Direction for Your Beach",
-        content: `<p>“East wind” is not automatically offshore. It describes where wind comes from, and the result depends on beach orientation. An east wind is offshore at a west-facing beach, onshore at an east-facing beach, and cross-shore on many north- or south-facing stretches. Curved bays and headlands complicate the compass relationship further.</p><p>Use a map to identify the direction the beach faces, then compare hourly wind arrows. As a practical screen, <strong>calm to light favorable wind</strong> usually deserves a look; increasing cross-onshore or onshore wind lowers surface quality. Strong offshore wind can also be a poor choice because it blows spray into your vision, makes entry and paddling harder, and can carry a surfer or board seaward. Conditions and ability still decide.</p>`,
-        keyTakeaway:
-          "Convert the forecasted compass direction into offshore, cross-shore, or onshore for the exact beach rather than relying on a generic label.",
+        id: "wind-speed",
+        heading: "How much wind is too much?",
+        content: `<p>Under about 8 mph is clean at almost any beach. A light offshore, up to 10 or so, grooms the face even better. Onshore above 12 mph and you're surfing bumps and whitewater chop.</p><p>Ocean Beach in San Francisco is the extreme case. The afternoon onshore there can run past 20 mph through spring and summer, so locals surf it at dawn or not at all. Check the wind arrow against which way your beach faces before you trust the number.</p>`,
+        keyTakeaway: "Under 8 mph is clean; onshore over 12 mph means bumpy.",
       },
       {
-        id: "tide-and-swell",
-        heading: "Let Tide and Swell Override the Alarm Clock",
-        content: `<p>Clean wind cannot fix the wrong tide or a swell outside the break's exposure window. A reef may become too shallow near low tide; a steep beach can backwash near high tide; a point may need enough water over an inside section; and a beach break may work best only while a particular bar has a usable depth. Those relationships are local and can change with sand movement.</p><p>Compare the best wind window with the tide curve. If dawn is clean but the known tide window arrives at 11 AM, check whether wind remains acceptable until then. If not, choose the less compromised combination rather than chasing one perfect variable. Posted closures, lifeguard guidance, current, visibility, and your own judgment take priority over any timing rule.</p>`,
-        keyTakeaway:
-          "The best hour is the best overlap, not necessarily the cleanest wind hour; tide and swell exposure can be decisive.",
+        id: "evening",
+        heading: "Does the evening glass-off work?",
+        content: `<p>Often, yes. As the land cools after about 4 PM, the sea breeze can fade and the surface smooths out for the last hour before dark. Summer evenings at Newport Beach and Malibu are the classic examples.</p><p>It doesn't happen every day, and you'll share it with everyone who just got off work. Look at the 4 PM wind. If it's under 8 mph and still dropping, go. If it's still climbing, skip it.</p>`,
+        keyTakeaway: "Wind under 8 mph and falling at 4 PM means go.",
       },
       {
-        id: "glass-off",
-        heading: "When an Afternoon Glass-Off Is Worth Watching",
-        content: `<p>A glass-off happens when daytime wind weakens enough for the surface to smooth, often as heating fades late in the day. Watch the hourly trend: a steady drop toward calm before sunset is more promising than a forecast that remains onshore through dark. Also check the live observation, because the fade can occur earlier or later than the model interval.</p><p>The window may last less than an hour, and smooth water does not mean the swell improved. Afternoon tide, crowd, glare, and limited daylight may erase the advantage. Decide on a latest safe entry time and leave margin to return before visibility becomes poor. If wind is still building or the tide is moving out of range, glass-off is a hope rather than a plan.</p>`,
-        keyTakeaway:
-          "Look for a measured wind decrease before sunset and enough tide and daylight margin; smooth water alone is not a complete session call.",
+        id: "tide",
+        heading: "When does tide beat the clock?",
+        content: `<p>A glassy 7 AM at the wrong tide still surfs badly. Beach breaks like Huntington often go soft and mushy at high tide. Shallow reefs like Windansea in La Jolla get hollow and risky near low.</p><p>If the clean window and your tide window don't overlap, pick the hour where both are decent. A little chop at the right tide beats glass at the wrong one.</p>`,
+        keyTakeaway: "Check the tide chart before the alarm; glass at the wrong tide loses.",
       },
       {
-        id: "exceptions",
-        heading: "Know When the Morning Pattern Does Not Apply",
-        content: `<p>Large-scale, or synoptic, weather can overpower the local thermal circulation. Fronts, strong pressure gradients, persistent trade winds, Santa Ana-type offshore events, and coastal lows may set the wind from midnight through afternoon. A morning can therefore start choppy, stay strongly offshore, or improve later after a front passes.</p><p>Fog and marine cloud can delay land heating and the sea-breeze transition, but fog is not proof of offshore wind. It can arrive with onshore flow, reduce visibility, and hide sets or landmarks. The land-sea cycle occurs on many coasts, yet it is not equally strong worldwide: high latitudes, monsoon regimes, exposed islands, and windy seasons may be controlled mainly by broader weather. Check the local pattern rather than exporting a California schedule.</p>`,
-        keyTakeaway:
-          "Fronts and regional wind regimes can dominate; fog may delay heating but can also arrive with onshore wind and poor visibility.",
-      },
-      {
-        id: "decision-routine",
-        heading: "Use a Night-Before and Beach-Arrival Check",
-        content: `<p>The night before, shortlist two windows: a primary session and a fallback. Compare hourly wind, tide stage, swell direction and period, sunrise or sunset, and any advisories. In the morning, check whether the actual wind and buoy trend match the forecast. A one-hour timing shift is common enough that flexibility matters more than a rigid alarm.</p><p>At the beach, watch at least two or three set cycles. Check surface texture outside, current, the paddle route, crowd movement, and whether the expected peak is working. If the forecast and ocean disagree, trust the observed conditions while staying within your ability. No timing method makes surfing safe; defer to lifeguards and posted conditions and choose not to paddle out when the situation is unclear.</p>`,
-        keyTakeaway:
-          "Plan a primary and fallback window, then confirm the call from shore across several sets before deciding.",
+        id: "seasons",
+        heading: "How do fog and seasons change it?",
+        content: `<p>May and June bring low cloud along Southern California. A cool, cloudy coast heats slowly, so glass can last until noon. It also cuts visibility, so wait on the sand until you can see the sets.</p><p>Winter breaks the rules. A Santa Ana offshore can keep a beach clean all day. Ahead of a storm front the wind swings south and trashes the morning, then cleans up once the front passes. If you're not sure the water is safe or sensible, watch from shore for 10 minutes first.</p>`,
+        keyTakeaway: "Gloom can stretch glass to noon; Santa Anas can clean whole days.",
       },
     ],
     faqs: [
       {
-        question: "Is dawn patrol always the best time?",
+        question: "What is the best time of day to surf?",
         answer:
-          "No. Dawn is favored when the local land breeze is light and the tide and swell also work. A front, strong regional wind, poor visibility, current, or the wrong tide can make another window better or make the session unsuitable.",
+          "Sunrise to about 10 AM. The wind is lightest then, so the waves are cleanest. A second window opens in the last hour before sunset on days when the sea breeze dies.",
       },
       {
-        question: "What is glass-off?",
+        question: "What time does the wind pick up for surfing?",
         answer:
-          "Glass-off is the surface cleanup that occurs when daytime wind weakens, often late in the afternoon. It can be brief or fail to occur, so compare the forecasted trend with current observations and preserve enough daylight for the session.",
+          "Usually between 10 AM and noon in California, reaching 10-15 mph by early afternoon. It comes earlier on hot inland days and later under June gloom clouds.",
       },
       {
-        question: "Does time of day affect wave size?",
+        question: "Is it better to surf in the morning or the evening?",
         answer:
-          "The swell source does not grow because it is morning, but tide, local wind swell, and surface texture can change what breaks at the beach. Time of day mainly affects local wind and the practical quality of a given swell.",
+          "Morning is more reliable. Evening glass-off only happens when the wind drops, and the lineup is fuller. Check the 4 PM wind before you commit.",
       },
       {
-        question: "Why are some mornings still choppy?",
+        question: "Is high or low tide better for surfing?",
         answer:
-          "A front, coastal low, trade wind, or other large-scale pressure pattern can overpower the weak land breeze. Leftover wind chop from overnight can also remain after the local wind eases.",
+          "It depends on the break. Many beach breaks work best around mid-tide. Reefs often need more water, and some go soft at high tide. Check the local tide window before the time of day.",
       },
       {
-        question: "Does fog extend the offshore window?",
+        question: "Is it too late to surf at 10 AM?",
         answer:
-          "It can delay solar heating and postpone a sea-breeze switch, but fog does not guarantee offshore wind. Marine fog often accompanies onshore flow and reduces visibility, so verify wind and conditions rather than using fog alone.",
+          "Not always. On cloudy mornings or with a Santa Ana offshore, 10 AM can still be clean. Check the live wind reading at your beach before you decide it's blown out.",
       },
       {
-        question: "Does the morning pattern hold worldwide?",
+        question: "What is the best time of year to surf in California?",
         answer:
-          "Land-sea thermal circulation occurs on many coastlines, but its strength and timing vary. Seasonal trade winds, monsoons, fronts, high-latitude weather, island terrain, and local topography can dominate the daily cycle.",
+          "Fall is known for clean mornings and offshore days. Winter brings the biggest northwest swells. Summer brings smaller south swell in Southern California.",
       },
     ],
     relatedLinks: [
       {
-        label: "Offshore vs Onshore Wind",
-        href: "/learn/offshore-vs-onshore-wind-surfing",
-        description: "Why wind direction matters more than wind speed.",
+        label: "La Jolla surf report today",
+        href: "/surf-report/la-jolla-today",
+        description: "Today's wind, tide and wave height at Windansea and Scripps.",
       },
       {
-        label: "How to Read Surf Conditions",
-        href: "/learn/how-to-read-surf-conditions",
-        description: "Combine wind, tide, swell, and local observations.",
+        label: "Offshore vs Onshore Wind",
+        href: "/learn/offshore-vs-onshore-wind-surfing",
+        description: "Which wind direction is clean at your beach.",
+      },
+      {
+        label: "How Tides Work",
+        href: "/learn/how-do-tides-work",
+        description: "Read the tide chart before you pick a time.",
       },
       {
         label: "Check Wind Forecast",
         href: "/forecast",
-        description:
-          "See the 3-hour wind forecast for your break tonight.",
+        description: "See the hourly wind forecast for your break tonight.",
       },
     ],
     appHandoff: {
       eyebrow: "Today's window",
-      title: "Find this morning's window at your beach.",
+      title: "Find today's glassy window at your beach.",
       description:
-        "Quiver scores every hour by wind, tide, and swell, so you can see when today's cleanest window actually falls.",
+        "Quiver lines up hourly wind, tide and swell for your beach, so you can see when the glass ends and set the alarm for the right hour.",
       ctaLabel: "See today's windows",
     },
   },
@@ -1828,95 +1798,110 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "how-long-to-learn-to-surf",
-    title: "How Long Does It Take to Learn to Surf? By Milestone",
+    title: "How Long Does It Take to Learn to Surf?",
     description:
-      "Standing in whitewater takes 1-3 sessions; riding green waves down the line takes months. The realistic timeline by milestone and what speeds it up.",
-    readingTimeMin: 2,
+      "Most people stand on whitewater in 1-3 sessions, catch green waves after 10-20, and paddle out at a beach break in a few months. What speeds it up.",
+    readingTimeMin: 3,
     datePublished: "2026-03-30",
-    dateModified: "2026-09-02",
+    dateModified: "2026-10-21",
     heroImage: "/images/learn/learn-first-waves.webp",
     thumbnailImage: "/images/learn/learn-first-waves.webp",
     keywords: [
+      "how long does it take to learn to surf",
       "how long to learn to surf",
+      "how many surf lessons to learn",
       "learning to surf timeline",
-      "beginner surfer progression",
-      "surf lessons",
-      "how hard is surfing",
-      "learn to surf time",
+      "how hard is it to learn to surf",
+      "learn to surf as an adult",
     ],
     sections: [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Standing on whitewater: <strong>1-3 sessions</strong>. Catching unbroken green waves: <strong>2-4 weeks</strong> of regular practice. Riding down the line confidently: <strong>3-6 months</strong>. Intermediate level (reading waves, generating speed, basic turns): <strong>1-2 years</strong> at 2-3 sessions per week. These timelines assume an 8-9 ft foamie board, proper conditions (1-3 ft waves, offshore wind), and basic swimming fitness. Coaching from a surf school accelerates the first two milestones by 50% or more.</p>`,
+        content: `<p>You'll stand up on whitewater in your first 1 to 3 sessions on a soft-top 8 to 9 ft board. Catching unbroken green waves takes roughly 10 to 20 sessions. Paddling out at a beach break and turning on your own takes a few months of surfing two or more times a week. Those are typical timelines, not promises.</p><p>The fastest way to hit them is to surf small days. <a href="/beginner/san-diego">See which San Diego beaches are beginner-sized this week</a>, or swap in your own city.</p>`,
         keyTakeaway:
-          "Expect 3-6 months to ride green waves confidently. 1-2 years for intermediate skills. Proper equipment and coaching accelerate everything.",
+          "Plan on 1-3 sessions to stand, 10-20 for green waves.",
       },
       {
-        id: "detail",
-        heading: "The Four Milestones of Learning to Surf",
-        content: `<p><strong>Milestone 1 — Standing on foam (1-3 sessions)</strong>: Catching whitewater and popping up. Most people achieve this in their first lesson. The key is paddling technique and committing to the pop-up motion.</p><p><strong>Milestone 2 — Green waves (2-4 weeks)</strong>: Paddling into unbroken waves, angling the takeoff, and riding the face. This requires reading wave shapes, positioning in the lineup, and stronger paddle fitness. This is where most people stall — the jump from foam to green waves is the biggest hurdle.</p><p><strong>Milestone 3 — Down the line (3-6 months)</strong>: Consistently catching green waves and riding along the wave face with speed and control. You can now surf most 1-4 foot breaks safely.</p><p><strong>Milestone 4 — Intermediate (1-2 years)</strong>: Reading wave sections, generating speed through pumping, bottom turns, cutbacks. You understand forecasts, know your local breaks' moods, and can handle 4-6 foot surf.</p>`,
-        keyTakeaway:
-          "Four milestones: foam standing (days), green waves (weeks), down-the-line riding (months), intermediate turns (1-2 years).",
+        id: "first-sessions",
+        heading: "What happens in your first three sessions?",
+        content: `<p>Session one is mostly paddling, falling and getting rolled by whitewater. That's normal. Whitewater is the foamy part of a wave after it breaks. It shoves you toward the beach and gives you time to stand.</p><p>By session two or three, most people ride a foam wave to the sand. Pick a gentle sandy beach for this: Doheny in Dana Point, Cowells in Santa Cruz, La Jolla Shores in San Diego. Practice the pop-up on dry sand first. Five minutes of reps in the parking lot saves you an hour of flailing in the water.</p>`,
+        keyTakeaway: "Practice 10 pop-ups on sand before you paddle out.",
       },
       {
-        id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p><strong>Accelerators</strong>: Take 2-3 professional lessons to nail the pop-up technique correctly. Bad habits formed in the first month take 6 months to fix. Surf <strong>2-3 times per week minimum</strong> — once a week isn't enough for muscle memory. Use a foamie until Milestone 3. Check Quiver's forecast and target <strong>1-3 foot days with long period and offshore wind</strong> — you'll catch 3x more waves in good conditions than in 5-foot onshore chop. Track your sessions in Quiver to see progression over time. <strong>The single biggest accelerator is water time</strong> — no substitute for hours in the ocean.</p>`,
-        keyTakeaway:
-          "Take lessons early, surf 2-3x per week, use a foamie, target small clean days. Water time is the #1 accelerator.",
+        id: "green-waves",
+        heading: "How many sessions until you catch green waves?",
+        content: `<p>A green wave is one that hasn't broken yet. You paddle toward the beach as it lifts you, then pop up as it starts to peel. Expect 10 to 20 sessions before you catch one on purpose.</p><p>This is where most people stall. Foam is forgiving. Green waves need you to paddle hard at the right spot, and a half-second late means the wave passes under you. You'll miss a lot of them. Linda Mar in Pacifica, on a 2 ft day, is a good place to miss a lot of waves without getting in anyone's way.</p>`,
+        keyTakeaway: "Budget 10-20 sessions and expect to miss most early waves.",
+      },
+      {
+        id: "beach-break",
+        heading: "When can you paddle out at a beach break?",
+        content: `<p>Give it a few months at two or more sessions a week. By then you can trim, which means angling down the line instead of riding straight in, and you can duck under or turn your board through whitewater to get out back.</p><p>Getting out is its own skill. Before you paddle out anywhere, watch from shore for 10 minutes. Count how long the sets take to show up and where people are getting out. If you're not sure, don't go. Sandy beach breaks like Huntington or Doheny are a good first lineup because a bad wipeout lands you on sand, not rock.</p>`,
+        keyTakeaway: "Watch 10 minutes from shore before every paddle-out.",
+      },
+      {
+        id: "speed-up",
+        heading: "What speeds it up?",
+        content: `<p>Four things, in order of how much they matter:</p><p><strong>Surf often.</strong> Twice a week beats once a week by a lot. Your arms and balance forget fast. Every session builds on the last.</p><p><strong>Pick small days.</strong> One to 3 ft is where you catch the most waves. A 5 ft day just means a long paddle and a lot of swimming.</p><p><strong>Ride the right board.</strong> A foam 8 to 9 footer floats you into waves early. See <a href="/learn/what-size-surfboard-should-i-get">what size board to get</a>.</p><p><strong>Choose beginner breaks.</strong> Slow, sandy and crowded with other learners is what you want. Our <a href="/learn/best-surf-conditions-for-beginners">beginner conditions guide</a> covers the numbers, and the <a href="/learn/beginner-breaks-santa-cruz">Santa Cruz beginner breaks</a> are a good example. One or two lessons early on fix your pop-up before bad habits set in.</p>`,
+        keyTakeaway: "Surf twice a week, on 1-3 ft days, on an 8-9 ft board.",
       },
     ],
     faqs: [
       {
-        question: "Can athletic people learn faster?",
+        question: "How long does it take to learn to surf?",
         answer:
-          "Somewhat. Swimmers and skateboarders have transferable balance and water comfort. But ocean fitness is unique — everyone needs time to build paddle endurance and wave-reading instincts. Athletic background helps with Milestone 1 but less with Milestones 3-4.",
+          "Most people stand on whitewater in 1 to 3 sessions, catch green waves after about 10 to 20 sessions, and paddle out and turn at a beach break after a few months of surfing twice a week or more.",
       },
       {
-        question: "Should I take surf lessons?",
+        question: "How many surf lessons do I need to learn?",
         answer:
-          "Yes, at least 2-3 lessons. A good instructor teaches proper pop-up technique, wave selection, and safety in a few hours. Self-teaching these takes weeks and often builds bad habits. Lessons are the highest-ROI investment in learning to surf.",
+          "Two or three lessons is plenty to learn the pop-up, wave choice and safety. After that you build skill by surfing small days on your own and getting your reps in.",
       },
       {
-        question: "Is surfing harder than other board sports?",
+        question: "How hard is it to learn to surf?",
         answer:
-          "The entry barrier is higher because the 'terrain' (waves) moves and is never the same twice. Snowboarding or skateboarding have consistent surfaces. But once you catch green waves, progression is similar. The reading-the-ocean part is what takes years.",
+          "Harder than it looks. The first few sessions are mostly paddling and falling, and the jump from foam to green waves is where most people stall. It gets fun fast once you stand up.",
       },
       {
-        question: "Can I learn to surf at 40 or 50 years old?",
+        question: "Can I learn to surf as an adult or at 40?",
         answer:
-          "Absolutely. Many adults learn in their 40s-60s. Fitness and flexibility matter more than age. Start on a large foamie, take lessons, and be patient. Longboarding is particularly accessible for older beginners — less paddling, more glide.",
+          "Yes. Plenty of people start in their 40s and 50s. Start on a big soft-top, surf small days, and give it a few extra sessions at each step.",
+      },
+      {
+        question: "What is the best beginner surf spot in California?",
+        answer:
+          "Look for sandy, slow waves at 1 to 3 ft: Doheny in Dana Point, Cowells in Santa Cruz, Linda Mar in Pacifica and La Jolla Shores in San Diego are the usual picks.",
       },
     ],
     relatedLinks: [
       {
         label: "Best Conditions for Beginners",
         href: "/learn/best-surf-conditions-for-beginners",
-        description: "Ideal waves for accelerating your learning curve.",
+        description: "The wave size, wind and tide that make learning easier.",
       },
       {
         label: "What Size Surfboard?",
         href: "/learn/what-size-surfboard-should-i-get",
-        description: "Why your board choice determines learning speed.",
+        description: "Why an 8-9 ft soft-top speeds you up.",
       },
       {
-        label: "Surf Etiquette Rules",
-        href: "/learn/surf-etiquette-rules",
-        description: "Know the rules before you paddle into the lineup.",
+        label: "Beginner Breaks in San Diego",
+        href: "/learn/beginner-breaks-san-diego",
+        description: "Where to go for gentle, sandy waves in San Diego.",
       },
       {
         label: "Surf Paddling for Beginners",
         href: "/learn/surf-paddling-for-beginners",
-        description: "The technique that shortens the learning curve most.",
+        description: "Paddling is what gets you onto green waves.",
       },
     ],
     appHandoff: {
-      eyebrow: "Practice days",
-      title: "Find the small, clean days to learn on.",
+      eyebrow: "Small days near you",
+      title: "Find the 1-3 ft day this week.",
       description:
-        "Quiver's forecast shows wave size at your beach hour by hour, so you can pick the 1-3 ft sessions this timeline depends on.",
-      ctaLabel: "Check my beach in the app",
+        "Quiver shows wave size, wind and tide hour by hour at beginner breaks near you, so you know which morning is worth the drive.",
+      ctaLabel: "Find a small day near me",
     },
   },
 
@@ -2289,28 +2274,29 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "what-is-a-rip-current",
-    title: "What Is a Rip Current and How Do I Escape One?",
+    title: "What Is a Rip Current? How to Spot and Escape One",
     description:
-      "A rip current is a narrow channel of water flowing from shore back out to sea at 1-8 feet per second. It pulls you OUT, not under. Escape: don't fight it — swim parallel to shore until free of the current, then swim back in. If exhausted, float and signal for help. NOAA reports roughly 100 rip current drownings per year in the US.",
+      "A rip current is a channel of water running back out through the surf. If you're caught, don't swim to shore: swim parallel to it, or float and wave.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
+    dateModified: "2026-10-21",
     heroImage: "/images/learn/learn-rip-current-sign.webp",
     thumbnailImage: "/images/learn/learn-rip-current-sign.webp",
     keywords: [
       "rip current",
       "how to escape rip current",
+      "how to spot a rip current",
       "rip tide",
       "rip current safety",
-      "ocean safety surfing",
-      "rip current signs",
+      "what to do if caught in a rip current",
     ],
     sections: [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>A rip current is a narrow channel of water flowing from shore back out to sea at <strong>1-8 feet per second</strong> — faster than an Olympic swimmer. It pulls you <strong>OUT, not under</strong>. To escape: <strong>don't fight it</strong>. Swim parallel to shore (perpendicular to the rip) until you're out of the current, then swim back in with the breaking waves. If exhausted, <strong>float and signal for help</strong>. NOAA and the United States Lifesaving Association report roughly <strong>100 rip current drownings per year</strong> in the US — more than hurricanes, tornadoes, and lightning combined.</p>`,
+        content: `<p>A rip current is a channel of water flowing from the beach back out through the surf, and the National Weather Service says it can move as fast as 8 feet per second. That is faster than anyone can swim. If it grabs you, don't swim toward the sand. Swim parallel to the beach until the pull lets go, or float and wave for a lifeguard.</p><p>Before you go, check size and tide on the <a href="/surf-report/newport-beach-today">Newport Beach surf report</a> or your own beach. Bigger surf and lower tide are when rips pull hardest on sandbar beaches.</p>`,
         keyTakeaway:
-          "Rip currents pull you out, not under. Swim parallel to shore to escape. Never fight the current — it's faster than you.",
+          "Caught in a rip: swim parallel to shore, never straight in.",
         image: {
           src: "/images/learn/learn-aerial-shore.jpg",
           alt: "Aerial view of coastline showing water channels where rip currents form",
@@ -2318,52 +2304,88 @@ export const learnArticles: LearnArticle[] = [
         },
       },
       {
-        id: "detail",
-        heading: "How to Spot a Rip Current From Shore",
-        content: `<p>Rip currents are visible once you know what to look for: <strong>a channel of darker, calmer water</strong> between areas of breaking whitewater. The calm patch isn't safe — it's the outflow channel. Other signs: <strong>choppy, discolored water</strong> moving seaward, foam or debris flowing steadily offshore, and a <strong>gap in the breaking waves</strong> where the rip carves through the sandbar.</p><p>Rips form where water pushed onshore by waves finds a low point in the sandbar to flow back out. They're <strong>most common at beach breaks</strong> near jetties, piers, and between sandbars. They intensify with larger surf and stronger longshore currents. A beach with uniform waves breaking everywhere is generally safer than one with obvious channels and gaps in the whitewater — those gaps are rips.</p>`,
+        id: "spot-one",
+        heading: "How do you spot a rip current from the beach?",
+        content: `<p>Stand on the sand or a bluff and watch for 10 minutes. You're looking for the one stretch that doesn't look like the rest.</p><ul><li>A darker gap in the whitewater, where waves aren't breaking the way they are on either side.</li><li>Foamy, sandy or brown water streaming out past the break.</li><li>A choppy, bumpy patch in an otherwise smooth-looking stretch.</li><li>Seaweed, foam or a stray bottle drifting steadily out.</li></ul><p>The calm-looking gap is the trap. It looks like the easy place to wade in, and it's the way out for all the water the waves just pushed up the beach.</p>`,
         keyTakeaway:
-          "Spot rips from shore: darker calm water between breaking waves, debris flowing seaward, gaps in the whitewater. Rips form at sandbar low points.",
+          "Pick the beach section where waves break evenly. Skip any dark gap.",
       },
       {
-        id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p>Before every session, <strong>spend 5 minutes watching the water from an elevated position</strong>. Look for channels, gaps in whitewater, and debris movement. Experienced surfers actually <strong>use rip currents as a free ride</strong> to paddle out — the outflow carries you past the break zone without fighting whitewater. But beginners should avoid them entirely until comfortable in the ocean.</p><p>If caught in a rip: <strong>stay calm</strong> (panic causes drowning, not the current). Don't try to swim directly to shore against the flow. Swim <strong>parallel to the beach</strong> for 50-100 feet until you feel the pull weaken, then angle toward shore. If you can't swim out of it, <strong>float on your back</strong> — most rips dissipate 100-200 yards offshore. Wave your arms to signal lifeguards. Surf near lifeguard stations, especially as a beginner.</p>`,
+        id: "bigger-surf-low-tide",
+        heading: "Why are rips worse with bigger surf and low tide?",
+        content: `<p>Every wave shoves water up the beach, and that water has to go back out. On a sandbar beach it takes the lowest route, the gap between bars. More surf means more water, so the rip runs faster. At low tide the bars sit shallow, and the water is squeezed into fewer, narrower channels.</p><p>That's why a flat, easy morning can turn into a pulling afternoon when a new swell shows up and the tide drops. Huntington Beach and Newport are both sandbar beach breaks, and both get rips that move with the bars after every big swell. At Ocean Beach in San Francisco, the National Park Service posts rip current warnings along the beach, and the water is cold enough to wear you out fast.</p>`,
         keyTakeaway:
-          "Watch the water 5 minutes before entering. If caught: stay calm, swim parallel to shore, float if exhausted. Surf near lifeguards.",
+          "Surf building and tide dropping: swim and surf only near a lifeguard tower.",
+      },
+      {
+        id: "if-caught",
+        heading: "What do you do if you get caught in a rip current?",
+        content: `<p>Stay calm. The rip pulls you out, not under. It carries you away from the beach, and panic and exhaustion are what put people in trouble.</p><ol><li>Don't swim straight at the beach. You'll lose to the current and wear yourself out.</li><li>Swim parallel to shore, the way the beach runs. Most rips are narrow. A few strokes sideways usually gets you out of it.</li><li>If you can't swim out, float or tread water and let it carry you. The pull fades past the surf zone.</li><li>Wave one arm and yell for the lifeguard. Once you're free, angle back in with the waves.</li></ol><p>NOAA, the National Weather Service and the United States Lifesaving Association all teach this same escape. If you see someone else caught, call a lifeguard or 911 and throw them something that floats. Don't swim out after them.</p>`,
+        keyTakeaway:
+          "Float and wave if you can't swim out. Never swim after someone else.",
+      },
+      {
+        id: "paddling-out",
+        heading: "Why do surfers paddle out through rips?",
+        content: `<p>A rip is a free escalator. The water is already moving out, and the waves are smaller or not breaking in the channel, so you skip the whitewater and duck-dive less. Locals know where the channel sits and head for it on any day with real surf.</p><p>You need a board under your chest for that. If you're swimming without one, or you're new to the ocean, don't try it. Watch where the surfers go from shore, then take the whitewater route or surf in front of a lifeguard tower. Our <a href="/beginner/huntington-beach">Huntington Beach beginner guide</a> shows where the learner-friendly stretches are.</p>`,
+        keyTakeaway:
+          "New to surf? Paddle out at a lifeguarded stretch, not the channel.",
+      },
+      {
+        id: "unknown-beach",
+        heading: "How do you stay safe at a beach you don't know?",
+        content: `<p>If you're not sure, don't paddle out. Watch from shore for 10 minutes first, ask the lifeguard where the rips are running, and swim or surf between the flags or in front of the tower. Lifeguards read the bars every morning, and they would rather answer a question than make a rescue.</p>`,
+        keyTakeaway:
+          "Ask the lifeguard where the rip is before you get wet.",
       },
     ],
     faqs: [
       {
-        question: "Is a rip current the same as a riptide?",
+        question: "What is a rip current?",
         answer:
-          "People use 'riptide' colloquially, but oceanographers distinguish them. A rip current is caused by wave-driven water flowing back through a channel in the sandbar. A true riptide is driven by tidal flow through inlets. For safety purposes, the escape technique is the same: swim parallel to shore.",
+          "A rip current is a narrow stream of water that flows from the beach back out through the surf zone. Waves push water up the beach, and it returns through a gap in the sandbar. The National Weather Service says rips can reach 8 feet per second.",
       },
       {
-        question: "Can a rip current pull me underwater?",
+        question: "How do you escape a rip current?",
         answer:
-          "No. Rip currents flow horizontally along the surface and just below it. They pull you away from shore, not down. Drowning happens because people panic and exhaust themselves fighting the current, not because they're pulled under.",
+          "Don't fight it and don't swim straight to shore. Swim parallel to the beach until you're out of the pull, then angle back in. If you can't, float or tread water, wave, and yell for a lifeguard. NOAA and the USLA teach the same steps.",
       },
       {
-        question: "Are rip currents more dangerous at certain tides?",
+        question: "How do you spot a rip current?",
         answer:
-          "Yes. Rips intensify during low-to-mid incoming tide as water volume increases over the bars. They're also stronger during bigger swells because more water is being pushed onshore and needs to flow back out. Check both tide and swell before entering.",
+          "Look for a darker gap in the whitewater, foamy or sandy water moving out to sea, or a choppy patch in the surf. Debris drifting steadily offshore is another giveaway. Watch the water from the sand for about 10 minutes before you go in.",
       },
       {
-        question: "Do surfers really use rip currents to paddle out?",
+        question: "What's the difference between a rip current and a riptide?",
         answer:
-          "Yes. Experienced surfers identify rip channels and use them as a conveyor belt to get past the break zone without exhausting themselves duck-diving through whitewater. It's an advanced technique that requires rip identification skills.",
+          "People say riptide to mean a rip current, and the National Weather Service says that's the wrong word. A rip current comes from waves. A tidal current is water moving through an inlet with the tide. In both cases, swim parallel to shore, not straight in.",
+      },
+      {
+        question: "Can a rip current pull you under?",
+        answer:
+          "No. A rip pulls you away from the beach along the surface. People drown because they fight it, get exhausted and can't keep their head up. Float, signal for help, or swim sideways out of the channel.",
+      },
+      {
+        question: "When are rip currents strongest?",
+        answer:
+          "They run harder when the surf gets bigger, and on sandbar beaches they're often worst around low tide. Check swell size and tide before you go. A quiet beach can change in a few hours.",
       },
     ],
     relatedLinks: [
       {
-        label: "Best Conditions for Beginners",
-        href: "/learn/best-surf-conditions-for-beginners",
-        description: "Learn to read conditions and choose safer beaches.",
+        label: "Newport Beach surf report today",
+        href: "/surf-report/newport-beach-today",
+        description: "Today's size, wind and tide for a classic sandbar beach.",
       },
       {
-        label: "Surf Etiquette Rules",
-        href: "/learn/surf-etiquette-rules",
-        description: "Safety rules for being in the lineup.",
+        label: "Huntington Beach beginner guide",
+        href: "/beginner/huntington-beach",
+        description: "Where the learner-friendly stretches are, and when.",
+      },
+      {
+        label: "Best Tide for Surfing",
+        href: "/learn/best-tide-for-surfing",
+        description: "How low and high tide change the waves and the rips.",
       },
       {
         label: "Beach Break vs Reef Break",
@@ -2371,11 +2393,18 @@ export const learnArticles: LearnArticle[] = [
         description: "Rip currents are most common at beach breaks.",
       },
       {
-        label: "Best Beginner Surf Spots in San Diego",
-        href: "/learn/beginner-breaks-san-diego",
-        description: "Beginner-friendly San Diego breaks and their rip patterns.",
+        label: "Best Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description: "Pick safer beaches and days before you paddle out.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Before you go",
+      title: "Check today's size and tide at your beach.",
+      description:
+        "Quiver shows swell height and the tide curve for your beach, so you can see when surf is building and the tide is dropping.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -3055,90 +3084,96 @@ export const learnArticles: LearnArticle[] = [
   },
   {
     slug: "how-does-water-temperature-affect-surfing",
-    title: "How Does Water Temperature Affect Surfing?",
+    title: "How Water Temperature Affects Surfing (What to Wear)",
     description:
-      "Learn how water temperature affects surfing through wetsuit choice, session length, cold shock, fatigue, comfort, and local wind—not wave height.",
-    readingTimeMin: 6,
+      "70°F water is not cold: trunks and a top. Under 64°F wear a suit, under 58°F a 3/2 or thicker. Chart plus what California water does by region.",
+    readingTimeMin: 3,
     datePublished: "2026-08-19",
+    dateModified: "2026-10-21",
     heroImage: "/images/learn/learn-wetsuit-walk.webp",
     thumbnailImage: "/images/learn/learn-wetsuit-walk.webp",
     keywords: [
       "how does water temperature affect surfing",
-      "surfing water temperature",
-      "cold water surfing",
+      "is 70 degree water cold",
+      "what water temperature is too cold to surf",
+      "is 72 degree water too cold for swimming",
+      "san diego ocean temperature",
       "surfing wetsuit temperature",
-      "cold shock surfing",
-      "water temperature surf conditions",
     ],
     sections: [
       {
-        id: "short-answer",
+        id: "answer",
         heading: "The Short Answer",
-        content: `<p>Water temperature does <strong>not</strong> change swell height or make waves larger. It changes the surfer's experience: what thermal protection to wear, how long a session stays comfortable, and how quickly cold shock or fatigue can reduce breathing control, coordination, and judgment. Check the water temperature separately from wave height, period, wind, and tide before deciding whether the session fits you and your gear.</p>`,
+        content: `<p>Water temperature doesn't change the waves. It decides what you wear and how long you last. 70°F water is warm for California: trunks and a top. Below about 64°F you want a suit, and below 58°F a full 3/2 or thicker.</p><p>For today's number at your beach, open <a href="/water-temp/san-diego">San Diego water temperature</a> or search your spot on the <a href="/forecast">Quiver forecast</a>. The wetsuit chart is in the next section.</p>`,
         keyTakeaway:
-          "Water temperature affects your body and equipment choices, not the height of the waves.",
+          "Trunks at 70°F; full suit below 64°F; hood and boots below 52°F.",
       },
       {
-        id: "wetsuit-choice",
-        heading: "Water Temperature Determines What You Wear",
-        content: `<p>Your wetsuit slows heat loss by trapping a thin layer of water and limiting circulation against the skin. Warmer water may call for trunks, a rash guard, or a thin spring suit; cooler water usually requires a full suit, then boots, gloves, and a hood as temperatures fall. Suit needs also vary with wind, air temperature, sun, body size, cold tolerance, and how active you are.</p><p>Use water temperature as a starting point, then adjust for the whole session. A shaded dawn patrol with strong wind can feel much colder than a sunny afternoon in the same ocean temperature. See the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a> for a practical range chart.</p>`,
+        id: "what-to-wear",
+        heading: "What to wear at each water temperature",
+        content: `<ul><li><strong>70°F and up:</strong> trunks or bikini, maybe a rash guard</li><li><strong>64–69°F:</strong> spring suit or 2 mm top and shorts</li><li><strong>58–63°F:</strong> 3/2 full suit</li><li><strong>52–57°F:</strong> 4/3 full suit, boots optional</li><li><strong>Under 52°F:</strong> 5/4 with hood and boots, gloves if you run cold</li></ul><p>Wind moves you one row down. A 62°F dawn with a 15 mph onshore feels like 58°F. See the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a> for fit.</p>`,
         keyTakeaway:
-          "Choose thermal protection from the water temperature, then account for wind, air temperature, sun, and personal tolerance.",
+          "Wind or a 6 a.m. start? Drop one row down the chart.",
+      },
+      {
+        id: "is-70-cold",
+        heading: "Is 70 degree water cold?",
+        content: `<p>No. In California, 70°F is the warm end of the year, something you see in Oceanside and Huntington in August and September. You'll surf it in boardshorts. You may get a little chilly after two hours, mostly from wind.</p><p>For swimming, 72°F is comfortable for most people. Under 65°F, most swimmers want to keep moving or wear a suit.</p>`,
+        keyTakeaway:
+          "70°F: trunks. 72°F: comfortable swimming. Under 65°F: most people want a suit.",
+      },
+      {
+        id: "california-by-region",
+        heading: "What the water does in California",
+        content: `<p>Roughly, from south to north:</p><p><strong>San Diego.</strong> Low 60s in winter and spring, upper 60s to low 70s in late summer. La Jolla Shores and Oceanside hit 70°F in August and September. A 3/2 covers most of the year.</p><p><strong>Orange County.</strong> A degree or two cooler than San Diego. Doheny and Huntington run about 58–68°F, so spring suits in summer and 3/2s the rest of the time.</p><p><strong>LA and Malibu.</strong> Mid to upper 50s in winter, mid 60s in late summer. Malibu is a 4/3 in January and a spring suit in September.</p><p><strong>Santa Cruz and NorCal.</strong> Low 50s to upper 50s all year. Cowells and Ocean Beach in San Francisco are 4/3 water in summer and 5/4 with a hood in winter. Warm here means 58°F.</p>`,
+        keyTakeaway:
+          "Santa Cruz north stays 50–58°F year-round; San Diego tops out near 72°F.",
+      },
+      {
+        id: "upwelling",
+        heading: "Why the water drops after a northwest wind",
+        content: `<p>A few days of northwest wind pushes warm surface water offshore, and cold water from deep down replaces it. That's upwelling. It hits hardest from March through June.</p><p>The drop can be 5 to 10°F in a day or two. A 3/2 morning turns into a 4/3 morning without warning. Summer water is warmest in August and September when the wind lets up. Winter water bottoms out in January and February. Check the number the morning you go, not what it was last week.</p>`,
+        keyTakeaway:
+          "Two days of northwest wind can cost you 5–10°F. Check the number that morning.",
       },
       {
         id: "cold-shock",
-        heading: "Cold Shock Changes the First Minutes",
-        content: `<p>Sudden immersion in cold water can trigger an involuntary gasp, rapid breathing, and a spike in heart rate. That response can make a rushed paddle-out harder and becomes more serious if you enter without control of your breathing. A well-fitting wetsuit helps, but it does not remove the need to enter deliberately and stay within your experience.</p><p>If breathing does not settle, you feel chest pain, or you lose control of your hands and movement, leave the water and seek help. Surfers with heart or respiratory conditions should get individualized medical guidance before cold-water sessions.</p>`,
+        heading: "Cold shock: when to get out",
+        content: `<p>Cold water hits your breathing first. Walk in, get your chest wet slowly and let your breathing settle before you paddle. Get out when your hands stop closing on the rail or you can't stop shivering. That usually happens before you feel ready to leave.</p>`,
         keyTakeaway:
-          "Cold water can disrupt breathing immediately; enter deliberately and end the session if control does not return.",
-      },
-      {
-        id: "fatigue-session-length",
-        heading: "Cold Shortens Useful Session Time",
-        content: `<p>As the body cools, muscles and joints can feel stiffer, paddling becomes less efficient, and fine motor control can fade. That matters when gripping rails, fastening a leash, timing a pop-up, or making a calm decision in current. The useful session often ends before severe shivering begins.</p><p>Watch for persistent shivering, numb fingers, clumsy movement, confusion, or unusual fatigue. Those are reasons to return to shore, warm up gradually, and avoid paddling back out simply to reach a planned session length.</p>`,
-        keyTakeaway:
-          "End the session when cold begins reducing coordination or judgment, not when the clock says you are done.",
-      },
-      {
-        id: "waves-and-wind",
-        heading: "Temperature Does Not Create Bigger Surf",
-        content: `<p>Swell height comes from wind transferring energy to the ocean over distance and time, then from how that swell interacts with the local seafloor and coastline. The temperature of the water at your beach does not add height to an arriving swell.</p><p>Temperature gradients can still matter indirectly. Differences between warmer land and cooler ocean help drive local sea breezes, while seasonal ocean patterns can influence weather over larger scales. That local wind may smooth, texture, or disrupt the surf depending on its direction and strength. The wind affects the waves; the water temperature itself is not changing the swell height.</p>`,
-        keyTakeaway:
-          "Separate temperature from swell: land-ocean temperature gradients can drive local wind, and that wind can affect surf quality.",
-      },
-      {
-        id: "planning",
-        heading: "Plan the Session With Temperature in Context",
-        content: `<p>Check the current water temperature alongside air temperature, wind, weather, wave size, period, tide, and the time you expect to spend outside. Bring a dry layer for afterward, confirm that the wetsuit seals and moves properly, and remember that a suit that worked last month may not fit today's upwelling or seasonal change.</p><p>Quiver beach pages show water temperature and wetsuit guidance as part of the session check. Treat that guidance as a starting point rather than a guarantee of comfort, because cold tolerance and equipment condition vary by surfer.</p>`,
-        keyTakeaway:
-          "Use current water temperature and wetsuit guidance as part of a full conditions check, then adjust for your body and gear.",
+          "Wet your chest slowly, then paddle. Leave when your hands stop working.",
       },
     ],
     faqs: [
       {
-        question: "Does warmer water make waves bigger for surfing?",
+        question: "How does water temperature affect surfing?",
         answer:
-          "No. Water temperature at the beach does not determine swell height. Wave size comes from the generating wind, swell travel, and how the swell interacts with the coastline and seafloor.",
+          "It doesn't change wave size. It decides your wetsuit, how long you stay warm, and how tired you get. Below 58°F most surfers want a 3/2 or thicker.",
+      },
+      {
+        question: "Is 70 degree water cold?",
+        answer:
+          "No. In California 70°F is warm water. Trunks and maybe a rash guard are enough for a surf. Wind after two hours is what gets you.",
+      },
+      {
+        question: "Is 72 degree water too cold for swimming?",
+        answer:
+          "No. 72°F is comfortable for most people. Under about 65°F, most swimmers want to keep moving or wear a suit.",
       },
       {
         question: "What water temperature is too cold to surf?",
         answer:
-          "There is no single cutoff for everyone. The answer depends on exposure gear, experience, health, wind, air temperature, and session length. If you cannot control your breathing or cold reduces coordination or judgment, get out.",
+          "There's no hard cutoff, but under 52°F you need a 5/4 with a hood and boots. If you don't have that gear, wait for a warmer day.",
       },
       {
-        question: "Why do I get tired faster when surfing in cold water?",
+        question: "Is the water warm in San Diego?",
         answer:
-          "Your body spends energy limiting heat loss, while cooling muscles and joints can become stiffer and less efficient. A restrictive or poorly fitting wetsuit can also make paddling harder.",
+          "In August and September, yes: upper 60s to about 72°F. In winter and spring it's low 60s, so most surfers wear a 3/2.",
       },
       {
-        question: "Can I surf cold water without a wetsuit?",
+        question: "Is the water cold in San Diego?",
         answer:
-          "Brief exposure is possible for some trained people, but cold shock and rapid heat loss can impair breathing and movement. Most surfers use thermal protection matched to the temperature and conditions.",
-      },
-      {
-        question: "Does water temperature affect surfboard performance?",
-        answer:
-          "For a normal session, the main effect is on the surfer rather than the board. Temperature can slightly change material stiffness or wax choice, but it does not replace wave height, period, wind, tide, and board design as the main performance factors.",
+          "In January through April it's low 60s, and after northwest wind it drops several degrees. Quiver's San Diego water temperature page has today's reading.",
       },
     ],
     relatedLinks: [
@@ -3146,33 +3181,38 @@ export const learnArticles: LearnArticle[] = [
         label: "What Wetsuit Thickness Do I Need?",
         href: "/learn/what-wetsuit-thickness-do-i-need",
         description:
-          "Match common water-temperature ranges to wetsuit thickness and accessories.",
+          "Match water temperature to a 2 mm, 3/2, 4/3 or 5/4 suit.",
+      },
+      {
+        label: "La Jolla Surf Report Today",
+        href: "/surf-report/la-jolla-today",
+        description: "Today's water temp, swell and wind at La Jolla.",
       },
       {
         label: "How to Read Surf Conditions",
         href: "/learn/how-to-read-surf-conditions",
         description:
-          "Combine water temperature with swell, wind, tide, and wave height.",
+          "Put water temp next to swell, wind and tide.",
       },
       {
         label: "Best Time of Day to Surf",
         href: "/learn/best-time-of-day-to-surf",
         description:
-          "Understand how wind and air temperature can change the feel of a session.",
+          "Dawn wind and air temp change what the water feels like.",
       },
       {
-        label: "Check Current Water Temperature",
-        href: "/forecast",
-        description:
-          "Review current conditions and wetsuit guidance before heading out.",
-      },
-      {
-        label: "Can You Surf in New Jersey?",
-        href: "/learn/can-you-surf-in-new-jersey",
-        description:
-          "A coast where the water swings from the upper 30s to the mid 70s °F in one year.",
+        label: "San Diego Water Temperature Today",
+        href: "/water-temp/san-diego",
+        description: "Today's water temp and a wetsuit pick for San Diego.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Check your beach",
+      title: "What's the water at your beach right now?",
+      description:
+        "Quiver shows today's water temperature and a wetsuit pick for your spot, so you know 3/2 or 4/3 before you leave the house.",
+      ctaLabel: "Check my beach's water temp",
+    },
   },
   {
     slug: "beginner-breaks-orange-county",

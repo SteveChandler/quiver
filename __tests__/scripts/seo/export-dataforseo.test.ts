@@ -501,7 +501,8 @@ describe("export-dataforseo script", () => {
       expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
         status: "partial",
         googleRankings: [],
-        missing: [expect.stringContaining("The operation was aborted due to timeout")],
+        // Under load the keyword-overview phase can also start and time out, adding a second entry.
+        missing: expect.arrayContaining([expect.stringContaining("The operation was aborted due to timeout")]),
       });
     } finally {
       await closeServer(server);

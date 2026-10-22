@@ -56,6 +56,59 @@ describe("PATCH /api/sessions/[id]", () => {
     expect(update).toHaveBeenCalledWith({ forecast_accuracy: forecastAccuracy });
   });
 
+  it.each(["smaller", "about_right", "bigger", null])("stores wave size vs forecast %s with its accuracy", async size => {
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+    const update = jest.fn();
+    const updateResult = { data: { id: validSessionId, wave_size_vs_forecast: size }, error: null };
+    const updateQuery: any = { eq: () => updateQuery, select: () => updateQuery, single: async () => updateResult };
+    update.mockReturnValue(updateQuery);
+    const ownershipQuery: any = { eq: () => ownershipQuery,
+      single: async () => ({ data: { id: validSessionId, user_id: validUserId }, error: null }) };
+    mockFrom.mockReturnValue({ select: () => ownershipQuery, update });
+    const forecastAccuracy = size === null ? null : size === "about_right" ? "accurate" : "inaccurate";
+    const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wave_size_vs_forecast: size, forecast_accuracy: forecastAccuracy }),
+    });
+    const response = await PATCH(request, { params: { id: validSessionId } });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ forecast_accuracy: forecastAccuracy, wave_size_vs_forecast: size });
+  });
+
+  it.each([
+    ["smaller", "inaccurate"],
+    ["about_right", "accurate"],
+    ["bigger", "inaccurate"],
+    [null, null],
+  ])("derives forecast accuracy from a lone wave size answer %s", async (size, forecastAccuracy) => {
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+    const update = jest.fn();
+    const updateResult = { data: { id: validSessionId, wave_size_vs_forecast: size }, error: null };
+    const updateQuery: any = { eq: () => updateQuery, select: () => updateQuery, single: async () => updateResult };
+    update.mockReturnValue(updateQuery);
+    const ownershipQuery: any = { eq: () => ownershipQuery,
+      single: async () => ({ data: { id: validSessionId, user_id: validUserId }, error: null }) };
+    mockFrom.mockReturnValue({ select: () => ownershipQuery, update });
+    const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wave_size_vs_forecast: size }),
+    });
+    const response = await PATCH(request, { params: { id: validSessionId } });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ wave_size_vs_forecast: size, forecast_accuracy: forecastAccuracy });
+  });
+
+  it.each(["huge", "about right", 1])("rejects wave size vs forecast %s", async size => {
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+    const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wave_size_vs_forecast: size }),
+    });
+    const response = await PATCH(request, { params: { id: validSessionId } });
+    expect(response.status).toBe(400);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it.each(["wrong", "accuratee", 3])("rejects forecast accuracy %s", async forecastAccuracy => {
     mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
     const request = new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {

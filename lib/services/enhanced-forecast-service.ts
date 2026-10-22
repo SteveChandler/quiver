@@ -68,6 +68,7 @@ import {
   ValidationError,
   ApiError,
   StorageError,
+  isNoaaForecastGridExpiredError,
   isNoaaInvalidPointError,
   isNoaaMarineForecastNotSupportedError,
   withForecastErrorHandling,
@@ -323,6 +324,11 @@ export class EnhancedForecastService {
         }
         // Expected for some coast/offshore points: hourly marine forecasts not supported.
         if (isNoaaMarineForecastNotSupportedError(error)) {
+          return [];
+        }
+        // The office's grid is stale upstream; same outcome as a rejected fetch, without retries or an error log.
+        if (isNoaaForecastGridExpiredError(error)) {
+          log.warn(`NWS forecast grid expired for ${beach.id}; no NWS weather this run`);
           return [];
         }
         throw error;
