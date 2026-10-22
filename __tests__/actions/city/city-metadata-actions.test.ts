@@ -166,6 +166,31 @@ describe("City Metadata Actions", () => {
       expect(Array.isArray(result.data?.beaches)).toBe(true);
     });
 
+    it("returns the country stored on the city's beaches", async () => {
+      tableChain.order.mockResolvedValue({
+        data: [
+          { id: "mx-1", name: "Camalú", slug: "camalu", skill_level: null, lat: 30.84, lon: -116.07, country: null },
+          { id: "mx-2", name: "Roberts Left", slug: "roberts-left", skill_level: null, lat: 30.85, lon: -116.08, country: "Mexico" },
+        ],
+        error: null,
+      });
+
+      const result = await getCityMetadata("Camalú", "Baja California");
+
+      expect(result.data?.country).toBe("Mexico");
+    });
+
+    it("returns a null country when no beach records one", async () => {
+      tableChain.order.mockResolvedValue({
+        data: mockSantaCruzBeaches,
+        error: null,
+      });
+
+      const result = await getCityMetadata("Santa Cruz", "CA");
+
+      expect(result.data?.country).toBeNull();
+    });
+
     it("returns null for nonexistent city", async () => {
       tableChain.order.mockResolvedValue({
         data: [],
@@ -295,7 +320,7 @@ describe("City Metadata Actions", () => {
 
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("beaches");
       expect(tableChain.select).toHaveBeenCalledWith(
-        "id, name, slug, skill_level, lat, lon"
+        "id, name, slug, skill_level, lat, lon, country"
       );
       expect(tableChain.ilike).toHaveBeenCalledWith("city", "Santa Cruz");
       expect(tableChain.eq).toHaveBeenCalledWith("state", "CA");

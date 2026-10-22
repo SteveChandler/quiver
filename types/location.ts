@@ -231,6 +231,8 @@ export interface CityMetadata {
   cityName: string;
   state: string;
   stateName: string;
+  /** Country stored on the city's beaches (e.g. "USA", "Mexico"); null when none is set. */
+  country?: string | null;
   totalBeaches: number;
   beginnerCount: number;
   intermediateCount: number;

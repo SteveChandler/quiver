@@ -77,7 +77,7 @@ export async function getCityMetadata(
 
     const { data: beaches, error } = await supabase
       .from("beaches")
-      .select("id, name, slug, skill_level, lat, lon")
+      .select("id, name, slug, skill_level, lat, lon, country")
       .ilike("city", cityName)
       .eq("state", normalizedState)
       .or("is_private.is.null,is_private.eq.false")
@@ -121,6 +121,7 @@ export async function getCityMetadata(
       cityName,
       state: normalizedState,
       stateName: STATE_NAMES[normalizedState] || normalizedState,
+      country: beaches.find((b) => b.country)?.country ?? null,
       totalBeaches: beaches.length,
       beginnerCount,
       intermediateCount,
