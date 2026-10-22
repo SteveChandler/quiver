@@ -92,9 +92,9 @@ Google Play's closed-test requirement (12+ testers for 14 days) was met, and pro
 - **Offers actually delivered:**
   - **Free year:** the `/android-beta` page until the 2026-07-17 cutoff, and the 2026-08-10 group email ("anyone who stays in for the 14 days gets a year of Quiver Pro"). Members who joined by 2026-08-10 received it.
   - **Lifetime Pro:** the 2026-10-05 recruiting pitch. It bounced from the group, but the October joiners came in on it. Steven chose lifetime for them.
-- **Account match:** matched by Group email against `auth.users` and `auth.identities`, plus one known alternate email confirmed in support mail. 5 of the 22 members have a Quiver account; the other 17 were not matched. No account was guessed.
+- **Account match:** matched by Group email against `auth.users` and `auth.identities`, plus one known alternate email confirmed in support mail. 5 of the 22 members have a Quiver account; the other 16 people (17 Group entries, one person with two Gmails) were not matched. No account was guessed.
 - **Granted:** 3 yearly and 2 lifetime `Quiver Pro` RevenueCat promotional entitlements. The RevenueCat webhook mirrored all 5 into `user_entitlements`. Each has an `earned_pro_grants` audit row with reason `android_beta_legacy_free_year` or `android_beta_lifetime`; the evidence is in `streak_snapshot`.
-- **Pending:** 17 unmatched members. A thank-you email asks them to sign in with their Group email and reply, and they are granted on reply using the same tiers, by join date.
+- **Pending:** 16 unmatched members. A thank-you email asks them to sign in with their Group email and reply, and they are granted on reply using the same tiers, by join date.
 
 Identities stay out of this repository. The private ledger is the audit rows plus the operator's mail.
 
