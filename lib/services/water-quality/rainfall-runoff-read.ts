@@ -1,3 +1,4 @@
+import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   RAIN_READING_MAX_AGE_MS,
@@ -40,8 +41,9 @@ function parseReading(value: unknown): RainfallReading | null {
 
 async function readActiveEvents(client: ReadingsClient): Promise<Map<string, RainAdvisoryEvent> | null> {
   try {
-    const { data, error } = await client.from(RAIN_ADVISORY_EVENTS_TABLE)
-      .select("*").eq("status", "active").eq("source", "metar_runoff");
+    // Same key as the recommendation hold, so a request reads the events once.
+    const { data, error } = await memoizedWaterQualityRead(client, `${RAIN_ADVISORY_EVENTS_TABLE}|*|active|metar_runoff`,
+      () => client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*").eq("status", "active").eq("source", "metar_runoff"));
     if (error || !Array.isArray(data)) return null;
     const events = new Map<string, RainAdvisoryEvent>();
     for (const raw of data) {
