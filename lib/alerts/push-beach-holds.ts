@@ -1,5 +1,6 @@
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import { readRainHeldBeaches, type ReadRainHeldBeaches } from "@/lib/services/water-quality/rainfall-runoff-read";
 import type {
   MajorEventHoldCandidate,
   MajorEventHoldCandidateDecision,
@@ -39,11 +40,13 @@ export function forecastSlotCandidate(
  * Which beaches a push may name. Applies the rule the in-app recommendation
  * surfaces (Week Scout, discovery) already use, so a push never names a beach
  * the app hides: only candidates the hold boundary allows are clear, and an
- * unknown hold state withholds the beach.
+ * unknown hold state withholds the beach. On top of that, a push does not send
+ * a surfer to a beach during the 72 hours after runoff rain.
  */
 export async function resolveHeldPushBeaches(
   args: Parameters<ResolveHeldPushBeaches>[0],
   evaluateCandidates: EvaluateCandidates = evaluateMajorEventHoldCandidates,
+  readRainHeld: ReadRainHeldBeaches = readRainHeldBeaches,
 ): Promise<HeldPushBeaches> {
   const held: HeldPushBeaches = new Map();
   if (args.candidates.length === 0) return held;
@@ -66,6 +69,13 @@ export async function resolveHeldPushBeaches(
       candidate.candidateId,
       decision?.evaluation.reasonCode ?? "hold_state_unavailable",
     );
+  }
+  const clear = args.candidates.filter((candidate) => !held.has(candidate.candidateId));
+  if (clear.length === 0) return held;
+  const rainHeld = await readRainHeld(clear, args.asOf);
+  for (const candidate of clear) {
+    const rain = rainHeld.get(candidate.beachId.toLowerCase());
+    if (rain) held.set(candidate.candidateId, rain === "rain" ? "water_quality_hold" : "hold_state_unavailable");
   }
   return held;
 }

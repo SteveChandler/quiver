@@ -1651,7 +1651,7 @@ describe("daily call alternatives", () => {
     const parsed = parseDailyCallPayload(payload);
     expect(parsed.options).toEqual(payload.options);
     expect(NOTIFICATION_REGISTRY.daily_call.buildPushPayload!(parsed).body).toBe(
-      `${payload.reason} Also: Blacks 8–~9:40 AM, Custom State Beach 8–~9:40 AM.`,
+      `${payload.reason} Also good: Blacks 8–9:40 AM (3 ft) and Custom State Beach 8–9:40 AM.`,
     );
   });
 
@@ -1747,7 +1747,7 @@ describe("runDailyCallCron", () => {
       ],
     });
     expect(push.body).toContain("Best before the wind picks up around 11 AM.");
-    expect(push.body).toContain("Also: Blacks 11 AM–~2 PM, Osprey 8–~11 AM.");
+    expect(push.body).toContain("Also good: Blacks 11 AM–2 PM");
     expect(payload.reason).not.toContain("around 2 PM");
   });
 
