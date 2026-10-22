@@ -90,10 +90,11 @@ export function rainClusterFor(lat: number | null | undefined, lon: number | nul
 }
 
 /**
- * Push gate only. The County posts its rain advisory hours after the rain, so a
- * go push reads San Diego's own gauges instead of waiting for it.
+ * The gauges that speak for a beach's rain runoff. San Diego beaches read the
+ * San Diego gauges too: the County posts its rain advisory hours after the rain,
+ * and its status still wins wherever it has one.
  */
-export function pushRainClusterFor(lat: number | null | undefined, lon: number | null | undefined): RainCluster | null {
+export function rainGaugeClusterFor(lat: number | null | undefined, lon: number | null | undefined): RainCluster | null {
   if (lat == null || lon == null) return null;
   const b = COUNTY_FEED_COVERAGE_BOUNDS;
   if (lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon) return COUNTY_RAIN_CLUSTER;

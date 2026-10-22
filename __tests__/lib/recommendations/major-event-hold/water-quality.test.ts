@@ -43,6 +43,8 @@ function clientFor(args: {
   liveRows?: unknown;
   beachRows?: unknown;
   beachError?: unknown;
+  rainEventRows?: unknown;
+  rainEventError?: unknown;
   ownerError?: unknown;
   qualityError?: unknown;
   liveError?: unknown;
@@ -70,7 +72,9 @@ function clientFor(args: {
                 }
               : table === "beaches"
                 ? { data: args.beachRows ?? [], error: args.beachError ?? null }
-                : { data: args.liveRows ?? [], error: args.liveError ?? null };
+                : table === "rain_advisory_events"
+                  ? { data: args.rainEventRows ?? [], error: args.rainEventError ?? null }
+                  : { data: args.liveRows ?? [], error: args.liveError ?? null };
       type MockQuery = {
         in: () => PromiseLike<typeof result>;
         eq: () => MockQuery;
@@ -544,4 +548,71 @@ describe("water-quality recommendation holds", () => {
   expect(result.heldBeachIds).toEqual([BEACH_B, BEACH_C]);
   expect(result.waterQualityEvidenceByBeachId).toMatchObject({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county", countyKind: "site", checkedAt: expect.any(String) }, [BEACH_C]: { source: "hold" } });
   expect(result.waterQualityStatusByBeachId).not.toHaveProperty(BEACH_A);
+});
+
+describe("rain runoff holds", () => {
+  // Oct 22 2026: 0.23 in at KSAN overnight; the County had not posted a general advisory by the 6 AM Daily Call.
+  const now = new Date("2026-10-22T13:08:00Z");
+  const solana = { id: BEACH_A, lat: 32.991, lon: -117.272 };
+  const huntington = { id: BEACH_B, lat: 33.655, lon: -118.005 };
+  const santaCruz = { id: BEACH_C, lat: 36.96, lon: -122.02 };
+  const fresh = [{ id: "44444444-4444-4444-8444-444444444444", fetched_at: "2026-10-22T13:00:43Z",
+    status: "completed", advisory_count: 7, source_identifier: "county-san-diego-dehq-sdbeachinfo" }];
+  const gaugeEvent = (overrides: Record<string, unknown> = {}) => ({
+    id: "55555555-5555-4555-8555-555555555555", region: "san_diego_gauges", source: "metar_runoff",
+    status: "active", started_at: "2026-10-22T12:00:00Z", last_rain_at: "2026-10-22T11:00:00Z",
+    expires_at: "2026-10-25T11:00:00Z", ended_at: null, end_reason: null,
+    sources: { metar: { stations: ["KSAN"], total_in: 0.23 } },
+    created_at: "2026-10-22T12:00:00Z", updated_at: "2026-10-22T12:00:00Z", ...overrides,
+  });
+
+  it("holds a San Diego beach on its own gauges before the County posts, until 72 hours after the rain", async () => {
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_C)], {
+      now, client: clientFor({ liveRunRows: fresh, beachRows: [solana, santaCruz], rainEventRows: [gaugeEvent()] }),
+    });
+    expect(result.state).toBe("resolved");
+    expect(result.heldBeachIds).toEqual([BEACH_A]);
+    expect(result.waterQualityStatusByBeachId).toEqual({ [BEACH_A]: "advisory" });
+    expect(result.heldUntilByBeachId).toEqual({ [BEACH_A]: "2026-10-25T11:00:00Z" });
+    expect(result.waterQualityEvidenceByBeachId?.[BEACH_A]).toEqual({ source: "rain", rainAdvisory: {
+      startedAt: "2026-10-22T12:00:00Z", lastRainAt: "2026-10-22T11:00:00Z", expiresAt: "2026-10-25T11:00:00Z" } });
+  });
+
+  it("reads each region's own event and ignores the County's and lapsed ones", async () => {
+    const county = gaugeEvent({ id: "66666666-6666-4666-8666-666666666666", region: "san_diego",
+      source: "county_general", last_rain_at: null, sources: {} });
+    const lapsed = gaugeEvent({ id: "77777777-7777-4777-8777-777777777777", region: "huntington_newport",
+      expires_at: "2026-10-22T13:00:00Z", last_rain_at: "2026-10-19T13:00:00Z" });
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], {
+      now, client: clientFor({ liveRunRows: fresh, beachRows: [solana, huntington], rainEventRows: [county, lapsed] }),
+    });
+    expect(result.heldBeachIds).toEqual([]);
+    expect(result).not.toHaveProperty("heldUntilByBeachId");
+  });
+
+  it("leaves a beach another source holds on that source's evidence", async () => {
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A)], {
+      now, client: clientFor({ ownerRows: [{ beach_id: BEACH_A }], liveRunRows: fresh, beachRows: [solana],
+        rainEventRows: [gaugeEvent()] }),
+    });
+    expect(result.waterQualityEvidenceByBeachId?.[BEACH_A]).toEqual({ source: "hold" });
+    expect(result).not.toHaveProperty("heldUntilByBeachId");
+  });
+
+  it("does not read coordinates when no rain event is active", async () => {
+    const client = clientFor({ liveRunRows: fresh, beachRows: [solana] });
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A)], { now, client });
+    expect(result.heldBeachIds).toEqual([]);
+    expect((client.from as jest.Mock).mock.calls.map(([table]) => table)).not.toContain("beaches");
+  });
+
+  it("withholds only gauged beaches when the events cannot be read", async () => {
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_C)], {
+      now, client: clientFor({ liveRunRows: fresh, beachRows: [solana, santaCruz], rainEventError: { message: "down" } }),
+    });
+    expect(result.state).toBe("resolved");
+    expect(result.heldBeachIds).toEqual([]);
+    expect(result.unverifiedBeachIds).toEqual([BEACH_A]);
+    expectConsoleErrors([/rain-events-unavailable/]);
+  });
 });

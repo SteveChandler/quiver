@@ -239,6 +239,8 @@ export function createConditionsCalloutElement(
       ? `Elevated bacteria${sampleDate ? ` · sample ${sampleDate}` : " · historical sample"}`
       : opts.waterQualityEvidence?.source === "hold"
         ? "Water quality hold"
+        : opts.waterQualityEvidence?.source === "rain"
+        ? "Rain advisory — runoff after rain"
         : opts.waterQualityHold === "closure"
         ? "Closed — water-quality alert"
         : opts.waterQualityHold === "advisory"
