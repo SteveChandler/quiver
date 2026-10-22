@@ -80,16 +80,18 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
     return null;
   }
 
-  // Rainfall is a fallback precaution; any County status outranks it.
-  const rainRunoff = waterQuality.county_advisory_status ? undefined : waterQuality.rain_runoff;
-  const config = waterQuality.county_advisory_status === "clear" || waterQuality.county_advisory_status === "unavailable"
+  // Rainfall is a precaution; a County advisory or closure outranks it, but a County
+  // "clear" does not, since the County posts its rain advisory hours after the rain.
+  const countyNotice = waterQuality.county_advisory_status === "advisory" || waterQuality.county_advisory_status === "closure";
+  const rainRunoff = countyNotice ? undefined : waterQuality.rain_runoff;
+  const config = rainRunoff
+    ? { ...STATUS_CONFIG.advisory, label: "Rain runoff advisory" }
+    : waterQuality.county_advisory_status === "clear" || waterQuality.county_advisory_status === "unavailable"
     ? { ...STATUS_CONFIG.advisory, label: waterQuality.county_advisory_status === "clear" ? "No current county advisory" : "County status unavailable", icon: Droplets,
         iconColor: "text-ink", badgeStyle: "border-ink/20 bg-paper-shadow/40" }
     : waterQuality.county_advisory_kind === "general" && waterQuality.status === "advisory"
       ? { ...STATUS_CONFIG.advisory, label: "Rain Advisory" }
-      : rainRunoff
-        ? { ...STATUS_CONFIG.advisory, label: "Rain runoff advisory" }
-        : STATUS_CONFIG[waterQuality.status as keyof typeof STATUS_CONFIG];
+      : STATUS_CONFIG[waterQuality.status as keyof typeof STATUS_CONFIG];
   const StatusIcon = config.icon;
 
   const formattedSampleDate = waterQuality.latest_sample_date

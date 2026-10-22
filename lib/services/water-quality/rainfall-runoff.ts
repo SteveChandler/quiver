@@ -145,16 +145,22 @@ interface NoticeRow {
   county_general_expired?: boolean;
 }
 
+/** A County advisory or closure speaks for the beach; "clear" and "unavailable" leave room for ours. */
+function countySpeaks(row: NoticeRow): boolean {
+  return row.county_advisory_status === "advisory" || row.county_advisory_status === "closure"
+    || row.county_general_expired === true;
+}
+
 /**
  * Precautionary only: adds an advisory, never clears one, never says "good",
- * and never speaks where a County status exists.
+ * and never speaks over a County advisory or closure.
  */
 export function applyRainfallNotice<T extends NoticeRow>(
   row: T,
   reading: RainfallReading | null | undefined,
   now: Date = new Date(),
 ): T & { rain_runoff?: RainRunoffMetadata } {
-  if (!reading || row.county_advisory_status || row.county_general_expired) return row;
+  if (!reading || countySpeaks(row)) return row;
   if (row.status === "advisory" || row.status === "closure") return row;
   if (!(reading.total_in >= RAIN_RUNOFF_THRESHOLD_IN)) return row;
   const age = now.getTime() - Date.parse(reading.window_end);
@@ -173,7 +179,7 @@ export function applyRainAdvisoryNotice<T extends NoticeRow>(
   event: RainAdvisoryEvent | null | undefined,
 ): T & { rain_runoff?: RainRunoffMetadata } {
   if (!event || event.status !== "active" || event.source !== "metar_runoff"
-    || row.county_advisory_status || row.county_general_expired) return row;
+    || countySpeaks(row)) return row;
   if (row.status === "advisory" || row.status === "closure") return row;
   const metar = event.sources.metar;
   const details = metar && typeof metar === "object" && !Array.isArray(metar)

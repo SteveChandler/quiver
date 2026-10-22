@@ -147,10 +147,17 @@ describe("applyRainfallNotice", () => {
     }
   });
 
-  it("never overrides any County status, including clear", () => {
-    for (const county of ["clear", "advisory", "closure", "unavailable"] as const) {
-      const row = { ...base, status: "unknown", county_advisory_status: county };
+  it("never overrides a County advisory or closure", () => {
+    for (const county of ["advisory", "closure"] as const) {
+      const row = { ...base, status: county, county_advisory_status: county };
       expect(applyRainfallNotice(row, reading(1.2), now)).toBe(row);
+    }
+  });
+
+  it("speaks where the County is clear or unavailable, since it posts hours after the rain", () => {
+    for (const county of ["clear", "unavailable"] as const) {
+      const row = { ...base, status: "unknown", county_advisory_status: county };
+      expect(applyRainfallNotice(row, reading(1.2), now).status).toBe("advisory");
     }
   });
 
@@ -336,6 +343,12 @@ describe("withRainfallNotice", () => {
       .toMatchObject({ status: "advisory", rain_runoff: { expires_at: gauges.expires_at } });
     const county = [{ beach_id: "b2", status: "advisory", county_advisory_status: "advisory" }];
     expect(await withRainfallNotice(county, [pacific], client([], null, [gauges]) as never, now)).toEqual(county);
+    // The County projection marks a covered beach with no notice "clear" (status unknown), and a stale feed "unavailable".
+    for (const countyStatus of ["clear", "unavailable"]) {
+      const silent = [{ beach_id: "b2", status: "unknown", county_advisory_status: countyStatus }];
+      expect((await withRainfallNotice(silent, [pacific], client([], null, [gauges]) as never, now))[0])
+        .toMatchObject({ status: "advisory", rain_runoff: { expires_at: gauges.expires_at } });
+    }
   });
 });
 
