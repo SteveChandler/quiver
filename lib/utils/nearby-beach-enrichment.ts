@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
+import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import {
   parseMaxWaveHeightFt,
   pickBestNativeForecastSlot,
@@ -34,7 +35,7 @@ const getCachedBeachPhotos = cache(
     const userFallbackMap = new Map<string, string>();
     if (photos) {
       for (const photo of photos) {
-        const bestUrl = photo.thumb_url || photo.image_url;
+        const bestUrl = pickPhotoThumbUrl(photo.thumb_url, photo.image_url);
         if (!bestUrl) continue;
 
         if (photo.source !== "user") {

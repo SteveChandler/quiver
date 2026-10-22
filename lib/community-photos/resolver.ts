@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase";
+import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 
 import { getCommunityPhotoFeatureFlags } from "./contracts";
 import { CommunityPhotoError } from "./errors";
@@ -322,7 +323,7 @@ function toCuratedPhoto(row: CuratedPhotoRow): ResolvedSpotPhoto {
     source: "curated",
     visibility: "public",
     imageUrl: row.image_url,
-    thumbUrl: row.thumb_url,
+    thumbUrl: pickPhotoThumbUrl(row.thumb_url, row.image_url),
     width: null,
     height: null,
     title: row.title,
