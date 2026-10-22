@@ -11,6 +11,7 @@ import type {
 const NOW = new Date("2026-10-10T13:00:00.000Z");
 const CLEAR = forecastSlotCandidate("a", "11111111-1111-4111-8111-111111111111", "2026-10-10T15:00:00.000Z");
 const HELD = forecastSlotCandidate("b", "22222222-2222-4222-8222-222222222222", "2026-10-10T15:00:00.000Z");
+const noRain = jest.fn(async () => new Set<string>());
 
 function decision(
   candidate: MajorEventHoldCandidate,
@@ -50,6 +51,7 @@ describe("resolveHeldPushBeaches", () => {
     const held = await resolveHeldPushBeaches(
       { candidates: [CLEAR, HELD], profileExperience: "beginner", asOf: NOW },
       evaluate,
+      noRain,
     );
 
     expect(held).toEqual(new Map([["b", "water_quality_hold"]]));
@@ -67,12 +69,39 @@ describe("resolveHeldPushBeaches", () => {
     const held = await resolveHeldPushBeaches(
       { candidates: [CLEAR, HELD], profileExperience: "beginner", asOf: NOW },
       evaluate,
+      noRain,
     );
 
     expect(held).toEqual(new Map([
       ["a", "hold_state_unavailable"],
       ["b", "hold_state_unavailable"],
     ]));
+  });
+
+  it("holds a clear beach that had runoff rain, and reads rain only for clear beaches", async () => {
+    const evaluate = jest.fn(async () => [decision(CLEAR, null), decision(HELD, "water_quality_hold")]);
+    const rain = jest.fn(async () => new Set([CLEAR.beachId]));
+
+    const held = await resolveHeldPushBeaches(
+      { candidates: [CLEAR, HELD], profileExperience: "beginner", asOf: NOW },
+      evaluate,
+      rain,
+    );
+
+    expect(held).toEqual(new Map([["a", "water_quality_hold"], ["b", "water_quality_hold"]]));
+    expect(rain).toHaveBeenCalledWith([CLEAR.beachId], NOW);
+  });
+
+  it("withholds clear beaches when rain cannot be read", async () => {
+    const evaluate = jest.fn(async () => [decision(CLEAR, null), decision(HELD, "water_quality_hold")]);
+
+    const held = await resolveHeldPushBeaches(
+      { candidates: [CLEAR, HELD], profileExperience: "beginner", asOf: NOW },
+      evaluate,
+      async () => null,
+    );
+
+    expect(held).toEqual(new Map([["a", "hold_state_unavailable"], ["b", "water_quality_hold"]]));
   });
 
   it("names a one-hour slot from the forecast instant", () => {

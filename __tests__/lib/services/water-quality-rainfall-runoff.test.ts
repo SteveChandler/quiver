@@ -3,13 +3,14 @@ import {
   RAIN_RUNOFF_THRESHOLD_IN,
   applyRainfallNotice,
   clusterRainfall,
+  pushRainClusterFor,
   rainClusterFor,
   stationRainfall,
   type AwcMetar,
   type RainfallReading,
 } from "@/lib/services/water-quality/rainfall-runoff";
 import { runRainfallRunoffIngest } from "@/lib/services/water-quality/rainfall-runoff-ingest";
-import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
+import { readRainHeldBeachIds, withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import { rainAdvisoryEventSchema } from "@/lib/services/water-quality/rain-advisory-events";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
@@ -303,5 +304,73 @@ describe("withRainfallNotice", () => {
     const c = client([{ ...reading(1), cluster_id: "san_diego" }]);
     await withRainfallNotice([{ beach_id: "b2", status: "good" }], [pacific], c as never, now);
     expect(c.from).not.toHaveBeenCalled();
+  });
+});
+
+describe("pushRainClusterFor", () => {
+  it.each([
+    ["Solana Beach", 32.991, -117.272, "san_diego"],
+    ["Pacific Beach", 32.797, -117.257, "san_diego"],
+    ["Huntington", 33.655, -118.005, "huntington_newport"],
+  ])("assigns %s to the gauges a push reads", (_name, lat, lon, cluster) => {
+    expect(pushRainClusterFor(lat, lon)?.id).toBe(cluster);
+  });
+
+  it("gives beaches outside SoCal no cluster", () => {
+    expect(pushRainClusterFor(36.96, -122.02)).toBeNull();
+    expect(pushRainClusterFor(null, null)).toBeNull();
+  });
+});
+
+describe("readRainHeldBeachIds", () => {
+  // Oct 22 2026: 0.23 in at KSAN overnight, no County general advisory yet at the 6 AM Daily Call.
+  const asOf = new Date("2026-10-22T13:08:00Z");
+  const solana = { id: "65D3A4DE-1F4B-4A1D-8CE0-B5B67288EE08", lat: 32.991, lon: -117.272 };
+  const santaCruz = { id: "b3", lat: 36.96, lon: -122.02 };
+  const sanDiego = (total: number): RainfallReading => ({ cluster_id: "san_diego",
+    window_end: "2026-10-22T12:00:00Z", total_in: total, station_totals: { KSAN: total, KCRQ: 0.09, KNZY: 0.15 } });
+
+  function client(beaches: unknown[] | null, readings: unknown[] | null) {
+    return { from: jest.fn((table: string) => {
+      interface Query { select: jest.Mock; in: jest.Mock; gte: jest.Mock; order: jest.Mock; then: (resolve: (v: unknown) => unknown) => Promise<unknown> }
+      const rows = table === "beaches" ? beaches : readings;
+      const query: Query = {
+        select: jest.fn(() => query), in: jest.fn(() => query), gte: jest.fn(() => query), order: jest.fn(() => query),
+        then: (resolve: (v: unknown) => unknown) => Promise.resolve(rows === null
+          ? { data: null, error: { message: "down" } } : { data: rows, error: null }).then(resolve),
+      };
+      return query;
+    }) };
+  }
+
+  it("holds a San Diego beach on its own gauges before the County posts", async () => {
+    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], [sanDiego(0.23)]) as never))
+      .resolves.toEqual(new Set([solana.id.toLowerCase()]));
+  });
+
+  it("clears it below the runoff threshold", async () => {
+    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], [sanDiego(0.1)]) as never))
+      .resolves.toEqual(new Set());
+  });
+
+  it("reads only the latest reading per cluster", async () => {
+    const older = { ...sanDiego(0.5), window_end: "2026-10-22T09:00:00Z" };
+    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], [sanDiego(0.1), older]) as never))
+      .resolves.toEqual(new Set());
+  });
+
+  it("holds nothing when there is no fresh reading", async () => {
+    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], []) as never)).resolves.toEqual(new Set());
+  });
+
+  it("skips the readings for beaches no gauge covers", async () => {
+    const c = client([santaCruz], [sanDiego(1)]);
+    await expect(readRainHeldBeachIds([santaCruz.id], asOf, c as never)).resolves.toEqual(new Set());
+    expect(c.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null when it cannot read", async () => {
+    await expect(readRainHeldBeachIds([solana.id], asOf, client(null, []) as never)).resolves.toBeNull();
+    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], null) as never)).resolves.toBeNull();
   });
 });

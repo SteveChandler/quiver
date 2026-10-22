@@ -89,6 +89,17 @@ export function rainClusterFor(lat: number | null | undefined, lon: number | nul
   return best;
 }
 
+/**
+ * Push gate only. The County posts its rain advisory hours after the rain, so a
+ * go push reads San Diego's own gauges instead of waiting for it.
+ */
+export function pushRainClusterFor(lat: number | null | undefined, lon: number | null | undefined): RainCluster | null {
+  if (lat == null || lon == null) return null;
+  const b = COUNTY_FEED_COVERAGE_BOUNDS;
+  if (lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon) return COUNTY_RAIN_CLUSTER;
+  return rainClusterFor(lat, lon);
+}
+
 /** Routine reports only: a SPECI repeats the running total since the last routine report. */
 export function stationRainfall(metars: readonly AwcMetar[], windowEnd: Date): StationRainfall {
   const end = windowEnd.getTime();

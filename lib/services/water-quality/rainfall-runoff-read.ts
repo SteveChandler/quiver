@@ -1,8 +1,10 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   RAIN_READING_MAX_AGE_MS,
+  RAIN_RUNOFF_THRESHOLD_IN,
   applyRainAdvisoryNotice,
   applyRainfallNotice,
+  pushRainClusterFor,
   rainClusterFor,
   type RainRunoffMetadata,
   type RainfallReading,
@@ -24,6 +26,7 @@ interface ReadingsClient {
 interface ReadQuery extends PromiseLike<{ data: unknown; error: unknown }> {
   select: (columns: string) => ReadQuery;
   eq: (column: string, value: string) => ReadQuery;
+  in: (column: string, values: readonly string[]) => ReadQuery;
   gte: (column: string, value: string) => ReadQuery;
   order: (column: string, options: { ascending: boolean }) => ReadQuery;
 }
@@ -81,18 +84,10 @@ export async function withRainfallNotice<T extends { beach_id: string; status: s
         return cluster ? applyRainAdvisoryNotice(row, events.get(cluster)) : row;
       });
     }
-    const { data, error } = await client.from(RAINFALL_READINGS_TABLE)
-      .select("cluster_id, window_end, total_in, station_totals")
-      .gte("window_end", new Date(now.getTime() - RAIN_READING_MAX_AGE_MS).toISOString())
-      .order("window_end", { ascending: false });
-    if (error || !Array.isArray(data)) {
-      console.warn("[rainfall-runoff] readings unavailable", error);
+    const latest = await readLatestReadings(client, now);
+    if (latest === null) {
+      console.warn("[rainfall-runoff] readings unavailable");
       return [...rows];
-    }
-    const latest = new Map<string, RainfallReading>();
-    for (const raw of data) {
-      const reading = parseReading(raw);
-      if (reading && !latest.has(reading.cluster_id)) latest.set(reading.cluster_id, reading);
     }
     return rows.map((row) => {
       const cluster = clusterByBeach.get(row.beach_id);
@@ -101,5 +96,56 @@ export async function withRainfallNotice<T extends { beach_id: string; status: s
   } catch (error) {
     console.warn("[rainfall-runoff] readings read failed", error);
     return [...rows];
+  }
+}
+
+async function readLatestReadings(client: ReadingsClient, now: Date): Promise<Map<string, RainfallReading> | null> {
+  const { data, error } = await client.from(RAINFALL_READINGS_TABLE)
+    .select("cluster_id, window_end, total_in, station_totals")
+    .gte("window_end", new Date(now.getTime() - RAIN_READING_MAX_AGE_MS).toISOString())
+    .order("window_end", { ascending: false });
+  if (error || !Array.isArray(data)) return null;
+  const latest = new Map<string, RainfallReading>();
+  for (const raw of data) {
+    const reading = parseReading(raw);
+    if (reading && !latest.has(reading.cluster_id)) latest.set(reading.cluster_id, reading);
+  }
+  return latest;
+}
+
+export type ReadRainHeldBeachIds = (beachIds: readonly string[], now: Date) => Promise<Set<string> | null>;
+
+/**
+ * Beaches a go push must not name: the gauges nearest the beach measured runoff
+ * rain in the last 72 hours. Null when that cannot be read. A missing or stale
+ * reading holds nothing, like the beach page notice.
+ */
+export async function readRainHeldBeachIds(
+  beachIds: readonly string[],
+  now: Date,
+  providedClient?: ReadingsClient,
+): Promise<Set<string> | null> {
+  const held = new Set<string>();
+  if (beachIds.length === 0) return held;
+  try {
+    const client = providedClient ?? (createSupabaseServiceRoleClient() as unknown as ReadingsClient);
+    const { data, error } = await client.from("beaches").select("id, lat, lon").in("id", [...new Set(beachIds)]);
+    if (error || !Array.isArray(data)) return null;
+    const clusterByBeach = new Map<string, string>();
+    for (const raw of data as BeachCoords[]) {
+      const cluster = pushRainClusterFor(raw.lat, raw.lon);
+      if (cluster) clusterByBeach.set(raw.id.toLowerCase(), cluster.id);
+    }
+    if (clusterByBeach.size === 0) return held;
+    const latest = await readLatestReadings(client, now);
+    if (latest === null) return null;
+    for (const [beachId, clusterId] of clusterByBeach) {
+      const reading = latest.get(clusterId);
+      if (reading && reading.total_in >= RAIN_RUNOFF_THRESHOLD_IN) held.add(beachId);
+    }
+    return held;
+  } catch (error) {
+    console.warn("[rainfall-runoff] push rain gate unavailable", error);
+    return null;
   }
 }
