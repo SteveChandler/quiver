@@ -85,6 +85,12 @@ describe("daily call push options", () => {
     expect(def.buildInAppPayload!(payload).data).toEqual(payload);
   });
 
+  it("leaves out the size of an option with no surf height", () => {
+    const entries = [{ ...options[0], wave_height_ft: 0 }];
+    const push = def.buildPushPayload!(def.validatePayload!({ ...validPayload, options: entries }));
+    expect(push.body).toBe(`${validPayload.reason} Also good: Scripps 9–11 AM.`);
+  });
+
   it.each([undefined, []].map((entries) => ({ entries })))("keeps the original body and omits empty push options %#", ({ entries }) => {
     const payload = def.validatePayload!({ ...validPayload, options: entries });
     const push = def.buildPushPayload!(payload);

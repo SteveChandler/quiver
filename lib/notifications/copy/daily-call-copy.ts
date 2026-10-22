@@ -126,7 +126,8 @@ interface AlsoGoodBeach {
 /** "Also good: Del Mar 5–6 PM (3–4 ft) and Scripps 2–6 PM (3–4 ft)." */
 export function alsoGoodSentence(options: readonly AlsoGoodBeach[]): string {
   const items = options.map((option) => {
-    const size = option.wave_height_ft == null ? "" : ` (${swellPhrase({ wave_height: option.wave_height_ft })})`;
+    const height = option.wave_height_ft;
+    const size = height == null || !(height > 0) ? "" : ` (${swellPhrase({ wave_height: height })})`;
     // A push reads an estimated edge as a plain time.
     return `${option.beach_name} ${option.window_local.replace(/~/g, "")}${size}`;
   });

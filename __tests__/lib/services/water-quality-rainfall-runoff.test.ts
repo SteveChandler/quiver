@@ -10,7 +10,7 @@ import {
   type RainfallReading,
 } from "@/lib/services/water-quality/rainfall-runoff";
 import { runRainfallRunoffIngest } from "@/lib/services/water-quality/rainfall-runoff-ingest";
-import { readRainHeldBeachIds, withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
+import { readRainHeldBeaches, withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import { rainAdvisoryEventSchema } from "@/lib/services/water-quality/rain-advisory-events";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
@@ -322,11 +322,12 @@ describe("pushRainClusterFor", () => {
   });
 });
 
-describe("readRainHeldBeachIds", () => {
+describe("readRainHeldBeaches", () => {
   // Oct 22 2026: 0.23 in at KSAN overnight, no County general advisory yet at the 6 AM Daily Call.
   const asOf = new Date("2026-10-22T13:08:00Z");
   const solana = { id: "65D3A4DE-1F4B-4A1D-8CE0-B5B67288EE08", lat: 32.991, lon: -117.272 };
   const santaCruz = { id: "b3", lat: 36.96, lon: -122.02 };
+  const tonight = { beachId: solana.id, startsAt: "2026-10-23T00:00:00Z" };
   const sanDiego = (total: number): RainfallReading => ({ cluster_id: "san_diego",
     window_end: "2026-10-22T12:00:00Z", total_in: total, station_totals: { KSAN: total, KCRQ: 0.09, KNZY: 0.15 } });
 
@@ -344,33 +345,47 @@ describe("readRainHeldBeachIds", () => {
   }
 
   it("holds a San Diego beach on its own gauges before the County posts", async () => {
-    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], [sanDiego(0.23)]) as never))
-      .resolves.toEqual(new Set([solana.id.toLowerCase()]));
+    await expect(readRainHeldBeaches([tonight], asOf, client([solana], [sanDiego(0.23)]) as never))
+      .resolves.toEqual(new Map([[solana.id.toLowerCase(), "rain"]]));
+  });
+
+  it("clears a window that starts 72 hours after the reading", async () => {
+    const saturday = { beachId: solana.id, startsAt: "2026-10-25T12:00:00Z" };
+    await expect(readRainHeldBeaches([saturday], asOf, client([solana], [sanDiego(0.23)]) as never))
+      .resolves.toEqual(new Map());
   });
 
   it("clears it below the runoff threshold", async () => {
-    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], [sanDiego(0.1)]) as never))
-      .resolves.toEqual(new Set());
+    await expect(readRainHeldBeaches([tonight], asOf, client([solana], [sanDiego(0.1)]) as never))
+      .resolves.toEqual(new Map());
   });
 
   it("reads only the latest reading per cluster", async () => {
     const older = { ...sanDiego(0.5), window_end: "2026-10-22T09:00:00Z" };
-    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], [sanDiego(0.1), older]) as never))
-      .resolves.toEqual(new Set());
+    await expect(readRainHeldBeaches([tonight], asOf, client([solana], [sanDiego(0.1), older]) as never))
+      .resolves.toEqual(new Map());
   });
 
   it("holds nothing when there is no fresh reading", async () => {
-    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], []) as never)).resolves.toEqual(new Set());
+    await expect(readRainHeldBeaches([tonight], asOf, client([solana], []) as never)).resolves.toEqual(new Map());
   });
 
   it("skips the readings for beaches no gauge covers", async () => {
     const c = client([santaCruz], [sanDiego(1)]);
-    await expect(readRainHeldBeachIds([santaCruz.id], asOf, c as never)).resolves.toEqual(new Set());
+    await expect(readRainHeldBeaches([{ beachId: santaCruz.id, startsAt: tonight.startsAt }], asOf, c as never))
+      .resolves.toEqual(new Map());
     expect(c.from).toHaveBeenCalledTimes(1);
   });
 
-  it("returns null when it cannot read", async () => {
-    await expect(readRainHeldBeachIds([solana.id], asOf, client(null, []) as never)).resolves.toBeNull();
-    await expect(readRainHeldBeachIds([solana.id], asOf, client([solana], null) as never)).resolves.toBeNull();
+  it("withholds only gauged beaches when the readings cannot be read", async () => {
+    const candidates = [tonight, { beachId: santaCruz.id, startsAt: tonight.startsAt }];
+    await expect(readRainHeldBeaches(candidates, asOf, client([solana, santaCruz], null) as never))
+      .resolves.toEqual(new Map([[solana.id.toLowerCase(), "unknown"]]));
+    expectConsoleWarnings([/readings unavailable/]);
+  });
+
+  it("holds nothing when the beaches cannot be read", async () => {
+    await expect(readRainHeldBeaches([tonight], asOf, client(null, [sanDiego(1)]) as never)).resolves.toEqual(new Map());
+    expectConsoleWarnings([/beaches unavailable/]);
   });
 });
