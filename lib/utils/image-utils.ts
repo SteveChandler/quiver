@@ -218,6 +218,34 @@ function cleanOpenverseThumbUrl(url: string): string {
 }
 
 /**
+ * Picks the URL to render for a curated photo thumbnail.
+ *
+ * Openverse `/thumb/` URLs are Openverse re-fetching the original on every
+ * request; when the origin is slow it answers 424 or hangs, and Vercel's
+ * optimizer fails the request. Every curated Openverse row also stores the
+ * original (Flickr/Wikimedia) as image_url, so use that instead.
+ */
+export function pickPhotoThumbUrl(
+  thumbUrl: string | null | undefined,
+  imageUrl: string | null | undefined,
+): string | null {
+  const thumb = thumbUrl?.trim() || null;
+  const image = imageUrl?.trim() || null;
+  if (!thumb) return image;
+  if (!image) return thumb;
+
+  try {
+    const parsed = new URL(thumb);
+    if (parsed.hostname === "api.openverse.org" && parsed.pathname.includes("/thumb/")) {
+      return image;
+    }
+  } catch {
+    return thumb;
+  }
+  return thumb;
+}
+
+/**
  * Determines if a URL should be proxied through the image proxy endpoint.
  *
  * URLs that should NOT be proxied:

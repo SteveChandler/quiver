@@ -28,6 +28,7 @@ import {
   FALLBACK_IMAGE_BY_NAME,
 } from "@/lib/constants/featured-beaches-config";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
 import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { BeachPhotoSelect, Beach } from "@/types/database";
@@ -401,7 +402,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
       if (EXCLUDED_BEACH_SET.has(photo.beach_id) || photosMap.has(photo.beach_id)) {
         return;
       }
-      const imageUrl = sanitizePhotoUrl(photo.thumb_url) || sanitizePhotoUrl(photo.image_url);
+      const imageUrl = pickPhotoThumbUrl(sanitizePhotoUrl(photo.thumb_url), sanitizePhotoUrl(photo.image_url));
       if (imageUrl) {
         photosMap.set(photo.beach_id, imageUrl);
       }
