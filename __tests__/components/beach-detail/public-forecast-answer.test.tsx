@@ -431,6 +431,10 @@ describe("PublicForecastAnswer", () => {
       "href",
       "/auth/sign-in?redirectTo=%2Fca%2Fsan-diego%2Focean-beach",
     );
+    expect(screen.getByRole("link", { name: "Get your call" })).toHaveAttribute(
+      "rel",
+      "nofollow",
+    );
     expect(screen.queryByText("YES")).not.toBeInTheDocument();
     expect(screen.queryByText("Score")).not.toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();

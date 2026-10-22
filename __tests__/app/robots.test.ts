@@ -29,6 +29,24 @@ describe("robots.txt", () => {
     expect(rules.disallow).not.toEqual(expect.arrayContaining(["/spots/"]));
   });
 
+  it("lets crawlers read the noindex on auth pages while keeping action routes blocked", () => {
+    delete process.env.DISALLOW_ROBOTS;
+    (process.env as any).NODE_ENV = "production";
+
+    jest.resetModules();
+
+    const robots = require("@/app/robots").default as () => any;
+    const r = robots();
+
+    for (const rule of r.rules.filter((rule: any) => rule.disallow)) {
+      if (rule.disallow === "/") continue;
+      expect(rule.disallow).not.toEqual(expect.arrayContaining(["/auth/*"]));
+      expect(rule.disallow).toEqual(
+        expect.arrayContaining(["/api/", "/admin/", "/session/"]),
+      );
+    }
+  });
+
   it("disallows everything when DISALLOW_ROBOTS=true", () => {
     process.env.DISALLOW_ROBOTS = "true";
 

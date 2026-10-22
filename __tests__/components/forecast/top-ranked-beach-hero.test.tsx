@@ -82,6 +82,9 @@ describe("TopRankedBeachHero", () => {
       "href",
       "/auth/sign-in?redirectTo=/forecast/san-diego",
     );
+    expect(
+      screen.getByRole("link", { name: "Log in to see scores" }),
+    ).toHaveAttribute("rel", "nofollow");
   });
 
   it("uses one current qualifying window for the score call and window display", () => {
