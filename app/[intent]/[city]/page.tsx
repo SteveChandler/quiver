@@ -1,7 +1,7 @@
 import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import Link from "next/link";
 import { ChevronLeft, MapPin } from "lucide-react";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
 
@@ -17,7 +17,7 @@ import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
-import { isValidStateSlug, getUsStateDisplayNameFromSlug, COASTAL_STATE_SUFFIXES, buildBeachUrl, cityToSlug } from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug, getUsStateDisplayNameFromSlug, COASTAL_STATE_SUFFIXES, buildBeachUrl, cityToSlug, buildInternationalCityUrl, countryToSlug, isValidCountrySlug } from "@/lib/utils/beach-url-utils";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
@@ -609,6 +609,22 @@ export default async function IntentPage(props: IntentPageParams) {
 
   if (!cityMetadata) {
     return notFound();
+  }
+
+  // City intent pages are US-only (the sitemap lists US cities only) and every
+  // link below assumes a two-letter state slug. An international city such as
+  // Camalú would otherwise render links like /baja california/camalu that 404,
+  // so send it to its own city hub instead.
+  if (!isValidStateSlug(cityMetadata.state)) {
+    const intlCityUrl = buildInternationalCityUrl(
+      cityMetadata.country,
+      cityMetadata.state,
+      cityMetadata.cityName,
+    );
+    if (!isValidCountrySlug(countryToSlug(cityMetadata.country)) || intlCityUrl === "/") {
+      return notFound();
+    }
+    return permanentRedirect(intlCityUrl);
   }
 
   // Beginner intent: use dedicated page component with editorial + live conditions
