@@ -11,7 +11,8 @@ const crawlDisallowRules = [
   "/profile/", // Private: user's own profile
   "/sessions/", // Private: user sessions
   "/session/", // Email action routes (confirm/skip) — transactional pages, not for indexing
-  "/auth/*", // Auth pages
+  // /auth/* stays crawlable: its layout sends noindex, and Google can only drop
+  // the per-beach sign-in URLs from the index if it is allowed to read that tag.
   "/embed/", // Embeddable widgets (prevent duplicate content)
   "/welcome", // Native app only — not a public web page
 ];
