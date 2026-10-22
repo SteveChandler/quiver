@@ -1193,6 +1193,7 @@ async function generateWeekScoutForecastInternal(
     {
       compare: (left, right) =>
         right.window.rankingScore - left.window.rankingScore,
+      startsAt: ({ window }) => window.start,
       onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
     },
   );

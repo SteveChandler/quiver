@@ -606,6 +606,16 @@ describe("rain runoff holds", () => {
     expect((client.from as jest.Mock).mock.calls.map(([table]) => table)).not.toContain("beaches");
   });
 
+  it("holds nothing on rain when beach coordinates cannot be read", async () => {
+    const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_C)], {
+      now, client: clientFor({ liveRunRows: fresh, beachError: { message: "down" }, rainEventRows: [gaugeEvent()] }),
+    });
+    expect(result.state).toBe("resolved");
+    expect(result.heldBeachIds).toEqual([]);
+    expect(result).not.toHaveProperty("unverifiedBeachIds");
+    expectConsoleErrors([/rain-coverage-error/]);
+  });
+
   it("withholds only gauged beaches when the events cannot be read", async () => {
     const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_C)], {
       now, client: clientFor({ liveRunRows: fresh, beachRows: [solana, santaCruz], rainEventError: { message: "down" } }),

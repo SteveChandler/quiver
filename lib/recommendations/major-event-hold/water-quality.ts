@@ -470,9 +470,10 @@ async function resolveRainHolds(
   if (events !== null && events.size === 0) return { held, unverifiedBeachIds: [], snapshot: [] };
 
   const points = await readBeachPoints(client, beachIds, "[water-quality-hold:rain-coverage-error]");
-  if (points === null) {
-    return { held, unverifiedBeachIds: [...beachIds], snapshot: ["rain:coverage-unavailable"] };
-  }
+  // Without coordinates no beach is known to be near the rain, and withholding
+  // every beach in the state for one failed read would be worse than a missed
+  // precautionary hold. readBeachPoints has already logged the failure.
+  if (points === null) return { held, unverifiedBeachIds: [], snapshot: ["rain:coverage-unavailable"] };
   const unverifiedBeachIds: string[] = [];
   const snapshot: string[] = [];
   for (const beachId of beachIds) {

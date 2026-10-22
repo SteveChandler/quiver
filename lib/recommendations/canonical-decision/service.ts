@@ -71,6 +71,7 @@ export async function resolveCanonicalSessionDecisionContext(
     })),
     {
       compare: (left, right) => left.index - right.index,
+      startsAt: ({ recommendation }) => recommendation.window?.start,
       onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
     },
   );
