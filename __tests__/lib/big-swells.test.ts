@@ -75,7 +75,7 @@ describe("compareToBigSwells", () => {
   });
 
   it("makes no comparison below the big-swell floor", () => {
-    expect(compareToBigSwells(1.2, STATION)).toEqual({ isBig: false, rank: null, closest: null, biggestSince: null });
+    expect(compareToBigSwells(1.2, STATION)).toEqual({ isBig: false, rank: null, closest: null, biggestSince: null, beats: [] });
   });
 
   it("dates 'biggest since' only from swells the stored lists prove are the newest that big", () => {
@@ -101,6 +101,40 @@ const HURDAT2 = [
   "EP012020,              ALPHA,      1,",
   "20200101, 0000,  , TS, 20.0N, 158.0W,  40, 1000",
 ].join("\n");
+
+describe("storms beaten", () => {
+  const NOW = Date.parse("2026-10-23T00:00:00.000Z");
+  const BUOY: BigSwellBuoy = {
+    ...STATION,
+    biggest: [
+      { at: "2012-10-30T00:00:00.000Z", hsM: 9.86, periodS: 14, dirDeg: 121, name: "Hurricane Sandy" },
+      { at: "2020-12-17T06:00:00.000Z", hsM: 5.8, periodS: 11, dirDeg: 111 },
+      { at: "2024-01-10T04:00:00.000Z", hsM: 5.46, periodS: 10, dirDeg: 146 },
+      { at: "2016-01-23T17:00:00.000Z", hsM: 5.46, periodS: 11, dirDeg: 92 },
+      { at: "2023-12-18T14:00:00.000Z", hsM: 5.31, periodS: 13, dirDeg: 148 },
+    ],
+    recent: [
+      { at: "2026-09-26T08:00:00.000Z", hsM: 4.54, periodS: 10, dirDeg: 108 },
+      { at: "2024-01-10T04:00:00.000Z", hsM: 5.46, periodS: 10, dirDeg: 146 },
+    ],
+  };
+
+  it("lists the biggest storms from the last 5 years that this swell beats, each once", () => {
+    // Biggest since Jan 2024, so the 2016 storm it also beats stays out.
+    const { beats, biggestSince } = compareToBigSwells(5.4, BUOY, NOW);
+    expect(biggestSince?.at.slice(0, 7)).toBe("2024-01");
+    expect(beats.map((event) => event.at.slice(0, 7))).toEqual(["2023-12", "2026-09"]);
+  });
+
+  it("reaches past 5 years only when nothing in them was bigger", () => {
+    const { beats } = compareToBigSwells(6, BUOY, NOW);
+    expect(beats.map((event) => event.at.slice(0, 7))).toEqual(["2020-12", "2024-01", "2016-01"]);
+  });
+
+  it("lists nothing below storm size", () => {
+    expect(compareToBigSwells(1.2, BUOY, NOW).beats).toEqual([]);
+  });
+});
 
 describe("storm names", () => {
   it("keeps named tropical storms and hurricanes from HURDAT2 and drops the unnamed", () => {

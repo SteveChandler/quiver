@@ -32,8 +32,8 @@ async function fetchForecastPeak(buoy: BigSwellBuoy): Promise<ForecastPeak | nul
   }).toString();
 
   try {
-    // Model runs land every 6-12 h; one fetch per buoy per half hour serves every beach near it.
-    const response = await fetch(url, { signal: AbortSignal.timeout(8_000), next: { revalidate: 1800 } });
+    // Model runs land every 6-12 h; one fetch per buoy per 3 h serves every beach near it.
+    const response = await fetch(url, { signal: AbortSignal.timeout(8_000), next: { revalidate: 10_800 } });
     if (!response.ok) {
       console.warn("[big-swells] Open-Meteo HTTP failure", { status: response.status, buoy: buoy.id });
       return null;
@@ -97,7 +97,8 @@ async function bigSwellsHandler(_request: NextRequest, context?: RouteContext): 
           },
           bigHsM: match.buoy.bigHsM,
           biggest: match.buoy.biggest,
-          recent: match.buoy.recent,
+          // The card needs only the newest few; the full 5 years stays server-side for the claims.
+          recent: match.buoy.recent.slice(0, 5),
           forecast: peak ? { model: FORECAST_MODEL, ...peak, ...compareToBigSwells(peak.hsM, match.buoy) } : null,
         }
       : { buoy: null, bigHsM: null, biggest: [], recent: [], forecast: null };
