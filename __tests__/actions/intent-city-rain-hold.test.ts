@@ -26,7 +26,7 @@ jest.mock("@/lib/community-photos", () => ({
 
 import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getBeachesByIntentAndCity } from "@/actions/beach/beach-query-actions";
-import { getCityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
+import { getCityWaterTempExpanded, getIntentForecastSummary } from "@/actions/forecast/intent-forecast-actions";
 
 const BLACKS = "11111111-1111-4111-8111-111111111111";
 const OCEAN_BEACH = "22222222-2222-4222-8222-222222222222";
@@ -101,6 +101,10 @@ describe("intent city pages while every beach is held", () => {
       const result = await getCityWaterTempExpanded("San Diego", "CA");
       expect(result).toMatchObject({ currentTemp: 64, beachName: "Blacks Beach" });
       expect(result?.beachTemps.map(({ beachId }) => beachId).sort()).toEqual([BLACKS, OCEAN_BEACH]);
+    });
+
+    it("still makes no live pick from them", async () => {
+      await expect(getIntentForecastSummary(BEACHES, "longboard")).resolves.toBeNull();
     });
   });
 

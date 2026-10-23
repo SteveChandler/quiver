@@ -513,7 +513,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
       ? forecastBeachesResult.data
       : [];
   const forecastSummary = await getIntentForecastSummary(
-    forecastBeaches.slice(0, 5).map((beach) => ({
+    forecastBeaches.map((beach) => ({
       id: beach.id,
       name: beach.name,
       slug: beach.slug ?? "",

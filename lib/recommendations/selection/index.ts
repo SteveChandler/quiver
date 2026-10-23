@@ -164,6 +164,21 @@ async function resolveSafeBeachIds<T extends { id: string }>(
   }
 }
 
+function isHeld(
+  { held, heldUntil }: SafeBeachHolds,
+  id: string,
+  startsAt: string | Date | null | undefined,
+  standingHoldsOnly: boolean | undefined,
+): boolean {
+  const beachId = id.toLowerCase();
+  if (!held.has(beachId)) return false;
+  const until = heldUntil[beachId];
+  if (until === undefined) return true;
+  if (standingHoldsOnly) return false;
+  const startsMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+  return !Number.isFinite(startsMs) || startsMs < Date.parse(until);
+}
+
 function brand<T>(candidate: T): RankedBeach<T> {
   return candidate as RankedBeach<T>;
 }
@@ -189,19 +204,10 @@ export async function rankBeaches<T extends { id: string }>(
     ) => void;
   },
 ): Promise<RankedBeach<T>[]> {
-  const { held, heldUntil } = await resolveSafeBeachIds(candidates, opts);
-  const isHeld = (candidate: T): boolean => {
-    const beachId = candidate.id.toLowerCase();
-    if (!held.has(beachId)) return false;
-    const until = heldUntil[beachId];
-    if (until !== undefined && opts.standingHoldsOnly) return false;
-    const startsAt = opts.startsAt?.(candidate);
-    const startsMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
-    return until === undefined || !Number.isFinite(startsMs) || startsMs < Date.parse(until);
-  };
+  const holds = await resolveSafeBeachIds(candidates, opts);
 
   return candidates
-    .filter((candidate) => !isHeld(candidate))
+    .filter((candidate) => !isHeld(holds, candidate.id, opts.startsAt?.(candidate), opts.standingHoldsOnly))
     .slice()
     .sort(opts.compare)
     .map((candidate) => brand(candidate));
@@ -213,9 +219,8 @@ export async function selectBeach<T extends { id: string }>(
 ): Promise<RankedBeach<T> | null> {
   if (candidate == null) return null;
 
-  const { held, heldUntil } = await resolveSafeBeachIds([candidate], opts);
-  const beachId = candidate.id.toLowerCase();
-  if (held.has(beachId) && !(opts?.standingHoldsOnly && heldUntil[beachId] !== undefined)) {
+  const holds = await resolveSafeBeachIds([candidate], opts);
+  if (isHeld(holds, candidate.id, undefined, opts?.standingHoldsOnly)) {
     return null;
   }
   return brand(candidate);
