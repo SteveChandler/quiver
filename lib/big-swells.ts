@@ -30,7 +30,7 @@ export interface BigSwellBuoy {
   modelRatio: number | null;
   /** Tallest first. */
   biggest: BigSwell[];
-  /** Newest first. */
+  /** Every big swell in the 5 years before the newest reading (at least 5), newest first. */
   recent: BigSwell[];
 }
 
@@ -38,6 +38,7 @@ const PEAK_SEPARATION_MS = 72 * 3_600_000;
 const SPIKE_WINDOW_MS = 3 * 3_600_000;
 const BIGGEST_KEPT = 10;
 const RECENT_KEPT = 5;
+const RECENT_YEARS_MS = 5 * 365.25 * 24 * 3_600_000;
 const MAX_BUOY_DISTANCE_KM = 100;
 
 function toEvent(record: NdbcRecord): BigSwell {
@@ -95,7 +96,11 @@ export function pickBigSwells(records: NdbcRecord[]): {
     peaks.push(record);
   }
 
-  const recent = [...peaks].sort((a, b) => b.timeUtcMs - a.timeUtcMs).slice(0, RECENT_KEPT);
+  // Every storm of the last 5 years, so "biggest since" can be proven anywhere inside them.
+  const newest = sorted[sorted.length - 1].timeUtcMs;
+  const recent = [...peaks]
+    .sort((a, b) => b.timeUtcMs - a.timeUtcMs)
+    .filter((peak, index) => index < RECENT_KEPT || peak.timeUtcMs >= newest - RECENT_YEARS_MS);
   return {
     bigHsM,
     biggest: peaks.slice(0, BIGGEST_KEPT).map(toEvent),
@@ -126,7 +131,14 @@ export function nearestBigSwellBuoy(
 export function compareToBigSwells(
   hsM: number,
   buoy: BigSwellBuoy,
-): { isBig: boolean; rank: number | null; closest: BigSwell | null; biggestSince: BigSwell | null } {
+  now: number = Date.now(),
+): {
+  isBig: boolean;
+  rank: number | null;
+  closest: BigSwell | null;
+  biggestSince: BigSwell | null;
+  beats: BigSwell[];
+} {
   const isBig = hsM >= buoy.bigHsM;
   const rank = buoy.biggest.filter((event) => event.hsM > hsM).length + 1;
   const pool = [...buoy.biggest, ...buoy.recent];
@@ -134,7 +146,33 @@ export function compareToBigSwells(
     isBig && pool.length > 0
       ? pool.reduce((a, b) => (Math.abs(b.hsM - hsM) < Math.abs(a.hsM - hsM) ? b : a))
       : null;
-  return { isBig, rank: rank <= buoy.biggest.length ? rank : null, closest, biggestSince: isBig ? biggestSince(hsM, buoy) : null };
+  const since = isBig ? biggestSince(hsM, buoy) : null;
+  return {
+    isBig,
+    rank: rank <= buoy.biggest.length ? rank : null,
+    closest,
+    biggestSince: since,
+    beats: isBig ? stormsBeaten(hsM, pool, since, now) : [],
+  };
+}
+
+const BEATS_SHOWN = 3;
+const RECENT_WINDOW_MS = 5 * 365.25 * 24 * 3_600_000;
+
+/**
+ * The biggest stored storms this swell is at least as big as, from the last 5 years. Older storms
+ * only come in when nothing in those 5 years was bigger, so a merely big swell isn't compared with
+ * the 1990s.
+ */
+function stormsBeaten(hsM: number, pool: BigSwell[], since: BigSwell | null, now: number): BigSwell[] {
+  const cutoff = now - RECENT_WINDOW_MS;
+  const epic = !since || Date.parse(since.at) < cutoff;
+  // `biggest` and `recent` can share a storm.
+  const unique = [...new Map(pool.map((event) => [event.at, event])).values()];
+  return unique
+    .filter((event) => event.hsM <= hsM && (epic || Date.parse(event.at) >= cutoff))
+    .sort((a, b) => b.hsM - a.hsM)
+    .slice(0, BEATS_SHOWN);
 }
 
 /**
