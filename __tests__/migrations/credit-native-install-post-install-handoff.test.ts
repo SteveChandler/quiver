@@ -53,7 +53,7 @@ describe("credit native install post-install handoff migration", () => {
       "ue.created_at < ni.cohort_anchor + interval '24 hours' order by ue.created_at, ue.id limit 1",
     );
     expect(normalizedSQL).toContain(
-      "coalesce(ni.handoff_id, post_install_handoff.handoff_id) as handoff_id",
+      "lower(coalesce(ni.handoff_id, post_install_handoff.handoff_id)) as handoff_id",
     );
     expect(normalizedSQL).toContain(
       "from native_installs_with_handoff ni )",
@@ -78,6 +78,15 @@ describe("credit native install post-install handoff migration", () => {
   it("still maps a handoff ID to the web_handoff source group", () => {
     expect(normalizedSQL).toContain(
       "when ni.handoff_id is not null then 'web_handoff'",
+    );
+  });
+
+  it("labels post-install credit apart from first-open evidence", () => {
+    expect(normalizedSQL).toContain(
+      "ni.handoff_id is null and post_install_handoff.handoff_id is not null as handoff_from_post_install_open",
+    );
+    expect(normalizedSQL).toContain(
+      "case when ni.handoff_from_post_install_open then 'post_install_open' else 'exact' end::text as evidence_level",
     );
   });
 

@@ -104,11 +104,14 @@ native_installs_with_handoff AS (
     ni.utm_campaign,
     ni.referrer_domain,
     ni.entrypoint,
-    COALESCE(ni.handoff_id, post_install_handoff.handoff_id) AS handoff_id
+    LOWER(COALESCE(ni.handoff_id, post_install_handoff.handoff_id)) AS handoff_id,
+    ni.handoff_id IS NULL AND post_install_handoff.handoff_id IS NOT NULL
+      AS handoff_from_post_install_open
   FROM native_installs ni
-  -- iOS has no install referrer, so the first-open row never carries a
-  -- handoff ID. A web handoff link opened in the installed app is the only
-  -- per-install evidence; match it on the install ID within the first day.
+  -- The first-open row carries no handoff ID today: iOS has no install
+  -- referrer and the Android referrer path drops it. A web handoff link opened
+  -- in the installed app is the only per-install evidence; match it on the
+  -- install ID within the first day.
   LEFT JOIN LATERAL (
     SELECT LOWER(ue.metadata->>'handoff_id') AS handoff_id
     FROM public.user_events ue
@@ -153,7 +156,10 @@ native_cohorts AS (
         THEN 'captured'
       ELSE 'missing'
     END AS source_capture_status,
-    'exact'::text AS evidence_level
+    CASE
+      WHEN ni.handoff_from_post_install_open THEN 'post_install_open'
+      ELSE 'exact'
+    END::text AS evidence_level
   FROM native_installs_with_handoff ni
 ),
 native_outcomes AS (
@@ -305,7 +311,7 @@ SELECT
 FROM native_outcomes;
 
 COMMENT ON VIEW public.growth_native_install_activation_v1 IS
-  'One row per real-device native install ID; install-grain activation denominator. handoff_id comes from first-open metadata or a handoff link opened in the installed app within 24 hours.';
+  'One row per real-device native install ID; install-grain activation denominator. handoff_id comes from first-open metadata or, with evidence_level post_install_open, a handoff link opened in the installed app within 24 hours.';
 
 REVOKE ALL ON public.growth_native_install_activation_v1 FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.growth_native_install_activation_v1 TO service_role;
