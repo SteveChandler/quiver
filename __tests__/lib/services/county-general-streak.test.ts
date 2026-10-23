@@ -163,7 +163,8 @@ const shores = "d291411d-d331-4bf1-ad1a-302da3c69de0";
 const shipwrecks = "5e8d07ff-786c-4b7e-ab19-53d2b3774e23";
 const closedBeach = "55555555-5555-4555-8555-555555555555";
 
-function regressionClient(run: typeof latest, rainEnd: string | null = "2026-10-14T20:30:43Z", wet = false, event?: unknown): WaterQualityHoldClient {
+function regressionClient(run: typeof latest, rainEnd: string | null = "2026-10-14T20:30:43Z", wet = false, event?: unknown,
+  overrides: { extraAdvisories?: unknown[]; qualityRows?: unknown[] } = {}): WaterQualityHoldClient {
   const advisory = (index: number) => ({ run_id: run.id, advisory_type: "advisory", source_site_identifier: index === 0 ? "shipwrecks" : `general-${index}`,
     beach_id: index === 0 ? shipwrecks : index === 7 ? shores : null,
     county_latitude: index === 0 ? 33.05 : index === 7 ? 32.857 : 32.65,
@@ -173,10 +174,11 @@ function regressionClient(run: typeof latest, rainEnd: string | null = "2026-10-
     ...Array.from({ length: 10 }, (_, index) => ({ ...advisory(index + 100), advisory_type: "closure", beach_id: index === 0 ? closedBeach : null,
       county_latitude: index === 0 ? 32.8 : 32.65, county_longitude: index === 0 ? -117.25 : -117.2 })),
     ...Array.from({ length: 7 }, (_, index) => ({ ...advisory(index), run_id: baseline.id })),
+    ...(overrides.extraAdvisories ?? []),
   ];
   return clientFor([baseline, first, run], notices, false, {
     beaches: [{ id: shores, lat: 32.857, lon: -117.257 }, { id: shipwrecks, lat: 33.05, lon: -117.29 }, { id: closedBeach, lat: 32.8, lon: -117.25 }],
-    beach_water_quality: [shores, shipwrecks, closedBeach].map((beach_id) => ({ beach_id, status: "unknown", total_samples_30d: 0, latest_sample_date: null })),
+    beach_water_quality: overrides.qualityRows ?? [shores, shipwrecks, closedBeach].map((beach_id) => ({ beach_id, status: "unknown", total_samples_30d: 0, latest_sample_date: null })),
     rainfall_runoff_readings: rainEnd ? [{ ...dryReading(rainEnd), ...(wet ? { total_in: 0.01, station_totals: { KSAN: 0, KCRQ: 0.01, KNZY: 0 } } : {}) }] : [],
     rain_advisory_events: event ? [event] : [],
   });
@@ -185,7 +187,7 @@ function regressionClient(run: typeof latest, rainEnd: string | null = "2026-10-
 it.each([
   [new Date("2026-10-14T20:30:43Z"), latest, false],
   [new Date("2026-10-12T20:00:00Z"), { ...latest, fetched_at: "2026-10-12T19:30:43Z" }, true],
-])("projects and holds the 86-advisory County fixture at %s", async (now, run, generalActive) => {
+])("projects the 86-advisory County fixture at %s, holding site advisories and closures only", async (now, run, generalActive) => {
   const client = regressionClient(run);
   const rows = [shores, shipwrecks, closedBeach].map((beach_id) => ({ beach_id, status: "unknown", total_samples_30d: 0 }));
   const projected = await currentWaterQuality(rows, client, now);
@@ -196,21 +198,21 @@ it.each([
   const resolution = await resolveWaterQualityHolds([shores, shipwrecks, closedBeach].map((beachId) => ({ candidateId: beachId,
     beachId, startsAt: now.toISOString(), endsAt: new Date(now.getTime() + 3600000).toISOString() })), { client, now });
   expect(resolution.state).toBe("resolved");
-  expect(resolution.heldBeachIds).toEqual(generalActive ? [shipwrecks, closedBeach, shores].sort() : [shipwrecks, closedBeach].sort());
+  expect(resolution.heldBeachIds).toEqual([shipwrecks, closedBeach].sort());
   expect(resolution.waterQualityEvidenceByBeachId?.[shipwrecks]).toMatchObject({ source: "county", countyKind: "site", checkedAt: run.fetched_at });
   expect(resolution.waterQualityEvidenceByBeachId?.[closedBeach]).toMatchObject({ source: "county", countyKind: "site", checkedAt: run.fetched_at });
-  expect(resolution.waterQualityEvidenceByBeachId?.[shores]?.countyKind).toBe(generalActive ? "general" : undefined);
+  expect(resolution.waterQualityNoticeByBeachId?.[shores]?.countyKind).toBe(generalActive ? "general" : undefined);
 });
 
-it("uses the active County event for live and projected hold evidence and its epoch", async () => {
+it("uses the active County event for the general notice and its epoch", async () => {
   const now = new Date("2026-10-14T20:30:43Z");
   const candidates = [{ candidateId: shores, beachId: shores, startsAt: now.toISOString(),
     endsAt: new Date(now.getTime() + 3600000).toISOString() }];
   const firstEvent = { ...storedEvent, expires_at: "2026-10-16T00:00:00Z" };
   const client = regressionClient(latest, now.toISOString(), false, firstEvent);
   const resolution = await resolveWaterQualityHolds(candidates, { client, now });
-  expect(resolution.heldBeachIds).toContain(shores);
-  expect(resolution.waterQualityEvidenceByBeachId?.[shores]).toMatchObject({ source: "county", countyKind: "general",
+  expect(resolution.heldBeachIds).not.toContain(shores);
+  expect(resolution.waterQualityNoticeByBeachId?.[shores]).toMatchObject({ source: "county", countyKind: "general",
     rainAdvisory: { startedAt: firstEvent.started_at, expiresAt: firstEvent.expires_at } });
   const projected = await currentWaterQuality([{ beach_id: shores, status: "unknown", total_samples_30d: 0 }], client, now);
   expect(projected[0].county_rain_advisory?.expires_at).toBe(firstEvent.expires_at);
@@ -232,16 +234,18 @@ it("changes the hold epoch at the 72-hour boundary without a new County run", as
     startsAt: "2026-10-14T14:00:00Z", endsAt: "2026-10-14T15:00:00Z" }));
   const before = await resolveWaterQualityHolds(candidates, { client, now: new Date("2026-10-14T14:00:42Z") });
   const after = await resolveWaterQualityHolds(candidates, { client, now: new Date("2026-10-14T14:00:43Z") });
-  expect(before.heldBeachIds).toContain(shores);
-  expect(after.heldBeachIds).not.toContain(shores);
+  expect(before.heldBeachIds).not.toContain(shores);
+  expect(before.waterQualityNoticeByBeachId?.[shores]).toMatchObject({ countyKind: "general" });
+  expect(after.waterQualityNoticeByBeachId?.[shores]).toBeUndefined();
   expect(after.epoch).not.toBe(before.epoch);
 });
 
-it("keeps the general hold when the expired fixture lacks a rain reading", async () => {
+it("keeps the general notice when the expired fixture lacks a rain reading", async () => {
   const now = new Date("2026-10-14T20:30:43Z");
   const client = regressionClient(latest, null);
   const resolution = await resolveWaterQualityHolds([{ candidateId: shores, beachId: shores, startsAt: now.toISOString(), endsAt: new Date(now.getTime() + 3600000).toISOString() }], { client, now });
-  expect(resolution.heldBeachIds).toContain(shores);
+  expect(resolution.heldBeachIds).not.toContain(shores);
+  expect(resolution.waterQualityNoticeByBeachId?.[shores]).toMatchObject({ countyKind: "general" });
   const projected = await currentWaterQuality([{ beach_id: shores, status: "unknown", total_samples_30d: 0 }], client, now);
   expect(projected[0].county_advisory_status).toBe("advisory");
 });
@@ -252,9 +256,35 @@ it("changes the hold epoch when San Diego rain appears while the County run stay
   const dry = await resolveWaterQualityHolds(candidates, { client: regressionClient(latest), now });
   const wet = await resolveWaterQualityHolds(candidates, { client: regressionClient(latest, now.toISOString(), true), now });
   const unknown = await resolveWaterQualityHolds(candidates, { client: regressionClient(latest, null), now });
-  expect(dry.heldBeachIds).not.toContain(shores);
-  expect(wet.heldBeachIds).toContain(shores);
-  expect(unknown.heldBeachIds).toContain(shores);
+  expect(dry.waterQualityNoticeByBeachId?.[shores]).toBeUndefined();
+  expect(wet.waterQualityNoticeByBeachId?.[shores]).toMatchObject({ countyKind: "general" });
+  expect(unknown.waterQualityNoticeByBeachId?.[shores]).toMatchObject({ countyKind: "general" });
+  expect([...dry.heldBeachIds, ...wet.heldBeachIds, ...unknown.heldBeachIds]).not.toContain(shores);
   expect(wet.epoch).not.toBe(unknown.epoch);
   expect(wet.epoch).not.toBe(dry.epoch);
+});
+
+describe("rain notices never displace a beach's own hold", () => {
+  const now = new Date("2026-10-12T20:00:00Z");
+  const run = { ...latest, fetched_at: "2026-10-12T19:30:43Z" };
+  const candidates = [{ candidateId: shores, beachId: shores, startsAt: now.toISOString(), endsAt: new Date(now.getTime() + 3600000).toISOString() }];
+
+  it("holds a beach whose closure lands in the same run as the general advisory", async () => {
+    const closure = { run_id: run.id, advisory_type: "closure", source_site_identifier: "shores-closure", beach_id: shores,
+      county_latitude: 32.857, county_longitude: -117.257 };
+    const resolution = await resolveWaterQualityHolds(candidates, {
+      client: regressionClient(run, undefined, false, undefined, { extraAdvisories: [closure] }), now });
+    expect(resolution.heldBeachIds).toContain(shores);
+    expect(resolution.waterQualityStatusByBeachId[shores]).toBe("closure");
+    expect(resolution.waterQualityNoticeByBeachId?.[shores]).toBeUndefined();
+  });
+
+  it("holds a beach on its own current sampled advisory during the general advisory", async () => {
+    const qualityRows = [{ beach_id: shores, status: "advisory", total_samples_30d: 3, latest_sample_date: "2026-10-12" }];
+    const resolution = await resolveWaterQualityHolds(candidates, {
+      client: regressionClient(run, undefined, false, undefined, { qualityRows }), now });
+    expect(resolution.heldBeachIds).toContain(shores);
+    expect(resolution.waterQualityStatusByBeachId[shores]).toBe("advisory");
+    expect(resolution.waterQualityNoticeByBeachId?.[shores]).toBeUndefined();
+  });
 });
