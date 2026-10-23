@@ -35,18 +35,15 @@ import {
   WaterTempOverviewSection,
   TodaysIntentPlan,
   SmartChecklist,
-  MiniLogTeaser,
   BeachEditorialSection,
   WaterTempPageContent,
   DawnPatrolPageContent,
   SunsetPageContent,
   ConditionsStateOverview,
 } from "@/components/intent";
-import { CTASection } from "@/components/landing-page/cta-section";
 import { SeoScenePanel } from "@/components/seo/seo-scene-panel";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { SeoLocationPage } from "@/components/seo/funnel/SeoLocationPage";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { isConditionsIntent } from "@/lib/constants/intent-definitions";
 import {
@@ -79,6 +76,7 @@ import {
   getBeginnerCityEditorial,
 } from "@/actions/beginner/beginner-actions";
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
+import { IntentAppHandoffCta } from "@/components/intent/intent-app-handoff-cta";
 
 // Metadata and the page body must count the same beginner list; cache dedupes the lookup per request.
 const getBeginnerBeachesForPage = cache(getBeginnerBeachesWithEditorial);
@@ -1312,6 +1310,12 @@ export default async function IntentPage(props: IntentPageParams) {
             scene={planScene}
           />
 
+          <IntentAppHandoffCta
+            intent={params.intent as IntentKey}
+            cityName={cityMetadata.cityName}
+            citySlug={params.city}
+          />
+
           {/* Beach Editorial Section — intent-specific local tips */}
           {editorialBeaches.length > 0 && (
             <BeachEditorialSection
@@ -1323,34 +1327,25 @@ export default async function IntentPage(props: IntentPageParams) {
             />
           )}
 
+          {/* Smart Checklist & Links */}
           <div className="grid gap-8 lg:grid-cols-2">
-            {/* Mini Log Teaser */}
-            <MiniLogTeaser
+            <SmartChecklist
+              bestWindow={forecastSummary?.bestWindow ?? null}
               intentSlug={params.intent}
               cityName={cityMetadata.cityName}
-              firstBeach={beachesResult.data[0] ? { id: beachesResult.data[0].id, name: beachesResult.data[0].name } : undefined}
+              topBeachName={forecastSummary?.topPicks[0]?.name}
+              windForecast={forecastSummary?.conditions.wind}
+              isTomorrow={forecastSummary?.isTomorrow}
             />
-
-            {/* Smart Checklist & Links */}
-            <aside className="space-y-6">
-              <SmartChecklist
-                bestWindow={forecastSummary?.bestWindow ?? null}
-                intentSlug={params.intent}
-                cityName={cityMetadata.cityName}
-                topBeachName={forecastSummary?.topPicks[0]?.name}
-                windForecast={forecastSummary?.conditions.wind}
-                isTomorrow={forecastSummary?.isTomorrow}
-              />
-              <ContinueExploring
-                currentIntent={params.intent as IntentKey}
-                citySlug={params.city}
-                cityName={cityMetadata.cityName}
-                stateSlug={cityMetadata.state.toLowerCase()}
-                stateName={cityMetadata.stateName}
-                bestTimeToSurfUrl={bestTimeToSurfUrl}
-                excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
-              />
-            </aside>
+            <ContinueExploring
+              currentIntent={params.intent as IntentKey}
+              citySlug={params.city}
+              cityName={cityMetadata.cityName}
+              stateSlug={cityMetadata.state.toLowerCase()}
+              stateName={cityMetadata.stateName}
+              bestTimeToSurfUrl={bestTimeToSurfUrl}
+              excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
+            />
           </div>
         </div>
 
@@ -1365,20 +1360,6 @@ export default async function IntentPage(props: IntentPageParams) {
           locationName={cityMetadata.cityName}
         />
       </div>
-
-      {/* Bottom CTA Section */}
-      <CTASection />
-
-      {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar
-        source={`intent-${params.intent}-${params.city}`}
-        ctaText="Get condition alerts"
-        supportingText="Know before you drive"
-        searchReferralCta={{
-          ctaText: "Get Surf Alerts",
-          supportingText: "Conditions sent before dawn patrol",
-        }}
-      />
     </div>
   );
 }

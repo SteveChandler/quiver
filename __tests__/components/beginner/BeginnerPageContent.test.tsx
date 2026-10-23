@@ -14,16 +14,10 @@ jest.mock("@/lib/seo/intent-faq-generator", () => ({
   generateIntentFAQ: () => [],
 }));
 
-jest.mock("@/components/landing-page/cta-section", () => ({
-  CTASection: () => <div>CTA</div>,
-}));
-
-jest.mock("@/components/ui/sticky-signup-bar", () => ({
-  StickySignupBar: () => <div>Sticky CTA</div>,
-}));
-
-jest.mock("@/components/seo/alert-capture-cta", () => ({
-  AlertCaptureCta: () => <div>Alert CTA</div>,
+jest.mock("@/components/intent/intent-app-handoff-cta", () => ({
+  IntentAppHandoffCta: ({ intent }: { intent: string }) => (
+    <div data-testid="intent-app-handoff-cta">{intent}</div>
+  ),
 }));
 
 jest.mock("@/components/shared/continue-exploring", () => ({
@@ -125,5 +119,26 @@ describe("BeginnerPageContent", () => {
         /live wave, wind, tide, and time-window data is unavailable/i,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("renders the app handoff as the page's only ask", () => {
+    render(
+      <BeginnerPageContent
+        cityName="Huntington Beach"
+        citySlug="huntington-beach"
+        stateSlug="ca"
+        stateName="California"
+        regionLabel="Orange County"
+        conditionsBadge={null}
+        rightNowConditions={null}
+        beaches={[]}
+        cityEditorial={null}
+        totalBeaches={0}
+        baseUrl="https://www.quiversurf.app"
+      />
+    );
+
+    expect(screen.getAllByTestId("intent-app-handoff-cta")).toHaveLength(1);
+    expect(screen.getByTestId("intent-app-handoff-cta")).toHaveTextContent("beginner");
   });
 });
