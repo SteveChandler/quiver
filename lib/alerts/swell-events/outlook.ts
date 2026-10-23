@@ -20,7 +20,8 @@ import { swellWindowForBeach } from "./exposure";
 export const SWELL_OUTLOOK_PULSE_DETECTOR_VERSION = "swell-outlook-pulse.v1";
 
 export const SWELL_OUTLOOK_PULSE_THRESHOLDS = {
-  minFaceHeightFt: 1.5,
+  // Replay on prod snapshots (Oct 6-22): pulses under 2.5 ft verified 3 of 15, those at or above it 16 of 29.
+  minFaceHeightFt: 2.5,
   minPeriodS: 9,
   minProminenceRatio: 0.25,
   minRegionBeaches: 3,
