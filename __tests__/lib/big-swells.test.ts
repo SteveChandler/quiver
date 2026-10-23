@@ -1,6 +1,7 @@
 import type { NdbcRecord } from "@/lib/climatology/parse-ndbc";
 import {
   compareToBigSwells,
+  modelTracksBuoy,
   nearestBigSwellBuoy,
   pickBigSwells,
   type BigSwellBuoy,
@@ -56,6 +57,7 @@ const STATION: BigSwellBuoy = {
   since: "2008-10-30",
   through: "2026-10-23",
   bigHsM: 3,
+  modelRatio: 0.9,
   biggest: [
     { at: "2012-10-30T00:00:00.000Z", hsM: 9.86, periodS: 13.79, dirDeg: 121 },
     { at: "2011-08-28T12:00:00.000Z", hsM: 7.95, periodS: 14.81, dirDeg: 170 },
@@ -72,6 +74,15 @@ describe("compareToBigSwells", () => {
 
   it("makes no comparison below the big-swell floor", () => {
     expect(compareToBigSwells(1.2, STATION)).toEqual({ isBig: false, rank: null, closest: null });
+  });
+});
+
+describe("modelTracksBuoy", () => {
+  it("only compares forecasts at buoys the model reads within 20-25%", () => {
+    expect(modelTracksBuoy(STATION)).toBe(true);
+    expect(modelTracksBuoy({ ...STATION, modelRatio: 0.68 })).toBe(false);
+    expect(modelTracksBuoy({ ...STATION, modelRatio: 1.3 })).toBe(false);
+    expect(modelTracksBuoy({ ...STATION, modelRatio: null })).toBe(false);
   });
 });
 

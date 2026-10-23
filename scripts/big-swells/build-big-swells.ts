@@ -87,6 +87,41 @@ async function loadStation(id: string, files: { yearly: string[]; monthly: strin
   return [...byTime.values()];
 }
 
+/**
+ * Median buoy/model Hs over the last 45 days (the realtime2 window). Sheltered buoys read well
+ * below the 0.25-degree wave model, so the route skips the forecast comparison when this is off.
+ */
+async function modelRatio(id: string, lat: number, lon: number, records: NdbcRecord[]): Promise<number | null> {
+  const url = new URL("https://marine-api.open-meteo.com/v1/marine");
+  url.search = new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lon),
+    hourly: "wave_height",
+    models: "ecmwf_wam025",
+    past_days: "45",
+    forecast_days: "1",
+    timezone: "UTC",
+  }).toString();
+  const hourly = JSON.parse((await fetchBody(url.toString(), null))?.toString("utf8") ?? "{}")?.hourly;
+  const model = new Map<number, number>();
+  for (const [index, time] of (hourly?.time ?? []).entries()) {
+    const hs = hourly.wave_height?.[index];
+    if (typeof hs === "number" && hs >= 0.3) model.set(Date.parse(`${time}Z`) / 3_600_000, hs);
+  }
+  const ratios = records
+    .map((record) => {
+      const hs = model.get(Math.round(record.timeUtcMs / 3_600_000));
+      return hs && record.waveHeightM !== null ? record.waveHeightM / hs : null;
+    })
+    .filter((ratio): ratio is number => ratio !== null)
+    .sort((a, b) => a - b);
+  if (ratios.length < 100) {
+    console.warn(`${id}: ${ratios.length} model pairs, no ratio`);
+    return null;
+  }
+  return Math.round(ratios[Math.floor(ratios.length / 2)] * 100) / 100;
+}
+
 async function main(): Promise<void> {
   const only = process.argv.find((arg) => arg.startsWith("--station="))?.slice("--station=".length);
   const ids = only ? [only] : STATION_IDS;
@@ -127,10 +162,12 @@ async function main(): Promise<void> {
       since: day(first),
       through: day(last),
       bigHsM,
+      modelRatio: await modelRatio(id, Number(tag[1]), Number(tag[2]), records),
       biggest,
       recent,
     });
-    console.log(`${id}: ${times.length} readings since ${day(first)}, big >= ${bigHsM} m, top ${biggest[0].hsM} m ${biggest[0].at.slice(0, 10)}`);
+    const added = stations[stations.length - 1];
+    console.log(`${id}: ${times.length} readings since ${day(first)}, big >= ${bigHsM} m, model ratio ${added.modelRatio}, top ${biggest[0].hsM} m ${biggest[0].at.slice(0, 10)}`);
   }
 
   if (only) {

@@ -18,11 +18,24 @@ jest.mock("@/lib/data/big-swells.json", () => ({
       since: "2008-10-30",
       through: "2026-10-23",
       bigHsM: 3,
+      modelRatio: 0.9,
       biggest: [
         { at: "2012-10-30T00:00:00.000Z", hsM: 9.86, periodS: 13.79, dirDeg: 121 },
         { at: "2010-03-13T23:00:00.000Z", hsM: 5.94, periodS: 10, dirDeg: 126 },
       ],
       recent: [{ at: "2026-09-26T08:50:00.000Z", hsM: 4.5, periodS: 10, dirDeg: 108 }],
+    },
+    {
+      id: "51201",
+      name: "Waimea Bay, HI (106)",
+      lat: 21.671,
+      lon: -158.118,
+      since: "2001-01-01",
+      through: "2026-10-23",
+      bigHsM: 4,
+      modelRatio: 0.74,
+      biggest: [{ at: "2021-12-05T00:00:00.000Z", hsM: 8, periodS: 17, dirDeg: 320 }],
+      recent: [],
     },
   ],
 }));
@@ -31,7 +44,7 @@ const BELMAR = "fb0ee60f-a269-47ed-b244-e8dc64fff891";
 const mockClient = createSupabaseServerClient as jest.Mock;
 
 function beachRow(row: { lat: number; lon: number } | null): void {
-  const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: row, error: null }) };
+  const chain = { select: () => chain, eq: () => chain, is: () => chain, maybeSingle: async () => ({ data: row, error: null }) };
   mockClient.mockResolvedValue({ from: () => chain });
 }
 
@@ -81,8 +94,18 @@ describe("GET /api/beaches/[id]/big-swells", () => {
     expect(body.data.biggest).toHaveLength(2);
   });
 
+  it("shows history without a forecast where the model can't stand in for the buoy", async () => {
+    beachRow({ lat: 21.64, lon: -158.06 });
+    global.fetch = jest.fn() as typeof fetch;
+
+    const body = await (await call(BELMAR)).json();
+    expect(body.data.buoy.id).toBe("51201");
+    expect(body.data.forecast).toBeNull();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("returns an empty history, not an error, when no buoy is within 100 km", async () => {
-    beachRow({ lat: 21.3, lon: -157.8 });
+    beachRow({ lat: 27.8, lon: -97.4 });
     global.fetch = jest.fn() as typeof fetch;
 
     const response = await call(BELMAR);

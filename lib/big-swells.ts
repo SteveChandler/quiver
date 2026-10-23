@@ -16,8 +16,10 @@ export interface BigSwellBuoy {
   lon: number;
   since: string;
   through: string;
-  /** 99th percentile of every Hs reading: the floor for a "big swell" at this buoy. */
+  /** 99th percentile of hourly peak Hs: the floor for a "big swell" at this buoy. */
   bigHsM: number;
+  /** Median buoy/model Hs over recent hours; null when unmeasured. Far from 1 means the model can't stand in for this buoy. */
+  modelRatio: number | null;
   /** Tallest first. */
   biggest: BigSwell[];
   /** Newest first. */
@@ -64,7 +66,13 @@ export function pickBigSwells(records: NdbcRecord[]): {
     .sort((a, b) => a.timeUtcMs - b.timeUtcMs);
   if (sorted.length === 0) return { bigHsM: 0, biggest: [], recent: [] };
 
-  const heights = sorted.map((record) => record.waveHeightM ?? 0).sort((a, b) => a - b);
+  // One value per hour, so 10-minute years don't outweigh hourly ones.
+  const hourly = new Map<number, number>();
+  for (const record of sorted) {
+    const hour = Math.floor(record.timeUtcMs / 3_600_000);
+    hourly.set(hour, Math.max(hourly.get(hour) ?? 0, record.waveHeightM ?? 0));
+  }
+  const heights = [...hourly.values()].sort((a, b) => a - b);
   const bigHsM = heights[Math.floor(heights.length * 0.99)];
 
   const candidates = sorted
@@ -85,6 +93,11 @@ export function pickBigSwells(records: NdbcRecord[]): {
     biggest: peaks.slice(0, BIGGEST_KEPT).map(toEvent),
     recent: recent.map(toEvent),
   };
+}
+
+/** Whether the wave model reads close enough to this buoy for a forecast-vs-history comparison. */
+export function modelTracksBuoy(buoy: BigSwellBuoy): boolean {
+  return buoy.modelRatio !== null && buoy.modelRatio >= 0.8 && buoy.modelRatio <= 1.25;
 }
 
 export function nearestBigSwellBuoy(

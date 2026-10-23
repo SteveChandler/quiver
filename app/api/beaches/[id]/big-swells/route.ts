@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { compareToBigSwells, nearestBigSwellBuoy, type BigSwellBuoy } from "@/lib/big-swells";
+import { compareToBigSwells, modelTracksBuoy, nearestBigSwellBuoy, type BigSwellBuoy } from "@/lib/big-swells";
 import dataset from "@/lib/data/big-swells.json";
 import { handleApiError, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { RouteContext } from "@/lib/middleware/api-wrappers/types";
@@ -71,14 +71,20 @@ async function bigSwellsHandler(_request: NextRequest, context?: RouteContext): 
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { data: beach, error } = await supabase.from("beaches").select("lat, lon").eq("id", id).maybeSingle();
+    const { data: beach, error } = await supabase
+      .from("beaches")
+      .select("lat, lon")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
     if (error) return handleApiError(error, "Failed to fetch beach");
     if (!beach || beach.lat === null || beach.lon === null) {
       return NextResponse.json({ success: false, error: "Beach not found" }, { status: 404 });
     }
 
     const match = nearestBigSwellBuoy(BUOYS, { lat: beach.lat, lon: beach.lon });
-    const peak = match ? await fetchForecastPeak(match.buoy) : null;
+    // A sheltered buoy reads far below the open-water model cell, so its history can't be compared with the model.
+    const peak = match && modelTracksBuoy(match.buoy) ? await fetchForecastPeak(match.buoy) : null;
     const data = match
       ? {
           buoy: {
