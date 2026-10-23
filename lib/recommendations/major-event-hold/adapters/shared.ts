@@ -200,9 +200,7 @@ function parseDecision(
       evaluation.holdIds.length === 0 ||
       (evaluation.reasonCode === "major_event_hold" &&
         (evaluationExpiryMs === undefined ||
-          availabilityExpiryMs === undefined)) ||
-      (evaluation.reasonCode === "water_quality_hold" &&
-        (evaluationExpiryMs !== undefined || availabilityExpiryMs !== undefined))
+          availabilityExpiryMs === undefined))
     ) {
       return null;
     }
