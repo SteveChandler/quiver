@@ -262,6 +262,35 @@ describe("spot-data-actions", () => {
     });
   });
 
+  describe("getSpotFeaturedPhoto", () => {
+    test("renders the curated original instead of an Openverse thumb proxy", async () => {
+      jest.doMock("@/lib/community-photos", () => ({
+        getResolvedSpotPhotos: jest.fn(async ({ curated }: { curated: unknown[] }) => curated),
+      }));
+      const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+      const row = {
+        id: "photo-1",
+        image_url: "https://live.staticflickr.com/4564/25120830278_dbef51f154_b.jpg",
+        thumb_url:
+          "https://api.openverse.org/v1/images/0eb17393-e22a-4244-ad18-c288dcde87e2/thumb/?format=json",
+        attribution_html: null,
+        title: null,
+        creator_name: null,
+        fetched_at: "2026-01-01T00:00:00.000Z",
+      };
+      const chain: Record<string, jest.Mock> = {};
+      for (const m of ["select", "eq", "is", "order"]) chain[m] = jest.fn(() => chain);
+      chain.limit = jest.fn(async () => ({ data: [row], error: null }));
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue({ from: jest.fn(() => chain) });
+
+      const { getSpotFeaturedPhoto } = await import("@/actions/spot/spot-data-actions");
+      const photo = await getSpotFeaturedPhoto("beach-1");
+
+      expect(photo?.thumbUrl).toBe(row.image_url);
+      expect(photo?.imageUrl).toBe(row.image_url);
+    });
+  });
+
 });
 
 
