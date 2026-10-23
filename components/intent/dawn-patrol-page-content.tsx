@@ -4,9 +4,6 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
-import { CTASection } from "@/components/landing-page/cta-section";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CitySunTimesData } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
@@ -19,6 +16,7 @@ import { SunTimesHeroSection } from "./sun-times-hero-section";
 import { SevenDaySunTimesTable } from "./seven-day-sun-times-table";
 import { BeachEditorialSection } from "./beach-editorial-section";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
+import { IntentAppHandoffCta } from "./intent-app-handoff-cta";
 import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface DawnPatrolPageContentProps {
@@ -127,14 +125,7 @@ export function DawnPatrolPageContent({
             stateSlug={stateSlug}
           />
 
-          {/* Alert Capture CTA */}
-          <AlertCaptureCta
-            pageContext="dawn-patrol"
-            beachId={spots[0]?.id ?? ""}
-            beachName={cityName}
-            source={`intent-dawn-patrol-${citySlug}`}
-            className="my-8"
-          />
+          <IntentAppHandoffCta intent="dawn-patrol" cityName={cityName} citySlug={citySlug} />
 
           {/* Map & Spot Recommendations */}
           {spots.length > 0 && (
@@ -205,17 +196,6 @@ export function DawnPatrolPageContent({
         </div>
       </div>
 
-      {/* Bottom CTA Section */}
-      <CTASection />
-
-      {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar
-        source={`intent-dawn-patrol-${citySlug}`}
-        searchReferralCta={{
-          ctaText: "Dawn Patrol Alerts",
-          supportingText: "Find out by 5 AM if it's worth it",
-        }}
-      />
     </div>
   );
 }
