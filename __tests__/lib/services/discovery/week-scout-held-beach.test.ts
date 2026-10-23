@@ -298,4 +298,43 @@ describe('Week Scout with a water-quality-held beach', () => {
     expect(response.days[0].bestWindowId).toBeNull();
     expect(response.days[0].bestDayWindow).toBeNull();
   });
+
+  // Production 2026-10-23: after rain every San Diego beach was held for 72 h.
+  // The safety filter dropped every window, the boundary saw no candidates and
+  // reported hold_state_unavailable, which native reads as a failed refresh.
+  it('reports a water-quality hold, not unavailable, when every beach is held', async () => {
+    mockRankBeaches.mockImplementation(async () => []);
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(
+      async ({ candidates }: { candidates: Array<{ candidateId: string; beachId: string }> }) =>
+        candidates.map(({ candidateId, beachId }) => ({
+          candidateId,
+          evaluation: {
+            outcome: 'explicit_none',
+            reasonCode: 'water_quality_hold',
+            holdIds: [`water-quality:${beachId}`],
+            expiresAt: '2026-08-03T08:00:00.000Z',
+            holdEpoch: 'held-beach-test-epoch',
+          },
+          recommendationAvailability: {
+            state: 'none',
+            reasonCode: 'water_quality_hold',
+            expiresAt: '2026-08-03T08:00:00.000Z',
+            holdEpoch: 'held-beach-test-epoch',
+          },
+        })),
+    );
+
+    const response = await run();
+
+    const gate = mockEvaluateMajorEventHoldCandidates.mock.calls.at(-1);
+    expect(gate[0].candidates.length).toBeGreaterThan(0);
+    expect(response.recommendationAvailability).toMatchObject({
+      state: 'none',
+      reasonCode: 'water_quality_hold',
+      expiresAt: '2026-08-03T08:00:00.000Z',
+    });
+    const windows = response.days.flatMap((day) => day.windows);
+    expect(windows.every((window) => window.verdict === null)).toBe(true);
+    expect(response.days.every((day) => day.bestWindowId === null)).toBe(true);
+  });
 });
