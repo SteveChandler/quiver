@@ -5,7 +5,6 @@ import { CamGrid } from "@/components/cams/cam-grid";
 import { BeginnerSessionDecision } from "@/components/beginner/beginner-session-decision";
 import { getBeginnerConditionsData } from "@/actions/beginner/beginner-actions";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
 import {
   getSeoFunnelInternalLinks,
@@ -13,6 +12,7 @@ import {
 } from "@/lib/seo/funnel-pages";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
+import { IntentAppHandoffCta } from "@/components/intent/intent-app-handoff-cta";
 import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { BoardRecommendationCard } from "./BoardRecommendationCard";
@@ -30,6 +30,8 @@ interface SeoLocationPageProps {
 }
 
 const CAM_PREVIEW_LIMIT = 6;
+
+const MAP_LINK = { label: "Explore nearby spots", href: "/map" };
 
 interface BeginnerDecisionLink {
   citySlug: string;
@@ -148,6 +150,9 @@ export async function SeoLocationPage({
     conditionsLead && conditionsLead !== boardLead
       ? `${boardLead} ${conditionsLead}`
       : boardLead;
+  // /beginner/* and /longboard/* funnel pages are intent routes: one ask, the
+  // app handoff, like the rest of /[intent]/[city] (see IntentAppHandoffCta).
+  const isIntentRoute = page.type === "beginner" || page.type === "longboard";
   const beginnerDecisionLink = getBeginnerDecisionLink(page);
   const beginnerConditions = beginnerDecisionLink
     ? await getBeginnerConditionsData(
@@ -198,8 +203,8 @@ export async function SeoLocationPage({
           eyebrow={page.eyebrow}
           title={page.h1}
           description={page.intro}
-          primaryCta={page.primaryCta}
-          secondaryCta={page.secondaryCta}
+          primaryCta={isIntentRoute ? page.secondaryCta ?? MAP_LINK : page.primaryCta}
+          secondaryCta={isIntentRoute ? undefined : page.secondaryCta}
           image={page.heroImage}
         />
 
@@ -215,15 +220,16 @@ export async function SeoLocationPage({
               referenceSpotName={beginnerDecisionLink.referenceSpotName}
               decisionSummary={beginnerDecisionLink.decisionSummary}
             />
-            {beginnerConditions?.rightNow ? (
-              <AlertCaptureCta
-                beachId={beginnerConditions.rightNow.spotId}
-                beachName={beginnerConditions.rightNow.spotName}
-                className="mt-5"
-                pageContext="beginner"
-                source={`seo-funnel-beginner-${beginnerDecisionLink.citySlug}`}
-              />
-            ) : null}
+          </div>
+        ) : null}
+
+        {isIntentRoute ? (
+          <div className="py-5">
+            <IntentAppHandoffCta
+              intent={page.type as "beginner" | "longboard"}
+              cityName={page.locationName}
+              citySlug={page.slug}
+            />
           </div>
         ) : null}
 
@@ -312,21 +318,27 @@ export async function SeoLocationPage({
         <div className="py-6">
           <SeoFaq items={page.faqs} locationName={page.locationName} />
         </div>
-        <div className="py-8">
-          <QuiverSeoCta
-            title="Plan your session with Quiver"
-            description="Use the page context for planning, then open Quiver for live surf conditions, best windows, tide risk, and session logging."
-            primaryCta={page.primaryCta}
-            secondaryCta={page.secondaryCta}
-          />
-        </div>
+        {isIntentRoute ? null : (
+          <div className="py-8">
+            <QuiverSeoCta
+              title="Plan your session with Quiver"
+              description="Use the page context for planning, then open Quiver for live surf conditions, best windows, tide risk, and session logging."
+              primaryCta={page.primaryCta}
+              secondaryCta={page.secondaryCta}
+            />
+          </div>
+        )}
       </main>
       <StickyInstallAsk
-        stickySignup={{
-          ctaText: "Get the live surf forecast",
-          supportingText: "Best window, tide, wind, and board notes in Quiver.",
-          source: `seo-funnel-${page.type}-${page.slug}`,
-        }}
+        stickySignup={
+          isIntentRoute
+            ? undefined
+            : {
+                ctaText: "Get the live surf forecast",
+                supportingText: "Best window, tide, wind, and board notes in Quiver.",
+                source: `seo-funnel-${page.type}-${page.slug}`,
+              }
+        }
         bar={{
           placeName: page.locationName,
           valueLabel: null,
