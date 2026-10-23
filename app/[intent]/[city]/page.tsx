@@ -1118,7 +1118,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
   // Fetch forecast summary for "Today's Plan" module (needs beach data)
   const forecastSummary = await getIntentForecastSummary(
-    beachesResult.data.slice(0, 5).map(b => ({
+    beachesResult.data.map(b => ({
       id: b.id,
       name: b.name,
       slug: b.slug ?? "",

@@ -421,6 +421,10 @@ type RepresentativeBeach = { id: string; name: string; timezone: string | null }
 // represent the city with the next unheld one.
 const REPRESENTATIVE_CANDIDATE_LIMIT = 50;
 
+// The representative beach supplies a reading (tide, water temp, sun times),
+// not a call, so runoff after rain doesn't disqualify it.
+const MEASUREMENT_HOLDS = { standingHoldsOnly: true } as const;
+
 async function nextUnheldBeach(
   supabase: SupabaseClient,
   cityName: string,
@@ -433,6 +437,7 @@ async function nextUnheldBeach(
   if (!data || data.length === 0) return null;
   const unheld = await rankBeaches(data as RepresentativeBeach[], {
     compare: (a, b) => a.name.localeCompare(b.name),
+    ...MEASUREMENT_HOLDS,
   });
   return unheld[0] ?? null;
 }
@@ -451,7 +456,7 @@ async function findRepresentativeBeach(
     .limit(1)
     .single();
 
-  if (data) return (await selectBeach(data)) ?? nextUnheldBeach(supabase, cityName, state).catch(() => null);
+  if (data) return (await selectBeach(data, MEASUREMENT_HOLDS)) ?? nextUnheldBeach(supabase, cityName, state).catch(() => null);
 
   const { data: alt } = await supabase
     .from("beaches")
@@ -461,7 +466,7 @@ async function findRepresentativeBeach(
     .limit(1)
     .single();
 
-  return alt ? ((await selectBeach(alt)) ?? nextUnheldBeach(supabase, cityName, null).catch(() => null)) : null;
+  return alt ? ((await selectBeach(alt, MEASUREMENT_HOLDS)) ?? nextUnheldBeach(supabase, cityName, null).catch(() => null)) : null;
 }
 
 async function findRepresentativeBeachStrict(
@@ -479,7 +484,7 @@ async function findRepresentativeBeachStrict(
     .maybeSingle();
 
   if (error) throw error;
-  if (data) return (await selectBeach(data)) ?? nextUnheldBeach(supabase, cityName, state);
+  if (data) return (await selectBeach(data, MEASUREMENT_HOLDS)) ?? nextUnheldBeach(supabase, cityName, state);
 
   const { data: alt, error: altError } = await supabase
     .from("beaches")
@@ -490,7 +495,7 @@ async function findRepresentativeBeachStrict(
     .maybeSingle();
 
   if (altError) throw altError;
-  return alt ? ((await selectBeach(alt)) ?? nextUnheldBeach(supabase, cityName, null)) : null;
+  return alt ? ((await selectBeach(alt, MEASUREMENT_HOLDS)) ?? nextUnheldBeach(supabase, cityName, null)) : null;
 }
 
 async function fetchCityTideRowsForAvailability(
@@ -1033,9 +1038,9 @@ export async function getCityWaterTempExpanded(
       }
     }
 
-    // Water-quality-held beaches are hidden elsewhere; don't feature them here either.
+    // Beaches under a standing water-quality hold are hidden elsewhere; don't feature them here either.
     const unheldIds = new Set(
-      (await rankBeaches(beachTemps.map((beach) => ({ id: beach.beachId as string })), { compare: () => 0 }))
+      (await rankBeaches(beachTemps.map((beach) => ({ id: beach.beachId as string })), { compare: () => 0, ...MEASUREMENT_HOLDS }))
         .map((beach) => beach.id),
     );
     const visibleBeachTemps = beachTemps.filter((beach) => unheldIds.has(beach.beachId as string));
