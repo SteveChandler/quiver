@@ -1361,7 +1361,7 @@
    "since": "2021-02-09",
    "through": "2026-10-23",
    "bigHsM": 2.65,
-   "modelRatio": 1.14,
+   "modelRatio": 1.15,
    "biggest": [
     {
      "at": "2021-09-13T20:30:00.000Z",
@@ -1667,7 +1667,7 @@
    "since": "1986-06-01",
    "through": "2026-10-23",
    "bigHsM": 3.73,
-   "modelRatio": 1.16,
+   "modelRatio": 1.17,
    "biggest": [
     {
      "at": "1991-10-31T02:00:00.000Z",
