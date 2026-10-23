@@ -15,7 +15,8 @@
      "at": "2018-09-13T20:40:00.000Z",
      "hsM": 8.97,
      "periodS": 11.43,
-     "dirDeg": 131
+     "dirDeg": 131,
+     "name": "Hurricane Florence"
     },
     {
      "at": "2023-12-18T06:10:00.000Z",
@@ -33,7 +34,8 @@
      "at": "2010-09-03T05:50:00.000Z",
      "hsM": 8.44,
      "periodS": 16,
-     "dirDeg": null
+     "dirDeg": null,
+     "name": "Hurricane Earl"
     },
     {
      "at": "2024-01-10T03:40:00.000Z",
@@ -45,7 +47,8 @@
      "at": "2019-09-06T11:40:00.000Z",
      "hsM": 8.11,
      "periodS": 10.81,
-     "dirDeg": 190
+     "dirDeg": 190,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2019-11-17T03:40:00.000Z",
@@ -119,19 +122,22 @@
      "at": "2017-09-06T22:00:00.000Z",
      "hsM": 6,
      "periodS": 16.7,
-     "dirDeg": 34
+     "dirDeg": 34,
+     "name": "Hurricane Irma"
     },
     {
      "at": "2017-09-20T12:00:00.000Z",
      "hsM": 5.6,
      "periodS": null,
-     "dirDeg": 356
+     "dirDeg": 356,
+     "name": "Hurricane Maria"
     },
     {
      "at": "2010-08-31T01:00:00.000Z",
      "hsM": 5.4,
      "periodS": 11.1,
-     "dirDeg": 18
+     "dirDeg": 18,
+     "name": "Hurricane Earl"
     },
     {
      "at": "2018-03-05T13:00:00.000Z",
@@ -223,13 +229,15 @@
      "at": "2017-09-20T08:00:00.000Z",
      "hsM": 6.4,
      "periodS": 6.7,
-     "dirDeg": 105
+     "dirDeg": 105,
+     "name": "Hurricane Maria"
     },
     {
      "at": "2017-09-06T22:00:00.000Z",
      "hsM": 4.5,
      "periodS": 11.4,
-     "dirDeg": 107
+     "dirDeg": 107,
+     "name": "Hurricane Irma"
     },
     {
      "at": "2018-03-05T04:00:00.000Z",
@@ -253,7 +261,8 @@
      "at": "2015-08-28T03:00:00.000Z",
      "hsM": 3.1,
      "periodS": 9.1,
-     "dirDeg": 109
+     "dirDeg": 109,
+     "name": "Tropical Storm Erika"
     },
     {
      "at": "2017-03-06T22:00:00.000Z",
@@ -327,13 +336,15 @@
      "at": "2018-09-14T16:30:00.000Z",
      "hsM": 5.1,
      "periodS": 9.88,
-     "dirDeg": 150
+     "dirDeg": 150,
+     "name": "Hurricane Florence"
     },
     {
      "at": "2016-10-08T14:29:00.000Z",
      "hsM": 4.97,
      "periodS": 9.09,
-     "dirDeg": 125
+     "dirDeg": 125,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2023-12-17T20:56:00.000Z",
@@ -345,31 +356,36 @@
      "at": "2020-08-04T04:07:00.000Z",
      "hsM": 4.89,
      "periodS": 11.11,
-     "dirDeg": 158
+     "dirDeg": 158,
+     "name": "Hurricane Isaias"
     },
     {
      "at": "2011-08-27T01:51:00.000Z",
      "hsM": 4.56,
      "periodS": 15.38,
-     "dirDeg": 133
+     "dirDeg": 133,
+     "name": "Hurricane Irene"
     },
     {
      "at": "2008-09-06T07:51:00.000Z",
      "hsM": 4.53,
      "periodS": 13.33,
-     "dirDeg": 149
+     "dirDeg": 149,
+     "name": "Hurricane Hanna"
     },
     {
      "at": "2022-09-30T19:26:00.000Z",
      "hsM": 4.33,
      "periodS": 14.29,
-     "dirDeg": 153
+     "dirDeg": 153,
+     "name": "Hurricane Ian"
     },
     {
      "at": "2019-09-06T03:40:00.000Z",
      "hsM": 3.99,
      "periodS": 10.53,
-     "dirDeg": 149
+     "dirDeg": 149,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2024-01-10T00:56:00.000Z",
@@ -413,7 +429,8 @@
      "at": "2025-07-06T09:26:00.000Z",
      "hsM": 2.45,
      "periodS": 6.67,
-     "dirDeg": 142
+     "dirDeg": 142,
+     "name": "Tropical Storm Chantal"
     }
    ]
   },
@@ -431,31 +448,36 @@
      "at": "2017-09-11T12:00:00.000Z",
      "hsM": 6.39,
      "periodS": 12.5,
-     "dirDeg": 119
+     "dirDeg": 119,
+     "name": "Hurricane Irma"
     },
     {
      "at": "2016-10-07T21:01:00.000Z",
      "hsM": 5.96,
      "periodS": 12.5,
-     "dirDeg": 122
+     "dirDeg": 122,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2024-09-27T06:00:00.000Z",
      "hsM": 5.16,
      "periodS": 9.52,
-     "dirDeg": 144
+     "dirDeg": 144,
+     "name": "Hurricane Helene"
     },
     {
      "at": "2012-05-28T04:21:00.000Z",
      "hsM": 4.92,
      "periodS": 9.88,
-     "dirDeg": 99
+     "dirDeg": 99,
+     "name": "Tropical Storm Beryl"
     },
     {
      "at": "2022-09-30T02:00:00.000Z",
      "hsM": 4.7,
      "periodS": 10,
-     "dirDeg": 63
+     "dirDeg": 63,
+     "name": "Hurricane Ian"
     },
     {
      "at": "2011-10-10T10:21:00.000Z",
@@ -467,25 +489,29 @@
      "at": "2022-11-10T15:00:00.000Z",
      "hsM": 4.54,
      "periodS": 9.52,
-     "dirDeg": 86
+     "dirDeg": 86,
+     "name": "Hurricane Nicole"
     },
     {
      "at": "2019-09-04T19:30:00.000Z",
      "hsM": 4.34,
      "periodS": 8.33,
-     "dirDeg": 59
+     "dirDeg": 59,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2008-08-22T09:22:00.000Z",
      "hsM": 4.13,
      "periodS": 9.88,
-     "dirDeg": 129
+     "dirDeg": 129,
+     "name": "Tropical Storm Fay"
     },
     {
      "at": "2024-10-10T16:00:00.000Z",
      "hsM": 3.9,
      "periodS": 9.09,
-     "dirDeg": 62
+     "dirDeg": 62,
+     "name": "Hurricane Milton"
     }
    ],
    "recent": [
@@ -511,7 +537,8 @@
      "at": "2025-10-02T08:26:00.000Z",
      "hsM": 2.68,
      "periodS": 6.67,
-     "dirDeg": 73
+     "dirDeg": 73,
+     "name": "Hurricane Imelda"
     },
     {
      "at": "2025-09-01T04:56:00.000Z",
@@ -535,43 +562,50 @@
      "at": "2017-09-11T06:51:00.000Z",
      "hsM": 5.15,
      "periodS": 11.11,
-     "dirDeg": 129
+     "dirDeg": 129,
+     "name": "Hurricane Irma"
     },
     {
      "at": "2024-10-10T06:26:00.000Z",
      "hsM": 4.33,
      "periodS": 9.09,
-     "dirDeg": 136
+     "dirDeg": 136,
+     "name": "Hurricane Milton"
     },
     {
      "at": "2016-10-07T07:51:00.000Z",
      "hsM": 4.08,
      "periodS": 12.5,
-     "dirDeg": 121
+     "dirDeg": 121,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2022-09-29T09:56:00.000Z",
      "hsM": 3.79,
      "periodS": 9.09,
-     "dirDeg": 131
+     "dirDeg": 131,
+     "name": "Hurricane Ian"
     },
     {
      "at": "2022-11-10T10:26:00.000Z",
      "hsM": 3.69,
      "periodS": 10.53,
-     "dirDeg": 115
+     "dirDeg": 115,
+     "name": "Hurricane Nicole"
     },
     {
      "at": "2008-08-20T07:21:00.000Z",
      "hsM": 3.51,
      "periodS": 8.33,
-     "dirDeg": 126
+     "dirDeg": 126,
+     "name": "Tropical Storm Fay"
     },
     {
      "at": "2024-09-27T02:56:00.000Z",
      "hsM": 3.36,
      "periodS": 8.33,
-     "dirDeg": 136
+     "dirDeg": 136,
+     "name": "Hurricane Helene"
     },
     {
      "at": "2023-12-17T06:26:00.000Z",
@@ -583,13 +617,15 @@
      "at": "2007-06-02T12:00:00.000Z",
      "hsM": 3.1,
      "periodS": 8,
-     "dirDeg": null
+     "dirDeg": null,
+     "name": "Tropical Storm Barry"
     },
     {
      "at": "2019-09-03T19:00:00.000Z",
      "hsM": 3.04,
      "periodS": 12.5,
-     "dirDeg": 116
+     "dirDeg": 116,
+     "name": "Hurricane Dorian"
     }
    ],
    "recent": [
@@ -639,25 +675,29 @@
      "at": "2016-10-07T06:30:00.000Z",
      "hsM": 7.23,
      "periodS": 12.5,
-     "dirDeg": 80
+     "dirDeg": 80,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2017-09-11T02:00:00.000Z",
      "hsM": 6.7,
      "periodS": 9.88,
-     "dirDeg": 97
+     "dirDeg": 97,
+     "name": "Hurricane Irma"
     },
     {
      "at": "2022-11-09T11:26:00.000Z",
      "hsM": 5.78,
      "periodS": 13.33,
-     "dirDeg": 68
+     "dirDeg": 68,
+     "name": "Hurricane Nicole"
     },
     {
      "at": "2012-10-26T23:36:00.000Z",
      "hsM": 5.53,
      "periodS": 12.5,
-     "dirDeg": 73
+     "dirDeg": 73,
+     "name": "Hurricane Sandy"
     },
     {
      "at": "2011-10-09T19:16:00.000Z",
@@ -669,13 +709,15 @@
      "at": "2019-09-03T16:30:00.000Z",
      "hsM": 4.63,
      "periodS": 12.5,
-     "dirDeg": 83
+     "dirDeg": 83,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2020-11-09T06:56:00.000Z",
      "hsM": 4.23,
      "periodS": 11.11,
-     "dirDeg": 76
+     "dirDeg": 76,
+     "name": "Hurricane Eta"
     },
     {
      "at": "2007-05-08T13:00:00.000Z",
@@ -707,13 +749,15 @@
      "at": "2025-10-03T18:26:00.000Z",
      "hsM": 2.53,
      "periodS": 15.38,
-     "dirDeg": 44
+     "dirDeg": 44,
+     "name": "Hurricane Imelda"
     },
     {
      "at": "2025-08-21T01:56:00.000Z",
      "hsM": 2.68,
      "periodS": 12.5,
-     "dirDeg": 76
+     "dirDeg": 76,
+     "name": "Hurricane Erin"
     },
     {
      "at": "2025-04-10T09:56:00.000Z",
@@ -743,7 +787,8 @@
      "at": "2017-09-20T23:30:00.000Z",
      "hsM": 7.42,
      "periodS": 8.33,
-     "dirDeg": 265
+     "dirDeg": 265,
+     "name": "Hurricane Maria"
     },
     {
      "at": "2018-03-05T00:00:00.000Z",
@@ -767,7 +812,8 @@
      "at": "2017-09-07T07:30:00.000Z",
      "hsM": 4.16,
      "periodS": 6.67,
-     "dirDeg": 243
+     "dirDeg": 243,
+     "name": "Hurricane Irma"
     },
     {
      "at": "2025-03-20T19:26:00.000Z",
@@ -829,7 +875,8 @@
      "at": "2025-08-17T14:56:00.000Z",
      "hsM": 2.89,
      "periodS": 6.67,
-     "dirDeg": 281
+     "dirDeg": 281,
+     "name": "Hurricane Erin"
     }
    ]
   },
@@ -847,31 +894,36 @@
      "at": "2017-09-11T10:52:00.000Z",
      "hsM": 6.95,
      "periodS": 12.5,
-     "dirDeg": 80
+     "dirDeg": 80,
+     "name": "Hurricane Irma"
     },
     {
      "at": "2022-09-30T04:30:00.000Z",
      "hsM": 5.97,
      "periodS": 13.33,
-     "dirDeg": 47
+     "dirDeg": 47,
+     "name": "Hurricane Ian"
     },
     {
      "at": "2022-11-10T13:30:00.000Z",
      "hsM": 5.7,
      "periodS": 13.33,
-     "dirDeg": 75
+     "dirDeg": 75,
+     "name": "Hurricane Nicole"
     },
     {
      "at": "2024-10-10T09:26:00.000Z",
      "hsM": 5.23,
      "periodS": 9.09,
-     "dirDeg": 72
+     "dirDeg": 72,
+     "name": "Hurricane Milton"
     },
     {
      "at": "2019-09-04T16:00:00.000Z",
      "hsM": 5.17,
      "periodS": 11.11,
-     "dirDeg": 81
+     "dirDeg": 81,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2021-11-06T12:00:00.000Z",
@@ -883,7 +935,8 @@
      "at": "2024-09-27T04:56:00.000Z",
      "hsM": 4.55,
      "periodS": 9.09,
-     "dirDeg": 132
+     "dirDeg": 132,
+     "name": "Hurricane Helene"
     },
     {
      "at": "2020-01-22T16:30:00.000Z",
@@ -933,7 +986,8 @@
      "at": "2025-09-30T13:56:00.000Z",
      "hsM": 3.13,
      "periodS": 11.11,
-     "dirDeg": 94
+     "dirDeg": 94,
+     "name": "Hurricane Imelda"
     }
    ]
   },
@@ -969,7 +1023,8 @@
      "at": "2023-09-22T20:30:00.000Z",
      "hsM": 6.57,
      "periodS": 11.11,
-     "dirDeg": 99
+     "dirDeg": 99,
+     "name": "Tropical Storm Ophelia"
     },
     {
      "at": "2025-10-28T21:30:00.000Z",
@@ -999,7 +1054,8 @@
      "at": "2025-08-21T06:30:00.000Z",
      "hsM": 5.52,
      "periodS": 15.38,
-     "dirDeg": 143
+     "dirDeg": 143,
+     "name": "Hurricane Erin"
     },
     {
      "at": "2022-12-22T22:00:00.000Z",
@@ -1055,7 +1111,8 @@
      "at": "2018-09-13T19:00:00.000Z",
      "hsM": 8.51,
      "periodS": 15.38,
-     "dirDeg": 102
+     "dirDeg": 102,
+     "name": "Hurricane Florence"
     },
     {
      "at": "2023-12-17T20:56:00.000Z",
@@ -1067,25 +1124,29 @@
      "at": "2019-09-06T05:30:00.000Z",
      "hsM": 6.91,
      "periodS": 10.53,
-     "dirDeg": 175
+     "dirDeg": 175,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2016-10-08T19:55:00.000Z",
      "hsM": 6.45,
      "periodS": 11.76,
-     "dirDeg": 175
+     "dirDeg": 175,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2023-09-22T21:56:00.000Z",
      "hsM": 5.93,
      "periodS": 12.5,
-     "dirDeg": 95
+     "dirDeg": 95,
+     "name": "Tropical Storm Ophelia"
     },
     {
      "at": "2022-09-30T22:26:00.000Z",
      "hsM": 5.74,
      "periodS": 9.88,
-     "dirDeg": 153
+     "dirDeg": 153,
+     "name": "Hurricane Ian"
     },
     {
      "at": "2016-02-07T23:25:00.000Z",
@@ -1103,7 +1164,8 @@
      "at": "2020-08-04T04:26:00.000Z",
      "hsM": 5.64,
      "periodS": 9.88,
-     "dirDeg": 167
+     "dirDeg": 167,
+     "name": "Hurricane Isaias"
     },
     {
      "at": "2018-04-24T15:30:00.000Z",
@@ -1135,13 +1197,15 @@
      "at": "2025-09-30T21:56:00.000Z",
      "hsM": 3.82,
      "periodS": 15.38,
-     "dirDeg": 128
+     "dirDeg": 128,
+     "name": "Hurricane Imelda"
     },
     {
      "at": "2025-08-21T06:26:00.000Z",
      "hsM": 3.66,
      "periodS": 15.38,
-     "dirDeg": 129
+     "dirDeg": 129,
+     "name": "Hurricane Erin"
     }
    ]
   },
@@ -1159,37 +1223,43 @@
      "at": "2020-09-16T06:40:00.000Z",
      "hsM": 8.19,
      "periodS": 10,
-     "dirDeg": 133
+     "dirDeg": 133,
+     "name": "Hurricane Sally"
     },
     {
      "at": "2020-10-29T04:40:00.000Z",
      "hsM": 6.37,
      "periodS": 11.43,
-     "dirDeg": 195
+     "dirDeg": 195,
+     "name": "Hurricane Zeta"
     },
     {
      "at": "2012-08-28T21:50:00.000Z",
      "hsM": 5.78,
      "periodS": 12.12,
-     "dirDeg": 160
+     "dirDeg": 160,
+     "name": "Hurricane Isaac"
     },
     {
      "at": "2009-11-10T05:50:00.000Z",
      "hsM": 5.39,
      "periodS": 11.43,
-     "dirDeg": 145
+     "dirDeg": 145,
+     "name": "Hurricane Ida"
     },
     {
      "at": "2021-08-29T08:40:00.000Z",
      "hsM": 5.04,
      "periodS": 12.9,
-     "dirDeg": 162
+     "dirDeg": 162,
+     "name": "Hurricane Ida"
     },
     {
      "at": "2017-10-08T03:50:00.000Z",
      "hsM": 5,
      "periodS": 10,
-     "dirDeg": 171
+     "dirDeg": 171,
+     "name": "Hurricane Nate"
     },
     {
      "at": "2026-10-10T00:10:00.000Z",
@@ -1201,19 +1271,22 @@
      "at": "2018-09-05T00:40:00.000Z",
      "hsM": 4.89,
      "periodS": 9.09,
-     "dirDeg": 120
+     "dirDeg": 120,
+     "name": "Tropical Storm Gordon"
     },
     {
      "at": "2018-10-10T09:40:00.000Z",
      "hsM": 4.54,
      "periodS": 11.43,
-     "dirDeg": 144
+     "dirDeg": 144,
+     "name": "Hurricane Michael"
     },
     {
      "at": "2020-06-07T19:40:00.000Z",
      "hsM": 4.54,
      "periodS": 11.43,
-     "dirDeg": 178
+     "dirDeg": 178,
+     "name": "Tropical Storm Cristobal"
     }
    ],
    "recent": [
@@ -1245,7 +1318,8 @@
      "at": "2024-09-27T02:10:00.000Z",
      "hsM": 2.73,
      "periodS": 12.9,
-     "dirDeg": 147
+     "dirDeg": 147,
+     "name": "Hurricane Helene"
     }
    ]
   },
@@ -1263,37 +1337,43 @@
      "at": "2008-09-12T15:50:00.000Z",
      "hsM": 5.99,
      "periodS": 16,
-     "dirDeg": 113
+     "dirDeg": 113,
+     "name": "Hurricane Ike"
     },
     {
      "at": "2024-07-08T16:40:00.000Z",
      "hsM": 5.45,
      "periodS": 10.81,
-     "dirDeg": 181
+     "dirDeg": 181,
+     "name": "Hurricane Beryl"
     },
     {
      "at": "2003-07-15T07:00:00.000Z",
      "hsM": 5.41,
      "periodS": 10,
-     "dirDeg": 113
+     "dirDeg": 113,
+     "name": "Hurricane Claudette"
     },
     {
      "at": "2005-09-24T09:00:00.000Z",
      "hsM": 4.7,
      "periodS": 7.69,
-     "dirDeg": 324
+     "dirDeg": 324,
+     "name": "Hurricane Rita"
     },
     {
      "at": "2001-06-05T20:00:00.000Z",
      "hsM": 4.25,
      "periodS": 10,
-     "dirDeg": 156
+     "dirDeg": 156,
+     "name": "Tropical Storm Allison"
     },
     {
      "at": "2002-09-07T08:00:00.000Z",
      "hsM": 4.15,
      "periodS": 8.33,
-     "dirDeg": 132
+     "dirDeg": 132,
+     "name": "Tropical Storm Fay"
     },
     {
      "at": "2002-03-02T01:00:00.000Z",
@@ -1305,7 +1385,8 @@
      "at": "1998-09-10T17:00:00.000Z",
      "hsM": 4.09,
      "periodS": 10,
-     "dirDeg": 95
+     "dirDeg": 95,
+     "name": "Tropical Storm Frances"
     },
     {
      "at": "2015-10-25T16:50:00.000Z",
@@ -1317,7 +1398,8 @@
      "at": "2020-08-27T00:40:00.000Z",
      "hsM": 3.81,
      "periodS": 14.81,
-     "dirDeg": 114
+     "dirDeg": 114,
+     "name": "Hurricane Laura"
     }
    ],
    "recent": [
@@ -1367,7 +1449,8 @@
      "at": "2021-09-13T20:30:00.000Z",
      "hsM": 4.27,
      "periodS": 10.53,
-     "dirDeg": 121
+     "dirDeg": 121,
+     "name": "Hurricane Nicholas"
     },
     {
      "at": "2025-01-21T08:00:00.000Z",
@@ -1409,7 +1492,8 @@
      "at": "2024-09-11T19:00:00.000Z",
      "hsM": 2.7,
      "periodS": 10.53,
-     "dirDeg": 105
+     "dirDeg": 105,
+     "name": "Hurricane Francine"
     },
     {
      "at": "2026-10-17T06:30:00.000Z",
@@ -1465,19 +1549,22 @@
      "at": "2024-09-27T00:26:00.000Z",
      "hsM": 5.5,
      "periodS": 13.33,
-     "dirDeg": 237
+     "dirDeg": 237,
+     "name": "Hurricane Helene"
     },
     {
      "at": "2024-10-10T00:56:00.000Z",
      "hsM": 5.08,
      "periodS": 8.33,
-     "dirDeg": 324
+     "dirDeg": 324,
+     "name": "Hurricane Milton"
     },
     {
      "at": "2023-08-30T08:56:00.000Z",
      "hsM": 4.75,
      "periodS": 9.09,
-     "dirDeg": 215
+     "dirDeg": 215,
+     "name": "Hurricane Idalia"
     },
     {
      "at": "2018-12-21T14:00:00.000Z",
@@ -1495,7 +1582,8 @@
      "at": "2020-11-11T22:26:00.000Z",
      "hsM": 4.06,
      "periodS": 9.88,
-     "dirDeg": 219
+     "dirDeg": 219,
+     "name": "Hurricane Eta"
     },
     {
      "at": "2017-01-23T15:00:00.000Z",
@@ -1507,13 +1595,15 @@
      "at": "2016-09-01T22:30:00.000Z",
      "hsM": 4.01,
      "periodS": 12.5,
-     "dirDeg": 248
+     "dirDeg": 248,
+     "name": "Hurricane Hermine"
     },
     {
      "at": "2024-08-05T02:26:00.000Z",
      "hsM": 4,
      "periodS": 9.09,
-     "dirDeg": 215
+     "dirDeg": 215,
+     "name": "Hurricane Debby"
     },
     {
      "at": "2022-01-16T23:26:00.000Z",
@@ -1611,7 +1701,8 @@
      "at": "2012-10-30T03:50:00.000Z",
      "hsM": 7.11,
      "periodS": 10.81,
-     "dirDeg": null
+     "dirDeg": null,
+     "name": "Hurricane Sandy"
     },
     {
      "at": "2003-12-07T05:00:00.000Z",
@@ -1643,7 +1734,8 @@
      "at": "2025-08-23T08:40:00.000Z",
      "hsM": 3.48,
      "periodS": 12.12,
-     "dirDeg": 118
+     "dirDeg": 118,
+     "name": "Hurricane Erin"
     },
     {
      "at": "2025-05-23T06:40:00.000Z",
@@ -1679,7 +1771,8 @@
      "at": "2021-10-27T09:40:00.000Z",
      "hsM": 8.61,
      "periodS": 12.12,
-     "dirDeg": 85
+     "dirDeg": 85,
+     "name": "Tropical Storm Wanda"
     },
     {
      "at": "2005-01-23T12:00:00.000Z",
@@ -1777,7 +1870,8 @@
      "at": "2012-10-29T09:19:00.000Z",
      "hsM": 6.32,
      "periodS": 15.38,
-     "dirDeg": 79
+     "dirDeg": 79,
+     "name": "Hurricane Sandy"
     },
     {
      "at": "2018-12-10T07:00:00.000Z",
@@ -1789,7 +1883,8 @@
      "at": "2023-09-23T02:56:00.000Z",
      "hsM": 5.52,
      "periodS": 11.76,
-     "dirDeg": 86
+     "dirDeg": 86,
+     "name": "Tropical Storm Ophelia"
     },
     {
      "at": "2018-03-04T10:00:00.000Z",
@@ -1801,13 +1896,15 @@
      "at": "2016-10-09T14:11:00.000Z",
      "hsM": 5.21,
      "periodS": 9.88,
-     "dirDeg": 59
+     "dirDeg": 59,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2016-09-03T10:41:00.000Z",
      "hsM": 5.09,
      "periodS": 9.09,
-     "dirDeg": 93
+     "dirDeg": 93,
+     "name": "Hurricane Hermine"
     },
     {
      "at": "2014-03-07T23:23:00.000Z",
@@ -1831,7 +1928,8 @@
      "at": "2017-09-27T10:30:00.000Z",
      "hsM": 4.74,
      "periodS": 14.29,
-     "dirDeg": 96
+     "dirDeg": 96,
+     "name": "Hurricane Maria"
     }
    ],
    "recent": [
@@ -1881,13 +1979,15 @@
      "at": "2012-10-30T00:50:00.000Z",
      "hsM": 9.86,
      "periodS": 13.79,
-     "dirDeg": 121
+     "dirDeg": 121,
+     "name": "Hurricane Sandy"
     },
     {
      "at": "2011-08-28T12:50:00.000Z",
      "hsM": 7.95,
      "periodS": 14.81,
-     "dirDeg": 170
+     "dirDeg": 170,
+     "name": "Hurricane Irene"
     },
     {
      "at": "2010-03-13T23:50:00.000Z",
@@ -1967,7 +2067,8 @@
      "at": "2025-08-21T18:40:00.000Z",
      "hsM": 3.29,
      "periodS": 7.69,
-     "dirDeg": 109
+     "dirDeg": 109,
+     "name": "Hurricane Erin"
     }
    ]
   },
@@ -1985,7 +2086,8 @@
      "at": "2018-09-13T17:55:00.000Z",
      "hsM": 7.73,
      "periodS": 13.33,
-     "dirDeg": 124
+     "dirDeg": 124,
+     "name": "Hurricane Florence"
     },
     {
      "at": "2023-12-18T05:56:00.000Z",
@@ -2009,7 +2111,8 @@
      "at": "2019-09-06T16:55:00.000Z",
      "hsM": 6.55,
      "periodS": 9.88,
-     "dirDeg": 4
+     "dirDeg": 4,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2022-01-17T03:56:00.000Z",
@@ -2027,7 +2130,8 @@
      "at": "2023-09-23T01:56:00.000Z",
      "hsM": 5.77,
      "periodS": 10.53,
-     "dirDeg": 83
+     "dirDeg": 83,
+     "name": "Tropical Storm Ophelia"
     },
     {
      "at": "2025-10-28T18:26:00.000Z",
@@ -2089,13 +2193,15 @@
      "at": "2018-10-12T05:00:00.000Z",
      "hsM": 2.61,
      "periodS": 5.88,
-     "dirDeg": 336
+     "dirDeg": 336,
+     "name": "Hurricane Michael"
     },
     {
      "at": "2023-09-23T03:26:00.000Z",
      "hsM": 2.5,
      "periodS": 6.25,
-     "dirDeg": 20
+     "dirDeg": 20,
+     "name": "Tropical Storm Ophelia"
     },
     {
      "at": "2022-01-03T15:26:00.000Z",
@@ -2107,7 +2213,8 @@
      "at": "2019-09-06T17:30:00.000Z",
      "hsM": 2.36,
      "periodS": 5.56,
-     "dirDeg": 10
+     "dirDeg": 10,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2018-11-15T16:30:00.000Z",
@@ -2125,13 +2232,15 @@
      "at": "2020-05-20T00:30:00.000Z",
      "hsM": 2.2,
      "periodS": 5.26,
-     "dirDeg": 56
+     "dirDeg": 56,
+     "name": "Tropical Storm Arthur"
     },
     {
      "at": "2020-08-04T11:26:00.000Z",
      "hsM": 2.16,
      "periodS": 4.35,
-     "dirDeg": 156
+     "dirDeg": 156,
+     "name": "Hurricane Isaias"
     },
     {
      "at": "2025-09-16T22:56:00.000Z",
@@ -2193,7 +2302,8 @@
      "at": "2021-10-27T09:56:00.000Z",
      "hsM": 4.62,
      "periodS": 7.69,
-     "dirDeg": 19
+     "dirDeg": 19,
+     "name": "Tropical Storm Wanda"
     },
     {
      "at": "2020-12-05T23:27:00.000Z",
@@ -2235,7 +2345,8 @@
      "at": "2022-09-23T23:30:00.000Z",
      "hsM": 3.72,
      "periodS": 25,
-     "dirDeg": 81
+     "dirDeg": 81,
+     "name": "Hurricane Fiona"
     },
     {
      "at": "2017-02-09T20:34:00.000Z",
@@ -2383,7 +2494,8 @@
      "at": "2025-08-21T21:00:00.000Z",
      "hsM": 4.11,
      "periodS": 8.7,
-     "dirDeg": 79
+     "dirDeg": 79,
+     "name": "Hurricane Erin"
     }
    ]
   },
@@ -2407,7 +2519,8 @@
      "at": "2012-10-28T22:20:00.000Z",
      "hsM": 7.9,
      "periodS": 14.29,
-     "dirDeg": 82
+     "dirDeg": 82,
+     "name": "Hurricane Sandy"
     },
     {
      "at": "2019-11-16T20:46:00.000Z",
@@ -2425,13 +2538,15 @@
      "at": "2018-09-13T15:16:00.000Z",
      "hsM": 6.95,
      "periodS": 14.29,
-     "dirDeg": 125
+     "dirDeg": 125,
+     "name": "Hurricane Florence"
     },
     {
      "at": "2016-10-09T11:00:00.000Z",
      "hsM": 6.8,
      "periodS": 9.88,
-     "dirDeg": 352
+     "dirDeg": 352,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2016-02-08T04:30:00.000Z",
@@ -2443,7 +2558,8 @@
      "at": "2019-09-06T12:46:00.000Z",
      "hsM": 6.71,
      "periodS": 11.76,
-     "dirDeg": 141
+     "dirDeg": 141,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2014-03-08T01:17:00.000Z",
@@ -2455,7 +2571,8 @@
      "at": "2014-07-04T08:47:00.000Z",
      "hsM": 6.52,
      "periodS": 10.53,
-     "dirDeg": 161
+     "dirDeg": 161,
+     "name": "Hurricane Arthur"
     }
    ],
    "recent": [
@@ -2505,13 +2622,15 @@
      "at": "2012-10-29T22:25:00.000Z",
      "hsM": 9.48,
      "periodS": 14.29,
-     "dirDeg": 164
+     "dirDeg": 164,
+     "name": "Hurricane Sandy"
     },
     {
      "at": "2011-08-28T15:32:00.000Z",
      "hsM": 9.39,
      "periodS": 15.38,
-     "dirDeg": 221
+     "dirDeg": 221,
+     "name": "Hurricane Irene"
     },
     {
      "at": "2023-12-18T21:26:00.000Z",
@@ -2615,13 +2734,15 @@
      "at": "2016-09-03T14:42:00.000Z",
      "hsM": 5.05,
      "periodS": 9.09,
-     "dirDeg": 85
+     "dirDeg": 85,
+     "name": "Hurricane Hermine"
     },
     {
      "at": "2012-10-29T06:52:00.000Z",
      "hsM": 4.84,
      "periodS": 14.29,
-     "dirDeg": 89
+     "dirDeg": 89,
+     "name": "Hurricane Sandy"
     },
     {
      "at": "2009-12-19T18:25:00.000Z",
@@ -2633,13 +2754,15 @@
      "at": "2016-10-09T05:42:00.000Z",
      "hsM": 4.62,
      "periodS": 7.14,
-     "dirDeg": 44
+     "dirDeg": 44,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2019-09-06T15:30:00.000Z",
      "hsM": 4.56,
      "periodS": 7.69,
-     "dirDeg": 54
+     "dirDeg": 54,
+     "name": "Hurricane Dorian"
     },
     {
      "at": "2009-11-13T04:25:00.000Z",
@@ -2663,7 +2786,8 @@
      "at": "2023-09-23T03:56:00.000Z",
      "hsM": 4.25,
      "periodS": 11.11,
-     "dirDeg": 100
+     "dirDeg": 100,
+     "name": "Tropical Storm Ophelia"
     }
    ],
    "recent": [
@@ -5569,7 +5693,8 @@
      "at": "2018-10-02T00:00:00.000Z",
      "hsM": 3.12,
      "periodS": 12.5,
-     "dirDeg": 167
+     "dirDeg": 167,
+     "name": "Hurricane Rosa"
     },
     {
      "at": "2024-02-01T17:56:00.000Z",
@@ -5967,7 +6092,8 @@
      "at": "2016-09-03T23:41:00.000Z",
      "hsM": 5.14,
      "periodS": 14.29,
-     "dirDeg": 81
+     "dirDeg": 81,
+     "name": "Hurricane Lester"
     },
     {
      "at": "2013-01-05T22:41:00.000Z",
@@ -6023,7 +6149,8 @@
      "at": "2024-08-25T17:56:00.000Z",
      "hsM": 3.81,
      "periodS": 9.88,
-     "dirDeg": 89
+     "dirDeg": 89,
+     "name": "Hurricane Hone"
     }
    ]
   },
@@ -6285,7 +6412,8 @@
      "at": "2018-09-12T22:30:00.000Z",
      "hsM": 4.46,
      "periodS": 11.11,
-     "dirDeg": 74
+     "dirDeg": 74,
+     "name": "Hurricane Olivia"
     },
     {
      "at": "2019-12-21T15:00:00.000Z",
@@ -6407,7 +6535,8 @@
      "at": "2018-08-24T16:00:00.000Z",
      "hsM": 2.25,
      "periodS": 9.09,
-     "dirDeg": 152
+     "dirDeg": 152,
+     "name": "Hurricane Lane"
     }
    ],
    "recent": [
@@ -6561,13 +6690,15 @@
      "at": "2022-09-30T19:36:00.000Z",
      "hsM": 4.11,
      "periodS": 14.62,
-     "dirDeg": 158
+     "dirDeg": 158,
+     "name": "Hurricane Ian"
     },
     {
      "at": "2016-10-08T17:33:00.000Z",
      "hsM": 3.92,
      "periodS": 11.1,
-     "dirDeg": null
+     "dirDeg": null,
+     "name": "Hurricane Matthew"
     },
     {
      "at": "2023-12-17T22:25:00.000Z",
@@ -6597,7 +6728,8 @@
      "at": "2018-09-15T02:00:00.000Z",
      "hsM": 2.47,
      "periodS": 8.2,
-     "dirDeg": 193
+     "dirDeg": 193,
+     "name": "Hurricane Florence"
     },
     {
      "at": "2018-04-24T06:22:00.000Z",
@@ -6615,7 +6747,8 @@
      "at": "2024-09-27T15:40:00.000Z",
      "hsM": 2.41,
      "periodS": 9.3,
-     "dirDeg": 159
+     "dirDeg": 159,
+     "name": "Hurricane Helene"
     }
    ],
    "recent": [
@@ -6635,7 +6768,8 @@
      "at": "2025-07-06T07:55:00.000Z",
      "hsM": 2.36,
      "periodS": 9.3,
-     "dirDeg": 156
+     "dirDeg": 156,
+     "name": "Tropical Storm Chantal"
     },
     {
      "at": "2025-06-20T10:00:00.000Z",

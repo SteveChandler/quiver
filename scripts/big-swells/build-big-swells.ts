@@ -5,8 +5,9 @@
  *   yarn tsx scripts/big-swells/build-big-swells.ts [--station=44065]
  *
  * Sources: NDBC historical stdmet archives (one file per year), this year's monthly files, and
- * the 45-day realtime2 file. Downloads are cached in .cache/big-swells/ (realtime ones are
- * refetched). No database access, no credentials. Rerun to pick up new big swells.
+ * the 45-day realtime2 file; storm names from NHC HURDAT2 best tracks. Downloads are cached in
+ * .cache/big-swells/ (realtime ones are refetched). No database access, no credentials. Rerun to
+ * pick up new big swells.
  */
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -15,10 +16,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import { gunzipSync } from "node:zlib";
 
 import { parseNdbcStdmet, type NdbcRecord } from "@/lib/climatology/parse-ndbc";
-import { pickBigSwells, type BigSwellBuoy } from "@/lib/big-swells";
+import { parseHurdat2, pickBigSwells, stormNameFor, type BigSwellBuoy, type TropicalCyclone } from "@/lib/big-swells";
 
 const CACHE_DIR = ".cache/big-swells";
 const OUTPUT = "lib/data/big-swells.json";
+// NHC republishes these under a new name each year; update both when a new season is added.
+const HURDAT2_FILES = ["hurdat2-1851-2025-092326.txt", "hurdat2-nepac-1949-2025-092926.txt"];
 const NDBC = "https://www.ndbc.noaa.gov";
 const USER_AGENT = "QuiverSurf/1.0 (https://www.quiversurf.app; big-swells)";
 const YEAR_MS = 365.25 * 24 * 3_600_000;
@@ -132,6 +135,13 @@ async function main(): Promise<void> {
     MONTHS.map((month) => listFiles(`data/stdmet/${month}`, /[0-9a-z]+(?:[1-9abc]\d{4}\.txt\.gz|\.txt)/g)),
   );
 
+  const storms: TropicalCyclone[] = [];
+  for (const file of HURDAT2_FILES) {
+    const body = await fetchBody(`https://www.nhc.noaa.gov/data/hurdat/${file}`, file);
+    if (!body) throw new Error(`${file} is gone from NHC; update HURDAT2_FILES`);
+    storms.push(...parseHurdat2(body.toString("utf8")));
+  }
+
   const stations: BigSwellBuoy[] = [];
   for (const id of ids) {
     const tag = new RegExp(`<station id="${id}" lat="([-\\d.]+)" lon="([-\\d.]+)"[^>]* name="([^"]*)"`, "i").exec(meta);
@@ -140,7 +150,14 @@ async function main(): Promise<void> {
       continue;
     }
     const records = await loadStation(id, { yearly, monthly });
-    const { bigHsM, biggest, recent } = pickBigSwells(records);
+    const picked = pickBigSwells(records);
+    const { bigHsM } = picked;
+    const named = <T extends { at: string }>(event: T): T => {
+      const name = stormNameFor(event.at, { lat: Number(tag[1]), lon: Number(tag[2]) }, storms);
+      return name ? { ...event, name } : event;
+    };
+    const biggest = picked.biggest.map(named);
+    const recent = picked.recent.map(named);
     if (biggest.length === 0) {
       console.warn(`${id}: no wave heights, skipped`);
       continue;
