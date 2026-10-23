@@ -200,9 +200,7 @@ function parseDecision(
       evaluation.holdIds.length === 0 ||
       (evaluation.reasonCode === "major_event_hold" &&
         (evaluationExpiryMs === undefined ||
-          availabilityExpiryMs === undefined)) ||
-      (evaluation.reasonCode === "water_quality_hold" &&
-        (evaluationExpiryMs !== undefined || availabilityExpiryMs !== undefined))
+          availabilityExpiryMs === undefined))
     ) {
       return null;
     }
@@ -351,6 +349,8 @@ export function resolveMajorEventHoldBoundary(
     },
     null,
   );
+  // A hold with no expiry (County, owner, sample) outlasts any that lifts.
+  const everyHoldLifts = blocked.every(({ expiresAtMs }) => expiresAtMs !== undefined);
   return {
     recommendationAvailability: {
       state: "none",
@@ -359,7 +359,7 @@ export function resolveMajorEventHoldBoundary(
       )
         ? "major_event_hold"
         : "water_quality_hold",
-      ...(latestExpiry?.expiresAt ? { expiresAt: latestExpiry.expiresAt } : {}),
+      ...(everyHoldLifts && latestExpiry?.expiresAt ? { expiresAt: latestExpiry.expiresAt } : {}),
       holdEpoch,
       ...(resolutionAsOf ? { resolutionAsOf } : {}),
     },
