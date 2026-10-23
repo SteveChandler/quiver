@@ -1478,6 +1478,68 @@ describe("major-event hold adapters", () => {
     expect(result.recommendations).toEqual([]);
   });
 
+  // Rain holds (#1182) lift 72 h after the last rain and carry that expiry.
+  function rainDecision(candidateId: string, expiresAt: string): MajorEventHoldCandidateDecision {
+    const base = waterQualityDecision(candidateId);
+    return {
+      ...base,
+      evaluation: { ...base.evaluation, expiresAt },
+      recommendationAvailability: { ...base.recommendationAvailability, expiresAt },
+    };
+  }
+
+  it("reports when rain holds lift instead of failing closed", () => {
+    const result = sanitizeSurfDiscoveryForMajorEventHold(
+      deepFreeze(structuredClone(discoveryFixture())),
+      discoveryCandidates(),
+      [
+        rainDecision("primary", "2026-07-21T08:00:00.000Z"),
+        rainDecision("included", "2026-07-21T09:00:00.000Z"),
+      ],
+    );
+
+    expect(result.recommendationAvailability).toEqual({
+      state: "none",
+      reasonCode: "water_quality_hold",
+      expiresAt: "2026-07-21T09:00:00.000Z",
+      holdEpoch: EPOCH,
+    });
+  });
+
+  it("omits the lift time when another hold has no expiry", () => {
+    const result = sanitizeSurfDiscoveryForMajorEventHold(
+      deepFreeze(structuredClone(discoveryFixture())),
+      discoveryCandidates(),
+      [rainDecision("primary", "2026-07-21T08:00:00.000Z"), waterQualityDecision("included")],
+    );
+
+    expect(result.recommendationAvailability).toEqual({
+      state: "none",
+      reasonCode: "water_quality_hold",
+      holdEpoch: EPOCH,
+    });
+  });
+
+  it("still fails closed when a rain hold's expiries disagree", () => {
+    const mismatched = rainDecision("primary", "2026-07-21T08:00:00.000Z");
+    const result = sanitizeSurfDiscoveryForMajorEventHold(
+      deepFreeze(structuredClone(discoveryFixture())),
+      discoveryCandidates(),
+      [
+        {
+          ...mismatched,
+          recommendationAvailability: {
+            ...mismatched.recommendationAvailability,
+            expiresAt: "2026-07-21T09:00:00.000Z",
+          },
+        },
+        rainDecision("included", "2026-07-21T08:00:00.000Z"),
+      ],
+    );
+
+    expect(result.recommendationAvailability?.reasonCode).toBe("hold_state_unavailable");
+  });
+
   it("selects the latest blocked expiry by instant instead of lexical order", () => {
     const lexicallyLaterButEarlierInstant = "2026-07-21T01:00:00+14:00";
     const lexicallyEarlierButLaterInstant = "2026-07-20T23:30:00-10:00";
