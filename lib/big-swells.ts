@@ -7,6 +7,14 @@ interface BigSwell {
   hsM: number;
   periodS: number | null;
   dirDeg: number | null;
+  /** "Hurricane Sandy" when a named tropical cyclone (NHC HURDAT2) was near the buoy; otherwise absent. */
+  name?: string;
+}
+
+/** A named Atlantic or Pacific tropical cyclone from NHC's HURDAT2 best-track file. */
+export interface TropicalCyclone {
+  name: string;
+  fixes: { timeUtcMs: number; lat: number; lon: number }[];
 }
 
 export interface BigSwellBuoy {
@@ -118,7 +126,7 @@ export function nearestBigSwellBuoy(
 export function compareToBigSwells(
   hsM: number,
   buoy: BigSwellBuoy,
-): { isBig: boolean; rank: number | null; closest: BigSwell | null } {
+): { isBig: boolean; rank: number | null; closest: BigSwell | null; biggestSince: BigSwell | null } {
   const isBig = hsM >= buoy.bigHsM;
   const rank = buoy.biggest.filter((event) => event.hsM > hsM).length + 1;
   const pool = [...buoy.biggest, ...buoy.recent];
@@ -126,5 +134,74 @@ export function compareToBigSwells(
     isBig && pool.length > 0
       ? pool.reduce((a, b) => (Math.abs(b.hsM - hsM) < Math.abs(a.hsM - hsM) ? b : a))
       : null;
-  return { isBig, rank: rank <= buoy.biggest.length ? rank : null, closest };
+  return { isBig, rank: rank <= buoy.biggest.length ? rank : null, closest, biggestSince: isBig ? biggestSince(hsM, buoy) : null };
+}
+
+/**
+ * The newest stored swell at least this big, when the stored lists prove nothing newer was:
+ * `recent` holds the newest big swells without gaps, and `biggest` holds every swell at or above
+ * its smallest member.
+ */
+function biggestSince(hsM: number, buoy: BigSwellBuoy): BigSwell | null {
+  const newest = (events: BigSwell[]): BigSwell | null =>
+    events.filter((event) => event.hsM >= hsM).sort((a, b) => b.at.localeCompare(a.at))[0] ?? null;
+  const fromRecent = newest(buoy.recent);
+  if (fromRecent) return fromRecent;
+  const smallestBiggest = Math.min(...buoy.biggest.map((event) => event.hsM));
+  return buoy.biggest.length > 0 && hsM >= smallestBiggest ? newest(buoy.biggest) : null;
+}
+
+/** Reads NHC HURDAT2 text: named storms that reached tropical-storm or hurricane strength. */
+export function parseHurdat2(text: string): TropicalCyclone[] {
+  const storms: TropicalCyclone[] = [];
+  let current: (TropicalCyclone & { hurricane: boolean; tropical: boolean }) | null = null;
+  const finish = (): void => {
+    if (current && current.tropical && current.name !== "UNNAMED") {
+      const name = current.name.charAt(0) + current.name.slice(1).toLowerCase();
+      storms.push({ name: `${current.hurricane ? "Hurricane" : "Tropical Storm"} ${name}`, fixes: current.fixes });
+    }
+  };
+  for (const line of text.split(/\r?\n/)) {
+    const cols = line.split(",").map((col) => col.trim());
+    if (/^[A-Z]{2}\d{6}$/.test(cols[0] ?? "")) {
+      finish();
+      current = { name: cols[1], fixes: [], hurricane: false, tropical: false };
+      continue;
+    }
+    if (!current || !/^\d{8}$/.test(cols[0] ?? "")) continue;
+    const [date, time, , status, latText, lonText] = cols;
+    const lat = Number.parseFloat(latText) * (latText.endsWith("S") ? -1 : 1);
+    const lon = Number.parseFloat(lonText) * (lonText.endsWith("W") ? -1 : 1);
+    const timeUtcMs = Date.UTC(+date.slice(0, 4), +date.slice(4, 6) - 1, +date.slice(6, 8), +time.slice(0, 2), +time.slice(2, 4));
+    current.fixes.push({ timeUtcMs, lat, lon });
+    if (status === "HU") current.hurricane = true;
+    if (status === "HU" || status === "TS") current.tropical = true;
+  }
+  finish();
+  return storms;
+}
+
+const STORM_RADIUS_KM = 800;
+const STORM_LEAD_MS = 72 * 3_600_000;
+const STORM_LAG_MS = 12 * 3_600_000;
+
+/** The named cyclone that passed closest to the buoy in the 3 days before a swell peaked, within 800 km. */
+export function stormNameFor(
+  at: string,
+  buoy: { lat: number; lon: number },
+  storms: TropicalCyclone[],
+): string | undefined {
+  const peak = Date.parse(at);
+  let best: { name: string; km: number } | undefined;
+  for (const storm of storms) {
+    const first = storm.fixes[0]?.timeUtcMs ?? Infinity;
+    const last = storm.fixes[storm.fixes.length - 1]?.timeUtcMs ?? -Infinity;
+    if (first > peak + STORM_LAG_MS || last < peak - STORM_LEAD_MS) continue;
+    for (const fix of storm.fixes) {
+      if (fix.timeUtcMs < peak - STORM_LEAD_MS || fix.timeUtcMs > peak + STORM_LAG_MS) continue;
+      const km = haversineKm(buoy, fix);
+      if (km <= STORM_RADIUS_KM && (!best || km < best.km)) best = { name: storm.name, km };
+    }
+  }
+  return best?.name;
 }

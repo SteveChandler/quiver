@@ -3,6 +3,8 @@ import {
   compareToBigSwells,
   modelTracksBuoy,
   nearestBigSwellBuoy,
+  parseHurdat2,
+  stormNameFor,
   pickBigSwells,
   type BigSwellBuoy,
 } from "@/lib/big-swells";
@@ -68,12 +70,50 @@ const STATION: BigSwellBuoy = {
 
 describe("compareToBigSwells", () => {
   it("names the closest measured swell and the rank for a big forecast", () => {
-    expect(compareToBigSwells(6.5, STATION)).toEqual({ isBig: true, rank: 3, closest: STATION.biggest[2] });
-    expect(compareToBigSwells(4.4, STATION)).toEqual({ isBig: true, rank: null, closest: STATION.recent[0] });
+    expect(compareToBigSwells(6.5, STATION)).toMatchObject({ isBig: true, rank: 3, closest: STATION.biggest[2] });
+    expect(compareToBigSwells(4.4, STATION)).toMatchObject({ isBig: true, rank: null, closest: STATION.recent[0] });
   });
 
   it("makes no comparison below the big-swell floor", () => {
-    expect(compareToBigSwells(1.2, STATION)).toEqual({ isBig: false, rank: null, closest: null });
+    expect(compareToBigSwells(1.2, STATION)).toEqual({ isBig: false, rank: null, closest: null, biggestSince: null });
+  });
+
+  it("dates 'biggest since' only from swells the stored lists prove are the newest that big", () => {
+    // Newest recent swell at least this big.
+    expect(compareToBigSwells(4.4, STATION).biggestSince).toBe(STATION.recent[0]);
+    // Bigger than every recent one and at least the smallest of the biggest: the newest of those
+    // at least this big (Sandy 2012, not Irene 2011).
+    expect(compareToBigSwells(6.5, STATION).biggestSince).toBe(STATION.biggest[0]);
+    // Bigger than every recent one but under the smallest of the biggest: unknown.
+    expect(compareToBigSwells(5, { ...STATION, recent: [{ ...STATION.recent[0], hsM: 3.2 }] }).biggestSince).toBeNull();
+    // A record has nothing bigger to date from.
+    expect(compareToBigSwells(10.5, STATION)).toMatchObject({ rank: 1, biggestSince: null });
+  });
+});
+
+const HURDAT2 = [
+  "AL182012,              SANDY,      3,",
+  "20121029, 1800,  , HU, 38.8N,  73.4W,  80,  945",
+  "20121029, 2330, L, EX, 39.4N,  74.5W,  70,  945",
+  "20121030, 0600,  , EX, 39.9N,  76.2W,  55,  960",
+  "AL052000,            UNNAMED,      1,",
+  "20000901, 0000,  , TD, 39.0N,  73.0W,  30, 1008",
+  "EP012020,              ALPHA,      1,",
+  "20200101, 0000,  , TS, 20.0N, 158.0W,  40, 1000",
+].join("\n");
+
+describe("storm names", () => {
+  it("keeps named tropical storms and hurricanes from HURDAT2 and drops the unnamed", () => {
+    const storms = parseHurdat2(HURDAT2);
+    expect(storms.map((storm) => storm.name)).toEqual(["Hurricane Sandy", "Tropical Storm Alpha"]);
+    expect(storms[0].fixes[1]).toEqual({ timeUtcMs: Date.UTC(2012, 9, 29, 23, 30), lat: 39.4, lon: -74.5 });
+  });
+
+  it("names a swell after the cyclone that passed within 800 km in the 3 days before its peak", () => {
+    const storms = parseHurdat2(HURDAT2);
+    expect(stormNameFor("2012-10-30T00:50:00.000Z", STATION, storms)).toBe("Hurricane Sandy");
+    expect(stormNameFor("2012-11-08T00:00:00.000Z", STATION, storms)).toBeUndefined();
+    expect(stormNameFor("2012-10-30T00:50:00.000Z", { lat: 33.6, lon: -118.3 }, storms)).toBeUndefined();
   });
 });
 
