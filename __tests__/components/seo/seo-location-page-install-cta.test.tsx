@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
@@ -228,13 +228,21 @@ describe("SeoLocationPage install CTA on /surf-cams", () => {
     expect(new URL(link.getAttribute("href") ?? "").searchParams.get("handoff_id")).toBe(handoffId);
   });
 
-  it("keeps the handoff off other funnel page types", async () => {
-    pathname = "/longboard/encinitas";
+  it.each([
+    ["longboard", "encinitas"],
+    ["beginner", "santa-cruz"],
+  ] as const)("gives the /%s/%s intent route one ask: the intent app handoff", async (type, slug) => {
+    pathname = `/${type}/${slug}`;
     setUserAgent(ANDROID_UA);
-    await renderPage("longboard", "encinitas");
+    await renderPage(type, slug);
 
     expect(screen.queryByTestId(HANDOFF)).not.toBeInTheDocument();
-    expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
+    const intentAsk = screen.getByTestId("content-page-app-handoff-cta-intent");
+    expect(within(intentAsk).getByRole("link")).toHaveAttribute(
+      "href",
+      expect.stringContaining(`source=content-intent-${type}-${slug}`),
+    );
+    expect(screen.queryByTestId("sticky-signup-bar")).not.toBeInTheDocument();
   });
 
   it.each([
