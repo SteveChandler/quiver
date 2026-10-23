@@ -678,6 +678,11 @@ export async function resolveWaterQualityHolds(
     const countyHeld = new Set(effectiveRows
       .filter((row) => row.county_advisory_status === "advisory" || row.county_advisory_status === "closure")
       .map((row) => row.beach_id));
+    // The County projection overwrites status, so keep each beach's own current sampled result.
+    const sampledRows = new Map([...rowsByBeachId.values()]
+      .filter((row) => (row.status === "advisory" || row.status === "closure") && row.total_samples_30d > 0
+        && isCurrentWaterQualitySample(row.latest_sample_date, now.getTime()))
+      .map((row) => [row.beach_id, row]));
     for (const row of effectiveRows) rowsByBeachId.set(row.beach_id, row);
 
     const evidence: Record<string, WaterQualityEvidence> = {};
@@ -715,6 +720,15 @@ export async function resolveWaterQualityHolds(
         row.status !== "unknown";
       if (!hasRealData) {
         snapshot.push(`${beachId}:fallback:allow`);
+        continue;
+      }
+
+      const sampled = sampledRows.get(beachId);
+      if (countyHeld.has(beachId) && row.county_advisory_kind === "general" && sampled) {
+        evidence[beachId] = { source: "sample", ...(typeof sampled.latest_sample_date === "string" ? { sampleDate: sampled.latest_sample_date } : {}) };
+        heldBeachIds.push(beachId);
+        waterQualityStatusByBeachId[beachId] = sampled.status as WaterQualityHoldStatus;
+        snapshot.push(`${beachId}:real:sample-${sampled.status}`);
         continue;
       }
 

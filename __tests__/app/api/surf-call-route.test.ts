@@ -297,6 +297,18 @@ describe("GET /api/surf/call", () => {
     expect((await response.json()).data.waterQuality).toEqual({ status: "advisory", ...notice });
   });
 
+  it("keeps a rain notice when the hold read is unresolved, without claiming a hold", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const rain = { source: "rain", rainAdvisory: { startedAt: "2026-10-22T12:00:00Z",
+      lastRainAt: "2026-10-22T11:00:00Z", expiresAt: "2026-10-25T11:00:00Z" } };
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier",
+      lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [],
+      waterQualityStatusByBeachId: {}, waterQualityNoticeByBeachId: { [beachId]: rain }, epoch: "unknown" });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toEqual({ status: "advisory", ...rain });
+  });
+
   it("returns null for an unheld or unresolved beach", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
