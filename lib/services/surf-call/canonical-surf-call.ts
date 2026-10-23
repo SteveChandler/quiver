@@ -70,9 +70,12 @@ function surfCallWaterQuality(
   beachId: string,
 ): SurfCallWaterQuality {
   beachId = beachId.toLowerCase();
-  if (resolution.state !== 'resolved' || !resolution.heldBeachIds.includes(beachId)) return null;
-  const evidence = resolution.waterQualityEvidenceByBeachId?.[beachId];
-  const status = resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
+  if (resolution.state !== 'resolved') return null;
+  const held = resolution.heldBeachIds.includes(beachId);
+  const notice = held ? undefined : resolution.waterQualityNoticeByBeachId?.[beachId];
+  if (!held && !notice) return null;
+  const evidence = notice ?? resolution.waterQualityEvidenceByBeachId?.[beachId];
+  const status = notice ? 'advisory' : resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
   if (evidence?.source === 'county') return { status, source: 'county',
     ...(evidence.countyKind ? { countyKind: evidence.countyKind } : {}),
     ...(evidence.countyKind === 'general' && evidence.rainAdvisory ? { rainAdvisory: evidence.rainAdvisory } : {}),

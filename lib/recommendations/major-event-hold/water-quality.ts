@@ -203,6 +203,12 @@ export interface WaterQualityHoldResolution {
    * rain stops, so a window starting then is not held.
    */
   heldUntilByBeachId?: Record<string, string>;
+  /**
+   * Rain advisories (our gauge runoff events and the County's general rain
+   * advisory). They carry a notice but never hold a call; a beach held by any
+   * other source is not listed here.
+   */
+  waterQualityNoticeByBeachId?: Record<string, WaterQualityEvidence>;
   epoch: string;
 }
 
@@ -252,6 +258,7 @@ interface CountyLiveHoldResolution {
   heldBeachIds: string[];
   waterQualityStatusByBeachId: Record<string, WaterQualityHoldStatus>;
   evidence: Record<string, WaterQualityEvidence>;
+  notices: Record<string, WaterQualityEvidence>;
   snapshot: string[];
 }
 
@@ -264,6 +271,7 @@ function emptyCountyResolution(
     heldBeachIds: [],
     waterQualityStatusByBeachId: {},
     evidence: {},
+    notices: {},
     snapshot: [snapshot],
   };
 }
@@ -358,6 +366,7 @@ async function resolveCountyLiveHolds(
     WaterQualityHoldStatus
   > = {};
   const evidence: Record<string, WaterQualityEvidence> = {};
+  const notices: Record<string, WaterQualityEvidence> = {};
   for (const row of advisoryData) {
     if (typeof row !== "object" || row === null) {
       return emptyCountyResolution(
@@ -387,15 +396,20 @@ async function resolveCountyLiveHolds(
       if (generalAdvisory.expired && value.advisory_type !== "closure" && !siteAdvisory) continue;
       const normalizedBeachId = value.beach_id.toLowerCase();
       if (requested.has(normalizedBeachId)) {
-        heldBeachIds.push(normalizedBeachId);
         const countyKind = value.advisory_type === "closure" || siteAdvisory || !generalAdvisory.general
           ? "site" as const : "general" as const;
-        if (value.advisory_type === "closure" || evidence[normalizedBeachId]?.countyKind !== "site") {
-          const event = countyKind === "general" && generalAdvisory.event?.status === "active"
-            ? generalAdvisory.event : null;
-          evidence[normalizedBeachId] = { source: "county", countyKind, checkedAt: (run as { fetched_at: string }).fetched_at,
+        const checkedAt = (run as { fetched_at: string }).fetched_at;
+        // The general rain advisory informs; only closures and site advisories hold.
+        if (countyKind === "general") {
+          const event = generalAdvisory.event?.status === "active" ? generalAdvisory.event : null;
+          notices[normalizedBeachId] = { source: "county", countyKind, checkedAt,
             ...(event ? { rainAdvisory: { startedAt: event.startedAt, lastRainAt: event.lastRainAt,
               expiresAt: event.expiresAt } } : {}) };
+          continue;
+        }
+        heldBeachIds.push(normalizedBeachId);
+        if (value.advisory_type === "closure" || evidence[normalizedBeachId]?.countyKind !== "site") {
+          evidence[normalizedBeachId] = { source: "county", countyKind, checkedAt };
         }
         waterQualityStatusByBeachId[normalizedBeachId] =
           moreSevereWaterQualityStatus(
@@ -409,11 +423,13 @@ async function resolveCountyLiveHolds(
   const generalSnapshot = !generalAdvisory.general ? "county-general:dormant"
     : generalAdvisory.streakStartedAt === null ? "county-general:unknown"
       : `county-general:${generalAdvisory.expired ? "expired" : "active"}:${generalAdvisory.streakStartedAt}:rain-${generalAdvisory.rainState ?? "null"}:event-${generalAdvisory.event?.id ?? "null"}-${generalAdvisory.event?.status ?? "null"}`;
+  for (const beachId of heldBeachIds) delete notices[beachId];
   return {
     state: "resolved",
     heldBeachIds: [...new Set(heldBeachIds)],
     waterQualityStatusByBeachId,
     evidence,
+    notices,
     snapshot: [
       `county-live:fresh:${(run as { fetched_at: string }).fetched_at}`,
       generalSnapshot,
@@ -670,6 +686,7 @@ export async function resolveWaterQualityHolds(
       string,
       WaterQualityHoldStatus
     > = {};
+    const notices: Record<string, WaterQualityEvidence> = {};
     const snapshot: string[] = [];
     const unverifiedBeachIds: string[] = [];
     for (const beachId of requestedBeachIds) {
@@ -698,6 +715,17 @@ export async function resolveWaterQualityHolds(
         row.status !== "unknown";
       if (!hasRealData) {
         snapshot.push(`${beachId}:fallback:allow`);
+        continue;
+      }
+
+      if (countyHeld.has(beachId) && row.status === "advisory"
+        && row.county_advisory_status === "advisory" && row.county_advisory_kind === "general") {
+        const countyRain = row.county_rain_advisory as { started_at: string; last_rain_at: string | null; expires_at: string } | undefined;
+        notices[beachId] = { source: "county", countyKind: "general",
+          ...(countyRain ? { rainAdvisory: { startedAt: countyRain.started_at,
+            lastRainAt: countyRain.last_rain_at, expiresAt: countyRain.expires_at } } : {}),
+          ...(typeof row.county_checked_at === "string" ? { checkedAt: row.county_checked_at } : {}) };
+        snapshot.push(`${beachId}:notice:county-general`);
         continue;
       }
 
@@ -732,6 +760,7 @@ export async function resolveWaterQualityHolds(
             status,
           );
       }
+      for (const [beachId, notice] of Object.entries(liveResolution.notices)) notices[beachId] = notice;
       snapshot.push(...liveResolution.snapshot);
     } else {
       snapshot.push(...liveResolution.snapshot);
@@ -747,18 +776,15 @@ export async function resolveWaterQualityHolds(
       }
     }
 
-    // Rain holds only beaches no other source holds, so their own status stands.
+    // Rain never holds a call (Steven, 2026-10-23): it is a notice, and a County
+    // notice or any held status for the beach wins over it.
     const heldBySource = new Set(heldBeachIds);
-    const heldUntilByBeachId: Record<string, string> = {};
     for (const [beachId, event] of rainResolution.held) {
-      if (heldBySource.has(beachId)) continue;
-      heldBeachIds.push(beachId);
-      waterQualityStatusByBeachId[beachId] = "advisory";
-      evidence[beachId] = { source: "rain", rainAdvisory: { startedAt: event.started_at,
+      if (notices[beachId]) continue;
+      notices[beachId] = { source: "rain", rainAdvisory: { startedAt: event.started_at,
         lastRainAt: event.last_rain_at, expiresAt: event.expires_at } };
-      heldUntilByBeachId[beachId] = event.expires_at;
     }
-    unverifiedBeachIds.push(...rainResolution.unverifiedBeachIds.filter((beachId) => !heldBySource.has(beachId)));
+    for (const beachId of heldBySource) delete notices[beachId];
     snapshot.push(...rainResolution.snapshot);
 
     const resolution = unresolved
@@ -775,7 +801,7 @@ export async function resolveWaterQualityHolds(
     return {
       ...resolution,
       ...(unverifiedBeachIds.length > 0 ? { unverifiedBeachIds: [...new Set(unverifiedBeachIds)].sort() } : {}),
-      ...(Object.keys(heldUntilByBeachId).length > 0 ? { heldUntilByBeachId } : {}),
+      ...(Object.keys(notices).length > 0 ? { waterQualityNoticeByBeachId: notices } : {}),
       waterQualityEvidenceByBeachId: evidence,
     };
   } catch (error) {
