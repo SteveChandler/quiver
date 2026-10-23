@@ -32,6 +32,7 @@ import type {
 } from "./types";
 import { isHighConfidenceNotification } from "./relevance";
 import { pushTitle } from "./copy/push-title";
+import { alsoGoodSentence } from "./copy/daily-call-copy";
 import {
   parseMajorSwellNotificationPayload,
   type MajorSwellNotificationPayload,
@@ -648,9 +649,7 @@ export const NOTIFICATION_REGISTRY = {
       let body = p.reason;
       const options = p.options ?? [];
       for (let count = options.length; count > 0; count -= 1) {
-        const also = options.slice(0, count)
-          .map((option) => `${option.beach_name} ${option.window_local}`).join(", ");
-        const candidateBody = `${p.reason} Also: ${also}.`;
+        const candidateBody = `${p.reason} ${alsoGoodSentence(options.slice(0, count))}`;
         if (candidateBody.length > 240) continue;
         body = candidateBody;
         break;

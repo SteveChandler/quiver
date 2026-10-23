@@ -54,6 +54,11 @@ jest.mock("@/lib/services/preference-learning-service", () => {
 });
 
 // Minimal, table-aware supabase mock used by discoverSurfSpots
+// Rain notices have their own suite; these beaches are in San Diego, where they would read gauge events.
+jest.mock("@/lib/services/water-quality/rainfall-runoff-read", () => ({
+  withRainfallNotice: jest.fn(async (rows: unknown[]) => rows),
+}));
+
 jest.mock("@/lib/supabase/server", () => {
   // Shared state across all client instances (discoverSurfSpots creates multiple).
   const state = {

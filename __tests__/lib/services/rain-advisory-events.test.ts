@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import {
-  countyTransitions, formatRainAdvisoryTime, metarTransitions,
+  countyTransitions, formatRainAdvisoryTime, metarTransitions, rainEventRegion,
   rainAdvisoryEndsLabel, rainAdvisoryExpiresAt,
   type RainAdvisoryEvent,
 } from "@/lib/services/water-quality/rain-advisory-events";
@@ -65,4 +65,13 @@ it("formats advisory times in California time", () => {
   expect(rainAdvisoryEndsLabel("2026-10-16T13:00:00Z", new Date("2026-10-15T00:00:00Z")))
     .toBe("ends Fri 6 AM if dry");
   expect(rainAdvisoryEndsLabel("2026-10-16T13:00:00Z", new Date("2026-10-16T13:00:00Z"))).toBeNull();
+});
+
+it("opens San Diego's own gauge event beside the County's", () => {
+  expect(rainEventRegion("san_diego")).toBe("san_diego_gauges");
+  expect(rainEventRegion("huntington_newport")).toBe("huntington_newport");
+  expect(metarTransitions({ region: "san_diego_gauges", windowEnd: day0, totalIn: 0.23,
+    lastRainAt: "2026-10-12T15:00:00.000Z", dryConfirmed: false, stations: ["KSAN"] }, null)[0])
+    .toMatchObject({ kind: "open", event: { region: "san_diego_gauges", source: "metar_runoff",
+      expires_at: "2026-10-15T15:00:00.000Z" } });
 });

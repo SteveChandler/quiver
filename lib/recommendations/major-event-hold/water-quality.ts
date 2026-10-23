@@ -6,6 +6,13 @@ import { z } from "zod";
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import { resolveCountyGeneralAdvisory } from "@/lib/services/county-beach-advisories/general-streak";
 import { insideCountyFeed, readBeachPoints } from "@/lib/services/water-quality/county-coverage";
+import {
+  RAIN_ADVISORY_EVENTS_TABLE,
+  rainAdvisoryEventSchema,
+  rainEventRegion,
+  type RainAdvisoryEvent,
+} from "@/lib/services/water-quality/rain-advisory-events";
+import { rainGaugeClusterFor } from "@/lib/services/water-quality/rainfall-runoff";
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
@@ -174,7 +181,7 @@ export interface WaterQualityHoldClient {
 }
 
 export interface WaterQualityEvidence {
-  source: "sample" | "county" | "hold";
+  source: "sample" | "county" | "hold" | "rain";
   sampleDate?: string;
   countyKind?: "general" | "site";
   checkedAt?: string;
@@ -191,6 +198,11 @@ export interface WaterQualityHoldResolution {
    * that covers them is stale). They are withheld per candidate, never labeled.
    */
   unverifiedBeachIds?: string[];
+  /**
+   * Holds that lift on their own: runoff after rain clears 72 hours after the
+   * rain stops, so a window starting then is not held.
+   */
+  heldUntilByBeachId?: Record<string, string>;
   epoch: string;
 }
 
@@ -410,6 +422,80 @@ async function resolveCountyLiveHolds(
   };
 }
 
+interface RainHoldResolution {
+  held: Map<string, RainAdvisoryEvent>;
+  unverifiedBeachIds: string[];
+  snapshot: string[];
+}
+
+/**
+ * Runoff after measured rain, from the stored gauge events the beach page
+ * notice reads. San Diego beaches read their own gauges rather than waiting for
+ * the County; a County status for the beach is resolved separately and wins.
+ */
+async function resolveRainHolds(
+  client: WaterQualityHoldClient,
+  beachIds: readonly string[],
+  now: Date,
+): Promise<RainHoldResolution> {
+  const held = new Map<string, RainAdvisoryEvent>();
+  const query: unknown = client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*");
+  if (!supportsCountyRunQuery(query)) {
+    return { held, unverifiedBeachIds: [], snapshot: [] };
+  }
+  const { data, error } = await memoizedWaterQualityRead(
+    client,
+    `${RAIN_ADVISORY_EVENTS_TABLE}|*|active|metar_runoff`,
+    () => query.eq("status", "active").eq("source", "metar_runoff"),
+  );
+  if (hasErrorCode(error, MISSING_TABLE_ERROR_CODE)) {
+    return { held, unverifiedBeachIds: [], snapshot: [] };
+  }
+  let events: Map<string, RainAdvisoryEvent> | null = null;
+  if ((error === null || error === undefined) && Array.isArray(data)) {
+    events = new Map();
+    for (const raw of data) {
+      const parsed = rainAdvisoryEventSchema.safeParse(raw);
+      if (!parsed.success) {
+        events = null;
+        break;
+      }
+      const event = parsed.data;
+      if (event.source !== "metar_runoff" || event.status !== "active") continue;
+      if (Date.parse(event.expires_at) <= now.getTime()) continue;
+      events.set(event.region, event);
+    }
+  }
+  // No rain anywhere leaves the epoch as it was before rain holds existed.
+  if (events !== null && events.size === 0) return { held, unverifiedBeachIds: [], snapshot: [] };
+
+  const points = await readBeachPoints(client, beachIds, "[water-quality-hold:rain-coverage-error]");
+  // Without coordinates no beach is known to be near the rain, and withholding
+  // every beach in the state for one failed read would be worse than a missed
+  // precautionary hold. readBeachPoints has already logged the failure.
+  if (points === null) return { held, unverifiedBeachIds: [], snapshot: ["rain:coverage-unavailable"] };
+  const unverifiedBeachIds: string[] = [];
+  const snapshot: string[] = [];
+  for (const beachId of beachIds) {
+    const point = points.get(beachId);
+    const cluster = rainGaugeClusterFor(point?.lat, point?.lon);
+    if (!cluster) continue;
+    if (events === null) {
+      unverifiedBeachIds.push(beachId);
+      continue;
+    }
+    const event = events.get(rainEventRegion(cluster.id));
+    if (!event) continue;
+    held.set(beachId, event);
+    snapshot.push(`${beachId}:rain:${event.id}:${event.expires_at}`);
+  }
+  if (events === null) {
+    console.error("[water-quality-hold:rain-events-unavailable]", { beachCount: beachIds.length });
+    snapshot.push(`rain:unverified:${unverifiedBeachIds.join(",")}`);
+  }
+  return { held, unverifiedBeachIds, snapshot };
+}
+
 function readQualityRows(
   client: WaterQualityHoldClient,
   table: "water_quality_held_beaches" | "beach_water_quality",
@@ -444,7 +530,8 @@ async function countyCoveredBeachIds(
 }
 
 /**
- * Resolves owner-directed holds and current sampled advisory/closure status.
+ * Resolves owner-directed holds, current sampled advisory/closure status, and
+ * runoff after measured rain.
  * This is called only by recommendation/discovery surfaces.
  */
 export async function resolveWaterQualityHolds(
@@ -567,9 +654,10 @@ export async function resolveWaterQualityHolds(
       rowsByBeachId.set(parsed.data.beach_id, parsed.data);
     }
 
-    const [effectiveRows, liveResolution] = await Promise.all([
+    const [effectiveRows, liveResolution, rainResolution] = await Promise.all([
       currentWaterQuality([...rowsByBeachId.values()], client, now, { onlyBeachIds: COUNTY_PROJECTION_HOLD_BEACH_IDS }),
       resolveCountyLiveHolds(client, requestedBeachIds, now),
+      resolveRainHolds(client, requestedBeachIds, now),
     ]);
     const countyHeld = new Set(effectiveRows
       .filter((row) => row.county_advisory_status === "advisory" || row.county_advisory_status === "closure")
@@ -659,6 +747,20 @@ export async function resolveWaterQualityHolds(
       }
     }
 
+    // Rain holds only beaches no other source holds, so their own status stands.
+    const heldBySource = new Set(heldBeachIds);
+    const heldUntilByBeachId: Record<string, string> = {};
+    for (const [beachId, event] of rainResolution.held) {
+      if (heldBySource.has(beachId)) continue;
+      heldBeachIds.push(beachId);
+      waterQualityStatusByBeachId[beachId] = "advisory";
+      evidence[beachId] = { source: "rain", rainAdvisory: { startedAt: event.started_at,
+        lastRainAt: event.last_rain_at, expiresAt: event.expires_at } };
+      heldUntilByBeachId[beachId] = event.expires_at;
+    }
+    unverifiedBeachIds.push(...rainResolution.unverifiedBeachIds.filter((beachId) => !heldBySource.has(beachId)));
+    snapshot.push(...rainResolution.snapshot);
+
     const resolution = unresolved
       ? unresolvedResolution(
           heldBeachIds,
@@ -673,6 +775,7 @@ export async function resolveWaterQualityHolds(
     return {
       ...resolution,
       ...(unverifiedBeachIds.length > 0 ? { unverifiedBeachIds: [...new Set(unverifiedBeachIds)].sort() } : {}),
+      ...(Object.keys(heldUntilByBeachId).length > 0 ? { heldUntilByBeachId } : {}),
       waterQualityEvidenceByBeachId: evidence,
     };
   } catch (error) {

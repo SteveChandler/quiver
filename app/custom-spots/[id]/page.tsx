@@ -17,6 +17,7 @@ import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
+import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -116,7 +117,7 @@ async function getNearestBeachPhoto(
   }
 
   const photo = data as BeachPhotoPreview | null;
-  return normalizePhotoUrl(photo?.thumb_url) ?? normalizePhotoUrl(photo?.image_url);
+  return pickPhotoThumbUrl(normalizePhotoUrl(photo?.thumb_url), normalizePhotoUrl(photo?.image_url));
 }
 
 async function getCurrentViewerId(): Promise<string | undefined> {

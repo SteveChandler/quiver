@@ -200,16 +200,21 @@ export function StandardLayout({
               href: bestTimeToSurfUrl ?? `/best-time-to-surf/${params.city}`,
               description: "Use the monthly guide when timing matters more than spot choice.",
             },
-            {
-              label: `Check ${displayCityName} water temperature`,
-              href: `/water-temp/${params.city}`,
-              description: "Dial in gear before you head to the beach.",
-            },
-            {
-              label: `Watch the tide window`,
-              href: `/tide/${params.city}`,
-              description: "See the tide context before picking a break.",
-            },
+            // City tide/water-temp guides (/[intent]/[city]) are US-only.
+            ...(isUsa
+              ? [
+                  {
+                    label: `Check ${displayCityName} water temperature`,
+                    href: `/water-temp/${params.city}`,
+                    description: "Dial in gear before you head to the beach.",
+                  },
+                  {
+                    label: `Watch the tide window`,
+                    href: `/tide/${params.city}`,
+                    description: "See the tide context before picking a break.",
+                  },
+                ]
+              : []),
           ]}
           className="mb-8"
         />
@@ -341,14 +346,16 @@ export function StandardLayout({
           </div>
         </div>
 
-        {/* Intent Guides Grid - internal linking to all intent pages */}
-        <IntentGuidesGrid
-          locationSlug={params.city}
-          locationName={displayCityName}
-          locationType="city"
-          stateAbbrev={params.state.toUpperCase()}
-          excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
-        />
+        {/* Intent Guides Grid - internal linking to all intent pages (US-only routes) */}
+        {isUsa && (
+          <IntentGuidesGrid
+            locationSlug={params.city}
+            locationName={displayCityName}
+            locationType="city"
+            stateAbbrev={params.state.toUpperCase()}
+            excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
+          />
+        )}
 
         {/* Best Time to Surf cross-link for SEO indexation */}
         {bestTimeToSurfUrl && (

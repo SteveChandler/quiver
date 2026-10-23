@@ -42,9 +42,17 @@ function buildHoldCandidates<T extends { id: string }>(
   }));
 }
 
+interface SafeBeachHolds {
+  held: Set<string>;
+  /** Held beaches whose hold lifts on its own, by lowercase id. */
+  heldUntil: Readonly<Record<string, string>>;
+}
+
+const NO_HOLDS: SafeBeachHolds = { held: new Set(), heldUntil: {} };
+
 function resolvedHeldBeachIds(
   resolution: WaterQualityHoldResolution,
-): Set<string> | null {
+): SafeBeachHolds | null {
   if (resolution.state !== "resolved") return null;
   if (
     !Array.isArray(resolution.heldBeachIds) ||
@@ -52,7 +60,10 @@ function resolvedHeldBeachIds(
   ) {
     return null;
   }
-  return new Set(resolution.heldBeachIds.map((beachId) => beachId.toLowerCase()));
+  return {
+    held: new Set(resolution.heldBeachIds.map((beachId) => beachId.toLowerCase())),
+    heldUntil: resolution.heldUntilByBeachId ?? {},
+  };
 }
 
 function describeError(error: unknown): string {
@@ -104,8 +115,8 @@ async function resolveSafeBeachIds<T extends { id: string }>(
       resolution: WaterQualityHoldResolution,
     ) => void;
   },
-): Promise<Set<string>> {
-  if (candidates.length === 0) return new Set();
+): Promise<SafeBeachHolds> {
+  if (candidates.length === 0) return NO_HOLDS;
 
   const asOf = validAsOf(options?.asOf);
   if (asOf === null) {
@@ -113,7 +124,7 @@ async function resolveSafeBeachIds<T extends { id: string }>(
       asOf: options?.asOf,
       candidateCount: candidates.length,
     });
-    return new Set();
+    return NO_HOLDS;
   }
 
   const holdCandidates = buildHoldCandidates(candidates, asOf);
@@ -122,7 +133,7 @@ async function resolveSafeBeachIds<T extends { id: string }>(
       asOf: asOf.toISOString(),
       candidateCount: candidates.length,
     });
-    return new Set();
+    return NO_HOLDS;
   }
 
   try {
@@ -132,7 +143,7 @@ async function resolveSafeBeachIds<T extends { id: string }>(
         candidateCount: candidates.length,
         epoch: resolution.epoch,
       });
-      return new Set();
+      return NO_HOLDS;
     }
     const heldBeachIds = resolvedHeldBeachIds(resolution);
     if (heldBeachIds === null) {
@@ -140,7 +151,7 @@ async function resolveSafeBeachIds<T extends { id: string }>(
         candidateCount: candidates.length,
         heldBeachIds: resolution.heldBeachIds,
       });
-      return new Set();
+      return NO_HOLDS;
     }
     options?.onWaterQualityResolution?.(resolution);
     return heldBeachIds;
@@ -149,7 +160,7 @@ async function resolveSafeBeachIds<T extends { id: string }>(
       candidateCount: candidates.length,
       error: describeError(error),
     });
-    return new Set();
+    return NO_HOLDS;
   }
 }
 
@@ -162,15 +173,28 @@ export async function rankBeaches<T extends { id: string }>(
   opts: {
     compare: (a: T, b: T) => number;
     asOf?: Date;
+    /**
+     * When the candidate's session starts. A hold that lifts on its own (runoff
+     * after rain) keeps only candidates that start before it lifts.
+     */
+    startsAt?: (candidate: T) => string | Date | null | undefined;
     onWaterQualityResolution?: (
       resolution: WaterQualityHoldResolution,
     ) => void;
   },
 ): Promise<RankedBeach<T>[]> {
-  const heldBeachIds = await resolveSafeBeachIds(candidates, opts);
+  const { held, heldUntil } = await resolveSafeBeachIds(candidates, opts);
+  const isHeld = (candidate: T): boolean => {
+    const beachId = candidate.id.toLowerCase();
+    if (!held.has(beachId)) return false;
+    const until = heldUntil[beachId];
+    const startsAt = opts.startsAt?.(candidate);
+    const startsMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+    return until === undefined || !Number.isFinite(startsMs) || startsMs < Date.parse(until);
+  };
 
   return candidates
-    .filter((candidate) => !heldBeachIds.has(candidate.id.toLowerCase()))
+    .filter((candidate) => !isHeld(candidate))
     .slice()
     .sort(opts.compare)
     .map((candidate) => brand(candidate));
@@ -182,8 +206,8 @@ export async function selectBeach<T extends { id: string }>(
 ): Promise<RankedBeach<T> | null> {
   if (candidate == null) return null;
 
-  const heldBeachIds = await resolveSafeBeachIds([candidate], opts);
-  if (heldBeachIds.has(candidate.id.toLowerCase())) {
+  const { held } = await resolveSafeBeachIds([candidate], opts);
+  if (held.has(candidate.id.toLowerCase())) {
     return null;
   }
   return brand(candidate);

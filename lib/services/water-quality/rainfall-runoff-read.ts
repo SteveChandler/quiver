@@ -1,13 +1,14 @@
+import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   RAIN_READING_MAX_AGE_MS,
   applyRainAdvisoryNotice,
   applyRainfallNotice,
-  rainClusterFor,
+  rainGaugeClusterFor,
   type RainRunoffMetadata,
   type RainfallReading,
 } from "./rainfall-runoff";
-import { RAIN_ADVISORY_EVENTS_TABLE, rainAdvisoryEventSchema, type RainAdvisoryEvent } from "./rain-advisory-events";
+import { RAIN_ADVISORY_EVENTS_TABLE, rainAdvisoryEventSchema, rainEventRegion, type RainAdvisoryEvent } from "./rain-advisory-events";
 
 export const RAINFALL_READINGS_TABLE = "rainfall_runoff_readings";
 
@@ -40,8 +41,9 @@ function parseReading(value: unknown): RainfallReading | null {
 
 async function readActiveEvents(client: ReadingsClient): Promise<Map<string, RainAdvisoryEvent> | null> {
   try {
-    const { data, error } = await client.from(RAIN_ADVISORY_EVENTS_TABLE)
-      .select("*").eq("status", "active").eq("source", "metar_runoff");
+    // Same key as the recommendation hold, so a request reads the events once.
+    const { data, error } = await memoizedWaterQualityRead(client, `${RAIN_ADVISORY_EVENTS_TABLE}|*|active|metar_runoff`,
+      () => client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*").eq("status", "active").eq("source", "metar_runoff"));
     if (error || !Array.isArray(data)) return null;
     const events = new Map<string, RainAdvisoryEvent>();
     for (const raw of data) {
@@ -56,9 +58,10 @@ async function readActiveEvents(client: ReadingsClient): Promise<Map<string, Rai
 }
 
 /**
- * Display-path overlay for beach pages and discovery. Rain notices never
- * trigger recommendation holds. Rain pushes go only through
- * processRainAdvisoryPushes behind RAIN_ADVISORY_PUSH_ENABLED.
+ * Display-path overlay for beach pages and discovery. The same stored events
+ * hold recommendations (resolveWaterQualityHolds), so a held beach carries the
+ * notice. Rain pushes go only through processRainAdvisoryPushes behind
+ * RAIN_ADVISORY_PUSH_ENABLED.
  */
 export async function withRainfallNotice<T extends { beach_id: string; status: string; status_reason?: string | null; county_advisory_status?: string }>(
   rows: readonly T[],
@@ -68,7 +71,7 @@ export async function withRainfallNotice<T extends { beach_id: string; status: s
 ): Promise<Array<T & { rain_runoff?: RainRunoffMetadata }>> {
   const clusterByBeach = new Map<string, string>();
   for (const beach of beaches) {
-    const cluster = rainClusterFor(beach.lat, beach.lon);
+    const cluster = rainGaugeClusterFor(beach.lat, beach.lon);
     if (cluster) clusterByBeach.set(beach.id, cluster.id);
   }
   if (!rows.some((row) => clusterByBeach.has(row.beach_id))) return [...rows];
@@ -78,7 +81,7 @@ export async function withRainfallNotice<T extends { beach_id: string; status: s
     if (events !== null) {
       return rows.map((row) => {
         const cluster = clusterByBeach.get(row.beach_id);
-        return cluster ? applyRainAdvisoryNotice(row, events.get(cluster)) : row;
+        return cluster ? applyRainAdvisoryNotice(row, events.get(rainEventRegion(cluster))) : row;
       });
     }
     const { data, error } = await client.from(RAINFALL_READINGS_TABLE)

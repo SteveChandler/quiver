@@ -1,4 +1,4 @@
-import { getTransformedStorageUrl, getTransformedUrl, isSupabaseStorageUrl, getProxiedImageUrl, isExternalImageUrl, IMAGE_TRANSFORM_PRESETS, type ImageTransformPreset } from "@/lib/utils/image-utils";
+import { getTransformedStorageUrl, getTransformedUrl, isSupabaseStorageUrl, getProxiedImageUrl, isExternalImageUrl, pickPhotoThumbUrl, IMAGE_TRANSFORM_PRESETS, type ImageTransformPreset } from "@/lib/utils/image-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 
 describe("Image Transformation Utils", () => {
@@ -364,6 +364,33 @@ describe("Image Proxy Utils", () => {
 
     it("should return false for undefined", () => {
       expect(isExternalImageUrl(undefined)).toBe(false);
+    });
+  });
+
+  describe("pickPhotoThumbUrl", () => {
+    const OPENVERSE_THUMB =
+      "https://api.openverse.org/v1/images/5986e6cf-4e39-47d8-9788-309c97d1ad9b/thumb/";
+    const FLICKR = "https://live.staticflickr.com/7298/27887950245_97bb7522e9_b.jpg";
+
+    it("uses the original instead of an Openverse thumb proxy", () => {
+      expect(pickPhotoThumbUrl(OPENVERSE_THUMB, FLICKR)).toBe(FLICKR);
+      expect(pickPhotoThumbUrl(`${OPENVERSE_THUMB}?format=json`, FLICKR)).toBe(FLICKR);
+    });
+
+    it("keeps the Openverse thumb when there is no original", () => {
+      expect(pickPhotoThumbUrl(OPENVERSE_THUMB, null)).toBe(OPENVERSE_THUMB);
+    });
+
+    it("keeps any other thumb", () => {
+      const storageThumb = "https://xyz.supabase.co/storage/v1/object/public/photos/t.jpg";
+      expect(pickPhotoThumbUrl(storageThumb, FLICKR)).toBe(storageThumb);
+      expect(pickPhotoThumbUrl("/api/community-photos/abc/image", FLICKR)).toBe("/api/community-photos/abc/image");
+    });
+
+    it("falls back to the original when the thumb is empty", () => {
+      expect(pickPhotoThumbUrl(null, FLICKR)).toBe(FLICKR);
+      expect(pickPhotoThumbUrl("  ", FLICKR)).toBe(FLICKR);
+      expect(pickPhotoThumbUrl(null, null)).toBeNull();
     });
   });
 });

@@ -201,6 +201,9 @@ jest.mock("@/lib/supabase/server", () => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      // The San Diego beach reads its rain gauge events; none are active.
+      then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
+        Promise.resolve({ data: [], error: null }).then(resolve),
     }),
   }),
   createPublicReadClient: jest.fn().mockReturnValue({

@@ -14,6 +14,8 @@ export function ForecastDecisionLoginLink({
   return (
     <Link
       href={`/auth/sign-in?redirectTo=${encodeURIComponent(returnTo)}`}
+      // Every beach and forecast window yields a distinct sign-in URL; keep crawlers off them.
+      rel="nofollow"
       className={
         compact
           ? "inline-block border-b border-[#11100D] font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#11100D]/70 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"

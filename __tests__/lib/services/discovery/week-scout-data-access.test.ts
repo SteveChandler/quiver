@@ -102,7 +102,9 @@ describe('Week Scout network budget (production dependencies)', () => {
     });
     expect(result.days[0].windows.length).toBeGreaterThan(0);
     expect(mockCalls.length).toBeLessThanOrEqual(ORIGIN_MAIN_ROUND_TRIPS);
-    expect(mockCalls).toHaveLength(12);
+    // Rain runoff holds add one read of the active gauge events.
+    expect(mockCalls).toHaveLength(13);
+    expect(mockCalls.filter((name) => name === 'rain_advisory_events')).toHaveLength(1);
     expect(mockCalls.filter((name) => name === 'week_scout_ranking_context')).toHaveLength(1);
     expect(mockCalls).not.toContain('user_entitlements');
     expect(mockCalls).not.toContain('compute_user_match_score_batch');

@@ -84,6 +84,20 @@ Merge the query output with the Google Group export by normalized lowercase emai
 4. Insert an audit record in `earned_pro_grants` with reason `android_beta_legacy_free_year`, the exact expiration, and evidence-source metadata in `streak_snapshot`. Despite the historical column name, that JSON field is the existing grant evidence payload.
 5. Record fulfillment date, RevenueCat response identifier, expiration, and operator in the private ledger. Keep only aggregate fulfilled/pending counts in repository documentation.
 
+## Fulfillment status (2026-10-22)
+
+Google Play's closed-test requirement (12+ testers for 14 days) was met, and production access was applied for on 2026-10-22. Fulfillment ran the same day.
+
+- **Group evidence:** the owner's member list, with Google's join dates, was exported on 2026-10-22: 22 non-owner members. No pre-cutover snapshot exists, so the join dates are the evidence used.
+- **Offers actually delivered:**
+  - **Free year:** the `/android-beta` page until the 2026-07-17 cutoff, and the 2026-08-10 group email ("anyone who stays in for the 14 days gets a year of Quiver Pro"). Members who joined by 2026-08-10 received it.
+  - **Lifetime Pro:** the 2026-10-05 recruiting pitch. It bounced from the group, but the October joiners came in on it. Steven chose lifetime for them.
+- **Account match:** matched by Group email against `auth.users` and `auth.identities`, plus one known alternate email confirmed in support mail. 5 of the 22 members have a Quiver account; the other 16 people (17 Group entries, one person with two Gmails) were not matched. No account was guessed.
+- **Granted:** 3 yearly and 2 lifetime `Quiver Pro` RevenueCat promotional entitlements. The RevenueCat webhook mirrored all 5 into `user_entitlements`. Each has an `earned_pro_grants` audit row with reason `android_beta_legacy_free_year` or `android_beta_lifetime`; the evidence is in `streak_snapshot`.
+- **Pending:** 16 unmatched members. A thank-you email asks them to sign in with their Group email and reply, and they are granted on reply using the same tiers, by join date.
+
+Identities stay out of this repository. The private ledger is the audit rows plus the operator's mail.
+
 ## Release gate
 
 Do not close the GitHub issue until the production deployment URL, cutoff timestamp, pre-cutover Google Group export, database evidence export, and aggregate eligible count are recorded. No entitlement is granted as part of the code change.
