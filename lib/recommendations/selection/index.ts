@@ -178,6 +178,12 @@ export async function rankBeaches<T extends { id: string }>(
      * after rain) keeps only candidates that start before it lifts.
      */
     startsAt?: (candidate: T) => string | Date | null | undefined;
+    /**
+     * For lists and readings that are not a call for any session (a city's
+     * spot directory, its water temperature): a hold that lifts on its own
+     * (runoff after rain) keeps the beach; only a standing hold removes it.
+     */
+    standingHoldsOnly?: boolean;
     onWaterQualityResolution?: (
       resolution: WaterQualityHoldResolution,
     ) => void;
@@ -188,6 +194,7 @@ export async function rankBeaches<T extends { id: string }>(
     const beachId = candidate.id.toLowerCase();
     if (!held.has(beachId)) return false;
     const until = heldUntil[beachId];
+    if (until !== undefined && opts.standingHoldsOnly) return false;
     const startsAt = opts.startsAt?.(candidate);
     const startsMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
     return until === undefined || !Number.isFinite(startsMs) || startsMs < Date.parse(until);
@@ -202,12 +209,13 @@ export async function rankBeaches<T extends { id: string }>(
 
 export async function selectBeach<T extends { id: string }>(
   candidate: T | null | undefined,
-  opts?: { asOf?: Date },
+  opts?: { asOf?: Date; standingHoldsOnly?: boolean },
 ): Promise<RankedBeach<T> | null> {
   if (candidate == null) return null;
 
-  const { held } = await resolveSafeBeachIds([candidate], opts);
-  if (held.has(candidate.id.toLowerCase())) {
+  const { held, heldUntil } = await resolveSafeBeachIds([candidate], opts);
+  const beachId = candidate.id.toLowerCase();
+  if (held.has(beachId) && !(opts?.standingHoldsOnly && heldUntil[beachId] !== undefined)) {
     return null;
   }
   return brand(candidate);
