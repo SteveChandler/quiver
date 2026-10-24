@@ -79,17 +79,24 @@ test.describe("Database-driven intent pages - Content structure", () => {
     await expect(focusSection).toBeVisible();
   });
 
-  test("should display session logging tips", async ({ page }) => {
-    // Use least-crowded which renders the generic template with a MiniLogTeaser
-    // widget. The widget has no explicit heading but renders a "Log in 15 seconds"
-    // label and a "Save + Improve my forecast" button.
-    await page.goto("/least-crowded/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+  // One ask per intent page (2026-10-22): the app handoff card replaced the
+  // alert capture box, bottom signup section, sticky signup bar and log teaser.
+  for (const path of ["/least-crowded/santa-cruz", "/beginner/santa-cruz", "/sunset/san-diego"]) {
+    test(`${path} shows the app handoff as its only ask`, async ({ page }) => {
+      await page.goto(path, { timeout: PAGE_LOAD_TIMEOUT });
 
-    const logButton = page.getByRole("button", {
-      name: /save \+ improve my forecast/i,
+      const appAsk = page.locator('[data-testid^="content-page-app-handoff-cta"]');
+      await expect(appAsk).toHaveCount(1);
+      await expect(appAsk).toBeVisible();
+      await expect(appAsk.getByRole("link")).toHaveAttribute("href", /\/app\/handoff/);
+
+      await expect(page.getByTestId("alert-capture-cta")).toHaveCount(0);
+      await expect(page.getByTestId("sticky-signup-bar")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: /save \+ improve my forecast/i }),
+      ).toHaveCount(0);
     });
-    await expect(logButton).toBeVisible();
-  });
+  }
 
   test("should display checklist section", async ({ page }) => {
     // Use least-crowded which renders the generic template with a SmartChecklist

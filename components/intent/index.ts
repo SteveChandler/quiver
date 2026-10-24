@@ -13,7 +13,6 @@ export { TidePageContent } from "./tide-page-content";
 export { SmartChecklist } from "./smart-checklist";
 export { TodaysIntentPlan } from "./todays-intent-plan";
 ;
-export { MiniLogTeaser } from "./mini-log-teaser";
 export { BeachEditorialSection } from "./beach-editorial-section";
 export { WaterTempPageContent } from "./water-temp-page-content";
 ;

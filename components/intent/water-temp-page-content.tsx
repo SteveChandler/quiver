@@ -5,10 +5,7 @@ import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { describeWaterFeel, formatWetsuitPhrase } from "@/lib/utils/wetsuit-utils";
 import { CityMapView } from "@/components/city/city-map-view";
-import { CTASection } from "@/components/landing-page/cta-section";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
-import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
 import type { WaterTempSource } from "@/types/forecast";
@@ -23,7 +20,7 @@ import { MonthlyAveragesChart } from "./monthly-averages-chart";
 import { BeachTempComparison } from "./beach-temp-comparison";
 import { BeachEditorialSection } from "./beach-editorial-section";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
-import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
+import { IntentAppHandoffCta } from "./intent-app-handoff-cta";
 import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface WaterTempPageContentProps {
@@ -128,19 +125,6 @@ export function WaterTempPageContent({
           {/* Module 1: Water Temp Hero */}
           <WaterTempHeroSection data={waterTempData} />
 
-          <HideWhenInstallBarOwns>
-          <ContentPageAppHandoffCta
-            source={`content-water-temp-${citySlug}`}
-            surface="water_temp"
-            placement="above_fold_after_temperature"
-            target={`water-temp:${citySlug}`}
-            eyebrow={`${cityName} water temp · next check`}
-            title="Water temp sorted. Is it worth paddling out?"
-            description={`Your ${roundedCurrentTemp}°F answer is set. Take the ${cityName} surf forecast with you and check the conditions when you're ready to go.`}
-            ctaLabel="Check the surf in the app"
-          />
-          </HideWhenInstallBarOwns>
-
           {/* Module 2: Monthly Averages Chart (optional) */}
           <MonthlyAveragesChart data={waterTempData.monthlyAverages} />
 
@@ -160,13 +144,11 @@ export function WaterTempPageContent({
             stateSlug={stateSlug}
           />
 
-          {/* Alert Capture CTA */}
-          <AlertCaptureCta
-            pageContext="water-temp"
-            beachId={spots[0]?.id ?? ""}
-            beachName={cityName}
-            source={`intent-water-temp-${citySlug}`}
-            className="my-8"
+          <IntentAppHandoffCta
+            intent="water-temp"
+            cityName={cityName}
+            citySlug={citySlug}
+            description={`Your ${roundedCurrentTemp}°F answer is set. Take the ${cityName} surf forecast with you and check the conditions when you're ready to go.`}
           />
 
           {/* Map & Recommendations */}
@@ -239,18 +221,8 @@ export function WaterTempPageContent({
         </div>
       </div>
 
-      {/* Bottom CTA Section */}
-      <CTASection />
-
-      {/* Mobile Sticky Signup Bar */}
+      {/* iPhone install bar (flagged); renders nothing elsewhere */}
       <StickyInstallAsk
-        stickySignup={{
-          source: `intent-water-temp-${citySlug}`,
-          searchReferralCta: {
-            ctaText: "Wetsuit Alert",
-            supportingText: `Get gear recs for ${cityName}`,
-          },
-        }}
         bar={{
           placeName: cityName,
           valueLabel: `${roundedCurrentTemp}°F`,

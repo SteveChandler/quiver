@@ -10,9 +10,6 @@ import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
-import { CTASection } from "@/components/landing-page/cta-section";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { BeginnerHero } from "./BeginnerHero";
 import { RightNowConditions } from "./RightNowConditions";
 import { BeginnerSessionDecision } from "./beginner-session-decision";
@@ -23,6 +20,7 @@ import { SafetyEssentials } from "./SafetyEssentials";
 import { GearAndLessons } from "./GearAndLessons";
 import { SessionGallery } from "./SessionGallery";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
+import { IntentAppHandoffCta } from "@/components/intent/intent-app-handoff-cta";
 import { SectionFadeUp } from "./SectionFadeUp";
 
 interface BeginnerPageContentProps {
@@ -154,15 +152,8 @@ export function BeginnerPageContent({
             </aside>
           </SectionFadeUp>
 
-          {/* Alert Capture CTA */}
           <SectionFadeUp delay={0.1}>
-            <AlertCaptureCta
-              pageContext="beginner"
-              beachId={beaches[0]?.id ?? ""}
-              beachName={cityName}
-              source={`intent-beginner-${citySlug}`}
-              className="my-8"
-            />
+            <IntentAppHandoffCta intent="beginner" cityName={cityName} citySlug={citySlug} />
           </SectionFadeUp>
 
           {/* Module 4: What to Expect Editorial */}
@@ -231,14 +222,6 @@ export function BeginnerPageContent({
         </div>
       </div>
 
-      <CTASection />
-      <StickySignupBar
-        source={`intent-beginner-${citySlug}`}
-        searchReferralCta={{
-          ctaText: "Mellow Session Alerts",
-          supportingText: "Get notified when conditions are gentle",
-        }}
-      />
     </div>
   );
 }

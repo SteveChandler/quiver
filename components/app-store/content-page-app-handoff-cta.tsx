@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 interface ContentPageAppHandoffCtaProps {
   source: string;
-  surface: "beach_detail" | "water_temp" | "city_hub" | "surf_cams" | "learn";
+  surface: "beach_detail" | "water_temp" | "city_hub" | "surf_cams" | "learn" | "intent";
   placement: string;
   target: string;
   eyebrow: string;

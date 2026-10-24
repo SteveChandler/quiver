@@ -1198,6 +1198,7 @@ async function generateWeekScoutForecastInternal(
     },
   );
   const safeWindowIds = new Set(safeWindows.map(({ window }) => window.id));
+  const unfilteredResponse = response;
   response = {
     ...response,
     days: response.days.map((day) => {
@@ -1232,6 +1233,12 @@ async function generateWeekScoutForecastInternal(
       };
     }),
   };
+  // When every beach is held (72 h after rain, say) the filter leaves no
+  // candidates and the boundary fails closed as hold_state_unavailable. Give it
+  // the unfiltered windows so it reports the hold and when it lifts.
+  if (safeWindowIds.size === 0 && unfilteredResponse.days.some((day) => day.windows.length > 0)) {
+    response = unfilteredResponse;
+  }
   const candidates: MajorEventHoldCandidate[] = response.days.flatMap((day) =>
     day.windows.map((window) => ({
       candidateId: window.id,

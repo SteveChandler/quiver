@@ -70,9 +70,12 @@ function surfCallWaterQuality(
   beachId: string,
 ): SurfCallWaterQuality {
   beachId = beachId.toLowerCase();
-  if (resolution.state !== 'resolved' || !resolution.heldBeachIds.includes(beachId)) return null;
-  const evidence = resolution.waterQualityEvidenceByBeachId?.[beachId];
-  const status = resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
+  // An unresolved hold read never labels a hold, but its rain notice is still known.
+  const held = resolution.state === 'resolved' && resolution.heldBeachIds.includes(beachId);
+  const notice = resolution.heldBeachIds.includes(beachId) ? undefined : resolution.waterQualityNoticeByBeachId?.[beachId];
+  if (!held && !notice) return null;
+  const evidence = notice ?? resolution.waterQualityEvidenceByBeachId?.[beachId];
+  const status = notice ? 'advisory' : resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
   if (evidence?.source === 'county') return { status, source: 'county',
     ...(evidence.countyKind ? { countyKind: evidence.countyKind } : {}),
     ...(evidence.countyKind === 'general' && evidence.rainAdvisory ? { rainAdvisory: evidence.rainAdvisory } : {}),

@@ -74,6 +74,7 @@
     "scripts/verify-native-sentry-rls.mjs",
     "scripts/weekly-signup-intel.ts",
     "scripts/climatology/build-surf-climatology.ts",
+    "scripts/big-swells/build-big-swells.ts",
     "scripts/tides/list-model-tide-beaches.ts"
   ],
   "ignoreDependencies": [

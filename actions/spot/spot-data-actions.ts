@@ -14,6 +14,7 @@ import {
   getResolvedSpotPhotos,
   type ResolvedSpotPhoto,
 } from "@/lib/community-photos";
+import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import type { Beach } from "@/types/database";
 
 const log = createContextLogger("SpotDataActions");
@@ -39,7 +40,7 @@ function toResolvedCuratedPhoto(row: CuratedSpotPhotoRow): ResolvedSpotPhoto {
     source: "curated",
     visibility: "public",
     imageUrl: row.image_url,
-    thumbUrl: row.thumb_url,
+    thumbUrl: pickPhotoThumbUrl(row.thumb_url, row.image_url),
     width: null,
     height: null,
     attributionHtml: row.attribution_html,

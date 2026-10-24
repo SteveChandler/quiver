@@ -4,9 +4,6 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
-import { CTASection } from "@/components/landing-page/cta-section";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityTideDataExpanded } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
@@ -19,6 +16,7 @@ import { TideFullChart } from "./tide-full-chart";
 import { SevenDayTideTable } from "./seven-day-tide-table";
 import { BeachTideCards } from "./beach-tide-cards";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
+import { IntentAppHandoffCta } from "./intent-app-handoff-cta";
 import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface TidePageContentProps {
@@ -150,15 +148,8 @@ export function TidePageContent({
             />
           </SectionFadeUp>
 
-          {/* Alert Capture CTA */}
           <SectionFadeUp>
-            <AlertCaptureCta
-              pageContext="tides"
-              beachId={spots[0]?.id ?? ""}
-              beachName={cityName}
-              source={`intent-tide-${citySlug}`}
-              className="my-8"
-            />
+            <IntentAppHandoffCta intent="tide" cityName={cityName} citySlug={citySlug} />
           </SectionFadeUp>
 
           {/* Map & Recommendations */}
@@ -221,18 +212,6 @@ export function TidePageContent({
           </SectionFadeUp>
         </div>
       </div>
-
-      {/* Bottom CTA Section */}
-      <CTASection />
-
-      {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar
-        source={`intent-tide-${citySlug}`}
-        searchReferralCta={{
-          ctaText: "Get Tide Alerts",
-          supportingText: `Know when the tide is right in ${cityName}`,
-        }}
-      />
     </div>
   );
 }
