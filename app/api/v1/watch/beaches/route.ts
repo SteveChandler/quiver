@@ -38,7 +38,7 @@ type ForecastRow = {
   beach_id: string;
   forecast_at: string;
   wind_speed: string | null;
-  wind_direction_deg: number | null;
+  wind_direction_deg: number | string | null;
   tide_height: string | null;
   tide_status: string | null;
 };
@@ -199,6 +199,10 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
       const display = forecast.displayForecasts?.[beach.id];
       const timestamp = display?.forecastAt;
       const row = timestamp ? rowsByKey.get(`${beach.id}:${Date.parse(timestamp)}`) : undefined;
+      const tideHeight = measure(row?.tide_height);
+      const tideStatus = row?.tide_status?.trim().toLowerCase();
+      const windSpeed = measure(row?.wind_speed);
+      const windDirection = measure(row?.wind_direction_deg);
       const label = beach.held || forecast.recommendationHolds?.[beach.id]
         ? null : forecast.conditionLabels?.[beach.id];
       return {
@@ -210,6 +214,10 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
         swell: display ? formatSwell(forecast.displaySwell?.[beach.id]) : null,
         wind: formatWind(row),
         tide: formatTide(row),
+        tideFt: tideHeight === null ? null : Math.round(tideHeight * 10) / 10,
+        tideDir: tideStatus === "rising" || tideStatus === "falling" ? tideStatus : null,
+        windMph: windSpeed !== null && windSpeed >= 0 ? Math.round(windSpeed) : null,
+        windDeg: windDirection === null ? null : ((Math.round(windDirection) % 360) + 360) % 360,
         best: display ? formatBest(forecast.todayHeadlines?.[beach.id], timezoneById.get(beach.id) ?? beach.timezone) : null,
       };
     }),
