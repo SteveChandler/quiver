@@ -61,11 +61,18 @@ function spanEnd(swell: OutlookSwell): string {
   return swell.fadeAt && Date.parse(swell.fadeAt) > Date.parse(swell.peakAt) ? swell.fadeAt : swell.peakAt;
 }
 
-/** "Sat-Sun" sent on a Sunday reads as today, so a swell still in the water past three days out names its dates. */
+/** "Sat-Sun" sent on a Sunday reads as today, so a local date more than three days out is named with its date. */
+export function needsDateLabel(dateKey: string, timezone: string, now: Date): boolean {
+  return (Date.parse(dateKey) - Date.parse(getLocalDateString(now, timezone))) / DAY_MS > WEEKDAY_ONLY_MAX_DAYS_AHEAD;
+}
+
+/** "Sunday", or "Sunday Nov 1" when it is more than three days out. */
+export function swellDayLabel(dateKey: string, timezone: string, now: Date): string {
+  return needsDateLabel(dateKey, timezone, now) ? `${weekday(dateKey)} ${monthDay(dateKey)}` : weekday(dateKey);
+}
+
 function needsDates(swell: OutlookSwell, timezone: string, now: Date): boolean {
-  const lastDay = Date.parse(getLocalDateString(new Date(spanEnd(swell)), timezone));
-  const today = Date.parse(getLocalDateString(now, timezone));
-  return (lastDay - today) / DAY_MS > WEEKDAY_ONLY_MAX_DAYS_AHEAD;
+  return needsDateLabel(getLocalDateString(new Date(spanEnd(swell)), timezone), timezone, now);
 }
 
 function dayPart(iso: string, timezone: string): string {
@@ -117,11 +124,15 @@ export function surfWindowPayload(result: TideAwareWindowResult): NonNullable<Ma
   };
 }
 
-/** "Tue-Fri" from arrival to fade ("Sat Oct 31-Sun Nov 1" past three days out); no fade time means arrival to peak. */
+/** "Tue-Fri" from arrival to fade; past three days out "Oct 31-Nov 1" (or "Sun Nov 1") keeps the title short. */
 function daySpan(swell: OutlookSwell, timezone: string, withDate: boolean): string {
-  const from = shortWeekday(swell.arrivalAt ?? swell.peakAt, timezone, withDate);
-  const to = shortWeekday(spanEnd(swell), timezone, withDate);
-  return from === to ? from : `${from}-${to}`;
+  const start = swell.arrivalAt ?? swell.peakAt;
+  const from = shortWeekday(start, timezone);
+  const to = shortWeekday(spanEnd(swell), timezone);
+  if (!withDate) return from === to ? from : `${from}-${to}`;
+  const fromDate = getLocalDateString(new Date(start), timezone);
+  const toDate = getLocalDateString(new Date(spanEnd(swell)), timezone);
+  return fromDate === toDate ? `${from} ${monthDay(fromDate)}` : `${monthDay(fromDate)}-${monthDay(toDate)}`;
 }
 
 /** Facts, not a title pool: direction, the days it is in the water and how big the sets get. */

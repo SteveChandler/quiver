@@ -6,6 +6,7 @@ import {
   firstSightingFaceHeightFt,
   renderFirstSightingBody,
   selectFirstSightingCandidates,
+  swellDayLabel,
   tideReasonSentence,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
@@ -167,7 +168,7 @@ describe("buildFirstSightingPayload", () => {
 
     it("dates the title and timing a week out", () => {
       const payload = buildFirstSightingPayload({ swell: nextWeekend, timezone, now: sundayMorning });
-      expect(payload.title).toBe("SSW swell Sat Oct 31-Sun Nov 1, sets to 4 ft");
+      expect(payload.title).toBe("SSW swell Oct 31-Nov 1, sets to 4 ft");
       expect(payload.body).toContain("Builds from Saturday Oct 31, peaks Sunday Nov 1 in the morning.");
     });
 
@@ -178,9 +179,14 @@ describe("buildFirstSightingPayload", () => {
         .toContain("Builds from Saturday, peaks Sunday morning.");
     });
 
+    it("labels follow-up days the same way", () => {
+      expect(swellDayLabel("2026-11-01", timezone, sundayMorning)).toBe("Sunday Nov 1");
+      expect(swellDayLabel("2026-10-28", timezone, sundayMorning)).toBe("Wednesday");
+    });
+
     it("judges days ahead on the user's calendar, not UTC", () => {
       // 2026-10-29T00:30Z is already Oct 29 in UTC but still Oct 28 (4 days before Nov 1) in Los Angeles.
-      expect(renderFirstSightingTitle(nextWeekend, timezone, new Date("2026-10-29T00:30:00.000Z"))).toBe("SSW swell Sat Oct 31-Sun Nov 1, sets to 4 ft");
+      expect(renderFirstSightingTitle(nextWeekend, timezone, new Date("2026-10-29T00:30:00.000Z"))).toBe("SSW swell Oct 31-Nov 1, sets to 4 ft");
       expect(renderFirstSightingTitle(nextWeekend, timezone, new Date("2026-10-29T07:30:00.000Z"))).toBe("SSW swell Sat-Sun, sets to 4 ft");
     });
   });
