@@ -44,10 +44,13 @@ export function ZineHeroMedia({
   const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
   const dioramaUrl = sources?.diorama_url;
-  const photoUrl = beachPhotoUrl && !failedUrls.has(beachPhotoUrl) ? beachPhotoUrl : null;
-  const videoUrl = !photoUrl && dioramaUrl && !failedUrls.has(dioramaUrl) ? dioramaUrl : null;
-  const showsCamStill = !photoUrl && !videoUrl && !hasLiveCam && !!sources?.cam_thumbnail_url;
-  const showMap = !photoUrl && !videoUrl && !showsCamStill;
+  // A live cam is the most useful thing a beach can show, so it leads over any photo.
+  const photoUrl =
+    !hasLiveCam && beachPhotoUrl && !failedUrls.has(beachPhotoUrl) ? beachPhotoUrl : null;
+  const videoUrl =
+    !hasLiveCam && !photoUrl && dioramaUrl && !failedUrls.has(dioramaUrl) ? dioramaUrl : null;
+  const showsCam = hasLiveCam || (!photoUrl && !videoUrl && !!sources?.cam_thumbnail_url);
+  const showMap = !photoUrl && !videoUrl && !showsCam;
   const handleMediaError = (url: string): void => {
     setFailedUrls((current) => new Set(current).add(url));
   };
@@ -83,8 +86,10 @@ export function ZineHeroMedia({
             className="block h-[240px] w-full object-cover sm:h-[320px] md:h-[380px]"
             onError={() => handleMediaError(videoUrl)}
           />
-        ) : showsCamStill ? (
-          <CamsSection sources={sources} variant="hero" beachName={beachName} />
+        ) : showsCam ? (
+          <div className="zine-hero-cam-frame">
+            <CamsSection sources={sources} variant="hero" beachName={beachName} />
+          </div>
         ) : (
           <MapDoodle
             height={320}

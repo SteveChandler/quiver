@@ -181,6 +181,34 @@ describe("ZineHero heading level", () => {
     expect(screen.getByText("Spot map")).toBeInTheDocument();
   });
 
+  it("puts the live cam in the hero instead of the photo, with only the map collapsed", () => {
+    const beach = createMockBeach({ name: "Tourmaline Beach", city: "San Diego", state: "CA" });
+
+    render(
+      <ZineHero
+        beach={beach}
+        sources={{ camera_url: "https://cams.example.com/tourmaline.mp4" } as BeachSources}
+        beachPhoto={{
+          image_url: "/photo.jpg",
+          thumb_url: null,
+          source: "community",
+          creator_name: null,
+          license_code: null,
+          attribution_html: null,
+        }}
+      />,
+    );
+
+    const panel = screen.getByTestId("zine-hero-media");
+    expect(panel.closest("details")).toBeNull();
+    expect(panel.querySelector('video[aria-label="Live cam of Tourmaline Beach"]')).not.toBeNull();
+    expect(screen.queryByAltText("Tourmaline Beach, San Diego, CA")).not.toBeInTheDocument();
+    const summaries = [...document.querySelectorAll("details summary")].map((el) => el.textContent);
+    expect(summaries).toContain("Spot map");
+    expect(summaries.join(" ")).not.toMatch(/Live cam/);
+    expect(document.querySelectorAll('video[aria-label="Live cam of Tourmaline Beach"]')).toHaveLength(1);
+  });
+
   it("falls back to the spot map in the panel and drops the empty disclosure", () => {
     render(<ZineHero beach={createMockBeach({ name: "Seaside Reef" })} />);
 
