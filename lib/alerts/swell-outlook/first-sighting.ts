@@ -45,8 +45,34 @@ function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Within three days a bare weekday can only mean the coming one; further out it needs the date. */
+const WEEKDAY_ONLY_MAX_DAYS_AHEAD = 3;
+
 function weekday(dateKey: string): string {
   return new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${dateKey}T12:00:00.000Z`));
+}
+
+function monthDay(dateKey: string): string {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${dateKey}T12:00:00.000Z`));
+}
+
+function spanEnd(swell: OutlookSwell): string {
+  return swell.fadeAt && Date.parse(swell.fadeAt) > Date.parse(swell.peakAt) ? swell.fadeAt : swell.peakAt;
+}
+
+/** "Sat-Sun" sent on a Sunday reads as today, so a local date more than three days out is named with its date. */
+export function needsDateLabel(dateKey: string, timezone: string, now: Date): boolean {
+  return (Date.parse(dateKey) - Date.parse(getLocalDateString(now, timezone))) / DAY_MS > WEEKDAY_ONLY_MAX_DAYS_AHEAD;
+}
+
+/** "Sunday", or "Sunday Nov 1" when it is more than three days out. */
+export function swellDayLabel(dateKey: string, timezone: string, now: Date): string {
+  return needsDateLabel(dateKey, timezone, now) ? `${weekday(dateKey)} ${monthDay(dateKey)}` : weekday(dateKey);
+}
+
+function needsDates(swell: OutlookSwell, timezone: string, now: Date): boolean {
+  return needsDateLabel(getLocalDateString(new Date(spanEnd(swell)), timezone), timezone, now);
 }
 
 function dayPart(iso: string, timezone: string): string {
@@ -65,13 +91,14 @@ function sourcePhrase(swell: OutlookSwell): string {
   }
 }
 
-function shortWeekday(iso: string, timezone: string): string {
-  return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: timezone }).format(new Date(iso));
+function shortWeekday(iso: string, timezone: string, withDate = false): string {
+  const day = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: timezone }).format(new Date(iso));
+  return withDate ? `${day} ${monthDay(getLocalDateString(new Date(iso), timezone))}` : day;
 }
 
-export function bestWindowSentence(window: NonNullable<TideAwareWindowResult['window']>): string {
+export function bestWindowSentence(window: NonNullable<TideAwareWindowResult['window']>, withDate = false): string {
   const { start, end, timezone } = window;
-  return `Best window ${shortWeekday(start, timezone)} ${formatWindowLabel(start, end, timezone, { forBody: true })}.`;
+  return `Best window ${shortWeekday(start, timezone, withDate)} ${formatWindowLabel(start, end, timezone, { forBody: true })}.`;
 }
 
 export function tideReasonSentence(reasons: readonly string[]): string | null {
@@ -97,31 +124,38 @@ export function surfWindowPayload(result: TideAwareWindowResult): NonNullable<Ma
   };
 }
 
-/** "Tue-Fri" from arrival to fade; a swell with no fade time is named by its arrival and peak days. */
-function daySpan(swell: OutlookSwell, timezone: string): string {
+/** "Tue-Fri" from arrival to fade; past three days out "Oct 31-Nov 1" (or "Sun Nov 1") keeps the title short. */
+function daySpan(swell: OutlookSwell, timezone: string, withDate: boolean): string {
   const start = swell.arrivalAt ?? swell.peakAt;
-  const end = swell.fadeAt && Date.parse(swell.fadeAt) > Date.parse(swell.peakAt) ? swell.fadeAt : swell.peakAt;
   const from = shortWeekday(start, timezone);
-  const to = shortWeekday(end, timezone);
-  return from === to ? from : `${from}-${to}`;
+  const to = shortWeekday(spanEnd(swell), timezone);
+  if (!withDate) return from === to ? from : `${from}-${to}`;
+  const fromDate = getLocalDateString(new Date(start), timezone);
+  const toDate = getLocalDateString(new Date(spanEnd(swell)), timezone);
+  return fromDate === toDate ? `${from} ${monthDay(fromDate)}` : `${monthDay(fromDate)}-${monthDay(toDate)}`;
 }
 
 /** Facts, not a title pool: direction, the days it is in the water and how big the sets get. */
-export function renderFirstSightingTitle(swell: OutlookSwell, timezone: string): string {
-  return `${swell.directionLabel} swell ${daySpan(swell, timezone)}, sets to ${formatNumber(swell.faceHeightFt.max)} ft`;
+export function renderFirstSightingTitle(swell: OutlookSwell, timezone: string, now: Date = new Date()): string {
+  const days = daySpan(swell, timezone, needsDates(swell, timezone, now));
+  return `${swell.directionLabel} swell ${days}, sets to ${formatNumber(swell.faceHeightFt.max)} ft`;
 }
 
-function timingSentence(swell: OutlookSwell, timezone: string): string {
+function timingSentence(swell: OutlookSwell, timezone: string, withDate: boolean): string {
   const peakDate = getLocalDateString(new Date(swell.peakAt), timezone);
-  const peak = `peaks ${weekday(peakDate)} ${dayPart(swell.peakAt, timezone)}`;
+  const peakPart = dayPart(swell.peakAt, timezone);
+  const peak = withDate
+    ? `peaks ${weekday(peakDate)} ${monthDay(peakDate)} in the ${peakPart}`
+    : `peaks ${weekday(peakDate)} ${peakPart}`;
   if (!swell.arrivalAt) return `${peak[0].toUpperCase()}${peak.slice(1)}.`;
   const arrivalDate = getLocalDateString(new Date(swell.arrivalAt), timezone);
   if (arrivalDate === peakDate) {
     const arrivalPart = dayPart(swell.arrivalAt, timezone);
-    if (arrivalPart === dayPart(swell.peakAt, timezone)) return `${peak[0].toUpperCase()}${peak.slice(1)}.`;
+    if (arrivalPart === peakPart) return `${peak[0].toUpperCase()}${peak.slice(1)}.`;
+    if (withDate) return `Fills in ${weekday(arrivalDate)} ${monthDay(arrivalDate)} in the ${arrivalPart}, peaks in the ${peakPart}.`;
     return `Fills in ${weekday(arrivalDate)} ${arrivalPart}, ${peak}.`;
   }
-  return `Builds from ${weekday(arrivalDate)}, ${peak}.`;
+  return `Builds from ${weekday(arrivalDate)}${withDate ? ` ${monthDay(arrivalDate)}` : ''}, ${peak}.`;
 }
 
 function orientationSentence(swell: OutlookSwell): string | null {
@@ -142,17 +176,19 @@ export function renderFirstSightingBody(args: {
   hazard: FirstSightingHazard | null;
   surfWindow?: TideAwareWindowResult;
   anchorSource?: LocationAnchor['source'];
+  now?: Date;
 }): string {
   const { swell, timezone, hazard } = args;
+  const withDate = needsDates(swell, timezone, args.now ?? new Date());
   const recommendedWindow = args.surfWindow?.state === 'recommended' ? args.surfWindow.window : null;
   const period = swell.periodS === null ? '' : `, ${formatNumber(swell.periodS)}s`;
   const sentences: Array<{ text: string; priority: number }> = [
     { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
-    { text: timingSentence(swell, timezone), priority: recommendedWindow ? 2 : 0 },
+    { text: timingSentence(swell, timezone, withDate), priority: recommendedWindow ? 2 : 0 },
     { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}${args.anchorSource === 'home' ? ', near home' : ''}.`, priority: 0 },
   ];
   if (recommendedWindow) {
-    sentences.push({ text: bestWindowSentence(recommendedWindow), priority: 0 });
+    sentences.push({ text: bestWindowSentence(recommendedWindow, withDate), priority: 0 });
     const tideSentence = tideReasonSentence(args.surfWindow?.reasons ?? []);
     if (tideSentence) sentences.push({ text: tideSentence, priority: 1 });
   }
@@ -183,8 +219,10 @@ export function buildFirstSightingPayload(args: {
   hazard?: FirstSightingHazard | null;
   surfWindow?: TideAwareWindowResult;
   anchorSource?: LocationAnchor['source'];
+  now?: Date;
 }): MajorSwellNotificationPayload {
   const { swell, timezone } = args;
+  const now = args.now ?? new Date();
   const faceHeightFt = firstSightingFaceHeightFt(swell);
   const serious = faceHeightFt >= SERIOUS_FACE_HEIGHT_FT;
   const peakDate = getLocalDateString(new Date(swell.peakAt), timezone);
@@ -196,7 +234,7 @@ export function buildFirstSightingPayload(args: {
     peakDayLabel,
     serious,
   });
-  const body = renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow, anchorSource: args.anchorSource });
+  const body = renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow, anchorSource: args.anchorSource, now });
   return parseMajorSwellNotificationPayload({
     schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
     ...(args.anchorSource ? { anchor_source: args.anchorSource } : {}),
@@ -214,7 +252,7 @@ export function buildFirstSightingPayload(args: {
     official_evidence_refs: [],
     would_suppress_cohorts: ['beginner', 'intermediate', 'unknown'],
     enforcement: null,
-    title: renderFirstSightingTitle(swell, timezone),
+    title: renderFirstSightingTitle(swell, timezone, now),
     body,
     ...(args.surfWindow ? { surf_window: surfWindowPayload(args.surfWindow) } : {}),
     beaches: [
