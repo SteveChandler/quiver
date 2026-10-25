@@ -305,36 +305,13 @@ describe("IOOS Sync - Observation Sync", () => {
     jest.spyOn(global.Date, "now").mockRestore();
   });
 
-  it("calls refresh_observable_beaches RPC at end of sync", async () => {
-    const request = new NextRequest("http://localhost/api/cron/ioos-sync?phase=observations");
-    await GET(request);
-
-    // Verify RPC was called (use the mockSupabase.rpc from beforeEach)
-    expect(mockSupabase.rpc).toHaveBeenCalledWith("refresh_observable_beaches");
-  });
-
-  it("sets observableBeachesRefreshed to true on successful refresh", async () => {
+  it("leaves refresh_observable_beaches to pg_cron", async () => {
     const request = new NextRequest("http://localhost/api/cron/ioos-sync?phase=observations");
     const response = await GET(request);
     const data = await response.json();
 
-    // Verify field is true (RPC returns success by default in beforeEach)
-    expect(data.observableBeachesRefreshed).toBe(true);
-  });
-
-  it("sets observableBeachesRefreshed to false when refresh fails", async () => {
-    // Configure RPC to return an error
-    mockSupabase.rpc.mockResolvedValueOnce({ data: null, error: { message: "Refresh failed" } });
-
-    const request = new NextRequest("http://localhost/api/cron/ioos-sync?phase=observations");
-    const response = await GET(request);
-    const data = await response.json();
-
-    // Verify field is false
-    expect(data.observableBeachesRefreshed).toBe(false);
-
-    // Verify error was recorded
-    expect(data.errors).toContain("Failed to refresh observable_beaches: Refresh failed");
+    expect(mockSupabase.rpc).not.toHaveBeenCalledWith("refresh_observable_beaches");
+    expect(data.errors).not.toContainEqual(expect.stringContaining("observable_beaches"));
   });
 
   it("verifies IOOS_API_CONFIG.timeoutMs is 10000", async () => {

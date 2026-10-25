@@ -44,7 +44,6 @@ interface ObservationSyncResult {
   stationsFailed: number;
   stationsSkipped: number;
   stationsDeactivated404: number;
-  observableBeachesRefreshed: boolean;
   errors: string[];
   duration_ms: number;
 }
@@ -377,7 +376,6 @@ async function syncObservations(
     stationsFailed: 0,
     stationsSkipped: 0,
     stationsDeactivated404: 0,
-    observableBeachesRefreshed: false,
     errors: [],
     duration_ms: 0,
   };
@@ -653,15 +651,8 @@ async function syncObservations(
       result.errors.push(`Failed to mark stale stations: ${staleError.message}`);
     }
 
-    // Refresh observable_beaches materialized view so ML health metrics stay current
-    // TODO: RPC function missing from DB types
-    const { error: refreshError } = await (supabase as any).rpc("refresh_observable_beaches");
-    if (refreshError) {
-      result.errors.push(`Failed to refresh observable_beaches: ${refreshError.message}`);
-    } else {
-      result.observableBeachesRefreshed = true;
-      console.log("✅ Refreshed observable_beaches materialized view");
-    }
+    // observable_beaches is refreshed hourly by pg_cron (refresh-observable-beaches-hourly).
+    // Calling it here always hit PostgREST's 8s statement_timeout and rolled back.
   } catch (error) {
     result.errors.push(
       error instanceof Error ? error.message : "Unknown error during observation sync"
