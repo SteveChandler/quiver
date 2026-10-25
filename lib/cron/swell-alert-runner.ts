@@ -1557,7 +1557,7 @@ async function sendFirstSighting(
     });
     const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
     const payload = buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow,
-      anchorSource: profile.anchorSource });
+      anchorSource: profile.anchorSource, now });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,
