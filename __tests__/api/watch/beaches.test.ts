@@ -159,6 +159,15 @@ it("keeps a beach skipped by bulk with null forecast fields", async () => {
   const { data } = await get();
   expect((data.beaches as Array<Record<string, unknown>>)[1]).toMatchObject({
     name: "far", label: null, height: null, swell: null, wind: null, tide: null, best: null,
+    tideFt: null, tideDir: null, windMph: null, windDeg: null,
+  });
+});
+
+it("returns null numbers when the display forecast has no matching row", async () => {
+  const { data } = await get();
+  expect((data.beaches as Array<Record<string, unknown>>)[0]).toMatchObject({
+    name: "home", wind: null, tide: null,
+    tideFt: null, tideDir: null, windMph: null, windDeg: null,
   });
 });
 
@@ -187,7 +196,7 @@ it("reads wind and tide only from the display forecast timestamp", async () => {
   rows.enhanced_forecasts = [
     { beach_id: "home", forecast_at: otherAt, wind_speed: "99 mph", wind_direction_deg: 180, tide_height: "8.9 ft", tide_status: "falling" },
     // PostgREST's own timestamp format for the same instant as the display row.
-    { beach_id: "home", forecast_at: "2026-10-21 15:00:00+00", wind_speed: "8 mph", wind_direction_deg: "270", tide_height: "2.1 ft", tide_status: "Rising" },
+    { beach_id: "home", forecast_at: "2026-10-21 15:00:00+00", wind_speed: "8.6 mph", wind_direction_deg: "47", tide_height: "2.14 ft", tide_status: "Rising" },
   ];
   mockBulk.mockResolvedValue(Response.json({ success: true, data: {
     displayForecasts: { home: { label: "3-4ft", forecastAt: at } },
@@ -197,9 +206,20 @@ it("reads wind and tide only from the display forecast timestamp", async () => {
   } }));
   const { data } = await get();
   expect((data.beaches as Array<Record<string, unknown>>)[0]).toMatchObject({
-    swell: "4ft 13s WSW", wind: "8mph W", tide: "2.1ft rising", best: "7-9AM",
+    swell: "4ft 13s WSW", wind: "9mph NE", tide: "2.1ft rising", best: "7-9AM",
+    tideFt: 2.1, tideDir: "rising", windMph: 9, windDeg: 47,
   });
   expect(queries.enhanced_forecasts[0].in).toHaveBeenCalledWith("forecast_at", [at]);
+});
+
+it("normalizes a 360-degree wind direction to zero", async () => {
+  rows.enhanced_forecasts = [
+    { beach_id: "home", forecast_at: at, wind_speed: "5 mph", wind_direction_deg: 360, tide_height: "3.2 ft", tide_status: "Falling" },
+  ];
+  const { data } = await get();
+  expect((data.beaches as Array<Record<string, unknown>>)[0]).toMatchObject({
+    tideFt: 3.2, tideDir: "falling", windMph: 5, windDeg: 0,
+  });
 });
 
 it("keeps non-zero minutes in the beach's local best window", async () => {
