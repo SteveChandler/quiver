@@ -6,6 +6,7 @@ import {
   firstSightingFaceHeightFt,
   renderFirstSightingBody,
   selectFirstSightingCandidates,
+  swellDayLabel,
   tideReasonSentence,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
@@ -154,6 +155,40 @@ describe("buildFirstSightingPayload", () => {
     expect(renderFirstSightingTitle(spanning, "America/Los_Angeles")).toBe("SSW swell Tue-Fri, sets to 4 ft");
     expect(renderFirstSightingTitle({ ...spanning, fadeAt: undefined }, "America/Los_Angeles")).toBe("SSW swell Tue-Thu, sets to 4 ft");
     expect(renderFirstSightingTitle({ ...spanning, fadeAt: "2026-10-07T12:00:00.000Z" }, "America/Los_Angeles")).toBe("SSW swell Tue-Thu, sets to 4 ft");
+  });
+
+  // Steven, Oct 25 2026: "SSW swell Sat-Sun" sent on a Sunday read as today; the swell was the next weekend.
+  describe("names dates once the swell runs past three days out", () => {
+    const timezone = "America/Los_Angeles";
+    const nextWeekend = outlookSwell({
+      directionLabel: "SSW", arrivalAt: "2026-10-31T16:00:00.000Z", peakAt: "2026-11-01T15:00:00.000Z",
+      faceHeightFt: { min: 3, max: 4 }, periodS: 13, beachCount: 1,
+    });
+    const sundayMorning = new Date("2026-10-25T14:24:50.000Z");
+
+    it("dates the title and timing a week out", () => {
+      const payload = buildFirstSightingPayload({ swell: nextWeekend, timezone, now: sundayMorning });
+      expect(payload.title).toBe("SSW swell Oct 31-Nov 1, sets to 4 ft");
+      expect(payload.body).toContain("Builds from Saturday Oct 31, peaks Sunday Nov 1 in the morning.");
+    });
+
+    it("keeps bare weekdays when the last day is three days away", () => {
+      const thursday = new Date("2026-10-29T15:00:00.000Z");
+      expect(renderFirstSightingTitle(nextWeekend, timezone, thursday)).toBe("SSW swell Sat-Sun, sets to 4 ft");
+      expect(renderFirstSightingBody({ swell: nextWeekend, timezone, hazard: null, now: thursday }))
+        .toContain("Builds from Saturday, peaks Sunday morning.");
+    });
+
+    it("labels follow-up days the same way", () => {
+      expect(swellDayLabel("2026-11-01", timezone, sundayMorning)).toBe("Sunday Nov 1");
+      expect(swellDayLabel("2026-10-28", timezone, sundayMorning)).toBe("Wednesday");
+    });
+
+    it("judges days ahead on the user's calendar, not UTC", () => {
+      // 2026-10-29T00:30Z is already Oct 29 in UTC but still Oct 28 (4 days before Nov 1) in Los Angeles.
+      expect(renderFirstSightingTitle(nextWeekend, timezone, new Date("2026-10-29T00:30:00.000Z"))).toBe("SSW swell Oct 31-Nov 1, sets to 4 ft");
+      expect(renderFirstSightingTitle(nextWeekend, timezone, new Date("2026-10-29T07:30:00.000Z"))).toBe("SSW swell Sat-Sun, sets to 4 ft");
+    });
   });
 
   it("never names a board when several fit or none do", () => {
