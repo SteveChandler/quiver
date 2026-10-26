@@ -245,7 +245,8 @@ describe('POST /api/surf/week-scout', () => {
   });
 
   it.each([
-    [null, 100],
+    [null, 30],
+    [200, 100],
     [60, 30],
   ])('uses the profile drive range (%p min) as the complete-radius scope without a map', async (maxDriveMinutes, expectedMiles) => {
     const from = tables({
@@ -314,7 +315,7 @@ describe('POST /api/surf/week-scout', () => {
   it('reports the distance actually covered when the nearest-beach cap bites', async () => {
     const from = tables({
       user_location_snapshots: { lat: 33.985, lon: -118.473, captured_at: new Date().toISOString() },
-      profiles: { max_drive_minutes: null },
+      profiles: { max_drive_minutes: 200 },
     });
     mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
       candidates: [], enumeratedCount: 99, filteredOutCount: 0, cappedCount: 49, farthestNearbyMiles: 51.2,
@@ -334,15 +335,15 @@ describe('POST /api/surf/week-scout', () => {
     }));
   });
 
-  it('reports a widened scope and the nearest beach while ranking with the surfer\'s own range', async () => {
+  it.each([[90, 45], [null, 30]])('reports a widened scope and the nearest beach while ranking with the profile range (%p min)', async (maxDriveMinutes, expectedMiles) => {
     const from = tables({
       user_location_snapshots: { lat: 39.88, lon: -75.24, captured_at: new Date().toISOString() },
-      profiles: { max_drive_minutes: 90 },
+      profiles: { max_drive_minutes: maxDriveMinutes },
     });
     const nearestBeach = { id: BEACH_A, name: '1st Street Jetty', slug: '1st-street-jetty', lat: 39.281, lon: -74.567, distanceMiles: 54.7 };
     mockBuildDriveRangeCandidatePool.mockResolvedValueOnce({
       candidates: [], enumeratedCount: 4, filteredOutCount: 0, cappedCount: 0, farthestNearbyMiles: null,
-      widenedFromMiles: 45, nearestBeach,
+      widenedFromMiles: expectedMiles, nearestBeach,
     });
 
     const response = await callRoute({
@@ -352,10 +353,10 @@ describe('POST /api/surf/week-scout', () => {
     const scope = (await response.json()).data.coverage.scope;
 
     expect(scope.radiusMiles).toBe(100);
-    expect(scope.widenedFromMiles).toBe(45);
+    expect(scope.widenedFromMiles).toBe(expectedMiles);
     expect(scope.nearestBeach).toEqual(nearestBeach);
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
-      driveRadiusMiles: 45,
+      driveRadiusMiles: expectedMiles,
     }));
   });
 

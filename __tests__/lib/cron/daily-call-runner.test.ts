@@ -1467,7 +1467,7 @@ describe("shared ranking (flag on)", () => {
     await runDailyCallCron({ now, supabase, deps: mocked });
     expect(mocked.rankDay).toHaveBeenCalledWith({
       userId, poolBeachIds: [blacksId, ospreyId], timezone: profile.timezone, localDate: "2026-09-16",
-      sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon }, driveRadiusMiles: 100,
+      sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon }, driveRadiusMiles: 30,
     });
   });
 

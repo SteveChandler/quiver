@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { capNearbyPool, findNearestBeach, loadUserPool, type NearestBeach, type PoolBeach } from "@/lib/alerts/user-pool";
-import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from "@/lib/profile/drive-range";
+import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES, NO_LIMIT_DRIVE_MINUTES } from "@/lib/profile/drive-range";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import type { Beach, Database } from "@/types/database";
@@ -363,7 +363,7 @@ export async function buildDriveRangeCandidatePool(
   let widenedFromMiles: number | undefined;
   const rangeWasEmpty = pool.length === 0 && options.widenEmptyRange !== false;
   if (rangeWasEmpty && requestedRadiusMiles < MAX_DRIVE_RADIUS_MILES) {
-    pool = await load(null);
+    pool = await load(NO_LIMIT_DRIVE_MINUTES);
     if (pool.length > 0) widenedFromMiles = requestedRadiusMiles;
   }
   // Past the maximum range there is still a nearest beach to scout from.
