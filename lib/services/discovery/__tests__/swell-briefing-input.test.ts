@@ -379,7 +379,19 @@ describe("buildBriefingInput next 48 hours wind", () => {
     ]);
 
     // A vector mean of the two offshore rows would be 90; the reading is 80.
-    expect(am).toMatchObject({ kind: "offshore", directionDeg: 80, speedMph: 9, speedLabel: "6 – 9 mph" });
+    expect(am).toMatchObject({ kind: "offshore", directionDeg: 80, speedMph: 9, speedLabel: "7 – 9 mph" });
+  });
+
+  it("quotes the speed of the winning kind's hours, not an outvoted hour", async () => {
+    // Label, bearing and speed describe one wind: the 18 mph onshore hour is
+    // outvoted, so it must not be printed beside OFFSHORE.
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(6), { wind_direction_deg: 90, wind_speed: "5 mph" }),
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 90, wind_speed: "6 mph" }),
+      forecast(home.id, tuesdayAt(11), { wind_direction_deg: 270, wind_speed: "18 mph" }),
+    ]);
+
+    expect(am).toMatchObject({ kind: "offshore", directionDeg: 90, speedMph: 6, speedLabel: "5 – 6 mph" });
   });
 
   it("is unknown only when no row in the period has a reading", async () => {
@@ -419,7 +431,7 @@ describe("buildBriefingInput next 48 hours wind", () => {
       kind: "onshore",
       directionDeg: 270,
       speedMph: 25,
-      speedLabel: "up to 25 mph",
+      speedLabel: "25 mph",
     });
   });
 

@@ -361,13 +361,15 @@ function buildExposures(
  * and cross readings vote and light ones abstain; the most frequent kind wins,
  * and a tie goes to the kind seen first, because dawn is when most surfers go.
  * The bearing is the earliest reading of the winning kind - or, when nothing
- * could be classified, the earliest bearing at all, as before.
+ * could be classified, the earliest bearing at all, as before. The speeds are
+ * the winning kind's too, so "OFFSHORE" is never printed beside an onshore
+ * hour's speed.
  */
 function periodWind(
   rows: ForecastRow[],
   beach: BeachRow,
   topSpeed: number | null,
-): { kind: BriefingWindKind; directionDeg: number | null } {
+): { kind: BriefingWindKind; directionDeg: number | null; speeds: number[] } {
   const readings = rows
     .map((row) => ({ at: Date.parse(row.forecast_at), deg: windDeg(row), mph: windMph(row) }))
     .filter((reading) => Number.isFinite(reading.at))
@@ -375,13 +377,14 @@ function periodWind(
     .map((reading) => ({ ...reading, kind: windKindFor(beach, reading.deg, reading.mph) }));
 
   // Whole degrees, as the field has always been issued; `of` null means any kind.
+  const allSpeeds = readings.map((reading) => reading.mph).filter((mph): mph is number => mph !== null);
   const earliestBearing = (of: BriefingWindKind | null): number | null => {
     const deg = readings.find((reading) => reading.deg !== null && (of === null || reading.kind === of))?.deg;
     return deg == null ? null : Math.round(deg) % 360;
   };
 
   if (topSpeed !== null && topSpeed < 4) {
-    return { kind: "light_variable", directionDeg: earliestBearing(null) };
+    return { kind: "light_variable", directionDeg: earliestBearing(null), speeds: allSpeeds };
   }
 
   // Map iteration follows insertion order, which is time order here, so the
@@ -400,7 +403,12 @@ function periodWind(
     }
   }
 
-  return { kind, directionDeg: earliestBearing(kind === "unknown" ? null : kind) };
+  if (kind === "unknown") return { kind, directionDeg: earliestBearing(null), speeds: allSpeeds };
+  const speeds = readings
+    .filter((reading) => reading.kind === kind)
+    .map((reading) => reading.mph)
+    .filter((mph): mph is number => mph !== null);
+  return { kind, directionDeg: earliestBearing(kind), speeds };
 }
 
 function buildPeriod(
@@ -409,9 +417,10 @@ function buildPeriod(
   beach: BeachRow,
 ): BriefingWindPeriod | null {
   if (rows.length === 0) return null;
-  const speeds = rows.map(windMph).filter((value): value is number => value !== null);
+  const halfDaySpeeds = rows.map(windMph).filter((value): value is number => value !== null);
+  const halfDayTop = halfDaySpeeds.length > 0 ? Math.max(...halfDaySpeeds) : null;
+  const { kind, directionDeg, speeds } = periodWind(rows, beach, halfDayTop);
   const topSpeed = speeds.length > 0 ? Math.max(...speeds) : null;
-  const { kind, directionDeg } = periodWind(rows, beach, topSpeed);
   const surfFt = rangeOf(rows);
 
   return {
