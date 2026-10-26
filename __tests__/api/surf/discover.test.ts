@@ -53,6 +53,12 @@ jest.mock("@/lib/recommendations/canonical-decision", () => ({
     mockBuildCanonicalDecisionFromSurfDiscovery(...args),
 }));
 
+const mockFindNearestBeach = jest.fn();
+jest.mock("@/lib/alerts/user-pool", () => ({
+  ...jest.requireActual("@/lib/alerts/user-pool"),
+  findNearestBeach: (...args: unknown[]) => mockFindNearestBeach(...args),
+}));
+
 import { NextRequest } from "next/server";
 import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-builder";
 
@@ -630,6 +636,133 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({
       radiusMiles: expectedMiles,
       driveRadiusMiles: expectedMiles,
+    });
+  });
+
+  describe("widenEmpty", () => {
+    const NEAREST = { id: "near-1", name: "Nearest Point", slug: "nearest-point", lat: 41.1, lon: -71.5, distanceMiles: 212.4 };
+    const emptyScope = () => ({
+      recommendations: [],
+      searchCriteria: { maxResults: 10 },
+      metadata: {
+        outcome: "no_candidates",
+        totalBeachesConsidered: 0,
+        successfulForecasts: 0,
+        partialSuccess: false,
+        failedBeaches: 0,
+        staleBeaches: 0,
+        generated_at: new Date().toISOString(),
+      },
+      regionalCall: "",
+    });
+
+    async function call(query: string, profileRow: Record<string, unknown> | null) {
+      const supabase = makeSupabaseStub(null, { data: profileRow, error: null });
+      const { GET } = await import("@/app/api/surf/discover/route");
+      const response = await GET(makeRequest(query), {
+        user: { id: "user-widen" } as any,
+        supabase: supabase as any,
+        params: {},
+      } as any);
+      return { response, body: await response.json(), supabase };
+    }
+
+    beforeEach(() => {
+      mockFindNearestBeach.mockResolvedValue(NEAREST);
+    });
+
+    it("widens an empty drive range to 100 miles from the same origin and keeps the surfer's range for ranking", async () => {
+      mockDiscoverSurfSpots
+        .mockResolvedValueOnce(emptyScope())
+        .mockResolvedValueOnce(makeDiscoveryResponse());
+
+      const { response, body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(response.status).toBe(200);
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(2);
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: 15, driveRadiusMiles: 15 });
+      expect(mockDiscoverSurfSpots.mock.calls[1][1]).toMatchObject({
+        userLocation: { lat: 39.95, lon: -75.16 },
+        radiusMiles: 100,
+        driveRadiusMiles: 15,
+      });
+      expect(body.data.scope).toEqual({ widenedFromMiles: 15 });
+      expect(body.data.recommendations).toHaveLength(1);
+      expect(mockFindNearestBeach).not.toHaveBeenCalled();
+    });
+
+    it("names the nearest beach when nothing is within 100 miles", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+
+      const { response, body, supabase } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: null });
+
+      expect(response.status).toBe(200);
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+      expect(mockFindNearestBeach).toHaveBeenCalledWith({
+        supabase,
+        userId: "user-widen",
+        location: { lat: 39.95, lon: -75.16 },
+      });
+      expect(body.data.scope).toEqual({ nearestBeach: NEAREST });
+      expect(body.data.recommendations).toEqual([]);
+    });
+
+    it("names the nearest beach when the widened range is empty too", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+
+      const { body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(2);
+      expect(body.data.scope).toEqual({ nearestBeach: NEAREST });
+    });
+
+    it("still answers 200 without a scope when the nearest-beach lookup fails", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+      mockFindNearestBeach.mockRejectedValueOnce(new Error("boom"));
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const { response, body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: null });
+
+      expect(response.status).toBe(200);
+      expect(body.data).not.toHaveProperty("scope");
+      warn.mockRestore();
+    });
+
+    it.each([
+      ["without the opt-in (installed apps)", "lat=39.95&lon=-75.16"],
+      ["with an explicit radius", "lat=39.95&lon=-75.16&radius=20&widenEmpty=1"],
+      ["for my-spots", "lat=39.95&lon=-75.16&mode=my-spots&widenEmpty=1"],
+    ])("leaves an empty result alone %s", async (_label, query) => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+
+      const { body } = await call(query, { max_drive_minutes: 30 });
+
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+      expect(mockFindNearestBeach).not.toHaveBeenCalled();
+      expect(body.data).not.toHaveProperty("scope");
+    });
+
+    it("does not widen when beaches were in range but none had a window", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue({
+        ...emptyScope(),
+        metadata: { ...emptyScope().metadata, outcome: "success", totalBeachesConsidered: 4 },
+      });
+
+      const { body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+      expect(mockFindNearestBeach).not.toHaveBeenCalled();
+      expect(body.data).not.toHaveProperty("scope");
+    });
+
+    it("returns a retryable error when the widened discovery fails", async () => {
+      mockDiscoverSurfSpots
+        .mockResolvedValueOnce(emptyScope())
+        .mockRejectedValueOnce(new Error("timeout"));
+
+      const { response } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(response.status).toBeGreaterThanOrEqual(500);
     });
   });
 

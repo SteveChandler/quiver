@@ -17,7 +17,10 @@ jest.mock("@/context/profile-context", () => ({
   }),
 }));
 
-jest.mock("@/hooks/use-geolocation", () => ({ useGeolocation: jest.fn() }));
+jest.mock("@/hooks/use-geolocation", () => ({
+  ...jest.requireActual("@/hooks/use-geolocation"),
+  useGeolocation: jest.fn(),
+}));
 jest.mock("@/hooks/use-reduced-motion", () => ({ useReducedMotion: () => true }));
 jest.mock("@/lib/posthog-client", () => ({
   captureClientPostHogEventAfterConsent: jest.fn(),
@@ -100,28 +103,23 @@ describe("Home discovery requests", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
   });
 
-  it("issues a fallback request when primary discovery returns no recommendations", async () => {
+  it("issues no second request when primary discovery returns no recommendations", async () => {
     (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: discoveryResponse([]) }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: discoveryResponse([{ beach: { id: "fallback" } }]) }),
-      });
+      .mockResolvedValue({ ok: true, json: async () => ({ data: discoveryResponse([]) }) });
 
     const { result } = renderHook(() => useOracleData());
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(result.current.discovery?.recommendations[0].beach.id).toBe("fallback"));
+    await waitFor(() => expect(result.current.discovery).not.toBeNull());
+    await act(async () => {});
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect((global.fetch as jest.Mock).mock.calls[0][0]).toContain("lat=32.75&lon=-117.25");
-    expect((global.fetch as jest.Mock).mock.calls[1][0]).toContain("lat=32.715&lon=-117.161");
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toContain("widenEmpty=1");
+    expect(result.current.topRecommendation).toBeNull();
     const requests = mockCapture.mock.calls.filter(([event]) => event === "home_discovery_request");
     expect(requests).toEqual([
       ["home_discovery_request", {
         home_load_id: expect.any(String), request_number: 1, source: "primary",
       }],
-      ["home_discovery_request", {
-        home_load_id: expect.any(String), request_number: 2, source: "fallback",
-      }],
     ]);
-    expect(requests[1][1].home_load_id).toBe(requests[0][1].home_load_id);
   });
 });

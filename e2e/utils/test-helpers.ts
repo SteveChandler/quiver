@@ -291,6 +291,10 @@ export async function waitForAuthenticatedHome(page: Page): Promise<boolean> {
         state: 'visible',
         timeout,
       }),
+      page.getByRole('heading', { name: /where are you surfing/i }).waitFor({
+        state: 'visible',
+        timeout,
+      }),
     ]);
     return true;
   } catch {

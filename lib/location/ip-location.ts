@@ -179,6 +179,7 @@ export function parseIPLocationCookie(cookieValue: string | undefined): IPLocati
       country: parsed.country || null,
       latitude: typeof parsed.latitude === 'number' ? parsed.latitude : null,
       longitude: typeof parsed.longitude === 'number' ? parsed.longitude : null,
+      ...(typeof parsed.synthetic === 'boolean' ? { synthetic: parsed.synthetic } : {}),
     };
   } catch {
     return null;
