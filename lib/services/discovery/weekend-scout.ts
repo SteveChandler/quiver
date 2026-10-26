@@ -23,7 +23,7 @@ import type {
   MajorEventHoldWeekScoutWindow,
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
-import { DEFAULT_DRIVE_MINUTES, driveRadiusMiles } from '@/lib/profile/drive-range';
+import { DEFAULT_DRIVE_MINUTES, driveRadiusMiles, NO_LIMIT_DRIVE_MINUTES } from '@/lib/profile/drive-range';
 
 export const LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LOCATION_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -151,7 +151,8 @@ function resolveMaxDriveMinutes(configuredMinutes: number | null): number {
   if (typeof configuredMinutes !== 'number' || !Number.isFinite(configuredMinutes) || configuredMinutes <= 0) {
     return DEFAULT_DRIVE_MINUTES;
   }
-  return configuredMinutes;
+  // weekend_scout_snapshots.max_drive_minutes is an integer checked to 1–300.
+  return Math.min(NO_LIMIT_DRIVE_MINUTES, Math.max(1, Math.round(configuredMinutes)));
 }
 
 function weekendDates(now: Date, timezone: string): { start: string; end: string } {

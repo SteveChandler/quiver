@@ -355,11 +355,11 @@ describe('buildWeekendScoutRanking', () => {
     [Infinity, 60, 30],
     [0, 60, 30],
     [-5, 60, 30],
-    [10.5, 10.5, 5.25],
+    [10.5, 11, 5.5],
     [30, 30, 15],
     [60, 60, 30],
     [200, 200, 100],
-    [500, 500, 100],
+    [500, 200, 100],
   ])(
     'resolves configured drive time %p to %i minutes and the shared radius',
     async (configured, expectedMinutes, expectedMiles) => {
