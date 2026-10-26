@@ -310,7 +310,7 @@ describe("user pool", () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it("queries nearby beaches within 100 miles when drive range is unset", async () => {
+  it("queries nearby beaches within 30 miles when drive range is never set", async () => {
     const supabase = makeSupabase({ favorites: [], beaches: [], nearby: [] });
 
     await loadUserPool({
@@ -323,7 +323,7 @@ describe("user pool", () => {
 
     expect(supabase.rpc).toHaveBeenCalledWith(
       "get_weekend_scout_candidates",
-      expect.objectContaining({ max_distance_meters: Math.round(100 * 1609.344) }),
+      expect.objectContaining({ max_distance_meters: Math.round(30 * 1609.344) }),
     );
   });
 
@@ -374,6 +374,31 @@ describe("user pool", () => {
     const alaMoana = located("ala-moana-bowls", 21.281, -157.844);
     const farHome = located("far-home", 21.27, -157.82);
     const farCustomAnchor = located("far-custom-anchor", 33.47, -117.72);
+
+    it("keeps a 13.6-mile beach and excludes a 64-mile beach for a never-set profile", async () => {
+      const anchor = { lat: 28.1707, lon: -80.5913 };
+      const close = located("synthetic-close", 28.36755, -80.5913);
+      const far = located("synthetic-far", 29.09705, -80.5913);
+      const supabase = makeSupabase({
+        favorites: [{ beach_id: far.id, custom_spot_id: null }],
+        beaches: [far, close],
+        nearby: [{ id: close.id, distance_meters: 13.6 * 1609.344, total_count: 1 }],
+      });
+      const args = { supabase, userId: "", homeBeachId: null, location: anchor };
+
+      const pool = await loadUserPool({ ...args, maxDriveMinutes: null });
+
+      expect(pool).toHaveLength(1);
+      expect(pool[0]).toMatchObject({ beach: close, relation: "nearby" });
+      expect(pool[0].distanceMiles).toBeCloseTo(13.6, 1);
+      expect(supabase.rpc).toHaveBeenCalledWith("get_weekend_scout_candidates", expect.objectContaining({
+        max_distance_meters: Math.round(30 * 1609.344),
+      }));
+
+      const unlimited = await loadUserPool({ ...args, maxDriveMinutes: 200 });
+      expect(unlimited.map(({ beach }) => beach.id)).toEqual([far.id, close.id]);
+      expect(unlimited.find(({ beach }) => beach.id === far.id)?.distanceMiles).toBeCloseTo(64, 1);
+    });
 
     it("does not let a SoCal favorite widen reach from a fresh Hawaii fix", async () => {
       const hawaii = located("hawaii", 21.281, -157.844);

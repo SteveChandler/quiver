@@ -108,12 +108,12 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
 
 /**
  * Radius from the user's saved drive range. The profile read is best-effort:
- * on failure we return undefined so discovery keeps its 100-mile default.
+ * on failure we use the never-set default rather than widening to 100 miles.
  */
 async function resolveProfileRadiusMiles(
   supabase: AuthenticatedContext['supabase'],
   userId: string,
-): Promise<number | undefined> {
+): Promise<number> {
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -122,12 +122,12 @@ async function resolveProfileRadiusMiles(
       .maybeSingle();
     if (error) {
       console.warn('[surf/discover] Failed to load drive range:', error.message);
-      return undefined;
+      return driveRadiusMiles(null);
     }
     return driveRadiusMiles(data?.max_drive_minutes);
   } catch (err) {
     console.warn('[surf/discover] Error loading drive range:', err);
-    return undefined;
+    return driveRadiusMiles(null);
   }
 }
 
@@ -146,7 +146,8 @@ async function resolveProfileRadiusMiles(
  * - lat (required): User's latitude for GPS discovery
  * - lon (required): User's longitude for GPS discovery
  * - radius (optional): Search radius in miles. When omitted, the user's
- *   profile drive range (max_drive_minutes) sets it; "No limit" = 100.
+ *   profile drive range (max_drive_minutes) sets it; never set = 30 miles,
+ *   explicit "No limit" (200 minutes) = 100 miles.
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - mode (optional): Discovery mode ('best-window' default, 'now' for immediate current-condition ranking)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')

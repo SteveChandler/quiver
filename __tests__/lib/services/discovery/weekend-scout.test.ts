@@ -331,7 +331,7 @@ describe('buildWeekendScoutRanking', () => {
     });
   });
 
-  it('uses the shared 100-mile radius when max drive time is unset', async () => {
+  it('uses the shared 30-mile radius when max drive time is never set', async () => {
     const deps = dependencies();
     deps.fetchUserContext = jest.fn(async () => ({
       maxDriveMinutes: null,
@@ -344,17 +344,24 @@ describe('buildWeekendScoutRanking', () => {
     expect(result.status).toBe('ready');
     expect(deps.buildCandidatePool).toHaveBeenCalledWith(
       'user-1',
-      expect.objectContaining({ radiusMiles: 100 }),
+      expect.objectContaining({ radiusMiles: 30 }),
     );
     if (result.status !== 'ready') throw new Error('expected ready');
-    expect(result.maxDriveMinutes).toBe(200);
+    expect(result.maxDriveMinutes).toBe(60);
   });
 
   it.each([
-    [-5, 15, 7.5],
-    [500, 90, 45],
+    [Number.NaN, 60, 30],
+    [Infinity, 60, 30],
+    [0, 60, 30],
+    [-5, 60, 30],
+    [10.5, 11, 5.5],
+    [30, 30, 15],
+    [60, 60, 30],
+    [200, 200, 100],
+    [500, 200, 100],
   ])(
-    'clamps configured drive time %i to %i minutes',
+    'resolves configured drive time %p to %i minutes and the shared radius',
     async (configured, expectedMinutes, expectedMiles) => {
       const deps = dependencies();
       deps.fetchUserContext = jest.fn(async () => ({
