@@ -44,6 +44,18 @@ describe('generateWeekScoutForecast swells', () => {
     );
   });
 
+  it('builds swells over a 10-day horizon without dropping early-look days', async () => {
+    const response = await generateWeekScoutForecast('user-swells', { ...REQUEST, dayCount: 10, includeSwells: true }, dependencies());
+
+    expect(response.days).toHaveLength(10);
+    expect(response.days.filter((day) => day.earlyLook === true)).toHaveLength(3);
+    expect(response.swells).toEqual(expect.any(Array));
+    const windowIds = new Set(response.days.flatMap((day) => day.windows.map((item) => item.id)));
+    const namedWindowIds = (response.swells ?? []).flatMap((swell) => swell.beaches)
+      .flatMap((row) => (row.bestWindow ? [row.bestWindow.windowId] : []));
+    expect(namedWindowIds.filter((id) => !windowIds.has(id))).toEqual([]);
+  });
+
   it('adds swells whose best windows are windows in the same response', async () => {
     const deps = dependencies();
     const response = await generateWeekScoutForecast('user-swells', { ...REQUEST, includeSwells: true }, deps);
