@@ -354,25 +354,43 @@ function buildExposures(
  * The wind a half-day reads as, from each row classified on its own.
  *
  * Averaging the bearings first hides the real read: a morning offshore at
- * 08:00 and onshore by 11:00 averages to nothing and printed WIND UNKNOWN. The
- * most frequent kind wins; a tie goes to the kind seen first, because dawn is
- * when most surfers go. The bearing is the earliest reading of that kind.
+ * 08:00 and onshore by 11:00 averages to nothing and printed WIND UNKNOWN.
+ *
+ * A half-day is light and variable only when its strongest wind is, so a calm
+ * dawn cannot outvote a 25 mph onshore hour. Otherwise the offshore, onshore
+ * and cross readings vote and light ones abstain; the most frequent kind wins,
+ * and a tie goes to the kind seen first, because dawn is when most surfers go.
+ * The bearing is the earliest reading of the winning kind - or, when nothing
+ * could be classified, the earliest bearing at all, as before.
  */
 function periodWind(
   rows: ForecastRow[],
   beach: BeachRow,
+  topSpeed: number | null,
 ): { kind: BriefingWindKind; directionDeg: number | null } {
   const readings = rows
     .map((row) => ({ at: Date.parse(row.forecast_at), deg: windDeg(row), mph: windMph(row) }))
     .filter((reading) => Number.isFinite(reading.at))
     .sort((a, b) => a.at - b.at)
-    .map((reading) => ({ ...reading, kind: windKindFor(beach, reading.deg, reading.mph) }))
-    .filter((reading) => reading.kind !== "unknown");
+    .map((reading) => ({ ...reading, kind: windKindFor(beach, reading.deg, reading.mph) }));
+
+  // Whole degrees, as the field has always been issued; `of` null means any kind.
+  const earliestBearing = (of: BriefingWindKind | null): number | null => {
+    const deg = readings.find((reading) => reading.deg !== null && (of === null || reading.kind === of))?.deg;
+    return deg == null ? null : Math.round(deg) % 360;
+  };
+
+  if (topSpeed !== null && topSpeed < 4) {
+    return { kind: "light_variable", directionDeg: earliestBearing(null) };
+  }
 
   // Map iteration follows insertion order, which is time order here, so the
   // strict comparison leaves a tie with the kind seen first.
   const counts = new Map<BriefingWindKind, number>();
-  for (const reading of readings) counts.set(reading.kind, (counts.get(reading.kind) ?? 0) + 1);
+  for (const reading of readings) {
+    if (reading.kind === "unknown" || reading.kind === "light_variable") continue;
+    counts.set(reading.kind, (counts.get(reading.kind) ?? 0) + 1);
+  }
   let kind: BriefingWindKind = "unknown";
   let best = 0;
   for (const [candidate, count] of counts) {
@@ -382,10 +400,7 @@ function periodWind(
     }
   }
 
-  const earliest = readings.find((reading) => reading.kind === kind && reading.deg !== null);
-  // Whole degrees, as the field has always been issued.
-  const directionDeg = earliest?.deg == null ? null : Math.round(earliest.deg) % 360;
-  return { kind, directionDeg };
+  return { kind, directionDeg: earliestBearing(kind === "unknown" ? null : kind) };
 }
 
 function buildPeriod(
@@ -396,7 +411,7 @@ function buildPeriod(
   if (rows.length === 0) return null;
   const speeds = rows.map(windMph).filter((value): value is number => value !== null);
   const topSpeed = speeds.length > 0 ? Math.max(...speeds) : null;
-  const { kind, directionDeg } = periodWind(rows, beach);
+  const { kind, directionDeg } = periodWind(rows, beach, topSpeed);
   const surfFt = rangeOf(rows);
 
   return {
@@ -584,7 +599,7 @@ function sourceRevision(briefing: SwellBriefing): string {
   );
 }
 
-/** Matches PostgREST's `max_rows` (supabase/config.toml), the most one response returns. */
+/** PostgREST's `max_rows` in supabase/config.toml; the hosted cap may differ. */
 const FORECAST_PAGE_SIZE = 1000;
 
 /**
@@ -593,8 +608,10 @@ const FORECAST_PAGE_SIZE = 1000;
  * PostgREST truncates a response at `max_rows` without an error. One read of
  * the region's ~53 beaches over the week is ~3,500 rows, so it stopped early on
  * Wednesday and the rest of the week came out uncertain. `(beach_id,
- * forecast_at)` is unique, so ordering on both is total and no row can fall
- * between pages or land on two of them.
+ * forecast_at)` is unique, so ordering on both is total and pages neither skip
+ * nor repeat a row. The offset advances by what actually came back and only an
+ * empty page ends the read, so a server cap below the page size cannot
+ * truncate it either.
  */
 async function loadForecastRows(
   client: Client,
@@ -603,7 +620,8 @@ async function loadForecastRows(
   to: Date,
 ): Promise<ForecastRow[]> {
   const rows: ForecastRow[] = [];
-  for (let offset = 0; ; offset += FORECAST_PAGE_SIZE) {
+  for (;;) {
+    const offset = rows.length;
     const { data, error } = await client
       .from("enhanced_forecasts")
       .select(
@@ -618,8 +636,8 @@ async function loadForecastRows(
 
     if (error) throw new BriefingInputError("forecast_read_failed");
     const page = (data ?? []) as unknown as ForecastRow[];
+    if (page.length === 0) return rows;
     rows.push(...page);
-    if (page.length < FORECAST_PAGE_SIZE) return rows;
   }
 }
 

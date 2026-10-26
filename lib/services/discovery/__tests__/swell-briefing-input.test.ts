@@ -164,17 +164,27 @@ function forecast(beach: string, at: string, over: Partial<FakeForecast> = {}): 
   };
 }
 
-/** A three-hourly grid across the whole read window, for every beach. */
-function gridRows(beaches: FakeBeach[]): FakeForecast[] {
+/**
+ * Evenly spaced rows across the whole read window, for every beach. The
+ * default 69 timestamps is a three-hourly grid.
+ */
+function gridRows(beaches: FakeBeach[], timestamps = 69): FakeForecast[] {
   const rows: FakeForecast[] = [];
   const start = NOW.getTime() - 12 * HOUR_MS;
   const end = NOW.getTime() + 8 * 24 * HOUR_MS;
-  for (let at = start; at <= end; at += 3 * HOUR_MS) {
-    for (const beach of beaches) {
-      rows.push(forecast(beach.id, new Date(at).toISOString()));
-    }
+  const step = (end - start) / (timestamps - 1);
+  for (let index = 0; index < timestamps; index += 1) {
+    const at = new Date(Math.round(start + index * step)).toISOString();
+    for (const beach of beaches) rows.push(forecast(beach.id, at));
   }
   return rows;
+}
+
+const FULL_WEEK = ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]
+  .map((date) => [date, false, { min: 3, max: 3 }]);
+
+function weekRead(snapshot: { briefing: { week: Array<{ date: string; uncertain: boolean; surfFt: unknown }> } }) {
+  return snapshot.briefing.week.map((day) => [day.date, day.uncertain, day.surfFt]);
 }
 
 function compareBy(column: string, ascending: boolean) {
@@ -196,15 +206,25 @@ function fakeClient(args: {
   forecasts: FakeForecast[];
   homeBeachId?: string | null;
   failForecastPage?: number;
+  maxRows?: number;
 }) {
   const forecastRequests: Call[][] = [];
+  const maxRows = args.maxRows ?? SERVER_MAX_ROWS;
 
   const forecastResult = (calls: Call[]) => {
     forecastRequests.push(calls);
     if (args.failForecastPage === forecastRequests.length) {
       return { data: null, error: { message: "boom" } };
     }
-    let rows = [...args.forecasts];
+    const argOf = (method: string, column: string): unknown =>
+      calls.find((call) => call.method === method && call.args[0] === column)?.args[1];
+    const ids = argOf("in", "beach_id") as string[] | undefined;
+    const gte = argOf("gte", "forecast_at") as string | undefined;
+    const lte = argOf("lte", "forecast_at") as string | undefined;
+    let rows = args.forecasts.filter((row) =>
+      (ids === undefined || ids.includes(row.beach_id))
+      && (gte === undefined || Date.parse(row.forecast_at) >= Date.parse(gte))
+      && (lte === undefined || Date.parse(row.forecast_at) <= Date.parse(lte)));
     const orders = calls.filter((call) => call.method === "order");
     // Apply the requested keys right to left so the first one is primary.
     for (const order of [...orders].reverse()) {
@@ -214,7 +234,7 @@ function fakeClient(args: {
     const range = calls.find((call) => call.method === "range");
     const from = range ? Number(range.args[0]) : 0;
     const to = range ? Number(range.args[1]) : Number.POSITIVE_INFINITY;
-    const end = Math.min(to + 1, from + SERVER_MAX_ROWS);
+    const end = Math.min(to + 1, from + maxRows);
     return { data: rows.slice(from, end), error: null };
   };
 
@@ -277,11 +297,30 @@ describe("buildBriefingInput forecast read", () => {
 
     const { snapshot, forecastRequests } = await build({ beaches, forecasts });
 
-    expect(snapshot.briefing.week.map((day) => [day.date, day.uncertain, day.surfFt])).toEqual(
-      ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]
-        .map((date) => [date, false, { min: 3, max: 3 }]),
-    );
+    expect(weekRead(snapshot)).toEqual(FULL_WEEK);
     expect(forecastRequests.length).toBeGreaterThan(1);
+  });
+
+  it("is not cut short by a server cap below the page size", async () => {
+    // supabase/config.toml only sets the local stack's cap; a hosted cap of
+    // 500 makes every page "short" and must not end the read.
+    const beaches = Array.from({ length: BRIEFING_BEACHES }, (_, index) => westFacingBeach(index));
+    const forecasts = gridRows(beaches);
+    const { snapshot, forecastRequests } = await build({ beaches, forecasts, maxRows: 500 });
+
+    expect(weekRead(snapshot)).toEqual(FULL_WEEK);
+    expect(forecastRequests).toHaveLength(Math.ceil(forecasts.length / 500) + 1);
+  });
+
+  it("ends cleanly when the rows fill the last page exactly", async () => {
+    const beaches = Array.from({ length: 40 }, (_, index) => westFacingBeach(index));
+    const forecasts = gridRows(beaches, 50);
+    expect(forecasts).toHaveLength(2 * SERVER_MAX_ROWS);
+
+    const { snapshot, forecastRequests } = await build({ beaches, forecasts });
+
+    expect(weekRead(snapshot)).toEqual(FULL_WEEK);
+    expect(forecastRequests).toHaveLength(3);
   });
 
   it("pages in a total order, so no row is skipped or read twice", async () => {
@@ -351,6 +390,37 @@ describe("buildBriefingInput next 48 hours wind", () => {
 
     expect(am).toMatchObject({ kind: "unknown", label: "WIND UNKNOWN", directionDeg: null });
     expect(tuesday?.note).toBeNull();
+  });
+
+  it("keeps the bearing beside unknown when the beach has no orientation", async () => {
+    const unoriented = { ...home, aspect_deg: null };
+    const { snapshot } = await build({
+      beaches: [unoriented],
+      forecasts: [
+        forecast(home.id, tuesdayAt(8), { wind_direction_deg: 95, wind_speed: "6 mph" }),
+        forecast(home.id, tuesdayAt(10), { wind_direction_deg: 120, wind_speed: "8 mph" }),
+      ],
+    });
+    const am = snapshot.briefing.next48[0]?.periods.find((period) => period.period === "am");
+
+    expect(am).toMatchObject({ kind: "unknown", directionDeg: 95 });
+  });
+
+  it("does not let calm hours outvote a strong one", async () => {
+    // Light/variable describes the whole half-day only when its strongest wind
+    // is light; a 25 mph onshore hour is the read, not two calm ones.
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(6), { wind_direction_deg: 90, wind_speed: "3 mph" }),
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 100, wind_speed: "3 mph" }),
+      forecast(home.id, tuesdayAt(11), { wind_direction_deg: 270, wind_speed: "25 mph" }),
+    ]);
+
+    expect(am).toMatchObject({
+      kind: "onshore",
+      directionDeg: 270,
+      speedMph: 25,
+      speedLabel: "up to 25 mph",
+    });
   });
 
   it("still calls a period under 4 mph light and variable", async () => {
