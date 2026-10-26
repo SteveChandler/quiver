@@ -29,6 +29,37 @@ export function freshnessFor(dataAt: string, now: Date): BriefingFreshness {
 }
 
 /**
+ * An instant in the one form every client is known to read: millisecond
+ * precision with a `Z`, as `toISOString` writes it.
+ *
+ * The worker stamps `generatedAt` with Python's `isoformat()`, which writes six
+ * fractional digits and a `+00:00` offset. `generatedAt` is required by the
+ * native parser, so if the app's JavaScript engine failed to read that form the
+ * whole briefing would be dropped without an error. Normalizing here removes
+ * the dependency on any engine's date parser. Unreadable values pass through
+ * untouched for the client to reject on its own terms.
+ */
+export function canonicalInstant(value: string): string {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : value;
+}
+
+/**
+ * The stored briefing as a reader should see it: freshness computed now, and
+ * instants in canonical form. Applied only on the way to the native app; the
+ * publisher's readback returns the stored artifact verbatim, because the worker
+ * compares it byte for byte with what it uploaded.
+ */
+export function briefingForReader(briefing: SwellBriefing, now: Date): SwellBriefing {
+  return {
+    ...briefing,
+    generatedAt: canonicalInstant(briefing.generatedAt),
+    dataAt: canonicalInstant(briefing.dataAt),
+    freshness: freshnessFor(briefing.dataAt, now),
+  };
+}
+
+/**
  * The saved briefing for one account, ready to attach to the outlook response.
  *
  * Returns null for every failure. The briefing is additive: a reader without
@@ -57,10 +88,7 @@ export async function loadBriefingForOutlook(args: {
     const validUntil = Date.parse(artifact.validUntil);
     if (Number.isFinite(validUntil) && validUntil < args.now.getTime()) return null;
 
-    return {
-      ...artifact.briefing,
-      freshness: freshnessFor(artifact.briefing.dataAt, args.now),
-    };
+    return briefingForReader(artifact.briefing, args.now);
   } catch {
     return null;
   }
