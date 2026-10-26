@@ -621,7 +621,8 @@ describe("/api/surf/discover entitlement resolution", () => {
 
   it.each([
     [{ max_drive_minutes: 60 }, 30],
-    [{ max_drive_minutes: null }, 100],
+    [{ max_drive_minutes: null }, 30],
+    [{ max_drive_minutes: 200 }, 100],
   ])("uses the profile drive range %p as the discovery radius", async (profileRow, expectedMiles) => {
     const supabase = makeSupabaseStub(null, { data: profileRow, error: null });
     const { GET } = await import("@/app/api/surf/discover/route");
@@ -691,10 +692,10 @@ describe("/api/surf/discover entitlement resolution", () => {
       expect(mockFindNearestBeach).not.toHaveBeenCalled();
     });
 
-    it("names the nearest beach when nothing is within 100 miles", async () => {
+    it("names the nearest beach when an explicit No limit range is empty", async () => {
       mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
 
-      const { response, body, supabase } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: null });
+      const { response, body, supabase } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 200 });
 
       expect(response.status).toBe(200);
       expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);

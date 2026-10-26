@@ -146,7 +146,8 @@ async function resolveProfileRadiusMiles(
  * - lat (required): User's latitude for GPS discovery
  * - lon (required): User's longitude for GPS discovery
  * - radius (optional): Search radius in miles. When omitted, the user's
- *   profile drive range (max_drive_minutes) sets it; "No limit" = 100.
+ *   profile drive range (max_drive_minutes) sets it; never set = 30 miles,
+ *   explicit "No limit" (200 minutes) = 100 miles.
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - mode (optional): Discovery mode ('best-window' default, 'now' for immediate current-condition ranking)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')
