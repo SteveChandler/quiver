@@ -14,6 +14,8 @@ interface Store {
   customSpots?: Array<{ id: string; nearest_beach_id: string | null }>;
   forecasts?: Array<{ beach_id: string }>;
   exclusions?: Array<{ beach_id: string }>;
+  /** Column lists passed to select(), by table. */
+  selects?: Record<string, string[]>;
 }
 
 function makeBeach(id: string, slug = id, country: string | null = "USA"): Beach {
@@ -21,11 +23,14 @@ function makeBeach(id: string, slug = id, country: string | null = "USA"): Beach
 }
 
 function makeSupabase(store: Store): SupabaseClient<Database> {
-  const chain = (rows: unknown[]): Record<string, unknown> => {
+  const chain = (rows: unknown[], table: string): Record<string, unknown> => {
     let result = rows;
     const query: Record<string, unknown> = {};
     const passthrough = (): Record<string, unknown> => query;
-    query.select = passthrough;
+    query.select = (columns?: string): Record<string, unknown> => {
+      if (store.selects && typeof columns === "string") (store.selects[table] ??= []).push(columns);
+      return query;
+    };
     query.eq = passthrough;
     query.is = passthrough;
     query.order = passthrough;
@@ -48,11 +53,11 @@ function makeSupabase(store: Store): SupabaseClient<Database> {
 
   return {
     from: jest.fn((table: string) => {
-      if (table === "favorite_beaches") return chain(store.favorites);
-      if (table === "beaches") return chain(store.beaches);
-      if (table === "custom_spots") return chain(store.customSpots ?? []);
-      if (table === "enhanced_forecasts") return chain(store.forecasts ?? []);
-      if (table === "user_beach_exclusions") return chain(store.exclusions ?? []);
+      if (table === "favorite_beaches") return chain(store.favorites, table);
+      if (table === "beaches") return chain(store.beaches, table);
+      if (table === "custom_spots") return chain(store.customSpots ?? [], table);
+      if (table === "enhanced_forecasts") return chain(store.forecasts ?? [], table);
+      if (table === "user_beach_exclusions") return chain(store.exclusions ?? [], table);
       throw new Error(`Unexpected table: ${table}`);
     }),
     rpc: jest.fn(() => Promise.resolve({ data: store.nearby, error: null })),
@@ -626,12 +631,20 @@ describe("findNearestBeach", () => {
       at("hidden", 39.7, -105.0, { recommendation_eligible: false } as Partial<Beach>),
       at("excluded", 39.75, -105.0),
       at("noslug", 39.76, -105.0, { slug: null } as unknown as Partial<Beach>),
-    ], exclusions: [{ beach_id: "excluded" }] });
+    ], exclusions: [{ beach_id: "excluded" }], selects: {} });
 
     const nearest = await findNearestBeach({ supabase, userId: "user-1", location: denver });
 
     expect(nearest).toEqual(expect.objectContaining({ id: "pb", slug: "pb", lat: 32.8, lon: -117.25 }));
     expect(nearest!.distanceMiles).toBeGreaterThan(800);
+  });
+
+  it("reads the eligibility flag it filters on", async () => {
+    const selects: Record<string, string[]> = {};
+    const supabase = makeSupabase({ favorites: [], nearby: [], beaches: [], selects });
+    await findNearestBeach({ supabase, userId: "user-1", location: denver });
+    expect(selects.beaches?.[0]).toEqual(expect.stringContaining("recommendation_eligible"));
+    expect(selects.beaches?.[0]).toEqual(expect.stringContaining("is_private"));
   });
 
   it("returns null when no beach qualifies", async () => {

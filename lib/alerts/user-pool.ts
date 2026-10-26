@@ -282,7 +282,7 @@ export async function findNearestBeach({
   const [beachesResult, exclusionsResult] = await Promise.all([
     supabase
       .from("beaches")
-      .select("id, name, slug, lat, lon, deleted_at, is_private")
+      .select("id, name, slug, lat, lon, deleted_at, is_private, recommendation_eligible")
       .is("deleted_at", null),
     supabase.from("user_beach_exclusions").select("beach_id").eq("user_id", userId),
   ]);
