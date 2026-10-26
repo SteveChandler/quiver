@@ -93,6 +93,32 @@ export async function loadBriefingInput(
 }
 
 /**
+ * The most recent snapshot issued for a day, used to decide whether the
+ * measurements have actually moved since the last one. Reissuing the same
+ * snapshot keeps the worker's deduplication intact across a refetch.
+ */
+export async function loadLatestBriefingInput(
+  client: Client,
+  userId: string,
+  region: string,
+  editionDate: string,
+): Promise<SwellBriefingInputSnapshot | null> {
+  const { data, error } = await briefingTables(client)
+    .from("swell_briefing_inputs")
+    .select("snapshot")
+    .eq("user_id", userId)
+    .eq("region", region)
+    .eq("edition_date", editionDate)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new BriefingStoreError("briefing_input_read_failed", 503);
+  if (!data) return null;
+  return (data as { snapshot: SwellBriefingInputSnapshot }).snapshot;
+}
+
+/**
  * Saves an artifact through the publishing function, which owns idempotency and
  * the no-older-source rule. Returns the stored id either way, so a retry after
  * a lost response is indistinguishable from the first success.
