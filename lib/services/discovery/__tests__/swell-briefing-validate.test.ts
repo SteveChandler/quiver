@@ -235,6 +235,15 @@ describe("assertArtifactMatchesInput", () => {
       .toBe("fixture_not_publishable");
   });
 
+  it("reports a malformed briefing as a bad request, not a crash", () => {
+    const snapshot = input();
+    for (const bad of [null, "nope", 42, [], { today: "nope" }, { today: {}, week: "nope" }]) {
+      const artifact = { ...artifactFor(snapshot), briefing: bad } as unknown as SwellBriefingArtifact;
+      const code = reason(() => assertArtifactMatchesInput(artifact, snapshot));
+      expect(code).toMatch(/^briefing_malformed/);
+    }
+  });
+
   it("rejects an artifact bound to another account", () => {
     const snapshot = input();
     const artifact = { ...artifactFor(snapshot), userId: "22222222-2222-4222-8222-222222222222" };

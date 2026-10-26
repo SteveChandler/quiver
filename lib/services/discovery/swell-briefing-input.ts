@@ -5,17 +5,18 @@ import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { extractNumericWaveHeight } from "@/lib/utils/wave-formatters";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { loadLatestBriefingInput, saveBriefingInput } from "./swell-briefing-store";
-import type {
-  BriefingCopyFact,
-  BriefingExposure,
-  BriefingExposureKey,
-  BriefingNext48Day,
-  BriefingSizeRange,
-  BriefingWeekDay,
-  BriefingWindKind,
-  BriefingWindPeriod,
-  SwellBriefing,
-  SwellBriefingInputSnapshot,
+import {
+  MAX_BRIEFING_COPY_FACTS,
+  type BriefingCopyFact,
+  type BriefingExposure,
+  type BriefingExposureKey,
+  type BriefingNext48Day,
+  type BriefingSizeRange,
+  type BriefingWeekDay,
+  type BriefingWindKind,
+  type BriefingWindPeriod,
+  type SwellBriefing,
+  type SwellBriefingInputSnapshot,
 } from "./swell-briefing-types";
 
 type Client = SupabaseClient<Database>;
@@ -95,6 +96,40 @@ function localHour(at: Date, timezone: string): number {
   );
 }
 
+/**
+ * The UTC offset of a timezone at an instant, in milliseconds.
+ */
+function zoneOffsetMs(at: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(at);
+  const read = (type: string): number =>
+    Number(parts.find((part) => part.type === type)?.value ?? "0");
+  const asUtc = Date.UTC(read("year"), read("month") - 1, read("day"), read("hour"), read("minute"), read("second"));
+  return asUtc - at.getTime();
+}
+
+/**
+ * A wall-clock time in a timezone, as a UTC instant.
+ *
+ * `new Date('2026-10-26T23:59:59Z')` is the end of the day in UTC, which in
+ * California is the afternoon of the same day - an edition built that way
+ * expires about seven hours early. The offset is resolved twice because it can
+ * itself change across a DST boundary.
+ */
+function zonedWallClockToUtc(date: string, time: string, timeZone: string): string {
+  const guess = new Date(`${date}T${time}Z`);
+  const firstPass = new Date(guess.getTime() - zoneOffsetMs(guess, timeZone));
+  return new Date(guess.getTime() - zoneOffsetMs(firstPass, timeZone)).toISOString();
+}
+
 function addDays(date: string, days: number): string {
   const [year, month, day] = date.split("-").map(Number);
   const shifted = new Date(Date.UTC(year, month - 1, day + days));
@@ -116,6 +151,27 @@ function windMph(row: ForecastRow): number | null {
 function windDeg(row: ForecastRow): number | null {
   const value = Number(row.wind_direction_deg);
   return Number.isFinite(value) ? ((value % 360) + 360) % 360 : null;
+}
+
+/**
+ * The mean of compass bearings, averaged as unit vectors.
+ *
+ * Averaging the numbers directly puts 350 and 10 at 180 - due south for two
+ * northerly winds - which inverts the offshore/onshore label the reader sees.
+ * Directly opposing winds cancel and yield null rather than a fabricated mean.
+ */
+export function meanBearing(degrees: readonly number[]): number | null {
+  if (degrees.length === 0) return null;
+  let x = 0;
+  let y = 0;
+  for (const degree of degrees) {
+    const radians = (degree * Math.PI) / 180;
+    x += Math.cos(radians);
+    y += Math.sin(radians);
+  }
+  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
+  const mean = (Math.atan2(y, x) * 180) / Math.PI;
+  return Math.round(((mean % 360) + 360) % 360);
 }
 
 /** The range of heights across a set of rows; null when nothing reads. */
@@ -261,32 +317,52 @@ function inHours(row: ForecastRow, timezone: string, [from, to]: [number, number
   return hour >= from && hour <= to;
 }
 
+/**
+ * One representative break per exposure, with its own numbers.
+ *
+ * The size shown beside "South-facing" and the break the row opens have to
+ * describe the same place. Aggregating the range across every south-facing
+ * beach while naming whichever one happened to come back first lets the two
+ * disagree - the row can read "waist - chest at Cardiff Reef" when that range
+ * belongs to a different break entirely.
+ */
 function buildExposures(
   todayRows: ForecastRow[],
   beaches: Map<string, BeachRow>,
 ): BriefingExposure[] {
-  const byExposure = new Map<BriefingExposureKey, { rows: ForecastRow[]; beach: BeachRow }>();
+  const byExposure = new Map<BriefingExposureKey, Map<string, ForecastRow[]>>();
 
   for (const row of todayRows) {
     const beach = beaches.get(row.beach_id);
     if (!beach) continue;
     const exposure = exposureFor(beach.aspect_deg);
     if (exposure === null) continue;
-    const bucket = byExposure.get(exposure);
-    if (bucket) bucket.rows.push(row);
-    else byExposure.set(exposure, { rows: [row], beach });
+    const perBeach = byExposure.get(exposure) ?? new Map<string, ForecastRow[]>();
+    const rows = perBeach.get(beach.id) ?? [];
+    rows.push(row);
+    perBeach.set(beach.id, rows);
+    byExposure.set(exposure, perBeach);
   }
 
   return EXPOSURE_ORDER.flatMap((exposure): BriefingExposure[] => {
-    const bucket = byExposure.get(exposure);
-    if (!bucket) return [];
-    const surfFt = rangeOf(bucket.rows);
+    const perBeach = byExposure.get(exposure);
+    if (!perBeach || perBeach.size === 0) return [];
+
+    // Best-covered break wins, with the id breaking ties so the same edition
+    // is produced twice from the same data.
+    const [beachId, rows] = [...perBeach.entries()].sort(
+      (a, b) => (b[1].length - a[1].length) || a[0].localeCompare(b[0]),
+    )[0];
+    const beach = beaches.get(beachId);
+    if (!beach) return [];
+
+    const surfFt = rangeOf(rows);
     return [{
       exposure,
       label: EXPOSURE_LABELS[exposure],
       surfFt,
       surfLabel: bodyScalePhrase(surfFt),
-      beach: { id: bucket.beach.id, name: bucket.beach.name },
+      beach: { id: beach.id, name: beach.name },
     }];
   });
 }
@@ -299,7 +375,7 @@ function buildPeriod(
   if (rows.length === 0) return null;
   const speeds = rows.map(windMph).filter((value): value is number => value !== null);
   const degrees = rows.map(windDeg).filter((value): value is number => value !== null);
-  const directionDeg = degrees.length > 0 ? Math.round(degrees.reduce((a, b) => a + b, 0) / degrees.length) : null;
+  const directionDeg = meanBearing(degrees);
   const topSpeed = speeds.length > 0 ? Math.max(...speeds) : null;
   const kind = windKindFor(beach, directionDeg, topSpeed);
   const surfFt = rangeOf(rows);
@@ -401,29 +477,55 @@ function buildWeek(
 function buildCopyFacts(briefing: SwellBriefing): BriefingCopyFact[] {
   const facts: BriefingCopyFact[] = [];
   const peak = briefing.week.find((day) => day.highlightLabel !== null);
-  const todayMax = briefing.today.exposures
-    .map((exposure) => exposure.surfFt?.max ?? 0)
+  const sizes = briefing.today.exposures
+    .map((exposure) => exposure.surfFt?.max)
+    .filter((value): value is number => value !== undefined);
+  const todayMax = sizes.length > 0 ? Math.max(...sizes) : null;
+  const weekMax = briefing.week
+    .map((day) => day.surfFt?.max ?? 0)
     .reduce((a, b) => Math.max(a, b), 0);
 
-  // At least one headline candidate is required.
-  facts.push({ id: "headline-steady", slot: "headline", text: "Small and steady to start the week." });
-  if (peak) {
+  // Every candidate is gated on the measurements it describes. The validator
+  // accepts any offered text, so an ungated candidate is a licence for the
+  // model to call a six foot day "small and steady" - the gate here is what
+  // actually keeps the copy true.
+  if (todayMax !== null && todayMax < 3) {
+    facts.push({ id: "headline-small", slot: "headline", text: "Small to start the week." });
+  }
+  if (todayMax !== null && todayMax < 3 && peak) {
     facts.push({ id: "headline-builds", slot: "headline", text: "Small now. More size later in the week." });
   }
-  if (todayMax >= 4) {
+  if (todayMax !== null && todayMax >= 4) {
     facts.push({ id: "headline-size", slot: "headline", text: "Size on tap today." });
   }
+  if (todayMax !== null && todayMax >= 3 && todayMax < 4) {
+    facts.push({ id: "headline-fun", slot: "headline", text: "Rideable surf across the region." });
+  }
+  // At least one headline candidate is required, and it must still be true
+  // when nothing above fits - including when today has no measurement at all.
+  if (facts.length === 0) {
+    facts.push({ id: "headline-neutral", slot: "headline", text: "Today's surf across the region." });
+  }
 
-  facts.push({
-    id: "today-worth-a-look",
-    slot: "todayCall",
-    text: "Worth a look early before the wind comes up.",
+  // "Before the wind comes up" is only honest when it actually does.
+  const windBuilds = briefing.next48.some((day) => {
+    const morning = day.periods.find((period) => period.period === "am");
+    const afternoon = day.periods.find((period) => period.period === "pm");
+    return afternoon?.kind === "onshore" && morning?.kind !== "onshore";
   });
-  facts.push({
-    id: "today-qualified",
-    slot: "todayCall",
-    text: "An early check may be worthwhile.",
-  });
+  if (windBuilds) {
+    facts.push({
+      id: "today-before-wind",
+      slot: "todayCall",
+      text: "Worth a look early before the wind comes up.",
+    });
+  }
+  if (todayMax !== null && todayMax >= 2) {
+    facts.push({ id: "today-qualified", slot: "todayCall", text: "An early check may be worthwhile." });
+  }
+  if (todayMax !== null && todayMax < 2 && weekMax >= 4) {
+    facts.push({ id: "today-wait", slot: "todayCall", text: "Little on offer today; the week has more." });
+  }
 
   for (const day of briefing.next48) {
     const morning = day.periods.find((period) => period.period === "am");
@@ -432,7 +534,7 @@ function buildCopyFacts(briefing: SwellBriefing): BriefingCopyFact[] {
     }
   }
 
-  return facts;
+  return facts.slice(0, MAX_BRIEFING_COPY_FACTS);
 }
 
 /** The newest moment the data behind this edition was published or fetched. */
@@ -566,7 +668,7 @@ export async function buildBriefingInput(args: {
     sourcePublishedAt: published,
     // An edition is good until the end of the following local day; after that
     // the saved briefing is withheld rather than shown as current.
-    validUntil: new Date(Date.parse(`${addDays(editionDate, 1)}T23:59:59.000Z`)).toISOString(),
+    validUntil: zonedWallClockToUtc(addDays(editionDate, 1), "23:59:59.000", region.timezone),
     briefing,
     copyFacts: buildCopyFacts(briefing),
     provenance: {

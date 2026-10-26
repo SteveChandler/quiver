@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-/** An artifact is small; a large body is rejected before it is parsed. */
+/** An artifact is small; a large body is refused before it is read into memory. */
 const MAX_BODY_BYTES = 512 * 1024;
 
 function fail(code: string, status: number): NextResponse {
@@ -33,8 +33,16 @@ function fail(code: string, status: number): NextResponse {
  * one transaction, so a retry and a concurrent job are equally safe.
  */
 export const POST = withBriefingPublisher(async (request: NextRequest, { userId, region }) => {
+  // Refuse on the declared length first, so an oversized upload is not pulled
+  // into memory before being rejected. `raw.length` counts UTF-16 units, not
+  // bytes, so the real size is measured after decoding as well.
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return fail("payload_too_large", 413);
+  }
+
   const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return fail("payload_too_large", 413);
+  if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) return fail("payload_too_large", 413);
 
   let artifact: SwellBriefingArtifact;
   try {

@@ -95,10 +95,37 @@ function allowedTexts(facts: BriefingCopyFact[], slot: string): Set<string> {
  * — a surf height, a date, a beach id, an added advisory — changes the canonical
  * form and is rejected, without this code needing to enumerate every field.
  */
+/**
+ * The uploaded briefing is attacker-shaped until proven otherwise: reading
+ * `today.exposures` off a string or null throws a TypeError, which would leave
+ * the route as a 500 when it is really a bad request.
+ */
+function assertBriefingShape(value: unknown): asserts value is SwellBriefing {
+  const briefing = value as Partial<SwellBriefing> | null;
+  if (briefing === null || typeof briefing !== "object" || Array.isArray(briefing)) {
+    throw new BriefingValidationError("briefing_malformed");
+  }
+  const today = briefing.today as Partial<SwellBriefing["today"]> | undefined;
+  if (today === null || typeof today !== "object" || Array.isArray(today)) {
+    throw new BriefingValidationError("briefing_malformed");
+  }
+  for (const [key, list] of [
+    ["today.exposures", today?.exposures],
+    ["next48", briefing.next48],
+    ["week", briefing.week],
+    ["advisories", briefing.advisories],
+  ] as const) {
+    if (list !== undefined && !Array.isArray(list)) {
+      throw new BriefingValidationError(`briefing_malformed:${key}`);
+    }
+  }
+}
+
 export function assertArtifactMatchesInput(
   artifact: SwellBriefingArtifact,
   input: SwellBriefingInputSnapshot,
 ): void {
+  assertBriefingShape(artifact.briefing);
   if (artifact.userId !== input.userId) throw new BriefingValidationError("user_mismatch", 403);
   if (artifact.region !== input.region) throw new BriefingValidationError("region_mismatch");
   if (artifact.editionDate !== input.editionDate) throw new BriefingValidationError("edition_date_mismatch");

@@ -5,6 +5,7 @@ import {
   compassLabel,
   exposureFor,
   localDate,
+  meanBearing,
   windKindFor,
 } from "../swell-briefing-input";
 
@@ -92,5 +93,23 @@ describe("localDate", () => {
     // 06:00 UTC on the 26th is still 23:00 on the 25th in California (PDT).
     expect(localDate(new Date("2026-10-26T06:00:00Z"), "America/Los_Angeles")).toBe("2026-10-25");
     expect(localDate(new Date("2026-10-26T18:00:00Z"), "America/Los_Angeles")).toBe("2026-10-26");
+  });
+});
+
+describe("meanBearing", () => {
+  it("averages across north without landing due south", () => {
+    // Arithmetic mean of 350 and 10 is 180 - the exact opposite - which would
+    // invert the offshore/onshore label the reader sees.
+    expect(meanBearing([350, 10])).toBe(0);
+  });
+
+  it("averages an ordinary spread the obvious way", () => {
+    expect(meanBearing([80, 100])).toBe(90);
+    expect(meanBearing([45])).toBe(45);
+  });
+
+  it("returns null rather than inventing a mean for opposing winds", () => {
+    expect(meanBearing([0, 180])).toBeNull();
+    expect(meanBearing([])).toBeNull();
   });
 });
