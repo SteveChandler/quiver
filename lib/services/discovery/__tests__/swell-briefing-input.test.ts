@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
+  BriefingInputError,
   bodyScalePhrase,
+  buildBriefingInput,
   compassLabel,
   exposureFor,
   localDate,
-  meanBearing,
   windKindFor,
 } from "../swell-briefing-input";
 
@@ -96,20 +97,356 @@ describe("localDate", () => {
   });
 });
 
-describe("meanBearing", () => {
-  it("averages across north without landing due south", () => {
-    // Arithmetic mean of 350 and 10 is 180 - the exact opposite - which would
-    // invert the offshore/onshore label the reader sees.
-    expect(meanBearing([350, 10])).toBe(0);
+/* --------------------------------------------------- buildBriefingInput */
+
+/** PostgREST's `max_rows` (supabase/config.toml), which truncates silently. */
+const SERVER_MAX_ROWS = 1000;
+const HOUR_MS = 60 * 60 * 1000;
+/** San Diego's briefing region holds 53 beaches. */
+const BRIEFING_BEACHES = 53;
+/** Monday 2026-10-26, 08:00 in San Diego (PDT). */
+const NOW = new Date("2026-10-26T15:00:00Z");
+
+interface FakeBeach {
+  id: string;
+  name: string;
+  aspect_deg: number | null;
+  wind_offshore_deg: number | null;
+  wind_offshore_tol_deg: number | null;
+}
+
+interface FakeForecast {
+  beach_id: string;
+  forecast_at: string;
+  wave_height: string | null;
+  swell_period_om: number | null;
+  swell_direction_om: number | null;
+  wind_speed: string | null;
+  wind_direction_deg: string | number | null;
+  om_fetched_at: string | null;
+  wind_model_run_at: string | null;
+  updated_at: string | null;
+}
+
+interface Call {
+  method: string;
+  args: unknown[];
+}
+
+function beachId(index: number): string {
+  return `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
+/** West-facing, so east (90) is offshore and west (270) is onshore. */
+function westFacingBeach(index: number): FakeBeach {
+  return {
+    id: beachId(index),
+    name: `Beach ${index}`,
+    aspect_deg: 270,
+    wind_offshore_deg: null,
+    wind_offshore_tol_deg: null,
+  };
+}
+
+function forecast(beach: string, at: string, over: Partial<FakeForecast> = {}): FakeForecast {
+  return {
+    beach_id: beach,
+    forecast_at: at,
+    wave_height: "3 ft",
+    swell_period_om: 14,
+    swell_direction_om: 270,
+    wind_speed: "8 mph",
+    wind_direction_deg: 270,
+    om_fetched_at: "2026-10-26T12:00:00.000Z",
+    wind_model_run_at: null,
+    updated_at: null,
+    ...over,
+  };
+}
+
+/**
+ * Evenly spaced rows across the whole read window, for every beach. The
+ * default 69 timestamps is a three-hourly grid.
+ */
+function gridRows(beaches: FakeBeach[], timestamps = 69): FakeForecast[] {
+  const rows: FakeForecast[] = [];
+  const start = NOW.getTime() - 12 * HOUR_MS;
+  const end = NOW.getTime() + 8 * 24 * HOUR_MS;
+  const step = (end - start) / (timestamps - 1);
+  for (let index = 0; index < timestamps; index += 1) {
+    const at = new Date(Math.round(start + index * step)).toISOString();
+    for (const beach of beaches) rows.push(forecast(beach.id, at));
+  }
+  return rows;
+}
+
+const FULL_WEEK = ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]
+  .map((date) => [date, false, { min: 3, max: 3 }]);
+
+function weekRead(snapshot: { briefing: { week: Array<{ date: string; uncertain: boolean; surfFt: unknown }> } }) {
+  return snapshot.briefing.week.map((day) => [day.date, day.uncertain, day.surfFt]);
+}
+
+function compareBy(column: string, ascending: boolean) {
+  return (a: FakeForecast, b: FakeForecast): number => {
+    const left = String(a[column as keyof FakeForecast]);
+    const right = String(b[column as keyof FakeForecast]);
+    const order = left < right ? -1 : left > right ? 1 : 0;
+    return ascending ? order : -order;
+  };
+}
+
+/**
+ * A Supabase client that answers the way PostgREST does: ordered, ranged when a
+ * range is asked for, and never more than `max_rows` in one response whatever
+ * was asked for - with no error to say so.
+ */
+function fakeClient(args: {
+  beaches: FakeBeach[];
+  forecasts: FakeForecast[];
+  homeBeachId?: string | null;
+  failForecastPage?: number;
+  maxRows?: number;
+}) {
+  const forecastRequests: Call[][] = [];
+  const maxRows = args.maxRows ?? SERVER_MAX_ROWS;
+
+  const forecastResult = (calls: Call[]) => {
+    forecastRequests.push(calls);
+    if (args.failForecastPage === forecastRequests.length) {
+      return { data: null, error: { message: "boom" } };
+    }
+    const argOf = (method: string, column: string): unknown =>
+      calls.find((call) => call.method === method && call.args[0] === column)?.args[1];
+    const ids = argOf("in", "beach_id") as string[] | undefined;
+    const gte = argOf("gte", "forecast_at") as string | undefined;
+    const lte = argOf("lte", "forecast_at") as string | undefined;
+    let rows = args.forecasts.filter((row) =>
+      (ids === undefined || ids.includes(row.beach_id))
+      && (gte === undefined || Date.parse(row.forecast_at) >= Date.parse(gte))
+      && (lte === undefined || Date.parse(row.forecast_at) <= Date.parse(lte)));
+    const orders = calls.filter((call) => call.method === "order");
+    // Apply the requested keys right to left so the first one is primary.
+    for (const order of [...orders].reverse()) {
+      const options = (order.args[1] ?? {}) as { ascending?: boolean };
+      rows = rows.sort(compareBy(String(order.args[0]), options.ascending !== false));
+    }
+    const range = calls.find((call) => call.method === "range");
+    const from = range ? Number(range.args[0]) : 0;
+    const to = range ? Number(range.args[1]) : Number.POSITIVE_INFINITY;
+    const end = Math.min(to + 1, from + maxRows);
+    return { data: rows.slice(from, end), error: null };
+  };
+
+  const resultFor = (table: string, calls: Call[]) => {
+    if (table === "beaches") return { data: args.beaches, error: null };
+    if (table === "profiles") {
+      return { data: { home_beach_id: args.homeBeachId ?? args.beaches[0].id }, error: null };
+    }
+    if (table === "enhanced_forecasts") return forecastResult(calls);
+    // swell_briefing_inputs: nothing issued yet, and the save succeeds.
+    return { data: null, error: null };
+  };
+
+  const builder = (table: string) => {
+    const calls: Call[] = [];
+    const proxy: unknown = new Proxy(
+      {},
+      {
+        get(_target, prop) {
+          if (prop === "then") {
+            return (onFulfilled: (value: unknown) => unknown, onRejected: (reason: unknown) => unknown) =>
+              Promise.resolve(resultFor(table, calls)).then(onFulfilled, onRejected);
+          }
+          return (...callArgs: unknown[]) => {
+            calls.push({ method: String(prop), args: callArgs });
+            return proxy;
+          };
+        },
+      },
+    );
+    return proxy;
+  };
+
+  const client = { from: (table: string) => builder(table) };
+  return {
+    client: client as unknown as Parameters<typeof buildBriefingInput>[0]["client"],
+    forecastRequests,
+  };
+}
+
+async function build(args: Parameters<typeof fakeClient>[0]) {
+  const fake = fakeClient(args);
+  const snapshot = await buildBriefingInput({
+    client: fake.client,
+    userId: "11111111-1111-4111-8111-111111111111",
+    regionSlug: "san-diego",
+    now: NOW,
+  });
+  return { snapshot, forecastRequests: fake.forecastRequests };
+}
+
+describe("buildBriefingInput forecast read", () => {
+  it("reads past PostgREST's row cap so the whole week is populated", async () => {
+    // 53 beaches x 8 rows a day x ~8.5 days is ~3,600 rows, several times what
+    // one response holds. A single read ends early on Wednesday and leaves
+    // Thursday through Sunday looking uncertain.
+    const beaches = Array.from({ length: BRIEFING_BEACHES }, (_, index) => westFacingBeach(index));
+    const forecasts = gridRows(beaches);
+    expect(forecasts.length).toBeGreaterThan(SERVER_MAX_ROWS);
+
+    const { snapshot, forecastRequests } = await build({ beaches, forecasts });
+
+    expect(weekRead(snapshot)).toEqual(FULL_WEEK);
+    expect(forecastRequests.length).toBeGreaterThan(1);
   });
 
-  it("averages an ordinary spread the obvious way", () => {
-    expect(meanBearing([80, 100])).toBe(90);
-    expect(meanBearing([45])).toBe(45);
+  it("is not cut short by a server cap below the page size", async () => {
+    // supabase/config.toml only sets the local stack's cap; a hosted cap of
+    // 500 makes every page "short" and must not end the read.
+    const beaches = Array.from({ length: BRIEFING_BEACHES }, (_, index) => westFacingBeach(index));
+    const forecasts = gridRows(beaches);
+    const { snapshot, forecastRequests } = await build({ beaches, forecasts, maxRows: 500 });
+
+    expect(weekRead(snapshot)).toEqual(FULL_WEEK);
+    expect(forecastRequests).toHaveLength(Math.ceil(forecasts.length / 500) + 1);
   });
 
-  it("returns null rather than inventing a mean for opposing winds", () => {
-    expect(meanBearing([0, 180])).toBeNull();
-    expect(meanBearing([])).toBeNull();
+  it("ends cleanly when the rows fill the last page exactly", async () => {
+    const beaches = Array.from({ length: 40 }, (_, index) => westFacingBeach(index));
+    const forecasts = gridRows(beaches, 50);
+    expect(forecasts).toHaveLength(2 * SERVER_MAX_ROWS);
+
+    const { snapshot, forecastRequests } = await build({ beaches, forecasts });
+
+    expect(weekRead(snapshot)).toEqual(FULL_WEEK);
+    expect(forecastRequests).toHaveLength(3);
+  });
+
+  it("pages in a total order, so no row is skipped or read twice", async () => {
+    const beaches = Array.from({ length: BRIEFING_BEACHES }, (_, index) => westFacingBeach(index));
+    const { forecastRequests } = await build({ beaches, forecasts: gridRows(beaches) });
+
+    for (const calls of forecastRequests) {
+      const orders = calls.filter((call) => call.method === "order").map((call) => call.args[0]);
+      expect(orders).toEqual(["forecast_at", "beach_id"]);
+    }
+    const ranges = forecastRequests.map((calls) => calls.find((call) => call.method === "range")?.args);
+    expect(ranges[0]).toEqual([0, SERVER_MAX_ROWS - 1]);
+    expect(ranges[1]).toEqual([SERVER_MAX_ROWS, 2 * SERVER_MAX_ROWS - 1]);
+  });
+
+  it("fails the read rather than issuing a partial week when a later page errors", async () => {
+    const beaches = Array.from({ length: BRIEFING_BEACHES }, (_, index) => westFacingBeach(index));
+    await expect(build({ beaches, forecasts: gridRows(beaches), failForecastPage: 2 }))
+      .rejects.toThrow(new BriefingInputError("forecast_read_failed"));
+  });
+});
+
+describe("buildBriefingInput next 48 hours wind", () => {
+  const home = westFacingBeach(0);
+  // Tuesday 2026-10-27 in San Diego (PDT, UTC-7).
+  const tuesdayAt = (localHour: number): string =>
+    new Date(Date.UTC(2026, 9, 27, localHour + 7)).toISOString();
+
+  async function tuesdayAm(rows: FakeForecast[]) {
+    const { snapshot } = await build({ beaches: [home], forecasts: rows });
+    const tuesday = snapshot.briefing.next48.find((day) => day.date === "2026-10-27");
+    return { snapshot, tuesday, am: tuesday?.periods.find((period) => period.period === "am") };
+  }
+
+  it("reads offshore-then-onshore as the dawn offshore, not unknown", async () => {
+    // Ocean Beach Pier, Tue Oct 27: equal winds from opposite sides cancel
+    // when averaged as vectors, which is what used to print WIND UNKNOWN.
+    const { snapshot, tuesday, am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 90, wind_speed: "5 mph" }),
+      forecast(home.id, tuesdayAt(11), { wind_direction_deg: 270, wind_speed: "5 mph" }),
+      forecast(home.id, tuesdayAt(14), { wind_direction_deg: 270, wind_speed: "12 mph" }),
+    ]);
+
+    expect(am).toMatchObject({ kind: "offshore", label: "OFFSHORE", directionDeg: 90, speedMph: 5 });
+    expect(tuesday?.note).toBe("Cleanest early.");
+    const factIds = snapshot.copyFacts.map((fact) => fact.id);
+    expect(factIds).toContain("next48-clean-2026-10-27");
+    expect(factIds).toContain("today-before-wind");
+  });
+
+  it("lets the most frequent kind win, with the bearing of its earliest row", async () => {
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(6), { wind_direction_deg: 270, wind_speed: "6 mph" }),
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 80, wind_speed: "7 mph" }),
+      forecast(home.id, tuesdayAt(10), { wind_direction_deg: 100, wind_speed: "9 mph" }),
+    ]);
+
+    // A vector mean of the two offshore rows would be 90; the reading is 80.
+    expect(am).toMatchObject({ kind: "offshore", directionDeg: 80, speedMph: 9, speedLabel: "7 – 9 mph" });
+  });
+
+  it("quotes the speed of the winning kind's hours, not an outvoted hour", async () => {
+    // Label, bearing and speed describe one wind: the 18 mph onshore hour is
+    // outvoted, so it must not be printed beside OFFSHORE.
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(6), { wind_direction_deg: 90, wind_speed: "5 mph" }),
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 90, wind_speed: "6 mph" }),
+      forecast(home.id, tuesdayAt(11), { wind_direction_deg: 270, wind_speed: "18 mph" }),
+    ]);
+
+    expect(am).toMatchObject({ kind: "offshore", directionDeg: 90, speedMph: 6, speedLabel: "5 – 6 mph" });
+  });
+
+  it("is unknown only when no row in the period has a reading", async () => {
+    const { tuesday, am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: null, wind_speed: null }),
+      forecast(home.id, tuesdayAt(10), { wind_direction_deg: null, wind_speed: "10 mph" }),
+    ]);
+
+    expect(am).toMatchObject({ kind: "unknown", label: "WIND UNKNOWN", directionDeg: null });
+    expect(tuesday?.note).toBeNull();
+  });
+
+  it("keeps the bearing beside unknown when the beach has no orientation", async () => {
+    const unoriented = { ...home, aspect_deg: null };
+    const { snapshot } = await build({
+      beaches: [unoriented],
+      forecasts: [
+        forecast(home.id, tuesdayAt(8), { wind_direction_deg: 95, wind_speed: "6 mph" }),
+        forecast(home.id, tuesdayAt(10), { wind_direction_deg: 120, wind_speed: "8 mph" }),
+      ],
+    });
+    const am = snapshot.briefing.next48[0]?.periods.find((period) => period.period === "am");
+
+    expect(am).toMatchObject({ kind: "unknown", directionDeg: 95 });
+  });
+
+  it("does not let calm hours outvote a strong one", async () => {
+    // Light/variable describes the whole half-day only when its strongest wind
+    // is light; a 25 mph onshore hour is the read, not two calm ones.
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(6), { wind_direction_deg: 90, wind_speed: "3 mph" }),
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 100, wind_speed: "3 mph" }),
+      forecast(home.id, tuesdayAt(11), { wind_direction_deg: 270, wind_speed: "25 mph" }),
+    ]);
+
+    expect(am).toMatchObject({
+      kind: "onshore",
+      directionDeg: 270,
+      speedMph: 25,
+      speedLabel: "25 mph",
+    });
+  });
+
+  it("still calls a period under 4 mph light and variable", async () => {
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(7), { wind_direction_deg: 270, wind_speed: "2 mph" }),
+      forecast(home.id, tuesdayAt(10), { wind_direction_deg: 200, wind_speed: "3 mph" }),
+    ]);
+
+    expect(am).toMatchObject({
+      kind: "light_variable",
+      label: "LIGHT / VARIABLE",
+      speedLabel: null,
+      speedMph: 3,
+      directionDeg: 270,
+    });
   });
 });
