@@ -109,6 +109,8 @@ const WEEK_SCOUT_SWELLS_SNAPSHOT_TIMEOUT_MS = 1500;
 // Crossing rarity looks back over the last 30 days of snapshot runs.
 const SWELL_CROSSING_HISTORY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// The week's headline pick stays inside this many days; later days are an early look.
+const HEADLINE_DAY_COUNT = 7;
 const log = createContextLogger('WeekScout');
 
 export type WeekScoutBucket = 'morning' | 'midday' | 'evening';
@@ -124,7 +126,7 @@ export interface WeekScoutRequest {
   candidateBeachIds: string[];
   localTimezone: string;
   startLocalDate: string;
-  dayCount: 7;
+  dayCount: 7 | 10;
   userLocation?: Coordinates;
   /** The surfer's drive range; beaches inside it carry no distance friction. */
   driveRadiusMiles?: number;
@@ -238,6 +240,11 @@ export interface WeekScoutWindowResponse extends WeekScoutPersonalCall {
 
 export interface WeekScoutDayResponse {
   localDate: string;
+  /**
+   * Additive: present only on days 7+ after `startLocalDate`. These days are
+   * ranked per day but never carry the week's session pick.
+   */
+  earlyLook?: true;
   windows: WeekScoutWindowResponse[];
   bestWindowId: string | null;
   bestDayWindow: WeekScoutWindowResponse | null;
@@ -364,6 +371,17 @@ function addLocalDays(localDate: string, days: number): string {
   const date = new Date(`${localDate}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+/** Whole local days from `startLocalDate` to `localDate`. */
+function localDayOffset(startLocalDate: string, localDate: string): number {
+  return Math.round(
+    (Date.parse(`${localDate}T00:00:00.000Z`) - Date.parse(`${startLocalDate}T00:00:00.000Z`)) / DAY_MS,
+  );
+}
+
+function isEarlyLookDay(startLocalDate: string, localDate: string): boolean {
+  return localDayOffset(startLocalDate, localDate) >= HEADLINE_DAY_COUNT;
 }
 
 function slotKey(localDate: string, bucket: WeekScoutBucket): string {
@@ -1164,6 +1182,7 @@ async function generateWeekScoutForecastInternal(
 
     return {
       localDate,
+      ...(isEarlyLookDay(request.startLocalDate, localDate) ? { earlyLook: true as const } : {}),
       windows,
       bestWindowId: best?.id ?? null,
       bestDayWindow: null,
@@ -1356,8 +1375,8 @@ async function generateWeekScoutForecastInternal(
 }
 
 function validateDayCount(dayCount: number): void {
-  if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 7) {
-    throw new Error('Week Scout dayCount must be between 1 and 7');
+  if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 10) {
+    throw new Error('Week Scout dayCount must be between 1 and 10');
   }
 }
 
@@ -1439,9 +1458,15 @@ function buildCanonicalWeekScoutResponse(
   context: GeneratedWeekScoutContext,
   request: WeekScoutDaysRequest,
 ): CanonicalWeekScoutResponse {
+  // Early-look days rank per day but never feed the week's session pick, so a
+  // 10-day request makes the same decision as a 7-day one.
+  const headlineResponse = {
+    ...context.heldResponse,
+    days: context.heldResponse.days.filter((day) => !isEarlyLookDay(request.startLocalDate, day.localDate)),
+  };
   const candidateArgs = {
     profileExperience: context.userSkillLevel,
-    response: context.heldResponse,
+    response: headlineResponse,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
   };
@@ -1461,7 +1486,7 @@ function buildCanonicalWeekScoutResponse(
       kind: 'plan_next_session',
       windowStart: context.generatedAt,
       windowEnd: new Date(
-        context.now.getTime() + request.dayCount * 24 * 60 * 60 * 1000,
+        context.now.getTime() + Math.min(request.dayCount, HEADLINE_DAY_COUNT) * 24 * 60 * 60 * 1000,
       ).toISOString(),
       timezone: request.localTimezone,
     },

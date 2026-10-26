@@ -728,17 +728,38 @@ describe('POST /api/surf/week-scout', () => {
       startLocalDate: '2026-02-30',
       dayCount: 7,
     }],
-    ['a non-seven-day request', {
-      candidateBeachIds: [BEACH_A],
-      localTimezone: 'Pacific/Honolulu',
-      startLocalDate: '2026-07-15',
-      dayCount: 5,
-    }],
   ])('rejects %s', async (_label, body) => {
     const response = await callRoute(body);
 
     expect(response.status).toBe(400);
     expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 5, 8, 11])('rejects a %i-day request', async (dayCount) => {
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount,
+    });
+
+    expect(response.status).toBe(400);
+    expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
+  });
+
+  it.each([7, 10])('accepts a %i-day request and passes the horizon through', async (dayCount) => {
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
+      'user-week-scout',
+      expect.objectContaining({ dayCount }),
+    );
   });
 
   it('rejects more than 30 unique candidate IDs', async () => {
