@@ -45,35 +45,51 @@ export function assertBeachIdsAreUuids(briefing: SwellBriefing): void {
   }
 }
 
+/** Clock skew tolerated between the worker's machine and this server. */
+const GENERATION_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
 /**
- * Reads the copy the artifact chose for each slot the model is allowed to fill.
- * Everything not listed here is code-owned and must survive generation
- * untouched.
+ * Slots the worker always writes, whether or not candidates were offered.
+ * Mirrors `merge_copy` in the worker: the headline is required and the today
+ * call is set to the chosen candidate or cleared.
+ */
+const ALWAYS_WRITABLE_SLOTS: ReadonlySet<string> = new Set(["headline", "todayCall"]);
+
+/**
+ * Reads the copy in every slot a model could fill. Which slots it actually may
+ * fill is decided against the issued candidates in `assertArtifactMatchesInput`.
+ *
+ * Week copy is the day's `caveat`, not its `label`: the label is the short
+ * code-owned caption under the bar ("Building"), and the worker writes week
+ * copy to `caveat`.
  */
 function copyBySlot(briefing: SwellBriefing): Map<string, string | null> {
   const slots = new Map<string, string | null>();
   slots.set("headline", briefing.headline);
   slots.set("todayCall", briefing.today.call);
   for (const day of briefing.next48 ?? []) slots.set(`next48:${day.date}`, day.note);
-  for (const day of briefing.week ?? []) slots.set(`week:${day.date}`, day.label);
+  for (const day of briefing.week ?? []) slots.set(`week:${day.date}`, day.caveat);
   return slots;
 }
 
-/** Rebuilds the issued briefing with the artifact's chosen copy substituted in. */
-function withCopy(base: SwellBriefing, chosen: Map<string, string | null>): SwellBriefing {
+/**
+ * Rebuilds the issued briefing with the artifact's copy and generation time
+ * substituted in. Everything else comes from the issued input.
+ */
+function withCopy(
+  base: SwellBriefing,
+  chosen: Map<string, string | null>,
+  generatedAt: string,
+): SwellBriefing {
+  const pick = (slot: string, fallback: string | null): string | null =>
+    chosen.has(slot) ? (chosen.get(slot) as string | null) : fallback;
   return {
     ...base,
-    headline: chosen.get("headline") ?? base.headline,
-    today: { ...base.today, call: chosen.has("todayCall") ? chosen.get("todayCall")! : base.today.call },
-    next48: (base.next48 ?? []).map((day) => {
-      const slot = `next48:${day.date}`;
-      return chosen.has(slot) ? { ...day, note: chosen.get(slot)! } : day;
-    }),
-    week: (base.week ?? []).map((day) => {
-      const slot = `week:${day.date}`;
-      const value = chosen.get(slot);
-      return chosen.has(slot) && typeof value === "string" ? { ...day, label: value } : day;
-    }),
+    generatedAt,
+    headline: pick("headline", base.headline) ?? base.headline,
+    today: { ...base.today, call: pick("todayCall", base.today.call) },
+    next48: (base.next48 ?? []).map((day) => ({ ...day, note: pick(`next48:${day.date}`, day.note) })),
+    week: (base.week ?? []).map((day) => ({ ...day, caveat: pick(`week:${day.date}`, day.caveat) })),
   };
 }
 
@@ -86,15 +102,38 @@ function allowedTexts(facts: BriefingCopyFact[], slot: string): Set<string> {
 }
 
 /**
- * Confirms an uploaded artifact is the issued input with nothing but permitted
- * copy changed.
+ * The generation time is the worker's, because it is the moment the edition
+ * was actually written - the footer reads "Updated" from it. It is bounded so
+ * it cannot be used to misrepresent the edition: not before the input it was
+ * built from was issued, not in the future, and not after that input expired.
  *
- * The check is positional rather than field-by-field: take the saved briefing,
- * substitute the artifact's copy for the slots the model may fill, and require
- * the result to be byte-identical to what was uploaded. Any edit anywhere else
- * — a surf height, a date, a beach id, an added advisory — changes the canonical
- * form and is rejected, without this code needing to enumerate every field.
+ * It is deliberately separate from `dataAt` and `sourcePublishedAt`, which stay
+ * the server's. Re-running the model makes a fresh edition, never a fresh
+ * forecast, and serving recomputes freshness from `dataAt`.
  */
+function assertGeneratedAt(
+  value: unknown,
+  input: SwellBriefingInputSnapshot,
+  now: Date,
+): string {
+  if (typeof value !== "string") throw new BriefingValidationError("generated_at_invalid");
+  const generated = Date.parse(value);
+  if (!Number.isFinite(generated)) throw new BriefingValidationError("generated_at_invalid");
+
+  const issued = Date.parse(input.briefing.generatedAt);
+  if (Number.isFinite(issued) && generated < issued - GENERATION_CLOCK_SKEW_MS) {
+    throw new BriefingValidationError("generated_before_input");
+  }
+  if (generated > now.getTime() + GENERATION_CLOCK_SKEW_MS) {
+    throw new BriefingValidationError("generated_in_future");
+  }
+  const validUntil = Date.parse(input.validUntil);
+  if (Number.isFinite(validUntil) && generated > validUntil) {
+    throw new BriefingValidationError("generated_after_expiry");
+  }
+  return value;
+}
+
 /**
  * The uploaded briefing is attacker-shaped until proven otherwise: reading
  * `today.exposures` off a string or null throws a TypeError, which would leave
@@ -121,9 +160,25 @@ function assertBriefingShape(value: unknown): asserts value is SwellBriefing {
   }
 }
 
+/**
+ * Confirms an uploaded artifact is the issued input with nothing but permitted
+ * copy and the generation time changed.
+ *
+ * The check is positional rather than field-by-field: take the saved briefing,
+ * substitute the artifact's copy and generation time, and require the result to
+ * be byte-identical to what was uploaded. Any edit anywhere else - a surf
+ * height, a date, a beach id, `dataAt`, an added advisory - changes the
+ * canonical form and is rejected, without this code enumerating every field.
+ *
+ * Copy follows the worker's own rule. The headline and today call are always
+ * the model's. A `next48`/`week` slot is the model's only when the server
+ * offered candidates for it; otherwise it is backend copy and must come back
+ * exactly as issued, neither rewritten nor cleared.
+ */
 export function assertArtifactMatchesInput(
   artifact: SwellBriefingArtifact,
   input: SwellBriefingInputSnapshot,
+  now: Date = new Date(),
 ): void {
   assertBriefingShape(artifact.briefing);
   if (artifact.userId !== input.userId) throw new BriefingValidationError("user_mismatch", 403);
@@ -141,25 +196,36 @@ export function assertArtifactMatchesInput(
   // A snapshot built from a development fixture is never publishable.
   if (input.provenance?.fixture === true) throw new BriefingValidationError("fixture_not_publishable", 422);
 
+  const generatedAt = assertGeneratedAt(artifact.briefing.generatedAt, input, now);
+
+  const facts = input.copyFacts ?? [];
   const chosen = copyBySlot(artifact.briefing);
   const issued = copyBySlot(input.briefing);
 
   for (const [slot, value] of chosen) {
     // The model may not invent a slot that the issued edition does not have.
     if (!issued.has(slot)) throw new BriefingValidationError("unknown_copy_slot");
-    if (value === null) continue;
+    // Unchanged copy is always fine.
+    if (value === issued.get(slot)) continue;
+
+    const offered = allowedTexts(facts, slot);
+    if (!ALWAYS_WRITABLE_SLOTS.has(slot) && offered.size === 0) {
+      // Backend copy for a slot with no candidates is not the model's to touch.
+      throw new BriefingValidationError("copy_slot_not_writable");
+    }
+    if (value === null) {
+      // The model chose nothing for a slot it may fill, so it is cleared - but
+      // an edition always has a headline.
+      if (slot === "headline") throw new BriefingValidationError("headline_missing");
+      continue;
+    }
     if (typeof value !== "string") throw new BriefingValidationError("copy_not_text");
     if (value.length > MAX_BRIEFING_COPY_LENGTH) throw new BriefingValidationError("copy_too_long");
-
-    // Unchanged copy is always fine; changed copy must be one of the candidates
-    // the server supplied, copied exactly.
-    if (value === issued.get(slot)) continue;
-    if (!allowedTexts(input.copyFacts ?? [], slot).has(value)) {
-      throw new BriefingValidationError("copy_not_offered");
-    }
+    // Changed copy must be one of the candidates offered for that slot, exactly.
+    if (!offered.has(value)) throw new BriefingValidationError("copy_not_offered");
   }
 
-  const expected = withCopy(input.briefing, chosen);
+  const expected = withCopy(input.briefing, chosen, generatedAt);
   if (canonicalJson(expected) !== canonicalJson(artifact.briefing)) {
     throw new BriefingValidationError("briefing_values_altered");
   }

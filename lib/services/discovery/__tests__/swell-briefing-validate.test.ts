@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import { briefingArtifactId, briefingInputHash } from "../swell-briefing-hash";
+import workerFixture from "./fixtures/python-worker-artifact.json";
 import {
   BriefingValidationError,
   assertArtifactMatchesInput,
@@ -257,5 +258,95 @@ describe("assertArtifactMatchesInput", () => {
 
     expect(reason(() => assertArtifactMatchesInput(artifact, snapshot)))
       .toBe("source_published_at_mismatch");
+  });
+});
+
+/**
+ * The fixture is produced by the worker's own `merge_copy` and `run()` stamping,
+ * not hand-written here. The previous suite passed while every real upload was
+ * refused, because its helper copied the briefing verbatim instead of doing
+ * what the worker does. These cases pin the contract to the worker's code.
+ */
+describe("assertArtifactMatchesInput against a real worker artifact", () => {
+  type Fixture = {
+    snapshot: SwellBriefingInputSnapshot;
+    artifact: SwellBriefingArtifact;
+    serverNow: string;
+  };
+  const fixture = workerFixture as unknown as Fixture;
+  const now = new Date(fixture.serverNow);
+
+  function mutated(change: (briefing: SwellBriefing) => void): SwellBriefingArtifact {
+    const copy = JSON.parse(JSON.stringify(fixture.artifact)) as SwellBriefingArtifact;
+    change(copy.briefing);
+    return copy;
+  }
+
+  it("accepts the worker's artifact as uploaded", () => {
+    expect(() => assertArtifactMatchesInput(fixture.artifact, fixture.snapshot, now)).not.toThrow();
+  });
+
+  it("agrees with the worker's artifact id, microsecond timestamp included", () => {
+    expect(briefingArtifactId(fixture.artifact as unknown as Record<string, unknown>))
+      .toBe(fixture.artifact.artifactId);
+  });
+
+  describe("generation time is the worker's, within bounds", () => {
+    it("rejects a time before the input was issued", () => {
+      const artifact = mutated((b) => { b.generatedAt = "2026-10-26T10:00:00.000Z"; });
+      expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now)))
+        .toBe("generated_before_input");
+    });
+
+    it("rejects a time in the future", () => {
+      const artifact = mutated((b) => { b.generatedAt = "2026-10-26T13:00:00.000Z"; });
+      expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now)))
+        .toBe("generated_in_future");
+    });
+
+    it("rejects a time after the input expired", () => {
+      const late = new Date("2026-10-28T08:00:00.000Z");
+      const artifact = mutated((b) => { b.generatedAt = "2026-10-28T07:30:00.000Z"; });
+      expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, late)))
+        .toBe("generated_after_expiry");
+    });
+
+    it("rejects a missing or unreadable time", () => {
+      for (const value of [null, 42, "not a time"]) {
+        const artifact = mutated((b) => { (b as unknown as { generatedAt: unknown }).generatedAt = value; });
+        expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now)))
+          .toBe("generated_at_invalid");
+      }
+    });
+
+    it("still refuses a moved data timestamp, which stays the server's", () => {
+      const artifact = mutated((b) => { b.dataAt = "2026-10-26T12:30:00.000Z"; });
+      expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now)))
+        .toBe("briefing_values_altered");
+    });
+  });
+
+  describe("copy follows the worker's slot rules", () => {
+    it("leaves backend copy alone where no candidate was offered", () => {
+      const cleared = mutated((b) => { b.next48[1].note = null; });
+      expect(reason(() => assertArtifactMatchesInput(cleared, fixture.snapshot, now)))
+        .toBe("copy_slot_not_writable");
+
+      const rewritten = mutated((b) => { b.next48[1].note = "Cleanest early."; });
+      expect(reason(() => assertArtifactMatchesInput(rewritten, fixture.snapshot, now)))
+        .toBe("copy_slot_not_writable");
+    });
+
+    it("keeps the week label code-owned; week copy is the caveat", () => {
+      const artifact = mutated((b) => { b.week[1].label = "More size arriving."; });
+      expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now)))
+        .toBe("briefing_values_altered");
+    });
+
+    it("always requires a headline", () => {
+      const artifact = mutated((b) => { (b as unknown as { headline: unknown }).headline = null; });
+      expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now)))
+        .toBe("headline_missing");
+    });
   });
 });
