@@ -234,7 +234,19 @@ export function selectCurrentEdition(rows: EditionRow[]): EditionRow {
   return [...sameEdition].sort((a, b) => generatedMs(b) - generatedMs(a))[0];
 }
 
-function toArtifact(row: EditionRow): SwellBriefingArtifact {
+/**
+ * The instant as the server issued it. Postgres hands `timestamptz` back as
+ * `2026-10-26T11:51:13.397+00:00`, but the input builder issues every instant
+ * through `toISOString()`, and the artifact id hashes that exact string - so
+ * returning the column as read gives the publisher an artifact that no longer
+ * hashes to its own id.
+ */
+function issuedInstant(value: string): string {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : value;
+}
+
+export function toArtifact(row: EditionRow): SwellBriefingArtifact {
   return {
     artifactId: row.artifact_id,
     schemaVersion: 1,
@@ -242,8 +254,8 @@ function toArtifact(row: EditionRow): SwellBriefingArtifact {
     region: row.region,
     editionDate: row.edition_date,
     inputHash: row.input_hash,
-    sourcePublishedAt: row.source_published_at,
-    validUntil: row.valid_until,
+    sourcePublishedAt: issuedInstant(row.source_published_at),
+    validUntil: issuedInstant(row.valid_until),
     generationVersion: row.generation_version,
     model: row.model,
     briefing: row.briefing,
