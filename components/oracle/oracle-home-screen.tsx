@@ -834,7 +834,9 @@ export function OracleHomeScreen() {
         : null;
   const widenedMessage =
     oracle.widenedFromMiles != null
-      ? `Nothing within ${formatMiles(oracle.widenedFromMiles)} mi · showing surf up to 100 mi`
+      ? `Nothing within ${
+        oracle.widenedFromMiles >= 1 ? `${formatMiles(oracle.widenedFromMiles)} mi` : "your drive range"
+      } · showing surf up to 100 mi`
       : null;
   const noticeMessage = [originMessage, widenedMessage].filter(Boolean).join(" — ");
   const locationNotice = noticeMessage ? (
@@ -850,7 +852,13 @@ export function OracleHomeScreen() {
       <HomeZineEmpty
         beachName="Your surf"
         heading="Where are you surfing?"
-        reason="Share your location or set a home beach and Quiver will make the call from there."
+        reason={
+          oracle.geoLoading
+            ? "Finding your location…"
+            : oracle.locationDenied
+              ? "Location access is blocked for this site. Allow it in your browser settings, or set a home beach."
+              : "Share your location or set a home beach and Quiver will make the call from there."
+        }
         onUseMyLocation={oracle.requestLocation}
         onSetHomeBeach={handleSetHomeBeach}
       />

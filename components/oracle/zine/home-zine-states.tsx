@@ -320,7 +320,7 @@ export function HomeLocationNotice({
       )}
       {onSetHomeBeach && (
         <button type="button" onClick={onSetHomeBeach} style={SECONDARY_ACTION_STYLE} className="focus-ring">
-          Set home beach
+          Set your home beach
         </button>
       )}
     </section>

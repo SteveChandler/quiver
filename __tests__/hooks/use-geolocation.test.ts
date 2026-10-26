@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { readRecentFix, RECENT_FIX_MAX_AGE_MS, useGeolocation } from "@/hooks/use-geolocation";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 
 jest.mock("@/lib/posthog-client", () => ({
@@ -598,39 +598,4 @@ describe("useGeolocation", () => {
     });
   });
 
-  describe("recent browser fix", () => {
-    it("remembers a successful fix and reads it back for 24 hours", () => {
-      jest.setSystemTime(new Date("2026-10-26T12:00:00Z"));
-      mockGeoSuccess();
-      renderHook(() => useGeolocation({ autoRequest: true }));
-
-      expect(readRecentFix()).toEqual(LA_JOLLA);
-      expect(readRecentFix(Date.now() + RECENT_FIX_MAX_AGE_MS)).toEqual(LA_JOLLA);
-      expect(readRecentFix(Date.now() + RECENT_FIX_MAX_AGE_MS + 1)).toBeNull();
-    });
-
-    it("does not remember a failed request", () => {
-      mockGeoError(1);
-      renderHook(() => useGeolocation({ autoRequest: true }));
-
-      expect(readRecentFix()).toBeNull();
-    });
-
-    it.each([
-      "not json",
-      JSON.stringify({ lat: 95, lon: 0, at: 0 }),
-      JSON.stringify({ lat: 1, lon: 2 }),
-    ])("ignores an unusable stored fix %s", (stored) => {
-      window.localStorage.setItem("quiver:lastGeoFix", stored);
-      expect(readRecentFix()).toBeNull();
-    });
-
-    it("leaves the hook's own fallback chain unchanged", () => {
-      window.localStorage.setItem("quiver:lastGeoFix", JSON.stringify({ ...LA_JOLLA, at: Date.now() }));
-      const { result } = renderHook(() => useGeolocation({ autoRequest: false }));
-
-      expect(result.current.source).toBe("default");
-      expect(result.current.coords).toEqual({ lat: 32.7503, lon: -117.2534 });
-    });
-  });
 });

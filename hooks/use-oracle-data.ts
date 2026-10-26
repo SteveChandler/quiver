@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProfileContext } from "@/context/profile-context";
-import { readRecentFix, useGeolocation } from "@/hooks/use-geolocation";
+import { isValidCoordinates, useGeolocation } from "@/hooks/use-geolocation";
+import { getCookieValue } from "@/context/location-context";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -76,6 +77,8 @@ export interface OracleData {
   origin: HomeOrigin | null;
   /** No location evidence at all: the screen asks the surfer to pick a place. */
   locationUnresolved: boolean;
+  /** The browser refused the last location request. */
+  locationDenied: boolean;
   /** The drive range held no beach, so results come from up to 100 miles out. */
   widenedFromMiles: number | null;
   /** Nothing within 100 miles; the closest beach the surfer can scout from. */
@@ -100,29 +103,49 @@ const LAST_ORACLE_REVEAL_KEY = "lastOracleReveal";
 // Helpers
 // ============================================================================
 
-function readIPCookie(): string | undefined {
-  const prefix = `${IP_LOCATION_COOKIE}=`;
-  const cookie = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
-  if (!cookie) return undefined;
+const RECENT_FIX_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const RECENT_FIX_KEY = "quiver:home-last-fix";
+
+interface RecentFix extends Coordinates {
+  at: number;
+  /** The profile that took the fix; another account on this browser ignores it. */
+  owner: string;
+}
+
+function readRecentFix(): RecentFix | null {
   try {
-    return decodeURIComponent(cookie.slice(prefix.length));
+    const fix: Partial<RecentFix> | null = JSON.parse(window.localStorage.getItem(RECENT_FIX_KEY) ?? "null");
+    const at = fix?.at;
+    const owner = fix?.owner;
+    if (typeof at !== "number" || typeof owner !== "string" || !isValidCoordinates(fix)) return null;
+    return { lat: fix.lat, lon: fix.lon, at, owner };
   } catch {
-    return undefined;
+    return null;
+  }
+}
+
+function rememberFix(fix: RecentFix): void {
+  try {
+    window.localStorage.setItem(RECENT_FIX_KEY, JSON.stringify(fix));
+  } catch {
+    // The live fix still works for this page when storage is blocked.
   }
 }
 
 interface StoredLocationEvidence {
-  recentFix: Coordinates | null;
+  readAt: number;
+  recentFix: RecentFix | null;
   ip: { lat: number; lon: number; label: string } | null;
 }
 
 function readStoredLocationEvidence(): StoredLocationEvidence {
   const approximate = resolveApproximateOrigin({
-    ip: parseIPLocationCookie(readIPCookie()),
+    ip: parseIPLocationCookie(getCookieValue(IP_LOCATION_COOKIE)),
     browserTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? "",
     now: new Date(),
   });
   return {
+    readAt: Date.now(),
     recentFix: readRecentFix(),
     ip: approximate ? { lat: approximate.lat, lon: approximate.lon, label: approximate.label } : null,
   };
@@ -175,18 +198,17 @@ export function useOracleData(): OracleData {
   // screen asks for a place instead of borrowing one.
   // ------------------------------------------------------------------
   const homeBeachCoords = useMemo(() => {
-    if (homeBeach?.lat != null && homeBeach?.lon != null &&
-      Number.isFinite(homeBeach.lat) && Math.abs(homeBeach.lat) <= 90 &&
-      Number.isFinite(homeBeach.lon) && Math.abs(homeBeach.lon) <= 180) {
+    if (homeBeach && isValidCoordinates(homeBeach)) {
       return { lat: homeBeach.lat, lon: homeBeach.lon };
     }
     return null;
-  }, [homeBeach?.lat, homeBeach?.lon]);
+  }, [homeBeach]);
 
   const {
     coords: geoCoords,
     loading: geoLoading,
     source: geoSource,
+    errorType: geoErrorType,
     lastBeach,
     requestLocation: requestBrowserLocation,
   } = useGeolocation({
@@ -204,7 +226,21 @@ export function useOracleData(): OracleData {
     setStoredEvidence(readStoredLocationEvidence());
   }, []);
 
+  // Remember this account's fix so a return visit within a day starts there.
+  const profileId = profile?.id ?? null;
+  const browserLat = geoSource === "browser" ? geoCoords?.lat : undefined;
+  const browserLon = geoSource === "browser" ? geoCoords?.lon : undefined;
+  useEffect(() => {
+    if (!profileId || browserLat === undefined || browserLon === undefined) return;
+    rememberFix({ lat: browserLat, lon: browserLon, at: Date.now(), owner: profileId });
+  }, [profileId, browserLat, browserLon]);
+
   const [selectedBeach, setSelectedBeach] = useState<NearestBeach | null>(null);
+  // A home beach set after choosing to scout elsewhere takes over.
+  const homeBeachId = homeBeach?.id ?? null;
+  useEffect(() => {
+    setSelectedBeach(null);
+  }, [homeBeachId]);
   const scoutFromBeach = useCallback((beach: NearestBeach): void => {
     setSelectedBeach(beach);
   }, []);
@@ -221,8 +257,10 @@ export function useOracleData(): OracleData {
     if (geoSource === "browser" && geoCoords) {
       return { lat: geoCoords.lat, lon: geoCoords.lon, source: "browser", approximate: false, label: null };
     }
-    if (storedEvidence.recentFix) {
-      return { ...storedEvidence.recentFix, source: "recentFix", approximate: false, label: null };
+    const recentFix = storedEvidence.recentFix;
+    const fixAge = recentFix ? storedEvidence.readAt - recentFix.at : -1;
+    if (recentFix && recentFix.owner === profileId && fixAge >= 0 && fixAge <= RECENT_FIX_MAX_AGE_MS) {
+      return { lat: recentFix.lat, lon: recentFix.lon, source: "recentFix", approximate: false, label: null };
     }
     if (homeBeachCoords) {
       return { ...homeBeachCoords, source: "homeBeach", approximate: false, label: homeBeach?.name ?? null };
@@ -234,7 +272,7 @@ export function useOracleData(): OracleData {
       return { lat: lastBeach.lat, lon: lastBeach.lon, source: "lastBeach", approximate: true, label: lastBeach.name?.trim() || null };
     }
     return null;
-  }, [storedEvidence, selectedBeach, geoSource, geoCoords, homeBeachCoords, homeBeach?.name, lastBeach]);
+  }, [storedEvidence, selectedBeach, geoSource, geoCoords, profileId, homeBeachCoords, homeBeach?.name, lastBeach]);
 
   const originLat = origin?.lat;
   const originLon = origin?.lon;
@@ -400,6 +438,7 @@ export function useOracleData(): OracleData {
     userLocation,
     origin,
     locationUnresolved,
+    locationDenied: geoErrorType === "denied",
     widenedFromMiles,
     nearestBeach,
     scoutFromBeach,

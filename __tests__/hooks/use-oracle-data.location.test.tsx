@@ -28,6 +28,7 @@ const mockProfile = useProfileContext as jest.Mock;
 const mockGeo = useGeolocation as jest.Mock;
 const fetchMock = jest.fn();
 
+const FIX_KEY = "quiver:home-last-fix";
 const HOME_BEACH = { id: "home-1", name: "Home Break", lat: 34.01, lon: -118.5 };
 const GPS = { lat: 33.9, lon: -118.42 };
 const NEAREST = { id: "near-1", name: "Nearest Point", slug: "nearest-point", lat: 41.1, lon: -71.5, distanceMiles: 212.4 };
@@ -143,7 +144,7 @@ describe("useOracleData origin", () => {
 
   it("uses a browser fix from the last 24 hours before the home beach", async () => {
     mockProfile.mockReturnValue({ profile: { id: "user-1" }, homeBeach: HOME_BEACH, refreshProfile: jest.fn(), isLoading: false });
-    window.localStorage.setItem("quiver:lastGeoFix", JSON.stringify({ ...GPS, at: Date.now() - 60 * 60 * 1000 }));
+    window.localStorage.setItem(FIX_KEY, JSON.stringify({ ...GPS, at: Date.now() - 60 * 60 * 1000, owner: "user-1" }));
     const { result } = renderHook(() => useOracleData());
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -151,9 +152,41 @@ describe("useOracleData origin", () => {
     expect(requestedLocations()).toEqual([GPS]);
   });
 
+  it("ignores a recent fix another account took on this browser", async () => {
+    mockProfile.mockReturnValue({ profile: { id: "user-1" }, homeBeach: HOME_BEACH, refreshProfile: jest.fn(), isLoading: false });
+    window.localStorage.setItem(FIX_KEY, JSON.stringify({ ...GPS, at: Date.now(), owner: "someone-else" }));
+    const { result } = renderHook(() => useOracleData());
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(result.current.origin?.source).toBe("homeBeach");
+  });
+
+  it("remembers a live browser fix for this account", async () => {
+    geoState = { coords: GPS, source: "browser", lastBeach: null };
+    renderHook(() => useOracleData());
+
+    await waitFor(() => expect(window.localStorage.getItem(FIX_KEY)).not.toBeNull());
+    expect(JSON.parse(window.localStorage.getItem(FIX_KEY)!)).toMatchObject({ ...GPS, owner: "user-1" });
+  });
+
+  it("explains a blocked location request on the prompt", async () => {
+    mockGeo.mockImplementation(() => ({
+      coords: null,
+      loading: false,
+      source: "default",
+      errorType: "denied",
+      lastBeach: null,
+      requestLocation: requestBrowserLocation,
+    }));
+    const { result } = renderHook(() => useOracleData());
+
+    await waitFor(() => expect(result.current.locationUnresolved).toBe(true));
+    expect(result.current.locationDenied).toBe(true);
+  });
+
   it("ignores a browser fix older than 24 hours", async () => {
     mockProfile.mockReturnValue({ profile: { id: "user-1" }, homeBeach: HOME_BEACH, refreshProfile: jest.fn(), isLoading: false });
-    window.localStorage.setItem("quiver:lastGeoFix", JSON.stringify({ ...GPS, at: Date.now() - 25 * 60 * 60 * 1000 }));
+    window.localStorage.setItem(FIX_KEY, JSON.stringify({ ...GPS, at: Date.now() - 25 * 60 * 60 * 1000, owner: "user-1" }));
     const { result } = renderHook(() => useOracleData());
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -254,6 +287,21 @@ describe("useOracleData empty pool", () => {
     act(() => result.current.requestLocation());
     expect(requestBrowserLocation).toHaveBeenCalledTimes(1);
     expect(result.current.origin?.source).toBe("browser");
+  });
+
+  it("lets a newly set home beach replace a scouting choice", async () => {
+    mockProfile.mockReturnValue({ profile: { id: "user-1" }, homeBeach: null, refreshProfile: jest.fn(), isLoading: false });
+    geoState = { coords: null, source: "default", lastBeach: null };
+    respondWith(discoveryBody({ scope: { nearestBeach: NEAREST } }));
+    const { result, rerender } = renderHook(() => useOracleData());
+    await waitFor(() => expect(result.current.locationUnresolved).toBe(true));
+
+    act(() => result.current.scoutFromBeach(NEAREST));
+    expect(result.current.origin?.source).toBe("selectedBeach");
+
+    mockProfile.mockReturnValue({ profile: { id: "user-1" }, homeBeach: HOME_BEACH, refreshProfile: jest.fn(), isLoading: false });
+    rerender();
+    await waitFor(() => expect(result.current.origin?.source).toBe("homeBeach"));
   });
 
   it("reports a failed request as an error from the same origin, with no second request", async () => {
