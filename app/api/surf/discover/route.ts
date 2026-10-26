@@ -108,12 +108,12 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
 
 /**
  * Radius from the user's saved drive range. The profile read is best-effort:
- * on failure we return undefined so discovery keeps its 100-mile default.
+ * on failure we use the never-set default rather than widening to 100 miles.
  */
 async function resolveProfileRadiusMiles(
   supabase: AuthenticatedContext['supabase'],
   userId: string,
-): Promise<number | undefined> {
+): Promise<number> {
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -122,12 +122,12 @@ async function resolveProfileRadiusMiles(
       .maybeSingle();
     if (error) {
       console.warn('[surf/discover] Failed to load drive range:', error.message);
-      return undefined;
+      return driveRadiusMiles(null);
     }
     return driveRadiusMiles(data?.max_drive_minutes);
   } catch (err) {
     console.warn('[surf/discover] Error loading drive range:', err);
-    return undefined;
+    return driveRadiusMiles(null);
   }
 }
 

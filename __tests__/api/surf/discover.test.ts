@@ -782,7 +782,7 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(mockDiscoverSurfSpots.mock.calls[0][1]).not.toHaveProperty("driveRadiusMiles");
   });
 
-  it("keeps the default radius when the profile drive range cannot be read", async () => {
+  it("uses the never-set default radius when the profile drive range cannot be read", async () => {
     const supabase = makeSupabaseStub(null, { data: null, error: { message: "boom" } });
     const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
     const { GET } = await import("@/app/api/surf/discover/route");
@@ -794,8 +794,7 @@ describe("/api/surf/discover entitlement resolution", () => {
     } as any);
 
     expect(response.status).toBe(200);
-    expect(mockDiscoverSurfSpots.mock.calls[0][1].radiusMiles).toBeUndefined();
-    expect(mockDiscoverSurfSpots.mock.calls[0][1]).not.toHaveProperty("driveRadiusMiles");
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: 30, driveRadiusMiles: 30 });
     warn.mockRestore();
   });
 
