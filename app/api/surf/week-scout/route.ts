@@ -102,7 +102,7 @@ const WeekScoutRequestSchema = z.object({
   candidateScope: z.union([z.literal('complete-radius'), CompleteRadiusScopeSchema]).optional(),
   localTimezone: z.string().min(1).refine(isValidTimezone, 'Invalid IANA timezone'),
   startLocalDate: z.string().refine(isValidLocalDate, 'Invalid local date'),
-  dayCount: z.literal(7),
+  dayCount: z.union([z.literal(7), z.literal(10)]),
 }).refine((value) => Boolean(value.candidateScope) || Boolean(value.candidateBeachIds?.length), {
   message: 'Candidate IDs or complete-radius scope is required',
 });
