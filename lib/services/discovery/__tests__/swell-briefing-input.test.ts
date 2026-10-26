@@ -7,7 +7,6 @@ import {
   compassLabel,
   exposureFor,
   localDate,
-  meanBearing,
   windKindFor,
 } from "../swell-briefing-input";
 
@@ -95,24 +94,6 @@ describe("localDate", () => {
     // 06:00 UTC on the 26th is still 23:00 on the 25th in California (PDT).
     expect(localDate(new Date("2026-10-26T06:00:00Z"), "America/Los_Angeles")).toBe("2026-10-25");
     expect(localDate(new Date("2026-10-26T18:00:00Z"), "America/Los_Angeles")).toBe("2026-10-26");
-  });
-});
-
-describe("meanBearing", () => {
-  it("averages across north without landing due south", () => {
-    // Arithmetic mean of 350 and 10 is 180 - the exact opposite - which would
-    // invert the offshore/onshore label the reader sees.
-    expect(meanBearing([350, 10])).toBe(0);
-  });
-
-  it("averages an ordinary spread the obvious way", () => {
-    expect(meanBearing([80, 100])).toBe(90);
-    expect(meanBearing([45])).toBe(45);
-  });
-
-  it("returns null rather than inventing a mean for opposing winds", () => {
-    expect(meanBearing([0, 180])).toBeNull();
-    expect(meanBearing([])).toBeNull();
   });
 });
 
@@ -320,5 +301,70 @@ describe("buildBriefingInput forecast read", () => {
     const beaches = Array.from({ length: BRIEFING_BEACHES }, (_, index) => westFacingBeach(index));
     await expect(build({ beaches, forecasts: gridRows(beaches), failForecastPage: 2 }))
       .rejects.toThrow(new BriefingInputError("forecast_read_failed"));
+  });
+});
+
+describe("buildBriefingInput next 48 hours wind", () => {
+  const home = westFacingBeach(0);
+  // Tuesday 2026-10-27 in San Diego (PDT, UTC-7).
+  const tuesdayAt = (localHour: number): string =>
+    new Date(Date.UTC(2026, 9, 27, localHour + 7)).toISOString();
+
+  async function tuesdayAm(rows: FakeForecast[]) {
+    const { snapshot } = await build({ beaches: [home], forecasts: rows });
+    const tuesday = snapshot.briefing.next48.find((day) => day.date === "2026-10-27");
+    return { snapshot, tuesday, am: tuesday?.periods.find((period) => period.period === "am") };
+  }
+
+  it("reads offshore-then-onshore as the dawn offshore, not unknown", async () => {
+    // Ocean Beach Pier, Tue Oct 27: equal winds from opposite sides cancel
+    // when averaged as vectors, which is what used to print WIND UNKNOWN.
+    const { snapshot, tuesday, am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 90, wind_speed: "5 mph" }),
+      forecast(home.id, tuesdayAt(11), { wind_direction_deg: 270, wind_speed: "5 mph" }),
+      forecast(home.id, tuesdayAt(14), { wind_direction_deg: 270, wind_speed: "12 mph" }),
+    ]);
+
+    expect(am).toMatchObject({ kind: "offshore", label: "OFFSHORE", directionDeg: 90, speedMph: 5 });
+    expect(tuesday?.note).toBe("Cleanest early.");
+    const factIds = snapshot.copyFacts.map((fact) => fact.id);
+    expect(factIds).toContain("next48-clean-2026-10-27");
+    expect(factIds).toContain("today-before-wind");
+  });
+
+  it("lets the most frequent kind win, with the bearing of its earliest row", async () => {
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(6), { wind_direction_deg: 270, wind_speed: "6 mph" }),
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: 80, wind_speed: "7 mph" }),
+      forecast(home.id, tuesdayAt(10), { wind_direction_deg: 100, wind_speed: "9 mph" }),
+    ]);
+
+    // A vector mean of the two offshore rows would be 90; the reading is 80.
+    expect(am).toMatchObject({ kind: "offshore", directionDeg: 80, speedMph: 9, speedLabel: "6 – 9 mph" });
+  });
+
+  it("is unknown only when no row in the period has a reading", async () => {
+    const { tuesday, am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(8), { wind_direction_deg: null, wind_speed: null }),
+      forecast(home.id, tuesdayAt(10), { wind_direction_deg: null, wind_speed: "10 mph" }),
+    ]);
+
+    expect(am).toMatchObject({ kind: "unknown", label: "WIND UNKNOWN", directionDeg: null });
+    expect(tuesday?.note).toBeNull();
+  });
+
+  it("still calls a period under 4 mph light and variable", async () => {
+    const { am } = await tuesdayAm([
+      forecast(home.id, tuesdayAt(7), { wind_direction_deg: 270, wind_speed: "2 mph" }),
+      forecast(home.id, tuesdayAt(10), { wind_direction_deg: 200, wind_speed: "3 mph" }),
+    ]);
+
+    expect(am).toMatchObject({
+      kind: "light_variable",
+      label: "LIGHT / VARIABLE",
+      speedLabel: null,
+      speedMph: 3,
+      directionDeg: 270,
+    });
   });
 });

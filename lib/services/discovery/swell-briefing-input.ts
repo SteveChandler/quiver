@@ -149,29 +149,12 @@ function windMph(row: ForecastRow): number | null {
 }
 
 function windDeg(row: ForecastRow): number | null {
-  const value = Number(row.wind_direction_deg);
+  // `Number(null)` and `Number("")` are 0, which would read a missing
+  // direction as a north wind.
+  const raw = row.wind_direction_deg;
+  if (raw === null || (typeof raw === "string" && raw.trim() === "")) return null;
+  const value = Number(raw);
   return Number.isFinite(value) ? ((value % 360) + 360) % 360 : null;
-}
-
-/**
- * The mean of compass bearings, averaged as unit vectors.
- *
- * Averaging the numbers directly puts 350 and 10 at 180 - due south for two
- * northerly winds - which inverts the offshore/onshore label the reader sees.
- * Directly opposing winds cancel and yield null rather than a fabricated mean.
- */
-export function meanBearing(degrees: readonly number[]): number | null {
-  if (degrees.length === 0) return null;
-  let x = 0;
-  let y = 0;
-  for (const degree of degrees) {
-    const radians = (degree * Math.PI) / 180;
-    x += Math.cos(radians);
-    y += Math.sin(radians);
-  }
-  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
-  const mean = (Math.atan2(y, x) * 180) / Math.PI;
-  return Math.round(((mean % 360) + 360) % 360);
 }
 
 /** The range of heights across a set of rows; null when nothing reads. */
@@ -367,6 +350,44 @@ function buildExposures(
   });
 }
 
+/**
+ * The wind a half-day reads as, from each row classified on its own.
+ *
+ * Averaging the bearings first hides the real read: a morning offshore at
+ * 08:00 and onshore by 11:00 averages to nothing and printed WIND UNKNOWN. The
+ * most frequent kind wins; a tie goes to the kind seen first, because dawn is
+ * when most surfers go. The bearing is the earliest reading of that kind.
+ */
+function periodWind(
+  rows: ForecastRow[],
+  beach: BeachRow,
+): { kind: BriefingWindKind; directionDeg: number | null } {
+  const readings = rows
+    .map((row) => ({ at: Date.parse(row.forecast_at), deg: windDeg(row), mph: windMph(row) }))
+    .filter((reading) => Number.isFinite(reading.at))
+    .sort((a, b) => a.at - b.at)
+    .map((reading) => ({ ...reading, kind: windKindFor(beach, reading.deg, reading.mph) }))
+    .filter((reading) => reading.kind !== "unknown");
+
+  // Map iteration follows insertion order, which is time order here, so the
+  // strict comparison leaves a tie with the kind seen first.
+  const counts = new Map<BriefingWindKind, number>();
+  for (const reading of readings) counts.set(reading.kind, (counts.get(reading.kind) ?? 0) + 1);
+  let kind: BriefingWindKind = "unknown";
+  let best = 0;
+  for (const [candidate, count] of counts) {
+    if (count > best) {
+      kind = candidate;
+      best = count;
+    }
+  }
+
+  const earliest = readings.find((reading) => reading.kind === kind && reading.deg !== null);
+  // Whole degrees, as the field has always been issued.
+  const directionDeg = earliest?.deg == null ? null : Math.round(earliest.deg) % 360;
+  return { kind, directionDeg };
+}
+
 function buildPeriod(
   period: "am" | "pm",
   rows: ForecastRow[],
@@ -374,10 +395,8 @@ function buildPeriod(
 ): BriefingWindPeriod | null {
   if (rows.length === 0) return null;
   const speeds = rows.map(windMph).filter((value): value is number => value !== null);
-  const degrees = rows.map(windDeg).filter((value): value is number => value !== null);
-  const directionDeg = meanBearing(degrees);
   const topSpeed = speeds.length > 0 ? Math.max(...speeds) : null;
-  const kind = windKindFor(beach, directionDeg, topSpeed);
+  const { kind, directionDeg } = periodWind(rows, beach);
   const surfFt = rangeOf(rows);
 
   return {
