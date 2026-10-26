@@ -149,29 +149,12 @@ function windMph(row: ForecastRow): number | null {
 }
 
 function windDeg(row: ForecastRow): number | null {
-  const value = Number(row.wind_direction_deg);
+  // `Number(null)` and `Number("")` are 0, which would read a missing
+  // direction as a north wind.
+  const raw = row.wind_direction_deg;
+  if (raw === null || (typeof raw === "string" && raw.trim() === "")) return null;
+  const value = Number(raw);
   return Number.isFinite(value) ? ((value % 360) + 360) % 360 : null;
-}
-
-/**
- * The mean of compass bearings, averaged as unit vectors.
- *
- * Averaging the numbers directly puts 350 and 10 at 180 - due south for two
- * northerly winds - which inverts the offshore/onshore label the reader sees.
- * Directly opposing winds cancel and yield null rather than a fabricated mean.
- */
-export function meanBearing(degrees: readonly number[]): number | null {
-  if (degrees.length === 0) return null;
-  let x = 0;
-  let y = 0;
-  for (const degree of degrees) {
-    const radians = (degree * Math.PI) / 180;
-    x += Math.cos(radians);
-    y += Math.sin(radians);
-  }
-  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
-  const mean = (Math.atan2(y, x) * 180) / Math.PI;
-  return Math.round(((mean % 360) + 360) % 360);
 }
 
 /** The range of heights across a set of rows; null when nothing reads. */
@@ -367,17 +350,77 @@ function buildExposures(
   });
 }
 
+/**
+ * The wind a half-day reads as, from each row classified on its own.
+ *
+ * Averaging the bearings first hides the real read: a morning offshore at
+ * 08:00 and onshore by 11:00 averages to nothing and printed WIND UNKNOWN.
+ *
+ * A half-day is light and variable only when its strongest wind is, so a calm
+ * dawn cannot outvote a 25 mph onshore hour. Otherwise the offshore, onshore
+ * and cross readings vote and light ones abstain; the most frequent kind wins,
+ * and a tie goes to the kind seen first, because dawn is when most surfers go.
+ * The bearing is the earliest reading of the winning kind - or, when nothing
+ * could be classified, the earliest bearing at all, as before. The speeds are
+ * the winning kind's too, so "OFFSHORE" is never printed beside an onshore
+ * hour's speed.
+ */
+function periodWind(
+  rows: ForecastRow[],
+  beach: BeachRow,
+  topSpeed: number | null,
+): { kind: BriefingWindKind; directionDeg: number | null; speeds: number[] } {
+  const readings = rows
+    .map((row) => ({ at: Date.parse(row.forecast_at), deg: windDeg(row), mph: windMph(row) }))
+    .filter((reading) => Number.isFinite(reading.at))
+    .sort((a, b) => a.at - b.at)
+    .map((reading) => ({ ...reading, kind: windKindFor(beach, reading.deg, reading.mph) }));
+
+  // Whole degrees, as the field has always been issued; `of` null means any kind.
+  const allSpeeds = readings.map((reading) => reading.mph).filter((mph): mph is number => mph !== null);
+  const earliestBearing = (of: BriefingWindKind | null): number | null => {
+    const deg = readings.find((reading) => reading.deg !== null && (of === null || reading.kind === of))?.deg;
+    return deg == null ? null : Math.round(deg) % 360;
+  };
+
+  if (topSpeed !== null && topSpeed < 4) {
+    return { kind: "light_variable", directionDeg: earliestBearing(null), speeds: allSpeeds };
+  }
+
+  // Map iteration follows insertion order, which is time order here, so the
+  // strict comparison leaves a tie with the kind seen first.
+  const counts = new Map<BriefingWindKind, number>();
+  for (const reading of readings) {
+    if (reading.kind === "unknown" || reading.kind === "light_variable") continue;
+    counts.set(reading.kind, (counts.get(reading.kind) ?? 0) + 1);
+  }
+  let kind: BriefingWindKind = "unknown";
+  let best = 0;
+  for (const [candidate, count] of counts) {
+    if (count > best) {
+      kind = candidate;
+      best = count;
+    }
+  }
+
+  if (kind === "unknown") return { kind, directionDeg: earliestBearing(null), speeds: allSpeeds };
+  const speeds = readings
+    .filter((reading) => reading.kind === kind)
+    .map((reading) => reading.mph)
+    .filter((mph): mph is number => mph !== null);
+  return { kind, directionDeg: earliestBearing(kind), speeds };
+}
+
 function buildPeriod(
   period: "am" | "pm",
   rows: ForecastRow[],
   beach: BeachRow,
 ): BriefingWindPeriod | null {
   if (rows.length === 0) return null;
-  const speeds = rows.map(windMph).filter((value): value is number => value !== null);
-  const degrees = rows.map(windDeg).filter((value): value is number => value !== null);
-  const directionDeg = meanBearing(degrees);
+  const halfDaySpeeds = rows.map(windMph).filter((value): value is number => value !== null);
+  const halfDayTop = halfDaySpeeds.length > 0 ? Math.max(...halfDaySpeeds) : null;
+  const { kind, directionDeg, speeds } = periodWind(rows, beach, halfDayTop);
   const topSpeed = speeds.length > 0 ? Math.max(...speeds) : null;
-  const kind = windKindFor(beach, directionDeg, topSpeed);
   const surfFt = rangeOf(rows);
 
   return {
@@ -565,6 +608,48 @@ function sourceRevision(briefing: SwellBriefing): string {
   );
 }
 
+/** PostgREST's `max_rows` in supabase/config.toml; the hosted cap may differ. */
+const FORECAST_PAGE_SIZE = 1000;
+
+/**
+ * Every forecast row in the window, read a page at a time.
+ *
+ * PostgREST truncates a response at `max_rows` without an error. One read of
+ * the region's ~53 beaches over the week is ~3,500 rows, so it stopped early on
+ * Wednesday and the rest of the week came out uncertain. `(beach_id,
+ * forecast_at)` is unique, so ordering on both is total and pages neither skip
+ * nor repeat a row. The offset advances by what actually came back and only an
+ * empty page ends the read, so a server cap below the page size cannot
+ * truncate it either.
+ */
+async function loadForecastRows(
+  client: Client,
+  beachIds: string[],
+  from: Date,
+  to: Date,
+): Promise<ForecastRow[]> {
+  const rows: ForecastRow[] = [];
+  for (;;) {
+    const offset = rows.length;
+    const { data, error } = await client
+      .from("enhanced_forecasts")
+      .select(
+        "beach_id, forecast_at, wave_height, swell_period_om, swell_direction_om, wind_speed, wind_direction_deg, om_fetched_at, wind_model_run_at, updated_at",
+      )
+      .in("beach_id", beachIds)
+      .gte("forecast_at", from.toISOString())
+      .lte("forecast_at", to.toISOString())
+      .order("forecast_at", { ascending: true })
+      .order("beach_id", { ascending: true })
+      .range(offset, offset + FORECAST_PAGE_SIZE - 1);
+
+    if (error) throw new BriefingInputError("forecast_read_failed");
+    const page = (data ?? []) as unknown as ForecastRow[];
+    if (page.length === 0) return rows;
+    rows.push(...page);
+  }
+}
+
 export async function buildBriefingInput(args: {
   client: Client;
   userId: string;
@@ -604,18 +689,12 @@ export async function buildBriefingInput(args: {
   const horizonEnd = new Date(now.getTime());
   horizonEnd.setUTCDate(horizonEnd.getUTCDate() + WEEK_DAYS + 1);
 
-  const { data: forecastRows, error: forecastError } = await client
-    .from("enhanced_forecasts")
-    .select(
-      "beach_id, forecast_at, wave_height, swell_period_om, swell_direction_om, wind_speed, wind_direction_deg, om_fetched_at, wind_model_run_at, updated_at",
-    )
-    .in("beach_id", [...beaches.keys()])
-    .gte("forecast_at", new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString())
-    .lte("forecast_at", horizonEnd.toISOString())
-    .order("forecast_at", { ascending: true });
-
-  if (forecastError) throw new BriefingInputError("forecast_read_failed");
-  const rows = (forecastRows ?? []) as unknown as ForecastRow[];
+  const rows = await loadForecastRows(
+    client,
+    [...beaches.keys()],
+    new Date(now.getTime() - 12 * 60 * 60 * 1000),
+    horizonEnd,
+  );
   if (rows.length === 0) throw new BriefingInputError("no_forecast_data", 409);
 
   const byDay = groupByDay(rows, region.timezone);
