@@ -1,6 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { selectCurrentEdition, type EditionRow } from "../swell-briefing-store";
+import { briefingArtifactId } from "../swell-briefing-hash";
+import { selectCurrentEdition, toArtifact, type EditionRow } from "../swell-briefing-store";
+import type { SwellBriefingArtifact } from "../swell-briefing-types";
+import fixture from "./fixtures/python-worker-artifact.json";
 
 function row(over: Partial<EditionRow> & { generatedAt: string }): EditionRow {
   const { generatedAt, ...rest } = over;
@@ -57,5 +60,31 @@ describe("selectCurrentEdition", () => {
       row({ artifact_id: "readable", generatedAt: "2026-10-26T05:30:00+00:00" }),
     ];
     expect(selectCurrentEdition(rows).artifact_id).toBe("readable");
+  });
+});
+
+describe("toArtifact", () => {
+  it("reads back an artifact that still hashes to its own id", () => {
+    const artifact = fixture.artifact as unknown as SwellBriefingArtifact;
+    // How PostgREST returns the timestamptz columns the publish wrote.
+    const stored: EditionRow = {
+      artifact_id: artifact.artifactId,
+      user_id: artifact.userId,
+      region: artifact.region,
+      edition_date: artifact.editionDate,
+      input_hash: artifact.inputHash,
+      source_published_at: "2026-10-26T11:50:00+00:00",
+      valid_until: "2026-10-28T06:59:59+00:00",
+      generation_version: artifact.generationVersion,
+      model: artifact.model,
+      briefing: artifact.briefing,
+      provenance: artifact.provenance,
+    };
+
+    const readback = toArtifact(stored);
+
+    expect(readback.sourcePublishedAt).toBe(artifact.sourcePublishedAt);
+    expect(readback.validUntil).toBe(artifact.validUntil);
+    expect(briefingArtifactId(readback as unknown as Record<string, unknown>)).toBe(artifact.artifactId);
   });
 });
