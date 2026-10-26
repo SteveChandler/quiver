@@ -52,7 +52,7 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 /**
  * Get cookie value by name (client-side only)
  */
-function getCookieValue(name: string): string | undefined {
+export function getCookieValue(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
 
   const cookies = document.cookie.split(";");

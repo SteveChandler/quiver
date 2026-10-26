@@ -597,4 +597,5 @@ describe("useGeolocation", () => {
       expect(stored.name).toBe("My Beach");
     });
   });
+
 });

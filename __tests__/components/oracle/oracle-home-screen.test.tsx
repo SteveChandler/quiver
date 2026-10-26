@@ -367,6 +367,11 @@ const MOCK_ORACLE_DATA_BASE = {
   markAnimationPlayed: jest.fn(),
   reducedMotion: false,
   userLocation: { lat: 32.88, lon: -117.25 },
+  origin: { lat: 32.88, lon: -117.25, source: "browser", approximate: false, label: null },
+  locationUnresolved: false,
+  widenedFromMiles: null,
+  nearestBeach: null,
+  scoutFromBeach: jest.fn(),
   geoSource: "browser",
   requestLocation: jest.fn(),
   geoLoading: false,
@@ -458,6 +463,72 @@ describe("OracleHomeScreen", () => {
     );
 
     expect(requestLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks for a place instead of showing a call when no location is known", async () => {
+    const requestLocation = jest.fn();
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      homeBeach: null,
+      discovery: null,
+      topRecommendation: null,
+      userLocation: null,
+      origin: null,
+      locationUnresolved: true,
+      geoSource: "default",
+      requestLocation,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByRole("heading", { name: "Where are you surfing?" })).toBeInTheDocument();
+    expect(screen.queryByText("Today's Windows")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set your home beach" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Use my location" }));
+    expect(requestLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels an approximate origin and a widened drive range on the call", () => {
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      homeBeach: null,
+      origin: { lat: 30.5, lon: -81.4, source: "ip", approximate: true, label: "Testville, ZZ" },
+      widenedFromMiles: 15,
+      geoSource: "default",
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    const notice = screen.getByRole("region", { name: "Discovery location" });
+    expect(notice).toHaveTextContent(
+      "Approximate location · Testville, ZZ — Nothing within 15 mi · showing surf up to 100 mi",
+    );
+    expect(screen.getByText("Today's Windows")).toBeInTheDocument();
+  });
+
+  it("names the nearest beach on an empty result and scouts from it on request", async () => {
+    const scoutFromBeach = jest.fn();
+    const nearestBeach = { id: "near-1", name: "Nearest Point", slug: "nearest-point", lat: 41.1, lon: -71.5, distanceMiles: 212.4 };
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      discovery: {
+        ...MOCK_ORACLE_DATA_BASE.discovery,
+        recommendations: [],
+        sessionDecision: undefined,
+        scope: { nearestBeach },
+      },
+      topRecommendation: null,
+      nearestBeach,
+      scoutFromBeach,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(
+      screen.getByText("Quiver has no beaches within 100 miles of here. The nearest is Nearest Point, 212 mi away."),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Scout from Nearest Point" }));
+    expect(scoutFromBeach).toHaveBeenCalledWith(nearestBeach);
   });
 
   it("keeps populated conditions visible while GPS is resolving", () => {

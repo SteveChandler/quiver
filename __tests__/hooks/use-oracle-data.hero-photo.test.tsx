@@ -9,6 +9,7 @@ jest.mock("@/context/profile-context", () => ({
 }));
 
 jest.mock("@/hooks/use-geolocation", () => ({
+  ...jest.requireActual("@/hooks/use-geolocation"),
   useGeolocation: jest.fn(),
 }));
 
