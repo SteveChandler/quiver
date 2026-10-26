@@ -114,4 +114,30 @@ describe("ZineHeroMedia", () => {
       beachName: "Lower Trestles",
     });
   });
+
+  it("leads with the live cam over a photo or diorama", () => {
+    const sources: BeachSources = {
+      camera_url: "https://cams.example.com/tourmaline.mp4",
+      diorama_url: "/trestles.mp4",
+    };
+    render(
+      <ZineHeroMedia
+        {...mediaProps}
+        hasLiveCam
+        photoUrl="/photo.jpg"
+        sources={sources}
+        attributionHtml="Photo by Jo"
+      />,
+    );
+
+    expect(screen.getByTestId("cam-still")).toBeInTheDocument();
+    expect(jest.mocked(CamsSection).mock.calls[0][0]).toEqual({
+      sources,
+      variant: "hero",
+      beachName: "Lower Trestles",
+    });
+    expect(screen.queryByAltText("Lower Trestles, San Onofre, CA")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Illustrated scene/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Photo by Jo")).not.toBeInTheDocument();
+  });
 });

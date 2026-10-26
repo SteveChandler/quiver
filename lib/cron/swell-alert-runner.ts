@@ -67,6 +67,8 @@ import {
 } from "@/lib/alerts/swell-outlook/engagement";
 import {
   bestWindowSentence,
+  needsDateLabel,
+  swellDayLabel,
   buildFirstSightingPayload,
   FIRST_SIGHTING_BODY_MAX_CHARS,
   firstSightingFaceHeightFt,
@@ -1280,7 +1282,6 @@ async function sendFollowups(
       const beachName = pinned.beach.shortName ?? pinned.beach.name;
       const beachTimezone = resolveBeachTimezone(pinnedBeach.timezone);
       const peakDayLabel = weekday(getLocalDateString(new Date(shown.peakAt), beachTimezone));
-      const previousPeakDayLabel = weekday(getLocalDateString(new Date(state.lastPeakAt), beachTimezone));
       const picked = pickSwellFollowupHeadline({
         kind,
         eventKey: state.eventKey,
@@ -1305,17 +1306,19 @@ async function sendFollowups(
           beach: beachName,
           size: `${formatNumber(shown.faceHeightFt)}ft`,
           period: `${formatNumber(shown.periodS)}s`,
-          day: peakDayLabel,
+          day: swellDayLabel(getLocalDateString(new Date(shown.peakAt), beachTimezone), beachTimezone, now),
           part: peakPart(shown.peakAt, beachTimezone),
           prev_size: `${formatNumber(state.lastFaceHeightFt)}ft`,
-          prev_day: previousPeakDayLabel,
+          prev_day: swellDayLabel(getLocalDateString(new Date(state.lastPeakAt), beachTimezone), beachTimezone, now),
         },
       });
       if (!baseBody) {
         increment(summary, "followup_no_copy");
         continue;
       }
-      const windowSentence = recommended ? bestWindowSentence(recommended) : null;
+      const windowSentence = recommended
+        ? bestWindowSentence(recommended, needsDateLabel(recommended.localDate, recommended.timezone, now))
+        : null;
       let body = baseBody;
       if (windowSentence && body.length + 1 + windowSentence.length <= FIRST_SIGHTING_BODY_MAX_CHARS) {
         body = `${body} ${windowSentence}`;
@@ -1557,7 +1560,7 @@ async function sendFirstSighting(
     });
     const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
     const payload = buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow,
-      anchorSource: profile.anchorSource });
+      anchorSource: profile.anchorSource, now });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,

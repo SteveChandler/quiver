@@ -4,7 +4,6 @@ import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
 import { ZineHeroMedia } from "./zine-hero-media";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
-import { CamsSection } from "@/components/beach-detail/cams-section";
 import {
   SaltyEyebrow,
   SkillBars,
@@ -45,14 +44,15 @@ export function ZineHero({
   const filledStars = rating ? Math.round(parseFloat(rating)) : 0;
   const locationName = [beach.city, beach.state].filter(Boolean).join(", ");
   const HeadingTag = headingLevel;
-  // The hero panel shows real imagery when there is some, else the spot map.
-  // The collapsed section below adds only what the hero did not already show.
+  // The hero panel shows the live cam when there is one, else real imagery,
+  // else the spot map. The collapsed map below appears only when the hero
+  // shows something other than the map.
   const hasLiveCam =
     !!sources?.camera_url && buildCamEmbed(sources.camera_url).kind !== "none";
-  const heroShowsPhoto = !!(
+  const heroShowsImagery = hasLiveCam || !!(
     beachPhoto?.image_url ??
     sources?.diorama_url ??
-    (!hasLiveCam ? sources?.cam_thumbnail_url : null)
+    sources?.cam_thumbnail_url
   );
 
   return (
@@ -156,15 +156,10 @@ export function ZineHero({
         </details>
       </div>
 
-      {/* The photo now leads the hero; the live cam embed and the spot map stay
-          collapsed so no iframe loads with the first paint. */}
-      {hasLiveCam || heroShowsPhoto ? (
-      <details className="mt-4"><summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">{hasLiveCam && heroShowsPhoto ? "Live cam & spot map" : hasLiveCam ? "Live cam" : "Spot map"}</summary><TapedMapPhoto
-        showLiveCam={hasLiveCam}
-        showMap={heroShowsPhoto}
+      {heroShowsImagery ? (
+      <details className="mt-4"><summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">Spot map</summary><TapedMap
         beachName={beach.name}
         locationName={locationName || beach.name}
-        sources={sources}
         lat={beach.lat}
         lon={beach.lon}
         aspectDeg={beach.aspect_deg}
@@ -254,23 +249,17 @@ function ReviewCircle({ count }: { count: number }) {
   );
 }
 
-function TapedMapPhoto({
-  showLiveCam,
-  showMap,
+function TapedMap({
   beachName,
   locationName,
-  sources,
   lat,
   lon,
   aspectDeg,
   breakType,
   features,
 }: {
-  showLiveCam: boolean;
-  showMap: boolean;
   beachName: string;
   locationName: string;
-  sources?: BeachSources | null;
   lat?: number | null;
   lon?: number | null;
   aspectDeg?: number | null;
@@ -279,12 +268,7 @@ function TapedMapPhoto({
 }) {
   return (
     <div className="relative flex flex-col gap-3 md:gap-3.5">
-      {showLiveCam ? (
-        <TapedCamFrame sources={sources!} beachName={beachName} showLiveLabel />
-      ) : null}
-
       {/* Map doodle with location stamp */}
-      {showMap ? (
       <div className="relative" style={{ marginTop: 4 }}>
         <span className="tape tl" aria-hidden />
         <span className="tape br" aria-hidden />
@@ -314,53 +298,6 @@ function TapedMapPhoto({
           breakType={breakType}
           features={features}
         />
-      </div>
-      ) : null}
-    </div>
-  );
-}
-
-function TapedCamFrame({
-  sources,
-  beachName,
-  showLiveLabel,
-}: {
-  sources: BeachSources;
-  beachName: string;
-  showLiveLabel: boolean;
-}) {
-  return (
-    <div className="zine-hero-cam-frame relative">
-      <span className="tape tl" aria-hidden />
-      <span className="tape tr" aria-hidden />
-      {showLiveLabel ? (
-        <div
-          className="absolute z-10 hidden md:block"
-          style={{
-            top: -24,
-            right: 0,
-            fontFamily: "var(--font-mono), monospace",
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            color: "#4A463C",
-          }}
-          aria-hidden
-        >
-          Live now
-        </div>
-      ) : null}
-      <div
-        className="overflow-hidden"
-        style={{
-          border: "3px solid #11100D",
-          borderRadius: 4,
-          boxShadow: "4px 5px 0 rgba(17,16,13,0.3)",
-          background: "#11100D",
-        }}
-      >
-        <CamsSection sources={sources} variant="hero" beachName={beachName} />
       </div>
     </div>
   );
