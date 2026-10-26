@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProfileContext } from "@/context/profile-context";
-import { useGeolocation } from "@/hooks/use-geolocation";
+import { readRecentFix, useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -10,10 +10,15 @@ import { useHomeDiscoveryRequestMetrics } from "@/hooks/use-home-discovery-reque
 import {
   FALLBACK_IMAGE_BY_NAME,
 } from "@/lib/constants/featured-beaches-config";
+import { resolveApproximateOrigin } from "@/lib/location/approximate-origin";
+import { parseIPLocationCookie } from "@/lib/location/ip-location";
+import { IP_LOCATION_COOKIE } from "@/lib/location/types";
+import type { Coordinates } from "@/lib/types/coordinates";
 import type { Profile, Beach } from "@/types/database";
 import type {
   SurfDiscoveryResponse,
   SurfDiscoveryRecommendation,
+  SurfDiscoveryScope,
 } from "@/types/personalization";
 
 // ============================================================================
@@ -27,6 +32,26 @@ export type SessionTimePreference =
   | "afternoon"
   | "evening"
   | "any";
+
+type HomeOriginSource =
+  | "selectedBeach"
+  | "browser"
+  | "recentFix"
+  | "homeBeach"
+  | "ip"
+  | "lastBeach";
+
+/** Where Home scouts from, and how much to trust it. */
+export interface HomeOrigin {
+  lat: number;
+  lon: number;
+  source: HomeOriginSource;
+  /** True for IP and last-beach evidence; the screen says so and offers a correction. */
+  approximate: boolean;
+  label: string | null;
+}
+
+type NearestBeach = NonNullable<SurfDiscoveryScope["nearestBeach"]>;
 
 export interface OracleData {
   profile: Profile | null;
@@ -46,7 +71,16 @@ export interface OracleData {
   shouldAnimate: boolean;
   markAnimationPlayed: () => void;
   reducedMotion: boolean;
-  userLocation: { lat: number; lon: number };
+  /** Coordinates discovery ran from; null until an origin resolves. */
+  userLocation: { lat: number; lon: number } | null;
+  origin: HomeOrigin | null;
+  /** No location evidence at all: the screen asks the surfer to pick a place. */
+  locationUnresolved: boolean;
+  /** The drive range held no beach, so results come from up to 100 miles out. */
+  widenedFromMiles: number | null;
+  /** Nothing within 100 miles; the closest beach the surfer can scout from. */
+  nearestBeach: NearestBeach | null;
+  scoutFromBeach: (beach: NearestBeach) => void;
   geoSource: string;
   requestLocation: () => void;
   geoLoading: boolean;
@@ -60,13 +94,39 @@ export interface OracleData {
 // Constants
 // ============================================================================
 
-const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
-
 const LAST_ORACLE_REVEAL_KEY = "lastOracleReveal";
 
 // ============================================================================
 // Helpers
 // ============================================================================
+
+function readIPCookie(): string | undefined {
+  const prefix = `${IP_LOCATION_COOKIE}=`;
+  const cookie = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+  if (!cookie) return undefined;
+  try {
+    return decodeURIComponent(cookie.slice(prefix.length));
+  } catch {
+    return undefined;
+  }
+}
+
+interface StoredLocationEvidence {
+  recentFix: Coordinates | null;
+  ip: { lat: number; lon: number; label: string } | null;
+}
+
+function readStoredLocationEvidence(): StoredLocationEvidence {
+  const approximate = resolveApproximateOrigin({
+    ip: parseIPLocationCookie(readIPCookie()),
+    browserTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? "",
+    now: new Date(),
+  });
+  return {
+    recentFix: readRecentFix(),
+    ip: approximate ? { lat: approximate.lat, lon: approximate.lon, label: approximate.label } : null,
+  };
+}
 
 function getTodayDateString(): string {
   return new Date().toISOString().split("T")[0];
@@ -94,7 +154,7 @@ function getFallbackImageForBeach(beach: Beach | null): string | null {
  *
  * Composes:
  * - useProfileContext — shared profile + home beach
- * - useGeolocation — GPS with fallback chain (GPS > home beach > San Diego)
+ * - useGeolocation — browser fixes and the last beach a session was logged at
  * - useSurfDiscovery — surf recommendations
  * - Beach photo fetching — with three-tier fallback
  * - Animation state — first-visit-of-day detection via localStorage
@@ -110,10 +170,14 @@ export function useOracleData(): OracleData {
   const { profile, homeBeach, refreshProfile, isLoading: profileLoading } = useProfileContext();
 
   // ------------------------------------------------------------------
-  // Geolocation — explicit GPS > home beach > San Diego default
+  // Origin — scouting choice > browser fix > fix ≤24 h > home beach >
+  // timezone-corroborated IP > last beach. Nothing else: with no evidence the
+  // screen asks for a place instead of borrowing one.
   // ------------------------------------------------------------------
   const homeBeachCoords = useMemo(() => {
-    if (homeBeach?.lat != null && homeBeach?.lon != null) {
+    if (homeBeach?.lat != null && homeBeach?.lon != null &&
+      Number.isFinite(homeBeach.lat) && Math.abs(homeBeach.lat) <= 90 &&
+      Number.isFinite(homeBeach.lon) && Math.abs(homeBeach.lon) <= 180) {
       return { lat: homeBeach.lat, lon: homeBeach.lon };
     }
     return null;
@@ -123,34 +187,62 @@ export function useOracleData(): OracleData {
     coords: geoCoords,
     loading: geoLoading,
     source: geoSource,
-    usingDefaultLocation,
-    requestLocation,
+    lastBeach,
+    requestLocation: requestBrowserLocation,
   } = useGeolocation({
     autoRequest: false,
     enablePolling: true,
     pollingIntervalMs: 5 * 60 * 1000,
     minDistanceChangeMeters: 1000,
     monitoringContext: "home",
-    defaultLocation: homeBeachCoords ?? DEFAULT_LOCATION,
   });
 
-  // Resolve effective user location with fallback chain
-  const userLocation = useMemo((): { lat: number; lon: number } => {
-    // GPS has priority when it's a fresh browser fix
-    if (
-      geoSource === "browser" &&
-      !usingDefaultLocation &&
-      geoCoords?.lat != null &&
-      geoCoords?.lon != null
-    ) {
-      return { lat: geoCoords.lat, lon: geoCoords.lon };
+  // Storage and cookies are read after mount so the server render and the
+  // first client render agree; discovery waits for this.
+  const [storedEvidence, setStoredEvidence] = useState<StoredLocationEvidence | null>(null);
+  useEffect(() => {
+    setStoredEvidence(readStoredLocationEvidence());
+  }, []);
+
+  const [selectedBeach, setSelectedBeach] = useState<NearestBeach | null>(null);
+  const scoutFromBeach = useCallback((beach: NearestBeach): void => {
+    setSelectedBeach(beach);
+  }, []);
+  const requestLocation = useCallback((): void => {
+    setSelectedBeach(null);
+    requestBrowserLocation();
+  }, [requestBrowserLocation]);
+
+  const origin = useMemo((): HomeOrigin | null => {
+    if (!storedEvidence) return null;
+    if (selectedBeach) {
+      return { lat: selectedBeach.lat, lon: selectedBeach.lon, source: "selectedBeach", approximate: false, label: selectedBeach.name };
     }
-    // Home beach as secondary fallback
-    if (homeBeachCoords != null) {
-      return homeBeachCoords;
+    if (geoSource === "browser" && geoCoords) {
+      return { lat: geoCoords.lat, lon: geoCoords.lon, source: "browser", approximate: false, label: null };
     }
-    return DEFAULT_LOCATION;
-  }, [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeachCoords]);
+    if (storedEvidence.recentFix) {
+      return { ...storedEvidence.recentFix, source: "recentFix", approximate: false, label: null };
+    }
+    if (homeBeachCoords) {
+      return { ...homeBeachCoords, source: "homeBeach", approximate: false, label: homeBeach?.name ?? null };
+    }
+    if (storedEvidence.ip) {
+      return { ...storedEvidence.ip, source: "ip", approximate: true };
+    }
+    if (lastBeach) {
+      return { lat: lastBeach.lat, lon: lastBeach.lon, source: "lastBeach", approximate: true, label: lastBeach.name?.trim() || null };
+    }
+    return null;
+  }, [storedEvidence, selectedBeach, geoSource, geoCoords, homeBeachCoords, homeBeach?.name, lastBeach]);
+
+  const originLat = origin?.lat;
+  const originLon = origin?.lon;
+  const userLocation = useMemo(
+    () => originLat !== undefined && originLon !== undefined ? { lat: originLat, lon: originLon } : null,
+    [originLat, originLon],
+  );
+  const locationUnresolved = storedEvidence !== null && !profileLoading && origin === null;
 
   // ------------------------------------------------------------------
   // Skill level (parsed from profile for cache invalidation + frontend display)
@@ -162,63 +254,33 @@ export function useOracleData(): OracleData {
     if (!geoLoading) locationReadyRef.current = true;
   }, [geoLoading]);
   // Later GPS checks must not disable discovery when the coordinates have not changed.
-  const discoveryEnabled = !!profile && (!geoLoading || locationReadyRef.current);
+  const discoveryEnabled =
+    !!profile && userLocation !== null && (!geoLoading || locationReadyRef.current);
 
   // ------------------------------------------------------------------
   // Surf discovery
   // ------------------------------------------------------------------
   const {
-    discovery: primaryDiscovery,
-    loading: primaryLoading,
-    error: primaryError,
+    discovery,
+    loading: discoveryLoading,
+    error,
   } = useSurfDiscovery({
     maxResults: 10,
     horizonHours: 24,
     enabled: discoveryEnabled,
     immediate: true,
     suppressInitialResume: true,
-    userLocation,
+    userLocation: userLocation ?? undefined,
     userSkillLevel,
+    widenEmptyRange: true,
     onRequest: () => recordHomeDiscoveryRequest("primary"),
   });
-
-  // Fallback: if the user's location returns nothing (e.g. Nazaré, inland US,
-  // anywhere without Quiver coverage), retry with San Diego so they see a hero
-  // instead of an empty state. Skip when the primary query is already SD.
-  const primaryRecommendationUnavailable =
-    primaryDiscovery?.recommendationAvailability?.state === "none";
-  const primaryReturnedEmpty =
-    primaryDiscovery !== null &&
-    !primaryRecommendationUnavailable &&
-    (primaryDiscovery.recommendations?.length ?? 0) === 0;
-  const alreadySanDiego =
-    userLocation.lat === DEFAULT_LOCATION.lat &&
-    userLocation.lon === DEFAULT_LOCATION.lon;
-
-  const {
-    discovery: fallbackDiscovery,
-    loading: fallbackLoading,
-    error: fallbackError,
-  } = useSurfDiscovery({
-    maxResults: 10,
-    horizonHours: 24,
-    enabled: discoveryEnabled && primaryReturnedEmpty && !alreadySanDiego,
-    immediate: true,
-    suppressInitialResume: true,
-    userLocation: DEFAULT_LOCATION,
-    userSkillLevel,
-    onRequest: () => recordHomeDiscoveryRequest("fallback"),
-  });
-
-  const shouldUseFallback = primaryReturnedEmpty && !alreadySanDiego;
-  const discovery = shouldUseFallback
-    ? fallbackDiscovery
-    : primaryDiscovery;
-  const discoveryLoading = primaryLoading || (shouldUseFallback && fallbackLoading);
   // Surface a hard error so the consumer can distinguish "still bootstrapping"
   // (discovery hasn't run yet because profile/geo isn't ready) from "discovery
-  // failed." Prefer the active query's error.
-  const discoveryError = (shouldUseFallback ? fallbackError : primaryError) ?? null;
+  // failed."
+  const discoveryError = error ?? null;
+  const widenedFromMiles = discovery?.scope?.widenedFromMiles ?? null;
+  const nearestBeach = discovery?.scope?.nearestBeach ?? null;
 
   const recommendationUnavailable =
     discovery?.recommendationAvailability?.state === "none";
@@ -336,6 +398,11 @@ export function useOracleData(): OracleData {
     markAnimationPlayed,
     reducedMotion,
     userLocation,
+    origin,
+    locationUnresolved,
+    widenedFromMiles,
+    nearestBeach,
+    scoutFromBeach,
     geoSource,
     requestLocation,
     geoLoading,

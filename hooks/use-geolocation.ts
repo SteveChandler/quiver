@@ -20,6 +20,36 @@ type GeoSource = "browser" | "lastUsedBeach" | "default";
 
 const DEFAULT_LAST_BEACH_KEY = "quiver:lastBeach";
 
+export const RECENT_FIX_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const RECENT_FIX_KEY = "quiver:lastGeoFix";
+
+function isValidCoordinates(value: { lat?: unknown; lon?: unknown } | null | undefined): value is Coordinates {
+  return (
+    typeof value?.lat === "number" && Number.isFinite(value.lat) && Math.abs(value.lat) <= 90 &&
+    typeof value?.lon === "number" && Number.isFinite(value.lon) && Math.abs(value.lon) <= 180
+  );
+}
+
+function rememberFix(lat: number, lon: number): void {
+  try {
+    window.localStorage.setItem(RECENT_FIX_KEY, JSON.stringify({ lat, lon, at: Date.now() }));
+  } catch {
+    // A browser fix stays usable for this page when storage is blocked.
+  }
+}
+
+/** The last successful browser fix, if it is at most 24 hours old. */
+export function readRecentFix(now: number = Date.now()): Coordinates | null {
+  try {
+    const fix: (Coordinates & { at?: unknown }) | null = JSON.parse(window.localStorage.getItem(RECENT_FIX_KEY) ?? "null");
+    if (!isValidCoordinates(fix) || typeof fix.at !== "number") return null;
+    const age = now - fix.at;
+    return age >= 0 && age <= RECENT_FIX_MAX_AGE_MS ? { lat: fix.lat, lon: fix.lon } : null;
+  } catch {
+    return null;
+  }
+}
+
 type LastBeachMeta = Coordinates & {
   id?: string;
   name?: string;
@@ -77,11 +107,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       const raw = window.localStorage.getItem(lastBeachStorageKey);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (
-        parsed &&
-        typeof parsed.lat === "number" &&
-        typeof parsed.lon === "number"
-      ) {
+      if (isValidCoordinates(parsed)) {
         return parsed as LastBeachMeta;
       }
       return null;
@@ -239,6 +265,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         clearTimeout(safetyTimeoutRef.current);
         isRequestInFlightRef.current = false; // Clear in-flight flag
         const { latitude, longitude } = position.coords;
+        rememberFix(latitude, longitude);
         reportOutcome("success");
 
         setState((prev) => ({
@@ -321,6 +348,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         (position) => {
           const newLat = position.coords.latitude;
           const newLon = position.coords.longitude;
+          rememberFix(newLat, newLon);
           const currentLat = state.userLocation?.lat ?? 0;
           const currentLon = state.userLocation?.lon ?? 0;
 
@@ -409,5 +437,6 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       void getUserLocation(true, "explicit");
     },
     setLastBeach,
+    lastBeach,
   };
 }

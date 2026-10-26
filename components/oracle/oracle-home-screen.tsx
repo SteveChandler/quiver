@@ -10,6 +10,7 @@ import { HomeCallPlate } from "@/components/oracle/zine/home-call-plate";
 import { HomeZineShell } from "@/components/oracle/zine/home-zine-shell";
 import {
   HomeZineEmpty,
+  HomeLocationNotice,
   HomeZineLoading,
   HomeZineRechecking,
 } from "@/components/oracle/zine/home-zine-states";
@@ -84,6 +85,10 @@ function formatWindowTime(date: Date, timezone: string): string {
 /**
  * Compute relative time string from an ISO date string.
  */
+function formatMiles(miles: number): string {
+  return Math.round(miles).toLocaleString("en-US");
+}
+
 function formatTimeAgo(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const diffMin = Math.floor(diffMs / 60_000);
@@ -810,6 +815,48 @@ export function OracleHomeScreen() {
   // gated by profile and initial location readiness — when those are still
   // pending, discoveryLoading is false AND discovery is null.
   // ------------------------------------------------------------------
+  // Where the call comes from, said plainly whenever it is not the surfer's
+  // own fix or home beach. Home never borrows another region's location.
+  const offerUseMyLocation =
+    oracle.geoSource !== "browser" || oracle.origin?.source === "selectedBeach"
+      ? oracle.requestLocation
+      : undefined;
+  const offerSetHomeBeach = homeBeach ? undefined : handleSetHomeBeach;
+  const originMessage =
+    oracle.origin?.source === "selectedBeach"
+      ? `Scouting from ${oracle.origin.label}`
+      : oracle.origin?.approximate
+        ? `Approximate location · ${
+          oracle.origin.source === "lastBeach"
+            ? `near ${oracle.origin.label ?? "your last session spot"}`
+            : oracle.origin.label
+        }`
+        : null;
+  const widenedMessage =
+    oracle.widenedFromMiles != null
+      ? `Nothing within ${formatMiles(oracle.widenedFromMiles)} mi · showing surf up to 100 mi`
+      : null;
+  const noticeMessage = [originMessage, widenedMessage].filter(Boolean).join(" — ");
+  const locationNotice = noticeMessage ? (
+    <HomeLocationNotice
+      message={noticeMessage}
+      onUseMyLocation={offerUseMyLocation}
+      onSetHomeBeach={offerSetHomeBeach}
+    />
+  ) : null;
+
+  if (oracle.locationUnresolved) {
+    return (
+      <HomeZineEmpty
+        beachName="Your surf"
+        heading="Where are you surfing?"
+        reason="Share your location or set a home beach and Quiver will make the call from there."
+        onUseMyLocation={oracle.requestLocation}
+        onSetHomeBeach={handleSetHomeBeach}
+      />
+    );
+  }
+
   const hasDefinitiveDiscoveryAnswer =
     oracle.discovery !== null || !!oracle.discoveryError;
   const isBootstrapping =
@@ -849,17 +896,26 @@ export function OracleHomeScreen() {
   // honest empty card with a retry affordance instead of letting
   // `parseNumeric(undefined) → 0` leak phantom zeros into the hero UI.
   if (!heroRec) {
+    const nearestBeach =
+      !recommendationsUnavailable && !oracle.discoveryError ? oracle.nearestBeach : null;
     const reason = recommendationsUnavailable
       ? "Session picks aren't available right now."
       : oracle.discoveryError
         ? "We couldn't load conditions for your area."
-        : isNoSurfDecision(sessionDecision?.verdict, sessionDecision?.reasonCode)
-          ? "Doesn't look like a good time to surf."
-          : "We couldn't find any surf spots near you right now.";
+        : nearestBeach
+          ? `Quiver has no beaches within 100 miles of here. The nearest is ${nearestBeach.name}, ${formatMiles(nearestBeach.distanceMiles)} mi away.`
+          : isNoSurfDecision(sessionDecision?.verdict, sessionDecision?.reasonCode)
+            ? "Doesn't look like a good time to surf."
+            : "We couldn't find any surf spots near you right now.";
     return (
       <HomeZineEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
         reason={reason}
+        notice={locationNotice}
+        scoutFrom={nearestBeach ? {
+          beachName: nearestBeach.name,
+          onSelect: () => oracle.scoutFromBeach(nearestBeach),
+        } : undefined}
         onSetHomeBeach={
           recommendationsUnavailable || homeBeach
             ? undefined
@@ -879,6 +935,7 @@ export function OracleHomeScreen() {
   // ------------------------------------------------------------------
   return (
     <HomeZineShell>
+      {locationNotice}
       {/* Desktop is two panes, the way Surfline and AllTrails split place from
           plan: the beach and its call on the left, the day's windows and
           what's around pinned beside it. Below lg it stacks in reading order. */}
