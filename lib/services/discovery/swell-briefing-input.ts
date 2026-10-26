@@ -565,6 +565,45 @@ function sourceRevision(briefing: SwellBriefing): string {
   );
 }
 
+/** Matches PostgREST's `max_rows` (supabase/config.toml), the most one response returns. */
+const FORECAST_PAGE_SIZE = 1000;
+
+/**
+ * Every forecast row in the window, read a page at a time.
+ *
+ * PostgREST truncates a response at `max_rows` without an error. One read of
+ * the region's ~53 beaches over the week is ~3,500 rows, so it stopped early on
+ * Wednesday and the rest of the week came out uncertain. `(beach_id,
+ * forecast_at)` is unique, so ordering on both is total and no row can fall
+ * between pages or land on two of them.
+ */
+async function loadForecastRows(
+  client: Client,
+  beachIds: string[],
+  from: Date,
+  to: Date,
+): Promise<ForecastRow[]> {
+  const rows: ForecastRow[] = [];
+  for (let offset = 0; ; offset += FORECAST_PAGE_SIZE) {
+    const { data, error } = await client
+      .from("enhanced_forecasts")
+      .select(
+        "beach_id, forecast_at, wave_height, swell_period_om, swell_direction_om, wind_speed, wind_direction_deg, om_fetched_at, wind_model_run_at, updated_at",
+      )
+      .in("beach_id", beachIds)
+      .gte("forecast_at", from.toISOString())
+      .lte("forecast_at", to.toISOString())
+      .order("forecast_at", { ascending: true })
+      .order("beach_id", { ascending: true })
+      .range(offset, offset + FORECAST_PAGE_SIZE - 1);
+
+    if (error) throw new BriefingInputError("forecast_read_failed");
+    const page = (data ?? []) as unknown as ForecastRow[];
+    rows.push(...page);
+    if (page.length < FORECAST_PAGE_SIZE) return rows;
+  }
+}
+
 export async function buildBriefingInput(args: {
   client: Client;
   userId: string;
@@ -604,18 +643,12 @@ export async function buildBriefingInput(args: {
   const horizonEnd = new Date(now.getTime());
   horizonEnd.setUTCDate(horizonEnd.getUTCDate() + WEEK_DAYS + 1);
 
-  const { data: forecastRows, error: forecastError } = await client
-    .from("enhanced_forecasts")
-    .select(
-      "beach_id, forecast_at, wave_height, swell_period_om, swell_direction_om, wind_speed, wind_direction_deg, om_fetched_at, wind_model_run_at, updated_at",
-    )
-    .in("beach_id", [...beaches.keys()])
-    .gte("forecast_at", new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString())
-    .lte("forecast_at", horizonEnd.toISOString())
-    .order("forecast_at", { ascending: true });
-
-  if (forecastError) throw new BriefingInputError("forecast_read_failed");
-  const rows = (forecastRows ?? []) as unknown as ForecastRow[];
+  const rows = await loadForecastRows(
+    client,
+    [...beaches.keys()],
+    new Date(now.getTime() - 12 * 60 * 60 * 1000),
+    horizonEnd,
+  );
   if (rows.length === 0) throw new BriefingInputError("no_forecast_data", 409);
 
   const byDay = groupByDay(rows, region.timezone);
