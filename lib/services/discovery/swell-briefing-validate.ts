@@ -86,7 +86,8 @@ function withCopy(
   return {
     ...base,
     generatedAt,
-    headline: pick("headline", base.headline) ?? base.headline,
+    // A null headline is refused before this runs, so `pick` returns text here.
+    headline: pick("headline", base.headline) as string,
     today: { ...base.today, call: pick("todayCall", base.today.call) },
     next48: (base.next48 ?? []).map((day) => ({ ...day, note: pick(`next48:${day.date}`, day.note) })),
     week: (base.week ?? []).map((day) => ({ ...day, caveat: pick(`week:${day.date}`, day.caveat) })),
@@ -102,34 +103,62 @@ function allowedTexts(facts: BriefingCopyFact[], slot: string): Set<string> {
 }
 
 /**
+ * ISO 8601 with a time and an explicit zone: `Z` or `+HH:MM`. `Date.parse` alone
+ * also accepts RFC 2822 and zone-less forms, and a zone-less string is read in
+ * the server's own timezone - so the bound check and the time a reader is shown
+ * could disagree. Python's `isoformat()` on an aware datetime always matches.
+ */
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * Timestamp failures share one status so the worker, which logs only the HTTP
+ * status and never the body, can tell a clock or stamping problem apart from a
+ * tampered artifact (400) or a policy refusal (403).
+ */
+const TIMESTAMP_STATUS = 422;
+
+function serverInstant(value: string): number {
+  const parsed = Date.parse(value);
+  // These come from the input this server issued. If one is unreadable the
+  // bounds below cannot be enforced, so refuse rather than quietly skip them.
+  if (!Number.isFinite(parsed)) throw new BriefingValidationError("input_timestamps_invalid", 500);
+  return parsed;
+}
+
+/**
  * The generation time is the worker's, because it is the moment the edition
  * was actually written - the footer reads "Updated" from it. It is bounded so
  * it cannot be used to misrepresent the edition: not before the input it was
  * built from was issued, not in the future, and not after that input expired.
  *
- * It is deliberately separate from `dataAt` and `sourcePublishedAt`, which stay
- * the server's. Re-running the model makes a fresh edition, never a fresh
- * forecast, and serving recomputes freshness from `dataAt`.
+ * The lower bound is the input's first issue time, and that is deliberately not
+ * tightened to "near now". The worker retries a cached artifact without
+ * regenerating it, so an edition written at 05:30 whose upload failed is
+ * legitimately sent at 09:00 when the machine wakes. Nothing about freshness
+ * rests on this value either: serving computes freshness from `dataAt`, which
+ * stays the server's, so a backdated "Updated" cannot make old data look new.
  */
 function assertGeneratedAt(
   value: unknown,
   input: SwellBriefingInputSnapshot,
   now: Date,
 ): string {
-  if (typeof value !== "string") throw new BriefingValidationError("generated_at_invalid");
+  if (typeof value !== "string" || !ISO_INSTANT.test(value)) {
+    throw new BriefingValidationError("generated_at_invalid", TIMESTAMP_STATUS);
+  }
   const generated = Date.parse(value);
-  if (!Number.isFinite(generated)) throw new BriefingValidationError("generated_at_invalid");
+  if (!Number.isFinite(generated)) {
+    throw new BriefingValidationError("generated_at_invalid", TIMESTAMP_STATUS);
+  }
 
-  const issued = Date.parse(input.briefing.generatedAt);
-  if (Number.isFinite(issued) && generated < issued - GENERATION_CLOCK_SKEW_MS) {
-    throw new BriefingValidationError("generated_before_input");
+  if (generated < serverInstant(input.briefing.generatedAt) - GENERATION_CLOCK_SKEW_MS) {
+    throw new BriefingValidationError("generated_before_input", TIMESTAMP_STATUS);
   }
   if (generated > now.getTime() + GENERATION_CLOCK_SKEW_MS) {
-    throw new BriefingValidationError("generated_in_future");
+    throw new BriefingValidationError("generated_in_future", TIMESTAMP_STATUS);
   }
-  const validUntil = Date.parse(input.validUntil);
-  if (Number.isFinite(validUntil) && generated > validUntil) {
-    throw new BriefingValidationError("generated_after_expiry");
+  if (generated > serverInstant(input.validUntil)) {
+    throw new BriefingValidationError("generated_after_expiry", TIMESTAMP_STATUS);
   }
   return value;
 }
@@ -194,7 +223,7 @@ export function assertArtifactMatchesInput(
   if (artifact.validUntil !== input.validUntil) throw new BriefingValidationError("valid_until_mismatch");
 
   // A snapshot built from a development fixture is never publishable.
-  if (input.provenance?.fixture === true) throw new BriefingValidationError("fixture_not_publishable", 422);
+  if (input.provenance?.fixture === true) throw new BriefingValidationError("fixture_not_publishable", 403);
 
   const generatedAt = assertGeneratedAt(artifact.briefing.generatedAt, input, now);
 

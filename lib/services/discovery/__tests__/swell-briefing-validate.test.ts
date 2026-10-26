@@ -350,3 +350,110 @@ describe("assertArtifactMatchesInput against a real worker artifact", () => {
     });
   });
 });
+
+describe("generation-time bounds at their edges", () => {
+  type Fixture = { snapshot: SwellBriefingInputSnapshot; artifact: SwellBriefingArtifact; serverNow: string };
+  const fixture = workerFixture as unknown as Fixture;
+  const now = new Date(fixture.serverNow); // 12:32:00Z; input issued 12:00:00Z
+
+  function at(generatedAt: string): SwellBriefingArtifact {
+    const copy = JSON.parse(JSON.stringify(fixture.artifact)) as SwellBriefingArtifact;
+    copy.briefing.generatedAt = generatedAt;
+    return copy;
+  }
+  function status(run: () => void): number | null {
+    try { run(); } catch (error) { if (error instanceof BriefingValidationError) return error.status; throw error; }
+    return null;
+  }
+
+  it("allows exactly five minutes before the input was issued, and no more", () => {
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-26T11:55:00.000Z"), fixture.snapshot, now))).toBe("no_error");
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-26T11:54:59.999Z"), fixture.snapshot, now))).toBe("generated_before_input");
+  });
+
+  it("allows exactly five minutes of clock lead, and no more", () => {
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-26T12:37:00.000Z"), fixture.snapshot, now))).toBe("no_error");
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-26T12:37:00.001Z"), fixture.snapshot, now))).toBe("generated_in_future");
+  });
+
+  it("allows a time equal to the input's expiry, and not after", () => {
+    const late = new Date("2026-10-28T07:00:00.000Z");
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-28T06:59:59.000Z"), fixture.snapshot, late))).toBe("no_error");
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-28T06:59:59.001Z"), fixture.snapshot, late))).toBe("generated_after_expiry");
+  });
+
+  it("accepts the worker's own forms, with and without microseconds", () => {
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-26T12:31:07+00:00"), fixture.snapshot, now))).toBe("no_error");
+    expect(reason(() => assertArtifactMatchesInput(at("2026-10-26T12:31:07.123456+00:00"), fixture.snapshot, now))).toBe("no_error");
+  });
+
+  it("refuses forms Date.parse would accept but ISO does not", () => {
+    for (const lenient of [
+      "Mon, 26 Oct 2026 12:31:07 GMT",
+      "2026-10-26T12:31:07", // zone-less: read in the server's own zone
+      "10/26/2026 12:31",
+      "2026-10-26 12:31:07Z",
+    ]) {
+      expect(reason(() => assertArtifactMatchesInput(at(lenient), fixture.snapshot, now))).toBe("generated_at_invalid");
+    }
+  });
+
+  it("reports every timestamp failure as 422, so the worker can tell skew from tampering", () => {
+    expect(status(() => assertArtifactMatchesInput(at("2026-10-26T13:00:00.000Z"), fixture.snapshot, now))).toBe(422);
+    expect(status(() => assertArtifactMatchesInput(at("2026-10-26T10:00:00.000Z"), fixture.snapshot, now))).toBe(422);
+    expect(status(() => assertArtifactMatchesInput(at("nope"), fixture.snapshot, now))).toBe(422);
+  });
+
+  it("refuses rather than skips its bounds when the issued input's times are unreadable", () => {
+    // The issued generation time sets the lower bound.
+    const badIssue = {
+      ...fixture.snapshot,
+      briefing: { ...fixture.snapshot.briefing, generatedAt: "not a time" },
+    };
+    expect(reason(() => assertArtifactMatchesInput(fixture.artifact, badIssue, now)))
+      .toBe("input_timestamps_invalid");
+
+    // The expiry sets the upper bound; it has to match on both sides to reach it.
+    const badExpiry = { ...fixture.snapshot, validUntil: "not a time" };
+    const artifact = { ...fixture.artifact, validUntil: "not a time" };
+    expect(reason(() => assertArtifactMatchesInput(artifact, badExpiry, now)))
+      .toBe("input_timestamps_invalid");
+  });
+});
+
+describe("copy clearing and typing", () => {
+  type Fixture = { snapshot: SwellBriefingInputSnapshot; artifact: SwellBriefingArtifact; serverNow: string };
+  const fixture = workerFixture as unknown as Fixture;
+  const now = new Date(fixture.serverNow);
+
+  function mutated(change: (briefing: SwellBriefing) => void): SwellBriefingArtifact {
+    const copy = JSON.parse(JSON.stringify(fixture.artifact)) as SwellBriefingArtifact;
+    change(copy.briefing);
+    return copy;
+  }
+
+  it("lets the model clear a slot it was offered", () => {
+    const artifact = mutated((b) => { b.week[1].caveat = null; });
+    expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now))).toBe("no_error");
+  });
+
+  it("refuses a non-text value in a slot the model may fill", () => {
+    const artifact = mutated((b) => { (b.today as unknown as { call: unknown }).call = 42; });
+    expect(reason(() => assertArtifactMatchesInput(artifact, fixture.snapshot, now))).toBe("copy_not_text");
+  });
+
+  it("refuses publishing a fixture as a policy refusal, not a timestamp failure", () => {
+    const snapshot = {
+      ...fixture.snapshot,
+      provenance: { ...fixture.snapshot.provenance, fixture: true },
+    };
+    let refusal: BriefingValidationError | null = null;
+    try {
+      assertArtifactMatchesInput(fixture.artifact, snapshot, now);
+    } catch (error) {
+      refusal = error as BriefingValidationError;
+    }
+    expect(refusal?.message).toBe("fixture_not_publishable");
+    expect(refusal?.status).toBe(403);
+  });
+});

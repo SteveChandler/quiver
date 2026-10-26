@@ -1,4 +1,6 @@
 {
+  "generator": "lib/services/discovery/__tests__/fixtures/generate-python-worker-artifact.py",
+  "workerCommit": "a305787e0de93c1d9560d173b077711afe766c36",
   "snapshot": {
     "schemaVersion": 1,
     "userId": "bcdc5d59-2e22-4006-98a6-cada8618577a",
