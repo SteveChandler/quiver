@@ -159,7 +159,7 @@ export async function publishBriefingEdition(
   };
 }
 
-interface EditionRow {
+export interface EditionRow {
   artifact_id: string;
   user_id: string;
   region: string;
@@ -176,9 +176,27 @@ interface EditionRow {
 const EDITION_COLUMNS =
   "artifact_id, user_id, region, edition_date, input_hash, source_published_at, valid_until, generation_version, model, briefing, provenance";
 
+/** How many recent revisions to consider when choosing the current edition. */
+const LATEST_CANDIDATE_ROWS = 20;
+
+function generatedMs(row: EditionRow): number {
+  const parsed = Date.parse(row.briefing?.generatedAt ?? "");
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
 /**
- * The newest edition for an account. Ordered by the source behind it before the
- * row's own insert time, so a late upload of an older source never wins.
+ * The current edition for an account.
+ *
+ * The newest day wins, then the newest source behind it, and within that the
+ * most recently *generated* revision - not the most recently inserted. The
+ * generation time is the worker's, so two runs over one input make two
+ * artifacts, and the upload of the older one can land second. Ordering by
+ * insert time would let it replace the newer edition and send the footer's
+ * "Updated" time backwards; ordering by generation time cannot.
+ *
+ * Revisions are all retained. Choosing among the few most recent is done here
+ * rather than in SQL because the generation time lives inside the stored
+ * briefing; the insert order is kept as the tiebreak.
  */
 export async function loadLatestBriefingEdition(
   client: Client,
@@ -193,12 +211,27 @@ export async function loadLatestBriefingEdition(
     .order("edition_date", { ascending: false })
     .order("source_published_at", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(LATEST_CANDIDATE_ROWS);
 
   if (error) throw new BriefingStoreError("briefing_edition_read_failed", 503);
-  if (!data) return null;
-  return toArtifact(data as EditionRow);
+  const rows = (data ?? []) as EditionRow[];
+  if (rows.length === 0) return null;
+
+  return toArtifact(selectCurrentEdition(rows));
+}
+
+/**
+ * Picks the current revision from rows already ordered newest day, newest
+ * source, newest insert. Exported for testing; the sort is stable, so equal
+ * generation times keep the insert order as the tiebreak.
+ */
+export function selectCurrentEdition(rows: EditionRow[]): EditionRow {
+  const [head] = rows;
+  const sameEdition = rows.filter(
+    (row) => row.edition_date === head.edition_date
+      && row.source_published_at === head.source_published_at,
+  );
+  return [...sameEdition].sort((a, b) => generatedMs(b) - generatedMs(a))[0];
 }
 
 function toArtifact(row: EditionRow): SwellBriefingArtifact {

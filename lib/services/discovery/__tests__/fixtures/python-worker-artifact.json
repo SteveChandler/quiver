@@ -1,0 +1,238 @@
+{
+  "generator": "lib/services/discovery/__tests__/fixtures/generate-python-worker-artifact.py",
+  "workerCommit": "a305787e0de93c1d9560d173b077711afe766c36",
+  "snapshot": {
+    "schemaVersion": 1,
+    "userId": "bcdc5d59-2e22-4006-98a6-cada8618577a",
+    "region": "san-diego",
+    "editionDate": "2026-10-26",
+    "sourcePublishedAt": "2026-10-26T11:50:00.000Z",
+    "validUntil": "2026-10-28T06:59:59.000Z",
+    "briefing": {
+      "editionDate": "2026-10-26",
+      "regionLabel": "San Diego",
+      "headline": "Today's surf across the region.",
+      "generatedAt": "2026-10-26T12:00:00.000Z",
+      "dataAt": "2026-10-26T11:50:00.000Z",
+      "freshness": "fresh",
+      "photo": null,
+      "today": {
+        "date": "2026-10-26",
+        "exposures": [
+          {
+            "exposure": "south_facing",
+            "label": "South-facing",
+            "surfFt": {
+              "min": 2,
+              "max": 3.5
+            },
+            "surfLabel": "waist – chest",
+            "beach": {
+              "id": "80efa1c0-37a2-4879-819b-647ae3c3d749",
+              "name": "Cardiff Reef"
+            }
+          }
+        ],
+        "primaryDirectionDeg": 202,
+        "primaryDirectionLabel": "SSW SWELL",
+        "primaryPeriodS": 12.35,
+        "call": null
+      },
+      "next48": [
+        {
+          "date": "2026-10-27",
+          "note": "Cleanest early.",
+          "periods": [
+            {
+              "period": "am",
+              "kind": "offshore",
+              "label": "OFFSHORE",
+              "speedLabel": "5 – 10 mph",
+              "speedMph": 10,
+              "directionDeg": 45,
+              "surfFt": {
+                "min": 2,
+                "max": 3
+              },
+              "surfLabel": "waist high"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-28",
+          "note": "Backend note, no candidates.",
+          "periods": []
+        }
+      ],
+      "week": [
+        {
+          "date": "2026-10-26",
+          "surfFt": {
+            "min": 2,
+            "max": 3.5
+          },
+          "trend": "small",
+          "label": "Small",
+          "uncertain": false,
+          "highlightLabel": null,
+          "caveat": null,
+          "beach": null
+        },
+        {
+          "date": "2026-10-27",
+          "surfFt": {
+            "min": 3,
+            "max": 5
+          },
+          "trend": "building",
+          "label": "Building",
+          "uncertain": false,
+          "highlightLabel": null,
+          "caveat": null,
+          "beach": null
+        }
+      ],
+      "advisories": []
+    },
+    "copyFacts": [
+      {
+        "id": "headline-small",
+        "slot": "headline",
+        "text": "Small to start the week."
+      },
+      {
+        "id": "today-qualified",
+        "slot": "todayCall",
+        "text": "An early check may be worthwhile."
+      },
+      {
+        "id": "next48-clean-2026-10-27",
+        "slot": "next48:2026-10-27",
+        "text": "Cleanest early."
+      },
+      {
+        "id": "week-builds-2026-10-27",
+        "slot": "week:2026-10-27",
+        "text": "More size arriving."
+      }
+    ],
+    "provenance": {
+      "sourceIds": [
+        "enhanced_forecasts:san-diego:2026-10-26"
+      ],
+      "sourceHashes": [
+        "abc"
+      ],
+      "generationInputVersion": "1"
+    },
+    "inputHash": "581b61c1947a40d4f35eb2ba66f4474ecc752d373b47f0ed4f48d361aeceb458"
+  },
+  "artifact": {
+    "schemaVersion": 1,
+    "userId": "bcdc5d59-2e22-4006-98a6-cada8618577a",
+    "region": "san-diego",
+    "editionDate": "2026-10-26",
+    "inputHash": "581b61c1947a40d4f35eb2ba66f4474ecc752d373b47f0ed4f48d361aeceb458",
+    "sourcePublishedAt": "2026-10-26T11:50:00.000Z",
+    "validUntil": "2026-10-28T06:59:59.000Z",
+    "generationVersion": "swell-briefing-1",
+    "model": "gemma4:12b-32k",
+    "briefing": {
+      "editionDate": "2026-10-26",
+      "regionLabel": "San Diego",
+      "headline": "Small to start the week.",
+      "generatedAt": "2026-10-26T12:31:07.123456+00:00",
+      "dataAt": "2026-10-26T11:50:00.000Z",
+      "freshness": "fresh",
+      "photo": null,
+      "today": {
+        "date": "2026-10-26",
+        "exposures": [
+          {
+            "exposure": "south_facing",
+            "label": "South-facing",
+            "surfFt": {
+              "min": 2,
+              "max": 3.5
+            },
+            "surfLabel": "waist – chest",
+            "beach": {
+              "id": "80efa1c0-37a2-4879-819b-647ae3c3d749",
+              "name": "Cardiff Reef"
+            }
+          }
+        ],
+        "primaryDirectionDeg": 202,
+        "primaryDirectionLabel": "SSW SWELL",
+        "primaryPeriodS": 12.35,
+        "call": "An early check may be worthwhile."
+      },
+      "next48": [
+        {
+          "date": "2026-10-27",
+          "note": null,
+          "periods": [
+            {
+              "period": "am",
+              "kind": "offshore",
+              "label": "OFFSHORE",
+              "speedLabel": "5 – 10 mph",
+              "speedMph": 10,
+              "directionDeg": 45,
+              "surfFt": {
+                "min": 2,
+                "max": 3
+              },
+              "surfLabel": "waist high"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-28",
+          "note": "Backend note, no candidates.",
+          "periods": []
+        }
+      ],
+      "week": [
+        {
+          "date": "2026-10-26",
+          "surfFt": {
+            "min": 2,
+            "max": 3.5
+          },
+          "trend": "small",
+          "label": "Small",
+          "uncertain": false,
+          "highlightLabel": null,
+          "caveat": null,
+          "beach": null
+        },
+        {
+          "date": "2026-10-27",
+          "surfFt": {
+            "min": 3,
+            "max": 5
+          },
+          "trend": "building",
+          "label": "Building",
+          "uncertain": false,
+          "highlightLabel": null,
+          "caveat": "More size arriving.",
+          "beach": null
+        }
+      ],
+      "advisories": []
+    },
+    "provenance": {
+      "sourceIds": [
+        "enhanced_forecasts:san-diego:2026-10-26"
+      ],
+      "sourceHashes": [
+        "abc"
+      ],
+      "generationInputVersion": "1"
+    },
+    "artifactId": "0f1dd85788a9597e6220fd47328191b173ad53f482c9d86d7a284cdcdb4eb78a"
+  },
+  "serverNow": "2026-10-26T12:32:00.000Z"
+}
