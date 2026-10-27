@@ -188,6 +188,8 @@ export interface EnhancedForecastEntity {
   next_tide_height?: string | null;
   /** UTC timestamp of next tide event (ISO 8601) for timezone-aware formatting */
   next_tide_at?: string | null;
+  /** Signed tide rate in ft/h (+ rising) at this row; set on hourly-bridged rows. */
+  tide_rate_ft_per_hour?: number | null;
   /** NOAA CO-OPS station ID used for tide data (e.g., "9410230" for La Jolla) */
   coops_station_id?: string | null;
   weather_condition?: string | null;
