@@ -24,6 +24,12 @@ import {
   isWeekScoutSwellsEnabled,
   isWeekScoutSwellsUserAllowed,
 } from '@/lib/flags/week-scout-swells';
+import {
+  isWeekScoutNotesUser,
+  liveWeekScoutNotes,
+  loadWeekScoutNotesEdition,
+} from '@/lib/services/discovery/week-scout-notes-serve';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -289,6 +295,13 @@ async function weekScoutHandler(
   // The preference only narrows the pick; if it can't be read, rank every window.
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
+  // The saved edition does not depend on the ranking, so it loads alongside it.
+  // Never rejects: any failure is a Week Scout without notes.
+  const pendingNotes = isWeekScoutNotesUser(user.id)
+    ? Promise.resolve()
+      .then(() => loadWeekScoutNotesEdition({ client: createSupabaseServiceRoleClient(), userId: user.id, now: new Date() }))
+      .catch(() => null)
+    : null;
   const forecast = await generateWeekScoutForecast(user.id, {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
@@ -303,6 +316,13 @@ async function weekScoutHandler(
     ...(swellsEnabled ? { includeSwells: true } : {}),
   });
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
+  const notesEdition = pendingNotes ? await pendingNotes : null;
+  let weekScoutNotes: ReturnType<typeof liveWeekScoutNotes> = null;
+  try {
+    weekScoutNotes = notesEdition ? liveWeekScoutNotes(notesEdition, forecast) : null;
+  } catch (error) {
+    console.warn('Week Scout notes failed; omitting notes', error);
+  }
   const coverage = completeRadiusScope?.kind === 'complete-radius'
     ? {
         scope: {
@@ -325,6 +345,9 @@ async function weekScoutHandler(
     ...(candidateBeaches ? { candidateBeaches } : {}),
     ...(coverage ? { coverage } : {}),
     ...(swellsEnabled && swells ? { swells } : {}),
+    // Pilot-only and additive: each field is present only when a gated note survived.
+    ...(weekScoutNotes?.headline ? { headline: weekScoutNotes.headline } : {}),
+    ...(weekScoutNotes?.notes ? { notes: weekScoutNotes.notes } : {}),
   });
 }
 
