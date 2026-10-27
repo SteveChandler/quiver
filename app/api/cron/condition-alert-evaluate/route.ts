@@ -70,6 +70,7 @@ function watchedCallPayload(args: {
   evaluation: ReturnType<typeof evaluateWatchedCall>;
   watched: NonNullable<AlertConditions["watched_call"]>;
   beachName: string;
+  ruleId: string;
 }): Record<string, unknown> | null {
   if (args.evaluation.delivery !== "eligible") return null;
   const current = args.evaluation.update?.currentIdentity.recommendation;
@@ -91,7 +92,8 @@ function watchedCallPayload(args: {
   return {
     category,
     cause: args.evaluation.update?.cause ?? "window_passed",
-    alert_rule_id: args.evaluation.update?.priorIdentity.alertRule.id,
+    // post_window evaluations carry no update, so take the id from the rule itself.
+    alert_rule_id: args.ruleId,
     beach_id: current?.beachId ?? args.watched.beachId,
     beach_name: args.beachName,
     recommendation_id: current?.recommendationId ?? args.watched.recommendationId,
@@ -331,6 +333,7 @@ export async function GET(request: Request) {
                 evaluation: args.evaluation,
                 watched: args.watched,
                 beachName: args.beach.name,
+                ruleId: args.rule.id,
               });
               if (!payload || args.evaluation.delivery !== "eligible") {
                 result.skipped++;
