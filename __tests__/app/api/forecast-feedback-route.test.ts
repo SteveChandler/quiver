@@ -4,6 +4,7 @@
 
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/forecast-feedback/route";
+import { isHourlyBridgeEnabledForAny } from "@/lib/flags/tide-swing";
 
 const mockUser = { id: "user-1" };
 const mockSupabase = { from: jest.fn() };
@@ -440,6 +441,54 @@ describe("POST /api/forecast-feedback on a bridged hour", () => {
     mockFeedbackInsertSingle.mockResolvedValue({
       data: { id: "feedback-row-1", contract_version: "forecast-feedback-context.v1", correlation_id: "corr-client" },
       error: null,
+    });
+    process.env = { ...originalEnv, HOURLY_BRIDGE_ENABLED: "true" };
+    delete process.env.HOURLY_BRIDGE_SURFACES;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  describe("with the hourly bridge off on every surface", () => {
+    beforeEach(() => {
+      delete process.env.HOURLY_BRIDGE_ENABLED;
+    });
+
+    it("fails a vote on an hour with no stored row after one exact lookup, as before the bridge", async () => {
+      const { upsert, queries } = serveForecastRows(stored);
+
+      const response = await POST(requestWithBody(basePayload({
+        forecastAt: "2026-05-24T14:00:00.000Z",
+        sourceModelContext: { hourly_bridge: { from: "2026-05-24T12:00:00.000Z" } },
+      })));
+
+      expect(response.status).toBe(500);
+      expect(queries).toEqual([{ "eq:beach_id": BEACH, "eq:forecast_at": "2026-05-24T14:00:00.000Z" }]);
+      expect(upsert).not.toHaveBeenCalled();
+      expect(mockFeedbackInsert).not.toHaveBeenCalled();
+    });
+
+    it("stores a stored hour's audit metadata untouched", async () => {
+      const { upsert } = serveForecastRows(stored);
+
+      await POST(requestWithBody(basePayload({
+        forecastAt: "2026-05-24T15:00:00.000Z",
+        auditMetadata: { surface: "forecast_tab", forecast_target: { resolved_forecast_id: "client" } },
+      })));
+
+      expect(upsert.mock.calls[0][0]).toMatchObject({ forecast_id: ROW_15 });
+      expect(storedContext().audit_metadata).toEqual({
+        surface: "forecast_tab",
+        forecast_target: { resolved_forecast_id: "client" },
+      });
+    });
+
+    it("leaves isHourlyBridgeEnabledForAny false and true with any one surface on", () => {
+      expect(isHourlyBridgeEnabledForAny()).toBe(false);
+      process.env.HOURLY_BRIDGE_ENABLED = "true";
+      process.env.HOURLY_BRIDGE_SURFACES = "scored";
+      expect(isHourlyBridgeEnabledForAny()).toBe(true);
     });
   });
 

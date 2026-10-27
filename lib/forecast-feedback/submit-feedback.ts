@@ -4,6 +4,7 @@ import {
   type ForecastFeedbackClientPayload,
 } from "@/lib/services/forecast/forecast-feedback";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { isHourlyBridgeEnabledForAny } from "@/lib/flags/tide-swing";
 import type { SupabaseServerClient } from "@/types/supabase";
 import type { Database, Json } from "@/types/database.generated";
 
@@ -127,6 +128,8 @@ async function resolveForecastTarget(
     .maybeSingle();
   if (exact.error) return { id: null, error: true, resolution: null };
   if (exact.data?.id) return { id: exact.data.id, error: false, resolution: null };
+  // Without the bridge no client shows an hour between stored rows: a miss is a miss.
+  if (!isHourlyBridgeEnabledForAny()) return { id: null, error: false, resolution: null };
 
   const requestedMs = Date.parse(input.forecastAt);
   const floorMs = requestedMs - BRIDGED_HOUR_REACH_MS;
@@ -170,6 +173,21 @@ async function resolveForecastTarget(
   return prior.data?.id && within(Date.parse(prior.data.forecast_at))
     ? resolved(prior.data, "prior_stored_row")
     : { id: null, error: false, resolution: null };
+}
+
+/**
+ * The stored context keeps the hour the client showed; the audit trail names the row a bridged
+ * hour was filed against. The key is server-owned, so a client value never stands.
+ */
+async function withForecastTarget(
+  input: ForecastFeedbackClientPayload,
+  pending: Promise<ForecastTarget> | null,
+): Promise<ForecastFeedbackClientPayload> {
+  const resolution = pending ? (await pending).resolution : null;
+  const auditMetadata: Record<string, unknown> = { ...(input.auditMetadata ?? {}) };
+  delete auditMetadata.forecast_target;
+  if (resolution) auditMetadata.forecast_target = resolution;
+  return { ...input, auditMetadata };
 }
 
 function forecastAccuracyVoteValue(
@@ -275,13 +293,7 @@ export async function submitForecastFeedback(
     return { success: false, reason: "vote_storage_failed", correlationId };
   }
 
-  // The stored context keeps the hour the client showed; the audit trail names the row a
-  // bridged hour was filed against. The key is server-owned, so a client value never stands.
-  const resolution = target.pending ? (await target.pending).resolution : null;
-  const auditMetadata: Record<string, unknown> = { ...(input.auditMetadata ?? {}) };
-  delete auditMetadata.forecast_target;
-  if (resolution) auditMetadata.forecast_target = resolution;
-  const auditedInput: ForecastFeedbackClientPayload = { ...input, auditMetadata };
+  const auditedInput = isHourlyBridgeEnabledForAny() ? await withForecastTarget(input, target.pending) : input;
   const payload = buildSeasideForecastFeedbackPayload(auditedInput, {
     userId: context.user.id,
     ingestPath,
