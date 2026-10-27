@@ -136,7 +136,7 @@ function supabaseFor(rows: EnhancedForecastEntity[], tides: TideRow[] | Error) {
   };
 }
 
-interface Slot { forecastAt: string; bridged: boolean; sourceSlotAt?: string; compositeScore: number | null; tideHeight: number }
+interface Slot { forecastAt: string; bridged?: true; sourceSlotAt?: string; compositeScore: number | null; tideHeight: number }
 interface Candidate { candidateId: string; startsAt: string; endsAt: string }
 
 async function get(rows: EnhancedForecastEntity[], tides: TideRow[] | Error, query = "") {
@@ -187,7 +187,9 @@ describe("scored forecast hourly bridge", () => {
     expect(slots.every((slot) => typeof slot.compositeScore === "number")).toBe(true);
     expect(slots).toHaveLength(13);
     expect(slots.filter((slot) => !slot.bridged).map((slot) => slot.forecastAt)).toEqual(dayRows.map((row) => row.forecast_at));
-    expect(slots.filter((slot) => !slot.bridged).some((slot) => "sourceSlotAt" in slot)).toBe(false);
+    // Stored slots carry neither bridge key; bridged ones carry both.
+    expect(slots.filter((slot) => !slot.bridged).some((slot) => "sourceSlotAt" in slot || "bridged" in slot)).toBe(false);
+    expect(slots.filter((slot) => "bridged" in slot).every((slot) => slot.bridged === true)).toBe(true);
     const storedMs = dayRows.map((row) => Date.parse(row.forecast_at));
     // Each bridged hour names the stored row before it: the latest stored row 1–2 h earlier.
     expect(slots.filter((slot) => slot.bridged).map((slot) => [slot.forecastAt, slot.sourceSlotAt]))
@@ -294,7 +296,24 @@ describe("scored forecast hourly bridge", () => {
     process.env.HOURLY_BRIDGE_SURFACES = "discover,week-scout,daily-call";
     const { body, supabase } = await get(dayRows, fixtureTides);
     expect(supabase.tableCalls).not.toContain("tide_forecasts");
-    expect(body.data.timeSlots.map((slot) => slot.bridged)).toEqual(dayRows.map(() => false));
+    expect(body.data.timeSlots.map((slot) => slot.forecastAt)).toEqual(dayRows.map((row) => row.forecast_at));
+  });
+
+  it("returns the 3-hourly contract with no bridge keys and 3-hour slots with the flag off", async () => {
+    delete process.env.HOURLY_BRIDGE_ENABLED;
+    const { body, candidates } = await get(dayRows, fixtureTides);
+    const slots = body.data.timeSlots;
+    expect(slots).toHaveLength(dayRows.length);
+    for (const slot of slots) {
+      expect(slot).not.toHaveProperty("bridged");
+      expect(slot).not.toHaveProperty("sourceSlotAt");
+    }
+    // Every slot binding lasts the fixed 3-hour grid step, as before the bridge.
+    const slotCandidates = candidates.filter((candidate) => candidate.candidateId.startsWith("scored-slot:"));
+    expect(slotCandidates).toHaveLength(slots.length);
+    for (const candidate of slotCandidates) {
+      expect(Date.parse(candidate.endsAt) - Date.parse(candidate.startsAt)).toBe(3 * HOUR_MS);
+    }
   });
 
   it("stays 3-hourly when the tide read fails", async () => {

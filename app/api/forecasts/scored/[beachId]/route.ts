@@ -66,8 +66,8 @@ interface SwellInfo {
 
 interface TimeSlot {
   forecastAt: string;
-  /** True for an hour filled between two stored 3-hourly rows; scoreForecastSlots always sets it. */
-  bridged?: boolean;
+  /** Bridged slots only: an hour filled between two stored 3-hourly rows. Absent means stored. */
+  bridged?: true;
   /** Bridged slots only: forecastAt of the stored row before this hour. */
   sourceSlotAt?: string;
   surfHeight: { min: number; max: number };
@@ -277,8 +277,8 @@ export function scoreForecastSlots(
 
     return {
       forecastAt: forecast.forecast_at,
-      bridged: bridge != null,
-      ...(bridge ? { sourceSlotAt: bridge.from } : {}),
+      // Stored slots carry neither key, so a flag-off response matches the 3-hourly contract.
+      ...(bridge ? { bridged: true as const, sourceSlotAt: bridge.from } : {}),
       surfHeight,
       swells,
       windSpeed: windSpeedMph,
