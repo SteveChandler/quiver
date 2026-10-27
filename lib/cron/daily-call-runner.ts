@@ -47,6 +47,8 @@ import { selectBestWindows } from "@/lib/services/discovery/window-selector";
 import { forecastRowLiveEnds } from "@/lib/services/discovery/daylight-eligibility";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from "@/lib/services/tide-series-loader";
+import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
+import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import {
@@ -559,6 +561,30 @@ export function rowServesDay(
   return at < endMs && (liveEndMs ?? at + GRID_MS) > startMs;
 }
 
+/**
+ * With the daily-call hourly bridge on, one beach's day rows plus synthetic rows for the hours
+ * between them that overlap daylight, tide from the series already loaded for that day. Without
+ * coordinates there is no sun to read, so every hour of [startMs, endMs) is bridged.
+ */
+export function bridgeDailyCallRows(
+  rows: EnhancedForecastEntity[],
+  beach: Pick<Beach, "lat" | "lon">,
+  timezone: string,
+  tideSamples: ReadonlyArray<{ at: string; heightFt: number }> | null,
+  day: { startMs: number; endMs: number },
+): EnhancedForecastEntity[] {
+  if (!isHourlyBridgeEnabledFor("daily-call") || rows.length < 2) return rows;
+  let { startMs, endMs } = day;
+  if (Number.isFinite(beach.lat) && Number.isFinite(beach.lon)) {
+    const { sunrise, sunset } = getDaylightWindow(beach.lat, beach.lon, new Date((startMs + endMs) / 2));
+    // An hour is bridged when it starts before sunset and ends after sunrise.
+    if (Number.isFinite(sunrise.getTime())) startMs = Math.max(startMs, Math.floor(sunrise.getTime() / HOUR_MS) * HOUR_MS);
+    if (Number.isFinite(sunset.getTime())) endMs = Math.min(endMs, sunset.getTime());
+  }
+  const series = tideSamples?.map((sample) => ({ ts: sample.at, heightFt: sample.heightFt })) ?? null;
+  return bridgeForecastsHourly(rows, series, { timezone, startMs, endMs });
+}
+
 export async function buildCandidates(
   supabase: SupabaseClient<Database>,
   tideCache: TideCache,
@@ -590,13 +616,10 @@ export async function buildCandidates(
     const endMs = Date.parse(end);
     const beachRows = forecasts.filter((row) => row.beach_id === pool.beach.id);
     const rowEnds = forecastRowEnds(beachRows);
-    const beachForecasts = beachRows.filter((row) =>
+    const servedRows = beachRows.filter((row) =>
       rowServesDay(row, startMs, endMs, rowEnds.get(Date.parse(row.forecast_at))));
-    if (beachForecasts.length === 0) continue;
+    if (servedRows.length === 0) continue;
     hadForecasts = true;
-    const evaluations = beachForecasts.map((forecast) =>
-      evaluateForecast(args.profile, pool, forecast, args.timezone, args.now));
-    const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
     const tideSamples = await loadTideSamples(
       supabase,
       tideCache,
@@ -604,6 +627,16 @@ export async function buildCandidates(
       start,
       end,
     );
+    const beachForecasts = bridgeDailyCallRows(
+      servedRows,
+      pool.beach,
+      resolveBeachTimezone(pool.beach.timezone || args.timezone),
+      tideSamples,
+      { startMs, endMs },
+    );
+    const evaluations = beachForecasts.map((forecast) =>
+      evaluateForecast(args.profile, pool, forecast, args.timezone, args.now));
+    const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
 
     for (const group of groupGoForecasts(evaluations)) {
       const first = group[0];
@@ -879,10 +912,16 @@ function defaultDeps(
         .lt("forecast_at", end)
         .order("forecast_at", { ascending: true });
       if (error) throw new Error(`Failed to load daily-call forecasts: ${error.message}`);
+      const startMs = Date.parse(start);
+      const endMs = Date.parse(end);
+      const tideSamples = await loadTideSamples(supabase, tideCache, beach.id, start, end);
+      const served = ((data ?? []) as EnhancedForecastEntity[])
+        .filter((row) => rowServesDay(row, startMs, endMs));
       return {
-        forecasts: ((data ?? []) as EnhancedForecastEntity[])
-          .filter((row) => rowServesDay(row, Date.parse(start), Date.parse(end))),
-        tideSamples: await loadTideSamples(supabase, tideCache, beach.id, start, end),
+        forecasts: bridgeDailyCallRows(
+          served, beach, resolveBeachTimezone(beach.timezone || timezone), tideSamples, { startMs, endMs },
+        ),
+        tideSamples,
       };
     },
     buildCandidates: (args) => buildCandidates(supabase, tideCache, args),
