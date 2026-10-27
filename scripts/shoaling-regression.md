@@ -53,10 +53,12 @@ Fixtures encode the 2026-04-09 bimodal reading that triggered the fix:
 
 ### Gate C — wind-swell beaches near-neutral (`-20%` to `+10%`)
 
-**Set:** HB Pier Southside, The Wedge
+**Set:** HB Pier Southside, The Wedge, La Jolla Shores
 **Check:** delta in `[-20%, +10%]`
 **Failure signal:** short-period cutoff over-zeros legitimate wind-swell
-spots. Both fixtures use swell periods just above the 8 s cutoff (9–10 s).
+spots. HB Pier Southside and The Wedge use periods just above the 8 s cutoff
+(9–10 s). La Jolla Shores has 2.7 ft CDIP Hs at 7 s; its short-period
+component is dropped and the scalar fallback must retain the capped height.
 
 ### Gate D — uncalibrated beaches byte-identical to legacy
 
