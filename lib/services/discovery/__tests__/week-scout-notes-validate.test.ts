@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { briefingInputHash } from "../swell-briefing-hash";
+import { briefingArtifactId, briefingInputHash } from "../swell-briefing-hash";
+import workerFixture from "./fixtures/python-worker-notes-artifact.json";
 import {
   BriefingValidationError,
   assertBriefingArtifactMatchesInput,
@@ -139,5 +140,28 @@ describe("assertBriefingArtifactMatchesInput", () => {
     expect(() => assertBriefingArtifactMatchesInput(artifact(), input(), NOW)).not.toThrow();
     const v1 = { ...artifact(), schemaVersion: 1 } as unknown as BriefingArtifact;
     expect(() => assertBriefingArtifactMatchesInput(v1, input(), NOW)).toThrow("schema_version_mismatch");
+  });
+});
+
+describe("the worker's own notes artifact", () => {
+  // Produced by the shipped worker's merge_copy and run() stamping; see the generator.
+  const fixture = workerFixture as unknown as {
+    snapshot: WeekScoutNotesInputSnapshot;
+    artifact: WeekScoutNotesArtifact;
+    serverNow: string;
+  };
+
+  it("hashes the same on both sides", () => {
+    expect(briefingInputHash(fixture.snapshot as unknown as Record<string, unknown>)).toBe(fixture.snapshot.inputHash);
+    expect(briefingArtifactId(fixture.artifact as unknown as Record<string, unknown>)).toBe(fixture.artifact.artifactId);
+  });
+
+  it("is accepted as uploaded, notes in issue order with their gates", () => {
+    expect(() => assertBriefingArtifactMatchesInput(fixture.artifact, fixture.snapshot, new Date(fixture.serverNow))).not.toThrow();
+    expect(fixture.artifact.briefing.notes.map((note) => note.slot)).toEqual([
+      "headline",
+      "day:2026-10-28",
+      "swell:6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01:W:2026-10-30:p",
+    ]);
   });
 });

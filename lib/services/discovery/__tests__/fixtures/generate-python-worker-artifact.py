@@ -134,7 +134,7 @@ def main() -> None:
         "inputHash": snapshot["inputHash"],
         "sourcePublishedAt": snapshot["sourcePublishedAt"],
         "validUntil": snapshot["validUntil"],
-        "generationVersion": worker.VERSION,
+        "generationVersion": getattr(worker, "GENERATION_VERSIONS", {1: worker.VERSION})[1],
         "model": "gemma4:12b-32k",
         "briefing": briefing,
         "provenance": snapshot["provenance"],
