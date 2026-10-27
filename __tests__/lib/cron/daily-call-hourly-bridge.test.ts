@@ -13,6 +13,7 @@ import tideFixture from "@/__tests__/fixtures/tide-swing-20261027-tides.json";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PoolBeach } from "@/lib/alerts/user-pool";
 import { bridgeDailyCallRows, buildCandidates, type DailyCallProfile } from "@/lib/cron/daily-call-runner";
+import { bridgeBeachForecastRows } from "@/lib/services/discovery/hourly-bridge-rows";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -164,16 +165,33 @@ describe("bridgeDailyCallRows", () => {
 
   beforeEach(() => setFlags({ HOURLY_BRIDGE_ENABLED: "true", HOURLY_BRIDGE_SURFACES: "daily-call" }));
 
-  it("bridges only hours that overlap daylight, with the series tide", () => {
-    // Sunrise is just after 14Z and sunset just before 01Z: the hour holding sunrise is bridged,
-    // 13Z (dark) is not, and every gap hour up to sunset is.
+  it("bridges only hours that overlap usable light, with the series tide", () => {
+    // Sunrise is just after 14Z (07:03 PDT), so first light is 13:33Z: the 13Z hour (6 AM PDT)
+    // overlaps it and is bridged, as is every gap hour up to sunset.
     const out = bridgeDailyCallRows(rows, beach, "America/Los_Angeles", series, day);
-    expect(bridgedHours(out)).toEqual(["14", "16", "17", "19", "20", "22", "23"]);
+    expect(bridgedHours(out)).toEqual(["13", "14", "16", "17", "19", "20", "22", "23"]);
     expect(out.filter((row) => row.raw_forecast?.hourly_bridge)
       .every((row) => row.raw_forecast?.hourly_bridge?.tide_source === "series")).toBe(true);
     // Stored rows are all kept, in order.
     expect(out.filter((row) => !row.raw_forecast?.hourly_bridge)).toEqual(
       rows.map((row) => expect.objectContaining({ id: row.id })));
+  });
+
+  it("bridges the 6 AM PDT hour the same as discovery's usable-light rule", () => {
+    // PB Point's sun_times for the day, as discovery reads them.
+    const sunTimes = {
+      sunrises: [new Date("2026-10-27T14:03:00Z")],
+      sunsets: [new Date("2026-10-28T00:56:00Z")],
+    };
+    const tide = series.map((sample) => ({ ts: sample.at, heightFt: sample.heightFt }));
+    const discovery = bridgeBeachForecastRows(rows, { timezone: "America/Los_Angeles", tide, sunTimes, ...day });
+    const dailyCall = bridgeDailyCallRows(rows, beach, "America/Los_Angeles", series, day);
+    const sixAm = "2026-10-27T13:00:00.000Z";
+    const at = (out: EnhancedForecastEntity[]): string[] =>
+      out.map((row) => new Date(row.forecast_at).toISOString());
+    expect(at(discovery)).toContain(sixAm);
+    expect(at(dailyCall)).toContain(sixAm);
+    expect(bridgedHours(dailyCall)).toEqual(bridgedHours(discovery));
   });
 
   it("bridges the whole day window without coordinates", () => {

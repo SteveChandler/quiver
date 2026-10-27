@@ -44,7 +44,8 @@ import {
 import type { EnqueueArgs, EnqueueResult } from "@/lib/notifications/types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { selectBestWindows } from "@/lib/services/discovery/window-selector";
-import { forecastRowLiveEnds } from "@/lib/services/discovery/daylight-eligibility";
+import { forecastRowLiveEnds, type BeachSunTimes } from "@/lib/services/discovery/daylight-eligibility";
+import { bridgeBeachForecastRows } from "@/lib/services/discovery/hourly-bridge-rows";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from "@/lib/services/tide-series-loader";
 import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
@@ -563,8 +564,9 @@ export function rowServesDay(
 
 /**
  * With the daily-call hourly bridge on, one beach's day rows plus synthetic rows for the hours
- * between them that overlap daylight, tide from the series already loaded for that day. Without
- * coordinates there is no sun to read, so every hour of [startMs, endMs) is bridged.
+ * between them, tide from the series already loaded for that day. Hours are bridged by the same
+ * usable-light rule as discovery and Week Scout (an hour overlapping sunrise-30 min to sunset+20
+ * min). Without coordinates there is no sun to read, so every hour of [startMs, endMs) is bridged.
  */
 export function bridgeDailyCallRows(
   rows: EnhancedForecastEntity[],
@@ -574,15 +576,24 @@ export function bridgeDailyCallRows(
   day: { startMs: number; endMs: number },
 ): EnhancedForecastEntity[] {
   if (!isHourlyBridgeEnabledFor("daily-call") || rows.length < 2) return rows;
-  let { startMs, endMs } = day;
-  if (Number.isFinite(beach.lat) && Number.isFinite(beach.lon)) {
-    const { sunrise, sunset } = getDaylightWindow(beach.lat, beach.lon, new Date((startMs + endMs) / 2));
-    // An hour is bridged when it starts before sunset and ends after sunrise.
-    if (Number.isFinite(sunrise.getTime())) startMs = Math.max(startMs, Math.floor(sunrise.getTime() / HOUR_MS) * HOUR_MS);
-    if (Number.isFinite(sunset.getTime())) endMs = Math.min(endMs, sunset.getTime());
-  }
-  const series = tideSamples?.map((sample) => ({ ts: sample.at, heightFt: sample.heightFt })) ?? null;
-  return bridgeForecastsHourly(rows, series, { timezone, startMs, endMs });
+  const { startMs, endMs } = day;
+  const tide = tideSamples?.map((sample) => ({ ts: sample.at, heightFt: sample.heightFt })) ?? null;
+  const sunTimes = dailyCallSunTimes(beach, startMs, endMs);
+  if (!sunTimes) return bridgeForecastsHourly(rows, tide, { timezone, startMs, endMs });
+  return bridgeBeachForecastRows(rows, { timezone, tide, sunTimes, startMs, endMs });
+}
+
+/** The day's sunrise and sunset, or null without coordinates or a finite sun. */
+function dailyCallSunTimes(
+  beach: Pick<Beach, "lat" | "lon">,
+  startMs: number,
+  endMs: number,
+): BeachSunTimes | null {
+  if (!Number.isFinite(beach.lat) || !Number.isFinite(beach.lon)) return null;
+  const { sunrise, sunset } = getDaylightWindow(beach.lat, beach.lon, new Date((startMs + endMs) / 2));
+  const sunrises = Number.isFinite(sunrise.getTime()) ? [sunrise] : [];
+  const sunsets = Number.isFinite(sunset.getTime()) ? [sunset] : [];
+  return sunrises.length === 0 && sunsets.length === 0 ? null : { sunrises, sunsets };
 }
 
 export async function buildCandidates(
