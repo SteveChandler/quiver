@@ -90,11 +90,18 @@ const expectedLearnMetadata = [
     title: "Beginner Surf Spots in Carlsbad: Tamarack to Ponto",
     description:
       "Where beginners surf in Carlsbad: Tamarack, Carlsbad State Beach, and Ponto, the tide and wind each one needs, and when to wait for a smaller day.",
-  },  {
+  },
+  {
     slug: "can-you-surf-in-new-jersey",
     title: "Can You Surf in New Jersey? Seasons, Spots & Wetsuits",
     description:
       "Yes. New Jersey has about 130 miles of beach breaks and jetties. When the Shore actually works, where people surf, and what to wear by season.",
+  },
+  {
+    slug: "can-you-surf-in-south-carolina",
+    title: "Can You Surf in South Carolina? Seasons, Spots & Water",
+    description:
+      "Yes. South Carolina is small, warm beach break most of the year and good on hurricane swell from August to October. Where to go and what to wear.",
   },
 ];
 

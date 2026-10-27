@@ -717,6 +717,12 @@ export const learnArticles: LearnArticle[] = [
         description:
           "How hurricane groundswell and nor'easters make the Jersey Shore's best days.",
       },
+      {
+        label: "Can You Surf in South Carolina?",
+        href: "/learn/can-you-surf-in-south-carolina",
+        description:
+          "Why South Carolina waits for 10 to 14 second hurricane swell.",
+      },
     ],
     appHandoff: {
       eyebrow: "Read it live",
@@ -1667,6 +1673,12 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/can-you-surf-in-new-jersey",
         description:
           "Jersey's 40 °F winters and 75 °F summers, matched to a suit by season.",
+      },
+      {
+        label: "Can You Surf in South Carolina?",
+        href: "/learn/can-you-surf-in-south-carolina",
+        description:
+          "From 50 °F winters to 84 °F summers, matched to a suit by month.",
       },
     ],
   },
@@ -3666,6 +3678,12 @@ export const learnArticles: LearnArticle[] = [
         description:
           "Why the west-wind morning is the Jersey window.",
       },
+      {
+        label: "Can You Surf in South Carolina?",
+        href: "/learn/can-you-surf-in-south-carolina",
+        description:
+          "Warmer water and smaller surf, with hurricane swell from August to October.",
+      },
     ],
     appHandoff: {
       eyebrow: "Jersey Shore today",
@@ -3673,6 +3691,146 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver checks wave height, period, wind, tide, and water temperature at New Jersey beaches every hour, so you can see whether today is a go before you drive to the Shore.",
       ctaLabel: "Check New Jersey beaches",
+    },
+  },
+  {
+    slug: "can-you-surf-in-south-carolina",
+    title: "Can You Surf in South Carolina? Seasons, Spots & Water",
+    description:
+      "Yes. South Carolina is small, warm beach break most of the year and good on hurricane swell from August to October. Where to go and what to wear.",
+    readingTimeMin: 5,
+    datePublished: "2026-10-27",
+    dateModified: "2026-10-27",
+    heroImage: "/images/learn/learn-folly-beach-learners.webp",
+    thumbnailImage: "/images/learn/learn-folly-beach-learners.webp",
+    keywords: [
+      "can you surf in south carolina",
+      "surfing in south carolina",
+      "south carolina surfing",
+      "south carolina surf spots",
+      "folly beach surfing",
+      "folly beach washout",
+      "myrtle beach surfing",
+      "isle of palms surf",
+      "best time to surf in south carolina",
+      "south carolina water temperature",
+      "hurricane swell south carolina",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Yes. South Carolina has about 187 miles of Atlantic coast, and most days it is 1 to 3 ft beach break over sand. The good days come from hurricane swell between late August and October, when Folly Beach can get 4 to 6 ft with a light northwest wind. The water runs from about 50 °F in January to the mid 80s in August. Check today's numbers on the <a href="/beaches/usa/sc">South Carolina beaches</a> page before you load the car.</p>`,
+        keyTakeaway: "Go August to October for swell; summer is small, warm and fine for learning.",
+      },
+      {
+        id: "why-small",
+        heading: "Why South Carolina surf is usually small",
+        content: `<p>The coast tucks into a curve between Cape Hatteras and Florida, and the sea floor off it is wide and shallow for miles. Swell loses power crossing that shelf, so a 3 ft day here hits softer than 3 ft at Huntington.</p><p>Period tells you which days are worth it. Summer windswell runs 5 to 7 seconds and looks like close-together mush. A hurricane passing offshore sends 10 to 14 second groundswell with clean lines. The <a href="/learn/groundswell-vs-wind-swell">groundswell vs wind swell</a> guide explains the difference.</p>`,
+        keyTakeaway: "Wait for 10+ seconds of period; under 7 seconds is mostly mush.",
+      },
+      {
+        id: "season-by-season",
+        heading: "When to surf South Carolina, month by month",
+        content: `<p><strong>August to October</strong> is the season. Tropical systems track up the coast, the water is still in the 70s or 80s, and swell can run for several days.</p><p><strong>November to March</strong> brings cold fronts and nor'easters. You get short, windy northeast swell, and the cleanest hours come after the front passes and the wind swings northwest.</p><p><strong>April to July</strong> is mostly flat to knee-high, with an afternoon sea breeze. Go early. The <a href="/best-time-to-surf/folly-beach">best time to surf Folly Beach</a> page shows where this week's windows fall.</p>`,
+        keyTakeaway: "Hurricane season is the season; after a winter front, go when wind turns northwest.",
+        image: {
+          src: "/images/learn/learn-folly-beach-hurricane-irene.webp",
+          alt: "Surfer walking up the beach at Folly Beach, South Carolina, as Hurricane Irene swell breaks behind him",
+          position: "right",
+        },
+      },
+      {
+        id: "where-to-surf",
+        heading: "Where people surf in South Carolina",
+        content: `<p><a href="/sc/folly-beach">Folly Beach</a>, 20 minutes from downtown Charleston, is the center of it. The Washout on the east end picks up the most swell, and the pier sets up sandbars on both sides. It gets crowded on any good day.</p><p>North of Charleston, <a href="/sc/isle-of-palms">Isle of Palms</a> is a softer, wider beach. On the Grand Strand, <a href="/sc/north-myrtle-beach">North Myrtle Beach</a> and Pawleys Island break around piers and shifting bars. Most of the coast is sand, so there is no reef to hit, and the bars move after every storm.</p>`,
+        keyTakeaway: "Folly's Washout gets the most swell; Isle of Palms is gentler.",
+        image: {
+          src: "/images/learn/learn-folly-beach-longboarders.webp",
+          alt: "Two surfers holding longboards in the shorebreak at Folly Beach, South Carolina, watching a set roll in",
+          position: "left",
+        },
+      },
+      {
+        id: "wind-and-tide",
+        heading: "Wind and tide: northwest wind, mid tide",
+        content: `<p>The coast faces southeast, so west and northwest wind is offshore. Summer afternoons bring a southerly sea breeze that chops it up by noon.</p><p>The tide moves about 5 to 6 ft around Charleston, much like San Diego. A bar that peels at mid tide can close out at dead low or go soft at high. Check the <a href="/tide/folly-beach">Folly Beach tide chart</a> and plan for the two hours either side of mid tide.</p>`,
+        keyTakeaway: "Surf mornings with northwest wind, within two hours of mid tide.",
+      },
+      {
+        id: "what-to-wear",
+        heading: "What to wear by water temperature",
+        content: `<p>NOAA's Charleston tide station shows water near 50 °F in January and February and around 84 °F in July and August. In August that is about 10 °F warmer than La Jolla Shores.</p><ul><li><strong>June to October:</strong> trunks or a rash guard.</li><li><strong>April, May and November:</strong> a 3/2 full suit.</li><li><strong>December to March:</strong> a 4/3 with boots.</li></ul><p>Check the reading the morning you go on the <a href="/water-temp/folly-beach">Folly Beach water temperature</a> page.</p>`,
+        keyTakeaway: "Trunks June to October; a 4/3 and boots December to March.",
+      },
+      {
+        id: "safety-and-learning",
+        heading: "Learning, rip currents and rain",
+        content: `<p>Summer's small, warm surf makes South Carolina a good place to learn. The <a href="/beginner/folly-beach">Folly Beach beginner read</a> and the <a href="/beginner/myrtle-beach">Myrtle Beach beginner read</a> say whether today is small and clean enough.</p><p>Rip currents form along piers and between the bars, and the National Weather Service posts a daily rip current risk for the coast. Read <a href="/learn/what-is-a-rip-current">how to spot and escape a rip</a> first. After heavy rain, wait and check for a posted swimming advisory. Nothing here promises a beach is safe on a given day. Watch from shore for 10 minutes before you paddle out.</p>`,
+        keyTakeaway: "Learn in summer, away from the pier; skip the water after heavy rain.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can you surf in South Carolina?",
+        answer:
+          "Yes. South Carolina has about 187 miles of sand-bottom beach break. Most days are small, 1 to 3 ft, but hurricane swells between August and October can bring 4 to 6 ft waves to Folly Beach and the rest of the coast.",
+      },
+      {
+        question: "Where is the best surfing in South Carolina?",
+        answer:
+          "Folly Beach near Charleston, especially the Washout on the east end, picks up the most swell and has the most surfers. Isle of Palms is gentler, and North Myrtle Beach and Pawleys Island work around piers on the Grand Strand.",
+      },
+      {
+        question: "Is Myrtle Beach good for surfing?",
+        answer:
+          "It is small most of the year and better for learning than for good waves. It gets fun on hurricane and nor'easter swells, mainly around the piers. Go early, before the afternoon sea breeze.",
+      },
+      {
+        question: "When is the best time to surf in South Carolina?",
+        answer:
+          "Late August through October, when tropical systems send groundswell and the water is still in the 70s or 80s °F. Winter fronts bring short northeast swell, and spring and early summer are mostly flat.",
+      },
+      {
+        question: "Do you need a wetsuit to surf in South Carolina?",
+        answer:
+          "Not from about June to October, when the water is in the upper 70s to mid 80s °F. Use a 3/2 in spring and late fall, and a 4/3 with boots from December to March, when the water is near 50 °F.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "South Carolina Surf Beaches",
+        href: "/beaches/usa/sc",
+        description:
+          "Every South Carolina beach Quiver covers, with today's waves, wind, tide and water temperature.",
+      },
+      {
+        label: "Folly Beach Surf Forecast",
+        href: "/sc/folly-beach",
+        description: "Today's swell, wind and tide at Folly Beach.",
+      },
+      {
+        label: "Folly Beach Water Temperature",
+        href: "/water-temp/folly-beach",
+        description: "The current reading and the suit it calls for.",
+      },
+      {
+        label: "Can You Surf in New Jersey?",
+        href: "/learn/can-you-surf-in-new-jersey",
+        description: "The same storm-driven East Coast surf, with colder water.",
+      },
+      {
+        label: "Wind Swell vs Groundswell",
+        href: "/learn/groundswell-vs-wind-swell",
+        description: "Why 12-second hurricane swell beats 6-second windswell.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Folly Beach today",
+      title: "See if the hurricane swell has reached Folly.",
+      description:
+        "Quiver checks wave height, period, wind and tide at Folly Beach, Isle of Palms and the Grand Strand every hour, so you know before you cross the bridge.",
+      ctaLabel: "Check South Carolina beaches",
     },
   },
 ];
