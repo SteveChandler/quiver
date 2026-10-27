@@ -16,10 +16,12 @@ import { beachToSpotProfile, forecastToSnapshot } from "@/lib/domains/scoring";
 import {
   resolveNativeSkillLevel,
   scoreNativeConditionBreakdown,
-  scoreNativeForecastSlot,
+  scoreNativeConditionInputs,
   nativeScoreInputsFromForecast,
   type NativeConditionScoreBreakdown,
 } from "@/lib/scoring/native-condition-score";
+import { resolveTideBand, type TideBand } from "@/lib/domains/scoring/tide-swing";
+import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
 import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
 import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
@@ -112,6 +114,14 @@ function isFullBeach(beach: BeachWithThresholds): beach is Beach {
   );
 }
 
+/** The beach's curated tide band for the displayed tide term; same rule as the engine's explicitRange. */
+function displayTideBand(beach: BeachWithThresholds): TideBand | null {
+  if (!isTideSwingEnabled()) return null;
+  const { preferred_tide_ft_min: minHeightFt, preferred_tide_ft_max: maxHeightFt } = beach;
+  if (minHeightFt == null || maxHeightFt == null) return null;
+  return resolveTideBand({ minHeightFt, maxHeightFt, explicitRange: true });
+}
+
 /**
  * Scores the best saved board, but never below the no-board baseline. A null
  * boardClass means no saved board improved the displayed score.
@@ -136,14 +146,15 @@ export function scoreWindowConditionDetails(
   const appliedEffects = (score: number): string[] =>
     score > ceiling ? effectDetails.effects : [];
   const direction = directionInput(forecast, beach);
-  const baselineScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel, null, direction);
+  const inputs = nativeScoreInputsFromForecast(forecast, displayTideBand(beach));
+  const baselineScore = scoreNativeConditionInputs(inputs, resolvedSkillLevel, null, direction);
 
   if (uniqueBoardClasses.length === 0) {
     const score = rideabilityBand
       ? Math.max(
           baselineScore,
-          scoreNativeForecastSlot(
-            forecast,
+          scoreNativeConditionInputs(
+            inputs,
             resolvedSkillLevel,
             rideabilityBand,
             direction,
@@ -155,7 +166,7 @@ export function scoreWindowConditionDetails(
       boardClass: null,
       rideabilityBand: rideabilityBand ?? null,
       decisionCeiling: ceiling,
-      components: scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(forecast), resolvedSkillLevel, null, direction).components,
+      components: scoreNativeConditionBreakdown(inputs, resolvedSkillLevel, null, direction).components,
       appliedEffects: appliedEffects(score),
     };
   }
@@ -165,12 +176,12 @@ export function scoreWindowConditionDetails(
     boardClass: null,
     rideabilityBand: null,
     decisionCeiling: ceiling,
-    components: scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(forecast), resolvedSkillLevel, null, direction).components,
+    components: scoreNativeConditionBreakdown(inputs, resolvedSkillLevel, null, direction).components,
     appliedEffects: appliedEffects(baselineScore),
   };
   for (const boardClass of uniqueBoardClasses) {
     const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
-    const rawScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand, direction);
+    const rawScore = scoreNativeConditionInputs(inputs, resolvedSkillLevel, boardBand, direction);
     const score = applyCeiling(rawScore);
     if (score > best.score) {
       best = {
@@ -179,7 +190,7 @@ export function scoreWindowConditionDetails(
         rideabilityBand: boardBand,
         decisionCeiling: ceiling,
         components: scoreNativeConditionBreakdown(
-          nativeScoreInputsFromForecast(forecast),
+          inputs,
           resolvedSkillLevel,
           boardClass,
           direction,

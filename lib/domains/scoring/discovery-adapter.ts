@@ -111,6 +111,7 @@ export function forecastToSnapshot(
   const tideHeight = Number.isFinite(parsedTideHeight) ? parsedTideHeight : 0;
   const tideStatus = parseTideStatus(forecast.tide_status);
   const tideDirection = parseTideDirection(forecast.tide_status);
+  const tideRate = resolveTideRate(forecast, Number.isFinite(parsedTideHeight) ? parsedTideHeight : null);
 
   const partitions: SwellPartitions = {
     swell_1: parsePartition(forecast.swell_1_height, forecast.swell_1_period, forecast.swell_1_direction),
@@ -161,6 +162,8 @@ export function forecastToSnapshot(
       status: tideStatus,
       direction: tideDirection,
       heightKnown: Number.isFinite(parsedTideHeight),
+      rateFtPerHour: tideRate.rateFtPerHour,
+      rateSource: tideRate.rateSource,
     },
     confidence: resolveConfidence(
       forecast.confidence_score,
@@ -692,6 +695,36 @@ function parseTideStatus(
   if (lower.includes('slack')) return 'slack-high';
 
   return 'unknown';
+}
+
+/** A mean rate over more than half a tidal cycle isn't this row's rate. */
+const MAX_NEXT_EXTREMUM_HOURS = 13;
+/** Near the turn the tide is slack, but the mean to it reads as a real swing. */
+const MIN_NEXT_EXTREMUM_HOURS = 1.5;
+
+/**
+ * Signed tide rate (ft/h, + rising): the hourly series' own rate when the row
+ * carries one, else the mean rate to the next high/low. The mean overstates
+ * the rate near the turn and understates it mid-swing.
+ */
+function resolveTideRate(
+  forecast: EnhancedForecastEntity,
+  tideHeightFt: number | null,
+): { rateFtPerHour: number | null; rateSource: 'series' | 'next_extremum' | null } {
+  const seriesRate = forecast.tide_rate_ft_per_hour;
+  if (typeof seriesRate === 'number' && Number.isFinite(seriesRate)) {
+    return { rateFtPerHour: seriesRate, rateSource: 'series' };
+  }
+  const none = { rateFtPerHour: null, rateSource: null };
+  if (tideHeightFt === null || !forecast.next_tide_at) return none;
+  const nextHeightFt = parseFloat(forecast.next_tide_height || '');
+  const hours = (Date.parse(forecast.next_tide_at) - Date.parse(forecast.forecast_at)) / 3_600_000;
+  if (!Number.isFinite(nextHeightFt) || !Number.isFinite(hours)) return none;
+  if (hours < MIN_NEXT_EXTREMUM_HOURS || hours > MAX_NEXT_EXTREMUM_HOURS) return none;
+  return {
+    rateFtPerHour: Math.round(((nextHeightFt - tideHeightFt) / hours) * 100) / 100,
+    rateSource: 'next_extremum',
+  };
 }
 
 /**

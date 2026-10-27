@@ -381,9 +381,7 @@ describe('Tide Direction Integration Tests', () => {
 
       // Skip should only come from other scorers (e.g., flat conditions)
       // not from tide direction
-      if (result.skipReason) {
-        expect(result.skipReason).not.toMatch(/tide direction/i);
-      }
+      expect(result.skipReason ?? '').not.toMatch(/tide direction/i);
     });
   });
 
@@ -402,6 +400,46 @@ describe('Tide Direction Integration Tests', () => {
       expect(result.reasons).toContainEqual(
         expect.stringMatching(/tide.*rising|incoming|optimal/i)
       );
+    });
+  });
+
+  describe('tide swing grading in the full pipeline (TIDE_SWING_ENABLED)', () => {
+    const originalFlag = process.env.TIDE_SWING_ENABLED;
+    afterEach(() => {
+      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
+      else process.env.TIDE_SWING_ENABLED = originalFlag;
+    });
+
+    function withRate(rateFtPerHour: number | null): ScorerInput {
+      const input = createTideTestInput({
+        tideDirection: 'falling',
+        preferredDirection: 'rising',
+        directionSensitivity: 'high',
+      });
+      return { ...input, snapshot: { ...input.snapshot, tide: { ...input.snapshot.tide, rateFtPerHour } } };
+    }
+
+    it('flag off: a slow wrong-way tide still costs the full high-sensitivity mismatch', () => {
+      delete process.env.TIDE_SWING_ENABLED;
+      const engine = createFullScoringEngine();
+      const slow = engine.score(withRate(-0.2));
+      const unknown = engine.score(withRate(null));
+      expect(slow.subscores.get('tideDirection')).toBe(10);
+      expect(slow.total).toBe(unknown.total);
+    });
+
+    it('flag on: a near-slack wrong-way tide costs less than a fast one', () => {
+      process.env.TIDE_SWING_ENABLED = 'true';
+      const engine = createFullScoringEngine();
+      const slow = engine.score(withRate(-0.2));
+      const fast = engine.score(withRate(-1.2));
+      const unknown = engine.score(withRate(null));
+      expect(slow.subscores.get('tideDirection')).toBe(34);
+      expect(fast.subscores.get('tideDirection')).toBe(10);
+      expect(slow.total).toBeGreaterThan(unknown.total);
+      // 4 ft at 12 s on a beach break draining at 1.2 ft/h also walls up.
+      expect(fast.total).toBe(69);
+      expect(fast.effects?.map((effect) => effect.code)).toContain('tide_swing');
     });
   });
 });
