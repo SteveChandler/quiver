@@ -44,6 +44,7 @@ import {
 import type { EnqueueArgs, EnqueueResult } from "@/lib/notifications/types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { selectBestWindows } from "@/lib/services/discovery/window-selector";
+import { forecastRowLiveEnds } from "@/lib/services/discovery/daylight-eligibility";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from "@/lib/services/tide-series-loader";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
@@ -378,8 +379,8 @@ function buildPayload(args: {
 }
 
 /**
- * Runs of go rows. The forecast grid is 3-hourly, so consecutive go rows join
- * across one grid step; a non-go row or a missing row ends the run.
+ * Runs of go rows. Consecutive go rows join across one 3-hourly grid step (an
+ * hourly step too); a non-go row or a missing row ends the run.
  */
 export function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
   const groups: ForecastVerdict[][] = [];
@@ -412,6 +413,19 @@ function evaluateForecast(
   });
 }
 
+/**
+ * When each of one beach's rows stops being the forecast in effect: the next
+ * row, at most one grid step (a missing row leaves a gap rather than extending
+ * the previous forecast); the last row lives the beach's median row gap. On the
+ * 3-hourly grid every row ends at `at + GRID_MS`, as before; hourly rows live an hour.
+ */
+export function forecastRowEnds(rows: readonly EnhancedForecastEntity[]): Map<number, number> {
+  const times = [...new Set(rows.map((row) => Date.parse(row.forecast_at)).filter(Number.isFinite))];
+  // One row has no cadence to read; keep the grid step.
+  if (times.length < 2) return new Map(times.map((at) => [at, at + GRID_MS]));
+  return forecastRowLiveEnds(times);
+}
+
 function forecastsServingWindow(
   forecasts: EnhancedForecastEntity[],
   window: RefinedWindow,
@@ -420,16 +434,14 @@ function forecastsServingWindow(
   const windowEnd = Date.parse(window.end);
   if (windowEnd <= now.getTime()) return [];
   const liveStart = Math.max(now.getTime(), Date.parse(window.start));
-  const sorted = [...forecasts].sort((left, right) =>
-    Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
-  return sorted.filter((forecast, index) => {
-    const at = Date.parse(forecast.forecast_at);
-    // Missing grid rows leave a gap rather than extending the previous forecast.
-    const gridEnd = at + GRID_MS;
-    const next = sorted[index + 1];
-    const coverageEnd = Math.min(gridEnd, next ? Date.parse(next.forecast_at) : gridEnd);
-    return coverageEnd > liveStart && at < windowEnd;
-  });
+  const rowEnds = forecastRowEnds(forecasts);
+  return [...forecasts]
+    .sort((left, right) => Date.parse(left.forecast_at) - Date.parse(right.forecast_at))
+    .filter((forecast) => {
+      const at = Date.parse(forecast.forecast_at);
+      const coverageEnd = rowEnds.get(at) ?? at + GRID_MS;
+      return coverageEnd > liveStart && at < windowEnd;
+    });
 }
 
 function decisionForWindow(
@@ -533,10 +545,18 @@ function beachDayRange(
   };
 }
 
-/** A row belongs to the day when its grid step overlaps [start, end). */
-export function rowServesDay(row: EnhancedForecastEntity, startMs: number, endMs: number): boolean {
+/**
+ * A row belongs to the day when the time it is in effect overlaps [start, end).
+ * Without `liveEndMs` (from forecastRowEnds) a row is in effect for one 3-hour grid step.
+ */
+export function rowServesDay(
+  row: EnhancedForecastEntity,
+  startMs: number,
+  endMs: number,
+  liveEndMs?: number,
+): boolean {
   const at = Date.parse(row.forecast_at);
-  return at < endMs && at + GRID_MS > startMs;
+  return at < endMs && (liveEndMs ?? at + GRID_MS) > startMs;
 }
 
 export async function buildCandidates(
@@ -568,8 +588,10 @@ export async function buildCandidates(
   for (const { pool, start, end } of beachDays) {
     const startMs = Date.parse(start);
     const endMs = Date.parse(end);
-    const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id
-      && rowServesDay(row, startMs, endMs));
+    const beachRows = forecasts.filter((row) => row.beach_id === pool.beach.id);
+    const rowEnds = forecastRowEnds(beachRows);
+    const beachForecasts = beachRows.filter((row) =>
+      rowServesDay(row, startMs, endMs, rowEnds.get(Date.parse(row.forecast_at))));
     if (beachForecasts.length === 0) continue;
     hadForecasts = true;
     const evaluations = beachForecasts.map((forecast) =>

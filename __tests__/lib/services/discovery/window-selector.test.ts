@@ -3178,3 +3178,37 @@ describe('selectBestWindow wind string', () => {
     expect(windOf({ wind_speed: null, wind_direction: 'NE' })).toBe('');
   });
 });
+
+describe('selectBestWindow on hourly rows', () => {
+  const fixedNow = new Date('2024-01-15T14:00:00Z'); // 6 AM PST
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // 7 AM to 2 PM PST, one row an hour, as the hourly bridge emits them.
+  const hourly = Array.from({ length: 8 }, (_, index) => createForecast({
+    id: `hourly-${index}`,
+    forecast_at: new Date(Date.UTC(2024, 0, 15, 15 + index)).toISOString(),
+    wave_height: '4',
+    wave_period: '12s',
+  }));
+
+  it('builds a multi-hour window that the session-duration gate keeps', () => {
+    const onRejection = jest.fn();
+    const result = selectBestWindow({
+      forecasts: hourly,
+      beach: mockBeachNoPrefs as Beach,
+      userPrefs: null,
+      onRejection,
+    });
+    expect(result).not.toBeNull();
+    expect((result!.end.getTime() - result!.start.getTime()) / 3_600_000).toBeGreaterThanOrEqual(3);
+    expect(onRejection).not.toHaveBeenCalledWith(expect.objectContaining({ gate: 'session_duration' }));
+  });
+});

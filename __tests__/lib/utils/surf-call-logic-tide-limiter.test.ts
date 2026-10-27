@@ -1,0 +1,190 @@
+/**
+ * The tide reason reaches the surf call's why sentence (TIDE_SWING_ENABLED).
+ * Rows are tomorrow's real prod rows (Tue 2026-10-27, La Jolla 6.59 ft high at
+ * 09:47, -0.84 ft low at 16:57 PDT). Hourly rows carry each beach's real hourly
+ * tide series and rate; swell and wind come from the 3-hourly row in effect.
+ */
+import { computeSurfCall } from '@/lib/utils/surf-call-logic';
+import type { PersonalizedForecastWindow } from '@/types/personalization';
+import type { EnhancedForecastEntity } from '@/types/forecast';
+import type { Beach } from '@/types/database';
+import fixture from '../../fixtures/tide-swing-20261027.json';
+
+type Slug = keyof typeof fixture.beaches;
+type HourlyTide = ReadonlyArray<readonly [utcHour: string, heightFt: number, rateFtPerHour: number]>;
+
+const HOUR_MS = 3_600_000;
+const originalFlag = process.env.TIDE_SWING_ENABLED;
+
+/** PB Point and Tourmaline share this series, 8 AM to 5 PM PDT. */
+const LA_JOLLA_TIDE: HourlyTide = [
+  ['15', 5.7, 1.02], ['16', 6.5, 0.54], ['17', 6.8, -0.12], ['18', 6.3, -0.8],
+  ['19', 5.2, -1.34], ['20', 3.6, -1.62], ['21', 2.0, -1.58], ['22', 0.5, -1.25],
+  ['23', -0.5, -0.68], ['00', -0.9, -0.01],
+];
+/** 2 PM to 5 PM PDT. */
+const LOWER_TRESTLES_TIDE: HourlyTide = [
+  ['21', 2.1, -1.0], ['22', 1.1, -1.0], ['23', 0.1, -0.84], ['00', -0.6, 0.03],
+];
+
+function beachOf(slug: Slug): Beach {
+  return fixture.beaches[slug] as unknown as Beach;
+}
+
+function rowsOf(slug: Slug): EnhancedForecastEntity[] {
+  return fixture.forecasts[slug] as unknown as EnhancedForecastEntity[];
+}
+
+function hourlyRows(slug: Slug, tide: HourlyTide, overrides: Partial<EnhancedForecastEntity> = {}): EnhancedForecastEntity[] {
+  const raw = rowsOf(slug);
+  return tide.map(([utcHour, heightFt, rate]) => {
+    const at = `${utcHour === '00' ? '2026-10-28' : '2026-10-27'}T${utcHour}:00:00+00:00`;
+    const inEffect = [...raw].reverse().find((row) => Date.parse(row.forecast_at) <= Date.parse(at)) ?? raw[0];
+    return {
+      ...inEffect,
+      ...overrides,
+      id: `${inEffect.id}:h${utcHour}`,
+      forecast_at: at,
+      tide_height: `${heightFt} ft`,
+      tide_status: Math.abs(rate) < 0.1 ? 'High' : rate > 0 ? 'Rising' : 'Falling',
+      tide_rate_ft_per_hour: rate,
+    };
+  });
+}
+
+/** Drops the secondary swell so the crossing-swell ceiling (65) doesn't sit below the tide's. */
+const SINGLE_SWELL: Partial<EnhancedForecastEntity> = {
+  swell_2_height: null,
+  swell_2_period: null,
+  swell_2_direction: null,
+};
+
+function singleSwellTourmaline(): EnhancedForecastEntity[] {
+  return hourlyRows('tourmaline', LA_JOLLA_TIDE, SINGLE_SWELL);
+}
+
+/** Glassy, so the wind lines don't answer first and today's falling-tide line does. */
+function glassySingleSwellTourmaline(): EnhancedForecastEntity[] {
+  return hourlyRows('tourmaline', LA_JOLLA_TIDE, { ...SINGLE_SWELL, wind_speed: '1 mph' });
+}
+
+const TOURMALINE_11AM_FLAG_OFF = 'Good swell, but tide is dropping through the window.';
+
+function windowAt(row: EnhancedForecastEntity, score: number): PersonalizedForecastWindow {
+  const start = new Date(row.forecast_at);
+  return {
+    start,
+    end: new Date(start.getTime() + 2 * HOUR_MS),
+    tide: row.tide_status ?? 'Unknown',
+    wind: `${row.wind_speed} ${row.wind_direction}`,
+    waveHeight: row.wave_height ?? 'Unknown',
+    wavePeriod: row.wave_period ?? 'Unknown',
+    dataSource: 'CDIP',
+    confidence: 80,
+    timezone: 'America/Los_Angeles',
+    score,
+    peakTime: start,
+    sourceForecast: row,
+  };
+}
+
+function callAt(slug: Slug, utcHour: string, score: number, rows: EnhancedForecastEntity[] = rowsOf(slug)) {
+  const row = rows.find((candidate) => candidate.forecast_at.slice(11, 13) === utcHour);
+  if (!row) throw new Error(`no ${slug} row at ${utcHour}Z`);
+  return computeSurfCall(windowAt(row, score), rows, beachOf(slug), { isTomorrow: true });
+}
+
+function withFlag(enabled: boolean): void {
+  if (enabled) process.env.TIDE_SWING_ENABLED = 'true';
+  else delete process.env.TIDE_SWING_ENABLED;
+}
+
+afterEach(() => {
+  if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
+  else process.env.TIDE_SWING_ENABLED = originalFlag;
+});
+
+describe('computeSurfCall tide limiter', () => {
+  describe('flag off keeps today\'s sentences', () => {
+    beforeEach(() => withFlag(false));
+
+    it.each([
+      ['tourmaline', '00', 45, 'Size is there, but onshore wind hurts shape.'],
+      ['lower-trestles', '00', 55, 'Size is there, but onshore wind hurts shape.'],
+      ['tourmaline', '18', 45, 'Size is there, but onshore wind hurts shape.'],
+      ['pb-point', '18', 45, 'Small for this break but conditions look fun — 1.4 ft with manageable wind.'],
+    ] as const)('%s at %s:00Z', (slug, hour, score, sentence) => {
+      expect(callAt(slug, hour, score).whySentence).toBe(sentence);
+    });
+
+    it('hourly rows with a series rate change nothing', () => {
+      expect(callAt('pb-point', '17', 45, hourlyRows('pb-point', LA_JOLLA_TIDE)).whySentence)
+        .toBe('Small for this break but conditions look fun — 1.6 ft with manageable wind.');
+      expect(callAt('lower-trestles', '00', 55, hourlyRows('lower-trestles', LOWER_TRESTLES_TIDE)).whySentence)
+        .toBe('Size is there, but onshore wind hurts shape.');
+      expect(callAt('tourmaline', '18', 45, glassySingleSwellTourmaline()).whySentence)
+        .toBe(TOURMALINE_11AM_FLAG_OFF);
+    });
+  });
+
+  describe('flag on', () => {
+    beforeEach(() => withFlag(true));
+
+    it('PB Point at the 10 AM high names the water and the in-band hours after it', () => {
+      const call = callAt('pb-point', '17', 45, hourlyRows('pb-point', LA_JOLLA_TIDE));
+      expect(call.verdict).toBe('MAYBE');
+      expect(call.whySentence).toBe('Small for this break, but a lot of water until the tide drops — better 1–2 PM.');
+    });
+
+    it('on 3-hourly rows the one in-band row after the high is named alone', () => {
+      expect(callAt('pb-point', '18', 45).whySentence)
+        .toBe('Small for this break, but a lot of water until the tide drops — better around 2 PM.');
+    });
+
+    it('a low tide that binds outranks the onshore line, with no times when no in-band row follows', () => {
+      expect(callAt('tourmaline', '00', 45).whySentence)
+        .toBe('Size is there, but not enough water until the tide fills in.');
+      expect(callAt('lower-trestles', '00', 55, hourlyRows('lower-trestles', LOWER_TRESTLES_TIDE)).whySentence)
+        .toBe('Size is there, but not enough water until the tide fills in.');
+    });
+
+    it('never names a night hour as the better span', () => {
+      const evening = rowsOf('tourmaline').find((row) => row.forecast_at.startsWith('2026-10-28T00'))!;
+      const night = { ...evening, id: 'night', forecast_at: '2026-10-28T04:00:00+00:00', tide_height: '3 ft' };
+      expect(callAt('tourmaline', '00', 45, [...rowsOf('tourmaline'), night]).whySentence)
+        .toBe('Size is there, but not enough water until the tide fills in.');
+    });
+
+    it('a falling high tide back in range within the hour says when, not the generic dropping line', () => {
+      const call = callAt('tourmaline', '18', 45, glassySingleSwellTourmaline());
+      expect(call.tidePhase).toBe('falling');
+      expect(call.whySentence).toBe('Size is there; tide back in range by ~12 PM.');
+    });
+
+    it('keeps the wind line when another ceiling (crossing swells) sits below the tide\'s', () => {
+      expect(callAt('tourmaline', '18', 45).whySentence).toBe('Size is there, but onshore wind hurts shape.');
+    });
+
+    it('a tide back in range within the hour says when', () => {
+      // Single swell so the crossing-swell ceiling (65) doesn't sit below the softened tide one (79).
+      const rows = hourlyRows('pb-point', LA_JOLLA_TIDE, SINGLE_SWELL);
+      expect(callAt('pb-point', '19', 45, rows).whySentence).toBe('Small for this break; tide back in range by ~1 PM.');
+    });
+
+    it('a YES the tide holds down leads with the size', () => {
+      const rows = singleSwellTourmaline();
+      const row = rows.find((candidate) => candidate.forecast_at.slice(11, 13) === '18')!;
+      const call = computeSurfCall(windowAt(row, 75), rows, beachOf('tourmaline'), { isTomorrow: true, verdict: 'YES' });
+      expect(call.whySentence).toBe('Good size; tide back in range by ~12 PM.');
+    });
+
+    it('stays under ~110 characters', () => {
+      const sentences = [
+        callAt('pb-point', '17', 45, hourlyRows('pb-point', LA_JOLLA_TIDE)).whySentence,
+        callAt('pb-point', '18', 45).whySentence,
+        callAt('tourmaline', '00', 45).whySentence,
+      ];
+      for (const sentence of sentences) expect(sentence.length).toBeLessThanOrEqual(110);
+    });
+  });
+});

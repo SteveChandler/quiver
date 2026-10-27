@@ -307,8 +307,7 @@ export function scoreForecastSlots(
  */
 export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
   const GOLDEN_THRESHOLD = 60;
-  // Each slot represents a 3-hour window
-  const SLOT_DURATION_MS = 3 * 60 * 60 * 1000;
+  const slotDurations = slotDurationsMs(slots);
 
   const windows: GoldenWindow[] = [];
   let runSlots: TimeSlot[] = [];
@@ -318,8 +317,9 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
 
     const startTime = runSlots[0].forecastAt;
     const lastSlot = runSlots[runSlots.length - 1];
+    const lastSlotDurationMs = slotDurations.get(lastSlot) ?? SLOT_DURATION_MS;
     const endTime = new Date(
-      new Date(lastSlot.forecastAt).getTime() + SLOT_DURATION_MS
+      new Date(lastSlot.forecastAt).getTime() + lastSlotDurationMs
     ).toISOString();
 
     const peakSlot = runSlots.reduce((best, s) =>
@@ -329,7 +329,7 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
     const durationMs =
       new Date(lastSlot.forecastAt).getTime() -
       new Date(startTime).getTime() +
-      SLOT_DURATION_MS;
+      lastSlotDurationMs;
     const durationMinutes = Math.round(durationMs / 60_000);
 
     windows.push({
@@ -359,10 +359,27 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
   return windows;
 }
 
-function slotEnd(forecastAt: string): string {
+/**
+ * How long each slot is in effect: until the next slot, at most one 3-hour
+ * grid step. The last slot repeats the gap before it (3 h when there is none),
+ * so hourly slots last an hour and the 3-hourly grid is unchanged.
+ */
+function slotDurationsMs<T extends Pick<TimeSlot, "forecastAt">>(slots: readonly T[]): Map<T, number> {
+  const durations = new Map<T, number>();
+  let durationMs = SLOT_DURATION_MS;
+  slots.forEach((slot, index) => {
+    const next = slots[index + 1];
+    const gapMs = next ? Date.parse(next.forecastAt) - Date.parse(slot.forecastAt) : NaN;
+    if (Number.isFinite(gapMs) && gapMs > 0) durationMs = Math.min(gapMs, SLOT_DURATION_MS);
+    durations.set(slot, durationMs);
+  });
+  return durations;
+}
+
+function slotEnd(forecastAt: string, durationMs: number): string {
   const startsAtMs = Date.parse(forecastAt);
   return Number.isFinite(startsAtMs)
-    ? new Date(startsAtMs + SLOT_DURATION_MS).toISOString()
+    ? new Date(startsAtMs + durationMs).toISOString()
     : "";
 }
 
@@ -370,13 +387,14 @@ function buildSlotBindings(
   beachId: string,
   timeSlots: readonly TimeSlot[]
 ): ScoredForecastSlotBinding[] {
-  return timeSlots.map(({ forecastAt }) => ({
-    forecastAt,
+  const durations = slotDurationsMs(timeSlots);
+  return timeSlots.map((slot) => ({
+    forecastAt: slot.forecastAt,
     candidate: {
-      candidateId: `scored-slot:${beachId}:${forecastAt}`,
+      candidateId: `scored-slot:${beachId}:${slot.forecastAt}`,
       beachId,
-      startsAt: forecastAt,
-      endsAt: slotEnd(forecastAt),
+      startsAt: slot.forecastAt,
+      endsAt: slotEnd(slot.forecastAt, durations.get(slot) ?? SLOT_DURATION_MS),
     },
   }));
 }

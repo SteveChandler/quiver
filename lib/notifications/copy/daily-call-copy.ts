@@ -97,10 +97,38 @@ export function windPhrase(forecast: ForecastNumbers): string {
   return [`${Math.round(speed)} mph`, forecast.wind_direction?.trim() || null, "wind"].filter(Boolean).join(" ");
 }
 
+function swingStartClock(iso: string, timezone: string): string {
+  const clock = formatClock12(iso, timezone);
+  return clock === "12 PM" ? "noon" : clock;
+}
+
+/**
+ * A window the tide opens and closes moving one way: it entered the band over
+ * one edge and leaves over the other. Only band crossings qualify (bandEdge is
+ * set only with TIDE_SWING_ENABLED), so a direction-only change never claims
+ * "too low" or "too full".
+ */
+function tideSwingSentence(drivers: readonly WindowDriver[], endClock: string, timezone: string): string | null {
+  const start = drivers.find((driver) => driver.edge === "start");
+  const end = drivers.find((driver) => driver.edge === "end");
+  if (start?.kind !== "tide" || end?.kind !== "tide") return null;
+  const falling = start.label.startsWith("falling") && end.label.startsWith("falling");
+  const rising = start.label.startsWith("rising") && end.label.startsWith("rising");
+  if (falling && start.bandEdge === "max" && end.bandEdge === "min") {
+    return `Best on the drop from ${swingStartClock(start.at, timezone)} until it gets too low around ${endClock}.`;
+  }
+  if (rising && start.bandEdge === "min" && end.bandEdge === "max") {
+    return `Best on the push from ${swingStartClock(start.at, timezone)} until it gets too full around ${endClock}.`;
+  }
+  return null;
+}
+
 /** What closes the window, read from the driver the refiner chose for its end. */
 export function limitSentence(drivers: readonly WindowDriver[], endIso: string, timezone: string): string {
   const end = drivers.find((driver) => driver.edge === "end");
   const at = formatClock12(end?.at ?? endIso, timezone);
+  const swing = tideSwingSentence(drivers, at, timezone);
+  if (swing) return swing;
   switch (end?.kind) {
     case "tide":
       return end.label.startsWith("rising")

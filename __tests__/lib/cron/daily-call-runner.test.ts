@@ -41,8 +41,10 @@ import type {
 import {
   buildCandidates,
   buildComparisonLine,
+  forecastRowEnds,
   groupGoForecasts,
   rankCandidates,
+  rowServesDay,
   runDailyCallCron,
   type DailyCallCandidate,
   type DailyCallDeps,
@@ -2066,6 +2068,50 @@ describe("groupGoForecasts", () => {
   it("ends a run at a missing grid row", () => {
     expect(ids(groupGoForecasts([row(8, "go"), row(14, "go")])))
       .toEqual([["h8"], ["h14"]]);
+  });
+
+  it("joins hourly go rows into one run", () => {
+    expect(ids(groupGoForecasts([row(8, "go"), row(9, "go"), row(10, "go"), row(11, "no"), row(12, "go")])))
+      .toEqual([["h8", "h9", "h10"], ["h12"]]);
+  });
+});
+
+describe("forecast row cadence", () => {
+  const HOUR = 3_600_000;
+  // Local hours on 2026-11-02 (PST, UTC-8).
+  const at = (hour: number): string => new Date(Date.UTC(2026, 10, 2, hour + 8)).toISOString();
+  const rows = (hours: number[]): EnhancedForecastEntity[] =>
+    hours.map((hour) => ({ id: `h${hour}`, forecast_at: at(hour) }) as EnhancedForecastEntity);
+  const ends = (hours: number[]): number[] =>
+    hours.map((hour) => (forecastRowEnds(rows(hours)).get(Date.parse(at(hour))) ?? NaN) - Date.parse(at(hour)));
+
+  it("keeps every 3-hourly row in effect for one grid step, a missing row and the last row included", () => {
+    expect(ends([4, 7, 13, 16])).toEqual([3 * HOUR, 3 * HOUR, 3 * HOUR, 3 * HOUR]);
+    expect(ends([10])).toEqual([3 * HOUR]);
+  });
+
+  it("keeps hourly rows in effect for an hour, the last row too", () => {
+    expect(ends([5, 6, 7, 8])).toEqual([HOUR, HOUR, HOUR, HOUR]);
+  });
+
+  it("lets an unbridged 3-hourly row run until the first hourly row", () => {
+    expect(ends([1, 4, 7, 8, 9, 10])).toEqual([3 * HOUR, 3 * HOUR, HOUR, HOUR, HOUR, HOUR]);
+  });
+
+  it("serves the 05:00 day start from the row in effect then, not from earlier hourly rows", () => {
+    const dayStart = Date.parse(at(5));
+    const dayEnd = Date.parse(at(20));
+    const hourly = rows([2, 3, 4, 5, 6]);
+    const hourlyEnds = forecastRowEnds(hourly);
+    const served = (list: EnhancedForecastEntity[], live?: Map<number, number>): string[] => list
+      .filter((row) => rowServesDay(row, dayStart, dayEnd, live?.get(Date.parse(row.forecast_at))))
+      .map((row) => row.id);
+    expect(served(hourly, hourlyEnds)).toEqual(["h5", "h6"]);
+    // Without live ends a row is in effect for a grid step, as before.
+    expect(served(hourly)).toEqual(["h3", "h4", "h5", "h6"]);
+    const grid = rows([1, 4, 7]);
+    expect(served(grid, forecastRowEnds(grid))).toEqual(["h4", "h7"]);
+    expect(served(grid)).toEqual(["h4", "h7"]);
   });
 });
 

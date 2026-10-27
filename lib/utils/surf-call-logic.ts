@@ -27,10 +27,19 @@ import {
   getRecommendationLabel,
   getRecommendationLabelGated,
 } from '@/lib/services/discovery/response-formatter';
-import type { CompositeScore } from '@/lib/domains/scoring';
+import type { CompositeScore, ScorerInput } from '@/lib/domains/scoring';
 import { classifyWindRelation, WIND_SPEED_GLASSY_MPH } from '@/lib/utils/wind-relation';
 import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { isTideSwingEnabled } from '@/lib/flags/tide-swing';
+import { isDirectionScoringEnabledForBeach } from '@/lib/flags/direction-scoring';
+import {
+  assessTideSwing,
+  resolveTideBand,
+  TIDE_BAND_TOLERANCE_FT,
+} from '@/lib/domains/scoring/tide-swing';
+import { windChopCeiling } from '@/lib/domains/scoring/wind-chop-ceiling';
+import { formatClock12, formatWindowLabel } from '@/lib/notifications/copy/daily-call-copy';
 
 // ============================================================================
 // Types
@@ -432,6 +441,7 @@ function buildWhySentence(
   shortWindow: boolean,
   noReason?: string,
   character?: ConditionCharacter | null,
+  tideLimiter?: TideLimiter | null,
 ): string {
   if (noReason) return noReason;
 
@@ -439,6 +449,10 @@ function buildWhySentence(
   const isOnshore = wind.type === 'onshore';
   const isCross = wind.type === 'cross-shore';
   const hasGoodTide = tide.phase === 'rising' || tide.phase === 'low slack';
+
+  if (verdict === 'YES' && tideLimiter) {
+    return tideLimitSentence('Good size', tideLimiter);
+  }
 
   if (verdict === 'YES') {
     // Highlight the two strongest positives
@@ -472,6 +486,10 @@ function buildWhySentence(
       }
       return 'Best window is short — conditions change quickly.';
     }
+    // The lowest ceiling on the call, so it outranks the wind and falling-tide lines below.
+    if (tideLimiter) {
+      return tideLimitSentence('Size is there', tideLimiter);
+    }
     if (isOnshore) {
       return 'Size is there, but onshore wind hurts shape.';
     }
@@ -496,6 +514,132 @@ function buildWhySentence(
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function lowercaseFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+// ============================================================================
+// Tide limiter (TIDE_SWING_ENABLED)
+// ============================================================================
+
+const TIDE_EFFECT_CODES: ReadonlySet<string> = new Set(['tide_outside_band', 'tide_swing']);
+
+/** The tide effect holding the call's ceiling, read from the composite of the call's peak row. */
+interface TideLimiter {
+  code: string;
+  message: string;
+  /** Which side of the curated band the tide sits on; null when inside it or unbanded. */
+  side: 'high' | 'low' | null;
+  /** "Tide back in range by ~12 PM" when the tide re-enters the band within the hour. */
+  reentryMessage: string | null;
+  /** "12–3 PM" / "around 2 PM": the next in-band rows after the peak row, from the day's rows. */
+  betterSpan: string | null;
+}
+
+function tideLimitSentence(lead: string, limiter: TideLimiter): string {
+  if (limiter.reentryMessage) return `${lead}; ${lowercaseFirst(limiter.reentryMessage)}.`;
+  const better = limiter.betterSpan ? ` — better ${limiter.betterSpan}` : '';
+  if (limiter.side === 'high') return `${lead}, but a lot of water until the tide drops${better}.`;
+  if (limiter.side === 'low') return `${lead}, but not enough water until the tide fills in${better}.`;
+  return `${lead}, but ${lowercaseFirst(limiter.message)}.`;
+}
+
+function tideHeightOf(forecast: EnhancedForecastEntity): number | null {
+  const value = forecast.tide_height == null ? NaN : parseFloat(String(forecast.tide_height));
+  return Number.isFinite(value) ? value : null;
+}
+
+/** The Daily Call's surfable day, 05:00 to 20:00 local: a span never names a night hour. */
+const BETTER_SPAN_FIRST_HOUR = 5;
+const BETTER_SPAN_END_HOUR = 20;
+
+/**
+ * The contiguous run of in-band rows after the limited row, on the same local
+ * day. Times come only from rows that exist; with none, the sentence has no times.
+ */
+function findBetterTideSpan(
+  limitedRow: EnhancedForecastEntity,
+  forecasts: readonly EnhancedForecastEntity[],
+  band: { minFt: number; maxFt: number },
+  timezone: string,
+): string | null {
+  const limitedMs = Date.parse(limitedRow.forecast_at);
+  if (!Number.isFinite(limitedMs)) return null;
+  const dayOf = (ms: number): string => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(ms));
+  const hourOf = (ms: number): number => Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, hour: 'numeric', hourCycle: 'h23',
+  }).format(new Date(ms)));
+  const limitedDay = dayOf(limitedMs);
+  const later = forecasts
+    .filter((forecast) => {
+      const at = Date.parse(forecast.forecast_at);
+      if (!Number.isFinite(at) || at <= limitedMs || dayOf(at) !== limitedDay) return false;
+      const hour = hourOf(at);
+      return hour >= BETTER_SPAN_FIRST_HOUR && hour < BETTER_SPAN_END_HOUR;
+    })
+    .sort((left, right) => Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
+  const inBand = (forecast: EnhancedForecastEntity): boolean => {
+    const height = tideHeightOf(forecast);
+    return height !== null
+      && height >= band.minFt - TIDE_BAND_TOLERANCE_FT
+      && height <= band.maxFt + TIDE_BAND_TOLERANCE_FT;
+  };
+  const firstIndex = later.findIndex(inBand);
+  if (firstIndex === -1) return null;
+  let lastIndex = firstIndex;
+  while (lastIndex + 1 < later.length && inBand(later[lastIndex + 1])) lastIndex += 1;
+  const first = later[firstIndex].forecast_at;
+  const last = later[lastIndex].forecast_at;
+  try {
+    return firstIndex === lastIndex
+      ? `around ${formatClock12(first, timezone)}`
+      : formatWindowLabel(first, last, timezone, { forBody: true });
+  } catch {
+    // An unknown IANA zone throws RangeError; the sentence still stands without times.
+    return null;
+  }
+}
+
+/**
+ * The tide effect that sets the call's lowest ceiling (effects plus the wind-chop
+ * ceiling, as the displayed score resolves it). Ties go to the tide, as in the engine.
+ */
+function resolveTideLimiter(
+  composite: CompositeScore,
+  scorerInput: ScorerInput,
+  beach: Beach,
+  representativeForecast: EnhancedForecastEntity,
+  forecasts: readonly EnhancedForecastEntity[],
+  timezone: string,
+): TideLimiter | null {
+  const effects = composite.effects ?? [];
+  const tideEffects = effects.filter((effect) =>
+    TIDE_EFFECT_CODES.has(effect.code) && effect.verdictCeiling !== undefined);
+  if (tideEffects.length === 0) return null;
+  const chop = isDirectionScoringEnabledForBeach(beach)
+    ? windChopCeiling(scorerInput, composite.subscores, { ignoreWindQuality: true })
+    : null;
+  const limitingCeiling = effects.reduce(
+    (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
+    chop?.ceiling ?? 100,
+  );
+  const binding = tideEffects.find((effect) => (effect.verdictCeiling ?? 100) <= limitingCeiling);
+  if (!binding) return null;
+
+  const swing = assessTideSwing(scorerInput.snapshot, scorerInput.profile);
+  const band = resolveTideBand(scorerInput.profile.tidePreferences);
+  const reentryMessage = binding.code === 'tide_outside_band' ? swing.reentryMessage : null;
+  return {
+    code: binding.code,
+    message: binding.message,
+    side: swing.side,
+    reentryMessage,
+    betterSpan: band && swing.side && !reentryMessage
+      ? findBetterTideSpan(representativeForecast, forecasts, band, timezone)
+      : null,
+  };
 }
 
 function extractSetupCautions(warnings: readonly string[] | undefined): string[] {
@@ -613,6 +757,17 @@ function pickRepresentativeForecast(
 interface CompositeAndCharacter {
   composite: CompositeScore;
   character: ConditionCharacter;
+  /** Always null with TIDE_SWING_ENABLED off. */
+  tideLimiter: TideLimiter | null;
+}
+
+/** Copy only: a failure here must not cost the call its composite and character. */
+function safeTideLimiter(...args: Parameters<typeof resolveTideLimiter>): TideLimiter | null {
+  try {
+    return resolveTideLimiter(...args);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -622,20 +777,29 @@ interface CompositeAndCharacter {
  */
 function computeCompositeAndCharacter(
   beach: Beach,
-  representativeForecast: EnhancedForecastEntity | null
+  representativeForecast: EnhancedForecastEntity | null,
+  forecasts: readonly EnhancedForecastEntity[] = [],
+  timezone: string = resolveBeachTimezone(beach.timezone),
 ): CompositeAndCharacter | null {
   if (!representativeForecast) return null;
   try {
     const profile = beachToSpotProfile(beach);
     const snapshot = forecastToSnapshot(representativeForecast);
-    const composite = getDiscoveryScoringEngine().score({
+    const scorerInput: ScorerInput = {
       profile,
       snapshot,
       window: null,
       preferences: null,
-    });
+    };
+    const composite = getDiscoveryScoringEngine().score(scorerInput);
     const character = getConditionCharacter(snapshot, profile, composite);
-    return { composite, character };
+    return {
+      composite,
+      character,
+      tideLimiter: isTideSwingEnabled()
+        ? safeTideLimiter(composite, scorerInput, beach, representativeForecast, forecasts, timezone)
+        : null,
+    };
   } catch {
     return null;
   }
@@ -840,7 +1004,12 @@ export function computeSurfCall(
     forecasts,
     window.peakTime instanceof Date ? window.peakTime : undefined
   );
-  const compositeResult = computeCompositeAndCharacter(beach, representativeForecast);
+  const compositeResult = computeCompositeAndCharacter(
+    beach,
+    representativeForecast,
+    forecasts,
+    resolveBeachTimezone(options.timezone ?? window.timezone ?? beach.timezone),
+  );
   const character = compositeResult?.character ?? null;
   const cautions = extractSetupCautions(compositeResult?.composite.warnings);
 
@@ -911,14 +1080,20 @@ export function computeSurfCall(
   const setupRiskOverride = cautions.length > 0
     ? `${cautions[0]}.`
     : undefined;
+  // "Conditions look fun" can't stand beside a tide that holds the call down.
+  const tideLimiter = compositeResult?.tideLimiter ?? null;
+  const smallWaveTideOverride = smallWaveOverride && tideLimiter
+    ? tideLimitSentence('Small for this break', tideLimiter)
+    : undefined;
   const whySentence = buildWhySentence(
     verdict,
     wind,
     waveHeight,
     tide,
     shortWindow,
-    setupRiskOverride ?? smallWaveOverride,
+    setupRiskOverride ?? smallWaveTideOverride ?? smallWaveOverride,
     character,
+    tideLimiter,
   );
   const peakTime = window.peakTime instanceof Date && !isNaN(window.peakTime.getTime())
     ? window.peakTime.toISOString()
