@@ -83,6 +83,9 @@ export async function loadBriefingForOutlook(args: {
       getSwellBriefingRegion(),
     );
     if (artifact === null) return null;
+    // A Week Scout notes edition has none of the Outlook sections. Installed
+    // builds keep their swell list and simply stop showing a briefing.
+    if (artifact.schemaVersion !== 1) return null;
 
     // An edition whose validity has lapsed is not shown; the swell list stands.
     const validUntil = Date.parse(artifact.validUntil);

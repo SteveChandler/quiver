@@ -1,0 +1,198 @@
+{
+  "generator": "lib/services/discovery/__tests__/fixtures/generate-python-worker-notes-artifact.py",
+  "workerCommit": "f336fd76cf993863e5da3b2b51cd95d39d698fe6",
+  "snapshot": {
+    "schemaVersion": 2,
+    "userId": "bcdc5d59-2e22-4006-98a6-cada8618577a",
+    "region": "san-diego",
+    "editionDate": "2026-10-27",
+    "sourcePublishedAt": "2026-10-27T12:00:00.000Z",
+    "validUntil": "2026-10-29T06:59:59.000Z",
+    "briefing": {
+      "schemaVersion": 2,
+      "kind": "week_scout_notes",
+      "editionDate": "2026-10-27",
+      "generatedAt": "2026-10-27T12:00:00.000Z",
+      "notes": []
+    },
+    "copyFacts": [
+      {
+        "id": "headline-worth",
+        "slot": "headline",
+        "text": "Wednesday looks worth it.",
+        "gate": {
+          "days": [
+            {
+              "localDate": "2026-10-28",
+              "beachId": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01",
+              "verdict": "worth_it",
+              "bucket": "evening"
+            }
+          ],
+          "swells": []
+        }
+      },
+      {
+        "id": "headline-worth-beach",
+        "slot": "headline",
+        "text": "Wednesday at Blacks looks like the call.",
+        "gate": {
+          "days": [
+            {
+              "localDate": "2026-10-28",
+              "beachId": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01",
+              "verdict": "worth_it",
+              "bucket": "evening"
+            }
+          ],
+          "swells": []
+        }
+      },
+      {
+        "id": "day-2026-10-28-0",
+        "slot": "day:2026-10-28",
+        "text": "Blacks in the evening looks worth it.",
+        "gate": {
+          "days": [
+            {
+              "localDate": "2026-10-28",
+              "beachId": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01",
+              "verdict": "worth_it",
+              "bucket": "evening"
+            }
+          ],
+          "swells": []
+        }
+      },
+      {
+        "id": "day-2026-10-28-1",
+        "slot": "day:2026-10-28",
+        "text": "Worth it in the evening.",
+        "gate": {
+          "days": [
+            {
+              "localDate": "2026-10-28",
+              "beachId": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01",
+              "verdict": "worth_it",
+              "bucket": "evening"
+            }
+          ],
+          "swells": []
+        }
+      },
+      {
+        "id": "day-2026-10-29-0",
+        "slot": "day:2026-10-29",
+        "text": "Scripps in the morning is a maybe.",
+        "gate": {
+          "days": [
+            {
+              "localDate": "2026-10-29",
+              "beachId": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a02",
+              "verdict": "maybe",
+              "bucket": "morning"
+            }
+          ],
+          "swells": []
+        }
+      },
+      {
+        "id": "swell-0-0",
+        "slot": "swell:6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01:W:2026-10-30:p",
+        "text": "Likely, and still firming up.",
+        "gate": {
+          "days": [],
+          "swells": [
+            {
+              "eventKey": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01:W:2026-10-30:p",
+              "confidence": "likely"
+            }
+          ]
+        }
+      }
+    ],
+    "provenance": {
+      "sourceIds": [
+        "week_scout:san-diego:2026-10-27"
+      ],
+      "sourceHashes": [
+        "abc"
+      ],
+      "generationInputVersion": "notes-1"
+    },
+    "inputHash": "bcff4bdfd9f6ee7f3be58acf7546a98d5b513ab435eb537e1c82da4aadcf0687"
+  },
+  "artifact": {
+    "schemaVersion": 2,
+    "userId": "bcdc5d59-2e22-4006-98a6-cada8618577a",
+    "region": "san-diego",
+    "editionDate": "2026-10-27",
+    "inputHash": "bcff4bdfd9f6ee7f3be58acf7546a98d5b513ab435eb537e1c82da4aadcf0687",
+    "sourcePublishedAt": "2026-10-27T12:00:00.000Z",
+    "validUntil": "2026-10-29T06:59:59.000Z",
+    "generationVersion": "week-scout-notes-1",
+    "model": "gemma4:12b-32k",
+    "briefing": {
+      "schemaVersion": 2,
+      "kind": "week_scout_notes",
+      "editionDate": "2026-10-27",
+      "generatedAt": "2026-10-27T12:31:07.123456+00:00",
+      "notes": [
+        {
+          "slot": "headline",
+          "text": "Wednesday at Blacks looks like the call.",
+          "gate": {
+            "days": [
+              {
+                "localDate": "2026-10-28",
+                "beachId": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01",
+                "verdict": "worth_it",
+                "bucket": "evening"
+              }
+            ],
+            "swells": []
+          }
+        },
+        {
+          "slot": "day:2026-10-28",
+          "text": "Worth it in the evening.",
+          "gate": {
+            "days": [
+              {
+                "localDate": "2026-10-28",
+                "beachId": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01",
+                "verdict": "worth_it",
+                "bucket": "evening"
+              }
+            ],
+            "swells": []
+          }
+        },
+        {
+          "slot": "swell:6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01:W:2026-10-30:p",
+          "text": "Likely, and still firming up.",
+          "gate": {
+            "days": [],
+            "swells": [
+              {
+                "eventKey": "6f1c1f3e-2b8a-4a55-9a43-0d1f3e1d6a01:W:2026-10-30:p",
+                "confidence": "likely"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "sourceIds": [
+        "week_scout:san-diego:2026-10-27"
+      ],
+      "sourceHashes": [
+        "abc"
+      ],
+      "generationInputVersion": "notes-1"
+    },
+    "artifactId": "798203bbe7ba95a7c408c1f376d14416fa6f3369260f28b4b78797fe9073ebdd"
+  },
+  "serverNow": "2026-10-27T12:32:00.000Z"
+}
