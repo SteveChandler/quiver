@@ -18,10 +18,9 @@ import {
   scoreNativeConditionBreakdown,
   scoreNativeConditionInputs,
   nativeScoreInputsFromForecast,
+  displayTideBand,
   type NativeConditionScoreBreakdown,
 } from "@/lib/scoring/native-condition-score";
-import { resolveTideBand, type TideBand } from "@/lib/domains/scoring/tide-swing";
-import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
 import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
 import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
@@ -113,14 +112,6 @@ function isFullBeach(beach: BeachWithThresholds): beach is Beach {
     Object.prototype.hasOwnProperty.call(beach, "break_type") &&
     Object.prototype.hasOwnProperty.call(beach, "aspect_deg")
   );
-}
-
-/** The beach's curated tide band for the displayed tide term; same rule as the engine's explicitRange. */
-function displayTideBand(beach: BeachWithThresholds): TideBand | null {
-  if (!isTideSwingEnabled()) return null;
-  const { preferred_tide_ft_min: minHeightFt, preferred_tide_ft_max: maxHeightFt } = beach;
-  if (minHeightFt == null || maxHeightFt == null) return null;
-  return resolveTideBand({ minHeightFt, maxHeightFt, explicitRange: true });
 }
 
 /**
