@@ -735,7 +735,7 @@ export async function buildBriefingInput(args: {
 
   // Unchanged measurements reuse the issued snapshot, so a refetch does not
   // invalidate the worker's deduplication or churn a new edition.
-  const existing = await loadLatestBriefingInput(client, userId, region.slug, editionDate);
+  const existing = await loadLatestBriefingInput(client, userId, region.slug, editionDate, 1);
   if (existing?.schemaVersion === 1 && existing.provenance?.sourceHashes?.[0] === revision) return existing;
 
   const published = sourcePublishedAt(rows) ?? now.toISOString();

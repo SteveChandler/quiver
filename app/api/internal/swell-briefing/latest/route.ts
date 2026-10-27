@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { withBriefingPublisher } from "@/lib/middleware/api-wrappers/briefing-publisher-wrapper";
 import {
   BriefingStoreError,
+  SWELL_OUTLOOK_KIND,
   loadLatestBriefingEdition,
 } from "@/lib/services/discovery/swell-briefing-store";
 import { WEEK_SCOUT_NOTES_KIND } from "@/lib/services/discovery/swell-briefing-types";
@@ -20,7 +21,9 @@ export const maxDuration = 30;
  * uploaded before writing its local receipt. This is the publisher-scoped
  * route; native and public readers never reach it and never see provenance.
  *
- * `?schema=2` reads back the newest Week Scout notes edition only.
+ * Each schema reads back its own kind: `?schema=2` the newest Week Scout notes
+ * edition, otherwise the newest Outlook edition, so a schema-1 worker's receipt
+ * check never compares its upload with a notes edition.
  */
 export const GET = withBriefingPublisher(async (request: NextRequest, { userId, region }) => {
   const schema = request.nextUrl.searchParams.get("schema");
@@ -33,7 +36,7 @@ export const GET = withBriefingPublisher(async (request: NextRequest, { userId, 
       createSupabaseServiceRoleClient(),
       userId,
       region,
-      schema === "2" ? { kind: WEEK_SCOUT_NOTES_KIND } : {},
+      { kind: schema === "2" ? WEEK_SCOUT_NOTES_KIND : SWELL_OUTLOOK_KIND },
     );
     if (artifact === null) return NextResponse.json({ error: "no_edition" }, { status: 404 });
     return NextResponse.json(artifact);

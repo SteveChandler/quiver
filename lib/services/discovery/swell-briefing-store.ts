@@ -112,8 +112,8 @@ export async function loadLatestBriefingInput(
     .eq("user_id", userId)
     .eq("region", region)
     .eq("edition_date", editionDate);
-  // Both schemas share the table, so the notes builder asks for its own kind:
-  // a newer Outlook input must not stop an unchanged notes input being reused.
+  // Both schemas share the table, so each builder asks for its own: a newer
+  // input of the other kind must not stop an unchanged one being reused.
   if (schemaVersion !== undefined) query = query.eq("snapshot->>schemaVersion", String(schemaVersion));
   const { data, error } = await query
     .order("created_at", { ascending: false })
@@ -183,6 +183,10 @@ export interface EditionRow {
 const EDITION_COLUMNS =
   "artifact_id, user_id, region, edition_date, input_hash, source_published_at, valid_until, generation_version, model, briefing, provenance";
 
+/** Outlook (schema 1) editions carry no `kind`; this names them for filtering. */
+export const SWELL_OUTLOOK_KIND = "swell_outlook";
+type EditionKind = typeof WEEK_SCOUT_NOTES_KIND | typeof SWELL_OUTLOOK_KIND;
+
 /** How many recent revisions to consider when choosing the current edition. */
 const LATEST_CANDIDATE_ROWS = 20;
 
@@ -209,7 +213,7 @@ export async function loadLatestBriefingEdition(
   client: Client,
   userId: string,
   region: string,
-  options: { kind?: typeof WEEK_SCOUT_NOTES_KIND } = {},
+  options: { kind?: EditionKind } = {},
 ): Promise<BriefingArtifact | null> {
   let query = briefingTables(client)
     .from("swell_briefing_editions")
@@ -218,8 +222,10 @@ export async function loadLatestBriefingEdition(
     .eq("region", region);
   // Outlook and Week Scout notes editions share the table. Unfiltered, the
   // newest of either wins, which is what retires the Outlook briefing once
-  // notes publish; the notes reader asks for its own kind.
-  if (options.kind) query = query.eq("briefing->>kind", options.kind);
+  // notes publish. Readers that need one kind ask for it; an Outlook briefing
+  // has no `kind`.
+  if (options.kind === WEEK_SCOUT_NOTES_KIND) query = query.eq("briefing->>kind", WEEK_SCOUT_NOTES_KIND);
+  if (options.kind === SWELL_OUTLOOK_KIND) query = query.is("briefing->>kind", null);
   const { data, error } = await query
     .order("edition_date", { ascending: false })
     .order("source_published_at", { ascending: false })

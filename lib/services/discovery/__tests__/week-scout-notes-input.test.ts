@@ -104,7 +104,7 @@ describe("buildWeekScoutNoteFacts", () => {
     const headlines = bySlot(buildWeekScoutNoteFacts(forecast(), NAMES), "headline");
     expect(headlines.map((fact) => [fact.text, fact.gate.days.map((gate) => gate.localDate)])).toEqual([
       ["Wednesday looks worth it.", ["2026-10-28"]],
-      ["Wednesday at Blacks looks like the call.", ["2026-10-28"]],
+      ["Wednesday at Blacks looks worth it.", ["2026-10-28"]],
       ["Wednesday and Friday both look worth it.", ["2026-10-28", "2026-10-30"]],
     ]);
   });
@@ -124,6 +124,15 @@ describe("buildWeekScoutNoteFacts", () => {
     for (const fact of facts) {
       expect(fact.gate).toEqual({ days: [], swells: [{ eventKey: `${BLACKS}:W:2026-10-30:p`, confidence: "likely" }] });
     }
+  });
+
+  it("words swell notes so they stay true if the swell firms up, since the gate is a floor", () => {
+    const texts = (confidence: string) => buildWeekScoutNoteFacts(forecast({ days: [], swells: [{ eventKey: "s", confidence }] }), NAMES)
+      .filter((fact) => fact.slot === "swell:s")
+      .map((fact) => fact.text);
+    expect(texts("on_the_radar")).toEqual(["On the radar.", "One to watch."]);
+    expect(texts("likely")).toEqual(["Looking likely.", "Likely, and worth watching."]);
+    expect(texts("locked")).toEqual(["Locked in.", "The forecast has settled on this one."]);
   });
 
   it("issues ids the worker accepts, unique across the input", () => {

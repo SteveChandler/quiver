@@ -96,10 +96,15 @@ function dayFacts(day: WeekScoutDayResponse, gate: WeekScoutDayGate, name: strin
   return hedged.map((text, index) => ({ id: `day-${day.localDate}-${index}`, slot, text, gate: gateOf([gate]) }));
 }
 
+/**
+ * A swell gate holds while confidence stays at or above where it was, so each
+ * text must stay true if the swell firms up: "on the radar" is still true of a
+ * locked swell, "too early to plan around" would not be.
+ */
 const SWELL_TEXTS: Record<WeekScoutSwellGate["confidence"], string[]> = {
-  locked: ["Locked in. Plan around it.", "The forecast has settled on this one."],
-  likely: ["Likely, and still firming up.", "Looking likely. Worth watching."],
-  on_the_radar: ["On the radar. Too early to plan around.", "Early days for this one."],
+  locked: ["Locked in.", "The forecast has settled on this one."],
+  likely: ["Looking likely.", "Likely, and worth watching."],
+  on_the_radar: ["On the radar.", "One to watch."],
 };
 
 /**
@@ -147,7 +152,7 @@ export function buildWeekScoutNoteFacts(
       headlines.push({
         id: "headline-worth-beach",
         slot: "headline",
-        text: `${weekday(first.day.localDate)} at ${name} looks like the call.`,
+        text: `${weekday(first.day.localDate)} at ${name} looks worth it.`,
         gate: gateOf([first.gate]),
       });
     }
@@ -287,9 +292,10 @@ export async function buildWeekScoutNotesInput(args: {
     userId,
     region: region.slug,
     editionDate,
-    // The notes rest on this ranking, so its time is the source time. It is
-    // also never older than an Outlook edition already saved for the day,
-    // which the publish function's no-older-source rule would otherwise refuse.
+    // The notes rest on this ranking, so its time is the source time. Both
+    // kinds share the publish function's no-older-source rule per day, so once
+    // a notes edition is saved an Outlook upload built on older data that day
+    // is refused: the switch from Outlook to notes is one-way within a day.
     sourcePublishedAt: new Date(Date.parse(forecast.generatedAt) || now.getTime()).toISOString(),
     validUntil: zonedWallClockToUtc(addDays(editionDate, 1), "23:59:59.000", region.timezone),
     briefing: {

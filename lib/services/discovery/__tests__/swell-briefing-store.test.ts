@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import { briefingArtifactId } from "../swell-briefing-hash";
-import { selectCurrentEdition, toArtifact, type EditionRow } from "../swell-briefing-store";
+import { loadLatestBriefingEdition, loadLatestBriefingInput, selectCurrentEdition, toArtifact, type EditionRow } from "../swell-briefing-store";
 import type { SwellBriefingArtifact } from "../swell-briefing-types";
 import fixture from "./fixtures/python-worker-artifact.json";
 
@@ -86,5 +86,44 @@ describe("toArtifact", () => {
     expect(readback.sourcePublishedAt).toBe(artifact.sourcePublishedAt);
     expect(readback.validUntil).toBe(artifact.validUntil);
     expect(briefingArtifactId(readback as unknown as Record<string, unknown>)).toBe(artifact.artifactId);
+  });
+});
+
+/** Records the filters a read applies; every read resolves empty. */
+function recordingClient() {
+  const calls: Array<[string, unknown[]]> = [];
+  const chain: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "is", "order", "limit"]) {
+    chain[method] = (...args: unknown[]) => {
+      calls.push([method, args]);
+      return chain;
+    };
+  }
+  chain.maybeSingle = async () => ({ data: null, error: null });
+  chain.then = (resolve: (value: unknown) => unknown) => resolve({ data: [], error: null });
+  return { client: { from: () => chain } as never, calls };
+}
+
+describe("reading one kind from the shared tables", () => {
+  const USER = "23a9c100-dbee-4d1b-9178-3456a45935ad";
+
+  it("filters editions by kind only when asked", async () => {
+    const notes = recordingClient();
+    await loadLatestBriefingEdition(notes.client, USER, "san-diego", { kind: "week_scout_notes" });
+    expect(notes.calls).toContainEqual(["eq", ["briefing->>kind", "week_scout_notes"]]);
+
+    const outlook = recordingClient();
+    await loadLatestBriefingEdition(outlook.client, USER, "san-diego", { kind: "swell_outlook" });
+    expect(outlook.calls).toContainEqual(["is", ["briefing->>kind", null]]);
+
+    const any = recordingClient();
+    await loadLatestBriefingEdition(any.client, USER, "san-diego");
+    expect(any.calls.filter(([, args]) => args[0] === "briefing->>kind")).toEqual([]);
+  });
+
+  it("filters inputs by schema when asked", async () => {
+    const { client, calls } = recordingClient();
+    await loadLatestBriefingInput(client, USER, "san-diego", "2026-10-27", 1);
+    expect(calls).toContainEqual(["eq", ["snapshot->>schemaVersion", "1"]]);
   });
 });
