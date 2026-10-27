@@ -1515,6 +1515,9 @@ export class ForecastBuilder {
         ...(waveHeightDebug.calibrationBucketQuarantined
           ? { calibration_bucket_quarantined: true }
           : {}),
+        ...(waveHeightDebug.shortPeriodBucketCapped
+          ? { short_period_bucket_capped: true }
+          : {}),
         ...(waveHeightDebug.cdipRejection
           ? {
               cdip_rejection: {
@@ -1575,10 +1578,15 @@ export class ForecastBuilder {
             }
           : {}),
       },
-      ...(waveHeightDebug.calibrationBucketQuarantined
+      ...(waveHeightDebug.calibrationBucketQuarantined || waveHeightDebug.shortPeriodBucketCapped
         ? {
             wave_height_debug: {
-              calibrationBucketQuarantined: true,
+              ...(waveHeightDebug.calibrationBucketQuarantined
+                ? { calibrationBucketQuarantined: true }
+                : {}),
+              ...(waveHeightDebug.shortPeriodBucketCapped
+                ? { shortPeriodBucketCapped: true }
+                : {}),
             },
           }
         : {}),

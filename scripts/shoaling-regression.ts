@@ -22,8 +22,7 @@
  * - Gate C: wind-swell beaches near-neutral (delta in [-20%, +10%]).
  *   Confirms short-period cutoff (8s) does not over-zero legitimate
  *   wind-swell spots.
- * - Gate D: uncalibrated beaches unchanged (byte-identical legacy path).
- *   Confirms the refactor did not accidentally change transformToFaceHeight.
+ * - Gate D: uncalibrated beaches unchanged (byte-identical scalar fallback).
  * - Gate E (ADVISORY): Surfline LOTUS parity for 6 beaches, print only.
  * - Gate F: CDIP→model handoff boundary default-off invariant + enabled
  *   continuity improvement.
@@ -197,11 +196,9 @@ function inferSource(dataSource: string): WaveHeightSourceTag | undefined {
 }
 
 /**
- * Compute the PRE-fix face height. This is the legacy scalar path —
- * `transformToFaceHeight` with the `source` gate and the same inputs the
- * old `forecast-builder.getWaveHeight` would have passed. The function
- * itself is unchanged by the fix (Workstream A only ADDED new exports),
- * so we can call it directly as the baseline.
+ * Compute the scalar comparator with the current `transformToFaceHeight`.
+ * The short-period cap changes this comparator too; compare runs saved
+ * before and after that change to measure its effect.
  */
 function computeOldFaceHeight(beach: FixtureBeach): number {
   const f = beach.forecast;
