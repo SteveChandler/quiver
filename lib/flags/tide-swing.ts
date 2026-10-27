@@ -19,7 +19,12 @@ export function isHourlyBridgeEnabledForAny(): boolean {
   return ALL_SURFACES.some(isHourlyBridgeEnabledFor);
 }
 
-/** Band-aware displayed tide points and tide-rate effects. */
+/**
+ * Band-aware displayed tide points and tide-rate effects. Web Beach Detail scores in the browser,
+ * so the flip sets NEXT_PUBLIC_TIDE_SWING_ENABLED (inlined at build; the literal access is what
+ * Next replaces) and server and browser agree.
+ */
 export function isTideSwingEnabled(): boolean {
-  return process.env[TIDE_SWING_ENABLED_FLAG] === "true";
+  return process.env[TIDE_SWING_ENABLED_FLAG] === "true"
+    || process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED === "true";
 }
