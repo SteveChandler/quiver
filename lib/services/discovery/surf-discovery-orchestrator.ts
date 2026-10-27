@@ -75,6 +75,10 @@ import { rankBeaches } from '@/lib/recommendations/selection';
 import { waterQualityCandidateRejection } from '@/lib/recommendations/major-event-hold/candidate-rejection';
 import type { WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import { isBoardPicksFreeEnabled } from '@/lib/flags/board-picks-free';
+import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
+import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from '@/lib/services/tide-series-loader';
+import { bridgeBeachForecastRows, tideWindowForRows } from './hourly-bridge-rows';
+import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
 
 // Import from other discovery modules
 import {
@@ -1843,6 +1847,26 @@ async function discoverSurfSpotsInner(
   const supabase = createSupabaseServiceRoleClient();
   const candidateBeachIds = Array.from(allBeachIds);
 
+  // The hourly bridge fills the hours between 3-hourly rows; it needs sun times, so it runs
+  // after the parallel reads, and its tide read joins them.
+  const bridgeHourly = isHourlyBridgeEnabledFor('discover');
+  const scopedAtMs = forecastAt ? Date.parse(forecastAt) : undefined;
+  const tideWindow = bridgeHourly
+    ? tideWindowForRows(beachForecasts.flatMap(({ forecasts }) => forecasts), scopedAtMs)
+    : null;
+  const tideSeriesPromise: Promise<Map<string, TideSeriesSample[]> | null> = tideWindow
+    ? loadTideSeriesByBeach(
+        supabase as unknown as TideSeriesClient,
+        candidateBeachIds,
+        tideWindow.startIso,
+        tideWindow.endIso,
+      ).catch((error: unknown) => {
+        // Bridged hours fall back to the row chord (tide_source 'row_lerp') rather than fail the request.
+        log.warn('Hourly bridge tide series read failed; bridging from row tides', error);
+        return null;
+      })
+    : Promise.resolve(null);
+
   // Only personalization depends on preferences; other reads can start immediately.
   const userPrefsPromise = userId
     ? getUserSurfPreferences(userId).catch((err) => {
@@ -1859,6 +1883,7 @@ async function discoverSurfSpotsInner(
     userBoardContext,
     breakBehaviorRows,
     userPrefs,
+    tideSeriesByBeach,
   ] = await Promise.all([
     getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
     supabase
@@ -1869,7 +1894,20 @@ async function discoverSurfSpotsInner(
     fetchUserBoardContext(supabase, userId, isPro || isBoardPicksFreeEnabled()),
     fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
     userPrefsPromise,
+    tideSeriesPromise,
   ]);
+  if (bridgeHourly) {
+    beachForecasts = beachForecasts.map((entry) => {
+      const forecasts = bridgeBeachForecastRows(entry.forecasts, {
+        timezone: entry.beach.timezone || getTimezoneFromCoords(entry.beach.lat || 0, entry.beach.lon || 0),
+        tide: tideSeriesByBeach?.get(entry.beach.id) ?? null,
+        scopedAtMs,
+        sunTimes: sunTimesCache.get(entry.beach.id),
+      });
+      forecastsByBeachId.set(entry.beach.id, forecasts);
+      return { ...entry, forecasts };
+    });
+  }
   const {
     dominantBoardClass,
     boardClasses,
@@ -2821,7 +2859,7 @@ export async function discoverSurfSpots(
 
     try {
       const result = await Promise.race([
-        discoverSurfSpotsInner(userId, userLocation, options, startTime, abortController.signal),
+        runWithScoringMemo(() => discoverSurfSpotsInner(userId, userLocation, options, startTime, abortController.signal)),
         timeoutPromise,
       ]);
       return result;

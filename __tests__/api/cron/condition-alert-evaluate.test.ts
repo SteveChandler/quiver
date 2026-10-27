@@ -173,6 +173,7 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     lt: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn((value: number) => { chain._limit = value; return chain; }),
+    range: jest.fn(() => chain),
     upsert: jest.fn((row: any, _opts?: any) => {
       onUpsert?.(row);
       return Promise.resolve({ error: null });
@@ -1399,7 +1400,7 @@ describe("condition-alert-evaluate — hourly windows (ALERT_HOURLY_WINDOWS)", (
     process.env.ALERT_HOURLY_WINDOWS_ENABLED = "true";
     process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST = USER_A;
     seedRule(); seedProfile(); seedBeach(); seedThreeHourlyPair();
-    store.tides.push({ ts: "2026-04-26T15:00:00Z", tide_ft: 2.5, tide_height_m: 0.762, source: "noaa", station_id: "S", created_at: "2026-04-25T04:00:00Z" });
+    store.tides.push({ beach_id: BEACH_1, ts: "2026-04-26T15:00:00Z", tide_ft: 2.5, tide_height_m: 0.762, source: "noaa", station_id: "S", created_at: "2026-04-25T04:00:00Z" });
 
     await GET(makeRequest());
 

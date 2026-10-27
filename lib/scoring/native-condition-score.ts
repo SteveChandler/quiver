@@ -18,6 +18,8 @@ import {
 import { classifyWindQuality } from '@/lib/utils/wind-quality';
 import { alignmentFactor } from '@/lib/utils/wave-height-transformer';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
+import { resolveTideBand, TIDE_BAND_TOLERANCE_FT, type TideBand } from '@/lib/domains/scoring/tide-swing';
+import { isTideSwingEnabled } from '@/lib/flags/tide-swing';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -34,6 +36,14 @@ interface NativeScoreInputs {
   periodSec: number;
   tideHeightFt: number | null;
   tideStatus: string | null;
+  /** Curated band; null/absent keeps the fixed tide term every beach gets today. */
+  tideBand?: TideBand | null;
+}
+
+interface NativeTideTermInput {
+  heightFt: number | null;
+  status: string | null;
+  band?: TideBand | null;
 }
 
 export interface NativeDirectionScoreInput {
@@ -132,8 +142,27 @@ function parseSignedNumber(value: string | number | null | undefined): number | 
   return Number.isFinite(n) ? n : null;
 }
 
+/** The beach columns that hold its curated tide band. */
+interface TideBandColumns {
+  preferred_tide_ft_min?: number | null;
+  preferred_tide_ft_max?: number | null;
+}
+
+/**
+ * The beach's curated tide band for the displayed tide term; same rule as the engine's
+ * explicitRange. Null with TIDE_SWING_ENABLED off or a band not fully set, which keeps the
+ * fixed 1.5-4.5 ft table. Every displayed-score path reads the band through this.
+ */
+export function displayTideBand(beach: TideBandColumns | null | undefined): TideBand | null {
+  if (!isTideSwingEnabled() || !beach) return null;
+  const { preferred_tide_ft_min: minHeightFt, preferred_tide_ft_max: maxHeightFt } = beach;
+  if (minHeightFt == null || maxHeightFt == null) return null;
+  return resolveTideBand({ minHeightFt, maxHeightFt, explicitRange: true });
+}
+
 export function nativeScoreInputsFromForecast(
-  forecast: EnhancedForecastEntity
+  forecast: EnhancedForecastEntity,
+  tideBand?: TideBand | null,
 ): NativeScoreInputs {
   return {
     waveHeightFt: parseMaxWaveHeightFt(forecast.wave_height),
@@ -141,7 +170,47 @@ export function nativeScoreInputsFromForecast(
     periodSec: parseFirstNumber(forecast.swell_1_period ?? forecast.wave_period),
     tideHeightFt: parseSignedNumber(forecast.tide_height),
     tideStatus: forecast.tide_status ?? null,
+    ...(tideBand ? { tideBand } : {}),
   };
+}
+
+const NATIVE_TIDE_IN_BAND_POINTS = 8;
+const NATIVE_TIDE_UNKNOWN_POINTS = 7;
+const NATIVE_TIDE_FLOOR_POINTS = 2;
+/** Today's fixed table steps 8 -> 5 -> 2 a foot and two feet off its 1.5-4.5 ft core. */
+const NATIVE_TIDE_POINTS_PER_FT = 3;
+
+function nativeTideHeightPoints(heightFt: number, band: TideBand | null | undefined): number {
+  if (!band) {
+    if (heightFt >= 1.5 && heightFt <= 4.5) return 8;
+    if (heightFt >= 0.5 && heightFt <= 6) return 5;
+    return 2;
+  }
+  const outsideFt = heightFt > band.maxFt
+    ? heightFt - band.maxFt
+    : heightFt < band.minFt ? band.minFt - heightFt : 0;
+  // Same quarter-foot tolerance as the verdict ceiling, so both agree on "in band".
+  // No break-type slope: the curated band already encodes how tide-sensitive the break is.
+  const excessFt = Math.max(0, outsideFt - TIDE_BAND_TOLERANCE_FT);
+  return Math.max(
+    NATIVE_TIDE_FLOOR_POINTS,
+    NATIVE_TIDE_IN_BAND_POINTS - NATIVE_TIDE_POINTS_PER_FT * excessFt,
+  );
+}
+
+/**
+ * The 0-10 tide term of the displayed score. A curated band replaces the fixed
+ * 1.5-4.5 ft core with the beach's own band and a continuous taper. Pure, so
+ * native can port it as is.
+ */
+export function nativeTideTermPoints({ heightFt, status, band }: NativeTideTermInput): number {
+  let points = heightFt == null
+    ? NATIVE_TIDE_UNKNOWN_POINTS
+    : nativeTideHeightPoints(heightFt, band);
+  const normalizedStatus = status?.toLowerCase() ?? "";
+  if (normalizedStatus.includes("rising") || normalizedStatus.includes("falling")) points += 2;
+  if (normalizedStatus.includes("high") || normalizedStatus.includes("low")) points -= 1;
+  return Math.max(0, Math.min(10, points));
 }
 
 export function scoreNativeConditionInputs(
@@ -222,17 +291,11 @@ function scoreNativeConditionBreakdownForBand(
     ? NATIVE_UNKNOWN_WIND_POINTS
     : Math.max(0, NATIVE_MAX_WIND_POINTS * (1 - windSpeedMph / thresholds.maxWindMph));
 
-  let tideScore = 7;
-  if (tideHeightFt != null) {
-    if (tideHeightFt >= 1.5 && tideHeightFt <= 4.5) tideScore = 8;
-    else if (tideHeightFt >= 0.5 && tideHeightFt <= 6) tideScore = 5;
-    else tideScore = 2;
-  }
-
-  const tideStatus = inputs.tideStatus?.toLowerCase() ?? "";
-  if (tideStatus.includes("rising") || tideStatus.includes("falling")) tideScore += 2;
-  if (tideStatus.includes("high") || tideStatus.includes("low")) tideScore -= 1;
-  tideScore = Math.max(0, Math.min(10, tideScore));
+  const tideScore = nativeTideTermPoints({
+    heightFt: tideHeightFt,
+    status: inputs.tideStatus,
+    band: inputs.tideBand,
+  });
 
   // Direction cannot judge a wind whose strength is unknown.
   const windQuality = direction
@@ -330,9 +393,9 @@ export function scoreNativeForecastSlot(
 export function pickBestNativeForecastSlot(
   forecasts: EnhancedForecastEntity[],
   skillLevel?: SkillLevel | string | null,
-  options: { beachTz?: string } = {}
+  options: { beachTz?: string; tideBand?: TideBand | null } = {}
 ): NativeScoredForecast | null {
-  const { beachTz } = options;
+  const { beachTz, tideBand } = options;
   const daylightForecasts = beachTz
     ? forecasts.filter((forecast) => {
         const localHour = getLocalHour(
@@ -351,7 +414,7 @@ export function pickBestNativeForecastSlot(
   let best: NativeScoredForecast | null = null;
 
   for (const forecast of candidates) {
-    const score = scoreNativeForecastSlot(forecast, skillLevel);
+    const score = scoreNativeConditionInputs(nativeScoreInputsFromForecast(forecast, tideBand), skillLevel);
     if (!best || score > best.score) {
       best = { forecast, score };
     }
@@ -362,9 +425,10 @@ export function pickBestNativeForecastSlot(
 
 export function scoreNativeForecastDay(
   forecasts: EnhancedForecastEntity[],
-  skillLevel?: SkillLevel | string | null
+  skillLevel?: SkillLevel | string | null,
+  options: { tideBand?: TideBand | null } = {}
 ): number {
-  return pickBestNativeForecastSlot(forecasts, skillLevel)?.score ?? 0;
+  return pickBestNativeForecastSlot(forecasts, skillLevel, options)?.score ?? 0;
 }
 
 export function getNativeConditionMatchQuality(

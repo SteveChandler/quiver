@@ -6,7 +6,6 @@ import {
   type LocationSnapshot,
 } from "@/lib/alerts/location-freshness";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
-import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import { buildCanonicalSessionDecision, type CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -45,8 +44,12 @@ import {
 import type { EnqueueArgs, EnqueueResult } from "@/lib/notifications/types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { selectBestWindows } from "@/lib/services/discovery/window-selector";
+import { forecastRowLiveEnds, type BeachSunTimes } from "@/lib/services/discovery/daylight-eligibility";
+import { bridgeBeachForecastRows } from "@/lib/services/discovery/hourly-bridge-rows";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
-import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
+import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from "@/lib/services/tide-series-loader";
+import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
+import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import {
@@ -379,8 +382,8 @@ function buildPayload(args: {
 }
 
 /**
- * Runs of go rows. The forecast grid is 3-hourly, so consecutive go rows join
- * across one grid step; a non-go row or a missing row ends the run.
+ * Runs of go rows. Consecutive go rows join across one 3-hourly grid step (an
+ * hourly step too); a non-go row or a missing row ends the run.
  */
 export function groupGoForecasts(evaluations: ForecastVerdict[]): ForecastVerdict[][] {
   const groups: ForecastVerdict[][] = [];
@@ -413,6 +416,19 @@ function evaluateForecast(
   });
 }
 
+/**
+ * When each of one beach's rows stops being the forecast in effect: the next
+ * row, at most one grid step (a missing row leaves a gap rather than extending
+ * the previous forecast); the last row lives the beach's median row gap. On the
+ * 3-hourly grid every row ends at `at + GRID_MS`, as before; hourly rows live an hour.
+ */
+export function forecastRowEnds(rows: readonly EnhancedForecastEntity[]): Map<number, number> {
+  const times = [...new Set(rows.map((row) => Date.parse(row.forecast_at)).filter(Number.isFinite))];
+  // One row has no cadence to read; keep the grid step.
+  if (times.length < 2) return new Map(times.map((at) => [at, at + GRID_MS]));
+  return forecastRowLiveEnds(times);
+}
+
 function forecastsServingWindow(
   forecasts: EnhancedForecastEntity[],
   window: RefinedWindow,
@@ -421,16 +437,14 @@ function forecastsServingWindow(
   const windowEnd = Date.parse(window.end);
   if (windowEnd <= now.getTime()) return [];
   const liveStart = Math.max(now.getTime(), Date.parse(window.start));
-  const sorted = [...forecasts].sort((left, right) =>
-    Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
-  return sorted.filter((forecast, index) => {
-    const at = Date.parse(forecast.forecast_at);
-    // Missing grid rows leave a gap rather than extending the previous forecast.
-    const gridEnd = at + GRID_MS;
-    const next = sorted[index + 1];
-    const coverageEnd = Math.min(gridEnd, next ? Date.parse(next.forecast_at) : gridEnd);
-    return coverageEnd > liveStart && at < windowEnd;
-  });
+  const rowEnds = forecastRowEnds(forecasts);
+  return [...forecasts]
+    .sort((left, right) => Date.parse(left.forecast_at) - Date.parse(right.forecast_at))
+    .filter((forecast) => {
+      const at = Date.parse(forecast.forecast_at);
+      const coverageEnd = rowEnds.get(at) ?? at + GRID_MS;
+      return coverageEnd > liveStart && at < windowEnd;
+    });
 }
 
 function decisionForWindow(
@@ -494,18 +508,13 @@ export async function loadTideSamples(
 ): Promise<Array<{ at: string; heightFt: number }> | null> {
   const cached = cachedTideSamples(cache, beachId);
   if (cached) return cached;
-  const { data, error } = await supabase
-    .from("tide_forecasts")
-    .select("ts, tide_ft, tide_height_m, source, station_id, created_at")
-    .eq("beach_id", beachId)
-    .gte("ts", start)
-    .lt("ts", end)
-    .order("ts", { ascending: true });
-  if (error) throw new Error(`Failed to load tide forecasts for ${beachId}: ${error.message}`);
-  const samples = selectTideSeries(data ?? []).flatMap((row) => {
-    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * METERS_TO_FEET);
-    return heightFt == null ? [] : [{ at: row.ts, heightFt }];
-  });
+  let series: Map<string, TideSeriesSample[]>;
+  try {
+    series = await loadTideSeriesByBeach(supabase as unknown as TideSeriesClient, [beachId], start, end);
+  } catch (error) {
+    throw new Error(`Failed to load tide forecasts for ${beachId}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const samples = (series.get(beachId) ?? []).map((sample) => ({ at: sample.ts, heightFt: sample.heightFt }));
   if (samples.length === 0) return null;
   const value: COOPSForecast = {
     station_id: `cached_${beachId}`,
@@ -539,10 +548,52 @@ function beachDayRange(
   };
 }
 
-/** A row belongs to the day when its grid step overlaps [start, end). */
-export function rowServesDay(row: EnhancedForecastEntity, startMs: number, endMs: number): boolean {
+/**
+ * A row belongs to the day when the time it is in effect overlaps [start, end).
+ * Without `liveEndMs` (from forecastRowEnds) a row is in effect for one 3-hour grid step.
+ */
+export function rowServesDay(
+  row: EnhancedForecastEntity,
+  startMs: number,
+  endMs: number,
+  liveEndMs?: number,
+): boolean {
   const at = Date.parse(row.forecast_at);
-  return at < endMs && at + GRID_MS > startMs;
+  return at < endMs && (liveEndMs ?? at + GRID_MS) > startMs;
+}
+
+/**
+ * With the daily-call hourly bridge on, one beach's day rows plus synthetic rows for the hours
+ * between them, tide from the series already loaded for that day. Hours are bridged by the same
+ * usable-light rule as discovery and Week Scout (an hour overlapping sunrise-30 min to sunset+20
+ * min). Without coordinates there is no sun to read, so every hour of [startMs, endMs) is bridged.
+ */
+export function bridgeDailyCallRows(
+  rows: EnhancedForecastEntity[],
+  beach: Pick<Beach, "lat" | "lon">,
+  timezone: string,
+  tideSamples: ReadonlyArray<{ at: string; heightFt: number }> | null,
+  day: { startMs: number; endMs: number },
+): EnhancedForecastEntity[] {
+  if (!isHourlyBridgeEnabledFor("daily-call") || rows.length < 2) return rows;
+  const { startMs, endMs } = day;
+  const tide = tideSamples?.map((sample) => ({ ts: sample.at, heightFt: sample.heightFt })) ?? null;
+  const sunTimes = dailyCallSunTimes(beach, startMs, endMs);
+  if (!sunTimes) return bridgeForecastsHourly(rows, tide, { timezone, startMs, endMs });
+  return bridgeBeachForecastRows(rows, { timezone, tide, sunTimes, startMs, endMs });
+}
+
+/** The day's sunrise and sunset, or null without coordinates or a finite sun. */
+function dailyCallSunTimes(
+  beach: Pick<Beach, "lat" | "lon">,
+  startMs: number,
+  endMs: number,
+): BeachSunTimes | null {
+  if (!Number.isFinite(beach.lat) || !Number.isFinite(beach.lon)) return null;
+  const { sunrise, sunset } = getDaylightWindow(beach.lat, beach.lon, new Date((startMs + endMs) / 2));
+  const sunrises = Number.isFinite(sunrise.getTime()) ? [sunrise] : [];
+  const sunsets = Number.isFinite(sunset.getTime()) ? [sunset] : [];
+  return sunrises.length === 0 && sunsets.length === 0 ? null : { sunrises, sunsets };
 }
 
 export async function buildCandidates(
@@ -574,13 +625,12 @@ export async function buildCandidates(
   for (const { pool, start, end } of beachDays) {
     const startMs = Date.parse(start);
     const endMs = Date.parse(end);
-    const beachForecasts = forecasts.filter((row) => row.beach_id === pool.beach.id
-      && rowServesDay(row, startMs, endMs));
-    if (beachForecasts.length === 0) continue;
+    const beachRows = forecasts.filter((row) => row.beach_id === pool.beach.id);
+    const rowEnds = forecastRowEnds(beachRows);
+    const servedRows = beachRows.filter((row) =>
+      rowServesDay(row, startMs, endMs, rowEnds.get(Date.parse(row.forecast_at))));
+    if (servedRows.length === 0) continue;
     hadForecasts = true;
-    const evaluations = beachForecasts.map((forecast) =>
-      evaluateForecast(args.profile, pool, forecast, args.timezone, args.now));
-    const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
     const tideSamples = await loadTideSamples(
       supabase,
       tideCache,
@@ -588,6 +638,16 @@ export async function buildCandidates(
       start,
       end,
     );
+    const beachForecasts = bridgeDailyCallRows(
+      servedRows,
+      pool.beach,
+      resolveBeachTimezone(pool.beach.timezone || args.timezone),
+      tideSamples,
+      { startMs, endMs },
+    );
+    const evaluations = beachForecasts.map((forecast) =>
+      evaluateForecast(args.profile, pool, forecast, args.timezone, args.now));
+    const verdictById = new Map(evaluations.map((value) => [value.forecast.id, value.verdict]));
 
     for (const group of groupGoForecasts(evaluations)) {
       const first = group[0];
@@ -863,10 +923,16 @@ function defaultDeps(
         .lt("forecast_at", end)
         .order("forecast_at", { ascending: true });
       if (error) throw new Error(`Failed to load daily-call forecasts: ${error.message}`);
+      const startMs = Date.parse(start);
+      const endMs = Date.parse(end);
+      const tideSamples = await loadTideSamples(supabase, tideCache, beach.id, start, end);
+      const served = ((data ?? []) as EnhancedForecastEntity[])
+        .filter((row) => rowServesDay(row, startMs, endMs));
       return {
-        forecasts: ((data ?? []) as EnhancedForecastEntity[])
-          .filter((row) => rowServesDay(row, Date.parse(start), Date.parse(end))),
-        tideSamples: await loadTideSamples(supabase, tideCache, beach.id, start, end),
+        forecasts: bridgeDailyCallRows(
+          served, beach, resolveBeachTimezone(beach.timezone || timezone), tideSamples, { startMs, endMs },
+        ),
+        tideSamples,
       };
     },
     buildCandidates: (args) => buildCandidates(supabase, tideCache, args),

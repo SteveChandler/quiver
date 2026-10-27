@@ -100,8 +100,16 @@ import {
   weekScoutWaveHeightFt,
   type WeekScoutSwell,
 } from '@/lib/services/discovery/week-scout-swells';
+import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
+import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from '@/lib/services/tide-series-loader';
+import { bridgeBeachForecastRows } from '@/lib/services/discovery/hourly-bridge-rows';
+import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
+import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
+/** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
+const WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX = '+hourly-bridge-v1';
+const HOUR_MS = 60 * 60 * 1000;
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 // The swell reads start with the forecast fetch, so this bounds the extra
 // wait after the main result is ready; a slower snapshot read omits `swells`.
@@ -354,6 +362,8 @@ export interface WeekScoutServiceDependencies {
   loadSwellCrossingHistory?: (beachIds: string[], since: Date) => Promise<SwellCrossingHistory>;
   /** Narrow past swell rows for the detector baseline; never feeds window selection. */
   loadSwellHistory?: (beachIds: string[], from: Date, to: Date) => Promise<Map<string, SwellEventForecastRow[]>>;
+  /** Hourly tide series for the bridged headline days; without it bridged hours use the row chord. */
+  fetchTideSeries?: (beachIds: string[], startIso: string, endIso: string) => Promise<Map<string, TideSeriesSample[]>>;
 }
 
 interface DraftWindow {
@@ -382,6 +392,61 @@ function localDayOffset(startLocalDate: string, localDate: string): number {
 
 function isEarlyLookDay(startLocalDate: string, localDate: string): boolean {
   return localDayOffset(startLocalDate, localDate) >= HEADLINE_DAY_COUNT;
+}
+
+function weekScoutScorerVersion(): string {
+  return isHourlyBridgeEnabledFor('week-scout')
+    ? `${WEEK_SCOUT_SCORER_VERSION}${WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX}`
+    : WEEK_SCOUT_SCORER_VERSION;
+}
+
+/**
+ * The tide read for the bridged headline days: from just before now to a few hours past the
+ * request's day-7 midnight, so a beach a few zones west still has its last daylight hours.
+ */
+function headlineTideWindow(request: WeekScoutDaysRequest, now: Date): { startIso: string; endIso: string } {
+  const headlineEnd = localDateTimeToUTC(
+    addLocalDays(request.startLocalDate, HEADLINE_DAY_COUNT),
+    '00:00:00',
+    request.localTimezone,
+  );
+  return {
+    startIso: new Date(now.getTime() - 2 * HOUR_MS).toISOString(),
+    endIso: new Date(headlineEnd.getTime() + 6 * HOUR_MS).toISOString(),
+  };
+}
+
+/**
+ * Bridged hourly rows for daylight on headline days 0-6 only, from the current hour on. Days are
+ * the beach's local days, as the slots group them. Early-look days never carry the headline, so
+ * they keep their 3-hourly rows and their cost.
+ */
+function bridgeHeadlineForecasts(
+  beaches: readonly Beach[],
+  forecastsByBeach: Map<string, EnhancedForecastEntity[]>,
+  tideByBeach: Map<string, TideSeriesSample[]> | null,
+  sunTimes: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  startLocalDate: string,
+  now: Date,
+): Map<string, EnhancedForecastEntity[]> {
+  const bridged = new Map(forecastsByBeach);
+  const headlineEndDate = addLocalDays(startLocalDate, HEADLINE_DAY_COUNT);
+  for (const candidate of beaches) {
+    const rows = forecastsByBeach.get(candidate.id);
+    if (!rows || rows.length === 0) continue;
+    const timezone = resolveBeachTimezone(candidate.timezone);
+    bridged.set(candidate.id, bridgeBeachForecastRows(rows, {
+      timezone,
+      tide: tideByBeach?.get(candidate.id) ?? null,
+      sunTimes: sunTimes.get(candidate.id),
+      startMs: Math.max(
+        now.getTime() - HOUR_MS,
+        localDateTimeToUTC(startLocalDate, '00:00:00', timezone).getTime(),
+      ),
+      endMs: localDateTimeToUTC(headlineEndDate, '00:00:00', timezone).getTime(),
+    }));
+  }
+  return bridged;
 }
 
 function slotKey(localDate: string, bucket: WeekScoutBucket): string {
@@ -611,6 +676,9 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
     loadSwellHistory: (beachIds, from, to) => (
       loadSwellForecastRows(createSupabaseServiceRoleClient(), beachIds, from, to)
     ),
+    fetchTideSeries: (beachIds, startIso, endIso) => (
+      loadTideSeriesByBeach(createSupabaseServiceRoleClient() as unknown as TideSeriesClient, beachIds, startIso, endIso)
+    ),
   };
 }
 
@@ -671,7 +739,7 @@ function buildDraftWindow(args: {
     args.beach.id,
     args.localDate,
     args.bucket,
-    WEEK_SCOUT_SCORER_VERSION,
+    weekScoutScorerVersion(),
   ]).slice(0, 24);
   const windowForecasts = args.forecasts.filter((row) => {
     const time = new Date(row.forecast_at).getTime();
@@ -1045,7 +1113,7 @@ async function finalizeWeekScoutDays(
   } = context;
   let response: WeekScoutResponse = {
     generatedAt,
-    scorerVersion: WEEK_SCOUT_SCORER_VERSION,
+    scorerVersion: weekScoutScorerVersion(),
     candidateFingerprint: hash([...beachIds].sort()),
     days: segmentDays,
   };
@@ -1214,11 +1282,20 @@ async function finalizeWeekScoutDays(
   return heldResponse;
 }
 
-async function generateWeekScoutForecastInternal(
+function generateWeekScoutForecastInternal(
   userId: string,
   request: WeekScoutDaysRequest,
   dependencies?: WeekScoutServiceDependencies,
   compactResponse = true,
+): Promise<GeneratedWeekScoutContext> {
+  return runWithScoringMemo(() => generateWeekScoutForecastScoped(userId, request, dependencies, compactResponse));
+}
+
+async function generateWeekScoutForecastScoped(
+  userId: string,
+  request: WeekScoutDaysRequest,
+  dependencies: WeekScoutServiceDependencies | undefined,
+  compactResponse: boolean,
 ): Promise<GeneratedWeekScoutContext> {
   const deps = dependencies ?? defaultDependencies(new Date());
   const generatedAt = deps.now.toISOString();
@@ -1239,13 +1316,25 @@ async function generateWeekScoutForecastInternal(
   const forecastRequest = request.requirePerRowFreshness
     ? deps.fetchForecasts(beaches, 24 * (request.dayCount + 1), { requirePerRowFreshness: true })
     : deps.fetchForecasts(beaches, 24 * (request.dayCount + 1));
-  const [forecastsByBeach, sunTimes, personalizationContext, userSkillLevel, boardClasses] = await Promise.all([
+  const bridgeHourly = isHourlyBridgeEnabledFor('week-scout');
+  const tideWindow = bridgeHourly ? headlineTideWindow(request, deps.now) : null;
+  const tideRequest = tideWindow && deps.fetchTideSeries
+    ? deps.fetchTideSeries(beachIds, tideWindow.startIso, tideWindow.endIso).catch((error: unknown) => {
+        log.warn('Hourly bridge tide series read failed; bridging from row tides', error);
+        return null;
+      })
+    : Promise.resolve(null);
+  const [fetchedForecastsByBeach, sunTimes, personalizationContext, userSkillLevel, boardClasses, tideByBeach] = await Promise.all([
     forecastRequest,
     deps.fetchSunTimes(beachIds, sunDates),
     deps.fetchRankingContext(userId),
     deps.fetchSkill(userId),
     deps.fetchBoardClasses?.(userId) ?? Promise.resolve([]),
+    tideRequest,
   ]);
+  const forecastsByBeach = bridgeHourly
+    ? bridgeHeadlineForecasts(beaches, fetchedForecastsByBeach, tideByBeach, sunTimes, request.startLocalDate, deps.now)
+    : fetchedForecastsByBeach;
 
   const userPrefs = personalizationContext?.learnedPrefs ?? null;
   const draftsById = new Map<string, DraftWindow>();

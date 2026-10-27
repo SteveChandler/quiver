@@ -41,8 +41,10 @@ import type {
 import {
   buildCandidates,
   buildComparisonLine,
+  forecastRowEnds,
   groupGoForecasts,
   rankCandidates,
+  rowServesDay,
   runDailyCallCron,
   type DailyCallCandidate,
   type DailyCallDeps,
@@ -212,11 +214,13 @@ describe("daily call beach-local forecast days", () => {
   interface ForecastQuery {
     table: string;
     select: () => ForecastQuery;
-    in: () => ForecastQuery;
+    in: jest.Mock<ForecastQuery, [string, string[]]>;
     eq: jest.Mock<ForecastQuery, [string, string]>;
     gte: jest.Mock<ForecastQuery, [string, string]>;
     lt: jest.Mock<ForecastQuery, [string, string]>;
-    order: () => Promise<{ data: EnhancedForecastEntity[]; error: null }>;
+    order: () => ForecastQuery;
+    range: () => ForecastQuery;
+    then: (resolve: (value: { data: EnhancedForecastEntity[]; error: null }) => unknown) => unknown;
   }
 
   function forecastClient(rows: EnhancedForecastEntity[]) {
@@ -228,11 +232,13 @@ describe("daily call beach-local forecast days", () => {
       const query: ForecastQuery = {
         table,
         select: () => query,
-        in: () => query,
+        in: jest.fn((_column: string, _values: string[]) => query),
         eq: jest.fn((_column: string, value: string) => { beachId = value; return query; }),
         gte: jest.fn((_column: string, value: string) => { start = Date.parse(value); return query; }),
         lt: jest.fn((_column: string, value: string) => { end = Date.parse(value); return query; }),
-        order: async () => ({
+        order: () => query,
+        range: () => query,
+        then: (resolve) => resolve({
           data: table === "enhanced_forecasts" ? rows.filter((row) =>
             (!beachId || row.beach_id === beachId)
             && Date.parse(row.forecast_at) >= start && Date.parse(row.forecast_at) < end) : [],
@@ -323,7 +329,8 @@ describe("daily call beach-local forecast days", () => {
     expect(result.candidates).toHaveLength(3);
     expect(from.mock.calls.filter(([table]) => table === "tide_forecasts")).toHaveLength(2);
     for (const [beachId, start, end] of [[blacksId, pacificStart, pacificEnd], [ospreyId, hawaiiStart, hawaiiEnd]]) {
-      const tides = queries.find((query) => query.table === "tide_forecasts" && query.eq.mock.calls[0][1] === beachId)!;
+      const tides = queries.find((query) => query.table === "tide_forecasts"
+        && query.in.mock.calls[0][0] === "beach_id" && query.in.mock.calls[0][1].join() === beachId)!;
       expect(tides.gte).toHaveBeenCalledWith("ts", start);
       expect(tides.lt).toHaveBeenCalledWith("ts", end);
     }
@@ -402,7 +409,9 @@ describe("daily call dawn row on the Pacific standard grid", () => {
           select: () => query, in: () => query, eq: () => query,
           gte: (_column: string, value: string) => { start = Date.parse(value); gte(table, value); return query; },
           lt: (_column: string, value: string) => { end = Date.parse(value); return query; },
-          order: async () => ({
+          order: () => query,
+          range: () => query,
+          then: (resolve: (value: unknown) => unknown) => resolve({
             data: table === "enhanced_forecasts" ? rows.filter((row) =>
               Date.parse(row.forecast_at) >= start && Date.parse(row.forecast_at) < end) : [],
             error: null,
@@ -518,8 +527,9 @@ describe("daily call advertised window decisions", () => {
       from: jest.fn((table: string) => {
         const query = {
           select: () => query, in: () => query, eq: () => query,
-          gte: () => query, lt: () => query,
-          order: async () => ({ data: table === "enhanced_forecasts" ? forecasts : [], error: null }),
+          gte: () => query, lt: () => query, order: () => query, range: () => query,
+          then: (resolve: (value: unknown) => unknown) =>
+            resolve({ data: table === "enhanced_forecasts" ? forecasts : [], error: null }),
         };
         return query;
       }),
@@ -2058,6 +2068,50 @@ describe("groupGoForecasts", () => {
   it("ends a run at a missing grid row", () => {
     expect(ids(groupGoForecasts([row(8, "go"), row(14, "go")])))
       .toEqual([["h8"], ["h14"]]);
+  });
+
+  it("joins hourly go rows into one run", () => {
+    expect(ids(groupGoForecasts([row(8, "go"), row(9, "go"), row(10, "go"), row(11, "no"), row(12, "go")])))
+      .toEqual([["h8", "h9", "h10"], ["h12"]]);
+  });
+});
+
+describe("forecast row cadence", () => {
+  const HOUR = 3_600_000;
+  // Local hours on 2026-11-02 (PST, UTC-8).
+  const at = (hour: number): string => new Date(Date.UTC(2026, 10, 2, hour + 8)).toISOString();
+  const rows = (hours: number[]): EnhancedForecastEntity[] =>
+    hours.map((hour) => ({ id: `h${hour}`, forecast_at: at(hour) }) as EnhancedForecastEntity);
+  const ends = (hours: number[]): number[] =>
+    hours.map((hour) => (forecastRowEnds(rows(hours)).get(Date.parse(at(hour))) ?? NaN) - Date.parse(at(hour)));
+
+  it("keeps every 3-hourly row in effect for one grid step, a missing row and the last row included", () => {
+    expect(ends([4, 7, 13, 16])).toEqual([3 * HOUR, 3 * HOUR, 3 * HOUR, 3 * HOUR]);
+    expect(ends([10])).toEqual([3 * HOUR]);
+  });
+
+  it("keeps hourly rows in effect for an hour, the last row too", () => {
+    expect(ends([5, 6, 7, 8])).toEqual([HOUR, HOUR, HOUR, HOUR]);
+  });
+
+  it("lets an unbridged 3-hourly row run until the first hourly row", () => {
+    expect(ends([1, 4, 7, 8, 9, 10])).toEqual([3 * HOUR, 3 * HOUR, HOUR, HOUR, HOUR, HOUR]);
+  });
+
+  it("serves the 05:00 day start from the row in effect then, not from earlier hourly rows", () => {
+    const dayStart = Date.parse(at(5));
+    const dayEnd = Date.parse(at(20));
+    const hourly = rows([2, 3, 4, 5, 6]);
+    const hourlyEnds = forecastRowEnds(hourly);
+    const served = (list: EnhancedForecastEntity[], live?: Map<number, number>): string[] => list
+      .filter((row) => rowServesDay(row, dayStart, dayEnd, live?.get(Date.parse(row.forecast_at))))
+      .map((row) => row.id);
+    expect(served(hourly, hourlyEnds)).toEqual(["h5", "h6"]);
+    // Without live ends a row is in effect for a grid step, as before.
+    expect(served(hourly)).toEqual(["h3", "h4", "h5", "h6"]);
+    const grid = rows([1, 4, 7]);
+    expect(served(grid, forecastRowEnds(grid))).toEqual(["h4", "h7"]);
+    expect(served(grid)).toEqual(["h4", "h7"]);
   });
 });
 

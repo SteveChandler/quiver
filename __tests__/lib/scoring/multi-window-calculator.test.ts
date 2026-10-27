@@ -7,6 +7,9 @@
 import { calculateMultipleWindows } from '@/lib/scoring/window-calculator';
 import { scoreNativeConditionInputs } from '@/lib/scoring/native-condition-score';
 import type { BeachWithThresholds, ForecastForScoring } from '@/lib/scoring/types';
+import { toForecastForScoring } from '@/lib/scoring/types';
+import { scoreWindowConditionDetails } from '@/lib/services/discovery/window-selector/window-scorer';
+import type { EnhancedForecastEntity } from '@/types/forecast';
 
 // Beach config that lets conditions vary cleanly
 const baseBeach: BeachWithThresholds = {
@@ -243,13 +246,13 @@ describe('calculateMultipleWindows', () => {
     const result = calculateMultipleWindows(forecasts, baseBeach);
     const window = result.bestWindow;
     expect(window).not.toBeNull();
-    expect(window?.peakTime).toBeDefined();
-    expect(window?.peakScore).toBeDefined();
+    expect(window?.peakTime).toBeInstanceOf(Date);
+    expect(typeof window?.peakScore).toBe('number');
 
     const peakForecast = forecasts.find(
       (forecast) => forecast.forecastTime.getTime() === window?.peakTime?.getTime(),
     );
-    expect(peakForecast).toBeDefined();
+    expect(peakForecast).not.toBeUndefined();
     expect(window?.peakScore).toBe(
       scoreNativeConditionInputs({
         waveHeightFt: peakForecast!.waveHeight,
@@ -356,5 +359,67 @@ describe('calculateMultipleWindows', () => {
     // With the lower threshold, these should be included
     // (exact score depends on scorer internals, but we verify the function runs)
     expect(Array.isArray(result.windows)).toBe(true);
+  });
+});
+
+describe('web Beach Detail peak score uses the band-aware tide term', () => {
+  const timezone = 'America/Los_Angeles';
+  const originalEnv = process.env;
+  // No break_type/aspect_deg: no decision ceiling, which window-calculator does not apply.
+  const bandedBeach: BeachWithThresholds = {
+    id: 'banded-beach',
+    name: 'Banded Beach',
+    preferred_tide_ft_min: 2,
+    preferred_tide_ft_max: 5.5,
+  };
+
+  function row(forecastAt: string): EnhancedForecastEntity {
+    return {
+      id: `row-${forecastAt}`,
+      beach_id: bandedBeach.id,
+      forecast_at: forecastAt,
+      wave_height: '3.5',
+      wave_period: '12',
+      swell_1_period: '12',
+      wind_speed: '5',
+      tide_height: '6.3',
+      tide_status: 'rising',
+    } as unknown as EnhancedForecastEntity;
+  }
+
+  // 8 AM, 11 AM, 2 PM PDT on 2026-10-27, identical conditions at 6.3 ft.
+  const rows = ['2026-10-27T15:00:00Z', '2026-10-27T18:00:00Z', '2026-10-27T21:00:00Z'].map(row);
+
+  function beachDetail(): { peakScore: number | undefined; shown: number } {
+    const result = calculateMultipleWindows(
+      rows.map((forecast) => toForecastForScoring(forecast, timezone)),
+      bandedBeach,
+      { beachTimezone: timezone, skillLevel: 'intermediate' },
+    );
+    return {
+      peakScore: result.bestWindow?.peakScore,
+      shown: scoreWindowConditionDetails(rows[1], bandedBeach, 'intermediate').score,
+    };
+  }
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.DIRECTION_SCORING_ENABLED;
+    delete process.env.TIDE_SWING_ENABLED;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('equals scoreWindowConditionDetails with TIDE_SWING_ENABLED on and off, and the band moves it', () => {
+    const off = beachDetail();
+    expect(off.peakScore).toBe(off.shown);
+
+    process.env.TIDE_SWING_ENABLED = 'true';
+    const on = beachDetail();
+    expect(typeof on.peakScore).toBe('number');
+    expect(on.peakScore).toBe(on.shown);
+    expect(on.peakScore).toBeGreaterThan(off.peakScore ?? Infinity);
   });
 });

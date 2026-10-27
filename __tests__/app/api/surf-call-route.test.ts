@@ -843,6 +843,75 @@ describe("GET /api/surf/call", () => {
     });
   });
 
+  describe("with the hourly bridge", () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    // 3-hourly stored rows; 22:00Z is a bridged hour between them.
+    const storedRows = [
+      { id: "row-21", beach_id: beachId, forecast_at: "2026-05-08T21:00:00.000Z" },
+      { id: "row-00", beach_id: beachId, forecast_at: "2026-05-09T00:00:00.000Z" },
+    ];
+    const forecastAt = "2026-05-08T22:00:00.000Z";
+    const beachRow = {
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    };
+
+    afterEach(() => {
+      delete process.env.HOURLY_BRIDGE_ENABLED;
+    });
+
+    it("reports a bridged scoped hour as an exact match, as discovery scored it", async () => {
+      process.env.HOURLY_BRIDGE_ENABLED = "true";
+      const recommendation = canonicalContext.discovery.recommendations[0];
+      recommendation.recommendationId = `beach:${beachId}:${forecastAt}`;
+      recommendation.forecast = { ...(recommendation.forecast as object), id: "row-21:h+1", forecast_at: forecastAt };
+      const selection = canonicalContext.decision.selection as Record<string, unknown>;
+      selection.candidateId = `beach:${beachId}:${forecastAt}`;
+      selection.forecastRef = { forecastId: "row-21:h+1", beachId, forecastAt };
+      mockBeachQuery(beachRow, storedRows);
+
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+        ),
+      );
+      const body = await response.json();
+
+      expect(body.data.forecastAlignment).toEqual({
+        requestedForecastAt: forecastAt,
+        matchedForecastAt: forecastAt,
+        matchType: "exact",
+        deltaMinutes: 0,
+      });
+      expect(body.data.forecastContext.selectedRowTime).toBe(forecastAt);
+      expect(body.data.sessionDecision.selection.forecastRef.forecastAt).toBe(forecastAt);
+      expect(body.data.report.score).toBe(72);
+    });
+
+    it("keeps the stored-row alignment with the flag off", async () => {
+      mockBeachQuery(beachRow, storedRows);
+
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+        ),
+      );
+      const body = await response.json();
+
+      expect(body.data.forecastAlignment).toEqual({
+        requestedForecastAt: forecastAt,
+        matchedForecastAt: "2026-05-08T21:00:00.000Z",
+        matchType: "nearest",
+        deltaMinutes: 60,
+      });
+    });
+  });
+
   it("reports an exact row even when safety rejects the recommendation", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     const forecastAt = "2026-05-08T22:00:00.000Z";

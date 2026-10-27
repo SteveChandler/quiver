@@ -5,10 +5,26 @@
  * Different beaches have different sensitivities to tide direction.
  *
  * Weight: 0.15 (15% of total score)
+ *
+ * Tide swing (flag): a wrong-way tide that is barely moving scores close to
+ * slack; the full mismatch penalty needs >= 1 ft/h.
  */
 
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS } from '../types';
+import { isTideSwingEnabled } from '@/lib/flags/tide-swing';
+
+const FULL_MISMATCH_RATE_FT_PER_HOUR = 1.0;
+
+function gradedMismatch(
+  scores: { mismatch: number; slack: number },
+  rateFtPerHour: number | null | undefined,
+): number {
+  if (!isTideSwingEnabled()) return scores.mismatch;
+  if (typeof rateFtPerHour !== 'number' || !Number.isFinite(rateFtPerHour)) return scores.mismatch;
+  const t = Math.max(0, Math.min(1, Math.abs(rateFtPerHour) / FULL_MISMATCH_RATE_FT_PER_HOUR));
+  return Math.round(scores.slack + (scores.mismatch - scores.slack) * t);
+}
 
 const SENSITIVITY_SCORES = {
   low: { match: 80, mismatch: 55, slack: 62 },
@@ -78,7 +94,7 @@ export const tideDirectionScorer: ScorerPlugin = {
     }
     // Mismatch
     else {
-      score = scores.mismatch;
+      score = gradedMismatch(scores, snapshot.tide.rateFtPerHour);
       warnings.push(getMismatchWarning(actualDirection, preferredDirection, directionSensitivity));
     }
 

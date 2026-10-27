@@ -1,9 +1,11 @@
 import {
   scoreWindowConditionDetails,
+  scoreWindowWithComposite,
 } from '@/lib/services/discovery/window-selector/window-scorer';
 import type { BoardClass } from '@/lib/domains/rideability/board-class';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import tideSwingDay from '../../../../fixtures/tide-swing-20261027.json';
 
 function beach(overrides: Partial<Beach> = {}): Beach {
   return {
@@ -119,3 +121,88 @@ describe('curated tide band ceiling', () => {
     expect(result.appliedEffects).not.toContain('tide_outside_band');
   });
 });
+
+describe('band-aware tide term on tomorrow\'s rows (2026-10-27, intermediate, no board)', () => {
+  type Slug = keyof typeof tideSwingDay.beaches;
+  const slugs = Object.keys(tideSwingDay.beaches).sort() as Slug[];
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.DIRECTION_SCORING_ENABLED;
+    delete process.env.TIDE_SWING_ENABLED;
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  function shown(slug: Slug) {
+    const beachRow = tideSwingDay.beaches[slug] as unknown as Beach;
+    return (tideSwingDay.forecasts[slug] as unknown as EnhancedForecastEntity[])
+      .map((row) => scoreWindowConditionDetails(row, beachRow, 'intermediate'));
+  }
+
+  // 5, 8, 11 AM, 2, 5 PM PDT. Prod's displayed scores for these rows, before this change.
+  const today: Record<Slug, number[]> = {
+    'blackies': [33, 32, 32, 28, 32],
+    'lower-trestles': [52, 65, 59, 61, 55],
+    'pb-point': [47, 39, 37, 44, 36],
+    'tourmaline': [49, 41, 39, 42, 47],
+    'windansea': [67, 65, 59, 65, 65],
+  };
+
+  it('flag off reproduces today\'s displayed scores and the fixed tide term exactly', () => {
+    for (const slug of slugs) {
+      const details = shown(slug);
+      expect(details.map((d) => d.score)).toEqual(today[slug]);
+      const rows = tideSwingDay.forecasts[slug] as unknown as EnhancedForecastEntity[];
+      // 2.x ft rising/falling -> 10, 5.x ft moving -> 7, 6+ ft or below 0.5 moving -> 4.
+      expect(details.map((d) => d.components.tide)).toEqual(rows.map((row) => {
+        const ft = parseFloat(row.tide_height ?? '');
+        return ft >= 1.5 && ft <= 4.5 ? 10 : ft >= 0.5 && ft <= 6 ? 7 : 4;
+      }));
+    }
+  });
+
+  it('flag on follows each beach\'s band; unbanded Blackies is unchanged', () => {
+    process.env.TIDE_SWING_ENABLED = 'true';
+    const tide = (slug: Slug) => shown(slug).map((d) => Math.round(d.components.tide * 100) / 100);
+
+    expect(shown('blackies').map((d) => d.score)).toEqual(today.blackies);
+    expect(tide('blackies')).toEqual([10, 7, 7, 10, 4]);
+    // 2-4 point: 5.7 ft at 8 AM loses points, 6.3 ft at 11 AM was already at the floor.
+    expect(shown('pb-point').map((d) => d.score)).toEqual([47, 38, 37, 44, 36]);
+    expect(tide('pb-point')).toEqual([10, 5.65, 4, 10, 4]);
+    // 2-5.5 beach: 5.7 ft is in tolerance, 6.3 ft is 0.55 ft past it.
+    expect(shown('tourmaline').map((d) => d.score)).toEqual([49, 44, 43, 42, 47]);
+    expect(tide('tourmaline')).toEqual([10, 10, 8.35, 10, 4]);
+    // 0-6 reef: high water is in its band.
+    expect(shown('windansea').map((d) => d.score)).toEqual([67, 65, 65, 65, 65]);
+    expect(tide('windansea')).toEqual([10, 10, 10, 10, 8.35]);
+    // 2-6 reef.
+    expect(shown('lower-trestles').map((d) => d.score)).toEqual([52, 65, 62, 61, 55]);
+    expect(tide('lower-trestles')).toEqual([10, 10, 10, 10, 4]);
+  });
+
+  it('flag on: Tourmaline 11 AM says when the tide is back, PB Point keeps its 55', () => {
+    process.env.TIDE_SWING_ENABLED = 'true';
+    const eleven = (slug: Slug) => scoreWindowWithComposite(
+      (tideSwingDay.forecasts[slug] as unknown as EnhancedForecastEntity[])[2],
+      tideSwingDay.beaches[slug] as unknown as Beach,
+    );
+    expect(eleven('tourmaline').effects).toContainEqual(
+      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide back in range by ~12 PM' },
+    );
+    expect(eleven('pb-point').effects).toContainEqual(
+      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 55, message: 'Tide is high' },
+    );
+    expect(shown('pb-point')[2].decisionCeiling).toBe(55);
+    // Every tide-only ceiling stays at or above FAIR.
+    for (const slug of slugs) {
+      for (const d of shown(slug)) expect(d.decisionCeiling).toBeGreaterThanOrEqual(55);
+    }
+  });
+});
+

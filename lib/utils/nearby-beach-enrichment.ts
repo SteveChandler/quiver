@@ -3,6 +3,7 @@ import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-ut
 import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import {
   parseMaxWaveHeightFt,
+  displayTideBand,
   pickBestNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -89,6 +90,7 @@ export async function enrichBeachesWithConditions(
       const forecasts = forecastResult.forecasts;
       const best = pickBestNativeForecastSlot(forecasts, undefined, {
         beachTz: beach.timezone ?? undefined,
+        tideBand: displayTideBand(beach),
       });
       score = best && best.score > 0 ? best.score : null;
       waveHeight = best ? parseMaxWaveHeightFt(best.forecast.wave_height) || null : null;
