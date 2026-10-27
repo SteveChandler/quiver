@@ -684,7 +684,7 @@ describe('generateWeekScoutForecast', () => {
     ))).toBe(true);
   });
 
-  it.each([0, 8, 1.5])('rejects unsupported internal dayCount %s', async (dayCount) => {
+  it.each([0, 11, 1.5])('rejects unsupported internal dayCount %s', async (dayCount) => {
     await expect(
       generateWeekScoutForecastForDays(
         'user-week-scout',
@@ -978,6 +978,89 @@ describe('generateWeekScoutForecast', () => {
       ([options]: [WindowSelectorOptions]) => options.forecasts.length === 3,
     )).toBe(true);
     expect(deps.rankWindows).toHaveBeenCalledTimes(3);
+  });
+
+  describe('10-day horizon', () => {
+    const START = '2026-07-31';
+    const EARLY_LOOK_DATE = '2026-08-08';
+
+    function tenDayDependencies(): WeekScoutServiceDependencies {
+      const deps = dependencies();
+      const rows = new Map([BEACH_A, BEACH_B].map((beachId) => [beachId, Array.from({ length: 10 }, (_, day) => (
+        [16, 20, 24].map((hour) => forecast(beachId, new Date(Date.UTC(2026, 6, 31 + day, hour)).toISOString()))
+      )).flat()]));
+      deps.fetchForecasts = jest.fn(async () => rows);
+      // An early-look day that out-scores the whole first week: the headline must still ignore it.
+      const earlyLook = (row: EnhancedForecastEntity): boolean => row.forecast_at.startsWith(EARLY_LOOK_DATE);
+      deps.scoreWindowCondition = jest.fn((row, candidateBeach) => (
+        earlyLook(row) ? 97 : candidateBeach.id === BEACH_B ? 84 : 78
+      ));
+      const rankWindows = dependencies().rankWindows as jest.Mock;
+      deps.rankWindows = jest.fn((recommendations: SurfDiscoveryRecommendation[]) => {
+        const ranked = rankWindows(recommendations) as ReturnType<WeekScoutServiceDependencies['rankWindows']>;
+        return {
+          ...ranked,
+          diagnostics: ranked.diagnostics.map((diagnostic, index) => (
+            earlyLook(recommendations[index].forecast)
+              ? { ...diagnostic, heroWindowScore: 99 }
+              : diagnostic
+          )),
+        };
+      });
+      return deps;
+    }
+
+    async function generate(dayCount: 7 | 10) {
+      return generateWeekScoutForecast('user-week-scout', {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: START,
+        dayCount,
+      }, tenDayDependencies());
+    }
+
+    it('keeps the session decision and the first seven days identical to a 7-day request', async () => {
+      const [seven, ten] = await Promise.all([generate(7), generate(10)]);
+
+      expect(ten.days).toHaveLength(10);
+      expect(ten.days[8].localDate).toBe(EARLY_LOOK_DATE);
+      // The early-look day is the strongest of the horizon, and still not the headline.
+      expect(ten.days[8].bestDayWindow?.rankingScore).toBe(99);
+      expect(ten.sessionDecision.selection).not.toBeNull();
+      expect(Date.parse(ten.sessionDecision.selection!.windowStart))
+        .toBeLessThan(Date.parse('2026-08-07T10:00:00.000Z'));
+      expect(ten.sessionDecision).toStrictEqual(seven.sessionDecision);
+      expect(ten.days.slice(0, 7)).toStrictEqual(seven.days);
+      expect(ten.recommendationAvailability).toStrictEqual(seven.recommendationAvailability);
+      expect(ten.sessionTimePreference).toStrictEqual(seven.sessionTimePreference);
+    });
+
+    it('marks only days seven and later as an early look', async () => {
+      const [seven, ten] = await Promise.all([generate(7), generate(10)]);
+
+      for (const day of seven.days) expect(day).not.toHaveProperty('earlyLook');
+      expect(JSON.stringify(seven)).not.toContain('earlyLook');
+      for (const day of ten.days.slice(0, 7)) expect(day).not.toHaveProperty('earlyLook');
+      expect(ten.days.slice(7).map((day) => [day.localDate, day.earlyLook])).toEqual([
+        ['2026-08-07', true],
+        ['2026-08-08', true],
+        ['2026-08-09', true],
+      ]);
+      // Early-look days are still ranked per day.
+      for (const day of ten.days.slice(7)) {
+        expect(day.bestWindowId).not.toBeNull();
+        expect(day.bestDayWindow?.id).toBe(day.bestWindowId);
+      }
+    });
+
+    it('accepts a ten-day internal request', async () => {
+      const response = await generateWeekScoutForecastForDays('user-week-scout', {
+        candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: START, dayCount: 10,
+      }, tenDayDependencies());
+
+      expect(response.days).toHaveLength(10);
+      expect(response.days.filter((day) => day.earlyLook === true)).toHaveLength(3);
+    });
   });
 
   it('week scout names the same window as the full-day selector for the same beach and day', async () => {

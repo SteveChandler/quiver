@@ -511,6 +511,22 @@ export interface SurfDiscoveryResponse {
   eveningTransition?: EveningTransition;
   /** Major-event safety boundary applied to recommendation semantics. */
   recommendationAvailability?: RecommendationAvailability;
+  /** Set only for `widenEmpty` requests whose drive range held no beach. */
+  scope?: SurfDiscoveryScope;
+}
+
+export interface SurfDiscoveryScope {
+  /** The surfer's drive radius; results come from the 100-mile maximum around the same origin. */
+  widenedFromMiles?: number;
+  /** Closest recommendable beach at any distance, when nothing was within 100 miles. */
+  nearestBeach?: {
+    id: string;
+    name: string;
+    slug: string;
+    lat: number;
+    lon: number;
+    distanceMiles: number;
+  };
 }
 
 /**

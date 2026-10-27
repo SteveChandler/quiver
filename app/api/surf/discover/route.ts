@@ -19,10 +19,12 @@ import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discove
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
-import { driveRadiusMiles } from '@/lib/profile/drive-range';
+import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
+import { findNearestBeach } from '@/lib/alerts/user-pool';
 import type {
   SurfDiscoveryEntitlement,
   SurfDiscoveryResponse,
+  SurfDiscoveryScope,
   TimeSlot,
 } from '@/types/personalization';
 import { retryAfterSeconds } from '@/lib/utils/retry-after';
@@ -46,6 +48,8 @@ const QuerySchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(10).optional(),
   // Discovery mode
   mode: z.enum(['best-window', 'now', 'my-spots']).optional(),
+  // Opt-in (web Home): widen an empty drive range and name the nearest beach.
+  widenEmpty: z.literal('1').optional(),
   // Explicit curated beaches to score in the same batch as nearby discovery.
   includeBeachIds: z.string().optional().transform((value, ctx) => {
     if (!value) return [];
@@ -104,12 +108,12 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
 
 /**
  * Radius from the user's saved drive range. The profile read is best-effort:
- * on failure we return undefined so discovery keeps its 100-mile default.
+ * on failure we use the never-set default rather than widening to 100 miles.
  */
 async function resolveProfileRadiusMiles(
   supabase: AuthenticatedContext['supabase'],
   userId: string,
-): Promise<number | undefined> {
+): Promise<number> {
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -118,12 +122,12 @@ async function resolveProfileRadiusMiles(
       .maybeSingle();
     if (error) {
       console.warn('[surf/discover] Failed to load drive range:', error.message);
-      return undefined;
+      return driveRadiusMiles(null);
     }
     return driveRadiusMiles(data?.max_drive_minutes);
   } catch (err) {
     console.warn('[surf/discover] Error loading drive range:', err);
-    return undefined;
+    return driveRadiusMiles(null);
   }
 }
 
@@ -142,11 +146,15 @@ async function resolveProfileRadiusMiles(
  * - lat (required): User's latitude for GPS discovery
  * - lon (required): User's longitude for GPS discovery
  * - radius (optional): Search radius in miles. When omitted, the user's
- *   profile drive range (max_drive_minutes) sets it; "No limit" = 100.
+ *   profile drive range (max_drive_minutes) sets it; never set = 30 miles,
+ *   explicit "No limit" (200 minutes) = 100 miles.
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - mode (optional): Discovery mode ('best-window' default, 'now' for immediate current-condition ranking)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')
  * - includeBeachIds (optional): Comma-separated curated beach UUIDs to score alongside nearby discovery
+ * - widenEmpty (optional): "1" widens a drive range that holds no beach to
+ *   100 miles (scope.widenedFromMiles) and, when nothing is within 100 miles,
+ *   names the nearest beach (scope.nearestBeach). The origin never moves.
  *
  * Authentication: Required (user session)
  * Rate Limit: 10 requests/minute
@@ -171,6 +179,7 @@ async function surfDiscoveryHandler(
     horizonHours: searchParams.get('horizonHours') || undefined,
     maxResults: searchParams.get('maxResults') || undefined,
     mode: searchParams.get('mode') || undefined,
+    widenEmpty: searchParams.get('widenEmpty') || undefined,
     includeBeachIds: searchParams.get('includeBeachIds') || undefined,
   };
 
@@ -179,7 +188,7 @@ async function surfDiscoveryHandler(
     return validationResult.error;
   }
 
-  const { lat, lon, radius, horizonHours, maxResults, mode, includeBeachIds } = validationResult.data;
+  const { lat, lon, radius, horizonHours, maxResults, mode, widenEmpty, includeBeachIds } = validationResult.data;
 
   // Parse timeSlot query parameter
   const timeSlotParam = searchParams.get('timeSlot');
@@ -249,11 +258,13 @@ async function surfDiscoveryHandler(
   };
 
   // 4. Call service to get ranked recommendations
-  let discovery;
-  try {
-    discovery = await time('discover', discoverSurfSpots(user.id, {
+  const runDiscovery = (
+    stage: string,
+    searchRadiusMiles: number | undefined,
+  ): ReturnType<typeof discoverSurfSpots> =>
+    time(stage, discoverSurfSpots(user.id, {
       userLocation,
-      radiusMiles,
+      radiusMiles: searchRadiusMiles,
       ...(driveRadiusMiles !== undefined ? { driveRadiusMiles } : {}),
       horizonHours: mode === 'my-spots' ? 72 : horizonHours,
       maxResults,
@@ -271,10 +282,37 @@ async function surfDiscoveryHandler(
       isPro,
       includeBeachIds,
       throwOnFailure: true,
-      onStageTiming: (stage, durationMs) => {
-        timings.push([`discover-${stage}`, durationMs]);
+      onStageTiming: (discoverStage, durationMs) => {
+        timings.push([`${stage}-${discoverStage}`, durationMs]);
       },
     }));
+  let discovery;
+  let scope: SurfDiscoveryScope | undefined;
+  try {
+    discovery = await runDiscovery('discover', radiusMiles);
+    // Mirrors Week Scout (#1093): a range with no beach in it widens to the
+    // maximum from the same origin; past that, name the nearest beach so the
+    // client can offer to scout from it. Ranking keeps the surfer's own range.
+    if (widenEmpty && radius === undefined && mode !== 'my-spots' && userLocation && isEmptyScope(discovery)) {
+      const fromMiles = radiusMiles ?? MAX_DRIVE_RADIUS_MILES;
+      if (fromMiles < MAX_DRIVE_RADIUS_MILES) {
+        const widened = await runDiscovery('discover-widened', MAX_DRIVE_RADIUS_MILES);
+        if (!isEmptyScope(widened)) {
+          discovery = widened;
+          scope = { widenedFromMiles: fromMiles };
+        }
+      }
+      if (!scope) {
+        const nearestBeach = await time(
+          'nearest',
+          findNearestBeach({ supabase, userId: user.id, location: userLocation }),
+        ).catch((err: unknown) => {
+          console.warn('[surf/discover] Nearest beach lookup failed:', err);
+          return null;
+        });
+        if (nearestBeach) scope = { nearestBeach };
+      }
+    }
   } catch (error) {
     return retryableDiscoveryResponse(error);
   }
@@ -411,13 +449,22 @@ async function surfDiscoveryHandler(
   // `rankingScore` is an internal ordering value. Ranking has already happened
   // by this point, so strip it here rather than shipping a second, larger
   // number next to `score` that a client could mistake for the real one.
-  const response = createSuccessResponse(stripInternalRankingScore(gatedDiscovery));
+  const response = createSuccessResponse(stripInternalRankingScore(
+    scope ? { ...gatedDiscovery, scope } : gatedDiscovery,
+  ));
   timings.push(['total', Date.now() - anchor.getTime()]);
   response.headers.set(
     'Server-Timing',
     timings.map(([stage, ms]) => `${stage};dur=${ms}`).join(', '),
   );
   return response;
+}
+
+/** The candidate pool itself was empty, as opposed to beaches without a window. */
+function isEmptyScope(discovery: SurfDiscoveryResponse): boolean {
+  return discovery.metadata.outcome === 'no_candidates'
+    && discovery.metadata.totalBeachesConsidered === 0
+    && hasNoDiscoveryCandidates(discovery);
 }
 
 /**

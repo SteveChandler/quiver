@@ -14,6 +14,8 @@ interface Store {
   customSpots?: Array<{ id: string; nearest_beach_id: string | null }>;
   forecasts?: Array<{ beach_id: string }>;
   exclusions?: Array<{ beach_id: string }>;
+  /** Column lists passed to select(), by table. */
+  selects?: Record<string, string[]>;
 }
 
 function makeBeach(id: string, slug = id, country: string | null = "USA"): Beach {
@@ -21,11 +23,14 @@ function makeBeach(id: string, slug = id, country: string | null = "USA"): Beach
 }
 
 function makeSupabase(store: Store): SupabaseClient<Database> {
-  const chain = (rows: unknown[]): Record<string, unknown> => {
+  const chain = (rows: unknown[], table: string): Record<string, unknown> => {
     let result = rows;
     const query: Record<string, unknown> = {};
     const passthrough = (): Record<string, unknown> => query;
-    query.select = passthrough;
+    query.select = (columns?: string): Record<string, unknown> => {
+      if (store.selects && typeof columns === "string") (store.selects[table] ??= []).push(columns);
+      return query;
+    };
     query.eq = passthrough;
     query.is = passthrough;
     query.order = passthrough;
@@ -48,11 +53,11 @@ function makeSupabase(store: Store): SupabaseClient<Database> {
 
   return {
     from: jest.fn((table: string) => {
-      if (table === "favorite_beaches") return chain(store.favorites);
-      if (table === "beaches") return chain(store.beaches);
-      if (table === "custom_spots") return chain(store.customSpots ?? []);
-      if (table === "enhanced_forecasts") return chain(store.forecasts ?? []);
-      if (table === "user_beach_exclusions") return chain(store.exclusions ?? []);
+      if (table === "favorite_beaches") return chain(store.favorites, table);
+      if (table === "beaches") return chain(store.beaches, table);
+      if (table === "custom_spots") return chain(store.customSpots ?? [], table);
+      if (table === "enhanced_forecasts") return chain(store.forecasts ?? [], table);
+      if (table === "user_beach_exclusions") return chain(store.exclusions ?? [], table);
       throw new Error(`Unexpected table: ${table}`);
     }),
     rpc: jest.fn(() => Promise.resolve({ data: store.nearby, error: null })),
@@ -305,7 +310,7 @@ describe("user pool", () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it("queries nearby beaches within 100 miles when drive range is unset", async () => {
+  it("queries nearby beaches within 30 miles when drive range is never set", async () => {
     const supabase = makeSupabase({ favorites: [], beaches: [], nearby: [] });
 
     await loadUserPool({
@@ -318,7 +323,7 @@ describe("user pool", () => {
 
     expect(supabase.rpc).toHaveBeenCalledWith(
       "get_weekend_scout_candidates",
-      expect.objectContaining({ max_distance_meters: Math.round(100 * 1609.344) }),
+      expect.objectContaining({ max_distance_meters: Math.round(30 * 1609.344) }),
     );
   });
 
@@ -369,6 +374,31 @@ describe("user pool", () => {
     const alaMoana = located("ala-moana-bowls", 21.281, -157.844);
     const farHome = located("far-home", 21.27, -157.82);
     const farCustomAnchor = located("far-custom-anchor", 33.47, -117.72);
+
+    it("keeps a 13.6-mile beach and excludes a 64-mile beach for a never-set profile", async () => {
+      const anchor = { lat: 28.1707, lon: -80.5913 };
+      const close = located("synthetic-close", 28.36755, -80.5913);
+      const far = located("synthetic-far", 29.09705, -80.5913);
+      const supabase = makeSupabase({
+        favorites: [{ beach_id: far.id, custom_spot_id: null }],
+        beaches: [far, close],
+        nearby: [{ id: close.id, distance_meters: 13.6 * 1609.344, total_count: 1 }],
+      });
+      const args = { supabase, userId: "", homeBeachId: null, location: anchor };
+
+      const pool = await loadUserPool({ ...args, maxDriveMinutes: null });
+
+      expect(pool).toHaveLength(1);
+      expect(pool[0]).toMatchObject({ beach: close, relation: "nearby" });
+      expect(pool[0].distanceMiles).toBeCloseTo(13.6, 1);
+      expect(supabase.rpc).toHaveBeenCalledWith("get_weekend_scout_candidates", expect.objectContaining({
+        max_distance_meters: Math.round(30 * 1609.344),
+      }));
+
+      const unlimited = await loadUserPool({ ...args, maxDriveMinutes: 200 });
+      expect(unlimited.map(({ beach }) => beach.id)).toEqual([far.id, close.id]);
+      expect(unlimited.find(({ beach }) => beach.id === far.id)?.distanceMiles).toBeCloseTo(64, 1);
+    });
 
     it("does not let a SoCal favorite widen reach from a fresh Hawaii fix", async () => {
       const hawaii = located("hawaii", 21.281, -157.844);
@@ -626,12 +656,20 @@ describe("findNearestBeach", () => {
       at("hidden", 39.7, -105.0, { recommendation_eligible: false } as Partial<Beach>),
       at("excluded", 39.75, -105.0),
       at("noslug", 39.76, -105.0, { slug: null } as unknown as Partial<Beach>),
-    ], exclusions: [{ beach_id: "excluded" }] });
+    ], exclusions: [{ beach_id: "excluded" }], selects: {} });
 
     const nearest = await findNearestBeach({ supabase, userId: "user-1", location: denver });
 
     expect(nearest).toEqual(expect.objectContaining({ id: "pb", slug: "pb", lat: 32.8, lon: -117.25 }));
     expect(nearest!.distanceMiles).toBeGreaterThan(800);
+  });
+
+  it("reads the eligibility flag it filters on", async () => {
+    const selects: Record<string, string[]> = {};
+    const supabase = makeSupabase({ favorites: [], nearby: [], beaches: [], selects });
+    await findNearestBeach({ supabase, userId: "user-1", location: denver });
+    expect(selects.beaches?.[0]).toEqual(expect.stringContaining("recommendation_eligible"));
+    expect(selects.beaches?.[0]).toEqual(expect.stringContaining("is_private"));
   });
 
   it("returns null when no beach qualifies", async () => {

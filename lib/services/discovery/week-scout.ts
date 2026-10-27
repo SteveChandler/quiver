@@ -109,6 +109,8 @@ const WEEK_SCOUT_SWELLS_SNAPSHOT_TIMEOUT_MS = 1500;
 // Crossing rarity looks back over the last 30 days of snapshot runs.
 const SWELL_CROSSING_HISTORY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// The week's headline pick stays inside this many days; later days are an early look.
+const HEADLINE_DAY_COUNT = 7;
 const log = createContextLogger('WeekScout');
 
 export type WeekScoutBucket = 'morning' | 'midday' | 'evening';
@@ -124,7 +126,7 @@ export interface WeekScoutRequest {
   candidateBeachIds: string[];
   localTimezone: string;
   startLocalDate: string;
-  dayCount: 7;
+  dayCount: 7 | 10;
   userLocation?: Coordinates;
   /** The surfer's drive range; beaches inside it carry no distance friction. */
   driveRadiusMiles?: number;
@@ -238,6 +240,11 @@ export interface WeekScoutWindowResponse extends WeekScoutPersonalCall {
 
 export interface WeekScoutDayResponse {
   localDate: string;
+  /**
+   * Additive: present only on days 7+ after `startLocalDate`. These days are
+   * ranked per day but never carry the week's session pick.
+   */
+  earlyLook?: true;
   windows: WeekScoutWindowResponse[];
   bestWindowId: string | null;
   bestDayWindow: WeekScoutWindowResponse | null;
@@ -364,6 +371,17 @@ function addLocalDays(localDate: string, days: number): string {
   const date = new Date(`${localDate}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+/** Whole local days from `startLocalDate` to `localDate`. */
+function localDayOffset(startLocalDate: string, localDate: string): number {
+  return Math.round(
+    (Date.parse(`${localDate}T00:00:00.000Z`) - Date.parse(`${startLocalDate}T00:00:00.000Z`)) / DAY_MS,
+  );
+}
+
+function isEarlyLookDay(startLocalDate: string, localDate: string): boolean {
+  return localDayOffset(startLocalDate, localDate) >= HEADLINE_DAY_COUNT;
 }
 
 function slotKey(localDate: string, bucket: WeekScoutBucket): string {
@@ -1001,6 +1019,201 @@ function attachBestDayWindows<T extends MajorEventHoldWeekScoutResponse>(respons
   } as T;
 }
 
+interface FinalizeWeekScoutContext {
+  userId: string;
+  generatedAt: string;
+  beachIds: string[];
+  userSkillLevel: SkillLevel | null;
+  distanceByBeachId: ReadonlyMap<string, number | undefined>;
+  draftsById: ReadonlyMap<string, DraftWindow>;
+  draftsBySlot: ReadonlyMap<string, DraftWindow>;
+  compactResponse: boolean;
+  deps: WeekScoutServiceDependencies;
+}
+
+/**
+ * Safety filter, hold boundary, compaction and personal verdicts for a run of
+ * days. `coverageDays` receives the per-bucket held counts for those days.
+ */
+async function finalizeWeekScoutDays(
+  context: FinalizeWeekScoutContext,
+  segmentDays: WeekScoutDayResponse[],
+  coverageDays: WeekScoutCoverageDay[],
+): Promise<MajorEventHoldWeekScoutResponse> {
+  const {
+    userId, generatedAt, beachIds, userSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
+  } = context;
+  let response: WeekScoutResponse = {
+    generatedAt,
+    scorerVersion: WEEK_SCOUT_SCORER_VERSION,
+    candidateFingerprint: hash([...beachIds].sort()),
+    days: segmentDays,
+  };
+  // With no beach in scope there is nothing to hold; beaches without fresh
+  // windows still go through the fail-closed boundary below.
+  const noBeachesInScope = beachIds.length === 0;
+  let waterQualityResolution: WaterQualityHoldResolution | undefined;
+  const safeWindows = await rankBeaches(
+    response.days.flatMap((day) => day.windows).map((window) => ({
+      id: window.beachId,
+      window,
+    })),
+    {
+      compare: (left, right) =>
+        right.window.rankingScore - left.window.rankingScore,
+      startsAt: ({ window }) => window.start,
+      onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
+    },
+  );
+  const safeWindowIds = new Set(safeWindows.map(({ window }) => window.id));
+  const unfilteredResponse = response;
+  response = {
+    ...response,
+    days: response.days.map((day) => {
+      // `rankedSpots` was baked into every window by rankDrafts before this
+      // safety filter ran, so dropping a beach's windows here leaves the
+      // survivors pointing at a beach that no longer has one in their bucket.
+      // The major-event-hold adapter treats that dangling reference as a
+      // structurally untrustworthy response and voids the ENTIRE week for every
+      // beach — one held spot took Week Scout dark. Prune the references with
+      // the windows so the survivors stay internally consistent.
+      const kept = day.windows.filter((window) => safeWindowIds.has(window.id));
+      const beachIdsByBucket = new Map<string, Set<string>>();
+      for (const window of kept) {
+        const bucketBeaches = beachIdsByBucket.get(window.bucket) ?? new Set<string>();
+        bucketBeaches.add(window.beachId);
+        beachIdsByBucket.set(window.bucket, bucketBeaches);
+      }
+      const windows = kept.map((window) => ({
+        ...window,
+        rankedSpots: window.rankedSpots.filter((spot) =>
+          beachIdsByBucket.get(window.bucket)?.has(spot.beachId) === true,
+        ),
+      }));
+      const bestWindowId = day.bestWindowId && safeWindowIds.has(day.bestWindowId)
+        ? day.bestWindowId
+        : null;
+      return {
+        ...day,
+        windows,
+        bestWindowId,
+        exclusionReasons: exclusionReasonsForDay(windows, bestWindowId),
+      };
+    }),
+  };
+  // When every beach is held (72 h after rain, say) the filter leaves no
+  // candidates and the boundary fails closed as hold_state_unavailable. Give it
+  // the unfiltered windows so it reports the hold and when it lifts.
+  if (safeWindowIds.size === 0 && unfilteredResponse.days.some((day) => day.windows.length > 0)) {
+    response = unfilteredResponse;
+  }
+  const candidates: MajorEventHoldCandidate[] = response.days.flatMap((day) =>
+    day.windows.map((window) => ({
+      candidateId: window.id,
+      beachId: window.beachId,
+      startsAt: window.start,
+      endsAt: window.end,
+    })),
+  );
+  // The hold boundary fails closed on an empty list, which read as "can't
+  // confirm beach safety" for a surfer with no beach in range.
+  let heldResponse: MajorEventHoldWeekScoutResponse = noBeachesInScope
+    ? { ...response, recommendationAvailability: { state: "available", holdEpoch: "no-candidates" } }
+    : sanitizeWeekScoutForMajorEventHold(
+      response,
+      candidates,
+      await evaluateMajorEventHoldCandidates({
+        candidates,
+        profileExperience: userSkillLevel,
+        applyWaterQualityHolds: true,
+      }, waterQualityResolution ? {
+        // Both gates evaluate the same fresh beach-level evidence within this request.
+        resolveWaterQualityHolds: async () => waterQualityResolution!,
+      } : undefined),
+    );
+  for (const coverageDay of coverageDays) {
+    const before = response.days.find((day) => day.localDate === coverageDay.localDate);
+    const after = heldResponse.days.find((day) => day.localDate === coverageDay.localDate);
+    for (const bucketCoverage of coverageDay.buckets) {
+      const beforeIds = new Set(
+        before?.windows
+          .filter((window) => window.bucket === bucketCoverage.bucket)
+          .map((window) => window.id) ?? [],
+      );
+      const afterIds = new Set(
+        after?.windows
+          .filter((window) => window.bucket === bucketCoverage.bucket)
+          .map((window) => window.id) ?? [],
+      );
+      bucketCoverage.held = [...beforeIds].filter((id) => !afterIds.has(id)).length;
+    }
+  }
+
+  if (compactResponse) heldResponse = compactHeldResponse(heldResponse);
+  const returnedDrafts = new Map<string, DraftWindow>();
+  for (const day of heldResponse.days) {
+    for (const window of day.windows) {
+      if (window.verdict === null) continue;
+      const draft = draftsById.get(window.id);
+      if (draft) returnedDrafts.set(window.id, draft);
+      for (const spot of window.rankedSpots) {
+        const spotDraft = draftsBySlot.get(`${day.localDate}:${window.bucket}:${spot.beachId}`);
+        if (spotDraft) returnedDrafts.set(spotDraft.response.id, spotDraft);
+      }
+    }
+  }
+  const similarity = await deps.fetchMatchEvidence(userId, beachIds,
+    [...returnedDrafts.values()].map((draft) => draft.recommendation.forecast));
+  const verdicts = new Map<string, WeekScoutVerdict>();
+  const personalCalls = new Map<string, ReturnType<typeof getCanonicalPersonalCall>>();
+  for (const [id, draft] of returnedDrafts) {
+    const forecast = draft.recommendation.forecast;
+    // Personal history may only move safe, rideable windows.
+    const eligibleForPersonal = draft.response.safe && draft.response.rideable;
+    // One decision yields the verdict and the label Detail prints for it, so the
+    // personal call costs no pass beyond the verdict this loop already computes.
+    const call = getCanonicalPersonalCall({
+      ...draft.recommendation, score: draft.response.conditionScore,
+      similarity: eligibleForPersonal
+        ? similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null
+        : null,
+    }, userSkillLevel);
+    personalCalls.set(id, call);
+    verdicts.set(id, call.verdict === 'go' ? 'worth_it' : call.verdict === 'maybe' ? 'maybe' : 'skip');
+  }
+  const attachPersonalCall = (target: WeekScoutPersonalCall, id: string): void => {
+    const call = userId ? personalCalls.get(id) : undefined;
+    if (!call) return;
+    target.personalVerdict = call.verdict;
+    target.personalLabel = call.label;
+  };
+  for (const day of heldResponse.days) {
+    for (const window of day.windows) {
+      if (window.verdict === null) continue;
+      window.verdict = verdicts.get(window.id) ?? window.verdict;
+      attachPersonalCall(window, window.id);
+      for (const spot of window.rankedSpots) {
+        const draft = draftsBySlot.get(`${day.localDate}:${window.bucket}:${spot.beachId}`);
+        if (!draft) continue;
+        spot.verdict = verdicts.get(draft.response.id) ?? spot.verdict;
+        attachPersonalCall(spot, draft.response.id);
+      }
+    }
+    // Preserve hold fallback selection; only replace a day best rejected by its new personal verdict.
+    if (!day.bestWindowId || day.windows.find((window) => window.id === day.bestWindowId)?.verdict !== 'skip') continue;
+    const best = day.windows.filter((window) => window.isBeachDayBest && window.safe
+      && window.rideable && window.verdict !== null && window.verdict !== 'skip')
+      .sort((left, right) => compareWeekScoutWindows(
+        { conditionScore: left.conditionScore ?? 0, rankingScore: left.rankingScore ?? 0 },
+        { conditionScore: right.conditionScore ?? 0, rankingScore: right.rankingScore ?? 0 },
+        distanceByBeachId.get(left.beachId), distanceByBeachId.get(right.beachId)))[0];
+    day.bestWindowId = best?.id ?? null;
+    day.exclusionReasons = exclusionReasonsForDay(day.windows, day.bestWindowId);
+  }
+
+  return heldResponse;
+}
+
 async function generateWeekScoutForecastInternal(
   userId: string,
   request: WeekScoutDaysRequest,
@@ -1164,6 +1377,7 @@ async function generateWeekScoutForecastInternal(
 
     return {
       localDate,
+      ...(isEarlyLookDay(request.startLocalDate, localDate) ? { earlyLook: true as const } : {}),
       windows,
       bestWindowId: best?.id ?? null,
       bestDayWindow: null,
@@ -1175,172 +1389,33 @@ async function generateWeekScoutForecastInternal(
     days: localDates.map((localDate) => coverageByDate.get(localDate)!),
   };
 
-  let response: WeekScoutResponse = {
-    generatedAt,
-    scorerVersion: WEEK_SCOUT_SCORER_VERSION,
-    candidateFingerprint: hash([...beachIds].sort()),
-    days,
-  };
-  // With no beach in scope there is nothing to hold; beaches without fresh
-  // windows still go through the fail-closed boundary below.
-  const noBeachesInScope = beachIds.length === 0;
-  let waterQualityResolution: WaterQualityHoldResolution | undefined;
-  const safeWindows = await rankBeaches(
-    response.days.flatMap((day) => day.windows).map((window) => ({
-      id: window.beachId,
-      window,
-    })),
-    {
-      compare: (left, right) =>
-        right.window.rankingScore - left.window.rankingScore,
-      startsAt: ({ window }) => window.start,
-      onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
-    },
-  );
-  const safeWindowIds = new Set(safeWindows.map(({ window }) => window.id));
-  const unfilteredResponse = response;
-  response = {
-    ...response,
-    days: response.days.map((day) => {
-      // `rankedSpots` was baked into every window by rankDrafts before this
-      // safety filter ran, so dropping a beach's windows here leaves the
-      // survivors pointing at a beach that no longer has one in their bucket.
-      // The major-event-hold adapter treats that dangling reference as a
-      // structurally untrustworthy response and voids the ENTIRE week for every
-      // beach — one held spot took Week Scout dark. Prune the references with
-      // the windows so the survivors stay internally consistent.
-      const kept = day.windows.filter((window) => safeWindowIds.has(window.id));
-      const beachIdsByBucket = new Map<string, Set<string>>();
-      for (const window of kept) {
-        const bucketBeaches = beachIdsByBucket.get(window.bucket) ?? new Set<string>();
-        bucketBeaches.add(window.beachId);
-        beachIdsByBucket.set(window.bucket, bucketBeaches);
-      }
-      const windows = kept.map((window) => ({
-        ...window,
-        rankedSpots: window.rankedSpots.filter((spot) =>
-          beachIdsByBucket.get(window.bucket)?.has(spot.beachId) === true,
-        ),
-      }));
-      const bestWindowId = day.bestWindowId && safeWindowIds.has(day.bestWindowId)
-        ? day.bestWindowId
-        : null;
-      return {
+  // The headline must not move with the horizon: days 0-6 go through the hold
+  // boundary exactly as a 7-day request does, and that pass alone supplies the
+  // response-level recommendationAvailability. Early-look days keep the
+  // whole-horizon pass, so their per-day results are unchanged.
+  const finalize = (segmentDays: WeekScoutDayResponse[], coverageDays: WeekScoutCoverageDay[]) => finalizeWeekScoutDays({
+    userId, generatedAt, beachIds, userSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
+  }, segmentDays, coverageDays);
+  const isEarlyLook = (localDate: string): boolean => isEarlyLookDay(request.startLocalDate, localDate);
+  let heldResponse: MajorEventHoldWeekScoutResponse;
+  if (!days.some((day) => isEarlyLook(day.localDate))) {
+    heldResponse = await finalize(days, coverage.days);
+  } else {
+    const [headline, horizon] = await Promise.all([
+      // Copied: each pass stamps personal verdicts onto its windows and rankedSpots.
+      finalize(days.filter((day) => !isEarlyLook(day.localDate)).map((day) => ({
         ...day,
-        windows,
-        bestWindowId,
-        exclusionReasons: exclusionReasonsForDay(windows, bestWindowId),
-      };
-    }),
-  };
-  // When every beach is held (72 h after rain, say) the filter leaves no
-  // candidates and the boundary fails closed as hold_state_unavailable. Give it
-  // the unfiltered windows so it reports the hold and when it lifts.
-  if (safeWindowIds.size === 0 && unfilteredResponse.days.some((day) => day.windows.length > 0)) {
-    response = unfilteredResponse;
-  }
-  const candidates: MajorEventHoldCandidate[] = response.days.flatMap((day) =>
-    day.windows.map((window) => ({
-      candidateId: window.id,
-      beachId: window.beachId,
-      startsAt: window.start,
-      endsAt: window.end,
-    })),
-  );
-  // The hold boundary fails closed on an empty list, which read as "can't
-  // confirm beach safety" for a surfer with no beach in range.
-  let heldResponse: MajorEventHoldWeekScoutResponse = noBeachesInScope
-    ? { ...response, recommendationAvailability: { state: "available", holdEpoch: "no-candidates" } }
-    : sanitizeWeekScoutForMajorEventHold(
-      response,
-      candidates,
-      await evaluateMajorEventHoldCandidates({
-        candidates,
-        profileExperience: userSkillLevel,
-        applyWaterQualityHolds: true,
-      }, waterQualityResolution ? {
-        // Both gates evaluate the same fresh beach-level evidence within this request.
-        resolveWaterQualityHolds: async () => waterQualityResolution!,
-      } : undefined),
-    );
-  for (const coverageDay of coverage.days) {
-    const before = response.days.find((day) => day.localDate === coverageDay.localDate);
-    const after = heldResponse.days.find((day) => day.localDate === coverageDay.localDate);
-    for (const bucketCoverage of coverageDay.buckets) {
-      const beforeIds = new Set(
-        before?.windows
-          .filter((window) => window.bucket === bucketCoverage.bucket)
-          .map((window) => window.id) ?? [],
-      );
-      const afterIds = new Set(
-        after?.windows
-          .filter((window) => window.bucket === bucketCoverage.bucket)
-          .map((window) => window.id) ?? [],
-      );
-      bucketCoverage.held = [...beforeIds].filter((id) => !afterIds.has(id)).length;
-    }
-  }
-
-  if (compactResponse) heldResponse = compactHeldResponse(heldResponse);
-  const returnedDrafts = new Map<string, DraftWindow>();
-  for (const day of heldResponse.days) {
-    for (const window of day.windows) {
-      if (window.verdict === null) continue;
-      const draft = draftsById.get(window.id);
-      if (draft) returnedDrafts.set(window.id, draft);
-      for (const spot of window.rankedSpots) {
-        const spotDraft = draftsBySlot.get(`${day.localDate}:${window.bucket}:${spot.beachId}`);
-        if (spotDraft) returnedDrafts.set(spotDraft.response.id, spotDraft);
-      }
-    }
-  }
-  const similarity = await deps.fetchMatchEvidence(userId, beachIds,
-    [...returnedDrafts.values()].map((draft) => draft.recommendation.forecast));
-  const verdicts = new Map<string, WeekScoutVerdict>();
-  const personalCalls = new Map<string, ReturnType<typeof getCanonicalPersonalCall>>();
-  for (const [id, draft] of returnedDrafts) {
-    const forecast = draft.recommendation.forecast;
-    // Personal history may only move safe, rideable windows.
-    const eligibleForPersonal = draft.response.safe && draft.response.rideable;
-    // One decision yields the verdict and the label Detail prints for it, so the
-    // personal call costs no pass beyond the verdict this loop already computes.
-    const call = getCanonicalPersonalCall({
-      ...draft.recommendation, score: draft.response.conditionScore,
-      similarity: eligibleForPersonal
-        ? similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null
-        : null,
-    }, userSkillLevel);
-    personalCalls.set(id, call);
-    verdicts.set(id, call.verdict === 'go' ? 'worth_it' : call.verdict === 'maybe' ? 'maybe' : 'skip');
-  }
-  const attachPersonalCall = (target: WeekScoutPersonalCall, id: string): void => {
-    const call = userId ? personalCalls.get(id) : undefined;
-    if (!call) return;
-    target.personalVerdict = call.verdict;
-    target.personalLabel = call.label;
-  };
-  for (const day of heldResponse.days) {
-    for (const window of day.windows) {
-      if (window.verdict === null) continue;
-      window.verdict = verdicts.get(window.id) ?? window.verdict;
-      attachPersonalCall(window, window.id);
-      for (const spot of window.rankedSpots) {
-        const draft = draftsBySlot.get(`${day.localDate}:${window.bucket}:${spot.beachId}`);
-        if (!draft) continue;
-        spot.verdict = verdicts.get(draft.response.id) ?? spot.verdict;
-        attachPersonalCall(spot, draft.response.id);
-      }
-    }
-    // Preserve hold fallback selection; only replace a day best rejected by its new personal verdict.
-    if (!day.bestWindowId || day.windows.find((window) => window.id === day.bestWindowId)?.verdict !== 'skip') continue;
-    const best = day.windows.filter((window) => window.isBeachDayBest && window.safe
-      && window.rideable && window.verdict !== null && window.verdict !== 'skip')
-      .sort((left, right) => compareWeekScoutWindows(
-        { conditionScore: left.conditionScore ?? 0, rankingScore: left.rankingScore ?? 0 },
-        { conditionScore: right.conditionScore ?? 0, rankingScore: right.rankingScore ?? 0 },
-        distanceByBeachId.get(left.beachId), distanceByBeachId.get(right.beachId)))[0];
-    day.bestWindowId = best?.id ?? null;
-    day.exclusionReasons = exclusionReasonsForDay(day.windows, day.bestWindowId);
+        windows: day.windows.map((window) => ({
+          ...window,
+          rankedSpots: window.rankedSpots.map((spot) => ({ ...spot })),
+        })),
+      })), coverage.days.filter((day) => !isEarlyLook(day.localDate))),
+      finalize(days, coverage.days.filter((day) => isEarlyLook(day.localDate))),
+    ]);
+    heldResponse = {
+      ...headline,
+      days: [...headline.days, ...horizon.days.filter((day) => isEarlyLook(day.localDate))],
+    };
   }
 
   return {
@@ -1356,8 +1431,8 @@ async function generateWeekScoutForecastInternal(
 }
 
 function validateDayCount(dayCount: number): void {
-  if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 7) {
-    throw new Error('Week Scout dayCount must be between 1 and 7');
+  if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 10) {
+    throw new Error('Week Scout dayCount must be between 1 and 10');
   }
 }
 
@@ -1439,9 +1514,15 @@ function buildCanonicalWeekScoutResponse(
   context: GeneratedWeekScoutContext,
   request: WeekScoutDaysRequest,
 ): CanonicalWeekScoutResponse {
+  // Early-look days rank per day but never feed the week's session pick, so a
+  // 10-day request makes the same decision as a 7-day one.
+  const headlineResponse = {
+    ...context.heldResponse,
+    days: context.heldResponse.days.filter((day) => !isEarlyLookDay(request.startLocalDate, day.localDate)),
+  };
   const candidateArgs = {
     profileExperience: context.userSkillLevel,
-    response: context.heldResponse,
+    response: headlineResponse,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
   };
@@ -1461,7 +1542,7 @@ function buildCanonicalWeekScoutResponse(
       kind: 'plan_next_session',
       windowStart: context.generatedAt,
       windowEnd: new Date(
-        context.now.getTime() + request.dayCount * 24 * 60 * 60 * 1000,
+        context.now.getTime() + Math.min(request.dayCount, HEADLINE_DAY_COUNT) * 24 * 60 * 60 * 1000,
       ).toISOString(),
       timezone: request.localTimezone,
     },

@@ -770,6 +770,7 @@ function captureIPLocation(
         country: process.env.DEV_IP_COUNTRY || 'US',
         latitude: parseFloat(process.env.DEV_IP_LAT || '32.7157'),
         longitude: parseFloat(process.env.DEV_IP_LON || '-117.1611'),
+        synthetic: true,
       };
     }
 

@@ -1,0 +1,47 @@
+{
+  "simple": {
+    "canonical": "{\"a\":\"x\",\"b\":1}",
+    "sha256": "cdab067e9f3beb32d1252cfd63e492592fecbf591b0d08cadb24bb17f3864246"
+  },
+  "nested_sorted": {
+    "canonical": "{\"a\":true,\"z\":{\"c\":[3,{\"a\":5,\"b\":4}],\"d\":2}}",
+    "sha256": "5b5ae84e71f3bfc72c68c2769df1cc372de3bf3f7100e774005cc951d8c482cf"
+  },
+  "unicode": {
+    "canonical": "{\"e\":\"Design · note\",\"k\":\"waist – chest\"}",
+    "sha256": "a57e045793dcdd20d34f211a9f930b68073db1ea19c7587b052ff908f44fcf5c"
+  },
+  "numbers": {
+    "canonical": "{\"float\":3.5,\"int\":2,\"neg\":-1,\"small\":0.25,\"zero\":0}",
+    "sha256": "779087cabe5a1400d228d64cbe8d679822ac7f71a670e1740f22f56c81aacd4f"
+  },
+  "nulls": {
+    "canonical": "{\"a\":null,\"b\":[null,1]}",
+    "sha256": "2a8d8cfe1e9f7369f5c220e088ae85e003581a2e70005b939783678889421ff9"
+  },
+  "escapes": {
+    "canonical": "{\"bs\":\"a\\\\b\",\"nl\":\"a\\nb\",\"q\":\"he said \\\"hi\\\"\",\"tab\":\"a\\tb\"}",
+    "sha256": "ae8ad59c083bcac3197fa79d7429ddde2143dc8cbec0fe25fa1dffc28f311349"
+  },
+  "empty": {
+    "canonical": "{\"a\":[],\"o\":{},\"s\":\"\"}",
+    "sha256": "c127f9b3c6f4233b3976f8e2d54486ab15f9a46cfa50fc14ae6d0787d1ac2917"
+  },
+  "briefing_like": {
+    "canonical": "{\"advisories\":[{\"beach\":null,\"body\":\"Weekend conditions are uncertain.\",\"id\":\"weather-risk\",\"kind\":\"weather\",\"title\":\"WEATHER RISK\"}],\"dataAt\":\"2026-10-25T12:00:00.000Z\",\"editionDate\":\"2026-10-25\",\"freshness\":\"fresh\",\"generatedAt\":\"2026-10-25T12:55:00.000Z\",\"headline\":\"Small now. SW builds late week.\",\"next48\":[{\"date\":\"2026-10-26\",\"note\":\"Clean until mid-morning.\",\"periods\":[{\"directionDeg\":65,\"kind\":\"offshore\",\"label\":\"OFFSHORE\",\"period\":\"am\",\"speedLabel\":\"5 – 10 mph\",\"speedMph\":10,\"surfFt\":{\"max\":3,\"min\":2},\"surfLabel\":\"waist high\"},{\"directionDeg\":245,\"kind\":\"onshore\",\"label\":\"ONSHORE\",\"period\":\"pm\",\"speedLabel\":\"up to 20 mph\",\"speedMph\":20,\"surfFt\":{\"max\":2.5,\"min\":1.5},\"surfLabel\":\"knee – waist\"}]},{\"date\":\"2026-10-27\",\"note\":\"Early is the only clean window.\",\"periods\":[{\"directionDeg\":90,\"kind\":\"light_variable\",\"label\":\"LIGHT / VARIABLE\",\"period\":\"am\",\"speedLabel\":null,\"speedMph\":null,\"surfFt\":{\"max\":3,\"min\":1.5},\"surfLabel\":\"knee – waist\"},{\"directionDeg\":250,\"kind\":\"onshore\",\"label\":\"ONSHORE\",\"period\":\"pm\",\"speedLabel\":\"10 – 15 mph\",\"speedMph\":15,\"surfFt\":{\"max\":2.5,\"min\":1.5},\"surfLabel\":\"knee – waist\"}]}],\"photo\":{\"beachId\":\"80efa1c0-37a2-4879-819b-647ae3c3d749\",\"beachName\":\"Cardiff Reef\",\"imageUrl\":null},\"regionLabel\":\"San Diego\",\"today\":{\"call\":\"Worth a dawn check at south-facing breaks; everywhere else stays small.\",\"date\":\"2026-10-25\",\"exposures\":[{\"beach\":{\"id\":\"80efa1c0-37a2-4879-819b-647ae3c3d749\",\"name\":\"Cardiff Reef\"},\"exposure\":\"south_facing\",\"label\":\"South-facing\",\"surfFt\":{\"max\":3.5,\"min\":2},\"surfLabel\":\"waist – chest\"},{\"beach\":{\"id\":\"d291411d-d331-4bf1-ad1a-302da3c69de0\",\"name\":\"La Jolla Shores\"},\"exposure\":\"west_facing\",\"label\":\"West-facing\",\"surfFt\":{\"max\":2.5,\"min\":1.5},\"surfLabel\":\"waist high\"}],\"primaryDirectionDeg\":215,\"primaryDirectionLabel\":\"SW SWELL\",\"primaryPeriodS\":15},\"week\":[{\"beach\":null,\"caveat\":null,\"date\":\"2026-10-25\",\"highlightLabel\":null,\"label\":\"Small early\",\"surfFt\":{\"max\":3.5,\"min\":2},\"trend\":\"small\",\"uncertain\":false},{\"beach\":null,\"caveat\":null,\"date\":\"2026-10-26\",\"highlightLabel\":null,\"label\":\"Small\",\"surfFt\":{\"max\":3,\"min\":1.5},\"trend\":\"small\",\"uncertain\":false},{\"beach\":null,\"caveat\":null,\"date\":\"2026-10-27\",\"highlightLabel\":null,\"label\":\"Small\",\"surfFt\":{\"max\":3,\"min\":1.5},\"trend\":\"small\",\"uncertain\":false},{\"beach\":null,\"caveat\":null,\"date\":\"2026-10-28\",\"highlightLabel\":null,\"label\":\"Building\",\"surfFt\":{\"max\":4,\"min\":2},\"trend\":\"building\",\"uncertain\":false},{\"beach\":null,\"caveat\":\"Afternoon wind may cut it short.\",\"date\":\"2026-10-29\",\"highlightLabel\":null,\"label\":\"More size\",\"surfFt\":{\"max\":5,\"min\":3},\"trend\":\"building\",\"uncertain\":false},{\"beach\":{\"id\":\"01330afc-00d3-461b-88f3-b173774766f4\",\"name\":\"Blacks Beach\"},\"caveat\":null,\"date\":\"2026-10-30\",\"highlightLabel\":\"WATCH FRIDAY\",\"label\":\"Bigger SW swell\",\"surfFt\":{\"max\":7,\"min\":4},\"trend\":\"bigger\",\"uncertain\":false},{\"beach\":null,\"caveat\":\"Models disagree on the weekend.\",\"date\":\"2026-10-31\",\"highlightLabel\":null,\"label\":\"Uncertain\",\"surfFt\":{\"max\":6,\"min\":3},\"trend\":\"uncertain\",\"uncertain\":true}]}",
+    "sha256": "d1fbd50900ffd9ff7161941ab5a230f3eaa304986112fe0a7acd753abad6da9a"
+  },
+  "input_hash_excludes_field": {
+    "snapshot": {
+      "schemaVersion": 1,
+      "userId": "u",
+      "editionDate": "2026-10-25",
+      "inputHash": "IGNORED",
+      "briefing": {
+        "b": 2,
+        "a": 1
+      }
+    },
+    "inputHash": "8c040906c45635a232ea57213dcbb7b0d53e5343aabdf9b75cdcb554580357d1"
+  }
+}
