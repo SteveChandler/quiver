@@ -188,6 +188,8 @@ export interface EnhancedForecastEntity {
   next_tide_height?: string | null;
   /** UTC timestamp of next tide event (ISO 8601) for timezone-aware formatting */
   next_tide_at?: string | null;
+  /** Signed tide rate in ft/h (+ rising) at this row; set on hourly-bridged rows. */
+  tide_rate_ft_per_hour?: number | null;
   /** NOAA CO-OPS station ID used for tide data (e.g., "9410230" for La Jolla) */
   coops_station_id?: string | null;
   weather_condition?: string | null;
@@ -254,6 +256,8 @@ export interface EnhancedForecastEntity {
     tide_station?: TideStationInfo;
     /** Per-row wave_height provenance (source, shoaling basis, transform path, etc.). */
     wave_height_provenance?: WaveHeightProvenance;
+    /** Set only on synthetic hourly rows built by bridgeForecastsHourly. */
+    hourly_bridge?: HourlyBridgeProvenance;
   } | null;
 }
 
@@ -312,6 +316,18 @@ export interface TidePoint {
   readonly time: number;
   readonly height: number;
   readonly type: "H" | "L";
+}
+
+/** Where a synthetic hourly row came from: the two stored rows it sits between. */
+export interface HourlyBridgeProvenance {
+  /** forecast_at of the earlier stored row. */
+  from: string;
+  /** forecast_at of the later stored row. */
+  to: string;
+  /** Fraction of the way from `from` to `to`. */
+  t: number;
+  /** series: every tide field from the hourly tide series; row_lerp: from the two rows; none: no tide. */
+  tide_source: "series" | "row_lerp" | "none";
 }
 
 /** A tide extreme (high or low) from the tide schedule */

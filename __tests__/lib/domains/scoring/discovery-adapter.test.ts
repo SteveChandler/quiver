@@ -164,6 +164,79 @@ describe('Discovery Adapter', () => {
       expect(forecastToSnapshot(createForecast({ tide_height: '0.0 ft' })).tide.heightKnown).toBe(true);
     });
 
+    describe('tide rate', () => {
+      // PB Point, 2026-10-27 11:00 PDT: 6.3 ft falling to a -0.9 ft low at 17:00 PDT.
+      const pbPointEleven = {
+        forecast_at: '2026-10-27T18:00:00+00:00',
+        tide_height: '6.3 ft',
+        tide_status: 'Falling',
+        next_tide_height: '-0.9 ft',
+        next_tide_at: '2026-10-28T00:00:00+00:00',
+      };
+
+      it('prefers the hourly series rate the row carries', () => {
+        const tide = forecastToSnapshot(createForecast({ ...pbPointEleven, tide_rate_ft_per_hour: -0.8 })).tide;
+        expect(tide.rateFtPerHour).toBe(-0.8);
+        expect(tide.rateSource).toBe('series');
+      });
+
+      it('falls back to the mean rate to the next high/low', () => {
+        const tide = forecastToSnapshot(createForecast(pbPointEleven)).tide;
+        expect(tide.rateFtPerHour).toBe(-1.2);
+        expect(tide.rateSource).toBe('next_extremum');
+      });
+
+      it('leaves the rate unknown when it cannot be derived', () => {
+        const unknown = (overrides: Partial<EnhancedForecastEntity>) =>
+          forecastToSnapshot(createForecast({ ...pbPointEleven, ...overrides })).tide;
+        for (const tide of [
+          unknown({ next_tide_at: null }),
+          unknown({ next_tide_height: null }),
+          unknown({ tide_height: null }),
+          // In the past, too close to the turn, or beyond half a tidal cycle.
+          unknown({ next_tide_at: '2026-10-27T17:00:00+00:00' }),
+          unknown({ next_tide_at: '2026-10-27T18:15:00+00:00' }),
+          unknown({ next_tide_at: '2026-10-27T19:20:00+00:00' }),
+          unknown({ next_tide_at: '2026-10-28T08:00:00+00:00' }),
+        ]) {
+          expect(tide.rateFtPerHour).toBeNull();
+          expect(tide.rateSource).toBeNull();
+        }
+      });
+
+      it('reads no rate within 1.5 h of the turn, where the tide is slack', () => {
+        // PB Point 4 PM: -0.55 ft, the -0.9 ft low an hour out.
+        const nearLow = forecastToSnapshot(createForecast({
+          forecast_at: '2026-10-27T23:00:00+00:00',
+          tide_height: '-0.55 ft',
+          tide_status: 'Falling',
+          next_tide_height: '-0.9 ft',
+          next_tide_at: '2026-10-28T00:00:00+00:00',
+        })).tide;
+        expect(nearLow.rateFtPerHour).toBeNull();
+        expect(nearLow.rateSource).toBeNull();
+
+        // PB Point 5 PM: the next high is 6 h out, so the mean still reads.
+        const atLow = forecastToSnapshot(createForecast({
+          forecast_at: '2026-10-28T00:00:00+00:00',
+          tide_height: '-0.9 ft',
+          tide_status: 'Rising',
+          next_tide_height: '3.9 ft',
+          next_tide_at: '2026-10-28T06:00:00+00:00',
+        })).tide;
+        expect(atLow.rateFtPerHour).toBe(0.8);
+        expect(atLow.rateSource).toBe('next_extremum');
+
+        const edge = forecastToSnapshot(createForecast({ ...pbPointEleven, next_tide_at: '2026-10-27T19:30:00+00:00' })).tide;
+        expect(edge.rateSource).toBe('next_extremum');
+      });
+
+      it('does not touch the height, status or direction', () => {
+        const tide = forecastToSnapshot(createForecast(pbPointEleven)).tide;
+        expect(tide).toMatchObject({ heightFt: 6.3, status: 'falling', direction: 'falling', heightKnown: true });
+      });
+    });
+
     describe('cardinal swell direction parsing', () => {
       it('should parse cardinal string swell_1_direction (WNW)', () => {
         const forecast = createForecast({

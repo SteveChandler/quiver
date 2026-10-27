@@ -21,6 +21,8 @@ import type {
 import { DEFAULT_SCORING_CONFIG } from "./types";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
+import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
+import { TIDE_EFFECT_CODES } from "./tide-swing";
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.
@@ -155,6 +157,14 @@ export class ScoringEngine {
         ) {
           allWarnings.push(effect.message);
         }
+      }
+      // A binding tide effect is the headline (Week Scout takeaway); other effects keep today's order.
+      const otherCeiling = Math.min(ceiling, chopCeiling?.ceiling ?? 100);
+      if (isTideSwingEnabled() && effectCeiling <= otherCeiling) {
+        const binding = allEffects.find(
+          (effect) => TIDE_EFFECT_CODES.has(effect.code) && effect.verdictCeiling === effectCeiling,
+        );
+        if (binding) allReasons.unshift(binding.message);
       }
     }
 

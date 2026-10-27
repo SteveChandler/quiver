@@ -1,6 +1,8 @@
 import {
   NATIVE_SKILL_THRESHOLDS,
   OUT_OF_BAND_SCORE_CEILING,
+  nativeScoreInputsFromForecast,
+  nativeTideTermPoints,
   pickBestNativeForecastSlot,
   scoreNativeConditionBreakdown,
   scoreNativeConditionInputs,
@@ -334,6 +336,74 @@ describe("native-condition-score", () => {
       }),
     ).toMatchObject({
       forecast: { id: "night" },
+    });
+  });
+
+  describe("tide term", () => {
+    // The fixed table every beach got before band-aware scoring.
+    function legacyTidePoints(heightFt: number | null, status: string | null): number {
+      let points = 7;
+      if (heightFt != null) {
+        if (heightFt >= 1.5 && heightFt <= 4.5) points = 8;
+        else if (heightFt >= 0.5 && heightFt <= 6) points = 5;
+        else points = 2;
+      }
+      const lower = status?.toLowerCase() ?? "";
+      if (lower.includes("rising") || lower.includes("falling")) points += 2;
+      if (lower.includes("high") || lower.includes("low")) points -= 1;
+      return Math.max(0, Math.min(10, points));
+    }
+
+    it("keeps the fixed table for a beach without a band", () => {
+      for (let heightFt = -3; heightFt <= 9; heightFt += 0.1) {
+        const rounded = Math.round(heightFt * 10) / 10;
+        for (const status of ["Rising", "Falling", "High", "Low", "High Slack", null]) {
+          expect(nativeTideTermPoints({ heightFt: rounded, status })).toBe(legacyTidePoints(rounded, status));
+          expect(nativeTideTermPoints({ heightFt: rounded, status, band: null })).toBe(legacyTidePoints(rounded, status));
+        }
+      }
+      expect(nativeTideTermPoints({ heightFt: null, status: "Rising" })).toBe(9);
+    });
+
+    it("gives full points inside a band and within its quarter-foot tolerance", () => {
+      const band = { minFt: 0, maxFt: 6 };
+      // Windansea 11 AM: 6.1 ft on 0-6 -> 10 (the fixed table gave 4).
+      expect(nativeTideTermPoints({ heightFt: 6.1, status: "Falling", band })).toBe(10);
+      expect(nativeTideTermPoints({ heightFt: 3, status: "High", band })).toBe(7);
+      expect(nativeTideTermPoints({ heightFt: -0.25, status: null, band })).toBe(8);
+    });
+
+    it("tapers 3 points per foot beyond the tolerance, floor 2", () => {
+      // Tourmaline 11 AM: 6.3 ft on 2-5.5 is 0.55 ft past tolerance -> 8 - 1.65 + 2.
+      expect(nativeTideTermPoints({ heightFt: 6.3, status: "Falling", band: { minFt: 2, maxFt: 5.5 } })).toBeCloseTo(8.35, 5);
+      // PB Point 8 AM: 5.7 ft on 2-4 -> 8 - 4.35 + 2 (the fixed table gave 7).
+      expect(nativeTideTermPoints({ heightFt: 5.7, status: "Rising", band: { minFt: 2, maxFt: 4 } })).toBeCloseTo(5.65, 5);
+      // PB Point 11 AM: 6.3 ft on 2-4 hits the floor -> 2 + 2, same as the fixed table.
+      expect(nativeTideTermPoints({ heightFt: 6.3, status: "Falling", band: { minFt: 2, maxFt: 4 } })).toBe(4);
+      // Below the band mirrors above it.
+      expect(nativeTideTermPoints({ heightFt: 0.75, status: null, band: { minFt: 2, maxFt: 4 } })).toBeCloseTo(5, 5);
+    });
+
+    it("never leaves 0-10", () => {
+      for (let heightFt = -4; heightFt <= 10; heightFt += 0.25) {
+        for (const status of ["Rising", "Low", "High Rising", null]) {
+          const points = nativeTideTermPoints({ heightFt, status, band: { minFt: 1, maxFt: 2 } });
+          expect(points).toBeGreaterThanOrEqual(0);
+          expect(points).toBeLessThanOrEqual(10);
+        }
+      }
+    });
+
+    it("threads an optional band through the forecast inputs", () => {
+      const row = forecast({ tide_height: "6.3 ft", tide_status: "Falling" });
+      expect(nativeScoreInputsFromForecast(row)).not.toHaveProperty("tideBand");
+      expect(nativeScoreInputsFromForecast(row, null)).not.toHaveProperty("tideBand");
+      const banded = nativeScoreInputsFromForecast(row, { minFt: 2, maxFt: 5.5 });
+      expect(banded.tideBand).toEqual({ minFt: 2, maxFt: 5.5 });
+      expect(scoreNativeConditionBreakdown(banded, "intermediate").components.tide).toBeCloseTo(8.35, 5);
+      expect(scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(row), "intermediate").components.tide).toBe(4);
+      expect(scoreNativeConditionInputs(nativeScoreInputsFromForecast(row), "intermediate"))
+        .toBe(scoreNativeForecastSlot(row, "intermediate"));
     });
   });
 });

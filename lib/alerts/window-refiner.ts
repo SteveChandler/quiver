@@ -6,6 +6,7 @@ import { MAX_WINDOW_HOURS } from "@/lib/services/discovery/window-selector/const
 import { extractTideSchedule } from "@/lib/services/discovery/window-selector/tide-boundary-calculator";
 import { TideExtremaDetector } from "@/lib/services/noaa-coops/tide-extrema-detector";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
+import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -17,6 +18,8 @@ export interface WindowDriver {
   at: string;
   approximate: boolean;
   label: string;
+  /** Tide drivers only, with TIDE_SWING_ENABLED: the band edge crossed; absent for a direction-only change. */
+  bandEdge?: "min" | "max";
 }
 
 interface CoarseWindow {
@@ -184,13 +187,15 @@ function tideDriver(
       ? interpolateTime(pair, beforeHeight, afterHeight, threshold)
       : new Date(pair.after.forecast_at);
 
-  return driver(
+  const tide = driver(
     "tide",
     edge,
     at,
     exactSample == null,
     tideLabel(args, at, beforeHeight, afterHeight),
   );
+  if (threshold == null || !isTideSwingEnabled()) return tide;
+  return { ...tide, bandEdge: threshold === args.beach.preferred_tide_ft_min ? "min" : "max" };
 }
 
 function crossedTideThreshold(

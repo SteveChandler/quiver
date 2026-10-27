@@ -56,6 +56,10 @@ export interface TideState {
   readonly direction: TideDirection;
   /** False when the forecast had no tide height and heightFt is a placeholder. */
   readonly heightKnown?: boolean;
+  /** Signed tide rate in ft/h (+ rising); null when it can't be derived. */
+  readonly rateFtPerHour?: number | null;
+  /** 'series' = hourly tide series; 'next_extremum' = mean rate to the next high/low. */
+  readonly rateSource?: 'series' | 'next_extremum' | null;
 }
 
 /**

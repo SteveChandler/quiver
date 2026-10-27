@@ -23,6 +23,7 @@ import {
   getConditionCharacter,
 } from '@/lib/domains/scoring';
 import {
+  displayTideBand,
   resolveNativeSkillLevel,
   scoreNativeConditionInputs,
 } from '@/lib/scoring/native-condition-score';
@@ -98,16 +99,18 @@ function forecastForScoringToSnapshot(forecast: ForecastForScoring): ConditionsS
  */
 function scoreForecastTotal(
   forecast: ForecastForScoring,
-  _beach: BeachWithThresholds,
+  beach: BeachWithThresholds,
   skillLevel?: WindowCalculatorOptions['skillLevel'],
   boardClasses: readonly BoardClass[] = [],
 ): number {
+  const tideBand = displayTideBand(beach);
   const inputs = {
     waveHeightFt: forecast.waveHeight,
     windSpeedMph: forecast.windSpeed,
     periodSec: forecast.wavePeriod,
     tideHeightFt: Number.isFinite(forecast.tideHeight) ? forecast.tideHeight : null,
     tideStatus: forecast.tideStatus,
+    ...(tideBand ? { tideBand } : {}),
   };
   const baselineScore = scoreNativeConditionInputs(inputs, skillLevel);
   if (boardClasses.length === 0) return baselineScore;

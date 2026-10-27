@@ -11,7 +11,9 @@ import {
   swellPhrase,
   windPhrase,
 } from "@/lib/notifications/copy/daily-call-copy";
-import type { WindowDriver } from "@/lib/alerts/window-refiner";
+import { refineWindow, type WindowDriver } from "@/lib/alerts/window-refiner";
+import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 const TZ = "America/Los_Angeles";
 
@@ -60,6 +62,77 @@ describe("daily call copy", () => {
       .toBe("Best before the wind picks up around 11 AM.");
     expect(limitSentence([driver("daylight", "sunset", end)], end, TZ)).toBe("Good until dark around 11 AM.");
     expect(limitSentence([], end, TZ)).toBe("Good until 11 AM.");
+  });
+
+  describe("tide swing (TIDE_SWING_ENABLED)", () => {
+    const originalFlag = process.env.TIDE_SWING_ENABLED;
+    afterEach(() => {
+      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
+      else process.env.TIDE_SWING_ENABLED = originalFlag;
+    });
+
+    // PB Point (band 2-4 ft) on Tue 2026-10-27, its real hourly tide from the 9:47 AM high.
+    const pbPoint = { id: "pb-point", preferred_tide_ft_min: 2, preferred_tide_ft_max: 4, preferred_tide_direction: null } as Beach;
+    const tideFt: Array<[string, number]> = [
+      ["17", 6.8], ["18", 6.3], ["19", 5.2], ["20", 3.6], ["21", 2.0], ["22", 0.5], ["23", -0.5],
+    ];
+    const rows = tideFt.map(([hour, height]) => ({
+      id: hour,
+      beach_id: pbPoint.id,
+      forecast_at: `2026-10-27T${hour}:00:00Z`,
+      tide_height: String(height),
+      tide_status: "Falling",
+    })) as EnhancedForecastEntity[];
+
+    function dropWindow() {
+      return refineWindow({
+        coarse: { start: "2026-10-27T20:00:00Z", end: "2026-10-27T22:00:00Z" },
+        forecasts: rows,
+        beach: pbPoint,
+        tideSamples: null,
+        daylight: { sunrise: "2026-10-27T14:03:00Z", sunset: "2026-10-28T01:04:00Z" },
+        verdictAt: (row) => {
+          const height = Number(row.tide_height);
+          return height >= 2 && height <= 4 ? "go" : "no";
+        },
+      });
+    }
+
+    it("flag off keeps the falling-tide sentence for a window the drop opens and closes", () => {
+      delete process.env.TIDE_SWING_ENABLED;
+      const window = dropWindow()!;
+      expect(window.drivers.every((value) => value.bandEdge === undefined)).toBe(true);
+      expect(limitSentence(window.drivers, window.end, TZ)).toBe("Best before the tide drops around 2 PM.");
+    });
+
+    it("flag on names the drop through the band, with times from the refined window", () => {
+      process.env.TIDE_SWING_ENABLED = "true";
+      const window = dropWindow()!;
+      expect(window.drivers.map(({ edge, bandEdge }) => [edge, bandEdge])).toEqual([["start", "max"], ["end", "min"]]);
+      expect(limitSentence(window.drivers, window.end, TZ))
+        .toBe("Best on the drop from 12:45 PM until it gets too low around 2 PM.");
+    });
+
+    it("reads noon as noon and mirrors the push for a rising tide", () => {
+      const start = (label: string, bandEdge: "min" | "max"): WindowDriver =>
+        ({ kind: "tide", edge: "start", at: "2026-10-27T19:00:00Z", approximate: true, label, bandEdge });
+      const end = (label: string, bandEdge: "min" | "max"): WindowDriver =>
+        ({ kind: "tide", edge: "end", at: "2026-10-27T22:00:00Z", approximate: true, label, bandEdge });
+      const at = "2026-10-27T22:00:00Z";
+      expect(limitSentence([start("falling to a -0.9ft low", "max"), end("falling to a -0.9ft low", "min")], at, TZ))
+        .toBe("Best on the drop from noon until it gets too low around 3 PM.");
+      expect(limitSentence([start("rising to a 6.8ft high", "min"), end("rising to a 6.8ft high", "max")], at, TZ))
+        .toBe("Best on the push from noon until it gets too full around 3 PM.");
+    });
+
+    it("a direction-only tide change or a mixed edge keeps today's sentence", () => {
+      const at = "2026-10-27T22:00:00Z";
+      const startNoEdge: WindowDriver = { kind: "tide", edge: "start", at: "2026-10-27T19:00:00Z", approximate: true, label: "falling to a -0.9ft low" };
+      const endMin: WindowDriver = { kind: "tide", edge: "end", at, approximate: true, label: "falling to a -0.9ft low", bandEdge: "min" };
+      const daylightStart: WindowDriver = { kind: "daylight", edge: "start", at: "2026-10-27T14:03:00Z", approximate: false, label: "sunrise" };
+      expect(limitSentence([startNoEdge, endMin], at, TZ)).toBe("Best before the tide drops around 3 PM.");
+      expect(limitSentence([daylightStart, endMin], at, TZ)).toBe("Best before the tide drops around 3 PM.");
+    });
   });
 
   it("compares with home only from the numbers", () => {

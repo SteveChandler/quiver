@@ -57,7 +57,34 @@ function addLocalDays(date: string, days: number): string {
   return result.toISOString().slice(0, 10);
 }
 
+/**
+ * Light intervals by sun-times object, then by zone and date (with the array lengths, so a list
+ * grown after a read is read again). Epoch ms are cached and every call returns fresh Dates.
+ */
+const lightIntervalCache = new WeakMap<BeachSunTimes, Map<string, { startMs: number; endMs: number }>>();
+
 export function usableLightIntervalForDate(
+  date: string,
+  timezone: string,
+  sunTimes?: BeachSunTimes,
+): UsableLightInterval {
+  if (!sunTimes) return computeUsableLightInterval(date, timezone);
+  let byDate = lightIntervalCache.get(sunTimes);
+  if (!byDate) {
+    byDate = new Map();
+    lightIntervalCache.set(sunTimes, byDate);
+  }
+  const key = `${timezone}|${date}|${sunTimes.sunrises.length}|${sunTimes.sunsets.length}`;
+  let cached = byDate.get(key);
+  if (!cached) {
+    const light = computeUsableLightInterval(date, timezone, sunTimes);
+    cached = { startMs: light.start.getTime(), endMs: light.end.getTime() };
+    byDate.set(key, cached);
+  }
+  return { start: new Date(cached.startMs), end: new Date(cached.endMs) };
+}
+
+function computeUsableLightInterval(
   date: string,
   timezone: string,
   sunTimes?: BeachSunTimes,
