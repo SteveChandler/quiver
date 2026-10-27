@@ -570,6 +570,8 @@ export interface WaveHeightProvenance {
   calibrated_shoaling_fired: boolean;
   /** True when a low long-period CDIP bucket was skipped by quarantine rules. */
   calibration_bucket_quarantined?: boolean;
+  /** True when a short-period calibrated bucket exceeded the period cap. */
+  short_period_bucket_capped?: boolean;
   /** Last CDIP face height minus first following model face height at the source handoff. */
   handoff_discontinuity_ft?: number;
   /** Optional default-off boundary blend applied to model rows after a CDIP handoff. */

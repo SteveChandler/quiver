@@ -103,6 +103,17 @@ const BLACKS_SHOALING = {
   ],
 };
 
+const LA_JOLLA_SHORES_SHOALING = {
+  version: 1 as const,
+  type: "period_lookup" as const,
+  buckets: [
+    { tp_min_s: 0, tp_max_s: 8, factor: 1.18 },
+    { tp_min_s: 8, tp_max_s: 12, factor: 1.19 },
+    { tp_min_s: 12, tp_max_s: 16, factor: 1.42 },
+    { tp_min_s: 16, tp_max_s: 999, factor: 1.46 },
+  ],
+};
+
 function makeWaveData(nowIso: string, hsM = 2.8) {
   return {
     lat: 32.76,
@@ -436,6 +447,44 @@ describe("ForecastBuilder CDIP height semantics", () => {
   // Registered inside the describe so it runs before jest.setup's own check.
   afterEach(() => {
     expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
+  test("La Jolla Shores CDIP 2.7 ft at 7 s stays calibrated and records the short-period cap", async () => {
+    const cdipData = {
+      ...makeCdipBuoyData(FROZEN_NOW_ISO, 2.7, 7, 290),
+      stationId: "201",
+      stationName: "Scripps Pier",
+    };
+    const forecasts = await makeBuilder().buildForecasts({
+      beach: makeBeach({
+        id: "d291411d-d331-4bf1-ad1a-302da3c69de0",
+        name: "La Jolla Shores",
+        shoaling_factors: LA_JOLLA_SHORES_SHOALING as unknown as Beach["shoaling_factors"],
+      }),
+      waveData: makeWaveData(FROZEN_NOW_ISO),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: cdipData as never,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(extractFt(forecasts[0].wave_height)).toBe(2.3);
+    expect(forecasts[0].raw_forecast?.wave_height_provenance).toEqual(
+      expect.objectContaining({
+        source: "cdip_sig",
+        station_id: "201",
+        raw_value_ft: 2.7,
+        provenance: "measured",
+        transform_path: "scalar_calibrated",
+        calibrated_shoaling_fired: true,
+        short_period_bucket_capped: true,
+      }),
+    );
+    expect(forecasts[0].raw_forecast).toEqual(expect.objectContaining({
+      wave_height_debug: { shortPeriodBucketCapped: true },
+    }));
   });
   test("CDIP + WaveWatch components: wave_height follows CDIP Hs × calibrated bucket, not NOAA component sum", async () => {
     const builder = makeBuilder();
