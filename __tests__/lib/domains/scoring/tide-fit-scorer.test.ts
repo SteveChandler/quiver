@@ -104,28 +104,39 @@ describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
     expect(tideFitScorer.score(swingInput(5.5, 2, { breakType: 'point' })).effects?.[0]?.verdictCeiling).toBe(69);
   });
 
-  it('stacks fast-fall walling on a beach break with the softened band tier', () => {
+  it('stacks fast-fall walling below the band floor with the band tier', () => {
     process.env.TIDE_SWING_ENABLED = 'true';
+    expect(tideFitScorer.score(swingInput(1.5, -2)).effects).toEqual([
+      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide a bit low' },
+      { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Dropping fast, expect it to wall up as it drains' },
+    ]);
+    // High in the band a fast drop does not wall.
     expect(tideFitScorer.score(swingInput(5.5, -2)).effects).toEqual([
       { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide back in range by ~12 PM' },
-      { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Dropping fast, expect it to wall up as it drains' },
     ]);
   });
 
   it('is the one emitter of tide_swing effects, alongside the band ceiling', () => {
     process.env.TIDE_SWING_ENABLED = 'true';
-    const result = tideFitScorer.score(swingInput(4.6, 0.1));
+    const result = tideFitScorer.score(swingInput(5.2, 0.1));
     expect(result.effects).toEqual([
-      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide a bit high' },
+      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 69, message: 'Tide a bit high' },
       { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Lots of water at the top of the tide' },
     ]);
-    expect(result.score).toBe(85);
+    expect(result.score).toBe(70);
+
+    // Under a foot over, slack high is a warning on top of the 79 tier.
+    const justOver = tideFitScorer.score(swingInput(4.6, 0.1));
+    expect(justOver.effects).toEqual([
+      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide a bit high' },
+    ]);
+    expect(justOver.warnings).toEqual(['Tide a bit high', 'Lots of water at the top of the tide']);
   });
 
   it('adds only rate effects on an unbanded beach and keeps its flat 70', () => {
     process.env.TIDE_SWING_ENABLED = 'true';
     const unbanded = createInput(
-      { waveHeight: 4, wavePeriod: 12, tide: { heightFt: 4, status: 'falling', direction: 'falling', heightKnown: true, rateFtPerHour: -1.2 } },
+      { waveHeight: 4, wavePeriod: 12, tide: { heightFt: 1.5, status: 'falling', direction: 'falling', heightKnown: true, rateFtPerHour: -1.2 } },
       { breakType: 'beach', tidePreferences: { ...DEFAULT_PROFILE.tidePreferences, minHeightFt: -2, maxHeightFt: 8, explicitRange: false } },
     );
     const result = tideFitScorer.score(unbanded);

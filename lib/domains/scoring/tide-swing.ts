@@ -28,13 +28,18 @@ const FAST_RATE_FT_PER_HOUR = 1.0;
 const MODERATE_RATE_FT_PER_HOUR = 0.6;
 /** Filling a reef or point needs a steady push, not a fast one. */
 const FILL_IN_RATE_FT_PER_HOUR = 0.6;
-const SLACK_RATE_FT_PER_HOUR = 0.3;
+const SLACK_RATE_FT_PER_HOUR = 0.2;
 const SOON_HOURS = 1;
 
 const WALLING_MIN_WAVE_FT = 3;
 const WALLING_MIN_PERIOD_S = 10;
 const REEF_DRAIN_ZONE_FT = 1;
+/** Walling is a low-tide effect: the sandbar needs to be shallow. */
+const WALLING_ZONE_ABOVE_BAND_MIN_FT = 0.5;
+const UNBANDED_WALLING_MAX_FT = 2.0;
 const UNBANDED_SLACK_HIGH_FT = 6.0;
+/** Under this, the band tier (79) already says enough; slack high only warns. */
+const SLACK_HIGH_CAP_EXCESS_FT = 1.0;
 
 const WALLING_CEILING = 69;
 const REEF_DRAIN_CEILING = 79;
@@ -232,9 +237,13 @@ export function assessTideSwing(
     warnings.push(tideLeavesRangeCopy(formatTideWhen(snapshot.timestamp, hoursToExit, profile.timezone)));
   }
 
+  const shallowEnoughToWall = band
+    ? heightFt - band.minFt <= WALLING_ZONE_ABOVE_BAND_MIN_FT
+    : heightFt <= UNBANDED_WALLING_MAX_FT;
   if (
     fastFall
     && breakClass === 'beach'
+    && shallowEnoughToWall
     && snapshot.waveHeight >= WALLING_MIN_WAVE_FT
     && snapshot.wavePeriod >= WALLING_MIN_PERIOD_S
   ) {
@@ -257,7 +266,11 @@ export function assessTideSwing(
     }
 
     if (rateClass === 'slack' && heightFt > band.maxFt + TIDE_BAND_TOLERANCE_FT) {
-      effects.push(tideSwingEffect(SLACK_HIGH_CEILING, TIDE_SWING_COPY.slackHighWater));
+      if (heightFt - band.maxFt >= SLACK_HIGH_CAP_EXCESS_FT) {
+        effects.push(tideSwingEffect(SLACK_HIGH_CEILING, TIDE_SWING_COPY.slackHighWater));
+      } else {
+        warnings.push(TIDE_SWING_COPY.slackHighWater);
+      }
     }
   } else if (rateClass === 'slack' && heightFt >= UNBANDED_SLACK_HIGH_FT) {
     warnings.push(TIDE_SWING_COPY.slackHighWater);

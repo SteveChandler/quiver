@@ -60,12 +60,15 @@ describe('assessTideSwing on tomorrow\'s rows (2026-10-27)', () => {
     expect(swing.effects).toEqual([]);
   });
 
-  it('Tourmaline with 3.5 ft at 12 s on the same drop: walls up as it drains (69)', () => {
-    const { snapshot, profile } = realRow('tourmaline', '18', {
-      wave_height: '3.5 ft', swell_1_height: '3.5 ft', swell_1_period: '12s', wave_period: '12s',
-    });
-    expect(snapshot.waveHeight).toBe(3.5);
-    expect(assessTideSwing(snapshot, profile).effects).toEqual([
+  it('Tourmaline with 3.5 ft at 12 s: high water never walls, the low end of the drop does (69)', () => {
+    const bigSwell = { wave_height: '3.5 ft', swell_1_height: '3.5 ft', swell_1_period: '12s', wave_period: '12s' };
+    const high = realRow('tourmaline', '18', bigSwell);
+    expect(high.snapshot.waveHeight).toBe(3.5);
+    expect(assessTideSwing(high.snapshot, high.profile).effects).toEqual([]);
+
+    // 2.3 ft on 2-5.5 is inside the 0.5 ft drain zone above the band floor.
+    const low = realRow('tourmaline', '21', { ...bigSwell, tide_height: '2.3 ft', tide_rate_ft_per_hour: -1.2 });
+    expect(assessTideSwing(low.snapshot, low.profile).effects).toEqual([
       { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Dropping fast, expect it to wall up as it drains' },
     ]);
   });
@@ -166,13 +169,18 @@ describe('assessTideSwing on tomorrow\'s rows (2026-10-27)', () => {
       side: null, excessFt: 0, effects: [], warnings: [],
     });
 
+    const bigSwell = { wave_height: '3.5 ft', swell_1_height: '3.5 ft', swell_1_period: '11s', wave_period: '11s' };
     const walling = realRow('blackies', '18', {
-      forecast_at: '2026-10-27T19:00:00+00:00', tide_height: '4.25 ft', tide_rate_ft_per_hour: -1.0,
-      wave_height: '3.5 ft', swell_1_height: '3.5 ft', swell_1_period: '11s', wave_period: '11s',
+      ...bigSwell, forecast_at: '2026-10-27T22:00:00+00:00', tide_height: '1.26 ft', tide_rate_ft_per_hour: -1.0,
     });
     expect(assessTideSwing(walling.snapshot, walling.profile).effects).toEqual([
       { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Dropping fast, expect it to wall up as it drains' },
     ]);
+    // Unbanded walling stops above 2 ft MLLW.
+    const midTide = realRow('blackies', '18', {
+      ...bigSwell, forecast_at: '2026-10-27T19:00:00+00:00', tide_height: '4.25 ft', tide_rate_ft_per_hour: -1.0,
+    });
+    expect(assessTideSwing(midTide.snapshot, midTide.profile).effects).toEqual([]);
 
     const slackHigh = realRow('blackies', '18', {
       forecast_at: '2026-10-27T17:00:00+00:00', tide_height: '6.25 ft', tide_status: 'High', tide_rate_ft_per_hour: 0.1,
@@ -182,11 +190,22 @@ describe('assessTideSwing on tomorrow\'s rows (2026-10-27)', () => {
     expect(swing.warnings).toEqual(['Lots of water at the top of the tide']);
   });
 
-  it('caps slack high water above a curated band at 69 (Tourmaline 6.0 ft, barely moving)', () => {
-    const { snapshot, profile } = realRow('tourmaline', '18', { tide_height: '6.0 ft', tide_rate_ft_per_hour: 0.1 });
-    expect(assessTideSwing(snapshot, profile).effects).toEqual([
+  it('slack high water warns under a foot over the band and caps at 69 from a foot over', () => {
+    const justOver = realRow('tourmaline', '18', { tide_height: '6.0 ft', tide_rate_ft_per_hour: 0.1 });
+    const justOverSwing = assessTideSwing(justOver.snapshot, justOver.profile);
+    expect(justOverSwing.effects).toEqual([]);
+    expect(justOverSwing.warnings).toEqual(['Lots of water at the top of the tide']);
+
+    const wellOver = realRow('tourmaline', '18', { tide_height: '6.6 ft', tide_rate_ft_per_hour: 0.1 });
+    expect(assessTideSwing(wellOver.snapshot, wellOver.profile).effects).toEqual([
       { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Lots of water at the top of the tide' },
     ]);
+
+    // 0.2 ft/h is moving water, not slack.
+    const moving = realRow('tourmaline', '18', { tide_height: '6.6 ft', tide_rate_ft_per_hour: -0.2 });
+    const movingSwing = assessTideSwing(moving.snapshot, moving.profile);
+    expect(movingSwing.effects).toEqual([]);
+    expect(movingSwing.warnings).toEqual([]);
   });
 
   it('does nothing without a rate or a real tide reading', () => {
@@ -257,7 +276,8 @@ describe('tide-swing helpers', () => {
     expect(classifyTideRate(-1.0)).toBe('fast');
     expect(classifyTideRate(0.6)).toBe('moderate');
     expect(classifyTideRate(-0.45)).toBe('gentle');
-    expect(classifyTideRate(0.29)).toBe('slack');
+    expect(classifyTideRate(0.29)).toBe('gentle');
+    expect(classifyTideRate(-0.19)).toBe('slack');
   });
 
   it('formats the clock time in the beach timezone, rounded up to the half hour', () => {
@@ -272,5 +292,56 @@ describe('tide-swing helpers', () => {
     expect(formatTideWhen(from, 0.5, 'Not/AZone')).toBe('within the hour');
     expect(formatTideWhen(from, 0.5, '')).toBe('within the hour');
     expect(formatTideWhen(new Date('nope'), 0.5, 'America/Los_Angeles')).toBe('within the hour');
+  });
+});
+
+describe('7-day replay cases (50 CA beaches)', () => {
+  function replay(
+    band: { minFt: number; maxFt: number },
+    heightFt: number,
+    rateFtPerHour: number,
+    swell: { waveHeight: number; wavePeriod: number } = { waveHeight: 2, wavePeriod: 10 },
+  ) {
+    return assessTideSwing(
+      {
+        ...swell,
+        timestamp: new Date('2026-10-20T19:00:00Z'),
+        tide: {
+          heightFt,
+          status: rateFtPerHour < 0 ? 'falling' : 'rising',
+          direction: rateFtPerHour < 0 ? 'falling' : 'rising',
+          heightKnown: true,
+          rateFtPerHour,
+        },
+      },
+      {
+        breakType: 'beach',
+        timezone: 'America/Los_Angeles',
+        tidePreferences: { minHeightFt: band.minFt, maxHeightFt: band.maxFt, preferredDirection: 'either', directionSensitivity: 'medium', explicitRange: true },
+      },
+    );
+  }
+
+  it('Del Mar 4.3 ft falling 0.25 ft/h on 0-4: no slack-high cap (was 69)', () => {
+    const swing = replay({ minFt: 0, maxFt: 4 }, 4.3, -0.25);
+    expect(swing.rateClass).toBe('gentle');
+    expect(swing.effects).toEqual([]);
+    expect(swing.warnings).toEqual([]);
+  });
+
+  it('Ocean Beach 4.8 ft barely moving on 1-4: a warning, never a 69 cap', () => {
+    const swing = replay({ minFt: 1, maxFt: 4 }, 4.8, 0.1);
+    expect(swing.effects).toEqual([]);
+    expect(swing.warnings).toEqual(['Lots of water at the top of the tide']);
+  });
+
+  it('Ocean Beach SF 2.6 ft draining 1 ft/h on 2-6 with 3.6 ft @ 10 s: no walling cap (was 69)', () => {
+    expect(replay({ minFt: 2, maxFt: 6 }, 2.6, -1.0, { waveHeight: 3.6, wavePeriod: 10 }).effects).toEqual([]);
+  });
+
+  it('Pismo 2.3 ft draining 1.45 ft/h on 2-6 with 3.6 ft @ 14 s: still walls up (69)', () => {
+    expect(replay({ minFt: 2, maxFt: 6 }, 2.3, -1.45, { waveHeight: 3.6, wavePeriod: 14 }).effects).toEqual([
+      { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Dropping fast, expect it to wall up as it drains' },
+    ]);
   });
 });

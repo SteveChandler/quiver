@@ -437,9 +437,9 @@ describe('Tide Direction Integration Tests', () => {
       expect(slow.subscores.get('tideDirection')).toBe(34);
       expect(fast.subscores.get('tideDirection')).toBe(10);
       expect(slow.total).toBeGreaterThan(unknown.total);
-      // 4 ft at 12 s on a beach break draining at 1.2 ft/h also walls up.
-      expect(fast.total).toBe(69);
-      expect(fast.effects?.map((effect) => effect.code)).toContain('tide_swing');
+      // 3 ft of tide is too deep to wall up, so a fast drop costs only the full mismatch.
+      expect(fast.total).toBe(unknown.total);
+      expect(fast.effects?.map((effect) => effect.code) ?? []).not.toContain('tide_swing');
     });
   });
 });
