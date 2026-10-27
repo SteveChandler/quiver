@@ -22,8 +22,7 @@ import { DEFAULT_SCORING_CONFIG } from "./types";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
 import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
-
-const TIDE_EFFECT_CODES: ReadonlySet<string> = new Set(["tide_outside_band", "tide_swing"]);
+import { TIDE_EFFECT_CODES } from "./tide-swing";
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.

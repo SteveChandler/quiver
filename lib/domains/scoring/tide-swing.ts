@@ -18,6 +18,9 @@ import {
 /** Band edges are approximate; ignore the first quarter foot outside them. */
 export const TIDE_BAND_TOLERANCE_FT = 0.25;
 
+/** Effect codes a tide sets: the band ceiling (tide-fit scorer) and the rate effect (below). */
+export const TIDE_EFFECT_CODES: ReadonlySet<string> = new Set(['tide_outside_band', 'tide_swing']);
+
 /** No tide-only ceiling may push a call below FAIR. */
 export const TIDE_ONLY_CEILING_FLOOR = 55;
 

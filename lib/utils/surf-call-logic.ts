@@ -37,6 +37,7 @@ import {
   assessTideSwing,
   resolveTideBand,
   TIDE_BAND_TOLERANCE_FT,
+  TIDE_EFFECT_CODES,
 } from '@/lib/domains/scoring/tide-swing';
 import { windChopCeiling } from '@/lib/domains/scoring/wind-chop-ceiling';
 import { scoreWindowWithComposite } from '@/lib/services/discovery/window-selector/window-scorer';
@@ -524,8 +525,6 @@ function lowercaseFirst(s: string): string {
 // ============================================================================
 // Tide limiter (TIDE_SWING_ENABLED)
 // ============================================================================
-
-const TIDE_EFFECT_CODES: ReadonlySet<string> = new Set(['tide_outside_band', 'tide_swing']);
 
 /** The tide effect holding the call's ceiling, read from the composite of the call's peak row. */
 interface TideLimiter {
