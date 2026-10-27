@@ -39,6 +39,7 @@ import {
   TIDE_BAND_TOLERANCE_FT,
 } from '@/lib/domains/scoring/tide-swing';
 import { windChopCeiling } from '@/lib/domains/scoring/wind-chop-ceiling';
+import { scoreWindowWithComposite } from '@/lib/services/discovery/window-selector/window-scorer';
 import { formatClock12, formatWindowLabel } from '@/lib/notifications/copy/daily-call-copy';
 
 // ============================================================================
@@ -820,7 +821,8 @@ function tideLimiterForRow(
     window: null,
     preferences: null,
   };
-  const composite = getDiscoveryScoringEngine().score(scorerInput);
+  // Memoized per (row, beach) inside a request scope; the input is still needed for the chop ceiling.
+  const composite = scoreWindowWithComposite(row, beach);
   return resolveTideLimiter(composite, scorerInput, beach, row, forecasts, timezone);
 }
 
