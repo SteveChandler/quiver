@@ -8,9 +8,9 @@ import {
 } from "@/lib/services/discovery/swell-briefing-store";
 import {
   BriefingValidationError,
-  assertArtifactMatchesInput,
+  assertBriefingArtifactMatchesInput,
 } from "@/lib/services/discovery/swell-briefing-validate";
-import type { SwellBriefingArtifact } from "@/lib/services/discovery/swell-briefing-types";
+import type { BriefingArtifact } from "@/lib/services/discovery/swell-briefing-types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -44,15 +44,18 @@ export const POST = withBriefingPublisher(async (request: NextRequest, { userId,
   const raw = await request.text();
   if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) return fail("payload_too_large", 413);
 
-  let artifact: SwellBriefingArtifact;
+  let artifact: BriefingArtifact;
   try {
-    artifact = JSON.parse(raw) as SwellBriefingArtifact;
+    artifact = JSON.parse(raw) as BriefingArtifact;
   } catch {
     return fail("invalid_json", 400);
   }
 
   if (!artifact || typeof artifact !== "object") return fail("invalid_artifact", 400);
-  if (artifact.schemaVersion !== 1) return fail("unsupported_schema_version", 400);
+  // 1 is the Outlook briefing, 2 Week Scout notes; the input decides which rules apply.
+  if (artifact.schemaVersion !== 1 && artifact.schemaVersion !== 2) {
+    return fail("unsupported_schema_version", 400);
+  }
   // The credential names the account; a body claiming another user is refused
   // rather than quietly rewritten.
   if (artifact.userId !== userId) return fail("user_mismatch", 403);
@@ -64,7 +67,7 @@ export const POST = withBriefingPublisher(async (request: NextRequest, { userId,
     const input = await loadBriefingInput(client, artifact.inputHash, userId);
     if (input === null) return fail("unknown_input_hash", 409);
 
-    assertArtifactMatchesInput(artifact, input);
+    assertBriefingArtifactMatchesInput(artifact, input);
 
     const result = await publishBriefingEdition(client, artifact);
     // Only after a durable save. The worker writes its receipt from this id.

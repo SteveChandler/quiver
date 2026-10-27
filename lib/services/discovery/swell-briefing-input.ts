@@ -124,13 +124,13 @@ function zoneOffsetMs(at: Date, timeZone: string): number {
  * expires about seven hours early. The offset is resolved twice because it can
  * itself change across a DST boundary.
  */
-function zonedWallClockToUtc(date: string, time: string, timeZone: string): string {
+export function zonedWallClockToUtc(date: string, time: string, timeZone: string): string {
   const guess = new Date(`${date}T${time}Z`);
   const firstPass = new Date(guess.getTime() - zoneOffsetMs(guess, timeZone));
   return new Date(guess.getTime() - zoneOffsetMs(firstPass, timeZone)).toISOString();
 }
 
-function addDays(date: string, days: number): string {
+export function addDays(date: string, days: number): string {
   const [year, month, day] = date.split("-").map(Number);
   const shifted = new Date(Date.UTC(year, month - 1, day + days));
   return shifted.toISOString().slice(0, 10);
@@ -735,8 +735,8 @@ export async function buildBriefingInput(args: {
 
   // Unchanged measurements reuse the issued snapshot, so a refetch does not
   // invalidate the worker's deduplication or churn a new edition.
-  const existing = await loadLatestBriefingInput(client, userId, region.slug, editionDate);
-  if (existing && existing.provenance?.sourceHashes?.[0] === revision) return existing;
+  const existing = await loadLatestBriefingInput(client, userId, region.slug, editionDate, 1);
+  if (existing?.schemaVersion === 1 && existing.provenance?.sourceHashes?.[0] === revision) return existing;
 
   const published = sourcePublishedAt(rows) ?? now.toISOString();
   const snapshot: SwellBriefingInputSnapshot = {
