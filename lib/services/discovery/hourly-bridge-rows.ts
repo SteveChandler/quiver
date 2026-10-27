@@ -32,10 +32,6 @@ interface BridgeForecastRowsOptions {
   endMs?: number;
 }
 
-export function isBridgedForecast(row: EnhancedForecastEntity): boolean {
-  return row.raw_forecast?.hourly_bridge != null;
-}
-
 /** One beach's rows with its bridged hours, in forecast_at order. */
 export function bridgeBeachForecastRows(
   rows: readonly EnhancedForecastEntity[],
@@ -67,8 +63,7 @@ export function bridgeBeachForecastRows(
       return hourMs < light.end.getTime() && hourMs + HOUR_MS > light.start.getTime();
     });
   };
-  return bridgeForecastsHourly(rows, tide, { timezone, startMs, endMs })
-    .filter((row) => !isBridgedForecast(row) || overlapsLight(Date.parse(row.forecast_at)));
+  return bridgeForecastsHourly(rows, tide, { timezone, startMs, endMs, includeHour: overlapsLight });
 }
 
 /** The tide read window for rows: one hour either side, so the series rate exists at the edges. */

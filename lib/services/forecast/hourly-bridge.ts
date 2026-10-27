@@ -39,6 +39,8 @@ interface HourlyBridgeOptions {
   startMs?: number;
   /** Fill only hours before this instant. */
   endMs?: number;
+  /** Fill only hours this accepts (for example, daylight); a rejected hour is never built. */
+  includeHour?: (hourMs: number) => boolean;
   /** Beach IANA timezone, to write a recomputed next_tide_time; without it that time is null. */
   timezone?: string;
 }
@@ -620,6 +622,7 @@ export function bridgeForecastsHourly(
         const hourMs = fromMs + k * HOUR_MS;
         if (opts.startMs != null && hourMs < opts.startMs) continue;
         if (opts.endMs != null && hourMs >= opts.endMs) continue;
+        if (opts.includeHour && !opts.includeHour(hourMs)) continue;
         push(bridgeRow(from, to, k, gapHours, hourMs, series, schedule, opts.timezone));
       }
     }

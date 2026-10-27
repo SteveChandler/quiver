@@ -2,12 +2,10 @@
  * @jest-environment node
  */
 
-import {
-  bridgeBeachForecastRows,
-  isBridgedForecast,
-  tideWindowForRows,
-} from '@/lib/services/discovery/hourly-bridge-rows';
+import { bridgeBeachForecastRows, tideWindowForRows } from '@/lib/services/discovery/hourly-bridge-rows';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+
+const isBridgedForecast = (row: EnhancedForecastEntity): boolean => row.raw_forecast?.hourly_bridge != null;
 
 const HOUR = 60 * 60 * 1000;
 const TZ = 'America/Los_Angeles';

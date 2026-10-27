@@ -368,3 +368,162 @@ describe("POST /api/forecast-feedback", () => {
     expect(body.details).toEqual({ correlationId: "corr-client" });
   });
 });
+
+describe("POST /api/forecast-feedback on a bridged hour", () => {
+  const BEACH = "11111111-1111-4111-8111-111111111111";
+  const ROW_12 = "44444444-4444-4444-8444-444444444412";
+  const ROW_13 = "44444444-4444-4444-8444-444444444413";
+  const ROW_15 = "44444444-4444-4444-8444-444444444415";
+  const stored = [
+    { id: ROW_12, beach_id: BEACH, forecast_at: "2026-05-24T12:00:00+00:00" },
+    { id: ROW_15, beach_id: BEACH, forecast_at: "2026-05-24T15:00:00+00:00" },
+  ];
+
+  /** enhanced_forecasts served the way PostgREST filters it: eq, lt, gt, newest first, one row. */
+  function serveForecastRows(rows: Array<{ id: string; beach_id: string; forecast_at: string }>) {
+    const queries: Array<Record<string, unknown>> = [];
+    const upsert = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({ data: { id: "vote-row-1" }, error: null }),
+      }),
+    });
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === "forecast_accuracy_votes") return { upsert };
+      if (table !== "enhanced_forecasts") throw new Error(`Unexpected table: ${table}`);
+      const filters: Array<(row: { beach_id: string; forecast_at: string }) => boolean> = [];
+      const query: Record<string, unknown> = {};
+      queries.push(query);
+      let descending = false;
+      const builder: any = {
+        select: jest.fn(() => builder),
+        eq: jest.fn((column: "beach_id" | "forecast_at", value: string) => {
+          query[`eq:${column}`] = value;
+          filters.push((row) => (column === "forecast_at"
+            ? Date.parse(row.forecast_at) === Date.parse(value)
+            : row[column] === value));
+          return builder;
+        }),
+        lt: jest.fn((_column: string, value: string) => {
+          query.lt = value;
+          filters.push((row) => Date.parse(row.forecast_at) < Date.parse(value));
+          return builder;
+        }),
+        gt: jest.fn((_column: string, value: string) => {
+          query.gt = value;
+          filters.push((row) => Date.parse(row.forecast_at) > Date.parse(value));
+          return builder;
+        }),
+        order: jest.fn((_column: string, options: { ascending: boolean }) => {
+          descending = !options.ascending;
+          return builder;
+        }),
+        limit: jest.fn(() => builder),
+        maybeSingle: jest.fn(async () => {
+          const matching = rows
+            .filter((row) => filters.every((filter) => filter(row)))
+            .sort((a, b) => (Date.parse(a.forecast_at) - Date.parse(b.forecast_at)) * (descending ? -1 : 1));
+          return { data: matching[0] ?? null, error: null };
+        }),
+      };
+      return builder;
+    });
+    return { upsert, queries };
+  }
+
+  const storedContext = (): Record<string, unknown> =>
+    mockFeedbackInsert.mock.calls[0][0] as Record<string, unknown>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSupabase.from.mockReset();
+    mockFeedbackMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockFeedbackInsertSingle.mockResolvedValue({
+      data: { id: "feedback-row-1", contract_version: "forecast-feedback-context.v1", correlation_id: "corr-client" },
+      error: null,
+    });
+  });
+
+  it("files the vote against the row the hour was bridged from and answers as for a stored hour", async () => {
+    const { upsert, queries } = serveForecastRows(stored);
+
+    const response = await POST(requestWithBody(basePayload({ forecastAt: "2026-05-24T14:00:00.000Z" })));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: { id: "feedback-row-1", contractVersion: "forecast-feedback-context.v1", correlationId: "corr-client" },
+      timestamp: expect.any(String),
+    });
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0][0]).toMatchObject({ forecast_id: ROW_12, beach_id: BEACH, was_accurate: false });
+    // Earlier than the hour and less than 3 h before it.
+    expect(queries[1]).toMatchObject({
+      "eq:beach_id": BEACH,
+      lt: "2026-05-24T14:00:00.000Z",
+      gt: "2026-05-24T11:00:00.000Z",
+    });
+    expect(storedContext()).toMatchObject({ forecast_at: "2026-05-24T14:00:00.000Z" });
+    expect(storedContext().audit_metadata).toMatchObject({
+      surface: "forecast_tab",
+      forecast_target: {
+        requested_forecast_at: "2026-05-24T14:00:00.000Z",
+        resolved_forecast_at: "2026-05-24T12:00:00+00:00",
+        resolved_forecast_id: ROW_12,
+        source: "prior_stored_row",
+      },
+    });
+  });
+
+  it("follows the client's bridge provenance to the row it names", async () => {
+    const { upsert } = serveForecastRows([
+      ...stored,
+      { id: ROW_13, beach_id: BEACH, forecast_at: "2026-05-24T13:00:00+00:00" },
+    ]);
+
+    const response = await POST(requestWithBody(basePayload({
+      forecastAt: "2026-05-24T14:00:00.000Z",
+      sourceModelContext: { data_source: "NOAA_NWS", hourly_bridge: { from: "2026-05-24T12:00:00.000Z" } },
+    })));
+
+    expect(response.status).toBe(200);
+    expect(upsert.mock.calls[0][0]).toMatchObject({ forecast_id: ROW_12 });
+    expect(storedContext().audit_metadata).toMatchObject({
+      forecast_target: { resolved_forecast_id: ROW_12, source: "hourly_bridge_provenance" },
+    });
+  });
+
+  it("ignores provenance outside the bridge reach and uses the latest earlier row", async () => {
+    const { upsert } = serveForecastRows(stored);
+
+    await POST(requestWithBody(basePayload({
+      forecastAt: "2026-05-24T14:00:00.000Z",
+      sourceModelContext: { hourly_bridge: { from: "2026-05-24T09:00:00.000Z" } },
+    })));
+
+    expect(upsert.mock.calls[0][0]).toMatchObject({ forecast_id: ROW_12 });
+    expect(storedContext().audit_metadata).toMatchObject({ forecast_target: { source: "prior_stored_row" } });
+  });
+
+  it("keeps a stored hour exact and drops a client-supplied forecast_target", async () => {
+    const { upsert } = serveForecastRows(stored);
+
+    await POST(requestWithBody(basePayload({
+      forecastAt: "2026-05-24T15:00:00.000Z",
+      auditMetadata: { surface: "forecast_tab", forecast_target: { resolved_forecast_id: "spoofed" } },
+    })));
+
+    expect(upsert.mock.calls[0][0]).toMatchObject({ forecast_id: ROW_15 });
+    expect(storedContext().audit_metadata).not.toHaveProperty("forecast_target");
+  });
+
+  it("still fails a vote on an hour with no stored row less than 3 h before it", async () => {
+    const { upsert } = serveForecastRows(stored);
+
+    const response = await POST(requestWithBody(basePayload({ forecastAt: "2026-05-24T11:00:00.000Z" })));
+
+    expect(response.status).toBe(500);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(mockFeedbackInsert).not.toHaveBeenCalled();
+  });
+});

@@ -277,6 +277,19 @@ describe("bridgeForecastsHourly: gap rules", () => {
     expect(out.map((value) => value.id)).toEqual(["a", "a:h+2", "b", "b:h+1", "c"]);
   });
 
+  it("never builds an hour includeHour rejects", () => {
+    const rows = [plain("a", 0), plain("b", 3)];
+    const asked: number[] = [];
+    const out = bridgeForecastsHourly(rows, null, {
+      includeHour: (hourMs) => {
+        asked.push(hourMs);
+        return hourMs !== Date.parse(at(1));
+      },
+    });
+    expect(out.map((value) => value.id)).toEqual(["a", "a:h+2", "b"]);
+    expect(asked).toEqual([Date.parse(at(1)), Date.parse(at(2))]);
+  });
+
   it("bridges each beach on its own and only between its own rows", () => {
     const rows = [
       plain("a0", 0), row({ id: "b0", beach_id: "other", forecast_at: at(0) }),

@@ -84,17 +84,92 @@ async function findExistingFeedbackContext(
   }
 }
 
-async function resolveForecastId(
+/** A bridged hour sits less than 3 h after the stored row it was bridged from. */
+const BRIDGED_HOUR_REACH_MS = 3 * 60 * 60 * 1000;
+
+/** How a vote on an hour with no stored row reached the row it is filed against. */
+interface ForecastTargetResolution {
+  requested_forecast_at: string;
+  resolved_forecast_at: string;
+  resolved_forecast_id: string;
+  source: "hourly_bridge_provenance" | "prior_stored_row";
+}
+
+interface ForecastTarget {
+  id: string | null;
+  error: boolean;
+  resolution: ForecastTargetResolution | null;
+}
+
+/** raw_forecast.hourly_bridge.from, when the client forwards it in sourceModelContext. */
+function bridgeProvenanceFrom(input: ForecastFeedbackClientPayload): string | null {
+  const bridge = input.sourceModelContext?.hourly_bridge;
+  if (!bridge || typeof bridge !== "object") return null;
+  const from = (bridge as Record<string, unknown>).from;
+  return typeof from === "string" && Number.isFinite(Date.parse(from)) ? from : null;
+}
+
+/**
+ * The stored row a vote targets. An hour with no stored row is a bridged hour (discovery fills
+ * the hours between 3-hourly rows): the vote goes to the row it was bridged from, named by the
+ * client's provenance when it sends one, otherwise the latest stored row before the hour and
+ * less than 3 h earlier.
+ */
+async function resolveForecastTarget(
   supabase: SupabaseServerClient,
   input: ForecastFeedbackClientPayload,
-): Promise<{ id: string | null; error: boolean }> {
-  const { data, error } = await supabase
+): Promise<ForecastTarget> {
+  const exact = await supabase
     .from("enhanced_forecasts")
     .select("id")
     .eq("beach_id", input.beachId)
     .eq("forecast_at", input.forecastAt)
     .maybeSingle();
-  return { id: data?.id ?? null, error: Boolean(error) };
+  if (exact.error) return { id: null, error: true, resolution: null };
+  if (exact.data?.id) return { id: exact.data.id, error: false, resolution: null };
+
+  const requestedMs = Date.parse(input.forecastAt);
+  const floorMs = requestedMs - BRIDGED_HOUR_REACH_MS;
+  const within = (ms: number): boolean => ms > floorMs && ms < requestedMs;
+  const resolved = (
+    row: { id: string; forecast_at: string },
+    source: ForecastTargetResolution["source"],
+  ): ForecastTarget => ({
+    id: row.id,
+    error: false,
+    resolution: {
+      requested_forecast_at: input.forecastAt,
+      resolved_forecast_at: row.forecast_at,
+      resolved_forecast_id: row.id,
+      source,
+    },
+  });
+
+  const provenanceFrom = bridgeProvenanceFrom(input);
+  if (provenanceFrom && within(Date.parse(provenanceFrom))) {
+    const named = await supabase
+      .from("enhanced_forecasts")
+      .select("id, forecast_at")
+      .eq("beach_id", input.beachId)
+      .eq("forecast_at", new Date(provenanceFrom).toISOString())
+      .maybeSingle();
+    if (named.error) return { id: null, error: true, resolution: null };
+    if (named.data?.id) return resolved(named.data, "hourly_bridge_provenance");
+  }
+
+  const prior = await supabase
+    .from("enhanced_forecasts")
+    .select("id, forecast_at")
+    .eq("beach_id", input.beachId)
+    .lt("forecast_at", new Date(requestedMs).toISOString())
+    .gt("forecast_at", new Date(floorMs).toISOString())
+    .order("forecast_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (prior.error) return { id: null, error: true, resolution: null };
+  return prior.data?.id && within(Date.parse(prior.data.forecast_at))
+    ? resolved(prior.data, "prior_stored_row")
+    : { id: null, error: false, resolution: null };
 }
 
 function forecastAccuracyVoteValue(
@@ -114,11 +189,12 @@ function nonEmptyJsonRecordOrNull(
 async function persistForecastAccuracyVote(
   context: ForecastFeedbackContext,
   input: ForecastFeedbackClientPayload,
+  resolveTarget: () => Promise<ForecastTarget>,
 ): Promise<void> {
   const wasAccurate = forecastAccuracyVoteValue(input);
   if (wasAccurate == null) return;
 
-  const forecast = await resolveForecastId(context.supabase, input);
+  const forecast = await resolveTarget();
   if (forecast.error) throw new Error("Forecast vote target lookup failed");
   if (!forecast.id) throw new Error("Forecast vote target not found");
 
@@ -150,9 +226,13 @@ export async function submitForecastFeedback(
   const correlationId = input.correlationId ?? randomUUID();
   const requestId = input.requestId ?? randomUUID();
   const ingestPath = options.ingestPath ?? "quiver-api/forecast-feedback";
+  // Resolved at most once, and only when a vote or requireForecast needs the row.
+  const target: { pending: Promise<ForecastTarget> | null } = { pending: null };
+  const resolveTarget = (): Promise<ForecastTarget> =>
+    (target.pending ??= resolveForecastTarget(context.supabase, input));
 
   if (options.requireForecast) {
-    const forecast = await resolveForecastId(context.supabase, input);
+    const forecast = await resolveTarget();
     if (forecast.error) {
       return { success: false, reason: "forecast_lookup_failed", correlationId };
     }
@@ -190,12 +270,19 @@ export async function submitForecastFeedback(
   }
 
   try {
-    await persistForecastAccuracyVote(context, input);
+    await persistForecastAccuracyVote(context, input, resolveTarget);
   } catch {
     return { success: false, reason: "vote_storage_failed", correlationId };
   }
 
-  const payload = buildSeasideForecastFeedbackPayload(input, {
+  // The stored context keeps the hour the client showed; the audit trail names the row a
+  // bridged hour was filed against. The key is server-owned, so a client value never stands.
+  const resolution = target.pending ? (await target.pending).resolution : null;
+  const auditMetadata: Record<string, unknown> = { ...(input.auditMetadata ?? {}) };
+  delete auditMetadata.forecast_target;
+  if (resolution) auditMetadata.forecast_target = resolution;
+  const auditedInput: ForecastFeedbackClientPayload = { ...input, auditMetadata };
+  const payload = buildSeasideForecastFeedbackPayload(auditedInput, {
     userId: context.user.id,
     ingestPath,
     requestId,
