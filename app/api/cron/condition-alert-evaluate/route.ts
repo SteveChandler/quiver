@@ -92,8 +92,8 @@ function watchedCallPayload(args: {
   return {
     category,
     cause: args.evaluation.update?.cause ?? "window_passed",
-    // post_window evaluations carry no update; the push schema still requires the rule id.
-    alert_rule_id: args.evaluation.update?.priorIdentity.alertRule.id ?? args.ruleId,
+    // post_window evaluations carry no update, so take the id from the rule itself.
+    alert_rule_id: args.ruleId,
     beach_id: current?.beachId ?? args.watched.beachId,
     beach_name: args.beachName,
     recommendation_id: current?.recommendationId ?? args.watched.recommendationId,

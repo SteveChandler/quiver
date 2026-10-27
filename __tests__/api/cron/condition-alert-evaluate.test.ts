@@ -26,6 +26,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
 
 import { GET } from "@/app/api/cron/condition-alert-evaluate/route";
 import { readFileSync } from "fs";
+import { getRegistryEntry } from "@/lib/notifications/registry";
 
 // ---- Mocks ----
 
@@ -1045,6 +1046,15 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
         payload: { category: "post_window", alert_rule_id: RULE_1 },
       },
     });
+    const { payload } = store.queueUpserts[0].conditions_snapshot as { payload: unknown };
+    const validatePayload = getRegistryEntry("watched_call_update").validatePayload;
+    expect(typeof validatePayload).toBe("function");
+    expect(() =>
+      validatePayload!({
+        ...(payload as Record<string, unknown>),
+        queue_items: [{ queue_id: "queue-1", rule_id: RULE_1 }],
+      }),
+    ).not.toThrow();
   });
 
   it("treats alert delivery dedupe lookup failures as errors instead of queueing duplicates", async () => {
