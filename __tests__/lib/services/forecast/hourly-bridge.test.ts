@@ -333,15 +333,69 @@ describe("bridgeForecastsHourly: directions and partitions", () => {
     ["period", { swell_2_period: null }],
     ["direction", { swell_2_direction: null }],
     ["a zero height", { swell_2_height: "0 ft" }],
-  ])("drops the whole swell_2 triple when a neighbour lacks its %s", (_label, missing) => {
-    for (const rows of [[{ ...from, ...missing }, to], [from, { ...to, ...missing }]]) {
+  ])("fades swell_2 in or out, whole, when a neighbour lacks its %s", (_label, missing) => {
+    const cases: Array<[EnhancedForecastEntity[], [string, string]]> = [
+      [[{ ...from, ...missing }, to], ["0.3 ft", "0.5 ft"]],
+      [[from, { ...to, ...missing }], ["0.5 ft", "0.3 ft"]],
+    ];
+    for (const [rows, heights] of cases) {
       const out = bridgeForecastsHourly(rows, null);
-      for (const synthetic of [out[1], out[2]]) {
-        expect(synthetic).toMatchObject({ swell_2_height: null, swell_2_period: null, swell_2_direction: null });
+      [out[1], out[2]].forEach((synthetic, index) => {
+        expect(synthetic).toMatchObject({ swell_2_height: heights[index], swell_2_period: "17s", swell_2_direction: "SSW" });
         expect(synthetic).toMatchObject({ swell_1_height: "2.2 ft", swell_1_period: "13s", swell_1_direction: "WSW" });
-        expect(forecastToSnapshot(synthetic).secondarySwell).toBeNull();
-      }
+        expect(forecastToSnapshot(synthetic).secondarySwell).toMatchObject({ heightFt: Number.parseFloat(heights[index]), periodS: 17 });
+      });
     }
+  });
+
+  it("drops a held train once its faded height rounds to nothing", () => {
+    const out = bridgeForecastsHourly([{ ...from, swell_2_height: null }, { ...to, swell_2_height: "0.1 ft" }], null);
+    expect(out[1]).toMatchObject({ swell_2_height: null, swell_2_period: null, swell_2_direction: null });
+    expect(out[2]).toMatchObject({ swell_2_height: "0.1 ft", swell_2_period: "17s", swell_2_direction: "SSW" });
+  });
+
+  it("pairs swells by train when swell_1 and swell_2 swap order between rows", () => {
+    const out = bridgeForecastsHourly([
+      { ...from, swell_1_height: "2.1 ft", swell_1_period: "7s", swell_1_direction: "W", swell_2_height: "2 ft", swell_2_period: "10s", swell_2_direction: "SSW" },
+      { ...to, swell_1_height: "2 ft", swell_1_period: "12s", swell_1_direction: "SSW", swell_2_height: "1.9 ft", swell_2_period: "5s", swell_2_direction: "W" },
+    ], null);
+    // Each hour keeps the nearer row's slot order; no blended WSW 9 s swell appears.
+    expect(out[1]).toMatchObject({
+      swell_1_height: "2 ft", swell_1_period: "6.3s", swell_1_direction: "W",
+      swell_2_height: "2 ft", swell_2_period: "10.7s", swell_2_direction: "SSW",
+    });
+    expect(out[2]).toMatchObject({
+      swell_1_height: "2 ft", swell_1_period: "11.3s", swell_1_direction: "SSW",
+      swell_2_height: "2 ft", swell_2_period: "5.7s", swell_2_direction: "W",
+    });
+  });
+
+  it("gives a contested slot to the train nearer in time when one fades out as another fades in", () => {
+    const out = bridgeForecastsHourly([
+      { ...from, swell_1_height: "2 ft", swell_1_period: "12s", swell_1_direction: "SSW", swell_2_height: "1.7 ft", swell_2_period: "5s", swell_2_direction: "W" },
+      { ...to, swell_1_height: "1.9 ft", swell_1_period: "13s", swell_1_direction: "SSW", swell_2_height: "0.9 ft", swell_2_period: "9s", swell_2_direction: "SSE" },
+    ], null);
+    expect(out[1]).toMatchObject({ swell_1_period: "12.3s", swell_2_height: "1.1 ft", swell_2_period: "5s", swell_2_direction: "W" });
+    expect(out[2]).toMatchObject({ swell_1_period: "12.7s", swell_2_height: "0.6 ft", swell_2_period: "9s", swell_2_direction: "SSE" });
+  });
+
+  it("takes wave_period and wave_direction from the dominant blended partition, never a ramp", () => {
+    const out = bridgeForecastsHourly([
+      { ...from, wave_period: "5s", wave_direction: "W", swell_1_height: "2.4 ft", swell_1_period: "5s", swell_1_direction: "W", swell_2_height: "1.4 ft", swell_2_period: "15s", swell_2_direction: "SW" },
+      { ...to, wave_period: "13s", wave_direction: "SSW", swell_1_height: "2.3 ft", swell_1_period: "4s", swell_1_direction: "W", swell_2_height: "2 ft", swell_2_period: "13s", swell_2_direction: "SSW" },
+    ], null);
+    expect(out.map((value) => [value.wave_period, value.wave_direction])).toEqual([
+      ["5s", "W"], ["4.7s", "W"], ["4.3s", "W"], ["13s", "SSW"],
+    ]);
+  });
+
+  it("blends wave_period and wave_direction as magnitudes when no partition exists", () => {
+    const bare = { swell_1_height: null, swell_2_height: null, wind_wave_height: null };
+    const out = bridgeForecastsHourly([
+      { ...from, ...bare, wave_period: "10s", wave_direction: "W" },
+      { ...to, ...bare, wave_period: "13s", wave_direction: "SW" },
+    ], null);
+    expect(out[1]).toMatchObject({ wave_period: "11s", wave_direction: "WSW" });
   });
 
   it("takes a partition whole from the nearest row when the two can't be blended", () => {
@@ -353,9 +407,12 @@ describe("bridgeForecastsHourly: directions and partitions", () => {
     expect(out[2]).toMatchObject({ swell_1_height: "2-3 ft", swell_1_period: "16s", swell_1_direction: "SW" });
   });
 
-  it("drops the Open-Meteo swell triple together", () => {
+  it("fades the Open-Meteo swell triple whole when one row lacks it", () => {
     const out = bridgeForecastsHourly([{ ...from, swell_period_om: null }, to], null);
-    expect(out[1]).toMatchObject({ swell_height_om: null, swell_period_om: null, swell_direction_om: null });
+    expect(out[1]).toMatchObject({ swell_period_om: 13.2, swell_direction_om: 250 });
+    expect(out[1].swell_height_om).toBeCloseTo(0.7 / 3, 5);
+    const none = bridgeForecastsHourly([{ ...from, swell_period_om: null }, { ...to, swell_height_om: null }], null);
+    expect(none[1]).toMatchObject({ swell_height_om: null, swell_period_om: null, swell_direction_om: null });
   });
 });
 

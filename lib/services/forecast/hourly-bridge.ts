@@ -3,11 +3,13 @@
  *
  * enhanced_forecasts rows are 3-hourly on a UTC grid, so a scorer reading them never sees the
  * hours in between (a high tide at 10 AM between the 8 and 11 AM slots). This fills those hours
- * with synthetic rows, the way native's hourly-forecast-rows.ts and the alert expansion do:
- * linear magnitudes, circular directions, nearest-row text, and only whole-hour gaps of 2–3 h.
- * Tide comes from the hourly tide series, one source per hour. Pure: no I/O, inputs untouched.
+ * with synthetic rows: linear magnitudes, circular directions, nearest-row text, and only
+ * whole-hour gaps of 2–3 h. Swell partitions blend per swell train and fade in or out when only
+ * one row has a train; the dominant wave fields follow them. Tide comes from the hourly tide
+ * series, one source per hour. Pure: no I/O, inputs untouched.
  */
 
+import { pickDominantSwell, type SwellPartition } from "@/lib/domains/conditions/dominant-swell";
 import { extractTideSchedule } from "@/lib/services/discovery/window-selector/tide-boundary-calculator";
 import type { TideSeriesSample } from "@/lib/services/tide-series-loader";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
@@ -41,8 +43,9 @@ interface HourlyBridgeOptions {
   timezone?: string;
 }
 
-type MeasurementField = "wave_height" | "wave_period" | "water_temp" | "air_temperature" | "wind_speed" | "ml_corrected_height";
+type MeasurementField = "wave_height" | "water_temp" | "air_temperature" | "wind_speed" | "ml_corrected_height";
 type LinearOmField = "wave_height_om" | "wave_period_om" | "wind_wave_height_om";
+type PartitionSlot = "swell_1" | "swell_2" | "wind_wave";
 type PartitionKeys = readonly [
   "swell_1_height" | "swell_2_height" | "wind_wave_height",
   "swell_1_period" | "swell_2_period" | "wind_wave_period",
@@ -50,14 +53,40 @@ type PartitionKeys = readonly [
 ];
 
 const MEASUREMENT_FIELDS: readonly MeasurementField[] = [
-  "wave_height", "wave_period", "water_temp", "air_temperature", "wind_speed", "ml_corrected_height",
+  "wave_height", "water_temp", "air_temperature", "wind_speed", "ml_corrected_height",
 ];
 const LINEAR_OM_FIELDS: readonly LinearOmField[] = ["wave_height_om", "wave_period_om", "wind_wave_height_om"];
-const PARTITIONS: readonly PartitionKeys[] = [
-  ["swell_1_height", "swell_1_period", "swell_1_direction"],
-  ["swell_2_height", "swell_2_period", "swell_2_direction"],
-  ["wind_wave_height", "wind_wave_period", "wind_wave_direction"],
-];
+const PARTITION_KEYS: Readonly<Record<PartitionSlot, PartitionKeys>> = {
+  swell_1: ["swell_1_height", "swell_1_period", "swell_1_direction"],
+  swell_2: ["swell_2_height", "swell_2_period", "swell_2_direction"],
+  wind_wave: ["wind_wave_height", "wind_wave_period", "wind_wave_direction"],
+};
+const SWELL_SLOTS: readonly PartitionSlot[] = ["swell_1", "swell_2"];
+/** Two rows' partitions are one swell train when they come from within this many degrees... */
+const SAME_TRAIN_MAX_ANGLE_DEG = 45;
+/** ...and their periods are within this ratio (7 s and 5 s are one windswell; 5 s and 12 s are not). */
+const SAME_TRAIN_MAX_PERIOD_RATIO = 1.6;
+
+interface StoredPartition {
+  slot: PartitionSlot;
+  height: number;
+  period: number;
+  direction: number;
+  heightText: string;
+  periodText: string;
+  directionText: string;
+}
+
+interface BridgedPartition {
+  /** The slot it holds in its source row (the nearest row for a blended train). */
+  slot: PartitionSlot;
+  /** 0 blended in both rows, 1 held from the nearer row, 2 held from the farther row. */
+  rank: number;
+  energy: number;
+  heightText: string;
+  periodText: string;
+  directionText: string;
+}
 
 interface SeriesTide {
   heightFt: number;
@@ -158,63 +187,195 @@ function blendDirection(
   return formatDirectionLike(nearest, lerpDegrees(left, right, t)) ?? nearest;
 }
 
-/** The partition parsePartition (discovery-adapter) would accept: height > 0, period > 0, a direction. */
-function hasPartition(row: EnhancedForecastEntity, [heightKey, periodKey, directionKey]: PartitionKeys): boolean {
-  const height = Number.parseFloat(row[heightKey] ?? "");
-  const period = Number.parseFloat(row[periodKey] ?? "");
-  return height > 0 && period > 0 && directionDegrees(row[directionKey]) != null;
+/** A stored partition parsePartition (discovery-adapter) would accept: height > 0, period > 0, a direction. */
+function readPartition(row: EnhancedForecastEntity, slot: PartitionSlot): StoredPartition | null {
+  const [heightKey, periodKey, directionKey] = PARTITION_KEYS[slot];
+  const heightText = row[heightKey];
+  const periodText = row[periodKey];
+  const directionText = row[directionKey];
+  if (heightText == null || periodText == null || directionText == null) return null;
+  const height = Number.parseFloat(heightText);
+  const period = Number.parseFloat(periodText);
+  const direction = directionDegrees(directionText);
+  if (!(height > 0) || !(period > 0) || direction == null) return null;
+  return { slot, height, period, direction, heightText, periodText, directionText };
 }
 
-/** Height, period and direction of one partition resolve together, never from different rows. */
-function blendPartition(
-  row: EnhancedForecastEntity,
-  from: EnhancedForecastEntity,
-  to: EnhancedForecastEntity,
-  nearest: EnhancedForecastEntity,
-  keys: PartitionKeys,
+function angularDistance(a: number, b: number): number {
+  const delta = Math.abs((((a - b) % 360) + 360) % 360);
+  return Math.min(delta, 360 - delta);
+}
+
+/** How far apart two partitions are, or null when they are different swell trains. */
+function trainDistance(a: StoredPartition, b: StoredPartition): number | null {
+  const angle = angularDistance(a.direction, b.direction);
+  const ratio = Math.max(a.period, b.period) / Math.min(a.period, b.period);
+  if (angle > SAME_TRAIN_MAX_ANGLE_DEG || ratio > SAME_TRAIN_MAX_PERIOD_RATIO) return null;
+  return angle / SAME_TRAIN_MAX_ANGLE_DEG + Math.log(ratio) / Math.log(SAME_TRAIN_MAX_PERIOD_RATIO);
+}
+
+/**
+ * Pairs the earlier row's swells with the later row's by train (direction and period), not by
+ * slot: swell_1 and swell_2 swap order between runs, and blending a 7 s W windswell into a 12 s
+ * SSW groundswell invents a third swell neither row has. Most pairs first, then the closest.
+ */
+function pairTrains(
+  from: readonly StoredPartition[],
+  to: readonly StoredPartition[],
+): Array<[StoredPartition, StoredPartition]> {
+  let best: { pairs: Array<[StoredPartition, StoredPartition]>; cost: number } = { pairs: [], cost: 0 };
+  const visit = (index: number, used: ReadonlySet<number>, pairs: Array<[StoredPartition, StoredPartition]>, cost: number): void => {
+    if (index === from.length) {
+      if (pairs.length > best.pairs.length || (pairs.length === best.pairs.length && cost < best.cost)) best = { pairs, cost };
+      return;
+    }
+    visit(index + 1, used, pairs, cost);
+    to.forEach((candidate, toIndex) => {
+      if (used.has(toIndex)) return;
+      const distance = trainDistance(from[index], candidate);
+      if (distance == null) return;
+      visit(index + 1, new Set([...used, toIndex]), [...pairs, [from[index], candidate]], cost + distance);
+    });
+  };
+  visit(0, new Set(), [], 0);
+  return best.pairs;
+}
+
+function energyOf(heightText: string, periodText: string): number {
+  const height = Number.parseFloat(heightText);
+  const period = Number.parseFloat(periodText);
+  return height * height * period;
+}
+
+/** One train in both rows: blended together; the nearest row's triple if the strings won't blend. */
+function blendTrain(earlier: StoredPartition, later: StoredPartition, t: number): BridgedPartition {
+  const nearest = t < 0.5 ? earlier : later;
+  const heightText = blendMeasurement(earlier.heightText, later.heightText, t);
+  const periodText = blendMeasurement(earlier.periodText, later.periodText, t);
+  const directionText = formatDirectionLike(nearest.directionText, lerpDegrees(earlier.direction, later.direction, t));
+  if (heightText == null || periodText == null || directionText == null) {
+    const { slot, heightText: height, periodText: period, directionText: direction } = nearest;
+    return { slot, rank: 0, energy: energyOf(height, period), heightText: height, periodText: period, directionText: direction };
+  }
+  return { slot: nearest.slot, rank: 0, energy: energyOf(heightText, periodText), heightText, periodText, directionText };
+}
+
+/**
+ * A train in only one row: that row's whole triple, its height scaled by the weight toward that
+ * row, so it fades in or out across the gap. Null once the scaled height rounds to nothing.
+ */
+function holdTrain(partition: StoredPartition, weight: number, rank: number): BridgedPartition | null {
+  const heightText = partition.heightText.replace(NUMBER, (value) => String(round1(Number(value) * weight)));
+  if (!(Number.parseFloat(heightText) > 0)) return null;
+  return {
+    slot: partition.slot,
+    rank,
+    energy: energyOf(heightText, partition.periodText),
+    heightText,
+    periodText: partition.periodText,
+    directionText: partition.directionText,
+  };
+}
+
+/** Trains from both rows, as many as fit the slots: the nearest row's slot first, then energy. */
+function bridgeTrains(
+  earlier: readonly StoredPartition[],
+  later: readonly StoredPartition[],
+  slots: readonly PartitionSlot[],
   t: number,
-): void {
-  const [heightKey, periodKey, directionKey] = keys;
-  if (!hasPartition(from, keys) || !hasPartition(to, keys)) {
-    row[heightKey] = null;
-    row[periodKey] = null;
-    row[directionKey] = null;
-    return;
+): Map<PartitionSlot, BridgedPartition> {
+  const pairs = pairTrains(earlier, later);
+  const paired = new Set(pairs.flat());
+  const bridged: BridgedPartition[] = pairs.map(([a, b]) => blendTrain(a, b, t));
+  const fromWeight = 1 - t;
+  for (const partition of earlier) {
+    if (paired.has(partition)) continue;
+    const held = holdTrain(partition, fromWeight, fromWeight >= 0.5 ? 1 : 2);
+    if (held) bridged.push(held);
   }
-  const height = blendMeasurement(from[heightKey], to[heightKey], t);
-  const period = blendMeasurement(from[periodKey], to[periodKey], t);
-  const left = directionDegrees(from[directionKey]);
-  const right = directionDegrees(to[directionKey]);
-  const template = nearest[directionKey];
-  const direction = left != null && right != null && template != null
-    ? formatDirectionLike(template, lerpDegrees(left, right, t))
-    : null;
-  if (height == null || period == null || direction == null) {
-    row[heightKey] = nearest[heightKey] ?? null;
-    row[periodKey] = nearest[periodKey] ?? null;
-    row[directionKey] = nearest[directionKey] ?? null;
-    return;
+  for (const partition of later) {
+    if (paired.has(partition)) continue;
+    const held = holdTrain(partition, t, t > 0.5 ? 1 : 2);
+    if (held) bridged.push(held);
   }
-  row[heightKey] = height;
-  row[periodKey] = period;
-  row[directionKey] = direction;
+  bridged.sort((a, b) => a.rank - b.rank || b.energy - a.energy);
+
+  const bySlot = new Map<PartitionSlot, BridgedPartition>();
+  for (const partition of bridged) {
+    const slot = bySlot.has(partition.slot) || !slots.includes(partition.slot)
+      ? slots.find((candidate) => !bySlot.has(candidate))
+      : partition.slot;
+    if (slot) bySlot.set(slot, partition);
+  }
+  return bySlot;
 }
 
-/** The Open-Meteo swell triple follows the same rule as the text partitions. */
-function blendOmSwell(row: EnhancedForecastEntity, from: EnhancedForecastEntity, to: EnhancedForecastEntity, t: number): void {
-  const present = (value: EnhancedForecastEntity): boolean =>
-    (value.swell_height_om ?? 0) > 0 && (value.swell_period_om ?? 0) > 0
-      && value.swell_direction_om != null && Number.isFinite(value.swell_direction_om);
-  if (from.swell_height_om === undefined && to.swell_height_om === undefined) return;
-  if (!present(from) || !present(to)) {
-    row.swell_height_om = null;
-    row.swell_period_om = null;
-    row.swell_direction_om = null;
+/** Each partition's height, period and direction resolve together, never from different trains. */
+function blendPartitions(row: EnhancedForecastEntity, from: EnhancedForecastEntity, to: EnhancedForecastEntity, t: number): void {
+  const read = (value: EnhancedForecastEntity, slots: readonly PartitionSlot[]): StoredPartition[] =>
+    slots.flatMap((slot) => readPartition(value, slot) ?? []);
+  const swells = bridgeTrains(read(from, SWELL_SLOTS), read(to, SWELL_SLOTS), SWELL_SLOTS, t);
+  const windWave = bridgeTrains(read(from, ["wind_wave"]), read(to, ["wind_wave"]), ["wind_wave"], t);
+  for (const slot of [...SWELL_SLOTS, "wind_wave"] as const) {
+    const partition = slot === "wind_wave" ? windWave.get(slot) : swells.get(slot);
+    const [heightKey, periodKey, directionKey] = PARTITION_KEYS[slot];
+    row[heightKey] = partition?.heightText ?? null;
+    row[periodKey] = partition?.periodText ?? null;
+    row[directionKey] = partition?.directionText ?? null;
+  }
+}
+
+/**
+ * wave_period and wave_direction are the dominant partition's, as forecast-builder writes them
+ * (pickDominantSwell), so they follow the blended partitions instead of ramping on their own.
+ * Without partitions, today's magnitude blend stays. wave_height is the face height the beach
+ * transform produced and has no partition source, so it stays a magnitude blend.
+ */
+function applyDominantWave(row: EnhancedForecastEntity, from: EnhancedForecastEntity, to: EnhancedForecastEntity, nearest: EnhancedForecastEntity, t: number): void {
+  const numeric = (slot: PartitionSlot): SwellPartition | null => {
+    const partition = readPartition(row, slot);
+    return partition ? { height: partition.height, period: partition.period, direction: partition.direction } : null;
+  };
+  const dominant = pickDominantSwell({ swell_1: numeric("swell_1"), swell_2: numeric("swell_2"), wind_wave: numeric("wind_wave") });
+  if (!dominant) {
+    if (from.wave_period !== undefined || to.wave_period !== undefined) {
+      row.wave_period = measurement(from.wave_period, to.wave_period, nearest.wave_period, t);
+    }
+    if (from.wave_direction !== undefined || to.wave_direction !== undefined) {
+      row.wave_direction = blendDirection(from.wave_direction, to.wave_direction, nearest.wave_direction, t);
+    }
     return;
   }
-  row.swell_height_om = lerpNumber(from.swell_height_om, to.swell_height_om, t);
-  row.swell_period_om = lerpNumber(from.swell_period_om, to.swell_period_om, t);
-  row.swell_direction_om = lerpNumberDegrees(from.swell_direction_om, to.swell_direction_om, t);
+  const period = String(round1(dominant.period));
+  row.wave_period = nearest.wave_period && FIRST_NUMBER.test(nearest.wave_period)
+    ? nearest.wave_period.replace(FIRST_NUMBER, period)
+    : `${period}s`;
+  row.wave_direction = (nearest.wave_direction ? formatDirectionLike(nearest.wave_direction, dominant.direction) : null)
+    ?? degreeToCardinal(dominant.direction);
+}
+
+function readOmSwell(row: EnhancedForecastEntity): { height: number; period: number; direction: number } | null {
+  const { swell_height_om: height, swell_period_om: period, swell_direction_om: direction } = row;
+  if (height == null || period == null || direction == null) return null;
+  if (!(height > 0) || !(period > 0) || !Number.isFinite(direction)) return null;
+  return { height, period, direction };
+}
+
+/** The Open-Meteo swell triple: blended when both rows have it, else held and faded like a train. */
+function blendOmSwell(row: EnhancedForecastEntity, from: EnhancedForecastEntity, to: EnhancedForecastEntity, t: number): void {
+  if (from.swell_height_om === undefined && to.swell_height_om === undefined) return;
+  const earlier = readOmSwell(from);
+  const later = readOmSwell(to);
+  const held = earlier && later ? null : earlier ? { ...earlier, height: earlier.height * (1 - t) } : later ? { ...later, height: later.height * t } : null;
+  if (earlier && later) {
+    row.swell_height_om = lerp(earlier.height, later.height, t);
+    row.swell_period_om = lerp(earlier.period, later.period, t);
+    row.swell_direction_om = lerpDegrees(earlier.direction, later.direction, t);
+    return;
+  }
+  row.swell_height_om = held?.height ?? null;
+  row.swell_period_om = held?.period ?? null;
+  row.swell_direction_om = held?.direction ?? null;
 }
 
 /** wind_direction text and wind_direction_deg come from the same blended degree. */
@@ -368,10 +529,9 @@ function bridgeRow(
     if (from[field] === undefined && to[field] === undefined) continue;
     row[field] = measurement(from[field], to[field], nearest[field], t);
   }
-  if (from.wave_direction !== undefined || to.wave_direction !== undefined) {
-    row.wave_direction = blendDirection(from.wave_direction, to.wave_direction, nearest.wave_direction, t);
-  }
-  for (const keys of PARTITIONS) blendPartition(row, from, to, nearest, keys, t);
+  blendPartitions(row, from, to, t);
+  applyDominantWave(row, from, to, nearest, t);
+  // wave_*_om are Open-Meteo's own sea-state values, not built from partitions, so they stay blends.
   for (const field of LINEAR_OM_FIELDS) {
     if (from[field] === undefined && to[field] === undefined) continue;
     row[field] = lerpNumber(from[field], to[field], t);
