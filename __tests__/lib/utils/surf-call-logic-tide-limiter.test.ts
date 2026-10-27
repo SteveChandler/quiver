@@ -9,6 +9,9 @@ import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
 import fixture from '../../fixtures/tide-swing-20261027.json';
+import tideFixture from '../../fixtures/tide-swing-20261027-tides.json';
+import { bridgeForecastsHourly } from '@/lib/services/forecast/hourly-bridge';
+import type { TideSeriesSample } from '@/lib/services/tide-series-loader';
 
 type Slug = keyof typeof fixture.beaches;
 type HourlyTide = ReadonlyArray<readonly [utcHour: string, heightFt: number, rateFtPerHour: number]>;
@@ -186,5 +189,80 @@ describe('computeSurfCall tide limiter', () => {
       ];
       for (const sentence of sentences) expect(sentence.length).toBeLessThanOrEqual(110);
     });
+  });
+});
+
+describe('computeSurfCall tide handoff (bridged hourly rows)', () => {
+  function bridged(slug: Slug): EnhancedForecastEntity[] {
+    const beach = beachOf(slug);
+    const series: TideSeriesSample[] = tideFixture.tides[slug].map((sample) => ({ ts: sample.ts, heightFt: sample.ft }));
+    return bridgeForecastsHourly(rowsOf(slug), series, { timezone: beach.timezone ?? undefined });
+  }
+
+  function callFor(slug: Slug, startIso: string, endIso: string, peakIso: string, score: number): string {
+    const rows = bridged(slug);
+    const peakRow = rows.reduce((best, row) =>
+      Math.abs(Date.parse(row.forecast_at) - Date.parse(peakIso)) < Math.abs(Date.parse(best.forecast_at) - Date.parse(peakIso))
+        ? row : best);
+    const window: PersonalizedForecastWindow = {
+      ...windowAt(peakRow, score),
+      start: new Date(startIso),
+      end: new Date(endIso),
+      peakTime: new Date(peakIso),
+    };
+    return computeSurfCall(window, rows, beachOf(slug), { isTomorrow: true }).whySentence;
+  }
+
+  // PB Point's selected window tomorrow: first light 06:33–07:36 PDT, peak 06:30, score 46.
+  const pbFirstLight = (): string =>
+    callFor('pb-point', '2026-10-27T13:33:00Z', '2026-10-27T14:36:00Z', '2026-10-27T13:30:00Z', 46);
+  // Lower Trestles 11 AM–2:15 PM, ahead of the low.
+  const trestlesMidday = (): string =>
+    callFor('lower-trestles', '2026-10-27T18:00:00Z', '2026-10-27T21:15:00Z', '2026-10-27T18:30:00Z', 62);
+  // PB Point 12:00–12:50, straight after the 11 AM high-water hour.
+  const pbAfterHigh = (): string =>
+    callFor('pb-point', '2026-10-27T19:00:00Z', '2026-10-27T19:50:00Z', '2026-10-27T19:00:00Z', 44);
+
+  const PB_FIRST_LIGHT_FLAG_OFF = 'Small for this break but conditions look fun — 1.4 ft with clean winds.';
+
+  it('flag off leaves the neighbouring tide out', () => {
+    withFlag(false);
+    expect(pbFirstLight()).toBe(PB_FIRST_LIGHT_FLAG_OFF);
+    expect(trestlesMidday()).toBe('Size is there, but onshore wind hurts shape.');
+    expect(pbAfterHigh()).toBe('Small for this break but conditions look fun — 1.5 ft with manageable wind.');
+  });
+
+  it('PB Point first light says to go early before the 9 AM high floods it', () => {
+    withFlag(true);
+    // "(better again 1–2 PM)" would take it past 120 characters, so the optional tail drops.
+    expect(pbFirstLight()).toBe(`${PB_FIRST_LIGHT_FLAG_OFF.slice(0, -1)} — go early, the tide floods it from ~9 AM.`);
+  });
+
+  it('names when a low tide drains a midday window', () => {
+    withFlag(true);
+    expect(trestlesMidday()).toBe('Size is there, but onshore wind hurts shape — go early, it drains out from ~4 PM.');
+  });
+
+  it('a window straight after a high-water stretch opens once the tide drops', () => {
+    withFlag(true);
+    expect(pbAfterHigh())
+      .toBe('Small for this break but conditions look fun — 1.5 ft with manageable wind — once the tide drops, from ~12 PM.');
+  });
+
+  it('names when it is better again when that fits', () => {
+    withFlag(true);
+    const rows = glassySingleSwellTourmaline();
+    const row = rows.find((candidate) => candidate.forecast_at.slice(11, 13) === '15')!;
+    const window = { ...windowAt(row, 45), end: new Date('2026-10-27T15:50:00Z') };
+    const sentence = computeSurfCall(window, rows, beachOf('tourmaline'), { isTomorrow: true }).whySentence;
+    expect(sentence).toMatch(/ — go early, the tide floods it from ~9 AM \(better again 12–2 PM\)\.$/);
+    expect(sentence.length).toBeLessThanOrEqual(120);
+  });
+
+  it('every handoff sentence stays within 120 characters', () => {
+    withFlag(true);
+    for (const sentence of [pbFirstLight(), trestlesMidday(), pbAfterHigh()]) {
+      expect(sentence.length).toBeLessThanOrEqual(120);
+    }
   });
 });

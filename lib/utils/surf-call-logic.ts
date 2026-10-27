@@ -555,6 +555,30 @@ function tideHeightOf(forecast: EnhancedForecastEntity): number | null {
 const BETTER_SPAN_FIRST_HOUR = 5;
 const BETTER_SPAN_END_HOUR = 20;
 
+function localDayOf(ms: number, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(ms));
+}
+
+/** Rows on `ms`'s local day inside the surfable 05:00–20:00 local hours, in time order. */
+function surfableRowsOnDayOf(
+  ms: number,
+  forecasts: readonly EnhancedForecastEntity[],
+  timezone: string,
+): EnhancedForecastEntity[] {
+  const day = localDayOf(ms, timezone);
+  const hourOf = (at: number): number => Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, hour: 'numeric', hourCycle: 'h23',
+  }).format(new Date(at)));
+  return forecasts
+    .filter((forecast) => {
+      const at = Date.parse(forecast.forecast_at);
+      if (!Number.isFinite(at) || localDayOf(at, timezone) !== day) return false;
+      const hour = hourOf(at);
+      return hour >= BETTER_SPAN_FIRST_HOUR && hour < BETTER_SPAN_END_HOUR;
+    })
+    .sort((left, right) => Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
+}
+
 /**
  * The contiguous run of in-band rows after the limited row, on the same local
  * day. Times come only from rows that exist; with none, the sentence has no times.
@@ -567,19 +591,8 @@ function findBetterTideSpan(
 ): string | null {
   const limitedMs = Date.parse(limitedRow.forecast_at);
   if (!Number.isFinite(limitedMs)) return null;
-  const dayOf = (ms: number): string => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(ms));
-  const hourOf = (ms: number): number => Number(new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone, hour: 'numeric', hourCycle: 'h23',
-  }).format(new Date(ms)));
-  const limitedDay = dayOf(limitedMs);
-  const later = forecasts
-    .filter((forecast) => {
-      const at = Date.parse(forecast.forecast_at);
-      if (!Number.isFinite(at) || at <= limitedMs || dayOf(at) !== limitedDay) return false;
-      const hour = hourOf(at);
-      return hour >= BETTER_SPAN_FIRST_HOUR && hour < BETTER_SPAN_END_HOUR;
-    })
-    .sort((left, right) => Date.parse(left.forecast_at) - Date.parse(right.forecast_at));
+  const later = surfableRowsOnDayOf(limitedMs, forecasts, timezone)
+    .filter((forecast) => Date.parse(forecast.forecast_at) > limitedMs);
   const inBand = (forecast: EnhancedForecastEntity): boolean => {
     const height = tideHeightOf(forecast);
     return height !== null
@@ -768,6 +781,92 @@ function safeTideLimiter(...args: Parameters<typeof resolveTideLimiter>): TideLi
   } catch {
     return null;
   }
+}
+
+/** How far past the window's end (or before its start) a tide takeover is still news. */
+const TIDE_HANDOFF_LOOK_MS = 3 * ONE_HOUR_MS;
+const TIDE_HANDOFF_MAX_CHARS = 120;
+
+function tideLimiterForRow(
+  beach: Beach,
+  row: EnhancedForecastEntity,
+  forecasts: readonly EnhancedForecastEntity[],
+  timezone: string,
+): TideLimiter | null {
+  const scorerInput: ScorerInput = {
+    profile: beachToSpotProfile(beach),
+    snapshot: forecastToSnapshot(row),
+    window: null,
+    preferences: null,
+  };
+  const composite = getDiscoveryScoringEngine().score(scorerInput);
+  return resolveTideLimiter(composite, scorerInput, beach, row, forecasts, timezone);
+}
+
+function roundedClock(ms: number, timezone: string): string {
+  const halfHourMs = 30 * 60 * 1000;
+  return formatClock12(new Date(Math.round(ms / halfHourMs) * halfHourMs).toISOString(), timezone);
+}
+
+/**
+ * A clean window next to a stretch the tide holds down: "go early" when the
+ * tide takes over within 3 hours of the window's end, or "once the tide drops"
+ * when the window opens straight after one. Times are row times only.
+ * Returns the clause and an optional tail that is dropped first for length.
+ */
+function resolveTideHandoff(
+  beach: Beach,
+  window: PersonalizedForecastWindow,
+  forecasts: readonly EnhancedForecastEntity[],
+  timezone: string,
+): { clause: string; tail: string | null } | null {
+  const startMs = new Date(window.start).getTime();
+  const endMs = new Date(window.end).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  const dayRows = surfableRowsOnDayOf(startMs, forecasts, timezone);
+
+  const after = dayRows.filter((row) => {
+    const at = Date.parse(row.forecast_at);
+    return at >= endMs && at <= endMs + TIDE_HANDOFF_LOOK_MS;
+  });
+  for (const row of after) {
+    const limiter = tideLimiterForRow(beach, row, forecasts, timezone);
+    if (!limiter) continue;
+    const from = `~${formatClock12(row.forecast_at, timezone)}`;
+    const clause = limiter.side === 'high'
+      ? `go early, the tide floods it from ${from}`
+      : limiter.side === 'low'
+        ? `go early, it drains out from ${from}`
+        : `go early, the tide takes over from ${from}`;
+    return { clause, tail: limiter.betterSpan ? ` (better again ${limiter.betterSpan})` : null };
+  }
+
+  const before = [...dayRows].reverse().find((row) => {
+    const at = Date.parse(row.forecast_at);
+    return at < startMs && at >= startMs - TIDE_HANDOFF_LOOK_MS;
+  });
+  const beforeLimiter = before ? tideLimiterForRow(beach, before, forecasts, timezone) : null;
+  if (!beforeLimiter) return null;
+  const once = beforeLimiter.side === 'high'
+    ? 'once the tide drops'
+    : beforeLimiter.side === 'low' ? 'once the tide fills in' : 'once the tide eases';
+  return { clause: `${once}, from ~${roundedClock(startMs, timezone)}`, tail: null };
+}
+
+/** Copy only, like safeTideLimiter. */
+function safeTideHandoff(...args: Parameters<typeof resolveTideHandoff>): ReturnType<typeof resolveTideHandoff> {
+  try {
+    return resolveTideHandoff(...args);
+  } catch {
+    return null;
+  }
+}
+
+function withTideHandoff(sentence: string, handoff: { clause: string; tail: string | null }): string {
+  const base = sentence.replace(/\.$/, '');
+  const full = `${base} — ${handoff.clause}${handoff.tail ?? ''}.`;
+  if (full.length <= TIDE_HANDOFF_MAX_CHARS || !handoff.tail) return full;
+  return `${base} — ${handoff.clause}.`;
 }
 
 /**
@@ -1004,12 +1103,8 @@ export function computeSurfCall(
     forecasts,
     window.peakTime instanceof Date ? window.peakTime : undefined
   );
-  const compositeResult = computeCompositeAndCharacter(
-    beach,
-    representativeForecast,
-    forecasts,
-    resolveBeachTimezone(options.timezone ?? window.timezone ?? beach.timezone),
-  );
+  const callTimezone = resolveBeachTimezone(options.timezone ?? window.timezone ?? beach.timezone);
+  const compositeResult = computeCompositeAndCharacter(beach, representativeForecast, forecasts, callTimezone);
   const character = compositeResult?.character ?? null;
   const cautions = extractSetupCautions(compositeResult?.composite.warnings);
 
@@ -1085,7 +1180,7 @@ export function computeSurfCall(
   const smallWaveTideOverride = smallWaveOverride && tideLimiter
     ? tideLimitSentence('Small for this break', tideLimiter)
     : undefined;
-  const whySentence = buildWhySentence(
+  const baseWhySentence = buildWhySentence(
     verdict,
     wind,
     waveHeight,
@@ -1095,6 +1190,11 @@ export function computeSurfCall(
     character,
     tideLimiter,
   );
+  // A call the tide doesn't limit can still sit beside a stretch it does.
+  const tideHandoff = isTideSwingEnabled() && verdict !== 'NO' && !setupRiskOverride && !tideLimiter
+    ? safeTideHandoff(beach, window, forecasts, callTimezone)
+    : null;
+  const whySentence = tideHandoff ? withTideHandoff(baseWhySentence, tideHandoff) : baseWhySentence;
   const peakTime = window.peakTime instanceof Date && !isNaN(window.peakTime.getTime())
     ? window.peakTime.toISOString()
     : null;
