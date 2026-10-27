@@ -26,6 +26,7 @@ import { getSkillLevelOrDefault, parseSkillLevel, SKILL_WAVE_RANGES as SKILL_WAV
 import type { SkillWaveRanges } from '../user-preferences/skill-level';
 import { getRideabilityBand, type BoardClass } from '../rideability';
 import { createSpotProfile } from '../spot-profile';
+import { memoizedSpotProfile } from './scoring-memo';
 import { createSwellComponent, pickDominantSwell } from '../conditions';
 import type { SwellPartition, SwellPartitions } from '../conditions';
 import { ScoringEngine } from './scoring-engine';
@@ -67,7 +68,7 @@ export function getDiscoveryScoringEngine(): ScoringEngine {
  * Convert Beach database row to SpotProfile.
  */
 export function beachToSpotProfile(beach: Beach): SpotProfile {
-  return createSpotProfile(beach);
+  return memoizedSpotProfile(beach, () => createSpotProfile(beach));
 }
 
 /**

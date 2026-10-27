@@ -26,6 +26,7 @@ import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
 import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { getDiscoveryScoringEngine } from "@/lib/domains/scoring";
+import { memoizedComposite } from "@/lib/domains/scoring/scoring-memo";
 import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
 import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
 import type { NativeDirectionScoreInput } from "@/lib/scoring/native-condition-score";
@@ -259,16 +260,12 @@ export function scoreWindowWithComposite(
   forecast: EnhancedForecastEntity,
   beach: Beach,
 ): CompositeScore {
-  const engine = getDiscoveryScoringEngine();
-  const profile = beachToSpotProfile(beach);
-  const snapshot = forecastToSnapshot(forecast);
-
-  return engine.score({
-    profile,
-    snapshot,
+  return memoizedComposite(forecast, beach, () => getDiscoveryScoringEngine().score({
+    profile: beachToSpotProfile(beach),
+    snapshot: forecastToSnapshot(forecast),
     window: null,
     preferences: null,
-  });
+  }));
 }
 
 function getRideabilitySelectionAdjustment(
