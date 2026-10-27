@@ -1010,6 +1010,43 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(store.ruleUpdates).toContainEqual({ id: RULE_1, enabled: false });
   });
 
+  it("queues a post-window watched-call update with the rule id the push schema requires", async () => {
+    seedRule({
+      preset_type: "watched_call",
+      conditions: {
+        watched_call: {
+          version: 1,
+          recommendationId: "recommendation-1",
+          sourceSurface: "beach_detail",
+          mode: "beach-detail",
+          beachId: BEACH_1,
+          windowStart: "2026-04-26T09:00:00Z",
+          windowEnd: "2026-04-26T10:00:00Z",
+          forecastAt: "2026-04-26T07:00:00Z",
+          recommendationState: "ready_today",
+          conditionScore: 82,
+          personalMatchScore: 76,
+          overallScore: 80,
+          reasonType: "forecast_conditions",
+          dedupeKey: "watched-call.v1:recommendation-1",
+        },
+      },
+    });
+    seedProfile();
+    seedBeach();
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0]).toMatchObject({
+      conditions_snapshot: {
+        alert_type: "watched_call_update",
+        payload: { category: "post_window", alert_rule_id: RULE_1 },
+      },
+    });
+  });
+
   it("treats alert delivery dedupe lookup failures as errors instead of queueing duplicates", async () => {
     seedRule();
     seedProfile();
