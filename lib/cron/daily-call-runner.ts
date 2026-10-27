@@ -6,7 +6,6 @@ import {
   type LocationSnapshot,
 } from "@/lib/alerts/location-freshness";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
-import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { persistableSessionDecision } from "@/lib/recommendations/canonical-decision/contract";
 import { buildCanonicalSessionDecision, type CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -46,7 +45,7 @@ import type { EnqueueArgs, EnqueueResult } from "@/lib/notifications/types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { selectBestWindows } from "@/lib/services/discovery/window-selector";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
-import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
+import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from "@/lib/services/tide-series-loader";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import {
@@ -494,18 +493,13 @@ export async function loadTideSamples(
 ): Promise<Array<{ at: string; heightFt: number }> | null> {
   const cached = cachedTideSamples(cache, beachId);
   if (cached) return cached;
-  const { data, error } = await supabase
-    .from("tide_forecasts")
-    .select("ts, tide_ft, tide_height_m, source, station_id, created_at")
-    .eq("beach_id", beachId)
-    .gte("ts", start)
-    .lt("ts", end)
-    .order("ts", { ascending: true });
-  if (error) throw new Error(`Failed to load tide forecasts for ${beachId}: ${error.message}`);
-  const samples = selectTideSeries(data ?? []).flatMap((row) => {
-    const heightFt = row.tide_ft ?? (row.tide_height_m == null ? null : row.tide_height_m * METERS_TO_FEET);
-    return heightFt == null ? [] : [{ at: row.ts, heightFt }];
-  });
+  let series: Map<string, TideSeriesSample[]>;
+  try {
+    series = await loadTideSeriesByBeach(supabase as unknown as TideSeriesClient, [beachId], start, end);
+  } catch (error) {
+    throw new Error(`Failed to load tide forecasts for ${beachId}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const samples = (series.get(beachId) ?? []).map((sample) => ({ at: sample.ts, heightFt: sample.heightFt }));
   if (samples.length === 0) return null;
   const value: COOPSForecast = {
     station_id: `cached_${beachId}`,

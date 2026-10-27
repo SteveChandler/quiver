@@ -187,6 +187,7 @@ function makeChain(rowsResolver: () => any[], onTerminal?: () => void) {
     or: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn(() => chain),
+    range: jest.fn(() => chain),
     single: jest.fn(() =>
       Promise.resolve({ data: rowsResolver()[0] ?? null, error: null }),
     ),
