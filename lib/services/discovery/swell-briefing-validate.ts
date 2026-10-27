@@ -1,10 +1,17 @@
 import { canonicalJson } from "./swell-briefing-hash";
 import {
   MAX_BRIEFING_COPY_LENGTH,
+  WEEK_SCOUT_NOTES_GENERATION_VERSION,
+  type BriefingArtifact,
   type BriefingCopyFact,
+  type BriefingInputSnapshot,
   type SwellBriefing,
   type SwellBriefingArtifact,
   type SwellBriefingInputSnapshot,
+  type WeekScoutNote,
+  type WeekScoutNotesArtifact,
+  type WeekScoutNotesBriefing,
+  type WeekScoutNotesInputSnapshot,
 } from "./swell-briefing-types";
 
 export class BriefingValidationError extends Error {
@@ -140,7 +147,7 @@ function serverInstant(value: string): number {
  */
 function assertGeneratedAt(
   value: unknown,
-  input: SwellBriefingInputSnapshot,
+  input: { briefing: { generatedAt: string }; validUntil: string },
   now: Date,
 ): string {
   if (typeof value !== "string" || !ISO_INSTANT.test(value)) {
@@ -260,4 +267,113 @@ export function assertArtifactMatchesInput(
   }
 
   assertBeachIdsAreUuids(artifact.briefing);
+}
+
+/* ------------------------------------------------ Week Scout notes (v2) */
+
+/** The fields every schema checks the same way: who, where, which input, and when. */
+function assertArtifactHeader(artifact: BriefingArtifact, input: BriefingInputSnapshot): void {
+  if (artifact.userId !== input.userId) throw new BriefingValidationError("user_mismatch", 403);
+  if (artifact.region !== input.region) throw new BriefingValidationError("region_mismatch");
+  if (artifact.editionDate !== input.editionDate) throw new BriefingValidationError("edition_date_mismatch");
+  if (artifact.inputHash !== input.inputHash) throw new BriefingValidationError("input_hash_mismatch");
+  if (artifact.sourcePublishedAt !== input.sourcePublishedAt) {
+    throw new BriefingValidationError("source_published_at_mismatch");
+  }
+  if (artifact.validUntil !== input.validUntil) throw new BriefingValidationError("valid_until_mismatch");
+  if (input.provenance?.fixture === true) throw new BriefingValidationError("fixture_not_publishable", 403);
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function assertNotesShape(value: unknown): asserts value is WeekScoutNotesBriefing {
+  if (!isPlainObject(value) || !Array.isArray(value.notes)) {
+    throw new BriefingValidationError("briefing_malformed");
+  }
+  for (const note of value.notes) {
+    if (!isPlainObject(note) || !isPlainObject(note.gate)) {
+      throw new BriefingValidationError("briefing_malformed:notes");
+    }
+  }
+}
+
+function gateBeachIds(notes: WeekScoutNote[]): string[] {
+  return notes.flatMap((note) => (note.gate.days ?? []).map((day) => day.beachId));
+}
+
+/**
+ * The v2 counterpart of `assertArtifactMatchesInput`, with the same rule: the
+ * worker chooses which candidates to keep and nothing else.
+ *
+ * Each note must be an issued candidate exactly - slot, text and gate - with at
+ * most one per slot. The edition is then rebuilt from the issued template with
+ * those candidates in issue order and the worker's generation time, and must be
+ * byte-identical to the upload. A rewritten word, a loosened gate (say a
+ * `maybe` day relabelled `worth_it`), an extra field or a reordered note all
+ * change the canonical form and are refused.
+ */
+export function assertNotesArtifactMatchesInput(
+  artifact: WeekScoutNotesArtifact,
+  input: WeekScoutNotesInputSnapshot,
+  now: Date = new Date(),
+): void {
+  assertNotesShape(artifact.briefing);
+  assertArtifactHeader(artifact, input);
+  if (artifact.generationVersion !== WEEK_SCOUT_NOTES_GENERATION_VERSION) {
+    throw new BriefingValidationError("generation_version_unsupported");
+  }
+
+  const generatedAt = assertGeneratedAt(artifact.briefing.generatedAt, input, now);
+
+  const facts = input.copyFacts ?? [];
+  const picked: number[] = [];
+  const slots = new Set<string>();
+  for (const note of artifact.briefing.notes) {
+    if (typeof note.slot !== "string" || typeof note.text !== "string") {
+      throw new BriefingValidationError("copy_not_text");
+    }
+    if (slots.has(note.slot)) throw new BriefingValidationError("duplicate_copy_slot");
+    slots.add(note.slot);
+    if (note.text.length > MAX_BRIEFING_COPY_LENGTH) throw new BriefingValidationError("copy_too_long");
+    const gate = canonicalJson(note.gate);
+    const index = facts.findIndex(
+      (fact) => fact.slot === note.slot && fact.text === note.text && canonicalJson(fact.gate) === gate,
+    );
+    if (index < 0) throw new BriefingValidationError("copy_not_offered");
+    picked.push(index);
+  }
+  if (picked.length === 0) throw new BriefingValidationError("notes_empty");
+
+  const expected: WeekScoutNotesBriefing = {
+    ...input.briefing,
+    generatedAt,
+    notes: [...picked]
+      .sort((a, b) => a - b)
+      .map((index) => ({ slot: facts[index].slot, text: facts[index].text, gate: facts[index].gate })),
+  };
+  if (canonicalJson(expected) !== canonicalJson(artifact.briefing)) {
+    throw new BriefingValidationError("briefing_values_altered");
+  }
+
+  for (const id of gateBeachIds(artifact.briefing.notes)) {
+    if (!UUID.test(id)) throw new BriefingValidationError("beach_id_not_uuid");
+  }
+}
+
+/** Revalidates an upload against the input it names, by that input's schema. */
+export function assertBriefingArtifactMatchesInput(
+  artifact: BriefingArtifact,
+  input: BriefingInputSnapshot,
+  now: Date = new Date(),
+): void {
+  if (artifact.schemaVersion !== input.schemaVersion) {
+    throw new BriefingValidationError("schema_version_mismatch");
+  }
+  if (input.schemaVersion === 2) {
+    assertNotesArtifactMatchesInput(artifact as WeekScoutNotesArtifact, input, now);
+    return;
+  }
+  assertArtifactMatchesInput(artifact as SwellBriefingArtifact, input, now);
 }
