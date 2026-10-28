@@ -21,9 +21,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "swell-period-explained",
-    title: "Swell Period Explained: What Seconds Mean for Surf",
+    title: "Wave Period & Swell Period Explained: What Seconds Mean",
     description:
-      "Swell period explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read period in a forecast.",
+      "Wave period, or swell period, explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read it in a forecast.",
   },
   {
     slug: "groundswell-vs-wind-swell",

@@ -939,6 +939,9 @@ export default async function VsSurflineFreePage() {
             <QuickTextLink href="/learn/groundswell-vs-wind-swell">
               Groundswell vs wind swell
             </QuickTextLink>
+            <QuickTextLink href="/learn/swell-period-explained">
+              Wave period explained
+            </QuickTextLink>
             <QuickTextLink href="/learn/how-accurate-are-surf-forecasts">
               How accurate are surf forecasts?
             </QuickTextLink>
