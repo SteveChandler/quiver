@@ -316,6 +316,17 @@ describe("scored forecast hourly bridge", () => {
     }
   });
 
+  it("publishes no slot or score for FALLBACK rows", async () => {
+    delete process.env.HOURLY_BRIDGE_ENABLED;
+    const rows = gridRows("2026-10-27T12:00:00.000Z", 6).map((row, index) =>
+      index < 4 ? row : { ...row, data_source: "FALLBACK", wave_height: null, wave_period: null },
+    );
+    const { body } = await get(rows, fixtureTides, "?range=14day");
+    expect(body.data.timeSlots.map((slot) => iso(slot.forecastAt))).toEqual(
+      rows.slice(0, 4).map((row) => iso(row.forecast_at)),
+    );
+  });
+
   it("stays 3-hourly when the tide read fails", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
     const { response, body } = await get(dayRows, new Error("statement timeout"));

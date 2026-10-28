@@ -32,6 +32,7 @@ import {
   type ForecastDisplay,
 } from "@/lib/services/forecast/today-headline";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 import { withDisplayWindow } from "@/lib/services/discovery/window-authority";
 import {
   resolveDisplaySwell,
@@ -672,7 +673,7 @@ async function buildScoredHourlySwellTimeline(
     for (const row of rows) {
       const displayRow = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
       const beach = beaches.get(row.beach_id);
-      const score = beach && displayRow.wave_height != null
+      const score = beach && displayRow.wave_height != null && !isFallbackForecastRow(row)
         ? scoreWindowConditionScore(displayRow, beach, context.skillLevel, null, context.boardClasses)
         : null;
       scores.set(row, score != null && Number.isFinite(score) ? score : null);
@@ -1035,7 +1036,8 @@ export async function bulkForecastHandler(
       }
 
       const forecast = scoreForecast;
-      if (!forecast) continue;
+      // A FALLBACK row's null height would score as a flat 0 / MEH.
+      if (!forecast || isFallbackForecastRow(forecast)) continue;
 
       try {
         const score = scoreWindowConditionScore(

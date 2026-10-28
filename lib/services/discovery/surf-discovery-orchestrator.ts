@@ -60,6 +60,7 @@ import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability'
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
+import { isFallbackForecastRow } from '@/lib/utils/forecast-row-source';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { angleDifference, resolveOffshoreDeg } from '@/lib/domains/shared';
@@ -1487,7 +1488,7 @@ function findImmediateForecastBucket(
 }
 
 function selectImmediateWindow(
-  forecasts: EnhancedForecastEntity[],
+  allForecasts: EnhancedForecastEntity[],
   beach: Beach,
   sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
   now: Date,
@@ -1504,6 +1505,8 @@ function selectImmediateWindow(
     beachTz,
     sunTimes,
   );
+  // FALLBACK rows carry no model wave data, so they are never "right now".
+  const forecasts = allForecasts.filter((forecast) => !isFallbackForecastRow(forecast));
   if (forecasts.length === 0) return { window: null, afterDark: currentlyDark };
 
   const scoreForecast = (forecast: EnhancedForecastEntity): number =>
