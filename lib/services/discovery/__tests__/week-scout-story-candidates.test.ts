@@ -27,9 +27,9 @@ describe("regional Week Scout story candidates", () => {
     signals.forEach((day) => { day.directionDeg = 202; day.periodS = 15; });
     signals[3].meanHeightFt = 5;
     signals[5].exposedBeaches = [
-      { beachId: "a", beachName: "Ocean Beach", exposure: "open", qualityScore: 70, activeHome: true },
-      { beachId: "b", beachName: "Blacks", exposure: "open", qualityScore: 60, activeHome: false },
-      { beachId: "c", beachName: "La Jolla Shores", exposure: "shadowed", qualityScore: 40, activeHome: false },
+      { beachId: "a", beachName: "Ocean Beach", exposure: "open", qualityScore: 70 },
+      { beachId: "b", beachName: "Blacks", exposure: "open", qualityScore: 60 },
+      { beachId: "c", beachName: "La Jolla Shores", exposure: "shadowed", qualityScore: 40 },
     ];
     signals[3].wind = { bucket: "midday", fromBucket: "morning", fromWindClass: "offshore",
       windClass: "onshore", selectorConfirmed: true, turnConfirmed: true, beachId: "a",
@@ -61,17 +61,23 @@ describe("regional Week Scout story candidates", () => {
       .toContain("short-period windswell");
   });
 
-  it("ranks exposure by active home and peak-day quality", () => {
+  it("ranks exposure by peak-day quality, then beach name", () => {
     const signals = days(3);
     signals[5].exposedBeaches = [
-      { beachId: "a", beachName: "First Open", exposure: "open", qualityScore: 10, activeHome: false },
-      { beachId: "b", beachName: "Home Open", exposure: "open", qualityScore: 60, activeHome: true },
-      { beachId: "c", beachName: "Best Open", exposure: "open", qualityScore: 90, activeHome: false },
-      { beachId: "d", beachName: "First Shadow", exposure: "shadowed", qualityScore: 20, activeHome: false },
-      { beachId: "e", beachName: "Home Shadow", exposure: "shadowed", qualityScore: 80, activeHome: true },
+      { beachId: "a", beachName: "First Open", exposure: "open", qualityScore: 10 },
+      { beachId: "b", beachName: "Home Open", exposure: "open", qualityScore: 60 },
+      { beachId: "c", beachName: "Best Open", exposure: "open", qualityScore: 90 },
+      { beachId: "d", beachName: "First Shadow", exposure: "shadowed", qualityScore: 20 },
+      { beachId: "e", beachName: "Home Shadow", exposure: "shadowed", qualityScore: 80 },
     ];
     expect(buildStoryCandidates(signals, "San Diego", [event()]).find((fact) => fact.gate.kind === "exposure")?.text)
-      .toContain("Home Open and Best Open face this swell better than Home Shadow");
+      .toContain("Best Open and Home Open face this swell better than Home Shadow");
+    signals[5].exposedBeaches.push(
+      { beachId: "f", beachName: "Alpha Open", exposure: "open", qualityScore: 90 },
+      { beachId: "g", beachName: "Alpha Shadow", exposure: "shadowed", qualityScore: 80 },
+    );
+    expect(buildStoryCandidates(signals, "San Diego", [event()]).find((fact) => fact.gate.kind === "exposure")?.text)
+      .toContain("Alpha Open and Best Open face this swell better than Alpha Shadow");
   });
 
   it("collapses a repeated wind turn into one turn and prioritizes change, then tide", () => {

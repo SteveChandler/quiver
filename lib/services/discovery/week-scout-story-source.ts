@@ -123,13 +123,6 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       arrivalAt: swell.arrivalAt, peakAt: swell.peakAt, fadeAt: swell.fadeAt, timezone: swell.timezone,
       confidence: swell.confidence, minimumBeaches: Math.min(3, swell.beaches.length) }))
     : eventsFromForecasts(allBeaches, rows, history, snapshots, now, active.timezone);
-  const { data: activeHomes, error: activeHomesError } = await (client as unknown as { rpc: (name: string, args: { p_region: string }) => Promise<{
-    data: Array<{ beach_id: string }> | null; error: { code?: string } | null }> })
-    .rpc("week_scout_story_active_home_beaches", { p_region: region });
-  if (activeHomesError && !["PGRST202", "42883"].includes(activeHomesError.code ?? "")) {
-    throw new StoryInputError("story_active_homes_read_failed");
-  }
-  const homeBeachIds = new Set((Array.isArray(activeHomes) ? activeHomes : []).map((row) => row.beach_id as string));
   const dayRows = Map.groupBy(rows, (row) => localDate(new Date(row.forecast_at), active.timezone));
   const hourFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: active.timezone, hour: "2-digit", hourCycle: "h23" });
   const signals: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => {
@@ -158,7 +151,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       const beachScores = regionalSamples.filter((row) => row.beach_id === beach.id)
         .map((row) => scoreNativeConditionInputs(nativeScoreInputsFromForecast(row as EnhancedForecastEntity), "intermediate"));
       return factor === null ? [] : [{ beachId: beach.id, beachName: beach.name, exposure: exposureLabel(factor),
-        qualityScore: liveScore ?? (beachScores.length ? Math.max(...beachScores) : null), activeHome: homeBeachIds.has(beach.id) }];
+        qualityScore: liveScore ?? (beachScores.length ? Math.max(...beachScores) : null) }];
     });
     const bucketOf = (at: string): "morning" | "midday" | "evening" | null => {
       const hour = Number(hourFormatter.format(new Date(at)));
@@ -202,8 +195,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   if (signals.some((day) => !day.complete)) throw new StoryInputError("story_coverage_sparse", 409);
   const copyFacts = buildStoryCandidates(signals, region, events);
   if (copyFacts.length === 0) throw new StoryInputError("story_no_candidates", 409);
-  const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, snapshots, events,
-    activeHomes: [...homeBeachIds].sort() }));
+  const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, snapshots, events }));
   const existing = await loadLatestStoryInput(client, region, editionDate);
   if (existing?.provenance?.sourceHashes?.[0] === sourceHash) return existing;
   const input: StoryInput = {

@@ -33,7 +33,7 @@ const forecasts = (): Array<Record<string, unknown>> => Array.from({ length: 7 }
   })))).flat();
 
 function client(rows: Array<Record<string, unknown>>): SupabaseClient<Database> {
-  return { rpc: async () => ({ data: [{ beach_id: "b" }], error: null }), from: (table: string) => {
+  return { rpc: () => { throw new Error("unexpected RPC"); }, from: (table: string) => {
     const query = {
       select: () => query, eq: () => query, is: () => query, order: () => query,
       in: () => query, gte: () => query, lt: () => query,

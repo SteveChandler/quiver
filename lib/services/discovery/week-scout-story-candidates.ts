@@ -15,7 +15,7 @@ export interface RegionalDaySignal {
   sourceSeries: string;
   forecastRevision: string;
   exposure?: { kind: Exposure; sampleBeaches: number };
-  exposedBeaches?: Array<{ beachId: string; beachName: string; exposure: Exposure; qualityScore: number | null; activeHome: boolean }>;
+  exposedBeaches?: Array<{ beachId: string; beachName: string; exposure: Exposure; qualityScore: number | null }>;
   wind?: { bucket: Bucket; fromWindClass: "offshore" | "onshore"; windClass: "offshore" | "onshore"; selectorConfirmed: boolean; turnConfirmed: boolean; beachId?: string; fromBucket?: Bucket; fromDirection?: string; toDirection?: string };
   tide?: { bucket: Bucket; tidePhase: string; windowOrder: "opens" | "closes"; selectorConfirmed: boolean; orderingConfirmed: boolean; beachId?: string };
 }
@@ -107,7 +107,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
     const named = peak?.exposedBeaches?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
     const byQuality = (a: typeof named[number], b: typeof named[number]): number =>
-      Number(b.activeHome) - Number(a.activeHome) || (b.qualityScore ?? -1) - (a.qualityScore ?? -1) || a.beachName.localeCompare(b.beachName);
+      (b.qualityScore ?? -1) - (a.qualityScore ?? -1) || a.beachName.localeCompare(b.beachName);
     const open = named.filter((beach) => beach.exposure === "open").sort(byQuality);
     const shadowed = named.filter((beach) => beach.exposure === "shadowed").sort(byQuality);
     if (open.length >= 2 && shadowed.length >= 1) {
