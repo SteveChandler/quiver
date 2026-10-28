@@ -1,5 +1,6 @@
 import {
   NATIVE_SKILL_THRESHOLDS,
+  WAVE_FIT_PLATEAU_START_FRACTION,
   OUT_OF_BAND_SCORE_CEILING,
   nativeScoreInputsFromForecast,
   nativeTideTermPoints,
@@ -81,18 +82,19 @@ describe("native-condition-score", () => {
     }
   });
 
-  it("gives every skill a flat ideal range, linear shoulders, and zero outside the band", () => {
+  it("gives full points from a quarter into the ideal range, linear shoulders, and zero outside the band", () => {
     process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
     for (const skill of ["beginner", "intermediate", "advanced", "expert"] as const) {
       const { waveMinFt, idealMinFt, idealMaxFt, waveMaxFt } = NATIVE_SKILL_THRESHOLDS[skill];
+      const plateauStart = idealMinFt + WAVE_FIT_PLATEAU_START_FRACTION * (idealMaxFt - idealMinFt);
       const waveFit = (waveHeightFt: number): number => scoreNativeConditionBreakdown(
         { waveHeightFt, ...pristineInputs }, skill,
       ).components.waveFit;
       expect(waveFit(waveMinFt - 0.1)).toBe(0);
       expect(waveFit(waveMinFt)).toBe(0);
-      expect(waveFit((waveMinFt + idealMinFt) / 2)).toBe(22.5);
-      expect(waveFit(idealMinFt)).toBe(45);
-      expect(waveFit((idealMinFt + idealMaxFt) / 2)).toBe(45);
+      expect(waveFit((waveMinFt + plateauStart) / 2)).toBeCloseTo(22.5, 10);
+      expect(waveFit(idealMinFt)).toBeLessThan(45);
+      expect(waveFit(plateauStart)).toBe(45);
       expect(waveFit(idealMaxFt)).toBe(45);
       expect(waveFit((idealMaxFt + waveMaxFt) / 2)).toBe(22.5);
       expect(waveFit(waveMaxFt)).toBe(0);
@@ -103,11 +105,20 @@ describe("native-condition-score", () => {
     }
   });
 
+  it("does not call the bottom of an ideal range GOOD on size alone", () => {
+    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    const waveFit = (skill: "beginner" | "intermediate" | "advanced", waveHeightFt: number): number =>
+      scoreNativeConditionBreakdown({ waveHeightFt, ...pristineInputs }, skill).components.waveFit;
+    expect(waveFit("beginner", 1)).toBeCloseTo(45 * (0.5 / 1), 5);
+    expect(waveFit("intermediate", 2)).toBeCloseTo(45 * (1 / 1.75), 5);
+    expect(waveFit("advanced", 3.5)).toBeCloseTo(45 * (1.5 / 2.25), 5);
+  });
+
   it("lets the browser companion flag use the same plateau", () => {
     delete process.env.WAVE_FIT_PLATEAU_ENABLED;
     process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
     expect(scoreNativeConditionBreakdown(
-      { waveHeightFt: 3, ...pristineInputs }, "advanced",
+      { waveHeightFt: 5, ...pristineInputs }, "advanced",
     ).components.waveFit).toBe(45);
   });
 

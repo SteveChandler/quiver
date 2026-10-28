@@ -89,6 +89,9 @@ const NATIVE_MAX_WIND_MPH: Record<SkillLevel, number> = {
   expert: 18,
 };
 
+/** Where full size points begin, as a share of the ideal range above its minimum. */
+export const WAVE_FIT_PLATEAU_START_FRACTION = 0.25;
+
 // The RIDEABLE verdict starts at 40, so out-of-band days must stay below it.
 export const OUT_OF_BAND_SCORE_CEILING = 39;
 
@@ -275,9 +278,14 @@ function scoreNativeConditionBreakdownForBand(
   const isOutOfBand = isBelowBand || isAboveBand;
 
   const peak = (thresholds.idealMinFt + thresholds.idealMaxFt) / 2;
+  // Plateau (Steven, 2026-10-28): full size points from a quarter of the way into the
+  // ideal range up to its top, so a clean in-range day is not marked down for missing
+  // the midpoint, while the very bottom of the ideal range still earns less.
+  const plateauStart = thresholds.idealMinFt
+    + WAVE_FIT_PLATEAU_START_FRACTION * (thresholds.idealMaxFt - thresholds.idealMinFt);
   const rawWaveScore = isWaveFitPlateauEnabled()
-    ? waveHeightFt < thresholds.idealMinFt
-      ? 45 * ((waveHeightFt - thresholds.waveMinFt) / Math.max(thresholds.idealMinFt - thresholds.waveMinFt, 0.01))
+    ? waveHeightFt < plateauStart
+      ? 45 * ((waveHeightFt - thresholds.waveMinFt) / Math.max(plateauStart - thresholds.waveMinFt, 0.01))
       : waveHeightFt <= thresholds.idealMaxFt
         ? 45
         : 45 * ((thresholds.waveMaxFt - waveHeightFt) / Math.max(thresholds.waveMaxFt - thresholds.idealMaxFt, 0.01))
