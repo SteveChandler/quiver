@@ -267,6 +267,37 @@ describe('selectBestWindow', () => {
     expect(result).toBeNull();
   });
 
+  it('never builds a window from FALLBACK rows, including the below-floor fallback', () => {
+    const real = createForecast({ id: 'real', wave_height: '2-3 ft', data_source: 'OPEN_METEO' });
+    const synthetic = createForecast({
+      id: 'synthetic',
+      forecast_at: '2024-01-15T20:00:00Z',
+      forecast_time: '12:00',
+      wave_height: '4-5 ft',
+      data_source: 'FALLBACK',
+    });
+    const pending = createForecast({
+      id: 'pending',
+      forecast_at: '2024-01-15T23:00:00Z',
+      forecast_time: '15:00',
+      wave_height: null,
+      wave_period: null,
+      data_source: 'FALLBACK',
+    });
+
+    const windows = selectBestWindows({
+      forecasts: [real, synthetic, pending],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+      maxWindows: 3,
+    });
+    expect(windows.length).toBeGreaterThan(0);
+    expect(windows.every((window) => window.sourceForecast?.id === 'real')).toBe(true);
+
+    expect(selectBestWindow([synthetic, pending], mockBeach as Beach, null)).toBeNull();
+  });
+
   it('should return null when all forecasts are in the past', () => {
     const pastForecasts = [
       createForecast({

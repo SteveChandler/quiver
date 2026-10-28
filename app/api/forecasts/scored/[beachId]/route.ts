@@ -40,6 +40,7 @@ import { entitlementFromRow } from "@/lib/alerts/entitlements";
 import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
 import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 import {
   loadTideSeriesByBeach,
   type TideSeriesClient,
@@ -509,8 +510,12 @@ export const GET = withNoStore(withAuth(
       throw new Error(forecastError.message);
     }
 
+    // FALLBACK rows carry no model wave data; scoring them would publish a
+    // flat 0 for slots no model covers yet.
     const displayForecasts = await applyV51DisplayOverrideToForecasts(
-      (forecasts ?? []) as EnhancedForecastEntity[]
+      ((forecasts ?? []) as EnhancedForecastEntity[]).filter(
+        (forecast) => !isFallbackForecastRow(forecast)
+      )
     );
     const forecastList = tideSeries === undefined
       ? displayForecasts
