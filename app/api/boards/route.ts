@@ -22,6 +22,7 @@ export const GET = withAuth(
         "id, user_id, name, board_type, dimensions, description, image_url, size, volume, session_count, created_at, updated_at"
       )
       .eq("user_id", user.id)
+      .is("retired_at", null)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;

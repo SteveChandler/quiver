@@ -101,7 +101,7 @@ async function loadOutlookProfile(client: Client, userId: string, now: Date): Pr
 /** A board type that does not normalise is dropped: guessing a class would move the fit band. */
 async function loadBoardClasses(client: Client, userId: string): Promise<BoardClass[] | null> {
   try {
-    const { data, error } = await client.from('boards').select('board_type').eq('user_id', userId);
+    const { data, error } = await client.from('boards').select('board_type').eq('user_id', userId).is('retired_at', null);
     if (error) throw new Error(error.message);
     if (!Array.isArray(data)) throw new Error('Board data unavailable');
     const classes = data

@@ -1073,6 +1073,7 @@ export async function fetchUserBoardContext(
       .from('boards')
       .select(PERSONAL_BOARD_SELECT)
       .eq('user_id', userId)
+      .is('retired_at', null)
       .eq('sessions.user_id', userId)
       .eq('sessions.status', 'completed')
       .is('sessions.deleted_at', null)
@@ -1083,7 +1084,8 @@ export async function fetchUserBoardContext(
     : await supabase
       .from('boards')
       .select('id, name, board_type, volume, session_count')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .is('retired_at', null);
 
   if (error) {
     log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);

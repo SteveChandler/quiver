@@ -159,7 +159,8 @@ describe("GET /api/users/[id]/stats", () => {
       // Mock board count
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 3, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 3, error: null }),
       };
 
       // Mock wave quality data
@@ -211,6 +212,7 @@ describe("GET /api/users/[id]/stats", () => {
         count: "exact",
         head: true,
       });
+      expect(boardCountChain.is).toHaveBeenCalledWith("retired_at", null);
     });
   });
 
@@ -236,7 +238,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 5, error: null }),
       };
 
       const qualityChain: any = {
@@ -297,7 +300,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 0, error: null }),
       };
 
       const qualityChain: any = {
@@ -360,7 +364,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 2, error: null }),
       };
 
       const qualityChain: any = {
@@ -411,7 +416,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 1, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 1, error: null }),
       };
 
       const qualityChain: any = {
@@ -466,7 +472,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 2, error: null }),
       };
 
       const qualityChain: any = {
@@ -522,7 +529,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 2, error: null }),
       };
 
       const qualityChain: any = {
@@ -627,7 +635,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({
           count: null,
           error: { message: "Query failed", code: "PGRST001" },
         }),
@@ -669,7 +678,8 @@ describe("GET /api/users/[id]/stats", () => {
 
       const boardCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockResolvedValue({ count: 2, error: null }),
       };
 
       const qualityChain: any = {
