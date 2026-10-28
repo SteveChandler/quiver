@@ -25,6 +25,7 @@ export async function getUserBoards(userId: string) {
       .from("boards")
       .select("*")
       .eq("user_id", userId)
+      .is("retired_at", null)
       .order("created_at", { ascending: false });
   });
 }
@@ -128,6 +129,10 @@ export async function updateBoard(
   }
 }
 
+/**
+ * Retires the board rather than deleting it: sessions reference boards(id) with no
+ * ON DELETE action, so a hard delete fails for any board with a logged session.
+ */
 export async function deleteBoard(id: string) {
   const supabase = await createSupabaseServerClient();
 
@@ -145,9 +150,10 @@ export async function deleteBoard(id: string) {
   }
 
   try {
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from("boards")
-      .delete()
+      .update({ retired_at: now, updated_at: now })
       .eq("id", id)
       .eq("user_id", user.id);
 
@@ -158,7 +164,7 @@ export async function deleteBoard(id: string) {
     revalidatePath("/profile");
     return { success: true };
   } catch (error) {
-    console.error("Error deleting board:", error);
+    console.error("Error retiring board:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

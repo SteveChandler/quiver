@@ -50,6 +50,7 @@ type QueryResult = { data: Row | null; error: { message: string } | null };
 interface FakeQueryBuilder {
   select: () => FakeQueryBuilder;
   eq: (key: string, value: unknown) => FakeQueryBuilder;
+  is: (key: string, value: null) => FakeQueryBuilder;
   update: (row: Row) => FakeQueryBuilder;
   maybeSingle: () => Promise<QueryResult>;
   upsert: (row: Row, options: Row) => Promise<{ error: { message: string } | null }>;
@@ -58,7 +59,7 @@ interface FakeQueryBuilder {
 
 function fakeClient(tables: {
   profile?: Row | null;
-  boards?: Array<{ board_type: string }>;
+  boards?: Array<{ board_type: string; retired_at?: string | null }>;
   state?: Row | null;
   upsertError?: string;
   stateError?: string;
@@ -87,6 +88,7 @@ function fakeClient(tables: {
       const builder: FakeQueryBuilder = {
         select: (): FakeQueryBuilder => builder,
         eq: (key: string, value: unknown): FakeQueryBuilder => { filters[key] = value; return builder; },
+        is: (key: string, value: null): FakeQueryBuilder => { filters[`is:${key}`] = value; return builder; },
         update: (row: Row): FakeQueryBuilder => { patch = copy(row); return builder; },
         maybeSingle: async (): Promise<QueryResult> => {
           if (table === "profiles" && tables.profileThrow) throw new Error(tables.profileThrow);
@@ -112,7 +114,8 @@ function fakeClient(tables: {
         },
         then: (resolve: (value: unknown) => unknown): unknown => {
           if (table === "boards" && tables.boardsThrow) throw new Error(tables.boardsThrow);
-          return resolve({ data: tables.boards ?? [], error: tables.boardsError ? { message: tables.boardsError } : null });
+          const boards = (tables.boards ?? []).filter((board) => !("is:retired_at" in filters) || board.retired_at == null);
+          return resolve({ data: boards, error: tables.boardsError ? { message: tables.boardsError } : null });
         },
       };
       return builder;
@@ -224,6 +227,12 @@ describe("loadSwellOutlookForUser", () => {
     expect(unknown.swells[0].fit).toEqual({ status: "in_range", boards: [] });
     const mixed = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, boards: [{ board_type: "Fish" }, { board_type: "shortboard" }, { board_type: "gizmo" }] }).client, userId: USER, now: NOW, recordOpen: false, deps: deps() });
     expect(mixed.swells[0].fit).toEqual({ status: "in_range", boards: ["fish", "shortboard"] });
+  });
+
+  it("leaves retired boards out of the fit classes", async () => {
+    const boards = [{ board_type: "shortboard" }, { board_type: "longboard", retired_at: "2026-10-01T00:00:00.000Z" }];
+    const response = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, boards }).client, userId: USER, now: NOW, recordOpen: false, deps: deps() });
+    expect(response.swells[0].fit).toEqual({ status: "in_range", boards: ["shortboard"] });
   });
 
   it("uses the default skill band when no boards are recorded", async () => {

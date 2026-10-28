@@ -7,7 +7,7 @@ const mockClient = {
   rpc: mockRpc,
   from: (table: string) => {
     const query = {
-      select: () => query, eq: () => query, in: () => query,
+      select: () => query, eq: () => query, is: () => query, in: () => query,
       gte: () => query, lt: () => query, order: () => query,
       range: () => query, limit: () => query,
       single: () => query, maybeSingle: () => query,
