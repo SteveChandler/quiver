@@ -65,7 +65,6 @@ import {
   WORTH_THE_DRIVE_REASON,
 } from '@/lib/services/discovery/distance-friction';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
-import { getStalenessDetails } from '@/lib/utils/forecast-service-utils';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { pickDominantSwell } from '@/lib/domains/conditions';
 import {
@@ -558,33 +557,14 @@ function scoringComponentForForecast(
   return dominant.source === 'wind_wave' ? 'wind_sea' : dominant.source;
 }
 
-function coverageExpiry(
-  forecastsByBeach: Map<string, EnhancedForecastEntity[]>,
-  generatedAt: string,
-): string {
-  let earliestDeadline: number | null = null;
-  const recordDeadline = (deadline: number): void => {
-    earliestDeadline = earliestDeadline === null ? deadline : Math.min(earliestDeadline, deadline);
-  };
-  for (const rows of forecastsByBeach.values()) {
-    for (const row of rows) {
-      if (typeof row.updated_at === 'string' && Number.isFinite(Date.parse(row.updated_at))) {
-        const details = getStalenessDetails(row.updated_at, row.data_source);
-        recordDeadline(Date.parse(row.updated_at) + details.threshold * 60 * 60 * 1000);
-      }
-      // Open-Meteo's receipt timestamp is a separate cache deadline. It does
-      // not become provider issue/observation freshness in the API contract.
-      if (row.data_source === 'OPEN_METEO' && typeof row.om_fetched_at === 'string' && Number.isFinite(Date.parse(row.om_fetched_at))) {
-        const details = getStalenessDetails(row.om_fetched_at, row.data_source);
-        recordDeadline(Date.parse(row.om_fetched_at) + details.threshold * 60 * 60 * 1000);
-      }
-    }
-  }
-  const generatedMs = Date.parse(generatedAt);
-  // No returned rows means there is no stale forecast to conceal. Keep the
-  // empty/incomplete response readable for one bounded refresh interval.
-  const earliest = earliestDeadline ?? generatedMs + 60 * 1000;
-  return new Date(Math.min(earliest, generatedMs + 60 * 1000)).toISOString();
+/**
+ * The answer is good for one refresh interval after it is generated. Our ingest
+ * age is not the forecast's age: a CDIP row the sync has not revisited in a few
+ * hours still holds the same forward forecast, so it must not expire the
+ * answer before it arrives (a past deadline voided the whole week).
+ */
+function coverageExpiry(generatedAt: string): string {
+  return new Date(Date.parse(generatedAt) + 60 * 1000).toISOString();
 }
 
 function isSafe(score: DetailedScore): boolean {
@@ -1474,7 +1454,7 @@ async function generateWeekScoutForecastScoped(
     };
   });
   const coverage: WeekScoutCoverage = {
-    expiresAt: coverageExpiry(forecastsByBeach, generatedAt),
+    expiresAt: coverageExpiry(generatedAt),
     days: localDates.map((localDate) => coverageByDate.get(localDate)!),
   };
 
