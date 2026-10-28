@@ -32,6 +32,7 @@
     "scripts/revenuecat-entitlement-reconciliation.ts",
     "scripts/seed-prod-mock-users.ts",
     "scripts/shoaling-regression.ts",
+    "scripts/replay-wave-fit-plateau.ts",
     "scripts/terrain-analysis.ts",
     "scripts/db/rollback-validate-advisor-cleanup.mjs",
     "scripts/qa/accounts.ts",

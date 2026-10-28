@@ -21,6 +21,7 @@ import { alignmentFactor } from '@/lib/utils/wave-height-transformer';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { resolveTideBand, TIDE_BAND_TOLERANCE_FT, type TideBand } from '@/lib/domains/scoring/tide-swing';
 import { isTideSwingEnabled } from '@/lib/flags/tide-swing';
+import { isWaveFitPlateauEnabled } from '@/lib/flags/wave-fit-plateau';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -87,6 +88,9 @@ const NATIVE_MAX_WIND_MPH: Record<SkillLevel, number> = {
   advanced: 16,
   expert: 18,
 };
+
+/** Where full size points begin, as a share of the ideal range above its minimum. */
+export const WAVE_FIT_PLATEAU_START_FRACTION = 0.25;
 
 // The RIDEABLE verdict starts at 40, so out-of-band days must stay below it.
 export const OUT_OF_BAND_SCORE_CEILING = 39;
@@ -274,8 +278,18 @@ function scoreNativeConditionBreakdownForBand(
   const isOutOfBand = isBelowBand || isAboveBand;
 
   const peak = (thresholds.idealMinFt + thresholds.idealMaxFt) / 2;
-  const rawWaveScore =
-    waveHeightFt <= peak
+  // Plateau (Steven, 2026-10-28): full size points from a quarter of the way into the
+  // ideal range up to its top, so a clean in-range day is not marked down for missing
+  // the midpoint, while the very bottom of the ideal range still earns less.
+  const plateauStart = thresholds.idealMinFt
+    + WAVE_FIT_PLATEAU_START_FRACTION * (thresholds.idealMaxFt - thresholds.idealMinFt);
+  const rawWaveScore = isWaveFitPlateauEnabled()
+    ? waveHeightFt < plateauStart
+      ? 45 * ((waveHeightFt - thresholds.waveMinFt) / Math.max(plateauStart - thresholds.waveMinFt, 0.01))
+      : waveHeightFt <= thresholds.idealMaxFt
+        ? 45
+        : 45 * ((thresholds.waveMaxFt - waveHeightFt) / Math.max(thresholds.waveMaxFt - thresholds.idealMaxFt, 0.01))
+    : waveHeightFt <= peak
       ? 45 * ((waveHeightFt - thresholds.waveMinFt) / Math.max(peak - thresholds.waveMinFt, 0.01))
       : 45 * ((thresholds.waveMaxFt - waveHeightFt) / Math.max(thresholds.waveMaxFt - peak, 0.01));
   const waveScore = isOutOfBand
