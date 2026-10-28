@@ -54,7 +54,17 @@ REVOKE ALL ON FUNCTION private.enforce_user_board_limit() FROM anon;
 REVOKE ALL ON FUNCTION private.enforce_user_board_limit() FROM authenticated;
 
 COMMENT ON FUNCTION private.enforce_user_board_limit()
-  IS 'Enforces the app-wide limit of 10 active (not retired) boards per user before inserts.';
+  IS 'Enforces the app-wide limit of 10 active (not retired) boards per user on insert and un-retire.';
+
+-- Owners can update their own rows, so setting retired_at back to NULL must
+-- pass the same cap as an insert.
+DROP TRIGGER IF EXISTS enforce_user_board_limit_on_unretire ON public.boards;
+
+CREATE TRIGGER enforce_user_board_limit_on_unretire
+  BEFORE UPDATE OF retired_at ON public.boards
+  FOR EACH ROW
+  WHEN (OLD.retired_at IS NOT NULL AND NEW.retired_at IS NULL)
+  EXECUTE FUNCTION private.enforce_user_board_limit();
 
 CREATE OR REPLACE FUNCTION public.get_user_board_deck_stats(p_user_id uuid)
  RETURNS TABLE(board_id uuid, sessions_count integer, positive_sessions_count integer, best_period_range text, best_wind_label text, learned_label text, last_used_at timestamp with time zone)

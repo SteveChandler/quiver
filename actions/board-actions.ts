@@ -155,7 +155,8 @@ export async function deleteBoard(id: string) {
       .from("boards")
       .update({ retired_at: now, updated_at: now })
       .eq("id", id)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .is("retired_at", null);
 
     if (error) {
       throw error;

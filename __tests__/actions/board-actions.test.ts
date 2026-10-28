@@ -58,6 +58,7 @@ describe("board actions", () => {
     expect(patch.updated_at).toBe(patch.retired_at);
     expect(query.eq).toHaveBeenCalledWith("id", "board-1");
     expect(query.eq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(query.is).toHaveBeenCalledWith("retired_at", null);
   });
 
   it("returns the database error when retiring fails", async () => {

@@ -69,6 +69,12 @@ BEGIN
   result := pg_temp.insert_board(u, 'over');
   IF result <> 'blocked' THEN RAISE EXCEPTION 'cap: 10 active + 5 retired should block, got %', result; END IF;
 
+  BEGIN
+    UPDATE public.boards SET retired_at = NULL WHERE id = retired_id;
+    RAISE EXCEPTION 'cap: un-retiring with 10 active boards should block';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+
   -- The retired board's session keeps its board.
   IF NOT EXISTS (SELECT 1 FROM public.sessions s JOIN public.boards b ON b.id = s.board_id WHERE b.id = retired_id) THEN
     RAISE EXCEPTION 'session lost its retired board';
