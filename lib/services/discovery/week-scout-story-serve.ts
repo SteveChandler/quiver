@@ -20,7 +20,9 @@ function regionalFallback(client: Client, region: string, editionDate: string, n
   const cached = fallbackInputs.get(key);
   if (cached && cached.expiresAt > now.getTime()) return cached.input;
   const input = buildStoryInput({ client, region, now, persist: false }).catch((error: unknown) => {
-    if (error instanceof StoryInputError) return null;
+    // Deterministic outcomes (4xx: stale source, sparse coverage, no candidates)
+    // are cached; a transient read failure (5xx) is retried on the next request.
+    if (error instanceof StoryInputError && error.status < 500) return null;
     fallbackInputs.delete(key);
     throw error;
   });

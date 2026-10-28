@@ -69,6 +69,9 @@ describe("regional Week Scout story candidates", () => {
     expect(swellFacts.find((fact) => fact.id === "cover-pulse")?.text)
       .toContain("reaches San Diego Monday and peaks next week");
     expect(swellFacts.map((fact) => fact.text).join(" ")).not.toMatch(/Tuesday|Wednesday/);
+    // Phrasings that open with the day or follow "by" are dropped rather than read "next week is the peak".
+    expect(swellFacts.map((fact) => fact.id)).not.toEqual(expect.arrayContaining(["cover-pulse-alt"]));
+    expect(swellFacts.some((fact) => /^next week|by earlier|^earlier/.test(fact.text))).toBe(false);
   });
 
   it("ranks exposure by peak-day quality, then beach name", () => {

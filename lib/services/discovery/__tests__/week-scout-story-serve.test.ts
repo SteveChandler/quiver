@@ -11,7 +11,9 @@ jest.mock("../week-scout-story-store", () => ({
 }));
 jest.mock("../week-scout-story-source", () => ({
   buildStoryInput: (...args: unknown[]) => mockBuildInput(...args),
-  StoryInputError: class StoryInputError extends Error {},
+  StoryInputError: class StoryInputError extends Error {
+    constructor(code: string, readonly status = 503) { super(code); }
+  },
   STORY_SAMPLE_VERSION: "regional-swell-events-3",
 }));
 
@@ -194,7 +196,7 @@ describe("deterministic fallback and live gates", () => {
       const countedClient = { from: jest.fn((_table: string) => client.from()) };
       mockBuildInput.mockImplementation(async ({ client: db }: { client: typeof countedClient }) => {
         for (let index = 0; index < 34; index++) db.from("enhanced_forecasts");
-        throw new StoryInputError(code);
+        throw new (StoryInputError as unknown as new (code: string, status: number) => Error)(code, 409);
       });
       const stories = await Promise.all([0, 1].map(() => loadAndBindStory({
         client: countedClient as never, homeBeachId: "home", live: live(),
@@ -204,6 +206,18 @@ describe("deterministic fallback and live gates", () => {
       expect(mockBuildInput).toHaveBeenCalledTimes(1);
       expect(countedClient.from.mock.calls.filter(([table]) => table === "enhanced_forecasts")).toHaveLength(34);
     });
+
+  it("retries a transient read failure on the next request instead of caching it", async () => {
+    const date = "2026-07-23";
+    mockBuildInput.mockRejectedValueOnce(
+      new (StoryInputError as unknown as new (code: string, status: number) => Error)("story_forecast_read_failed", 503),
+    ).mockResolvedValueOnce({ ...input(), editionDate: date });
+    const request = () => loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+      startLocalDate: date, now: new Date(`${date}T13:00:00Z`) }).catch(() => null);
+    await request();
+    await request();
+    expect(mockBuildInput).toHaveBeenCalledTimes(2);
+  });
 
   it("caches under the region's edition date when the user's start date differs", async () => {
     const day = new Date("2026-07-18T13:00:00Z");

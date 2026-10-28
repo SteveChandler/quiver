@@ -107,12 +107,14 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     const lastDate = days[6].localDate;
     const arrival = windowDay(arrivalDate, firstDate, lastDate);
     const peakDay = windowDay(peakDate, firstDate, lastDate);
+    // Phrasings that open with the day, or follow "by", only read with a real weekday.
+    const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
     add(facts, "cover-pulse", "cover", `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`, gate);
-    add(facts, "cover-pulse-alt", "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
+    if (namedDays) add(facts, "cover-pulse-alt", "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
     add(facts, "lead-pulse", "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate);
-    add(facts, "lead-pulse-alt", "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
+    if (namedDays) add(facts, "lead-pulse-alt", "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
     add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
-    add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
+    if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
     const named = peak?.exposedBeaches?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
     const byQuality = (a: typeof named[number], b: typeof named[number]): number =>
       (b.qualityScore ?? -1) - (a.qualityScore ?? -1) || a.beachName.localeCompare(b.beachName);
