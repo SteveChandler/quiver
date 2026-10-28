@@ -31,6 +31,41 @@ function getSearchParams(request: Request | NextRequest): URLSearchParams {
   return new URLSearchParams();
 }
 
+const COMPUTE_CONCURRENCY = 8;
+const ID_PAGE_SIZE = 1000;
+
+type ServiceClient = ReturnType<typeof createSupabaseServiceRoleClient>;
+
+async function selectAllIds(
+  supabase: ServiceClient,
+  table: "profiles" | "user_implicit_preferences",
+  column: "id" | "user_id",
+  filter?: (query: any) => any
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (let from = 0; ; from += ID_PAGE_SIZE) {
+    let query: any = supabase.from(table).select(column).order(column);
+    if (filter) query = filter(query);
+    const { data, error } = await query.range(from, from + ID_PAGE_SIZE - 1);
+    if (error) {
+      throw new Error(`Failed to list ${table} ids: ${error.message}`);
+    }
+    const rows = (data ?? []) as Record<string, string>[];
+    ids.push(...rows.map((row) => row[column]));
+    if (rows.length < ID_PAGE_SIZE) return ids;
+  }
+}
+
+// Opted-in users get recomputed; existing preference rows are included so the
+// per-user call still deletes rows for users who opted out or went inactive.
+async function listCandidateUserIds(supabase: ServiceClient): Promise<string[]> {
+  const [optedIn, existing] = await Promise.all([
+    selectAllIds(supabase, "profiles", "id", (q) => q.eq("allow_implicit_tracking", true)),
+    selectAllIds(supabase, "user_implicit_preferences", "user_id"),
+  ]);
+  return [...new Set([...optedIn, ...existing])];
+}
+
 /**
  * GET /api/cron/update-implicit-preferences
  *
@@ -73,14 +108,34 @@ async function _GET(request: Request): Promise<Response> {
 
     const supabase = createSupabaseServiceRoleClient();
 
-    const { data: processedUsers, error: computeError } = await (
-      supabase.rpc as any
-    )("compute_implicit_preferences", {
-      target_user_id: targetUserId || null,
-    });
+    const userIds = targetUserId ? [targetUserId] : await listCandidateUserIds(supabase);
+    let processedUsers = 0;
+    const failures: string[] = [];
 
-    if (computeError) {
-      throw new Error(`Failed to compute implicit preferences: ${computeError.message}`);
+    // One call per user: the all-users call runs 6-9 s and hits PostgREST's 8 s statement_timeout.
+    for (let i = 0; i < userIds.length; i += COMPUTE_CONCURRENCY) {
+      const batch = userIds.slice(i, i + COMPUTE_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map((userId) =>
+          (supabase.rpc as any)("compute_implicit_preferences", { target_user_id: userId })
+        )
+      );
+      results.forEach(({ data, error }: { data: number | null; error: { message: string } | null }, idx: number) => {
+        if (error) {
+          failures.push(`${batch[idx]}: ${error.message}`);
+          return;
+        }
+        processedUsers += data ?? 0;
+      });
+    }
+
+    if (failures.length > 0 && failures.length === userIds.length) {
+      throw new Error(`Failed to compute implicit preferences: ${failures[0]}`);
+    }
+    if (failures.length > 0) {
+      console.warn(
+        `[update-implicit-preferences] ${failures.length}/${userIds.length} users failed; first: ${failures[0]}`
+      );
     }
 
     const { data: deletedExpiredEvents, error: cleanupError } = await (
@@ -103,7 +158,8 @@ async function _GET(request: Request): Promise<Response> {
             : undefined,
       },
       async () => ({
-        processedUsers: processedUsers ?? 0,
+        processedUsers,
+        failedUsers: failures.length,
         deletedExpiredEvents: deletedExpiredEvents ?? 0,
       }),
     );
