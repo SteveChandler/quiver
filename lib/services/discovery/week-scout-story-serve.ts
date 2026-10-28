@@ -4,7 +4,7 @@ export { isWeekScoutStoryEnabled } from "@/lib/flags/week-scout-story";
 import type { CanonicalWeekScoutResponse } from "./week-scout";
 import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
 import { directionIndex, directionSector, periodBand } from "./week-scout-story-candidates";
-import { buildStoryInput } from "./week-scout-story-source";
+import { buildStoryInput, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
 import type { StoryGate, StoryInput, StoryWire } from "./week-scout-story-types";
@@ -23,7 +23,7 @@ function matchedSwell(gate: Extract<StoryGate, { kind: "swell" }>, live: Live): 
   return (live.swells ?? []).find((swell) => directionSector(swell.directionDeg) === gate.directionSector
     && (gate.directionIndex === undefined || directionIndex(swell.directionDeg) === gate.directionIndex)
     && periodBand(swell.periodS) === gate.periodBand
-    && (gate.periodClass === undefined || (swell.periodS >= 13 ? "long" : "short") === gate.periodClass)
+    && (gate.periodClass === undefined || (swell.periodS >= 13 ? "long" : swell.periodS >= 10 ? "mid" : "short") === gate.periodClass)
     && `${directionSector(swell.directionDeg)}-${periodBand(swell.periodS)}-${swell.peakLocalDate}` === gate.regionalEventKey
     && swell.peakLocalDate === gate.peakLocalDate
     && localDate(swell.arrivalAt, swell.timezone) === gate.arrivalLocalDate
@@ -37,6 +37,12 @@ function completeQuietDay(date: string, live: Live): boolean {
   const coverage = live.coverage?.days.find((item) => item.localDate === date);
   return Boolean(day && !day.bestDayWindow && coverage && coverage.eligible > 0
     && coverage.missing === 0 && coverage.buckets.every((bucket) => bucket.held === 0 && bucket.missing === 0));
+}
+
+function firstCoverSwell(live: Live): NonNullable<Live["swells"]>[number] | null {
+  const dates = new Set(live.days.slice(0, 7).map((day) => day.localDate));
+  return (live.swells ?? []).find((swell) => dates.has(swell.peakLocalDate)
+    || dates.has(localDate(swell.arrivalAt, swell.timezone))) ?? null;
 }
 
 /** A selected sentence is served only when the live response still proves its gate. */
@@ -60,6 +66,14 @@ export function storyGateHolds(gate: StoryGate, live: Live): boolean {
         && windows.some((window) => window.beachId === gate.beachId && window.bucket === gate.bucket
           && window.forecast.windDirection === gate.toDirection);
     }
+    case "wind_pattern": return gate.days.length >= 3 && gate.days.every((wind) => {
+      if (!wind.beachId || !wind.fromBucket || !wind.fromDirection || !wind.toDirection) return false;
+      const windows = live.days.find((day) => day.localDate === wind.localDate)?.windows ?? [];
+      return windows.some((window) => window.beachId === wind.beachId && window.bucket === wind.fromBucket
+        && window.safe && window.forecast.windDirection === wind.fromDirection)
+        && windows.some((window) => window.beachId === wind.beachId && window.bucket === wind.bucket
+          && window.forecast.windDirection === wind.toDirection);
+    });
     case "tide": {
       const day = live.days.find((item) => item.localDate === gate.localDate);
       if (!day?.bestDayWindow?.safe || (gate.beachId && day.bestDayWindow.beachId !== gate.beachId)) return false;
@@ -120,26 +134,45 @@ export function bindStory(args: {
     chapters: [], days,
   });
   if (!input || !args.selections || args.availability !== "ready") return empty(args.availability);
-  const chosen = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
-  if (chosen.length !== args.selections.length || chosen.some((fact) => !storyGateHolds(fact.gate, live))) {
-    return empty("unavailable");
-  }
+  const firstSwell = firstCoverSwell(live);
+  const agreesWithCover = (fact: StoryInput["copyFacts"][number]): boolean => {
+    if (fact.gate.kind !== "swell") return true;
+    if (!firstSwell) return false;
+    const gate = fact.gate;
+    return gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
+      && gate.peakLocalDate === firstSwell.peakLocalDate;
+  };
+  const selected = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
+  if (selected.length !== args.selections.length) return empty("unavailable");
+  const chosen = selected.filter((fact) => storyGateHolds(fact.gate, live) && agreesWithCover(fact));
   const text = (slot: string): string | null => chosen.find((fact) => fact.slot === slot)?.text ?? null;
   if (!text("cover") && args.requireCover !== false) return empty("unavailable");
+  const dayBodies = new Set<string>();
+  const chapters = chosen.filter((fact) => fact.slot.startsWith("swell:") || fact.slot.startsWith("day:")
+    || fact.slot.startsWith("quiet:")).filter((fact) => {
+    if (!fact.slot.startsWith("day:")) return true;
+    const body = fact.text.replace(/^(?:On )?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:'s|:|,)?\s*/, "").trim();
+    if (dayBodies.has(body)) return false;
+    dayBodies.add(body);
+    return true;
+  });
   return {
     schemaVersion: 3, region, availability: "ready", cover: { text: text("cover"), swells },
     lead: text("story:lead"), turn: text("story:turn"),
-    chapters: chosen.filter((fact) => fact.slot.startsWith("swell:") || fact.slot.startsWith("day:")
-      || fact.slot.startsWith("quiet:")).map((fact) => ({ slot: fact.slot, text: fact.text })),
+    chapters: chapters.map((fact) => ({ slot: fact.slot, text: fact.text })),
     days,
   };
 }
 
 export function bindFallbackStory(region: string, input: StoryInput, live: Live): StoryWire {
   const slots = new Set<string>();
+  const firstSwell = firstCoverSwell(live);
   const selections = [...input.copyFacts].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
     .filter((fact) => {
       if (slots.has(fact.slot) || !storyGateHolds(fact.gate, live)) return false;
+      if (fact.gate.kind === "swell" && (!firstSwell
+        || fact.gate.arrivalLocalDate !== localDate(firstSwell.arrivalAt, firstSwell.timezone)
+        || fact.gate.peakLocalDate !== firstSwell.peakLocalDate)) return false;
       slots.add(fact.slot);
       return true;
     }).map((fact) => fact.id);
@@ -164,7 +197,7 @@ export async function loadAndBindStory(args: { client: Client; homeBeachId: stri
   if (edition?.schemaVersion === 3 && edition.editionDate === startLocalDate
     && Date.parse(edition.validUntil) >= now.getTime() && Date.parse(edition.sourcePublishedAt) <= now.getTime()) {
     const publishedInput = await loadStoryInput(client, edition.inputHash);
-    if (publishedInput) {
+    if (publishedInput?.provenance.generationInputVersion === STORY_SAMPLE_VERSION) {
       try {
         assertStoryArtifactMatchesInput(edition, publishedInput, now);
         const published = bindStory({ region, availability: "ready", input: publishedInput,
@@ -174,14 +207,14 @@ export async function loadAndBindStory(args: { client: Client; homeBeachId: stri
     }
   }
   const cached = await loadLatestStoryInput(client, region, startLocalDate);
-  const usable = cached?.provenance.generationInputVersion === "representative-latitude-spread-2"
+  const usable = cached?.provenance.generationInputVersion === STORY_SAMPLE_VERSION
     && Date.parse(cached.briefing.generatedAt) > now.getTime() - 60 * 60_000
     && Date.parse(cached.sourcePublishedAt) <= now.getTime()
     && Date.parse(cached.validUntil) >= now.getTime();
   const cacheKey = `${region}:${startLocalDate}`;
   const memory = fallbackInputs.get(cacheKey);
   const input = usable ? cached : memory && memory.expiresAt > now.getTime()
-    ? memory.input : await buildStoryInput({ client, region, now, persist: false });
+    ? memory.input : await buildStoryInput({ client, region, now, persist: false, liveSwells: live.swells });
   if (input.editionDate !== startLocalDate) {
     return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
   }
@@ -189,5 +222,11 @@ export async function loadAndBindStory(args: { client: Client; homeBeachId: stri
     if (fallbackInputs.size >= 64) fallbackInputs.delete(fallbackInputs.keys().next().value!);
     fallbackInputs.set(cacheKey, { input, expiresAt: now.getTime() + 5 * 60_000 });
   }
-  return bindFallbackStory(region, input, live);
+  const fallback = bindFallbackStory(region, input, live);
+  if (fallback.cover.text || !live.swells?.length || (!usable && (!memory || memory.expiresAt <= now.getTime()))) {
+    return fallback;
+  }
+  const current = await buildStoryInput({ client, region, now, persist: false, liveSwells: live.swells });
+  fallbackInputs.set(cacheKey, { input: current, expiresAt: now.getTime() + 5 * 60_000 });
+  return bindFallbackStory(region, current, live);
 }

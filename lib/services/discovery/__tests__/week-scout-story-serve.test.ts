@@ -11,6 +11,7 @@ jest.mock("../week-scout-story-store", () => ({
 }));
 jest.mock("../week-scout-story-source", () => ({
   buildStoryInput: (...args: unknown[]) => mockBuildInput(...args),
+  STORY_SAMPLE_VERSION: "regional-swell-events-3",
 }));
 
 import { WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
@@ -110,7 +111,7 @@ describe("deterministic fallback and live gates", () => {
       { id: "good-day", slot: "day:2026-07-15", text: "Light morning wind.", rank: 4,
         gate: { kind: "day", localDate: "2026-07-15", bucket: "morning", reason: "light_wind" } },
     ];
-    value.provenance.generationInputVersion = "representative-latitude-spread-2";
+    value.provenance.generationInputVersion = "regional-swell-events-3";
     return value;
   };
 
@@ -147,6 +148,74 @@ describe("deterministic fallback and live gates", () => {
     expect(mockBuildInput).toHaveBeenCalledTimes(1);
   });
 
+  it("rebuilds a cached regional input when its swell does not match the cover event", async () => {
+    const cached = input();
+    cached.briefing.generatedAt = "2026-07-15T12:30:00Z";
+    cached.copyFacts.filter((fact) => fact.gate.kind === "swell").forEach((fact) => {
+      fact.gate = { ...swellGate, arrivalLocalDate: "2026-07-14" };
+    });
+    mockLatestInput.mockResolvedValue(cached);
+    const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+      startLocalDate: "2026-07-15", now });
+    expect(story.cover.text).toBe("Specific cover.");
+    expect(mockBuildInput).toHaveBeenCalledWith(expect.objectContaining({ liveSwells: expect.any(Array), persist: false }));
+  });
+
+  it("drops a different swell's weekday even when its live gate matches another card", () => {
+    const response = live();
+    response.swells!.push({ ...response.swells![0], eventKey: "later", arrivalAt: "2026-07-17T18:00:00Z",
+      peakAt: "2026-07-18T18:00:00Z", peakLocalDate: "2026-07-18", fadeAt: null });
+    const inputWithLater = input();
+    inputWithLater.copyFacts.unshift({ id: "wrong-cover", slot: "cover", text: "Saturday arrives.", rank: -1,
+      gate: { ...swellGate, regionalEventKey: "6-5-2026-07-18", arrivalLocalDate: "2026-07-17",
+        peakLocalDate: "2026-07-18", fadeLocalDate: null } });
+    expect(bindFallbackStory(region, inputWithLater, response).cover.text).toBe("Specific cover.");
+    expect(bindStory({ region, availability: "ready", input: inputWithLater,
+      selections: ["wrong-cover", "lead"], live: response }).availability).toBe("unavailable");
+  });
+
+  it("compares against the first projected cover swell", () => {
+    const response = live();
+    response.swells!.unshift({ ...response.swells![0], eventKey: "outside-week",
+      arrivalAt: "2026-07-22T18:00:00Z", peakAt: "2026-07-23T18:00:00Z",
+      peakLocalDate: "2026-07-23", fadeAt: null });
+    const story = bindFallbackStory(region, input(), response);
+    expect(story.cover.swells[0].eventKey).toBe("event");
+    expect(story.cover.text).toBe("Specific cover.");
+  });
+
+  it("serves a repeated day body only once", () => {
+    const issued = input();
+    issued.copyFacts.push(
+      { id: "day-a", slot: "day:2026-07-15", text: "On Wednesday, the onshore fills in by midday.", gate: swellGate },
+      { id: "day-b", slot: "day:2026-07-16", text: "On Thursday, the onshore fills in by midday.", gate: swellGate },
+    );
+    const story = bindStory({ region, availability: "ready", input: issued,
+      selections: ["cover", "lead", "day-a", "day-b"], live: live() });
+    expect(story.chapters).toEqual([{ slot: "day:2026-07-15", text: "On Wednesday, the onshore fills in by midday." }]);
+  });
+
+  it("serves a verified wind pattern through the turn slot", () => {
+    const response = live();
+    const template = response.days[0].bestDayWindow!;
+    const patternDays = response.days.slice(0, 3).map((day) => {
+      const morning = { ...template, id: `${day.localDate}-morning`,
+        forecast: { ...template.forecast, windDirection: "NE" } };
+      day.windows = [morning, { ...morning, id: `${day.localDate}-midday`, bucket: "midday",
+        forecast: { ...morning.forecast, windDirection: "SW" } }];
+      return { kind: "wind" as const, localDate: day.localDate, bucket: "midday" as const,
+        fromBucket: "morning" as const, fromWindClass: "offshore" as const, windClass: "onshore" as const,
+        forecastRevision: "rev", beachId: morning.beachId, fromDirection: "NE", toDirection: "SW" };
+    });
+    const issued = input();
+    issued.copyFacts.push({ id: "pattern", slot: "story:turn", text: "Mornings stay cleaner on several days; the onshore fills in by midday.",
+      gate: { kind: "wind_pattern", days: patternDays } });
+    const story = bindStory({ region, availability: "ready", input: issued,
+      selections: ["cover", "lead", "pattern"], live: response });
+    expect(story.turn).toBe("Mornings stay cleaner on several days; the onshore fills in by midday.");
+    expect(story.chapters).toEqual([]);
+  });
+
   it("keeps a valid published edition ahead of the fallback", async () => {
     const issued = input();
     const artifact: StoryArtifact = {
@@ -162,6 +231,20 @@ describe("deterministic fallback and live gates", () => {
       startLocalDate: "2026-07-15", now });
     expect(story.cover.text).toBe("Second cover.");
     expect(mockBuildInput).not.toHaveBeenCalled();
+  });
+
+  it("does not serve a published edition with the old generic candidate set", async () => {
+    const old = input();
+    old.provenance.generationInputVersion = "representative-latitude-spread-2";
+    old.copyFacts.push({ id: "day-2026-07-15-morning", slot: "day:2026-07-15",
+      text: "Wednesday's morning window has light wind and a safe shot at the surf.",
+      gate: { kind: "day", localDate: "2026-07-15", bucket: "morning", reason: "light_wind" } });
+    mockLatestEdition.mockResolvedValue({ schemaVersion: 3, editionDate: "2026-07-15",
+      validUntil: old.validUntil, sourcePublishedAt: old.sourcePublishedAt, inputHash: old.inputHash });
+    mockLoadInput.mockResolvedValue(old);
+    const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+      startLocalDate: "2026-07-15", now });
+    expect(story.chapters.some((chapter) => chapter.text.includes("safe shot at the surf"))).toBe(false);
   });
 
   it("rechecks exposure, wind, tide, change, day and origin gates", () => {
