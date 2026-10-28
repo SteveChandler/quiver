@@ -34,6 +34,21 @@ function forecast(
 }
 
 describe("native-condition-score", () => {
+  const originalWaveFitFlag = process.env.WAVE_FIT_PLATEAU_ENABLED;
+  const originalPublicWaveFitFlag = process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+
+  beforeEach(() => {
+    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+  });
+
+  afterEach(() => {
+    if (originalWaveFitFlag === undefined) delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    else process.env.WAVE_FIT_PLATEAU_ENABLED = originalWaveFitFlag;
+    if (originalPublicWaveFitFlag === undefined) delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    else process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = originalPublicWaveFitFlag;
+  });
+
   const direction = {
     windDirectionDeg: 90,
     swellDirectionDeg: 218,
@@ -49,6 +64,73 @@ describe("native-condition-score", () => {
     tideHeightFt: 3,
     tideStatus: "Rising",
   };
+
+  it("keeps the midpoint triangle byte-identical with the plateau flag off", () => {
+    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    for (const [skill, height, expected] of [
+      ["beginner", 1, 15],
+      ["intermediate", 2, 18],
+      ["advanced", 3.5, 19.285714285714285],
+      ["expert", 4, 15],
+    ] as const) {
+      const actual = scoreNativeConditionBreakdown(
+        { waveHeightFt: height, ...pristineInputs }, skill,
+      ).components.waveFit;
+      expect(actual).toBeCloseTo(expected, 10);
+    }
+  });
+
+  it("gives every skill a flat ideal range, linear shoulders, and zero outside the band", () => {
+    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    for (const skill of ["beginner", "intermediate", "advanced", "expert"] as const) {
+      const { waveMinFt, idealMinFt, idealMaxFt, waveMaxFt } = NATIVE_SKILL_THRESHOLDS[skill];
+      const waveFit = (waveHeightFt: number): number => scoreNativeConditionBreakdown(
+        { waveHeightFt, ...pristineInputs }, skill,
+      ).components.waveFit;
+      expect(waveFit(waveMinFt - 0.1)).toBe(0);
+      expect(waveFit(waveMinFt)).toBe(0);
+      expect(waveFit((waveMinFt + idealMinFt) / 2)).toBe(22.5);
+      expect(waveFit(idealMinFt)).toBe(45);
+      expect(waveFit((idealMinFt + idealMaxFt) / 2)).toBe(45);
+      expect(waveFit(idealMaxFt)).toBe(45);
+      expect(waveFit((idealMaxFt + waveMaxFt) / 2)).toBe(22.5);
+      expect(waveFit(waveMaxFt)).toBe(0);
+      expect(waveFit(waveMaxFt + 0.1)).toBe(0);
+      expect(scoreNativeConditionBreakdown(
+        { waveHeightFt: waveMaxFt + 0.1, ...pristineInputs }, skill,
+      ).score).toBeLessThanOrEqual(OUT_OF_BAND_SCORE_CEILING);
+    }
+  });
+
+  it("lets the browser companion flag use the same plateau", () => {
+    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
+    expect(scoreNativeConditionBreakdown(
+      { waveHeightFt: 3, ...pristineInputs }, "advanced",
+    ).components.waveFit).toBe(45);
+  });
+
+  it("applies the plateau to a rideability-band override", () => {
+    const band = getRideabilityBand("advanced", "longboard");
+    const waveHeightFt = band.ideal.min;
+    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    const before = scoreNativeConditionInputs({ waveHeightFt, ...pristineInputs }, "advanced", band);
+    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    const after = scoreNativeConditionInputs({ waveHeightFt, ...pristineInputs }, "advanced", band);
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it("promotes a clean advanced 3.5 ft groundswell from FAIR to GOOD", () => {
+    const inputs = { waveHeightFt: 3.5, ...pristineInputs, windSpeedMph: 8 };
+    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    const before = scoreNativeConditionInputs(inputs, "advanced");
+    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    const after = scoreNativeConditionInputs(inputs, "advanced");
+    expect(before).toBeGreaterThanOrEqual(55);
+    expect(before).toBeLessThan(70);
+    expect(after).toBeGreaterThanOrEqual(70);
+  });
 
   it("preserves current in-band scores", () => {
     const cases = [

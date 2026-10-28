@@ -21,6 +21,7 @@ import { alignmentFactor } from '@/lib/utils/wave-height-transformer';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { resolveTideBand, TIDE_BAND_TOLERANCE_FT, type TideBand } from '@/lib/domains/scoring/tide-swing';
 import { isTideSwingEnabled } from '@/lib/flags/tide-swing';
+import { isWaveFitPlateauEnabled } from '@/lib/flags/wave-fit-plateau';
 
 interface NativeSkillThresholds {
   waveMinFt: number;
@@ -274,8 +275,13 @@ function scoreNativeConditionBreakdownForBand(
   const isOutOfBand = isBelowBand || isAboveBand;
 
   const peak = (thresholds.idealMinFt + thresholds.idealMaxFt) / 2;
-  const rawWaveScore =
-    waveHeightFt <= peak
+  const rawWaveScore = isWaveFitPlateauEnabled()
+    ? waveHeightFt < thresholds.idealMinFt
+      ? 45 * ((waveHeightFt - thresholds.waveMinFt) / Math.max(thresholds.idealMinFt - thresholds.waveMinFt, 0.01))
+      : waveHeightFt <= thresholds.idealMaxFt
+        ? 45
+        : 45 * ((thresholds.waveMaxFt - waveHeightFt) / Math.max(thresholds.waveMaxFt - thresholds.idealMaxFt, 0.01))
+    : waveHeightFt <= peak
       ? 45 * ((waveHeightFt - thresholds.waveMinFt) / Math.max(peak - thresholds.waveMinFt, 0.01))
       : 45 * ((thresholds.waveMaxFt - waveHeightFt) / Math.max(thresholds.waveMaxFt - peak, 0.01));
   const waveScore = isOutOfBand
