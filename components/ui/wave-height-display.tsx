@@ -221,7 +221,7 @@ export function WaveHeightDisplay({
       return {
         label: "Model data pending",
         description: "No forecast model covers this time yet",
-        quality: "approximate",
+        quality: "standard",
       };
     }
 

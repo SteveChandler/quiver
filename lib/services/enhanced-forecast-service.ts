@@ -240,21 +240,24 @@ export class EnhancedForecastService {
    * Fetch wave data with retry logic
    */
   private async fetchWaveDataWithRetry(beach: Beach) {
-    return withRetry(async () => {
-      const result = await this.dataSourceManager.getWaveWatchService().fetchWaveWatchForecast(
+    // fetchWaveWatchForecast already tried NOAA and Open-Meteo and returns
+    // null rather than throwing, so a null is final: retrying would repeat
+    // both fetches for every beach during an upstream outage.
+    const result = await withRetry(() =>
+      this.dataSourceManager.getWaveWatchService().fetchWaveWatchForecast(
         beach.lat ?? 0,
         beach.lon ?? 0,
         FORECAST_CONSTANTS.DAYS,
         getReviewedNwsPoint(beach.preference_model, beach.lat ?? 0, beach.lon ?? 0),
+      )
+    );
+    if (!result) {
+      throw new DataSourceError(
+        "WaveWatch",
+        new Error("No wave data returned")
       );
-      if (!result) {
-        throw new DataSourceError(
-          "WaveWatch",
-          new Error("No wave data returned")
-        );
-      }
-      return result;
-    });
+    }
+    return result;
   }
 
   /**

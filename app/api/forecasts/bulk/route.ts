@@ -673,7 +673,7 @@ async function buildScoredHourlySwellTimeline(
     for (const row of rows) {
       const displayRow = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
       const beach = beaches.get(row.beach_id);
-      const score = beach && displayRow.wave_height != null && !isFallbackForecastRow(row)
+      const score = beach && displayRow.wave_height != null && !isFallbackForecastRow(displayRow)
         ? scoreWindowConditionScore(displayRow, beach, context.skillLevel, null, context.boardClasses)
         : null;
       scores.set(row, score != null && Number.isFinite(score) ? score : null);
@@ -978,10 +978,14 @@ export async function bulkForecastHandler(
 
     for (const beach of scoringBeachRows) {
       const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
+      // A FALLBACK row carries no model wave data: no height to display and
+      // a null height that would score as a flat 0 / MEH.
+      const modelRow = (row: EnhancedForecastEntity | null) =>
+        row && !isFallbackForecastRow(row) ? row : null;
       const forecastForScore =
         fetchWindow.selectedAt === null
           ? null
-          : closestForecastRow(beachForecasts, fetchWindow.selectedAt);
+          : modelRow(closestForecastRow(beachForecasts, fetchWindow.selectedAt));
 
       let display: ForecastDisplay | null = null;
       let scoreForecast: EnhancedForecastEntity | null = forecastForScore;
@@ -989,9 +993,9 @@ export async function bulkForecastHandler(
       if (fetchWindow.selectedAt) {
         display = resolveSelectedHourDisplay(forecastForScore);
       } else {
-        const currentRow = designateCurrentRow(beachForecasts, now, {
+        const currentRow = modelRow(designateCurrentRow(beachForecasts, now, {
           toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-        })?.row ?? null;
+        })?.row ?? null);
         display = resolveSelectedHourDisplay(currentRow);
         scoreForecast = currentRow;
 
@@ -1036,8 +1040,7 @@ export async function bulkForecastHandler(
       }
 
       const forecast = scoreForecast;
-      // A FALLBACK row's null height would score as a flat 0 / MEH.
-      if (!forecast || isFallbackForecastRow(forecast)) continue;
+      if (!forecast) continue;
 
       try {
         const score = scoreWindowConditionScore(
