@@ -391,5 +391,30 @@ describe("beginner actions", () => {
 
       expect(result.badge?.spotName).toBe("Windy Unknown");
     });
+
+    it("does not rank the editorial list down for wind it can't judge, and reads orientation", async () => {
+      beaches.push(
+        makeBeach({ id: "windy-unknown", name: "Windy Unknown", slug: "windy-unknown", average_rating: 5 }),
+        makeBeach({ id: "light-known", name: "Light Known", slug: "light-known", average_rating: 4 }),
+      );
+      forecasts.push(
+        makeForecast({ beach_id: "windy-unknown", wind_speed: "13 mph", wind_direction: null }),
+        makeForecast({ beach_id: "light-known" }),
+      );
+
+      const result = await getBeginnerBeachesWithEditorial("huntington-beach", "ca");
+
+      expect(result.map((beach) => beach.name)).toEqual(["Windy Unknown", "Light Known"]);
+      const selects = mockSupabase.from.mock.calls.map(([table], i) => ({
+        table,
+        columns: String(mockSupabase.from.mock.results[i].value.select.mock.calls[0]?.[0] ?? ""),
+      }));
+      const beachSelect = selects.find((call) => call.table === "beaches")?.columns ?? "";
+      const forecastSelect = selects.find((call) => call.table === "enhanced_forecasts")?.columns ?? "";
+      for (const column of ["wind_offshore_deg", "wind_offshore_tol_deg", "aspect_deg"]) {
+        expect(beachSelect).toContain(column);
+      }
+      expect(forecastSelect).toContain("wind_direction_deg");
+    });
   });
 });

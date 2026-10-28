@@ -140,12 +140,12 @@ interface BeginnerWind {
 function readBeginnerWind(
   beach: WindOrientationSource,
   forecast: {
-    wind_speed: string | null;
+    wind_speed?: string | null;
     wind_direction?: string | null;
     wind_direction_deg?: number | null;
   },
 ): BeginnerWind {
-  const speedMph = parseWindSpeedOrNull(forecast.wind_speed);
+  const speedMph = parseWindSpeedOrNull(forecast.wind_speed ?? null);
   const relation = windRelation(
     getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction),
     resolveWindOrientation(beach),
