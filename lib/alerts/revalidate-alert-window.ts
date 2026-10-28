@@ -11,6 +11,7 @@ import type { AlertRevalidationBeachMeta } from "@/lib/alerts/payload-builder";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
 import type { Beach } from "@/types/database";
 import { expandForecastHoursToHourly, type AlertTideSample } from "@/lib/alerts/hourly-forecast-hours";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 
 export type EnhancedForecastAlertRow = Record<string, unknown> & {
   id?: string;
@@ -25,6 +26,7 @@ export type EnhancedForecastAlertRow = Record<string, unknown> & {
   wind_direction_deg?: string | number | null;
   tide_height?: string | number | null;
   tide_status?: string | null;
+  data_source?: string | null;
 };
 
 interface SelectFreshAlertWindowInput {
@@ -44,8 +46,11 @@ export function prepareAlertForecastHours(
   beach: { lat: number; lon: number },
   options: { hourly: boolean; tideSamples?: AlertTideSample[] | null },
 ): { daylight: ForecastHour[]; maxWaveByForecastAt: Map<string, number> } {
-  const parsed = forecastRows.map(parseEnhancedForecastHour);
-  const rowMaxWave = buildMaxWaveByForecastAt(forecastRows);
+  // FALLBACK rows carry no model wave data. Their null heights would pass the
+  // surfability gate's fail-open and let a wind or tide rule fire.
+  const modelRows = forecastRows.filter((row) => !isFallbackForecastRow(row));
+  const parsed = modelRows.map(parseEnhancedForecastHour);
+  const rowMaxWave = buildMaxWaveByForecastAt(modelRows);
   const { hours, maxWaveByForecastAt } = options.hourly
     ? expandForecastHoursToHourly({ hours: parsed, maxWaveByForecastAt: rowMaxWave, tideSamples: options.tideSamples })
     : { hours: parsed, maxWaveByForecastAt: rowMaxWave };

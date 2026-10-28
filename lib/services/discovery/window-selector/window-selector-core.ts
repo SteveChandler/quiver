@@ -70,6 +70,7 @@ import { findPeakRowWithinWindow } from './peak-finder';
 import { applySubHourRefinement } from './window-refiner';
 import { scoreWindowConditionScore, scoreWindowForSelection } from './window-scorer';
 import { moreInformativeRejection } from './rejection-evidence';
+import { isFallbackForecastRow } from '@/lib/utils/forecast-row-source';
 
 const log = createContextLogger('WindowSelector');
 
@@ -97,6 +98,9 @@ function prepareForecasts(
   rowLiveness: RowLiveness,
 ): ScoredForecast[] {
   const scoredForecasts = forecasts
+    // FALLBACK rows carry no model wave data; a null height would score as a
+    // flat slot and could surface as the below-floor fallback window.
+    .filter((forecast) => !isFallbackForecastRow(forecast))
     .map((forecast) => {
       // Interpret forecast_date + forecast_time as LOCAL time in the beach timezone.
       // This avoids UTC boundary bugs where forecast_time stores local hours.

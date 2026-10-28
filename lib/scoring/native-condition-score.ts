@@ -10,6 +10,7 @@ import {
   DAYLIGHT_START_HOUR,
 } from "@/lib/services/magic-hour/constants";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 import {
   getRideabilityBand,
   type BoardClass,
@@ -396,8 +397,11 @@ export function pickBestNativeForecastSlot(
   options: { beachTz?: string; tideBand?: TideBand | null } = {}
 ): NativeScoredForecast | null {
   const { beachTz, tideBand } = options;
+  // A FALLBACK row's null wave height parses as 0 ft and would score as a
+  // real flat slot.
+  const modelForecasts = forecasts.filter((forecast) => !isFallbackForecastRow(forecast));
   const daylightForecasts = beachTz
-    ? forecasts.filter((forecast) => {
+    ? modelForecasts.filter((forecast) => {
         const localHour = getLocalHour(
           new Date(forecast.forecast_at),
           beachTz,
@@ -407,10 +411,10 @@ export function pickBestNativeForecastSlot(
           localHour < DAYLIGHT_END_HOUR
         );
       })
-    : forecasts;
+    : modelForecasts;
   const candidates = daylightForecasts.length > 0
     ? daylightForecasts
-    : forecasts;
+    : modelForecasts;
   let best: NativeScoredForecast | null = null;
 
   for (const forecast of candidates) {

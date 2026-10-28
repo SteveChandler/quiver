@@ -438,6 +438,31 @@ describe("aggregateRegionalForecast", () => {
     expect(summary.sourceDataUpdatedAt).toBe("2026-08-27T21:00:00.000Z");
   });
 
+  it("never builds a day, score or height from FALLBACK rows", () => {
+    const now = new Date("2026-08-27T19:00:00.000Z");
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>([
+      [
+        "beach-1",
+        [
+          createMockForecast("beach-1", "2026-08-27", "21:00", { wave_height: "2 ft" }),
+          createMockForecast("beach-1", "2026-08-28", "18:00", {
+            wave_height: "9 ft",
+            data_source: "FALLBACK",
+          }),
+          createMockForecast("beach-1", "2026-08-29", "18:00", {
+            wave_height: null,
+            data_source: "FALLBACK",
+          }),
+        ],
+      ],
+    ]);
+
+    const summary = aggregateRegionalForecast(mockRegion, [mockBeaches[0]], forecastMap, { now });
+
+    expect(summary.days).toHaveLength(1);
+    expect(summary.days[0].waveRange).toEqual([2, 2]);
+  });
+
   it("should create 7-day forecast summary", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
 

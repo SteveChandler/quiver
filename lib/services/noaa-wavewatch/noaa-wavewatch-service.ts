@@ -2,7 +2,7 @@
  * NOAA WaveWatch III Service
  *
  * Main orchestration class for fetching and processing wave forecast data.
- * Coordinates between NOAA NWS API, Open-Meteo API, and fallback data generation.
+ * Coordinates between the NOAA NWS API and the Open-Meteo API.
  *
  * @module noaa-wavewatch/noaa-wavewatch-service
  */
@@ -12,7 +12,6 @@ import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logge
 import { fetchNOAAPointData, fetchNOAAGridData, fetchOpenMeteoData, constructGridUrl } from "./api-client";
 import { processNOAAGridData, processOpenMeteoData } from "./data-processors";
 import { mergeWaveSources } from "./source-selection";
-import { generateFallbackData, generateFallbackSlotsFrom } from "./fallback-generator";
 import { FORECAST_CONFIG } from "./constants";
 import { hasValidWaveData, logWaveDataAvailability, metersToFeet, getWaveDirectionText } from "./wave-analysis";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
@@ -37,8 +36,8 @@ export class NOAAWaveWatchService {
   /**
    * Fetch wave forecast data for a specific location
    *
-   * Attempts to fetch real NOAA data, falls back to Open-Meteo, and generates
-   * synthetic data as a last resort.
+   * Attempts to fetch real NOAA data and falls back to Open-Meteo. Never
+   * synthesizes wave values: with no real source it returns null.
    *
    * @param latitude - Latitude in decimal degrees
    * @param longitude - Longitude in decimal degrees
@@ -64,23 +63,13 @@ export class NOAAWaveWatchService {
       }
 
       if (noaaData && noaaData.forecast.length > 0) {
+        // Slots past the last model timestamp stay empty. The builder stores
+        // them as FALLBACK rows with null wave fields, which readers treat as
+        // "model data pending" rather than a forecast.
         const expectedSlots = days * FORECAST_CONFIG.FORECASTS_PER_DAY;
-        // Fill any remaining horizon gaps with fallback slots
         if (noaaData.forecast.length < expectedSlots) {
-          const lastTimestamp = new Date(
-            noaaData.forecast[noaaData.forecast.length - 1].timestamp
-          );
-          const slotsNeeded = expectedSlots - noaaData.forecast.length;
-          const fillSlots = generateFallbackSlotsFrom(
-            latitude,
-            longitude,
-            lastTimestamp,
-            slotsNeeded
-          );
-          // Safe to mutate: noaaData is local to this call
-          noaaData.forecast.push(...fillSlots);
           log.info(
-            `Filled ${fillSlots.length} horizon gap slots (${noaaData.forecast.length} total for ${days}d request)`
+            `Real wave data covers ${noaaData.forecast.length} of ${expectedSlots} slots for ${days}d request`
           );
         }
 
@@ -90,40 +79,25 @@ export class NOAAWaveWatchService {
         return noaaData;
       }
 
-      // If NOAA data fails, fall back to simulated data with clear indication
-      log.warn(`Using FALLBACK synthetic data for ${latitude}, ${longitude} — both NOAA and Open-Meteo returned no usable forecasts`);
+      log.warn(`No wave forecast for ${latitude}, ${longitude} — both NOAA and Open-Meteo returned no usable forecasts`);
       trackFallback({
         domain: "noaa-wavewatch",
         field: "wave_forecast",
-        fallbackValue: "synthetic",
+        fallbackValue: "unavailable",
         reason: "both_sources_empty",
         context: { latitude, longitude, days },
       });
-      const fallbackData = generateFallbackData(latitude, longitude, days);
-
-      return {
-        lat: latitude,
-        lng: longitude,
-        forecast: fallbackData,
-      };
+      return null;
     } catch (error) {
-      log.error(`Using FALLBACK synthetic data for ${latitude}, ${longitude} due to error:`, error);
+      log.error(`No wave forecast for ${latitude}, ${longitude} due to error:`, error);
       trackFallback({
         domain: "noaa-wavewatch",
         field: "wave_forecast",
-        fallbackValue: "synthetic",
+        fallbackValue: "unavailable",
         reason: "fetch_error",
         context: { latitude, longitude, days, error: String(error) },
       });
-
-      // Generate fallback data on error
-      const fallbackData = generateFallbackData(latitude, longitude, days);
-
-      return {
-        lat: latitude,
-        lng: longitude,
-        forecast: fallbackData,
-      };
+      return null;
     }
   }
 

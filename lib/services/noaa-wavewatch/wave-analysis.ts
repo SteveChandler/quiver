@@ -8,7 +8,7 @@
  */
 
 import { createContextLogger } from "@/lib/logger";
-import { WAVE_REGIONS, SEASONAL_FACTORS, COMPASS_DIRECTIONS, UNIT_CONVERSIONS } from "./constants";
+import { WAVE_REGIONS, COMPASS_DIRECTIONS, UNIT_CONVERSIONS } from "./constants";
 import {
   metersToFeet as convertMetersToFeet,
 } from "@/lib/utils/unit-conversions";
@@ -19,89 +19,6 @@ const log = createContextLogger("NOAAWaveWatch:WaveAnalysis");
 interface NOAAValidTimeInterval {
   startMs: number;
   endMs: number;
-}
-
-/**
- * Get base wave height for a geographic location
- *
- * @param lat - Latitude in decimal degrees
- * @param lon - Longitude in decimal degrees
- * @returns Base wave height in meters
- */
-export function getBaseWaveHeight(lat: number, lon: number): number {
-  // Pacific Coast (California)
-  if (
-    lon < WAVE_REGIONS.PACIFIC_COAST.longitudeRange.max &&
-    lon > WAVE_REGIONS.PACIFIC_COAST.longitudeRange.min &&
-    lat > WAVE_REGIONS.PACIFIC_COAST.latitudeRange.min &&
-    lat < WAVE_REGIONS.PACIFIC_COAST.latitudeRange.max
-  ) {
-    return WAVE_REGIONS.PACIFIC_COAST.baseWaveHeight;
-  }
-
-  // Atlantic Coast
-  if (
-    lon > WAVE_REGIONS.ATLANTIC_COAST.longitudeRange.min &&
-    lon < WAVE_REGIONS.ATLANTIC_COAST.longitudeRange.max &&
-    lat > WAVE_REGIONS.ATLANTIC_COAST.latitudeRange.min &&
-    lat < WAVE_REGIONS.ATLANTIC_COAST.latitudeRange.max
-  ) {
-    return WAVE_REGIONS.ATLANTIC_COAST.baseWaveHeight;
-  }
-
-  // Gulf of Mexico
-  if (
-    lon > WAVE_REGIONS.GULF_OF_MEXICO.longitudeRange.min &&
-    lon < WAVE_REGIONS.GULF_OF_MEXICO.longitudeRange.max &&
-    lat > WAVE_REGIONS.GULF_OF_MEXICO.latitudeRange.min &&
-    lat < WAVE_REGIONS.GULF_OF_MEXICO.latitudeRange.max
-  ) {
-    return WAVE_REGIONS.GULF_OF_MEXICO.baseWaveHeight;
-  }
-
-  // Hawaii
-  if (
-    lon > WAVE_REGIONS.HAWAII.longitudeRange.min &&
-    lon < WAVE_REGIONS.HAWAII.longitudeRange.max &&
-    lat > WAVE_REGIONS.HAWAII.latitudeRange.min &&
-    lat < WAVE_REGIONS.HAWAII.latitudeRange.max
-  ) {
-    return WAVE_REGIONS.HAWAII.baseWaveHeight;
-  }
-
-  // Default ocean
-  return WAVE_REGIONS.DEFAULT_OCEAN.baseWaveHeight;
-}
-
-/**
- * Get seasonal factor for wave height adjustments
- *
- * @param month - Month number (0-11, where 0 is January)
- * @param lat - Latitude in decimal degrees
- * @returns Seasonal adjustment factor
- */
-export function getSeasonalFactor(month: number, lat: number): number {
-  const isNorthern = lat > 0;
-
-  if (isNorthern) {
-    if ((SEASONAL_FACTORS.NORTHERN_WINTER.months as readonly number[]).includes(month)) {
-      return SEASONAL_FACTORS.NORTHERN_WINTER.factor;
-    }
-    if ((SEASONAL_FACTORS.NORTHERN_SUMMER.months as readonly number[]).includes(month)) {
-      return SEASONAL_FACTORS.NORTHERN_SUMMER.factor;
-    }
-  } else {
-    // Southern hemisphere - opposite seasons
-    if ((SEASONAL_FACTORS.SOUTHERN_WINTER.months as readonly number[]).includes(month)) {
-      return SEASONAL_FACTORS.SOUTHERN_WINTER.factor;
-    }
-    if ((SEASONAL_FACTORS.SOUTHERN_SUMMER.months as readonly number[]).includes(month)) {
-      return SEASONAL_FACTORS.SOUTHERN_SUMMER.factor;
-    }
-  }
-
-  // Spring/Fall
-  return SEASONAL_FACTORS.DEFAULT.factor;
 }
 
 /**
