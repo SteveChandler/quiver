@@ -57,5 +57,16 @@ crop, no upscale; the three 5000+ px originals are stored downscaled to 1600 px 
 | `learn-manasquan-inlet-jetty.webp` | `/learn/can-you-surf-in-new-jersey` | Manasquan Beach Inlet (7.13.08) | Luigi Novi (Nightscream) | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:ManasquanBeachInlet7.13.08ByLuigiNovi8.jpg |
 | `learn-cape-may-wetsuit-surfer.webp` | `/learn/can-you-surf-in-new-jersey` | AtlanticSurfing (Cape May, New Jersey) | Shiva Shenoy | CC BY 4.0 | https://www.flickr.com/photos/shivashenoy/55312082547/ |
 
+## Sourced 2026-10-27 (Openverse → Flickr, Creative Commons)
+
+Each licence was checked on the Flickr source page. WebP q82 at native resolution,
+no crop, no upscale.
+
+| File | Guide | Title | Creator | Licence | Source |
+| --- | --- | --- | --- | --- | --- |
+| `learn-folly-beach-learners.webp` | `/learn/can-you-surf-in-south-carolina` | 'Learning to Ride the Waves' No.1 -- Folly Beach (SC) July 2012 | Ron Cogswell | CC BY 2.0 | https://www.flickr.com/photos/22711505@N05/7794455966 |
+| `learn-folly-beach-hurricane-irene.webp` | `/learn/can-you-surf-in-south-carolina` | H. Irene | Gretchen Esbensen | CC BY 2.0 | https://www.flickr.com/photos/59435511@N02/6663054411 |
+| `learn-folly-beach-longboarders.webp` | `/learn/can-you-surf-in-south-carolina` | 'Looking for the Perfect Wave' -- Folly Beach (SC) 2012 | Ron Cogswell | CC BY 2.0 | https://www.flickr.com/photos/22711505@N05/7770892728 |
+
 The older `learn-*.jpg` files in this directory predate the ledger and have no
 recorded provenance.

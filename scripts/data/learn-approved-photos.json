@@ -193,5 +193,44 @@
     "licenseStatus": "defensible",
     "usageNotes": "New Jersey guide wetsuit section image: a surfer in a full suit on a small foggy wave at Cape May. Licence checked on the Flickr source page (CC BY 4.0) on 2026-10-20; found via the Wikimedia Commons mirror. No crop, no upscale; stored downscaled from 5210 px to 1600 px wide.",
     "runtimeAssetPath": "public/images/learn/learn-cape-may-wetsuit-surfer.webp"
+  },
+  {
+    "slug": "can-you-surf-in-south-carolina",
+    "name": "learn-folly-beach-learners",
+    "imageUrl": "https://live.staticflickr.com/8308/7794455966_3b804ddae6_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/22711505@N05/7794455966",
+    "title": "'Learning to Ride the Waves' No.1 -- Folly Beach (SC) July 2012",
+    "creator": "Ron Cogswell",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "South Carolina guide hero/thumbnail: a parent pushing two kids into whitewater on a soft-top at Folly Beach in summer. Licence checked on the Flickr source page (CC BY 2.0) on 2026-10-27; stored at native resolution (1023 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-folly-beach-learners.webp"
+  },
+  {
+    "slug": "can-you-surf-in-south-carolina",
+    "name": "learn-folly-beach-hurricane-irene",
+    "imageUrl": "https://live.staticflickr.com/7008/6663054411_a7c64f4ab8_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/59435511@N02/6663054411",
+    "title": "H. Irene",
+    "creator": "Gretchen Esbensen",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "South Carolina guide season section image: black-and-white shot of a surfer walking out of Hurricane Irene swell at Folly Beach (Flickr geotag: Folly Beach). Licence checked on the Flickr source page (CC BY 2.0) on 2026-10-27; stored at native resolution (1024 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-folly-beach-hurricane-irene.webp"
+  },
+  {
+    "slug": "can-you-surf-in-south-carolina",
+    "name": "learn-folly-beach-longboarders",
+    "imageUrl": "https://live.staticflickr.com/8443/7770892728_39fea9bc58_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/22711505@N05/7770892728",
+    "title": "'Looking for the Perfect Wave' -- Folly Beach (SC) 2012",
+    "creator": "Ron Cogswell",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "South Carolina guide spots section image: two surfers holding longboards in the Folly Beach shorebreak. Licence checked on the Flickr source page (CC BY 2.0) on 2026-10-27; stored at native resolution (1024 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-folly-beach-longboarders.webp"
   }
 ]

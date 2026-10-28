@@ -8,7 +8,6 @@ import {
   getSwellBriefingRegion,
   isSwellBriefingEnabled,
 } from "@/lib/flags/swell-briefing";
-import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
 import { NO_STORE_CACHE_CONTROL } from "./cache-wrappers";
 import type { RouteContext, RouteHandler } from "./types";
 
@@ -61,8 +60,10 @@ function bearerToken(request: NextRequest): string | null {
  * credential is scoped to one account and the three briefing routes, so a
  * leaked token cannot read or write anything else.
  *
- * Every request rechecks current access rather than trusting the token alone,
- * so revoking the pilot's outlook access also stops publication.
+ * Every request rereads the `SWELL_BRIEFING_*` configuration rather than
+ * trusting the token alone, so turning the briefing off or clearing the pilot
+ * stops publication. It is deliberately independent of `SWELL_OUTLOOK_*`: the
+ * Outlook screen is being retired while Week Scout notes keep publishing.
  */
 export function withBriefingPublisher(handler: BriefingPublisherHandler): RouteHandler {
   return async (request: NextRequest, _context?: RouteContext) => {
@@ -77,11 +78,6 @@ export function withBriefingPublisher(handler: BriefingPublisherHandler): RouteH
     const presented = bearerToken(request);
     if (presented === null || !tokenMatches(presented, expected)) {
       return deny(401, "unauthorized");
-    }
-
-    // The credential names the account; access is still checked per request.
-    if (!isSwellOutlookEnabled() || !isSwellOutlookUserAllowed(userId)) {
-      return deny(403, "forbidden");
     }
 
     try {

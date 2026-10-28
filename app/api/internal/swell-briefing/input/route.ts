@@ -6,6 +6,7 @@ import {
   buildBriefingInput,
 } from "@/lib/services/discovery/swell-briefing-input";
 import { BriefingStoreError } from "@/lib/services/discovery/swell-briefing-store";
+import { buildWeekScoutNotesInput } from "@/lib/services/discovery/week-scout-notes-input";
 import {
   BriefingValidationError,
   assertBeachIdsAreUuids,
@@ -26,9 +27,28 @@ export const maxDuration = 60;
  * Reissuing is deliberate. When the measurements have not moved, the stored
  * snapshot comes back unchanged, so a refetch does not hand the worker a new
  * hash and make it regenerate an identical edition.
+ *
+ * `?schema=2` issues Week Scout notes candidates instead of the Outlook
+ * briefing. It is opt-in so a deployed worker that only reads schema 1 keeps
+ * working until its config is switched.
  */
-export const GET = withBriefingPublisher(async (_request: NextRequest, { userId, region }) => {
+export const GET = withBriefingPublisher(async (request: NextRequest, { userId, region }) => {
+  const schema = request.nextUrl.searchParams.get("schema");
+  if (schema !== null && schema !== "1" && schema !== "2") {
+    return NextResponse.json({ error: "unsupported_schema_version" }, { status: 400 });
+  }
+
   try {
+    if (schema === "2") {
+      const notes = await buildWeekScoutNotesInput({
+        client: createSupabaseServiceRoleClient(),
+        userId,
+        regionSlug: region,
+        now: new Date(),
+      });
+      return NextResponse.json(notes);
+    }
+
     const snapshot = await buildBriefingInput({
       client: createSupabaseServiceRoleClient(),
       userId,

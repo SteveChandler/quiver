@@ -360,4 +360,100 @@ describe('Scoring Engine', () => {
       ).toBe(true);
     });
   });
+
+  describe('binding effect leads the reasons (TIDE_SWING_ENABLED)', () => {
+    const originalFlag = process.env.TIDE_SWING_ENABLED;
+    afterEach(() => {
+      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
+      else process.env.TIDE_SWING_ENABLED = originalFlag;
+    });
+
+    const tideEffect = {
+      code: 'tide_outside_band',
+      severity: 'material' as const,
+      verdictCeiling: 69,
+      message: 'Tide back in range by ~1 PM',
+    };
+    const milderEffect = {
+      code: 'tide_swing',
+      severity: 'material' as const,
+      verdictCeiling: 79,
+      message: 'Turning off as it drains',
+    };
+
+    function engineWithEffects(score: number, reasons: string[] = ['Good wave size (4.0ft)']): ScoringEngine {
+      return new ScoringEngine().register({
+        name: 'effects',
+        weight: 1,
+        score: () => ({
+          name: 'effects',
+          score,
+          weight: 1,
+          reasons,
+          warnings: [],
+          skip: false,
+          skipReason: null,
+          effects: [milderEffect, tideEffect],
+        }),
+      });
+    }
+
+    it('flag off keeps reasons as they were', () => {
+      delete process.env.TIDE_SWING_ENABLED;
+      const result = engineWithEffects(90).score(createInput({ waveHeight: 5 }));
+      expect(result.total).toBe(69);
+      expect(result.reasons).toEqual(['Good wave size (4.0ft)']);
+      expect(result.warnings).toEqual([milderEffect.message, tideEffect.message]);
+    });
+
+    it('puts the lowest binding ceiling\'s message first, once', () => {
+      process.env.TIDE_SWING_ENABLED = 'true';
+      const result = engineWithEffects(90, ['Good wave size (4.0ft)', tideEffect.message])
+        .score(createInput({ waveHeight: 5 }));
+      expect(result.total).toBe(69);
+      expect(result.reasons).toEqual([tideEffect.message, 'Good wave size (4.0ft)']);
+      expect(result.warnings).toEqual([milderEffect.message, tideEffect.message]);
+    });
+
+    it('does not lead with an effect that does not bind', () => {
+      process.env.TIDE_SWING_ENABLED = 'true';
+      expect(engineWithEffects(60).score(createInput({ waveHeight: 5 })).reasons)
+        .toEqual(['Good wave size (4.0ft)']);
+    });
+
+    it('leaves the reasons order alone when a non-tide effect binds', () => {
+      process.env.TIDE_SWING_ENABLED = 'true';
+      const crossing = {
+        code: 'crossing_swells' as const,
+        severity: 'material' as const,
+        verdictCeiling: 65,
+        message: 'Crossing swells creating choppy conditions',
+      };
+      const engine = new ScoringEngine().register({
+        name: 'effects',
+        weight: 1,
+        score: () => ({
+          name: 'effects',
+          score: 90,
+          weight: 1,
+          reasons: ['Good wave size (4.0ft)', 'Clean offshore wind'],
+          warnings: [],
+          skip: false,
+          skipReason: null,
+          effects: [crossing, milderEffect],
+        }),
+      });
+      const result = engine.score(createInput({ waveHeight: 5 }));
+      expect(result.total).toBe(65);
+      expect(result.reasons).toEqual(['Good wave size (4.0ft)', 'Clean offshore wind']);
+    });
+
+    it('does not lead with an effect when a lower wave-height cap sets the score', () => {
+      process.env.TIDE_SWING_ENABLED = 'true';
+      const result = engineWithEffects(90).score(createInput({ waveHeight: 1.7 }));
+      expect(result.total).toBe(55);
+      expect(result.reasons[0]).toBe('Good wave size (4.0ft)');
+      expect(result.reasons).not.toContain(tideEffect.message);
+    });
+  });
 });

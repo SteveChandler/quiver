@@ -12,10 +12,12 @@ import {
   type UserScoringPreferences,
 } from '@/lib/scoring/types';
 import {
+  displayTideBand,
   pickBestNativeForecastSlot,
   type NativeScoredForecast,
 } from '@/lib/scoring/native-condition-score';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
+import type { TideBand } from '@/lib/domains/scoring/tide-swing';
 import {
   DEFAULT_TIMEZONE,
   getLocalDateString,
@@ -151,11 +153,12 @@ function findBestForecast(
   dayForecasts: EnhancedForecastEntity[],
   skillLevel?: SkillLevel | string | null,
   beachTz?: string,
-  _userPreferences?: UserScoringPreferences
+  _userPreferences?: UserScoringPreferences,
+  tideBand?: TideBand | null,
 ): NativeScoredForecast | null {
   if (dayForecasts.length === 0) return null;
 
-  return pickBestNativeForecastSlot(dayForecasts, skillLevel, { beachTz });
+  return pickBestNativeForecastSlot(dayForecasts, skillLevel, { beachTz, tideBand });
 }
 
 /**
@@ -246,6 +249,7 @@ export function aggregateDayForecasts(
 ): DaySummary[] {
   const { maxDays = 12, timezone = beach.timezone || DEFAULT_TIMEZONE } = options;
   const userPreferences = options.userPreferences;
+  const tideBand = displayTideBand(beach);
 
   if (!forecasts || forecasts.length === 0) {
     return [];
@@ -271,7 +275,7 @@ export function aggregateDayForecasts(
     const dayForecasts = forecastsByDate.get(dateStr) || [];
 
     // Find best forecast for scoring
-    const bestResult = findBestForecast(dayForecasts, options.skillLevel, timezone, userPreferences);
+    const bestResult = findBestForecast(dayForecasts, options.skillLevel, timezone, userPreferences, tideBand);
 
     if (!bestResult) continue;
 

@@ -141,6 +141,113 @@ export interface SwellBriefingArtifact {
   provenance: SwellBriefingProvenance | null;
 }
 
+/* ------------------------------------------------ Week Scout notes (v2) */
+
+export const WEEK_SCOUT_NOTES_KIND = "week_scout_notes";
+export const WEEK_SCOUT_NOTES_GENERATION_VERSION = "week-scout-notes-1";
+export type BriefingSchemaVersion = 1 | 2;
+
+/** Day verdicts and buckets, as `WeekScoutWindowResponse` writes them. */
+export type WeekScoutNoteVerdict = "worth_it" | "maybe" | "skip";
+export type WeekScoutNoteBucket = "morning" | "midday" | "evening";
+/** `SwellConfidence`, lowest first. */
+export const WEEK_SCOUT_NOTE_CONFIDENCE = ["on_the_radar", "likely", "locked"] as const;
+export type WeekScoutNoteConfidence = (typeof WEEK_SCOUT_NOTE_CONFIDENCE)[number];
+
+/** A day's pick as the note was written against it: the live `bestDayWindow` must still match. */
+export interface WeekScoutDayGate {
+  localDate: string;
+  beachId: string;
+  verdict: WeekScoutNoteVerdict;
+  bucket: WeekScoutNoteBucket;
+}
+
+/** A swell as the note was written against it: still listed, and no less certain. */
+export interface WeekScoutSwellGate {
+  eventKey: string;
+  confidence: WeekScoutNoteConfidence;
+}
+
+/**
+ * What a note's text rests on. Every gate must still hold against the live
+ * Week Scout response or the note is withheld; that, not the edition's age,
+ * decides whether it is current.
+ */
+export interface WeekScoutNoteGate {
+  days: WeekScoutDayGate[];
+  swells: WeekScoutSwellGate[];
+}
+
+/** `headline`, `day:YYYY-MM-DD` or `swell:<eventKey>`. */
+export interface WeekScoutNote {
+  slot: string;
+  text: string;
+  gate: WeekScoutNoteGate;
+}
+
+/**
+ * The stored v2 edition. `generatedAt` is kept for revision ordering and the
+ * publish-time bounds; it is never sent to a reader. The headline is the note
+ * in the `headline` slot, when the model chose one.
+ */
+export interface WeekScoutNotesBriefing {
+  schemaVersion: 2;
+  kind: typeof WEEK_SCOUT_NOTES_KIND;
+  editionDate: string;
+  generatedAt: string;
+  notes: WeekScoutNote[];
+}
+
+/** A candidate the model may pick. The gate travels with it into the note, verbatim. */
+export interface WeekScoutNoteCopyFact {
+  id: string;
+  slot: string;
+  text: string;
+  gate: WeekScoutNoteGate;
+}
+
+export interface WeekScoutNotesInputSnapshot {
+  schemaVersion: 2;
+  userId: string;
+  region: string;
+  editionDate: string;
+  sourcePublishedAt: string;
+  validUntil: string;
+  briefing: WeekScoutNotesBriefing;
+  copyFacts: WeekScoutNoteCopyFact[];
+  provenance: SwellBriefingProvenance;
+  inputHash: string;
+}
+
+export interface WeekScoutNotesArtifact {
+  artifactId: string;
+  schemaVersion: 2;
+  userId: string;
+  region: string;
+  editionDate: string;
+  inputHash: string;
+  sourcePublishedAt: string;
+  validUntil: string;
+  generationVersion: string;
+  model: string;
+  briefing: WeekScoutNotesBriefing;
+  provenance: SwellBriefingProvenance | null;
+}
+
+export type BriefingInputSnapshot = SwellBriefingInputSnapshot | WeekScoutNotesInputSnapshot;
+export type BriefingArtifact = SwellBriefingArtifact | WeekScoutNotesArtifact;
+
+/** A note as a reader receives it: its slot and text, nothing about age or gates. */
+export interface WeekScoutWireNote {
+  slot: string;
+  text: string;
+}
+
+export interface WeekScoutWireNotes {
+  headline?: string;
+  notes?: WeekScoutWireNote[];
+}
+
 export interface SwellBriefingPublishResult {
   artifactId: string;
   created: boolean;

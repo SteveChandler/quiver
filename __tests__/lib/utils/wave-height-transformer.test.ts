@@ -478,12 +478,12 @@ describe('Wave Height Transformer', () => {
         expect(
           transformToFaceHeight({
             rawHeightFt: 2.0,
-            periodS: 6, // <8 bucket, factor 1.6
+            periodS: 6, // <8 bucket 1.6 capped to period factor 0.8
             swellDirectionDeg: null,
             beach: { shoaling_factors: blacksFactors },
             source: 'cdip_sig',
           })
-        ).toBe(3.2);
+        ).toBe(1.6);
 
         expect(
           transformToFaceHeight({
@@ -614,7 +614,7 @@ describe('Wave Height Transformer', () => {
 
       it('should handle period exactly at bucket boundary using half-open intervals', () => {
         // tp_min_s=8 is inclusive, tp_max_s=8 is exclusive.
-        // Period=8.0 should land in the 8-12 bucket (factor 1.7), not the <8 bucket (1.6).
+        // Period=8.0 lands in the 8-12 bucket, then its 1.7 factor is capped to 0.9.
         const result = transformToFaceHeight({
           rawHeightFt: 2.0,
           periodS: 8.0,
@@ -622,7 +622,7 @@ describe('Wave Height Transformer', () => {
           beach: { shoaling_factors: blacksFactors },
           source: 'cdip_sig',
         });
-        expect(result).toBe(3.4); // 2.0 * 1.7
+        expect(result).toBe(1.8); // 2.0 * 0.9
       });
 
       // =============================================================
@@ -896,6 +896,17 @@ describe('Wave Height Transformer', () => {
   });
 
   describe('transformToFaceHeightWithMetadata', () => {
+    const LA_JOLLA_SHORES_SHOALING_FACTORS: ShoalingFactors = {
+      version: 1,
+      type: 'period_lookup',
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.18 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.19 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 1.42 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 1.46 },
+      ],
+    };
+
     // Blacks-style calibration factors, modeled on the 20260407 migration.
     // bucket at 12-16s = 2.1x → 1.7ft CDIP Hs × 2.1 = 3.57 → rounds to 3.6.
     const BLACKS_SHOALING_FACTORS: ShoalingFactors = {
@@ -932,9 +943,7 @@ describe('Wave Height Transformer', () => {
       expect(result.provenance).toBe('measured');
     });
 
-    it('keeps calibrated bucket output byte-for-byte unchanged and never uses the prior', () => {
-      // Regression: adding a population prior must not alter measured beach
-      // output or mutate the measured shoaling_factors payload.
+    it('caps short-period calibration without changing longer buckets or mutating factors', () => {
       const beach = createCalibratedBeach();
       const before = JSON.stringify(beach);
       const outputs = [6, 10, 14, 18].map((periodS) =>
@@ -947,10 +956,114 @@ describe('Wave Height Transformer', () => {
         }),
       );
 
-      expect(outputs.map((result) => result.faceHeightFt)).toEqual([3.2, 3.4, 4.2, 4.8]);
+      expect(outputs.map((result) => result.faceHeightFt)).toEqual([1.6, 3.4, 4.2, 4.8]);
+      expect(outputs.map((result) => result.shortPeriodBucketCapped)).toEqual([
+        true, undefined, undefined, undefined,
+      ]);
       expect(outputs.every((result) => result.provenance === 'measured')).toBe(true);
       expect(outputs.every((result) => result.isCalibrated)).toBe(true);
       expect(JSON.stringify(beach)).toBe(before);
+    });
+
+    it('caps La Jolla Shores 2.7 ft CDIP Hs at 7 s to 2.3 ft', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 7,
+        swellDirectionDeg: 290,
+        beach: { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(2.3);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.provenance).toBe('measured');
+      expect(result.shortPeriodBucketCapped).toBe(true);
+    });
+
+    it('caps Blacks 1.57 bucket at 6 s', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 3,
+        periodS: 6,
+        swellDirectionDeg: 275,
+        beach: { shoaling_factors: BLACKS_SHOALING_FACTORS },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(2.4);
+      expect(result.shortPeriodBucketCapped).toBe(true);
+    });
+
+    it('retains a short-period bucket already below the cap', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 7,
+        swellDirectionDeg: 290,
+        beach: {
+          shoaling_factors: {
+            version: 1,
+            type: 'period_lookup',
+            buckets: [{ tp_min_s: 0, tp_max_s: 8, factor: 0.7 }],
+          },
+        },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(1.9);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.shortPeriodBucketCapped).toBeUndefined();
+    });
+
+    it('caps the 8.0 s edge despite using the 8-12 s bucket', () => {
+      const beach = { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS };
+      const atCutoff = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 8,
+        swellDirectionDeg: 290,
+        beach,
+        source: 'cdip_sig',
+      });
+      const aboveCutoff = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 8.01,
+        swellDirectionDeg: 290,
+        beach,
+        source: 'cdip_sig',
+      });
+
+      expect(lookupShoalingBucket(8, beach.shoaling_factors)).toBe(1.19);
+      expect(atCutoff.faceHeightFt).toBe(2.4);
+      expect(atCutoff.shortPeriodBucketCapped).toBe(true);
+      expect(aboveCutoff.faceHeightFt).toBe(3.2);
+      expect(aboveCutoff.shortPeriodBucketCapped).toBeUndefined();
+    });
+
+    it('leaves La Jolla Shores 13 s bucket unchanged', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 13,
+        swellDirectionDeg: 290,
+        beach: { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(3.8);
+      expect(result.shortPeriodBucketCapped).toBeUndefined();
+    });
+
+    it('applies the same short-period cap to calibrated nowcast anchors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 7,
+        swellDirectionDeg: 290,
+        beach: { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS },
+        source: 'nowcast_anchor',
+        allowCalibratedShoaling: true,
+      });
+
+      expect(result.faceHeightFt).toBe(2.3);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.provenance).toBe('measured');
+      expect(result.shortPeriodBucketCapped).toBe(true);
     });
 
     it('returns isCalibrated false for cdip_sig without shoaling factors', () => {

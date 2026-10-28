@@ -45,6 +45,7 @@ import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
 import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
+import { expectConsoleWarnings } from '@/__tests__/setup/test-utils';
 
 const BEACH_A = '11111111-1111-4111-8111-111111111111';
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
@@ -1150,6 +1151,21 @@ describe('generateWeekScoutForecast', () => {
     expect(response.sessionDecision.selection).toBeNull();
   });
 
+  it('keeps the answer live when the sync has not revisited a beach for hours', async () => {
+    const deps = dependencies();
+    const ingestedLongAgo = { ...forecast(BEACH_A, '2026-07-31T18:00:00.000Z'), data_source: 'CDIP', updated_at: '2026-07-31T02:00:00.000Z' } as EnhancedForecastEntity;
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [ingestedLongAgo]]]));
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 1,
+    }, deps);
+
+    expect(Date.parse(response.coverage!.expiresAt)).toBe(deps.now.getTime() + 60_000);
+  });
+
   it('assigns dayparts and coverage in the beach timezone', async () => {
     const deps = dependencies();
     const losAngelesBeach = {
@@ -1987,5 +2003,126 @@ describe('generateWeekScoutForecast', () => {
       { beachId: BEACH_B, rankingScore: rawScores[BEACH_B] },
       { beachId: BEACH_A, rankingScore: rawScores[BEACH_A] },
     ]);
+  });
+});
+
+describe('Week Scout hourly bridge', () => {
+  const START = '2026-07-31';
+  const HOUR = 60 * 60 * 1000;
+  // 05:00 HST on day 0, every 3 h through day 10. Without sun times, light is 06:00-18:00 HST.
+  const FIRST_ROW_MS = Date.parse('2026-07-31T15:00:00.000Z');
+  const HEADLINE_END_MS = Date.parse('2026-08-07T10:00:00.000Z'); // 2026-08-07 00:00 HST
+
+  function bridgeDependencies() {
+    const deps = dependencies();
+    const rows = new Map([BEACH_A, BEACH_B].map((beachId) => [
+      beachId,
+      Array.from({ length: 11 * 8 }, (_, index) => ({
+        ...forecast(beachId, new Date(FIRST_ROW_MS + index * 3 * HOUR).toISOString()),
+        id: `${beachId}-${index}`,
+        tide_height: `${(1 + (index % 4) * 0.5).toFixed(1)} ft`,
+      })),
+    ]));
+    deps.fetchForecasts = jest.fn(async () => rows);
+    deps.fetchTideSeries = jest.fn(async () => new Map());
+    return deps;
+  }
+
+  function selectedRows(deps: WeekScoutServiceDependencies): EnhancedForecastEntity[] {
+    return (deps.selectBestWindows as unknown as jest.Mock).mock.calls
+      .flatMap(([options]: [WindowSelectorOptions]) => options.forecasts);
+  }
+
+  async function generate(deps: WeekScoutServiceDependencies) {
+    return generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: START, dayCount: 10,
+    }, deps);
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(
+      async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        candidates.map(({ candidateId }) => ({
+          candidateId,
+          evaluation: { outcome: 'allow', holdIds: [], holdEpoch: 'week-scout-test-epoch' },
+          recommendationAvailability: { state: 'available', holdEpoch: 'week-scout-test-epoch' },
+        })),
+    );
+  });
+
+  afterEach(() => {
+    delete process.env.HOURLY_BRIDGE_ENABLED;
+    delete process.env.HOURLY_BRIDGE_SURFACES;
+  });
+
+  it('flag off: scores the stored rows only and reads no tide series', async () => {
+    const deps = bridgeDependencies();
+    await generate(deps);
+
+    expect(selectedRows(deps).some((row) => row.id.includes(':h+'))).toBe(false);
+    expect(deps.fetchTideSeries).not.toHaveBeenCalled();
+  });
+
+  it('flag on: bridges daylight hours of days 0-6 only, never an early-look day', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const deps = bridgeDependencies();
+    const response = await generate(deps);
+
+    const bridged = selectedRows(deps).filter((row) => row.id.includes(':h+'));
+    expect(bridged.length).toBeGreaterThan(0);
+    for (const row of bridged) {
+      const ms = Date.parse(row.forecast_at);
+      expect(ms).toBeLessThan(HEADLINE_END_MS);
+      const hst = getLocalHour(new Date(ms), 'Pacific/Honolulu');
+      expect(hst).toBeGreaterThanOrEqual(6);
+      expect(hst).toBeLessThan(18);
+    }
+    // Day 0, both beaches: 06, 07, 09, 10, 12, 13, 15, 16 HST.
+    const dayZero = bridged.filter((row) => row.beach_id === BEACH_A && row.forecast_at < '2026-08-01T10:00:00.000Z');
+    expect([...new Set(dayZero.map((row) => getLocalHour(new Date(row.forecast_at), 'Pacific/Honolulu')))])
+      .toEqual([6, 7, 9, 10, 12, 13, 15, 16]);
+    expect(response.days.slice(7).every((day) => day.earlyLook === true)).toBe(true);
+    expect(deps.fetchTideSeries).toHaveBeenCalledWith(
+      [BEACH_A, BEACH_B],
+      '2026-07-31T12:00:00.000Z',
+      new Date(HEADLINE_END_MS + 6 * HOUR).toISOString(),
+    );
+  });
+
+  it('flag on: window ids are deterministic and distinct from flag-off ids', async () => {
+    const off = await generate(bridgeDependencies());
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const [first, second] = [await generate(bridgeDependencies()), await generate(bridgeDependencies())];
+    const ids = (response: Awaited<ReturnType<typeof generate>>): string[] =>
+      response.days.flatMap((day) => day.windows.map((window) => window.id));
+
+    expect(ids(first)).toEqual(ids(second));
+    expect(ids(first).length).toBeGreaterThan(0);
+    expect(ids(first).filter((id) => ids(off).includes(id))).toEqual([]);
+  });
+
+  it('flag on for another surface leaves Week Scout ids unchanged', async () => {
+    const off = await generate(bridgeDependencies());
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    process.env.HOURLY_BRIDGE_SURFACES = 'discover';
+    const deps = bridgeDependencies();
+    const other = await generate(deps);
+
+    expect(other.days.map((day) => day.windows.map((window) => window.id)))
+      .toEqual(off.days.map((day) => day.windows.map((window) => window.id)));
+    expect(deps.fetchTideSeries).not.toHaveBeenCalled();
+  });
+
+  it('flag on: a failed tide read still bridges, from the row tides', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const deps = bridgeDependencies();
+    deps.fetchTideSeries = jest.fn(async () => { throw new Error('tide read down'); });
+    await generate(deps);
+    expectConsoleWarnings([/Hourly bridge tide series read failed/]);
+
+    const bridged = selectedRows(deps).filter((row) => row.id.includes(':h+'));
+    expect(bridged.length).toBeGreaterThan(0);
+    expect(bridged.every((row) => row.raw_forecast?.hourly_bridge?.tide_source === 'row_lerp')).toBe(true);
   });
 });

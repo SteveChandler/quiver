@@ -949,7 +949,7 @@ it.each(['recommended', 'throws'])('handles the lead-beach window in the default
     forecast_at: new Date(Date.parse('2026-09-21T07:00:00.000Z') + hour * 3_600_000).toISOString(),
     wave_height: '3-4 ft', tide_height: hour >= 10 && hour < 12 ? '2' : '5', wind_speed: '3 mph' } as EnhancedForecastEntity));
   const tideRows = [...rows, { ...rows[0], forecast_at: '2026-09-22T07:00:00.000Z' }]
-    .map((row) => ({ ts: row.forecast_at, tide_ft: row.id === 'hour-12' ? 3 : Number(row.tide_height), tide_height_m: null, source: 'noaa', station_id: '9410230', created_at: MORNING.toISOString() }));
+    .map((row) => ({ beach_id: HOME, ts: row.forecast_at, tide_ft: row.id === 'hour-12' ? 3 : Number(row.tide_height), tide_height_m: null, source: 'noaa', station_id: '9410230', created_at: MORNING.toISOString() }));
   const spot = { ...snapshot.beach, id: HOME, timezone: 'America/Los_Angeles', preferred_tide_ft_min: 0, preferred_tide_ft_max: 3 } as unknown as Beach;
   let releaseHazard: (value: null) => void = () => { throw new Error('hazard read not started'); };
   const hazard = new Promise<null>((resolve) => { releaseHazard = resolve; });
@@ -973,7 +973,7 @@ it.each(['recommended', 'throws'])('handles the lead-beach window in the default
     for (const method of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order']) query[method] = jest.fn(() => query);
     query.maybeSingle = jest.fn(async () => ({ data: spot, error: null }));
     query.range = jest.fn(async (offset: number) => ({ data: offset === 0 ? rows : [], error: null }));
-    if (table === 'tide_forecasts') query.order = jest.fn(async () => ({ data: tideRows, error: null }));
+    if (table === 'tide_forecasts') query.range = jest.fn(async (offset: number) => ({ data: offset === 0 ? tideRows : [], error: null }));
     queries[table] = query;
     return query;
   });
@@ -991,7 +991,7 @@ it.each(['recommended', 'throws'])('handles the lead-beach window in the default
     expect(verdict.mock.calls.map(([args]) => ({ timezone: args.timezone, experienceLevel: args.experienceLevel })))
       .toEqual(outcome === 'throws' ? [] : rows.map(() => ({ timezone: 'America/Los_Angeles', experienceLevel: 'advanced' })));
     expect(queries.enhanced_forecasts.order).toHaveBeenCalledWith('forecast_at', { ascending: true });
-    expect(queries.tide_forecasts.eq).toHaveBeenCalledWith('beach_id', HOME);
+    expect(queries.tide_forecasts.in).toHaveBeenCalledWith('beach_id', [HOME]);
     expect(deps.enqueue.mock.calls[0][0].payload.surf_window).toEqual(outcome === 'throws' ? undefined : {
       state: 'recommended', start: '2026-09-21T17:00:00.000Z', end: '2026-09-21T19:00:00.000Z',
       local_date: '2026-09-21', timezone: 'America/Los_Angeles', reasons: ['high_tide_outside_preference', 'better_tide_after_peak'] });

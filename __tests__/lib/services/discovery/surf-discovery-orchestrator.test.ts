@@ -99,6 +99,9 @@ const mockState = {
   sunTimesCache: new Map(),
   scoringResults: [] as { beach: Partial<Beach>; score: number; window: any; forecast: any }[],
   waterQualityProbeError: null as { code?: string; message: string } | null,
+  tideRows: [] as Array<{ beach_id: string; ts: string; tide_ft: number; tide_height_m: null; source: string; station_id: string; created_at: string }>,
+  tideQueries: [] as Array<{ beachIds: string[]; gte: string; lt: string }>,
+  tideReadError: null as { message: string } | null,
 };
 
 const mockSupabaseRpc = jest.fn(async () => ({
@@ -235,6 +238,25 @@ const mockSupabaseFrom = jest.fn((table: string) => {
       }),
     };
     return query;
+  }
+
+  if (table === 'tide_forecasts') {
+    const query = { beachIds: [] as string[], gte: '', lt: '' };
+    mockState.tideQueries.push(query);
+    const builder: any = {
+      in: jest.fn((_column: string, ids: string[]) => { query.beachIds = ids; return builder; }),
+      gte: jest.fn((_column: string, value: string) => { query.gte = value; return builder; }),
+      lt: jest.fn((_column: string, value: string) => { query.lt = value; return builder; }),
+      order: jest.fn(() => builder),
+      range: jest.fn(async () => (mockState.tideReadError
+        ? { data: null, error: mockState.tideReadError }
+        : {
+            data: mockState.tideRows.filter((row) => query.beachIds.includes(row.beach_id)
+              && row.ts >= query.gte && row.ts < query.lt),
+            error: null,
+          })),
+    };
+    return { select: jest.fn(() => builder) };
   }
 
   if (table === 'sun_times') {
@@ -2412,7 +2434,7 @@ describe('discoverSurfSpots - failed forecast read', () => {
       }),
     ).rejects.toMatchObject({ code: 'timeout', retryable: true });
 
-    expect(seenSignal).toBeDefined();
+    expect(seenSignal).toBeInstanceOf(AbortSignal);
     expect(seenSignal?.aborted).toBe(true);
   });
 
@@ -4444,5 +4466,163 @@ describe('discoverSurfSpots - Evening included beach fallback', () => {
         }),
       }),
     ]));
+  });
+});
+
+describe('discoverSurfSpots - hourly bridge', () => {
+  const userLocation = { lat: 32.7157, lon: -117.1611 };
+  const bridgeBeach = { ...mockBeach1, timezone: 'America/Los_Angeles' } as Beach;
+  // 04:00, 07:00 and 10:00 PST. Without sun times, usable light is 06:00-18:00 local.
+  const storedRows = ['12', '15', '18'].map((hour) => ({
+    ...mockForecast,
+    id: `row-${hour}`,
+    beach_id: 'beach-1',
+    forecast_at: `2024-01-15T${hour}:00:00.000Z`,
+    forecast_date: '2024-01-15',
+    forecast_time: `${hour}:00:00`,
+    tide_height: '2.0 ft',
+  }));
+  const tideFt = (hour: number): number => 1 + hour / 10;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers().setSystemTime(new Date('2024-01-15T11:00:00.000Z'));
+    mockState.candidatePoolResponse = {
+      candidates: [bridgeBeach],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.forecastBatchResponse = {
+      successful: [{ beach: bridgeBeach, forecasts: storedRows }],
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.tideQueries = [];
+    mockState.tideRows = Array.from({ length: 12 }, (_, index) => {
+      const hour = 10 + index;
+      return {
+        beach_id: 'beach-1',
+        ts: `2024-01-15T${String(hour).padStart(2, '0')}:00:00.000Z`,
+        tide_ft: tideFt(hour),
+        tide_height_m: null,
+        source: 'noaa',
+        station_id: '9410230',
+        created_at: '2024-01-15T00:00:00.000Z',
+      };
+    });
+  });
+
+  afterEach(() => {
+    delete process.env.HOURLY_BRIDGE_ENABLED;
+    delete process.env.HOURLY_BRIDGE_SURFACES;
+    mockState.tideRows = [];
+    mockState.tideReadError = null;
+    jest.useRealTimers();
+  });
+
+  // The top-level import: a later suite resets the module registry.
+  const selectorRows = (call: number): EnhancedForecastEntity[] =>
+    (jest.mocked(selectBestWindows).mock.calls[call][0] as unknown as { forecasts: EnhancedForecastEntity[] }).forecasts;
+  const selectedRowTimes = (): string[] => selectorRows(0).map((row) => row.forecast_at);
+
+  test('flag off: selection sees only the stored rows and no tide series is read', async () => {
+    await discoverSurfSpots(null, { userLocation, maxResults: 5 });
+
+    expect(selectedRowTimes()).toEqual(storedRows.map((row) => row.forecast_at));
+    expect(mockState.tideQueries).toEqual([]);
+  });
+
+  test('flag on for another surface leaves discovery unbridged', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    process.env.HOURLY_BRIDGE_SURFACES = 'week-scout';
+
+    await discoverSurfSpots(null, { userLocation, maxResults: 5 });
+
+    expect(selectedRowTimes()).toEqual(storedRows.map((row) => row.forecast_at));
+  });
+
+  test('flag on: daylight hours between rows are bridged from the tide series, dark hours are not', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+
+    await discoverSurfSpots(null, { userLocation, maxResults: 5 });
+
+    // 13:00Z is 05:00 PST, before first light.
+    expect(selectedRowTimes()).toEqual([
+      '2024-01-15T12:00:00.000Z',
+      '2024-01-15T14:00:00.000Z',
+      '2024-01-15T15:00:00.000Z',
+      '2024-01-15T16:00:00.000Z',
+      '2024-01-15T17:00:00.000Z',
+      '2024-01-15T18:00:00.000Z',
+    ]);
+    const rows = selectorRows(0);
+    const bridged = rows.find((row) => row.forecast_at === '2024-01-15T16:00:00.000Z')!;
+    expect(bridged).toMatchObject({
+      id: 'row-15:h+1',
+      tide_height: `${tideFt(16).toFixed(1)} ft`,
+      tide_rate_ft_per_hour: 0.1,
+    });
+    expect(bridged.raw_forecast?.hourly_bridge).toMatchObject({ tide_source: 'series' });
+    expect(mockState.tideQueries[0]).toMatchObject({
+      beachIds: ['beach-1'],
+      gte: '2024-01-15T11:00:00.000Z',
+      lt: '2024-01-15T20:00:00.000Z',
+    });
+  });
+
+  test('flag on: bridged ids are the same on every run', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+
+    await discoverSurfSpots(null, { userLocation, maxResults: 5 });
+    await discoverSurfSpots(null, { userLocation, maxResults: 5 });
+
+    const ids = (call: number): string[] => selectorRows(call).map((row) => row.id);
+    expect(ids(1)).toEqual(ids(0));
+  });
+
+  test('flag on: a scoped bridged hour is scored as itself and named in the recommendation id', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const forecastAt = '2024-01-15T16:00:00.000Z';
+
+    const first = await discoverSurfSpots(null, { userLocation, forecastAt, maxResults: 5 });
+    const second = await discoverSurfSpots(null, { userLocation, forecastAt, maxResults: 5 });
+
+    expect(first.recommendations[0]?.forecast).toMatchObject({ id: 'row-15:h+1', forecast_at: forecastAt });
+    expect(first.recommendations[0]?.recommendationId).toBe(`beach:beach-1:${forecastAt}`);
+    expect(second.recommendations[0]?.recommendationId).toBe(first.recommendations[0]?.recommendationId);
+    // The scoped read covers the bridge radius, not the whole fetched window.
+    expect(mockState.tideQueries[0]).toMatchObject({
+      gte: '2024-01-15T12:00:00.000Z',
+      lt: '2024-01-15T20:00:00.000Z',
+    });
+  });
+
+  test('now mode reads the current hour: the bridged row with the flag on, the 3-hour row with it off', async () => {
+    jest.setSystemTime(new Date('2024-01-15T16:20:00.000Z')); // 08:20 PST
+    const off = await discoverSurfSpots(null, { userLocation, maxResults: 5, discoveryMode: 'now' });
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const on = await discoverSurfSpots(null, { userLocation, maxResults: 5, discoveryMode: 'now' });
+
+    expect(off.recommendations[0]?.forecast).toMatchObject({ id: 'row-15' });
+    expect(on.recommendations[0]?.forecast).toMatchObject({
+      id: 'row-15:h+1',
+      forecast_at: '2024-01-15T16:00:00.000Z',
+      tide_height: `${tideFt(16).toFixed(1)} ft`,
+    });
+    expect(on.recommendations[0]?.recommendationId).toBe('beach:beach-1:2024-01-15T16:00:00.000Z');
+  });
+
+  test('flag on: a failed tide read bridges from the row tides instead of failing discovery', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const forecastAt = '2024-01-15T16:00:00.000Z';
+    mockState.tideReadError = { message: 'tide read down' };
+
+    const result = await discoverSurfSpots(null, { userLocation, forecastAt, maxResults: 5 });
+
+    expect(mockState.tideQueries).toHaveLength(1);
+    expect(result.recommendations[0]?.forecast).toMatchObject({ id: 'row-15:h+1', tide_height: '2 ft' });
+    expect(result.recommendations[0]?.forecast.raw_forecast?.hourly_bridge).toMatchObject({ tide_source: 'row_lerp' });
   });
 });

@@ -26,6 +26,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
 
 import { GET } from "@/app/api/cron/condition-alert-evaluate/route";
 import { readFileSync } from "fs";
+import { getRegistryEntry } from "@/lib/notifications/registry";
 
 // ---- Mocks ----
 
@@ -173,6 +174,7 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     lt: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn((value: number) => { chain._limit = value; return chain; }),
+    range: jest.fn(() => chain),
     upsert: jest.fn((row: any, _opts?: any) => {
       onUpsert?.(row);
       return Promise.resolve({ error: null });
@@ -1009,6 +1011,52 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(store.ruleUpdates).toContainEqual({ id: RULE_1, enabled: false });
   });
 
+  it("queues a post-window watched-call update with the rule id the push schema requires", async () => {
+    seedRule({
+      preset_type: "watched_call",
+      conditions: {
+        watched_call: {
+          version: 1,
+          recommendationId: "recommendation-1",
+          sourceSurface: "beach_detail",
+          mode: "beach-detail",
+          beachId: BEACH_1,
+          windowStart: "2026-04-26T09:00:00Z",
+          windowEnd: "2026-04-26T10:00:00Z",
+          forecastAt: "2026-04-26T07:00:00Z",
+          recommendationState: "ready_today",
+          conditionScore: 82,
+          personalMatchScore: 76,
+          overallScore: 80,
+          reasonType: "forecast_conditions",
+          dedupeKey: "watched-call.v1:recommendation-1",
+        },
+      },
+    });
+    seedProfile();
+    seedBeach();
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.queueUpserts[0]).toMatchObject({
+      conditions_snapshot: {
+        alert_type: "watched_call_update",
+        payload: { category: "post_window", alert_rule_id: RULE_1 },
+      },
+    });
+    const { payload } = store.queueUpserts[0].conditions_snapshot as { payload: unknown };
+    const validatePayload = getRegistryEntry("watched_call_update").validatePayload;
+    expect(typeof validatePayload).toBe("function");
+    expect(() =>
+      validatePayload!({
+        ...(payload as Record<string, unknown>),
+        queue_items: [{ queue_id: "queue-1", rule_id: RULE_1 }],
+      }),
+    ).not.toThrow();
+  });
+
   it("treats alert delivery dedupe lookup failures as errors instead of queueing duplicates", async () => {
     seedRule();
     seedProfile();
@@ -1399,7 +1447,7 @@ describe("condition-alert-evaluate — hourly windows (ALERT_HOURLY_WINDOWS)", (
     process.env.ALERT_HOURLY_WINDOWS_ENABLED = "true";
     process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST = USER_A;
     seedRule(); seedProfile(); seedBeach(); seedThreeHourlyPair();
-    store.tides.push({ ts: "2026-04-26T15:00:00Z", tide_ft: 2.5, tide_height_m: 0.762, source: "noaa", station_id: "S", created_at: "2026-04-25T04:00:00Z" });
+    store.tides.push({ beach_id: BEACH_1, ts: "2026-04-26T15:00:00Z", tide_ft: 2.5, tide_height_m: 0.762, source: "noaa", station_id: "S", created_at: "2026-04-25T04:00:00Z" });
 
     await GET(makeRequest());
 

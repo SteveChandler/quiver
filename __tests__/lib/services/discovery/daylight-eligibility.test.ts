@@ -7,6 +7,7 @@ import {
   nextFirstLight,
   pointInterval,
   scopedLightInterval,
+  usableLightIntervalForDate,
   type BeachSunTimes,
 } from '@/lib/services/discovery/daylight-eligibility';
 
@@ -174,5 +175,29 @@ describe('light metadata for an interval', () => {
     const at = localTime('2026-09-23', '06:00');
     expect(lightMetadata(at, TIMEZONE, sun)).toEqual(lightMetadataForInterval(pointInterval(at), TIMEZONE, sun));
     expect(lightMetadata(at, TIMEZONE, sun).isDark).toBe(true);
+  });
+});
+
+describe('usable light interval cache', () => {
+  it('returns the same interval as fresh Dates on every read', () => {
+    const sun: BeachSunTimes = { sunrises: [...SEP23_SUN.sunrises], sunsets: [...SEP23_SUN.sunsets] };
+    const first = usableLightIntervalForDate('2026-09-23', TIMEZONE, sun);
+    first.start.setTime(0);
+    const second = usableLightIntervalForDate('2026-09-23', TIMEZONE, sun);
+
+    expect(second.start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
+    expect(second.end.toISOString()).toBe('2026-09-24T02:04:00.000Z');
+    expect(second.start).not.toBe(first.start);
+  });
+
+  it('keys on zone and date, and rereads a sun list that has grown', () => {
+    const sun: BeachSunTimes = { sunrises: [], sunsets: [] };
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, sun).start).toEqual(localTime('2026-09-23', '06:00'));
+    sun.sunrises.push(...SEP23_SUN.sunrises);
+    sun.sunsets.push(...SEP23_SUN.sunsets);
+
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, sun).start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
+    expect(usableLightIntervalForDate('2026-09-23', 'UTC', sun).start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
+    expect(usableLightIntervalForDate('2026-09-24', TIMEZONE, sun).start).toEqual(localTime('2026-09-24', '06:00'));
   });
 });

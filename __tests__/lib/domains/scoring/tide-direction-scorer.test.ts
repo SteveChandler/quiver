@@ -334,3 +334,58 @@ describe('Tide Direction Scorer', () => {
     });
   });
 });
+
+describe('Tide Direction Scorer rate grading (TIDE_SWING_ENABLED)', () => {
+  const originalFlag = process.env.TIDE_SWING_ENABLED;
+  afterEach(() => {
+    if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
+    else process.env.TIDE_SWING_ENABLED = originalFlag;
+  });
+
+  function mismatch(
+    directionSensitivity: TidePreferences['directionSensitivity'],
+    rateFtPerHour: number | null,
+  ): number {
+    return tideDirectionScorer.score(createInput(
+      { tide: { heightFt: 3, status: 'falling', direction: 'falling', rateFtPerHour } },
+      { tidePreferences: { ...DEFAULT_PROFILE.tidePreferences, preferredDirection: 'rising', directionSensitivity } },
+    )).score;
+  }
+
+  it('flag off keeps the full mismatch whatever the rate', () => {
+    delete process.env.TIDE_SWING_ENABLED;
+    expect(mismatch('high', -0.2)).toBe(10);
+    expect(mismatch('medium', -0.2)).toBe(35);
+    expect(mismatch('low', -0.2)).toBe(55);
+  });
+
+  it('flag on with an unknown rate keeps today\'s numbers', () => {
+    process.env.TIDE_SWING_ENABLED = 'true';
+    expect(mismatch('high', null)).toBe(10);
+    expect(mismatch('medium', null)).toBe(35);
+    expect(mismatch('low', null)).toBe(55);
+  });
+
+  it('grades a wrong-way tide from slack to the full mismatch by |rate| / 1 ft/h', () => {
+    process.env.TIDE_SWING_ENABLED = 'true';
+    // high: slack 40, mismatch 10.
+    expect(mismatch('high', 0)).toBe(40);
+    expect(mismatch('high', -0.3)).toBe(31);
+    expect(mismatch('high', -0.5)).toBe(25);
+    expect(mismatch('high', -1.0)).toBe(10);
+    expect(mismatch('high', -2.4)).toBe(10);
+    // medium: slack 52, mismatch 35 -> 43.5 rounds to 44.
+    expect(mismatch('medium', -0.5)).toBe(44);
+    // PB Point at 11 AM (low sensitivity, -1.2 ft/h): full mismatch, unchanged.
+    expect(mismatch('low', -1.2)).toBe(55);
+  });
+
+  it('never touches a direction match', () => {
+    process.env.TIDE_SWING_ENABLED = 'true';
+    const match = tideDirectionScorer.score(createInput(
+      { tide: { heightFt: 3, status: 'rising', direction: 'rising', rateFtPerHour: 0.1 } },
+      { tidePreferences: { ...DEFAULT_PROFILE.tidePreferences, preferredDirection: 'rising', directionSensitivity: 'high' } },
+    ));
+    expect(match.score).toBe(90);
+  });
+});

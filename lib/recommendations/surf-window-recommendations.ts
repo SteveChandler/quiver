@@ -6,7 +6,11 @@ import {
   scoreWindowWithComposite,
   getDirectionDegrees,
 } from "@/lib/services/discovery/window-selector";
-import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import {
+  displayTideBand,
+  nativeScoreInputsFromForecast,
+  scoreNativeConditionInputs,
+} from "@/lib/scoring/native-condition-score";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { buildSurfWindowLinks } from "@/lib/recommendations/surf-window-links";
@@ -330,7 +334,10 @@ function buildRecommendation(
 ): SurfWindowRecommendation {
   const composite = scoreWindowWithComposite(row, group.beach);
   const score = clampScore(
-    window.score ?? scoreNativeForecastSlot(row, options.userSkill)
+    window.score ?? scoreNativeConditionInputs(
+      nativeScoreInputsFromForecast(row, displayTideBand(group.beach)),
+      options.userSkill,
+    )
   );
   const forecastConfidence = clampScore(row.confidence_score ?? composite.confidence);
   const confidenceScore = Math.round((forecastConfidence + clampScore(composite.confidence)) / 2);

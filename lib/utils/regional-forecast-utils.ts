@@ -22,7 +22,7 @@ import {
 } from "@/lib/utils/wind-classification";
 import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
-import { scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
+import { displayTideBand, scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 
 /**
@@ -326,9 +326,9 @@ export function getBeachesForRegion(
  */
 export function calculateDayScore(
   forecasts: EnhancedForecastEntity[],
-  _beach: Beach
+  beach: Beach
 ): number {
-  return scoreNativeForecastDay(forecasts);
+  return scoreNativeForecastDay(forecasts, undefined, { tideBand: displayTideBand(beach) });
 }
 
 /**

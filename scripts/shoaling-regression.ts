@@ -22,8 +22,7 @@
  * - Gate C: wind-swell beaches near-neutral (delta in [-20%, +10%]).
  *   Confirms short-period cutoff (8s) does not over-zero legitimate
  *   wind-swell spots.
- * - Gate D: uncalibrated beaches unchanged (byte-identical legacy path).
- *   Confirms the refactor did not accidentally change transformToFaceHeight.
+ * - Gate D: uncalibrated beaches unchanged (byte-identical scalar fallback).
  * - Gate E (ADVISORY): Surfline LOTUS parity for 6 beaches, print only.
  * - Gate F: CDIP→model handoff boundary default-off invariant + enabled
  *   continuity improvement.
@@ -35,6 +34,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { config as dotenvConfig } from './load-env.mjs';
+import { SURFLINE_SPOT_IDS } from './surfline-spot-ids';
 
 import {
   transformToFaceHeight,
@@ -197,11 +197,9 @@ function inferSource(dataSource: string): WaveHeightSourceTag | undefined {
 }
 
 /**
- * Compute the PRE-fix face height. This is the legacy scalar path —
- * `transformToFaceHeight` with the `source` gate and the same inputs the
- * old `forecast-builder.getWaveHeight` would have passed. The function
- * itself is unchanged by the fix (Workstream A only ADDED new exports),
- * so we can call it directly as the baseline.
+ * Compute the scalar comparator with the current `transformToFaceHeight`.
+ * The short-period cap changes this comparator too; compare runs saved
+ * before and after that change to measure its effect.
  */
 function computeOldFaceHeight(beach: FixtureBeach): number {
   const f = beach.forecast;
@@ -707,17 +705,8 @@ function runHandoffFixture(
  * and logs as a `Skipped.` note. There is no token and no rate limiting here:
  * if we get blocked, we degrade gracefully.
  */
-const SURFLINE_SPOT_IDS: Record<string, string> = {
-  'tourmaline-beach': '5842041f4e65fad6a7708849',
-  'blacks': '5842041f4e65fad6a7708841',
-  'lower-trestles': '5842041f4e65fad6a77088f9',
-  'swamis': '5842041f4e65fad6a770884c',
-  'hb-pier-southside': '5842041f4e65fad6a77088c2',
-  'the-wedge': '5842041f4e65fad6a77088a9',
-};
-
 async function fetchSurflineFaceHeight(slug: string): Promise<number> {
-  const spotId = SURFLINE_SPOT_IDS[slug];
+  const spotId = SURFLINE_SPOT_IDS[slug as keyof typeof SURFLINE_SPOT_IDS];
   if (!spotId) throw new Error(`no Surfline spot ID mapped for ${slug}`);
   const url = `https://services.surfline.com/kbyg/spots/forecasts/wave?spotId=${spotId}&days=1&intervalHours=1&units[waveHeight]=FT`;
   const res = await fetch(url, {

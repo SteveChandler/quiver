@@ -123,6 +123,7 @@ const CATEGORIES: {
       "beginner-breaks-orange-county",
       "beginner-breaks-santa-cruz",
       "can-you-surf-in-new-jersey",
+      "can-you-surf-in-south-carolina",
     ],
   },
 ];

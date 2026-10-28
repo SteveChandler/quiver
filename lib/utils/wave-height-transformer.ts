@@ -416,6 +416,7 @@ interface FaceHeightWithMetadata {
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
   calibrationBucketQuarantined?: boolean;
+  shortPeriodBucketCapped?: boolean;
 }
 
 /**
@@ -469,22 +470,25 @@ export function transformToFaceHeightWithMetadata(
   let calibrationBucketQuarantined = false;
 
   // Short-circuit: empirically calibrated per-beach shoaling lookup.
-  // GATED on source === 'cdip_sig' because the bucket factor is measured as
-  // `surfline_face_ft / cdip_hs_ft` — applying it to a model-derived height
-  // when CDIP has been rejected (>10ft, outlier, or null) produces the wrong
-  // answer. When source is anything else (or omitted), fall through to the
-  // generic pipeline which is the correct treatment for model inputs.
+  // Gated on CDIP Hs or an eligible nowcast anchor because the bucket factor
+  // is measured as `surfline_face_ft / cdip_hs_ft`. Model inputs use the
+  // generic pipeline instead.
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
       if (shouldQuarantineCalibratedShoalingBucket(source, periodS, bucketFactor)) {
         calibrationBucketQuarantined = true;
       } else {
+        // The decomposed path excludes this short-period energy entirely.
+        const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
+          ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
+          : bucketFactor;
         const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
         return {
-          faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
+          faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * shadow * 10) / 10,
           isCalibrated: true,
           provenance: 'measured',
+          ...(periodCappedFactor < bucketFactor ? { shortPeriodBucketCapped: true } : {}),
         };
       }
     }
@@ -856,6 +860,7 @@ interface DecomposedFaceHeightResult {
   provenance: WaveHeightTransformProvenance;
   path: 'decomposed' | 'legacy';
   calibrationBucketQuarantined?: boolean;
+  shortPeriodBucketCapped?: boolean;
 }
 
 /**
@@ -954,6 +959,7 @@ export function transformToFaceHeightDecomposed(params: {
       ...(legacy.calibrationBucketQuarantined
         ? { calibrationBucketQuarantined: true }
         : {}),
+      ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
 
@@ -1047,6 +1053,7 @@ export function transformToFaceHeightDecomposed(params: {
       ...(legacy.calibrationBucketQuarantined
         ? { calibrationBucketQuarantined: true }
         : {}),
+      ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
 

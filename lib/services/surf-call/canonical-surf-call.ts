@@ -26,6 +26,9 @@ import {
   resolveForecastAlignment,
   type SurfCallForecastAlignment,
 } from '@/lib/services/discovery/forecast-alignment';
+import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
+import { bridgeBeachForecastRows, SCOPED_BRIDGE_RADIUS_MS } from '@/lib/services/discovery/hourly-bridge-rows';
+import type { EnhancedForecastEntity } from '@/types/forecast';
 
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
   waterQuality: SurfCallWaterQuality;
@@ -160,23 +163,31 @@ async function readForecastAlignment(
   supabase: SupabaseClient<Database>,
   beachId: string,
   requestedForecastAt: string,
+  timezone: string,
 ): Promise<SurfCallForecastAlignment> {
   const requestedMs = Date.parse(requestedForecastAt);
   const toleranceMs = FORECAST_ALIGNMENT_TOLERANCE_MINUTES * 60 * 1000;
+  // Discovery scored the scoped hour from bridged rows; the alignment applies the same bridge,
+  // so it reads the stored rows either side of every hour the bridge can fill.
+  const bridgeHourly = isHourlyBridgeEnabledFor('discover');
+  const reachMs = bridgeHourly ? SCOPED_BRIDGE_RADIUS_MS + 60 * 60 * 1000 : toleranceMs;
   const { data, error } = await supabase
     .from('enhanced_forecasts')
-    .select('forecast_at')
+    .select(bridgeHourly ? 'id, beach_id, forecast_at' : 'forecast_at')
     .eq('beach_id', beachId)
-    .gte('forecast_at', new Date(requestedMs - toleranceMs).toISOString())
-    .lte('forecast_at', new Date(requestedMs + toleranceMs).toISOString())
+    .gte('forecast_at', new Date(requestedMs - reachMs).toISOString())
+    .lte('forecast_at', new Date(requestedMs + reachMs).toISOString())
     .order('forecast_at', { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
+  const rows = (data ?? []) as unknown as Array<Pick<EnhancedForecastEntity, 'forecast_at'>>;
   return resolveForecastAlignment(
-    data ?? [],
+    bridgeHourly
+      ? bridgeBeachForecastRows(rows as EnhancedForecastEntity[], { timezone, tide: null, scopedAtMs: requestedMs })
+      : rows,
     requestedForecastAt,
   ).alignment;
 }
@@ -576,6 +587,7 @@ export async function computeCanonicalSurfCall({
           supabase,
           beachId,
           forecastAt,
+          typedBeach.timezone ?? 'UTC',
         ),
       }
     : canonicalResult;
