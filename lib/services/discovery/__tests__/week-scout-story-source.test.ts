@@ -13,15 +13,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const now = new Date("2026-10-27T12:00:00Z");
 const beaches = [
-  { id: "a", lat: 32.5, lon: -117.5, aspect_deg: 270 },
-  { id: "b", lat: 32.7, lon: -117.3, aspect_deg: 270 },
-  { id: "c", lat: 32.9, lon: -117.1, aspect_deg: 270 },
+  { id: "a", name: "Ocean Beach", lat: 32.5, lon: -117.5, aspect_deg: 202, swell_window_center_deg: 202, swell_window_halfwidth_deg: 25, wind_offshore_deg: 90 },
+  { id: "b", name: "Blacks", lat: 32.7, lon: -117.3, aspect_deg: 202, swell_window_center_deg: 202, swell_window_halfwidth_deg: 25, wind_offshore_deg: 90 },
+  { id: "c", name: "La Jolla Shores", lat: 32.9, lon: -117.1, aspect_deg: 270, swell_window_center_deg: 270, swell_window_halfwidth_deg: 20, wind_offshore_deg: 90 },
 ];
 const forecasts = (): Array<Record<string, unknown>> => Array.from({ length: 7 }, (_, day) =>
   beaches.flatMap((beach) => [12, 15].map((hour) => ({
     id: `${beach.id}-${day}-${hour}`,
     beach_id: beach.id, forecast_at: new Date(Date.UTC(2026, 9, 27 + day, hour)).toISOString(),
-    wave_height: "3 ft", swell_direction_om: 270, swell_period_om: 15,
+    wave_height: "3 ft", swell_direction_om: 202, swell_period_om: 15,
     om_fetched_at: now.toISOString(), updated_at: now.toISOString(),
   })))).flat();
 
@@ -51,6 +51,22 @@ describe("regional story source snapshot", () => {
     expect(input.provenance.representativeBeachIds).toEqual(["a", "b", "c"]);
     expect(input.copyFacts.some((fact) => fact.slot === "cover")).toBe(true);
     expect(mockSaveInput).toHaveBeenCalledWith(expect.anything(), input);
+  });
+
+  it("uses named exposure, a verified wind turn, and tide phase without writing the fallback", async () => {
+    const rows = forecasts().map((row) => ({ ...row,
+      forecast_at: new Date(Date.parse(String(row.forecast_at)) + (String(row.id).endsWith("-12") ? 4 : 6) * 60 * 60_000).toISOString(),
+      wind_direction: String(row.id).endsWith("-12") ? "90" : "270",
+      tide_status: "Rising",
+    }));
+    const input = await buildStoryInput({ client: client(rows), region: "San Diego", now, persist: false });
+    expect(input.copyFacts.find((fact) => fact.gate.kind === "exposure")?.text)
+      .toContain("Ocean Beach and Blacks");
+    expect(input.copyFacts.find((fact) => fact.gate.kind === "wind")?.text)
+      .toContain("onshore fills in");
+    expect(input.copyFacts.find((fact) => fact.gate.kind === "tide")?.text)
+      .toContain("rising tide");
+    expect(mockSaveInput).not.toHaveBeenCalled();
   });
 
   it("rejects a missing day and stale forecast rows", async () => {

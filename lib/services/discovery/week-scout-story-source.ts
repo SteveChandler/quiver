@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
+import { parseSwellDirectionToDegrees, parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
+import { exposureFactor, exposureLabel, swellWindowForBeach } from "@/lib/alerts/swell-events";
+import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { buildStoryCandidates, type RegionalDaySignal } from "./week-scout-story-candidates";
@@ -8,8 +10,9 @@ import { loadLatestStoryInput, saveStoryInput, activeStoryRegions } from "./week
 import type { StoryInput } from "./week-scout-story-types";
 
 type Client = SupabaseClient<Database>;
-type Row = { id: string; beach_id: string; forecast_at: string; wave_height: string | null; swell_direction_om: number | null; swell_period_om: number | null; om_fetched_at: string | null; updated_at: string | null };
-const SAMPLE_VERSION = "representative-latitude-spread-1";
+type Row = { id: string; beach_id: string; forecast_at: string; wave_height: string | null; swell_direction_om: number | null; swell_period_om: number | null; wind_direction: string | null; tide_status: string | null; om_fetched_at: string | null; updated_at: string | null };
+type BeachRow = { id: string; name: string; lat: number; lon: number; aspect_deg: number | null; swell_window_center_deg: number | null; swell_window_halfwidth_deg: number | null; wind_offshore_deg: number | null };
+const SAMPLE_VERSION = "representative-latitude-spread-2";
 const SOURCE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 const PAGE_SIZE = 500;
 
@@ -29,16 +32,16 @@ function meanDirection(values: number[]): number | null {
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
 }
 
-export async function buildStoryInput(args: { client: Client; region: string; now: Date }): Promise<StoryInput> {
+export async function buildStoryInput(args: { client: Client; region: string; now: Date; persist?: boolean }): Promise<StoryInput> {
   const { client, region, now } = args;
   const regions = await activeStoryRegions(client);
   const active = regions.find((item) => item.region === region);
   if (!active || !validTimezone(active.timezone)) throw new StoryInputError("unknown_region", 400);
   const editionDate = localDate(now, active.timezone);
-  const allBeaches: Array<{ id: string; lat: number; lon: number; aspect_deg: number | null }> = [];
+  const allBeaches: BeachRow[] = [];
   for (;;) {
     const { data, error } = await client.from("beaches")
-      .select("id, lat, lon, aspect_deg").eq("region", region).is("deleted_at", null)
+      .select("id, name, lat, lon, aspect_deg, swell_window_center_deg, swell_window_halfwidth_deg, wind_offshore_deg").eq("region", region).is("deleted_at", null)
       .order("id", { ascending: true }).range(allBeaches.length, allBeaches.length + PAGE_SIZE - 1);
     if (error) throw new StoryInputError("story_beaches_read_failed");
     if (!data?.length) break;
@@ -56,7 +59,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   const rows: Row[] = [];
   for (;;) {
     const { data, error } = await client.from("enhanced_forecasts")
-      .select("id, beach_id, forecast_at, wave_height, swell_direction_om, swell_period_om, om_fetched_at, updated_at")
+      .select("id, beach_id, forecast_at, wave_height, swell_direction_om, swell_period_om, wind_direction, tide_status, om_fetched_at, updated_at")
       .in("beach_id", beachIds).gte("forecast_at", from).lt("forecast_at", to)
       .order("forecast_at", { ascending: true }).order("beach_id", { ascending: true })
       .range(rows.length, rows.length + PAGE_SIZE - 1);
@@ -71,6 +74,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     throw new StoryInputError("story_source_stale", 409);
   }
   const dayRows = Map.groupBy(rows, (row) => localDate(new Date(row.forecast_at), active.timezone));
+  const hourFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: active.timezone, hour: "2-digit", hourCycle: "h23" });
   const signals: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => {
     const date = addDays(editionDate, index);
     const samples = dayRows.get(date) ?? [];
@@ -86,6 +90,30 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     const direction = meanDirection(directions);
     const exposed = direction === null ? 0 : beaches.filter((beach) =>
       beach.aspect_deg !== null && Math.abs(((beach.aspect_deg - direction + 540) % 360) - 180) <= 45).length;
+    const exposedBeaches = direction === null ? [] : beaches.flatMap((beach) => {
+      const factor = exposureFactor(direction, swellWindowForBeach(beach));
+      return factor === null ? [] : [{ beachId: beach.id, beachName: beach.name, exposure: exposureLabel(factor) }];
+    });
+    const bucketOf = (at: string): "morning" | "midday" | "evening" | null => {
+      const hour = Number(hourFormatter.format(new Date(at)));
+      if (hour < 6 || hour >= 19) return null;
+      return hour < 12 ? "morning" : hour < 16 ? "midday" : "evening";
+    };
+    const windRows = samples.flatMap((row) => {
+      const beach = beaches.find((item) => item.id === row.beach_id);
+      const degrees = parseSwellDirectionToDegrees(row.wind_direction);
+      if (!beach || beach.wind_offshore_deg === null || degrees === null) return [];
+      const bucket = bucketOf(row.forecast_at);
+      if (!bucket) return [];
+      const difference = angleDifference(degrees, beach.wind_offshore_deg);
+      if (difference > 45 && difference < 135) return [];
+      return [{ row, bucket, windClass: difference <= 45 ? "offshore" as const : "onshore" as const }];
+    });
+    const morning = windRows.find((item) => item.bucket === "morning");
+    const afternoon = morning && windRows.find((item) => item.row.beach_id === morning.row.beach_id
+      && item.bucket !== "morning" && item.windClass !== morning.windClass);
+    const tideRow = samples.find((row) => row.tide_status && bucketOf(row.forecast_at)
+      && /^(rising|falling)$/i.test(row.tide_status));
     return {
       localDate: date,
       complete: perBeach.size === beachIds.length && measured.length >= beachIds.length * 2,
@@ -96,10 +124,17 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       sourceSeries: `enhanced_forecasts:${region}`,
       forecastRevision: source.length ? new Date(Math.max(...source)).toISOString() : "",
       ...(exposed >= 3 ? { exposure: { kind: "open" as const, sampleBeaches: exposed } } : {}),
+      exposedBeaches,
+      ...(morning && afternoon ? { wind: { bucket: afternoon.bucket, fromBucket: "morning" as const,
+        fromWindClass: morning.windClass, windClass: afternoon.windClass, selectorConfirmed: true,
+        turnConfirmed: true, beachId: morning.row.beach_id,
+        fromDirection: morning.row.wind_direction ?? undefined, toDirection: afternoon.row.wind_direction ?? undefined } } : {}),
+      ...(tideRow ? { tide: { bucket: bucketOf(tideRow.forecast_at)!, tidePhase: tideRow.tide_status!.toLowerCase(),
+        windowOrder: "opens" as const, selectorConfirmed: true, orderingConfirmed: true, beachId: tideRow.beach_id } } : {}),
     };
   });
   if (signals.some((day) => !day.complete)) throw new StoryInputError("story_coverage_sparse", 409);
-  const copyFacts = buildStoryCandidates(signals);
+  const copyFacts = buildStoryCandidates(signals, region);
   if (copyFacts.length === 0) throw new StoryInputError("story_no_candidates", 409);
   const sourceHash = sha256Hex(canonicalJson({ sampleVersion: SAMPLE_VERSION, beachIds, rows }));
   const existing = await loadLatestStoryInput(client, region, editionDate);
@@ -118,6 +153,6 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     inputHash: "",
   };
   input.inputHash = briefingInputHash(input as unknown as Record<string, unknown>);
-  await saveStoryInput(client, input);
+  if (args.persist !== false) await saveStoryInput(client, input);
   return input;
 }
