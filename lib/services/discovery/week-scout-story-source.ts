@@ -10,7 +10,6 @@ import { detectBeachSwellEvents, isSwellEventCurrent, loadRecentSwellSnapshots, 
   type SwellEventForecastRow } from "@/lib/alerts/swell-events";
 import { groupEvents } from "./swell-tracking";
 import type { BeachSwellEvent, SwellEventSnapshot } from "@/lib/alerts/swell-events";
-import type { WeekScoutSwell } from "./week-scout-swells";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { buildStoryCandidates, type RegionalDaySignal, type RegionalSwellEvent } from "./week-scout-story-candidates";
@@ -67,7 +66,7 @@ function eventsFromForecasts(beaches: readonly BeachRow[], rows: readonly Row[],
   })).sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt)).slice(0, 3);
 }
 
-export async function buildStoryInput(args: { client: Client; region: string; now: Date; persist?: boolean; liveSwells?: readonly WeekScoutSwell[] }): Promise<StoryInput> {
+export async function buildStoryInput(args: { client: Client; region: string; now: Date; persist?: boolean }): Promise<StoryInput> {
   const { client, region, now } = args;
   const regions = await activeStoryRegions(client);
   const active = regions.find((item) => item.region === region);
@@ -114,15 +113,11 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   if (!Number.isFinite(latestSource) || now.getTime() - latestSource > SOURCE_MAX_AGE_MS) {
     throw new StoryInputError("story_source_stale", 409);
   }
-  const snapshots = args.liveSwells ? [] : await loadRecentSwellSnapshots(client,
+  const snapshots = await loadRecentSwellSnapshots(client,
     allBeachIds, new Date(now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * 24 * 60 * 60_000));
-  const history = args.liveSwells ? new Map<string, SwellEventForecastRow[]>() : await loadSwellForecastRows(client, allBeachIds,
+  const history = await loadSwellForecastRows(client, allBeachIds,
     new Date(now.getTime() - SWELL_EVENT_BASELINE_LOOKBACK_HOURS * 60 * 60_000), now);
-  const events: RegionalSwellEvent[] = args.liveSwells
-    ? args.liveSwells.map((swell) => ({ directionDeg: swell.directionDeg, periodS: swell.periodS,
-      arrivalAt: swell.arrivalAt, peakAt: swell.peakAt, fadeAt: swell.fadeAt, timezone: swell.timezone,
-      confidence: swell.confidence, minimumBeaches: Math.min(3, swell.beaches.length) }))
-    : eventsFromForecasts(allBeaches, rows, history, snapshots, now, active.timezone);
+  const events: RegionalSwellEvent[] = eventsFromForecasts(allBeaches, rows, history, snapshots, now, active.timezone);
   const dayRows = Map.groupBy(rows, (row) => localDate(new Date(row.forecast_at), active.timezone));
   const hourFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: active.timezone, hour: "2-digit", hourCycle: "h23" });
   const signals: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => {
@@ -142,16 +137,12 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     const exposed = direction === null ? 0 : beaches.filter((beach) =>
       beach.aspect_deg !== null && Math.abs(((beach.aspect_deg - direction + 540) % 360) - 180) <= 45).length;
     const event = events.find((item) => localDate(new Date(item.peakAt), item.timezone) === date);
-    const liveEvent = args.liveSwells?.find((swell) => event && swell.peakAt === event.peakAt && swell.arrivalAt === event.arrivalAt);
-    const listedBeachIds = liveEvent ? new Set(liveEvent.beaches.map((beach) => beach.beachId)) : null;
-    const exposedBeaches = !event ? [] : allBeaches.filter((beach) => !listedBeachIds || listedBeachIds.has(beach.id)).flatMap((beach) => {
+    const exposedBeaches = !event ? [] : allBeaches.flatMap((beach) => {
       const factor = exposureFactor(event.directionDeg, swellWindowForBeach(beach));
-      const bestWindow = liveEvent?.beaches.find((item) => item.beachId === beach.id)?.bestWindow;
-      const liveScore = bestWindow?.localDate === date ? bestWindow.conditionScore : null;
       const beachScores = regionalSamples.filter((row) => row.beach_id === beach.id)
         .map((row) => scoreNativeConditionInputs(nativeScoreInputsFromForecast(row as EnhancedForecastEntity), "intermediate"));
       return factor === null ? [] : [{ beachId: beach.id, beachName: beach.name, exposure: exposureLabel(factor),
-        qualityScore: liveScore ?? (beachScores.length ? Math.max(...beachScores) : null) }];
+        qualityScore: beachScores.length ? Math.max(...beachScores) : null }];
     });
     const bucketOf = (at: string): "morning" | "midday" | "evening" | null => {
       const hour = Number(hourFormatter.format(new Date(at)));

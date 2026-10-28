@@ -61,6 +61,16 @@ describe("regional Week Scout story candidates", () => {
       .toContain("short-period windswell");
   });
 
+  it("does not name a peak or fade weekday outside the seven-day story", () => {
+    const outside = { ...event(), arrivalAt: "2026-11-02T18:00:00Z",
+      peakAt: "2026-11-03T18:00:00Z", fadeAt: "2026-11-04T18:00:00Z" };
+    const swellFacts = buildStoryCandidates(days(3), "San Diego", [outside])
+      .filter((fact) => fact.gate.kind === "swell");
+    expect(swellFacts.find((fact) => fact.id === "cover-pulse")?.text)
+      .toContain("reaches San Diego Monday and peaks next week");
+    expect(swellFacts.map((fact) => fact.text).join(" ")).not.toMatch(/Tuesday|Wednesday/);
+  });
+
   it("ranks exposure by peak-day quality, then beach name", () => {
     const signals = days(3);
     signals[5].exposedBeaches = [

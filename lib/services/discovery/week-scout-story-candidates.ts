@@ -49,6 +49,12 @@ function weekday(date: string): string {
   return WEEKDAY[new Date(`${date}T12:00:00Z`).getUTCDay()];
 }
 
+function windowDay(date: string, first: string, last: string): string {
+  if (date < first) return "earlier in the week";
+  if (date > last) return "next week";
+  return weekday(date);
+}
+
 function eventLocalDate(at: string, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(at));
 }
@@ -97,13 +103,15 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     };
     const direction = directionWords(event.directionDeg);
     const period = periodWords(event.periodS);
-    const arrival = weekday(arrivalDate);
-    const peakDay = weekday(peakDate);
+    const firstDate = days[0].localDate;
+    const lastDate = days[6].localDate;
+    const arrival = windowDay(arrivalDate, firstDate, lastDate);
+    const peakDay = windowDay(peakDate, firstDate, lastDate);
     add(facts, "cover-pulse", "cover", `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`, gate);
     add(facts, "cover-pulse-alt", "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
     add(facts, "lead-pulse", "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate);
     add(facts, "lead-pulse-alt", "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
-    add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${weekday(fadeDate)}` : ""}.`, gate);
+    add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
     add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
     const named = peak?.exposedBeaches?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
     const byQuality = (a: typeof named[number], b: typeof named[number]): number =>
@@ -118,8 +126,8 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
       add(facts, `exposure-${key}-alt`, `swell:${key}:exposure`, `${selected[0].beachName} and ${selected[1].beachName} get the cleaner angle; ${selected[2].beachName} is more sheltered.`, exposureGate);
     }
     if (fadeDate && fadeDate > peakDate) {
-      add(facts, "turn-fade", "story:turn", `After ${peakDay}, the ${direction} swell eases into ${weekday(fadeDate)}.`, gate);
-      add(facts, "turn-fade-alt", "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${weekday(fadeDate)}.`, gate);
+      add(facts, "turn-fade", "story:turn", `After ${peakDay}, the ${direction} swell eases into ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
+      add(facts, "turn-fade-alt", "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
     }
   } else {
     const completeDates = days.map((day) => day.localDate);

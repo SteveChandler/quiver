@@ -11,6 +11,7 @@ jest.mock("../week-scout-story-store", () => ({
 }));
 jest.mock("../week-scout-story-source", () => ({
   buildStoryInput: (...args: unknown[]) => mockBuildInput(...args),
+  StoryInputError: class StoryInputError extends Error {},
   STORY_SAMPLE_VERSION: "regional-swell-events-3",
 }));
 
@@ -18,6 +19,7 @@ import { WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-con
 import type { CanonicalWeekScoutResponse } from "../week-scout";
 import { bindFallbackStory, bindStory, loadAndBindStory, storyGateHolds } from "../week-scout-story-serve";
 import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
+import { StoryInputError } from "../week-scout-story-source";
 
 const baseInput = (): StoryInput => ({
   schemaVersion: 3, region: "south-shore", editionDate: "2026-07-15",
@@ -148,17 +150,71 @@ describe("deterministic fallback and live gates", () => {
     expect(mockBuildInput).toHaveBeenCalledTimes(1);
   });
 
-  it("rebuilds a cached regional input when its swell does not match the cover event", async () => {
+  it("omits unmatched regional swell copy without rebuilding for a user's swells", async () => {
     const cached = input();
     cached.briefing.generatedAt = "2026-07-15T12:30:00Z";
     cached.copyFacts.filter((fact) => fact.gate.kind === "swell").forEach((fact) => {
       fact.gate = { ...swellGate, arrivalLocalDate: "2026-07-14" };
     });
+    cached.copyFacts.push({ id: "swell", slot: "swell:6-5-2026-07-16", text: "Wrong regional swell.",
+      gate: { ...swellGate, arrivalLocalDate: "2026-07-14" } });
+    cached.copyFacts.push({ id: "exposure", slot: "swell:6-5-2026-07-16:exposure", text: "Wrong exposure.",
+      gate: { kind: "exposure", regionalEventKey: swellGate.regionalEventKey,
+        directionSector: 6, exposure: "open", minimumBeaches: 2 } });
     mockLatestInput.mockResolvedValue(cached);
     const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
       startLocalDate: "2026-07-15", now });
-    expect(story.cover.text).toBe("Specific cover.");
-    expect(mockBuildInput).toHaveBeenCalledWith(expect.objectContaining({ liveSwells: expect.any(Array), persist: false }));
+    expect(story).toMatchObject({ availability: "ready", cover: { text: null }, lead: null });
+    expect(story.chapters.every((chapter) => !chapter.slot.startsWith("swell:"))).toBe(true);
+    expect(mockBuildInput).not.toHaveBeenCalled();
+  });
+
+  it("shares one regional build across concurrent users and does not read forecasts again", async () => {
+    const day = new Date("2026-07-19T13:00:00Z");
+    const countedClient = { from: jest.fn((_table: string) => client.from()) };
+    mockBuildInput.mockImplementation(async ({ client: db }: { client: typeof countedClient }) => {
+      for (let index = 0; index < 34; index++) db.from("enhanced_forecasts");
+      return { ...input(), editionDate: "2026-07-19" };
+    });
+    const otherUser = live();
+    otherUser.swells = [];
+    await Promise.all([live(), otherUser].map((response) => loadAndBindStory({
+      client: countedClient as never, homeBeachId: "home", live: response,
+      startLocalDate: "2026-07-19", now: day,
+    })));
+    expect(mockBuildInput).toHaveBeenCalledTimes(1);
+    expect(mockBuildInput).toHaveBeenCalledWith({ client: countedClient, region, now: day, persist: false });
+    expect(countedClient.from.mock.calls.filter(([table]) => table === "enhanced_forecasts")).toHaveLength(34);
+  });
+
+  it.each(["story_source_stale", "story_coverage_sparse", "story_no_candidates"])(
+    "caches a %s failure across requests without repeating database reads", async (code) => {
+      const date = ({ story_source_stale: "2026-07-20", story_coverage_sparse: "2026-07-21",
+        story_no_candidates: "2026-07-22" } as Record<string, string>)[code];
+      const countedClient = { from: jest.fn((_table: string) => client.from()) };
+      mockBuildInput.mockImplementation(async ({ client: db }: { client: typeof countedClient }) => {
+        for (let index = 0; index < 34; index++) db.from("enhanced_forecasts");
+        throw new StoryInputError(code);
+      });
+      const stories = await Promise.all([0, 1].map(() => loadAndBindStory({
+        client: countedClient as never, homeBeachId: "home", live: live(),
+        startLocalDate: date, now: new Date(`${date}T13:00:00Z`),
+      })));
+      expect(stories.map((story) => story.availability)).toEqual(["unavailable", "unavailable"]);
+      expect(mockBuildInput).toHaveBeenCalledTimes(1);
+      expect(countedClient.from.mock.calls.filter(([table]) => table === "enhanced_forecasts")).toHaveLength(34);
+    });
+
+  it("caches under the region's edition date when the user's start date differs", async () => {
+    const day = new Date("2026-07-18T13:00:00Z");
+    mockBuildInput.mockResolvedValue({ ...input(), editionDate: "2026-07-18" });
+    const first = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+      startLocalDate: "2026-07-17", now: day });
+    await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+      startLocalDate: "2026-07-18", now: day });
+    expect(first.availability).toBe("unavailable");
+    expect(mockLatestInput).toHaveBeenNthCalledWith(1, client, region, "2026-07-18");
+    expect(mockBuildInput).toHaveBeenCalledTimes(1);
   });
 
   it("drops a different swell's weekday even when its live gate matches another card", () => {

@@ -4,7 +4,7 @@ export { isWeekScoutStoryEnabled } from "@/lib/flags/week-scout-story";
 import type { CanonicalWeekScoutResponse } from "./week-scout";
 import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
 import { directionIndex, directionSector, periodBand } from "./week-scout-story-candidates";
-import { buildStoryInput, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
+import { buildStoryInput, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
 import type { StoryGate, StoryInput, StoryWire } from "./week-scout-story-types";
@@ -12,7 +12,22 @@ import type { StoryGate, StoryInput, StoryWire } from "./week-scout-story-types"
 type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
 const CONFIDENCE = ["on_the_radar", "likely", "locked"];
-const fallbackInputs = new Map<string, { input: StoryInput; expiresAt: number }>();
+const FALLBACK_TTL_MS = 5 * 60_000;
+const fallbackInputs = new Map<string, { input: Promise<StoryInput | null>; expiresAt: number }>();
+
+function regionalFallback(client: Client, region: string, editionDate: string, now: Date): Promise<StoryInput | null> {
+  const key = `${region}:${editionDate}`;
+  const cached = fallbackInputs.get(key);
+  if (cached && cached.expiresAt > now.getTime()) return cached.input;
+  const input = buildStoryInput({ client, region, now, persist: false }).catch((error: unknown) => {
+    if (error instanceof StoryInputError) return null;
+    fallbackInputs.delete(key);
+    throw error;
+  });
+  if (fallbackInputs.size >= 64) fallbackInputs.delete(fallbackInputs.keys().next().value!);
+  fallbackInputs.set(key, { input, expiresAt: now.getTime() + FALLBACK_TTL_MS });
+  return input;
+}
 
 function localDate(at: string, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" })
@@ -167,12 +182,18 @@ export function bindStory(args: {
 export function bindFallbackStory(region: string, input: StoryInput, live: Live): StoryWire {
   const slots = new Set<string>();
   const firstSwell = firstCoverSwell(live);
+  const matchesFirstSwell = (gate: Extract<StoryGate, { kind: "swell" }>): boolean => Boolean(firstSwell
+    && gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
+    && gate.peakLocalDate === firstSwell.peakLocalDate);
+  const matchedEvents = new Set(input.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
+    && matchesFirstSwell(fact.gate) && storyGateHolds(fact.gate, live)
+    ? [fact.gate.regionalEventKey] : []));
   const selections = [...input.copyFacts].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
     .filter((fact) => {
       if (slots.has(fact.slot) || !storyGateHolds(fact.gate, live)) return false;
-      if (fact.gate.kind === "swell" && (!firstSwell
-        || fact.gate.arrivalLocalDate !== localDate(firstSwell.arrivalAt, firstSwell.timezone)
-        || fact.gate.peakLocalDate !== firstSwell.peakLocalDate)) return false;
+      if (fact.gate.kind === "swell" && !matchesFirstSwell(fact.gate)) return false;
+      if (fact.slot.startsWith("swell:") && fact.gate.kind === "exposure"
+        && !matchedEvents.has(fact.gate.regionalEventKey)) return false;
       slots.add(fact.slot);
       return true;
     }).map((fact) => fact.id);
@@ -190,11 +211,13 @@ export async function loadAndBindStory(args: { client: Client; homeBeachId: stri
   const region = beach?.region ?? null;
   if (!region) return bindStory({ region: null, availability: "outside_region", input: null, selections: null, live });
   const active = await activeStoryRegions(client);
-  if (!active.some((entry) => entry.region === region)) {
+  const activeRegion = active.find((entry) => entry.region === region);
+  if (!activeRegion) {
     return bindStory({ region, availability: "outside_region", input: null, selections: null, live });
   }
+  const editionDate = localDate(now.toISOString(), activeRegion.timezone);
   const edition = await loadLatestStoryEdition(client, region);
-  if (edition?.schemaVersion === 3 && edition.editionDate === startLocalDate
+  if (edition?.schemaVersion === 3 && edition.editionDate === editionDate && editionDate === startLocalDate
     && Date.parse(edition.validUntil) >= now.getTime() && Date.parse(edition.sourcePublishedAt) <= now.getTime()) {
     const publishedInput = await loadStoryInput(client, edition.inputHash);
     if (publishedInput?.provenance.generationInputVersion === STORY_SAMPLE_VERSION) {
@@ -206,27 +229,15 @@ export async function loadAndBindStory(args: { client: Client; homeBeachId: stri
       } catch { /* A failed edition falls through to live candidates. */ }
     }
   }
-  const cached = await loadLatestStoryInput(client, region, startLocalDate);
+  const cached = await loadLatestStoryInput(client, region, editionDate);
   const usable = cached?.provenance.generationInputVersion === STORY_SAMPLE_VERSION
     && Date.parse(cached.briefing.generatedAt) > now.getTime() - 60 * 60_000
     && Date.parse(cached.sourcePublishedAt) <= now.getTime()
     && Date.parse(cached.validUntil) >= now.getTime();
-  const cacheKey = `${region}:${startLocalDate}`;
-  const memory = fallbackInputs.get(cacheKey);
-  const input = usable ? cached : memory && memory.expiresAt > now.getTime()
-    ? memory.input : await buildStoryInput({ client, region, now, persist: false, liveSwells: live.swells });
+  const input = usable ? cached : await regionalFallback(client, region, editionDate, now);
+  if (!input) return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
   if (input.editionDate !== startLocalDate) {
     return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
   }
-  if (!usable && (!memory || memory.expiresAt <= now.getTime())) {
-    if (fallbackInputs.size >= 64) fallbackInputs.delete(fallbackInputs.keys().next().value!);
-    fallbackInputs.set(cacheKey, { input, expiresAt: now.getTime() + 5 * 60_000 });
-  }
-  const fallback = bindFallbackStory(region, input, live);
-  if (fallback.cover.text || !live.swells?.length || (!usable && (!memory || memory.expiresAt <= now.getTime()))) {
-    return fallback;
-  }
-  const current = await buildStoryInput({ client, region, now, persist: false, liveSwells: live.swells });
-  fallbackInputs.set(cacheKey, { input: current, expiresAt: now.getTime() + 5 * 60_000 });
-  return bindFallbackStory(region, current, live);
+  return bindFallbackStory(region, input, live);
 }
