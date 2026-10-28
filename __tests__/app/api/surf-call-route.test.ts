@@ -354,9 +354,17 @@ describe("GET /api/surf/call", () => {
     expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
   });
 
-  it("returns null for an unresolved hold read", async () => {
+  it("still names a hold an unresolved read already knows, because the call is no longer withheld", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
-    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [beachId], waterQualityStatusByBeachId: { [beachId]: "advisory" }, epoch: "unknown" });
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [beachId], waterQualityStatusByBeachId: {}, epoch: "unknown" });
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toEqual({ status: "hold", source: "hold" });
+  });
+
+  it("returns null for an unresolved read that knows no hold", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "unknown" });
     mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
     const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
     expect((await response.json()).data.waterQuality).toBeNull();

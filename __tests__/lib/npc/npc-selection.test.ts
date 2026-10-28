@@ -89,17 +89,17 @@ describe("NPC beach selection", () => {
     jest.restoreAllMocks();
   });
 
-  it("does not return a held weighted home beach", async () => {
+  it("returns a held weighted home beach; the hold is only a notice", async () => {
     const supabase = { from: mockServiceFrom } as never;
     const result = await getBeachesForNPC(supabase, {
       ...npc,
       home_region: "north-san-diego",
     });
 
-    expect(result).toBeNull();
+    expect(result?.id).toBe(HELD_BEACH_ID);
   });
 
-  it("re-samples the fallback pool after a held candidate is rejected", async () => {
+  it("keeps the first fallback candidate even when it is water-quality-held", async () => {
     const supabase = { from: mockServiceFrom } as never;
     const result = await getBeachesForNPC(supabase, {
       ...npc,
@@ -107,6 +107,6 @@ describe("NPC beach selection", () => {
     });
 
     expectConsoleWarnings([/No region slug config/]);
-    expect(result?.id).toBe("22222222-2222-4222-8222-222222222222");
+    expect(result?.id).toBe(HELD_BEACH_ID);
   });
 });

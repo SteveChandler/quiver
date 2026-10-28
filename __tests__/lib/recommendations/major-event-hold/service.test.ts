@@ -361,7 +361,26 @@ describe("resolution failure diagnostics", () => {
     consoleError.mockRestore();
   });
 
-  it("holds a rain-held beach only for windows that start before the runoff clears", async () => {
+  it("allows an unresolved water-quality resolution instead of reporting hold_state_unavailable", async () => {
+    const unresolved = jest.fn().mockResolvedValue({
+      state: "unresolved",
+      heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
+      epoch: "unresolved",
+    });
+    const decisions = await evaluateMajorEventHoldCandidates(
+      { candidates, profileExperience: "intermediate", mode: "enforce", applyWaterQualityHolds: true },
+      { resolveHolds: jest.fn().mockResolvedValue(resolved([])), resolveWaterQualityHolds: unresolved, audit: discardAudit },
+    );
+
+    for (const decision of decisions) {
+      expect(decision.evaluation.outcome).toBe("allow");
+      expect(decision.evaluation.reasonCode).toBeUndefined();
+      expect(decision.recommendationAvailability.state).toBe("available");
+    }
+  });
+
+  it("allows a rain-held beach in every window; the hold is only a notice", async () => {
     const rainHeld = jest.fn().mockResolvedValue({
       state: "resolved",
       heldBeachIds: [BEACH_A],
@@ -376,9 +395,8 @@ describe("resolution failure diagnostics", () => {
       { resolveHolds: jest.fn().mockResolvedValue(resolved([])), resolveWaterQualityHolds: rainHeld, audit: discardAudit },
     );
 
-    expect(decisions[0].evaluation).toMatchObject({ outcome: "explicit_none", reasonCode: "water_quality_hold",
-      expiresAt: "2026-07-19T19:00:00.000Z" });
-    expect(decisions[0].recommendationAvailability).toMatchObject({ state: "none", expiresAt: "2026-07-19T19:00:00.000Z" });
+    expect(decisions[0].evaluation.outcome).toBe("allow");
+    expect(decisions[0].recommendationAvailability.state).toBe("available");
     expect(decisions[1].evaluation.outcome).toBe("allow");
   });
 });

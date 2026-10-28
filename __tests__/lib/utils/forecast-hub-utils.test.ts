@@ -429,7 +429,7 @@ describe("forecast-hub-utils", () => {
       );
     });
 
-    it("continues filtering held beaches from forecast-hub recommendations", async () => {
+    it("keeps held beaches in forecast-hub recommendations; the hold is only a notice", async () => {
       const heldBeach = {
         ...mockBeaches[0],
         id: "550e8400-e29b-41d4-a716-446655440000",
@@ -458,13 +458,13 @@ describe("forecast-hub-utils", () => {
 
       expect(aggregateRegionalForecast).toHaveBeenCalledWith(
         expect.anything(),
-        [safeBeach],
+        [heldBeach, safeBeach],
         expect.any(Map),
         // Same reference instant the window selector is given.
         expect.objectContaining({ now: expect.any(Date) }),
       );
       expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(
-        [safeBeach.id],
+        [heldBeach.id, safeBeach.id],
         168,
       );
     });
