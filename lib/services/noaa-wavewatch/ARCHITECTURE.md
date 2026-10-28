@@ -8,7 +8,8 @@ The NOAA WaveWatch III service provides wave forecast data for surf spots by fet
 
 1. **Primary Source**: NOAA National Weather Service (NWS) API
 2. **Fallback Source**: Open-Meteo Marine API
-3. **Last Resort**: Synthetic data generation based on location and seasonal patterns
+
+There is no synthetic last resort. When neither source has a slot, the service leaves it out (or returns `null` when nothing is usable). The forecast builder stores those slots as `data_source = "FALLBACK"` rows with null wave fields, and readers treat them as "model data pending", never as a forecast. A random or climatology-based generator lived here until Oct 2026; it was removed because its rows were scored, ranked and shown as real forecasts.
 
 ## Module Structure
 
@@ -20,7 +21,6 @@ lib/services/noaa-wavewatch/
 ├── api-client.ts               # HTTP client for external APIs
 ├── wave-analysis.ts            # Wave data analysis and utility functions
 ├── data-processors.ts          # Data transformation from API responses
-├── fallback-generator.ts       # Synthetic wave forecast generation
 ├── noaa-wavewatch-service.ts   # Main orchestration class
 └── ARCHITECTURE.md             # This file
 ```
@@ -112,20 +112,6 @@ Transforms raw API responses into standardized wave forecast format:
 - Wind wave separation
 - Precision rounding (heights to cm, periods to 0.1s, directions to degrees)
 
-### `fallback-generator.ts` - Synthetic Data
-
-Generates realistic synthetic wave forecasts when real data is unavailable:
-
-**Function:**
-- `generateFallbackData()`: Create location and season-appropriate forecasts
-
-**Features:**
-- Location-aware baseline conditions
-- Seasonal adjustments (winter higher, summer lower)
-- Realistic variability using sine waves + random noise
-- Proper swell/wind wave decomposition
-- Pacific-appropriate wave periods (12-16s typical)
-
 ### `noaa-wavewatch-service.ts` - Main Service
 
 Orchestrates the entire data fetching process with fallback logic:
@@ -143,8 +129,7 @@ Orchestrates the entire data fetching process with fallback logic:
 **Fallback Strategy:**
 1. Try NOAA NWS API
 2. If no wave data or failure → Try Open-Meteo
-3. If Open-Meteo fails → Generate synthetic fallback
-4. Always return valid forecast data
+3. If both fail → return `null`; slots past the last real timestamp are left out
 
 ### `index.ts` - Barrel Export
 
@@ -187,16 +172,10 @@ Public API surface for the module with organized exports:
          ┌────────┴─────────┐
          │  Yes      No     │
          ▼          ▼       │
-    ┌────────┐  ┌──────────┴──────┐
-    │ Return │  │ Fallback         │
-    │ Data   │  │ Generator        │
-    └────────┘  └──────┬───────────┘
-                       │
-                       ▼
-                  ┌────────┐
-                  │ Return │
-                  │ Data   │
-                  └────────┘
+    ┌────────┐  ┌────────┐  │
+    │ Return │  │ Return │  │
+    │ Data   │  │ null   │  │
+    └────────┘  └────────┘  │
 ```
 
 ## Wave Data Structure
@@ -243,7 +222,7 @@ The NOAA branch of `data-processors.ts` parses real partition fields from NWS gr
 
 **Offshore grid offset.** Beach coordinates often resolve to coastal-land NWS grids that return zeroed partitions. `grid-utils.ts:getOceanGridPoint` shifts the query coordinate ~0.05° (~5 km) toward deeper water (Pacific W, Atlantic E, Gulf S, HI W) before calling `/points/{lat},{lon}`. Per-beach 24h in-memory cache (`api-client.ts:pointCache`) avoids repeated metadata lookups.
 
-**No fabrication.** When a secondary partition is absent, the OM branch only returns one partition, or the fallback-generator fires, `swell_2_height/period/direction` emit a `0` sentinel (never synthesized as `swell_1 * magic_numbers`). `forecast-builder.ts:getSwell2*` treats `swell_2_height === 0` as absent and returns `null` to the DB. The web forecast table renders an em-dash when `swell_2_height` is null.
+**No fabrication.** When a secondary partition is absent, or the OM branch only returns one partition, `swell_2_height/period/direction` emit a `0` sentinel (never synthesized as `swell_1 * magic_numbers`). `forecast-builder.ts:getSwell2*` treats `swell_2_height === 0` as absent and returns `null` to the DB. The web forecast table renders an em-dash when `swell_2_height` is null.
 
 ## Geographic Regions
 
@@ -331,7 +310,7 @@ The service uses a **progressive degradation** approach:
 
 1. **Try NOAA NWS**: Most authoritative for US waters
 2. **Try Open-Meteo**: Reliable global coverage
-3. **Generate Fallback**: Always provide data, mark as synthetic
+3. **No data**: Return `null`; never synthesize wave values
 
 **Error States:**
 - API failures → Caught, logged, move to next source
@@ -348,17 +327,16 @@ The service uses a **progressive degradation** approach:
 **Unit Testing:**
 - Pure functions in `wave-analysis.ts` are easily testable
 - Mock API responses for `data-processors.ts`
-- Test fallback generation determinism
 
 **Integration Testing:**
 - Test full fetch flow with real coordinates
-- Verify fallback cascade (NOAA → Open-Meteo → Synthetic)
+- Verify fallback cascade (NOAA → Open-Meteo → null)
 - Validate data quality checks
 
 **Example Test Locations:**
 - San Diego: `32.7157, -117.1611` (reliable NOAA coverage)
 - Hawaii: `21.3099, -157.8581` (test Open-Meteo fallback)
-- Invalid: `0, 0` (test fallback generation)
+- Invalid: `0, 0` (expect `null`)
 
 ## Performance Considerations
 
@@ -370,12 +348,10 @@ The service uses a **progressive degradation** approach:
 **Request Optimization:**
 - NOAA API requires 2 sequential requests (points → grid)
 - Open-Meteo requires 1 request
-- Fallback generation is instant (no API call)
 
 **Response Times:**
 - NOAA NWS: ~500-1000ms (2 requests)
 - Open-Meteo: ~300-500ms (1 request)
-- Fallback: <10ms (synthetic)
 
 ## Usage Examples
 
@@ -420,13 +396,10 @@ console.log(`${direction}° = ${compassText}`);
 ### Direct Data Processing (Testing)
 
 ```typescript
-import { processNOAAGridData, generateFallbackData } from "@/lib/services/noaa-wavewatch";
+import { processNOAAGridData } from "@/lib/services/noaa-wavewatch";
 
 // Process raw NOAA data
 const waveData = processNOAAGridData(mockGridData, 7, 32.7157, -117.1611);
-
-// Generate test data
-const testData = generateFallbackData(32.7157, -117.1611, 3);
 ```
 
 ## Future Enhancements

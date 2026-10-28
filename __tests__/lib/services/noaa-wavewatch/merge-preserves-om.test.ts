@@ -10,7 +10,7 @@ import { NOAAWaveWatchService } from "@/lib/services/noaa-wavewatch/noaa-wavewat
 import type { WaveWatchData } from "@/lib/services/noaa-wavewatch/types";
 import { fetchNOAAPointData, fetchOpenMeteoData } from "@/lib/services/noaa-wavewatch/api-client";
 
-// Mock API + fallback internals so we can feed synthetic NOAA / OM forecasts.
+// Mock API internals so we can feed synthetic NOAA / OM forecasts.
 jest.mock("@/lib/services/noaa-wavewatch/api-client", () => ({
   fetchNOAAPointData: jest.fn(async () => ({ properties: { gridId: "X", gridX: 1, gridY: 1 } })),
   constructGridUrl: jest.fn(() => "https://example.test/grid"),
@@ -30,11 +30,6 @@ jest.mock("@/lib/services/noaa-wavewatch/wave-analysis", () => {
 jest.mock("@/lib/services/noaa-wavewatch/data-processors", () => ({
   processNOAAGridData: jest.fn(),
   processOpenMeteoData: jest.fn(),
-}));
-
-jest.mock("@/lib/services/noaa-wavewatch/fallback-generator", () => ({
-  generateFallbackData: jest.fn(() => []),
-  generateFallbackSlotsFrom: jest.fn(() => []),
 }));
 
 jest.mock("@/lib/monitoring/fallback-tracker", () => ({
