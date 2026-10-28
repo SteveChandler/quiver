@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { ScoreLabel } from "@/lib/utils/score-color-utils";
+import { WATER_QUALITY_INFORMS_ONLY } from "@/lib/constants/water-quality";
 import {
   buildCanonicalSessionDecision,
   canonicalCandidateScore,
@@ -80,13 +81,14 @@ function toCanonicalCandidate(
   const markedRecommendation = recommendation as SurfDiscoveryRecommendation & {
     safetyOverrideReasons?: CanonicalDecisionReasonCode[];
   };
-  const safetyOverrideReasons = (recommendation.warnings ?? []).some(
+  // A water-quality closure stays a warning on the recommendation, not an override.
+  const safetyOverrideReasons = WATER_QUALITY_INFORMS_ONLY ? [] : (recommendation.warnings ?? []).some(
     (warning) =>
       warning.toLowerCase().includes("water quality closure"),
   )
     ? ["water_quality_closure" as const]
     : [];
-  const markedReasons = (markedRecommendation.safetyOverrideReasons ?? []).filter(
+  const markedReasons = WATER_QUALITY_INFORMS_ONLY ? [] : (markedRecommendation.safetyOverrideReasons ?? []).filter(
     (reason): reason is CanonicalSafetyOverrideReason =>
       reason === "water_quality_closure",
   );

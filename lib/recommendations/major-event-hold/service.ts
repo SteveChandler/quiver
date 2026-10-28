@@ -11,6 +11,7 @@ import {
 import { resolveMajorEventHolds } from "./repository";
 import {
   resolveWaterQualityHolds,
+  WATER_QUALITY_INFORMS_ONLY,
   waterQualityHoldId,
   type WaterQualityHoldResolution,
 } from "./water-quality";
@@ -101,6 +102,7 @@ function evaluateWaterQualityHold(
   holdEpoch: string,
   exemptBeachIds: ReadonlySet<string>,
 ): MajorEventHoldCandidateDecision["evaluation"] {
+  if (WATER_QUALITY_INFORMS_ONLY) return { outcome: "allow", holdIds: [], holdEpoch };
   if (candidate === null) {
     return resolution.state === "unresolved"
       ? {

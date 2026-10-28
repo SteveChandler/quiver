@@ -142,9 +142,10 @@ describe("water-quality hold read scope", () => {
 
     const ranked = await runWithWaterQualityReadScope(surfCallShapedResolution);
 
+    // Held beaches stay in the ranking; the resolver is still read once per request.
     expect(ranked).toEqual([
-      [CLEAN, COUNTY_COVERED],
-      [CLEAN, COUNTY_COVERED],
+      POOL,
+      [SAMPLE_HELD, CLEAN, COUNTY_COVERED],
       [CLEAN],
     ]);
     expect(executions.water_quality_held_beaches).toBe(1);
@@ -180,7 +181,7 @@ describe("water-quality hold read scope", () => {
 
     const ranked = await surfCallShapedResolution();
 
-    expect(ranked[0]).toEqual([CLEAN, COUNTY_COVERED]);
+    expect(ranked[0]).toEqual(POOL);
     expect(executions).toMatchObject({
       water_quality_held_beaches: 6,
       beach_water_quality: 3,
@@ -215,10 +216,10 @@ describe("water-quality hold read scope", () => {
 
     const ranked = await runWithWaterQualityReadScope(surfCallShapedResolution);
 
-    // The failed pool read fails open, as before; the next layer re-reads and
-    // the held beaches are still excluded from what gets recommended.
+    // The failed pool read fails open, as before; the next layer re-reads. Held
+    // beaches stay in the ranking either way (the hold is only a notice).
     expect(ranked[0]).toEqual(POOL);
-    expect(ranked[1]).toEqual([CLEAN, COUNTY_COVERED]);
+    expect(ranked[1]).toEqual([SAMPLE_HELD, CLEAN, COUNTY_COVERED]);
     // Failed pool read, then a fresh read for the County projection and one for
     // the discovery set it did not cover. The failure was never served again.
     expect(executions.water_quality_held_beaches).toBe(3);

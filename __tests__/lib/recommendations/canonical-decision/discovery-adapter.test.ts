@@ -89,7 +89,7 @@ describe("canonical discovery adapter", () => {
     expect(JSON.stringify(recommendations)).toBe(before);
   });
 
-  it("maps a water-quality closure warning to a hard safety override", () => {
+  it("does not map a water-quality closure warning to a safety override; it stays a notice", () => {
     const { buildCanonicalDecisionFromSurfDiscovery } = loadAdapter();
     const decision = buildCanonicalDecisionFromSurfDiscovery({
       anchorTime: "2026-07-22T18:00:00.000Z",
@@ -126,11 +126,8 @@ describe("canonical discovery adapter", () => {
       selection: unknown;
     };
 
-    expect(decision).toMatchObject({
-      verdict: "no",
-      decisionBasis: "safety_override",
-      reasonCode: "water_quality_closure",
-      selection: null,
-    });
+    expect(decision).not.toMatchObject({ decisionBasis: "safety_override" });
+    expect(decision.reasonCode).not.toBe("water_quality_closure");
+    expect(decision.selection).not.toBeNull();
   });
 });
