@@ -151,6 +151,22 @@ const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
         "Check Cocoa Beach Pier wave height, wind, tide, and swell before applying the seasonal guide.",
     },
   },
+  pacifica: {
+    metaDescription:
+      "Check today's Pacifica surf report: wave height, wind, tide and swell at Linda Mar, plus the best months to surf Pacifica for planning ahead.",
+    answerPrefix:
+      "For Pacifica, read wave height, wind, tide, and swell at Linda Mar first, then use the seasonal pattern to plan ahead.",
+    weekSuffix:
+      "Use this page for the seasonal pattern, and let the live Linda Mar conditions decide today's session.",
+    surfReportCue:
+      "Open the Linda Mar report for today's wave height, wind, tide, and swell before using this seasonal guide.",
+    surfReportStep: {
+      label: "Open today's Linda Mar report",
+      href: "/ca/pacifica/linda-mar-pacifica-ca",
+      description:
+        "Check Linda Mar wave height, wind, tide, and swell before applying the seasonal guide.",
+    },
+  },
   "la-jolla": {
     answerPrefix:
       "For La Jolla, use Scripps Pier, Shores, and Tourmaline as the live proof points before trusting the seasonal pattern.",
