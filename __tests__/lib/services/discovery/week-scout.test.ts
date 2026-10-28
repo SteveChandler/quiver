@@ -1151,6 +1151,21 @@ describe('generateWeekScoutForecast', () => {
     expect(response.sessionDecision.selection).toBeNull();
   });
 
+  it('keeps the answer live when the sync has not revisited a beach for hours', async () => {
+    const deps = dependencies();
+    const ingestedLongAgo = { ...forecast(BEACH_A, '2026-07-31T18:00:00.000Z'), data_source: 'CDIP', updated_at: '2026-07-31T02:00:00.000Z' } as EnhancedForecastEntity;
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [ingestedLongAgo]]]));
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 1,
+    }, deps);
+
+    expect(Date.parse(response.coverage!.expiresAt)).toBe(deps.now.getTime() + 60_000);
+  });
+
   it('assigns dayparts and coverage in the beach timezone', async () => {
     const deps = dependencies();
     const losAngelesBeach = {
