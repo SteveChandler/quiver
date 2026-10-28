@@ -13,6 +13,9 @@ import {
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import { rankBeaches } from "@/lib/recommendations/selection";
+
+// Selection reads water quality only for callers that label from it (discovery, Week Scout).
+const labelFromResolution = (): void => {};
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import {
@@ -114,7 +117,7 @@ const POOL = [OWNER_HELD, SAMPLE_HELD, CLEAN, COUNTY_COVERED];
 /** The order /api/surf/call resolves holds in: pool, discovery ranking, decision. */
 async function surfCallShapedResolution(): Promise<string[][]> {
   const rank = async (ids: string[]) =>
-    (await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0 })).map(({ id }) => id);
+    (await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0, onWaterQualityResolution: labelFromResolution })).map(({ id }) => id);
   const pool = await rank(POOL);
   await currentWaterQuality([{ beach_id: COUNTY_COVERED, status: "good" }]);
   const discovery = await rank([SAMPLE_HELD, CLEAN, COUNTY_COVERED]);
@@ -162,7 +165,7 @@ describe("water-quality hold read scope", () => {
 
     await runWithWaterQualityReadScope(async () => {
       for (const ids of [[OWNER_HELD, SAMPLE_HELD, CLEAN], [SAMPLE_HELD, CLEAN], [CLEAN]]) {
-        await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0 });
+        await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0, onWaterQualityResolution: labelFromResolution });
       }
     });
 

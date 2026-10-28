@@ -206,7 +206,10 @@ export async function rankBeaches<T extends { id: string }>(
     ) => void;
   },
 ): Promise<RankedBeach<T>[]> {
-  const holds = await resolveSafeBeachIds(candidates, opts);
+  // With water quality informing only, resolve just for callers that label from it.
+  const holds = WATER_QUALITY_INFORMS_ONLY && !opts.onWaterQualityResolution
+    ? NO_HOLDS
+    : await resolveSafeBeachIds(candidates, opts);
 
   return candidates
     .filter((candidate) => WATER_QUALITY_INFORMS_ONLY
