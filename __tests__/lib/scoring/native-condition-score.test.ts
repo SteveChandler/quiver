@@ -6,6 +6,7 @@ import {
   pickBestNativeForecastSlot,
   scoreNativeConditionBreakdown,
   scoreNativeConditionInputs,
+  scoreNativeForecastDay,
   scoreNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -300,6 +301,18 @@ describe("native-condition-score", () => {
       forecast: { id: "best" },
       score: 100,
     });
+  });
+
+  it("never selects or scores a FALLBACK row", () => {
+    const real = forecast({ id: "real", wave_height: "0.3 ft" });
+    const synthetic = forecast({ id: "synthetic", wave_height: "2 ft", data_source: "FALLBACK" });
+    const pending = forecast({ id: "pending", wave_height: null, data_source: "FALLBACK" });
+
+    expect(pickBestNativeForecastSlot([real, synthetic, pending], "beginner")).toMatchObject({
+      forecast: { id: "real" },
+    });
+    expect(pickBestNativeForecastSlot([synthetic, pending], "beginner")).toBeNull();
+    expect(scoreNativeForecastDay([pending], "beginner")).toBe(0);
   });
 
   it("selects from daylight rows when a beach timezone is provided", () => {

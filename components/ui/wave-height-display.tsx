@@ -217,9 +217,10 @@ export function WaveHeightDisplay({
         quality: "good",
       };
     } else if (source.includes("FALLBACK")) {
+      // FALLBACK rows carry no model wave data; they are never a forecast.
       return {
-        label: "Regional Data",
-        description: "Using nearby location data",
+        label: "Model data pending",
+        description: "No forecast model covers this time yet",
         quality: "approximate",
       };
     }

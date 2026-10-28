@@ -290,7 +290,7 @@ describe('horizon-strip-utils', () => {
       expect(result.map((d) => d.fullDate)).toEqual([dates[0], dates[1], dates[2]]);
     });
 
-    it('keeps trailing FALLBACK days that have wave values (gap-filled slots)', () => {
+    it('drops FALLBACK days even when they carry wave values', () => {
       const today = new Date();
       const dates = Array.from({ length: 4 }, (_, i) => {
         const d = new Date(today);
@@ -303,7 +303,7 @@ describe('horizon-strip-utils', () => {
         makeForecast(dates[0], '12:00', 'NOAA_NWS'),
         makeForecast(dates[1], '06:00', 'NOAA_NWS'),
         makeForecast(dates[1], '12:00', 'NOAA_NWS'),
-        // Days 2-3: FALLBACK but with wave values (gap-filled)
+        // Days 2-3: FALLBACK rows still carrying synthetic wave values
         makeForecast(dates[2], '06:00', 'FALLBACK', '1.5'),
         makeForecast(dates[2], '12:00', 'FALLBACK', '1.8'),
         makeForecast(dates[3], '06:00', 'FALLBACK', '1.2'),
@@ -312,8 +312,8 @@ describe('horizon-strip-utils', () => {
 
       const result = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 12 });
 
-      // All 4 days should be kept (FALLBACK with values not trimmed)
-      expect(result.length).toBe(4);
+      // FALLBACK days are never a forecast, whatever their wave fields hold
+      expect(result.map((d) => d.fullDate)).toEqual([dates[0], dates[1]]);
     });
 
     it('keeps days with mixed real and fallback forecasts', () => {
@@ -335,6 +335,24 @@ describe('horizon-strip-utils', () => {
       const result = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 12 });
 
       expect(result.length).toBe(3);
+    });
+
+    it('never lets a FALLBACK row set a day\'s best time or height', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const date = tomorrow.toISOString().split('T')[0];
+
+      const forecasts = [
+        makeForecast(date, '18:00', 'NOAA_NWS', '1.0'),
+        // A leftover synthetic row that would outscore the real slot
+        makeForecast(date, '19:00', 'FALLBACK', '6.0'),
+      ];
+
+      const [day] = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 12 });
+
+      expect(day.fullDate).toBe(date);
+      expect(day.bestTime).toBe('18:00');
+      expect(day.maxHeight).toBe(1);
     });
 
     it('uses the daylight slot for a future Pacific day', () => {
