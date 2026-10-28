@@ -1,4 +1,5 @@
 import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
+export { WATER_QUALITY_INFORMS_ONLY } from "@/lib/constants/water-quality";
 import "server-only";
 
 import { createHash } from "node:crypto";

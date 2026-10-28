@@ -67,7 +67,7 @@ describe("notification water-quality provenance", () => {
     configureHeldBeachStore();
   });
 
-  it("delivers the configured held beach but suppresses a held alternative in its notification provenance", async () => {
+  it("delivers both the configured held beach and a held alternative; the hold is only a notice", async () => {
     const configuredAlert = await resolveNotificationMajorEventHold({
       eventId: "event-configured-held-beach",
       type: "forecast_alert",
@@ -95,13 +95,10 @@ describe("notification water-quality provenance", () => {
     }, { evaluateCandidates: evaluateWaterQualityOnly });
 
     expect(configuredAlert).toMatchObject({ status: "allowed" });
-    expect(suggestedAlternative).toMatchObject({
-      status: "suppressed",
-      reasonCode: "water_quality_hold",
-    });
+    expect(suggestedAlternative).toMatchObject({ status: "allowed" });
   });
 
-  it("holds Quiver-chosen beaches with major-event holds off, but still delivers a configured alert", async () => {
+  it("delivers Quiver-chosen beaches with major-event holds off even when water-quality-held", async () => {
     const dailyCall = await resolveNotificationMajorEventHold({
       eventId: "event-daily-call-off",
       type: "daily_call",
@@ -144,12 +141,8 @@ describe("notification water-quality provenance", () => {
       mode: "off",
     }, { evaluateCandidates: evaluateWaterQualityOnly });
 
-    expect(dailyCall).toMatchObject({
-      status: "suppressed",
-      reasonCode: "water_quality_hold",
-      candidate: { beachId: ALTERNATIVE_BEACH_ID },
-    });
-    expect(weekendWindow).toMatchObject({ status: "suppressed", reasonCode: "water_quality_hold" });
+    expect(dailyCall).toMatchObject({ status: "allowed" });
+    expect(weekendWindow).toMatchObject({ status: "allowed" });
     expect(configuredAlert).toMatchObject({ status: "allowed" });
   });
 });
