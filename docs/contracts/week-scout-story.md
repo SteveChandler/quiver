@@ -8,7 +8,7 @@ type WeekScoutStory = {
   region: string | null; // region of the user's home beach, never inferred from a pilot setting
   availability: 'ready' | 'pending' | 'outside_region' | 'unavailable';
   cover: {
-    text: string | null; // selected regional narrative; null without a valid edition
+    text: string | null; // selected regional narrative; published edition or deterministic live fallback
     swells: Array<{
       eventKey: string;
       directionDeg: number;
@@ -40,12 +40,14 @@ type WeekScoutStory = {
 };
 ```
 
-`availability: 'ready'` requires a valid region edition with every selected candidate still passing its gate. If it fails, omit all regional prose and use `pending` or `unavailable`. `outside_region` covers a missing home beach or a home region absent from the active-region query. A quiet week can be `ready` only when every claimed day has complete safe forecast coverage; a missing or held day cannot become a quiet chapter. The directional cover never claims a storm source or travel distance until source geometry and track provenance are verified.
+`availability: 'ready'` requires selected candidates to pass their gates against the live Week Scout response. A valid published edition wins. Without one, the server reads today's cached regional input or builds it from regional forecasts without persisting it, then chooses the lowest-rank passing candidate for each slot. The serve-only input has a five-minute per-region/day memory cache; no fallback database write occurs. Slots whose gates fail are omitted; a fallback with no passing candidate is `unavailable`. `outside_region` covers a missing home beach or a home region absent from the active-region query. A quiet week can be `ready` only when every claimed day has complete safe forecast coverage; a missing or held day cannot become a quiet chapter. The directional cover never claims a storm source or travel distance until source geometry and track provenance are verified.
+
+Exposure beach names are ranked within each exposure class by peak-day quality score, highest first, with beach name as the stable tie-break. This ranking uses existing forecast and live-window data and requires no active-home-beach RPC or new database migration.
 
 Covered example (inside the existing `{ success: true, data: ... }` envelope; other existing data fields omitted):
 
 ```json
-{"story":{"schemaVersion":3,"region":"San Diego","availability":"ready","cover":{"text":"A west swell shapes the coast.","swells":[{"eventKey":"live-west-pulse","directionDeg":270,"directionLabel":"W","periodS":15,"arrivalAt":"2026-10-28T12:00:00Z","peakAt":"2026-10-29T18:00:00Z"}]},"lead":"The swell pulse shapes the week.","turn":null,"chapters":[{"slot":"swell:6-5-2026-10-29","text":"The swell builds toward its peak, then eases."}],"days":[{"localDate":"2026-10-28","pick":null}]}}
+{"story":{"schemaVersion":3,"region":"San Diego","availability":"ready","cover":{"text":"A long-period groundswell from the west reaches San Diego Wednesday and peaks Thursday.","swells":[{"eventKey":"live-west-pulse","directionDeg":270,"directionLabel":"W","periodS":15,"arrivalAt":"2026-10-28T12:00:00Z","peakAt":"2026-10-29T18:00:00Z"}]},"lead":"Thursday carries the strongest west pulse of the week.","turn":null,"chapters":[{"slot":"swell:6-5-2026-10-29","text":"The long-period groundswell arrives Wednesday, builds into Thursday, then eases."}],"days":[{"localDate":"2026-10-28","pick":null}]}}
 ```
 
 Uncovered example (a live pick is projected from `days[].bestDayWindow`):
@@ -67,14 +69,15 @@ Worker request and response shapes:
 ```ts
 type RegionList = { schemaVersion: 3; regions: Array<{ region: string; timezone: string }> };
 type StoryGate =
-  | { kind: 'swell'; regionalEventKey: string; directionSector: number; periodBand: number; arrivalLocalDate: string; peakLocalDate: string; fadeLocalDate: string | null; confidence: 'on_the_radar' | 'likely' | 'locked'; minimumBeaches: number }
+  | { kind: 'swell'; regionalEventKey: string; directionSector: number; directionIndex?: number; periodBand: number; periodClass?: 'long' | 'short'; arrivalLocalDate: string; peakLocalDate: string; fadeLocalDate: string | null; confidence: 'on_the_radar' | 'likely' | 'locked'; minimumBeaches: number }
   | { kind: 'origin'; regionalEventKey: string; sourceAreaId: string; sourceLat: number; sourceLon: number; trackRevision: string; arrivalOrder: number; confidence: 'likely' | 'locked' }
-  | { kind: 'exposure'; regionalEventKey: string; directionSector: number; exposure: 'open' | 'partial' | 'shadowed'; minimumBeaches: number }
-  | { kind: 'wind'; localDate: string; bucket: 'morning' | 'midday' | 'evening'; fromWindClass: 'offshore' | 'onshore'; windClass: 'offshore' | 'onshore'; forecastRevision: string }
-  | { kind: 'tide'; localDate: string; bucket: 'morning' | 'midday' | 'evening'; tidePhase: string; windowOrder: 'opens' | 'closes'; forecastRevision: string }
+  | { kind: 'exposure'; regionalEventKey: string; directionSector: number; exposure: 'open' | 'partial' | 'shadowed'; minimumBeaches: number; beaches?: Array<{ beachId: string; exposure: 'open' | 'partial' | 'shadowed' }> }
+  | { kind: 'wind'; localDate: string; bucket: 'morning' | 'midday' | 'evening'; fromWindClass: 'offshore' | 'onshore'; windClass: 'offshore' | 'onshore'; forecastRevision: string; beachId?: string; fromBucket?: 'morning' | 'midday' | 'evening'; fromDirection?: string; toDirection?: string }
+  | { kind: 'tide'; localDate: string; bucket: 'morning' | 'midday' | 'evening'; tidePhase: string; windowOrder: 'opens' | 'closes'; forecastRevision: string; beachId?: string }
   | { kind: 'change'; fromDate: string; toDate: string; direction: 'better' | 'worse'; minimumScoreChange: number; sourceSeries: string }
+  | { kind: 'day'; localDate: string; bucket: 'morning' | 'midday' | 'evening'; reason: 'light_wind' | 'rising_tide' | 'clean_window' }
   | { kind: 'quiet'; fromDate: string; toDate: string; completeDates: string[] };
-type Candidate = { id: string; slot: 'cover' | 'story:lead' | 'story:turn' | `swell:${string}` | `day:${string}` | `quiet:${string}`; text: string; gate: StoryGate };
+type Candidate = { id: string; slot: 'cover' | 'story:lead' | 'story:turn' | `swell:${string}` | `day:${string}` | `quiet:${string}`; text: string; gate: StoryGate; rank?: number };
 type StoryInput = {
   schemaVersion: 3; region: string; editionDate: string; sourcePublishedAt: string;
   validUntil: string; inputHash: string;
