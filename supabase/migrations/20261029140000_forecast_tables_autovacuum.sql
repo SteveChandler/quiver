@@ -6,8 +6,9 @@
 --
 -- Vacuum at ~2% dead instead. On marine_forecasts, leave 10% page room so
 -- re-upserts that change no indexed column (observed and persistence rows)
--- can be HOT. Tide rows always get a new created_at, so fillfactor would not
--- help there.
+-- can be HOT. fillfactor only applies to pages written from now on, so that
+-- benefit builds up gradually. Tide rows always get a new created_at, so
+-- fillfactor would not help there.
 --
 -- ponytail: settings only; the refresh still re-writes wind and tide rows with
 -- a new created_at (it doubles as the stale-beach marker). Change that only if
@@ -19,6 +20,9 @@
 --   ALTER TABLE public.tide_forecasts RESET (autovacuum_vacuum_scale_factor);
 
 BEGIN;
+
+-- The lock conflicts with a running (anti-wraparound) vacuum; fail fast instead of queueing.
+SET LOCAL lock_timeout = '2s';
 
 ALTER TABLE public.marine_forecasts
   SET (autovacuum_vacuum_scale_factor = 0.02, fillfactor = 90);
