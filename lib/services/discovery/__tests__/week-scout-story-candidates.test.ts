@@ -61,6 +61,21 @@ describe("regional Week Scout story candidates", () => {
       .toContain("short-period windswell");
   });
 
+  it("writes keyed copy for every in-week event, earliest peak first, and leaves the fade off cover and lead", () => {
+    const spike = { ...event(18), directionDeg: 275, arrivalAt: "2026-10-27T17:00:00Z",
+      peakAt: "2026-10-27T20:00:00Z", fadeAt: "2026-10-28T06:00:00Z" };
+    const facts = buildStoryCandidates(days(3), "San Diego", [event(), spike]);
+    expect(new Set(facts.map((fact) => fact.id)).size).toBe(facts.length);
+    expect(facts.filter((fact) => fact.slot === "cover").map((fact) => fact.id)).toEqual([
+      "cover-pulse-6-6-2026-10-27", "cover-pulse-alt-6-6-2026-10-27",
+      "cover-pulse-4-4-2026-11-01", "cover-pulse-alt-4-4-2026-11-01"]);
+    for (const fact of facts.filter((item) => item.slot === "cover" || item.slot === "story:lead")) {
+      expect(fact.gate).toMatchObject({ kind: "swell", fadeLocalDate: null });
+    }
+    expect(facts.find((fact) => fact.id === "swell-4-4-2026-11-01")?.gate)
+      .toMatchObject({ fadeLocalDate: "2026-11-02" });
+  });
+
   it("does not name a peak or fade weekday outside the seven-day story", () => {
     const outside = { ...event(), arrivalAt: "2026-11-02T18:00:00Z",
       peakAt: "2026-11-03T18:00:00Z", fadeAt: "2026-11-04T18:00:00Z" };

@@ -14,7 +14,7 @@ jest.mock("../week-scout-story-source", () => ({
   StoryInputError: class StoryInputError extends Error {
     constructor(code: string, readonly status = 503) { super(code); }
   },
-  STORY_SAMPLE_VERSION: "regional-swell-events-3",
+  STORY_SAMPLE_VERSION: "regional-swell-events-4",
 }));
 
 import { WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
@@ -117,7 +117,7 @@ describe("deterministic fallback and live gates", () => {
       { id: "good-day", slot: "day:2026-07-15", text: "Light morning wind.", rank: 4,
         gate: { kind: "day", localDate: "2026-07-15", bucket: "morning", reason: "light_wind" } },
     ];
-    value.provenance.generationInputVersion = "regional-swell-events-3";
+    value.provenance.generationInputVersion = "regional-swell-events-4";
     return value;
   };
 
