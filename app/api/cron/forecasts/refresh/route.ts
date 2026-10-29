@@ -619,12 +619,13 @@ async function _GET(request: Request): Promise<Response> {
               try {
                 const tz = resolveBeachTimezone(b.timezone);
                 const today = getLocalDateString(new Date(), tz);
+                const rows = [];
                 for (let i = 0; i < 7; i++) {
                   const d = new Date(`${today}T00:00:00Z`);
                   d.setUTCDate(d.getUTCDate() + i);
                   const localDate = d.toISOString().split("T")[0];
                   const times = SunCalc.getTimes(localDateTimeToUTC(localDate, "12:00:00", tz), b.lat, b.lon);
-                  const row = {
+                  rows.push({
                     beach_id: b.id,
                     // date is the beach-local calendar day.
                     date: localDate,
@@ -632,24 +633,25 @@ async function _GET(request: Request): Promise<Response> {
                     sunset_utc: times.sunset?.toISOString() ?? null,
                     source: "computed",
                     created_at: refreshedAt,
-                  } as any;
-                  const { error } = await supabase
-                    .from("sun_times")
-                    .upsert([row], { onConflict: "beach_id,date,source" });
-                  if (error) {
-                    console.error("[Sun Times] Upsert error for beach", b.name, {
-                      beachId: b.id,
-                      date: row.date,
-                      lat: b.lat,
-                      lon: b.lon,
-                      error: error.message,
-                      code: error.code,
-                      details: error.details,
-                      hint: error.hint,
-                    });
-                  } else {
-                    addedSun += 1;
-                  }
+                  } as any);
+                }
+                // One upsert per beach, not per day: ~260 calls a run instead of ~1,800.
+                const { error } = await supabase
+                  .from("sun_times")
+                  .upsert(rows, { onConflict: "beach_id,date,source" });
+                if (error) {
+                  console.error("[Sun Times] Upsert error for beach", b.name, {
+                    beachId: b.id,
+                    dates: `${rows[0].date}..${rows[rows.length - 1].date}`,
+                    lat: b.lat,
+                    lon: b.lon,
+                    error: error.message,
+                    code: error.code,
+                    details: error.details,
+                    hint: error.hint,
+                  });
+                } else {
+                  addedSun += rows.length;
                 }
               } catch (e) {
                 console.warn("sun ingest error", b.name, e);
