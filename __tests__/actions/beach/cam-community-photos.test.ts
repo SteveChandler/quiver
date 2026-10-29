@@ -93,4 +93,54 @@ describe("camera directory community photo parity", () => {
       "/api/community-photos/community-1/image",
     );
   });
+  it("uses the original curated photo instead of an Openverse /thumb/ URL", async () => {
+    const { createPublicReadClient } = await import("@/lib/supabase/server");
+    const sourcesQuery = createThenableQuery({
+      data: [
+        {
+          camera_url: "https://cam.example.com/live",
+          thumbnail_url: null,
+          youtube_stream_title_hint: null,
+          beaches: {
+            id: "beach-1",
+            name: "Test Beach",
+            slug: "test-beach",
+            city: "San Diego",
+            state: "CA",
+            lat: 32.75,
+            lon: -117.25,
+          },
+        },
+      ],
+      error: null,
+    });
+    (sourcesQuery as any).neq = jest.fn(() => sourcesQuery);
+    const curatedQuery = createThenableQuery({
+      data: [
+        {
+          beach_id: "beach-1",
+          image_url: "https://live.staticflickr.com/7111/26963651433_b9d85a2c6e_b.jpg",
+          thumb_url:
+            "https://api.openverse.org/v1/images/63c0f7d9-1bf7-41b6-99b8-5a437026e8e9/thumb/?format=json",
+        },
+      ],
+      error: null,
+    });
+    (curatedQuery as any).in = jest.fn(() => curatedQuery);
+    (createPublicReadClient as jest.Mock).mockReturnValue({
+      from: jest.fn((table: string) =>
+        table === "beach_sources" ? sourcesQuery : curatedQuery,
+      ),
+    });
+    getResolvedSpotPhotoMap.mockResolvedValue(new Map());
+
+    const { getBeachesWithCameras } = await import(
+      "@/actions/beach/cam-actions"
+    );
+    const result = await getBeachesWithCameras();
+
+    expect(result[0]?.photo_url).toBe(
+      "https://live.staticflickr.com/7111/26963651433_b9d85a2c6e_b.jpg",
+    );
+  });
 });
