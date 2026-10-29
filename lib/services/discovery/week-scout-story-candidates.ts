@@ -109,7 +109,9 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
   const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
   add(facts, `cover-${idPrefix}pulse-${key}`, "cover", region
     ? `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`
-    : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, gate);
+    : arrivalDate < firstDate
+      ? `A ${period} from the ${direction} is already in the water and peaks ${peakDay}.`
+      : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, gate);
   if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
   add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate);
   if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);

@@ -331,6 +331,13 @@ describe("deterministic fallback and live gates", () => {
       live: response }).availability).toBe("unavailable");
   });
 
+  it("says an already-arrived charted swell is in the water rather than arriving", () => {
+    const response = live();
+    Object.assign(response.swells![0], { arrivalAt: "2026-07-14T18:00:00Z" });
+    expect(bindFallbackStory(region, baseInput(), response).cover.text)
+      .toBe("A long-period groundswell from the west is already in the water and peaks Thursday.");
+  });
+
   it("composes headlines without digits and within the native length limit", () => {
     const response = live();
     Object.assign(response.swells![0], { directionDeg: 293, directionLabel: "WNW", periodS: 9.4 });

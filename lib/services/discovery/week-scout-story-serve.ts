@@ -217,11 +217,8 @@ export function bindFallbackStory(region: string, regionalInput: StoryInput, liv
   const slots = new Set<string>();
   const firstSwell = firstCoverSwell(live);
   const matchesFirstSwell = (gate: Extract<StoryGate, { kind: "swell" }>): boolean => describesFirstSwell(gate, firstSwell);
-  const servable = (slot: string): boolean => regionalInput.copyFacts.some((fact) => fact.slot === slot
-    && fact.gate.kind === "swell" && matchesFirstSwell(fact.gate) && storyGateHolds(fact.gate, live));
-  const missing = new Set(["cover", "story:lead"].filter((slot) => !servable(slot)));
-  const liveHeadlines = firstSwell && missing.size > 0
-    ? liveHeadlineFacts(firstSwell, live).filter((fact) => missing.has(fact.slot)) : [];
+  // Ranked last, so a passing regional sentence keeps its slot and these fill only what it leaves empty.
+  const liveHeadlines = firstSwell ? liveHeadlineFacts(firstSwell, live) : [];
   const input = liveHeadlines.length > 0
     ? { ...regionalInput, copyFacts: [...regionalInput.copyFacts, ...liveHeadlines] } : regionalInput;
   const matchedEvents = new Set(regionalInput.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
