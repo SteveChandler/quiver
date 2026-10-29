@@ -2,13 +2,14 @@
  * General-purpose logger with log levels
  *
  * In production: only warn and error are logged
- * In development: all levels are logged
+ * In a deployed preview (dev): info and above
+ * In local development and tests: all levels are logged
  *
  * Usage:
  *   import { logger } from '@/lib/logger';
  *
- *   logger.debug('Detailed debug info', { data });  // Dev only
- *   logger.info('Operation completed', { result }); // Dev only
+ *   logger.debug('Detailed debug info', { data });  // Local only
+ *   logger.info('Operation completed', { result }); // Local and preview
  *   logger.warn('Something unexpected', { context }); // Always
  *   logger.error('Operation failed', error);          // Always
  *
@@ -37,7 +38,8 @@ function isProduction(): boolean {
 /**
  * Gets the minimum log level based on environment
  * Production: warn (2) - only warn and error
- * Development: debug (0) - all logs
+ * Deployed preview (production build, VERCEL_ENV=preview): info (1)
+ * Local development and tests: debug (0) - all logs
  */
 function getMinLogLevel(): number {
   // Allow override via environment variable
@@ -45,7 +47,10 @@ function getMinLogLevel(): number {
   if (envLevel && envLevel in LOG_LEVELS) {
     return LOG_LEVELS[envLevel];
   }
-  return isProduction() ? LOG_LEVELS.warn : LOG_LEVELS.debug;
+  if (isProduction()) return LOG_LEVELS.warn;
+  // Per-window debug traces ran ~8,800 synchronous console writes per Week
+  // Scout request on dev, starving the shared fluid instance on cold bursts.
+  return process.env.NODE_ENV === 'production' ? LOG_LEVELS.info : LOG_LEVELS.debug;
 }
 
 /**
