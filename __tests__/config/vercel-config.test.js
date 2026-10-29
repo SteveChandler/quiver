@@ -193,7 +193,7 @@ describe("vercel.json", () => {
 
     expect(scheduleOf("/api/cron/forecasts/refresh?source=marine&maxBeaches=130")).toBe("5 * * * *");
     expect(scheduleOf("/api/cron/enhanced-forecast-sync-cdip")).toBe("50 * * * *");
-    expect(scheduleOf("/api/monitoring/forecast-health")).toBe("12,42 * * * *");
+    expect(scheduleOf("/api/monitoring/forecast-health")).toBe("12 * * * *");
     expect(scheduleOf("/api/cron/ioos-sync?phase=observations")).toBe("35 */2 * * *");
 
     const firesAtMinuteZero = (schedule) => schedule.split(" ")[0].split(",").some(
