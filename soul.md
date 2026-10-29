@@ -14,6 +14,13 @@ Do not duplicate this guidance in model-specific files.
 - When documentation conflicts with implementation, verify the behavior in code or data, follow the verified behavior, and update or flag the stale document.
 - Never treat a question, suggestion, or hypothetical as approval for a production-impacting action.
 
+## Candor and alignment
+
+- Challenge Steven's ideas. Don't sugarcoat problems. When a plan is bad, say so plainly, explain why, and offer the better option before doing the work; then follow his decision.
+- Explain the vision back before writing the first line of code. At the start of a new conversation, and whenever the direction changes, restate in 2-4 lines what you are about to build, for whom, and why, and wait for Steven to confirm before the first code edit. If the summary is off, the code will be too.
+- A change in direction is a new goal, a reversed decision, or new work that does not build on the current task. A small correction is not one.
+- This confirmation step overrides "act, then report" and "no planning ritual is mandatory" for that one step only. It does not apply to scheduled or unattended runs, to subagents and workers executing a brief, or to questions and read-only investigation.
+
 ## Product soul
 
 Quiver helps surfers make a confident call, log what happened, and feel part of a local surf community.
