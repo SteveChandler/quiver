@@ -903,8 +903,8 @@ describe("ForecastBuilder CDIP height semantics", () => {
         }),
       );
       expect(provenance?.handoff_blend).toBeUndefined();
-      expect(findHandoffMetricLog(consoleInfoSpy.mock.calls)).toBeUndefined();
-      expect(findHandoffMetricLog(consoleLogSpy.mock.calls)?.[2]).toEqual(
+      expect(findHandoffMetricLog(consoleLogSpy.mock.calls)).toBeUndefined();
+      expect(findHandoffMetricLog(consoleInfoSpy.mock.calls)?.[2]).toEqual(
         expect.objectContaining({
           handoff_discontinuity_ft: 3.9,
         }),

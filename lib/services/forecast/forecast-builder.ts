@@ -1065,7 +1065,7 @@ export class ForecastBuilder {
       };
       // Metric is stored in existing raw_forecast JSON/debug logs; no schema
       // migration is needed for this generation-time seam instrumentation.
-      log.debug("handoff_discontinuity_ft", {
+      log.info("handoff_discontinuity_ft", {
         beachId: beach.id,
         beachName: beach.name,
         cdipForecastAt: handoffStep.metric.cdipForecastAt,
