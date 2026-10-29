@@ -20,11 +20,11 @@ function generate(config: BeachTerrainConfig, enabled = true): { context: Foreca
     const forecastAt = `2026-09-${i === 2 ? '12' : '11'}T${i === 0 ? '00' : '03'}:00:00Z`;
     const rendered = toFaceHeightFeetDecomposedWithDebug({ ...params, beach: config });
     const base = { input: rendered.debug.replayInput!, supported: true };
-    const step = processForecastHandoffBlendSlot({ state, enabled, slot: {
+    processForecastHandoffBlendSlot({ state, slot: {
       forecastAt, waveHeight: rendered.value, dataSource: i === 0 ? 'CDIP' : 'NOAA_NWS',
       waveHeightSource: rendered.debug.source, replay: base,
     } });
-    const ft = parseFloat(step.adjustment?.waveHeight ?? rendered.value!);
+    const ft = parseFloat(rendered.value!);
     return {
       context: JSON.parse(JSON.stringify({ version: 1, generatedAt, forecastAt, base,
         handoff: enabled ? state.replay ?? null : null, unsupportedReason: null })),
