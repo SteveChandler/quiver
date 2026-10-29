@@ -138,8 +138,9 @@ describe("deterministic fallback and live gates", () => {
     missingCover.copyFacts.filter((fact) => fact.slot === "cover").forEach((fact) => {
       fact.gate = { ...swellGate, periodBand: 4 };
     });
+    // No regional cover names the charted swell, so the cover is composed from that swell.
     expect(bindFallbackStory(region, missingCover, live())).toMatchObject({
-      availability: "ready", cover: { text: null }, lead: "Specific lead.",
+      availability: "ready", cover: { text: "A long-period groundswell from the west arrives Wednesday and peaks Thursday." }, lead: "Specific lead.",
     });
   });
 
@@ -168,7 +169,8 @@ describe("deterministic fallback and live gates", () => {
     mockLatestInput.mockResolvedValue(cached);
     const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
       startLocalDate: "2026-07-15", now });
-    expect(story).toMatchObject({ availability: "ready", cover: { text: null }, lead: null });
+    expect(story).toMatchObject({ availability: "ready", cover: { text: "A long-period groundswell from the west arrives Wednesday and peaks Thursday." },
+      lead: "The west pulse builds from Wednesday into Thursday." });
     expect(story.chapters.every((chapter) => !chapter.slot.startsWith("swell:"))).toBe(true);
     expect(mockBuildInput).not.toHaveBeenCalled();
   });
@@ -286,7 +288,60 @@ describe("deterministic fallback and live gates", () => {
     expect(faded.chapters.some((chapter) => /easing/.test(chapter.text))).toBe(false);
 
     const onlySpike = { ...value, copyFacts: buildStoryCandidates(signals, region, [spike]) };
-    expect(bindFallbackStory(region, onlySpike, live()).cover.text).toBeNull();
+    // With only the passed spike offered, the cover comes from the charted swell and names no region.
+    expect(bindFallbackStory(region, onlySpike, live())).toMatchObject({
+      cover: { text: "A long-period groundswell from the west arrives Wednesday and peaks Thursday." },
+      lead: story.lead,
+    });
+  });
+
+  it("composes the cover from the charted swell when the regional sample binned it differently", () => {
+    const signals = Array.from({ length: 7 }, (_, index) => ({
+      localDate: addDays("2026-07-15", index), complete: true, sampleBeaches: 3, meanHeightFt: 3,
+      directionDeg: 202, periodS: 17, sourceSeries: "enhanced_forecasts:south-shore",
+      forecastRevision: "2026-07-15T12:00:00Z",
+    }));
+    // The region's beaches average to SSW; the user's nearby beaches put the same swell at SW.
+    const regional = { directionDeg: 202, periodS: 17, arrivalAt: "2026-07-15T18:00:00Z",
+      peakAt: "2026-07-16T18:00:00Z", fadeAt: null, timezone: "Pacific/Honolulu",
+      confidence: "on_the_radar" as const, minimumBeaches: 2 };
+    const value = baseInput();
+    value.copyFacts = buildStoryCandidates(signals, region, [regional]);
+    expect(value.copyFacts.some((fact) => fact.slot === "cover" && /south-southwest/.test(fact.text))).toBe(true);
+    const response = live();
+    Object.assign(response.swells![0], { directionDeg: 214, directionLabel: "SW", periodS: 17 });
+    const story = bindFallbackStory(region, value, response);
+    expect(story.cover.text).toBe("A long-period groundswell from the southwest arrives Wednesday and peaks Thursday.");
+    expect(story.lead).toBe("The southwest pulse builds from Wednesday into Thursday.");
+    expect(JSON.stringify(story)).not.toMatch(/south-southwest/);
+    expect(story.cover.swells[0]).toMatchObject({ directionLabel: "SW", periodS: 17 });
+  });
+
+  it("never lets a regional cover name a direction the chart does not print", () => {
+    const value = baseInput();
+    // Index 10 ("southwest") matches the rounded 214°, but the chart rounds 213.7° to SSW.
+    value.copyFacts = [{ id: "sw-cover", slot: "cover", text: "Southwest cover.", rank: 0,
+      gate: { ...swellGate, regionalEventKey: "5-5-2026-07-16", directionSector: 5, directionIndex: 10,
+        periodBand: 5, fadeLocalDate: null } }];
+    const response = live();
+    Object.assign(response.swells![0], { directionDeg: 214, directionLabel: "SSW", periodS: 15 });
+    const story = bindFallbackStory(region, value, response);
+    expect(story.cover.text).toBe("A long-period groundswell from the south-southwest arrives Wednesday and peaks Thursday.");
+    expect(bindStory({ region, availability: "ready", input: value, selections: ["sw-cover"],
+      live: response }).availability).toBe("unavailable");
+  });
+
+  it("composes headlines without digits and within the native length limit", () => {
+    const response = live();
+    Object.assign(response.swells![0], { directionDeg: 293, directionLabel: "WNW", periodS: 9.4 });
+    const story = bindFallbackStory("Santa Cruz County North Coast", baseInput(), response);
+    for (const text of [story.cover.text, story.lead]) {
+      expect(text).toEqual(expect.any(String));
+      expect(text!).not.toMatch(/\d/);
+      expect(text!.length).toBeLessThanOrEqual(240);
+    }
+    expect(story.cover.text).toContain("west-northwest");
+    expect(story.cover.text).toContain("short-period windswell");
   });
 
   it("serves a repeated day body only once", () => {

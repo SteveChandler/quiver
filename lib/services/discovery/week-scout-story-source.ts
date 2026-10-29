@@ -19,7 +19,7 @@ import type { StoryInput } from "./week-scout-story-types";
 type Client = SupabaseClient<Database>;
 type Row = { id: string; beach_id: string; forecast_at: string; wave_height: string | null; wave_period: string | null; wind_speed: string | null; tide_height: string | null; swell_direction_om: number | null; swell_period_om: number | null; wind_direction: string | null; tide_status: string | null; om_fetched_at: string | null; updated_at: string | null } & SwellEventForecastRow;
 type BeachRow = { id: string; name: string; lat: number; lon: number; aspect_deg: number | null; swell_window_center_deg: number | null; swell_window_halfwidth_deg: number | null; wind_offshore_deg: number | null } & Parameters<typeof toSwellEventBeach>[0];
-export const STORY_SAMPLE_VERSION = "regional-swell-events-4";
+export const STORY_SAMPLE_VERSION = "regional-swell-events-5";
 const SOURCE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 const PAGE_SIZE = 500;
 
@@ -40,7 +40,7 @@ function meanDirection(values: number[]): number | null {
 }
 
 function eventsFromForecasts(beaches: readonly BeachRow[], rows: readonly Row[], history: ReadonlyMap<string, readonly SwellEventForecastRow[]>,
-  snapshots: readonly SwellEventSnapshot[], now: Date, timezone: string): RegionalSwellEvent[] {
+  snapshots: readonly SwellEventSnapshot[], now: Date, timezone: string, editionDate: string): RegionalSwellEvent[] {
   const snapshotsByBeach = Map.groupBy(snapshots, (snapshot) => snapshot.beachId);
   const rowsByBeach = Map.groupBy(rows, (row) => row.beach_id);
   const events: BeachSwellEvent[] = beaches.flatMap((beach) => {
@@ -60,10 +60,17 @@ function eventsFromForecasts(beaches: readonly BeachRow[], rows: readonly Row[],
       group.members.reduce((sum, item) => sum + Math.sin(item.directionDeg * Math.PI / 180) * item.peakEnergy, 0),
       group.members.reduce((sum, item) => sum + Math.cos(item.directionDeg * Math.PI / 180) * item.peakEnergy, 0),
     ) * 180 / Math.PI + 360) % 360),
-    periodS: group.lead.periodS, arrivalAt: group.lead.arrivalAt, peakAt: group.lead.peakAt,
+    // Rounded like the chart's swells[], so both sides bin a 14.97 s lead the same way.
+    periodS: Math.round(group.lead.periodS * 10) / 10, arrivalAt: group.lead.arrivalAt, peakAt: group.lead.peakAt,
     fadeAt: group.lead.fadeAt, timezone, confidence: "on_the_radar" as const,
     minimumBeaches: Math.min(3, group.members.length),
-  })).sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt)).slice(0, 3);
+  }))
+    // Out-of-week events (a spike that already passed) must not use up the three slots.
+    .filter((event) => [event.arrivalAt, event.peakAt].some((at) => {
+      const date = localDate(new Date(at), timezone);
+      return date >= editionDate && date <= addDays(editionDate, 6);
+    }))
+    .sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt)).slice(0, 3);
 }
 
 export async function buildStoryInput(args: { client: Client; region: string; now: Date; persist?: boolean }): Promise<StoryInput> {
@@ -117,7 +124,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     allBeachIds, new Date(now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * 24 * 60 * 60_000));
   const history = await loadSwellForecastRows(client, allBeachIds,
     new Date(now.getTime() - SWELL_EVENT_BASELINE_LOOKBACK_HOURS * 60 * 60_000), now);
-  const events: RegionalSwellEvent[] = eventsFromForecasts(allBeaches, rows, history, snapshots, now, active.timezone);
+  const events: RegionalSwellEvent[] = eventsFromForecasts(allBeaches, rows, history, snapshots, now, active.timezone, editionDate);
   const dayRows = Map.groupBy(rows, (row) => localDate(new Date(row.forecast_at), active.timezone));
   const hourFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: active.timezone, hour: "2-digit", hourCycle: "h23" });
   const signals: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => {

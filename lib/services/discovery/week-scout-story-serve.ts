@@ -3,7 +3,7 @@ import type { Database } from "@/types/database";
 export { isWeekScoutStoryEnabled } from "@/lib/flags/week-scout-story";
 import type { CanonicalWeekScoutResponse } from "./week-scout";
 import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
-import { directionIndex, directionSector, periodBand } from "./week-scout-story-candidates";
+import { addSwellHeadlines, directionIndex, directionSector, labelDirectionIndex, periodBand } from "./week-scout-story-candidates";
 import { buildStoryInput, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
@@ -56,10 +56,47 @@ function completeQuietDay(date: string, live: Live): boolean {
     && coverage.missing === 0 && coverage.buckets.every((bucket) => bucket.held === 0 && bucket.missing === 0));
 }
 
-function firstCoverSwell(live: Live): NonNullable<Live["swells"]>[number] | null {
+type LiveSwell = NonNullable<Live["swells"]>[number];
+
+function firstCoverSwell(live: Live): LiveSwell | null {
   const dates = new Set(live.days.slice(0, 7).map((day) => day.localDate));
   return (live.swells ?? []).find((swell) => dates.has(swell.peakLocalDate)
     || dates.has(localDate(swell.arrivalAt, swell.timezone))) ?? null;
+}
+
+/** A swell sentence may sit under the cover only if it names the first charted swell's days and direction. */
+function describesFirstSwell(gate: Extract<StoryGate, { kind: "swell" }>, firstSwell: LiveSwell | null): boolean {
+  if (!firstSwell) return false;
+  const labelIndex = labelDirectionIndex(firstSwell.directionLabel);
+  return gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
+    && gate.peakLocalDate === firstSwell.peakLocalDate
+    && (gate.directionIndex === undefined || labelIndex === null || gate.directionIndex === labelIndex);
+}
+
+/**
+ * Cover and lead composed from the first charted swell itself, for when the
+ * regional sample (a different set of beaches) dated or binned it differently.
+ * Every gate field comes from that swell, so the sentence can only claim it;
+ * it names no region because the chart's beaches may sit outside the home region.
+ */
+function liveHeadlineFacts(firstSwell: LiveSwell, live: Live): StoryInput["copyFacts"] {
+  const week = live.days.slice(0, 7).map((day) => day.localDate);
+  const index = labelDirectionIndex(firstSwell.directionLabel);
+  if (index === null || week.length === 0) return [];
+  const sector = directionSector(firstSwell.directionDeg);
+  const band = periodBand(firstSwell.periodS);
+  const key = `${sector}-${band}-${firstSwell.peakLocalDate}`;
+  const arrivalDate = localDate(firstSwell.arrivalAt, firstSwell.timezone);
+  const gate: StoryGate = {
+    kind: "swell", regionalEventKey: key, directionSector: sector, periodBand: band,
+    periodClass: firstSwell.periodS >= 13 ? "long" : firstSwell.periodS >= 10 ? "mid" : "short",
+    arrivalLocalDate: arrivalDate, peakLocalDate: firstSwell.peakLocalDate, fadeLocalDate: null,
+    confidence: firstSwell.confidence, minimumBeaches: Math.min(3, firstSwell.beaches.length),
+  };
+  const facts: StoryInput["copyFacts"] = [];
+  addSwellHeadlines(facts, { key, directionIndex: index, periodS: firstSwell.periodS, arrivalDate,
+    peakDate: firstSwell.peakLocalDate }, null, week[0], week[week.length - 1], gate, "live-");
+  return facts.map((fact) => ({ ...fact, rank: Number.MAX_SAFE_INTEGER }));
 }
 
 /** A selected sentence is served only when the live response still proves its gate. */
@@ -152,13 +189,8 @@ export function bindStory(args: {
   });
   if (!input || !args.selections || args.availability !== "ready") return empty(args.availability);
   const firstSwell = firstCoverSwell(live);
-  const agreesWithCover = (fact: StoryInput["copyFacts"][number]): boolean => {
-    if (fact.gate.kind !== "swell") return true;
-    if (!firstSwell) return false;
-    const gate = fact.gate;
-    return gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
-      && gate.peakLocalDate === firstSwell.peakLocalDate;
-  };
+  const agreesWithCover = (fact: StoryInput["copyFacts"][number]): boolean =>
+    fact.gate.kind !== "swell" || describesFirstSwell(fact.gate, firstSwell);
   const selected = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
   if (selected.length !== args.selections.length) return empty("unavailable");
   const chosen = selected.filter((fact) => storyGateHolds(fact.gate, live) && agreesWithCover(fact));
@@ -181,13 +213,18 @@ export function bindStory(args: {
   };
 }
 
-export function bindFallbackStory(region: string, input: StoryInput, live: Live): StoryWire {
+export function bindFallbackStory(region: string, regionalInput: StoryInput, live: Live): StoryWire {
   const slots = new Set<string>();
   const firstSwell = firstCoverSwell(live);
-  const matchesFirstSwell = (gate: Extract<StoryGate, { kind: "swell" }>): boolean => Boolean(firstSwell
-    && gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
-    && gate.peakLocalDate === firstSwell.peakLocalDate);
-  const matchedEvents = new Set(input.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
+  const matchesFirstSwell = (gate: Extract<StoryGate, { kind: "swell" }>): boolean => describesFirstSwell(gate, firstSwell);
+  const servable = (slot: string): boolean => regionalInput.copyFacts.some((fact) => fact.slot === slot
+    && fact.gate.kind === "swell" && matchesFirstSwell(fact.gate) && storyGateHolds(fact.gate, live));
+  const missing = new Set(["cover", "story:lead"].filter((slot) => !servable(slot)));
+  const liveHeadlines = firstSwell && missing.size > 0
+    ? liveHeadlineFacts(firstSwell, live).filter((fact) => missing.has(fact.slot)) : [];
+  const input = liveHeadlines.length > 0
+    ? { ...regionalInput, copyFacts: [...regionalInput.copyFacts, ...liveHeadlines] } : regionalInput;
+  const matchedEvents = new Set(regionalInput.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
     && matchesFirstSwell(fact.gate) && storyGateHolds(fact.gate, live)
     ? [fact.gate.regionalEventKey] : []));
   const selections = [...input.copyFacts].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))

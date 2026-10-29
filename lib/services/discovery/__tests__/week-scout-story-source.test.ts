@@ -84,6 +84,25 @@ describe("regional story source snapshot", () => {
     expect(loadRecentSwellSnapshots).toHaveBeenCalledWith(expect.anything(), ["a", "b", "c"], expect.any(Date));
   });
 
+  it("keeps a passed spike from using an in-week event's slot and bins periods like the chart", async () => {
+    const event = (directionDeg: number, periodS: number, arrivalAt: string, peakAt: string, fadeAt: string) => ({
+      eventKey: `event-${directionDeg}`, directionDeg, directionBand: "X", directionLabel: "X", periodS,
+      peakOffshoreHeightFt: 4, peakFaceHeightFt: 3, baselineFaceHeightFt: 1, peakEnergy: 200,
+      baselineEnergy: 20, energyRatio: 10, exposure: 1, arrivalAt, peakAt, fadeAt, peakLocalDate: "",
+    });
+    jest.mocked(detectBeachSwellEvents).mockImplementation(({ beach }) => [
+      // Peaked yesterday and is still fading: current, but outside the week.
+      event(270, 18, "2026-10-25T18:00:00Z", "2026-10-26T20:00:00Z", "2026-10-27T20:00:00Z"),
+      event(202, 13.4, "2026-10-28T18:00:00Z", "2026-10-29T18:00:00Z", "2026-10-30T18:00:00Z"),
+      event(135, 10, "2026-10-29T18:00:00Z", "2026-10-30T18:00:00Z", "2026-10-31T18:00:00Z"),
+      event(300, 14.97, "2026-11-01T18:00:00Z", "2026-11-02T18:00:00Z", "2026-11-03T18:00:00Z"),
+    ].map((item) => ({ ...item, beachId: beach.id })));
+    const input = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    const covers = input.copyFacts.filter((fact) => fact.id.startsWith("cover-pulse-") && !fact.id.includes("-alt-"));
+    expect(covers.map((fact) => fact.gate.kind === "swell" && fact.gate.regionalEventKey))
+      .toEqual(["4-4-2026-10-29", "3-3-2026-10-30", "7-5-2026-11-02"]);
+  });
+
   it("builds a region input from representative beaches without a pilot profile", async () => {
     const input = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now });
     expect(input).toMatchObject({ schemaVersion: 3, region: "San Diego", editionDate: "2026-10-27" });
