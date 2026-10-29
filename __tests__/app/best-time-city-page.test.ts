@@ -207,6 +207,19 @@ describe("best-time city SEO page", () => {
     expect(copy.description).not.toMatch(/\bAI\b|\bML\b|the call/i);
   });
 
+  it("leads Pacifica's description with today's Linda Mar report and keeps the title unchanged", () => {
+    const copy = buildBestTimeMetadataCopy("Pacifica", "pacifica");
+    const generic = buildBestTimeMetadataCopy("Pacifica");
+
+    expect(copy.title).toBe(generic.title);
+    expect(copy.description.length).toBeLessThanOrEqual(160);
+    expect(copy.description).toMatch(/^Check today's Pacifica surf report/);
+    for (const term of ["wave height", "wind", "tide", "swell", "Linda Mar"]) {
+      expect(copy.description).toContain(term);
+    }
+    expect(copy.description).not.toMatch(/\bAI\b|\bML\b|the call/i);
+  });
+
   it("leaves other cities' descriptions on the generic copy", () => {
     expect(buildBestTimeMetadataCopy("Malibu", "malibu").description).toBe(
       buildBestTimeMetadataCopy("Malibu").description,

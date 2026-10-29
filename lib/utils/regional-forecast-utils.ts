@@ -24,6 +24,7 @@ import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { displayTideBand, scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 
 /**
  * Weekday for a calendar date. The date is pinned to UTC noon and read back in
@@ -480,7 +481,7 @@ export function detectSwellEvents(
  *
  * @param region - The forecast region
  * @param beaches - Beaches in the region
- * @param forecastMap - Map of beach IDs to their forecast arrays
+ * @param rawForecastMap - Map of beach IDs to their forecast arrays
  * @returns Complete regional forecast summary
  *
  * @example
@@ -495,7 +496,7 @@ export function detectSwellEvents(
 export function aggregateRegionalForecast(
   region: ForecastRegion,
   beaches: Beach[],
-  forecastMap: Map<string, EnhancedForecastEntity[]>,
+  rawForecastMap: Map<string, EnhancedForecastEntity[]>,
   options: { now?: Date } = {}
 ): RegionalForecastSummary {
   // Same reference instant the window selector uses, so "now" means the same
@@ -504,6 +505,12 @@ export function aggregateRegionalForecast(
   const referenceMs = referenceNow.getTime();
   const generatedAt = referenceNow;
   const days: DaySummary[] = [];
+  // FALLBACK rows carry no model wave data, so no score, height range or
+  // swell event in the summary may come from them.
+  const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+  for (const [beachId, forecasts] of rawForecastMap) {
+    forecastMap.set(beachId, forecasts.filter((forecast) => !isFallbackForecastRow(forecast)));
+  }
 
   // One timezone for the whole region, so the day a row is filed under, the day
   // that counts as "today", and the weekday printed on the card all describe the

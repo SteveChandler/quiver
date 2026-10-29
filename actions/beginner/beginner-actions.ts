@@ -4,10 +4,20 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { rankBeaches } from "@/lib/recommendations/selection";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import {
+  getDirectionDegrees,
   parseFloatSafe,
   parseWaveHeightRange,
   parseWindSpeed,
 } from "@/lib/utils/number-parsing";
+import {
+  CALM_MPH,
+  windRelation,
+  type WindRelation,
+} from "@/lib/analyzers/wind-analyzer";
+import {
+  resolveWindOrientation,
+  type WindOrientationSource,
+} from "@/lib/domains/shared/wind-orientation";
 import type {
   BeginnerConditionsBadge,
   BeginnerConditionStatus,
@@ -47,12 +57,17 @@ interface BeginnerBeachRankingMeta {
   preference_model: unknown;
   preferred_tide_ft_min: number | null;
   preferred_tide_ft_max: number | null;
+  wind_offshore_deg: number | null;
+  wind_offshore_tol_deg: number | null;
+  aspect_deg: number | null;
 }
 
 interface BeginnerForecastForRanking {
   beach_id: string;
   wave_height: string | null;
   wind_speed: string | null;
+  wind_direction: string | null;
+  wind_direction_deg: number | null;
   tide_status: string | null;
   tide_height: string | null;
   forecast_at: string | null;
@@ -115,6 +130,30 @@ function parseWindSpeedOrNull(windSpeed: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+interface BeginnerWind {
+  speedMph: number | null;
+  relation: WindRelation | null;
+  /** Calm, or a direction judged against the beach. Unknown wind stays out of every verdict. */
+  known: boolean;
+}
+
+function readBeginnerWind(
+  beach: WindOrientationSource,
+  forecast: {
+    wind_speed?: string | null;
+    wind_direction?: string | null;
+    wind_direction_deg?: number | null;
+  },
+): BeginnerWind {
+  const speedMph = parseWindSpeedOrNull(forecast.wind_speed ?? null);
+  const relation = windRelation(
+    getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction),
+    resolveWindOrientation(beach),
+  );
+  const known = speedMph != null && (speedMph <= CALM_MPH || relation != null);
+  return { speedMph, relation, known };
+}
+
 function parseTideHeightOrNull(tideHeight: string | null): number | null {
   const parsed = parseFloatSafe(tideHeight, Number.NaN);
   return Number.isFinite(parsed) ? parsed : null;
@@ -133,7 +172,7 @@ async function getTodayLatestForecastMap(
 
   const { data: forecasts } = await supabase
     .from("enhanced_forecasts")
-    .select("beach_id, wave_height, wind_speed, tide_status, tide_height, forecast_at")
+    .select("beach_id, wave_height, wind_speed, wind_direction, wind_direction_deg, tide_status, tide_height, forecast_at")
     .in("beach_id", beachIds)
     .gte("forecast_at", `${today}T00:00:00Z`)
     .lt("forecast_at", `${nextDay}T00:00:00Z`)
@@ -158,12 +197,12 @@ function getConditionPriority(
   if (!forecast) return 2;
 
   const waveHeightFtMax = parseWaveHeightMaxOrNull(forecast.wave_height);
-  const windSpeedMph = parseWindSpeedOrNull(forecast.wind_speed);
+  const wind = readBeginnerWind(beach, forecast);
   const tideHeightFt = parseTideHeightOrNull(forecast.tide_height);
   const evaluation = evaluateBeginnerWindow({
     beach,
     waveHeightFtMax,
-    windSpeedMph,
+    windSpeedMph: wind.known ? wind.speedMph : null,
     tideStatus: forecast.tide_status,
     tideHeightFt,
     forecastAt: forecast.forecast_at,
@@ -220,7 +259,7 @@ async function findTopBeginnerBeach(
   const { data, error } = await supabase
     .from("beaches")
     .select(
-      "id, name, slug, timezone, average_rating, break_type, skill_level, features, preference_model, preferred_tide_ft_min, preferred_tide_ft_max",
+      "id, name, slug, timezone, average_rating, break_type, skill_level, features, preference_model, preferred_tide_ft_min, preferred_tide_ft_max, wind_offshore_deg, wind_offshore_tol_deg, aspect_deg",
     )
     .or(
       `city.ilike.%${escapedCity}%,city.ilike.%${escapeLikePattern(citySlug)}%`,
@@ -289,11 +328,11 @@ function formatWaveHeight(waveHeight: string | null): string {
   return `${trimmed} ft`;
 }
 
+/** Direction is shown only when it was judged against the beach; otherwise a plain speed. */
 function formatWind(
-  windSpeed: string | null,
+  speed: number | null,
   windDirection: string | null,
 ): string | null {
-  const speed = parseWindSpeedOrNull(windSpeed);
   if (speed == null) return null;
   const dir = windDirection ? windDirection.trim() : "";
   if (speed === 0) return "Calm";
@@ -311,8 +350,8 @@ function formatWaterTemp(waterTemp: string | null): string {
 
 function determineConditionStatus(
   waveHeightMax: number,
-  windSpeedNum: number,
-  windDirection: string | null,
+  windSpeedNum: number | null,
+  relation: WindRelation | null,
   beginnerWindow: BeginnerWindowEvaluation | null = null,
 ): BeginnerConditionStatus {
   if (beginnerWindow?.applies) {
@@ -322,14 +361,15 @@ function determineConditionStatus(
     return "challenging";
   }
 
+  // Unknown wind (null) neither blocks nor helps.
   const isStrongOnshore =
-    windDirection && /onshore/i.test(windDirection) && windSpeedNum > 12;
+    relation === "onshore" && windSpeedNum != null && windSpeedNum > 12;
 
-  if (waveHeightMax > 6 || windSpeedNum > 18 || isStrongOnshore)
+  if (waveHeightMax > 6 || (windSpeedNum ?? 0) > 18 || isStrongOnshore)
     return "challenging";
   if (
     (waveHeightMax >= 4 && waveHeightMax <= 6) ||
-    (windSpeedNum >= 12 && windSpeedNum <= 18)
+    (windSpeedNum != null && windSpeedNum >= 12 && windSpeedNum <= 18)
   )
     return "fair";
   return "great";
@@ -384,12 +424,11 @@ function applyBeginnerWindowMetric(
 }
 
 function getWindMetric(
-  windSpeed: string | null,
-  windDirection: string | null,
+  wind: BeginnerWind,
+  value: string | null,
 ): ConditionMetric | undefined {
-  const speed = parseWindSpeedOrNull(windSpeed);
-  const value = formatWind(windSpeed, windDirection);
-  if (speed == null || value == null) return undefined;
+  const speed = wind.speedMph;
+  if (!wind.known || speed == null || value == null) return undefined;
   // Speed alone can't say the surface is clean; that needs direction and beach orientation.
   if (speed < 8) return { value, label: "Light wind", status: "good" };
   if (speed <= 15) return { value, label: "Moderate chop", status: "caution" };
@@ -492,13 +531,17 @@ export async function getBeginnerConditionsData(
     const beginnerWaveHeightMax = parseWaveHeightMaxOrNull(
       forecast.wave_height,
     );
-    const windSpeedNum = parseWindSpeed(forecast.wind_speed, 0);
-    const beginnerWindSpeedMph = parseWindSpeedOrNull(forecast.wind_speed);
+    const wind = readBeginnerWind(beach, forecast);
+    const judgedWindMph = wind.known ? wind.speedMph : null;
+    const windReading = formatWind(
+      wind.speedMph,
+      wind.relation ? forecast.wind_direction : null,
+    );
     const tideHeightNum = parseTideHeightOrNull(forecast.tide_height);
     const beginnerWindow = evaluateBeginnerWindow({
       beach,
       waveHeightFtMax: beginnerWaveHeightMax,
-      windSpeedMph: beginnerWindSpeedMph,
+      windSpeedMph: judgedWindMph,
       tideStatus: forecast.tide_status,
       tideHeightFt: tideHeightNum,
       forecastAt: forecast.forecast_at,
@@ -506,8 +549,8 @@ export async function getBeginnerConditionsData(
     });
     const status = determineConditionStatus(
       waveHeightMax,
-      windSpeedNum,
-      forecast.wind_direction,
+      judgedWindMph,
+      wind.relation,
       beginnerWindow,
     );
 
@@ -515,7 +558,7 @@ export async function getBeginnerConditionsData(
       status,
       statusLabel: statusToLabel(status),
       waveHeight: formatWaveHeight(forecast.wave_height),
-      wind: formatWind(forecast.wind_speed, forecast.wind_direction),
+      wind: windReading,
       waterTemp: formatWaterTemp(forecast.water_temp),
       spotName: beach.name,
       spotSlug: beach.slug ?? "",
@@ -530,10 +573,7 @@ export async function getBeginnerConditionsData(
           beginnerWindow.labels.wave,
         )
       : rawWaveHeightMetric;
-    const rawWindMetric = getWindMetric(
-      forecast.wind_speed,
-      forecast.wind_direction,
-    );
+    const rawWindMetric = getWindMetric(wind, windReading);
     const windMetric = rawWindMetric && beginnerWindow.applies
       ? applyBeginnerWindowMetric(
           rawWindMetric,
@@ -635,6 +675,7 @@ export async function getBeginnerBeachesWithEditorial(
         id, name, slug, city, state, timezone, average_rating, review_count,
         skill_level, break_type, features, preference_model,
         preferred_tide_ft_min, preferred_tide_ft_max,
+        wind_offshore_deg, wind_offshore_tol_deg, aspect_deg,
         beach_editorial_content!left ( content_type, content ),
         beach_photos!left ( image_url )
       `,

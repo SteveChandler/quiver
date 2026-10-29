@@ -33,7 +33,7 @@ import { ScoringEngine } from './scoring-engine';
 import { baseConditionsScorer } from './scorers/base-conditions-scorer';
 import { swellAlignmentScorer } from './scorers/swell-alignment-scorer';
 import { swellInterferenceScorer } from './scorers/swell-interference-scorer';
-import { windQualityScorer } from './scorers/wind-quality-scorer';
+import { isWindQualityUnknown, windQualityScorer } from './scorers/wind-quality-scorer';
 import { tideFitScorer } from './scorers/tide-fit-scorer';
 import { tideDirectionScorer } from './scorers/tide-direction-scorer';
 import { setupRiskScorer } from './scorers/setup-risk-scorer';
@@ -217,7 +217,9 @@ function energy(p: SwellPartition): number {
 export function compositeToDetailedScore(
   composite: CompositeScore,
   affinityBonus: number = 0,
-  distancePenalty: number = 0
+  distancePenalty: number = 0,
+  // A skip exits before windQuality runs, so its absence only proves unknown wind on a full run.
+  windUnknown: boolean = !composite.skipReason && !composite.subscores.has('windQuality')
 ): DetailedScore {
   // Only track missing subscores for non-skip results.
   // Skip results are disqualified beaches where subscores are intentionally
@@ -238,7 +240,7 @@ export function compositeToDetailedScore(
     affinityBonus,
     personalizationBonus: 0,
     distancePenalty,
-    ...(!composite.skipReason && !composite.subscores.has('windQuality') ? { windUnknown: true } : {}),
+    ...(windUnknown ? { windUnknown: true } : {}),
   };
 
   // Adjust total with affinity and distance
@@ -313,7 +315,8 @@ export function scoreBeachWithEngine(
   return compositeToDetailedScore(
     adjustedComposite,
     options?.affinityBonus ?? 0,
-    options?.distancePenalty ?? 0
+    options?.distancePenalty ?? 0,
+    isWindQualityUnknown(snapshot, profile)
   );
 }
 

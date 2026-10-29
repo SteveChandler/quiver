@@ -3559,6 +3559,7 @@ export type Database = {
           image_url: string | null
           model: string | null
           name: string
+          retired_at: string | null
           session_count: number | null
           shaper: string | null
           size: string | null
@@ -3579,6 +3580,7 @@ export type Database = {
           image_url?: string | null
           model?: string | null
           name: string
+          retired_at?: string | null
           session_count?: number | null
           shaper?: string | null
           size?: string | null
@@ -3599,6 +3601,7 @@ export type Database = {
           image_url?: string | null
           model?: string | null
           name?: string
+          retired_at?: string | null
           session_count?: number | null
           shaper?: string | null
           size?: string | null

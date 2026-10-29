@@ -7,6 +7,7 @@ import {
   Sunrise,
   Sunset,
   Thermometer,
+  Timer,
   Users,
   Waves,
   type LucideIcon,
@@ -106,6 +107,16 @@ type RelatedGuideLink = IntentGuideDefinition & {
   href: string;
 };
 
+// Every spot page links the period explainer, so Google can reach it from the
+// most-crawled pages on the site.
+const WAVE_PERIOD_GUIDE: RelatedGuideLink = {
+  key: "wave-period",
+  label: "Wave Period Explained",
+  icon: Timer,
+  description: "What the seconds in a forecast mean",
+  href: "/learn/swell-period-explained",
+};
+
 type RelatedGuideLinks = {
   heading: string;
   primaryLink: RelatedGuideLink;
@@ -175,6 +186,8 @@ export function buildRelatedGuideLinks({
     });
   }
 
+  guides.push(WAVE_PERIOD_GUIDE);
+
   return {
     heading: `Surf Guides for ${beach.city}`,
     primaryLink: {
@@ -216,6 +229,6 @@ function buildInternationalGuideLinks(beach: Beach): RelatedGuideLinks | null {
         return { ...guide, label: `${countryName} Spots`, href: `/beaches/${countrySlug}` };
       }
       return { ...guide, href: "/map" };
-    }),
+    }).concat(WAVE_PERIOD_GUIDE),
   };
 }

@@ -23,6 +23,7 @@ import {
   getLocalDateString,
 } from '@/lib/utils/timezone-utils';
 import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
+import { isFallbackForecastRow } from '@/lib/utils/forecast-row-source';
 import {
   type ConditionTier,
   getConditionTier,
@@ -255,8 +256,12 @@ export function aggregateDayForecasts(
     return [];
   }
 
-  // Group forecasts by date
-  const forecastsByDate = groupForecastsByDate(forecasts, timezone);
+  // FALLBACK rows carry no model wave data, so they never shape a day's
+  // score, best time or height range. Days with nothing else drop out.
+  const forecastsByDate = groupForecastsByDate(
+    forecasts.filter((forecast) => !isFallbackForecastRow(forecast)),
+    timezone
+  );
 
   // Sort dates chronologically
   const sortedDates = Array.from(forecastsByDate.keys()).sort();
@@ -327,8 +332,6 @@ export function aggregateDayForecasts(
   }
 
   // Trim trailing days where ALL forecasts have null/empty wave_height.
-  // This catches truly-null tail data while allowing FALLBACK-sourced days
-  // with generated values to render (e.g., gap-filled slots).
   while (summaries.length > 0) {
     const lastDate = summaries[summaries.length - 1].fullDate;
     const lastDayForecasts = forecastsByDate.get(lastDate) || [];

@@ -22,6 +22,7 @@ import type {
 } from "@/types/morning-intel";
 
 import { analyzeSwellMatch } from "@/lib/analyzers/swell-analyzer";
+import { WATER_QUALITY_INFORMS_ONLY } from "@/lib/constants/water-quality";
 import { analyzeWindConditions } from "@/lib/analyzers/wind-analyzer";
 
 /**
@@ -158,7 +159,7 @@ function humanizeFactorName(factor: "swell" | "wind" | "tide"): string {
  * Conservative strategy:
  * - Worth it: All factors optimal
  * - Maybe: No poor factors but at least one acceptable
- * - Skip: Any poor factor OR water quality closure
+ * - Skip: Any poor factor (water quality never changes the call)
  *
  * @param conditions - Conditions analysis from analyzeConditions()
  * @param waterQuality - Optional water quality status (backward-compatible)
@@ -175,8 +176,8 @@ export function getConservativeRecommendation(
   conditions: ConditionsAnalysis,
   waterQuality?: { status: string }
 ): MorningIntelRecommendationSummary {
-  // Water quality closure is an immediate skip — override all other factors
-  if (waterQuality?.status === 'closure') {
+  // Water quality is a notice beside the call, never the call (Steven, 2026-10-28).
+  if (!WATER_QUALITY_INFORMS_ONLY && waterQuality?.status === 'closure') {
     return {
       decision: "skip",
       label: "Skip",
@@ -208,8 +209,7 @@ export function getConservativeRecommendation(
     };
   }
 
-  // Water quality advisory nudges toward 'maybe' even when conditions look optimal
-  if (waterQuality?.status === 'advisory') {
+  if (!WATER_QUALITY_INFORMS_ONLY && waterQuality?.status === 'advisory') {
     return {
       decision: "maybe",
       label: "Maybe",

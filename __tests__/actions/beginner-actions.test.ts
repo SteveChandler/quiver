@@ -43,6 +43,9 @@ interface MockBeachRow {
   preference_model: Record<string, unknown>;
   preferred_tide_ft_min: number | null;
   preferred_tide_ft_max: number | null;
+  wind_offshore_deg?: number | null;
+  wind_offshore_tol_deg?: number | null;
+  aspect_deg?: number | null;
   beach_editorial_content: Array<{
     content_type: string;
     content: Record<string, unknown>;
@@ -56,6 +59,7 @@ interface MockForecastRow {
   wave_height: string | null;
   wind_speed: string | null;
   wind_direction: string | null;
+  wind_direction_deg?: number | null;
   tide_status: string | null;
   tide_height: string | null;
   water_temp: string | null;
@@ -146,6 +150,8 @@ function makeBeach(overrides: Partial<MockBeachRow>): MockBeachRow {
     },
     preferred_tide_ft_min: 0.5,
     preferred_tide_ft_max: 3,
+    // Faces west, so offshore blows from the east.
+    aspect_deg: 270,
     beach_editorial_content: [
       {
         content_type: "beginner_notes",
@@ -173,7 +179,7 @@ function makeForecast(overrides: Partial<MockForecastRow>): MockForecastRow {
     forecast_at: "2026-05-22T14:00:00Z",
     wave_height: "1.5",
     wind_speed: "4 mph",
-    wind_direction: "light",
+    wind_direction: "E",
     tide_status: "Rising",
     tide_height: "1.8",
     water_temp: "64",
@@ -308,6 +314,107 @@ describe("beginner actions", () => {
       const result = await getBeginnerConditionsData("huntington-beach", "ca");
 
       expect(result.rightNow?.summary).toBe("Small, clean, early, and low-to-mid tide - a strong learner window");
+    });
+  });
+
+  describe("wind that can't be judged against the beach", () => {
+    function makeNonModelBeach(overrides: Partial<MockBeachRow> = {}): MockBeachRow {
+      return makeBeach({ preference_model: {}, ...overrides });
+    }
+
+    it("does not let a speed with no direction change the beginner verdict", async () => {
+      beaches.push(makeBeach({}));
+      forecasts.push(makeForecast({ wind_speed: "13 mph", wind_direction: null }));
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.badge?.status).toBe("great");
+      expect(result.badge?.wind).toBe("13 mph");
+      expect(result.rightNow?.metrics.wind).toBeUndefined();
+      expect(result.rightNow?.beginnerVerdict.rating).toBe("ideal");
+      expect(result.rightNow?.beginnerVerdict.reasons.map((r) => r.factor)).not.toContain("Wind");
+    });
+
+    it("shows only the speed when the beach has no orientation", async () => {
+      beaches.push(makeBeach({ aspect_deg: null }));
+      forecasts.push(makeForecast({ wind_speed: "13 mph", wind_direction: "W" }));
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.badge?.wind).toBe("13 mph");
+      expect(result.rightNow?.metrics.wind).toBeUndefined();
+      expect(result.rightNow?.beginnerVerdict.rating).toBe("ideal");
+    });
+
+    it("drops speed-only chop labels and verdicts outside the beginner model", async () => {
+      beaches.push(makeNonModelBeach());
+      forecasts.push(makeForecast({ wind_speed: "20 mph", wind_direction: null }));
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.badge?.status).toBe("great");
+      expect(result.rightNow?.metrics.wind).toBeUndefined();
+      expect(result.rightNow?.beginnerVerdict.reasons.map((r) => r.factor)).not.toContain("Wind");
+    });
+
+    it("keeps judging a known wind outside the beginner model", async () => {
+      beaches.push(makeNonModelBeach());
+      forecasts.push(makeForecast({ wind_speed: "13 mph", wind_direction: "E" }));
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.badge?.status).toBe("fair");
+      expect(result.badge?.wind).toBe("13 mph e");
+      expect(result.rightNow?.metrics.wind).toMatchObject({ label: "Moderate chop", status: "caution" });
+    });
+
+    it("treats a calm reading as known even without a direction", async () => {
+      beaches.push(makeBeach({ aspect_deg: null }));
+      forecasts.push(makeForecast({ wind_speed: "2 mph", wind_direction: null }));
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.rightNow?.metrics.wind).toMatchObject({ value: "2 mph", label: "Light wind" });
+    });
+
+    it("does not rank a beach down for wind it can't judge", async () => {
+      beaches.push(
+        makeBeach({ id: "windy-unknown", name: "Windy Unknown", slug: "windy-unknown", average_rating: 5 }),
+        makeBeach({ id: "light-known", name: "Light Known", slug: "light-known", average_rating: 4 }),
+      );
+      forecasts.push(
+        makeForecast({ beach_id: "windy-unknown", wind_speed: "13 mph", wind_direction: null }),
+        makeForecast({ beach_id: "light-known" }),
+      );
+
+      const result = await getBeginnerConditionsData("huntington-beach", "ca");
+
+      expect(result.badge?.spotName).toBe("Windy Unknown");
+    });
+
+    it("does not rank the editorial list down for wind it can't judge, and reads orientation", async () => {
+      beaches.push(
+        makeBeach({ id: "windy-unknown", name: "Windy Unknown", slug: "windy-unknown", average_rating: 5 }),
+        makeBeach({ id: "light-known", name: "Light Known", slug: "light-known", average_rating: 4 }),
+      );
+      forecasts.push(
+        makeForecast({ beach_id: "windy-unknown", wind_speed: "13 mph", wind_direction: null }),
+        makeForecast({ beach_id: "light-known" }),
+      );
+
+      const result = await getBeginnerBeachesWithEditorial("huntington-beach", "ca");
+
+      expect(result.map((beach) => beach.name)).toEqual(["Windy Unknown", "Light Known"]);
+      const selects = mockSupabase.from.mock.calls.map(([table], i) => ({
+        table,
+        columns: String(mockSupabase.from.mock.results[i].value.select.mock.calls[0]?.[0] ?? ""),
+      }));
+      const beachSelect = selects.find((call) => call.table === "beaches")?.columns ?? "";
+      const forecastSelect = selects.find((call) => call.table === "enhanced_forecasts")?.columns ?? "";
+      for (const column of ["wind_offshore_deg", "wind_offshore_tol_deg", "aspect_deg"]) {
+        expect(beachSelect).toContain(column);
+      }
+      expect(forecastSelect).toContain("wind_direction_deg");
     });
   });
 });

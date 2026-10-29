@@ -41,7 +41,8 @@ export const GET = withAuth(async (_request, { user, supabase, params }) => {
   const { count: boardCount, error: boardError } = await supabase
     .from("boards")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", targetUserId);
+    .eq("user_id", targetUserId)
+    .is("retired_at", null);
   if (boardError) throw boardError;
 
   // Average wave_quality (rating in this tile is effectively wave quality)

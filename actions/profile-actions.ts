@@ -376,7 +376,8 @@ async function getUserStats(userId: string) {
     const { count: boardCount, error: boardError } = await supabase
       .from("boards")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .is("retired_at", null);
 
     if (boardError) {
       throw boardError;

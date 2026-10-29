@@ -60,6 +60,7 @@ import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability'
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
+import { isFallbackForecastRow } from '@/lib/utils/forecast-row-source';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { angleDifference, resolveOffshoreDeg } from '@/lib/domains/shared';
@@ -1072,6 +1073,7 @@ export async function fetchUserBoardContext(
       .from('boards')
       .select(PERSONAL_BOARD_SELECT)
       .eq('user_id', userId)
+      .is('retired_at', null)
       .eq('sessions.user_id', userId)
       .eq('sessions.status', 'completed')
       .is('sessions.deleted_at', null)
@@ -1082,7 +1084,8 @@ export async function fetchUserBoardContext(
     : await supabase
       .from('boards')
       .select('id, name, board_type, volume, session_count')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .is('retired_at', null);
 
   if (error) {
     log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
@@ -1487,7 +1490,7 @@ function findImmediateForecastBucket(
 }
 
 function selectImmediateWindow(
-  forecasts: EnhancedForecastEntity[],
+  allForecasts: EnhancedForecastEntity[],
   beach: Beach,
   sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
   now: Date,
@@ -1504,6 +1507,8 @@ function selectImmediateWindow(
     beachTz,
     sunTimes,
   );
+  // FALLBACK rows carry no model wave data, so they are never "right now".
+  const forecasts = allForecasts.filter((forecast) => !isFallbackForecastRow(forecast));
   if (forecasts.length === 0) return { window: null, afterDark: currentlyDark };
 
   const scoreForecast = (forecast: EnhancedForecastEntity): number =>

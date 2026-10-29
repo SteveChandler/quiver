@@ -1363,6 +1363,21 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(query.limit).toHaveBeenCalledWith(300, { referencedTable: 'sessions' });
   });
 
+  test.each([true, false])('leaves retired boards out of the board context (picks enabled: %s)', async (isPro) => {
+    const previous = process.env.BOARD_PICKS_FREE_ENABLED;
+    delete process.env.BOARD_PICKS_FREE_ENABLED;
+    mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
+    mockSupabaseFrom.mockClear();
+    try {
+      await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', isPro);
+    } finally {
+      if (previous === undefined) delete process.env.BOARD_PICKS_FREE_ENABLED;
+      else process.env.BOARD_PICKS_FREE_ENABLED = previous;
+    }
+    const query = mockSupabaseFrom.mock.results.find((_, i) => mockSupabaseFrom.mock.calls[i][0] === 'boards')!.value;
+    expect(query.is).toHaveBeenCalledWith('retired_at', null);
+  });
+
   test('attaches condition-based board picks for Pro users with saved boards', async () => {
     mockState.boards = [
       { id: 'lb-1', name: "9'0 Torq Longboard", board_type: 'longboard', volume: 75 },

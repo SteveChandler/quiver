@@ -637,6 +637,32 @@ describe('Discovery Adapter', () => {
     });
   });
 
+  describe('scoreBeachWithEngine unknown wind', () => {
+    it('flags unknown wind on a flat (skipped) beach so hero ranking leaves the placeholder out', () => {
+      const engine = createDiscoveryScoringEngine();
+      const result = scoreBeachWithEngine(engine, createBeach(), createForecast({
+        wave_height: '0.2',
+        wind_speed: null,
+        wind_direction_deg: null,
+        wind_direction: null,
+      }));
+
+      expect(result.matchQuality).toBe('fair'); // skip maps to fair
+      expect(result.subscores.windUnknown).toBe(true);
+    });
+
+    it('does not flag a known wind on a skipped beach', () => {
+      const engine = createDiscoveryScoringEngine();
+      const result = scoreBeachWithEngine(engine, createBeach(), createForecast({
+        wave_height: '0.2',
+        wind_speed: '5',
+        wind_direction_deg: 90,
+      }));
+
+      expect(result.subscores.windUnknown).toBeUndefined();
+    });
+  });
+
   describe('compositeToDetailedScore', () => {
     it('should convert CompositeScore to DetailedScore format', () => {
       const composite = {

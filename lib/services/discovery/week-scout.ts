@@ -625,7 +625,8 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
       const { data, error } = await createSupabaseServiceRoleClient()
         .from('boards')
         .select('board_type')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .is('retired_at', null);
       if (error || !Array.isArray(data)) return [];
 
       return Array.from(

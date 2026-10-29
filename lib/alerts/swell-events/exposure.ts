@@ -1,9 +1,10 @@
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
+import { FALLBACK_FORECAST_DATA_SOURCE } from "@/lib/utils/forecast-row-source";
 
 export const SWELL_EVENT_DETECTOR_VERSION = "swell-events.v1";
 
-/** Seasonal-curve placeholder rows (fallback generator); never a forecast of the sea. */
-export const SYNTHETIC_FORECAST_DATA_SOURCE = "FALLBACK";
+/** Slots no wave model covers yet; never a forecast of the sea. */
+export const SYNTHETIC_FORECAST_DATA_SOURCE = FALLBACK_FORECAST_DATA_SOURCE;
 
 export const SWELL_EVENT_THRESHOLDS = {
   minPeakFaceHeightFt: 3,

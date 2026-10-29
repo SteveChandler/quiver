@@ -312,15 +312,18 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "swell-period-explained",
-    title: "Swell Period Explained: What Seconds Mean for Surf",
-    description: "Swell period explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read period in a forecast.",
+    title: "Wave Period & Swell Period Explained: What Seconds Mean",
+    description: "Wave period, or swell period, explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read it in a forecast.",
     datePublished: "2026-03-26",
-    dateModified: "2026-07-06",
+    dateModified: "2026-10-28",
     readingTimeMin: 4,
     heroImage: "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp",
     thumbnailImage: "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp",
     keywords: [
       "swell period",
+      "wave period",
+      "what is wave period",
+      "wave periods",
       "what is swell period",
       "wave period surfing",
       "swell period chart",
@@ -332,7 +335,7 @@ export const learnArticles: LearnArticle[] = [
         id: "answer",
         heading: "The Short Answer",
         figureKey: "swell-period-morph",
-        content: `<p>Swell period is the time in seconds between consecutive wave crests passing a fixed point, typically measured by NDBC and CDIP buoys. It's the single best indicator of wave quality on any forecast. Waves with periods <strong>under 9 seconds</strong> come from local wind and break mushy and chaotic. Waves with periods <strong>above 12 seconds</strong> come from distant storms — like North Pacific or Southern Ocean systems — and break clean, powerful, and organized. A 3-foot swell at 14 seconds at Rincon will always outperform a 6-foot swell at 6 seconds. Check period on every forecast.</p>`,
+        content: `<p>Swell period, also called wave period, is the time in seconds between consecutive wave crests passing a fixed point, typically measured by NDBC and CDIP buoys. It's the single best indicator of wave quality on any forecast. Waves with periods <strong>under 9 seconds</strong> come from local wind and break mushy and chaotic. Waves with periods <strong>above 12 seconds</strong> come from distant storms — like North Pacific or Southern Ocean systems — and break clean, powerful, and organized. A 3-foot swell at 14 seconds at Rincon will always outperform a 6-foot swell at 6 seconds. Check period on every forecast.</p>`,
         keyTakeaway:
           "Swell period (seconds between waves) is the best wave quality indicator: under 9 seconds means local chop, over 12 seconds means powerful distant-storm energy.",
       },
