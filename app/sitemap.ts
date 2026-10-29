@@ -154,6 +154,7 @@ interface WaterTempCoverageRow {
 // the batch must stay small enough that a full batch cannot reach that cap:
 // 10 beaches x 25h stays well under it even if tide granularity went 4x finer.
 const BEACH_COVERAGE_BATCH_SIZE = 10;
+const BEACH_COVERAGE_CONCURRENCY = 4;
 const POSTGREST_MAX_ROWS = 1000;
 
 interface CityEditorialRoute {
@@ -273,29 +274,36 @@ async function fetchBeachSubPageCoverage(
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
   try {
-    const responses = await Promise.all(
-      batchBeachIds(beachIds).map(async (batch) => {
-        const [tideResponse, waterTempResponse] = await Promise.all([
-          supabase
-            .from("tide_forecasts")
-            .select("beach_id, ts, tide_height_m, source, station_id, created_at")
-            .in("beach_id", batch)
-            .gte("ts", tideWindow.from)
-            .lte("ts", tideWindow.to)
-            .limit(POSTGREST_MAX_ROWS),
-          supabase
-            .from("enhanced_forecasts")
-            .select("beach_id, water_temp, forecast_at")
-            .in("beach_id", batch)
-            .gte("forecast_at", `${today}T00:00:00.000Z`)
-            .lt("forecast_at", tomorrow.toISOString())
-            .not("water_temp", "is", null)
-            .limit(POSTGREST_MAX_ROWS),
-        ]);
+    const readBatch = async (batch: string[]) => {
+      const [tideResponse, waterTempResponse] = await Promise.all([
+        supabase
+          .from("tide_forecasts")
+          .select("beach_id, ts, tide_height_m, source, station_id, created_at")
+          .in("beach_id", batch)
+          .gte("ts", tideWindow.from)
+          .lte("ts", tideWindow.to)
+          .limit(POSTGREST_MAX_ROWS),
+        supabase
+          .from("enhanced_forecasts")
+          .select("beach_id, water_temp, forecast_at")
+          .in("beach_id", batch)
+          .gte("forecast_at", `${today}T00:00:00.000Z`)
+          .lt("forecast_at", tomorrow.toISOString())
+          .not("water_temp", "is", null)
+          .limit(POSTGREST_MAX_ROWS),
+      ]);
 
-        return { tideResponse, waterTempResponse };
-      }),
-    );
+      return { tideResponse, waterTempResponse };
+    };
+
+    // Firing every batch at once sent ~116 queries to the database in one burst
+    // whenever this cache expired; a few batches at a time spreads that out.
+    const batches = batchBeachIds(beachIds);
+    const responses: Awaited<ReturnType<typeof readBatch>>[] = [];
+    for (let index = 0; index < batches.length; index += BEACH_COVERAGE_CONCURRENCY) {
+      const group = batches.slice(index, index + BEACH_COVERAGE_CONCURRENCY);
+      responses.push(...(await Promise.all(group.map(readBatch))));
+    }
 
     for (const { tideResponse, waterTempResponse } of responses) {
       if (tideResponse.error) {

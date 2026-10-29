@@ -431,7 +431,7 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
         { id: beach.id, timezone: beach.timezone ?? null },
       ]),
       getWaterTempMetaData(beach.id),
-      getTideMetaData(beach.id),
+      getTideMetaData(beach.id, beach.timezone),
     ]);
     const forecastSnapshot = forecastSnapshots.get(beach.id);
     const hasWaterTemp = isBeachSubPageIndexable(
