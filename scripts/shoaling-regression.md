@@ -89,14 +89,15 @@ GET https://services.surfline.com/kbyg/spots/forecasts/wave
 No token is used. If the endpoint is ever gated behind auth, Gate E will
 degrade gracefully — it is deliberately best-effort.
 
-### Gate F — CDIP→model handoff boundary default-off invariant + enabled blend
+### Gate F — CDIP→model handoff seam measured, rows unchanged
 
 **Set:** Lower Trestles CDIP→NOAA_NWS handoff fixture
-**Check:** with the blend flag off, the first model slot remains byte-identical;
-with the blend flag on, the first model slot moves toward the last CDIP face
-height through the bounded 48h taper.
-**Failure signal:** the handoff instrumentation changed default behavior, or the
-enabled blend no longer improves the discontinuity at the CDIP/model seam.
+**Check:** the CDIP/model seam discontinuity is measured, and every slot stays
+byte-identical. The 48 h taper that rescaled model rows was removed in #1236: a
+buoy replay showed the seam's face-height ratio does not predict the later
+buoy/model gap, and the taper made heights fall while the swell grew.
+**Failure signal:** the seam is no longer measured, or the handoff code changed
+a forecast height.
 
 ## Fixtures
 

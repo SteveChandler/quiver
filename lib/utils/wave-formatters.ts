@@ -32,7 +32,6 @@ import {
   MAX_TRUSTED_CDIP_FT,
 } from '@/lib/config/forecast-staleness';
 import type { ForecastReplayInput } from './forecast-display-replay';
-import type { ForecastHandoffBlendMetadata } from './forecast-handoff-blend';
 
 // Re-export for backward compatibility (consumers may import from here)
 export { METERS_TO_FEET };
@@ -666,7 +665,6 @@ export interface WaveHeightDebugInfo {
   calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
   handoffDiscontinuityFt?: number;
-  handoffBlend?: ForecastHandoffBlendMetadata;
   replayInput?: ForecastReplayInput;
   cdipRejection?: {
     reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
