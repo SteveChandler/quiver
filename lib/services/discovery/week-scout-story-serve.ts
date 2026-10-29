@@ -3,7 +3,7 @@ import type { Database } from "@/types/database";
 export { isWeekScoutStoryEnabled } from "@/lib/flags/week-scout-story";
 import type { CanonicalWeekScoutResponse } from "./week-scout";
 import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
-import { directionIndex, directionSector, periodBand } from "./week-scout-story-candidates";
+import { addSwellHeadlines, directionIndex, directionSector, labelDirectionIndex, periodBand } from "./week-scout-story-candidates";
 import { buildStoryInput, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
@@ -56,10 +56,47 @@ function completeQuietDay(date: string, live: Live): boolean {
     && coverage.missing === 0 && coverage.buckets.every((bucket) => bucket.held === 0 && bucket.missing === 0));
 }
 
-function firstCoverSwell(live: Live): NonNullable<Live["swells"]>[number] | null {
+type LiveSwell = NonNullable<Live["swells"]>[number];
+
+function firstCoverSwell(live: Live): LiveSwell | null {
   const dates = new Set(live.days.slice(0, 7).map((day) => day.localDate));
   return (live.swells ?? []).find((swell) => dates.has(swell.peakLocalDate)
     || dates.has(localDate(swell.arrivalAt, swell.timezone))) ?? null;
+}
+
+/** A swell sentence may sit under the cover only if it names the first charted swell's days and direction. */
+function describesFirstSwell(gate: Extract<StoryGate, { kind: "swell" }>, firstSwell: LiveSwell | null): boolean {
+  if (!firstSwell) return false;
+  const labelIndex = labelDirectionIndex(firstSwell.directionLabel);
+  return gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
+    && gate.peakLocalDate === firstSwell.peakLocalDate
+    && (gate.directionIndex === undefined || labelIndex === null || gate.directionIndex === labelIndex);
+}
+
+/**
+ * Cover and lead composed from the first charted swell itself, for when the
+ * regional sample (a different set of beaches) dated or binned it differently.
+ * Every gate field comes from that swell, so the sentence can only claim it;
+ * it names no region because the chart's beaches may sit outside the home region.
+ */
+function liveHeadlineFacts(firstSwell: LiveSwell, live: Live): StoryInput["copyFacts"] {
+  const week = live.days.slice(0, 7).map((day) => day.localDate);
+  const index = labelDirectionIndex(firstSwell.directionLabel);
+  if (index === null || week.length === 0) return [];
+  const sector = directionSector(firstSwell.directionDeg);
+  const band = periodBand(firstSwell.periodS);
+  const key = `${sector}-${band}-${firstSwell.peakLocalDate}`;
+  const arrivalDate = localDate(firstSwell.arrivalAt, firstSwell.timezone);
+  const gate: StoryGate = {
+    kind: "swell", regionalEventKey: key, directionSector: sector, periodBand: band,
+    periodClass: firstSwell.periodS >= 13 ? "long" : firstSwell.periodS >= 10 ? "mid" : "short",
+    arrivalLocalDate: arrivalDate, peakLocalDate: firstSwell.peakLocalDate, fadeLocalDate: null,
+    confidence: firstSwell.confidence, minimumBeaches: Math.min(3, firstSwell.beaches.length),
+  };
+  const facts: StoryInput["copyFacts"] = [];
+  addSwellHeadlines(facts, { key, directionIndex: index, periodS: firstSwell.periodS, arrivalDate,
+    peakDate: firstSwell.peakLocalDate }, null, week[0], week[week.length - 1], gate, "live-");
+  return facts.map((fact) => ({ ...fact, rank: Number.MAX_SAFE_INTEGER }));
 }
 
 /** A selected sentence is served only when the live response still proves its gate. */
@@ -152,13 +189,8 @@ export function bindStory(args: {
   });
   if (!input || !args.selections || args.availability !== "ready") return empty(args.availability);
   const firstSwell = firstCoverSwell(live);
-  const agreesWithCover = (fact: StoryInput["copyFacts"][number]): boolean => {
-    if (fact.gate.kind !== "swell") return true;
-    if (!firstSwell) return false;
-    const gate = fact.gate;
-    return gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
-      && gate.peakLocalDate === firstSwell.peakLocalDate;
-  };
+  const agreesWithCover = (fact: StoryInput["copyFacts"][number]): boolean =>
+    fact.gate.kind !== "swell" || describesFirstSwell(fact.gate, firstSwell);
   const selected = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
   if (selected.length !== args.selections.length) return empty("unavailable");
   const chosen = selected.filter((fact) => storyGateHolds(fact.gate, live) && agreesWithCover(fact));
@@ -181,13 +213,15 @@ export function bindStory(args: {
   };
 }
 
-export function bindFallbackStory(region: string, input: StoryInput, live: Live): StoryWire {
+export function bindFallbackStory(region: string, regionalInput: StoryInput, live: Live): StoryWire {
   const slots = new Set<string>();
   const firstSwell = firstCoverSwell(live);
-  const matchesFirstSwell = (gate: Extract<StoryGate, { kind: "swell" }>): boolean => Boolean(firstSwell
-    && gate.arrivalLocalDate === localDate(firstSwell.arrivalAt, firstSwell.timezone)
-    && gate.peakLocalDate === firstSwell.peakLocalDate);
-  const matchedEvents = new Set(input.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
+  const matchesFirstSwell = (gate: Extract<StoryGate, { kind: "swell" }>): boolean => describesFirstSwell(gate, firstSwell);
+  // Ranked last, so a passing regional sentence keeps its slot and these fill only what it leaves empty.
+  const liveHeadlines = firstSwell ? liveHeadlineFacts(firstSwell, live) : [];
+  const input = liveHeadlines.length > 0
+    ? { ...regionalInput, copyFacts: [...regionalInput.copyFacts, ...liveHeadlines] } : regionalInput;
+  const matchedEvents = new Set(regionalInput.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
     && matchesFirstSwell(fact.gate) && storyGateHolds(fact.gate, live)
     ? [fact.gate.regionalEventKey] : []));
   const selections = [...input.copyFacts].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
@@ -205,24 +239,46 @@ export function bindFallbackStory(region: string, input: StoryInput, live: Live)
   return bindStory({ region, availability: "ready", input, selections, live, requireCover: false });
 }
 
-export async function loadAndBindStory(args: { client: Client; homeBeachId: string | null; live: Live; startLocalDate: string; now: Date }): Promise<StoryWire> {
-  const { client, homeBeachId, live, startLocalDate, now } = args;
-  if (!homeBeachId) return bindStory({ region: null, availability: "outside_region", input: null, selections: null, live });
+type StoryLoadArgs = { client: Client; homeBeachId: string | null; startLocalDate: string; now: Date };
+export type StoryBinder = (live: Live) => Promise<StoryWire>;
+
+/**
+ * Loads everything the story needs except the live forecast, so it can run
+ * alongside the ranking; the returned binder applies the live gates.
+ */
+export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
+  const { client, homeBeachId, startLocalDate, now } = args;
+  const unbound = (region: string | null, availability: StoryWire["availability"]): StoryBinder =>
+    async (live) => bindStory({ region, availability, input: null, selections: null, live });
+  if (!homeBeachId) return unbound(null, "outside_region");
   const { data: beach, error } = await client.from("beaches").select("region").eq("id", homeBeachId).maybeSingle();
   if (error) throw error;
   const region = beach?.region ?? null;
-  if (!region) return bindStory({ region: null, availability: "outside_region", input: null, selections: null, live });
+  if (!region) return unbound(null, "outside_region");
   const active = await activeStoryRegions(client);
   const activeRegion = active.find((entry) => entry.region === region);
-  if (!activeRegion) {
-    return bindStory({ region, availability: "outside_region", input: null, selections: null, live });
-  }
+  if (!activeRegion) return unbound(region, "outside_region");
   const editionDate = localDate(now.toISOString(), activeRegion.timezone);
-  const edition = await loadLatestStoryEdition(client, region);
+  const [edition, cached] = await Promise.all([
+    loadLatestStoryEdition(client, region),
+    loadLatestStoryInput(client, region, editionDate),
+  ]);
+  let publishedInput: StoryInput | null = null;
   if (edition?.schemaVersion === 3 && edition.editionDate === editionDate && editionDate === startLocalDate
     && Date.parse(edition.validUntil) >= now.getTime() && Date.parse(edition.sourcePublishedAt) <= now.getTime()) {
-    const publishedInput = await loadStoryInput(client, edition.inputHash);
-    if (publishedInput?.provenance.generationInputVersion === STORY_SAMPLE_VERSION) {
+    const loaded = await loadStoryInput(client, edition.inputHash);
+    publishedInput = loaded?.provenance.generationInputVersion === STORY_SAMPLE_VERSION ? loaded : null;
+  }
+  const usable = cached?.provenance.generationInputVersion === STORY_SAMPLE_VERSION
+    && Date.parse(cached.briefing.generatedAt) > now.getTime() - 60 * 60_000
+    && Date.parse(cached.sourcePublishedAt) <= now.getTime()
+    && Date.parse(cached.validUntil) >= now.getTime();
+  // Without a servable edition the live build is certain, so start it now; with
+  // one, build only if the edition fails its live gates.
+  const fallback = usable ? Promise.resolve(cached) : publishedInput ? null : regionalFallback(client, region, editionDate, now);
+  fallback?.catch(() => undefined);
+  return async (live) => {
+    if (edition && publishedInput) {
       try {
         assertStoryArtifactMatchesInput(edition, publishedInput, now);
         const published = bindStory({ region, availability: "ready", input: publishedInput,
@@ -230,16 +286,15 @@ export async function loadAndBindStory(args: { client: Client; homeBeachId: stri
         if (published.availability === "ready") return published;
       } catch { /* A failed edition falls through to live candidates. */ }
     }
-  }
-  const cached = await loadLatestStoryInput(client, region, editionDate);
-  const usable = cached?.provenance.generationInputVersion === STORY_SAMPLE_VERSION
-    && Date.parse(cached.briefing.generatedAt) > now.getTime() - 60 * 60_000
-    && Date.parse(cached.sourcePublishedAt) <= now.getTime()
-    && Date.parse(cached.validUntil) >= now.getTime();
-  const input = usable ? cached : await regionalFallback(client, region, editionDate, now);
-  if (!input) return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
-  if (input.editionDate !== startLocalDate) {
-    return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
-  }
-  return bindFallbackStory(region, input, live);
+    const input = await (fallback ?? regionalFallback(client, region, editionDate, now));
+    if (!input) return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
+    if (input.editionDate !== startLocalDate) {
+      return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
+    }
+    return bindFallbackStory(region, input, live);
+  };
+}
+
+export async function loadAndBindStory(args: StoryLoadArgs & { live: Live }): Promise<StoryWire> {
+  return (await prepareStory(args))(args.live);
 }

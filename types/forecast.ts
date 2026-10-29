@@ -574,7 +574,7 @@ export interface WaveHeightProvenance {
   short_period_bucket_capped?: boolean;
   /** Last CDIP face height minus first following model face height at the source handoff. */
   handoff_discontinuity_ft?: number;
-  /** Optional default-off boundary blend applied to model rows after a CDIP handoff. */
+  /** Seam blend on rows written before #1236; the blend no longer rescales model rows. */
   handoff_blend?: {
     cdip_forecast_at: string;
     model_forecast_at: string;

@@ -12,7 +12,6 @@ import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { createContextLogger } from "@/lib/logger";
 import { TrustedForecastLayerError } from "@/lib/errors/forecast-errors";
 import { shouldForceNoDecay } from "@/lib/flags/decay-off";
-import { isForecastHandoffBlendEnabled } from "@/lib/flags/forecast-handoff-blend";
 import { calculateConfidenceScore } from "./confidence-scorer";
 import {
   toFaceHeightFeetDecomposedWithDebug,
@@ -497,7 +496,6 @@ export class ForecastBuilder {
     // during the row loop; consumed only after the loop, so a trusted decision
     // always sees the complete local day.
     const trustedSlotBuffer: TrustedSlotRecord[] = [];
-    const handoffBlendEnabled = isForecastHandoffBlendEnabled();
     const handoffBlendState = createForecastHandoffBlendState();
     const calibrationCoverage: CalibrationCoverage = {
       beachId: beach.id,
@@ -615,7 +613,6 @@ export class ForecastBuilder {
         trustedSlotBuffer,
         calibrationCoverage,
         handoffBlendState,
-        handoffBlendEnabled,
       });
 
       forecasts.push(forecast);
@@ -971,7 +968,6 @@ export class ForecastBuilder {
     trustedSlotBuffer: TrustedSlotRecord[];
     calibrationCoverage: CalibrationCoverage;
     handoffBlendState: ForecastHandoffBlendState;
-    handoffBlendEnabled: boolean;
     calibration: Awaited<ReturnType<typeof getActiveCalibration>>;
   }): EnhancedForecastWithRawData {
     const {
@@ -1001,7 +997,6 @@ export class ForecastBuilder {
       trustedSlotBuffer,
       calibrationCoverage,
       handoffBlendState,
-      handoffBlendEnabled,
       calibration,
     } = params;
 
@@ -1051,7 +1046,6 @@ export class ForecastBuilder {
 
     const handoffStep = processForecastHandoffBlendSlot({
       state: handoffBlendState,
-      enabled: handoffBlendEnabled,
       slot: {
         forecastAt,
         waveHeight: waveHeightResult.value,
@@ -1071,9 +1065,7 @@ export class ForecastBuilder {
       };
       // Metric is stored in existing raw_forecast JSON/debug logs; no schema
       // migration is needed for this generation-time seam instrumentation.
-      const logHandoffMetric =
-        handoffBlendEnabled && handoffStep.adjustment ? log.info : log.debug;
-      logHandoffMetric("handoff_discontinuity_ft", {
+      log.info("handoff_discontinuity_ft", {
         beachId: beach.id,
         beachName: beach.name,
         cdipForecastAt: handoffStep.metric.cdipForecastAt,
@@ -1084,18 +1076,7 @@ export class ForecastBuilder {
           handoffStep.metric.handoffDiscontinuityFt,
         rawRatio: handoffStep.metric.rawRatio,
         clampedRatio: handoffStep.metric.clampedRatio,
-        blendEnabled: handoffBlendEnabled,
-        blendApplied: handoffStep.adjustment != null,
       });
-    }
-    if (handoffStep.adjustment) {
-      waveHeightResult = {
-        value: handoffStep.adjustment.waveHeight,
-        debug: {
-          ...waveHeightResult.debug,
-          handoffBlend: handoffStep.adjustment.metadata,
-        },
-      };
     }
 
     const isCdipNowcastEligibleSlot =
@@ -1256,11 +1237,9 @@ export class ForecastBuilder {
         display_raw_input_height_m: displayRawInputHeightM,
         display_replay_context: replayBase ? JSON.parse(JSON.stringify({
           version: 1, generatedAt: now.toISOString(), forecastAt, base: replayBase,
-          handoff: handoffBlendEnabled ? handoffBlendState.replay ?? null : null,
+          handoff: handoffBlendState.replay ?? null,
           unsupportedReason: (beachOffsetCfgRow.enabled && heightOffset != null) || feedbackCalibrationCandidate != null
-            ? "offset"
-            : handoffBlendEnabled && handoffBlendState.seam && !handoffBlendState.replay
-              ? "missing-handoff" : null,
+            ? "offset" : null,
         })) : null,
         wave_height_om_m: omHeightM,
         noaa_swell_1_height_m: wavePoint?.swell_1_height ?? null,
@@ -1531,26 +1510,6 @@ export class ForecastBuilder {
           ? {
               handoff_discontinuity_ft:
                 waveHeightDebug.handoffDiscontinuityFt,
-            }
-          : {}),
-        ...(waveHeightDebug.handoffBlend
-          ? {
-              handoff_blend: {
-                cdip_forecast_at: waveHeightDebug.handoffBlend.cdipForecastAt,
-                model_forecast_at:
-                  waveHeightDebug.handoffBlend.modelForecastAt,
-                cdip_face_ft: waveHeightDebug.handoffBlend.cdipFaceFt,
-                model_face_ft: waveHeightDebug.handoffBlend.modelFaceFt,
-                handoff_discontinuity_ft:
-                  waveHeightDebug.handoffBlend.handoffDiscontinuityFt,
-                raw_ratio: waveHeightDebug.handoffBlend.rawRatio,
-                clamped_ratio: waveHeightDebug.handoffBlend.clampedRatio,
-                taper_hours: waveHeightDebug.handoffBlend.taperHours,
-                hours_after_seam: waveHeightDebug.handoffBlend.hoursAfterSeam,
-                taper_factor: waveHeightDebug.handoffBlend.taperFactor,
-                original_face_ft: waveHeightDebug.handoffBlend.originalFaceFt,
-                blended_face_ft: waveHeightDebug.handoffBlend.blendedFaceFt,
-              },
             }
           : {}),
         ...(southOcSanoGuardrail && southOcSanoGuardrail.kind !== "noop"
