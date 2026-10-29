@@ -80,6 +80,7 @@ it.each([
     expect(getLocalDateString(new Date(row.sunset_utc), beach.timezone)).toBe(row.date);
     expect(getTimes).toHaveBeenCalledWith(localDateTimeToUTC(row.date, '12:00:00', beach.timezone), beach.lat, beach.lon);
     expect(row).toMatchObject({ beach_id: 'beach', source: 'computed', created_at: '2026-10-12T02:30:00.000Z' });
-    expect(mockUpsert).toHaveBeenCalledWith([row], { onConflict: 'beach_id,date,source' });
   }
+  expect(mockUpsert).toHaveBeenCalledTimes(1);
+  expect(mockUpsert).toHaveBeenCalledWith(rows, { onConflict: 'beach_id,date,source' });
 });
