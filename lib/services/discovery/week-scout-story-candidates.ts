@@ -83,11 +83,14 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
   if (days.length !== 7 || days.some((day, index) => !day.complete || day.localDate !== addDays(days[0].localDate, index))) return [];
   const facts: StoryCandidate[] = [];
   const pulse = days.some((day) => day.meanHeightFt !== null && day.meanHeightFt >= 2);
-  const event = [...events].sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt))
-    .find((item) => days.some((day) => day.localDate === eventLocalDate(item.peakAt, item.timezone)
+  // Every in-week event gets candidates: the earliest can be a spike that has
+  // already passed, which the live chart drops, while a later one is still on it.
+  const weekEvents = [...events].sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt))
+    .filter((item) => days.some((day) => day.localDate === eventLocalDate(item.peakAt, item.timezone)
       || day.localDate === eventLocalDate(item.arrivalAt, item.timezone)));
-  if (pulse && !event) return [];
-  if (event && pulse) {
+  if (pulse && weekEvents.length === 0) return [];
+  const keys = new Set<string>();
+  for (const event of pulse ? weekEvents : []) {
     const arrivalDate = eventLocalDate(event.arrivalAt, event.timezone);
     const peakDate = eventLocalDate(event.peakAt, event.timezone);
     const fadeDate = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
@@ -95,6 +98,8 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     const sector = directionSector(event.directionDeg);
     const band = periodBand(event.periodS);
     const key = `${sector}-${band}-${peakDate}`;
+    if (keys.has(key)) continue;
+    keys.add(key);
     const gate: StoryGate = {
       kind: "swell", regionalEventKey: key, directionSector: sector, directionIndex: directionIndex(event.directionDeg),
       periodBand: band, periodClass: event.periodS >= 13 ? "long" : event.periodS >= 10 ? "mid" : "short",
@@ -109,10 +114,12 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     const peakDay = windowDay(peakDate, firstDate, lastDate);
     // Phrasings that open with the day, or follow "by", only read with a real weekday.
     const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
-    add(facts, "cover-pulse", "cover", `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`, gate);
-    if (namedDays) add(facts, "cover-pulse-alt", "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
-    add(facts, "lead-pulse", "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate);
-    if (namedDays) add(facts, "lead-pulse-alt", "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
+    // Cover and lead name no fade day, so they don't require the chart's fade to agree.
+    const unfaded: StoryGate = { ...gate, fadeLocalDate: null };
+    add(facts, `cover-pulse-${key}`, "cover", `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`, unfaded);
+    if (namedDays) add(facts, `cover-pulse-alt-${key}`, "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, unfaded);
+    add(facts, `lead-pulse-${key}`, "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, unfaded);
+    if (namedDays) add(facts, `lead-pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, unfaded);
     add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
     if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
     const named = peak?.exposedBeaches?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
@@ -128,10 +135,11 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
       add(facts, `exposure-${key}-alt`, `swell:${key}:exposure`, `${selected[0].beachName} and ${selected[1].beachName} get the cleaner angle; ${selected[2].beachName} is more sheltered.`, exposureGate);
     }
     if (fadeDate && fadeDate > peakDate) {
-      add(facts, "turn-fade", "story:turn", `After ${peakDay}, the ${direction} swell eases into ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
-      add(facts, "turn-fade-alt", "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
+      add(facts, `turn-fade-${key}`, "story:turn", `After ${peakDay}, the ${direction} swell eases into ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
+      add(facts, `turn-fade-alt-${key}`, "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
     }
-  } else {
+  }
+  if (!pulse || weekEvents.length === 0) {
     const completeDates = days.map((day) => day.localDate);
     const gate: StoryGate = { kind: "quiet", fromDate: completeDates[0], toDate: completeDates[6], completeDates };
     add(facts, "cover-quiet", "cover", "A quieter stretch along the coast.", gate);
