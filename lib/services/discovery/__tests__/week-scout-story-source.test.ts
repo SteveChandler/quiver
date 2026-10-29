@@ -79,7 +79,7 @@ describe("regional story source snapshot", () => {
       fadeAt: "2026-11-02T18:00:00Z", peakLocalDate: "2026-11-01",
     }]);
     const input = await buildStoryInput({ client: client(rows), region: "San Diego", now, persist: false });
-    expect(input.copyFacts.find((fact) => fact.id === "cover-pulse")?.text)
+    expect(input.copyFacts.find((fact) => fact.id === "cover-pulse-4-4-2026-11-01")?.text)
       .toContain("reaches San Diego Saturday and peaks Sunday");
     expect(loadRecentSwellSnapshots).toHaveBeenCalledWith(expect.anything(), ["a", "b", "c"], expect.any(Date));
   });
