@@ -518,7 +518,7 @@ The `enhanced_forecasts` table stored forecast timing as separate `forecast_date
 
 **Migration Sequence**:
 
-1. **`20260214130000_add_forecast_at_column.sql`** -- Adds `forecast_at timestamptz` column, backfills from existing `forecast_date || forecast_time`, creates composite index `idx_ef_beach_forecast_at` and unique constraint `enhanced_forecasts_beach_forecast_at_unique`.
+1. **`20260214130000_add_forecast_at_column.sql`** -- Adds `forecast_at timestamptz` column, backfills from existing `forecast_date || forecast_time`, creates unique constraint `enhanced_forecasts_beach_forecast_at_unique` (its duplicate `idx_ef_beach_forecast_at` was dropped in `20261029160000_db_load_cleanup.sql`).
 
 2. **`20260214130100_update_ten_day_view_add_forecast_at.sql`** -- Updates the 10-day forecast view to include `forecast_at` in its output columns.
 
