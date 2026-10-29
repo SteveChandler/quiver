@@ -48,7 +48,7 @@ export async function getBeachCameraUrl(
     .not("camera_url", "is", null)
     .neq("camera_url", "")
     .limit(1)
-    .single();
+    .maybeSingle();
 
   return data?.camera_url ?? null;
 }
