@@ -11,10 +11,7 @@ lib/services/
 ├── cdip-service.ts                           # CDIP buoy data integration
 ├── enhanced-forecast-service.ts              # Comprehensive forecast generation
 ├── implicit-preferences-service.ts           # Implicit preference learning (behavioral)
-├── inactive-buoy-cleanup.ts                  # Buoy maintenance and cleanup
-├── noaa-conditions-sync.ts                   # NOAA buoy conditions synchronization
 ├── noaa-coops-service.ts                     # NOAA CO-OPS tide data service
-├── noaa-sync.ts                              # NOAA buoy station synchronization
 ├── noaa-wavewatch-service.ts                 # NOAA WaveWatch III wave data
 ├── personalization-milestone-service.ts      # User milestone detection and recording
 ├── personalized-scoring-service.ts           # User preference scoring
@@ -1218,8 +1215,6 @@ lib/services/
 ├── orchestration/         # Coordinate multiple services
 │   └── enhanced-forecast-service.ts
 ├── maintenance/           # Background jobs, cleanup
-│   ├── noaa-sync.ts
-│   └── inactive-buoy-cleanup.ts
 └── ARCHITECTURE.md
 ```
 

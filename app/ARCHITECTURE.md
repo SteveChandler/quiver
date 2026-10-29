@@ -83,8 +83,6 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
 - **Security**: Admin authentication required
 - **Endpoints**:
   - `cleanup-inactive-buoys/` - Buoy maintenance operations
-  - `sync-buoys/` - NOAA buoy data synchronization
-  - `update-buoy-conditions/` - Real-time conditions updates
 
 #### `/api/analytics/`
 

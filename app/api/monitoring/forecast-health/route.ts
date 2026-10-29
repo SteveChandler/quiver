@@ -25,7 +25,7 @@ export const dynamic = 'force-dynamic';
 const SENTRY_MONITOR = {
   slug: "forecast-health",
   // Must match vercel.json: off minutes 0 and 30, where the forecast writers run.
-  schedule: "12,42 * * * *",
+  schedule: "12 * * * *",
   maxRuntimeMinutes: 3,
 };
 

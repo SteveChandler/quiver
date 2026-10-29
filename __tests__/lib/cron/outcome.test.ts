@@ -32,7 +32,6 @@ const JOBS: Array<{ name: string; unit: string }> = [
   { name: "indexnow-submit", unit: "urls_submitted" },
   { name: "major-event-hold-retention", unit: "rows_deleted" },
   { name: "refresh-beach-traffic-weights", unit: "weights_refreshed" },
-  { name: "sync-buoys", unit: "buoys_synced" },
   { name: "update-implicit-preferences", unit: "preferences_recomputed" },
 ];
 
