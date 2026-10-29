@@ -748,7 +748,7 @@ This ensures graceful handoff from implicit (new users) to explicit (power users
   - Fetches user state from multiple tables in parallel (4 concurrent queries)
   - Compares against 9 milestone definitions from `lib/constants/personalization-milestones.ts`
   - Inserts via service role client with UNIQUE constraint protection (ON CONFLICT DO NOTHING)
-  - Graceful degradation for missing tables (intel_confirmations fallback)
+  - Graceful degradation for missing tables (intel_post_confirmations count falls back to 0)
 
 **9 Milestones:**
 - `first_session_logged` - 1+ rated session
