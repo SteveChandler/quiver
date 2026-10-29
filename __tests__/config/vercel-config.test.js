@@ -215,7 +215,7 @@ describe("vercel.json", () => {
     const configPath = path.join(process.cwd(), "vercel.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
     const moved = {
-      "/api/cron/email-lifecycle": { schedule: "25 * * * *", source: "app/api/cron/email-lifecycle/route.ts" },
+      "/api/cron/email-lifecycle": { schedule: "25 0,1,13-23 * * *", source: "app/api/cron/email-lifecycle/route.ts" },
       "/api/cron/daily-call": { schedule: "8 * * * *", source: "app/api/cron/daily-call/route.ts" },
       "/api/cron/swell-alert": { schedule: "24 * * * *", source: "app/api/cron/swell-alert/route.ts" },
       "/api/cron/condition-alert-deliver": { schedule: "2 * * * *", source: "app/api/cron/condition-alert-deliver/route.ts" },
