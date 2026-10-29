@@ -1670,10 +1670,8 @@ function withinSwellsBudget<T>(label: string, consequence: string, load: () => P
   const startedAt = performance.now();
   const loaded = Promise.resolve()
     .then(load)
-    .then((value) => {
-      recordStage(`swell-${label.replace(/\s+/g, '-')}`, performance.now() - startedAt);
-      return value;
-    })
+    // Recorded on failure too; a read still running when the response is built is not.
+    .finally(() => recordStage(`swell-${label.replace(/\s+/g, '-')}`, performance.now() - startedAt))
     .catch((error: unknown) => {
       log.warn(`Week Scout ${label} failed; ${consequence}`, {
         error: error instanceof Error ? error.message : String(error),

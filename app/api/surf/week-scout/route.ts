@@ -126,6 +126,7 @@ async function weekScoutHandler(
   request: NextRequest,
   { user, supabase }: AuthenticatedContext,
 ): Promise<NextResponse> {
+  // Rate limiting plus authentication: everything before the handler runs.
   recordStage('auth', performance.now() - requestStartedAt(request));
   // Installed native clients need a stable canonical contract. Keep the flag
   // as an emergency kill switch, but default the endpoint on so an omitted
