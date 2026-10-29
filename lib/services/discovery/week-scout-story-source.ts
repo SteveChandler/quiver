@@ -15,6 +15,7 @@ import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input"
 import { buildStoryCandidates, type RegionalDaySignal, type RegionalSwellEvent } from "./week-scout-story-candidates";
 import { loadLatestStoryInput, saveStoryInput, activeStoryRegions } from "./week-scout-story-store";
 import type { StoryInput } from "./week-scout-story-types";
+import { recordStage, timeStage } from "@/lib/observability/request-timing";
 
 type Client = SupabaseClient<Database>;
 type Row = { id: string; beach_id: string; forecast_at: string; wave_height: string | null; wave_period: string | null; wind_speed: string | null; tide_height: string | null; swell_direction_om: number | null; swell_period_om: number | null; wind_direction: string | null; tide_status: string | null; om_fetched_at: string | null; updated_at: string | null } & SwellEventForecastRow;
@@ -98,9 +99,9 @@ export async function buildStoryInput(args: { client: Client; region: string; no
 
   const from = zonedWallClockToUtc(editionDate, "00:00:00.000", active.timezone);
   const to = zonedWallClockToUtc(addDays(editionDate, 7), "00:00:00.000", active.timezone);
-  const rows: Row[] = [];
-  for (let start = 0; start < allBeachIds.length; start += 100) {
-    const chunk = allBeachIds.slice(start, start + 100);
+  // Forecast rows, snapshots and past rows are independent reads; chunks run together.
+  const readChunk = async (chunk: string[]): Promise<Row[]> => {
+    const rows: Row[] = [];
     let offset = 0;
     for (;;) {
       const { data, error } = await client.from("enhanced_forecasts")
@@ -113,17 +114,30 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       rows.push(...data);
       offset += data.length;
     }
-  }
+    return rows;
+  };
+  const chunks = Array.from({ length: Math.ceil(allBeachIds.length / 100) }, (_, index) =>
+    allBeachIds.slice(index * 100, index * 100 + 100));
+  const rowsRead = timeStage("story-rows", async () => (await Promise.all(chunks.map(readChunk))).flat());
+  const snapshotsRead = timeStage("story-snapshots", () => loadRecentSwellSnapshots(client,
+    allBeachIds, new Date(now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * 24 * 60 * 60_000)));
+  const historyRead = timeStage("story-history", () => loadSwellForecastRows(client, allBeachIds,
+    new Date(now.getTime() - SWELL_EVENT_BASELINE_LOOKBACK_HOURS * 60 * 60_000), now));
+  // Settle every read before throwing so no rejection is left unhandled.
+  const [rowsResult, snapshotsResult, historyResult] = await Promise.allSettled([rowsRead, snapshotsRead, historyRead]);
+  if (rowsResult.status === "rejected") throw rowsResult.reason;
+  const rows: Row[] = rowsResult.value;
+  const computeStartedAt = performance.now();
   const sourceTimes = rows.map((row) => Date.parse(row.om_fetched_at ?? row.updated_at ?? ""))
     .filter((ms) => Number.isFinite(ms) && ms <= now.getTime());
   const latestSource = sourceTimes.length ? Math.max(...sourceTimes) : Number.NaN;
   if (!Number.isFinite(latestSource) || now.getTime() - latestSource > SOURCE_MAX_AGE_MS) {
     throw new StoryInputError("story_source_stale", 409);
   }
-  const snapshots = await loadRecentSwellSnapshots(client,
-    allBeachIds, new Date(now.getTime() - SWELL_EVENT_KEY_REUSE_DAYS * 24 * 60 * 60_000));
-  const history = await loadSwellForecastRows(client, allBeachIds,
-    new Date(now.getTime() - SWELL_EVENT_BASELINE_LOOKBACK_HOURS * 60 * 60_000), now);
+  if (snapshotsResult.status === "rejected") throw snapshotsResult.reason;
+  if (historyResult.status === "rejected") throw historyResult.reason;
+  const snapshots = snapshotsResult.value;
+  const history = historyResult.value;
   const events: RegionalSwellEvent[] = eventsFromForecasts(allBeaches, rows, history, snapshots, now, active.timezone, editionDate);
   const dayRows = Map.groupBy(rows, (row) => localDate(new Date(row.forecast_at), active.timezone));
   const hourFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: active.timezone, hour: "2-digit", hourCycle: "h23" });
@@ -194,6 +208,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   const copyFacts = buildStoryCandidates(signals, region, events);
   if (copyFacts.length === 0) throw new StoryInputError("story_no_candidates", 409);
   const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, snapshots, events }));
+  recordStage("story-compute", performance.now() - computeStartedAt);
   const existing = await loadLatestStoryInput(client, region, editionDate);
   if (existing?.provenance?.sourceHashes?.[0] === sourceHash) return existing;
   const input: StoryInput = {

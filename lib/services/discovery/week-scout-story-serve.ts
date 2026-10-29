@@ -239,24 +239,46 @@ export function bindFallbackStory(region: string, regionalInput: StoryInput, liv
   return bindStory({ region, availability: "ready", input, selections, live, requireCover: false });
 }
 
-export async function loadAndBindStory(args: { client: Client; homeBeachId: string | null; live: Live; startLocalDate: string; now: Date }): Promise<StoryWire> {
-  const { client, homeBeachId, live, startLocalDate, now } = args;
-  if (!homeBeachId) return bindStory({ region: null, availability: "outside_region", input: null, selections: null, live });
+type StoryLoadArgs = { client: Client; homeBeachId: string | null; startLocalDate: string; now: Date };
+export type StoryBinder = (live: Live) => Promise<StoryWire>;
+
+/**
+ * Loads everything the story needs except the live forecast, so it can run
+ * alongside the ranking; the returned binder applies the live gates.
+ */
+export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
+  const { client, homeBeachId, startLocalDate, now } = args;
+  const unbound = (region: string | null, availability: StoryWire["availability"]): StoryBinder =>
+    async (live) => bindStory({ region, availability, input: null, selections: null, live });
+  if (!homeBeachId) return unbound(null, "outside_region");
   const { data: beach, error } = await client.from("beaches").select("region").eq("id", homeBeachId).maybeSingle();
   if (error) throw error;
   const region = beach?.region ?? null;
-  if (!region) return bindStory({ region: null, availability: "outside_region", input: null, selections: null, live });
+  if (!region) return unbound(null, "outside_region");
   const active = await activeStoryRegions(client);
   const activeRegion = active.find((entry) => entry.region === region);
-  if (!activeRegion) {
-    return bindStory({ region, availability: "outside_region", input: null, selections: null, live });
-  }
+  if (!activeRegion) return unbound(region, "outside_region");
   const editionDate = localDate(now.toISOString(), activeRegion.timezone);
-  const edition = await loadLatestStoryEdition(client, region);
+  const [edition, cached] = await Promise.all([
+    loadLatestStoryEdition(client, region),
+    loadLatestStoryInput(client, region, editionDate),
+  ]);
+  let publishedInput: StoryInput | null = null;
   if (edition?.schemaVersion === 3 && edition.editionDate === editionDate && editionDate === startLocalDate
     && Date.parse(edition.validUntil) >= now.getTime() && Date.parse(edition.sourcePublishedAt) <= now.getTime()) {
-    const publishedInput = await loadStoryInput(client, edition.inputHash);
-    if (publishedInput?.provenance.generationInputVersion === STORY_SAMPLE_VERSION) {
+    const loaded = await loadStoryInput(client, edition.inputHash);
+    publishedInput = loaded?.provenance.generationInputVersion === STORY_SAMPLE_VERSION ? loaded : null;
+  }
+  const usable = cached?.provenance.generationInputVersion === STORY_SAMPLE_VERSION
+    && Date.parse(cached.briefing.generatedAt) > now.getTime() - 60 * 60_000
+    && Date.parse(cached.sourcePublishedAt) <= now.getTime()
+    && Date.parse(cached.validUntil) >= now.getTime();
+  // Without a servable edition the live build is certain, so start it now; with
+  // one, build only if the edition fails its live gates.
+  const fallback = usable ? Promise.resolve(cached) : publishedInput ? null : regionalFallback(client, region, editionDate, now);
+  fallback?.catch(() => undefined);
+  return async (live) => {
+    if (edition && publishedInput) {
       try {
         assertStoryArtifactMatchesInput(edition, publishedInput, now);
         const published = bindStory({ region, availability: "ready", input: publishedInput,
@@ -264,16 +286,15 @@ export async function loadAndBindStory(args: { client: Client; homeBeachId: stri
         if (published.availability === "ready") return published;
       } catch { /* A failed edition falls through to live candidates. */ }
     }
-  }
-  const cached = await loadLatestStoryInput(client, region, editionDate);
-  const usable = cached?.provenance.generationInputVersion === STORY_SAMPLE_VERSION
-    && Date.parse(cached.briefing.generatedAt) > now.getTime() - 60 * 60_000
-    && Date.parse(cached.sourcePublishedAt) <= now.getTime()
-    && Date.parse(cached.validUntil) >= now.getTime();
-  const input = usable ? cached : await regionalFallback(client, region, editionDate, now);
-  if (!input) return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
-  if (input.editionDate !== startLocalDate) {
-    return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
-  }
-  return bindFallbackStory(region, input, live);
+    const input = await (fallback ?? regionalFallback(client, region, editionDate, now));
+    if (!input) return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
+    if (input.editionDate !== startLocalDate) {
+      return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
+    }
+    return bindFallbackStory(region, input, live);
+  };
+}
+
+export async function loadAndBindStory(args: StoryLoadArgs & { live: Live }): Promise<StoryWire> {
+  return (await prepareStory(args))(args.live);
 }
