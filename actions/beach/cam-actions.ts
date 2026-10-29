@@ -10,6 +10,7 @@ import {
   communityPhotoTargetKey,
   getResolvedSpotPhotoMap,
 } from "@/lib/community-photos";
+import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import { unstable_cache } from "next/cache";
 
 interface CamBeach {
@@ -128,7 +129,7 @@ export const getBeachesWithCameras = unstable_cache(
         const photoByBeachId = new Map<string, string>();
 
         for (const photo of photos) {
-          const photoUrl = photo.thumb_url ?? photo.image_url;
+          const photoUrl = pickPhotoThumbUrl(photo.thumb_url, photo.image_url);
           if (!photo.beach_id || !photoUrl) continue;
 
           photoByBeachId.set(photo.beach_id, photoUrl);
