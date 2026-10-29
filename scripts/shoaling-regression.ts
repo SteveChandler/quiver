@@ -24,8 +24,8 @@
  *   wind-swell spots.
  * - Gate D: uncalibrated beaches unchanged (byte-identical scalar fallback).
  * - Gate E (ADVISORY): Surfline LOTUS parity for 6 beaches, print only.
- * - Gate F: CDIP→model handoff boundary default-off invariant + enabled
- *   continuity improvement.
+ * - Gate F: CDIP→model handoff seam is measured and never rescales model
+ *   rows (#1236).
  *
  * Read the companion markdown at scripts/shoaling-regression.md for the full
  * gate specification.
@@ -600,41 +600,31 @@ async function runGateE(
 function runGateF(fixtures: Fixtures): GateResult {
   const entries = Object.entries(fixtures.handoffBoundary ?? {});
   const beaches = entries.map(([slug, fixture]) => {
-    const disabled = runHandoffFixture(fixture, false);
-    const enabled = runHandoffFixture(fixture, true);
-
-    const defaultOffUnchanged = fixture.slots.every(
-      (slot, index) => disabled.waveHeights[index] === slot.wave_height,
-    );
-    const beforeDrop = Math.abs(disabled.handoffDiscontinuityFt ?? Infinity);
-    const afterDrop = Math.abs(enabled.enabledDiscontinuityFt ?? Infinity);
-    const improved = Number.isFinite(beforeDrop) && afterDrop < beforeDrop;
+    // The handoff step returns only a metric, so it cannot change a height.
+    const discontinuityFt = measureHandoffFixture(fixture);
+    const measured = discontinuityFt != null;
+    const drop = Math.abs(discontinuityFt ?? 0);
 
     return {
       slug,
       name: fixture.name,
-      oldFaceFt: beforeDrop,
-      newFaceFt: afterDrop,
-      deltaPct:
-        Number.isFinite(beforeDrop) && beforeDrop > 0
-          ? ((afterDrop - beforeDrop) / beforeDrop) * 100
-          : 0,
+      oldFaceFt: drop,
+      newFaceFt: drop,
+      deltaPct: 0,
       oldScore: 0,
       newScoreBeforeCeiling: 0,
       newScoreAfterCeiling: 0,
       ceiling: 0,
       details:
-        `default-off ${defaultOffUnchanged ? 'unchanged' : 'CHANGED'}, ` +
-        `drop ${beforeDrop.toFixed(2)}ft → ${afterDrop.toFixed(2)}ft, ` +
-        `first model ${enabled.firstModelBeforeFt?.toFixed(2) ?? 'n/a'}ft → ${enabled.firstModelAfterFt?.toFixed(2) ?? 'n/a'}ft`,
-      passed: defaultOffUnchanged && improved,
+        `seam ${measured ? `measured ${drop.toFixed(2)}ft` : 'NOT measured'}`,
+      passed: measured,
     };
   });
 
   return {
     name: 'F',
     description:
-      'CDIP→model handoff boundary blend default-off invariant + enabled continuity improvement.',
+      'CDIP→model handoff seam is measured and never rescales model rows (#1236).',
     passed: beaches.every((b) => b.passed),
     blocking: true,
     beaches,
@@ -642,27 +632,12 @@ function runGateF(fixtures: Fixtures): GateResult {
   };
 }
 
-function runHandoffFixture(
-  fixture: HandoffBoundaryFixture,
-  enabled: boolean,
-): {
-  waveHeights: Array<string | null>;
-  handoffDiscontinuityFt: number | null;
-  enabledDiscontinuityFt: number | null;
-  firstModelBeforeFt: number | null;
-  firstModelAfterFt: number | null;
-} {
+function measureHandoffFixture(fixture: HandoffBoundaryFixture): number | null {
   const state = createForecastHandoffBlendState();
-  const waveHeights: Array<string | null> = [];
-  let handoffDiscontinuityFt: number | null = null;
-  let firstModelBeforeFt: number | null = null;
-  let firstModelAfterFt: number | null = null;
-  let cdipFaceFt: number | null = null;
 
   for (const slot of fixture.slots) {
     const result = processForecastHandoffBlendSlot({
       state,
-      enabled,
       slot: {
         forecastAt: slot.forecast_at,
         waveHeight: slot.wave_height,
@@ -670,32 +645,9 @@ function runHandoffFixture(
         waveHeightSource: slot.wave_height_source,
       },
     });
-
-    if (result.metric && handoffDiscontinuityFt == null) {
-      handoffDiscontinuityFt = result.metric.handoffDiscontinuityFt;
-      cdipFaceFt = result.metric.cdipFaceFt;
-      firstModelBeforeFt = result.metric.modelFaceFt;
-    }
-
-    const waveHeight = result.adjustment?.waveHeight ?? slot.wave_height;
-    if (result.adjustment && firstModelAfterFt == null) {
-      firstModelAfterFt = parseFt(waveHeight);
-    }
-    waveHeights.push(waveHeight);
+    if (result.metric) return result.metric.handoffDiscontinuityFt;
   }
-
-  const enabledDiscontinuityFt =
-    cdipFaceFt != null && firstModelAfterFt != null
-      ? cdipFaceFt - firstModelAfterFt
-      : handoffDiscontinuityFt;
-
-  return {
-    waveHeights,
-    handoffDiscontinuityFt,
-    enabledDiscontinuityFt,
-    firstModelBeforeFt,
-    firstModelAfterFt,
-  };
+  return null;
 }
 
 /**

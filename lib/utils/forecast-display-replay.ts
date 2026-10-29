@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { transformToFaceHeightDecomposed, type BeachTerrainConfig } from './wave-height-transformer';
 import { WAVE_HEIGHT_SOURCE_TAG_SET, type WaveHeightSourceTag } from './wave-height-source';
 import { clampWaveHeight, roundWaveHeight } from './wave-formatters';
-import { createForecastHandoffBlendState, processForecastHandoffBlendSlot } from './forecast-handoff-blend';
 import { METERS_TO_FEET } from './unit-conversions';
 
 const finite = z.number().finite();
@@ -75,21 +74,6 @@ export function replayForecastDisplayHeightM(
       beach: { ...input.beach, ...patch.data },
     }).faceHeightFt,
   ));
-  let ft = transform(ctx.base.input);
-  if (ctx.handoff) {
-    const { cdip, model } = ctx.handoff;
-    const state = createForecastHandoffBlendState();
-    for (const endpoint of [cdip, model]) {
-      processForecastHandoffBlendSlot({ state, enabled: true, slot: {
-        forecastAt: endpoint.forecastAt, waveHeight: `${transform(endpoint.input)} ft`,
-        dataSource: endpoint === cdip ? 'CDIP' : 'NOAA_NWS', waveHeightSource: endpoint.input.source,
-      } });
-    }
-    const step = processForecastHandoffBlendSlot({ state, enabled: true, slot: {
-      forecastAt: ctx.forecastAt, waveHeight: `${ft} ft`, dataSource: 'NOAA_NWS',
-      waveHeightSource: ctx.base.input.source,
-    } });
-    if (step.adjustment) ft = Number.parseFloat(step.adjustment.waveHeight);
-  }
+  const ft = transform(ctx.base.input);
   return Math.round(ft / METERS_TO_FEET * 1000) / 1000;
 }
