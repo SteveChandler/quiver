@@ -52,13 +52,28 @@ describe("regional Week Scout story candidates", () => {
     const signals = days(1);
     signals[1].meanHeightFt = 2;
     const long = buildStoryCandidates(signals, "San Diego", [event()]);
-    expect(long.find((fact) => fact.id === "cover-pulse")?.text).toBe(
+    expect(long.find((fact) => fact.slot === "cover")?.text).toBe(
       "A long-period groundswell from the south-southwest reaches San Diego Saturday and peaks Sunday.");
     expect(long.filter((fact) => /southwest/.test(fact.text)).every((fact) => /south-southwest/.test(fact.text))).toBe(true);
-    expect(buildStoryCandidates(signals, "San Diego", [event(11)]).find((fact) => fact.id === "cover-pulse")?.text)
+    expect(buildStoryCandidates(signals, "San Diego", [event(11)]).find((fact) => fact.slot === "cover")?.text)
       .toContain("mid-period swell");
-    expect(buildStoryCandidates(signals, "San Diego", [event(9)]).find((fact) => fact.id === "cover-pulse")?.text)
+    expect(buildStoryCandidates(signals, "San Diego", [event(9)]).find((fact) => fact.slot === "cover")?.text)
       .toContain("short-period windswell");
+  });
+
+  it("writes keyed copy for every in-week event, earliest peak first, and leaves the fade off cover and lead", () => {
+    const spike = { ...event(18), directionDeg: 275, arrivalAt: "2026-10-27T17:00:00Z",
+      peakAt: "2026-10-27T20:00:00Z", fadeAt: "2026-10-28T06:00:00Z" };
+    const facts = buildStoryCandidates(days(3), "San Diego", [event(), spike]);
+    expect(new Set(facts.map((fact) => fact.id)).size).toBe(facts.length);
+    expect(facts.filter((fact) => fact.slot === "cover").map((fact) => fact.id)).toEqual([
+      "cover-pulse-6-6-2026-10-27", "cover-pulse-alt-6-6-2026-10-27",
+      "cover-pulse-4-4-2026-11-01", "cover-pulse-alt-4-4-2026-11-01"]);
+    for (const fact of facts.filter((item) => item.slot === "cover" || item.slot === "story:lead")) {
+      expect(fact.gate).toMatchObject({ kind: "swell", fadeLocalDate: null });
+    }
+    expect(facts.find((fact) => fact.id === "swell-4-4-2026-11-01")?.gate)
+      .toMatchObject({ fadeLocalDate: "2026-11-02" });
   });
 
   it("does not name a peak or fade weekday outside the seven-day story", () => {
@@ -66,11 +81,11 @@ describe("regional Week Scout story candidates", () => {
       peakAt: "2026-11-03T18:00:00Z", fadeAt: "2026-11-04T18:00:00Z" };
     const swellFacts = buildStoryCandidates(days(3), "San Diego", [outside])
       .filter((fact) => fact.gate.kind === "swell");
-    expect(swellFacts.find((fact) => fact.id === "cover-pulse")?.text)
+    expect(swellFacts.find((fact) => fact.slot === "cover")?.text)
       .toContain("reaches San Diego Monday and peaks next week");
     expect(swellFacts.map((fact) => fact.text).join(" ")).not.toMatch(/Tuesday|Wednesday/);
     // Phrasings that open with the day or follow "by" are dropped rather than read "next week is the peak".
-    expect(swellFacts.map((fact) => fact.id)).not.toEqual(expect.arrayContaining(["cover-pulse-alt"]));
+    expect(swellFacts.some((fact) => fact.id.startsWith("cover-pulse-alt"))).toBe(false);
     expect(swellFacts.some((fact) => /^next week|by earlier|^earlier/.test(fact.text))).toBe(false);
   });
 
@@ -142,7 +157,7 @@ describe("story artifact candidate validation", () => {
     inputHash: input.inputHash, sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil,
     generationVersion: WEEK_SCOUT_STORY_GENERATION_VERSION, model: "local-model",
     briefing: { ...input.briefing, generatedAt: now.toISOString(), selections: facts.filter((fact) =>
-      ["cover-pulse", "lead-pulse", "swell-6-5-2026-10-27"].includes(fact.id)).map((fact) => fact.id) },
+      /^(cover-pulse|lead-pulse)-\d/.test(fact.id) || fact.id === "swell-6-5-2026-10-27").map((fact) => fact.id) },
     provenance: input.provenance,
   });
 

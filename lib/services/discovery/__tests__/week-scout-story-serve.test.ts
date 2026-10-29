@@ -14,7 +14,7 @@ jest.mock("../week-scout-story-source", () => ({
   StoryInputError: class StoryInputError extends Error {
     constructor(code: string, readonly status = 503) { super(code); }
   },
-  STORY_SAMPLE_VERSION: "regional-swell-events-3",
+  STORY_SAMPLE_VERSION: "regional-swell-events-4",
 }));
 
 import { WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
@@ -22,6 +22,8 @@ import type { CanonicalWeekScoutResponse } from "../week-scout";
 import { bindFallbackStory, bindStory, loadAndBindStory, storyGateHolds } from "../week-scout-story-serve";
 import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
 import { StoryInputError } from "../week-scout-story-source";
+import { buildStoryCandidates } from "../week-scout-story-candidates";
+import { addDays } from "../swell-briefing-input";
 
 const baseInput = (): StoryInput => ({
   schemaVersion: 3, region: "south-shore", editionDate: "2026-07-15",
@@ -115,7 +117,7 @@ describe("deterministic fallback and live gates", () => {
       { id: "good-day", slot: "day:2026-07-15", text: "Light morning wind.", rank: 4,
         gate: { kind: "day", localDate: "2026-07-15", bucket: "morning", reason: "light_wind" } },
     ];
-    value.provenance.generationInputVersion = "regional-swell-events-3";
+    value.provenance.generationInputVersion = "regional-swell-events-4";
     return value;
   };
 
@@ -252,6 +254,39 @@ describe("deterministic fallback and live gates", () => {
     const story = bindFallbackStory(region, input(), response);
     expect(story.cover.swells[0].eventKey).toBe("event");
     expect(story.cover.text).toBe("Specific cover.");
+  });
+
+  it("covers a later regional event when the earliest one has left the live chart", () => {
+    const signals = Array.from({ length: 7 }, (_, index) => ({
+      localDate: addDays("2026-07-15", index), complete: true, sampleBeaches: 3, meanHeightFt: 3,
+      directionDeg: 270, periodS: 15, sourceSeries: "enhanced_forecasts:south-shore",
+      forecastRevision: "2026-07-15T12:00:00Z",
+    }));
+    const event = { directionDeg: 270, periodS: 15, arrivalAt: "2026-07-15T18:00:00Z",
+      peakAt: "2026-07-16T18:00:00Z", fadeAt: "2026-07-16T23:00:00Z", timezone: "Pacific/Honolulu",
+      confidence: "on_the_radar" as const, minimumBeaches: 2 };
+    // A same-day spike that peaked this morning: regional detection still sees it, the chart does not.
+    const spike = { ...event, directionDeg: 275, periodS: 18, arrivalAt: "2026-07-15T17:00:00Z",
+      peakAt: "2026-07-15T20:00:00Z", fadeAt: "2026-07-15T23:00:00Z" };
+    const value = baseInput();
+    value.copyFacts = buildStoryCandidates(signals, region, [spike, event]);
+    expect(new Set(value.copyFacts.map((fact) => fact.id)).size).toBe(value.copyFacts.length);
+    const story = bindFallbackStory(region, value, live());
+    expect(story.cover.text).toBe("A long-period groundswell from the west reaches south-shore Wednesday and peaks Thursday.");
+    expect(story.lead).toBe("The west pulse builds from Wednesday into Thursday.");
+    expect(story.chapters.map((chapter) => chapter.slot)).toContain("swell:6-5-2026-07-16");
+    expect(JSON.stringify(story)).not.toContain("6-6-2026-07-15");
+
+    // A fade a day later than the chart's keeps the cover, which names no fade, but not the fade chapter.
+    const lateFade = { ...value, copyFacts: buildStoryCandidates(signals, region,
+      [spike, { ...event, fadeAt: "2026-07-17T23:00:00Z" }]) };
+    const faded = bindFallbackStory(region, lateFade, live());
+    expect(faded.cover.text).toBe(story.cover.text);
+    expect(faded.lead).toBe(story.lead);
+    expect(faded.chapters.some((chapter) => /easing/.test(chapter.text))).toBe(false);
+
+    const onlySpike = { ...value, copyFacts: buildStoryCandidates(signals, region, [spike]) };
+    expect(bindFallbackStory(region, onlySpike, live()).cover.text).toBeNull();
   });
 
   it("serves a repeated day body only once", () => {
