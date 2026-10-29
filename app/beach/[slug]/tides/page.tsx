@@ -67,7 +67,7 @@ export async function generateMetadata(
     // Fetch tide data for dynamic SEO
     let tideData: { nextHighTime?: string | null; nextLowTime?: string | null } | null = null;
     try {
-      const tideMeta = await getTideMetaData(beach.id);
+      const tideMeta = await getTideMetaData(beach.id, beach.timezone);
       tideData = {
         nextHighTime: tideMeta.nextHighTime,
         nextLowTime: tideMeta.nextLowTime,
