@@ -252,6 +252,43 @@ describe("withObservedCron", () => {
     expect(Sentry.captureMessage).toHaveBeenCalledTimes(status === "failed" ? 1 : 0);
   });
 
+  it.each([
+    { produced: 0, legitimate: true, rows: 0 },
+    { produced: 3, legitimate: false, rows: 1 },
+    { produced: 0, legitimate: false, rows: 1 },
+  ])("with skipIdleRuns writes $rows ledger rows (produced: $produced, legitimate: $legitimate)", async ({ produced, legitimate, rows }) => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const handler = withObservedCron("/api/cron/test", async (_request: Request): Promise<Response> => successEnvelope(
+      await withCronOutcome({
+        job: "/api/cron/test", unit: "items", expectedMin: 0,
+        getProduced: (value) => value.produced,
+        failureReason: () => (legitimate || produced > 0 ? null : "provider failed"),
+        legitimatelyZero: () => (legitimate ? { reason: "Queue empty" } : undefined),
+      }, async () => ({ produced })),
+    ), sentryMonitor, { skipIdleRuns: true });
+
+    expect((await handler(makeAuthorizedRequest())).status).toBe(200);
+    expect(client._insertMock).toHaveBeenCalledTimes(rows);
+    expect(client._updateMock).not.toHaveBeenCalled();
+    if (rows) expect(client._insertMock.mock.calls[0][0]).toMatchObject({ route: "/api/cron/test", produced });
+    expect(completeCronCheckIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("with skipIdleRuns still records a thrown failure once", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const handler = withObservedCron("/api/cron/test", async (_request: Request): Promise<Response> => {
+      throw new Error("queue unreachable");
+    }, sentryMonitor, { skipIdleRuns: true });
+
+    await expect(handler(makeAuthorizedRequest())).rejects.toThrow("queue unreachable");
+    expect(client._insertMock).toHaveBeenCalledTimes(1);
+    expect(client._insertMock.mock.calls[0][0]).toMatchObject({ status: "error", error_message: "queue unreachable" });
+  });
+
   it("keeps outcome fields and the original thrown error on the observed row", async () => {
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
     const client = mockChain();

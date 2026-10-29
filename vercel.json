@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron/email-lifecycle",
-      "schedule": "25 * * * *"
+      "schedule": "25 0,1,13-23 * * *"
     },
     {
       "path": "/api/cron/pro-offer-reconcile",

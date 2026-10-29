@@ -65,4 +65,7 @@ async function _GET(request: Request): Promise<NextResponse> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/notifications-deliver", _GET, SENTRY_MONITOR);
+// ~99.6% of minutely runs find an empty queue; the Sentry monitor covers liveness.
+export const GET = withObservedCron("/api/cron/notifications-deliver", _GET, SENTRY_MONITOR, {
+  skipIdleRuns: true,
+});

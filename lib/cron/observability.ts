@@ -11,6 +11,17 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 interface ObservedCronRun {
   runId: string | null;
   outcome?: Record<string, unknown>;
+  /** No up-front ledger row: legitimately idle runs leave none at all. */
+  skipIdleRuns?: boolean;
+}
+
+export interface ObservedCronOptions {
+  /**
+   * For high-frequency crons whose Sentry monitor already proves liveness:
+   * write a cron_runs row only when the run does work or fails, instead of a
+   * started row plus an update on every tick.
+   */
+  skipIdleRuns?: boolean;
 }
 
 export const observedCronRun = new AsyncLocalStorage<ObservedCronRun>();
@@ -160,7 +171,8 @@ async function finishSentryCronCheckIn(
 export function withObservedCron<H extends (request: Request) => Promise<Response>>(
   route: string,
   handler: H,
-  monitor?: CronMonitorConfig
+  monitor?: CronMonitorConfig,
+  options?: ObservedCronOptions,
 ): H {
   const wrapped = (async (request: Request) => {
     const start = Date.now();
@@ -172,10 +184,13 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
     // validateCronRequest itself; this is the gate, not the auth.
     const authorized = validateCronRequest(request);
 
+    const skipIdleRuns = options?.skipIdleRuns === true;
     if (authorized) {
       if (monitor && shouldStartSentryCronMonitor()) {
         checkInId = startCronCheckIn(monitor) || null;
       }
+    }
+    if (authorized && !skipIdleRuns) {
       const insertResult = await recordCronWrite(route, "insert", null, async () => {
         const supabase = await createSupabaseServiceRoleClient();
         const db = supabase as unknown as CronRunsTable;
@@ -188,7 +203,22 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       runId = insertResult?.data?.id ?? null;
     }
 
-    const observedRun: ObservedCronRun = { runId };
+    const observedRun: ObservedCronRun = { runId, skipIdleRuns };
+    const recordSkippedFailure = async (errorMessage: string) => {
+      if (!authorized || !skipIdleRuns || observedRun.outcome) return;
+      await recordCronWrite(route, "insert", null, async () => {
+        const supabase = await createSupabaseServiceRoleClient();
+        const db = supabase as unknown as CronRunsTable;
+        return db.from("cron_runs").insert({
+          route,
+          job: route,
+          status: "error",
+          finished_at: new Date().toISOString(),
+          duration_ms: Date.now() - start,
+          error_message: errorMessage,
+        }).select("id").single();
+      });
+    };
     try {
       const response = await observedCronRun.run(observedRun, () => handler(request));
 
@@ -241,6 +271,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
           new Error(extractErrorMessage(summary, response.status)),
           { source: "response", statusCode: response.status },
         );
+        await recordSkippedFailure(extractErrorMessage(summary, response.status));
       }
 
       if (checkInId && monitor) {
@@ -275,6 +306,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       return response;
     } catch (err) {
       if (authorized) captureCronFailure(route, err, { source: "throw" });
+      await recordSkippedFailure(err instanceof Error ? err.message : String(err));
       if (checkInId && monitor) {
         await finishSentryCronCheckIn(checkInId, monitor.slug, "error", Date.now() - start);
       }

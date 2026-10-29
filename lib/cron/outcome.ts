@@ -96,7 +96,8 @@ async function persistOutcome(outcome: PersistedOutcome): Promise<boolean> {
       error_message: outcome.errorMessage ?? null,
     };
     const observedRun = observedCronRun.getStore();
-    if (observedRun?.runId) observedRun.outcome = fields;
+    if (observedRun?.skipIdleRuns && outcome.status === "ok" && outcome.legitimatelyZero) return true;
+    if (observedRun?.runId || observedRun?.skipIdleRuns) observedRun.outcome = fields;
     const supabase = (await createSupabaseServiceRoleClient()) as unknown as CronRunsClient;
     const { error } = observedRun?.runId
       ? await supabase.from("cron_runs").update(fields).eq("id", observedRun.runId)
