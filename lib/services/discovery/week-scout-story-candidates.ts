@@ -73,9 +73,48 @@ export function directionIndex(degrees: number): number {
   return Math.round((((degrees % 360) + 360) % 360) / 22.5) % 16;
 }
 
+const COMPASS_LABELS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+
+/** Index of a chart's 16-point label, so the words always agree with what the chart prints. */
+export function labelDirectionIndex(label: string): number | null {
+  const index = COMPASS_LABELS.indexOf(label);
+  return index === -1 ? null : index;
+}
+
 function add(facts: StoryCandidate[], id: string, slot: string, text: string, gate: StoryGate): void {
   if (facts.length >= MAX_FACTS || text.length > MAX_LENGTH || DIGIT.test(text)) return;
   facts.push({ id, slot, text, gate, rank: facts.length });
+}
+
+export interface HeadlineSwell {
+  key: string;
+  directionIndex: number;
+  periodS: number;
+  arrivalDate: string;
+  peakDate: string;
+}
+
+/**
+ * Cover and lead sentences for one swell; they name no fade day. Without a
+ * region the cover claims only the swell itself, not where it reaches.
+ */
+export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell, region: string | null,
+  firstDate: string, lastDate: string, gate: StoryGate, idPrefix = ""): void {
+  const { key, arrivalDate, peakDate } = swell;
+  const direction = COMPASS[swell.directionIndex];
+  const period = periodWords(swell.periodS);
+  const arrival = windowDay(arrivalDate, firstDate, lastDate);
+  const peakDay = windowDay(peakDate, firstDate, lastDate);
+  // Phrasings that open with the day, or follow "by", only read with a real weekday.
+  const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
+  add(facts, `cover-${idPrefix}pulse-${key}`, "cover", region
+    ? `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`
+    : arrivalDate < firstDate
+      ? `A ${period} from the ${direction} is already in the water and peaks ${peakDay}.`
+      : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, gate);
+  if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
+  add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate);
+  if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
 }
 
 /** Candidate order is the fallback rank; every claim has a live gate. */
@@ -115,11 +154,8 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     // Phrasings that open with the day, or follow "by", only read with a real weekday.
     const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
     // Cover and lead name no fade day, so they don't require the chart's fade to agree.
-    const unfaded: StoryGate = { ...gate, fadeLocalDate: null };
-    add(facts, `cover-pulse-${key}`, "cover", `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`, unfaded);
-    if (namedDays) add(facts, `cover-pulse-alt-${key}`, "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, unfaded);
-    add(facts, `lead-pulse-${key}`, "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, unfaded);
-    if (namedDays) add(facts, `lead-pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, unfaded);
+    addSwellHeadlines(facts, { key, directionIndex: directionIndex(event.directionDeg), periodS: event.periodS,
+      arrivalDate, peakDate }, region, firstDate, lastDate, { ...gate, fadeLocalDate: null });
     add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
     if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
     const named = peak?.exposedBeaches?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
