@@ -19,7 +19,7 @@ jest.mock("../week-scout-story-source", () => ({
 
 import { WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
 import type { CanonicalWeekScoutResponse } from "../week-scout";
-import { bindFallbackStory, bindStory, loadAndBindStory, storyGateHolds } from "../week-scout-story-serve";
+import { bindFallbackStory, bindStory, loadAndBindStory, prepareStory, storyGateHolds } from "../week-scout-story-serve";
 import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
 import { StoryInputError } from "../week-scout-story-source";
 import { buildStoryCandidates } from "../week-scout-story-candidates";
@@ -151,6 +151,16 @@ describe("deterministic fallback and live gates", () => {
     expect(mockBuildInput).toHaveBeenCalledWith(expect.objectContaining({ region, persist: false }));
     await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
       startLocalDate: "2026-07-15", now });
+    expect(mockBuildInput).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts the regional build before the live forecast is ready", async () => {
+    const date = "2026-07-24";
+    mockBuildInput.mockResolvedValue({ ...input(), editionDate: date });
+    const bind = await prepareStory({ client: client as never, homeBeachId: "home",
+      startLocalDate: date, now: new Date(`${date}T13:00:00Z`) });
+    expect(mockBuildInput).toHaveBeenCalledTimes(1);
+    expect((await bind(live())).region).toBe(region);
     expect(mockBuildInput).toHaveBeenCalledTimes(1);
   });
 
