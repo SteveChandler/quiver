@@ -80,7 +80,7 @@ describe("Week Scout story worker routes", () => {
       artifactId: "", schemaVersion: 3, region: issued.region, editionDate: issued.editionDate,
       inputHash: issued.inputHash, sourcePublishedAt: issued.sourcePublishedAt, validUntil: issued.validUntil,
       generationVersion: WEEK_SCOUT_STORY_GENERATION_VERSION, model: "local",
-      briefing: { ...issued.briefing, generatedAt: new Date().toISOString(), selections: ["cover"] },
+      briefing: { ...issued.briefing, generatedAt: "2026-10-27T13:00:00Z", selections: ["cover"] },
       provenance: issued.provenance,
     };
     artifact.artifactId = briefingArtifactId(artifact as unknown as Record<string, unknown>);
