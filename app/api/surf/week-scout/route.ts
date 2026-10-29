@@ -30,7 +30,15 @@ import {
   loadWeekScoutNotesEdition,
 } from '@/lib/services/discovery/week-scout-notes-serve';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import { bindStory, isWeekScoutStoryEnabled, loadAndBindStory } from '@/lib/services/discovery/week-scout-story-serve';
+import { bindStory, isWeekScoutStoryEnabled, prepareStory } from '@/lib/services/discovery/week-scout-story-serve';
+import {
+  formatServerTiming,
+  recordStage,
+  runWithStageTimings,
+  startInstanceProbe,
+  timeStage,
+  timeStageSync,
+} from '@/lib/observability/request-timing';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,6 +126,7 @@ async function weekScoutHandler(
   request: NextRequest,
   { user, supabase }: AuthenticatedContext,
 ): Promise<NextResponse> {
+  recordStage('auth', performance.now() - requestStartedAt(request));
   // Installed native clients need a stable canonical contract. Keep the flag
   // as an emergency kill switch, but default the endpoint on so an omitted
   // preview/production env value cannot turn every mobile forecast into a 404.
@@ -144,11 +153,23 @@ async function weekScoutHandler(
     : parsed.data.candidateScope;
 
   // The profile and the location snapshot are independent reads; run them together.
-  const [profileRead, snapshotRead] = await Promise.all([
+  const [profileRead, snapshotRead] = await timeStage('profile', () => Promise.all([
     readWeekScoutProfile(supabase, user.id),
     readLocationSnapshot(supabase, user.id),
-  ]);
+  ]));
   const { profile, error: profileError } = profileRead;
+  // The story input depends on neither the pool nor the ranking; only binding
+  // needs the live forecast, so it loads from here on. Never rejects.
+  const storyEnabled = isWeekScoutStoryEnabled();
+  const pendingStory = storyEnabled
+    ? timeStage('story-load', () => prepareStory({
+      client: createSupabaseServiceRoleClient(),
+      homeBeachId: profileError === null ? profile?.home_beach_id ?? null : null,
+      startLocalDate: parsed.data.startLocalDate,
+      now: new Date(),
+    })).catch(() => null)
+    : null;
+  const poolStartedAt = performance.now();
   // Without a profile the legacy ranking stands: no session-time narrowing and
   // distance friction from 10 miles.
   const surferDriveRadiusMiles = profileError === null
@@ -296,7 +317,7 @@ async function weekScoutHandler(
   // The preference only narrows the pick; if it can't be read, rank every window.
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
-  const storyEnabled = isWeekScoutStoryEnabled();
+  recordStage('pool', performance.now() - poolStartedAt);
   // The saved edition does not depend on the ranking, so it loads alongside it.
   // Never rejects: any failure is a Week Scout without notes.
   const pendingNotes = isWeekScoutNotesUser(user.id)
@@ -304,7 +325,7 @@ async function weekScoutHandler(
       .then(() => loadWeekScoutNotesEdition({ client: createSupabaseServiceRoleClient(), userId: user.id, now: new Date() }))
       .catch(() => null)
     : null;
-  const forecast = await generateWeekScoutForecast(user.id, {
+  const forecast = await timeStage('forecast', () => generateWeekScoutForecast(user.id, {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
     localTimezone: parsed.data.localTimezone,
@@ -316,7 +337,7 @@ async function weekScoutHandler(
       ? { requirePerRowFreshness: true }
       : {}),
     ...(swellsEnabled || storyEnabled ? { includeSwells: true } : {}),
-  });
+  }));
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
   const notesEdition = pendingNotes ? await pendingNotes : null;
   let weekScoutNotes: ReturnType<typeof liveWeekScoutNotes> = null;
@@ -325,14 +346,12 @@ async function weekScoutHandler(
   } catch (error) {
     console.warn('Week Scout notes failed; omitting notes', error);
   }
+  const unavailableStory = () => bindStory({ region: null, availability: 'unavailable', input: null, selections: null, live: forecast });
+  const bindLiveStory = pendingStory ? await pendingStory : null;
   const story = storyEnabled
-    ? await loadAndBindStory({
-      client: createSupabaseServiceRoleClient(),
-      homeBeachId: profileError === null ? profile?.home_beach_id ?? null : null,
-      live: forecast,
-      startLocalDate: parsed.data.startLocalDate,
-      now: new Date(),
-    }).catch(() => bindStory({ region: null, availability: 'unavailable', input: null, selections: null, live: forecast }))
+    ? await timeStage('story-bind', async () => (bindLiveStory
+      ? await bindLiveStory(forecast).catch(unavailableStory)
+      : unavailableStory()))
     : null;
   const coverage = completeRadiusScope?.kind === 'complete-radius'
     ? {
@@ -351,7 +370,7 @@ async function weekScoutHandler(
         days: forecastCoverage?.days ?? [],
       }
     : undefined;
-  return createSuccessResponse({
+  return timeStageSync('serialize', () => createSuccessResponse({
     ...forecastPayload,
     ...(candidateBeaches ? { candidateBeaches } : {}),
     ...(coverage ? { coverage } : {}),
@@ -360,7 +379,7 @@ async function weekScoutHandler(
     ...(weekScoutNotes?.headline ? { headline: weekScoutNotes.headline } : {}),
     ...(weekScoutNotes?.notes ? { notes: weekScoutNotes.notes } : {}),
     ...(story ? { story } : {}),
-  });
+  }));
 }
 
 async function readWeekScoutProfile(
@@ -404,10 +423,29 @@ const protectedPOST = withRateLimit(
   'surf-discovery',
 );
 
+const requestStarts = new WeakMap<object, number>();
+const requestStartedAt = (request: NextRequest): number => requestStarts.get(request) ?? performance.now();
+
 export const POST = async (
   ...args: Parameters<typeof protectedPOST>
 ): Promise<NextResponse> => {
-  const response = await protectedPOST(...args);
+  const startedAt = performance.now();
+  requestStarts.set(args[0], startedAt);
+  const stopProbe = startInstanceProbe();
+  const { stages, result } = runWithStageTimings(() => protectedPOST(...args));
+  let response: NextResponse | null = null;
+  try {
+    response = await result;
+  } finally {
+    const instance = stopProbe();
+    const totalMs = Math.round(performance.now() - startedAt);
+    // One line per request via console.info, which production log levels keep.
+    console.info(`[WeekScoutTiming] ${JSON.stringify({ status: response?.status ?? null, totalMs, ...instance, stages })}`);
+  }
+  response.headers.set(
+    'Server-Timing',
+    formatServerTiming([...stages, { name: 'total', ms: Math.round(performance.now() - startedAt) }]),
+  );
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { recordStage, timeStage, timeStageSync } from '@/lib/observability/request-timing';
 import { resolveRecommendationLabel } from './recommendation-label';
 import {
   getCanonicalPersonalCall,
@@ -1291,7 +1292,7 @@ async function generateWeekScoutForecastScoped(
   ];
   // Canonical order breaks exact ties consistently before shared-setup ranking.
   const requestedEligibleCount = new Set(request.candidateBeachIds).size;
-  const beaches = [...await deps.fetchBeaches(request.candidateBeachIds)]
+  const beaches = [...await timeStage('ws-beaches', () => deps.fetchBeaches(request.candidateBeachIds))]
     .sort((left, right) => left.id.localeCompare(right.id));
   const beachIds = beaches.map((candidate) => candidate.id);
   const forecastRequest = request.requirePerRowFreshness
@@ -1305,6 +1306,7 @@ async function generateWeekScoutForecastScoped(
         return null;
       })
     : Promise.resolve(null);
+  const forecastReadsStartedAt = performance.now();
   const [fetchedForecastsByBeach, sunTimes, personalizationContext, userSkillLevel, boardClasses, tideByBeach] = await Promise.all([
     forecastRequest,
     deps.fetchSunTimes(beachIds, sunDates),
@@ -1313,6 +1315,7 @@ async function generateWeekScoutForecastScoped(
     deps.fetchBoardClasses?.(userId) ?? Promise.resolve([]),
     tideRequest,
   ]);
+  recordStage('ws-reads', performance.now() - forecastReadsStartedAt);
   const forecastsByBeach = bridgeHourly
     ? bridgeHeadlineForecasts(beaches, fetchedForecastsByBeach, tideByBeach, sunTimes, request.startLocalDate, deps.now)
     : fetchedForecastsByBeach;
@@ -1664,8 +1667,13 @@ function withinSwellsBudget<T>(label: string, consequence: string, load: () => P
     }, WEEK_SCOUT_SWELLS_SNAPSHOT_TIMEOUT_MS);
     timer.unref?.();
   });
+  const startedAt = performance.now();
   const loaded = Promise.resolve()
     .then(load)
+    .then((value) => {
+      recordStage(`swell-${label.replace(/\s+/g, '-')}`, performance.now() - startedAt);
+      return value;
+    })
     .catch((error: unknown) => {
       log.warn(`Week Scout ${label} failed; ${consequence}`, {
         error: error instanceof Error ? error.message : String(error),
@@ -1749,17 +1757,17 @@ export async function generateWeekScoutForecast(
   const deps = dependencies ?? defaultDependencies(new Date());
   // Started alongside the forecast fetch so the swell reads add no latency.
   const pending = request.includeSwells ? startSwellInputs(deps, request.candidateBeachIds) : null;
-  const context = await generateWeekScoutForecastInternal(userId, request, deps);
-  const response = buildCanonicalWeekScoutResponse(context, request);
+  const context = await timeStage('ws-ranking', () => generateWeekScoutForecastInternal(userId, request, deps));
+  const response = timeStageSync('ws-canonical', () => buildCanonicalWeekScoutResponse(context, request));
   if (!pending) return response;
 
-  const [snapshots, crossingHistory, swellHistory] = await Promise.all([
+  const [snapshots, crossingHistory, swellHistory] = await timeStage('swell-wait', () => Promise.all([
     pending.snapshots,
     pending.crossingHistory,
     pending.swellHistory,
-  ]);
+  ]));
   const swells = snapshots
-    ? buildSwellsSafely(context, response, request, snapshots, crossingHistory, swellHistory)
+    ? timeStageSync('swells-build', () => buildSwellsSafely(context, response, request, snapshots, crossingHistory, swellHistory))
     : null;
   return swells ? { ...response, swells } : response;
 }
