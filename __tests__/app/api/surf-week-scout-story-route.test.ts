@@ -13,7 +13,7 @@ jest.mock("@/lib/services/discovery/week-scout", () => ({
 const mockStory = jest.fn();
 jest.mock("@/lib/services/discovery/week-scout-story-serve", () => ({
   isWeekScoutStoryEnabled: () => process.env.WEEK_SCOUT_STORY_ENABLED === "true",
-  loadAndBindStory: (...args: unknown[]) => mockStory(...args),
+  prepareStory: async (args: Record<string, unknown>) => (live: unknown) => mockStory({ ...args, live }),
   bindStory: jest.fn(),
 }));
 jest.mock("@/lib/services/discovery/week-scout-notes-serve", () => ({
@@ -93,5 +93,24 @@ describe("Week Scout story response", () => {
     const { data } = await call(null);
     expect(data.story).toMatchObject({ region: null, availability: "outside_region", lead: null, cover: { text: null } });
     expect((data.story as { days: Array<{ pick: unknown }> }).days[0].pick).toMatchObject({ windowId: "window-a", beachId: WEEK_SCOUT_CONTRACT_BEACH_ID });
+  });
+
+  it("reports stage timings in a Server-Timing header without changing the body", async () => {
+    process.env.WEEK_SCOUT_STORY_ENABLED = "true";
+    mockStory.mockImplementation(async ({ live }: { live: typeof WEEK_SCOUT_CONTRACT_FIXTURE }) => ({
+      schemaVersion: 3, region: null, availability: "outside_region",
+      cover: { text: null, swells: [] }, lead: null, turn: null, chapters: [], days: storyDays(live),
+    }));
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const response = await POST(request(), context(null) as never);
+    const names = (response.headers.get("Server-Timing") ?? "").split(", ").map((entry) => entry.split(";")[0]);
+    expect(names).toEqual(expect.arrayContaining(["profile", "pool", "story-load", "forecast", "story-bind", "serialize", "total"]));
+    expect(names[names.length - 1]).toBe("total");
+    expect(JSON.parse(await response.text()).data).not.toHaveProperty("timings");
+    const line = info.mock.calls.map(([message]) => String(message)).find((message) => message.startsWith("[WeekScoutTiming] "));
+    expect(JSON.parse(line!.slice("[WeekScoutTiming] ".length))).toMatchObject({
+      status: 200, cold: expect.any(Boolean), inflight: 1, stages: expect.any(Array),
+    });
+    info.mockRestore();
   });
 });
