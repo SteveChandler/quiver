@@ -157,7 +157,7 @@ export async function renderBeachSubPage({
   // Fetch dataset schema data — uses React cache() so no extra DB queries when
   // generateBeachSubPageMetadata already called these.
   const [tideMeta, waterTempMeta] = await Promise.all([
-    pageType === "tides" ? getTideMetaData(beach.id) : Promise.resolve(null),
+    pageType === "tides" ? getTideMetaData(beach.id, beach.timezone) : Promise.resolve(null),
     pageType === "water-temp" ? getWaterTempMetaData(beach.id) : Promise.resolve(null),
   ]);
 
@@ -379,7 +379,7 @@ export async function generateBeachSubPageMetadata({
 
     try {
       if (pageType === "tides") {
-        tideMetaForIndexing = await getTideMetaData(beach.id);
+        tideMetaForIndexing = await getTideMetaData(beach.id, beach.timezone);
         const result = buildDynamicTideMetadata({
           beach,
           tideData: {

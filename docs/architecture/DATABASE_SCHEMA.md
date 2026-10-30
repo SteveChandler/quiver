@@ -119,7 +119,7 @@ Sunrise and sunset times per beach.
 | `source` | TEXT | Data source: 'open-meteo' |
 | `created_at` | TIMESTAMPTZ | Record creation time |
 
-**Indexes**: `idx_sun_times_beach_date` (beach_id, date)
+**Indexes**: `sun_times_unique` (beach_id, date, source)
 
 ---
 

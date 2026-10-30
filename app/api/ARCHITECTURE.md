@@ -150,38 +150,6 @@ export const GET = withAuth(handler);
 **Access Level**: Admin-only
 **Authentication**: Role-based admin verification
 
-#### `/admin/cleanup-inactive-buoys/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Maintains buoy data quality through automated cleanup
-- **Features**:
-  - Dry-run mode for testing
-  - Configurable removal vs deactivation
-  - Batch processing with progress tracking
-- **Security**: Development mode bypass, Bearer token authentication
-- **Usage**: Scheduled maintenance operations
-
-#### `/admin/sync-buoys/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Synchronizes NOAA buoy data for beach coverage areas
-- **Features**:
-  - Geographic filtering (200km radius from beaches)
-  - Service role and admin authentication support
-  - Configurable distance parameters
-- **Data Source**: NOAA NDBC (National Data Buoy Center)
-- **Performance**: Rate limiting integration
-
-#### `/admin/update-buoy-conditions/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Updates real-time buoy conditions
-- **Features**:
-  - Development mode authentication bypass
-  - Batch condition updates
-  - Success/failure tracking
-- **Data Source**: NOAA real-time feeds
-- **Scheduling**: Designed for cron job integration
 
 ### 📊 `/analytics` - User Analytics & Insights
 

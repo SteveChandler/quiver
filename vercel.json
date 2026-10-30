@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron/email-lifecycle",
-      "schedule": "25 * * * *"
+      "schedule": "25 0,1,13-23 * * *"
     },
     {
       "path": "/api/cron/pro-offer-reconcile",
@@ -52,15 +52,7 @@
     },
     {
       "path": "/api/monitoring/forecast-health",
-      "schedule": "12,42 * * * *"
-    },
-    {
-      "path": "/api/cron/update-buoy-conditions",
-      "schedule": "0 14,16,18,20,22,0,2,4 * * *"
-    },
-    {
-      "path": "/api/cron/sync-buoys?maxDistanceKm=250",
-      "schedule": "0 4 * * 0"
+      "schedule": "12 * * * *"
     },
     {
       "path": "/api/cron/system-cards",

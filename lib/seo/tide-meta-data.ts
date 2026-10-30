@@ -127,10 +127,11 @@ export function findNextTideExtremes(
  * and page component calls.
  *
  * @param beachId Beach UUID to fetch tides for
+ * @param beachTimezone The beach's IANA timezone when the caller has it
  * @returns Tide meta data with formatted times, or nulls if unavailable
  */
 export const getTideMetaData = cache(
-  async (beachId: string): Promise<TideMetaData> => {
+  async (beachId: string, beachTimezone?: string | null): Promise<TideMetaData> => {
     const nullResult: TideMetaData = {
       source: null,
       nextHighTime: null,
@@ -146,20 +147,23 @@ export const getTideMetaData = cache(
     try {
       const supabase = await createSupabaseServiceRoleClient();
 
-      // Fetch beach coordinates for timezone calculation
-      const { data: beach, error: beachError } = await supabase
-        .from("beaches")
-        .select("lat, lon, timezone")
-        .eq("id", beachId)
-        .single();
+      // Determine timezone: prefer the caller's beach row, then the DB column,
+      // then geo-tz, then default. Callers already hold the beach, so passing its
+      // timezone saves a beaches lookup per render.
+      let timezone = beachTimezone || DEFAULT_TIMEZONE;
+      if (!beachTimezone) {
+        const { data: beach, error: beachError } = await supabase
+          .from("beaches")
+          .select("lat, lon, timezone")
+          .eq("id", beachId)
+          .single();
 
-      // Determine timezone: prefer DB column, fallback to geo-tz, then default
-      let timezone = DEFAULT_TIMEZONE;
-      if (!beachError && beach) {
-        if (beach.timezone) {
-          timezone = beach.timezone;
-        } else if (beach.lat != null && beach.lon != null) {
-          timezone = getTimezoneFromCoords(beach.lat, beach.lon) || DEFAULT_TIMEZONE;
+        if (!beachError && beach) {
+          if (beach.timezone) {
+            timezone = beach.timezone;
+          } else if (beach.lat != null && beach.lon != null) {
+            timezone = getTimezoneFromCoords(beach.lat, beach.lon) || DEFAULT_TIMEZONE;
+          }
         }
       }
 
