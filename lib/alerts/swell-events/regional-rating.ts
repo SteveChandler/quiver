@@ -265,6 +265,11 @@ export function rateRegionEvents(
       .filter((rating) => isWorking(rating.label))
       .sort((left, right) => WORKING_RANK[left.label] - WORKING_RANK[right.label] || byRank(left, right))
       .slice(0, MAX_WORKING);
+    const notWorking = event.source === "wam" ? [] : notWorkingList(ratings).map(publicRating);
+    // Past its peak with no daylight hours left to rate, there is nothing left to show today.
+    if (event.source === "forecast" && Date.parse(event.peakAt) < input.now.getTime() && !here && working.length === 0 && notWorking.length === 0) {
+      return [];
+    }
 
     return [{
       key: event.key,
@@ -283,7 +288,7 @@ export function rateRegionEvents(
       here: here ? publicRating(here) : null,
       // Reasons explain what isn't working; a working row carries none.
       working: working.map((rating) => ({ ...publicRating(rating), reason: null })),
-      notWorking: event.source === "wam" ? [] : notWorkingList(ratings).map(publicRating),
+      notWorking,
     }];
   });
 }
