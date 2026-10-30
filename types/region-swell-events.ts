@@ -10,6 +10,9 @@ export interface RegionBeachRating {
   label: string;
   /** "Mon 9 AM–3 PM": the longest run of daylight hours at `label` in one day of the event's window. */
   window: string | null;
+  /** ISO instants bounding the same run of hours `window` names; null when `window` is. */
+  windowStartAt?: string | null;
+  windowEndAt?: string | null;
   /** "3-4 ft", the forecast face at the best hour of the event's window. */
   faceFt: string | null;
   /** "too big for most", "blown out", "small, sheltered", "closing out" or "exposure unknown". */
