@@ -394,7 +394,8 @@ export async function processImport(
       waves.map(wave => ({ ...wave, id: String(wave.index) })), [],
       { gpsCoverage: summary.gpsCoverage, speedReliable: summary.speedReliable,
         userWaveCount: existingTrack?.user_wave_count ?? null,
-        calories: track.meta.calories ?? null, waterTempStartC: summary.waterTempStartC,
+        calories: track.meta.calories ?? null, waterTempC: summary.waterTempC,
+        waterTempStartC: summary.waterTempStartC,
         waterTempEndC: summary.waterTempEndC },
       WAVE_DETECTION_VERSION,
     );

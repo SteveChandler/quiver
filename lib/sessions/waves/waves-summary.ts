@@ -2,7 +2,7 @@ import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
 import type { DetectedWave } from "@/lib/sessions/wave-detection/detect-waves";
 
 export type StoredWave = DetectedWave & { id: string };
-export type Correction = { startedAt: string; endedAt: string };
+export type Correction = { startedAt: string; endedAt: string; action?: "exclude" | "include" };
 
 export type WavesSummary = {
   waveCount: number;
@@ -21,6 +21,7 @@ export type WavesSummary = {
   calories: number | null;
   waterTempStartC: number | null;
   waterTempEndC: number | null;
+  waterTempC: number | null;
   setIntervalMin?: number | null;
   recordedWith?: string | null;
 };
@@ -29,14 +30,16 @@ export function trackSummaryExtras(
   source: string | null,
   track: { paddle_distance_m: number | null; hr_avg: number | null; hr_max: number | null;
     recorded_by: string | null; source_device: string | null;
-    calories?: number | null; water_temp_start_c?: number | null; water_temp_end_c?: number | null },
+    calories?: number | null; water_temp_c?: number | null;
+    water_temp_start_c?: number | null; water_temp_end_c?: number | null },
 ): Pick<WavesSummary, "paddleDistanceM" | "heartRateAvg" | "heartRateMax" | "recordedWith"
-  | "calories" | "waterTempStartC" | "waterTempEndC"> {
+  | "calories" | "waterTempC" | "waterTempStartC" | "waterTempEndC"> {
   return {
     paddleDistanceM: track.paddle_distance_m,
     heartRateAvg: track.hr_avg,
     heartRateMax: track.hr_max,
     calories: track.calories ?? null,
+    waterTempC: track.water_temp_c ?? null,
     waterTempStartC: track.water_temp_start_c ?? null,
     waterTempEndC: track.water_temp_end_c ?? null,
     recordedWith: source === "garmin_watch"
@@ -44,12 +47,12 @@ export function trackSummaryExtras(
   };
 }
 
-export function isExcluded(wave: StoredWave, corrections: Correction[]): boolean {
+function isCorrected(wave: StoredWave, corrections: Correction[], action: "exclude" | "include"): boolean {
   const start = Date.parse(wave.startedAt);
   const end = Date.parse(wave.endedAt);
   if (end <= start) return false;
 
-  const overlaps = corrections
+  const overlaps = corrections.filter(correction => (correction.action ?? "exclude") === action)
     .map((correction) => ({
       start: Math.max(start, Date.parse(correction.startedAt)),
       end: Math.min(end, Date.parse(correction.endedAt)),
@@ -66,10 +69,22 @@ export function isExcluded(wave: StoredWave, corrections: Correction[]): boolean
   return coveredMs * 2 >= end - start;
 }
 
+export function isExcluded(wave: StoredWave, corrections: Correction[]): boolean {
+  return isCorrected(wave, corrections, "exclude");
+}
+
+export function isIncluded(wave: StoredWave, corrections: Correction[]): boolean {
+  return isCorrected(wave, corrections, "include");
+}
+
+export function isCounted(wave: StoredWave, corrections: Correction[]): boolean {
+  if (isExcluded(wave, corrections)) return false;
+  return isIncluded(wave, corrections) || wave.confidence >= COUNT_MIN_CONFIDENCE;
+}
+
 export function setIntervalMin(waves: (StoredWave & { counted?: boolean; excluded?: boolean })[], corrections: Correction[]): number | null {
   const starts = waves
-    .filter(wave => wave.counted !== false && wave.excluded !== true
-      && wave.confidence >= COUNT_MIN_CONFIDENCE && !isExcluded(wave, corrections))
+    .filter(wave => wave.counted !== false && wave.excluded !== true && isCounted(wave, corrections))
     .map(wave => Date.parse(wave.startedAt))
     .filter(Number.isFinite)
     .sort((a, b) => a - b);
@@ -92,11 +107,11 @@ export function buildWavesSummary(
   corrections: Correction[],
   track: { gpsCoverage: number; speedReliable: boolean; userWaveCount: number | null;
     paddleDistanceM?: number | null; heartRateAvg?: number | null; heartRateMax?: number | null;
-    recordedWith?: string | null; calories?: number | null;
+    recordedWith?: string | null; calories?: number | null; waterTempC?: number | null;
     waterTempStartC?: number | null; waterTempEndC?: number | null },
   version: string,
 ): WavesSummary {
-  const counted = waves.filter((wave) => wave.confidence >= COUNT_MIN_CONFIDENCE && !isExcluded(wave, corrections));
+  const counted = waves.filter(wave => isCounted(wave, corrections));
   const detectedWaveCount = counted.length;
   const speeds = counted.flatMap((wave) => wave.maxSpeedMps === null ? [] : [wave.maxSpeedMps]);
 
@@ -115,6 +130,7 @@ export function buildWavesSummary(
     heartRateAvg: track.heartRateAvg ?? null,
     heartRateMax: track.heartRateMax ?? null,
     calories: track.calories ?? null,
+    waterTempC: track.waterTempC ?? null,
     waterTempStartC: track.waterTempStartC ?? null,
     waterTempEndC: track.waterTempEndC ?? null,
     setIntervalMin: setIntervalMin(waves, corrections),

@@ -77,6 +77,7 @@ const fixture: SessionWavesResponse = {
     calories: null,
     waterTempStartC: null,
     waterTempEndC: null,
+    waterTempC: null,
   },
   waves: [{
     id: "w1",

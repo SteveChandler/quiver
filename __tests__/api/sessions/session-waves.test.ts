@@ -53,6 +53,7 @@ const track = {
   track_geojson: { type: "LineString", coordinates: [[-119, 34], [-119.001, 34.001]] },
   speed_series: [{ t: start, mps: 3 }], recorded_by: "Garmin",
   paddle_distance_m: 1200, hr_avg: 118, hr_max: 156, source_device: "Forerunner 965",
+  water_temp_c: 20,
   calories: 432, water_temp_start_c: 21, water_temp_end_c: 19,
 };
 
@@ -68,11 +69,11 @@ type Query = Record<string, jest.Mock>;
 const queries: Record<string, Query[]> = {};
 function queryFor(table: string): Query {
   const query: Query = {
-    select: jest.fn(), eq: jest.fn(), is: jest.fn(), lt: jest.fn(), gt: jest.fn(), order: jest.fn(),
+    select: jest.fn(), eq: jest.fn(), is: jest.fn(), lt: jest.fn(), gt: jest.fn(), in: jest.fn(), order: jest.fn(),
     maybeSingle: jest.fn(), insert: jest.fn(), update: jest.fn(), delete: jest.fn(),
     then: jest.fn(),
   };
-  for (const method of ["select", "eq", "is", "lt", "gt", "order", "insert", "update", "delete"]) {
+  for (const method of ["select", "eq", "is", "lt", "gt", "in", "order", "insert", "update", "delete"]) {
     query[method].mockReturnValue(query);
   }
   const result = (): { data: unknown; error: null } => ({ data: rows[table as Table], error: null });
@@ -177,7 +178,7 @@ it("returns the native waves contract with corrections, override count, track an
   expect(await response.json()).toMatchObject({
     success: true, data: {
       summary: { waveCount: 4, detectedWaveCount: 0, userWaveCount: 4, speedReliable: false, detectionVersion: "wd-1.0.0",
-        calories: 432, waterTempStartC: 21, waterTempEndC: 19 },
+        calories: 432, waterTempC: 20, waterTempStartC: 21, waterTempEndC: 19 },
       waves: [{ id: waveId, index: 1, startedAt: start, endedAt: end, durationS: 20, distanceM: 42,
         maxSpeedMps: null, avgSpeedMps: null, headingDeg: 270, confidence: 0.9, excluded: true, counted: false,
         tideFt: 2.4, start: { lat: 34, lon: -119 }, end: { lat: 34.001, lon: -119.001 } }],
@@ -190,13 +191,14 @@ it("returns the native waves contract with corrections, override count, track an
 });
 
 it("returns null track extras before the watch stats migration", async () => {
-  const { calories, water_temp_start_c, water_temp_end_c, ...legacyTrack } = track;
-  void calories; void water_temp_start_c; void water_temp_end_c;
+  const { calories, water_temp_c, water_temp_start_c, water_temp_end_c, ...legacyTrack } = track;
+  void calories; void water_temp_c; void water_temp_start_c; void water_temp_end_c;
   rows.session_tracks = legacyTrack;
   const response = await GET(request("GET"), context);
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ data: { summary: {
     calories: null, waterTempStartC: null, waterTempEndC: null,
+    waterTempC: null,
   } } });
   expect(queries.session_tracks[0].select).toHaveBeenCalledWith("*");
 });
@@ -214,6 +216,7 @@ it("returns Garmin track metrics and the recorded-with label", async () => {
   expect(await response.json()).toMatchObject({ data: { summary: {
     paddleDistanceM: 1200, heartRateAvg: 118, heartRateMax: 156,
     calories: 432, waterTempStartC: 21, waterTempEndC: 19,
+    waterTempC: 20,
     setIntervalMin: 8, recordedWith: "Quiver for Garmin · Forerunner 965",
   } } });
   expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
@@ -332,6 +335,49 @@ it("inserts an exclusion correction with a UUID and emits an event", async () =>
     action: "exclude", started_at: start, ended_at: end,
   }));
   expect(queries.user_events[0].insert).toHaveBeenCalledWith(expect.objectContaining({ event_type: "session_wave_excluded" }));
+});
+
+it("counts an uncounted attempt and updates the returned wave count", async () => {
+  rows.session_tracks = { ...track, user_wave_count: null };
+  rows.session_waves = [{ ...wave, confidence: 0.4 }];
+  rows.session_wave_corrections = [];
+  const response = await patchWave(request("PATCH", { counted: true }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ success: true, data: { summary: {
+    waveCount: 1, detectedWaveCount: 1,
+  } } });
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert).toHaveBeenCalledWith(
+    expect.objectContaining({ action: "include", started_at: start, ended_at: end }),
+  );
+  rows.session_wave_corrections = [{ action: "include", started_at: start, ended_at: end }];
+  const refreshed = await GET(request("GET"), context);
+  expect(await refreshed.json()).toMatchObject({ data: { waves: [{ counted: true, excluded: false }],
+    summary: { waveCount: 1, detectedWaveCount: 1 } } });
+});
+
+it("counted=true replaces a conflicting exclusion correction", async () => {
+  rows.session_tracks = { ...track, user_wave_count: null };
+  rows.session_waves = [{ ...wave, confidence: 0.4 }];
+  rows.session_wave_corrections = [
+    { started_at: start, ended_at: end, action: "exclude" },
+    { started_at: start, ended_at: end, action: "include" },
+  ];
+  const response = await patchWave(request("PATCH", { counted: true }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: { waveCount: 1, detectedWaveCount: 1 } } });
+  expect(queries.session_wave_corrections.find(q => q.delete.mock.calls.length)?.delete).toHaveBeenCalled();
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert)
+    .toHaveBeenCalledWith(expect.objectContaining({ action: "include" }));
+});
+
+it("stores counted=false through the existing exclusion correction action", async () => {
+  rows.session_tracks = { ...track, user_wave_count: null };
+  rows.session_wave_corrections = [];
+  const response = await patchWave(request("PATCH", { counted: false }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: { waveCount: 0, detectedWaveCount: 0 } } });
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert)
+    .toHaveBeenCalledWith(expect.objectContaining({ action: "exclude" }));
 });
 
 it.each([

@@ -2,6 +2,8 @@
 
 import obFixture from "@/__tests__/fixtures/session-tracks/ob-2026-10-17.json";
 import cardiffFixture from "@/__tests__/fixtures/session-tracks/cardiff-2026-10-03.json";
+import watchObFixture from "@/__tests__/fixtures/session-tracks/watch-ob-2026-10-17.json";
+import { parseQuiverWatch } from "@/lib/sessions/tracks/parse-quiver-watch";
 import { summarizeTrack, type TrackSummary } from "@/lib/sessions/tracks/summarize-track";
 import type { NormalizedTrack, TrackSample } from "@/lib/sessions/tracks/types";
 import { detectWaves, WAVE_DETECTION_VERSION, type DetectedWave, type DetectionBeach } from "@/lib/sessions/wave-detection/detect-waves";
@@ -76,13 +78,54 @@ describe("detectWaves", () => {
     expect(waves.length).toBeGreaterThan(counted.length);
   });
 
-  it("finds 2–4 counted OB rides", () => {
+  it("keeps the encoded OB candidates uncounted because none clears the watch ride bar", () => {
+    const fit = obFixture.track as NormalizedTrack;
+    const watch = parseQuiverWatch(watchObFixture);
+    const fitWaves = detectWaves(fit, summarizeTrack(fit), obFixture.beach);
+    const watchWaves = detectWaves(watch, summarizeTrack(watch), obFixture.beach);
+    const intervals = watch.samples.slice(1).map((sample, index) =>
+      Date.parse(sample.t) - Date.parse(watch.samples[index].t));
+
+    expect(new Set(intervals)).toEqual(new Set([1000]));
+    expect(watch.samples).toHaveLength(fit.samples.length);
+    for (let index = 0; index < watch.samples.length; index += 1) {
+      expect(watch.samples[index].t).toBe(fit.samples[index].t);
+      const watchSpeed = watch.samples[index].speedMps;
+      const fitSpeed = fit.samples[index].speedMps;
+      const matches = watchSpeed === null || fitSpeed === null
+        ? watchSpeed === fitSpeed
+        : Math.abs(watchSpeed - fitSpeed) <= 0.00501;
+      expect(matches).toBe(true);
+    }
+    expect(watchWaves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE)).toHaveLength(0);
+    expect(fitWaves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE)).toHaveLength(3);
+    expect(watchWaves.find(wave => wave.startedAt === "2026-10-17T16:04:16.000Z"))
+      .toMatchObject({ durationS: 6, distanceM: expect.closeTo(41, 0), maxSpeedMps: expect.closeTo(4.8, 1), confidence: 0.49 });
+    const firstNearMiss = watch.samples.filter(sample => sample.t >= "2026-10-17T16:04:16.000Z"
+      && sample.t <= "2026-10-17T16:04:22.000Z" && sample.speedMps !== null && sample.speedMps >= 3);
+    expect(firstNearMiss).toHaveLength(5);
+    expect(Date.parse(firstNearMiss.at(-1)!.t) - Date.parse(firstNearMiss[0].t)).toBe(4_000);
+    expect(watchWaves.find(wave => wave.startedAt === "2026-10-17T16:37:19.000Z"))
+      .toMatchObject({ maxSpeedMps: expect.closeTo(2.34, 1), distanceM: expect.closeTo(20, 0), confidence: 0.49 });
+    expect(watchWaves.find(wave => wave.startedAt === "2026-10-17T16:37:49.000Z"))
+      .toMatchObject({ maxSpeedMps: expect.closeTo(1.99, 1), distanceM: expect.closeTo(17, 0), confidence: 0.49 });
+  });
+
+  it("tolerates one one-second speed dip when the ride still holds for six seconds", () => {
+    const track = syntheticTrack();
+    track.meta.format = "quiver_watch";
+    track.samples[184].speedMps = 2.8;
+    const waves = detectWaves(track, fullSpan(track), BEACH);
+    expect(waves).toHaveLength(4);
+    expect(waves[0]).toMatchObject({ startedAt: time(RIDE_STARTS[0]), confidence: 1 });
+  });
+
+  it("finds the three counted OB FIT rides", () => {
     const track = obFixture.track as NormalizedTrack;
     const waves = detectWaves(track, summarizeTrack(track), obFixture.beach);
     const counted: DetectedWave[] = waves.filter((wave) => wave.confidence >= COUNT_MIN_CONFIDENCE);
     expect(COUNT_MIN_CONFIDENCE).toBe(0.5);
-    expect(counted.length).toBeGreaterThanOrEqual(2);
-    expect(counted.length).toBeLessThanOrEqual(4);
+    expect(counted).toHaveLength(3);
   });
 
   it("contains the reported peak within the counted known OB good ride window", () => {
@@ -94,14 +137,13 @@ describe("detectWaves", () => {
       && Date.parse(wave.startedAt) <= reportedPeak && Date.parse(wave.endedAt) >= reportedPeak)).toBe(true);
   });
 
-  it("finds 5–9 Cardiff rides while withholding unreliable display speeds", () => {
+  it("keeps Cardiff at five counted rides while withholding unreliable display speeds", () => {
     const track = cardiffFixture.track as NormalizedTrack;
     const summary = summarizeTrack(track);
     const waves = detectWaves(track, summary, cardiffFixture.beach);
     const counted = waves.filter((wave) => wave.confidence >= 0.5);
     expect(summary.speedReliable).toBe(false);
-    expect(counted.length).toBeGreaterThanOrEqual(5);
-    expect(counted.length).toBeLessThanOrEqual(9);
+    expect(counted).toHaveLength(5);
     for (const wave of waves) {
       expect(wave.maxSpeedMps).toBeNull();
       expect(wave.avgSpeedMps).toBeNull();

@@ -56,6 +56,7 @@ function smoothedSpeeds(fixes: Fix[]): number[] {
     if (index === 0) return 0;
     return haversineM(fixes[index - 1], fix) / ((fix.time - fixes[index - 1].time) / 1000);
   });
+  // The three-point median absorbs one dropped speed sample before the timed hold check.
   return speeds.map((speed, index) => [speeds[index - 1] ?? speed, speed, speeds[index + 1] ?? speed]
     .sort((a, b) => a - b)[1]);
 }
