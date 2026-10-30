@@ -664,6 +664,7 @@ export interface WaveHeightDebugInfo {
   calibratedShoalingFired: boolean;
   calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
+  modelCalibrationFactor?: number;
   handoffDiscontinuityFt?: number;
   replayInput?: ForecastReplayInput;
   cdipRejection?: {
@@ -730,6 +731,9 @@ export function toFaceHeightFeetDecomposedWithDebug(
         ? { calibrationBucketQuarantined: true }
         : {}),
       ...(result.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
+      ...(result.modelCalibrationFactor != null
+        ? { modelCalibrationFactor: result.modelCalibrationFactor }
+        : {}),
       ...(source.cdipRejection ? { cdipRejection: source.cdipRejection } : {}),
     },
   };

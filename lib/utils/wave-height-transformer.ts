@@ -18,6 +18,7 @@
 
 import { toBin5, TERRAIN_BINS } from '@/types/terrain';
 import type { WaveHeightSourceTag } from './wave-height-source';
+import { MODEL_SWELL_CALIBRATION_FACTORS } from './model-swell-calibration-factors';
 
 export type { WaveHeightSourceTag } from './wave-height-source';
 
@@ -78,6 +79,8 @@ export const POPULATION_PRIOR_BUCKETS: readonly ShoalingBucket[] = [
  * Beach terrain configuration needed for wave height transformation
  */
 export interface BeachTerrainConfig {
+  /** Beach id; keys the per-beach model_swell factor (see `modelSwellCalibrationFactor`). */
+  id?: string | null;
   swell_access_factors?: number[] | null;
   terrain_enabled?: boolean;
   /**
@@ -861,6 +864,21 @@ interface DecomposedFaceHeightResult {
   path: 'decomposed' | 'legacy';
   calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
+  /** Per-beach model_swell multiplier, present only when one was applied. */
+  modelCalibrationFactor?: number;
+}
+
+/**
+ * Per-beach multiplier that puts a calibrated beach's model_swell hours on
+ * the same ruler as its buoy hours. Only `model_swell` was measured; other
+ * sources return 1.
+ */
+export function modelSwellCalibrationFactor(
+  source: WaveHeightSourceTag | undefined,
+  beach: BeachTerrainConfig,
+): number {
+  if (source !== 'model_swell' || !beach.id) return 1;
+  return MODEL_SWELL_CALIBRATION_FACTORS[beach.id] ?? 1;
 }
 
 /**
@@ -910,6 +928,25 @@ interface DecomposedFaceHeightResult {
  * for the raw Hs input.
  */
 export function transformToFaceHeightDecomposed(params: {
+  components: Array<SwellComponentInput | null>;
+  beach: BeachTerrainConfig;
+  source?: WaveHeightSourceTag;
+  allowCalibratedShoaling?: boolean;
+  rawHeightFt: number;
+  periodS: number | null;
+  swellDirectionDeg: number | null;
+}): DecomposedFaceHeightResult {
+  const result = transformToFaceHeightDecomposedUncalibrated(params);
+  const factor = modelSwellCalibrationFactor(params.source, params.beach);
+  if (factor === 1) return result;
+  return {
+    ...result,
+    faceHeightFt: Math.round(result.faceHeightFt * factor * 10) / 10,
+    modelCalibrationFactor: factor,
+  };
+}
+
+function transformToFaceHeightDecomposedUncalibrated(params: {
   components: Array<SwellComponentInput | null>;
   beach: BeachTerrainConfig;
   source?: WaveHeightSourceTag;
