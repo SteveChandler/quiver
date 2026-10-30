@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { RegionSwellEvent } from "@/types/region-swell-events";
 import { groupEvents } from "@/lib/services/discovery/swell-tracking";
 import { getLocalDateStr, getLocalHour } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { degreeToCardinal, degreesToCardinal } from "@/lib/utils/geo-utils";
@@ -28,6 +29,8 @@ const DAY_MS = 24 * HOUR_MS;
 /** Stored forecasts end at about 11.8 days; WAM early looks cover the rest. */
 const DETECTION_HORIZON_DAYS = 12;
 const REGION_CACHE_SECONDS = 10_800;
+// Bump when the cached shape changes, so a deploy never reads an older shape.
+const REGION_CACHE_VERSION = "v1";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -71,8 +74,8 @@ export interface RegionBeach {
 export interface InternalRegionEvent {
   key: string;
   kind: "swell" | "storm";
-  /** A WAM peak past the stored forecast: no beach ratings. */
-  earlyLook: boolean;
+  /** "wam": an early-look peak past the stored forecast, with no beach ratings. */
+  source: RegionSwellEvent["source"];
   directionDeg: number | null;
   directionLabel: string | null;
   periodS: number | null;
@@ -143,7 +146,7 @@ function detectedEvent(group: { lead: BeachSwellEvent }): UnkeyedRegionEvent {
   const { lead } = group;
   return {
     kind: lead.kind ?? "swell",
-    earlyLook: false,
+    source: "forecast",
     directionDeg: lead.directionDeg,
     directionLabel: lead.directionLabel,
     periodS: round1(lead.periodS),
@@ -159,7 +162,7 @@ function detectedEvent(group: { lead: BeachSwellEvent }): UnkeyedRegionEvent {
 function earlyLookEvent(peak: EarlyLookPeak): UnkeyedRegionEvent {
   return {
     kind: peak.kind,
-    earlyLook: true,
+    source: "wam",
     directionDeg: peak.directionDeg,
     directionLabel: peak.directionDeg === null ? null : degreeToCardinal(peak.directionDeg),
     periodS: peak.periodS === null ? null : round1(peak.periodS),
@@ -212,8 +215,9 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
         { beach: toSwellEventBeach(beach), forecasts: rowsByBeach.get(beach.id) ?? [], now, timezone },
         { stormClass: true, horizonDays: DETECTION_HORIZON_DAYS },
       );
-    } catch {
+    } catch (error) {
       // One beach's bad rows must not void the region.
+      console.warn("[regional] detection failed", { beachId: beach.id, error: String(error) });
       return [];
     }
   }).filter((event) => isSwellEventCurrent(event, now) && event.peakLocalDate >= today);
@@ -271,7 +275,7 @@ export async function buildRegionEvents(input: {
   const today = getLocalDateStr(input.now, input.timezone);
   const base = await unstable_cache(
     () => loadRegionBase(input),
-    ["region-swell-events", input.region, today],
+    ["region-swell-events", REGION_CACHE_VERSION, input.region, today],
     { revalidate: REGION_CACHE_SECONDS },
   )();
 

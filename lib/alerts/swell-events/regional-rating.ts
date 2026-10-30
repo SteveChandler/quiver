@@ -72,10 +72,10 @@ function faceText(waveHeight: RatingRow["wave_height"]): string | null {
 
 /**
  * Why a rated beach isn't working, from its weakest score component and its exposure, in this
- * order: wind, size over the skill's range, sheltered, big on an open beach. Null when none fits.
+ * order: wind, size over the skill's range, unknown exposure, sheltered, big on an open beach.
+ * Null when none fits.
  */
 function notWorkingReason(hour: ScoredHour, exposure: Exposure, skill: SkillLevel): string | null {
-  if (exposure === null) return EXPOSURE_UNKNOWN;
   const { components } = hour.breakdown;
   const windKnown = hour.inputs.windSpeedMph !== null;
   const sizeShare = components.waveFit / COMPONENT_MAX.waveFit;
@@ -90,6 +90,7 @@ function notWorkingReason(hour: ScoredHour, exposure: Exposure, skill: SkillLeve
   const faceFt = hour.inputs.waveHeightFt;
   if (windKnown && windShare === weakest) return BLOWN_OUT;
   if (sizeShare === weakest && faceFt > SKILL_WAVE_RANGES[skill].ideal.max) return TOO_BIG;
+  if (exposure === null) return EXPOSURE_UNKNOWN;
   if (exposure === "shadowed") return SHELTERED;
   if (exposure === "open" && faceFt >= CLOSING_OUT_FACE_FT) return CLOSING_OUT;
   return null;
@@ -125,7 +126,10 @@ function windowFor(hours: readonly ScoredHour[], label: string, timezone: string
   return `${weekday} ${formatWindowLabel(startIso, endIso, timezone, { forBody: true })}`;
 }
 
-/** The best daylight hour on the peak day, scored for this skill; null without rows that day. */
+/**
+ * The best daylight hour on the peak day, scored for this skill. Null without rows that day, or
+ * when the best hour has no usable height: every component reads 0 then, which would say "blown out".
+ */
 function rateBeach(
   beach: RegionBeach,
   rows: readonly RatingRow[],
@@ -142,14 +146,17 @@ function rateBeach(
       return { row, inputs, breakdown, label: scoreLabel(breakdown.score) };
     });
   const best = hours.reduce((max, hour) => (hour.breakdown.score > max.breakdown.score ? hour : max));
+  if (best.inputs.waveHeightFt <= 0) return null;
   const exposure = exposureOf(beach, event.directionDeg).label;
+  const working = isWorking(best.label);
   return {
     beachId: beach.id,
     beachName: beach.name,
     label: best.label,
     window: windowFor(hours, best.label, timezone),
     faceFt: faceText(best.row.wave_height),
-    reason: isWorking(best.label) && exposure !== null ? null : notWorkingReason(best, exposure, skill),
+    // A working beach's own line still says when its exposure is unknown; its `working` row won't.
+    reason: working ? (exposure === null ? EXPOSURE_UNKNOWN : null) : notWorkingReason(best, exposure, skill),
     exposure,
     rank: best.breakdown.score,
   };
@@ -204,7 +211,7 @@ export function rateRegionEvents(
     const leadDays = localDayDiff(today, event.peakLocalDate);
     if (leadDays < 0) return [];
     const ratings = built.beaches.flatMap((beach) => {
-      const rating = event.earlyLook
+      const rating = event.source === "wam"
         ? earlyLookRating(beach, event)
         : rateBeach(beach, rowsByBeachDate.get(beach.id)?.get(event.peakLocalDate) ?? [], event, input.skill, built.timezone);
       return rating ? [rating] : [];
@@ -218,6 +225,7 @@ export function rateRegionEvents(
     return [{
       key: event.key,
       kind: event.kind,
+      source: event.source,
       confidence: confidenceFor(leadDays),
       leadDays,
       directionLabel: event.directionLabel,
@@ -229,8 +237,9 @@ export function rateRegionEvents(
       offshoreFt: event.offshoreFt,
       history: event.history,
       here: here ? publicRating(here) : null,
-      working: working.map(publicRating),
-      notWorking: event.earlyLook ? [] : notWorkingList(ratings).map(publicRating),
+      // Reasons explain what isn't working; a working row carries none.
+      working: working.map((rating) => ({ ...publicRating(rating), reason: null })),
+      notWorking: event.source === "wam" ? [] : notWorkingList(ratings).map(publicRating),
     }];
   });
 }

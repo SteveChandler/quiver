@@ -20,6 +20,9 @@ export interface RegionBeachRating {
 export interface RegionSwellEvent {
   key: string;
   kind: 'swell' | 'storm';
+  /** 'wam': an early-look peak past the stored forecast; its beaches are rated by exposure only (LIKELY / EARLY LOOK). */
+  source: 'forecast' | 'wam';
+  /** Lead time only: a stored-forecast event 10+ days out is 'early_look' with real ratings. */
   confidence: RegionSwellConfidence;
   leadDays: number;
   directionLabel: string | null;

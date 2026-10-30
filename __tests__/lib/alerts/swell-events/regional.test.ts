@@ -1,14 +1,21 @@
+// Round-trips JSON like the real data cache, so a Map or Date in the cached value fails a test.
 jest.mock("next/cache", () => ({
-  unstable_cache: jest.fn((fn: unknown) => fn),
+  unstable_cache: jest.fn((fn: (...args: unknown[]) => Promise<unknown>) =>
+    async (...args: unknown[]) => JSON.parse(JSON.stringify(await fn(...args)))),
 }));
 jest.mock("@/lib/alerts/swell-events/early-look", () => ({
   ...jest.requireActual("@/lib/alerts/swell-events/early-look"),
   fetchWamDays: jest.fn(),
 }));
+jest.mock("@/lib/alerts/swell-events/detector", () => {
+  const actual = jest.requireActual("@/lib/alerts/swell-events/detector");
+  return { ...actual, detectBeachSwellEvents: jest.fn(actual.detectBeachSwellEvents) };
+});
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 
+import { detectBeachSwellEvents } from "@/lib/alerts/swell-events/detector";
 import {
   buildRegionEvents,
   confidenceFor,
@@ -40,7 +47,7 @@ const STORM: PartitionSpec = { heightFt: 7, periodS: 9, direction: 270 };
 const SWELL: PartitionSpec = { heightFt: 5, periodS: 15, direction: 270 };
 
 interface Surf {
-  wave: string;
+  wave: string | null;
   wind: string;
 }
 
@@ -171,6 +178,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       kind: "storm",
+      source: "forecast",
       confidence: "on_the_way",
       leadDays: EVENT_DAY,
       peakLocalDate: localDate(EVENT_DAY),
@@ -190,7 +198,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", REGION, "2026-09-25"],
+      ["region-swell-events", "v1", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -252,6 +260,57 @@ describe("buildRegionEvents + rateRegionEvents", () => {
       exposure: null,
       reason: "exposure unknown",
     });
+    // "exposure unknown" stays on the beach's own line; its working row carries no reason.
+    expect(events[0].working.find((rating) => rating.beachId === noWindow.id))
+      .toMatchObject({ label: "GOOD", exposure: null, reason: null });
+  });
+
+  it("(c) checks wind and size before exposure unknown on a not-working beach with no swell window", async () => {
+    const windy = beach("Mission Beach", { swell_window_center_deg: null, swell_window_halfwidth_deg: null });
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), windy];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: true,
+      surf: item.id === windy.id ? SURF.blownOut : SURF.good75,
+    }));
+    const [event] = rateRegionEvents(await build(beaches, rows), { beachId: windy.id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "MEH", exposure: null, reason: "blown out" });
+    expect(event.notWorking).toEqual([expect.objectContaining({ beachId: windy.id, reason: "blown out" })]);
+  });
+
+  it("leaves out a beach with no usable wave height instead of calling it blown out", async () => {
+    const missing = beach("No Height");
+    const zero = beach("Zero Height");
+    const beaches = [missing, zero, beach("Ocean Beach"), beach("Sunset Cliffs")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: true,
+      surf: item.id === missing.id
+        ? { wave: null, wind: "3 mph" }
+        : item.id === zero.id ? { wave: "0.0 ft", wind: "3 mph" } : SURF.good75,
+    }));
+    const built = await build(beaches, rows);
+
+    for (const target of [missing, zero]) {
+      const [event] = rateRegionEvents(built, { beachId: target.id, skill: "intermediate", now: NOW });
+      expect(event.here).toBeNull();
+      const listed = [...event.working, ...event.notWorking].map((rating) => rating.beachId);
+      expect(listed).not.toContain(missing.id);
+      expect(listed).not.toContain(zero.id);
+    }
+  });
+
+  it("warns and keeps the region when one beach's detection throws", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const broken = beach("Broken");
+    const beaches = [broken, beach("Ocean Beach"), beach("Sunset Cliffs")];
+    jest.mocked(detectBeachSwellEvents).mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
+
+    expect(warn).toHaveBeenCalledWith("[regional] detection failed", { beachId: broken.id, error: "Error: boom" });
+    expect(built.events).toHaveLength(1);
+    warn.mockRestore();
   });
 
   it("(d) lists working beaches GOOD before FAIR, by score, at most 5, never RIDEABLE or MEH", async () => {
@@ -345,6 +404,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       kind: "storm",
+      source: "wam",
       confidence: "early_look",
       leadDays: 12,
       peakLocalDate: localDate(12),
