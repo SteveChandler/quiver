@@ -235,9 +235,16 @@ it("keeps non-zero minutes in the beach's local best window", async () => {
 });
 
 it("uses the location snapshot when coordinates are absent", async () => {
-  rows.user_location_snapshots = { lat: 1.25, lon: -120.5 };
+  rows.user_location_snapshots = { lat: 1.25, lon: -120.5, captured_at: new Date(Date.now() - 30 * 60 * 1000).toISOString() };
   await get();
   expect(mockNearby).toHaveBeenCalledWith(1.25, -120.5, 50, 20);
+});
+
+it("ignores a phone location older than two hours", async () => {
+  rows.user_location_snapshots = { lat: 1.25, lon: -120.5, captured_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() };
+  const { data } = await get();
+  expect(mockNearby).not.toHaveBeenCalled();
+  expect((data.beaches as Array<{ saved: boolean }>).every((beach) => beach.saved)).toBe(true);
 });
 
 it("returns an empty successful list without calling bulk", async () => {
