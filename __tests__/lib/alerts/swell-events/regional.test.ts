@@ -1,0 +1,480 @@
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((fn: unknown) => fn),
+}));
+jest.mock("@/lib/alerts/swell-events/early-look", () => ({
+  ...jest.requireActual("@/lib/alerts/swell-events/early-look"),
+  fetchWamDays: jest.fn(),
+}));
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
+
+import {
+  buildRegionEvents,
+  confidenceFor,
+  rateRegionEvents,
+} from "@/lib/alerts/swell-events/regional";
+import {
+  fetchWamDays,
+  historyLine,
+  regionModelBuoy,
+  type WamDay,
+} from "@/lib/alerts/swell-events/early-look";
+import type { Database } from "@/types/database";
+import {
+  FLAT,
+  NOW,
+  TIMEZONE,
+  dayRows,
+  localDate,
+  localIso as localIsoOf,
+  type PartitionSpec,
+} from "@/__tests__/helpers/swell-events";
+
+const REGION = "San Diego";
+/** Monday 2026-09-28, three days after NOW. */
+const EVENT_DAY = 3;
+const DAYS = Array.from({ length: 14 }, (_, index) => index - 2);
+const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
+const STORM: PartitionSpec = { heightFt: 7, periodS: 9, direction: 270 };
+const SWELL: PartitionSpec = { heightFt: 5, periodS: 15, direction: 270 };
+
+interface Surf {
+  wave: string;
+  wind: string;
+}
+
+// Intermediate scores on the storm day (9 s period, tide unknown), from scoreNativeConditionInputs.
+const SURF = {
+  good79: { wave: "2-3ft", wind: "1 mph" },
+  good75: { wave: "2-3ft", wind: "3 mph" },
+  good72: { wave: "2-3ft", wind: "5 mph" },
+  fair66: { wave: "2-3ft", wind: "8 mph" },
+  fair63: { wave: "3-4ft", wind: "10 mph" },
+  fair57: { wave: "1-2ft", wind: "3 mph" },
+  fair55: { wave: "2-3ft", wind: "14 mph" },
+  rideable48: { wave: "1-2ft", wind: "8 mph" },
+  meh39: { wave: "0-1ft", wind: "3 mph" },
+  blownOut: { wave: "1-2ft", wind: "20 mph" },
+  // FAIR (57) for an intermediate; above a beginner's 4 ft ceiling.
+  fourToFive: { wave: "4-5ft", wind: "3 mph" },
+} satisfies Record<string, Surf>;
+
+let nextId = 0;
+function beach(name: string, overrides: Record<string, unknown> = {}) {
+  nextId += 1;
+  return {
+    id: `00000000-0000-4000-8000-${String(nextId).padStart(12, "0")}`,
+    name,
+    slug: name.toLowerCase().replace(/\s+/g, "-"),
+    lat: 32.6 + nextId * 0.05,
+    lon: -117.25,
+    aspect_deg: 270,
+    swell_window_center_deg: 270 as number | null,
+    swell_window_halfwidth_deg: 30 as number | null,
+    swell_access_factors: null,
+    terrain_enabled: false,
+    shoaling_factors: null,
+    deepwater_decay_factor: null,
+    wind_offshore_deg: 90,
+    ...overrides,
+  };
+}
+type TestBeach = ReturnType<typeof beach>;
+
+function rowsFor(
+  beachId: string,
+  options: {
+    storm?: boolean | PartitionSpec;
+    swell?: boolean | PartitionSpec;
+    surf?: Surf;
+    surfAt?: (hour: number) => Surf;
+  } = {},
+): Array<Record<string, unknown>> {
+  const storm = options.storm === true ? STORM : options.storm || null;
+  const swell = options.swell === true ? SWELL : options.swell || null;
+  return DAYS.flatMap((day) => {
+    const eventDay = day === EVENT_DAY;
+    const primary = (eventDay && (storm ?? swell)) || FLAT;
+    const secondary = eventDay && storm && swell ? swell : null;
+    return dayRows(day, primary, { noonBumpFt: eventDay ? 0.5 : 0, secondary }).map((row, index) => {
+      const surf = options.surfAt?.(HOURS[index]) ?? options.surf ?? SURF.good75;
+      return {
+        ...row,
+        beach_id: beachId,
+        wave_height: surf.wave,
+        wave_period: null,
+        wind_speed: surf.wind,
+        tide_height: null,
+        tide_status: null,
+        data_source: "open-meteo",
+      };
+    });
+  });
+}
+
+function client(beaches: TestBeach[], rows: Array<Record<string, unknown>>): SupabaseClient<Database> {
+  return {
+    from: (table: string) => {
+      let ids: string[] | null = null;
+      const query = {
+        select: () => query,
+        eq: () => query,
+        is: () => query,
+        or: () => query,
+        gte: () => query,
+        lt: () => query,
+        order: () => query,
+        in: (_column: string, values: string[]) => {
+          ids = values;
+          return query;
+        },
+        range: async (start: number, end: number) => {
+          const source = table === "beaches"
+            ? beaches
+            : rows.filter((row) => !ids || ids.includes(String(row.beach_id)));
+          return { data: source.slice(start, end + 1), error: null };
+        },
+      };
+      return query;
+    },
+  } as unknown as SupabaseClient<Database>;
+}
+
+function build(beaches: TestBeach[], rows: Array<Record<string, unknown>>) {
+  return buildRegionEvents({ client: client(beaches, rows), region: REGION, now: NOW, timezone: TIMEZONE });
+}
+
+function wamDays(overrides: Record<number, Partial<WamDay>>): WamDay[] {
+  return Array.from({ length: 16 }, (_, offset) => ({
+    localDate: localDate(offset),
+    maxHsM: 1,
+    peakAt: `${localDate(offset)}T20:00:00.000Z`,
+    periodS: 14,
+    directionDeg: 270,
+    ...overrides[offset],
+  }));
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  nextId = 0;
+  jest.mocked(fetchWamDays).mockResolvedValue(null);
+});
+
+describe("buildRegionEvents + rateRegionEvents", () => {
+  it("(a) groups one storm seen by three beaches into one event, rated at the requested beach", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
+    const events = rateRegionEvents(built, { beachId: beaches[1].id, skill: "intermediate", now: NOW });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "storm",
+      confidence: "on_the_way",
+      leadDays: EVENT_DAY,
+      peakLocalDate: localDate(EVENT_DAY),
+      directionLabel: "W",
+      periodS: 9,
+      offshoreFt: "8 ft",
+      history: null,
+    });
+    expect(events[0].key).toMatch(/:s$/);
+    expect(events[0].here).toMatchObject({
+      beachId: beaches[1].id,
+      beachName: "Sunset Cliffs",
+      label: "GOOD",
+      faceFt: "2-3 ft",
+      exposure: "open",
+      reason: null,
+    });
+    expect(unstable_cache).toHaveBeenCalledWith(
+      expect.any(Function),
+      ["region-swell-events", REGION, "2026-09-25"],
+      { revalidate: 10800 },
+    );
+  });
+
+  it("(b) keeps a swell and a storm on the same day as two events", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true, swell: true })));
+    const events = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(events.map((event) => event.kind).sort()).toEqual(["storm", "swell"]);
+    expect(events.every((event) => event.peakLocalDate === localDate(EVENT_DAY))).toBe(true);
+    const storm = events.find((event) => event.kind === "storm")!;
+    const swell = events.find((event) => event.kind === "swell")!;
+    expect(storm.key).toBe(`${REGION}:W:${localDate(EVENT_DAY)}:s`);
+    expect(swell.key).toBe(`${REGION}:W:${localDate(EVENT_DAY)}`);
+    expect(swell.periodS).toBe(15);
+  });
+
+  it("(b) never groups a storm with a swell close enough in direction and period to join it", async () => {
+    // 10 s and 12 s from 270 the same day: one groupEvents call would fold the swell into the storm.
+    const storm10: PartitionSpec = { heightFt: 7, periodS: 10, direction: 270 };
+    const swell12: PartitionSpec = { heightFt: 5, periodS: 12, direction: 270 };
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const rows = [
+      ...rowsFor(beaches[0].id, { storm: storm10 }),
+      ...rowsFor(beaches[1].id, { storm: storm10 }),
+      ...rowsFor(beaches[2].id, { swell: swell12 }),
+    ];
+    const built = await build(beaches, rows);
+    const events = rateRegionEvents(built, { beachId: beaches[2].id, skill: "intermediate", now: NOW });
+
+    expect(events.map((event) => [event.kind, event.periodS]).sort()).toEqual([["storm", 10], ["swell", 12]]);
+  });
+
+  it("keeps keys unique when two swells share a direction band and peak day", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    // rowsFor only places partitions (`storm` in swell_1, `swell` in swell_2): both are swell-class here.
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: { heightFt: 5, periodS: 12, direction: 270 },
+      swell: { heightFt: 5, periodS: 17, direction: 270 },
+    }));
+    const events = rateRegionEvents(await build(beaches, rows), { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(events.map((event) => [event.kind, event.periodS]).sort()).toEqual([["swell", 12], ["swell", 17]]);
+    expect(new Set(events.map((event) => event.key)).size).toBe(2);
+    expect(events.map((event) => event.key).sort()).toEqual([`${REGION}:W:${localDate(EVENT_DAY)}`, `${REGION}:W:${localDate(EVENT_DAY)}.2`]);
+  });
+
+  it("(c) gives a beach with no swell window the event, with exposure unknown", async () => {
+    const noWindow = beach("Mission Beach", { swell_window_center_deg: null, swell_window_halfwidth_deg: null });
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), noWindow];
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
+    const events = rateRegionEvents(built, { beachId: noWindow.id, skill: "intermediate", now: NOW });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].here).toMatchObject({
+      beachId: noWindow.id,
+      label: "GOOD",
+      exposure: null,
+      reason: "exposure unknown",
+    });
+  });
+
+  it("(d) lists working beaches GOOD before FAIR, by score, at most 5, never RIDEABLE or MEH", async () => {
+    const surfByName: Record<string, Surf> = {
+      "Fair 63": SURF.fair63,
+      "Meh 39": SURF.meh39,
+      "Good 72": SURF.good72,
+      "Fair 55": SURF.fair55,
+      "Good 79": SURF.good79,
+      "Rideable 48": SURF.rideable48,
+      "Fair 66": SURF.fair66,
+      "Blown Out": SURF.blownOut,
+      "Good 75": SURF.good75,
+      "Fair 57": SURF.fair57,
+    };
+    const beaches = Object.keys(surfByName).map((name) => beach(name));
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { storm: true, surf: surfByName[item.name] }));
+    const built = await build(beaches, rows);
+    const [event] = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(event.working.map((rating) => [rating.beachName, rating.label])).toEqual([
+      ["Good 79", "GOOD"],
+      ["Good 75", "GOOD"],
+      ["Good 72", "GOOD"],
+      ["Fair 66", "FAIR"],
+      ["Fair 63", "FAIR"],
+    ]);
+    expect(event.working.every((rating) => rating.reason === null)).toBe(true);
+    // Every daylight hour scores the same, so the window is the whole day: 6 AM to the 6 PM row's end.
+    expect(event.working[0].window).toBe("Mon 6 AM–7 PM");
+    // RIDEABLE and MEH beaches here match none of the four reasons; only the wind-limited one is listed.
+    expect(event.notWorking.map((rating) => [rating.beachName, rating.label, rating.reason])).toEqual([
+      ["Blown Out", "MEH", "blown out"],
+    ]);
+  });
+
+  it("(d) takes the window from the longest run of hours at the beach's label", async () => {
+    const peaky = beach("Windansea");
+    const rows = rowsFor(peaky.id, {
+      storm: true,
+      surfAt: (hour) => (hour === 9 || hour === 12 ? SURF.good79 : SURF.fair66),
+    });
+    const built = await build([peaky, beach("Ocean Beach"), beach("Sunset Cliffs")], rows);
+    const [event] = rateRegionEvents(built, { beachId: peaky.id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "GOOD", window: "Mon 9 AM–3 PM" });
+  });
+
+  it("(d) ends a run on the day's last row one row spacing later, capped at the end of daylight", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    // Without the 6 PM row the 3 PM row is the last of the day: it counts for its 3-hour slot.
+    const noSixPm = localIsoOf(EVENT_DAY, 18);
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { storm: true }))
+      .filter((row) => !(row.beach_id === beaches[0].id && row.forecast_at === noSixPm));
+    const [event] = rateRegionEvents(await build(beaches, rows), { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(event.here?.window).toBe("Mon 6 AM–6 PM");
+    // The 6 PM row's slot is cut at 7 PM, where daylight ends.
+    expect(event.working.find((rating) => rating.beachId === beaches[1].id)?.window).toBe("Mon 6 AM–7 PM");
+  });
+
+  it("(e) gives a sheltered beach scoring MEH the reason small, sheltered", async () => {
+    const sheltered = beach("La Jolla Cove", { swell_window_center_deg: 90 });
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), sheltered];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: true,
+      surf: item.id === sheltered.id ? SURF.meh39 : SURF.good75,
+    }));
+    const built = await build(beaches, rows);
+    const [event] = rateRegionEvents(built, { beachId: sheltered.id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "MEH", exposure: "shadowed", reason: "small, sheltered" });
+    expect(event.notWorking).toEqual([expect.objectContaining({ beachId: sheltered.id, reason: "small, sheltered" })]);
+  });
+
+  it("(f) shows a WAM peak 12 days out as an early look with open beaches LIKELY", async () => {
+    const open = beach("Ocean Beach");
+    const sheltered = beach("La Jolla Cove", { swell_window_center_deg: 90 });
+    const beaches = [open, beach("Sunset Cliffs"), sheltered];
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({
+      11: { maxHsM: 1.2 },
+      12: { maxHsM: 2.6, periodS: 9 },
+      13: { maxHsM: 1.2 },
+    }));
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id)));
+    const events = rateRegionEvents(built, { beachId: sheltered.id, skill: "intermediate", now: NOW });
+    const buoy = regionModelBuoy(beaches)!;
+
+    expect(buoy.id).toBe("46266");
+    expect(fetchWamDays).toHaveBeenCalledWith(buoy, TIMEZONE);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "storm",
+      confidence: "early_look",
+      leadDays: 12,
+      peakLocalDate: localDate(12),
+      directionLabel: "W",
+      periodS: 9,
+      arrivalAt: null,
+      fadeAt: null,
+      offshoreFt: "9 ft",
+      history: historyLine(buoy, 2.6, TIMEZONE),
+      notWorking: [],
+    });
+    expect(events[0].key).toMatch(/:s$/);
+    expect(events[0].working.map((rating) => [rating.beachName, rating.label, rating.window])).toEqual([
+      ["Ocean Beach", "LIKELY", null],
+      ["Sunset Cliffs", "LIKELY", null],
+    ]);
+    expect(events[0].here).toMatchObject({ label: "EARLY LOOK", exposure: "shadowed", reason: "small, sheltered" });
+    expect(built.buoy).toEqual({ id: "46266", name: buoy.name });
+  });
+
+  it("adds the buoy history line when WAM covers the event's peak day", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({ [EVENT_DAY]: { maxHsM: 3.2, periodS: 9 } }));
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
+    const [event] = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    const expected = historyLine(regionModelBuoy(beaches)!, 3.2, TIMEZONE);
+    expect(expected).not.toBeNull();
+    expect(event.history).toBe(expected);
+  });
+
+  it("(h) lets a beginner skill turn a FAIR beach into too big for most", async () => {
+    const big = beach("Blacks");
+    const beaches = [big, beach("Ocean Beach"), beach("Sunset Cliffs")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: true,
+      surf: item.id === big.id ? SURF.fourToFive : SURF.good75,
+    }));
+    const built = await build(beaches, rows);
+
+    const [intermediate] = rateRegionEvents(built, { beachId: big.id, skill: "intermediate", now: NOW });
+    expect(intermediate.here).toMatchObject({ label: "FAIR", faceFt: "4-5 ft", reason: null });
+    expect(intermediate.working.map((rating) => rating.beachId)).toContain(big.id);
+
+    const [beginner] = rateRegionEvents(built, { beachId: big.id, skill: "beginner", now: NOW });
+    expect(beginner.here).toMatchObject({ label: "MEH", reason: "too big for most" });
+    expect(beginner.working.map((rating) => rating.beachId)).not.toContain(big.id);
+    expect(beginner.notWorking).toEqual([expect.objectContaining({ beachId: big.id, reason: "too big for most" })]);
+  });
+});
+
+describe("rateRegionEvents lists", () => {
+  it("names one not-working beach per reason before repeating a reason, at most 3", async () => {
+    const surfByName: Record<string, Surf> = {
+      "Blown A": SURF.blownOut,
+      "Blown B": { wave: "1-2ft", wind: "25 mph" },
+      // Above an intermediate's 6 ft ceiling: MEH, scored lowest of the four.
+      Big: { wave: "7-8ft", wind: "3 mph" },
+      Sheltered: SURF.meh39,
+    };
+    const beaches = Object.keys(surfByName).map((name) => beach(name, name === "Sheltered" ? { swell_window_center_deg: 90 } : {}));
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { storm: true, surf: surfByName[item.name] }));
+    const built = await build(beaches, rows);
+    const [event] = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(event.notWorking.map((rating) => [rating.beachName, rating.reason])).toEqual([
+      ["Blown A", "blown out"],
+      ["Big", "too big for most"],
+      ["Sheltered", "small, sheltered"],
+    ]);
+  });
+
+  it("shows a stored single-value height as the app's range and scores the stored number", async () => {
+    // Prod stores "2.3 ft": scored at 2.3 ft it is FAIR (63); at the range's 3 ft top it would be GOOD.
+    const plain = beach("Plain Height");
+    const beaches = [plain, beach("Ocean Beach"), beach("Sunset Cliffs")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: true,
+      surf: item.id === plain.id ? { wave: "2.3 ft", wind: "3 mph" } : SURF.good75,
+    }));
+    const [event] = rateRegionEvents(await build(beaches, rows), { beachId: plain.id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "FAIR", faceFt: "2-3 ft" });
+  });
+
+  it("judges the weakest component as a share of its ceiling, not in raw points", async () => {
+    // 9 mph: 8.9 of 25 wind points (36%) sits above the tide's 7 of 10 in raw points but below it as a share.
+    const breezy = beach("Breezy");
+    const beaches = [breezy, beach("Ocean Beach"), beach("Sunset Cliffs")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: true,
+      surf: item.id === breezy.id ? { wave: "1-2ft", wind: "9 mph" } : SURF.good75,
+    }));
+    const [event] = rateRegionEvents(await build(beaches, rows), { beachId: breezy.id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "RIDEABLE", reason: "blown out" });
+  });
+
+  it("calls a face over the skill's ideal range too big when size is the weakest part, even inside its band", async () => {
+    // 6 ft is the top of an intermediate's acceptable band, so it scores in band with no size points.
+    const top = beach("Top Of Range");
+    const beaches = [top, beach("Ocean Beach"), beach("Sunset Cliffs")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, {
+      storm: true,
+      surf: item.id === top.id ? { wave: "5-6ft", wind: "3 mph" } : SURF.good75,
+    }));
+    const [event] = rateRegionEvents(await build(beaches, rows), { beachId: top.id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "MEH", faceFt: "5-6 ft", reason: "too big for most" });
+  });
+
+  it("drops an event once its peak day has passed, counting lead days from the request's now", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
+    const day = 24 * 60 * 60 * 1000;
+
+    const twoDaysOn = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: new Date(NOW.getTime() + 2 * day) });
+    expect(twoDaysOn.map((event) => event.leadDays)).toEqual([EVENT_DAY - 2]);
+    expect(rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: new Date(NOW.getTime() + 4 * day) }))
+      .toEqual([]);
+  });
+});
+
+describe("confidenceFor", () => {
+  it("(g) maps lead days to the global bands", () => {
+    expect(confidenceFor(0)).toBe("on_the_way");
+    expect(confidenceFor(4)).toBe("on_the_way");
+    expect(confidenceFor(5)).toBe("likely");
+    expect(confidenceFor(9)).toBe("likely");
+    expect(confidenceFor(10)).toBe("early_look");
+    expect(confidenceFor(14)).toBe("early_look");
+  });
+});
