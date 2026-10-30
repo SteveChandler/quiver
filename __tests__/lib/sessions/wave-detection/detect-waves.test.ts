@@ -75,10 +75,11 @@ describe("detectWaves", () => {
     for (const expectedStart of fixture.confirmedRidesUtc) {
       expect(counted.some(wave => Math.abs(Date.parse(wave.startedAt) - Date.parse(expectedStart)) <= 5_000)).toBe(true);
     }
-    expect(waves.length).toBeGreaterThan(counted.length);
+    expect(waves).toHaveLength(21);
+    expect(waves.length - counted.length).toBe(15);
   });
 
-  it("keeps the encoded OB candidates uncounted because none clears the watch ride bar", () => {
+  it("counts the same three shoreward OB rides in FIT and encoded watch tracks", () => {
     const fit = obFixture.track as NormalizedTrack;
     const watch = parseQuiverWatch(watchObFixture);
     const fitWaves = detectWaves(fit, summarizeTrack(fit), obFixture.beach);
@@ -97,18 +98,25 @@ describe("detectWaves", () => {
         : Math.abs(watchSpeed - fitSpeed) <= 0.00501;
       expect(matches).toBe(true);
     }
-    expect(watchWaves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE)).toHaveLength(0);
-    expect(fitWaves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE)).toHaveLength(3);
+    const countedWatch = watchWaves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE);
+    const countedFit = fitWaves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE);
+    expect(countedWatch).toHaveLength(3);
+    expect(countedFit).toHaveLength(3);
+    expect(countedWatch.map(wave => wave.startedAt)).toEqual(expect.arrayContaining([
+      "2026-10-17T16:04:16.000Z",
+      "2026-10-17T16:37:19.000Z",
+      "2026-10-17T16:37:49.000Z",
+    ]));
     expect(watchWaves.find(wave => wave.startedAt === "2026-10-17T16:04:16.000Z"))
-      .toMatchObject({ durationS: 6, distanceM: expect.closeTo(41, 0), maxSpeedMps: expect.closeTo(4.8, 1), confidence: 0.49 });
+      .toMatchObject({ durationS: 6, distanceM: expect.closeTo(41, 0), maxSpeedMps: expect.closeTo(4.8, 1) });
     const firstNearMiss = watch.samples.filter(sample => sample.t >= "2026-10-17T16:04:16.000Z"
       && sample.t <= "2026-10-17T16:04:22.000Z" && sample.speedMps !== null && sample.speedMps >= 3);
     expect(firstNearMiss).toHaveLength(5);
     expect(Date.parse(firstNearMiss.at(-1)!.t) - Date.parse(firstNearMiss[0].t)).toBe(4_000);
     expect(watchWaves.find(wave => wave.startedAt === "2026-10-17T16:37:19.000Z"))
-      .toMatchObject({ maxSpeedMps: expect.closeTo(2.34, 1), distanceM: expect.closeTo(20, 0), confidence: 0.49 });
+      .toMatchObject({ maxSpeedMps: expect.closeTo(2.34, 1), distanceM: expect.closeTo(20, 0) });
     expect(watchWaves.find(wave => wave.startedAt === "2026-10-17T16:37:49.000Z"))
-      .toMatchObject({ maxSpeedMps: expect.closeTo(1.99, 1), distanceM: expect.closeTo(17, 0), confidence: 0.49 });
+      .toMatchObject({ maxSpeedMps: expect.closeTo(1.99, 1), distanceM: expect.closeTo(17, 0) });
   });
 
   it("tolerates one one-second speed dip when the ride still holds for six seconds", () => {
@@ -278,26 +286,26 @@ describe("detectWaves", () => {
     expect(waves[0].headingDeg).toBeCloseTo(0);
   });
 
-  it("does not earn the duration confidence bonus from paddle-in", () => {
+  it("does not count a short peak using time spent paddling in", () => {
     const track = rampTrack(4);
     const waves = detectWaves(track, fullSpan(track), BEACH);
     expect(waves).toHaveLength(1);
     expect(waves[0]).toMatchObject({ startedAt: time(188), endedAt: time(191), durationS: 3,
-      maxSpeedMps: 6, confidence: 0.8 });
+      maxSpeedMps: 6, confidence: 0.49 });
   });
 
   it("includes the 10-second cadence boundary and the ride's last cadence sample", () => {
-    const track = rampTrack(4);
+    const track = rampTrack(8);
     track.samples = track.samples.map((sample, second) => ({ ...sample,
-      cadence: second === 178 ? 11 : second >= 188 && second <= 191 ? 0 : null }));
+      cadence: second === 178 ? 11 : second >= 188 && second <= 195 ? 0 : null }));
     const summary = fullSpan(track);
     const waves = detectWaves(track, summary, BEACH);
     expect(waves).toHaveLength(1);
-    expect(waves[0].confidence).toBe(0.8);
-    track.samples[191].cadence = 30;
+    expect(waves[0].confidence).toBe(1);
+    track.samples[195].cadence = 60;
     const stillPaddling = detectWaves(track, summary, BEACH);
     expect(stillPaddling).toHaveLength(1);
-    expect(stillPaddling[0].confidence).toBe(0.7);
+    expect(stillPaddling[0].confidence).toBe(0.9);
   });
 
   it.each([[180, 0.9], [0, 0.27]])("rounds persisted confidence with swell-window bearing %i", (window, confidence) => {

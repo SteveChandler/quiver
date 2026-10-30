@@ -664,13 +664,15 @@ function watchSlice(seconds: number): NormalizedTrack {
   return { ...track, samples, meta: { ...track.meta, startedAt: samples[0].t, endedAt: samples.at(-1)!.t } };
 }
 
-it("keeps a watch surf with no qualifying ride private while storing its stats and analytics", async () => {
+it("publishes the Ocean Beach watch surf with three qualifying rides and stores its stats", async () => {
   const track = setWatchImport();
   deps.userClient = deps.serviceClient;
   const summary = summarizeTrack(track);
   const hr = track.samples.filter(sample => sample.t >= summary.inWaterStart && sample.t <= summary.inWaterEnd && sample.hr !== null).map(sample => sample.hr!);
-  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
-  expect(rows.sessions[0]).toMatchObject({ source: "garmin_watch", is_public: false, rating: 3, status: "completed" });
+  expect(await processImport(deps, importId, userId)).toMatchObject({
+    status: "completed", attached: false, summary: { waveCount: 3, detectedWaveCount: 3 },
+  });
+  expect(rows.sessions[0]).toMatchObject({ source: "garmin_watch", is_public: true, rating: 3, status: "completed" });
   expect(rows.session_tracks[0]).toMatchObject({
     format: "quiver_watch", source_device: "Forerunner 165",
     hr_avg: Math.round(hr.reduce((sum, value) => sum + value, 0) / hr.length), hr_max: Math.max(...hr),
