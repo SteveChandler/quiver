@@ -1497,6 +1497,9 @@ export class ForecastBuilder {
         ...(waveHeightDebug.shortPeriodBucketCapped
           ? { short_period_bucket_capped: true }
           : {}),
+        ...(waveHeightDebug.modelCalibrationFactor != null
+          ? { model_calibration_factor: waveHeightDebug.modelCalibrationFactor }
+          : {}),
         ...(waveHeightDebug.cdipRejection
           ? {
               cdip_rejection: {
@@ -1706,6 +1709,7 @@ export class ForecastBuilder {
     // See migration 20260407134519_add_shoaling_factors_to_beaches.sql and
     // 20260211120000_comprehensive_swell_window_fix.sql.
     const beachTerrain = {
+      id: beach.id,
       swell_access_factors: beach.swell_access_factors ?? null,
       terrain_enabled: beach.terrain_enabled ?? false,
       shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,

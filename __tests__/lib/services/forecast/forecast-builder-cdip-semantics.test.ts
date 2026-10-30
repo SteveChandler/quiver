@@ -25,6 +25,7 @@ import {
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { CDIP_NOWCAST_HORIZON_HOURS } from "@/lib/config/forecast-staleness";
 import type { Beach } from "@/types/database";
+import { MODEL_SWELL_CALIBRATION_FACTORS } from "@/lib/utils/model-swell-calibration-factors";
 
 // These baseline/observation tests do not provision private adjustment stores.
 const originalTrustedAdjustments = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
@@ -621,9 +622,12 @@ describe("ForecastBuilder CDIP height semantics", () => {
     });
     expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
+    // Blacks' per-beach model_swell factor scales the whole face; the 8s
+    // wind-wave bound is on the uncalibrated face.
+    const k = MODEL_SWELL_CALIBRATION_FACTORS["01330afc-00d3-461b-88f3-b173774766f4"] ?? 1;
     const actualFt = extractFt(forecasts[0].wave_height);
-    expect(actualFt).toBeGreaterThanOrEqual(3.5);
-    expect(actualFt).toBeLessThanOrEqual(4.0);
+    expect(actualFt).toBeGreaterThanOrEqual(3.5 * k - 0.1);
+    expect(actualFt).toBeLessThanOrEqual(4.0 * k + 0.1);
     expect(forecasts[0].swell_1_height).toBe("3 ft");
     expect(forecasts[0].wind_wave_height).toBe("3.5 ft");
     expect(forecasts[0].wind_wave_period).toBe("8s");
@@ -638,6 +642,7 @@ describe("ForecastBuilder CDIP height semantics", () => {
       }),
     );
     expect(prov?.raw_value_ft).toBeCloseTo(3.0, 1);
+    if (k !== 1) expect(prov?.model_calibration_factor).toBe(k);
   });
 
   test("Nowcast anchor still overrides CDIP + NOAA (anchor branch wins)", async () => {

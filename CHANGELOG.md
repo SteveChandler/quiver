@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **Model-hour wave heights at calibrated beaches now land on the buoy ruler** (`lib/utils/model-swell-calibration-factors.ts`, `lib/utils/wave-height-transformer.ts`, `lib/services/forecast/forecast-builder.ts`). Since #1238 removed the 48 h seam taper, forecast hours from the model read far below the buoy hour before them: Lower Trestles about a third, Huntington and Newport about half.
+  - **Fix:** a generated per-beach multiplier (73 beaches, clamped 0.8–1.6) on `model_swell` face heights, applied inside the shared transform so forecast rows and swell-event alerts get the same number. Rows record it as `wave_height_provenance.model_calibration_factor`.
+  - **Evidence:** 30-day replay of the exact builder inputs against the buoy-path face, scored out of sample: 1.40 ft MAE today, 1.11 ft under the old taper, 0.87 ft with the factor.
+  - **Guard:** `yarn regression:shoaling` Gate G replays real handoffs and fails if model hours drop off the buoy ruler. Refit monthly with `scripts/replay-model-swell-calibration.ts`.
 - **The home hero's swell lines now match /map** (`components/oracle/zine/hero-swell-field.tsx`, `home-hero-media.tsx`, `components/map/swell-field/particle-style.ts`). They were streaks drawn along the direction of travel, so they pointed the wrong way for wave crests, and they looked nothing like /map or native.
   - **Now:** the hero draws /map's primary-swell field over /map's streets basemap. Crest dashes run across the direction of travel, in /map's colour, spacing, size and speed, clipped to the water.
   - **Shared constants:** /map's particle constants moved into `particle-style.ts`, so the two can't drift. /map's behaviour is unchanged.
