@@ -53,6 +53,7 @@ const track = {
   track_geojson: { type: "LineString", coordinates: [[-119, 34], [-119.001, 34.001]] },
   speed_series: [{ t: start, mps: 3 }], recorded_by: "Garmin",
   paddle_distance_m: 1200, hr_avg: 118, hr_max: 156, source_device: "Forerunner 965",
+  calories: 432, water_temp_start_c: 21, water_temp_end_c: 19,
 };
 
 type Table = "sessions" | "session_tracks" | "session_waves" | "session_wave_corrections" | "profiles" | "session_imports" | "user_events";
@@ -175,7 +176,8 @@ it("returns the native waves contract with corrections, override count, track an
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     success: true, data: {
-      summary: { waveCount: 4, detectedWaveCount: 0, userWaveCount: 4, speedReliable: false, detectionVersion: "wd-1.0.0" },
+      summary: { waveCount: 4, detectedWaveCount: 0, userWaveCount: 4, speedReliable: false, detectionVersion: "wd-1.0.0",
+        calories: 432, waterTempStartC: 21, waterTempEndC: 19 },
       waves: [{ id: waveId, index: 1, startedAt: start, endedAt: end, durationS: 20, distanceM: 42,
         maxSpeedMps: null, avgSpeedMps: null, headingDeg: 270, confidence: 0.9, excluded: true, counted: false,
         tideFt: 2.4, start: { lat: 34, lon: -119 }, end: { lat: 34.001, lon: -119.001 } }],
@@ -185,6 +187,18 @@ it("returns the native waves contract with corrections, override count, track an
   expect(queries.session_waves[0].eq).toHaveBeenCalledWith("is_current", true);
   expect(queries.session_waves[0].order).toHaveBeenCalledWith("wave_index");
   expect(response.headers.get("Cache-Control")).toContain("no-store");
+});
+
+it("returns null track extras before the watch stats migration", async () => {
+  const { calories, water_temp_start_c, water_temp_end_c, ...legacyTrack } = track;
+  void calories; void water_temp_start_c; void water_temp_end_c;
+  rows.session_tracks = legacyTrack;
+  const response = await GET(request("GET"), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    calories: null, waterTempStartC: null, waterTempEndC: null,
+  } } });
+  expect(queries.session_tracks[0].select).toHaveBeenCalledWith("*");
 });
 
 it("returns Garmin track metrics and the recorded-with label", async () => {
@@ -199,6 +213,7 @@ it("returns Garmin track metrics and the recorded-with label", async () => {
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ data: { summary: {
     paddleDistanceM: 1200, heartRateAvg: 118, heartRateMax: 156,
+    calories: 432, waterTempStartC: 21, waterTempEndC: 19,
     setIntervalMin: 8, recordedWith: "Quiver for Garmin · Forerunner 965",
   } } });
   expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
@@ -221,7 +236,7 @@ it.each(["count", "exclude", "restore"])("preserves Garmin summary fields after 
     setIntervalMin: 10, recordedWith: "Quiver for Garmin · Forerunner 965",
   } } });
   expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
-  expect(queries.session_tracks[0].select).toHaveBeenCalledWith(expect.stringContaining("source_device"));
+  expect(queries.session_tracks[0].select).toHaveBeenCalledWith("*");
 });
 
 it.each(["other owner", "soft deleted"])("returns 404 for %s", async reason => {
@@ -347,7 +362,7 @@ it("redetects from the stored file for an admin and returns the counted waves", 
   mockAuth.mockResolvedValue({ data: { user: { id: userId, app_metadata: { is_admin: true } } }, error: null });
   const response = await redetect(request("POST"), context);
   expect(response.status).toBe(200);
-  expect(await response.json()).toMatchObject({ success: true, data: { detectionVersion: "wd-1.0.0", waveCount: 1 } });
+  expect(await response.json()).toMatchObject({ success: true, data: { detectionVersion: "wd-1.1.0", waveCount: 1 } });
   expect(mockDownload).toHaveBeenCalledWith("track.fit");
   expect(mockReadTrackFile).toHaveBeenCalledWith(expect.any(Uint8Array), "track.fit", expect.any(Date));
   expect(mockLoadBeach).toHaveBeenCalledWith(expect.anything(), beachId);

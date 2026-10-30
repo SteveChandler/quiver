@@ -64,7 +64,7 @@ function checkError(error: unknown): void {
 
 async function insertSessionTrack(serviceClient: SupabaseClient, row: TrackInsert): Promise<void> {
   const { track, summary } = row;
-  const { error } = await serviceClient.from("session_tracks").insert({
+  const base = {
     session_id: row.sessionId,
     user_id: row.userId,
     import_id: row.importId,
@@ -90,7 +90,15 @@ async function insertSessionTrack(serviceClient: SupabaseClient, row: TrackInser
     hr_avg: row.hrAvg,
     hr_max: row.hrMax,
     source_device: row.sourceDevice,
-  });
+  };
+  const enhanced = { ...base, calories: track.meta.calories ?? null,
+    water_temp_start_c: summary.waterTempStartC, water_temp_end_c: summary.waterTempEndC };
+  const { error } = await serviceClient.from("session_tracks").insert(enhanced);
+  if (error?.code === "42703" || error?.code === "PGRST204") {
+    const { error: fallbackError } = await serviceClient.from("session_tracks").insert(base);
+    checkError(fallbackError);
+    return;
+  }
   checkError(error);
 }
 
@@ -384,7 +392,10 @@ export async function processImport(
     }
     const wavesSummary = buildWavesSummary(
       waves.map(wave => ({ ...wave, id: String(wave.index) })), [],
-      { gpsCoverage: summary.gpsCoverage, speedReliable: summary.speedReliable, userWaveCount: existingTrack?.user_wave_count ?? null },
+      { gpsCoverage: summary.gpsCoverage, speedReliable: summary.speedReliable,
+        userWaveCount: existingTrack?.user_wave_count ?? null,
+        calories: track.meta.calories ?? null, waterTempStartC: summary.waterTempStartC,
+        waterTempEndC: summary.waterTempEndC },
       WAVE_DETECTION_VERSION,
     );
     await updateImport({ status: "completed", session_id: sessionId, summary: wavesSummary, error: null });

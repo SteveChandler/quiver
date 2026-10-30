@@ -71,6 +71,9 @@ export function parseFit(bytes: Uint8Array): NormalizedTrack {
       recordedBy: recordedBy(parsed),
       startedAt: firstFix.t,
       endedAt: lastFix.t,
+      ...(typeof session?.total_calories === "number"
+        && Number.isInteger(session.total_calories) && session.total_calories >= 0
+        && session.total_calories <= 32767 ? { calories: session.total_calories } : {}),
     },
     samples,
   };

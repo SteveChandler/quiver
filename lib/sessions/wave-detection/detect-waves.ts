@@ -2,12 +2,13 @@ import type { TrackSummary } from "../tracks/summarize-track";
 import { angleDiffDeg, bearingDeg, haversineM } from "../tracks/track-geometry";
 import type { NormalizedTrack, TrackSample } from "../tracks/types";
 import {
-  GAP_S, MAX_FIX_JUMP_MPS, OFF_SHOREWARD_FACTOR, RIDE_END_HOLD_S, RIDE_END_MPS,
+  COUNT_RIDE_DISTANCE_M, COUNT_RIDE_HOLD_S, COUNT_RIDE_MPS, COUNT_SHOREWARD_PROGRESS_M, GAP_S, MAX_FIX_JUMP_MPS,
+  OFF_SHOREWARD_FACTOR, RIDE_END_HOLD_S, RIDE_END_MPS,
   RIDE_KEEP_DURATION_S, RIDE_KEEP_PEAK_MPS, RIDE_METRIC_ONSET_FRACTION, RIDE_START_HOLD_S, RIDE_START_MPS,
   SHOREWARD_TOLERANCE_DEG,
 } from "./constants";
 
-export const WAVE_DETECTION_VERSION = "wd-1.0.0";
+export const WAVE_DETECTION_VERSION = "wd-1.1.0";
 
 type Point = { lat: number; lon: number };
 export type DetectedWave = {
@@ -90,6 +91,7 @@ function averageCadence(series: CadenceSeries, start: number, end: number, inclu
 
 function candidate(
   fixes: Fix[], speeds: number[], cadence: CadenceSeries, summary: TrackSummary, shoreward: number,
+  strictWatchCount: boolean,
 ): Omit<DetectedWave, "index"> | null {
   const last = fixes[fixes.length - 1];
   if (fixes[0].time < Date.parse(summary.inWaterStart)
@@ -99,14 +101,30 @@ function candidate(
   const onset = Math.max(RIDE_START_MPS, RIDE_METRIC_ONSET_FRACTION * peak);
   const firstIndex = speeds.findIndex((speed) => speed >= onset);
   if (firstIndex < 0) return null;
-  const first = fixes[firstIndex];
+  let fastStart: number | null = null;
+  let rideStart: number | null = null;
+  let rideEnd: number | null = null;
+  for (let index = 0; index <= speeds.length; index += 1) {
+    if (index < speeds.length && speeds[index] >= COUNT_RIDE_MPS) {
+      fastStart ??= index;
+      continue;
+    }
+    if (fastStart !== null && rideStart === null
+      && (fixes[index - 1].time - fixes[fastStart].time) / 1000 >= COUNT_RIDE_HOLD_S) {
+      rideStart = fastStart;
+      rideEnd = index - 1;
+    }
+    fastStart = null;
+  }
+  const metricStart = strictWatchCount ? rideStart ?? firstIndex : firstIndex;
+  const first = fixes[metricStart];
   const durationS = (last.time - first.time) / 1000;
   if (durationS <= 0) return null;
   // Swim-mode smoothing can flatten peaks, so sustained rides also qualify.
   if (peak < RIDE_KEEP_PEAK_MPS && durationS < RIDE_KEEP_DURATION_S) return null;
   let distanceM = 0;
   let speedIntegral = 0;
-  for (let index = firstIndex + 1; index < fixes.length; index += 1) {
+  for (let index = metricStart + 1; index < fixes.length; index += 1) {
     distanceM += haversineM(fixes[index - 1], fixes[index]);
     speedIntegral += speeds[index] * (fixes[index].time - fixes[index - 1].time) / 1000;
   }
@@ -114,7 +132,14 @@ function candidate(
 
   const start = { lat: first.lat, lon: first.lon };
   const end = { lat: last.lat, lon: last.lon };
-  const headingDeg = haversineM(start, end) > 0 ? bearingDeg(start, end) : null;
+  const fullHeading = haversineM(start, end) > 0 ? bearingDeg(start, end) : null;
+  const fastEnd = rideEnd === null ? null : fixes[rideEnd];
+  const fastHeading = fastEnd && haversineM(start, fastEnd) > 0 ? bearingDeg(start, fastEnd) : null;
+  const fastShorewardProgressM = fastEnd && fastHeading !== null
+    ? haversineM(start, fastEnd) * Math.cos(angleDiffDeg(fastHeading, shoreward) * Math.PI / 180) : 0;
+  const headingDeg = strictWatchCount && (fullHeading === null
+    || angleDiffDeg(fullHeading, shoreward) > SHOREWARD_TOLERANCE_DEG)
+    && fastShorewardProgressM >= COUNT_SHOREWARD_PROGRESS_M ? fastHeading : fullHeading;
   let confidence = 0.7;
   if (peak >= RIDE_KEEP_PEAK_MPS && durationS >= RIDE_KEEP_DURATION_S) confidence += 0.2;
   const before = averageCadence(cadence, first.time - 10_000, first.time);
@@ -122,6 +147,10 @@ function candidate(
   if (before !== null && before > 10 && during !== null && during <= 5) confidence += 0.1;
   if (headingDeg === null || angleDiffDeg(headingDeg, shoreward) > SHOREWARD_TOLERANCE_DEG) {
     confidence *= OFF_SHOREWARD_FACTOR;
+  }
+  if (strictWatchCount && (rideStart === null || distanceM < COUNT_RIDE_DISTANCE_M
+    || headingDeg === null || angleDiffDeg(headingDeg, shoreward) > SHOREWARD_TOLERANCE_DEG)) {
+    confidence = Math.min(confidence, 0.49);
   }
   return {
     startedAt: first.t, endedAt: last.t, durationS, distanceM,
@@ -147,7 +176,9 @@ export function detectWaves(track: NormalizedTrack, summary: TrackSummary, beach
     let lowStart: number | null = null;
     const finish = (end: number): void => {
       if (active && start !== null) {
-        const wave = candidate(fixes.slice(start, end + 1), speeds.slice(start, end + 1), cadence, summary, shoreward);
+        // FIT swim-mode speeds can flatten peaks; the stricter count bar uses direct watch recordings.
+        const wave = candidate(fixes.slice(start, end + 1), speeds.slice(start, end + 1), cadence,
+          summary, shoreward, track.meta.format === "quiver_watch");
         if (wave) waves.push({ index: waves.length, ...wave });
       }
       start = null;

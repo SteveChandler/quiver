@@ -84,7 +84,7 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
   const { data: track, error: trackError } = await supabase.from("session_tracks")
-    .select("gps_coverage, speed_reliable, user_wave_count, paddle_distance_m, hr_avg, hr_max, recorded_by, source_device")
+    .select("*")
     .eq("session_id", session.id).eq("user_id", user.id).maybeSingle();
   if (trackError) throw new Error(trackError.message);
   if (!track) return createErrorResponse("not_found", undefined, 404);

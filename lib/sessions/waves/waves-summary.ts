@@ -18,6 +18,9 @@ export type WavesSummary = {
   paddleDistanceM?: number | null;
   heartRateAvg?: number | null;
   heartRateMax?: number | null;
+  calories: number | null;
+  waterTempStartC: number | null;
+  waterTempEndC: number | null;
   setIntervalMin?: number | null;
   recordedWith?: string | null;
 };
@@ -25,12 +28,17 @@ export type WavesSummary = {
 export function trackSummaryExtras(
   source: string | null,
   track: { paddle_distance_m: number | null; hr_avg: number | null; hr_max: number | null;
-    recorded_by: string | null; source_device: string | null },
-): Pick<WavesSummary, "paddleDistanceM" | "heartRateAvg" | "heartRateMax" | "recordedWith"> {
+    recorded_by: string | null; source_device: string | null;
+    calories?: number | null; water_temp_start_c?: number | null; water_temp_end_c?: number | null },
+): Pick<WavesSummary, "paddleDistanceM" | "heartRateAvg" | "heartRateMax" | "recordedWith"
+  | "calories" | "waterTempStartC" | "waterTempEndC"> {
   return {
     paddleDistanceM: track.paddle_distance_m,
     heartRateAvg: track.hr_avg,
     heartRateMax: track.hr_max,
+    calories: track.calories ?? null,
+    waterTempStartC: track.water_temp_start_c ?? null,
+    waterTempEndC: track.water_temp_end_c ?? null,
     recordedWith: source === "garmin_watch"
       ? `Quiver for Garmin · ${track.source_device ?? "Garmin watch"}` : track.recorded_by,
   };
@@ -84,7 +92,8 @@ export function buildWavesSummary(
   corrections: Correction[],
   track: { gpsCoverage: number; speedReliable: boolean; userWaveCount: number | null;
     paddleDistanceM?: number | null; heartRateAvg?: number | null; heartRateMax?: number | null;
-    recordedWith?: string | null },
+    recordedWith?: string | null; calories?: number | null;
+    waterTempStartC?: number | null; waterTempEndC?: number | null },
   version: string,
 ): WavesSummary {
   const counted = waves.filter((wave) => wave.confidence >= COUNT_MIN_CONFIDENCE && !isExcluded(wave, corrections));
@@ -105,6 +114,9 @@ export function buildWavesSummary(
     paddleDistanceM: track.paddleDistanceM ?? null,
     heartRateAvg: track.heartRateAvg ?? null,
     heartRateMax: track.heartRateMax ?? null,
+    calories: track.calories ?? null,
+    waterTempStartC: track.waterTempStartC ?? null,
+    waterTempEndC: track.waterTempEndC ?? null,
     setIntervalMin: setIntervalMin(waves, corrections),
     recordedWith: track.recordedWith ?? null,
   };

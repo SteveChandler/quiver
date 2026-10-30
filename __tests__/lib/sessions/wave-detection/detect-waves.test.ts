@@ -7,6 +7,8 @@ import type { NormalizedTrack, TrackSample } from "@/lib/sessions/tracks/types";
 import { detectWaves, WAVE_DETECTION_VERSION, type DetectedWave, type DetectionBeach } from "@/lib/sessions/wave-detection/detect-waves";
 import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
 import { performance } from "node:perf_hooks";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const START = Date.parse("2026-10-17T12:00:00.000Z");
 const RIDE_STARTS = [180, 600, 1000, 1500];
@@ -48,6 +50,32 @@ function rampTrack(peakSeconds: number, tailSeconds: number = 0): NormalizedTrac
 }
 
 describe("detectWaves", () => {
+  it("counts Steven's six confirmed Del Mar rides within five seconds", () => {
+    const fixture = JSON.parse(readFileSync(join(process.cwd(),
+      "__tests__/fixtures/session-tracks/fr165-del-mar-2026-10-29.json"), "utf8")) as {
+      confirmedRidesUtc: string[];
+      rows: [string, number | null, number | null, number | null, number | null][];
+    };
+    const samples: TrackSample[] = fixture.rows.map(([t, dLat, dLon, speedMps, tempC]) => ({
+      t, lat: dLat === null ? null : 33 + dLat,
+      lon: dLon === null ? null : -117 + dLon,
+      speedMps, tempC, hr: null, cadence: null,
+    }));
+    const track: NormalizedTrack = {
+      meta: { format: "quiver_watch", sport: "surfing", subSport: null, recordedBy: null,
+        startedAt: samples[0].t, endedAt: samples.at(-1)!.t },
+      samples,
+    };
+    const waves = detectWaves(track, summarizeTrack(track),
+      { lat: 33, lon: -116.99, swellWindowCenterDeg: 270 });
+    const counted = waves.filter(wave => wave.confidence >= COUNT_MIN_CONFIDENCE);
+    expect(counted).toHaveLength(6);
+    for (const expectedStart of fixture.confirmedRidesUtc) {
+      expect(counted.some(wave => Math.abs(Date.parse(wave.startedAt) - Date.parse(expectedStart)) <= 5_000)).toBe(true);
+    }
+    expect(waves.length).toBeGreaterThan(counted.length);
+  });
+
   it("finds 2–4 counted OB rides", () => {
     const track = obFixture.track as NormalizedTrack;
     const waves = detectWaves(track, summarizeTrack(track), obFixture.beach);
@@ -83,7 +111,7 @@ describe("detectWaves", () => {
   it("locates exactly four injected rides and reports their geometry and cadence confidence", () => {
     const track = syntheticTrack();
     const waves = detectWaves(track, fullSpan(track), BEACH);
-    expect(WAVE_DETECTION_VERSION).toBe("wd-1.0.0");
+    expect(WAVE_DETECTION_VERSION).toBe("wd-1.1.0");
     expect(waves).toHaveLength(4);
     waves.forEach((wave, index) => {
       expect(wave.index).toBe(index);

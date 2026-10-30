@@ -51,6 +51,7 @@ describe("buildWavesSummary", () => {
       gpsCoverage: 0.49, lowCoverage: true, speedReliable: true,
       detectionVersion: "wd-1.0.0",
       paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      calories: null, waterTempStartC: null, waterTempEndC: null,
       setIntervalMin: null, recordedWith: null,
     });
   });
@@ -64,6 +65,7 @@ describe("buildWavesSummary", () => {
       gpsCoverage: 0.5, lowCoverage: false, speedReliable: false,
       detectionVersion: "wd-1.0.0",
       paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      calories: null, waterTempStartC: null, waterTempEndC: null,
       setIntervalMin: null, recordedWith: null,
     });
   });
