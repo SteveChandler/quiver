@@ -357,6 +357,21 @@ describe("detectBeachSwellEvents options", () => {
     });
   });
 
+  it("the storm period floor is 6.5 s", () => {
+    const at = (periodS: number): PartitionSpec => ({ ...STORM, periodS });
+    const face = (periodS: number) => swellPartitionFaceHeightFt(
+      [{ heightFt: STORM.heightFt, periodS, directionDeg: 270 }],
+      swellBeach(),
+    )!;
+    // Storm-sized at both periods, so only the period floor decides.
+    expect(face(6.4)).toBeGreaterThanOrEqual(5);
+
+    expect(detect(stormWeek(at(6.5)), swellBeach(), STORM_CLASS)).toEqual([
+      expect.objectContaining({ kind: "storm", periodS: 6.5, peakLocalDate: localDate(3) }),
+    ]);
+    expect(detect(stormWeek(at(6.4)), swellBeach(), STORM_CLASS)).toEqual([]);
+  });
+
   it("a small short-period bump is not a storm", () => {
     const lull: PartitionSpec = { heightFt: 1.3, periodS: 8, direction: 270 };
     const bump: PartitionSpec = { heightFt: 4, periodS: 8, direction: 270 };

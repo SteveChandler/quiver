@@ -2,24 +2,35 @@
 
 ## Decision
 
-**Keep the starting `STORM_EVENT_THRESHOLDS` (`minPeriodS` 7, `minPeakFaceHeightFt` 5, `minFaceRiseFt` 3, `minEnergyRatio` 2.5).**
+**Shipped `STORM_EVENT_THRESHOLDS`: `minPeriodS` 6.5 (was 7), `minPeakFaceHeightFt` 5, `minFaceRiseFt` 3, `minEnergyRatio` 2.5.**
 
 | Criterion | Result |
 | --- | --- |
-| 1. Every stored big event under 11 s inside the window is matched by a storm event within 36 h | **FAIL: 17 of 20.** By any kind of event, 19 of 20. |
-| 2. Storm events average 4 or fewer per winter month | **PASS: 46224 1.33 per month, 46266 0.87 per month** |
+| 1. Every stored big event under 11 s inside the window is matched by a storm event within 36 h | **FAIL: 18 of 19.** Misses caused by the known detector gap are left out of the count. Raw, it is 18 of 20. |
+| 2. Storm events average 4 or fewer per winter month | **PASS: 46224 1.33 per month, 46266 0.93 per month** |
 
-Changing face or rise, in that order as the plan asks, does not recover any of the three misses. They are lost for two other reasons, covered under "The three misses" below:
+The first run used the starting values (period floor 7 s) and matched 17 of 20. The plan's tuning order is face first, then rise. Neither recovered a miss, and both added events. On review, the controller made three rulings:
 
-- Two buoy readings have a 6.67 s dominant period, which is under the 7 s period floor.
-- One is a detector edge case. A track gets no baseline on its first known day after an event.
+- **R7:** lower the period floor to 6.5 s. NDBC reports dominant period in fixed bins, and the bin below 7.14 s is 6.67 s. A 7 s floor drops storms whose day peak reads in that bin. This recovers 46266 2025-03-13 for one extra storm event.
+- **R8:** leave misses caused by the detector's shared baseline gap out of criterion 1. That is 46224 2024-01-07. The gap is documented below as a known detector gap. Follow-up: separate task.
+- **R9:** try an 8 ft "always a storm" override. It changed nothing and was removed (see below).
 
-Lowering face to 4.5 ft adds a net 9 storm events and lowering rise to 2 ft adds 1, and neither adds a match. Criterion 2 has about three times the allowed headroom, so nothing needs raising either.
+**One miss remains: 46224 2025-03-13.** It is the second peak of a double-peaked storm. The sea never dropped below 4.1 ft between the two peaks, so the second peak rises only 1.6 ft over that lull. The detector still flagged the storm twice:
+
+- a storm event on Mar 11, 55 h before the stored peak;
+- a swell event on Mar 14, 13 h after it.
 
 ## Setup
 
-- **Script:** `scripts/backtest-storm-class.ts`, run with `node --import tsx scripts/backtest-storm-class.ts`. It needs `www.ndbc.noaa.gov`. Inside the Claude sandbox, Node's `fetch` ignores the proxy unless you set `NODE_USE_ENV_PROXY=1`. Downloads are cached in `.cache/big-swells/`, the same cache `scripts/big-swells/build-big-swells.ts` uses, and are read with `parseNdbcStdmet` (`lib/climatology/parse-ndbc.ts`). The 2026 yearly archive is not published yet, and its 404 is not cached, so every run makes one request per station.
-- **Data:** NDBC stdmet for 46224 (Oceanside Offshore) and 46266 (Del Mar Nearshore). Each station uses the `h2023`, `h2024` and `h2025` yearly archives plus the 2026 Jan, Feb and Mar monthly files. All three winters are fully published: every winter month has data on every day, with 56,554 and 56,542 complete readings.
+- **Script:** `scripts/backtest-storm-class.ts`, run with `node --import tsx scripts/backtest-storm-class.ts`.
+  - It needs `www.ndbc.noaa.gov`. Inside the Claude sandbox, Node's `fetch` ignores the proxy unless you set `NODE_USE_ENV_PROXY=1`.
+  - Downloads are cached in `.cache/big-swells/`, the same cache `scripts/big-swells/build-big-swells.ts` uses. They are read with `parseNdbcStdmet` (`lib/climatology/parse-ndbc.ts`).
+  - The 2026 yearly archive is not published yet, and its 404 is not cached, so every run makes one request per station.
+- **Data:** NDBC stdmet for 46224 (Oceanside Offshore) and 46266 (Del Mar Nearshore). Each station uses:
+  - the `h2023`, `h2024` and `h2025` yearly archives;
+  - the 2026 Jan, Feb and Mar monthly files.
+
+  All three winters are fully published, with every winter month covered on every day. That is 56,554 complete readings at 46224 and 56,542 at 46266.
 - **Rows:** each half-hourly reading with WVHT, DPD and MWD present becomes one forecast row with a single partition:
   - `swell_1_height` is Hs in feet;
   - `swell_1_period` is DPD;
@@ -31,11 +42,12 @@ Lowering face to 4.5 ft adds a net 9 storm events and lowering rise to 2 ft adds
   - rows run from 48 h before `now` up to Apr 1 00:00 PDT;
   - the timezone is `America/Los_Angeles`;
   - events peaking outside Nov 1–Mar 31 are dropped.
-- **Ground truth:** the `recent` and `biggest` entries for both stations in `lib/data/big-swells.json` (generated 2026-10-23), duplicates merged, inside Nov 2023–Mar 2024, Nov 2024–Mar 2025 and Nov 2025–Mar 2026. An entry counts as matched when an event of the right kind peaks within 36 h of the entry's `at`.
+- **Ground truth:** the `recent` and `biggest` entries for both stations in `lib/data/big-swells.json` (generated 2026-10-23), with duplicates merged. Only entries inside Nov 2023–Mar 2024, Nov 2024–Mar 2025 and Nov 2025–Mar 2026 count. An entry is matched when an event of the right kind peaks within 36 h of the entry's `at`.
+- **The script's criterion 1 line** leaves out the entries listed in `DETECTOR_GAP_MISSES` (R8), but only while they stay unmatched. It also prints the raw count.
 
 ### Face height for buoy Hs
 
-The detector turns the partition into face height with the shared transformer (`model_swell`, calibration factor 1 for the test beach). From 7 to 10.5 s, face is about 0.81–0.85 × Hs in feet. So 5 ft of face needs Hs of about 1.85 m. The stored "big" cut is about 2.25 m (`bigHsM`), which gives about 6 ft of face.
+The detector turns the partition into face height with the shared transformer (`model_swell`, calibration factor 1 for the test beach). From 6.5 to 10.5 s, face is about 0.8–0.85 × Hs in feet. So 5 ft of face needs Hs of about 1.85 m. The stored "big" cut is about 2.25 m (`bigHsM`), which gives about 6 ft of face.
 
 | Hs m (ft) | 5.9 s | 6.67 s | 7.14 s | 7.69 s | 8.33 s | 9.09 s | 10.53 s | 11.11 s | 14.29 s |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -49,42 +61,63 @@ The detector turns the partition into face height with the shared transformer (`
 
 ## Runs
 
-The `--face`, `--rise`, `--ratio` and `--period` flags change a threshold for that run only. The shipped values live in `lib/alerts/swell-events/exposure.ts`. The "Matched" column counts stored events under 11 s that are matched by a storm event.
+The `--face`, `--rise`, `--ratio` and `--period` flags change a threshold for that run only. The shipped values live in `lib/alerts/swell-events/exposure.ts`.
 
-| Run | Thresholds (period / face / rise / ratio) | Matched | Storm events 46224 / 46266 | Per winter month 46224 / 46266 | Outcome |
-| --- | --- | ---: | ---: | ---: | --- |
-| 1: start | 7 / 5 / 3 / 2.5 | 17 of 20 | 20 / 13 | 1.33 / 0.87 | C1 FAIL, C2 PASS |
-| 2: `--face=4.5` | 7 / **4.5** / 3 / 2.5 | 17 of 20 (same misses) | 24 / 18 | 1.60 / 1.20 | C1 FAIL, C2 PASS |
-| 3: `--rise=2` | 7 / 5 / **2** / 2.5 | 17 of 20 (same misses) | 21 / 13 | 1.40 / 0.87 | C1 FAIL, C2 PASS |
-| 4: `--period=6.5` (diagnostic only) | **6.5** / 5 / 3 / 2.5 | 18 of 20 (recovers 46266 2025-03-13) | 20 / 14 | 1.33 / 0.93 | C1 FAIL, C2 PASS |
+- **Raw matched:** stored events under 11 s matched by a storm event, out of 20.
+- **Matched (R8):** the same count with the detector-gap miss left out, out of 19.
+
+| Run | Thresholds (period / face / rise / ratio) | Raw matched | Matched (R8) | Storm events 46224 / 46266 | Per winter month 46224 / 46266 | C1 (R8) | C2 |
+| --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+| 1: start | 7 / 5 / 3 / 2.5 | 17 of 20 | 17 of 19 | 20 / 13 | 1.33 / 0.87 | FAIL | PASS |
+| 2: `--face=4.5` | 7 / **4.5** / 3 / 2.5 | 17 of 20 | 17 of 19 | 24 / 18 | 1.60 / 1.20 | FAIL | PASS |
+| 3: `--rise=2` | 7 / 5 / **2** / 2.5 | 17 of 20 | 17 of 19 | 21 / 13 | 1.40 / 0.87 | FAIL | PASS |
+| 4: `--period=6.5` (trial) | **6.5** / 5 / 3 / 2.5 | 18 of 20 | 18 of 19 | 20 / 14 | 1.33 / 0.93 | FAIL | PASS |
+| 5: 6.5 shipped in `exposure.ts` (R7) | 6.5 / 5 / 3 / 2.5 | 18 of 20 | 18 of 19 | 20 / 14 | 1.33 / 0.93 | FAIL | PASS |
+| 6: R7 + `alwaysStormFaceFt` 8 (R9, removed) | 6.5 / 5 / 3 / 2.5, face ≥ 8 always a storm | 18 of 20 | 18 of 19 | 20 / 14 | 1.33 / 0.93 | FAIL | PASS |
+| Final (after removing R9) | 6.5 / 5 / 3 / 2.5 | 18 of 20 | 18 of 19 | 20 / 14 | 1.33 / 0.93 | FAIL | PASS |
+
+What each run changed:
 
 - **Run 2** adds ten storm events between 4.5 and 4.9 ft and drops one, a net gain of nine. The dropped event is 46224 2024-02-05 at 10.5 s and 7.5 ft. A lower face threshold changes where earlier events end, which moves the baselines that later days are measured against.
-- **Run 3** adds one event, 46224 2026-02-20 at 7.7 s and 5.5 ft, a rise of 2.2 ft over 3.3 ft.
-- **Run 4** moves the period floor of the storm class itself. That is outside the plan's list of thresholds to tune (face, then rise), so the value was not adopted. See "Options not taken".
+- **Run 3** adds one event: 46224 2026-02-20 at 7.7 s and 5.5 ft, a rise of 2.2 ft over 3.3 ft.
+- **Runs 4 and 5** each add one event, 46266 2025-03-13 at 6.67 s and 5.8 ft. It matches the stored event 2 h later. No other event changes.
+- **The final run** produces the same storm events as run 5.
+
+### R9: an 8 ft "always a storm" override (tried and removed)
+
+The trial added `alwaysStormFaceFt: 8` to `STORM_EVENT_THRESHOLDS`. It made `qualifiesAsStorm` accept any day with face ≥ 8 ft and a period from 6.5 up to 11 s, whatever its rise or ratio.
+
+The keep rule was: recover 46224 2025-03-13, and stay at or under 4 storm events a month at both stations. The override failed the first part.
+
+- **It changed nothing.** Run 6 produced exactly the same events as run 5.
+- **It could not have recovered the remaining miss.** That day's peak is 5.7 ft, well under 8 ft.
+- **It had nothing else to catch.** It created no new event anywhere in these six station-winters. A storm-band day of 8 ft or more is almost always far above its baseline, so rise or ratio already passes it.
+
+The constant and the code were removed, and no test was added for it.
 
 ### Rise and ratio rarely decide anything on buoy rows
 
-29 of 33 storm events in run 1 have a baseline face of 0 ft. On those, rise equals face and the energy ratio is capped at 99.
+30 of 34 storm events in the final run have a baseline face of 0 ft. On those, rise equals face and the energy ratio is capped at 99.
 
-This happens because the buoy's dominant period jumps between swell trains, for example 7.7 s and then 15 s. The tracker splits on a jump of more than 3 s, so the 7–11 s track usually starts on the day of the storm. Every earlier day outside a track's life counts as zero energy.
+This happens because the buoy's dominant period jumps between swell trains, for example 7.7 s and then 15 s. The tracker splits a track on a jump of more than 3 s, so the storm-band track usually starts on the day of the storm. Every earlier day outside a track's life counts as zero energy.
 
-On these rows, then, the storm class works out to "face ≥ 5 ft and 7 ≤ period < 11 s". Only 4 of the 33 events had a real baseline for rise and ratio to test against. Forecast partitions are steadier, so on live forecasts rise and ratio should matter more than they do here.
+On these rows, then, the storm class works out to "face ≥ 5 ft and 6.5 ≤ period < 11 s". Rise and ratio had a real baseline to test against on only 4 events. Forecast partitions are steadier, so on live forecasts rise and ratio should matter more than they do here.
 
-## Matches (run 1)
+## Matches (final run)
 
-All times are Pacific. "Max daylight face" is the largest face height in daylight rows (06:00–19:00) within 36 h of the stored peak. The second face column counts only rows with a 7–11 s period.
+All times are Pacific. "Max daylight face" is the largest face height in daylight rows (06:00–19:00) within 36 h of the stored peak. The second face column counts only rows with a period from 6.5 up to 11 s.
 
-| Station | Stored peak | List | Hs m | DPD s | MWD | Storm match | Nearest storm event | Nearest event of any kind | Max daylight face ±36 h | Same, 7–11 s rows only |
+| Station | Stored peak | List | Hs m | DPD s | MWD | Storm match | Nearest storm event | Nearest event of any kind | Max daylight face ±36 h | Same, 6.5–11 s rows only |
 | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- |
 | 46224 | 2024-01-03 23:56 | recent | 2.30 | 8.33 | 277 | yes | 2024-01-03 7.1 s 5.7 ft (−5 h) | same | 7.2 ft @ 12.5 s | 5.7 ft |
-| 46224 | 2024-01-07 06:56 | recent | 2.81 | 7.69 | 278 | **NO** | 2024-01-04 10.5 s 5.5 ft (−63 h) | swell 2024-01-06 20 s 4.2 ft (−22 h) | 8.9 ft @ 16.7 s | 7.8 ft |
+| 46224 | 2024-01-07 06:56 | recent | 2.81 | 7.69 | 278 | no, detector gap (excluded, R8) | 2024-01-04 10.5 s 5.5 ft (−63 h) | swell 2024-01-06 20 s 4.2 ft (−22 h) | 8.9 ft @ 16.7 s | 7.8 ft |
 | 46224 | 2024-01-11 07:56 | recent | 3.19 | 8.33 | 280 | yes | 2024-01-11 8.3 s 7.3 ft (+0 h) | same | 8.3 ft @ 7.7 s | 8.3 ft |
 | 46224 | 2024-02-01 14:26 | recent | 2.65 | 7.69 | 190 | yes | 2024-02-01 7.7 s 7.3 ft (+0 h) | same | 9.3 ft @ 14.3 s | 7.3 ft |
 | 46224 | 2024-02-08 07:26 | recent | 2.55 | 7.69 | 284 | yes | 2024-02-08 7.7 s 7.1 ft (+0 h) | same | 7.1 ft @ 7.7 s | 7.1 ft |
 | 46224 | 2024-03-24 05:56 | recent | 2.76 | 7.14 | 281 | yes | 2024-03-24 7.7 s 7.5 ft (+1 h) | same | 7.5 ft @ 7.7 s | 7.5 ft |
 | 46224 | 2024-11-15 14:26 | recent | 2.39 | 6.67 | 278 | yes | 2024-11-15 7.7 s 6.6 ft (+3 h) | same | 6.6 ft @ 7.7 s | 6.6 ft |
 | 46224 | 2025-03-03 07:56 | recent | 3.19 | 9.09 | 271 | yes | 2025-03-03 9.1 s 8.9 ft (+0 h) | same | 8.9 ft @ 9.1 s | 8.9 ft |
-| 46224 | 2025-03-13 22:26 | recent | 2.48 | 7.14 | 264 | **NO** | 2025-03-11 7.1 s 5.8 ft (−55 h) | swell 2025-03-14 11.1 s 5.0 ft (+13 h) | 5.7 ft @ 6.7 s | 5.0 ft |
+| 46224 | 2025-03-13 22:26 | recent | 2.48 | 7.14 | 264 | **NO** | 2025-03-11 7.1 s 5.8 ft (−55 h) | swell 2025-03-14 11.1 s 5.0 ft (+13 h) | 5.7 ft @ 6.7 s | 5.7 ft |
 | 46224 | 2025-03-18 07:26 | recent | 2.70 | 7.69 | 282 | yes | 2025-03-18 7.7 s 7.5 ft (+0 h) | same | 7.5 ft @ 7.7 s | 7.5 ft |
 | 46224 | 2025-12-24 16:56 | recent | 2.40 | 7.14 | 201 | yes | 2025-12-24 7.1 s 6.4 ft (+0 h) | same | 6.4 ft @ 7.1 s | 6.4 ft |
 | 46266 | 2024-01-07 08:56 | recent + biggest | 2.98 | 7.69 | 284 | yes | 2024-01-07 7.7 s 8.3 ft (+0 h) | same | 9.7 ft @ 15.4 s | 8.3 ft |
@@ -94,10 +127,10 @@ All times are Pacific. "Max daylight face" is the largest face height in dayligh
 | 46266 | 2024-03-24 19:56 | recent | 2.53 | 7.14 | 271 | yes | 2024-03-24 7.7 s 7.0 ft (−13 h) | same | 7.0 ft @ 7.7 s | 7.0 ft |
 | 46266 | 2024-11-15 12:26 | recent | 2.49 | 8.33 | 274 | yes | 2024-11-15 8.3 s 6.4 ft (+0 h) | same | 9.7 ft @ 14.3 s | 6.5 ft |
 | 46266 | 2025-03-03 07:26 | recent + biggest | 3.16 | 9.09 | 273 | yes | 2025-03-03 9.1 s 8.6 ft (+0 h) | same | 10.9 ft @ 15.4 s | 8.6 ft |
-| 46266 | 2025-03-13 21:26 | recent | 2.55 | 7.14 | 264 | **NO** | 2025-03-18 8.3 s 5.7 ft (+106 h) | swell 2025-03-11 14.3 s 7.4 ft (−55 h) | 7.8 ft @ 15.4 s | 5.2 ft |
+| 46266 | 2025-03-13 21:26 | recent | 2.55 | 7.14 | 264 | yes (from run 4 on) | 2025-03-13 6.7 s 5.8 ft (−2 h) | same | 7.8 ft @ 15.4 s | 5.8 ft |
 | 46266 | 2025-03-18 05:56 | recent | 2.34 | 7.14 | 288 | yes | 2025-03-18 8.3 s 5.7 ft (+2 h) | same | 7.5 ft @ 13.3 s | 6.1 ft |
 
-The two stored events with a dominant period under 7 s were both matched: 46224 2024-11-15 at 6.67 s and 46266 2024-02-08 at 5.88 s. A daylight hour within 36 h of each read 7.7 s.
+The two stored events with a dominant period under 6.5 s were both matched: 46224 2024-11-15 at 6.67 s and 46266 2024-02-08 at 5.88 s. A daylight hour within 36 h of each read 7.7 s.
 
 Eleven stored entries in the winters were 11 s or longer, so the storm criterion leaves them out:
 
@@ -108,51 +141,41 @@ Eleven stored entries in the winters were 11 s or longer, so the storm criterion
 
 All eleven are matched by an event within 36 h. Ten are swell events. 46266 2024-01-04 (13.3 s) is matched by a 9.9 s storm event 4 h later.
 
-By the any-kind wording, 19 of 20 events under 11 s are matched. That count flatters the 46224 2024-01-07 match, though. The event that matches it is an unrelated 20 s groundswell, 22 h earlier.
+### The remaining miss: 46224 2025-03-13 (Hs 2.48 m, 7.14 s, 264°)
 
-### The three misses
+This is the daily daylight peak of the storm-band track. A double peak meets the restart baseline.
 
-Each table below lists the daylight peak of each day for the 7–11 s track around the stored peak. A dash means the track had no daylight reading that day.
+| Day | Face ft | Period s | Note |
+| --- | ---: | ---: | --- |
+| Mar 11 | 5.8 | 7.14 | storm event (baseline 0) |
+| Mar 12 | 4.1 | 9.09 | lull; ends the event and becomes the next baseline |
+| Mar 13 | 5.7 | 6.67 | rises 1.6 ft at a ratio of 1.3 over Mar 12, so **not an event** |
+| Mar 14 | 4.4 | 6.67 | |
 
-**46224 2024-01-07 (Hs 2.81 m, 7.69 s, 278°): the empty-baseline edge.**
+With the 7 s floor, the 6.67 s period stopped Mar 13 first. With 6.5 s, the rise rule stops it. Recovering it would take a storm-only rise rule of about 1.5 ft or less, or a ratio rule of about 1.3 or less. The rulings did not ask for that, so it was not tried. The storm was flagged by the Mar 11 storm event and the Mar 14 swell event, so the class did not miss the storm itself, only its second peak.
+
+## Known detector gap: no baseline on the first day with data after an event
+
+**Follow-up: separate task.** This is not fixed here, because fixing it would change swell-alert output. Criterion 1 leaves out misses it causes (R8).
+
+`componentEvents` (`lib/alerts/swell-events/detector.ts`) starts a fresh baseline on the day after an event ends. The baseline covers `days[baselineStart, index)`. Days inside a track's life that have no reading are left out. So if the days right after an event are unknown, the first known day has an empty baseline range. `baselineOf` returns null, and the day is skipped, however big it is.
+
+The swell pass and the storm pass share this code, so the gap affects both.
+
+**Example: 46224 2024-01-07 (Hs 2.81 m, 7.69 s, 278°).** These are the daily daylight peaks of the storm-band track:
 
 | Day | Face ft | Period s | Note |
 | --- | ---: | ---: | --- |
 | Jan 3 | 5.7 | 7.14 | storm event (baseline 0) |
 | Jan 4 | 5.4 | 7.69 | continues the Jan 3 event |
 | Jan 5, Jan 6 | — | — | the track has no daylight reading; DPD sat on the 11–20 s trains |
-| Jan 7 | 6.8 | 8.33 | **not an event** |
+| Jan 7 | 6.8 | 8.33 | first known day after the event: empty baseline, **skipped** |
 
-`componentEvents` starts a fresh baseline on the day after an event ends. The baseline covers `days[baselineStart, index)`. Days inside a track's life with no reading are left out, so the first known day after the Jan 3–4 event is Jan 7. Its baseline range is empty, `baselineOf` returns null, and the day is skipped.
+46266, about 30 km to the south-east, caught the same storm on Jan 7: 8.3 ft over a baseline of 3.6 ft.
 
-The rule is general: the first known day after any event in a track can never start a new event. When the days between are unknown, that first known day is the next big day.
+A possible fix is to carry the previous event's lull forward as the baseline when the restart range is empty. Because the swell pass shares this code, that change needs its own backtest of swell-event output.
 
-This rule is in the code the swell pass shares, so it is a detector edge case, not a storm-class threshold. This task only tunes thresholds, so it was not changed. 46266 caught the same storm: Jan 7, 8.3 ft, baseline 3.6 ft.
-
-**46224 2025-03-13 (Hs 2.48 m, 7.14 s, 264°): period floor, then a double peak.**
-
-| Day | Face ft | Period s | Note |
-| --- | ---: | ---: | --- |
-| Mar 11 | 5.8 | 7.14 | storm event (baseline 0) |
-| Mar 12 | 4.1 | 9.09 | lull; becomes the baseline |
-| Mar 13 | 5.7 | **6.67** | **not an event** |
-| Mar 14 | 4.4 | 6.67 | |
-
-The day's daylight peak, chosen by energy, has a 6.67 s period. 6.67 s is an NDBC period bin, and it is below the 7 s floor. With `--period=6.5` the day is still measured against the Mar 12 lull of 4.1 ft: rise 1.6 ft, ratio 1.3. The detector still flags the storm twice:
-
-- a storm event on Mar 11, 55 h before the stored peak;
-- a swell event on Mar 14 at 11.1 s, 13 h after it.
-
-**46266 2025-03-13 (Hs 2.55 m, 7.14 s, 264°): period floor.**
-
-| Day | Face ft | Period s | Note |
-| --- | ---: | ---: | --- |
-| Mar 13 | 5.8 | **6.67** | track starts here, baseline 0; **not an event** |
-| Mar 15 | 4.4 | 8.33 | |
-
-Only the period stops it. `--period=6.5` turns it into a storm event at 6.67 s and 5.8 ft, 2 h before the stored peak (run 4).
-
-## Storm events per month (run 1)
+## Storm events per month (final run)
 
 "Storm" is the raw storm-event count, which is what criterion 2 measures. "Episodes" merges storm events that peak within 36 h of each other into one weather episode.
 
@@ -167,19 +190,12 @@ Only the period stops it. `--period=6.5` turns it into a storm event at 6.67 s a
 | 2024-12 | 0 / 0 | 11 | 0 / 0 | 10 |
 | 2025-01 | 0 / 0 | 6 | 0 / 0 | 7 |
 | 2025-02 | 0 / 0 | 5 | 0 / 0 | 6 |
-| 2025-03 | 3 / 3 | 13 | 2 / 2 | 8 |
+| 2025-03 | 3 / 3 | 13 | 3 / 3 | 8 |
 | 2025-11 | 1 / 1 | 4 | 0 / 0 | 7 |
 | 2025-12 | 1 / 1 | 3 | 0 / 0 | 5 |
 | 2026-01 | 1 / 1 | 7 | 1 / 1 | 7 |
 | 2026-02 | 2 / 2 | 4 | 2 / 2 | 5 |
 | 2026-03 | 0 / 0 | 1 | 0 / 0 | 6 |
-| **Total (15 months)** | **20 / 19** (1.33 per month) | 99 | **13 / 13** (0.87 per month) | 111 |
+| **Total (15 months)** | **20 / 19** (1.33 per month) | 99 | **14 / 14** (0.93 per month) | 111 |
 
 The busiest month is 4 storm events: 46224 in Jan 2024 and Feb 2024, during the El Niño winter. The swell column is the existing swell class on the same buoy rows, included for reference only. It is not a criterion here.
-
-## Options not taken
-
-These are open choices for whoever owns the storm class. They are not recommendations.
-
-- **`minPeriodS` 6.5.** Recovers 46266 2025-03-13 and adds one storm event there. It changes the Task 1 class definition (period from 7 up to, but not including, 11 s). No current detector test pins the 7 s lower edge; the storm tests use 8–10 s. It does not recover 46224 2025-03-13, because rise blocks it after the period does not.
-- **The empty-baseline edge in `componentEvents`.** For example, carry the previous event's lull forward as the baseline when the restart range is empty. This would recover 46224 2024-01-07. It is shared detector logic, so it would also change swell-event output.
