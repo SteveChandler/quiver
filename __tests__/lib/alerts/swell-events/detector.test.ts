@@ -4,8 +4,10 @@ import {
   detectBeachSwellEvents,
   exposureFactor,
   exposureLabel,
+  swellPartitionFaceHeightFt,
   type SwellEventForecastRow,
 } from "@/lib/alerts/swell-events";
+import { MODEL_SWELL_CALIBRATION_FACTORS } from "@/lib/utils/model-swell-calibration-factors";
 import {
   BEACH_ID,
   FLAT,
@@ -279,5 +281,18 @@ describe("detectBeachSwellEvents", () => {
       ...dayRows(9, PEAK),
     ];
     expect(detect(rows)).toEqual([]);
+  });
+});
+
+describe("per-beach model_swell factor", () => {
+  it("scales swell-event faces like the forecast rows at the same beach", () => {
+    const [calibratedId, k] = Object.entries(MODEL_SWELL_CALIBRATION_FACTORS).find(([, factor]) => factor > 1.2)!;
+    const plain = swellPartitionFaceHeightFt([{ heightFt: 3, periodS: 15, directionDeg: 270 }], swellBeach());
+    const calibrated = swellPartitionFaceHeightFt(
+      [{ heightFt: 3, periodS: 15, directionDeg: 270 }],
+      { ...swellBeach(), id: calibratedId },
+    );
+    expect(plain).not.toBeNull();
+    expect(calibrated).toBeCloseTo(plain! * k, 1);
   });
 });

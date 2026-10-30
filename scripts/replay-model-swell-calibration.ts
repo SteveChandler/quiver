@@ -104,8 +104,11 @@ function mean(values: number[]): number {
 }
 
 /** The shipping rule: enough rows, a material effect, clamped. 1 means "no entry". */
-function shippedFactor(ratios: number[]): number {
-  if (ratios.length < MODEL_SWELL_FACTOR_MIN_ROWS) return 1;
+function shippedFactor(
+  ratios: number[],
+  minRows: number = MODEL_SWELL_FACTOR_MIN_ROWS,
+): number {
+  if (ratios.length < minRows) return 1;
   const k = Math.min(
     MODEL_SWELL_FACTOR_MAX,
     Math.max(MODEL_SWELL_FACTOR_MIN, median(ratios)),
@@ -242,9 +245,11 @@ async function main(): Promise<void> {
     const mid = recs[Math.floor(recs.length / 2)].at;
     const train = recs.filter((r) => r.at < mid);
     const test = recs.filter((r) => r.at >= mid);
-    // Half the rows, so double them to keep the shipping row floor comparable.
-    const trainRatios = train.map((r) => r.truth / r.uncalibrated);
-    const trainK = shippedFactor([...trainRatios, ...trainRatios]);
+    // Half the rows, so half the shipping row floor.
+    const trainK = shippedFactor(
+      train.map((r) => r.truth / r.uncalibrated),
+      MODEL_SWELL_FACTOR_MIN_ROWS / 2,
+    );
     const mae = (pick: (r: Rec) => number): number =>
       mean(test.map((r) => Math.abs(r.truth - pick(r))));
     const row = {
