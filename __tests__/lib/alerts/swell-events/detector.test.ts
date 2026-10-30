@@ -373,6 +373,40 @@ describe("detectBeachSwellEvents options", () => {
     ], swellBeach(), STORM_CLASS)).toEqual([]);
   });
 
+  it("a storm-sized short-period bump still needs a 3 ft rise or a 2.5x energy jump", () => {
+    const at9s = (heightFt: number): PartitionSpec => ({ heightFt, periodS: 9, direction: 270 });
+    const face = (heightFt: number) => swellPartitionFaceHeightFt(
+      [{ heightFt, periodS: 9, directionDeg: 270 }],
+      swellBeach(),
+    )!;
+    // One 9 s component throughout, so the lull days are the storm's own baseline.
+    const run = (lullFt: number, bumpFt: number) => detect([
+      ...dayRows(0, at9s(lullFt)),
+      ...dayRows(1, at9s(lullFt)),
+      ...dayRows(2, at9s(lullFt)),
+      ...dayRows(3, at9s(bumpFt)),
+    ], swellBeach(), STORM_CLASS);
+
+    // Clears the 5 ft face, but rises 1.5 ft at (6.5 / 5)² ≈ 1.7x energy.
+    expect(face(6.5)).toBeGreaterThanOrEqual(5);
+    expect(face(6.5) - face(5)).toBeCloseTo(1.5, 1);
+    expect(run(5, 6.5)).toEqual([]);
+
+    // Same lull, a bigger jump: a storm.
+    expect(run(5, 8.5)).toEqual([expect.objectContaining({ kind: "storm", peakLocalDate: localDate(3) })]);
+
+    // Either half alone is enough.
+    const [riseOnly] = run(7, 10.5);
+    expect(riseOnly).toMatchObject({ kind: "storm", peakLocalDate: localDate(3) });
+    expect(riseOnly.peakFaceHeightFt - riseOnly.baselineFaceHeightFt).toBeGreaterThanOrEqual(3);
+    expect(riseOnly.energyRatio).toBeLessThan(2.5);
+
+    const [ratioOnly] = run(3.5, 5.7);
+    expect(ratioOnly).toMatchObject({ kind: "storm", peakLocalDate: localDate(3) });
+    expect(ratioOnly.peakFaceHeightFt - ratioOnly.baselineFaceHeightFt).toBeLessThan(3);
+    expect(ratioOnly.energyRatio).toBeGreaterThanOrEqual(2.5);
+  });
+
   it("swell and storm on the same day stay separate", () => {
     const swell: PartitionSpec = { heightFt: 4, periodS: 13, direction: 270 };
     const events = detect(sameDaySwellAndStorm(swell, STORM), swellBeach(), STORM_CLASS);
