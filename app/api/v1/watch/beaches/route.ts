@@ -15,6 +15,8 @@ import { withWatchAuth } from "@/lib/watch/with-watch-auth";
 export const runtime = "nodejs";
 export const maxDuration = 20;
 
+const SNAPSHOT_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
 const QuerySchema = z.object({
   lat: z.coerce.number().finite().min(-90).max(90).optional(),
   lon: z.coerce.number().finite().min(-180).max(180).optional(),
@@ -118,9 +120,12 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
   };
   if (!position) {
     const { data: snapshot, error } = await service.from("user_location_snapshots")
-      .select("lat, lon").eq("user_id", userId).maybeSingle();
+      .select("lat, lon, captured_at").eq("user_id", userId).maybeSingle();
     if (error) throw error;
-    if (snapshot && Number.isFinite(snapshot.lat) && Number.isFinite(snapshot.lon)) {
+    // An old phone location lists beaches near where the surfer was, not where they are.
+    const capturedMs = snapshot?.captured_at ? Date.parse(snapshot.captured_at) : NaN;
+    if (snapshot && Number.isFinite(snapshot.lat) && Number.isFinite(snapshot.lon)
+      && Number.isFinite(capturedMs) && Date.now() - capturedMs <= SNAPSHOT_MAX_AGE_MS) {
       position = { lat: snapshot.lat, lon: snapshot.lon };
     }
   }
