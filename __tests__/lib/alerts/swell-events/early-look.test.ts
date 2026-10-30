@@ -152,11 +152,38 @@ describe("earlyLookPeaks", () => {
     expect(earlyLookPeaks(floor, [], TODAY).map((peak) => peak.kind)).toEqual(["storm"]);
   });
 
-  it("drops a day-14 peak when day 15 is missing, since a truncated edge can't prove a local maximum", () => {
+  describe("day 14 at the forecast edge", () => {
     const peakOnEdge = wamSeries(1.2, { 14: { maxHsM: 2.4, periodS: 8 } });
-    const truncated = peakOnEdge.slice(0, 15);
-    expect(earlyLookPeaks(truncated, [], TODAY)).toEqual([]);
-    expect(earlyLookPeaks(peakOnEdge, [], TODAY).map((peak) => peak.localDate)).toEqual([dateAfter(14)]);
+
+    it("keeps a still-rising day-14 peak when day 15 is missing", () => {
+      const truncated = peakOnEdge.slice(0, 15);
+      expect(earlyLookPeaks(truncated, [], TODAY).map((peak) => peak.localDate)).toEqual([dateAfter(14)]);
+    });
+
+    it("drops a day-14 day that is not above day 13 when day 15 is missing", () => {
+      const flat = wamSeries(1.2, {
+        13: { maxHsM: 2.4, periodS: 8 },
+        14: { maxHsM: 2.4, periodS: 8 },
+      }).slice(0, 15);
+      expect(earlyLookPeaks(flat, [], TODAY).map((peak) => peak.localDate)).toEqual([dateAfter(13)]);
+    });
+
+    it("keeps day 14 when day 15 exists and is lower", () => {
+      expect(earlyLookPeaks(peakOnEdge, [], TODAY).map((peak) => peak.localDate)).toEqual([dateAfter(14)]);
+    });
+
+    it("applies the normal local-maximum test when day 15 exists and is higher", () => {
+      const stillClimbing = wamSeries(1.2, {
+        14: { maxHsM: 2.4, periodS: 8 },
+        15: { maxHsM: 3.0, periodS: 8 },
+      });
+      expect(earlyLookPeaks(stillClimbing, [], TODAY)).toEqual([]);
+    });
+
+    it("still needs the threshold when day 15 is missing", () => {
+      const low = wamSeries(1.2, { 14: { maxHsM: 1.4 } }).slice(0, 15);
+      expect(earlyLookPeaks(low, [], TODAY)).toEqual([]);
+    });
   });
 
   it("returns [] when there is no baseline or no data", () => {

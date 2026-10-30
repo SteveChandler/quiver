@@ -110,8 +110,9 @@ function median(values: number[]): number {
 /**
  * Coarse peaks on days 11-14, past the stored forecast's reach: a day that clears both the
  * 1.5 m floor and 1.6x the typical height of days 0-10, and tops its neighbours. Peaks the
- * stored forecast already reports as an event of the same kind are left out. Day 14 needs a
- * day-15 bucket to prove it is a local maximum, so a truncated model run drops it.
+ * stored forecast already reports as an event of the same kind are left out. When the model run
+ * ends before day 15, a day-14 peak only has to be above day 13: a still-rising edge is what an
+ * early look is for.
  */
 export function earlyLookPeaks(
   days: WamDay[],
@@ -134,7 +135,6 @@ export function earlyLookPeaks(
     if (day.periodS !== null && day.periodS < STORM_PERIOD_FLOOR_S) continue;
     const before = byDate.get(dateAfter(today, offset - 1));
     const after = byDate.get(dateAfter(today, offset + 1));
-    if (offset === EARLY_LAST_DAY && !after) continue;
     // A plateau counts once: its first day.
     if (before && day.maxHsM <= before.maxHsM) continue;
     if (after && day.maxHsM < after.maxHsM) continue;
