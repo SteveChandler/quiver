@@ -360,22 +360,14 @@ function qualifiesAsStorm(day: DayPeak, baseline: DayPeak): boolean {
     || energyRatio(day.energy, baseline.energy) >= thresholds.minEnergyRatio;
 }
 
-function qualifiedKind(day: DayPeak, baseline: DayPeak, stormClass: boolean): EventKind | null {
-  if (qualifies(day, baseline)) return "swell";
-  if (stormClass && qualifiesAsStorm(day, baseline)) return "storm";
-  return null;
-}
+type DayQualifier = (day: DayPeak, baseline: DayPeak) => boolean;
 
-function continuesEvent(
-  previous: DayPeak,
-  next: DayPeak,
-  baseline: DayPeak,
-  kind: EventKind,
-  stormClass: boolean,
-): boolean {
+const QUALIFIER_BY_KIND: Record<EventKind, DayQualifier> = { swell: qualifies, storm: qualifiesAsStorm };
+
+function continuesEvent(previous: DayPeak, next: DayPeak, baseline: DayPeak, qualifier: DayQualifier): boolean {
   if (!previous.partition || !next.partition) return false;
   return next.localDate === addLocalDays(previous.localDate, 1)
-    && qualifiedKind(next, baseline, stormClass) === kind
+    && qualifier(next, baseline)
     && tracksSwellComponent(previous.partition, next.partition);
 }
 
@@ -437,26 +429,30 @@ function buildEvent(args: {
   };
 }
 
+/**
+ * One pass per kind: each kind starts, continues and restarts its baseline on
+ * its own, so the storm pass can never change which swell events are found.
+ */
 function componentEvents(
   rows: readonly ExposedSwellRow[],
   days: readonly DayPeak[],
   beach: SwellEventBeach,
-  stormClass: boolean,
+  kind: EventKind,
 ): BeachSwellEvent[] {
+  const qualifier = QUALIFIER_BY_KIND[kind];
   const events: BeachSwellEvent[] = [];
   let baselineStart = 0;
   let index = 0;
   while (index < days.length) {
     const baseline = baselineOf(days, baselineStart, index);
-    const kind = baseline ? qualifiedKind(days[index], baseline, stormClass) : null;
-    if (!baseline || !kind) {
+    if (!baseline || !qualifier(days[index], baseline)) {
       index += 1;
       continue;
     }
 
     const eventDays = [days[index]];
     let next = index + 1;
-    while (next < days.length && continuesEvent(days[next - 1], days[next], baseline, kind, stormClass)) {
+    while (next < days.length && continuesEvent(days[next - 1], days[next], baseline, qualifier)) {
       eventDays.push(days[next]);
       next += 1;
     }
@@ -511,13 +507,18 @@ export function detectBeachSwellEvents(
     firstDate: getLocalDateStr(baselineStart, input.timezone),
     lastDate: addLocalDays(today, horizonDays - 1),
   });
+  const kinds: EventKind[] = stormClass ? ["swell", "storm"] : ["swell"];
   const events = buildTracks(rows)
-    .flatMap((track) => componentEvents(rows, componentDays(rows, track, input.beach), input.beach, stormClass))
+    .flatMap((track) => {
+      const days = componentDays(rows, track, input.beach);
+      return kinds.flatMap((kind) => componentEvents(rows, days, input.beach, kind));
+    })
     .sort((left, right) => right.peakEnergy - left.peakEnergy);
 
   // Two tracks can split one swell (e.g. a period jump between rows); keep the
-  // stronger. Overlapping events are only kept when they are different swells,
-  // and a storm and a swell are always different.
+  // stronger. Overlapping events are only kept when they are different swells.
+  // Only same-kind events can be duplicates, so storm events never displace a
+  // swell event: the storm run is the default run plus storms.
   const kept: BeachSwellEvent[] = [];
   for (const event of events) {
     const duplicate = kept.some((other) => (
