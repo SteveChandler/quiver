@@ -693,7 +693,9 @@ describe("event currency", () => {
     const rate = (iso: string) => rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: new Date(iso) });
 
     expect(built.events[0].fadeAt).toBe(localIsoOf(EVENT_DAY + 2, 0));
-    expect(rate(localIsoOf(EVENT_DAY + 1, 20)).map((event) => event.leadDays)).toEqual([0]);
+    expect(rate(localIsoOf(EVENT_DAY + 1, 17)).map((event) => event.leadDays)).toEqual([0]);
+    // Past the last daylight row it has nothing left to show, though it hasn't faded yet.
+    expect(rate(localIsoOf(EVENT_DAY + 1, 20))).toEqual([]);
     expect(rate(localIsoOf(EVENT_DAY + 2, 1))).toEqual([]);
   });
 
@@ -703,6 +705,45 @@ describe("event currency", () => {
 
     expect(rate(localIsoOf(EVENT_DAY, 23)).map((event) => event.leadDays)).toEqual([0]);
     expect(rate(localIsoOf(EVENT_DAY + 1, 1))).toEqual([]);
+  });
+});
+
+describe("events with nothing left to show today", () => {
+  const rate = (built: RegionBuild, iso: string) =>
+    rateRegionEvents(built, { beachId: built.beaches[0].id, skill: "intermediate", now: new Date(iso) });
+  const peakDayRows = [9, 12, 15, 18].map((hour) => ratingRow(EVENT_DAY, hour, SURF.good75));
+
+  it("drops a forecast event whose peak has passed and whose window has no daylight row left", () => {
+    expect(rate(builtWith({}, peakDayRows), localIsoOf(EVENT_DAY, 20))).toEqual([]);
+  });
+
+  it("keeps the same event while a daylight row today is still ahead", () => {
+    const [event] = rate(builtWith({}, peakDayRows), localIsoOf(EVENT_DAY, 16));
+
+    expect(event.here).toMatchObject({ label: "GOOD", window: "Mon 6–7 PM" });
+  });
+
+  it("keeps an event that still has a rating on a beach other than the requested one", () => {
+    const built = builtWith({}, []);
+    built.rowsByBeach[built.beaches[1].id] = peakDayRows;
+    const [event] = rate(built, localIsoOf(EVENT_DAY, 16));
+
+    expect(event.here).toBeNull();
+    expect(event.working.map((rating) => rating.beachName)).toEqual(["Sunset Cliffs"]);
+  });
+
+  it("keeps a future event even when no row has a usable height", () => {
+    const built = builtWith({}, [ratingRow(EVENT_DAY, 12, { wave: null, wind: "3 mph" })]);
+    const [event] = rate(built, NOW.toISOString());
+
+    expect(event).toMatchObject({ leadDays: EVENT_DAY, here: null, working: [], notWorking: [] });
+  });
+
+  it("leaves an early look alone once its peak has passed", () => {
+    const built = builtWith({ source: "wam", arrivalAt: null, fadeAt: null }, []);
+    const [event] = rate(built, localIsoOf(EVENT_DAY, 20));
+
+    expect(event).toMatchObject({ source: "wam", leadDays: 0, here: { label: "LIKELY" } });
   });
 });
 
