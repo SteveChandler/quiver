@@ -49,11 +49,11 @@ function signals(): RegionalDaySignal[] {
   return Array.from({ length: 7 }, (_, index) => ({
     localDate: addDays(EDITION, index), complete: true, sampleBeaches: 4, meanHeightFt: 3,
     directionDeg: 202, periodS: 13, sourceSeries: "enhanced_forecasts:San Diego", forecastRevision: "2026-10-27T12:00:00Z",
-    ...(index === 2 ? { exposedBeaches: [
+    ...(index === 2 ? { exposedBeaches: { "4-4-2026-10-29": [
       { beachId: "a", beachName: "Ocean Beach", exposure: "open" as const, qualityScore: 70 },
       { beachId: "d", beachName: "Sunset Cliffs", exposure: "open" as const, qualityScore: 60 },
       { beachId: "b", beachName: "Blacks", exposure: "shadowed" as const, qualityScore: 50 },
-    ] } : {}),
+    ] } } : {}),
   }));
 }
 
@@ -163,6 +163,20 @@ describe("regional story gate", () => {
     expect(withWind([null]).wind(key, "a")).toBeNull();
     expect(regionGateHolds(gate, withWind(["10 mph", "14 mph"]))).toBe(false);
     expect(regionGateHolds(gate, withWind([]))).toBe(false);
+  });
+
+  it("fails a quiet week the region build has an event in, and leaves the rest to the live check", () => {
+    const week = Array.from({ length: 7 }, (_, index) => addDays(EDITION, index));
+    const quiet: StoryGate = { kind: "quiet", fromDate: week[0], toDate: week[6], completeDates: week };
+    // The Sunday storm alone, which the chart's detector never sees, is enough to refuse a quiet week.
+    expect(regionGateHolds(quiet, buildRegionGateContext(regionBuild([storm]), EDITION))).toBe(false);
+    expect(regionGateHolds(quiet, buildRegionGateContext(regionBuild([ssw, storm]), EDITION))).toBe(false);
+    // Arriving on the week's last day counts; an event wholly after the week does not.
+    const lateArrival = regionEvent("San Diego:W:2026-11-03", 270, 15, "2026-11-02T18:00:00Z", "2026-11-03T20:00:00Z", null);
+    expect(regionGateHolds(quiet, buildRegionGateContext(regionBuild([lateArrival]), EDITION))).toBe(false);
+    const nextWeek = regionEvent("San Diego:W:2026-11-05", 270, 15, "2026-11-04T18:00:00Z", "2026-11-05T20:00:00Z", null);
+    expect(regionGateHolds(quiet, buildRegionGateContext(regionBuild([nextWeek]), EDITION))).toBeNull();
+    expect(regionGateHolds(quiet, buildRegionGateContext(regionBuild([]), EDITION))).toBeNull();
   });
 
   it("returns null for wind, tide, change, quiet and day gates", () => {

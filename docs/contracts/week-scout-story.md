@@ -78,21 +78,22 @@ type StoryGate =
   | { kind: 'change'; fromDate: string; toDate: string; direction: 'better' | 'worse'; minimumScoreChange: number; sourceSeries: string }
   | { kind: 'day'; localDate: string; bucket: 'morning' | 'midday' | 'evening'; reason: 'light_wind' | 'rising_tide' | 'clean_window' }
   | { kind: 'quiet'; fromDate: string; toDate: string; completeDates: string[] };
-type Candidate = { id: string; slot: 'cover' | 'story:lead' | 'story:turn' | `swell:${string}` | `day:${string}` | `quiet:${string}`; text: string; gate: StoryGate; rank?: number };
+type Candidate = { id: string; slot: 'cover' | 'story:lead' | 'story:turn' | `swell:${string}` | `day:${string}` | `quiet:${string}` | `event:${string}`; text: string; gate: StoryGate; rank?: number };
 type StoryInput = {
   schemaVersion: 3; region: string; editionDate: string; sourcePublishedAt: string;
   validUntil: string; inputHash: string;
   briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: [] };
   copyFacts: Candidate[];
+  beachNames: Record<string, string>; // every region beach, id to name
   provenance: { sourceIds: string[]; sourceHashes: string[]; generationInputVersion: string;
     representativeBeachIds: string[]; coverageDates: string[];
     coverage?: Array<{ localDate: string; sampleBeaches: number; rows: number }>;
     fixture?: boolean };
 };
-type StoryArtifact = Omit<StoryInput, 'copyFacts' | 'briefing'> & {
+type StoryArtifact = Omit<StoryInput, 'copyFacts' | 'beachNames' | 'briefing'> & {
   artifactId: string; generationVersion: 'week-scout-story-1'; model: string;
   briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[] };
 };
 ```
 
-`GET /regions` returns `RegionList`. `GET /input` returns `StoryInput`; a sparse or stale region returns HTTP 409. The worker submits `StoryArtifact` to `POST /editions`; the server accepts only issued candidate IDs in issue order, requires `cover` and `story:lead` when offered, and rejects changed fields. `artifactId` is SHA-256 of canonical JSON with `artifactId` omitted, using the existing briefing hash rule. The response is `{ artifactId: string }`, HTTP 201 for first publish or 200 for an identical retry. `GET /latest` returns the stored `StoryArtifact` or HTTP 404. All four routes send `Cache-Control: private, no-store, no-cache, must-revalidate` through the publisher wrapper.
+`GET /regions` returns `RegionList`. `GET /input` returns `StoryInput`; a sparse or stale region returns HTTP 409. The worker submits `StoryArtifact` to `POST /editions`; the server accepts only issued candidate IDs in issue order (at most 200, one per slot), requires `cover` and `story:lead` when offered, and rejects changed fields. `event:<storyKey>:story` and `event:<storyKey>:beach:<beachId>` candidates are the regional swells card's lines (one per forecast event and one per beach the card lists for it); the Week Scout story never serves them. `artifactId` is SHA-256 of canonical JSON with `artifactId` omitted, using the existing briefing hash rule. The response is `{ artifactId: string }`, HTTP 201 for first publish or 200 for an identical retry. `GET /latest` returns the stored `StoryArtifact` or HTTP 404. All four routes send `Cache-Control: private, no-store, no-cache, must-revalidate` through the publisher wrapper.

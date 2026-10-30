@@ -29,6 +29,8 @@ export interface StoryInput {
   validUntil: string;
   briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[] };
   copyFacts: StoryCandidate[];
+  /** Every region beach, id to name, so a rewritten sentence can be checked for beaches its fact doesn't name. */
+  beachNames: Record<string, string>;
   provenance: { sourceIds: string[]; sourceHashes: string[]; generationInputVersion: string; representativeBeachIds: string[]; coverageDates: string[]; coverage?: Array<{ localDate: string; sampleBeaches: number; rows: number }>; fixture?: boolean };
   inputHash: string;
 }

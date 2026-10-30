@@ -3,8 +3,7 @@ import type { RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { localDate } from "./swell-briefing-input";
-import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, type RegionalSwellEvent } from "./week-scout-story-candidates";
-import { storyEventsFromRegion } from "./week-scout-story-source";
+import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
 import type { StoryGate } from "./week-scout-story-types";
 
 type Exposure = "open" | "partial" | "shadowed";
@@ -86,9 +85,16 @@ function exposureHolds(gate: Extract<StoryGate, { kind: "exposure" }>, region: R
     && named.filter((claim) => claim.exposure === gate.exposure).length >= gate.minimumBeaches;
 }
 
+/** A quiet week can't stand while the region build has an event arriving or peaking on one of its days. */
+function quietRefused(gate: Extract<StoryGate, { kind: "quiet" }>, events: readonly RegionalSwellEvent[]): boolean {
+  return events.some((event) => gate.completeDates.includes(eventDate(event.arrivalAt, event.timezone))
+    || gate.completeDates.includes(eventDate(event.peakAt, event.timezone)));
+}
+
 /**
- * Checks a swell, exposure or beach claim against the region build; null for the kinds the live
- * Week Scout response proves instead.
+ * Checks a swell, exposure or beach claim against the region build, and refuses a quiet week it has
+ * an event in; null for what the live Week Scout response proves instead, including a quiet week the
+ * build leaves to it.
  */
 export function regionGateHolds(gate: StoryGate, region: RegionGateContext): boolean | null {
   switch (gate.kind) {
@@ -96,13 +102,13 @@ export function regionGateHolds(gate: StoryGate, region: RegionGateContext): boo
     case "exposure": return exposureHolds(gate, region);
     case "beach": return region.exposure(gate.regionalEventKey, gate.beachId) === gate.exposure
       && region.wind(gate.regionalEventKey, gate.beachId) === gate.wind;
+    case "quiet": return quietRefused(gate, region.events) ? false : null;
     case "origin":
     case "wind":
     case "wind_pattern":
     case "tide":
     case "change":
     case "day":
-    case "quiet":
       return null;
   }
 }

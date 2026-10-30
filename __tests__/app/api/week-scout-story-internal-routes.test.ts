@@ -73,6 +73,7 @@ describe("Week Scout story worker routes", () => {
         arrivalLocalDate: "2026-10-27", peakLocalDate: "2026-10-28", fadeLocalDate: null,
         confidence: "likely", minimumBeaches: 2,
       } }],
+      beachNames: { beach: "Ocean Beach" },
       provenance: { sourceIds: ["source"], sourceHashes: ["hash"], generationInputVersion: "1",
         representativeBeachIds: ["beach"], coverageDates: ["2026-10-27"] },
     };

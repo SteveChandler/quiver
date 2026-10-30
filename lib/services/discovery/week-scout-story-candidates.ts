@@ -1,8 +1,19 @@
-import { addDays } from "./swell-briefing-input";
+import type { InternalRegionEvent, RegionBuild } from "@/lib/alerts/swell-events/regional";
+import { confidenceFor, localDayDiff, rateRegionEvents } from "@/lib/alerts/swell-events/regional-rating";
+import { addDays, localDate } from "./swell-briefing-input";
+import type { RegionGateContext } from "./week-scout-story-region-gate";
 import type { StoryCandidate, StoryGate } from "./week-scout-story-types";
 
 type Bucket = "morning" | "midday" | "evening";
 type Exposure = "open" | "partial" | "shadowed";
+type Wind = "light" | "breezy" | "windy";
+
+interface ExposedBeach {
+  beachId: string;
+  beachName: string;
+  exposure: Exposure;
+  qualityScore: number | null;
+}
 
 export interface RegionalDaySignal {
   localDate: string;
@@ -15,7 +26,8 @@ export interface RegionalDaySignal {
   sourceSeries: string;
   forecastRevision: string;
   exposure?: { kind: Exposure; sampleBeaches: number };
-  exposedBeaches?: Array<{ beachId: string; beachName: string; exposure: Exposure; qualityScore: number | null }>;
+  /** Each event peaking this day, by story event key: every region beach's exposure to that event's direction. */
+  exposedBeaches?: Record<string, ExposedBeach[]>;
   wind?: { bucket: Bucket; fromWindClass: "offshore" | "onshore"; windClass: "offshore" | "onshore"; selectorConfirmed: boolean; turnConfirmed: boolean; beachId?: string; fromBucket?: Bucket; fromDirection?: string; toDirection?: string };
   tide?: { bucket: Bucket; tidePhase: string; windowOrder: "opens" | "closes"; selectorConfirmed: boolean; orderingConfirmed: boolean; beachId?: string };
 }
@@ -34,7 +46,10 @@ export interface RegionalSwellEvent {
   regionalKey: string;
 }
 
-const MAX_FACTS = 100;
+/** The most candidates one story input offers, story and card lines together. */
+export const MAX_FACTS = 200;
+/** The card lists at most five working and three not-working beaches, plus the beach it was rated for. */
+const MAX_BEACH_LINES = 8;
 const MAX_LENGTH = 240;
 const DIGIT = /\d/;
 const COMPASS = ["north", "north-northeast", "northeast", "east-northeast", "east", "east-southeast", "southeast", "south-southeast", "south", "south-southwest", "southwest", "west-southwest", "west", "west-northwest", "northwest", "north-northwest"];
@@ -67,6 +82,16 @@ function periodWords(seconds: number, kind: RegionalSwellEvent["kind"]): string 
   if (seconds >= 13) return "long-period groundswell";
   if (seconds >= 10) return "mid-period swell";
   return "short-period windswell";
+}
+
+/** "west long-period groundswell"; a storm's "stormy" leads the direction: "stormy west short-period swell". */
+function namedSwell(direction: string, seconds: number, kind: RegionalSwellEvent["kind"]): string {
+  const period = periodWords(seconds, kind);
+  return kind === "storm" ? `stormy ${direction} ${period.replace(/^stormy /, "")}` : `${direction} ${period}`;
+}
+
+function withArticle(phrase: string): string {
+  return `${/^[aeiou]/i.test(phrase) ? "an" : "a"} ${phrase}`;
 }
 
 function directionWords(degrees: number): string {
@@ -114,7 +139,7 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
     : arrivalDate < firstDate
       ? `A ${period} from the ${direction} is already in the water and peaks ${peakDay}.`
       : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, gate);
-  if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
+  if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", `${region} gets ${withArticle(namedSwell(direction, swell.periodS, swell.kind))} by ${arrival}, with the most swell ${peakDay}.`, gate);
   add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate);
   if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
 }
@@ -126,6 +151,122 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
 export function storyEventKey(event: RegionalSwellEvent): string {
   const key = `${directionSector(event.directionDeg)}-${periodBand(event.periodS)}-${eventLocalDate(event.peakAt, event.timezone)}`;
   return event.kind === "storm" ? `${key}-s` : key;
+}
+
+/** The swell gate for a sentence naming this event's direction, period class and days, fade included when it has one. */
+export function eventSwellGate(event: RegionalSwellEvent): Extract<StoryGate, { kind: "swell" }> {
+  return {
+    kind: "swell", regionalEventKey: storyEventKey(event), directionSector: directionSector(event.directionDeg),
+    directionIndex: directionIndex(event.directionDeg), periodBand: periodBand(event.periodS), periodClass: periodClass(event.periodS),
+    arrivalLocalDate: eventLocalDate(event.arrivalAt, event.timezone), peakLocalDate: eventLocalDate(event.peakAt, event.timezone),
+    fadeLocalDate: event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null,
+    confidence: event.confidence, minimumBeaches: event.minimumBeaches,
+  };
+}
+
+const STORY_CONFIDENCE = { on_the_way: "locked", likely: "likely", early_look: "on_the_radar" } as const;
+
+type ForecastRegionEvent = InternalRegionEvent & { directionDeg: number; periodS: number; arrivalAt: string };
+
+/** Detected events always carry a direction, period and arrival; only WAM early looks lack them. */
+function isForecastEvent(event: InternalRegionEvent): event is ForecastRegionEvent {
+  return event.source === "forecast" && event.directionDeg !== null && event.periodS !== null && event.arrivalAt !== null;
+}
+
+/**
+ * The region build's forecast events as story events. `all` is every one, chronological; `week`
+ * is those arriving or peaking in the edition's seven days, at most three.
+ */
+export function storyEventsFromRegion(build: RegionBuild, editionDate: string): { week: RegionalSwellEvent[]; all: RegionalSwellEvent[] } {
+  const all: RegionalSwellEvent[] = build.events.filter(isForecastEvent)
+    .sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt))
+    .map((event) => ({
+      directionDeg: event.directionDeg, periodS: event.periodS, arrivalAt: event.arrivalAt, peakAt: event.peakAt,
+      fadeAt: event.fadeAt, timezone: build.timezone,
+      confidence: STORY_CONFIDENCE[confidenceFor(Math.max(0, localDayDiff(editionDate, event.peakLocalDate)))],
+      minimumBeaches: Math.min(3, event.memberCount), kind: event.kind, regionalKey: event.key,
+    }));
+  // Out-of-week events (a spike that already passed) must not use up the three slots.
+  const week = all.filter((event) => [event.arrivalAt, event.peakAt].some((at) => {
+    const date = localDate(new Date(at), build.timezone);
+    return date >= editionDate && date <= addDays(editionDate, 6);
+  })).slice(0, 3);
+  return { week, all };
+}
+
+/**
+ * A day as the card names it from the region's today: the weekday within six days either side,
+ * "a week from" one up to thirteen days ahead.
+ */
+function cardDay(date: string, today: string): string {
+  const lead = localDayDiff(today, date);
+  if (lead === 7) return "a week from today";
+  if (lead > 7 && lead <= 13) return `a week from ${weekday(date)}`;
+  if (lead > 13) return "later on";
+  return lead < -6 ? "earlier" : weekday(date);
+}
+
+/**
+ * The card's story line for one event, from the region's local today: direction, kind and period,
+ * then arrival, peak and (when it has one) fade days. "A stormy west short-period swell arrives
+ * Thursday, peaks Friday and fades Saturday."
+ */
+export function eventStoryText(event: RegionalSwellEvent, today: string): string {
+  const arrival = eventLocalDate(event.arrivalAt, event.timezone);
+  const peak = eventLocalDate(event.peakAt, event.timezone);
+  const fade = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
+  const clauses = [
+    arrival < today ? "is already in the water" : `arrives ${cardDay(arrival, today)}`,
+    `${peak < today ? "peaked" : "peaks"} ${peak === arrival && arrival >= today ? "the same day" : cardDay(peak, today)}`,
+    ...(fade ? [`${fade < today ? "faded" : "fades"} ${fade === peak ? "the same day" : cardDay(fade, today)}`] : []),
+  ];
+  const sentence = `${withArticle(namedSwell(directionWords(event.directionDeg), event.periodS, event.kind))} `
+    + `${clauses.slice(0, -1).join(", ")} and ${clauses[clauses.length - 1]}.`;
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
+/** Why a rated beach does or doesn't work for an event, from its exposure to the event's direction and its wind. */
+export function beachLineText(direction: string, exposure: Exposure, wind: Wind): string {
+  if (exposure === "shadowed") return `Sheltered from the ${direction}, so it stays small.`;
+  if (exposure === "partial") return `Partly sheltered from the ${direction}, so it runs smaller and cleaner.`;
+  return wind === "light"
+    ? `Faces the ${direction} swell straight on, with light wind in its window.`
+    : `Takes the ${direction} swell head on, but the wind is up in its window.`;
+}
+
+/**
+ * The card's lines: a story line per forecast event and a line per beach the card lists for it (the
+ * region's first beach, the working and the not-working beaches, at most eight). Each is the only
+ * candidate in its `event:` slot. These slots are the card's alone; the Week Scout story never serves them.
+ */
+export function buildEventCandidates(build: RegionBuild, events: readonly RegionalSwellEvent[], context: RegionGateContext, now: Date): StoryCandidate[] {
+  const first = build.beaches[0];
+  const rated = new Map((first ? rateRegionEvents(build, { beachId: first.id, skill: "intermediate", now }) : [])
+    .map((event) => [event.key, event]));
+  const today = localDate(now, build.timezone);
+  const facts: StoryCandidate[] = [];
+  const keys = new Set<string>();
+  for (const event of events) {
+    const key = storyEventKey(event);
+    // The first event under a key, as the gate context keeps the first.
+    if (keys.has(key)) continue;
+    keys.add(key);
+    add(facts, `event-${key}-story`, `event:${key}:story`, eventStoryText(event, today), eventSwellGate(event));
+    const listing = rated.get(event.regionalKey);
+    const listed = listing ? [listing.here, ...listing.working, ...listing.notWorking] : [];
+    const direction = directionWords(event.directionDeg);
+    const lines = [...new Set(listed.flatMap((rating) => (rating ? [rating.beachId] : [])))].flatMap((beachId) => {
+      // The gate's values are the ones the region build proves at serve time.
+      const exposure = context.exposure(key, beachId);
+      const wind = context.wind(key, beachId);
+      return exposure && wind ? [{ beachId, exposure, wind }] : [];
+    }).slice(0, MAX_BEACH_LINES);
+    for (const { beachId, exposure, wind } of lines) {
+      add(facts, `event-${key}-beach-${beachId}`, `event:${key}:beach:${beachId}`, beachLineText(direction, exposure, wind),
+        { kind: "beach", regionalEventKey: key, beachId, exposure, wind });
+    }
+  }
+  return facts.map((fact) => ({ ...fact, rank: 0 }));
 }
 
 /** Candidate order is the fallback rank; every claim has a live gate. */
@@ -146,16 +287,10 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     const fadeDate = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
     const peak = days.find((day) => day.localDate === peakDate);
     const sector = directionSector(event.directionDeg);
-    const band = periodBand(event.periodS);
     const key = storyEventKey(event);
     if (keys.has(key)) continue;
     keys.add(key);
-    const gate: StoryGate = {
-      kind: "swell", regionalEventKey: key, directionSector: sector, directionIndex: directionIndex(event.directionDeg),
-      periodBand: band, periodClass: periodClass(event.periodS),
-      arrivalLocalDate: arrivalDate, peakLocalDate: peakDate, fadeLocalDate: fadeDate,
-      confidence: event.confidence, minimumBeaches: event.minimumBeaches,
-    };
+    const gate = eventSwellGate(event);
     const direction = directionWords(event.directionDeg);
     const period = periodWords(event.periodS, event.kind);
     const firstDate = days[0].localDate;
@@ -169,7 +304,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
       arrivalDate, peakDate }, region, firstDate, lastDate, { ...gate, fadeLocalDate: null });
     add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
     if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
-    const named = peak?.exposedBeaches?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
+    const named = peak?.exposedBeaches?.[key]?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
     const byQuality = (a: typeof named[number], b: typeof named[number]): number =>
       (b.qualityScore ?? -1) - (a.qualityScore ?? -1) || a.beachName.localeCompare(b.beachName);
     const open = named.filter((beach) => beach.exposure === "open").sort(byQuality);

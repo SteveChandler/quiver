@@ -58,6 +58,11 @@ export function storyRegion(build: RegionBuild, editionDate: string): StoryRegio
   return { context: buildRegionGateContext(build, editionDate), first: storyEventsFromRegion(build, editionDate).week[0] ?? null };
 }
 
+/** The card's own lines (week-scout-story-candidates buildEventCandidates); the Week Scout story never serves them. */
+function isCardSlot(slot: string): boolean {
+  return slot.startsWith("event:");
+}
+
 /** A selected sentence is served only when the region build or the live response still proves its gate. */
 function gateHolds(gate: StoryGate, regional: StoryRegion, live: Live): boolean {
   return regionGateHolds(gate, regional.context) ?? storyGateHolds(gate, live);
@@ -190,7 +195,8 @@ export function bindStory(args: {
     fact.gate.kind !== "swell" || describesFirstSwell(fact.gate, regional.first);
   const selected = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
   if (selected.length !== args.selections.length) return empty("unavailable");
-  const chosen = selected.filter((fact) => gateHolds(fact.gate, regional, live) && agreesWithCover(fact));
+  // An edition may select card lines too; they stay out of the story and never count against it.
+  const chosen = selected.filter((fact) => !isCardSlot(fact.slot) && gateHolds(fact.gate, regional, live) && agreesWithCover(fact));
   const text = (slot: string): string | null => chosen.find((fact) => fact.slot === slot)?.text ?? null;
   if (!text("cover") && args.requireCover !== false) return empty("unavailable");
   const dayBodies = new Set<string>();
@@ -210,7 +216,9 @@ export function bindStory(args: {
   };
 }
 
-export function bindFallbackStory(region: string, regionalInput: StoryInput, live: Live, regional: StoryRegion): StoryWire {
+export function bindFallbackStory(region: string, fullInput: StoryInput, live: Live, regional: StoryRegion): StoryWire {
+  // Card lines can't fill a story slot or make an otherwise empty story ready.
+  const regionalInput = { ...fullInput, copyFacts: fullInput.copyFacts.filter((fact) => !isCardSlot(fact.slot)) };
   const slots = new Set<string>();
   const matchesFirstSwell = (gate: SwellGate): boolean => describesFirstSwell(gate, regional.first);
   // Ranked last, so a passing regional sentence keeps its slot and these fill only what it leaves empty.

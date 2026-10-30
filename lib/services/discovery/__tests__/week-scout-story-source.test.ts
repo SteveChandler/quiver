@@ -22,21 +22,21 @@ const beaches = [
   { id: "b", name: "Blacks", lat: 32.7, lon: -117.3, aspect_deg: 202, swell_window_center_deg: 202, swell_window_halfwidth_deg: 25, wind_offshore_deg: 90 },
   { id: "c", name: "La Jolla Shores", lat: 32.9, lon: -117.1, aspect_deg: 270, swell_window_center_deg: 270, swell_window_halfwidth_deg: 20, wind_offshore_deg: 90 },
 ];
-const forecasts = (): Array<Record<string, unknown>> => Array.from({ length: 7 }, (_, day) =>
-  beaches.flatMap((beach) => [12, 15].map((hour) => ({
+const forecasts = (beachRows: Array<{ id: string }> = beaches): Array<Record<string, unknown>> => Array.from({ length: 7 }, (_, day) =>
+  beachRows.flatMap((beach) => [12, 15].map((hour) => ({
     id: `${beach.id}-${day}-${hour}`,
     beach_id: beach.id, forecast_at: new Date(Date.UTC(2026, 9, 27 + day, hour)).toISOString(),
     wave_height: "3 ft", swell_direction_om: 202, swell_period_om: 15, confidence_score: 70,
     om_fetched_at: now.toISOString(), updated_at: now.toISOString(),
   })))).flat();
 
-function client(rows: Array<Record<string, unknown>>): SupabaseClient<Database> {
+function client(rows: Array<Record<string, unknown>>, beachRows: Array<Record<string, unknown>> = beaches): SupabaseClient<Database> {
   return { rpc: () => { throw new Error("unexpected RPC"); }, from: (table: string) => {
     const query = {
       select: () => query, eq: () => query, is: () => query, order: () => query,
       in: () => query, gte: () => query, lt: () => query,
       range: async (start: number, end: number) => ({
-        data: (table === "beaches" ? beaches : rows).slice(start, end + 1), error: null,
+        data: (table === "beaches" ? beachRows : rows).slice(start, end + 1), error: null,
       }),
     };
     return query;
@@ -79,6 +79,53 @@ describe("regional story source snapshot", () => {
     expect(stormLine?.text).not.toMatch(/\d/);
     expect(stormLine?.gate).toMatchObject({ kind: "swell", confidence: "locked", minimumBeaches: 3 });
     expect(loadRegionForecastEvents).toHaveBeenCalledWith({ client: expect.anything(), region: "San Diego", now, timezone: TIMEZONE });
+  });
+
+  it("carries every region beach's name and a card story line for every forecast event", async () => {
+    // A swell that peaked yesterday and is still fading: out of the week, still on the card.
+    const passed = regionEvent("San Diego:W:2026-10-26", 270, 18, "2026-10-25T18:00:00Z", "2026-10-26T20:00:00Z", "2026-10-27T20:00:00Z");
+    jest.mocked(loadRegionForecastEvents).mockResolvedValue(regionBuild([passed, ssw, storm]));
+    const input = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    expect(input.beachNames).toEqual({ a: "Ocean Beach", b: "Blacks", c: "La Jolla Shores" });
+    expect(input.copyFacts.filter((fact) => fact.slot.startsWith("event:")).map((fact) => [fact.slot, fact.text])).toEqual([
+      ["event:6-6-2026-10-26:story", "A west long-period groundswell is already in the water, peaked Monday and fades Tuesday."],
+      ["event:4-4-2026-10-27:story", "A south-southwest long-period groundswell arrives Tuesday, peaks the same day and fades Wednesday."],
+      ["event:6-2-2026-10-29-s:story", "A stormy west short-period swell arrives Wednesday, peaks Thursday and fades Friday."],
+    ]);
+    // Card lines follow the story's own candidates.
+    const firstEvent = input.copyFacts.findIndex((fact) => fact.slot.startsWith("event:"));
+    expect(input.copyFacts.slice(firstEvent).every((fact) => fact.slot.startsWith("event:"))).toBe(true);
+  });
+
+  it("never offers more than 200 candidates, cutting card lines rather than story candidates", async () => {
+    // Two hundred forecast events, each its own direction, period band or day.
+    const many = Array.from({ length: 200 }, (_, index) => {
+      const peak = new Date(Date.UTC(2026, 9, 28 + (index % 5), 20)).toISOString();
+      return regionEvent(`San Diego:${index}`, (Math.floor(index / 5) % 8) * 45, 7 + 3 * Math.floor(index / 40), peak, peak, null);
+    });
+    jest.mocked(loadRegionForecastEvents).mockResolvedValue(regionBuild([ssw, storm, ...many]));
+    const input = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    expect(input.copyFacts).toHaveLength(200);
+    // The story's candidates come first and the cap only cuts the card lines after them.
+    const firstCardLine = input.copyFacts.findIndex((fact) => fact.slot.startsWith("event:"));
+    expect(input.copyFacts.slice(0, firstCardLine).some((fact) => fact.slot === "cover")).toBe(true);
+    expect(input.copyFacts.slice(firstCardLine).every((fact) => fact.slot.startsWith("event:"))).toBe(true);
+  });
+
+  it("gives a storm and a swell peaking the same day each its own exposure sentence", async () => {
+    // Ocean Beach and Blacks face the SSW; La Jolla Shores and Sunset Cliffs face the W.
+    const four = [...beaches.slice(0, 2), { ...beaches[2] },
+      { id: "d", name: "Sunset Cliffs", lat: 33.1, lon: -117.0, aspect_deg: 270, swell_window_center_deg: 270, swell_window_halfwidth_deg: 20, wind_offshore_deg: 90 }];
+    const swell = regionEvent("San Diego:SSW:2026-10-29", 202, 13.4, "2026-10-28T18:00:00Z", "2026-10-29T18:00:00Z", "2026-10-30T18:00:00Z");
+    const westStorm = regionEvent("San Diego:W:2026-10-29:s", 270, 7, "2026-10-28T20:00:00Z", "2026-10-29T21:00:00Z", "2026-10-30T20:00:00Z",
+      { kind: "storm", directionLabel: "W" });
+    jest.mocked(loadRegionForecastEvents).mockResolvedValue(regionBuild([swell, westStorm]));
+    const input = await buildStoryInput({ client: client(forecasts(four), four), region: "San Diego", now, persist: false });
+    const exposure = (key: string) => input.copyFacts.find((fact) => fact.id === `exposure-${key}`);
+    expect(exposure("4-4-2026-10-29")?.text).toBe("Blacks and Ocean Beach face this swell better than La Jolla Shores, which sits in the shadow.");
+    expect(exposure("6-2-2026-10-29-s")?.text).toBe("La Jolla Shores and Sunset Cliffs face this swell better than Blacks, which sits in the shadow.");
+    expect(exposure("6-2-2026-10-29-s")?.gate).toMatchObject({ kind: "exposure", regionalEventKey: "6-2-2026-10-29-s",
+      beaches: [{ beachId: "c", exposure: "open" }, { beachId: "d", exposure: "open" }, { beachId: "b", exposure: "shadowed" }] });
   });
 
   it("hashes the mapped events, not the raw build: a WAM early look never changes inputHash", async () => {

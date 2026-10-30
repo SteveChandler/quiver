@@ -6,6 +6,8 @@ export class StoryValidationError extends Error {
   constructor(code: string, readonly status = 400) { super(code); this.name = "StoryValidationError"; }
 }
 
+// One per candidate slot at most; the input carries up to 200 candidates.
+const MAX_SELECTIONS = 200;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
 
 export function assertStoryArtifactMatchesInput(artifact: StoryArtifact, input: StoryInput, now = new Date()): void {
@@ -32,7 +34,7 @@ export function assertStoryArtifactMatchesInput(artifact: StoryArtifact, input: 
     throw new StoryValidationError("generated_at_invalid", 422);
   }
   const ids = artifact.briefing?.selections;
-  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100 || ids.some((id) => typeof id !== "string")) {
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_SELECTIONS || ids.some((id) => typeof id !== "string")) {
     throw new StoryValidationError("selections_invalid");
   }
   const chosen = new Set(ids);

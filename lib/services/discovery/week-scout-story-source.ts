@@ -2,14 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import { parseSwellDirectionToDegrees, parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import { exposureFactor, exposureLabel, swellWindowForBeach, type SwellEventForecastRow } from "@/lib/alerts/swell-events";
-import { loadRegionForecastEvents, type InternalRegionEvent, type RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { confidenceFor, localDayDiff } from "@/lib/alerts/swell-events/regional-rating";
+import { loadRegionForecastEvents } from "@/lib/alerts/swell-events/regional";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { nativeScoreInputsFromForecast, scoreNativeConditionInputs } from "@/lib/scoring/native-condition-score";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
-import { buildStoryCandidates, type RegionalDaySignal, type RegionalSwellEvent } from "./week-scout-story-candidates";
+import { buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion, type RegionalDaySignal } from "./week-scout-story-candidates";
+import { buildRegionGateContext } from "./week-scout-story-region-gate";
 import { loadLatestStoryInput, saveStoryInput, activeStoryRegions } from "./week-scout-story-store";
 import type { StoryInput } from "./week-scout-story-types";
 import { recordStage, timeStage } from "@/lib/observability/request-timing";
@@ -37,35 +37,8 @@ function meanDirection(values: number[]): number | null {
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
 }
 
-const STORY_CONFIDENCE = { on_the_way: "locked", likely: "likely", early_look: "on_the_radar" } as const;
-
-type ForecastRegionEvent = InternalRegionEvent & { directionDeg: number; periodS: number; arrivalAt: string };
-
-/** Detected events always carry a direction, period and arrival; only WAM early looks lack them. */
-function isForecastEvent(event: InternalRegionEvent): event is ForecastRegionEvent {
-  return event.source === "forecast" && event.directionDeg !== null && event.periodS !== null && event.arrivalAt !== null;
-}
-
-/**
- * The region build's forecast events as story events. `all` is every one, chronological; `week`
- * is those arriving or peaking in the edition's seven days, at most three.
- */
-export function storyEventsFromRegion(build: RegionBuild, editionDate: string): { week: RegionalSwellEvent[]; all: RegionalSwellEvent[] } {
-  const all: RegionalSwellEvent[] = build.events.filter(isForecastEvent)
-    .sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt))
-    .map((event) => ({
-      directionDeg: event.directionDeg, periodS: event.periodS, arrivalAt: event.arrivalAt, peakAt: event.peakAt,
-      fadeAt: event.fadeAt, timezone: build.timezone,
-      confidence: STORY_CONFIDENCE[confidenceFor(Math.max(0, localDayDiff(editionDate, event.peakLocalDate)))],
-      minimumBeaches: Math.min(3, event.memberCount), kind: event.kind, regionalKey: event.key,
-    }));
-  // Out-of-week events (a spike that already passed) must not use up the three slots.
-  const week = all.filter((event) => [event.arrivalAt, event.peakAt].some((at) => {
-    const date = localDate(new Date(at), build.timezone);
-    return date >= editionDate && date <= addDays(editionDate, 6);
-  })).slice(0, 3);
-  return { week, all };
-}
+// Lives with the candidates so the region gate can read it without importing this module back.
+export { storyEventsFromRegion };
 
 export async function buildStoryInput(args: { client: Client; region: string; now: Date; persist?: boolean }): Promise<StoryInput> {
   const { client, region, now } = args;
@@ -128,7 +101,8 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     console.warn("[week-scout-story] region build failed", { region, error: String(regionResult.reason) });
     throw new StoryInputError("story_region_read_failed");
   }
-  const { week: events, all: allEvents } = storyEventsFromRegion(regionResult.value, editionDate);
+  const build = regionResult.value;
+  const { week: events, all: allEvents } = storyEventsFromRegion(build, editionDate);
   const dayRows = Map.groupBy(rows, (row) => localDate(new Date(row.forecast_at), active.timezone));
   const hourFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: active.timezone, hour: "2-digit", hourCycle: "h23" });
   const signals: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => {
@@ -147,14 +121,18 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     const direction = meanDirection(directions);
     const exposed = direction === null ? 0 : beaches.filter((beach) =>
       beach.aspect_deg !== null && Math.abs(((beach.aspect_deg - direction + 540) % 360) - 180) <= 45).length;
-    const event = events.find((item) => localDate(new Date(item.peakAt), item.timezone) === date);
-    const exposedBeaches = !event ? [] : allBeaches.flatMap((beach) => {
-      const factor = exposureFactor(event.directionDeg, swellWindowForBeach(beach));
+    // Each event peaking today gets every beach's exposure to its own direction.
+    const peaking = events.filter((item) => localDate(new Date(item.peakAt), item.timezone) === date);
+    const qualityScores = new Map(peaking.length === 0 ? [] : allBeaches.map((beach) => {
       const beachScores = regionalSamples.filter((row) => row.beach_id === beach.id)
         .map((row) => scoreNativeConditionInputs(nativeScoreInputsFromForecast(row as EnhancedForecastEntity), "intermediate"));
+      return [beach.id, beachScores.length ? Math.max(...beachScores) : null];
+    }));
+    const exposedBeaches = Object.fromEntries(peaking.map((event) => [storyEventKey(event), allBeaches.flatMap((beach) => {
+      const factor = exposureFactor(event.directionDeg, swellWindowForBeach(beach));
       return factor === null ? [] : [{ beachId: beach.id, beachName: beach.name, exposure: exposureLabel(factor),
-        qualityScore: beachScores.length ? Math.max(...beachScores) : null }];
-    });
+        qualityScore: qualityScores.get(beach.id) ?? null }];
+    })]));
     const bucketOf = (at: string): "morning" | "midday" | "evening" | null => {
       const hour = Number(hourFormatter.format(new Date(at)));
       if (hour < 6 || hour >= 19) return null;
@@ -195,8 +173,12 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     };
   });
   if (signals.some((day) => !day.complete)) throw new StoryInputError("story_coverage_sparse", 409);
-  const copyFacts = buildStoryCandidates(signals, region, events);
-  if (copyFacts.length === 0) throw new StoryInputError("story_no_candidates", 409);
+  const storyFacts = buildStoryCandidates(signals, region, events);
+  if (storyFacts.length === 0) throw new StoryInputError("story_no_candidates", 409);
+  // The card's lines ride after the story's own: every forecast event the card shows, not only the week's.
+  // Past the cap the latest events lose their lines; the card writes those from the build itself.
+  const copyFacts = [...storyFacts, ...buildEventCandidates(build, allEvents, buildRegionGateContext(build, editionDate), now)]
+    .slice(0, MAX_FACTS);
   const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, events: allEvents }));
   recordStage("story-compute", performance.now() - computeStartedAt);
   const existing = await loadLatestStoryInput(client, region, editionDate);
@@ -207,6 +189,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     validUntil: zonedWallClockToUtc(addDays(editionDate, 1), "23:59:59.000", active.timezone),
     briefing: { schemaVersion: 3, editionDate, generatedAt: now.toISOString(), selections: [] },
     copyFacts,
+    beachNames: Object.fromEntries(allBeaches.map((beach) => [beach.id, beach.name])),
     provenance: { sourceIds: rows.map((row) => row.id), sourceHashes: [sourceHash],
       generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: beachIds,
       coverageDates: signals.map((day) => day.localDate),

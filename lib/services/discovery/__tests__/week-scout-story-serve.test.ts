@@ -28,7 +28,8 @@ import type { CanonicalWeekScoutResponse } from "../week-scout";
 import { bindFallbackStory, bindStory, loadAndBindStory, prepareStory, storyGateHolds, storyRegion } from "../week-scout-story-serve";
 import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
 import { StoryInputError, storyEventsFromRegion } from "../week-scout-story-source";
-import { buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
+import { buildEventCandidates, buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
+import { buildRegionGateContext } from "../week-scout-story-region-gate";
 import { addDays } from "../swell-briefing-input";
 
 const HONOLULU = "Pacific/Honolulu";
@@ -58,6 +59,7 @@ const baseInput = (): StoryInput => ({
   provenance: { sourceIds: ["source"], sourceHashes: ["hash"], generationInputVersion: "1",
     representativeBeachIds: ["beach"], coverageDates: [] },
   copyFacts: [],
+  beachNames: { x: "Ala Moana" },
 });
 
 describe("live regional story binding", () => {
@@ -274,6 +276,39 @@ describe("deterministic fallback and live gates", () => {
     expect(first.availability).toBe("unavailable");
     expect(mockLatestInput).toHaveBeenNthCalledWith(1, client, region, "2026-07-18");
     expect(mockBuildInput).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the card's event lines out of the Week Scout story", () => {
+    const beach = { id: "x", name: "Ala Moana", lat: 21.29, lon: -157.85, swell_window_center_deg: 270, swell_window_halfwidth_deg: 30 };
+    // Daylight rows (9 AM, noon, 3 PM in Honolulu) for twelve days from Wednesday, with light wind.
+    const rows = Array.from({ length: 12 }, (_, day) => [19, 22, 25].map((hour) => ({
+      forecast_at: new Date(Date.UTC(2026, 6, 15 + day, hour)).toISOString(), wave_height: "3-4ft", wave_period: null,
+      wind_speed: "5 mph", tide_height: null, tide_status: null, swell_1_period: "13s",
+    }))).flat();
+    // Peaks a week from Friday: on the card, outside the story's week.
+    const nextWeek = regionEvent(270, 15, "2026-07-23T18:00:00Z", "2026-07-24T22:00:00Z", "2026-07-25T22:00:00Z");
+    const withBeach = (events: InternalRegionEvent[]): RegionBuild => ({ ...regionBuild(events), beaches: [beach], rowsByBeach: { x: rows } });
+    const cardLines = (build: RegionBuild) => buildEventCandidates(build, storyEventsFromRegion(build, "2026-07-15").all,
+      buildRegionGateContext(build, "2026-07-15"), now);
+    const build = withBeach([west, nextWeek]);
+    const events = cardLines(build);
+    expect(events.map((fact) => fact.slot)).toEqual(["event:6-5-2026-07-16:story", "event:6-5-2026-07-16:beach:x",
+      "event:6-5-2026-07-24:story", "event:6-5-2026-07-24:beach:x"]);
+    const regional = storyRegion(build, "2026-07-15");
+    const withEvents = { ...input(), copyFacts: [...input().copyFacts, ...events] };
+
+    // The fallback serves the same story with or without the card's lines in its input.
+    expect(bindFallbackStory(region, withEvents, live(), regional)).toEqual(bindFallbackStory(region, input(), live(), regional));
+    // A published edition that also selected card lines serves only its story slots.
+    const selections = ["cover", "lead", "good-day"];
+    expect(bindStory({ region, availability: "ready", input: withEvents, selections: [...selections, ...events.map((fact) => fact.id)],
+      live: live(), regional })).toEqual(bindStory({ region, availability: "ready", input: input(), selections, live: live(), regional }));
+    // Card lines that hold are still no story: with nothing else, the story is unavailable.
+    const later = withBeach([nextWeek]);
+    const onlyCard = { ...baseInput(), copyFacts: cardLines(later) };
+    const story = bindFallbackStory(region, onlyCard, live(), storyRegion(later, "2026-07-15"));
+    expect(story.availability).toBe("unavailable");
+    expect(onlyCard.copyFacts.some((fact) => JSON.stringify(story).includes(fact.text))).toBe(false);
   });
 
   it("drops a later event's weekday even when its region gate holds", () => {
