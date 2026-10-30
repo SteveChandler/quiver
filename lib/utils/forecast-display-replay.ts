@@ -7,6 +7,7 @@ import { METERS_TO_FEET } from './unit-conversions';
 const finite = z.number().finite();
 const nullableFinite = finite.nullable();
 const beachSchema = z.object({
+  id: z.string().nullable().optional(),
   terrain_enabled: z.boolean().optional(),
   swell_access_factors: z.array(finite.min(0).max(1)).length(72).nullable().optional(),
   swell_window_center_deg: nullableFinite.optional(),

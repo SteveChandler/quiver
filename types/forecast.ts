@@ -572,6 +572,8 @@ export interface WaveHeightProvenance {
   calibration_bucket_quarantined?: boolean;
   /** True when a short-period calibrated bucket exceeded the period cap. */
   short_period_bucket_capped?: boolean;
+  /** Per-beach multiplier applied to a model_swell face (lib/utils/model-swell-calibration-factors.ts). */
+  model_calibration_factor?: number;
   /** Last CDIP face height minus first following model face height at the source handoff. */
   handoff_discontinuity_ft?: number;
   /** Seam blend on rows written before #1236; the blend no longer rescales model rows. */
