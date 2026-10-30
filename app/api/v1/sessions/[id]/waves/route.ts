@@ -6,6 +6,7 @@ import { tideFtAtWaves } from "@/lib/sessions/waves/wave-tides";
 import type { SessionWave, SessionWavesResponse } from "@/lib/sessions/waves/waves-api-types";
 import { buildWavesSummary, isCounted, isExcluded, trackSummaryExtras, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
+import { readSessionTrackForWaves } from "@/lib/sessions/waves/session-track-query";
 import { createServiceRoleClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -22,8 +23,9 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
-  const { data: track, error: trackError } = await supabase.from("session_tracks")
-    .select("*").eq("session_id", session.id).eq("user_id", user.id).maybeSingle();
+  const { data: track, error: trackError } = await readSessionTrackForWaves(
+    supabase, session.id, user.id, { includeTrackData: true },
+  );
   if (trackError) throw new Error(trackError.message);
   if (!track) return createErrorResponse("not_found", undefined, 404);
 
@@ -83,9 +85,7 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
-  const { data: track, error: trackError } = await supabase.from("session_tracks")
-    .select("*")
-    .eq("session_id", session.id).eq("user_id", user.id).maybeSingle();
+  const { data: track, error: trackError } = await readSessionTrackForWaves(supabase, session.id, user.id);
   if (trackError) throw new Error(trackError.message);
   if (!track) return createErrorResponse("not_found", undefined, 404);
 

@@ -5,7 +5,9 @@ import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrapp
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
 import { buildWavesSummary, isExcluded, isIncluded, trackSummaryExtras, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
+import { readSessionTrackForWaves } from "@/lib/sessions/waves/session-track-query";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { retryAfterSeconds } from "@/lib/utils/retry-after";
 
 export const runtime = "nodejs";
 
@@ -28,10 +30,7 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
-  const { data: track, error: trackError } = await supabase.from("session_tracks")
-    .select("*")
-    .eq("session_id", session.id)
-    .eq("user_id", user.id).maybeSingle();
+  const { data: track, error: trackError } = await readSessionTrackForWaves(supabase, session.id, user.id);
   if (trackError) throw new Error(trackError.message);
   if (!track) return createErrorResponse("not_found", undefined, 404);
 
@@ -76,14 +75,20 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
         id: randomUUID(), session_id: session.id, user_id: user.id, action: desiredAction,
         started_at: target.startedAt, ended_at: target.endedAt,
       });
+      if (insertError?.code === "23514" && desiredAction === "include") {
+        const response = createErrorResponse("unavailable", undefined, 503);
+        response.headers.set("Retry-After", String(retryAfterSeconds()));
+        return response;
+      }
       if (insertError) throw new Error(insertError.message);
       corrections = [...corrections, { ...waveSpan, action: desiredAction }];
-      if (desiredAction === "exclude") {
+      if (desiredAction === "exclude" || desiredAction === "include") {
         const { error: eventError } = await createServiceRoleClient().from("user_events").insert({
-          user_id: user.id, event_type: "session_wave_excluded",
+          user_id: user.id,
+          event_type: desiredAction === "include" ? "session_wave_included" : "session_wave_excluded",
           metadata: { session_id: session.id, wave_id: target.id },
         });
-        if (eventError) console.warn("[session waves] Exclusion event failed:", eventError);
+        if (eventError) console.warn(`[session waves] ${desiredAction === "include" ? "Inclusion" : "Exclusion"} event failed:`, eventError);
       }
     }
   }

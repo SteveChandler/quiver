@@ -187,6 +187,12 @@ it("returns the native waves contract with corrections, override count, track an
   });
   expect(queries.session_waves[0].eq).toHaveBeenCalledWith("is_current", true);
   expect(queries.session_waves[0].order).toHaveBeenCalledWith("wave_index");
+  const getTrackColumns = queries.session_tracks[0].select.mock.calls[0][0] as string;
+  expect(getTrackColumns).toContain("water_temp_c");
+  expect(getTrackColumns).toContain("water_temp_start_c");
+  expect(getTrackColumns).toContain("water_temp_end_c");
+  expect(getTrackColumns).toContain("calories");
+  expect(getTrackColumns).toContain("track_geojson");
   expect(response.headers.get("Cache-Control")).toContain("no-store");
 });
 
@@ -200,7 +206,34 @@ it("returns null track extras before the watch stats migration", async () => {
     calories: null, waterTempStartC: null, waterTempEndC: null,
     waterTempC: null,
   } } });
-  expect(queries.session_tracks[0].select).toHaveBeenCalledWith("*");
+  expect(queries.session_tracks[0].select).toHaveBeenCalledWith(expect.stringContaining("water_temp_start_c"));
+});
+
+it.each(["42703", "PGRST204"])("retries the waves track read without newer scalar columns after %s", async code => {
+  const { calories, water_temp_c, water_temp_start_c, water_temp_end_c, ...legacyTrack } = track;
+  void calories; void water_temp_c; void water_temp_start_c; void water_temp_end_c;
+  rows.session_tracks = legacyTrack;
+  mockUserFrom.mockImplementation((table: string) => {
+    const query = queryFor(table);
+    if (table === "session_tracks" && queries.session_tracks.length === 1) {
+      query.maybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code, message: "column session_tracks.water_temp_start_c does not exist" },
+      });
+    }
+    return query;
+  });
+
+  const response = await GET(request("GET"), context);
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    calories: null, waterTempC: null, waterTempStartC: null, waterTempEndC: null,
+  } } });
+  expect(queries.session_tracks).toHaveLength(2);
+  expect(queries.session_tracks[0].select.mock.calls[0][0]).toContain("water_temp_c");
+  expect(queries.session_tracks[1].select.mock.calls[0][0]).not.toContain("water_temp_c");
+  expect(queries.session_tracks[1].select.mock.calls[0][0]).toContain("track_geojson");
 });
 
 it("returns Garmin track metrics and the recorded-with label", async () => {
@@ -239,7 +272,13 @@ it.each(["count", "exclude", "restore"])("preserves Garmin summary fields after 
     setIntervalMin: 10, recordedWith: "Quiver for Garmin · Forerunner 965",
   } } });
   expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
-  expect(queries.session_tracks[0].select).toHaveBeenCalledWith("*");
+  const patchTrackColumns = queries.session_tracks[0].select.mock.calls[0][0] as string;
+  expect(patchTrackColumns).toContain("water_temp_c");
+  expect(patchTrackColumns).toContain("water_temp_start_c");
+  expect(patchTrackColumns).toContain("water_temp_end_c");
+  expect(patchTrackColumns).toContain("calories");
+  expect(patchTrackColumns).not.toContain("track_geojson");
+  expect(patchTrackColumns).not.toContain("speed_series");
 });
 
 it.each(["other owner", "soft deleted"])("returns 404 for %s", async reason => {
@@ -349,10 +388,34 @@ it("counts an uncounted attempt and updates the returned wave count", async () =
   expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert).toHaveBeenCalledWith(
     expect.objectContaining({ action: "include", started_at: start, ended_at: end }),
   );
+  expect(queries.user_events[0].insert).toHaveBeenCalledWith(expect.objectContaining({
+    user_id: userId, event_type: "session_wave_included",
+    metadata: { session_id: sessionId, wave_id: waveId },
+  }));
   rows.session_wave_corrections = [{ action: "include", started_at: start, ended_at: end }];
   const refreshed = await GET(request("GET"), context);
   expect(await refreshed.json()).toMatchObject({ data: { waves: [{ counted: true, excluded: false }],
     summary: { waveCount: 1, detectedWaveCount: 1 } } });
+});
+
+it("returns unavailable with Retry-After when include violates the old correction constraint", async () => {
+  rows.session_wave_corrections = [];
+  mockUserFrom.mockImplementation((table: string) => {
+    const query = queryFor(table);
+    if (table === "session_wave_corrections" && queries.session_wave_corrections.length === 3) {
+      query.then.mockImplementation((resolve: (value: unknown) => unknown) => resolve({
+        data: null, error: { code: "23514", message: "action violates old check constraint" },
+      }));
+    }
+    return query;
+  });
+
+  const response = await patchWave(request("PATCH", { counted: true }), context);
+
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ success: false, error: "unavailable" });
+  expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
+  expect(mockServiceFrom).not.toHaveBeenCalledWith("user_events");
 });
 
 it("counted=true replaces a conflicting exclusion correction", async () => {
