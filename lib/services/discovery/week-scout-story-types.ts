@@ -5,6 +5,7 @@ export type StoryGate =
   | { kind: "swell"; regionalEventKey: string; directionSector: number; directionIndex?: number; periodBand: number; periodClass?: "long" | "mid" | "short"; arrivalLocalDate: string; peakLocalDate: string; fadeLocalDate: string | null; confidence: "on_the_radar" | "likely" | "locked"; minimumBeaches: number }
   | { kind: "origin"; regionalEventKey: string; sourceAreaId: string; sourceLat: number; sourceLon: number; trackRevision: string; arrivalOrder: number; confidence: "likely" | "locked" }
   | { kind: "exposure"; regionalEventKey: string; directionSector: number; exposure: "open" | "partial" | "shadowed"; minimumBeaches: number; beaches?: Array<{ beachId: string; exposure: "open" | "partial" | "shadowed" }> }
+  | { kind: "beach"; regionalEventKey: string; beachId: string; exposure: "open" | "partial" | "shadowed"; wind: "light" | "breezy" | "windy" }
   | { kind: "wind"; localDate: string; bucket: "morning" | "midday" | "evening"; fromWindClass: "offshore" | "onshore"; windClass: "offshore" | "onshore"; forecastRevision: string; beachId?: string; fromBucket?: "morning" | "midday" | "evening"; fromDirection?: string; toDirection?: string }
   | { kind: "wind_pattern"; days: Array<Extract<StoryGate, { kind: "wind" }>> }
   | { kind: "tide"; localDate: string; bucket: "morning" | "midday" | "evening"; tidePhase: string; windowOrder: "opens" | "closes"; forecastRevision: string; beachId?: string }

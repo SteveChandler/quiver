@@ -77,12 +77,9 @@ export function directionIndex(degrees: number): number {
   return Math.round((((degrees % 360) + 360) % 360) / 22.5) % 16;
 }
 
-const COMPASS_LABELS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-
-/** Index of a chart's 16-point label, so the words always agree with what the chart prints. */
-export function labelDirectionIndex(label: string): number | null {
-  const index = COMPASS_LABELS.indexOf(label);
-  return index === -1 ? null : index;
+/** The period class a sentence's words name: long-period from 13 s, mid-period from 10 s. */
+export function periodClass(seconds: number): "long" | "mid" | "short" {
+  return seconds >= 13 ? "long" : seconds >= 10 ? "mid" : "short";
 }
 
 function add(facts: StoryCandidate[], id: string, slot: string, text: string, gate: StoryGate): void {
@@ -122,9 +119,13 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
   if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
 }
 
-/** The story's key for an event: direction sector, period band and local peak date. */
+/**
+ * The story's key for an event: direction sector, period band and local peak date, with "-s" for a
+ * storm, so a storm and a swell in the same sector, band and day stay two events.
+ */
 export function storyEventKey(event: RegionalSwellEvent): string {
-  return `${directionSector(event.directionDeg)}-${periodBand(event.periodS)}-${eventLocalDate(event.peakAt, event.timezone)}`;
+  const key = `${directionSector(event.directionDeg)}-${periodBand(event.periodS)}-${eventLocalDate(event.peakAt, event.timezone)}`;
+  return event.kind === "storm" ? `${key}-s` : key;
 }
 
 /** Candidate order is the fallback rank; every claim has a live gate. */
@@ -151,7 +152,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     keys.add(key);
     const gate: StoryGate = {
       kind: "swell", regionalEventKey: key, directionSector: sector, directionIndex: directionIndex(event.directionDeg),
-      periodBand: band, periodClass: event.periodS >= 13 ? "long" : event.periodS >= 10 ? "mid" : "short",
+      periodBand: band, periodClass: periodClass(event.periodS),
       arrivalLocalDate: arrivalDate, peakLocalDate: peakDate, fadeLocalDate: fadeDate,
       confidence: event.confidence, minimumBeaches: event.minimumBeaches,
     };

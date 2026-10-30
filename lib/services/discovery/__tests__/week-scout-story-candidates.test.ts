@@ -65,10 +65,10 @@ describe("regional Week Scout story candidates", () => {
     const signals = days(3);
     const storm = (periodS: number): RegionalSwellEvent => ({ ...event(periodS), kind: "storm" });
     const short = buildStoryCandidates(signals, "San Diego", [storm(7)]);
-    expect(storyEventKey(storm(7))).toBe("4-2-2026-11-01");
+    expect(storyEventKey(storm(7))).toBe("4-2-2026-11-01-s");
     expect(short.find((fact) => fact.slot === "cover")?.text).toBe(
       "A stormy short-period swell from the south-southwest reaches San Diego Saturday and peaks Sunday.");
-    expect(short.find((fact) => fact.id === "swell-4-2-2026-11-01")?.text).toContain("The stormy short-period swell arrives Saturday");
+    expect(short.find((fact) => fact.id === "swell-4-2-2026-11-01-s")?.text).toContain("The stormy short-period swell arrives Saturday");
     expect(buildStoryCandidates(signals, "San Diego", [storm(10)]).find((fact) => fact.slot === "cover")?.text)
       .toContain("stormy mid-period swell");
     expect(buildStoryCandidates(signals, "San Diego", [storm(14)]).find((fact) => fact.slot === "cover")?.text)

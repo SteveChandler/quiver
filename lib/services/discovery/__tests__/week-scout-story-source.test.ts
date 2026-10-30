@@ -9,6 +9,8 @@ jest.mock("../week-scout-story-store", () => ({
 }));
 
 import { buildStoryInput, storyEventsFromRegion } from "../week-scout-story-source";
+import { buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
+import { addDays } from "../swell-briefing-input";
 import { loadRegionForecastEvents, type InternalRegionEvent, type RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { Database } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -71,8 +73,8 @@ describe("regional story source snapshot", () => {
   it("builds story events from the region build, storms included", async () => {
     const input = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
     const ids = input.copyFacts.map((fact) => fact.id);
-    expect(ids).toEqual(expect.arrayContaining(["cover-pulse-4-4-2026-10-27", "cover-pulse-6-2-2026-10-29"]));
-    const stormLine = input.copyFacts.find((fact) => fact.id === "swell-6-2-2026-10-29");
+    expect(ids).toEqual(expect.arrayContaining(["cover-pulse-4-4-2026-10-27", "cover-pulse-6-2-2026-10-29-s"]));
+    const stormLine = input.copyFacts.find((fact) => fact.id === "swell-6-2-2026-10-29-s");
     expect(stormLine?.text).toContain("stormy");
     expect(stormLine?.text).not.toMatch(/\d/);
     expect(stormLine?.gate).toMatchObject({ kind: "swell", confidence: "locked", minimumBeaches: 3 });
@@ -108,6 +110,30 @@ describe("regional story source snapshot", () => {
     expect(all.find((event) => event.kind === "storm")?.minimumBeaches).toBe(3);
     // In the week and at most three: the passed spike and next week's swell stay out.
     expect(week.map((event) => event.regionalKey)).toEqual([ssw.key, storm.key, sunday.key]);
+  });
+
+  it("keeps a storm and a swell in the same sector, band and peak day as two story events", () => {
+    // Both from the west in the 12-14.9 s band, both peaking Thursday.
+    const swell = regionEvent("San Diego:W:2026-10-29", 270, 13.4, "2026-10-28T18:00:00Z", "2026-10-29T18:00:00Z", "2026-10-30T18:00:00Z");
+    const westStorm = regionEvent("San Diego:W:2026-10-29:s", 268, 12, "2026-10-28T20:00:00Z", "2026-10-29T21:00:00Z", "2026-10-30T12:00:00Z",
+      { kind: "storm" });
+    const { week } = storyEventsFromRegion(regionBuild([swell, westStorm]), "2026-10-27");
+    const keys = week.map(storyEventKey);
+    expect(keys).toEqual(["6-4-2026-10-29", "6-4-2026-10-29-s"]);
+    const signals = Array.from({ length: 7 }, (_, index) => ({
+      localDate: addDays("2026-10-27", index), complete: true, sampleBeaches: 3, meanHeightFt: 4,
+      directionDeg: 270, periodS: 13, sourceSeries: "enhanced_forecasts:San Diego", forecastRevision: "2026-10-27T12:00:00Z",
+    }));
+    const facts = buildStoryCandidates(signals, "San Diego", week);
+    const covers = facts.filter((fact) => fact.slot === "cover");
+    expect(covers.map((fact) => fact.id)).toEqual([
+      "cover-pulse-6-4-2026-10-29", "cover-pulse-alt-6-4-2026-10-29",
+      "cover-pulse-6-4-2026-10-29-s", "cover-pulse-alt-6-4-2026-10-29-s",
+    ]);
+    expect(covers.map((fact) => fact.gate.kind === "swell" && fact.gate.regionalEventKey)).toEqual([keys[0], keys[0], keys[1], keys[1]]);
+    expect(covers[2].text).toContain("stormy mid-period swell");
+    expect(facts.filter((fact) => fact.slot.startsWith("swell:") && !fact.slot.endsWith(":exposure")).map((fact) => fact.slot))
+      .toEqual(["swell:6-4-2026-10-29", "swell:6-4-2026-10-29", "swell:6-4-2026-10-29-s", "swell:6-4-2026-10-29-s"]);
   });
 
   it("uses the region build's Saturday arrival despite a Wednesday height threshold", async () => {
