@@ -4,7 +4,8 @@ import { unstable_cache } from "next/cache";
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { RegionSwellEvent } from "@/types/region-swell-events";
-import { groupEvents } from "@/lib/services/discovery/swell-tracking";
+import { angleDifference } from "@/lib/domains/shared/angle-utils";
+import { SWELL_TRACKING_RULES, groupEvents, type SwellGroup } from "@/lib/services/discovery/swell-tracking";
 import { getLocalDateStr, getLocalHour } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { degreeToCardinal, degreesToCardinal } from "@/lib/utils/geo-utils";
 
@@ -32,7 +33,8 @@ const DETECTION_HORIZON_DAYS = 12;
 const REGION_CACHE_SECONDS = 10_800;
 // Bump when the cached shape or its contents change, so a deploy never reads an older build.
 // v2: events still in the water past their peak day; rating rows span each event's window.
-const REGION_CACHE_VERSION = "v2";
+// v3: one swell the detector peaked more than once shows as one event.
+const REGION_CACHE_VERSION = "v3";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -146,17 +148,56 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function detectedEvent(group: { lead: BeachSwellEvent }): UnkeyedRegionEvent {
-  const { lead } = group;
+/** One swell across the region: its strongest group's lead, over the window of every group joined to it. */
+interface RegionRun {
+  lead: BeachSwellEvent;
+  arrivalAt: string;
+  fadeAt: string | null;
+}
+
+const earlier = (left: string, right: string): string => (Date.parse(right) < Date.parse(left) ? right : left);
+function later(left: string | null, right: string | null): string | null {
+  if (left === null || right === null) return left ?? right;
+  return Date.parse(right) > Date.parse(left) ? right : left;
+}
+
+/**
+ * The detector can peak one long swell more than once (a three-day SSW plateau read as three events),
+ * and groupEvents keeps one event per beach in a group, so the splits survive grouping. Groups of one
+ * kind whose leads match in direction and period and whose windows overlap are one swell.
+ */
+function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
+  const runs: RegionRun[] = [];
+  for (const { lead } of [...groups].sort((left, right) => right.lead.peakEnergy - left.lead.peakEnergy)) {
+    const own = ratingWindow(lead);
+    const run = runs.find((candidate) => {
+      const span = ratingWindow({ arrivalAt: candidate.arrivalAt, peakAt: candidate.lead.peakAt, fadeAt: candidate.fadeAt });
+      return angleDifference(candidate.lead.directionDeg, lead.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg
+        && Math.abs(candidate.lead.periodS - lead.periodS) <= SWELL_TRACKING_RULES.groupPeriodS
+        && own.startMs < span.endMs
+        && span.startMs < own.endMs;
+    });
+    if (!run) {
+      runs.push({ lead, arrivalAt: lead.arrivalAt, fadeAt: lead.fadeAt });
+      continue;
+    }
+    run.arrivalAt = earlier(run.arrivalAt, lead.arrivalAt);
+    run.fadeAt = later(run.fadeAt, lead.fadeAt);
+  }
+  return runs;
+}
+
+function detectedEvent(run: RegionRun): UnkeyedRegionEvent {
+  const { lead } = run;
   return {
     kind: lead.kind ?? "swell",
     source: "forecast",
     directionDeg: lead.directionDeg,
     directionLabel: lead.directionLabel,
     periodS: round1(lead.periodS),
-    arrivalAt: lead.arrivalAt,
+    arrivalAt: run.arrivalAt,
     peakAt: lead.peakAt,
-    fadeAt: lead.fadeAt,
+    fadeAt: run.fadeAt,
     peakLocalDate: lead.peakLocalDate,
     offshoreFt: `${Math.round(lead.peakOffshoreHeightFt)} ft`,
     history: null,
@@ -233,8 +274,8 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
 
   // Kinds group apart: a storm that grows into a swell shows as two events.
   const events = [
-    ...groupEvents(detected.filter((event) => event.kind !== "storm")),
-    ...groupEvents(detected.filter((event) => event.kind === "storm")),
+    ...joinRuns(groupEvents(detected.filter((event) => event.kind !== "storm"))),
+    ...joinRuns(groupEvents(detected.filter((event) => event.kind === "storm"))),
   ].map(detectedEvent);
 
   const windows = events.map(ratingWindow);

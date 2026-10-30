@@ -15,7 +15,7 @@ jest.mock("@/lib/alerts/swell-events/detector", () => {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 
-import { detectBeachSwellEvents } from "@/lib/alerts/swell-events/detector";
+import { detectBeachSwellEvents, type BeachSwellEvent } from "@/lib/alerts/swell-events/detector";
 import {
   buildRegionEvents,
   confidenceFor,
@@ -210,6 +210,30 @@ function builtWith(event: Partial<InternalRegionEvent>, rows: RatingRow[]): Regi
   };
 }
 
+/** A detector event for mocked detection: SSW 13 s, in the water from the day before its peak to the day after. */
+function detectedAt(beachId: string, peakDay: number, overrides: Partial<BeachSwellEvent> = {}): BeachSwellEvent {
+  return {
+    beachId,
+    eventKey: `${beachId}:${peakDay}`,
+    directionDeg: 200,
+    directionBand: "SSW",
+    directionLabel: "SSW",
+    periodS: 13,
+    peakOffshoreHeightFt: 3,
+    peakFaceHeightFt: 3,
+    baselineFaceHeightFt: 1,
+    peakEnergy: 10,
+    baselineEnergy: 2,
+    energyRatio: 5,
+    exposure: 1,
+    arrivalAt: localIsoOf(peakDay - 1, 0),
+    peakAt: localIsoOf(peakDay, 12),
+    fadeAt: localIsoOf(peakDay + 1, 12),
+    peakLocalDate: localDate(peakDay),
+    ...overrides,
+  };
+}
+
 function wamDays(overrides: Record<number, Partial<WamDay>>): WamDay[] {
   return Array.from({ length: 16 }, (_, offset) => ({
     localDate: localDate(offset),
@@ -256,7 +280,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v2", REGION, "2026-09-25"],
+      ["region-swell-events", "v3", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -303,6 +327,42 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(events.map((event) => [event.kind, event.periodS]).sort()).toEqual([["swell", 12], ["swell", 17]]);
     expect(new Set(events.map((event) => event.key)).size).toBe(2);
     expect(events.map((event) => event.key).sort()).toEqual([`${REGION}:W:${localDate(EVENT_DAY)}`, `${REGION}:W:${localDate(EVENT_DAY)}.2`]);
+  });
+
+  it("joins one swell the detector peaked twice into one event over both windows, led by the stronger peak", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    for (const item of beaches) {
+      jest.mocked(detectBeachSwellEvents).mockImplementationOnce(() => [
+        // A 3-day SSW plateau the detector peaks twice as its period drifts from 13 s to 11 s.
+        detectedAt(item.id, EVENT_DAY, { periodS: 13, peakEnergy: 12, peakOffshoreHeightFt: 4 }),
+        detectedAt(item.id, EVENT_DAY + 2, { periodS: 11, peakEnergy: 9, arrivalAt: localIsoOf(EVENT_DAY, 21) }),
+        // An 18 s forerunner the same days is a different swell.
+        detectedAt(item.id, EVENT_DAY - 1, { periodS: 18, peakEnergy: 5, fadeAt: localIsoOf(EVENT_DAY - 1, 21) }),
+      ]);
+    }
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id)));
+
+    expect(built.events.map((event) => event.periodS).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([13, 18]);
+    expect(built.events.find((event) => event.periodS === 13)).toMatchObject({
+      peakAt: localIsoOf(EVENT_DAY, 12),
+      peakLocalDate: localDate(EVENT_DAY),
+      offshoreFt: "4 ft",
+      arrivalAt: localIsoOf(EVENT_DAY - 1, 0),
+      fadeAt: localIsoOf(EVENT_DAY + 3, 12),
+    });
+  });
+
+  it("keeps two swells from one direction apart when their windows do not overlap", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    for (const item of beaches) {
+      jest.mocked(detectBeachSwellEvents).mockImplementationOnce(() => [
+        detectedAt(item.id, EVENT_DAY),
+        detectedAt(item.id, EVENT_DAY + 4),
+      ]);
+    }
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id)));
+
+    expect(built.events.map((event) => event.peakLocalDate).sort()).toEqual([localDate(EVENT_DAY), localDate(EVENT_DAY + 4)]);
   });
 
   it("(c) gives a beach with no swell window the event, with exposure unknown", async () => {
