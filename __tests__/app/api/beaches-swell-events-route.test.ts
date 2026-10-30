@@ -8,6 +8,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(),
   createSupabaseServiceRoleClient: jest.fn(),
 }));
+jest.mock("@/lib/supabase/bearer-client", () => ({ createBearerTokenClient: jest.fn() }));
 jest.mock("@/lib/profile/skill-level", () => ({ getProfileExperienceLevel: jest.fn() }));
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/middleware/api-wrappers"),
@@ -17,6 +18,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 import { GET } from "@/app/api/beaches/[id]/swell-events/route";
 import { historyLine, regionModelBuoy } from "@/lib/alerts/swell-events/early-look";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { createBearerTokenClient } from "@/lib/supabase/bearer-client";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { RegionSwellEvent, RegionSwellEventsResponse } from "@/types/region-swell-events";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
@@ -133,8 +135,8 @@ function wamResponse(): Response {
   });
 }
 
-async function call(id: string): Promise<{ status: number; data: RegionSwellEventsResponse }> {
-  const response = await GET({} as never, { params: Promise.resolve({ id }) });
+async function call(id: string, request: object = {}): Promise<{ status: number; data: RegionSwellEventsResponse }> {
+  const response = await GET(request as never, { params: Promise.resolve({ id }) });
   const body = await response.json();
   return { status: response.status, data: body.data };
 }
@@ -211,6 +213,25 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     const event = stormEvent(data.events)!;
     expect(event.here).toMatchObject({ label: "MEH", reason: "too big for most" });
     expect(event.working.map((rating) => rating.beachId)).not.toContain(big.id);
+  });
+
+  it("reads the skill of a native user signed in with a Bearer token", async () => {
+    const big = beach("Blacks");
+    const beaches = [big, beach("Ocean Beach"), beach("Sunset Cliffs")];
+    stage({
+      lookup: { region: REGION, timezone: TIMEZONE },
+      beaches,
+      rows: beaches.flatMap((item) => stormRows(item.id, item.id === big.id ? FOUR_TO_FIVE : GOOD)),
+    });
+    const bearerClient = { auth: { getUser: async () => ({ data: { user: { id: USER_ID } }, error: null }) } };
+    jest.mocked(createBearerTokenClient).mockReturnValue(bearerClient as never);
+    jest.mocked(getProfileExperienceLevel).mockResolvedValue("beginner");
+
+    const { data } = await call(big.id, { headers: new Headers({ authorization: "Bearer native-token" }) });
+
+    expect(createBearerTokenClient).toHaveBeenCalledWith("native-token");
+    expect(getProfileExperienceLevel).toHaveBeenCalledWith(bearerClient, USER_ID);
+    expect(stormEvent(data.events)!.here).toMatchObject({ label: "MEH", reason: "too big for most" });
   });
 
   it("rates a signed-out visitor as intermediate", async () => {
