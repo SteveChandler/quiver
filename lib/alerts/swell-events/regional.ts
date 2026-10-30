@@ -156,9 +156,9 @@ interface RegionRun {
 }
 
 const earlier = (left: string, right: string): string => (Date.parse(right) < Date.parse(left) ? right : left);
-function later(left: string | null, right: string | null): string | null {
-  if (left === null || right === null) return left ?? right;
-  return Date.parse(right) > Date.parse(left) ? right : left;
+
+function runSpan(run: RegionRun): { startMs: number; endMs: number } {
+  return ratingWindow({ arrivalAt: run.arrivalAt, peakAt: run.lead.peakAt, fadeAt: run.fadeAt });
 }
 
 /**
@@ -171,7 +171,7 @@ function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
   for (const { lead } of [...groups].sort((left, right) => right.lead.peakEnergy - left.lead.peakEnergy)) {
     const own = ratingWindow(lead);
     const run = runs.find((candidate) => {
-      const span = ratingWindow({ arrivalAt: candidate.arrivalAt, peakAt: candidate.lead.peakAt, fadeAt: candidate.fadeAt });
+      const span = runSpan(candidate);
       return angleDifference(candidate.lead.directionDeg, lead.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg
         && Math.abs(candidate.lead.periodS - lead.periodS) <= SWELL_TRACKING_RULES.groupPeriodS
         && own.startMs < span.endMs
@@ -181,8 +181,9 @@ function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
       runs.push({ lead, arrivalAt: lead.arrivalAt, fadeAt: lead.fadeAt });
       continue;
     }
+    // A missing fade means peak + 24 h, so ends compare as windows; the run never ends before either does.
+    if (own.endMs > runSpan(run).endMs) run.fadeAt = lead.fadeAt ?? new Date(own.endMs).toISOString();
     run.arrivalAt = earlier(run.arrivalAt, lead.arrivalAt);
-    run.fadeAt = later(run.fadeAt, lead.fadeAt);
   }
   return runs;
 }

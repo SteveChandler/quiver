@@ -352,6 +352,35 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
   });
 
+  it("never ends a joined swell before its strongest peak's window when that peak has no fade", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    for (const item of beaches) {
+      jest.mocked(detectBeachSwellEvents).mockImplementationOnce(() => [
+        detectedAt(item.id, EVENT_DAY + 1, { peakEnergy: 12, fadeAt: null }),
+        detectedAt(item.id, EVENT_DAY, { peakEnergy: 9 }),
+      ]);
+    }
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id)));
+
+    expect(built.events).toHaveLength(1);
+    // The lead's peak + 24 h outlasts the weaker peak's fade (EVENT_DAY + 1, 12:00), so no fade replaces it.
+    expect(built.events[0]).toMatchObject({ peakAt: localIsoOf(EVENT_DAY + 1, 12), fadeAt: null, arrivalAt: localIsoOf(EVENT_DAY - 1, 0) });
+  });
+
+  it("extends a joined swell to a weaker peak's window when it has no fade and ends later", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    for (const item of beaches) {
+      jest.mocked(detectBeachSwellEvents).mockImplementationOnce(() => [
+        detectedAt(item.id, EVENT_DAY, { peakEnergy: 12 }),
+        detectedAt(item.id, EVENT_DAY + 1, { peakEnergy: 9, fadeAt: null }),
+      ]);
+    }
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id)));
+
+    expect(built.events).toHaveLength(1);
+    expect(built.events[0]).toMatchObject({ peakAt: localIsoOf(EVENT_DAY, 12), fadeAt: new Date(Date.parse(localIsoOf(EVENT_DAY + 1, 12)) + 24 * 3_600_000).toISOString() });
+  });
+
   it("keeps two swells from one direction apart when their windows do not overlap", async () => {
     const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
     for (const item of beaches) {
