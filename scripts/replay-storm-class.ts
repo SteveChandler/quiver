@@ -6,7 +6,7 @@
  *
  *   node --env-file=<path to .env.local> --import tsx scripts/replay-storm-class.ts \
  *     [--regions="San Diego,Orange County,Los Angeles"] [--face=5] [--rise=3] [--ratio=2.5] [--period=5]
- *     [--diagnose=2026-11-06]
+ *     [--diagnose=2026-11-06] [--now=2026-10-30T16:30:00.000Z]
  *
  * --diagnose prints, per beach, the biggest short-period (storm-band) partition in daylight on that
  * local date: offshore height, period, direction, exposure, projected face, and whether a storm was found.

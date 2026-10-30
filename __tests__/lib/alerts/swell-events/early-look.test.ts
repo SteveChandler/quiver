@@ -145,7 +145,7 @@ describe("earlyLookPeaks", () => {
     expect(earlyLookPeaks(rising, [], TODAY).map((peak) => peak.localDate)).toEqual([dateAfter(13)]);
   });
 
-  it("drops a peak under the 6.5 s storm floor, since the detector wouldn't call it an event", () => {
+  it("drops a peak under the 6.5 s storm floor, WAM's buoy-scale peak period", () => {
     const wind = wamSeries(1.2, { 13: { maxHsM: 2.4, periodS: 6 } });
     const floor = wamSeries(1.2, { 13: { maxHsM: 2.4, periodS: 6.5 } });
     expect(earlyLookPeaks(wind, [], TODAY)).toEqual([]);
