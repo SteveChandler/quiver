@@ -1,5 +1,5 @@
 import { addDays } from "../swell-briefing-input";
-import { buildStoryCandidates, type RegionalDaySignal, type RegionalSwellEvent } from "../week-scout-story-candidates";
+import { buildStoryCandidates, storyEventKey, type RegionalDaySignal, type RegionalSwellEvent } from "../week-scout-story-candidates";
 import { assertStoryArtifactMatchesInput } from "../week-scout-story-validate";
 import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
 
@@ -12,7 +12,7 @@ const days = (height: number | null = 1): RegionalDaySignal[] => Array.from({ le
 const event = (periodS = 13.4): RegionalSwellEvent => ({ directionDeg: 202, periodS,
   arrivalAt: "2026-10-31T18:00:00Z", peakAt: "2026-11-01T18:00:00Z",
   fadeAt: "2026-11-02T18:00:00Z", timezone: "America/Los_Angeles",
-  confidence: "likely", minimumBeaches: 3 });
+  confidence: "likely", minimumBeaches: 3, kind: "swell", regionalKey: "San Diego:SSW:2026-11-01" });
 
 describe("regional Week Scout story candidates", () => {
   it("refuses sparse coverage and uncertain pulses instead of calling them quiet", () => {
@@ -59,6 +59,20 @@ describe("regional Week Scout story candidates", () => {
       .toContain("mid-period swell");
     expect(buildStoryCandidates(signals, "San Diego", [event(9)]).find((fact) => fact.slot === "cover")?.text)
       .toContain("short-period windswell");
+  });
+
+  it("calls a storm stormy: short-period under ten seconds, mid-period from ten", () => {
+    const signals = days(3);
+    const storm = (periodS: number): RegionalSwellEvent => ({ ...event(periodS), kind: "storm" });
+    const short = buildStoryCandidates(signals, "San Diego", [storm(7)]);
+    expect(storyEventKey(storm(7))).toBe("4-2-2026-11-01");
+    expect(short.find((fact) => fact.slot === "cover")?.text).toBe(
+      "A stormy short-period swell from the south-southwest reaches San Diego Saturday and peaks Sunday.");
+    expect(short.find((fact) => fact.id === "swell-4-2-2026-11-01")?.text).toContain("The stormy short-period swell arrives Saturday");
+    expect(buildStoryCandidates(signals, "San Diego", [storm(10)]).find((fact) => fact.slot === "cover")?.text)
+      .toContain("stormy mid-period swell");
+    expect(buildStoryCandidates(signals, "San Diego", [storm(14)]).find((fact) => fact.slot === "cover")?.text)
+      .toContain("stormy mid-period swell");
   });
 
   it("writes keyed copy for every in-week event, earliest peak first, and leaves the fade off cover and lead", () => {

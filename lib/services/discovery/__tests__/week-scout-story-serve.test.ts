@@ -276,7 +276,7 @@ describe("deterministic fallback and live gates", () => {
     }));
     const event = { directionDeg: 270, periodS: 15, arrivalAt: "2026-07-15T18:00:00Z",
       peakAt: "2026-07-16T18:00:00Z", fadeAt: "2026-07-16T23:00:00Z", timezone: "Pacific/Honolulu",
-      confidence: "on_the_radar" as const, minimumBeaches: 2 };
+      confidence: "on_the_radar" as const, minimumBeaches: 2, kind: "swell" as const, regionalKey: "south-shore:W:2026-07-16" };
     // A same-day spike that peaked this morning: regional detection still sees it, the chart does not.
     const spike = { ...event, directionDeg: 275, periodS: 18, arrivalAt: "2026-07-15T17:00:00Z",
       peakAt: "2026-07-15T20:00:00Z", fadeAt: "2026-07-15T23:00:00Z" };
@@ -314,7 +314,7 @@ describe("deterministic fallback and live gates", () => {
     // The region's beaches average to SSW; the user's nearby beaches put the same swell at SW.
     const regional = { directionDeg: 202, periodS: 17, arrivalAt: "2026-07-15T18:00:00Z",
       peakAt: "2026-07-16T18:00:00Z", fadeAt: null, timezone: "Pacific/Honolulu",
-      confidence: "on_the_radar" as const, minimumBeaches: 2 };
+      confidence: "on_the_radar" as const, minimumBeaches: 2, kind: "swell" as const, regionalKey: "south-shore:SSW:2026-07-16" };
     const value = baseInput();
     value.copyFacts = buildStoryCandidates(signals, region, [regional]);
     expect(value.copyFacts.some((fact) => fact.slot === "cover" && /south-southwest/.test(fact.text))).toBe(true);

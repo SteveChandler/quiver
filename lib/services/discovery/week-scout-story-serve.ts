@@ -94,7 +94,8 @@ function liveHeadlineFacts(firstSwell: LiveSwell, live: Live): StoryInput["copyF
     confidence: firstSwell.confidence, minimumBeaches: Math.min(3, firstSwell.beaches.length),
   };
   const facts: StoryInput["copyFacts"] = [];
-  addSwellHeadlines(facts, { key, directionIndex: index, periodS: firstSwell.periodS, arrivalDate,
+  // Chart swells are never storms.
+  addSwellHeadlines(facts, { key, kind: "swell", directionIndex: index, periodS: firstSwell.periodS, arrivalDate,
     peakDate: firstSwell.peakLocalDate }, null, week[0], week[week.length - 1], gate, "live-");
   return facts.map((fact) => ({ ...fact, rank: Number.MAX_SAFE_INTEGER }));
 }

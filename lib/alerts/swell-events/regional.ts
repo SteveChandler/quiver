@@ -34,7 +34,8 @@ const REGION_CACHE_SECONDS = 10_800;
 // Bump when the cached shape or its contents change, so a deploy never reads an older build.
 // v2: events still in the water past their peak day; rating rows span each event's window.
 // v3: one swell the detector peaked more than once shows as one event.
-const REGION_CACHE_VERSION = "v3";
+// v4: events carry memberCount.
+const REGION_CACHE_VERSION = "v4";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -91,6 +92,8 @@ export interface InternalRegionEvent {
   peakLocalDate: string;
   offshoreFt: string | null;
   history: string | null;
+  /** Beach detections behind the event, summed over its joined groups; 0 for an early look. */
+  memberCount: number;
 }
 
 type UnkeyedRegionEvent = Omit<InternalRegionEvent, "key">;
@@ -153,6 +156,7 @@ interface RegionRun {
   lead: BeachSwellEvent;
   arrivalAt: string;
   fadeAt: string | null;
+  memberCount: number;
 }
 
 const earlier = (left: string, right: string): string => (Date.parse(right) < Date.parse(left) ? right : left);
@@ -168,7 +172,7 @@ function runSpan(run: RegionRun): { startMs: number; endMs: number } {
  */
 function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
   const runs: RegionRun[] = [];
-  for (const { lead } of [...groups].sort((left, right) => right.lead.peakEnergy - left.lead.peakEnergy)) {
+  for (const { lead, members } of [...groups].sort((left, right) => right.lead.peakEnergy - left.lead.peakEnergy)) {
     const own = ratingWindow(lead);
     const run = runs.find((candidate) => {
       const span = runSpan(candidate);
@@ -178,12 +182,13 @@ function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
         && span.startMs < own.endMs;
     });
     if (!run) {
-      runs.push({ lead, arrivalAt: lead.arrivalAt, fadeAt: lead.fadeAt });
+      runs.push({ lead, arrivalAt: lead.arrivalAt, fadeAt: lead.fadeAt, memberCount: members.length });
       continue;
     }
     // A missing fade means peak + 24 h, so ends compare as windows; the run never ends before either does.
     if (own.endMs > runSpan(run).endMs) run.fadeAt = lead.fadeAt ?? new Date(own.endMs).toISOString();
     run.arrivalAt = earlier(run.arrivalAt, lead.arrivalAt);
+    run.memberCount += members.length;
   }
   return runs;
 }
@@ -202,6 +207,7 @@ function detectedEvent(run: RegionRun): UnkeyedRegionEvent {
     peakLocalDate: lead.peakLocalDate,
     offshoreFt: `${Math.round(lead.peakOffshoreHeightFt)} ft`,
     history: null,
+    memberCount: run.memberCount,
   };
 }
 
@@ -218,15 +224,17 @@ function earlyLookEvent(peak: EarlyLookPeak): UnkeyedRegionEvent {
     peakLocalDate: peak.localDate,
     offshoreFt: `${Math.round(peak.maxHsM * FEET_PER_METER)} ft`,
     history: null,
+    memberCount: 0,
   };
 }
 
 /**
  * Region-scoped keys, unique within this response. A storm key ends in ":s" like the detector's.
  * Keys are per response, not stable across builds: the card must not persist them.
+ * `taken` holds keys already given out, so later events never reuse one.
  */
-function withKeys(region: string, events: readonly UnkeyedRegionEvent[]): InternalRegionEvent[] {
-  const used = new Set<string>();
+function withKeys(region: string, events: readonly UnkeyedRegionEvent[], taken: Iterable<string> = []): InternalRegionEvent[] {
+  const used = new Set(taken);
   return events.map((event) => {
     const band = event.directionDeg === null ? "X" : degreesToCardinal(event.directionDeg);
     const base = `${region}:${band}:${event.peakLocalDate}`;
@@ -236,6 +244,10 @@ function withKeys(region: string, events: readonly UnkeyedRegionEvent[]): Intern
     used.add(key);
     return { ...event, key };
   });
+}
+
+function byPeak(left: InternalRegionEvent, right: InternalRegionEvent): number {
+  return Date.parse(left.peakAt) - Date.parse(right.peakAt);
 }
 
 /** The number in "9 ft"; an event with no height never leads its day. */
@@ -313,31 +325,44 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
   };
 }
 
+type RegionInput = { client: Client; region: string; now: Date; timezone: string };
+
 /**
- * Every swell and storm in a region, out 15 days. The stored-forecast part (beaches, detection,
- * grouping, the rows rating needs) is cached 3 h per region and local day. WAM early looks and
- * history lines are added outside that cache: fetchWamDays carries its own 3 h fetch cache, and an
- * Open-Meteo outage then costs one response its early looks rather than baking into the region for 3 h.
+ * The stored-forecast part of a region build (beaches, detection, grouping, the rows rating needs),
+ * cached 3 h per region and local day, with keys and no WAM: buoy and wamDays are null.
  */
-export async function buildRegionEvents(input: {
-  client: Client;
-  region: string;
-  now: Date;
-  timezone: string;
-}): Promise<RegionBuild> {
+export async function loadRegionForecastEvents(input: RegionInput): Promise<RegionBuild> {
   const today = getLocalDateStr(input.now, input.timezone);
   const base = await unstable_cache(
     () => loadRegionBase(input),
     ["region-swell-events", REGION_CACHE_VERSION, input.region, today],
     { revalidate: REGION_CACHE_SECONDS },
   )();
+  return {
+    ...base,
+    region: input.region,
+    timezone: input.timezone,
+    buoy: null,
+    wamDays: null,
+    events: withKeys(input.region, base.events).sort(byPeak),
+  };
+}
 
-  const buoy = base.beaches.length >= MIN_REGION_BEACHES ? regionModelBuoy(base.beaches) : null;
+/**
+ * Every swell and storm in a region, out 15 days: the cached forecast events, then WAM early looks
+ * and history lines added outside that cache. fetchWamDays carries its own 3 h fetch cache, and an
+ * Open-Meteo outage then costs one response its early looks rather than baking into the region for 3 h.
+ */
+export async function buildRegionEvents(input: RegionInput): Promise<RegionBuild> {
+  const forecast = await loadRegionForecastEvents(input);
+  const today = getLocalDateStr(input.now, input.timezone);
+  const buoy = forecast.beaches.length >= MIN_REGION_BEACHES ? regionModelBuoy(forecast.beaches) : null;
   const wamDays = buoy ? await fetchWamDays(buoy, input.timezone) : null;
-  const early = wamDays ? earlyLookPeaks(wamDays, base.events, today) : [];
+  const early = wamDays ? earlyLookPeaks(wamDays, forecast.events, today) : [];
   const wamByDate = new Map((wamDays ?? []).map((day) => [day.localDate, day]));
-  const chronological = withKeys(input.region, [...base.events, ...early.map(earlyLookEvent)])
-    .sort((left, right) => Date.parse(left.peakAt) - Date.parse(right.peakAt));
+  // Forecast events keep the keys they were given first, so the story and the card name them alike.
+  const earlyKeyed = withKeys(input.region, early.map(earlyLookEvent), forecast.events.map((event) => event.key));
+  const chronological = [...forecast.events, ...earlyKeyed].sort(byPeak);
   // The history line is about the day's WAM peak, so only the day's biggest event carries it.
   const biggestOfDay = new Map<string, InternalRegionEvent>();
   for (const event of chronological) {
@@ -351,9 +376,7 @@ export async function buildRegionEvents(input: {
   });
 
   return {
-    ...base,
-    region: input.region,
-    timezone: input.timezone,
+    ...forecast,
     buoy: buoy ? { id: buoy.id, name: buoy.name } : null,
     wamDays,
     events,

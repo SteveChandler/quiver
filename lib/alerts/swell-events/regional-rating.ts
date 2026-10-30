@@ -235,7 +235,8 @@ function notWorkingList(ratings: readonly RankedRating[]): RankedRating[] {
   return [...picked, ...candidates.filter((rating) => !picked.includes(rating))].slice(0, MAX_NOT_WORKING);
 }
 
-function localDayDiff(from: string, to: string): number {
+/** Whole days from one local date to another, negative when `to` is earlier. */
+export function localDayDiff(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 

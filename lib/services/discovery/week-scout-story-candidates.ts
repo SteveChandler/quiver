@@ -29,6 +29,9 @@ export interface RegionalSwellEvent {
   timezone: string;
   confidence: "on_the_radar" | "likely" | "locked";
   minimumBeaches: number;
+  kind: "swell" | "storm";
+  /** The region build event's key. */
+  regionalKey: string;
 }
 
 const MAX_FACTS = 100;
@@ -59,7 +62,8 @@ function eventLocalDate(at: string, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(at));
 }
 
-function periodWords(seconds: number): string {
+function periodWords(seconds: number, kind: RegionalSwellEvent["kind"]): string {
+  if (kind === "storm") return seconds >= 10 ? "stormy mid-period swell" : "stormy short-period swell";
   if (seconds >= 13) return "long-period groundswell";
   if (seconds >= 10) return "mid-period swell";
   return "short-period windswell";
@@ -88,6 +92,7 @@ function add(facts: StoryCandidate[], id: string, slot: string, text: string, ga
 
 export interface HeadlineSwell {
   key: string;
+  kind: RegionalSwellEvent["kind"];
   directionIndex: number;
   periodS: number;
   arrivalDate: string;
@@ -102,7 +107,7 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
   firstDate: string, lastDate: string, gate: StoryGate, idPrefix = ""): void {
   const { key, arrivalDate, peakDate } = swell;
   const direction = COMPASS[swell.directionIndex];
-  const period = periodWords(swell.periodS);
+  const period = periodWords(swell.periodS, swell.kind);
   const arrival = windowDay(arrivalDate, firstDate, lastDate);
   const peakDay = windowDay(peakDate, firstDate, lastDate);
   // Phrasings that open with the day, or follow "by", only read with a real weekday.
@@ -115,6 +120,11 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
   if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", `${region} gets a ${direction} ${period} by ${arrival}, with the most swell ${peakDay}.`, gate);
   add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate);
   if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate);
+}
+
+/** The story's key for an event: direction sector, period band and local peak date. */
+export function storyEventKey(event: RegionalSwellEvent): string {
+  return `${directionSector(event.directionDeg)}-${periodBand(event.periodS)}-${eventLocalDate(event.peakAt, event.timezone)}`;
 }
 
 /** Candidate order is the fallback rank; every claim has a live gate. */
@@ -136,7 +146,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     const peak = days.find((day) => day.localDate === peakDate);
     const sector = directionSector(event.directionDeg);
     const band = periodBand(event.periodS);
-    const key = `${sector}-${band}-${peakDate}`;
+    const key = storyEventKey(event);
     if (keys.has(key)) continue;
     keys.add(key);
     const gate: StoryGate = {
@@ -146,7 +156,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
       confidence: event.confidence, minimumBeaches: event.minimumBeaches,
     };
     const direction = directionWords(event.directionDeg);
-    const period = periodWords(event.periodS);
+    const period = periodWords(event.periodS, event.kind);
     const firstDate = days[0].localDate;
     const lastDate = days[6].localDate;
     const arrival = windowDay(arrivalDate, firstDate, lastDate);
@@ -154,7 +164,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     // Phrasings that open with the day, or follow "by", only read with a real weekday.
     const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
     // Cover and lead name no fade day, so they don't require the chart's fade to agree.
-    addSwellHeadlines(facts, { key, directionIndex: directionIndex(event.directionDeg), periodS: event.periodS,
+    addSwellHeadlines(facts, { key, kind: event.kind, directionIndex: directionIndex(event.directionDeg), periodS: event.periodS,
       arrivalDate, peakDate }, region, firstDate, lastDate, { ...gate, fadeLocalDate: null });
     add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
     if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
