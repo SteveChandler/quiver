@@ -32,7 +32,7 @@ BEGIN
     DROP CONSTRAINT user_events_event_type_check;
 
   EXECUTE format(
-    'ALTER TABLE public.user_events ADD CONSTRAINT user_events_event_type_check CHECK ((%s) OR event_type = ANY (%L::text[]))',
+    'ALTER TABLE public.user_events ADD CONSTRAINT user_events_event_type_check CHECK ((%s) OR event_type = ANY (%L::text[])) NOT VALID',
     current_check,
     missing_events
   );
