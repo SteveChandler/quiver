@@ -196,6 +196,12 @@ function withKeys(region: string, events: readonly UnkeyedRegionEvent[]): Intern
   });
 }
 
+/** The number in "9 ft"; an event with no height never leads its day. */
+function offshoreFeet(event: InternalRegionEvent): number {
+  const feet = event.offshoreFt === null ? Number.NaN : Number.parseFloat(event.offshoreFt);
+  return Number.isNaN(feet) ? Number.NEGATIVE_INFINITY : feet;
+}
+
 function isDaylight(at: Date, timezone: string): boolean {
   const hour = getLocalHour(at, timezone);
   return hour !== null
@@ -288,12 +294,19 @@ export async function buildRegionEvents(input: {
   const wamDays = buoy ? await fetchWamDays(buoy, input.timezone) : null;
   const early = wamDays ? earlyLookPeaks(wamDays, base.events, today) : [];
   const wamByDate = new Map((wamDays ?? []).map((day) => [day.localDate, day]));
-  const events = withKeys(input.region, [...base.events, ...early.map(earlyLookEvent)])
-    .map((event) => {
-      const wamDay = wamByDate.get(event.peakLocalDate);
-      return buoy && wamDay ? { ...event, history: historyLine(buoy, wamDay.maxHsM, input.timezone) } : event;
-    })
+  const chronological = withKeys(input.region, [...base.events, ...early.map(earlyLookEvent)])
     .sort((left, right) => Date.parse(left.peakAt) - Date.parse(right.peakAt));
+  // The history line is about the day's WAM peak, so only the day's biggest event carries it.
+  const biggestOfDay = new Map<string, InternalRegionEvent>();
+  for (const event of chronological) {
+    const leader = biggestOfDay.get(event.peakLocalDate);
+    if (!leader || offshoreFeet(event) > offshoreFeet(leader)) biggestOfDay.set(event.peakLocalDate, event);
+  }
+  const events = chronological.map((event) => {
+    const wamDay = wamByDate.get(event.peakLocalDate);
+    if (!buoy || !wamDay || biggestOfDay.get(event.peakLocalDate) !== event) return event;
+    return { ...event, history: historyLine(buoy, wamDay.maxHsM, input.timezone) };
+  });
 
   return {
     ...base,

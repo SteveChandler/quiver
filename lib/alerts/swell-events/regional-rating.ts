@@ -135,8 +135,15 @@ function runEndMs(hours: readonly ScoredHour[], last: number, timezone: string):
   return lastMs + Math.max(HOUR_MS, Math.min(spacingMs, (SWELL_EVENT_THRESHOLDS.daylightEndHour - hour) * HOUR_MS));
 }
 
-/** "Mon 9 AM–3 PM": the longest run of rows at `label` within one day (the earliest on a tie). */
-function windowFor(hours: readonly ScoredHour[], label: string, timezone: string): string | null {
+interface RatingWindow {
+  /** "Mon 9 AM–3 PM" */
+  label: string;
+  startAt: string;
+  endAt: string;
+}
+
+/** "Mon 9 AM–3 PM": the longest run of rows at `label` within one day (the earliest on a tie), with its bounds. */
+function windowFor(hours: readonly ScoredHour[], label: string, timezone: string): RatingWindow | null {
   let run: { first: number; last: number } | null = null;
   for (let index = 0; index < hours.length; index += 1) {
     if (hours[index].label !== label) continue;
@@ -150,10 +157,10 @@ function windowFor(hours: readonly ScoredHour[], label: string, timezone: string
     index = last;
   }
   if (!run) return null;
-  const startIso = hours[run.first].row.forecast_at;
-  const endIso = new Date(runEndMs(hours, run.last, timezone)).toISOString();
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone }).format(new Date(startIso));
-  return `${weekday} ${formatWindowLabel(startIso, endIso, timezone, { forBody: true })}`;
+  const startAt = new Date(hours[run.first].row.forecast_at).toISOString();
+  const endAt = new Date(runEndMs(hours, run.last, timezone)).toISOString();
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone }).format(new Date(startAt));
+  return { label: `${weekday} ${formatWindowLabel(startAt, endAt, timezone, { forBody: true })}`, startAt, endAt };
 }
 
 /**
@@ -180,11 +187,14 @@ function rateBeach(
   if (best.inputs.waveHeightFt <= 0) return null;
   const exposure = exposureOf(beach, event.directionDeg).label;
   const working = isWorking(best.label);
+  const window = windowFor(hours, best.label, timezone);
   return {
     beachId: beach.id,
     beachName: beach.name,
     label: best.label,
-    window: windowFor(hours, best.label, timezone),
+    window: window?.label ?? null,
+    windowStartAt: window?.startAt ?? null,
+    windowEndAt: window?.endAt ?? null,
     faceFt: faceText(best.row.wave_height),
     // A working beach's own line still says when its exposure is unknown; its `working` row won't.
     reason: working ? (exposure === null ? EXPOSURE_UNKNOWN : null) : notWorkingReason(best, exposure, skill),
@@ -201,6 +211,8 @@ function earlyLookRating(beach: RegionBeach, event: InternalRegionEvent): Ranked
     beachName: beach.name,
     label: exposure.label === "open" ? LIKELY : EARLY_LOOK,
     window: null,
+    windowStartAt: null,
+    windowEndAt: null,
     faceFt: null,
     reason: exposure.label === null ? EXPOSURE_UNKNOWN : exposure.label === "shadowed" ? SHELTERED : null,
     exposure: exposure.label,
