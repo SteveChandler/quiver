@@ -8,9 +8,9 @@ export interface RegionBeachRating {
   beachName: string;
   /** GOOD / FAIR / RIDEABLE / MEH (EPIC while it is on); LIKELY or EARLY LOOK for an early look. */
   label: string;
-  /** "Mon 9 AM–3 PM": the longest run of daylight hours at `label` on the peak day. */
+  /** "Mon 9 AM–3 PM": the longest run of daylight hours at `label` in one day of the event's window. */
   window: string | null;
-  /** "3-4 ft", the forecast face at the best hour. */
+  /** "3-4 ft", the forecast face at the best hour of the event's window. */
   faceFt: string | null;
   /** "too big for most", "blown out", "small, sheltered", "closing out" or "exposure unknown". */
   reason: string | null;

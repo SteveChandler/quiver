@@ -19,6 +19,7 @@ import { earlyLookPeaks, fetchWamDays, historyLine, regionModelBuoy, type EarlyL
 import { SWELL_EVENT_THRESHOLDS } from "./exposure";
 import { EXCLUDE_SYNTHETIC_ROWS_FILTER } from "./forecast-rows";
 import { readAllPages } from "./paging";
+import { ratingWindow } from "./regional-rating";
 
 export { confidenceFor, rateRegionEvents } from "./regional-rating";
 
@@ -29,11 +30,14 @@ const DAY_MS = 24 * HOUR_MS;
 /** Stored forecasts end at about 11.8 days; WAM early looks cover the rest. */
 const DETECTION_HORIZON_DAYS = 12;
 const REGION_CACHE_SECONDS = 10_800;
-// Bump when the cached shape changes, so a deploy never reads an older shape.
-const REGION_CACHE_VERSION = "v1";
+// Bump when the cached shape or its contents change, so a deploy never reads an older build.
+// v2: events still in the water past their peak day; rating rows span each event's window.
+const REGION_CACHE_VERSION = "v2";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
+// Below this a region has no "which beaches are working" to show, so no model buoy is fetched.
+const MIN_REGION_BEACHES = 3;
 
 const BEACH_COLUMNS = "id, name, slug, lat, lon, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, terrain_enabled, shoaling_factors, deepwater_decay_factor";
 // The story's scoring select (week-scout-story-source.ts readChunk), less the columns nothing here reads.
@@ -93,7 +97,7 @@ type UnkeyedRegionEvent = Omit<InternalRegionEvent, "key">;
 interface RegionBase {
   beaches: RegionBeach[];
   events: UnkeyedRegionEvent[];
-  /** Daylight rows on each detected event's peak day. */
+  /** Daylight rows inside any detected event's rating window. */
   rowsByBeach: Record<string, RatingRow[]>;
 }
 
@@ -176,8 +180,8 @@ function earlyLookEvent(peak: EarlyLookPeak): UnkeyedRegionEvent {
 }
 
 /**
- * Region-scoped keys, unique within the list. A storm key ends in ":s" like the detector's;
- * an early look that later reaches the stored forecast keeps the same key.
+ * Region-scoped keys, unique within this response. A storm key ends in ":s" like the detector's.
+ * Keys are per response, not stable across builds: the card must not persist them.
  */
 function withKeys(region: string, events: readonly UnkeyedRegionEvent[]): InternalRegionEvent[] {
   const used = new Set<string>();
@@ -207,7 +211,6 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
   // One read feeds both detection (swell partitions) and rating (height, wind, tide).
   const rows = beachRows.length ? await readForecastRows(client, beachRows.map((beach) => beach.id), from, to) : [];
   const rowsByBeach = Map.groupBy(rows, (row) => row.beach_id);
-  const today = getLocalDateStr(now, timezone);
 
   const detected = beachRows.flatMap((beach) => {
     try {
@@ -220,7 +223,7 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
       console.warn("[regional] detection failed", { beachId: beach.id, error: String(error) });
       return [];
     }
-  }).filter((event) => isSwellEventCurrent(event, now) && event.peakLocalDate >= today);
+  }).filter((event) => isSwellEventCurrent(event, now));
 
   // Kinds group apart: a storm that grows into a swell shows as two events.
   const events = [
@@ -228,12 +231,14 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
     ...groupEvents(detected.filter((event) => event.kind === "storm")),
   ].map(detectedEvent);
 
-  const peakDates = new Set(events.map((event) => event.peakLocalDate));
+  const windows = events.map(ratingWindow);
   const ratingRows: Record<string, RatingRow[]> = {};
   for (const beach of beachRows) {
     ratingRows[beach.id] = (rowsByBeach.get(beach.id) ?? []).flatMap((row) => {
       const at = new Date(row.forecast_at);
-      if (!peakDates.has(getLocalDateStr(at, timezone)) || !isDaylight(at, timezone)) return [];
+      const atMs = at.getTime();
+      const inWindow = windows.some((window) => atMs >= window.startMs && atMs < window.endMs);
+      if (!inWindow || !isDaylight(at, timezone)) return [];
       return [{
         forecast_at: row.forecast_at,
         wave_height: row.wave_height,
@@ -279,7 +284,7 @@ export async function buildRegionEvents(input: {
     { revalidate: REGION_CACHE_SECONDS },
   )();
 
-  const buoy = regionModelBuoy(base.beaches);
+  const buoy = base.beaches.length >= MIN_REGION_BEACHES ? regionModelBuoy(base.beaches) : null;
   const wamDays = buoy ? await fetchWamDays(buoy, input.timezone) : null;
   const early = wamDays ? earlyLookPeaks(wamDays, base.events, today) : [];
   const wamByDate = new Map((wamDays ?? []).map((day) => [day.localDate, day]));

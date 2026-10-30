@@ -290,6 +290,8 @@ describe("GET /api/beaches/[id]/swell-events", () => {
 
     expect(status).toBe(200);
     expect(data).toEqual({ region: "Tiny Coast", buoy: null, beachCount: 2, events: [] });
+    // No model-buoy fetch for a region too small to show.
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("keeps the stored-forecast events, without early looks or history, when Open-Meteo is down", async () => {

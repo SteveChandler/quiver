@@ -19,6 +19,11 @@ type ScoreInputs = ReturnType<typeof nativeScoreInputsFromForecast>;
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
+// Without an arrival or fade, rate from 12 h before the peak to 24 h after it.
+const WINDOW_BEFORE_PEAK_MS = 12 * HOUR_MS;
+const WINDOW_AFTER_PEAK_MS = 24 * HOUR_MS;
+// Without a fade, an event stays current until 12 h after its peak, as in isSwellEventCurrent.
+const CURRENT_AFTER_PEAK_MS = 12 * HOUR_MS;
 const MAX_WORKING = 5;
 const MAX_NOT_WORKING = 3;
 const CLOSING_OUT_FACE_FT = 8;
@@ -39,6 +44,7 @@ const REASON_ORDER = [BLOWN_OUT, TOO_BIG, SHELTERED, CLOSING_OUT, EXPOSURE_UNKNO
 
 interface ScoredHour {
   row: RatingRow;
+  localDate: string;
   inputs: ScoreInputs;
   breakdown: NativeConditionScoreBreakdown;
   label: string;
@@ -47,6 +53,23 @@ interface ScoredHour {
 /** A beach's rating plus what orders it: the score, or the exposure factor for an early look. */
 interface RankedRating extends RegionBeachRating {
   rank: number;
+}
+
+type EventTimes = Pick<InternalRegionEvent, "arrivalAt" | "peakAt" | "fadeAt">;
+
+/** The span a beach is rated over: arrival (or peak − 12 h) up to, not including, the fade (or peak + 24 h). */
+export function ratingWindow(event: EventTimes): { startMs: number; endMs: number } {
+  const peakMs = Date.parse(event.peakAt);
+  return {
+    startMs: event.arrivalAt ? Date.parse(event.arrivalAt) : peakMs - WINDOW_BEFORE_PEAK_MS,
+    endMs: event.fadeAt ? Date.parse(event.fadeAt) : peakMs + WINDOW_AFTER_PEAK_MS,
+  };
+}
+
+/** Still in the water: before its fade, or without one, within 12 h of its peak. */
+function isEventCurrent(event: EventTimes, now: Date): boolean {
+  const endMs = event.fadeAt ? Date.parse(event.fadeAt) : Date.parse(event.peakAt) + CURRENT_AFTER_PEAK_MS;
+  return now.getTime() < endMs;
 }
 
 /** Lead days from the region's local today to the peak date: 0-4, 5-9, 10-14. */
@@ -97,25 +120,32 @@ function notWorkingReason(hour: ScoredHour, exposure: Exposure, skill: SkillLeve
 }
 
 /**
- * Where the last row of a run stops counting: at the next row, else one row spacing later (rows
- * are hourly or 3-hourly) but never past the end of daylight.
+ * Where the last row of a run stops counting: at the next row that day, else one row spacing later
+ * (rows are hourly or 3-hourly) but never past the end of daylight.
  */
 function runEndMs(hours: readonly ScoredHour[], last: number, timezone: string): number {
   const next = hours[last + 1];
-  if (next) return Date.parse(next.row.forecast_at);
+  if (next && next.localDate === hours[last].localDate) return Date.parse(next.row.forecast_at);
   const lastMs = Date.parse(hours[last].row.forecast_at);
-  const spacingMs = last > 0 ? lastMs - Date.parse(hours[last - 1].row.forecast_at) : HOUR_MS;
+  const previous = hours[last - 1];
+  const spacingMs = previous && previous.localDate === hours[last].localDate
+    ? lastMs - Date.parse(previous.row.forecast_at)
+    : HOUR_MS;
   const hour = getLocalHour(new Date(lastMs), timezone) ?? SWELL_EVENT_THRESHOLDS.daylightEndHour - 1;
   return lastMs + Math.max(HOUR_MS, Math.min(spacingMs, (SWELL_EVENT_THRESHOLDS.daylightEndHour - hour) * HOUR_MS));
 }
 
-/** "Mon 9 AM–3 PM": the longest run of rows at `label` (the earliest on a tie). */
+/** "Mon 9 AM–3 PM": the longest run of rows at `label` within one day (the earliest on a tie). */
 function windowFor(hours: readonly ScoredHour[], label: string, timezone: string): string | null {
   let run: { first: number; last: number } | null = null;
   for (let index = 0; index < hours.length; index += 1) {
     if (hours[index].label !== label) continue;
     let last = index;
-    while (last + 1 < hours.length && hours[last + 1].label === label) last += 1;
+    while (
+      last + 1 < hours.length
+      && hours[last + 1].label === label
+      && hours[last + 1].localDate === hours[index].localDate
+    ) last += 1;
     if (!run || last - index > run.last - run.first) run = { first: index, last };
     index = last;
   }
@@ -127,7 +157,7 @@ function windowFor(hours: readonly ScoredHour[], label: string, timezone: string
 }
 
 /**
- * The best daylight hour on the peak day, scored for this skill. Null without rows that day, or
+ * The best daylight hour in the event's window, scored for this skill. Null without rows there, or
  * when the best hour has no usable height: every component reads 0 then, which would say "blown out".
  */
 function rateBeach(
@@ -143,7 +173,8 @@ function rateBeach(
     .map((row) => {
       const inputs = nativeScoreInputsFromForecast(row as EnhancedForecastEntity);
       const breakdown = scoreNativeConditionBreakdown(inputs, skill);
-      return { row, inputs, breakdown, label: scoreLabel(breakdown.score) };
+      const localDate = getLocalDateStr(new Date(row.forecast_at), timezone);
+      return { row, localDate, inputs, breakdown, label: scoreLabel(breakdown.score) };
     });
   const best = hours.reduce((max, hour) => (hour.breakdown.score > max.breakdown.score ? hour : max));
   if (best.inputs.waveHeightFt <= 0) return null;
@@ -196,24 +227,37 @@ function localDayDiff(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 
-/** Rates every region beach for every event with this user's skill; events whose peak day has passed drop out. */
+/**
+ * Rows in the event's window whose hour hasn't passed: an event still in the water is rated on what
+ * is left of it, never on a window already over.
+ */
+function rowsInWindow(rows: readonly RatingRow[], event: EventTimes, now: Date): RatingRow[] {
+  const { startMs, endMs } = ratingWindow(event);
+  const nowMs = now.getTime();
+  return rows.filter((row) => {
+    const atMs = Date.parse(row.forecast_at);
+    return atMs >= startMs && atMs < endMs && atMs + HOUR_MS > nowMs;
+  });
+}
+
+/**
+ * Rates every region beach for every event with this user's skill. Re-checked at serve time, since
+ * the build is cached: an event drops out once it fades, and one still in the water past its peak
+ * day counts 0 lead days.
+ */
 export function rateRegionEvents(
   built: RegionBuild,
   input: { beachId: string; skill: SkillLevel; now: Date },
 ): RegionSwellEvent[] {
   const today = getLocalDateStr(input.now, built.timezone);
-  const rowsByBeachDate = new Map(built.beaches.map((beach) => [
-    beach.id,
-    Map.groupBy(built.rowsByBeach[beach.id] ?? [], (row) => getLocalDateStr(new Date(row.forecast_at), built.timezone)),
-  ]));
 
   return built.events.flatMap((event): RegionSwellEvent[] => {
-    const leadDays = localDayDiff(today, event.peakLocalDate);
-    if (leadDays < 0) return [];
+    if (!isEventCurrent(event, input.now)) return [];
+    const leadDays = Math.max(0, localDayDiff(today, event.peakLocalDate));
     const ratings = built.beaches.flatMap((beach) => {
       const rating = event.source === "wam"
         ? earlyLookRating(beach, event)
-        : rateBeach(beach, rowsByBeachDate.get(beach.id)?.get(event.peakLocalDate) ?? [], event, input.skill, built.timezone);
+        : rateBeach(beach, rowsInWindow(built.rowsByBeach[beach.id] ?? [], event, input.now), event, input.skill, built.timezone);
       return rating ? [rating] : [];
     });
     const here = ratings.find((rating) => rating.beachId === input.beachId);

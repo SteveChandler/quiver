@@ -20,6 +20,9 @@ import {
   buildRegionEvents,
   confidenceFor,
   rateRegionEvents,
+  type InternalRegionEvent,
+  type RatingRow,
+  type RegionBuild,
 } from "@/lib/alerts/swell-events/regional";
 import {
   fetchWamDays,
@@ -96,16 +99,20 @@ function rowsFor(
     swell?: boolean | PartitionSpec;
     surf?: Surf;
     surfAt?: (hour: number) => Surf;
+    /** Days the event is in the water; the first is its peak. */
+    eventDays?: number[];
+    surfOn?: (day: number, hour: number) => Surf;
   } = {},
 ): Array<Record<string, unknown>> {
   const storm = options.storm === true ? STORM : options.storm || null;
   const swell = options.swell === true ? SWELL : options.swell || null;
+  const eventDays = options.eventDays ?? [EVENT_DAY];
   return DAYS.flatMap((day) => {
-    const eventDay = day === EVENT_DAY;
+    const eventDay = eventDays.includes(day);
     const primary = (eventDay && (storm ?? swell)) || FLAT;
     const secondary = eventDay && storm && swell ? swell : null;
-    return dayRows(day, primary, { noonBumpFt: eventDay ? 0.5 : 0, secondary }).map((row, index) => {
-      const surf = options.surfAt?.(HOURS[index]) ?? options.surf ?? SURF.good75;
+    return dayRows(day, primary, { noonBumpFt: day === eventDays[0] ? 0.5 : 0, secondary }).map((row, index) => {
+      const surf = options.surfOn?.(day, HOURS[index]) ?? options.surfAt?.(HOURS[index]) ?? options.surf ?? SURF.good75;
       return {
         ...row,
         beach_id: beachId,
@@ -150,6 +157,57 @@ function client(beaches: TestBeach[], rows: Array<Record<string, unknown>>): Sup
 
 function build(beaches: TestBeach[], rows: Array<Record<string, unknown>>) {
   return buildRegionEvents({ client: client(beaches, rows), region: REGION, now: NOW, timezone: TIMEZONE });
+}
+
+function buildAt(beaches: TestBeach[], rows: Array<Record<string, unknown>>, now: Date) {
+  return buildRegionEvents({ client: client(beaches, rows), region: REGION, now, timezone: TIMEZONE });
+}
+
+function ratingRow(day: number, hour: number, surf: Surf): RatingRow {
+  return {
+    forecast_at: localIsoOf(day, hour),
+    wave_height: surf.wave,
+    wave_period: null,
+    wind_speed: surf.wind,
+    tide_height: null,
+    tide_status: null,
+    swell_1_period: "9s",
+  } as RatingRow;
+}
+
+/** A region build by hand, for rating rules that detection fixtures can't shape. */
+function builtWith(event: Partial<InternalRegionEvent>, rows: RatingRow[]): RegionBuild {
+  const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")].map((item) => ({
+    id: item.id,
+    name: item.name,
+    lat: item.lat,
+    lon: item.lon,
+    swell_window_center_deg: item.swell_window_center_deg,
+    swell_window_halfwidth_deg: item.swell_window_halfwidth_deg,
+  }));
+  return {
+    region: REGION,
+    timezone: TIMEZONE,
+    buoy: null,
+    wamDays: null,
+    beaches,
+    rowsByBeach: { [beaches[0].id]: rows },
+    events: [{
+      key: `${REGION}:W:${localDate(EVENT_DAY)}:s`,
+      kind: "storm",
+      source: "forecast",
+      directionDeg: 270,
+      directionLabel: "W",
+      periodS: 9,
+      arrivalAt: localIsoOf(EVENT_DAY, 0),
+      peakAt: localIsoOf(EVENT_DAY, 12),
+      fadeAt: localIsoOf(EVENT_DAY + 1, 0),
+      peakLocalDate: localDate(EVENT_DAY),
+      offshoreFt: "8 ft",
+      history: null,
+      ...event,
+    }],
+  };
 }
 
 function wamDays(overrides: Record<number, Partial<WamDay>>): WamDay[] {
@@ -198,7 +256,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v1", REGION, "2026-09-25"],
+      ["region-swell-events", "v2", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -516,7 +574,7 @@ describe("rateRegionEvents lists", () => {
     expect(event.here).toMatchObject({ label: "MEH", faceFt: "5-6 ft", reason: "too big for most" });
   });
 
-  it("drops an event once its peak day has passed, counting lead days from the request's now", async () => {
+  it("drops an event once it has faded, counting lead days from the request's now", async () => {
     const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
     const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
     const day = 24 * 60 * 60 * 1000;
@@ -525,6 +583,138 @@ describe("rateRegionEvents lists", () => {
     expect(twoDaysOn.map((event) => event.leadDays)).toEqual([EVENT_DAY - 2]);
     expect(rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: new Date(NOW.getTime() + 4 * day) }))
       .toEqual([]);
+  });
+});
+
+describe("event window rating", () => {
+  const twoDayStorm = (beachId: string, surfOn?: (day: number, hour: number) => Surf) =>
+    rowsFor(beachId, { storm: true, eventDays: [EVENT_DAY, EVENT_DAY + 1], surfOn });
+
+  it("rates a beach across the event's whole window, not only its peak day", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const rows = beaches.flatMap((item) => twoDayStorm(item.id, (day) => (day === EVENT_DAY + 1 ? SURF.good79 : SURF.fair66)));
+    const built = await build(beaches, rows);
+    const [event] = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(event).toMatchObject({
+      peakLocalDate: localDate(EVENT_DAY),
+      arrivalAt: localIsoOf(EVENT_DAY, 0),
+      fadeAt: localIsoOf(EVENT_DAY + 2, 0),
+    });
+    expect(event.here).toMatchObject({ label: "GOOD", window: "Tue 6 AM–7 PM" });
+    // Only daylight rows inside the event's window are kept for rating.
+    const daylight = [6, 9, 12, 15, 18];
+    expect(built.rowsByBeach[beaches[0].id].map((row) => row.forecast_at)).toEqual([
+      ...daylight.map((hour) => localIsoOf(EVENT_DAY, hour)),
+      ...daylight.map((hour) => localIsoOf(EVENT_DAY + 1, hour)),
+    ]);
+  });
+
+  it("leaves out hours before arrival and from the fade on, even on the peak day", () => {
+    const built = builtWith(
+      { arrivalAt: localIsoOf(EVENT_DAY, 9), fadeAt: localIsoOf(EVENT_DAY, 15) },
+      [
+        ratingRow(EVENT_DAY, 6, SURF.good79),
+        ratingRow(EVENT_DAY, 9, SURF.fair66),
+        ratingRow(EVENT_DAY, 12, SURF.fair63),
+        ratingRow(EVENT_DAY, 15, SURF.good79),
+        ratingRow(EVENT_DAY, 18, SURF.good79),
+      ],
+    );
+    const [event] = rateRegionEvents(built, { beachId: built.beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "FAIR", window: "Mon 9 AM–3 PM" });
+  });
+
+  it("uses peak − 12 h to peak + 24 h when the event has no arrival or fade", () => {
+    const built = builtWith(
+      { arrivalAt: null, fadeAt: null },
+      [
+        ratingRow(EVENT_DAY - 1, 18, SURF.good79),
+        ratingRow(EVENT_DAY, 6, SURF.fair66),
+        ratingRow(EVENT_DAY + 1, 6, SURF.fair66),
+        ratingRow(EVENT_DAY + 1, 9, SURF.good75),
+        ratingRow(EVENT_DAY + 1, 15, SURF.good79),
+      ],
+    );
+    const [event] = rateRegionEvents(built, { beachId: built.beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(event.here).toMatchObject({ label: "GOOD", window: "Tue 9 AM–12 PM" });
+  });
+
+  it("ends a run at the end of its day instead of joining daylight across the night", () => {
+    const built = builtWith(
+      { fadeAt: localIsoOf(EVENT_DAY + 2, 0) },
+      [
+        ratingRow(EVENT_DAY, 12, SURF.fair66),
+        ratingRow(EVENT_DAY, 15, SURF.good79),
+        ratingRow(EVENT_DAY, 18, SURF.good79),
+        ratingRow(EVENT_DAY + 1, 6, SURF.good79),
+        ratingRow(EVENT_DAY + 1, 9, SURF.good79),
+        ratingRow(EVENT_DAY + 1, 12, SURF.fair66),
+      ],
+    );
+    const [event] = rateRegionEvents(built, { beachId: built.beaches[0].id, skill: "intermediate", now: NOW });
+
+    // Two runs of two rows; the earlier wins the tie, and its 6 PM row stops at 7 PM.
+    expect(event.here).toMatchObject({ label: "GOOD", window: "Mon 3–7 PM" });
+  });
+
+  it("rates an event still in the water from its remaining hours, not hours already past", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const rows = beaches.flatMap((item) => twoDayStorm(item.id, (day) => (day === EVENT_DAY ? SURF.good79 : SURF.fair66)));
+    const built = await build(beaches, rows);
+    const [event] = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: new Date(localIsoOf(EVENT_DAY + 1, 8)) });
+
+    expect(event.here).toMatchObject({ label: "FAIR", window: "Tue 9 AM–7 PM" });
+  });
+});
+
+describe("event currency", () => {
+  it("keeps an event still in the water after its peak day, at 0 lead days", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { storm: true, eventDays: [EVENT_DAY, EVENT_DAY + 1] }));
+    const now = new Date(localIsoOf(EVENT_DAY + 1, 8));
+    const built = await buildAt(beaches, rows, now);
+    const events = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now });
+
+    expect(events).toEqual([expect.objectContaining({
+      kind: "storm",
+      peakLocalDate: localDate(EVENT_DAY),
+      leadDays: 0,
+      confidence: "on_the_way",
+    })]);
+  });
+
+  it("re-checks a cached event at serve time: kept until it fades, then dropped", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { storm: true, eventDays: [EVENT_DAY, EVENT_DAY + 1] }));
+    const built = await build(beaches, rows);
+    const rate = (iso: string) => rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: new Date(iso) });
+
+    expect(built.events[0].fadeAt).toBe(localIsoOf(EVENT_DAY + 2, 0));
+    expect(rate(localIsoOf(EVENT_DAY + 1, 20)).map((event) => event.leadDays)).toEqual([0]);
+    expect(rate(localIsoOf(EVENT_DAY + 2, 1))).toEqual([]);
+  });
+
+  it("keeps an event without a fade until 12 h after its peak", () => {
+    const built = builtWith({ source: "wam", arrivalAt: null, fadeAt: null }, []);
+    const rate = (iso: string) => rateRegionEvents(built, { beachId: built.beaches[0].id, skill: "intermediate", now: new Date(iso) });
+
+    expect(rate(localIsoOf(EVENT_DAY, 23)).map((event) => event.leadDays)).toEqual([0]);
+    expect(rate(localIsoOf(EVENT_DAY + 1, 1))).toEqual([]);
+  });
+});
+
+describe("small regions", () => {
+  it("skips the WAM fetch for a region with fewer than 3 beaches", async () => {
+    const beaches = [beach("Lone Point"), beach("Second Cove")];
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({ 12: { maxHsM: 2.6, periodS: 9 } }));
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
+
+    expect(fetchWamDays).not.toHaveBeenCalled();
+    expect(built.buoy).toBeNull();
+    expect(built.events.every((event) => event.source === "forecast")).toBe(true);
   });
 });
 
