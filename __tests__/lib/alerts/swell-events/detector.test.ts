@@ -5,6 +5,7 @@ import {
   exposureFactor,
   exposureLabel,
   swellPartitionFaceHeightFt,
+  type DetectOptions,
   type SwellEventForecastRow,
 } from "@/lib/alerts/swell-events";
 import { MODEL_SWELL_CALIBRATION_FACTORS } from "@/lib/utils/model-swell-calibration-factors";
@@ -20,8 +21,8 @@ import {
   type PartitionSpec,
 } from "@/__tests__/helpers/swell-events";
 
-function detect(forecasts: SwellEventForecastRow[], beach = swellBeach()) {
-  return detectBeachSwellEvents({ beach, forecasts, now: NOW, timezone: TIMEZONE });
+function detect(forecasts: SwellEventForecastRow[], beach = swellBeach(), options?: DetectOptions) {
+  return detectBeachSwellEvents({ beach, forecasts, now: NOW, timezone: TIMEZONE }, options);
 }
 
 const BUILD: PartitionSpec = { heightFt: 2.5, periodS: 15, direction: 270 };
@@ -281,6 +282,114 @@ describe("detectBeachSwellEvents", () => {
       ...dayRows(9, PEAK),
     ];
     expect(detect(rows)).toEqual([]);
+  });
+});
+
+describe("detectBeachSwellEvents options", () => {
+  const STORM_CLASS: DetectOptions = { stormClass: true };
+  const GROUNDSWELL_LULL: PartitionSpec = { heightFt: 2, periodS: 13, direction: 270 };
+  const STORM: PartitionSpec = { heightFt: 7, periodS: 8, direction: 270 };
+
+  function stormWeek(peak: PartitionSpec, lull: PartitionSpec = GROUNDSWELL_LULL): SwellEventForecastRow[] {
+    return [
+      ...dayRows(0, lull),
+      ...dayRows(1, lull),
+      ...dayRows(2, lull),
+      ...dayRows(3, peak, { noonBumpFt: 0.2 }),
+    ];
+  }
+
+  it("default options are unchanged: a 6 ft 8 s rise is no event", () => {
+    const rows = stormWeek({ heightFt: 6, periodS: 8, direction: 270 });
+    expect(detect(rows)).toEqual([]);
+    // The same rise is storm-sized, so [] above is the default ignoring it.
+    expect(detect(rows, swellBeach(), STORM_CLASS)).toHaveLength(1);
+  });
+
+  it("stormClass detects a big short-period event", () => {
+    const events = detect(stormWeek(STORM), swellBeach(), STORM_CLASS);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "storm",
+      eventKey: `${BEACH_ID}:W:${localDate(3)}:s`,
+      periodS: 8,
+      peakLocalDate: localDate(3),
+      peakAt: localIso(3, 12),
+    });
+  });
+
+  it("a small short-period bump is not a storm", () => {
+    const lull: PartitionSpec = { heightFt: 1.3, periodS: 8, direction: 270 };
+    const bump: PartitionSpec = { heightFt: 4, periodS: 8, direction: 270 };
+    const face = (spec: PartitionSpec) => swellPartitionFaceHeightFt(
+      [{ heightFt: spec.heightFt, periodS: spec.periodS, directionDeg: 270 }],
+      swellBeach(),
+    )!;
+    expect(face(bump) - face(lull)).toBeCloseTo(2.5, 1);
+    expect(detect([
+      ...dayRows(0, lull),
+      ...dayRows(1, lull),
+      ...dayRows(2, lull),
+      ...dayRows(3, bump),
+    ], swellBeach(), STORM_CLASS)).toEqual([]);
+  });
+
+  it("swell and storm on the same day stay separate", () => {
+    const swell: PartitionSpec = { heightFt: 4, periodS: 13, direction: 270 };
+    const events = detect([
+      ...dayRows(0, GROUNDSWELL_LULL),
+      ...dayRows(1, GROUNDSWELL_LULL),
+      ...dayRows(2, GROUNDSWELL_LULL),
+      ...dayRows(3, swell, { secondary: STORM }),
+    ], swellBeach(), STORM_CLASS);
+
+    expect(events).toHaveLength(2);
+    const storm = events.find((event) => event.kind === "storm");
+    const groundswell = events.find((event) => event.kind === undefined);
+    expect(storm).toMatchObject({ periodS: 8, eventKey: `${BEACH_ID}:W:${localDate(3)}:s` });
+    expect(groundswell).toMatchObject({ periodS: 13, eventKey: `${BEACH_ID}:W:${localDate(3)}` });
+    expect(groundswell).not.toHaveProperty("kind");
+  });
+
+  it("keeps a storm and a swell of close periods apart instead of merging them as duplicates", () => {
+    const swell: PartitionSpec = { heightFt: 4, periodS: 12, direction: 270 };
+    const storm: PartitionSpec = { heightFt: 6, periodS: 10, direction: 270 };
+    const events = detect([
+      ...dayRows(0, GROUNDSWELL_LULL),
+      ...dayRows(1, GROUNDSWELL_LULL),
+      ...dayRows(2, GROUNDSWELL_LULL),
+      ...dayRows(3, swell, { secondary: storm }),
+    ], swellBeach(), STORM_CLASS);
+    expect(events.map((event) => [event.kind ?? "swell", event.periodS])).toEqual(
+      expect.arrayContaining([["swell", 12], ["storm", 10]]),
+    );
+    expect(events).toHaveLength(2);
+  });
+
+  it("does not let a storm day continue a swell event on the same component", () => {
+    const events = detect([
+      ...dayRows(0, GROUNDSWELL_LULL),
+      ...dayRows(1, GROUNDSWELL_LULL),
+      ...dayRows(2, GROUNDSWELL_LULL),
+      ...dayRows(3, { heightFt: 3.5, periodS: 11, direction: 270 }),
+      // Tracks as the same component, but storm-class and bigger.
+      ...dayRows(4, { heightFt: 7, periodS: 10, direction: 270 }),
+    ], swellBeach(), STORM_CLASS);
+    const swell = events.find((event) => event.kind === undefined);
+    expect(swell).toMatchObject({ periodS: 11, peakLocalDate: localDate(3) });
+    expect(swell).not.toHaveProperty("kind");
+  });
+
+  it("horizonDays extends reach", () => {
+    const rows = [
+      ...Array.from({ length: 10 }, (_, index) => dayRows(index, FLAT)).flat(),
+      ...dayRows(10, PEAK),
+      ...dayRows(11, FLAT),
+    ];
+    expect(detect(rows)).toEqual([]);
+    const events = detect(rows, swellBeach(), { horizonDays: 12 });
+    expect(events).toHaveLength(1);
+    expect(events[0].peakLocalDate).toBe(localDate(10));
   });
 });
 

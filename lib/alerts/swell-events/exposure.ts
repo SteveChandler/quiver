@@ -23,6 +23,14 @@ export const SWELL_EVENT_THRESHOLDS = {
   crossingMinEnergyShare: 0.35,
 } as const;
 
+/** Opt-in class for big short-period (wind/storm) swell below SWELL_EVENT_THRESHOLDS.minPeriodS. */
+export const STORM_EVENT_THRESHOLDS = {
+  minPeriodS: 7,
+  minPeakFaceHeightFt: 5,
+  minFaceRiseFt: 3,
+  minEnergyRatio: 2.5,
+} as const;
+
 export interface SwellWindow {
   centerDeg: number;
   halfWidthDeg: number;
