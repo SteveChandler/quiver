@@ -1,6 +1,7 @@
 export {
   SWELL_EVENT_DETECTOR_VERSION,
   SWELL_EVENT_THRESHOLDS,
+  STORM_EVENT_THRESHOLDS,
   exposureFactor,
   exposureLabel,
   swellWindowForBeach,
@@ -13,6 +14,7 @@ export {
   swellPartitionFaceHeightFt,
   toSwellEventBeach,
   type BeachSwellEvent,
+  type DetectOptions,
   type SwellEventBeach,
   type SwellEventForecastRow,
 } from "./detector";
