@@ -25,8 +25,10 @@ export const SWELL_EVENT_THRESHOLDS = {
 
 /** Opt-in class for big short-period (wind/storm) swell below SWELL_EVENT_THRESHOLDS.minPeriodS. */
 export const STORM_EVENT_THRESHOLDS = {
-  // San Diego buoy backtest (docs/forecast/storm-class-backtest.md): 7 s missed storms read in NDBC's 6.67 s bin.
-  minPeriodS: 6.5,
+  // Detection runs on stored Open-Meteo partitions, whose periods read well under buoy peak period:
+  // the Nov 2026 San Diego storm is 5-6 ft at 6 s there. The 6.5 s buoy-tuned floor missed it.
+  // Stored-forecast replay: docs/forecast/storm-class-backtest.md.
+  minPeriodS: 5,
   minPeakFaceHeightFt: 5,
   minFaceRiseFt: 3,
   minEnergyRatio: 2.5,

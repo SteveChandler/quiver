@@ -18,7 +18,8 @@ const EARLY_FIRST_DAY = 11;
 const EARLY_LAST_DAY = 14;
 const PEAK_FLOOR_M = 1.5;
 const PEAK_MEDIAN_MULTIPLE = 1.6;
-// Matches the detector's storm band: 6.5 s up to (not including) 11 s; shorter is chop, not an event.
+// WAM peak period is buoy-scale (like DPD), so it keeps the buoy-tuned 6.5 s floor; the detector's
+// 5 s floor is on the shorter stored-partition scale. Up to (not including) 11 s; shorter is chop.
 const STORM_PERIOD_FLOOR_S = 6.5;
 const STORM_PERIOD_BELOW_S = 11;
 const DETECTED_OVERLAP_MS = 36 * 3_600_000;

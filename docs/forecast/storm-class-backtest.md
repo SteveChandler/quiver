@@ -2,7 +2,9 @@
 
 ## Decision
 
-**Shipped `STORM_EVENT_THRESHOLDS`: `minPeriodS` 6.5 (was 7), `minPeakFaceHeightFt` 5, `minFaceRiseFt` 3, `minEnergyRatio` 2.5.**
+> **Superseded for the period floor (Oct 30):** the shipped `minPeriodS` is now **5**, not 6.5. The detector runs on stored Open-Meteo partitions, whose periods read well under buoy peak period, and the 6.5 s floor hid the Nov 2026 San Diego storm. See [Stored-forecast replay (Oct 30)](#stored-forecast-replay-oct-30). The buoy runs below were made at 6.5 s; reproduce them with `--period=6.5`.
+
+**Buoy-tuned `STORM_EVENT_THRESHOLDS`: `minPeriodS` 6.5 (was 7), `minPeakFaceHeightFt` 5, `minFaceRiseFt` 3, `minEnergyRatio` 2.5.**
 
 | Criterion | Result |
 | --- | --- |
@@ -199,3 +201,49 @@ A possible fix is to carry the previous event's lull forward as the baseline whe
 | **Total (15 months)** | **20 / 19** (1.33 per month) | 99 | **14 / 14** (0.93 per month) | 111 |
 
 The busiest month is 4 storm events: 46224 in Jan 2024 and Feb 2024, during the El Niño winter. The swell column is the existing swell class on the same buoy rows, included for reference only. It is not a criterion here.
+
+## Stored-forecast replay (Oct 30)
+
+The buoy backtest tuned the class on NDBC dominant period (DPD), a peak period. In production the detector reads the stored `enhanced_forecasts` swell partitions (Open-Meteo), and their periods run much shorter. The storm Steven named, Nov 5-6 in San Diego, is 4-6.5 ft at 6-7 s on the stored partitions at San Diego beaches, so the 6.5 s floor rejected it at nearly every beach (ruling R23).
+
+**Shipped `STORM_EVENT_THRESHOLDS`: `minPeriodS` 5, `minPeakFaceHeightFt` 5, `minFaceRiseFt` 3, `minEnergyRatio` 2.5.** Only the period floor changed. WAM early looks keep their own 6.5 s floor (`early-look.ts`), because WAM reports peak period, the same scale as buoy DPD.
+
+### Setup
+
+- **Script:** `scripts/replay-storm-class.ts`. Read-only: it SELECTs `beaches` and `enhanced_forecasts` with the service-role key and writes nothing.
+- **Run:** `node --env-file=<path to .env.local> --import tsx scripts/replay-storm-class.ts --now=2026-10-30T16:30:00.000Z`. Inside the Claude Code sandbox, add `NODE_USE_ENV_PROXY=1` so Node's fetch uses the sandbox proxy.
+- **What it runs:** what `buildRegionEvents` runs. It calls `detectBeachSwellEvents(..., { stormClass: true, horizonDays: 12 })` for every beach in the region, keeps events where `isSwellEventCurrent`, then groups swells and storms apart with `groupEvents`.
+- **Regions:** San Diego (57 beaches), Orange County (37), Los Angeles (28).
+- **Snapshot:** forecast rows as stored at 2026-10-30 16:30 UTC. The rows change with every ingest, so a rerun on another day gives other events.
+- **Overrides:** `--period`, `--face`, `--rise` and `--ratio` override the thresholds. `--diagnose=YYYY-MM-DD` prints each beach's biggest storm-band partition on that date.
+
+### Results (12-day horizon)
+
+| Region | Beaches (with window) | Swell events | Storm events, 6.5 s floor | Storm events, 5 s floor (shipped) |
+| --- | ---: | ---: | ---: | ---: |
+| San Diego | 57 (56) | 8 | 1 (4 beaches) | **1 (13 beaches)** |
+| Orange County | 37 (35) | 6 | 0 | **1 (1 beach)** |
+| Los Angeles | 28 (26) | 1 | 0 | **0** |
+
+- **San Diego storm:** peak Nov 6, W, 7 s, 6.5 ft offshore. It is one regional storm event, so it shows on all 57 San Diego beaches. The region has no per-beach gate.
+  - Beaches whose own forecast clears the class: 13 of 56 at the 5 s floor, 4 at 6.5 s. The 13: Blacks Beach, Horseshoe, Marine Street Beach, Ocean Beach Pier, Pacific Beach, Ponto, Seaside Reef, Silver Strand State Beach, Sunset Cliffs North (Garbage), The Rock (Oceanside), Tijuana Sloughs, Torrey Pines State Beach and Windansea.
+- **Orange County storm:** peak Nov 6, W, 6 s, 4 ft offshore, at Church only. It is the same storm's edge.
+- **Noise:** at most 1 storm event per region in 12 days, well inside the ≤ 4 limit. The 5 s floor is not noisy, so face stays at 5 ft. Raising face to 6 ft would cut San Diego back to 4 beaches.
+
+### Face is now the limit, not period
+
+On Nov 6, 48 of the 56 San Diego beaches with a window are fully open to the 270° storm partition (exposure 1). Their projected faces still run 2.2-6.7 ft, because the face transform scales short-period model swell down. So most open beaches fall under the 5 ft face floor. This sweep keeps the 5 s floor and changes only face:
+
+| Face floor | San Diego beaches with the storm | OC storm events | LA storm events |
+| --- | ---: | ---: | ---: |
+| 6 ft | 4 | 0 | 0 |
+| **5 ft (shipped)** | **13** | **1** | **0** |
+| 4.5 ft | 26 | 2 | 1 |
+| 4 ft | 35 | 2 | 1 |
+
+A lower face floor reaches most exposed San Diego beaches. It also admits marginal events: in OC, a 10 s, 2.9 ft offshore "storm" on Nov 5; in LA, a 9 s, 4.9 ft one. The ruling kept face at 5 ft, so it stays. Whether to lower it is a controller call.
+
+### Ocean Beach (San Diego) itself
+
+The beach row named "Ocean Beach" has a swell window of 325° ± 40°. That puts the 270° storm 15° past the window edge, at exposure 0.15. Its own detection misses the storm at a 5 ft face floor and catches it at 4.5 ft. It still shows the regional storm, like every San Diego beach. Whether a 325° window is right for Ocean Beach is a beach-data question, separate from the class.
+
