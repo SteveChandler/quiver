@@ -10494,6 +10494,7 @@ export type Database = {
       }
       session_tracks: {
         Row: {
+          calories: number | null
           created_at: string | null
           ended_at: string
           format: string
@@ -10522,8 +10523,11 @@ export type Database = {
           user_id: string
           user_wave_count: number | null
           water_temp_c: number | null
+          water_temp_end_c: number | null
+          water_temp_start_c: number | null
         }
         Insert: {
+          calories?: number | null
           created_at?: string | null
           ended_at: string
           format: string
@@ -10552,8 +10556,11 @@ export type Database = {
           user_id: string
           user_wave_count?: number | null
           water_temp_c?: number | null
+          water_temp_end_c?: number | null
+          water_temp_start_c?: number | null
         }
         Update: {
+          calories?: number | null
           created_at?: string | null
           ended_at?: string
           format?: string
@@ -10582,6 +10589,8 @@ export type Database = {
           user_id?: string
           user_wave_count?: number | null
           water_temp_c?: number | null
+          water_temp_end_c?: number | null
+          water_temp_start_c?: number | null
         }
         Relationships: [
           {
