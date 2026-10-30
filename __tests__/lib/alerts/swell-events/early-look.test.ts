@@ -145,6 +145,20 @@ describe("earlyLookPeaks", () => {
     expect(earlyLookPeaks(rising, [], TODAY).map((peak) => peak.localDate)).toEqual([dateAfter(13)]);
   });
 
+  it("drops a peak under the 6.5 s storm floor, since the detector wouldn't call it an event", () => {
+    const wind = wamSeries(1.2, { 13: { maxHsM: 2.4, periodS: 6 } });
+    const floor = wamSeries(1.2, { 13: { maxHsM: 2.4, periodS: 6.5 } });
+    expect(earlyLookPeaks(wind, [], TODAY)).toEqual([]);
+    expect(earlyLookPeaks(floor, [], TODAY).map((peak) => peak.kind)).toEqual(["storm"]);
+  });
+
+  it("drops a day-14 peak when day 15 is missing, since a truncated edge can't prove a local maximum", () => {
+    const peakOnEdge = wamSeries(1.2, { 14: { maxHsM: 2.4, periodS: 8 } });
+    const truncated = peakOnEdge.slice(0, 15);
+    expect(earlyLookPeaks(truncated, [], TODAY)).toEqual([]);
+    expect(earlyLookPeaks(peakOnEdge, [], TODAY).map((peak) => peak.localDate)).toEqual([dateAfter(14)]);
+  });
+
   it("returns [] when there is no baseline or no data", () => {
     expect(earlyLookPeaks([], [], TODAY)).toEqual([]);
     const lateOnly = wamSeries(1.2).filter((day) => day.localDate >= dateAfter(11));
@@ -183,11 +197,12 @@ describe("fetchWamDays", () => {
     const day1 = Date.UTC(2026, 10, 1, 7) / 1000;
     const day2 = Date.UTC(2026, 10, 2, 8) / 1000;
     const hour = 3600;
+    // day1 + 24 h is 07:00Z Nov 2 = 23:00 PST Nov 1: the 25-hour local day still owns it.
     const hourly = {
-      time: [day1, day1 + 3 * hour, day1 + 23 * hour, day2 + hour, day2 + 2 * hour],
-      wave_height: [1.0, 1.9, 1.4, null, 0.8],
-      wave_peak_period: [14, 9.5, 13, null, 12],
-      wave_direction: [270, 285, 275, null, 260],
+      time: [day1, day1 + 3 * hour, day1 + 23 * hour, day1 + 24 * hour, day2 + hour, day2 + 2 * hour],
+      wave_height: [1.0, 1.9, 1.4, 2.6, null, 0.8],
+      wave_peak_period: [14, 9.5, 13, 16, null, 12],
+      wave_direction: [270, 285, 275, 290, null, 260],
     };
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ hourly }) });
     global.fetch = fetchMock;
@@ -200,14 +215,15 @@ describe("fetchWamDays", () => {
     expect(url.searchParams.get("models")).toBe("ecmwf_wam025");
     expect(url.searchParams.get("forecast_days")).toBe("16");
     expect(url.searchParams.get("timezone")).toBe(TZ);
+    expect(url.searchParams.get("timeformat")).toBe("unixtime");
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ next: { revalidate: 10_800 } });
     expect(days).toEqual([
       {
         localDate: "2026-11-01",
-        maxHsM: 1.9,
-        peakAt: new Date((day1 + 3 * hour) * 1000).toISOString(),
-        periodS: 9.5,
-        directionDeg: 285,
+        maxHsM: 2.6,
+        peakAt: new Date((day1 + 24 * hour) * 1000).toISOString(),
+        periodS: 16,
+        directionDeg: 290,
       },
       {
         localDate: "2026-11-02",
@@ -251,9 +267,19 @@ describe("historyLine", () => {
     expect(historyLine(buoy, 3.0, TZ)).toBe("Biggest since Dec 2023 at the Del Mar Nearshore buoy");
   });
 
-  it("drops the ' - ' location tail from NDBC names", () => {
+  it("drops the ' - ' location tail from NDBC names and title-cases the ALL-CAPS ones", () => {
     const buoy = { ...delMar([storm({ name: "Hurricane Marie" })]), name: "BODEGA BAY - 48NM NW of San Francisco, CA" };
-    expect(historyLine(buoy, 3.0, TZ)).toBe("Biggest since Hurricane Marie at the BODEGA BAY buoy");
+    expect(historyLine(buoy, 3.0, TZ)).toBe("Biggest since Hurricane Marie at the Bodega Bay buoy");
+  });
+
+  it("title-cases only the ALL-CAPS tokens of a mixed-case name", () => {
+    const buoy = { ...delMar([storm({ name: "Hurricane Marie" })]), name: "SCRIPPS Nearshore, CA (201)" };
+    expect(historyLine(buoy, 3.0, TZ)).toBe("Biggest since Hurricane Marie at the Scripps Nearshore buoy");
+  });
+
+  it("keeps real acronyms in caps", () => {
+    const buoy = { ...delMar([storm({ name: "Hurricane Marie" })]), name: "OOI Newport Shelf" };
+    expect(historyLine(buoy, 3.0, TZ)).toBe("Biggest since Hurricane Marie at the OOI Newport Shelf buoy");
   });
 
   it("returns null when nothing stored is at least that big", () => {

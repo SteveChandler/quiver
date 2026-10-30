@@ -18,6 +18,8 @@ const EARLY_FIRST_DAY = 11;
 const EARLY_LAST_DAY = 14;
 const PEAK_FLOOR_M = 1.5;
 const PEAK_MEDIAN_MULTIPLE = 1.6;
+// Matches the detector's storm band: 6.5 s up to (not including) 11 s; shorter is chop, not an event.
+const STORM_PERIOD_FLOOR_S = 6.5;
 const STORM_PERIOD_BELOW_S = 11;
 const DETECTED_OVERLAP_MS = 36 * 3_600_000;
 
@@ -108,7 +110,8 @@ function median(values: number[]): number {
 /**
  * Coarse peaks on days 11-14, past the stored forecast's reach: a day that clears both the
  * 1.5 m floor and 1.6x the typical height of days 0-10, and tops its neighbours. Peaks the
- * stored forecast already reports as an event of the same kind are left out.
+ * stored forecast already reports as an event of the same kind are left out. Day 14 needs a
+ * day-15 bucket to prove it is a local maximum, so a truncated model run drops it.
  */
 export function earlyLookPeaks(
   days: WamDay[],
@@ -128,8 +131,10 @@ export function earlyLookPeaks(
   for (let offset = EARLY_FIRST_DAY; offset <= EARLY_LAST_DAY; offset += 1) {
     const day = byDate.get(dateAfter(today, offset));
     if (!day || day.maxHsM < threshold) continue;
+    if (day.periodS !== null && day.periodS < STORM_PERIOD_FLOOR_S) continue;
     const before = byDate.get(dateAfter(today, offset - 1));
     const after = byDate.get(dateAfter(today, offset + 1));
+    if (offset === EARLY_LAST_DAY && !after) continue;
     // A plateau counts once: its first day.
     if (before && day.maxHsM <= before.maxHsM) continue;
     if (after && day.maxHsM < after.maxHsM) continue;
@@ -151,13 +156,22 @@ export function earlyLookPeaks(
   return peaks;
 }
 
-/** NDBC names carry a location tail ("... - 48NM NW of ...") and a state/station suffix (", CA (153)"). */
+// ALL-CAPS NDBC tokens that are acronyms, not shouted words.
+const BUOY_ACRONYMS = new Set(["OOI", "FRF", "NM"]);
+
+/**
+ * NDBC names carry a location tail ("... - 48NM NW of ..."), a state/station suffix (", CA (153)"),
+ * and sometimes shout the place ("BODEGA BAY").
+ */
 function buoyLabel(name: string): string {
   return name
     .split(" - ")[0]
     .replace(/\s*\(\d+\)\s*$/, "")
     .replace(/,\s*[A-Z]{2}\s*$/, "")
-    .trim();
+    .trim()
+    .replace(/\b[A-Z]{2,}\b/g, (token) =>
+      BUOY_ACRONYMS.has(token) ? token : token[0] + token.slice(1).toLowerCase(),
+    );
 }
 
 /** "Biggest since Hurricane Marie at the Del Mar Nearshore buoy", or null when the stored history can't prove one. */
