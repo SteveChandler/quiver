@@ -181,5 +181,5 @@ The busiest month is 4 storm events: 46224 in Jan 2024 and Feb 2024, during the 
 
 These are open choices for whoever owns the storm class. They are not recommendations.
 
-- **`minPeriodS` 6.5.** Recovers 46266 2025-03-13 and adds one storm event there. It changes the Task 1 class definition (period from 7 up to, but not including, 11 s) and the tests that pin the 7 s boundary. It does not recover 46224 2025-03-13, because rise blocks it after the period does not.
+- **`minPeriodS` 6.5.** Recovers 46266 2025-03-13 and adds one storm event there. It changes the Task 1 class definition (period from 7 up to, but not including, 11 s). No current detector test pins the 7 s lower edge; the storm tests use 8–10 s. It does not recover 46224 2025-03-13, because rise blocks it after the period does not.
 - **The empty-baseline edge in `componentEvents`.** For example, carry the previous event's lull forward as the baseline when the restart range is empty. This would recover 46224 2024-01-07. It is shared detector logic, so it would also change swell-event output.
