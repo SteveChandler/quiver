@@ -30,6 +30,25 @@ describe("track geometry", () => {
 });
 
 describe("summarizeTrack", () => {
+  it("takes water temperature medians from the first and last ten in-water minutes", () => {
+    const samples = Array.from({ length: 1201 }, (_, second) =>
+      sample(second, 37, -122, null, second <= 600 ? 20 : 18));
+    const summary = summarizeTrack(track(samples));
+    expect(summary).toMatchObject({ waterTempStartC: 20, waterTempEndC: 18 });
+    const withoutFixes = track(samples.map(point => ({ ...point, lat: null, lon: null })));
+    withoutFixes.meta.format = "quiver_watch";
+    expect(summarizeTrack(withoutFixes)).toMatchObject({ waterTempStartC: 20, waterTempEndC: 18 });
+  });
+
+  it("withholds endpoint temperatures for a short span or fewer than 60 readings", () => {
+    const samples = Array.from({ length: 1201 }, (_, second) =>
+      sample(second, 37, -122, null, second < 59 ? 20 : null));
+    expect(summarizeTrack(track(samples))).toMatchObject({ waterTempStartC: null, waterTempEndC: null });
+    const fullReadings = samples.map(point => ({ ...point, tempC: 20 }));
+    expect(summarizeTrack(track(fullReadings.slice(0, 1200))))
+      .toMatchObject({ waterTempStartC: null, waterTempEndC: null });
+  });
+
   it("summarizes the OB fixture's GPS coverage, gaps, speed trust, and water temperature", () => {
     const summary = summarizeTrack(obFixture.track as NormalizedTrack);
     expect(summary.gpsCoverage).toBeGreaterThan(0.40);

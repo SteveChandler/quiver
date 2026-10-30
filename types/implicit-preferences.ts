@@ -109,6 +109,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   garmin_import_beach_chosen: 0,
   session_waves_viewed: 0,
   session_wave_excluded: 0,
+  session_wave_included: 0,
   session_wave_count_reported: 0,
   session_share_opened_post_save: 0,
   session_share_closed_post_save: 0,

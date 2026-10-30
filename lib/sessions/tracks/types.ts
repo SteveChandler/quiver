@@ -17,6 +17,7 @@ export type TrackMeta = {
   recordedBy: string | null;
   startedAt: string;
   endedAt: string;
+  calories?: number | null;
 };
 
 export const WATCH_WAVE_HEIGHTS_FT = WATCH_CONTRACT.waveHeightsFt;

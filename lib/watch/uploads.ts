@@ -25,8 +25,11 @@ const headerSchema = z.object({
   appVersion: z.string(),
   rating: integer.min(WATCH_CONTRACT.ratingMin).max(WATCH_CONTRACT.ratingMax).nullable(),
   waveHeightFt: z.literal(WATCH_WAVE_HEIGHTS_FT).nullable().optional(),
+  calories: z.unknown().optional(),
   chunkCount: chunkCountSchema,
-});
+}).transform(({ calories, ...header }) =>
+  typeof calories === "number" && Number.isSafeInteger(calories) && calories >= 0 && calories <= 5000
+    ? { ...header, calories } : header);
 const chunkSchema = z.object({
   header: headerSchema.optional(),
   t0: integer,
