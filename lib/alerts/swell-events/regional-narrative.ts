@@ -28,6 +28,29 @@ export interface NarrativeEdition {
 
 /** Only this generation carries the PC's written sentences. */
 const WRITTEN_GENERATION_VERSION = "week-scout-story-2";
+/** Story inputs are content-addressed by hash, so a loaded one never goes stale; keep the most recent few. */
+const MAX_CACHED_INPUTS = 16;
+const storyInputs = new Map<string, Promise<StoryInput | null>>();
+
+/** The story input for a hash, read once per process while it stays among the most recently used. Misses and failures aren't kept. */
+function cachedStoryInput(client: Client, hash: string): Promise<StoryInput | null> {
+  const cached = storyInputs.get(hash);
+  if (cached) {
+    storyInputs.delete(hash);
+    storyInputs.set(hash, cached);
+    return cached;
+  }
+  const input = loadStoryInput(client, hash).then((loaded) => {
+    if (!loaded) storyInputs.delete(hash);
+    return loaded;
+  }, (error: unknown) => {
+    storyInputs.delete(hash);
+    throw error;
+  });
+  if (storyInputs.size >= MAX_CACHED_INPUTS) storyInputs.delete(storyInputs.keys().next().value!);
+  storyInputs.set(hash, input);
+  return input;
+}
 
 /** The region's edition for its own today, still valid and already published: prepareStory's conditions, -2 only. */
 function isCurrentEdition(artifact: StoryArtifact, timezone: string, now: Date): boolean {
@@ -42,7 +65,8 @@ function editionServes({ artifact, input }: NarrativeEdition, build: RegionBuild
   return isCurrentEdition(artifact, build.timezone, now)
     && artifact.region === build.region
     && input.inputHash === artifact.inputHash
-    && input.provenance.generationInputVersion === STORY_SAMPLE_VERSION;
+    && input.provenance.generationInputVersion === STORY_SAMPLE_VERSION
+    && input.provenance.fixture !== true;
 }
 
 /**
@@ -55,7 +79,7 @@ export async function loadRegionNarrativeEdition(args: { client: Client; region:
   try {
     const artifact = await loadLatestStoryEdition(client, region);
     if (!artifact || !isCurrentEdition(artifact, timezone, now)) return null;
-    const input = await loadStoryInput(client, artifact.inputHash);
+    const input = await cachedStoryInput(client, artifact.inputHash);
     return input ? { input, artifact } : null;
   } catch (error) {
     console.warn("[swell-events] story edition read failed", { region, error: String(error) });

@@ -60,9 +60,11 @@ async function swellEventsHandler(_request: NextRequest, { params, user, supabas
     }
 
     // Today's story edition is read beside the skill; a failed read costs only the PC's written sentences.
+    // Only stored-forecast events carry a narrative, so without one there is nothing to read.
+    const narrated = built.events.some((event) => event.source === "forecast");
     const [profileSkill, edition] = await Promise.all([
       user ? getProfileExperienceLevel(supabase, user.id) : null,
-      loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }),
+      narrated ? loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }) : null,
     ]);
     const rated = rateRegionEvents(built, { beachId: id, skill: profileSkill ?? DEFAULT_SKILL, now });
     // The card never fails because of its narrative: without it, the rated events go out with no story or lines.

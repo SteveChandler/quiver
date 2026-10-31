@@ -183,7 +183,7 @@ describe("narrateRegionEvents", () => {
     expect(whyByBeach(byKey(events, SSW.key))).toEqual(SSW_WHY);
   });
 
-  it("ignores an edition that has expired, has no written sentences, sits on an old sample or isn't the region's", () => {
+  it("ignores an edition that has expired, has no written sentences, sits on an old sample or a fixture, or isn't the region's", () => {
     const written = [sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN)];
     const editions = [
       edition(written, { artifact: { validUntil: "2026-10-27T14:59:59.000Z" } }),
@@ -194,6 +194,10 @@ describe("narrateRegionEvents", () => {
     ];
     expect(narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written), now: NOW })[0].story).toBe(SSW_WRITTEN);
 
+    // A fixture input never reaches a reader.
+    const fixture = edition(written);
+    fixture.input = { ...fixture.input, provenance: { ...fixture.input.provenance, fixture: true } };
+    editions.push(fixture);
     for (const item of editions) {
       expect(narrateRegionEvents({ build: BUILD, rated: rated(), edition: item, now: NOW })[0].story).toBe(SSW_STORY);
     }

@@ -27,11 +27,14 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 import { GET } from "@/app/api/beaches/[id]/swell-events/route";
 import { historyLine, regionModelBuoy } from "@/lib/alerts/swell-events/early-look";
 import { narrateRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
+import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
+import { buildRegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
+import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { createBearerTokenClient } from "@/lib/supabase/bearer-client";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
-import type { StoryArtifact } from "@/lib/services/discovery/week-scout-story-types";
+import type { StoryArtifact, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
 import type { RegionSwellEvent, RegionSwellEventsResponse } from "@/types/region-swell-events";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { FLAT, NOW, TIMEZONE, dayRows, localDate, localIso, type PartitionSpec } from "@/__tests__/helpers/swell-events";
@@ -78,9 +81,9 @@ function beach(name: string) {
   };
 }
 
-function stormRows(beachId: string, surf: Surf = GOOD): Array<Record<string, unknown>> {
+function stormRows(beachId: string, surf: Surf = GOOD, withStorm = true): Array<Record<string, unknown>> {
   return DAYS.flatMap((day) => {
-    const eventDay = day === EVENT_DAY;
+    const eventDay = withStorm && day === EVENT_DAY;
     return dayRows(day, eventDay ? STORM : FLAT, { noonBumpFt: eventDay ? 0.5 : 0 }).map((row) => ({
       ...row,
       beach_id: beachId,
@@ -394,6 +397,77 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(storm).toMatchObject({ kind: "storm", story: null, here: { beachId: beaches[0].id, label: "GOOD", why: null } });
     expect(data.events.flatMap((event) => [event.here, ...event.working, ...event.notWorking]).every((rating) => !rating || rating.why === null))
       .toBe(true);
+  });
+
+  it("carries a passing written sentence from today's edition to the response, reading its input once", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const { client } = stage({
+      lookup: { region: REGION, timezone: TIMEZONE },
+      beaches,
+      rows: beaches.flatMap((item) => stormRows(item.id)),
+    });
+    // The morning's input is the card lines this same build writes.
+    await call(beaches[0].id);
+    const { build } = jest.mocked(narrateRegionEvents).mock.calls[0][0];
+    const today = localDate(0);
+    const facts = buildEventCandidates(build, storyEventsFromRegion(build, today).all, buildRegionGateContext(build, today), NOW);
+    const story = facts.find((fact) => fact.slot.endsWith(":story"))!;
+    const here = facts.find((fact) => fact.slot.endsWith(`:beach:${beaches[0].id}`))!;
+    expect([story.text, here.text]).toEqual([STORM_STORY, STORM_WHY]);
+    const generatedAt = new Date(NOW.getTime() - 3_600_000).toISOString();
+    const input: StoryInput = {
+      schemaVersion: 3, region: REGION, editionDate: today, sourcePublishedAt: generatedAt,
+      validUntil: new Date(NOW.getTime() + 86_400_000).toISOString(),
+      briefing: { schemaVersion: 3, editionDate: today, generatedAt, selections: [] }, copyFacts: facts,
+      beachNames: Object.fromEntries(beaches.map((item) => [item.id, item.name])),
+      provenance: { sourceIds: [], sourceHashes: [], generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: [], coverageDates: [] },
+      inputHash: "written-input-hash",
+    };
+    const writtenStory = "West storm swell shows up and peaks Monday, then is gone by Tuesday.";
+    const writtenHere = "Takes the west storm swell head on, with light wind.";
+    const artifact: StoryArtifact = {
+      artifactId: "written-artifact", schemaVersion: 3, region: REGION, editionDate: today, inputHash: input.inputHash,
+      sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil, generationVersion: "week-scout-story-2", model: "gemma",
+      briefing: { ...input.briefing, selections: facts.map((fact) => fact.id), written: [
+        { slot: story.slot, basedOn: story.id, text: writtenStory },
+        { slot: here.slot, basedOn: here.id, text: writtenHere },
+      ] },
+      provenance: input.provenance,
+    };
+    jest.mocked(loadLatestStoryEdition).mockResolvedValue(artifact);
+    jest.mocked(loadStoryInput).mockResolvedValue(input);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { status, data } = await call(beaches[0].id);
+      expect(status).toBe(200);
+      const storm = stormEvent(data.events)!;
+      expect(storm.story).toBe(writtenStory);
+      expect(storm.here?.why).toBe(writtenHere);
+      // The other listed beaches had no written sentence and keep their server lines.
+      expect(storm.working.filter((rating) => rating.beachId !== beaches[0].id).map((rating) => rating.why))
+        .toEqual([STORM_WHY, STORM_WHY]);
+    }
+    // Content-addressed, so the second request reuses the first's input.
+    expect(loadStoryInput).toHaveBeenCalledTimes(1);
+    expect(loadStoryInput).toHaveBeenCalledWith(client, "written-input-hash");
+  });
+
+  it("reads no story edition when the region has only early looks", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    stage({
+      lookup: { region: REGION, timezone: TIMEZONE },
+      beaches,
+      rows: beaches.flatMap((item) => stormRows(item.id, GOOD, false)),
+    });
+    global.fetch = jest.fn(async () => wamResponse()) as typeof fetch;
+
+    const { status, data } = await call(beaches[0].id);
+
+    expect(status).toBe(200);
+    expect(data.events.length).toBeGreaterThan(0);
+    expect(data.events.every((event) => event.source === "wam" && event.story === null)).toBe(true);
+    expect(loadLatestStoryEdition).not.toHaveBeenCalled();
+    expect(loadStoryInput).not.toHaveBeenCalled();
   });
 
   it("keeps the stored-forecast events, without early looks or history, when Open-Meteo is down", async () => {
