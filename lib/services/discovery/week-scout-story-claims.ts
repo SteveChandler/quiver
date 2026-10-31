@@ -48,7 +48,8 @@ export const DAY_PHRASES = ["next week", "earlier in the week", "later on", "tod
 /**
  * The verbs that name a swell's phase, each with the forms that make the same claim. A phase verb binds every
  * day after it in its clause until the next day: "arrives Thursday, peaks Friday" pairs arrives with Thursday,
- * "arrives and peaks Thursday" pairs both with Thursday. A written sentence's pairs must all be its candidate's.
+ * "arrives and peaks Thursday" pairs both with Thursday. With no day after it in its clause, it binds the day
+ * before it ("Thursday peaks"). A written sentence's pairs must all be its candidate's.
  * "reaches" is the cover's arrival ("reaches San Diego Wednesday") and "most" the cover's peak ("with the most
  * swell Thursday"). These forms only bind days: a sentence may use any of them. "starts" is no arrival: the
  * lead's "Thursday starts the west swell's run toward a Friday peak" would pair it with Friday.
@@ -168,20 +169,28 @@ function blank(text: string, pattern: RegExp | null): string {
 }
 
 /**
- * (phase, day) pairs: each day pairs with every phase verb between it and the clause's previous day (or the
- * clause's start). A day with no phase verb before it in its clause pairs with none.
+ * (phase, day) pairs within a clause. A day pairs with every phase verb between it and the clause's previous
+ * day (or the clause's start). A phase verb with no day after it in its clause pairs with the clause's last
+ * day before it, so "Thursday peaks" pairs peaks with Thursday.
  */
 function phasePairs(text: string, days: readonly Located[], verbs: readonly Located[]): Set<string> {
   const breaks = [...text.matchAll(CLAUSE_BREAK)].map((match) => match.index);
+  const clause = (at: number): number => breaks.filter((index) => index < at).length;
   const sorted = [...days].sort((a, b) => a.at - b.at);
   const pairs = new Set<string>();
   sorted.forEach((day, index) => {
-    const clauseStart = Math.max(-1, ...breaks.filter((at) => at < day.at));
-    const from = Math.max(clauseStart, index > 0 ? sorted[index - 1].end : -1);
+    const previous = index > 0 && clause(sorted[index - 1].at) === clause(day.at) ? sorted[index - 1] : null;
+    const from = previous?.end ?? -1;
     for (const verb of verbs) {
-      if (verb.at >= from && verb.at < day.at) pairs.add(`${verb.claim}|${day.claim}`);
+      if (clause(verb.at) === clause(day.at) && verb.at >= from && verb.at < day.at) pairs.add(`${verb.claim}|${day.claim}`);
     }
   });
+  for (const verb of verbs) {
+    const sameClause = sorted.filter((day) => clause(day.at) === clause(verb.at));
+    if (sameClause.some((day) => day.at > verb.at)) continue;
+    const last = sameClause.filter((day) => day.at < verb.at).pop();
+    if (last) pairs.add(`${verb.claim}|${last.claim}`);
+  }
   return pairs;
 }
 

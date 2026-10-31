@@ -334,7 +334,7 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(check("The west storm swell arrives Thursday and peaks Friday.", sameDay)).toEqual({ ok: false, reason: "weekday_order" });
     const comesAndGoes = fact("A west short-period storm swell comes and goes Thursday.");
     expect(check("The west storm swell comes and goes Thursday.", comesAndGoes)).toEqual({ ok: true });
-    // A day with no phase verb before it in its clause claims no phase.
+    // A phase verb with no day after it in its clause binds back to the day before it.
     expect(check("By Friday the west groundswell peaks, and it fades Saturday.", days)).toEqual({ ok: true });
     // The cover's "reaches" is an arrival and its "the most swell" a peak.
     const cover = fact("A long-period groundswell from the west reaches North Shore Wednesday and peaks Thursday.");
@@ -350,6 +350,25 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     const today = fact("An east short-period windswell arrives a week from today and peaks a week from Thursday.");
     expect(check("An east windswell arrives a week from Thursday.", today)).toEqual({ ok: false, reason: "weekday_order" });
     expect(check("An east windswell peaks a week from Thursday.", today)).toEqual({ ok: true });
+  });
+
+  it("binds a phase verb after its day back to that day (R24)", () => {
+    // Each of these passed before: the verb came after its day, so it bound none.
+    expect(check("A west groundswell: Thursday peaks, Friday fades, Saturday arrives.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("By Thursday the west groundswell peaks, then fades Saturday.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("A Thursday peak, then it fades Saturday.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("A west groundswell arrives Thursday and fades.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("Thursday the west groundswell arrives, Friday it peaks.", days)).toEqual({ ok: true });
+    // The lead-alt's "toward a Friday peak" pairs peak with Friday, so the plain rewrite passes and a moved arrival still fails.
+    const leadAlt = fact("Thursday starts the west swell's run toward a Friday peak.");
+    expect(check("The west swell's run starts Thursday and peaks Friday.", leadAlt)).toEqual({ ok: true });
+    expect(check("A Thursday peak; the west swell's run starts Friday.", leadAlt)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("The west swell arrives Friday.", leadAlt)).toEqual({ ok: false, reason: "weekday_order" });
+    // Only within its clause: the wind line's "On Friday, the onshore fills in" pairs nothing, so a rewrite that moves
+    // "fills in" into Friday's clause fails (safely).
+    const wind = fact("On Friday, the onshore fills in after the cleaner morning.");
+    expect(check("On Friday, the onshore fills in after the cleaner morning.", wind)).toEqual({ ok: true });
+    expect(check("The onshore fills in Friday after the cleaner morning.", wind)).toEqual({ ok: false, reason: "weekday_order" });
   });
 
   it("keeps every degree word its fact has and adds none", () => {
