@@ -559,7 +559,7 @@ describe("deterministic fallback and live gates", () => {
     const response = live();
     Object.assign(response.swells![0], { eventKey: "later", directionDeg: 300, directionLabel: "WNW",
       arrivalAt: "2026-07-18T18:00:00Z", peakAt: "2026-07-19T18:00:00Z", peakLocalDate: "2026-07-19", fadeAt: null });
-    const cover = "A stormy short-period swell from the west reaches south-shore Wednesday and peaks Thursday.";
+    const cover = "A short-period storm swell from the west reaches south-shore Wednesday and peaks Thursday.";
     const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: response,
       startLocalDate: "2026-07-15", now });
     expect(story).toMatchObject({ availability: "ready", cover: { text: cover },

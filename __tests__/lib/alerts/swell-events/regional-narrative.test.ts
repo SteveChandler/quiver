@@ -113,7 +113,7 @@ function whyByBeach(event: RegionSwellEvent): Record<string, string | null | und
 }
 
 const SSW_STORY = "A south-southwest long-period groundswell arrives Thursday, peaks Friday and fades Saturday.";
-const STORM_STORY = "A stormy west short-period swell arrives Saturday, peaks Sunday and fades Monday.";
+const STORM_STORY = "A west short-period storm swell arrives Saturday, peaks Sunday and fades Monday.";
 const SSW_WHY = {
   a: "Faces the south-southwest groundswell dead on, with light wind in its window.",
   b: "Faces the south-southwest groundswell dead on, but it's breezy in its window.",
@@ -122,9 +122,9 @@ const SSW_WHY = {
   // Blown out: its line says the wind is up.
   e: "Faces the south-southwest groundswell dead on, but the wind is up in its window.",
 };
-// Gemma's sentences: the passing ones claim only what their facts say.
+// Gemma's sentences: the passing ones claim only what their facts say, in their own words. A beach line keeps its degree word.
 const SSW_WRITTEN = "South-southwest groundswell fills in Thursday, tops out Friday and backs off Saturday.";
-const OCEAN_BEACH_WRITTEN = "Wide open to the south-southwest, and the wind stays light.";
+const OCEAN_BEACH_WRITTEN = "Takes the south-southwest groundswell dead on, and the wind stays light.";
 
 describe("narrateRegionEvents", () => {
   it("gives every forecast event its server story line when there is no edition today", () => {
@@ -161,6 +161,8 @@ describe("narrateRegionEvents", () => {
       sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN),
       // Names a direction Blacks' fact doesn't.
       sentence(`event:${SSW_KEY}:beach:b`, "Faces the west swell head on, but the wind is up."),
+      // Drops La Jolla Shores' "partly": it is partly sheltered, not wide open.
+      sentence(`event:${SSW_KEY}:beach:c`, "Wide open to the south-southwest, and the wind stays light."),
     ];
 
     const events = narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written), now: NOW });
@@ -294,8 +296,7 @@ describe("narrateRegionEvents", () => {
     // Every beach line in the input claims the event window's light wind.
     expect(facts.filter((fact) => fact.slot.includes(":beach:")).map((fact) => fact.gate.kind === "beach" && [fact.gate.beachId, fact.gate.wind]))
       .toEqual([["k", "light"], ["m", "light"], ["h", "light"]]);
-    const wideOpen = "Wide open to the south-southwest, and the wind stays light.";
-    const written = ["k", "h", "m"].map((id) => sentence(`event:${SSW_KEY}:beach:${id}`, wideOpen));
+    const written = ["k", "h", "m"].map((id) => sentence(`event:${SSW_KEY}:beach:${id}`, OCEAN_BEACH_WRITTEN));
     const events = narrateRegionEvents({ build, rated: ratedHere, edition: edition(written, { copyFacts: facts }), now: NOW });
 
     expect(whyByBeach(events[0])).toEqual({
@@ -303,7 +304,7 @@ describe("narrateRegionEvents", () => {
       k: "Faces the south-southwest groundswell dead on, but it's breezy in its window.",
       // Its own hours average light, but the rating says blown out: the line says the wind is up, and Gemma's line falls back.
       h: "Faces the south-southwest groundswell dead on, but the wind is up in its window.",
-      m: wideOpen,
+      m: OCEAN_BEACH_WRITTEN,
     });
   });
 
