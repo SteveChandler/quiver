@@ -17,7 +17,7 @@ export const CLOSED_WORD_SETS = {
   period: [["long-period"], ["mid-period"], ["short-period"], ["groundswell", "groundswells"], ["windswell", "windswells"],
     ["storm", "stormy", "storms"]],
   exposure: [["sheltered", "shelter", "shelters", "sheltering"], ["shadow", "shadowed", "shadows"], ["partly", "partially"],
-    ["faces", "face", "facing", "faced", "catches", "catching", "picks up", "exposed", "wide open"], ["head on"], ["straight on"],
+    ["faces", "face", "facing", "faced", "catches", "catching", "exposed", "wide open"], ["head on"], ["straight on"],
     ["dead on"], ["at an angle", "angled"]],
   wind_strength: [["light"], ["glassy"], ["calm"], ["breezy"],
     ["windy", "wind is up", "wind's up", "wind up", "wind still up", "wind is still up", "wind picks up", "wind comes up"],
@@ -277,7 +277,7 @@ function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, 
         claim: NEXT_BEFORE.test(rest.slice(0, match.index)) ? `next ${day}` : day });
     }
   }
-  // Wind strength reads first and is blanked for the other sets: "the wind picks up" is windy, never "faces".
+  // Wind strength reads first and is blanked for the other sets, so a wind phrase never counts toward another set.
   const unwound = blank(rest, STRENGTH.pattern);
   return {
     beaches: beaches ? [...found(text, beaches)] : [],

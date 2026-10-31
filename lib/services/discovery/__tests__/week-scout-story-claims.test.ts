@@ -303,7 +303,6 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
       ["Exposed to the west groundswell, with light wind in its window.", sheltered, "exposure"],
       ["Wide open to the west groundswell, with light wind in its window.", sheltered, "exposure"],
       ["Catches the west groundswell, with light wind in its window.", sheltered, "exposure"],
-      ["Picks up the west groundswell, with light wind in its window.", sheltered, "exposure"],
       ["Faces the west groundswell dead on, but it's gusty in its window.", breezy, "wind_strength"],
       ["Faces the west groundswell dead on, but blown out in its window.", breezy, "wind_strength"],
       ["Faces the west groundswell dead on, with lighter wind in its window.", open, "wind_strength"],
@@ -312,7 +311,7 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
       ["Faces the west groundswell dead on, but bumpy in its window.", open, "wind_strength"],
       ["Faces the west groundswell dead on, but messy in its window.", open, "wind_strength"],
       ["Faces the west groundswell dead on, and clean in its window.", windy, "wind_strength"],
-      // "the wind up" and "the wind picks up" are "windy"; "picks up" alone is "faces", which the open line has.
+      // "the wind up" and "the wind picks up" are "windy".
       ["Faces the west groundswell dead on, the wind up in its window.", open, "wind_strength"],
       ["Faces the west groundswell dead on, with the wind still up in its window.", open, "wind_strength"],
       ["Faces the west groundswell dead on, but the wind picks up.", open, "wind_strength"],
@@ -329,15 +328,18 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     for (const [text, against, reason] of added) expect([text, check(text, against)]).toEqual([text, { ok: false, reason }]);
   });
 
-  it("reads \"the wind picks up\" as windy on every beach line, never as faces", () => {
+  it("reads \"the wind picks up\" as windy on every beach line, and bare \"picks up\" as no claim", () => {
     const shelteredWindy = fact("Sheltered from the west groundswell, and the wind is up in its window.");
     const partlyWindy = fact("Partly sheltered from the west groundswell, and the wind is up in its window.");
     const openWindy = fact("Faces the west groundswell dead on, but the wind is up in its window.");
     expect(check("Sheltered from the west groundswell, and the wind picks up.", shelteredWindy)).toEqual({ ok: true });
     expect(check("Partly sheltered from the west groundswell, and the wind picks up.", partlyWindy)).toEqual({ ok: true });
     expect(check("Faces the west groundswell dead on, but the wind picks up.", openWindy)).toEqual({ ok: true });
-    // "picks up" without the wind is still "faces", which a sheltered line doesn't make.
-    expect(check("Picks up the west groundswell, and the wind is up.", shelteredWindy)).toEqual({ ok: false, reason: "exposure" });
+    // "picks up" is no exposure claim (R27): it usually means a region receiving a swell.
+    const cover = fact("A long-period groundswell from the west reaches San Diego Wednesday and peaks Thursday.");
+    expect(checkWrittenSentence("San Diego picks up a west groundswell Wednesday that peaks Thursday.", cover, BEACHES, ["San Diego"]))
+      .toEqual({ ok: true });
+    expect(check("Catches the west groundswell, and the wind is up.", shelteredWindy)).toEqual({ ok: false, reason: "exposure" });
   });
 
   it("lets a candidate's wind strength license the claims it implies, on the candidate's side only (R27)", () => {
@@ -360,7 +362,7 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
   });
 
   it("reads the residual words as the claim they make", () => {
-    // "catches", "picks up", "exposed" and "wide open" are "faces": true of an open beach. The degree word still stays.
+    // "catches", "exposed" and "wide open" are "faces": true of an open beach. The degree word still stays.
     expect(check("Catches the west groundswell dead on, with light wind.", open)).toEqual({ ok: true });
     expect(check("Wide open to the west groundswell dead on, and the wind stays light.", open)).toEqual({ ok: true });
     expect(check("Wide open to the west groundswell, and the wind stays light.", open)).toEqual({ ok: false, reason: "exposure" });
