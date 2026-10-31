@@ -451,6 +451,44 @@ describe("deterministic fallback and live gates", () => {
     expect(mockBuildInput).not.toHaveBeenCalled();
   });
 
+  it("falls back per slot: a failed sentence shows the server line while the others keep Gemma's", async () => {
+    const issued = input();
+    const texts: Record<string, string> = {
+      cover: "A long-period groundswell from the west arrives Wednesday and peaks Thursday.",
+      lead: "The west pulse builds from Wednesday into Thursday.",
+    };
+    issued.copyFacts.forEach((fact) => { fact.text = texts[fact.id] ?? fact.text; });
+    const written = [
+      { slot: "cover", basedOn: "cover", text: "The west groundswell shows Wednesday and runs biggest Thursday." },
+      // Saturday is not in its fact: only this slot falls back.
+      { slot: "story:lead", basedOn: "lead", text: "The west pulse builds from Wednesday into Saturday." },
+      { slot: "day:2026-07-15", basedOn: "good-day", text: "Light wind all morning." },
+    ];
+    const artifact: StoryArtifact = {
+      artifactId: "artifact", schemaVersion: 3, region, editionDate: issued.editionDate,
+      inputHash: issued.inputHash, sourcePublishedAt: issued.sourcePublishedAt, validUntil: issued.validUntil,
+      generationVersion: "week-scout-story-2", model: "worker",
+      briefing: { ...issued.briefing, generatedAt: now.toISOString(), selections: ["cover", "lead", "good-day"], written },
+      provenance: issued.provenance,
+    };
+    mockLatestEdition.mockResolvedValue(artifact);
+    mockLoadInput.mockResolvedValue(issued);
+    const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+      startLocalDate: "2026-07-15", now });
+    expect(story).toMatchObject({ availability: "ready",
+      cover: { text: "The west groundswell shows Wednesday and runs biggest Thursday." },
+      lead: "The west pulse builds from Wednesday into Thursday.",
+      chapters: [{ slot: "day:2026-07-15", text: "Light wind all morning." }] });
+    expect(mockBuildInput).not.toHaveBeenCalled();
+    // A sentence naming a beach its fact doesn't, or whose fact's gate fails, never shows.
+    const beachy = bindStory({ region, availability: "ready", input: issued, selections: ["cover", "lead", "good-day"],
+      written: [{ ...written[0], text: "The west groundswell lights up Ala Moana Thursday." }], live: live(), regional: regionOf() });
+    expect(beachy.cover.text).toBe(texts.cover);
+    const moved = regionOf([{ ...west, peakAt: "2026-07-17T18:00:00Z", peakLocalDate: "2026-07-17", fadeAt: null }]);
+    expect(bindStory({ region, availability: "ready", input: issued, selections: ["cover", "lead", "good-day"],
+      written, live: live(), regional: moved, requireCover: false })).toMatchObject({ cover: { text: null }, lead: null });
+  });
+
   it("does not serve a published edition with the old generic candidate set", async () => {
     const old = input();
     old.provenance.generationInputVersion = "representative-latitude-spread-2";

@@ -210,6 +210,37 @@ describe("story artifact candidate validation", () => {
     expect(() => assertStoryArtifactMatchesInput(picked(200), wide, now)).not.toThrow();
     expect(() => assertStoryArtifactMatchesInput(picked(201), wide, now)).toThrow("selections_invalid");
   });
+
+  it("accepts written with week-scout-story-2 and rejects it with -1", () => {
+    const withWritten = (version: string, written: unknown): StoryArtifact => {
+      const value = artifact();
+      value.generationVersion = version;
+      (value.briefing as unknown as Record<string, unknown>).written = written;
+      return value;
+    };
+    const selected = facts.filter((fact) => artifact().briefing.selections.includes(fact.id));
+    // Claims are checked when the story is served, not here: a digit is structurally fine.
+    const lines = selected.map((fact) => ({ slot: fact.slot, basedOn: fact.id, text: "Gemma's line peaks at 8 feet." }));
+    const refusal = (version: string, written: unknown): string => {
+      try { assertStoryArtifactMatchesInput(withWritten(version, written), input, now); return "accepted"; } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    expect(refusal("week-scout-story-2", lines)).toBe("accepted");
+    expect(refusal("week-scout-story-2", [])).toBe("accepted");
+    const plain = artifact(); plain.generationVersion = "week-scout-story-2";
+    expect(() => assertStoryArtifactMatchesInput(plain, input, now)).not.toThrow();
+    expect(refusal("week-scout-story-1", lines)).toBe("written_not_allowed");
+    expect(refusal("week-scout-story-3", lines)).toBe("generation_version_unsupported");
+    expect(refusal("week-scout-story-2", null)).toBe("written_invalid");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], text: 7 }])).toBe("written_invalid");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], tone: "hype" }])).toBe("written_invalid");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], text: "x".repeat(241) }])).toBe("written_too_long");
+    const unselected = facts.find((fact) => !artifact().briefing.selections.includes(fact.id))!;
+    expect(refusal("week-scout-story-2", [{ slot: unselected.slot, basedOn: unselected.id, text: "Line." }])).toBe("written_not_selected");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], slot: lines[1].slot }])).toBe("written_slot_mismatch");
+    expect(refusal("week-scout-story-2", [lines[0], lines[0]])).toBe("written_duplicate_slot");
+  });
 });
 
 describe("event and beach lines the card shows", () => {

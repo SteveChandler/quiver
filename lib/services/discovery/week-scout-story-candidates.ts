@@ -52,8 +52,9 @@ export const MAX_FACTS = 200;
 const MAX_BEACH_LINES = 8;
 const MAX_LENGTH = 240;
 const DIGIT = /\d/;
-const COMPASS = ["north", "north-northeast", "northeast", "east-northeast", "east", "east-southeast", "southeast", "south-southeast", "south", "south-southwest", "southwest", "west-southwest", "west", "west-northwest", "northwest", "north-northwest"];
-const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+/** The 16 compass points as every candidate text names them; no candidate abbreviates a direction. */
+export const COMPASS = ["north", "north-northeast", "northeast", "east-northeast", "east", "east-southeast", "southeast", "south-southeast", "south", "south-southwest", "southwest", "west-southwest", "west", "west-northwest", "northwest", "north-northwest"];
+export const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function directionSector(degrees: number): number {
   return Math.round((((degrees % 360) + 360) % 360) / 45) % 8;

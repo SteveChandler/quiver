@@ -93,5 +93,19 @@ describe("Week Scout story worker routes", () => {
     const tampered = { ...artifact, briefing: { ...artifact.briefing, selections: ["invented"] } };
     expect((await editions(req("editions", "POST", tampered))).status).toBe(400);
     expect(mockPublish).toHaveBeenCalledTimes(2);
+
+    // Written sentences ride in the briefing under week-scout-story-2; a malformed one is refused by code.
+    const written: StoryArtifact = { ...artifact, generationVersion: "week-scout-story-2",
+      briefing: { ...artifact.briefing, written: [{ slot: "cover", basedOn: "cover", text: "West swell, building." }] } };
+    written.artifactId = briefingArtifactId(written as unknown as Record<string, unknown>);
+    mockPublish.mockResolvedValueOnce({ artifactId: written.artifactId, created: true });
+    expect((await editions(req("editions", "POST", written))).status).toBe(201);
+    expect(mockPublish).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({
+      briefing: expect.objectContaining({ written: written.briefing.written }) }));
+    const mismatched = { ...written, briefing: { ...written.briefing, written: [{ slot: "story:lead", basedOn: "cover", text: "West swell." }] } };
+    const refused = await editions(req("editions", "POST", mismatched));
+    expect(refused.status).toBe(400);
+    expect((await refused.json()).error).toBe("written_slot_mismatch");
+    expect(mockPublish).toHaveBeenCalledTimes(3);
   });
 });

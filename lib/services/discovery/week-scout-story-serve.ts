@@ -5,11 +5,12 @@ import type { CanonicalWeekScoutResponse } from "./week-scout";
 import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
 import { loadRegionForecastEvents, type RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addSwellHeadlines, directionIndex, directionSector, periodBand, periodClass, storyEventKey, type RegionalSwellEvent } from "./week-scout-story-candidates";
+import { checkWrittenSentence } from "./week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from "./week-scout-story-region-gate";
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
-import type { StoryGate, StoryInput, StoryWire } from "./week-scout-story-types";
+import type { StoryGate, StoryInput, StoryWire, StoryWrittenSentence } from "./week-scout-story-types";
 
 type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
@@ -163,6 +164,8 @@ export function bindStory(args: {
   availability: StoryWire["availability"];
   input: StoryInput | null;
   selections: string[] | null;
+  /** The edition's own sentences for some selections; each is served only if it claims nothing its candidate doesn't. */
+  written?: readonly StoryWrittenSentence[];
   live: Live;
   requireCover?: boolean;
   /** Without one, every swell, exposure and beach claim fails. */
@@ -197,13 +200,23 @@ export function bindStory(args: {
   if (selected.length !== args.selections.length) return empty("unavailable");
   // An edition may select card lines too; they stay out of the story and never count against it.
   const chosen = selected.filter((fact) => !isCardSlot(fact.slot) && gateHolds(fact.gate, regional, live) && agreesWithCover(fact));
-  const text = (slot: string): string | null => chosen.find((fact) => fact.slot === slot)?.text ?? null;
+  // Per slot: a written sentence that fails its check shows the candidate's own text; the others keep theirs.
+  const beachNames = input.beachNames ? Object.values(input.beachNames) : null;
+  const served = (fact: StoryInput["copyFacts"][number]): string => {
+    const entry = args.written?.find((item) => item.basedOn === fact.id && item.slot === fact.slot);
+    if (!entry || !beachNames) return fact.text;
+    return checkWrittenSentence(entry.text, fact, beachNames).ok ? entry.text : fact.text;
+  };
+  const text = (slot: string): string | null => {
+    const fact = chosen.find((item) => item.slot === slot);
+    return fact ? served(fact) : null;
+  };
   if (!text("cover") && args.requireCover !== false) return empty("unavailable");
   const dayBodies = new Set<string>();
   const chapters = chosen.filter((fact) => fact.slot.startsWith("swell:") || fact.slot.startsWith("day:")
     || fact.slot.startsWith("quiet:")).filter((fact) => {
     if (!fact.slot.startsWith("day:")) return true;
-    const body = fact.text.replace(/^(?:On )?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:'s|:|,)?\s*/, "").trim();
+    const body = served(fact).replace(/^(?:On )?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:'s|:|,)?\s*/, "").trim();
     if (dayBodies.has(body)) return false;
     dayBodies.add(body);
     return true;
@@ -211,7 +224,7 @@ export function bindStory(args: {
   return {
     schemaVersion: 3, region, availability: "ready", cover: { text: text("cover"), swells },
     lead: text("story:lead"), turn: text("story:turn"),
-    chapters: chapters.map((fact) => ({ slot: fact.slot, text: fact.text })),
+    chapters: chapters.map((fact) => ({ slot: fact.slot, text: served(fact) })),
     days,
   };
 }
@@ -295,7 +308,7 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
       try {
         assertStoryArtifactMatchesInput(edition, publishedInput, now);
         const published = bindStory({ region, availability: "ready", input: publishedInput,
-          selections: edition.briefing.selections, live, regional });
+          selections: edition.briefing.selections, written: edition.briefing.written, live, regional });
         if (published.availability === "ready") return published;
       } catch { /* A failed edition falls through to live candidates. */ }
     }

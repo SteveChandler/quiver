@@ -1,5 +1,7 @@
 export const WEEK_SCOUT_STORY_SCHEMA_VERSION = 3 as const;
 export const WEEK_SCOUT_STORY_GENERATION_VERSION = "week-scout-story-1";
+/** -1 selects candidates; -2 also sends a sentence Gemma wrote for some picks, checked when served. */
+export const WEEK_SCOUT_STORY_GENERATION_VERSIONS = ["week-scout-story-1", "week-scout-story-2"] as const;
 
 export type StoryGate =
   | { kind: "swell"; regionalEventKey: string; directionSector: number; directionIndex?: number; periodBand: number; periodClass?: "long" | "mid" | "short"; arrivalLocalDate: string; peakLocalDate: string; fadeLocalDate: string | null; confidence: "on_the_radar" | "likely" | "locked"; minimumBeaches: number }
@@ -35,6 +37,13 @@ export interface StoryInput {
   inputHash: string;
 }
 
+/** A sentence the PC wrote for one selected candidate; served only if it claims nothing its candidate doesn't. */
+export interface StoryWrittenSentence {
+  slot: string;
+  basedOn: string;
+  text: string;
+}
+
 export interface StoryArtifact {
   artifactId: string;
   schemaVersion: 3;
@@ -45,7 +54,7 @@ export interface StoryArtifact {
   validUntil: string;
   generationVersion: string;
   model: string;
-  briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[] };
+  briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[]; written?: StoryWrittenSentence[] };
   provenance: StoryInput["provenance"];
 }
 

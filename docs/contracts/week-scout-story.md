@@ -22,7 +22,7 @@ type WeekScoutStory = {
   turn: string | null;
   chapters: Array<{
     slot: `swell:${string}` | `day:${string}` | `quiet:${string}`;
-    text: string; // server-reconstituted regional candidate, gated against live data
+    text: string; // the regional candidate's text, or the edition's written sentence for it when that passes its claim check; gated against live data
   }>;
   days: Array<{
     localDate: string;
@@ -62,7 +62,7 @@ Quiet-week example (no recommendable regional event and complete coverage for ev
 {"story":{"schemaVersion":3,"region":"San Diego","availability":"ready","cover":{"text":"A quieter stretch along the coast.","swells":[]},"lead":null,"turn":null,"chapters":[{"slot":"quiet:2026-10-28..2026-11-03","text":"No clear regional pulse through this stretch."}],"days":[{"localDate":"2026-10-28","pick":null},{"localDate":"2026-10-29","pick":null},{"localDate":"2026-10-30","pick":null},{"localDate":"2026-10-31","pick":null},{"localDate":"2026-11-01","pick":null},{"localDate":"2026-11-02","pick":null},{"localDate":"2026-11-03","pick":null}]}}
 ```
 
-The worker API is separate: `GET /api/internal/week-scout-story/regions`, `GET /api/internal/week-scout-story/input?region=<URL-encoded beaches.region>`, `POST /api/internal/week-scout-story/editions`, and `GET /api/internal/week-scout-story/latest?region=<URL-encoded beaches.region>`. Region values are the original `beaches.region` strings, including spaces or accents. It uses the briefing publisher's Bearer authentication pattern with its own `WEEK_SCOUT_STORY_PUBLISHER_TOKEN` (at least 32 characters), schema 3, candidate IDs only, and a deterministic artifact ID. It never sends user data or prose supplied directly by the model to the reader.
+The worker API is separate: `GET /api/internal/week-scout-story/regions`, `GET /api/internal/week-scout-story/input?region=<URL-encoded beaches.region>`, `POST /api/internal/week-scout-story/editions`, and `GET /api/internal/week-scout-story/latest?region=<URL-encoded beaches.region>`. Region values are the original `beaches.region` strings, including spaces or accents. It uses the briefing publisher's Bearer authentication pattern with its own `WEEK_SCOUT_STORY_PUBLISHER_TOKEN` (at least 32 characters), schema 3, candidate IDs (plus, under `week-scout-story-2`, sentences written for them), and a deterministic artifact ID. It never sends user data to the reader, and model prose reaches the reader only as a written sentence that passed its claim check for a selected candidate whose gate holds.
 
 Worker request and response shapes:
 
@@ -91,9 +91,14 @@ type StoryInput = {
     fixture?: boolean };
 };
 type StoryArtifact = Omit<StoryInput, 'copyFacts' | 'beachNames' | 'briefing'> & {
-  artifactId: string; generationVersion: 'week-scout-story-1'; model: string;
-  briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[] };
+  artifactId: string; generationVersion: 'week-scout-story-1' | 'week-scout-story-2'; model: string;
+  briefing: {
+    schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[];
+    written?: Array<{ slot: string; basedOn: string; text: string }>; // week-scout-story-2 only
+  };
 };
 ```
 
 `GET /regions` returns `RegionList`. `GET /input` returns `StoryInput`; a sparse or stale region returns HTTP 409. The worker submits `StoryArtifact` to `POST /editions`; the server accepts only issued candidate IDs in issue order (at most 200, one per slot), requires `cover` and `story:lead` when offered, and rejects changed fields. `event:<storyKey>:story` and `event:<storyKey>:beach:<beachId>` candidates are the regional swells card's lines (one per forecast event and one per beach the card lists for it); the Week Scout story never serves them. `artifactId` is SHA-256 of canonical JSON with `artifactId` omitted, using the existing briefing hash rule. The response is `{ artifactId: string }`, HTTP 201 for first publish or 200 for an identical retry. `GET /latest` returns the stored `StoryArtifact` or HTTP 404. All four routes send `Cache-Control: private, no-store, no-cache, must-revalidate` through the publisher wrapper.
+
+`week-scout-story-1` editions select candidates only. A `week-scout-story-2` edition may also carry `briefing.written`: sentences the worker wrote for some of its selections, with no table or schema change (the wire stays schema 3). At publish the server checks their shape only and rejects the artifact with HTTP 400 and a specific code: `written_not_allowed` (`written` under `week-scout-story-1`), `written_invalid` (not an array of `{ slot, basedOn, text }` strings, or extra keys), `written_too_long` (over 240 characters), `written_not_selected` (`basedOn` is not in `selections`), `written_slot_mismatch` (`slot` is not that candidate's slot), `written_duplicate_slot`. The briefing equality check ignores `written`. Claims are checked when the story is served (`checkWrittenSentence` in `week-scout-story-claims.ts`): a slot shows its written sentence only when its candidate's gate holds and the sentence is non-empty, at most 240 characters, has no numerals, no whole-word `YES`, `MAYBE` or `NO`, and no "the call"; names only weekdays, 16-point compass words (full words, longest first, so `south-southwest` is one; `westerly` and `southern` count) and region beach names (`StoryInput.beachNames`, whole names, longest first, case-insensitive) that its candidate's text names, with a beach's name lending no direction or day; and keeps exactly the candidate's time qualifiers (`a week from`, `next week`, `earlier in the week`, `later on`, `peaked`, `faded`, `today`, `tonight`, `tomorrow`). Otherwise that slot shows the candidate's own text, and the other slots keep their written sentences. A candidate's text never abbreviates a direction, so `W` or `SSW` in a sentence is not read as one.
