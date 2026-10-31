@@ -1,4 +1,8 @@
-import { CLOSED_WORD_SETS, RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, checkWrittenSentence } from "../week-scout-story-claims";
+import { COMPASS, WEEKDAY } from "../week-scout-story-candidates";
+import {
+  CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, NUMBER_WORDS, RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, WEEKDAY_ABBREVIATIONS,
+  WEEK_FROM_DAYS, checkWrittenSentence,
+} from "../week-scout-story-claims";
 import type { StoryCandidate } from "../week-scout-story-types";
 
 const gate: StoryCandidate["gate"] = {
@@ -182,5 +186,41 @@ describe("checkWrittenSentence closed word sets (R16)", () => {
   it("exports every set as data the worker mirrors", () => {
     expect(Object.keys(CLOSED_WORD_SETS)).toEqual(["wind", "comparison", "tide", "period", "exposure", "wind_strength"]);
     expect(Object.values(CLOSED_WORD_SETS).flat().every((forms) => forms.length > 0)).toBe(true);
+  });
+});
+
+describe("checkWrittenSentence exported lists", () => {
+  const dayless = fact("A west long-period groundswell arrives Wednesday and peaks Thursday.");
+
+  it("refuses every number word and adds no time qualifier", () => {
+    for (const word of NUMBER_WORDS) {
+      expect([word, check(`A west groundswell peaks Thursday, ${word} of it.`, dayless)]).toEqual([word, { ok: false, reason: "number" }]);
+    }
+    for (const qualifier of TIME_QUALIFIERS) {
+      expect([qualifier, check(`A west groundswell peaks Thursday, ${qualifier}.`, dayless)])
+        .toEqual([qualifier, { ok: false, reason: "timing" }]);
+    }
+  });
+
+  it("reads each \"a week from\" unit as its own day", () => {
+    for (const unit of WEEK_FROM_DAYS) {
+      const later = fact(`A west long-period groundswell peaks ${unit}.`);
+      expect([unit, check(`A west groundswell peaks ${unit}.`, later)]).toEqual([unit, { ok: true }]);
+      const bare = unit.replace("a week from ", "");
+      expect([unit, check(`A west groundswell peaks ${bare}.`, later)])
+        .toEqual([unit, { ok: false, reason: bare === "today" ? "timing" : "weekday" }]);
+    }
+  });
+
+  it("reads each abbreviation as its full word", () => {
+    COMPASS_ABBREVIATIONS.forEach((short, index) => {
+      const named = fact(`A ${COMPASS[index]} long-period groundswell peaks Thursday.`);
+      expect([short, check(`${short} groundswell peaks Thursday.`, named)]).toEqual([short, { ok: true }]);
+    });
+    for (const short of WEEKDAY_ABBREVIATIONS) {
+      const day = WEEKDAY.find((name) => name.startsWith(short))!;
+      const named = fact(`The west pulse builds from ${day}.`);
+      expect([short, check(`The west pulse builds from ${short}.`, named)]).toEqual([short, { ok: true }]);
+    }
   });
 });

@@ -2,7 +2,7 @@ import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@
 import { addDays } from "../swell-briefing-input";
 import {
   beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion,
-  type RegionalDaySignal, type RegionalSwellEvent,
+  type BeachLineFacts, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import { CLOSED_WORD_SETS } from "../week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds } from "../week-scout-story-region-gate";
@@ -351,8 +351,7 @@ describe("event and beach lines the card shows", () => {
   });
 
   it("varies a beach's line with the swell's kind and period class, and across beaches with how they face it and their wind", () => {
-    const facts = { direction: "west", kind: "swell" as const, periodClass: "long" as const, exposure: "open" as const,
-      facing: "direct" as const, wind: "light" as const };
+    const facts: BeachLineFacts = { direction: "west", kind: "swell", periodClass: "long", exposure: "open", facing: "direct", wind: "light" };
     // One open, light-wind beach across four events from the west.
     expect([
       beachLineText(facts),

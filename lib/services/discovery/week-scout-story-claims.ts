@@ -19,7 +19,7 @@ export const CLOSED_WORD_SETS = {
     ["faces", "face", "facing", "faced"], ["head on"], ["straight on"], ["dead on"], ["at an angle", "angled"]],
   wind_strength: [["light"], ["glassy"], ["calm"], ["breezy"], ["windy", "wind is up", "wind's up"]],
 } as const satisfies Record<string, ReadonlyArray<readonly string[]>>;
-export type ClosedWordClass = keyof typeof CLOSED_WORD_SETS;
+type ClosedWordClass = keyof typeof CLOSED_WORD_SETS;
 
 /** Words a day leans on, kept exactly: a sentence keeps every one its candidate has and adds none ("peaked" is not "peaks"). */
 export const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "later on", "peaked", "faded", "today", "tonight", "tomorrow"];

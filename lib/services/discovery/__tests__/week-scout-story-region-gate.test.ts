@@ -3,7 +3,9 @@ jest.mock("@/lib/alerts/swell-events/regional", () => ({ loadRegionForecastEvent
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addDays } from "../swell-briefing-input";
 import { beachLine, buildStoryCandidates, storyEventKey, type RegionalDaySignal } from "../week-scout-story-candidates";
-import { buildRegionGateContext, regionGateHolds } from "../week-scout-story-region-gate";
+import {
+  BREEZY_WIND_MPH, DEAD_ON_MAX_DEG, DEAD_ON_WINDOW_SHARE, LIGHT_WIND_MPH, buildRegionGateContext, regionGateHolds,
+} from "../week-scout-story-region-gate";
 import { storyEventsFromRegion } from "../week-scout-story-source";
 import type { StoryCandidate, StoryGate } from "../week-scout-story-types";
 
@@ -159,6 +161,7 @@ describe("regional story gate", () => {
     const withWind = (speeds: Array<string | null>) => buildRegionGateContext(regionBuild([ssw, storm], { rowsByBeach: {
       a: speeds.map((speed, index) => row(`2026-10-29T${String(15 + index).padStart(2, "0")}:00:00Z`, speed)) } }), EDITION);
     // Under 8 mph light, under 15 breezy, otherwise windy; rows without a wind speed don't count.
+    expect([LIGHT_WIND_MPH, BREEZY_WIND_MPH]).toEqual([8, 15]);
     expect(withWind(["6 mph", "9 mph"]).wind(key, "a")).toBe("light");
     expect(withWind(["7 mph", "9 mph"]).wind(key, "a")).toBe("breezy");
     expect(withWind(["14 mph", null]).wind(key, "a")).toBe("breezy");
@@ -178,6 +181,7 @@ describe("regional story gate", () => {
   });
 
   it("calls an open beach dead on within the narrower of 22.5 degrees and half its window", () => {
+    expect([DEAD_ON_MAX_DEG, DEAD_ON_WINDOW_SHARE]).toEqual([22.5, 0.5]);
     const facingAt = (directionDeg: number, halfWidthDeg: number) => {
       const beaches = [{ ...BEACHES[0], swell_window_center_deg: 200, swell_window_halfwidth_deg: halfWidthDeg }];
       const event = regionEvent("San Diego:X", directionDeg, 14, "2026-10-28T15:00:00Z", "2026-10-29T20:00:00Z", null);
