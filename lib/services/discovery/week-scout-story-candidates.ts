@@ -80,16 +80,15 @@ function eventLocalDate(at: string, timezone: string): string {
 }
 
 function periodWords(seconds: number, kind: RegionalSwellEvent["kind"]): string {
-  if (kind === "storm") return seconds >= 10 ? "stormy mid-period swell" : "stormy short-period swell";
+  if (kind === "storm") return seconds >= 10 ? "mid-period storm swell" : "short-period storm swell";
   if (seconds >= 13) return "long-period groundswell";
   if (seconds >= 10) return "mid-period swell";
   return "short-period windswell";
 }
 
-/** "west long-period groundswell"; a storm's "stormy" leads the direction: "stormy west short-period swell". */
+/** "west long-period groundswell", "west short-period storm swell". */
 function namedSwell(direction: string, seconds: number, kind: RegionalSwellEvent["kind"]): string {
-  const period = periodWords(seconds, kind);
-  return kind === "storm" ? `stormy ${direction} ${period.replace(/^stormy /, "")}` : `${direction} ${period}`;
+  return `${direction} ${periodWords(seconds, kind)}`;
 }
 
 function withArticle(phrase: string): string {
@@ -221,27 +220,30 @@ function eventStoryParts(event: RegionalSwellEvent, today: string): { text: stri
   const arrival = eventLocalDate(event.arrivalAt, event.timezone);
   const peak = eventLocalDate(event.peakAt, event.timezone);
   const fade = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
-  const day = (date: string): string => cardDay(date, today);
-  const fadeClause = fade !== null && fade !== peak ? `${fade < today ? "faded" : "fades"} ${day(fade)}` : null;
+  // Words, not dates, decide: two days past two weeks both read "later on", so the second goes unsaid.
+  const arrivalDay = cardDay(arrival, today);
+  const peakDay = cardDay(peak, today);
+  const fadeDay = fade !== null ? cardDay(fade, today) : null;
+  const fadeClause = fade !== null && fadeDay !== peakDay ? `${fade < today ? "faded" : "fades"} ${fadeDay}` : null;
   let predicate: string;
   let namesFade = fadeClause !== null;
   if (arrival < today) {
-    predicate = joinClauses(["is already in the water", `${peak < today ? "peaked" : "peaks"} ${day(peak)}`, ...(fadeClause ? [fadeClause] : [])]);
-  } else if (arrival === peak && fade === peak) {
-    predicate = `comes and goes ${day(peak)}`;
+    predicate = joinClauses(["is already in the water", `${peak < today ? "peaked" : "peaks"} ${peakDay}`, ...(fadeClause ? [fadeClause] : [])]);
+  } else if (arrivalDay === peakDay && fadeDay === peakDay) {
+    predicate = `comes and goes ${peakDay}`;
     namesFade = true;
-  } else if (arrival === peak) {
-    predicate = `arrives and peaks ${day(peak)}${fadeClause ? `, then ${fadeClause}` : ""}`;
+  } else if (arrivalDay === peakDay) {
+    predicate = `arrives and peaks ${peakDay}${fadeClause ? `, then ${fadeClause}` : ""}`;
   } else {
-    predicate = joinClauses([`arrives ${day(arrival)}`, `peaks ${day(peak)}`, ...(fadeClause ? [fadeClause] : [])]);
+    predicate = joinClauses([`arrives ${arrivalDay}`, `peaks ${peakDay}`, ...(fadeClause ? [fadeClause] : [])]);
   }
   const sentence = `${withArticle(namedSwell(directionWords(event.directionDeg), event.periodS, event.kind))} ${predicate}.`;
   return { text: sentence.charAt(0).toUpperCase() + sentence.slice(1), namesFade };
 }
 
 /**
- * The card's story line for one event: direction, kind and period, then its days. "A stormy west
- * short-period swell arrives Thursday, peaks Friday and fades Saturday."
+ * The card's story line for one event: direction, kind and period, then its days. "A west short-period
+ * storm swell arrives Thursday, peaks Friday and fades Saturday."
  */
 export function eventStoryText(event: RegionalSwellEvent, today: string): string {
   return eventStoryParts(event, today).text;
@@ -334,6 +336,17 @@ export function buildEventCandidates(build: RegionBuild, events: readonly Region
   return facts.map((fact) => ({ ...fact, rank: 0 }));
 }
 
+/**
+ * The swell chapter's phases from the day words it names, each word once, as in eventStoryText: "arrives
+ * Thursday and peaks Friday before easing Saturday", "arrives and peaks next week", "comes and goes Thursday".
+ * Words, not dates, decide: two days past the window both read "next week", so a fade there goes unsaid.
+ */
+export function swellChapterPhases(arrival: string, peak: string, fade: string | null): string {
+  const easing = fade !== null && fade !== peak ? ` before easing ${fade}` : "";
+  if (arrival !== peak) return `arrives ${arrival} and peaks ${peak}${easing}`;
+  return fade === peak ? `comes and goes ${peak}` : `arrives and peaks ${peak}${easing}`;
+}
+
 /** Candidate order is the fallback rank; every claim has a live gate. */
 export function buildStoryCandidates(days: readonly RegionalDaySignal[], region = "the coast", events: readonly RegionalSwellEvent[] = []): StoryCandidate[] {
   if (days.length !== 7 || days.some((day, index) => !day.complete || day.localDate !== addDays(days[0].localDate, index))) return [];
@@ -367,7 +380,8 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     // Cover and lead name no fade day, so they don't require the chart's fade to agree.
     addSwellHeadlines(facts, { key, kind: event.kind, directionIndex: directionIndex(event.directionDeg), periodS: event.periodS,
       arrivalDate, peakDate }, region, firstDate, lastDate, { ...gate, fadeLocalDate: null });
-    add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
+    const chapter = swellChapterPhases(arrival, peakDay, fadeDate ? windowDay(fadeDate, firstDate, lastDate) : null);
+    add(facts, `swell-${key}`, `swell:${key}`, `The ${period} ${chapter}.`, gate);
     if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
     const named = peak?.exposedBeaches?.[key]?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
     const byQuality = (a: typeof named[number], b: typeof named[number]): number =>
@@ -381,9 +395,10 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
       add(facts, `exposure-${key}`, `swell:${key}:exposure`, `${selected[0].beachName} and ${selected[1].beachName} face this swell better than ${selected[2].beachName}, which sits in the shadow.`, exposureGate);
       add(facts, `exposure-${key}-alt`, `swell:${key}:exposure`, `${selected[0].beachName} and ${selected[1].beachName} get the cleaner angle; ${selected[2].beachName} is more sheltered.`, exposureGate);
     }
-    if (fadeDate && fadeDate > peakDate) {
-      add(facts, `turn-fade-${key}`, "story:turn", `After ${peakDay}, the ${direction} swell eases into ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
-      add(facts, `turn-fade-alt-${key}`, "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
+    const fadeDay = fadeDate && fadeDate > peakDate ? windowDay(fadeDate, firstDate, lastDate) : null;
+    if (fadeDay && fadeDay !== peakDay) {
+      add(facts, `turn-fade-${key}`, "story:turn", `After ${peakDay}, the ${direction} swell eases into ${fadeDay}.`, gate);
+      add(facts, `turn-fade-alt-${key}`, "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${fadeDay}.`, gate);
     }
   }
   if (!pulse || weekEvents.length === 0) {

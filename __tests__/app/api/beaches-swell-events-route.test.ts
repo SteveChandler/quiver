@@ -48,7 +48,7 @@ const STORM: PartitionSpec = { heightFt: 7, periodS: 9, direction: 270 };
 const STORM_DAY_WAM_M = 3.2;
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 /** The storm's server story line: it arrives and peaks the same Monday. */
-const STORM_STORY = "A stormy west short-period swell arrives and peaks Monday, then fades Tuesday.";
+const STORM_STORY = "A west short-period storm swell arrives and peaks Monday, then fades Tuesday.";
 /** Every staged beach's window is centred on the storm's west. */
 const STORM_WHY = "Faces the west storm swell head on, with light wind in its window.";
 
