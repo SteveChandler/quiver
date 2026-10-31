@@ -5,6 +5,7 @@ CREATE ROLE service_role BYPASSRLS;
 CREATE SCHEMA auth;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid $$;
 CREATE TABLE auth.users(id uuid PRIMARY KEY);
+CREATE TABLE public.beaches(id uuid PRIMARY KEY, timezone text);
 CREATE TABLE public.profiles(id uuid PRIMARY KEY, email text, analytics_is_real_user boolean, notif_email_enabled boolean,
   onboarding_completed_at timestamptz DEFAULT now(), home_beach_id uuid DEFAULT gen_random_uuid(), created_at timestamptz DEFAULT now() - interval '4 days');
 CREATE TABLE public.email_suppression_list(email text);
