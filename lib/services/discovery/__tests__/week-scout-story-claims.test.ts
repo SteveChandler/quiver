@@ -638,6 +638,7 @@ describe("checkWrittenSentence size, wind timing and breaker claims", () => {
     for (const [text, reason] of [["13 s period", "digit"], ["03-04 ft", "digit"], ["four foot", "number"], ["pumping", "size"], ["huge", "size"]]) {
       expect([text, check(text, beach())]).toEqual([text, { ok: false, reason }]);
     }
+    expect(check("01-02 ft", beach({ faceFt: { min: 8, max: 10 } }))).toEqual({ ok: false, reason: "digit" });
   });
 
   it("blanks fact phrases on both sides without licensing their component words", () => {
@@ -669,9 +670,23 @@ describe("checkWrittenSentence size, wind timing and breaker claims", () => {
     expect(check(sentence, beach())).toEqual(expected);
   });
 
-  it.each(["Offshore by 10 pm", "Offshore by 9 p.m.", "Glassy by 11 PM", "Onshore by 10pm"])(
-    "refuses PM clock claims: %s", (sentence) => {
-      expect(check(sentence, beach())).toEqual({ ok: false, reason: "wind_timing" });
+  const offshoreUntil13: CandidateFacts["windHours"] = Array.from({ length: 13 }, (_, index) => ({
+    hour: index + 6, relation: index < 7 ? "offshore" : "onshore", mph: 5,
+  }));
+  const onshoreFrom10: CandidateFacts["windHours"] = Array.from({ length: 13 }, (_, index) => ({
+    hour: index + 6, relation: index < 4 ? "offshore" : "onshore", mph: 5,
+  }));
+  it.each([
+    ["Offshore by 10 pm", offshoreUntil13], ["Offshore by 9 p.m.", offshoreUntil13], ["Glassy by 11 PM", offshoreUntil13],
+    ["Offshore by 10 P.M", offshoreUntil13], ["Onshore by 10 p.m", offshoreUntil13],
+    ["Onshore by 10pm", onshoreFrom10], ["Onshore by 10 p.m", onshoreFrom10],
+  ])("refuses PM clock claims: %s", (sentence, windHours) => {
+    expect(check(sentence, beach({ windHours }, sentence))).toEqual({ ok: false, reason: "wind_timing" });
+  });
+
+  it.each(["Chest-high with ١٠ s period", "Chest-high ２ sets", "Chest-high², ok", "Chest-high, ½ the size of Friday", "٣-٤ ft"])(
+    "refuses non-ASCII numerals: %s", (sentence) => {
+      expect(check(sentence, beach({}, sentence))).toEqual({ ok: false, reason: "digit" });
     });
 
   it.each(["Bigger at the best reefs", "Bigger at the swell magnets", "Bigger sets at the standouts"])(
@@ -689,6 +704,31 @@ describe("checkWrittenSentence size, wind timing and breaker claims", () => {
 
   it.each(["Triple overhead", "triple-overhead"])("bans unsupported size: %s", (sentence) => {
     expect(check(sentence, beach({}, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it.each(["Quadruple overhead", "quadruple-overhead"])("bans unsupported size: %s", (sentence) => {
+    expect(check(sentence, beach({}, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+
+  it.each([
+    ["Chest or head high", ["head"]], ["Chest/head high", ["head"]], ["Chest & head high", ["head"]],
+    ["Chest through head high", ["head"]], ["Chest, head high", ["head"]], ["Knee, waist and chest high", ["waist", "chest"]],
+  ] as Array<[string, CandidateFacts["sizes"]]>)("refuses leftover body size words: %s", (sentence, sizes) => {
+    expect(check(sentence, beach({ sizes }, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it("keeps ordinary head and shoulder prose", () => {
+    expect(check("Head out early, head-high sets", beach({ sizes: ["head"] }, "Head out early, head-high sets")))
+      .toEqual({ ok: true });
+    expect(check("Peaky with an open shoulder", beach({ breaker: { character: "crumbly", feel: null, closingOut: false } },
+      "Peaky with an open shoulder"))).toEqual({ ok: true });
+  });
+
+  it.each(["Bigger, at the standouts", "Bigger sets, mostly at the standouts", "Chest-high, bigger, at the best reefs", "The standout is bigger"])
+  ("requires standout facts for bigger across the whole sentence: %s", (sentence) => {
+    expect(check(sentence, fact(sentence))).toEqual({ ok: false, reason: "size" });
+    expect(check(sentence, beach({ standoutFt: { min: 4, max: 6 } }, sentence))).toEqual({ ok: true });
+  });
+  it("keeps bigger as prose without a standout", () => {
+    expect(check("Bigger on Sunday", fact("Bigger on Sunday"))).toEqual({ ok: true });
   });
 
   it("reads body combinations only as defined size claims", () => {
@@ -713,6 +753,24 @@ describe("checkWrittenSentence size, wind timing and breaker claims", () => {
     expect(check("2-4 ft, 4-6 ft at the standouts", standout)).toEqual({ ok: true });
     expect(check("Bigger at the standouts", standout)).toEqual({ ok: true });
     expect(check("Bigger sets at the standouts", fact("Bigger sets at the standouts"))).toEqual({ ok: false, reason: "size" });
+  });
+
+  const standoutFacts: CandidateFacts = { ...facts, faceFt: { min: 2, max: 4 }, sizes: ["waist", "chest"],
+    standoutFt: { min: 4, max: 6 }, standoutSizes: ["chest", "shoulder", "head"] };
+  it.each(["Head-high everywhere and 5-6 ft at the standouts", "Head-high everywhere and bigger at the standouts"])
+  ("refuses standout attribution across another size claim: %s", (sentence) => {
+    expect(check(sentence, beach(standoutFacts, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it.each(["Head-high sets at the standouts", "Waist-to-chest, head-high sets at the standouts",
+    "2-4 ft, 4-6 ft at the standouts", "Chest-high and 4-6 ft at the standouts"])
+  ("uses the nearest following standout attribution: %s", (sentence) => {
+    expect(check(sentence, beach(standoutFacts, sentence))).toEqual({ ok: true });
+  });
+
+  it.each(["The sets closed out", "Closed-out sets"])("checks past-tense closing claims: %s", (sentence) => {
+    expect(check(sentence, beach({ breaker: { ...facts.breaker!, closingOut: false } }, sentence)))
+      .toEqual({ ok: false, reason: "breaker" });
+    expect(check(sentence, beach({ breaker: { ...facts.breaker!, closingOut: true } }, sentence))).toEqual({ ok: true });
   });
 
   it("requires coverage at both ends of an all span", () => {
