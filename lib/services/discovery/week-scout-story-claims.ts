@@ -49,7 +49,7 @@ export const DEGREE_WORDS = [["partly", "partially"], ["dead on"], ["at an angle
  * is not "peaks"). A phase verb's past form is a time claim too, so every past form in PHASE_VERBS is here.
  */
 export const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "earlier", "later on", "peaked", "faded", "arrived",
-  "reached", "pushed in", "filled in", "showed up", "rolled in", "eased", "built", "came and went", "today", "tonight", "tomorrow"];
+  "reached", "pushed in", "showed up", "rolled in", "eased", "built", "came and went", "today", "tonight", "tomorrow"];
 /** One claim each, read before bare weekdays: "a week from Saturday" is neither "Saturday" nor "a week from Thursday". */
 export const WEEK_FROM_DAYS = ["a week from today", ...WEEKDAY.map((day) => `a week from ${day}`)];
 /** One claim each, read with WEEK_FROM_DAYS: "next Friday" is neither "Friday" nor anything a candidate names. */
@@ -66,12 +66,12 @@ export const DAY_PHRASES = ["next week", "earlier in the week", "earlier", "late
  * before it ("Thursday peaks"). A written sentence's pairs must all be its candidate's.
  * "reaches" is the cover's arrival ("reaches San Diego Wednesday") and "most" the cover's peak ("with the most
  * swell Thursday"). These forms only bind days: a sentence may use any of them. "starts" is no arrival: the
- * lead's "Thursday starts the west swell's run toward a Friday peak" would pair it with Friday.
+ * lead's "Thursday starts the west swell's run toward a Friday peak" would pair it with Friday. Nor is "fills in":
+ * the wind lines' "the onshore fills in" names wind, so "The onshore fills in Friday" binds no arrival.
  */
 export const PHASE_VERBS = {
   arrives: ["arrives", "arrive", "arriving", "arrived", "reaches", "reach", "reaching", "reached", "pushes in", "push in", "pushing in",
-    "pushed in", "fills in", "fill in", "filling in", "filled in", "shows up", "show up", "showing up", "showed up", "rolls in", "roll in",
-    "rolling in", "rolled in"],
+    "pushed in", "shows up", "show up", "showing up", "showed up", "rolls in", "roll in", "rolling in", "rolled in"],
   peaks: ["peaks", "peak", "peaking", "peaked", "most"],
   fades: ["fades", "fade", "fading", "faded"],
   "comes and goes": ["comes and goes", "come and go", "coming and going", "came and went"],

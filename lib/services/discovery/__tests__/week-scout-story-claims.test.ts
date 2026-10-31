@@ -376,11 +376,11 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(check("West groundswell shows up Thursday, tops out Friday and backs off Saturday.", days)).toEqual({ ok: true });
     expect(check("West groundswell fills in Thursday and peaks Friday.", days)).toEqual({ ok: true });
     expect(check("A west groundswell rolls in Thursday and peaks Friday.", days)).toEqual({ ok: true });
-    for (const verb of ["pushes in", "fills in", "shows up", "rolls in", "rolling in"]) {
+    for (const verb of ["pushes in", "shows up", "rolls in", "rolling in"]) {
       expect([verb, check(`A west groundswell ${verb} Friday.`, days)]).toEqual([verb, { ok: false, reason: "weekday_order" }]);
     }
     // Their past forms are time claims, like "arrived".
-    for (const verb of ["pushed in", "filled in", "showed up", "rolled in"]) {
+    for (const verb of ["pushed in", "showed up", "rolled in"]) {
       expect([verb, check(`A west groundswell ${verb} Thursday.`, days)]).toEqual([verb, { ok: false, reason: "timing" }]);
     }
     // "starts" binds nothing: the lead's "Thursday starts ... toward a Friday peak" would pair it with Friday.
@@ -431,11 +431,11 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(check("The west swell's run starts Thursday and peaks Friday.", leadAlt)).toEqual({ ok: true });
     expect(check("A Thursday peak; the west swell's run starts Friday.", leadAlt)).toEqual({ ok: false, reason: "weekday_order" });
     expect(check("The west swell arrives Friday.", leadAlt)).toEqual({ ok: false, reason: "weekday_order" });
-    // Only within its clause: the wind line's "On Friday, the onshore fills in" pairs nothing, so a rewrite that moves
-    // "fills in" into Friday's clause fails (safely).
+    // "fills in" is the wind lines' verb, no arrival (R27): moving it next to Friday is a true rewrite.
     const wind = fact("On Friday, the onshore fills in after the cleaner morning.");
     expect(check("On Friday, the onshore fills in after the cleaner morning.", wind)).toEqual({ ok: true });
-    expect(check("The onshore fills in Friday after the cleaner morning.", wind)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("The onshore fills in Friday after a cleaner morning.", wind)).toEqual({ ok: true });
+    expect(check("The onshore filled in Friday after a cleaner morning.", wind)).toEqual({ ok: true });
   });
 
   it("gives a day with no phase verb of its own the previous day's verbs in its clause (R24)", () => {
@@ -447,8 +447,8 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     const lead = fact("The west pulse builds from Thursday into Friday.");
     expect(check("The west pulse builds into Friday.", lead)).toEqual({ ok: true });
     expect(check("The west pulse builds from Thursday into Friday.", lead)).toEqual({ ok: true });
-    // Only within a clause: "fills in Thursday, tops out Friday" gives Friday nothing.
-    expect(check("West groundswell fills in Thursday, tops out Friday and backs off Saturday.", days)).toEqual({ ok: true });
+    // Only within a clause: "shows up Thursday, tops out Friday" gives Friday nothing.
+    expect(check("West groundswell shows up Thursday, tops out Friday and backs off Saturday.", days)).toEqual({ ok: true });
     // A day-only sentence binds nothing to pass on.
     const change = fact("The best regional window looks better on Friday than on Thursday.");
     expect(check("Friday's best window beats Thursday's.", change)).toEqual({ ok: true });
