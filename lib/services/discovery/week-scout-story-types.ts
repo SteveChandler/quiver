@@ -1,3 +1,5 @@
+import type { CandidateFacts } from "./week-scout-story-facts";
+
 export const WEEK_SCOUT_STORY_SCHEMA_VERSION = 3 as const;
 export const WEEK_SCOUT_STORY_GENERATION_VERSION = "week-scout-story-1";
 /** -1 selects candidates; -2 also sends a sentence Gemma wrote for some picks, checked when served. */
@@ -8,7 +10,7 @@ export type StoryGate =
   | { kind: "origin"; regionalEventKey: string; sourceAreaId: string; sourceLat: number; sourceLon: number; trackRevision: string; arrivalOrder: number; confidence: "likely" | "locked" }
   | { kind: "exposure"; regionalEventKey: string; directionSector: number; exposure: "open" | "partial" | "shadowed"; minimumBeaches: number; beaches?: Array<{ beachId: string; exposure: "open" | "partial" | "shadowed" }> }
   /** Every fact a beach line names: the event's 16-point direction and period class, the beach's exposure, how squarely an open beach faces it, and the wind bucket. */
-  | { kind: "beach"; regionalEventKey: string; beachId: string; directionIndex: number; periodClass: "long" | "mid" | "short"; exposure: "open" | "partial" | "shadowed"; facing: "direct" | "angled" | null; wind: "light" | "breezy" | "windy" }
+  | { kind: "beach"; localDate: string; regionalEventKey: string; beachId: string; directionIndex: number; periodClass: "long" | "mid" | "short"; exposure: "open" | "partial" | "shadowed"; facing: "direct" | "angled" | null; wind: "light" | "breezy" | "windy" }
   | { kind: "wind"; localDate: string; bucket: "morning" | "midday" | "evening"; fromWindClass: "offshore" | "onshore"; windClass: "offshore" | "onshore"; forecastRevision: string; beachId?: string; fromBucket?: "morning" | "midday" | "evening"; fromDirection?: string; toDirection?: string }
   | { kind: "wind_pattern"; days: Array<Extract<StoryGate, { kind: "wind" }>> }
   | { kind: "tide"; localDate: string; bucket: "morning" | "midday" | "evening"; tidePhase: string; windowOrder: "opens" | "closes"; forecastRevision: string; beachId?: string }
@@ -22,6 +24,7 @@ export interface StoryCandidate {
   text: string;
   gate: StoryGate;
   rank?: number;
+  facts?: CandidateFacts;
 }
 
 export interface StoryInput {

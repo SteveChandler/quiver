@@ -25,14 +25,14 @@ const SURF = {
 type Surf = (typeof SURF)[keyof typeof SURF];
 
 function beach(id: string, name: string, centerDeg: number): RegionBeach {
-  return { id, name, lat: 32.8, lon: -117.2, swell_window_center_deg: centerDeg, swell_window_halfwidth_deg: 20 };
+  return { id, name, lat: 32.8, lon: -117.2, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: centerDeg, swell_window_halfwidth_deg: 20 };
 }
 
 /** Daylight rows (9 AM, noon, 3 PM) on each of twelve days from Wednesday. */
 function rows(surf: Surf): RatingRow[] {
   return Array.from({ length: 12 }, (_, day) => [16, 19, 22].map((hour) => ({
     forecast_at: new Date(Date.UTC(2026, 9, 28 + day, hour)).toISOString(), wave_height: surf.wave, wave_period: null,
-    wind_speed: surf.wind, tide_height: null, tide_status: null, swell_1_period: "9s",
+    wind_speed: surf.wind, wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "9s",
   }) as RatingRow)).flat();
 }
 
@@ -266,17 +266,17 @@ describe("narrateRegionEvents", () => {
 
   it("takes a beach's wind from its rating's own hours, and never calls a blown-out beach light", () => {
     const row = (at: string, wave: string, wind: string): RatingRow => ({ forecast_at: at, wave_height: wave, wave_period: null,
-      wind_speed: wind, tide_height: null, tide_status: null, swell_1_period: "9s" }) as RatingRow;
+      wind_speed: wind, wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "9s" }) as RatingRow;
     const hourly = (day: string, hours: number[], wave: string, wind: string) => hours.map((hour) =>
       row(`2026-10-${day}T${String(hour).padStart(2, "0")}:00:00Z`, wave, wind));
-    // k: FAIR Thursday at 14 mph, light the rest of the swell (event window light, its FAIR hours breezy).
+    // k: FAIR Thursday at 14 mph, light the rest of the swell (peak day light, its FAIR hours breezy).
     // h: Thursday hourly, one 20 mph hour (MEH, "blown out") ahead of six 5 mph hours; its MEH hours average about 7 mph.
     // m: light all through.
     const beaches = [beach("k", "Kellogg", 202), beach("h", "Horseshoe", 202), beach("m", "Marine Street", 202)];
     const build: RegionBuild = { ...BUILD, beaches, events: [SSW], rowsByBeach: {
       k: [...hourly("29", [16, 19, 22], "2-3ft", "14 mph"), ...hourly("30", [16, 19, 22], "0-1ft", "3 mph"),
         ...hourly("31", [16, 18], "0-1ft", "3 mph")],
-      h: [...hourly("29", [16], "1-2ft", "20 mph"), ...hourly("29", [17, 18, 19, 20, 21, 22], "0-1ft", "5 mph")],
+      h: [...hourly("29", [16], "1-2ft", "20 mph"), ...hourly("29", [17, 18, 19, 20, 21, 22], "0-1ft", "5 mph"), ...hourly("30", [16, 19, 22], "0-1ft", "5 mph")],
       m: rows(SURF.good75),
     } };
     const ratedHere = rateRegionEvents(build, { beachId: "k", skill: "intermediate", now: NOW });
@@ -284,7 +284,7 @@ describe("narrateRegionEvents", () => {
     expect(ratings.get("k")).toMatchObject({ label: "FAIR", reason: null });
     expect(ratings.get("h")).toMatchObject({ label: "MEH", reason: "blown out" });
     const context = buildRegionGateContext(build, TODAY);
-    expect(["k", "h", "m"].map((id) => context.wind(SSW_KEY, id))).toEqual(["light", "light", "light"]);
+    expect(["k", "h", "m"].map((id) => context.wind(SSW_KEY, id, "2026-10-30"))).toEqual(["light", "light", "light"]);
     const ownHours = (id: string) => {
       const rating = ratings.get(id)!;
       return windBucket(build.rowsByBeach[id], Date.parse(rating.windowStartAt!), Date.parse(rating.windowEndAt!));
@@ -293,7 +293,7 @@ describe("narrateRegionEvents", () => {
 
     const { all } = storyEventsFromRegion(build, TODAY);
     const facts = buildEventCandidates(build, all, context, NOW);
-    // Every beach line in the input claims the event window's light wind.
+    // Every beach line in the input claims the peak day's light wind.
     expect(facts.filter((fact) => fact.slot.includes(":beach:")).map((fact) => fact.gate.kind === "beach" && [fact.gate.beachId, fact.gate.wind]))
       .toEqual([["k", "light"], ["m", "light"], ["h", "light"]]);
     const written = ["k", "h", "m"].map((id) => sentence(`event:${SSW_KEY}:beach:${id}`, OCEAN_BEACH_WRITTEN));

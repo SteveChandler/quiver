@@ -5,6 +5,7 @@ import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { localDate } from "./swell-briefing-input";
 import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
+import { beachDayFactsFromBuild, eventFactsFromBuild, LIGHT_WIND_MPH, type CandidateFacts } from "./week-scout-story-facts";
 import type { StoryGate } from "./week-scout-story-types";
 
 type BeachGate = Extract<StoryGate, { kind: "beach" }>;
@@ -19,12 +20,14 @@ export interface RegionGateContext {
   exposure(regionalEventKey: string, beachId: string): Exposure | null;
   /** How squarely an open beach faces the event; null for a partial or shadowed beach, or one without a window. */
   facing(regionalEventKey: string, beachId: string): Facing | null;
-  wind(regionalEventKey: string, beachId: string): Wind | null;
+  wind(regionalEventKey: string, beachId: string, localDate: string): Wind | null;
+  eventFacts(regionalEventKey: string): CandidateFacts | null;
+  beachDayFacts(regionalEventKey: string, beachId: string, localDate: string): CandidateFacts | null;
 }
 
 const CONFIDENCE_RANK = { on_the_radar: 0, likely: 1, locked: 2 } as const;
 /** Mean wind under this is "light", under BREEZY_WIND_MPH "breezy", otherwise "windy". */
-export const LIGHT_WIND_MPH = 8;
+export { LIGHT_WIND_MPH } from "./week-scout-story-facts";
 export const BREEZY_WIND_MPH = 15;
 /**
  * An open beach faces a swell "direct" (dead on) when it comes from within this many degrees of the
@@ -79,12 +82,20 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
       const offset = angleDifference(seen.event.directionDeg, seen.window.centerDeg);
       return offset <= Math.min(DEAD_ON_MAX_DEG, seen.window.halfWidthDeg * DEAD_ON_WINDOW_SHARE) ? "direct" : "angled";
     },
-    wind(regionalEventKey, beachId) {
+    eventFacts(regionalEventKey) {
+      const event = byKey.get(regionalEventKey);
+      return event ? eventFactsFromBuild(build, event) : null;
+    },
+    beachDayFacts(regionalEventKey, beachId, date) {
+      const event = byKey.get(regionalEventKey);
+      return event ? beachDayFactsFromBuild(build, event, beachId, date) : null;
+    },
+    wind(regionalEventKey, beachId, date) {
       const event = byKey.get(regionalEventKey);
       if (!event) return null;
       // Rating rows are daylight rows in any event's window; keep this event's.
       const { startMs, endMs } = ratingWindow(event);
-      return windBucket(build.rowsByBeach[beachId] ?? [], startMs, endMs);
+      return windBucket((build.rowsByBeach[beachId] ?? []).filter((row) => eventDate(row.forecast_at, build.timezone) === date), startMs, endMs);
     },
   };
 }
@@ -125,7 +136,7 @@ function beachHolds(gate: BeachGate, region: RegionGateContext): boolean {
     && periodClass(event.periodS) === gate.periodClass
     && region.exposure(gate.regionalEventKey, gate.beachId) === gate.exposure
     && region.facing(gate.regionalEventKey, gate.beachId) === gate.facing
-    && region.wind(gate.regionalEventKey, gate.beachId) === gate.wind;
+    && region.wind(gate.regionalEventKey, gate.beachId, gate.localDate) === gate.wind;
 }
 
 /** A quiet week can't stand while the region build has an event arriving or peaking on one of its days. */

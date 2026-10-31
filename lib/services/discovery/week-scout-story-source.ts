@@ -3,12 +3,15 @@ import type { Database } from "@/types/database";
 import { parseSwellDirectionToDegrees, parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import { exposureFactor, exposureLabel, swellWindowForBeach, type SwellEventForecastRow } from "@/lib/alerts/swell-events";
 import { loadRegionForecastEvents } from "@/lib/alerts/swell-events/regional";
+import { CLOSING_OUT_FACE_FT, ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
+import { resolveWavePunchiness } from "@/lib/domains/spot-profile/wave-punchiness";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { nativeScoreInputsFromForecast, scoreNativeConditionInputs } from "@/lib/scoring/native-condition-score";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion, type RegionalDaySignal } from "./week-scout-story-candidates";
+import { beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
 import { buildRegionGateContext } from "./week-scout-story-region-gate";
 import { loadLatestStoryInput, saveStoryInput, activeStoryRegions } from "./week-scout-story-store";
 import type { StoryInput } from "./week-scout-story-types";
@@ -16,8 +19,10 @@ import { recordStage, timeStage } from "@/lib/observability/request-timing";
 
 type Client = SupabaseClient<Database>;
 type Row = { id: string; beach_id: string; forecast_at: string; wave_height: string | null; wave_period: string | null; wind_speed: string | null; tide_height: string | null; swell_direction_om: number | null; swell_period_om: number | null; wind_direction: string | null; tide_status: string | null; om_fetched_at: string | null; updated_at: string | null } & SwellEventForecastRow;
-type BeachRow = { id: string; name: string; lat: number; lon: number; aspect_deg: number | null; swell_window_center_deg: number | null; swell_window_halfwidth_deg: number | null; wind_offshore_deg: number | null };
-export const STORY_SAMPLE_VERSION = "regional-swell-events-7";
+type BeachRow = Pick<Database["public"]["Tables"]["beaches"]["Row"],
+  "id" | "name" | "lat" | "lon" | "aspect_deg" | "swell_window_center_deg" | "swell_window_halfwidth_deg" | "wind_offshore_deg" | "wind_offshore_tol_deg"
+  | "wave_punchiness_ai" | "wave_punchiness_ai_confidence" | "persona" | "break_type" | "skill_level">;
+export const STORY_SAMPLE_VERSION = "regional-swell-events-8";
 const SOURCE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 const PAGE_SIZE = 500;
 
@@ -49,11 +54,11 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   const allBeaches: BeachRow[] = [];
   for (;;) {
     const { data, error } = await client.from("beaches")
-      .select("id, name, lat, lon, aspect_deg, swell_window_center_deg, swell_window_halfwidth_deg, wind_offshore_deg").eq("region", region).is("deleted_at", null)
+      .select("id, name, lat, lon, aspect_deg, swell_window_center_deg, swell_window_halfwidth_deg, wind_offshore_deg, wind_offshore_tol_deg, wave_punchiness_ai, wave_punchiness_ai_confidence, persona, break_type, skill_level").eq("region", region).is("deleted_at", null)
       .order("id", { ascending: true }).range(allBeaches.length, allBeaches.length + PAGE_SIZE - 1);
     if (error) throw new StoryInputError("story_beaches_read_failed");
     if (!data?.length) break;
-    allBeaches.push(...data);
+    allBeaches.push(...data as unknown as BeachRow[]);
   }
   allBeaches.sort((a, b) => a.lat - b.lat || a.lon - b.lon || a.id.localeCompare(b.id));
   const count = Math.min(8, allBeaches.length);
@@ -138,6 +143,33 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       if (hour < 6 || hour >= 19) return null;
       return hour < 12 ? "morning" : hour < 16 ? "midday" : "evening";
     };
+    const daylight = regionalSamples.filter((row) => bucketOf(row.forecast_at) !== null);
+    const coveringEvent = allEvents.find((event) => {
+      const { startMs, endMs } = ratingWindow(event);
+      const dayStart = Date.parse(zonedWallClockToUtc(date, "00:00:00.000", active.timezone));
+      const dayEnd = Date.parse(zonedWallClockToUtc(addDays(date, 1), "00:00:00.000", active.timezone));
+      return startMs < dayEnd && endMs > dayStart;
+    });
+    const dayPeriods = daylight.map((row) => row.swell_period_om)
+      .filter((period): period is number => period !== null && Number.isFinite(period)).sort((a, b) => a - b);
+    const middle = Math.floor(dayPeriods.length / 2);
+    const medianPeriod = dayPeriods.length === 0 ? null : dayPeriods.length % 2
+      ? dayPeriods[middle] : (dayPeriods[middle - 1] + dayPeriods[middle]) / 2;
+    const character = breakerCharacter(coveringEvent?.kind ?? "swell", coveringEvent?.periodS ?? medianPeriod);
+    const surfBeaches = allBeaches.flatMap((beach) => {
+      const beachRows = daylight.filter((row) => row.beach_id === beach.id);
+      if (beachRows.length === 0) return [];
+      const score = Math.max(...beachRows.map((row) => scoreNativeConditionInputs(nativeScoreInputsFromForecast(row as EnhancedForecastEntity), "intermediate")));
+      const faceFt = faceRangeFt(beachRows.map((row) => row.wave_height));
+      const punchiness = resolveWavePunchiness({ override: null, ai: beach.wave_punchiness_ai,
+        aiConfidence: beach.wave_punchiness_ai_confidence, persona: beach.persona, break_type: beach.break_type, skill_level: beach.skill_level });
+      const swellDirection = coveringEvent?.directionDeg ?? meanDirection(beachRows.flatMap((row) => row.swell_direction_om === null ? [] : [row.swell_direction_om]));
+      const factor = swellDirection === null ? null : exposureFactor(swellDirection, swellWindowForBeach(beach));
+      return [{ beachId: beach.id, beachName: beach.name, score, facts: { faceFt, sizes: sizeWordsFor(faceFt),
+        windHours: windHoursFor(beachRows, beach, active.timezone), breaker: { character, feel: beachFeel(character, punchiness),
+          closingOut: factor !== null && exposureLabel(factor) === "open" && faceFt !== null && faceFt.max >= CLOSING_OUT_FACE_FT } } }];
+    }).sort((a, b) => b.score - a.score || a.beachName.localeCompare(b.beachName) || a.beachId.localeCompare(b.beachId))
+      .slice(0, 4).map(({ score: _score, ...beach }) => beach);
     const windRows = samples.flatMap((row) => {
       const beach = beaches.find((item) => item.id === row.beach_id);
       const degrees = parseSwellDirectionToDegrees(row.wind_direction);
@@ -164,6 +196,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       forecastRevision: source.length ? new Date(Math.max(...source)).toISOString() : "",
       ...(exposed >= 3 ? { exposure: { kind: "open" as const, sampleBeaches: exposed } } : {}),
       exposedBeaches,
+      surfBeaches,
       ...(morning && afternoon ? { wind: { bucket: afternoon.bucket, fromBucket: "morning" as const,
         fromWindClass: morning.windClass, windClass: afternoon.windClass, selectorConfirmed: true,
         turnConfirmed: true, beachId: morning.row.beach_id,
@@ -173,13 +206,14 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     };
   });
   if (signals.some((day) => !day.complete)) throw new StoryInputError("story_coverage_sparse", 409);
-  const storyFacts = buildStoryCandidates(signals, region, events);
+  const storyFacts = buildStoryCandidates(signals, region, events, (event) => eventFactsFromBuild(build, event));
   if (storyFacts.length === 0) throw new StoryInputError("story_no_candidates", 409);
   // The card's lines ride after the story's own: every forecast event the card shows, not only the week's.
   // Past the cap the latest events lose their lines; the card writes those from the build itself.
   const copyFacts = [...storyFacts, ...buildEventCandidates(build, allEvents, buildRegionGateContext(build, editionDate), now)]
     .slice(0, MAX_FACTS);
-  const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, events: allEvents }));
+  const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, events: allEvents,
+    candidateFacts: copyFacts.map(({ id, facts }) => ({ id, facts })) }));
   recordStage("story-compute", performance.now() - computeStartedAt);
   const existing = await loadLatestStoryInput(client, region, editionDate);
   if (existing?.provenance?.sourceHashes?.[0] === sourceHash) return existing;

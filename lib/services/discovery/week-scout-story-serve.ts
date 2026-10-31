@@ -53,7 +53,7 @@ interface StoryRegion {
 }
 
 /** No region build: every swell, exposure and beach claim fails, and the story falls back. */
-const CLOSED_REGION: StoryRegion = { context: { events: [], exposure: () => null, facing: () => null, wind: () => null }, first: null };
+const CLOSED_REGION: StoryRegion = { context: { events: [], exposure: () => null, facing: () => null, wind: () => null, eventFacts: () => null, beachDayFacts: () => null }, first: null };
 
 export function storyRegion(build: RegionBuild, editionDate: string): StoryRegion {
   return { context: buildRegionGateContext(build, editionDate), first: storyEventsFromRegion(build, editionDate).week[0] ?? null };
@@ -83,7 +83,7 @@ function describesFirstSwell(gate: SwellGate, first: RegionalSwellEvent | null):
  * cached input) dated or binned it differently. Every gate field comes from that event, so the sentence
  * can only claim it and holds against the same build.
  */
-function firstEventHeadlines(first: RegionalSwellEvent, live: Live): StoryInput["copyFacts"] {
+function firstEventHeadlines(first: RegionalSwellEvent, live: Live, context: RegionGateContext): StoryInput["copyFacts"] {
   const week = live.days.slice(0, 7).map((day) => day.localDate);
   if (week.length === 0) return [];
   const key = storyEventKey(first);
@@ -98,7 +98,7 @@ function firstEventHeadlines(first: RegionalSwellEvent, live: Live): StoryInput[
   };
   const facts: StoryInput["copyFacts"] = [];
   addSwellHeadlines(facts, { key, kind: first.kind, directionIndex: index, periodS: first.periodS, arrivalDate, peakDate },
-    null, week[0], week[week.length - 1], gate, "first-");
+    null, week[0], week[week.length - 1], gate, "first-", context.eventFacts(key));
   return facts.map((fact) => ({ ...fact, rank: Number.MAX_SAFE_INTEGER }));
 }
 
@@ -235,7 +235,7 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
   const slots = new Set<string>();
   const matchesFirstSwell = (gate: SwellGate): boolean => describesFirstSwell(gate, regional.first);
   // Ranked last, so a passing regional sentence keeps its slot and these fill only what it leaves empty.
-  const headlines = regional.first ? firstEventHeadlines(regional.first, live) : [];
+  const headlines = regional.first ? firstEventHeadlines(regional.first, live, regional.context) : [];
   const input = headlines.length > 0
     ? { ...regionalInput, copyFacts: [...regionalInput.copyFacts, ...headlines] } : regionalInput;
   const matchedEvents = new Set(regionalInput.copyFacts.flatMap((fact) => fact.gate.kind === "swell"

@@ -279,11 +279,11 @@ describe("deterministic fallback and live gates", () => {
   });
 
   it("keeps the card's event lines out of the Week Scout story", () => {
-    const beach = { id: "x", name: "Ala Moana", lat: 21.29, lon: -157.85, swell_window_center_deg: 270, swell_window_halfwidth_deg: 30 };
+    const beach = { id: "x", name: "Ala Moana", lat: 21.29, lon: -157.85, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: 270, swell_window_halfwidth_deg: 30 };
     // Daylight rows (9 AM, noon, 3 PM in Honolulu) for twelve days from Wednesday, with light wind.
     const rows = Array.from({ length: 12 }, (_, day) => [19, 22, 25].map((hour) => ({
       forecast_at: new Date(Date.UTC(2026, 6, 15 + day, hour)).toISOString(), wave_height: "3-4ft", wave_period: null,
-      wind_speed: "5 mph", tide_height: null, tide_status: null, swell_1_period: "13s",
+      wind_speed: "5 mph", wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "13s",
     }))).flat();
     // Peaks a week from Friday: on the card, outside the story's week.
     const nextWeek = regionEvent(270, 15, "2026-07-23T18:00:00Z", "2026-07-24T22:00:00Z", "2026-07-25T22:00:00Z");
@@ -514,7 +514,7 @@ describe("deterministic fallback and live gates", () => {
     expect(storyGateHolds({ kind: "exposure", regionalEventKey: swellGate.regionalEventKey,
       directionSector: 6, exposure: "open", minimumBeaches: 2,
       beaches: [{ beachId: "a", exposure: "open" }, { beachId: "c", exposure: "shadowed" }] }, response)).toBe(false);
-    expect(storyGateHolds({ kind: "beach", regionalEventKey: swellGate.regionalEventKey, beachId: "a",
+    expect(storyGateHolds({ kind: "beach", localDate: "2026-07-16", regionalEventKey: swellGate.regionalEventKey, beachId: "a",
       directionIndex: 12, periodClass: "long", exposure: "open", facing: "direct", wind: "light" }, response)).toBe(false);
     expect(storyGateHolds({ kind: "wind", localDate: "2026-07-15", bucket: "midday",
       fromBucket: "morning", fromWindClass: "offshore", windClass: "onshore", forecastRevision: "rev",

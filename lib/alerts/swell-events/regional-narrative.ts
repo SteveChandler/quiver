@@ -171,13 +171,13 @@ export function narrateRegionEvents(input: {
     const first = firstUnderKey.get(key) === story.regionalKey;
     // A later event under a shared key reads its exposure and wind from its own context.
     const own = first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === story.regionalKey) }, today);
-    /** The rating's own hours set its wind, as they set its label and reason; the event window only without them. */
+    /** The rating's own hours set its wind, as they set its label and reason; the peak day only without them. */
     const ratingWind = (rating: RegionBeachRating): ReturnType<typeof windBucket> => {
       const startMs = rating.windowStartAt ? Date.parse(rating.windowStartAt) : Number.NaN;
       const endMs = rating.windowEndAt ? Date.parse(rating.windowEndAt) : Number.NaN;
       return Number.isFinite(startMs) && Number.isFinite(endMs)
         ? windBucket(build.rowsByBeach[rating.beachId] ?? [], startMs, endMs)
-        : own.wind(key, rating.beachId);
+        : own.wind(key, rating.beachId, localDate(new Date(story.peakAt), build.timezone));
     };
     const narrate = (rating: RegionBeachRating): RegionBeachRating => {
       const wind = ratingWind(rating);

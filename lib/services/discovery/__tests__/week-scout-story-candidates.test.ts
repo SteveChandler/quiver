@@ -292,14 +292,14 @@ describe("event and beach lines the card shows", () => {
 
   /** A beach whose swell window is centred on `centerDeg`, twenty degrees either side. */
   function beach(id: string, name: string, centerDeg: number): RegionBeach {
-    return { id, name, lat: 32.8, lon: -117.2, swell_window_center_deg: centerDeg, swell_window_halfwidth_deg: 20 };
+    return { id, name, lat: 32.8, lon: -117.2, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: centerDeg, swell_window_halfwidth_deg: 20 };
   }
 
   /** Daylight rows (9 AM, noon, 3 PM) on each of `days` days from Wednesday. */
   function rows(surf: Surf, days = 6): RatingRow[] {
     return Array.from({ length: days }, (_, day) => [16, 19, 22].map((hour) => ({
       forecast_at: new Date(Date.UTC(2026, 9, 28 + day, hour)).toISOString(), wave_height: surf.wave, wave_period: null,
-      wind_speed: surf.wind, tide_height: null, tide_status: null, swell_1_period: "9s",
+      wind_speed: surf.wind, wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "9s",
     }) as RatingRow)).flat();
   }
 
@@ -322,6 +322,21 @@ describe("event and beach lines the card shows", () => {
     const context = buildRegionGateContext(build, TODAY);
     return { events, context, facts: buildEventCandidates(build, events, context, NOW) };
   }
+
+  it("attaches event facts to swell candidates and peak-day facts to beach lines", () => {
+    const built = regionBuild([beach("a", "North", 202), beach("b", "Middle", 202), beach("c", "South", 202)], {}, [
+      regionEvent("ssw", 202, 13, "2026-10-28T15:00:00Z", "2026-10-29T20:00:00Z", "2026-10-30T20:00:00Z")]);
+    const { events, context, facts } = eventLines(built);
+    const key = storyEventKey(events[0]);
+    expect(facts.find((fact) => fact.slot === `event:${key}:story`)?.facts).toMatchObject({ faceFt: { min: 2, max: 3 } });
+    const line = facts.find((fact) => fact.slot === `event:${key}:beach:a`);
+    expect(line?.gate).toMatchObject({ localDate: "2026-10-29" });
+    expect(line?.facts?.windHours).toHaveLength(3);
+    const candidates = buildStoryCandidates(days(3), "coast", events, (item) => context.eventFacts(storyEventKey(item)));
+    const swell = candidates.filter((fact) => fact.gate.kind === "swell");
+    expect(new Set(swell.map((fact) => fact.slot))).toEqual(new Set(["cover", "story:lead", "story:turn", `swell:${key}`]));
+    for (const candidate of swell) expect(candidate.facts).toEqual(context.eventFacts(key));
+  });
 
   const beachesOf = (facts: ReturnType<typeof buildEventCandidates>, key: string): string[] =>
     facts.filter((fact) => fact.slot.startsWith(`event:${key}:beach:`)).map((fact) => fact.slot.split(":beach:")[1]).sort();
@@ -366,7 +381,7 @@ describe("event and beach lines the card shows", () => {
     const line = (key: string, beachId: string) => facts.find((fact) => fact.slot === `event:${key}:beach:${beachId}`);
     const swellKey = "4-4-2026-10-30";
     expect(line(swellKey, "a")?.text).toBe("Faces the south-southwest groundswell dead on, with light wind in its window.");
-    expect(line(swellKey, "a")?.gate).toEqual({ kind: "beach", regionalEventKey: swellKey, beachId: "a", directionIndex: 9,
+    expect(line(swellKey, "a")?.gate).toEqual({ kind: "beach", localDate: "2026-10-30", regionalEventKey: swellKey, beachId: "a", directionIndex: 9,
       periodClass: "long", exposure: "open", facing: "direct", wind: "light" });
     expect(line(swellKey, "b")?.text).toBe("Faces the south-southwest groundswell dead on, but it's breezy in its window.");
     expect(line(swellKey, "b")?.gate).toMatchObject({ exposure: "open", wind: "breezy" });

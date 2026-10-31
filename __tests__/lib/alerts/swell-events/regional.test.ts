@@ -183,6 +183,7 @@ function builtWith(event: Partial<InternalRegionEvent>, rows: RatingRow[]): Regi
     name: item.name,
     lat: item.lat,
     lon: item.lon,
+    aspect_deg: item.aspect_deg, wind_offshore_deg: item.wind_offshore_deg, wind_offshore_tol_deg: null, punchiness: null,
     swell_window_center_deg: item.swell_window_center_deg,
     swell_window_halfwidth_deg: item.swell_window_halfwidth_deg,
   }));
@@ -254,6 +255,19 @@ beforeEach(() => {
 });
 
 describe("buildRegionEvents + rateRegionEvents", () => {
+  it("carries wind direction and punchiness through the cached build", async () => {
+    const beaches = [beach("North", { wave_punchiness: 0.4, wind_offshore_tol_deg: 25 }),
+      beach("Middle", { wave_punchiness_ai: -0.4, wave_punchiness_ai_confidence: 0.8 }),
+      beach("South", { break_type: "reef" })];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { swell: true }).map((row) => ({ ...row, wind_direction: "E" })));
+    const built = await build(beaches, rows);
+    expect(built.beaches.map((item) => item.punchiness)).toEqual([0.4, -0.4, 0.3]);
+    expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
+    expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
+    expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v5", REGION, expect.any(String)], expect.anything());
+  });
+
   it("(a) groups one storm seen by three beaches into one event, rated at the requested beach", async () => {
     const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
     const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
@@ -283,7 +297,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v4", REGION, "2026-09-25"],
+      ["region-swell-events", "v5", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });

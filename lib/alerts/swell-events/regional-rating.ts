@@ -26,7 +26,7 @@ const WINDOW_AFTER_PEAK_MS = 24 * HOUR_MS;
 const CURRENT_AFTER_PEAK_MS = 12 * HOUR_MS;
 const MAX_WORKING = 5;
 const MAX_NOT_WORKING = 3;
-const CLOSING_OUT_FACE_FT = 8;
+export const CLOSING_OUT_FACE_FT = 8;
 // Early looks have no rating: an open beach is "likely" to work.
 const LIKELY = "LIKELY";
 const EARLY_LOOK = "EARLY LOOK";
