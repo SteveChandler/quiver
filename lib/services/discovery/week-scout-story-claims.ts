@@ -129,9 +129,9 @@ const CLAUSE_BREAK = /[,;:.!?()…\u2013\u2014]|\s-\s/gu;
  * the phrase without `suffix`.
  */
 function phrasePattern(phrases: readonly string[], suffix = ""): RegExp | null {
-  // Every call compiles the same region's beach and region names: keep the most recent few. Shared patterns are
-  // only read with matchAll and replace, which don't carry lastIndex between calls.
-  const key = `${suffix}\u0000${phrases.join("\u0001")}`;
+  // Every call compiles the same region's beach and region names: keep the most recent few. Cached patterns are
+  // global, so read them only with matchAll and replace; .test() or .exec() would leave lastIndex for the next call.
+  const key = JSON.stringify([suffix, phrases]);
   if (PATTERNS.has(key)) return PATTERNS.get(key)!;
   const pattern = compilePhrases(phrases, suffix);
   if (PATTERNS.size >= MAX_CACHED_PATTERNS) PATTERNS.delete(PATTERNS.keys().next().value!);

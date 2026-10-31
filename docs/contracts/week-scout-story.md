@@ -112,7 +112,7 @@ The rules, for the worker to copy:
 
 The checks, in order:
 
-1. `empty` (blank), `too_long` (over 240 characters), `digit` (any numeral), `verdict_word` (a whole UPPERCASE `VERDICT_WORDS` word: native's `YES`, `MAYBE` and `NO`, and the card's labels; lowercase "good" or "no wind" stays prose), `the_call` ("the call").
+1. `empty` (blank), `too_long` (over 240 characters), `digit` (any numeral), `verdict_word` (a whole UPPERCASE `VERDICT_WORDS` word: native's `YES`, `MAYBE` and `NO`, and the card's labels; matched case-sensitively, with only whitespace between the words of `EARLY LOOK`, never a hyphen, so lowercase "good" or "no wind" stays prose), `the_call` ("the call").
 2. `number`: a `NUMBER_WORDS` word, hyphenated forms included ("six-foot"). `size`: a `SIZE_ADJECTIVES` word. Relative words ("runs biggest Thursday") stay prose.
 3. `weekday`: a day unit the candidate doesn't name. `weekday_order`: the sentence's day units, each once in first-appearance order, are not in the candidate's order (it may leave days out, never swap them).
 4. `direction`: a direction the candidate doesn't name.
