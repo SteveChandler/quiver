@@ -117,6 +117,41 @@ describe("/api/profile/[id]", () => {
   });
 
   describe("GET", () => {
+    it.each([
+      ["owner", "user-123", true],
+      ["another signed-in user", "user-456", false],
+    ])("exposes timezone only to the %s", async (_viewer, viewerId, isOwner) => {
+      const targetUserId = "user-123";
+      const timezone = "America/Los_Angeles";
+      mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: viewerId }));
+
+      setupProfileApiMocks(mockSupabaseClient, {
+        profileData: createMockProfile({ id: targetUserId, timezone }),
+        sessions: [],
+      });
+      const baseFrom = (mockSupabaseClient.from as jest.Mock).getMockImplementation()!;
+      const profilesChain = baseFrom("profiles");
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === "profiles") return profilesChain;
+        if (table === "user_blocks") {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+          };
+        }
+        return baseFrom(table);
+      });
+
+      const request = createMockRequest("GET");
+      const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
+      const body = await expectSuccessResponse<{ timezone?: string | null }>(response, 200);
+
+      expect(profilesChain.select).toHaveBeenCalledWith(expect.stringContaining("timezone"));
+      expect(Object.prototype.hasOwnProperty.call(body.data, "timezone")).toBe(isOwner);
+      expect(body.data.timezone).toBe(isOwner ? timezone : undefined);
+    });
+
     it("should return user profile successfully", async () => {
       const targetUserId = "user-123";
       const mockProfile = createMockProfile({
