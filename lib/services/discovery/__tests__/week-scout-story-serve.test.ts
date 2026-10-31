@@ -458,6 +458,10 @@ describe("deterministic fallback and live gates", () => {
       lead: "The west pulse builds from Wednesday into Thursday.",
     };
     issued.copyFacts.forEach((fact) => { fact.text = texts[fact.id] ?? fact.text; });
+    issued.copyFacts.find((fact) => fact.id === "good-day")!.facts = {
+      faceFt: null, sizes: [], breaker: null,
+      windHours: [{ hour: 8, relation: "offshore", mph: 5 }, { hour: 11, relation: "onshore", mph: 7 }],
+    };
     const written = [
       { slot: "cover", basedOn: "cover", text: "The west groundswell shows Wednesday and runs biggest Thursday." },
       // Saturday is not in its fact: only this slot falls back.
@@ -480,6 +484,9 @@ describe("deterministic fallback and live gates", () => {
       lead: "The west pulse builds from Wednesday into Thursday.",
       chapters: [{ slot: "day:2026-07-15", text: "Light wind all morning." }] });
     expect(mockBuildInput).not.toHaveBeenCalled();
+    const withoutFacts = { ...issued, copyFacts: issued.copyFacts.map((fact) => ({ ...fact, facts: undefined })) };
+    expect(bindStory({ region, availability: "ready", input: withoutFacts, selections: ["cover", "lead", "good-day"],
+      written, live: live(), regional: regionOf() }).chapters).toEqual([{ slot: "day:2026-07-15", text: "Light morning wind." }]);
     // A sentence naming a beach its fact doesn't, or whose fact's gate fails, never shows.
     const beachy = bindStory({ region, availability: "ready", input: issued, selections: ["cover", "lead", "good-day"],
       written: [{ ...written[0], text: "The west groundswell lights up Ala Moana Thursday." }], live: live(), regional: regionOf() });
