@@ -85,7 +85,8 @@ function writtenLines({ input, artifact }: NarrativeEdition, region: string, con
   };
 }
 
-function withoutNarrative(event: RegionSwellEvent): RegionSwellEvent {
+/** The rated event with no story and no beach lines: an early look, or any event when the narrative can't be built. */
+export function withoutNarrative(event: RegionSwellEvent): RegionSwellEvent {
   const silent = (rating: RegionBeachRating): RegionBeachRating => ({ ...rating, why: null });
   return {
     ...event,

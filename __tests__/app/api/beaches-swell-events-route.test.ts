@@ -15,6 +15,10 @@ jest.mock("@/lib/services/discovery/week-scout-story-store", () => ({
   loadLatestStoryEdition: jest.fn(),
   loadStoryInput: jest.fn(),
 }));
+jest.mock("@/lib/alerts/swell-events/regional-narrative", () => {
+  const actual = jest.requireActual("@/lib/alerts/swell-events/regional-narrative");
+  return { ...actual, narrateRegionEvents: jest.fn(actual.narrateRegionEvents) };
+});
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/middleware/api-wrappers"),
   withRateLimit: (handler: unknown) => handler,
@@ -22,6 +26,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 
 import { GET } from "@/app/api/beaches/[id]/swell-events/route";
 import { historyLine, regionModelBuoy } from "@/lib/alerts/swell-events/early-look";
+import { narrateRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { createBearerTokenClient } from "@/lib/supabase/bearer-client";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -368,6 +373,27 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(loadStoryInput).toHaveBeenCalledWith(client, "input-hash");
     // An edition whose input is gone serves the server lines.
     expect(stormEvent(data.events)?.story).toBe(STORM_STORY);
+  });
+
+  it("returns the rated events with no narrative, not a 500, when the narrative throws", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    stage({
+      lookup: { region: REGION, timezone: TIMEZONE },
+      beaches,
+      rows: beaches.flatMap((item) => stormRows(item.id)),
+    });
+    jest.mocked(narrateRegionEvents).mockImplementationOnce(() => {
+      throw new RangeError("Invalid time value");
+    });
+
+    const { status, data } = await call(beaches[0].id);
+
+    expectConsoleWarnings([/narrative failed/]);
+    expect(status).toBe(200);
+    const storm = stormEvent(data.events)!;
+    expect(storm).toMatchObject({ kind: "storm", story: null, here: { beachId: beaches[0].id, label: "GOOD", why: null } });
+    expect(data.events.flatMap((event) => [event.here, ...event.working, ...event.notWorking]).every((rating) => !rating || rating.why === null))
+      .toBe(true);
   });
 
   it("keeps the stored-forecast events, without early looks or history, when Open-Meteo is down", async () => {

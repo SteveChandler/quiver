@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { buildRegionEvents, rateRegionEvents } from "@/lib/alerts/swell-events/regional";
-import { loadRegionNarrativeEdition, narrateRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
+import { loadRegionNarrativeEdition, narrateRegionEvents, withoutNarrative } from "@/lib/alerts/swell-events/regional-narrative";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
 import { handleApiError, withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
@@ -65,11 +65,19 @@ async function swellEventsHandler(_request: NextRequest, { params, user, supabas
       loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }),
     ]);
     const rated = rateRegionEvents(built, { beachId: id, skill: profileSkill ?? DEFAULT_SKILL, now });
+    // The card never fails because of its narrative: without it, the rated events go out with no story or lines.
+    let events: RegionSwellEventsResponse["events"];
+    try {
+      events = narrateRegionEvents({ build: built, rated, edition, now });
+    } catch (narrativeError) {
+      console.warn("[swell-events] narrative failed", { region: built.region, error: String(narrativeError) });
+      events = rated.map(withoutNarrative);
+    }
     const data: RegionSwellEventsResponse = {
       region: built.region,
       buoy: built.buoy,
       beachCount: built.beaches.length,
-      events: narrateRegionEvents({ build: built, rated, edition, now }),
+      events,
     };
     return NextResponse.json({ success: true, data });
   } catch (error) {
