@@ -172,7 +172,7 @@ export function narrateRegionEvents(input: {
     // A later event under a shared key reads its exposure and wind from its own context.
     const own = first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === story.regionalKey) }, today);
     /** The rating's own hours set its wind, as they set its label and reason; the event window only without them. */
-    const ratingWind = (rating: RegionBeachRating) => {
+    const ratingWind = (rating: RegionBeachRating): ReturnType<typeof windBucket> => {
       const startMs = rating.windowStartAt ? Date.parse(rating.windowStartAt) : Number.NaN;
       const endMs = rating.windowEndAt ? Date.parse(rating.windowEndAt) : Number.NaN;
       return Number.isFinite(startMs) && Number.isFinite(endMs)
@@ -183,7 +183,7 @@ export function narrateRegionEvents(input: {
       const wind = ratingWind(rating);
       // The line and the reason describe one wind: a blown-out rating's line says the wind is up.
       const blownOut = rating.reason === BLOWN_OUT;
-      const server = beachLine(story, rating.beachId, own, blownOut && wind ? "windy" : wind);
+      const server = beachLine(story, rating.beachId, own, blownOut ? "windy" : wind);
       if (!server) return { ...rating, why: null };
       // Gemma's line was written for the event window's wind; it serves only where that is this rating's wind.
       const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.wind === wind;

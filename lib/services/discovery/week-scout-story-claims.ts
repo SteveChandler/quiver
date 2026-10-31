@@ -10,7 +10,7 @@ import type { StoryCandidate } from "./week-scout-story-types";
  * The refusal reason is the set's name.
  */
 export const CLOSED_WORD_SETS = {
-  wind: [["offshore"], ["onshore"]],
+  wind: [["offshore", "offshores"], ["onshore", "onshores"]],
   comparison: [["better"], ["worse"]],
   tide: [["low"], ["high"], ["rising"], ["falling"]],
   period: [["long-period"], ["mid-period"], ["short-period"], ["groundswell", "groundswells"], ["windswell", "windswells"],
