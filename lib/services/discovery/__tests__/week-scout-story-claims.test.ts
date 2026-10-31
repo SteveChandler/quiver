@@ -54,6 +54,16 @@ describe("checkWrittenSentence", () => {
       .toEqual({ ok: true });
   });
 
+  it("gives the same answer on repeat calls with the cached name patterns", () => {
+    const ocean = fact("Ocean Beach faces this swell better than La Jolla, which sits in the shadow.");
+    for (let round = 0; round < 3; round += 1) {
+      // With Swami's among the names it is a beach the fact doesn't name; without, it is prose.
+      expect(checkWrittenSentence("Ocean Beach and Swami's face it better.", ocean, ["Ocean Beach", "La Jolla", "Swami's"]))
+        .toEqual({ ok: false, reason: "beach" });
+      expect(checkWrittenSentence("Ocean Beach and Swami's face it better.", ocean, ["Ocean Beach", "La Jolla"])).toEqual({ ok: true });
+    }
+  });
+
   it("rejects digits, YES/MAYBE/NO and the call", () => {
     expect(check("West storm swell peaks Friday at 8 feet.")).toEqual({ ok: false, reason: "digit" });
     expect(check("YES: the west storm swell peaks Friday.")).toEqual({ ok: false, reason: "verdict_word" });

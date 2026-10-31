@@ -129,6 +129,21 @@ const CLAUSE_BREAK = /[,;:.!?()…\u2013\u2014]|\s-\s/gu;
  * the phrase without `suffix`.
  */
 function phrasePattern(phrases: readonly string[], suffix = ""): RegExp | null {
+  // Every call compiles the same region's beach and region names: keep the most recent few. Shared patterns are
+  // only read with matchAll and replace, which don't carry lastIndex between calls.
+  const key = `${suffix}\u0000${phrases.join("\u0001")}`;
+  if (PATTERNS.has(key)) return PATTERNS.get(key)!;
+  const pattern = compilePhrases(phrases, suffix);
+  if (PATTERNS.size >= MAX_CACHED_PATTERNS) PATTERNS.delete(PATTERNS.keys().next().value!);
+  PATTERNS.set(key, pattern);
+  return pattern;
+}
+
+/** Compiled phrase patterns by suffix and phrases, oldest first. */
+const PATTERNS = new Map<string, RegExp | null>();
+const MAX_CACHED_PATTERNS = 64;
+
+function compilePhrases(phrases: readonly string[], suffix: string): RegExp | null {
   const alternatives = [...new Set(phrases.map((phrase) => phrase.trim().toLowerCase()).filter(Boolean))]
     .sort((a, b) => b.length - a.length)
     .map((phrase) => phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[\s-]+/g, "[\\s-]+").replace(/['’]/g, "['’]?"));
