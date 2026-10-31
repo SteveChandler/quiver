@@ -367,7 +367,11 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     // Cover and lead name no fade day, so they don't require the chart's fade to agree.
     addSwellHeadlines(facts, { key, kind: event.kind, directionIndex: directionIndex(event.directionDeg), periodS: event.periodS,
       arrivalDate, peakDate }, region, firstDate, lastDate, { ...gate, fadeLocalDate: null });
-    add(facts, `swell-${key}`, `swell:${key}`, `The ${period} arrives ${arrival} and peaks ${peakDay}${fadeDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : ""}.`, gate);
+    // Each day named once, as in eventStoryText: a fade on the peak day goes unsaid.
+    const phases = arrivalDate !== peakDate ? `arrives ${arrival} and peaks ${peakDay}`
+      : fadeDate === peakDate ? `comes and goes ${peakDay}` : `arrives and peaks ${peakDay}`;
+    const easing = fadeDate && fadeDate !== peakDate ? ` before easing ${windowDay(fadeDate, firstDate, lastDate)}` : "";
+    add(facts, `swell-${key}`, `swell:${key}`, `The ${period} ${phases}${easing}.`, gate);
     if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate);
     const named = peak?.exposedBeaches?.[key]?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
     const byQuality = (a: typeof named[number], b: typeof named[number]): number =>

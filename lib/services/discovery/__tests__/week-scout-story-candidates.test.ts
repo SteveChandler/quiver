@@ -84,6 +84,19 @@ describe("regional Week Scout story candidates", () => {
       .toContain("stormy mid-period swell");
   });
 
+  it("names each day of the swell chapter once, like the card's story line", () => {
+    // Thursday 2026-10-29, Friday 2026-10-30, Saturday 2026-10-31.
+    const chapter = (arrival: string, peak: string, fade: string | null): string | undefined =>
+      buildStoryCandidates(days(3), "San Diego", [{ ...event(), arrivalAt: `${arrival}T18:00:00Z`, peakAt: `${peak}T18:00:00Z`,
+        fadeAt: fade ? `${fade}T18:00:00Z` : null }])
+        .find((fact) => /^swell:[^:]+$/.test(fact.slot) && !fact.id.endsWith("-alt"))?.text;
+    expect(chapter("2026-10-29", "2026-10-29", "2026-10-30")).toBe("The long-period groundswell arrives and peaks Thursday before easing Friday.");
+    expect(chapter("2026-10-29", "2026-10-29", "2026-10-29")).toBe("The long-period groundswell comes and goes Thursday.");
+    expect(chapter("2026-10-29", "2026-10-29", null)).toBe("The long-period groundswell arrives and peaks Thursday.");
+    expect(chapter("2026-10-29", "2026-10-30", "2026-10-30")).toBe("The long-period groundswell arrives Thursday and peaks Friday.");
+    expect(chapter("2026-10-29", "2026-10-30", "2026-10-31")).toBe("The long-period groundswell arrives Thursday and peaks Friday before easing Saturday.");
+  });
+
   it("writes keyed copy for every in-week event, earliest peak first, and leaves the fade off cover and lead", () => {
     const spike = { ...event(18), directionDeg: 275, arrivalAt: "2026-10-27T17:00:00Z",
       peakAt: "2026-10-27T20:00:00Z", fadeAt: "2026-10-28T06:00:00Z" };
