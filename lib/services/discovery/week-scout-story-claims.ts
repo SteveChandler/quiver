@@ -207,6 +207,7 @@ interface Claims {
   directions: Set<string>;
   timing: Set<string>;
   relative: Set<string>;
+  /** Each set's claims in the order they first appear. */
   closed: Record<ClosedWordClass, Set<string>>;
   degree: Set<string>;
 }
@@ -267,7 +268,7 @@ function inOrder(sentence: readonly string[], fact: readonly string[]): boolean 
  * spelled-out numbers, size words, verdict words or "the call"; only weekdays, "a week from <day>" and
  * "next <weekday>" units the candidate names, in its order, each after the same phase verbs; only its compass words, and
  * its region beaches in its order; exactly its time qualifiers and degree words; and relative-time and
- * closed-set words only where the candidate uses them. Any other word is free prose. Uppercase compass
+ * closed-set words only where the candidate uses them, wind words in its order. Any other word is free prose. Uppercase compass
  * abbreviations and Capitalised or ALL-CAPS weekday abbreviations count as the full word. `regionNames`
  * are the names a fact may carry for its region (the cover's "reaches North Shore").
  */
@@ -297,6 +298,8 @@ export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNa
   for (const { name } of CLOSED) {
     if (!within(sentence.closed[name], source.closed[name])) return refuse(name);
   }
+  // Wind words keep the candidate's order, as beaches do: "starts offshore, then turns onshore" never reads the other way.
+  if (!inOrder([...sentence.closed.wind], [...source.closed.wind])) return refuse("wind");
   if (!same(sentence.degree, source.degree)) return refuse("exposure");
   return { ok: true };
 }

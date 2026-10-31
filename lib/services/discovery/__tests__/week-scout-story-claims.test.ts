@@ -173,6 +173,16 @@ describe("checkWrittenSentence closed word sets (R16)", () => {
     expect(check("Faces the west storm swell head on, with calm wind.", windy)).toEqual({ ok: false, reason: "wind_strength" });
   });
 
+  it("keeps the fact's wind words in its order (R24)", () => {
+    const turn = fact("On Friday, the wind starts offshore, then turns onshore by midday.");
+    expect(check("On Friday, the wind starts onshore, then turns offshore by midday.", turn)).toEqual({ ok: false, reason: "wind" });
+    expect(check("Friday's offshore start turns onshore by midday.", turn)).toEqual({ ok: true });
+    expect(check("Friday turns onshore by midday.", turn)).toEqual({ ok: true });
+    const pattern = fact("Mornings stay onshore on several days; offshore wind cleans up by midday.");
+    expect(check("Mornings stay offshore on several days; onshore wind cleans up by midday.", pattern)).toEqual({ ok: false, reason: "wind" });
+    expect(check("Onshore mornings on several days, then offshore wind cleans up by midday.", pattern)).toEqual({ ok: true });
+  });
+
   it("refuses size words outright and widens the number ban", () => {
     for (const size of SIZE_ADJECTIVES) {
       expect([size, check(`A ${size} west groundswell peaks Thursday.`, dayless)]).toEqual([size, { ok: false, reason: "size" }]);
