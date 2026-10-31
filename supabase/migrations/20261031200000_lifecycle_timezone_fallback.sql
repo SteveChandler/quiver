@@ -1,7 +1,7 @@
 -- Resolve lifecycle quiet hours from profile, home beach, then the default timezone.
 BEGIN;
 
-CREATE OR REPLACE FUNCTION public.email_contact_timezone(p_user_id uuid)
+CREATE OR REPLACE FUNCTION public.email_contact_timezone(p_timezone text, p_home_beach_id uuid)
 RETURNS text
 LANGUAGE sql
 STABLE
@@ -9,23 +9,20 @@ SET search_path TO 'public', 'pg_temp'
 AS $function$
   SELECT coalesce(
     (
-      SELECT p.timezone
-      FROM public.profiles p
-      WHERE p.id = p_user_id
-        AND EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names zones WHERE zones.name = p.timezone)
+      SELECT p_timezone
+      WHERE EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names zones WHERE zones.name = p_timezone)
     ),
     (
       SELECT b.timezone
-      FROM public.profiles p
-      JOIN public.beaches b ON b.id = p.home_beach_id
-      WHERE p.id = p_user_id
+      FROM public.beaches b
+      WHERE b.id = p_home_beach_id
         AND EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names zones WHERE zones.name = b.timezone)
     ),
     'America/Los_Angeles'
   );
 $function$;
-REVOKE ALL ON FUNCTION public.email_contact_timezone(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.email_contact_timezone(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.email_contact_timezone(text,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.email_contact_timezone(text,uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.claim_requested_email_alert(p_user_id uuid, p_episode text, p_payload jsonb)
  RETURNS jsonb
@@ -40,7 +37,7 @@ BEGIN
  END IF;
  SELECT daily_cap INTO v_cap FROM public.email_contact_controls WHERE singleton;
  SELECT * INTO p FROM public.profiles WHERE id=p_user_id;
- v_timezone := public.email_contact_timezone(p_user_id);
+ v_timezone := public.email_contact_timezone(p.timezone,p.home_beach_id);
  IF p.analytics_is_real_user IS DISTINCT FROM true OR p.notif_email_enabled IS DISTINCT FROM true
   OR lower(trim(p.email)) IS DISTINCT FROM lower(trim(p_payload->>'to'))
   OR NOT EXISTS(SELECT 1 FROM public.alert_rules WHERE user_id=p_user_id AND enabled AND notify_email)
@@ -87,7 +84,7 @@ DECLARE
   v_timezone text;
 BEGIN
   SELECT * INTO p FROM public.profiles WHERE id=p_user_id;
-  v_timezone := public.email_contact_timezone(p_user_id);
+  v_timezone := public.email_contact_timezone(p.timezone,p.home_beach_id);
   SELECT * INTO s FROM public.email_contact_state WHERE user_id=p_user_id;
   SELECT * INTO c FROM public.email_campaigns WHERE id=s.approved_campaign;
   SELECT created_at INTO registered FROM auth.users WHERE id=p_user_id AND email_confirmed_at IS NOT NULL
