@@ -19,8 +19,10 @@ export const CLOSED_WORD_SETS = {
   exposure: [["sheltered", "shelter", "shelters", "sheltering"], ["shadow", "shadowed", "shadows"], ["partly", "partially"],
     ["faces", "face", "facing", "faced", "catches", "catching", "picks up", "exposed", "wide open"], ["head on"], ["straight on"],
     ["dead on"], ["at an angle", "angled"]],
-  wind_strength: [["light"], ["glassy"], ["calm"], ["breezy"], ["windy", "wind is up", "wind's up"], ["blown out"], ["gusty"],
-    ["lighter"], ["calmer"], ["clean", "cleans", "cleaned", "cleaning", "cleaner"], ["choppy"], ["bumpy"], ["messy"]],
+  wind_strength: [["light"], ["glassy"], ["calm"], ["breezy"],
+    ["windy", "wind is up", "wind's up", "wind up", "wind still up", "wind is still up", "wind picks up", "wind comes up"],
+    ["blown out"], ["gusty"], ["lighter"], ["calmer"], ["clean", "cleans", "cleaned", "cleaning", "cleaner"], ["choppy"], ["bumpy"],
+    ["messy"]],
 } as const satisfies Record<string, ReadonlyArray<readonly string[]>>;
 type ClosedWordClass = keyof typeof CLOSED_WORD_SETS;
 

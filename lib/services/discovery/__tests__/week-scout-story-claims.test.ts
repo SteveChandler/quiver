@@ -276,6 +276,11 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
       ["Faces the west groundswell dead on, but bumpy in its window.", open, "wind_strength"],
       ["Faces the west groundswell dead on, but messy in its window.", open, "wind_strength"],
       ["Faces the west groundswell dead on, and clean in its window.", windy, "wind_strength"],
+      // "the wind up" and "the wind picks up" are "windy"; "picks up" alone is "faces", which the open line has.
+      ["Faces the west groundswell dead on, the wind up in its window.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, with the wind still up in its window.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, but the wind picks up.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, but the wind comes up later.", open, "wind_strength"],
       ["A west groundswell arrives at dawn Thursday and peaks Friday.", days, "timing"],
       ["A west groundswell peaks at noon Friday.", days, "timing"],
       ["A west groundswell arrives at midnight Thursday.", days, "timing"],

@@ -134,7 +134,7 @@ Any other word is free prose: against "Faces the west groundswell dead on, with 
     "tide": [["low"], ["high"], ["rising"], ["falling"]],
     "period": [["long-period"], ["mid-period"], ["short-period"], ["groundswell", "groundswells"], ["windswell", "windswells"], ["storm", "stormy", "storms"]],
     "exposure": [["sheltered", "shelter", "shelters", "sheltering"], ["shadow", "shadowed", "shadows"], ["partly", "partially"], ["faces", "face", "facing", "faced", "catches", "catching", "picks up", "exposed", "wide open"], ["head on"], ["straight on"], ["dead on"], ["at an angle", "angled"]],
-    "wind_strength": [["light"], ["glassy"], ["calm"], ["breezy"], ["windy", "wind is up", "wind's up"], ["blown out"], ["gusty"], ["lighter"], ["calmer"], ["clean", "cleans", "cleaned", "cleaning", "cleaner"], ["choppy"], ["bumpy"], ["messy"]]
+    "wind_strength": [["light"], ["glassy"], ["calm"], ["breezy"], ["windy", "wind is up", "wind's up", "wind up", "wind still up", "wind is still up", "wind picks up", "wind comes up"], ["blown out"], ["gusty"], ["lighter"], ["calmer"], ["clean", "cleans", "cleaned", "cleaning", "cleaner"], ["choppy"], ["bumpy"], ["messy"]]
   },
   "DEGREE_WORDS": [["partly", "partially"], ["dead on"], ["at an angle", "angled"], ["head on"], ["straight on"]],
   "PHASE_VERBS": {
