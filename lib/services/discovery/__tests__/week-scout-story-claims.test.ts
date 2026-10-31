@@ -371,6 +371,22 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(check("The onshore fills in Friday after the cleaner morning.", wind)).toEqual({ ok: false, reason: "weekday_order" });
   });
 
+  it("gives a day with no phase verb of its own the previous day's verbs in its clause (R24)", () => {
+    // Each of these passed before: the second day bound no verb.
+    expect(check("A west groundswell arrives Thursday, peaks Friday and Saturday.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    const sameDay = fact("A west short-period storm swell arrives and peaks Thursday, then fades Friday.");
+    expect(check("A stormy west swell arrives Thursday and Friday.", sameDay)).toEqual({ ok: false, reason: "weekday_order" });
+    // "builds from Thursday into Friday" pairs builds with both days, so "builds into Friday" passes.
+    const lead = fact("The west pulse builds from Thursday into Friday.");
+    expect(check("The west pulse builds into Friday.", lead)).toEqual({ ok: true });
+    expect(check("The west pulse builds from Thursday into Friday.", lead)).toEqual({ ok: true });
+    // Only within a clause: "fills in Thursday, tops out Friday" gives Friday nothing.
+    expect(check("West groundswell fills in Thursday, tops out Friday and backs off Saturday.", days)).toEqual({ ok: true });
+    // A day-only sentence binds nothing to pass on.
+    const change = fact("The best regional window looks better on Friday than on Thursday.");
+    expect(check("Friday's best window beats Thursday's.", change)).toEqual({ ok: true });
+  });
+
   it("keeps every degree word its fact has and adds none", () => {
     expect(check("Sheltered from the west groundswell, with light wind in its window.", partly)).toEqual({ ok: false, reason: "exposure" });
     expect(check("Partially sheltered from the west groundswell, with light wind.", partly)).toEqual({ ok: true });

@@ -170,20 +170,24 @@ function blank(text: string, pattern: RegExp | null): string {
 
 /**
  * (phase, day) pairs within a clause. A day pairs with every phase verb between it and the clause's previous
- * day (or the clause's start). A phase verb with no day after it in its clause pairs with the clause's last
- * day before it, so "Thursday peaks" pairs peaks with Thursday.
+ * day (or the clause's start); with none there, it takes the previous day's verbs, so "peaks Friday and
+ * Saturday" pairs peaks with both. A phase verb with no day after it in its clause pairs with the clause's
+ * last day before it, so "Thursday peaks" pairs peaks with Thursday.
  */
 function phasePairs(text: string, days: readonly Located[], verbs: readonly Located[]): Set<string> {
   const breaks = [...text.matchAll(CLAUSE_BREAK)].map((match) => match.index);
   const clause = (at: number): number => breaks.filter((index) => index < at).length;
   const sorted = [...days].sort((a, b) => a.at - b.at);
   const pairs = new Set<string>();
+  let previousVerbs: string[] = [];
   sorted.forEach((day, index) => {
     const previous = index > 0 && clause(sorted[index - 1].at) === clause(day.at) ? sorted[index - 1] : null;
     const from = previous?.end ?? -1;
-    for (const verb of verbs) {
-      if (clause(verb.at) === clause(day.at) && verb.at >= from && verb.at < day.at) pairs.add(`${verb.claim}|${day.claim}`);
-    }
+    const before = verbs.filter((verb) => clause(verb.at) === clause(day.at) && verb.at >= from && verb.at < day.at)
+      .map((verb) => verb.claim);
+    const own = before.length > 0 || !previous ? before : previousVerbs;
+    for (const verb of own) pairs.add(`${verb}|${day.claim}`);
+    previousVerbs = own;
   });
   for (const verb of verbs) {
     const sameClause = sorted.filter((day) => clause(day.at) === clause(verb.at));
