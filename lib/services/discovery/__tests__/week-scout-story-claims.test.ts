@@ -36,6 +36,12 @@ describe("checkWrittenSentence", () => {
     const north = fact("North Beach and Ocean Beach face this swell better than La Jolla, which sits in the shadow.");
     expect(check("North Beach and Ocean Beach catch the north swell; La Jolla doesn't.", north)).toEqual({ ok: false, reason: "direction" });
     expect(check("North Beach and Ocean Beach catch it; La Jolla doesn't.", north)).toEqual({ ok: true });
+    // Nor does the region's name in a cover: "North Shore" is no north swell, and naming it is no beach claim.
+    const cover = fact("A long-period groundswell from the west reaches North Shore Wednesday and peaks Thursday.");
+    expect(checkWrittenSentence("A north swell reaches North Shore Thursday.", cover, BEACHES, ["North Shore"]))
+      .toEqual({ ok: false, reason: "direction" });
+    expect(checkWrittenSentence("The west groundswell reaches North Shore Thursday.", cover, BEACHES, ["North Shore"]))
+      .toEqual({ ok: true });
   });
 
   it("rejects digits, YES/MAYBE/NO and the call", () => {

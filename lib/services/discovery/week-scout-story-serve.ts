@@ -205,7 +205,7 @@ export function bindStory(args: {
   const served = (fact: StoryInput["copyFacts"][number]): string => {
     const entry = args.written?.find((item) => item.basedOn === fact.id && item.slot === fact.slot);
     if (!entry || !beachNames) return fact.text;
-    return checkWrittenSentence(entry.text, fact, beachNames).ok ? entry.text : fact.text;
+    return checkWrittenSentence(entry.text, fact, beachNames, [input.region]).ok ? entry.text : fact.text;
   };
   const text = (slot: string): string | null => {
     const fact = chosen.find((item) => item.slot === slot);

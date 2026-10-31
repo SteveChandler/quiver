@@ -46,9 +46,13 @@ interface Claims {
   timing: Set<string>;
 }
 
-/** A beach's name lends nothing: "North Beach" names a beach, not a north swell. */
-function claimsIn(text: string, beaches: RegExp | null): Claims {
-  const rest = beaches ? text.replace(beaches, " ") : text;
+/**
+ * A beach's or region's name lends nothing: "North Beach" names a beach and "North Shore" a region,
+ * not a north swell. Region names are only blanked out; naming one is no beach claim.
+ */
+function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null): Claims {
+  const withoutBeaches = beaches ? text.replace(beaches, " ") : text;
+  const rest = regions ? withoutBeaches.replace(regions, " ") : withoutBeaches;
   return {
     beaches: beaches ? found(text, beaches) : new Set(),
     weekdays: found(rest, WEEKDAYS),
@@ -65,8 +69,10 @@ function within(claims: Set<string>, allowed: Set<string>): boolean {
  * Whether a sentence written for a candidate claims nothing the candidate's own text doesn't: every
  * weekday, compass word and region beach it names appears in `fact.text`, it keeps every time
  * qualifier the fact has and adds none, and it carries no numerals, verdict words or "the call".
+ * `regionNames` are the names a fact may carry for its region (the cover's "reaches North Shore").
  */
-export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNames: readonly string[]): WrittenSentenceCheck {
+export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNames: readonly string[],
+  regionNames: readonly string[] = []): WrittenSentenceCheck {
   const refuse = (reason: WrittenSentenceRefusal): WrittenSentenceCheck => ({ ok: false, reason });
   if (typeof text !== "string" || text.trim().length === 0) return refuse("empty");
   if (text.length > MAX_LENGTH) return refuse("too_long");
@@ -74,8 +80,9 @@ export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNa
   if (VERDICT_WORD.test(text)) return refuse("verdict_word");
   if (THE_CALL.test(text)) return refuse("the_call");
   const beaches = phrasePattern(beachNames);
-  const sentence = claimsIn(text, beaches);
-  const source = claimsIn(fact.text, beaches);
+  const regions = phrasePattern(regionNames);
+  const sentence = claimsIn(text, beaches, regions);
+  const source = claimsIn(fact.text, beaches, regions);
   if (!within(sentence.weekdays, source.weekdays)) return refuse("weekday");
   if (!within(sentence.directions, source.directions)) return refuse("direction");
   if (!within(sentence.beaches, source.beaches)) return refuse("beach");
