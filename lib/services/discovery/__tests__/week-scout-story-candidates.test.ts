@@ -106,6 +106,15 @@ describe("regional Week Scout story candidates", () => {
     expect(swellChapterPhases("earlier in the week", "earlier in the week", "earlier in the week")).toBe("comes and goes earlier in the week");
   });
 
+  it("writes no turn line whose peak and fade read the same word", () => {
+    // The window runs 2026-10-27 to 2026-11-02, so a peak Thursday 2026-11-05 and a fade 2026-11-08 both read "next week".
+    const turns = (peakAt: string, fadeAt: string) => buildStoryCandidates(days(3), "San Diego", [{ ...event(),
+      arrivalAt: "2026-11-02T18:00:00Z", peakAt, fadeAt }]).filter((fact) => fact.id.startsWith("turn-fade"));
+    expect(turns("2026-11-05T18:00:00Z", "2026-11-08T18:00:00Z")).toEqual([]);
+    expect(turns("2026-11-02T20:00:00Z", "2026-11-05T18:00:00Z").map((fact) => fact.text))
+      .toContain("After Monday, the south-southwest swell eases into next week.");
+  });
+
   it("writes keyed copy for every in-week event, earliest peak first, and leaves the fade off cover and lead", () => {
     const spike = { ...event(18), directionDeg: 275, arrivalAt: "2026-10-27T17:00:00Z",
       peakAt: "2026-10-27T20:00:00Z", fadeAt: "2026-10-28T06:00:00Z" };
@@ -463,6 +472,11 @@ describe("event and beach lines the card shows", () => {
     expect(eventStoryText(inWater, TODAY)).toBe("A west mid-period swell is already in the water, peaked Monday and fades Wednesday.");
     const later = { ...inWater, directionDeg: 90, periodS: 8, arrivalAt: "2026-11-03T18:00:00Z", peakAt: "2026-11-05T18:00:00Z", fadeAt: null };
     expect(eventStoryText(later, TODAY)).toBe("An east short-period windswell arrives a week from today and peaks a week from Thursday.");
+    // Days two weeks out all read "later on" and days over a week back all read "earlier": each word goes once.
+    const farOut = { ...inWater, arrivalAt: "2026-11-10T18:00:00Z", peakAt: "2026-11-11T18:00:00Z", fadeAt: "2026-11-12T18:00:00Z" };
+    expect(eventStoryText(farOut, TODAY)).toBe("A west mid-period swell comes and goes later on.");
+    const longGone = { ...inWater, arrivalAt: "2026-10-18T18:00:00Z", peakAt: "2026-10-19T18:00:00Z", fadeAt: "2026-10-20T18:00:00Z" };
+    expect(eventStoryText(longGone, TODAY)).toBe("A west mid-period swell is already in the water and peaked earlier.");
   });
 
   it("names each day once when arrival, peak and fade share one, and gates a fade only when it names one", () => {

@@ -220,19 +220,22 @@ function eventStoryParts(event: RegionalSwellEvent, today: string): { text: stri
   const arrival = eventLocalDate(event.arrivalAt, event.timezone);
   const peak = eventLocalDate(event.peakAt, event.timezone);
   const fade = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
-  const day = (date: string): string => cardDay(date, today);
-  const fadeClause = fade !== null && fade !== peak ? `${fade < today ? "faded" : "fades"} ${day(fade)}` : null;
+  // Words, not dates, decide: two days past two weeks both read "later on", so the second goes unsaid.
+  const arrivalDay = cardDay(arrival, today);
+  const peakDay = cardDay(peak, today);
+  const fadeDay = fade !== null ? cardDay(fade, today) : null;
+  const fadeClause = fade !== null && fadeDay !== peakDay ? `${fade < today ? "faded" : "fades"} ${fadeDay}` : null;
   let predicate: string;
   let namesFade = fadeClause !== null;
   if (arrival < today) {
-    predicate = joinClauses(["is already in the water", `${peak < today ? "peaked" : "peaks"} ${day(peak)}`, ...(fadeClause ? [fadeClause] : [])]);
-  } else if (arrival === peak && fade === peak) {
-    predicate = `comes and goes ${day(peak)}`;
+    predicate = joinClauses(["is already in the water", `${peak < today ? "peaked" : "peaks"} ${peakDay}`, ...(fadeClause ? [fadeClause] : [])]);
+  } else if (arrivalDay === peakDay && fadeDay === peakDay) {
+    predicate = `comes and goes ${peakDay}`;
     namesFade = true;
-  } else if (arrival === peak) {
-    predicate = `arrives and peaks ${day(peak)}${fadeClause ? `, then ${fadeClause}` : ""}`;
+  } else if (arrivalDay === peakDay) {
+    predicate = `arrives and peaks ${peakDay}${fadeClause ? `, then ${fadeClause}` : ""}`;
   } else {
-    predicate = joinClauses([`arrives ${day(arrival)}`, `peaks ${day(peak)}`, ...(fadeClause ? [fadeClause] : [])]);
+    predicate = joinClauses([`arrives ${arrivalDay}`, `peaks ${peakDay}`, ...(fadeClause ? [fadeClause] : [])]);
   }
   const sentence = `${withArticle(namedSwell(directionWords(event.directionDeg), event.periodS, event.kind))} ${predicate}.`;
   return { text: sentence.charAt(0).toUpperCase() + sentence.slice(1), namesFade };
@@ -392,9 +395,10 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
       add(facts, `exposure-${key}`, `swell:${key}:exposure`, `${selected[0].beachName} and ${selected[1].beachName} face this swell better than ${selected[2].beachName}, which sits in the shadow.`, exposureGate);
       add(facts, `exposure-${key}-alt`, `swell:${key}:exposure`, `${selected[0].beachName} and ${selected[1].beachName} get the cleaner angle; ${selected[2].beachName} is more sheltered.`, exposureGate);
     }
-    if (fadeDate && fadeDate > peakDate) {
-      add(facts, `turn-fade-${key}`, "story:turn", `After ${peakDay}, the ${direction} swell eases into ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
-      add(facts, `turn-fade-alt-${key}`, "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${windowDay(fadeDate, firstDate, lastDate)}.`, gate);
+    const fadeDay = fadeDate && fadeDate > peakDate ? windowDay(fadeDate, firstDate, lastDate) : null;
+    if (fadeDay && fadeDay !== peakDay) {
+      add(facts, `turn-fade-${key}`, "story:turn", `After ${peakDay}, the ${direction} swell eases into ${fadeDay}.`, gate);
+      add(facts, `turn-fade-alt-${key}`, "story:turn", `The ${direction} swell peaks ${peakDay} before fading toward ${fadeDay}.`, gate);
     }
   }
   if (!pulse || weekEvents.length === 0) {
