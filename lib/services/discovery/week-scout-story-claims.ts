@@ -21,10 +21,38 @@ export const CLOSED_WORD_SETS = {
 } as const satisfies Record<string, ReadonlyArray<readonly string[]>>;
 type ClosedWordClass = keyof typeof CLOSED_WORD_SETS;
 
-/** Words a day leans on, kept exactly: a sentence keeps every one its candidate has and adds none ("peaked" is not "peaks"). */
-export const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "later on", "peaked", "faded", "today", "tonight", "tomorrow"];
+/**
+ * How squarely a beach takes a swell, kept exactly: a sentence keeps every one its candidate has and adds
+ * none, so "Partly sheltered" never reads "Sheltered" and "dead on" never drops. Each entry is one claim,
+ * canonical form first. All are exposure words, so the refusal reason is "exposure".
+ */
+export const DEGREE_WORDS = [["partly", "partially"], ["dead on"], ["at an angle", "angled"], ["head on"], ["straight on"]];
+
+/**
+ * Words a day leans on, kept exactly: a sentence keeps every one its candidate has and adds none ("peaked"
+ * is not "peaks"). A phase verb's past form is a time claim too, so "arrived", "reached" and "eased" are here.
+ */
+export const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "later on", "peaked", "faded", "arrived", "reached",
+  "eased", "today", "tonight", "tomorrow"];
 /** One claim each, read before bare weekdays: "a week from Saturday" is neither "Saturday" nor "a week from Thursday". */
 export const WEEK_FROM_DAYS = ["a week from today", ...WEEKDAY.map((day) => `a week from ${day}`)];
+/** Time qualifiers that stand where a weekday would ("peaks next week"), so a phase verb binds to them like a day. */
+export const DAY_PHRASES = ["next week", "earlier in the week", "later on", "today", "tonight", "tomorrow"];
+/**
+ * The verbs that name a swell's phase, each with the forms that make the same claim. A phase verb binds every
+ * day after it in its clause until the next day: "arrives Thursday, peaks Friday" pairs arrives with Thursday,
+ * "arrives and peaks Thursday" pairs both with Thursday. A written sentence's pairs must all be its candidate's.
+ * "reaches" is the cover's arrival ("reaches San Diego Wednesday") and "most" the cover's peak ("with the most
+ * swell Thursday"). These forms only bind days: a sentence may use any of them.
+ */
+export const PHASE_VERBS = {
+  arrives: ["arrives", "arrive", "arriving", "arrived", "reaches", "reach", "reaching", "reached"],
+  peaks: ["peaks", "peak", "peaking", "peaked", "most"],
+  fades: ["fades", "fade", "fading", "faded"],
+  "comes and goes": ["comes and goes", "come and go", "coming and going", "came and went"],
+  builds: ["builds", "build", "building", "built"],
+  eases: ["eases", "ease", "easing", "eased"],
+} as const satisfies Record<string, readonly string[]>;
 /** Relative days and times of day: a sentence may use one only when its candidate does (plurals count). */
 export const RELATIVE_TIME_WORDS = ["same day", "next day", "day after", "weekend", "overnight", "midweek", "morning", "midday",
   "afternoon", "evening", "night"];
@@ -55,6 +83,8 @@ const MAX_LENGTH = 240;
 const VERDICT_WORD = /\b(?:YES|MAYBE|NO)\b/;
 const THE_CALL = /\bthe\s+call\b/i;
 const NUMERAL = /\p{N}/u;
+/** Punctuation that ends a clause: a phase verb never binds a day across one. */
+const CLAUSE_BREAK = /[,;:.!?()…\u2013\u2014]|\s-\s/gu;
 
 /**
  * Whole phrases, longest first so "south-southwest" is one claim, not "south" and "southwest".
@@ -79,27 +109,45 @@ function canonical(phrase: string): string {
   return phrase.toLowerCase().replace(/[\s-]+/g, " ").replace(/['’]/g, "");
 }
 
+/** A phrase set read as claims: each form maps to its entry's canonical form. */
+function claimSet(entries: ReadonlyArray<readonly string[]>): { pattern: RegExp; claimOf: Map<string, string> } {
+  return {
+    pattern: phrasePattern(entries.flat())!,
+    claimOf: new Map(entries.flatMap((forms) => forms.map((form) => [canonical(form), canonical(forms[0])] as const))),
+  };
+}
+
 const WEEKDAYS = phrasePattern(WEEKDAY, "s?")!;
 const WEEK_FROM = phrasePattern(WEEK_FROM_DAYS)!;
 // "westerly" and "southern" claim a direction too.
 const DIRECTIONS = phrasePattern(COMPASS, "(?:erly|ern|wards?)?")!;
 const TIMING = phrasePattern(TIME_QUALIFIERS)!;
+const DAY_PHRASE = phrasePattern(DAY_PHRASES)!;
 const RELATIVE_TIME = phrasePattern(RELATIVE_TIME_WORDS, "s?")!;
 const NUMBERS = phrasePattern(NUMBER_WORDS)!;
 const SIZES = phrasePattern(SIZE_ADJECTIVES)!;
 const COMPASS_SHORT = tokenPattern(COMPASS_ABBREVIATIONS);
 const WEEKDAY_SHORT = tokenPattern(WEEKDAY_ABBREVIATIONS.flatMap((short) => [short, short.toUpperCase()]));
-const CLOSED = (Object.entries(CLOSED_WORD_SETS) as Array<[ClosedWordClass, ReadonlyArray<readonly string[]>]>).map(([name, entries]) => ({
-  name,
-  pattern: phrasePattern(entries.flat())!,
-  claimOf: new Map(entries.flatMap((forms) => forms.map((form) => [canonical(form), canonical(forms[0])] as const))),
-}));
+const CLOSED = (Object.entries(CLOSED_WORD_SETS) as Array<[ClosedWordClass, ReadonlyArray<readonly string[]>]>)
+  .map(([name, entries]) => ({ name, ...claimSet(entries) }));
+const DEGREE = claimSet(DEGREE_WORDS);
+const PHASES = claimSet(Object.entries(PHASE_VERBS).map(([phase, forms]) => [phase, ...forms]));
 
 function found(text: string, pattern: RegExp, claimOf?: ReadonlyMap<string, string>): Set<string> {
-  return new Set([...text.matchAll(pattern)].map((match) => {
+  return new Set(located(text, pattern, claimOf).map((match) => match.claim));
+}
+
+interface Located {
+  at: number;
+  end: number;
+  claim: string;
+}
+
+function located(text: string, pattern: RegExp, claimOf?: ReadonlyMap<string, string>): Located[] {
+  return [...text.matchAll(pattern)].map((match) => {
     const claim = canonical(match[1]);
-    return claimOf?.get(claim) ?? claim;
-  }));
+    return { at: match.index, end: match.index + match[0].length, claim: claimOf?.get(claim) ?? claim };
+  });
 }
 
 /** Blanks every match with as many spaces, so later matches keep their positions in the text. */
@@ -107,14 +155,35 @@ function blank(text: string, pattern: RegExp | null): string {
   return pattern ? text.replace(pattern, (match) => " ".repeat(match.length)) : text;
 }
 
+/**
+ * (phase, day) pairs: each day pairs with every phase verb between it and the clause's previous day (or the
+ * clause's start). A day with no phase verb before it in its clause pairs with none.
+ */
+function phasePairs(text: string, days: readonly Located[], verbs: readonly Located[]): Set<string> {
+  const breaks = [...text.matchAll(CLAUSE_BREAK)].map((match) => match.index);
+  const sorted = [...days].sort((a, b) => a.at - b.at);
+  const pairs = new Set<string>();
+  sorted.forEach((day, index) => {
+    const clauseStart = Math.max(-1, ...breaks.filter((at) => at < day.at));
+    const from = Math.max(clauseStart, index > 0 ? sorted[index - 1].end : -1);
+    for (const verb of verbs) {
+      if (verb.at >= from && verb.at < day.at) pairs.add(`${verb.claim}|${day.claim}`);
+    }
+  });
+  return pairs;
+}
+
 interface Claims {
-  beaches: Set<string>;
+  /** Region beaches, each once, in the order they first appear. */
+  beaches: string[];
   /** Weekdays and "a week from <day>" units, each once, in the order they first appear. */
   days: string[];
+  phases: Set<string>;
   directions: Set<string>;
   timing: Set<string>;
   relative: Set<string>;
   closed: Record<ClosedWordClass, Set<string>>;
+  degree: Set<string>;
 }
 
 /**
@@ -123,26 +192,28 @@ interface Claims {
  */
 function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, abbreviations: boolean): Claims {
   const named = blank(blank(text, beaches), regions);
-  const days: Array<{ at: number; claim: string }> = [...named.matchAll(WEEK_FROM)]
-    .map((match) => ({ at: match.index, claim: canonical(match[1]) }));
+  const days = located(named, WEEK_FROM);
   const rest = blank(named, WEEK_FROM);
-  days.push(...[...rest.matchAll(WEEKDAYS)].map((match) => ({ at: match.index, claim: canonical(match[1]) })));
+  days.push(...located(rest, WEEKDAYS));
   const directions = found(rest, DIRECTIONS);
   // A written sentence's "SSW" or "Fri" claims the full word; candidate text never abbreviates.
   if (abbreviations) {
     for (const match of rest.matchAll(COMPASS_SHORT)) directions.add(canonical(COMPASS[COMPASS_ABBREVIATIONS.indexOf(match[1])]));
     for (const match of rest.matchAll(WEEKDAY_SHORT)) {
       const short = match[1].toLowerCase();
-      days.push({ at: match.index, claim: WEEKDAY.find((day) => day.toLowerCase().startsWith(short))!.toLowerCase() });
+      days.push({ at: match.index, end: match.index + match[0].length,
+        claim: WEEKDAY.find((day) => day.toLowerCase().startsWith(short))!.toLowerCase() });
     }
   }
   return {
-    beaches: beaches ? found(text, beaches) : new Set(),
+    beaches: beaches ? [...found(text, beaches)] : [],
     days: [...new Set(days.sort((a, b) => a.at - b.at).map((day) => day.claim))],
+    phases: phasePairs(named, [...days, ...located(rest, DAY_PHRASE)], located(rest, PHASES.pattern, PHASES.claimOf)),
     directions,
     timing: found(rest, TIMING),
     relative: found(rest, RELATIVE_TIME),
     closed: Object.fromEntries(CLOSED.map(({ name, pattern, claimOf }) => [name, found(rest, pattern, claimOf)])) as Claims["closed"],
+    degree: found(rest, DEGREE.pattern, DEGREE.claimOf),
   };
 }
 
@@ -150,11 +221,15 @@ function within(claims: Iterable<string>, allowed: ReadonlySet<string>): boolean
   return [...claims].every((claim) => allowed.has(claim));
 }
 
-/** The sentence's days appear in the candidate's order: it may leave days out, never swap them. */
+function same(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  return within(a, b) && within(b, a);
+}
+
+/** The sentence's items appear in the candidate's order: it may leave some out, never swap them. */
 function inOrder(sentence: readonly string[], fact: readonly string[]): boolean {
   let next = 0;
-  for (const day of sentence) {
-    const at = fact.indexOf(day, next);
+  for (const item of sentence) {
+    const at = fact.indexOf(item, next);
     if (at < 0) return false;
     next = at + 1;
   }
@@ -164,10 +239,11 @@ function inOrder(sentence: readonly string[], fact: readonly string[]): boolean 
 /**
  * Whether a sentence written for a candidate claims nothing the candidate's own text doesn't: no numerals,
  * spelled-out numbers, size words, verdict words or "the call"; only weekdays and "a week from <day>"
- * units the candidate names, in its order; only its compass words and region beaches; exactly its time
- * qualifiers; and relative-time and closed-set words only where the candidate uses them. Uppercase
- * compass abbreviations and Capitalised or ALL-CAPS weekday abbreviations count as the full word.
- * `regionNames` are the names a fact may carry for its region (the cover's "reaches North Shore").
+ * units the candidate names, in its order, each after the same phase verbs; only its compass words, and
+ * its region beaches in its order; exactly its time qualifiers and degree words; and relative-time and
+ * closed-set words only where the candidate uses them. Any other word is free prose. Uppercase compass
+ * abbreviations and Capitalised or ALL-CAPS weekday abbreviations count as the full word. `regionNames`
+ * are the names a fact may carry for its region (the cover's "reaches North Shore").
  */
 export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNames: readonly string[],
   regionNames: readonly string[] = []): WrittenSentenceCheck {
@@ -187,11 +263,14 @@ export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNa
   if (!within(sentence.days, new Set(source.days))) return refuse("weekday");
   if (!inOrder(sentence.days, source.days)) return refuse("weekday_order");
   if (!within(sentence.directions, source.directions)) return refuse("direction");
-  if (!within(sentence.beaches, source.beaches)) return refuse("beach");
-  if (!within(sentence.timing, source.timing) || !within(source.timing, sentence.timing)) return refuse("timing");
+  if (!within(sentence.beaches, new Set(source.beaches)) || !inOrder(sentence.beaches, source.beaches)) return refuse("beach");
+  if (!same(sentence.timing, source.timing)) return refuse("timing");
   if (!within(sentence.relative, source.relative)) return refuse("timing");
+  // After timing, so a time word the fact lacks ("peaks today") reads as timing, not as a moved day.
+  if (!within(sentence.phases, source.phases)) return refuse("weekday_order");
   for (const { name } of CLOSED) {
     if (!within(sentence.closed[name], source.closed[name])) return refuse(name);
   }
+  if (!same(sentence.degree, source.degree)) return refuse("exposure");
   return { ok: true };
 }
