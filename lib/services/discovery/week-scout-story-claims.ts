@@ -67,6 +67,8 @@ export const PHASE_VERBS = {
   builds: ["builds", "build", "building", "built"],
   eases: ["eases", "ease", "easing", "eased"],
 } as const satisfies Record<string, readonly string[]>;
+/** Words that list days together ("Thursday and Friday"), so a phase verb reaches every listed day. */
+export const LIST_JOINERS = ["and", "or", "&"];
 /**
  * Relative days and times of day: a sentence may use one only when its candidate does (plurals count). Each
  * entry is one claim, canonical form first: "noon" is the wind lines' "midday".
@@ -176,19 +178,29 @@ function blank(text: string, pattern: RegExp | null): string {
 }
 
 /**
- * (phase, day) pairs within a clause. A day pairs with every phase verb between it and the clause's previous
- * day (or the clause's start); with none there, it takes the previous day's verbs, so "peaks Friday and
- * Saturday" pairs peaks with both. A phase verb with no day after it in its clause pairs with the clause's
- * last day before it, so "Thursday peaks" pairs peaks with Thursday.
+ * (phase, day) pairs. A day pairs with every phase verb between it and its clause's previous day (or the
+ * clause's start); with none there, it takes the previous day's verbs, so "peaks Friday and Saturday" pairs
+ * peaks with both. A phase verb with no day after it in its clause pairs with the clause's last day before it
+ * and every day listed with that one ("Thursday and Friday both peak"). Days are listed when only commas and
+ * LIST_JOINERS stand between them; across a comma, the side the verb doesn't reach must be a clause of only days
+ * and joiners, so "peaks Friday, Saturday" lists Saturday with Friday and "arrives Thursday, peaks Friday" doesn't.
  */
 function phasePairs(text: string, days: readonly Located[], verbs: readonly Located[]): Set<string> {
-  const breaks = [...text.matchAll(CLAUSE_BREAK)].map((match) => match.index);
-  const clause = (at: number): number => breaks.filter((index) => index < at).length;
+  const breaks = [...text.matchAll(CLAUSE_BREAK)].map((match) => ({ at: match.index, end: match.index + match[0].length }));
+  const clause = (at: number): number => breaks.filter((item) => item.at < at).length;
   const sorted = [...days].sort((a, b) => a.at - b.at);
+  const withoutDays = sorted.reduce((blanked, day) => blanked.slice(0, day.at) + " ".repeat(day.end - day.at) + blanked.slice(day.end), text);
+  const joinersOnly = (piece: string): boolean => piece.split(/[\s,]+/).filter(Boolean)
+    .every((word) => LIST_JOINERS.includes(word.toLowerCase()));
+  const bare = (index: number): boolean =>
+    joinersOnly(withoutDays.slice(index === 0 ? 0 : breaks[index - 1].end, breaks[index]?.at ?? text.length));
+  /** Day `index` is listed with the day before it; across a comma, day `bareSide`'s clause holds only days and joiners. */
+  const listed = (index: number, bareSide: number): boolean => joinersOnly(text.slice(sorted[index - 1].end, sorted[index].at))
+    && (clause(sorted[index - 1].at) === clause(sorted[index].at) || bare(clause(sorted[bareSide].at)));
   const pairs = new Set<string>();
   let previousVerbs: string[] = [];
   sorted.forEach((day, index) => {
-    const previous = index > 0 && clause(sorted[index - 1].at) === clause(day.at) ? sorted[index - 1] : null;
+    const previous = index > 0 && (clause(sorted[index - 1].at) === clause(day.at) || listed(index, index)) ? sorted[index - 1] : null;
     const from = previous?.end ?? -1;
     const before = verbs.filter((verb) => clause(verb.at) === clause(day.at) && verb.at >= from && verb.at < day.at)
       .map((verb) => verb.claim);
@@ -197,10 +209,18 @@ function phasePairs(text: string, days: readonly Located[], verbs: readonly Loca
     previousVerbs = own;
   });
   for (const verb of verbs) {
-    const sameClause = sorted.filter((day) => clause(day.at) === clause(verb.at));
-    if (sameClause.some((day) => day.at > verb.at)) continue;
-    const last = sameClause.filter((day) => day.at < verb.at).pop();
-    if (last) pairs.add(`${verb.claim}|${last.claim}`);
+    const verbClause = clause(verb.at);
+    if (sorted.some((day) => clause(day.at) === verbClause && day.at > verb.at)) continue;
+    let index = -1;
+    sorted.forEach((day, at) => {
+      if (clause(day.at) === verbClause && day.at < verb.at) index = at;
+    });
+    if (index < 0) continue;
+    pairs.add(`${verb.claim}|${sorted[index].claim}`);
+    while (index > 0 && listed(index, index - 1)) {
+      index -= 1;
+      pairs.add(`${verb.claim}|${sorted[index].claim}`);
+    }
   }
   return pairs;
 }

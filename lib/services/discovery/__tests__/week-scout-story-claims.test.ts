@@ -5,8 +5,8 @@ import {
   COMPASS, WEEKDAY, beachLineText, buildStoryCandidates, eventStoryText, storyEventKey, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import {
-  CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS, RELATIVE_TIME_WORDS,
-  SIZE_ADJECTIVES, TIME_QUALIFIERS, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
+  CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, LIST_JOINERS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS,
+  RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
 } from "../week-scout-story-claims";
 import type { StoryCandidate } from "../week-scout-story-types";
 
@@ -425,6 +425,25 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(check("Friday's best window beats Thursday's.", change)).toEqual({ ok: true });
   });
 
+  it("binds a trailing phase verb to every day listed before it (R26)", () => {
+    // Each of these passed before: the trailing verb reached only the last day.
+    expect(check("Thursday and Friday both peak.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("Thursday, Friday and Saturday all peak.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("Friday it peaks, and Saturday it fades.", days)).toEqual({ ok: true });
+    // A comma-separated list of bare days carries the verb before it.
+    expect(check("A west groundswell peaks Friday, Saturday.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("A west groundswell peaks Friday, Saturday and Sunday.",
+      fact("A west long-period groundswell arrives Thursday, peaks Friday, eases Saturday and fades Sunday.")))
+      .toEqual({ ok: false, reason: "weekday_order" });
+    // A clause with its own verb is no list: the clause rule still splits "arrives Thursday, peaks Friday".
+    expect(check("A west groundswell arrives Thursday, peaks Friday.", days)).toEqual({ ok: true });
+    expect(check("A west groundswell arrives Thursday, Friday it peaks.", days)).toEqual({ ok: true });
+    // Days joined by other words are no list, so the lead-alt's "toward a Friday peak" never reaches Thursday.
+    const leadAlt = fact("Thursday starts the west swell's run toward a Friday peak.");
+    expect(check("The west swell peaks Thursday.", leadAlt)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("Thursday starts the west swell's run toward a Friday peak.", leadAlt)).toEqual({ ok: true });
+  });
+
   it("keeps every degree word its fact has and adds none", () => {
     expect(check("Sheltered from the west groundswell, with light wind in its window.", partly)).toEqual({ ok: false, reason: "exposure" });
     expect(check("Partially sheltered from the west groundswell, with light wind.", partly)).toEqual({ ok: true });
@@ -454,7 +473,7 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(block).not.toBeNull();
     expect(JSON.parse(block![1])).toEqual({
       COMPASS, WEEKDAY, CLOSED_WORD_SETS, DEGREE_WORDS, PHASE_VERBS, TIME_QUALIFIERS, DAY_PHRASES, WEEK_FROM_DAYS, NEXT_WEEKDAYS,
-      RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, COMPASS_ABBREVIATIONS, WEEKDAY_ABBREVIATIONS,
+      LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, COMPASS_ABBREVIATIONS, WEEKDAY_ABBREVIATIONS,
     });
     // Every past phase form is a time qualifier.
     expect(Object.values(PHASE_VERBS).flat().filter((form) => /ed\b|built|went/.test(form))
