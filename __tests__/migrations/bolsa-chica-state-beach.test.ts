@@ -30,8 +30,9 @@ describe("Bolsa Chica State Beach migration", () => {
   });
 
   it("names the row so native name-only search finds the user's queries", () => {
+    const inserted = sql.match(/\('dd21a212-1f15-5b34-8749-8d54c44f3b25', '([^']+)'/)?.[1] ?? "";
     for (const query of ["bolsa chica", "bolsa chica state beach"]) {
-      expect(name.toLowerCase()).toContain(query);
+      expect(inserted.toLowerCase()).toContain(query);
     }
   });
 
