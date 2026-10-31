@@ -661,6 +661,7 @@ export const VALID_EVENTS = [
   'garmin_import_beach_chosen',
   'session_waves_viewed',
   'session_wave_excluded',
+  'session_wave_included',
   'session_wave_count_reported',
   'session_share_opened_post_save',
   'session_share_closed_post_save',

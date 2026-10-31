@@ -113,6 +113,13 @@ describe("session waves core migration", () => {
     }
   });
 
+  it("allows include corrections for manually counted attempts", () => {
+    const sql = readFileSync(path.join(process.cwd(),
+      "supabase/migrations/20261029200000_session_track_watch_stats.sql"), "utf8");
+    expect(sql).toContain("DROP CONSTRAINT IF EXISTS session_wave_corrections_action_check");
+    expect(sql).toContain("CHECK (action IN ('exclude', 'include'))");
+  });
+
   it("can recreate policies, indexes, the provenance column, and the updated-at trigger", () => {
     const sql = normalizedSql();
 

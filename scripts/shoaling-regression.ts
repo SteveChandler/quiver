@@ -3,7 +3,7 @@
  * Shoaling Regression Suite (Workstream D)
  *
  * Validates the 2026-04-09 shoaling decomposition + small-wave ceiling fix
- * across six gates (A-F). Gates A-D and F block CI; Gate E is advisory.
+ * across seven gates (A-G). Gates A-D, F and G block CI; Gate E is advisory.
  *
  * Usage:
  *   yarn regression:shoaling            # fixture mode (default, CI-safe)
@@ -26,6 +26,10 @@
  * - Gate E (ADVISORY): Surfline LOTUS parity for 6 beaches, print only.
  * - Gate F: CDIP→model handoff seam is measured and never rescales model
  *   rows (#1236).
+ * - Gate G: replayed real CDIP→model handoffs keep at least
+ *   SEAM_MIN_BEACH_RATIO of the buoy-hour face at every beach. Fails when a
+ *   transform change (or removing a compensator, as #1238 did) drops model
+ *   hours off the buoy ruler.
  *
  * Read the companion markdown at scripts/shoaling-regression.md for the full
  * gate specification.
@@ -44,6 +48,7 @@ import {
   type BeachTerrainConfig,
   type WaveHeightSourceTag,
 } from '@/lib/utils/wave-height-transformer';
+import type { ForecastReplayInput } from '@/lib/utils/forecast-display-replay';
 import {
   createForecastHandoffBlendState,
   processForecastHandoffBlendSlot,
@@ -139,8 +144,17 @@ interface BeachResult {
   passed: boolean;
 }
 
+interface SeamFixture {
+  name: string;
+  pairs: Array<{
+    modelForecastAt: string;
+    cdip: ForecastReplayInput;
+    model: ForecastReplayInput;
+  }>;
+}
+
 interface GateResult {
-  name: 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  name: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
   description: string;
   passed: boolean;
   blocking: boolean;
@@ -156,6 +170,16 @@ const FIXTURE_PATH = resolve(
   __dirname,
   '__fixtures__/shoaling-regression-fixtures.json',
 );
+
+const SEAM_FIXTURE_PATH = resolve(
+  __dirname,
+  '__fixtures__/model-seam-fixtures.json',
+);
+
+/** Per-beach median model/buoy face at the handoff must stay above this. */
+const SEAM_MIN_BEACH_RATIO = 0.45;
+/** Median across beaches of those per-beach medians must stay above this. */
+const SEAM_MIN_FLEET_RATIO = 0.75;
 
 async function loadFixtures(): Promise<Fixtures> {
   const raw = await readFile(FIXTURE_PATH, 'utf-8');
@@ -632,6 +656,57 @@ function runGateF(fixtures: Fixtures): GateResult {
   };
 }
 
+async function runGateG(): Promise<GateResult> {
+  const seam = JSON.parse(
+    await readFile(SEAM_FIXTURE_PATH, 'utf8'),
+  ) as Record<string, SeamFixture>;
+  const median = (xs: number[]): number => {
+    const sorted = [...xs].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  };
+
+  const beaches = Object.entries(seam).map(([id, fixture]) => {
+    const ratios = fixture.pairs.map((pair) => {
+      const cdipFt = transformToFaceHeightDecomposed(pair.cdip).faceHeightFt;
+      // Fixtures store inputs without the id; the live builder passes it.
+      const modelFt = transformToFaceHeightDecomposed({
+        ...pair.model,
+        beach: { ...pair.model.beach, id },
+      }).faceHeightFt;
+      return modelFt / cdipFt;
+    });
+    const ratio = median(ratios);
+    return {
+      slug: id,
+      name: fixture.name,
+      oldFaceFt: 1,
+      newFaceFt: ratio,
+      deltaPct: (ratio - 1) * 100,
+      oldScore: 0,
+      newScoreBeforeCeiling: 0,
+      newScoreAfterCeiling: 0,
+      ceiling: 0,
+      details: `model/buoy face at handoff: median ${ratio.toFixed(2)} (${ratios
+        .map((r) => r.toFixed(2))
+        .join(' ')})`,
+      passed: ratio >= SEAM_MIN_BEACH_RATIO,
+    };
+  });
+  const fleet = median(beaches.map((b) => b.newFaceFt));
+
+  return {
+    name: 'G',
+    description: `Real CDIP→model handoffs keep >= ${SEAM_MIN_BEACH_RATIO} of the buoy face per beach and >= ${SEAM_MIN_FLEET_RATIO} fleet-wide.`,
+    passed: beaches.every((b) => b.passed) && fleet >= SEAM_MIN_FLEET_RATIO,
+    blocking: true,
+    beaches,
+    notes: [
+      `fleet median ${fleet.toFixed(2)}`,
+      'Refresh fixtures with scripts/replay-model-swell-calibration.ts --seam-fixtures.',
+    ],
+  };
+}
+
 function measureHandoffFixture(fixture: HandoffBoundaryFixture): number | null {
   const state = createForecastHandoffBlendState();
 
@@ -793,8 +868,9 @@ async function main(): Promise<void> {
   const gateD = runGateD(fixtures);
   const gateE = await runGateE(fixtures, skipE);
   const gateF = runGateF(fixtures);
+  const gateG = await runGateG();
 
-  const results: GateResult[] = [gateA, gateB, gateC, gateD, gateE, gateF];
+  const results: GateResult[] = [gateA, gateB, gateC, gateD, gateE, gateF, gateG];
   for (const g of results) printGate(g);
 
   printTourmalineCanary(gateB);
@@ -811,7 +887,7 @@ async function main(): Promise<void> {
     console.log('='.repeat(70));
     process.exit(1);
   }
-  console.log('PASS: all blocking gates (A-D, F) passed.');
+  console.log('PASS: all blocking gates (A-D, F, G) passed.');
   console.log('='.repeat(70));
 }
 

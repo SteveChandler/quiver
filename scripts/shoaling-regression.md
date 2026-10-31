@@ -99,6 +99,26 @@ buoy/model gap, and the taper made heights fall while the swell grew.
 **Failure signal:** the seam is no longer measured, or the handoff code changed
 a forecast height.
 
+### Gate G — model hours stay on the buoy ruler at the handoff
+
+**Set:** `scripts/__fixtures__/model-seam-fixtures.json`, the five most recent
+real CDIP→model handoffs at each regression beach plus Del Mar, taken from
+`ml_predictions_log.display_replay_context`.
+**Check:** each pair's buoy slot and model slot are replayed through the
+current transformer (model slot with the beach id, so the per-beach factor in
+`lib/utils/model-swell-calibration-factors.ts` applies). The per-beach median
+model/buoy face ratio must be >= 0.45, and the median across beaches >= 0.75.
+**Why:** #1238 removed the 48 h seam taper after checking only whether the
+seam ratio predicted the later gap. Nobody replayed the seam without the
+taper, so model hours in Orange County dropped to about a third of the buoy
+hour before them. With the factors removed this gate fails (Lower Trestles
+0.32, fleet 0.70).
+**Failure signal:** a transform change, or removal of a compensator, drops
+model hours off the buoy ruler. Replay the seam before removing anything that
+was masking it.
+**Refresh:** `node --import tsx scripts/replay-model-swell-calibration.ts .env.local 30 --write --seam-fixtures`
+(read-only against prod).
+
 ## Fixtures
 
 Hand-curated snapshots at

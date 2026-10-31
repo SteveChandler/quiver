@@ -104,6 +104,8 @@ export function parseQuiverWatch(json: unknown): NormalizedTrack {
       recordedBy: `Quiver for Garmin · ${header.deviceName}`,
       startedAt: new Date(header.startedAt).toISOString(),
       endedAt: new Date(header.endedAt).toISOString(),
+      ...(isInteger(header.calories) && header.calories >= 0 && header.calories <= 5000
+        ? { calories: header.calories } : {}),
     },
     samples,
     extras: { rating: header.rating, deviceName: header.deviceName,

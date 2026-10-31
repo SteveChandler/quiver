@@ -13,6 +13,8 @@ export type TrackSummary = {
   maxGapS: number;
   sampleCount: number;
   waterTempC: number | null;
+  waterTempStartC: number | null;
+  waterTempEndC: number | null;
   speedReliable: boolean;
   trackGeojson: { type: "LineString"; coordinates: [number, number][] };
   speedSeries: { t: string; mps: number }[];
@@ -28,6 +30,23 @@ function median(values: number[]): number {
   return sorted.length % 2 === 0
     ? (sorted[middle - 1] + sorted[middle]) / 2
     : sorted[middle];
+}
+
+function waterTempEndpoints(samples: TrackSample[], startMs: number, endMs: number):
+  { waterTempStartC: number | null; waterTempEndC: number | null } {
+  const unknown = { waterTempStartC: null, waterTempEndC: null };
+  if (endMs - startMs < 1_200_000) return unknown;
+  const readings = samples.filter(sample => {
+    const time = Date.parse(sample.t);
+    return sample.tempC !== null && time >= startMs && time <= endMs;
+  });
+  if (readings.length < 60) return unknown;
+  const first = readings.filter(sample => Date.parse(sample.t) <= startMs + 600_000)
+    .map(sample => sample.tempC as number);
+  const last = readings.filter(sample => Date.parse(sample.t) >= endMs - 600_000)
+    .map(sample => sample.tempC as number);
+  return { waterTempStartC: first.length ? median(first) : null,
+    waterTempEndC: last.length ? median(last) : null };
 }
 
 function bucketStart(time: number): number {
@@ -69,6 +88,7 @@ export function summarizeTrack(track: NormalizedTrack, keepWindows: Window[] = [
     return {
       inWaterStart, inWaterEnd, centroid: null, gpsCoverage: 0, maxGapS: 0,
       sampleCount: track.samples.length, waterTempC: temperatures.length ? median(temperatures) : null,
+      ...waterTempEndpoints(samples, Date.parse(inWaterStart), Date.parse(inWaterEnd)),
       speedReliable: false, trackGeojson: { type: "LineString", coordinates: [] }, speedSeries: [],
     };
   }
@@ -127,6 +147,7 @@ export function summarizeTrack(track: NormalizedTrack, keepWindows: Window[] = [
     maxGapS: Math.ceil(maxGapS),
     sampleCount: track.samples.length,
     waterTempC: temperatures.length ? median(temperatures) : null,
+    ...waterTempEndpoints(track.samples, startMs, endMs),
     speedReliable: !(track.meta.sport === "swimming" && track.meta.subSport === "open_water"),
     trackGeojson: { type: "LineString", coordinates },
     speedSeries: speedSeries(spanFixes),

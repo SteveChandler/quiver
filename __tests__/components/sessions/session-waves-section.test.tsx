@@ -74,6 +74,10 @@ const fixture: SessionWavesResponse = {
     lowCoverage: false,
     speedReliable: true,
     detectionVersion: "wd-1.0.0",
+    calories: null,
+    waterTempStartC: null,
+    waterTempEndC: null,
+    waterTempC: null,
   },
   waves: [{
     id: "w1",
