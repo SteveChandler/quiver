@@ -224,6 +224,7 @@ const BIGGER_STANDOUT = phrasePattern([...STANDOUT_WORDS, "standout"])!;
 const BIGGER = phrasePattern(["bigger"])!;
 const SMALL = phrasePattern(Object.keys(SMALL_SIZES))!;
 const BARE_BODY_SIZES = phrasePattern(BODY_SIZES.slice(0, 3))!;
+const SIZE_CHAIN_SEPARATOR = /^(?:[\s-]+|(?:to|and|or)[\s-]+|&[\s-]*)+$/iu;
 const BODY_CLAIMS = new Map<string, readonly SizeWord[]>();
 const BODY_ENDPOINTS = [...BODY_SIZES, ...OVERHEAD_SIZES.map(([word]) => word)] as const;
 for (const low of BODY_SIZES) {
@@ -294,13 +295,37 @@ function clauseBounds(text: string, at: number): readonly [number, number] {
   return [from, to];
 }
 
+function sizeClaimsIn(text: string): Located[] {
+  const claims: Located[] = [
+    ...located(text, BODY_SIZE), ...located(text, BIGGER), ...located(text, SMALL), ...located(text, SIZES),
+    ...[...text.matchAll(FOOT_RANGE)].map((match) => ({ at: match.index, end: match.index + match[0].length, claim: match[0] })),
+  ].sort((a, b) => a.at - b.at || b.end - a.end);
+  const nonOverlapping: Located[] = [];
+  for (const claim of claims) {
+    const previous: Located | undefined = nonOverlapping[nonOverlapping.length - 1];
+    if (previous && claim.at < previous.end) {
+      previous.end = Math.max(previous.end, claim.end);
+      continue;
+    }
+    nonOverlapping.push({ ...claim });
+  }
+  return nonOverlapping;
+}
+
 function standoutFollows(text: string, claim: Located, sizeClaims: readonly Located[]): boolean {
   const [from, to] = clauseBounds(text, claim.at);
-  const nextClaimAt = sizeClaims
-    .filter((other) => other.at >= claim.end && other.at < to)
-    .reduce((next, other) => Math.min(next, other.at), to);
-  return located(text, AT_STANDOUTS).some((standout) => standout.at >= claim.end && standout.at < nextClaimAt && standout.at < to)
-    && claim.at >= from;
+  let chainIndex = sizeClaims.findIndex((sizeClaim) => sizeClaim.at <= claim.at && sizeClaim.end >= claim.end);
+  if (chainIndex < 0) return false;
+  let chainEnd = sizeClaims[chainIndex];
+  while (chainIndex + 1 < sizeClaims.length) {
+    const next = sizeClaims[chainIndex + 1];
+    if (next.at >= to || !SIZE_CHAIN_SEPARATOR.test(text.slice(chainEnd.end, next.at))) break;
+    chainEnd = next;
+    chainIndex += 1;
+  }
+  const nextClaimAt = sizeClaims[chainIndex + 1]?.at ?? to;
+  return located(text, AT_STANDOUTS).some((standout) => standout.at >= chainEnd.end
+    && standout.at < nextClaimAt && standout.at < to) && claim.at >= from;
 }
 
 function rangeWithin(low: number, high: number, range: FaceRange | null | undefined): boolean {
@@ -310,10 +335,7 @@ function rangeWithin(low: number, high: number, range: FaceRange | null | undefi
 function footRangesHold(text: string, facts: CandidateFacts | undefined): boolean {
   // Range punctuation belongs to the range, not to the surrounding clause.
   const clauses = blank(blank(text, FOOT_RANGE), TIMED_WIND);
-  const sizeClaims: Located[] = [
-    ...located(text, BODY_SIZE), ...located(text, SMALL), ...located(text, BIGGER), ...located(text, SIZES),
-    ...[...text.matchAll(FOOT_RANGE)].map((match) => ({ at: match.index, end: match.index + match[0].length, claim: match[0] })),
-  ].sort((a, b) => a.at - b.at);
+  const sizeClaims = sizeClaimsIn(text);
   return [...text.matchAll(FOOT_RANGE)].every((match) => {
     const low = Number(match[1]);
     const high = Number(match[2] ?? match[1]);
@@ -340,10 +362,7 @@ function windTimingHolds(text: string, facts: CandidateFacts | undefined): boole
 
 function sizeWordsHold(text: string, facts: CandidateFacts | undefined): boolean {
   const clauseText = blank(blank(text, FOOT_RANGE), TIMED_WIND);
-  const sizeClaims: Located[] = [
-    ...located(text, BODY_SIZE), ...located(text, BIGGER), ...located(text, SMALL), ...located(text, SIZES),
-    ...[...text.matchAll(FOOT_RANGE)].map((match) => ({ at: match.index, end: match.index + match[0].length, claim: match[0] })),
-  ].sort((a, b) => a.at - b.at);
+  const sizeClaims = sizeClaimsIn(text);
   for (const match of text.matchAll(BODY_SIZE)) {
     const sizes = BODY_CLAIMS.get(canonical(match[1]))!;
     const claim: Located = { at: match.index, end: match.index + match[0].length, claim: canonical(match[1]) };

@@ -767,6 +767,31 @@ describe("checkWrittenSentence size, wind timing and breaker claims", () => {
     expect(check(sentence, beach(standoutFacts, sentence))).toEqual({ ok: true });
   });
 
+  const chainFacts: CandidateFacts = { ...facts, faceFt: { min: 2, max: 4 }, sizes: ["waist", "chest"],
+    standoutFt: { min: 4, max: 6 }, standoutSizes: ["shoulder", "head"] };
+  it.each([
+    "Shoulder-high to head-high at the standouts",
+    "Shoulder-high and head-high at the standouts",
+    "Shoulder-high or head-high at the best spots",
+    "4-5 ft to 5-6 ft at the standouts",
+    "Chest-high at most spots, shoulder-high to head-high at the standouts",
+  ])("attributes a joined size-claim chain to its following standouts: %s", (sentence) => {
+    expect(check(sentence, beach(chainFacts, sentence))).toEqual({ ok: true });
+  });
+  it.each([
+    "Head-high everywhere and 5-6 ft at the standouts",
+    "Head-high everywhere and bigger at the standouts",
+    "5-6 ft with 4-5 ft at the standouts",
+  ])("keeps unrelated claims outside the standout chain: %s", (sentence) => {
+    const candidateFacts: CandidateFacts = sentence.includes("bigger") ? { ...chainFacts, standoutFt: undefined } : chainFacts;
+    expect(check(sentence, beach(candidateFacts, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it.each(["Head-high and overhead at the standouts", "5-6 ft and 7-9 ft at the standouts"])
+  ("supports multi-claim chains in the standout facts: %s", (sentence) => {
+    const candidateFacts: CandidateFacts = { ...chainFacts, standoutFt: { min: 5, max: 9 }, standoutSizes: ["head", "overhead"] };
+    expect(check(sentence, beach(candidateFacts, sentence))).toEqual({ ok: true });
+  });
+
   it.each(["The sets closed out", "Closed-out sets"])("checks past-tense closing claims: %s", (sentence) => {
     expect(check(sentence, beach({ breaker: { ...facts.breaker!, closingOut: false } }, sentence)))
       .toEqual({ ok: false, reason: "breaker" });
