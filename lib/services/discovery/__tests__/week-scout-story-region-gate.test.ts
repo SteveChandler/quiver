@@ -220,7 +220,7 @@ describe("regional story gate", () => {
     const built = west(259, 13.1);
     const [event] = storyEventsFromRegion(built, EDITION).all;
     const line = beachLine(event, "b", buildRegionGateContext(built, EDITION))!;
-    expect(line.text).toBe("Faces the west groundswell dead on, with light wind in its window.");
+    expect(line.text).toBe("Faces the west groundswell dead on: chest-high, with light wind in its window.");
     expect(line.gate).toEqual({ kind: "beach", localDate: "2026-10-29", regionalEventKey: storyEventKey(event), beachId: "b", directionIndex: 12,
       periodClass: "long", exposure: "open", facing: "direct", wind: "light" });
     expect(regionGateHolds(line.gate, buildRegionGateContext(built, EDITION))).toBe(true);

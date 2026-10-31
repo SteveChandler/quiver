@@ -2,14 +2,14 @@ import { readFileSync } from "fs";
 import path from "path";
 
 import {
-  COMPASS, WEEKDAY, beachLineText, buildStoryCandidates, eventStoryText, storyEventKey, type RegionalDaySignal, type RegionalSwellEvent,
+  COMPASS, WEEKDAY, beachLine, windTimingPhrase, beachLineText, buildStoryCandidates, eventStoryText, storyEventKey, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import {
   BODY_SIZES, BREAKER_WORDS, FOOT_UNITS, OVERHEAD_SIZES, SIZE_BUCKETS, SMALL_SIZES, STANDOUT_WORDS, WIND_TIMING,
   CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, LIST_JOINERS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS,
   RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
 } from "../week-scout-story-claims";
-import type { CandidateFacts } from "../week-scout-story-facts";
+import { sizeWordsFor, type WindHour, type CandidateFacts } from "../week-scout-story-facts";
 import type { StoryCandidate } from "../week-scout-story-types";
 
 const gate: StoryCandidate["gate"] = {
@@ -822,6 +822,55 @@ describe("checkWrittenSentence size, wind timing and breaker claims", () => {
 describe("every server line passes its own claim check", () => {
   const TODAY = "2026-10-27";
   const at = (offset: number) => new Date(Date.UTC(2026, 9, 27 + offset, 19)).toISOString();
+
+
+  it("checks size, feel and wind samples across every new server template", () => {
+    const rows = (values: Array<[number, WindHour["relation"], number | null]>): WindHour[] =>
+      values.map(([hour, relation, mph]) => ({ hour, relation, mph }));
+    const winds: Array<[WindHour[], string | null]> = [
+      [rows([[8, "offshore", 10], [16, "offshore", 10]]), "offshore all day"],
+      [rows([[8, "offshore", 10], [10, "offshore", 10], [14, "onshore", 10]]), "offshore all morning, sea breeze after lunch"],
+      [rows([[8, "offshore", 10], [9, "cross", 10], [10, "onshore", 10], [12, "onshore", 10]]), "offshore early, onshore by 10"],
+      [rows([[8, "cross", 3], [14, "onshore", 10]]), "glassy early, sea breeze after lunch"],
+      [rows([[8, "offshore", 10], [14, "cross", 10]]), "offshore early"],
+      [rows([[8, "cross", 3], [14, "cross", 10]]), "glassy early"],
+      [rows([[8, "cross", 10], [14, "cross", 10]]), null],
+    ];
+    const event: RegionalSwellEvent = { directionDeg: 202, periodS: 15, kind: "swell", arrivalAt: at(0), peakAt: at(1),
+      fadeAt: at(2), timezone: "America/Los_Angeles", confidence: "likely", minimumBeaches: 3, regionalKey: "sample" };
+    for (const [, min, max] of SIZE_BUCKETS) {
+      for (const feel of ["punchy", "soft", null] as const) {
+        for (const [windHours, phrase] of winds) {
+          expect(windTimingPhrase(windHours)).toBe(phrase);
+          for (const kind of ["swell", "storm"] as const) {
+            const facts: CandidateFacts = { faceFt: { min, max }, sizes: sizeWordsFor({ min, max }), windHours,
+              breaker: { character: kind === "storm" ? "crumbly" : "pitching", feel, closingOut: max >= 8 } };
+            const sample = { ...event, kind };
+            const context = { events: [sample], exposure: () => "open" as const, facing: () => "direct" as const,
+              wind: () => "breezy" as const, eventFacts: () => facts, beachDayFacts: () => facts };
+            for (const [exposure, facing] of [["open", "direct"], ["open", "angled"], ["partial", null], ["shadowed", null]] as const) {
+              const line = beachLine(sample, "a", { ...context, exposure: () => exposure, facing: () => facing }, TODAY)!;
+              expect(line).not.toBeNull();
+              expect([line.text, check(line.text, { ...fact(line.text), facts: line.facts })]).toEqual([line.text, { ok: true }]);
+            }
+            const story = eventStoryText(sample, TODAY, facts);
+            expect(check(story, { ...fact(story), facts })).toEqual({ ok: true });
+            const days: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => ({
+              localDate: at(index).slice(0, 10), complete: true, sampleBeaches: 3, meanHeightFt: 3,
+              directionDeg: 202, periodS: 15, sourceSeries: "forecast", forecastRevision: "now",
+              surfBeaches: [{ beachId: "a", beachName: "Ocean Beach", facts }],
+            }));
+            const candidates = buildStoryCandidates(days, "San Diego", [sample], () => facts);
+            expect(candidates.filter((item) => item.gate.kind === "day_surf")).toHaveLength(7);
+            for (const candidate of candidates) {
+              expect([candidate.text, checkWrittenSentence(candidate.text, candidate, BEACHES, ["San Diego"])])
+                .toEqual([candidate.text, { ok: true }]);
+            }
+          }
+        }
+      }
+    }
+  });
 
   it("passes every beach line", () => {
     for (const direction of COMPASS) {

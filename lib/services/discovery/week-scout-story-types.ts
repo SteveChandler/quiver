@@ -15,6 +15,7 @@ export type StoryGate =
   | { kind: "wind_pattern"; days: Array<Extract<StoryGate, { kind: "wind" }>> }
   | { kind: "tide"; localDate: string; bucket: "morning" | "midday" | "evening"; tidePhase: string; windowOrder: "opens" | "closes"; forecastRevision: string; beachId?: string }
   | { kind: "change"; fromDate: string; toDate: string; direction: "better" | "worse"; minimumScoreChange: number; sourceSeries: string }
+  | { kind: "day_surf"; localDate: string; beachId: string; faceFt: { min: number; max: number } }
   | { kind: "day"; localDate: string; bucket: "morning" | "midday" | "evening"; reason: "light_wind" | "rising_tide" | "clean_window" }
   | { kind: "quiet"; fromDate: string; toDate: string; completeDates: string[] };
 

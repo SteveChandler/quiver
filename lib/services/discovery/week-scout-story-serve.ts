@@ -5,12 +5,13 @@ import type { CanonicalWeekScoutResponse } from "./week-scout";
 import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
 import { loadRegionForecastEvents, type RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addSwellHeadlines, directionIndex, directionSector, periodBand, periodClass, storyEventKey, type RegionalSwellEvent } from "./week-scout-story-candidates";
+import { faceRangeFt, type CandidateFacts } from "./week-scout-story-facts";
 import { checkWrittenSentence } from "./week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from "./week-scout-story-region-gate";
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
-import type { StoryGate, StoryInput, StoryWire, StoryWrittenSentence } from "./week-scout-story-types";
+import type { StoryCandidate, StoryGate, StoryInput, StoryWire, StoryWrittenSentence } from "./week-scout-story-types";
 
 type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
@@ -67,6 +68,19 @@ function isCardSlot(slot: string): boolean {
 /** A selected sentence is served only when the region build or the live response still proves its gate. */
 function gateHolds(gate: StoryGate, regional: StoryRegion, live: Live): boolean {
   return regionGateHolds(gate, regional.context) ?? storyGateHolds(gate, live);
+}
+
+function liveFacts(fact: StoryCandidate, regional: StoryRegion): CandidateFacts | undefined {
+  const gate = fact.gate;
+  if (gate.kind === "swell") return regional.context.eventFacts(gate.regionalEventKey) ?? undefined;
+  if (gate.kind === "beach") return regional.context.beachDayFacts(gate.regionalEventKey, gate.beachId, gate.localDate) ?? undefined;
+  return gate.kind === "day_surf" ? fact.facts : undefined;
+}
+
+function candidateHolds(fact: StoryCandidate, regional: StoryRegion, live: Live, input: StoryInput): boolean {
+  return gateHolds(fact.gate, regional, live)
+    && checkWrittenSentence(fact.text, { ...fact, facts: liveFacts(fact, regional) },
+      Object.values(input.beachNames ?? {}), [input.region]).ok;
 }
 
 /** A swell sentence may sit under the cover only if it names the region's first event: its key, days and direction. */
@@ -144,6 +158,12 @@ export function storyGateHolds(gate: StoryGate, live: Live): boolean {
       const delta = current.conditionScore - previous.conditionScore;
       return gate.direction === "better" ? delta >= gate.minimumScoreChange : delta <= -gate.minimumScoreChange;
     }
+    case "day_surf": {
+      const pick = live.days.find((day) => day.localDate === gate.localDate)?.bestDayWindow;
+      if (!pick?.safe || pick.beachId !== gate.beachId) return false;
+      const range = faceRangeFt([pick.forecast.waveHeight]);
+      return range !== null && range.min >= gate.faceFt.min && range.max <= gate.faceFt.max;
+    }
     case "day": {
       const window = live.days.find((day) => day.localDate === gate.localDate)?.bestDayWindow;
       if (!window?.safe || !window.rideable || window.verdict === "skip" || window.bucket !== gate.bucket) return false;
@@ -199,13 +219,20 @@ export function bindStory(args: {
   const selected = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
   if (selected.length !== args.selections.length) return empty("unavailable");
   // An edition may select card lines too; they stay out of the story and never count against it.
-  const chosen = selected.filter((fact) => !isCardSlot(fact.slot) && gateHolds(fact.gate, regional, live) && agreesWithCover(fact));
+  const chosen = selected.filter((fact) => !isCardSlot(fact.slot) && candidateHolds(fact, regional, live, input) && agreesWithCover(fact));
+  for (const slot of new Set(selected.filter((fact) => fact.slot.startsWith("day:")).map((fact) => fact.slot))) {
+    if (chosen.some((fact) => fact.slot === slot)) continue;
+    const fallback = input.copyFacts.filter((fact) => fact.slot === slot)
+      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+      .find((fact) => candidateHolds(fact, regional, live, input));
+    if (fallback) chosen.push(fallback);
+  }
   // Per slot: a written sentence that fails its check shows the candidate's own text; the others keep theirs.
   const beachNames = input.beachNames ? Object.values(input.beachNames) : null;
   const served = (fact: StoryInput["copyFacts"][number]): string => {
     const entry = args.written?.find((item) => item.basedOn === fact.id && item.slot === fact.slot);
     if (!entry || !beachNames) return fact.text;
-    return checkWrittenSentence(entry.text, fact, beachNames, [input.region]).ok ? entry.text : fact.text;
+    return checkWrittenSentence(entry.text, { ...fact, facts: liveFacts(fact, regional) }, beachNames, [input.region]).ok ? entry.text : fact.text;
   };
   const text = (slot: string): string | null => {
     const fact = chosen.find((item) => item.slot === slot);
@@ -239,11 +266,11 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
   const input = headlines.length > 0
     ? { ...regionalInput, copyFacts: [...regionalInput.copyFacts, ...headlines] } : regionalInput;
   const matchedEvents = new Set(regionalInput.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
-    && matchesFirstSwell(fact.gate) && gateHolds(fact.gate, regional, live)
+    && matchesFirstSwell(fact.gate) && candidateHolds(fact, regional, live, input)
     ? [fact.gate.regionalEventKey] : []));
   const selections = [...input.copyFacts].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
     .filter((fact) => {
-      if (slots.has(fact.slot) || !gateHolds(fact.gate, regional, live)) return false;
+      if (slots.has(fact.slot) || !candidateHolds(fact, regional, live, input)) return false;
       if (fact.gate.kind === "swell" && !matchesFirstSwell(fact.gate)) return false;
       if (fact.slot.startsWith("swell:") && fact.gate.kind === "exposure"
         && !matchedEvents.has(fact.gate.regionalEventKey)) return false;

@@ -66,7 +66,12 @@ const BUILD: RegionBuild = {
 
 /** Rated for Sunset Cliffs, which isn't the region's first beach: the input's card lines for the storm leave it out. */
 function rated(): RegionSwellEvent[] {
-  return rateRegionEvents(BUILD, { beachId: "d", skill: "intermediate", now: NOW });
+  return rateRegionEvents(BUILD, { beachId: "d", skill: "intermediate", now: NOW }).map((event) => {
+    const onPeak = (rating: NonNullable<RegionSwellEvent["here"]>): NonNullable<RegionSwellEvent["here"]> => ({
+      ...rating, windowStartAt: event.peakAt, windowEndAt: new Date(Date.parse(event.peakAt) + 3 * 3600_000).toISOString(),
+    });
+    return { ...event, here: event.here ? onPeak(event.here) : null, working: event.working.map(onPeak), notWorking: event.notWorking.map(onPeak) };
+  });
 }
 
 /** The server's card lines as the morning's input carries them. */
@@ -112,15 +117,15 @@ function whyByBeach(event: RegionSwellEvent): Record<string, string | null | und
   return Object.fromEntries(listed.map((rating) => [rating.beachId, rating.why]));
 }
 
-const SSW_STORY = "A south-southwest long-period groundswell arrives Thursday, peaks Friday and fades Saturday.";
+const SSW_STORY = "A south-southwest long-period groundswell arrives Thursday, peaks Friday and fades Saturday: waist-high at most spots.";
 const STORM_STORY = "A west short-period storm swell arrives Saturday, peaks Sunday and fades Monday.";
 const SSW_WHY = {
-  a: "Faces the south-southwest groundswell dead on, with light wind in its window.",
-  b: "Faces the south-southwest groundswell dead on, but it's breezy in its window.",
-  c: "Partly sheltered from the south-southwest groundswell, with light wind in its window.",
-  d: "Sheltered from the south-southwest groundswell, with light wind in its window.",
+  a: "Faces the south-southwest groundswell dead on: waist-high, with light wind in its window.",
+  b: "Faces the south-southwest groundswell dead on: waist-high, but it's breezy in its window.",
+  c: "Partly sheltered from the south-southwest groundswell: waist-high, with light wind in its window.",
+  d: "Sheltered from the south-southwest groundswell: knee-high, with light wind in its window.",
   // Blown out: its line says the wind is up.
-  e: "Faces the south-southwest groundswell dead on, but the wind is up in its window.",
+  e: "Faces the south-southwest groundswell dead on: knee-high, but the wind is up in its window.",
 };
 // Gemma's sentences: the passing ones claim only what their facts say, in their own words. A beach line keeps its degree word.
 const SSW_WRITTEN = "South-southwest groundswell fills in Thursday, tops out Friday and backs off Saturday.";
@@ -142,7 +147,7 @@ describe("narrateRegionEvents", () => {
     expect(stormLines.has("d")).toBe(false);
     expect(whyByBeach(byKey(events, STORM.key))).toEqual({
       ...Object.fromEntries(stormLines),
-      d: "Faces the west storm swell at an angle, with light wind in its window.",
+      d: "Faces the west storm swell at an angle: knee-high and crumbly, glassy early.",
     });
     // The early look has no story and no beach lines.
     const early = byKey(events, EARLY.key);
@@ -235,10 +240,10 @@ describe("narrateRegionEvents", () => {
       edition: edition([sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN)], { copyFacts: facts }), now: NOW });
 
     expect(byKey(events, SSW.key).story).toBe(SSW_WRITTEN);
-    expect(byKey(events, south.key).story).toBe("A south long-period groundswell arrives Thursday, peaks Friday and fades Saturday.");
+    expect(byKey(events, south.key).story).toBe("A south long-period groundswell arrives Thursday, peaks Friday and fades Saturday: waist-high at most spots.");
     // La Jolla Shores is partly open to the SSW swell but sheltered from this one.
     expect(whyByBeach(byKey(events, SSW.key)).c).toBe(SSW_WHY.c);
-    expect(whyByBeach(byKey(events, south.key)).c).toBe("Sheltered from the south groundswell, with light wind in its window.");
+    expect(whyByBeach(byKey(events, south.key)).c).toBe("Sheltered from the south groundswell: waist-high, with light wind in its window.");
   });
 
   it("serves server lines, and never throws, for a malformed stored edition", () => {
@@ -256,8 +261,8 @@ describe("narrateRegionEvents", () => {
       const partial = narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written, { copyFacts: facts }), now: NOW });
       expect(byKey(partial, SSW.key).story).toBe(SSW_STORY);
       expect(whyByBeach(byKey(partial, SSW.key)).a).toBe(OCEAN_BEACH_WRITTEN);
-      // Once per call, however many slots fail.
-      expect(warn.mock.calls.filter(([message]) => String(message).includes("story edition unusable"))).toHaveLength(2);
+      // Missing candidate text now refuses in the claim check without throwing.
+      expect(warn.mock.calls.filter(([message]) => String(message).includes("story edition unusable"))).toHaveLength(1);
     } finally {
       warn.mockRestore();
     }
@@ -301,10 +306,11 @@ describe("narrateRegionEvents", () => {
 
     expect(whyByBeach(events[0])).toEqual({
       // Breezy in its own FAIR hours: Gemma's light-wind line, true of the whole swell, isn't true of them.
-      k: "Faces the south-southwest groundswell dead on, but it's breezy in its window.",
+      k: "Faces the south-southwest groundswell dead on: waist-high, but it's breezy in its window.",
       // Its own hours average light, but the rating says blown out: the line says the wind is up, and Gemma's line falls back.
-      h: "Faces the south-southwest groundswell dead on, but the wind is up in its window.",
-      m: OCEAN_BEACH_WRITTEN,
+      h: "Faces the south-southwest groundswell dead on: knee-high, but the wind is up in its window.",
+      // Its window is not on the peak date, so the peak-day rewrite cannot serve.
+      m: SSW_WHY.a,
     });
   });
 

@@ -176,6 +176,7 @@ export function regionGateHolds(gate: StoryGate, region: RegionGateContext): boo
     case "wind_pattern":
     case "tide":
     case "change":
+    case "day_surf":
     case "day":
       return null;
   }

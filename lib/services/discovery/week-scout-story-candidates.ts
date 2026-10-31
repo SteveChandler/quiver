@@ -2,7 +2,7 @@ import type { InternalRegionEvent, RegionBuild } from "@/lib/alerts/swell-events
 import { confidenceFor, localDayDiff, rateRegionEvents } from "@/lib/alerts/swell-events/regional-rating";
 import { addDays, localDate } from "./swell-briefing-input";
 import type { RegionGateContext } from "./week-scout-story-region-gate";
-import type { CandidateFacts } from "./week-scout-story-facts";
+import { LIGHT_WIND_MPH, type CandidateFacts, type FaceRange, type SizeWord, type WindHour } from "./week-scout-story-facts";
 import type { StoryCandidate, StoryGate } from "./week-scout-story-types";
 
 type Bucket = "morning" | "midday" | "evening";
@@ -111,8 +111,57 @@ export function periodClass(seconds: number): "long" | "mid" | "short" {
 }
 
 function add(facts: StoryCandidate[], id: string, slot: string, text: string, gate: StoryGate, candidateFacts: CandidateFacts | null = null): void {
-  if (facts.length >= MAX_FACTS || text.length > MAX_LENGTH || DIGIT.test(text)) return;
+  if (facts.length >= MAX_FACTS || text.length > MAX_LENGTH || DIGIT.test(text.replace(/\bonshore by (?:9|10|11|12)\b/g, ""))) return;
   facts.push({ id, slot, text, gate, rank: facts.length, ...(candidateFacts ? { facts: candidateFacts } : {}) });
+}
+
+export function sizePhrase(range: FaceRange | null, sizes: SizeWord[]): string | null {
+  if (!range || sizes.length === 0) return null;
+  const words = sizes.filter((word) => word !== "shoulder" || !sizes.includes("chest"));
+  const low = words[0];
+  const high = words[words.length - 1];
+  const single = (word: SizeWord): string => word.includes("overhead") ? word : `${word}-high`;
+  if (low === high) return single(low);
+  if (high.includes("overhead")) return `${single(low)} to ${single(high)}`;
+  return `${low}-to-${high}${high === "head" ? "-high" : ""}`;
+}
+
+export function windTimingPhrase(hours: WindHour[]): string | null {
+  const holds = (from: number, to: number, kind: "offshore" | "onshore" | "light", all = false): boolean => {
+    const rows = hours.filter((row) => row.hour >= from && row.hour < to);
+    return rows.length > 0 && rows.every((row) => kind === "light"
+      ? row.mph !== null && row.mph < LIGHT_WIND_MPH : row.relation === kind)
+      && (!all || (rows.some((row) => row.hour <= Math.max(from, 6) + 2)
+        && rows.some((row) => row.hour >= Math.min(to, 18) - 2)));
+  };
+  if (holds(0, 24, "offshore", true)) return "offshore all day";
+  if (holds(0, 12, "offshore", true) && holds(13, 24, "onshore")) return "offshore all morning, sea breeze after lunch";
+  if (holds(0, 9, "offshore")) {
+    for (let hour = 9; hour <= 12; hour += 1) {
+      if (holds(hour, 13, "onshore")) return `offshore early, onshore by ${hour === 12 ? "noon" : hour}`;
+    }
+  }
+  if (holds(0, 9, "light") && holds(13, 24, "onshore")) return "glassy early, sea breeze after lunch";
+  if (holds(0, 9, "offshore")) return "offshore early";
+  if (holds(0, 9, "light")) return "glassy early";
+  return null;
+}
+
+function feelPhrase(facts: CandidateFacts): string | null {
+  return facts.breaker?.feel ?? (facts.breaker?.character === "crumbly" ? "crumbly" : null);
+}
+
+function withRegionalSize(text: string, facts: CandidateFacts | null): string {
+  const size = facts && sizePhrase(facts.faceFt, facts.sizes);
+  if (!size || !facts) return text;
+  const standout = facts.standoutFt && facts.faceFt && facts.standoutFt.max > facts.faceFt.max
+    ? sizePhrase(facts.standoutFt, facts.standoutSizes ?? []) : null;
+  return `${text.slice(0, -1)}: ${size} at most spots${standout ? `, ${standout} at the standouts` : ""}.`;
+}
+
+function withLeadSize(text: string, facts: CandidateFacts | null): string {
+  const size = facts && sizePhrase(facts.faceFt, facts.sizes);
+  return size ? `${text.slice(0, -1)}: ${size} at its best.` : text;
 }
 
 export interface HeadlineSwell {
@@ -137,14 +186,14 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
   const peakDay = windowDay(peakDate, firstDate, lastDate);
   // Phrasings that open with the day, or follow "by", only read with a real weekday.
   const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
-  add(facts, `cover-${idPrefix}pulse-${key}`, "cover", region
+  add(facts, `cover-${idPrefix}pulse-${key}`, "cover", withRegionalSize(region
     ? `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`
     : arrivalDate < firstDate
       ? `A ${period} from the ${direction} is already in the water and peaks ${peakDay}.`
-      : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, gate, candidateFacts);
-  if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", `${region} gets ${withArticle(namedSwell(direction, swell.periodS, swell.kind))} by ${arrival}, with the most swell ${peakDay}.`, gate, candidateFacts);
-  add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate, candidateFacts);
-  if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate, candidateFacts);
+      : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, candidateFacts), gate, candidateFacts);
+  if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", withRegionalSize(`${region} gets ${withArticle(namedSwell(direction, swell.periodS, swell.kind))} by ${arrival}, with the most swell ${peakDay}.`, candidateFacts), gate, candidateFacts);
+  add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", withLeadSize(`The ${direction} pulse builds from ${arrival} into ${peakDay}.`, candidateFacts), gate, candidateFacts);
+  if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", withLeadSize(`${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, candidateFacts), gate, candidateFacts);
 }
 
 /**
@@ -247,15 +296,15 @@ function eventStoryParts(event: RegionalSwellEvent, today: string): { text: stri
  * The card's story line for one event: direction, kind and period, then its days. "A west short-period
  * storm swell arrives Thursday, peaks Friday and fades Saturday."
  */
-export function eventStoryText(event: RegionalSwellEvent, today: string): string {
-  return eventStoryParts(event, today).text;
+export function eventStoryText(event: RegionalSwellEvent, today: string, facts: CandidateFacts | null = null): string {
+  return withRegionalSize(eventStoryParts(event, today).text, facts);
 }
 
 /** The story line and its swell gate, which claims a fade day only when the line names one. */
-export function eventStory(event: RegionalSwellEvent, today: string): { text: string; gate: Extract<StoryGate, { kind: "swell" }> } {
+export function eventStory(event: RegionalSwellEvent, today: string, facts: CandidateFacts | null = null): { text: string; gate: Extract<StoryGate, { kind: "swell" }> } {
   const { text, namesFade } = eventStoryParts(event, today);
   const gate = eventSwellGate(event);
-  return { text, gate: namesFade ? gate : { ...gate, fadeLocalDate: null } };
+  return { text: withRegionalSize(text, facts), gate: namesFade ? gate : { ...gate, fadeLocalDate: null } };
 }
 
 /** The swell a beach line names, by kind and period class: a storm's swell, a groundswell, a mid-period swell or a windswell. */
@@ -277,7 +326,7 @@ export interface BeachLineFacts {
  * on the user's skill. Every word that carries a claim is in a closed word set of
  * week-scout-story-claims.ts, so a rewrite can't swap it for its opposite.
  */
-export function beachLineText(facts: BeachLineFacts): string {
+export function beachLineText(facts: BeachLineFacts, candidateFacts: CandidateFacts | null = null): string {
   const family = facts.kind === "storm" ? "storm" : facts.periodClass;
   const swell = `the ${facts.direction} ${BEACH_SWELL_NOUN[family]}`;
   const open = facts.exposure === "open";
@@ -287,25 +336,29 @@ export function beachLineText(facts: BeachLineFacts): string {
   const wind = facts.wind === "light" ? "with light wind in its window"
     : facts.wind === "breezy" ? `${open ? "but" : "and"} it's breezy in its window`
       : `${open ? "but" : "and"} the wind is up in its window`;
-  return `${lead}, ${wind}.`;
+  const size = candidateFacts && sizePhrase(candidateFacts.faceFt, candidateFacts.sizes);
+  const feel = candidateFacts && feelPhrase(candidateFacts);
+  const timing = windTimingPhrase(candidateFacts?.windHours ?? []);
+  const surf = [size, feel].filter(Boolean).join(" and ");
+  return `${lead}${surf ? `: ${surf}` : ""}, ${timing ?? wind}.`;
 }
 
 /**
  * A listed beach's line for an event and the gate pinning every fact it names; the one derivation the
- * Week Scout input and the card share. The wind bucket is the peak day's unless the caller passes
- * its own (the card passes the rating's hours). Null without exposure or wind data. The key's "-s" pins
+ * Week Scout input and the card share. The date defaults to the peak day. Null without exposure, wind or beach-day facts. The key's "-s" pins
  * the kind.
  */
 export function beachLine(event: RegionalSwellEvent, beachId: string, context: RegionGateContext,
-  wind: Wind | null = context.wind(storyEventKey(event), beachId, eventLocalDate(event.peakAt, event.timezone))): { text: string; gate: BeachGate; facts: CandidateFacts | null } | null {
+  localDate: string = eventLocalDate(event.peakAt, event.timezone)): { text: string; gate: BeachGate; facts: CandidateFacts } | null {
   const key = storyEventKey(event);
   const exposure = context.exposure(key, beachId);
   const facing = context.facing(key, beachId);
-  if (!exposure || !wind || (exposure === "open") !== (facing !== null)) return null;
-  const peakDate = eventLocalDate(event.peakAt, event.timezone);
-  const gate: BeachGate = { kind: "beach", localDate: peakDate, regionalEventKey: key, beachId, directionIndex: directionIndex(event.directionDeg),
+  const wind = context.wind(key, beachId, localDate);
+  const facts = context.beachDayFacts(key, beachId, localDate);
+  if (!exposure || !wind || !facts || (exposure === "open") !== (facing !== null)) return null;
+  const gate: BeachGate = { kind: "beach", localDate, regionalEventKey: key, beachId, directionIndex: directionIndex(event.directionDeg),
     periodClass: periodClass(event.periodS), exposure, facing, wind };
-  return { text: beachLineText({ direction: directionWords(event.directionDeg), kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }), gate, facts: context.beachDayFacts(key, beachId, peakDate) };
+  return { text: beachLineText({ direction: directionWords(event.directionDeg), kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }, facts), gate, facts };
 }
 
 /**
@@ -325,8 +378,11 @@ export function buildEventCandidates(build: RegionBuild, events: readonly Region
     // The first event under a key, as the gate context keeps the first.
     if (keys.has(key)) continue;
     keys.add(key);
-    const story = eventStory(event, today);
+    const story = eventStory(event, today, context.eventFacts(key));
     add(facts, `event-${key}-story`, `event:${key}:story`, story.text, story.gate, context.eventFacts(key));
+  }
+  for (const key of keys) {
+    const event = events.find((item) => storyEventKey(item) === key)!;
     const listing = rated.get(event.regionalKey);
     const listed = listing ? [listing.here, ...listing.working, ...listing.notWorking] : [];
     // The gate's values are the ones the region build proves at serve time; the rating only picks the beaches.
@@ -386,8 +442,8 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     addSwellHeadlines(facts, { key, kind: event.kind, directionIndex: directionIndex(event.directionDeg), periodS: event.periodS,
       arrivalDate, peakDate }, region, firstDate, lastDate, { ...gate, fadeLocalDate: null }, "", eventFacts);
     const chapter = swellChapterPhases(arrival, peakDay, fadeDate ? windowDay(fadeDate, firstDate, lastDate) : null);
-    add(facts, `swell-${key}`, `swell:${key}`, `The ${period} ${chapter}.`, gate, eventFacts);
-    if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, `${peakDay} is the peak of this ${direction} pulse.`, gate, eventFacts);
+    add(facts, `swell-${key}`, `swell:${key}`, withRegionalSize(`The ${period} ${chapter}.`, eventFacts), gate, eventFacts);
+    if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, withRegionalSize(`${peakDay} is the peak of this ${direction} pulse.`, eventFacts), gate, eventFacts);
     const named = peak?.exposedBeaches?.[key]?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
     const byQuality = (a: typeof named[number], b: typeof named[number]): number =>
       (b.qualityScore ?? -1) - (a.qualityScore ?? -1) || a.beachName.localeCompare(b.beachName);
@@ -441,6 +497,20 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
   for (let index = 0; index < days.length; index += 1) {
     const current = days[index];
     const day = weekday(current.localDate);
+    for (const [beachIndex, beach] of (current.surfBeaches ?? []).entries()) {
+      const { facts: surf } = beach;
+      if (!surf.faceFt || !beach.beachName || DIGIT.test(beach.beachName)) continue;
+      const size = sizePhrase(surf.faceFt, surf.sizes);
+      const feel = feelPhrase(surf);
+      const wind = windTimingPhrase(surf.windHours ?? []);
+      const description = [size, feel].filter(Boolean).join(" and ");
+      const id = `surf-${current.localDate}-${beach.beachId}`;
+      add(facts, id, `day:${current.localDate}`,
+        `On ${day}, ${beach.beachName} runs${description ? ` ${description}` : ""}${wind ? `, ${wind}` : ""}.`,
+        { kind: "day_surf", localDate: current.localDate, beachId: beach.beachId, faceFt: surf.faceFt }, surf);
+      const added = facts[facts.length - 1];
+      if (added?.id === id) added.rank = 50 + beachIndex;
+    }
     if (!pattern.includes(current) && current.wind?.selectorConfirmed && current.wind.turnConfirmed
       && current.wind.fromWindClass !== current.wind.windClass) {
       const wind = current.wind;
@@ -475,7 +545,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
   }
   for (const fact of facts) {
     if (fact.id === "turn-wind-pattern") fact.rank = -1;
-    if (fact.slot.startsWith("day:")) fact.rank = fact.gate.kind === "change" ? 100 + (fact.rank ?? 0)
+    if (fact.slot.startsWith("day:") && fact.gate.kind !== "day_surf") fact.rank = fact.gate.kind === "change" ? 100 + (fact.rank ?? 0)
       : fact.gate.kind === "tide" ? 200 + (fact.rank ?? 0) : 300 + (fact.rank ?? 0);
   }
   return facts;
