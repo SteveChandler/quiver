@@ -300,7 +300,7 @@ export function beachLine(event: RegionalSwellEvent, beachId: string, context: R
   if (!exposure || !wind || (exposure === "open") !== (facing !== null)) return null;
   const gate: BeachGate = { kind: "beach", regionalEventKey: key, beachId, directionIndex: directionIndex(event.directionDeg),
     periodClass: periodClass(event.periodS), exposure, facing, wind };
-  return { text: beachLineText({ direction: COMPASS[gate.directionIndex], kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }), gate };
+  return { text: beachLineText({ direction: directionWords(event.directionDeg), kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }), gate };
 }
 
 /**
