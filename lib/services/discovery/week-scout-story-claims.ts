@@ -6,8 +6,9 @@ import type { StoryCandidate } from "./week-scout-story-types";
 /**
  * Closed content-word sets: a written sentence may use a word from one only when its candidate's text
  * uses it, so a rewrite can't swap a claim for its opposite. Each entry is one claim: its canonical
- * form first, then other forms that make the same claim ("stormy" is "storm", "the wind is up" is "windy").
- * The refusal reason is the set's name.
+ * form first, then other forms that make the same claim ("stormy" is "storm", "the wind is up" is "windy",
+ * "catches" and "wide open" are "faces"). A comparative no candidate writes is its own claim ("lighter" is not
+ * "light"); "cleaner" is "clean" because the wind lines write both. The refusal reason is the set's name.
  */
 export const CLOSED_WORD_SETS = {
   wind: [["offshore", "offshores"], ["onshore", "onshores"]],
@@ -16,8 +17,10 @@ export const CLOSED_WORD_SETS = {
   period: [["long-period"], ["mid-period"], ["short-period"], ["groundswell", "groundswells"], ["windswell", "windswells"],
     ["storm", "stormy", "storms"]],
   exposure: [["sheltered", "shelter", "shelters", "sheltering"], ["shadow", "shadowed", "shadows"], ["partly", "partially"],
-    ["faces", "face", "facing", "faced"], ["head on"], ["straight on"], ["dead on"], ["at an angle", "angled"]],
-  wind_strength: [["light"], ["glassy"], ["calm"], ["breezy"], ["windy", "wind is up", "wind's up"]],
+    ["faces", "face", "facing", "faced", "catches", "catching", "picks up", "exposed", "wide open"], ["head on"], ["straight on"],
+    ["dead on"], ["at an angle", "angled"]],
+  wind_strength: [["light"], ["glassy"], ["calm"], ["breezy"], ["windy", "wind is up", "wind's up"], ["blown out"], ["gusty"],
+    ["lighter"], ["calmer"], ["clean", "cleans", "cleaned", "cleaning", "cleaner"], ["choppy"], ["bumpy"], ["messy"]],
 } as const satisfies Record<string, ReadonlyArray<readonly string[]>>;
 type ClosedWordClass = keyof typeof CLOSED_WORD_SETS;
 
@@ -30,12 +33,14 @@ export const DEGREE_WORDS = [["partly", "partially"], ["dead on"], ["at an angle
 
 /**
  * Words a day leans on, kept exactly: a sentence keeps every one its candidate has and adds none ("peaked"
- * is not "peaks"). A phase verb's past form is a time claim too, so "arrived", "reached" and "eased" are here.
+ * is not "peaks"). A phase verb's past form is a time claim too, so every past form in PHASE_VERBS is here.
  */
 export const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "later on", "peaked", "faded", "arrived", "reached",
-  "eased", "today", "tonight", "tomorrow"];
+  "pushed in", "filled in", "showed up", "rolled in", "eased", "built", "came and went", "today", "tonight", "tomorrow"];
 /** One claim each, read before bare weekdays: "a week from Saturday" is neither "Saturday" nor "a week from Thursday". */
 export const WEEK_FROM_DAYS = ["a week from today", ...WEEKDAY.map((day) => `a week from ${day}`)];
+/** One claim each, read with WEEK_FROM_DAYS: "next Friday" is neither "Friday" nor anything a candidate names. */
+export const NEXT_WEEKDAYS = WEEKDAY.map((day) => `next ${day}`);
 /** Time qualifiers that stand where a weekday would ("peaks next week"), so a phase verb binds to them like a day. */
 export const DAY_PHRASES = ["next week", "earlier in the week", "later on", "today", "tonight", "tomorrow"];
 /**
@@ -43,10 +48,13 @@ export const DAY_PHRASES = ["next week", "earlier in the week", "later on", "tod
  * day after it in its clause until the next day: "arrives Thursday, peaks Friday" pairs arrives with Thursday,
  * "arrives and peaks Thursday" pairs both with Thursday. A written sentence's pairs must all be its candidate's.
  * "reaches" is the cover's arrival ("reaches San Diego Wednesday") and "most" the cover's peak ("with the most
- * swell Thursday"). These forms only bind days: a sentence may use any of them.
+ * swell Thursday"). These forms only bind days: a sentence may use any of them. "starts" is no arrival: the
+ * lead's "Thursday starts the west swell's run toward a Friday peak" would pair it with Friday.
  */
 export const PHASE_VERBS = {
-  arrives: ["arrives", "arrive", "arriving", "arrived", "reaches", "reach", "reaching", "reached"],
+  arrives: ["arrives", "arrive", "arriving", "arrived", "reaches", "reach", "reaching", "reached", "pushes in", "push in", "pushing in",
+    "pushed in", "fills in", "fill in", "filling in", "filled in", "shows up", "show up", "showing up", "showed up", "rolls in", "roll in",
+    "rolling in", "rolled in"],
   peaks: ["peaks", "peak", "peaking", "peaked", "most"],
   fades: ["fades", "fade", "fading", "faded"],
   "comes and goes": ["comes and goes", "come and go", "coming and going", "came and went"],
@@ -54,19 +62,19 @@ export const PHASE_VERBS = {
   eases: ["eases", "ease", "easing", "eased"],
 } as const satisfies Record<string, readonly string[]>;
 /** Relative days and times of day: a sentence may use one only when its candidate does (plurals count). */
-export const RELATIVE_TIME_WORDS = ["same day", "next day", "day after", "weekend", "overnight", "midweek", "morning", "midday",
-  "afternoon", "evening", "night"];
+export const RELATIVE_TIME_WORDS = ["same day", "next day", "day after", "following day", "weekend", "overnight", "midweek", "dawn",
+  "sunrise", "morning", "midday", "noon", "afternoon", "evening", "sunset", "dusk", "night", "midnight"];
 /** Spelled-out numbers and units ("eight feet", "six-foot", "twenty-two seconds"). "One" stays prose ("the one to watch"). */
 export const NUMBER_WORDS = ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
   "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "thirty", "forty", "fifty", "sixty", "seventy",
   "eighty", "ninety", "hundred", "hundreds", "dozen", "dozens", "half", "feet", "foot", "ft", "seconds", "mph", "knots", "meter",
-  "meters", "metre", "metres", "inch", "inches"];
+  "meters", "metre", "metres", "inch", "inches", "mile", "miles"];
 /**
  * Size words no candidate uses: the card's data line owns size, so a sentence never names one. Relative
  * words ("biggest Thursday" for the peak) stay prose.
  */
 export const SIZE_ADJECTIVES = ["knee-high", "waist-high", "chest-high", "shoulder-high", "head-high", "overhead", "double overhead",
-  "big", "huge", "pumping", "flat"];
+  "small", "tiny", "big", "huge", "massive", "solid", "pumping", "firing", "epic", "flat"];
 /** COMPASS's abbreviations, index for index; read only as whole uppercase tokens, so lowercase "ssw" stays prose. */
 export const COMPASS_ABBREVIATIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 /** Each a prefix of its WEEKDAY; read only Capitalised or ALL-CAPS, so "the sun" and "we sat" stay prose. */
@@ -118,7 +126,9 @@ function claimSet(entries: ReadonlyArray<readonly string[]>): { pattern: RegExp;
 }
 
 const WEEKDAYS = phrasePattern(WEEKDAY, "s?")!;
-const WEEK_FROM = phrasePattern(WEEK_FROM_DAYS)!;
+const DAY_UNITS = phrasePattern([...WEEK_FROM_DAYS, ...NEXT_WEEKDAYS])!;
+/** "next Fri" is "next friday", as "next Friday" is. */
+const NEXT_BEFORE = /(?<![\p{L}\p{N}])next[\s-]+$/iu;
 // "westerly" and "southern" claim a direction too.
 const DIRECTIONS = phrasePattern(COMPASS, "(?:erly|ern|wards?)?")!;
 const TIMING = phrasePattern(TIME_QUALIFIERS)!;
@@ -176,7 +186,7 @@ function phasePairs(text: string, days: readonly Located[], verbs: readonly Loca
 interface Claims {
   /** Region beaches, each once, in the order they first appear. */
   beaches: string[];
-  /** Weekdays and "a week from <day>" units, each once, in the order they first appear. */
+  /** Weekdays and "a week from <day>" and "next <weekday>" units, each once, in the order they first appear. */
   days: string[];
   phases: Set<string>;
   directions: Set<string>;
@@ -192,8 +202,8 @@ interface Claims {
  */
 function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, abbreviations: boolean): Claims {
   const named = blank(blank(text, beaches), regions);
-  const days = located(named, WEEK_FROM);
-  const rest = blank(named, WEEK_FROM);
+  const days = located(named, DAY_UNITS);
+  const rest = blank(named, DAY_UNITS);
   days.push(...located(rest, WEEKDAYS));
   const directions = found(rest, DIRECTIONS);
   // A written sentence's "SSW" or "Fri" claims the full word; candidate text never abbreviates.
@@ -201,8 +211,9 @@ function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, 
     for (const match of rest.matchAll(COMPASS_SHORT)) directions.add(canonical(COMPASS[COMPASS_ABBREVIATIONS.indexOf(match[1])]));
     for (const match of rest.matchAll(WEEKDAY_SHORT)) {
       const short = match[1].toLowerCase();
+      const day = WEEKDAY.find((name) => name.toLowerCase().startsWith(short))!.toLowerCase();
       days.push({ at: match.index, end: match.index + match[0].length,
-        claim: WEEKDAY.find((day) => day.toLowerCase().startsWith(short))!.toLowerCase() });
+        claim: NEXT_BEFORE.test(rest.slice(0, match.index)) ? `next ${day}` : day });
     }
   }
   return {
@@ -238,8 +249,8 @@ function inOrder(sentence: readonly string[], fact: readonly string[]): boolean 
 
 /**
  * Whether a sentence written for a candidate claims nothing the candidate's own text doesn't: no numerals,
- * spelled-out numbers, size words, verdict words or "the call"; only weekdays and "a week from <day>"
- * units the candidate names, in its order, each after the same phase verbs; only its compass words, and
+ * spelled-out numbers, size words, verdict words or "the call"; only weekdays, "a week from <day>" and
+ * "next <weekday>" units the candidate names, in its order, each after the same phase verbs; only its compass words, and
  * its region beaches in its order; exactly its time qualifiers and degree words; and relative-time and
  * closed-set words only where the candidate uses them. Any other word is free prose. Uppercase compass
  * abbreviations and Capitalised or ALL-CAPS weekday abbreviations count as the full word. `regionNames`

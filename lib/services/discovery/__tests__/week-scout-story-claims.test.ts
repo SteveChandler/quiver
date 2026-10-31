@@ -1,9 +1,12 @@
+import { readFileSync } from "fs";
+import path from "path";
+
 import {
   COMPASS, WEEKDAY, beachLineText, buildStoryCandidates, eventStoryText, storyEventKey, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import {
-  CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DEGREE_WORDS, NUMBER_WORDS, PHASE_VERBS, RELATIVE_TIME_WORDS, SIZE_ADJECTIVES,
-  TIME_QUALIFIERS, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
+  CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS, RELATIVE_TIME_WORDS,
+  SIZE_ADJECTIVES, TIME_QUALIFIERS, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
 } from "../week-scout-story-claims";
 import type { StoryCandidate } from "../week-scout-story-types";
 
@@ -141,7 +144,7 @@ describe("checkWrittenSentence closed word sets (R16)", () => {
   it("refuses a closed-set word its fact doesn't use, naming the set", () => {
     const added: Array<[string, string]> = [
       ["A west groundswell peaks Thursday with offshore wind.", "wind"],
-      ["A west groundswell peaks Thursday, onshore by noon.", "wind"],
+      ["A west groundswell peaks Thursday, then turns onshore.", "wind"],
       ["A better west groundswell peaks Thursday.", "comparison"],
       ["A west groundswell peaks Thursday on a low tide.", "tide"],
       ["A west groundswell peaks Thursday as the tide is rising.", "tide"],
@@ -215,6 +218,16 @@ describe("checkWrittenSentence exported lists", () => {
     }
   });
 
+  it("reads each \"next <weekday>\" unit as its own day", () => {
+    NEXT_WEEKDAYS.forEach((unit, index) => {
+      const named = fact(`A west long-period groundswell peaks ${WEEKDAY[index]}.`);
+      expect([unit, check(`A west groundswell peaks ${unit}.`, named)]).toEqual([unit, { ok: false, reason: "weekday" }]);
+    });
+    const friday = fact("A west long-period groundswell peaks Friday.");
+    expect(check("A west groundswell peaks next Fri.", friday)).toEqual({ ok: false, reason: "weekday" });
+    expect(check("A west groundswell peaks Fri, next to nothing before.", friday)).toEqual({ ok: true });
+  });
+
   it("reads each abbreviation as its full word", () => {
     COMPASS_ABBREVIATIONS.forEach((short, index) => {
       const named = fact(`A ${COMPASS[index]} long-period groundswell peaks Thursday.`);
@@ -245,6 +258,63 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
       fact("Ocean Beach and La Jolla Shores face this swell better than Swami's, which sits in the shadow."))).toEqual({ ok: true });
     // A past tense is a time claim: "arrived" is kept exactly, like "peaked".
     expect(check("A west groundswell arrived Thursday.", days)).toEqual({ ok: false, reason: "timing" });
+  });
+
+  it("refuses the residual claim words its fact doesn't make", () => {
+    const breezy = fact("Faces the west groundswell dead on, but it's breezy in its window.");
+    const windy = fact("Faces the west groundswell dead on, but the wind is up in its window.");
+    const added: Array<[string, StoryCandidate, string]> = [
+      ["Exposed to the west groundswell, with light wind in its window.", sheltered, "exposure"],
+      ["Wide open to the west groundswell, with light wind in its window.", sheltered, "exposure"],
+      ["Catches the west groundswell, with light wind in its window.", sheltered, "exposure"],
+      ["Picks up the west groundswell, with light wind in its window.", sheltered, "exposure"],
+      ["Faces the west groundswell dead on, but it's gusty in its window.", breezy, "wind_strength"],
+      ["Faces the west groundswell dead on, but blown out in its window.", breezy, "wind_strength"],
+      ["Faces the west groundswell dead on, with lighter wind in its window.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, with calmer wind in its window.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, but it's choppy in its window.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, but bumpy in its window.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, but messy in its window.", open, "wind_strength"],
+      ["Faces the west groundswell dead on, and clean in its window.", windy, "wind_strength"],
+      ["A west groundswell arrives at dawn Thursday and peaks Friday.", days, "timing"],
+      ["A west groundswell peaks at noon Friday.", days, "timing"],
+      ["A west groundswell arrives at midnight Thursday.", days, "timing"],
+      ["A west groundswell peaks Friday and fades the following day.", days, "timing"],
+      ["A west groundswell peaks next Friday.", days, "weekday"],
+      ["A small west groundswell peaks Friday.", days, "size"],
+      ["A massive west groundswell peaks Friday.", days, "size"],
+      ["A west groundswell from thousands of miles away peaks Friday.", days, "number"],
+    ];
+    for (const [text, against, reason] of added) expect([text, check(text, against)]).toEqual([text, { ok: false, reason }]);
+  });
+
+  it("reads the residual words as the claim they make", () => {
+    // "catches", "picks up", "exposed" and "wide open" are "faces": true of an open beach. The degree word still stays.
+    expect(check("Catches the west groundswell dead on, with light wind.", open)).toEqual({ ok: true });
+    expect(check("Wide open to the west groundswell dead on, and the wind stays light.", open)).toEqual({ ok: true });
+    expect(check("Wide open to the west groundswell, and the wind stays light.", open)).toEqual({ ok: false, reason: "exposure" });
+    // "cleaner" is "clean": the wind lines write "cleaner" and "cleans up" for one claim.
+    const pattern = fact("Mornings stay cleaner through the week; the onshore fills in by midday.");
+    expect(check("Clean mornings all week, then the onshore fills in by midday.", pattern)).toEqual({ ok: true });
+    const turn = fact("On Friday, the wind turns offshore and cleans up later.");
+    expect(check("On Friday the wind goes offshore and gets cleaner later.", turn)).toEqual({ ok: true });
+    expect(check("On Friday the wind goes offshore and gets lighter later.", turn)).toEqual({ ok: false, reason: "wind_strength" });
+  });
+
+  it("binds the arrival forms to the day after them like \"arrives\"", () => {
+    expect(check("West groundswell shows up Thursday, tops out Friday and backs off Saturday.", days)).toEqual({ ok: true });
+    expect(check("West groundswell fills in Thursday and peaks Friday.", days)).toEqual({ ok: true });
+    for (const verb of ["pushes in", "fills in", "shows up", "rolls in", "rolling in"]) {
+      expect([verb, check(`A west groundswell ${verb} Friday.`, days)]).toEqual([verb, { ok: false, reason: "weekday_order" }]);
+    }
+    // Their past forms are time claims, like "arrived".
+    for (const verb of ["pushed in", "filled in", "showed up", "rolled in"]) {
+      expect([verb, check(`A west groundswell ${verb} Thursday.`, days)]).toEqual([verb, { ok: false, reason: "timing" }]);
+    }
+    // "starts" binds nothing: the lead's "Thursday starts ... toward a Friday peak" would pair it with Friday.
+    const lead = fact("Thursday starts the west swell's run toward a Friday peak.");
+    expect(check("Thursday starts the west swell's run toward a Friday peak.", lead)).toEqual({ ok: true });
+    expect(check("The west swell arrives Friday.", lead)).toEqual({ ok: false, reason: "weekday_order" });
   });
 
   it("binds each day to the phase verbs before it in its clause", () => {
@@ -298,6 +368,19 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
   it("exports the phase verbs and the degree words", () => {
     expect(Object.keys(PHASE_VERBS)).toEqual(["arrives", "peaks", "fades", "comes and goes", "builds", "eases"]);
     expect(DEGREE_WORDS).toEqual([["partly", "partially"], ["dead on"], ["at an angle", "angled"], ["head on"], ["straight on"]]);
+  });
+
+  it("lists every exported constant in the contract, string for string, for the worker to mirror", () => {
+    const doc = readFileSync(path.join(__dirname, "../../../../docs/contracts/week-scout-story.md"), "utf8");
+    const block = /```json claims\n([\s\S]*?)\n```/.exec(doc);
+    expect(block).not.toBeNull();
+    expect(JSON.parse(block![1])).toEqual({
+      COMPASS, WEEKDAY, CLOSED_WORD_SETS, DEGREE_WORDS, PHASE_VERBS, TIME_QUALIFIERS, DAY_PHRASES, WEEK_FROM_DAYS, NEXT_WEEKDAYS,
+      RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, COMPASS_ABBREVIATIONS, WEEKDAY_ABBREVIATIONS,
+    });
+    // Every past phase form is a time qualifier.
+    expect(Object.values(PHASE_VERBS).flat().filter((form) => /ed\b|built|went/.test(form))
+      .filter((form) => !(TIME_QUALIFIERS as readonly string[]).includes(form))).toEqual([]);
   });
 });
 
