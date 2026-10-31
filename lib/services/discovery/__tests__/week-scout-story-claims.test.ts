@@ -618,3 +618,67 @@ describe("every server line passes its own claim check", () => {
     ]));
   });
 });
+
+describe("paraphrase table per server-copy shape (R27)", () => {
+  // The self-checks can't catch binding bugs, so each server line's shape gets true rewrites and swaps.
+  const TODAY = "2026-10-27";
+  const at = (offset: number) => new Date(Date.UTC(2026, 9, 27 + offset, 19)).toISOString();
+  const story = (arrival: number, peak: number, fade: number | null): string => eventStoryText({ directionDeg: 270, periodS: 15,
+    kind: "swell", arrivalAt: at(arrival), peakAt: at(peak), fadeAt: fade === null ? null : at(fade), timezone: "America/Los_Angeles",
+    confidence: "likely", minimumBeaches: 3, regionalKey: "San Diego:W" }, TODAY);
+  const chapter = (): string => {
+    const days: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => ({ localDate: at(index).slice(0, 10), complete: true,
+      sampleBeaches: 3, meanHeightFt: 3, directionDeg: 270, periodS: 15, sourceSeries: "s", forecastRevision: "r" }));
+    const event: RegionalSwellEvent = { directionDeg: 270, periodS: 15, kind: "swell", arrivalAt: at(2), peakAt: at(3), fadeAt: at(4),
+      timezone: "America/Los_Angeles", confidence: "likely", minimumBeaches: 3, regionalKey: "San Diego:W" };
+    return buildStoryCandidates(days, "San Diego", [event]).find((candidate) => /^swell:[^:]+$/.test(candidate.slot) && !candidate.id.endsWith("-alt"))!.text;
+  };
+  type Shape = [name: string, text: string, expected: string, rewrites: string[], swaps: Array<[string, string]>];
+  const shapes: Shape[] = [
+    ["beach open, light", beachLineText({ direction: "west", kind: "swell", periodClass: "long", exposure: "open", facing: "direct", wind: "light" }),
+      "Faces the west groundswell dead on, with light wind in its window.",
+      ["Takes the west groundswell dead on, with light wind.", "Wide open to the west groundswell dead on, light and clean in its window.",
+        "Catches the west groundswell dead on; the wind stays light."],
+      [["Sheltered from the west groundswell, with light wind.", "exposure"], ["Faces the west groundswell dead on, but the wind is up.", "wind_strength"],
+        ["Faces the south groundswell dead on, with light wind.", "direction"], ["Faces the west groundswell at an angle, light wind.", "exposure"]]],
+    ["beach sheltered, breezy", beachLineText({ direction: "west", kind: "swell", periodClass: "long", exposure: "shadowed", facing: null, wind: "breezy" }),
+      "Sheltered from the west groundswell, and it's breezy in its window.",
+      ["Tucked away from the west groundswell, and breezy.", "Sheltered from the west groundswell; a bit bumpy with the breeze."],
+      [["Exposed to the west groundswell, and breezy.", "exposure"], ["Sheltered from the west groundswell, with light wind.", "wind_strength"],
+        ["Partly sheltered from the west groundswell, breezy.", "exposure"]]],
+    ["beach partly sheltered, light", beachLineText({ direction: "west", kind: "swell", periodClass: "mid", exposure: "partial", facing: null, wind: "light" }),
+      "Partly sheltered from the west mid-period swell, with light wind in its window.",
+      ["Partly tucked away from the west mid-period swell, glassy in its window.", "Partially sheltered from the west mid-period swell; the wind stays light."],
+      [["Sheltered from the west mid-period swell, light wind.", "exposure"], ["Partly sheltered from the west groundswell, light wind.", "period"],
+        ["Partly sheltered from the west mid-period swell, but choppy.", "wind_strength"]]],
+    ["beach blown out (windy)", beachLineText({ direction: "west", kind: "storm", periodClass: "short", exposure: "open", facing: "direct", wind: "windy" }),
+      "Faces the west storm swell head on, but the wind is up in its window.",
+      ["Takes the west storm swell head on, but it's blown out.", "Faces the west storm swell head on; windy and choppy."],
+      [["Faces the west storm swell head on, with light wind.", "wind_strength"], ["Faces the west groundswell head on, windy.", "period"],
+        ["Faces the west storm swell dead on, windy.", "exposure"]]],
+    ["event story arrive, peak, fade", story(2, 3, 4), "A west long-period groundswell arrives Thursday, peaks Friday and fades Saturday.",
+      ["West groundswell rolls in Thursday, tops out Friday and backs off Saturday.", "Thursday the west groundswell shows up, Friday it peaks, Saturday it fades.",
+        "The west long-period groundswell arrives Thursday and peaks Friday."],
+      [["West groundswell arrives Friday and peaks Saturday.", "weekday_order"], ["West groundswell arrives Thursday, then peaks and fades Friday.", "weekday_order"],
+        ["Thursday and Friday both peak for the west groundswell.", "weekday_order"]]],
+    ["event story same day", story(2, 2, 3), "A west long-period groundswell arrives and peaks Thursday, then fades Friday.",
+      ["The west groundswell shows up and peaks Thursday, fading Friday.", "Thursday it arrives and peaks; Friday it fades."],
+      [["The west groundswell arrives Thursday and peaks Friday.", "weekday_order"], ["The west groundswell peaks Thursday, Friday.", "weekday_order"],
+        ["The west groundswell arrives Wednesday and peaks Thursday.", "weekday"]]],
+    ["event story comes and goes", story(2, 2, 2), "A west long-period groundswell comes and goes Thursday.",
+      ["The west groundswell comes and goes Thursday.", "Thursday the west groundswell comes and goes."],
+      [["The west groundswell comes and goes Friday.", "weekday"], ["The west groundswell peaks Thursday.", "weekday_order"],
+        ["The west groundswell rolls in Thursday.", "weekday_order"]]],
+    ["Week Scout swell chapter", chapter(), "The long-period groundswell arrives Thursday and peaks Friday before easing Saturday.",
+      ["The long-period groundswell shows up Thursday and peaks Friday, easing Saturday.", "Long-period groundswell: in Thursday, peaking Friday, easing off Saturday."],
+      [["The long-period groundswell arrives Thursday and peaks Saturday.", "weekday_order"],
+        ["The long-period groundswell arrives Thursday and fades Friday.", "weekday_order"],
+        ["The long-period groundswell peaks Friday before easing Thursday.", "weekday_order"]]],
+  ];
+
+  it.each(shapes)("%s: true rewrites pass and swaps refuse", (_name, text, expected, rewrites, swaps) => {
+    expect(text).toBe(expected);
+    for (const rewrite of rewrites) expect([rewrite, check(rewrite, fact(text))]).toEqual([rewrite, { ok: true }]);
+    for (const [swap, reason] of swaps) expect([swap, check(swap, fact(text))]).toEqual([swap, { ok: false, reason }]);
+  });
+});
