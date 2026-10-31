@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { buildRegionEvents, rateRegionEvents } from "@/lib/alerts/swell-events/regional";
+import { loadRegionNarrativeEdition, narrateRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
 import { handleApiError, withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
@@ -58,12 +59,17 @@ async function swellEventsHandler(_request: NextRequest, { params, user, supabas
       return NextResponse.json({ success: true, data: emptyRegion(beach.region, built.beaches.length) });
     }
 
-    const skill = (user ? await getProfileExperienceLevel(supabase, user.id) : null) ?? DEFAULT_SKILL;
+    // Today's story edition is read beside the skill; a failed read costs only the PC's written sentences.
+    const [profileSkill, edition] = await Promise.all([
+      user ? getProfileExperienceLevel(supabase, user.id) : null,
+      loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }),
+    ]);
+    const rated = rateRegionEvents(built, { beachId: id, skill: profileSkill ?? DEFAULT_SKILL, now });
     const data: RegionSwellEventsResponse = {
       region: built.region,
       buoy: built.buoy,
       beachCount: built.beaches.length,
-      events: rateRegionEvents(built, { beachId: id, skill, now }),
+      events: narrateRegionEvents({ build: built, rated, edition, now }),
     };
     return NextResponse.json({ success: true, data });
   } catch (error) {
