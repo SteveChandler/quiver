@@ -67,9 +67,12 @@ export const PHASE_VERBS = {
   builds: ["builds", "build", "building", "built"],
   eases: ["eases", "ease", "easing", "eased"],
 } as const satisfies Record<string, readonly string[]>;
-/** Relative days and times of day: a sentence may use one only when its candidate does (plurals count). */
-export const RELATIVE_TIME_WORDS = ["same day", "next day", "day after", "following day", "weekend", "overnight", "midweek", "dawn",
-  "sunrise", "morning", "midday", "noon", "afternoon", "evening", "sunset", "dusk", "night", "midnight"];
+/**
+ * Relative days and times of day: a sentence may use one only when its candidate does (plurals count). Each
+ * entry is one claim, canonical form first: "noon" is the wind lines' "midday".
+ */
+export const RELATIVE_TIME_WORDS = [["same day"], ["next day"], ["day after"], ["following day"], ["weekend"], ["overnight"], ["midweek"],
+  ["dawn"], ["sunrise"], ["morning"], ["midday", "noon"], ["afternoon"], ["evening"], ["sunset"], ["dusk"], ["night"], ["midnight"]];
 /** Spelled-out numbers and units ("eight feet", "six-foot", "twenty-two seconds"). "One" stays prose ("the one to watch"). */
 export const NUMBER_WORDS = ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
   "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "thirty", "forty", "fifty", "sixty", "seventy",
@@ -124,9 +127,9 @@ function canonical(phrase: string): string {
 }
 
 /** A phrase set read as claims: each form maps to its entry's canonical form. */
-function claimSet(entries: ReadonlyArray<readonly string[]>): { pattern: RegExp; claimOf: Map<string, string> } {
+function claimSet(entries: ReadonlyArray<readonly string[]>, suffix = ""): { pattern: RegExp; claimOf: Map<string, string> } {
   return {
-    pattern: phrasePattern(entries.flat())!,
+    pattern: phrasePattern(entries.flat(), suffix)!,
     claimOf: new Map(entries.flatMap((forms) => forms.map((form) => [canonical(form), canonical(forms[0])] as const))),
   };
 }
@@ -139,7 +142,7 @@ const NEXT_BEFORE = /(?<![\p{L}\p{N}])next[\s-]+$/iu;
 const DIRECTIONS = phrasePattern(COMPASS, "(?:erly|ern|wards?)?")!;
 const TIMING = phrasePattern(TIME_QUALIFIERS)!;
 const DAY_PHRASE = phrasePattern(DAY_PHRASES)!;
-const RELATIVE_TIME = phrasePattern(RELATIVE_TIME_WORDS, "s?")!;
+const RELATIVE_TIME = claimSet(RELATIVE_TIME_WORDS, "s?");
 const NUMBERS = phrasePattern(NUMBER_WORDS)!;
 const SIZES = phrasePattern(SIZE_ADJECTIVES)!;
 const COMPASS_SHORT = tokenPattern(COMPASS_ABBREVIATIONS);
@@ -241,7 +244,7 @@ function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, 
     phases: phasePairs(named, [...days, ...located(rest, DAY_PHRASE)], located(rest, PHASES.pattern, PHASES.claimOf)),
     directions,
     timing: found(rest, TIMING),
-    relative: found(rest, RELATIVE_TIME),
+    relative: found(rest, RELATIVE_TIME.pattern, RELATIVE_TIME.claimOf),
     closed: Object.fromEntries(CLOSED.map(({ name, pattern, claimOf }) => [name, found(rest, pattern, claimOf)])) as Claims["closed"],
     degree: found(rest, DEGREE.pattern, DEGREE.claimOf),
   };

@@ -125,7 +125,7 @@ describe("checkWrittenSentence", () => {
 
   it("lets a sentence use a relative day or time of day only when its fact does", () => {
     const days = fact("A west long-period groundswell arrives Thursday, peaks Friday and fades Saturday.");
-    for (const words of RELATIVE_TIME_WORDS) {
+    for (const words of RELATIVE_TIME_WORDS.flat()) {
       expect([words, check(`A west groundswell peaks Friday, the ${words}.`, days)]).toEqual([words, { ok: false, reason: "timing" }]);
     }
     expect(check("A west groundswell peaks Friday and fades the next day.", days)).toEqual({ ok: false, reason: "timing" });
@@ -135,6 +135,10 @@ describe("checkWrittenSentence", () => {
     expect(check("West storm swell arrives tonight.")).toEqual({ ok: false, reason: "timing" });
     const wind = fact("Mornings stay cleaner through the week; the onshore fills in by midday.");
     expect(check("Mornings stay cleaner; the onshore fills in by midday.", wind)).toEqual({ ok: true });
+    // "noon" is "midday" (R24), not a new time of day; "afternoon" is still its own.
+    expect(check("Mornings stay cleaner; the onshore fills in by noon.", wind)).toEqual({ ok: true });
+    expect(check("Mornings stay cleaner; the onshore fills in by the afternoon.", wind)).toEqual({ ok: false, reason: "timing" });
+    expect(check("A west groundswell peaks Friday at noon.", days)).toEqual({ ok: false, reason: "timing" });
   });
 });
 
