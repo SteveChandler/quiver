@@ -93,13 +93,12 @@ export const NUMBER_WORDS = ["two", "three", "four", "five", "six", "seven", "ei
   "eighty", "ninety", "hundred", "hundreds", "dozen", "dozens", "half", "feet", "foot", "ft", "seconds", "mph", "knots", "meter",
   "meters", "metre", "metres", "inch", "inches", "mile", "miles"];
 /** Hype stays banned even when a candidate has size facts. */
-export const SIZE_ADJECTIVES = ["big", "huge", "massive", "solid", "pumping", "firing", "epic"];
+export const SIZE_ADJECTIVES = ["big", "huge", "massive", "solid", "pumping", "firing", "epic", "triple overhead", "triple-overhead"];
 export { SIZE_BUCKETS } from "./week-scout-story-facts";
 export const BODY_SIZES = ["knee", "waist", "chest", "shoulder", "head"] as const;
 export const OVERHEAD_SIZES = [["double overhead", "double-overhead"], ["overhead"]] as const;
 export const SMALL_SIZES = { small: 3, tiny: 2, flat: 1 } as const;
-export const STANDOUT_WORDS = ["standouts", "standout", "best spots", "best breaks", "best reefs", "swell magnets"];
-export const BIGGER_AT_STANDOUTS = ["bigger at the standouts", "bigger at standouts", "bigger at the best spots", "bigger at the best breaks"];
+export const STANDOUT_WORDS = ["standouts", "best spots", "best breaks", "best reefs", "swell magnets"];
 export const FOOT_UNITS = ["ft", "foot", "feet"];
 export const WIND_TIMING = {
   kinds: {
@@ -109,17 +108,19 @@ export const WIND_TIMING = {
   },
   spans: {
     early: [0, 9, ["early", "at dawn", "first thing"]],
-    morning: [0, 12, ["all morning", "in the morning", "mornings"]],
-    afternoon: [12, 24, ["in the afternoon", "afternoons", "all afternoon"]],
+    morning: [0, 12, ["all morning", "in the morning", "mornings"], ["all morning"]],
+    afternoon: [12, 24, ["in the afternoon", "afternoons", "all afternoon"], ["all afternoon"]],
     "after lunch": [13, 24, ["after lunch"]],
-    "all day": [0, 24, ["all day"]],
+    "all day": [0, 24, ["all day"], ["all day"]],
   },
-  clock: { firstHour: 7, lastHour: 12, untilHour: 13, suffixes: ["AM", "am", "a.m."], noon: "noon" },
+  clock: { firstHour: 7, lastHour: 12, untilHour: 13, suffixes: ["AM", "am", "a.m."], pmSuffixes: ["PM", "pm", "p.m.", "P.M."], noon: "noon" },
+  cover: { daylightFrom: 6, daylightTo: 18, edgeHours: 2 },
   lightPrefix: "light",
   lightBelowMph: LIGHT_WIND_MPH,
 } as const;
 export const BREAKER_WORDS = [["pitching", "pitches", "throwing", "throws"], ["hollow"], ["punchy"], ["crumbly", "crumbling", "crumbles", "spilling"],
-  ["soft", "mushy"], ["peaky"], ["lined up", "lined-up", "lines up", "lining up"], ["closing out", "closes out", "close out", "closeouts"]];
+  ["soft", "mushy"], ["peaky"], ["lined up", "lined-up", "lines up", "lining up"],
+  ["closing out", "closes out", "close out", "closeouts", "closeout", "close-out", "close outs", "close-outs"]];
 /**
  * Verdicts a written sentence never names, read only as whole UPPERCASE words: native's narrativeText()
  * refusals (YES, MAYBE, NO) and the card's beach labels (scoreLabel's EPIC, GOOD, FAIR, RIDEABLE, MEH, and an
@@ -139,10 +140,10 @@ type WrittenSentenceCheck = { ok: true } | { ok: false; reason: WrittenSentenceR
 /** The candidates' own limit (add() in week-scout-story-candidates). */
 const MAX_LENGTH = 240;
 // Uppercase whole words only, so "no wind" and "good" stay prose: native's narrativeText() refusal plus every card label.
-const VERDICT_WORD = new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...VERDICT_WORDS].sort((a, b) => b.length - a.length)
-  .map((word) => word.replace(/\s+/g, "\\s+")).join("|")})(?![\\p{L}\\p{N}])`, "u");
+const VERDICT_WORD = new RegExp(`(?<![\\p{L}0-9])(?:${[...VERDICT_WORDS].sort((a, b) => b.length - a.length)
+  .map((word) => word.replace(/\s+/g, "\\s+")).join("|")})(?![\\p{L}0-9])`, "u");
 const THE_CALL = /\bthe\s+call\b/i;
-const NUMERAL = /\p{N}/u;
+const NUMERAL = /[0-9]/;
 /** Punctuation that ends a clause: a phase verb never binds a day across one. */
 const CLAUSE_BREAK = /[,;:.!?()…\u2013\u2014]|\s-\s/gu;
 
@@ -176,13 +177,13 @@ function phraseAlternatives(phrases: readonly string[]): string {
 function compilePhrases(phrases: readonly string[], suffix: string): RegExp | null {
   const alternatives = phraseAlternatives(phrases);
   if (alternatives.length === 0) return null;
-  return new RegExp(`(?<![\\p{L}\\p{N}])(${alternatives})${suffix}(?![\\p{L}\\p{N}])`, "giu");
+  return new RegExp(`(?<![\\p{L}0-9])(${alternatives})${suffix}(?![\\p{L}0-9])`, "giu");
 }
 
 /** Whole case-sensitive tokens, longest first. */
 function tokenPattern(tokens: readonly string[]): RegExp {
   const alternatives = [...tokens].sort((a, b) => b.length - a.length);
-  return new RegExp(`(?<![\\p{L}\\p{N}])(${alternatives.join("|")})(?![\\p{L}\\p{N}])`, "gu");
+  return new RegExp(`(?<![\\p{L}0-9])(${alternatives.join("|")})(?![\\p{L}0-9])`, "gu");
 }
 
 function canonical(phrase: string): string {
@@ -200,7 +201,7 @@ function claimSet(entries: ReadonlyArray<readonly string[]>, suffix = ""): { pat
 const WEEKDAYS = phrasePattern(WEEKDAY, "s?")!;
 const DAY_UNITS = phrasePattern([...WEEK_FROM_DAYS, ...NEXT_WEEKDAYS])!;
 /** "next Fri" is "next friday", as "next Friday" is. */
-const NEXT_BEFORE = /(?<![\p{L}\p{N}])next[\s-]+$/iu;
+const NEXT_BEFORE = /(?<![\p{L}0-9])next[\s-]+$/iu;
 // "westerly" and "southern" claim a direction too.
 const DIRECTIONS = phrasePattern(COMPASS, "(?:erly|ern|wards?)?")!;
 const TIMING = phrasePattern(TIME_QUALIFIERS)!;
@@ -215,17 +216,23 @@ const CLOSED = (Object.entries(CLOSED_WORD_SETS) as Array<[ClosedWordClass, Read
 const STRENGTH = CLOSED.find((set) => set.name === "wind_strength")!;
 const DEGREE = claimSet(DEGREE_WORDS);
 const PHASES = claimSet(Object.entries(PHASE_VERBS).map(([phase, forms]) => [phase, ...forms]));
-const FOOT_RANGE = new RegExp(`(?<![\\p{L}\\p{N}])(\\d{1,2})(?:\\s*(?:-|–|to)\\s*(\\d{1,2}))?[\\s-]*(?:${phraseAlternatives(FOOT_UNITS)})(?![\\p{L}\\p{N}])`, "giu");
+const FOOT_RANGE = new RegExp(`(?<![\\p{L}0-9])([0-9]{1,2})(?:\\s*(?:-|–|—|to)\\s*([0-9]{1,2}))?[\\s-]*(?:${phraseAlternatives(FOOT_UNITS)})(?![\\p{L}0-9])`, "giu");
 const STANDOUT = phrasePattern(STANDOUT_WORDS)!;
-const BIGGER = phrasePattern(BIGGER_AT_STANDOUTS)!;
+const AT_STANDOUTS = phrasePattern(STANDOUT_WORDS.flatMap((phrase) => [`at ${phrase}`, `at the ${phrase}`]))!;
+const BIGGER = phrasePattern(["bigger"])!;
 const SMALL = phrasePattern(Object.keys(SMALL_SIZES))!;
-const BODY_CLAIMS = new Map<string, readonly SizeWord[]>(BODY_SIZES.flatMap((low) => [
-  [`${low} high`, [low]] as const,
-  ...BODY_SIZES.flatMap((high) => [
-    [`${low} to ${high}`, [low, high]] as const,
-    [`${low} to ${high} high`, [low, high]] as const,
-  ]),
-]));
+const BODY_CLAIMS = new Map<string, readonly SizeWord[]>();
+const BODY_ENDPOINTS = [...BODY_SIZES, ...OVERHEAD_SIZES.map(([word]) => word)] as const;
+for (const low of BODY_SIZES) {
+  BODY_CLAIMS.set(`${low} high`, [low]);
+  BODY_CLAIMS.set(`${low} height`, [low]);
+  for (const high of BODY_ENDPOINTS) {
+    const sizes: SizeWord[] = [low, high];
+    BODY_CLAIMS.set(`${low} to ${high}`, sizes);
+    BODY_CLAIMS.set(`${low} to ${high} high`, sizes);
+  }
+  for (const high of BODY_SIZES) BODY_CLAIMS.set(`${low} and ${high} high`, [low, high]);
+}
 for (const forms of OVERHEAD_SIZES) {
   for (const form of forms) BODY_CLAIMS.set(canonical(form), [forms[0]]);
 }
@@ -234,14 +241,15 @@ const BREAKERS = claimSet(BREAKER_WORDS);
 type WindKind = keyof typeof WIND_TIMING.kinds;
 const WIND_KINDS = new Map<string, WindKind>(Object.entries(WIND_TIMING.kinds)
   .flatMap(([kind, forms]) => forms.map((form) => [canonical(form), kind as WindKind] as const)));
-const WIND_SPANS = new Map<string, readonly [number, number]>(Object.values(WIND_TIMING.spans)
-  .flatMap(([from, to, forms]) => forms.map((form) => [canonical(form), [from, to]] as const)));
+const WIND_SPANS = new Map<string, readonly [number, number, boolean]>(Object.values(WIND_TIMING.spans)
+  .flatMap(([from, to, forms, allForms]) => forms.map((form) => [canonical(form),
+    [from, to, (allForms as readonly string[] | undefined)?.includes(form) ?? false]] as const)));
 const CLOCK_HOURS = Array.from({ length: WIND_TIMING.clock.lastHour - WIND_TIMING.clock.firstHour + 1 },
   (_, index) => String(WIND_TIMING.clock.firstHour + index));
-const TIMED_WIND = new RegExp(`(?<![\\p{L}\\p{N}])(?:(${phraseAlternatives([WIND_TIMING.lightPrefix])})[\\s-]+)?`
+const TIMED_WIND = new RegExp(`(?<![\\p{L}0-9])(?:(${phraseAlternatives([WIND_TIMING.lightPrefix])})[\\s-]+)?`
   + `(${phraseAlternatives([...WIND_KINDS.keys()])})[\\s-]+(?:(${phraseAlternatives([...WIND_SPANS.keys()])})`
-  + `|by[\\s-]+(?:(${phraseAlternatives(CLOCK_HOURS)})(?:\\s*(?:${phraseAlternatives(WIND_TIMING.clock.suffixes)}))?`
-  + `|(${phraseAlternatives([WIND_TIMING.clock.noon])})))(?![\\p{L}\\p{N}])`, "giu");
+  + `|by[\\s-]+(?:(${phraseAlternatives(CLOCK_HOURS)})(?:\\s*(${phraseAlternatives(WIND_TIMING.clock.suffixes)}))?`
+  + `(?:\\s*(${phraseAlternatives(WIND_TIMING.clock.pmSuffixes)}))?|(${phraseAlternatives([WIND_TIMING.clock.noon])})))(?![\\p{L}0-9])`, "giu");
 
 function found(text: string, pattern: RegExp, claimOf?: ReadonlyMap<string, string>): Set<string> {
   return new Set(located(text, pattern, claimOf).map((match) => match.claim));
@@ -273,14 +281,14 @@ function blankFactClaims(text: string): string {
   return blank(blankSizes(blank(blank(text, FOOT_RANGE), TIMED_WIND)), BREAKERS.pattern);
 }
 
-function standoutClause(text: string, at: number): boolean {
+function standoutClause(text: string, at: number, pattern: RegExp): boolean {
   let from = 0;
   let to = text.length;
   for (const match of text.matchAll(CLAUSE_BREAK)) {
     if (match.index < at) from = match.index + match[0].length;
     else { to = match.index; break; }
   }
-  return found(text.slice(from, to), STANDOUT).size > 0;
+  return found(text.slice(from, to), pattern).size > 0;
 }
 
 function rangeWithin(low: number, high: number, range: FaceRange | null | undefined): boolean {
@@ -289,37 +297,43 @@ function rangeWithin(low: number, high: number, range: FaceRange | null | undefi
 
 function footRangesHold(text: string, facts: CandidateFacts | undefined): boolean {
   // Range punctuation belongs to the range, not to the surrounding clause.
-  const clauses = blank(text, FOOT_RANGE);
+  const clauses = blank(blank(text, FOOT_RANGE), TIMED_WIND);
   return [...text.matchAll(FOOT_RANGE)].every((match) => {
     const low = Number(match[1]);
     const high = Number(match[2] ?? match[1]);
     return rangeWithin(low, high, facts?.faceFt)
-      || (standoutClause(clauses, match.index) && rangeWithin(low, high, facts?.standoutFt));
+      || (standoutClause(clauses, match.index, AT_STANDOUTS) && rangeWithin(low, high, facts?.standoutFt));
   });
 }
 
 function windTimingHolds(text: string, facts: CandidateFacts | undefined): boolean {
   return [...text.matchAll(TIMED_WIND)].every((match) => {
     const kind = WIND_KINDS.get(canonical(match[2]))!;
-    const [from, to] = match[3] ? WIND_SPANS.get(canonical(match[3]))!
-      : [match[5] ? WIND_TIMING.clock.lastHour : Number(match[4]), WIND_TIMING.clock.untilHour];
+    if (match[6]) return false;
+    const [from, to, all] = match[3] ? WIND_SPANS.get(canonical(match[3]))!
+      : [match[7] ? WIND_TIMING.clock.lastHour : Number(match[4]), WIND_TIMING.clock.untilHour, false];
     const hours = facts?.windHours?.filter((row) => row.hour >= from && row.hour < to) ?? [];
-    return hours.length > 0 && hours.every((row) =>
+    const coversSpan = !all || (hours.some((row) => row.hour <= Math.max(from, WIND_TIMING.cover.daylightFrom) + WIND_TIMING.cover.edgeHours)
+      && hours.some((row) => row.hour >= Math.min(to, WIND_TIMING.cover.daylightTo) - WIND_TIMING.cover.edgeHours));
+    return hours.length > 0 && coversSpan && hours.every((row) =>
       (kind === "light" || row.relation === kind)
       && (!(match[1] || kind === "light") || (row.mph != null && row.mph < WIND_TIMING.lightBelowMph)));
   });
 }
 
 function sizeWordsHold(text: string, facts: CandidateFacts | undefined): boolean {
+  const clauseText = blank(blank(text, FOOT_RANGE), TIMED_WIND);
   for (const match of text.matchAll(BODY_SIZE)) {
     const sizes = BODY_CLAIMS.get(canonical(match[1]))!;
-    const standout = standoutClause(text, match.index);
+    const standout = standoutClause(clauseText, match.index, AT_STANDOUTS);
     if (!sizes.every((size) => facts?.sizes?.includes(size) || (standout && facts?.standoutSizes?.includes(size)))) return false;
   }
   for (const word of found(text, SMALL)) {
     if (!facts?.faceFt || !(facts.faceFt.max <= SMALL_SIZES[word as keyof typeof SMALL_SIZES])) return false;
   }
-  if (found(text, BIGGER).size > 0 && !facts?.standoutFt) return false;
+  for (const match of located(text, BIGGER)) {
+    if (standoutClause(clauseText, match.at, STANDOUT) && !facts?.standoutFt) return false;
+  }
   return found(text, SIZES).size === 0;
 }
 
@@ -473,6 +487,8 @@ export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNa
   const beaches = phrasePattern(beachNames);
   const regions = phrasePattern(regionNames);
   let named = blank(blank(text, beaches), regions);
+  if ([...named.matchAll(FOOT_RANGE)].some((match) => match[1].length > 1 && match[1].startsWith("0")
+    || (match[2] !== undefined && match[2].length > 1 && match[2].startsWith("0")))) return refuse("digit");
   if (!footRangesHold(named, fact.facts)) return refuse("size");
   named = blank(named, FOOT_RANGE);
   if (!windTimingHolds(named, fact.facts)) return refuse("wind_timing");
