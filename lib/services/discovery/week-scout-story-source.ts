@@ -17,7 +17,7 @@ import { recordStage, timeStage } from "@/lib/observability/request-timing";
 type Client = SupabaseClient<Database>;
 type Row = { id: string; beach_id: string; forecast_at: string; wave_height: string | null; wave_period: string | null; wind_speed: string | null; tide_height: string | null; swell_direction_om: number | null; swell_period_om: number | null; wind_direction: string | null; tide_status: string | null; om_fetched_at: string | null; updated_at: string | null } & SwellEventForecastRow;
 type BeachRow = { id: string; name: string; lat: number; lon: number; aspect_deg: number | null; swell_window_center_deg: number | null; swell_window_halfwidth_deg: number | null; wind_offshore_deg: number | null };
-export const STORY_SAMPLE_VERSION = "regional-swell-events-6";
+export const STORY_SAMPLE_VERSION = "regional-swell-events-7";
 const SOURCE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 const PAGE_SIZE = 500;
 
