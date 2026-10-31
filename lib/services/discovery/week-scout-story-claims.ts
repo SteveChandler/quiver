@@ -37,14 +37,17 @@ export const DEGREE_WORDS = [["partly", "partially"], ["dead on"], ["at an angle
  * Words a day leans on, kept exactly: a sentence keeps every one its candidate has and adds none ("peaked"
  * is not "peaks"). A phase verb's past form is a time claim too, so every past form in PHASE_VERBS is here.
  */
-export const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "later on", "peaked", "faded", "arrived", "reached",
-  "pushed in", "filled in", "showed up", "rolled in", "eased", "built", "came and went", "today", "tonight", "tomorrow"];
+export const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "earlier", "later on", "peaked", "faded", "arrived",
+  "reached", "pushed in", "filled in", "showed up", "rolled in", "eased", "built", "came and went", "today", "tonight", "tomorrow"];
 /** One claim each, read before bare weekdays: "a week from Saturday" is neither "Saturday" nor "a week from Thursday". */
 export const WEEK_FROM_DAYS = ["a week from today", ...WEEKDAY.map((day) => `a week from ${day}`)];
 /** One claim each, read with WEEK_FROM_DAYS: "next Friday" is neither "Friday" nor anything a candidate names. */
 export const NEXT_WEEKDAYS = WEEKDAY.map((day) => `next ${day}`);
-/** Time qualifiers that stand where a weekday would ("peaks next week"), so a phase verb binds to them like a day. */
-export const DAY_PHRASES = ["next week", "earlier in the week", "later on", "today", "tonight", "tomorrow"];
+/**
+ * Time qualifiers that stand where a weekday would ("peaks next week"), so a phase verb binds to them like a day.
+ * The card writes bare "earlier" for a day more than six days back ("peaked earlier").
+ */
+export const DAY_PHRASES = ["next week", "earlier in the week", "earlier", "later on", "today", "tonight", "tomorrow"];
 /**
  * The verbs that name a swell's phase, each with the forms that make the same claim. A phase verb binds every
  * day after it in its clause until the next day: "arrives Thursday, peaks Friday" pairs arrives with Thursday,

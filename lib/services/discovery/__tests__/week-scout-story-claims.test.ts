@@ -173,6 +173,19 @@ describe("checkWrittenSentence closed word sets (R16)", () => {
     expect(check("Faces the west storm swell head on, with calm wind.", windy)).toEqual({ ok: false, reason: "wind_strength" });
   });
 
+  it("reads the card's bare \"earlier\" as a day and a time qualifier (R24)", () => {
+    const past = fact("A west mid-period swell is already in the water, peaked earlier and fades Monday.");
+    // Each of these passed before: "earlier" was no claim.
+    expect(check("A west swell is already in the water, peaked Monday and fades earlier.", past)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("A west swell peaked Monday.", past)).toEqual({ ok: false, reason: "timing" });
+    expect(check("The west swell already peaked earlier and fades Monday.", past)).toEqual({ ok: true });
+    // "earlier in the week" stays one claim: a rewrite to "earlier this week" falls back (safely).
+    const week = fact("A long-period groundswell from the west reaches San Diego earlier in the week and peaks Thursday.");
+    expect(checkWrittenSentence("The west groundswell reaches San Diego earlier in the week.", week, BEACHES, ["San Diego"])).toEqual({ ok: true });
+    expect(checkWrittenSentence("The west groundswell reaches San Diego earlier this week.", week, BEACHES, ["San Diego"]))
+      .toEqual({ ok: false, reason: "timing" });
+  });
+
   it("keeps the fact's wind words in its order (R24)", () => {
     const turn = fact("On Friday, the wind starts offshore, then turns onshore by midday.");
     expect(check("On Friday, the wind starts onshore, then turns offshore by midday.", turn)).toEqual({ ok: false, reason: "wind" });
