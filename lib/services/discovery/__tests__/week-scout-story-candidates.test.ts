@@ -1,7 +1,7 @@
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addDays } from "../swell-briefing-input";
 import {
-  beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion,
+  beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion, swellChapterPhases,
   type BeachLineFacts, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import { CLOSED_WORD_SETS } from "../week-scout-story-claims";
@@ -95,6 +95,15 @@ describe("regional Week Scout story candidates", () => {
     expect(chapter("2026-10-29", "2026-10-29", null)).toBe("The long-period groundswell arrives and peaks Thursday.");
     expect(chapter("2026-10-29", "2026-10-30", "2026-10-30")).toBe("The long-period groundswell arrives Thursday and peaks Friday.");
     expect(chapter("2026-10-29", "2026-10-30", "2026-10-31")).toBe("The long-period groundswell arrives Thursday and peaks Friday before easing Saturday.");
+    // A peak and fade past the window both read "next week": the word goes once (R27).
+    expect(chapter("2026-11-02", "2026-11-04", "2026-11-05")).toBe("The long-period groundswell arrives Monday and peaks next week.");
+    expect(chapter("2026-10-26", "2026-10-28", "2026-10-29")).toBe("The long-period groundswell arrives earlier in the week and peaks Wednesday before easing Thursday.");
+    // Words decide, for either side of the window.
+    expect(swellChapterPhases("next week", "next week", "next week")).toBe("comes and goes next week");
+    expect(swellChapterPhases("next week", "next week", null)).toBe("arrives and peaks next week");
+    expect(swellChapterPhases("earlier in the week", "earlier in the week", "Tuesday"))
+      .toBe("arrives and peaks earlier in the week before easing Tuesday");
+    expect(swellChapterPhases("earlier in the week", "earlier in the week", "earlier in the week")).toBe("comes and goes earlier in the week");
   });
 
   it("writes keyed copy for every in-week event, earliest peak first, and leaves the fade off cover and lead", () => {
