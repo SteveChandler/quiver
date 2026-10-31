@@ -6,7 +6,7 @@ import {
 } from "../week-scout-story-candidates";
 import {
   CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, LIST_JOINERS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS,
-  RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, VERDICT_WORDS, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
+  RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
 } from "../week-scout-story-claims";
 import type { StoryCandidate } from "../week-scout-story-types";
 
@@ -340,6 +340,25 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(check("Picks up the west groundswell, and the wind is up.", shelteredWindy)).toEqual({ ok: false, reason: "exposure" });
   });
 
+  it("lets a candidate's wind strength license the claims it implies, on the candidate's side only (R27)", () => {
+    const openWindy = fact("Faces the west groundswell dead on, but the wind is up in its window.");
+    const openBreezy = fact("Faces the west groundswell dead on, but it's breezy in its window.");
+    expect(check("Takes the west groundswell dead on, clean and glassy in its window.", open)).toEqual({ ok: true });
+    expect(check("Takes the west groundswell dead on, with calm wind.", open)).toEqual({ ok: true });
+    expect(check("Takes the west groundswell dead on, but blown out and choppy.", openWindy)).toEqual({ ok: true });
+    expect(check("Takes the west groundswell dead on, but gusty and messy.", openWindy)).toEqual({ ok: true });
+    expect(check("Takes the west groundswell dead on, a bit bumpy.", openBreezy)).toEqual({ ok: true });
+    // Never across strengths, and never backwards: "clean" licenses no "light".
+    expect(check("Takes the west groundswell dead on, but choppy.", open)).toEqual({ ok: false, reason: "wind_strength" });
+    expect(check("Takes the west groundswell dead on, and clean.", openWindy)).toEqual({ ok: false, reason: "wind_strength" });
+    expect(check("Takes the west groundswell dead on, but choppy.", openBreezy)).toEqual({ ok: false, reason: "wind_strength" });
+    expect(check("Light wind on Friday.", fact("On Friday, the wind turns offshore and cleans up later."))).toEqual({ ok: false, reason: "wind_strength" });
+    // Every key and value is a wind_strength claim's canonical form.
+    const canonical = CLOSED_WORD_SETS.wind_strength.map((forms) => forms[0] as string);
+    expect(Object.entries(WIND_STRENGTH_IMPLIES).flatMap(([key, values]) => [key, ...values]).filter((claim) => !canonical.includes(claim)))
+      .toEqual([]);
+  });
+
   it("reads the residual words as the claim they make", () => {
     // "catches", "picks up", "exposed" and "wide open" are "faces": true of an open beach. The degree word still stays.
     expect(check("Catches the west groundswell dead on, with light wind.", open)).toEqual({ ok: true });
@@ -483,7 +502,8 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(block).not.toBeNull();
     expect(JSON.parse(block![1])).toEqual({
       COMPASS, WEEKDAY, CLOSED_WORD_SETS, DEGREE_WORDS, PHASE_VERBS, TIME_QUALIFIERS, DAY_PHRASES, WEEK_FROM_DAYS, NEXT_WEEKDAYS,
-      LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, VERDICT_WORDS, COMPASS_ABBREVIATIONS, WEEKDAY_ABBREVIATIONS,
+      LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, COMPASS_ABBREVIATIONS,
+      WEEKDAY_ABBREVIATIONS,
     });
     // Every past phase form is a time qualifier.
     expect(Object.values(PHASE_VERBS).flat().filter((form) => /ed\b|built|went/.test(form))

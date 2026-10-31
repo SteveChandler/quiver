@@ -27,6 +27,17 @@ export const CLOSED_WORD_SETS = {
 type ClosedWordClass = keyof typeof CLOSED_WORD_SETS;
 
 /**
+ * Wind-strength claims a candidate's own claim licenses by rule, read on the candidate's side only: light wind
+ * is clean, glassy and calm; a windy window is blown out, choppy, bumpy, messy and gusty; a breezy one is bumpy.
+ * Keys and values are canonical (first) forms of CLOSED_WORD_SETS.wind_strength entries.
+ */
+export const WIND_STRENGTH_IMPLIES: Readonly<Record<string, readonly string[]>> = {
+  light: ["clean", "glassy", "calm"],
+  windy: ["blown out", "choppy", "bumpy", "messy", "gusty"],
+  breezy: ["bumpy"],
+};
+
+/**
  * How squarely a beach takes a swell, kept exactly: a sentence keeps every one its candidate has and adds
  * none, so "Partly sheltered" never reads "Sheltered" and "dead on" never drops. Each entry is one claim,
  * canonical form first. All are exposure words, so the refusal reason is "exposure".
@@ -332,8 +343,10 @@ export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNa
   if (!within(sentence.relative, source.relative)) return refuse("timing");
   // After timing, so a time word the fact lacks ("peaks today") reads as timing, not as a moved day.
   if (!within(sentence.phases, source.phases)) return refuse("weekday_order");
+  const licensed = { ...source.closed, wind_strength: new Set([...source.closed.wind_strength]
+    .flatMap((claim) => [claim, ...(WIND_STRENGTH_IMPLIES[claim] ?? [])])) };
   for (const { name } of CLOSED) {
-    if (!within(sentence.closed[name], source.closed[name])) return refuse(name);
+    if (!within(sentence.closed[name], licensed[name])) return refuse(name);
   }
   // Wind words keep the candidate's order, as beaches do: "starts offshore, then turns onshore" never reads the other way.
   if (!inOrder([...sentence.closed.wind], [...source.closed.wind])) return refuse("wind");
