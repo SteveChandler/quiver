@@ -1,4 +1,4 @@
-import { checkWrittenSentence } from "../week-scout-story-claims";
+import { CLOSED_WORD_SETS, RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, checkWrittenSentence } from "../week-scout-story-claims";
 import type { StoryCandidate } from "../week-scout-story-types";
 
 const gate: StoryCandidate["gate"] = {
@@ -17,7 +17,7 @@ describe("checkWrittenSentence", () => {
     expect(check("West storm swell rolls in Thursday night and peaks Friday.")).toEqual({ ok: true });
     expect(check("the west storm swell peaks friday.")).toEqual({ ok: true });
     const exposure = fact("Ocean Beach and La Jolla Shores face this swell better than Swami's, which sits in the shadow.");
-    expect(check("Ocean Beach and La Jolla Shores take it head on; Swami's stays sheltered.", exposure)).toEqual({ ok: true });
+    expect(check("Ocean Beach and La Jolla Shores face it better; Swami's sits in the shadow.", exposure)).toEqual({ ok: true });
     const compound = fact("A south-southwest long-period groundswell arrives Tuesday and peaks Wednesday.");
     expect(check("South-southwest groundswell, peaking Wednesday.", compound)).toEqual({ ok: true });
   });
@@ -85,11 +85,102 @@ describe("checkWrittenSentence", () => {
 
   it("treats time qualifiers as claims: a sentence keeps every one its fact has and adds none", () => {
     const later = fact("A west long-period groundswell arrives a week from Wednesday and peaks a week from Thursday.");
-    expect(check("A west groundswell peaks Thursday.", later)).toEqual({ ok: false, reason: "timing" });
+    // "a week from Thursday" is one claim, so a bare Thursday is a weekday the fact never names.
+    expect(check("A west groundswell peaks Thursday.", later)).toEqual({ ok: false, reason: "weekday" });
     expect(check("A west groundswell peaks a week from Thursday.", later)).toEqual({ ok: true });
     expect(check("West storm swell rolls in tomorrow and peaks Friday.")).toEqual({ ok: false, reason: "timing" });
     const peaked = fact("A west mid-period swell is already in the water, peaked Monday and fades Tuesday.");
     expect(check("The west swell peaks Monday and fades Tuesday.", peaked)).toEqual({ ok: false, reason: "timing" });
     expect(check("The west swell peaked Monday and fades Tuesday.", peaked)).toEqual({ ok: true });
+  });
+
+  it("reads \"a week from <day>\" as one claim and keeps the fact's order of days", () => {
+    // Each of these passed before: the same weekdays and the same "a week from", in other places.
+    const mixed = fact("A west long-period groundswell arrives Saturday and peaks a week from Thursday.");
+    expect(check("A west groundswell arrives a week from Saturday and peaks Thursday.", mixed)).toEqual({ ok: false, reason: "weekday" });
+    expect(check("A west groundswell arrives Saturday and peaks a week from Thursday.", mixed)).toEqual({ ok: true });
+    const today = fact("An east short-period windswell arrives a week from today and peaks a week from Thursday.");
+    expect(check("An east windswell arrives a week from Thursday.", today)).toEqual({ ok: true });
+    expect(check("An east windswell arrives a week from Friday.", today)).toEqual({ ok: false, reason: "weekday" });
+
+    const days = fact("A west long-period groundswell arrives Thursday, peaks Friday and fades Saturday.");
+    expect(check("A west groundswell arrives Friday, peaks Thursday and fades Saturday.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    expect(check("A west groundswell fades Saturday after peaking Friday.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    // Leaving a day out keeps the order; abbreviations count where they stand.
+    expect(check("A west groundswell peaks Friday and fades Saturday.", days)).toEqual({ ok: true });
+    expect(check("A west groundswell peaks SAT, after Thursday.", days)).toEqual({ ok: false, reason: "weekday_order" });
+    const change = fact("The best regional window looks better on Friday than on Thursday.");
+    expect(check("The best regional window looks better on Thursday than on Friday.", change)).toEqual({ ok: false, reason: "weekday_order" });
+  });
+
+  it("lets a sentence use a relative day or time of day only when its fact does", () => {
+    const days = fact("A west long-period groundswell arrives Thursday, peaks Friday and fades Saturday.");
+    for (const words of RELATIVE_TIME_WORDS) {
+      expect([words, check(`A west groundswell peaks Friday, the ${words}.`, days)]).toEqual([words, { ok: false, reason: "timing" }]);
+    }
+    expect(check("A west groundswell peaks Friday and fades the next day.", days)).toEqual({ ok: false, reason: "timing" });
+    expect(check("A west groundswell peaks Friday, best in the mornings.", days)).toEqual({ ok: false, reason: "timing" });
+    // The storm fact says "Thursday night", so its rewrite may; "tonight" is a different claim.
+    expect(check("West storm swell rolls in Thursday night.")).toEqual({ ok: true });
+    expect(check("West storm swell rolls in tonight.")).toEqual({ ok: false, reason: "timing" });
+    const wind = fact("Mornings stay cleaner through the week; the onshore fills in by midday.");
+    expect(check("Clean mornings, then the onshore fills in by midday.", wind)).toEqual({ ok: true });
+  });
+});
+
+describe("checkWrittenSentence closed word sets (R16)", () => {
+  const dayless = fact("A west long-period groundswell arrives Wednesday and peaks Thursday.");
+
+  it("refuses a closed-set word its fact doesn't use, naming the set", () => {
+    const added: Array<[string, string]> = [
+      ["A west groundswell peaks Thursday with offshore wind.", "wind"],
+      ["A west groundswell peaks Thursday, onshore by noon.", "wind"],
+      ["A better west groundswell peaks Thursday.", "comparison"],
+      ["A west groundswell peaks Thursday on a low tide.", "tide"],
+      ["A west groundswell peaks Thursday as the tide is rising.", "tide"],
+      ["A west windswell peaks Thursday.", "period"],
+      ["A stormy west swell peaks Thursday.", "period"],
+      ["A west short-period swell peaks Thursday.", "period"],
+      ["A west groundswell peaks Thursday; sheltered spots stay quiet.", "exposure"],
+      ["A west groundswell peaks Thursday and hits some spots head-on.", "exposure"],
+      ["A west groundswell peaks Thursday under light wind.", "wind_strength"],
+      ["A glassy west groundswell peaks Thursday.", "wind_strength"],
+      ["A west groundswell peaks Thursday, but the wind is up.", "wind_strength"],
+    ];
+    for (const [text, reason] of added) expect([text, check(text, dayless)]).toEqual([text, { ok: false, reason }]);
+  });
+
+  it("stops a rewrite from inverting a beach line", () => {
+    const open = fact("Faces the west groundswell dead on, with light wind in its window.");
+    expect(check("Faces the west groundswell dead on, with light wind.", open)).toEqual({ ok: true });
+    expect(check("Sheltered from the west groundswell, with light wind.", open)).toEqual({ ok: false, reason: "exposure" });
+    expect(check("Faces the west groundswell at an angle, with light wind.", open)).toEqual({ ok: false, reason: "exposure" });
+    expect(check("Faces the west groundswell dead on, but the wind is up.", open)).toEqual({ ok: false, reason: "wind_strength" });
+    expect(check("Faces the west groundswell dead on, but it gets windy.", open)).toEqual({ ok: false, reason: "wind_strength" });
+    const windy = fact("Faces the west storm swell head on, but the wind is up in its window.");
+    // Forms of one claim are one claim: "stormy" is "storm", "windy" is "the wind is up", "facing" is "faces".
+    expect(check("Facing the stormy west swell head on, and windy.", windy)).toEqual({ ok: true });
+    expect(check("Faces the west storm swell head on, with calm wind.", windy)).toEqual({ ok: false, reason: "wind_strength" });
+  });
+
+  it("refuses size words outright and widens the number ban", () => {
+    for (const size of SIZE_ADJECTIVES) {
+      expect([size, check(`A ${size} west groundswell peaks Thursday.`, dayless)]).toEqual([size, { ok: false, reason: "size" }]);
+    }
+    expect(check("A head high west groundswell peaks Thursday.", dayless)).toEqual({ ok: false, reason: "size" });
+    for (const words of ["thirty", "a hundred", "a dozen", "half", "two meters", "a metre", "six inches", "an inch"]) {
+      expect([words, check(`A west groundswell peaks Thursday at ${words}.`, dayless)]).toEqual([words, { ok: false, reason: "number" }]);
+    }
+    // A beach's name lends no size, and relative words stay prose.
+    expect(checkWrittenSentence("Big Rock gets the west groundswell Thursday.", fact("Big Rock takes the west groundswell Thursday."),
+      ["Big Rock"])).toEqual({ ok: true });
+    expect(check("The west groundswell runs biggest Thursday.", dayless)).toEqual({ ok: true });
+    // Lowercase "ssw" stays prose (R11 reads uppercase abbreviations only).
+    expect(check("A west groundswell, not the ssw one, peaks Thursday.", dayless)).toEqual({ ok: true });
+  });
+
+  it("exports every set as data the worker mirrors", () => {
+    expect(Object.keys(CLOSED_WORD_SETS)).toEqual(["wind", "comparison", "tide", "period", "exposure", "wind_strength"]);
+    expect(Object.values(CLOSED_WORD_SETS).flat().every((forms) => forms.length > 0)).toBe(true);
   });
 });

@@ -4,6 +4,7 @@ import {
   beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion,
   type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
+import { CLOSED_WORD_SETS } from "../week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds } from "../week-scout-story-region-gate";
 import { assertStoryArtifactMatchesInput } from "../week-scout-story-validate";
 import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
@@ -373,6 +374,24 @@ describe("event and beach lines the card shows", () => {
     }
     expect(beachLineText({ ...facts, exposure: "partial", facing: null, wind: "windy" }))
       .toBe("Partly sheltered from the west groundswell, and the wind is up in its window.");
+  });
+
+  it("words every claim in a beach line from the claim checker's closed word sets", () => {
+    // What's left after the direction and every closed-set phrase come out carries no claim a rewrite could invert.
+    const glue = new Set(["the", "from", "with", "in", "its", "window", "but", "and", "it's", "swell", "wind"]);
+    const claims = Object.values(CLOSED_WORD_SETS).flat().flat().sort((a, b) => b.length - a.length);
+    for (const kind of ["swell", "storm"] as const) {
+      for (const periodClass of ["long", "mid", "short"] as const) {
+        for (const [exposure, facing] of [["open", "direct"], ["open", "angled"], ["partial", null], ["shadowed", null]] as const) {
+          for (const wind of ["light", "breezy", "windy"] as const) {
+            let rest = beachLineText({ direction: "south-southwest", kind, periodClass, exposure, facing, wind }).toLowerCase()
+              .replace("south-southwest", " ");
+            for (const claim of claims) rest = rest.replace(new RegExp(`(?<![a-z])${claim}(?![a-z])`, "g"), " ");
+            expect(rest.split(/[\s,.]+/).filter((word) => word && !glue.has(word))).toEqual([]);
+          }
+        }
+      }
+    }
   });
 
   it("caps beach lines at eight per event", () => {
