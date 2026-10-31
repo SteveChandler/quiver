@@ -56,6 +56,33 @@ describe("checkWrittenSentence", () => {
     expect(check("West storm swell peaks Friday, with no wind to speak of.")).toEqual({ ok: true });
   });
 
+  it("reads compass and weekday abbreviations as the full word (R11)", () => {
+    const west = fact("A west long-period groundswell arrives Wednesday and peaks Thursday.");
+    expect(check("SSW groundswell peaks Thursday.", west)).toEqual({ ok: false, reason: "direction" });
+    expect(check("W groundswell peaks Thursday.", west)).toEqual({ ok: true });
+    const compound = fact("A south-southwest long-period groundswell arrives Tuesday and peaks Wednesday.");
+    expect(check("SSW groundswell peaks Wednesday.", compound)).toEqual({ ok: true });
+    expect(check("SW groundswell peaks Wednesday.", compound)).toEqual({ ok: false, reason: "direction" });
+    const thursday = fact("The west pulse builds from Thursday.");
+    expect(check("The west pulse builds from Fri.", thursday)).toEqual({ ok: false, reason: "weekday" });
+    expect(check("The west pulse builds from THURS.", thursday)).toEqual({ ok: true });
+    expect(check("The west pulse builds from SAT.", thursday)).toEqual({ ok: false, reason: "weekday" });
+    // Lowercase words that spell an abbreviation are prose, not days.
+    const dayless = fact("Faces the west swell straight on, with light wind in its window.");
+    expect(check("Faces the west swell straight on while the sun is out and the wind sat down.", dayless)).toEqual({ ok: true });
+  });
+
+  it("refuses spelled-out sizes (R11)", () => {
+    expect(check("West storm swell peaks Friday at eight feet.")).toEqual({ ok: false, reason: "number" });
+    expect(check("A six-foot west storm swell peaks Friday.")).toEqual({ ok: false, reason: "number" });
+    expect(check("West storm swell peaks Friday at twenty-two seconds.")).toEqual({ ok: false, reason: "number" });
+    expect(check("West storm swell peaks Friday with wind under ten mph.")).toEqual({ ok: false, reason: "number" });
+    // "one" is prose ("the one to watch"), and a beach's name lends no number.
+    expect(check("West storm swell, the one to watch, peaks Friday.")).toEqual({ ok: true });
+    const mile = fact("Seven Mile Beach takes the west swell head on.");
+    expect(checkWrittenSentence("Seven Mile Beach gets the west swell head on.", mile, ["Seven Mile Beach"])).toEqual({ ok: true });
+  });
+
   it("treats time qualifiers as claims: a sentence keeps every one its fact has and adds none", () => {
     const later = fact("A west long-period groundswell arrives a week from Wednesday and peaks a week from Thursday.");
     expect(check("A west groundswell peaks Thursday.", later)).toEqual({ ok: false, reason: "timing" });

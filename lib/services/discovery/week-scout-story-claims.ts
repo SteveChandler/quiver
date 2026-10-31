@@ -2,7 +2,7 @@ import { COMPASS, WEEKDAY } from "./week-scout-story-candidates";
 import type { StoryCandidate } from "./week-scout-story-types";
 
 type WrittenSentenceRefusal =
-  | "empty" | "too_long" | "digit" | "verdict_word" | "the_call" | "weekday" | "direction" | "beach" | "timing";
+  | "empty" | "too_long" | "digit" | "verdict_word" | "the_call" | "number" | "weekday" | "direction" | "beach" | "timing";
 type WrittenSentenceCheck = { ok: true } | { ok: false; reason: WrittenSentenceRefusal };
 
 /** The candidates' own limit (add() in week-scout-story-candidates). */
@@ -13,6 +13,13 @@ const TIME_QUALIFIERS = ["a week from", "next week", "earlier in the week", "lat
 const VERDICT_WORD = /\b(?:YES|MAYBE|NO)\b/;
 const THE_CALL = /\bthe\s+call\b/i;
 const NUMERAL = /\p{N}/u;
+/** Spelled-out sizes: "eight feet", "six-foot", "twenty-two seconds". "One" stays prose ("the one to watch"). */
+const SIZE_WORDS = ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+  "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "feet", "foot", "ft", "seconds", "mph", "knots"];
+/** COMPASS's abbreviations, index for index; read only as whole uppercase tokens. */
+const COMPASS_ABBREVIATIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+/** Each a prefix of its WEEKDAY; read only Capitalised or ALL-CAPS, so "the sun" and "we sat" stay prose. */
+const WEEKDAY_ABBREVIATIONS = ["Sun", "Mon", "Tue", "Tues", "Wed", "Thu", "Thur", "Thurs", "Fri", "Sat"];
 
 /**
  * Whole phrases, longest first so "south-southwest" is one claim, not "south" and "southwest".
@@ -26,10 +33,19 @@ function phrasePattern(phrases: readonly string[], suffix = ""): RegExp | null {
   return new RegExp(`(?<![\\p{L}\\p{N}])(${alternatives.join("|")})${suffix}(?![\\p{L}\\p{N}])`, "giu");
 }
 
+/** Whole case-sensitive tokens, longest first. */
+function tokenPattern(tokens: readonly string[]): RegExp {
+  const alternatives = [...tokens].sort((a, b) => b.length - a.length);
+  return new RegExp(`(?<![\\p{L}\\p{N}])(${alternatives.join("|")})(?![\\p{L}\\p{N}])`, "gu");
+}
+
 const WEEKDAYS = phrasePattern(WEEKDAY, "s?")!;
 // "westerly" and "southern" claim a direction too.
 const DIRECTIONS = phrasePattern(COMPASS, "(?:erly|ern|wards?)?")!;
 const TIMING = phrasePattern(TIME_QUALIFIERS)!;
+const SIZES = phrasePattern(SIZE_WORDS)!;
+const COMPASS_SHORT = tokenPattern(COMPASS_ABBREVIATIONS);
+const WEEKDAY_SHORT = tokenPattern(WEEKDAY_ABBREVIATIONS.flatMap((short) => [short, short.toUpperCase()]));
 
 function canonical(phrase: string): string {
   return phrase.toLowerCase().replace(/\s+/g, " ").replace(/['’]/g, "");
@@ -44,20 +60,32 @@ interface Claims {
   weekdays: Set<string>;
   directions: Set<string>;
   timing: Set<string>;
+  sizes: Set<string>;
 }
 
 /**
  * A beach's or region's name lends nothing: "North Beach" names a beach and "North Shore" a region,
  * not a north swell. Region names are only blanked out; naming one is no beach claim.
  */
-function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null): Claims {
+function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, abbreviations: boolean): Claims {
   const withoutBeaches = beaches ? text.replace(beaches, " ") : text;
   const rest = regions ? withoutBeaches.replace(regions, " ") : withoutBeaches;
+  const weekdays = found(rest, WEEKDAYS);
+  const directions = found(rest, DIRECTIONS);
+  // A written sentence's "SSW" or "Fri" claims the full word; candidate text never abbreviates.
+  if (abbreviations) {
+    for (const match of rest.matchAll(COMPASS_SHORT)) directions.add(COMPASS[COMPASS_ABBREVIATIONS.indexOf(match[1])]);
+    for (const match of rest.matchAll(WEEKDAY_SHORT)) {
+      const short = match[1].toLowerCase();
+      weekdays.add(WEEKDAY.find((day) => day.toLowerCase().startsWith(short))!.toLowerCase());
+    }
+  }
   return {
     beaches: beaches ? found(text, beaches) : new Set(),
-    weekdays: found(rest, WEEKDAYS),
-    directions: found(rest, DIRECTIONS),
+    weekdays,
+    directions,
     timing: found(rest, TIMING),
+    sizes: found(rest, SIZES),
   };
 }
 
@@ -68,7 +96,9 @@ function within(claims: Set<string>, allowed: Set<string>): boolean {
 /**
  * Whether a sentence written for a candidate claims nothing the candidate's own text doesn't: every
  * weekday, compass word and region beach it names appears in `fact.text`, it keeps every time
- * qualifier the fact has and adds none, and it carries no numerals, verdict words or "the call".
+ * qualifier the fact has and adds none, and it carries no numerals, spelled-out sizes, verdict words or
+ * "the call". Uppercase compass abbreviations and Capitalised or ALL-CAPS weekday abbreviations in the
+ * sentence count as the full word.
  * `regionNames` are the names a fact may carry for its region (the cover's "reaches North Shore").
  */
 export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNames: readonly string[],
@@ -81,8 +111,9 @@ export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNa
   if (THE_CALL.test(text)) return refuse("the_call");
   const beaches = phrasePattern(beachNames);
   const regions = phrasePattern(regionNames);
-  const sentence = claimsIn(text, beaches, regions);
-  const source = claimsIn(fact.text, beaches, regions);
+  const sentence = claimsIn(text, beaches, regions, true);
+  const source = claimsIn(fact.text, beaches, regions, false);
+  if (sentence.sizes.size > 0) return refuse("number");
   if (!within(sentence.weekdays, source.weekdays)) return refuse("weekday");
   if (!within(sentence.directions, source.directions)) return refuse("direction");
   if (!within(sentence.beaches, source.beaches)) return refuse("beach");
