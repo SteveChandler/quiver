@@ -18,7 +18,7 @@ export interface RegionBeachRating {
   /** "too big for most", "blown out", "small, sheltered", "closing out" or "exposure unknown". */
   reason: string | null;
   exposure: 'open' | 'partial' | 'shadowed' | null;
-  /** Why it does or doesn't work for this event, in words with no digits; null when the event has no line for it (an early look). */
+  /** Why it does or doesn't work for this event, in words with no digits; null for an early look, or when the beach has no swell window or no wind in its hours. */
   why?: string | null;
 }
 

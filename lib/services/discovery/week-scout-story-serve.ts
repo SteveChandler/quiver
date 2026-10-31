@@ -53,7 +53,7 @@ interface StoryRegion {
 }
 
 /** No region build: every swell, exposure and beach claim fails, and the story falls back. */
-const CLOSED_REGION: StoryRegion = { context: { events: [], exposure: () => null, wind: () => null }, first: null };
+const CLOSED_REGION: StoryRegion = { context: { events: [], exposure: () => null, facing: () => null, wind: () => null }, first: null };
 
 export function storyRegion(build: RegionBuild, editionDate: string): StoryRegion {
   return { context: buildRegionGateContext(build, editionDate), first: storyEventsFromRegion(build, editionDate).week[0] ?? null };

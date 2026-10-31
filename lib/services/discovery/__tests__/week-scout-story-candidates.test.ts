@@ -333,18 +333,46 @@ describe("event and beach lines the card shows", () => {
     const { facts } = eventLines(regionBuild(BEACHES, SURF_BY_BEACH, [ssw, storm]));
     const line = (key: string, beachId: string) => facts.find((fact) => fact.slot === `event:${key}:beach:${beachId}`);
     const swellKey = "4-4-2026-10-30";
-    expect(line(swellKey, "a")?.text).toBe("Faces the south-southwest swell straight on, with light wind in its window.");
-    expect(line(swellKey, "a")?.gate).toEqual({ kind: "beach", regionalEventKey: swellKey, beachId: "a", exposure: "open", wind: "light" });
-    expect(line(swellKey, "b")?.text).toBe("Takes the south-southwest swell head on, but the wind is up in its window.");
+    expect(line(swellKey, "a")?.text).toBe("Faces the south-southwest groundswell dead on, with light wind in its window.");
+    expect(line(swellKey, "a")?.gate).toEqual({ kind: "beach", regionalEventKey: swellKey, beachId: "a", directionIndex: 9,
+      periodClass: "long", exposure: "open", facing: "direct", wind: "light" });
+    expect(line(swellKey, "b")?.text).toBe("Faces the south-southwest groundswell dead on, but it's breezy in its window.");
     expect(line(swellKey, "b")?.gate).toMatchObject({ exposure: "open", wind: "breezy" });
-    expect(line(swellKey, "e")?.text).toBe("Takes the south-southwest swell head on, but the wind is up in its window.");
+    expect(line(swellKey, "e")?.text).toBe("Faces the south-southwest groundswell dead on, but the wind is up in its window.");
     expect(line(swellKey, "e")?.gate).toMatchObject({ exposure: "open", wind: "windy" });
-    expect(line(swellKey, "c")?.text).toBe("Partly sheltered from the south-southwest, so it runs smaller and cleaner.");
-    expect(line(swellKey, "d")?.text).toBe("Sheltered from the south-southwest, so it stays small.");
+    expect(line(swellKey, "c")?.text).toBe("Partly sheltered from the south-southwest groundswell, with light wind in its window.");
+    expect(line(swellKey, "c")?.gate).toMatchObject({ exposure: "partial", facing: null });
+    expect(line(swellKey, "d")?.text).toBe("Sheltered from the south-southwest groundswell, with light wind in its window.");
     // The same beach, open to one event, is sheltered from the other's direction.
-    expect(line("6-2-2026-11-01-s", "b")?.text).toBe("Sheltered from the west, so it stays small.");
-    expect(line("6-2-2026-11-01-s", "b")?.gate).toMatchObject({ exposure: "shadowed", wind: "breezy" });
-    expect(beachLineText("west", "open", "windy")).toBe(beachLineText("west", "open", "breezy"));
+    expect(line("6-2-2026-11-01-s", "b")?.text).toBe("Sheltered from the west storm swell, and it's breezy in its window.");
+    expect(line("6-2-2026-11-01-s", "b")?.gate).toMatchObject({ directionIndex: 12, periodClass: "short", exposure: "shadowed",
+      facing: null, wind: "breezy" });
+  });
+
+  it("varies a beach's line with the swell's kind and period class, and across beaches with how they face it and their wind", () => {
+    const facts = { direction: "west", kind: "swell" as const, periodClass: "long" as const, exposure: "open" as const,
+      facing: "direct" as const, wind: "light" as const };
+    // One open, light-wind beach across four events from the west.
+    expect([
+      beachLineText(facts),
+      beachLineText({ ...facts, periodClass: "mid" }),
+      beachLineText({ ...facts, periodClass: "short" }),
+      beachLineText({ ...facts, kind: "storm", periodClass: "short" }),
+    ]).toEqual([
+      "Faces the west groundswell dead on, with light wind in its window.",
+      "Faces the west mid-period swell straight on, with light wind in its window.",
+      "Faces the west windswell straight on, with light wind in its window.",
+      "Faces the west storm swell head on, with light wind in its window.",
+    ]);
+    // Beaches in one event: how squarely they face it, and their wind.
+    expect(beachLineText({ ...facts, facing: "angled" })).toBe("Faces the west groundswell at an angle, with light wind in its window.");
+    expect(beachLineText({ ...facts, wind: "breezy" })).not.toBe(beachLineText({ ...facts, wind: "windy" }));
+    // A partly sheltered beach never reads "cleaner", whatever its wind.
+    for (const wind of ["light", "breezy", "windy"] as const) {
+      expect(beachLineText({ ...facts, exposure: "partial", facing: null, wind })).not.toMatch(/clean|small/);
+    }
+    expect(beachLineText({ ...facts, exposure: "partial", facing: null, wind: "windy" }))
+      .toBe("Partly sheltered from the west groundswell, and the wind is up in its window.");
   });
 
   it("caps beach lines at eight per event", () => {

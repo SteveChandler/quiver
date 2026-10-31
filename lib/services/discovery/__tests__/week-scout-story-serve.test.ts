@@ -515,7 +515,7 @@ describe("deterministic fallback and live gates", () => {
       directionSector: 6, exposure: "open", minimumBeaches: 2,
       beaches: [{ beachId: "a", exposure: "open" }, { beachId: "c", exposure: "shadowed" }] }, response)).toBe(false);
     expect(storyGateHolds({ kind: "beach", regionalEventKey: swellGate.regionalEventKey, beachId: "a",
-      exposure: "open", wind: "light" }, response)).toBe(false);
+      directionIndex: 12, periodClass: "long", exposure: "open", facing: "direct", wind: "light" }, response)).toBe(false);
     expect(storyGateHolds({ kind: "wind", localDate: "2026-07-15", bucket: "midday",
       fromBucket: "morning", fromWindClass: "offshore", windClass: "onshore", forecastRevision: "rev",
       beachId: window.beachId, fromDirection: "NE", toDirection: "SW" }, response)).toBe(true);

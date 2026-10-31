@@ -2,7 +2,7 @@ jest.mock("@/lib/alerts/swell-events/regional", () => ({ loadRegionForecastEvent
 
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addDays } from "../swell-briefing-input";
-import { buildStoryCandidates, storyEventKey, type RegionalDaySignal } from "../week-scout-story-candidates";
+import { beachLine, buildStoryCandidates, storyEventKey, type RegionalDaySignal } from "../week-scout-story-candidates";
 import { buildRegionGateContext, regionGateHolds } from "../week-scout-story-region-gate";
 import { storyEventsFromRegion } from "../week-scout-story-source";
 import type { StoryCandidate, StoryGate } from "../week-scout-story-types";
@@ -145,7 +145,10 @@ describe("regional story gate", () => {
     expect(context.wind("6-2-2026-11-01-s", "a")).toBe("windy");
     expect(context.wind(key, "b")).toBeNull();
     expect(context.exposure("1-1-2026-10-29", "a")).toBeNull();
-    const gate: StoryGate = { kind: "beach", regionalEventKey: key, beachId: "a", exposure: "open", wind: "light" };
+    expect(context.facing(key, "a")).toBe("direct");
+    expect(context.facing("6-2-2026-11-01-s", "c")).toBeNull();
+    const gate: StoryGate = { kind: "beach", regionalEventKey: key, beachId: "a", directionIndex: 9, periodClass: "long",
+      exposure: "open", facing: "direct", wind: "light" };
     expect(regionGateHolds(gate, context)).toBe(true);
 
     const turned = BEACHES.map((beach) => (beach.id === "a" ? { ...beach, swell_window_center_deg: 270 } : beach));
@@ -163,6 +166,45 @@ describe("regional story gate", () => {
     expect(withWind([null]).wind(key, "a")).toBeNull();
     expect(regionGateHolds(gate, withWind(["10 mph", "14 mph"]))).toBe(false);
     expect(regionGateHolds(gate, withWind([]))).toBe(false);
+
+    // Still open, but the swell now meets it at an angle.
+    const angled = BEACHES.map((beach) => (beach.id === "a" ? { ...beach, swell_window_center_deg: 232 } : beach));
+    const turnedAway = buildRegionGateContext(regionBuild([ssw, storm], { beaches: angled }), EDITION);
+    expect(turnedAway.exposure(key, "a")).toBe("open");
+    expect(turnedAway.facing(key, "a")).toBe("angled");
+    expect(regionGateHolds(gate, turnedAway)).toBe(false);
+    // A malformed stored gate without a direction fails closed.
+    expect(regionGateHolds({ ...gate, directionIndex: undefined } as unknown as StoryGate, context)).toBe(false);
+  });
+
+  it("calls an open beach dead on within the narrower of 22.5 degrees and half its window", () => {
+    const facingAt = (directionDeg: number, halfWidthDeg: number) => {
+      const beaches = [{ ...BEACHES[0], swell_window_center_deg: 200, swell_window_halfwidth_deg: halfWidthDeg }];
+      const event = regionEvent("San Diego:X", directionDeg, 14, "2026-10-28T15:00:00Z", "2026-10-29T20:00:00Z", null);
+      const build = regionBuild([event], { beaches });
+      return buildRegionGateContext(build, EDITION).facing(storyEventKey(storyEventsFromRegion(build, EDITION).all[0]), "a");
+    };
+    expect([facingAt(212, 25), facingAt(213, 25)]).toEqual(["direct", "angled"]);
+    // San Diego's windows run a median 105 degrees either side of centre: 22.5 caps "dead on".
+    expect([facingAt(222, 105), facingAt(223, 105), facingAt(300, 105)]).toEqual(["direct", "angled", "angled"]);
+  });
+
+  it("fails a beach gate when its event's 16-point direction or period class moved inside the same key", () => {
+    // 259 and 257 degrees are both sector 6 (one key) but west and west-southwest; 13.1 s and 12.9 s are band 4, long and mid.
+    const beaches = [{ ...BEACHES[1], swell_window_halfwidth_deg: 60 }];
+    const west = (directionDeg: number, periodS: number) => regionBuild([regionEvent("San Diego:W:2026-10-29", directionDeg, periodS,
+      "2026-10-28T15:00:00Z", "2026-10-29T20:00:00Z", "2026-10-30T20:00:00Z")], { beaches, rowsByBeach: { b: [row("2026-10-29T18:00:00Z", "4 mph")] } });
+    const built = west(259, 13.1);
+    const [event] = storyEventsFromRegion(built, EDITION).all;
+    const line = beachLine(event, "b", buildRegionGateContext(built, EDITION))!;
+    expect(line.text).toBe("Faces the west groundswell dead on, with light wind in its window.");
+    expect(line.gate).toEqual({ kind: "beach", regionalEventKey: storyEventKey(event), beachId: "b", directionIndex: 12,
+      periodClass: "long", exposure: "open", facing: "direct", wind: "light" });
+    expect(regionGateHolds(line.gate, buildRegionGateContext(built, EDITION))).toBe(true);
+    for (const moved of [west(257, 13.1), west(259, 12.9)]) {
+      expect(storyEventKey(storyEventsFromRegion(moved, EDITION).all[0])).toBe(line.gate.regionalEventKey);
+      expect(regionGateHolds(line.gate, buildRegionGateContext(moved, EDITION))).toBe(false);
+    }
   });
 
   it("fails a quiet week the region build has an event in, and leaves the rest to the live check", () => {
@@ -197,7 +239,8 @@ describe("regional story gate", () => {
     // The kinds it owns always get an answer, even from an empty build.
     const empty = buildRegionGateContext(regionBuild([]), EDITION);
     const owned = [gateOf(facts, "cover-pulse-4-4-2026-10-29"), gateOf(facts, "exposure-4-4-2026-10-29"),
-      { kind: "beach", regionalEventKey: "4-4-2026-10-29", beachId: "a", exposure: "open", wind: "light" } as StoryGate];
+      { kind: "beach", regionalEventKey: "4-4-2026-10-29", beachId: "a", directionIndex: 9, periodClass: "long", exposure: "open",
+        facing: "direct", wind: "light" } as StoryGate];
     expect(owned.map((gate) => regionGateHolds(gate, empty))).toEqual([false, false, false]);
   });
 });

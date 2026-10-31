@@ -35,7 +35,8 @@ const WORKING_RANK: Readonly<Record<string, number>> = { EPIC: 0, GOOD: 1, FAIR:
 // Each component's ceiling in scoreNativeConditionBreakdown, so components compare as shares, not raw points.
 const COMPONENT_MAX = { waveFit: 45, period: 20, wind: 25, tide: 10 } as const;
 
-const BLOWN_OUT = "blown out";
+/** A not-working reason: the wind is the rating's weakest component. */
+export const BLOWN_OUT = "blown out";
 const TOO_BIG = "too big for most";
 const SHELTERED = "small, sheltered";
 const CLOSING_OUT = "closing out";

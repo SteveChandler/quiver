@@ -6,7 +6,8 @@ import type { StoryCandidate, StoryGate } from "./week-scout-story-types";
 
 type Bucket = "morning" | "midday" | "evening";
 type Exposure = "open" | "partial" | "shadowed";
-type Wind = "light" | "breezy" | "windy";
+type BeachGate = Extract<StoryGate, { kind: "beach" }>;
+type Wind = BeachGate["wind"];
 
 interface ExposedBeach {
   beachId: string;
@@ -253,13 +254,53 @@ export function eventStory(event: RegionalSwellEvent, today: string): { text: st
   return { text, gate: namesFade ? gate : { ...gate, fadeLocalDate: null } };
 }
 
-/** Why a rated beach does or doesn't work for an event, from its exposure to the event's direction and its wind. */
-export function beachLineText(direction: string, exposure: Exposure, wind: Wind): string {
-  if (exposure === "shadowed") return `Sheltered from the ${direction}, so it stays small.`;
-  if (exposure === "partial") return `Partly sheltered from the ${direction}, so it runs smaller and cleaner.`;
-  return wind === "light"
-    ? `Faces the ${direction} swell straight on, with light wind in its window.`
-    : `Takes the ${direction} swell head on, but the wind is up in its window.`;
+/** The swell a beach line names, by kind and period class: a storm's swell, a groundswell, a mid-period swell or a windswell. */
+const BEACH_SWELL_NOUN = { storm: "storm swell", long: "groundswell", mid: "mid-period swell", short: "windswell" } as const;
+/** How a beach line says an open beach faces a swell dead on; the words vary with the swell so one beach's lines differ across events. */
+const DEAD_ON_PHRASE = { storm: "head on", long: "dead on", mid: "straight on", short: "straight on" } as const;
+
+export interface BeachLineFacts {
+  direction: string;
+  kind: RegionalSwellEvent["kind"];
+  periodClass: BeachGate["periodClass"];
+  exposure: Exposure;
+  facing: BeachGate["facing"];
+  wind: Wind;
+}
+
+/**
+ * Why a listed beach does or doesn't work for an event, from facts its gate pins and that don't depend
+ * on the user's skill. Every word that carries a claim is in a closed word set of
+ * week-scout-story-claims.ts, so a rewrite can't swap it for its opposite.
+ */
+export function beachLineText(facts: BeachLineFacts): string {
+  const family = facts.kind === "storm" ? "storm" : facts.periodClass;
+  const swell = `the ${facts.direction} ${BEACH_SWELL_NOUN[family]}`;
+  const open = facts.exposure === "open";
+  const lead = facts.exposure === "shadowed" ? `Sheltered from ${swell}`
+    : facts.exposure === "partial" ? `Partly sheltered from ${swell}`
+      : `Faces ${swell} ${facts.facing === "angled" ? "at an angle" : DEAD_ON_PHRASE[family]}`;
+  const wind = facts.wind === "light" ? "with light wind in its window"
+    : facts.wind === "breezy" ? `${open ? "but" : "and"} it's breezy in its window`
+      : `${open ? "but" : "and"} the wind is up in its window`;
+  return `${lead}, ${wind}.`;
+}
+
+/**
+ * A listed beach's line for an event and the gate pinning every fact it names; the one derivation the
+ * Week Scout input and the card share. The wind bucket is the event window's unless the caller passes
+ * its own (the card passes the rating's hours). Null without exposure or wind data. The key's "-s" pins
+ * the kind.
+ */
+export function beachLine(event: RegionalSwellEvent, beachId: string, context: RegionGateContext,
+  wind: Wind | null = context.wind(storyEventKey(event), beachId)): { text: string; gate: BeachGate } | null {
+  const key = storyEventKey(event);
+  const exposure = context.exposure(key, beachId);
+  const facing = context.facing(key, beachId);
+  if (!exposure || !wind || (exposure === "open") !== (facing !== null)) return null;
+  const gate: BeachGate = { kind: "beach", regionalEventKey: key, beachId, directionIndex: directionIndex(event.directionDeg),
+    periodClass: periodClass(event.periodS), exposure, facing, wind };
+  return { text: beachLineText({ direction: COMPASS[gate.directionIndex], kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }), gate };
 }
 
 /**
@@ -283,16 +324,11 @@ export function buildEventCandidates(build: RegionBuild, events: readonly Region
     add(facts, `event-${key}-story`, `event:${key}:story`, story.text, story.gate);
     const listing = rated.get(event.regionalKey);
     const listed = listing ? [listing.here, ...listing.working, ...listing.notWorking] : [];
-    const direction = directionWords(event.directionDeg);
-    const lines = [...new Set(listed.flatMap((rating) => (rating ? [rating.beachId] : [])))].flatMap((beachId) => {
-      // The gate's values are the ones the region build proves at serve time.
-      const exposure = context.exposure(key, beachId);
-      const wind = context.wind(key, beachId);
-      return exposure && wind ? [{ beachId, exposure, wind }] : [];
-    }).slice(0, MAX_BEACH_LINES);
-    for (const { beachId, exposure, wind } of lines) {
-      add(facts, `event-${key}-beach-${beachId}`, `event:${key}:beach:${beachId}`, beachLineText(direction, exposure, wind),
-        { kind: "beach", regionalEventKey: key, beachId, exposure, wind });
+    // The gate's values are the ones the region build proves at serve time; the rating only picks the beaches.
+    const lines = [...new Set(listed.flatMap((rating) => (rating ? [rating.beachId] : [])))]
+      .flatMap((beachId) => beachLine(event, beachId, context) ?? []).slice(0, MAX_BEACH_LINES);
+    for (const { text, gate } of lines) {
+      add(facts, `event-${key}-beach-${gate.beachId}`, `event:${key}:beach:${gate.beachId}`, text, gate);
     }
   }
   return facts.map((fact) => ({ ...fact, rank: 0 }));

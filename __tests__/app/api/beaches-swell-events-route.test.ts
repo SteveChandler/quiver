@@ -41,6 +41,8 @@ const STORM_DAY_WAM_M = 3.2;
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 /** The storm's server story line: it arrives and peaks the same Monday. */
 const STORM_STORY = "A stormy west short-period swell arrives and peaks Monday, then fades Tuesday.";
+/** Every staged beach's window is centred on the storm's west. */
+const STORM_WHY = "Faces the west storm swell head on, with light wind in its window.";
 
 interface Surf {
   wave: string;
@@ -211,7 +213,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(loadStoryInput).not.toHaveBeenCalled();
     const storm = stormEvent(data.events)!;
     expect(storm.story).toBe(STORM_STORY);
-    expect(storm.here?.why).toBe("Faces the west swell straight on, with light wind in its window.");
+    expect(storm.here?.why).toBe(STORM_WHY);
     const early = data.events.find((event) => event.source === "wam")!;
     expect(early.story).toBeNull();
     expect(early.here?.why).toBeNull();
@@ -333,7 +335,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(status).toBe(200);
     expect(stormEvent(data.events)).toMatchObject({
       story: STORM_STORY,
-      here: { beachId: beaches[0].id, why: "Faces the west swell straight on, with light wind in its window." },
+      here: { beachId: beaches[0].id, why: STORM_WHY },
     });
   });
 
