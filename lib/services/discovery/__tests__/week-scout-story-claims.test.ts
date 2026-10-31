@@ -357,7 +357,8 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     const openBreezy = fact("Faces the west groundswell dead on, but it's breezy in its window.");
     expect(check("Takes the west groundswell dead on, clean and glassy in its window.", open)).toEqual({ ok: true });
     expect(check("Takes the west groundswell dead on, with calm wind.", open)).toEqual({ ok: true });
-    expect(check("Takes the west groundswell dead on, but blown out and choppy.", openWindy)).toEqual({ ok: true });
+    expect(check("Takes the west groundswell dead on, windy and choppy.", openWindy)).toEqual({ ok: true });
+    expect(check("Takes the west groundswell dead on, but blown out and choppy.", openWindy)).toEqual({ ok: false, reason: "wind_strength" });
     expect(check("Takes the west groundswell dead on, but gusty and messy.", openWindy)).toEqual({ ok: true });
     expect(check("Takes the west groundswell dead on, a bit bumpy.", openBreezy)).toEqual({ ok: true });
     // Never across strengths, and never backwards: "clean" licenses no "light".
@@ -653,8 +654,9 @@ describe("paraphrase table per server-copy shape (R27)", () => {
         ["Partly sheltered from the west mid-period swell, but choppy.", "wind_strength"]]],
     ["beach blown out (windy)", beachLineText({ direction: "west", kind: "storm", periodClass: "short", exposure: "open", facing: "direct", wind: "windy" }),
       "Faces the west storm swell head on, but the wind is up in its window.",
-      ["Takes the west storm swell head on, but it's blown out.", "Faces the west storm swell head on; windy and choppy."],
-      [["Faces the west storm swell head on, with light wind.", "wind_strength"], ["Faces the west groundswell head on, windy.", "period"],
+      ["Takes the west storm swell head on, but the wind's up.", "Faces the west storm swell head on; windy and choppy."],
+      [["Faces the west storm swell head on, with light wind.", "wind_strength"], ["Takes the west storm swell head on, but it's blown out.", "wind_strength"],
+        ["Faces the west groundswell head on, windy.", "period"],
         ["Faces the west storm swell dead on, windy.", "exposure"]]],
     ["event story arrive, peak, fade", story(2, 3, 4), "A west long-period groundswell arrives Thursday, peaks Friday and fades Saturday.",
       ["West groundswell rolls in Thursday, tops out Friday and backs off Saturday.", "Thursday the west groundswell shows up, Friday it peaks, Saturday it fades.",

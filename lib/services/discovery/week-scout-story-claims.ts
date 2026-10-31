@@ -28,12 +28,12 @@ type ClosedWordClass = keyof typeof CLOSED_WORD_SETS;
 
 /**
  * Wind-strength claims a candidate's own claim licenses by rule, read on the candidate's side only: light wind
- * is clean, glassy and calm; a windy window is blown out, choppy, bumpy, messy and gusty; a breezy one is bumpy.
- * Keys and values are canonical (first) forms of CLOSED_WORD_SETS.wind_strength entries.
+ * is clean, glassy and calm; a windy window is choppy, bumpy, messy and gusty; a breezy one is bumpy. "Blown out"
+ * stays the rating's own reason: a written beach line never serves on a blown-out rating, so it never says so. Keys and values are canonical (first) forms of CLOSED_WORD_SETS.wind_strength entries.
  */
 export const WIND_STRENGTH_IMPLIES: Readonly<Record<string, readonly string[]>> = {
   light: ["clean", "glassy", "calm"],
-  windy: ["blown out", "choppy", "bumpy", "messy", "gusty"],
+  windy: ["choppy", "bumpy", "messy", "gusty"],
   breezy: ["bumpy"],
 };
 
