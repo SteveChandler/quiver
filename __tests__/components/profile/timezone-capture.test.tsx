@@ -35,6 +35,21 @@ describe("TimezoneCapture", () => {
     );
   });
 
+  it("posts when the profile omits the timezone field", async () => {
+    mockUseProfileContext.mockReturnValue({ isLoading: false, profile: {} });
+
+    render(<TimezoneCapture />);
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/user/timezone",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+      }),
+    );
+  });
+
   it.each([
     ["a set timezone", { user: { id: "user-123" }, profile: { timezone: "UTC" }, isLoading: false }],
     ["a signed-out user", { user: null, profile: { timezone: null }, isLoading: false }],

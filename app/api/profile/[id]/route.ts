@@ -34,6 +34,7 @@ interface ProfileDetails {
   notif_follows: boolean | null;
   notif_reminders: boolean | null;
   notif_xp_updates: boolean | null;
+  timezone: string | null;
   home_beach: { id: string; name: string } | null;
 }
 
@@ -171,6 +172,7 @@ const profileHandler = withAuth(
         ...sessionStats,
         isFollowing: isFollowingUser,
         isOwnProfile: user?.id === userId,
+        ...(user?.id === userId ? { timezone: details?.timezone ?? null } : {}),
       };
 
       return createSuccessResponse(profileWithStats);
