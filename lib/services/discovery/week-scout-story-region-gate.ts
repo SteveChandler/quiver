@@ -2,6 +2,7 @@ import { exposureFactor, exposureLabel, swellWindowForBeach } from "@/lib/alerts
 import type { RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
+import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { localDate } from "./swell-briefing-input";
 import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
@@ -63,6 +64,8 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
     if (!byKey.has(key)) byKey.set(key, event);
   }
   const beaches = new Map(build.beaches.map((beach) => [beach.id, beach]));
+  const eventFactsCache = new Map<string, CandidateFacts | null>();
+  const beachDayFactsCache = new Map<string, CandidateFacts | null>();
   const sighting = (regionalEventKey: string, beachId: string) => {
     const event = byKey.get(regionalEventKey);
     const beach = beaches.get(beachId);
@@ -83,19 +86,31 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
       return offset <= Math.min(DEAD_ON_MAX_DEG, seen.window.halfWidthDeg * DEAD_ON_WINDOW_SHARE) ? "direct" : "angled";
     },
     eventFacts(regionalEventKey) {
+      if (eventFactsCache.has(regionalEventKey)) return eventFactsCache.get(regionalEventKey) ?? null;
       const event = byKey.get(regionalEventKey);
-      return event ? eventFactsFromBuild(build, event) : null;
+      const facts = event ? eventFactsFromBuild(build, event) : null;
+      eventFactsCache.set(regionalEventKey, facts);
+      return facts;
     },
     beachDayFacts(regionalEventKey, beachId, date) {
+      const cacheKey = JSON.stringify([regionalEventKey, beachId, date]);
+      if (beachDayFactsCache.has(cacheKey)) return beachDayFactsCache.get(cacheKey) ?? null;
       const event = byKey.get(regionalEventKey);
-      return event ? beachDayFactsFromBuild(build, event, beachId, date) : null;
+      const facts = event ? beachDayFactsFromBuild(build, event, beachId, date) : null;
+      beachDayFactsCache.set(cacheKey, facts);
+      return facts;
     },
     wind(regionalEventKey, beachId, date) {
       const event = byKey.get(regionalEventKey);
       if (!event) return null;
       // Rating rows are daylight rows in any event's window; keep this event's.
       const { startMs, endMs } = ratingWindow(event);
-      return windBucket((build.rowsByBeach[beachId] ?? []).filter((row) => eventDate(row.forecast_at, build.timezone) === date), startMs, endMs);
+      const rows = (build.rowsByBeach[beachId] ?? []).filter((row) => {
+        const atMs = Date.parse(row.forecast_at);
+        if (!Number.isFinite(atMs) || atMs < startMs || atMs >= endMs) return false;
+        return getLocalDateStr(new Date(atMs), build.timezone) === date;
+      });
+      return windBucket(rows, startMs, endMs);
     },
   };
 }

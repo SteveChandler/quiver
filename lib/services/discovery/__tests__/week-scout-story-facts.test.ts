@@ -1,6 +1,6 @@
 import type { RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { RegionalSwellEvent } from "../week-scout-story-candidates";
-import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, sizeWordsFor, windHoursFor } from "../week-scout-story-facts";
+import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, median, sizeWordsFor, windHoursFor } from "../week-scout-story-facts";
 
 const event: RegionalSwellEvent = { regionalKey: "west", kind: "swell", directionDeg: 270, periodS: 13,
   arrivalAt: "2026-10-29T16:00:00Z", peakAt: "2026-10-29T20:00:00Z", fadeAt: "2026-10-30T18:00:00Z",
@@ -19,6 +19,10 @@ function build(): RegionBuild {
 }
 
 describe("candidate surf facts", () => {
+  it("calculates the median", () => {
+    expect(median([4, 1, 3, 2])).toBe(2.5);
+  });
+
   it("rounds the face range to whole feet", () => {
     expect(faceRangeFt(["2.6-3.8 ft", "3-4 ft"])).toEqual({ min: 3, max: 4 });
     expect(faceRangeFt([null])).toBeNull();

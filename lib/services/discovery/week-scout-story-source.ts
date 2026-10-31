@@ -11,7 +11,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion, type RegionalDaySignal } from "./week-scout-story-candidates";
-import { beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
+import { beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, median, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
 import { buildRegionGateContext } from "./week-scout-story-region-gate";
 import { loadLatestStoryInput, saveStoryInput, activeStoryRegions } from "./week-scout-story-store";
 import type { StoryInput } from "./week-scout-story-types";
@@ -144,17 +144,15 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       return hour < 12 ? "morning" : hour < 16 ? "midday" : "evening";
     };
     const daylight = regionalSamples.filter((row) => bucketOf(row.forecast_at) !== null);
+    const dayStart = Date.parse(zonedWallClockToUtc(date, "00:00:00.000", active.timezone));
+    const dayEnd = Date.parse(zonedWallClockToUtc(addDays(date, 1), "00:00:00.000", active.timezone));
     const coveringEvent = allEvents.find((event) => {
       const { startMs, endMs } = ratingWindow(event);
-      const dayStart = Date.parse(zonedWallClockToUtc(date, "00:00:00.000", active.timezone));
-      const dayEnd = Date.parse(zonedWallClockToUtc(addDays(date, 1), "00:00:00.000", active.timezone));
       return startMs < dayEnd && endMs > dayStart;
     });
     const dayPeriods = daylight.map((row) => row.swell_period_om)
       .filter((period): period is number => period !== null && Number.isFinite(period)).sort((a, b) => a - b);
-    const middle = Math.floor(dayPeriods.length / 2);
-    const medianPeriod = dayPeriods.length === 0 ? null : dayPeriods.length % 2
-      ? dayPeriods[middle] : (dayPeriods[middle - 1] + dayPeriods[middle]) / 2;
+    const medianPeriod = dayPeriods.length === 0 ? null : median(dayPeriods);
     const character = breakerCharacter(coveringEvent?.kind ?? "swell", coveringEvent?.periodS ?? medianPeriod);
     const surfBeaches = allBeaches.flatMap((beach) => {
       const beachRows = daylight.filter((row) => row.beach_id === beach.id);

@@ -185,7 +185,7 @@ export function narrateRegionEvents(input: {
       const blownOut = rating.reason === BLOWN_OUT;
       const server = beachLine(story, rating.beachId, own, blownOut ? "windy" : wind);
       if (!server) return { ...rating, why: null };
-      // Gemma's line was written for the event window's wind; it serves only where that is this rating's wind.
+      // Gemma's line describes the peak day; it serves only where that day's wind matches the rating.
       const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.wind === wind;
       const why = first && !blownOut ? writtenFor(`event:${key}:beach:${rating.beachId}`, accepts) : null;
       return { ...rating, why: why ?? server.text };

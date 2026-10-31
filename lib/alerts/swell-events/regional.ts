@@ -44,12 +44,12 @@ const BEACH_CHUNK_SIZE = 20;
 // Below this a region has no "which beaches are working" to show, so no model buoy is fetched.
 const MIN_REGION_BEACHES = 3;
 
-const BEACH_COLUMNS = "id, name, slug, lat, lon, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, terrain_enabled, shoaling_factors, deepwater_decay_factor, aspect_deg, wind_offshore_deg, wind_offshore_tol_deg, wave_punchiness, wave_punchiness_ai, wave_punchiness_ai_confidence, persona, break_type, skill_level";
+const BEACH_COLUMNS = "id, name, slug, lat, lon, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, terrain_enabled, shoaling_factors, deepwater_decay_factor, aspect_deg, wind_offshore_deg, wind_offshore_tol_deg, wave_punchiness_ai, wave_punchiness_ai_confidence, persona, break_type, skill_level";
 // The story's scoring select (week-scout-story-source.ts readChunk), less the columns nothing here reads.
 const FORECAST_COLUMNS = "beach_id, forecast_at, wave_height, wave_period, wind_speed, wind_direction, tide_height, tide_status, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, data_source";
 
 type BeachRow = Pick<Database["public"]["Tables"]["beaches"]["Row"],
-  "id" | "name" | "lat" | "lon" | "aspect_deg" | "wind_offshore_deg" | "wind_offshore_tol_deg" | "wave_punchiness_ai" | "wave_punchiness_ai_confidence" | "persona" | "break_type" | "skill_level"> & { wave_punchiness?: number | null } & Parameters<typeof toSwellEventBeach>[0];
+  "id" | "name" | "lat" | "lon" | "aspect_deg" | "wind_offshore_deg" | "wind_offshore_tol_deg" | "wave_punchiness_ai" | "wave_punchiness_ai_confidence" | "persona" | "break_type" | "skill_level"> & Parameters<typeof toSwellEventBeach>[0];
 type ForecastRow = Pick<
   EnhancedForecastEntity,
   | "forecast_at"
@@ -329,7 +329,7 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
       aspect_deg: beach.aspect_deg ?? null,
       wind_offshore_deg: beach.wind_offshore_deg ?? null,
       wind_offshore_tol_deg: beach.wind_offshore_tol_deg ?? null,
-      punchiness: resolveWavePunchiness({ override: beach.wave_punchiness, ai: beach.wave_punchiness_ai,
+      punchiness: resolveWavePunchiness({ override: null, ai: beach.wave_punchiness_ai,
         aiConfidence: beach.wave_punchiness_ai_confidence, persona: beach.persona, break_type: beach.break_type, skill_level: beach.skill_level }),
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,

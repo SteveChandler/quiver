@@ -80,10 +80,14 @@ describe("regional story gate", () => {
     const context = buildRegionGateContext(built, EDITION);
     expect(context.eventFacts(key)?.faceFt).toEqual({ min: 3, max: 4 });
     expect(context.beachDayFacts(key, "a", "2026-10-29")?.windHours).toEqual([{ hour: 11, mph: 4, relation: null }]);
+    expect(context.eventFacts(key)).toBe(context.eventFacts(key));
+    expect(context.beachDayFacts(key, "a", "2026-10-29")).toBe(context.beachDayFacts(key, "a", "2026-10-29"));
     expect(context.wind(key, "a", "2026-10-29")).toBe("light");
     expect(context.wind(key, "a", "2026-10-28")).toBe("windy");
     expect(context.eventFacts("missing")).toBeNull();
     expect(context.beachDayFacts(key, "a", "2026-10-31")).toBeNull();
+    built.rowsByBeach.a.push(row("not a timestamp", "30 mph"));
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
     built.rowsByBeach.a = [{ ...row("2026-10-29T18:00:00Z", "4 mph"), wave_height: "6-8" }];
     expect(buildRegionGateContext(built, EDITION).beachDayFacts(key, "a", "2026-10-29")?.faceFt).toEqual({ min: 6, max: 8 });
   });
