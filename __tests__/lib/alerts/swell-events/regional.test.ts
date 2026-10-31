@@ -19,6 +19,7 @@ import { detectBeachSwellEvents, type BeachSwellEvent } from "@/lib/alerts/swell
 import {
   buildRegionEvents,
   confidenceFor,
+  loadRegionForecastEvents,
   rateRegionEvents,
   type InternalRegionEvent,
   type RatingRow,
@@ -205,6 +206,7 @@ function builtWith(event: Partial<InternalRegionEvent>, rows: RatingRow[]): Regi
       peakLocalDate: localDate(EVENT_DAY),
       offshoreFt: "8 ft",
       history: null,
+      memberCount: 3,
       ...event,
     }],
   };
@@ -270,6 +272,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
       history: null,
     });
     expect(events[0].key).toMatch(/:s$/);
+    expect(built.events[0].memberCount).toBe(3);
     expect(events[0].here).toMatchObject({
       beachId: beaches[1].id,
       beachName: "Sunset Cliffs",
@@ -280,7 +283,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v3", REGION, "2026-09-25"],
+      ["region-swell-events", "v4", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -349,7 +352,10 @@ describe("buildRegionEvents + rateRegionEvents", () => {
       offshoreFt: "4 ft",
       arrivalAt: localIsoOf(EVENT_DAY - 1, 0),
       fadeAt: localIsoOf(EVENT_DAY + 3, 12),
+      // Both peaks' groups, three beaches each.
+      memberCount: 6,
     });
+    expect(built.events.find((event) => event.periodS === 18)?.memberCount).toBe(3);
   });
 
   it("never ends a joined swell before its strongest peak's window when that peak has no fade", async () => {
@@ -943,6 +949,37 @@ describe("events with nothing left to show today", () => {
     const [event] = rate(built, localIsoOf(EVENT_DAY, 20));
 
     expect(event).toMatchObject({ source: "wam", leadDays: 0, here: { label: "LIKELY" } });
+  });
+});
+
+describe("loadRegionForecastEvents", () => {
+  it("returns the cached forecast events, keyed and chronological, with no WAM fetch", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { storm: true, swell: true }));
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({ 12: { maxHsM: 2.6, periodS: 9 } }));
+    const forecast = await loadRegionForecastEvents({ client: client(beaches, rows), region: REGION, now: NOW, timezone: TIMEZONE });
+
+    expect(fetchWamDays).not.toHaveBeenCalled();
+    expect(forecast).toMatchObject({ region: REGION, timezone: TIMEZONE, buoy: null, wamDays: null });
+    expect(forecast.events.map((event) => [event.kind, event.source, event.memberCount]).sort())
+      .toEqual([["storm", "forecast", 3], ["swell", "forecast", 3]]);
+    expect(forecast.events.map((event) => event.key).sort())
+      .toEqual([`${REGION}:W:${localDate(EVENT_DAY)}`, `${REGION}:W:${localDate(EVENT_DAY)}:s`]);
+  });
+
+  // Order, not collision: earlyLookPeaks drops a same-kind peak within 36 h of a detected one, and
+  // the kind suffix keeps the rest apart, so an early look never takes a forecast key.
+  it("keeps every forecast key when buildRegionEvents adds an early look", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { storm: true, swell: true }));
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({ 12: { maxHsM: 2.6, periodS: 9 } }));
+    const input = { client: client(beaches, rows), region: REGION, now: NOW, timezone: TIMEZONE };
+    const forecast = await loadRegionForecastEvents(input);
+    const built = await buildRegionEvents(input);
+
+    expect(built.events.filter((event) => event.source === "wam")).toHaveLength(1);
+    expect(built.events.filter((event) => event.source === "forecast").map((event) => event.key))
+      .toEqual(forecast.events.map((event) => event.key));
   });
 });
 

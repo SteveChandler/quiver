@@ -35,7 +35,8 @@ const WORKING_RANK: Readonly<Record<string, number>> = { EPIC: 0, GOOD: 1, FAIR:
 // Each component's ceiling in scoreNativeConditionBreakdown, so components compare as shares, not raw points.
 const COMPONENT_MAX = { waveFit: 45, period: 20, wind: 25, tide: 10 } as const;
 
-const BLOWN_OUT = "blown out";
+/** A not-working reason: the wind is the rating's weakest component. */
+export const BLOWN_OUT = "blown out";
 const TOO_BIG = "too big for most";
 const SHELTERED = "small, sheltered";
 const CLOSING_OUT = "closing out";
@@ -235,7 +236,8 @@ function notWorkingList(ratings: readonly RankedRating[]): RankedRating[] {
   return [...picked, ...candidates.filter((rating) => !picked.includes(rating))].slice(0, MAX_NOT_WORKING);
 }
 
-function localDayDiff(from: string, to: string): number {
+/** Whole days from one local date to another, negative when `to` is earlier. */
+export function localDayDiff(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 

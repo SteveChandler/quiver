@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { buildRegionEvents, rateRegionEvents } from "@/lib/alerts/swell-events/regional";
+import { loadRegionNarrativeEdition, narrateRegionEvents, withoutNarrative } from "@/lib/alerts/swell-events/regional-narrative";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
 import { handleApiError, withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
@@ -58,12 +59,27 @@ async function swellEventsHandler(_request: NextRequest, { params, user, supabas
       return NextResponse.json({ success: true, data: emptyRegion(beach.region, built.beaches.length) });
     }
 
-    const skill = (user ? await getProfileExperienceLevel(supabase, user.id) : null) ?? DEFAULT_SKILL;
+    // Today's story edition is read beside the skill; a failed read costs only the PC's written sentences.
+    // Only stored-forecast events carry a narrative, so without one there is nothing to read.
+    const narrated = built.events.some((event) => event.source === "forecast");
+    const [profileSkill, edition] = await Promise.all([
+      user ? getProfileExperienceLevel(supabase, user.id) : null,
+      narrated ? loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }) : null,
+    ]);
+    const rated = rateRegionEvents(built, { beachId: id, skill: profileSkill ?? DEFAULT_SKILL, now });
+    // The card never fails because of its narrative: without it, the rated events go out with no story or lines.
+    let events: RegionSwellEventsResponse["events"];
+    try {
+      events = narrateRegionEvents({ build: built, rated, edition, now });
+    } catch (narrativeError) {
+      console.warn("[swell-events] narrative failed", { region: built.region, error: String(narrativeError) });
+      events = rated.map(withoutNarrative);
+    }
     const data: RegionSwellEventsResponse = {
       region: built.region,
       buoy: built.buoy,
       beachCount: built.beaches.length,
-      events: rateRegionEvents(built, { beachId: id, skill, now }),
+      events,
     };
     return NextResponse.json({ success: true, data });
   } catch (error) {
