@@ -549,12 +549,11 @@ const nextConfig = {
         hostname: "live.staticflickr.com",
         pathname: "/**",
       },
-      // Openverse sources (Wikimedia Commons, WordPress, etc.)
-      {
-        protocol: "https",
-        hostname: "api.openverse.org",
-        pathname: "/**",
-      },
+      // api.openverse.org is deliberately absent. Every curated row renders its
+      // original via pickPhotoThumbUrl, and crawlers replaying old indexed
+      // /_next/image?url=…openverse…/thumb/ URLs made the optimizer fail over to
+      // the Node launcher (MODULE_NOT_FOUND _next/image.js) whenever Openverse
+      // was slow. Unlisted hosts get a clean 400 instead.
       {
         protocol: "https",
         hostname: "upload.wikimedia.org",
