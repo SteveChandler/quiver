@@ -149,6 +149,7 @@ const COMPASS_SHORT = tokenPattern(COMPASS_ABBREVIATIONS);
 const WEEKDAY_SHORT = tokenPattern(WEEKDAY_ABBREVIATIONS.flatMap((short) => [short, short.toUpperCase()]));
 const CLOSED = (Object.entries(CLOSED_WORD_SETS) as Array<[ClosedWordClass, ReadonlyArray<readonly string[]>]>)
   .map(([name, entries]) => ({ name, ...claimSet(entries) }));
+const STRENGTH = CLOSED.find((set) => set.name === "wind_strength")!;
 const DEGREE = claimSet(DEGREE_WORDS);
 const PHASES = claimSet(Object.entries(PHASE_VERBS).map(([phase, forms]) => [phase, ...forms]));
 
@@ -238,6 +239,8 @@ function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, 
         claim: NEXT_BEFORE.test(rest.slice(0, match.index)) ? `next ${day}` : day });
     }
   }
+  // Wind strength reads first and is blanked for the other sets: "the wind picks up" is windy, never "faces".
+  const unwound = blank(rest, STRENGTH.pattern);
   return {
     beaches: beaches ? [...found(text, beaches)] : [],
     days: [...new Set(days.sort((a, b) => a.at - b.at).map((day) => day.claim))],
@@ -245,8 +248,9 @@ function claimsIn(text: string, beaches: RegExp | null, regions: RegExp | null, 
     directions,
     timing: found(rest, TIMING),
     relative: found(rest, RELATIVE_TIME.pattern, RELATIVE_TIME.claimOf),
-    closed: Object.fromEntries(CLOSED.map(({ name, pattern, claimOf }) => [name, found(rest, pattern, claimOf)])) as Claims["closed"],
-    degree: found(rest, DEGREE.pattern, DEGREE.claimOf),
+    closed: Object.fromEntries(CLOSED.map(({ name, pattern, claimOf }) =>
+      [name, found(name === "wind_strength" ? rest : unwound, pattern, claimOf)])) as Claims["closed"],
+    degree: found(unwound, DEGREE.pattern, DEGREE.claimOf),
   };
 }
 

@@ -320,6 +320,17 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     for (const [text, against, reason] of added) expect([text, check(text, against)]).toEqual([text, { ok: false, reason }]);
   });
 
+  it("reads \"the wind picks up\" as windy on every beach line, never as faces", () => {
+    const shelteredWindy = fact("Sheltered from the west groundswell, and the wind is up in its window.");
+    const partlyWindy = fact("Partly sheltered from the west groundswell, and the wind is up in its window.");
+    const openWindy = fact("Faces the west groundswell dead on, but the wind is up in its window.");
+    expect(check("Sheltered from the west groundswell, and the wind picks up.", shelteredWindy)).toEqual({ ok: true });
+    expect(check("Partly sheltered from the west groundswell, and the wind picks up.", partlyWindy)).toEqual({ ok: true });
+    expect(check("Faces the west groundswell dead on, but the wind picks up.", openWindy)).toEqual({ ok: true });
+    // "picks up" without the wind is still "faces", which a sheltered line doesn't make.
+    expect(check("Picks up the west groundswell, and the wind is up.", shelteredWindy)).toEqual({ ok: false, reason: "exposure" });
+  });
+
   it("reads the residual words as the claim they make", () => {
     // "catches", "picks up", "exposed" and "wide open" are "faces": true of an open beach. The degree word still stays.
     expect(check("Catches the west groundswell dead on, with light wind.", open)).toEqual({ ok: true });
