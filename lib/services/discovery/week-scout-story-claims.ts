@@ -86,6 +86,12 @@ export const NUMBER_WORDS = ["two", "three", "four", "five", "six", "seven", "ei
  */
 export const SIZE_ADJECTIVES = ["knee-high", "waist-high", "chest-high", "shoulder-high", "head-high", "overhead", "double overhead",
   "small", "tiny", "big", "huge", "massive", "solid", "pumping", "firing", "epic", "flat"];
+/**
+ * Verdicts a written sentence never names, read only as whole UPPERCASE words: native's narrativeText()
+ * refusals (YES, MAYBE, NO) and the card's beach labels (scoreLabel's EPIC, GOOD, FAIR, RIDEABLE, MEH, and an
+ * early look's LIKELY and EARLY LOOK). The band shows each user's own label, so prose never repeats one.
+ */
+export const VERDICT_WORDS = ["YES", "MAYBE", "NO", "EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH", "LIKELY", "EARLY LOOK"];
 /** COMPASS's abbreviations, index for index; read only as whole uppercase tokens, so lowercase "ssw" stays prose. */
 export const COMPASS_ABBREVIATIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 /** Each a prefix of its WEEKDAY; read only Capitalised or ALL-CAPS, so "the sun" and "we sat" stay prose. */
@@ -98,8 +104,9 @@ type WrittenSentenceCheck = { ok: true } | { ok: false; reason: WrittenSentenceR
 
 /** The candidates' own limit (add() in week-scout-story-candidates). */
 const MAX_LENGTH = 240;
-// Exactly native's narrativeText() refusal: uppercase whole words only, so "no wind" is fine.
-const VERDICT_WORD = /\b(?:YES|MAYBE|NO)\b/;
+// Uppercase whole words only, so "no wind" and "good" stay prose: native's narrativeText() refusal plus every card label.
+const VERDICT_WORD = new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...VERDICT_WORDS].sort((a, b) => b.length - a.length)
+  .map((word) => word.replace(/\s+/g, "\\s+")).join("|")})(?![\\p{L}\\p{N}])`, "u");
 const THE_CALL = /\bthe\s+call\b/i;
 const NUMERAL = /\p{N}/u;
 /** Punctuation that ends a clause: a phase verb never binds a day across one. */

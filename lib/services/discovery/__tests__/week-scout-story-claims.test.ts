@@ -6,7 +6,7 @@ import {
 } from "../week-scout-story-candidates";
 import {
   CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, LIST_JOINERS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS,
-  RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
+  RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, VERDICT_WORDS, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
 } from "../week-scout-story-claims";
 import type { StoryCandidate } from "../week-scout-story-types";
 
@@ -59,6 +59,13 @@ describe("checkWrittenSentence", () => {
     expect(check("YES: the west storm swell peaks Friday.")).toEqual({ ok: false, reason: "verdict_word" });
     expect(check("West storm swell peaks Friday, MAYBE.")).toEqual({ ok: false, reason: "verdict_word" });
     expect(check("NO size until the west storm swell peaks Friday.")).toEqual({ ok: false, reason: "verdict_word" });
+    // The card's labels are verdicts too, uppercase only: the band shows each user's own label (R27).
+    for (const word of VERDICT_WORDS.filter((verdict) => !["YES", "MAYBE", "NO"].includes(verdict))) {
+      expect([word, check(`West storm swell peaks Friday, ${word} at the points.`)]).toEqual([word, { ok: false, reason: "verdict_word" }]);
+    }
+    expect(check("West storm swell peaks Friday, EARLY  LOOK only.")).toEqual({ ok: false, reason: "verdict_word" });
+    expect(check("West storm swell peaks Friday: a good, fair-sized day, likely the one.")).toEqual({ ok: true });
+    expect(check("West storm swell peaks Friday at GOODWIN.")).toEqual({ ok: true });
     expect(check("Friday is the call for the west storm swell.")).toEqual({ ok: false, reason: "the_call" });
     expect(check("   ")).toEqual({ ok: false, reason: "empty" });
     expect(check(`West storm swell peaks Friday${"!".repeat(212)}`)).toEqual({ ok: false, reason: "too_long" });
@@ -476,7 +483,7 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     expect(block).not.toBeNull();
     expect(JSON.parse(block![1])).toEqual({
       COMPASS, WEEKDAY, CLOSED_WORD_SETS, DEGREE_WORDS, PHASE_VERBS, TIME_QUALIFIERS, DAY_PHRASES, WEEK_FROM_DAYS, NEXT_WEEKDAYS,
-      LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, COMPASS_ABBREVIATIONS, WEEKDAY_ABBREVIATIONS,
+      LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, VERDICT_WORDS, COMPASS_ABBREVIATIONS, WEEKDAY_ABBREVIATIONS,
     });
     // Every past phase form is a time qualifier.
     expect(Object.values(PHASE_VERBS).flat().filter((form) => /ed\b|built|went/.test(form))

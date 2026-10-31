@@ -112,7 +112,7 @@ The rules, for the worker to copy:
 
 The checks, in order:
 
-1. `empty` (blank), `too_long` (over 240 characters), `digit` (any numeral), `verdict_word` (whole uppercase `YES`, `MAYBE` or `NO`), `the_call` ("the call").
+1. `empty` (blank), `too_long` (over 240 characters), `digit` (any numeral), `verdict_word` (a whole UPPERCASE `VERDICT_WORDS` word: native's `YES`, `MAYBE` and `NO`, and the card's labels; lowercase "good" or "no wind" stays prose), `the_call` ("the call").
 2. `number`: a `NUMBER_WORDS` word, hyphenated forms included ("six-foot"). `size`: a `SIZE_ADJECTIVES` word. Relative words ("runs biggest Thursday") stay prose.
 3. `weekday`: a day unit the candidate doesn't name. `weekday_order`: the sentence's day units, each once in first-appearance order, are not in the candidate's order (it may leave days out, never swap them).
 4. `direction`: a direction the candidate doesn't name.
@@ -153,6 +153,7 @@ Any other word is free prose: against "Faces the west groundswell dead on, with 
   "RELATIVE_TIME_WORDS": [["same day"], ["next day"], ["day after"], ["following day"], ["weekend"], ["overnight"], ["midweek"], ["dawn"], ["sunrise"], ["morning"], ["midday", "noon"], ["afternoon"], ["evening"], ["sunset"], ["dusk"], ["night"], ["midnight"]],
   "NUMBER_WORDS": ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred", "hundreds", "dozen", "dozens", "half", "feet", "foot", "ft", "seconds", "mph", "knots", "meter", "meters", "metre", "metres", "inch", "inches", "mile", "miles"],
   "SIZE_ADJECTIVES": ["knee-high", "waist-high", "chest-high", "shoulder-high", "head-high", "overhead", "double overhead", "small", "tiny", "big", "huge", "massive", "solid", "pumping", "firing", "epic", "flat"],
+  "VERDICT_WORDS": ["YES", "MAYBE", "NO", "EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH", "LIKELY", "EARLY LOOK"],
   "COMPASS_ABBREVIATIONS": ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"],
   "WEEKDAY_ABBREVIATIONS": ["Sun", "Mon", "Tue", "Tues", "Wed", "Thu", "Thur", "Thurs", "Fri", "Sat"]
 }
