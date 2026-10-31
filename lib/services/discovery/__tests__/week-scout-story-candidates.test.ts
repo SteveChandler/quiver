@@ -1,7 +1,7 @@
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addDays } from "../swell-briefing-input";
 import {
-  beachLineText, buildEventCandidates, buildStoryCandidates, eventStoryText, storyEventKey, storyEventsFromRegion,
+  beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion,
   type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import { buildRegionGateContext, regionGateHolds } from "../week-scout-story-region-gate";
@@ -395,5 +395,39 @@ describe("event and beach lines the card shows", () => {
     expect(eventStoryText(inWater, TODAY)).toBe("A west mid-period swell is already in the water, peaked Monday and fades Wednesday.");
     const later = { ...inWater, directionDeg: 90, periodS: 8, arrivalAt: "2026-11-03T18:00:00Z", peakAt: "2026-11-05T18:00:00Z", fadeAt: null };
     expect(eventStoryText(later, TODAY)).toBe("An east short-period windswell arrives a week from today and peaks a week from Thursday.");
+  });
+
+  it("names each day once when arrival, peak and fade share one, and gates a fade only when it names one", () => {
+    // Today Tuesday. Thursday is 2026-10-29, Friday 2026-10-30.
+    const base = { directionDeg: 270, periodS: 7, timezone: TIMEZONE, confidence: "locked" as const, minimumBeaches: 3,
+      kind: "storm" as const, regionalKey: "San Diego:W:2026-10-29:s" };
+    const story = (arrivalAt: string, peakAt: string, fadeAt: string | null) => eventStory({ ...base, arrivalAt, peakAt, fadeAt }, TODAY);
+
+    const arrivesAndPeaks = story("2026-10-29T15:00:00Z", "2026-10-29T20:00:00Z", "2026-10-30T20:00:00Z");
+    expect(arrivesAndPeaks.text).toBe("A stormy west short-period swell arrives and peaks Thursday, then fades Friday.");
+    expect(arrivesAndPeaks.gate.fadeLocalDate).toBe("2026-10-30");
+    const comesAndGoes = story("2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", "2026-10-29T23:00:00Z");
+    expect(comesAndGoes.text).toBe("A stormy west short-period swell comes and goes Thursday.");
+    expect(comesAndGoes.gate.fadeLocalDate).toBe("2026-10-29");
+    const fadesOnPeakDay = story("2026-10-29T15:00:00Z", "2026-10-30T16:00:00Z", "2026-10-30T23:00:00Z");
+    expect(fadesOnPeakDay.text).toBe("A stormy west short-period swell arrives Thursday and peaks Friday.");
+    expect(fadesOnPeakDay.gate).toMatchObject({ arrivalLocalDate: "2026-10-29", peakLocalDate: "2026-10-30", fadeLocalDate: null });
+    const noFade = story("2026-10-29T15:00:00Z", "2026-10-29T20:00:00Z", null);
+    expect(noFade.text).toBe("A stormy west short-period swell arrives and peaks Thursday.");
+    expect(noFade.gate.fadeLocalDate).toBeNull();
+    // Already in the water, fading the day it peaks: no fade clause.
+    const inWater = story("2026-10-26T15:00:00Z", "2026-10-28T16:00:00Z", "2026-10-28T23:00:00Z");
+    expect(inWater.text).toBe("A stormy west short-period swell is already in the water and peaks Wednesday.");
+    expect(inWater.gate.fadeLocalDate).toBeNull();
+    for (const item of [arrivesAndPeaks, comesAndGoes, fadesOnPeakDay, noFade, inWater]) {
+      expect(item.text).not.toMatch(/same day/);
+    }
+    // A gate without a fade still holds when the build's fade moves; one that names a fade does not.
+    const build: RegionBuild = { region: "San Diego", timezone: TIMEZONE, buoy: null, wamDays: null, beaches: [], rowsByBeach: {},
+      events: [regionEvent("San Diego:W:2026-10-30:s", 270, 7, "2026-10-29T15:00:00Z", "2026-10-30T16:00:00Z", "2026-10-31T16:00:00Z",
+        { kind: "storm" })] };
+    const context = buildRegionGateContext(build, TODAY);
+    expect(regionGateHolds(fadesOnPeakDay.gate, context)).toBe(true);
+    expect(regionGateHolds(arrivesAndPeaks.gate, context)).toBe(false);
   });
 });

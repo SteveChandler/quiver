@@ -207,23 +207,50 @@ function cardDay(date: string, today: string): string {
   return lead < -6 ? "earlier" : weekday(date);
 }
 
+function joinClauses(clauses: readonly string[]): string {
+  return clauses.length === 1 ? clauses[0] : `${clauses.slice(0, -1).join(", ")} and ${clauses[clauses.length - 1]}`;
+}
+
 /**
- * The card's story line for one event, from the region's local today: direction, kind and period,
- * then arrival, peak and (when it has one) fade days. "A stormy west short-period swell arrives
- * Thursday, peaks Friday and fades Saturday."
+ * The card's story line for one event and whether it names a fade day, from the region's local today.
+ * Each day is named once: "arrives Thursday, peaks Friday and fades Saturday", "arrives and peaks Friday,
+ * then fades Saturday", "comes and goes Friday"; a fade on the peak day goes unsaid.
  */
-export function eventStoryText(event: RegionalSwellEvent, today: string): string {
+function eventStoryParts(event: RegionalSwellEvent, today: string): { text: string; namesFade: boolean } {
   const arrival = eventLocalDate(event.arrivalAt, event.timezone);
   const peak = eventLocalDate(event.peakAt, event.timezone);
   const fade = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
-  const clauses = [
-    arrival < today ? "is already in the water" : `arrives ${cardDay(arrival, today)}`,
-    `${peak < today ? "peaked" : "peaks"} ${peak === arrival && arrival >= today ? "the same day" : cardDay(peak, today)}`,
-    ...(fade ? [`${fade < today ? "faded" : "fades"} ${fade === peak ? "the same day" : cardDay(fade, today)}`] : []),
-  ];
-  const sentence = `${withArticle(namedSwell(directionWords(event.directionDeg), event.periodS, event.kind))} `
-    + `${clauses.slice(0, -1).join(", ")} and ${clauses[clauses.length - 1]}.`;
-  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+  const day = (date: string): string => cardDay(date, today);
+  const fadeClause = fade !== null && fade !== peak ? `${fade < today ? "faded" : "fades"} ${day(fade)}` : null;
+  let predicate: string;
+  let namesFade = fadeClause !== null;
+  if (arrival < today) {
+    predicate = joinClauses(["is already in the water", `${peak < today ? "peaked" : "peaks"} ${day(peak)}`, ...(fadeClause ? [fadeClause] : [])]);
+  } else if (arrival === peak && fade === peak) {
+    predicate = `comes and goes ${day(peak)}`;
+    namesFade = true;
+  } else if (arrival === peak) {
+    predicate = `arrives and peaks ${day(peak)}${fadeClause ? `, then ${fadeClause}` : ""}`;
+  } else {
+    predicate = joinClauses([`arrives ${day(arrival)}`, `peaks ${day(peak)}`, ...(fadeClause ? [fadeClause] : [])]);
+  }
+  const sentence = `${withArticle(namedSwell(directionWords(event.directionDeg), event.periodS, event.kind))} ${predicate}.`;
+  return { text: sentence.charAt(0).toUpperCase() + sentence.slice(1), namesFade };
+}
+
+/**
+ * The card's story line for one event: direction, kind and period, then its days. "A stormy west
+ * short-period swell arrives Thursday, peaks Friday and fades Saturday."
+ */
+export function eventStoryText(event: RegionalSwellEvent, today: string): string {
+  return eventStoryParts(event, today).text;
+}
+
+/** The story line and its swell gate, which claims a fade day only when the line names one. */
+export function eventStory(event: RegionalSwellEvent, today: string): { text: string; gate: Extract<StoryGate, { kind: "swell" }> } {
+  const { text, namesFade } = eventStoryParts(event, today);
+  const gate = eventSwellGate(event);
+  return { text, gate: namesFade ? gate : { ...gate, fadeLocalDate: null } };
 }
 
 /** Why a rated beach does or doesn't work for an event, from its exposure to the event's direction and its wind. */
@@ -252,7 +279,8 @@ export function buildEventCandidates(build: RegionBuild, events: readonly Region
     // The first event under a key, as the gate context keeps the first.
     if (keys.has(key)) continue;
     keys.add(key);
-    add(facts, `event-${key}-story`, `event:${key}:story`, eventStoryText(event, today), eventSwellGate(event));
+    const story = eventStory(event, today);
+    add(facts, `event-${key}-story`, `event:${key}:story`, story.text, story.gate);
     const listing = rated.get(event.regionalKey);
     const listed = listing ? [listing.here, ...listing.working, ...listing.notWorking] : [];
     const direction = directionWords(event.directionDeg);

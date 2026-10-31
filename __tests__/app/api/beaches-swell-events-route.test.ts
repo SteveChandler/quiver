@@ -39,6 +39,8 @@ const DAYS = Array.from({ length: 14 }, (_, index) => index - 2);
 const STORM: PartitionSpec = { heightFt: 7, periodS: 9, direction: 270 };
 const STORM_DAY_WAM_M = 3.2;
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+/** The storm's server story line: it arrives and peaks the same Monday. */
+const STORM_STORY = "A stormy west short-period swell arrives and peaks Monday, then fades Tuesday.";
 
 interface Surf {
   wave: string;
@@ -208,7 +210,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(loadLatestStoryEdition).toHaveBeenCalledWith(client, REGION);
     expect(loadStoryInput).not.toHaveBeenCalled();
     const storm = stormEvent(data.events)!;
-    expect(storm.story).toBe("A stormy west short-period swell arrives Monday, peaks the same day and fades Tuesday.");
+    expect(storm.story).toBe(STORM_STORY);
     expect(storm.here?.why).toBe("Faces the west swell straight on, with light wind in its window.");
     const early = data.events.find((event) => event.source === "wam")!;
     expect(early.story).toBeNull();
@@ -330,7 +332,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expectConsoleWarnings([/story edition read failed/]);
     expect(status).toBe(200);
     expect(stormEvent(data.events)).toMatchObject({
-      story: "A stormy west short-period swell arrives Monday, peaks the same day and fades Tuesday.",
+      story: STORM_STORY,
       here: { beachId: beaches[0].id, why: "Faces the west swell straight on, with light wind in its window." },
     });
   });
@@ -363,7 +365,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     const { data } = await call(beaches[0].id);
     expect(loadStoryInput).toHaveBeenCalledWith(client, "input-hash");
     // An edition whose input is gone serves the server lines.
-    expect(stormEvent(data.events)?.story).toBe("A stormy west short-period swell arrives Monday, peaks the same day and fades Tuesday.");
+    expect(stormEvent(data.events)?.story).toBe(STORM_STORY);
   });
 
   it("keeps the stored-forecast events, without early looks or history, when Open-Meteo is down", async () => {

@@ -89,7 +89,7 @@ describe("regional story source snapshot", () => {
     expect(input.beachNames).toEqual({ a: "Ocean Beach", b: "Blacks", c: "La Jolla Shores" });
     expect(input.copyFacts.filter((fact) => fact.slot.startsWith("event:")).map((fact) => [fact.slot, fact.text])).toEqual([
       ["event:6-6-2026-10-26:story", "A west long-period groundswell is already in the water, peaked Monday and fades Tuesday."],
-      ["event:4-4-2026-10-27:story", "A south-southwest long-period groundswell arrives Tuesday, peaks the same day and fades Wednesday."],
+      ["event:4-4-2026-10-27:story", "A south-southwest long-period groundswell arrives and peaks Tuesday, then fades Wednesday."],
       ["event:6-2-2026-10-29-s:story", "A stormy west short-period swell arrives Wednesday, peaks Thursday and fades Friday."],
     ]);
     // Card lines follow the story's own candidates.
