@@ -75,7 +75,7 @@ describe("regional story source snapshot", () => {
     const ids = input.copyFacts.map((fact) => fact.id);
     expect(ids).toEqual(expect.arrayContaining(["cover-pulse-4-4-2026-10-27", "cover-pulse-6-2-2026-10-29-s"]));
     const stormLine = input.copyFacts.find((fact) => fact.id === "swell-6-2-2026-10-29-s");
-    expect(stormLine?.text).toContain("stormy");
+    expect(stormLine?.text).toContain("storm swell");
     expect(stormLine?.text).not.toMatch(/\d/);
     expect(stormLine?.gate).toMatchObject({ kind: "swell", confidence: "locked", minimumBeaches: 3 });
     expect(loadRegionForecastEvents).toHaveBeenCalledWith({ client: expect.anything(), region: "San Diego", now, timezone: TIMEZONE });
@@ -90,7 +90,7 @@ describe("regional story source snapshot", () => {
     expect(input.copyFacts.filter((fact) => fact.slot.startsWith("event:")).map((fact) => [fact.slot, fact.text])).toEqual([
       ["event:6-6-2026-10-26:story", "A west long-period groundswell is already in the water, peaked Monday and fades Tuesday."],
       ["event:4-4-2026-10-27:story", "A south-southwest long-period groundswell arrives and peaks Tuesday, then fades Wednesday."],
-      ["event:6-2-2026-10-29-s:story", "A stormy west short-period swell arrives Wednesday, peaks Thursday and fades Friday."],
+      ["event:6-2-2026-10-29-s:story", "A west short-period storm swell arrives Wednesday, peaks Thursday and fades Friday."],
     ]);
     // Card lines follow the story's own candidates.
     const firstEvent = input.copyFacts.findIndex((fact) => fact.slot.startsWith("event:"));
@@ -178,7 +178,7 @@ describe("regional story source snapshot", () => {
       "cover-pulse-6-4-2026-10-29-s", "cover-pulse-alt-6-4-2026-10-29-s",
     ]);
     expect(covers.map((fact) => fact.gate.kind === "swell" && fact.gate.regionalEventKey)).toEqual([keys[0], keys[0], keys[1], keys[1]]);
-    expect(covers[2].text).toContain("stormy mid-period swell");
+    expect(covers[2].text).toContain("mid-period storm swell");
     expect(facts.filter((fact) => fact.slot.startsWith("swell:") && !fact.slot.endsWith(":exposure")).map((fact) => fact.slot))
       .toEqual(["swell:6-4-2026-10-29", "swell:6-4-2026-10-29", "swell:6-4-2026-10-29-s", "swell:6-4-2026-10-29-s"]);
   });

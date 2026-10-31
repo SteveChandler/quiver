@@ -80,16 +80,15 @@ function eventLocalDate(at: string, timezone: string): string {
 }
 
 function periodWords(seconds: number, kind: RegionalSwellEvent["kind"]): string {
-  if (kind === "storm") return seconds >= 10 ? "stormy mid-period swell" : "stormy short-period swell";
+  if (kind === "storm") return seconds >= 10 ? "mid-period storm swell" : "short-period storm swell";
   if (seconds >= 13) return "long-period groundswell";
   if (seconds >= 10) return "mid-period swell";
   return "short-period windswell";
 }
 
-/** "west long-period groundswell"; a storm's "stormy" leads the direction: "stormy west short-period swell". */
+/** "west long-period groundswell", "west short-period storm swell". */
 function namedSwell(direction: string, seconds: number, kind: RegionalSwellEvent["kind"]): string {
-  const period = periodWords(seconds, kind);
-  return kind === "storm" ? `stormy ${direction} ${period.replace(/^stormy /, "")}` : `${direction} ${period}`;
+  return `${direction} ${periodWords(seconds, kind)}`;
 }
 
 function withArticle(phrase: string): string {
@@ -240,8 +239,8 @@ function eventStoryParts(event: RegionalSwellEvent, today: string): { text: stri
 }
 
 /**
- * The card's story line for one event: direction, kind and period, then its days. "A stormy west
- * short-period swell arrives Thursday, peaks Friday and fades Saturday."
+ * The card's story line for one event: direction, kind and period, then its days. "A west short-period
+ * storm swell arrives Thursday, peaks Friday and fades Saturday."
  */
 export function eventStoryText(event: RegionalSwellEvent, today: string): string {
   return eventStoryParts(event, today).text;

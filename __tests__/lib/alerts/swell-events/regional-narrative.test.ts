@@ -113,7 +113,7 @@ function whyByBeach(event: RegionSwellEvent): Record<string, string | null | und
 }
 
 const SSW_STORY = "A south-southwest long-period groundswell arrives Thursday, peaks Friday and fades Saturday.";
-const STORM_STORY = "A stormy west short-period swell arrives Saturday, peaks Sunday and fades Monday.";
+const STORM_STORY = "A west short-period storm swell arrives Saturday, peaks Sunday and fades Monday.";
 const SSW_WHY = {
   a: "Faces the south-southwest groundswell dead on, with light wind in its window.",
   b: "Faces the south-southwest groundswell dead on, but it's breezy in its window.",

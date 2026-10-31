@@ -67,21 +67,21 @@ describe("regional Week Scout story candidates", () => {
       .toContain("short-period windswell");
   });
 
-  it("calls a storm stormy: short-period under ten seconds, mid-period from ten", () => {
+  it("calls a storm a storm swell: short-period under ten seconds, mid-period from ten", () => {
     const signals = days(3);
     const storm = (periodS: number): RegionalSwellEvent => ({ ...event(periodS), kind: "storm" });
     const short = buildStoryCandidates(signals, "San Diego", [storm(7)]);
     expect(storyEventKey(storm(7))).toBe("4-2-2026-11-01-s");
     expect(short.find((fact) => fact.slot === "cover")?.text).toBe(
-      "A stormy short-period swell from the south-southwest reaches San Diego Saturday and peaks Sunday.");
-    expect(short.find((fact) => fact.id === "swell-4-2-2026-11-01-s")?.text).toContain("The stormy short-period swell arrives Saturday");
-    // "Stormy" leads the direction wherever a sentence names both.
+      "A short-period storm swell from the south-southwest reaches San Diego Saturday and peaks Sunday.");
+    expect(short.find((fact) => fact.id === "swell-4-2-2026-11-01-s")?.text).toContain("The short-period storm swell arrives Saturday");
+    // The direction leads, as it does for any swell.
     expect(short.find((fact) => fact.id === "cover-pulse-alt-4-2-2026-11-01-s")?.text).toBe(
-      "San Diego gets a stormy south-southwest short-period swell by Saturday, with the most swell Sunday.");
+      "San Diego gets a south-southwest short-period storm swell by Saturday, with the most swell Sunday.");
     expect(buildStoryCandidates(signals, "San Diego", [storm(10)]).find((fact) => fact.slot === "cover")?.text)
-      .toContain("stormy mid-period swell");
+      .toContain("mid-period storm swell");
     expect(buildStoryCandidates(signals, "San Diego", [storm(14)]).find((fact) => fact.slot === "cover")?.text)
-      .toContain("stormy mid-period swell");
+      .toContain("mid-period storm swell");
   });
 
   it("names each day of the swell chapter once, like the card's story line", () => {
@@ -327,7 +327,7 @@ describe("event and beach lines the card shows", () => {
     // The WAM early look is not a forecast event and gets no line.
     expect(facts.filter((fact) => fact.slot.endsWith(":story")).map((fact) => [fact.slot, fact.text, fact.rank])).toEqual([
       ["event:4-4-2026-10-30:story", "A south-southwest long-period groundswell arrives Thursday, peaks Friday and fades Saturday.", 0],
-      ["event:6-2-2026-11-01-s:story", "A stormy west short-period swell arrives Saturday, peaks Sunday and fades Monday.", 0],
+      ["event:6-2-2026-11-01-s:story", "A west short-period storm swell arrives Saturday, peaks Sunday and fades Monday.", 0],
     ]);
     expect(facts.find((fact) => fact.slot === "event:4-4-2026-10-30:story")?.gate).toEqual({
       kind: "swell", regionalEventKey: "4-4-2026-10-30", directionSector: 4, directionIndex: 9, periodBand: 4, periodClass: "long",
@@ -463,20 +463,20 @@ describe("event and beach lines the card shows", () => {
     const story = (arrivalAt: string, peakAt: string, fadeAt: string | null) => eventStory({ ...base, arrivalAt, peakAt, fadeAt }, TODAY);
 
     const arrivesAndPeaks = story("2026-10-29T15:00:00Z", "2026-10-29T20:00:00Z", "2026-10-30T20:00:00Z");
-    expect(arrivesAndPeaks.text).toBe("A stormy west short-period swell arrives and peaks Thursday, then fades Friday.");
+    expect(arrivesAndPeaks.text).toBe("A west short-period storm swell arrives and peaks Thursday, then fades Friday.");
     expect(arrivesAndPeaks.gate.fadeLocalDate).toBe("2026-10-30");
     const comesAndGoes = story("2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", "2026-10-29T23:00:00Z");
-    expect(comesAndGoes.text).toBe("A stormy west short-period swell comes and goes Thursday.");
+    expect(comesAndGoes.text).toBe("A west short-period storm swell comes and goes Thursday.");
     expect(comesAndGoes.gate.fadeLocalDate).toBe("2026-10-29");
     const fadesOnPeakDay = story("2026-10-29T15:00:00Z", "2026-10-30T16:00:00Z", "2026-10-30T23:00:00Z");
-    expect(fadesOnPeakDay.text).toBe("A stormy west short-period swell arrives Thursday and peaks Friday.");
+    expect(fadesOnPeakDay.text).toBe("A west short-period storm swell arrives Thursday and peaks Friday.");
     expect(fadesOnPeakDay.gate).toMatchObject({ arrivalLocalDate: "2026-10-29", peakLocalDate: "2026-10-30", fadeLocalDate: null });
     const noFade = story("2026-10-29T15:00:00Z", "2026-10-29T20:00:00Z", null);
-    expect(noFade.text).toBe("A stormy west short-period swell arrives and peaks Thursday.");
+    expect(noFade.text).toBe("A west short-period storm swell arrives and peaks Thursday.");
     expect(noFade.gate.fadeLocalDate).toBeNull();
     // Already in the water, fading the day it peaks: no fade clause.
     const inWater = story("2026-10-26T15:00:00Z", "2026-10-28T16:00:00Z", "2026-10-28T23:00:00Z");
-    expect(inWater.text).toBe("A stormy west short-period swell is already in the water and peaks Wednesday.");
+    expect(inWater.text).toBe("A west short-period storm swell is already in the water and peaks Wednesday.");
     expect(inWater.gate.fadeLocalDate).toBeNull();
     for (const item of [arrivesAndPeaks, comesAndGoes, fadesOnPeakDay, noFade, inWater]) {
       expect(item.text).not.toMatch(/same day/);

@@ -17,7 +17,7 @@ const gate: StoryCandidate["gate"] = {
 };
 const fact = (text: string): StoryCandidate => ({ id: "event-6-2-2026-10-30-s-story", slot: "event:6-2-2026-10-30-s:story", text, gate });
 // Task 3's example story line.
-const storm = fact("A west stormy short-period swell arrives Thursday night, peaks Friday and fades Saturday.");
+const storm = fact("A west short-period storm swell arrives Thursday night, peaks Friday and fades Saturday.");
 const BEACHES = ["Ocean Beach", "La Jolla", "La Jolla Shores", "North Beach", "Swami's", " "];
 const check = (text: string, against: StoryCandidate = storm) => checkWrittenSentence(text, against, BEACHES);
 
@@ -323,11 +323,11 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     // Every phase verb since the clause's last day binds: "arrives and peaks Thursday" moves the arrival.
     const twoDay = fact("A west long-period groundswell arrives Wednesday and peaks Thursday.");
     expect(check("A west groundswell arrives and peaks Thursday.", twoDay)).toEqual({ ok: false, reason: "weekday_order" });
-    const sameDay = fact("A stormy west short-period swell arrives and peaks Thursday, then fades Friday.");
+    const sameDay = fact("A west short-period storm swell arrives and peaks Thursday, then fades Friday.");
     expect(check("This west storm swell arrives and peaks Thursday, then fades Friday.", sameDay)).toEqual({ ok: true });
     expect(check("The west storm swell arrives Thursday.", sameDay)).toEqual({ ok: true });
     expect(check("The west storm swell arrives Thursday and peaks Friday.", sameDay)).toEqual({ ok: false, reason: "weekday_order" });
-    const comesAndGoes = fact("A stormy west short-period swell comes and goes Thursday.");
+    const comesAndGoes = fact("A west short-period storm swell comes and goes Thursday.");
     expect(check("The west storm swell comes and goes Thursday.", comesAndGoes)).toEqual({ ok: true });
     // A day with no phase verb before it in its clause claims no phase.
     expect(check("By Friday the west groundswell peaks, and it fades Saturday.", days)).toEqual({ ok: true });
