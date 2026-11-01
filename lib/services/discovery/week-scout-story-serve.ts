@@ -86,7 +86,10 @@ function pickDayLine(date: string, regional: StoryRegion, live: Live, input: Sto
   const pick = live.days.find((day) => day.localDate === date)?.bestDayWindow;
   if (!pick?.safe) return null;
   const beachName = input.beachNames[pick.beachId];
-  const eventFacts = regional.context.dayFacts(pick.beachId, date);
+  const eventFacts = regional.context.dayFacts(pick.beachId, date) ?? regional.context.events
+    .map((event) => regional.context.beachDayFacts(storyEventKey(event), pick.beachId, date))
+    .filter((facts): facts is CandidateFacts => facts !== null)
+    .sort((a, b) => (b.faceFt?.max ?? -1) - (a.faceFt?.max ?? -1))[0] ?? null;
   if (!beachName || /\d/.test(beachName) || !eventFacts) return null;
   const faceFt = faceRangeFt([pick.forecast.waveHeight]);
   if (!faceFt) return null;
@@ -272,8 +275,7 @@ export function bindStory(args: {
       chosen.push(pickLine);
       continue;
     }
-    const fallback = candidates.filter((fact) => fact.gate.kind === "change" || fact.gate.kind === "tide"
-      || fact.gate.kind === "wind")
+    const fallback = candidates.filter((fact) => fact.gate.kind !== "day_surf")
       .find((fact) => candidateHolds(fact, regional, live, input));
     if (fallback) chosen.push(fallback);
   }

@@ -163,10 +163,10 @@ describe("deterministic fallback and live gates", () => {
     mockLoadRegion.mockResolvedValue(regionBuild([west]));
   });
 
-  it("omits generic day gates from fallback after trying surf, pick, change, tide and wind candidates", () => {
+  it("selects the first passing candidate per slot, omitting failed gates", () => {
     const story = bindFallbackStory(region, input(), live(), regionOf());
     expect(story).toMatchObject({ availability: "ready", cover: { text: "Specific cover." },
-      lead: "Specific lead.", chapters: [] });
+      lead: "Specific lead.", chapters: [{ slot: "day:2026-07-15", text: "Light morning wind." }] });
     const missingCover = input();
     missingCover.copyFacts.filter((fact) => fact.slot === "cover").forEach((fact) => {
       fact.gate = { ...swellGate, periodBand: 4 };
@@ -609,9 +609,9 @@ describe("deterministic fallback and live gates", () => {
       mockLoadRegion.mockRejectedValue(new Error("Failed to load region beaches: timeout"));
       const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
         startLocalDate: "2026-07-15", now });
-      // The chart still shows the swell, but no region or fallback gate can prove a story line.
+      // The chart cannot prove a swell sentence, but the generic day gate still holds on the live chart.
       expect(story).toMatchObject({ availability: "ready", cover: { text: null }, lead: null,
-        chapters: [] });
+        chapters: [{ slot: "day:2026-07-15", text: "Light morning wind." }] });
       expect(warn).toHaveBeenCalledWith("[week-scout-story] region gate read failed",
         { region, error: "Error: Failed to load region beaches: timeout" });
     } finally {
@@ -842,6 +842,33 @@ describe("live surfer facts", () => {
     const story = bindStory({ region: input.region, availability: "ready", input, selections: ["other"],
       live: response, regional, requireCover: false });
 
+    expect(story.chapters).toEqual([{ slot: `day:${date}`, text: "On Wednesday, Picked Beach runs chest-high, offshore early." }]);
+  });
+
+  it("uses a covering event's beach-day facts when a same-beach day_surf line no longer matches the card", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    pick.forecast.waveHeight = "2.6 ft";
+    const date = response.days[0].localDate;
+    const regional = regionOf();
+    const eventKey = storyEventKey(regional.context.events[0]);
+    const eventFacts: CandidateFacts = { faceFt: { min: 2, max: 3 }, sizes: ["waist"],
+      windHours: [{ hour: 8, relation: "offshore", mph: 5 }], breaker: null };
+    regional.context.dayFacts = jest.fn(() => null);
+    regional.context.beachDayFacts = jest.fn((key, beachId, localDate) =>
+      key === eventKey && beachId === pick.beachId && localDate === date ? eventFacts : null);
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach" };
+    input.copyFacts = [{ id: "stale", slot: `day:${date}`, rank: 50,
+      text: "On Wednesday, Picked Beach runs waist-high, offshore early.", facts: eventFacts,
+      gate: { kind: "day_surf", localDate: date, beachId: pick.beachId, faceFt: { min: 2, max: 3 } } }];
+
+    const story = bindStory({ region: input.region, availability: "ready", input, selections: ["stale"],
+      live: response, regional, requireCover: false });
+
+    expect(regional.context.dayFacts).toHaveBeenCalledWith("pick-beach", date);
+    expect(regional.context.beachDayFacts).toHaveBeenCalledWith(eventKey, "pick-beach", date);
     expect(story.chapters).toEqual([{ slot: `day:${date}`, text: "On Wednesday, Picked Beach runs chest-high, offshore early." }]);
   });
 
