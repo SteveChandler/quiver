@@ -16,7 +16,7 @@ jest.mock("../week-scout-story-store", () => ({
 import { buildStoryInput, storyEventsFromRegion } from "../week-scout-story-source";
 import { buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
 import { addDays } from "../swell-briefing-input";
-import { loadRegionForecastEvents, type InternalRegionEvent, type RegionBuild } from "@/lib/alerts/swell-events/regional";
+import { loadRegionForecastEvents, type InternalRegionEvent, type RatingRow, type RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { Database } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -80,6 +80,15 @@ describe("regional story source snapshot", () => {
     const spy = jest.mocked(buildStoryCandidates);
     const six = ["5", "2", "4", "1", "3", "0"].map((id) => ({ ...beaches[0], id, name: `Beach ${id}`,
       wave_punchiness_ai: 0.3, wave_punchiness_ai_confidence: 0.7, persona: "exposed_beach_break" }));
+    const regionalBeaches = six.map((beach) => ({ id: beach.id, name: beach.name, lat: beach.lat, lon: beach.lon,
+      aspect_deg: beach.aspect_deg, wind_offshore_deg: beach.wind_offshore_deg, wind_offshore_tol_deg: 30,
+      punchiness: 0.3, swell_window_center_deg: beach.swell_window_center_deg, swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg }));
+    const regionalRow = (forecast_at: string, wave_height: string): RatingRow => ({ forecast_at, wave_height, wave_period: null,
+      wind_speed: "5 mph", wind_direction: "E", tide_height: null, tide_status: null, swell_1_period: "13s" });
+    jest.mocked(loadRegionForecastEvents).mockResolvedValue(regionBuild([ssw, storm], { beaches: regionalBeaches,
+      rowsByBeach: Object.fromEntries(six.map((beach) => [beach.id, [
+        regionalRow("2026-10-27T18:00:00Z", "3-4 ft"), regionalRow("2026-10-29T20:00:00Z", "7-8 ft"),
+      ]])) }));
     const winds: Record<string, [number, number]> = { "0": [20, 0], "1": [3, 3], "2": [8, 8], "3": [1, 20], "4": [14, 14], "5": [18, 18] };
     const rows = forecasts(six).flatMap((row) => {
       const id = String(row.beach_id);
@@ -104,6 +113,26 @@ describe("regional story source snapshot", () => {
     expect(signals[0].surfBeaches?.[0].facts.breaker).toEqual({ character: "pitching", feel: "punchy", closingOut: false });
     expect(signals[2].surfBeaches?.[0].facts.breaker?.character).toBe("crumbly");
 
+  });
+
+  it("uses the largest covering beach-day event for each surf-beach breaker character", async () => {
+    const groundswell = regionEvent("San Diego:SSW:2026-10-27", 202, 13,
+      "2026-10-27T16:00:00Z", "2026-10-27T17:00:00Z", "2026-10-27T19:00:00Z");
+    const stormSwell = regionEvent("San Diego:W:2026-10-27:s", 270, 8,
+      "2026-10-27T20:00:00Z", "2026-10-27T21:00:00Z", "2026-10-27T22:00:00Z",
+      { kind: "storm", directionLabel: "W" });
+    const beach = { ...beaches[0], wind_offshore_tol_deg: 30, punchiness: 0.3 };
+    const row = (forecast_at: string, wave_height: string): RatingRow => ({ forecast_at, wave_height, wave_period: null,
+      wind_speed: "5 mph", wind_direction: "E", tide_height: null, tide_status: null, swell_1_period: "13s" });
+    jest.mocked(loadRegionForecastEvents).mockResolvedValue(regionBuild([groundswell, stormSwell], {
+      beaches: [beach], rowsByBeach: { a: [row("2026-10-27T18:00:00Z", "2-3 ft"), row("2026-10-27T21:00:00Z", "7-8 ft")] },
+    }));
+
+    const spy = jest.mocked(buildStoryCandidates);
+    await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    const signals = spy.mock.calls[0][0];
+
+    expect(signals[0].surfBeaches?.find((item) => item.beachId === "a")?.facts.breaker?.character).toBe("crumbly");
   });
 
   it("builds story events from the region build, storms included", async () => {

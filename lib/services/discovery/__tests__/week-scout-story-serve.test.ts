@@ -470,7 +470,7 @@ describe("deterministic fallback and live gates", () => {
     const story = bindStory({ region, availability: "ready", input: issued,
       selections: ["cover", "lead", "pattern"], live: response, regional: regionOf() });
     expect(story.turn).toBe("Mornings stay cleaner on several days; the onshore fills in by midday.");
-    expect(story.chapters).toEqual([]);
+    expect(story.chapters).toEqual([{ slot: "day:2026-07-15", text: "Light morning wind." }]);
   });
 
   it("keeps a valid published edition ahead of the fallback", async () => {
@@ -705,12 +705,96 @@ describe("live surfer facts", () => {
     }]);
   });
 
+  it("rechecks day_surf wind and breaker claims from current day facts before serving the pick line", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    pick.forecast.waveHeight = "3-4 ft";
+    const date = response.days[0].localDate;
+    const regional = regionOf();
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], windHours: [
+      { hour: 7, relation: "offshore", mph: 5 }, { hour: 8, relation: "onshore", mph: 9 },
+      { hour: 10, relation: "onshore", mph: 9 },
+    ], breaker: { character: null, feel: null, closingOut: false } });
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach" };
+    input.copyFacts = [{ id: "stale-wind", slot: `day:${date}`, rank: 50,
+      text: "On Wednesday, Picked Beach runs chest-high and punchy, offshore early, onshore by 10.",
+      facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+        windHours: [{ hour: 7, relation: "offshore", mph: 5 }, { hour: 8, relation: "offshore", mph: 5 },
+          { hour: 10, relation: "onshore", mph: 5 }, { hour: 11, relation: "onshore", mph: 5 }],
+        breaker: { character: null, feel: "punchy", closingOut: false } },
+      gate: { kind: "day_surf", localDate: date, beachId: pick.beachId, faceFt: { min: 3, max: 4 } } }];
+
+    const story = bindStory({ region: input.region, availability: "ready", input, selections: ["stale-wind"],
+      live: response, regional, requireCover: false });
+
+    expect(story.chapters).toEqual([{ slot: `day:${date}`, text: "On Wednesday, Picked Beach runs chest-high." }]);
+  });
+
+  it("keeps identical Sunday and Monday pick bodies because each names its day", () => {
+    const response = live();
+    const dates = ["2026-07-19", "2026-07-20"];
+    const firstPick = response.days[0].bestDayWindow!;
+    response.days = dates.map((date, index) => ({ ...response.days[0], localDate: date,
+      bestDayWindow: { ...firstPick, id: `window-${index}`, beachId: "pick-beach",
+        forecast: { ...firstPick.forecast, waveHeight: "3-4 ft" } } }));
+    const regional = regionOf([]);
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null });
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach" };
+    input.copyFacts = dates.map((date, index) => ({ id: `other-${index}`, slot: `day:${date}`, rank: 50 + index,
+      text: `On ${index === 0 ? "Sunday" : "Monday"}, Other Beach runs chest-high.`,
+      facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null },
+      gate: { kind: "day_surf" as const, localDate: date, beachId: "other-beach", faceFt: { min: 3, max: 4 } } }));
+
+    const story = bindFallbackStory(input.region, input, response, regional);
+
+    expect(story.chapters).toEqual([
+      { slot: "day:2026-07-19", text: "On Sunday, Picked Beach runs chest-high." },
+      { slot: "day:2026-07-20", text: "On Monday, Picked Beach runs chest-high." },
+    ]);
+  });
+
+  it("fills unselected day slots on the edition path while preserving its four selected day lines", () => {
+    const response = live();
+    const firstPick = response.days[0].bestDayWindow!;
+    response.days = response.days.map((day, index) => ({ ...day,
+      bestDayWindow: { ...firstPick, id: `window-${index}`, beachId: "pick-beach",
+        forecast: { ...firstPick.forecast, waveHeight: "3-4 ft" } } }));
+    const regional = regionOf();
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null });
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach", other: "Other Beach" };
+    const dayCandidates = response.days.map((day, index) => {
+      const date = day.localDate;
+      const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" })
+        .format(new Date(`${date}T12:00:00Z`));
+      const selected = index < 4;
+      return { id: `day-${index}`, slot: `day:${date}`, rank: 50 + index,
+        text: selected ? `On ${weekday}, Picked Beach looks chest-high.` : `On ${weekday}, Other Beach runs chest-high.`,
+        facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest" as const], breaker: null },
+        gate: { kind: "day_surf" as const, localDate: date, beachId: selected ? "pick-beach" : "other",
+          faceFt: { min: 3, max: 4 } } };
+    });
+    input.copyFacts = dayCandidates;
+
+    const story = bindStory({ region: input.region, availability: "ready", input,
+      selections: dayCandidates.slice(0, 4).map((candidate) => candidate.id), live: response, regional, requireCover: false });
+
+    expect(story.chapters).toHaveLength(7);
+    expect(story.chapters.slice(0, 4).map((chapter) => chapter.text)).toEqual(dayCandidates.slice(0, 4).map((candidate) => candidate.text));
+    expect(story.chapters.slice(4).map((chapter) => chapter.text)).toEqual(dayCandidates.slice(4).map((candidate) =>
+      candidate.text.replace("Other Beach runs", "Picked Beach runs")));
+  });
+
   it("prefers a holding day_surf candidate over the pick line", () => {
     const response = live();
     const pick = response.days[0].bestDayWindow!;
     pick.beachId = "pick-beach";
     const regional = regionOf();
-    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null });
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+      windHours: [{ hour: 8, relation: "offshore", mph: 5 }], breaker: null });
     const input = baseInput();
     input.beachNames = { "pick-beach": "Picked Beach" };
     const date = response.days[0].localDate;

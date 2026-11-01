@@ -11,7 +11,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion, type RegionalDaySignal } from "./week-scout-story-candidates";
-import { beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, median, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
+import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, median, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
 import { buildRegionGateContext } from "./week-scout-story-region-gate";
 import { loadLatestStoryInput, saveStoryInput, activeStoryRegions } from "./week-scout-story-store";
 import type { StoryInput } from "./week-scout-story-types";
@@ -144,19 +144,30 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       return hour < 12 ? "morning" : hour < 16 ? "midday" : "evening";
     };
     const daylight = regionalSamples.filter((row) => bucketOf(row.forecast_at) !== null);
+    const daylightByBeach = new Map<string, Row[]>();
+    for (const row of daylight) {
+      const beachRows = daylightByBeach.get(row.beach_id) ?? [];
+      beachRows.push(row);
+      daylightByBeach.set(row.beach_id, beachRows);
+    }
     const dayStart = Date.parse(zonedWallClockToUtc(date, "00:00:00.000", active.timezone));
     const dayEnd = Date.parse(zonedWallClockToUtc(addDays(date, 1), "00:00:00.000", active.timezone));
-    const coveringEvent = allEvents.find((event) => {
+    const coveringEvents = allEvents.filter((event) => {
       const { startMs, endMs } = ratingWindow(event);
       return startMs < dayEnd && endMs > dayStart;
     });
+    const coveringEvent = coveringEvents[0];
     const dayPeriods = daylight.map((row) => row.swell_period_om)
       .filter((period): period is number => period !== null && Number.isFinite(period)).sort((a, b) => a - b);
     const medianPeriod = dayPeriods.length === 0 ? null : median(dayPeriods);
-    const character = breakerCharacter(coveringEvent?.kind ?? "swell", coveringEvent?.periodS ?? medianPeriod);
     const surfBeaches = allBeaches.flatMap((beach) => {
-      const beachRows = daylight.filter((row) => row.beach_id === beach.id);
+      const beachRows = daylightByBeach.get(beach.id) ?? [];
       if (beachRows.length === 0) return [];
+      const breakerEvent = coveringEvents.map((event) => ({ event,
+        facts: beachDayFactsFromBuild(build, event, beach.id, date) }))
+        .filter((item) => item.facts !== null)
+        .sort((a, b) => (b.facts?.faceFt?.max ?? -1) - (a.facts?.faceFt?.max ?? -1))[0]?.event;
+      const character = breakerCharacter(breakerEvent?.kind ?? "swell", breakerEvent?.periodS ?? medianPeriod);
       const score = Math.max(...beachRows.map((row) => scoreNativeConditionInputs(nativeScoreInputsFromForecast(row as EnhancedForecastEntity), "intermediate")));
       const faceFt = faceRangeFt(beachRows.map((row) => row.wave_height));
       const punchiness = resolveWavePunchiness({ override: null, ai: beach.wave_punchiness_ai,

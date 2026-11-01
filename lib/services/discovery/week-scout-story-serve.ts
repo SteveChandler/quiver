@@ -79,7 +79,8 @@ function liveFacts(fact: StoryCandidate, regional: StoryRegion, live: Live): Can
   const pick = live.days.find((day) => day.localDate === gate.localDate)?.bestDayWindow;
   const faceFt = pick?.safe && pick.beachId === gate.beachId ? faceRangeFt([pick.forecast.waveHeight]) : null;
   if (!faceFt) return undefined;
-  return { ...fact.facts, faceFt, sizes: sizeWordsFor(faceFt), breaker: fact.facts?.breaker ?? null };
+  const dayFacts = regional.context.dayFacts(gate.beachId, gate.localDate);
+  return { ...fact.facts, faceFt, sizes: sizeWordsFor(faceFt), windHours: dayFacts?.windHours ?? [], breaker: dayFacts?.breaker ?? null };
 }
 
 function pickDayLine(date: string, regional: StoryRegion, live: Live, input: StoryInput): StoryCandidate | null {
@@ -103,13 +104,23 @@ function pickDayLine(date: string, regional: StoryRegion, live: Live, input: Sto
   const fact: StoryCandidate = {
     id: `pick-${date}-${pick.beachId}`, slot: `day:${date}`, rank: 75, text, facts, gate,
   };
-  return checkWrittenSentence(text, { ...fact, facts }, Object.values(input.beachNames), [input.region]).ok ? fact : null;
+  return fact;
 }
 
 function candidateHolds(fact: StoryCandidate, regional: StoryRegion, live: Live, input: StoryInput): boolean {
   return gateHolds(fact.gate, regional, live)
     && checkWrittenSentence(fact.text, { ...fact, facts: liveFacts(fact, regional, live) },
       Object.values(input.beachNames ?? {}), [input.region]).ok;
+}
+
+function memoCandidateHolds(regional: StoryRegion, live: Live, input: StoryInput): (fact: StoryCandidate) => boolean {
+  const heldById = new Map<string, boolean>();
+  return (fact) => {
+    if (heldById.has(fact.id)) return heldById.get(fact.id)!;
+    const holds = candidateHolds(fact, regional, live, input);
+    heldById.set(fact.id, holds);
+    return holds;
+  };
 }
 
 /** A swell sentence may sit under the cover only if it names the region's first event: its key, days and direction. */
@@ -244,36 +255,49 @@ export function bindStory(args: {
     chapters: [], days,
   });
   if (!input || !args.selections || args.availability !== "ready") return empty(args.availability);
+  const selectedIds = new Set(args.selections);
+  const factsBySlot = new Map<string, StoryCandidate[]>();
+  const selected: StoryCandidate[] = [];
+  for (const fact of input.copyFacts) {
+    const slotFacts = factsBySlot.get(fact.slot) ?? [];
+    slotFacts.push(fact);
+    factsBySlot.set(fact.slot, slotFacts);
+    if (selectedIds.has(fact.id)) selected.push(fact);
+  }
+  if (selected.length !== args.selections.length) return empty("unavailable");
+  const holds = memoCandidateHolds(regional, live, input);
   const agreesWithCover = (fact: StoryInput["copyFacts"][number]): boolean =>
     fact.gate.kind !== "swell" || describesFirstSwell(fact.gate, regional.first);
-  const selected = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
-  if (selected.length !== args.selections.length) return empty("unavailable");
   // An edition may select card lines too; they stay out of the story and never count against it.
   const chosen = selected.filter((fact) => !isCardSlot(fact.slot) && !fact.slot.startsWith("day:")
-    && candidateHolds(fact, regional, live, input) && agreesWithCover(fact));
+    && holds(fact) && agreesWithCover(fact));
   const daySlots = new Set(selected.filter((fact) => fact.slot.startsWith("day:")).map((fact) => fact.slot));
-  if (args.pickDayFallback) input.copyFacts.filter((fact) => fact.slot.startsWith("day:")).forEach((fact) => daySlots.add(fact.slot));
+  if (args.regional || args.pickDayFallback) {
+    for (const slot of factsBySlot.keys()) {
+      if (slot.startsWith("day:")) daySlots.add(slot);
+    }
+  }
   for (const slot of daySlots) {
-    const candidates = input.copyFacts.filter((fact) => fact.slot === slot).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const candidates = [...(factsBySlot.get(slot) ?? [])].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
     const selectedFact = selected.find((fact) => fact.slot === slot);
-    if (selectedFact && candidateHolds(selectedFact, regional, live, input)) {
+    if (selectedFact && holds(selectedFact)) {
       chosen.push(selectedFact);
       continue;
     }
     const surfaced = candidates.filter((fact) => fact.gate.kind === "day_surf")
-      .find((fact) => candidateHolds(fact, regional, live, input));
+      .find(holds);
     if (surfaced) {
       chosen.push(surfaced);
       continue;
     }
     const date = slot.slice("day:".length);
     const pickLine = pickDayLine(date, regional, live, input);
-    if (pickLine) {
+    if (pickLine && holds(pickLine)) {
       chosen.push(pickLine);
       continue;
     }
     const fallback = candidates.filter((fact) => fact.gate.kind !== "day_surf")
-      .find((fact) => candidateHolds(fact, regional, live, input));
+      .find(holds);
     if (fallback) chosen.push(fallback);
   }
   // Per slot: a written sentence that fails its check shows the candidate's own text; the others keep theirs.
@@ -292,6 +316,7 @@ export function bindStory(args: {
   const chapters = chosen.filter((fact) => fact.slot.startsWith("swell:") || fact.slot.startsWith("day:")
     || fact.slot.startsWith("quiet:")).filter((fact) => {
     if (!fact.slot.startsWith("day:")) return true;
+    if (fact.gate.kind === "day_surf") return true;
     const body = served(fact).replace(/^(?:On )?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:'s|:|,)?\s*/, "").trim();
     if (dayBodies.has(body)) return false;
     dayBodies.add(body);
@@ -314,13 +339,14 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
   const headlines = regional.first ? firstEventHeadlines(regional.first, live, regional.context) : [];
   const input = headlines.length > 0
     ? { ...regionalInput, copyFacts: [...regionalInput.copyFacts, ...headlines] } : regionalInput;
+  const holds = memoCandidateHolds(regional, live, input);
   const matchedEvents = new Set(regionalInput.copyFacts.flatMap((fact) => fact.gate.kind === "swell"
-    && matchesFirstSwell(fact.gate) && candidateHolds(fact, regional, live, input)
+    && matchesFirstSwell(fact.gate) && holds(fact)
     ? [fact.gate.regionalEventKey] : []));
   const selections = [...input.copyFacts].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
     .filter((fact) => {
       if (fact.slot.startsWith("day:")) return false;
-      if (slots.has(fact.slot) || !candidateHolds(fact, regional, live, input)) return false;
+      if (slots.has(fact.slot) || !holds(fact)) return false;
       if (fact.gate.kind === "swell" && !matchesFirstSwell(fact.gate)) return false;
       if (fact.slot.startsWith("swell:") && fact.gate.kind === "exposure"
         && !matchedEvents.has(fact.gate.regionalEventKey)) return false;
