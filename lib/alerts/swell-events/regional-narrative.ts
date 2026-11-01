@@ -95,6 +95,9 @@ type WrittenLine = (slot: string, accepts?: (gate: StoryGate) => boolean) => str
  * doesn't, and the gate holds against this request's build.
  */
 function writtenLines({ input, artifact }: NarrativeEdition, region: string, context: RegionGateContext): WrittenLine {
+  if (!Array.isArray(input.copyFacts)) {
+    throw new Error("story_candidate_text_invalid");
+  }
   const selected = new Set(artifact.briefing.selections);
   const facts = new Map(input.copyFacts.map((fact) => [fact.id, fact]));
   const bySlot = new Map((artifact.briefing.written ?? []).map((entry) => [entry.slot, entry]));
@@ -104,7 +107,13 @@ function writtenLines({ input, artifact }: NarrativeEdition, region: string, con
     const fact = entry && selected.has(entry.basedOn) ? facts.get(entry.basedOn) : undefined;
     if (!entry || !fact || fact.slot !== slot || !beachNames) return null;
     if (accepts && !accepts(fact.gate)) return null;
-    if (!checkWrittenSentence(entry.text, fact, beachNames, [region]).ok) return null;
+    if (typeof fact.text !== "string") throw new Error("story_candidate_text_invalid");
+    const gate = fact.gate;
+    const currentFacts = gate.kind === "swell" ? context.eventFacts(gate.regionalEventKey)
+      : gate.kind === "beach" ? context.beachDayFacts(gate.regionalEventKey, gate.beachId, gate.localDate) : null;
+    const current = { ...fact, facts: currentFacts ?? undefined };
+    if (!checkWrittenSentence(fact.text, current, beachNames, [region]).ok
+      || !checkWrittenSentence(entry.text, current, beachNames, [region]).ok) return null;
     return regionGateHolds(fact.gate, context) === true ? entry.text : null;
   };
 }
@@ -171,28 +180,37 @@ export function narrateRegionEvents(input: {
     const first = firstUnderKey.get(key) === story.regionalKey;
     // A later event under a shared key reads its exposure and wind from its own context.
     const own = first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === story.regionalKey) }, today);
-    /** The rating's own hours set its wind, as they set its label and reason; the event window only without them. */
+    /** The rating's own hours set its wind, as they set its label and reason; the peak day only without them. */
     const ratingWind = (rating: RegionBeachRating): ReturnType<typeof windBucket> => {
       const startMs = rating.windowStartAt ? Date.parse(rating.windowStartAt) : Number.NaN;
       const endMs = rating.windowEndAt ? Date.parse(rating.windowEndAt) : Number.NaN;
       return Number.isFinite(startMs) && Number.isFinite(endMs)
         ? windBucket(build.rowsByBeach[rating.beachId] ?? [], startMs, endMs)
-        : own.wind(key, rating.beachId);
+        : own.wind(key, rating.beachId, localDate(new Date(story.peakAt), build.timezone));
     };
     const narrate = (rating: RegionBeachRating): RegionBeachRating => {
       const wind = ratingWind(rating);
       // The line and the reason describe one wind: a blown-out rating's line says the wind is up.
       const blownOut = rating.reason === BLOWN_OUT;
-      const server = beachLine(story, rating.beachId, own, blownOut ? "windy" : wind);
+      const date = rating.windowStartAt ? localDate(new Date(rating.windowStartAt), build.timezone)
+        : localDate(new Date(story.peakAt), build.timezone);
+      const server = beachLine(story, rating.beachId, {
+        ...own,
+        wind: () => blownOut ? "windy" : wind,
+        beachDayFacts: (eventKey, beachId, localDate) => {
+          const facts = own.beachDayFacts(eventKey, beachId, localDate);
+          return facts && blownOut ? { ...facts, windHours: [] } : facts;
+        },
+      }, date);
       if (!server) return { ...rating, why: null };
-      // Gemma's line was written for the event window's wind; it serves only where that is this rating's wind.
-      const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.wind === wind;
+      // Gemma's line describes the peak day; it serves only where that day's wind matches the rating.
+      const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.localDate === date && gate.wind === wind;
       const why = first && !blownOut ? writtenFor(`event:${key}:beach:${rating.beachId}`, accepts) : null;
       return { ...rating, why: why ?? server.text };
     };
     return {
       ...event,
-      story: (first && writtenFor(`event:${key}:story`)) || eventStoryText(story, today),
+      story: (first && writtenFor(`event:${key}:story`)) || eventStoryText(story, today, own.eventFacts(key)),
       here: event.here ? narrate(event.here) : null,
       working: event.working.map(narrate),
       notWorking: event.notWorking.map(narrate),

@@ -48,9 +48,9 @@ const STORM: PartitionSpec = { heightFt: 7, periodS: 9, direction: 270 };
 const STORM_DAY_WAM_M = 3.2;
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 /** The storm's server story line: it arrives and peaks the same Monday. */
-const STORM_STORY = "A west short-period storm swell arrives and peaks Monday, then fades Tuesday.";
+const STORM_STORY = "A west short-period storm swell arrives and peaks Monday, then fades Tuesday: waist-high at most spots.";
 /** Every staged beach's window is centred on the storm's west. */
-const STORM_WHY = "Faces the west storm swell head on, with light wind in its window.";
+const STORM_WHY = "Faces the west storm swell head on: waist-high and crumbly, glassy early.";
 
 interface Surf {
   wave: string;
@@ -424,7 +424,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
       inputHash: "written-input-hash",
     };
     const writtenStory = "West storm swell shows up and peaks Monday, then is gone by Tuesday.";
-    const writtenHere = "Takes the west storm swell head on, with light wind.";
+    const writtenHere = "Takes the west storm swell head on, glassy early.";
     const artifact: StoryArtifact = {
       artifactId: "written-artifact", schemaVersion: 3, region: REGION, editionDate: today, inputHash: input.inputHash,
       sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil, generationVersion: "week-scout-story-2", model: "gemma",
