@@ -95,9 +95,7 @@ type WrittenLine = (slot: string, accepts?: (gate: StoryGate) => boolean) => str
  * doesn't, and the gate holds against this request's build.
  */
 function writtenLines({ input, artifact }: NarrativeEdition, region: string, context: RegionGateContext): WrittenLine {
-  const invalidCandidate = Array.isArray(input.copyFacts)
-    ? input.copyFacts.find((fact) => !fact || typeof fact.text !== "string") : null;
-  if (invalidCandidate || !Array.isArray(input.copyFacts)) {
+  if (!Array.isArray(input.copyFacts)) {
     throw new Error("story_candidate_text_invalid");
   }
   const selected = new Set(artifact.briefing.selections);
@@ -109,6 +107,7 @@ function writtenLines({ input, artifact }: NarrativeEdition, region: string, con
     const fact = entry && selected.has(entry.basedOn) ? facts.get(entry.basedOn) : undefined;
     if (!entry || !fact || fact.slot !== slot || !beachNames) return null;
     if (accepts && !accepts(fact.gate)) return null;
+    if (typeof fact.text !== "string") throw new Error("story_candidate_text_invalid");
     const gate = fact.gate;
     const currentFacts = gate.kind === "swell" ? context.eventFacts(gate.regionalEventKey)
       : gate.kind === "beach" ? context.beachDayFacts(gate.regionalEventKey, gate.beachId, gate.localDate) : null;

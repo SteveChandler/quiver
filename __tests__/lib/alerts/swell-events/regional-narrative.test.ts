@@ -276,14 +276,30 @@ describe("narrateRegionEvents", () => {
     expect(whyByBeach(byKey(events, south.key)).c).toBe("Sheltered from the south groundswell, with light wind in its window.");
   });
 
-  it("warns about a stored candidate with null text and keeps serving its server line", () => {
+  it("warns once about null candidate text while keeping other slots written", () => {
     const written = [sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN), sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN)];
     const facts = cardFacts().map((fact) => (fact.slot === `event:${SSW_KEY}:story` ? { ...fact, text: null as never } : fact));
     const warn = jest.spyOn(console, "warn");
     try {
-      const partial = narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written, { copyFacts: facts }), now: NOW });
+      const partial = narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: edition(written, { copyFacts: facts }), now: NOW });
       expect(byKey(partial, SSW.key).story).toBe(SSW_STORY);
-      expect(whyByBeach(byKey(partial, SSW.key)).a).toBe(SSW_WHY.a);
+      expect(whyByBeach(byKey(partial, SSW.key)).a).toBe(OCEAN_BEACH_WRITTEN);
+      expect(warn.mock.calls.filter(([message]) => String(message).includes("story edition unusable"))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
+    expectConsoleWarnings([/story edition unusable/]);
+  });
+
+  it("serves server lines, and never throws, when stored copyFacts is undefined", () => {
+    const written = [sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN), sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN)];
+    const broken = edition(written);
+    broken.input = { ...broken.input, copyFacts: undefined as never };
+    const warn = jest.spyOn(console, "warn");
+    try {
+      const events = narrateRegionEvents({ build: BUILD, rated: rated(), edition: broken, now: NOW });
+      expect(byKey(events, SSW.key).story).toBe(SSW_STORY);
+      expect(whyByBeach(byKey(events, SSW.key))).toEqual(SSW_WHY);
       expect(warn.mock.calls.filter(([message]) => String(message).includes("story edition unusable"))).toHaveLength(1);
     } finally {
       warn.mockRestore();

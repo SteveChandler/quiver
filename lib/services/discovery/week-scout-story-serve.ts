@@ -82,14 +82,11 @@ function liveFacts(fact: StoryCandidate, regional: StoryRegion, live: Live): Can
   return { ...fact.facts, faceFt, sizes: sizeWordsFor(faceFt), breaker: fact.facts?.breaker ?? null };
 }
 
-function pickDayLine(date: string, regional: StoryRegion, live: Live, input: StoryInput, candidates: StoryCandidate[]): StoryCandidate | null {
+function pickDayLine(date: string, regional: StoryRegion, live: Live, input: StoryInput): StoryCandidate | null {
   const pick = live.days.find((day) => day.localDate === date)?.bestDayWindow;
   if (!pick?.safe) return null;
   const beachName = input.beachNames[pick.beachId];
-  const eventFacts = regional.context.dayFacts(pick.beachId, date) ?? regional.context.events
-    .map((event) => regional.context.beachDayFacts(storyEventKey(event), pick.beachId, date))
-    .filter((facts): facts is CandidateFacts => facts !== null)
-    .sort((a, b) => (b.faceFt?.max ?? -1) - (a.faceFt?.max ?? -1))[0] ?? null;
+  const eventFacts = regional.context.dayFacts(pick.beachId, date);
   if (!beachName || /\d/.test(beachName) || !eventFacts) return null;
   const faceFt = faceRangeFt([pick.forecast.waveHeight]);
   if (!faceFt) return null;
@@ -270,7 +267,7 @@ export function bindStory(args: {
       continue;
     }
     const date = slot.slice("day:".length);
-    const pickLine = pickDayLine(date, regional, live, input, candidates);
+    const pickLine = pickDayLine(date, regional, live, input);
     if (pickLine) {
       chosen.push(pickLine);
       continue;
@@ -330,11 +327,11 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
       slots.add(fact.slot);
       return true;
     }).map((fact) => fact.id);
-  const hasDayCandidates = input.copyFacts.some((fact) => fact.slot.startsWith("day:"));
-  if (selections.length === 0 && !hasDayCandidates) {
-    return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
+  const story = bindStory({ region, availability: "ready", input, selections, live, requireCover: false, regional, pickDayFallback: true });
+  if (!story.cover.text && !story.lead && !story.turn && story.chapters.every((chapter) => !chapter.text)) {
+    return { ...story, availability: "unavailable" };
   }
-  return bindStory({ region, availability: "ready", input, selections, live, requireCover: false, regional, pickDayFallback: true });
+  return story;
 }
 
 type StoryLoadArgs = { client: Client; homeBeachId: string | null; startLocalDate: string; now: Date };

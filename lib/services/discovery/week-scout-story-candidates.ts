@@ -164,10 +164,6 @@ function withRegionalSize(text: string, facts: CandidateFacts | null): string {
   return `${text.slice(0, -1)}: ${size} at most spots${standout && standout !== size ? `, ${standout} at the standouts` : ""}.`;
 }
 
-function withLeadSize(text: string, _facts: CandidateFacts | null): string {
-  return text;
-}
-
 export interface HeadlineSwell {
   key: string;
   kind: RegionalSwellEvent["kind"];
@@ -197,10 +193,10 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
       ? `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`
       : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, candidateFacts), gate, candidateFacts);
   if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", withRegionalSize(`${region} gets ${withArticle(namedSwell(direction, swell.periodS, swell.kind))} by ${arrival}, with the most swell ${peakDay}.`, candidateFacts), gate, candidateFacts);
-  add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", withLeadSize(arrivalPast
+  add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", arrivalPast
     ? `The ${direction} pulse is already in the water and peaks ${peakDay}.`
-    : `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, candidateFacts), gate, candidateFacts);
-  if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", withLeadSize(`${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, candidateFacts), gate, candidateFacts);
+    : `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate, candidateFacts);
+  if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate, candidateFacts);
 }
 
 /**
