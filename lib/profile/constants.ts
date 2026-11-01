@@ -113,6 +113,7 @@ export const PROFILE_FULL_SELECT = [
   ...PROFILE_CORE_FIELDS,
   ...PROFILE_PREFERENCE_FIELDS,
   ...PROFILE_NOTIFICATION_FIELDS,
+  'timezone',
   'home_beach:beaches!profiles_home_beach_id_fkey(id, name)',
 ].join(',\n        ');
 
