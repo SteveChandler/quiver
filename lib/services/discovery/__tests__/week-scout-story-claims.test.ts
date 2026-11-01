@@ -548,6 +548,22 @@ describe("checkWrittenSentence size, wind timing and breaker claims", () => {
     expect(check("Double overhead.", beach({ sizes: ["double overhead"] }))).toEqual({ ok: true });
   });
 
+  it("refuses a long separator run between size claims in linear time", () => {
+    // Inside the length cap; the old separator took seconds from about 26 characters and grew 4x per 2.
+    for (const run of [" ".repeat(150), "-".repeat(150), "& ".repeat(75)]) {
+      const started = performance.now();
+      expect(check(`Waist-high${run}x head-high.`, beach())).toEqual({ ok: false, reason: "size" });
+      expect(performance.now() - started).toBeLessThan(500);
+    }
+  });
+
+  it("refuses, never throws, on a form the regex folds but the maps don't key", () => {
+    for (const text of ["ſmall and clean.", "Offſhore by 10 am.", "Offshore in the morningſ.", "ſhoulder to head high.", "Cheſt and shoulder high."]) {
+      expect(() => check(text, beach())).not.toThrow();
+      expect([text, check(text, beach()).ok]).toEqual([text, false]);
+    }
+  });
+
   it("passes a foot range only inside the forecast range", () => {
     for (const text of ["3-4 ft", "3 ft", "3 to 4 feet", "3–4 foot", "3-foot"]) {
       expect([text, check(text, beach())]).toEqual([text, { ok: true }]);
