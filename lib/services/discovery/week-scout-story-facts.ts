@@ -69,12 +69,34 @@ export function windHoursFor(
   });
 }
 
+const rowsByBuild = new WeakMap<RegionBuild["rowsByBeach"], Map<string, Map<string, RatingRow[]>>>();
+
+/** Daylight rows indexed once per beach and local date for this region build. */
+export function beachRowsByLocalDate(build: RegionBuild, beachId: string): ReadonlyMap<string, readonly RatingRow[]> {
+  let byBeach = rowsByBuild.get(build.rowsByBeach);
+  if (!byBeach) {
+    byBeach = new Map();
+    rowsByBuild.set(build.rowsByBeach, byBeach);
+  }
+  const cached = byBeach.get(beachId);
+  if (cached) return cached;
+  const days = new Map<string, RatingRow[]>();
+  for (const row of build.rowsByBeach[beachId] ?? []) {
+    const at = new Date(row.forecast_at);
+    if (!Number.isFinite(at.getTime())) continue;
+    const date = getLocalDateStr(at, build.timezone);
+    const rows = days.get(date);
+    if (rows) rows.push(row);
+    else days.set(date, [row]);
+  }
+  byBeach.set(beachId, days);
+  return days;
+}
+
 function beachDayRows(build: RegionBuild, event: RegionalSwellEvent, beachId: string, localDate: string): RatingRow[] {
   const { startMs, endMs } = ratingWindow(event);
-  return (build.rowsByBeach[beachId] ?? []).filter((row) => {
-    const at = new Date(row.forecast_at);
-    return at.getTime() >= startMs && at.getTime() < endMs && getLocalDateStr(at, build.timezone) === localDate;
-  });
+  return [...(beachRowsByLocalDate(build, beachId).get(localDate) ?? [])]
+    .filter((row) => Date.parse(row.forecast_at) >= startMs && Date.parse(row.forecast_at) < endMs);
 }
 
 function exposure(build: RegionBuild, event: RegionalSwellEvent, beachId: string): "open" | "partial" | "shadowed" | null {
