@@ -224,7 +224,8 @@ const BIGGER_STANDOUT = phrasePattern([...STANDOUT_WORDS, "standout"])!;
 const BIGGER = phrasePattern(["bigger"])!;
 const SMALL = phrasePattern(Object.keys(SMALL_SIZES))!;
 const BARE_BODY_SIZES = phrasePattern(BODY_SIZES.slice(0, 3))!;
-const SIZE_CHAIN_SEPARATOR = /^(?:[\s-]+|(?:to|and|or)[\s-]+|&[\s-]*)+$/iu;
+// Linear form of (?:[\s-]+|(?:to|and|or)[\s-]+|&[\s-]*)+, which backtracks exponentially on long runs.
+const SIZE_CHAIN_SEPARATOR = /^(?=[\s\S])[\s-]*(?:(?:to|and|or)[\s-]+|&[\s-]*)*$/iu;
 const BODY_CLAIMS = new Map<string, readonly SizeWord[]>();
 const BODY_ENDPOINTS = [...BODY_SIZES, ...OVERHEAD_SIZES.map(([word]) => word)] as const;
 for (const low of BODY_SIZES) {
@@ -347,10 +348,13 @@ function footRangesHold(text: string, facts: CandidateFacts | undefined): boolea
 
 function windTimingHolds(text: string, facts: CandidateFacts | undefined): boolean {
   return [...text.matchAll(TIMED_WIND)].every((match) => {
-    const kind = WIND_KINDS.get(canonical(match[2]))!;
-    if (match[6]) return false;
-    const [from, to, all] = match[3] ? WIND_SPANS.get(canonical(match[3]))!
-      : [match[7] ? WIND_TIMING.clock.lastHour : Number(match[4]), WIND_TIMING.clock.untilHour, false];
+    // A form the regex folds but the maps don't key ("ſ" for "s") claims nothing it can back, so it refuses.
+    const kind = WIND_KINDS.get(canonical(match[2]));
+    if (match[6] || !kind) return false;
+    const span = match[3] ? WIND_SPANS.get(canonical(match[3]))
+      : [match[7] ? WIND_TIMING.clock.lastHour : Number(match[4]), WIND_TIMING.clock.untilHour, false] as const;
+    if (!span) return false;
+    const [from, to, all] = span;
     const hours = facts?.windHours?.filter((row) => row.hour >= from && row.hour < to) ?? [];
     const coversSpan = !all || (hours.some((row) => row.hour <= Math.max(from, WIND_TIMING.cover.daylightFrom) + WIND_TIMING.cover.edgeHours)
       && hours.some((row) => row.hour >= Math.min(to, WIND_TIMING.cover.daylightTo) - WIND_TIMING.cover.edgeHours));
@@ -364,7 +368,8 @@ function sizeWordsHold(text: string, facts: CandidateFacts | undefined): boolean
   const clauseText = blank(blank(text, FOOT_RANGE), TIMED_WIND);
   const sizeClaims = sizeClaimsIn(text);
   for (const match of text.matchAll(BODY_SIZE)) {
-    const sizes = BODY_CLAIMS.get(canonical(match[1]))!;
+    const sizes = BODY_CLAIMS.get(canonical(match[1]));
+    if (!sizes) return false;
     const claim: Located = { at: match.index, end: match.index + match[0].length, claim: canonical(match[1]) };
     const standout = standoutFollows(clauseText, claim, sizeClaims);
     if (!sizes.every((size) => facts?.sizes?.includes(size) || (standout && facts?.standoutSizes?.includes(size)))) return false;
