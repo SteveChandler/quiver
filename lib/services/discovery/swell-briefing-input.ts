@@ -5,6 +5,7 @@ import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { extractNumericWaveHeight } from "@/lib/utils/wave-formatters";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { loadLatestBriefingInput, saveBriefingInput } from "./swell-briefing-store";
+import { getLocalDateFormatter, getLocalHourFormatter } from "./window-selector/time-slot-utils";
 import {
   MAX_BRIEFING_COPY_FACTS,
   type BriefingCopyFact,
@@ -81,19 +82,12 @@ interface ForecastRow {
 
 /** The calendar day at a timezone, as YYYY-MM-DD. */
 export function localDate(at: Date, timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(at);
+  return getLocalDateFormatter(timezone).format(at);
 }
 
 /** The hour of day at a timezone, 0-23. */
 function localHour(at: Date, timezone: string): number {
-  return Number(
-    new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hour12: false }).format(at),
-  );
+  return Number(getLocalHourFormatter(timezone).format(at));
 }
 
 /**

@@ -18,8 +18,18 @@ export interface RegionBeachRating {
   /** "too big for most", "blown out", "small, sheltered", "closing out" or "exposure unknown". */
   reason: string | null;
   exposure: 'open' | 'partial' | 'shadowed' | null;
-  /** Why it does or doesn't work for this event, in words with no digits; null for an early look, or when the beach has no swell window or no wind in its hours. */
+  /** Why it does or doesn't work for this event, with digits only in foot ranges and wind clock hours; null for an early look, or when the beach has no swell window or no wind in its hours. */
   why?: string | null;
+}
+
+export interface RegionWatchBeach {
+  beachId: string;
+  beachName: string;
+  exposure: 'open' | 'partial' | 'shadowed' | null;
+  /** The regional rating's not-working reason, null when it works or has no rating. */
+  reason: string | null;
+  /** One line per beach-local day of the event's window with daylight rows, earliest first; [] for an early look. */
+  days: Array<{ localDate: string; faceFt: string | null; why: string | null }>;
 }
 
 export interface RegionSwellEvent {
@@ -39,8 +49,11 @@ export interface RegionSwellEvent {
   /** "7 ft", the rounded offshore height. */
   offshoreFt: string | null;
   history: string | null;
-  /** The event in one sentence with no digits: direction, kind, period and days. Null for an early look. */
+  /** The event in one sentence with digits only in foot ranges and wind clock hours: direction, kind, period and days. Null for an early look. */
   story?: string | null;
+  breaker?: 'pitching' | 'crumbly' | null;
+  /** Present only when the request names beaches: each named region beach's standing for this event. */
+  watch?: RegionWatchBeach[];
   /** The requested beach. */
   here: RegionBeachRating | null;
   /** GOOD/FAIR, best first, max 5. */

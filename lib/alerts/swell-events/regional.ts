@@ -23,7 +23,7 @@ import { EXCLUDE_SYNTHETIC_ROWS_FILTER } from "./forecast-rows";
 import { readAllPages } from "./paging";
 import { ratingWindow } from "./regional-rating";
 
-export { confidenceFor, rateRegionEvents } from "./regional-rating";
+export { confidenceFor, rateRegionEvents, rateRegionEventsWithRatings } from "./regional-rating";
 
 type Client = SupabaseClient<Database>;
 

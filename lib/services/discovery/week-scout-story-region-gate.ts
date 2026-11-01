@@ -6,7 +6,7 @@ import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-s
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
-import { beachDayFactsFromBuild, eventFactsFromBuild, LIGHT_WIND_MPH, type CandidateFacts } from "./week-scout-story-facts";
+import { beachDayFactsFromBuild, beachRowsByLocalDate, eventFactsFromBuild, LIGHT_WIND_MPH, type CandidateFacts } from "./week-scout-story-facts";
 import type { StoryGate } from "./week-scout-story-types";
 
 type BeachGate = Extract<StoryGate, { kind: "beach" }>;
@@ -27,6 +27,9 @@ export interface RegionGateContext {
   dayFacts(beachId: string, localDate: string): CandidateFacts | null;
 }
 
+const beachDayFactsByRows = new WeakMap<RegionBuild["rowsByBeach"], Map<string, CandidateFacts | null>>();
+const windBucketsByRows = new WeakMap<RegionBuild["rowsByBeach"], Map<string, Wind | null>>();
+
 const CONFIDENCE_RANK = { on_the_radar: 0, likely: 1, locked: 2 } as const;
 /** Mean wind under this is "light", under BREEZY_WIND_MPH "breezy", otherwise "windy". */
 export { LIGHT_WIND_MPH } from "./week-scout-story-facts";
@@ -41,7 +44,7 @@ export const DEAD_ON_MAX_DEG = 22.5;
 export const DEAD_ON_WINDOW_SHARE = 0.5;
 
 function eventDate(at: string, timezone: string): string {
-  return localDate(new Date(at), timezone);
+  return getLocalDateStr(new Date(at), timezone);
 }
 
 /** The bucket for a beach's mean wind over rows in [startMs, endMs); null when none of them has a wind speed. */
@@ -66,8 +69,17 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
   }
   const beaches = new Map(build.beaches.map((beach) => [beach.id, beach]));
   const eventFactsCache = new Map<string, CandidateFacts | null>();
-  const beachDayFactsCache = new Map<string, CandidateFacts | null>();
+  let beachDayFactsCache = beachDayFactsByRows.get(build.rowsByBeach);
+  if (!beachDayFactsCache) {
+    beachDayFactsCache = new Map();
+    beachDayFactsByRows.set(build.rowsByBeach, beachDayFactsCache);
+  }
   const dayFactsCache = new Map<string, CandidateFacts | null>();
+  let windCache = windBucketsByRows.get(build.rowsByBeach);
+  if (!windCache) {
+    windCache = new Map();
+    windBucketsByRows.set(build.rowsByBeach, windCache);
+  }
   const sighting = (regionalEventKey: string, beachId: string) => {
     const event = byKey.get(regionalEventKey);
     const beach = beaches.get(beachId);
@@ -95,10 +107,11 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
       return facts;
     },
     beachDayFacts(regionalEventKey, beachId, date) {
-      const cacheKey = JSON.stringify([regionalEventKey, beachId, date]);
-      if (beachDayFactsCache.has(cacheKey)) return beachDayFactsCache.get(cacheKey) ?? null;
       const event = byKey.get(regionalEventKey);
-      const facts = event ? beachDayFactsFromBuild(build, event, beachId, date) : null;
+      if (!event) return null;
+      const cacheKey = JSON.stringify([event.regionalKey, beachId, date]);
+      if (beachDayFactsCache.has(cacheKey)) return beachDayFactsCache.get(cacheKey) ?? null;
+      const facts = beachDayFactsFromBuild(build, event, beachId, date);
       beachDayFactsCache.set(cacheKey, facts);
       return facts;
     },
@@ -126,14 +139,12 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
     wind(regionalEventKey, beachId, date) {
       const event = byKey.get(regionalEventKey);
       if (!event) return null;
-      // Rating rows are daylight rows in any event's window; keep this event's.
+      const cacheKey = JSON.stringify([event.regionalKey, beachId, date]);
+      if (windCache.has(cacheKey)) return windCache.get(cacheKey) ?? null;
       const { startMs, endMs } = ratingWindow(event);
-      const rows = (build.rowsByBeach[beachId] ?? []).filter((row) => {
-        const atMs = Date.parse(row.forecast_at);
-        if (!Number.isFinite(atMs) || atMs < startMs || atMs >= endMs) return false;
-        return getLocalDateStr(new Date(atMs), build.timezone) === date;
-      });
-      return windBucket(rows, startMs, endMs);
+      const value = windBucket(beachRowsByLocalDate(build, beachId).get(date) ?? [], startMs, endMs);
+      windCache.set(cacheKey, value);
+      return value;
     },
   };
 }
