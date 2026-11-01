@@ -1,14 +1,20 @@
 /** @jest-environment node */
 jest.mock("next/cache", () => ({ unstable_cache: jest.fn((fn: unknown) => fn) }));
 
+jest.mock("@/lib/services/discovery/week-scout-story-facts", () => {
+  const actual = jest.requireActual("@/lib/services/discovery/week-scout-story-facts");
+  return { ...actual, beachDayFactsFromBuild: jest.fn(actual.beachDayFactsFromBuild) };
+});
+
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { narrateRegionEvents, type NarrativeEdition } from "@/lib/alerts/swell-events/regional-narrative";
-import { rateRegionEvents } from "@/lib/alerts/swell-events/regional-rating";
+import { narrateRegionEvents, watchBeaches, type NarrativeEdition } from "@/lib/alerts/swell-events/regional-narrative";
+import { rateEventBeaches, rateRegionEvents } from "@/lib/alerts/swell-events/regional-rating";
 import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import { buildRegionGateContext, windBucket } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import type { StoryArtifact, StoryCandidate, StoryInput, StoryWrittenSentence } from "@/lib/services/discovery/week-scout-story-types";
 import type { RegionSwellEvent } from "@/types/region-swell-events";
+import * as storyFacts from "@/lib/services/discovery/week-scout-story-facts";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 const TIMEZONE = "America/Los_Angeles";
@@ -357,5 +363,116 @@ describe("narrateRegionEvents", () => {
     const before = JSON.stringify(input);
     narrateRegionEvents({ build: BUILD, rated: input, edition: null, now: NOW });
     expect(JSON.stringify(input)).toBe(before);
+  });
+});
+
+
+describe("regional watch", () => {
+  it("gives each requested beach its exposure, not-working reason and one line per day of the window", () => {
+    const unknown = { ...beach("unknown", "Unknown Cove", 202), swell_window_center_deg: null };
+    const missing = beach("missing", "Empty Cove", 202);
+    const build: RegionBuild = { ...BUILD, beaches: [...BEACHES, unknown, missing], rowsByBeach: {
+      ...BUILD.rowsByBeach,
+      a: [
+        ...rows({ wave: "3ft", wind: "3 mph" }).filter((row) => row.forecast_at.startsWith("2026-10-29")),
+        ...rows({ wave: "3-4ft", wind: "3 mph" }).filter((row) => row.forecast_at.startsWith("2026-10-30")),
+        ...rows({ wave: "9ft", wind: "3 mph" }).filter((row) => row.forecast_at >= SSW.fadeAt!),
+      ].reverse(),
+      unknown: rows(SURF.good75),
+      missing: rows(SURF.good75).map((row) => ({ ...row, wave_height: null })),
+    } };
+    const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: "d", skill: "intermediate", now: NOW }),
+      edition: null, now: NOW, beachIds: ["a", "c", "d", "e", "unknown", "missing"] });
+    const watch = byKey(events, SSW.key).watch!;
+    expect(watch.map(({ beachId, exposure, reason }) => ({ beachId, exposure, reason }))).toEqual([
+      { beachId: "a", exposure: "open", reason: null },
+      { beachId: "c", exposure: "partial", reason: null },
+      { beachId: "d", exposure: "shadowed", reason: "small, sheltered" },
+      { beachId: "e", exposure: "open", reason: "blown out" },
+      { beachId: "unknown", exposure: null, reason: null },
+      { beachId: "missing", exposure: "open", reason: null },
+    ]);
+    expect(watch[0]).toEqual({ beachId: "a", beachName: "Ocean Beach", exposure: "open", reason: null, days: [
+      { localDate: "2026-10-29", faceFt: "3 ft", why: "Faces the south-southwest groundswell dead on: chest-high, with light wind in its window." },
+      { localDate: "2026-10-30", faceFt: "3-4 ft", why: "Faces the south-southwest groundswell dead on: chest-high, with light wind in its window." },
+    ] });
+    expect(watch[2].days.map((day) => day.why)).toEqual(Array(3).fill(SSW_WHY.d));
+    expect(watch[3].days[0].why).toBe(SSW_WHY.e);
+    expect(watch[5].days.map((day) => day.faceFt)).toEqual([null, null, null]);
+    const perBeach = rateEventBeaches(build, SSW, ["a", "e", "missing", "outside"], "intermediate", NOW);
+    expect([...perBeach.keys()].sort()).toEqual(["a", "e"]);
+    expect(perBeach.get("e")).toMatchObject({ reason: "blown out" });
+  });
+
+  it("serves the PC's beach sentence only on the peak day, when it passes against that day's facts", () => {
+    const written = [sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN)];
+    const run = (build: RegionBuild, stored = edition(written)) => byKey(narrateRegionEvents({ build,
+      rated: rateRegionEvents(build, { beachId: "a", skill: "intermediate", now: NOW }),
+      edition: stored, now: NOW, beachIds: ["a"] }), SSW.key).watch![0].days;
+    expect(watchBeaches({ build: BUILD, event: storyEventsFromRegion(BUILD, TODAY).all[0],
+      rated: rateEventBeaches(BUILD, SSW, ["a"], "intermediate", NOW), beachIds: ["a"], edition: edition(written), now: NOW })[0].days).toEqual(run(BUILD));
+    expect(run(BUILD).map((day) => day.why)).toEqual([SSW_WHY.a, OCEAN_BEACH_WRITTEN, SSW_WHY.a]);
+    const moved: RegionBuild = { ...BUILD, rowsByBeach: { ...BUILD.rowsByBeach,
+      a: BUILD.rowsByBeach.a.map((row) => row.forecast_at.startsWith("2026-10-30") ? { ...row, wave_height: "5-6ft" } : row),
+    } };
+    expect(run(moved)[1]).toEqual({ localDate: "2026-10-30", faceFt: "5-6 ft",
+      why: "Faces the south-southwest groundswell dead on: head-high, with light wind in its window." });
+    const staleGate = cardFacts().map((fact) => fact.slot === `event:${SSW_KEY}:beach:a` && fact.gate.kind === "beach"
+      ? { ...fact, gate: { ...fact.gate, wind: "windy" as const } } : fact);
+    expect(run(BUILD, edition(written, { copyFacts: staleGate }))[1].why).toBe(SSW_WHY.a);
+  });
+
+  it("lists no watch beach outside the request or the region, and no days for an early look", () => {
+    const events = narrateRegionEvents({ build: BUILD, rated: rated(), edition: null, now: NOW, beachIds: ["d", "outside", "a", "d"] });
+    expect(events.map((event) => event.watch?.map((item) => item.beachId))).toEqual(Array(3).fill(["d", "a"]));
+    expect(byKey(events, EARLY.key).watch).toEqual([
+      { beachId: "d", beachName: "Sunset Cliffs", exposure: "open", reason: null, days: [] },
+      { beachId: "a", beachName: "Ocean Beach", exposure: "shadowed", reason: null, days: [] },
+    ]);
+    expect(narrateRegionEvents({ build: BUILD, rated: rated(), edition: null, now: NOW }).every((event) => !("watch" in event))).toBe(true);
+    expect(narrateRegionEvents({ build: BUILD, rated: rated(), edition: null, now: NOW, beachIds: [] }).map((event) => event.watch))
+      .toEqual([[], [], []]);
+  });
+
+  it("marks pitching, crumbly or neither on every event", () => {
+    const mid = { ...SSW, key: "mid", periodS: 12 };
+    const short = { ...SSW, key: "short", periodS: 9 };
+    const build = { ...BUILD, events: [...BUILD.events, mid, short] };
+    const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: "a", skill: "intermediate", now: NOW }), edition: null, now: NOW });
+    expect(events.map((event) => event.breaker)).toEqual(["pitching", "crumbly", null, null, "crumbly"]);
+  });
+
+  it("computes beach-day facts at most once per event, beach and day for 40 ids across six events", () => {
+    const beaches = Array.from({ length: 40 }, (_, index) => beach(`pool-${index}`, `Beach ${index}`, 202));
+    const build: RegionBuild = { ...BUILD, beaches, events: Array.from({ length: 6 }, (_, index) => ({ ...SSW,
+      key: `event-${index}`, directionDeg: 202 + index,
+    })), rowsByBeach: Object.fromEntries(beaches.map((item) => [item.id, rows(SURF.good75)])) };
+    const spy = jest.mocked(storyFacts.beachDayFactsFromBuild);
+    spy.mockClear();
+    try {
+      const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: beaches[0].id, skill: "intermediate", now: NOW }),
+        edition: null, now: NOW, beachIds: beaches.map((item) => item.id) });
+      expect(events).toHaveLength(6);
+      expect(events.every((event) => event.watch?.length === 40 && event.watch.every((item) => item.days.length === 3))).toBe(true);
+      const keys = spy.mock.calls.map(([, event, beachId, day]) => `${event.regionalKey}:${beachId}:${day}`);
+      expect(keys).toHaveLength(6 * 40 * 3);
+      expect(new Set(keys).size).toBe(keys.length);
+    } finally {
+      spy.mockClear();
+    }
+  });
+});
+
+
+describe("watch window bounds", () => {
+  it("uses peak minus 12 hours to peak plus 24 hours when arrival and fade are absent", () => {
+    const event = { ...SSW, arrivalAt: null, fadeAt: null };
+    const build = { ...BUILD, events: [event] };
+    const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: "a", skill: "intermediate", now: NOW }),
+      edition: null, now: NOW, beachIds: ["a"] });
+    expect(events[0].watch?.[0].days).toEqual([
+      { localDate: "2026-10-30", faceFt: "2-3 ft", why: SSW_WHY.a },
+      { localDate: "2026-10-31", faceFt: "2-3 ft", why: SSW_WHY.a },
+    ]);
   });
 });

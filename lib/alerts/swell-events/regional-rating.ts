@@ -230,8 +230,8 @@ function byRank(left: RankedRating, right: RankedRating): number {
 }
 
 /** One row per reason first, so three beaches don't all say "blown out", then the rest by score. */
-function notWorkingList(ratings: readonly RankedRating[]): RankedRating[] {
-  const candidates = ratings.filter((rating) => !isWorking(rating.label) && rating.reason !== null).sort(byRank);
+function notWorkingList(ratings: readonly RegionBeachRating[]): RegionBeachRating[] {
+  const candidates = ratings.filter((rating) => !isWorking(rating.label) && rating.reason !== null);
   const picked = REASON_ORDER.flatMap((reason) => candidates.find((rating) => rating.reason === reason) ?? []);
   return [...picked, ...candidates.filter((rating) => !picked.includes(rating))].slice(0, MAX_NOT_WORKING);
 }
@@ -254,6 +254,25 @@ function rowsInWindow(rows: readonly RatingRow[], event: EventTimes, now: Date):
   });
 }
 
+/** Requested region beaches, ordered by score (exposure for early looks), then name. */
+export function rateEventBeaches(
+  build: RegionBuild,
+  event: InternalRegionEvent,
+  beachIds: readonly string[],
+  skill: SkillLevel,
+  now: Date,
+): Map<string, RegionBeachRating> {
+  const requested = new Set(beachIds);
+  const ratings = build.beaches.flatMap((beach) => {
+    if (!requested.has(beach.id)) return [];
+    const rating = event.source === "wam"
+      ? earlyLookRating(beach, event)
+      : rateBeach(beach, rowsInWindow(build.rowsByBeach[beach.id] ?? [], event, now), event, skill, build.timezone);
+    return rating ? [rating] : [];
+  });
+  return new Map(ratings.sort(byRank).map((rating) => [rating.beachId, publicRating(rating)]));
+}
+
 /**
  * Rates every region beach for every event with this user's skill. Re-checked at serve time, since
  * the build is cached: an event drops out once it fades, and one still in the water past its peak
@@ -268,18 +287,13 @@ export function rateRegionEvents(
   return built.events.flatMap((event): RegionSwellEvent[] => {
     if (!isEventCurrent(event, input.now)) return [];
     const leadDays = Math.max(0, localDayDiff(today, event.peakLocalDate));
-    const ratings = built.beaches.flatMap((beach) => {
-      const rating = event.source === "wam"
-        ? earlyLookRating(beach, event)
-        : rateBeach(beach, rowsInWindow(built.rowsByBeach[beach.id] ?? [], event, input.now), event, input.skill, built.timezone);
-      return rating ? [rating] : [];
-    });
+    const ratings = [...rateEventBeaches(built, event, built.beaches.map((beach) => beach.id), input.skill, input.now).values()];
     const here = ratings.find((rating) => rating.beachId === input.beachId);
     const working = ratings
       .filter((rating) => isWorking(rating.label))
-      .sort((left, right) => WORKING_RANK[left.label] - WORKING_RANK[right.label] || byRank(left, right))
+      .sort((left, right) => WORKING_RANK[left.label] - WORKING_RANK[right.label])
       .slice(0, MAX_WORKING);
-    const notWorking = event.source === "wam" ? [] : notWorkingList(ratings).map(publicRating);
+    const notWorking = event.source === "wam" ? [] : notWorkingList(ratings);
     // Past its peak with no daylight hours left to rate, there is nothing left to show today.
     if (event.source === "forecast" && Date.parse(event.peakAt) < input.now.getTime() && !here && working.length === 0 && notWorking.length === 0) {
       return [];
@@ -299,9 +313,9 @@ export function rateRegionEvents(
       peakLocalDate: event.peakLocalDate,
       offshoreFt: event.offshoreFt,
       history: event.history,
-      here: here ? publicRating(here) : null,
+      here: here ?? null,
       // Reasons explain what isn't working; a working row carries none.
-      working: working.map((rating) => ({ ...publicRating(rating), reason: null })),
+      working: working.map((rating) => ({ ...rating, reason: null })),
       notWorking,
     }];
   });

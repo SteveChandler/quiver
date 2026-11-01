@@ -26,7 +26,7 @@ function emptyRegion(region: string | null, beachCount: number): RegionSwellEven
 // rated for this user's skill. withAuth({ optional }) resolves native Bearer and web cookie
 // sessions; that client is used only for the skill read. Region data comes from the cookie-free
 // service-role client, because buildRegionEvents caches it with unstable_cache.
-async function swellEventsHandler(_request: NextRequest, { params, user, supabase }: OptionalAuthContext): Promise<NextResponse> {
+async function swellEventsHandler(request: NextRequest, { params, user, supabase }: OptionalAuthContext): Promise<NextResponse> {
   const id = params.id;
   if (typeof id !== "string" || !UUID_PATTERN.test(id)) {
     return NextResponse.json({ success: false, error: "Invalid beach id" }, { status: 400 });
@@ -66,11 +66,17 @@ async function swellEventsHandler(_request: NextRequest, { params, user, supabas
       user ? getProfileExperienceLevel(supabase, user.id) : null,
       narrated ? loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }) : null,
     ]);
-    const rated = rateRegionEvents(built, { beachId: id, skill: profileSkill ?? DEFAULT_SKILL, now });
+    const skill = profileSkill ?? DEFAULT_SKILL;
+    const requested = request.nextUrl.searchParams.get("beaches");
+    const regionIds = new Set(built.beaches.map((beach) => beach.id));
+    const beachIds = requested === null ? undefined : [...new Set(requested.split(",")
+      .map((beachId) => beachId.trim().toLowerCase())
+      .filter((beachId) => UUID_PATTERN.test(beachId) && regionIds.has(beachId)))].slice(0, 40);
+    const rated = rateRegionEvents(built, { beachId: id, skill, now });
     // The card never fails because of its narrative: without it, the rated events go out with no story or lines.
     let events: RegionSwellEventsResponse["events"];
     try {
-      events = narrateRegionEvents({ build: built, rated, edition, now });
+      events = narrateRegionEvents({ build: built, rated, edition, now, beachIds, skill });
     } catch (narrativeError) {
       console.warn("[swell-events] narrative failed", { region: built.region, error: String(narrativeError) });
       events = rated.map(withoutNarrative);

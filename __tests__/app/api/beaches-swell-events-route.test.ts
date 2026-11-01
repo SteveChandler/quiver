@@ -156,7 +156,7 @@ function wamResponse(): Response {
 }
 
 async function call(id: string, request: object = {}): Promise<{ status: number; data: RegionSwellEventsResponse }> {
-  const response = await GET(request as never, { params: Promise.resolve({ id }) });
+  const response = await GET({ nextUrl: new URL(`http://localhost/api/beaches/${id}/swell-events`), ...request } as never, { params: Promise.resolve({ id }) });
   const body = await response.json();
   return { status: response.status, data: body.data };
 }
@@ -238,12 +238,13 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     });
     jest.mocked(getProfileExperienceLevel).mockResolvedValue("beginner");
 
-    const { data } = await call(big.id);
+    const { data } = await call(big.id, { nextUrl: new URL(`http://localhost/api/beaches/${big.id}/swell-events?beaches=${big.id}`) });
 
     expect(getProfileExperienceLevel).toHaveBeenCalledWith(expect.anything(), USER_ID);
     const event = stormEvent(data.events)!;
     expect(event.here).toMatchObject({ label: "MEH", reason: "too big for most" });
     expect(event.working.map((rating) => rating.beachId)).not.toContain(big.id);
+    expect(event.watch).toEqual([expect.objectContaining({ beachId: big.id, reason: "too big for most" })]);
   });
 
   it("reads the skill of a native user signed in with a Bearer token", async () => {
@@ -304,10 +305,46 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     const { status, data } = await call("00000000-0000-4000-8000-000000000099");
 
     expect(status).toBe(200);
+    const withWatch = await call("00000000-0000-4000-8000-000000000099", {
+      nextUrl: new URL(`http://localhost/api/beaches/00000000-0000-4000-8000-000000000099/swell-events?beaches=${USER_ID}`),
+    });
+    expect(withWatch).toEqual({ status: 200, data });
     expect(data).toEqual({ region: null, buoy: null, beachCount: 0, events: [] });
     expect(tables).not.toContain("enhanced_forecasts");
     expect(global.fetch).not.toHaveBeenCalled();
     expect(loadLatestStoryEdition).not.toHaveBeenCalled();
+  });
+
+  it("ignores malformed, duplicate and out-of-region ids and keeps the first 40", async () => {
+    const beaches = Array.from({ length: 43 }, (_, index) => beach(`Beach ${index}`));
+    beaches[1].id = "abcdefab-0000-4000-8000-000000000002";
+    stage({ lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) });
+    const requested = ["invalid", USER_ID, beaches[1].id, beaches[1].id.toUpperCase(), "", ...beaches.map((item) => item.id)];
+    const { status, data } = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${requested.join(",")}`) });
+    expect(status).toBe(200);
+    expect(data.events.length).toBeGreaterThan(0);
+    const expected = [beaches[1].id, ...beaches.filter((item) => item.id !== beaches[1].id).map((item) => item.id)].slice(0, 40);
+    for (const event of data.events) expect(event.watch?.map((item) => item.beachId)).toEqual(expected);
+    // A second pool must never receive the first pool's watch.
+    const second = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${beaches[42].id}`) });
+    expect(second.status).toBe(200);
+    expect(stormEvent(second.data.events)?.watch?.map((item) => item.beachId)).toEqual([beaches[42].id]);
+    const absent = await call(beaches[0].id);
+    expect(stormEvent(absent.data.events)).not.toHaveProperty("watch");
+    const empty = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=invalid`) });
+    expect(stormEvent(empty.data.events)?.watch).toEqual([]);
+  });
+
+  it("returns events: [] for a region under 3 beaches, beaches param or not", async () => {
+    const beaches = [beach("Lone Point"), beach("Second Cove")];
+    stage({ lookup: { region: "Tiny Coast", timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) });
+    for (const query of ["", `?beaches=${beaches[0].id}`]) {
+      const { status, data } = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events${query}`) });
+      expect(status).toBe(200);
+      expect(data).toEqual({ region: "Tiny Coast", buoy: null, beachCount: 2, events: [] });
+    }
+    expect(loadLatestStoryEdition).not.toHaveBeenCalled();
+    expect(narrateRegionEvents).not.toHaveBeenCalled();
   });
 
   it("returns events: [] with no narrative work for a region under 3 beaches", async () => {

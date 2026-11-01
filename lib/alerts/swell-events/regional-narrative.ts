@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { SkillLevel } from "@/lib/domains/user-preferences";
+import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
+import { breakerCharacter, type FaceRange } from "@/lib/services/discovery/week-scout-story-facts";
 import { localDate } from "@/lib/services/discovery/swell-briefing-input";
 import {
   beachLine,
@@ -14,10 +17,11 @@ import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
 import type { StoryArtifact, StoryGate, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
 import type { Database } from "@/types/database";
-import type { RegionBeachRating, RegionSwellEvent } from "@/types/region-swell-events";
+import type { RegionBeachRating, RegionSwellEvent, RegionWatchBeach } from "@/types/region-swell-events";
 
 import type { RegionBuild } from "./regional";
-import { BLOWN_OUT } from "./regional-rating";
+import { exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
+import { BLOWN_OUT, rateEventBeaches, ratingWindow } from "./regional-rating";
 
 type Client = SupabaseClient<Database>;
 
@@ -124,28 +128,29 @@ export function withoutNarrative(event: RegionSwellEvent): RegionSwellEvent {
   return {
     ...event,
     story: null,
+    breaker: event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS),
     here: event.here ? silent(event.here) : null,
     working: event.working.map(silent),
     notWorking: event.notWorking.map(silent),
   };
 }
 
-/**
- * Each forecast event's `story` and each of its listed beaches' `why`: the PC's written sentence for
- * that slot when today's edition has one that passes, otherwise the server line from this build.
- * Early looks carry neither. Card slots join the edition by story key, never by the build's event key.
- */
-export function narrateRegionEvents(input: {
-  build: RegionBuild;
-  rated: RegionSwellEvent[];
-  edition: NarrativeEdition | null;
-  now: Date;
-}): RegionSwellEvent[] {
-  const { build, rated, edition, now } = input;
+interface EventNarration {
+  context: RegionGateContext;
+  written: WrittenLine;
+}
+
+/** Share memoized facts and one edition warning across card and watch slots. */
+function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, now: Date): {
+  all: RegionalSwellEvent[];
+  forEvent: (event: RegionalSwellEvent) => EventNarration;
+} {
+  // Day facts use the rating window even when detection has no arrival instant.
+  build = { ...build, events: build.events.map((event) => event.source === "forecast" && event.arrivalAt === null
+    ? { ...event, arrivalAt: new Date(ratingWindow(event).startMs).toISOString() } : event) };
   const today = localDate(now, build.timezone);
   const { all } = storyEventsFromRegion(build, today);
   const context = buildRegionGateContext(build, today);
-  const byBuildKey = new Map(all.map((event) => [event.regionalKey, event]));
   // The gate context answers for the first event under a story key, so only that one can take a written sentence.
   const firstUnderKey = new Map<string, string>();
   for (const event of all) {
@@ -173,44 +178,125 @@ export function narrateRegionEvents(input: {
     }
   };
 
+  return { all, forEvent: (event) => {
+    const first = firstUnderKey.get(storyEventKey(event)) === event.regionalKey;
+    return {
+      context: first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === event.regionalKey) }, today),
+      written: first ? writtenFor : () => null,
+    };
+  } };
+}
+
+function beachDayLine(
+  event: RegionalSwellEvent,
+  beachId: string,
+  date: string,
+  { context, written }: EventNarration,
+  wind = context.wind(storyEventKey(event), beachId, date),
+  blownOut = false,
+): string | null {
+  const server = beachLine(event, beachId, {
+    ...context,
+    wind: () => blownOut ? "windy" : wind,
+    beachDayFacts: (key, id, localDate) => {
+      const facts = context.beachDayFacts(key, id, localDate);
+      return facts && blownOut ? { ...facts, windHours: [] } : facts;
+    },
+  }, date);
+  if (!server) return null;
+  const peakDate = getLocalDateStr(new Date(event.peakAt), event.timezone);
+  const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.localDate === date && gate.wind === wind;
+  const why = date === peakDate && !blownOut ? written(`event:${storyEventKey(event)}:beach:${beachId}`, accepts) : null;
+  return why ?? server.text;
+}
+
+function faceText(range: FaceRange | null): string | null {
+  if (!range) return null;
+  return range.min === range.max ? `${range.min} ft` : `${range.min}-${range.max} ft`;
+}
+
+function watchStanding(build: RegionBuild, directionDeg: number | null, beachIds: readonly string[]): RegionWatchBeach[] {
+  const beaches = new Map(build.beaches.map((beach) => [beach.id, beach]));
+  return [...new Set(beachIds)].flatMap((id) => {
+    const beach = beaches.get(id);
+    if (!beach) return [];
+    const factor = directionDeg === null ? null : exposureFactor(directionDeg, swellWindowForBeach(beach));
+    return [{ beachId: id, beachName: beach.name, exposure: factor === null ? null : exposureLabel(factor), reason: null, days: [] }];
+  });
+}
+
+interface WatchInput {
+  build: RegionBuild;
+  event: RegionalSwellEvent;
+  rated: Map<string, RegionBeachRating>;
+  beachIds: readonly string[];
+  edition: NarrativeEdition | null;
+  now: Date;
+}
+
+function watchWithNarration({ build, event, rated, beachIds }: WatchInput, narration: EventNarration): RegionWatchBeach[] {
+  const key = storyEventKey(event);
+  const { startMs, endMs } = ratingWindow(event);
+  return watchStanding(build, event.directionDeg, beachIds).map((beach) => {
+    const rating = rated.get(beach.beachId);
+    const working = rating && ["EPIC", "GOOD", "FAIR", "LIKELY"].includes(rating.label);
+    const dates = new Set((build.rowsByBeach[beach.beachId] ?? []).flatMap((row) => {
+      const at = new Date(row.forecast_at);
+      return at.getTime() >= startMs && at.getTime() < endMs ? [getLocalDateStr(at, build.timezone)] : [];
+    }));
+    const ratingDate = getLocalDateStr(new Date(rating?.windowStartAt ?? event.peakAt), build.timezone);
+    return { ...beach, reason: working ? null : rating?.reason ?? null, days: [...dates].sort().map((date) => {
+      const facts = narration.context.beachDayFacts(key, beach.beachId, date);
+      // The rating's wind override belongs only to its own day; other days keep their own conditions.
+      const blownOut = rating?.reason === BLOWN_OUT && date === ratingDate;
+      return { localDate: date, faceFt: faceText(facts?.faceFt ?? null),
+        why: beachDayLine(event, beach.beachId, date, narration, undefined, blownOut) };
+    }) };
+  });
+}
+
+export function watchBeaches(input: WatchInput): RegionWatchBeach[] {
+  return watchWithNarration(input, prepareNarration(input.build, input.edition, input.now).forEvent(input.event));
+}
+
+/** Card and requested watch lines share this build's facts and the edition's per-slot checks. */
+export function narrateRegionEvents(input: {
+  build: RegionBuild;
+  rated: RegionSwellEvent[];
+  edition: NarrativeEdition | null;
+  now: Date;
+  beachIds?: readonly string[];
+  skill?: SkillLevel;
+}): RegionSwellEvent[] {
+  const { build, rated, edition, now, beachIds, skill = "intermediate" } = input;
+  const today = localDate(now, build.timezone);
+  const narration = prepareNarration(build, edition, now);
+  const byBuildKey = new Map(narration.all.map((event) => [event.regionalKey, event]));
   return rated.map((event) => {
-    const story: RegionalSwellEvent | undefined = event.source === "forecast" ? byBuildKey.get(event.key) : undefined;
-    if (!story) return withoutNarrative(event);
+    const internal = build.events.find((item) => item.key === event.key);
+    const story = event.source === "forecast" ? byBuildKey.get(event.key) : undefined;
+    const breaker = event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS);
+    if (!story) return { ...withoutNarrative(event), breaker,
+      ...(beachIds === undefined ? {} : { watch: watchStanding(build, internal?.directionDeg ?? null, beachIds) }),
+    };
+    const own = narration.forEvent(story);
     const key = storyEventKey(story);
-    const first = firstUnderKey.get(key) === story.regionalKey;
-    // A later event under a shared key reads its exposure and wind from its own context.
-    const own = first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === story.regionalKey) }, today);
-    /** The rating's own hours set its wind, as they set its label and reason; the peak day only without them. */
-    const ratingWind = (rating: RegionBeachRating): ReturnType<typeof windBucket> => {
+    const narrate = (rating: RegionBeachRating): RegionBeachRating => {
       const startMs = rating.windowStartAt ? Date.parse(rating.windowStartAt) : Number.NaN;
       const endMs = rating.windowEndAt ? Date.parse(rating.windowEndAt) : Number.NaN;
-      return Number.isFinite(startMs) && Number.isFinite(endMs)
+      const date = getLocalDateStr(new Date(rating.windowStartAt ?? story.peakAt), build.timezone);
+      const wind = Number.isFinite(startMs) && Number.isFinite(endMs)
         ? windBucket(build.rowsByBeach[rating.beachId] ?? [], startMs, endMs)
-        : own.wind(key, rating.beachId, localDate(new Date(story.peakAt), build.timezone));
-    };
-    const narrate = (rating: RegionBeachRating): RegionBeachRating => {
-      const wind = ratingWind(rating);
-      // The line and the reason describe one wind: a blown-out rating's line says the wind is up.
-      const blownOut = rating.reason === BLOWN_OUT;
-      const date = rating.windowStartAt ? localDate(new Date(rating.windowStartAt), build.timezone)
-        : localDate(new Date(story.peakAt), build.timezone);
-      const server = beachLine(story, rating.beachId, {
-        ...own,
-        wind: () => blownOut ? "windy" : wind,
-        beachDayFacts: (eventKey, beachId, localDate) => {
-          const facts = own.beachDayFacts(eventKey, beachId, localDate);
-          return facts && blownOut ? { ...facts, windHours: [] } : facts;
-        },
-      }, date);
-      if (!server) return { ...rating, why: null };
-      // Gemma's line describes the peak day; it serves only where that day's wind matches the rating.
-      const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.localDate === date && gate.wind === wind;
-      const why = first && !blownOut ? writtenFor(`event:${key}:beach:${rating.beachId}`, accepts) : null;
-      return { ...rating, why: why ?? server.text };
+        : own.context.wind(key, rating.beachId, date);
+      return { ...rating, why: beachDayLine(story, rating.beachId, date, own, wind, rating.reason === BLOWN_OUT) };
     };
     return {
       ...event,
-      story: (first && writtenFor(`event:${key}:story`)) || eventStoryText(story, today, own.eventFacts(key)),
+      breaker,
+      ...(beachIds === undefined ? {} : { watch: watchWithNarration({ build, event: story,
+        rated: internal ? rateEventBeaches(build, internal, beachIds, skill, now) : new Map(), beachIds, edition, now,
+      }, own) }),
+      story: event.arrivalAt === null ? null : own.written(`event:${key}:story`) || eventStoryText(story, today, own.context.eventFacts(key)),
       here: event.here ? narrate(event.here) : null,
       working: event.working.map(narrate),
       notWorking: event.notWorking.map(narrate),
