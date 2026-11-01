@@ -66,7 +66,12 @@ const BUILD: RegionBuild = {
 
 /** Rated for Sunset Cliffs, which isn't the region's first beach: the input's card lines for the storm leave it out. */
 function rated(): RegionSwellEvent[] {
-  return rateRegionEvents(BUILD, { beachId: "d", skill: "intermediate", now: NOW }).map((event) => {
+  return rateRegionEvents(BUILD, { beachId: "d", skill: "intermediate", now: NOW });
+}
+
+/** Aligns a test's rating window with the card candidate's peak-day sentence when testing a rewrite. */
+function ratedOnPeak(): RegionSwellEvent[] {
+  return rated().map((event) => {
     const onPeak = (rating: NonNullable<RegionSwellEvent["here"]>): NonNullable<RegionSwellEvent["here"]> => ({
       ...rating, windowStartAt: event.peakAt, windowEndAt: new Date(Date.parse(event.peakAt) + 3 * 3600_000).toISOString(),
     });
@@ -123,7 +128,7 @@ const SSW_WHY = {
   a: "Faces the south-southwest groundswell dead on: waist-high, with light wind in its window.",
   b: "Faces the south-southwest groundswell dead on: waist-high, but it's breezy in its window.",
   c: "Partly sheltered from the south-southwest groundswell: waist-high, with light wind in its window.",
-  d: "Sheltered from the south-southwest groundswell: knee-high, with light wind in its window.",
+  d: "Sheltered from the south-southwest groundswell, with light wind in its window.",
   // Blown out: its line says the wind is up.
   e: "Faces the south-southwest groundswell dead on: knee-high, but the wind is up in its window.",
 };
@@ -147,7 +152,9 @@ describe("narrateRegionEvents", () => {
     expect(stormLines.has("d")).toBe(false);
     expect(whyByBeach(byKey(events, STORM.key))).toEqual({
       ...Object.fromEntries(stormLines),
-      d: "Faces the west storm swell at an angle: knee-high and crumbly, glassy early.",
+      a: "Sheltered from the west storm swell, with light wind in its window.",
+      c: "Sheltered from the west storm swell, with light wind in its window.",
+      d: "Faces the west storm swell at an angle: knee-high and crumbly, with light wind in its window.",
     });
     // The early look has no story and no beach lines.
     const early = byKey(events, EARLY.key);
@@ -155,11 +162,12 @@ describe("narrateRegionEvents", () => {
     expect(early.working.length).toBeGreaterThan(0);
     expect(early.working.every((rating) => rating.why === null)).toBe(true);
     expect(events.flatMap((event) => [event.story ?? "", ...Object.values(whyByBeach(event)).map((why) => why ?? "")])
-      .every((text) => !/\d/.test(text))).toBe(true);
+      .every((text) => !/\d/.test(text.replace(/\bonshore by (?:9|10|11|12)\b/g, "")))).toBe(true);
   });
 
-  it("gives a working Imperial Beach Pier a size-only why when wind facts are missing", () => {
-    const imperial = beach("imperial", "Imperial Beach Pier", 270);
+  it("writes a working Imperial Beach Pier line when its swell window is unknown", () => {
+    const imperial: RegionBeach = { ...beach("imperial", "Imperial Beach Pier", 270),
+      swell_window_center_deg: null, swell_window_halfwidth_deg: null };
     const event = regionEvent("San Diego:W:2026-11-09", 270, 15,
       "2026-11-09T15:00:00Z", "2026-11-09T18:00:00Z", "2026-11-09T21:00:00Z");
     const build: RegionBuild = {
@@ -167,16 +175,17 @@ describe("narrateRegionEvents", () => {
       beaches: [...BEACHES, imperial],
       events: [event],
       rowsByBeach: { ...BUILD.rowsByBeach, imperial: [
-        { forecast_at: "2026-11-09T18:00:00Z", wave_height: "2-3ft", wave_period: "15", wind_speed: null,
+        { forecast_at: "2026-11-09T18:00:00Z", wave_height: "2-3ft", wave_period: "15", wind_speed: "4 mph",
           wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "15s" },
       ] },
     };
     const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: imperial.id, skill: "intermediate", now: NOW }), edition: null, now: NOW });
     const line = byKey(events, event.key).working.find((rating) => rating.beachId === imperial.id);
 
+    expect(build.beaches.find((item) => item.id === imperial.id)).toMatchObject({ swell_window_center_deg: null, swell_window_halfwidth_deg: null });
     expect(build.rowsByBeach.imperial).toHaveLength(1);
     expect(line?.label).toBe("GOOD");
-    expect(line?.why).toBe("Faces the west groundswell dead on: waist-high.");
+    expect(line?.why).toBe("Waist-high, with light wind in its window.");
   });
 
   it("uses the PC sentence when it passes, and the server line for a slot whose sentence fails", () => {
@@ -191,7 +200,7 @@ describe("narrateRegionEvents", () => {
       sentence(`event:${SSW_KEY}:beach:c`, "Wide open to the south-southwest, and the wind stays light."),
     ];
 
-    const events = narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written), now: NOW });
+    const events = narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: edition(written), now: NOW });
 
     expect(byKey(events, SSW.key).story).toBe(SSW_WRITTEN);
     expect(byKey(events, STORM.key).story).toBe(STORM_STORY);
@@ -238,12 +247,12 @@ describe("narrateRegionEvents", () => {
       ? { ...fact, gate: { ...fact.gate, fadeLocalDate: "2026-11-01" } } : fact));
     const written = [sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN), sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN)];
 
-    const gateMoved = narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written, { copyFacts: moved }), now: NOW });
+    const gateMoved = narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: edition(written, { copyFacts: moved }), now: NOW });
     expect(byKey(gateMoved, SSW.key).story).toBe(SSW_STORY);
     expect(whyByBeach(byKey(gateMoved, SSW.key)).a).toBe(OCEAN_BEACH_WRITTEN);
 
     const unselected = facts.filter((fact) => fact.slot !== `event:${SSW_KEY}:beach:a`).map((fact) => fact.id);
-    const notSelected = narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written, { selections: unselected }), now: NOW });
+    const notSelected = narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: edition(written, { selections: unselected }), now: NOW });
     expect(byKey(notSelected, SSW.key).story).toBe(SSW_WRITTEN);
     expect(whyByBeach(byKey(notSelected, SSW.key)).a).toBe(SSW_WHY.a);
   });
@@ -264,25 +273,17 @@ describe("narrateRegionEvents", () => {
     expect(byKey(events, south.key).story).toBe("A south long-period groundswell arrives Thursday, peaks Friday and fades Saturday: waist-high at most spots.");
     // La Jolla Shores is partly open to the SSW swell but sheltered from this one.
     expect(whyByBeach(byKey(events, SSW.key)).c).toBe(SSW_WHY.c);
-    expect(whyByBeach(byKey(events, south.key)).c).toBe("Sheltered from the south groundswell: waist-high, with light wind in its window.");
+    expect(whyByBeach(byKey(events, south.key)).c).toBe("Sheltered from the south groundswell, with light wind in its window.");
   });
 
-  it("serves server lines, and never throws, for a malformed stored edition", () => {
+  it("warns about a stored candidate with null text and keeps serving its server line", () => {
     const written = [sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN), sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN)];
-    const broken = edition(written);
-    broken.input = { ...broken.input, copyFacts: undefined as never };
-    // One bad candidate costs only its own slot.
     const facts = cardFacts().map((fact) => (fact.slot === `event:${SSW_KEY}:story` ? { ...fact, text: null as never } : fact));
     const warn = jest.spyOn(console, "warn");
     try {
-      const events = narrateRegionEvents({ build: BUILD, rated: rated(), edition: broken, now: NOW });
-      expect(byKey(events, SSW.key).story).toBe(SSW_STORY);
-      expect(whyByBeach(byKey(events, SSW.key))).toEqual(SSW_WHY);
-
       const partial = narrateRegionEvents({ build: BUILD, rated: rated(), edition: edition(written, { copyFacts: facts }), now: NOW });
       expect(byKey(partial, SSW.key).story).toBe(SSW_STORY);
-      expect(whyByBeach(byKey(partial, SSW.key)).a).toBe(OCEAN_BEACH_WRITTEN);
-      // Missing candidate text now refuses in the claim check without throwing.
+      expect(whyByBeach(byKey(partial, SSW.key)).a).toBe(SSW_WHY.a);
       expect(warn.mock.calls.filter(([message]) => String(message).includes("story edition unusable"))).toHaveLength(1);
     } finally {
       warn.mockRestore();

@@ -6,7 +6,7 @@ import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
 import { loadRegionForecastEvents, type RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addSwellHeadlines, directionIndex, directionSector, periodBand, periodClass, sizePhrase, storyEventKey,
   windTimingPhrase, type RegionalSwellEvent } from "./week-scout-story-candidates";
-import { faceRangeFt, type CandidateFacts } from "./week-scout-story-facts";
+import { faceRangeFt, sizeWordsFor, type CandidateFacts } from "./week-scout-story-facts";
 import { checkWrittenSentence } from "./week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from "./week-scout-story-region-gate";
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
@@ -71,28 +71,35 @@ function gateHolds(gate: StoryGate, regional: StoryRegion, live: Live): boolean 
   return regionGateHolds(gate, regional.context) ?? storyGateHolds(gate, live);
 }
 
-function liveFacts(fact: StoryCandidate, regional: StoryRegion): CandidateFacts | undefined {
+function liveFacts(fact: StoryCandidate, regional: StoryRegion, live: Live): CandidateFacts | undefined {
   const gate = fact.gate;
   if (gate.kind === "swell") return regional.context.eventFacts(gate.regionalEventKey) ?? undefined;
   if (gate.kind === "beach") return regional.context.beachDayFacts(gate.regionalEventKey, gate.beachId, gate.localDate) ?? undefined;
-  return gate.kind === "day_surf" ? fact.facts : undefined;
+  if (gate.kind !== "day_surf") return undefined;
+  const pick = live.days.find((day) => day.localDate === gate.localDate)?.bestDayWindow;
+  const faceFt = pick?.safe && pick.beachId === gate.beachId ? faceRangeFt([pick.forecast.waveHeight]) : null;
+  if (!faceFt) return undefined;
+  return { ...fact.facts, faceFt, sizes: sizeWordsFor(faceFt), breaker: fact.facts?.breaker ?? null };
 }
 
 function pickDayLine(date: string, regional: StoryRegion, live: Live, input: StoryInput, candidates: StoryCandidate[]): StoryCandidate | null {
   const pick = live.days.find((day) => day.localDate === date)?.bestDayWindow;
   if (!pick?.safe) return null;
   const beachName = input.beachNames[pick.beachId];
-  const facts = regional.context.dayFacts(pick.beachId, date);
-  if (!beachName || !facts) return null;
-  const size = sizePhrase(facts.faceFt, facts.sizes);
+  const eventFacts = regional.context.dayFacts(pick.beachId, date);
+  if (!beachName || /\d/.test(beachName) || !eventFacts) return null;
+  const faceFt = faceRangeFt([pick.forecast.waveHeight]);
+  if (!faceFt) return null;
+  const sizes = sizeWordsFor(faceFt);
+  const facts: CandidateFacts = { faceFt, sizes, windHours: eventFacts.windHours, breaker: eventFacts.breaker };
+  const size = sizePhrase(faceFt, sizes);
   if (!size) return null;
-  const feel = facts.breaker?.feel ?? (facts.breaker?.character === "crumbly" ? "crumbly" : null);
+  const feel = size ? facts.breaker?.feel ?? (facts.breaker?.character === "crumbly" ? "crumbly" : null) : null;
   const wind = windTimingPhrase(facts.windHours ?? []);
   const surf = [size, feel].filter(Boolean).join(" and ");
   const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
   const text = `On ${weekday}, ${beachName} runs${surf ? ` ${surf}` : ""}${wind ? `, ${wind}` : ""}.`;
-  const gate = candidates[0]?.gate;
-  if (!gate) return null;
+  const gate: StoryGate = { kind: "day_surf", localDate: date, beachId: pick.beachId, faceFt };
   const fact: StoryCandidate = {
     id: `pick-${date}-${pick.beachId}`, slot: `day:${date}`, rank: 75, text, facts, gate,
   };
@@ -101,7 +108,7 @@ function pickDayLine(date: string, regional: StoryRegion, live: Live, input: Sto
 
 function candidateHolds(fact: StoryCandidate, regional: StoryRegion, live: Live, input: StoryInput): boolean {
   return gateHolds(fact.gate, regional, live)
-    && checkWrittenSentence(fact.text, { ...fact, facts: liveFacts(fact, regional) },
+    && checkWrittenSentence(fact.text, { ...fact, facts: liveFacts(fact, regional, live) },
       Object.values(input.beachNames ?? {}), [input.region]).ok;
 }
 
@@ -248,6 +255,11 @@ export function bindStory(args: {
   if (args.pickDayFallback) input.copyFacts.filter((fact) => fact.slot.startsWith("day:")).forEach((fact) => daySlots.add(fact.slot));
   for (const slot of daySlots) {
     const candidates = input.copyFacts.filter((fact) => fact.slot === slot).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const selectedFact = selected.find((fact) => fact.slot === slot);
+    if (selectedFact && candidateHolds(selectedFact, regional, live, input)) {
+      chosen.push(selectedFact);
+      continue;
+    }
     const surfaced = candidates.filter((fact) => fact.gate.kind === "day_surf")
       .find((fact) => candidateHolds(fact, regional, live, input));
     if (surfaced) {
@@ -260,7 +272,8 @@ export function bindStory(args: {
       chosen.push(pickLine);
       continue;
     }
-    const fallback = candidates.filter((fact) => fact.gate.kind !== "day_surf")
+    const fallback = candidates.filter((fact) => fact.gate.kind === "change" || fact.gate.kind === "tide"
+      || fact.gate.kind === "wind")
       .find((fact) => candidateHolds(fact, regional, live, input));
     if (fallback) chosen.push(fallback);
   }
@@ -269,7 +282,7 @@ export function bindStory(args: {
   const served = (fact: StoryInput["copyFacts"][number]): string => {
     const entry = args.written?.find((item) => item.basedOn === fact.id && item.slot === fact.slot);
     if (!entry || !beachNames) return fact.text;
-    return checkWrittenSentence(entry.text, { ...fact, facts: liveFacts(fact, regional) }, beachNames, [input.region]).ok ? entry.text : fact.text;
+    return checkWrittenSentence(entry.text, { ...fact, facts: liveFacts(fact, regional, live) }, beachNames, [input.region]).ok ? entry.text : fact.text;
   };
   const text = (slot: string): string | null => {
     const fact = chosen.find((item) => item.slot === slot);
@@ -307,6 +320,7 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
     ? [fact.gate.regionalEventKey] : []));
   const selections = [...input.copyFacts].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
     .filter((fact) => {
+      if (fact.slot.startsWith("day:")) return false;
       if (slots.has(fact.slot) || !candidateHolds(fact, regional, live, input)) return false;
       if (fact.gate.kind === "swell" && !matchesFirstSwell(fact.gate)) return false;
       if (fact.slot.startsWith("swell:") && fact.gate.kind === "exposure"
@@ -314,7 +328,8 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
       slots.add(fact.slot);
       return true;
     }).map((fact) => fact.id);
-  if (selections.length === 0) {
+  const hasDayCandidates = input.copyFacts.some((fact) => fact.slot.startsWith("day:"));
+  if (selections.length === 0 && !hasDayCandidates) {
     return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
   }
   return bindStory({ region, availability: "ready", input, selections, live, requireCover: false, regional, pickDayFallback: true });

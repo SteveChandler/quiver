@@ -137,16 +137,18 @@ export function windTimingPhrase(hours: WindHour[]): string | null {
   if (holds(0, 24, "offshore", true)) return "offshore all day";
   if (holds(0, 12, "offshore", true) && holds(13, 24, "onshore")) return "offshore all morning, sea breeze after lunch";
   if (holds(0, 9, "offshore")) {
-    for (let hour = 9; hour <= 12; hour += 1) {
-      if (holds(hour, 13, "onshore")) return `offshore early, onshore by ${hour === 12 ? "noon" : hour}`;
+    const firstOnshore = hours.filter((row) => row.relation === "onshore").sort((a, b) => a.hour - b.hour)[0];
+    if (firstOnshore && firstOnshore.hour >= 9 && firstOnshore.hour <= 12 && holds(firstOnshore.hour, 13, "onshore")) {
+      return `offshore early, onshore by ${firstOnshore.hour === 12 ? "noon" : firstOnshore.hour}`;
     }
   }
   if (holds(0, 9, "light") && holds(13, 24, "onshore")) return "glassy early, sea breeze after lunch";
   if (holds(0, 9, "offshore")) return "offshore early";
   if (holds(0, 9, "light")) return "glassy early";
-  const onshoreHour = hours.filter((row) => row.hour >= 9 && row.hour <= 12 && row.relation === "onshore")
-    .sort((a, b) => a.hour - b.hour).find((row) => holds(row.hour, 13, "onshore"))?.hour;
-  if (onshoreHour !== undefined) return `onshore by ${onshoreHour === 12 ? "noon" : onshoreHour}`;
+  const onshoreHour = hours.filter((row) => row.relation === "onshore").sort((a, b) => a.hour - b.hour)[0]?.hour;
+  if (onshoreHour !== undefined && onshoreHour >= 9 && onshoreHour <= 12
+    && hours.some((row) => row.hour < onshoreHour && row.relation !== "onshore")
+    && holds(onshoreHour, 13, "onshore")) return `onshore by ${onshoreHour === 12 ? "noon" : onshoreHour}`;
   return null;
 }
 
@@ -162,8 +164,8 @@ function withRegionalSize(text: string, facts: CandidateFacts | null): string {
   return `${text.slice(0, -1)}: ${size} at most spots${standout && standout !== size ? `, ${standout} at the standouts` : ""}.`;
 }
 
-function withLeadSize(text: string, facts: CandidateFacts | null): string {
-  return withRegionalSize(text, facts);
+function withLeadSize(text: string, _facts: CandidateFacts | null): string {
+  return text;
 }
 
 export interface HeadlineSwell {
@@ -186,15 +188,18 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
   const period = periodWords(swell.periodS, swell.kind);
   const arrival = windowDay(arrivalDate, firstDate, lastDate);
   const peakDay = windowDay(peakDate, firstDate, lastDate);
+  const arrivalPast = arrivalDate < firstDate;
   // Phrasings that open with the day, or follow "by", only read with a real weekday.
   const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
-  add(facts, `cover-${idPrefix}pulse-${key}`, "cover", withRegionalSize(region
-    ? `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`
-    : arrivalDate < firstDate
-      ? `A ${period} from the ${direction} is already in the water and peaks ${peakDay}.`
+  add(facts, `cover-${idPrefix}pulse-${key}`, "cover", withRegionalSize(arrivalPast
+    ? `A ${period} from the ${direction} is already in the water and peaks ${peakDay}.`
+    : region
+      ? `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`
       : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, candidateFacts), gate, candidateFacts);
   if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", withRegionalSize(`${region} gets ${withArticle(namedSwell(direction, swell.periodS, swell.kind))} by ${arrival}, with the most swell ${peakDay}.`, candidateFacts), gate, candidateFacts);
-  add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", withLeadSize(`The ${direction} pulse builds from ${arrival} into ${peakDay}.`, candidateFacts), gate, candidateFacts);
+  add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", withLeadSize(arrivalPast
+    ? `The ${direction} pulse is already in the water and peaks ${peakDay}.`
+    : `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, candidateFacts), gate, candidateFacts);
   if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", withLeadSize(`${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, candidateFacts), gate, candidateFacts);
 }
 
@@ -318,7 +323,7 @@ export interface BeachLineFacts {
   direction: string;
   kind: RegionalSwellEvent["kind"];
   periodClass: BeachGate["periodClass"];
-  exposure: Exposure;
+  exposure: Exposure | null;
   facing: BeachGate["facing"];
   wind: Wind | null;
 }
@@ -332,23 +337,33 @@ export function beachLineText(facts: BeachLineFacts, candidateFacts: CandidateFa
   const family = facts.kind === "storm" ? "storm" : facts.periodClass;
   const swell = `the ${facts.direction} ${BEACH_SWELL_NOUN[family]}`;
   const open = facts.exposure === "open";
-  const lead = facts.exposure === "shadowed" ? `Sheltered from ${swell}`
+  const lead = facts.exposure === null ? null : facts.exposure === "shadowed" ? `Sheltered from ${swell}`
     : facts.exposure === "partial" ? `Partly sheltered from ${swell}`
       : `Faces ${swell} ${facts.facing === "angled" ? "at an angle" : DEAD_ON_PHRASE[family]}`;
   const wind = facts.wind === null ? null : facts.wind === "light" ? "with light wind in its window"
     : facts.wind === "breezy" ? `${open ? "but" : "and"} it's breezy in its window`
       : `${open ? "but" : "and"} the wind is up in its window`;
   const size = candidateFacts && sizePhrase(candidateFacts.faceFt, candidateFacts.sizes);
-  const feel = candidateFacts && feelPhrase(candidateFacts);
+  const feel = size && candidateFacts ? feelPhrase(candidateFacts) : null;
   const timing = windTimingPhrase(candidateFacts?.windHours ?? []);
+  const useTiming = timing !== null && (facts.wind === "light" || /onshore by|sea breeze/.test(timing));
   const surf = [size, feel].filter(Boolean).join(" and ");
-  return `${lead}${surf ? `: ${surf}` : ""}${timing || wind ? `, ${timing ?? wind}` : ""}.`;
+  const windPhrase = useTiming ? timing : wind;
+  if (lead === null) {
+    const noLeadWind = useTiming ? timing : facts.wind === null ? null : facts.wind === "light"
+      ? "with light wind in its window" : facts.wind === "breezy" ? "with breezy wind in its window" : "with the wind up in its window";
+    const body = surf || noLeadWind;
+    if (!body) return "";
+    const sentence = `${body.charAt(0).toUpperCase()}${body.slice(1)}${surf && noLeadWind ? `, ${noLeadWind}` : ""}.`;
+    return sentence;
+  }
+  return `${lead}${facts.exposure === "shadowed" ? "" : surf ? `: ${surf}` : ""}${windPhrase ? `, ${windPhrase}` : ""}.`;
 }
 
 /**
  * A listed beach's line for an event and the gate pinning every fact it names; the one derivation the
- * Week Scout input and the card share. The date defaults to the peak day. It is null only without exposure
- * or a consistent facing fact. Missing beach-day facts and wind still produce the exposure lead. The key's "-s" pins the kind.
+ * Week Scout input and the card share. The date defaults to the peak day. A missing exposure still
+ * produces a size or wind line with no exposure lead. The key's "-s" pins the kind.
  */
 export function beachLine(event: RegionalSwellEvent, beachId: string, context: RegionGateContext,
   localDate: string = eventLocalDate(event.peakAt, event.timezone)): { text: string; gate: BeachGate; facts: CandidateFacts | null } | null {
@@ -357,10 +372,11 @@ export function beachLine(event: RegionalSwellEvent, beachId: string, context: R
   const facing = context.facing(key, beachId);
   const wind = context.wind(key, beachId, localDate);
   const facts = context.beachDayFacts(key, beachId, localDate);
-  if (!exposure || (exposure === "open") !== (facing !== null)) return null;
+  if ((exposure === "open") !== (facing !== null)) return null;
   const gate: BeachGate = { kind: "beach", localDate, regionalEventKey: key, beachId, directionIndex: directionIndex(event.directionDeg),
     periodClass: periodClass(event.periodS), exposure, facing, wind };
-  return { text: beachLineText({ direction: directionWords(event.directionDeg), kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }, facts), gate, facts };
+  const text = beachLineText({ direction: directionWords(event.directionDeg), kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }, facts);
+  return text ? { text, gate, facts } : null;
 }
 
 /**
@@ -402,8 +418,9 @@ export function buildEventCandidates(build: RegionBuild, events: readonly Region
  * Thursday and peaks Friday before easing Saturday", "arrives and peaks next week", "comes and goes Thursday".
  * Words, not dates, decide: two days past the window both read "next week", so a fade there goes unsaid.
  */
-export function swellChapterPhases(arrival: string, peak: string, fade: string | null): string {
+export function swellChapterPhases(arrival: string, peak: string, fade: string | null, arrivalPast = false): string {
   const easing = fade !== null && fade !== peak ? ` before easing ${fade}` : "";
+  if (arrivalPast) return `is already in the water and peaks ${peak}${easing}`;
   if (arrival !== peak) return `arrives ${arrival} and peaks ${peak}${easing}`;
   return fade === peak ? `comes and goes ${peak}` : `arrives and peaks ${peak}${easing}`;
 }
@@ -443,7 +460,8 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
     // Cover and lead name no fade day, so they don't require the chart's fade to agree.
     addSwellHeadlines(facts, { key, kind: event.kind, directionIndex: directionIndex(event.directionDeg), periodS: event.periodS,
       arrivalDate, peakDate }, region, firstDate, lastDate, { ...gate, fadeLocalDate: null }, "", eventFacts);
-    const chapter = swellChapterPhases(arrival, peakDay, fadeDate ? windowDay(fadeDate, firstDate, lastDate) : null);
+    const chapter = swellChapterPhases(arrival, peakDay, fadeDate ? windowDay(fadeDate, firstDate, lastDate) : null,
+      arrivalDate < firstDate);
     add(facts, `swell-${key}`, `swell:${key}`, withRegionalSize(`The ${period} ${chapter}.`, eventFacts), gate, eventFacts);
     if (namedDays) add(facts, `swell-${key}-alt`, `swell:${key}`, withRegionalSize(`${peakDay} is the peak of this ${direction} pulse.`, eventFacts), gate, eventFacts);
     const named = peak?.exposedBeaches?.[key]?.filter((beach) => beach.beachName && !DIGIT.test(beach.beachName)) ?? [];
@@ -503,7 +521,7 @@ export function buildStoryCandidates(days: readonly RegionalDaySignal[], region 
       const { facts: surf } = beach;
       if (!surf.faceFt || !beach.beachName || DIGIT.test(beach.beachName)) continue;
       const size = sizePhrase(surf.faceFt, surf.sizes);
-      const feel = feelPhrase(surf);
+      const feel = size ? feelPhrase(surf) : null;
       const wind = windTimingPhrase(surf.windHours ?? []);
       const description = [size, feel].filter(Boolean).join(" and ");
       const id = `surf-${current.localDate}-${beach.beachId}`;

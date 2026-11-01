@@ -45,7 +45,7 @@ describe("surfer voice", () => {
     expect(eventStoryText(event(), start, facts)).toBe("A south-southwest long-period groundswell arrives Saturday, peaks Sunday and fades Monday: waist-to-chest at most spots, head-high at the standouts.");
     const candidates = buildStoryCandidates(days(3), "San Diego", [event()], () => facts);
     expect(candidates.find((item) => item.slot === "cover")?.text).toBe("A long-period groundswell from the south-southwest reaches San Diego Saturday and peaks Sunday: waist-to-chest at most spots, head-high at the standouts.");
-    expect(candidates.find((item) => item.slot === "story:lead")?.text).toBe("The south-southwest pulse builds from Saturday into Sunday: waist-to-chest at most spots, head-high at the standouts.");
+    expect(candidates.find((item) => item.slot === "story:lead")?.text).toBe("The south-southwest pulse builds from Saturday into Sunday.");
     expect(candidates.find((item) => item.slot === `swell:${storyEventKey(event())}`)?.text).toBe("The long-period groundswell arrives Saturday and peaks Sunday before easing Monday: waist-to-chest at most spots, head-high at the standouts.");
     for (const standoutFt of [undefined, { min: 2, max: 4 }]) {
       expect(eventStoryText(event(), start, { ...facts, standoutFt })).not.toContain("standouts");
@@ -97,7 +97,7 @@ describe("surfer voice", () => {
     expect(line?.text).toBe("Faces the south-southwest groundswell dead on.");
   });
 
-  it("omits unknown size and requires edge coverage for all-day and all-morning wind", () => {
+  it("uses the first sampled onshore hour and requires an earlier non-onshore row for a by-phrase", () => {
     expect(sizePhrase(null, ["chest"])).toBeNull();
     expect(sizePhrase({ min: 3, max: 4 }, [])).toBeNull();
     const hours = (values: number[]): WindHour[] => values.map((hour) => ({ hour, relation: "offshore", mph: 10 }));
@@ -105,8 +105,14 @@ describe("surfer voice", () => {
     expect(windTimingPhrase(hours([9, 15]))).toBeNull();
     expect(windTimingPhrase([...hours([8, 10]), { hour: 14, relation: "onshore", mph: 10 }])).toBe("offshore all morning, sea breeze after lunch");
     expect(windTimingPhrase([...hours([8]), { hour: 14, relation: "onshore", mph: 10 }])).toBe("offshore early");
-    expect(windTimingPhrase([{ hour: 7, relation: "offshore", mph: 10 }, { hour: 11, relation: "cross", mph: 10 }, { hour: 12, relation: "onshore", mph: 10 }])).toBe("offshore early, onshore by noon");
-    expect(windTimingPhrase([{ hour: 10, relation: "onshore", mph: 5 }, { hour: 13, relation: "onshore", mph: 10 }, { hour: 16, relation: "onshore", mph: 15 }])).toBe("onshore by 10");
+    expect(windTimingPhrase([{ hour: 7, relation: "offshore", mph: 10 }, { hour: 10, relation: "onshore", mph: 10 },
+      { hour: 13, relation: "onshore", mph: 10 }, { hour: 16, relation: "onshore", mph: 10 }])).toBe("offshore early, onshore by 10");
+    expect(windTimingPhrase([{ hour: 8, relation: "offshore", mph: 10 }, { hour: 11, relation: "onshore", mph: 10 },
+      { hour: 14, relation: "onshore", mph: 10 }, { hour: 17, relation: "onshore", mph: 10 }])).toBe("offshore early, onshore by 11");
+    expect(windTimingPhrase([{ hour: 7, relation: "onshore", mph: 10 }, { hour: 10, relation: "onshore", mph: 10 },
+      { hour: 13, relation: "onshore", mph: 10 }])).toBeNull();
+    expect(windTimingPhrase([{ hour: 7, relation: "cross", mph: 10 }, { hour: 10, relation: "onshore", mph: 5 },
+      { hour: 13, relation: "onshore", mph: 10 }, { hour: 16, relation: "onshore", mph: 15 }])).toBe("onshore by 10");
   });
 });
 
@@ -187,13 +193,27 @@ describe("regional Week Scout story candidates", () => {
     expect(chapter("2026-10-29", "2026-10-30", "2026-10-31")).toBe("The long-period groundswell arrives Thursday and peaks Friday before easing Saturday.");
     // A peak and fade past the window both read "next week": the word goes once (R27).
     expect(chapter("2026-11-02", "2026-11-04", "2026-11-05")).toBe("The long-period groundswell arrives Monday and peaks next week.");
-    expect(chapter("2026-10-26", "2026-10-28", "2026-10-29")).toBe("The long-period groundswell arrives earlier in the week and peaks Wednesday before easing Thursday.");
+    expect(chapter("2026-10-26", "2026-10-28", "2026-10-29")).toBe("The long-period groundswell is already in the water and peaks Wednesday before easing Thursday.");
     // Words decide, for either side of the window.
     expect(swellChapterPhases("next week", "next week", "next week")).toBe("comes and goes next week");
     expect(swellChapterPhases("next week", "next week", null)).toBe("arrives and peaks next week");
     expect(swellChapterPhases("earlier in the week", "earlier in the week", "Tuesday"))
       .toBe("arrives and peaks earlier in the week before easing Tuesday");
     expect(swellChapterPhases("earlier in the week", "earlier in the week", "earlier in the week")).toBe("comes and goes earlier in the week");
+  });
+
+  it("uses in-water copy for past arrivals on the cover, lead and swell chapter", () => {
+    const upcomingDays = days(3).map((day, index) => ({ ...day, localDate: addDays("2026-11-01", index) }));
+    const alreadyHere = { ...event(), arrivalAt: "2026-10-31T18:00:00Z", peakAt: "2026-11-02T18:00:00Z",
+      fadeAt: "2026-11-03T18:00:00Z" };
+    const candidates = buildStoryCandidates(upcomingDays, "San Diego", [alreadyHere]);
+
+    expect(candidates.find((item) => item.slot === "cover")?.text)
+      .toBe("A long-period groundswell from the south-southwest is already in the water and peaks Monday.");
+    expect(candidates.find((item) => item.slot === "story:lead")?.text)
+      .toBe("The south-southwest pulse is already in the water and peaks Monday.");
+    expect(candidates.find((item) => item.slot.startsWith("swell:"))?.text)
+      .toBe("The long-period groundswell is already in the water and peaks Monday before easing Tuesday.");
   });
 
   it("writes no turn line whose peak and fade read the same word", () => {
@@ -479,9 +499,9 @@ describe("event and beach lines the card shows", () => {
     expect(line(swellKey, "e")?.gate).toMatchObject({ exposure: "open", wind: "windy" });
     expect(line(swellKey, "c")?.text).toBe("Partly sheltered from the south-southwest groundswell: waist-high, with light wind in its window.");
     expect(line(swellKey, "c")?.gate).toMatchObject({ exposure: "partial", facing: null });
-    expect(line(swellKey, "d")?.text).toBe("Sheltered from the south-southwest groundswell: knee-high, with light wind in its window.");
+    expect(line(swellKey, "d")?.text).toBe("Sheltered from the south-southwest groundswell, with light wind in its window.");
     // The same beach, open to one event, is sheltered from the other's direction.
-    expect(line("6-2-2026-11-01-s", "b")?.text).toBe("Sheltered from the west storm swell: waist-high and crumbly, and it's breezy in its window.");
+    expect(line("6-2-2026-11-01-s", "b")?.text).toBe("Sheltered from the west storm swell, and it's breezy in its window.");
     expect(line("6-2-2026-11-01-s", "b")?.gate).toMatchObject({ directionIndex: 12, periodClass: "short", exposure: "shadowed",
       facing: null, wind: "breezy" });
   });
@@ -509,6 +529,32 @@ describe("event and beach lines the card shows", () => {
     }
     expect(beachLineText({ ...facts, exposure: "partial", facing: null, wind: "windy" }))
       .toBe("Partly sheltered from the west groundswell, and the wind is up in its window.");
+  });
+
+  it("writes a beach line without an exposure lead and omits timing that conflicts with its wind bucket", () => {
+    const voice: CandidateFacts = { ...voiceFacts(), windHours: [{ hour: 8, relation: "offshore", mph: 10 }],
+      breaker: { character: "crumbly", feel: null, closingOut: false } };
+    const line = beachLine(event(), "a", {
+      events: [event()], exposure: () => null, facing: () => null, wind: () => "breezy",
+      eventFacts: () => null, beachDayFacts: () => voice, dayFacts: () => null,
+    }, "2026-11-01");
+    expect(line?.text).toBe("Chest-high and crumbly, with breezy wind in its window.");
+    expect(line?.gate.exposure).toBeNull();
+
+    const noSize: CandidateFacts = { faceFt: null, sizes: [], breaker: { character: "crumbly", feel: "soft", closingOut: false }, windHours: [] };
+    expect(beachLineText({ direction: "west", kind: "swell", periodClass: "long", exposure: null, facing: null, wind: "light" }, noSize))
+      .toBe("With light wind in its window.");
+    expect(beachLineText({ direction: "west", kind: "swell", periodClass: "long", exposure: "open", facing: "direct", wind: "light" }, voiceFacts()))
+      .toBe("Faces the west groundswell dead on: chest-high and punchy, offshore early, onshore by 10.");
+  });
+
+  it("omits a null-exposure beach line when it has neither size nor wind", () => {
+    const line = beachLine(event(), "a", {
+      events: [event()], exposure: () => null, facing: () => null, wind: () => null,
+      eventFacts: () => null, beachDayFacts: () => ({ faceFt: null, sizes: [], breaker: null }), dayFacts: () => null,
+    }, "2026-11-01");
+
+    expect(line).toBeNull();
   });
 
   it("words every claim in a beach line from the claim checker's closed word sets", () => {

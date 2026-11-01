@@ -6,7 +6,7 @@ import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-s
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
-import { beachDayFactsFromBuild, eventFactsFromBuild, faceRangeFt, LIGHT_WIND_MPH, sizeWordsFor, windHoursFor, type CandidateFacts } from "./week-scout-story-facts";
+import { beachDayFactsFromBuild, eventFactsFromBuild, LIGHT_WIND_MPH, type CandidateFacts } from "./week-scout-story-facts";
 import type { StoryGate } from "./week-scout-story-types";
 
 type BeachGate = Extract<StoryGate, { kind: "beach" }>;
@@ -120,21 +120,8 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
         dayFactsCache.set(cacheKey, facts);
         return facts;
       }
-      if (coveringEvents.length > 0) {
-        dayFactsCache.set(cacheKey, null);
-        return null;
-      }
-      const beach = beaches.get(beachId);
-      const rows = (build.rowsByBeach[beachId] ?? []).filter((row) =>
-        getLocalDateStr(new Date(row.forecast_at), build.timezone) === date);
-      if (!beach || rows.length === 0) {
-        dayFactsCache.set(cacheKey, null);
-        return null;
-      }
-      const faceFt = faceRangeFt(rows.map((row) => row.wave_height));
-      const facts: CandidateFacts = { faceFt, sizes: sizeWordsFor(faceFt), windHours: windHoursFor(rows, beach, build.timezone), breaker: null };
-      dayFactsCache.set(cacheKey, facts);
-      return facts;
+      dayFactsCache.set(cacheKey, null);
+      return null;
     },
     wind(regionalEventKey, beachId, date) {
       const event = byKey.get(regionalEventKey);

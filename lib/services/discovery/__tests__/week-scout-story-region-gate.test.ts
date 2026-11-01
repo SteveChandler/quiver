@@ -104,14 +104,11 @@ describe("regional story gate", () => {
     expect(context.dayFacts("a", "2026-10-29")).toBeNull();
   });
 
-  it("builds and memoizes raw beach-day facts when no event covers the date", () => {
+  it("does not build pick-line facts from raw rows outside an event window", () => {
     const build = regionBuild([], { rowsByBeach: { a: [row("2026-10-31T18:00:00Z", "4 mph")] } });
     const context = buildRegionGateContext(build, EDITION);
-    const facts = context.dayFacts("a", "2026-10-31");
 
-    expect(facts).toEqual({ faceFt: { min: 3, max: 4 }, sizes: ["chest"],
-      windHours: [{ hour: 11, mph: 4, relation: null }], breaker: null });
-    expect(context.dayFacts("a", "2026-10-31")).toBe(facts);
+    expect(context.dayFacts("a", "2026-10-31")).toBeNull();
   });
 
   it("uses the covering event with the largest face range at the picked beach", () => {

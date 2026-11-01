@@ -95,6 +95,11 @@ type WrittenLine = (slot: string, accepts?: (gate: StoryGate) => boolean) => str
  * doesn't, and the gate holds against this request's build.
  */
 function writtenLines({ input, artifact }: NarrativeEdition, region: string, context: RegionGateContext): WrittenLine {
+  const invalidCandidate = Array.isArray(input.copyFacts)
+    ? input.copyFacts.find((fact) => !fact || typeof fact.text !== "string") : null;
+  if (invalidCandidate || !Array.isArray(input.copyFacts)) {
+    throw new Error("story_candidate_text_invalid");
+  }
   const selected = new Set(artifact.briefing.selections);
   const facts = new Map(input.copyFacts.map((fact) => [fact.id, fact]));
   const bySlot = new Map((artifact.briefing.written ?? []).map((entry) => [entry.slot, entry]));
