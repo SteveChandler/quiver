@@ -19,6 +19,10 @@ jest.mock("@/lib/alerts/swell-events/regional-narrative", () => {
   const actual = jest.requireActual("@/lib/alerts/swell-events/regional-narrative");
   return { ...actual, narrateRegionEvents: jest.fn(actual.narrateRegionEvents), watchRegionEvents: jest.fn(actual.watchRegionEvents) };
 });
+jest.mock("@/lib/services/discovery/week-scout-story-region-gate", () => {
+  const actual = jest.requireActual("@/lib/services/discovery/week-scout-story-region-gate");
+  return { ...actual, buildRegionGateContext: jest.fn(actual.buildRegionGateContext) };
+});
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/middleware/api-wrappers"),
   withRateLimit: (handler: unknown) => handler,
@@ -323,7 +327,8 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     const { status, data } = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${requested.join(",")}`) });
     expect(status).toBe(200);
     expect(data.events.length).toBeGreaterThan(0);
-    const expected = [beaches[1].id, ...beaches.filter((item) => item.id !== beaches[1].id).map((item) => item.id)].slice(0, 40);
+    const selected = [beaches[1], ...beaches.filter((item) => item.id !== beaches[1].id)].slice(0, 40);
+    const expected = selected.sort((left, right) => left.name.localeCompare(right.name)).map((item) => item.id);
     for (const event of data.events) expect(event.watch?.map((item) => item.beachId)).toEqual(expected);
     // A second pool must never receive the first pool's watch.
     const second = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${beaches[42].id}`) });
@@ -333,6 +338,65 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(stormEvent(absent.data.events)).not.toHaveProperty("watch");
     const empty = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=invalid`) });
     expect(stormEvent(empty.data.events)?.watch).toEqual([]);
+  });
+
+  it("builds one shared narration context for a pooled request", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    stage({ lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) });
+    jest.mocked(buildRegionGateContext).mockClear();
+    const beachIds = beaches.map((item) => item.id);
+
+    const { status, data } = await call(beaches[0].id, {
+      nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${beachIds.join(",")}`),
+    });
+
+    expect(status).toBe(200);
+    expect(stormEvent(data.events)?.watch).toHaveLength(beaches.length);
+    expect(buildRegionGateContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs an unusable edition warning once across card and watch narration", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    stage({ lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) });
+    const generatedAt = new Date(NOW.getTime() - 3_600_000).toISOString();
+    const input = {
+      schemaVersion: 3,
+      region: REGION,
+      editionDate: localDate(0),
+      sourcePublishedAt: generatedAt,
+      validUntil: new Date(NOW.getTime() + 86_400_000).toISOString(),
+      briefing: { schemaVersion: 3 as const, editionDate: localDate(0), generatedAt, selections: [] },
+      copyFacts: null,
+      beachNames: Object.fromEntries(beaches.map((item) => [item.id, item.name])),
+      provenance: { sourceIds: [], sourceHashes: [], generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: [], coverageDates: [] },
+      inputHash: "unusable-input-hash",
+    } as unknown as StoryInput;
+    const artifact: StoryArtifact = {
+      artifactId: "unusable-artifact",
+      schemaVersion: 3,
+      region: REGION,
+      editionDate: input.editionDate,
+      inputHash: input.inputHash,
+      sourcePublishedAt: input.sourcePublishedAt,
+      validUntil: input.validUntil,
+      generationVersion: "week-scout-story-2",
+      model: "gemma",
+      briefing: input.briefing,
+      provenance: input.provenance,
+    };
+    jest.mocked(loadLatestStoryEdition).mockResolvedValue(artifact);
+    jest.mocked(loadStoryInput).mockResolvedValue(input);
+
+    const { status, data } = await call(beaches[0].id, {
+      nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${beaches.map((item) => item.id).join(",")}`),
+    });
+
+    const warnings = ((globalThis as { __quiverConsoleWarns?: string[] }).__quiverConsoleWarns ?? [])
+      .filter((message) => message.includes("story edition unusable"));
+    expect(status).toBe(200);
+    expect(stormEvent(data.events)?.watch).toHaveLength(beaches.length);
+    expect(warnings).toHaveLength(1);
+    expectConsoleWarnings([/story edition unusable/]);
   });
 
   it("returns events: [] for a region under 3 beaches, beaches param or not", async () => {

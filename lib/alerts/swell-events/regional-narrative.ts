@@ -21,7 +21,7 @@ import type { RegionBeachRating, RegionSwellEvent, RegionWatchBeach } from "@/ty
 
 import type { RegionBuild } from "./regional";
 import { exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
-import { BLOWN_OUT, getRatedBeachRatings, isWorking, rateEventBeaches, ratingWindow } from "./regional-rating";
+import { BLOWN_OUT, isWorking, rateEventBeaches, ratingWindow, type RegionRatingsByEvent } from "./regional-rating";
 
 type Client = SupabaseClient<Database>;
 
@@ -154,6 +154,7 @@ function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, 
     const key = storyEventKey(event);
     if (!firstUnderKey.has(key)) firstUnderKey.set(key, event.regionalKey);
   }
+  const narrationByRegionalKey = new Map<string, EventNarration>();
   // A malformed stored edition costs only its written text: the card never fails because of the narrative.
   let warned = false;
   const unusable = (error: unknown): null => {
@@ -176,12 +177,27 @@ function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, 
   };
 
   return { all, forEvent: (event) => {
+    const cached = narrationByRegionalKey.get(event.regionalKey);
+    if (cached) return cached;
     const first = firstUnderKey.get(storyEventKey(event)) === event.regionalKey;
-    return {
+    const prepared = {
       context: first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === event.regionalKey) }, today),
       written: first ? writtenFor : () => null,
     };
+    narrationByRegionalKey.set(event.regionalKey, prepared);
+    return prepared;
   } };
+}
+
+export type PreparedRegionNarration = ReturnType<typeof prepareNarration>;
+
+/** Share one gate context and one edition-warning scope across card lines and watch days. */
+export function prepareRegionNarration(input: {
+  build: RegionBuild;
+  edition: NarrativeEdition | null;
+  now: Date;
+}): PreparedRegionNarration {
+  return prepareNarration(input.build, input.edition, input.now);
 }
 
 function beachDayLine(
@@ -223,6 +239,25 @@ function watchStanding(build: RegionBuild, directionDeg: number | null, beachIds
   });
 }
 
+function sortWatchByRating(
+  beaches: RegionWatchBeach[],
+  ratings: ReadonlyMap<string, RegionBeachRating>,
+  earlyLook: boolean,
+): RegionWatchBeach[] {
+  const rank = new Map([...ratings.keys()].map((beachId, index) => [beachId, index]));
+  return [...beaches].sort((left, right) => {
+    if (!earlyLook) {
+      const leftWorking = isWorking(ratings.get(left.beachId)?.label ?? "");
+      const rightWorking = isWorking(ratings.get(right.beachId)?.label ?? "");
+      const workingOrder = Number(rightWorking) - Number(leftWorking);
+      if (workingOrder !== 0) return workingOrder;
+    }
+    return (rank.get(left.beachId) ?? Number.POSITIVE_INFINITY)
+      - (rank.get(right.beachId) ?? Number.POSITIVE_INFINITY)
+      || left.beachName.localeCompare(right.beachName);
+  });
+}
+
 interface WatchInput {
   build: RegionBuild;
   event: RegionalSwellEvent;
@@ -236,7 +271,7 @@ function watchWithNarration({ build, event, rated, beachIds, now }: WatchInput, 
   const key = storyEventKey(event);
   const today = localDate(now, build.timezone);
   const { startMs, endMs } = ratingWindow(event);
-  return watchStanding(build, event.directionDeg, beachIds).map((beach) => {
+  const watches = watchStanding(build, event.directionDeg, beachIds).map((beach) => {
     const rating = rated.get(beach.beachId);
     const working = rating && isWorking(rating.label);
     const dates = [...beachRowsByLocalDate(build, beach.beachId)].flatMap(([date, rows]) => {
@@ -254,6 +289,7 @@ function watchWithNarration({ build, event, rated, beachIds, now }: WatchInput, 
         why: beachDayLine(event, beach.beachId, date, narration, key, undefined, blownOut) };
     }) };
   });
+  return sortWatchByRating(watches, rated, false);
 }
 
 /** Use this for an individual inspection; the hot route composes all events through watchRegionEvents. */
@@ -269,10 +305,12 @@ export function narrateRegionEvents(input: {
   now: Date;
   beachIds?: readonly string[];
   skill?: SkillLevel;
+  ratingsByEvent?: RegionRatingsByEvent;
+  narration?: PreparedRegionNarration;
 }): RegionSwellEvent[] {
-  const { build, rated, edition, now, beachIds, skill = "intermediate" } = input;
+  const { build, rated, edition, now, beachIds, skill = "intermediate", ratingsByEvent } = input;
   const today = localDate(now, build.timezone);
-  const narration = prepareNarration(build, edition, now);
+  const narration = input.narration ?? prepareNarration(build, edition, now);
   const byBuildKey = new Map(narration.all.map((event) => [event.regionalKey, event]));
   const output = rated.map((event) => {
     const internal = build.events.find((item) => item.key === event.key);
@@ -302,7 +340,7 @@ export function narrateRegionEvents(input: {
     };
   });
   if (beachIds === undefined) return output;
-  const watches = collectRegionWatches({ build, rated, edition, now, beachIds, skill }, narration);
+  const watches = collectRegionWatches({ build, rated, edition, now, beachIds, skill, ratingsByEvent }, narration);
   return output.map((event) => ({ ...event, watch: watches.get(event.key) ?? [] }));
 }
 
@@ -313,21 +351,29 @@ interface RegionWatchInput {
   now: Date;
   beachIds: readonly string[];
   skill?: SkillLevel;
+  ratingsByEvent?: RegionRatingsByEvent;
+  narration?: PreparedRegionNarration;
 }
 
 function collectRegionWatches(input: RegionWatchInput, narration: ReturnType<typeof prepareNarration>): Map<string, RegionWatchBeach[]> {
   const { build, rated, beachIds, edition, now, skill = "intermediate" } = input;
-  const ratingsByEvent = getRatedBeachRatings(rated);
+  const { ratingsByEvent } = input;
   const watches = new Map<string, RegionWatchBeach[]>();
   for (const event of rated) {
     const internal = build.events.find((item) => item.key === event.key);
     const story = event.source === "forecast" ? narration.all.find((item) => item.regionalKey === event.key) : undefined;
+    let ratedBeaches: ReadonlyMap<string, RegionBeachRating>;
+    if (ratingsByEvent) {
+      ratedBeaches = ratingsByEvent.get(event.key) ?? new Map();
+    } else if (internal) {
+      ratedBeaches = rateEventBeaches(build, internal, beachIds, skill, now);
+    } else {
+      ratedBeaches = new Map();
+    }
     if (!story) {
-      watches.set(event.key, watchStanding(build, internal?.directionDeg ?? null, beachIds));
+      watches.set(event.key, sortWatchByRating(watchStanding(build, internal?.directionDeg ?? null, beachIds), ratedBeaches, event.source === "wam"));
       continue;
     }
-    const ratedBeaches = ratingsByEvent?.get(event.key)
-      ?? (internal ? rateEventBeaches(build, internal, beachIds, skill, now) : new Map());
     watches.set(event.key, watchWithNarration({ build, event: story, rated: new Map(ratedBeaches), beachIds, edition, now }, narration.forEvent(story)));
   }
   return watches;
@@ -335,5 +381,5 @@ function collectRegionWatches(input: RegionWatchInput, narration: ReturnType<typ
 
 /** Requested beach rows for all events. The API calls this after card narration so watch failures stay isolated. */
 export function watchRegionEvents(input: RegionWatchInput): Map<string, RegionWatchBeach[]> {
-  return collectRegionWatches(input, prepareNarration(input.build, input.edition, input.now));
+  return collectRegionWatches(input, input.narration ?? prepareNarration(input.build, input.edition, input.now));
 }

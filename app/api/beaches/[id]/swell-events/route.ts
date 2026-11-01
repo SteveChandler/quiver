@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildRegionEvents, rateRegionEvents } from "@/lib/alerts/swell-events/regional";
-import { loadRegionNarrativeEdition, narrateRegionEvents, watchRegionEvents, withoutNarrative } from "@/lib/alerts/swell-events/regional-narrative";
+import { buildRegionEvents, rateRegionEventsWithRatings } from "@/lib/alerts/swell-events/regional";
+import { loadRegionNarrativeEdition, narrateRegionEvents, prepareRegionNarration, watchRegionEvents, withoutNarrative } from "@/lib/alerts/swell-events/regional-narrative";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
 import { handleApiError, withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
@@ -75,18 +75,20 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
         .map((beachId) => beachId.trim().toLowerCase())
         .filter((beachId) => UUID_PATTERN.test(beachId) && regionIds.has(beachId)))].slice(0, 40);
     }
-    const rated = rateRegionEvents(built, { beachId: id, skill, now });
+    const { events: rated, ratingsByEvent } = rateRegionEventsWithRatings(built, { beachId: id, skill, now });
     // The card never fails because of its narrative: without it, the rated events go out with no story or lines.
     let events: RegionSwellEventsResponse["events"];
+    let narration: ReturnType<typeof prepareRegionNarration> | undefined;
     try {
-      events = narrateRegionEvents({ build: built, rated, edition, now });
+      narration = prepareRegionNarration({ build: built, edition, now });
+      events = narrateRegionEvents({ build: built, rated, edition, now, narration });
     } catch (narrativeError) {
       console.warn("[swell-events] narrative failed", { region: built.region, error: String(narrativeError) });
       events = rated.map(withoutNarrative);
     }
-    if (beachIds !== undefined) {
+    if (beachIds !== undefined && narration) {
       try {
-        const watches = watchRegionEvents({ build: built, rated, edition, now, beachIds, skill });
+        const watches = watchRegionEvents({ build: built, rated, edition, now, beachIds, skill, ratingsByEvent, narration });
         events = events.map((event) => ({ ...event, watch: watches.get(event.key) ?? [] }));
       } catch (watchError) {
         console.warn("[swell-events] watch failed", { region: built.region, error: String(watchError) });

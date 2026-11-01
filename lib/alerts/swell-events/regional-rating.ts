@@ -56,15 +56,11 @@ interface RankedRating extends RegionBeachRating {
   rank: number;
 }
 
+export type RegionRatingsByEvent = ReadonlyMap<string, ReadonlyMap<string, RegionBeachRating>>;
+
 type EventTimes = Pick<InternalRegionEvent, "arrivalAt" | "peakAt" | "fadeAt">;
 
 const weekdayFormatters = new Map<string, Intl.DateTimeFormat>();
-const beachRatingsByRatedEvents = new WeakMap<RegionSwellEvent[], ReadonlyMap<string, ReadonlyMap<string, RegionBeachRating>>>();
-
-/** Per-event beach ratings retained without adding anything to the JSON response. */
-export function getRatedBeachRatings(events: RegionSwellEvent[]): ReadonlyMap<string, ReadonlyMap<string, RegionBeachRating>> | undefined {
-  return beachRatingsByRatedEvents.get(events);
-}
 
 function weekdayFormatter(timezone: string): Intl.DateTimeFormat {
   const formatter = weekdayFormatters.get(timezone);
@@ -294,10 +290,10 @@ export function rateEventBeaches(
  * the build is cached: an event drops out once it fades, and one still in the water past its peak
  * day counts 0 lead days.
  */
-export function rateRegionEvents(
+export function rateRegionEventsWithRatings(
   built: RegionBuild,
   input: { beachId: string; skill: SkillLevel; now: Date },
-): RegionSwellEvent[] {
+): { events: RegionSwellEvent[]; ratingsByEvent: RegionRatingsByEvent } {
   const today = getLocalDateStr(input.now, built.timezone);
   const beachRatings = new Map<string, ReadonlyMap<string, RegionBeachRating>>();
   const events = built.events.flatMap((event): RegionSwellEvent[] => {
@@ -334,6 +330,13 @@ export function rateRegionEvents(
       notWorking,
     }];
   });
-  beachRatingsByRatedEvents.set(events, beachRatings);
-  return events;
+  return { events, ratingsByEvent: beachRatings };
+}
+
+/** Public card events; route callers that also build a watch can retain the returned ratings explicitly. */
+export function rateRegionEvents(
+  built: RegionBuild,
+  input: { beachId: string; skill: SkillLevel; now: Date },
+): RegionSwellEvent[] {
+  return rateRegionEventsWithRatings(built, input).events;
 }

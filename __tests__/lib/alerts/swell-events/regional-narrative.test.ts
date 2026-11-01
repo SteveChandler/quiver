@@ -12,8 +12,8 @@ jest.mock("@/lib/services/discovery/week-scout-story-facts", () => {
 });
 
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { narrateRegionEvents, watchBeaches, type NarrativeEdition } from "@/lib/alerts/swell-events/regional-narrative";
-import { rateEventBeaches, rateRegionEvents } from "@/lib/alerts/swell-events/regional-rating";
+import { narrateRegionEvents, watchBeaches, watchRegionEvents, type NarrativeEdition } from "@/lib/alerts/swell-events/regional-narrative";
+import { rateEventBeaches, rateRegionEvents, rateRegionEventsWithRatings } from "@/lib/alerts/swell-events/regional-rating";
 import * as ratingModule from "@/lib/alerts/swell-events/regional-rating";
 import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import { buildRegionGateContext, windBucket } from "@/lib/services/discovery/week-scout-story-region-gate";
@@ -374,6 +374,34 @@ describe("narrateRegionEvents", () => {
 
 
 describe("regional watch", () => {
+  it("sorts watch beaches by working score and early-look exposure, then name", () => {
+    const beachIds = ["d", "e", "c", "a"];
+    const { events, ratingsByEvent } = rateRegionEventsWithRatings(BUILD, { beachId: "d", skill: "intermediate", now: NOW });
+    const ratings = ratingsByEvent.get(SSW.key)!;
+    const rank = new Map([...ratings.keys()].map((id, index) => [id, index]));
+    const expected = [...beachIds].sort((leftId, rightId) => {
+      const left = ratings.get(leftId)!;
+      const right = ratings.get(rightId)!;
+      const leftWorking = ["EPIC", "GOOD", "FAIR", "LIKELY"].includes(left.label);
+      const rightWorking = ["EPIC", "GOOD", "FAIR", "LIKELY"].includes(right.label);
+      return Number(rightWorking) - Number(leftWorking)
+        || rank.get(leftId)! - rank.get(rightId)!
+        || left.beachName.localeCompare(right.beachName);
+    });
+    jest.mocked(ratingModule.rateEventBeaches).mockClear();
+
+    const watches = watchRegionEvents({ build: BUILD, rated: events, edition: null, now: NOW, beachIds, ratingsByEvent });
+    const actual = watches.get(SSW.key)!.map((item) => item.beachId);
+
+    expect(actual).toEqual(expected);
+    expect(actual).not.toEqual(beachIds);
+    expect(ratingModule.rateEventBeaches).not.toHaveBeenCalled();
+
+    const earlyWatches = watchRegionEvents({ build: BUILD, rated: events, edition: null, now: NOW,
+      beachIds: ["a", "d"], ratingsByEvent }).get(EARLY.key)!;
+    expect(earlyWatches.map((item) => item.beachId)).toEqual(["d", "a"]);
+  });
+
   it("gives each requested beach its exposure, not-working reason and one line per day of the window", () => {
     const unknown = { ...beach("unknown", "Unknown Cove", 202), swell_window_center_deg: null };
     const missing = beach("missing", "Empty Cove", 202);
@@ -392,19 +420,19 @@ describe("regional watch", () => {
     const watch = byKey(events, SSW.key).watch!;
     expect(watch.map(({ beachId, exposure, reason }) => ({ beachId, exposure, reason }))).toEqual([
       { beachId: "a", exposure: "open", reason: null },
+      { beachId: "unknown", exposure: null, reason: null },
       { beachId: "c", exposure: "partial", reason: null },
       { beachId: "d", exposure: "shadowed", reason: "small, sheltered" },
       { beachId: "e", exposure: "open", reason: "blown out" },
-      { beachId: "unknown", exposure: null, reason: null },
       { beachId: "missing", exposure: "open", reason: null },
     ]);
     expect(watch[0]).toEqual({ beachId: "a", beachName: "Ocean Beach", exposure: "open", reason: null, days: [
       { localDate: "2026-10-29", faceFt: "3 ft", why: "Faces the south-southwest groundswell dead on: chest-high, with light wind in its window." },
       { localDate: "2026-10-30", faceFt: "3-4 ft", why: "Faces the south-southwest groundswell dead on: chest-high, with light wind in its window." },
     ] });
-    expect(watch[2].days.map((day) => day.why)).toEqual(Array(3).fill(SSW_WHY.d));
-    expect(watch[3].days[0].why).toBe(SSW_WHY.e);
-    expect(watch[5].days.map((day) => day.faceFt)).toEqual([null, null, null]);
+    expect(watch.find((item) => item.beachId === "d")!.days.map((day) => day.why)).toEqual(Array(3).fill(SSW_WHY.d));
+    expect(watch.find((item) => item.beachId === "e")!.days[0].why).toBe(SSW_WHY.e);
+    expect(watch.find((item) => item.beachId === "missing")!.days.map((day) => day.faceFt)).toEqual([null, null, null]);
     const perBeach = rateEventBeaches(build, SSW, ["a", "e", "missing", "outside"], "intermediate", NOW);
     expect([...perBeach.keys()].sort()).toEqual(["a", "e"]);
     expect(perBeach.get("e")).toMatchObject({ reason: "blown out" });
@@ -430,7 +458,7 @@ describe("regional watch", () => {
 
   it("lists no watch beach outside the request or the region, and no days for an early look", () => {
     const events = narrateRegionEvents({ build: BUILD, rated: rated(), edition: null, now: NOW, beachIds: ["d", "outside", "a", "d"] });
-    expect(events.map((event) => event.watch?.map((item) => item.beachId))).toEqual(Array(3).fill(["d", "a"]));
+    expect(events.map((event) => event.watch?.map((item) => item.beachId))).toEqual([["a", "d"], ["a", "d"], ["d", "a"]]);
     expect(byKey(events, EARLY.key).watch).toEqual([
       { beachId: "d", beachName: "Sunset Cliffs", exposure: "open", reason: null, days: [] },
       { beachId: "a", beachName: "Ocean Beach", exposure: "shadowed", reason: null, days: [] },
@@ -474,10 +502,10 @@ describe("watch pool costs", () => {
   it("reuses the per-event beach ratings already computed for the card", () => {
     const ratings = jest.mocked(ratingModule.rateEventBeaches);
     ratings.mockClear();
-    const events = rateRegionEvents(BUILD, { beachId: "d", skill: "intermediate", now: NOW });
+    const { events, ratingsByEvent } = rateRegionEventsWithRatings(BUILD, { beachId: "d", skill: "intermediate", now: NOW });
     const callsAfterCard = ratings.mock.calls.length;
 
-    narrateRegionEvents({ build: BUILD, rated: events, edition: null, now: NOW, beachIds: ["a", "b"] });
+    narrateRegionEvents({ build: BUILD, rated: events, edition: null, now: NOW, beachIds: ["a", "b"], ratingsByEvent });
 
     expect(ratings).toHaveBeenCalledTimes(callsAfterCard);
   });
