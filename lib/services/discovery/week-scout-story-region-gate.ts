@@ -4,9 +4,9 @@ import { ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
-import { localDate } from "./swell-briefing-input";
+import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
 import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
-import { beachDayFactsFromBuild, eventFactsFromBuild, LIGHT_WIND_MPH, type CandidateFacts } from "./week-scout-story-facts";
+import { beachDayFactsFromBuild, eventFactsFromBuild, faceRangeFt, LIGHT_WIND_MPH, sizeWordsFor, windHoursFor, type CandidateFacts } from "./week-scout-story-facts";
 import type { StoryGate } from "./week-scout-story-types";
 
 type BeachGate = Extract<StoryGate, { kind: "beach" }>;
@@ -24,6 +24,7 @@ export interface RegionGateContext {
   wind(regionalEventKey: string, beachId: string, localDate: string): Wind | null;
   eventFacts(regionalEventKey: string): CandidateFacts | null;
   beachDayFacts(regionalEventKey: string, beachId: string, localDate: string): CandidateFacts | null;
+  dayFacts(beachId: string, localDate: string): CandidateFacts | null;
 }
 
 const CONFIDENCE_RANK = { on_the_radar: 0, likely: 1, locked: 2 } as const;
@@ -66,6 +67,7 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
   const beaches = new Map(build.beaches.map((beach) => [beach.id, beach]));
   const eventFactsCache = new Map<string, CandidateFacts | null>();
   const beachDayFactsCache = new Map<string, CandidateFacts | null>();
+  const dayFactsCache = new Map<string, CandidateFacts | null>();
   const sighting = (regionalEventKey: string, beachId: string) => {
     const event = byKey.get(regionalEventKey);
     const beach = beaches.get(beachId);
@@ -98,6 +100,40 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
       const event = byKey.get(regionalEventKey);
       const facts = event ? beachDayFactsFromBuild(build, event, beachId, date) : null;
       beachDayFactsCache.set(cacheKey, facts);
+      return facts;
+    },
+    dayFacts(beachId, date) {
+      const cacheKey = JSON.stringify([beachId, date]);
+      if (dayFactsCache.has(cacheKey)) return dayFactsCache.get(cacheKey) ?? null;
+      const startMs = Date.parse(zonedWallClockToUtc(date, "00:00:00.000", build.timezone));
+      const endMs = Date.parse(zonedWallClockToUtc(addDays(date, 1), "00:00:00.000", build.timezone));
+      const coveringEvents = all.filter((event) => {
+        const { startMs: eventStart, endMs: eventEnd } = ratingWindow(event);
+        return eventStart < endMs && eventEnd > startMs;
+      });
+      const eventFacts = coveringEvents.flatMap((event) => {
+        const facts = beachDayFactsFromBuild(build, event, beachId, date);
+        return facts ? [facts] : [];
+      }).sort((a, b) => (b.faceFt?.max ?? -1) - (a.faceFt?.max ?? -1));
+      if (eventFacts.length > 0) {
+        const facts = eventFacts[0];
+        dayFactsCache.set(cacheKey, facts);
+        return facts;
+      }
+      if (coveringEvents.length > 0) {
+        dayFactsCache.set(cacheKey, null);
+        return null;
+      }
+      const beach = beaches.get(beachId);
+      const rows = (build.rowsByBeach[beachId] ?? []).filter((row) =>
+        getLocalDateStr(new Date(row.forecast_at), build.timezone) === date);
+      if (!beach || rows.length === 0) {
+        dayFactsCache.set(cacheKey, null);
+        return null;
+      }
+      const faceFt = faceRangeFt(rows.map((row) => row.wave_height));
+      const facts: CandidateFacts = { faceFt, sizes: sizeWordsFor(faceFt), windHours: windHoursFor(rows, beach, build.timezone), breaker: null };
+      dayFactsCache.set(cacheKey, facts);
       return facts;
     },
     wind(regionalEventKey, beachId, date) {

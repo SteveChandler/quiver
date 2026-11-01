@@ -26,7 +26,8 @@ import { WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-con
 import type { InternalRegionEvent, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { CanonicalWeekScoutResponse } from "../week-scout";
 import { bindFallbackStory, bindStory, loadAndBindStory, prepareStory, storyGateHolds, storyRegion } from "../week-scout-story-serve";
-import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
+import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryInput } from "../week-scout-story-types";
+import type { CandidateFacts } from "../week-scout-story-facts";
 import { StoryInputError, storyEventsFromRegion } from "../week-scout-story-source";
 import { buildEventCandidates, buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
 import { buildRegionGateContext } from "../week-scout-story-region-gate";
@@ -638,7 +639,99 @@ describe("live surfer facts", () => {
     expect(published.availability).toBe("unavailable");
     const fallback = bindFallbackStory(input.region, input, live(), regional);
     expect(fallback.cover.text).toBe("A long-period groundswell from the west arrives Wednesday and peaks Thursday: waist-high at most spots.");
-    expect(fallback.lead).toBe("The west pulse builds from Wednesday into Thursday: waist-high at its best.");
+    expect(fallback.lead).toBe("The west pulse builds from Wednesday into Thursday: waist-high at most spots.");
+  });
+
+  it("serves a day line for the live pick when no day_surf candidate's beach is the pick", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    pick.forecast.waveHeight = "3-4 ft";
+    const regional = regionOf();
+    regional.context.dayFacts = () => ({
+      faceFt: { min: 3, max: 4 }, sizes: ["chest"], windHours: [{ hour: 8, relation: "offshore", mph: 5 }],
+      breaker: { character: null, feel: null, closingOut: false },
+    });
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach", other: "Other Beach" };
+    const date = response.days[0].localDate;
+    input.copyFacts = [{
+      id: "other-beach", slot: `day:${date}`, rank: 50,
+      text: "On Wednesday, Other Beach runs chest-high.", facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null },
+      gate: { kind: "day_surf", localDate: date, beachId: "other-beach", faceFt: { min: 3, max: 4 } },
+    }];
+    const story = bindStory({ region: input.region, availability: "ready", input, selections: ["other-beach"],
+      live: response, regional, requireCover: false });
+    expect(story.chapters).toEqual([{
+      slot: `day:${date}`, text: "On Wednesday, Picked Beach runs chest-high, offshore early.",
+    }]);
+  });
+
+  it("prefers a holding day_surf candidate over the pick line", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    const regional = regionOf();
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null });
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach" };
+    const date = response.days[0].localDate;
+    const candidate: StoryCandidate = {
+      id: "candidate", slot: `day:${date}`, rank: 50, text: "On Wednesday, Picked Beach runs chest-high, offshore early.",
+      facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null, windHours: [{ hour: 8, relation: "offshore", mph: 5 }] },
+      gate: { kind: "day_surf" as const, localDate: date, beachId: "pick-beach", faceFt: { min: 3, max: 4 } },
+    };
+    input.copyFacts = [candidate];
+    const story = bindStory({ region: input.region, availability: "ready", input, selections: ["candidate"],
+      live: response, regional, requireCover: false });
+    expect(story.chapters).toEqual([{ slot: `day:${date}`, text: candidate.text }]);
+  });
+
+  it("omits feel when no event covers the pick's day", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    const regional = regionOf([]);
+    const dayFacts = jest.fn((): CandidateFacts => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+      windHours: [{ hour: 8, relation: "offshore" as const, mph: 5 }], breaker: null }));
+    regional.context.dayFacts = dayFacts;
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach" };
+    const date = response.days[0].localDate;
+    input.copyFacts = [{ id: "old", slot: `day:${date}`, text: "Old line.", gate: {
+      kind: "day_surf", localDate: date, beachId: "elsewhere", faceFt: { min: 3, max: 4 },
+    } }];
+    const story = bindStory({ region: input.region, availability: "ready", input, selections: ["old"],
+      live: response, regional, requireCover: false });
+    expect(story.chapters).toEqual([{ slot: `day:${date}`, text: "On Wednesday, Picked Beach runs chest-high, offshore early." }]);
+    expect(dayFacts).toHaveBeenCalledWith("pick-beach", date);
+  });
+
+  it("falls through to change/tide/wind when the pick isn't safe or its line fails the check", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    const regional = regionOf([]);
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null });
+    const date = response.days[0].localDate;
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Picked Beach" };
+    const fallback = {
+      id: "wind", slot: `day:${date}`, rank: 300, text: "On Wednesday, light morning wind.",
+      gate: { kind: "day" as const, localDate: date, bucket: "morning" as const, reason: "light_wind" as const },
+    };
+    input.copyFacts = [fallback];
+    const bind = () => bindStory({ region: input.region, availability: "ready", input, selections: ["wind"],
+      live: response, regional, requireCover: false });
+    expect(bind().chapters).toEqual([{ slot: `day:${date}`, text: "On Wednesday, Picked Beach runs chest-high." }]);
+    pick.safe = false;
+    expect(bind().chapters).toEqual([]);
+    pick.safe = true;
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+      breaker: { character: null, feel: "firing" as never, closingOut: false } });
+    expect(bind().chapters).toEqual([{ slot: `day:${date}`, text: "On Wednesday, light morning wind." }]);
+    regional.context.dayFacts = () => ({ faceFt: null, sizes: [], breaker: null });
+    expect(bind().chapters).toEqual([{ slot: `day:${date}`, text: "On Wednesday, light morning wind." }]);
   });
 
   it("rechecks written size claims against live facts even when the server line has no size", () => {

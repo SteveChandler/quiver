@@ -92,6 +92,39 @@ describe("regional story gate", () => {
     expect(buildRegionGateContext(built, EDITION).beachDayFacts(key, "a", "2026-10-29")?.faceFt).toEqual({ min: 6, max: 8 });
   });
 
+  it("does not use raw beach-day rows when a covering event has no facts for that beach", () => {
+    const event = regionEvent("covered", 202, 13, "2026-10-29T18:00:00Z", "2026-10-29T19:00:00Z", "2026-10-29T20:00:00Z");
+    const build = regionBuild([event], { rowsByBeach: {
+      a: [row("2026-10-29T17:00:00Z", "4 mph")],
+    } });
+    const context = buildRegionGateContext(build, EDITION);
+
+    expect(context.dayFacts("a", "2026-10-29")).toBeNull();
+    build.rowsByBeach.a = [row("2026-10-29T18:00:00Z", "4 mph")];
+    expect(context.dayFacts("a", "2026-10-29")).toBeNull();
+  });
+
+  it("builds and memoizes raw beach-day facts when no event covers the date", () => {
+    const build = regionBuild([], { rowsByBeach: { a: [row("2026-10-31T18:00:00Z", "4 mph")] } });
+    const context = buildRegionGateContext(build, EDITION);
+    const facts = context.dayFacts("a", "2026-10-31");
+
+    expect(facts).toEqual({ faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+      windHours: [{ hour: 11, mph: 4, relation: null }], breaker: null });
+    expect(context.dayFacts("a", "2026-10-31")).toBe(facts);
+  });
+
+  it("uses the covering event with the largest face range at the picked beach", () => {
+    const smaller = regionEvent("smaller", 202, 13, "2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", "2026-10-29T19:00:00Z");
+    const larger = regionEvent("larger", 240, 15, "2026-10-29T17:00:00Z", "2026-10-29T20:00:00Z", "2026-10-29T23:00:00Z");
+    const build = regionBuild([smaller, larger], { rowsByBeach: {
+      a: [row("2026-10-29T18:00:00Z", "4 mph"), { ...row("2026-10-29T20:00:00Z", "4 mph"), wave_height: "6-8 ft" }],
+    } });
+    const context = buildRegionGateContext(build, EDITION);
+
+    expect(context.dayFacts("a", "2026-10-29")?.faceFt).toEqual({ min: 3, max: 8 });
+  });
+
   it("holds a swell gate while the region build still has the event on the same days", () => {
     const context = buildRegionGateContext(regionBuild([ssw, storm]), EDITION);
     const swellGates = facts.filter((fact) => fact.gate.kind === "swell").map((fact) => fact.gate);

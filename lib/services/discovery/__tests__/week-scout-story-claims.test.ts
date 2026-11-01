@@ -847,11 +847,11 @@ describe("every server line passes its own claim check", () => {
               breaker: { character: kind === "storm" ? "crumbly" : "pitching", feel, closingOut: max >= 8 } };
             const sample = { ...event, kind };
             const context = { events: [sample], exposure: () => "open" as const, facing: () => "direct" as const,
-              wind: () => "breezy" as const, eventFacts: () => facts, beachDayFacts: () => facts };
+              wind: () => "breezy" as const, eventFacts: () => facts, beachDayFacts: () => facts, dayFacts: () => facts };
             for (const [exposure, facing] of [["open", "direct"], ["open", "angled"], ["partial", null], ["shadowed", null]] as const) {
               const line = beachLine(sample, "a", { ...context, exposure: () => exposure, facing: () => facing }, TODAY)!;
               expect(line).not.toBeNull();
-              expect([line.text, check(line.text, { ...fact(line.text), facts: line.facts })]).toEqual([line.text, { ok: true }]);
+              expect([line.text, check(line.text, { ...fact(line.text), facts: line.facts ?? undefined })]).toEqual([line.text, { ok: true }]);
             }
             const story = eventStoryText(sample, TODAY, facts);
             expect(check(story, { ...fact(story), facts })).toEqual({ ok: true });

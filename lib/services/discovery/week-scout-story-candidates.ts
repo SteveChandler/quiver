@@ -144,6 +144,9 @@ export function windTimingPhrase(hours: WindHour[]): string | null {
   if (holds(0, 9, "light") && holds(13, 24, "onshore")) return "glassy early, sea breeze after lunch";
   if (holds(0, 9, "offshore")) return "offshore early";
   if (holds(0, 9, "light")) return "glassy early";
+  const onshoreHour = hours.filter((row) => row.hour >= 9 && row.hour <= 12 && row.relation === "onshore")
+    .sort((a, b) => a.hour - b.hour).find((row) => holds(row.hour, 13, "onshore"))?.hour;
+  if (onshoreHour !== undefined) return `onshore by ${onshoreHour === 12 ? "noon" : onshoreHour}`;
   return null;
 }
 
@@ -156,12 +159,11 @@ function withRegionalSize(text: string, facts: CandidateFacts | null): string {
   if (!size || !facts) return text;
   const standout = facts.standoutFt && facts.faceFt && facts.standoutFt.max > facts.faceFt.max
     ? sizePhrase(facts.standoutFt, facts.standoutSizes ?? []) : null;
-  return `${text.slice(0, -1)}: ${size} at most spots${standout ? `, ${standout} at the standouts` : ""}.`;
+  return `${text.slice(0, -1)}: ${size} at most spots${standout && standout !== size ? `, ${standout} at the standouts` : ""}.`;
 }
 
 function withLeadSize(text: string, facts: CandidateFacts | null): string {
-  const size = facts && sizePhrase(facts.faceFt, facts.sizes);
-  return size ? `${text.slice(0, -1)}: ${size} at its best.` : text;
+  return withRegionalSize(text, facts);
 }
 
 export interface HeadlineSwell {
@@ -318,7 +320,7 @@ export interface BeachLineFacts {
   periodClass: BeachGate["periodClass"];
   exposure: Exposure;
   facing: BeachGate["facing"];
-  wind: Wind;
+  wind: Wind | null;
 }
 
 /**
@@ -333,29 +335,29 @@ export function beachLineText(facts: BeachLineFacts, candidateFacts: CandidateFa
   const lead = facts.exposure === "shadowed" ? `Sheltered from ${swell}`
     : facts.exposure === "partial" ? `Partly sheltered from ${swell}`
       : `Faces ${swell} ${facts.facing === "angled" ? "at an angle" : DEAD_ON_PHRASE[family]}`;
-  const wind = facts.wind === "light" ? "with light wind in its window"
+  const wind = facts.wind === null ? null : facts.wind === "light" ? "with light wind in its window"
     : facts.wind === "breezy" ? `${open ? "but" : "and"} it's breezy in its window`
       : `${open ? "but" : "and"} the wind is up in its window`;
   const size = candidateFacts && sizePhrase(candidateFacts.faceFt, candidateFacts.sizes);
   const feel = candidateFacts && feelPhrase(candidateFacts);
   const timing = windTimingPhrase(candidateFacts?.windHours ?? []);
   const surf = [size, feel].filter(Boolean).join(" and ");
-  return `${lead}${surf ? `: ${surf}` : ""}, ${timing ?? wind}.`;
+  return `${lead}${surf ? `: ${surf}` : ""}${timing || wind ? `, ${timing ?? wind}` : ""}.`;
 }
 
 /**
  * A listed beach's line for an event and the gate pinning every fact it names; the one derivation the
- * Week Scout input and the card share. The date defaults to the peak day. Null without exposure, wind or beach-day facts. The key's "-s" pins
- * the kind.
+ * Week Scout input and the card share. The date defaults to the peak day. It is null only without exposure
+ * or a consistent facing fact. Missing beach-day facts and wind still produce the exposure lead. The key's "-s" pins the kind.
  */
 export function beachLine(event: RegionalSwellEvent, beachId: string, context: RegionGateContext,
-  localDate: string = eventLocalDate(event.peakAt, event.timezone)): { text: string; gate: BeachGate; facts: CandidateFacts } | null {
+  localDate: string = eventLocalDate(event.peakAt, event.timezone)): { text: string; gate: BeachGate; facts: CandidateFacts | null } | null {
   const key = storyEventKey(event);
   const exposure = context.exposure(key, beachId);
   const facing = context.facing(key, beachId);
   const wind = context.wind(key, beachId, localDate);
   const facts = context.beachDayFacts(key, beachId, localDate);
-  if (!exposure || !wind || !facts || (exposure === "open") !== (facing !== null)) return null;
+  if (!exposure || (exposure === "open") !== (facing !== null)) return null;
   const gate: BeachGate = { kind: "beach", localDate, regionalEventKey: key, beachId, directionIndex: directionIndex(event.directionDeg),
     periodClass: periodClass(event.periodS), exposure, facing, wind };
   return { text: beachLineText({ direction: directionWords(event.directionDeg), kind: event.kind, periodClass: gate.periodClass, exposure, facing, wind }, facts), gate, facts };

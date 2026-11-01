@@ -158,6 +158,27 @@ describe("narrateRegionEvents", () => {
       .every((text) => !/\d/.test(text))).toBe(true);
   });
 
+  it("gives a working Imperial Beach Pier a size-only why when wind facts are missing", () => {
+    const imperial = beach("imperial", "Imperial Beach Pier", 270);
+    const event = regionEvent("San Diego:W:2026-11-09", 270, 15,
+      "2026-11-09T15:00:00Z", "2026-11-09T18:00:00Z", "2026-11-09T21:00:00Z");
+    const build: RegionBuild = {
+      ...BUILD,
+      beaches: [...BEACHES, imperial],
+      events: [event],
+      rowsByBeach: { ...BUILD.rowsByBeach, imperial: [
+        { forecast_at: "2026-11-09T18:00:00Z", wave_height: "2-3ft", wave_period: "15", wind_speed: null,
+          wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "15s" },
+      ] },
+    };
+    const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: imperial.id, skill: "intermediate", now: NOW }), edition: null, now: NOW });
+    const line = byKey(events, event.key).working.find((rating) => rating.beachId === imperial.id);
+
+    expect(build.rowsByBeach.imperial).toHaveLength(1);
+    expect(line?.label).toBe("GOOD");
+    expect(line?.why).toBe("Faces the west groundswell dead on: waist-high.");
+  });
+
   it("uses the PC sentence when it passes, and the server line for a slot whose sentence fails", () => {
     const written = [
       sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN),

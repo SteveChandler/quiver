@@ -31,7 +31,7 @@ describe("surfer voice", () => {
   it("writes beach-day lines in the surfer voice with size, feel and wind timing", () => {
     const facts = voiceFacts();
     const context = { events: [event()], exposure: () => "open" as const, facing: () => "direct" as const,
-      wind: () => "breezy" as const, eventFacts: () => facts, beachDayFacts: jest.fn(() => facts) };
+      wind: () => "breezy" as const, eventFacts: () => facts, beachDayFacts: jest.fn(() => facts), dayFacts: () => facts };
     const line = beachLine(event(), "a", context, "2026-11-01");
     expect(line?.text).toBe("Faces the south-southwest groundswell dead on: chest-high and punchy, offshore early, onshore by 10.");
     expect(line?.facts).toEqual(facts);
@@ -45,12 +45,24 @@ describe("surfer voice", () => {
     expect(eventStoryText(event(), start, facts)).toBe("A south-southwest long-period groundswell arrives Saturday, peaks Sunday and fades Monday: waist-to-chest at most spots, head-high at the standouts.");
     const candidates = buildStoryCandidates(days(3), "San Diego", [event()], () => facts);
     expect(candidates.find((item) => item.slot === "cover")?.text).toBe("A long-period groundswell from the south-southwest reaches San Diego Saturday and peaks Sunday: waist-to-chest at most spots, head-high at the standouts.");
-    expect(candidates.find((item) => item.slot === "story:lead")?.text).toBe("The south-southwest pulse builds from Saturday into Sunday: waist-to-chest at its best.");
+    expect(candidates.find((item) => item.slot === "story:lead")?.text).toBe("The south-southwest pulse builds from Saturday into Sunday: waist-to-chest at most spots, head-high at the standouts.");
     expect(candidates.find((item) => item.slot === `swell:${storyEventKey(event())}`)?.text).toBe("The long-period groundswell arrives Saturday and peaks Sunday before easing Monday: waist-to-chest at most spots, head-high at the standouts.");
     for (const standoutFt of [undefined, { min: 2, max: 4 }]) {
       expect(eventStoryText(event(), start, { ...facts, standoutFt })).not.toContain("standouts");
     }
     expect(eventStoryText(event(), start, { ...facts, faceFt: null, sizes: [] })).toBe(eventStoryText(event(), start));
+  });
+
+  it("omits a standout clause when its size phrase matches the main size", () => {
+    const facts: CandidateFacts = { faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+      standoutFt: { min: 3, max: 4 }, standoutSizes: ["chest"], breaker: null };
+    const sameEvent = { ...event(), arrivalAt: "2026-10-31T18:00:00Z", peakAt: "2026-11-01T18:00:00Z",
+      fadeAt: "2026-11-02T18:00:00Z" };
+    const story = eventStoryText(sameEvent, start, facts);
+    const candidates = buildStoryCandidates(days(3), "San Diego", [sameEvent], () => facts);
+    expect(story).not.toContain("standouts");
+    expect(candidates.filter((candidate) => candidate.gate.kind === "swell")
+      .every((candidate) => !candidate.text.includes("standouts"))).toBe(true);
   });
 
   it("offers each day a swell-and-wind line per top beach, ranked ahead of tide and change lines", () => {
@@ -76,6 +88,15 @@ describe("surfer voice", () => {
     expect(sizePhrase({ min, max }, sizeWordsFor({ min, max }))).toBe(expected);
   });
 
+  it("keeps the beach lead when its day has no usable size or wind facts", () => {
+    const sample = event();
+    const line = beachLine(sample, "a", {
+      events: [sample], exposure: () => "open", facing: () => "direct", wind: () => null,
+      eventFacts: () => null, beachDayFacts: () => null, dayFacts: () => null,
+    }, "2026-11-01");
+    expect(line?.text).toBe("Faces the south-southwest groundswell dead on.");
+  });
+
   it("omits unknown size and requires edge coverage for all-day and all-morning wind", () => {
     expect(sizePhrase(null, ["chest"])).toBeNull();
     expect(sizePhrase({ min: 3, max: 4 }, [])).toBeNull();
@@ -85,6 +106,7 @@ describe("surfer voice", () => {
     expect(windTimingPhrase([...hours([8, 10]), { hour: 14, relation: "onshore", mph: 10 }])).toBe("offshore all morning, sea breeze after lunch");
     expect(windTimingPhrase([...hours([8]), { hour: 14, relation: "onshore", mph: 10 }])).toBe("offshore early");
     expect(windTimingPhrase([{ hour: 7, relation: "offshore", mph: 10 }, { hour: 11, relation: "cross", mph: 10 }, { hour: 12, relation: "onshore", mph: 10 }])).toBe("offshore early, onshore by noon");
+    expect(windTimingPhrase([{ hour: 10, relation: "onshore", mph: 5 }, { hour: 13, relation: "onshore", mph: 10 }, { hour: 16, relation: "onshore", mph: 15 }])).toBe("onshore by 10");
   });
 });
 

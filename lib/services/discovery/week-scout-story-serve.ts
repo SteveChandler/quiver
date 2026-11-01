@@ -4,7 +4,8 @@ export { isWeekScoutStoryEnabled } from "@/lib/flags/week-scout-story";
 import type { CanonicalWeekScoutResponse } from "./week-scout";
 import { parseWindSpeedToKt } from "@/lib/alerts/forecast-parsers";
 import { loadRegionForecastEvents, type RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { addSwellHeadlines, directionIndex, directionSector, periodBand, periodClass, storyEventKey, type RegionalSwellEvent } from "./week-scout-story-candidates";
+import { addSwellHeadlines, directionIndex, directionSector, periodBand, periodClass, sizePhrase, storyEventKey,
+  windTimingPhrase, type RegionalSwellEvent } from "./week-scout-story-candidates";
 import { faceRangeFt, type CandidateFacts } from "./week-scout-story-facts";
 import { checkWrittenSentence } from "./week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from "./week-scout-story-region-gate";
@@ -54,7 +55,7 @@ interface StoryRegion {
 }
 
 /** No region build: every swell, exposure and beach claim fails, and the story falls back. */
-const CLOSED_REGION: StoryRegion = { context: { events: [], exposure: () => null, facing: () => null, wind: () => null, eventFacts: () => null, beachDayFacts: () => null }, first: null };
+const CLOSED_REGION: StoryRegion = { context: { events: [], exposure: () => null, facing: () => null, wind: () => null, eventFacts: () => null, beachDayFacts: () => null, dayFacts: () => null }, first: null };
 
 export function storyRegion(build: RegionBuild, editionDate: string): StoryRegion {
   return { context: buildRegionGateContext(build, editionDate), first: storyEventsFromRegion(build, editionDate).week[0] ?? null };
@@ -75,6 +76,27 @@ function liveFacts(fact: StoryCandidate, regional: StoryRegion): CandidateFacts 
   if (gate.kind === "swell") return regional.context.eventFacts(gate.regionalEventKey) ?? undefined;
   if (gate.kind === "beach") return regional.context.beachDayFacts(gate.regionalEventKey, gate.beachId, gate.localDate) ?? undefined;
   return gate.kind === "day_surf" ? fact.facts : undefined;
+}
+
+function pickDayLine(date: string, regional: StoryRegion, live: Live, input: StoryInput, candidates: StoryCandidate[]): StoryCandidate | null {
+  const pick = live.days.find((day) => day.localDate === date)?.bestDayWindow;
+  if (!pick?.safe) return null;
+  const beachName = input.beachNames[pick.beachId];
+  const facts = regional.context.dayFacts(pick.beachId, date);
+  if (!beachName || !facts) return null;
+  const size = sizePhrase(facts.faceFt, facts.sizes);
+  if (!size) return null;
+  const feel = facts.breaker?.feel ?? (facts.breaker?.character === "crumbly" ? "crumbly" : null);
+  const wind = windTimingPhrase(facts.windHours ?? []);
+  const surf = [size, feel].filter(Boolean).join(" and ");
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+  const text = `On ${weekday}, ${beachName} runs${surf ? ` ${surf}` : ""}${wind ? `, ${wind}` : ""}.`;
+  const gate = candidates[0]?.gate;
+  if (!gate) return null;
+  const fact: StoryCandidate = {
+    id: `pick-${date}-${pick.beachId}`, slot: `day:${date}`, rank: 75, text, facts, gate,
+  };
+  return checkWrittenSentence(text, { ...fact, facts }, Object.values(input.beachNames), [input.region]).ok ? fact : null;
 }
 
 function candidateHolds(fact: StoryCandidate, regional: StoryRegion, live: Live, input: StoryInput): boolean {
@@ -188,6 +210,7 @@ export function bindStory(args: {
   written?: readonly StoryWrittenSentence[];
   live: Live;
   requireCover?: boolean;
+  pickDayFallback?: boolean;
   /** Without one, every swell, exposure and beach claim fails. */
   regional?: StoryRegion;
 }): StoryWire {
@@ -219,11 +242,25 @@ export function bindStory(args: {
   const selected = input.copyFacts.filter((fact) => args.selections?.includes(fact.id));
   if (selected.length !== args.selections.length) return empty("unavailable");
   // An edition may select card lines too; they stay out of the story and never count against it.
-  const chosen = selected.filter((fact) => !isCardSlot(fact.slot) && candidateHolds(fact, regional, live, input) && agreesWithCover(fact));
-  for (const slot of new Set(selected.filter((fact) => fact.slot.startsWith("day:")).map((fact) => fact.slot))) {
-    if (chosen.some((fact) => fact.slot === slot)) continue;
-    const fallback = input.copyFacts.filter((fact) => fact.slot === slot)
-      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+  const chosen = selected.filter((fact) => !isCardSlot(fact.slot) && !fact.slot.startsWith("day:")
+    && candidateHolds(fact, regional, live, input) && agreesWithCover(fact));
+  const daySlots = new Set(selected.filter((fact) => fact.slot.startsWith("day:")).map((fact) => fact.slot));
+  if (args.pickDayFallback) input.copyFacts.filter((fact) => fact.slot.startsWith("day:")).forEach((fact) => daySlots.add(fact.slot));
+  for (const slot of daySlots) {
+    const candidates = input.copyFacts.filter((fact) => fact.slot === slot).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const surfaced = candidates.filter((fact) => fact.gate.kind === "day_surf")
+      .find((fact) => candidateHolds(fact, regional, live, input));
+    if (surfaced) {
+      chosen.push(surfaced);
+      continue;
+    }
+    const date = slot.slice("day:".length);
+    const pickLine = pickDayLine(date, regional, live, input, candidates);
+    if (pickLine) {
+      chosen.push(pickLine);
+      continue;
+    }
+    const fallback = candidates.filter((fact) => fact.gate.kind !== "day_surf")
       .find((fact) => candidateHolds(fact, regional, live, input));
     if (fallback) chosen.push(fallback);
   }
@@ -280,7 +317,7 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
   if (selections.length === 0) {
     return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
   }
-  return bindStory({ region, availability: "ready", input, selections, live, requireCover: false, regional });
+  return bindStory({ region, availability: "ready", input, selections, live, requireCover: false, regional, pickDayFallback: true });
 }
 
 type StoryLoadArgs = { client: Client; homeBeachId: string | null; startLocalDate: string; now: Date };
