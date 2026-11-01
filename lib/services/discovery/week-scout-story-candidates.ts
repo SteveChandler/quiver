@@ -3,6 +3,7 @@ import { confidenceFor, localDayDiff, rateRegionEvents } from "@/lib/alerts/swel
 import { addDays, localDate } from "./swell-briefing-input";
 import type { RegionGateContext } from "./week-scout-story-region-gate";
 import { LIGHT_WIND_MPH, type CandidateFacts, type FaceRange, type SizeWord, type WindHour } from "./week-scout-story-facts";
+import { getLocalDateStr } from "./window-selector/time-slot-utils";
 import type { StoryCandidate, StoryGate } from "./week-scout-story-types";
 
 type Bucket = "morning" | "midday" | "evening";
@@ -78,7 +79,7 @@ function windowDay(date: string, first: string, last: string): string {
 }
 
 function eventLocalDate(at: string, timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(at));
+  return getLocalDateStr(new Date(at), timezone);
 }
 
 function periodWords(seconds: number, kind: RegionalSwellEvent["kind"]): string {
@@ -362,8 +363,8 @@ export function beachLineText(facts: BeachLineFacts, candidateFacts: CandidateFa
  * produces a size or wind line with no exposure lead. The key's "-s" pins the kind.
  */
 export function beachLine(event: RegionalSwellEvent, beachId: string, context: RegionGateContext,
-  localDate: string = eventLocalDate(event.peakAt, event.timezone)): { text: string; gate: BeachGate; facts: CandidateFacts | null } | null {
-  const key = storyEventKey(event);
+  localDate: string = eventLocalDate(event.peakAt, event.timezone), key: string = storyEventKey(event)):
+  { text: string; gate: BeachGate; facts: CandidateFacts | null } | null {
   const exposure = context.exposure(key, beachId);
   const facing = context.facing(key, beachId);
   const wind = context.wind(key, beachId, localDate);
