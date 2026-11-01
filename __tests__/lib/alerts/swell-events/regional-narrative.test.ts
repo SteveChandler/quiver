@@ -1,6 +1,11 @@
 /** @jest-environment node */
 jest.mock("next/cache", () => ({ unstable_cache: jest.fn((fn: unknown) => fn) }));
 
+jest.mock("@/lib/alerts/swell-events/regional-rating", () => {
+  const actual = jest.requireActual("@/lib/alerts/swell-events/regional-rating");
+  return { ...actual, rateEventBeaches: jest.fn(actual.rateEventBeaches) };
+});
+
 jest.mock("@/lib/services/discovery/week-scout-story-facts", () => {
   const actual = jest.requireActual("@/lib/services/discovery/week-scout-story-facts");
   return { ...actual, beachDayFactsFromBuild: jest.fn(actual.beachDayFactsFromBuild) };
@@ -9,6 +14,7 @@ jest.mock("@/lib/services/discovery/week-scout-story-facts", () => {
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { narrateRegionEvents, watchBeaches, type NarrativeEdition } from "@/lib/alerts/swell-events/regional-narrative";
 import { rateEventBeaches, rateRegionEvents } from "@/lib/alerts/swell-events/regional-rating";
+import * as ratingModule from "@/lib/alerts/swell-events/regional-rating";
 import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import { buildRegionGateContext, windBucket } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
@@ -455,8 +461,8 @@ describe("regional watch", () => {
       expect(events).toHaveLength(6);
       expect(events.every((event) => event.watch?.length === 40 && event.watch.every((item) => item.days.length === 3))).toBe(true);
       const keys = spy.mock.calls.map(([, event, beachId, day]) => `${event.regionalKey}:${beachId}:${day}`);
-      expect(keys).toHaveLength(6 * 40 * 3);
-      expect(new Set(keys).size).toBe(keys.length);
+      const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
+      expect(duplicates).toEqual([]);
     } finally {
       spy.mockClear();
     }
@@ -464,15 +470,41 @@ describe("regional watch", () => {
 });
 
 
-describe("watch window bounds", () => {
-  it("uses peak minus 12 hours to peak plus 24 hours when arrival and fade are absent", () => {
-    const event = { ...SSW, arrivalAt: null, fadeAt: null };
-    const build = { ...BUILD, events: [event] };
+describe("watch pool costs", () => {
+  it("reuses the per-event beach ratings already computed for the card", () => {
+    const ratings = jest.mocked(ratingModule.rateEventBeaches);
+    ratings.mockClear();
+    const events = rateRegionEvents(BUILD, { beachId: "d", skill: "intermediate", now: NOW });
+    const callsAfterCard = ratings.mock.calls.length;
+
+    narrateRegionEvents({ build: BUILD, rated: events, edition: null, now: NOW, beachIds: ["a", "b"] });
+
+    expect(ratings).toHaveBeenCalledTimes(callsAfterCard);
+  });
+
+  it("keeps formatter construction bounded by timezone for a beach pool", () => {
+    const original = Intl.DateTimeFormat;
+    let constructions = 0;
+    (Intl as { DateTimeFormat: unknown }).DateTimeFormat = new Proxy(original, {
+      construct(target, args) {
+        constructions += 1;
+        return Reflect.construct(target, args);
+      },
+    });
+    try {
+      narrateRegionEvents({ build: BUILD, rated: rateRegionEvents(BUILD, { beachId: "d", skill: "intermediate", now: NOW }),
+        edition: null, now: NOW, beachIds: BEACHES.map((item) => item.id) });
+      expect(constructions).toBeLessThanOrEqual(4);
+    } finally {
+      (Intl as { DateTimeFormat: unknown }).DateTimeFormat = original;
+    }
+  });
+
+  it("drops past beach-local days from a pool", () => {
+    const pastEvent = regionEvent("past", 202, 13.4, "2026-10-25T15:00:00Z", "2026-10-26T19:00:00Z", "2026-10-29T19:00:00Z");
+    const build = { ...BUILD, events: [pastEvent] };
     const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: "a", skill: "intermediate", now: NOW }),
       edition: null, now: NOW, beachIds: ["a"] });
-    expect(events[0].watch?.[0].days).toEqual([
-      { localDate: "2026-10-30", faceFt: "2-3 ft", why: SSW_WHY.a },
-      { localDate: "2026-10-31", faceFt: "2-3 ft", why: SSW_WHY.a },
-    ]);
+    expect(events[0].watch?.[0].days.map((day) => day.localDate)).toEqual(["2026-10-28", "2026-10-29"]);
   });
 });

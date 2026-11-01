@@ -58,6 +58,22 @@ interface RankedRating extends RegionBeachRating {
 
 type EventTimes = Pick<InternalRegionEvent, "arrivalAt" | "peakAt" | "fadeAt">;
 
+const weekdayFormatters = new Map<string, Intl.DateTimeFormat>();
+const beachRatingsByRatedEvents = new WeakMap<RegionSwellEvent[], ReadonlyMap<string, ReadonlyMap<string, RegionBeachRating>>>();
+
+/** Per-event beach ratings retained without adding anything to the JSON response. */
+export function getRatedBeachRatings(events: RegionSwellEvent[]): ReadonlyMap<string, ReadonlyMap<string, RegionBeachRating>> | undefined {
+  return beachRatingsByRatedEvents.get(events);
+}
+
+function weekdayFormatter(timezone: string): Intl.DateTimeFormat {
+  const formatter = weekdayFormatters.get(timezone);
+  if (formatter) return formatter;
+  const created = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone });
+  weekdayFormatters.set(timezone, created);
+  return created;
+}
+
 /** The span a beach is rated over: arrival (or peak − 12 h) up to, not including, the fade (or peak + 24 h). */
 export function ratingWindow(event: EventTimes): { startMs: number; endMs: number } {
   const peakMs = Date.parse(event.peakAt);
@@ -80,7 +96,7 @@ export function confidenceFor(leadDays: number): RegionSwellConfidence {
   return "early_look";
 }
 
-function isWorking(label: string): boolean {
+export function isWorking(label: string): boolean {
   return WORKING_RANK[label] !== undefined;
 }
 
@@ -160,7 +176,7 @@ function windowFor(hours: readonly ScoredHour[], label: string, timezone: string
   if (!run) return null;
   const startAt = new Date(hours[run.first].row.forecast_at).toISOString();
   const endAt = new Date(runEndMs(hours, run.last, timezone)).toISOString();
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone }).format(new Date(startAt));
+  const weekday = weekdayFormatter(timezone).format(new Date(startAt));
   return { label: `${weekday} ${formatWindowLabel(startAt, endAt, timezone, { forBody: true })}`, startAt, endAt };
 }
 
@@ -283,22 +299,22 @@ export function rateRegionEvents(
   input: { beachId: string; skill: SkillLevel; now: Date },
 ): RegionSwellEvent[] {
   const today = getLocalDateStr(input.now, built.timezone);
-
-  return built.events.flatMap((event): RegionSwellEvent[] => {
+  const beachRatings = new Map<string, ReadonlyMap<string, RegionBeachRating>>();
+  const events = built.events.flatMap((event): RegionSwellEvent[] => {
     if (!isEventCurrent(event, input.now)) return [];
     const leadDays = Math.max(0, localDayDiff(today, event.peakLocalDate));
-    const ratings = [...rateEventBeaches(built, event, built.beaches.map((beach) => beach.id), input.skill, input.now).values()];
+    const byBeach = rateEventBeaches(built, event, built.beaches.map((beach) => beach.id), input.skill, input.now);
+    const ratings = [...byBeach.values()];
     const here = ratings.find((rating) => rating.beachId === input.beachId);
     const working = ratings
       .filter((rating) => isWorking(rating.label))
       .sort((left, right) => WORKING_RANK[left.label] - WORKING_RANK[right.label])
       .slice(0, MAX_WORKING);
     const notWorking = event.source === "wam" ? [] : notWorkingList(ratings);
-    // Past its peak with no daylight hours left to rate, there is nothing left to show today.
     if (event.source === "forecast" && Date.parse(event.peakAt) < input.now.getTime() && !here && working.length === 0 && notWorking.length === 0) {
       return [];
     }
-
+    beachRatings.set(event.key, byBeach);
     return [{
       key: event.key,
       kind: event.kind,
@@ -314,9 +330,10 @@ export function rateRegionEvents(
       offshoreFt: event.offshoreFt,
       history: event.history,
       here: here ?? null,
-      // Reasons explain what isn't working; a working row carries none.
       working: working.map((rating) => ({ ...rating, reason: null })),
       notWorking,
     }];
   });
+  beachRatingsByRatedEvents.set(events, beachRatings);
+  return events;
 }

@@ -1,4 +1,8 @@
 jest.mock("@/lib/alerts/swell-events/regional", () => ({ loadRegionForecastEvents: jest.fn() }));
+jest.mock("../window-selector/time-slot-utils", () => {
+  const actual = jest.requireActual("../window-selector/time-slot-utils");
+  return { ...actual, getLocalDateStr: jest.fn(actual.getLocalDateStr) };
+});
 
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addDays } from "../swell-briefing-input";
@@ -7,6 +11,7 @@ import {
   BREEZY_WIND_MPH, DEAD_ON_MAX_DEG, DEAD_ON_WINDOW_SHARE, LIGHT_WIND_MPH, buildRegionGateContext, regionGateHolds,
 } from "../week-scout-story-region-gate";
 import { storyEventsFromRegion } from "../week-scout-story-source";
+import * as timeSlotUtils from "../window-selector/time-slot-utils";
 import type { StoryCandidate, StoryGate } from "../week-scout-story-types";
 
 const TIMEZONE = "America/Los_Angeles";
@@ -88,8 +93,26 @@ describe("regional story gate", () => {
     expect(context.beachDayFacts(key, "a", "2026-10-31")).toBeNull();
     built.rowsByBeach.a.push(row("not a timestamp", "30 mph"));
     expect(context.wind(key, "a", "2026-10-29")).toBe("light");
-    built.rowsByBeach.a = [{ ...row("2026-10-29T18:00:00Z", "4 mph"), wave_height: "6-8" }];
-    expect(buildRegionGateContext(built, EDITION).beachDayFacts(key, "a", "2026-10-29")?.faceFt).toEqual({ min: 6, max: 8 });
+    const changedBuild = { ...built, rowsByBeach: { ...built.rowsByBeach,
+      a: [{ ...row("2026-10-29T18:00:00Z", "4 mph"), wave_height: "6-8" }],
+    } };
+    expect(buildRegionGateContext(changedBuild, EDITION).beachDayFacts(key, "a", "2026-10-29")?.faceFt).toEqual({ min: 6, max: 8 });
+  });
+
+
+  it("memoizes wind rows and local-date lookups for each beach", () => {
+    const built = regionBuild([ssw, storm], { rowsByBeach: { a: [
+      row("2026-10-28T18:00:00Z", "4 mph"), row("2026-10-29T18:00:00Z", "6 mph"), row("2026-11-01T20:00:00Z", "25 mph"),
+    ] } });
+    const context = buildRegionGateContext(built, EDITION);
+    const key = "4-4-2026-10-29";
+    const localDate = jest.mocked(timeSlotUtils.getLocalDateStr);
+    localDate.mockClear();
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
+    expect(context.wind("6-2-2026-11-01-s", "a", "2026-10-29")).toBeNull();
+    expect(localDate).toHaveBeenCalledTimes(3);
+    localDate.mockClear();
   });
 
   it("does not use raw beach-day rows when a covering event has no facts for that beach", () => {

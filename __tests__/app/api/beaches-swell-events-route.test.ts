@@ -17,7 +17,7 @@ jest.mock("@/lib/services/discovery/week-scout-story-store", () => ({
 }));
 jest.mock("@/lib/alerts/swell-events/regional-narrative", () => {
   const actual = jest.requireActual("@/lib/alerts/swell-events/regional-narrative");
-  return { ...actual, narrateRegionEvents: jest.fn(actual.narrateRegionEvents) };
+  return { ...actual, narrateRegionEvents: jest.fn(actual.narrateRegionEvents), watchRegionEvents: jest.fn(actual.watchRegionEvents) };
 });
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/middleware/api-wrappers"),
@@ -26,7 +26,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 
 import { GET } from "@/app/api/beaches/[id]/swell-events/route";
 import { historyLine, regionModelBuoy } from "@/lib/alerts/swell-events/early-look";
-import { narrateRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
+import { narrateRegionEvents, watchRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
 import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import { buildRegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
@@ -413,6 +413,19 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(loadStoryInput).toHaveBeenCalledWith(client, "input-hash");
     // An edition whose input is gone serves the server lines.
     expect(stormEvent(data.events)?.story).toBe(STORM_STORY);
+  });
+
+  it("keeps card story and beach lines when watch computation fails", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    stage({ lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) });
+    jest.mocked(watchRegionEvents).mockImplementationOnce(() => { throw new Error("watch_failed"); });
+
+    const { status, data } = await call(beaches[0].id, { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${beaches[0].id}`) });
+
+    expectConsoleWarnings([/watch failed/]);
+    expect(status).toBe(200);
+    expect(stormEvent(data.events)).toMatchObject({ story: STORM_STORY, here: { why: STORM_WHY } });
+    expect(stormEvent(data.events)).not.toHaveProperty("watch");
   });
 
   it("returns the rated events with no narrative, not a 500, when the narrative throws", async () => {

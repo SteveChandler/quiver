@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { SkillLevel } from "@/lib/domains/user-preferences";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
-import { breakerCharacter, type FaceRange } from "@/lib/services/discovery/week-scout-story-facts";
+import { beachRowsByLocalDate, breakerCharacter, type FaceRange } from "@/lib/services/discovery/week-scout-story-facts";
 import { localDate } from "@/lib/services/discovery/swell-briefing-input";
 import {
   beachLine,
@@ -21,7 +21,7 @@ import type { RegionBeachRating, RegionSwellEvent, RegionWatchBeach } from "@/ty
 
 import type { RegionBuild } from "./regional";
 import { exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
-import { BLOWN_OUT, rateEventBeaches, ratingWindow } from "./regional-rating";
+import { BLOWN_OUT, getRatedBeachRatings, isWorking, rateEventBeaches, ratingWindow } from "./regional-rating";
 
 type Client = SupabaseClient<Database>;
 
@@ -145,9 +145,6 @@ function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, 
   all: RegionalSwellEvent[];
   forEvent: (event: RegionalSwellEvent) => EventNarration;
 } {
-  // Day facts use the rating window even when detection has no arrival instant.
-  build = { ...build, events: build.events.map((event) => event.source === "forecast" && event.arrivalAt === null
-    ? { ...event, arrivalAt: new Date(ratingWindow(event).startMs).toISOString() } : event) };
   const today = localDate(now, build.timezone);
   const { all } = storyEventsFromRegion(build, today);
   const context = buildRegionGateContext(build, today);
@@ -192,7 +189,8 @@ function beachDayLine(
   beachId: string,
   date: string,
   { context, written }: EventNarration,
-  wind = context.wind(storyEventKey(event), beachId, date),
+  key: string,
+  wind = context.wind(key, beachId, date),
   blownOut = false,
 ): string | null {
   const server = beachLine(event, beachId, {
@@ -202,11 +200,11 @@ function beachDayLine(
       const facts = context.beachDayFacts(key, id, localDate);
       return facts && blownOut ? { ...facts, windHours: [] } : facts;
     },
-  }, date);
+  }, date, key);
   if (!server) return null;
   const peakDate = getLocalDateStr(new Date(event.peakAt), event.timezone);
   const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.localDate === date && gate.wind === wind;
-  const why = date === peakDate && !blownOut ? written(`event:${storyEventKey(event)}:beach:${beachId}`, accepts) : null;
+  const why = date === peakDate && !blownOut ? written(`event:${key}:beach:${beachId}`, accepts) : null;
   return why ?? server.text;
 }
 
@@ -234,27 +232,31 @@ interface WatchInput {
   now: Date;
 }
 
-function watchWithNarration({ build, event, rated, beachIds }: WatchInput, narration: EventNarration): RegionWatchBeach[] {
+function watchWithNarration({ build, event, rated, beachIds, now }: WatchInput, narration: EventNarration): RegionWatchBeach[] {
   const key = storyEventKey(event);
+  const today = localDate(now, build.timezone);
   const { startMs, endMs } = ratingWindow(event);
   return watchStanding(build, event.directionDeg, beachIds).map((beach) => {
     const rating = rated.get(beach.beachId);
-    const working = rating && ["EPIC", "GOOD", "FAIR", "LIKELY"].includes(rating.label);
-    const dates = new Set((build.rowsByBeach[beach.beachId] ?? []).flatMap((row) => {
-      const at = new Date(row.forecast_at);
-      return at.getTime() >= startMs && at.getTime() < endMs ? [getLocalDateStr(at, build.timezone)] : [];
-    }));
+    const working = rating && isWorking(rating.label);
+    const dates = [...beachRowsByLocalDate(build, beach.beachId)].flatMap(([date, rows]) => {
+      if (date < today || !rows.some((row) => {
+        const at = Date.parse(row.forecast_at);
+        return at >= startMs && at < endMs;
+      })) return [];
+      return [date];
+    }).sort();
     const ratingDate = getLocalDateStr(new Date(rating?.windowStartAt ?? event.peakAt), build.timezone);
-    return { ...beach, reason: working ? null : rating?.reason ?? null, days: [...dates].sort().map((date) => {
+    return { ...beach, reason: working ? null : rating?.reason ?? null, days: dates.map((date) => {
       const facts = narration.context.beachDayFacts(key, beach.beachId, date);
-      // The rating's wind override belongs only to its own day; other days keep their own conditions.
       const blownOut = rating?.reason === BLOWN_OUT && date === ratingDate;
       return { localDate: date, faceFt: faceText(facts?.faceFt ?? null),
-        why: beachDayLine(event, beach.beachId, date, narration, undefined, blownOut) };
+        why: beachDayLine(event, beach.beachId, date, narration, key, undefined, blownOut) };
     }) };
   });
 }
 
+/** Use this for an individual inspection; the hot route composes all events through watchRegionEvents. */
 export function watchBeaches(input: WatchInput): RegionWatchBeach[] {
   return watchWithNarration(input, prepareNarration(input.build, input.edition, input.now).forEvent(input.event));
 }
@@ -272,7 +274,7 @@ export function narrateRegionEvents(input: {
   const today = localDate(now, build.timezone);
   const narration = prepareNarration(build, edition, now);
   const byBuildKey = new Map(narration.all.map((event) => [event.regionalKey, event]));
-  return rated.map((event) => {
+  const output = rated.map((event) => {
     const internal = build.events.find((item) => item.key === event.key);
     const story = event.source === "forecast" ? byBuildKey.get(event.key) : undefined;
     const breaker = event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS);
@@ -288,18 +290,50 @@ export function narrateRegionEvents(input: {
       const wind = Number.isFinite(startMs) && Number.isFinite(endMs)
         ? windBucket(build.rowsByBeach[rating.beachId] ?? [], startMs, endMs)
         : own.context.wind(key, rating.beachId, date);
-      return { ...rating, why: beachDayLine(story, rating.beachId, date, own, wind, rating.reason === BLOWN_OUT) };
+      return { ...rating, why: beachDayLine(story, rating.beachId, date, own, key, wind, rating.reason === BLOWN_OUT) };
     };
     return {
       ...event,
       breaker,
-      ...(beachIds === undefined ? {} : { watch: watchWithNarration({ build, event: story,
-        rated: internal ? rateEventBeaches(build, internal, beachIds, skill, now) : new Map(), beachIds, edition, now,
-      }, own) }),
-      story: event.arrivalAt === null ? null : own.written(`event:${key}:story`) || eventStoryText(story, today, own.context.eventFacts(key)),
+      story: own.written(`event:${key}:story`) || eventStoryText(story, today, own.context.eventFacts(key)),
       here: event.here ? narrate(event.here) : null,
       working: event.working.map(narrate),
       notWorking: event.notWorking.map(narrate),
     };
   });
+  if (beachIds === undefined) return output;
+  const watches = collectRegionWatches({ build, rated, edition, now, beachIds, skill }, narration);
+  return output.map((event) => ({ ...event, watch: watches.get(event.key) ?? [] }));
+}
+
+interface RegionWatchInput {
+  build: RegionBuild;
+  rated: RegionSwellEvent[];
+  edition: NarrativeEdition | null;
+  now: Date;
+  beachIds: readonly string[];
+  skill?: SkillLevel;
+}
+
+function collectRegionWatches(input: RegionWatchInput, narration: ReturnType<typeof prepareNarration>): Map<string, RegionWatchBeach[]> {
+  const { build, rated, beachIds, edition, now, skill = "intermediate" } = input;
+  const ratingsByEvent = getRatedBeachRatings(rated);
+  const watches = new Map<string, RegionWatchBeach[]>();
+  for (const event of rated) {
+    const internal = build.events.find((item) => item.key === event.key);
+    const story = event.source === "forecast" ? narration.all.find((item) => item.regionalKey === event.key) : undefined;
+    if (!story) {
+      watches.set(event.key, watchStanding(build, internal?.directionDeg ?? null, beachIds));
+      continue;
+    }
+    const ratedBeaches = ratingsByEvent?.get(event.key)
+      ?? (internal ? rateEventBeaches(build, internal, beachIds, skill, now) : new Map());
+    watches.set(event.key, watchWithNarration({ build, event: story, rated: new Map(ratedBeaches), beachIds, edition, now }, narration.forEvent(story)));
+  }
+  return watches;
+}
+
+/** Requested beach rows for all events. The API calls this after card narration so watch failures stay isolated. */
+export function watchRegionEvents(input: RegionWatchInput): Map<string, RegionWatchBeach[]> {
+  return collectRegionWatches(input, prepareNarration(input.build, input.edition, input.now));
 }
