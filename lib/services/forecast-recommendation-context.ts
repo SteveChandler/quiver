@@ -267,7 +267,7 @@ function buildConditionDrivers({
   };
 }
 
-function forecastProvenance(row: EnhancedForecastEntity | null, beach?: Beach): {
+function forecastProvenance(row: EnhancedForecastEntity | null): {
   primaryDataSource: string | null;
   sourceDataUpdatedAt: string | null;
   contributingSources: string[];
@@ -283,10 +283,7 @@ function forecastProvenance(row: EnhancedForecastEntity | null, beach?: Beach): 
   const sources = [
     ...(row.raw_forecast?.data_sources ?? []),
     row.data_source,
-    row.coops_station_id && !row.raw_forecast?.data_sources?.includes("FES2022")
-      // coops_station_id is "cached_<beach>", so the beach decides whether the sea-level offset applied.
-      ? beach?.state === "CA" ? "NOAA_CO-OPS_SEA_LEVEL" : "NOAA_CO-OPS"
-      : null,
+    row.coops_station_id && !row.raw_forecast?.data_sources?.includes("FES2022") ? "NOAA_CO-OPS" : null,
   ].filter((source): source is string => Boolean(source?.trim()));
 
   return {
@@ -354,7 +351,7 @@ function contextFromRow(args: {
   const startTime = toIso(rowTime);
   const waveHeightFt = parseAverageNumber(args.row.wave_height);
   const periodSec = parseAverageNumber(pickSwellPeriod(args.row, null, args.beach));
-  const provenance = forecastProvenance(args.row, args.beach);
+  const provenance = forecastProvenance(args.row);
   const swell = swellFields(args.row);
   return {
     beachId: String(args.beach.id),
@@ -441,7 +438,7 @@ export function buildForecastRecommendationContext({
     const periodSec = parseAverageNumber(swellPeriod);
     const waveHeightRangeLabel = formatForecastDisplayWaveHeightRange(waveHeightFt);
     const swellDirection = pickSwellDirection(selectedForecast, beach);
-    const provenance = forecastProvenance(selectedForecast, beach);
+    const provenance = forecastProvenance(selectedForecast);
     const swell = swellFields(selectedForecast);
     return {
       beachId: String(beach.id),
