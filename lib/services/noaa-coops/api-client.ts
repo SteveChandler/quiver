@@ -25,7 +25,9 @@ const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
 // Tide tables leave out the 2026 marine-heat-wave sea-level rise; real water runs this far above
 // them. Measured Nov 1 2026, 72 h observed minus predicted: San Diego +1.56, LA +1.47,
 // Santa Barbara +1.46, Port San Luis +1.37, San Francisco +1.41 ft.
-// ponytail: hand-set constant; re-measure monthly, or compute from water_level if it drifts.
+// ponytail: hand-set constant. seaside fetch-trusted-forecasts flags when WaveCast's sea-level
+// advisory drifts 4 in from this or disappears; runbook: seaside docs/sea-level-offset-watch.md.
+// Change seaside QUIVER_SEA_LEVEL_OFFSET_IN with it.
 export const CALIFORNIA_SEA_LEVEL_OFFSET_FT = 1.5;
 
 /** Feet to add to predicted tide heights at a CO-OPS station (California IDs start with 941). */
