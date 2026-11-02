@@ -74,6 +74,7 @@ function forecastForScoringToSnapshot(forecast: ForecastForScoring): ConditionsS
   return {
     timestamp: forecast.forecastTime,
     waveHeight: forecast.waveHeight,
+    waveHeightKnown: forecast.waveHeightKnown !== false,
     wavePeriod: forecast.wavePeriod,
     waveDirection: swellDirection,
     primarySwell,

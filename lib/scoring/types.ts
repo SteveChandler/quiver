@@ -163,6 +163,8 @@ export interface WindowCalculatorOptions {
 export interface ForecastForScoring {
   forecastTime: Date;
   waveHeight: number;
+  /** False when the forecast had no wave height and waveHeight is a 0 placeholder; absent when known. */
+  waveHeightKnown?: false;
   wavePeriod: number;
   /** Null when the forecast has no wind: unknown, not calm. */
   windSpeed: number | null;
@@ -222,6 +224,7 @@ export function toForecastForScoring(
     tideHeight: parseFloat(forecast.tide_height || '0') || 0,
     tideStatus: forecast.tide_status?.toLowerCase() || null,
     swellDirection,
+    ...(Number.isFinite(parseFloat(forecast.wave_height ?? '')) ? {} : { waveHeightKnown: false as const }),
     ...(southOcSanoGuardrail ? { southOcSanoGuardrail } : {}),
   };
 }
