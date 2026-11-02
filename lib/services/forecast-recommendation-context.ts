@@ -285,7 +285,7 @@ function forecastProvenance(row: EnhancedForecastEntity | null, beach?: Beach): 
     row.data_source,
     row.coops_station_id && !row.raw_forecast?.data_sources?.includes("FES2022")
       // coops_station_id is "cached_<beach>", so the beach decides whether the sea-level offset applied.
-      ? beach?.state === "California" ? "NOAA_CO-OPS_SEA_LEVEL" : "NOAA_CO-OPS"
+      ? beach?.state === "CA" ? "NOAA_CO-OPS_SEA_LEVEL" : "NOAA_CO-OPS"
       : null,
   ].filter((source): source is string => Boolean(source?.trim()));
 

@@ -77,7 +77,7 @@ describe("buildForecastRecommendationContext", () => {
 
   it("labels California NOAA tides as sea-level adjusted", () => {
     const context = buildForecastRecommendationContext({
-      beach: beach({ state: "California" }),
+      beach: beach({ state: "CA" }),
       forecasts: [row({ forecast_at: "2026-05-08T13:00:00.000Z", coops_station_id: "cached_obp" })],
       window: null,
       now: new Date("2026-05-08T13:30:00.000Z"),
