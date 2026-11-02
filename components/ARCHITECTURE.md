@@ -388,8 +388,6 @@ For details, see [`/components/oracle/ARCHITECTURE.md`](/components/oracle/ARCHI
 ### **`/home-screen`** - Home helpers
 
 - **`bottom-nav.tsx`** - Fixed mobile bottom navigation (md:hidden), used by the signed-in home
-- **`first-session-cta.tsx`** - `buildQuickLogUrl` for the quick-log session flow
-- **`nearby-beach-chips.tsx`** - Nearby beach chip row (not currently imported by any route)
 
 ---
 

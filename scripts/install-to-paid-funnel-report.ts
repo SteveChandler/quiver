@@ -441,7 +441,7 @@ export function aggregatesToMarkdown(aggregates: InstallToPaidAggregates): strin
   return lines.join("\n");
 }
 
-export async function main(): Promise<void> {
+async function main(): Promise<void> {
   const options = parseCliArgs(process.argv.slice(2));
   const startedAt = new Date().toISOString();
   const supabase = createReportClient();

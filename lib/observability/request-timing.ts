@@ -3,7 +3,7 @@ import 'server-only';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
-export interface StageTiming {
+interface StageTiming {
   name: string;
   ms: number;
 }
@@ -55,7 +55,7 @@ export function formatServerTiming(stages: readonly StageTiming[]): string {
     .join(', ');
 }
 
-export interface InstanceProbeResult {
+interface InstanceProbeResult {
   /** First request this instance served. */
   cold: boolean;
   /** Requests in flight on this instance when this one started, itself included. */
