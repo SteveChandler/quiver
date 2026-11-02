@@ -5,7 +5,7 @@ jest.mock("../window-selector/time-slot-utils", () => {
 });
 
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { addDays } from "../swell-briefing-input";
+import { addDays } from "../local-date";
 import { beachLine, buildStoryCandidates, storyEventKey, type RegionalDaySignal } from "../week-scout-story-candidates";
 import {
   BREEZY_WIND_MPH, DEAD_ON_MAX_DEG, DEAD_ON_WINDOW_SHARE, LIGHT_WIND_MPH, buildRegionGateContext, regionGateHolds,

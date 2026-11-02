@@ -31,7 +31,7 @@ import type { CandidateFacts } from "../week-scout-story-facts";
 import { StoryInputError, storyEventsFromRegion } from "../week-scout-story-source";
 import { buildEventCandidates, buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
 import { buildRegionGateContext } from "../week-scout-story-region-gate";
-import { addDays } from "../swell-briefing-input";
+import { addDays } from "../local-date";
 
 const HONOLULU = "Pacific/Honolulu";
 

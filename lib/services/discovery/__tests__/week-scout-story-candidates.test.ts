@@ -1,5 +1,5 @@
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { addDays } from "../swell-briefing-input";
+import { addDays } from "../local-date";
 import {
   beachLine, sizePhrase, windTimingPhrase, beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion, swellChapterPhases,
   type BeachLineFacts, type RegionalDaySignal, type RegionalSwellEvent,

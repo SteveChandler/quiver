@@ -1,6 +1,6 @@
 import type { InternalRegionEvent, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { confidenceFor, localDayDiff, rateRegionEvents } from "@/lib/alerts/swell-events/regional-rating";
-import { addDays, localDate } from "./swell-briefing-input";
+import { addDays, localDate } from "./local-date";
 import type { RegionGateContext } from "./week-scout-story-region-gate";
 import { LIGHT_WIND_MPH, type CandidateFacts, type FaceRange, type SizeWord, type WindHour } from "./week-scout-story-facts";
 import { getLocalDateStr } from "./window-selector/time-slot-utils";
