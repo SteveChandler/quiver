@@ -112,10 +112,14 @@ function median(values: number[]): number {
  * The first day to scan: the stored forecast's last local day, which is usually a partial one,
  * so no day falls between the two. Never today, and never past day 11; day 11 when the reach is unknown.
  */
-function firstEarlyDay(today: string, storedThrough: string | null): number {
-  if (!storedThrough) return EARLY_FIRST_DAY;
-  const offset = Math.round((Date.parse(`${storedThrough}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
-  return Number.isFinite(offset) ? Math.min(EARLY_FIRST_DAY, Math.max(1, offset)) : EARLY_FIRST_DAY;
+function firstEarlyDay(storedOffset: number | null): number {
+  return storedOffset === null ? EARLY_FIRST_DAY : Math.min(EARLY_FIRST_DAY, Math.max(1, storedOffset));
+}
+
+function dayOffset(today: string, date: string | null): number | null {
+  if (!date) return null;
+  const offset = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
+  return Number.isFinite(offset) ? offset : null;
 }
 
 /**
@@ -123,7 +127,7 @@ function firstEarlyDay(today: string, storedThrough: string | null): number {
  * 1.5 m floor and 1.6x the typical height of the days before the scan, and tops its neighbours.
  * `storedThrough` is the local date of the last stored row detection could read; the default wave
  * model's partitions often stop near day 9, well short of day 11. Peaks the stored forecast already
- * reports as an event of the same kind are left out. When the model run ends before day 15, a day-14
+ * reports as an event of the same kind are left out; on the stored forecast's last day, an event of either kind. When the model run ends before day 15, a day-14
  * peak only has to be above day 13: a still-rising edge is what an early look is for.
  */
 export function earlyLookPeaks(
@@ -133,7 +137,8 @@ export function earlyLookPeaks(
   storedThrough: string | null = null,
 ): EarlyLookPeak[] {
   const byDate = new Map(days.map((day) => [day.localDate, day]));
-  const firstDay = firstEarlyDay(today, storedThrough);
+  const storedOffset = dayOffset(today, storedThrough);
+  const firstDay = firstEarlyDay(storedOffset);
   const baseline: number[] = [];
   for (let offset = 0; offset < firstDay; offset += 1) {
     const day = byDate.get(dateAfter(today, offset));
@@ -155,7 +160,8 @@ export function earlyLookPeaks(
 
     const kind = day.periodS !== null && day.periodS < STORM_PERIOD_BELOW_S ? "storm" : "swell";
     const peakMs = Date.parse(day.peakAt);
-    if (detected.some((event) => event.kind === kind && Math.abs(Date.parse(event.peakAt) - peakMs) <= DETECTED_OVERLAP_MS)) {
+    const anyKind = offset === storedOffset;
+    if (detected.some((event) => (anyKind || event.kind === kind) && Math.abs(Date.parse(event.peakAt) - peakMs) <= DETECTED_OVERLAP_MS)) {
       continue;
     }
     peaks.push({

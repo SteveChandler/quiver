@@ -231,6 +231,14 @@ describe("earlyLookPeaks", () => {
       expect(earlyLookPeaks(days, [], TODAY, dateAfter(10))).toEqual([]);
     });
 
+    it("drops a peak on the stored forecast's last day near a detected event of either kind", () => {
+      // The stored rows already saw part of that day, so a nearby event is the same energy whatever WAM's period says.
+      const days = wamSeries(1.2, { 9: { maxHsM: 2.4, periodS: 10.5 } });
+      const risingSwell = [{ kind: "swell" as const, peakAt: `${dateAfter(9)}T02:00:00.000Z` }];
+      expect(earlyLookPeaks(days, risingSwell, TODAY, dateAfter(9))).toEqual([]);
+      expect(earlyLookPeaks(days, [], TODAY, dateAfter(9)).map((peak) => peak.kind)).toEqual(["storm"]);
+    });
+
     it("measures the typical height on the days before the scan only", () => {
       // Days 5-10 at 1.5 m lift a 0-10 median to 1.5 (bar 2.4 m); days 0-4 alone keep it at 1.0 (bar 1.6 m).
       const days = wamSeries(1.0, {

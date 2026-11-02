@@ -14,6 +14,7 @@ import {
   SWELL_EVENT_BASELINE_LOOKBACK_HOURS,
   detectBeachSwellEvents,
   isSwellEventCurrent,
+  parseSwellPartitions,
   toSwellEventBeach,
   type BeachSwellEvent,
 } from "./detector";
@@ -326,7 +327,7 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
   // Detection reads only partitions, so the stored forecast reaches as far as the last row with one.
   let lastPartitionMs = Number.NEGATIVE_INFINITY;
   for (const row of rows) {
-    if (row.swell_1_height == null && row.swell_2_height == null) continue;
+    if (parseSwellPartitions(row).length === 0) continue;
     const atMs = Date.parse(row.forecast_at);
     if (atMs > lastPartitionMs) lastPartitionMs = atMs;
   }

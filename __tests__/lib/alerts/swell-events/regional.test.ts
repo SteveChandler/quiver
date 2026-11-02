@@ -603,7 +603,8 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     const lastPartitioned = Date.parse(localIsoOf(9, 18));
     const rows = beaches.flatMap((item) => rowsFor(item.id)).map((row) => Date.parse(String(row.forecast_at)) <= lastPartitioned
       ? row
-      : { ...row, swell_1_height: null, swell_1_period: null, swell_1_direction: null });
+      // A zero height with no period is a partition the detector can't read, so it doesn't extend the reach.
+      : { ...row, swell_1_height: "0 ft", swell_1_period: null, swell_1_direction: null });
     jest.mocked(fetchWamDays).mockResolvedValue(wamDays({
       10: { maxHsM: 2.9, periodS: 8 },
       11: { maxHsM: 2.7, periodS: 10 },
