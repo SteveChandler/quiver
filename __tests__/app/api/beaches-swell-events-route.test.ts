@@ -217,7 +217,11 @@ describe("GET /api/beaches/[id]/swell-events", () => {
       history: historyLine(buoy, 2.6, TIMEZONE),
       here: { beachId: beaches[1].id, label: "LIKELY" },
     });
-    expect(String(jest.mocked(global.fetch).mock.calls[0][0])).toContain("models=ecmwf_wam025");
+    // WAM at the buoy for the early look, GFS-Wave at the offshore point for the tail.
+    expect(jest.mocked(global.fetch).mock.calls.map(([url]) => String(url))).toEqual(expect.arrayContaining([
+      expect.stringContaining("models=ecmwf_wam025"),
+      expect.stringContaining("models=ncep_gfswave025"),
+    ]));
     // Region data comes from the cookie-free client (R15).
     expect(tables).toContain("enhanced_forecasts");
     // No edition today: the storm carries its server lines, the early look none.

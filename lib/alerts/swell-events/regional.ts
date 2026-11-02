@@ -16,11 +16,14 @@ import {
   isSwellEventCurrent,
   parseSwellPartitions,
   toSwellEventBeach,
+  tracksSwellComponent,
   type BeachSwellEvent,
+  type SwellEventForecastRow,
 } from "./detector";
 import { earlyLookPeaks, fetchWamDays, historyLine, regionModelBuoy, type EarlyLookPeak, type WamDay } from "./early-look";
 import { SWELL_EVENT_THRESHOLDS } from "./exposure";
 import { EXCLUDE_SYNTHETIC_ROWS_FILTER } from "./forecast-rows";
+import { fetchGfsTailRows, regionOffshorePoint } from "./gfs-tail";
 import { readAllPages } from "./paging";
 import { ratingWindow } from "./regional-rating";
 
@@ -30,8 +33,12 @@ type Client = SupabaseClient<Database>;
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-/** Stored rows run to about 11.8 days, but swell partitions can stop near day 9; WAM early looks start there. */
+/** Stored rows run to about 11.8 days, but swell partitions can stop near day 9; the GFS tail and WAM early looks start there. */
 const DETECTION_HORIZON_DAYS = 12;
+/** The GFS tail is detected out to the watch's last day. */
+const TAIL_HORIZON_DAYS = 15;
+// The detector's own duplicate-peak window: a tail swell this close to a stored one of the same component is that swell.
+const TAIL_DUPLICATE_MS = 36 * 60 * 60 * 1000;
 const REGION_CACHE_SECONDS = 10_800;
 // Bump when the cached shape or its contents change, so a deploy never reads an older build.
 // v2: events still in the water past their peak day; rating rows span each event's window.
@@ -39,7 +46,8 @@ const REGION_CACHE_SECONDS = 10_800;
 // v4: events carry memberCount.
 // v5: wind direction, beach orientation and resolved punchiness for story facts.
 // v6: storedThrough, the last local day with a stored swell partition.
-const REGION_CACHE_VERSION = "v6";
+// v7: GFS tail swells past the stored partitions.
+const REGION_CACHE_VERSION = "v7";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -91,7 +99,7 @@ export interface RegionBeach {
 export interface InternalRegionEvent {
   key: string;
   kind: "swell" | "storm";
-  /** "wam": an early-look peak past the stored forecast, with no beach ratings. */
+  /** "wam": an early look past the stored forecast (WAM peak or GFS tail swell), rated by exposure only. */
   source: RegionSwellEvent["source"];
   directionDeg: number | null;
   directionLabel: string | null;
@@ -102,7 +110,7 @@ export interface InternalRegionEvent {
   peakLocalDate: string;
   offshoreFt: string | null;
   history: string | null;
-  /** Beach detections behind the event, summed over its joined groups; 0 for an early look. */
+  /** Beach detections behind the event, summed over its joined groups; 0 for a WAM early look. */
   memberCount: number;
 }
 
@@ -275,6 +283,72 @@ function isDaylight(at: Date, timezone: string): boolean {
     && hour < SWELL_EVENT_THRESHOLDS.daylightEndHour;
 }
 
+/** Every region beach's current events on its rows; one beach's bad rows must not void the region. */
+function detectRegion(
+  beachRows: readonly BeachRow[],
+  forecastsFor: (beach: BeachRow) => readonly SwellEventForecastRow[],
+  now: Date,
+  timezone: string,
+  horizonDays: number,
+): BeachSwellEvent[] {
+  return beachRows.flatMap((beach) => {
+    try {
+      return detectBeachSwellEvents(
+        { beach: toSwellEventBeach(beach), forecasts: forecastsFor(beach), now, timezone },
+        { stormClass: true, horizonDays },
+      );
+    } catch (error) {
+      console.warn("[regional] detection failed", { beachId: beach.id, error: String(error) });
+      return [];
+    }
+  }).filter((event) => isSwellEventCurrent(event, now));
+}
+
+/** Kinds group apart: a storm that grows into a swell shows as two events. */
+function regionRuns(detected: readonly BeachSwellEvent[]): RegionRun[] {
+  return [
+    ...joinRuns(groupEvents(detected.filter((event) => event.kind !== "storm"))),
+    ...joinRuns(groupEvents(detected.filter((event) => event.kind === "storm"))),
+  ];
+}
+
+/**
+ * Swells past the stored partitions, from GFS-Wave at one offshore point for the whole region: each
+ * beach's exposure applied to the same offshore swell, measured against GFS's own baseline so the
+ * seam with the stored model reads no step. Early looks, rated by exposure only; per-beach rows keep
+ * no size. A tail swell that matches a stored one within 36 h is the stored one.
+ */
+async function gfsTailEvents(input: {
+  beachRows: readonly BeachRow[];
+  now: Date;
+  timezone: string;
+  afterMs: number;
+  stored: readonly UnkeyedRegionEvent[];
+}): Promise<UnkeyedRegionEvent[]> {
+  // A region too small to show gets no fetch, as with the WAM buoy.
+  // With no stored partitions there is no reach to start from, and no tail.
+  if (input.beachRows.length < MIN_REGION_BEACHES || !Number.isFinite(input.afterMs)) return [];
+  const point = regionOffshorePoint(input.beachRows.map((beach) => ({
+    lat: beach.lat,
+    lon: beach.lon,
+    aspect_deg: beach.aspect_deg ?? null,
+    swell_window_center_deg: beach.swell_window_center_deg ?? null,
+  })));
+  const gfsRows = point ? await fetchGfsTailRows(point) : null;
+  if (!gfsRows) return [];
+  const detected = detectRegion(input.beachRows, () => gfsRows, input.now, input.timezone, TAIL_HORIZON_DAYS)
+    .filter((event) => Date.parse(event.peakAt) > input.afterMs);
+  return regionRuns(detected)
+    .filter(({ lead }) => !input.stored.some((other) => (
+      other.kind === (lead.kind ?? "swell")
+      && other.directionDeg !== null
+      && other.periodS !== null
+      && tracksSwellComponent({ directionDeg: other.directionDeg, periodS: other.periodS }, lead)
+      && Math.abs(Date.parse(other.peakAt) - Date.parse(lead.peakAt)) <= TAIL_DUPLICATE_MS
+    )))
+    .map((run): UnkeyedRegionEvent => ({ ...detectedEvent(run), source: "wam" }));
+}
+
 async function loadRegionBase(input: { client: Client; region: string; now: Date; timezone: string }): Promise<RegionBase> {
   const { client, region, now, timezone } = input;
   const beachRows = await readRegionBeaches(client, region);
@@ -284,26 +358,20 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
   const rows = beachRows.length ? await readForecastRows(client, beachRows.map((beach) => beach.id), from, to) : [];
   const rowsByBeach = Map.groupBy(rows, (row) => row.beach_id);
 
-  const detected = beachRows.flatMap((beach) => {
-    try {
-      return detectBeachSwellEvents(
-        { beach: toSwellEventBeach(beach), forecasts: rowsByBeach.get(beach.id) ?? [], now, timezone },
-        { stormClass: true, horizonDays: DETECTION_HORIZON_DAYS },
-      );
-    } catch (error) {
-      // One beach's bad rows must not void the region.
-      console.warn("[regional] detection failed", { beachId: beach.id, error: String(error) });
-      return [];
-    }
-  }).filter((event) => isSwellEventCurrent(event, now));
+  const stored = regionRuns(detectRegion(beachRows, (beach) => rowsByBeach.get(beach.id) ?? [], now, timezone, DETECTION_HORIZON_DAYS))
+    .map(detectedEvent);
 
-  // Kinds group apart: a storm that grows into a swell shows as two events.
-  const events = [
-    ...joinRuns(groupEvents(detected.filter((event) => event.kind !== "storm"))),
-    ...joinRuns(groupEvents(detected.filter((event) => event.kind === "storm"))),
-  ].map(detectedEvent);
+  // Detection reads only partitions, so the stored forecast reaches as far as the last row with one.
+  let lastPartitionMs = Number.NEGATIVE_INFINITY;
+  for (const row of rows) {
+    if (parseSwellPartitions(row).length === 0) continue;
+    const atMs = Date.parse(row.forecast_at);
+    if (atMs > lastPartitionMs) lastPartitionMs = atMs;
+  }
+  const events = [...stored, ...await gfsTailEvents({ beachRows, now, timezone, afterMs: lastPartitionMs, stored })];
 
-  const windows = events.map(ratingWindow);
+  // Tail swells are rated by exposure only, so only stored events need rating rows.
+  const windows = stored.map(ratingWindow);
   const ratingRows: Record<string, RatingRow[]> = {};
   for (const beach of beachRows) {
     ratingRows[beach.id] = (rowsByBeach.get(beach.id) ?? []).flatMap((row) => {
@@ -322,14 +390,6 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
         swell_1_period: row.swell_1_period,
       }];
     });
-  }
-
-  // Detection reads only partitions, so the stored forecast reaches as far as the last row with one.
-  let lastPartitionMs = Number.NEGATIVE_INFINITY;
-  for (const row of rows) {
-    if (parseSwellPartitions(row).length === 0) continue;
-    const atMs = Date.parse(row.forecast_at);
-    if (atMs > lastPartitionMs) lastPartitionMs = atMs;
   }
 
   return {
@@ -355,8 +415,9 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
 type RegionInput = { client: Client; region: string; now: Date; timezone: string };
 
 /**
- * The stored-forecast part of a region build (beaches, detection, grouping, the rows rating needs),
- * cached 3 h per region and local day, with keys and no WAM: buoy and wamDays are null.
+ * The stored-forecast part of a region build (beaches, detection, grouping, the rows rating needs)
+ * plus the GFS tail past it, cached 3 h per region and local day, with keys and no WAM: buoy and
+ * wamDays are null. A failed GFS fetch costs that window its tail swells, not its stored events.
  */
 export async function loadRegionForecastEvents(input: RegionInput): Promise<RegionBuild> {
   const today = getLocalDateStr(input.now, input.timezone);
