@@ -13,7 +13,7 @@ const WAM_FORECAST_DAYS = 16;
 const BUOYS = dataset.stations as BigSwellBuoy[];
 
 const DAY_MS = 86_400_000;
-const BASELINE_LAST_DAY = 10;
+// The latest day the scan starts on; it starts sooner when the stored partitions stop sooner.
 const EARLY_FIRST_DAY = 11;
 const EARLY_LAST_DAY = 14;
 const PEAK_FLOOR_M = 1.5;
@@ -109,20 +109,33 @@ function median(values: number[]): number {
 }
 
 /**
- * Coarse peaks on days 11-14, past the stored forecast's reach: a day that clears both the
- * 1.5 m floor and 1.6x the typical height of days 0-10, and tops its neighbours. Peaks the
- * stored forecast already reports as an event of the same kind are left out. When the model run
- * ends before day 15, a day-14 peak only has to be above day 13: a still-rising edge is what an
- * early look is for.
+ * The first day to scan: the stored forecast's last local day, which is usually a partial one,
+ * so no day falls between the two. Never today, and never past day 11; day 11 when the reach is unknown.
+ */
+function firstEarlyDay(today: string, storedThrough: string | null): number {
+  if (!storedThrough) return EARLY_FIRST_DAY;
+  const offset = Math.round((Date.parse(`${storedThrough}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
+  return Number.isFinite(offset) ? Math.min(EARLY_FIRST_DAY, Math.max(1, offset)) : EARLY_FIRST_DAY;
+}
+
+/**
+ * Coarse peaks out to day 14, past the stored forecast's reach: a day that clears both the
+ * 1.5 m floor and 1.6x the typical height of the days before the scan, and tops its neighbours.
+ * `storedThrough` is the local date of the last stored row detection could read; the default wave
+ * model's partitions often stop near day 9, well short of day 11. Peaks the stored forecast already
+ * reports as an event of the same kind are left out. When the model run ends before day 15, a day-14
+ * peak only has to be above day 13: a still-rising edge is what an early look is for.
  */
 export function earlyLookPeaks(
   days: WamDay[],
   detected: ReadonlyArray<{ kind: "swell" | "storm"; peakAt: string }>,
   today: string,
+  storedThrough: string | null = null,
 ): EarlyLookPeak[] {
   const byDate = new Map(days.map((day) => [day.localDate, day]));
+  const firstDay = firstEarlyDay(today, storedThrough);
   const baseline: number[] = [];
-  for (let offset = 0; offset <= BASELINE_LAST_DAY; offset += 1) {
+  for (let offset = 0; offset < firstDay; offset += 1) {
     const day = byDate.get(dateAfter(today, offset));
     if (day) baseline.push(day.maxHsM);
   }
@@ -130,7 +143,7 @@ export function earlyLookPeaks(
   const threshold = Math.max(PEAK_FLOOR_M, PEAK_MEDIAN_MULTIPLE * median(baseline));
 
   const peaks: EarlyLookPeak[] = [];
-  for (let offset = EARLY_FIRST_DAY; offset <= EARLY_LAST_DAY; offset += 1) {
+  for (let offset = firstDay; offset <= EARLY_LAST_DAY; offset += 1) {
     const day = byDate.get(dateAfter(today, offset));
     if (!day || day.maxHsM < threshold) continue;
     if (day.periodS !== null && day.periodS < STORM_PERIOD_FLOOR_S) continue;
