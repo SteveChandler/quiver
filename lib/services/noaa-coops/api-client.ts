@@ -22,6 +22,17 @@ const USER_AGENT = "quiver-surf-app (contact@quiver.com)";
 /** Timeout for optional API calls (water level, station info) */
 const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
 
+// Tide tables leave out the 2026 marine-heat-wave sea-level rise; real water runs this far above
+// them. Measured Nov 1 2026, 72 h observed minus predicted: San Diego +1.56, LA +1.47,
+// Santa Barbara +1.46, Port San Luis +1.37, San Francisco +1.41 ft.
+// ponytail: hand-set constant; re-measure monthly, or compute from water_level if it drifts.
+export const CALIFORNIA_SEA_LEVEL_OFFSET_FT = 1.5;
+
+/** Feet to add to predicted tide heights at a CO-OPS station (California IDs start with 941). */
+export function seaLevelOffsetFt(stationId: string): number {
+  return stationId.startsWith("941") ? CALIFORNIA_SEA_LEVEL_OFFSET_FT : 0;
+}
+
 /**
  * Options for API client logging
  */
@@ -157,11 +168,12 @@ async function fetchTidePredictions(
       return [];
     }
 
+    const offsetFt = seaLevelOffsetFt(stationId);
     const tideData = data.predictions.map((prediction: TideExtreme) => ({
       time:
         parseCOOPSTimestampToUnixSecondsUTC(prediction.t) ??
         Math.floor(new Date(prediction.t).getTime() / 1000),
-      height: parseFloat(prediction.v),
+      height: parseFloat(prediction.v) + offsetFt,
       name: prediction.type === "H" ? "High Tide" : "Low Tide",
       type: prediction.type === "H" ? "high" : "low",
     }));
