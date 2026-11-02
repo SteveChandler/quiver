@@ -979,6 +979,90 @@ describe('computeSurfCall', () => {
     });
   });
 
+  // The why sentence names the same skip cause as the condition pill, with
+  // the numbers from the hour the pill reads (offshore here is 90°).
+  describe('why sentence on a skip hour', () => {
+    const ONSHORE_30 = { wind_speed: '30', wind_direction: 'W', wind_direction_deg: 270 };
+    const FLAT_SENTENCE = 'Under half a foot at the peak — not enough swell to break.';
+
+    it.each([
+      ['onshore', ONSHORE_30, 'Blown out — 30 mph onshore wind, choppy and hard to read.'],
+      ['side-shore', { wind_speed: '25', wind_direction: 'S', wind_direction_deg: 180 }, 'Blown out — 25 mph side-shore wind, choppy and hard to read.'],
+      ['offshore', { wind_speed: '32', wind_direction: 'E', wind_direction_deg: 90 }, 'Blown out — 32 mph offshore wind, hard to paddle into.'],
+    ])('names a blown-out %s hour with its wind speed', (_direction, wind, sentence) => {
+      const result = computeSurfCall(makeWindow(), [makeForecast(wind)], makeBeach());
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.character?.category).toBe('skip');
+      expect(result.whySentence).toBe(sentence);
+    });
+
+    it('names the wind on a NO verdict too', () => {
+      const result = computeSurfCall(makeWindow({ score: 20 }), [makeForecast(ONSHORE_30)], makeBeach());
+      expect(result.verdict).toBe('NO');
+      expect(result.whySentence).toBe('Blown out — 30 mph onshore wind, choppy and hard to read.');
+    });
+
+    it('says flat, not "conditions look fun", on a flat hour under the small-wave MAYBE', () => {
+      const forecasts = [makeForecast({ wave_height: '0.3 ft', swell_1_height: '0.3' })];
+      const result = computeSurfCall(makeWindow({ waveHeight: '0.3 ft' }), forecasts, makeBeach());
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.character).toEqual({ category: 'skip', label: 'Flat — rest day' });
+      expect(result.whySentence).toBe(FLAT_SENTENCE);
+    });
+
+    it('says flat on a NO verdict for a flat hour', () => {
+      const forecasts = [makeForecast({ wave_height: '0.3 ft', swell_1_height: '0.3' })];
+      const result = computeSurfCall(makeWindow({ waveHeight: '0.3 ft', score: 20 }), forecasts, makeBeach());
+      expect(result.verdict).toBe('NO');
+      expect(result.whySentence).toBe(FLAT_SENTENCE);
+    });
+
+    it('names the wind, in the pill and the sentence, when a flat hour is also blown out', () => {
+      const forecasts = [makeForecast({ wave_height: '0.3 ft', swell_1_height: '0.3', ...ONSHORE_30 })];
+      const result = computeSurfCall(makeWindow({ waveHeight: '0.3 ft' }), forecasts, makeBeach());
+      expect(result.character).toEqual({ category: 'skip', label: 'Onshore wind — conditions blown out' });
+      expect(result.whySentence).toBe('Blown out — 30 mph onshore wind, choppy and hard to read.');
+    });
+
+    it('names the wind, not "conditions look fun", on a small blown-out hour', () => {
+      const forecasts = [makeForecast({ wave_height: '1 ft', swell_1_height: '1', ...ONSHORE_30 })];
+      const result = computeSurfCall(makeWindow({ waveHeight: '1 ft' }), forecasts, makeBeach());
+      expect(result.verdict).toBe('MAYBE');
+      expect(result.whySentence).toBe('Blown out — 30 mph onshore wind, choppy and hard to read.');
+    });
+
+    it('claims no height when the peak hour has no wave height', () => {
+      const forecasts = [makeForecast({ wave_height: null as unknown as string, swell_1_height: null as unknown as string })];
+      const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
+      expect(result.character?.category).toBe('skip');
+      expect(result.whySentence).toBe('Not enough forecast data at the peak to rate it.');
+    });
+
+    it('keeps the setup-risk caution on a MAYBE verdict', () => {
+      const beach = makeBeach({
+        break_type: 'beach',
+        preferred_tide_ft_min: 2,
+        preferred_tide_ft_max: 6,
+        preferred_tide_direction: 'either',
+      });
+      const forecasts = [
+        makeForecast({
+          wave_height: '7 ft',
+          wave_period: '10s',
+          swell_1_height: '7',
+          swell_1_period: '10s',
+          tide_height: '-0.4',
+          tide_status: 'Falling',
+        }),
+      ];
+      const window = makeWindow({ score: 90, waveHeight: '7 ft', wavePeriod: '10s' });
+
+      const result = computeSurfCall(window, forecasts, beach, { verdict: 'MAYBE' });
+      expect(result.character).toEqual({ category: 'skip', label: 'Likely closing out — dropping low tide' });
+      expect(result.whySentence).toBe(`${LOW_TIDE_HEAVY_SWELL_WARNING}.`);
+    });
+  });
+
   describe('break type minimums', () => {
     it('uses 1.5 ft for beach break (no window → hard NO)', () => {
       const beach = makeBeach({ break_type: 'beach break' } as any);

@@ -37,7 +37,12 @@ import type { ConditionsSnapshot } from '../conditions/types';
 import type { SpotProfile } from '../spot-profile/types';
 import type { CompositeScore } from './types';
 import { angleDifference } from '../shared';
-import { isWindQualityUnknown } from './scorers/wind-quality-scorer';
+import {
+  classifyDirection,
+  isBlownOutWind,
+  isWindQualityUnknown,
+  type WindDirectionClass,
+} from './scorers/wind-quality-scorer';
 import { FLAT_CONDITIONS_SKIP_REASON } from './scorers/base-conditions-scorer';
 import { LOW_TIDE_HEAVY_SWELL_WARNING } from './scorers/setup-risk-scorer';
 
@@ -144,10 +149,58 @@ function isWindOnshoreForCharacter(
 }
 
 /**
+ * Why an hour is a skip, with that hour's own numbers, so the condition label
+ * and the Daily Call why sentence can't name different causes.
+ */
+export type SkipCause =
+  | { kind: 'wind'; speedMph: number; direction: WindDirectionClass }
+  | { kind: 'flat' }
+  | { kind: 'setup-risk' }
+  | { kind: 'other' };
+
+/** The hour's wind against the spot's offshore bearing; null when it can't be judged. */
+function hourWind(
+  snapshot: ConditionsSnapshot,
+  profile: SpotProfile
+): { speedMph: number; direction: WindDirectionClass } | null {
+  const { speedMph, directionDeg } = snapshot.wind;
+  const { offshoreDeg, offshoreToleranceDeg } = profile.windThresholds;
+  if (speedMph === null || !Number.isFinite(speedMph) || directionDeg === null || offshoreDeg === null) {
+    return null;
+  }
+  return { speedMph, direction: classifyDirection(directionDeg, offshoreDeg, offshoreToleranceDeg) };
+}
+
+/**
+ * Read the skip cause off the composite's skip reason (only
+ * `windQualityScorer`'s Blown-out tier is about wind) and the same hour's
+ * wind. Unknown wind is neutral and unspoken. Null when the hour isn't a skip.
+ */
+export function getSkipCause(
+  snapshot: ConditionsSnapshot,
+  profile: SpotProfile,
+  composite: CompositeScore
+): SkipCause | null {
+  const skipReason = composite.skipReason;
+  if (!skipReason) return null;
+  if (skipReason === LOW_TIDE_HEAVY_SWELL_WARNING) return { kind: 'setup-risk' };
+
+  const wind = hourWind(snapshot, profile);
+  if (skipReason === FLAT_CONDITIONS_SKIP_REASON) {
+    // The flat check ends scoring before the wind scorer runs, so a flat
+    // hour's reason never says the wind blows it out. Blown out outranks flat.
+    if (!wind || !isBlownOutWind(wind.speedMph, wind.direction)) return { kind: 'flat' };
+  } else if (!wind || !skipReason.toLowerCase().startsWith('blown out')) {
+    return { kind: 'other' };
+  }
+  return { kind: 'wind', speedMph: Math.round(wind.speedMph), direction: wind.direction };
+}
+
+/**
  * Determine the qualitative condition character.
  *
  * Priority-ordered decision tree (first matching rule wins):
- *   1. Skip — blown out, flat, or a setup risk (per the composite's skip reason)
+ *   1. Skip — blown out, flat, or a setup risk (per `getSkipCause`)
  *   2. Flat — barely anything to surf (< 0.5ft)
  *   3. Small (0.5–2ft) — weak / quality / clean / fallback
  *   4. Medium (2–5ft) — clean / mixed
@@ -172,25 +225,20 @@ export function getConditionCharacter(
   // Unknown wind is neutral and unspoken: no wind words, no wind-driven downgrade.
   const windUnknown = isWindQualityUnknown(snapshot, profile);
 
-  // 1. Skip conditions — label by the scorer that raised the skip, read from
-  //    the composite's skip reason. Only `windQualityScorer`'s Blown-out tier
-  //    (≥22 mph onshore-or-cross OR ≥30 mph offshore) is about wind; a flat
-  //    row (`baseConditionsScorer`) or a setup risk (`setupRiskScorer`) must
-  //    not read as wind.
-  const skipReason = composite.skipReason;
-  if (skipReason) {
-    if (skipReason === FLAT_CONDITIONS_SKIP_REASON) {
+  // 1. Skip conditions — label by the cause, so a flat row or a setup risk
+  //    never reads as wind and a blown-out flat row never reads as flat.
+  const skipCause = getSkipCause(snapshot, profile, composite);
+  if (skipCause) {
+    if (skipCause.kind === 'wind') {
+      return skipCause.direction === 'onshore'
+        ? { category: 'skip', label: 'Onshore wind — conditions blown out' }
+        : { category: 'skip', label: 'Blown out — too much wind' };
+    }
+    if (skipCause.kind === 'flat') {
       return { category: 'skip', label: 'Flat — rest day' };
     }
-    if (skipReason === LOW_TIDE_HEAVY_SWELL_WARNING) {
+    if (skipCause.kind === 'setup-risk') {
       return { category: 'skip', label: 'Likely closing out — dropping low tide' };
-    }
-    const lower = skipReason.toLowerCase();
-    if (!windUnknown && lower.startsWith('blown out')) {
-      if (lower.includes('onshore')) {
-        return { category: 'skip', label: 'Onshore wind — conditions blown out' };
-      }
-      return { category: 'skip', label: 'Blown out — too much wind' };
     }
     return { category: 'skip', label: 'Skip — conditions not favorable' };
   }
