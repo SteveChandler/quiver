@@ -9,7 +9,7 @@ import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { nativeScoreInputsFromForecast, scoreNativeConditionInputs } from "@/lib/scoring/native-condition-score";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
-import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
+import { addDays, localDate, zonedWallClockToUtc } from "./local-date";
 import { buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion, type RegionalDaySignal } from "./week-scout-story-candidates";
 import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, median, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
 import { buildRegionGateContext } from "./week-scout-story-region-gate";

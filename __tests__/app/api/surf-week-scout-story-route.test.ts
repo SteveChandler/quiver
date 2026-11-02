@@ -16,11 +16,6 @@ jest.mock("@/lib/services/discovery/week-scout-story-serve", () => ({
   prepareStory: async (args: Record<string, unknown>) => (live: unknown) => mockStory({ ...args, live }),
   bindStory: jest.fn(),
 }));
-jest.mock("@/lib/services/discovery/week-scout-notes-serve", () => ({
-  isWeekScoutNotesUser: () => false,
-  liveWeekScoutNotes: jest.fn(),
-  loadWeekScoutNotesEdition: jest.fn(),
-}));
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jest.fn(() => ({})) }));
 
 import { NextRequest } from "next/server";
