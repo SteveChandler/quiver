@@ -68,7 +68,7 @@ export type {
 
 export { withErrorHandler } from "./error-handler";
 export { withAuth, createApiHandler } from "./auth-wrapper";
-export { withAdminAuth, withBearerAuth } from "./admin-auth-wrapper";
+export { withAdminAuth } from "./admin-auth-wrapper";
 
 // =============================================================================
 // VALIDATION HELPERS

@@ -4,6 +4,7 @@ import type { RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional"
 import { CLOSING_OUT_FACE_FT, ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { resolveWindOrientation, type WindOrientationSource } from "@/lib/domains/shared/wind-orientation";
+import { median } from "@/lib/utils/median";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { getLocalDateStr, getLocalHour } from "./window-selector/time-slot-utils";
 import type { RegionalSwellEvent } from "./week-scout-story-candidates";
@@ -103,12 +104,6 @@ function exposure(build: RegionBuild, event: RegionalSwellEvent, beachId: string
   const beach = build.beaches.find((item) => item.id === beachId);
   const factor = beach ? exposureFactor(event.directionDeg, swellWindowForBeach(beach)) : null;
   return factor === null ? null : exposureLabel(factor);
-}
-
-export function median(values: ReadonlyArray<number>): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
 export function eventFactsFromBuild(build: RegionBuild, event: RegionalSwellEvent): CandidateFacts | null {

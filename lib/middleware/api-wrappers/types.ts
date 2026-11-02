@@ -165,26 +165,7 @@ export type AdminAuthenticatedHandler = (
 ) => Promise<NextResponse>;
 
 /**
- * Context for bearer auth handlers (user may be null when using service role key).
- * Includes authMethod to distinguish between bearer token and admin session.
- */
-export interface BearerAuthContext {
-  params: ResolvedParams;
-  user: AdminUser | null;
-  supabase: SupabaseClient<Database>;
-  authMethod: "bearer" | "admin";
-}
-
-/**
- * Handler that receives bearer auth context
- */
-export type BearerAuthHandler = (
-  request: NextRequest,
-  context: BearerAuthContext
-) => Promise<NextResponse>;
-
-/**
- * Options for withAdminAuth and withBearerAuth wrappers
+ * Options for the withAdminAuth wrapper
  */
 export interface WithAdminAuthOptions {
   /** Custom error message for caught exceptions */

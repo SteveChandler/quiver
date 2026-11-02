@@ -3,7 +3,6 @@
  *
  * Provides admin-level authentication handling for API route handlers.
  * - withAdminAuth: Requires admin session (via authenticateAdmin())
- * - withBearerAuth: Accepts Bearer service-role key OR admin session
  */
 
 import type { NextRequest } from "next/server";
@@ -16,8 +15,6 @@ import type {
   RouteContext,
   AdminAuthenticatedContext,
   AdminAuthenticatedHandler,
-  BearerAuthContext,
-  BearerAuthHandler,
   WithAdminAuthOptions,
 } from "./types";
 
@@ -79,83 +76,3 @@ export function withAdminAuth(
     }
   };
 }
-
-/**
- * Wraps a route handler with bearer token OR admin session authentication.
- *
- * Checks in order:
- * 1. Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY> header
- * 2. Falls back to authenticateAdmin() session check
- *
- * This supports both script/automation callers (service role key)
- * and web admin users (cookie-based session).
- *
- * @param handler - Handler receiving AdminAuthenticatedContext (user is null for bearer auth)
- * @param options - Configuration options
- * @returns Wrapped handler with dual auth and error handling
- *
- * @example
- * ```ts
- * export const POST = withBearerAuth(async (request, { supabase }) => {
- *   // Called via script with service role key or by admin user
- *   const { data } = await supabase.from("table").select("*");
- *   return createSuccessResponse(data);
- * }, { errorMessage: "Failed to sync" });
- * ```
- */
-export function withBearerAuth(
-  handler: BearerAuthHandler,
-  options: WithAdminAuthOptions = {}
-): RouteHandler {
-  const { errorMessage } = options;
-
-  return async (request: NextRequest, context?: RouteContext) => {
-    try {
-      // In Next.js 15+, params is a Promise that must be awaited
-      const resolvedParams = context?.params
-        ? typeof context.params === "object" && "then" in context.params
-          ? await context.params
-          : (context.params as Record<string, string>)
-        : {};
-
-      // Check for service role bearer token (strict exact match)
-      const authHeader = request.headers.get("authorization");
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-      const isServiceRole = !!(serviceKey && serviceKey.length > 0 && token === serviceKey);
-
-      if (isServiceRole) {
-        const supabase = await createSupabaseServiceRoleClient();
-        const bearerContext: BearerAuthContext = {
-          params: resolvedParams,
-          user: null,
-          supabase,
-          authMethod: "bearer",
-        };
-        return await handler(request, bearerContext);
-      }
-
-      // Fall back to admin session authentication
-      const authResult = await authenticateAdmin();
-      if (!authResult.success) {
-        return NextResponse.json(
-          { error: authResult.error },
-          { status: authResult.status }
-        );
-      }
-
-      const supabase = await createSupabaseServiceRoleClient();
-      const adminContext: BearerAuthContext = {
-        params: resolvedParams,
-        user: authResult.user,
-        supabase,
-        authMethod: "admin",
-      };
-
-      return await handler(request, adminContext);
-    } catch (error) {
-      return handleApiError(error, errorMessage);
-    }
-  };
-}
-

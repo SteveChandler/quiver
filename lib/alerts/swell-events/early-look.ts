@@ -6,6 +6,7 @@ import {
 } from "@/lib/big-swells";
 import dataset from "@/lib/data/big-swells.json";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
+import { median } from "@/lib/utils/median";
 
 // ECMWF WAM is the Open-Meteo wave model that returns PEAK period, the same measure as buoy DPD.
 const WAM_MODEL = "ecmwf_wam025";
@@ -100,12 +101,6 @@ export async function fetchWamDays(buoy: BigSwellBuoy, timezone: string): Promis
 
 function dateAfter(today: string, offset: number): string {
   return new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10);
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { RegionalSwellEvent } from "../week-scout-story-candidates";
-import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, median, sizeWordsFor, windHoursFor } from "../week-scout-story-facts";
+import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, sizeWordsFor, windHoursFor } from "../week-scout-story-facts";
+import { median } from "@/lib/utils/median";
 
 const event: RegionalSwellEvent = { regionalKey: "west", kind: "swell", directionDeg: 270, periodS: 13,
   arrivalAt: "2026-10-29T16:00:00Z", peakAt: "2026-10-29T20:00:00Z", fadeAt: "2026-10-30T18:00:00Z",
