@@ -690,6 +690,31 @@ describe("buildRegionEvents + rateRegionEvents", () => {
       expect(built.events.map((event) => event.source)).toEqual(["forecast"]);
     });
 
+    it("adds no tail when the region has no stored partitions to start from", async () => {
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([2, 3], W_SWELL));
+      const noPartitions = storedThroughDay9(beaches).map((row) => ({ ...row, swell_1_height: null, swell_2_height: null }));
+      const built = await build(beaches, noPartitions);
+
+      expect(built.storedThrough).toBeNull();
+      expect(built.events).toEqual([]);
+      expect(fetchGfsTailRows).not.toHaveBeenCalled();
+    });
+
+    it("keeps the stored events' keys when a tail swell shares their band and day", async () => {
+      // The story edition names events by key, so a tail swell must never push a stored one to ".2".
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      const withoutTail = await build(beaches, storedThroughDay9(beaches, { swell: W_SWELL, eventDays: [9] }));
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([11, 12], { ...W_SWELL, periodS: 9 }));
+      nextId = 0;
+      const again = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      const withTail = await build(again, storedThroughDay9(again, { swell: W_SWELL, eventDays: [9] }));
+
+      const stored = (events: InternalRegionEvent[]) => events.filter((event) => event.source === "forecast").map((event) => event.key);
+      expect(stored(withTail.events)).toEqual(stored(withoutTail.events));
+      expect(withTail.events.some((event) => event.source === "wam")).toBe(true);
+    });
+
     it("adds nothing when the regional feed is unavailable or the region has no facing", async () => {
       const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
       const built = await build(beaches, storedThroughDay9(beaches));

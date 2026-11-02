@@ -110,7 +110,7 @@ export interface InternalRegionEvent {
   peakLocalDate: string;
   offshoreFt: string | null;
   history: string | null;
-  /** Beach detections behind the event, summed over its joined groups; 0 for an early look. */
+  /** Beach detections behind the event, summed over its joined groups; 0 for a WAM early look. */
   memberCount: number;
 }
 
@@ -326,7 +326,8 @@ async function gfsTailEvents(input: {
   stored: readonly UnkeyedRegionEvent[];
 }): Promise<UnkeyedRegionEvent[]> {
   // A region too small to show gets no fetch, as with the WAM buoy.
-  if (input.beachRows.length < MIN_REGION_BEACHES) return [];
+  // With no stored partitions there is no reach to start from, and no tail.
+  if (input.beachRows.length < MIN_REGION_BEACHES || !Number.isFinite(input.afterMs)) return [];
   const point = regionOffshorePoint(input.beachRows.map((beach) => ({
     lat: beach.lat,
     lon: beach.lon,
@@ -414,8 +415,9 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
 type RegionInput = { client: Client; region: string; now: Date; timezone: string };
 
 /**
- * The stored-forecast part of a region build (beaches, detection, grouping, the rows rating needs),
- * cached 3 h per region and local day, with keys and no WAM: buoy and wamDays are null.
+ * The stored-forecast part of a region build (beaches, detection, grouping, the rows rating needs)
+ * plus the GFS tail past it, cached 3 h per region and local day, with keys and no WAM: buoy and
+ * wamDays are null. A failed GFS fetch costs that window its tail swells, not its stored events.
  */
 export async function loadRegionForecastEvents(input: RegionInput): Promise<RegionBuild> {
   const today = getLocalDateStr(input.now, input.timezone);
