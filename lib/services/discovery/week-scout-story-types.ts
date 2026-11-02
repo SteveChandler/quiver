@@ -1,6 +1,6 @@
 import type { CandidateFacts } from "./week-scout-story-facts";
 
-export const WEEK_SCOUT_STORY_SCHEMA_VERSION = 3 as const;
+const WEEK_SCOUT_STORY_SCHEMA_VERSION = 3 as const;
 export const WEEK_SCOUT_STORY_GENERATION_VERSION = "week-scout-story-1";
 /** -1 selects candidates; -2 also sends a sentence Gemma wrote for some picks, checked when served. */
 export const WEEK_SCOUT_STORY_GENERATION_VERSIONS = ["week-scout-story-1", "week-scout-story-2"] as const;

@@ -15,7 +15,7 @@ interface ObservedCronRun {
   skipIdleRuns?: boolean;
 }
 
-export interface ObservedCronOptions {
+interface ObservedCronOptions {
   /**
    * For high-frequency crons whose Sentry monitor already proves liveness:
    * write a cron_runs row only when the run does work or fails, instead of a

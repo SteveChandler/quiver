@@ -11,13 +11,13 @@ import {
 import { NO_STORE_CACHE_CONTROL } from "./cache-wrappers";
 import type { RouteContext, RouteHandler } from "./types";
 
-export interface BriefingPublisherContext {
+interface BriefingPublisherContext {
   /** The one account this credential may act for. */
   userId: string;
   region: string;
 }
 
-export type BriefingPublisherHandler = (
+type BriefingPublisherHandler = (
   request: NextRequest,
   context: BriefingPublisherContext,
 ) => Promise<NextResponse> | NextResponse;

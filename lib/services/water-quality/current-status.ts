@@ -49,7 +49,7 @@ export interface CountyStatusMetadata {
   county_rain_advisory?: { started_at: string; last_rain_at: string | null; expires_at: string };
 }
 
-export interface CountyProjectionInput {
+interface CountyProjectionInput {
   run: unknown;
   notices: unknown;
   owners: unknown;
@@ -156,7 +156,7 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
   });
 }
 
-export interface CurrentWaterQualityOptions {
+interface CurrentWaterQualityOptions {
   /** Limit County coverage to these beaches (the recommendation hold path). */
   onlyBeachIds?: readonly string[];
 }

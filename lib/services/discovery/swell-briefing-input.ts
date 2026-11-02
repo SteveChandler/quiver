@@ -23,7 +23,7 @@ import {
 type Client = SupabaseClient<Database>;
 
 /** Bumped when the shape of a built snapshot changes, invalidating deduplication. */
-export const BRIEFING_INPUT_VERSION = "1";
+const BRIEFING_INPUT_VERSION = "1";
 
 const WEEK_DAYS = 7;
 const NEXT_48_DAYS = 2;
@@ -31,7 +31,7 @@ const NEXT_48_DAYS = 2;
 const AM_HOURS: [number, number] = [6, 11];
 const PM_HOURS: [number, number] = [12, 17];
 
-export interface BriefingRegion {
+interface BriefingRegion {
   slug: string;
   label: string;
   timezone: string;
