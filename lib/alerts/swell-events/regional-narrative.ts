@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { SkillLevel } from "@/lib/domains/user-preferences";
+import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
+import { beachRowsByLocalDate, breakerCharacter, type FaceRange } from "@/lib/services/discovery/week-scout-story-facts";
 import { localDate } from "@/lib/services/discovery/swell-briefing-input";
 import {
   beachLine,
@@ -14,10 +17,11 @@ import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
 import type { StoryArtifact, StoryGate, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
 import type { Database } from "@/types/database";
-import type { RegionBeachRating, RegionSwellEvent } from "@/types/region-swell-events";
+import type { RegionBeachRating, RegionSwellEvent, RegionWatchBeach } from "@/types/region-swell-events";
 
 import type { RegionBuild } from "./regional";
-import { BLOWN_OUT } from "./regional-rating";
+import { exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
+import { BLOWN_OUT, isWorking, rateEventBeaches, ratingWindow, type RegionRatingsByEvent } from "./regional-rating";
 
 type Client = SupabaseClient<Database>;
 
@@ -95,6 +99,9 @@ type WrittenLine = (slot: string, accepts?: (gate: StoryGate) => boolean) => str
  * doesn't, and the gate holds against this request's build.
  */
 function writtenLines({ input, artifact }: NarrativeEdition, region: string, context: RegionGateContext): WrittenLine {
+  if (!Array.isArray(input.copyFacts)) {
+    throw new Error("story_candidate_text_invalid");
+  }
   const selected = new Set(artifact.briefing.selections);
   const facts = new Map(input.copyFacts.map((fact) => [fact.id, fact]));
   const bySlot = new Map((artifact.briefing.written ?? []).map((entry) => [entry.slot, entry]));
@@ -104,7 +111,13 @@ function writtenLines({ input, artifact }: NarrativeEdition, region: string, con
     const fact = entry && selected.has(entry.basedOn) ? facts.get(entry.basedOn) : undefined;
     if (!entry || !fact || fact.slot !== slot || !beachNames) return null;
     if (accepts && !accepts(fact.gate)) return null;
-    if (!checkWrittenSentence(entry.text, fact, beachNames, [region]).ok) return null;
+    if (typeof fact.text !== "string") throw new Error("story_candidate_text_invalid");
+    const gate = fact.gate;
+    const currentFacts = gate.kind === "swell" ? context.eventFacts(gate.regionalEventKey)
+      : gate.kind === "beach" ? context.beachDayFacts(gate.regionalEventKey, gate.beachId, gate.localDate) : null;
+    const current = { ...fact, facts: currentFacts ?? undefined };
+    if (!checkWrittenSentence(fact.text, current, beachNames, [region]).ok
+      || !checkWrittenSentence(entry.text, current, beachNames, [region]).ok) return null;
     return regionGateHolds(fact.gate, context) === true ? entry.text : null;
   };
 }
@@ -115,34 +128,33 @@ export function withoutNarrative(event: RegionSwellEvent): RegionSwellEvent {
   return {
     ...event,
     story: null,
+    breaker: event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS),
     here: event.here ? silent(event.here) : null,
     working: event.working.map(silent),
     notWorking: event.notWorking.map(silent),
   };
 }
 
-/**
- * Each forecast event's `story` and each of its listed beaches' `why`: the PC's written sentence for
- * that slot when today's edition has one that passes, otherwise the server line from this build.
- * Early looks carry neither. Card slots join the edition by story key, never by the build's event key.
- */
-export function narrateRegionEvents(input: {
-  build: RegionBuild;
-  rated: RegionSwellEvent[];
-  edition: NarrativeEdition | null;
-  now: Date;
-}): RegionSwellEvent[] {
-  const { build, rated, edition, now } = input;
+interface EventNarration {
+  context: RegionGateContext;
+  written: WrittenLine;
+}
+
+/** Share memoized facts and one edition warning across card and watch slots. */
+function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, now: Date): {
+  all: RegionalSwellEvent[];
+  forEvent: (event: RegionalSwellEvent) => EventNarration;
+} {
   const today = localDate(now, build.timezone);
   const { all } = storyEventsFromRegion(build, today);
   const context = buildRegionGateContext(build, today);
-  const byBuildKey = new Map(all.map((event) => [event.regionalKey, event]));
   // The gate context answers for the first event under a story key, so only that one can take a written sentence.
   const firstUnderKey = new Map<string, string>();
   for (const event of all) {
     const key = storyEventKey(event);
     if (!firstUnderKey.has(key)) firstUnderKey.set(key, event.regionalKey);
   }
+  const narrationByRegionalKey = new Map<string, EventNarration>();
   // A malformed stored edition costs only its written text: the card never fails because of the narrative.
   let warned = false;
   const unusable = (error: unknown): null => {
@@ -164,38 +176,210 @@ export function narrateRegionEvents(input: {
     }
   };
 
-  return rated.map((event) => {
-    const story: RegionalSwellEvent | undefined = event.source === "forecast" ? byBuildKey.get(event.key) : undefined;
-    if (!story) return withoutNarrative(event);
+  return { all, forEvent: (event) => {
+    const cached = narrationByRegionalKey.get(event.regionalKey);
+    if (cached) return cached;
+    const first = firstUnderKey.get(storyEventKey(event)) === event.regionalKey;
+    const prepared = {
+      context: first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === event.regionalKey) }, today),
+      written: first ? writtenFor : () => null,
+    };
+    narrationByRegionalKey.set(event.regionalKey, prepared);
+    return prepared;
+  } };
+}
+
+export type PreparedRegionNarration = ReturnType<typeof prepareNarration>;
+
+/** Share one gate context and one edition-warning scope across card lines and watch days. */
+export function prepareRegionNarration(input: {
+  build: RegionBuild;
+  edition: NarrativeEdition | null;
+  now: Date;
+}): PreparedRegionNarration {
+  return prepareNarration(input.build, input.edition, input.now);
+}
+
+function beachDayLine(
+  event: RegionalSwellEvent,
+  beachId: string,
+  date: string,
+  { context, written }: EventNarration,
+  key: string,
+  wind = context.wind(key, beachId, date),
+  blownOut = false,
+): string | null {
+  const server = beachLine(event, beachId, {
+    ...context,
+    wind: () => blownOut ? "windy" : wind,
+    beachDayFacts: (key, id, localDate) => {
+      const facts = context.beachDayFacts(key, id, localDate);
+      return facts && blownOut ? { ...facts, windHours: [] } : facts;
+    },
+  }, date, key);
+  if (!server) return null;
+  const peakDate = getLocalDateStr(new Date(event.peakAt), event.timezone);
+  const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.localDate === date && gate.wind === wind;
+  const why = date === peakDate && !blownOut ? written(`event:${key}:beach:${beachId}`, accepts) : null;
+  return why ?? server.text;
+}
+
+function faceText(range: FaceRange | null): string | null {
+  if (!range) return null;
+  return range.min === range.max ? `${range.min} ft` : `${range.min}-${range.max} ft`;
+}
+
+function watchStanding(build: RegionBuild, directionDeg: number | null, beachIds: readonly string[]): RegionWatchBeach[] {
+  const beaches = new Map(build.beaches.map((beach) => [beach.id, beach]));
+  return [...new Set(beachIds)].flatMap((id) => {
+    const beach = beaches.get(id);
+    if (!beach) return [];
+    const factor = directionDeg === null ? null : exposureFactor(directionDeg, swellWindowForBeach(beach));
+    return [{ beachId: id, beachName: beach.name, exposure: factor === null ? null : exposureLabel(factor), reason: null, days: [] }];
+  });
+}
+
+function sortWatchByRating(
+  beaches: RegionWatchBeach[],
+  ratings: ReadonlyMap<string, RegionBeachRating>,
+  earlyLook: boolean,
+): RegionWatchBeach[] {
+  const rank = new Map([...ratings.keys()].map((beachId, index) => [beachId, index]));
+  return [...beaches].sort((left, right) => {
+    if (!earlyLook) {
+      const leftWorking = isWorking(ratings.get(left.beachId)?.label ?? "");
+      const rightWorking = isWorking(ratings.get(right.beachId)?.label ?? "");
+      const workingOrder = Number(rightWorking) - Number(leftWorking);
+      if (workingOrder !== 0) return workingOrder;
+    }
+    return (rank.get(left.beachId) ?? Number.POSITIVE_INFINITY)
+      - (rank.get(right.beachId) ?? Number.POSITIVE_INFINITY)
+      || left.beachName.localeCompare(right.beachName);
+  });
+}
+
+interface WatchInput {
+  build: RegionBuild;
+  event: RegionalSwellEvent;
+  rated: Map<string, RegionBeachRating>;
+  beachIds: readonly string[];
+  edition: NarrativeEdition | null;
+  now: Date;
+}
+
+function watchWithNarration({ build, event, rated, beachIds, now }: WatchInput, narration: EventNarration): RegionWatchBeach[] {
+  const key = storyEventKey(event);
+  const today = localDate(now, build.timezone);
+  const { startMs, endMs } = ratingWindow(event);
+  const watches = watchStanding(build, event.directionDeg, beachIds).map((beach) => {
+    const rating = rated.get(beach.beachId);
+    const working = rating && isWorking(rating.label);
+    const dates = [...beachRowsByLocalDate(build, beach.beachId)].flatMap(([date, rows]) => {
+      if (date < today || !rows.some((row) => {
+        const at = Date.parse(row.forecast_at);
+        return at >= startMs && at < endMs;
+      })) return [];
+      return [date];
+    }).sort();
+    const ratingDate = getLocalDateStr(new Date(rating?.windowStartAt ?? event.peakAt), build.timezone);
+    return { ...beach, reason: working ? null : rating?.reason ?? null, days: dates.map((date) => {
+      const facts = narration.context.beachDayFacts(key, beach.beachId, date);
+      const blownOut = rating?.reason === BLOWN_OUT && date === ratingDate;
+      return { localDate: date, faceFt: faceText(facts?.faceFt ?? null),
+        why: beachDayLine(event, beach.beachId, date, narration, key, undefined, blownOut) };
+    }) };
+  });
+  return sortWatchByRating(watches, rated, false);
+}
+
+/** Use this for an individual inspection; the hot route composes all events through watchRegionEvents. */
+export function watchBeaches(input: WatchInput): RegionWatchBeach[] {
+  return watchWithNarration(input, prepareNarration(input.build, input.edition, input.now).forEvent(input.event));
+}
+
+/** Card and requested watch lines share this build's facts and the edition's per-slot checks. */
+export function narrateRegionEvents(input: {
+  build: RegionBuild;
+  rated: RegionSwellEvent[];
+  edition: NarrativeEdition | null;
+  now: Date;
+  beachIds?: readonly string[];
+  skill?: SkillLevel;
+  ratingsByEvent?: RegionRatingsByEvent;
+  narration?: PreparedRegionNarration;
+}): RegionSwellEvent[] {
+  const { build, rated, edition, now, beachIds, skill = "intermediate", ratingsByEvent } = input;
+  const today = localDate(now, build.timezone);
+  const narration = input.narration ?? prepareNarration(build, edition, now);
+  const byBuildKey = new Map(narration.all.map((event) => [event.regionalKey, event]));
+  const output = rated.map((event) => {
+    const internal = build.events.find((item) => item.key === event.key);
+    const story = event.source === "forecast" ? byBuildKey.get(event.key) : undefined;
+    const breaker = event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS);
+    if (!story) return { ...withoutNarrative(event), breaker,
+      ...(beachIds === undefined ? {} : { watch: watchStanding(build, internal?.directionDeg ?? null, beachIds) }),
+    };
+    const own = narration.forEvent(story);
     const key = storyEventKey(story);
-    const first = firstUnderKey.get(key) === story.regionalKey;
-    // A later event under a shared key reads its exposure and wind from its own context.
-    const own = first ? context : buildRegionGateContext({ ...build, events: build.events.filter((item) => item.key === story.regionalKey) }, today);
-    /** The rating's own hours set its wind, as they set its label and reason; the event window only without them. */
-    const ratingWind = (rating: RegionBeachRating): ReturnType<typeof windBucket> => {
+    const narrate = (rating: RegionBeachRating): RegionBeachRating => {
       const startMs = rating.windowStartAt ? Date.parse(rating.windowStartAt) : Number.NaN;
       const endMs = rating.windowEndAt ? Date.parse(rating.windowEndAt) : Number.NaN;
-      return Number.isFinite(startMs) && Number.isFinite(endMs)
+      const date = getLocalDateStr(new Date(rating.windowStartAt ?? story.peakAt), build.timezone);
+      const wind = Number.isFinite(startMs) && Number.isFinite(endMs)
         ? windBucket(build.rowsByBeach[rating.beachId] ?? [], startMs, endMs)
-        : own.wind(key, rating.beachId);
-    };
-    const narrate = (rating: RegionBeachRating): RegionBeachRating => {
-      const wind = ratingWind(rating);
-      // The line and the reason describe one wind: a blown-out rating's line says the wind is up.
-      const blownOut = rating.reason === BLOWN_OUT;
-      const server = beachLine(story, rating.beachId, own, blownOut ? "windy" : wind);
-      if (!server) return { ...rating, why: null };
-      // Gemma's line was written for the event window's wind; it serves only where that is this rating's wind.
-      const accepts = (gate: StoryGate): boolean => gate.kind === "beach" && gate.wind === wind;
-      const why = first && !blownOut ? writtenFor(`event:${key}:beach:${rating.beachId}`, accepts) : null;
-      return { ...rating, why: why ?? server.text };
+        : own.context.wind(key, rating.beachId, date);
+      return { ...rating, why: beachDayLine(story, rating.beachId, date, own, key, wind, rating.reason === BLOWN_OUT) };
     };
     return {
       ...event,
-      story: (first && writtenFor(`event:${key}:story`)) || eventStoryText(story, today),
+      breaker,
+      story: own.written(`event:${key}:story`) || eventStoryText(story, today, own.context.eventFacts(key)),
       here: event.here ? narrate(event.here) : null,
       working: event.working.map(narrate),
       notWorking: event.notWorking.map(narrate),
     };
   });
+  if (beachIds === undefined) return output;
+  const watches = collectRegionWatches({ build, rated, edition, now, beachIds, skill, ratingsByEvent }, narration);
+  return output.map((event) => ({ ...event, watch: watches.get(event.key) ?? [] }));
+}
+
+interface RegionWatchInput {
+  build: RegionBuild;
+  rated: RegionSwellEvent[];
+  edition: NarrativeEdition | null;
+  now: Date;
+  beachIds: readonly string[];
+  skill?: SkillLevel;
+  ratingsByEvent?: RegionRatingsByEvent;
+  narration?: PreparedRegionNarration;
+}
+
+function collectRegionWatches(input: RegionWatchInput, narration: ReturnType<typeof prepareNarration>): Map<string, RegionWatchBeach[]> {
+  const { build, rated, beachIds, edition, now, skill = "intermediate" } = input;
+  const { ratingsByEvent } = input;
+  const watches = new Map<string, RegionWatchBeach[]>();
+  for (const event of rated) {
+    const internal = build.events.find((item) => item.key === event.key);
+    const story = event.source === "forecast" ? narration.all.find((item) => item.regionalKey === event.key) : undefined;
+    let ratedBeaches: ReadonlyMap<string, RegionBeachRating>;
+    if (ratingsByEvent) {
+      ratedBeaches = ratingsByEvent.get(event.key) ?? new Map();
+    } else if (internal) {
+      ratedBeaches = rateEventBeaches(build, internal, beachIds, skill, now);
+    } else {
+      ratedBeaches = new Map();
+    }
+    if (!story) {
+      watches.set(event.key, sortWatchByRating(watchStanding(build, internal?.directionDeg ?? null, beachIds), ratedBeaches, event.source === "wam"));
+      continue;
+    }
+    watches.set(event.key, watchWithNarration({ build, event: story, rated: new Map(ratedBeaches), beachIds, edition, now }, narration.forEvent(story)));
+  }
+  return watches;
+}
+
+/** Requested beach rows for all events. The API calls this after card narration so watch failures stay isolated. */
+export function watchRegionEvents(input: RegionWatchInput): Map<string, RegionWatchBeach[]> {
+  return collectRegionWatches(input, input.narration ?? prepareNarration(input.build, input.edition, input.now));
 }

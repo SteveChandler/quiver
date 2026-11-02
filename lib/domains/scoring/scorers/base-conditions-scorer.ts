@@ -154,6 +154,9 @@ const CONDITION_THRESHOLDS = {
   tooSmallWarningFt: 1,
 };
 
+/** Skip reason for a flat row; `getConditionCharacter` matches on it. */
+export const FLAT_CONDITIONS_SKIP_REASON = 'Flat conditions - no rideable waves';
+
 /**
  * Weights for combining wave height and period scores.
  * Height is weighted more heavily as it's the primary surfability factor.
@@ -311,9 +314,9 @@ function scoreBaseConditions(input: ScorerInput, config: WaveHeightConfig): Scor
       score: 0,
       weight: SCORER_WEIGHTS.baseConditions,
       reasons: [],
-      warnings: ['Flat conditions - no rideable waves'],
+      warnings: [FLAT_CONDITIONS_SKIP_REASON],
       skip: true,
-      skipReason: 'Flat conditions - no rideable waves',
+      skipReason: FLAT_CONDITIONS_SKIP_REASON,
     };
   }
 

@@ -26,6 +26,7 @@ import { scoreNativeForecastSlot } from '@/lib/scoring/native-condition-score';
 import { scoreWindowConditionScore } from '@/lib/services/discovery/window-selector/window-scorer';
 import { createDiscoveryScoringEngine } from '@/lib/domains/scoring';
 import { getRecommendationLabel } from '@/lib/services/discovery/response-formatter';
+import { resolveRecommendationLabel } from '@/lib/services/discovery/recommendation-label';
 import type { BoardClass } from '@/lib/domains/rideability';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -190,6 +191,34 @@ describe('verdict consistency', () => {
     const displayed = toDisplayConditionScore(91);
     expect(verdictFor(displayed)).toBe('Worth it');
     expect(displayed).toBe(91);
+  });
+
+  it('rates a blown-out hour Skip beside its blown-out character', () => {
+    // Ocean Beach Pier, 2026-11-01 21:00Z: 22 mph WNW onshore. Dev served it as MAYBE 65.
+    const beach = {
+      id: 'obp', name: 'Ocean Beach Pier', slug: 'ocean-beach-pier', shoaling_factors: {},
+      break_type: 'beach', aspect_deg: 260, skill_level: 'advanced',
+      wind_offshore_deg: 90, wind_offshore_tol_deg: 45,
+      swell_window_center_deg: 293, swell_window_halfwidth_deg: 73,
+      preferred_tide_ft_min: 0, preferred_tide_ft_max: 4,
+    } as unknown as Beach;
+    const forecast = {
+      id: 'obp-21z', beach_id: 'obp', forecast_at: '2026-11-01T21:00:00Z',
+      wave_height: '3.2 ft', wave_period: '14s', wave_direction: 'SSW',
+      swell_1_height: '4.2 ft', swell_1_period: '16s', swell_1_direction: 'SSW',
+      wind_speed: '22 mph', wind_direction: 'WNW', wind_direction_deg: 299,
+      tide_height: '4.7 ft', tide_status: 'Falling', data_source: 'CDIP',
+    } as unknown as EnhancedForecastEntity;
+
+    const display = buildDiscoveryDisplayScore({
+      beach, forecast, userSkillLevel: 'advanced', affinityBonus: 0, distancePenalty: 0,
+      personalizationBonus: 0, boardStyleFitPoints: 0, boardClasses: ['shortboard'],
+    });
+    const { label, character } = resolveRecommendationLabel({ beach, forecast, score: display.total });
+
+    expect(character).toEqual({ category: 'skip', label: 'Onshore wind — conditions blown out' });
+    expect(display.total).toBeLessThan(40);
+    expect(label).toBe('Skip');
   });
 });
 

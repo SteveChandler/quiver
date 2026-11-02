@@ -168,7 +168,7 @@ const nextConfig = {
       // user. The ordered rules put their no-store header after the blanket
       // API rule, matching Next's final-matching-header behavior.
       ...apiCacheHeaderRules,
-      ...["/api/offers/:path*", "/api/email/:path*", "/api/cron/swell-watch-acquire", "/api/cron/swell-watch-evaluate"].map((source) => ({
+      ...["/api/offers/:path*", "/api/email/:path*", "/api/cron/swell-watch-acquire", "/api/cron/swell-watch-evaluate", "/api/geo/region"].map((source) => ({
         source,
         headers: [{ key: "Cache-Control", value: "private, no-store, no-cache, must-revalidate" }],
       })),
