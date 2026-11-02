@@ -37,7 +37,7 @@ export type {
   ConditionCharacterCategory,
   SkipCause,
 } from './condition-character';
-export { getConditionCharacter, getSkipCause } from './condition-character';
+export { getConditionCharacter, getSkipCause, getSkipCharacter } from './condition-character';
 
 // Discovery adapter (backwards compatibility with surf-discovery-service)
 export {

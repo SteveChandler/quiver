@@ -196,6 +196,22 @@ export function getSkipCause(
   return { kind: 'wind', speedMph: Math.round(wind.speedMph), direction: wind.direction };
 }
 
+/** The condition label for a skip cause. */
+export function getSkipCharacter(cause: SkipCause): ConditionCharacter {
+  if (cause.kind === 'wind') {
+    return cause.direction === 'onshore'
+      ? { category: 'skip', label: 'Onshore wind — conditions blown out' }
+      : { category: 'skip', label: 'Blown out — too much wind' };
+  }
+  if (cause.kind === 'flat') {
+    return { category: 'skip', label: 'Flat — rest day' };
+  }
+  if (cause.kind === 'setup-risk') {
+    return { category: 'skip', label: 'Likely closing out — dropping low tide' };
+  }
+  return { category: 'skip', label: 'Skip — conditions not favorable' };
+}
+
 /**
  * Determine the qualitative condition character.
  *
@@ -228,20 +244,7 @@ export function getConditionCharacter(
   // 1. Skip conditions — label by the cause, so a flat row or a setup risk
   //    never reads as wind and a blown-out flat row never reads as flat.
   const skipCause = getSkipCause(snapshot, profile, composite);
-  if (skipCause) {
-    if (skipCause.kind === 'wind') {
-      return skipCause.direction === 'onshore'
-        ? { category: 'skip', label: 'Onshore wind — conditions blown out' }
-        : { category: 'skip', label: 'Blown out — too much wind' };
-    }
-    if (skipCause.kind === 'flat') {
-      return { category: 'skip', label: 'Flat — rest day' };
-    }
-    if (skipCause.kind === 'setup-risk') {
-      return { category: 'skip', label: 'Likely closing out — dropping low tide' };
-    }
-    return { category: 'skip', label: 'Skip — conditions not favorable' };
-  }
+  if (skipCause) return getSkipCharacter(skipCause);
 
   // 2. Flat — barely anything to surf
   if (waveHeight < 0.5) {

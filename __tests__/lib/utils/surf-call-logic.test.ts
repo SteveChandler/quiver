@@ -1031,10 +1031,10 @@ describe('computeSurfCall', () => {
       expect(result.whySentence).toBe('Blown out — 30 mph onshore wind, choppy and hard to read.');
     });
 
-    it('claims no height when the peak hour has no wave height', () => {
+    it('claims no height, in the pill or the sentence, when the peak hour has no wave height', () => {
       const forecasts = [makeForecast({ wave_height: null as unknown as string, swell_1_height: null as unknown as string })];
       const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
-      expect(result.character?.category).toBe('skip');
+      expect(result.character).toEqual({ category: 'skip', label: 'Skip — conditions not favorable' });
       expect(result.whySentence).toBe('Not enough forecast data at the peak to rate it.');
     });
 

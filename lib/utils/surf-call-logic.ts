@@ -21,6 +21,7 @@ import {
   getDiscoveryScoringEngine,
   getConditionCharacter,
   getSkipCause,
+  getSkipCharacter,
   LOW_TIDE_HEAVY_SWELL_WARNING,
   type ConditionCharacter,
   type SkipCause,
@@ -931,11 +932,16 @@ function computeCompositeAndCharacter(
       preferences: null,
     };
     const composite = getDiscoveryScoringEngine().score(scorerInput);
-    const character = getConditionCharacter(snapshot, profile, composite);
+    const scoredCause = getSkipCause(snapshot, profile, composite);
+    // The snapshot reads a missing wave height as 0 ft: a flat nobody measured.
+    const skipCause: SkipCause | null =
+      scoredCause?.kind === 'flat' && parseMaxWaveHeight(representativeForecast.wave_height) === null
+        ? { kind: 'other' }
+        : scoredCause;
     return {
       composite,
-      character,
-      skipCause: getSkipCause(snapshot, profile, composite),
+      character: skipCause ? getSkipCharacter(skipCause) : getConditionCharacter(snapshot, profile, composite),
+      skipCause,
       tideLimiter: isTideSwingEnabled()
         ? safeTideLimiter(composite, scorerInput, beach, representativeForecast, forecasts, timezone)
         : null,
@@ -1148,11 +1154,7 @@ export function computeSurfCall(
   const compositeResult = computeCompositeAndCharacter(beach, representativeForecast, forecasts, callTimezone);
   const character = compositeResult?.character ?? null;
   const cautions = extractSetupCautions(compositeResult?.composite.warnings);
-  // The scorer reads a missing wave height as 0 ft, a flat skip nobody measured.
-  const skipCause: SkipCause | null =
-    compositeResult?.skipCause?.kind === 'flat' && parseMaxWaveHeight(representativeForecast?.wave_height ?? null) === null
-      ? { kind: 'other' }
-      : compositeResult?.skipCause ?? null;
+  const skipCause = compositeResult?.skipCause ?? null;
 
   // Short window gate - reject if too short. Verdict is NO → suppress the
   // "Best window" so the UI doesn't contradict itself.
