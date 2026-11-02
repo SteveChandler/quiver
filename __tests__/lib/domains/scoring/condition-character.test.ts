@@ -13,10 +13,11 @@
  */
 
 import { getConditionCharacter } from '@/lib/domains/scoring/condition-character';
+import { baseConditionsScorer, setupRiskScorer } from '@/lib/domains/scoring';
 import type { CompositeScore } from '@/lib/domains/scoring';
 import type { SpotProfile } from '@/lib/domains/spot-profile';
 import type { ConditionsSnapshot } from '@/lib/domains/conditions';
-import { createProfile, createSnapshot, createSwell } from '../__fixtures__';
+import { createInput, createProfile, createSnapshot, createSwell } from '../__fixtures__';
 
 /**
  * Build a CompositeScore stub with just the subscore Map values
@@ -107,6 +108,69 @@ describe('getConditionCharacter (domain engine port)', () => {
       const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('skip');
       expect(result.label).toMatch(/onshore/i);
+    });
+
+    it.each([
+      ['Blown out (25 mph onshore)', 'Onshore wind — conditions blown out'],
+      ['Blown out (31 mph offshore)', 'Blown out — too much wind'],
+      ['Blown out (24 mph sideshore)', 'Blown out — too much wind'],
+    ])('keeps the wind label for "%s"', (skipReason, label) => {
+      const result = getConditionCharacter(baseSnapshot, profile, { ...baseComposite, skipReason });
+      expect(result).toEqual({ category: 'skip', label });
+    });
+
+    it('labels a flat skip as flat, not wind', () => {
+      const flat = baseConditionsScorer.score(createInput({ waveHeight: 0.3 }, profile));
+      expect(flat.skip).toBe(true);
+
+      const snap = createSnapshot({ ...baseSnapshot, waveHeight: 0.3 });
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: flat.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Flat — rest day' });
+    });
+
+    it('labels a flat skip as flat when the wind is unknown', () => {
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 0.3,
+        wind: { speedMph: null, directionDeg: null },
+      });
+      const flat = baseConditionsScorer.score(createInput(snap, profile));
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: flat.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Flat — rest day' });
+    });
+
+    it('labels a setup-risk skip by the tide, not the wind', () => {
+      const input = createInput(
+        {
+          ...baseSnapshot,
+          waveHeight: 7,
+          wavePeriod: 12,
+          tide: { heightFt: -0.4, status: 'falling', direction: 'falling' },
+        },
+        { ...profile, breakType: 'beach' }
+      );
+      const setupRisk = setupRiskScorer.score(input);
+      expect(setupRisk.skip).toBe(true);
+
+      const result = getConditionCharacter(input.snapshot, input.profile, {
+        ...baseComposite,
+        skipReason: setupRisk.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Likely closing out — dropping low tide' });
+    });
+
+    it('gives a skip with no named source a neutral label', () => {
+      const result = getConditionCharacter(baseSnapshot, profile, {
+        ...baseComposite,
+        skipReason: 'Conditions not favorable',
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Skip — conditions not favorable' });
     });
   });
 
