@@ -13,7 +13,7 @@
  */
 
 import { getConditionCharacter } from '@/lib/domains/scoring/condition-character';
-import { baseConditionsScorer, setupRiskScorer } from '@/lib/domains/scoring';
+import { baseConditionsScorer, setupRiskScorer, windQualityScorer } from '@/lib/domains/scoring';
 import type { CompositeScore } from '@/lib/domains/scoring';
 import type { SpotProfile } from '@/lib/domains/spot-profile';
 import type { ConditionsSnapshot } from '@/lib/domains/conditions';
@@ -111,12 +111,31 @@ describe('getConditionCharacter (domain engine port)', () => {
     });
 
     it.each([
-      ['Blown out (25 mph onshore)', 'Onshore wind — conditions blown out'],
-      ['Blown out (31 mph offshore)', 'Blown out — too much wind'],
-      ['Blown out (24 mph sideshore)', 'Blown out — too much wind'],
-    ])('keeps the wind label for "%s"', (skipReason, label) => {
-      const result = getConditionCharacter(baseSnapshot, profile, { ...baseComposite, skipReason });
+      ['onshore', 25, 270, 'Onshore wind — conditions blown out'],
+      ['offshore', 31, 90, 'Blown out — too much wind'],
+      ['sideshore', 24, 180, 'Blown out — too much wind'],
+    ])('keeps the wind label for a blown-out %s skip', (_direction, speedMph, directionDeg, label) => {
+      const snap = createSnapshot({ ...baseSnapshot, wind: { speedMph, directionDeg } });
+      const wind = windQualityScorer.score(createInput(snap, profile));
+      expect(wind.skip).toBe(true);
+
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: wind.skipReason,
+      });
       expect(result).toEqual({ category: 'skip', label });
+    });
+
+    it('drops wind words from a blown-out skip when the beach orientation is unknown', () => {
+      const unknownOrientation = createProfile({
+        ...profile,
+        windThresholds: { ...profile.windThresholds, offshoreDeg: null },
+      });
+      const result = getConditionCharacter(baseSnapshot, unknownOrientation, {
+        ...baseComposite,
+        skipReason: 'Blown out (25 mph onshore)',
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Skip — conditions not favorable' });
     });
 
     it('labels a flat skip as flat, not wind', () => {

@@ -187,10 +187,10 @@ export function getConditionCharacter(
     }
     const lower = skipReason.toLowerCase();
     if (!windUnknown && lower.startsWith('blown out')) {
-      const label = lower.includes('onshore')
-        ? 'Onshore wind — conditions blown out'
-        : 'Blown out — too much wind';
-      return { category: 'skip', label };
+      if (lower.includes('onshore')) {
+        return { category: 'skip', label: 'Onshore wind — conditions blown out' };
+      }
+      return { category: 'skip', label: 'Blown out — too much wind' };
     }
     return { category: 'skip', label: 'Skip — conditions not favorable' };
   }
