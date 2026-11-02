@@ -7,6 +7,10 @@ jest.mock("@/lib/alerts/swell-events/early-look", () => ({
   ...jest.requireActual("@/lib/alerts/swell-events/early-look"),
   fetchWamDays: jest.fn(),
 }));
+jest.mock("@/lib/alerts/swell-events/gfs-tail", () => ({
+  ...jest.requireActual("@/lib/alerts/swell-events/gfs-tail"),
+  fetchGfsTailRows: jest.fn(),
+}));
 jest.mock("@/lib/alerts/swell-events/detector", () => {
   const actual = jest.requireActual("@/lib/alerts/swell-events/detector");
   return { ...actual, detectBeachSwellEvents: jest.fn(actual.detectBeachSwellEvents) };
@@ -25,6 +29,7 @@ import {
   type RatingRow,
   type RegionBuild,
 } from "@/lib/alerts/swell-events/regional";
+import { fetchGfsTailRows } from "@/lib/alerts/swell-events/gfs-tail";
 import {
   fetchWamDays,
   historyLine,
@@ -254,6 +259,7 @@ beforeEach(() => {
   selectedColumns.length = 0;
   nextId = 0;
   jest.mocked(fetchWamDays).mockResolvedValue(null);
+  jest.mocked(fetchGfsTailRows).mockResolvedValue(null);
 });
 
 describe("buildRegionEvents + rateRegionEvents", () => {
@@ -267,7 +273,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
     expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
     expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
-    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v6", REGION, expect.any(String)], expect.anything());
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v7", REGION, expect.any(String)], expect.anything());
     const beachSelect = selectedColumns.find(({ table }) => table === "beaches")?.columns;
     expect(beachSelect).toContain("wave_punchiness_ai");
     expect(beachSelect).not.toContain("wave_punchiness,");
@@ -302,7 +308,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v6", REGION, "2026-09-25"],
+      ["region-swell-events", "v7", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -616,6 +622,109 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(events.map((event) => [event.source, event.kind, event.peakLocalDate, event.confidence, event.leadDays])).toEqual([
       ["wam", "storm", localDate(10), "early_look", 10],
     ]);
+  });
+
+  describe("GFS tail past the stored partitions", () => {
+    /** The regional GFS feed: flat at 1 ft, with the given partition on the given days (peak at noon on the first). */
+    function gfsRows(days: number[], spec: PartitionSpec) {
+      return Array.from({ length: 18 }, (_, index) => index - 2).flatMap((day) => (
+        dayRows(day, days.includes(day) ? spec : FLAT, { noonBumpFt: day === days[0] ? 0.5 : 0 })
+      ));
+    }
+    /** Stored rows with partitions through day 9 at 6 PM, as on Nov 1 2026; the rows after carry none. */
+    function storedThroughDay9(beaches: TestBeach[], options: Parameters<typeof rowsFor>[1] = {}) {
+      const lastPartitioned = Date.parse(localIsoOf(9, 18));
+      return beaches.flatMap((item) => rowsFor(item.id, options)).map((row) => (
+        Date.parse(String(row.forecast_at)) <= lastPartitioned
+          ? row
+          : { ...row, swell_1_height: null, swell_1_period: null, swell_1_direction: null, swell_2_height: null }
+      ));
+    }
+    const W_SWELL: PartitionSpec = { heightFt: 6, periodS: 15, direction: 270 };
+
+    it("shows a swell the stored forecast can't reach as an early look with its own arrival and fade", async () => {
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([12, 13], W_SWELL));
+      const built = await build(beaches, storedThroughDay9(beaches));
+      const events = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+      expect(fetchGfsTailRows).toHaveBeenCalledTimes(1);
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        kind: "swell",
+        source: "wam",
+        confidence: "early_look",
+        peakLocalDate: localDate(12),
+        directionLabel: "W",
+        periodS: 15,
+        notWorking: [],
+      });
+      expect(events[0].arrivalAt).not.toBeNull();
+      expect(events[0].fadeAt).not.toBeNull();
+      expect(built.events[0].memberCount).toBe(3);
+      expect(events[0].working.map((rating) => rating.label)).toEqual(["LIKELY", "LIKELY", "LIKELY"]);
+    });
+
+    it("leaves a swell the stored forecast already reports to the stored event", async () => {
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([EVENT_DAY], SWELL));
+      const built = await build(beaches, storedThroughDay9(beaches, { swell: true }));
+
+      expect(built.events.map((event) => [event.source, event.peakLocalDate])).toEqual([["forecast", localDate(EVENT_DAY)]]);
+    });
+
+    it("never overrules the stored forecast inside its reach, even on a swell it doesn't report", async () => {
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([5, 6], W_SWELL));
+      const built = await build(beaches, storedThroughDay9(beaches));
+
+      expect(built.events).toEqual([]);
+    });
+
+    it("drops a tail swell that matches a stored swell still rising at the edge, within 36 h", async () => {
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      // Stored partitions end day 9 at 6 PM with the swell's first day; GFS peaks it at noon on day 10.
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([10], W_SWELL));
+      const built = await build(beaches, storedThroughDay9(beaches, { swell: W_SWELL, eventDays: [9] }));
+
+      expect(built.events.map((event) => event.source)).toEqual(["forecast"]);
+    });
+
+    it("adds no tail when the region has no stored partitions to start from", async () => {
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([2, 3], W_SWELL));
+      const noPartitions = storedThroughDay9(beaches).map((row) => ({ ...row, swell_1_height: null, swell_2_height: null }));
+      const built = await build(beaches, noPartitions);
+
+      expect(built.storedThrough).toBeNull();
+      expect(built.events).toEqual([]);
+      expect(fetchGfsTailRows).not.toHaveBeenCalled();
+    });
+
+    it("keeps the stored events' keys when a tail swell shares their band and day", async () => {
+      // The story edition names events by key, so a tail swell must never push a stored one to ".2".
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      const withoutTail = await build(beaches, storedThroughDay9(beaches, { swell: W_SWELL, eventDays: [9] }));
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([11, 12], { ...W_SWELL, periodS: 9 }));
+      nextId = 0;
+      const again = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      const withTail = await build(again, storedThroughDay9(again, { swell: W_SWELL, eventDays: [9] }));
+
+      const stored = (events: InternalRegionEvent[]) => events.filter((event) => event.source === "forecast").map((event) => event.key);
+      expect(stored(withTail.events)).toEqual(stored(withoutTail.events));
+      expect(withTail.events.some((event) => event.source === "wam")).toBe(true);
+    });
+
+    it("adds nothing when the regional feed is unavailable or the region has no facing", async () => {
+      const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+      const built = await build(beaches, storedThroughDay9(beaches));
+      expect(built.events).toEqual([]);
+
+      jest.mocked(fetchGfsTailRows).mockResolvedValue(gfsRows([12, 13], W_SWELL));
+      const facing = beaches.map((item) => ({ ...item, aspect_deg: null, swell_window_center_deg: null }));
+      const unfaced = await build(facing as unknown as TestBeach[], storedThroughDay9(beaches));
+      expect(unfaced.events).toEqual([]);
+    });
   });
 
   it("adds the buoy history line when WAM covers the event's peak day", async () => {
