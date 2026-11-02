@@ -69,6 +69,10 @@ describe("next.config private endpoint cache policy", () => {
         .toBe("private, no-store, no-cache, must-revalidate");
     },
   );
+  it("emits no-store for the caller-specific IP region guess", async () => {
+    expect(resolvedCacheControl("/api/geo/region", await loadConfiguredHeaders()))
+      .toBe("private, no-store, no-cache, must-revalidate");
+  });
   it("emits no-store for experiments while retaining the blanket policy for a control API path", async () => {
     const headers = await loadConfiguredHeaders();
 

@@ -2,12 +2,14 @@ import { readFileSync } from "fs";
 import path from "path";
 
 import {
-  COMPASS, WEEKDAY, beachLineText, buildStoryCandidates, eventStoryText, storyEventKey, type RegionalDaySignal, type RegionalSwellEvent,
+  COMPASS, WEEKDAY, beachLine, windTimingPhrase, beachLineText, buildStoryCandidates, eventStoryText, storyEventKey, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import {
+  BODY_SIZES, BREAKER_WORDS, FOOT_UNITS, OVERHEAD_SIZES, SIZE_BUCKETS, SMALL_SIZES, STANDOUT_WORDS, WIND_TIMING,
   CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, LIST_JOINERS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS,
   RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
 } from "../week-scout-story-claims";
+import { sizeWordsFor, type WindHour, type CandidateFacts } from "../week-scout-story-facts";
 import type { StoryCandidate } from "../week-scout-story-types";
 
 const gate: StoryCandidate["gate"] = {
@@ -65,7 +67,7 @@ describe("checkWrittenSentence", () => {
   });
 
   it("rejects digits, YES/MAYBE/NO and the call", () => {
-    expect(check("West storm swell peaks Friday at 8 feet.")).toEqual({ ok: false, reason: "digit" });
+    expect(check("West storm swell peaks Friday at 8 feet.")).toEqual({ ok: false, reason: "size" });
     expect(check("YES: the west storm swell peaks Friday.")).toEqual({ ok: false, reason: "verdict_word" });
     expect(check("West storm swell peaks Friday, MAYBE.")).toEqual({ ok: false, reason: "verdict_word" });
     expect(check("NO size until the west storm swell peaks Friday.")).toEqual({ ok: false, reason: "verdict_word" });
@@ -75,6 +77,7 @@ describe("checkWrittenSentence", () => {
     }
     expect(check("West storm swell peaks Friday, EARLY  LOOK only.")).toEqual({ ok: false, reason: "verdict_word" });
     expect(check("West storm swell peaks Friday: a good, fair-sized day, likely the one.")).toEqual({ ok: true });
+    expect(check("West storm swell peaks Friday, EARLY-LOOK.")).toEqual({ ok: true });
     expect(check("West storm swell peaks Friday at GOODWIN.")).toEqual({ ok: true });
     expect(check("Friday is the call for the west storm swell.")).toEqual({ ok: false, reason: "the_call" });
     expect(check("   ")).toEqual({ ok: false, reason: "empty" });
@@ -216,10 +219,11 @@ describe("checkWrittenSentence closed word sets (R16)", () => {
     expect(check("Friday turns onshore by midday.", turn)).toEqual({ ok: true });
     const pattern = fact("Mornings stay onshore on several days; offshore wind cleans up by midday.");
     expect(check("Mornings stay offshore on several days; onshore wind cleans up by midday.", pattern)).toEqual({ ok: false, reason: "wind" });
-    expect(check("Onshore mornings on several days, then offshore wind cleans up by midday.", pattern)).toEqual({ ok: true });
+    expect(check("Onshore mornings on several days, then offshore wind cleans up by midday.", pattern)).toEqual({ ok: false, reason: "wind_timing" });
+    expect(check("Mornings stay onshore; offshore wind cleans up by midday.", pattern)).toEqual({ ok: true });
   });
 
-  it("refuses size words outright and widens the number ban", () => {
+  it("refuses size words without supporting facts and keeps the number ban", () => {
     for (const size of SIZE_ADJECTIVES) {
       expect([size, check(`A ${size} west groundswell peaks Thursday.`, dayless)]).toEqual([size, { ok: false, reason: "size" }]);
     }
@@ -513,9 +517,10 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
     const doc = readFileSync(path.join(__dirname, "../../../../docs/contracts/week-scout-story.md"), "utf8");
     const block = /```json claims\n([\s\S]*?)\n```/.exec(doc);
     expect(block).not.toBeNull();
-    expect(JSON.parse(block![1])).toEqual({
+    expect(JSON.parse(block![1])).toStrictEqual({
       COMPASS, WEEKDAY, CLOSED_WORD_SETS, DEGREE_WORDS, PHASE_VERBS, TIME_QUALIFIERS, DAY_PHRASES, WEEK_FROM_DAYS, NEXT_WEEKDAYS,
-      LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, COMPASS_ABBREVIATIONS,
+      LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, SIZE_BUCKETS, BODY_SIZES, OVERHEAD_SIZES, SMALL_SIZES,
+      STANDOUT_WORDS, FOOT_UNITS, WIND_TIMING, BREAKER_WORDS, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, COMPASS_ABBREVIATIONS,
       WEEKDAY_ABBREVIATIONS,
     });
     // Every past phase form is a time qualifier.
@@ -524,9 +529,364 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
   });
 });
 
+describe("checkWrittenSentence size, wind timing and breaker claims", () => {
+  const facts: CandidateFacts = {
+    faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+    windHours: Array.from({ length: 13 }, (_, index) => ({ hour: index + 6, relation: index < 4 ? "offshore" : "onshore", mph: 10 })),
+    breaker: { character: "pitching", feel: "punchy", closingOut: false },
+  };
+  const beach = (overrides: Partial<CandidateFacts> = {}, text = "Chest-high and punchy; offshore early, onshore by 10."): StoryCandidate =>
+    ({ ...fact(text), facts: { ...facts, ...overrides } });
+
+  it("passes a size word only when its bucket is in the facts", () => {
+    expect(check("Chest-high on the sets.", beach())).toEqual({ ok: true });
+    expect(check("Head-high sets.", beach())).toEqual({ ok: false, reason: "size" });
+    expect(check("Waist-to-chest.", beach())).toEqual({ ok: false, reason: "size" });
+    expect(check("Chest to head-high.", beach({ sizes: ["chest", "head"] }))).toEqual({ ok: true });
+    expect(check("Overhead.", beach({ sizes: ["overhead"] }))).toEqual({ ok: true });
+    expect(check("Double-overhead.", beach({ sizes: ["overhead"] }))).toEqual({ ok: false, reason: "size" });
+    expect(check("Double overhead.", beach({ sizes: ["double overhead"] }))).toEqual({ ok: true });
+  });
+
+  it("refuses a long separator run between size claims in linear time", () => {
+    // Inside the length cap; the old separator took seconds from about 26 characters and grew 4x per 2.
+    for (const run of [" ".repeat(150), "-".repeat(150), "& ".repeat(75)]) {
+      const started = performance.now();
+      expect(check(`Waist-high${run}x head-high.`, beach())).toEqual({ ok: false, reason: "size" });
+      expect(performance.now() - started).toBeLessThan(500);
+    }
+  });
+
+  it("refuses, never throws, on a form the regex folds but the maps don't key", () => {
+    for (const text of ["ſmall and clean.", "Offſhore by 10 am.", "Offshore in the morningſ.", "ſhoulder to head high.", "Cheſt and shoulder high."]) {
+      expect(() => check(text, beach())).not.toThrow();
+      expect([text, check(text, beach()).ok]).toEqual([text, false]);
+    }
+  });
+
+  it("passes a foot range only inside the forecast range", () => {
+    for (const text of ["3-4 ft", "3 ft", "3 to 4 feet", "3–4 foot", "3-foot"]) {
+      expect([text, check(text, beach())]).toEqual([text, { ok: true }]);
+    }
+    for (const text of ["4-5 ft", "2-4 ft", "4-3 ft"]) {
+      expect([text, check(text, beach())]).toEqual([text, { ok: false, reason: "size" }]);
+    }
+    expect(check("six-foot", beach())).toEqual({ ok: false, reason: "number" });
+  });
+
+  it("reads standout sizes only in a clause that names the standouts", () => {
+    const standout = beach({ faceFt: { min: 2, max: 4 }, sizes: ["waist", "chest"], standoutFt: { min: 4, max: 6 },
+      standoutSizes: ["chest", "shoulder", "head"] });
+    expect(check("Waist-to-chest, head-high at the standouts.", standout)).toEqual({ ok: true });
+    expect(check("Head-high everywhere.", standout)).toEqual({ ok: false, reason: "size" });
+    expect(check("Bigger at the standouts.", standout)).toEqual({ ok: true });
+    expect(check("Bigger at the standouts.", beach())).toEqual({ ok: false, reason: "size" });
+    for (const text of ["4–6 ft at the best spots", "4 - 6 feet at the swell magnets", "head-high at the best reefs"]) {
+      expect([text, check(text, standout)]).toEqual([text, { ok: true }]);
+    }
+    for (const text of ["4-6 ft everywhere", "Head-high; chest-high at the standouts", "Head-high. Standouts."]) {
+      expect([text, check(text, standout)]).toEqual([text, { ok: false, reason: "size" }]);
+    }
+  });
+
+  it("checks small words against the face maximum", () => {
+    for (const [word, max] of [["small", 3], ["tiny", 2], ["flat", 1]] as const) {
+      expect(check(word, beach({ faceFt: { min: 0, max } }))).toEqual({ ok: true });
+      expect(check(word, beach({ faceFt: { min: 0, max: max + 1 } }))).toEqual({ ok: false, reason: "size" });
+    }
+  });
+
+  it("checks wind timing against the hours", () => {
+    for (const text of ["offshore early, onshore by 10", "sea breeze after lunch", "onshore by 10 AM", "onshore by 10am", "onshore by 10 a.m.", "onshore by noon"]) {
+      expect([text, check(text, beach())]).toEqual([text, { ok: true }]);
+    }
+    for (const text of ["offshore all morning", "onshore by 9", "glassy early", "light offshore early", "offshore all day"]) {
+      expect([text, check(text, beach())]).toEqual([text, { ok: false, reason: "wind_timing" }]);
+    }
+    expect(check("onshore by 13", beach())).toEqual({ ok: false, reason: "digit" });
+    const light = beach({ windHours: [{ hour: 8, relation: "offshore", mph: 7 }] });
+    expect(check("light offshore early", light)).toEqual({ ok: true });
+    expect(check("glassy mornings", light)).toEqual({ ok: true });
+    expect(check("calm all afternoon", light)).toEqual({ ok: false, reason: "wind_timing" });
+    for (const mph of [8, null]) {
+      expect(check("light offshore early", beach({ windHours: [{ hour: 8, relation: "offshore", mph }] })))
+        .toEqual({ ok: false, reason: "wind_timing" });
+    }
+    expect(check("offshore early", beach({ windHours: [{ hour: 9, relation: "offshore", mph: 7 }] })))
+      .toEqual({ ok: false, reason: "wind_timing" });
+    expect(check("offshore early", beach({ windHours: [{ hour: 8, relation: null, mph: 7 }] })))
+      .toEqual({ ok: false, reason: "wind_timing" });
+  });
+
+  it("checks breaker words against the breaker facts", () => {
+    for (const word of ["punchy", "hollow", "pitching", "pitches", "throwing", "throws", "lined up", "lined-up", "lines up", "lining up"]) {
+      expect([word, check(word, beach())]).toEqual([word, { ok: true }]);
+    }
+    for (const word of ["crumbly", "soft", "closing out"]) {
+      expect([word, check(word, beach())]).toEqual([word, { ok: false, reason: "breaker" }]);
+    }
+    const crumbly = beach({ breaker: { character: "crumbly", feel: null, closingOut: false } });
+    for (const word of ["crumbly", "crumbling", "crumbles", "spilling", "soft", "mushy", "peaky"]) {
+      expect([word, check(word, crumbly)]).toEqual([word, { ok: true }]);
+    }
+    expect(check("hollow", crumbly)).toEqual({ ok: false, reason: "breaker" });
+    const unknown = beach({ breaker: { character: null, feel: null, closingOut: false } });
+    for (const word of ["pitching", "crumbly", "soft"]) {
+      expect([word, check(word, unknown)]).toEqual([word, { ok: false, reason: "breaker" }]);
+    }
+    const closing = beach({ breaker: { character: null, feel: "soft", closingOut: true } });
+    for (const word of ["closing out", "closes out", "close out", "closeouts", "soft"]) {
+      expect([word, check(word, closing)]).toEqual([word, { ok: true }]);
+    }
+  });
+
+  it("refuses every fact claim when the candidate has no facts", () => {
+    for (const [text, reason] of [["chest-high", "size"], ["offshore early", "wind_timing"], ["punchy", "breaker"]]) {
+      expect([text, check(text, fact(text))]).toEqual([text, { ok: false, reason }]);
+    }
+    const missing = { ...fact("A quiet stretch."), facts: {} as CandidateFacts };
+    for (const [text, reason] of [["3 ft", "size"], ["chest-high", "size"], ["small", "size"], ["offshore early", "wind_timing"], ["soft", "breaker"]]) {
+      expect([text, check(text, missing)]).toEqual([text, { ok: false, reason }]);
+    }
+  });
+
+  it("still refuses stray digits, spelled-out numbers and hype words", () => {
+    for (const [text, reason] of [["13 s period", "digit"], ["03-04 ft", "digit"], ["four foot", "number"], ["pumping", "size"], ["huge", "size"]]) {
+      expect([text, check(text, beach())]).toEqual([text, { ok: false, reason }]);
+    }
+    expect(check("01-02 ft", beach({ faceFt: { min: 8, max: 10 } }))).toEqual({ ok: false, reason: "digit" });
+  });
+
+  it("blanks fact phrases on both sides without licensing their component words", () => {
+    expect(check("offshore", beach())).toEqual({ ok: false, reason: "wind" });
+    expect(check("High tide", beach())).toEqual({ ok: false, reason: "tide" });
+    expect(check("mornings", beach({}, "Glassy mornings."))).toEqual({ ok: false, reason: "timing" });
+    expect(check("light", beach({}, "Light offshore early."))).toEqual({ ok: false, reason: "wind_strength" });
+    expect(check("sea breeze", fact("Onshore wind."))).toEqual({ ok: true });
+    expect(check("sea breeze", fact("Offshore wind."))).toEqual({ ok: false, reason: "wind" });
+    const named = fact("3 Mile Beach and Hollow Point.");
+    expect(checkWrittenSentence(named.text, named, ["3 Mile Beach", "Hollow Point"])).toEqual({ ok: true });
+  });
+
+  const PARAPHRASES: Array<[string, ReturnType<typeof checkWrittenSentence>]> = [
+    ["Chest-high, pitching sets; offshore early.", { ok: true }],
+    ["3-4 ft and hollow, onshore by 10.", { ok: true }],
+    ["Punchy and lined-up; sea breeze after lunch.", { ok: true }],
+    ["Chest high with offshores at dawn.", { ok: true }],
+    ["3 to 4 feet; onshore winds all afternoon.", { ok: true }],
+    ["Throwing on the sets, onshore by noon.", { ok: true }],
+    ["Head-high, pitching sets; offshore early.", { ok: false, reason: "size" }],
+    ["3-5 ft and hollow, onshore by 10.", { ok: false, reason: "size" }],
+    ["Punchy and lined-up; offshore after lunch.", { ok: false, reason: "wind_timing" }],
+    ["Chest high with light offshores at dawn.", { ok: false, reason: "wind_timing" }],
+    ["3 to 4 feet and crumbly.", { ok: false, reason: "breaker" }],
+    ["Closing out on the sets, onshore by noon.", { ok: false, reason: "breaker" }],
+  ];
+  it.each(PARAPHRASES)("checks the rewrite: %s", (sentence, expected) => {
+    expect(check(sentence, beach())).toEqual(expected);
+  });
+
+  const offshoreUntil13: CandidateFacts["windHours"] = Array.from({ length: 13 }, (_, index) => ({
+    hour: index + 6, relation: index < 7 ? "offshore" : "onshore", mph: 5,
+  }));
+  const onshoreFrom10: CandidateFacts["windHours"] = Array.from({ length: 13 }, (_, index) => ({
+    hour: index + 6, relation: index < 4 ? "offshore" : "onshore", mph: 5,
+  }));
+  it.each([
+    ["Offshore by 10 pm", offshoreUntil13], ["Offshore by 9 p.m.", offshoreUntil13], ["Glassy by 11 PM", offshoreUntil13],
+    ["Offshore by 10 P.M", offshoreUntil13], ["Onshore by 10 p.m", offshoreUntil13],
+    ["Onshore by 10pm", onshoreFrom10], ["Onshore by 10 p.m", onshoreFrom10],
+  ])("refuses PM clock claims: %s", (sentence, windHours) => {
+    expect(check(sentence, beach({ windHours }, sentence))).toEqual({ ok: false, reason: "wind_timing" });
+  });
+
+  it.each(["Chest-high with ١٠ s period", "Chest-high ２ sets", "Chest-high², ok", "Chest-high, ½ the size of Friday", "٣-٤ ft"])(
+    "refuses non-ASCII numerals: %s", (sentence) => {
+      expect(check(sentence, beach({}, sentence))).toEqual({ ok: false, reason: "digit" });
+    });
+
+  it.each(["Bigger at the best reefs", "Bigger at the swell magnets", "Bigger sets at the standouts"])(
+    "requires standout feet for bigger claims: %s", (sentence) => {
+      expect(check(sentence, fact(sentence))).toEqual({ ok: false, reason: "size" });
+      expect(check(sentence, beach({ standoutFt: { min: 4, max: 6 } }, sentence))).toEqual({ ok: true });
+    });
+
+  it.each(["A few closeout sets", "Closeout sets", "Close-outs on the sets"])(
+    "checks closeout spellings: %s", (sentence) => {
+      expect(check(sentence, beach({ breaker: { ...facts.breaker!, closingOut: false } }, sentence)))
+        .toEqual({ ok: false, reason: "breaker" });
+      expect(check(sentence, beach({ breaker: { ...facts.breaker!, closingOut: true } }, sentence))).toEqual({ ok: true });
+    });
+
+  it.each(["Triple overhead", "triple-overhead"])("bans unsupported size: %s", (sentence) => {
+    expect(check(sentence, beach({}, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it.each(["Quadruple overhead", "quadruple-overhead"])("bans unsupported size: %s", (sentence) => {
+    expect(check(sentence, beach({}, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+
+  it.each([
+    ["Chest or head high", ["head"]], ["Chest/head high", ["head"]], ["Chest & head high", ["head"]],
+    ["Chest through head high", ["head"]], ["Chest, head high", ["head"]], ["Knee, waist and chest high", ["waist", "chest"]],
+  ] as Array<[string, CandidateFacts["sizes"]]>)("refuses leftover body size words: %s", (sentence, sizes) => {
+    expect(check(sentence, beach({ sizes }, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it("keeps ordinary head and shoulder prose", () => {
+    expect(check("Head out early, head-high sets", beach({ sizes: ["head"] }, "Head out early, head-high sets")))
+      .toEqual({ ok: true });
+    expect(check("Peaky with an open shoulder", beach({ breaker: { character: "crumbly", feel: null, closingOut: false } },
+      "Peaky with an open shoulder"))).toEqual({ ok: true });
+  });
+
+  it.each(["Bigger, at the standouts", "Bigger sets, mostly at the standouts", "Chest-high, bigger, at the best reefs", "The standout is bigger"])
+  ("requires standout facts for bigger across the whole sentence: %s", (sentence) => {
+    expect(check(sentence, fact(sentence))).toEqual({ ok: false, reason: "size" });
+    expect(check(sentence, beach({ standoutFt: { min: 4, max: 6 } }, sentence))).toEqual({ ok: true });
+  });
+  it("keeps bigger as prose without a standout", () => {
+    expect(check("Bigger on Sunday", fact("Bigger on Sunday"))).toEqual({ ok: true });
+  });
+
+  it("reads body combinations only as defined size claims", () => {
+    expect(check("Chest to overhead", beach({ sizes: ["overhead"] }, "Chest to overhead"))).toEqual({ ok: false, reason: "size" });
+    expect(check("Chest to overhead", beach({ sizes: ["chest", "shoulder", "head", "overhead"] }, "Chest to overhead")))
+      .toEqual({ ok: true });
+    expect(check("Chest and head high", beach({ sizes: ["head"] }, "Chest and head high"))).toEqual({ ok: false, reason: "size" });
+    expect(check("Chest-height", beach({ sizes: ["head"] }, "Chest-height"))).toEqual({ ok: false, reason: "size" });
+    expect(check("Chest-height", beach({ sizes: ["chest"] }, "Chest-height"))).toEqual({ ok: true });
+    expect(check("Chest to double overhead", beach({ sizes: ["chest", "overhead"] }, "Chest to double overhead")))
+      .toEqual({ ok: false, reason: "size" });
+    expect(check("Chest and head high", beach({ sizes: ["chest", "head"] }, "Chest and head high"))).toEqual({ ok: true });
+  });
+
+  it("requires an at-standouts phrase to license standout-only sizes and ranges", () => {
+    const standout = beach({ faceFt: { min: 2, max: 4 }, sizes: ["waist", "chest"], standoutFt: { min: 4, max: 6 },
+      standoutSizes: ["chest", "shoulder", "head"] });
+    for (const sentence of ["Sunday's the standout with head-high sets", "5-6 ft on a standout day", "Head-high and the standouts too"]) {
+      expect([sentence, check(sentence, standout)]).toEqual([sentence, { ok: false, reason: "size" }]);
+    }
+    expect(check("Head-high sets at the standouts", standout)).toEqual({ ok: true });
+    expect(check("2-4 ft, 4-6 ft at the standouts", standout)).toEqual({ ok: true });
+    expect(check("Bigger at the standouts", standout)).toEqual({ ok: true });
+    expect(check("Bigger sets at the standouts", fact("Bigger sets at the standouts"))).toEqual({ ok: false, reason: "size" });
+  });
+
+  const standoutFacts: CandidateFacts = { ...facts, faceFt: { min: 2, max: 4 }, sizes: ["waist", "chest"],
+    standoutFt: { min: 4, max: 6 }, standoutSizes: ["chest", "shoulder", "head"] };
+  it.each(["Head-high everywhere and 5-6 ft at the standouts", "Head-high everywhere and bigger at the standouts"])
+  ("refuses standout attribution across another size claim: %s", (sentence) => {
+    expect(check(sentence, beach(standoutFacts, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it.each(["Head-high sets at the standouts", "Waist-to-chest, head-high sets at the standouts",
+    "2-4 ft, 4-6 ft at the standouts", "Chest-high and 4-6 ft at the standouts"])
+  ("uses the nearest following standout attribution: %s", (sentence) => {
+    expect(check(sentence, beach(standoutFacts, sentence))).toEqual({ ok: true });
+  });
+
+  const chainFacts: CandidateFacts = { ...facts, faceFt: { min: 2, max: 4 }, sizes: ["waist", "chest"],
+    standoutFt: { min: 4, max: 6 }, standoutSizes: ["shoulder", "head"] };
+  it.each([
+    "Shoulder-high to head-high at the standouts",
+    "Shoulder-high and head-high at the standouts",
+    "Shoulder-high or head-high at the best spots",
+    "4-5 ft to 5-6 ft at the standouts",
+    "Chest-high at most spots, shoulder-high to head-high at the standouts",
+  ])("attributes a joined size-claim chain to its following standouts: %s", (sentence) => {
+    expect(check(sentence, beach(chainFacts, sentence))).toEqual({ ok: true });
+  });
+  it.each([
+    "Head-high everywhere and 5-6 ft at the standouts",
+    "Head-high everywhere and bigger at the standouts",
+    "5-6 ft with 4-5 ft at the standouts",
+  ])("keeps unrelated claims outside the standout chain: %s", (sentence) => {
+    const candidateFacts: CandidateFacts = sentence.includes("bigger") ? { ...chainFacts, standoutFt: undefined } : chainFacts;
+    expect(check(sentence, beach(candidateFacts, sentence))).toEqual({ ok: false, reason: "size" });
+  });
+  it.each(["Head-high and overhead at the standouts", "5-6 ft and 7-9 ft at the standouts"])
+  ("supports multi-claim chains in the standout facts: %s", (sentence) => {
+    const candidateFacts: CandidateFacts = { ...chainFacts, standoutFt: { min: 5, max: 9 }, standoutSizes: ["head", "overhead"] };
+    expect(check(sentence, beach(candidateFacts, sentence))).toEqual({ ok: true });
+  });
+
+  it.each(["The sets closed out", "Closed-out sets"])("checks past-tense closing claims: %s", (sentence) => {
+    expect(check(sentence, beach({ breaker: { ...facts.breaker!, closingOut: false } }, sentence)))
+      .toEqual({ ok: false, reason: "breaker" });
+    expect(check(sentence, beach({ breaker: { ...facts.breaker!, closingOut: true } }, sentence))).toEqual({ ok: true });
+  });
+
+  it("requires coverage at both ends of an all span", () => {
+    expect(check("Offshore all day", beach({ windHours: [{ hour: 8, relation: "offshore", mph: 5 }] }, "Offshore all day")))
+      .toEqual({ ok: false, reason: "wind_timing" });
+    expect(check("Offshore all day", beach({ windHours: Array.from({ length: 13 }, (_, index) => ({
+      hour: index + 6, relation: "offshore" as const, mph: 5,
+    })) }, "Offshore all day"))).toEqual({ ok: true });
+    expect(check("Offshore all morning", beach({ windHours: [{ hour: 10, relation: "offshore", mph: 5 }] }, "Offshore all morning")))
+      .toEqual({ ok: false, reason: "wind_timing" });
+    const morning = beach({ windHours: [{ hour: 8, relation: "offshore", mph: 5 }, { hour: 10, relation: "offshore", mph: 5 }] }, "Offshore all morning");
+    expect(check("Offshore all morning", morning)).toEqual({ ok: true });
+    expect(check("Offshore all afternoon", beach({ windHours: [{ hour: 16, relation: "offshore", mph: 5 }] },
+      "Offshore all afternoon"))).toEqual({ ok: false, reason: "wind_timing" });
+    expect(check("Offshore all afternoon", beach({ windHours: [{ hour: 14, relation: "offshore", mph: 5 }, { hour: 16, relation: "offshore", mph: 5 }] },
+      "Offshore all afternoon"))).toEqual({ ok: true });
+  });
+
+  it("accepts an em dash in a foot range", () => {
+    expect(check("3—4 ft", beach())).toEqual({ ok: true });
+  });
+});
+
 describe("every server line passes its own claim check", () => {
   const TODAY = "2026-10-27";
   const at = (offset: number) => new Date(Date.UTC(2026, 9, 27 + offset, 19)).toISOString();
+
+
+  it("checks size, feel and wind samples across every new server template", () => {
+    const rows = (values: Array<[number, WindHour["relation"], number | null]>): WindHour[] =>
+      values.map(([hour, relation, mph]) => ({ hour, relation, mph }));
+    const winds: Array<[WindHour[], string | null]> = [
+      [rows([[8, "offshore", 10], [16, "offshore", 10]]), "offshore all day"],
+      [rows([[8, "offshore", 10], [10, "offshore", 10], [14, "onshore", 10]]), "offshore all morning, sea breeze after lunch"],
+      [rows([[8, "offshore", 10], [9, "cross", 10], [10, "onshore", 10], [12, "onshore", 10]]), "offshore early, onshore by 10"],
+      [rows([[8, "cross", 3], [14, "onshore", 10]]), "glassy early, sea breeze after lunch"],
+      [rows([[8, "offshore", 10], [14, "cross", 10]]), "offshore early"],
+      [rows([[8, "cross", 3], [14, "cross", 10]]), "glassy early"],
+      [rows([[8, "cross", 10], [14, "cross", 10]]), null],
+    ];
+    const event: RegionalSwellEvent = { directionDeg: 202, periodS: 15, kind: "swell", arrivalAt: at(0), peakAt: at(1),
+      fadeAt: at(2), timezone: "America/Los_Angeles", confidence: "likely", minimumBeaches: 3, regionalKey: "sample" };
+    for (const [, min, max] of SIZE_BUCKETS) {
+      for (const feel of ["punchy", "soft", null] as const) {
+        for (const [windHours, phrase] of winds) {
+          expect(windTimingPhrase(windHours)).toBe(phrase);
+          for (const kind of ["swell", "storm"] as const) {
+            const facts: CandidateFacts = { faceFt: { min, max }, sizes: sizeWordsFor({ min, max }), windHours,
+              breaker: { character: kind === "storm" ? "crumbly" : "pitching", feel, closingOut: max >= 8 } };
+            const sample = { ...event, kind };
+            const context = { events: [sample], exposure: () => "open" as const, facing: () => "direct" as const,
+              wind: () => "breezy" as const, eventFacts: () => facts, beachDayFacts: () => facts, dayFacts: () => facts };
+            for (const [exposure, facing] of [["open", "direct"], ["open", "angled"], ["partial", null], ["shadowed", null]] as const) {
+              const line = beachLine(sample, "a", { ...context, exposure: () => exposure, facing: () => facing }, TODAY)!;
+              expect(line).not.toBeNull();
+              expect([line.text, check(line.text, { ...fact(line.text), facts: line.facts ?? undefined })]).toEqual([line.text, { ok: true }]);
+            }
+            const story = eventStoryText(sample, TODAY, facts);
+            expect(check(story, { ...fact(story), facts })).toEqual({ ok: true });
+            const days: RegionalDaySignal[] = Array.from({ length: 7 }, (_, index) => ({
+              localDate: at(index).slice(0, 10), complete: true, sampleBeaches: 3, meanHeightFt: 3,
+              directionDeg: 202, periodS: 15, sourceSeries: "forecast", forecastRevision: "now",
+              surfBeaches: [{ beachId: "a", beachName: "Ocean Beach", facts }],
+            }));
+            const candidates = buildStoryCandidates(days, "San Diego", [sample], () => facts);
+            expect(candidates.filter((item) => item.gate.kind === "day_surf")).toHaveLength(7);
+            for (const candidate of candidates) {
+              expect([candidate.text, checkWrittenSentence(candidate.text, candidate, BEACHES, ["San Diego"])])
+                .toEqual([candidate.text, { ok: true }]);
+            }
+          }
+        }
+      }
+    }
+  });
 
   it("passes every beach line", () => {
     for (const direction of COMPASS) {

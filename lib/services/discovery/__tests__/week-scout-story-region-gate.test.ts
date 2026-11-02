@@ -1,4 +1,8 @@
 jest.mock("@/lib/alerts/swell-events/regional", () => ({ loadRegionForecastEvents: jest.fn() }));
+jest.mock("../window-selector/time-slot-utils", () => {
+  const actual = jest.requireActual("../window-selector/time-slot-utils");
+  return { ...actual, getLocalDateStr: jest.fn(actual.getLocalDateStr) };
+});
 
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addDays } from "../swell-briefing-input";
@@ -7,6 +11,7 @@ import {
   BREEZY_WIND_MPH, DEAD_ON_MAX_DEG, DEAD_ON_WINDOW_SHARE, LIGHT_WIND_MPH, buildRegionGateContext, regionGateHolds,
 } from "../week-scout-story-region-gate";
 import { storyEventsFromRegion } from "../week-scout-story-source";
+import * as timeSlotUtils from "../window-selector/time-slot-utils";
 import type { StoryCandidate, StoryGate } from "../week-scout-story-types";
 
 const TIMEZONE = "America/Los_Angeles";
@@ -14,10 +19,10 @@ const EDITION = "2026-10-27";
 // SSW (202°): Ocean Beach and Sunset Cliffs open, Blacks and La Jolla Shores shadowed.
 // W (270°): Blacks open, La Jolla Shores partial, Ocean Beach and Sunset Cliffs shadowed.
 const BEACHES: RegionBeach[] = [
-  { id: "a", name: "Ocean Beach", lat: 32.5, lon: -117.5, swell_window_center_deg: 202, swell_window_halfwidth_deg: 25 },
-  { id: "b", name: "Blacks", lat: 32.7, lon: -117.3, swell_window_center_deg: 270, swell_window_halfwidth_deg: 20 },
-  { id: "c", name: "La Jolla Shores", lat: 32.9, lon: -117.1, swell_window_center_deg: 240, swell_window_halfwidth_deg: 20 },
-  { id: "d", name: "Sunset Cliffs", lat: 32.6, lon: -117.4, swell_window_center_deg: 210, swell_window_halfwidth_deg: 20 },
+  { id: "a", name: "Ocean Beach", lat: 32.5, lon: -117.5, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: 202, swell_window_halfwidth_deg: 25 },
+  { id: "b", name: "Blacks", lat: 32.7, lon: -117.3, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: 270, swell_window_halfwidth_deg: 20 },
+  { id: "c", name: "La Jolla Shores", lat: 32.9, lon: -117.1, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: 240, swell_window_halfwidth_deg: 20 },
+  { id: "d", name: "Sunset Cliffs", lat: 32.6, lon: -117.4, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: 210, swell_window_halfwidth_deg: 20 },
 ];
 
 function regionEvent(key: string, directionDeg: number, periodS: number, arrivalAt: string, peakAt: string, fadeAt: string | null,
@@ -30,7 +35,7 @@ function regionEvent(key: string, directionDeg: number, periodS: number, arrival
 }
 
 function row(forecastAt: string, windSpeed: string | null): RatingRow {
-  return { forecast_at: forecastAt, wave_height: "3-4 ft", wave_period: "13", wind_speed: windSpeed,
+  return { forecast_at: forecastAt, wave_height: "3-4 ft", wave_period: "13", wind_speed: windSpeed, wind_direction: null,
     tide_height: null, tide_status: null, swell_1_period: null };
 }
 
@@ -72,6 +77,73 @@ function gateOf(facts: StoryCandidate[], id: string): StoryGate {
 
 describe("regional story gate", () => {
   const facts = storyFacts(regionBuild([ssw, storm]));
+
+  it("recomputes event and beach-day facts from the build", () => {
+    const built = regionBuild([ssw], { beaches: BEACHES.map((beach) => ({ ...beach, swell_window_center_deg: 202 })),
+      rowsByBeach: Object.fromEntries(BEACHES.map((beach) => [beach.id, [row("2026-10-29T18:00:00Z", "4 mph"), row("2026-10-28T18:00:00Z", "30 mph")]])) });
+    const key = "4-4-2026-10-29";
+    const context = buildRegionGateContext(built, EDITION);
+    expect(context.eventFacts(key)?.faceFt).toEqual({ min: 3, max: 4 });
+    expect(context.beachDayFacts(key, "a", "2026-10-29")?.windHours).toEqual([{ hour: 11, mph: 4, relation: null }]);
+    expect(context.eventFacts(key)).toBe(context.eventFacts(key));
+    expect(context.beachDayFacts(key, "a", "2026-10-29")).toBe(context.beachDayFacts(key, "a", "2026-10-29"));
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
+    expect(context.wind(key, "a", "2026-10-28")).toBe("windy");
+    expect(context.eventFacts("missing")).toBeNull();
+    expect(context.beachDayFacts(key, "a", "2026-10-31")).toBeNull();
+    built.rowsByBeach.a.push(row("not a timestamp", "30 mph"));
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
+    const changedBuild = { ...built, rowsByBeach: { ...built.rowsByBeach,
+      a: [{ ...row("2026-10-29T18:00:00Z", "4 mph"), wave_height: "6-8" }],
+    } };
+    expect(buildRegionGateContext(changedBuild, EDITION).beachDayFacts(key, "a", "2026-10-29")?.faceFt).toEqual({ min: 6, max: 8 });
+  });
+
+
+  it("memoizes wind rows and local-date lookups for each beach", () => {
+    const built = regionBuild([ssw, storm], { rowsByBeach: { a: [
+      row("2026-10-28T18:00:00Z", "4 mph"), row("2026-10-29T18:00:00Z", "6 mph"), row("2026-11-01T20:00:00Z", "25 mph"),
+    ] } });
+    const context = buildRegionGateContext(built, EDITION);
+    const key = "4-4-2026-10-29";
+    const localDate = jest.mocked(timeSlotUtils.getLocalDateStr);
+    localDate.mockClear();
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
+    expect(context.wind("6-2-2026-11-01-s", "a", "2026-10-29")).toBeNull();
+    expect(localDate).toHaveBeenCalledTimes(3);
+    localDate.mockClear();
+  });
+
+  it("does not use raw beach-day rows when a covering event has no facts for that beach", () => {
+    const event = regionEvent("covered", 202, 13, "2026-10-29T18:00:00Z", "2026-10-29T19:00:00Z", "2026-10-29T20:00:00Z");
+    const build = regionBuild([event], { rowsByBeach: {
+      a: [row("2026-10-29T17:00:00Z", "4 mph")],
+    } });
+    const context = buildRegionGateContext(build, EDITION);
+
+    expect(context.dayFacts("a", "2026-10-29")).toBeNull();
+    build.rowsByBeach.a = [row("2026-10-29T18:00:00Z", "4 mph")];
+    expect(context.dayFacts("a", "2026-10-29")).toBeNull();
+  });
+
+  it("does not build pick-line facts from raw rows outside an event window", () => {
+    const build = regionBuild([], { rowsByBeach: { a: [row("2026-10-31T18:00:00Z", "4 mph")] } });
+    const context = buildRegionGateContext(build, EDITION);
+
+    expect(context.dayFacts("a", "2026-10-31")).toBeNull();
+  });
+
+  it("uses the covering event with the largest face range at the picked beach", () => {
+    const smaller = regionEvent("smaller", 202, 13, "2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", "2026-10-29T19:00:00Z");
+    const larger = regionEvent("larger", 240, 15, "2026-10-29T17:00:00Z", "2026-10-29T20:00:00Z", "2026-10-29T23:00:00Z");
+    const build = regionBuild([smaller, larger], { rowsByBeach: {
+      a: [row("2026-10-29T18:00:00Z", "4 mph"), { ...row("2026-10-29T20:00:00Z", "4 mph"), wave_height: "6-8 ft" }],
+    } });
+    const context = buildRegionGateContext(build, EDITION);
+
+    expect(context.dayFacts("a", "2026-10-29")?.faceFt).toEqual({ min: 3, max: 8 });
+  });
 
   it("holds a swell gate while the region build still has the event on the same days", () => {
     const context = buildRegionGateContext(regionBuild([ssw, storm]), EDITION);
@@ -142,14 +214,14 @@ describe("regional story gate", () => {
     const key = "4-4-2026-10-29";
     // The 25 mph storm-window row is Ocean Beach's too, but outside this swell's window.
     expect(context.exposure(key, "a")).toBe("open");
-    expect(context.wind(key, "a")).toBe("light");
+    expect(context.wind(key, "a", "2026-10-29")).toBe("light");
     expect(context.exposure("6-2-2026-11-01-s", "c")).toBe("partial");
-    expect(context.wind("6-2-2026-11-01-s", "a")).toBe("windy");
-    expect(context.wind(key, "b")).toBeNull();
+    expect(context.wind("6-2-2026-11-01-s", "a", "2026-11-01")).toBe("windy");
+    expect(context.wind(key, "b", "2026-10-29")).toBeNull();
     expect(context.exposure("1-1-2026-10-29", "a")).toBeNull();
     expect(context.facing(key, "a")).toBe("direct");
     expect(context.facing("6-2-2026-11-01-s", "c")).toBeNull();
-    const gate: StoryGate = { kind: "beach", regionalEventKey: key, beachId: "a", directionIndex: 9, periodClass: "long",
+    const gate: StoryGate = { kind: "beach", localDate: "2026-10-29", regionalEventKey: key, beachId: "a", directionIndex: 9, periodClass: "long",
       exposure: "open", facing: "direct", wind: "light" };
     expect(regionGateHolds(gate, context)).toBe(true);
 
@@ -162,11 +234,11 @@ describe("regional story gate", () => {
       a: speeds.map((speed, index) => row(`2026-10-29T${String(15 + index).padStart(2, "0")}:00:00Z`, speed)) } }), EDITION);
     // Under 8 mph light, under 15 breezy, otherwise windy; rows without a wind speed don't count.
     expect([LIGHT_WIND_MPH, BREEZY_WIND_MPH]).toEqual([8, 15]);
-    expect(withWind(["6 mph", "9 mph"]).wind(key, "a")).toBe("light");
-    expect(withWind(["7 mph", "9 mph"]).wind(key, "a")).toBe("breezy");
-    expect(withWind(["14 mph", null]).wind(key, "a")).toBe("breezy");
-    expect(withWind(["15 mph"]).wind(key, "a")).toBe("windy");
-    expect(withWind([null]).wind(key, "a")).toBeNull();
+    expect(withWind(["6 mph", "9 mph"]).wind(key, "a", "2026-10-29")).toBe("light");
+    expect(withWind(["7 mph", "9 mph"]).wind(key, "a", "2026-10-29")).toBe("breezy");
+    expect(withWind(["14 mph", null]).wind(key, "a", "2026-10-29")).toBe("breezy");
+    expect(withWind(["15 mph"]).wind(key, "a", "2026-10-29")).toBe("windy");
+    expect(withWind([null]).wind(key, "a", "2026-10-29")).toBeNull();
     expect(regionGateHolds(gate, withWind(["10 mph", "14 mph"]))).toBe(false);
     expect(regionGateHolds(gate, withWind([]))).toBe(false);
 
@@ -201,8 +273,8 @@ describe("regional story gate", () => {
     const built = west(259, 13.1);
     const [event] = storyEventsFromRegion(built, EDITION).all;
     const line = beachLine(event, "b", buildRegionGateContext(built, EDITION))!;
-    expect(line.text).toBe("Faces the west groundswell dead on, with light wind in its window.");
-    expect(line.gate).toEqual({ kind: "beach", regionalEventKey: storyEventKey(event), beachId: "b", directionIndex: 12,
+    expect(line.text).toBe("Faces the west groundswell dead on: chest-high, with light wind in its window.");
+    expect(line.gate).toEqual({ kind: "beach", localDate: "2026-10-29", regionalEventKey: storyEventKey(event), beachId: "b", directionIndex: 12,
       periodClass: "long", exposure: "open", facing: "direct", wind: "light" });
     expect(regionGateHolds(line.gate, buildRegionGateContext(built, EDITION))).toBe(true);
     for (const moved of [west(257, 13.1), west(259, 12.9)]) {
@@ -243,7 +315,7 @@ describe("regional story gate", () => {
     // The kinds it owns always get an answer, even from an empty build.
     const empty = buildRegionGateContext(regionBuild([]), EDITION);
     const owned = [gateOf(facts, "cover-pulse-4-4-2026-10-29"), gateOf(facts, "exposure-4-4-2026-10-29"),
-      { kind: "beach", regionalEventKey: "4-4-2026-10-29", beachId: "a", directionIndex: 9, periodClass: "long", exposure: "open",
+      { kind: "beach", localDate: "2026-10-29", regionalEventKey: "4-4-2026-10-29", beachId: "a", directionIndex: 9, periodClass: "long", exposure: "open",
         facing: "direct", wind: "light" } as StoryGate];
     expect(owned.map((gate) => regionGateHolds(gate, empty))).toEqual([false, false, false]);
   });

@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import type { Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { RegionSwellEvent } from "@/types/region-swell-events";
+import { resolveWavePunchiness } from "@/lib/domains/spot-profile/wave-punchiness";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { SWELL_TRACKING_RULES, groupEvents, type SwellGroup } from "@/lib/services/discovery/swell-tracking";
 import { getLocalDateStr, getLocalHour } from "@/lib/services/discovery/window-selector/time-slot-utils";
@@ -13,6 +14,7 @@ import {
   SWELL_EVENT_BASELINE_LOOKBACK_HOURS,
   detectBeachSwellEvents,
   isSwellEventCurrent,
+  parseSwellPartitions,
   toSwellEventBeach,
   type BeachSwellEvent,
 } from "./detector";
@@ -22,37 +24,41 @@ import { EXCLUDE_SYNTHETIC_ROWS_FILTER } from "./forecast-rows";
 import { readAllPages } from "./paging";
 import { ratingWindow } from "./regional-rating";
 
-export { confidenceFor, rateRegionEvents } from "./regional-rating";
+export { confidenceFor, rateRegionEvents, rateRegionEventsWithRatings } from "./regional-rating";
 
 type Client = SupabaseClient<Database>;
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-/** Stored forecasts end at about 11.8 days; WAM early looks cover the rest. */
+/** Stored rows run to about 11.8 days, but swell partitions can stop near day 9; WAM early looks start there. */
 const DETECTION_HORIZON_DAYS = 12;
 const REGION_CACHE_SECONDS = 10_800;
 // Bump when the cached shape or its contents change, so a deploy never reads an older build.
 // v2: events still in the water past their peak day; rating rows span each event's window.
 // v3: one swell the detector peaked more than once shows as one event.
 // v4: events carry memberCount.
-const REGION_CACHE_VERSION = "v4";
+// v5: wind direction, beach orientation and resolved punchiness for story facts.
+// v6: storedThrough, the last local day with a stored swell partition.
+const REGION_CACHE_VERSION = "v6";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
 // Below this a region has no "which beaches are working" to show, so no model buoy is fetched.
 const MIN_REGION_BEACHES = 3;
 
-const BEACH_COLUMNS = "id, name, slug, lat, lon, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, terrain_enabled, shoaling_factors, deepwater_decay_factor";
+const BEACH_COLUMNS = "id, name, slug, lat, lon, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, terrain_enabled, shoaling_factors, deepwater_decay_factor, aspect_deg, wind_offshore_deg, wind_offshore_tol_deg, wave_punchiness_ai, wave_punchiness_ai_confidence, persona, break_type, skill_level";
 // The story's scoring select (week-scout-story-source.ts readChunk), less the columns nothing here reads.
-const FORECAST_COLUMNS = "beach_id, forecast_at, wave_height, wave_period, wind_speed, tide_height, tide_status, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, data_source";
+const FORECAST_COLUMNS = "beach_id, forecast_at, wave_height, wave_period, wind_speed, wind_direction, tide_height, tide_status, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, data_source";
 
-type BeachRow = { id: string; name: string; lat: number; lon: number } & Parameters<typeof toSwellEventBeach>[0];
+type BeachRow = Pick<Database["public"]["Tables"]["beaches"]["Row"],
+  "id" | "name" | "lat" | "lon" | "aspect_deg" | "wind_offshore_deg" | "wind_offshore_tol_deg" | "wave_punchiness_ai" | "wave_punchiness_ai_confidence" | "persona" | "break_type" | "skill_level"> & Parameters<typeof toSwellEventBeach>[0];
 type ForecastRow = Pick<
   EnhancedForecastEntity,
   | "forecast_at"
   | "wave_height"
   | "wave_period"
   | "wind_speed"
+  | "wind_direction"
   | "tide_height"
   | "tide_status"
   | "swell_1_height"
@@ -66,14 +72,18 @@ type ForecastRow = Pick<
 /** The forecast columns rating reads, per daylight hour. */
 export type RatingRow = Pick<
   EnhancedForecastEntity,
-  "forecast_at" | "wave_height" | "wave_period" | "wind_speed" | "tide_height" | "tide_status" | "swell_1_period"
->;
+  "forecast_at" | "wave_height" | "wave_period" | "tide_height" | "tide_status" | "swell_1_period"
+> & { wind_direction: string | null; wind_speed: string | null };
 
 export interface RegionBeach {
   id: string;
   name: string;
   lat: number;
   lon: number;
+  aspect_deg: number | null;
+  wind_offshore_deg: number | null;
+  wind_offshore_tol_deg: number | null;
+  punchiness: number | null;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
 }
@@ -104,6 +114,8 @@ interface RegionBase {
   events: UnkeyedRegionEvent[];
   /** Daylight rows inside any detected event's rating window. */
   rowsByBeach: Record<string, RatingRow[]>;
+  /** Local date of the last stored row with a swell partition, where early looks start; null with none. Absent on hand-built regions. */
+  storedThrough?: string | null;
 }
 
 export interface RegionBuild extends Omit<RegionBase, "events"> {
@@ -303,7 +315,8 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
         forecast_at: row.forecast_at,
         wave_height: row.wave_height,
         wave_period: row.wave_period,
-        wind_speed: row.wind_speed,
+        wind_speed: row.wind_speed ?? null,
+        wind_direction: row.wind_direction ?? null,
         tide_height: row.tide_height,
         tide_status: row.tide_status,
         swell_1_period: row.swell_1_period,
@@ -311,12 +324,26 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
     });
   }
 
+  // Detection reads only partitions, so the stored forecast reaches as far as the last row with one.
+  let lastPartitionMs = Number.NEGATIVE_INFINITY;
+  for (const row of rows) {
+    if (parseSwellPartitions(row).length === 0) continue;
+    const atMs = Date.parse(row.forecast_at);
+    if (atMs > lastPartitionMs) lastPartitionMs = atMs;
+  }
+
   return {
+    storedThrough: Number.isFinite(lastPartitionMs) ? getLocalDateStr(new Date(lastPartitionMs), timezone) : null,
     beaches: beachRows.map((beach) => ({
       id: beach.id,
       name: beach.name,
       lat: beach.lat,
       lon: beach.lon,
+      aspect_deg: beach.aspect_deg ?? null,
+      wind_offshore_deg: beach.wind_offshore_deg ?? null,
+      wind_offshore_tol_deg: beach.wind_offshore_tol_deg ?? null,
+      punchiness: resolveWavePunchiness({ override: null, ai: beach.wave_punchiness_ai,
+        aiConfidence: beach.wave_punchiness_ai_confidence, persona: beach.persona, break_type: beach.break_type, skill_level: beach.skill_level }),
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
     })),
@@ -358,7 +385,7 @@ export async function buildRegionEvents(input: RegionInput): Promise<RegionBuild
   const today = getLocalDateStr(input.now, input.timezone);
   const buoy = forecast.beaches.length >= MIN_REGION_BEACHES ? regionModelBuoy(forecast.beaches) : null;
   const wamDays = buoy ? await fetchWamDays(buoy, input.timezone) : null;
-  const early = wamDays ? earlyLookPeaks(wamDays, forecast.events, today) : [];
+  const early = wamDays ? earlyLookPeaks(wamDays, forecast.events, today, forecast.storedThrough ?? null) : [];
   const wamByDate = new Map((wamDays ?? []).map((day) => [day.localDate, day]));
   // Forecast events keep the keys they were given first, so the story and the card name them alike.
   const earlyKeyed = withKeys(input.region, early.map(earlyLookEvent), forecast.events.map((event) => event.key));

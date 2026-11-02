@@ -36,7 +36,7 @@ describe("noaa-tide-service", () => {
     global.fetch = mockFetchWithTimeout;
   });
 
-  it("fetches and normalizes exact high/low tide predictions from NOAA", async () => {
+  it("fetches and normalizes exact high/low tide predictions from NOAA, raised by the California sea-level offset", async () => {
     mockFetchWithTimeout.mockResolvedValue(
       jsonResponse({
         predictions: [
@@ -63,12 +63,12 @@ describe("noaa-tide-service", () => {
     expect(result).toEqual([
       {
         ts: "2026-06-30T01:12:00.000Z",
-        tide_height_m: 1.234,
+        tide_height_m: 1.691, // 1.234 + 1.5 ft
         type: "high",
       },
       {
         ts: "2026-06-30T07:44:00.000Z",
-        tide_height_m: 0.102,
+        tide_height_m: 0.559, // 0.102 + 1.5 ft
         type: "low",
       },
     ]);

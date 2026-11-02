@@ -43,6 +43,7 @@ import {
 } from "@/__tests__/helpers/swell-events";
 
 const REGION = "San Diego";
+const selectedColumns: Array<{ table: string; columns: string }> = [];
 /** Monday 2026-09-28, three days after NOW. */
 const EVENT_DAY = 3;
 const DAYS = Array.from({ length: 14 }, (_, index) => index - 2);
@@ -133,7 +134,7 @@ function client(beaches: TestBeach[], rows: Array<Record<string, unknown>>): Sup
     from: (table: string) => {
       let ids: string[] | null = null;
       const query = {
-        select: () => query,
+        select: (columns: string) => { selectedColumns.push({ table, columns }); return query; },
         eq: () => query,
         is: () => query,
         or: () => query,
@@ -183,6 +184,7 @@ function builtWith(event: Partial<InternalRegionEvent>, rows: RatingRow[]): Regi
     name: item.name,
     lat: item.lat,
     lon: item.lon,
+    aspect_deg: item.aspect_deg, wind_offshore_deg: item.wind_offshore_deg, wind_offshore_tol_deg: null, punchiness: null,
     swell_window_center_deg: item.swell_window_center_deg,
     swell_window_halfwidth_deg: item.swell_window_halfwidth_deg,
   }));
@@ -249,11 +251,28 @@ function wamDays(overrides: Record<number, Partial<WamDay>>): WamDay[] {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  selectedColumns.length = 0;
   nextId = 0;
   jest.mocked(fetchWamDays).mockResolvedValue(null);
 });
 
 describe("buildRegionEvents + rateRegionEvents", () => {
+  it("carries wind direction and punchiness through the cached build", async () => {
+    const beaches = [beach("North", { wave_punchiness_ai: 0.4, wave_punchiness_ai_confidence: 0.8, wind_offshore_tol_deg: 25 }),
+      beach("Middle", { wave_punchiness_ai: -0.4, wave_punchiness_ai_confidence: 0.8 }),
+      beach("South", { break_type: "reef" })];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { swell: true }).map((row) => ({ ...row, wind_direction: "E" })));
+    const built = await build(beaches, rows);
+    expect(built.beaches.map((item) => item.punchiness)).toEqual([0.4, -0.4, 0.3]);
+    expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
+    expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
+    expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v6", REGION, expect.any(String)], expect.anything());
+    const beachSelect = selectedColumns.find(({ table }) => table === "beaches")?.columns;
+    expect(beachSelect).toContain("wave_punchiness_ai");
+    expect(beachSelect).not.toContain("wave_punchiness,");
+  });
+
   it("(a) groups one storm seen by three beaches into one event, rated at the requested beach", async () => {
     const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
     const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
@@ -283,7 +302,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v4", REGION, "2026-09-25"],
+      ["region-swell-events", "v6", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -576,6 +595,27 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     ]);
     expect(events[0].here).toMatchObject({ label: "EARLY LOOK", exposure: "shadowed", reason: "small, sheltered" });
     expect(built.buoy).toEqual({ id: "46266", name: buoy.name });
+  });
+
+  it("starts early looks where the stored swell partitions stop, so a day-10 storm is not lost", async () => {
+    // As on Nov 1 2026: partitioned rows end on day 9 at 6 PM, and the rows after carry no partitions.
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const lastPartitioned = Date.parse(localIsoOf(9, 18));
+    const rows = beaches.flatMap((item) => rowsFor(item.id)).map((row) => Date.parse(String(row.forecast_at)) <= lastPartitioned
+      ? row
+      // A zero height with no period is a partition the detector can't read, so it doesn't extend the reach.
+      : { ...row, swell_1_height: "0 ft", swell_1_period: null, swell_1_direction: null });
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({
+      10: { maxHsM: 2.9, periodS: 8 },
+      11: { maxHsM: 2.7, periodS: 10 },
+    }));
+    const built = await build(beaches, rows);
+    const events = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(built.storedThrough).toBe(localDate(9));
+    expect(events.map((event) => [event.source, event.kind, event.peakLocalDate, event.confidence, event.leadDays])).toEqual([
+      ["wam", "storm", localDate(10), "early_look", 10],
+    ]);
   });
 
   it("adds the buoy history line when WAM covers the event's peak day", async () => {

@@ -34,13 +34,18 @@ export function notificationBeachName(beach: { name: string; short_name?: string
   return trimmed || beach.name;
 }
 
+const clockFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function clockFormatter(timezone: string): Intl.DateTimeFormat {
+  const cached = clockFormatters.get(timezone);
+  if (cached) return cached;
+  const created = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit", hour12: true });
+  clockFormatters.set(timezone, created);
+  return created;
+}
+
 function clockParts(iso: string, timezone: string): { hour: number; minute: string; meridiem: string } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).formatToParts(new Date(iso));
+  const parts = clockFormatter(timezone).formatToParts(new Date(iso));
   return {
     hour: Number(parts.find((part) => part.type === "hour")?.value ?? 0),
     minute: parts.find((part) => part.type === "minute")?.value ?? "00",

@@ -20,8 +20,11 @@ import {
   forecastToSnapshot,
   getDiscoveryScoringEngine,
   getConditionCharacter,
+  getSkipCause,
+  getSkipCharacter,
   LOW_TIDE_HEAVY_SWELL_WARNING,
   type ConditionCharacter,
+  type SkipCause,
 } from '@/lib/domains/scoring';
 import {
   getRecommendationLabel,
@@ -442,7 +445,7 @@ function buildWhySentence(
   tide: TideData,
   shortWindow: boolean,
   noReason?: string,
-  character?: ConditionCharacter | null,
+  skipCause?: SkipCause | null,
   tideLimiter?: TideLimiter | null,
 ): string {
   if (noReason) return noReason;
@@ -477,11 +480,10 @@ function buildWhySentence(
     return `Good conditions ${wavePart}.`;
   }
 
+  if (skipCause) return skipWhySentence(skipCause);
+
   if (verdict === 'MAYBE') {
     // Highlight the biggest limiter
-    if (character?.category === 'skip') {
-      return 'Wind is blowing it out — expect rough, hard-to-read surf.';
-    }
     if (shortWindow) {
       if (isOnshore || isCross) {
         return `Short clean window before wind turns ${wind.type}.`;
@@ -512,6 +514,22 @@ function buildWhySentence(
   if (wind.description.includes('strong')) return 'Too windy to be fun right now.';
   if (shortWindow) return 'It only lines up for a few minutes. Not worth the drive.';
   return 'Not worth paddling out right now.';
+}
+
+/** The skip cause the condition label names, in that hour's numbers. */
+function skipWhySentence(cause: SkipCause): string {
+  if (cause.kind === 'wind') {
+    if (cause.direction === 'onshore') {
+      return `Blown out — ${cause.speedMph} mph onshore wind, choppy and hard to read.`;
+    }
+    if (cause.direction === 'sideshore') {
+      return `Blown out — ${cause.speedMph} mph side-shore wind, choppy and hard to read.`;
+    }
+    return `Blown out — ${cause.speedMph} mph offshore wind, hard to paddle into.`;
+  }
+  if (cause.kind === 'flat') return 'Under half a foot at the peak — not enough swell to break.';
+  if (cause.kind === 'setup-risk') return `${LOW_TIDE_HEAVY_SWELL_WARNING}.`;
+  return 'Not enough forecast data at the peak to rate it.';
 }
 
 function capitalize(s: string): string {
@@ -791,6 +809,7 @@ function pickRepresentativeForecast(
 interface CompositeAndCharacter {
   composite: CompositeScore;
   character: ConditionCharacter;
+  skipCause: SkipCause | null;
   /** Always null with TIDE_SWING_ENABLED off. */
   tideLimiter: TideLimiter | null;
 }
@@ -913,10 +932,16 @@ function computeCompositeAndCharacter(
       preferences: null,
     };
     const composite = getDiscoveryScoringEngine().score(scorerInput);
-    const character = getConditionCharacter(snapshot, profile, composite);
+    const scoredCause = getSkipCause(snapshot, profile, composite);
+    // The snapshot reads a missing wave height as 0 ft: a flat nobody measured.
+    const skipCause: SkipCause | null =
+      scoredCause?.kind === 'flat' && parseMaxWaveHeight(representativeForecast.wave_height) === null
+        ? { kind: 'other' }
+        : scoredCause;
     return {
       composite,
-      character,
+      character: skipCause ? getSkipCharacter(skipCause) : getConditionCharacter(snapshot, profile, composite),
+      skipCause,
       tideLimiter: isTideSwingEnabled()
         ? safeTideLimiter(composite, scorerInput, beach, representativeForecast, forecasts, timezone)
         : null,
@@ -1129,6 +1154,7 @@ export function computeSurfCall(
   const compositeResult = computeCompositeAndCharacter(beach, representativeForecast, forecasts, callTimezone);
   const character = compositeResult?.character ?? null;
   const cautions = extractSetupCautions(compositeResult?.composite.warnings);
+  const skipCause = compositeResult?.skipCause ?? null;
 
   // Short window gate - reject if too short. Verdict is NO → suppress the
   // "Best window" so the UI doesn't contradict itself.
@@ -1202,18 +1228,19 @@ export function computeSurfCall(
   const smallWaveTideOverride = smallWaveOverride && tideLimiter
     ? tideLimitSentence('Small for this break', tideLimiter)
     : undefined;
+  // A skip's own cause outranks "conditions look fun" for small waves.
   const baseWhySentence = buildWhySentence(
     verdict,
     wind,
     waveHeight,
     tide,
     shortWindow,
-    setupRiskOverride ?? smallWaveTideOverride ?? smallWaveOverride,
-    character,
+    setupRiskOverride ?? (skipCause ? undefined : smallWaveTideOverride ?? smallWaveOverride),
+    skipCause,
     tideLimiter,
   );
   // A call the tide doesn't limit can still sit beside a stretch it does.
-  const tideHandoff = isTideSwingEnabled() && verdict !== 'NO' && !setupRiskOverride && !tideLimiter
+  const tideHandoff = isTideSwingEnabled() && verdict !== 'NO' && !setupRiskOverride && !skipCause && !tideLimiter
     ? safeTideHandoff(beach, window, forecasts, callTimezone)
     : null;
   const whySentence = tideHandoff ? withTideHandoff(baseWhySentence, tideHandoff) : baseWhySentence;
