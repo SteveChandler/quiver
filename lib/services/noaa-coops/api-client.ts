@@ -173,7 +173,7 @@ async function fetchTidePredictions(
       time:
         parseCOOPSTimestampToUnixSecondsUTC(prediction.t) ??
         Math.floor(new Date(prediction.t).getTime() / 1000),
-      height: parseFloat(prediction.v) + offsetFt,
+      height: Math.round((parseFloat(prediction.v) + offsetFt) * 1000) / 1000,
       name: prediction.type === "H" ? "High Tide" : "Low Tide",
       type: prediction.type === "H" ? "high" : "low",
     }));
