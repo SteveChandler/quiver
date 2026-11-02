@@ -206,3 +206,58 @@ describe('band-aware tide term on tomorrow\'s rows (2026-10-27, intermediate, no
   });
 });
 
+
+describe('composite skip ceiling', () => {
+  // Ocean Beach Pier's beach row and its 2026-11-01 21:00Z forecast. Dev served this hour as
+  // MAYBE 65 beside the character "Onshore wind — conditions blown out".
+  const obp = (): Beach => beach({
+    id: '65d177de-e75a-4ad8-aa0d-48a67c0851b0', name: 'Ocean Beach Pier', slug: 'ocean-beach-pier',
+    aspect_deg: 260, skill_level: 'advanced', wind_offshore_deg: 90, wind_offshore_tol_deg: 45,
+    swell_window_center_deg: 293, swell_window_halfwidth_deg: 73,
+    preferred_tide_ft_min: 0, preferred_tide_ft_max: 4, preferred_tide_direction: 'rising',
+  });
+  const hour = (wind_speed: string, wind_direction_deg: number): EnhancedForecastEntity => forecast({
+    beach_id: '65d177de-e75a-4ad8-aa0d-48a67c0851b0', forecast_at: '2026-11-01T21:00:00Z',
+    wave_height: '3.2 ft', wave_period: '14s', wave_direction: 'SSW',
+    swell_1_height: '4.2 ft', swell_1_period: '16s', swell_1_direction: 'SSW',
+    wind_wave_height: '1 ft', wind_wave_period: '9s',
+    wind_speed, wind_direction: 'WNW', wind_direction_deg,
+    tide_height: '4.7 ft', tide_status: 'Falling', data_source: 'CDIP', confidence_score: 100,
+  });
+  const boards: BoardClass[] = ['shortboard', 'longboard'];
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.DIRECTION_SCORING_ENABLED;
+    delete process.env.TIDE_SWING_ENABLED;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('holds a blown-out onshore hour at MEH, with or without boards', () => {
+    const blownOut = hour('22 mph', 299);
+    expect(scoreWindowWithComposite(blownOut, obp()).skipReason).toBe('Blown out (22 mph onshore)');
+
+    const noBoard = scoreWindowConditionDetails(blownOut, obp(), 'advanced', null, []);
+    const withBoards = scoreWindowConditionDetails(blownOut, obp(), 'advanced', null, boards);
+
+    expect(noBoard.score).toBe(39);
+    expect(withBoards.score).toBe(39);
+    expect(noBoard.decisionCeiling).toBe(39);
+    expect(noBoard.appliedEffects).toContain('composite_skip');
+  });
+
+  it('leaves a choppy hour below the blown-out tier to the condition score', () => {
+    const choppy = hour('20 mph', 283);
+    expect(scoreWindowWithComposite(choppy, obp()).skipReason).toBeNull();
+
+    const details = scoreWindowConditionDetails(choppy, obp(), 'advanced', null, []);
+
+    expect(details.decisionCeiling).toBeGreaterThan(39);
+    expect(details.score).toBeGreaterThan(39);
+    expect(details.appliedEffects).not.toContain('composite_skip');
+  });
+});
