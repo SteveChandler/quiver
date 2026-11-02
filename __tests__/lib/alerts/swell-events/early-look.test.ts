@@ -191,6 +191,75 @@ describe("earlyLookPeaks", () => {
     const lateOnly = wamSeries(1.2).filter((day) => day.localDate >= dateAfter(11));
     expect(earlyLookPeaks(lateOnly, [], TODAY)).toEqual([]);
   });
+
+  describe("starting where the stored forecast stops", () => {
+    // The Del Mar WAM run of Nov 1 2026, days 0-14: a 2.88 m, 8 s storm on day 10, its 2.66 m tail on
+    // day 11. The stored partitions that day stopped at Nov 10 7 PM, local day 9.
+    const NOV_1_RUN = [1.94, 1.68, 1.48, 1.48, 1.42, 1.12, 1.12, 1.04, 1.02, 1.26, 2.88, 2.66, 1.52, 1.44, 1.82, 1.78];
+    const nov1Days = NOV_1_RUN.map((maxHsM, offset) => ({
+      ...wamDay(offset, maxHsM),
+      periodS: offset === 10 ? 8.35 : offset === 11 ? 9.8 : 13,
+    }));
+
+    it("reports the day-10 storm when the stored forecast ends on day 9", () => {
+      expect(earlyLookPeaks(nov1Days, [], TODAY, dateAfter(9))).toEqual([
+        {
+          kind: "storm",
+          localDate: dateAfter(10),
+          peakAt: `${dateAfter(10)}T20:00:00.000Z`,
+          maxHsM: 2.88,
+          periodS: 8.35,
+          directionDeg: 280,
+        },
+      ]);
+    });
+
+    it("misses it when the scan starts at day 11, as it did with no stored reach", () => {
+      expect(earlyLookPeaks(nov1Days, [], TODAY)).toEqual([]);
+    });
+
+    it("keeps the storm beside the stored 11 s swell 23 h before it: kinds differ", () => {
+      // The stored NW swell peaked Nov 10 1 PM; only a same-kind event inside 36 h drops a peak.
+      const storedSwell = { kind: "swell" as const, peakAt: `${dateAfter(9)}T21:00:00.000Z` };
+      expect(earlyLookPeaks(nov1Days, [storedSwell], TODAY, dateAfter(9)).map((peak) => peak.localDate))
+        .toEqual([dateAfter(10)]);
+    });
+
+    it("scans the stored forecast's last day too, since it is usually a partial one", () => {
+      const days = wamSeries(1.2, { 9: { maxHsM: 2.4, periodS: 8 } });
+      expect(earlyLookPeaks(days, [], TODAY, dateAfter(9)).map((peak) => peak.localDate)).toEqual([dateAfter(9)]);
+      expect(earlyLookPeaks(days, [], TODAY, dateAfter(10))).toEqual([]);
+    });
+
+    it("drops a peak on the stored forecast's last day near a detected event of either kind", () => {
+      // The stored rows already saw part of that day, so a nearby event is the same energy whatever WAM's period says.
+      const days = wamSeries(1.2, { 9: { maxHsM: 2.4, periodS: 10.5 } });
+      const risingSwell = [{ kind: "swell" as const, peakAt: `${dateAfter(9)}T02:00:00.000Z` }];
+      expect(earlyLookPeaks(days, risingSwell, TODAY, dateAfter(9))).toEqual([]);
+      expect(earlyLookPeaks(days, [], TODAY, dateAfter(9)).map((peak) => peak.kind)).toEqual(["storm"]);
+    });
+
+    it("measures the typical height on the days before the scan only", () => {
+      // Days 5-10 at 1.5 m lift a 0-10 median to 1.5 (bar 2.4 m); days 0-4 alone keep it at 1.0 (bar 1.6 m).
+      const days = wamSeries(1.0, {
+        5: { maxHsM: 1.5 }, 6: { maxHsM: 1.5 }, 7: { maxHsM: 1.5 }, 8: { maxHsM: 1.5 }, 9: { maxHsM: 1.5 }, 10: { maxHsM: 1.5 },
+        11: { maxHsM: 2.2, periodS: 8 },
+      });
+      expect(earlyLookPeaks(days, [], TODAY, dateAfter(5)).map((peak) => peak.localDate)).toEqual([dateAfter(11)]);
+      expect(earlyLookPeaks(days, [], TODAY)).toEqual([]);
+    });
+
+    it("never starts later than day 11, however far the stored forecast reaches", () => {
+      const days = wamSeries(1.2, { 11: { maxHsM: 2.4, periodS: 8 } });
+      expect(earlyLookPeaks(days, [], TODAY, dateAfter(12)).map((peak) => peak.localDate)).toEqual([dateAfter(11)]);
+    });
+
+    it("scans from day 1 when the stored forecast has nothing past today, keeping today as the baseline", () => {
+      const days = wamSeries(1.0, { 1: { maxHsM: 2.4, periodS: 8 } });
+      expect(earlyLookPeaks(days, [], TODAY, dateAfter(-3)).map((peak) => peak.localDate)).toEqual([dateAfter(1)]);
+      expect(earlyLookPeaks(wamSeries(1.0, { 0: { maxHsM: 2.4, periodS: 8 } }), [], TODAY, dateAfter(-3))).toEqual([]);
+    });
+  });
 });
 
 describe("fetchWamDays", () => {

@@ -14,6 +14,7 @@ import {
   SWELL_EVENT_BASELINE_LOOKBACK_HOURS,
   detectBeachSwellEvents,
   isSwellEventCurrent,
+  parseSwellPartitions,
   toSwellEventBeach,
   type BeachSwellEvent,
 } from "./detector";
@@ -29,7 +30,7 @@ type Client = SupabaseClient<Database>;
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-/** Stored forecasts end at about 11.8 days; WAM early looks cover the rest. */
+/** Stored rows run to about 11.8 days, but swell partitions can stop near day 9; WAM early looks start there. */
 const DETECTION_HORIZON_DAYS = 12;
 const REGION_CACHE_SECONDS = 10_800;
 // Bump when the cached shape or its contents change, so a deploy never reads an older build.
@@ -37,7 +38,8 @@ const REGION_CACHE_SECONDS = 10_800;
 // v3: one swell the detector peaked more than once shows as one event.
 // v4: events carry memberCount.
 // v5: wind direction, beach orientation and resolved punchiness for story facts.
-const REGION_CACHE_VERSION = "v5";
+// v6: storedThrough, the last local day with a stored swell partition.
+const REGION_CACHE_VERSION = "v6";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -112,6 +114,8 @@ interface RegionBase {
   events: UnkeyedRegionEvent[];
   /** Daylight rows inside any detected event's rating window. */
   rowsByBeach: Record<string, RatingRow[]>;
+  /** Local date of the last stored row with a swell partition, where early looks start; null with none. Absent on hand-built regions. */
+  storedThrough?: string | null;
 }
 
 export interface RegionBuild extends Omit<RegionBase, "events"> {
@@ -320,7 +324,16 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
     });
   }
 
+  // Detection reads only partitions, so the stored forecast reaches as far as the last row with one.
+  let lastPartitionMs = Number.NEGATIVE_INFINITY;
+  for (const row of rows) {
+    if (parseSwellPartitions(row).length === 0) continue;
+    const atMs = Date.parse(row.forecast_at);
+    if (atMs > lastPartitionMs) lastPartitionMs = atMs;
+  }
+
   return {
+    storedThrough: Number.isFinite(lastPartitionMs) ? getLocalDateStr(new Date(lastPartitionMs), timezone) : null,
     beaches: beachRows.map((beach) => ({
       id: beach.id,
       name: beach.name,
@@ -372,7 +385,7 @@ export async function buildRegionEvents(input: RegionInput): Promise<RegionBuild
   const today = getLocalDateStr(input.now, input.timezone);
   const buoy = forecast.beaches.length >= MIN_REGION_BEACHES ? regionModelBuoy(forecast.beaches) : null;
   const wamDays = buoy ? await fetchWamDays(buoy, input.timezone) : null;
-  const early = wamDays ? earlyLookPeaks(wamDays, forecast.events, today) : [];
+  const early = wamDays ? earlyLookPeaks(wamDays, forecast.events, today, forecast.storedThrough ?? null) : [];
   const wamByDate = new Map((wamDays ?? []).map((day) => [day.localDate, day]));
   // Forecast events keep the keys they were given first, so the story and the card name them alike.
   const earlyKeyed = withKeys(input.region, early.map(earlyLookEvent), forecast.events.map((event) => event.key));

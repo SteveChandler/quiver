@@ -267,7 +267,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
     expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
     expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
-    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v5", REGION, expect.any(String)], expect.anything());
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v6", REGION, expect.any(String)], expect.anything());
     const beachSelect = selectedColumns.find(({ table }) => table === "beaches")?.columns;
     expect(beachSelect).toContain("wave_punchiness_ai");
     expect(beachSelect).not.toContain("wave_punchiness,");
@@ -302,7 +302,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v5", REGION, "2026-09-25"],
+      ["region-swell-events", "v6", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -595,6 +595,27 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     ]);
     expect(events[0].here).toMatchObject({ label: "EARLY LOOK", exposure: "shadowed", reason: "small, sheltered" });
     expect(built.buoy).toEqual({ id: "46266", name: buoy.name });
+  });
+
+  it("starts early looks where the stored swell partitions stop, so a day-10 storm is not lost", async () => {
+    // As on Nov 1 2026: partitioned rows end on day 9 at 6 PM, and the rows after carry no partitions.
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const lastPartitioned = Date.parse(localIsoOf(9, 18));
+    const rows = beaches.flatMap((item) => rowsFor(item.id)).map((row) => Date.parse(String(row.forecast_at)) <= lastPartitioned
+      ? row
+      // A zero height with no period is a partition the detector can't read, so it doesn't extend the reach.
+      : { ...row, swell_1_height: "0 ft", swell_1_period: null, swell_1_direction: null });
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({
+      10: { maxHsM: 2.9, periodS: 8 },
+      11: { maxHsM: 2.7, periodS: 10 },
+    }));
+    const built = await build(beaches, rows);
+    const events = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+
+    expect(built.storedThrough).toBe(localDate(9));
+    expect(events.map((event) => [event.source, event.kind, event.peakLocalDate, event.confidence, event.leadDays])).toEqual([
+      ["wam", "storm", localDate(10), "early_look", 10],
+    ]);
   });
 
   it("adds the buoy history line when WAM covers the event's peak day", async () => {
