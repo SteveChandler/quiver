@@ -34,6 +34,7 @@ const SELECTOR_IDEAL_RIDEABILITY_BONUS = 4;
 const SELECTOR_ACCEPTABLE_RIDEABILITY_BONUS = 1;
 const SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT = 5;
 const SELECTOR_OUT_OF_BAND_PENALTY_CAP = 12;
+const COMPOSITE_SKIP_CEILING = 39; // top of MEH
 
 /**
  * Score a forecast window using the native-compatible condition score.
@@ -65,6 +66,13 @@ function decisionEffectDetails(
     (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
     100,
   );
+  // The condition character reads a composite skip as "blown out"; the score beside it must not read FAIR.
+  if (composite.skipReason && COMPOSITE_SKIP_CEILING < ceiling) {
+    return {
+      ceiling: COMPOSITE_SKIP_CEILING,
+      effects: [...effects.map((effect) => effect.code), 'composite_skip'],
+    };
+  }
   if (isDirectionScoringEnabledForBeach(beach)) {
     const chop = windChopCeiling(
       {
