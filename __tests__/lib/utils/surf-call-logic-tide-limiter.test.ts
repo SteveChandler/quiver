@@ -259,6 +259,24 @@ describe('computeSurfCall tide handoff (bridged hourly rows)', () => {
     expect(sentence.length).toBeLessThanOrEqual(120);
   });
 
+  it('leaves the tide out of a blown-out hour', () => {
+    withFlag(true);
+    const blownOut = bridged('lower-trestles').map((row) => ({
+      ...row,
+      wind_speed: '30 mph',
+      wind_direction: 'WSW',
+      wind_direction_deg: 247, // Lower Trestles offshore is 67°
+    }));
+    const peakRow = blownOut.find((row) => row.forecast_at.startsWith('2026-10-27T18:00'))!;
+    const window: PersonalizedForecastWindow = {
+      ...windowAt(peakRow, 62),
+      end: new Date('2026-10-27T21:15:00Z'),
+      peakTime: new Date('2026-10-27T18:30:00Z'),
+    };
+    const result = computeSurfCall(window, blownOut, beachOf('lower-trestles'), { isTomorrow: true });
+    expect(result.whySentence).toBe('Blown out — 30 mph onshore wind, choppy and hard to read.');
+  });
+
   it('every handoff sentence stays within 120 characters', () => {
     withFlag(true);
     for (const sentence of [pbFirstLight(), trestlesMidday(), pbAfterHigh()]) {
