@@ -157,6 +157,14 @@ describe('Discovery Adapter', () => {
       expect(forecastToSnapshot(highForecast).tide.direction).toBe('slack');
     });
 
+    it('flags a missing wave height instead of presenting it as a real 0 ft reading', () => {
+      const missing = forecastToSnapshot(createForecast({ wave_height: null }));
+      expect(missing.waveHeight).toBe(0);
+      expect(missing.waveHeightKnown).toBe(false);
+      expect(forecastToSnapshot(createForecast({ wave_height: '0 ft' })).waveHeightKnown).toBe(true);
+      expect(forecastToSnapshot(createForecast({ wave_height: '2-3 ft' })).waveHeightKnown).toBe(true);
+    });
+
     it('flags a missing tide height instead of presenting it as a real 0 ft reading', () => {
       const missing = forecastToSnapshot(createForecast({ tide_height: null }));
       expect(missing.tide.heightFt).toBe(0);

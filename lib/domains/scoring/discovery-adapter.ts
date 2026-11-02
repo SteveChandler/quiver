@@ -149,6 +149,7 @@ export function forecastToSnapshot(
   return {
     timestamp: new Date(forecast.forecast_at),
     waveHeight,
+    waveHeightKnown: Number.isFinite(parseFloat(forecast.wave_height ?? '')),
     wavePeriod,
     waveDirection,
     primarySwell,
