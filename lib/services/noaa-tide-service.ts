@@ -1,5 +1,6 @@
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "@/lib/services/noaa-coops/tide-analysis";
+import { seaLevelOffsetFt } from "@/lib/services/noaa-coops/api-client";
 import {
   selectTideSeries,
   type TideForecastSelectionRow,
@@ -194,10 +195,11 @@ export async function fetchHourlyTidePredictions(
     throw new Error(`NOAA tide failed: ${res.status}`);
   }
   const json = await res.json();
+  const offsetM = seaLevelOffsetFt(stationId) * 0.3048;
   const preds: TidePrediction[] = (json?.predictions || [])
     .map((p: any) => {
       const ts = parseNoaaGmtTimestamp(p?.t);
-      const tideHeightM = Number(p?.v);
+      const tideHeightM = Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
       if (!ts || !Number.isFinite(tideHeightM)) return null;
       return {
         ts,
@@ -254,10 +256,11 @@ export async function fetchHighLowTidePredictions(
   }
 
   const json = await res.json();
+  const offsetM = seaLevelOffsetFt(stationId) * 0.3048;
   const predictions: HighLowTidePrediction[] = (json?.predictions || [])
     .map((p: any) => {
       const ts = parseNoaaGmtTimestamp(p?.t);
-      const tideHeightM = Number(p?.v);
+      const tideHeightM = Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
       if (!ts || !Number.isFinite(tideHeightM)) return null;
       if (p?.type !== "H" && p?.type !== "L") return null;
       return {
