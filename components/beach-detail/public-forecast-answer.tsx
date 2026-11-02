@@ -14,6 +14,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getSurfCallVerdictCall, SCORE_LABEL_INK } from "@/components/forecast/score-band-call";
 import { CARDINAL_TO_DEGREES } from "@/lib/domains/shared/angle-utils";
 import { classifyWindRelation, WIND_SPEED_GLASSY_MPH } from "@/lib/utils/wind-relation";
+import { CALIFORNIA_SEA_LEVEL_OFFSET_FT } from "@/lib/services/noaa-coops/api-client";
 import type {
   PublicForecastContextFacts,
   PublicForecastReportFacts,
@@ -114,6 +115,8 @@ function sourceLabel(source: string): string {
   switch (source) {
     case "NOAA_CO-OPS":
       return "NOAA CO-OPS";
+    case "NOAA_CO-OPS_SEA_LEVEL":
+      return `NOAA CO-OPS + ${CALIFORNIA_SEA_LEVEL_OFFSET_FT} ft sea-level adjustment`;
     case "FES2022":
       return "FES2022 tide model";
     case "NOAA_NWS":

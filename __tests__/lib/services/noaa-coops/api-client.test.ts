@@ -119,3 +119,26 @@ describe("fetchAllStationData", () => {
     expect(result.stationInfo).toEqual({ name: "Test Station" });
   });
 });
+
+describe("California sea-level offset", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("raises California predictions by 1.5 ft and leaves other stations alone", async () => {
+    const predictions = { predictions: [{ t: "2026-11-01 20:48", v: "4.924", type: "H" }] };
+    const station = { stations: [{ name: "Test Station" }] };
+    for (const stationId of ["9410230", "9435380"]) {
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => predictions })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => station });
+    }
+
+    const california = await fetchAllStationData("9410230", 1);
+    const oregon = await fetchAllStationData("9435380", 1);
+
+    expect(california.tideData.map((t) => t.height)).toEqual([6.424]);
+    expect(oregon.tideData.map((t) => t.height)).toEqual([4.924]);
+  });
+});
