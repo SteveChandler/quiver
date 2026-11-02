@@ -15,7 +15,7 @@ jest.mock("../week-scout-story-store", () => ({
 
 import { buildStoryInput, storyEventsFromRegion } from "../week-scout-story-source";
 import { buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
-import { addDays } from "../swell-briefing-input";
+import { addDays } from "../local-date";
 import { loadRegionForecastEvents, type InternalRegionEvent, type RatingRow, type RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { Database } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { beachRowsByLocalDate, breakerCharacter, type FaceRange } from "@/lib/services/discovery/week-scout-story-facts";
-import { localDate } from "@/lib/services/discovery/swell-briefing-input";
+import { localDate } from "@/lib/services/discovery/local-date";
 import {
   beachLine,
   eventStoryText,
