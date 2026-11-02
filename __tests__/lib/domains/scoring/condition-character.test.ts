@@ -270,6 +270,39 @@ describe('getConditionCharacter (domain engine port)', () => {
         skipReason: 'Conditions not favorable',
       })).toEqual({ kind: 'other' });
     });
+
+    // The snapshot reads a missing wave height as 0 ft, so the flat check skips a row nobody measured.
+    it('names a flat skip with no wave height on the row no-data, unless the same hour is blown out', () => {
+      const unknown = createSnapshot({ ...baseSnapshot, waveHeight: 0, waveHeightKnown: false });
+      const unknownAndBlownOut = createSnapshot({ ...unknown, wind: { speedMph: 32, directionDeg: 90 } });
+      const composite = {
+        ...baseComposite,
+        skipReason: baseConditionsScorer.score(createInput(unknown, profile)).skipReason,
+      };
+
+      expect(getSkipCause(unknown, profile, composite)).toEqual({ kind: 'no-data' });
+      expect(getSkipCause(unknownAndBlownOut, profile, composite))
+        .toEqual({ kind: 'wind', speedMph: 32, direction: 'offshore' });
+      expect(getSkipCause(createSnapshot({ ...unknown, waveHeightKnown: true }), profile, composite))
+        .toEqual({ kind: 'flat' });
+    });
+  });
+
+  describe('no wave height on the row', () => {
+    const unknown = createSnapshot({ ...baseSnapshot, waveHeight: 0, waveHeightKnown: false });
+
+    it('labels the flat skip "No size forecast yet", never "Flat — rest day"', () => {
+      const flat = baseConditionsScorer.score(createInput(unknown, profile));
+      expect(flat.skip).toBe(true);
+
+      expect(getConditionCharacter(unknown, profile, { ...baseComposite, skipReason: flat.skipReason }))
+        .toEqual({ category: 'skip', label: 'No size forecast yet' });
+    });
+
+    it('keeps the flat category but drops the flat label when the composite did not skip', () => {
+      expect(getConditionCharacter(unknown, profile, baseComposite))
+        .toEqual({ category: 'flat', label: 'No size forecast yet' });
+    });
   });
 
   describe('flat conditions', () => {

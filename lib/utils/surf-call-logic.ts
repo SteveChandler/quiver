@@ -932,12 +932,7 @@ function computeCompositeAndCharacter(
       preferences: null,
     };
     const composite = getDiscoveryScoringEngine().score(scorerInput);
-    const scoredCause = getSkipCause(snapshot, profile, composite);
-    // The snapshot reads a missing wave height as 0 ft: a flat nobody measured.
-    const skipCause: SkipCause | null =
-      scoredCause?.kind === 'flat' && parseMaxWaveHeight(representativeForecast.wave_height) === null
-        ? { kind: 'other' }
-        : scoredCause;
+    const skipCause = getSkipCause(snapshot, profile, composite);
     return {
       composite,
       character: skipCause ? getSkipCharacter(skipCause) : getConditionCharacter(snapshot, profile, composite),
