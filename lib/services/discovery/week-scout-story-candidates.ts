@@ -165,7 +165,7 @@ function withRegionalSize(text: string, facts: CandidateFacts | null): string {
   return `${text.slice(0, -1)}: ${size} at most spots${standout && standout !== size ? `, ${standout} at the standouts` : ""}.`;
 }
 
-export interface HeadlineSwell {
+interface HeadlineSwell {
   key: string;
   kind: RegionalSwellEvent["kind"];
   directionIndex: number;
@@ -210,7 +210,7 @@ export function storyEventKey(event: RegionalSwellEvent): string {
 }
 
 /** The swell gate for a sentence naming this event's direction, period class and days, fade included when it has one. */
-export function eventSwellGate(event: RegionalSwellEvent): Extract<StoryGate, { kind: "swell" }> {
+function eventSwellGate(event: RegionalSwellEvent): Extract<StoryGate, { kind: "swell" }> {
   return {
     kind: "swell", regionalEventKey: storyEventKey(event), directionSector: directionSector(event.directionDeg),
     directionIndex: directionIndex(event.directionDeg), periodBand: periodBand(event.periodS), periodClass: periodClass(event.periodS),

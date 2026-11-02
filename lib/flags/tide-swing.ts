@@ -1,8 +1,8 @@
-export const HOURLY_BRIDGE_ENABLED_FLAG = "HOURLY_BRIDGE_ENABLED";
-export const HOURLY_BRIDGE_SURFACES_FLAG = "HOURLY_BRIDGE_SURFACES";
-export const TIDE_SWING_ENABLED_FLAG = "TIDE_SWING_ENABLED";
+const HOURLY_BRIDGE_ENABLED_FLAG = "HOURLY_BRIDGE_ENABLED";
+const HOURLY_BRIDGE_SURFACES_FLAG = "HOURLY_BRIDGE_SURFACES";
+const TIDE_SWING_ENABLED_FLAG = "TIDE_SWING_ENABLED";
 
-export type HourlyBridgeSurface = "discover" | "week-scout" | "daily-call" | "scored";
+type HourlyBridgeSurface = "discover" | "week-scout" | "daily-call" | "scored";
 
 const ALL_SURFACES: readonly HourlyBridgeSurface[] = ["discover", "week-scout", "daily-call", "scored"];
 

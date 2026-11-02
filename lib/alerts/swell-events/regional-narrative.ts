@@ -189,7 +189,7 @@ function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, 
   } };
 }
 
-export type PreparedRegionNarration = ReturnType<typeof prepareNarration>;
+type PreparedRegionNarration = ReturnType<typeof prepareNarration>;
 
 /** Share one gate context and one edition-warning scope across card lines and watch days. */
 export function prepareRegionNarration(input: {

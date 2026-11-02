@@ -1,7 +1,6 @@
 export {
   SWELL_EVENT_DETECTOR_VERSION,
   SWELL_EVENT_THRESHOLDS,
-  STORM_EVENT_THRESHOLDS,
   exposureFactor,
   exposureLabel,
   swellWindowForBeach,
