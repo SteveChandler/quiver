@@ -28,7 +28,7 @@ const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
 // ponytail: hand-set constant. seaside fetch-trusted-forecasts flags when WaveCast's sea-level
 // advisory drifts 4 in from this or disappears; runbook: seaside docs/sea-level-offset-watch.md.
 // Change seaside QUIVER_SEA_LEVEL_OFFSET_IN with it.
-export const CALIFORNIA_SEA_LEVEL_OFFSET_FT = 1.5;
+const CALIFORNIA_SEA_LEVEL_OFFSET_FT = 1.5;
 
 /** Feet to add to predicted tide heights at a CO-OPS station (California IDs start with 941). */
 export function seaLevelOffsetFt(stationId: string): number {

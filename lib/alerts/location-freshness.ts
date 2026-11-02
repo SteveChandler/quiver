@@ -13,7 +13,7 @@ export const DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS = 12;
  * A fix too old to rank around still says where the surfer went. Three days
  * covers a trip's first mornings without the app being reopened.
  */
-export const AWAY_FROM_HOME_FIX_MAX_AGE_HOURS = 72;
+const AWAY_FROM_HOME_FIX_MAX_AGE_HOURS = 72;
 
 export interface LocationSnapshot {
   lat: number;

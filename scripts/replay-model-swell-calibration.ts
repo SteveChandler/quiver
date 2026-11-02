@@ -21,7 +21,6 @@
  * Run: node --import tsx scripts/replay-model-swell-calibration.ts <env file> [days] [--write] [--seam-fixtures]
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import {
   transformToFaceHeightDecomposed,
@@ -42,7 +41,12 @@ import {
 const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
 const WRITE = process.argv.includes("--write");
 const SEAM_FIXTURES = process.argv.includes("--seam-fixtures");
-config({ path: args[0] });
+try {
+  process.loadEnvFile(args[0]);
+} catch (error) {
+  // dotenv's config() tolerated a missing file; keep that.
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
 const DAYS = Number(args[1] ?? 30);
 const M_TO_FT = 3.28084;
 const SEAM_PAIRS_PER_BEACH = 5;
