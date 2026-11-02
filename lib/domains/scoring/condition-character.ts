@@ -19,7 +19,7 @@
  *     used for the large-clean branch) becomes `... >= 60`.
  *
  * WIND SKIP-GATE OWNERSHIP (PR 4):
- *   Skip semantics now flow entirely through `windQualityScorer`'s tier
+ *   Wind skip semantics flow entirely through `windQualityScorer`'s tier
  *   table — when the scorer returns `skip = true` (Blown-out tier: ≥22 mph
  *   onshore-or-cross OR ≥30 mph offshore), the composite carries that
  *   skip reason and the classifier reads `skipReason` directly instead of
@@ -38,6 +38,8 @@ import type { SpotProfile } from '../spot-profile/types';
 import type { CompositeScore } from './types';
 import { angleDifference } from '../shared';
 import { isWindQualityUnknown } from './scorers/wind-quality-scorer';
+import { FLAT_CONDITIONS_SKIP_REASON } from './scorers/base-conditions-scorer';
+import { LOW_TIDE_HEAVY_SWELL_WARNING } from './scorers/setup-risk-scorer';
 
 /**
  * Condition character categories (mirrors legacy `lib/scoring/types.ts`).
@@ -145,7 +147,7 @@ function isWindOnshoreForCharacter(
  * Determine the qualitative condition character.
  *
  * Priority-ordered decision tree (first matching rule wins):
- *   1. Skip — blown out or dominated by onshore wind
+ *   1. Skip — blown out, flat, or a setup risk (per the composite's skip reason)
  *   2. Flat — barely anything to surf (< 0.5ft)
  *   3. Small (0.5–2ft) — weak / quality / clean / fallback
  *   4. Medium (2–5ft) — clean / mixed
@@ -170,21 +172,27 @@ export function getConditionCharacter(
   // Unknown wind is neutral and unspoken: no wind words, no wind-driven downgrade.
   const windUnknown = isWindQualityUnknown(snapshot, profile);
 
-  // 1. Skip conditions — read the composite's skip reason directly. The
-  //    `windQualityScorer` (post-PR 4) raises `skip` only at the Blown-out
-  //    tier (≥22 mph onshore-or-cross OR ≥30 mph offshore), which is the
-  //    new single source of truth for "too windy to surf". Skip from any
-  //    other scorer (e.g. `baseConditionsScorer` for >25 ft) also lands
-  //    here — surface a generic blown-out label since wind is the most
-  //    common cause; downstream callers display the composite's actual
-  //    skipReason when more detail is needed.
-  if (composite.skipReason) {
-    if (windUnknown) return { category: 'skip', label: 'Skip — conditions not favorable' };
-    const lower = composite.skipReason.toLowerCase();
-    const label = lower.includes('onshore')
-      ? 'Onshore wind — conditions blown out'
-      : 'Blown out — too much wind';
-    return { category: 'skip', label };
+  // 1. Skip conditions — label by the scorer that raised the skip, read from
+  //    the composite's skip reason. Only `windQualityScorer`'s Blown-out tier
+  //    (≥22 mph onshore-or-cross OR ≥30 mph offshore) is about wind; a flat
+  //    row (`baseConditionsScorer`) or a setup risk (`setupRiskScorer`) must
+  //    not read as wind.
+  const skipReason = composite.skipReason;
+  if (skipReason) {
+    if (skipReason === FLAT_CONDITIONS_SKIP_REASON) {
+      return { category: 'skip', label: 'Flat — rest day' };
+    }
+    if (skipReason === LOW_TIDE_HEAVY_SWELL_WARNING) {
+      return { category: 'skip', label: 'Likely closing out — dropping low tide' };
+    }
+    const lower = skipReason.toLowerCase();
+    if (!windUnknown && lower.startsWith('blown out')) {
+      if (lower.includes('onshore')) {
+        return { category: 'skip', label: 'Onshore wind — conditions blown out' };
+      }
+      return { category: 'skip', label: 'Blown out — too much wind' };
+    }
+    return { category: 'skip', label: 'Skip — conditions not favorable' };
   }
 
   // 2. Flat — barely anything to surf
