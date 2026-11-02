@@ -57,7 +57,7 @@ export function BeachDetailClient({
   const { user } = useAuth();
   const authenticatedForecastDecision = useAuthenticatedForecastDecision();
   const { track } = useTrackEvent();
-  const mountTime = useRef(Date.now());
+  const trackRef = useRef(track);
   const beachIdRef = useRef<string | null>(null);
   const beachNameRef = useRef<string | null>(null);
   const [personalizationData, setPersonalizationData] = useState<{
@@ -114,6 +114,10 @@ export function BeachDetailClient({
     return () => window.clearTimeout(timeout);
   }, [beach?.id]);
 
+  useEffect(() => {
+    trackRef.current = track;
+  }, [track]);
+
   // Keep refs in sync with beach data
   useEffect(() => {
     if (beach?.id) {
@@ -133,9 +137,8 @@ export function BeachDetailClient({
     // Lazy home-break inference: if the user is signed in and hasn't picked a
     // home break yet, claim this beach as their home. Idempotent server-side —
     // only writes if home_beach_id IS NULL. Fire-and-forget so it never blocks
-    // the page render. Reads beach.id via beachIdRef to match the existing
-    // pattern used for duration tracking below and avoid an exhaustive-deps
-    // warning without re-firing the effect on prop churn.
+    // the page render. Reads beach.id via beachIdRef to avoid an
+    // exhaustive-deps warning without re-firing the effect on prop churn.
     // See Fix 5 in plans/majestic-squishing-newell.md.
     const inferBeachId = beachIdRef.current;
     if (user && inferBeachId) {
@@ -144,29 +147,51 @@ export function BeachDetailClient({
         console.warn("inferHomeBreakFromView failed:", err);
       });
     }
+  }, [slug, user]);
 
-    // Capture mount time for cleanup function
-    const startTime = mountTime.current;
+  // Duration beach_view: one event per visible stretch of this beach, flushed
+  // on tab hide, pagehide, slug change or unmount. Keyed on slug only — auth
+  // events hand `user` a new identity in every open tab, and tying this to
+  // [user] re-emitted an ever-growing "view" from each tab on every focus.
+  useEffect(() => {
+    let segmentStart: number | null =
+      document.visibilityState === "hidden" ? null : Date.now();
 
-    // Track duration on unmount
-    return () => {
+    const flush = (): void => {
+      if (segmentStart === null) return;
+      const duration = Date.now() - segmentStart;
+      segmentStart = null;
       const id = beachIdRef.current;
-      if (id) {
-        const duration = Date.now() - startTime;
-        if (duration > 3000) {
-          track('beach_view', {
-            beachId: id,
-            metadata: {
-              duration_ms: duration,
-              forecast_viewed: true,
-              beach_name: beachNameRef.current ?? undefined,
-            },
-            debounceMs: 0, // Force fire on unmount
-          });
-        }
-      }
+      if (!id || duration <= 3000) return;
+      void trackRef.current("beach_view", {
+        beachId: id,
+        metadata: {
+          duration_ms: duration,
+          forecast_viewed: true,
+          beach_name: beachNameRef.current ?? undefined,
+        },
+        debounceMs: 0,
+      });
     };
-  }, [slug, user, track]);
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === "hidden") {
+        flush();
+        return;
+      }
+      if (segmentStart === null) segmentStart = Date.now();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("pageshow", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("pageshow", handleVisibilityChange);
+      flush();
+    };
+  }, [slug]);
 
   useEffect(() => {
     if (
