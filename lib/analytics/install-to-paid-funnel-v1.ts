@@ -435,7 +435,7 @@ export function buildInstallToPaidRows(input: InstallToPaidInput): InstallToPaid
 
 export const INSTALL_TO_PAID_AGGREGATES_SCHEMA_VERSION = "install_to_paid_aggregates.v1" as const;
 
-export interface InstallDimensions {
+interface InstallDimensions {
   platform: string;
   acquisitionSource: string;
   acquisitionSurface: string;
@@ -445,14 +445,14 @@ export interface InstallDimensions {
   trialProductId: string | null;
 }
 
-export type InstallDimensionsByInstall = Record<string, InstallDimensions>;
-export type AggregateStage = "nativeInstall" | keyof InstallMilestones;
-export interface AggregateRate {
+type InstallDimensionsByInstall = Record<string, InstallDimensions>;
+type AggregateStage = "nativeInstall" | keyof InstallMilestones;
+interface AggregateRate {
   numerator: number;
   denominator: number;
   rate: number | null;
 }
-export interface AggregateStageCounts {
+interface AggregateStageCounts {
   true: number;
   false: number;
   unknown: number;

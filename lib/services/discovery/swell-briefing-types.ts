@@ -22,7 +22,7 @@ export type BriefingFreshness = "fresh" | "aging" | "stale";
 export type BriefingExposureKey = "south_facing" | "west_facing" | "northwest_facing";
 export type BriefingWindKind = "offshore" | "onshore" | "cross" | "light_variable" | "unknown";
 export type BriefingDayTrend = "flat" | "small" | "building" | "bigger" | "easing" | "uncertain";
-export type BriefingAdvisoryKind = "weather" | "wind" | "hazard" | "info";
+type BriefingAdvisoryKind = "weather" | "wind" | "hazard" | "info";
 
 export interface BriefingPhoto {
   beachId: string;
@@ -253,7 +253,7 @@ export interface SwellBriefingPublishResult {
   created: boolean;
 }
 
-export const BRIEFING_COPY_SLOT_PREFIXES = ["next48:", "week:"] as const;
-export const BRIEFING_FIXED_COPY_SLOTS = ["headline", "todayCall"] as const;
+const BRIEFING_COPY_SLOT_PREFIXES = ["next48:", "week:"] as const;
+const BRIEFING_FIXED_COPY_SLOTS = ["headline", "todayCall"] as const;
 export const MAX_BRIEFING_COPY_FACTS = 100;
 export const MAX_BRIEFING_COPY_LENGTH = 240;

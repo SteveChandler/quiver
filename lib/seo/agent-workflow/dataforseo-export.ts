@@ -81,7 +81,7 @@ export function buildMissingDataForSeoExport(
   };
 }
 
-export interface ReusableDataForSeoExport {
+interface ReusableDataForSeoExport {
   path: string;
   data: DataForSeoExportInput;
 }
