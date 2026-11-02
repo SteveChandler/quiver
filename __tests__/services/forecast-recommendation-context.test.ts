@@ -75,6 +75,17 @@ describe("buildForecastRecommendationContext", () => {
     expect(context?.contributingSources).toEqual(expected);
   });
 
+  it("labels California NOAA tides as sea-level adjusted", () => {
+    const context = buildForecastRecommendationContext({
+      beach: beach({ state: "CA" }),
+      forecasts: [row({ forecast_at: "2026-05-08T13:00:00.000Z", coops_station_id: "cached_obp" })],
+      window: null,
+      now: new Date("2026-05-08T13:30:00.000Z"),
+    });
+
+    expect(context?.contributingSources).toEqual(["CDIP", "NOAA_CO-OPS_SEA_LEVEL"]);
+  });
+
   it("uses the selected best window over earlier matching rows", () => {
     const sourceForecast = row({
       forecast_at: "2026-05-08T23:00:00.000Z",
