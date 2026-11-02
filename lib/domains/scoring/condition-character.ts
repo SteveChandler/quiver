@@ -155,8 +155,13 @@ function isWindOnshoreForCharacter(
 export type SkipCause =
   | { kind: 'wind'; speedMph: number; direction: WindDirectionClass }
   | { kind: 'flat' }
+  /** A flat skip on a row with no wave height: the scorer read the missing height as 0 ft. */
+  | { kind: 'no-data' }
   | { kind: 'setup-risk' }
   | { kind: 'other' };
+
+/** The label for an hour whose row has no wave height, which must never read as flat. */
+const NO_SIZE_FORECAST_LABEL = 'No size forecast yet';
 
 /** The hour's wind against the spot's offshore bearing; null when it can't be judged. */
 function hourWind(
@@ -189,7 +194,9 @@ export function getSkipCause(
   if (skipReason === FLAT_CONDITIONS_SKIP_REASON) {
     // The flat check ends scoring before the wind scorer runs, so a flat
     // hour's reason never says the wind blows it out. Blown out outranks flat.
-    if (!wind || !isBlownOutWind(wind.speedMph, wind.direction)) return { kind: 'flat' };
+    if (!wind || !isBlownOutWind(wind.speedMph, wind.direction)) {
+      return snapshot.waveHeightKnown === false ? { kind: 'no-data' } : { kind: 'flat' };
+    }
   } else if (!wind || !skipReason.toLowerCase().startsWith('blown out')) {
     return { kind: 'other' };
   }
@@ -205,6 +212,9 @@ export function getSkipCharacter(cause: SkipCause): ConditionCharacter {
   }
   if (cause.kind === 'flat') {
     return { category: 'skip', label: 'Flat — rest day' };
+  }
+  if (cause.kind === 'no-data') {
+    return { category: 'skip', label: NO_SIZE_FORECAST_LABEL };
   }
   if (cause.kind === 'setup-risk') {
     return { category: 'skip', label: 'Likely closing out — dropping low tide' };
@@ -246,9 +256,9 @@ export function getConditionCharacter(
   const skipCause = getSkipCause(snapshot, profile, composite);
   if (skipCause) return getSkipCharacter(skipCause);
 
-  // 2. Flat — barely anything to surf
+  // 2. Flat — barely anything to surf, unless nobody measured it
   if (waveHeight < 0.5) {
-    return { category: 'flat', label: 'Flat — rest day' };
+    return { category: 'flat', label: snapshot.waveHeightKnown === false ? NO_SIZE_FORECAST_LABEL : 'Flat — rest day' };
   }
 
   // 3. Small waves (0.5–2ft)

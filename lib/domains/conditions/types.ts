@@ -72,6 +72,8 @@ export interface ConditionsSnapshot {
 
   /** Overall wave height (primary metric, feet) */
   readonly waveHeight: number;
+  /** False when the forecast had no wave height and waveHeight is a 0 placeholder. */
+  readonly waveHeightKnown?: boolean;
   /** Overall wave period (seconds) */
   readonly wavePeriod: number;
   /** Overall wave direction (degrees) */

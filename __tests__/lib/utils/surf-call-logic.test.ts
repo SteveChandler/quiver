@@ -1034,7 +1034,7 @@ describe('computeSurfCall', () => {
     it('claims no height, in the pill or the sentence, when the peak hour has no wave height', () => {
       const forecasts = [makeForecast({ wave_height: null as unknown as string, swell_1_height: null as unknown as string })];
       const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
-      expect(result.character).toEqual({ category: 'skip', label: 'Skip — conditions not favorable' });
+      expect(result.character).toEqual({ category: 'skip', label: 'No size forecast yet' });
       expect(result.whySentence).toBe('Not enough forecast data at the peak to rate it.');
     });
 
