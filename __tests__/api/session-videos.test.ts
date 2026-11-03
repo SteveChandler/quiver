@@ -55,11 +55,27 @@ describe("session video routes", () => {
 
   it("finalizes a video as pending", async () => {
     const insert = chain({ data: { id: "media-1" }, error: null });
+    insert.maybeSingle.mockResolvedValue({ data: null, error: null });
     mockFrom.mockReturnValue(insert);
     const { POST } = await import("@/app/api/sessions/[id]/videos/route");
     const response = await POST(request({ storagePath: "session-1/user-1/a.mp4", durationSec: 12, sizeBytes: 10 }), { params: { id: "session-1" } });
     expect(response.status).toBe(201);
     expect(insert.insert).toHaveBeenCalledWith(expect.objectContaining({ moderation_status: "pending" }));
+  });
+
+  it("returns the existing row when the same file is finalized again", async () => {
+    // Native retries finalize after a timeout or a not-yet-visible session;
+    // a repeat for the same storage path must not add a second media row.
+    const existing = chain({ data: { id: "media-1" }, error: null });
+    mockFrom.mockReturnValue(existing);
+    const { POST } = await import("@/app/api/sessions/[id]/videos/route");
+    const response = await POST(request({ storagePath: "session-1/user-1/a.mp4", durationSec: 12, sizeBytes: 10 }), { params: { id: "session-1" } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ mediaId: "media-1" });
+    // chain() shares one mock across builder methods, so assert on the
+    // terminal calls: the lookup resolves via maybeSingle, the insert via single.
+    expect(existing.eq).toHaveBeenCalledWith("storage_path", "session-1/user-1/a.mp4");
+    expect(existing.single).not.toHaveBeenCalled();
   });
 
   it("returns 403 for a non-owner and 405 for unsupported methods", async () => {
