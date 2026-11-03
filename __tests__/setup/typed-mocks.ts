@@ -315,6 +315,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     recommendation_call_accuracy = null,
     recommendation_id = null,
     tide_status_correct = null,
+    timing_user_set = false,
     wave_height_correct = null,
     ...restOverrides
   } = overrides;
@@ -370,6 +371,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     session_board_fit: null,
     session_skill_fit: null,
     tide_status_correct,
+    timing_user_set,
     wave_height_correct,
     ...restOverrides,
   };

@@ -10644,6 +10644,71 @@ export type Database = {
           },
         ]
       }
+      session_watch_claims: {
+        Row: {
+          claimed_at: string | null
+          claimed_import_id: string | null
+          created_at: string
+          device_id: string | null
+          merge_result: Json | null
+          session_id: string
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_import_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          merge_result?: Json | null
+          session_id: string
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_import_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          merge_result?: Json | null
+          session_id?: string
+          user_id?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_watch_claims_claimed_import_id_fkey"
+            columns: ["claimed_import_id"]
+            isOneToOne: false
+            referencedRelation: "session_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_watch_claims_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "watch_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_watch_claims_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_watch_claims_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       session_wave_corrections: {
         Row: {
           action: string
@@ -11006,6 +11071,7 @@ export type Database = {
           tide_rate_ft_per_hr: number | null
           tide_status: string | null
           tide_status_correct: boolean | null
+          timing_user_set: boolean
           user_id: string
           water_temp: number | null
           water_temp_source: string | null
@@ -11059,6 +11125,7 @@ export type Database = {
           tide_rate_ft_per_hr?: number | null
           tide_status?: string | null
           tide_status_correct?: boolean | null
+          timing_user_set?: boolean
           user_id: string
           water_temp?: number | null
           water_temp_source?: string | null
@@ -11112,6 +11179,7 @@ export type Database = {
           tide_rate_ft_per_hr?: number | null
           tide_status?: string | null
           tide_status_correct?: boolean | null
+          timing_user_set?: boolean
           user_id?: string
           water_temp?: number | null
           water_temp_source?: string | null
