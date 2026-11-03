@@ -18,6 +18,7 @@ import {
   toSwellEventBeach,
   tracksSwellComponent,
   type BeachSwellEvent,
+  type SwellEventBeach,
   type SwellEventForecastRow,
 } from "./detector";
 import { earlyLookPeaks, fetchWamDays, historyLine, regionModelBuoy, type EarlyLookPeak, type WamDay } from "./early-look";
@@ -47,7 +48,8 @@ const REGION_CACHE_SECONDS = 10_800;
 // v5: wind direction, beach orientation and resolved punchiness for story facts.
 // v6: storedThrough, the last local day with a stored swell partition.
 // v7: GFS tail swells past the stored partitions.
-const REGION_CACHE_VERSION = "v7";
+// v8: unrounded offshore heights and beach terrain, for early-look face estimates.
+const REGION_CACHE_VERSION = "v8";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -94,6 +96,8 @@ export interface RegionBeach {
   punchiness: number | null;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
+  /** Terrain for the early-look face transform; optional so hand-built test regions can leave it out. */
+  terrain?: SwellEventBeach;
 }
 
 export interface InternalRegionEvent {
@@ -109,6 +113,8 @@ export interface InternalRegionEvent {
   fadeAt: string | null;
   peakLocalDate: string;
   offshoreFt: string | null;
+  /** The unrounded offshore height behind `offshoreFt`; optional like `terrain`. */
+  offshoreHeightFt?: number | null;
   history: string | null;
   /** Beach detections behind the event, summed over its joined groups; 0 for a WAM early look. */
   memberCount: number;
@@ -226,6 +232,7 @@ function detectedEvent(run: RegionRun): UnkeyedRegionEvent {
     fadeAt: run.fadeAt,
     peakLocalDate: lead.peakLocalDate,
     offshoreFt: `${Math.round(lead.peakOffshoreHeightFt)} ft`,
+    offshoreHeightFt: lead.peakOffshoreHeightFt,
     history: null,
     memberCount: run.memberCount,
   };
@@ -243,6 +250,7 @@ function earlyLookEvent(peak: EarlyLookPeak): UnkeyedRegionEvent {
     fadeAt: null,
     peakLocalDate: peak.localDate,
     offshoreFt: `${Math.round(peak.maxHsM * FEET_PER_METER)} ft`,
+    offshoreHeightFt: peak.maxHsM * FEET_PER_METER,
     history: null,
     memberCount: 0,
   };
@@ -406,6 +414,7 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
         aiConfidence: beach.wave_punchiness_ai_confidence, persona: beach.persona, break_type: beach.break_type, skill_level: beach.skill_level }),
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
+      terrain: toSwellEventBeach(beach),
     })),
     events,
     rowsByBeach: ratingRows,
