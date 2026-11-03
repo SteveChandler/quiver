@@ -2444,11 +2444,41 @@ describe('Wave Height Transformer', () => {
         expect(result.faceHeightFt).toBeGreaterThan(3);
       });
 
-      it('never reads below the storm partition alone when a groundswell is added', () => {
-        const alone = decomposed([STORM, null, null]).faceHeightFt;
+      it('reads a lone storm partition exactly as the legacy path did, and a groundswell only adds', () => {
+        const legacy = transformToFaceHeightWithMetadata({
+          rawHeightFt: STORM.heightFt,
+          periodS: STORM.periodS,
+          swellDirectionDeg: STORM.directionDeg ?? null,
+          beach: OB_BEACH,
+          source: 'model_swell',
+        }).faceHeightFt;
+        const alone = decomposed([STORM, null, null]);
         const mixed = decomposed([STORM, GROUNDSWELL, null]).faceHeightFt;
 
-        expect(mixed).toBeGreaterThanOrEqual(alone);
+        expect(alone.path).toBe('decomposed');
+        expect(alone.faceHeightFt).toBe(legacy);
+        expect(mixed).toBeGreaterThan(legacy);
+      });
+
+      it('reads a lone storm partition as the legacy path did at a beach without terrain', () => {
+        const windowOnly: BeachTerrainConfig = { ...OB_BEACH, terrain_enabled: false, swell_access_factors: null };
+        const legacy = transformToFaceHeightWithMetadata({
+          rawHeightFt: STORM.heightFt,
+          periodS: STORM.periodS,
+          swellDirectionDeg: STORM.directionDeg ?? null,
+          beach: windowOnly,
+          source: 'model_swell',
+        }).faceHeightFt;
+        const alone = transformToFaceHeightDecomposed({
+          components: [STORM, null, null],
+          beach: windowOnly,
+          source: 'model_swell',
+          rawHeightFt: STORM.heightFt,
+          periodS: STORM.periodS,
+          swellDirectionDeg: STORM.directionDeg ?? null,
+        }).faceHeightFt;
+
+        expect(alone).toBe(legacy);
       });
 
       it('keeps the 8 s gate for buoy sources', () => {

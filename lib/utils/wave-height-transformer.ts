@@ -559,11 +559,13 @@ export function transformToFaceHeightRange(params: TransformParams): WaveHeightR
  * periods read well under buoy peak period, so a 6-8 s model partition is
  * often real storm swell (San Diego, Nov 6 2026: 3.7 ft @ 7.75 s W was zeroed
  * and the face fell to 2.2 ft beside a 1.9 ft 13 s swell, while the same
- * partition alone took the legacy path to 4.8 ft). `calculatePeriodFactor`
- * still discounts short periods to 0.8x. Replayed against the CDIP-path face
- * over 30 days at 91 calibrated beaches (factors refit), model-hour MAE fell
- * 0.90 -> 0.77 ft and short-period-dominant MAE 1.25 -> 0.78 ft; a 5-7 s
- * model cutoff scored worse at every step.
+ * partition alone took the legacy path to 4.8 ft). Those partitions weigh by
+ * `calculateDirectionFactor`, the legacy fallback's weight, so a lone one
+ * reads what it always did and adding a partition never lowers the face.
+ * Replayed against the CDIP-path face over 30 days at 91 calibrated beaches
+ * (factors refit), model-hour MAE fell 0.90 -> 0.78 ft and
+ * short-period-dominant MAE 1.25 -> 0.81 ft; a 5-7 s model cutoff scored
+ * worse at every step.
  */
 export const SHORT_PERIOD_CUTOFF_S = 8;
 
@@ -594,6 +596,9 @@ const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
  *   zero because the waves simply don't organize into clean faces at the
  *   break. **The cutoff value itself is excluded** (exactly 8.0s returns 0,
  *   8.01s returns positive) so the gate only admits genuine groundswell.
+ *   The decomposed transform passes `shortPeriodCutoffS: 0` for model
+ *   sources (see `SHORT_PERIOD_CUTOFF_S`), so this gate binds buoy and
+ *   direct sources only there.
  * - `0` when the component direction lies outside the window
  *   `[center - halfwidth, center + halfwidth]` (angular, so the short arc).
  * - `cos²` falloff inside the window: `cos²(distance / halfwidth × π/2)`.
@@ -1037,14 +1042,20 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       continue;
     }
 
-    const accessFactor = componentAccessFactor(
+    const windowAccess = componentAccessFactor(
       component.directionDeg,
       component.periodS,
       beach,
       source,
       shortPeriodGated ? undefined : { shortPeriodCutoffS: 0 },
     );
-    if (accessFactor === 0) continue;
+    if (windowAccess === 0) continue;
+    // A model partition under the buoy cutoff weighs by the legacy direction
+    // factor, so on its own it reads exactly what the legacy fallback gave it
+    // and a longer-period partition beside it can only add.
+    const accessFactor = component.periodS <= SHORT_PERIOD_CUTOFF_S
+      ? calculateDirectionFactor(component.directionDeg ?? null, beach)
+      : windowAccess;
 
     // Only use calibrated bucket factors for CDIP sources — the buckets are
     // measured as surfline_face / cdip_hs and produce overshoot on model data.
@@ -1088,8 +1099,8 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
     sumOfSquares += faceI * faceI;
   }
 
-  // If every component was zeroed (e.g. all periods ≤ 8s or all components are
-  // outside the beach window), fall back to legacy rather than displaying 0 ft.
+  // If every component was zeroed (e.g. all buoy periods ≤ 8s or all components
+  // are outside the beach window), fall back to legacy rather than displaying 0 ft.
   if (sumOfSquares === 0) {
     const legacy = transformToFaceHeightWithMetadata({
       rawHeightFt, periodS, swellDirectionDeg, beach, source,
