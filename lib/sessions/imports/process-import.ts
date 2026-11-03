@@ -15,7 +15,9 @@ import { findAttachTarget } from "./find-attach-target";
 import { linkRecentCall } from "./link-recent-call";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
 import { resolveNoGpsBeach, type NoGpsBeachResolution } from "./resolve-no-gps-beach";
-import { findClaimTarget, recordMergeResult, reserveClaim, type ClaimTarget, type MergeResult } from "./watch-claims";
+import {
+  claimForTimeAttach, findClaimTarget, recordMergeResult, releaseClaim, reserveClaim, type ClaimTarget, type MergeResult,
+} from "./watch-claims";
 
 export type ProcessImportResult =
   | { status: "completed"; sessionId: string; attached: boolean; summary: WavesSummary }
@@ -82,8 +84,16 @@ async function loadAttachSession(client: SupabaseClient, sessionId: string, user
   return data as unknown as AttachSession;
 }
 
+// Postgres returns "…+00:00" and the track "…Z" for the same instant, and numerics may arrive as strings.
+function sameValue(field: string, phoneValue: unknown, watchValue: unknown): boolean {
+  if (field === "arrival_time") return Date.parse(String(phoneValue)) === Date.parse(String(watchValue));
+  if (typeof phoneValue === "number" || typeof watchValue === "number") return Number(phoneValue) === Number(watchValue);
+  return phoneValue === watchValue;
+}
+
 function keptOrNothing(field: string, phoneValue: unknown, watchValue: unknown): KeptFieldList {
-  return phoneValue != null && watchValue != null && phoneValue !== watchValue ? [{ field, phoneValue, watchValue }] : [];
+  return phoneValue != null && watchValue != null && !sameValue(field, phoneValue, watchValue)
+    ? [{ field, phoneValue, watchValue }] : [];
 }
 type KeptFieldList = MergeResult["keptFields"];
 
@@ -176,6 +186,17 @@ export async function processImport(
   beachOverride?: string,
 ): Promise<ProcessImportResult> {
   const { userClient, serviceClient, now } = deps;
+  let heldClaim: { sessionId: string; inserted: boolean } | null = null;
+  const releaseHeldClaim = async (): Promise<void> => {
+    if (!heldClaim) return;
+    const held = heldClaim;
+    heldClaim = null;
+    try {
+      await releaseClaim(serviceClient, userId, held.sessionId, importId, held.inserted);
+    } catch (error) {
+      console.warn("[session_import] failed to release watch claim:", error);
+    }
+  };
   const updateImport = async (values: Record<string, unknown>): Promise<void> => {
     const { error } = await serviceClient.from("session_imports").update(values)
       .eq("id", importId).eq("user_id", userId);
@@ -194,6 +215,7 @@ export async function processImport(
     const isWatch = imported.origin === "garmin_watch";
     let wasCompleted = imported.status === "completed";
     const duplicate = async (sessionId: string | null): Promise<ProcessImportResult> => {
+      await releaseHeldClaim();
       try {
         await updateImport({ status: "failed", error: "duplicate" });
       } catch (error) {
@@ -308,11 +330,12 @@ export async function processImport(
         trackImportId: linkedTrack?.import_id ?? null, source: linkedSession.source ?? null };
     } else if (claimTarget && await reserveClaim(serviceClient, userId, claimTarget.sessionId, importId, now)) {
       target = claimTarget;
+      heldClaim = { sessionId: claimTarget.sessionId, inserted: false };
     } else if (!beachOverride && noGps && resolution.status === "resolved"
       && "attachTarget" in resolution && resolution.attachTarget) {
       target = resolution.attachTarget as NonNullable<typeof target>;
     } else {
-      target = await findAttachTarget(userClient, userId, beach, summary.inWaterStart, summary.inWaterEnd);
+      target = await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
     }
     if (target?.hasTrack && target.trackImportId !== importId) {
       if (!isWatch) return duplicate(target.sessionId);
@@ -375,9 +398,13 @@ export async function processImport(
         const update = timingUserSet ? completed : { ...timing, ...completed };
         sessionTimingUpdate = Object.keys(update).length ? update : null;
       }
-      // A time-matched attach still settles any claim the phone left on this session.
+      // A time-matched attach settles the phone's claim, or records one, so watch-status can explain it.
       if (attached && isWatch && target !== claimTarget) {
-        await reserveClaim(serviceClient, userId, session.id, importId, now);
+        const outcome = await claimForTimeAttach(serviceClient, {
+          userId, sessionId: session.id, importId, deviceId: imported.device_id ?? null,
+          inWaterStart: summary.inWaterStart, inWaterEnd: summary.inWaterEnd,
+        }, now);
+        if (outcome !== "other") heldClaim = { sessionId: session.id, inserted: outcome === "inserted" };
       }
     } else {
       const { data: session, error } = await userClient.from("sessions").insert({
@@ -453,6 +480,7 @@ export async function processImport(
     }
     if (isWatch && attached && attachSession) {
       await recordMergeResult(serviceClient, userId, sessionId, importId, { mergedFields, keptFields });
+      heldClaim = null;
     }
     const wavesSummary = buildWavesSummary(
       waves.map(wave => ({ ...wave, id: String(wave.index) })), [],
@@ -479,6 +507,7 @@ export async function processImport(
     }
     return { status: "completed", sessionId, attached, summary: wavesSummary };
   } catch (error) {
+    await releaseHeldClaim();
     if (error instanceof TrackFileError) {
       try {
         await updateImport({ status: "failed", error: error.code });

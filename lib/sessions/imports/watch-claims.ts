@@ -21,8 +21,9 @@ type ClaimRow = {
 
 // Imports can run before the claims migration reaches an environment; no table means no claims.
 const MISSING_TABLE_CODES = new Set(["42P01", "PGRST205"]);
+const MAX_WINDOW_MS = 24 * 3600 * 1000;
 
-function isMissingTable(error: { code?: string } | null): boolean {
+export function isMissingTable(error: { code?: string } | null): boolean {
   return error?.code !== undefined && MISSING_TABLE_CODES.has(error.code);
 }
 
@@ -96,6 +97,55 @@ export async function recordMergeResult(
   const { error } = await serviceClient.from("session_watch_claims").update({ merge_result: result })
     .eq("session_id", sessionId).eq("user_id", userId).eq("claimed_import_id", importId)
     .is("merge_result", null);
+  if (isMissingTable(error)) return;
+  if (error) throw error;
+}
+
+/**
+ * A time-matched attach still leaves a claim record, so the phone can see why its time changed.
+ * "inserted" means this import created the row; "held" that it holds an existing one; "other" that
+ * another import holds it (left alone).
+ */
+export async function claimForTimeAttach(
+  serviceClient: SupabaseClient,
+  claim: { userId: string; sessionId: string; importId: string; deviceId: string | null;
+    inWaterStart: string; inWaterEnd: string },
+  now: Date,
+): Promise<"inserted" | "held" | "other"> {
+  if (await reserveClaim(serviceClient, claim.userId, claim.sessionId, claim.importId, now)) return "held";
+  const { data: existing, error } = await serviceClient.from("session_watch_claims").select("session_id")
+    .eq("session_id", claim.sessionId).eq("user_id", claim.userId).maybeSingle();
+  if (isMissingTable(error)) return "other";
+  if (error) throw error;
+  if (existing) return "other";
+  const startMs = Date.parse(claim.inWaterStart);
+  const endMs = Math.min(Math.max(Date.parse(claim.inWaterEnd), startMs + 1000), startMs + MAX_WINDOW_MS);
+  const { error: insertError } = await serviceClient.from("session_watch_claims").insert({
+    session_id: claim.sessionId, user_id: claim.userId, device_id: claim.deviceId,
+    window_start: claim.inWaterStart, window_end: new Date(endMs).toISOString(),
+    claimed_import_id: claim.importId, claimed_at: now.toISOString(),
+  });
+  // A phone claim written in between wins the row; try to take it the normal way.
+  if (insertError?.code === "23505") {
+    return await reserveClaim(serviceClient, claim.userId, claim.sessionId, claim.importId, now) ? "held" : "other";
+  }
+  if (isMissingTable(insertError)) return "other";
+  if (insertError) throw insertError;
+  return "inserted";
+}
+
+/**
+ * Undoes this import's hold when it fails or turns out a duplicate, so a retry can take the claim.
+ * A row this import created is removed; a phone claim is put back to pending. Merged claims stay.
+ */
+export async function releaseClaim(
+  serviceClient: SupabaseClient, userId: string, sessionId: string, importId: string, inserted: boolean,
+): Promise<void> {
+  const base = inserted
+    ? serviceClient.from("session_watch_claims").delete()
+    : serviceClient.from("session_watch_claims").update({ claimed_import_id: null, claimed_at: null });
+  const { error } = await base.eq("session_id", sessionId).eq("user_id", userId)
+    .eq("claimed_import_id", importId).is("merge_result", null);
   if (isMissingTable(error)) return;
   if (error) throw error;
 }

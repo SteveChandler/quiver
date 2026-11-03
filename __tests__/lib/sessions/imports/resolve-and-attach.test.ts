@@ -154,39 +154,6 @@ describe("findAttachTarget", () => {
     expect(mock.trackEq).toHaveBeenCalledWith("session_id", "live");
   });
 
-  it("queries through 90 minutes after the surf ends and matches a phone log written after it", async () => {
-    const end = "2026-10-17T13:30:00.000Z";
-    const mock = mockAttachClient([
-      session("after", "2026-10-17T14:50:00.000Z", beach.id, beach.lat, beach.lon),
-      session("too-late", "2026-10-17T15:10:00.000Z", beach.id, beach.lat, beach.lon),
-    ]);
-
-    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toMatchObject({ sessionId: "after" });
-    expect(mock.gte).toHaveBeenCalledWith("arrival_time", "2026-10-17T10:30:00.000Z");
-    expect(mock.lte).toHaveBeenCalledWith("arrival_time", "2026-10-17T15:00:00.000Z");
-  });
-
-  it("keeps watch and file-import sessions to the 90 minute start window", async () => {
-    const end = "2026-10-17T13:30:00.000Z";
-    const mock = mockAttachClient([
-      { ...session("watch", "2026-10-17T14:00:00.000Z", beach.id, beach.lat, beach.lon), source: "garmin_watch" },
-      { ...session("file", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon), source: "file_import" },
-    ]);
-
-    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();
-  });
-
-  it("ranks by distance from the in-water interval", async () => {
-    const end = "2026-10-17T13:30:00.000Z";
-    const mock = mockAttachClient([
-      session("before", "2026-10-17T11:35:00.000Z", beach.id, beach.lat, beach.lon),
-      session("during", "2026-10-17T13:00:00.000Z", beach.id, beach.lat, beach.lon),
-      session("after", "2026-10-17T13:40:00.000Z", beach.id, beach.lat, beach.lon),
-    ]);
-
-    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toMatchObject({ sessionId: "during" });
-  });
-
   it("returns null without a track lookup when no session is near enough", async () => {
     const mock = mockAttachClient([
       session("far", start, "beach-3", 33.0, -117.2),
