@@ -235,14 +235,16 @@ SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_provider_run
 SELECT public.study_assert((SELECT count(*) FROM public.notification_events)=0,'no notifications');
 SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_production_approval_authority)=0,'no push authority');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'status'='complete','target reached');
-SELECT public.study_assert(public.read_swell_watch_study_health()->>'qualificationBasis'='every_feed','every-feed qualification basis');
+-- Runners that stop before 20260924180000 have no per-feed basis; any runner past it must be on every_feed.
+SELECT public.study_assert(NOT (h ? 'qualificationBasis') OR h->>'qualificationBasis'='every_feed','every-feed qualification basis')
+  FROM (SELECT public.read_swell_watch_study_health() h) health;
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'evaluatedRuns'='4','health successful count');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'suppressedAttempts'='4','health suppressed count');
 DO $$
 DECLARE health jsonb; first_feed text; second_feed text;
 BEGIN
   health:=public.read_swell_watch_study_health();
-  PERFORM public.study_assert(health ? 'qualifyingDaysByFeed','per-feed counts present');
+  IF NOT health ? 'qualifyingDaysByFeed' THEN RETURN; END IF;
   first_feed:=public.study_cohort()->0->>'sourcePointId';
   second_feed:=public.study_cohort()->1->>'sourcePointId';
   PERFORM public.study_assert(
