@@ -232,5 +232,57 @@
     "licenseStatus": "defensible",
     "usageNotes": "South Carolina guide spots section image: two surfers holding longboards in the Folly Beach shorebreak. Licence checked on the Flickr source page (CC BY 2.0) on 2026-10-27; stored at native resolution (1024 px), no crop, no upscale.",
     "runtimeAssetPath": "public/images/learn/learn-folly-beach-longboarders.webp"
+  },
+  {
+    "slug": "what-is-wave-diffraction",
+    "name": "learn-breakwater-diffraction-ashkelon",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/69/BreakWaterDiffraction_Ashkelon2.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:BreakWaterDiffraction_Ashkelon2.jpg",
+    "title": "BreakWaterDiffraction Ashkelon2",
+    "creator": "Dmitris1",
+    "licenseCode": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Wave diffraction guide hero/thumbnail: waves diffracting in arcs through a gap between two breakwaters, Ashkelon, Israel. Licence checked on the Wikimedia Commons file page (CC BY-SA 4.0) on 2026-11-03; stored at native resolution (2848 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-breakwater-diffraction-ashkelon.webp"
+  },
+  {
+    "slug": "what-is-wave-diffraction",
+    "name": "learn-charlestown-harbor-diffraction",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1b/Charlestown_-_wave_diffraction_-_geograph.org.uk_-_6002891.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Charlestown_-_wave_diffraction_-_geograph.org.uk_-_6002891.jpg",
+    "title": "Charlestown - wave diffraction",
+    "creator": "Stephen Craven",
+    "licenseCode": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Wave diffraction guide diffraction-vs-refraction section image: ripples fanning through a narrow harbor entrance, Charlestown, Cornwall. Licence checked on the Wikimedia Commons file page (CC BY-SA 2.0) on 2026-11-03; stored at native resolution (1024 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-charlestown-harbor-diffraction.webp"
+  },
+  {
+    "slug": "what-is-wave-diffraction",
+    "name": "learn-anacapa-island-santa-barbara-channel",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/1/12/Anacapa_Island_from_Excursion_on_Santa_Barbara_Channel_Between_Ventura_and_Santa_Cruz_Island%2C_California_2_%284066985844%29.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Anacapa_Island_from_Excursion_on_Santa_Barbara_Channel_Between_Ventura_and_Santa_Cruz_Island,_California_2_(4066985844).jpg",
+    "title": "Anacapa Island from Excursion on Santa Barbara Channel Between Ventura and Santa Cruz Island, California 2",
+    "creator": "Ken Lund",
+    "licenseCode": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Wave diffraction guide California shadows section image: Anacapa Island across the Santa Barbara Channel. Licence checked on the Wikimedia Commons file page (CC BY-SA 2.0) on 2026-11-03; stored at native resolution (2816 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-anacapa-island-santa-barbara-channel.webp"
+  },
+  {
+    "slug": "what-is-wave-diffraction",
+    "name": "learn-dana-point-breakwater-sign",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/68/Dana_Point%2C_Orange_County%2C_California_-_Breakwater_-_panoramio.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Dana_Point,_Orange_County,_California_-_Breakwater_-_panoramio.jpg",
+    "title": "Dana Point, Orange County, California - Breakwater",
+    "creator": "Steve Hedin",
+    "licenseCode": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Wave diffraction guide breakwaters section image: 'Breakwater subject to high surf' sign on the Dana Point Harbor jetty. Licence checked on the Wikimedia Commons file page (CC BY-SA 3.0) on 2026-11-03; stored at native resolution (3838 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-dana-point-breakwater-sign.webp"
   }
 ]

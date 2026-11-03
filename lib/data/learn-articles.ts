@@ -1215,6 +1215,11 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
+        label: "What Is Wave Diffraction?",
+        href: "/learn/what-is-wave-diffraction",
+        description: "Why waves shrink behind islands, jetties and harbor walls.",
+      },
+      {
         label: "How to Read Surf Conditions",
         href: "/learn/how-to-read-surf-conditions",
         description:
@@ -2504,6 +2509,11 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
+        label: "What Is Wave Diffraction?",
+        href: "/learn/what-is-wave-diffraction",
+        description: "Why waves shrink behind islands, jetties and harbor walls.",
+      },
+      {
         label: "Swell Period Explained",
         href: "/learn/swell-period-explained",
         description: "Period reveals how far waves traveled and their quality.",
@@ -2950,6 +2960,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
+      {
+        label: "What Is Wave Diffraction?",
+        href: "/learn/what-is-wave-diffraction",
+        description: "Why waves shrink behind islands, jetties and harbor walls.",
+      },
       {
         label: "How Swell Direction Affects Surf",
         href: "/learn/how-swell-direction-affects-surf",
@@ -3834,6 +3849,149 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver checks wave height, period, wind and tide at Folly Beach, Isle of Palms and the Grand Strand every hour, so you know before you cross the bridge.",
       ctaLabel: "Check South Carolina beaches",
+    },
+  },
+  {
+    slug: "what-is-wave-diffraction",
+    title: "What Is Wave Diffraction? Surf in the Swell Shadow",
+    description:
+      "Wave diffraction is swell spreading sideways into the shadow behind an island, jetty or harbor wall. On the shadow line, waves run about half size.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-03",
+    dateModified: "2026-11-03",
+    heroImage: "/images/learn/learn-breakwater-diffraction-ashkelon.webp",
+    thumbnailImage: "/images/learn/learn-breakwater-diffraction-ashkelon.webp",
+    keywords: [
+      "wave diffraction",
+      "what is wave diffraction",
+      "wave diffraction vs refraction",
+      "difference between refraction and diffraction",
+      "diffraction of sea waves",
+      "breakwater wave diffraction",
+      "swell shadow",
+      "island shadow surf",
+      "why are waves smaller behind a breakwater",
+      "santa barbara swell shadow",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Wave diffraction is swell spreading sideways into the sheltered water behind an island, jetty or harbor wall. Right on the edge of that shadow, waves run about half the height of the open-ocean swell, and they keep shrinking the deeper into the shadow you go.</p><p>That's why Santa Barbara can be knee-high while the open coast north of Point Conception is overhead. See how the sheltered side is running on the <a href="/best-time-to-surf/santa-barbara">Santa Barbara best time to surf page</a>.</p>`,
+        keyTakeaway:
+          "On the shadow line, expect about half the open-coast size.",
+      },
+      {
+        id: "diffraction-vs-refraction",
+        heading: "What's the difference between diffraction and refraction?",
+        content: `<p>Refraction is swell bending because the bottom gets shallow. The part of the wave in shallow water slows down and the line swings toward it. That's how a point like Rincon lines up a set. Our guide to <a href="/learn/how-swell-wraps-around-points">how swell wraps around a point</a> covers it.</p><p>Diffraction doesn't need a shallow bottom. It happens when a wave line hits the end of a wall or an island. The part that gets past the edge leaks sideways into the calm water behind it, fanning out in arcs. Each arc is smaller than the swell that made it, because the same energy is now spread over more coastline.</p>`,
+        keyTakeaway:
+          "Refraction needs a shallow bottom. Diffraction needs a wall or island edge.",
+        image: {
+          src: "/images/learn/learn-charlestown-harbor-diffraction.webp",
+          alt: "Small waves fanning out in curved ripples after passing through a narrow harbor entrance between two stone walls",
+          position: "right",
+        },
+      },
+      {
+        id: "period",
+        heading: "Why long-period swell reaches further into a shadow",
+        content: `<p>How far a swell bends into a shadow depends on its wavelength compared with the size of the thing blocking it. In deep water, wavelength in feet is about 5.12 times the period squared. An 8-second windswell is about 330 feet from crest to crest. A 16-second groundswell is about 1,300 feet.</p><p>Put a 1,000-foot breakwater in front of both. It's three windswell wavelengths long, so the windswell mostly stops. To the groundswell it's less than one wavelength, so plenty of it leaks around the end. Read the <a href="/learn/swell-period-explained">swell period</a> before you trust a sheltered spot.</p>`,
+        keyTakeaway:
+          "Behind a wall, 14+ seconds leaks in. 8 seconds mostly doesn't.",
+      },
+      {
+        id: "california-shadows",
+        heading: "Which California spots sit in a swell shadow?",
+        content: `<p>Santa Barbara and Ventura sit behind two blockers: Point Conception to the northwest and the Channel Islands to the south. A northwest swell has to bend past Conception, and a south swell has to squeeze through the gaps between Anacapa, Santa Cruz and Santa Rosa islands. What arrives is smaller and pulsier than the buoy outside. CDIP, the Scripps buoy network, runs a Southern California swell model that maps exactly this island blocking.</p><p>That's why Rincon wants a big west swell with long period, and why a beginner day at <a href="/beginner/ventura">Ventura</a> often lines up with a bigger swell everywhere else. Check <a href="/best-time-to-surf/rincon">Rincon's best windows</a> before you drive.</p>`,
+        keyTakeaway:
+          "Islands and points decide which swells your beach ever sees.",
+        image: {
+          src: "/images/learn/learn-anacapa-island-santa-barbara-channel.webp",
+          alt: "Anacapa Island on the horizon across the calm Santa Barbara Channel off Ventura",
+          position: "left",
+        },
+      },
+      {
+        id: "breakwaters",
+        heading: "What happens behind a harbor breakwater?",
+        content: `<p>A breakwater is built to make a shadow. Long Beach has had almost no surf since its federal breakwater went in during the 1940s. Dana Point Harbor's breakwater, built in the late 1960s, ended Killer Dana, a well-known right point.</p><p>Where a wall has a gap, the gap acts like a new source. Waves pass through and spread out in half-circles, smallest at the sides. That's the pattern in the photo at the top of this page. Doheny, just east of the harbor, sits partly in that shadow and is a learner beach today. See <a href="/best-time-to-surf/dana-point">Dana Point's best times</a> and the <a href="/beginner/dana-point">Dana Point beginner guide</a>.</p>`,
+        keyTakeaway:
+          "A gap in a wall sends waves out in arcs, smaller at each side.",
+        image: {
+          src: "/images/learn/learn-dana-point-breakwater-sign.webp",
+          alt: "Sign reading Breakwater Subject to High Surf on the rock jetty at Dana Point Harbor at dusk",
+          position: "right",
+        },
+      },
+      {
+        id: "use-it",
+        heading: "How to use a swell shadow on a big day",
+        content: `<p>When the open coast is double overhead, the spot behind the island, point or wall is often the only rideable one. Waves there are smaller and slower to build, and they arrive in longer gaps between sets.</p><p>Harbor mouths are different. They carry boat traffic and strong tidal current, and you shouldn't surf a harbor entrance. If you're not sure about a sheltered spot, don't paddle out. Watch from shore for 10 minutes first and count the sets. Our guide to <a href="/learn/how-swell-direction-affects-surf">swell direction</a> shows how to match an angle to your beach, and the <a href="/water-temp/santa-barbara">Santa Barbara water temperature</a> tells you what to wear.</p>`,
+        keyTakeaway:
+          "Open coast too big? Try the beach behind the island or wall.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is wave diffraction?",
+        answer:
+          "Wave diffraction is a wave spreading sideways into the sheltered water behind an obstacle, such as an island, jetty or breakwater. The waves that leak into the shadow are smaller than the open swell, about half size right at the shadow line and smaller further in.",
+      },
+      {
+        question: "What is the difference between refraction and diffraction?",
+        answer:
+          "Refraction is a wave bending because the water gets shallower, which is how swell wraps along a point. Diffraction is a wave spreading around the edge of an obstacle into its shadow, and it happens even in deep water.",
+      },
+      {
+        question: "Does diffraction make waves bigger?",
+        answer:
+          "No. It spreads the same energy over more coastline, so each wave is smaller. Where diffracted waves from both ends of a breakwater cross, they can stack into a peak, but each train is still smaller than the open swell.",
+      },
+      {
+        question: "Why does Santa Barbara get so few waves?",
+        answer:
+          "Point Conception blocks most northwest swell and the Channel Islands block most south swell. Santa Barbara only gets what bends past Conception or slips through the gaps between the islands, so it needs a big, long-period west swell to break well.",
+      },
+      {
+        question: "Why is there no surf in Long Beach?",
+        answer:
+          "The Long Beach breakwater, built in the 1940s to protect the harbor, puts the whole beach in a swell shadow. Only a little energy diffracts around its ends, so the shoreline is nearly flat most days.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How Swell Wraps Around a Point",
+        href: "/learn/how-swell-wraps-around-points",
+        description: "Refraction: how a shallow bottom bends swell along a point.",
+      },
+      {
+        label: "How Swell Direction Affects Surf",
+        href: "/learn/how-swell-direction-affects-surf",
+        description: "Match a swell angle to the way your beach faces.",
+      },
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Longer period means longer waves that reach into shadows.",
+      },
+      {
+        label: "Best time to surf Santa Barbara",
+        href: "/best-time-to-surf/santa-barbara",
+        description: "When swell makes it past the islands and Point Conception.",
+      },
+      {
+        label: "Ventura beginner guide",
+        href: "/beginner/ventura",
+        description: "Sheltered learner spots behind the Channel Islands.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Behind the islands today",
+      title: "See if the swell is making it past the Channel Islands.",
+      description:
+        "Quiver shows swell size, period and direction for Santa Barbara, Ventura and Dana Point beaches, so you can tell if a sheltered spot is breaking before you drive.",
+      ctaLabel: "Check Santa Barbara-area beaches",
     },
   },
 ];
