@@ -950,7 +950,7 @@ function computeCompositeAndCharacter(
 // Main Logic
 // ============================================================================
 
-export interface SurfCallOptions {
+interface SurfCallOptions {
   /** When true, tide phase uses window-start logic. Defaults to false. */
   isTomorrow?: boolean;
   /**

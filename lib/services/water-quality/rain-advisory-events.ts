@@ -2,19 +2,19 @@ import { z } from "zod";
 import { COUNTY_RAIN_CLUSTER, RAIN_RUNOFF_THRESHOLD_IN } from "./rainfall-runoff";
 
 export const RAIN_ADVISORY_EVENTS_TABLE = "rain_advisory_events";
-export const RAIN_ADVISORY_DURATION_MS = 72 * 60 * 60 * 1000;
+const RAIN_ADVISORY_DURATION_MS = 72 * 60 * 60 * 1000;
 /**
  * San Diego's own gauge event. The County general advisory owns the
  * "san_diego" region, and a region holds one active event.
  */
-export const COUNTY_GAUGE_REGION = "san_diego_gauges";
+const COUNTY_GAUGE_REGION = "san_diego_gauges";
 
 /** The region of the gauge event a rain cluster's readings open. */
 export function rainEventRegion(clusterId: string): string {
   return clusterId === COUNTY_RAIN_CLUSTER.id ? COUNTY_GAUGE_REGION : clusterId;
 }
 
-export type RainAdvisorySource = "county_general" | "metar_runoff";
+type RainAdvisorySource = "county_general" | "metar_runoff";
 export type RainAdvisoryEndReason = "dry_72h" | "county_lifted";
 
 const timestamp = z.string().datetime({ offset: true });
@@ -54,7 +54,7 @@ export interface MetarRainSignal {
   stations: string[];
 }
 
-export interface CountyRainSignal {
+interface CountyRainSignal {
   runFetchedAt: string;
   general: boolean;
   streakStartedAt: string | null;

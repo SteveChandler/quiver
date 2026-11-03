@@ -21,7 +21,7 @@ const HOURLY = [
 
 type Series = ReadonlyArray<number | null | undefined>;
 
-export interface GfsHourly {
+interface GfsHourly {
   time?: readonly number[];
   swell_wave_height?: Series;
   swell_wave_period?: Series;

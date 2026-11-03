@@ -28,7 +28,7 @@ interface Beach { id: string; slug: string | null; name: string | null; lat: num
 interface Profile { id: string; home_beach_id: string | null; notif_water_quality: boolean; is_mock: boolean }
 interface QualityRow { beach_id: string; status: string }
 interface Count { candidates: number; enqueued: number; duplicates: number; skipped: number }
-export type RainAdvisoryPushResult =
+type RainAdvisoryPushResult =
   | { status: "disabled" }
   | { status: "table_missing" }
   | { status: "ok"; started: Count; ended: Count; errors: string[] };

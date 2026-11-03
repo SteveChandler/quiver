@@ -6,7 +6,7 @@ import type { ReactElement, ReactNode } from "react";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import type { CTAClickMetadata } from "@/types/implicit-preferences";
 
-export type LearnLiveLinkPlacement = "learn_short_answer_live_link" | "learn_sidebar_next_paddle";
+type LearnLiveLinkPlacement = "learn_short_answer_live_link" | "learn_sidebar_next_paddle";
 
 interface LearnLiveLinkProps {
   slug: string;

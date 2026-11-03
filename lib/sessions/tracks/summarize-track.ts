@@ -1,3 +1,4 @@
+import { median } from "@/lib/utils/median";
 import { haversineM } from "./track-geometry";
 import type { NormalizedTrack, TrackSample } from "./types";
 import { TrackFileError } from "./types";
@@ -22,14 +23,6 @@ export type TrackSummary = {
 
 function isFix(sample: TrackSample): sample is Fix {
   return sample.lat !== null && sample.lon !== null;
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[middle];
 }
 
 function waterTempEndpoints(samples: TrackSample[], startMs: number, endMs: number):

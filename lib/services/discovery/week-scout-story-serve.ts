@@ -361,7 +361,7 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
 }
 
 type StoryLoadArgs = { client: Client; homeBeachId: string | null; startLocalDate: string; now: Date };
-export type StoryBinder = (live: Live) => Promise<StoryWire>;
+type StoryBinder = (live: Live) => Promise<StoryWire>;
 
 /**
  * Loads everything the story needs except the live forecast, so it can run

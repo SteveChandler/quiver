@@ -4,7 +4,7 @@ import { ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
-import { addDays, localDate, zonedWallClockToUtc } from "./swell-briefing-input";
+import { addDays, localDate, zonedWallClockToUtc } from "./local-date";
 import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
 import { beachDayFactsFromBuild, beachRowsByLocalDate, eventFactsFromBuild, LIGHT_WIND_MPH, type CandidateFacts } from "./week-scout-story-facts";
 import type { StoryGate } from "./week-scout-story-types";

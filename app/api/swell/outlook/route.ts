@@ -7,7 +7,6 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from '@/lib/flags/swell-outlook';
-import { loadBriefingForOutlook } from '@/lib/services/discovery/swell-briefing-serve';
 import { loadSwellOutlookForUser } from '@/lib/services/discovery/swell-outlook-loader';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 
@@ -20,21 +19,14 @@ async function outlookHandler(_request: NextRequest, { user }: AuthenticatedCont
   if (!isSwellOutlookEnabled() || !isSwellOutlookUserAllowed(user.id)) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
-  const client = createSupabaseServiceRoleClient();
-  const now = new Date();
   const outlook = await loadSwellOutlookForUser({
-    client,
+    client: createSupabaseServiceRoleClient(),
     userId: user.id,
-    now,
+    now: new Date(),
     recordOpen: true,
     includeDays: true,
   });
-
-  // Additive and optional: a reader with no saved edition gets exactly the
-  // response it got before, and the native parser leaves the existing swell
-  // list alone when `briefing` is absent.
-  const briefing = await loadBriefingForOutlook({ client, userId: user.id, now });
-  return NextResponse.json(briefing === null ? outlook : { ...outlook, briefing });
+  return NextResponse.json(outlook);
 }
 
 export const GET = withNoStore(
