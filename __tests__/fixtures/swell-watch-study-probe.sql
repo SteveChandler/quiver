@@ -247,7 +247,7 @@ BEGIN
   second_feed:=public.study_cohort()->1->>'sourcePointId';
   PERFORM public.study_assert(
     (SELECT count(*) FROM jsonb_each(health->'qualifyingDaysByFeed'))=jsonb_array_length(public.study_cohort())
-    AND NOT EXISTS(SELECT 1 FROM jsonb_each(health->'qualifyingDaysByFeed') feed WHERE (feed.value->>'qualifyingDays')::int<>1),
+    AND NOT EXISTS(SELECT 1 FROM jsonb_each(health->'qualifyingDaysByFeed') feed WHERE (feed.value->>'qualifyingDays')::int<(health->>'targetDays')::int),
     'all cohort feeds reach target');
   PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',first_feed,'qualifyingDays']='1','each feed has one completed day');
   BEGIN
