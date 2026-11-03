@@ -40,7 +40,7 @@ for migration in \
   20260916170000_amend_swell_watch_study_swell_system_count \
   20260918180000_harden_swell_watch_study_epochs_and_extend \
   20260924180000_isolate_swell_watch_feed_qualification \
-  20261022120000_require_every_swell_watch_feed_qualification; do
+  20261103120000_require_every_swell_watch_feed_qualification; do
   run_file "$study_root/supabase/migrations/$migration.sql"
 done
 run_file "$study_root/__tests__/fixtures/swell-watch-study-clock.sql"

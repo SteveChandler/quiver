@@ -235,15 +235,20 @@ SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_provider_run
 SELECT public.study_assert((SELECT count(*) FROM public.notification_events)=0,'no notifications');
 SELECT public.study_assert((SELECT count(*) FROM public.swell_watch_production_approval_authority)=0,'no push authority');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'status'='complete','target reached');
+SELECT public.study_assert(public.read_swell_watch_study_health()->>'qualificationBasis'='every_feed','every-feed qualification basis');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'evaluatedRuns'='4','health successful count');
 SELECT public.study_assert(public.read_swell_watch_study_health()->>'suppressedAttempts'='4','health suppressed count');
 DO $$
 DECLARE health jsonb; first_feed text; second_feed text;
 BEGIN
   health:=public.read_swell_watch_study_health();
-  IF NOT health ? 'qualifyingDaysByFeed' THEN RETURN; END IF;
+  PERFORM public.study_assert(health ? 'qualifyingDaysByFeed','per-feed counts present');
   first_feed:=public.study_cohort()->0->>'sourcePointId';
   second_feed:=public.study_cohort()->1->>'sourcePointId';
+  PERFORM public.study_assert(
+    (SELECT count(*) FROM jsonb_each(health->'qualifyingDaysByFeed'))=jsonb_array_length(public.study_cohort())
+    AND NOT EXISTS(SELECT 1 FROM jsonb_each(health->'qualifyingDaysByFeed') feed WHERE (feed.value->>'qualifyingDays')::int<>1),
+    'all cohort feeds reach target');
   PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',first_feed,'qualifyingDays']='1','each feed has one completed day');
   BEGIN
     ALTER TABLE public.swell_watch_study_evaluations DISABLE TRIGGER swell_watch_study_evaluations_guard;
@@ -251,9 +256,14 @@ BEGIN
       '{scopeOutcomes,0,reason}','"fixture_feed_failure"'::jsonb)
       WHERE id=(SELECT id FROM public.swell_watch_study_evaluations WHERE status='evaluated' ORDER BY id LIMIT 1);
     health:=public.read_swell_watch_study_health();
-    PERFORM public.study_assert(health->>'qualifyingDays'=CASE WHEN health->>'qualificationBasis'='every_feed' THEN '0' ELSE '1' END,'failed feed blocks study progress only under every_feed');
+    PERFORM public.study_assert(health->>'qualificationBasis'='every_feed','lagging feed uses every-feed qualification');
+    PERFORM public.study_assert(health->>'qualifyingDays'='0','lagging feed blocks study progress');
+    PERFORM public.study_assert(health->>'status'='active','one feed reaches target but study is not complete');
     PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',first_feed,'qualifyingDays']='0','failed feed loses its own day');
     PERFORM public.study_assert(health #>> ARRAY['qualifyingDaysByFeed',second_feed,'qualifyingDays']='1','other feed retains its day');
+    ALTER TABLE public.swell_watch_study_authorities DISABLE TRIGGER swell_watch_study_authority_guard;
+    UPDATE public.swell_watch_study_authorities SET expires_at=now()-interval '1 minute' WHERE epoch=1;
+    PERFORM public.study_assert(public.read_swell_watch_study_health()->>'status'='expired','lagging study still expires under existing authority');
     RAISE no_data_found;
   EXCEPTION WHEN no_data_found THEN NULL; END;
   PERFORM public.study_assert(public.read_swell_watch_study_health()->>'qualifyingDays'='1','isolation probe rolls back');
