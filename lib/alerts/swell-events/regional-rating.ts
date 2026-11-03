@@ -218,12 +218,14 @@ function rateBeach(
 }
 
 /**
- * The offshore swell through the beach's terrain, as the detector projects a partition. A beach without
+ * The offshore swell through the beach's terrain and model-swell factor, as the detector projects a
+ * partition, so it reads on the same ruler as the stored forecast the swell will reach. A beach without
  * terrain only gets one when its swell window is open to the swell; otherwise its shelter is unknown.
  */
 function earlyLookFace(beach: RegionBeach, event: InternalRegionEvent, exposure: Exposure): string | null {
   const heightFt = event.offshoreHeightFt ?? null;
-  if (!beach.terrain || heightFt === null || event.periodS === null || event.directionDeg === null) return null;
+  // A storm's early-look height is mostly short-period local sea, which the swell projection overstates.
+  if (event.kind === "storm" || !beach.terrain || heightFt === null || event.periodS === null || event.directionDeg === null) return null;
   if (!beach.terrain.terrain_enabled && exposure !== "open") return null;
   const faceFt = swellPartitionFaceHeightFt(
     [{ heightFt, periodS: event.periodS, directionDeg: event.directionDeg }],

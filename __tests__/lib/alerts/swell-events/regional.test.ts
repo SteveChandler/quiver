@@ -25,6 +25,7 @@ import {
   confidenceFor,
   loadRegionForecastEvents,
   rateRegionEvents,
+  rateRegionEventsWithRatings,
   type InternalRegionEvent,
   type RatingRow,
   type RegionBuild,
@@ -273,7 +274,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
     expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
     expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
-    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v7", REGION, expect.any(String)], expect.anything());
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v8", REGION, expect.any(String)], expect.anything());
     const beachSelect = selectedColumns.find(({ table }) => table === "beaches")?.columns;
     expect(beachSelect).toContain("wave_punchiness_ai");
     expect(beachSelect).not.toContain("wave_punchiness,");
@@ -308,7 +309,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v7", REGION, "2026-09-25"],
+      ["region-swell-events", "v8", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -601,13 +602,8 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     ]);
     expect(events[0].here).toMatchObject({ label: "EARLY LOOK", exposure: "shadowed", reason: "small, sheltered" });
     expect(built.buoy).toEqual({ id: "46266", name: buoy.name });
-    // The surf an open beach would see from the offshore swell, and still no forecast face.
-    expect(events[0].working.map((rating) => [rating.faceFt, rating.estimatedFaceFt])).toEqual([
-      [null, "8-9 ft"],
-      [null, "8-9 ft"],
-    ]);
-    // Without terrain, a sheltered beach's shelter is unknown, so it gets no estimate.
-    expect(events[0].here?.estimatedFaceFt).toBeNull();
+    // A storm's early-look height is mostly local sea, so no beach gets a surf estimate from it.
+    expect([events[0].here, ...events[0].working].map((rating) => rating?.estimatedFaceFt)).toEqual([null, null, null]);
   });
 
   it("estimates an early look's surf at each beach through its terrain", async () => {
@@ -627,7 +623,8 @@ describe("buildRegionEvents + rateRegionEvents", () => {
         { factor: 1.57, tp_min_s: 0, tp_max_s: 8 }, { factor: 1.7, tp_min_s: 8, tp_max_s: 12 },
         { factor: 2.13, tp_min_s: 12, tp_max_s: 16 }, { factor: 2.4, tp_min_s: 16, tp_max_s: 999 }] },
     });
-    const beaches = [carlsbad, blacks, beach("Ocean Beach")];
+    const cove = beach("La Jolla Cove", { swell_window_center_deg: 90 });
+    const beaches = [carlsbad, blacks, beach("Ocean Beach"), cove];
     jest.mocked(fetchWamDays).mockResolvedValue(wamDays({ 11: { maxHsM: 6 / 3.28084, periodS: 17.5, directionDeg: 275 } }));
     const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id)));
     const [event] = rateRegionEvents(built, { beachId: carlsbad.id, skill: "intermediate", now: NOW });
@@ -635,6 +632,10 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(event).toMatchObject({ source: "wam", offshoreFt: "6 ft" });
     expect(event.here).toMatchObject({ faceFt: null, estimatedFaceFt: "4-5 ft" });
     expect(event.working.find((rating) => rating.beachId === blacks.id)?.estimatedFaceFt).toBe("8-9 ft");
+    // Without terrain, a beach is estimated only when its swell window is open: Ocean Beach, not the Cove.
+    const ratings = rateRegionEventsWithRatings(built, { beachId: carlsbad.id, skill: "intermediate", now: NOW }).ratingsByEvent.get(event.key)!;
+    expect(ratings.get(cove.id)?.estimatedFaceFt).toBeNull();
+    expect(event.working.find((rating) => rating.beachName === "Ocean Beach")?.estimatedFaceFt).toMatch(/^\d+(-\d+)? ft$/);
   });
 
   it("starts early looks where the stored swell partitions stop, so a day-10 storm is not lost", async () => {

@@ -48,7 +48,8 @@ const REGION_CACHE_SECONDS = 10_800;
 // v5: wind direction, beach orientation and resolved punchiness for story facts.
 // v6: storedThrough, the last local day with a stored swell partition.
 // v7: GFS tail swells past the stored partitions.
-const REGION_CACHE_VERSION = "v7";
+// v8: unrounded offshore heights and beach terrain, for early-look face estimates.
+const REGION_CACHE_VERSION = "v8";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -95,7 +96,7 @@ export interface RegionBeach {
   punchiness: number | null;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
-  /** Terrain for the face transform; absent on builds cached before it was added. */
+  /** Terrain for the early-look face transform; optional so hand-built test regions can leave it out. */
   terrain?: SwellEventBeach;
 }
 
@@ -112,7 +113,7 @@ export interface InternalRegionEvent {
   fadeAt: string | null;
   peakLocalDate: string;
   offshoreFt: string | null;
-  /** The unrounded offshore height behind `offshoreFt`; absent on builds cached before it was added. */
+  /** The unrounded offshore height behind `offshoreFt`; optional like `terrain`. */
   offshoreHeightFt?: number | null;
   history: string | null;
   /** Beach detections behind the event, summed over its joined groups; 0 for a WAM early look. */
