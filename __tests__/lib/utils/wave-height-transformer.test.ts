@@ -2397,7 +2397,74 @@ describe('Wave Height Transformer', () => {
 
       expect(result.path).toBe('decomposed');
       expect(result.faceHeightFt).toBeGreaterThan(0.5);
-      expect(result.faceHeightFt).toBeLessThanOrEqual(2.0);
+      // The 8 s W partition now counts on model sources, so the bound is the
+      // decayed deep-water RMS Hs (sqrt(3² + 2²) × 0.6 ≈ 2.16 ft) at the
+      // 1.2 period cap, not the old long-period-only 2.0 ft.
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.6);
+    });
+
+    describe('model-source short-period partitions (Nov 2026 San Diego storm)', () => {
+      // Ocean Beach Pier terrain, Open-Meteo partitions for Fri Nov 6 2026 06:00 PT.
+      const OB_ACCESS = createDirectionalAccess(
+        [
+          { directionDeg: 195, access: 0.0221988 },
+          { directionDeg: 275, access: 0.847961 },
+          { directionDeg: 280, access: 0.740404 },
+          { directionDeg: 285, access: 0.601309 },
+        ],
+        0.5,
+      );
+      const OB_BEACH: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: OB_ACCESS,
+        shoaling_factors: null,
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        deepwater_decay_factor: 1,
+      };
+      const STORM: SwellComponentInput = { heightFt: 3.7, periodS: 7.75, directionDeg: 277, partition: 'swell' };
+      const GROUNDSWELL: SwellComponentInput = { heightFt: 1.9, periodS: 12.75, directionDeg: 195, partition: 'swell' };
+      const decomposed = (
+        components: Array<SwellComponentInput | null>,
+        source: WaveHeightSourceTag = 'model_swell',
+      ) => transformToFaceHeightDecomposed({
+        components,
+        beach: OB_BEACH,
+        source,
+        rawHeightFt: 3.7,
+        periodS: 7.75,
+        swellDirectionDeg: 277,
+      });
+
+      it('counts a sub-8 s model swell partition instead of zeroing it', () => {
+        const result = decomposed([STORM, GROUNDSWELL, null]);
+
+        expect(result.path).toBe('decomposed');
+        // 3.7 × 0.89 period × ~0.94 access ≈ 3.1 ft, RMS with the groundswell.
+        expect(result.faceHeightFt).toBeGreaterThan(3);
+      });
+
+      it('never reads below the storm partition alone when a groundswell is added', () => {
+        const alone = decomposed([STORM, null, null]).faceHeightFt;
+        const mixed = decomposed([STORM, GROUNDSWELL, null]).faceHeightFt;
+
+        expect(mixed).toBeGreaterThanOrEqual(alone);
+      });
+
+      it('keeps the 8 s gate for buoy sources', () => {
+        const result = decomposed([STORM, GROUNDSWELL, null], 'cdip_sig');
+        const groundswellOnly = decomposed([GROUNDSWELL, null, null], 'cdip_sig');
+
+        expect(result.faceHeightFt).toBe(groundswellOnly.faceHeightFt);
+      });
+
+      it('keeps the 9 s gate for model wind-wave partitions', () => {
+        const windWave: SwellComponentInput = { ...STORM, partition: 'wind_wave' };
+        const withWindWave = decomposed([windWave, GROUNDSWELL, null]).faceHeightFt;
+        const groundswellOnly = decomposed([GROUNDSWELL, null, null]).faceHeightFt;
+
+        expect(withWindWave).toBe(groundswellOnly);
+      });
     });
   });
 });

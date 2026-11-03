@@ -553,6 +553,17 @@ export function transformToFaceHeightRange(params: TransformParams): WaveHeightR
  * grounds that sub-8s energy is wind-swell / sea-state that doesn't produce
  * organized surf regardless of direction. Exposed as a constant so tests
  * and regression scripts can reference the same threshold.
+ *
+ * The decomposed transform applies it to buoy and other direct sources only.
+ * Model swell partitions (`model_swell` / `model_hs`) are not gated: their
+ * periods read well under buoy peak period, so a 6-8 s model partition is
+ * often real storm swell (San Diego, Nov 6 2026: 3.7 ft @ 7.75 s W was zeroed
+ * and the face fell to 2.2 ft beside a 1.9 ft 13 s swell, while the same
+ * partition alone took the legacy path to 4.8 ft). `calculatePeriodFactor`
+ * still discounts short periods to 0.8x. Replayed against the CDIP-path face
+ * over 30 days at 91 calibrated beaches (factors refit), model-hour MAE fell
+ * 0.90 -> 0.77 ft and short-period-dominant MAE 1.25 -> 0.78 ft; a 5-7 s
+ * model cutoff scored worse at every step.
  */
 export const SHORT_PERIOD_CUTOFF_S = 8;
 
@@ -1021,7 +1032,8 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       continue;
     }
 
-    if (component.periodS <= SHORT_PERIOD_CUTOFF_S) {
+    const shortPeriodGated = !isTerrainWeightedModelSource(source);
+    if (shortPeriodGated && component.periodS <= SHORT_PERIOD_CUTOFF_S) {
       continue;
     }
 
@@ -1030,6 +1042,7 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       component.periodS,
       beach,
       source,
+      shortPeriodGated ? undefined : { shortPeriodCutoffS: 0 },
     );
     if (accessFactor === 0) continue;
 
