@@ -602,7 +602,7 @@ it.each([false, true])("uses the existing session's beach for a watch call link 
   }));
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "attached" });
   expect(rows.sessions[0].call_id).toBe(`call-${sessionBeachId}`);
-  expect(selections).toContainEqual({ table: "sessions", columns: "id, beach_id, arrival_time, duration_minutes, status" });
+  expect(selections).toContainEqual({ table: "sessions", columns: "id, beach_id, arrival_time, duration_minutes, status, rating, wave_height_ft, wave_height_source, water_temp, timing_user_set" });
 });
 
 it("skips the wave-height write and call link for a file import", async () => {
@@ -1080,4 +1080,315 @@ it("isolates a watch import from another user's matching SHA, attach candidate, 
     const inserted = Array.isArray(mutation.payload) ? mutation.payload : [mutation.payload];
     expect(inserted.every(row => row.user_id === userId && row.session_id !== otherSessionId && row.import_id !== otherImportId)).toBe(true);
   }
+});
+
+describe("phone-claimed watch recordings", () => {
+  // 2026-11-03 (user 73040cff): watch in water 14:30:00–15:59:24, phone form opened 15:54:56
+  // and saved its default "now" time for 60 min at 16:00:38; import completed 16:01:59. Shifted
+  // to the fixture day so the track stays before `now`.
+  const inWaterStart = "2026-10-20T14:30:00.000Z";
+  const inWaterEnd = "2026-10-20T15:59:24.000Z";
+  const phoneDefaultArrival = "2026-10-20T15:54:56.000Z";
+  const phoneSavedAt = "2026-10-20T16:00:38.000Z";
+  const minutes = (iso: string, delta: number): string => new Date(Date.parse(iso) + delta * 60000).toISOString();
+
+  function stationaryWatch(start = inWaterStart, end = inWaterEnd, rating: number | null = 3, waveHeightFt: number | null = 3.5) {
+    const startMs = Date.parse(start);
+    const count = Math.floor((Date.parse(end) - startMs) / 4000) + 1;
+    const samples = Array.from({ length: count }, (_, index) => ({
+      t: new Date(startMs + index * 4000).toISOString(), lat: beach.lat, lon: beach.lon,
+      speedMps: 0, hr: null, tempC: 18, cadence: null,
+    }));
+    const track: NormalizedTrack = { meta: { format: "quiver_watch", sport: "surfing", subSport: null,
+      recordedBy: null, startedAt: samples[0].t, endedAt: samples.at(-1)!.t }, samples };
+    setWatchImport(track, rating, waveHeightFt);
+    rows.session_imports[0].device_id = "device-1";
+    deps.userClient = deps.serviceClient;
+    const summary = summarizeTrack(readTrackFile(bytes, "watch.json", now));
+    expect([summary.inWaterStart, summary.inWaterEnd]).toEqual([start, end]);
+    return summary;
+  }
+
+  function phoneSession(id: string, arrival: string, extra: Row = {}): Row {
+    const session = { id, user_id: userId, beach_id: beach.id, arrival_time: arrival, duration_minutes: 60,
+      status: "completed", source: "manual", rating: 4, wave_height_ft: null, wave_height_source: null,
+      water_temp: null, timing_user_set: false, ...extra };
+    rows.sessions.push(session);
+    return session;
+  }
+
+  function claim(sessionId: string, extra: Row = {}): Row {
+    const row = { session_id: sessionId, user_id: userId, device_id: "device-1",
+      window_start: minutes(phoneDefaultArrival, -120), window_end: minutes(phoneSavedAt, 30),
+      created_at: phoneSavedAt, claimed_import_id: null, claimed_at: null, merge_result: null, ...extra };
+    (rows.session_watch_claims ??= []).push(row);
+    return row;
+  }
+
+  it("attaches today's exact timeline by claim and takes the watch's time over the phone's default", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival, { wave_height_ft: 4, wave_height_source: "forecast_prefill" });
+    const claimRow = claim("phone");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "phone", attached: true });
+    expect(inserts("sessions")).toHaveLength(0);
+    expect(rows.sessions[0]).toMatchObject({ arrival_time: inWaterStart, duration_minutes: 89, rating: 4,
+      wave_height_ft: 3.5, wave_height_source: "user", water_temp: 64, water_temp_source: "watch" });
+    expect(rows.session_tracks[0]).toMatchObject({ user_arrival_time: phoneDefaultArrival, user_duration_minutes: 60,
+      timing_from_track: true });
+    expect(claimRow).toMatchObject({ claimed_import_id: importId, claimed_at: now.toISOString(), merge_result: {
+      mergedFields: ["arrival_time", "duration_minutes", "wave_height_ft", "water_temp"],
+      keptFields: [{ field: "rating", phoneValue: 4, watchValue: 3 }],
+    } });
+  });
+
+  it("attaches by claim even when the phone time is outside every time window", async () => {
+    stationaryWatch();
+    const lateArrival = minutes(inWaterEnd, 110);
+    phoneSession("claimed", lateArrival);
+    claim("claimed", { window_start: minutes(inWaterStart, -60), window_end: minutes(lateArrival, 10) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "claimed", attached: true });
+    expect(inserts("sessions")).toHaveLength(0);
+  });
+
+  it("prefers the claimed session over a closer time match", async () => {
+    stationaryWatch();
+    phoneSession("time-match", inWaterStart);
+    phoneSession("claimed", minutes(inWaterEnd, 100));
+    claim("claimed", { window_start: minutes(inWaterStart, -60), window_end: minutes(inWaterEnd, 110) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "claimed", attached: true });
+    expect(rows.sessions.find(row => row.id === "time-match")).toMatchObject({ arrival_time: inWaterStart, duration_minutes: 60 });
+    expect(rows.session_tracks).toEqual([expect.objectContaining({ session_id: "claimed" })]);
+  });
+
+  it("prefers the claim from the recording device", async () => {
+    stationaryWatch();
+    phoneSession("other-device", phoneDefaultArrival);
+    phoneSession("same-device", phoneDefaultArrival);
+    claim("other-device", { device_id: "device-2", created_at: minutes(phoneSavedAt, 5) });
+    claim("same-device");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "same-device" });
+    expect(rows.session_watch_claims.map(row => row.claimed_import_id)).toEqual([null, importId]);
+  });
+
+  it("keeps the phone's time when the user set it, and records both values", async () => {
+    stationaryWatch();
+    const userArrival = "2026-10-20T14:15:00.000Z";
+    phoneSession("phone", userArrival, { duration_minutes: 120, status: "planned", timing_user_set: true,
+      wave_height_ft: 2, wave_height_source: "user" });
+    const claimRow = claim("phone", { window_start: userArrival, window_end: minutes(userArrival, 150) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rows.sessions[0]).toMatchObject({ arrival_time: userArrival, duration_minutes: 120, status: "completed", rating: 4 });
+    expect(rows.session_tracks[0]).toMatchObject({ timing_from_track: false, user_arrival_time: userArrival });
+    expect(claimRow.merge_result).toEqual({
+      mergedFields: ["water_temp"],
+      keptFields: [
+        { field: "arrival_time", phoneValue: userArrival, watchValue: inWaterStart },
+        { field: "duration_minutes", phoneValue: 120, watchValue: 89 },
+        { field: "rating", phoneValue: 4, watchValue: 3 },
+        { field: "wave_height_ft", phoneValue: 2, watchValue: 3.5 },
+      ],
+    });
+  });
+
+  it("never overwrites a user-set wave height or water temperature", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival, { wave_height_ft: 5, wave_height_source: "user", water_temp: 60 });
+    claim("phone");
+    await processImport(deps, importId, userId);
+    expect(rows.sessions[0]).toMatchObject({ wave_height_ft: 5, wave_height_source: "user", water_temp: 60, rating: 4 });
+  });
+
+  it("is idempotent: a retry keeps the claim, its time and its first merge record", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone");
+    await processImport(deps, importId, userId);
+    const first = structuredClone(claimRow);
+    Object.assign(rows.session_imports[0], { status: "uploaded" });
+    expect(await processImport({ ...deps, now: new Date(now.getTime() + 60000) }, importId, userId))
+      .toMatchObject({ status: "completed", sessionId: "phone" });
+    expect(claimRow).toEqual(first);
+    expect(rows.sessions).toHaveLength(1);
+    expect(rows.session_tracks).toHaveLength(1);
+  });
+
+  it("does not reuse a claim another import already took", async () => {
+    stationaryWatch();
+    phoneSession("phone", minutes(inWaterEnd, 110));
+    const claimRow = claim("phone", { claimed_import_id: "other-import", claimed_at: phoneSavedAt,
+      window_end: minutes(inWaterEnd, 120) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch" } });
+    expect(claimRow.claimed_import_id).toBe("other-import");
+  });
+
+  it("falls through a claim whose session was deleted", async () => {
+    stationaryWatch();
+    phoneSession("deleted", phoneDefaultArrival, { deleted_at: phoneSavedAt });
+    claim("deleted");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch" } });
+  });
+
+  it("never attaches to another user's claimed session", async () => {
+    stationaryWatch();
+    phoneSession("theirs", phoneDefaultArrival, { user_id: "user-2" });
+    const theirs = claim("theirs", { user_id: "user-2", device_id: null });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(rows.sessions.find(row => row.id === "theirs")).toMatchObject({ arrival_time: phoneDefaultArrival, duration_minutes: 60 });
+    expect(theirs.claimed_import_id).toBeNull();
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { user_id: userId, source: "garmin_watch" } });
+  });
+
+  it("does not attach a phone session logged an hour after the surf without a claim", async () => {
+    stationaryWatch();
+    phoneSession("after", minutes(inWaterEnd, 60));
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(rows.sessions.find(row => row.id === "after")).toMatchObject({ arrival_time: minutes(inWaterEnd, 60), duration_minutes: 60 });
+  });
+
+  it("keeps a late-synced dawn surf off a later phone-logged surf at the same beach", async () => {
+    stationaryWatch("2026-10-20T06:00:00.000Z", "2026-10-20T08:00:00.000Z");
+    phoneSession("later-surf", "2026-10-20T09:15:00.000Z");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(rows.sessions.find(row => row.id === "later-surf")).toMatchObject({ arrival_time: "2026-10-20T09:15:00.000Z", duration_minutes: 60 });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: "2026-10-20T06:00:00.000Z" } });
+    expect(rows.session_watch_claims ?? []).toHaveLength(0);
+  });
+
+  it("records a claimed merge for a time-matched attach with no claim row", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rows.session_watch_claims).toEqual([expect.objectContaining({ session_id: "phone", user_id: userId,
+      device_id: "device-1", window_start: inWaterStart, window_end: inWaterEnd, claimed_import_id: importId,
+      claimed_at: now.toISOString(), merge_result: expect.objectContaining({
+        mergedFields: expect.arrayContaining(["arrival_time", "duration_minutes"]) }) })]);
+  });
+
+  it("leaves a claim held by another import alone on a time-matched attach", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone", { claimed_import_id: "other-import", claimed_at: phoneSavedAt });
+    const before = structuredClone(claimRow);
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rows.session_watch_claims).toEqual([before]);
+  });
+
+  it("compares phone and watch times as instants and numbers, not strings", async () => {
+    stationaryWatch();
+    phoneSession("phone", "2026-10-20T14:30:00+00:00", { duration_minutes: 89, timing_user_set: true,
+      wave_height_ft: 3.5, wave_height_source: "user", water_temp: 64 });
+    const claimRow = claim("phone");
+    await processImport(deps, importId, userId);
+    expect(claimRow.merge_result.keptFields).toEqual([{ field: "rating", phoneValue: 4, watchValue: 3 }]);
+  });
+
+  it("releases a reserved claim when the import loses the SHA race", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone");
+    let collided = false;
+    queryFailure = mutation => {
+      if (!collided && mutation.table === "session_imports" && mutation.payload?.sha256) {
+        collided = true;
+        expect(claimRow.claimed_import_id).toBe(importId);
+        rows.session_imports.push({ id: "winner", user_id: userId, sha256: mutation.payload.sha256, status: "uploaded", session_id: "winning-session" });
+        rows.sessions.push({ id: "winning-session", user_id: userId, deleted_at: null });
+        return { code: "23505", message: "duplicate key value violates unique constraint" };
+      }
+      return null;
+    };
+    expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: "winning-session" });
+    expect(claimRow).toMatchObject({ claimed_import_id: null, claimed_at: null, merge_result: null });
+  });
+
+  it("releases a reserved claim when the import throws after reserving, and the retry takes it", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone");
+    let failed = false;
+    queryFailure = mutation => {
+      if (!failed && mutation.table === "session_tracks" && mutation.operation === "insert") {
+        failed = true;
+        return { code: "57014", message: "statement timeout" };
+      }
+      return null;
+    };
+    await expect(processImport(deps, importId, userId)).rejects.toThrow("statement timeout");
+    expect(claimRow).toMatchObject({ claimed_import_id: null, claimed_at: null, merge_result: null });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "phone", attached: true });
+    expect(claimRow.claimed_import_id).toBe(importId);
+  });
+
+  it("deletes the claim row it created when the import throws after a time-matched attach", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    let failed = false;
+    queryFailure = mutation => {
+      if (!failed && mutation.table === "session_tracks" && mutation.operation === "insert") {
+        failed = true;
+        return { code: "57014", message: "statement timeout" };
+      }
+      return null;
+    };
+    await expect(processImport(deps, importId, userId)).rejects.toThrow("statement timeout");
+    expect(rows.session_watch_claims ?? []).toHaveLength(0);
+  });
+
+  it("settles a claim whose window missed when the session attaches by time", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone", { window_start: minutes(inWaterEnd, 10), window_end: minutes(inWaterEnd, 40) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(claimRow).toMatchObject({ claimed_import_id: importId, merge_result: expect.objectContaining({
+      mergedFields: expect.arrayContaining(["arrival_time"]) }) });
+  });
+
+  it("creates a new session for a phone log two hours after the surf without a claim", async () => {
+    stationaryWatch();
+    phoneSession("later", minutes(inWaterEnd, 120));
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: inWaterStart } });
+  });
+
+  it("keeps the watch-first path: no phone session creates a garmin_watch session and touches no claim", async () => {
+    stationaryWatch();
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: inWaterStart,
+      duration_minutes: 89, rating: 3, wave_height_ft: 3.5 } });
+    expect(mutations.filter(mutation => mutation.table === "session_watch_claims" && mutation.payload?.claimed_import_id))
+      .toHaveLength(0);
+  });
+
+  it.each(["42P01", "PGRST205"])("imports before the claims table exists (%s)", async code => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    queryFailure = mutation => mutation.table === "session_watch_claims" ? { code, message: "missing" } : null;
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "phone", attached: true });
+  });
+
+  it("treats phone time as a default before the timing_user_set column exists", async () => {
+    stationaryWatch();
+    delete phoneSession("phone", phoneDefaultArrival).timing_user_set;
+    claim("phone");
+    let rejected = false;
+    const read = deps.userClient.from.bind(deps.userClient);
+    deps.userClient = { ...deps.userClient, from: (table: string) => {
+      const query: any = read(table);
+      if (table !== "sessions") return query;
+      const select = query.select;
+      query.select = (columns?: string) => {
+        if (columns?.includes("timing_user_set") && !rejected) {
+          rejected = true;
+          return { eq: () => ({ eq: () => ({ is: () => ({ single: () => Promise.resolve({ data: null, error: { code: "42703", message: "no column" } }) }) }) }) };
+        }
+        return select(columns);
+      };
+      return query;
+    } } as unknown as SupabaseClient;
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rejected).toBe(true);
+    expect(rows.sessions[0]).toMatchObject({ arrival_time: inWaterStart, duration_minutes: 89 });
+  });
 });
