@@ -25,6 +25,7 @@ import {
   confidenceFor,
   loadRegionForecastEvents,
   rateRegionEvents,
+  rateRegionEventsWithRatings,
   type InternalRegionEvent,
   type RatingRow,
   type RegionBuild,
@@ -273,7 +274,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
     expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
     expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
-    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v7", REGION, expect.any(String)], expect.anything());
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v8", REGION, expect.any(String)], expect.anything());
     const beachSelect = selectedColumns.find(({ table }) => table === "beaches")?.columns;
     expect(beachSelect).toContain("wave_punchiness_ai");
     expect(beachSelect).not.toContain("wave_punchiness,");
@@ -308,7 +309,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v7", REGION, "2026-09-25"],
+      ["region-swell-events", "v8", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -601,6 +602,40 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     ]);
     expect(events[0].here).toMatchObject({ label: "EARLY LOOK", exposure: "shadowed", reason: "small, sheltered" });
     expect(built.buoy).toEqual({ id: "46266", name: buoy.name });
+    // A storm's early-look height is mostly local sea, so no beach gets a surf estimate from it.
+    expect([events[0].here, ...events[0].working].map((rating) => rating?.estimatedFaceFt)).toEqual([null, null, null]);
+  });
+
+  it("estimates an early look's surf at each beach through its terrain", async () => {
+    // Nov 2 2026: a 6 ft, 17.5 s west swell 11 days out, through the Carlsbad and Blacks terrain rows of that day.
+    // Test ids carry no per-beach model-swell factor; on prod Carlsbad's 1.58 lifts its 4-5 ft to 7 ft.
+    const carlsbad = beach("Carlsbad State Beach", {
+      swell_window_center_deg: 198, swell_window_halfwidth_deg: 48, terrain_enabled: true, deepwater_decay_factor: 1,
+      swell_access_factors: [0,0.000707107,0.00141421,0.00141421,0.00141421,0.00141421,0.00141421,0.000707107,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.000707107,0.00212132,0.00212132,0.00141421,0.0365402,0.113862,0.173334,0.225704,0.28657,0.329828,0.385762,0.47117,0.575489,0.740404,0.92398,0.92398,0.847961,0.847961,0.740404,0.575489,0.47117,0.385762,0.315835,0.258584,0.21171,0.173334,0.113862,0.0372473,0.00282843,0.00282843,0.00282843,0.00412132,0.00670711,0.008,0.00670711,0.00541421,0.00670711,0.00670711,0.0113199,0.0172256,0.00931991,0.000707107,0,0,0,0.000707107,0.00141421,0.000707107],
+      shoaling_factors: { type: "period_lookup", version: 1, buckets: [
+        { factor: 1.25, tp_min_s: 0, tp_max_s: 8 }, { factor: 1.4, tp_min_s: 8, tp_max_s: 12 },
+        { factor: 1.38, tp_min_s: 12, tp_max_s: 16 }, { factor: 1.34, tp_min_s: 16, tp_max_s: 999 }] },
+    });
+    const blacks = beach("Blacks Beach", {
+      swell_window_center_deg: 268, swell_window_halfwidth_deg: 73, terrain_enabled: true, deepwater_decay_factor: 1.15,
+      swell_access_factors: [0.113155,0.035126,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.002,0.006,0.041126,0.135498,0.214019,0.232053,0.258584,0.315835,0.385762,0.47117,0.575489,0.740404,0.92398,0.92398,0.740404,0.632847,0.740404,0.92398,1,1,1,1,1,1,1,1,1,1,0.92398,0.740404,0.575489,0.47117,0.385762,0.315835,0.258584,0.21171,0.173334],
+      shoaling_factors: { type: "period_lookup", version: 1, buckets: [
+        { factor: 1.57, tp_min_s: 0, tp_max_s: 8 }, { factor: 1.7, tp_min_s: 8, tp_max_s: 12 },
+        { factor: 2.13, tp_min_s: 12, tp_max_s: 16 }, { factor: 2.4, tp_min_s: 16, tp_max_s: 999 }] },
+    });
+    const cove = beach("La Jolla Cove", { swell_window_center_deg: 90 });
+    const beaches = [carlsbad, blacks, beach("Ocean Beach"), cove];
+    jest.mocked(fetchWamDays).mockResolvedValue(wamDays({ 11: { maxHsM: 6 / 3.28084, periodS: 17.5, directionDeg: 275 } }));
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id)));
+    const [event] = rateRegionEvents(built, { beachId: carlsbad.id, skill: "intermediate", now: NOW });
+
+    expect(event).toMatchObject({ source: "wam", offshoreFt: "6 ft" });
+    expect(event.here).toMatchObject({ faceFt: null, estimatedFaceFt: "4-5 ft" });
+    expect(event.working.find((rating) => rating.beachId === blacks.id)?.estimatedFaceFt).toBe("8-9 ft");
+    // Without terrain, a beach is estimated only when its swell window is open: Ocean Beach, not the Cove.
+    const ratings = rateRegionEventsWithRatings(built, { beachId: carlsbad.id, skill: "intermediate", now: NOW }).ratingsByEvent.get(event.key)!;
+    expect(ratings.get(cove.id)?.estimatedFaceFt).toBeNull();
+    expect(event.working.find((rating) => rating.beachName === "Ocean Beach")?.estimatedFaceFt).toMatch(/^\d+(-\d+)? ft$/);
   });
 
   it("starts early looks where the stored swell partitions stop, so a day-10 storm is not lost", async () => {

@@ -15,6 +15,8 @@ export interface RegionBeachRating {
   windowEndAt?: string | null;
   /** "3-4 ft", the forecast face at the best hour of the event's window. */
   faceFt: string | null;
+  /** Early looks only: "4-5 ft", a rough face from the offshore swell through the beach's terrain; null when it can't be estimated. */
+  estimatedFaceFt?: string | null;
   /** "too big for most", "blown out", "small, sheltered", "closing out" or "exposure unknown". */
   reason: string | null;
   exposure: 'open' | 'partial' | 'shadowed' | null;
