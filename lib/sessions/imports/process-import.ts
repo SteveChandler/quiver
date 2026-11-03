@@ -15,6 +15,9 @@ import { findAttachTarget } from "./find-attach-target";
 import { linkRecentCall } from "./link-recent-call";
 import { loadImportBeach, resolveImportBeach, type ImportBeach } from "./resolve-import-beach";
 import { resolveNoGpsBeach, type NoGpsBeachResolution } from "./resolve-no-gps-beach";
+import {
+  claimForTimeAttach, findClaimTarget, recordMergeResult, releaseClaim, reserveClaim, type ClaimTarget, type MergeResult,
+} from "./watch-claims";
 
 export type ProcessImportResult =
   | { status: "completed"; sessionId: string; attached: boolean; summary: WavesSummary }
@@ -61,6 +64,38 @@ function asError(error: unknown): Error {
 function checkError(error: unknown): void {
   if (error) throw asError(error);
 }
+
+type AttachSession = {
+  id: string; beach_id: string | null; arrival_time: string; duration_minutes: number | null; status: string | null;
+  timing_user_set?: boolean | null; rating: number | null; wave_height_ft: number | null;
+  wave_height_source: string | null; water_temp: number | null;
+};
+
+const ATTACH_SESSION_COLUMNS = "id, beach_id, arrival_time, duration_minutes, status, rating, wave_height_ft, wave_height_source, water_temp";
+
+async function loadAttachSession(client: SupabaseClient, sessionId: string, userId: string): Promise<AttachSession> {
+  const read = (columns: string) => client.from("sessions").select(columns).eq("id", sessionId)
+    .eq("user_id", userId).is("deleted_at", null).single();
+  let { data, error } = await read(`${ATTACH_SESSION_COLUMNS}, timing_user_set`);
+  // Before the timing_user_set migration, every phone time is treated as an untouched default (old behaviour).
+  if ((error as { code?: string } | null)?.code === "42703") ({ data, error } = await read(ATTACH_SESSION_COLUMNS));
+  checkError(error);
+  if (!data) throw new Error("Attach session not found");
+  return data as unknown as AttachSession;
+}
+
+// Postgres returns "…+00:00" and the track "…Z" for the same instant, and numerics may arrive as strings.
+function sameValue(field: string, phoneValue: unknown, watchValue: unknown): boolean {
+  if (field === "arrival_time") return Date.parse(String(phoneValue)) === Date.parse(String(watchValue));
+  if (typeof phoneValue === "number" || typeof watchValue === "number") return Number(phoneValue) === Number(watchValue);
+  return phoneValue === watchValue;
+}
+
+function keptOrNothing(field: string, phoneValue: unknown, watchValue: unknown): KeptFieldList {
+  return phoneValue != null && watchValue != null && !sameValue(field, phoneValue, watchValue)
+    ? [{ field, phoneValue, watchValue }] : [];
+}
+type KeptFieldList = MergeResult["keptFields"];
 
 async function insertSessionTrack(serviceClient: SupabaseClient, row: TrackInsert): Promise<void> {
   const { track, summary } = row;
@@ -151,6 +186,17 @@ export async function processImport(
   beachOverride?: string,
 ): Promise<ProcessImportResult> {
   const { userClient, serviceClient, now } = deps;
+  let heldClaim: { sessionId: string; inserted: boolean } | null = null;
+  const releaseHeldClaim = async (): Promise<void> => {
+    if (!heldClaim) return;
+    const held = heldClaim;
+    heldClaim = null;
+    try {
+      await releaseClaim(serviceClient, userId, held.sessionId, importId, held.inserted);
+    } catch (error) {
+      console.warn("[session_import] failed to release watch claim:", error);
+    }
+  };
   const updateImport = async (values: Record<string, unknown>): Promise<void> => {
     const { error } = await serviceClient.from("session_imports").update(values)
       .eq("id", importId).eq("user_id", userId);
@@ -169,6 +215,7 @@ export async function processImport(
     const isWatch = imported.origin === "garmin_watch";
     let wasCompleted = imported.status === "completed";
     const duplicate = async (sessionId: string | null): Promise<ProcessImportResult> => {
+      await releaseHeldClaim();
       try {
         await updateImport({ status: "failed", error: "duplicate" });
       } catch (error) {
@@ -215,11 +262,25 @@ export async function processImport(
     }
 
     const noGps = summary.centroid === null;
-    const resolution: BeachResolution | NoGpsBeachResolution = beachOverride
+    // The phone save claimed this recording; that beats every time-based guess below.
+    const claimTarget: ClaimTarget | null = isWatch && !imported.session_id
+      ? await findClaimTarget({ userClient, serviceClient }, {
+        userId, importId, deviceId: imported.device_id ?? null,
+        inWaterStart: summary.inWaterStart, inWaterEnd: summary.inWaterEnd,
+      })
+      : null;
+    const claimBeach = claimTarget?.beachId && !beachOverride
+      ? await loadImportBeach(userClient, claimTarget.beachId) : null;
+    let resolution: BeachResolution | NoGpsBeachResolution = beachOverride
       ? { status: "resolved" as const, beach: await loadImportBeach(userClient, beachOverride) }
-      : noGps
-        ? await resolveNoGpsBeach(serviceClient, userId, summary.inWaterStart, track.meta.startedAt, track.meta.endedAt)
-        : await resolveImportBeach(userClient, summary.centroid!);
+      : noGps && claimBeach
+        ? { status: "resolved" as const, beach: claimBeach, source: "logged_session" as const, attachTarget: null }
+        : noGps
+          ? await resolveNoGpsBeach(serviceClient, userId, summary.inWaterStart, track.meta.startedAt, track.meta.endedAt)
+          : await resolveImportBeach(userClient, summary.centroid!);
+    if (resolution.status === "needs_beach" && claimBeach) {
+      resolution = { status: "resolved", beach: claimBeach };
+    }
     if (resolution.status === "needs_beach") {
       await updateImport({ status: "needs_beach", summary: noGps
         ? { ...summary, startedAt: track.meta.startedAt, endedAt: track.meta.endedAt } : summary, error: null });
@@ -267,6 +328,9 @@ export async function processImport(
     if (linkedSession) {
       target = { sessionId: linkedSession.id, hasTrack: linkedTrack !== null,
         trackImportId: linkedTrack?.import_id ?? null, source: linkedSession.source ?? null };
+    } else if (claimTarget && await reserveClaim(serviceClient, userId, claimTarget.sessionId, importId, now)) {
+      target = claimTarget;
+      heldClaim = { sessionId: claimTarget.sessionId, inserted: false };
     } else if (!beachOverride && noGps && resolution.status === "resolved"
       && "attachTarget" in resolution && resolution.attachTarget) {
       target = resolution.attachTarget as NonNullable<typeof target>;
@@ -313,23 +377,34 @@ export async function processImport(
 
     const watchWaves = isWatch && !noGps ? detectWaves(track, summary, beach) : null;
     const timing = { arrival_time: summary.inWaterStart, duration_minutes: Math.round((endMs - startMs) / 60000) };
-    let sessionTimingUpdate: (typeof timing & { status?: "completed" }) | null = null;
+    let sessionTimingUpdate: (Partial<typeof timing> & { status?: "completed" }) | null = null;
     let sessionId: string;
     let sessionBeachId: string | null = beach.id;
     let userArrivalTime: string | null = null;
     let userDurationMinutes: number | null = null;
+    let attachSession: AttachSession | null = null;
+    let timingUserSet = false;
     if (target) {
-      const { data: session, error } = await userClient.from("sessions")
-        .select("id, beach_id, arrival_time, duration_minutes, status").eq("id", target.sessionId)
-        .eq("user_id", userId).is("deleted_at", null).single();
-      checkError(error);
-      if (!session) throw new Error("Attach session not found");
+      const session = await loadAttachSession(userClient, target.sessionId, userId);
+      attachSession = session;
       sessionId = session.id;
       sessionBeachId = session.beach_id;
       if (attached) {
+        // A time the user set on the phone wins; the phone's untouched "now" default takes the watch's.
+        timingUserSet = session.timing_user_set === true;
         userArrivalTime = existingTrack ? existingTrack.user_arrival_time : session.arrival_time;
         userDurationMinutes = existingTrack ? existingTrack.user_duration_minutes : session.duration_minutes;
-        sessionTimingUpdate = { ...timing, ...(session.status === "planned" ? { status: "completed" } : {}) };
+        const completed = session.status === "planned" ? { status: "completed" as const } : {};
+        const update = timingUserSet ? completed : { ...timing, ...completed };
+        sessionTimingUpdate = Object.keys(update).length ? update : null;
+      }
+      // A time-matched attach settles the phone's claim, or records one, so watch-status can explain it.
+      if (attached && isWatch && target !== claimTarget) {
+        const outcome = await claimForTimeAttach(serviceClient, {
+          userId, sessionId: session.id, importId, deviceId: imported.device_id ?? null,
+          inWaterStart: summary.inWaterStart, inWaterEnd: summary.inWaterEnd,
+        }, now);
+        if (outcome !== "other") heldClaim = { sessionId: session.id, inserted: outcome === "inserted" };
       }
     } else {
       const { data: session, error } = await userClient.from("sessions").insert({
@@ -356,7 +431,7 @@ export async function processImport(
       const hr = heartRateStats(track, summary);
       await insertSessionTrack(serviceClient, {
         sessionId, userId, importId, storagePath: imported.storage_path, format: track.meta.format,
-        sha256, track, summary: persistedSummary, userArrivalTime, userDurationMinutes, timingFromTrack: true,
+        sha256, track, summary: persistedSummary, userArrivalTime, userDurationMinutes, timingFromTrack: !timingUserSet,
         paddleDistanceM: paddleDistanceM(track, summary, rideWindows), hrAvg: hr?.avg ?? null, hrMax: hr?.max ?? null,
         sourceDevice: isWatch ? track.extras?.deviceName ?? null : null,
       });
@@ -366,29 +441,46 @@ export async function processImport(
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null);
       checkError(error);
     }
+    const mergedFields: string[] = sessionTimingUpdate && "arrival_time" in sessionTimingUpdate
+      ? ["arrival_time", "duration_minutes"] : [];
+    const keptFields: KeptFieldList = attachSession && attached && timingUserSet ? [
+      ...keptOrNothing("arrival_time", attachSession.arrival_time, timing.arrival_time),
+      ...keptOrNothing("duration_minutes", attachSession.duration_minutes, timing.duration_minutes),
+    ] : [];
     if (isWatch && attached && track.extras?.rating != null) {
-      const { error } = await userClient.from("sessions").update({ rating: track.extras.rating })
-        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("rating", null);
+      const { data: filled, error } = await userClient.from("sessions").update({ rating: track.extras.rating })
+        .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null).is("rating", null).select("id");
       checkError(error);
+      if (filled?.length) mergedFields.push("rating");
+      else keptFields.push(...keptOrNothing("rating", attachSession?.rating, track.extras.rating));
     }
     if (isWatch && target && track.extras?.waveHeightFt != null) {
       // A forecast-prefilled height is the forecast, not an observation, so the watch answer replaces it.
       // The source is set here because the provenance trigger relabels only when the value changes,
       // and chip midpoints often equal the prefill.
-      const { error } = await userClient.from("sessions")
+      const { data: filled, error } = await userClient.from("sessions")
         .update({ wave_height_ft: track.extras.waveHeightFt, wave_height_source: "user" })
         .eq("id", sessionId).eq("user_id", userId).is("deleted_at", null)
-        .or("wave_height_ft.is.null,wave_height_source.eq.forecast_prefill");
+        .or("wave_height_ft.is.null,wave_height_source.eq.forecast_prefill").select("id");
       checkError(error);
+      if (filled?.length) mergedFields.push("wave_height_ft");
+      else keptFields.push(...keptOrNothing("wave_height_ft", attachSession?.wave_height_ft, track.extras.waveHeightFt));
     }
     if (isWatch && sessionBeachId) {
       await linkRecentCall(serviceClient, { userId, sessionId, beachId: sessionBeachId, arrivalTime: timing.arrival_time });
     }
     if (summary.waterTempC !== null) {
-      const { error } = await userClient.from("sessions").update({
-        water_temp: Math.round(summary.waterTempC * 9 / 5 + 32), water_temp_source: "watch",
-      }).eq("id", sessionId).eq("user_id", userId).is("water_temp", null);
+      const waterTempF = Math.round(summary.waterTempC * 9 / 5 + 32);
+      const { data: filled, error } = await userClient.from("sessions").update({
+        water_temp: waterTempF, water_temp_source: "watch",
+      }).eq("id", sessionId).eq("user_id", userId).is("water_temp", null).select("id");
       checkError(error);
+      if (filled?.length) mergedFields.push("water_temp");
+      else keptFields.push(...keptOrNothing("water_temp", attachSession?.water_temp, waterTempF));
+    }
+    if (isWatch && attached && attachSession) {
+      await recordMergeResult(serviceClient, userId, sessionId, importId, { mergedFields, keptFields });
+      heldClaim = null;
     }
     const wavesSummary = buildWavesSummary(
       waves.map(wave => ({ ...wave, id: String(wave.index) })), [],
@@ -415,6 +507,7 @@ export async function processImport(
     }
     return { status: "completed", sessionId, attached, summary: wavesSummary };
   } catch (error) {
+    await releaseHeldClaim();
     if (error instanceof TrackFileError) {
       try {
         await updateImport({ status: "failed", error: error.code });
