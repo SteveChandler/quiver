@@ -67,6 +67,10 @@ no crop, no upscale.
 | `learn-folly-beach-learners.webp` | `/learn/can-you-surf-in-south-carolina` | 'Learning to Ride the Waves' No.1 -- Folly Beach (SC) July 2012 | Ron Cogswell | CC BY 2.0 | https://www.flickr.com/photos/22711505@N05/7794455966 |
 | `learn-folly-beach-hurricane-irene.webp` | `/learn/can-you-surf-in-south-carolina` | H. Irene | Gretchen Esbensen | CC BY 2.0 | https://www.flickr.com/photos/59435511@N02/6663054411 |
 | `learn-folly-beach-longboarders.webp` | `/learn/can-you-surf-in-south-carolina` | 'Looking for the Perfect Wave' -- Folly Beach (SC) 2012 | Ron Cogswell | CC BY 2.0 | https://www.flickr.com/photos/22711505@N05/7770892728 |
+| `learn-breakwater-diffraction-ashkelon.webp` | `/learn/what-is-wave-diffraction` | BreakWaterDiffraction Ashkelon2 | Dmitris1 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:BreakWaterDiffraction_Ashkelon2.jpg |
+| `learn-charlestown-harbor-diffraction.webp` | `/learn/what-is-wave-diffraction` | Charlestown - wave diffraction | Stephen Craven | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Charlestown_-_wave_diffraction_-_geograph.org.uk_-_6002891.jpg |
+| `learn-anacapa-island-santa-barbara-channel.webp` | `/learn/what-is-wave-diffraction` | Anacapa Island from Excursion on Santa Barbara Channel Between Ventura and Santa Cruz Island, California 2 | Ken Lund | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Anacapa_Island_from_Excursion_on_Santa_Barbara_Channel_Between_Ventura_and_Santa_Cruz_Island,_California_2_(4066985844).jpg |
+| `learn-dana-point-breakwater-sign.webp` | `/learn/what-is-wave-diffraction` | Dana Point, Orange County, California - Breakwater | Steve Hedin | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Dana_Point,_Orange_County,_California_-_Breakwater_-_panoramio.jpg |
 
 The older `learn-*.jpg` files in this directory predate the ledger and have no
 recorded provenance.
