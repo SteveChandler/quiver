@@ -18,6 +18,7 @@ import {
   toSwellEventBeach,
   tracksSwellComponent,
   type BeachSwellEvent,
+  type SwellEventBeach,
   type SwellEventForecastRow,
 } from "./detector";
 import { earlyLookPeaks, fetchWamDays, historyLine, regionModelBuoy, type EarlyLookPeak, type WamDay } from "./early-look";
@@ -94,6 +95,8 @@ export interface RegionBeach {
   punchiness: number | null;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
+  /** Terrain for the face transform; absent on builds cached before it was added. */
+  terrain?: SwellEventBeach;
 }
 
 export interface InternalRegionEvent {
@@ -109,6 +112,8 @@ export interface InternalRegionEvent {
   fadeAt: string | null;
   peakLocalDate: string;
   offshoreFt: string | null;
+  /** The unrounded offshore height behind `offshoreFt`; absent on builds cached before it was added. */
+  offshoreHeightFt?: number | null;
   history: string | null;
   /** Beach detections behind the event, summed over its joined groups; 0 for a WAM early look. */
   memberCount: number;
@@ -226,6 +231,7 @@ function detectedEvent(run: RegionRun): UnkeyedRegionEvent {
     fadeAt: run.fadeAt,
     peakLocalDate: lead.peakLocalDate,
     offshoreFt: `${Math.round(lead.peakOffshoreHeightFt)} ft`,
+    offshoreHeightFt: lead.peakOffshoreHeightFt,
     history: null,
     memberCount: run.memberCount,
   };
@@ -243,6 +249,7 @@ function earlyLookEvent(peak: EarlyLookPeak): UnkeyedRegionEvent {
     fadeAt: null,
     peakLocalDate: peak.localDate,
     offshoreFt: `${Math.round(peak.maxHsM * FEET_PER_METER)} ft`,
+    offshoreHeightFt: peak.maxHsM * FEET_PER_METER,
     history: null,
     memberCount: 0,
   };
@@ -406,6 +413,7 @@ async function loadRegionBase(input: { client: Client; region: string; now: Date
         aiConfidence: beach.wave_punchiness_ai_confidence, persona: beach.persona, break_type: beach.break_type, skill_level: beach.skill_level }),
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
+      terrain: toSwellEventBeach(beach),
     })),
     events,
     rowsByBeach: ratingRows,

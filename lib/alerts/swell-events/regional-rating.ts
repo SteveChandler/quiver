@@ -11,6 +11,7 @@ import { getLocalDateStr, getLocalHour } from "@/lib/services/discovery/window-s
 import { formatCompactWaveHeight } from "@/lib/surf-summary-display";
 import { scoreLabel } from "@/lib/utils/score-color-utils";
 
+import { swellPartitionFaceHeightFt } from "./detector";
 import { SWELL_EVENT_THRESHOLDS, exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "./regional";
 
@@ -216,7 +217,25 @@ function rateBeach(
   };
 }
 
-/** No forecast rows reach an early look, so only exposure speaks: open beaches are likely to work. */
+/**
+ * The offshore swell through the beach's terrain, as the detector projects a partition. A beach without
+ * terrain only gets one when its swell window is open to the swell; otherwise its shelter is unknown.
+ */
+function earlyLookFace(beach: RegionBeach, event: InternalRegionEvent, exposure: Exposure): string | null {
+  const heightFt = event.offshoreHeightFt ?? null;
+  if (!beach.terrain || heightFt === null || event.periodS === null || event.directionDeg === null) return null;
+  if (!beach.terrain.terrain_enabled && exposure !== "open") return null;
+  const faceFt = swellPartitionFaceHeightFt(
+    [{ heightFt, periodS: event.periodS, directionDeg: event.directionDeg }],
+    beach.terrain,
+  );
+  return faceFt === null || faceFt <= 0 ? null : faceText(`${faceFt.toFixed(1)} ft`);
+}
+
+/**
+ * No forecast rows reach an early look, so exposure sets the label: open beaches are likely to work.
+ * The face is only an estimate from the offshore swell.
+ */
 function earlyLookRating(beach: RegionBeach, event: InternalRegionEvent): RankedRating {
   const exposure = exposureOf(beach, event.directionDeg);
   return {
@@ -227,6 +246,7 @@ function earlyLookRating(beach: RegionBeach, event: InternalRegionEvent): Ranked
     windowStartAt: null,
     windowEndAt: null,
     faceFt: null,
+    estimatedFaceFt: earlyLookFace(beach, event, exposure.label),
     reason: exposure.label === null ? EXPOSURE_UNKNOWN : exposure.label === "shadowed" ? SHELTERED : null,
     exposure: exposure.label,
     rank: exposure.factor,
