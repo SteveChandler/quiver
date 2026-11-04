@@ -28,6 +28,7 @@ jest.mock('@/lib/services/nws-wind-service', () => ({ NwsWindService: jest.fn(()
 const mockCdipNearest = jest.fn();
 const mockWind = jest.fn();
 let beachCountry: string | null;
+let beachIds: string[];
 const mockCdipFetch = jest.fn();
 const mockFrom = jest.fn();
 const mockNearest = jest.fn();
@@ -63,8 +64,9 @@ beforeEach(() => {
   mockObservation.mockReset().mockResolvedValue(null);
   mockWind.mockReset().mockResolvedValue([]);
   beachCountry = 'USA';
+  beachIds = ['a', 'b', 'c'];
   mockFrom.mockImplementation((table: string) => {
-    if (table === 'beaches') return query(['a', 'b', 'c'].map((id, i) => ({ id, name: id, lat: 33 + i, lon: -117, country: beachCountry })));
+    if (table === 'beaches') return query(beachIds.map((id, i) => ({ id, name: id, lat: 33 + i, lon: -117, country: beachCountry })));
     if (table === 'v_marine_forecast_latest') return query(latest);
     if (table === 'cron_runs') return {
       ...query(ledger.length ? [ledger[ledger.length - 1]] : [{ summary: { result: { marineCoverage: { lastAttemptedBeachId: previous } } } }]),
@@ -246,6 +248,24 @@ it('still fails the run when NWS wind fails for a US beach', async () => {
   expect(response.status).toBe(503);
   expect(body.data.marineCoverage.rejectionCounts).toEqual({ wind_fetch_failed: 1 });
   expect(JSON.stringify(body)).not.toContain('private');
+});
+
+it.each([
+  { failing: 1, status: 200 },
+  { failing: 2, status: 503 },
+])('tolerates per-beach failures up to a tenth of attempted beaches ($failing of 11)', async ({ failing, status }) => {
+  beachIds = Array.from({ length: 11 }, (_, i) => `beach-${i}`);
+  mockWind.mockImplementation(async ({ lat }: { lat: number }) => {
+    if (lat < 33 + failing) throw new Error('private NWS outage');
+    return [];
+  });
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=11'));
+  const body = await response.json();
+  expect(response.status).toBe(status);
+  expect(body.data.marineCoverage).toMatchObject({ attemptedCoverage: 11,
+    rejectionCounts: { wind_fetch_failed: failing },
+    rejectedBeachIds: beachIds.slice(0, failing) });
+  expect(ledger[ledger.length - 1].status).toBe(status === 200 ? 'ok' : 'failed');
 });
 
 it('reports failed writes without exposing database errors', async () => {
