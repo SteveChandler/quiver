@@ -2,6 +2,7 @@ jest.mock("server-only", () => ({}));
 
 const mockIsFoundingAccessEnabled = jest.fn<Promise<boolean>, []>();
 jest.mock("@/lib/flags/founding-access", () => ({
+  ...jest.requireActual("@/lib/flags/founding-access"),
   isFoundingAccessEnabled: () => mockIsFoundingAccessEnabled(),
 }));
 

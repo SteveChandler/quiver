@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PresetType } from "./types";
-import { isFoundingAccessEnabled } from "@/lib/flags/founding-access";
+import {
+  featureAccessFor,
+  isFoundingAccessEnabled,
+  type FeatureAccess,
+} from "@/lib/flags/founding-access";
 import {
   PERSONALIZATION_LOCKED,
   type PersonalizationResultCode,
@@ -31,8 +35,9 @@ const FREE_PRESETS: PresetType[] = ["mellow_session"];
  *     (if the mirror says "active" but expires_at is in the past, treat as
  *     free until RC reconciliation catches up).
  *  4. Founding access switch — a free result becomes premium while it is on,
- *     unless the row has a billing issue. This is a feature tier; billing
- *     code reads real Pro status instead.
+ *     unless the row has a billing issue (`featureAccessFor`). Callers hold a
+ *     real user id (an authed route or a cron row), so they count as signed
+ *     in. This is a feature tier; billing code reads real Pro status instead.
  *
  * Async because #3 is a DB lookup; pass the caller's supabase client so we
  * inherit its auth context (service-role in cron, user-scoped elsewhere).
@@ -50,9 +55,10 @@ export async function getUserEntitlement(
     .eq("user_id", userId)
     .maybeSingle();
 
-  const tier = entitlementFromRow(data);
-  if (tier === "premium" || data?.billing_issue) return tier;
-  return (await isFoundingAccessEnabled()) ? "premium" : tier;
+  const isPro = entitlementFromRow(data) === "premium";
+  const billingIssue = data?.billing_issue === true;
+  const switchOn = !isPro && !billingIssue && (await isFoundingAccessEnabled());
+  return tierFor(featureAccessFor({ isPro, signedIn: true, billingIssue, switchOn }));
 }
 
 /**
@@ -69,8 +75,18 @@ export function resolveEntitlement(
 ): Tier {
   const bypass = envBypassTier(userId);
   if (bypass) return bypass;
-  const tier = entitlementFromRow(row);
-  return tier === "free" && foundingAccess && !row?.billing_issue ? "premium" : tier;
+  return tierFor(
+    featureAccessFor({
+      isPro: entitlementFromRow(row) === "premium",
+      signedIn: true,
+      billingIssue: row?.billing_issue === true,
+      switchOn: foundingAccess,
+    }),
+  );
+}
+
+function tierFor(access: FeatureAccess): Tier {
+  return access.hasFeatureAccess ? "premium" : "free";
 }
 
 /**

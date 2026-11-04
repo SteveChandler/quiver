@@ -82,19 +82,37 @@ export interface FeatureAccessOptions {
   billingIssue?: boolean;
 }
 
+export interface FeatureAccessInput {
+  isPro: boolean;
+  signedIn: boolean;
+  billingIssue: boolean;
+  switchOn: boolean;
+}
+
 /**
- * Billing-issue rows never get founding access: the DB match gates and
- * personalization eligibility lock them first, so every surface agrees.
+ * The one founding access rule: not Pro, signed in, no billing issue, switch
+ * on. Billing-issue rows never get it: the DB match gates and personalization
+ * eligibility lock them first, so every surface agrees.
  */
+export function featureAccessFor({
+  isPro,
+  signedIn,
+  billingIssue,
+  switchOn,
+}: FeatureAccessInput): FeatureAccess {
+  if (isPro) return { isPro: true, foundingAccess: false, hasFeatureAccess: true };
+  const foundingAccess = signedIn && !billingIssue && switchOn;
+  return { isPro: false, foundingAccess, hasFeatureAccess: foundingAccess };
+}
+
+/** Reads the switch only when the user could get founding access. */
 export async function resolveFeatureAccess(
   userId: string | null | undefined,
   isPro: boolean,
   options: FeatureAccessOptions = {},
 ): Promise<FeatureAccess> {
-  if (isPro) return { isPro: true, foundingAccess: false, hasFeatureAccess: true };
-  if (!userId || options.billingIssue) {
-    return { isPro: false, foundingAccess: false, hasFeatureAccess: false };
-  }
-  const foundingAccess = await isFoundingAccessEnabled();
-  return { isPro: false, foundingAccess, hasFeatureAccess: foundingAccess };
+  const signedIn = Boolean(userId);
+  const billingIssue = options.billingIssue === true;
+  const switchOn = !isPro && signedIn && !billingIssue && (await isFoundingAccessEnabled());
+  return featureAccessFor({ isPro, signedIn, billingIssue, switchOn });
 }

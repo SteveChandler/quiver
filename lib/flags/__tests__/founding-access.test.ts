@@ -135,6 +135,37 @@ describe("founding access switch", () => {
   });
 });
 
+describe("featureAccessFor", () => {
+  const base = { isPro: false, signedIn: true, billingIssue: false, switchOn: true };
+
+  it("grants founding access only when not Pro, signed in, no billing issue and switch on", () => {
+    const { featureAccessFor } = loadModule();
+    expect(featureAccessFor(base)).toEqual({
+      isPro: false,
+      foundingAccess: true,
+      hasFeatureAccess: true,
+    });
+    for (const override of [{ signedIn: false }, { billingIssue: true }, { switchOn: false }]) {
+      expect(featureAccessFor({ ...base, ...override })).toEqual({
+        isPro: false,
+        foundingAccess: false,
+        hasFeatureAccess: false,
+      });
+    }
+  });
+
+  it("Pro always has feature access and is never founding", () => {
+    const { featureAccessFor } = loadModule();
+    for (const override of [{}, { switchOn: false }, { billingIssue: true }, { signedIn: false }]) {
+      expect(featureAccessFor({ ...base, ...override, isPro: true })).toEqual({
+        isPro: true,
+        foundingAccess: false,
+        hasFeatureAccess: true,
+      });
+    }
+  });
+});
+
 describe("resolveFeatureAccess", () => {
   it("switch ON: a signed-in free user gets founding feature access", async () => {
     mockRpc.mockResolvedValue({ data: true, error: null });
