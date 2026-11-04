@@ -11,37 +11,53 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 const CACHE_TTL_MS = 60_000;
 
 let cached: { value: boolean; expiresAt: number } | null = null;
+let lastRead: boolean | null = null;
 let inFlight: Promise<boolean> | null = null;
 
+/** Throws on a failed read so the caller can tell an outage from a real off. */
 async function readSwitch(): Promise<boolean> {
   // Unconfigured environments (local, tests) read as off without the client's
   // own fail-fast error.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return false;
   }
-  try {
-    // Generated types do not include this RPC until the migration is applied.
-    const supabase = createSupabaseServiceRoleClient() as SupabaseClient;
-    const { data, error } = await supabase.rpc('founding_access_enabled');
-    if (error) throw new Error(error.message);
-    return data === true;
-  } catch (error) {
-    console.warn(
-      '[founding-access] Switch read failed; treating as off:',
-      error instanceof Error ? error.message : error,
-    );
+  // Generated types do not include this RPC until the migration is applied.
+  const supabase = createSupabaseServiceRoleClient() as SupabaseClient;
+  const { data, error } = await supabase.rpc('founding_access_enabled');
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
+function valueAfterFailedRead(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : error;
+  if (lastRead === null) {
+    console.warn('[founding-access] Switch read failed with no earlier read; treating as off:', message);
     return false;
   }
+  console.warn(
+    `[founding-access] Switch read failed; keeping last read value (${lastRead ? 'on' : 'off'}):`,
+    message,
+  );
+  return lastRead;
 }
 
 /**
- * Cached per instance for at most 60 s with one in-flight read. Errors resolve
- * to off and are cached too, so an outage never becomes a per-request read.
+ * Cached per instance for at most 60 s with one in-flight read. A failed read
+ * keeps the last successful value (a DB blip must not lock founding users out)
+ * and is cached too, so an outage never becomes a per-request read. With no
+ * earlier success it fails closed.
  */
 export async function isFoundingAccessEnabled(): Promise<boolean> {
   if (cached && cached.expiresAt > Date.now()) return cached.value;
   if (inFlight) return inFlight;
   inFlight = readSwitch()
+    .then(
+      (value) => {
+        lastRead = value;
+        return value;
+      },
+      valueAfterFailedRead,
+    )
     .then((value) => {
       cached = { value, expiresAt: Date.now() + CACHE_TTL_MS };
       return value;

@@ -19,7 +19,7 @@ One row in the database. The server and the app both read it, so a flip needs no
 - `public.founding_access_enabled() returns boolean`: `stable`, `security definer`, `set search_path = public`. Returns `coalesce((select enabled from app_runtime_flags where key = 'founding_access'), false)`. Execute is granted to `authenticated` and `service_role`.
 - Turn on: `update public.app_runtime_flags set enabled = true, updated_at = now() where key = 'founding_access';` This is a production write and needs Steven's approval every time.
 - Turn off: the same with `false`.
-- Propagation: the server caches the value for at most 60 s per instance. The app re-reads it at most every 5 min and on foreground. Errors resolve to **off** (fail closed to today's gates).
+- Propagation: the server caches the value for at most 60 s per instance. The app re-reads it at most every 5 min and on foreground. A failed server read keeps the instance's last successful value for another 60 s; with no earlier success it resolves to **off** (fail closed to today's gates). A successful read of off turns it off at once.
 
 "Founding access" means: the switch is on **and** the user is signed in **and** the user is not Pro. Pro users already have everything. Guests are not covered.
 

@@ -68,20 +68,64 @@ describe("founding access switch", () => {
     expect(mockRpc).toHaveBeenCalledTimes(2);
   });
 
-  it("fails closed on an RPC error and caches the failure", async () => {
+  it("fails closed on an RPC error when nothing was read before, and caches the failure", async () => {
     const { isFoundingAccessEnabled } = loadModule();
     mockRpc.mockResolvedValue({ data: null, error: { message: "boom" } });
 
     expect(await isFoundingAccessEnabled()).toBe(false);
     expect(await isFoundingAccessEnabled()).toBe(false);
     expect(mockRpc).toHaveBeenCalledTimes(1);
-    expectConsoleWarnings([/\[founding-access\] Switch read failed; treating as off: boom/]);
+    expectConsoleWarnings([
+      /\[founding-access\] Switch read failed with no earlier read; treating as off: boom/,
+    ]);
   });
 
-  it("fails closed on a thrown client error", async () => {
+  it("fails closed on a thrown client error when nothing was read before", async () => {
     mockRpc.mockRejectedValue(new Error("network down"));
     expect(await loadModule().isFoundingAccessEnabled()).toBe(false);
-    expectConsoleWarnings([/network down/]);
+    expectConsoleWarnings([/no earlier read; treating as off: network down/]);
+  });
+
+  it("keeps the last read ON through a failed read and caches it for the full TTL", async () => {
+    jest.useFakeTimers();
+    const { isFoundingAccessEnabled } = loadModule();
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await isFoundingAccessEnabled()).toBe(true);
+
+    jest.advanceTimersByTime(60_001);
+    mockRpc.mockResolvedValue({ data: null, error: { message: "blip" } });
+    expect(await isFoundingAccessEnabled()).toBe(true);
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+
+    jest.advanceTimersByTime(59_000);
+    expect(await isFoundingAccessEnabled()).toBe(true);
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+
+    // Still failing after the TTL: the last successful read still wins.
+    jest.advanceTimersByTime(1_001);
+    expect(await isFoundingAccessEnabled()).toBe(true);
+    expect(mockRpc).toHaveBeenCalledTimes(3);
+    expectConsoleWarnings([
+      /Switch read failed; keeping last read value \(on\): blip/,
+      /Switch read failed; keeping last read value \(on\): blip/,
+    ]);
+  });
+
+  it("turns off immediately when a successful read returns false after ON", async () => {
+    jest.useFakeTimers();
+    const { isFoundingAccessEnabled } = loadModule();
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await isFoundingAccessEnabled()).toBe(true);
+
+    jest.advanceTimersByTime(60_001);
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await isFoundingAccessEnabled()).toBe(false);
+
+    // A later failure keeps the newer OFF, not the older ON.
+    jest.advanceTimersByTime(60_001);
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "blip" } });
+    expect(await isFoundingAccessEnabled()).toBe(false);
+    expectConsoleWarnings([/keeping last read value \(off\): blip/]);
   });
 
   it("reads as off without querying when the service role is not configured", async () => {
