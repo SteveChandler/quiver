@@ -3,7 +3,7 @@ import type { Database } from '@/types/supabase';
 import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-service';
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
-import { entitlementFromRow } from '@/lib/alerts/entitlements';
+import { resolveFeatureAccessFromRow } from '@/lib/alerts/entitlements';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
 import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
@@ -454,15 +454,14 @@ export async function computeCanonicalSurfCall({
       profileExperience = null;
     }
   }
-  let isPro = false;
-  if (userId) {
-    const { data: entitlementRow } = await supabase
-      .from('user_entitlements')
-      .select('is_pro, is_trialing, billing_issue, expires_at')
-      .eq('user_id', userId)
-      .maybeSingle();
-    isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
-  }
+  const { data: entitlementRow } = userId
+    ? await supabase
+        .from('user_entitlements')
+        .select('is_pro, is_trialing, billing_issue, expires_at')
+        .eq('user_id', userId)
+        .maybeSingle()
+    : { data: null };
+  const access = await resolveFeatureAccessFromRow(userId, entitlementRow);
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
   const requestedForecastTime = forecastAt
@@ -489,7 +488,7 @@ export async function computeCanonicalSurfCall({
     ? loadNowRecommendation({
         userId,
         beach: typedBeach,
-        isPro,
+        access,
         profileExperience,
         now: anchor,
       })
@@ -527,7 +526,7 @@ export async function computeCanonicalSurfCall({
         ...(forecastAt ? { forecastAt } : {}),
         includeBeachIds: [beachId],
         allowRecommendationIneligibleIncludes: true,
-        isPro,
+        isPro: access.hasFeatureAccess,
         throwOnFailure: true,
       },
     });

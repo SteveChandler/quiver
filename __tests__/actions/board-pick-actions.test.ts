@@ -4,8 +4,15 @@
 import { getBoardPickContext } from "@/actions/board-pick-actions";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
+
 jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
   fetchUserBoardContext: jest.fn(),
+}));
+
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+jest.mock("@/lib/flags/founding-access", () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) => mockResolveFeatureAccess(...args),
 }));
 
 let entitlementRow: Record<string, unknown> | null = null;
@@ -29,6 +36,7 @@ describe("getBoardPickContext", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
     delete process.env.BOARD_PICKS_FREE_ENABLED;
     mockFetchUserBoardContext.mockResolvedValue({
       dominantBoardClass: "fish",
@@ -63,5 +71,18 @@ describe("getBoardPickContext", () => {
     process.env.BOARD_PICKS_FREE_ENABLED = "true";
     await getBoardPickContext();
     expect(mockFetchUserBoardContext).toHaveBeenLastCalledWith(fakeSupabase, "user-1", true);
+  });
+
+  it.each([
+    ["ON", featureAccessOn, true],
+    ["OFF", featureAccessOff, false],
+  ])("founding access %s decides board picks for a free user", async (_name, access, enabled) => {
+    entitlementRow = null;
+    mockResolveFeatureAccess.mockImplementation(access);
+
+    await getBoardPickContext();
+
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-1", false, { billingIssue: false });
+    expect(mockFetchUserBoardContext).toHaveBeenLastCalledWith(fakeSupabase, "user-1", enabled);
   });
 });

@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { GET } from "@/app/api/surf/call/route";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 const mockSupabase = {
   from: jest.fn(),
@@ -70,6 +71,11 @@ jest.mock("@/lib/recommendations/major-event-hold/water-quality", () => ({
 jest.mock("@/lib/recommendations/canonical-decision", () => ({
   resolveCanonicalSessionDecisionContext: (...args: unknown[]) =>
     mockResolveCanonicalSessionDecisionContext(...args),
+}));
+
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+jest.mock("@/lib/flags/founding-access", () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) => mockResolveFeatureAccess(...args),
 }));
 
 const mockDiscoverSurfSpots = jest.fn();
@@ -164,6 +170,7 @@ let canonicalContext: {
 describe("GET /api/surf/call", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
     mockRateLimitInvocations.length = 0;
     mockEqCalls.length = 0;
     mockRequestUser = mockUser;
@@ -480,6 +487,66 @@ describe("GET /api/surf/call", () => {
     expect(mockSupabase.from).not.toHaveBeenCalledWith("boards");
     expect(mockSupabase.from).not.toHaveBeenCalledWith("favorite_beaches");
     expect(mockSupabase.from).not.toHaveBeenCalledWith("user_surf_preferences");
+  });
+
+  it.each([
+    ["ON", featureAccessOn, true],
+    ["OFF", featureAccessOff, false],
+  ])("founding access %s decides paid discovery for a signed-in free user", async (_name, access, paid) => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockResolveFeatureAccess.mockImplementation(access);
+    mockDiscoverSurfSpots.mockResolvedValue({
+      recommendations: [],
+      includedRecommendations: [],
+      recommendationAvailability: { state: "available", holdEpoch: "now-test" },
+      searchCriteria: { maxResults: 1 },
+      metadata: { outcome: "success", generated_at: new Date().toISOString() },
+    });
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(mockUser.id, false, { billingIssue: false });
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: paid }) }),
+    );
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledWith(
+      mockUser.id,
+      expect.objectContaining({ discoveryMode: "now", isPro: paid }),
+    );
+  });
+
+  it("anonymous viewers never get founding access", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockRequestUser = null;
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(null, false, { billingIssue: false });
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: false }) }),
+    );
   });
 
   it("returns 401 for an invalid bearer token", async () => {
