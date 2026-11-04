@@ -23,6 +23,7 @@ import type {
   SimilarityRecommendation,
   SurfDiscoveryRecommendation,
 } from "@/types/personalization";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 const NOW = new Date("2026-09-23T18:00:00Z");
 const id = (n: number): string =>
@@ -69,6 +70,11 @@ const learned = (label: string): SimilarityRecommendation => ({
 });
 const mockRpc = jest.fn();
 const mockFrom = jest.fn();
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+jest.mock("@/lib/flags/founding-access", () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) =>
+    mockResolveFeatureAccess(...args),
+}));
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: () => ({ rpc: mockRpc, from: mockFrom }),
 }));
@@ -137,6 +143,7 @@ function rpcData(count: number, at: string): Record<string, unknown> {
 beforeEach(() => {
   jest.useFakeTimers({ now: NOW });
   jest.clearAllMocks();
+  mockResolveFeatureAccess.mockImplementation(featureAccessOff);
 });
 afterEach(() => jest.useRealTimers());
 afterAll(() =>
@@ -285,6 +292,23 @@ it.each(
     expect(bulkRecommendationLabel(context, spot, row, score, NOW)).toBe(
       recommendationLabelForVerdict(call.verdict),
     );
+  },
+);
+
+it.each([
+  ["ON", featureAccessOn, true],
+  ["OFF", featureAccessOff, false],
+] as const)(
+  "founding access %s decides whether a free user's match evidence is kept",
+  async (_name, access, kept) => {
+    mockResolveFeatureAccess.mockImplementation(access);
+    const data = rpcData(1, NOW.toISOString());
+    (data.personalization as { entitlement: unknown }).entitlement = null;
+    mockRpc.mockReturnValue(query(data));
+    const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(id(800), false);
+    const match = context.matches.get(matchSlotKey(id(1), NOW.toISOString()));
+    expect(match?.state === "ready" ? match.score : null).toBe(kept ? 3 : null);
   },
 );
 

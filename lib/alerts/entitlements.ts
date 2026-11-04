@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PresetType } from "./types";
+import { isFoundingAccessEnabled } from "@/lib/flags/founding-access";
 import {
   PERSONALIZATION_LOCKED,
   type PersonalizationResultCode,
@@ -29,6 +30,8 @@ const FREE_PRESETS: PresetType[] = ["mellow_session"];
  *     both the is_pro/is_trialing flags AND expires_at as a staleness guard
  *     (if the mirror says "active" but expires_at is in the past, treat as
  *     free until RC reconciliation catches up).
+ *  4. Founding access switch — a free result becomes premium while it is on.
+ *     This is a feature tier; billing code reads real Pro status instead.
  *
  * Async because #3 is a DB lookup; pass the caller's supabase client so we
  * inherit its auth context (service-role in cron, user-scoped elsewhere).
@@ -46,22 +49,27 @@ export async function getUserEntitlement(
     .eq("user_id", userId)
     .maybeSingle();
 
-  return entitlementFromRow(data);
+  const tier = entitlementFromRow(data);
+  if (tier === "premium") return tier;
+  return (await isFoundingAccessEnabled()) ? "premium" : tier;
 }
 
 /**
  * Cron-friendly variant: skips the DB round-trip by taking a pre-joined
  * user_entitlements row. Honors the same ALERT_PREVIEW_MODE + beta-user
  * bypasses as getUserEntitlement. Use this when the caller has already
- * selected the row via a join to avoid N+1 queries.
+ * selected the row via a join to avoid N+1 queries. Callers read the founding
+ * access switch once per run and pass it in.
  */
 export function resolveEntitlement(
   userId: string,
   row: Parameters<typeof entitlementFromRow>[0],
+  foundingAccess = false,
 ): Tier {
   const bypass = envBypassTier(userId);
   if (bypass) return bypass;
-  return entitlementFromRow(row);
+  const tier = entitlementFromRow(row);
+  return tier === "free" && foundingAccess ? "premium" : tier;
 }
 
 /**

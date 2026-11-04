@@ -3,6 +3,7 @@
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { entitlementFromRow } from "@/lib/alerts/entitlements";
 import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
+import { resolveFeatureAccess } from "@/lib/flags/founding-access";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import type { BoardClass } from "@/lib/domains/rideability";
 import type { PersonalBoard } from "@/lib/scoring/personal-board";
@@ -26,10 +27,11 @@ export async function getBoardPickContext() {
       .eq("user_id", user.id)
       .maybeSingle();
     const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
+    const { hasFeatureAccess } = await resolveFeatureAccess(user.id, isPro);
     const context = await fetchUserBoardContext(
       supabase,
       user.id,
-      isPro || isBoardPicksFreeEnabled(),
+      hasFeatureAccess || isBoardPicksFreeEnabled(),
     );
     return {
       boardClasses: context.boardClasses,

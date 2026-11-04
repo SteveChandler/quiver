@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+const mockIsFoundingAccessEnabled = jest.fn<Promise<boolean>, []>();
+jest.mock("@/lib/flags/founding-access", () => ({
+  isFoundingAccessEnabled: () => mockIsFoundingAccessEnabled(),
+}));
+
 import {
   ALERT_DELIVERY_PAUSED,
   BETA_ACCESS_NOT_ENABLED,
@@ -204,5 +210,85 @@ describe("getPersonalizationEligibility", () => {
       code: PERSONALIZATION_UNLOCKED,
       canUsePersonalMatch: true,
     });
+  });
+});
+
+describe("founding access", () => {
+  beforeEach(() => {
+    mockIsFoundingAccessEnabled.mockReset();
+    delete process.env.PERSONALIZATION_BETA_USER_IDS;
+  });
+
+  it("ON: unlocks users with no entitlement row as entitlement-sourced", () => {
+    expect(
+      resolvePersonalizationEligibility({ userId: "user-free", entitlementRow: null, foundingAccess: true }),
+    ).toEqual({
+      code: PERSONALIZATION_UNLOCKED,
+      canUsePersonalMatch: true,
+      canUseRankedWindows: true,
+      canCreatePersonalAlert: true,
+      canDeliverPersonalAlert: true,
+      source: "entitlement",
+    });
+  });
+
+  it("ON: unlocks not-Pro rows, including beta-required requests, and honors delivery pause", () => {
+    const row = { is_pro: false, is_trialing: false };
+    expect(
+      resolvePersonalizationEligibility({ userId: "u", entitlementRow: row, foundingAccess: true, betaAccessRequired: true }),
+    ).toMatchObject({ code: PERSONALIZATION_UNLOCKED, canCreatePersonalAlert: true });
+    expect(
+      resolvePersonalizationEligibility({ userId: "u", entitlementRow: row, foundingAccess: true, alertDeliveryPaused: true }),
+    ).toMatchObject({ code: ALERT_DELIVERY_PAUSED, canCreatePersonalAlert: true, canDeliverPersonalAlert: false });
+  });
+
+  it("ON: billing issue, sync, expiry and kill-switch locks still apply", () => {
+    expect(resolvePersonalizationEligibility({
+      userId: "u", entitlementRow: { is_pro: true, billing_issue: true }, foundingAccess: true,
+    }).code).toBe(BILLING_ISSUE_LOCKED);
+    expect(resolvePersonalizationEligibility({
+      userId: "u", entitlementRow: null, entitlementSyncing: true, foundingAccess: true,
+    }).code).toBe(ENTITLEMENT_SYNCING);
+    expect(resolvePersonalizationEligibility({
+      userId: "u", entitlementRow: { is_pro: true, expires_at: "2020-01-01T00:00:00Z" }, foundingAccess: true,
+    }).code).toBe(ENTITLEMENT_SYNCING);
+    expect(resolvePersonalizationEligibility({
+      userId: "u", entitlementRow: null, personalizationDisabled: true, foundingAccess: true,
+    }).code).toBe(PERSONALIZATION_DISABLED);
+  });
+
+  it("OFF: free users stay locked", () => {
+    expect(resolvePersonalizationEligibility({ userId: "u", entitlementRow: null, foundingAccess: false }).code)
+      .toBe(PERSONALIZATION_LOCKED);
+    expect(resolvePersonalizationEligibility({
+      userId: "u", entitlementRow: null, foundingAccess: false, betaAccessRequired: true,
+    }).code).toBe(BETA_ACCESS_NOT_ENABLED);
+  });
+
+  it("getPersonalizationEligibility ON: a free user is unlocked through the switch", async () => {
+    mockIsFoundingAccessEnabled.mockResolvedValue(true);
+    await expect(getPersonalizationEligibility("user-free", makeSupabaseStub({}))).resolves.toMatchObject({
+      code: PERSONALIZATION_UNLOCKED,
+      canUsePersonalMatch: true,
+      source: "entitlement",
+    });
+  });
+
+  it("getPersonalizationEligibility OFF: a free user stays locked", async () => {
+    mockIsFoundingAccessEnabled.mockResolvedValue(false);
+    await expect(getPersonalizationEligibility("user-free", makeSupabaseStub({}))).resolves.toMatchObject({
+      code: PERSONALIZATION_LOCKED,
+      canUsePersonalMatch: false,
+    });
+  });
+
+  it("getPersonalizationEligibility reads the switch only for a not-Pro lock", async () => {
+    mockIsFoundingAccessEnabled.mockResolvedValue(true);
+    await getPersonalizationEligibility("user-pro", makeSupabaseStub({ "user-pro": { is_pro: true } }));
+    await getPersonalizationEligibility(
+      "user-billing",
+      makeSupabaseStub({ "user-billing": { is_pro: true, billing_issue: true } }),
+    );
+    expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
   });
 });

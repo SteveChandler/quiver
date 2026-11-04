@@ -15,6 +15,7 @@ import {
   hasNoDiscoveryCandidates,
 } from '@/lib/services/discovery/discovery-availability';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
+import { resolveFeatureAccess } from '@/lib/flags/founding-access';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
@@ -251,10 +252,12 @@ async function surfDiscoveryHandler(
   // radius is a search extent, not the surfer's range, so it keeps the friction.
   const driveRadiusMiles = radius === undefined ? radiusMiles : undefined;
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+  const { hasFeatureAccess, foundingAccess } = await resolveFeatureAccess(user.id, isPro);
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
-    hasPaidAccess: isPro,
-    canSeeBestSpot: isPro,
+    hasPaidAccess: hasFeatureAccess,
+    canSeeBestSpot: hasFeatureAccess,
+    foundingAccess,
   };
 
   // 4. Call service to get ranked recommendations
@@ -279,7 +282,7 @@ async function surfDiscoveryHandler(
       discoveryMode: mode === 'my-spots' ? 'best-window' : mode ?? 'best-window',
       savedSpotsOnly: mode === 'my-spots',
       timeSlot,
-      isPro,
+      isPro: hasFeatureAccess,
       includeBeachIds,
       throwOnFailure: true,
       onStageTiming: (discoverStage, durationMs) => {

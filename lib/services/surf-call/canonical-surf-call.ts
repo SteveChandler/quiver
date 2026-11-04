@@ -4,6 +4,7 @@ import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-servi
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
+import { resolveFeatureAccess } from '@/lib/flags/founding-access';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
 import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
@@ -463,6 +464,7 @@ export async function computeCanonicalSurfCall({
       .maybeSingle();
     isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   }
+  const access = await resolveFeatureAccess(userId, isPro);
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
   const requestedForecastTime = forecastAt
@@ -489,7 +491,7 @@ export async function computeCanonicalSurfCall({
     ? loadNowRecommendation({
         userId,
         beach: typedBeach,
-        isPro,
+        access,
         profileExperience,
         now: anchor,
       })
@@ -527,7 +529,7 @@ export async function computeCanonicalSurfCall({
         ...(forecastAt ? { forecastAt } : {}),
         includeBeachIds: [beachId],
         allowRecommendationIneligibleIncludes: true,
-        isPro,
+        isPro: access.hasFeatureAccess,
         throwOnFailure: true,
       },
     });

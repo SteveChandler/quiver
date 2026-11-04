@@ -1,5 +1,10 @@
 jest.mock("server-only", () => ({}));
 
+const mockIsFoundingAccessEnabled = jest.fn<Promise<boolean>, []>();
+jest.mock("@/lib/flags/founding-access", () => ({
+  isFoundingAccessEnabled: () => mockIsFoundingAccessEnabled(),
+}));
+
 import {
   getUserEntitlement,
   canCreateRule,
@@ -30,12 +35,67 @@ function makeSupabaseStub(rowByUserId: Record<string, unknown>): SupabaseClient 
   } as unknown as SupabaseClient;
 }
 
+beforeEach(() => {
+  mockIsFoundingAccessEnabled.mockReset();
+  mockIsFoundingAccessEnabled.mockResolvedValue(false);
+});
+
 describe("getUserEntitlement", () => {
   const origPreview = process.env.ALERT_PREVIEW_MODE;
   const origBeta = process.env.ALERT_BETA_USER_IDS;
   afterEach(() => {
     process.env.ALERT_PREVIEW_MODE = origPreview;
     process.env.ALERT_BETA_USER_IDS = origBeta;
+  });
+
+  describe("founding access switch", () => {
+    beforeEach(() => {
+      delete process.env.ALERT_PREVIEW_MODE;
+      delete process.env.ALERT_BETA_USER_IDS;
+    });
+
+    it("ON: a free user resolves premium", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      expect(await getUserEntitlement("user-free", makeSupabaseStub({}))).toBe("premium");
+      expect(
+        await getUserEntitlement(
+          "user-lapsed",
+          makeSupabaseStub({ "user-lapsed": { is_pro: false, is_trialing: false } }),
+        ),
+      ).toBe("premium");
+    });
+
+    it("OFF: a free user stays free", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(false);
+      expect(await getUserEntitlement("user-free", makeSupabaseStub({}))).toBe("free");
+      expect(mockIsFoundingAccessEnabled).toHaveBeenCalledTimes(1);
+    });
+
+    it("Pro never reads the switch", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      const supabase = makeSupabaseStub({ "user-pro": { is_pro: true } });
+      expect(await getUserEntitlement("user-pro", supabase)).toBe("premium");
+      expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
+    });
+
+    it("ON: premium tier lets a free user create rules beyond the free gates", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      const tier = await getUserEntitlement("user-free", makeSupabaseStub({}));
+      expect(canCreateRule({
+        tier, homeBeachId: "home", targetBeachId: "other",
+        existingRuleCount: 3, existingBeachCount: 1, isExistingBeach: false,
+        presetType: "big_day",
+      })).toEqual({ allowed: true });
+    });
+
+    it("OFF: the same request hits the free home-beach gate", async () => {
+      const tier = await getUserEntitlement("user-free", makeSupabaseStub({}));
+      expect(canCreateRule({
+        tier, homeBeachId: "home", targetBeachId: "other",
+        existingRuleCount: 3, existingBeachCount: 1, isExistingBeach: false,
+        presetType: "big_day",
+      })).toMatchObject({ allowed: false, code: "PERSONALIZATION_LOCKED" });
+    });
   });
 
   it("returns premium when ALERT_PREVIEW_MODE=true (no DB read)", async () => {
@@ -249,6 +309,20 @@ describe("resolveEntitlement (sync cron-friendly wrapper)", () => {
         expires_at: new Date(Date.now() + 86_400_000).toISOString(),
       }),
     ).toBe("premium");
+    expect(resolveEntitlement("user-x", null)).toBe("free");
+  });
+
+  it("founding access ON promotes a free row to premium", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    expect(resolveEntitlement("user-x", null, true)).toBe("premium");
+    expect(resolveEntitlement("user-x", { is_pro: false, is_trialing: false }, true)).toBe("premium");
+  });
+
+  it("founding access OFF (the default) keeps a free row free", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    expect(resolveEntitlement("user-x", null, false)).toBe("free");
     expect(resolveEntitlement("user-x", null)).toBe("free");
   });
 

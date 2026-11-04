@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isFoundingAccessEnabled } from "@/lib/flags/founding-access";
 
 export const PERSONALIZATION_UNLOCKED = "PERSONALIZATION_UNLOCKED";
 export const PERSONALIZATION_LOCKED = "PERSONALIZATION_LOCKED";
@@ -36,6 +37,8 @@ interface ResolvePersonalizationEligibilityInput {
   entitlementSyncing?: boolean;
   personalizationDisabled?: boolean;
   alertDeliveryPaused?: boolean;
+  /** Founding access switch is on: not-Pro users unlock like Pro. */
+  foundingAccess?: boolean;
 }
 
 export interface PersonalizationEligibilityResult {
@@ -73,6 +76,19 @@ function unlocked(
   return { code: PERSONALIZATION_UNLOCKED, ...UNLOCKED_FLAGS, source };
 }
 
+function unlockedUnlessDeliveryPaused(
+  source: PersonalizationEligibilityResult["source"],
+  alertDeliveryPaused: boolean | undefined,
+): PersonalizationEligibilityResult {
+  const result = unlocked(source);
+  if (!alertDeliveryPaused) return result;
+  return {
+    ...result,
+    code: ALERT_DELIVERY_PAUSED,
+    canDeliverPersonalAlert: false,
+  };
+}
+
 function isExpired(row: UserEntitlementRow, now: Date): boolean {
   if (!row.expires_at) return false;
   return new Date(row.expires_at).getTime() < now.getTime();
@@ -96,21 +112,19 @@ export function resolvePersonalizationEligibility(
   }
 
   if (isAllowlistedBetaUser(input.userId)) {
-    const betaResult = unlocked("testflight_bypass");
-    if (!input.alertDeliveryPaused) return betaResult;
-    return {
-      ...betaResult,
-      code: ALERT_DELIVERY_PAUSED,
-      canDeliverPersonalAlert: false,
-    };
+    return unlockedUnlessDeliveryPaused("testflight_bypass", input.alertDeliveryPaused);
   }
 
   if (input.entitlementSyncing) {
     return locked(ENTITLEMENT_SYNCING);
   }
 
+  // Founding users report source "entitlement": native's source union is closed.
   const row = input.entitlementRow;
   if (!row) {
+    if (input.foundingAccess) {
+      return unlockedUnlessDeliveryPaused("entitlement", input.alertDeliveryPaused);
+    }
     return locked(
       input.betaAccessRequired ? BETA_ACCESS_NOT_ENABLED : PERSONALIZATION_LOCKED,
     );
@@ -121,6 +135,9 @@ export function resolvePersonalizationEligibility(
   }
 
   if (!row.is_pro && !row.is_trialing) {
+    if (input.foundingAccess) {
+      return unlockedUnlessDeliveryPaused("entitlement", input.alertDeliveryPaused);
+    }
     return locked(
       input.betaAccessRequired ? BETA_ACCESS_NOT_ENABLED : PERSONALIZATION_LOCKED,
     );
@@ -130,13 +147,7 @@ export function resolvePersonalizationEligibility(
     return locked(ENTITLEMENT_SYNCING);
   }
 
-  const result = unlocked("entitlement");
-  if (!input.alertDeliveryPaused) return result;
-  return {
-    ...result,
-    code: ALERT_DELIVERY_PAUSED,
-    canDeliverPersonalAlert: false,
-  };
+  return unlockedUnlessDeliveryPaused("entitlement", input.alertDeliveryPaused);
 }
 
 export async function getPersonalizationEligibility(
@@ -144,7 +155,7 @@ export async function getPersonalizationEligibility(
   supabase: SupabaseClient,
   options: Omit<
     ResolvePersonalizationEligibilityInput,
-    "userId" | "entitlementRow" | "entitlementSyncing"
+    "userId" | "entitlementRow" | "entitlementSyncing" | "foundingAccess"
   > = {},
 ): Promise<PersonalizationEligibilityResult> {
   const { data, error } = await supabase
@@ -153,10 +164,19 @@ export async function getPersonalizationEligibility(
     .eq("user_id", userId)
     .maybeSingle();
 
-  return resolvePersonalizationEligibility({
+  const input: ResolvePersonalizationEligibilityInput = {
     ...options,
     userId,
     entitlementRow: (data as UserEntitlementRow | null) ?? null,
     entitlementSyncing: !!error,
+  };
+  const result = resolvePersonalizationEligibility(input);
+  // Only a not-Pro lock reads the switch; Pro, billing and sync paths never do.
+  if (result.code !== PERSONALIZATION_LOCKED && result.code !== BETA_ACCESS_NOT_ENABLED) {
+    return result;
+  }
+  return resolvePersonalizationEligibility({
+    ...input,
+    foundingAccess: await isFoundingAccessEnabled(),
   });
 }
