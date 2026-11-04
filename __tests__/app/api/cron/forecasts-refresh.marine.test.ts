@@ -268,6 +268,16 @@ it.each([
   expect(ledger[ledger.length - 1].status).toBe(status === 200 ? 'ok' : 'failed');
 });
 
+it('still fails a large run on a run-level rejection with no beach failures', async () => {
+  beachIds = Array.from({ length: 11 }, (_, i) => `beach-${i}`);
+  failLedger = true;
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=11'));
+  const body = await response.json();
+  expect(response.status).toBe(503);
+  expect(body.data.marineCoverage).toMatchObject({ attemptedCoverage: 11,
+    rejectionCounts: { cursor_write_failed: 1 }, rejectedBeachIds: [] });
+});
+
 it('reports failed writes without exposing database errors', async () => {
   mockNearest.mockResolvedValue({ id: 'fixture' });
   observed = { ts: '2026-09-09T11:00:00Z', wave_height_m: 1.6, wave_period_s: 10, source: 'ndbc' };
