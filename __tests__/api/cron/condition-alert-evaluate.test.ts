@@ -82,6 +82,10 @@ jest.mock("@/lib/alerts/entitlements", () => ({
     premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
   },
 }));
+const mockIsFoundingAccessEnabled = jest.fn<Promise<boolean>, []>();
+jest.mock("@/lib/flags/founding-access", () => ({
+  isFoundingAccessEnabled: () => mockIsFoundingAccessEnabled(),
+}));
 jest.mock("@/lib/alerts/actionable-window-selector", () => ({
   selectActionableAlertWindow: (...args: any[]) =>
     mockSelectActionableAlertWindow(...args),
@@ -394,6 +398,8 @@ beforeEach(() => {
     end: "2026-04-27T00:00:00.000Z",
   });
   mockResolveEntitlement.mockReturnValue("free");
+  mockIsFoundingAccessEnabled.mockReset();
+  mockIsFoundingAccessEnabled.mockResolvedValue(false);
   mockResolveNotificationMajorEventHold.mockResolvedValue({
     status: "allowed",
     candidate: null,
@@ -777,6 +783,32 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     // No queue upserts, no rule updates
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+  });
+
+  it.each([
+    ["ON", true, 5],
+    ["OFF", false, 3],
+  ])("founding access %s sets a free user's delivery cap", async (_name, switchOn, evaluated) => {
+    mockIsFoundingAccessEnabled.mockResolvedValue(switchOn);
+    mockResolveEntitlement.mockImplementation(
+      (_userId: string, _row: unknown, foundingAccess: boolean) => (foundingAccess ? "premium" : "free"),
+    );
+    for (let i = 1; i <= 5; i++) {
+      seedRule({ id: `00000000-0000-0000-0000-0000000000c${i}`, created_at: `2026-04-0${i}T00:00:00Z` });
+    }
+    seedProfile();
+    seedBeach();
+    seedForecast();
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.evaluated).toBe(evaluated);
+    expect(mockIsFoundingAccessEnabled).toHaveBeenCalledTimes(1);
+    expect(mockResolveEntitlement).toHaveBeenCalledWith(USER_A, null, switchOn);
+    // Delivery caps the rule count only. Presets are gated at creation, so the
+    // premium glass_off preset still delivers on the free tier, as for a lapsed Pro user today.
+    expect(store.rules.every((rule) => rule.preset_type === "glass_off")).toBe(true);
   });
 
   it("2b. excludes similarity_match rules from the generic condition evaluator", async () => {

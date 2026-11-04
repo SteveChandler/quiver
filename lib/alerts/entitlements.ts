@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PresetType } from "./types";
 import {
+  featureAccessFor,
+  isFoundingAccessEnabled,
+  resolveFeatureAccess,
+  type FeatureAccess,
+} from "@/lib/flags/founding-access";
+import {
   PERSONALIZATION_LOCKED,
   type PersonalizationResultCode,
 } from "@/lib/personalization/eligibility";
@@ -29,6 +35,10 @@ const FREE_PRESETS: PresetType[] = ["mellow_session"];
  *     both the is_pro/is_trialing flags AND expires_at as a staleness guard
  *     (if the mirror says "active" but expires_at is in the past, treat as
  *     free until RC reconciliation catches up).
+ *  4. Founding access switch — a free result becomes premium while it is on,
+ *     unless the row has a billing issue (`featureAccessFor`). Callers hold a
+ *     real user id (an authed route or a cron row), so they count as signed
+ *     in. This is a feature tier; billing code reads real Pro status instead.
  *
  * Async because #3 is a DB lookup; pass the caller's supabase client so we
  * inherit its auth context (service-role in cron, user-scoped elsewhere).
@@ -46,22 +56,38 @@ export async function getUserEntitlement(
     .eq("user_id", userId)
     .maybeSingle();
 
-  return entitlementFromRow(data);
+  const isPro = entitlementFromRow(data) === "premium";
+  const billingIssue = data?.billing_issue === true;
+  const switchOn = !isPro && !billingIssue && (await isFoundingAccessEnabled());
+  return tierFor(featureAccessFor({ isPro, signedIn: true, billingIssue, switchOn }));
 }
 
 /**
  * Cron-friendly variant: skips the DB round-trip by taking a pre-joined
  * user_entitlements row. Honors the same ALERT_PREVIEW_MODE + beta-user
  * bypasses as getUserEntitlement. Use this when the caller has already
- * selected the row via a join to avoid N+1 queries.
+ * selected the row via a join to avoid N+1 queries. Callers read the founding
+ * access switch once per run and pass it in.
  */
 export function resolveEntitlement(
   userId: string,
   row: Parameters<typeof entitlementFromRow>[0],
+  foundingAccess = false,
 ): Tier {
   const bypass = envBypassTier(userId);
   if (bypass) return bypass;
-  return entitlementFromRow(row);
+  return tierFor(
+    featureAccessFor({
+      isPro: entitlementFromRow(row) === "premium",
+      signedIn: true,
+      billingIssue: row?.billing_issue === true,
+      switchOn: foundingAccess,
+    }),
+  );
+}
+
+function tierFor(access: FeatureAccess): Tier {
+  return access.hasFeatureAccess ? "premium" : "free";
 }
 
 /**
@@ -75,20 +101,33 @@ function envBypassTier(userId: string): Tier | null {
   return null;
 }
 
+export type EntitlementRow = {
+  is_pro?: boolean | null;
+  is_trialing?: boolean | null;
+  billing_issue?: boolean | null;
+  expires_at?: string | null;
+} | null | undefined;
+
+/**
+ * Feature access for a user_entitlements row: real Pro from the row, founding
+ * access from the switch. Lives here, not in lib/flags/founding-access, because
+ * that module must not import this one back.
+ */
+export async function resolveFeatureAccessFromRow(
+  userId: string | null | undefined,
+  row: EntitlementRow,
+): Promise<FeatureAccess> {
+  return resolveFeatureAccess(userId, entitlementFromRow(row) === "premium", {
+    billingIssue: row?.billing_issue === true,
+  });
+}
+
 /**
  * Pure helper for callers that already have a user_entitlements row joined
  * in — e.g., alert-evaluate crons selecting `profiles!inner(..., user_entitlements(...))`.
  * Avoids an N+1 query per rule.
  */
-export function entitlementFromRow(
-  row: {
-    is_pro?: boolean | null;
-    is_trialing?: boolean | null;
-    billing_issue?: boolean | null;
-    expires_at?: string | null;
-  } | null
-  | undefined,
-): Tier {
+export function entitlementFromRow(row: EntitlementRow): Tier {
   if (!row) return "free";
   if (!row.is_pro && !row.is_trialing) return "free";
   // Staleness guard with billing-issue carve-out: during Apple's ≤60d /

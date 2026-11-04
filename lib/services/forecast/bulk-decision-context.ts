@@ -4,7 +4,7 @@ import { type PersonalBoard } from "@/lib/scoring/personal-board";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { entitlementFromRow } from "@/lib/alerts/entitlements";
+import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
 import {
   normalizeBoardClass,
   type BoardClass,
@@ -138,11 +138,13 @@ export async function fetchBulkDecisionContext(
     if (row.sunset_utc) times.sunsets.push(new Date(row.sunset_utc));
     sunTimes.set(row.beach_id, times);
   }
-  const premium =
-    entitlementFromRow(data.personalization?.entitlement) === "premium";
+  const { hasFeatureAccess } = await resolveFeatureAccessFromRow(
+    userId,
+    data.personalization?.entitlement,
+  );
   const matches: BulkDecisionContext["matches"] = new Map();
   for (const match of data.personalization?.matches ?? []) {
-    const interpreted = premium ? interpretRpcResult(match.result) : null;
+    const interpreted = hasFeatureAccess ? interpretRpcResult(match.result) : null;
     matches.set(matchSlotKey(match.beach_id, match.forecast_at), interpreted);
   }
   const forecastsByBeach = Map.groupBy(forecasts, (forecast) => forecast.beach_id);

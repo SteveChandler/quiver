@@ -12,6 +12,11 @@ const mockFetchUserBoardContext = jest.fn();
 const mockGetProfileExperienceLevel = jest.fn();
 const mockRecommendBoard = jest.fn();
 let entitlementRow: Record<string, unknown> | null = { is_pro: true };
+const mockIsFoundingAccessEnabled = jest.fn<Promise<boolean>, []>();
+
+jest.mock("@/lib/flags/founding-access", () => ({
+  isFoundingAccessEnabled: () => mockIsFoundingAccessEnabled(),
+}));
 
 jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
   fetchUserBoardContext: (...args: unknown[]) => mockFetchUserBoardContext(...args),
@@ -66,6 +71,7 @@ describe("GET /api/personalization/match-score", () => {
     jest.clearAllMocks();
     process.env.PERSONALIZATION_BETA_USER_IDS = originalBetaUserIds;
     entitlementRow = { is_pro: true };
+    mockIsFoundingAccessEnabled.mockResolvedValue(false);
     mockFetchUserBoardContext.mockResolvedValue({ boardsForPicks: [{ id: "board-1", name: "Twin pin", board_type: "shortboard" }] });
     mockGetProfileExperienceLevel.mockResolvedValue("advanced");
     mockRecommendBoard.mockReturnValue(null);
@@ -290,6 +296,34 @@ describe("GET /api/personalization/match-score", () => {
     expect(rpc).not.toHaveBeenCalled();
     expect(mockServiceRpc).not.toHaveBeenCalled();
     expect(mockFetchUserBoardContext).not.toHaveBeenCalled();
+  });
+
+  it("founding access ON: a free user scores through the user-scoped RPC", async () => {
+    entitlementRow = null;
+    mockIsFoundingAccessEnabled.mockResolvedValue(true);
+
+    const response = await GET(makeRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.data).toMatchObject({ state: "learned", score: 8.4, source: "session_history" });
+    expect(rpc).toHaveBeenCalledWith("compute_user_match_score", expect.objectContaining({
+      p_user_id: "user-1",
+      p_beach_id: "beach-1",
+    }));
+    expect(mockServiceRpc).not.toHaveBeenCalled();
+  });
+
+  it("founding access OFF: a free user stays locked", async () => {
+    entitlementRow = null;
+    mockIsFoundingAccessEnabled.mockResolvedValue(false);
+
+    const response = await GET(makeRequest());
+    const json = await response.json();
+
+    expect(json.data).toMatchObject({ state: "locked", score: null });
+    expect(mockIsFoundingAccessEnabled).toHaveBeenCalledTimes(1);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("returns learned through the server core scorer for TestFlight bypass users", async () => {
