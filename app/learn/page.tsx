@@ -111,7 +111,11 @@ const CATEGORIES: {
     label: "Ocean Science",
     desc: "How waves and tides actually work.",
     sticker: "breakingWave",
-    slugs: ["how-are-ocean-waves-formed", "how-do-tides-work"],
+    slugs: [
+      "how-are-ocean-waves-formed",
+      "what-is-wave-diffraction",
+      "how-do-tides-work",
+    ],
   },
   {
     label: "Local Beginner Breaks",

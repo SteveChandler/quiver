@@ -103,6 +103,12 @@ const expectedLearnMetadata = [
     description:
       "Yes. South Carolina is small, warm beach break most of the year and good on hurricane swell from August to October. Where to go and what to wear.",
   },
+  {
+    slug: "what-is-wave-diffraction",
+    title: "What Is Wave Diffraction? Surf in the Swell Shadow",
+    description:
+      "Wave diffraction is swell spreading sideways into the shadow behind an island, jetty or harbor wall. On the shadow line, waves run about half size.",
+  },
 ];
 
 describe("learn article SEO metadata", () => {
