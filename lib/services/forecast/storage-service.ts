@@ -19,9 +19,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 // NOTE: the legacy ML-correction merge path was removed alongside the
 // OM-primary scalar override (migration
 // 20260424182324_remove_om_primary_override_from_bulk.sql). Display height
-// comes from the per-component face-Hs transformer at write time. Seaside
-// still writes to corrected_forecasts; that table is read by the ML
-// pipeline only, not by this service.
+// comes from the per-component face-Hs transformer at write time.
 
 const FALLBACK_SOURCE = "FALLBACK";
 
