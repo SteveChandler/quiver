@@ -39,6 +39,9 @@ export const maxDuration = 300;
 const MAX_DURATION_SECONDS = 300;
 const DEFAULT_SAFETY_MARGIN_MS = 20_000;
 const MARINE_INPUT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+// One flaky beach (a single wind fetch or write) is retried by the next hourly run; only a wider
+// failure means the provider or database is down.
+const MARINE_TOLERATED_BEACH_FAILURE_SHARE = 0.1;
 // Stale tides are acceptable; running out of them is not.
 const TIDE_MIN_COVERAGE_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -317,13 +320,19 @@ async function _GET(request: Request): Promise<Response> {
         failures: [] as { beachIds: string[]; attemptedAt: string; attempts: number; code: string }[] },
       lastAttemptedBeachId: null as string | null,
       rejectionCounts: {} as Record<string, number>,
+      rejectedBeachIds: [] as string[],
       // Expected holes, not failures: no wave buoy in range, a buoy with no usable recent reading, or a
       // beach outside NWS wind coverage. Data freshness is judged by forecast-health, not this run.
       coverageGaps: {} as Record<string, number>,
       providerOutcomes: {} as Record<string, number>,
     };
-    const rejectMarine = (reason: string): void => {
+    // A beachId marks a per-beach failure, tolerated up to MARINE_TOLERATED_BEACH_FAILURE_SHARE;
+    // without one the whole run is broken (freshness read, time budget, cursor write).
+    const runLevelMarineRejections = new Set<string>();
+    const rejectMarine = (reason: string, beachId?: string): void => {
       marineCoverage.rejectionCounts[reason] = (marineCoverage.rejectionCounts[reason] ?? 0) + 1;
+      if (!beachId) runLevelMarineRejections.add(reason);
+      else if (!marineCoverage.rejectedBeachIds.includes(beachId)) marineCoverage.rejectedBeachIds.push(beachId);
     };
     const noteMarineGap = (reason: string): void => {
       marineCoverage.coverageGaps[reason] = (marineCoverage.coverageGaps[reason] ?? 0) + 1;
@@ -453,7 +462,7 @@ async function _GET(request: Request): Promise<Response> {
               const writeMarine = async (rows: Record<string, unknown>[]): Promise<boolean> => {
                 const { error } = await supabase.from("marine_forecasts")
                   .upsert(rows as any[], { onConflict: "beach_id,ts,source" });
-                if (error) { rejectMarine("write_failed"); return false; }
+                if (error) { rejectMarine("write_failed", b.id); return false; }
                 addedMarine += rows.length;
                 return true;
               };
@@ -573,10 +582,10 @@ async function _GET(request: Request): Promise<Response> {
                     }
                   }
                 } catch (projErr) {
-                  rejectMarine("projection_failed");
+                  rejectMarine("projection_failed", b.id);
                 }
               } catch (e) {
-                rejectMarine("wave_fetch_failed");
+                rejectMarine("wave_fetch_failed", b.id);
               }
 
               // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows).
@@ -609,7 +618,7 @@ async function _GET(request: Request): Promise<Response> {
                   await writeMarine(windRows);
                 }
               } catch (e) {
-                rejectMarine("wind_fetch_failed");
+                rejectMarine("wind_fetch_failed", b.id);
               }
               if (waveWritten) marineCoverage.actualCoverage += 1;
             }
@@ -1096,10 +1105,11 @@ async function _GET(request: Request): Promise<Response> {
           : source === "sun"
             ? "sun_events_written"
             : "forecast_rows_written";
-    // Fail only when the run broke (a fetch or write error, or beaches left unattempted); coverage gaps
-    // are reported, not failed.
+    // Fail only when the run broke (a run-level error, beaches left unattempted, or more than a tenth of
+    // attempted beaches rejected); coverage gaps and a few flaky beaches are reported, not failed.
     const marineIncomplete = (): boolean => runMarine && (marineCoverage.attemptedCoverage < marineCoverage.expectedCoverage
-      || Object.keys(marineCoverage.rejectionCounts).length > 0);
+      || runLevelMarineRejections.size > 0
+      || marineCoverage.rejectedBeachIds.length > marineCoverage.attemptedCoverage * MARINE_TOLERATED_BEACH_FAILURE_SHARE);
     const marineGapSummary = (): string =>
       Object.entries(marineCoverage.coverageGaps).map(([reason, count]) => `${reason} ${count}`).join(", ");
     const result = await withCronOutcome(
