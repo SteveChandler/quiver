@@ -143,7 +143,12 @@ export function resolvePersonalizationEligibility(
     );
   }
 
+  // A stale-expired mirror is free everywhere else (entitlementFromRow), so it
+  // gets founding access like any other not-Pro row.
   if (isExpired(row, input.now ?? new Date())) {
+    if (input.foundingAccess) {
+      return unlockedUnlessDeliveryPaused("entitlement", input.alertDeliveryPaused);
+    }
     return locked(ENTITLEMENT_SYNCING);
   }
 
@@ -171,10 +176,13 @@ export async function getPersonalizationEligibility(
     entitlementSyncing: !!error,
   };
   const result = resolvePersonalizationEligibility(input);
-  // Only a not-Pro lock reads the switch; Pro, billing and sync paths never do.
-  if (result.code !== PERSONALIZATION_LOCKED && result.code !== BETA_ACCESS_NOT_ENABLED) {
-    return result;
-  }
+  // Only a not-Pro lock (including a stale-expired mirror) reads the switch;
+  // Pro, billing and a failed entitlement read never do.
+  const notProLock =
+    result.code === PERSONALIZATION_LOCKED ||
+    result.code === BETA_ACCESS_NOT_ENABLED ||
+    (result.code === ENTITLEMENT_SYNCING && !input.entitlementSyncing);
+  if (!notProLock) return result;
   return resolvePersonalizationEligibility({
     ...input,
     foundingAccess: await isFoundingAccessEnabled(),

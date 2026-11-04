@@ -32,6 +32,18 @@ function makeSupabaseStub(rowByUserId: Record<string, unknown>): SupabaseClient 
   } as unknown as SupabaseClient;
 }
 
+function makeFailingSupabaseStub(): SupabaseClient {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: null, error: { message: "boom" } }),
+        }),
+      }),
+    }),
+  } as unknown as SupabaseClient;
+}
+
 describe("resolvePersonalizationEligibility", () => {
   const originalPreview = process.env.ALERT_PREVIEW_MODE;
   const originalPersonalizationBeta = process.env.PERSONALIZATION_BETA_USER_IDS;
@@ -242,7 +254,7 @@ describe("founding access", () => {
     ).toMatchObject({ code: ALERT_DELIVERY_PAUSED, canCreatePersonalAlert: true, canDeliverPersonalAlert: false });
   });
 
-  it("ON: billing issue, sync, expiry and kill-switch locks still apply", () => {
+  it("ON: billing issue, sync and kill-switch locks still apply", () => {
     expect(resolvePersonalizationEligibility({
       userId: "u", entitlementRow: { is_pro: true, billing_issue: true }, foundingAccess: true,
     }).code).toBe(BILLING_ISSUE_LOCKED);
@@ -250,11 +262,35 @@ describe("founding access", () => {
       userId: "u", entitlementRow: null, entitlementSyncing: true, foundingAccess: true,
     }).code).toBe(ENTITLEMENT_SYNCING);
     expect(resolvePersonalizationEligibility({
-      userId: "u", entitlementRow: { is_pro: true, expires_at: "2020-01-01T00:00:00Z" }, foundingAccess: true,
-    }).code).toBe(ENTITLEMENT_SYNCING);
+      userId: "u",
+      entitlementRow: { is_pro: true, billing_issue: true, expires_at: "2020-01-01T00:00:00Z" },
+      foundingAccess: true,
+    }).code).toBe(BILLING_ISSUE_LOCKED);
     expect(resolvePersonalizationEligibility({
       userId: "u", entitlementRow: null, personalizationDisabled: true, foundingAccess: true,
     }).code).toBe(PERSONALIZATION_DISABLED);
+  });
+
+  it("ON: a stale-expired Pro or trial mirror is treated as free and unlocked", () => {
+    for (const row of [
+      { is_pro: true, expires_at: "2020-01-01T00:00:00Z" },
+      { is_trialing: true, expires_at: "2020-01-01T00:00:00Z" },
+    ]) {
+      expect(resolvePersonalizationEligibility({ userId: "u", entitlementRow: row, foundingAccess: true }))
+        .toMatchObject({ code: PERSONALIZATION_UNLOCKED, canUsePersonalMatch: true, source: "entitlement" });
+    }
+    expect(resolvePersonalizationEligibility({
+      userId: "u",
+      entitlementRow: { is_pro: true, expires_at: "2020-01-01T00:00:00Z" },
+      foundingAccess: true,
+      alertDeliveryPaused: true,
+    })).toMatchObject({ code: ALERT_DELIVERY_PAUSED, canCreatePersonalAlert: true, canDeliverPersonalAlert: false });
+  });
+
+  it("OFF: a stale-expired mirror still reads as syncing", () => {
+    expect(resolvePersonalizationEligibility({
+      userId: "u", entitlementRow: { is_pro: true, expires_at: "2020-01-01T00:00:00Z" }, foundingAccess: false,
+    }).code).toBe(ENTITLEMENT_SYNCING);
   });
 
   it("OFF: free users stay locked", () => {
@@ -280,6 +316,30 @@ describe("founding access", () => {
       code: PERSONALIZATION_LOCKED,
       canUsePersonalMatch: false,
     });
+  });
+
+  it("getPersonalizationEligibility ON: a stale-expired mirror is unlocked through the switch", async () => {
+    mockIsFoundingAccessEnabled.mockResolvedValue(true);
+    await expect(getPersonalizationEligibility(
+      "user-lapsed",
+      makeSupabaseStub({ "user-lapsed": { is_pro: true, billing_issue: false, expires_at: "2020-01-01T00:00:00Z" } }),
+    )).resolves.toMatchObject({ code: PERSONALIZATION_UNLOCKED, canUsePersonalMatch: true });
+    expect(mockIsFoundingAccessEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  it("getPersonalizationEligibility OFF: a stale-expired mirror stays syncing", async () => {
+    mockIsFoundingAccessEnabled.mockResolvedValue(false);
+    await expect(getPersonalizationEligibility(
+      "user-lapsed",
+      makeSupabaseStub({ "user-lapsed": { is_pro: true, billing_issue: false, expires_at: "2020-01-01T00:00:00Z" } }),
+    )).resolves.toMatchObject({ code: ENTITLEMENT_SYNCING, canUsePersonalMatch: false });
+  });
+
+  it("getPersonalizationEligibility keeps a failed entitlement read syncing without reading the switch", async () => {
+    mockIsFoundingAccessEnabled.mockResolvedValue(true);
+    await expect(getPersonalizationEligibility("user-x", makeFailingSupabaseStub()))
+      .resolves.toMatchObject({ code: ENTITLEMENT_SYNCING, canUsePersonalMatch: false });
+    expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
   });
 
   it("getPersonalizationEligibility reads the switch only for a not-Pro lock", async () => {
