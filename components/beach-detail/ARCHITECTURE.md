@@ -149,17 +149,10 @@ camera_url (from beaches.sources)
 ### **Forecast Integration**
 
 ```typescript
-// Community-adjusted forecasts
-const { beachAccuracy } = useForecastCalibration({
-  beachId: forecast?.beach_id,
+// Session forecast snapshots for the Sessions tab
+const { sessionSnapshots } = useForecastCalibration({
+  beachId: calibrationBeachId,
 });
-
-// Displays both raw and adjusted forecasts
-<AdjustedForecastDisplay
-  rawForecast={forecast}
-  beachAccuracy={beachAccuracy}
-  compact={true}
-/>;
 ```
 
 ### **Coach Pick (temporary replacement for Best Times)**

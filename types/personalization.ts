@@ -292,9 +292,13 @@ export type SimilarityRecommendation =
     };
 
 export interface SurfDiscoveryEntitlement {
+  /** Real subscription tier. */
   tier: 'free' | 'premium';
+  /** Pro feature access: real Pro or founding access. */
   hasPaidAccess: boolean;
   canSeeBestSpot: boolean;
+  /** Founding access switch is on and this signed-in user is not Pro. */
+  foundingAccess: boolean;
 }
 
 export interface LockedBestSpotTeaser {
@@ -583,7 +587,8 @@ export interface SurfDiscoveryOptions {
   /** Propagate retryable operational failures instead of returning a legacy empty response. */
   throwOnFailure?: boolean;
   /**
-   * Whether the requesting user has Pro/trial entitlement.
+   * Whether the requesting user has Pro feature access: Pro/trial
+   * entitlement or founding access (`resolveFeatureAccess().hasFeatureAccess`).
    * Default false: free user, similarity layer is skipped and every
    * recommendation gets `similarity: null`. When true, the similarity
    * layer bulk-scores eligible candidates via compute_user_match_score_batch

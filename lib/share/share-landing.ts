@@ -35,21 +35,41 @@ export function isGoHost(host: string | null | undefined): boolean {
  * installed app. `o=1` marks "already tried the app", so the go page does not
  * offer the same link again.
  */
+// Email links reach the landing through Resend's click redirect, which opens Safari rather than the
+// app; carrying these through the go-host hop lets the app record native_open_from_email for the send.
+export const EMAIL_ATTRIBUTION_PARAMS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "email_type",
+  "message_instance_id",
+] as const;
+
+export type EmailAttributionParams = Partial<
+  Record<(typeof EMAIL_ATTRIBUTION_PARAMS)[number], string | null | undefined>
+>;
+
 export function buildOpenInQuiverUrl({
   slug,
   windowValue,
   shareId,
   inviteToken,
+  emailAttribution,
 }: {
   slug: string;
   windowValue?: string | null;
   shareId?: string | null;
   inviteToken?: string | null;
+  emailAttribution?: EmailAttributionParams;
 }): string {
   const search = new URLSearchParams();
   if (windowValue) search.set("window", windowValue);
   if (shareId) search.set("sid", shareId);
   if (inviteToken) search.set("invite", inviteToken);
+  for (const key of EMAIL_ATTRIBUTION_PARAMS) {
+    const value = emailAttribution?.[key]?.trim();
+    if (value) search.set(key, value);
+  }
   search.set("o", "1");
   return `${APP_HANDOFF_ORIGIN}/app/spot/${encodeURIComponent(slug)}?${search.toString()}`;
 }

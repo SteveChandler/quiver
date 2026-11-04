@@ -59,8 +59,15 @@ jest.mock("@/lib/alerts/user-pool", () => ({
   findNearestBeach: (...args: unknown[]) => mockFindNearestBeach(...args),
 }));
 
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+jest.mock("@/lib/flags/founding-access", () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) =>
+    mockResolveFeatureAccess(...args),
+}));
+
 import { NextRequest } from "next/server";
 import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-builder";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 // Build a fake supabase client that returns a configurable user_entitlements
 // row from .from("user_entitlements").select(...).eq(...).maybeSingle().
@@ -293,6 +300,7 @@ describe("/api/surf/discover entitlement resolution", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
     delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
     mockGetProfileExperienceLevel.mockResolvedValue("advanced");
     mockBuildCanonicalDecisionFromSurfDiscovery.mockReturnValue({
@@ -1054,6 +1062,78 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(responseText).not.toContain("included-secret-id");
     expect(responseText).not.toContain("Saved Secret Beach");
     expect(responseText).not.toContain("https://cdn.quiver.test/saved.jpg");
+  });
+
+  describe("founding access", () => {
+    beforeEach(() => {
+      process.env.SURF_DISCOVERY_BEST_SPOT_GATE = "1";
+      mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+    });
+
+    it("ON: a free user is treated as paid while tier stays free", async () => {
+      mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+
+      const response = await callDiscoverRoute(null);
+      const body = await response.json();
+
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", false, { billingIssue: false });
+      expect(body.data.entitlement).toEqual({
+        tier: "free",
+        hasPaidAccess: true,
+        canSeeBestSpot: true,
+        foundingAccess: true,
+      });
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ isPro: true });
+      expect(body.data.lockedBestSpotTeaser).toBeNull();
+      expect(body.data.recommendations[0].beach).toMatchObject({ id: "beach-secret-id" });
+      expect(body.data.recommendations[0].personalExplanation).toEqual(expect.any(String));
+    });
+
+    it("OFF: a free user keeps today's gates and a false foundingAccess", async () => {
+      const response = await callDiscoverRoute(null);
+      const body = await response.json();
+
+      expect(body.data.entitlement).toEqual({
+        tier: "free",
+        hasPaidAccess: false,
+        canSeeBestSpot: false,
+        foundingAccess: false,
+      });
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ isPro: false });
+      expect(body.data.recommendations).toEqual([]);
+      expect(body.data.lockedBestSpotTeaser).toMatchObject({ subtitle: expect.stringContaining("Unlock Pro") });
+    });
+
+    it("ON: a billing-issue row without Pro is not founding and keeps today's gates", async () => {
+      mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+
+      const response = await callDiscoverRoute({ is_pro: false, is_trialing: false, billing_issue: true });
+      const body = await response.json();
+
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", false, { billingIssue: true });
+      expect(body.data.entitlement).toEqual({
+        tier: "free",
+        hasPaidAccess: false,
+        canSeeBestSpot: false,
+        foundingAccess: false,
+      });
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ isPro: false });
+    });
+
+    it("ON: a Pro user keeps tier premium and is not marked founding", async () => {
+      mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+
+      const response = await callDiscoverRoute({ is_pro: true });
+      const body = await response.json();
+
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", true, { billingIssue: false });
+      expect(body.data.entitlement).toEqual({
+        tier: "premium",
+        hasPaidAccess: true,
+        canSeeBestSpot: true,
+        foundingAccess: false,
+      });
+    });
   });
 
   it("sanitizes after calibration and before entitlement gating using verified profile experience", async () => {

@@ -11,6 +11,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { UserImplicitPreferences } from '@/types/implicit-preferences';
 import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { PersonalizationContext } from '@/lib/services/discovery/personalization-layer';
+import { featureAccessOff, featureAccessOn } from '@/__tests__/setup/founding-access';
 
 // ============================================================================
 // Supabase mock — must be declared before imports that pull it in
@@ -41,6 +42,11 @@ function resetChain(resolveValue: { data: unknown; error: unknown }) {
 
 const mockRpc = jest.fn();
 const mockSupabase = { from: mockFrom, rpc: mockRpc };
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+
+jest.mock('@/lib/flags/founding-access', () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) => mockResolveFeatureAccess(...args),
+}));
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(),
@@ -1145,6 +1151,45 @@ describe('fetchWeekScoutMatchEvidence', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreateSupabaseServiceRoleClient.mockReturnValue(mockSupabase as never);
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
+  });
+
+  it.each([
+    ['ON', featureAccessOn, true],
+    ['OFF', featureAccessOff, false],
+  ])('founding access %s decides whether a free user sees match evidence', async (_name, access, enabled) => {
+    mockResolveFeatureAccess.mockImplementation(access);
+    const forecast = makeForecast();
+    mockRpc.mockResolvedValue({
+      error: null,
+      data: {
+        entitlement: null,
+        matches: [{ beach_id: forecast.beach_id, forecast_at: forecast.forecast_at, result: match }],
+      },
+    });
+
+    const context = await fetchWeekScoutMatchEvidence('user-1', ['beach-1'], [forecast]);
+
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith('user-1', false, { billingIssue: false });
+    const evidence = context.get(`${forecast.beach_id}:${forecast.forecast_at}`);
+    expect(evidence?.state === 'ready' ? evidence.score : null).toBe(enabled ? 6.4 : null);
+  });
+
+  it('founding access ON: a billing-issue row without Pro sees no match evidence', async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    const forecast = makeForecast();
+    mockRpc.mockResolvedValue({
+      error: null,
+      data: {
+        entitlement: { is_pro: false, is_trialing: false, billing_issue: true, expires_at: null },
+        matches: [{ beach_id: forecast.beach_id, forecast_at: forecast.forecast_at, result: match }],
+      },
+    });
+
+    const context = await fetchWeekScoutMatchEvidence('user-1', ['beach-1'], [forecast]);
+
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith('user-1', false, { billingIssue: true });
+    expect(context.get(`${forecast.beach_id}:${forecast.forecast_at}`)).toBeNull();
   });
 
   it('sends the source keys so Open-Meteo rows compare by their whole-sea period', async () => {

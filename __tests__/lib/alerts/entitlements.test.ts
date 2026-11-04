@@ -1,13 +1,23 @@
 jest.mock("server-only", () => ({}));
 
+const mockIsFoundingAccessEnabled = jest.fn<Promise<boolean>, []>();
+const mockResolveFeatureAccess = jest.fn();
+jest.mock("@/lib/flags/founding-access", () => ({
+  ...jest.requireActual("@/lib/flags/founding-access"),
+  isFoundingAccessEnabled: () => mockIsFoundingAccessEnabled(),
+  resolveFeatureAccess: (...args: unknown[]) => mockResolveFeatureAccess(...args),
+}));
+
 import {
   getUserEntitlement,
   canCreateRule,
   entitlementFromRow,
   resolveEntitlement,
+  resolveFeatureAccessFromRow,
   CAPS,
 } from "@/lib/alerts/entitlements";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 /**
  * Minimal Supabase client stub that exposes only the chain the real impl
@@ -30,12 +40,76 @@ function makeSupabaseStub(rowByUserId: Record<string, unknown>): SupabaseClient 
   } as unknown as SupabaseClient;
 }
 
+beforeEach(() => {
+  mockIsFoundingAccessEnabled.mockReset();
+  mockIsFoundingAccessEnabled.mockResolvedValue(false);
+});
+
 describe("getUserEntitlement", () => {
   const origPreview = process.env.ALERT_PREVIEW_MODE;
   const origBeta = process.env.ALERT_BETA_USER_IDS;
   afterEach(() => {
     process.env.ALERT_PREVIEW_MODE = origPreview;
     process.env.ALERT_BETA_USER_IDS = origBeta;
+  });
+
+  describe("founding access switch", () => {
+    beforeEach(() => {
+      delete process.env.ALERT_PREVIEW_MODE;
+      delete process.env.ALERT_BETA_USER_IDS;
+    });
+
+    it("ON: a free user resolves premium", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      expect(await getUserEntitlement("user-free", makeSupabaseStub({}))).toBe("premium");
+      expect(
+        await getUserEntitlement(
+          "user-lapsed",
+          makeSupabaseStub({ "user-lapsed": { is_pro: false, is_trialing: false } }),
+        ),
+      ).toBe("premium");
+    });
+
+    it("OFF: a free user stays free", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(false);
+      expect(await getUserEntitlement("user-free", makeSupabaseStub({}))).toBe("free");
+      expect(mockIsFoundingAccessEnabled).toHaveBeenCalledTimes(1);
+    });
+
+    it("ON: a billing-issue row without Pro stays free and never reads the switch", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      const supabase = makeSupabaseStub({
+        "user-billing": { is_pro: false, is_trialing: false, billing_issue: true },
+      });
+      expect(await getUserEntitlement("user-billing", supabase)).toBe("free");
+      expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
+    });
+
+    it("Pro never reads the switch", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      const supabase = makeSupabaseStub({ "user-pro": { is_pro: true } });
+      expect(await getUserEntitlement("user-pro", supabase)).toBe("premium");
+      expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
+    });
+
+    it("ON: premium tier lets a free user create rules beyond the free gates", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      const tier = await getUserEntitlement("user-free", makeSupabaseStub({}));
+      expect(canCreateRule({
+        tier, homeBeachId: "home", targetBeachId: "other",
+        existingRuleCount: 3, existingBeachCount: 1, isExistingBeach: false,
+        presetType: "big_day",
+      })).toEqual({ allowed: true });
+    });
+
+    it("OFF: the same request hits the free home-beach gate", async () => {
+      const tier = await getUserEntitlement("user-free", makeSupabaseStub({}));
+      expect(canCreateRule({
+        tier, homeBeachId: "home", targetBeachId: "other",
+        existingRuleCount: 3, existingBeachCount: 1, isExistingBeach: false,
+        presetType: "big_day",
+      })).toMatchObject({ allowed: false, code: "PERSONALIZATION_LOCKED" });
+    });
   });
 
   it("returns premium when ALERT_PREVIEW_MODE=true (no DB read)", async () => {
@@ -252,6 +326,28 @@ describe("resolveEntitlement (sync cron-friendly wrapper)", () => {
     expect(resolveEntitlement("user-x", null)).toBe("free");
   });
 
+  it("founding access ON promotes a free row to premium", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    expect(resolveEntitlement("user-x", null, true)).toBe("premium");
+    expect(resolveEntitlement("user-x", { is_pro: false, is_trialing: false }, true)).toBe("premium");
+  });
+
+  it("founding access ON keeps a billing-issue row without Pro on the free tier", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    const row = { is_pro: false, is_trialing: false, billing_issue: true };
+    expect(resolveEntitlement("user-x", row, true)).toBe("free");
+    expect(resolveEntitlement("user-x", row, false)).toBe("free");
+  });
+
+  it("founding access OFF (the default) keeps a free row free", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    expect(resolveEntitlement("user-x", null, false)).toBe("free");
+    expect(resolveEntitlement("user-x", null)).toBe("free");
+  });
+
   it("preserves billing-grace premium via the pure helper path", () => {
     delete process.env.ALERT_PREVIEW_MODE;
     delete process.env.ALERT_BETA_USER_IDS;
@@ -262,6 +358,52 @@ describe("resolveEntitlement (sync cron-friendly wrapper)", () => {
         expires_at: new Date(Date.now() - 86_400_000).toISOString(),
       }),
     ).toBe("premium");
+  });
+});
+
+describe("resolveFeatureAccessFromRow", () => {
+  const future = new Date(Date.now() + 86_400_000).toISOString();
+  const past = new Date(Date.now() - 86_400_000).toISOString();
+
+  beforeEach(() => {
+    mockResolveFeatureAccess.mockReset();
+  });
+
+  it("switch ON: a free row gets founding access; real Pro stays Pro", async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    expect(await resolveFeatureAccessFromRow("user-1", null)).toEqual({
+      isPro: false,
+      foundingAccess: true,
+      hasFeatureAccess: true,
+    });
+    expect(
+      await resolveFeatureAccessFromRow("user-1", { is_pro: true, expires_at: future }),
+    ).toEqual({ isPro: true, foundingAccess: false, hasFeatureAccess: true });
+  });
+
+  it("switch OFF: a free row has no feature access", async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
+    expect(await resolveFeatureAccessFromRow("user-1", { is_pro: false })).toEqual({
+      isPro: false,
+      foundingAccess: false,
+      hasFeatureAccess: false,
+    });
+  });
+
+  it("passes real Pro and the billing issue from the row", async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    await resolveFeatureAccessFromRow("user-1", { is_pro: true, expires_at: past });
+    await resolveFeatureAccessFromRow("user-1", {
+      is_pro: true,
+      billing_issue: true,
+      expires_at: past,
+    });
+    await resolveFeatureAccessFromRow(null, undefined);
+    expect(mockResolveFeatureAccess.mock.calls).toEqual([
+      ["user-1", false, { billingIssue: false }],
+      ["user-1", true, { billingIssue: true }],
+      [null, false, { billingIssue: false }],
+    ]);
   });
 });
 

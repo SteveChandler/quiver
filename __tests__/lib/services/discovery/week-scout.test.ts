@@ -1163,7 +1163,7 @@ describe('generateWeekScoutForecast', () => {
       dayCount: 1,
     }, deps);
 
-    expect(Date.parse(response.coverage!.expiresAt)).toBe(deps.now.getTime() + 60_000);
+    expect(Date.parse(response.coverage!.expiresAt)).toBe(deps.now.getTime() + 30 * 60_000);
   });
 
   it('assigns dayparts and coverage in the beach timezone', async () => {

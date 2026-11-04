@@ -11,6 +11,7 @@ import { prepareAlertForecastHours, type EnhancedForecastAlertRow } from "@/lib/
 import { createAlertTideCache, type AlertTideClient } from "@/lib/alerts/alert-tide-samples";
 import { isAlertHourlyWindowsEnabledFor } from "@/lib/flags/alert-hourly-windows";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
+import { isFoundingAccessEnabled } from "@/lib/flags/founding-access";
 import { getUpcomingSurfDate, getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import type { AlertConditions, BeachAlertMeta } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
@@ -184,7 +185,8 @@ export async function GET(request: Request) {
         const beachIds = [...new Set(rules.map((r) => r.beach_id))];
 
         // 3. Three flat selects in parallel — no join resolution, no relationship hop.
-        const [profilesRes, beachesRes, entitlementsRes] = await Promise.all([
+        //    The founding access switch is read once per run, not per user.
+        const [profilesRes, beachesRes, entitlementsRes, foundingAccess] = await Promise.all([
           supabase
             .from("profiles")
             .select("id, home_beach_id, timezone, notif_forecast_alerts, notif_email_enabled, notif_push_enabled, experience_level")
@@ -197,6 +199,7 @@ export async function GET(request: Request) {
             .from("user_entitlements")
             .select("user_id, is_pro, is_trialing, billing_issue, expires_at")
             .in("user_id", userIds),
+          isFoundingAccessEnabled(),
         ]);
 
         if (profilesRes.error) throw profilesRes.error;
@@ -295,7 +298,7 @@ export async function GET(request: Request) {
 
             // Apply entitlement caps — skip newest rules first.
             const entitlementRow = entitlementByUserId.get(userId) ?? null;
-            const tier = resolveEntitlement(userId, entitlementRow);
+            const tier = resolveEntitlement(userId, entitlementRow, foundingAccess);
             const caps = CAPS[tier];
             const sortedRules = [...eligibleRules].sort(
               (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
