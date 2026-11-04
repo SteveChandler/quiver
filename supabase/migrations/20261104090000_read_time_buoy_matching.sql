@@ -125,6 +125,9 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_prediction_observations(uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_prediction_observations(uuid, timestamptz, timestamptz) TO service_role;
+-- sync_session_wave_observation_candidate (SECURITY DEFINER, owned by postgres)
+-- calls this on every session save; keep that working whoever applies this.
+GRANT EXECUTE ON FUNCTION public.get_prediction_observations(uuid, timestamptz, timestamptz) TO postgres;
 
 DO $$
 BEGIN

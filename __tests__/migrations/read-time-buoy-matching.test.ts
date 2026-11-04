@@ -84,6 +84,12 @@ describe("Migration: read-time buoy matching", () => {
     );
   });
 
+  test("postgres can execute the match function, so session saves never depend on its owner", () => {
+    expect(migrationSQL).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.get_prediction_observations\(uuid, timestamptz, timestamptz\) TO postgres/
+    );
+  });
+
   test("never writes observations back onto ml_predictions_log", () => {
     expect(migrationSQL).not.toMatch(/UPDATE public\.ml_predictions_log/i);
   });
