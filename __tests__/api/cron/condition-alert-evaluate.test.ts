@@ -806,6 +806,9 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(body.evaluated).toBe(evaluated);
     expect(mockIsFoundingAccessEnabled).toHaveBeenCalledTimes(1);
     expect(mockResolveEntitlement).toHaveBeenCalledWith(USER_A, null, switchOn);
+    // Delivery caps the rule count only. Presets are gated at creation, so the
+    // premium glass_off preset still delivers on the free tier, as for a lapsed Pro user today.
+    expect(store.rules.every((rule) => rule.preset_type === "glass_off")).toBe(true);
   });
 
   it("2b. excludes similarity_match rules from the generic condition evaluator", async () => {
