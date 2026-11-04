@@ -11078,6 +11078,8 @@ export type Database = {
           wave_characteristics: string[] | null
           wave_height_correct: boolean | null
           wave_height_ft: number | null
+          wave_height_max_ft: number | null
+          wave_height_min_ft: number | null
           wave_quality: number | null
           wind_direction: string | null
           wind_speed_mph: number | null
@@ -11132,6 +11134,8 @@ export type Database = {
           wave_characteristics?: string[] | null
           wave_height_correct?: boolean | null
           wave_height_ft?: number | null
+          wave_height_max_ft?: number | null
+          wave_height_min_ft?: number | null
           wave_quality?: number | null
           wind_direction?: string | null
           wind_speed_mph?: number | null
@@ -11186,6 +11190,8 @@ export type Database = {
           wave_characteristics?: string[] | null
           wave_height_correct?: boolean | null
           wave_height_ft?: number | null
+          wave_height_max_ft?: number | null
+          wave_height_min_ft?: number | null
           wave_quality?: number | null
           wind_direction?: string | null
           wind_speed_mph?: number | null
