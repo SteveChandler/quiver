@@ -72,7 +72,7 @@ describe("Migration: read-time buoy matching", () => {
   test.each([
     "get_prediction_observations(uuid, timestamptz, timestamptz)",
     "refresh_beach_observation_stations()",
-  ])("%s is service-role only", (signature) => {
+  ])("%s is service-role only", (signature: string) => {
     const escaped = signature.replace(/[()]/g, "\\$&");
     expect(migrationSQL).toMatch(
       new RegExp(
