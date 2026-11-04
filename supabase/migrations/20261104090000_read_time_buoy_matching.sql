@@ -143,4 +143,297 @@ BEGIN
   END IF;
 END $$;
 
+-- Session snapshots: snapshot_buoy_observed_m used to copy the nearest
+-- prediction's written-back observed_m, which the backfill rarely had filled by
+-- the time a session was saved (30 of 279 candidates). Read the buoy for that
+-- prediction at read time instead. Body is otherwise unchanged from
+-- 20261021200000_session_wave_size_vs_forecast.sql (matches prod); grants persist
+-- across CREATE OR REPLACE.
+CREATE OR REPLACE FUNCTION public.sync_session_wave_observation_candidate(
+  p_session_id uuid,
+  p_user_id uuid,
+  p_beach_id uuid,
+  p_arrival_time timestamptz,
+  p_status text,
+  p_wave_height_ft numeric,
+  p_source_created_by text DEFAULT 'trigger'
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  candidate_id uuid;
+  observed_height_m numeric;
+  rejection_reason_text text := NULL;
+  nearest_prediction public.ml_predictions_log%rowtype;
+  nearest_delta_minutes numeric;
+  normalized_source_created_by text;
+  session_height_source text;
+  session_size_vs_forecast text;
+  session_shown_height_ft numeric;
+BEGIN
+  IF p_session_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT s.wave_height_source, s.wave_size_vs_forecast, s.forecast_wave_height_ft
+  INTO session_height_source, session_size_vs_forecast, session_shown_height_ft
+  FROM public.sessions s
+  WHERE s.id = p_session_id;
+
+  normalized_source_created_by := CASE
+    WHEN p_source_created_by = 'backfill' THEN 'backfill'
+    ELSE 'trigger'
+  END;
+
+  IF p_status IS DISTINCT FROM 'completed' THEN
+    rejection_reason_text := 'session_not_completed';
+  ELSIF p_beach_id IS NULL THEN
+    rejection_reason_text := 'missing_beach_id';
+  ELSIF p_arrival_time IS NULL THEN
+    rejection_reason_text := 'missing_arrival_time';
+  ELSIF p_wave_height_ft IS NULL THEN
+    rejection_reason_text := 'missing_wave_height_ft';
+  ELSIF p_wave_height_ft <= 0 OR p_wave_height_ft > 50 THEN
+    rejection_reason_text := 'invalid_wave_height_ft';
+  ELSIF session_height_source = 'forecast_prefill'
+    AND session_size_vs_forecast IS DISTINCT FROM 'about_right'
+  THEN
+    -- The surfer accepted the form's forecast estimate without changing it, so
+    -- the height is the forecast, not an observation of it. A prefill the surfer
+    -- answered 'about_right' is kept: it confirms the shown height.
+    rejection_reason_text := 'forecast_prefilled_wave_height';
+  END IF;
+
+  IF rejection_reason_text IS NOT NULL THEN
+    IF p_status IS DISTINCT FROM 'completed'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.session_wave_observation_candidates existing
+        WHERE existing.session_id = p_session_id
+      )
+    THEN
+      RETURN NULL;
+    END IF;
+
+    INSERT INTO public.session_wave_observation_candidates (
+      session_id,
+      user_id,
+      beach_id,
+      observed_at,
+      reported_wave_height_ft,
+      observed_m,
+      ml_prediction_id,
+      nearest_prediction_delta_minutes,
+      quality_state,
+      rejection_reason,
+      observation_weight,
+      source_created_by,
+      matched_prediction_at,
+      snapshot_display_height_m,
+      snapshot_raw_om_height_m,
+      snapshot_v5_shadow_height_m,
+      snapshot_buoy_observed_m,
+      snapshot_raw_forecast_m,
+      snapshot_corrected_forecast_m,
+      snapshot_model_version,
+      snapshot_v5_model_version,
+      snapshot_candidate_model_version,
+      snapshot_display_source,
+      forecast_horizon_hours,
+      reported_size_vs_forecast,
+      shown_forecast_height_ft
+    ) VALUES (
+      p_session_id,
+      p_user_id,
+      p_beach_id,
+      p_arrival_time,
+      p_wave_height_ft,
+      NULL,
+      NULL,
+      NULL,
+      'rejected',
+      rejection_reason_text,
+      0,
+      normalized_source_created_by,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      session_size_vs_forecast,
+      session_shown_height_ft
+    )
+    ON CONFLICT (session_id) DO UPDATE SET
+      user_id = excluded.user_id,
+      beach_id = excluded.beach_id,
+      observed_at = excluded.observed_at,
+      reported_wave_height_ft = excluded.reported_wave_height_ft,
+      observed_m = NULL,
+      ml_prediction_id = NULL,
+      nearest_prediction_delta_minutes = NULL,
+      quality_state = 'rejected',
+      rejection_reason = excluded.rejection_reason,
+      observation_weight = 0,
+      matched_prediction_at = NULL,
+      snapshot_display_height_m = NULL,
+      snapshot_raw_om_height_m = NULL,
+      snapshot_v5_shadow_height_m = NULL,
+      snapshot_buoy_observed_m = NULL,
+      snapshot_raw_forecast_m = NULL,
+      snapshot_corrected_forecast_m = NULL,
+      snapshot_model_version = NULL,
+      snapshot_v5_model_version = NULL,
+      snapshot_candidate_model_version = NULL,
+      snapshot_display_source = NULL,
+      forecast_horizon_hours = NULL,
+      reported_size_vs_forecast = excluded.reported_size_vs_forecast,
+      shown_forecast_height_ft = excluded.shown_forecast_height_ft,
+      updated_at = now()
+    RETURNING id INTO candidate_id;
+
+    RETURN candidate_id;
+  END IF;
+
+  -- A confirmed prefill observes the height the form showed, not the chip it rounded to.
+  observed_height_m := round((
+    CASE
+      WHEN session_height_source = 'forecast_prefill'
+        AND session_size_vs_forecast = 'about_right'
+        AND session_shown_height_ft > 0
+        AND session_shown_height_ft <= 50
+      THEN session_shown_height_ft
+      ELSE p_wave_height_ft
+    END * 0.3048
+  )::numeric, 3);
+
+  SELECT p.*
+  INTO nearest_prediction
+  FROM public.ml_predictions_log p
+  WHERE p.beach_id = p_beach_id
+    AND p.display_source = 'face-Hs-transformer-v1'
+    AND p.predicted_at IS NOT NULL
+    AND p.predicted_at BETWEEN p_arrival_time - interval '6 hours'
+                           AND p_arrival_time + interval '6 hours'
+  ORDER BY
+    abs(EXTRACT(EPOCH FROM (p.predicted_at - p_arrival_time))) ASC,
+    CASE p.forecast_horizon_bucket
+      WHEN '0-24h' THEN 1
+      WHEN '25-72h' THEN 2
+      WHEN '73h+' THEN 3
+      ELSE 4
+    END ASC,
+    p.forecast_horizon_hours ASC NULLS LAST,
+    p.created_at DESC
+  LIMIT 1;
+
+  IF nearest_prediction.id IS NOT NULL THEN
+    nearest_delta_minutes :=
+      round((abs(EXTRACT(EPOCH FROM (nearest_prediction.predicted_at - p_arrival_time))) / 60.0)::numeric, 1);
+  END IF;
+
+  INSERT INTO public.session_wave_observation_candidates (
+    session_id,
+    user_id,
+    beach_id,
+    ml_prediction_id,
+    observed_at,
+    reported_wave_height_ft,
+    observed_m,
+    nearest_prediction_delta_minutes,
+    quality_state,
+    rejection_reason,
+    observation_weight,
+    source_created_by,
+    matched_prediction_at,
+    snapshot_display_height_m,
+    snapshot_raw_om_height_m,
+    snapshot_v5_shadow_height_m,
+    snapshot_buoy_observed_m,
+    snapshot_raw_forecast_m,
+    snapshot_corrected_forecast_m,
+    snapshot_model_version,
+    snapshot_v5_model_version,
+    snapshot_candidate_model_version,
+    snapshot_display_source,
+    forecast_horizon_hours,
+    reported_size_vs_forecast,
+    shown_forecast_height_ft
+  ) VALUES (
+    p_session_id,
+    p_user_id,
+    p_beach_id,
+    nearest_prediction.id,
+    p_arrival_time,
+    p_wave_height_ft,
+    observed_height_m,
+    nearest_delta_minutes,
+    'weak',
+    CASE WHEN nearest_prediction.id IS NULL THEN 'no_matching_prediction' ELSE NULL END,
+    0.2,
+    normalized_source_created_by,
+    nearest_prediction.predicted_at,
+    coalesce(nearest_prediction.offset_corrected_display_height_m, nearest_prediction.raw_display_height_m, nearest_prediction.corrected_forecast_m, nearest_prediction.raw_forecast_m, nearest_prediction.wave_height_om),
+    nearest_prediction.wave_height_om,
+    nearest_prediction.v5_shadow_height_m,
+    (
+      SELECT g.observed_m
+      FROM public.get_prediction_observations(
+        p_beach_id,
+        nearest_prediction.predicted_at,
+        nearest_prediction.predicted_at + interval '1 second'
+      ) g
+      WHERE g.prediction_id = nearest_prediction.id
+    ),
+    nearest_prediction.raw_forecast_m,
+    nearest_prediction.corrected_forecast_m,
+    nearest_prediction.model_version,
+    nearest_prediction.v5_model_version,
+    nearest_prediction.candidate_model_version,
+    nearest_prediction.display_source,
+    nearest_prediction.forecast_horizon_hours,
+    session_size_vs_forecast,
+    session_shown_height_ft
+  )
+  ON CONFLICT (session_id) DO UPDATE SET
+    user_id = excluded.user_id,
+    beach_id = excluded.beach_id,
+    ml_prediction_id = excluded.ml_prediction_id,
+    observed_at = excluded.observed_at,
+    reported_wave_height_ft = excluded.reported_wave_height_ft,
+    observed_m = excluded.observed_m,
+    nearest_prediction_delta_minutes = excluded.nearest_prediction_delta_minutes,
+    quality_state = 'weak',
+    rejection_reason = excluded.rejection_reason,
+    observation_weight = 0.2,
+    matched_prediction_at = excluded.matched_prediction_at,
+    snapshot_display_height_m = excluded.snapshot_display_height_m,
+    snapshot_raw_om_height_m = excluded.snapshot_raw_om_height_m,
+    snapshot_v5_shadow_height_m = excluded.snapshot_v5_shadow_height_m,
+    snapshot_buoy_observed_m = excluded.snapshot_buoy_observed_m,
+    snapshot_raw_forecast_m = excluded.snapshot_raw_forecast_m,
+    snapshot_corrected_forecast_m = excluded.snapshot_corrected_forecast_m,
+    snapshot_model_version = excluded.snapshot_model_version,
+    snapshot_v5_model_version = excluded.snapshot_v5_model_version,
+    snapshot_candidate_model_version = excluded.snapshot_candidate_model_version,
+    snapshot_display_source = excluded.snapshot_display_source,
+    forecast_horizon_hours = excluded.forecast_horizon_hours,
+    reported_size_vs_forecast = excluded.reported_size_vs_forecast,
+    shown_forecast_height_ft = excluded.shown_forecast_height_ft,
+    updated_at = now()
+  RETURNING id INTO candidate_id;
+
+  RETURN candidate_id;
+END;
+$$;
+
 COMMIT;

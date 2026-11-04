@@ -87,4 +87,29 @@ describe("Migration: read-time buoy matching", () => {
   test("never writes observations back onto ml_predictions_log", () => {
     expect(migrationSQL).not.toMatch(/UPDATE public\.ml_predictions_log/i);
   });
+
+  describe("session snapshot buoy", () => {
+    let syncBody: string;
+
+    beforeAll(() => {
+      const start = migrationSQL.indexOf(
+        "CREATE OR REPLACE FUNCTION public.sync_session_wave_observation_candidate("
+      );
+      if (start === -1) throw new Error("sync_session_wave_observation_candidate not redefined");
+      const bodyStart = migrationSQL.indexOf("$$", start);
+      const bodyEnd = migrationSQL.indexOf("$$", bodyStart + 2);
+      syncBody = migrationSQL.slice(start, bodyEnd);
+    });
+
+    test("no longer copies the written-back observed_m", () => {
+      expect(syncBody).not.toMatch(/nearest_prediction\.observed_m/);
+    });
+
+    test("reads the buoy for the nearest prediction at read time", () => {
+      expect(syncBody).toMatch(
+        /get_prediction_observations\(\s*p_beach_id,\s*nearest_prediction\.predicted_at,\s*nearest_prediction\.predicted_at \+ interval '1 second'\s*\)/
+      );
+      expect(syncBody).toMatch(/\w+\.prediction_id = nearest_prediction\.id/);
+    });
+  });
 });
