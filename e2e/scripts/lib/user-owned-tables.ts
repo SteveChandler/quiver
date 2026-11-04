@@ -20,7 +20,6 @@ export const USER_OWNED_TABLES: UserOwnedTable[] = [
   { schema: "public", table: "alert_delivery_attempts", column: "user_id", refSchema: "public", refTable: "profiles", refColumn: "id" },
   { schema: "public", table: "alert_queue", column: "user_id", refSchema: "auth", refTable: "users", refColumn: "id" },
   { schema: "public", table: "alert_rules", column: "user_id", refSchema: "auth", refTable: "users", refColumn: "id" },
-  { schema: "public", table: "beach_photos_history", column: "changed_by", refSchema: "public", refTable: "profiles", refColumn: "id" },
   { schema: "public", table: "beach_review_likes", column: "user_id", refSchema: "public", refTable: "profiles", refColumn: "id" },
   { schema: "public", table: "beach_reviews", column: "user_id", refSchema: "public", refTable: "profiles", refColumn: "id" },
   { schema: "public", table: "beach_reviews_history", column: "changed_by", refSchema: "public", refTable: "profiles", refColumn: "id" },
