@@ -61,12 +61,24 @@ export interface FeatureAccess {
   hasFeatureAccess: boolean;
 }
 
+export interface FeatureAccessOptions {
+  /** The user's entitlement row has `billing_issue` set. */
+  billingIssue?: boolean;
+}
+
+/**
+ * Billing-issue rows never get founding access: the DB match gates and
+ * personalization eligibility lock them first, so every surface agrees.
+ */
 export async function resolveFeatureAccess(
   userId: string | null | undefined,
   isPro: boolean,
+  options: FeatureAccessOptions = {},
 ): Promise<FeatureAccess> {
   if (isPro) return { isPro: true, foundingAccess: false, hasFeatureAccess: true };
-  if (!userId) return { isPro: false, foundingAccess: false, hasFeatureAccess: false };
+  if (!userId || options.billingIssue) {
+    return { isPro: false, foundingAccess: false, hasFeatureAccess: false };
+  }
   const foundingAccess = await isFoundingAccessEnabled();
   return { isPro: false, foundingAccess, hasFeatureAccess: foundingAccess };
 }

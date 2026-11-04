@@ -120,6 +120,14 @@ describe("resolveFeatureAccess", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
+  it("switch ON: a billing-issue row is not founding and never reads the switch", async () => {
+    mockRpc.mockResolvedValue({ data: true, error: null });
+    expect(
+      await loadModule().resolveFeatureAccess("user-1", false, { billingIssue: true }),
+    ).toEqual({ isPro: false, foundingAccess: false, hasFeatureAccess: false });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it("guests are not covered even when the switch is on", async () => {
     mockRpc.mockResolvedValue({ data: true, error: null });
     const { resolveFeatureAccess } = loadModule();

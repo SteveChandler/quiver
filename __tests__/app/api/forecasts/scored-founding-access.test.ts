@@ -89,7 +89,7 @@ afterAll(() => {
 it("ON: a free user gets board picks and plan stays free", async () => {
   mockResolveFeatureAccess.mockImplementation(featureAccessOn);
   const data = await get();
-  expect(mockResolveFeatureAccess).toHaveBeenCalledWith(USER_ID, false);
+  expect(mockResolveFeatureAccess).toHaveBeenCalledWith(USER_ID, false, { billingIssue: false });
   expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), USER_ID, true);
   expect(data).toMatchObject({ plan: "free", boardPicksEnabled: true });
 });
@@ -103,6 +103,6 @@ it("OFF: a free user keeps board picks off", async () => {
 it("Pro keeps plan pro and board picks on", async () => {
   mockEntitlementRow = { is_pro: true };
   const data = await get();
-  expect(mockResolveFeatureAccess).toHaveBeenCalledWith(USER_ID, true);
+  expect(mockResolveFeatureAccess).toHaveBeenCalledWith(USER_ID, true, { billingIssue: false });
   expect(data).toMatchObject({ plan: "pro", boardPicksEnabled: true });
 });

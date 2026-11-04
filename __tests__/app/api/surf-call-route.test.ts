@@ -517,7 +517,7 @@ describe("GET /api/surf/call", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(mockUser.id, false);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(mockUser.id, false, { billingIssue: false });
     expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
       expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: paid }) }),
     );
@@ -543,7 +543,7 @@ describe("GET /api/surf/call", () => {
 
     await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
 
-    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(null, false);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(null, false, { billingIssue: false });
     expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
       expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: false }) }),
     );

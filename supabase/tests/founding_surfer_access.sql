@@ -68,12 +68,14 @@ RESET check_function_bodies;
 CREATE FUNCTION fixture_id(n integer) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
   SELECT ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid
 $$;
--- 1 free (no entitlement row), 2 Pro, 3 Pro with billing issue, 4 expired Pro mirror.
-INSERT INTO public.profiles SELECT fixture_id(n), NULL FROM generate_series(1, 4) n;
+-- 1 free (no entitlement row), 2 Pro, 3 Pro with billing issue, 4 expired Pro mirror,
+-- 5 billing issue without Pro.
+INSERT INTO public.profiles SELECT fixture_id(n), NULL FROM generate_series(1, 5) n;
 INSERT INTO public.user_entitlements VALUES
   (fixture_id(2), true, false, false, NULL),
   (fixture_id(3), true, false, true, now() - interval '3 days'),
-  (fixture_id(4), true, false, false, now() - interval '1 day');
+  (fixture_id(4), true, false, false, now() - interval '1 day'),
+  (fixture_id(5), false, false, true, now() - interval '3 days');
 INSERT INTO public.beaches
 SELECT fixture_id(100 + n), 'Beach ' || n, 33, -117, 'POINT', NULL, true FROM generate_series(1, 6) n;
 INSERT INTO public.enhanced_forecasts
@@ -82,7 +84,7 @@ FROM generate_series(1, 6) n;
 -- Each user already holds the free cap of three curated favorites.
 INSERT INTO public.favorite_beaches (user_id, beach_id, rank, alerts_enabled)
 SELECT fixture_id(u), fixture_id(100 + n), n, false
-FROM generate_series(1, 4) u CROSS JOIN generate_series(1, 3) n;
+FROM generate_series(1, 5) u CROSS JOIN generate_series(1, 3) n;
 
 CREATE FUNCTION as_user(p_user uuid) RETURNS void LANGUAGE sql AS $$
   SELECT set_config('request.jwt.claim.role', 'authenticated', false),
@@ -161,6 +163,10 @@ BEGIN
   ASSERT candidate_count(fixture_id(3)) = 0, 'OFF: billing issue gets no candidates';
   ASSERT scout_match_count(fixture_id(1)) = 0, 'OFF: free user gets no scout matches';
   ASSERT scout_match_count(fixture_id(2)) = 1, 'OFF: Pro gets scout matches';
+  ASSERT toggle_error(fixture_id(5), fixture_id(104)) = 'favorite_quota_exceeded', 'OFF: billing issue without Pro is capped';
+  ASSERT lock_reason(fixture_id(5)) = 'billing_issue', 'OFF: billing issue without Pro locked';
+  ASSERT candidate_count(fixture_id(5)) = 0, 'OFF: billing issue without Pro gets no candidates';
+  ASSERT scout_match_count(fixture_id(5)) = 0, 'OFF: billing issue without Pro gets no scout matches';
 END $$;
 
 -- ON: founding users get the Pro feature gates; billing and auth locks stay.
@@ -180,6 +186,13 @@ BEGIN
   ASSERT candidate_count(fixture_id(1)) > 0, 'ON: free user gets candidates';
   ASSERT candidate_count(fixture_id(3)) = 0, 'ON: billing issue still gets none';
   ASSERT scout_match_count(fixture_id(1)) = 1, 'ON: free user gets scout matches';
+  ASSERT candidate_count(fixture_id(4)) > 0, 'ON: expired mirror gets candidates';
+  ASSERT scout_match_count(fixture_id(4)) = 1, 'ON: expired mirror gets scout matches';
+  -- Billing-issue rows never get founding access.
+  ASSERT toggle_error(fixture_id(5), fixture_id(104)) = 'favorite_quota_exceeded', 'ON: billing issue without Pro stays capped';
+  ASSERT lock_reason(fixture_id(5)) = 'billing_issue', 'ON: billing issue without Pro stays locked';
+  ASSERT candidate_count(fixture_id(5)) = 0, 'ON: billing issue without Pro gets no candidates';
+  ASSERT scout_match_count(fixture_id(5)) = 0, 'ON: billing issue without Pro gets no scout matches';
 END $$;
 
 -- OFF again: adds are capped, saved favorites above the cap stay.

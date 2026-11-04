@@ -71,6 +71,15 @@ describe("getUserEntitlement", () => {
       expect(mockIsFoundingAccessEnabled).toHaveBeenCalledTimes(1);
     });
 
+    it("ON: a billing-issue row without Pro stays free and never reads the switch", async () => {
+      mockIsFoundingAccessEnabled.mockResolvedValue(true);
+      const supabase = makeSupabaseStub({
+        "user-billing": { is_pro: false, is_trialing: false, billing_issue: true },
+      });
+      expect(await getUserEntitlement("user-billing", supabase)).toBe("free");
+      expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
+    });
+
     it("Pro never reads the switch", async () => {
       mockIsFoundingAccessEnabled.mockResolvedValue(true);
       const supabase = makeSupabaseStub({ "user-pro": { is_pro: true } });
@@ -317,6 +326,14 @@ describe("resolveEntitlement (sync cron-friendly wrapper)", () => {
     delete process.env.ALERT_BETA_USER_IDS;
     expect(resolveEntitlement("user-x", null, true)).toBe("premium");
     expect(resolveEntitlement("user-x", { is_pro: false, is_trialing: false }, true)).toBe("premium");
+  });
+
+  it("founding access ON keeps a billing-issue row without Pro on the free tier", () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    const row = { is_pro: false, is_trialing: false, billing_issue: true };
+    expect(resolveEntitlement("user-x", row, true)).toBe("free");
+    expect(resolveEntitlement("user-x", row, false)).toBe("free");
   });
 
   it("founding access OFF (the default) keeps a free row free", () => {

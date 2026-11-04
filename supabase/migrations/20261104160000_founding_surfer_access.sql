@@ -68,6 +68,7 @@ DECLARE
   favorite_count integer;
   next_rank integer;
   has_unlimited_favorites boolean;
+  has_billing_issue boolean;
 BEGIN
   IF current_user_id IS NULL THEN
     RAISE EXCEPTION 'not_authenticated';
@@ -125,15 +126,23 @@ BEGIN
         )
     ) INTO has_unlimited_favorites;
 
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.user_entitlements ue
+      WHERE ue.user_id = current_user_id
+        AND ue.billing_issue = true
+    ) INTO has_billing_issue;
+
     SELECT count(*) INTO favorite_count
     FROM public.favorite_beaches fb
     WHERE fb.user_id = current_user_id
       AND fb.beach_id IS NOT NULL;
 
     -- Founding access lifts the cap while the switch is on; saved rows stay when it goes off.
+    -- Billing-issue rows never get founding access, matching the TS gates.
     IF NOT has_unlimited_favorites
       AND favorite_count >= 3
-      AND NOT public.founding_access_enabled() THEN
+      AND (has_billing_issue OR NOT public.founding_access_enabled()) THEN
       RAISE EXCEPTION 'favorite_quota_exceeded'
         USING DETAIL = 'free_favorites_limit';
     END IF;
@@ -441,7 +450,8 @@ BEGIN
   FROM public.user_entitlements ue WHERE ue.user_id = p_user_id;
 
   -- Mirror entitlementFromRow: paid/trial flags, expiry, and billing grace.
-  -- Founding access scores matches too; callers still decide what to show.
+  -- Founding access scores matches too, except on billing-issue rows (which
+  -- never get founding access); callers still decide what to show.
   IF jsonb_array_length(p_slots) > 0
     AND ((
       (COALESCE((v_entitlement->>'is_pro')::boolean, false)
@@ -449,7 +459,8 @@ BEGIN
       AND (COALESCE((v_entitlement->>'billing_issue')::boolean, false)
         OR v_entitlement->>'expires_at' IS NULL
         OR (v_entitlement->>'expires_at')::timestamptz >= clock_timestamp())
-    ) OR public.founding_access_enabled()) THEN
+    ) OR (public.founding_access_enabled()
+      AND NOT COALESCE((v_entitlement->>'billing_issue')::boolean, false))) THEN
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
       'beach_id', m.beach_id, 'forecast_at', m.forecast_at, 'result', m.result
     ) ORDER BY m.slot_idx), '[]'::jsonb) INTO v_matches

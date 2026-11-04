@@ -142,6 +142,7 @@ export async function fetchBulkDecisionContext(
   const { hasFeatureAccess } = await resolveFeatureAccess(
     userId,
     entitlementFromRow(data.personalization?.entitlement) === "premium",
+    { billingIssue: data.personalization?.entitlement?.billing_issue === true },
   );
   const matches: BulkDecisionContext["matches"] = new Map();
   for (const match of data.personalization?.matches ?? []) {

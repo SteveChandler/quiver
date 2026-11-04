@@ -306,7 +306,7 @@ it.each([
     (data.personalization as { entitlement: unknown }).entitlement = null;
     mockRpc.mockReturnValue(query(data));
     const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
-    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(id(800), false);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(id(800), false, { billingIssue: false });
     const match = context.matches.get(matchSlotKey(id(1), NOW.toISOString()));
     expect(match?.state === "ready" ? match.score : null).toBe(kept ? 3 : null);
   },

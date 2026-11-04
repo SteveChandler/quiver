@@ -46,10 +46,11 @@ describe("founding surfer access migration", () => {
     expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.founding_access_enabled() TO authenticated, service_role;");
   });
 
-  it("lifts the curated favorites cap only while the switch is on", () => {
+  it("lifts the curated favorites cap only while the switch is on, never for billing issues", () => {
     const fn = functionBody(sql, "toggle_favorite_spot_guarded", "\nEND;\n$$;");
     expect(fn).toMatch(/SECURITY INVOKER\nSET search_path = public\n/);
-    expect(fn).toMatch(/IF NOT has_unlimited_favorites\s+AND favorite_count >= 3\s+AND NOT public\.founding_access_enabled\(\) THEN\s+RAISE EXCEPTION 'favorite_quota_exceeded'\s+USING DETAIL = 'free_favorites_limit';/);
+    expect(fn).toMatch(/AND ue\.billing_issue = true\s+\) INTO has_billing_issue;/);
+    expect(fn).toMatch(/IF NOT has_unlimited_favorites\s+AND favorite_count >= 3\s+AND \(has_billing_issue OR NOT public\.founding_access_enabled\(\)\) THEN\s+RAISE EXCEPTION 'favorite_quota_exceeded'\s+USING DETAIL = 'free_favorites_limit';/);
     // Guests are rejected before the cap check ever reads the switch.
     expect(fn.indexOf("RAISE EXCEPTION 'not_authenticated'")).toBeLessThan(fn.indexOf("founding_access_enabled"));
     // Real Pro check unchanged.
@@ -71,10 +72,10 @@ describe("founding surfer access migration", () => {
     expect(fn).toMatch(/IF \(NOT COALESCE\(v_is_paid, false\)\s+OR \(v_expires_at IS NOT NULL AND v_expires_at < now\(\)\)\)\s+AND NOT public\.founding_access_enabled\(\) THEN\s+RETURN;/);
   });
 
-  it("scores Week Scout / discovery match evidence for founding users", () => {
+  it("scores Week Scout / discovery match evidence for founding users without a billing issue", () => {
     const fn = functionBody(sql, "get_week_scout_personalization", "\nEND;\n$function$;");
     expect(fn).toMatch(/SECURITY INVOKER\nSET search_path = public, pg_temp/);
-    expect(fn).toMatch(/clock_timestamp\(\)\)\s+\) OR public\.founding_access_enabled\(\)\) THEN/);
+    expect(fn).toMatch(/clock_timestamp\(\)\)\s+\) OR \(public\.founding_access_enabled\(\)\s+AND NOT COALESCE\(\(v_entitlement->>'billing_issue'\)::boolean, false\)\)\) THEN/);
     expect(fn).toContain("public.compute_user_match_scores(p_user_id, p_beach_ids,");
   });
 

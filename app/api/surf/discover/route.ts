@@ -252,7 +252,9 @@ async function surfDiscoveryHandler(
   // radius is a search extent, not the surfer's range, so it keeps the friction.
   const driveRadiusMiles = radius === undefined ? radiusMiles : undefined;
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
-  const { hasFeatureAccess, foundingAccess } = await resolveFeatureAccess(user.id, isPro);
+  const { hasFeatureAccess, foundingAccess } = await resolveFeatureAccess(user.id, isPro, {
+    billingIssue: entitlementRow?.billing_issue === true,
+  });
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
     hasPaidAccess: hasFeatureAccess,

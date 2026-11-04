@@ -27,7 +27,9 @@ export async function getBoardPickContext() {
       .eq("user_id", user.id)
       .maybeSingle();
     const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
-    const { hasFeatureAccess } = await resolveFeatureAccess(user.id, isPro);
+    const { hasFeatureAccess } = await resolveFeatureAccess(user.id, isPro, {
+      billingIssue: entitlementRow?.billing_issue === true,
+    });
     const context = await fetchUserBoardContext(
       supabase,
       user.id,

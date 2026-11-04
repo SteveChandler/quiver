@@ -1170,9 +1170,26 @@ describe('fetchWeekScoutMatchEvidence', () => {
 
     const context = await fetchWeekScoutMatchEvidence('user-1', ['beach-1'], [forecast]);
 
-    expect(mockResolveFeatureAccess).toHaveBeenCalledWith('user-1', false);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith('user-1', false, { billingIssue: false });
     const evidence = context.get(`${forecast.beach_id}:${forecast.forecast_at}`);
     expect(evidence?.state === 'ready' ? evidence.score : null).toBe(enabled ? 6.4 : null);
+  });
+
+  it('founding access ON: a billing-issue row without Pro sees no match evidence', async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    const forecast = makeForecast();
+    mockRpc.mockResolvedValue({
+      error: null,
+      data: {
+        entitlement: { is_pro: false, is_trialing: false, billing_issue: true, expires_at: null },
+        matches: [{ beach_id: forecast.beach_id, forecast_at: forecast.forecast_at, result: match }],
+      },
+    });
+
+    const context = await fetchWeekScoutMatchEvidence('user-1', ['beach-1'], [forecast]);
+
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith('user-1', false, { billingIssue: true });
+    expect(context.get(`${forecast.beach_id}:${forecast.forecast_at}`)).toBeNull();
   });
 
   it('sends the source keys so Open-Meteo rows compare by their whole-sea period', async () => {

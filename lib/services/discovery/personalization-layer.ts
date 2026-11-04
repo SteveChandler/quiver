@@ -235,7 +235,9 @@ export async function fetchWeekScoutMatchEvidence(
     matches: Array<{ beach_id: string; forecast_at: string; result: Record<string, unknown> | null }>;
   };
   const isPro = entitlementFromRow(context.entitlement) === 'premium';
-  const { hasFeatureAccess } = await resolveFeatureAccess(userId, isPro);
+  const { hasFeatureAccess } = await resolveFeatureAccess(userId, isPro, {
+    billingIssue: context.entitlement?.billing_issue === true,
+  });
   return new Map(context.matches.map((match) => [
     `${match.beach_id}:${match.forecast_at}`,
     hasFeatureAccess ? interpretRpcResult(match.result) : null,

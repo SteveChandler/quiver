@@ -456,6 +456,7 @@ export async function computeCanonicalSurfCall({
     }
   }
   let isPro = false;
+  let billingIssue = false;
   if (userId) {
     const { data: entitlementRow } = await supabase
       .from('user_entitlements')
@@ -463,8 +464,9 @@ export async function computeCanonicalSurfCall({
       .eq('user_id', userId)
       .maybeSingle();
     isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+    billingIssue = entitlementRow?.billing_issue === true;
   }
-  const access = await resolveFeatureAccess(userId, isPro);
+  const access = await resolveFeatureAccess(userId, isPro, { billingIssue });
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
   const requestedForecastTime = forecastAt

@@ -30,8 +30,9 @@ const FREE_PRESETS: PresetType[] = ["mellow_session"];
  *     both the is_pro/is_trialing flags AND expires_at as a staleness guard
  *     (if the mirror says "active" but expires_at is in the past, treat as
  *     free until RC reconciliation catches up).
- *  4. Founding access switch — a free result becomes premium while it is on.
- *     This is a feature tier; billing code reads real Pro status instead.
+ *  4. Founding access switch — a free result becomes premium while it is on,
+ *     unless the row has a billing issue. This is a feature tier; billing
+ *     code reads real Pro status instead.
  *
  * Async because #3 is a DB lookup; pass the caller's supabase client so we
  * inherit its auth context (service-role in cron, user-scoped elsewhere).
@@ -50,7 +51,7 @@ export async function getUserEntitlement(
     .maybeSingle();
 
   const tier = entitlementFromRow(data);
-  if (tier === "premium") return tier;
+  if (tier === "premium" || data?.billing_issue) return tier;
   return (await isFoundingAccessEnabled()) ? "premium" : tier;
 }
 
@@ -69,7 +70,7 @@ export function resolveEntitlement(
   const bypass = envBypassTier(userId);
   if (bypass) return bypass;
   const tier = entitlementFromRow(row);
-  return tier === "free" && foundingAccess ? "premium" : tier;
+  return tier === "free" && foundingAccess && !row?.billing_issue ? "premium" : tier;
 }
 
 /**

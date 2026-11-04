@@ -540,7 +540,9 @@ export const GET = withNoStore(withAuth(
           .maybeSingle()
       : { data: null };
     const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
-    const { hasFeatureAccess } = await resolveFeatureAccess(context.user?.id, isPro);
+    const { hasFeatureAccess } = await resolveFeatureAccess(context.user?.id, isPro, {
+      billingIssue: entitlementRow?.billing_issue === true,
+    });
     const boardPicksEnabled = hasFeatureAccess || isBoardPicksFreeEnabled();
     const boardContext = context.user
       ? await fetchUserBoardContext(supabase, context.user.id, boardPicksEnabled)

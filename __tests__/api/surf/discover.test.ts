@@ -1076,7 +1076,7 @@ describe("/api/surf/discover entitlement resolution", () => {
       const response = await callDiscoverRoute(null);
       const body = await response.json();
 
-      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", false);
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", false, { billingIssue: false });
       expect(body.data.entitlement).toEqual({
         tier: "free",
         hasPaidAccess: true,
@@ -1104,13 +1104,29 @@ describe("/api/surf/discover entitlement resolution", () => {
       expect(body.data.lockedBestSpotTeaser).toMatchObject({ subtitle: expect.stringContaining("Unlock Pro") });
     });
 
+    it("ON: a billing-issue row without Pro is not founding and keeps today's gates", async () => {
+      mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+
+      const response = await callDiscoverRoute({ is_pro: false, is_trialing: false, billing_issue: true });
+      const body = await response.json();
+
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", false, { billingIssue: true });
+      expect(body.data.entitlement).toEqual({
+        tier: "free",
+        hasPaidAccess: false,
+        canSeeBestSpot: false,
+        foundingAccess: false,
+      });
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ isPro: false });
+    });
+
     it("ON: a Pro user keeps tier premium and is not marked founding", async () => {
       mockResolveFeatureAccess.mockImplementation(featureAccessOn);
 
       const response = await callDiscoverRoute({ is_pro: true });
       const body = await response.json();
 
-      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", true);
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", true, { billingIssue: false });
       expect(body.data.entitlement).toEqual({
         tier: "premium",
         hasPaidAccess: true,

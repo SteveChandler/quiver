@@ -82,7 +82,7 @@ describe("getBoardPickContext", () => {
 
     await getBoardPickContext();
 
-    expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-1", false);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-1", false, { billingIssue: false });
     expect(mockFetchUserBoardContext).toHaveBeenLastCalledWith(fakeSupabase, "user-1", enabled);
   });
 });
