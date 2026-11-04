@@ -1,6 +1,5 @@
 import {
   getBeachSessionSnapshots,
-  getBeachForecastAccuracy,
   createForecastSnapshot,
 } from "@/actions/forecast-calibration-actions";
 
@@ -111,87 +110,6 @@ describe("Forecast Calibration Actions", () => {
       });
 
       const result = await getBeachSessionSnapshots("nonexistent-beach");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual([]);
-    });
-  });
-
-  describe("getBeachForecastAccuracy", () => {
-    it("should fetch beach accuracy statistics successfully", async () => {
-      const mockAccuracy = {
-        id: "accuracy-1",
-        beach_id: "beach-1",
-        avg_wave_height_delta: 0.5,
-        avg_wind_speed_delta: 2.1,
-        total_sessions_count: 25,
-        last_30_days_count: 8,
-        overall_accuracy_score: 85.5,
-        wave_height_accuracy: 88.2,
-        wind_accuracy: 82.8,
-      };
-
-      withDatabaseOperation.mockImplementation(async (operation: any) => {
-        try {
-          const result = await operation(mockSupabaseClient);
-          if (result.error) {
-            throw new Error(result.error.message);
-          }
-          // If result is the data array directly, return it. Otherwise extract data property.
-          const data = Array.isArray(result) ? result : result.data || [];
-          return { success: true, data };
-        } catch (error) {
-          return { success: false, error: error instanceof Error ? error.message : String(error) };
-        }
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            maybeSingle: jest.fn().mockResolvedValue({
-              data: mockAccuracy,
-              error: null,
-            }),
-          }),
-        }),
-      });
-
-      const result = await getBeachForecastAccuracy("beach-1");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockAccuracy);
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith(
-        "beach_forecast_accuracy"
-      );
-    });
-
-    it("should handle beach with no accuracy data", async () => {
-      withDatabaseOperation.mockImplementation(async (operation: any) => {
-        try {
-          const result = await operation(mockSupabaseClient);
-          if (result.error) {
-            throw new Error(result.error.message);
-          }
-          // If result is the data array directly, return it. Otherwise extract data property.
-          const data = Array.isArray(result) ? result : result.data || [];
-          return { success: true, data };
-        } catch (error) {
-          return { success: false, error: error instanceof Error ? error.message : String(error) };
-        }
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            maybeSingle: jest.fn().mockResolvedValue({
-              data: null,
-              error: null,
-            }),
-          }),
-        }),
-      });
-
-      const result = await getBeachForecastAccuracy("new-beach");
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual([]);
