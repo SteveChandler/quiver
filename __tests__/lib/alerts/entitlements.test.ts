@@ -1,9 +1,11 @@
 jest.mock("server-only", () => ({}));
 
 const mockIsFoundingAccessEnabled = jest.fn<Promise<boolean>, []>();
+const mockResolveFeatureAccess = jest.fn();
 jest.mock("@/lib/flags/founding-access", () => ({
   ...jest.requireActual("@/lib/flags/founding-access"),
   isFoundingAccessEnabled: () => mockIsFoundingAccessEnabled(),
+  resolveFeatureAccess: (...args: unknown[]) => mockResolveFeatureAccess(...args),
 }));
 
 import {
@@ -11,9 +13,11 @@ import {
   canCreateRule,
   entitlementFromRow,
   resolveEntitlement,
+  resolveFeatureAccessFromRow,
   CAPS,
 } from "@/lib/alerts/entitlements";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 /**
  * Minimal Supabase client stub that exposes only the chain the real impl
@@ -354,6 +358,52 @@ describe("resolveEntitlement (sync cron-friendly wrapper)", () => {
         expires_at: new Date(Date.now() - 86_400_000).toISOString(),
       }),
     ).toBe("premium");
+  });
+});
+
+describe("resolveFeatureAccessFromRow", () => {
+  const future = new Date(Date.now() + 86_400_000).toISOString();
+  const past = new Date(Date.now() - 86_400_000).toISOString();
+
+  beforeEach(() => {
+    mockResolveFeatureAccess.mockReset();
+  });
+
+  it("switch ON: a free row gets founding access; real Pro stays Pro", async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    expect(await resolveFeatureAccessFromRow("user-1", null)).toEqual({
+      isPro: false,
+      foundingAccess: true,
+      hasFeatureAccess: true,
+    });
+    expect(
+      await resolveFeatureAccessFromRow("user-1", { is_pro: true, expires_at: future }),
+    ).toEqual({ isPro: true, foundingAccess: false, hasFeatureAccess: true });
+  });
+
+  it("switch OFF: a free row has no feature access", async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
+    expect(await resolveFeatureAccessFromRow("user-1", { is_pro: false })).toEqual({
+      isPro: false,
+      foundingAccess: false,
+      hasFeatureAccess: false,
+    });
+  });
+
+  it("passes real Pro and the billing issue from the row", async () => {
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    await resolveFeatureAccessFromRow("user-1", { is_pro: true, expires_at: past });
+    await resolveFeatureAccessFromRow("user-1", {
+      is_pro: true,
+      billing_issue: true,
+      expires_at: past,
+    });
+    await resolveFeatureAccessFromRow(null, undefined);
+    expect(mockResolveFeatureAccess.mock.calls).toEqual([
+      ["user-1", false, { billingIssue: false }],
+      ["user-1", true, { billingIssue: true }],
+      [null, false, { billingIssue: false }],
+    ]);
   });
 });
 

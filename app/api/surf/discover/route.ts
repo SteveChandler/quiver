@@ -14,8 +14,7 @@ import {
   hasExplicitMajorEventHold,
   hasNoDiscoveryCandidates,
 } from '@/lib/services/discovery/discovery-availability';
-import { entitlementFromRow } from '@/lib/alerts/entitlements';
-import { resolveFeatureAccess } from '@/lib/flags/founding-access';
+import { resolveFeatureAccessFromRow } from '@/lib/alerts/entitlements';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
@@ -251,10 +250,10 @@ async function surfDiscoveryHandler(
   // The saved drive range also waives distance friction inside it. An explicit
   // radius is a search extent, not the surfer's range, so it keeps the friction.
   const driveRadiusMiles = radius === undefined ? radiusMiles : undefined;
-  const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
-  const { hasFeatureAccess, foundingAccess } = await resolveFeatureAccess(user.id, isPro, {
-    billingIssue: entitlementRow?.billing_issue === true,
-  });
+  const { isPro, hasFeatureAccess, foundingAccess } = await resolveFeatureAccessFromRow(
+    user.id,
+    entitlementRow,
+  );
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
     hasPaidAccess: hasFeatureAccess,

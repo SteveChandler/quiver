@@ -3,6 +3,7 @@ import type { PresetType } from "./types";
 import {
   featureAccessFor,
   isFoundingAccessEnabled,
+  resolveFeatureAccess,
   type FeatureAccess,
 } from "@/lib/flags/founding-access";
 import {
@@ -100,20 +101,33 @@ function envBypassTier(userId: string): Tier | null {
   return null;
 }
 
+export type EntitlementRow = {
+  is_pro?: boolean | null;
+  is_trialing?: boolean | null;
+  billing_issue?: boolean | null;
+  expires_at?: string | null;
+} | null | undefined;
+
+/**
+ * Feature access for a user_entitlements row: real Pro from the row, founding
+ * access from the switch. Lives here, not in lib/flags/founding-access, because
+ * that module must not import this one back.
+ */
+export async function resolveFeatureAccessFromRow(
+  userId: string | null | undefined,
+  row: EntitlementRow,
+): Promise<FeatureAccess> {
+  return resolveFeatureAccess(userId, entitlementFromRow(row) === "premium", {
+    billingIssue: row?.billing_issue === true,
+  });
+}
+
 /**
  * Pure helper for callers that already have a user_entitlements row joined
  * in — e.g., alert-evaluate crons selecting `profiles!inner(..., user_entitlements(...))`.
  * Avoids an N+1 query per rule.
  */
-export function entitlementFromRow(
-  row: {
-    is_pro?: boolean | null;
-    is_trialing?: boolean | null;
-    billing_issue?: boolean | null;
-    expires_at?: string | null;
-  } | null
-  | undefined,
-): Tier {
+export function entitlementFromRow(row: EntitlementRow): Tier {
   if (!row) return "free";
   if (!row.is_pro && !row.is_trialing) return "free";
   // Staleness guard with billing-issue carve-out: during Apple's ≤60d /

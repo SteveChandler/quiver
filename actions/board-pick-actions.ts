@@ -1,9 +1,8 @@
 "use server";
 
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
-import { entitlementFromRow } from "@/lib/alerts/entitlements";
+import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
 import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
-import { resolveFeatureAccess } from "@/lib/flags/founding-access";
 import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import type { BoardClass } from "@/lib/domains/rideability";
 import type { PersonalBoard } from "@/lib/scoring/personal-board";
@@ -26,10 +25,7 @@ export async function getBoardPickContext() {
       .select("is_pro, is_trialing, billing_issue, expires_at")
       .eq("user_id", user.id)
       .maybeSingle();
-    const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
-    const { hasFeatureAccess } = await resolveFeatureAccess(user.id, isPro, {
-      billingIssue: entitlementRow?.billing_issue === true,
-    });
+    const { hasFeatureAccess } = await resolveFeatureAccessFromRow(user.id, entitlementRow);
     const context = await fetchUserBoardContext(
       supabase,
       user.id,

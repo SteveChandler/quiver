@@ -16,8 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SimilarityRecommendation } from '@/types/personalization';
-import { entitlementFromRow } from '@/lib/alerts/entitlements';
-import { resolveFeatureAccess } from '@/lib/flags/founding-access';
+import { resolveFeatureAccessFromRow, type EntitlementRow } from '@/lib/alerts/entitlements';
 import { forecastToMatchSlot, interpretRpcResult } from './similarity-layer';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getImplicitPreferences, calculateImplicitBonus, isTopEngagedBeach } from '@/lib/services/implicit-preferences-service';
@@ -231,13 +230,10 @@ export async function fetchWeekScoutMatchEvidence(
     throw new Error(`Failed to load Week Scout personalization: ${error?.message ?? 'missing context'}`);
   }
   const context = data as {
-    entitlement: Parameters<typeof entitlementFromRow>[0];
+    entitlement: EntitlementRow;
     matches: Array<{ beach_id: string; forecast_at: string; result: Record<string, unknown> | null }>;
   };
-  const isPro = entitlementFromRow(context.entitlement) === 'premium';
-  const { hasFeatureAccess } = await resolveFeatureAccess(userId, isPro, {
-    billingIssue: context.entitlement?.billing_issue === true,
-  });
+  const { hasFeatureAccess } = await resolveFeatureAccessFromRow(userId, context.entitlement);
   return new Map(context.matches.map((match) => [
     `${match.beach_id}:${match.forecast_at}`,
     hasFeatureAccess ? interpretRpcResult(match.result) : null,

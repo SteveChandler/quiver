@@ -36,9 +36,8 @@ import {
 } from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { entitlementFromRow } from "@/lib/alerts/entitlements";
+import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
 import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
-import { resolveFeatureAccess } from "@/lib/flags/founding-access";
 import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
 import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
@@ -539,10 +538,10 @@ export const GET = withNoStore(withAuth(
           .eq("user_id", context.user.id)
           .maybeSingle()
       : { data: null };
-    const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
-    const { hasFeatureAccess } = await resolveFeatureAccess(context.user?.id, isPro, {
-      billingIssue: entitlementRow?.billing_issue === true,
-    });
+    const { isPro, hasFeatureAccess } = await resolveFeatureAccessFromRow(
+      context.user?.id,
+      entitlementRow,
+    );
     const boardPicksEnabled = hasFeatureAccess || isBoardPicksFreeEnabled();
     const boardContext = context.user
       ? await fetchUserBoardContext(supabase, context.user.id, boardPicksEnabled)
