@@ -41,6 +41,27 @@ describe("share landing helpers", () => {
     expect(url.searchParams.get("o")).toBe("1");
   });
 
+  it("carries email attribution through the go-host hop and drops other params", () => {
+    const url = new URL(
+      buildOpenInQuiverUrl({
+        slug: "capitola-capitola-ca",
+        emailAttribution: {
+          utm_medium: "email",
+          utm_campaign: "conditions_alert",
+          email_type: "conditions_alert",
+          message_instance_id: "d28ee41c-a826-4b52-b1af-eef932d5d892",
+          utm_source: " ",
+        },
+      }),
+    );
+
+    expect(url.searchParams.get("utm_medium")).toBe("email");
+    expect(url.searchParams.get("email_type")).toBe("conditions_alert");
+    expect(url.searchParams.get("message_instance_id")).toBe("d28ee41c-a826-4b52-b1af-eef932d5d892");
+    expect(url.searchParams.has("utm_source")).toBe(false);
+    expect(url.searchParams.get("o")).toBe("1");
+  });
+
   it("omits window, sid, and invite when absent", () => {
     const url = new URL(buildOpenInQuiverUrl({ slug: "blacks" }));
 
