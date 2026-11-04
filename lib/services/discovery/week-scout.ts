@@ -110,6 +110,9 @@ const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
 const WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX = '+hourly-bridge-v1';
 const HOUR_MS = 60 * 60 * 1000;
+// One forecast-sync interval. Measured from each answer, not snapped to the :00/:30 sync slots,
+// so open apps don't all refetch together at the top of the hour.
+const WEEK_SCOUT_COVERAGE_TTL_MS = 30 * 60 * 1000;
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 // The swell reads start with the forecast fetch, so this bounds the extra
 // wait after the main result is ready; a slower snapshot read omits `swells`.
@@ -559,13 +562,15 @@ function scoringComponentForForecast(
 }
 
 /**
- * The answer is good for one refresh interval after it is generated. Our ingest
+ * The answer is good for one forecast-sync interval after it is generated: the app refetches at
+ * this deadline, and a 60 s deadline made every open Home ask for a heavy answer once a minute
+ * (Nov 4 2026). Holds and session decisions carry their own deadlines. Our ingest
  * age is not the forecast's age: a CDIP row the sync has not revisited in a few
  * hours still holds the same forward forecast, so it must not expire the
  * answer before it arrives (a past deadline voided the whole week).
  */
 function coverageExpiry(generatedAt: string): string {
-  return new Date(Date.parse(generatedAt) + 60 * 1000).toISOString();
+  return new Date(Date.parse(generatedAt) + WEEK_SCOUT_COVERAGE_TTL_MS).toISOString();
 }
 
 function isSafe(score: DetailedScore): boolean {
