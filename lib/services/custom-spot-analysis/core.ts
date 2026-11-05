@@ -224,3 +224,42 @@ export async function analyzeCustomSpot(
     analyzedAt: dependencies.now().toISOString(),
   };
 }
+
+export interface AnchorTerrainResult {
+  lat: number;
+  lon: number;
+  swellAccessFactors: number[];
+  windExposureFactors: number[];
+  modelVersion: string;
+  terrainParamsHash: string;
+}
+
+/**
+ * Terrain at an anchor beach's own coordinate, with the same pipeline and
+ * parameters as its custom spots, so the two can be compared like-for-like.
+ * Unlike analyzeCustomSpot it derives no orientation, so an open coast that
+ * has no single dominant window still yields factors.
+ */
+export async function analyzeAnchorTerrain(
+  beachId: string,
+  lat: number,
+  lon: number,
+  dependencies: CustomSpotAnalysisDependencies = DEFAULT_DEPENDENCIES
+): Promise<AnchorTerrainResult> {
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+    throw new Error('invalid_coordinate');
+  }
+  const terrain = await dependencies.analyzeTerrain({ customSpotId: beachId, lat, lon, breakType: null });
+  if (!isValidDirectionalFactors(terrain.swellAccessFactors)
+    || !isValidDirectionalFactors(terrain.windExposureFactors)) {
+    throw new Error('invalid_directional_factors');
+  }
+  return {
+    lat,
+    lon,
+    swellAccessFactors: terrain.swellAccessFactors,
+    windExposureFactors: terrain.windExposureFactors,
+    modelVersion: CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION,
+    terrainParamsHash: getTerrainParamsHash(),
+  };
+}

@@ -1,7 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import {
+  CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION,
+  getTerrainParamsHash,
+  type AnchorTerrainResult,
+} from './core';
 import type {
+  AnchorNeedingTerrain,
   ClaimedCustomSpotAnalysisJob,
   CustomSpotAnalysisStore,
   CustomSpotForAnalysis,
@@ -79,6 +85,67 @@ export class SupabaseCustomSpotAnalysisStore implements CustomSpotAnalysisStore 
       terrainStatus: row.terrain_status,
       fingerprintConfidence: row.fingerprint_confidence,
     };
+  }
+
+  async getAnchorNeedingTerrain(customSpotId: string): Promise<AnchorNeedingTerrain | null> {
+    const { data: spot, error: spotError } = await this.client
+      .from('custom_spots')
+      .select('nearest_beach_id')
+      .eq('id', customSpotId)
+      .maybeSingle();
+    if (spotError) throw spotError;
+    const beachId = (spot as { nearest_beach_id: string | null } | null)?.nearest_beach_id;
+    if (!beachId) return null;
+
+    const { data: beach, error: beachError } = await this.client
+      .from('beaches')
+      .select('id, lat, lon, terrain_enabled, swell_access_factors, wind_exposure_factors')
+      .eq('id', beachId)
+      .maybeSingle();
+    if (beachError) throw beachError;
+    const row = beach as {
+      id: string; lat: number; lon: number; terrain_enabled: boolean | null;
+      swell_access_factors: number[] | null; wind_exposure_factors: number[] | null;
+    } | null;
+    if (!row) return null;
+    if (row.terrain_enabled && row.swell_access_factors?.length === 72 && row.wind_exposure_factors?.length === 72) {
+      return null;
+    }
+
+    const { data: reference, error: referenceError } = await this.client
+      .from('custom_spot_anchor_terrain')
+      .select('lat, lon, model_version, terrain_params_hash')
+      .eq('beach_id', beachId)
+      .maybeSingle();
+    if (referenceError) throw referenceError;
+    const current = reference as {
+      lat: number; lon: number; model_version: string; terrain_params_hash: string;
+    } | null;
+    if (
+      current?.model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
+      && current.terrain_params_hash === getTerrainParamsHash()
+      && current.lat === row.lat
+      && current.lon === row.lon
+    ) {
+      return null;
+    }
+    return { beachId: row.id, lat: row.lat, lon: row.lon };
+  }
+
+  async saveAnchorTerrain(beachId: string, terrain: AnchorTerrainResult): Promise<void> {
+    const { error } = await this.client
+      .from('custom_spot_anchor_terrain')
+      .upsert({
+        beach_id: beachId,
+        lat: terrain.lat,
+        lon: terrain.lon,
+        swell_access_factors: terrain.swellAccessFactors,
+        wind_exposure_factors: terrain.windExposureFactors,
+        model_version: terrain.modelVersion,
+        terrain_params_hash: terrain.terrainParamsHash,
+        analyzed_at: new Date().toISOString(),
+      }, { onConflict: 'beach_id' });
+    if (error) throw error;
   }
 
   async writeModeledResult(
