@@ -139,6 +139,20 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     parameters: ["wave"],
   },
 
+  // The measured buoy for Point Dume, Leo Carrillo and Latigo (Nov 2026:
+  // Leo held-out face error 0.31 ft vs 2.05 model-only). Explicit-only: as a
+  // fallback it would move 10 uncalibrated Santa Monica Bay beaches off "67".
+  "103": {
+    id: "103",
+    name: "Topanga Nearshore",
+    latitude: 34.02305,
+    longitude: -118.5783,
+    deployDepth: 20,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    fallbackEligible: false,
+  },
+
   // Additional SoCal Stations
   "67": {
     id: "67",

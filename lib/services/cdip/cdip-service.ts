@@ -298,6 +298,9 @@ export class CDIPService {
         if (this.blacklist.has(String(station.id)) || excluded.has(String(station.id))) {
           continue; // skip bad stations
         }
+        if (station.fallbackEligible === false) {
+          continue;
+        }
         const distance = calculateDistance(
           { lat: latitude, lon: longitude },
           { lat: station.latitude, lon: station.longitude },
