@@ -18,6 +18,24 @@ export function resolveBeachTimezone(tz?: string | null): string {
   return tz || DEFAULT_TIMEZONE;
 }
 
+// Week Scout display windows call getLocalDateString per window edge; building a
+// formatter each call was most of its cost. Failed constructions are not cached.
+const localDatePartFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function localDatePartFormatter(tz: string): Intl.DateTimeFormat {
+  let formatter = localDatePartFormatters.get(tz);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    localDatePartFormatters.set(tz, formatter);
+  }
+  return formatter;
+}
+
 /**
  * Get a YYYY-MM-DD date string for a given Date in a specific timezone.
  *
@@ -33,12 +51,7 @@ export function getLocalDateString(
 
   try {
     // Use formatToParts to avoid locale-dependent ordering.
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(date);
+    const parts = localDatePartFormatter(tz).formatToParts(date);
 
     const year = parts.find((p) => p.type === "year")?.value;
     const month = parts.find((p) => p.type === "month")?.value;
