@@ -127,6 +127,18 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     parameters: ["wave"],
   },
 
+  // Outside the Channel Islands; the measured buoy for the Ventura beaches
+  // (Nov 2026: held-out face error 0.25-0.52 ft vs 0.67-1.40 on "179").
+  "203": {
+    id: "203",
+    name: "Santa Cruz Basin",
+    latitude: 33.7685,
+    longitude: -119.563,
+    deployDepth: 1890,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
   // Additional SoCal Stations
   "67": {
     id: "67",
@@ -167,6 +179,19 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 274,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+  },
+
+  // 12 km off Ocean Beach SF; the measured buoy for Sloat (Nov 2026: 0.38 ft
+  // lower held-out face error than Harvest). Shallow, so it saturates on the
+  // biggest days.
+  "142": {
+    id: "142",
+    name: "San Francisco Bar",
+    latitude: 37.788,
+    longitude: -122.6318,
+    deployDepth: 15,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
   },
 
   "157": {
