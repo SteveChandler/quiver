@@ -71,13 +71,36 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
+// The truth path must see what production's buoy path sees: without the
+// access array, calibratedShadowFactor returns 1 for out-of-window buoy
+// directions and k came out ~1.3-1.5x too high where production shadows
+// the buoy hours (Ocean Beach, Sunset Cliffs, 204s, HB Pier Northside).
 interface Beach {
   id: string;
   name: string;
+  lat: number;
+  lon: number;
   cdip_station: string;
   shoaling_factors: ShoalingFactors;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
+  swell_access_factors: number[] | null;
+  terrain_enabled: boolean | null;
+}
+
+/**
+ * A buoy farther than this from the beach is a wrong assignment, not a
+ * reference (Nov 2026: "179" is Astoria Canyon OR for Ventura beaches,
+ * "217" is Onslow Bay NC for County Line, "71" is Harvest for Ocean Beach SF).
+ */
+const MAX_BUOY_DISTANCE_KM = 100;
+
+function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const rad = Math.PI / 180;
+  const a =
+    Math.sin(((lat2 - lat1) * rad) / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(((lon2 - lon1) * rad) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(a));
 }
 
 interface LogRow {
@@ -161,10 +184,16 @@ const CDIP_REALTIME_URL =
 /** waveFlagPrimary: 1 good, 2 not evaluated; 3 questionable, 4 bad, 9 missing are dropped. */
 const CDIP_USABLE_FLAGS = new Set([1, 2]);
 
+interface StationTruth {
+  obs: Obs[];
+  /** Deployed position from the station's own metadata; null for stored fallback rows. */
+  position: { lat: number; lon: number } | null;
+}
+
 async function fetchCdipRealtime(
   stationNumber: string,
   sinceMs: number,
-): Promise<Obs[]> {
+): Promise<StationTruth> {
   const base = `${CDIP_REALTIME_URL}/${stationNumber.padStart(3, "0")}p1_rt.nc.ascii`;
   const get = async (query: string): Promise<Record<string, number[]>> => {
     const res = await fetch(`${base}?${query}`, {
@@ -174,9 +203,16 @@ async function fetchCdipRealtime(
     if (!res.ok) throw new Error(`CDIP ${stationNumber}: HTTP ${res.status}`);
     return parseOpendapAscii(await res.text());
   };
-  const times = (await get("waveTime")).waveTime ?? [];
+  const head = await get("waveTime,metaDeployLatitude,metaDeployLongitude");
+  const times = head.waveTime ?? [];
+  const lat = head.metaDeployLatitude?.[0];
+  const lon = head.metaDeployLongitude?.[0];
+  const position =
+    typeof lat === "number" && typeof lon === "number" && Number.isFinite(lat) && Number.isFinite(lon)
+      ? { lat, lon }
+      : null;
   const first = times.findIndex((t) => t * 1000 >= sinceMs);
-  if (first < 0) return [];
+  if (first < 0) return { obs: [], position };
   const last = times.length - 1;
   const range = `[${first}:${last}]`;
   const v = await get(
@@ -196,7 +232,7 @@ async function fetchCdipRealtime(
       wave_direction_deg: v.waveDp[i] >= 0 ? v.waveDp[i] : null,
     });
   });
-  return obs;
+  return { obs, position };
 }
 
 async function fetchStoredObservations(station: string, since: string): Promise<Obs[]> {
@@ -225,7 +261,7 @@ async function main(): Promise<void> {
   const { data: beaches, error } = await supabase
     .from("beaches")
     .select(
-      "id,name,cdip_station,shoaling_factors,swell_window_center_deg,swell_window_halfwidth_deg",
+      "id,name,lat,lon,cdip_station,shoaling_factors,swell_window_center_deg,swell_window_halfwidth_deg,swell_access_factors,terrain_enabled",
     )
     .not("shoaling_factors", "is", null)
     .not("cdip_station", "is", null);
@@ -238,9 +274,10 @@ async function main(): Promise<void> {
     ),
   );
   const seam: Record<string, { name: string; pairs: SeamPair[] }> = {};
-  const obsByStation = new Map<string, Obs[]>();
+  const obsByStation = new Map<string, StationTruth>();
   const truthSource = new Map<string, "cdip-realtime" | "stored">();
   const noTruth: string[] = [];
+  const farBuoy: string[] = [];
   const totals = {
     logged: [] as number[],
     current: [] as number[],
@@ -254,21 +291,28 @@ async function main(): Promise<void> {
   for (const beach of beaches as Beach[]) {
     const station = `edu_ucsd_cdip_${beach.cdip_station.padStart(3, "0")}`;
     if (!obsByStation.has(station)) {
-      let obs: Obs[];
+      let truth: StationTruth;
       try {
-        obs = await fetchCdipRealtime(beach.cdip_station, Date.parse(since));
+        truth = await fetchCdipRealtime(beach.cdip_station, Date.parse(since));
         truthSource.set(station, "cdip-realtime");
       } catch (cdipError) {
         console.warn(`${station}: ${String(cdipError)}; using stored observations`);
-        obs = await fetchStoredObservations(station, since);
+        truth = { obs: await fetchStoredObservations(station, since), position: null };
         truthSource.set(station, "stored");
       }
-      obsByStation.set(station, obs);
+      obsByStation.set(station, truth);
     }
-    const obs = obsByStation.get(station)!;
+    const { obs, position } = obsByStation.get(station)!;
     if (obs.length === 0) {
       noTruth.push(`${beach.name} (CDIP ${beach.cdip_station})`);
       continue;
+    }
+    if (position) {
+      const km = distanceKm(beach.lat, beach.lon, position.lat, position.lon);
+      if (km > MAX_BUOY_DISTANCE_KM) {
+        farBuoy.push(`${beach.name} (CDIP ${beach.cdip_station}, ${Math.round(km)} km)`);
+        continue;
+      }
     }
 
     const rows = await fetchAllRows<LogRow>((from, to) =>
@@ -404,6 +448,12 @@ async function main(): Promise<void> {
       `\nno buoy readings in the window, so no factor (reassign cdip_station if the buoy is gone): ${noTruth.length} beaches`,
     );
     for (const name of noTruth.sort()) console.log(`  ${name}`);
+  }
+  if (farBuoy.length > 0) {
+    console.log(
+      `\nbuoy more than ${MAX_BUOY_DISTANCE_KM} km from the beach, so no factor (wrong cdip_station): ${farBuoy.length} beaches`,
+    );
+    for (const name of farBuoy.sort()) console.log(`  ${name}`);
   }
   const review = emitted.filter(
     (e) => e.k > MODEL_SWELL_FACTOR_REVIEW || e.k <= MODEL_SWELL_FACTOR_MIN,
