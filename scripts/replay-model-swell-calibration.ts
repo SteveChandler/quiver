@@ -31,6 +31,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { parseOpendapAscii } from "../lib/services/cdip-mop/mop-client";
 import {
   transformToFaceHeightDecomposed,
   transformToFaceHeightWithMetadata,
@@ -160,15 +161,6 @@ const CDIP_REALTIME_URL =
 /** waveFlagPrimary: 1 good, 2 not evaluated; 3 questionable, 4 bad, 9 missing are dropped. */
 const CDIP_USABLE_FLAGS = new Set([1, 2]);
 
-function parseOpendapAscii(text: string): Record<string, number[]> {
-  const data = text.split(/^-{5,}$/m)[1] ?? "";
-  const out: Record<string, number[]> = {};
-  for (const match of data.matchAll(/^(\w+)(?:\.\w+)?\[\d+\]\s*\n([^\n]*)/gm)) {
-    out[match[1]] = match[2].split(",").map((v) => Number(v.trim()));
-  }
-  return out;
-}
-
 async function fetchCdipRealtime(
   stationNumber: string,
   sinceMs: number,
@@ -248,6 +240,7 @@ async function main(): Promise<void> {
   const seam: Record<string, { name: string; pairs: SeamPair[] }> = {};
   const obsByStation = new Map<string, Obs[]>();
   const truthSource = new Map<string, "cdip-realtime" | "stored">();
+  const noTruth: string[] = [];
   const totals = {
     logged: [] as number[],
     current: [] as number[],
@@ -273,7 +266,10 @@ async function main(): Promise<void> {
       obsByStation.set(station, obs);
     }
     const obs = obsByStation.get(station)!;
-    if (obs.length === 0) continue;
+    if (obs.length === 0) {
+      noTruth.push(`${beach.name} (CDIP ${beach.cdip_station})`);
+      continue;
+    }
 
     const rows = await fetchAllRows<LogRow>((from, to) =>
       supabase
@@ -403,10 +399,18 @@ async function main(): Promise<void> {
   console.log(
     `buoy truth: ${sources.filter((s) => s === "cdip-realtime").length} stations from CDIP realtime, ${sources.filter((s) => s === "stored").length} from stored observations`,
   );
-  const review = emitted.filter((e) => e.k > MODEL_SWELL_FACTOR_REVIEW);
+  if (noTruth.length > 0) {
+    console.log(
+      `\nno buoy readings in the window, so no factor (reassign cdip_station if the buoy is gone): ${noTruth.length} beaches`,
+    );
+    for (const name of noTruth.sort()) console.log(`  ${name}`);
+  }
+  const review = emitted.filter(
+    (e) => e.k > MODEL_SWELL_FACTOR_REVIEW || e.k <= MODEL_SWELL_FACTOR_MIN,
+  );
   if (review.length > 0) {
     console.log(
-      `\nreview beach settings (factor > ${MODEL_SWELL_FACTOR_REVIEW}; usually a swell window or access array that blocks real swell):`,
+      `\nreview beach settings (factor > ${MODEL_SWELL_FACTOR_REVIEW} or pinned at the ${MODEL_SWELL_FACTOR_MIN} floor; usually a swell window or access array that blocks or over-admits real swell):`,
     );
     for (const e of [...review].sort((a, b) => b.k - a.k))
       console.log(`  ${e.k.toFixed(2)}  ${e.name}  ${e.id}`);
