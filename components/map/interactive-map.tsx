@@ -678,9 +678,16 @@ export function InteractiveMap({
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
   const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
+  const customSpotIds = useMemo(() => customSpots.map((spot) => spot.id), [customSpots]);
+  // Refetch exactly when an anchor's current row moves, so pin and anchor share an hour.
+  const customSpotAnchorRowsKey = customSpots
+    .map((spot) => (spot.nearestBeachId ? displayForecastMap.get(spot.nearestBeachId)?.forecastAt ?? "" : ""))
+    .join("|");
   const customSpotDisplays = useCustomSpotCurrentDisplays(
-    useMemo(() => customSpots.map((spot) => spot.id), [customSpots]),
+    customSpotIds,
+    customSpotAnchorRowsKey,
     getAccessToken,
+    onAuthTokenExpired,
   );
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [initialConditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
