@@ -138,4 +138,6 @@ export interface BuildCanonicalSessionDecisionInput {
   recommendationAvailability: RecommendationAvailability;
   candidates: readonly CanonicalDecisionCandidate[];
   candidateRejection?: CandidateRejection | null;
+  /** Defaults to 15 minutes; still capped at the scope's end. */
+  ttlMs?: number;
 }
