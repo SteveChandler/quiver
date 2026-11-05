@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -144,6 +145,12 @@ async function weekScoutHandler(
   if (!parsed.success) {
     return createValidationError('Invalid Week Scout request', parsed.error.flatten());
   }
+  requestTags.set(request, {
+    dayCount: parsed.data.dayCount,
+    platform: request.headers.get('x-quiver-platform'),
+    update: request.headers.get('x-quiver-update-id')?.slice(0, 64) ?? null,
+    user: createHash('sha256').update(user.id).digest('hex').slice(0, 8),
+  });
   const completeRadiusScope = parsed.data.candidateScope === 'complete-radius'
     ? { kind: 'complete-radius' as const }
     : parsed.data.candidateScope;
@@ -404,6 +411,14 @@ const protectedPOST = withRateLimit(
 
 const requestStarts = new WeakMap<object, number>();
 const requestStartedAt = (request: NextRequest): number => requestStarts.get(request) ?? performance.now();
+// Who asked for what, so the timing line can show which app build sends which horizon
+// and pair a user's back-to-back requests without logging the raw user id.
+const requestTags = new WeakMap<object, {
+  dayCount: number;
+  platform: string | null;
+  update: string | null;
+  user: string;
+}>();
 
 export const POST = async (
   ...args: Parameters<typeof protectedPOST>
@@ -419,7 +434,7 @@ export const POST = async (
     const instance = stopProbe();
     const totalMs = Math.round(performance.now() - startedAt);
     // One line per request via console.info, which production log levels keep.
-    console.info(`[WeekScoutTiming] ${JSON.stringify({ status: response?.status ?? null, totalMs, ...instance, stages })}`);
+    console.info(`[WeekScoutTiming] ${JSON.stringify({ status: response?.status ?? null, totalMs, ...requestTags.get(args[0]), ...instance, stages })}`);
   }
   response.headers.set(
     'Server-Timing',
