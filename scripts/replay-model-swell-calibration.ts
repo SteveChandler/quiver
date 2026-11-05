@@ -14,12 +14,21 @@
  * each beach's rows and score the second half; the emitted map is fit on all
  * rows.
  *
+ * Truth comes from CDIP's 30-minute realtime file on THREDDS. Our stored
+ * observations keep about 12 readings a day, which left half the forecast
+ * hours without a buoy reading inside the 45 min match window; the stored
+ * rows are only the fallback when THREDDS is unreachable. Factors above
+ * MODEL_SWELL_FACTOR_REVIEW are printed for a settings review: a beach that
+ * needs that much correction usually has a wrong swell window or access
+ * array, not a model bias.
+ *
  * --seam-fixtures also refreshes scripts/__fixtures__/model-seam-fixtures.json:
  * the most recent real CDIP→model handoff pairs at each regression-fixture
  * beach plus Del Mar, which Gate G of scripts/shoaling-regression.ts replays.
  *
  * Run: node --import tsx scripts/replay-model-swell-calibration.ts <env file> [days] [--write] [--seam-fixtures]
  */
+import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -36,6 +45,7 @@ import {
   MODEL_SWELL_FACTOR_MIN,
   MODEL_SWELL_FACTOR_MIN_EFFECT,
   MODEL_SWELL_FACTOR_MIN_ROWS,
+  MODEL_SWELL_FACTOR_REVIEW,
 } from "../lib/utils/model-swell-calibration-factors";
 
 const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
@@ -127,6 +137,96 @@ function withoutBeachId(input: ForecastReplayInput): ForecastReplayInput {
   return { ...input, beach };
 }
 
+const PAGE_SIZE = 1000;
+
+/** PostgREST caps a response at 1000 rows; a longer window used to be silently cut. */
+async function fetchAllRows<T>(
+  page: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE_SIZE) return rows;
+  }
+}
+
+const CDIP_REALTIME_URL =
+  "https://thredds.cdip.ucsd.edu/thredds/dodsC/cdip/realtime";
+/** waveFlagPrimary: 1 good, 2 not evaluated; 3 questionable, 4 bad, 9 missing are dropped. */
+const CDIP_USABLE_FLAGS = new Set([1, 2]);
+
+function parseOpendapAscii(text: string): Record<string, number[]> {
+  const data = text.split(/^-{5,}$/m)[1] ?? "";
+  const out: Record<string, number[]> = {};
+  for (const match of data.matchAll(/^(\w+)(?:\.\w+)?\[\d+\]\s*\n([^\n]*)/gm)) {
+    out[match[1]] = match[2].split(",").map((v) => Number(v.trim()));
+  }
+  return out;
+}
+
+async function fetchCdipRealtime(
+  stationNumber: string,
+  sinceMs: number,
+): Promise<Obs[]> {
+  const base = `${CDIP_REALTIME_URL}/${stationNumber.padStart(3, "0")}p1_rt.nc.ascii`;
+  const get = async (query: string): Promise<Record<string, number[]>> => {
+    const res = await fetch(`${base}?${query}`, {
+      headers: { "User-Agent": "Quiver (support@quiversurf.app)" },
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) throw new Error(`CDIP ${stationNumber}: HTTP ${res.status}`);
+    return parseOpendapAscii(await res.text());
+  };
+  const times = (await get("waveTime")).waveTime ?? [];
+  const first = times.findIndex((t) => t * 1000 >= sinceMs);
+  if (first < 0) return [];
+  const last = times.length - 1;
+  const range = `[${first}:${last}]`;
+  const v = await get(
+    ["waveTime", "waveHs", "waveTp", "waveDp", "waveFlagPrimary"]
+      .map((name) => `${name}${range}`)
+      .join(","),
+  );
+  const obs: Obs[] = [];
+  v.waveTime.forEach((t, i) => {
+    if (!CDIP_USABLE_FLAGS.has(v.waveFlagPrimary[i])) return;
+    const hs = v.waveHs[i];
+    if (!(hs > 0 && hs < 30)) return;
+    obs.push({
+      observed_at: new Date(t * 1000).toISOString(),
+      wave_height_m: hs,
+      wave_period_s: v.waveTp[i] > 0 ? v.waveTp[i] : null,
+      wave_direction_deg: v.waveDp[i] >= 0 ? v.waveDp[i] : null,
+    });
+  });
+  return obs;
+}
+
+async function fetchStoredObservations(station: string, since: string): Promise<Obs[]> {
+  return fetchAllRows<Obs>((from, to) =>
+    supabase
+      .from("unified_wave_observations")
+      .select("observed_at,wave_height_m,wave_period_s,wave_direction_deg")
+      .eq("station_id", station)
+      .gte("observed_at", since)
+      .order("observed_at")
+      .range(from, to),
+  );
+}
+
+function fitCommit(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 async function main(): Promise<void> {
   const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();
   const until = new Date(Date.now() - 3 * 3_600_000).toISOString();
@@ -147,6 +247,7 @@ async function main(): Promise<void> {
   );
   const seam: Record<string, { name: string; pairs: SeamPair[] }> = {};
   const obsByStation = new Map<string, Obs[]>();
+  const truthSource = new Map<string, "cdip-realtime" | "stored">();
   const totals = {
     logged: [] as number[],
     current: [] as number[],
@@ -160,34 +261,40 @@ async function main(): Promise<void> {
   for (const beach of beaches as Beach[]) {
     const station = `edu_ucsd_cdip_${beach.cdip_station.padStart(3, "0")}`;
     if (!obsByStation.has(station)) {
-      const { data, error: obsError } = await supabase
-        .from("unified_wave_observations")
-        .select("observed_at,wave_height_m,wave_period_s,wave_direction_deg")
-        .eq("station_id", station)
-        .gte("observed_at", since)
-        .order("observed_at");
-      if (obsError) throw obsError;
-      obsByStation.set(station, (data ?? []) as Obs[]);
+      let obs: Obs[];
+      try {
+        obs = await fetchCdipRealtime(beach.cdip_station, Date.parse(since));
+        truthSource.set(station, "cdip-realtime");
+      } catch (cdipError) {
+        console.warn(`${station}: ${String(cdipError)}; using stored observations`);
+        obs = await fetchStoredObservations(station, since);
+        truthSource.set(station, "stored");
+      }
+      obsByStation.set(station, obs);
     }
     const obs = obsByStation.get(station)!;
     if (obs.length === 0) continue;
 
-    const { data: rows, error: rowError } = await supabase
-      .from("ml_predictions_log")
-      .select("predicted_at,raw_display_height_m,display_replay_context")
-      .eq("beach_id", beach.id)
-      .eq("display_wave_source", "model_swell")
-      .gte("predicted_at", since)
-      .lte("predicted_at", until)
-      .gte("forecast_horizon_hours", 12)
-      .lte("forecast_horizon_hours", 48)
-      .gt("raw_display_height_m", 0)
-      .not("display_replay_context", "is", null);
-    if (rowError) throw rowError;
+    const rows = await fetchAllRows<LogRow>((from, to) =>
+      supabase
+        .from("ml_predictions_log")
+        .select("predicted_at,raw_display_height_m,display_replay_context")
+        .eq("beach_id", beach.id)
+        .eq("display_wave_source", "model_swell")
+        .gte("predicted_at", since)
+        .lte("predicted_at", until)
+        .gte("forecast_horizon_hours", 12)
+        .lte("forecast_horizon_hours", 48)
+        .gt("raw_display_height_m", 0)
+        .not("display_replay_context", "is", null)
+        .order("predicted_at")
+        .order("id")
+        .range(from, to),
+    );
 
     const recs: Rec[] = [];
     const pairs = new Map<string, SeamPair>();
-    for (const row of (rows ?? []) as LogRow[]) {
+    for (const row of rows) {
       const ctx = parseForecastDisplayReplayContext(row.display_replay_context);
       if (!ctx || ctx.base.input.source !== "model_swell") continue;
       if (ctx.handoff && !pairs.has(ctx.handoff.model.forecastAt)) {
@@ -292,6 +399,18 @@ async function main(): Promise<void> {
     `replay reproduced the logged height within 0.15 ft: ${reproduced}/${replayed}`,
   );
   console.log(`emitted ${emitted.length} beach factors`);
+  const sources = [...truthSource.values()];
+  console.log(
+    `buoy truth: ${sources.filter((s) => s === "cdip-realtime").length} stations from CDIP realtime, ${sources.filter((s) => s === "stored").length} from stored observations`,
+  );
+  const review = emitted.filter((e) => e.k > MODEL_SWELL_FACTOR_REVIEW);
+  if (review.length > 0) {
+    console.log(
+      `\nreview beach settings (factor > ${MODEL_SWELL_FACTOR_REVIEW}; usually a swell window or access array that blocks real swell):`,
+    );
+    for (const e of [...review].sort((a, b) => b.k - a.k))
+      console.log(`  ${e.k.toFixed(2)}  ${e.name}  ${e.id}`);
+  }
 
   if (SEAM_FIXTURES) {
     // One pair per line keeps the fixture reviewable despite 72-bin access arrays.
@@ -317,6 +436,7 @@ async function main(): Promise<void> {
     .join("\n");
   const source = readTemplate()
     .replace("__FIT_DATE__", today)
+    .replace("__COMMIT__", fitCommit())
     .replaceAll("__DAYS__", String(DAYS))
     .replace("__ENTRIES__", entries);
   writeFileSync(OUT_PATH, source);
@@ -336,15 +456,23 @@ function readTemplate(): string {
  * a beach's model hours land on its buoy ruler.
  *
  * Generated — do not hand-edit entries. Refit monthly; the fit only covers the
- * season in the window (this one: fall south swell).
+ * season in the window.
  *   node --import tsx scripts/replay-model-swell-calibration.ts .env.local __DAYS__ --write --seam-fixtures
  *
- * Fit __FIT_DATE__ over __DAYS__ days: ml_predictions_log model_swell rows, horizon
- * 12-48 h, buoy observation within 45 min. A beach gets an entry only with
- * at least MODEL_SWELL_FACTOR_MIN_ROWS rows and |k - 1| >= MODEL_SWELL_FACTOR_MIN_EFFECT.
+ * Fit __FIT_DATE__ at commit __COMMIT__ over __DAYS__ days: ml_predictions_log
+ * model_swell rows, horizon 12-48 h, CDIP 30-minute realtime buoy reading
+ * within 45 min. A beach gets an entry only with at least
+ * MODEL_SWELL_FACTOR_MIN_ROWS rows and |k - 1| >= MODEL_SWELL_FACTOR_MIN_EFFECT.
+ * The fit is only valid for the transform at that commit; refit after any
+ * change to wave-height-transformer.ts.
+ *
+ * The cap was 1.6 until Nov 2026, when it bound at 30 of 91 beaches; a
+ * held-out half scored 0.69 ft MAE at 2.5 against 0.85 at 1.6. Factors above
+ * MODEL_SWELL_FACTOR_REVIEW still ship but are listed for a settings review.
  */
 export const MODEL_SWELL_FACTOR_MIN = 0.8;
-export const MODEL_SWELL_FACTOR_MAX = 1.6;
+export const MODEL_SWELL_FACTOR_MAX = 2.5;
+export const MODEL_SWELL_FACTOR_REVIEW = 1.6;
 export const MODEL_SWELL_FACTOR_MIN_EFFECT = 0.08;
 export const MODEL_SWELL_FACTOR_MIN_ROWS = 100;
 
