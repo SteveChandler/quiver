@@ -101,6 +101,7 @@ describe("GET /api/custom-spots/[id]/forecast-heights", () => {
     ["a bad id", "not-a-uuid", START, END],
     ["a reversed window", SPOT_ID, END, START],
     ["a window over 16 days", SPOT_ID, START, "2026-12-01T00:00:00.000Z"],
+    ["a non-ISO start", SPOT_ID, "2026", END],
   ])("rejects %s", async (_label, id, start, end) => {
     const response = await customSpotForecastHeightsHandler(request(start, end), contextWith({}, id));
     expect(response.status).toBe(400);

@@ -20,6 +20,11 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_WINDOW_MS = 16 * 24 * 60 * 60 * 1000;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+function parseInstant(value: string | null): number {
+  return value && ISO_INSTANT.test(value) ? Date.parse(value) : NaN;
+}
 
 const SPOT_SELECT =
   "id, user_id, name, lat, lon, visibility, nearest_beach_id, nearest_beach_distance_mi, break_type, facing_direction_deg, swell_window_min_deg, swell_window_max_deg, offshore_direction_deg, exposure_level, swell_access_factors, wind_exposure_factors, terrain_method, terrain_params, terrain_params_hash, terrain_analyzed_at, terrain_status, fingerprint_model_version, deleted_at";
@@ -53,8 +58,8 @@ export async function customSpotForecastHeightsHandler(
 ): Promise<NextResponse> {
   const id = params.id ?? "";
   if (!UUID.test(id)) return createValidationError("id must be a UUID");
-  const start = Date.parse(request.nextUrl.searchParams.get("start") ?? "");
-  const end = Date.parse(request.nextUrl.searchParams.get("end") ?? "");
+  const start = parseInstant(request.nextUrl.searchParams.get("start"));
+  const end = parseInstant(request.nextUrl.searchParams.get("end"));
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > MAX_WINDOW_MS) {
     return createValidationError("start and end must be ISO times at most 16 days apart");
   }
@@ -92,9 +97,11 @@ export async function customSpotForecastHeightsHandler(
 
     const rows = (rowResult.data ?? []) as unknown as EnhancedForecastEntity[];
     const displayRows = await applyV51DisplayOverrideToForecasts(rows);
+    const heights = changedHeights(rows, adjust);
+    // The override returns the same rows when it is off; no need to scale them twice.
     return createSuccessResponse({
-      heights: changedHeights(rows, adjust),
-      displayHeights: changedHeights(displayRows, adjust),
+      heights,
+      displayHeights: displayRows === rows ? heights : changedHeights(displayRows, adjust),
     });
   } catch (error) {
     return handleApiError(
