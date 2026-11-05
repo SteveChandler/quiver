@@ -22,8 +22,8 @@ import { NextRequest } from "next/server";
 import { POST } from "@/app/api/surf/week-scout/route";
 import { WEEK_SCOUT_CONTRACT_BEACH_ID, WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
 
-const request = (): NextRequest => new NextRequest("http://localhost/api/surf/week-scout", {
-  method: "POST", body: JSON.stringify({ candidateBeachIds: [WEEK_SCOUT_CONTRACT_BEACH_ID],
+const request = (headers: Record<string, string> = {}): NextRequest => new NextRequest("http://localhost/api/surf/week-scout", {
+  method: "POST", headers, body: JSON.stringify({ candidateBeachIds: [WEEK_SCOUT_CONTRACT_BEACH_ID],
     localTimezone: "Pacific/Honolulu", startLocalDate: "2026-07-15", dayCount: 7 }),
 });
 const context = (homeBeachId: string | null): unknown => ({
@@ -97,7 +97,7 @@ describe("Week Scout story response", () => {
       cover: { text: null, swells: [] }, lead: null, turn: null, chapters: [], days: storyDays(live),
     }));
     const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
-    const response = await POST(request(), context(null) as never);
+    const response = await POST(request({ "x-quiver-platform": "ios", "x-quiver-update-id": "f933afba" }), context(null) as never);
     const names = (response.headers.get("Server-Timing") ?? "").split(", ").map((entry) => entry.split(";")[0]);
     expect(names).toEqual(expect.arrayContaining(["profile", "pool", "story-load", "forecast", "story-bind", "serialize", "total"]));
     expect(names[names.length - 1]).toBe("total");
@@ -105,6 +105,7 @@ describe("Week Scout story response", () => {
     const line = info.mock.calls.map(([message]) => String(message)).find((message) => message.startsWith("[WeekScoutTiming] "));
     expect(JSON.parse(line!.slice("[WeekScoutTiming] ".length))).toMatchObject({
       status: 200, cold: expect.any(Boolean), inflight: 1, stages: expect.any(Array),
+      dayCount: 7, platform: "ios", update: "f933afba", user: expect.stringMatching(/^[0-9a-f]{8}$/),
     });
     info.mockRestore();
   });
