@@ -34,7 +34,9 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
 import { getFavoriteBeachesFromDb } from '@/lib/services/beach-query-service';
-import type { Beach } from '@/types/database';
+import { CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION } from '@/lib/services/custom-spot-analysis/core';
+import { applyCustomSpotForecastGeometry } from '@/lib/services/custom-spot-analysis/forecast-overlay';
+import type { Beach, Json } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
   SurfDiscoveryRecommendation,
@@ -224,7 +226,7 @@ class SurfDiscoveryOperationalError extends Error {
   }
 }
 
-interface CustomSpotDiscoveryRow {
+export interface CustomSpotDiscoveryRow {
   id: string;
   user_id: string;
   name: string;
@@ -239,6 +241,14 @@ interface CustomSpotDiscoveryRow {
   swell_window_max_deg: number | null;
   offshore_direction_deg: number | null;
   exposure_level: string | null;
+  swell_access_factors: number[] | null;
+  wind_exposure_factors: number[] | null;
+  terrain_method: string | null;
+  terrain_params: Json | null;
+  terrain_params_hash: string | null;
+  terrain_analyzed_at: string | null;
+  terrain_status: string | null;
+  fingerprint_model_version: string | null;
   deleted_at: string | null;
 }
 
@@ -787,6 +797,14 @@ async function fetchCustomSpotRows(
       'swell_window_max_deg',
       'offshore_direction_deg',
       'exposure_level',
+      'swell_access_factors',
+      'wind_exposure_factors',
+      'terrain_method',
+      'terrain_params',
+      'terrain_params_hash',
+      'terrain_analyzed_at',
+      'terrain_status',
+      'fingerprint_model_version',
       'deleted_at',
     ].join(', ');
     const bounds = boundingBoxForRadius(userLocation, radiusMiles);
@@ -880,16 +898,38 @@ async function buildCustomSpotCandidates(
     .filter((candidate): candidate is CustomSpotDiscoveryCandidate => candidate !== null);
 }
 
-function buildCustomSpotBeach(
+function hasModeledTerrain(spot: CustomSpotDiscoveryRow): boolean {
+  return spot.terrain_status === 'ok'
+    && spot.fingerprint_model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
+    && spot.swell_access_factors?.length === 72
+    && spot.wind_exposure_factors?.length === 72;
+}
+
+export function buildCustomSpotBeach(
   spot: CustomSpotDiscoveryRow,
   nearestBeach: Beach,
 ): Beach {
   const minDeg = spot.swell_window_min_deg ?? nearestBeach.swell_window_min_deg;
   const maxDeg = spot.swell_window_max_deg ?? nearestBeach.swell_window_max_deg;
   const computedSwellWindow = swellCenterAndHalfwidth(minDeg, maxDeg);
+  // Modeled terrain replaces the anchor's only when the whole result is current;
+  // otherwise the spot keeps the nearest beach's terrain.
+  const terrain = hasModeledTerrain(spot)
+    ? {
+        swell_access_factors: spot.swell_access_factors,
+        wind_exposure_factors: spot.wind_exposure_factors,
+        terrain_enabled: true,
+        terrain_method: spot.terrain_method,
+        terrain_params: spot.terrain_params,
+        terrain_params_hash: spot.terrain_params_hash,
+        terrain_analyzed_at: spot.terrain_analyzed_at,
+        terrain_status: 'ok',
+      }
+    : {};
 
   return {
     ...nearestBeach,
+    ...terrain,
     name: spot.name,
     lat: spot.lat,
     lon: spot.lon,
@@ -2295,15 +2335,23 @@ async function discoverSurfSpotsInner(
     const customCandidates = customSpotCandidatesByNearestBeachId.get(beach.id) ?? [];
     for (const customCandidate of customCandidates) {
       const customBeach = buildCustomSpotBeach(customCandidate.spot, beach);
+      // Spots without their own modeled terrain keep the anchor's forecast as-is.
+      const customTerrain = hasModeledTerrain(customCandidate.spot);
+      const customForecast = customTerrain
+        ? applyCustomSpotForecastGeometry(bestWindowForecast, customBeach, beach)
+        : bestWindowForecast;
+      const customResponseWindow = customForecast === bestWindowForecast
+        ? responseWindow
+        : { ...responseWindow, waveHeight: customForecast.wave_height ?? responseWindow.waveHeight };
       const customPersResult = calculatePersonalizationBonus(
         customBeach,
-        bestWindowForecast,
+        customForecast,
         personalizationCtx,
       );
       const customDetailedScore = await scoreBeachForDiscovery({
         driveRadiusMiles,
         beach: customBeach,
-        forecast: bestWindowForecast,
+        forecast: customForecast,
         userPrefs,
         userSkillLevel,
         distanceMiles: customCandidate.distanceMiles,
@@ -2324,8 +2372,10 @@ async function discoverSurfSpotsInner(
       }
 
       const customDistinction = computeWindowDistinctionReason(
-        bestWindowForecast,
-        forecasts,
+        customForecast,
+        customTerrain
+          ? forecasts.map((row) => applyCustomSpotForecastGeometry(row, customBeach, beach))
+          : forecasts,
         customBeach,
         beachTz,
         userSkillLevel,
@@ -2348,7 +2398,7 @@ async function discoverSurfSpotsInner(
         character: customConditionCharacter,
       } = resolveRecommendationLabel({
         beach: customBeach,
-        forecast: bestWindowForecast,
+        forecast: customForecast,
         score: customDetailedScore.total,
       });
       const customRecommendation: SurfDiscoveryRecommendation = {
@@ -2357,8 +2407,8 @@ async function discoverSurfSpotsInner(
         visibility: customCandidate.spot.visibility,
         isOwn: customCandidate.isOwn,
         beach: customBeach,
-        window: { ...responseWindow },
-        forecast: bestWindowForecast,
+        window: { ...customResponseWindow },
+        forecast: customForecast,
         score: customDetailedScore.total,
         rankingScore: customDetailedScore.rankingTotal,
         matchQuality: customDetailedScore.matchQuality,
@@ -2366,7 +2416,7 @@ async function discoverSurfSpotsInner(
         spotProfile: beachToSpotProfile(customBeach),
         recommendationLabel: customRecommendationLabel,
         subscores: customDetailedScore.subscores,
-        summary: generateDiscoverySummary(customBeach, responseWindow, customDetailedScore),
+        summary: generateDiscoverySummary(customBeach, customResponseWindow, customDetailedScore),
         message: buildDiscoveryMessage(
           customDetailedScore.total,
           customDetailedScore.reasons,
