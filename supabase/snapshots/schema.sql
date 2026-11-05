@@ -48,6 +48,12 @@ COMMENT ON SCHEMA "public" IS 'Removed mv_beach_hourly_scores on 2026-01-13 - no
 
 
 
+CREATE SCHEMA IF NOT EXISTS "quiver_agent_evidence";
+
+
+ALTER SCHEMA "quiver_agent_evidence" OWNER TO "postgres";
+
+
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
 
 
@@ -239,7 +245,8 @@ BEGIN
   SELECT count(*)
   INTO existing_board_count
   FROM public.boards
-  WHERE user_id = NEW.user_id;
+  WHERE user_id = NEW.user_id
+    AND retired_at IS NULL;
 
   IF existing_board_count >= 10 THEN
     RAISE EXCEPTION 'board_limit_reached'
@@ -257,7 +264,7 @@ $$;
 ALTER FUNCTION "private"."enforce_user_board_limit"() OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "private"."enforce_user_board_limit"() IS 'Enforces the app-wide limit of 10 boards per user before inserts.';
+COMMENT ON FUNCTION "private"."enforce_user_board_limit"() IS 'Enforces the app-wide limit of 10 active (not retired) boards per user on insert and un-retire.';
 
 
 
@@ -544,6 +551,138 @@ $$;
 
 
 ALTER FUNCTION "public"."admin_list_community_spot_photos_v1"("p_status" "text", "p_target_type" "text", "p_target_id" "uuid", "p_limit" integer, "p_before" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."advance_swell_watch_event"("p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_beach_impact_id" "uuid", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone, "p_transition_id" "uuid") RETURNS "text"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_count integer;
+  v_impact_evaluation_id text;
+  v_impact_identity_kind text;
+  v_latest_state text;
+  v_latest_evaluation_id text;
+  v_cycle_started_at timestamptz;
+  v_version integer;
+  v_transition_id uuid;
+  v_existing_beach_impact_id uuid;
+  v_existing_arrival_at timestamptz;
+  v_existing_peak_at timestamptz;
+  v_existing_evaluation_kind text;
+  v_beach_id uuid;
+  v_required integer; v_current_count integer; v_latest_stable_evaluation_id text;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || p_regional_event_id::text, 0));
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  SELECT impact.evaluation_id, observation.identity_kind, impact.beach_id
+  INTO v_impact_evaluation_id, v_impact_identity_kind, v_beach_id
+  FROM public.swell_watch_beach_impacts impact
+  JOIN public.swell_watch_observations observation ON observation.id = impact.observation_id
+  WHERE impact.id = p_beach_impact_id;
+  IF v_impact_evaluation_id IS DISTINCT FROM p_evaluation_id THEN
+    RAISE EXCEPTION 'evaluation identity does not match beach impact';
+  END IF;
+  IF v_impact_identity_kind NOT IN ('genuine_completed', 'synthetic_fixture') THEN
+    RAISE EXCEPTION 'evaluation identity kind is invalid';
+  END IF;
+  IF p_arrival_at IS NULL OR p_peak_at IS NULL OR NOT isfinite(p_arrival_at)
+    OR NOT isfinite(p_peak_at) OR p_peak_at < p_arrival_at THEN
+    RAISE EXCEPTION 'invalid event impact timing';
+  END IF;
+  SELECT state INTO v_latest_state
+  FROM public.swell_watch_event_state_transitions
+  WHERE regional_event_id = p_regional_event_id
+  ORDER BY version DESC
+  LIMIT 1;
+  IF v_latest_state = 'suppressed' THEN
+    RETURN 'candidate';
+  END IF;
+  SELECT beach_impact_id, arrival_at, peak_at
+  INTO v_existing_beach_impact_id, v_existing_arrival_at, v_existing_peak_at
+  FROM public.swell_watch_event_impacts
+  WHERE regional_event_id = p_regional_event_id AND evaluation_id = p_evaluation_id
+    AND beach_id = v_beach_id;
+  IF v_existing_beach_impact_id IS NOT NULL AND (
+    v_existing_beach_impact_id IS DISTINCT FROM p_beach_impact_id
+    OR v_existing_arrival_at IS DISTINCT FROM p_arrival_at
+    OR v_existing_peak_at IS DISTINCT FROM p_peak_at
+  ) THEN
+    RAISE EXCEPTION 'conflicting event evaluation retry';
+  END IF;
+  IF v_existing_beach_impact_id IS NOT NULL THEN
+    RETURN coalesce(v_latest_state, 'candidate');
+  END IF;
+  SELECT identity_kind INTO v_existing_evaluation_kind
+  FROM public.swell_watch_event_evaluations
+  WHERE regional_event_id = p_regional_event_id AND evaluation_id = p_evaluation_id;
+  IF FOUND AND v_existing_evaluation_kind IS DISTINCT FROM v_impact_identity_kind THEN
+    RAISE EXCEPTION 'conflicting event evaluation retry';
+  END IF;
+  INSERT INTO public.swell_watch_event_evaluations (id, regional_event_id, evaluation_id, identity_kind, beach_impact_id, arrival_at, peak_at)
+  VALUES (p_transition_id, p_regional_event_id, p_evaluation_id, v_impact_identity_kind, p_beach_impact_id, p_arrival_at, p_peak_at)
+  ON CONFLICT (regional_event_id, evaluation_id) DO NOTHING;
+  INSERT INTO public.swell_watch_event_impacts
+    (id, regional_event_id, evaluation_id, beach_id, beach_impact_id, arrival_at, peak_at, evaluated_at)
+  SELECT gen_random_uuid(), p_regional_event_id, p_evaluation_id, v_beach_id,
+    p_beach_impact_id, p_arrival_at, p_peak_at, evaluation.evaluated_at
+  FROM public.swell_watch_event_evaluations evaluation
+  WHERE evaluation.regional_event_id = p_regional_event_id AND evaluation.evaluation_id = p_evaluation_id;
+  SELECT max(created_at) INTO v_cycle_started_at
+  FROM public.swell_watch_event_state_transitions
+  WHERE regional_event_id = p_regional_event_id AND state = 'suppressed';
+  IF v_latest_state = 'stable' THEN
+    SELECT trigger_evaluation_id INTO v_latest_stable_evaluation_id FROM public.swell_watch_event_state_transitions WHERE regional_event_id=p_regional_event_id ORDER BY version DESC LIMIT 1;
+    IF EXISTS(SELECT 1 FROM public.swell_watch_event_evaluations evaluation
+      JOIN public.swell_watch_beach_impacts impact ON impact.id=evaluation.beach_impact_id
+      JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+      WHERE evaluation.regional_event_id=p_regional_event_id AND evaluation.evaluation_id=v_latest_stable_evaluation_id
+        AND public.swell_watch_provider_evidence_is_current(observation.provider_batch_id)) THEN RETURN 'stable'; END IF;
+  END IF;
+  SELECT evaluation_id INTO v_latest_evaluation_id
+  FROM public.swell_watch_event_evaluations
+  WHERE regional_event_id = p_regional_event_id
+    AND (v_cycle_started_at IS NULL OR evaluated_at > v_cycle_started_at)
+  ORDER BY evaluated_at DESC, id DESC
+  LIMIT 1;
+  IF v_latest_evaluation_id IS DISTINCT FROM p_evaluation_id THEN
+    RETURN 'candidate';
+  END IF;
+  SELECT count(*) INTO v_count FROM (
+    SELECT evaluation_id
+    FROM public.swell_watch_event_evaluations
+    WHERE regional_event_id = p_regional_event_id
+      AND (v_cycle_started_at IS NULL OR evaluated_at > v_cycle_started_at)
+    ORDER BY evaluated_at DESC, id DESC
+    LIMIT 2
+  ) contiguous_evaluations;
+  SELECT (policy_values #>> '{stability,minimum_genuine_evaluations}')::integer INTO v_required FROM public.swell_watch_get_matching_policy();
+  SELECT count(DISTINCT evaluation.evaluation_id) INTO v_current_count
+  FROM public.swell_watch_event_evaluations evaluation
+  JOIN public.swell_watch_beach_impacts impact ON impact.id=evaluation.beach_impact_id
+  JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+  WHERE evaluation.regional_event_id=p_regional_event_id AND evaluation.identity_kind='genuine_completed'
+    AND public.swell_watch_provider_evidence_is_current(observation.provider_batch_id);
+  IF coalesce(v_current_count,0) < greatest(coalesce(v_required,2),2) THEN RETURN 'candidate'; END IF;
+  SELECT coalesce(max(version), 0) + 1 INTO v_version FROM public.swell_watch_event_state_transitions WHERE regional_event_id = p_regional_event_id;
+  INSERT INTO public.swell_watch_event_state_transitions (id, regional_event_id, state, version, trigger_evaluation_id)
+  VALUES (gen_random_uuid(), p_regional_event_id, 'stable', v_version, p_evaluation_id)
+  ON CONFLICT (regional_event_id, version) DO NOTHING
+  RETURNING id INTO v_transition_id;
+  IF v_transition_id IS NULL THEN
+    SELECT state INTO v_latest_state
+    FROM public.swell_watch_event_state_transitions
+    WHERE regional_event_id = p_regional_event_id
+    ORDER BY version DESC
+    LIMIT 1;
+    IF v_latest_state = 'suppressed' THEN RETURN 'candidate'; END IF;
+  END IF;
+  RETURN 'stable';
+END;
+$$;
+
+
+ALTER FUNCTION "public"."advance_swell_watch_event"("p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_beach_impact_id" "uuid", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone, "p_transition_id" "uuid") OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."experiment_assignments" (
@@ -1567,6 +1706,27 @@ COMMENT ON FUNCTION "public"."append_regional_recommendation_hold_transition"("p
 
 
 
+CREATE OR REPLACE FUNCTION "public"."append_swell_watch_state_transition"("p_transition_id" "uuid", "p_regional_event_id" "uuid", "p_expected_version" integer, "p_state" "text", "p_evaluation_id" "text") RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE v_current integer; v_next integer;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || p_regional_event_id::text, 0));
+  SELECT coalesce(max(version), 0) INTO v_current FROM public.swell_watch_event_state_transitions WHERE regional_event_id = p_regional_event_id;
+  IF v_current IS DISTINCT FROM p_expected_version THEN RAISE EXCEPTION 'swell watch transition version conflict'; END IF;
+  IF p_state = 'stable' THEN RAISE EXCEPTION 'stable transitions require evidence advancement'; END IF;
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  v_next := v_current + 1;
+  INSERT INTO public.swell_watch_event_state_transitions (id, regional_event_id, state, version, trigger_evaluation_id) VALUES (p_transition_id, p_regional_event_id, p_state, v_next, p_evaluation_id);
+  RETURN v_next;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."append_swell_watch_state_transition"("p_transition_id" "uuid", "p_regional_event_id" "uuid", "p_expected_version" integer, "p_state" "text", "p_evaluation_id" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."apply_android_tester_roster_snapshot"("p_actor_user_id" "uuid", "p_claim_token" "uuid", "p_snapshot_complete" boolean, "p_observed_at" timestamp with time zone, "p_observations" "jsonb", "p_direct_user_count" integer, "p_failure_code" "text" DEFAULT NULL::"text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -1964,76 +2124,115 @@ DECLARE
   snapshot RECORD;
   has_snapshot BOOLEAN := false;
   has_manual_tide BOOLEAN := false;
+  status_only_tide BOOLEAN := false;
+  cleared_user_status BOOLEAN := false;
   should_recompute_tide BOOLEAN := false;
 BEGIN
   IF NEW.beach_id IS NULL OR NEW.arrival_time IS NULL THEN
     RETURN NEW;
   END IF;
 
-  SELECT *
-  INTO snapshot
-  FROM public.compute_session_tide_snapshot(NEW.beach_id, NEW.arrival_time)
-  LIMIT 1;
+  SELECT * INTO snapshot FROM public.compute_session_tide_snapshot(NEW.beach_id, NEW.arrival_time) LIMIT 1;
   has_snapshot := FOUND;
 
   should_recompute_tide :=
     TG_OP = 'UPDATE'
-    AND (
-      NEW.beach_id IS DISTINCT FROM OLD.beach_id
-      OR NEW.arrival_time IS DISTINCT FROM OLD.arrival_time
-    )
+    AND (NEW.beach_id IS DISTINCT FROM OLD.beach_id OR NEW.arrival_time IS DISTINCT FROM OLD.arrival_time)
     AND COALESCE(NEW.tide_data_source, '') <> 'user';
 
   IF should_recompute_tide THEN
+    -- A height typed in the same save as the move is the user's measurement; keep it.
+    IF NEW.tide_height_ft IS NOT NULL AND NEW.tide_height_ft IS DISTINCT FROM OLD.tide_height_ft THEN
+      NEW.tide_data_source := 'user';
+      IF NEW.tide_rate_ft_per_hr IS NULL AND has_snapshot THEN
+        NEW.tide_rate_ft_per_hr := snapshot.tide_rate_ft_per_hr;
+      END IF;
+      RETURN NEW;
+    END IF;
+    -- A chip tapped in the same save is the user's status.
+    IF NEW.tide_status IS NOT NULL AND NEW.tide_status IS DISTINCT FROM OLD.tide_status THEN
+      NEW.tide_status_user_set := true;
+    END IF;
     IF has_snapshot THEN
       NEW.tide_height_ft := snapshot.tide_height_ft;
-      NEW.tide_status := snapshot.tide_status;
+      IF NOT NEW.tide_status_user_set THEN
+        NEW.tide_status := snapshot.tide_status;
+      END IF;
       NEW.tide_rate_ft_per_hr := snapshot.tide_rate_ft_per_hr;
       NEW.tide_data_source := snapshot.tide_data_source;
     ELSE
       NEW.tide_height_ft := NULL;
-      NEW.tide_status := NULL;
+      IF NOT NEW.tide_status_user_set THEN
+        NEW.tide_status := NULL;
+      END IF;
       NEW.tide_rate_ft_per_hr := NULL;
       NEW.tide_data_source := NULL;
     END IF;
+    RETURN NEW;
+  END IF;
 
+  cleared_user_status :=
+    TG_OP = 'UPDATE'
+    AND OLD.tide_status_user_set
+    AND OLD.tide_status IS NOT NULL
+    AND NEW.tide_status IS NULL
+    AND NEW.tide_height_ft IS NOT DISTINCT FROM OLD.tide_height_ft;
+
+  IF cleared_user_status THEN
+    NEW.tide_status_user_set := false;
+  END IF;
+
+  status_only_tide :=
+    NEW.tide_status IS NOT NULL
+    AND (
+      (TG_OP = 'INSERT' AND NEW.tide_height_ft IS NULL)
+      OR (
+        TG_OP = 'UPDATE'
+        AND NEW.tide_status IS DISTINCT FROM OLD.tide_status
+        AND NEW.tide_height_ft IS NOT DISTINCT FROM OLD.tide_height_ft
+        AND (OLD.tide_height_ft IS NULL OR COALESCE(OLD.tide_data_source, '') <> 'user')
+      )
+    );
+
+  IF status_only_tide THEN
+    NEW.tide_status_user_set := true;
+    IF has_snapshot THEN
+      NEW.tide_height_ft := snapshot.tide_height_ft;
+      NEW.tide_rate_ft_per_hr := snapshot.tide_rate_ft_per_hr;
+      NEW.tide_data_source := snapshot.tide_data_source;
+    ELSE
+      NEW.tide_height_ft := NULL;
+      NEW.tide_rate_ft_per_hr := NULL;
+      NEW.tide_data_source := NULL;
+    END IF;
     RETURN NEW;
   END IF;
 
   has_manual_tide :=
-    COALESCE(NEW.tide_data_source, '') = 'user'
-    OR (
-      TG_OP = 'INSERT'
-      AND (
-        NEW.tide_height_ft IS NOT NULL
-        OR NEW.tide_status IS NOT NULL
-      )
-    )
-    OR (
-      TG_OP = 'UPDATE'
-      AND (
-        NEW.tide_height_ft IS DISTINCT FROM OLD.tide_height_ft
-        OR NEW.tide_status IS DISTINCT FROM OLD.tide_status
-      )
-      AND (
-        NEW.tide_height_ft IS NOT NULL
-        OR NEW.tide_status IS NOT NULL
+    NOT cleared_user_status
+    AND (
+      COALESCE(NEW.tide_data_source, '') = 'user'
+      OR (TG_OP = 'INSERT' AND (NEW.tide_height_ft IS NOT NULL OR NEW.tide_status IS NOT NULL))
+      OR (
+        TG_OP = 'UPDATE'
+        AND (NEW.tide_height_ft IS DISTINCT FROM OLD.tide_height_ft OR NEW.tide_status IS DISTINCT FROM OLD.tide_status)
+        AND (NEW.tide_height_ft IS NOT NULL OR NEW.tide_status IS NOT NULL)
       )
     );
 
   IF has_manual_tide THEN
     NEW.tide_data_source := 'user';
-
     IF NEW.tide_rate_ft_per_hr IS NULL AND has_snapshot THEN
       NEW.tide_rate_ft_per_hr := snapshot.tide_rate_ft_per_hr;
     END IF;
-
     RETURN NEW;
   END IF;
 
   IF has_snapshot THEN
     NEW.tide_height_ft := snapshot.tide_height_ft;
-    NEW.tide_status := snapshot.tide_status;
+    IF NOT NEW.tide_status_user_set THEN
+      NEW.tide_status := snapshot.tide_status;
+    END IF;
     NEW.tide_rate_ft_per_hr := snapshot.tide_rate_ft_per_hr;
     NEW.tide_data_source := snapshot.tide_data_source;
   END IF;
@@ -2044,6 +2243,130 @@ $$;
 
 
 ALTER FUNCTION "public"."apply_session_tide_snapshot"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."apply_session_wave_height_source"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  submit_metadata jsonb;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- The snapshot trigger re-syncs truth after this, so an edited height counts again.
+    IF OLD.wave_height_source = 'forecast_prefill'
+      AND NEW.wave_height_source IS NOT DISTINCT FROM OLD.wave_height_source
+      AND NEW.wave_height_ft IS DISTINCT FROM OLD.wave_height_ft
+      AND NEW.wave_height_ft IS NOT NULL
+    THEN
+      NEW.wave_height_source := 'user';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.wave_height_source IS NOT NULL OR NEW.wave_height_ft IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  BEGIN
+    SELECT e.metadata
+    INTO submit_metadata
+    FROM public.user_events e
+    WHERE e.user_id = NEW.user_id
+      AND e.event_type = 'session_log_submit'
+      AND (e.metadata->>'event_id') IS NOT NULL
+      AND (e.metadata->>'event_id') <> ''
+      AND (e.metadata->>'event_id') IN (
+        'session:' || NEW.id::text || ':submit:v1',
+        'session:' || NEW.id::text || ':submit:web:v1'
+      )
+    LIMIT 1;
+
+    NEW.wave_height_source := public.session_wave_height_source_from_submit(submit_metadata);
+  EXCEPTION WHEN OTHERS THEN
+    -- Provenance must never block a session save.
+    RAISE WARNING 'apply_session_wave_height_source skipped for session %: %', NEW.id, SQLERRM;
+  END;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."apply_session_wave_height_source"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."apply_submit_wave_height_source_to_session"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE
+  derived_source text;
+  labeled public.sessions%ROWTYPE;
+BEGIN
+  derived_source := public.session_wave_height_source_from_submit(NEW.metadata);
+  IF derived_source IS NULL
+    OR NEW.user_id IS NULL
+    OR coalesce(NEW.metadata->>'session_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  THEN
+    RETURN NULL;
+  END IF;
+
+  BEGIN
+    UPDATE public.sessions
+    SET wave_height_source = derived_source
+    WHERE id = (NEW.metadata->>'session_id')::uuid
+      AND user_id = NEW.user_id
+      AND wave_height_ft IS NOT NULL
+      AND wave_height_source IS NULL
+    RETURNING * INTO labeled;
+
+    -- The snapshot trigger does not watch wave_height_source, so re-run the truth sync.
+    IF labeled.id IS NOT NULL AND derived_source = 'forecast_prefill' THEN
+      PERFORM public.sync_session_wave_observation_candidate(
+        labeled.id,
+        labeled.user_id,
+        labeled.beach_id::uuid,
+        labeled.arrival_time,
+        labeled.status,
+        labeled.wave_height_ft,
+        'trigger'
+      );
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- An analytics insert must never fail because of provenance.
+    RAISE WARNING 'apply_submit_wave_height_source_to_session skipped for event %: %', NEW.id, SQLERRM;
+  END;
+
+  RETURN NULL;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."apply_submit_wave_height_source_to_session"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."apply_verified_pro_offer_mirror"("p_award_id" "uuid", "p_receipt" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE a public.pro_offer_awards%ROWTYPE;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739302);
+ SELECT * INTO a FROM public.pro_offer_awards WHERE id=p_award_id AND state='verified' FOR UPDATE;
+ IF a.id IS NULL OR a.expires_at<=now() OR p_receipt->>'user_id' IS DISTINCT FROM a.user_id::text
+ OR p_receipt->>'store' IS DISTINCT FROM 'promotional' OR p_receipt->>'product_id' IS DISTINCT FROM a.provider_receipt->>'product_id'
+ OR p_receipt->>'entitlement_id' IS DISTINCT FROM a.entitlement_id OR (p_receipt->>'expires_at')::timestamptz IS DISTINCT FROM a.expires_at
+ OR (p_receipt->>'observed_at')::timestamptz IS NULL OR (p_receipt->>'observed_at')::timestamptz NOT BETWEEN now()-interval '1 minute' AND now()+interval '5 seconds'
+ THEN RAISE EXCEPTION 'Fresh provider proof required for mirror repair'; END IF;
+ INSERT INTO public.user_entitlements(user_id,is_pro,is_trialing,trial_ends_at,expires_at,product_id)
+ VALUES(a.user_id,true,false,NULL,a.expires_at,p_receipt->>'product_id')
+ ON CONFLICT(user_id) DO UPDATE SET is_pro=true,is_trialing=false,trial_ends_at=NULL,expires_at=excluded.expires_at,product_id=excluded.product_id
+ WHERE NOT (user_entitlements.is_pro OR user_entitlements.is_trialing) OR user_entitlements.expires_at<=now();
+END; $$;
+
+
+ALTER FUNCTION "public"."apply_verified_pro_offer_mirror"("p_award_id" "uuid", "p_receipt" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."assess_apple_identity_recovery"("p_canonical_user_id" "uuid", "p_apple_sub" "text", "p_apple_token_sha256" "text", "p_idempotency_key" "text") RETURNS "jsonb"
@@ -2350,6 +2673,75 @@ $$;
 ALTER FUNCTION "public"."assign_signup_experiments"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."attest_swell_watch_provider_run"("p_attestation_id" "uuid", "p_revision_set_id" "uuid", "p_state" "text", "p_reviewer" "text", "p_evidence_sha256" "text", "p_provider_contract_ref" "text", "p_revokes_attestation_id" "uuid" DEFAULT NULL::"uuid") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE v_existing public.swell_watch_provider_run_attestations; v_run text; v_batch uuid;
+BEGIN
+  IF p_attestation_id IS NULL OR p_revision_set_id IS NULL OR p_state IS NULL
+    OR p_state NOT IN ('accepted','rejected','revoked')
+    OR p_reviewer IS NULL OR char_length(btrim(p_reviewer)) NOT BETWEEN 1 AND 200
+    OR p_evidence_sha256 IS NULL OR p_evidence_sha256 !~ '^[a-f0-9]{64}$'
+    OR p_provider_contract_ref IS NULL OR char_length(btrim(p_provider_contract_ref)) NOT BETWEEN 1 AND 500
+    OR (p_state='revoked') IS DISTINCT FROM (p_revokes_attestation_id IS NOT NULL)
+  THEN RAISE EXCEPTION 'invalid provider attestation'; END IF;
+
+  SELECT batch.id, to_char(issuance.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"')
+    INTO v_batch,v_run
+  FROM public.swell_watch_provider_run_revision_sets revision_set
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=revision_set.batch_id
+  JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+  WHERE revision_set.id=p_revision_set_id;
+  IF v_batch IS NULL THEN RAISE EXCEPTION 'provider revision set does not exist'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' || v_run,0));
+  SELECT * INTO v_existing FROM public.swell_watch_provider_run_attestations WHERE id=p_attestation_id;
+  IF FOUND THEN
+    IF v_existing.revision_set_id IS DISTINCT FROM p_revision_set_id OR v_existing.state IS DISTINCT FROM p_state
+      OR v_existing.reviewer IS DISTINCT FROM p_reviewer OR v_existing.evidence_sha256 IS DISTINCT FROM p_evidence_sha256
+      OR v_existing.provider_contract_ref IS DISTINCT FROM p_provider_contract_ref
+      OR v_existing.revokes_attestation_id IS DISTINCT FROM p_revokes_attestation_id
+    THEN RAISE EXCEPTION 'provider attestation identity conflict'; END IF;
+    RETURN v_existing.id;
+  END IF;
+  IF p_state='accepted' AND NOT EXISTS (
+    SELECT 1 FROM public.swell_watch_provider_run_revision_sets revision_set
+    WHERE revision_set.id=p_revision_set_id AND revision_set.revision_number=(
+      SELECT max(candidate.revision_number) FROM public.swell_watch_provider_run_revision_sets candidate WHERE candidate.batch_id=v_batch
+    )
+  ) THEN RAISE EXCEPTION 'cannot accept a superseded provider revision'; END IF;
+  PERFORM set_config('app.swell_watch_internal_write','on',true);
+  INSERT INTO public.swell_watch_provider_run_attestations
+    (id,revision_set_id,state,reviewer,evidence_sha256,provider_contract_ref,revokes_attestation_id)
+  VALUES (p_attestation_id,p_revision_set_id,p_state,p_reviewer,p_evidence_sha256,p_provider_contract_ref,p_revokes_attestation_id);
+  RETURN p_attestation_id;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."attest_swell_watch_provider_run"("p_attestation_id" "uuid", "p_revision_set_id" "uuid", "p_state" "text", "p_reviewer" "text", "p_evidence_sha256" "text", "p_provider_contract_ref" "text", "p_revokes_attestation_id" "uuid") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."attest_swell_watch_provider_run"("p_attestation_id" "uuid", "p_revision_set_id" "uuid", "p_state" "text", "p_reviewer" "text", "p_evidence_sha256" "text", "p_provider_contract_ref" "text", "p_revokes_attestation_id" "uuid") IS 'Owner-only reviewed evidence decision; never automatic provider qualification or release approval.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."attribute_pro_offer_claim"("p_user_id" "uuid", "p_award_id" "uuid", "p_message_instance_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ UPDATE public.pro_offer_awards offer SET claim_message_instance_id=coalesce(offer.claim_message_instance_id,p_message_instance_id)
+ WHERE offer.id=p_award_id AND offer.user_id=p_user_id AND EXISTS(SELECT 1 FROM public.email_contact_attempts message
+ WHERE message.id=p_message_instance_id AND message.user_id=p_user_id AND message.state='accepted'
+ AND message.lifecycle_job='offer_ready' AND message.episode=offer.id::text);
+ RETURN FOUND;
+END; $$;
+
+
+ALTER FUNCTION "public"."attribute_pro_offer_claim"("p_user_id" "uuid", "p_award_id" "uuid", "p_message_instance_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."backfill_android_waitlist_entries"() RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -2622,24 +3014,140 @@ COMMENT ON FUNCTION "public"."backfill_ml_observations_batch"("batch_size" integ
 
 
 
+CREATE OR REPLACE FUNCTION "public"."begin_email_lifecycle"("p_attempt_id" "uuid", "p_payload" "jsonb") RETURNS boolean
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE a public.email_contact_attempts%ROWTYPE; d jsonb;
+BEGIN
+  PERFORM pg_advisory_xact_lock(739301);
+  SELECT * INTO a FROM public.email_contact_attempts WHERE id=p_attempt_id FOR UPDATE;
+  IF a.state IS DISTINCT FROM 'reserved' THEN RETURN false; END IF;
+  d:=public.evaluate_email_lifecycle(a.user_id,a.id);
+  IF NOT EXISTS(SELECT 1 FROM public.email_contact_controls WHERE singleton AND enabled AND lifecycle_enabled)
+    OR d->>'status' IS DISTINCT FROM 'due' OR d->>'job' IS DISTINCT FROM a.lifecycle_job OR d->>'episode' IS DISTINCT FROM a.episode
+    OR d->>'campaign_id' IS DISTINCT FROM a.campaign_id OR (d->>'campaign_version')::integer IS DISTINCT FROM a.campaign_version
+    OR d->>'content_hash' IS DISTINCT FROM a.content_hash OR md5((d->'source')::text) IS DISTINCT FROM a.source_hash
+    OR a.claimed_at<now()-interval '5 minutes' THEN
+    UPDATE public.email_contact_attempts SET state='cancelled',error_code='eligibility_changed' WHERE id=a.id;
+    RETURN false;
+  END IF;
+  IF p_payload->>'to' IS DISTINCT FROM d->'source'->>'email' OR nullif(p_payload->>'subject','') IS NULL
+    OR nullif(p_payload->>'html','') IS NULL OR nullif(p_payload->>'text','') IS NULL THEN RAISE EXCEPTION 'Invalid lifecycle payload'; END IF;
+  UPDATE public.email_contact_attempts SET state='handoff_started',handoff_at=now(),payload=p_payload,payload_hash=encode(sha256(convert_to(p_payload::text,'UTF8')),'hex') WHERE id=a.id;
+  RETURN true;
+END; $$;
+
+
+ALTER FUNCTION "public"."begin_email_lifecycle"("p_attempt_id" "uuid", "p_payload" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."begin_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ PERFORM pg_advisory_xact_lock(739302);
+ UPDATE public.pro_offer_awards a SET state='handoff_started',handoff_at=now() WHERE a.id=p_award_id AND a.reservation_id=p_reservation_id
+ AND a.state='reserved' AND a.reserved_at>now()-interval '2 minutes'
+ AND EXISTS(SELECT 1 FROM public.pro_offer_programs p WHERE p.id=a.program_id AND p.enabled)
+ AND NOT EXISTS(SELECT 1 FROM public.user_entitlements e WHERE e.user_id=a.user_id AND (e.is_pro OR e.is_trialing) AND (e.expires_at IS NULL OR e.expires_at>now()));
+ RETURN FOUND;
+END; $$;
+
+
+ALTER FUNCTION "public"."begin_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."begin_trial_feedback_handoff"("p_user_id" "uuid", "p_reservation_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE context jsonb;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('trial-feedback:'||p_user_id::text,0));
+ context:=public.trial_feedback_context(p_user_id);
+ IF context->'offer' IS NULL OR context->'offer'='null'::jsonb THEN RETURN false; END IF;
+ UPDATE public.trial_feedback_submissions SET provider_handoff_at=now()
+ WHERE user_id=p_user_id AND reservation_id=p_reservation_id AND state='reserved' AND provider_handoff_at IS NULL;
+ RETURN FOUND;
+END; $$;
+
+
+ALTER FUNCTION "public"."begin_trial_feedback_handoff"("p_user_id" "uuid", "p_reservation_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."begin_trial_feedback_web"("p_user_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE r public.trial_feedback_web_recoveries%ROWTYPE;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('trial-feedback:'||p_user_id::text,0));
+ SELECT * INTO r FROM public.trial_feedback_web_recoveries WHERE user_id=p_user_id FOR UPDATE;
+ IF NOT FOUND OR r.state<>'reserved' OR r.original_ends_at<=now()+interval '5 minutes'
+   OR NOT EXISTS(SELECT 1 FROM public.trial_feedback_controls WHERE singleton AND enabled AND redemption_enabled AND web_enabled) THEN RETURN false; END IF;
+ IF NOT public.begin_trial_feedback_handoff(p_user_id,r.reservation_id) THEN RETURN false; END IF;
+ UPDATE public.trial_feedback_web_recoveries SET state='pending',handoff_at=now(),next_check_at=now()+interval '10 minutes' WHERE user_id=p_user_id;
+ RETURN true;
+END; $$;
+
+
+ALTER FUNCTION "public"."begin_trial_feedback_web"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."break_type_families"("p_break_type" "text") RETURNS "text"[]
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO ''
+    AS $_$
+  SELECT array_agg(family ORDER BY first_seen)
+  FROM (
+    SELECT family, min(ord) AS first_seen
+    FROM (
+      SELECT CASE WHEN token IN ('beach','pier','jetty','breakwater','inlet','river-mouth')
+        THEN 'beach' ELSE token END AS family, ord
+      FROM (
+        SELECT trim(regexp_replace(trim(part), ' break$', '')) AS token, ord
+        FROM unnest(string_to_array(lower(p_break_type), '/')) WITH ORDINALITY AS parts(part, ord)
+      ) tokens
+      WHERE token <> ''
+    ) normalized
+    GROUP BY family
+  ) distinct_families;
+$_$;
+
+
+ALTER FUNCTION "public"."break_type_families"("p_break_type" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."break_types_match"("p_a" "text", "p_b" "text") RETURNS boolean
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT a IS NULL OR b IS NULL OR a && b
+  FROM (SELECT public.break_type_families(p_a) AS a, public.break_type_families(p_b) AS b) families;
+$$;
+
+
+ALTER FUNCTION "public"."break_types_match"("p_a" "text", "p_b" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."bulk_update_hrrr_wind"("payload" "jsonb") RETURNS integer
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
   WITH v AS (
     SELECT * FROM jsonb_to_recordset(payload) AS x(
-      beach_id uuid,
-      hour_start timestamptz,
-      wind_speed text,
-      wind_direction text,
-      wind_direction_deg numeric
+      beach_id uuid, hour_start timestamptz, wind_speed text,
+      wind_direction text, wind_direction_deg numeric, model_run timestamptz
     )
   ), upd AS (
     UPDATE enhanced_forecasts ef
     SET wind_speed = v.wind_speed,
         wind_direction = v.wind_direction,
         wind_direction_deg = v.wind_direction_deg,
-        wind_source = 'HRRR'
+        wind_source = 'HRRR',
+        wind_model_run_at = v.model_run
     FROM v
     WHERE ef.beach_id = v.beach_id
       AND ef.forecast_at >= v.hour_start
@@ -2654,6 +3162,62 @@ ALTER FUNCTION "public"."bulk_update_hrrr_wind"("payload" "jsonb") OWNER TO "pos
 
 
 COMMENT ON FUNCTION "public"."bulk_update_hrrr_wind"("payload" "jsonb") IS 'Bulk-applies HRRR wind to enhanced_forecasts in one statement. Payload: array of {beach_id, hour_start, wind_speed, wind_direction, wind_direction_deg}. Returns rows updated.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."bulk_upsert_rtma_wind_observations"("payload" "jsonb") RETURNS integer
+    LANGUAGE "sql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  WITH values_to_apply AS (
+    SELECT * FROM jsonb_to_recordset(payload) AS source_value(
+      beach_id uuid,
+      observed_at timestamptz,
+      wind_speed_mph numeric,
+      wind_direction text,
+      wind_direction_deg numeric,
+      wind_gust_mph numeric,
+      domain text
+    )
+  ), upserted AS (
+    INSERT INTO public.beach_wind_observations (
+      beach_id,
+      observed_at,
+      wind_speed_mph,
+      wind_direction,
+      wind_direction_deg,
+      wind_gust_mph,
+      source,
+      domain
+    )
+    SELECT
+      source_value.beach_id,
+      source_value.observed_at,
+      source_value.wind_speed_mph,
+      source_value.wind_direction,
+      source_value.wind_direction_deg,
+      source_value.wind_gust_mph,
+      'RTMA',
+      source_value.domain
+    FROM values_to_apply AS source_value
+    ON CONFLICT (beach_id, observed_at, source) DO UPDATE
+    SET
+      wind_speed_mph = EXCLUDED.wind_speed_mph,
+      wind_direction = EXCLUDED.wind_direction,
+      wind_direction_deg = EXCLUDED.wind_direction_deg,
+      wind_gust_mph = EXCLUDED.wind_gust_mph,
+      domain = EXCLUDED.domain,
+      updated_at = now()
+    RETURNING 1
+  )
+  SELECT count(*)::integer FROM upserted;
+$$;
+
+
+ALTER FUNCTION "public"."bulk_upsert_rtma_wind_observations"("payload" "jsonb") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."bulk_upsert_rtma_wind_observations"("payload" "jsonb") IS 'Upserts hourly NOAA RTMA beach-wind observations. Returns rows written.';
 
 
 
@@ -2718,6 +3282,26 @@ $$;
 
 
 ALTER FUNCTION "public"."capture_board_snapshot"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."capture_lifecycle_email_preference"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ IF NEW.notif_email_enabled IS NOT DISTINCT FROM OLD.notif_email_enabled THEN RETURN NEW; END IF;
+ IF NEW.notif_email_enabled=false THEN
+  UPDATE public.email_contact_state SET lifecycle_consent_at=NULL,marketing_consent_at=NULL,account_permission_reviewed_at=NULL,account_permission_reference=NULL WHERE user_id=NEW.id;
+ ELSIF auth.uid()=NEW.id THEN
+  INSERT INTO public.email_contact_state(user_id,lifecycle_consent_at,consent_reference)
+  VALUES(NEW.id,now(),'authenticated_email_preference:lifecycle-v1')
+  ON CONFLICT(user_id) DO UPDATE SET lifecycle_consent_at=excluded.lifecycle_consent_at,consent_reference=excluded.consent_reference;
+ END IF;
+ RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."capture_lifecycle_email_preference"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."check_database_health"() RETURNS TABLE("table_name" "text", "row_count" bigint, "table_size" "text", "last_analyzed" timestamp with time zone)
@@ -2918,6 +3502,50 @@ $$;
 ALTER FUNCTION "public"."claim_android_tester_roster_sync"("p_actor_user_id" "uuid", "p_observed_at" timestamp with time zone) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."claim_custom_spot_analysis_jobs"("p_batch_size" integer DEFAULT 5) RETURNS TABLE("job_id" bigint, "custom_spot_id" "uuid", "requested_model_version" "text", "attempts" integer, "claimed_at" timestamp with time zone)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  IF p_batch_size < 1 OR p_batch_size > 25 THEN
+    RAISE EXCEPTION 'invalid_custom_spot_analysis_batch_size';
+  END IF;
+
+  RETURN QUERY
+  WITH claimed AS (
+    SELECT jobs.id
+    FROM public.custom_spot_analysis_jobs AS jobs
+    JOIN public.custom_spots AS spots ON spots.id = jobs.custom_spot_id
+    WHERE (
+        (jobs.status IN ('queued', 'retry') AND jobs.next_attempt_at <= now())
+        OR (jobs.status = 'processing' AND jobs.locked_at < now() - interval '15 minutes')
+      )
+      AND spots.deleted_at IS NULL
+    ORDER BY jobs.next_attempt_at, jobs.id
+    FOR UPDATE OF jobs SKIP LOCKED
+    LIMIT p_batch_size
+  )
+  UPDATE public.custom_spot_analysis_jobs AS jobs
+  SET
+    status = 'processing',
+    attempts = jobs.attempts + 1,
+    locked_at = now(),
+    updated_at = now()
+  FROM claimed
+  WHERE jobs.id = claimed.id
+  RETURNING
+    jobs.id,
+    jobs.custom_spot_id,
+    jobs.requested_model_version,
+    jobs.attempts,
+    jobs.locked_at;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."claim_custom_spot_analysis_jobs"("p_batch_size" integer) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."claim_daily_forecast_notification_slot"("p_user_id" "uuid", "p_beach_id" "uuid", "p_notification_type" "text", "p_local_forecast_date" "date") RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -2929,6 +3557,43 @@ ALTER FUNCTION "public"."claim_daily_forecast_notification_slot"("p_user_id" "uu
 
 COMMENT ON FUNCTION "public"."claim_daily_forecast_notification_slot"("p_user_id" "uuid", "p_beach_id" "uuid", "p_notification_type" "text", "p_local_forecast_date" "date") IS 'Atomically claims a daily forecast notification slot. Returns false when the same user/beach/type/local date was already claimed.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."claim_email_contact"("p_user_id" "uuid", "p_email" "text", "p_email_type" "text") RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT jsonb_build_object('allowed',false,'reason','retired_use_lifecycle');
+$$;
+
+
+ALTER FUNCTION "public"."claim_email_contact"("p_user_id" "uuid", "p_email" "text", "p_email_type" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."claim_email_lifecycle"("p_user_id" "uuid", "p_version" integer, "p_content_hash" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE d jsonb; attempt uuid;
+BEGIN
+  -- ponytail: one lock for the <=15/day pilot; partition only after measured contention.
+  PERFORM pg_advisory_xact_lock(739301);
+  IF NOT EXISTS (SELECT 1 FROM public.email_contact_controls WHERE singleton AND enabled AND lifecycle_enabled) THEN
+    RETURN jsonb_build_object('allowed',false,'reason','disabled'); END IF;
+  d:=public.record_email_lifecycle_decision(p_user_id);
+  IF d->>'status' IS DISTINCT FROM 'due' THEN
+    RETURN jsonb_build_object('allowed',false,'reason',d->>'reason'); END IF;
+  IF (d->>'campaign_version')::integer IS DISTINCT FROM p_version OR d->>'content_hash' IS DISTINCT FROM p_content_hash THEN
+    RETURN jsonb_build_object('allowed',false,'reason','version_mismatch'); END IF;
+  INSERT INTO public.email_contact_attempts(user_id,email_type,campaign_id,campaign_version,lifecycle_job,episode,state,source_hash,content_hash)
+  VALUES(p_user_id,CASE d->>'job' WHEN 'welcome' THEN 'welcome' WHEN 'activation' THEN 'first_session_nudge'
+    WHEN 'progress' THEN 'session_prompt' WHEN 'trial_support' THEN 'trial_started' ELSE 'weekly_recap' END,
+    d->>'campaign_id',p_version,d->>'job',d->>'episode','reserved',md5((d->'source')::text),p_content_hash) RETURNING id INTO attempt;
+  RETURN jsonb_build_object('allowed',true,'attempt_id',attempt,'decision',d);
+END; $$;
+
+
+ALTER FUNCTION "public"."claim_email_lifecycle"("p_user_id" "uuid", "p_version" integer, "p_content_hash" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."claim_forecast_delivery_slot"("p_user_id" "uuid", "p_beach_id" "uuid", "p_alert_type" "text", "p_dedupe_hours" integer DEFAULT 20) RETURNS boolean
@@ -2973,6 +3638,53 @@ COMMENT ON FUNCTION "public"."claim_forecast_delivery_slot"("p_user_id" "uuid", 
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."notification_delivery_targets" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "notification_event_id" "uuid" NOT NULL,
+    "installation_id" "text" NOT NULL,
+    "token_fingerprint" "text" NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "provider_response" "jsonb",
+    "error_message" "text",
+    "claimed_at" timestamp with time zone,
+    "claim_id" "uuid",
+    "claim_version" bigint DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "notification_delivery_targets_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'sending'::"text", 'sent'::"text", 'failed'::"text", 'unknown'::"text"])))
+);
+
+
+ALTER TABLE "public"."notification_delivery_targets" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."claim_notification_delivery_targets"("p_event_id" "uuid", "p_installation_ids" "text"[], "p_claim_id" "uuid") RETURNS SETOF "public"."notification_delivery_targets"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  -- Ambiguous stale sends are terminal. They are never automatically retried.
+  UPDATE public.notification_delivery_targets
+  SET status = 'unknown', error_message = 'stale sending claim; provider outcome ambiguous', updated_at = now()
+  WHERE notification_event_id = p_event_id
+    AND status = 'sending'
+    AND claimed_at < now() - interval '5 minutes';
+  RETURN QUERY
+  UPDATE public.notification_delivery_targets
+  SET status = 'sending', claimed_at = now(), claim_id = p_claim_id,
+    claim_version = claim_version + 1, updated_at = now()
+  WHERE notification_event_id = p_event_id
+    AND installation_id = ANY(p_installation_ids)
+    -- Known provider failures may retry. Sent and ambiguous unknown targets
+    -- are intentionally never eligible again.
+    AND status IN ('pending', 'failed')
+  RETURNING *;
+END $$;
+
+
+ALTER FUNCTION "public"."claim_notification_delivery_targets"("p_event_id" "uuid", "p_installation_ids" "text"[], "p_claim_id" "uuid") OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."notification_events" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "recipient_user_id" "uuid" NOT NULL,
@@ -2993,7 +3705,8 @@ CREATE TABLE IF NOT EXISTS "public"."notification_events" (
     "claim_token" "uuid",
     "cancel_reason" "text",
     "last_error" "text",
-    CONSTRAINT "notification_events_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'processing'::"text", 'processed'::"text", 'failed'::"text", 'cancelled'::"text"])))
+    CONSTRAINT "notification_events_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'processing'::"text", 'processed'::"text", 'failed'::"text", 'cancelled'::"text"]))),
+    CONSTRAINT "notification_events_swell_watch_v2_regional_event_id_check" CHECK ((("type" <> 'swell_watch'::"text") OR (("payload" ->> 'schema_version'::"text") IS DISTINCT FROM 'swell-watch-notification.v2'::"text") OR (("jsonb_typeof"(("payload" -> 'regional_event_id'::"text")) = 'string'::"text") AND (("payload" ->> 'regional_event_id'::"text") IS NOT NULL) AND (("payload" ->> 'regional_event_id'::"text") ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::"text"))))
 );
 
 
@@ -3070,6 +3783,51 @@ COMMENT ON FUNCTION "public"."claim_notification_events"("p_batch_size" integer,
 
 
 
+CREATE OR REPLACE FUNCTION "public"."claim_requested_email_alert"("p_user_id" "uuid", "p_episode" "text", "p_payload" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE p public.profiles%ROWTYPE; a uuid; v_cap integer; v_timezone text;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739301);
+ IF NOT EXISTS (SELECT 1 FROM public.email_contact_controls WHERE singleton AND enabled AND lifecycle_enabled) THEN
+  RETURN jsonb_build_object('allowed',false,'reason','disabled');
+ END IF;
+ SELECT daily_cap INTO v_cap FROM public.email_contact_controls WHERE singleton;
+ SELECT * INTO p FROM public.profiles WHERE id=p_user_id;
+ v_timezone := public.email_contact_timezone(p.timezone,p.home_beach_id);
+ IF p.analytics_is_real_user IS DISTINCT FROM true OR p.notif_email_enabled IS DISTINCT FROM true
+  OR lower(trim(p.email)) IS DISTINCT FROM lower(trim(p_payload->>'to'))
+  OR NOT EXISTS(SELECT 1 FROM public.alert_rules WHERE user_id=p_user_id AND enabled AND notify_email)
+  OR EXISTS(SELECT 1 FROM public.email_suppression_list WHERE lower(trim(email))=lower(trim(p.email)))
+  OR EXISTS(SELECT 1 FROM public.email_contact_state WHERE user_id=p_user_id AND paused_at IS NOT NULL)
+  OR EXISTS(SELECT 1 FROM public.user_email_prefs WHERE user_id=p_user_id AND email_frequency='off')
+  OR (SELECT count(*) FROM public.profiles WHERE lower(trim(email))=lower(trim(p.email)))<>1
+ THEN RETURN jsonb_build_object('allowed',false,'reason','ineligible_or_suppressed'); END IF;
+ IF (now() AT TIME ZONE v_timezone)::time NOT BETWEEN time '09:00' AND time '16:59:59' THEN
+  RETURN jsonb_build_object('allowed',false,'reason','quiet_hours'); END IF;
+ IF EXISTS(SELECT 1 FROM public.email_contact_attempts WHERE user_id=p_user_id AND state NOT IN ('cancelled','failed')
+   AND (provider_id IS NULL OR claimed_at>now()-interval '24 hours' OR (lifecycle_job='conditions_alert' AND episode=p_episode)))
+  OR EXISTS(SELECT 1 FROM public.email_send_log WHERE user_id=p_user_id AND sent_at>now()-interval '24 hours')
+  OR EXISTS(SELECT 1 FROM public.email_contact_state WHERE user_id=p_user_id AND manual_contact_at>now()-interval '7 days')
+ THEN RETURN jsonb_build_object('allowed',false,'reason','contact_cooldown_or_unknown'); END IF;
+ IF (SELECT count(*) FROM public.email_contact_attempts WHERE user_id=p_user_id AND state NOT IN ('cancelled','failed') AND email_type='conditions_alert' AND claimed_at>now()-interval '7 days')>=3
+  OR (SELECT count(*) FROM (
+    SELECT claimed_at AS at FROM public.email_contact_attempts WHERE state NOT IN ('cancelled','failed')
+    UNION ALL SELECT sent_at FROM public.email_send_log l WHERE NOT EXISTS
+      (SELECT 1 FROM public.email_contact_attempts a WHERE a.provider_id=l.resend_message_id)
+   ) history WHERE at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')>=v_cap AND v_cap IS NOT NULL
+ THEN RETURN jsonb_build_object('allowed',false,'reason','contact_cap'); END IF;
+ IF nullif(p_episode,'') IS NULL OR length(p_episode)>4000 OR nullif(p_payload->>'html','') IS NULL THEN RAISE EXCEPTION 'Invalid alert payload'; END IF;
+ INSERT INTO public.email_contact_attempts(user_id,email_type,lifecycle_job,episode,state,handoff_at,payload)
+ VALUES(p_user_id,'conditions_alert','conditions_alert',p_episode,'handoff_started',now(),p_payload) RETURNING id INTO a;
+ RETURN jsonb_build_object('allowed',true,'attempt_id',a);
+END; $$;
+
+
+ALTER FUNCTION "public"."claim_requested_email_alert"("p_user_id" "uuid", "p_episode" "text", "p_payload" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."claim_stuck_community_spot_photo_uploads_v1"("p_now" timestamp with time zone DEFAULT "now"(), "p_limit" integer DEFAULT 100) RETURNS TABLE("photo_id" "uuid", "storage_path" "text")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -3098,7 +3856,7 @@ $$;
 ALTER FUNCTION "public"."claim_stuck_community_spot_photo_uploads_v1"("p_now" timestamp with time zone, "p_limit" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_priority" smallint) RETURNS boolean
+CREATE OR REPLACE FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_alert_date" "date", "p_priority" smallint) RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
@@ -3115,13 +3873,11 @@ BEGIN
 
   INSERT INTO public.surf_alert_delivery_slots (
     recipient_user_id,
-    beach_id,
     alert_date,
     winner_notification_event_id,
     priority
   ) VALUES (
     p_recipient_user_id,
-    p_beach_id,
     p_alert_date,
     p_event_id,
     p_priority
@@ -3143,7 +3899,6 @@ BEGIN
   JOIN public.notification_events AS event
     ON event.id = slot.winner_notification_event_id
   WHERE slot.recipient_user_id = p_recipient_user_id
-    AND slot.beach_id = p_beach_id
     AND slot.alert_date = p_alert_date
   FOR UPDATE OF slot, event;
 
@@ -3151,15 +3906,10 @@ BEGIN
     RETURN true;
   END IF;
 
-  -- Once dispatch has started (or completed), preserve the existing winner.
-  -- The producer-side five-minute hold keeps lower-priority events pending
-  -- while peer sources arrive, so this branch does not race an active push.
   IF v_winner_status IN ('processing', 'processed') THEN
     RETURN false;
   END IF;
 
-  -- Failed/cancelled winners did not notify the user, so any later source may
-  -- take the slot. A pending winner is only replaced by a higher priority.
   IF v_winner_status NOT IN ('pending') OR p_priority > v_priority THEN
     IF v_winner_status = 'pending' THEN
       INSERT INTO public.alert_delivery_attempts (
@@ -3212,7 +3962,6 @@ BEGIN
       priority = p_priority,
       updated_at = now()
     WHERE recipient_user_id = p_recipient_user_id
-      AND beach_id = p_beach_id
       AND alert_date = p_alert_date;
     RETURN true;
   END IF;
@@ -3222,11 +3971,81 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_priority" smallint) OWNER TO "postgres";
+ALTER FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_alert_date" "date", "p_priority" smallint) OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_priority" smallint) IS 'Atomically selects one surf notification winner per user, beach, and alert date across worker ticks.';
+COMMENT ON FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_alert_date" "date", "p_priority" smallint) IS 'Atomically selects one surf notification winner per user and alert date across worker ticks.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."claim_swell_outlook_first_sighting"("p_user_id" "uuid", "p_event_key" "text", "p_event_keys" "text"[], "p_peak_date" "date", "p_beach_id" "uuid", "p_payload" "jsonb", "p_now" timestamp with time zone) RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  claimed_id uuid;
+  claim_now timestamptz;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-outlook-first:' || p_user_id::text, 0));
+  -- p_now remains for compatibility; only the database clock governs claims.
+  claim_now := now();
+  IF EXISTS (
+    SELECT 1 FROM public.swell_event_alerts
+    WHERE user_id = p_user_id
+      AND (event_key = p_event_key OR event_key = ANY(p_event_keys))
+  ) THEN
+    RETURN jsonb_build_object('id', NULL, 'reason', 'event_exists');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.swell_event_alerts
+    WHERE user_id = p_user_id AND created_at > claim_now - interval '96 hours'
+  ) THEN
+    RETURN jsonb_build_object('id', NULL, 'reason', 'first_sighting_spacing');
+  END IF;
+
+  INSERT INTO public.swell_event_alerts (user_id, event_key, peak_date, lead_beach_id, payload, created_at)
+  VALUES (p_user_id, p_event_key, p_peak_date, p_beach_id, p_payload, claim_now)
+  ON CONFLICT (user_id, event_key) DO NOTHING
+  RETURNING id INTO claimed_id;
+  RETURN jsonb_build_object('id', claimed_id, 'reason',
+    CASE WHEN claimed_id IS NULL THEN 'event_exists' ELSE NULL END);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."claim_swell_outlook_first_sighting"("p_user_id" "uuid", "p_event_key" "text", "p_event_keys" "text"[], "p_peak_date" "date", "p_beach_id" "uuid", "p_payload" "jsonb", "p_now" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."claim_swell_watch_recipient_announcement"("p_claim_id" "uuid", "p_regional_event_id" "uuid", "p_recipient_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-announcement:' || p_regional_event_id::text || ':' || p_recipient_id::text, 0));
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  INSERT INTO public.swell_watch_recipient_announcements (id, regional_event_id, recipient_id)
+  VALUES (p_claim_id, p_regional_event_id, p_recipient_id)
+  ON CONFLICT (regional_event_id, recipient_id) DO NOTHING;
+  RETURN FOUND;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."claim_swell_watch_recipient_announcement"("p_claim_id" "uuid", "p_regional_event_id" "uuid", "p_recipient_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."claim_trial_feedback_web_queue"() RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ WITH due AS (SELECT user_id FROM public.trial_feedback_web_recoveries WHERE state<>'closed' AND next_check_at<=now() ORDER BY next_check_at LIMIT 5 FOR UPDATE SKIP LOCKED),
+ claimed AS (UPDATE public.trial_feedback_web_recoveries r SET next_check_at=now()+interval '10 minutes' FROM due WHERE r.user_id=due.user_id RETURNING r.user_id)
+ SELECT coalesce(jsonb_agg(user_id),'[]'::jsonb) FROM claimed;
+$$;
+
+
+ALTER FUNCTION "public"."claim_trial_feedback_web_queue"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."cleanup_expired_events"() RETURNS integer
@@ -3521,6 +4340,200 @@ $$;
 
 
 ALTER FUNCTION "public"."community_photo_wilson_lower_bound"("p_upvotes" integer, "p_downvotes" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."complete_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_update" "jsonb") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  target_spot_id uuid;
+BEGIN
+  SELECT custom_spot_id INTO target_spot_id
+  FROM public.custom_spot_analysis_jobs
+  WHERE id = p_job_id
+    AND status = 'processing'
+    AND locked_at = p_claimed_at
+  FOR UPDATE;
+
+  IF target_spot_id IS NULL THEN RETURN false; END IF;
+
+  UPDATE public.custom_spots
+  SET
+    facing_direction_deg = CASE WHEN p_update ? 'facing_direction_deg' THEN (p_update->>'facing_direction_deg')::numeric ELSE facing_direction_deg END,
+    offshore_direction_deg = CASE WHEN p_update ? 'offshore_direction_deg' THEN (p_update->>'offshore_direction_deg')::numeric ELSE offshore_direction_deg END,
+    swell_window_min_deg = CASE WHEN p_update ? 'swell_window_min_deg' THEN (p_update->>'swell_window_min_deg')::numeric ELSE swell_window_min_deg END,
+    swell_window_max_deg = CASE WHEN p_update ? 'swell_window_max_deg' THEN (p_update->>'swell_window_max_deg')::numeric ELSE swell_window_max_deg END,
+    exposure_level = CASE WHEN p_update ? 'exposure_level' THEN p_update->>'exposure_level' ELSE exposure_level END,
+    swell_access_factors = CASE WHEN p_update ? 'swell_access_factors' THEN ARRAY(SELECT jsonb_array_elements_text(p_update->'swell_access_factors'))::real[] ELSE swell_access_factors END,
+    wind_exposure_factors = CASE WHEN p_update ? 'wind_exposure_factors' THEN ARRAY(SELECT jsonb_array_elements_text(p_update->'wind_exposure_factors'))::real[] ELSE wind_exposure_factors END,
+    terrain_method = p_update->>'terrain_method',
+    terrain_params = p_update->'terrain_params',
+    terrain_params_hash = p_update->>'terrain_params_hash',
+    terrain_analyzed_at = (p_update->>'terrain_analyzed_at')::timestamptz,
+    terrain_status = p_update->>'terrain_status',
+    terrain_analysis_debug = p_update->'terrain_analysis_debug',
+    fingerprint_model_version = p_update->>'fingerprint_model_version',
+    fingerprint_coordinate_hash = p_update->>'fingerprint_coordinate_hash',
+    fingerprint_provenance_state = p_update->>'fingerprint_provenance_state',
+    fingerprint_provenance = p_update->'fingerprint_provenance',
+    fingerprint_confidence = p_update->>'fingerprint_confidence',
+    fingerprint_updated_at = (p_update->>'fingerprint_updated_at')::timestamptz
+  WHERE id = target_spot_id
+    AND updated_at = p_spot_updated_at
+    AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN RETURN false; END IF;
+
+  UPDATE public.custom_spot_analysis_jobs
+  SET status = 'complete', locked_at = NULL, last_error_code = NULL, updated_at = now()
+  WHERE id = p_job_id
+    AND status = 'processing'
+    AND locked_at = p_claimed_at;
+  RETURN FOUND;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."complete_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_update" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."complete_swell_watch_provider_run_receipt"("p_revision_set_id" "uuid") RETURNS TABLE("provider_batch_id" "uuid", "evaluation_id" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE v_batch uuid; v_run_text text; v_completed public.swell_watch_provider_run_completed_batches;
+BEGIN
+  IF NOT pg_try_advisory_xact_lock(hashtextextended('swell-watch-completed-provider-frontier',0)) THEN
+    RAISE EXCEPTION 'provider completion is busy; retry transaction';
+  END IF;
+  SELECT revision_set.batch_id,to_char(issuance.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"') INTO v_batch,v_run_text
+  FROM public.swell_watch_provider_run_revision_sets revision_set
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=revision_set.batch_id
+  JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+  WHERE revision_set.id=p_revision_set_id;
+  IF v_batch IS NULL THEN RAISE EXCEPTION 'provider revision set does not exist'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' || v_run_text,0));
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.swell_watch_provider_run_revision_sets requested
+    WHERE requested.id = p_revision_set_id
+      AND requested.revision_number = (
+        SELECT max(candidate.revision_number)
+        FROM public.swell_watch_provider_run_revision_sets candidate
+        WHERE candidate.batch_id = v_batch
+      )
+  ) THEN RAISE EXCEPTION 'only the latest provider revision set can be completed'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.swell_watch_provider_run_attestations accepted WHERE accepted.revision_set_id=p_revision_set_id AND accepted.state='accepted' AND NOT EXISTS (SELECT 1 FROM public.swell_watch_provider_run_attestations revoked WHERE revoked.state='revoked' AND revoked.revokes_attestation_id=accepted.id)) THEN RAISE EXCEPTION 'active accepted attestation is required'; END IF;
+  SELECT * INTO v_completed FROM public.swell_watch_provider_run_completed_batches WHERE revision_set_id=p_revision_set_id;
+  IF v_completed.id IS NOT NULL THEN RETURN QUERY SELECT v_completed.id,'genuine_completed:' || v_batch; RETURN; END IF;
+  PERFORM set_config('app.swell_watch_internal_write','on',true);
+  INSERT INTO public.swell_watch_provider_run_completed_batches (batch_id,revision_set_id) VALUES (v_batch,p_revision_set_id) RETURNING id INTO provider_batch_id;
+  RETURN QUERY SELECT provider_batch_id,'genuine_completed:' || v_batch;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."complete_swell_watch_provider_run_receipt"("p_revision_set_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."complete_swell_watch_study_run"("p_revision_set_id" "uuid", "p_policy_hash" "text", "p_cohort" "jsonb", "p_scope_inputs" "jsonb") RETURNS TABLE("provider_batch_id" "uuid", "evaluation_id" "text", "already_evaluated" boolean, "authority_epoch" bigint, "qualification_rule" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE a public.swell_watch_study_authorities; r record; manifest jsonb; attestation uuid; completed record; max_age interval; cycle_start bigint; cycle_before timestamptz;
+BEGIN
+  -- Same order as existing completion/release: frontier -> run -> control.
+  IF NOT pg_try_advisory_xact_lock(hashtextextended('swell-watch-completed-provider-frontier',0)) THEN
+    RAISE EXCEPTION 'provider completion is busy; retry transaction';
+  END IF;
+  SELECT s.*,b.expected_component_count,i.run_utc,i.transport_provider,i.model,i.parser_version INTO r
+    FROM public.swell_watch_provider_run_revision_sets s
+    JOIN public.swell_watch_provider_run_batches b ON b.id=s.batch_id
+    JOIN public.swell_watch_provider_run_issuances i ON i.id=b.issuance_id WHERE s.id=p_revision_set_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'study revision does not exist'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' ||
+    to_char(r.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  PERFORM 1 FROM public.beaches b WHERE b.id IN (SELECT (s->>'sourcePointId')::uuid FROM jsonb_array_elements(p_cohort) s)
+    ORDER BY b.id FOR SHARE;
+  SELECT * INTO a FROM public.swell_watch_current_study_authority(p_policy_hash);
+  IF NOT FOUND THEN RAISE EXCEPTION 'current study config required'; END IF;
+  cycle_start := public.swell_watch_study_cycle_start(a.epoch);
+  SELECT not_before INTO cycle_before FROM public.swell_watch_study_authorities WHERE epoch=cycle_start;
+  IF a.cohort IS DISTINCT FROM p_cohort OR a.scope_inputs IS DISTINCT FROM p_scope_inputs THEN RAISE EXCEPTION 'current study config required'; END IF;
+  IF cycle_start IS NULL OR cycle_before IS NULL OR r.run_utc < cycle_before THEN RAISE EXCEPTION 'study run predates current study cycle'; END IF;
+  IF r.revision_number<>(SELECT max(revision_number) FROM public.swell_watch_provider_run_revision_sets WHERE batch_id=r.batch_id)
+    OR r.expected_component_count<>3360 OR r.transport_provider<>'open_meteo_single_runs'
+    OR r.model<>'ncep_gfswave016' OR r.parser_version<>'open-meteo-single-runs-receipt.v1'
+    OR NOT isfinite(r.run_utc) OR r.run_utc>clock_timestamp()
+    OR extract(epoch FROM r.run_utc)::bigint % 21600<>0 THEN RAISE EXCEPTION 'invalid current study revision'; END IF;
+  IF EXISTS(SELECT 1 FROM public.swell_watch_provider_run_attestations t
+    WHERE t.revision_set_id=p_revision_set_id AND t.state IN ('rejected','revoked')) THEN
+    RAISE EXCEPTION 'study revision is held by rejection or revocation';
+  END IF;
+  SELECT b.id AS provider_batch_id,'genuine_completed:'||b.batch_id AS evaluation_id INTO completed
+    FROM public.swell_watch_provider_run_completed_batches b
+    JOIN public.swell_watch_study_acceptances s ON s.revision_set_id=b.revision_set_id
+    WHERE b.revision_set_id=p_revision_set_id AND s.authority_epoch BETWEEN cycle_start AND a.epoch
+      AND EXISTS(SELECT 1 FROM public.swell_watch_study_evaluations e WHERE e.provider_batch_id=b.id
+        AND e.policy_hash=p_policy_hash AND e.status='evaluated');
+  IF FOUND AND public.swell_watch_provider_evidence_is_current(completed.provider_batch_id) THEN
+    -- Exact successful retries acknowledge immutable work, even after freshness/target cutoff.
+    RETURN QUERY SELECT completed.provider_batch_id,completed.evaluation_id,true,a.epoch,a.qualification_rule;
+    RETURN;
+  END IF;
+  SELECT make_interval(secs=>(p.policy_values #>> '{staleness,maximum_forecast_age_hours}')::double precision*3600)
+    INTO max_age FROM public.swell_watch_evaluation_policies p ORDER BY p.epoch DESC LIMIT 1;
+  IF clock_timestamp()>r.run_utc+max_age THEN RAISE EXCEPTION 'study run is stale'; END IF;
+  IF public.read_swell_watch_study_health()->>'status' IS DISTINCT FROM 'active' THEN
+    RAISE EXCEPTION 'study is not active';
+  END IF;
+  IF (SELECT count(*) FROM public.swell_watch_provider_run_revision_set_members WHERE revision_set_id=p_revision_set_id)<>10
+    OR (SELECT count(*) FROM public.swell_watch_provider_run_batch_scopes WHERE batch_id=r.batch_id)<>10
+    OR EXISTS(SELECT 1 FROM public.swell_watch_provider_run_revision_set_members m
+      JOIN public.swell_watch_provider_run_batch_scopes s ON s.id=m.scope_id
+      JOIN public.swell_watch_provider_run_revisions v ON v.id=m.revision_id
+      WHERE m.revision_set_id=p_revision_set_id AND (s.batch_id<>r.batch_id OR v.scope_id<>s.id OR s.forecast_days<>7
+        OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(a.cohort) c WHERE c->>'sourcePointId'=s.source_point_id::text)
+        OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(a.scope_inputs) c WHERE c->>'sourcePointId'=s.source_point_id::text
+          AND (c->>'latitude')::numeric=s.requested_lat AND (c->>'longitude')::numeric=s.requested_lon)
+        OR (SELECT count(*) FROM public.swell_watch_provider_run_revision_components c WHERE c.revision_id=v.id)<>336
+        OR NOT EXISTS(SELECT 1 FROM public.swell_watch_provider_run_revision_raw_responses raw WHERE raw.revision_id=v.id)
+        OR EXISTS(SELECT 1 FROM public.swell_watch_provider_run_revision_raw_responses raw WHERE raw.revision_id=v.id
+          AND (encode(extensions.digest(raw.raw_response,'sha256'),'hex') IS DISTINCT FROM raw.raw_response_sha256
+            OR raw.raw_response::jsonb-'generationtime_ms' IS DISTINCT FROM v.semantic_payload)))) THEN
+    RAISE EXCEPTION 'study receipt coverage or raw evidence invalid';
+  END IF;
+  SELECT s.attestation_id INTO attestation FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=p_revision_set_id;
+  IF FOUND THEN
+    IF NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=p_revision_set_id AND s.authority_epoch BETWEEN cycle_start AND a.epoch) THEN
+      RAISE EXCEPTION 'study acceptance belongs to a different authority epoch';
+    END IF;
+  ELSE
+    SELECT jsonb_build_object('authorityEpoch',a.epoch,'configHash',a.config_hash,'revisionSetHash',r.revision_set_hash,
+      'rawEvidence',jsonb_agg(jsonb_build_object('revisionId',m.revision_id,'sha256',raw.raw_response_sha256)
+        ORDER BY m.revision_id,raw.raw_response_sha256)) INTO manifest
+      FROM public.swell_watch_provider_run_revision_set_members m
+      JOIN public.swell_watch_provider_run_revision_raw_responses raw ON raw.revision_id=m.revision_id
+      WHERE m.revision_set_id=p_revision_set_id;
+    attestation := gen_random_uuid();
+    PERFORM public.attest_swell_watch_provider_run(attestation,p_revision_set_id,'accepted',a.reviewer,
+      encode(extensions.digest(manifest::text,'sha256'),'hex'),a.provider_contract_ref);
+    INSERT INTO public.swell_watch_study_acceptances(revision_set_id,authority_epoch,attestation_id,evidence_manifest)
+      VALUES(p_revision_set_id,a.epoch,attestation,manifest);
+  END IF;
+  SELECT * INTO completed FROM public.complete_swell_watch_provider_run_receipt(p_revision_set_id);
+  RETURN QUERY SELECT completed.provider_batch_id,completed.evaluation_id,EXISTS(
+    SELECT 1 FROM public.swell_watch_study_evaluations e WHERE e.provider_batch_id=completed.provider_batch_id
+      AND e.policy_hash=p_policy_hash AND e.status='evaluated'),a.epoch,a.qualification_rule;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."complete_swell_watch_study_run"("p_revision_set_id" "uuid", "p_policy_hash" "text", "p_cohort" "jsonb", "p_scope_inputs" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."compute_all_affinities_initial"() RETURNS "void"
@@ -3874,108 +4887,62 @@ CREATE OR REPLACE FUNCTION "public"."compute_session_tide_snapshot"("p_beach_id"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
-  WITH previous_point AS (
-    SELECT
-      tf.ts,
-      COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) AS height_m,
-      tf.source AS source_name
+  WITH window_rows AS (
+    SELECT tf.ts, COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) AS height_m, tf.source, tf.station_id, tf.created_at,
+      CASE tf.source WHEN 'noaa' THEN 2 WHEN 'noaa_hilo_interpolated' THEN 1 ELSE 0 END AS source_rank
     FROM public.tide_forecasts tf
     WHERE tf.beach_id = p_beach_id
-      AND tf.ts <= p_arrival_time
-      AND tf.ts >= p_arrival_time - INTERVAL '4 hours'
+      AND tf.ts >= p_arrival_time - INTERVAL '4 hours' AND tf.ts <= p_arrival_time + INTERVAL '4 hours'
       AND COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) IS NOT NULL
-    ORDER BY tf.ts DESC
+  ),
+  latest_station AS (
+    SELECT wr.station_id
+    FROM window_rows wr
+    ORDER BY wr.created_at DESC NULLS LAST, wr.source_rank DESC, wr.station_id DESC NULLS LAST
     LIMIT 1
+  ),
+  series AS (
+    SELECT DISTINCT ON (date_trunc('hour', wr.ts AT TIME ZONE 'UTC')) wr.ts, wr.height_m, wr.source AS source_name
+    FROM window_rows wr
+    JOIN latest_station ls ON wr.station_id IS NOT DISTINCT FROM ls.station_id
+    ORDER BY date_trunc('hour', wr.ts AT TIME ZONE 'UTC'), wr.source_rank DESC, wr.created_at DESC NULLS LAST,
+      abs(EXTRACT(EPOCH FROM (wr.ts AT TIME ZONE 'UTC' - date_trunc('hour', wr.ts AT TIME ZONE 'UTC')))) ASC, wr.ts DESC
+  ),
+  previous_point AS (
+    SELECT s.ts, s.height_m, s.source_name FROM series s WHERE s.ts <= p_arrival_time ORDER BY s.ts DESC LIMIT 1
   ),
   next_point AS (
-    SELECT
-      tf.ts,
-      COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) AS height_m,
-      tf.source AS source_name
-    FROM public.tide_forecasts tf
-    WHERE tf.beach_id = p_beach_id
-      AND tf.ts > p_arrival_time
-      AND tf.ts <= p_arrival_time + INTERVAL '4 hours'
-      AND COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) IS NOT NULL
-    ORDER BY tf.ts ASC
-    LIMIT 1
+    SELECT s.ts, s.height_m, s.source_name FROM series s WHERE s.ts > p_arrival_time ORDER BY s.ts ASC LIMIT 1
   ),
   before_previous AS (
-    SELECT
-      tf.ts,
-      COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) AS height_m
-    FROM public.tide_forecasts tf
-    CROSS JOIN previous_point pp
-    WHERE tf.beach_id = p_beach_id
-      AND tf.ts < pp.ts
-      AND tf.ts >= p_arrival_time - INTERVAL '4 hours'
-      AND COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) IS NOT NULL
-    ORDER BY tf.ts DESC
-    LIMIT 1
+    SELECT s.ts, s.height_m FROM series s CROSS JOIN previous_point pp WHERE s.ts < pp.ts ORDER BY s.ts DESC LIMIT 1
   ),
   after_next AS (
-    SELECT
-      tf.ts,
-      COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) AS height_m
-    FROM public.tide_forecasts tf
-    CROSS JOIN next_point np
-    WHERE tf.beach_id = p_beach_id
-      AND tf.ts > np.ts
-      AND tf.ts <= p_arrival_time + INTERVAL '4 hours'
-      AND COALESCE(tf.tide_height_m, tf.tide_ft / 3.28084) IS NOT NULL
-    ORDER BY tf.ts ASC
-    LIMIT 1
+    SELECT s.ts, s.height_m FROM series s CROSS JOIN next_point np WHERE s.ts > np.ts ORDER BY s.ts ASC LIMIT 1
   ),
   calculated AS (
-    SELECT
-      pp.ts AS previous_ts,
-      np.ts AS next_ts,
-      pp.height_m AS previous_height_m,
-      np.height_m AS next_height_m,
-      bp.ts AS before_ts,
-      an.ts AS after_ts,
-      bp.height_m AS before_height_m,
-      an.height_m AS after_height_m,
-      pp.source_name AS previous_source,
-      np.source_name AS next_source,
+    SELECT pp.ts AS previous_ts, np.ts AS next_ts, pp.height_m AS previous_height_m, np.height_m AS next_height_m,
+      bp.ts AS before_ts, an.ts AS after_ts, bp.height_m AS before_height_m, an.height_m AS after_height_m,
+      pp.source_name AS previous_source, np.source_name AS next_source,
       EXTRACT(EPOCH FROM (np.ts - pp.ts)) / 3600.0 AS span_hours,
       EXTRACT(EPOCH FROM (np.ts - bp.ts)) / 3600.0 AS central_span_hours,
       p_arrival_time = pp.ts AS exact_on_previous,
-      GREATEST(
-        0,
-        LEAST(
-          1,
-          EXTRACT(EPOCH FROM (p_arrival_time - pp.ts))
-            / NULLIF(EXTRACT(EPOCH FROM (np.ts - pp.ts)), 0)
-        )
-      ) AS interpolation_fraction
-    FROM previous_point pp
-    JOIN next_point np ON true
-    LEFT JOIN before_previous bp ON true
-    LEFT JOIN after_next an ON true
+      GREATEST(0, LEAST(1, EXTRACT(EPOCH FROM (p_arrival_time - pp.ts)) / NULLIF(EXTRACT(EPOCH FROM (np.ts - pp.ts)), 0))) AS interpolation_fraction
+    FROM previous_point pp JOIN next_point np ON true LEFT JOIN before_previous bp ON true LEFT JOIN after_next an ON true
   ),
   derived AS (
     SELECT
-      (
-        previous_height_m
-        + (next_height_m - previous_height_m)
-          * ((1 - COS(PI() * interpolation_fraction)) / 2)
-      ) * 3.28084 AS height_ft,
+      (previous_height_m + (next_height_m - previous_height_m) * ((1 - COS(PI() * interpolation_fraction)) / 2)) * 3.28084 AS height_ft,
       CASE
-        WHEN exact_on_previous
-          AND before_height_m IS NOT NULL
-          AND central_span_hours > 0
+        WHEN exact_on_previous AND before_height_m IS NOT NULL AND central_span_hours > 0
         THEN ((next_height_m - before_height_m) * 3.28084) / central_span_hours
         ELSE ((next_height_m - previous_height_m) * 3.28084) / span_hours
       END AS rate_ft_per_hr,
       (previous_height_m - COALESCE(before_height_m, previous_height_m)) AS slope_before,
       (next_height_m - previous_height_m) AS slope_between,
       (COALESCE(after_height_m, next_height_m) - next_height_m) AS slope_after,
-      exact_on_previous,
-      previous_source,
-      next_source
-    FROM calculated
-    WHERE span_hours > 0
+      exact_on_previous, previous_source, next_source
+    FROM calculated WHERE span_hours > 0
   )
   SELECT
     ROUND(height_ft::numeric, 2) AS tide_height_ft,
@@ -3989,10 +4956,8 @@ CREATE OR REPLACE FUNCTION "public"."compute_session_tide_snapshot"("p_beach_id"
     END AS tide_status,
     ROUND(rate_ft_per_hr::numeric, 2) AS tide_rate_ft_per_hr,
     CASE
-      WHEN previous_source IN ('noaa', 'noaa_hilo_interpolated')
-        OR next_source IN ('noaa', 'noaa_hilo_interpolated') THEN 'noaa'
-      WHEN previous_source = 'open-meteo'
-        OR next_source = 'open-meteo' THEN 'open-meteo'
+      WHEN previous_source IN ('noaa', 'noaa_hilo_interpolated') OR next_source IN ('noaa', 'noaa_hilo_interpolated') THEN 'noaa'
+      WHEN previous_source = 'open-meteo' OR next_source = 'open-meteo' THEN 'open-meteo'
       ELSE 'noaa'
     END AS tide_data_source
   FROM derived;
@@ -4003,76 +4968,12 @@ ALTER FUNCTION "public"."compute_session_tide_snapshot"("p_beach_id" "uuid", "p_
 
 
 CREATE OR REPLACE FUNCTION "public"."compute_user_match_score"("p_user_id" "uuid", "p_beach_id" "uuid", "p_wave_height" "text", "p_wave_period" "text", "p_wind_speed" "text", "p_wind_direction" "text", "p_tide_height" "text") RETURNS "jsonb"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    LANGUAGE "sql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
     AS $$
-DECLARE
-  v_role text := COALESCE(auth.role(), 'anon');
-  v_caller uuid := auth.uid();
-  v_is_paid boolean := false;
-  v_billing_issue boolean := false;
-  v_expires_at timestamptz;
-BEGIN
-  IF v_role <> 'service_role' THEN
-    IF v_caller IS NULL OR p_user_id <> v_caller THEN
-      RETURN jsonb_build_object(
-        'state', 'locked',
-        'score', NULL,
-        'fit_label', 'Personal match unlocks with your account',
-        'reason_bullets', jsonb_build_array('Sign in with the matching account to use personal match.'),
-        'session_count', 0,
-        'sessions_needed', 5,
-        'quality_band', 'locked',
-        'lock_reason', 'forbidden'
-      );
-    END IF;
-
-    SELECT
-      COALESCE(ue.is_pro, false) OR COALESCE(ue.is_trialing, false),
-      COALESCE(ue.billing_issue, false),
-      ue.expires_at
-    INTO v_is_paid, v_billing_issue, v_expires_at
-    FROM public.user_entitlements ue
-    WHERE ue.user_id = p_user_id
-    LIMIT 1;
-
-    IF v_billing_issue THEN
-      RETURN jsonb_build_object(
-        'state', 'locked',
-        'score', NULL,
-        'fit_label', 'Update payment to use personal match',
-        'reason_bullets', jsonb_build_array('Your forecast is still here. Update your payment method to turn personal match back on.'),
-        'session_count', 0,
-        'sessions_needed', 5,
-        'quality_band', 'locked',
-        'lock_reason', 'billing_issue'
-      );
-    END IF;
-
-    IF NOT COALESCE(v_is_paid, false) OR (v_expires_at IS NOT NULL AND v_expires_at < now()) THEN
-      RETURN jsonb_build_object(
-        'state', 'locked',
-        'score', NULL,
-        'fit_label', 'Personal match unlocks with Pro',
-        'reason_bullets', jsonb_build_array('Forecasts stay free. Pro adds your fit, reasons, ranked windows, and personal alerts.'),
-        'session_count', 0,
-        'sessions_needed', 5,
-        'quality_band', 'locked',
-        'lock_reason', 'free'
-      );
-    END IF;
-  END IF;
-
-  RETURN public.compute_user_match_score_core(
-    p_user_id,
-    p_beach_id,
-    p_wave_height,
-    p_wave_period,
-    p_wind_speed,
-    p_wind_direction,
-    p_tide_height
-  );
-END;
+  SELECT coalesce(public.user_match_access_result(p_user_id),
+    public.compute_user_match_score_core(p_user_id,p_beach_id,p_wave_height,
+      p_wave_period,p_wind_speed,p_wind_direction,p_tide_height));
 $$;
 
 
@@ -4081,8 +4982,31 @@ ALTER FUNCTION "public"."compute_user_match_score"("p_user_id" "uuid", "p_beach_
 
 CREATE OR REPLACE FUNCTION "public"."compute_user_match_score_batch"("p_user_id" "uuid", "p_beach_id" "uuid", "p_slots" "jsonb") RETURNS TABLE("slot_idx" integer, "forecast_at" timestamp with time zone, "result" "jsonb")
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions', 'pg_temp'
-    AS $$ DECLARE v_slot jsonb; v_idx int := 0; BEGIN IF p_slots IS NULL OR jsonb_typeof(p_slots) <> 'array' THEN RAISE EXCEPTION 'compute_user_match_score_batch: p_slots must be a jsonb array (got: %)', coalesce(jsonb_typeof(p_slots), '<null>'); END IF; FOR v_slot IN SELECT * FROM jsonb_array_elements(p_slots) LOOP slot_idx := v_idx; forecast_at := (v_slot->>'forecast_at')::timestamptz; result := public.compute_user_match_score(p_user_id, p_beach_id, v_slot->>'wave_height', v_slot->>'wave_period', v_slot->>'wind_speed', v_slot->>'wind_direction', v_slot->>'tide_height'); RETURN NEXT; v_idx := v_idx + 1; END LOOP; END; $$;
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE v_locked jsonb;
+BEGIN
+  IF p_slots IS NULL OR jsonb_typeof(p_slots) <> 'array' THEN
+    RAISE EXCEPTION 'compute_user_match_score_batch: p_slots must be a jsonb array (got: %)', coalesce(jsonb_typeof(p_slots), '<null>');
+  END IF;
+  IF jsonb_array_length(p_slots) = 0 THEN RETURN; END IF;
+  v_locked := public.user_match_access_result(p_user_id);
+  IF v_locked IS NOT NULL THEN
+    RETURN QUERY SELECT (ordinality-1)::integer, (value->>'forecast_at')::timestamptz, v_locked
+      FROM jsonb_array_elements(p_slots) WITH ORDINALITY;
+    RETURN;
+  END IF;
+  RETURN QUERY SELECT m.slot_idx, m.forecast_at::timestamptz, m.result
+    FROM public.compute_user_match_scores(p_user_id, ARRAY[p_beach_id],
+      (SELECT coalesce(jsonb_agg(jsonb_build_object('beach_id',p_beach_id,
+        'forecast_at',value->>'forecast_at','wave_height',value->>'wave_height',
+        'wave_period',value->>'wave_period','wind_speed',value->>'wind_speed',
+        'wind_direction',value->>'wind_direction','tide_height',value->>'tide_height')
+        || jsonb_strip_nulls(jsonb_build_object('data_source',value->>'data_source',
+          'wave_period_om',value->>'wave_period_om')) ORDER BY ordinality), '[]'::jsonb)
+        FROM jsonb_array_elements(p_slots) WITH ORDINALITY)) m;
+END;
+$$;
 
 
 ALTER FUNCTION "public"."compute_user_match_score_batch"("p_user_id" "uuid", "p_beach_id" "uuid", "p_slots" "jsonb") OWNER TO "postgres";
@@ -4093,440 +5017,77 @@ COMMENT ON FUNCTION "public"."compute_user_match_score_batch"("p_user_id" "uuid"
 
 
 CREATE OR REPLACE FUNCTION "public"."compute_user_match_score_core"("p_user_id" "uuid", "p_beach_id" "uuid", "p_wave_height" "text", "p_wave_period" "text", "p_wind_speed" "text", "p_wind_direction" "text", "p_tide_height" "text") RETURNS "jsonb"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT result FROM public.compute_user_match_scores(p_user_id, ARRAY[p_beach_id],
+    jsonb_build_array(jsonb_build_object('beach_id',p_beach_id,'wave_height',p_wave_height,
+      'wave_period',p_wave_period,'wind_speed',p_wind_speed,
+      'wind_direction',p_wind_direction,'tide_height',p_tide_height)));
+$$;
+
+
+ALTER FUNCTION "public"."compute_user_match_score_core"("p_user_id" "uuid", "p_beach_id" "uuid", "p_wave_height" "text", "p_wave_period" "text", "p_wind_speed" "text", "p_wind_direction" "text", "p_tide_height" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."compute_user_match_scores"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") RETURNS TABLE("slot_idx" integer, "beach_id" "uuid", "forecast_at" "text", "result" "jsonb")
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "enable_nestloop" TO 'off'
     AS $_$
-DECLARE
-  v_session_count integer;
-  v_forecast_wave numeric;
-  v_forecast_period numeric;
-  v_forecast_wind numeric;
-  v_forecast_wind_dir numeric;
-  v_forecast_tide numeric;
-
-  v_pref_wave numeric;
-  v_pref_period numeric;
-  v_pref_wind numeric;
-  v_pref_wind_dir numeric;
-  v_pref_tide numeric;
-  v_pref_count integer;
-
-  v_av_wave numeric;
-  v_av_period numeric;
-  v_av_wind numeric;
-  v_av_wind_dir numeric;
-  v_av_tide numeric;
-  v_av_count integer;
-
-  v_wave_distance numeric;
-  v_period_distance numeric;
-  v_wind_distance numeric;
-  v_wind_dir_distance numeric;
-  v_tide_distance numeric;
-
-  v_av_wave_distance numeric;
-  v_av_period_distance numeric;
-  v_av_wind_distance numeric;
-  v_av_wind_dir_distance numeric;
-  v_av_tide_distance numeric;
-
-  v_base_distance numeric;
-  v_base_score numeric;
-  v_aversion_distance numeric;
-  v_aversion_proximity numeric;
-  v_aversion_penalty numeric;
-  v_session_fit_adjustment numeric := 0;
-  v_fit_signal_score numeric;
-  v_fit_signal_sample_count integer := 0;
-  v_fit_positive_count integer := 0;
-  v_fit_negative_count integer := 0;
-  v_cap_ceiling numeric;
-  v_cap_sample integer := 0;
-  v_skill_fit_net numeric;
-  v_profile_skill text;
-  v_resolved_skill text := 'intermediate';
-  v_skill_source text := 'default';
-  v_board_class text;
-  v_skill_ideal_min numeric;
-  v_skill_ideal_max numeric;
-  v_skill_acceptable_min numeric;
-  v_skill_acceptable_max numeric;
-  v_board_shape_lo numeric;
-  v_board_shape_hi numeric;
-  v_board_ideal_min numeric;
-  v_board_ideal_max numeric;
-  v_board_acceptable_min numeric;
-  v_board_acceptable_max numeric;
-  v_board_band_adjustment numeric := 0;
-  v_spot_swell_min_deg numeric;
-  v_spot_swell_max_deg numeric;
-  v_spot_wind_offshore_deg numeric;
-  v_spot_wind_offshore_tol_deg numeric;
-  v_spot_tide_min_ft numeric;
-  v_spot_tide_max_ft numeric;
-  v_prior_wave numeric;
-  v_prior_wind_dir numeric;
-  v_prior_tide numeric;
-  v_prior_wave_distance numeric;
-  v_prior_wind_dir_distance numeric;
-  v_prior_tide_distance numeric;
-  v_prior_weighted_distance numeric := 0;
-  v_prior_weight_total numeric := 0;
-  v_prior_score numeric;
-  v_prior_dimensions jsonb := jsonb_build_array('skill_wave');
-  v_prior_has_spot_profile boolean := false;
-  v_blend_weight numeric;
-  v_prior_fit_label text;
-  v_prior_body text;
-  v_score numeric;
-  v_label text;
-  v_confidence text;
-  v_reason_bullets jsonb;
-  v_board_tip text;
-  v_beach_break_type text;
-
-  c_aversion_scaling constant numeric := 3.0;
-  c_fit_signal_scaling constant numeric := 1.0;
-  c_capability_min_samples constant integer := 5;
-  c_skill_fit_ceiling_weight constant numeric := 0.15;
-BEGIN
-  -- Gate: need >=5 sessions with rating + snapshot in the last 12 months.
-  SELECT COUNT(*)::integer INTO v_session_count
+WITH history AS MATERIALIZED (
+  SELECT s.rating, s.arrival_time, s.session_skill_fit, s.session_board_fit,
+    s.arrival_time > now() - interval '12 months'
+      AND s.deleted_at IS NULL AND sfs.forecast_snapshot IS NOT NULL AS eligible,
+    b.break_type, public.break_type_families(b.break_type) AS break_families,
+    b.preferred_tide_ft_min, b.preferred_tide_ft_max,
+    COALESCE(s.board_id::text, s.board_snapshot->>'name', s.board_snapshot->>'board_type') AS board_key,
+    boards.board_type AS row_board_type, boards.name AS row_board_name,
+    s.board_snapshot->>'board_type' AS snapshot_board_type,
+    s.board_snapshot->>'name' AS snapshot_board_name,
+    public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') AS wave,
+    public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') AS period,
+    -- Missing wind, direction and tide stay NULL: parse_numeric_from_text reads them as 0 (glassy,
+    -- due north, dead low). Same regex, so present values are unchanged.
+    (regexp_match(sfs.forecast_snapshot->>'wind_speed', '(-?\d+\.?\d*)'))[1]::numeric AS wind,
+    (regexp_match(sfs.forecast_snapshot->>'wind_direction_deg', '(-?\d+\.?\d*)'))[1]::numeric AS wind_dir,
+    (regexp_match(sfs.forecast_snapshot->>'tide_height', '(-?\d+\.?\d*)'))[1]::numeric AS tide,
+    sfs.forecast_snapshot->>'tide_status' AS tide_status,
+    public.parse_wave_height_midpoint_ft(sfs.forecast_snapshot->>'wave_height') AS similarity_wave,
+    CASE WHEN sfs.forecast_snapshot->>'wave_period' IS NOT NULL
+      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') END AS similarity_period,
+    -- Open-Meteo snapshots store the tallest partition's period in wave_period; wave_period_om is the
+    -- whole-sea mean that CDIP/NWS periods measure. Twin of similarityPeriod in lib/scoring/personal-board.ts.
+    CASE WHEN upper(sfs.forecast_snapshot->>'data_source') = 'OPEN_METEO'
+        AND public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period_om') > 0
+      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period_om')
+      WHEN sfs.forecast_snapshot->>'wave_period' IS NOT NULL
+      THEN public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') END AS similarity_period_by_source,
+    (regexp_match(sfs.forecast_snapshot->>'wind_speed', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_wind,
+    (regexp_match(sfs.forecast_snapshot->>'wind_direction_deg', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_wind_dir,
+    (regexp_match(sfs.forecast_snapshot->>'tide_height', '(-?\d+\.?\d*)'))[1]::numeric AS similarity_tide,
+    CASE s.session_skill_fit WHEN 'dialed' THEN 1.0 WHEN 'over_my_head' THEN -1.0
+      WHEN 'under' THEN -0.5 ELSE 0 END
+      + CASE s.session_board_fit WHEN 'right' THEN 0.5
+        WHEN 'too_small' THEN -0.5 WHEN 'too_much_board' THEN -0.5
+        WHEN 'wrong_type' THEN -0.5 ELSE 0 END AS fit_value
   FROM public.sessions s
-  JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-  WHERE s.user_id = p_user_id
-    AND s.status = 'completed'
-    AND s.rating IS NOT NULL
-    AND s.arrival_time > now() - interval '12 months'
-    AND s.deleted_at IS NULL
-    AND sfs.forecast_snapshot IS NOT NULL;
-
-  IF v_session_count < 5 THEN
-    -- Starter prior: real forecast-sensitive score before the learned profile is ready.
-    v_forecast_wave     := public.parse_numeric_from_text(p_wave_height);
-    v_forecast_period   := public.parse_numeric_from_text(p_wave_period);
-    v_forecast_wind     := public.parse_numeric_from_text(p_wind_speed);
-    v_forecast_wind_dir := public.parse_numeric_from_text(p_wind_direction);
-    v_forecast_tide     := public.parse_numeric_from_text(p_tide_height);
-
-    SELECT
-      b.break_type,
-      b.swell_window_min_deg,
-      b.swell_window_max_deg,
-      b.wind_offshore_deg,
-      b.wind_offshore_tol_deg,
-      b.preferred_tide_ft_min,
-      b.preferred_tide_ft_max
-    INTO
-      v_beach_break_type,
-      v_spot_swell_min_deg,
-      v_spot_swell_max_deg,
-      v_spot_wind_offshore_deg,
-      v_spot_wind_offshore_tol_deg,
-      v_spot_tide_min_ft,
-      v_spot_tide_max_ft
-    FROM public.beaches b
-    WHERE b.id = p_beach_id;
-
-    SELECT lower(trim(p.experience_level))
-    INTO v_profile_skill
-    FROM public.profiles p
-    WHERE p.id = p_user_id;
-
-    v_profile_skill := NULLIF(v_profile_skill, '');
-
-    WITH board_usage AS (
-      SELECT
-        COALESCE(s.board_id::text, s.board_snapshot->>'name', s.board_snapshot->>'board_type') AS board_key,
-        COALESCE(s.board_snapshot->>'board_type', b.board_type) AS board_type,
-        COALESCE(s.board_snapshot->>'name', b.name) AS name,
-        COUNT(*)::integer AS use_count,
-        MAX(s.arrival_time) AS last_used_at
-      FROM public.sessions s
-      LEFT JOIN public.boards b ON b.id = s.board_id
-      JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-      WHERE s.user_id = p_user_id
-        AND s.rating >= 4
-        AND s.status = 'completed'
-        AND s.arrival_time > now() - interval '12 months'
-        AND s.deleted_at IS NULL
-        AND sfs.forecast_snapshot IS NOT NULL
-      GROUP BY
-        COALESCE(s.board_id::text, s.board_snapshot->>'name', s.board_snapshot->>'board_type'),
-        COALESCE(s.board_snapshot->>'board_type', b.board_type),
-        COALESCE(s.board_snapshot->>'name', b.name)
-    ),
-    board_keys AS (
-      SELECT
-        board_key,
-        use_count,
-        last_used_at,
-        0 AS source_priority,
-        regexp_replace(
-          regexp_replace(
-            regexp_replace(lower(trim(COALESCE(board_type, ''))), '[[:space:]_]+', '-', 'g'),
-            '-+',
-            '-',
-            'g'
-          ),
-          '(^-+|-+$)',
-          '',
-          'g'
-        ) AS key
-      FROM board_usage
-      WHERE board_type IS NOT NULL AND trim(board_type) <> ''
-
-      UNION ALL
-
-      SELECT
-        board_key,
-        use_count,
-        last_used_at,
-        1 AS source_priority,
-        regexp_replace(
-          regexp_replace(
-            regexp_replace(lower(trim(COALESCE(name, ''))), '[[:space:]_]+', '-', 'g'),
-            '-+',
-            '-',
-            'g'
-          ),
-          '(^-+|-+$)',
-          '',
-          'g'
-        ) AS key
-      FROM board_usage
-      WHERE name IS NOT NULL AND trim(name) <> ''
-    ),
-    board_classes AS (
-      SELECT
-        board_key,
-        use_count,
-        last_used_at,
-        source_priority,
-        CASE
-          WHEN key IN ('foamie', 'foam', 'foamboard', 'foam-board', 'soft', 'softboard', 'soft-board', 'softtop', 'soft-top', 'softtopboard', 'soft-top-board')
-            OR replace(key, '-', '') IN ('foamie', 'foam', 'foamboard', 'soft', 'softboard', 'softtop', 'softtopboard')
-          THEN 'foamie'
-          WHEN key IN ('longboard', 'long-board', 'log', 'longboard-single-fin', 'longboard-2-plus-1')
-            OR replace(key, '-', '') IN ('longboard', 'longboard21')
-          THEN 'longboard'
-          WHEN key IN ('midlength', 'mid-length', 'mini-mid', 'egg')
-            OR replace(key, '-', '') = 'midlength'
-          THEN 'mid-length'
-          WHEN key IN ('funboard', 'fun-board', 'mini', 'minimal', 'mini-mal', 'mini-simmons')
-            OR replace(key, '-', '') IN ('funboard', 'minisimmons')
-          THEN 'funboard'
-          WHEN key IN ('fish', 'twin', 'twin-pin', 'groveler')
-            OR replace(key, '-', '') = 'twinpin'
-          THEN 'fish'
-          WHEN key IN ('shortboard', 'short-board')
-            OR replace(key, '-', '') = 'shortboard'
-          THEN 'shortboard'
-          WHEN key IN ('step-up', 'stepup')
-            OR replace(key, '-', '') = 'stepup'
-          THEN 'step-up'
-          WHEN key = 'gun' THEN 'gun'
-          WHEN key IN ('sup', 'standuppaddle', 'standuppaddleboard', 'stand-up-paddle', 'stand-up-paddleboard', 'paddleboard', 'paddle-board')
-            OR replace(key, '-', '') IN ('sup', 'standuppaddle', 'standuppaddleboard', 'paddleboard')
-          THEN 'sup'
-          WHEN key = 'foil' THEN 'foil'
-          WHEN key IN ('bodyboard', 'body-board', 'boogie', 'boogieboard', 'boogie-board')
-            OR replace(key, '-', '') IN ('bodyboard', 'boogieboard')
-          THEN 'bodyboard'
-          ELSE NULL
-        END AS board_class
-      FROM board_keys
-      WHERE key <> ''
-    )
-    SELECT board_class
-    INTO v_board_class
-    FROM board_classes
-    WHERE board_class IS NOT NULL
-    ORDER BY use_count DESC, last_used_at DESC NULLS LAST, source_priority ASC, board_key
-    LIMIT 1;
-
-    IF v_profile_skill IN ('beginner', 'intermediate', 'advanced', 'expert') THEN
-      v_resolved_skill := v_profile_skill;
-      v_skill_source := 'profile';
-    ELSIF v_board_class IS NOT NULL THEN
-      v_resolved_skill := CASE v_board_class
-        WHEN 'foamie' THEN 'beginner'
-        WHEN 'longboard' THEN 'beginner'
-        WHEN 'sup' THEN 'beginner'
-        WHEN 'foil' THEN 'beginner'
-        WHEN 'funboard' THEN 'intermediate'
-        WHEN 'fish' THEN 'intermediate'
-        WHEN 'mid-length' THEN 'intermediate'
-        WHEN 'bodyboard' THEN 'intermediate'
-        WHEN 'shortboard' THEN 'intermediate'
-        WHEN 'step-up' THEN 'advanced'
-        WHEN 'gun' THEN 'advanced'
-        ELSE 'intermediate'
-      END;
-      v_skill_source := 'board_prior';
-    ELSE
-      v_resolved_skill := 'intermediate';
-      v_skill_source := 'default';
-    END IF;
-
-    v_prior_wave := CASE v_resolved_skill
-      WHEN 'beginner' THEN 2.0
-      WHEN 'intermediate' THEN 3.5
-      WHEN 'advanced' THEN 5.5
-      WHEN 'expert' THEN 8.0
-      ELSE 3.5
-    END;
-
-    v_prior_wind_dir := v_spot_wind_offshore_deg;
-    IF v_spot_tide_min_ft IS NOT NULL AND v_spot_tide_max_ft IS NOT NULL THEN
-      v_prior_tide := (v_spot_tide_min_ft + v_spot_tide_max_ft) / 2.0;
-    END IF;
-
-    -- If a few positive sessions exist, shrink the prior toward the early learned peak.
-    SELECT
-      SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') * (s.rating - 3))
-        / NULLIF(SUM(s.rating - 3), 0),
-      SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') * (s.rating - 3))
-        / NULLIF(SUM(s.rating - 3), 0),
-      SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') * (s.rating - 3))
-        / NULLIF(SUM(s.rating - 3), 0),
-      SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') * (s.rating - 3))
-        / NULLIF(SUM(s.rating - 3), 0),
-      SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') * (s.rating - 3))
-        / NULLIF(SUM(s.rating - 3), 0),
-      COUNT(*)::integer
-    INTO
-      v_pref_wave, v_pref_period, v_pref_wind, v_pref_wind_dir, v_pref_tide, v_pref_count
-    FROM public.sessions s
-    JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-    LEFT JOIN public.beaches b ON b.id = s.beach_id
-    WHERE s.user_id = p_user_id
-      AND s.status = 'completed'
-      AND s.rating >= 4
-      AND s.arrival_time > now() - interval '12 months'
-      AND s.deleted_at IS NULL
-      AND sfs.forecast_snapshot IS NOT NULL
-      AND (v_beach_break_type IS NULL OR b.break_type = v_beach_break_type OR b.break_type IS NULL);
-
-    IF COALESCE(v_pref_count, 0) > 0 THEN
-      v_blend_weight := v_session_count::numeric / (v_session_count::numeric + 5.0);
-
-      IF v_pref_wave IS NOT NULL THEN
-        v_prior_wave := v_blend_weight * v_pref_wave + (1.0 - v_blend_weight) * v_prior_wave;
-      END IF;
-
-      IF v_pref_wind_dir IS NOT NULL AND v_prior_wind_dir IS NOT NULL THEN
-        IF ABS(v_pref_wind_dir - v_prior_wind_dir) > 180 THEN
-          IF v_pref_wind_dir > v_prior_wind_dir THEN
-            v_prior_wind_dir := v_prior_wind_dir + 360;
-          ELSE
-            v_pref_wind_dir := v_pref_wind_dir + 360;
-          END IF;
-        END IF;
-        v_prior_wind_dir := mod(v_blend_weight * v_pref_wind_dir + (1.0 - v_blend_weight) * v_prior_wind_dir, 360);
-      END IF;
-
-      IF v_pref_tide IS NOT NULL AND v_prior_tide IS NOT NULL THEN
-        v_prior_tide := v_blend_weight * v_pref_tide + (1.0 - v_blend_weight) * v_prior_tide;
-      END IF;
-    END IF;
-
-    v_prior_wave_distance := LEAST(ABS(v_prior_wave - COALESCE(v_forecast_wave, v_prior_wave)) / GREATEST(v_prior_wave, 1), 1);
-    v_prior_weighted_distance := v_prior_weighted_distance + 0.35 * v_prior_wave_distance;
-    v_prior_weight_total := v_prior_weight_total + 0.35;
-
-    IF v_prior_wind_dir IS NOT NULL AND v_forecast_wind_dir IS NOT NULL THEN
-      v_prior_wind_dir_distance := LEAST(
-        LEAST(ABS(v_prior_wind_dir - v_forecast_wind_dir), 360 - ABS(v_prior_wind_dir - v_forecast_wind_dir)) / 180,
-        1
-      );
-      v_prior_weighted_distance := v_prior_weighted_distance + 0.10 * v_prior_wind_dir_distance;
-      v_prior_weight_total := v_prior_weight_total + 0.10;
-      v_prior_dimensions := v_prior_dimensions || jsonb_build_array('spot_wind_direction');
-      v_prior_has_spot_profile := true;
-    END IF;
-
-    IF v_prior_tide IS NOT NULL AND v_forecast_tide IS NOT NULL THEN
-      v_prior_tide_distance := LEAST(ABS(v_prior_tide - v_forecast_tide) / 3, 1);
-      v_prior_weighted_distance := v_prior_weighted_distance + 0.10 * v_prior_tide_distance;
-      v_prior_weight_total := v_prior_weight_total + 0.10;
-      v_prior_dimensions := v_prior_dimensions || jsonb_build_array('spot_tide');
-      v_prior_has_spot_profile := true;
-    END IF;
-
-    v_prior_score := GREATEST(
-      0,
-      LEAST(10, (1.0 - LEAST(v_prior_weighted_distance / NULLIF(v_prior_weight_total, 0), 1.0)) * 10.0)
-    );
-    v_prior_fit_label := CASE
-      WHEN v_prior_has_spot_profile THEN 'Based on your skill + this spot'
-      ELSE 'Based on your skill level'
-    END;
-    v_prior_body := 'A starter read from your skill'
-      || CASE WHEN v_prior_has_spot_profile THEN ' and this spot''s setup' ELSE '' END
-      || '. It gets more personal as you rate sessions.';
-
-    RETURN jsonb_build_object(
-      'state', 'starter',
-      'score', round(v_prior_score::numeric, 1),
-      'session_count', v_session_count,
-      'sessions_needed', 5 - v_session_count,
-      'fit_label', v_prior_fit_label,
-      'body', v_prior_body,
-      'quality_band', 'starter',
-      'prior_dimensions', v_prior_dimensions,
-      'skill_used', v_resolved_skill,
-      'skill_source', v_skill_source,
-      'board_class', v_board_class
-    );
-  END IF;
-
-  -- Parse forecast inputs.
-  v_forecast_wave     := public.parse_numeric_from_text(p_wave_height);
-  v_forecast_period   := public.parse_numeric_from_text(p_wave_period);
-  v_forecast_wind     := public.parse_numeric_from_text(p_wind_speed);
-  v_forecast_wind_dir := public.parse_numeric_from_text(p_wind_direction);
-  v_forecast_tide     := public.parse_numeric_from_text(p_tide_height);
-
-  SELECT break_type INTO v_beach_break_type FROM public.beaches WHERE id = p_beach_id;
-
-  SELECT lower(trim(p.experience_level))
-  INTO v_profile_skill
-  FROM public.profiles p
-  WHERE p.id = p_user_id;
-
-  v_profile_skill := NULLIF(v_profile_skill, '');
-
-  WITH board_usage AS (
-    SELECT
-      COALESCE(s.board_id::text, s.board_snapshot->>'name', s.board_snapshot->>'board_type') AS board_key,
-      COALESCE(s.board_snapshot->>'board_type', b.board_type) AS board_type,
-      COALESCE(s.board_snapshot->>'name', b.name) AS name,
-      COUNT(*)::integer AS use_count,
-      MAX(s.arrival_time) AS last_used_at
-    FROM public.sessions s
-    LEFT JOIN public.boards b ON b.id = s.board_id
-    JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-    WHERE s.user_id = p_user_id
-      AND s.rating >= 4
-      AND s.status = 'completed'
-      AND s.arrival_time > now() - interval '12 months'
-      AND s.deleted_at IS NULL
-      AND sfs.forecast_snapshot IS NOT NULL
-    GROUP BY
-      COALESCE(s.board_id::text, s.board_snapshot->>'name', s.board_snapshot->>'board_type'),
-      COALESCE(s.board_snapshot->>'board_type', b.board_type),
-      COALESCE(s.board_snapshot->>'name', b.name)
+  LEFT JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
+  LEFT JOIN public.beaches b ON b.id = s.beach_id
+  LEFT JOIN public.boards boards ON boards.id = s.board_id
+  WHERE s.user_id = p_user_id AND s.status = 'completed' AND s.rating IS NOT NULL
+), chosen_board AS (
+WITH board_usage AS (
+    SELECT board_key, row_board_type, row_board_name, snapshot_board_type, snapshot_board_name,
+      COUNT(*)::integer AS use_count, MAX(arrival_time) AS last_used_at
+    FROM history WHERE eligible AND rating >= 4
+    GROUP BY board_key, row_board_type, row_board_name, snapshot_board_type, snapshot_board_name
   ),
   board_keys AS (
-    SELECT
-      board_key,
-      use_count,
-      last_used_at,
-      0 AS source_priority,
+    SELECT board_key, use_count, last_used_at, candidate.source_priority,
       regexp_replace(
         regexp_replace(
-          regexp_replace(lower(trim(COALESCE(board_type, ''))), '[[:space:]_]+', '-', 'g'),
+          regexp_replace(lower(trim(candidate.value)), '[[:space:]_]+', '-', 'g'),
           '-+',
           '-',
           'g'
@@ -4536,28 +5097,10 @@ BEGIN
         'g'
       ) AS key
     FROM board_usage
-    WHERE board_type IS NOT NULL AND trim(board_type) <> ''
-
-    UNION ALL
-
-    SELECT
-      board_key,
-      use_count,
-      last_used_at,
-      1 AS source_priority,
-      regexp_replace(
-        regexp_replace(
-          regexp_replace(lower(trim(COALESCE(name, ''))), '[[:space:]_]+', '-', 'g'),
-          '-+',
-          '-',
-          'g'
-        ),
-        '(^-+|-+$)',
-        '',
-        'g'
-      ) AS key
-    FROM board_usage
-    WHERE name IS NOT NULL AND trim(name) <> ''
+    CROSS JOIN LATERAL (VALUES
+      (row_board_type,0),(row_board_name,1),(snapshot_board_type,2),(snapshot_board_name,3)
+    ) AS candidate(value,source_priority)
+    WHERE candidate.value IS NOT NULL AND trim(candidate.value) <> ''
   ),
   board_classes AS (
     SELECT
@@ -4581,7 +5124,7 @@ BEGIN
         WHEN key IN ('fish', 'twin', 'twin-pin', 'groveler')
           OR replace(key, '-', '') = 'twinpin'
         THEN 'fish'
-        WHEN key IN ('shortboard', 'short-board')
+        WHEN key IN ('shortboard', 'short-board', 'thruster')
           OR replace(key, '-', '') = 'shortboard'
         THEN 'shortboard'
         WHEN key IN ('step-up', 'stepup')
@@ -4601,468 +5144,325 @@ BEGIN
     WHERE key <> ''
   )
   SELECT board_class
-  INTO v_board_class
   FROM board_classes
   WHERE board_class IS NOT NULL
   ORDER BY use_count DESC, last_used_at DESC NULLS LAST, source_priority ASC, board_key
-  LIMIT 1;
+  LIMIT 1
 
-  -- Capability ceiling: the size this user demonstrably rides well.
-  -- Deliberately distinct from the weighted-mean preference peak below.
-  SELECT
-    percentile_cont(0.85) WITHIN GROUP (
-      ORDER BY public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height')
-    )::numeric,
-    COUNT(*)::integer,
-    AVG(
-      CASE s.session_skill_fit
-        WHEN 'dialed' THEN 1.0
-        WHEN 'under' THEN -0.5
-        WHEN 'over_my_head' THEN -1.0
-        ELSE 0
-      END
-    )
-  INTO v_cap_ceiling, v_cap_sample, v_skill_fit_net
-  FROM public.sessions s
-  JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-  WHERE s.user_id = p_user_id
-    AND s.status = 'completed'
-    AND s.rating >= 4
-    AND s.arrival_time > now() - interval '12 months'
-    AND s.deleted_at IS NULL
-    AND sfs.forecast_snapshot IS NOT NULL
-    AND public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') IS NOT NULL;
-
-  IF v_cap_ceiling IS NOT NULL THEN
-    v_cap_ceiling := GREATEST(
-      0.5,
-      v_cap_ceiling * (1.0 + c_skill_fit_ceiling_weight * COALESCE(v_skill_fit_net, 0))
-    );
-  END IF;
-
-  IF v_cap_sample >= c_capability_min_samples AND v_cap_ceiling IS NOT NULL THEN
-    v_resolved_skill := CASE
-      WHEN v_cap_ceiling <= 3 THEN 'beginner'
-      WHEN v_cap_ceiling <= 5 THEN 'intermediate'
-      WHEN v_cap_ceiling <= 8 THEN 'advanced'
-      ELSE 'expert'
-    END;
-    v_skill_source := 'session_derived';
-  ELSIF v_profile_skill IN ('beginner', 'intermediate', 'advanced', 'expert') THEN
-    v_resolved_skill := v_profile_skill;
-    v_skill_source := 'profile';
-  ELSIF v_board_class IS NOT NULL THEN
-    v_resolved_skill := CASE v_board_class
-      WHEN 'foamie' THEN 'beginner'
-      WHEN 'longboard' THEN 'beginner'
-      WHEN 'sup' THEN 'beginner'
-      WHEN 'foil' THEN 'beginner'
-      WHEN 'funboard' THEN 'intermediate'
-      WHEN 'fish' THEN 'intermediate'
-      WHEN 'mid-length' THEN 'intermediate'
-      WHEN 'bodyboard' THEN 'intermediate'
-      WHEN 'shortboard' THEN 'intermediate'
-      WHEN 'step-up' THEN 'advanced'
-      WHEN 'gun' THEN 'advanced'
-      ELSE 'intermediate'
-    END;
-    v_skill_source := 'board_prior';
-  ELSE
-    v_resolved_skill := 'intermediate';
-    v_skill_source := 'default';
-  END IF;
-
-  -- Preference peak: weighted mean of conditions over sessions with rating >= 4.
-  -- Weight = rating - 3 (1 for r=4, 2 for r=5). No contribution from r=3 or r<=2.
-  SELECT
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') * (s.rating - 3))
-      / NULLIF(SUM(s.rating - 3), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') * (s.rating - 3))
-      / NULLIF(SUM(s.rating - 3), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') * (s.rating - 3))
-      / NULLIF(SUM(s.rating - 3), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') * (s.rating - 3))
-      / NULLIF(SUM(s.rating - 3), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') * (s.rating - 3))
-      / NULLIF(SUM(s.rating - 3), 0),
-    COUNT(*)::integer
-  INTO
-    v_pref_wave, v_pref_period, v_pref_wind, v_pref_wind_dir, v_pref_tide, v_pref_count
-  FROM public.sessions s
-  JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-  LEFT JOIN public.beaches b ON b.id = s.beach_id
-  WHERE s.user_id = p_user_id
-    AND s.status = 'completed'
-    AND s.rating >= 4
-    AND s.arrival_time > now() - interval '12 months'
-    AND s.deleted_at IS NULL
-    AND sfs.forecast_snapshot IS NOT NULL
-    AND (v_beach_break_type IS NULL OR b.break_type = v_beach_break_type OR b.break_type IS NULL);
-
-  -- Aversion peak: weighted mean of conditions over sessions with rating <= 2.
-  -- Weight = 3 - rating (1 for r=2, 2 for r=1). No contribution from r=3 or r>=4.
-  SELECT
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') * (3 - s.rating))
-      / NULLIF(SUM(3 - s.rating), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') * (3 - s.rating))
-      / NULLIF(SUM(3 - s.rating), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') * (3 - s.rating))
-      / NULLIF(SUM(3 - s.rating), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') * (3 - s.rating))
-      / NULLIF(SUM(3 - s.rating), 0),
-    SUM(public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') * (3 - s.rating))
-      / NULLIF(SUM(3 - s.rating), 0),
-    COUNT(*)::integer
-  INTO
-    v_av_wave, v_av_period, v_av_wind, v_av_wind_dir, v_av_tide, v_av_count
-  FROM public.sessions s
-  JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-  LEFT JOIN public.beaches b ON b.id = s.beach_id
-  WHERE s.user_id = p_user_id
-    AND s.status = 'completed'
-    AND s.rating <= 2
-    AND s.arrival_time > now() - interval '12 months'
-    AND s.deleted_at IS NULL
-    AND sfs.forecast_snapshot IS NOT NULL
-    AND (v_beach_break_type IS NULL OR b.break_type = v_beach_break_type OR b.break_type IS NULL);
-
-  -- Degenerate: all-negative profile (no rating >= 4 samples). Cannot anchor a preference.
-  IF v_pref_count IS NULL OR v_pref_count = 0 THEN
-    IF v_av_count IS NULL OR v_av_count = 0 THEN
-      -- Also no aversion samples -> all rating = 3 sessions. Return honest avoidance-style learned state.
-      RETURN jsonb_build_object(
-        'state', 'avoidance_learned',
-        'score', NULL,
-        'fit_label', 'Need a few more ratings',
-        'reason_bullets', jsonb_build_array(
-          'We know what you tend to avoid. Rate a few good sessions to sharpen your match.'
-        ),
-        'board_tip', NULL,
-        'sessions_in_profile', v_session_count,
-        'profile_kind', 'neutral',
-        'quality_band', 'mixed_signal'
-      );
-    END IF;
-
-    -- Aversion only — we know what the user hates but not what they love. Can't score.
-    RETURN jsonb_build_object(
-      'state', 'avoidance_learned',
-      'session_count', v_session_count,
-      'sessions_needed', 0,
-      'fit_label', 'Need a few more ratings',
-      'reason_bullets', jsonb_build_array('We know what you tend to avoid. Rate a few good sessions to sharpen your match.'),
-      'score', NULL,
-      'quality_band', 'mixed_signal',
-      'reason', 'no_positive_sessions'
-    );
-  END IF;
-
-  -- Base distance (forecast vs preference peak).
-  v_wave_distance     := LEAST(ABS(v_pref_wave - v_forecast_wave) / GREATEST(v_pref_wave, 1), 1);
-  v_period_distance   := LEAST(ABS(v_pref_period - v_forecast_period) / GREATEST(v_pref_period, 1), 1);
-  v_wind_distance     := LEAST(ABS(v_pref_wind - v_forecast_wind) / GREATEST(v_pref_wind, 5), 1);
-  v_tide_distance     := LEAST(ABS(v_pref_tide - v_forecast_tide) / 3, 1);
-  v_wind_dir_distance := LEAST(
-    LEAST(ABS(v_pref_wind_dir - v_forecast_wind_dir), 360 - ABS(v_pref_wind_dir - v_forecast_wind_dir)) / 180,
-    1
-  );
-
-  v_base_distance := LEAST(
-    0.35 * v_wave_distance +
-    0.25 * v_period_distance +
-    0.20 * v_wind_distance +
-    0.10 * v_tide_distance +
-    0.10 * v_wind_dir_distance,
-    1.0
-  );
-  v_base_score := (1.0 - v_base_distance) * 10.0;
-
-  -- Aversion penalty (forecast vs aversion peak). Only when we have samples.
-  IF v_av_count IS NOT NULL AND v_av_count > 0 THEN
-    v_av_wave_distance     := LEAST(ABS(v_av_wave - v_forecast_wave) / GREATEST(v_av_wave, 1), 1);
-    v_av_period_distance   := LEAST(ABS(v_av_period - v_forecast_period) / GREATEST(v_av_period, 1), 1);
-    v_av_wind_distance     := LEAST(ABS(v_av_wind - v_forecast_wind) / GREATEST(v_av_wind, 5), 1);
-    v_av_tide_distance     := LEAST(ABS(v_av_tide - v_forecast_tide) / 3, 1);
-    v_av_wind_dir_distance := LEAST(
-      LEAST(ABS(v_av_wind_dir - v_forecast_wind_dir), 360 - ABS(v_av_wind_dir - v_forecast_wind_dir)) / 180,
-      1
-    );
-
-    v_aversion_distance := LEAST(
-      0.35 * v_av_wave_distance +
-      0.25 * v_av_period_distance +
-      0.20 * v_av_wind_distance +
-      0.10 * v_av_tide_distance +
-      0.10 * v_av_wind_dir_distance,
-      1.0
-    );
-    v_aversion_proximity := 1.0 - v_aversion_distance;
-    v_aversion_penalty := v_aversion_proximity * c_aversion_scaling;
-  ELSE
-    v_aversion_penalty := 0;
-  END IF;
-
-  -- Fit-signal adjustment: explicit v1 picker feedback nudges nearby windows.
-  -- It is bounded and only activates when categorical fit rows exist.
-  WITH fit_samples AS (
-    SELECT
-      CASE
-        WHEN s.session_skill_fit = 'dialed' THEN 1.0
-        WHEN s.session_skill_fit = 'over_my_head' THEN -1.0
-        WHEN s.session_skill_fit = 'under' THEN -0.5
-        ELSE 0
-      END
-      +
-      CASE
-        WHEN s.session_board_fit = 'right' THEN 0.5
-        WHEN s.session_board_fit IN ('too_small', 'too_much_board', 'wrong_type') THEN -0.5
-        ELSE 0
-      END AS fit_value,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') AS sample_wave,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') AS sample_period,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') AS sample_wind,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_direction_deg') AS sample_wind_dir,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') AS sample_tide
-    FROM public.sessions s
-    JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
-    LEFT JOIN public.beaches b ON b.id = s.beach_id
-    WHERE s.user_id = p_user_id
-      AND s.status = 'completed'
-      AND s.rating IS NOT NULL
-      AND s.arrival_time > now() - interval '12 months'
-      AND s.deleted_at IS NULL
-      AND sfs.forecast_snapshot IS NOT NULL
-      AND (s.session_skill_fit IS NOT NULL OR s.session_board_fit IS NOT NULL)
-      AND (v_beach_break_type IS NULL OR b.break_type = v_beach_break_type OR b.break_type IS NULL)
-  ),
-  scored_fit_samples AS (
-    SELECT
-      fit_value,
-      1.0 - LEAST(
-        0.35 * LEAST(ABS(sample_wave - v_forecast_wave) / GREATEST(sample_wave, 1), 1) +
-        0.25 * LEAST(ABS(sample_period - v_forecast_period) / GREATEST(sample_period, 1), 1) +
-        0.20 * LEAST(ABS(sample_wind - v_forecast_wind) / GREATEST(sample_wind, 5), 1) +
-        0.10 * LEAST(ABS(sample_tide - v_forecast_tide) / 3, 1) +
-        0.10 * LEAST(
-          LEAST(ABS(sample_wind_dir - v_forecast_wind_dir), 360 - ABS(sample_wind_dir - v_forecast_wind_dir)) / 180,
-          1
-        ),
-        1.0
-      ) AS fit_proximity
-    FROM fit_samples
-    WHERE sample_wave IS NOT NULL
-      AND sample_period IS NOT NULL
-      AND sample_wind IS NOT NULL
-      AND sample_wind_dir IS NOT NULL
-      AND sample_tide IS NOT NULL
-      AND fit_value <> 0
-  )
-  SELECT
-    SUM(fit_value * fit_proximity) / NULLIF(SUM(fit_proximity), 0),
-    COUNT(*)::integer,
-    COUNT(*) FILTER (WHERE fit_value > 0)::integer,
-    COUNT(*) FILTER (WHERE fit_value < 0)::integer
-  INTO
-    v_fit_signal_score,
-    v_fit_signal_sample_count,
-    v_fit_positive_count,
-    v_fit_negative_count
-  FROM scored_fit_samples
-  WHERE fit_proximity > 0.15;
-
-  IF COALESCE(v_fit_signal_sample_count, 0) > 0 THEN
-    v_session_fit_adjustment := GREATEST(
-      -1.0,
-      LEAST(1.0, COALESCE(v_fit_signal_score, 0) * c_fit_signal_scaling)
-    );
-  ELSE
-    v_session_fit_adjustment := 0;
-  END IF;
-
-  SELECT
-    CASE v_resolved_skill
-      WHEN 'intermediate' THEN 2.0
-      WHEN 'advanced' THEN 3.0
-      WHEN 'expert' THEN 4.0
-      ELSE 1.0
-    END,
-    CASE v_resolved_skill
-      WHEN 'intermediate' THEN 5.0
-      WHEN 'advanced' THEN 8.0
-      WHEN 'expert' THEN 12.0
-      ELSE 3.0
-    END,
-    CASE v_resolved_skill
-      WHEN 'intermediate' THEN 1.0
-      WHEN 'advanced' THEN 2.0
-      WHEN 'expert' THEN 2.0
-      ELSE 0.5
-    END,
-    CASE v_resolved_skill
-      WHEN 'intermediate' THEN 6.0
-      WHEN 'advanced' THEN 12.0
-      WHEN 'expert' THEN 20.0
-      ELSE 4.0
-    END
-  INTO
-    v_skill_ideal_min,
-    v_skill_ideal_max,
-    v_skill_acceptable_min,
-    v_skill_acceptable_max;
-
-  SELECT
-    CASE v_board_class
-      WHEN 'foamie' THEN 0.5
-      WHEN 'longboard' THEN 0.5
-      WHEN 'mid-length' THEN 0.7
-      WHEN 'funboard' THEN 0.6
-      WHEN 'fish' THEN 0.85
-      WHEN 'shortboard' THEN 1.15
-      WHEN 'step-up' THEN 1.4
-      WHEN 'gun' THEN 1.6
-      WHEN 'sup' THEN 0.4
-      WHEN 'foil' THEN 0.2
-      WHEN 'bodyboard' THEN 1.0
-      ELSE NULL
-    END,
-    CASE v_board_class
-      WHEN 'foamie' THEN 0.6
-      WHEN 'longboard' THEN 0.7
-      WHEN 'mid-length' THEN 0.85
-      WHEN 'funboard' THEN 0.8
-      WHEN 'fish' THEN 0.95
-      WHEN 'shortboard' THEN 1.05
-      WHEN 'step-up' THEN 1.15
-      WHEN 'gun' THEN 1.2
-      WHEN 'sup' THEN 0.6
-      WHEN 'foil' THEN 0.5
-      WHEN 'bodyboard' THEN 1.0
-      ELSE NULL
-    END
-  INTO v_board_shape_lo, v_board_shape_hi;
-
-  IF v_board_class IS NOT NULL
-    AND v_board_shape_lo IS NOT NULL
-    AND v_board_shape_hi IS NOT NULL
-    AND v_forecast_wave IS NOT NULL
-  THEN
-    v_board_ideal_min := GREATEST(0.3, round((v_skill_ideal_min * v_board_shape_lo)::numeric, 1));
-    v_board_ideal_max := GREATEST(v_board_ideal_min + 0.5, round((v_skill_ideal_max * v_board_shape_hi)::numeric, 1));
-    v_board_acceptable_min := GREATEST(0.3, round((v_skill_acceptable_min * v_board_shape_lo)::numeric, 1));
-    v_board_acceptable_max := GREATEST(v_board_acceptable_min + 0.5, round((v_skill_acceptable_max * v_board_shape_hi)::numeric, 1));
-
-    IF v_forecast_wave >= v_board_ideal_min AND v_forecast_wave <= v_board_ideal_max THEN
-      v_board_band_adjustment := 0.5;
-    ELSIF v_forecast_wave < v_board_acceptable_min THEN
-      v_board_band_adjustment := -LEAST(
-        1.0,
-        GREATEST(0.5, round(((v_board_acceptable_min - v_forecast_wave) * 0.5)::numeric, 2))
-      );
-    ELSIF v_forecast_wave > v_board_acceptable_max THEN
-      v_board_band_adjustment := -LEAST(
-        1.0,
-        GREATEST(0.5, round(((v_forecast_wave - v_board_acceptable_max) * 0.5)::numeric, 2))
-      );
-    ELSE
-      v_board_band_adjustment := 0;
-    END IF;
-  ELSE
-    v_board_band_adjustment := 0;
-  END IF;
-
-  v_score := GREATEST(
-    0,
-    LEAST(
-      10,
-      v_base_score - v_aversion_penalty + v_session_fit_adjustment + v_board_band_adjustment
-    )
-  );
-
-  v_label := CASE
-    WHEN v_score >= 8.5 THEN 'EPIC'
-    WHEN v_score >= 7.0 THEN 'GOOD'
-    WHEN v_score >= 5.5 THEN 'FAIR'
-    WHEN v_score >= 3.5 THEN 'RIDEABLE'
-    ELSE 'MEH'
-  END;
-
-  v_confidence := CASE
-    WHEN v_session_count >= 25 THEN 'high'
-    WHEN v_session_count >= 10 THEN 'medium'
-    ELSE 'low'
-  END;
-
-  v_reason_bullets := jsonb_build_array(
-    format('Wave height %s ft — profile peak %s ft', round(v_forecast_wave::numeric, 1), round(v_pref_wave::numeric, 1)),
-    format('Period %s s — profile peak %s s', round(v_forecast_period::numeric, 0), round(v_pref_period::numeric, 0)),
-    format('Wind %s mph — profile peak %s mph', round(v_forecast_wind::numeric, 0), round(v_pref_wind::numeric, 0))
-  );
-
-  IF COALESCE(v_fit_signal_sample_count, 0) > 0 THEN
-    v_reason_bullets := v_reason_bullets || jsonb_build_array(
-      CASE
-        WHEN v_session_fit_adjustment > 0.15 THEN 'Your session fit feedback lifts this window.'
-        WHEN v_session_fit_adjustment < -0.15 THEN 'Similar sessions were flagged as a skill or board mismatch.'
-        ELSE 'Your session fit feedback is neutral for this window.'
-      END
-    );
-  END IF;
-
-  IF v_board_class IS NOT NULL AND ABS(v_board_band_adjustment) >= 0.15 THEN
-    v_reason_bullets := v_reason_bullets || jsonb_build_array(
-      CASE
-        WHEN v_board_band_adjustment > 0 THEN format('Your %s band fits this wave height.', v_board_class)
-        ELSE format('This wave height is outside your usual %s band.', v_board_class)
-      END
-    );
-  END IF;
-
-  -- Board tip: most-used board at rating >=4 sessions with nearby wave height.
-  SELECT
-    CASE
-      WHEN b.dimensions IS NOT NULL AND b.dimensions <> '' THEN b.name || ' ' || b.dimensions
-      ELSE b.name
-    END
-  INTO v_board_tip
-  FROM public.sessions s
-  JOIN public.boards b ON b.id = s.board_id
-  WHERE s.user_id = p_user_id
-    AND s.rating >= 4
-    AND s.status = 'completed'
-    AND ABS(public.parse_numeric_from_text((SELECT forecast_snapshot->>'wave_height' FROM public.session_forecast_snapshots WHERE session_id = s.id)) - v_forecast_wave) < 1.5
-  GROUP BY b.id, b.name, b.dimensions
-  ORDER BY COUNT(*) DESC
-  LIMIT 1;
-
-  RETURN jsonb_build_object(
-    'state', 'learned',
-    'score', round(v_score::numeric, 1),
-    'label', v_label,
-    'reason_bullets', v_reason_bullets,
-    'board_tip', v_board_tip,
-    'confidence', v_confidence,
-    'sessions_in_profile', v_session_count,
-    'profile_kind', CASE WHEN v_av_count IS NOT NULL AND v_av_count > 0 THEN 'two_sided' ELSE 'preference_only' END,
-    'quality_band', CASE WHEN v_session_count >= 15 THEN 'dense_signal' ELSE 'session_backed' END,
-    'base_score', round(v_base_score::numeric, 2),
-    'aversion_penalty', round(v_aversion_penalty::numeric, 2),
-    'aversion_sample_count', COALESCE(v_av_count, 0),
-    'fit_signal_adjustment', round(v_session_fit_adjustment::numeric, 2),
-    'fit_signal_sample_count', COALESCE(v_fit_signal_sample_count, 0),
-    'fit_signal_positive_count', COALESCE(v_fit_positive_count, 0),
-    'fit_signal_negative_count', COALESCE(v_fit_negative_count, 0),
-    'skill_used', v_resolved_skill,
-    'skill_source', v_skill_source,
-    'board_class', v_board_class,
-    'board_band_adjustment', round(v_board_band_adjustment::numeric, 2),
-    'board_ideal_wave_min_ft', v_board_ideal_min,
-    'board_ideal_wave_max_ft', v_board_ideal_max
-  );
-END;
+), global_inputs AS MATERIALIZED (
+  SELECT (SELECT count(*)::integer FROM history WHERE eligible) AS session_count,
+    (SELECT count(*)::integer FROM history WHERE eligible AND rating >= 4) AS good_total,
+    (SELECT lower(trim(experience_level)) FROM public.profiles WHERE id = p_user_id) AS profile_skill,
+    (SELECT board_class FROM chosen_board) AS board_class,
+    cap.samples,
+    CASE WHEN cap.ceiling IS NOT NULL THEN
+      GREATEST(0.5, cap.ceiling * (1.0 + 0.15 * COALESCE(cap.fit_net, 0))) END AS ceiling
+  FROM (
+    SELECT percentile_cont(0.85) WITHIN GROUP (ORDER BY wave)::numeric AS ceiling,
+      count(*)::integer AS samples,
+      avg(CASE session_skill_fit WHEN 'dialed' THEN 1.0 WHEN 'under' THEN -0.5
+        WHEN 'over_my_head' THEN -1.0 ELSE 0 END) AS fit_net
+    FROM history WHERE eligible AND rating >= 4 AND wave IS NOT NULL
+  ) cap
+), skill AS MATERIALIZED (
+  SELECT g.*,
+    CASE WHEN session_count >= 5 AND samples >= 5 AND ceiling IS NOT NULL THEN
+      CASE WHEN ceiling <= 3 THEN 'beginner' WHEN ceiling <= 5 THEN 'intermediate'
+        WHEN ceiling <= 8 THEN 'advanced' ELSE 'expert' END
+      WHEN profile_skill IN ('beginner','intermediate','advanced','expert') THEN profile_skill
+      WHEN board_class IN ('foamie','longboard','sup','foil') THEN 'beginner'
+      WHEN board_class IN ('step-up','gun') THEN 'advanced' ELSE 'intermediate' END AS skill_used,
+    CASE WHEN session_count >= 5 AND samples >= 5 AND ceiling IS NOT NULL THEN 'session_derived'
+      WHEN profile_skill IN ('beginner','intermediate','advanced','expert') THEN 'profile'
+      WHEN board_class IS NOT NULL THEN 'board_prior' ELSE 'default' END AS skill_source
+  FROM global_inputs g
+), raw_slots AS MATERIALIZED (
+  SELECT (ordinality - 1)::integer AS slot_idx, (value->>'beach_id')::uuid AS beach_id,
+    value->>'forecast_at' AS forecast_at,
+    jsonb_build_array(value->'wave_height',value->'wave_period',value->'wind_speed',
+      value->'wind_direction',value->'tide_height',value->'data_source',value->'wave_period_om') AS conditions
+  FROM jsonb_array_elements(p_slots) WITH ORDINALITY
+), conditions AS MATERIALIZED (
+  -- Parse shared condition strings once, even across beaches and timestamps.
+  SELECT conditions,
+    public.parse_numeric_from_text(conditions->>0) AS f_wave,
+    public.parse_wave_height_midpoint_ft(conditions->>0) AS similarity_wave,
+    public.parse_numeric_from_text(conditions->>1) AS f_period,
+    -- A slot without wind, direction or tide ("", "null", "-- ft") leaves that factor NULL.
+    (regexp_match(conditions->>2, '(-?\d+\.?\d*)'))[1]::numeric AS f_wind,
+    (regexp_match(conditions->>3, '(-?\d+\.?\d*)'))[1]::numeric AS f_wind_dir,
+    (regexp_match(conditions->>4, '(-?\d+\.?\d*)'))[1]::numeric AS f_tide,
+    -- Slots without data_source (installed clients calling the single-slot RPCs) keep the legacy comparison.
+    NULLIF(trim(conditions->>5), '') IS NOT NULL AS period_aware,
+    CASE WHEN upper(trim(conditions->>5)) = 'OPEN_METEO'
+        AND public.parse_numeric_from_text(conditions->>6) > 0
+      THEN public.parse_numeric_from_text(conditions->>6)
+      ELSE public.parse_numeric_from_text(conditions->>1) END AS similarity_period
+  FROM (SELECT DISTINCT conditions FROM raw_slots) c
+), slots AS MATERIALIZED (
+  SELECT s.slot_idx,s.beach_id,s.forecast_at,c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide,c.similarity_wave,
+    c.similarity_period,c.period_aware
+  FROM raw_slots s JOIN conditions c USING (conditions)
+), scenarios AS MATERIALIZED (
+  -- Repeated conditions share a result; timestamps and duplicate slots survive.
+  SELECT min(slot_idx) AS scenario_id, beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave,
+    similarity_period, period_aware
+  FROM slots GROUP BY beach_id, f_wave, f_period, f_wind, f_wind_dir, f_tide, similarity_wave,
+    similarity_period, period_aware
+), requested_beaches AS MATERIALIZED (
+  SELECT ids.id, b.break_type, public.break_type_families(b.break_type) AS break_families, b.wind_offshore_deg,
+    (b.preferred_tide_ft_min + b.preferred_tide_ft_max) / 2.0 AS spot_tide
+  FROM (SELECT DISTINCT unnest(p_beach_ids) AS id) ids
+  LEFT JOIN public.beaches b ON b.id = ids.id
+), peaks AS MATERIALIZED (
+  SELECT t.break_type,
+    sum(h.wave * (h.rating - 3)) FILTER (WHERE h.rating >= 4) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4), 0) AS p_wave,
+    sum(h.period * (h.rating - 3)) FILTER (WHERE h.rating >= 4) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4), 0) AS p_period,
+    sum(h.wind * (h.rating - 3)) FILTER (WHERE h.rating >= 4 AND h.wind IS NOT NULL) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4 AND h.wind IS NOT NULL), 0) AS p_wind,
+    sum(h.wind_dir * (h.rating - 3)) FILTER (WHERE h.rating >= 4 AND h.wind_dir IS NOT NULL) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4 AND h.wind_dir IS NOT NULL), 0) AS p_wind_dir,
+    sum(h.tide * (h.rating - 3)) FILTER (WHERE h.rating >= 4 AND h.tide IS NOT NULL) /
+      NULLIF(sum(h.rating - 3) FILTER (WHERE h.rating >= 4 AND h.tide IS NOT NULL), 0) AS p_tide,
+    count(*) FILTER (WHERE h.rating >= 4)::integer AS p_count,
+    sum(h.wave * (3 - h.rating)) FILTER (WHERE h.rating <= 2) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2), 0) AS a_wave,
+    sum(h.period * (3 - h.rating)) FILTER (WHERE h.rating <= 2) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2), 0) AS a_period,
+    sum(h.wind * (3 - h.rating)) FILTER (WHERE h.rating <= 2 AND h.wind IS NOT NULL) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2 AND h.wind IS NOT NULL), 0) AS a_wind,
+    sum(h.wind_dir * (3 - h.rating)) FILTER (WHERE h.rating <= 2 AND h.wind_dir IS NOT NULL) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2 AND h.wind_dir IS NOT NULL), 0) AS a_wind_dir,
+    sum(h.tide * (3 - h.rating)) FILTER (WHERE h.rating <= 2 AND h.tide IS NOT NULL) /
+      NULLIF(sum(3 - h.rating) FILTER (WHERE h.rating <= 2 AND h.tide IS NOT NULL), 0) AS a_tide,
+    count(*) FILTER (WHERE h.rating <= 2)::integer AS a_count
+  FROM (SELECT DISTINCT break_type, break_families FROM requested_beaches) t
+  -- Families inside the averaged profile cost ~6 pp concordance; use exact breaks.
+  -- Evidence: docs/superpowers/plans/2026-09-27-match-score-backtest.md (B3).
+  LEFT JOIN history h ON h.eligible AND (t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)
+  GROUP BY t.break_type
+), inputs AS MATERIALIZED (
+  SELECT s.*, b.break_type, b.break_families, b.wind_offshore_deg, b.spot_tide, g.*, p.p_wave, p.p_period,
+    p.p_wind, p.p_wind_dir, p.p_tide, p.p_count, p.a_wave, p.a_period, p.a_wind,
+    p.a_wind_dir, p.a_tide, p.a_count
+  FROM scenarios s
+  JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
+  JOIN peaks p ON p.break_type IS NOT DISTINCT FROM b.break_type
+  CROSS JOIN skill g
+), good_history AS MATERIALIZED (
+  SELECT h.*,
+    similarity_tide-(preferred_tide_ft_min+preferred_tide_ft_max)/2 AS relative_tide,
+    similarity_wave / NULLIF(power(similarity_period,2),0) AS steepness,
+    similarity_wave / NULLIF(power(similarity_period_by_source,2),0) AS steepness_by_source
+  FROM history h WHERE eligible AND rating >= 4
+), similarity_targets AS MATERIALIZED (
+  SELECT row_number() OVER () AS target_id, t.*,
+    similarity_wave / NULLIF(power(similarity_period,2),0) AS steepness
+  FROM (
+    SELECT DISTINCT b.break_families, s.similarity_wave, s.f_period, s.similarity_period, s.period_aware,
+      s.f_wind, s.f_wind_dir, s.f_tide-b.spot_tide AS relative_tide
+    FROM scenarios s JOIN requested_beaches b ON b.id IS NOT DISTINCT FROM s.beach_id
+  ) t
+), similar_good AS MATERIALIZED (
+  -- Inline the similarity math and reuse parsed families; SQL helper calls per pair dominate batch time.
+  SELECT t.target_id,
+    count(*) FILTER (WHERE h.similarity_wave IS NOT NULL AND t.similarity_wave IS NOT NULL
+      AND exp(-(
+        0.4 * power((h.similarity_wave-t.similarity_wave)/1.5,2)
+        + COALESCE(0.25 * power((CASE WHEN t.period_aware THEN h.similarity_period_by_source
+          ELSE h.similarity_period END-t.similarity_period)/4,2),0)
+        + COALESCE(0.2 * power((h.similarity_wind-t.f_wind)/8,2),0)
+        + COALESCE(0.15 * power((h.relative_tide-t.relative_tide)/2,2),0)
+        + COALESCE(0.1 * power(least(mod(abs(h.similarity_wind_dir-t.f_wind_dir),360),
+          360-mod(abs(h.similarity_wind_dir-t.f_wind_dir),360))/90,2),0)
+        + CASE WHEN h.break_families IS NULL OR t.break_families IS NULL
+            OR h.break_families && t.break_families THEN 0 ELSE 0.5 END
+        + COALESCE(0.15 * power(((CASE WHEN t.period_aware THEN h.steepness_by_source
+          ELSE h.steepness END)-t.steepness)/0.04,2),0)
+        -- Slots have no tide direction, so its mismatch term is always zero.
+      -- Twin of LIKE_THIS_SIMILARITY in lib/scoring/personal-board.ts for user-facing reasons.
+      )/2) >= 0.7)::integer AS similar_good
+  FROM similarity_targets t
+  -- At 0.7, the height term alone requires a gap below 2.01 ft (sqrt(-2*ln(0.7)/0.4)*1.5).
+  LEFT JOIN good_history h ON h.similarity_wave BETWEEN t.similarity_wave-2.01 AND t.similarity_wave+2.01
+  GROUP BY t.target_id
+), fit_targets AS MATERIALIZED (
+  SELECT row_number() OVER () AS target_id, t.* FROM (
+    SELECT DISTINCT break_type, break_families, f_wave, f_period, f_wind, f_wind_dir, f_tide
+    FROM inputs WHERE session_count >= 5 AND p_count > 0
+  ) t
+), fit_pairs AS MATERIALIZED (
+  SELECT t.target_id, h.fit_value, 1.0 - LEAST((
+      0.35 * LEAST(ABS(h.wave - t.f_wave) / GREATEST(h.wave, 1), 1) +
+      0.25 * LEAST(ABS(h.period - t.f_period) / GREATEST(h.period, 1), 1) +
+      CASE WHEN t.f_wind IS NOT NULL THEN 0.20 * LEAST(ABS(h.wind - t.f_wind) / GREATEST(h.wind, 5), 1) ELSE 0.20 * 0.5 END +
+      CASE WHEN t.f_tide IS NOT NULL THEN 0.10 * LEAST(ABS(h.tide - t.f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
+      CASE WHEN t.f_wind_dir IS NOT NULL THEN 0.10 * LEAST(LEAST(ABS(h.wind_dir - t.f_wind_dir),
+        360 - ABS(h.wind_dir - t.f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0) AS proximity
+  FROM fit_targets t JOIN history h ON h.eligible AND h.fit_value <> 0
+    AND (h.session_skill_fit IS NOT NULL OR h.session_board_fit IS NOT NULL)
+    -- Keep fit evidence on the same exact-break population as the scored profile (B3).
+    AND (t.break_type IS NULL OR h.break_type = t.break_type OR h.break_type IS NULL)
+  WHERE h.wave IS NOT NULL AND h.period IS NOT NULL AND h.wind IS NOT NULL
+    AND h.wind_dir IS NOT NULL AND h.tide IS NOT NULL
+), fit AS MATERIALIZED (
+  SELECT target_id, count(*)::integer AS fit_count,
+    count(*) FILTER (WHERE fit_value > 0)::integer AS fit_positive,
+    count(*) FILTER (WHERE fit_value < 0)::integer AS fit_negative,
+    GREATEST(-1.0, LEAST(1.0, COALESCE(sum(fit_value * proximity) /
+      NULLIF(sum(proximity), 0), 0))) AS fit_adjustment
+  FROM fit_pairs WHERE proximity > 0.15 GROUP BY target_id
+), priors AS MATERIALIZED (
+  SELECT i.*,
+    CASE skill_used WHEN 'beginner' THEN 2.0 WHEN 'advanced' THEN 5.5
+      WHEN 'expert' THEN 8.0 ELSE 3.5 END AS skill_wave,
+    session_count::numeric / (session_count::numeric + 5.0) AS blend,
+    CASE skill_used WHEN 'intermediate' THEN 2.0 WHEN 'advanced' THEN 3.0 WHEN 'expert' THEN 4.0 ELSE 1.0 END AS ideal_min,
+    CASE skill_used WHEN 'intermediate' THEN 5.0 WHEN 'advanced' THEN 8.0 WHEN 'expert' THEN 12.0 ELSE 3.0 END AS ideal_max,
+    CASE skill_used WHEN 'intermediate' THEN 1.0 WHEN 'advanced' THEN 2.0 WHEN 'expert' THEN 2.0 ELSE 0.5 END AS accept_min,
+    CASE skill_used WHEN 'intermediate' THEN 6.0 WHEN 'advanced' THEN 12.0 WHEN 'expert' THEN 20.0 ELSE 4.0 END AS accept_max,
+    CASE board_class WHEN 'foamie' THEN 0.5 WHEN 'longboard' THEN 0.5 WHEN 'mid-length' THEN 0.7
+      WHEN 'funboard' THEN 0.6 WHEN 'fish' THEN 0.85 WHEN 'shortboard' THEN 1.15 WHEN 'step-up' THEN 1.4
+      WHEN 'gun' THEN 1.6 WHEN 'sup' THEN 0.4 WHEN 'foil' THEN 0.2 WHEN 'bodyboard' THEN 1.0 END AS shape_lo,
+    CASE board_class WHEN 'foamie' THEN 0.6 WHEN 'longboard' THEN 0.7 WHEN 'mid-length' THEN 0.85
+      WHEN 'funboard' THEN 0.8 WHEN 'fish' THEN 0.95 WHEN 'shortboard' THEN 1.05 WHEN 'step-up' THEN 1.15
+      WHEN 'gun' THEN 1.2 WHEN 'sup' THEN 0.6 WHEN 'foil' THEN 0.5 WHEN 'bodyboard' THEN 1.0 END AS shape_hi
+  FROM inputs i
+), bands AS MATERIALIZED (
+  SELECT p.*,
+    CASE WHEN p_count > 0 AND p_wave IS NOT NULL THEN blend * p_wave + (1.0-blend) * skill_wave ELSE skill_wave END AS prior_wave,
+    CASE WHEN p_count > 0 AND p_wind_dir IS NOT NULL AND wind_offshore_deg IS NOT NULL THEN
+      mod(blend * (p_wind_dir + CASE WHEN abs(p_wind_dir - wind_offshore_deg) > 180 AND p_wind_dir <= wind_offshore_deg THEN 360 ELSE 0 END)
+        + (1.0-blend) * (wind_offshore_deg + CASE WHEN abs(p_wind_dir - wind_offshore_deg) > 180 AND p_wind_dir > wind_offshore_deg THEN 360 ELSE 0 END), 360)
+      ELSE wind_offshore_deg END AS prior_wind,
+    CASE WHEN p_count > 0 AND p_tide IS NOT NULL AND spot_tide IS NOT NULL THEN blend * p_tide + (1.0-blend) * spot_tide ELSE spot_tide END AS prior_tide,
+    CASE WHEN board_class IS NOT NULL THEN greatest(0.3, round(ideal_min * shape_lo, 1)) END AS board_ideal_min,
+    CASE WHEN board_class IS NOT NULL THEN greatest(0.3, round(accept_min * shape_lo, 1)) END AS board_accept_min
+  FROM priors p
+), distances AS MATERIALIZED (
+  SELECT b.*,
+    CASE WHEN board_class IS NOT NULL THEN greatest(board_ideal_min + 0.5, round(ideal_max * shape_hi, 1)) END AS board_ideal_max,
+    CASE WHEN board_class IS NOT NULL THEN greatest(board_accept_min + 0.5, round(accept_max * shape_hi, 1)) END AS board_accept_max,
+    (1.0 - LEAST((
+      0.35 * LEAST(ABS(p_wave - f_wave) / GREATEST(p_wave, 1), 1) +
+      0.25 * LEAST(ABS(p_period - f_period) / GREATEST(p_period, 1), 1) +
+      CASE WHEN p_wind IS NOT NULL AND f_wind IS NOT NULL THEN
+        0.20 * LEAST(ABS(p_wind - f_wind) / GREATEST(p_wind, 5), 1) ELSE 0.20 * 0.5 END +
+      CASE WHEN p_tide IS NOT NULL AND f_tide IS NOT NULL THEN
+        0.10 * LEAST(ABS(p_tide - f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
+      CASE WHEN p_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN
+        0.10 * LEAST(LEAST(ABS(p_wind_dir - f_wind_dir),
+          360 - ABS(p_wind_dir - f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0)) * 10.0 AS base_score,
+    CASE WHEN a_count > 0 THEN (1.0 - LEAST((
+      0.35 * LEAST(ABS(a_wave - f_wave) / GREATEST(a_wave, 1), 1) +
+      0.25 * LEAST(ABS(a_period - f_period) / GREATEST(a_period, 1), 1) +
+      CASE WHEN a_wind IS NOT NULL AND f_wind IS NOT NULL THEN
+        0.20 * LEAST(ABS(a_wind - f_wind) / GREATEST(a_wind, 5), 1) ELSE 0.20 * 0.5 END +
+      CASE WHEN a_tide IS NOT NULL AND f_tide IS NOT NULL THEN
+        0.10 * LEAST(ABS(a_tide - f_tide) / 3, 1) ELSE 0.10 * 0.5 END +
+      CASE WHEN a_wind_dir IS NOT NULL AND f_wind_dir IS NOT NULL THEN
+        0.10 * LEAST(LEAST(ABS(a_wind_dir - f_wind_dir),
+          360 - ABS(a_wind_dir - f_wind_dir)) / 180, 1) ELSE 0.10 * 0.5 END
+      ), 1.0)) * 3.0 ELSE 0 END AS aversion_penalty,
+    greatest(0, least(10, (1.0 - least((
+      0.35 * least(abs(prior_wave - coalesce(f_wave, prior_wave)) / greatest(prior_wave, 1), 1)
+      + CASE WHEN prior_wind IS NOT NULL AND f_wind_dir IS NOT NULL THEN
+        0.10 * least(least(abs(prior_wind - f_wind_dir), 360-abs(prior_wind-f_wind_dir))/180, 1) ELSE 0 END
+      + CASE WHEN prior_tide IS NOT NULL AND f_tide IS NOT NULL THEN
+        0.10 * least(abs(prior_tide-f_tide)/3, 1) ELSE 0 END
+    ) / (0.35 + CASE WHEN prior_wind IS NOT NULL AND f_wind_dir IS NOT NULL THEN 0.10 ELSE 0 END
+      + CASE WHEN prior_tide IS NOT NULL AND f_tide IS NOT NULL THEN 0.10 ELSE 0 END), 1.0)) * 10.0)) AS prior_score,
+    prior_wind IS NOT NULL AND f_wind_dir IS NOT NULL AS has_wind,
+    prior_tide IS NOT NULL AND f_tide IS NOT NULL AS has_tide
+  FROM bands b
+), adjustments AS MATERIALIZED (
+  SELECT d.*, coalesce(f.fit_count, 0) AS fit_count, coalesce(f.fit_positive, 0) AS fit_positive,
+    coalesce(f.fit_negative, 0) AS fit_negative, coalesce(f.fit_adjustment, 0) AS fit_adjustment,
+    sg.similar_good,
+    CASE WHEN d.f_wave BETWEEN board_ideal_min AND board_ideal_max THEN 0.5
+      WHEN d.f_wave < board_accept_min THEN -least(1.0, greatest(0.5, round((board_accept_min-d.f_wave)*0.5, 2)))
+      WHEN d.f_wave > board_accept_max THEN -least(1.0, greatest(0.5, round((d.f_wave-board_accept_max)*0.5, 2)))
+      ELSE 0 END AS board_adjustment
+  FROM distances d
+  LEFT JOIN fit_targets t ON t.break_type IS NOT DISTINCT FROM d.break_type
+    AND (t.f_wave,t.f_period,t.f_wind,t.f_wind_dir,t.f_tide) IS NOT DISTINCT FROM (d.f_wave,d.f_period,d.f_wind,d.f_wind_dir,d.f_tide)
+    -- The same match as a hashable key (jsonb compares numerics by value and NULL as null).
+    -- IS NOT DISTINCT FROM alone cannot hash, so these joins ran as N x N nested loops.
+    AND jsonb_build_array(t.break_type,t.f_wave,t.f_period,t.f_wind,t.f_wind_dir,t.f_tide)
+      = jsonb_build_array(d.break_type,d.f_wave,d.f_period,d.f_wind,d.f_wind_dir,d.f_tide)
+  LEFT JOIN fit f USING (target_id)
+  JOIN similarity_targets st ON (st.break_families,st.similarity_wave,st.f_period,st.similarity_period,st.period_aware,
+    st.f_wind,st.f_wind_dir,st.relative_tide)
+    IS NOT DISTINCT FROM (d.break_families,d.similarity_wave,d.f_period,d.similarity_period,d.period_aware,
+    d.f_wind,d.f_wind_dir,d.f_tide-d.spot_tide)
+    AND jsonb_build_array(st.break_families,st.similarity_wave,st.f_period,st.similarity_period,st.period_aware,
+      st.f_wind,st.f_wind_dir,st.relative_tide)
+      = jsonb_build_array(d.break_families,d.similarity_wave,d.f_period,d.similarity_period,d.period_aware,
+      d.f_wind,d.f_wind_dir,d.f_tide-d.spot_tide)
+  JOIN similar_good sg ON sg.target_id = st.target_id
+), scored AS MATERIALIZED (
+  SELECT a.*, greatest(0, least(10, base_score-aversion_penalty+fit_adjustment+board_adjustment)) AS score
+  FROM adjustments a
+), results AS MATERIALIZED (
+  SELECT s.scenario_id, CASE
+    WHEN session_count < 5 THEN jsonb_build_object(
+      'state','starter', 'score',round(prior_score,1), 'session_count',session_count,
+      'sessions_needed',5-session_count,
+      'fit_label',CASE WHEN has_wind OR has_tide THEN 'Based on your skill + this spot' ELSE 'Based on your skill level' END,
+      'body','A starter read from your skill' || CASE WHEN has_wind OR has_tide THEN ' and this spot''s setup' ELSE '' END || '. It gets more personal as you rate sessions.',
+      'quality_band','starter',
+      'prior_dimensions',jsonb_build_array('skill_wave') || CASE WHEN has_wind THEN '["spot_wind_direction"]'::jsonb ELSE '[]'::jsonb END
+        || CASE WHEN has_tide THEN '["spot_tide"]'::jsonb ELSE '[]'::jsonb END,
+      'skill_used',skill_used,'skill_source',skill_source,'board_class',board_class)
+    WHEN p_count = 0 AND a_count = 0 THEN jsonb_build_object(
+      'state','avoidance_learned','score',NULL,'board_tip',NULL,'fit_label','Need a few more ratings',
+      'reason_bullets',jsonb_build_array('We know what you tend to avoid. Rate a few good sessions to sharpen your match.'),
+      'sessions_in_profile',session_count,'profile_kind','neutral','quality_band','mixed_signal')
+    WHEN p_count = 0 THEN jsonb_build_object(
+      'state','avoidance_learned','board_tip',NULL,'session_count',session_count,'sessions_needed',0,
+      'fit_label','Need a few more ratings',
+      'reason_bullets',jsonb_build_array('We know what you tend to avoid. Rate a few good sessions to sharpen your match.'),
+      'score',NULL,'quality_band','mixed_signal','reason','no_positive_sessions')
+    ELSE jsonb_build_object(
+      'state','learned','board_tip',NULL,'score',round(score,1),
+      'label',CASE WHEN score >= 8.5 THEN 'EPIC' WHEN score >= 7 THEN 'GOOD' WHEN score >= 5.5 THEN 'FAIR' WHEN score >= 3.5 THEN 'RIDEABLE' ELSE 'MEH' END,
+      -- The similar/good session counts stay as data below; they are not user-facing copy.
+      'reason_bullets','[]'::jsonb
+        || CASE WHEN fit_count > 0 THEN jsonb_build_array(CASE WHEN fit_adjustment > 0.15 THEN 'Your session fit feedback lifts this window.'
+          WHEN fit_adjustment < -0.15 THEN 'Similar sessions were flagged as a skill or board mismatch.'
+          ELSE 'Your session fit feedback is neutral for this window.' END) ELSE '[]'::jsonb END
+        || CASE WHEN board_class IS NOT NULL AND abs(board_adjustment) >= 0.15 THEN jsonb_build_array(
+          CASE WHEN board_adjustment > 0 THEN format('Your %s band fits this wave height.',board_class)
+          ELSE format('This wave height is outside your usual %s band.',board_class) END) ELSE '[]'::jsonb END,
+      'good_session_count',good_total,'similar_good_session_count',similar_good,
+      'confidence',CASE WHEN session_count >= 25 THEN 'high' WHEN session_count >= 10 THEN 'medium' ELSE 'low' END,
+      'sessions_in_profile',session_count,'profile_kind',CASE WHEN a_count > 0 THEN 'two_sided' ELSE 'preference_only' END,
+      'quality_band',CASE WHEN session_count >= 15 THEN 'dense_signal' ELSE 'session_backed' END,
+      'base_score',round(base_score,2),'aversion_penalty',round(aversion_penalty,2),'aversion_sample_count',a_count,
+      'fit_signal_adjustment',round(fit_adjustment,2),'fit_signal_sample_count',fit_count,
+      'fit_signal_positive_count',fit_positive,'fit_signal_negative_count',fit_negative,
+      'skill_used',skill_used,'skill_source',skill_source,'board_class',board_class,
+      'board_band_adjustment',round(board_adjustment,2),'board_ideal_wave_min_ft',board_ideal_min,'board_ideal_wave_max_ft',board_ideal_max)
+    END AS result
+  FROM scored s
+)
+SELECT s.slot_idx, s.beach_id, s.forecast_at, r.result
+FROM slots s JOIN scenarios c ON c.beach_id IS NOT DISTINCT FROM s.beach_id
+  AND c.similarity_wave IS NOT DISTINCT FROM s.similarity_wave
+  AND c.similarity_period = s.similarity_period AND c.period_aware = s.period_aware
+  AND (c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide) IS NOT DISTINCT FROM (s.f_wave,s.f_period,s.f_wind,s.f_wind_dir,s.f_tide)
+  AND jsonb_build_array(c.beach_id,c.similarity_wave,c.similarity_period,c.period_aware,c.f_wave,c.f_period,c.f_wind,c.f_wind_dir,c.f_tide)
+    = jsonb_build_array(s.beach_id,s.similarity_wave,s.similarity_period,s.period_aware,s.f_wave,s.f_period,s.f_wind,s.f_wind_dir,s.f_tide)
+JOIN results r USING (scenario_id)
+ORDER BY s.slot_idx;
 $_$;
 
 
-ALTER FUNCTION "public"."compute_user_match_score_core"("p_user_id" "uuid", "p_beach_id" "uuid", "p_wave_height" "text", "p_wave_period" "text", "p_wind_speed" "text", "p_wind_direction" "text", "p_tide_height" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."compute_user_match_scores"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."concat_text_array"("vals" "text"[]) RETURNS "text"
@@ -5194,10 +5594,15 @@ CREATE OR REPLACE FUNCTION "public"."create_activity"("p_user_id" "uuid", "p_act
 declare
   activity_id uuid;
 begin
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'create_activity requires the authenticated owner'
+      USING ERRCODE = '42501';
+  END IF;
+
   insert into public.user_activities (user_id, activity_type, entity_type, entity_id, metadata)
   values (p_user_id, p_activity_type, p_entity_type, p_entity_id, p_metadata)
   returning id into activity_id;
-  
+
   return activity_id;
 end;
 $$;
@@ -5215,9 +5620,7 @@ DECLARE
   trimmed_name text := btrim(p_name);
   nearest_id uuid;
   nearest_distance_miles numeric(5,2);
-  favorite_count integer;
   next_rank integer;
-  has_unlimited_favorites boolean;
   inserted_spot public.custom_spots%ROWTYPE;
   has_fingerprint boolean := (
     p_facing_direction_deg IS NOT NULL
@@ -5304,27 +5707,6 @@ BEGIN
   END IF;
 
   PERFORM pg_advisory_xact_lock(hashtext(current_user_id::text)::bigint);
-
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_entitlements ue
-    WHERE ue.user_id = current_user_id
-      AND (ue.is_pro = true OR ue.is_trialing = true)
-      AND (
-        ue.expires_at IS NULL
-        OR ue.expires_at > now()
-        OR ue.billing_issue = true
-      )
-  ) INTO has_unlimited_favorites;
-
-  SELECT count(*) INTO favorite_count
-  FROM public.favorite_beaches fb
-  WHERE fb.user_id = current_user_id;
-
-  IF NOT has_unlimited_favorites AND favorite_count >= 3 THEN
-    RAISE EXCEPTION 'favorite_quota_exceeded'
-      USING DETAIL = 'free_favorites_limit';
-  END IF;
 
   SELECT COALESCE(max(fb.rank), 0) + 1 INTO next_rank
   FROM public.favorite_beaches fb
@@ -5693,6 +6075,41 @@ COMMENT ON FUNCTION "public"."create_session_forecast_snapshot"() IS 'Creates se
 
 
 
+CREATE OR REPLACE FUNCTION "public"."current_feedback_trial"("p_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT jsonb_build_object('trial_event_id',t.provider_event_id,'cancellation_event_id',c.provider_event_id,
+   'store',t.store,'cancelled_at',c.event_timestamp,'trial_ends_at',t.expiration_at,'product_id',t.product_id)
+ FROM public.user_entitlements e
+ JOIN public.email_contact_state s ON s.user_id=e.user_id
+ JOIN public.profiles p ON p.id=e.user_id AND p.deleted_at IS NULL
+ JOIN public.revenuecat_provider_events t ON t.app_user_id=e.user_id AND t.product_id=e.product_id
+   AND t.environment='PRODUCTION' AND t.environment_verified AND t.store IN ('APP_STORE','PLAY_STORE','STRIPE','RC_BILLING') AND t.period_type='TRIAL'
+   AND t.event_type='INITIAL_PURCHASE' AND t.processed_at IS NOT NULL AND t.purchased_at<=now()
+   AND t.expiration_at=e.trial_ends_at
+ JOIN public.revenuecat_provider_events c ON c.app_user_id=e.user_id AND c.product_id=t.product_id
+   AND c.environment='PRODUCTION' AND c.environment_verified AND c.store=t.store AND c.period_type='TRIAL'
+   AND c.event_type='CANCELLATION' AND c.cancellation_reason='UNSUBSCRIBE' AND c.processed_at IS NOT NULL
+   AND c.purchased_at=t.purchased_at AND c.expiration_at=t.expiration_at
+   AND c.event_timestamp BETWEEN t.event_timestamp AND now()
+ WHERE e.user_id=p_user_id AND e.is_pro IS TRUE AND e.is_trialing IS TRUE AND e.will_renew IS FALSE
+   AND e.trial_ends_at>now() AND s.provider_access_active IS TRUE
+   AND s.entitlement_verified_until BETWEEN now()+interval '1 second' AND now()+interval '24 hours'
+   AND s.provider_trial->>'product_id'=e.product_id AND (s.provider_trial->>'expires_at')::timestamptz=e.trial_ends_at
+   AND s.provider_trial->>'will_renew'='false' AND s.provider_trial->>'billing_issue'='false'
+   AND upper(s.provider_trial->>'store')=t.store
+   AND NOT EXISTS (SELECT 1 FROM public.revenuecat_provider_events later WHERE later.app_user_id=e.user_id
+     AND later.environment='PRODUCTION' AND later.processed_at IS NOT NULL AND later.event_timestamp>=c.event_timestamp
+     AND later.event_type IN ('UNCANCELLATION','RENEWAL','PRODUCT_CHANGE','EXPIRATION','BILLING_ISSUE','TRANSFER'))
+   AND NOT EXISTS (SELECT 1 FROM public.earned_pro_grants g WHERE g.user_id=e.user_id AND g.revoked_at IS NULL AND g.expires_at>now())
+ ORDER BY c.event_timestamp DESC,t.event_timestamp DESC LIMIT 1;
+$$;
+
+
+ALTER FUNCTION "public"."current_feedback_trial"("p_user_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."custom_spots_lock_user_id"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -5724,6 +6141,18 @@ $$;
 
 
 ALTER FUNCTION "public"."decrement_session_share_count"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."defer_pro_offer_retry"("p_award_id" "uuid") RETURNS "void"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ UPDATE public.pro_offer_awards SET retry_count=retry_count+1,next_attempt_at=now()+make_interval(mins=>least(1440,15*(2^least(retry_count,7))::integer))
+ WHERE id=p_award_id AND state NOT IN ('verified','handoff_started','unknown');
+$$;
+
+
+ALTER FUNCTION "public"."defer_pro_offer_retry"("p_award_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."delete_android_tester_roster_for_account"() RETURNS "trigger"
@@ -5776,6 +6205,14 @@ BEGIN
       muted = true
   WHERE user_id = p_user_id AND deleted_at IS NULL;
   GET DIAGNOSTICS v_sessions_soft_deleted = ROW_COUNT;
+
+  UPDATE public.session_tracks SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
+  UPDATE public.session_imports SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
+  UPDATE public.watch_uploads SET purge_requested_at = now() WHERE user_id = p_user_id AND purge_requested_at IS NULL;
+  UPDATE public.watch_devices SET revoked_at = now(), token_hash = NULL WHERE user_id = p_user_id AND revoked_at IS NULL;
+  DELETE FROM public.watch_link_codes WHERE user_id = p_user_id;
+  DELETE FROM public.session_wave_corrections WHERE user_id = p_user_id;
+  DELETE FROM public.session_waves WHERE user_id = p_user_id;
 
   UPDATE comments
   SET content = '[deleted]',
@@ -6359,6 +6796,119 @@ $$;
 ALTER FUNCTION "public"."dev_log_session_mutation"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."earn_five_session_offer"("p_user_id" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE ids uuid[];
+BEGIN
+ -- ponytail: pilot-wide serialization prevents enrollment/completion races; shard by user when throughput warrants it.
+ PERFORM pg_advisory_xact_lock(739302);
+ IF NOT EXISTS(SELECT 1 FROM public.pro_offer_awards WHERE user_id=p_user_id AND program_id='five_sessions_month' AND earned_at IS NULL) THEN RETURN; END IF;
+ SELECT array_agg(id) INTO ids FROM (SELECT id FROM public.sessions s WHERE user_id=p_user_id AND status='completed' AND deleted_at IS NULL AND NOT public.is_historical_file_import(s.source, s.arrival_time, s.duration_minutes, s.created_at) ORDER BY id LIMIT 5) completed;
+ IF cardinality(ids)=5 THEN
+  UPDATE public.pro_offer_awards SET earned_at=now(),session_ids=ids WHERE user_id=p_user_id AND program_id='five_sessions_month' AND earned_at IS NULL;
+ END IF;
+END; $$;
+
+
+ALTER FUNCTION "public"."earn_five_session_offer"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."earn_pro_offer_on_session"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ IF NEW.status='completed' AND NEW.deleted_at IS NULL
+ AND NOT public.is_historical_file_import(NEW.source, NEW.arrival_time, NEW.duration_minutes) THEN PERFORM public.earn_five_session_offer(NEW.user_id); END IF;
+ RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."earn_pro_offer_on_session"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."email_automation_dashboard"() RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT jsonb_build_object(
+  'due',coalesce((SELECT jsonb_agg(to_jsonb(q)) FROM (SELECT user_id,job,status,reason,next_eligible_at,due_age,attempt_state,provider_id FROM public.email_lifecycle_due ORDER BY evaluated_at LIMIT 50) q),'[]'),
+  'attention',coalesce((SELECT jsonb_agg(to_jsonb(q)) FROM (SELECT kind,record_id,reason FROM public.email_automation_attention ORDER BY kind,record_id LIMIT 100) q),'[]'),
+  'offers',coalesce((SELECT jsonb_agg(to_jsonb(q)) FROM (SELECT id,user_id,program_id,state,attention,verified_at,mirror_verified_at FROM public.pro_offer_attention LIMIT 100) q),'[]'),
+  'runs',coalesce((SELECT jsonb_agg(to_jsonb(q)) FROM (SELECT route,job,status,started_at,finished_at FROM public.cron_runs WHERE route IN ('/api/cron/email-lifecycle','/api/cron/pro-offer-reconcile') ORDER BY started_at DESC LIMIT 20) q),'[]'),
+  'trial_feedback',coalesce((SELECT jsonb_agg(to_jsonb(q)) FROM (SELECT * FROM public.trial_feedback_outcomes ORDER BY (attention IS NOT NULL) DESC,submitted_at DESC LIMIT 100) q),'[]'),
+  'reply_check',coalesce((SELECT summary->'reply_check' FROM public.cron_runs WHERE job='email-lifecycle' ORDER BY started_at DESC LIMIT 1),'null'::jsonb)
+ );
+$$;
+
+
+ALTER FUNCTION "public"."email_automation_dashboard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."email_automation_health"() RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT jsonb_build_object('due_unsent',(SELECT count(*) FROM public.email_lifecycle_recipients r WHERE r.status='due' AND r.first_due_at<now()-interval '30 minutes'
+ AND NOT EXISTS(SELECT 1 FROM public.email_contact_attempts a WHERE a.user_id=r.user_id AND a.lifecycle_job=r.job AND a.episode=r.episode AND a.state NOT IN ('cancelled','failed'))),
+ 'enrollment_pending',(SELECT count(*) FROM public.email_contact_state s WHERE public.lifecycle_permission_verified(s) AND coalesce(s.lifecycle_consent_at,s.account_permission_reviewed_at)<now()-interval '24 hours' AND approved_campaign IS NULL AND paused_at IS NULL),
+ 'approval_unavailable',
+ (SELECT count(*) FROM public.email_contact_controls c WHERE c.singleton AND c.enabled AND c.lifecycle_enabled AND NOT EXISTS(
+  SELECT 1 FROM public.email_campaigns campaign WHERE campaign.id=c.automation_campaign AND campaign.status='approved' AND campaign.approved_at<=now() AND campaign.expires_at>now()))
+ +(SELECT count(*) FROM public.pro_offer_programs WHERE enabled AND (approved_at IS NULL OR approved_at>now() OR expires_at IS NULL OR expires_at<=now())));
+$$;
+
+
+ALTER FUNCTION "public"."email_automation_health"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."email_contact_timezone"("p_timezone" "text", "p_home_beach_id" "uuid") RETURNS "text"
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT coalesce(
+    (
+      SELECT p_timezone
+      WHERE EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names zones WHERE zones.name = p_timezone)
+    ),
+    (
+      SELECT b.timezone
+      FROM public.beaches b
+      WHERE b.id = p_home_beach_id
+        AND EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names zones WHERE zones.name = b.timezone)
+    ),
+    'America/Los_Angeles'
+  );
+$$;
+
+
+ALTER FUNCTION "public"."email_contact_timezone"("p_timezone" "text", "p_home_beach_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."email_lifecycle_cohort"() RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT coalesce(jsonb_agg(user_id),'[]'::jsonb) FROM (
+  SELECT s.user_id FROM public.email_contact_state s
+  JOIN public.email_contact_controls c ON c.singleton AND s.approved_campaign=c.automation_campaign
+  LEFT JOIN public.email_lifecycle_recipients r ON r.user_id=s.user_id
+  ORDER BY coalesce(r.status='due' AND r.first_due_at<now()-interval '30 minutes'
+    AND r.evaluated_at<now()-interval '30 minutes' AND NOT EXISTS(
+    SELECT 1 FROM public.email_contact_attempts a
+    WHERE a.user_id=r.user_id AND a.lifecycle_job=r.job AND a.episode=r.episode
+      AND a.state NOT IN ('cancelled','failed')
+  ), false) DESC, r.evaluated_at NULLS FIRST, s.user_id
+  LIMIT 50
+ ) cohort;
+$$;
+
+
+ALTER FUNCTION "public"."email_lifecycle_cohort"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."enforce_experiment_assignment_write_once"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -6386,6 +6936,57 @@ $$;
 
 
 ALTER FUNCTION "public"."enforce_experiment_assignment_write_once"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."enroll_automatic_pro_offers"() RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE candidate record; p public.pro_offer_programs%ROWTYPE; enrolled integer:=0;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739302);
+ FOR p IN SELECT * FROM public.pro_offer_programs WHERE enabled AND automatic_enrollment AND approved_at<=now() AND expires_at>now() ORDER BY months DESC LOOP
+  FOR candidate IN SELECT s.user_id FROM public.email_contact_state s JOIN public.profiles profile ON profile.id=s.user_id JOIN auth.users u ON u.id=s.user_id
+   WHERE public.lifecycle_permission_verified(s) AND s.history_reviewed_at<=now()
+   AND s.entitlement_verified_until>now() AND s.provider_access_active=false AND s.paused_at IS NULL
+   AND NOT EXISTS(SELECT 1 FROM public.user_entitlements WHERE user_id=s.user_id AND (is_pro OR is_trialing) AND (expires_at IS NULL OR expires_at>now()))
+   AND NOT EXISTS(SELECT 1 FROM public.earned_pro_grants WHERE user_id=s.user_id AND revoked_at IS NULL AND expires_at>now())
+   AND profile.deleted_at IS NULL AND profile.analytics_is_real_user=true AND profile.notif_email_enabled=true AND u.email_confirmed_at IS NOT NULL
+   AND NOT EXISTS(SELECT 1 FROM public.email_suppression_list WHERE lower(trim(email))=lower(trim(profile.email)))
+   AND NOT EXISTS(SELECT 1 FROM public.user_email_prefs WHERE user_id=s.user_id AND email_frequency='off')
+   AND NOT EXISTS(SELECT 1 FROM public.pro_offer_awards WHERE user_id=s.user_id AND (program_id=p.id OR state IN ('reserved','handoff_started','unknown') OR expires_at>now() OR (state<>'verified' AND (p.id='five_sessions_month' OR earned_at IS NOT NULL OR claim_requested_at IS NOT NULL))))
+   AND (p.id='five_sessions_month' OR (
+     coalesce((SELECT max(created_at) FROM public.user_events WHERE user_id=s.user_id AND bot_flagged IS NOT TRUE
+       AND event_type IN ('beach_view','forecast_check','home_beach_forecast_viewed','home_hero_forecast_viewed')),u.created_at)<=now()-make_interval(days=>p.inactivity_days)
+     AND NOT EXISTS(SELECT 1 FROM public.sessions WHERE user_id=s.user_id AND status='completed' AND deleted_at IS NULL AND email_completed_at>now()-make_interval(days=>p.inactivity_days))))
+   ORDER BY u.created_at,s.user_id LIMIT 50 LOOP
+    EXIT WHEN p.max_awards IS NOT NULL AND (SELECT count(*) FROM public.pro_offer_awards WHERE program_id=p.id)>=p.max_awards;
+    PERFORM public.issue_pro_offer(candidate.user_id,p.id,encode(sha256(convert_to(gen_random_uuid()::text,'UTF8')),'hex'),'automation:'||p.approval_reference,p.terms_version);
+    enrolled:=enrolled+1;
+  END LOOP;
+ END LOOP;
+ RETURN enrolled;
+END; $$;
+
+
+ALTER FUNCTION "public"."enroll_automatic_pro_offers"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."enroll_self_service_pro_offer"("p_user_id" "uuid", "p_terms_version" "text") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE award uuid;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739302);
+ SELECT id INTO award FROM public.pro_offer_awards WHERE user_id=p_user_id AND program_id='five_sessions_month';
+ IF award IS NOT NULL THEN RETURN award; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.pro_offer_programs WHERE id='five_sessions_month' AND automatic_enrollment) THEN RAISE EXCEPTION 'Enrollment unavailable'; END IF;
+ RETURN public.issue_pro_offer(p_user_id,'five_sessions_month',encode(sha256(convert_to(gen_random_uuid()::text,'UTF8')),'hex'),'self_service:five-sessions-v1',p_terms_version);
+END; $$;
+
+
+ALTER FUNCTION "public"."enroll_self_service_pro_offer"("p_user_id" "uuid", "p_terms_version" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."ensure_user_xp"("p_user_id" "uuid") RETURNS "void"
@@ -6445,6 +7046,148 @@ $$;
 
 
 ALTER FUNCTION "public"."erase_regional_recommendation_hold_operator_v1"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."evaluate_email_lifecycle"("p_user_id" "uuid", "p_ignore_attempt" "uuid" DEFAULT NULL::"uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  n timestamptz := now(); p public.profiles%ROWTYPE; s public.email_contact_state%ROWTYPE;
+  c public.email_campaigns%ROWTYPE; e public.user_entitlements%ROWTYPE;
+  t public.revenuecat_provider_events%ROWTYPE; registered timestamptz; feedback_trial jsonb;
+  job text; v_episode text := 'onboarding'; reason text; due timestamptz; expiry timestamptz;
+  next_at timestamptz; last_use timestamptz; last_completion timestamptz; count_sessions integer;
+  offer public.pro_offer_awards%ROWTYPE; audience text;
+  active_days integer; contacts timestamptz[]; local_time timestamp; result jsonb; cap integer;
+  v_timezone text;
+BEGIN
+  SELECT * INTO p FROM public.profiles WHERE id=p_user_id;
+  v_timezone := public.email_contact_timezone(p.timezone,p.home_beach_id);
+  SELECT * INTO s FROM public.email_contact_state WHERE user_id=p_user_id;
+  SELECT * INTO c FROM public.email_campaigns WHERE id=s.approved_campaign;
+  SELECT created_at INTO registered FROM auth.users WHERE id=p_user_id AND email_confirmed_at IS NOT NULL
+    AND lower(trim(email))=lower(trim(p.email));
+  SELECT * INTO e FROM public.user_entitlements WHERE user_id=p_user_id;
+  IF p.deleted_at IS NOT NULL OR registered IS NULL OR p.analytics_is_real_user IS DISTINCT FROM true OR p.notif_email_enabled IS DISTINCT FROM true THEN reason := 'ineligible_profile';
+  ELSIF (SELECT count(*) FROM public.profiles WHERE lower(trim(email))=lower(trim(p.email))) <> 1 THEN reason := 'ambiguous_identity';
+  ELSIF EXISTS (SELECT 1 FROM public.email_suppression_list WHERE lower(trim(email))=lower(trim(p.email)))
+    OR EXISTS (SELECT 1 FROM public.user_email_prefs WHERE user_id=p_user_id AND email_frequency='off') THEN reason := 'suppressed';
+  ELSIF s.paused_at IS NOT NULL THEN reason := 'reply_paused';
+  ELSIF NOT public.lifecycle_permission_verified(s)
+    OR s.history_reviewed_at IS NULL OR s.history_reviewed_at > n THEN reason := 'consent_or_history_unknown';
+  ELSIF s.entitlement_verified_until IS NULL OR s.entitlement_verified_until <= n OR s.entitlement_verified_until > n+interval '24 hours'
+    OR nullif(trim(s.entitlement_reference),'') IS NULL THEN reason := 'entitlement_review_stale';
+  ELSIF c.id IS NULL OR c.status <> 'approved' OR c.approved_at > n OR c.expires_at <= n THEN reason := 'campaign_unapproved';
+  END IF;
+  IF reason IS NOT NULL THEN RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','held','reason',reason); END IF;
+
+  SELECT count(*), max(email_completed_at) INTO count_sessions,last_completion FROM public.sessions
+    WHERE user_id=p_user_id AND status='completed' AND deleted_at IS NULL;
+  SELECT max(at),count(DISTINCT (at AT TIME ZONE v_timezone)::date) FILTER (WHERE at>n-interval '14 days')
+    INTO last_use,active_days FROM (
+      SELECT created_at AS at FROM public.user_events WHERE user_id=p_user_id AND bot_flagged IS NOT TRUE
+        AND event_type IN ('beach_view','forecast_check','home_beach_forecast_viewed','home_hero_forecast_viewed')
+        AND created_at BETWEEN n-interval '30 days' AND n
+      UNION ALL SELECT email_completed_at FROM public.sessions WHERE user_id=p_user_id
+        AND status='completed' AND deleted_at IS NULL AND email_completed_at<=n
+    ) activity;
+
+  IF s.provider_access_active IS NULL THEN
+    RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','held','reason','entitlement_unknown');
+  END IF;
+  audience := CASE WHEN e.is_trialing THEN 'trial'
+    WHEN e.is_pro OR s.provider_access_active OR EXISTS (
+      SELECT 1 FROM public.earned_pro_grants WHERE user_id=p_user_id AND revoked_at IS NULL AND expires_at>n
+    ) THEN 'entitled' ELSE 'free' END;
+
+  SELECT a.* INTO offer FROM public.pro_offer_awards a JOIN public.pro_offer_programs program ON program.id=a.program_id
+    WHERE audience='free' AND a.user_id=p_user_id AND a.state<>'verified' AND a.claim_requested_at IS NULL AND program.enabled
+    ORDER BY CASE WHEN a.program_id='return_three_months' THEN 0 ELSE 1 END,a.earned_at NULLS LAST,a.enrolled_at LIMIT 1;
+
+  IF EXISTS(SELECT 1 FROM public.trial_feedback_controls WHERE singleton AND enabled)
+    AND NOT EXISTS(SELECT 1 FROM public.trial_feedback_submissions WHERE user_id=p_user_id) THEN
+    feedback_trial:=public.current_feedback_trial(p_user_id);
+  END IF;
+  IF feedback_trial IS NOT NULL THEN
+    job:='trial_feedback'; v_episode:=feedback_trial->>'trial_event_id';
+    due:=(feedback_trial->>'cancelled_at')::timestamptz+interval '24 hours';
+    expiry:=least((feedback_trial->>'cancelled_at')::timestamptz+interval '7 days',(feedback_trial->>'trial_ends_at')::timestamptz);
+  ELSIF e.is_trialing THEN
+    SELECT * INTO t FROM public.revenuecat_provider_events WHERE app_user_id=p_user_id
+      AND environment='PRODUCTION' AND processed_at IS NOT NULL AND product_id=e.product_id
+      AND period_type='TRIAL' AND event_type IN ('INITIAL_PURCHASE','RENEWAL')
+      AND purchased_at<=n AND expiration_at=e.trial_ends_at ORDER BY event_timestamp DESC LIMIT 1;
+    IF t.provider_event_id IS NULL OR e.trial_ends_at<=n OR e.is_pro IS DISTINCT FROM true OR s.provider_access_active IS DISTINCT FROM true OR s.provider_trial->>'product_id' IS DISTINCT FROM e.product_id OR (s.provider_trial->>'expires_at')::timestamptz IS DISTINCT FROM e.trial_ends_at THEN
+      RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','held','reason','trial_unverified');
+    END IF;
+    IF EXISTS(SELECT 1 FROM public.user_events WHERE user_id=p_user_id AND bot_flagged IS NOT TRUE
+      AND event_type IN ('home_surf_call_tap','home_beach_forecast_viewed','home_hero_forecast_viewed')
+      AND created_at BETWEEN t.purchased_at AND n) THEN
+      RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','quiet','reason','trial_target_reached');
+    END IF;
+    job := 'trial_support'; v_episode := t.provider_event_id; due := t.purchased_at+interval '24 hours';
+    expiry := least(t.purchased_at+interval '7 days',e.trial_ends_at-interval '24 hours');
+  ELSIF audience='free' AND EXISTS(SELECT 1 FROM public.pro_offer_awards WHERE user_id=p_user_id AND claim_requested_at IS NOT NULL AND earned_at IS NOT NULL AND state<>'verified') THEN
+    RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','quiet','reason','offer_claim_pending');
+  ELSIF offer.earned_at IS NOT NULL THEN
+    job:='offer_ready'; v_episode:=offer.id::text; due:=offer.earned_at; expiry:=offer.earned_at+interval '30 days';
+  ELSIF n<registered+interval '48 hours' AND NOT EXISTS (
+    SELECT 1 FROM public.email_send_log WHERE user_id=p_user_id AND email_type IN ('welcome','founder_story','trial_started')
+  ) THEN job := 'welcome'; due := registered; expiry := registered+interval '48 hours';
+  ELSIF n>=registered+interval '7 days' AND n<registered+interval '10 days' AND count_sessions<5
+    AND coalesce(last_use,registered)<=n-interval '4 days' AND (last_completion IS NULL OR last_completion<=n-interval '4 days') THEN
+    job := 'friction'; due := registered+interval '7 days'; expiry := registered+interval '10 days';
+  ELSIF count_sessions=0 AND n<registered+interval '7 days' AND last_use>n-interval '7 days' THEN
+    job := 'activation'; due := registered+interval '3 days'; expiry := registered+interval '7 days';
+  ELSIF count_sessions BETWEEN 1 AND 4 AND last_completion IS NOT NULL AND n<registered+interval '21 days' AND last_use>n-interval '7 days' THEN
+    job := 'progress'; due := last_completion+interval '72 hours'; expiry := registered+interval '21 days';
+  ELSIF n>=registered+interval '21 days' AND n<registered+interval '28 days' AND active_days>=2 AND last_use>n-interval '7 days' THEN
+    job := 'routine'; due := registered+interval '21 days'; expiry := registered+interval '28 days';
+  ELSE RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','quiet','reason','no_relevant_job');
+  END IF;
+
+  -- Existing unverified log rows count as history, never as proof of delivery.
+  IF EXISTS (SELECT 1 FROM public.email_send_log WHERE user_id=p_user_id AND email_type = CASE job
+    WHEN 'welcome' THEN 'welcome' WHEN 'activation' THEN 'first_session_nudge' WHEN 'progress' THEN 'session_prompt'
+    WHEN 'trial_support' THEN 'trial_started' ELSE '__new_stage__' END)
+    OR EXISTS (SELECT 1 FROM public.email_contact_attempts WHERE user_id=p_user_id AND lifecycle_job=job AND episode=v_episode
+      AND id IS DISTINCT FROM p_ignore_attempt AND state NOT IN ('cancelled','failed')) THEN reason := 'already_attempted'; END IF;
+  IF EXISTS (SELECT 1 FROM public.email_contact_attempts WHERE user_id=p_user_id AND provider_id IS NULL
+    AND id IS DISTINCT FROM p_ignore_attempt AND state NOT IN ('cancelled','failed')) THEN reason := 'unresolved_handoff'; END IF;
+
+  SELECT array_agg(at ORDER BY at DESC) INTO contacts FROM (
+    SELECT coalesce(sent_at,claimed_at) AS at FROM public.email_contact_attempts WHERE user_id=p_user_id
+      AND id IS DISTINCT FROM p_ignore_attempt AND state NOT IN ('cancelled','failed')
+    UNION ALL SELECT sent_at FROM public.email_send_log l WHERE user_id=p_user_id
+      AND NOT EXISTS (SELECT 1 FROM public.email_contact_attempts a WHERE a.provider_id=l.resend_message_id)
+  ) history WHERE at>n-interval '30 days';
+  next_at := greatest(due,contacts[1]+interval '72 hours',s.manual_contact_at+interval '7 days');
+  IF (SELECT count(*) FROM unnest(contacts) at WHERE at>n-interval '7 days')>=2 THEN next_at:=greatest(next_at,contacts[2]+interval '7 days'); END IF;
+  IF cardinality(contacts)>=4 THEN next_at:=greatest(next_at,contacts[4]+interval '30 days'); END IF;
+  SELECT daily_cap INTO cap FROM public.email_contact_controls WHERE singleton;
+  IF cap IS NOT NULL AND (SELECT count(*) FROM (
+      SELECT claimed_at AS at FROM public.email_contact_attempts WHERE state NOT IN ('cancelled','failed') AND id IS DISTINCT FROM p_ignore_attempt
+      UNION ALL SELECT sent_at FROM public.email_send_log l WHERE NOT EXISTS
+        (SELECT 1 FROM public.email_contact_attempts a WHERE a.provider_id=l.resend_message_id)
+    ) history WHERE at>=date_trunc('day',n AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') >= cap THEN
+    next_at:=greatest(next_at,(date_trunc('day',n AT TIME ZONE 'UTC')+interval '1 day') AT TIME ZONE 'UTC');
+  END IF;
+  next_at:=greatest(next_at,n);
+  local_time:=next_at AT TIME ZONE v_timezone;
+  IF local_time::time < time '09:00' THEN next_at:=(local_time::date+time '09:00') AT TIME ZONE v_timezone;
+  ELSIF local_time::time >= time '17:00' THEN next_at:=((local_time::date+1)+time '09:00') AT TIME ZONE v_timezone; END IF;
+  result:=jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'campaign_version',c.version,'content_hash',c.content_hash,
+    'job',job,'episode',v_episode,'due_at',due,'next_eligible_at',next_at,'expires_at',expiry,
+    'status',CASE WHEN reason IS NOT NULL THEN 'held' WHEN next_at>=expiry THEN 'expired' WHEN next_at>n THEN 'deferred' ELSE 'due' END,
+    'reason',coalesce(reason,CASE WHEN next_at>=expiry THEN 'expired_no_safe_slot' WHEN next_at>n THEN 'cadence_or_quiet_hours' ELSE 'eligible' END),
+    'source',jsonb_build_object('audience',audience,'email',lower(trim(p.email)),'name',p.display_name,'home_beach_id',p.home_beach_id,
+      'sessions',count_sessions,'last_completion',last_completion,'trial_end',e.trial_ends_at,'offer_id',offer.id,'offer_months',CASE WHEN offer.program_id='five_sessions_month' THEN 1 WHEN offer.program_id='return_three_months' THEN 3 END));
+  RETURN result;
+END; $$;
+
+
+ALTER FUNCTION "public"."evaluate_email_lifecycle"("p_user_id" "uuid", "p_ignore_attempt" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."experiment_arm"("p_user_id" "uuid", "p_experiment_key" "text") RETURNS smallint
@@ -6523,11 +7266,64 @@ $$;
 ALTER FUNCTION "public"."fail_community_spot_photo_upload_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_reason_code" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."fail_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_provenance_state" "text", "p_error_code" "text") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  target_spot_id uuid;
+BEGIN
+  SELECT custom_spot_id INTO target_spot_id
+  FROM public.custom_spot_analysis_jobs
+  WHERE id = p_job_id
+    AND status = 'processing'
+    AND locked_at = p_claimed_at
+  FOR UPDATE;
+
+  IF target_spot_id IS NULL THEN RETURN false; END IF;
+
+  UPDATE public.custom_spots
+  SET terrain_status = 'failed', fingerprint_provenance_state = p_provenance_state
+  WHERE id = target_spot_id
+    AND updated_at = p_spot_updated_at
+    AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN RETURN false; END IF;
+
+  UPDATE public.custom_spot_analysis_jobs
+  SET status = 'failed', locked_at = NULL, last_error_code = p_error_code, updated_at = now()
+  WHERE id = p_job_id
+    AND status = 'processing'
+    AND locked_at = p_claimed_at;
+  RETURN FOUND;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."fail_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_provenance_state" "text", "p_error_code" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."finalize_anon_alert_capture"("p_user_id" "uuid", "p_email" "text") RETURNS TABLE("capture_id" "uuid", "beach_id" "uuid", "preset_type" "text", "return_path" "text", "captured_at" timestamp with time zone)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
     AS $$
 BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'finalize_anon_alert_capture requires the authenticated owner'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Captures are keyed by email, so the email must also be the caller's own.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM auth.users u
+    WHERE u.id = auth.uid()
+      AND lower(u.email) = lower(p_email)
+  ) THEN
+    RAISE EXCEPTION 'finalize_anon_alert_capture email must belong to the authenticated user'
+      USING ERRCODE = '42501';
+  END IF;
+
   RETURN QUERY
   WITH claimed_captures AS (
     UPDATE public.pending_alert_captures AS pac
@@ -6637,6 +7433,25 @@ $$;
 ALTER FUNCTION "public"."finalize_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_width" integer, "p_height" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."finalize_notification_delivery_target"("p_target_id" "uuid", "p_claim_id" "uuid", "p_claim_version" bigint, "p_status" "text", "p_provider_response" "jsonb" DEFAULT NULL::"jsonb", "p_error_message" "text" DEFAULT NULL::"text") RETURNS "public"."notification_delivery_targets"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_row public.notification_delivery_targets;
+BEGIN
+  IF p_status NOT IN ('sent','failed','unknown') THEN RAISE EXCEPTION 'invalid target status'; END IF;
+  UPDATE public.notification_delivery_targets SET status = p_status,
+    provider_response = p_provider_response, error_message = p_error_message,
+    updated_at = now() WHERE id = p_target_id AND claim_id = p_claim_id
+    AND claim_version = p_claim_version AND status = 'sending'
+    RETURNING * INTO v_row;
+  RETURN v_row;
+END $$;
+
+
+ALTER FUNCTION "public"."finalize_notification_delivery_target"("p_target_id" "uuid", "p_claim_id" "uuid", "p_claim_version" bigint, "p_status" "text", "p_provider_response" "jsonb", "p_error_message" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."finalize_purged_community_spot_photos_v1"("p_photo_ids" "uuid"[]) RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -6710,7 +7525,8 @@ BEGIN
     COUNT(*)::BIGINT as beach_count,
     -- Exact match: normalized city equals normalized search pattern
     (unaccent(lower(b.city)) = unaccent(lower(search_pattern)) OR
-     unaccent(lower(replace(b.city, '-', ' '))) = unaccent(lower(search_pattern))) as is_exact_match
+     unaccent(lower(replace(b.city, '-', ' '))) = unaccent(lower(search_pattern)) OR
+     trim(unaccent(lower(regexp_replace(replace(b.city, '-', ' '), '\.\s*', ' ', 'g')))) = unaccent(lower(search_pattern))) as is_exact_match
   FROM beaches b
   WHERE (b.is_private IS NULL OR b.is_private = false)
     AND (state_filter IS NULL OR b.state = state_filter)
@@ -6720,12 +7536,16 @@ BEGIN
       OR
       -- Match with hyphen normalization (handles Cardiff-by-the-Sea vs cardiff by the sea)
       unaccent(lower(replace(b.city, '-', ' '))) ILIKE '%' || unaccent(lower(search_pattern)) || '%'
+      OR
+      -- Match with periods as word breaks (handles St. Augustine and St.Augustine vs st augustine)
+      trim(unaccent(lower(regexp_replace(replace(b.city, '-', ' '), '\.\s*', ' ', 'g')))) ILIKE '%' || unaccent(lower(search_pattern)) || '%'
     )
   GROUP BY b.city, b.state
   ORDER BY
     -- Exact matches first
     (unaccent(lower(b.city)) = unaccent(lower(search_pattern)) OR
-     unaccent(lower(replace(b.city, '-', ' '))) = unaccent(lower(search_pattern))) DESC,
+     unaccent(lower(replace(b.city, '-', ' '))) = unaccent(lower(search_pattern)) OR
+     trim(unaccent(lower(regexp_replace(replace(b.city, '-', ' '), '\.\s*', ' ', 'g')))) = unaccent(lower(search_pattern))) DESC,
     -- Then by beach count (more beaches = more popular)
     COUNT(*) DESC;
 END;
@@ -6885,6 +7705,44 @@ Returns storage paths for bulk cleanup operations.';
 
 
 
+CREATE OR REPLACE FUNCTION "public"."finish_email_contact"("p_attempt_id" "uuid", "p_provider_id" "text") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  IF nullif(trim(p_provider_id), '') IS NULL THEN RAISE EXCEPTION 'Missing provider ID'; END IF;
+  UPDATE public.email_contact_attempts SET provider_id = p_provider_id, sent_at = coalesce(sent_at, now())
+    WHERE id = p_attempt_id AND (provider_id IS NULL OR provider_id = p_provider_id);
+  IF NOT FOUND THEN RAISE EXCEPTION 'Missing or conflicting email attempt'; END IF;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."finish_email_contact"("p_attempt_id" "uuid", "p_provider_id" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."finish_email_lifecycle"("p_attempt_id" "uuid", "p_provider_id" "text") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE a public.email_contact_attempts%ROWTYPE;
+BEGIN
+  PERFORM pg_advisory_xact_lock(739301);
+  SELECT * INTO a FROM public.email_contact_attempts WHERE id=p_attempt_id FOR UPDATE;
+  IF a.id IS NULL OR a.state NOT IN ('handoff_started','unknown','accepted') OR nullif(trim(p_provider_id),'') IS NULL
+    OR (a.provider_id IS NOT NULL AND a.provider_id<>p_provider_id) THEN RAISE EXCEPTION 'Invalid provider acceptance'; END IF;
+  UPDATE public.email_contact_attempts SET state='accepted',provider_id=p_provider_id,sent_at=coalesce(sent_at,now()) WHERE id=a.id;
+  IF a.lifecycle_job='conditions_alert' THEN RETURN; END IF;
+  INSERT INTO public.email_send_log(user_id,email_type,subject,resend_message_id,local_date,sent_at,message_instance_id,meta)
+  SELECT a.user_id,a.email_type,a.payload->>'subject',p_provider_id,(a.handoff_at AT TIME ZONE 'UTC')::date,a.handoff_at,a.id,
+    jsonb_build_object('campaign_id',a.campaign_id,'campaign_version',a.campaign_version,'lifecycle_job',a.lifecycle_job,'message_instance_id',a.id)
+  WHERE NOT EXISTS(SELECT 1 FROM public.email_send_log WHERE resend_message_id=p_provider_id);
+END; $$;
+
+
+ALTER FUNCTION "public"."finish_email_lifecycle"("p_attempt_id" "uuid", "p_provider_id" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."follow_user_with_notification"("p_target_user_id" "uuid", "p_actor_id" "uuid", "p_dedupe_key" "text") RETURNS "json"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -6945,6 +7803,54 @@ $$;
 
 
 ALTER FUNCTION "public"."follow_user_with_notification"("p_target_user_id" "uuid", "p_actor_id" "uuid", "p_dedupe_key" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."founding_access_enabled"() RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT coalesce(
+    (SELECT enabled FROM public.app_runtime_flags WHERE key = 'founding_access'),
+    false
+  );
+$$;
+
+
+ALTER FUNCTION "public"."founding_access_enabled"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."founding_access_enabled"() IS 'True while the founding_access runtime switch is on. Missing row reads as off.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."freeze_email_campaign"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  IF OLD.approved_at IS NOT NULL AND
+    (NEW.id, NEW.version, NEW.content_hash, NEW.owner, NEW.approved_by, NEW.approved_at, NEW.expires_at)
+      IS DISTINCT FROM (OLD.id, OLD.version, OLD.content_hash, OLD.owner, OLD.approved_by, OLD.approved_at, OLD.expires_at) THEN
+    RAISE EXCEPTION 'Create a new campaign version for changed approved content';
+  END IF;
+  RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."freeze_email_campaign"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."freeze_pro_offer_program"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+ IF OLD.approved_at IS NOT NULL AND (to_jsonb(NEW)-'enabled') IS DISTINCT FROM (to_jsonb(OLD)-'enabled') THEN
+  RAISE EXCEPTION 'Approved offer terms and budget are frozen';
+ END IF;
+ RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."freeze_pro_offer_program"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."generate_referral_code"() RETURNS "text"
@@ -7415,10 +8321,26 @@ BEGIN
   FROM preferred_cdip_station
   WHERE EXISTS (
     SELECT 1
-    FROM public.unified_wave_observations o
+    FROM public.ioos_observations o
+    JOIN public.ioos_stations s ON s.station_id = o.station_id
     WHERE o.station_id = preferred_cdip_station.station_id
+      AND s.active = true
       AND o.observed_at >= now() - interval '7 days'
-      AND o.wave_height_m IS NOT NULL
+      AND o.wave_height_m > 0
+  ) OR EXISTS (
+    SELECT 1
+    FROM public.ndbc_direct_observations o
+    JOIN public.ndbc_direct_stations s ON s.station_id = o.station_id
+    WHERE o.station_id = preferred_cdip_station.station_id
+      AND s.active = true
+      AND (
+        s.ioos_station_id IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM public.ioos_stations iss
+          WHERE iss.station_id = s.ioos_station_id AND iss.active = true
+        )
+      )
+      AND o.observed_at >= now() - interval '7 days'
       AND o.wave_height_m > 0
   )
   LIMIT 1;
@@ -7432,6 +8354,12 @@ BEGIN
   FROM public.ioos_stations s
   WHERE s.active = true
     AND s.has_wave_data = true
+    AND EXISTS (
+      SELECT 1 FROM public.ioos_observations o
+      WHERE o.station_id = s.station_id
+        AND o.observed_at >= now() - interval '7 days'
+        AND o.wave_height_m > 0
+    )
     AND s.nearest_beach_id = p_beach_id
   LIMIT 1;
 
@@ -7446,6 +8374,12 @@ BEGIN
   JOIN public.beaches nb ON nb.id = s.nearest_beach_id
   WHERE s.active = true
     AND s.has_wave_data = true
+    AND EXISTS (
+      SELECT 1 FROM public.ioos_observations o
+      WHERE o.station_id = s.station_id
+        AND o.observed_at >= now() - interval '7 days'
+        AND o.wave_height_m > 0
+    )
     AND ST_DWithin(b.geog, s.coordinates::geography, 25000)
     AND public.swell_windows_overlap(
           b.swell_window_min_deg, b.swell_window_max_deg,
@@ -7463,6 +8397,12 @@ BEGIN
   FROM public.ndbc_direct_stations s
   WHERE s.active = true
     AND s.has_wave_data = true
+    AND EXISTS (
+      SELECT 1 FROM public.ndbc_direct_observations o
+      WHERE o.station_id = s.station_id
+        AND o.observed_at >= now() - interval '7 days'
+        AND o.wave_height_m > 0
+    )
     AND s.nearest_beach_id = p_beach_id
     AND (
       s.ioos_station_id IS NULL
@@ -7486,6 +8426,12 @@ BEGIN
   JOIN public.beaches nb ON nb.id = s.nearest_beach_id
   WHERE s.active = true
     AND s.has_wave_data = true
+    AND EXISTS (
+      SELECT 1 FROM public.ndbc_direct_observations o
+      WHERE o.station_id = s.station_id
+        AND o.observed_at >= now() - interval '7 days'
+        AND o.wave_height_m > 0
+    )
     AND (
       s.ioos_station_id IS NULL
       OR NOT EXISTS (
@@ -7967,6 +8913,50 @@ COMMENT ON FUNCTION "public"."get_bulk_current_forecasts"("p_beach_ids" "uuid"[]
 
 
 
+CREATE OR REPLACE FUNCTION "public"."get_bulk_forecast_decision_context"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb", "p_start" "date", "p_end" "date") RETURNS "jsonb"
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+WITH runs AS MATERIALIZED (
+  (SELECT r.* FROM public.county_beach_advisory_runs r
+    WHERE source_identifier = 'county-san-diego-dehq-sdbeachinfo'
+    ORDER BY fetched_at DESC LIMIT 1)
+  UNION
+  (SELECT r.* FROM public.county_beach_advisory_runs r
+    WHERE source_identifier = 'county-san-diego-dehq-sdbeachinfo' AND status = 'completed'
+    ORDER BY fetched_at DESC LIMIT 1)
+)
+SELECT jsonb_build_object(
+  'beaches', (SELECT coalesce(jsonb_agg(to_jsonb(b)), '[]') FROM (
+    SELECT id, name, slug, lat, lon,
+      city, state, country, region, timezone,
+      break_type, skill_level, cdip_station, cdip_eligible, wind_offshore_deg,
+      wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt, swell_window_center_deg, swell_window_halfwidth_deg,
+      swell_access_factors, wind_exposure_factors, preferred_tide_direction, preferred_tide_ft_min, preferred_tide_ft_max,
+      tide_direction_sensitivity, preference_model, features, hazards, average_rating,
+      review_count, shoaling_factors FROM public.beaches
+    WHERE id = ANY(p_beach_ids) AND (NOT coalesce(is_private, false) OR owner_id = p_user_id)) b),
+  'profile', (SELECT jsonb_build_object('experience_level',experience_level) FROM public.profiles WHERE id=p_user_id),
+  'boards', (SELECT coalesce(jsonb_agg(jsonb_build_object('board_type',board_type)), '[]') FROM public.boards WHERE user_id=p_user_id AND retired_at IS NULL),
+  'sun_times', (SELECT coalesce(jsonb_agg(jsonb_build_object('beach_id',beach_id,
+    'sunrise_utc',sunrise_utc,'sunset_utc',sunset_utc) ORDER BY sunrise_utc), '[]')
+    FROM public.sun_times WHERE beach_id=ANY(p_beach_ids) AND date BETWEEN p_start AND p_end),
+  'personalization', CASE WHEN p_user_id IS NOT NULL THEN
+    public.get_week_scout_personalization(p_user_id,p_beach_ids,p_slots) ELSE NULL END,
+  'water_quality', jsonb_build_object(
+    'beach_water_quality', (SELECT coalesce(jsonb_agg(to_jsonb(w)), '[]') FROM public.beach_water_quality w WHERE beach_id=ANY(p_beach_ids)),
+    'water_quality_held_beaches', (SELECT coalesce(jsonb_agg(to_jsonb(w)), '[]') FROM public.water_quality_held_beaches w WHERE beach_id=ANY(p_beach_ids)),
+    'county_beach_advisory_runs', (SELECT coalesce(jsonb_agg(to_jsonb(r)), '[]') FROM runs r),
+    'county_beach_advisories', (SELECT coalesce(jsonb_agg(to_jsonb(a)), '[]') FROM public.county_beach_advisories a
+      WHERE run_id IN (SELECT id FROM runs) AND beach_id=ANY(p_beach_ids))
+  )
+);
+$$;
+
+
+ALTER FUNCTION "public"."get_bulk_forecast_decision_context"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb", "p_start" "date", "p_end" "date") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_cities_with_beach_skills"("min_beaches" integer DEFAULT 1) RETURNS TABLE("city" "text", "state" "text", "country" "text", "beach_count" bigint, "has_beginner" boolean, "has_advanced" boolean, "has_editorial" boolean, "has_least_crowded" boolean, "has_tide_data" boolean, "has_water_temp_data" boolean)
     LANGUAGE "sql" STABLE
     AS $_$
@@ -8152,6 +9142,7 @@ CREATE OR REPLACE FUNCTION "public"."get_coach_picks"("_beach_id" "uuid", "_radi
     WHERE b.id <> _beach_id
       AND b.deleted_at IS NULL
       AND NOT b.is_private
+      AND b.recommendation_eligible
   ),
   scored_candidates AS (
     SELECT
@@ -8186,7 +9177,7 @@ $$;
 ALTER FUNCTION "public"."get_coach_picks"("_beach_id" "uuid", "_radius_km" numeric) OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."get_coach_picks"("_beach_id" "uuid", "_radius_km" numeric) IS 'Returns the top three public beaches within a strict radius, ranked by each beach''s latest daily conditions score.';
+COMMENT ON FUNCTION "public"."get_coach_picks"("_beach_id" "uuid", "_radius_km" numeric) IS 'Returns the top three recommendation-eligible public beaches within a strict radius, ranked by each beach''s latest daily conditions score.';
 
 
 
@@ -8486,6 +9477,33 @@ ALTER FUNCTION "public"."get_conversion_funnel"("days" integer) OWNER TO "postgr
 
 
 COMMENT ON FUNCTION "public"."get_conversion_funnel"("days" integer) IS 'Returns the signup conversion funnel metrics for the past N days. Steps: anonymous_sessions -> cta_views -> cta_clicks -> auth_modal_opens -> signup_starts -> signup_completes -> onboarding_completes. Excludes bot-flagged events.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."get_current_beach_wind"("p_beach_id" "uuid") RETURNS TABLE("observed_at" timestamp with time zone, "wind_speed_mph" numeric, "wind_direction" "text", "wind_direction_deg" numeric, "wind_gust_mph" numeric, "source" "text")
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT
+    observation.observed_at,
+    observation.wind_speed_mph,
+    observation.wind_direction,
+    observation.wind_direction_deg,
+    observation.wind_gust_mph,
+    observation.source
+  FROM public.beach_wind_observations AS observation
+  WHERE observation.beach_id = p_beach_id
+    AND observation.observed_at >= now() - interval '2 hours'
+    AND observation.observed_at <= now() + interval '15 minutes'
+  ORDER BY observation.observed_at DESC
+  LIMIT 1;
+$$;
+
+
+ALTER FUNCTION "public"."get_current_beach_wind"("p_beach_id" "uuid") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."get_current_beach_wind"("p_beach_id" "uuid") IS 'Returns the newest non-stale hourly beach-wind observation for Coast Pulse.';
 
 
 
@@ -8918,7 +9936,7 @@ COMMENT ON FUNCTION "public"."get_ml_weekly_metrics"() IS 'Compatibility weekly 
 
 
 CREATE OR REPLACE FUNCTION "public"."get_most_visited_beach"("user_id" "uuid") RETURNS TABLE("beach_id" "uuid", "visit_count" bigint, "beach_name" "text")
-    LANGUAGE "plpgsql" SECURITY DEFINER
+    LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
     AS $$
 BEGIN
@@ -9097,9 +10115,9 @@ BEGIN
         ip.expires_at,
         ip.created_at,
         ip.updated_at,
-        (public.ST_Distance(
-            public.ST_SetSRID(public.ST_MakePoint(ip.longitude, ip.latitude), 4326)::public.geography,
-            public.ST_SetSRID(public.ST_MakePoint(center_lng, center_lat), 4326)::public.geography
+        (extensions.ST_Distance(
+            extensions.ST_SetSRID(extensions.ST_MakePoint(ip.longitude, ip.latitude), 4326)::extensions.geography,
+            extensions.ST_SetSRID(extensions.ST_MakePoint(center_lng, center_lat), 4326)::extensions.geography
         ) / 1609.34) AS distance_miles,
         p.full_name AS user_name,
         COALESCE(b.name, 'Unknown Beach') AS beach_name,
@@ -9115,9 +10133,9 @@ BEGIN
     LEFT JOIN public.beaches b ON b.id = ip.beach_id
     WHERE ip.is_active = true
       AND (ip.expires_at IS NULL OR ip.expires_at > NOW())
-      AND public.ST_DWithin(
-          public.ST_SetSRID(public.ST_MakePoint(ip.longitude, ip.latitude), 4326)::public.geography,
-          public.ST_SetSRID(public.ST_MakePoint(center_lng, center_lat), 4326)::public.geography,
+      AND extensions.ST_DWithin(
+          extensions.ST_SetSRID(extensions.ST_MakePoint(ip.longitude, ip.latitude), 4326)::extensions.geography,
+          extensions.ST_SetSRID(extensions.ST_MakePoint(center_lng, center_lat), 4326)::extensions.geography,
           radius_miles * 1609.34
       )
       AND (tag_filter IS NULL OR ip.tag::TEXT = tag_filter)
@@ -9249,8 +10267,70 @@ COMMENT ON FUNCTION "public"."get_popular_beaches"("p_limit" integer) IS 'Return
 
 
 
+CREATE OR REPLACE FUNCTION "public"."get_prediction_observations"("p_beach_id" "uuid", "p_since" timestamp with time zone, "p_until" timestamp with time zone) RETURNS TABLE("prediction_id" "uuid", "beach_id" "uuid", "predicted_at" timestamp with time zone, "forecast_horizon_hours" integer, "forecast_horizon_bucket" "text", "raw_display_height_m" numeric, "offset_corrected_display_height_m" numeric, "v5_shadow_height_m" numeric, "wave_height_om" real, "station_id" "text", "observed_at" timestamp with time zone, "observed_m" numeric)
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  -- PostgREST cancels at 8 s; a month of all beaches is ~18 s, so callers page by beach.
+  IF p_until - p_since > interval '31 days' THEN
+    RAISE EXCEPTION 'get_prediction_observations: range % to % exceeds 31 days', p_since, p_until
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Each beach-hour is logged once per horizon bucket (3 rows), so look the
+  -- reading up once per slot and join it back: 33 ms vs 1.4 s for one beach-month.
+  RETURN QUERY
+  WITH slots AS MATERIALIZED (
+    SELECT DISTINCT p.beach_id, p.predicted_at, s.station_id
+    FROM public.ml_predictions_log p
+    JOIN public.beach_observation_stations s ON s.beach_id = p.beach_id
+    WHERE p.predicted_at >= p_since
+      AND p.predicted_at < p_until
+      AND (p_beach_id IS NULL OR p.beach_id = p_beach_id)
+  ),
+  matched AS (
+    SELECT sl.beach_id, sl.predicted_at, sl.station_id, o.observed_at, o.wave_height_m
+    FROM slots sl
+    CROSS JOIN LATERAL (
+      SELECT u.observed_at, u.wave_height_m
+      FROM public.unified_wave_observations u
+      WHERE u.station_id = sl.station_id
+        AND u.wave_height_m > 0
+        AND u.observed_at >= sl.predicted_at - interval '12 hours'
+        AND u.observed_at <= sl.predicted_at + interval '12 hours'
+      ORDER BY abs(extract(epoch from (u.observed_at - sl.predicted_at))), u.observed_at
+      LIMIT 1
+    ) o
+  )
+  SELECT
+    p.id,
+    p.beach_id,
+    p.predicted_at,
+    p.forecast_horizon_hours,
+    p.forecast_horizon_bucket,
+    p.raw_display_height_m,
+    p.offset_corrected_display_height_m,
+    p.v5_shadow_height_m,
+    p.wave_height_om,
+    m.station_id,
+    m.observed_at,
+    m.wave_height_m
+  FROM public.ml_predictions_log p
+  JOIN matched m ON m.beach_id = p.beach_id AND m.predicted_at = p.predicted_at
+  WHERE p.predicted_at >= p_since
+    AND p.predicted_at < p_until
+    AND (p_beach_id IS NULL OR p.beach_id = p_beach_id)
+  ORDER BY p.predicted_at, p.id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_prediction_observations"("p_beach_id" "uuid", "p_since" timestamp with time zone, "p_until" timestamp with time zone) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_profile_stats"("p_user_id" "uuid") RETURNS "json"
-    LANGUAGE "plpgsql" SECURITY DEFINER
+    LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
     AS $$
 DECLARE
@@ -9421,7 +10501,7 @@ COMMENT ON FUNCTION "public"."get_referral_leaderboard"("max_results" integer) I
 
 CREATE OR REPLACE FUNCTION "public"."get_session_prompt_candidates"("p_min_score" integer DEFAULT 7) RETURNS TABLE("user_id" "uuid", "email" "text", "display_name" "text", "home_beach_id" "uuid", "beach_name" "text", "beach_slug" "text", "conditions_score" integer, "surf_description" "text", "wind_description" "text")
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions', 'pg_temp'
+    SET "search_path" TO 'public'
     AS $$
 BEGIN
   RETURN QUERY
@@ -9435,10 +10515,9 @@ BEGIN
     WHERE p.home_beach_id IS NOT NULL
       AND p.email IS NOT NULL
       AND p.notif_email_enabled = true
-      AND p.notif_forecast_alerts = true
+      AND p.notif_reminders = true
       AND COALESCE(p.is_mock, false) = false
   ),
-  -- Join beaches early to get timezone for each user's home beach
   users_with_beach AS (
     SELECT
       eu.id,
@@ -9512,7 +10591,7 @@ $$;
 ALTER FUNCTION "public"."get_session_prompt_candidates"("p_min_score" integer) OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."get_session_prompt_candidates"("p_min_score" integer) IS 'Returns users eligible for session prompt emails based on high beach_daily_intel scores yesterday but no logged session. Excludes users active in app today or who received any email today. Uses beach-specific timezone for date calculations.';
+COMMENT ON FUNCTION "public"."get_session_prompt_candidates"("p_min_score" integer) IS 'Returns users eligible for session prompt emails when email and reminder preferences are enabled, yesterday had a high beach_daily_intel score, and no session was logged. Excludes users active in app today or who received any email today. Uses beach-specific timezone for date calculations.';
 
 
 
@@ -9646,6 +10725,29 @@ BEGIN
         count(*) FILTER (WHERE snapshot_buoy_observed_m IS NOT NULL AND snapshot_buoy_observed_m > 0) AS with_buoy_truth
       FROM candidates
       GROUP BY 1
+    ),
+    size_answers AS (
+      -- Sessions whose size answer is usable: completed, with a beach and time. A
+      -- rejected prefill or a mistyped height still carries its direction.
+      SELECT
+        c.reported_size_vs_forecast,
+        c.observed_at,
+        c.shown_forecast_height_ft,
+        c.reported_wave_height_ft,
+        s.wave_height_source
+      FROM candidates c
+      JOIN public.sessions s ON s.id = c.session_id
+      WHERE c.reported_size_vs_forecast IS NOT NULL
+        AND s.deleted_at IS NULL
+        AND (
+          c.rejection_reason IS NULL
+          OR c.rejection_reason IN (
+            'no_matching_prediction',
+            'forecast_prefilled_wave_height',
+            'missing_wave_height_ft',
+            'invalid_wave_height_ft'
+          )
+        )
     )
   SELECT jsonb_build_object(
     'generated_at', now(),
@@ -9773,6 +10875,53 @@ BEGIN
       SELECT jsonb_agg(to_jsonb(beach_reliability) ORDER BY comparisons DESC, median_abs_error_m ASC)
       FROM beach_reliability
     ), '[]'::jsonb),
+    'size_vs_forecast', jsonb_build_object(
+      'answers', (SELECT count(*) FROM size_answers),
+      'answers_30d', (
+        SELECT count(*)
+        FROM size_answers
+        WHERE observed_at >= now() - interval '30 days'
+      ),
+      'by_answer', coalesce((
+        SELECT jsonb_object_agg(reported_size_vs_forecast, answer_count)
+        FROM (
+          SELECT reported_size_vs_forecast, count(*) AS answer_count
+          FROM size_answers
+          GROUP BY reported_size_vs_forecast
+        ) grouped
+      ), '{}'::jsonb),
+      'with_shown_height', (
+        SELECT count(*)
+        FROM size_answers
+        WHERE shown_forecast_height_ft IS NOT NULL
+      ),
+      'confirmed_prefills', (
+        SELECT count(*)
+        FROM size_answers
+        WHERE wave_height_source = 'forecast_prefill'
+          AND reported_size_vs_forecast = 'about_right'
+      ),
+      'direction_only_prefills', (
+        SELECT count(*)
+        FROM size_answers
+        WHERE wave_height_source = 'forecast_prefill'
+          AND reported_size_vs_forecast <> 'about_right'
+      ),
+      -- A typed height more than half a foot on the other side of the shown height.
+      'height_answer_conflicts', (
+        SELECT count(*)
+        FROM size_answers
+        WHERE wave_height_source IS DISTINCT FROM 'forecast_prefill'
+          AND shown_forecast_height_ft IS NOT NULL
+          AND reported_wave_height_ft IS NOT NULL
+          AND (
+            (reported_size_vs_forecast = 'bigger'
+              AND reported_wave_height_ft < shown_forecast_height_ft - 0.5)
+            OR (reported_size_vs_forecast = 'smaller'
+              AND reported_wave_height_ft > shown_forecast_height_ft + 0.5)
+          )
+      )
+    ),
     'match_delta_buckets', coalesce((
       SELECT jsonb_agg(to_jsonb(delta_buckets) ORDER BY bucket)
       FROM delta_buckets
@@ -9856,6 +11005,7 @@ BEGIN
     SELECT b.id AS board_id
     FROM public.boards b
     WHERE b.user_id = p_user_id
+      AND b.retired_at IS NULL
   ),
   session_base AS (
     SELECT
@@ -9971,7 +11121,13 @@ BEGIN
     WHERE ue.user_id = p_user_id
     LIMIT 1;
 
-    IF v_billing_issue OR NOT COALESCE(v_is_paid, false) OR (v_expires_at IS NOT NULL AND v_expires_at < now()) THEN
+    IF v_billing_issue THEN
+      RETURN;
+    END IF;
+
+    IF (NOT COALESCE(v_is_paid, false)
+      OR (v_expires_at IS NOT NULL AND v_expires_at < now()))
+      AND NOT public.founding_access_enabled() THEN
       RETURN;
     END IF;
   END IF;
@@ -9984,9 +11140,7 @@ BEGIN
 
   v_profile_radius_km := CASE
     WHEN v_max_drive_minutes IS NULL THEN 100.0
-    ELSE
-      LEAST(GREATEST(v_max_drive_minutes, 15), 90)
-      * 0.5 * 1.609344
+    ELSE LEAST(GREATEST(v_max_drive_minutes, 15), 90) * 0.5 * 1.609344
   END;
   v_effective_radius_km := LEAST(
     v_profile_radius_km,
@@ -10010,6 +11164,7 @@ BEGIN
     CROSS JOIN device_location
     WHERE v_have_device
       AND b.deleted_at IS NULL
+      AND b.recommendation_eligible
       AND b.geog IS NOT NULL
       AND (p_exclude_beach_id IS NULL OR b.id <> p_exclude_beach_id)
       AND ST_DWithin(
@@ -10029,6 +11184,7 @@ BEGIN
     FROM public.beaches b
     WHERE NOT v_have_device
       AND b.deleted_at IS NULL
+      AND b.recommendation_eligible
       AND (p_exclude_beach_id IS NULL OR b.id <> p_exclude_beach_id)
       AND EXISTS (
         SELECT 1
@@ -10137,11 +11293,11 @@ CREATE OR REPLACE FUNCTION "public"."get_user_session_match_comparison"("p_user_
     AS $$
 DECLARE
   v_profile_count integer;
-  v_future_wave numeric := public.parse_numeric_from_text(p_wave_height);
-  v_future_period numeric := public.parse_numeric_from_text(p_wave_period);
-  v_future_wind numeric := public.parse_numeric_from_text(p_wind_speed);
-  v_future_wind_dir numeric := public.parse_numeric_from_text(p_wind_direction);
-  v_future_tide numeric := public.parse_numeric_from_text(p_tide_height);
+  v_future_wave numeric := public.parse_numeric_or_null(p_wave_height);
+  v_future_period numeric := public.parse_numeric_or_null(p_wave_period);
+  v_future_wind numeric := public.parse_numeric_or_null(p_wind_speed);
+  v_future_wind_dir numeric := public.parse_numeric_or_null(p_wind_direction);
+  v_future_tide numeric := public.parse_numeric_or_null(p_tide_height);
   v_positive jsonb;
   v_negative jsonb;
 BEGIN
@@ -10173,20 +11329,20 @@ BEGIN
       s.rating,
       s.arrival_time,
       COALESCE(s.board_snapshot->>'name', b.name) AS board_name,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') AS wave_height,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') AS wave_period,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') AS wind_speed,
-      public.parse_numeric_from_text(COALESCE(sfs.forecast_snapshot->>'wind_direction_deg', sfs.forecast_snapshot->>'wind_direction')) AS wind_direction,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') AS tide_height,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_height') AS wave_height,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_period') AS wave_period,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'wind_speed') AS wind_speed,
+      public.parse_numeric_or_null(COALESCE(sfs.forecast_snapshot->>'wind_direction_deg', sfs.forecast_snapshot->>'wind_direction')) AS wind_direction,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'tide_height') AS tide_height,
       (
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') - v_future_wave), 99) * 0.35 +
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') - v_future_period), 99) * 0.20 +
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') - v_future_wind), 99) * 0.15 +
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_height') - v_future_wave), 99) * 0.35 +
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_period') - v_future_period), 99) * 0.20 +
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'wind_speed') - v_future_wind), 99) * 0.15 +
         COALESCE(LEAST(
-          ABS(public.parse_numeric_from_text(COALESCE(sfs.forecast_snapshot->>'wind_direction_deg', sfs.forecast_snapshot->>'wind_direction')) - v_future_wind_dir),
-          360 - ABS(public.parse_numeric_from_text(COALESCE(sfs.forecast_snapshot->>'wind_direction_deg', sfs.forecast_snapshot->>'wind_direction')) - v_future_wind_dir)
+          ABS(public.parse_numeric_or_null(COALESCE(sfs.forecast_snapshot->>'wind_direction_deg', sfs.forecast_snapshot->>'wind_direction')) - v_future_wind_dir),
+          360 - ABS(public.parse_numeric_or_null(COALESCE(sfs.forecast_snapshot->>'wind_direction_deg', sfs.forecast_snapshot->>'wind_direction')) - v_future_wind_dir)
         ) / 30, 99) * 0.15 +
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') - v_future_tide), 99) * 0.15
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'tide_height') - v_future_tide), 99) * 0.15
       ) AS distance_score
     FROM public.sessions s
     JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
@@ -10223,15 +11379,15 @@ BEGIN
       s.rating,
       s.arrival_time,
       COALESCE(s.board_snapshot->>'name', b.name) AS board_name,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') AS wave_height,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') AS wave_period,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') AS wind_speed,
-      public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') AS tide_height,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_height') AS wave_height,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_period') AS wave_period,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'wind_speed') AS wind_speed,
+      public.parse_numeric_or_null(sfs.forecast_snapshot->>'tide_height') AS tide_height,
       (
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_height') - v_future_wave), 99) * 0.35 +
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wave_period') - v_future_period), 99) * 0.25 +
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'wind_speed') - v_future_wind), 99) * 0.20 +
-        COALESCE(ABS(public.parse_numeric_from_text(sfs.forecast_snapshot->>'tide_height') - v_future_tide), 99) * 0.20
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_height') - v_future_wave), 99) * 0.35 +
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'wave_period') - v_future_period), 99) * 0.25 +
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'wind_speed') - v_future_wind), 99) * 0.20 +
+        COALESCE(ABS(public.parse_numeric_or_null(sfs.forecast_snapshot->>'tide_height') - v_future_tide), 99) * 0.20
       ) AS distance_score
     FROM public.sessions s
     JOIN public.session_forecast_snapshots sfs ON sfs.session_id = s.id
@@ -10290,6 +11446,11 @@ CREATE OR REPLACE FUNCTION "public"."get_user_storage_stats"("p_user_id" "uuid")
 DECLARE
   user_limit CONSTANT BIGINT := 104857600; -- 100MB per user
 BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'get_user_storage_stats requires the authenticated owner'
+      USING ERRCODE = '42501';
+  END IF;
+
   RETURN QUERY
   SELECT
     COALESCE(su.total_bytes, 0) as total_bytes,
@@ -10442,6 +11603,63 @@ COMMENT ON FUNCTION "public"."get_user_viral_coefficient"("p_user_id" "uuid") IS
 
 
 
+CREATE OR REPLACE FUNCTION "public"."get_week_scout_personalization"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_entitlement jsonb;
+  v_matches jsonb := '[]'::jsonb;
+BEGIN
+  IF p_user_id IS NULL OR p_beach_ids IS NULL
+    OR jsonb_typeof(p_slots) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Invalid Week Scout personalization input';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(p_slots) slot
+    WHERE (slot->>'beach_id') IS NULL
+      OR NOT ((slot->>'beach_id')::uuid = ANY(p_beach_ids))
+      OR NULLIF(slot->>'forecast_at', '') IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Match slots must belong to the requested beaches';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'is_pro', ue.is_pro, 'is_trialing', ue.is_trialing,
+    'billing_issue', ue.billing_issue, 'expires_at', ue.expires_at
+  ) INTO v_entitlement
+  FROM public.user_entitlements ue WHERE ue.user_id = p_user_id;
+
+  -- Mirror entitlementFromRow: paid/trial flags, expiry, and billing grace.
+  -- Founding access scores matches too, except on billing-issue rows (which
+  -- never get founding access); callers still decide what to show.
+  IF jsonb_array_length(p_slots) > 0
+    AND ((
+      (COALESCE((v_entitlement->>'is_pro')::boolean, false)
+        OR COALESCE((v_entitlement->>'is_trialing')::boolean, false))
+      AND (COALESCE((v_entitlement->>'billing_issue')::boolean, false)
+        OR v_entitlement->>'expires_at' IS NULL
+        OR (v_entitlement->>'expires_at')::timestamptz >= clock_timestamp())
+    ) OR (public.founding_access_enabled()
+      AND NOT COALESCE((v_entitlement->>'billing_issue')::boolean, false))) THEN
+    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+      'beach_id', m.beach_id, 'forecast_at', m.forecast_at, 'result', m.result
+    ) ORDER BY m.slot_idx), '[]'::jsonb) INTO v_matches
+    FROM public.compute_user_match_scores(p_user_id, p_beach_ids,
+      (SELECT COALESCE(jsonb_agg(slot), '[]'::jsonb)
+        FROM (SELECT DISTINCT value AS slot FROM jsonb_array_elements(p_slots)) slots)) m;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'entitlement', v_entitlement, 'matches', v_matches
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_week_scout_personalization"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_weekend_scout_candidates"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "limit_count" integer DEFAULT 1000) RETURNS TABLE("id" "uuid", "distance_meters" double precision, "total_count" bigint)
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -10453,13 +11671,12 @@ CREATE OR REPLACE FUNCTION "public"."get_weekend_scout_candidates"("input_user_i
       AND max_distance_meters > 0
   ),
   eligible AS (
-    SELECT
-      b.id,
-      ST_Distance(b.geog, origin.geog) AS distance_meters
+    SELECT b.id, ST_Distance(b.geog, origin.geog) AS distance_meters
     FROM public.beaches b
     CROSS JOIN origin
     WHERE b.geog IS NOT NULL
       AND b.is_private IS NOT TRUE
+      AND b.recommendation_eligible
       AND b.deleted_at IS NULL
       AND ST_DWithin(b.geog, origin.geog, max_distance_meters)
       AND NOT EXISTS (
@@ -10470,10 +11687,7 @@ CREATE OR REPLACE FUNCTION "public"."get_weekend_scout_candidates"("input_user_i
       )
   ),
   counted AS (
-    SELECT
-      eligible.id,
-      eligible.distance_meters,
-      count(*) OVER () AS total_count
+    SELECT eligible.id, eligible.distance_meters, count(*) OVER () AS total_count
     FROM eligible
   )
   SELECT counted.id, counted.distance_meters, counted.total_count
@@ -10486,8 +11700,45 @@ $$;
 ALTER FUNCTION "public"."get_weekend_scout_candidates"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "limit_count" integer) OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."get_weekend_scout_candidates"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "limit_count" integer) IS 'Returns all non-hidden beaches in current-location range, plus total count for truncation detection.';
+COMMENT ON FUNCTION "public"."get_weekend_scout_candidates"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "limit_count" integer) IS 'Returns recommendation-eligible, non-hidden beaches in current-location range, plus total count for truncation detection.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."get_weekend_scout_candidates_page"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "offset_count" integer DEFAULT 0, "limit_count" integer DEFAULT 500) RETURNS TABLE("id" "uuid", "distance_meters" double precision, "total_count" bigint)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+  WITH origin AS (
+    SELECT ST_SetSRID(ST_MakePoint(input_lon, input_lat), 4326)::geography AS geog
+    WHERE input_lat BETWEEN -90 AND 90
+      AND input_lon BETWEEN -180 AND 180
+      AND max_distance_meters > 0
+  ), eligible AS (
+    SELECT b.id,
+      ST_Distance(b.geog, origin.geog) AS distance_meters
+    FROM public.beaches b
+    CROSS JOIN origin
+    WHERE b.is_private IS NOT TRUE
+      AND b.deleted_at IS NULL
+      AND b.recommendation_eligible
+      AND b.geog IS NOT NULL
+      AND ST_DWithin(b.geog, origin.geog, max_distance_meters)
+      AND NOT EXISTS (
+        SELECT 1 FROM public.user_beach_exclusions e
+        WHERE e.user_id = input_user_id AND e.beach_id = b.id
+      )
+  ), counted AS (
+    SELECT *, count(*) OVER () AS total_count FROM eligible
+  )
+  SELECT counted.id, counted.distance_meters, counted.total_count
+  FROM counted
+  ORDER BY counted.distance_meters ASC, counted.id ASC
+  OFFSET GREATEST(offset_count, 0)
+  LIMIT LEAST(GREATEST(limit_count, 1), 1000);
+$$;
+
+
+ALTER FUNCTION "public"."get_weekend_scout_candidates_page"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "offset_count" integer, "limit_count" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_welcome_email_candidates"() RETURNS TABLE("user_id" "uuid", "email" "text", "created_at" timestamp with time zone, "email_confirmed_at" timestamp with time zone, "home_beach_id" "uuid", "case_type" "text")
@@ -10610,6 +11861,129 @@ COMMENT ON FUNCTION "public"."get_yesterday_accuracy"("p_beach_id" "uuid") IS 'R
 Uses ml_predictions_log with observed ground truth from IOOS buoys.
 should_display is false when accuracy is poor (>0.45m MAE OR >40% relative) or waves too small (<0.3m).';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."gmail_reply_known"("p_message_ids" "text"[]) RETURNS "text"[]
+    LANGUAGE "sql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT coalesce(array_agg(input.message_id ORDER BY input.ordinality), '{}'::text[])
+  FROM unnest(coalesce(p_message_ids, '{}'::text[])) WITH ORDINALITY AS input(message_id, ordinality)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.email_reply_events e
+    WHERE e.provider_id LIKE 'gmail:%:' || input.message_id
+  );
+$$;
+
+
+ALTER FUNCTION "public"."gmail_reply_known"("p_message_ids" "text"[]) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."guard_swell_watch_evaluation_policy"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'evaluation policies are append only'; END IF;
+  -- Same lock as detection prevents a policy change during identity selection.
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  IF NEW.epoch <> coalesce((SELECT max(epoch) FROM public.swell_watch_evaluation_policies),0)+1 THEN
+    RAISE EXCEPTION 'evaluation policy epoch must advance by one';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."guard_swell_watch_evaluation_policy"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."guard_swell_watch_study_authority"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE canonical jsonb;
+BEGIN
+  IF TG_OP<>'INSERT' THEN RAISE EXCEPTION 'study authority is append only'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  IF NEW.epoch<>coalesce((SELECT max(epoch) FROM public.swell_watch_study_authorities),0)+1 THEN
+    RAISE EXCEPTION 'study authority epoch must advance by one';
+  END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(NEW.cohort) s WHERE
+    jsonb_typeof(s) IS DISTINCT FROM 'object' OR s-'sourcePointId'-'regionKey'<>'{}'::jsonb
+    OR coalesce(s->>'sourcePointId','') !~ '^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'
+    OR jsonb_typeof(s->'regionKey') IS DISTINCT FROM 'string'
+    OR char_length(btrim(s->>'regionKey')) NOT BETWEEN 1 AND 100
+    OR s->>'regionKey' IS DISTINCT FROM btrim(s->>'regionKey'))
+    OR (SELECT count(DISTINCT s->>'sourcePointId') FROM jsonb_array_elements(NEW.cohort) s)<>10 THEN
+    RAISE EXCEPTION 'invalid study cohort';
+  END IF;
+  SELECT jsonb_agg(s ORDER BY s->>'sourcePointId') INTO canonical FROM jsonb_array_elements(NEW.cohort) s;
+  IF NEW.state='active' THEN
+    PERFORM 1 FROM public.beaches b WHERE b.id IN (SELECT (s->>'sourcePointId')::uuid FROM jsonb_array_elements(NEW.cohort) s)
+      ORDER BY b.id FOR SHARE;
+    IF NEW.scope_inputs IS DISTINCT FROM public.swell_watch_study_scope_inputs(NEW.cohort) THEN
+      RAISE EXCEPTION 'study scope inputs differ from current beaches';
+    END IF;
+  END IF;
+  IF canonical IS DISTINCT FROM NEW.cohort OR NEW.config_hash IS DISTINCT FROM
+    encode(extensions.digest((jsonb_build_object('policyHash',NEW.policy_hash,'cohort',NEW.cohort,'scopeInputs',NEW.scope_inputs,
+      'forecastDays',7,'targetDays',NEW.target_days,'providerContractRef',NEW.provider_contract_ref,'evidenceSha256',NEW.evidence_sha256) || CASE WHEN NEW.qualification_rule='complete_partitions.v1' THEN '{}'::jsonb
+      ELSE jsonb_build_object('qualificationRule',NEW.qualification_rule) END)::text,'sha256'),'hex') THEN
+    RAISE EXCEPTION 'study config hash or cohort ordering mismatch';
+  END IF;
+  RETURN NEW;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."guard_swell_watch_study_authority"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."guard_swell_watch_study_beach_scope"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE authority public.swell_watch_study_authorities;
+BEGIN
+  IF OLD.lat IS NOT DISTINCT FROM NEW.lat AND OLD.lon IS NOT DISTINCT FROM NEW.lon
+    AND OLD.swell_window_center_deg IS NOT DISTINCT FROM NEW.swell_window_center_deg
+    AND OLD.swell_window_halfwidth_deg IS NOT DISTINCT FROM NEW.swell_window_halfwidth_deg
+    AND OLD.swell_access_factors IS NOT DISTINCT FROM NEW.swell_access_factors
+    AND OLD.terrain_enabled IS NOT DISTINCT FROM NEW.terrain_enabled
+    AND OLD.deepwater_decay_factor IS NOT DISTINCT FROM NEW.deepwater_decay_factor
+    AND OLD.shoaling_factors IS NOT DISTINCT FROM NEW.shoaling_factors THEN RETURN NEW; END IF;
+  SELECT * INTO authority FROM public.swell_watch_study_authorities WHERE epoch=(SELECT max(epoch) FROM public.swell_watch_study_authorities) AND state='active' AND clock_timestamp()>=not_before AND clock_timestamp()<expires_at;
+  IF FOUND AND EXISTS(SELECT 1 FROM jsonb_array_elements(authority.cohort) cohort WHERE (cohort->>'sourcePointId')::uuid=NEW.id) THEN
+    RAISE EXCEPTION 'beach % is pinned by the active Swell Watch study (epoch %); change it through a reviewed study authority epoch',NEW.id,authority.epoch;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."guard_swell_watch_study_beach_scope"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."guard_swell_watch_study_observation"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  IF NEW.provider_batch_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM public.swell_watch_provider_run_completed_batches b
+    JOIN public.swell_watch_study_acceptances s ON s.revision_set_id=b.revision_set_id WHERE b.id=NEW.provider_batch_id) THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+    IF public.swell_watch_provider_evidence_is_current(NEW.provider_batch_id) IS DISTINCT FROM true THEN
+      RAISE EXCEPTION 'current study evidence required';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."guard_swell_watch_study_observation"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
@@ -10788,6 +12162,18 @@ $$;
 ALTER FUNCTION "public"."hold_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_reason" "text", "p_idempotency_key" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."hold_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_reason" "text") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ UPDATE public.pro_offer_awards SET state='held',reason=p_reason WHERE id=p_award_id AND reservation_id=p_reservation_id AND state='reserved';
+END; $$;
+
+
+ALTER FUNCTION "public"."hold_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_reason" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."increment_session_share_count"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -10902,6 +12288,260 @@ COMMENT ON FUNCTION "public"."increment_user_xp"("p_user_id" "uuid", "p_amount" 
 
 
 
+CREATE OR REPLACE FUNCTION "public"."ingest_swell_watch_cohort"("p_impacts" "jsonb") RETURNS TABLE("ordinal" integer, "regional_event_id" "uuid", "event_state" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE regions text[]; v_batch_id uuid; item jsonb; position integer := 0;
+BEGIN
+  IF jsonb_typeof(p_impacts) IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'impacts must be an array'; END IF;
+  -- ponytail: bounded transaction; split via a durable staging protocol if 1,000 impacts are needed.
+  IF jsonb_array_length(p_impacts) NOT BETWEEN 1 AND 1000 THEN RAISE EXCEPTION 'invalid cohort impact count'; END IF;
+  v_batch_id := (p_impacts->0->>'p_provider_batch_id')::uuid;
+  IF v_batch_id IS NULL OR EXISTS (SELECT 1 FROM jsonb_array_elements(p_impacts) value
+    WHERE jsonb_typeof(value) IS DISTINCT FROM 'object'
+      OR value->>'p_provider_batch_id' IS DISTINCT FROM p_impacts->0->>'p_provider_batch_id'
+      OR value->>'p_policy_hash' IS DISTINCT FROM p_impacts->0->>'p_policy_hash'
+      OR value->>'p_region_key' IS NULL OR char_length(btrim(value->>'p_region_key')) NOT BETWEEN 1 AND 100) THEN
+    RAISE EXCEPTION 'invalid cohort scope';
+  END IF;
+  SELECT array_agg(DISTINCT value->>'p_region_key' ORDER BY value->>'p_region_key') INTO regions
+    FROM jsonb_array_elements(p_impacts) value;
+  -- Reserve every region/event/provider in the same order as single-impact ingestion.
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-region:' || region,0))
+    FROM unnest(regions) region ORDER BY region;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || event.id::text,0))
+    FROM public.swell_watch_regional_events event WHERE event.region_key=ANY(regions) ORDER BY event.id;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' ||
+    to_char(runs.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0))
+  FROM (
+    SELECT issuance.run_utc FROM public.swell_watch_provider_run_completed_batches completed
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE completed.id=v_batch_id
+    UNION
+    SELECT issuance.run_utc FROM public.swell_watch_event_impacts association
+    JOIN public.swell_watch_regional_events event ON event.id=association.regional_event_id
+    JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+    JOIN public.swell_watch_provider_run_completed_batches completed ON completed.id=observation.provider_batch_id
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE event.region_key=ANY(regions)
+  ) runs ORDER BY runs.run_utc;
+  FOR item IN SELECT value FROM jsonb_array_elements(p_impacts) WITH ORDINALITY ORDER BY ordinality LOOP
+    RETURN QUERY SELECT position,result.regional_event_id,result.event_state
+      FROM public.ingest_swell_watch_run(jsonb_build_array(item)) result;
+    IF NOT FOUND THEN RAISE EXCEPTION 'cohort identity was not returned'; END IF;
+    position := position + 1;
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."ingest_swell_watch_cohort"("p_impacts" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."ingest_swell_watch_evaluation"("p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_provider" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_identity_kind" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$ BEGIN
+  IF p_identity_kind <> 'synthetic_fixture' OR p_evaluation_id !~ '^synthetic_fixture:[^[:space:]]{1,180}$' THEN RAISE EXCEPTION 'generic swell watch ingestion is fixture-only'; END IF;
+  PERFORM public.ingest_swell_watch_evaluation_internal(p_observation_id,p_impact_id,p_regional_event_id,p_evaluation_id,p_source_point_id,p_region_key,p_physical_key,p_provider,p_forecast_at,p_source_slot,p_height_m,p_period_s,p_direction_deg,p_projected_face_height_ft,p_policy_id,p_policy_hash,p_impact_hash,p_identity_kind,p_arrival_at,p_peak_at);
+END; $_$;
+
+
+ALTER FUNCTION "public"."ingest_swell_watch_evaluation"("p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_provider" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_identity_kind" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."ingest_swell_watch_evaluation_internal"("p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_provider" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_identity_kind" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE
+  v_observation_id uuid;
+  v_impact_id uuid;
+  v_regional_event_id uuid;
+  v_existing_region_key text;
+  v_existing_height_m numeric;
+  v_existing_period_s numeric;
+  v_existing_direction_deg numeric;
+  v_existing_identity_kind text;
+  v_existing_projected_face_height_ft numeric;
+  v_existing_policy_id text;
+  v_existing_policy_hash text;
+  v_existing_impact_hash text;
+BEGIN
+  IF p_evaluation_id !~ '^(genuine_completed|synthetic_fixture):[^[:space:]]{1,180}$'
+    OR p_identity_kind NOT IN ('genuine_completed', 'synthetic_fixture')
+    OR split_part(p_evaluation_id, ':', 1) <> p_identity_kind
+    OR p_policy_id = '' OR p_policy_hash !~ '^[a-f0-9]{64}$' OR p_impact_hash !~ '^[a-f0-9]{64}$'
+    OR p_region_key = '' OR p_physical_key = ''
+    OR p_provider NOT IN ('noaa', 'open_meteo') OR p_source_slot NOT IN ('s1', 's2')
+    OR p_height_m < 0 OR p_period_s <= 0 OR p_direction_deg < 0 OR p_direction_deg >= 360
+    OR p_projected_face_height_ft < 0 OR p_peak_at < p_arrival_at
+    OR p_height_m IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)
+    OR p_period_s IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)
+    OR p_projected_face_height_ft IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric) THEN
+    RAISE EXCEPTION 'invalid swell watch evaluation input';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-region:' || p_region_key, 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+    'swell-watch-observation:' || p_evaluation_id || ':' || p_source_point_id::text || ':' || p_provider || ':' || p_forecast_at::text || ':' || p_source_slot,
+    0
+  ));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || p_regional_event_id::text, 0));
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  SELECT id, region_key INTO v_regional_event_id, v_existing_region_key
+  FROM public.swell_watch_regional_events
+  WHERE id = p_regional_event_id;
+  IF v_regional_event_id IS NOT NULL AND v_existing_region_key IS DISTINCT FROM p_region_key THEN
+    RAISE EXCEPTION 'regional event identity does not match region';
+  END IF;
+  IF v_regional_event_id IS NULL THEN
+    SELECT evaluation.regional_event_id INTO v_regional_event_id
+    FROM public.swell_watch_event_impacts evaluation
+    JOIN public.swell_watch_regional_events event ON event.id = evaluation.regional_event_id
+    JOIN public.swell_watch_beach_impacts impact ON impact.id = evaluation.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id = impact.observation_id
+    WHERE observation.evaluation_id = p_evaluation_id
+      AND observation.source_point_id = p_source_point_id
+      AND observation.provider = p_provider
+      AND observation.forecast_at = p_forecast_at
+      AND observation.source_slot = p_source_slot
+      AND event.region_key = p_region_key
+    ORDER BY evaluation.evaluated_at DESC
+    LIMIT 1;
+  END IF;
+  IF v_regional_event_id IS NULL THEN
+    INSERT INTO public.swell_watch_regional_events (id, region_key, physical_key)
+    VALUES (p_regional_event_id, p_region_key, p_physical_key)
+    RETURNING id INTO v_regional_event_id;
+  END IF;
+  IF v_regional_event_id IS DISTINCT FROM p_regional_event_id THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || v_regional_event_id::text, 0));
+  END IF;
+  INSERT INTO public.swell_watch_event_aliases (id, regional_event_id, alias_key)
+  VALUES (gen_random_uuid(), v_regional_event_id, p_physical_key)
+  ON CONFLICT (regional_event_id, alias_key) DO NOTHING;
+  INSERT INTO public.swell_watch_observations (id, evaluation_id, source_point_id, provider, forecast_at, source_slot, height_m, period_s, direction_deg, identity_kind)
+  VALUES (p_observation_id, p_evaluation_id, p_source_point_id, p_provider, p_forecast_at, p_source_slot, p_height_m, p_period_s, p_direction_deg, p_identity_kind)
+  ON CONFLICT (evaluation_id, source_point_id, provider, forecast_at, source_slot) DO NOTHING
+  RETURNING id INTO v_observation_id;
+  IF v_observation_id IS NULL THEN
+    SELECT id, height_m, period_s, direction_deg, identity_kind
+    INTO v_observation_id, v_existing_height_m, v_existing_period_s, v_existing_direction_deg, v_existing_identity_kind
+    FROM public.swell_watch_observations
+    WHERE evaluation_id = p_evaluation_id AND source_point_id = p_source_point_id AND provider = p_provider
+      AND forecast_at = p_forecast_at AND source_slot = p_source_slot;
+    IF v_existing_height_m IS DISTINCT FROM p_height_m
+      OR v_existing_period_s IS DISTINCT FROM p_period_s
+      OR v_existing_direction_deg IS DISTINCT FROM p_direction_deg
+      OR v_existing_identity_kind IS DISTINCT FROM p_identity_kind THEN
+      RAISE EXCEPTION 'conflicting observation retry';
+    END IF;
+  END IF;
+  INSERT INTO public.swell_watch_beach_impacts (id, observation_id, beach_id, evaluation_id, projected_face_height_ft, policy_id, policy_hash, impact_hash)
+  VALUES (p_impact_id, v_observation_id, p_source_point_id, p_evaluation_id, p_projected_face_height_ft, p_policy_id, p_policy_hash, p_impact_hash)
+  ON CONFLICT (observation_id, beach_id) DO NOTHING
+  RETURNING id INTO v_impact_id;
+  IF v_impact_id IS NULL THEN
+    SELECT id, projected_face_height_ft, policy_id, policy_hash, impact_hash
+    INTO v_impact_id, v_existing_projected_face_height_ft, v_existing_policy_id, v_existing_policy_hash, v_existing_impact_hash
+    FROM public.swell_watch_beach_impacts
+    WHERE observation_id = v_observation_id AND beach_id = p_source_point_id;
+    IF v_existing_projected_face_height_ft IS DISTINCT FROM p_projected_face_height_ft
+      OR v_existing_policy_id IS DISTINCT FROM p_policy_id
+      OR v_existing_policy_hash IS DISTINCT FROM p_policy_hash
+      OR v_existing_impact_hash IS DISTINCT FROM p_impact_hash THEN
+      RAISE EXCEPTION 'conflicting impact retry';
+    END IF;
+  END IF;
+  PERFORM public.advance_swell_watch_event(v_regional_event_id, p_evaluation_id, v_impact_id, p_arrival_at, p_peak_at, gen_random_uuid());
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."ingest_swell_watch_evaluation_internal"("p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_provider" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_identity_kind" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."ingest_swell_watch_run"("p_impacts" "jsonb") RETURNS TABLE("ordinal" integer, "regional_event_id" "uuid", "event_state" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE item jsonb; args record; position integer := 0;
+BEGIN
+  IF jsonb_typeof(p_impacts) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'run impacts must be an array';
+  END IF;
+  IF jsonb_array_length(p_impacts) NOT BETWEEN 1 AND 336 THEN
+    RAISE EXCEPTION 'invalid run impact count';
+  END IF;
+  FOR item IN SELECT value FROM jsonb_array_elements(p_impacts) WITH ORDINALITY ORDER BY ordinality LOOP
+    IF jsonb_typeof(item) IS DISTINCT FROM 'object'
+      OR item->>'p_provider_batch_id' IS DISTINCT FROM p_impacts->0->>'p_provider_batch_id'
+      OR item->>'p_source_point_id' IS DISTINCT FROM p_impacts->0->>'p_source_point_id'
+      OR item->>'p_region_key' IS DISTINCT FROM p_impacts->0->>'p_region_key'
+      OR item->>'p_policy_hash' IS DISTINCT FROM p_impacts->0->>'p_policy_hash' THEN
+      RAISE EXCEPTION 'mixed run impact scope';
+    END IF;
+    SELECT * INTO args FROM jsonb_to_record(item) AS parsed(
+      p_provider_batch_id uuid,p_observation_id uuid,p_impact_id uuid,p_source_point_id uuid,
+      p_region_key text,p_physical_key text,p_forecast_at timestamptz,p_source_slot text,
+      p_height_m numeric,p_period_s numeric,p_direction_deg numeric,p_projected_face_height_ft numeric,
+      p_policy_id text,p_policy_hash text,p_impact_hash text,p_arrival_at timestamptz,p_peak_at timestamptz
+    );
+    RETURN QUERY SELECT position,result.regional_event_id,result.event_state
+      FROM public.resolve_and_ingest_swell_watch_evaluation(
+        args.p_provider_batch_id,args.p_observation_id,args.p_impact_id,args.p_source_point_id,
+        args.p_region_key,args.p_physical_key,args.p_forecast_at,args.p_source_slot,
+        args.p_height_m,args.p_period_s,args.p_direction_deg,args.p_projected_face_height_ft,
+        args.p_policy_id,args.p_policy_hash,args.p_impact_hash,args.p_arrival_at,args.p_peak_at
+      ) result;
+    IF NOT FOUND THEN RAISE EXCEPTION 'run impact identity was not returned'; END IF;
+    position := position + 1;
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."ingest_swell_watch_run"("p_impacts" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."ingest_verified_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE v_evaluation text; v_run_text text;
+BEGIN
+  SELECT 'genuine_completed:' || batch.id,to_char(issuance.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"') INTO v_evaluation,v_run_text
+  FROM public.swell_watch_provider_run_completed_batches completed
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+  JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+  WHERE completed.id=p_provider_batch_id;
+  IF v_evaluation IS NULL THEN RAISE EXCEPTION 'provider batch is not completed'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-region:' || p_region_key,0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || p_regional_event_id::text,0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' || v_run_text,0));
+  IF EXISTS (
+    SELECT 1 FROM public.swell_watch_observations observation
+    WHERE observation.evaluation_id=v_evaluation
+      AND observation.source_point_id=p_source_point_id
+      AND observation.provider='open_meteo'
+      AND observation.forecast_at=p_forecast_at
+      AND observation.source_slot=p_source_slot
+      AND observation.provider_batch_id IS DISTINCT FROM p_provider_batch_id
+  ) THEN RAISE EXCEPTION 'provider correction requires evaluation suppression'; END IF;
+  PERFORM set_config('app.swell_watch_verified_batch_id',p_provider_batch_id::text,true);
+  PERFORM public.ingest_swell_watch_evaluation_internal(p_observation_id,p_impact_id,p_regional_event_id,v_evaluation,p_source_point_id,p_region_key,p_physical_key,'open_meteo',p_forecast_at,p_source_slot,p_height_m,p_period_s,p_direction_deg,p_projected_face_height_ft,p_policy_id,p_policy_hash,p_impact_hash,'genuine_completed',p_arrival_at,p_peak_at);
+END; $$;
+
+
+ALTER FUNCTION "public"."ingest_verified_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."is_admin_user"() RETURNS boolean
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -10920,6 +12560,21 @@ ALTER FUNCTION "public"."is_admin_user"() OWNER TO "postgres";
 
 COMMENT ON FUNCTION "public"."is_admin_user"() IS 'Returns true if the current authenticated user is an admin. Used in RLS policies.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."is_historical_file_import"("p_source" "text", "p_arrival" timestamp with time zone, "p_duration_minutes" integer, "p_as_of" timestamp with time zone DEFAULT "now"()) RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT coalesce(
+    p_source = 'file_import'
+    AND p_arrival + make_interval(mins => coalesce(p_duration_minutes, 0)) < p_as_of - interval '48 hours',
+    false
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_historical_file_import"("p_source" "text", "p_arrival" timestamp with time zone, "p_duration_minutes" integer, "p_as_of" timestamp with time zone) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_mutual_follow"("a" "uuid", "b" "uuid") RETURNS boolean
@@ -10946,6 +12601,105 @@ $$;
 
 
 ALTER FUNCTION "public"."is_mutual_follow"("a" "uuid", "b" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."is_valid_directional_factor_array"("p_values" real[]) RETURNS boolean
+    LANGUAGE "sql" IMMUTABLE PARALLEL SAFE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT p_values IS NULL OR (
+    array_length(p_values, 1) = 72
+    AND NOT EXISTS (
+      SELECT 1
+      FROM unnest(p_values) AS value
+      WHERE value IS NULL OR value < 0 OR value > 1 OR value::text IN ('NaN', 'Infinity', '-Infinity')
+    )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_valid_directional_factor_array"("p_values" real[]) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."issue_pro_offer"("p_user_id" "uuid", "p_program_id" "text", "p_code_hash" "text", "p_reference" "text", "p_terms_version" "text") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE p public.pro_offer_programs%ROWTYPE; award_id uuid;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739302);
+ SELECT * INTO p FROM public.pro_offer_programs WHERE id=p_program_id;
+ IF p_terms_version IS DISTINCT FROM p.terms_version THEN RAISE EXCEPTION 'Offer terms not approved'; END IF;
+ IF p.id IS NULL OR NOT p.enabled OR p.approved_at>now() OR p.expires_at<=now() THEN RAISE EXCEPTION 'Offer program not approved'; END IF;
+ IF EXISTS(SELECT 1 FROM public.pro_offer_awards WHERE user_id=p_user_id AND program_id=p_program_id) THEN RAISE EXCEPTION 'Offer already issued'; END IF;
+ IF p.max_awards IS NOT NULL AND (SELECT count(*) FROM public.pro_offer_awards WHERE program_id=p_program_id)>=p.max_awards THEN RAISE EXCEPTION 'Offer budget exhausted'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.profiles profile JOIN auth.users u ON u.id=profile.id WHERE profile.id=p_user_id AND profile.analytics_is_real_user=true AND profile.deleted_at IS NULL AND u.email_confirmed_at IS NOT NULL) THEN RAISE EXCEPTION 'Unverified offer recipient'; END IF;
+ INSERT INTO public.pro_offer_awards(user_id,program_id,code_hash,eligibility_reference,terms_version,earned_at)
+ VALUES(p_user_id,p_program_id,p_code_hash,p_reference,p_terms_version,CASE WHEN p_program_id='return_three_months' THEN now() END) RETURNING id INTO award_id;
+ PERFORM public.earn_five_session_offer(p_user_id);
+ RETURN award_id;
+END; $$;
+
+
+ALTER FUNCTION "public"."issue_pro_offer"("p_user_id" "uuid", "p_program_id" "text", "p_code_hash" "text", "p_reference" "text", "p_terms_version" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."lifecycle_entitlement_queue"() RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT coalesce(jsonb_agg(user_id),'[]') FROM (
+ SELECT s.user_id FROM public.email_contact_state s JOIN public.profiles p ON p.id=s.user_id
+ WHERE s.approved_campaign IS NOT NULL AND public.lifecycle_permission_verified(s) AND s.paused_at IS NULL
+ AND p.notif_email_enabled=true AND p.analytics_is_real_user=true AND p.deleted_at IS NULL
+ AND (s.entitlement_verified_until IS NULL OR s.entitlement_verified_until<now()+interval '15 minutes')
+ ORDER BY s.entitlement_attempted_at NULLS FIRST,s.user_id LIMIT 24) q;
+$$;
+
+
+ALTER FUNCTION "public"."lifecycle_entitlement_queue"() OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."email_contact_state" (
+    "user_id" "uuid" NOT NULL,
+    "approved_campaign" "text",
+    "marketing_consent_at" timestamp with time zone,
+    "consent_reference" "text",
+    "history_reviewed_at" timestamp with time zone,
+    "trial_eligible_until" timestamp with time zone,
+    "trial_eligibility_reference" "text",
+    "paused_at" timestamp with time zone,
+    "reply_received_at" timestamp with time zone,
+    "lifecycle_consent_at" timestamp with time zone,
+    "manual_contact_at" timestamp with time zone,
+    "entitlement_verified_until" timestamp with time zone,
+    "entitlement_reference" "text",
+    "provider_access_active" boolean,
+    "entitlement_checked_at" timestamp with time zone,
+    "provider_trial" "jsonb",
+    "account_permission_reviewed_at" timestamp with time zone,
+    "account_permission_reference" "text",
+    "entitlement_attempted_at" timestamp with time zone
+);
+
+
+ALTER TABLE "public"."email_contact_state" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."email_contact_state"."account_permission_reviewed_at" IS 'Review of account-based email permission, not an affirmative user opt-in timestamp.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."lifecycle_permission_verified"("p_state" "public"."email_contact_state") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT coalesce((p_state.lifecycle_consent_at<=now() AND nullif(trim(p_state.consent_reference),'') IS NOT NULL)
+ OR (p_state.account_permission_reviewed_at<=now() AND nullif(trim(p_state.account_permission_reference),'') IS NOT NULL),false);
+$$;
+
+
+ALTER FUNCTION "public"."lifecycle_permission_verified"("p_state" "public"."email_contact_state") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."like_session_with_notification"("p_session_id" "uuid", "p_actor_id" "uuid", "p_dedupe_key" "text") RETURNS "json"
@@ -11545,6 +13299,23 @@ $$;
 ALTER FUNCTION "public"."list_orphan_community_photo_objects_v1"("p_now" timestamp with time zone, "p_limit" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."list_owned_pro_offers"("p_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT jsonb_build_object('contract_version',1,'user_id',p_user_id,'enrollment', (SELECT jsonb_build_object('terms_version',terms_version) FROM public.pro_offer_programs WHERE id='five_sessions_month' AND enabled AND automatic_enrollment AND approved_at<=now() AND expires_at>now() AND (max_awards IS NULL OR (SELECT count(*) FROM public.pro_offer_awards WHERE program_id='five_sessions_month')<max_awards) AND NOT EXISTS(SELECT 1 FROM public.pro_offer_awards WHERE user_id=p_user_id AND program_id='return_three_months' AND (state<>'verified' OR expires_at>now()))), 'offers',coalesce(jsonb_agg(jsonb_build_object(
+ 'award_id',a.id,'program_id',a.program_id,'months',p.months,'terms_version',a.terms_version,'state',a.state,
+ 'earned',a.earned_at IS NOT NULL,'claim_requested',a.claim_requested_at IS NOT NULL,
+ 'completed_sessions',(SELECT count(*) FROM public.sessions s WHERE user_id=p_user_id AND status='completed' AND deleted_at IS NULL AND NOT public.is_historical_file_import(s.source, s.arrival_time, s.duration_minutes, s.created_at)),
+ 'expires_at',CASE WHEN a.state='verified' THEN a.expires_at END,'mirror_verified',a.mirror_verified_at IS NOT NULL) ORDER BY a.enrolled_at),'[]'))
+ FROM public.pro_offer_awards a JOIN public.pro_offer_programs p ON p.id=a.program_id WHERE a.user_id=p_user_id
+ AND (a.program_id='return_three_months' OR NOT EXISTS(SELECT 1 FROM public.pro_offer_awards other WHERE other.user_id=p_user_id AND other.program_id='return_three_months' AND (other.state<>'verified' OR other.expires_at>now())));
+$$;
+
+
+ALTER FUNCTION "public"."list_owned_pro_offers"("p_user_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."list_owned_removed_community_spot_photos_v1"("p_uploader_id" "uuid") RETURNS TABLE("photo_id" "uuid", "target_type" "text", "target_id" "uuid", "recoverable_until" timestamp with time zone, "moderation_status" "text", "has_active_hold" boolean)
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -11664,6 +13435,19 @@ CREATE OR REPLACE FUNCTION "public"."maintain_board_session_count"() RETURNS "tr
 
 
 ALTER FUNCTION "public"."maintain_board_session_count"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."mark_email_lifecycle_unknown"("p_attempt_id" "uuid") RETURNS "void"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ UPDATE public.email_contact_attempts SET state='unknown',error_code='provider_or_receipt_unknown'
+ WHERE id=p_attempt_id AND state='handoff_started';
+ UPDATE public.email_contact_controls SET lifecycle_enabled=false WHERE singleton;
+$$;
+
+
+ALTER FUNCTION "public"."mark_email_lifecycle_unknown"("p_attempt_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."moderate_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_action" "text", "p_reason" "text", "p_idempotency_key" "uuid") RETURNS "text"
@@ -11799,6 +13583,15 @@ $$;
 ALTER FUNCTION "public"."notify_session_invite"("p_actor_id" "uuid", "p_recipient_id" "uuid", "p_session_id" "uuid", "p_payload" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."owned_pro_offer_key"("p_user_id" "uuid", "p_award_id" "uuid") RETURNS "text"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$ SELECT code_hash FROM public.pro_offer_awards WHERE user_id=p_user_id AND id=p_award_id; $$;
+
+
+ALTER FUNCTION "public"."owned_pro_offer_key"("p_user_id" "uuid", "p_award_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."parse_numeric_from_text"("input" "text") RETURNS numeric
     LANGUAGE "sql" IMMUTABLE
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -11811,6 +13604,52 @@ $$;
 
 
 ALTER FUNCTION "public"."parse_numeric_from_text"("input" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."parse_numeric_or_null"("input" "text") RETURNS numeric
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO 'pg_catalog'
+    AS $$
+  SELECT (regexp_match(input, '(-?\d+\.?\d*)'))[1]::numeric;
+$$;
+
+
+ALTER FUNCTION "public"."parse_numeric_or_null"("input" "text") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."parse_numeric_or_null"("input" "text") IS 'First number in a forecast string ("-1.2 ft" -> -1.2); NULL when there is none, unlike parse_numeric_from_text.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."parse_wave_height_midpoint_ft"("p_raw" "text") RETURNS numeric
+    LANGUAGE "plpgsql" IMMUTABLE
+    SET "search_path" TO ''
+    AS $_$
+DECLARE token text[]; height double precision; lo double precision; hi double precision;
+BEGIN
+  FOR token IN SELECT regexp_matches(p_raw, '[0-9.]+', 'g') LOOP
+    -- Number() discards malformed decimal tokens and non-finite values.
+    IF token[1] !~ '^([0-9]+([.][0-9]*)?|[.][0-9]+)$' THEN CONTINUE; END IF;
+    BEGIN
+      height := token[1]::double precision;
+    EXCEPTION WHEN numeric_value_out_of_range THEN
+      -- JavaScript underflows tiny positive numbers to zero; PostgreSQL throws.
+      IF token[1] ~ '^0*[.]' THEN height := 0; ELSE CONTINUE; END IF;
+    END;
+    lo := least(lo,height);
+    hi := greatest(hi,height);
+  END LOOP;
+  BEGIN
+    RETURN ((lo+hi)/2)::numeric;
+  EXCEPTION WHEN numeric_value_out_of_range THEN
+    IF hi < 1 THEN RETURN 0; END IF;
+    RETURN 'Infinity'::numeric;
+  END;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."parse_wave_height_midpoint_ft"("p_raw" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."persist_trusted_forecast_build"("p_payload" "jsonb") RETURNS SETOF "public"."trusted_forecast_build_receipts"
@@ -12174,6 +14013,7 @@ BEGIN
         display_source text,
         display_wave_source text,
         display_raw_input_height_m double precision,
+        display_replay_context jsonb,
         model_version text,
         wave_height_om double precision,
         noaa_swell_1_height_m double precision,
@@ -12232,6 +14072,7 @@ BEGIN
         display_source,
         display_wave_source,
         display_raw_input_height_m,
+        display_replay_context,
         model_version,
         wave_height_om,
         noaa_swell_1_height_m,
@@ -12289,6 +14130,7 @@ BEGIN
         source.display_source,
         source.display_wave_source,
         source.display_raw_input_height_m,
+        source.display_replay_context,
         coalesce(source.model_version, source.display_source),
         source.wave_height_om,
         source.noaa_swell_1_height_m,
@@ -12642,6 +14484,203 @@ $$;
 ALTER FUNCTION "public"."preflight_community_spot_photo_upload_v1"("p_uploader_id" "uuid", "p_idempotency_key" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."prepare_custom_spot_analysis_state"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  coordinate_changed boolean := TG_OP = 'INSERT';
+  fields jsonb := '{}'::jsonb;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    coordinate_changed := NEW.lat IS DISTINCT FROM OLD.lat
+      OR NEW.lon IS DISTINCT FROM OLD.lon
+      OR NEW.break_type IS DISTINCT FROM OLD.break_type;
+
+    IF auth.uid() IS NOT NULL THEN
+      fields := COALESCE(OLD.fingerprint_provenance->'fields', '{}'::jsonb);
+      NEW.swell_access_factors := OLD.swell_access_factors;
+      NEW.wind_exposure_factors := OLD.wind_exposure_factors;
+      NEW.terrain_method := OLD.terrain_method;
+      NEW.terrain_params := OLD.terrain_params;
+      NEW.terrain_params_hash := OLD.terrain_params_hash;
+      NEW.terrain_analyzed_at := OLD.terrain_analyzed_at;
+      NEW.terrain_status := OLD.terrain_status;
+      NEW.terrain_analysis_debug := OLD.terrain_analysis_debug;
+      NEW.fingerprint_provenance_state := OLD.fingerprint_provenance_state;
+      NEW.fingerprint_model_version := OLD.fingerprint_model_version;
+      NEW.fingerprint_coordinate_hash := OLD.fingerprint_coordinate_hash;
+      NEW.fingerprint_provenance := OLD.fingerprint_provenance;
+      NEW.fingerprint_confidence := OLD.fingerprint_confidence;
+      NEW.fingerprint_updated_at := OLD.fingerprint_updated_at;
+      NEW.analysis_requested_at := OLD.analysis_requested_at;
+
+      IF NEW.facing_direction_deg IS DISTINCT FROM OLD.facing_direction_deg THEN
+        fields := CASE WHEN NEW.facing_direction_deg IS NULL THEN fields #- '{facing_direction_deg}'
+          ELSE jsonb_set(fields, '{facing_direction_deg}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.swell_window_min_deg IS DISTINCT FROM OLD.swell_window_min_deg THEN
+        fields := CASE WHEN NEW.swell_window_min_deg IS NULL THEN fields #- '{swell_window_min_deg}'
+          ELSE jsonb_set(fields, '{swell_window_min_deg}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.swell_window_max_deg IS DISTINCT FROM OLD.swell_window_max_deg THEN
+        fields := CASE WHEN NEW.swell_window_max_deg IS NULL THEN fields #- '{swell_window_max_deg}'
+          ELSE jsonb_set(fields, '{swell_window_max_deg}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.offshore_direction_deg IS DISTINCT FROM OLD.offshore_direction_deg THEN
+        fields := CASE WHEN NEW.offshore_direction_deg IS NULL THEN fields #- '{offshore_direction_deg}'
+          ELSE jsonb_set(fields, '{offshore_direction_deg}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.exposure_level IS DISTINCT FROM OLD.exposure_level THEN
+        fields := CASE WHEN NEW.exposure_level IS NULL THEN fields #- '{exposure_level}'
+          ELSE jsonb_set(fields, '{exposure_level}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.preferred_tide_ft_min IS DISTINCT FROM OLD.preferred_tide_ft_min THEN
+        fields := CASE WHEN NEW.preferred_tide_ft_min IS NULL THEN fields #- '{preferred_tide_ft_min}'
+          ELSE jsonb_set(fields, '{preferred_tide_ft_min}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.preferred_tide_ft_max IS DISTINCT FROM OLD.preferred_tide_ft_max THEN
+        fields := CASE WHEN NEW.preferred_tide_ft_max IS NULL THEN fields #- '{preferred_tide_ft_max}'
+          ELSE jsonb_set(fields, '{preferred_tide_ft_max}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.preferred_tide_direction IS DISTINCT FROM OLD.preferred_tide_direction THEN
+        fields := CASE WHEN NEW.preferred_tide_direction IS NULL THEN fields #- '{preferred_tide_direction}'
+          ELSE jsonb_set(fields, '{preferred_tide_direction}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.tide_direction_sensitivity IS DISTINCT FROM OLD.tide_direction_sensitivity THEN
+        fields := CASE WHEN NEW.tide_direction_sensitivity IS NULL THEN fields #- '{tide_direction_sensitivity}'
+          ELSE jsonb_set(fields, '{tide_direction_sensitivity}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+      IF NEW.skill_level IS DISTINCT FROM OLD.skill_level THEN
+        fields := CASE WHEN NEW.skill_level IS NULL THEN fields #- '{skill_level}'
+          ELSE jsonb_set(fields, '{skill_level}', '"user_corrected"'::jsonb, true) END;
+      END IF;
+
+      IF fields <> COALESCE(OLD.fingerprint_provenance->'fields', '{}'::jsonb) THEN
+        IF NEW.facing_direction_deg IS NULL
+          AND NEW.swell_window_min_deg IS NULL
+          AND NEW.swell_window_max_deg IS NULL
+          AND NEW.offshore_direction_deg IS NULL
+          AND NEW.exposure_level IS NULL
+          AND NEW.preferred_tide_ft_min IS NULL
+          AND NEW.preferred_tide_ft_max IS NULL
+          AND NEW.preferred_tide_direction IS NULL
+          AND NEW.tide_direction_sensitivity IS NULL
+          AND NEW.skill_level IS NULL THEN
+          IF OLD.terrain_status = 'ok'
+            AND OLD.fingerprint_model_version = 'custom_spot_terrain_v1'
+            AND public.is_valid_directional_factor_array(OLD.swell_access_factors)
+            AND OLD.swell_access_factors IS NOT NULL
+            AND public.is_valid_directional_factor_array(OLD.wind_exposure_factors)
+            AND OLD.wind_exposure_factors IS NOT NULL THEN
+            NEW.fingerprint_provenance_state := 'modeled';
+            NEW.fingerprint_confidence := 'modeled';
+          ELSE
+            NEW.fingerprint_provenance_state := 'unset';
+            NEW.fingerprint_confidence := 'unset';
+          END IF;
+        ELSE
+          NEW.fingerprint_provenance_state := 'user_corrected';
+          NEW.fingerprint_confidence := 'user_set';
+        END IF;
+        NEW.fingerprint_provenance := jsonb_set(
+          COALESCE(OLD.fingerprint_provenance, '{"schema_version":1}'::jsonb),
+          '{fields}', fields, true
+        );
+        NEW.fingerprint_updated_at := now();
+      END IF;
+    ELSE
+      fields := COALESCE(NEW.fingerprint_provenance->'fields', '{}'::jsonb);
+    END IF;
+  ELSIF auth.uid() IS NOT NULL THEN
+    NEW.swell_access_factors := NULL;
+    NEW.wind_exposure_factors := NULL;
+    NEW.terrain_method := NULL;
+    NEW.terrain_params := NULL;
+    NEW.terrain_params_hash := NULL;
+    NEW.terrain_analyzed_at := NULL;
+    NEW.terrain_status := NULL;
+    NEW.terrain_analysis_debug := NULL;
+    NEW.fingerprint_provenance_state := 'unset';
+    NEW.fingerprint_model_version := NULL;
+    NEW.fingerprint_coordinate_hash := NULL;
+    NEW.fingerprint_provenance := '{"schema_version":1,"fields":{}}'::jsonb;
+    NEW.analysis_requested_at := NULL;
+    IF NEW.fingerprint_confidence IS DISTINCT FROM 'user_set' THEN
+      NEW.fingerprint_confidence := 'unset';
+      NEW.fingerprint_updated_at := NULL;
+    END IF;
+
+    IF NEW.fingerprint_confidence = 'user_set' THEN
+      IF NEW.facing_direction_deg IS NOT NULL THEN
+        fields := jsonb_set(fields, '{facing_direction_deg}', '"user_corrected"'::jsonb, true);
+      END IF;
+      IF NEW.swell_window_min_deg IS NOT NULL THEN
+        fields := jsonb_set(fields, '{swell_window_min_deg}', '"user_corrected"'::jsonb, true);
+      END IF;
+      IF NEW.swell_window_max_deg IS NOT NULL THEN
+        fields := jsonb_set(fields, '{swell_window_max_deg}', '"user_corrected"'::jsonb, true);
+      END IF;
+      IF NEW.offshore_direction_deg IS NOT NULL THEN
+        fields := jsonb_set(fields, '{offshore_direction_deg}', '"user_corrected"'::jsonb, true);
+      END IF;
+      IF NEW.exposure_level IS NOT NULL THEN
+        fields := jsonb_set(fields, '{exposure_level}', '"user_corrected"'::jsonb, true);
+      END IF;
+      NEW.fingerprint_provenance_state := 'user_corrected';
+    END IF;
+
+    IF NEW.preferred_tide_ft_min IS NOT NULL THEN
+      fields := jsonb_set(fields, '{preferred_tide_ft_min}', '"user_corrected"'::jsonb, true);
+    END IF;
+    IF NEW.preferred_tide_ft_max IS NOT NULL THEN
+      fields := jsonb_set(fields, '{preferred_tide_ft_max}', '"user_corrected"'::jsonb, true);
+    END IF;
+    IF NEW.preferred_tide_direction IS NOT NULL THEN
+      fields := jsonb_set(fields, '{preferred_tide_direction}', '"user_corrected"'::jsonb, true);
+    END IF;
+    IF NEW.tide_direction_sensitivity IS NOT NULL THEN
+      fields := jsonb_set(fields, '{tide_direction_sensitivity}', '"user_corrected"'::jsonb, true);
+    END IF;
+    IF NEW.skill_level IS NOT NULL THEN
+      fields := jsonb_set(fields, '{skill_level}', '"user_corrected"'::jsonb, true);
+    END IF;
+    IF fields <> '{}'::jsonb THEN
+      NEW.fingerprint_provenance_state := 'user_corrected';
+      NEW.fingerprint_confidence := 'user_set';
+      NEW.fingerprint_updated_at := now();
+    END IF;
+  ELSE
+    fields := COALESCE(NEW.fingerprint_provenance->'fields', '{}'::jsonb);
+  END IF;
+
+  NEW.fingerprint_provenance := jsonb_set(
+    COALESCE(NEW.fingerprint_provenance, '{"schema_version":1}'::jsonb),
+    '{fields}',
+    fields,
+    true
+  );
+
+  IF coordinate_changed AND NEW.deleted_at IS NULL THEN
+    NEW.terrain_status := 'queued';
+    NEW.analysis_requested_at := now();
+    NEW.terrain_analyzed_at := NULL;
+    NEW.terrain_method := NULL;
+    NEW.terrain_params := NULL;
+    NEW.terrain_params_hash := NULL;
+    NEW.terrain_analysis_debug := NULL;
+    NEW.fingerprint_model_version := NULL;
+    NEW.fingerprint_coordinate_hash := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."prepare_custom_spot_analysis_state"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."preset_default_conditions"("p_preset" "text", "p_beach_id" "uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE
     AS $$
@@ -12805,6 +14844,47 @@ $$;
 ALTER FUNCTION "public"."prevent_delete_on_protected"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."preview_pro_offer"("p_user_id" "uuid", "p_code_hash" "text") RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT coalesce((SELECT jsonb_build_object('status','preview','months',p.months,'terms_version',a.terms_version,'state',a.state,
+ 'completed_sessions',(SELECT count(*) FROM public.sessions s WHERE user_id=p_user_id AND status='completed' AND deleted_at IS NULL AND NOT public.is_historical_file_import(s.source, s.arrival_time, s.duration_minutes, s.created_at)))
+ FROM public.pro_offer_awards a JOIN public.pro_offer_programs p ON p.id=a.program_id WHERE a.user_id=p_user_id AND a.code_hash=p_code_hash),jsonb_build_object('status','not_found'));
+$$;
+
+
+ALTER FUNCTION "public"."preview_pro_offer"("p_user_id" "uuid", "p_code_hash" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."pro_offer_fulfillment_queue"() RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT coalesce(jsonb_agg(to_jsonb(q)),'[]') FROM (SELECT a.id AS award_id,a.user_id FROM public.pro_offer_awards a JOIN public.pro_offer_programs p ON p.id=a.program_id
+ WHERE p.enabled AND a.claim_requested_at IS NOT NULL AND a.earned_at IS NOT NULL AND a.next_attempt_at<=now()
+ AND (a.state IN ('enrolled','held') OR (a.state='reserved' AND a.reserved_at<now()-interval '2 minutes'))
+ ORDER BY a.next_attempt_at,a.id LIMIT 2) q;
+$$;
+
+
+ALTER FUNCTION "public"."pro_offer_fulfillment_queue"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."pro_offer_reconciliation_queue"() RETURNS "jsonb"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT coalesce(jsonb_agg(to_jsonb(q)),'[]') FROM (SELECT id AS award_id,reservation_id,user_id,entitlement_id,expires_at
+ FROM public.pro_offer_awards a WHERE state='unknown' OR (state='handoff_started' AND handoff_at<now()-interval '2 minutes')
+ OR (state='verified' AND a.expires_at>now() AND NOT EXISTS(SELECT 1 FROM public.user_entitlements e WHERE e.user_id=a.user_id AND e.is_pro AND (e.expires_at IS NULL OR e.expires_at>=a.expires_at)))
+ ORDER BY last_reconciled_at NULLS FIRST,handoff_at,id LIMIT 2) q;
+$$;
+
+
+ALTER FUNCTION "public"."pro_offer_reconciliation_queue"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."prune_forecasts_retention"("keep_days_raw" integer DEFAULT 90, "keep_days_enhanced" integer DEFAULT 14, "batch_size" integer DEFAULT 25000) RETURNS TABLE("marine_deleted" bigint, "tide_deleted" bigint, "enhanced_deleted" bigint)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -12863,6 +14943,59 @@ COMMENT ON FUNCTION "public"."prune_forecasts_retention"("keep_days_raw" integer
 Updated 2026-01-20 to support ML bias correction model training.
 Runs daily at 5am via pg_cron. Est. storage: ~1.2 GB for 90 days.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."publish_week_scout_story_edition"("p_artifact_id" "text", "p_region" "text", "p_edition_date" "date", "p_input_hash" "text", "p_source_published_at" timestamp with time zone, "p_valid_until" timestamp with time zone, "p_generation_version" "text", "p_model" "text", "p_briefing" "jsonb", "p_provenance" "jsonb") RETURNS TABLE("artifact_id" "text", "created" boolean)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_existing public.week_scout_story_editions%ROWTYPE;
+  v_input public.week_scout_story_inputs%ROWTYPE;
+  v_latest timestamptz;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_region || ':' || p_edition_date::text, 0));
+  SELECT * INTO v_existing FROM public.week_scout_story_editions e WHERE e.artifact_id = p_artifact_id;
+  IF FOUND THEN
+    IF v_existing.region <> p_region OR v_existing.edition_date <> p_edition_date
+       OR v_existing.input_hash <> p_input_hash OR v_existing.briefing <> p_briefing
+       OR v_existing.source_published_at <> p_source_published_at
+       OR v_existing.valid_until <> p_valid_until
+       OR v_existing.generation_version <> p_generation_version OR v_existing.model <> p_model
+       OR v_existing.provenance <> p_provenance THEN
+      RAISE EXCEPTION 'artifact_conflict' USING ERRCODE = '22023';
+    END IF;
+    RETURN QUERY SELECT v_existing.artifact_id, false;
+    RETURN;
+  END IF;
+  SELECT * INTO v_input FROM public.week_scout_story_inputs i WHERE i.input_hash = p_input_hash;
+  IF NOT FOUND OR v_input.region <> p_region OR v_input.edition_date <> p_edition_date
+     OR v_input.source_published_at <> p_source_published_at OR v_input.valid_until <> p_valid_until THEN
+    RAISE EXCEPTION 'unknown_input_hash' USING ERRCODE = '22023';
+  END IF;
+  SELECT max(e.source_published_at) INTO v_latest
+    FROM public.week_scout_story_editions e WHERE e.region = p_region AND e.edition_date = p_edition_date;
+  IF v_latest IS NOT NULL AND p_source_published_at < v_latest THEN
+    RAISE EXCEPTION 'stale_source' USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.week_scout_story_editions e
+    WHERE e.region = p_region AND e.edition_date = p_edition_date AND e.input_hash = p_input_hash
+      AND e.generation_version = p_generation_version AND e.model = p_model
+  ) THEN
+    RAISE EXCEPTION 'revision_conflict' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.week_scout_story_editions
+    (artifact_id, region, edition_date, input_hash, source_published_at, valid_until,
+     schema_version, generation_version, model, briefing, provenance)
+  VALUES (p_artifact_id, p_region, p_edition_date, p_input_hash, p_source_published_at, p_valid_until,
+          3, p_generation_version, p_model, p_briefing, p_provenance);
+  RETURN QUERY SELECT p_artifact_id, true;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."publish_week_scout_story_edition"("p_artifact_id" "text", "p_region" "text", "p_edition_date" "date", "p_input_hash" "text", "p_source_published_at" timestamp with time zone, "p_valid_until" timestamp with time zone, "p_generation_version" "text", "p_model" "text", "p_briefing" "jsonb", "p_provenance" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."purge_android_tester_roster_identities"("p_actor_user_id" "uuid", "p_now" timestamp with time zone DEFAULT "now"()) RETURNS integer
@@ -13126,6 +15259,452 @@ $$;
 
 
 ALTER FUNCTION "public"."purge_removed_community_spot_photos_v1"("p_now" timestamp with time zone, "p_limit" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."queue_custom_spot_analysis"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  model_version constant text := 'custom_spot_terrain_v1';
+BEGIN
+  IF NEW.deleted_at IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+     AND NEW.lat IS NOT DISTINCT FROM OLD.lat
+     AND NEW.lon IS NOT DISTINCT FROM OLD.lon
+     AND NEW.break_type IS NOT DISTINCT FROM OLD.break_type THEN
+    RETURN NEW;
+  END IF;
+
+  INSERT INTO public.custom_spot_analysis_jobs (
+    custom_spot_id,
+    requested_model_version,
+    status,
+    attempts,
+    next_attempt_at,
+    locked_at,
+    last_error_code,
+    updated_at
+  ) VALUES (
+    NEW.id,
+    model_version,
+    'queued',
+    0,
+    now(),
+    NULL,
+    NULL,
+    now()
+  )
+  ON CONFLICT (custom_spot_id) DO UPDATE SET
+    requested_model_version = EXCLUDED.requested_model_version,
+    status = 'queued',
+    attempts = 0,
+    next_attempt_at = now(),
+    locked_at = NULL,
+    last_error_code = NULL,
+    updated_at = now();
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."queue_custom_spot_analysis"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."read_swell_watch_attested_components"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid", "p_forecast_at" timestamp with time zone) RETURNS TABLE("evaluation_id" "text", "source_slot" "text", "height_m" numeric, "period_s" numeric, "direction_deg" numeric)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+BEGIN
+  IF NOT public.swell_watch_provider_evidence_is_current(p_provider_batch_id) THEN
+    RAISE EXCEPTION 'current provider attestation is required';
+  END IF;
+  RETURN QUERY SELECT 'genuine_completed:' || completed.batch_id,component.source_slot,
+    component.height_m,component.period_s,component.direction_deg
+  FROM public.swell_watch_provider_run_completed_batches completed
+  JOIN public.swell_watch_provider_run_revision_set_members member ON member.revision_set_id=completed.revision_set_id
+  JOIN public.swell_watch_provider_run_batch_scopes scope ON scope.id=member.scope_id
+  JOIN public.swell_watch_provider_run_revision_components component ON component.revision_id=member.revision_id
+  WHERE completed.id=p_provider_batch_id AND scope.source_point_id=p_source_point_id AND component.forecast_at=p_forecast_at AND component.unavailable_reason IS NULL
+  ORDER BY component.source_slot;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."read_swell_watch_attested_components"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid", "p_forecast_at" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."read_swell_watch_attested_run"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE v_run timestamptz; v_result jsonb; v_days integer;
+BEGIN
+  IF p_provider_batch_id IS NULL OR p_source_point_id IS NULL THEN
+    RAISE EXCEPTION 'provider run scope is required';
+  END IF;
+  SELECT issuance.run_utc INTO v_run
+  FROM public.swell_watch_provider_run_completed_batches completed
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+  JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+  WHERE completed.id=p_provider_batch_id;
+  IF v_run IS NULL THEN RAISE EXCEPTION 'completed provider run is required'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' || to_char(v_run AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0));
+  IF public.swell_watch_provider_evidence_is_current(p_provider_batch_id) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'current provider attestation is required';
+  END IF;
+  SELECT scope.forecast_days,jsonb_build_object(
+    'source',jsonb_build_object('provider','open_meteo','transportProvider',issuance.transport_provider,
+      'model',issuance.model,'upstreamModelProvider',issuance.upstream_model_provider,
+      'sourcePointId',scope.source_point_id,'issuedAt',issuance.run_utc,
+      'issuanceId',issuance.id,'evaluationId','genuine_completed:' || completed.batch_id,
+      'providerBatchId',completed.id,'revisionSetId',completed.revision_set_id),
+    'forecastDays',scope.forecast_days,'selectedGrid',revision.selected_grid,
+    'samples',(SELECT jsonb_agg(jsonb_build_object('forecastAt',frame.forecast_at,'components',frame.components) ORDER BY frame.forecast_at)
+      FROM (SELECT component.forecast_at,jsonb_agg(jsonb_build_object(
+        'sourceSlot',component.source_slot,'heightM',component.height_m,'periodS',component.period_s,
+        'directionDeg',component.direction_deg,
+        'rawFieldProvenance',component.raw_field_provenance,'timeProvenance',component.time_provenance)
+        || CASE WHEN component.unavailable_reason IS NULL THEN '{}'::jsonb
+          ELSE jsonb_build_object('unavailableReason',component.unavailable_reason) END
+        ORDER BY component.source_slot) AS components
+        FROM public.swell_watch_provider_run_revision_components component
+        WHERE component.revision_id=revision.id GROUP BY component.forecast_at) frame))
+  INTO v_days,v_result
+  FROM public.swell_watch_provider_run_completed_batches completed
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+  JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+  JOIN public.swell_watch_provider_run_revision_set_members member ON member.revision_set_id=completed.revision_set_id
+  JOIN public.swell_watch_provider_run_batch_scopes scope ON scope.id=member.scope_id AND scope.batch_id=batch.id
+  JOIN public.swell_watch_provider_run_revisions revision ON revision.id=member.revision_id AND revision.scope_id=scope.id
+  WHERE completed.id=p_provider_batch_id AND scope.source_point_id=p_source_point_id;
+  IF v_result IS NULL OR jsonb_array_length(v_result->'samples') IS DISTINCT FROM v_days*24 THEN
+    RAISE EXCEPTION 'provider run horizon is unavailable';
+  END IF;
+  RETURN v_result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."read_swell_watch_attested_run"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."read_swell_watch_delivery_health"("p_policy_hash" "text") RETURNS TABLE("policy_hash" "text", "samples" bigint, "failures" bigint, "projected_sends" bigint)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE authority record; window_minutes integer;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  SELECT * INTO authority FROM public.swell_watch_get_production_authority();
+  IF NOT FOUND OR authority.policy_hash IS DISTINCT FROM p_policy_hash
+    OR authority.production_scope IS DISTINCT FROM 'swell_watch_push'
+    OR authority.policy_provenance IS DISTINCT FROM 'production_approved'
+    OR authority.policy_values #> '{volume_caps,projected_send_window_hours}' IS DISTINCT FROM '24'::jsonb
+    OR authority.revoked_at IS NOT NULL OR authority.superseded_at IS NOT NULL
+    OR isfinite(authority.not_before) IS DISTINCT FROM true OR isfinite(authority.expires_at) IS DISTINCT FROM true
+    OR clock_timestamp() < authority.not_before OR clock_timestamp() >= authority.expires_at
+    OR public.swell_watch_production_policy_values_valid(authority.policy_values) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'current delivery policy authority is required';
+  END IF;
+  window_minutes := (authority.policy_values #>> '{provider_failure_hold,window_minutes}')::integer;
+  RETURN QUERY SELECT authority.policy_hash::text,
+    coalesce(sum(outcome.sample_count),0)::bigint,coalesce(sum(outcome.failure_count),0)::bigint,
+    public.swell_watch_projected_send_count()
+  FROM public.swell_watch_provider_delivery_outcomes outcome
+  WHERE outcome.created_at >= transaction_timestamp() - make_interval(mins => window_minutes)
+    AND outcome.created_at <= transaction_timestamp();
+END;
+$$;
+
+
+ALTER FUNCTION "public"."read_swell_watch_delivery_health"("p_policy_hash" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."read_swell_watch_provider_run_states"("p_run_utcs" timestamp with time zone[]) RETURNS TABLE("run_utc" timestamp with time zone, "revision_set_id" "uuid", "completed_batch_id" "uuid", "evaluated" boolean)
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE current_epoch bigint;
+BEGIN
+  IF p_run_utcs IS NULL OR cardinality(p_run_utcs)>8 THEN RAISE EXCEPTION 'up to 8 provider run timestamps required'; END IF;
+  SELECT max(epoch) INTO current_epoch FROM public.swell_watch_study_authorities;
+  RETURN QUERY
+  WITH requested AS (SELECT DISTINCT value AS run_utc FROM unnest(p_run_utcs) value)
+  SELECT i.run_utc, latest.id, completed.id,
+    EXISTS(
+      SELECT 1 FROM public.swell_watch_study_evaluations evaluation
+      WHERE evaluation.provider_batch_id=completed.id AND evaluation.status='evaluated'
+        AND evaluation.authority_epoch BETWEEN public.swell_watch_study_cycle_start(current_epoch) AND current_epoch
+    )
+  FROM requested
+  JOIN public.swell_watch_provider_run_issuances i ON i.run_utc=requested.run_utc
+    AND i.transport_provider='open_meteo_single_runs' AND i.model='ncep_gfswave016'
+  LEFT JOIN LATERAL (
+    SELECT revision_set.* FROM public.swell_watch_provider_run_revision_sets revision_set
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=revision_set.batch_id
+    WHERE batch.issuance_id=i.id ORDER BY revision_set.revision_number DESC LIMIT 1
+  ) latest ON true
+  LEFT JOIN public.swell_watch_provider_run_completed_batches completed ON completed.revision_set_id=latest.id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."read_swell_watch_provider_run_states"("p_run_utcs" timestamp with time zone[]) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."read_swell_watch_run_scope"("p_provider_batch_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE run_time timestamptz; result jsonb;
+BEGIN
+  SELECT issuance.run_utc INTO run_time
+  FROM public.swell_watch_provider_run_completed_batches completed
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+  JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+  WHERE completed.id=p_provider_batch_id;
+  IF run_time IS NULL THEN RAISE EXCEPTION 'completed provider run is required'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' ||
+    to_char(run_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0));
+  IF public.swell_watch_provider_evidence_is_current(p_provider_batch_id) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'current provider attestation is required';
+  END IF;
+  SELECT jsonb_build_object('providerBatchId',completed.id,
+    'evaluationId','genuine_completed:' || completed.batch_id,'issuedAt',run_time,
+    'scopeHash',batch.scope_hash,'expectedComponentCount',batch.expected_component_count,
+    'scopes',(SELECT jsonb_agg(jsonb_build_object('sourcePointId',scope.source_point_id,
+      'latitude',scope.requested_lat,'longitude',scope.requested_lon,'forecastDays',scope.forecast_days)
+      ORDER BY scope.source_point_id) FROM public.swell_watch_provider_run_batch_scopes scope
+      WHERE scope.batch_id=batch.id))
+  INTO result FROM public.swell_watch_provider_run_completed_batches completed
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+  WHERE completed.id=p_provider_batch_id;
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."read_swell_watch_run_scope"("p_provider_batch_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."read_swell_watch_study_health"() RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE a public.swell_watch_study_authorities; start_epoch bigint; cycle_before timestamptz;
+  feed_days jsonb; days jsonb; best_days integer; policy_expiry timestamptz;
+  health_status text; reason text; outcomes jsonb;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  SELECT * INTO a FROM public.swell_watch_study_authorities ORDER BY epoch DESC LIMIT 1;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status','unconfigured','qualifyingDays',0,'targetDays',30,
+    'qualifyingDates','[]'::jsonb,'qualifyingDaysByFeed','{}'::jsonb,'qualificationBasis','every_feed',
+    'authorityEpoch',NULL,'policyHash',NULL,'qualificationRule',NULL,'cycleStartEpoch',NULL,'cycleNotBefore',NULL,
+    'reason','study_authority_missing','evaluatedRuns',0,'suppressedAttempts',0,
+    'lastEvaluatedAt',NULL,'lastSuppressedAt',NULL); END IF;
+  start_epoch := public.swell_watch_study_cycle_start(a.epoch);
+  SELECT not_before INTO cycle_before FROM public.swell_watch_study_authorities WHERE epoch=start_epoch;
+  SELECT expires_at INTO policy_expiry FROM public.swell_watch_evaluation_policies ORDER BY epoch DESC LIMIT 1;
+  SELECT jsonb_object_agg(feed, jsonb_build_object('qualifyingDays',jsonb_array_length(dates),'qualifyingDates',dates))
+    INTO feed_days FROM (
+    SELECT scope->>'sourcePointId' AS feed, coalesce((
+      SELECT jsonb_agg(day ORDER BY day) FROM (
+        SELECT (i.run_utc AT TIME ZONE 'UTC')::date AS day
+        FROM public.swell_watch_study_evaluations e
+        JOIN public.swell_watch_provider_run_completed_batches b ON b.id=e.provider_batch_id
+        JOIN public.swell_watch_provider_run_batches rb ON rb.id=b.batch_id
+        JOIN public.swell_watch_provider_run_issuances i ON i.id=rb.issuance_id
+        WHERE e.status='evaluated' AND e.policy_hash=a.policy_hash
+          AND e.authority_epoch BETWEEN start_epoch AND a.epoch AND i.run_utc>=cycle_before
+          AND public.swell_watch_provider_evidence_is_current_before_study(e.provider_batch_id)
+          AND EXISTS(SELECT 1 FROM jsonb_array_elements(e.result->'scopeOutcomes') outcome
+            WHERE outcome->>'sourcePointId'=scope->>'sourcePointId' AND outcome->>'status'='derived')
+        GROUP BY (i.run_utc AT TIME ZONE 'UTC')::date HAVING count(DISTINCT i.run_utc)=4
+      ) qualified), '[]'::jsonb) AS dates
+    FROM jsonb_array_elements(a.cohort) scope
+  ) feeds;
+  SELECT (value->>'qualifyingDays')::integer, value->'qualifyingDates'
+    INTO best_days, days FROM jsonb_each(feed_days)
+    ORDER BY (value->>'qualifyingDays')::integer ASC, key LIMIT 1;
+  best_days := coalesce(best_days,0);
+  days := coalesce(days,'[]'::jsonb);
+  SELECT jsonb_build_object('evaluatedRuns',count(*) FILTER(WHERE e.status='evaluated'),
+    'suppressedAttempts',count(*) FILTER(WHERE e.status='suppressed'),
+    'lastEvaluatedAt',max(e.recorded_at) FILTER(WHERE e.status='evaluated'),
+    'lastSuppressedAt',max(e.recorded_at) FILTER(WHERE e.status='suppressed')) INTO outcomes
+    FROM public.swell_watch_study_evaluations e WHERE e.authority_epoch BETWEEN start_epoch AND a.epoch AND e.policy_hash=a.policy_hash;
+  IF a.state='revoked' THEN health_status:='blocked'; reason:='study_authority_revoked';
+  ELSIF NOT EXISTS(SELECT 1 FROM public.swell_watch_evaluation_policies p WHERE p.epoch=(SELECT max(epoch) FROM public.swell_watch_evaluation_policies) AND p.state='active' AND p.policy_hash=a.policy_hash) THEN health_status:='blocked'; reason:='study_policy_changed';
+  ELSIF best_days>=a.target_days THEN health_status:='complete'; reason:='target_reached';
+  ELSIF clock_timestamp()>=a.expires_at OR clock_timestamp()>=policy_expiry THEN health_status:='expired'; reason:='study_or_policy_expired';
+  ELSIF NOT EXISTS(SELECT 1 FROM public.swell_watch_current_study_authority(a.policy_hash)) THEN health_status:='blocked'; reason:='study_policy_or_control_unavailable';
+  ELSE health_status:='active'; reason:=NULL; END IF;
+  RETURN jsonb_build_object('status',health_status,'authorityEpoch',a.epoch,'policyHash',a.policy_hash,'qualificationRule',a.qualification_rule,
+    'cycleStartEpoch',start_epoch,'cycleNotBefore',cycle_before,'qualifyingDays',best_days,
+    'qualifyingDates',days,'qualifyingDaysByFeed',feed_days,'qualificationBasis','every_feed',
+    'targetDays',a.target_days,'reason',reason,'expiresAt',least(a.expires_at,policy_expiry)) || outcomes;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."read_swell_watch_study_health"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."read_swell_watch_study_pending_runs"("p_policy_hash" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE a public.swell_watch_study_authorities; pending jsonb; max_age interval; cycle_start bigint; cycle_before timestamptz;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  SELECT * INTO a FROM public.swell_watch_current_study_authority(p_policy_hash);
+  IF NOT FOUND THEN RAISE EXCEPTION 'current study config required'; END IF;
+  cycle_start := public.swell_watch_study_cycle_start(a.epoch);
+  SELECT not_before INTO cycle_before FROM public.swell_watch_study_authorities WHERE epoch=cycle_start;
+  IF public.read_swell_watch_study_health()->>'status'<>'active' THEN RETURN '[]'::jsonb; END IF;
+  SELECT make_interval(secs=>(p.policy_values #>> '{staleness,maximum_forecast_age_hours}')::double precision*3600)
+    INTO max_age FROM public.swell_watch_evaluation_policies p ORDER BY p.epoch DESC LIMIT 1;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('revision_set_id',r.id) ORDER BY r.run_utc),'[]'::jsonb) INTO pending FROM (
+    SELECT rs.id,i.run_utc FROM public.swell_watch_provider_run_revision_sets rs
+    JOIN public.swell_watch_provider_run_batches b ON b.id=rs.batch_id
+    JOIN public.swell_watch_provider_run_issuances i ON i.id=b.issuance_id
+    WHERE rs.revision_number=(SELECT max(s.revision_number) FROM public.swell_watch_provider_run_revision_sets s WHERE s.batch_id=b.id)
+      AND i.run_utc<=clock_timestamp() AND i.run_utc>=greatest(clock_timestamp()-max_age,cycle_before)
+      AND b.expected_component_count=3360
+      AND (SELECT count(*) FROM public.swell_watch_provider_run_batch_scopes s WHERE s.batch_id=b.id)=10
+      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_provider_run_batch_scopes s WHERE s.batch_id=b.id
+        AND (s.forecast_days<>7 OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(a.scope_inputs) input
+          WHERE input->>'sourcePointId'=s.source_point_id::text
+            AND (input->>'latitude')::numeric=s.requested_lat AND (input->>'longitude')::numeric=s.requested_lon)))
+      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_provider_run_attestations t
+        WHERE t.revision_set_id=rs.id AND t.state IN ('rejected','revoked'))
+      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_acceptances s WHERE s.revision_set_id=rs.id AND s.authority_epoch NOT BETWEEN cycle_start AND a.epoch)
+      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_study_recovery_failures failure WHERE failure.revision_set_id=rs.id
+        AND failure.failed_at > clock_timestamp()-make_interval(secs=>least(power(2,(SELECT count(*) FROM public.swell_watch_study_recovery_failures count_failure WHERE count_failure.revision_set_id=rs.id)-1),4)*3600))
+      AND NOT EXISTS(SELECT 1 FROM public.swell_watch_provider_run_completed_batches c
+        JOIN public.swell_watch_study_evaluations e ON e.provider_batch_id=c.id
+        WHERE c.revision_set_id=rs.id AND e.policy_hash=p_policy_hash AND e.status='evaluated')
+    ORDER BY i.run_utc LIMIT 3
+  ) r;
+  RETURN pending;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."read_swell_watch_study_pending_runs"("p_policy_hash" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."reconcile_email_lifecycle"() RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE expired_count integer; unknown_count integer;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739301);
+ -- Only reservations that never began handoff can be released automatically.
+ UPDATE public.email_contact_attempts SET state='cancelled',error_code='reservation_expired'
+ WHERE lifecycle_job IS NOT NULL AND state='reserved' AND claimed_at<now()-interval '5 minutes';
+ GET DIAGNOSTICS expired_count=ROW_COUNT;
+ UPDATE public.email_contact_attempts SET state='unknown',error_code='handoff_timeout'
+ WHERE lifecycle_job IS NOT NULL AND state='handoff_started' AND handoff_at<now()-interval '5 minutes';
+ SELECT count(*) INTO unknown_count FROM public.email_contact_attempts WHERE lifecycle_job IS NOT NULL AND state='unknown';
+ IF unknown_count>0 THEN UPDATE public.email_contact_controls SET lifecycle_enabled=false WHERE singleton; END IF;
+ INSERT INTO public.email_send_log(user_id,email_type,subject,resend_message_id,local_date,sent_at,message_instance_id,meta)
+ SELECT a.user_id,a.email_type,a.payload->>'subject',a.provider_id,(a.handoff_at AT TIME ZONE 'UTC')::date,a.handoff_at,a.id,
+   jsonb_build_object('campaign_id',a.campaign_id,'lifecycle_job',a.lifecycle_job,'message_instance_id',a.id,'reconciled',true)
+ FROM public.email_contact_attempts a WHERE a.state='accepted' AND a.lifecycle_job IS NOT NULL
+   AND a.provider_id IS NOT NULL AND a.handoff_at IS NOT NULL
+   AND NOT EXISTS(SELECT 1 FROM public.email_send_log WHERE resend_message_id=a.provider_id);
+ UPDATE public.email_delivery_events d SET email_send_log_id=l.id FROM public.email_send_log l
+ WHERE d.email_send_log_id IS NULL AND d.resend_message_id=l.resend_message_id;
+ UPDATE public.email_send_log l SET delivered_at=least(l.delivered_at,d.delivered),opened_at=least(l.opened_at,d.opened),
+   clicked_at=least(l.clicked_at,d.clicked),bounced_at=least(l.bounced_at,d.bounced)
+ FROM (SELECT resend_message_id,min(event_at) FILTER(WHERE event_type='email.delivered') AS delivered,
+   min(event_at) FILTER(WHERE event_type='email.opened') AS opened,min(event_at) FILTER(WHERE event_type='email.clicked') AS clicked,
+   min(event_at) FILTER(WHERE event_type='email.bounced') AS bounced FROM public.email_delivery_events GROUP BY resend_message_id) d
+ WHERE d.resend_message_id=l.resend_message_id;
+ RETURN jsonb_build_object('expired_reservations',expired_count,'unknown_handoffs',unknown_count);
+END; $$;
+
+
+ALTER FUNCTION "public"."reconcile_email_lifecycle"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."reconcile_pro_offer_mirrors"() RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE matched integer;
+BEGIN
+ UPDATE public.pro_offer_awards a SET mirror_verified_at=now() FROM public.user_entitlements e WHERE e.user_id=a.user_id AND a.state='verified'
+ AND a.mirror_verified_at IS NULL AND e.is_pro=true AND e.expires_at=a.expires_at AND e.product_id=a.provider_receipt->>'product_id';
+ GET DIAGNOSTICS matched=ROW_COUNT;
+ RETURN jsonb_build_object('matched',matched,'overdue_mirrors',(SELECT count(*) FROM public.pro_offer_awards WHERE state='verified' AND mirror_verified_at IS NULL AND verified_at<now()-interval '15 minutes'));
+END; $$;
+
+
+ALTER FUNCTION "public"."reconcile_pro_offer_mirrors"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."reconcile_trial_feedback"("p_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE f public.trial_feedback_submissions%ROWTYPE; event_id text;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('trial-feedback:'||p_user_id::text,0));
+ SELECT * INTO f FROM public.trial_feedback_submissions WHERE user_id=p_user_id FOR UPDATE;
+ IF f.state='reserved' AND f.store IN ('APP_STORE','PLAY_STORE') THEN
+   UPDATE public.trial_feedback_submissions SET last_reconciled_at=now() WHERE id=f.id;
+   SELECT provider_event_id INTO event_id FROM public.revenuecat_provider_events
+   WHERE app_user_id=p_user_id AND environment='PRODUCTION' AND environment_verified AND store=f.store AND price=0 AND processed_at IS NOT NULL
+     AND product_id=f.product_id AND offer_code=f.offer_identifier AND period_type IN ('TRIAL','INTRO')
+     AND event_type IN ('INITIAL_PURCHASE','RENEWAL') AND f.provider_handoff_at IS NOT NULL AND event_timestamp>=f.provider_handoff_at
+     AND purchased_at=f.trial_ends_at AND expiration_at=f.expected_expires_at
+   ORDER BY event_timestamp DESC LIMIT 1;
+   IF event_id IS NOT NULL THEN
+     UPDATE public.trial_feedback_submissions SET state='verified',verified_at=now(),provider_event_id=event_id WHERE id=f.id;
+   END IF;
+ END IF;
+ RETURN public.trial_feedback_context(p_user_id);
+END; $$;
+
+
+ALTER FUNCTION "public"."reconcile_trial_feedback"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."reconcile_trial_feedback_queue"() RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE u uuid; count_checked integer:=0;
+BEGIN
+ FOR u IN SELECT user_id FROM public.trial_feedback_submissions WHERE state='reserved' AND store IN ('APP_STORE','PLAY_STORE') AND (last_reconciled_at IS NULL OR last_reconciled_at<now()-interval '10 minutes')
+   ORDER BY last_reconciled_at NULLS FIRST,reserved_at LIMIT 50 LOOP
+   PERFORM public.reconcile_trial_feedback(u); count_checked:=count_checked+1;
+ END LOOP;
+ RETURN count_checked;
+END; $$;
+
+
+ALTER FUNCTION "public"."reconcile_trial_feedback_queue"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."record_android_tester_roster_audit"("p_actor_user_id" "uuid", "p_entry_id" "uuid", "p_action" "text", "p_outcome" "text", "p_evidence" "jsonb" DEFAULT '{}'::"jsonb") RETURNS bigint
@@ -13463,6 +16042,192 @@ $_$;
 ALTER FUNCTION "public"."record_android_tester_roster_stage"("p_actor_user_id" "uuid", "p_entry_id" "uuid", "p_stage" "text", "p_status" "text", "p_source" "text", "p_observed_at" timestamp with time zone, "p_confidence" "text", "p_evidence" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."record_email_lifecycle_decision"("p_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE d jsonb;
+BEGIN
+  d:=public.evaluate_email_lifecycle(p_user_id);
+  INSERT INTO public.email_lifecycle_recipients(user_id,campaign_id,job,episode,status,reason,due_at,next_eligible_at,expires_at,snapshot)
+  VALUES(p_user_id,d->>'campaign_id',d->>'job',d->>'episode',d->>'status',d->>'reason',
+    (d->>'due_at')::timestamptz,(d->>'next_eligible_at')::timestamptz,(d->>'expires_at')::timestamptz,d)
+  ON CONFLICT(user_id) DO UPDATE SET campaign_id=excluded.campaign_id,job=excluded.job,episode=excluded.episode,
+    status=excluded.status,reason=excluded.reason,due_at=excluded.due_at,next_eligible_at=excluded.next_eligible_at,
+    expires_at=excluded.expires_at,snapshot=excluded.snapshot,evaluated_at=now();
+  RETURN d;
+END; $$;
+
+
+ALTER FUNCTION "public"."record_email_lifecycle_decision"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_email_reply"("p_event_id" "text", "p_webhook_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone) RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_sender text;
+  v_received_at timestamptz;
+BEGIN
+  IF nullif(trim(p_event_id), '') IS NULL OR nullif(trim(p_sender), '') IS NULL
+    OR p_received_at IS NULL THEN RAISE EXCEPTION 'Invalid inbound metadata'; END IF;
+  PERFORM pg_advisory_xact_lock(739301);
+  INSERT INTO public.email_reply_events(provider_id, webhook_id, sender, received_at)
+    VALUES (p_event_id, p_webhook_id, lower(trim(p_sender)), p_received_at)
+    ON CONFLICT (provider_id) DO NOTHING;
+  SELECT sender, received_at INTO v_sender, v_received_at FROM public.email_reply_events WHERE provider_id = p_event_id;
+  -- Exact email matching only; no fuzzy names or model-based identity inference.
+  INSERT INTO public.email_contact_state(user_id, paused_at, reply_received_at)
+    SELECT id, now(), v_received_at FROM public.profiles WHERE lower(trim(email)) = v_sender
+    ON CONFLICT (user_id) DO UPDATE SET paused_at = coalesce(email_contact_state.paused_at, now()),
+      reply_received_at = greatest(email_contact_state.reply_received_at, EXCLUDED.reply_received_at);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."record_email_reply"("p_event_id" "text", "p_webhook_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_gmail_reply"("p_lease_id" "uuid", "p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  PERFORM public.record_gmail_reply_v2(p_mailbox,p_message_id,p_thread_id,p_sender,p_received_at,p_in_reply_to);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."record_gmail_reply"("p_lease_id" "uuid", "p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_gmail_reply_v2"("p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE key text;
+BEGIN
+ IF nullif(p_mailbox,'') IS NULL OR nullif(p_message_id,'') IS NULL OR nullif(p_thread_id,'') IS NULL
+   OR p_received_at IS NULL OR p_received_at>now()+interval '1 minute' THEN RAISE EXCEPTION 'Invalid reply metadata'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE lower(trim(email))=lower(trim(p_sender))) THEN RETURN; END IF;
+ key := 'gmail:'||lower(trim(p_mailbox))||':'||p_message_id;
+ PERFORM public.record_email_reply(key,key,p_sender,p_received_at);
+ UPDATE public.email_reply_events SET thread_id=p_thread_id,in_reply_to=p_in_reply_to WHERE provider_id=key;
+ UPDATE public.email_contact_attempts SET state='cancelled',error_code='reply_paused' WHERE state='reserved' AND user_id IN
+   (SELECT id FROM public.profiles WHERE lower(trim(email))=lower(trim(p_sender)));
+ UPDATE public.email_lifecycle_recipients SET status='held',reason='reply_paused',next_eligible_at=NULL WHERE user_id IN
+   (SELECT id FROM public.profiles WHERE lower(trim(email))=lower(trim(p_sender)));
+END;
+$$;
+
+
+ALTER FUNCTION "public"."record_gmail_reply_v2"("p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_leased_swell_watch_provider_run_receipt"("p_owner" "uuid", "p_scopes" "jsonb") RETURNS TABLE("issuance_id" "uuid", "run_batch_id" "uuid", "revision_set_id" "uuid")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE v_expires timestamptz;
+BEGIN
+  SELECT expires_at INTO v_expires FROM public.swell_watch_collection_lease
+  WHERE id=1 AND owner_token=p_owner FOR UPDATE;
+  IF NOT FOUND OR v_expires <= clock_timestamp() THEN
+    RAISE EXCEPTION 'collection lease unavailable';
+  END IF;
+  -- Hold the lease row lock through the existing atomic receipt transaction.
+  RETURN QUERY SELECT * FROM public.record_swell_watch_provider_run_receipt(p_scopes);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."record_leased_swell_watch_provider_run_receipt"("p_owner" "uuid", "p_scopes" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_lifecycle_entitlement_attempt"("p_user_id" "uuid") RETURNS "void"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ UPDATE public.email_contact_state SET entitlement_attempted_at=now() WHERE user_id=p_user_id;
+$$;
+
+
+ALTER FUNCTION "public"."record_lifecycle_entitlement_attempt"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_lifecycle_entitlement_check"("p_user_id" "uuid", "p_active" boolean) RETURNS "void"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ UPDATE public.email_contact_state SET provider_access_active=p_active,entitlement_checked_at=now(),
+ entitlement_verified_until=now()+interval '6 hours',entitlement_reference='revenuecat:verified_customer_read'
+ WHERE user_id=p_user_id;
+$$;
+
+
+ALTER FUNCTION "public"."record_lifecycle_entitlement_check"("p_user_id" "uuid", "p_active" boolean) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_lifecycle_provider_event"("p_webhook_id" "text", "p_provider_id" "text", "p_type" "text", "p_at" timestamp with time zone, "p_recipients" "text"[], "p_hard_bounce" boolean, "p_link" "text" DEFAULT NULL::"text", "p_user_agent" "text" DEFAULT NULL::"text") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE log_id bigint; recipient text;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739301);
+ SELECT id INTO log_id FROM public.email_send_log WHERE resend_message_id=p_provider_id LIMIT 1;
+ INSERT INTO public.email_delivery_events(email_send_log_id,resend_message_id,webhook_message_id,event_type,event_at)
+ VALUES(log_id,p_provider_id,p_webhook_id,p_type,p_at) ON CONFLICT(webhook_message_id) DO NOTHING;
+ IF p_type='email.complained' OR (p_type='email.bounced' AND p_hard_bounce) THEN
+   IF cardinality(p_recipients)=0 THEN RAISE EXCEPTION 'Suppression recipient missing'; END IF;
+   FOREACH recipient IN ARRAY p_recipients LOOP
+    INSERT INTO public.email_suppression_list(email,reason) VALUES(lower(trim(recipient)),CASE WHEN p_type='email.complained' THEN 'complaint' ELSE 'hard_bounce' END)
+    ON CONFLICT(email) DO NOTHING;
+    UPDATE public.email_contact_state SET paused_at=coalesce(paused_at,now())
+    WHERE user_id IN (SELECT id FROM public.profiles WHERE lower(trim(email))=lower(trim(recipient)));
+   END LOOP;
+ END IF;
+ UPDATE public.email_send_log SET
+  delivered_at=CASE WHEN p_type='email.delivered' THEN least(delivered_at,p_at) ELSE delivered_at END,
+  opened_at=CASE WHEN p_type='email.opened' THEN least(opened_at,p_at) ELSE opened_at END,
+  clicked_at=CASE WHEN p_type='email.clicked' THEN least(clicked_at,p_at) ELSE clicked_at END,
+  bounced_at=CASE WHEN p_type='email.bounced' THEN least(bounced_at,p_at) ELSE bounced_at END
+ WHERE id=log_id;
+ IF p_type='email.clicked' AND p_link IS NOT NULL THEN
+  INSERT INTO public.email_click_events(email_send_log_id,resend_message_id,webhook_message_id,clicked_at,link,user_agent)
+  VALUES(log_id,p_provider_id,p_webhook_id,p_at,p_link,p_user_agent) ON CONFLICT DO NOTHING;
+ END IF;
+END; $$;
+
+
+ALTER FUNCTION "public"."record_lifecycle_provider_event"("p_webhook_id" "text", "p_provider_id" "text", "p_type" "text", "p_at" timestamp with time zone, "p_recipients" "text"[], "p_hard_bounce" boolean, "p_link" "text", "p_user_agent" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_lifecycle_provider_snapshot"("p_user_id" "uuid", "p_active" boolean, "p_trial" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ PERFORM public.record_lifecycle_entitlement_check(p_user_id,p_active);
+ UPDATE public.email_contact_state SET provider_trial=p_trial WHERE user_id=p_user_id;
+END; $$;
+
+
+ALTER FUNCTION "public"."record_lifecycle_provider_snapshot"("p_user_id" "uuid", "p_active" boolean, "p_trial" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_pro_offer_reconciliation"("p_award_id" "uuid") RETURNS "void"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$ UPDATE public.pro_offer_awards SET last_reconciled_at=now() WHERE id=p_award_id; $$;
+
+
+ALTER FUNCTION "public"."record_pro_offer_reconciliation"("p_award_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."record_referral_attribution"("referrer" "uuid", "referee" "uuid", "source" "text", "referral_code" "text" DEFAULT NULL::"text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13562,6 +16327,500 @@ ALTER FUNCTION "public"."record_referral_attribution"("referrer" "uuid", "refere
 
 COMMENT ON FUNCTION "public"."record_referral_attribution"("referrer" "uuid", "referee" "uuid", "source" "text", "referral_code" "text") IS 'Creates one idempotent referral attribution row for the authenticated referee.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."record_swell_watch_provider_run_receipt"("p_scopes" "jsonb") RETURNS TABLE("issuance_id" "uuid", "run_batch_id" "uuid", "revision_set_id" "uuid")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE
+  v_scope jsonb; v_receipt jsonb; v_observation jsonb; v_component jsonb; v_raw jsonb; v_semantic jsonb;
+  v_issuance uuid; v_batch uuid; v_scope_id uuid; v_revision uuid; v_revision_set uuid;
+  v_run timestamptz; v_run_text text; v_days integer; v_expected_components integer;
+  v_scope_hash text; v_revision_set_hash text; v_lat numeric; v_lon numeric; v_request text; v_expected_request text;
+  v_grid_lat double precision; v_grid_lon double precision; v_claimed_distance double precision; v_computed_distance double precision; v_lon_delta double precision; v_haversine double precision;
+  v_index integer; v_existing_grid jsonb; v_rows integer;
+  v_inputs jsonb := '[]'::jsonb; v_new_batch uuid;
+BEGIN
+  IF jsonb_typeof(p_scopes) <> 'array' OR jsonb_array_length(p_scopes) = 0 THEN RAISE EXCEPTION 'provider receipt scopes are required'; END IF;
+  IF octet_length(p_scopes::text) > 33554432 THEN RAISE EXCEPTION 'provider receipt batch exceeds durable limit'; END IF;
+  SELECT receipt #>> '{requested,runUtc}' INTO v_run_text FROM jsonb_to_recordset(p_scopes) AS payload("sourcePointId" uuid, receipt jsonb) LIMIT 1;
+  IF v_run_text IS NULL OR v_run_text !~ '^\d{4}-\d{2}-\d{2}T(00|06|12|18):00Z$' THEN RAISE EXCEPTION 'provider receipt run is invalid'; END IF;
+  v_run := v_run_text::timestamptz;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' || v_run_text, 0));
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+
+  FOR v_scope IN SELECT value FROM jsonb_array_elements(p_scopes) LOOP
+    v_receipt := v_scope->'receipt';
+    IF jsonb_typeof(v_receipt) IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_receipt->'rawResponse') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(v_receipt->'canonicalSemanticPayload') IS DISTINCT FROM 'string'
+      OR octet_length(coalesce(v_receipt->>'rawResponse','')) > 524288
+      OR octet_length(coalesce(v_receipt->>'canonicalSemanticPayload','')) > 524288 THEN
+      RAISE EXCEPTION 'provider receipt content exceeds durable limit';
+    END IF;
+    v_raw := coalesce((v_receipt->>'rawResponse')::jsonb,'null'::jsonb);
+    v_semantic := coalesce((v_receipt->>'canonicalSemanticPayload')::jsonb,'null'::jsonb);
+    IF jsonb_typeof(v_scope) IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_scope->'sourcePointId') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(v_receipt) IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_receipt->'requested') IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_receipt #> '{requested,canonicalRequest}') IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_receipt->'qualification') IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_receipt->'selectedGrid') IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_receipt #> '{selectedGrid,policy}') IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_receipt->'rawResponse') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(v_receipt->'canonicalSemanticPayload') IS DISTINCT FROM 'string'
+      OR coalesce(v_scope->>'sourcePointId','') !~ '^[a-f0-9-]{36}$'
+      OR v_receipt->>'schemaVersion' IS DISTINCT FROM 'open-meteo-single-runs-receipt.v1'
+      OR v_receipt->>'parserVersion' IS DISTINCT FROM 'open-meteo-single-runs-receipt.v1'
+      OR v_receipt #>> '{qualification,status}' IS DISTINCT FROM 'prototype_unqualified'
+      OR v_receipt #>> '{qualification,reason}' IS DISTINCT FROM 'provider_response_does_not_echo_run_and_completion_not_operationally_proven'
+      OR v_receipt #>> '{requested,transportProvider}' IS DISTINCT FROM 'open_meteo_single_runs' OR v_receipt #>> '{requested,upstreamModelProvider}' IS DISTINCT FROM 'ncep'
+      OR v_receipt #>> '{requested,model}' IS DISTINCT FROM 'ncep_gfswave016' OR v_receipt #>> '{requested,runUtc}' IS DISTINCT FROM v_run_text
+      OR v_receipt #>> '{requested,canonicalRequest,method}' IS DISTINCT FROM 'GET' OR v_receipt #>> '{requested,canonicalRequest,requestedRunUtc}' IS DISTINCT FROM v_run_text
+      OR coalesce(v_receipt->>'rawResponseSha256','') !~ '^[a-f0-9]{64}$' OR coalesce(v_receipt->>'revisionHash','') !~ '^[a-f0-9]{64}$'
+      OR encode(extensions.digest(coalesce(v_receipt->>'rawResponse',''),'sha256'),'hex') IS DISTINCT FROM v_receipt->>'rawResponseSha256'
+      OR encode(extensions.digest(coalesce(v_receipt->>'canonicalSemanticPayload',''),'sha256'),'hex') IS DISTINCT FROM v_receipt->>'revisionHash'
+      OR jsonb_typeof(v_raw) IS DISTINCT FROM 'object'
+      OR jsonb_typeof(v_semantic) IS DISTINCT FROM 'object'
+      OR v_semantic IS DISTINCT FROM v_raw - 'generationtime_ms'
+      OR NOT (v_raw ?& ARRAY['latitude','longitude','generationtime_ms','utc_offset_seconds','timezone','timezone_abbreviation','elevation','hourly_units','hourly'])
+      OR (SELECT count(*) FROM jsonb_object_keys(v_raw)) <> 9
+      OR jsonb_typeof(v_raw->'latitude') IS DISTINCT FROM 'number'
+      OR jsonb_typeof(v_raw->'longitude') IS DISTINCT FROM 'number'
+      OR jsonb_typeof(v_raw->'generationtime_ms') IS DISTINCT FROM 'number'
+      OR jsonb_typeof(v_raw->'utc_offset_seconds') IS DISTINCT FROM 'number'
+      OR jsonb_typeof(v_raw->'timezone') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(v_raw->'timezone_abbreviation') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(v_raw->'elevation') IS DISTINCT FROM 'number'
+      OR (v_raw->>'generationtime_ms')::numeric < 0
+      OR (v_raw->>'utc_offset_seconds')::numeric IS DISTINCT FROM 0
+      OR coalesce(v_raw->>'timezone','') NOT IN ('UTC','GMT')
+      OR coalesce(v_raw->>'timezone_abbreviation','') NOT IN ('UTC','GMT')
+      OR v_raw->'hourly_units' IS DISTINCT FROM v_receipt->'hourlyUnits'
+      OR jsonb_typeof(v_raw->'hourly') IS DISTINCT FROM 'object'
+      OR NOT (v_raw->'hourly' ?& ARRAY['time','swell_wave_height','swell_wave_period','swell_wave_direction','secondary_swell_wave_height','secondary_swell_wave_period','secondary_swell_wave_direction'])
+      OR (SELECT count(*) FROM jsonb_object_keys(v_raw->'hourly')) <> 7
+      OR v_receipt #>> '{selectedGrid,policy,status}' IS DISTINCT FROM 'prototype_local_mapping_policy'
+      OR (v_receipt #>> '{selectedGrid,policy,maxDistanceKm}')::numeric IS DISTINCT FROM 30
+      OR (v_receipt #>> '{selectedGrid,policy,providerGuarantee}')::boolean IS NOT FALSE
+      OR v_receipt->'hourlyUnits' IS DISTINCT FROM '{"time":"iso8601","swell_wave_height":"m","swell_wave_period":"s","swell_wave_direction":"°","secondary_swell_wave_height":"m","secondary_swell_wave_period":"s","secondary_swell_wave_direction":"°"}'::jsonb
+      OR jsonb_typeof(v_receipt #> '{selectedGrid,latitude}') IS DISTINCT FROM 'number'
+      OR jsonb_typeof(v_receipt #> '{selectedGrid,longitude}') IS DISTINCT FROM 'number'
+      OR jsonb_typeof(v_receipt #> '{selectedGrid,elevationM}') IS DISTINCT FROM 'number'
+      OR jsonb_typeof(v_receipt #> '{selectedGrid,distanceFromRequestedKm}') IS DISTINCT FROM 'number'
+      OR (v_receipt #>> '{selectedGrid,latitude}')::numeric NOT BETWEEN -90 AND 90
+      OR (v_receipt #>> '{selectedGrid,longitude}')::numeric NOT BETWEEN -180 AND 180
+      OR (v_receipt #>> '{selectedGrid,elevationM}')::numeric IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)
+      OR (v_receipt #>> '{selectedGrid,distanceFromRequestedKm}')::numeric IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)
+      OR (v_raw->>'latitude')::numeric IS DISTINCT FROM (v_receipt #>> '{selectedGrid,latitude}')::numeric
+      OR (v_raw->>'longitude')::numeric IS DISTINCT FROM (v_receipt #>> '{selectedGrid,longitude}')::numeric
+      OR (v_raw->>'elevation')::numeric IS DISTINCT FROM (v_receipt #>> '{selectedGrid,elevationM}')::numeric
+      OR (v_receipt #>> '{selectedGrid,distanceFromRequestedKm}')::numeric NOT BETWEEN 0 AND 30 THEN RAISE EXCEPTION 'provider receipt envelope is invalid'; END IF;
+    v_request := v_receipt #>> '{requested,canonicalRequest,url}';
+    IF v_request !~ '^https://single-runs-api\.open-meteo\.com/v1/forecast\?latitude=[^&]+&longitude=[^&]+&models=ncep_gfswave016&hourly=swell_wave_height%2Cswell_wave_period%2Cswell_wave_direction%2Csecondary_swell_wave_height%2Csecondary_swell_wave_period%2Csecondary_swell_wave_direction&run=[^&]+&cell_selection=sea&timezone=UTC&forecast_days=[1-7]$' THEN RAISE EXCEPTION 'provider receipt request is not canonical'; END IF;
+    v_lat := (regexp_match(v_request, 'latitude=([^&]+)'))[1]::numeric; v_lon := (regexp_match(v_request, 'longitude=([^&]+)'))[1]::numeric; v_days := (regexp_match(v_request, 'forecast_days=([1-7])$'))[1]::integer;
+    IF v_lat NOT BETWEEN -90 AND 90 OR v_lon NOT BETWEEN -180 AND 180 THEN RAISE EXCEPTION 'provider receipt request coordinates are invalid'; END IF;
+    v_grid_lat := (v_receipt #>> '{selectedGrid,latitude}')::double precision;
+    v_grid_lon := (v_receipt #>> '{selectedGrid,longitude}')::double precision;
+    v_claimed_distance := (v_receipt #>> '{selectedGrid,distanceFromRequestedKm}')::double precision;
+    v_lon_delta := mod((v_grid_lon - v_lon::double precision + 540)::numeric,360)::double precision - 180;
+    v_haversine := sin(radians(v_grid_lat - v_lat::double precision) / 2) ^ 2
+      + cos(radians(v_lat::double precision)) * cos(radians(v_grid_lat)) * sin(radians(v_lon_delta) / 2) ^ 2;
+    v_computed_distance := 6371 * 2 * atan2(sqrt(v_haversine),sqrt(1 - v_haversine));
+    IF v_computed_distance > 30 OR abs(v_computed_distance - v_claimed_distance) > 0.001 THEN RAISE EXCEPTION 'provider receipt selected-grid distance is invalid'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM jsonb_each(v_raw->'hourly') field
+      WHERE jsonb_typeof(field.value) IS DISTINCT FROM 'array' OR jsonb_array_length(field.value) <> v_days * 24
+    ) THEN RAISE EXCEPTION 'provider raw response scope is incomplete'; END IF;
+    v_expected_request := format('https://single-runs-api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&models=ncep_gfswave016&hourly=swell_wave_height%%2Cswell_wave_period%%2Cswell_wave_direction%%2Csecondary_swell_wave_height%%2Csecondary_swell_wave_period%%2Csecondary_swell_wave_direction&run=%s&cell_selection=sea&timezone=UTC&forecast_days=%s', v_lat::text, v_lon::text, replace(to_char(v_run AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI'), ':', '%3A'), v_days);
+    IF v_request IS DISTINCT FROM v_expected_request OR jsonb_typeof(v_receipt->'observations') IS DISTINCT FROM 'array' OR jsonb_array_length(v_receipt->'observations') <> v_days * 24 THEN RAISE EXCEPTION 'provider receipt scope is invalid'; END IF;
+    v_index := 0;
+    FOR v_observation IN SELECT value FROM jsonb_array_elements(v_receipt->'observations') LOOP
+      IF jsonb_typeof(v_observation) IS DISTINCT FROM 'object'
+        OR NOT (v_observation ?& ARRAY['providerForecastAt','forecastAtUtc','timeProvenance','components'])
+        OR v_observation->>'providerForecastAt' IS DISTINCT FROM to_char(v_run + make_interval(hours => v_index), 'YYYY-MM-DD"T"HH24:MI') OR v_observation->>'forecastAtUtc' IS DISTINCT FROM (v_observation->>'providerForecastAt') || 'Z'
+        OR jsonb_typeof(v_raw->'hourly'->'time'->v_index) IS DISTINCT FROM 'string'
+        OR v_observation->>'providerForecastAt' IS DISTINCT FROM (v_raw->'hourly'->'time'->>v_index)
+        OR v_observation #>> '{timeProvenance,field}' IS DISTINCT FROM 'time' OR v_observation #>> '{timeProvenance,timezone}' IS DISTINCT FROM 'UTC'
+        OR jsonb_typeof(v_observation->'components') IS DISTINCT FROM 'array' OR jsonb_array_length(v_observation->'components') <> 2
+        OR v_observation->'components'->0->>'sourceSlot' IS DISTINCT FROM 's1' OR v_observation->'components'->1->>'sourceSlot' IS DISTINCT FROM 's2' THEN RAISE EXCEPTION 'provider receipt slots are not exact'; END IF;
+      FOR v_component IN SELECT value FROM jsonb_array_elements(v_observation->'components') LOOP
+        IF jsonb_typeof(v_component) IS DISTINCT FROM 'object'
+          OR NOT (v_component ?& ARRAY['sourceSlot','heightM','periodS','directionDeg','rawFieldProvenance'])
+          OR jsonb_typeof(v_component->'heightM') IS DISTINCT FROM 'number' OR jsonb_typeof(v_component->'periodS') IS DISTINCT FROM 'number' OR jsonb_typeof(v_component->'directionDeg') IS DISTINCT FROM 'number'
+          OR (v_component->>'heightM')::numeric < 0 OR NOT (
+            (NOT (v_component ? 'unavailableReason') AND (v_component->>'periodS')::numeric > 0)
+            OR (v_component->>'unavailableReason' IS NOT DISTINCT FROM 'provider_zero_tuple'
+              AND (v_component->>'heightM')::numeric = 0 AND (v_component->>'periodS')::numeric = 0 AND (v_component->>'directionDeg')::numeric = 0)
+          ) OR (v_component->>'directionDeg')::numeric < 0 OR (v_component->>'directionDeg')::numeric >= 360
+          OR (v_component->>'sourceSlot'='s1' AND (jsonb_typeof(v_raw->'hourly'->'swell_wave_height'->v_index) IS DISTINCT FROM 'number' OR jsonb_typeof(v_raw->'hourly'->'swell_wave_period'->v_index) IS DISTINCT FROM 'number' OR jsonb_typeof(v_raw->'hourly'->'swell_wave_direction'->v_index) IS DISTINCT FROM 'number'))
+          OR (v_component->>'sourceSlot'='s2' AND (jsonb_typeof(v_raw->'hourly'->'secondary_swell_wave_height'->v_index) IS DISTINCT FROM 'number' OR jsonb_typeof(v_raw->'hourly'->'secondary_swell_wave_period'->v_index) IS DISTINCT FROM 'number' OR jsonb_typeof(v_raw->'hourly'->'secondary_swell_wave_direction'->v_index) IS DISTINCT FROM 'number'))
+          OR (v_component->>'sourceSlot'='s1' AND ((v_component->>'heightM')::numeric IS DISTINCT FROM (v_raw->'hourly'->'swell_wave_height'->>v_index)::numeric OR (v_component->>'periodS')::numeric IS DISTINCT FROM (v_raw->'hourly'->'swell_wave_period'->>v_index)::numeric OR (v_component->>'directionDeg')::numeric IS DISTINCT FROM (CASE WHEN (v_raw->'hourly'->'swell_wave_direction'->>v_index)::numeric=360 AND (v_component->>'periodS')::numeric>0 THEN 0 ELSE (v_raw->'hourly'->'swell_wave_direction'->>v_index)::numeric END)))
+          OR (v_component->>'sourceSlot'='s2' AND ((v_component->>'heightM')::numeric IS DISTINCT FROM (v_raw->'hourly'->'secondary_swell_wave_height'->>v_index)::numeric OR (v_component->>'periodS')::numeric IS DISTINCT FROM (v_raw->'hourly'->'secondary_swell_wave_period'->>v_index)::numeric OR (v_component->>'directionDeg')::numeric IS DISTINCT FROM (CASE WHEN (v_raw->'hourly'->'secondary_swell_wave_direction'->>v_index)::numeric=360 AND (v_component->>'periodS')::numeric>0 THEN 0 ELSE (v_raw->'hourly'->'secondary_swell_wave_direction'->>v_index)::numeric END)))
+          OR (v_component->>'sourceSlot' = 's1' AND v_component->'rawFieldProvenance' IS DISTINCT FROM ('{"height":"swell_wave_height","period":"swell_wave_period","direction":"swell_wave_direction"}'::jsonb || CASE WHEN (v_raw->'hourly'->'swell_wave_direction'->>v_index)::numeric=360 THEN '{"directionNormalization":{"rule":"north_360_to_0.v1","rawDegrees":360,"canonicalDegrees":0}}'::jsonb ELSE '{}'::jsonb END))
+          OR (v_component->>'sourceSlot' = 's2' AND v_component->'rawFieldProvenance' IS DISTINCT FROM ('{"height":"secondary_swell_wave_height","period":"secondary_swell_wave_period","direction":"secondary_swell_wave_direction"}'::jsonb || CASE WHEN (v_raw->'hourly'->'secondary_swell_wave_direction'->>v_index)::numeric=360 THEN '{"directionNormalization":{"rule":"north_360_to_0.v1","rawDegrees":360,"canonicalDegrees":0}}'::jsonb ELSE '{}'::jsonb END)) THEN RAISE EXCEPTION 'provider receipt component provenance is invalid'; END IF;
+      END LOOP;
+      v_index := v_index + 1;
+    END LOOP;
+  END LOOP;
+
+  SELECT count(*), count(DISTINCT payload."sourcePointId"), sum(jsonb_array_length(payload.receipt->'observations') * 2), encode(extensions.digest(jsonb_agg(jsonb_build_object('sourcePointId', payload."sourcePointId", 'request', payload.receipt #> '{requested,canonicalRequest}') ORDER BY payload."sourcePointId")::text, 'sha256'), 'hex')
+  INTO v_rows, v_index, v_expected_components, v_scope_hash FROM jsonb_to_recordset(p_scopes) AS payload("sourcePointId" uuid, receipt jsonb);
+  IF v_rows <> v_index THEN RAISE EXCEPTION 'provider receipt scope contains duplicate source points'; END IF;
+  INSERT INTO public.swell_watch_provider_run_issuances (transport_provider, model, run_utc, parser_version, upstream_model_provider) VALUES ('open_meteo_single_runs','ncep_gfswave016',v_run,'open-meteo-single-runs-receipt.v1','ncep') ON CONFLICT (transport_provider, model, run_utc) DO NOTHING RETURNING id INTO v_issuance;
+  IF v_issuance IS NULL THEN SELECT id INTO v_issuance FROM public.swell_watch_provider_run_issuances WHERE transport_provider='open_meteo_single_runs' AND model='ncep_gfswave016' AND run_utc=v_run; END IF;
+  v_new_batch := gen_random_uuid();
+  INSERT INTO public.swell_watch_provider_run_batches AS batch (id, issuance_id, scope_hash, expected_component_count) VALUES (v_new_batch,v_issuance,v_scope_hash,v_expected_components) ON CONFLICT ON CONSTRAINT swell_watch_provider_run_batches_issuance_id_key DO NOTHING RETURNING batch.id INTO v_batch;
+  IF v_batch IS NULL THEN
+    SELECT batch.id INTO v_batch FROM public.swell_watch_provider_run_batches batch WHERE batch.issuance_id=v_issuance;
+    IF NOT EXISTS (SELECT 1 FROM public.swell_watch_provider_run_batches WHERE id=v_batch AND scope_hash=v_scope_hash AND expected_component_count=v_expected_components) THEN RAISE EXCEPTION 'provider receipt scope conflicts with frozen batch'; END IF;
+  END IF;
+
+  FOR v_scope IN SELECT value FROM jsonb_array_elements(p_scopes) LOOP
+    v_receipt := v_scope->'receipt'; v_request := v_receipt #>> '{requested,canonicalRequest,url}'; v_lat := (regexp_match(v_request, 'latitude=([^&]+)'))[1]::numeric; v_lon := (regexp_match(v_request, 'longitude=([^&]+)'))[1]::numeric; v_days := (regexp_match(v_request, 'forecast_days=([1-7])$'))[1]::integer;
+    INSERT INTO public.swell_watch_provider_run_batch_scopes (batch_id,source_point_id,canonical_request,requested_lat,requested_lon,forecast_days) VALUES (v_batch,(v_scope->>'sourcePointId')::uuid,v_receipt #> '{requested,canonicalRequest}',v_lat,v_lon,v_days) ON CONFLICT (batch_id,source_point_id) DO NOTHING RETURNING id INTO v_scope_id;
+    IF v_scope_id IS NULL THEN SELECT id INTO v_scope_id FROM public.swell_watch_provider_run_batch_scopes WHERE batch_id=v_batch AND source_point_id=(v_scope->>'sourcePointId')::uuid; IF NOT EXISTS (SELECT 1 FROM public.swell_watch_provider_run_batch_scopes WHERE id=v_scope_id AND canonical_request=v_receipt #> '{requested,canonicalRequest}') THEN RAISE EXCEPTION 'provider receipt scope conflicts with frozen batch'; END IF; END IF;
+    v_semantic := (v_receipt->>'canonicalSemanticPayload')::jsonb;
+    INSERT INTO public.swell_watch_provider_run_revisions (scope_id,semantic_revision_hash,semantic_payload,selected_grid) VALUES (v_scope_id,v_receipt->>'revisionHash',v_semantic,v_receipt->'selectedGrid') ON CONFLICT (scope_id,semantic_revision_hash) DO NOTHING RETURNING id INTO v_revision;
+    IF v_revision IS NULL THEN SELECT id,selected_grid INTO v_revision,v_existing_grid FROM public.swell_watch_provider_run_revisions WHERE scope_id=v_scope_id AND semantic_revision_hash=v_receipt->>'revisionHash' AND semantic_payload=v_semantic; IF v_revision IS NULL OR v_existing_grid IS DISTINCT FROM v_receipt->'selectedGrid' THEN RAISE EXCEPTION 'provider receipt revision hash conflicts with its payload'; END IF;
+    END IF;
+    FOR v_observation IN SELECT value FROM jsonb_array_elements(v_receipt->'observations') LOOP
+      FOR v_component IN SELECT value FROM jsonb_array_elements(v_observation->'components') LOOP
+        INSERT INTO public.swell_watch_provider_run_revision_components (revision_id,provider_forecast_at,forecast_at,source_slot,height_m,period_s,direction_deg,raw_field_provenance,time_provenance,unavailable_reason)
+        VALUES (v_revision,v_observation->>'providerForecastAt',(v_observation->>'forecastAtUtc')::timestamptz,v_component->>'sourceSlot',(v_component->>'heightM')::numeric,(v_component->>'periodS')::numeric,(v_component->>'directionDeg')::numeric,v_component->'rawFieldProvenance',v_observation->'timeProvenance',v_component->>'unavailableReason')
+        ON CONFLICT (revision_id,forecast_at,source_slot) DO NOTHING;
+        IF NOT EXISTS (
+          SELECT 1 FROM public.swell_watch_provider_run_revision_components persisted
+          WHERE persisted.revision_id=v_revision
+            AND persisted.provider_forecast_at=v_observation->>'providerForecastAt'
+            AND persisted.forecast_at=(v_observation->>'forecastAtUtc')::timestamptz
+            AND persisted.source_slot=v_component->>'sourceSlot'
+            AND persisted.height_m=(v_component->>'heightM')::numeric
+            AND persisted.period_s=(v_component->>'periodS')::numeric
+            AND persisted.direction_deg=(v_component->>'directionDeg')::numeric
+            AND persisted.raw_field_provenance=v_component->'rawFieldProvenance'
+            AND persisted.time_provenance=v_observation->'timeProvenance'
+            AND persisted.unavailable_reason IS NOT DISTINCT FROM v_component->>'unavailableReason'
+        ) THEN RAISE EXCEPTION 'provider receipt revision hash conflicts with its components'; END IF;
+      END LOOP;
+    END LOOP;
+    INSERT INTO public.swell_watch_provider_run_revision_raw_responses (revision_id,raw_response_sha256,raw_response)
+    VALUES (v_revision,v_receipt->>'rawResponseSha256',v_receipt->>'rawResponse') ON CONFLICT DO NOTHING;
+    SELECT count(*) INTO v_rows FROM public.swell_watch_provider_run_revision_components WHERE revision_id=v_revision;
+    IF v_rows <> v_days * 24 * 2 THEN RAISE EXCEPTION 'provider receipt component count is incomplete'; END IF;
+    v_inputs := v_inputs || jsonb_build_array(jsonb_build_object('scope',v_scope_id,'revision',v_revision));
+  END LOOP;
+  IF jsonb_array_length(v_inputs) <> (SELECT count(*) FROM public.swell_watch_provider_run_batch_scopes WHERE batch_id=v_batch) THEN RAISE EXCEPTION 'provider receipt does not satisfy the frozen batch scope'; END IF;
+  SELECT encode(extensions.digest(jsonb_agg(item ORDER BY item->>'scope')::text, 'sha256'),'hex') INTO v_revision_set_hash FROM jsonb_array_elements(v_inputs) item;
+  INSERT INTO public.swell_watch_provider_run_revision_sets (batch_id,revision_number,revision_set_hash)
+  VALUES (
+    v_batch,
+    (SELECT coalesce(max(candidate.revision_number), 0) + 1 FROM public.swell_watch_provider_run_revision_sets candidate WHERE candidate.batch_id = v_batch),
+    v_revision_set_hash
+  )
+  ON CONFLICT (batch_id,revision_set_hash) DO NOTHING RETURNING id INTO v_revision_set;
+  IF v_revision_set IS NULL THEN SELECT id INTO v_revision_set FROM public.swell_watch_provider_run_revision_sets WHERE batch_id=v_batch AND revision_set_hash=v_revision_set_hash;
+  ELSE INSERT INTO public.swell_watch_provider_run_revision_set_members (revision_set_id,scope_id,revision_id) SELECT v_revision_set,(item->>'scope')::uuid,(item->>'revision')::uuid FROM jsonb_array_elements(v_inputs) item; END IF;
+  RETURN QUERY SELECT v_issuance,v_batch,v_revision_set;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."record_swell_watch_provider_run_receipt"("p_scopes" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_swell_watch_shadow_demand"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_pairs" "jsonb") RETURNS TABLE("observed_at" timestamp with time zone, "recorded_pairs_24h" bigint)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $_$
+DECLARE canonical jsonb; previous public.swell_watch_shadow_demand_runs; measured_at timestamptz; total bigint; run_at timestamptz; duplicates jsonb;
+BEGIN
+  IF jsonb_typeof(p_pairs) IS DISTINCT FROM 'array' OR jsonb_array_length(p_pairs)>10000 THEN RAISE EXCEPTION 'invalid shadow demand'; END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_pairs) pair WHERE jsonb_typeof(pair) IS DISTINCT FROM 'object' OR pair-'regional_event_id'-'recipient_id'<>'{}'::jsonb
+    OR coalesce(pair->>'regional_event_id','') !~ '^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'
+    OR coalesce(pair->>'recipient_id','') !~ '^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$') THEN RAISE EXCEPTION 'invalid shadow recipient/event pair'; END IF;
+  SELECT coalesce(jsonb_agg(pair ORDER BY pair->>'regional_event_id',pair->>'recipient_id'),'[]'::jsonb) INTO canonical FROM (SELECT DISTINCT pair FROM jsonb_array_elements(p_pairs) pair) pairs;
+  IF jsonb_array_length(canonical)<>jsonb_array_length(p_pairs) THEN RAISE EXCEPTION 'duplicate shadow pair'; END IF;
+  SELECT issuance.run_utc INTO run_at FROM public.swell_watch_provider_run_completed_batches completed JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id WHERE completed.id=p_provider_batch_id;
+  IF run_at IS NULL THEN RAISE EXCEPTION 'completed shadow provider run required'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' || to_char(run_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  IF NOT EXISTS(SELECT 1 FROM public.swell_watch_get_matching_policy() p WHERE p.policy_hash=p_policy_hash AND p.revoked_at IS NULL AND p.superseded_at IS NULL
+    AND isfinite(p.not_before) AND isfinite(p.expires_at) AND clock_timestamp()>=p.not_before AND clock_timestamp()<p.expires_at)
+    OR public.swell_watch_provider_evidence_is_current(p_provider_batch_id) IS DISTINCT FROM true THEN RAISE EXCEPTION 'current shadow policy and provider evidence required'; END IF;
+  SELECT * INTO previous FROM public.swell_watch_shadow_demand_runs r WHERE r.provider_batch_id=p_provider_batch_id AND r.policy_hash=p_policy_hash;
+  IF FOUND THEN
+    IF previous.recipient_events IS DISTINCT FROM canonical THEN RAISE EXCEPTION 'shadow evaluation demand changed'; END IF;
+    RETURN QUERY SELECT previous.observed_at,previous.recorded_pairs_24h; RETURN;
+  END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(canonical) pair WHERE NOT EXISTS(SELECT 1 FROM public.swell_watch_event_impacts link JOIN public.swell_watch_beach_impacts impact ON impact.id=link.beach_impact_id JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id WHERE link.regional_event_id=(pair->>'regional_event_id')::uuid AND observation.provider_batch_id=p_provider_batch_id AND impact.policy_hash=p_policy_hash)) THEN RAISE EXCEPTION 'shadow event differs from evaluation'; END IF;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('regional_event_id',d.regional_event_id,'recipient_id',d.recipient_id,'duplicate_of',d.duplicate_of)),'[]'::jsonb)
+    INTO duplicates FROM public.swell_watch_shadow_demand_duplicates(canonical) d;
+  measured_at:=clock_timestamp();
+  PERFORM set_config('app.swell_watch_internal_write','on',true);
+  INSERT INTO public.swell_watch_shadow_demand_pairs(regional_event_id,recipient_id,first_observed_at)
+    SELECT (pair->>'regional_event_id')::uuid,(pair->>'recipient_id')::uuid,measured_at FROM jsonb_array_elements(canonical) pair
+    WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements(duplicates) d WHERE d->>'regional_event_id'=pair->>'regional_event_id' AND d->>'recipient_id'=pair->>'recipient_id')
+    ON CONFLICT(regional_event_id,recipient_id) DO NOTHING;
+  INSERT INTO public.swell_watch_shadow_demand_observations(provider_batch_id,policy_hash,regional_event_id,recipient_id,observed_at,duplicate_of_regional_event_id)
+    SELECT p_provider_batch_id,p_policy_hash,(pair->>'regional_event_id')::uuid,(pair->>'recipient_id')::uuid,measured_at,
+      (SELECT (d->>'duplicate_of')::uuid FROM jsonb_array_elements(duplicates) d WHERE d->>'regional_event_id'=pair->>'regional_event_id' AND d->>'recipient_id'=pair->>'recipient_id')
+    FROM jsonb_array_elements(canonical) pair;
+  SELECT count(DISTINCT (observation.regional_event_id,observation.recipient_id)) INTO total FROM public.swell_watch_shadow_demand_observations observation WHERE observation.duplicate_of_regional_event_id IS NULL AND observation.observed_at>measured_at-interval '24 hours' AND observation.observed_at<=measured_at;
+  INSERT INTO public.swell_watch_shadow_demand_runs(provider_batch_id,policy_hash,observed_at,recipient_events,recorded_pairs_24h) VALUES(p_provider_batch_id,p_policy_hash,measured_at,canonical,total);
+  RETURN QUERY SELECT measured_at,total;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."record_swell_watch_shadow_demand"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_pairs" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_swell_watch_study_evaluation"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_result" "jsonb", "p_scope_inputs" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE a public.swell_watch_study_authorities; run_at timestamptz; measured_at timestamptz; digest text; demand public.swell_watch_shadow_demand_runs; raw_batch uuid; scope jsonb; slot text; observed numeric; unavailable numeric; absent numeric; stored_zero_tuples bigint; stored_invalid_absent bigint; cycle_start bigint;
+BEGIN
+  SELECT i.run_utc,b.batch_id INTO run_at,raw_batch FROM public.swell_watch_provider_run_completed_batches b
+    JOIN public.swell_watch_provider_run_batches rb ON rb.id=b.batch_id
+    JOIN public.swell_watch_provider_run_issuances i ON i.id=rb.issuance_id WHERE b.id=p_provider_batch_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'completed study run required'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' ||
+    to_char(run_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  PERFORM 1 FROM public.beaches b WHERE b.id IN (SELECT (s->>'sourcePointId')::uuid FROM jsonb_array_elements(p_scope_inputs) s)
+    ORDER BY b.id FOR SHARE;
+  SELECT * INTO a FROM public.swell_watch_current_study_authority(p_policy_hash);
+  IF NOT FOUND THEN RAISE EXCEPTION 'current study authority and evidence required'; END IF;
+  cycle_start := public.swell_watch_study_cycle_start(a.epoch);
+  IF public.swell_watch_provider_evidence_is_current(p_provider_batch_id) IS DISTINCT FROM true
+    OR a.scope_inputs IS DISTINCT FROM p_scope_inputs
+    OR NOT EXISTS(SELECT 1 FROM public.swell_watch_provider_run_completed_batches b
+      JOIN public.swell_watch_study_acceptances s ON s.revision_set_id=b.revision_set_id
+      WHERE b.id=p_provider_batch_id AND s.authority_epoch BETWEEN cycle_start AND a.epoch) THEN
+    RAISE EXCEPTION 'current study authority and evidence required';
+  END IF;
+  IF jsonb_typeof(p_result) IS DISTINCT FROM 'object' OR octet_length(p_result::text)>131072
+    OR p_result->>'providerBatchId' IS DISTINCT FROM p_provider_batch_id::text
+    OR p_result->>'policyHash' IS DISTINCT FROM p_policy_hash
+    OR coalesce(p_result->>'status','') NOT IN ('evaluated','suppressed')
+    OR p_result->'enqueued' IS DISTINCT FROM '0'::jsonb
+    OR p_result->>'sendEligibility' IS DISTINCT FROM 'not_evaluated'
+    OR jsonb_typeof(p_result->'scopeOutcomes') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'invalid study result'; END IF;
+  IF jsonb_array_length(p_result->'scopeOutcomes')<>10
+    OR (SELECT count(DISTINCT s->>'sourcePointId') FROM jsonb_array_elements(p_result->'scopeOutcomes') s)<>10
+    OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_result->'scopeOutcomes') s WHERE
+      jsonb_typeof(s) IS DISTINCT FROM 'object' OR s-'sourcePointId'-'status'-'reason'<>'{}'::jsonb
+      OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(a.cohort) c WHERE c->>'sourcePointId'=s->>'sourcePointId')
+      OR coalesce(s->>'status','') NOT IN ('derived','suppressed')
+      OR (s->>'status'='derived' AND s->'reason' IS DISTINCT FROM 'null'::jsonb)
+      OR (s->>'status'='suppressed' AND (jsonb_typeof(s->'reason') IS DISTINCT FROM 'string'
+        OR char_length(btrim(s->>'reason')) NOT BETWEEN 1 AND 500))) THEN RAISE EXCEPTION 'invalid study scope outcomes'; END IF;
+  IF p_result->'derivation' IS NULL OR p_result->'derivation'='null'::jsonb THEN
+    IF p_result->>'status'<>'suppressed' THEN RAISE EXCEPTION 'evaluated study derivation required'; END IF;
+  ELSE
+    IF jsonb_typeof(p_result->'derivation') IS DISTINCT FROM 'object'
+      OR p_result->'derivation'->>'qualificationRule' IS DISTINCT FROM a.qualification_rule THEN
+      RAISE EXCEPTION 'study qualification rule differs from authority';
+    END IF;
+    IF jsonb_typeof(p_result #> '{derivation,scopes}') IS DISTINCT FROM 'array' THEN
+      RAISE EXCEPTION 'invalid study derivation scopes';
+    END IF;
+    IF (SELECT count(*) FROM jsonb_array_elements(p_result #> '{derivation,scopes}')) <>
+      (SELECT count(*) FROM jsonb_array_elements(p_result->'scopeOutcomes') s WHERE s->>'status'='derived')
+      OR (SELECT count(DISTINCT s->>'sourcePointId') FROM jsonb_array_elements(p_result #> '{derivation,scopes}') s) <>
+        jsonb_array_length(p_result #> '{derivation,scopes}') THEN RAISE EXCEPTION 'invalid study derivation scopes'; END IF;
+    FOR scope IN SELECT * FROM jsonb_array_elements(p_result #> '{derivation,scopes}') LOOP
+      IF jsonb_typeof(scope) IS DISTINCT FROM 'object' OR NOT EXISTS(
+        SELECT 1 FROM jsonb_array_elements(p_result->'scopeOutcomes') s
+        WHERE s->>'sourcePointId'=scope->>'sourcePointId' AND s->>'status'='derived') THEN
+        RAISE EXCEPTION 'invalid study derivation scopes';
+      END IF;
+      FOREACH slot IN ARRAY ARRAY['s1','s2'] LOOP
+        IF jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'observed']) IS DISTINCT FROM 'number'
+          OR jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'unavailable']) IS DISTINCT FROM 'number'
+          OR (scope #> ARRAY['partitionCoverage',slot,'absent'] IS NOT NULL
+            AND jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'absent']) IS DISTINCT FROM 'number') THEN
+          RAISE EXCEPTION 'invalid study partition coverage';
+        END IF;
+        observed := (scope #>> ARRAY['partitionCoverage',slot,'observed'])::numeric;
+        unavailable := (scope #>> ARRAY['partitionCoverage',slot,'unavailable'])::numeric;
+        absent := coalesce((scope #>> ARRAY['partitionCoverage',slot,'absent'])::numeric,0);
+        IF observed<0 OR unavailable<0 OR absent<0 OR trunc(observed)<>observed OR trunc(unavailable)<>unavailable OR trunc(absent)<>absent
+          OR observed+unavailable+absent<>168 OR (slot='s1' AND unavailable<>0) THEN
+          RAISE EXCEPTION 'invalid study partition coverage';
+        END IF;
+        SELECT count(*) FILTER (WHERE c.unavailable_reason IS NOT NULL AND c.source_slot=slot) INTO stored_zero_tuples
+          FROM public.swell_watch_provider_run_completed_batches b
+          JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_set_id=b.revision_set_id
+          JOIN public.swell_watch_provider_run_batch_scopes s ON s.id=m.scope_id AND s.batch_id=b.batch_id
+          JOIN public.swell_watch_provider_run_revision_components c ON c.revision_id=m.revision_id
+          WHERE b.id=p_provider_batch_id AND s.source_point_id::text=scope->>'sourcePointId';
+        IF slot='s1' AND a.qualification_rule<>'model_reported_swell_system_count.v1' AND stored_zero_tuples<>0 THEN RAISE EXCEPTION 'study partition coverage differs from retained components'; END IF;
+        IF a.qualification_rule='model_reported_swell_system_count.v1' AND absent IS DISTINCT FROM stored_zero_tuples THEN RAISE EXCEPTION 'study partition coverage differs from retained components'; END IF;
+        IF slot='s2' AND ((a.qualification_rule='complete_partitions.v1' AND p_result->>'status'='evaluated' AND (unavailable<>0 OR absent<>0))
+          OR (a.qualification_rule='primary_partition_with_retained_unavailable_secondary.v1' AND (unavailable IS DISTINCT FROM stored_zero_tuples OR absent<>0))
+          OR (a.qualification_rule='model_reported_partition_count.v1' AND (absent IS DISTINCT FROM stored_zero_tuples OR unavailable<>0))
+          OR (a.qualification_rule='model_reported_swell_system_count.v1' AND (absent IS DISTINCT FROM stored_zero_tuples OR unavailable<>0))) THEN
+          RAISE EXCEPTION 'study partition coverage differs from retained components';
+        END IF;
+      END LOOP;
+      IF a.qualification_rule='model_reported_partition_count.v1' THEN
+        SELECT count(*) INTO stored_invalid_absent
+        FROM public.swell_watch_provider_run_completed_batches b
+        JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_set_id=b.revision_set_id
+        JOIN public.swell_watch_provider_run_batch_scopes s ON s.id=m.scope_id AND s.batch_id=b.batch_id
+        JOIN public.swell_watch_provider_run_revision_components secondary ON secondary.revision_id=m.revision_id
+        LEFT JOIN public.swell_watch_provider_run_revision_components primary_component ON primary_component.revision_id=m.revision_id
+          AND primary_component.source_slot='s1' AND primary_component.forecast_at=secondary.forecast_at
+        WHERE b.id=p_provider_batch_id AND s.source_point_id::text=scope->>'sourcePointId'
+          AND secondary.source_slot='s2' AND secondary.unavailable_reason IS NOT NULL
+          AND (primary_component.unavailable_reason IS NOT NULL OR primary_component.revision_id IS NULL);
+        IF stored_invalid_absent<>0 THEN RAISE EXCEPTION 'absent partition requires a valid primary partition'; END IF;
+      END IF;
+    END LOOP;
+  END IF;
+    IF a.qualification_rule='model_reported_swell_system_count.v1' AND EXISTS(SELECT 1 FROM public.swell_watch_provider_run_completed_batches b
+      JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_set_id=b.revision_set_id
+      JOIN public.swell_watch_provider_run_batch_scopes s ON s.id=m.scope_id AND s.batch_id=b.batch_id
+      JOIN public.swell_watch_provider_run_revision_components primary_component ON primary_component.revision_id=m.revision_id
+      LEFT JOIN public.swell_watch_provider_run_revision_components secondary_component ON secondary_component.revision_id=m.revision_id AND secondary_component.source_slot='s2' AND secondary_component.forecast_at=primary_component.forecast_at
+      WHERE b.id=p_provider_batch_id AND s.source_point_id::text=scope->>'sourcePointId' AND primary_component.source_slot='s1' AND primary_component.unavailable_reason IS NOT NULL
+        AND (secondary_component.unavailable_reason IS NULL OR secondary_component.revision_id IS NULL)) THEN
+      RAISE EXCEPTION 'absent primary partition requires absent secondary partition';
+    END IF;
+  digest := encode(extensions.digest(p_result::text,'sha256'),'hex');
+  IF EXISTS(SELECT 1 FROM public.swell_watch_study_evaluations e WHERE e.provider_batch_id=p_provider_batch_id
+    AND e.policy_hash=p_policy_hash AND e.result_hash=digest) THEN RETURN '{"recorded":true}'::jsonb; END IF;
+  IF EXISTS(SELECT 1 FROM public.swell_watch_study_evaluations e WHERE e.provider_batch_id=p_provider_batch_id
+    AND e.policy_hash=p_policy_hash AND e.status='evaluated') THEN RAISE EXCEPTION 'successful study result is immutable'; END IF;
+  measured_at := clock_timestamp();
+  IF p_result->>'status'='evaluated' THEN
+    IF p_result->'evaluationIds' IS DISTINCT FROM jsonb_build_array('genuine_completed:'||raw_batch)
+      OR EXISTS(SELECT 1 FROM unnest(ARRAY['candidateCount','stableRegionalEventCount','preSafetyRecipientsThisEvaluation']) field
+        WHERE CASE WHEN jsonb_typeof(p_result->field)='number' THEN
+          (p_result->>field)::numeric<0 OR (p_result->>field)::numeric>9007199254740991
+          OR trunc((p_result->>field)::numeric)<>(p_result->>field)::numeric ELSE true END)
+      OR jsonb_typeof(p_result->'suppressionReasons') IS DISTINCT FROM 'object'
+      OR jsonb_typeof(p_result->'safety') IS DISTINCT FROM 'object'
+      OR p_result->'projectedSendsRolling24Hours' IS DISTINCT FROM 'null'::jsonb
+      OR p_result->'deliveryHealth' IS DISTINCT FROM 'null'::jsonb THEN
+      RAISE EXCEPTION 'complete successful study result required';
+    END IF;
+    IF EXISTS(SELECT 1 FROM jsonb_each(p_result->'suppressionReasons') reason
+      WHERE char_length(btrim(reason.key)) NOT BETWEEN 1 AND 200 OR CASE WHEN jsonb_typeof(reason.value)='number' THEN
+        (reason.value::text)::numeric<0 OR (reason.value::text)::numeric>9007199254740991
+        OR trunc((reason.value::text)::numeric)<>(reason.value::text)::numeric ELSE true END)
+      OR (p_result->'safety')-'reasonCode'-'missingMetrics'<>'{}'::jsonb
+      OR p_result #> '{safety,missingMetrics}' IS DISTINCT FROM '["projected_send_window","delivery_health"]'::jsonb
+      OR NOT ((p_result #> '{safety,reasonCode}')='null'::jsonb OR
+        (p_result #>> '{safety,reasonCode}')=ANY(ARRAY['invalid_hold_input','authority_invalid','candidate_cap_exceeded',
+          'recipient_cap_exceeded','projected_send_cap_exceeded','data_discontinuity','material_disagreement','forecast_stale','provider_failure_rate']))
+      OR NOT (p_result->'safety' ? 'reasonCode') THEN RAISE EXCEPTION 'invalid study safety or suppression counters'; END IF;
+    SELECT * INTO demand FROM public.swell_watch_shadow_demand_runs d WHERE d.provider_batch_id=p_provider_batch_id AND d.policy_hash=p_policy_hash;
+    IF NOT FOUND OR p_result->'reason' IS DISTINCT FROM 'null'::jsonb
+      OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_result->'scopeOutcomes') s WHERE s->>'status'='derived')
+      OR jsonb_typeof(p_result #> '{recordedDemand,observedAt}') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(p_result #> '{recordedDemand,recipientEventPairs24Hours}') IS DISTINCT FROM 'number'
+      OR p_result #>> '{recordedDemand,observedAt}' IS NULL
+      OR (p_result #>> '{recordedDemand,observedAt}')::timestamptz IS DISTINCT FROM demand.observed_at
+      OR (p_result #>> '{recordedDemand,recipientEventPairs24Hours}')::bigint IS DISTINCT FROM demand.recorded_pairs_24h
+      OR measured_at<run_at OR measured_at>run_at+make_interval(secs=>(SELECT
+        (p.policy_values #>> '{staleness,maximum_forecast_age_hours}')::double precision*3600
+        FROM public.swell_watch_evaluation_policies p ORDER BY p.epoch DESC LIMIT 1)) THEN
+      RAISE EXCEPTION 'fresh evaluated study demand and complete outcomes required';
+    END IF;
+  ELSIF jsonb_typeof(p_result->'reason') IS DISTINCT FROM 'string' OR char_length(btrim(p_result->>'reason')) NOT BETWEEN 1 AND 500 THEN
+    RAISE EXCEPTION 'suppression reason required';
+  END IF;
+  PERFORM set_config('app.swell_watch_internal_write','on',true);
+  INSERT INTO public.swell_watch_study_evaluations(provider_batch_id,authority_epoch,policy_hash,result,result_hash,status,recorded_at)
+    VALUES(p_provider_batch_id,a.epoch,p_policy_hash,p_result,digest,p_result->>'status',measured_at);
+  RETURN '{"recorded":true}'::jsonb;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."record_swell_watch_study_evaluation"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_result" "jsonb", "p_scope_inputs" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_swell_watch_study_recovery_failure"("p_revision_set_id" "uuid", "p_code" "text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+BEGIN
+  IF p_revision_set_id IS NULL OR p_code IS NULL OR char_length(btrim(p_code)) NOT BETWEEN 1 AND 100 THEN
+    RAISE EXCEPTION 'invalid study recovery failure';
+  END IF;
+  PERFORM set_config('app.swell_watch_internal_write','on',true);
+  INSERT INTO public.swell_watch_study_recovery_failures(revision_set_id,code) VALUES(p_revision_set_id,btrim(p_code));
+END;
+$$;
+
+
+ALTER FUNCTION "public"."record_swell_watch_study_recovery_failure"("p_revision_set_id" "uuid", "p_code" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_trial_feedback_web"("p_user_id" "uuid", "p_snapshot" "jsonb", "p_attention" "text" DEFAULT NULL::"text") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE r public.trial_feedback_web_recoveries%ROWTYPE; matches boolean; product text;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('trial-feedback:'||p_user_id::text,0));
+ SELECT * INTO r FROM public.trial_feedback_web_recoveries WHERE user_id=p_user_id FOR UPDATE;
+ IF NOT FOUND OR r.state='closed' THEN RETURN; END IF;
+ IF r.extension_verified_at IS NOT NULL AND now()>=r.expected_ends_at THEN
+   UPDATE public.trial_feedback_web_recoveries SET state='closed',last_checked_at=now(),attention=NULL WHERE user_id=p_user_id; RETURN;
+ END IF;
+ matches:=r.handoff_at IS NOT NULL AND p_snapshot->>'id'=r.subscription_id
+   AND p_snapshot->>'customer_id'=p_user_id::text AND p_snapshot->>'original_customer_id'=p_user_id::text
+   AND p_snapshot->>'product_id'=r.baseline->>'product_id' AND p_snapshot->>'store_subscription_identifier'=r.baseline->>'store_subscription_identifier'
+   AND p_snapshot->>'store'='rc_billing' AND p_snapshot->>'environment'='production' AND p_snapshot->>'ownership'='purchased'
+   AND p_snapshot->>'status'='trialing' AND p_snapshot->>'gives_access'='true' AND p_snapshot->>'pending_payment'='false'
+   AND coalesce(p_snapshot->'pending_changes','null'::jsonb)='null'::jsonb AND coalesce(p_snapshot->'product_change','null'::jsonb)='null'::jsonb
+   AND p_snapshot->'total_revenue_in_usd'->>'gross'='0' AND p_snapshot->'total_revenue_in_usd'->>'currency'='USD'
+   AND p_snapshot->>'starts_at'=r.baseline->>'starts_at'
+   AND to_timestamp((p_snapshot->>'current_period_starts_at')::numeric/1000)=r.original_starts_at
+   AND to_timestamp((p_snapshot->>'current_period_ends_at')::numeric/1000)=r.expected_ends_at
+   AND p_snapshot->>'auto_renewal_status' IN ('will_renew','will_not_renew');
+ IF coalesce(matches,false) THEN
+   UPDATE public.trial_feedback_web_recoveries SET state=CASE WHEN p_snapshot->>'auto_renewal_status'='will_renew' THEN 'renewing' ELSE 'extended' END,
+     extension_verified_at=coalesce(extension_verified_at,now()),renewal_verified_at=CASE WHEN p_snapshot->>'auto_renewal_status'='will_renew' THEN coalesce(renewal_verified_at,now()) ELSE renewal_verified_at END,
+     attention=NULL,last_observed_at=now(),last_checked_at=now(),next_check_at=now()+interval '10 minutes' WHERE user_id=p_user_id;
+   -- Only mirror independently verified provider access onto this same original trial.
+   -- A later paid period, different product or lifetime grant must never be overwritten.
+   SELECT product_id INTO product FROM public.trial_feedback_submissions WHERE id=r.submission_id;
+   UPDATE public.user_entitlements SET is_pro=true,is_trialing=true,trial_ends_at=r.expected_ends_at,expires_at=r.expected_ends_at,
+     will_renew=(p_snapshot->>'auto_renewal_status'='will_renew'),billing_issue=false,lapsed_at=NULL
+   WHERE user_id=p_user_id AND product_id=product
+     AND (trial_ends_at IN (r.original_ends_at,r.expected_ends_at) OR expires_at=r.original_ends_at)
+     AND (expires_at IS NULL OR expires_at<=r.expected_ends_at);
+   IF FOUND THEN
+     UPDATE public.trial_feedback_web_recoveries SET mirror_verified_at=now() WHERE user_id=p_user_id;
+   ELSE
+     UPDATE public.trial_feedback_web_recoveries SET state='review_required',attention='entitlement_mirror_conflict' WHERE user_id=p_user_id;
+   END IF;
+
+ ELSE
+   UPDATE public.trial_feedback_web_recoveries SET
+     state=CASE WHEN handoff_at<now()-interval '10 minutes' OR (p_attention IS NOT NULL AND handoff_at IS NOT NULL) THEN 'review_required' ELSE state END,
+     attention=CASE WHEN p_attention IS NOT NULL THEN left(p_attention,80) WHEN handoff_at<now()-interval '10 minutes' THEN 'extension_unconfirmed' ELSE attention END,
+     last_checked_at=now(),next_check_at=now()+interval '10 minutes' WHERE user_id=p_user_id;
+ END IF;
+END; $$;
+
+
+ALTER FUNCTION "public"."record_trial_feedback_web"("p_user_id" "uuid", "p_snapshot" "jsonb", "p_attention" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."recover_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_idempotency_key" "uuid") RETURNS boolean
@@ -13689,7 +16948,7 @@ $$;
 ALTER FUNCTION "public"."recover_owned_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_idempotency_key" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."redeem_install_attribution_token"("p_token_hash" "text", "p_redemption_key_hash" "text") RETURNS TABLE("source" "text", "surface" "text", "placement" "text", "campaign" "text", "created_at" timestamp with time zone, "expires_at" timestamp with time zone)
+CREATE OR REPLACE FUNCTION "public"."redeem_install_attribution_token"("p_token_hash" "text", "p_redemption_key_hash" "text") RETURNS TABLE("source" "text", "surface" "text", "placement" "text", "campaign" "text", "created_at" timestamp with time zone, "expires_at" timestamp with time zone, "handoff_id" "uuid", "handoff_context" "jsonb")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
     AS $_$
@@ -13715,7 +16974,9 @@ BEGIN
     token.placement,
     token.campaign,
     token.created_at,
-    token.expires_at;
+    token.expires_at,
+    token.handoff_id,
+    token.handoff_context;
 
   GET DIAGNOSTICS matched_rows = ROW_COUNT;
   IF matched_rows > 0 THEN
@@ -13738,7 +16999,9 @@ BEGIN
     token.placement,
     token.campaign,
     token.created_at,
-    token.expires_at
+    token.expires_at,
+    token.handoff_id,
+    token.handoff_context
   FROM public.install_attribution_tokens AS token
   WHERE token.token_hash = p_token_hash
     AND token.consumed_at IS NOT NULL
@@ -13762,7 +17025,7 @@ $_$;
 ALTER FUNCTION "public"."redeem_install_attribution_token"("p_token_hash" "text", "p_redemption_key_hash" "text") OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."redeem_install_attribution_token"("p_token_hash" "text", "p_redemption_key_hash" "text") IS 'Atomically consumes a valid token and lets the same hashed retry key recover a lost HTTP response.';
+COMMENT ON FUNCTION "public"."redeem_install_attribution_token"("p_token_hash" "text", "p_redemption_key_hash" "text") IS 'Atomically consumes a valid token and returns optional bounded exact-call context to the same hashed retry key.';
 
 
 
@@ -13778,6 +17041,19 @@ $$;
 
 
 ALTER FUNCTION "public"."refresh_beach_ml_baseline"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."refresh_beach_observation_stations"() RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY public.beach_observation_stations;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."refresh_beach_observation_stations"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."refresh_enhanced_forecasts_for_active_beaches"() RETURNS "json"
@@ -13868,6 +17144,51 @@ COMMENT ON FUNCTION "public"."refresh_enhanced_forecasts_for_active_beaches"() I
 
 
 
+CREATE OR REPLACE FUNCTION "public"."refresh_lifecycle_enrollment"() RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE affected integer;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739301);
+ -- An approved account policy covers future signups only. Historical imports need reviewed evidence.
+ INSERT INTO public.email_contact_state(user_id,account_permission_reviewed_at,account_permission_reference,history_reviewed_at)
+ SELECT u.id,now(),c.account_policy_reference,c.history_cutover_at
+ FROM auth.users u JOIN public.profiles p ON p.id=u.id CROSS JOIN public.email_contact_controls c
+ JOIN public.email_campaigns campaign ON campaign.id=c.automation_campaign
+ WHERE c.singleton AND campaign.status='approved' AND campaign.approved_at<=now() AND campaign.expires_at>now()
+ AND c.history_cutover_at<=now() AND u.created_at>=c.history_cutover_at AND nullif(trim(c.history_cutover_reference),'') IS NOT NULL
+ AND nullif(trim(c.account_policy_reference),'') IS NOT NULL AND u.email_confirmed_at IS NOT NULL
+ AND lower(trim(u.email))=lower(trim(p.email)) AND p.analytics_is_real_user=true AND p.deleted_at IS NULL AND p.notif_email_enabled=true
+ AND NOT EXISTS(SELECT 1 FROM public.email_contact_state s WHERE s.user_id=u.id)
+ AND NOT EXISTS(SELECT 1 FROM public.user_email_prefs WHERE user_id=u.id AND email_frequency='off')
+ AND NOT EXISTS(SELECT 1 FROM public.email_suppression_list WHERE lower(trim(email))=lower(trim(u.email)))
+ ORDER BY u.created_at,u.id LIMIT 50 ON CONFLICT(user_id) DO NOTHING;
+ UPDATE public.email_contact_state s SET approved_campaign=c.automation_campaign,
+ history_reviewed_at=coalesce(s.history_reviewed_at,c.history_cutover_at)
+ FROM public.email_contact_controls c
+ WHERE c.singleton AND s.user_id IN (
+  SELECT candidate.user_id FROM public.email_contact_state candidate
+  JOIN auth.users u ON u.id=candidate.user_id JOIN public.profiles p ON p.id=u.id
+  JOIN public.email_campaigns campaign ON campaign.id=c.automation_campaign
+  WHERE campaign.status='approved' AND campaign.approved_at<=now() AND campaign.expires_at>now()
+  AND c.history_cutover_at<=now() AND nullif(trim(c.history_cutover_reference),'') IS NOT NULL
+  AND public.lifecycle_permission_verified(candidate) AND candidate.paused_at IS NULL
+  AND (candidate.history_reviewed_at<=now() OR u.created_at>=c.history_cutover_at)
+  AND candidate.approved_campaign IS DISTINCT FROM c.automation_campaign
+  AND p.analytics_is_real_user=true AND p.deleted_at IS NULL AND p.notif_email_enabled=true AND u.email_confirmed_at IS NOT NULL
+  AND lower(trim(u.email))=lower(trim(p.email))
+  AND NOT EXISTS(SELECT 1 FROM public.user_email_prefs WHERE user_id=u.id AND email_frequency='off')
+  AND NOT EXISTS(SELECT 1 FROM public.email_suppression_list WHERE lower(trim(email))=lower(trim(u.email)))
+  ORDER BY u.created_at,u.id LIMIT 50);
+ GET DIAGNOSTICS affected=ROW_COUNT;
+ RETURN affected;
+END; $$;
+
+
+ALTER FUNCTION "public"."refresh_lifecycle_enrollment"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."refresh_mv_beach_amenities"() RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -13946,6 +17267,202 @@ $$;
 
 
 ALTER FUNCTION "public"."regional_recommendation_hold_canonical_payload"("p_row" "public"."regional_recommendation_holds") OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."user_devices" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "platform" "text" NOT NULL,
+    "device_token" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "app_version" "text",
+    "os_version" "text",
+    "expo_sdk" "text",
+    "timezone" "text",
+    "build_number" "text",
+    "expo_update_id" character varying(64),
+    "expo_channel" character varying(64),
+    "expo_runtime_version" character varying(64),
+    "expo_is_embedded_launch" boolean,
+    "expo_is_emergency_launch" boolean,
+    "installation_id" "text",
+    "retired_at" timestamp with time zone,
+    "retired_reason" "text",
+    CONSTRAINT "user_devices_platform_check" CHECK (("platform" = ANY (ARRAY['ios'::"text", 'android'::"text", 'web'::"text"])))
+);
+
+
+ALTER TABLE "public"."user_devices" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."user_devices" IS 'Legacy rows with NULL installation_id remain additive compatibility data; the hard physical-install delivery invariant applies after explicit installation adoption/retirement.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."timezone" IS 'Optional IANA timezone captured from the registering browser or native device.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."build_number" IS 'Optional native binary build number captured from iOS CFBundleVersion or Android versionCode.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."expo_update_id" IS 'Optional non-secret Expo Updates update ID reported by the native client.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."expo_channel" IS 'Optional Expo Updates channel reported by the native client.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."expo_runtime_version" IS 'Optional Expo Updates runtime version reported by the native client.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."expo_is_embedded_launch" IS 'Whether the native client launched the update embedded in the binary.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."expo_is_emergency_launch" IS 'Whether Expo Updates reported an emergency launch.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."installation_id" IS 'Stable app-install identity. NULL legacy rows are intentionally not grouped or guessed.';
+
+
+
+COMMENT ON COLUMN "public"."user_devices"."retired_at" IS 'Retired rows remain immutable history and are excluded from delivery.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."register_device_installation"("p_user_id" "uuid", "p_installation_id" "text", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "public"."user_devices"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_row public.user_devices;
+  v_installation_lock bigint;
+  v_token_lock bigint;
+BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'device registration requires authenticated owner';
+  END IF;
+  IF p_installation_id IS NULL OR length(trim(p_installation_id)) = 0
+    OR p_device_token IS NULL OR length(trim(p_device_token)) = 0 THEN
+    RAISE EXCEPTION 'installation_id and device_token are required';
+  END IF;
+  -- Every registration takes the same two lock classes in numeric order.
+  -- Sorting prevents crossed installation/token transfers from deadlocking.
+  v_installation_lock := hashtextextended('installation:' || p_installation_id, 0);
+  v_token_lock := hashtextextended('token:' || p_device_token, 0);
+  PERFORM pg_advisory_xact_lock(LEAST(v_installation_lock, v_token_lock));
+  IF v_installation_lock <> v_token_lock THEN
+    PERFORM pg_advisory_xact_lock(GREATEST(v_installation_lock, v_token_lock));
+  END IF;
+  -- Exact identity is known for an installation. A caller authenticated for
+  -- the account that possesses this provider token may safely retire every
+  -- other active row holding that exact token, including legacy NULL-
+  -- installation rows. This preserves audit history without guessing which
+  -- legacy rows belong to another physical installation.
+  UPDATE public.user_devices
+  SET retired_at = now(), retired_reason = 'installation_transferred'
+  WHERE retired_at IS NULL
+    AND (installation_id = p_installation_id OR device_token = p_device_token)
+    -- IS NOT DISTINCT FROM avoids SQL NULL turning the exclusion into
+    -- UNKNOWN: same-user legacy NULL-install rows holding this token retire.
+    AND NOT (
+      user_id IS NOT DISTINCT FROM p_user_id
+      AND installation_id IS NOT DISTINCT FROM p_installation_id
+      AND p_installation_id IS NOT NULL
+    );
+  INSERT INTO public.user_devices (user_id, installation_id, platform, device_token,
+    app_version, build_number, os_version, expo_sdk, timezone,
+    expo_update_id, expo_channel, expo_runtime_version,
+    expo_is_embedded_launch, expo_is_emergency_launch, updated_at)
+  VALUES (p_user_id, p_installation_id, p_platform, p_device_token,
+    p_metadata->>'app_version', p_metadata->>'build_number', p_metadata->>'os_version',
+    p_metadata->>'expo_sdk', p_metadata->>'timezone',
+    p_metadata->>'expo_update_id', p_metadata->>'expo_channel',
+    p_metadata->>'expo_runtime_version',
+    (p_metadata->>'expo_is_embedded_launch')::boolean,
+    (p_metadata->>'expo_is_emergency_launch')::boolean, now())
+  ON CONFLICT (installation_id) WHERE installation_id IS NOT NULL AND retired_at IS NULL
+  DO UPDATE SET user_id = excluded.user_id, platform = excluded.platform,
+    device_token = excluded.device_token,
+    app_version = CASE WHEN p_metadata ? 'app_version' THEN excluded.app_version ELSE user_devices.app_version END,
+    build_number = CASE WHEN p_metadata ? 'build_number' THEN excluded.build_number ELSE user_devices.build_number END,
+    os_version = CASE WHEN p_metadata ? 'os_version' THEN excluded.os_version ELSE user_devices.os_version END,
+    expo_sdk = CASE WHEN p_metadata ? 'expo_sdk' THEN excluded.expo_sdk ELSE user_devices.expo_sdk END,
+    timezone = CASE WHEN p_metadata ? 'timezone' THEN excluded.timezone ELSE user_devices.timezone END,
+    expo_update_id = CASE WHEN p_metadata ? 'expo_update_id' THEN excluded.expo_update_id ELSE user_devices.expo_update_id END,
+    expo_channel = CASE WHEN p_metadata ? 'expo_channel' THEN excluded.expo_channel ELSE user_devices.expo_channel END,
+    expo_runtime_version = CASE WHEN p_metadata ? 'expo_runtime_version' THEN excluded.expo_runtime_version ELSE user_devices.expo_runtime_version END,
+    expo_is_embedded_launch = CASE WHEN p_metadata ? 'expo_is_embedded_launch' THEN excluded.expo_is_embedded_launch ELSE user_devices.expo_is_embedded_launch END,
+    expo_is_emergency_launch = CASE WHEN p_metadata ? 'expo_is_emergency_launch' THEN excluded.expo_is_emergency_launch ELSE user_devices.expo_is_emergency_launch END,
+    retired_at = NULL, retired_reason = NULL, updated_at = now()
+  RETURNING * INTO v_row;
+  RETURN v_row;
+END $$;
+
+
+ALTER FUNCTION "public"."register_device_installation"("p_user_id" "uuid", "p_installation_id" "text", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."register_legacy_device_token"("p_user_id" "uuid", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "public"."user_devices"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_row public.user_devices;
+BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'device registration requires authenticated owner';
+  END IF;
+  IF p_device_token IS NULL OR length(trim(p_device_token)) = 0 THEN
+    RAISE EXCEPTION 'device_token is required';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('token:' || p_device_token, 0));
+
+  -- Preserve any retired row as audit history. Re-activate/update only an
+  -- already-active row owned by this user; otherwise insert a fresh legacy
+  -- compatibility row under the active partial index.
+  UPDATE public.user_devices
+  SET platform = p_platform,
+    app_version = CASE WHEN p_metadata ? 'app_version' THEN p_metadata->>'app_version' ELSE app_version END,
+    build_number = CASE WHEN p_metadata ? 'build_number' THEN p_metadata->>'build_number' ELSE build_number END,
+    os_version = CASE WHEN p_metadata ? 'os_version' THEN p_metadata->>'os_version' ELSE os_version END,
+    expo_sdk = CASE WHEN p_metadata ? 'expo_sdk' THEN p_metadata->>'expo_sdk' ELSE expo_sdk END,
+    timezone = CASE WHEN p_metadata ? 'timezone' THEN p_metadata->>'timezone' ELSE timezone END,
+    expo_update_id = CASE WHEN p_metadata ? 'expo_update_id' THEN p_metadata->>'expo_update_id' ELSE expo_update_id END,
+    expo_channel = CASE WHEN p_metadata ? 'expo_channel' THEN p_metadata->>'expo_channel' ELSE expo_channel END,
+    expo_runtime_version = CASE WHEN p_metadata ? 'expo_runtime_version' THEN p_metadata->>'expo_runtime_version' ELSE expo_runtime_version END,
+    expo_is_embedded_launch = CASE WHEN p_metadata ? 'expo_is_embedded_launch' THEN (p_metadata->>'expo_is_embedded_launch')::boolean ELSE expo_is_embedded_launch END,
+    expo_is_emergency_launch = CASE WHEN p_metadata ? 'expo_is_emergency_launch' THEN (p_metadata->>'expo_is_emergency_launch')::boolean ELSE expo_is_emergency_launch END,
+    updated_at = now()
+  WHERE user_id = p_user_id
+    AND device_token = p_device_token
+    AND installation_id IS NULL
+    AND retired_at IS NULL
+  RETURNING * INTO v_row;
+  IF FOUND THEN RETURN v_row; END IF;
+
+  INSERT INTO public.user_devices (user_id, platform, device_token,
+    app_version, build_number, os_version, expo_sdk, timezone,
+    expo_update_id, expo_channel, expo_runtime_version,
+    expo_is_embedded_launch, expo_is_emergency_launch, updated_at)
+  VALUES (p_user_id, p_platform, p_device_token,
+    p_metadata->>'app_version', p_metadata->>'build_number',
+    p_metadata->>'os_version', p_metadata->>'expo_sdk',
+    p_metadata->>'timezone', p_metadata->>'expo_update_id',
+    p_metadata->>'expo_channel', p_metadata->>'expo_runtime_version',
+    (p_metadata->>'expo_is_embedded_launch')::boolean,
+    (p_metadata->>'expo_is_emergency_launch')::boolean, now())
+  RETURNING * INTO v_row;
+  RETURN v_row;
+END $$;
+
+
+ALTER FUNCTION "public"."register_legacy_device_token"("p_user_id" "uuid", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."reject_regional_recommendation_hold_mutation"() RETURNS "trigger"
@@ -14117,6 +17634,23 @@ $$;
 
 
 ALTER FUNCTION "public"."release_stuck_community_spot_photo_uploads_v1"("p_photo_ids" "uuid"[]) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."release_swell_watch_collection_lease"("p_owner" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+BEGIN
+  IF p_owner IS NULL THEN RAISE EXCEPTION 'collection owner required'; END IF;
+  DELETE FROM public.swell_watch_collection_lease WHERE id=1 AND owner_token=p_owner;
+  RETURN FOUND;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."release_swell_watch_collection_lease"("p_owner" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."remove_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_idempotency_key" "uuid") RETURNS TABLE("photo_id" "uuid", "status" "text", "recoverable_until" timestamp with time zone)
@@ -14376,6 +17910,72 @@ $$;
 ALTER FUNCTION "public"."report_community_spot_photo_v1"("p_photo_id" "uuid", "p_reporter_id" "uuid", "p_reason" "text", "p_idempotency_key" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."request_pro_offer_claim"("p_user_id" "uuid", "p_code_hash" "text") RETURNS "void"
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ UPDATE public.pro_offer_awards SET claim_requested_at=coalesce(claim_requested_at,now()),next_attempt_at=coalesce(next_attempt_at,now())
+ WHERE user_id=p_user_id AND code_hash=p_code_hash;
+$$;
+
+
+ALTER FUNCTION "public"."request_pro_offer_claim"("p_user_id" "uuid", "p_code_hash" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."requeue_session_conditions"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  wind_changed BOOLEAN;
+BEGIN
+  wind_changed :=
+    NEW.wind_speed_mph IS DISTINCT FROM OLD.wind_speed_mph
+    OR NEW.wind_direction IS DISTINCT FROM OLD.wind_direction
+    OR NEW.wind_direction_deg IS DISTINCT FROM OLD.wind_direction_deg;
+  -- The job fills wind and raises the marker in one write; any other wind change is the user's.
+  IF wind_changed AND NOT (NEW.conditions_wind_filled AND NOT OLD.conditions_wind_filled) THEN
+    NEW.conditions_wind_filled := false;
+  END IF;
+
+  IF NEW.beach_id IS NOT DISTINCT FROM OLD.beach_id AND NEW.arrival_time IS NOT DISTINCT FROM OLD.arrival_time THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.conditions_source IS DISTINCT FROM 'client' THEN
+    NEW.swell_period_s := NULL;
+    NEW.swell_direction_deg := NULL;
+    NEW.swell_height_ft := NULL;
+    NEW.offshore_swell_period_s := NULL;
+    NEW.offshore_swell_direction_deg := NULL;
+    NEW.offshore_swell_height_ft := NULL;
+    NEW.conditions_forecast_at := NULL;
+    NEW.conditions_source := NULL;
+  END IF;
+  IF NEW.conditions_wind_filled THEN
+    NEW.wind_speed_mph := NULL;
+    NEW.wind_direction := NULL;
+    NEW.wind_direction_deg := NULL;
+    NEW.conditions_wind_filled := false;
+  END IF;
+  NEW.nearshore_point_id := NULL;
+  NEW.nearshore_observed_at := NULL;
+  NEW.nearshore_hs_m := NULL;
+  NEW.nearshore_tp_s := NULL;
+  NEW.nearshore_dp_deg := NULL;
+  NEW.nearshore_dm_deg := NULL;
+  NEW.nearshore_swellband_tm_s := NULL;
+  NEW.nearshore_focus_ratio := NULL;
+  NEW.nearshore_source := NULL;
+  NEW.conditions_queued_at := now();
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."requeue_session_conditions"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."reserve_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_target_type" "text", "p_target_id" "uuid", "p_visibility" "text", "p_storage_path" "text", "p_terms_version" "text", "p_rights_confirmed" boolean, "p_idempotency_key" "uuid") RETURNS TABLE("photo_id" "uuid", "storage_path" "text", "replay" boolean, "processing_status" "text")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -14527,6 +18127,96 @@ $$;
 ALTER FUNCTION "public"."reserve_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_target_type" "text", "p_target_id" "uuid", "p_visibility" "text", "p_storage_path" "text", "p_terms_version" "text", "p_rights_confirmed" boolean, "p_idempotency_key" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."reserve_pro_offer"("p_user_id" "uuid", "p_code_hash" "text", "p_entitlement_id" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE a public.pro_offer_awards%ROWTYPE; p public.pro_offer_programs%ROWTYPE; ids uuid[]; token uuid; expiry timestamptz;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739302);
+ SELECT * INTO a FROM public.pro_offer_awards WHERE user_id=p_user_id AND code_hash=p_code_hash FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('status','not_found'); END IF;
+ IF a.state='verified' THEN RETURN jsonb_build_object('status','verified','expires_at',a.expires_at,'mirror_verified',a.mirror_verified_at IS NOT NULL); END IF;
+ IF a.state IN ('handoff_started','unknown') THEN RETURN jsonb_build_object('status','reconciliation_required'); END IF;
+ IF EXISTS(SELECT 1 FROM public.pro_offer_awards WHERE user_id=p_user_id AND state IN ('reserved','handoff_started','unknown') AND (id<>a.id OR reserved_at>now()-interval '2 minutes')) THEN RETURN jsonb_build_object('status','busy'); END IF;
+ SELECT * INTO p FROM public.pro_offer_programs WHERE id=a.program_id;
+ IF NOT p.enabled THEN RETURN jsonb_build_object('status','paused'); END IF;
+ -- An issued/earned right survives campaign expiry and email opt-out.
+ IF a.earned_at IS NULL THEN
+  SELECT array_agg(id) INTO ids FROM (SELECT id FROM public.sessions s WHERE user_id=p_user_id AND status='completed' AND deleted_at IS NULL AND NOT public.is_historical_file_import(s.source, s.arrival_time, s.duration_minutes, s.created_at) ORDER BY id LIMIT 5) completed;
+  IF coalesce(cardinality(ids),0)<5 THEN RETURN jsonb_build_object('status','not_earned','completed_sessions',coalesce(cardinality(ids),0)); END IF;
+  UPDATE public.pro_offer_awards SET earned_at=now(),session_ids=ids WHERE id=a.id;
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.user_entitlements WHERE user_id=p_user_id AND (is_pro OR is_trialing) AND (expires_at IS NULL OR expires_at>now()))
+ OR EXISTS(SELECT 1 FROM public.earned_pro_grants WHERE user_id=p_user_id AND revoked_at IS NULL AND expires_at>now()) THEN
+  UPDATE public.pro_offer_awards SET state='held',reason='active_access' WHERE id=a.id;
+  RETURN jsonb_build_object('status','held_active_access');
+ END IF;
+ IF nullif(trim(p_entitlement_id),'') IS NULL THEN RAISE EXCEPTION 'Missing entitlement'; END IF;
+ token:=gen_random_uuid();
+ -- UTC calendar arithmetic clamps month ends and avoids daylight-saving drift.
+ expiry:=((date_trunc('second',now()) AT TIME ZONE 'UTC')+make_interval(months=>p.months)) AT TIME ZONE 'UTC';
+ UPDATE public.pro_offer_awards SET state='reserved',reason=NULL,reservation_id=token,reserved_at=now(),expires_at=expiry,entitlement_id=p_entitlement_id WHERE id=a.id;
+ RETURN jsonb_build_object('status','reserved','award_id',a.id,'reservation_id',token,'user_id',a.user_id,'expires_at',expiry,'entitlement_id',p_entitlement_id);
+END; $$;
+
+
+ALTER FUNCTION "public"."reserve_pro_offer"("p_user_id" "uuid", "p_code_hash" "text", "p_entitlement_id" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."reserve_trial_feedback_offer"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE context jsonb; f public.trial_feedback_submissions%ROWTYPE;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('trial-feedback:'||p_user_id::text,0));
+ context:=public.trial_feedback_context(p_user_id);
+ IF p_request_id IS NULL OR context->'offer' IS NULL OR context->'offer'='null'::jsonb
+   OR context->'offer'->>'terms_version' IS DISTINCT FROM p_terms_version THEN RAISE EXCEPTION 'feedback_offer_unavailable'; END IF;
+ SELECT * INTO f FROM public.trial_feedback_submissions WHERE user_id=p_user_id FOR UPDATE;
+ IF f.state='submitted' THEN
+   UPDATE public.trial_feedback_submissions SET state='reserved',reservation_id=p_request_id,reserved_at=now(),
+     offer_identifier=context->'offer'->>'offer_identifier',terms_version=p_terms_version,
+     expected_expires_at=(context->'offer'->>'free_ends_at')::timestamptz WHERE id=f.id;
+ ELSIF f.reservation_id IS DISTINCT FROM p_request_id THEN RAISE EXCEPTION 'feedback_offer_pending'; END IF;
+ RETURN public.trial_feedback_context(p_user_id)||jsonb_build_object('reservation_id',p_request_id);
+END; $$;
+
+
+ALTER FUNCTION "public"."reserve_trial_feedback_offer"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."reserve_trial_feedback_web"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text", "p_snapshot" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE context jsonb; offer jsonb; f public.trial_feedback_submissions%ROWTYPE;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('trial-feedback:'||p_user_id::text,0));
+ IF EXISTS(SELECT 1 FROM public.trial_feedback_web_recoveries WHERE user_id=p_user_id) THEN RETURN public.trial_feedback_web_context(p_user_id); END IF;
+ context:=public.trial_feedback_web_context(p_user_id); offer:=context->'offer';
+ IF offer IS NULL OR offer='null'::jsonb OR offer->>'store'<>'RC_BILLING' OR offer->>'terms_version' IS DISTINCT FROM p_terms_version
+   OR (offer->>'trial_ends_at')::timestamptz<=now()+interval '5 minutes' THEN RAISE EXCEPTION 'web_offer_unavailable'; END IF;
+ IF p_snapshot->>'customer_id' IS DISTINCT FROM p_user_id::text OR p_snapshot->>'original_customer_id' IS DISTINCT FROM p_user_id::text
+   OR p_snapshot->>'store' IS DISTINCT FROM 'rc_billing' OR p_snapshot->>'environment' IS DISTINCT FROM 'production'
+   OR p_snapshot->>'status' IS DISTINCT FROM 'trialing' OR p_snapshot->>'auto_renewal_status' IS DISTINCT FROM 'will_not_renew'
+   OR p_snapshot->>'gives_access' IS DISTINCT FROM 'true' OR p_snapshot->>'pending_payment' IS DISTINCT FROM 'false'
+   OR p_snapshot->>'ownership' IS DISTINCT FROM 'purchased' OR p_snapshot->'total_revenue_in_usd'->>'gross' IS DISTINCT FROM '0'
+   OR to_timestamp((p_snapshot->>'current_period_starts_at')::numeric/1000) IS DISTINCT FROM (offer->>'original_starts_at')::timestamptz
+   OR to_timestamp((p_snapshot->>'current_period_ends_at')::numeric/1000) IS DISTINCT FROM (offer->>'trial_ends_at')::timestamptz
+ THEN RAISE EXCEPTION 'web_trial_mismatch'; END IF;
+ PERFORM public.reserve_trial_feedback_offer(p_user_id,p_request_id,p_terms_version);
+ SELECT * INTO f FROM public.trial_feedback_submissions WHERE user_id=p_user_id;
+ INSERT INTO public.trial_feedback_web_recoveries(user_id,submission_id,reservation_id,subscription_id,baseline,original_starts_at,original_ends_at,expected_ends_at,terms_version)
+ VALUES(p_user_id,f.id,p_request_id,p_snapshot->>'id',p_snapshot,(offer->>'original_starts_at')::timestamptz,f.trial_ends_at,f.expected_expires_at,p_terms_version);
+ RETURN public.trial_feedback_web_context(p_user_id);
+END; $$;
+
+
+ALTER FUNCTION "public"."reserve_trial_feedback_web"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text", "p_snapshot" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."resolve_active_regional_recommendation_holds"("p_as_of" timestamp with time zone, "p_beach_ids" "uuid"[], "p_window_start" timestamp with time zone, "p_window_end" timestamp with time zone) RETURNS SETOF "public"."regional_recommendation_holds"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
@@ -14551,6 +18241,155 @@ $$;
 
 
 ALTER FUNCTION "public"."resolve_active_regional_recommendation_holds"("p_as_of" timestamp with time zone, "p_beach_ids" "uuid"[], "p_window_start" timestamp with time zone, "p_window_end" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."resolve_and_ingest_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) RETURNS TABLE("regional_event_id" "uuid", "event_state" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+DECLARE
+  v_authority record; v_reference record; v_event uuid; v_matches uuid[] := '{}';
+  v_run timestamptz; v_evaluation text; v_component record; v_retry_ids uuid[];
+  v_max_hours numeric; v_max_period numeric; v_max_direction numeric;
+BEGIN
+  IF p_region_key IS NULL OR char_length(btrim(p_region_key)) NOT BETWEEN 1 AND 100
+    OR p_arrival_at IS NULL OR p_peak_at IS NULL OR NOT isfinite(p_arrival_at)
+    OR NOT isfinite(p_peak_at) OR p_peak_at < p_arrival_at THEN
+    RAISE EXCEPTION 'invalid identity selection input';
+  END IF;
+  -- ponytail: serialize the region and lock its history; partition history if volume warrants it.
+  -- Order: region -> sorted existing events -> sorted provider runs -> control -> ingestion.
+  -- Legacy ingestion also enters through the region lock; suppression takes only its event lock.
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-region:' || p_region_key,0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || event.id::text,0))
+    FROM public.swell_watch_regional_events event WHERE event.region_key=p_region_key ORDER BY event.id;
+  SELECT issuance.run_utc,'genuine_completed:' || completed.batch_id INTO v_run,v_evaluation
+    FROM public.swell_watch_provider_run_completed_batches completed
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE completed.id=p_provider_batch_id;
+  IF v_run IS NULL THEN RAISE EXCEPTION 'provider batch is not completed'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+    'swell-watch-provider-run:' || to_char(runs.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0))
+  FROM (
+    SELECT v_run AS run_utc UNION
+    SELECT issuance.run_utc FROM public.swell_watch_event_impacts association
+    JOIN public.swell_watch_regional_events event ON event.id=association.regional_event_id
+    JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+    JOIN public.swell_watch_provider_run_completed_batches completed ON completed.id=observation.provider_batch_id
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE event.region_key=p_region_key
+  ) runs ORDER BY runs.run_utc;
+  SELECT * INTO v_component FROM public.read_swell_watch_attested_components(p_provider_batch_id,p_source_point_id,p_forecast_at)
+    WHERE source_slot=p_source_slot;
+  IF NOT FOUND OR v_component.height_m IS DISTINCT FROM p_height_m
+    OR v_component.period_s IS DISTINCT FROM p_period_s OR v_component.direction_deg IS DISTINCT FROM p_direction_deg THEN
+    RAISE EXCEPTION 'identity input does not match attested component';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  SELECT * INTO v_authority FROM public.swell_watch_get_matching_policy();
+  IF NOT FOUND OR v_authority.policy_hash IS DISTINCT FROM p_policy_hash
+    OR v_authority.revoked_at IS NOT NULL OR v_authority.superseded_at IS NOT NULL
+    OR clock_timestamp() < v_authority.not_before OR clock_timestamp() >= v_authority.expires_at
+    OR jsonb_typeof(v_authority.policy_values #> '{partition_matching,maximum_arrival_delta_hours}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(v_authority.policy_values #> '{partition_matching,maximum_period_delta_s}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(v_authority.policy_values #> '{partition_matching,maximum_direction_delta_deg}') IS DISTINCT FROM 'number' THEN
+    RAISE EXCEPTION 'current matching policy authority is required';
+  END IF;
+  v_max_hours := (v_authority.policy_values #>> '{partition_matching,maximum_arrival_delta_hours}')::numeric;
+  v_max_period := (v_authority.policy_values #>> '{partition_matching,maximum_period_delta_s}')::numeric;
+  v_max_direction := (v_authority.policy_values #>> '{partition_matching,maximum_direction_delta_deg}')::numeric;
+  IF v_max_hours<=0 OR v_max_period<=0 OR v_max_direction<=0 OR v_max_direction>180 THEN
+    RAISE EXCEPTION 'invalid matching policy thresholds';
+  END IF;
+  SELECT array_agg(DISTINCT association.regional_event_id) INTO v_retry_ids
+  FROM public.swell_watch_event_impacts association
+  JOIN public.swell_watch_regional_events event ON event.id=association.regional_event_id
+  JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id
+  JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+  WHERE event.region_key=p_region_key AND observation.provider_batch_id=p_provider_batch_id
+    AND observation.source_point_id=p_source_point_id AND observation.forecast_at=p_forecast_at
+    AND observation.source_slot=p_source_slot;
+  IF cardinality(v_retry_ids)>1 THEN RAISE EXCEPTION 'ambiguous regional identity'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.swell_watch_event_impacts association
+    WHERE association.regional_event_id=ANY(v_retry_ids) AND association.evaluation_id=v_evaluation
+      AND association.beach_id=p_source_point_id AND association.evaluated_at <= (
+        SELECT max(t.created_at) FROM public.swell_watch_event_state_transitions t
+        WHERE t.regional_event_id=association.regional_event_id AND t.state='suppressed')
+  ) THEN RAISE EXCEPTION 'compatible regional identity requires current-cycle evidence'; END IF;
+  v_matches := coalesce(v_retry_ids,'{}');
+  FOR v_reference IN
+    SELECT reference.*,observation.provider,observation.period_s,observation.direction_deg,
+      observation.provider_batch_id,impact.policy_hash,issuance.run_utc,
+      (SELECT max(t.created_at) FROM public.swell_watch_event_state_transitions t
+        WHERE t.regional_event_id=reference.regional_event_id AND t.state='suppressed') AS suppressed_at
+    FROM public.swell_watch_regional_events event
+    CROSS JOIN LATERAL (
+      SELECT DISTINCT ON (association.beach_id) association.*
+      FROM public.swell_watch_event_impacts association WHERE association.regional_event_id=event.id
+      ORDER BY association.beach_id,association.evaluated_at DESC,association.id DESC
+    ) reference
+    JOIN public.swell_watch_beach_impacts impact ON impact.id=reference.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+    LEFT JOIN public.swell_watch_provider_run_completed_batches completed ON completed.id=observation.provider_batch_id
+    LEFT JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    LEFT JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE event.region_key=p_region_key
+  LOOP
+    -- One swell is one arrival-to-peak span. Issuances move either endpoint, so compare the spans.
+    IF v_reference.provider='open_meteo' AND abs(v_reference.period_s-p_period_s)<=v_max_period
+      AND least(abs(v_reference.direction_deg-p_direction_deg),360-abs(v_reference.direction_deg-p_direction_deg))<=v_max_direction
+      AND extract(epoch FROM greatest(p_arrival_at-v_reference.peak_at,v_reference.arrival_at-p_peak_at))<=v_max_hours*3600 THEN
+      -- Aliases are an audit trail; metric matching remains the identity authority.
+      IF public.swell_watch_provider_evidence_is_current(v_reference.provider_batch_id) IS DISTINCT FROM true
+        OR v_reference.policy_hash IS DISTINCT FROM p_policy_hash
+        OR (v_reference.run_utc > v_run AND NOT v_reference.regional_event_id=ANY(coalesce(v_retry_ids,'{}')))
+        OR v_reference.evaluated_at <= v_reference.suppressed_at THEN
+        CONTINUE;
+      END IF;
+      -- An event holds one span per issuance per beach; a second span there is another swell.
+      IF EXISTS(SELECT 1 FROM public.swell_watch_event_impacts association
+        JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id
+        JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+        WHERE association.regional_event_id=v_reference.regional_event_id AND association.evaluation_id=v_evaluation
+          AND association.beach_id=p_source_point_id
+          AND (observation.forecast_at,observation.source_slot) IS DISTINCT FROM (p_forecast_at,p_source_slot)) THEN
+        CONTINUE;
+      END IF;
+      IF NOT v_reference.regional_event_id=ANY(v_matches) THEN
+        v_matches := array_append(v_matches,v_reference.regional_event_id);
+      END IF;
+    END IF;
+  END LOOP;
+  -- Earlier fragments can fit one span. The swell keeps its oldest identity, so announcement dedupe holds
+  -- and one ambiguous feed cannot fail the whole cohort transaction.
+  v_event := coalesce(v_retry_ids[1],(SELECT evaluation.regional_event_id FROM public.swell_watch_event_evaluations evaluation
+    WHERE evaluation.regional_event_id=ANY(v_matches) ORDER BY evaluation.evaluated_at,evaluation.regional_event_id LIMIT 1),gen_random_uuid());
+  PERFORM public.ingest_verified_swell_watch_evaluation(p_provider_batch_id,p_observation_id,p_impact_id,v_event,
+    p_source_point_id,p_region_key,p_physical_key,p_forecast_at,p_source_slot,p_height_m,p_period_s,p_direction_deg,
+    p_projected_face_height_ft,p_policy_id,p_policy_hash,p_impact_hash,p_arrival_at,p_peak_at);
+  -- Legacy retry reconciliation must not silently choose an identity outside this transaction's match.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.swell_watch_event_impacts association
+    JOIN public.swell_watch_beach_impacts impact ON impact.id=association.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+    WHERE association.regional_event_id=v_event AND association.evaluation_id=v_evaluation
+      AND association.beach_id=p_source_point_id AND impact.impact_hash=p_impact_hash
+      AND observation.provider_batch_id=p_provider_batch_id AND observation.forecast_at=p_forecast_at
+      AND observation.source_slot=p_source_slot
+  ) THEN RAISE EXCEPTION 'resolved identity was not ingested'; END IF;
+  RETURN QUERY SELECT v_event,coalesce((SELECT transition.state FROM public.swell_watch_event_state_transitions transition
+    WHERE transition.regional_event_id=v_event ORDER BY transition.version DESC LIMIT 1),'candidate');
+END;
+$$;
+
+
+ALTER FUNCTION "public"."resolve_and_ingest_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."resolve_android_waitlist_entry"("p_user_id" "uuid", "p_normalized_email_sha256" "text", "p_roster_entry_id" "uuid", "p_source_kind" "text", "p_source_id" "uuid", "p_source" "text", "p_surface" "text", "p_placement" "text", "p_observed_at" timestamp with time zone) RETURNS "uuid"
@@ -15033,6 +18872,62 @@ $$;
 ALTER FUNCTION "public"."resolve_community_spot_photos_v1"("p_target_type" "text", "p_target_id" "uuid", "p_viewer_id" "uuid", "p_limit" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."resolve_swell_event_outcomes"("p_now" timestamp with time zone, "p_pulse_detector_version" "text") RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  resolved integer;
+BEGIN
+  WITH latest AS (
+    SELECT DISTINCT ON (beach_id, event_key, detector_version)
+      beach_id, event_key, detector_version, peak_at, detected_at
+    FROM public.swell_event_forecast_snapshots
+    WHERE outcome IS NULL
+    ORDER BY beach_id, event_key, detector_version, detected_at DESC
+  ),
+  due AS (
+    SELECT *,
+      CASE WHEN detector_version = p_pulse_detector_version THEN peak_at - interval '24 hours' ELSE peak_at END AS outcome_boundary_at,
+      CASE WHEN detector_version = p_pulse_detector_version THEN 2 ELSE 0 END AS boundary_order
+    FROM latest
+    WHERE peak_at < p_now - interval '12 hours'
+  ),
+  boundaries AS (
+    SELECT DISTINCT detected_at AS boundary_at, 1 AS boundary_order
+    FROM public.swell_event_forecast_snapshots
+    UNION ALL
+    SELECT DISTINCT outcome_boundary_at AS boundary_at, boundary_order FROM due
+  ),
+  ordered_boundaries AS (
+    SELECT boundary_at, boundary_order,
+      -- Notable peaks exclude equal runs; pulse boundaries include them.
+      max(CASE WHEN boundary_order = 1 THEN boundary_at END) OVER (
+        ORDER BY boundary_at, boundary_order
+        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+      ) AS last_run
+    FROM boundaries
+  ),
+  last_runs AS (
+    SELECT boundary_at, boundary_order, last_run FROM ordered_boundaries WHERE boundary_order <> 1
+  )
+  UPDATE public.swell_event_forecast_snapshots s
+  SET outcome = CASE WHEN r.last_run IS NULL OR d.detected_at >= r.last_run THEN 'held' ELSE 'vanished' END,
+      outcome_resolved_at = p_now
+  FROM due d JOIN last_runs r ON r.boundary_at = d.outcome_boundary_at AND r.boundary_order = d.boundary_order
+  WHERE s.beach_id = d.beach_id
+    AND s.event_key = d.event_key
+    AND s.detector_version = d.detector_version
+    AND s.outcome IS NULL;
+  GET DIAGNOSTICS resolved = ROW_COUNT;
+  RETURN resolved;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."resolve_swell_event_outcomes"("p_now" timestamp with time zone, "p_pulse_detector_version" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."restore_entity"("table_name" "text", "entity_id" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -15182,6 +19077,55 @@ $$;
 ALTER FUNCTION "public"."run_database_maintenance"("cleanup_forecasts" boolean, "cleanup_buoys" boolean, "update_stats" boolean, "forecast_retention_days" integer, "buoy_inactive_days" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."session_condition_similarity"("p_past_wave" numeric, "p_past_period" numeric, "p_past_wind" numeric, "p_past_wind_dir" numeric, "p_past_rel_tide" numeric, "p_past_tide_dir" "text", "p_past_break_type" "text", "p_cur_wave" numeric, "p_cur_period" numeric, "p_cur_wind" numeric, "p_cur_wind_dir" numeric, "p_cur_rel_tide" numeric, "p_cur_tide_dir" "text", "p_cur_break_type" "text") RETURNS numeric
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT CASE WHEN p_past_wave IS NULL OR p_cur_wave IS NULL THEN 0
+    ELSE exp(-(
+      COALESCE(0.4 * power((p_past_wave-p_cur_wave)/1.5,2),0)
+      + COALESCE(0.25 * power((p_past_period-p_cur_period)/4,2),0)
+      + COALESCE(0.2 * power((p_past_wind-p_cur_wind)/8,2),0)
+      + COALESCE(0.15 * power((p_past_rel_tide-p_cur_rel_tide)/2,2),0)
+      + COALESCE(0.1 * power(least(mod(abs(p_past_wind_dir-p_cur_wind_dir),360),
+        360-mod(abs(p_past_wind_dir-p_cur_wind_dir),360))/90,2),0)
+      + CASE WHEN past_tide.direction IS NOT NULL AND cur_tide.direction IS NOT NULL
+          AND past_tide.direction <> cur_tide.direction THEN 0.25 ELSE 0 END
+      + CASE WHEN public.break_types_match(p_past_break_type,p_cur_break_type) THEN 0 ELSE 0.5 END
+      + CASE WHEN p_past_period IS NOT NULL AND p_cur_period IS NOT NULL
+          AND p_past_period <> 0 AND p_cur_period <> 0 THEN
+          0.15 * power(((p_past_wave/power(p_past_period,2))
+            -(p_cur_wave/power(p_cur_period,2)))/0.04,2) ELSE 0 END
+    )/2) END
+  FROM (SELECT CASE WHEN lower(p_past_tide_dir) ~ 'rising|incoming|flood' THEN 'incoming'
+      WHEN lower(p_past_tide_dir) ~ 'falling|outgoing|ebb' THEN 'outgoing' END AS direction) past_tide
+  CROSS JOIN (SELECT CASE WHEN lower(p_cur_tide_dir) ~ 'rising|incoming|flood' THEN 'incoming'
+      WHEN lower(p_cur_tide_dir) ~ 'falling|outgoing|ebb' THEN 'outgoing' END AS direction) cur_tide;
+$$;
+
+
+ALTER FUNCTION "public"."session_condition_similarity"("p_past_wave" numeric, "p_past_period" numeric, "p_past_wind" numeric, "p_past_wind_dir" numeric, "p_past_rel_tide" numeric, "p_past_tide_dir" "text", "p_past_break_type" "text", "p_cur_wave" numeric, "p_cur_period" numeric, "p_cur_wind" numeric, "p_cur_wind_dir" numeric, "p_cur_rel_tide" numeric, "p_cur_tide_dir" "text", "p_cur_break_type" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."session_wave_height_source_from_submit"("p_metadata" "jsonb") RETURNS "text"
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT CASE
+    WHEN jsonb_typeof(p_metadata) IS DISTINCT FROM 'object' THEN NULL
+    WHEN p_metadata->'forecast_height_changed' = 'true'::jsonb THEN 'user'
+    -- A prefill flag without a forecast means the height came from a deep link.
+    WHEN p_metadata->'forecast_prefilled' = 'true'::jsonb
+      AND p_metadata->'forecast_available' IS DISTINCT FROM 'false'::jsonb THEN 'forecast_prefill'
+    WHEN p_metadata->'forecast_prefilled' IN ('true'::jsonb, 'false'::jsonb) THEN 'user'
+    ELSE NULL
+  END
+$$;
+
+
+ALTER FUNCTION "public"."session_wave_height_source_from_submit"("p_metadata" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."set_audit_triggers_enabled"("enabled" boolean) RETURNS "text"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions', 'pg_temp'
@@ -15239,6 +19183,24 @@ COMMENT ON FUNCTION "public"."set_audit_triggers_enabled"("enabled" boolean) IS 
 
 
 
+CREATE OR REPLACE FUNCTION "public"."set_lifecycle_consent"("p_user_id" "uuid", "p_consent" boolean) RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ PERFORM pg_advisory_xact_lock(739301);
+ INSERT INTO public.email_contact_state(user_id,lifecycle_consent_at,consent_reference)
+ VALUES(p_user_id,CASE WHEN p_consent THEN now() END,CASE WHEN p_consent THEN 'self_service:lifecycle-v1' END)
+ ON CONFLICT(user_id) DO UPDATE SET lifecycle_consent_at=excluded.lifecycle_consent_at,consent_reference=excluded.consent_reference;
+ IF NOT p_consent THEN UPDATE public.email_contact_state SET account_permission_reviewed_at=NULL,account_permission_reference=NULL WHERE user_id=p_user_id; END IF;
+ UPDATE public.profiles SET notif_email_enabled=p_consent WHERE id=p_user_id;
+ -- Opt-in never clears suppression, reply pauses, or an existing off preference.
+END; $$;
+
+
+ALTER FUNCTION "public"."set_lifecycle_consent"("p_user_id" "uuid", "p_consent" boolean) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."set_profile_analytics_real_user_fields"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public'
@@ -15285,6 +19247,20 @@ $$;
 
 
 ALTER FUNCTION "public"."set_surf_drops_updated_at"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."set_swell_outlook_user_state_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  NEW.updated_at := GREATEST(clock_timestamp(), OLD.updated_at + interval '1 microsecond');
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."set_swell_outlook_user_state_updated_at"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."set_updated_at"() RETURNS "trigger"
@@ -15339,6 +19315,25 @@ COMMENT ON FUNCTION "public"."soft_delete_entity"("table_name" "text", "entity_i
 
 
 
+CREATE OR REPLACE FUNCTION "public"."stamp_email_session_completion"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.email_completed_at := CASE WHEN NEW.status = 'completed' AND NOT public.is_historical_file_import(NEW.source, NEW.arrival_time, NEW.duration_minutes) THEN now() END;
+  ELSIF NEW.status = 'completed' AND OLD.status IS DISTINCT FROM 'completed' THEN
+    NEW.email_completed_at := now();
+  ELSE
+    NEW.email_completed_at := OLD.email_completed_at;
+  END IF;
+  RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."stamp_email_session_completion"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."strict_session_snapshot_repair_candidates"("p_limit" integer DEFAULT 500) RETURNS TABLE("session_id" "uuid", "user_id" "uuid", "beach_id" "uuid", "custom_spot_id" "uuid", "arrival_time" timestamp with time zone, "forecast_at" timestamp with time zone, "delta_minutes" numeric, "nearest_beach_distance_mi" numeric)
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -15389,6 +19384,1182 @@ $$;
 
 
 ALTER FUNCTION "public"."strict_session_snapshot_repair_candidates"("p_limit" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."submit_trial_feedback"("p_user_id" "uuid", "p_request_id" "uuid", "p_reason" "text", "p_note" "text", "p_message_id" "uuid" DEFAULT NULL::"uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE t jsonb; message_id uuid;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('trial-feedback:'||p_user_id::text,0));
+ IF EXISTS(SELECT 1 FROM public.trial_feedback_submissions WHERE user_id=p_user_id) THEN RETURN public.trial_feedback_context(p_user_id); END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.trial_feedback_controls WHERE singleton AND enabled) THEN RAISE EXCEPTION 'feedback_disabled'; END IF;
+ IF p_request_id IS NULL OR p_reason IS NULL OR p_reason NOT IN ('forecast','value','time','feature','price','technical','other')
+   OR p_note IS NULL OR length(p_note)>2000 OR (p_reason='other' AND length(trim(p_note))=0) THEN RAISE EXCEPTION 'invalid_feedback'; END IF;
+ t:=public.current_feedback_trial(p_user_id);
+ IF t IS NULL THEN RAISE EXCEPTION 'feedback_ineligible'; END IF;
+ IF p_message_id IS NOT NULL THEN
+   SELECT id INTO message_id FROM public.email_contact_attempts WHERE id=p_message_id AND user_id=p_user_id
+     AND lifecycle_job='trial_feedback' AND episode=t->>'trial_event_id' AND state='accepted';
+   IF message_id IS NULL THEN RAISE EXCEPTION 'feedback_message_mismatch'; END IF;
+ END IF;
+ INSERT INTO public.trial_feedback_submissions(user_id,trial_event_id,cancellation_event_id,store,product_id,trial_ends_at,request_id,reason,note,source_message_id)
+ VALUES(p_user_id,t->>'trial_event_id',t->>'cancellation_event_id',t->>'store',t->>'product_id',(t->>'trial_ends_at')::timestamptz,p_request_id,p_reason,trim(p_note),message_id);
+ -- A response ends automated follow-up; reward review is an independent explicit customer action.
+ UPDATE public.email_contact_state SET paused_at=coalesce(paused_at,now()) WHERE user_id=p_user_id;
+ RETURN public.trial_feedback_context(p_user_id);
+END; $$;
+
+
+ALTER FUNCTION "public"."submit_trial_feedback"("p_user_id" "uuid", "p_request_id" "uuid", "p_reason" "text", "p_note" "text", "p_message_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_event_crossing_history"("p_beach_ids" "uuid"[], "p_since" timestamp with time zone) RETURNS "jsonb"
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO 'public'
+    AS $$
+  WITH latest AS (
+    SELECT DISTINCT ON (s.beach_id, s.event_key)
+      s.beach_id, s.event_key, s.peak_at, s.crossing_direction_deg, b.timezone
+    FROM public.swell_event_forecast_snapshots s
+    JOIN public.beaches b ON b.id = s.beach_id
+    WHERE s.beach_id = ANY (p_beach_ids)
+      AND s.run_date >= (p_since AT TIME ZONE 'UTC')::date
+    ORDER BY s.beach_id, s.event_key, s.detected_at DESC
+  )
+  SELECT jsonb_build_object(
+    'history_days', (
+      SELECT count(DISTINCT run_date)
+      FROM public.swell_event_forecast_snapshots
+      WHERE beach_id = ANY (p_beach_ids)
+        AND run_date >= (p_since AT TIME ZONE 'UTC')::date
+    ),
+    'crossings', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'beach_id', latest.beach_id,
+        'event_key', latest.event_key,
+        'peak_date', (latest.peak_at AT TIME ZONE coalesce(latest.timezone, 'America/Los_Angeles'))::date
+      ) ORDER BY latest.beach_id, latest.event_key)
+      FROM latest
+      WHERE latest.crossing_direction_deg IS NOT NULL
+        AND latest.peak_at >= p_since
+        AND latest.peak_at <= now()
+    ), '[]'::jsonb)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."swell_event_crossing_history"("p_beach_ids" "uuid"[], "p_since" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_append_only_trigger"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    RAISE EXCEPTION 'swell watch evidence is append-only';
+  END IF;
+  IF current_setting('app.swell_watch_internal_write', true) IS DISTINCT FROM 'on' THEN
+    RAISE EXCEPTION 'swell watch writes require a service transition';
+  END IF;
+  IF TG_TABLE_NAME = 'swell_watch_production_approval_authority' THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control', 0));
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_append_only_trigger"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_coast_domain"("p_region_key" "text") RETURNS "text"
+    LANGUAGE "sql" IMMUTABLE PARALLEL SAFE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT CASE WHEN p_region_key IN ('san-diego','orange-county') THEN 'socal' ELSE p_region_key END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_coast_domain"("p_region_key" "text") OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_study_authorities" (
+    "epoch" bigint NOT NULL,
+    "state" "text" NOT NULL,
+    "policy_hash" "text" NOT NULL,
+    "cohort" "jsonb" NOT NULL,
+    "scope_inputs" "jsonb" NOT NULL,
+    "config_hash" "text" NOT NULL,
+    "target_days" integer DEFAULT 30 NOT NULL,
+    "provider_contract_ref" "text" NOT NULL,
+    "evidence_sha256" "text" NOT NULL,
+    "reviewer" "text" NOT NULL,
+    "not_before" timestamp with time zone NOT NULL,
+    "expires_at" timestamp with time zone NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    "qualification_rule" "text" DEFAULT 'complete_partitions.v1'::"text" NOT NULL,
+    CONSTRAINT "swell_watch_study_authorities_check" CHECK (("isfinite"("expires_at") AND ("expires_at" > "not_before"))),
+    CONSTRAINT "swell_watch_study_authorities_cohort_check" CHECK ((("jsonb_typeof"("cohort") = 'array'::"text") AND ("jsonb_array_length"("cohort") = 10))),
+    CONSTRAINT "swell_watch_study_authorities_config_hash_check" CHECK (("config_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_study_authorities_epoch_check" CHECK (("epoch" > 0)),
+    CONSTRAINT "swell_watch_study_authorities_evidence_sha256_check" CHECK (("evidence_sha256" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_study_authorities_not_before_check" CHECK ("isfinite"("not_before")),
+    CONSTRAINT "swell_watch_study_authorities_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_study_authorities_provider_contract_ref_check" CHECK ((("char_length"("btrim"("provider_contract_ref")) >= 1) AND ("char_length"("btrim"("provider_contract_ref")) <= 500))),
+    CONSTRAINT "swell_watch_study_authorities_qualification_rule_check" CHECK (("qualification_rule" = ANY (ARRAY['complete_partitions.v1'::"text", 'primary_partition_with_retained_unavailable_secondary.v1'::"text", 'model_reported_partition_count.v1'::"text", 'model_reported_swell_system_count.v1'::"text"]))),
+    CONSTRAINT "swell_watch_study_authorities_reviewer_check" CHECK ((("char_length"("btrim"("reviewer")) >= 1) AND ("char_length"("btrim"("reviewer")) <= 200))),
+    CONSTRAINT "swell_watch_study_authorities_scope_inputs_check" CHECK ((("jsonb_typeof"("scope_inputs") = 'array'::"text") AND ("jsonb_array_length"("scope_inputs") = 10))),
+    CONSTRAINT "swell_watch_study_authorities_state_check" CHECK (("state" = ANY (ARRAY['active'::"text", 'revoked'::"text"]))),
+    CONSTRAINT "swell_watch_study_authorities_target_days_check" CHECK ((("target_days" >= 1) AND ("target_days" <= 365)))
+);
+
+
+ALTER TABLE "public"."swell_watch_study_authorities" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_current_study_authority"("p_policy_hash" "text") RETURNS SETOF "public"."swell_watch_study_authorities"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT a.* FROM public.swell_watch_study_authorities a
+  WHERE a.epoch=(SELECT max(epoch) FROM public.swell_watch_study_authorities)
+    AND a.state='active' AND a.policy_hash=p_policy_hash
+    AND clock_timestamp()>=a.not_before AND clock_timestamp()<a.expires_at
+    AND a.scope_inputs=public.swell_watch_study_scope_inputs(a.cohort)
+    AND EXISTS(SELECT 1 FROM public.swell_watch_get_automation_control() c WHERE c.state='disabled')
+    AND NOT EXISTS(SELECT 1 FROM public.swell_watch_get_production_authority())
+    AND EXISTS(SELECT 1 FROM public.swell_watch_evaluation_policies p
+      WHERE p.epoch=(SELECT max(epoch) FROM public.swell_watch_evaluation_policies)
+        AND p.state='active' AND p.policy_hash=a.policy_hash
+        AND clock_timestamp()>=p.not_before AND clock_timestamp()<p.expires_at
+        AND p.policy_values #> '{cadence,evaluation_interval_minutes}'='60'::jsonb);
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_current_study_authority"("p_policy_hash" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_enqueue_notification"("p_recipient_id" "uuid", "p_payload" "jsonb", "p_expected_epoch" integer, "p_policy_hash" "text") RETURNS TABLE("enqueued" boolean, "reason_code" "text", "notification_event_id" "uuid")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE
+  v_state text;
+  v_epoch integer;
+  v_authority public.swell_watch_production_approval_authority%ROWTYPE;
+  v_event_id uuid;
+  v_beach_id uuid;
+  v_forecast_at timestamptz;
+  v_notification_id uuid;
+BEGIN
+  IF p_recipient_id IS NULL OR p_expected_epoch IS NULL OR p_expected_epoch < 1
+    OR p_policy_hash IS NULL OR p_policy_hash !~ '^[a-f0-9]{64}$'
+    OR jsonb_typeof(p_payload) IS DISTINCT FROM 'object'
+    OR p_payload->>'type' IS DISTINCT FROM 'swell_watch'
+    OR p_payload->>'schema_version' IS DISTINCT FROM 'swell-watch-notification.v2' THEN
+    RETURN QUERY SELECT false, 'invalid_payload', NULL::uuid; RETURN;
+  END IF;
+  BEGIN
+    v_event_id := (p_payload->>'regional_event_id')::uuid;
+    v_beach_id := (p_payload->>'beach_id')::uuid;
+    v_forecast_at := (p_payload->>'forecast_at')::timestamptz;
+  EXCEPTION WHEN invalid_text_representation OR invalid_datetime_format OR datetime_field_overflow THEN
+    RETURN QUERY SELECT false, 'invalid_payload', NULL::uuid; RETURN;
+  END;
+  IF v_event_id IS NULL OR v_beach_id IS NULL OR v_forecast_at IS NULL OR NOT isfinite(v_forecast_at) THEN
+    RETURN QUERY SELECT false, 'invalid_payload', NULL::uuid; RETURN;
+  END IF;
+  IF jsonb_typeof(p_payload #> '{target_partition,height_m}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_payload #> '{target_partition,period_s}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_payload #> '{target_partition,direction_deg}') IS DISTINCT FROM 'number' THEN
+    RETURN QUERY SELECT false, 'invalid_payload', NULL::uuid; RETURN;
+  END IF;
+  IF (p_payload #>> '{target_partition,height_m}')::numeric <= 0
+    OR (p_payload #>> '{target_partition,period_s}')::numeric <= 0
+    OR (p_payload #>> '{target_partition,direction_deg}')::numeric < 0
+    OR (p_payload #>> '{target_partition,direction_deg}')::numeric >= 360 THEN
+    RETURN QUERY SELECT false, 'invalid_payload', NULL::uuid; RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || v_event_id::text, 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control', 0));
+  SELECT control.state, control.epoch INTO v_state, v_epoch
+  FROM public.swell_watch_get_automation_control() control;
+  IF v_state IS DISTINCT FROM 'armed' OR v_epoch IS DISTINCT FROM p_expected_epoch THEN
+    RETURN QUERY SELECT false, 'control_epoch_changed', NULL::uuid; RETURN;
+  END IF;
+  SELECT * INTO v_authority FROM public.swell_watch_production_approval_authority authority
+  WHERE authority.state = 'active' AND authority.production_scope = 'swell_watch_push'
+  ORDER BY authority.authority_epoch DESC LIMIT 1;
+  IF v_authority.policy_hash IS DISTINCT FROM p_policy_hash
+    OR v_authority.not_before > clock_timestamp() OR v_authority.expires_at <= clock_timestamp()
+    OR public.swell_watch_production_policy_values_valid(v_authority.policy_values) IS DISTINCT FROM true
+    OR v_authority.policy_values #> '{volume_caps,projected_send_window_hours}' IS DISTINCT FROM '24'::jsonb
+    OR EXISTS (SELECT 1 FROM public.swell_watch_production_approval_authority revoked
+      WHERE revoked.revokes_authority_id = v_authority.authority_id AND revoked.state IN ('revoked', 'superseded')) THEN
+    RETURN QUERY SELECT false, 'authority_unavailable', NULL::uuid; RETURN;
+  END IF;
+  SELECT queued.id INTO v_notification_id FROM public.notification_events queued
+  WHERE queued.type = 'swell_watch' AND queued.recipient_user_id = p_recipient_id
+    AND queued.payload->>'schema_version' = 'swell-watch-notification.v2'
+    AND (queued.payload->>'regional_event_id')::uuid = v_event_id;
+  IF FOUND THEN
+    RETURN QUERY SELECT false, 'duplicate', v_notification_id; RETURN;
+  END IF;
+  IF (SELECT transition.state FROM public.swell_watch_event_state_transitions transition
+      WHERE transition.regional_event_id = v_event_id ORDER BY transition.version DESC LIMIT 1) IS DISTINCT FROM 'stable'
+    OR (SELECT impact.policy_hash FROM public.swell_watch_event_impacts evaluation
+      JOIN public.swell_watch_beach_impacts impact ON impact.id = evaluation.beach_impact_id
+      WHERE evaluation.regional_event_id = v_event_id AND impact.beach_id = v_beach_id
+      ORDER BY evaluation.evaluated_at DESC LIMIT 1) IS DISTINCT FROM p_policy_hash THEN
+    RETURN QUERY SELECT false, 'event_not_releasable', NULL::uuid; RETURN;
+  END IF;
+  IF public.swell_watch_projected_send_count() + 1
+    > (v_authority.policy_values #>> '{volume_caps,maximum_projected_sends_per_window}')::numeric THEN
+    PERFORM * FROM public.transition_swell_watch_automation_control(
+      'hold', v_epoch, 'projected_send_cap_exceeded', 'projected-send-cap:' || v_epoch::text,
+      NULL, 'swell_watch_provider_monitor');
+    RETURN QUERY SELECT false, 'projected_send_cap_exceeded', NULL::uuid; RETURN;
+  END IF;
+  IF (SELECT count(*) + 1 FROM (
+      SELECT recipient_id FROM public.swell_watch_notification_event_bindings WHERE regional_event_id = v_event_id
+      UNION
+      SELECT recipient_id FROM public.swell_watch_recipient_announcements WHERE regional_event_id = v_event_id
+    ) recipients) > (v_authority.policy_values #>> '{volume_caps,maximum_recipients_per_event}')::numeric THEN
+    PERFORM * FROM public.transition_swell_watch_automation_control(
+      'hold', v_epoch, 'recipient_cap_exceeded', 'recipient-cap:' || v_event_id::text || ':' || v_epoch::text,
+      NULL, 'swell_watch_provider_monitor');
+    RETURN QUERY SELECT false, 'recipient_cap_exceeded', NULL::uuid; RETURN;
+  END IF;
+  INSERT INTO public.notification_events(type, recipient_user_id, payload, dedupe_key)
+  VALUES ('swell_watch', p_recipient_id, p_payload, 'swell_watch:' || v_event_id::text)
+  RETURNING id INTO v_notification_id;
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  INSERT INTO public.swell_watch_notification_event_bindings (
+    notification_event_id, regional_event_id, beach_id, recipient_id, control_epoch,
+    authority_id, authority_epoch, policy_hash, approval_evidence_hash, policy_provenance, policy_values
+  ) VALUES (
+    v_notification_id, v_event_id, v_beach_id, p_recipient_id, v_epoch,
+    v_authority.authority_id, v_authority.authority_epoch, v_authority.policy_hash,
+    v_authority.approval_evidence_hash, v_authority.policy_provenance, v_authority.policy_values
+  );
+  RETURN QUERY SELECT true, 'enqueued', v_notification_id;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."swell_watch_enqueue_notification"("p_recipient_id" "uuid", "p_payload" "jsonb", "p_expected_epoch" integer, "p_policy_hash" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_get_automation_control"() RETURNS TABLE("state" "text", "epoch" integer, "reason_code" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT transition.state, transition.epoch, transition.reason_code
+  FROM public.swell_watch_automation_control_transitions transition
+  ORDER BY transition.epoch DESC
+  LIMIT 1;
+  IF FOUND THEN RETURN; END IF;
+
+  RETURN QUERY
+  SELECT control.state, 0, control.reason_code
+  FROM public.swell_watch_automation_control control
+  ORDER BY control.created_at DESC, control.id DESC
+  LIMIT 1;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_get_automation_control"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_get_matching_policy"() RETURNS TABLE("policy_hash" "text", "policy_values" "jsonb", "not_before" timestamp with time zone, "expires_at" timestamp with time zone, "revoked_at" timestamp with time zone, "superseded_at" timestamp with time zone)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE current_policy public.swell_watch_evaluation_policies;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  SELECT * INTO current_policy FROM public.swell_watch_evaluation_policies ORDER BY epoch DESC LIMIT 1;
+  IF FOUND THEN
+    IF current_policy.state='active' AND clock_timestamp() >= current_policy.not_before
+      AND clock_timestamp() < current_policy.expires_at THEN
+      RETURN QUERY SELECT current_policy.policy_hash,current_policy.policy_values,current_policy.not_before,
+        current_policy.expires_at,NULL::timestamptz,NULL::timestamptz;
+    END IF;
+    RETURN;
+  END IF;
+  -- Preserve existing approved send operation only until an evaluation ledger is introduced.
+  -- Revocation/expiry of that ledger must never fall back to push authority.
+  RETURN QUERY SELECT a.policy_hash,a.policy_values,a.not_before,a.expires_at,a.revoked_at,a.superseded_at
+    FROM public.swell_watch_get_production_authority() a;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_get_matching_policy"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_get_production_authority"() RETURNS TABLE("policy_hash" "text", "policy_provenance" "text", "policy_values" "jsonb", "approval_id" "text", "approval_evidence_hash" "text", "production_scope" "text", "reviewer" "text", "not_before" timestamp with time zone, "expires_at" timestamp with time zone, "authority_epoch" integer, "authority_id" "uuid", "revoked_at" timestamp with time zone, "superseded_at" timestamp with time zone)
+    LANGUAGE "sql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT
+    authority.policy_hash,
+    authority.policy_provenance,
+    authority.policy_values,
+    authority.approval_id,
+    authority.approval_evidence_hash,
+    authority.production_scope,
+    authority.reviewer,
+    authority.not_before,
+    authority.expires_at,
+    authority.authority_epoch,
+    authority.authority_id,
+    revoke.created_at AS revoked_at,
+    supersede.created_at AS superseded_at
+  FROM public.swell_watch_production_approval_authority authority
+  LEFT JOIN LATERAL (
+    SELECT record.created_at
+    FROM public.swell_watch_production_approval_authority record
+    WHERE record.state = 'revoked'
+      AND record.revokes_authority_id = authority.authority_id
+    ORDER BY record.authority_epoch DESC
+    LIMIT 1
+  ) revoke ON true
+  LEFT JOIN LATERAL (
+    SELECT record.created_at
+    FROM public.swell_watch_production_approval_authority record
+    WHERE record.state = 'superseded'
+      AND record.revokes_authority_id = authority.authority_id
+    ORDER BY record.authority_epoch DESC
+    LIMIT 1
+  ) supersede ON true
+  WHERE authority.state = 'active'
+  ORDER BY authority.authority_epoch DESC
+  LIMIT 1;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_get_production_authority"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_production_policy_values_valid"("p_values" "jsonb") RETURNS boolean
+    LANGUAGE "plpgsql" IMMUTABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE
+  v_candidates numeric;
+  v_recipients numeric;
+  v_projected_sends numeric;
+  v_window_minutes numeric;
+  v_rate numeric;
+  v_minimum_samples numeric;
+  v_forecast_age_hours numeric;
+BEGIN
+  IF jsonb_typeof(p_values) IS DISTINCT FROM 'object'
+    OR jsonb_typeof(p_values #> '{volume_caps,maximum_candidates_per_region}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_values #> '{volume_caps,maximum_recipients_per_event}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_values #> '{volume_caps,maximum_projected_sends_per_window}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_values #> '{provider_failure_hold,window_minutes}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_values #> '{provider_failure_hold,maximum_failure_rate}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_values #> '{provider_failure_hold,minimum_samples}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(p_values #> '{staleness,maximum_forecast_age_hours}') IS DISTINCT FROM 'number'
+    OR (p_values #>> '{volume_caps,maximum_candidates_per_region}') IS NULL
+    OR (p_values #>> '{volume_caps,maximum_candidates_per_region}') !~ '^[0-9]+([.][0-9]+)?$'
+    OR (p_values #>> '{volume_caps,maximum_recipients_per_event}') IS NULL
+    OR (p_values #>> '{volume_caps,maximum_recipients_per_event}') !~ '^[0-9]+([.][0-9]+)?$'
+    OR (p_values #>> '{volume_caps,maximum_projected_sends_per_window}') IS NULL
+    OR (p_values #>> '{volume_caps,maximum_projected_sends_per_window}') !~ '^[0-9]+([.][0-9]+)?$'
+    OR (p_values #>> '{provider_failure_hold,window_minutes}') IS NULL
+    OR (p_values #>> '{provider_failure_hold,window_minutes}') !~ '^[0-9]+([.][0-9]+)?$'
+    OR (p_values #>> '{provider_failure_hold,maximum_failure_rate}') IS NULL
+    OR (p_values #>> '{provider_failure_hold,maximum_failure_rate}') !~ '^(0([.][0-9]+)?|1([.]0+)?)$'
+    OR (p_values #>> '{provider_failure_hold,minimum_samples}') IS NULL
+    OR (p_values #>> '{provider_failure_hold,minimum_samples}') !~ '^[1-9][0-9]*$'
+    OR (p_values #>> '{staleness,maximum_forecast_age_hours}') IS NULL
+    OR (p_values #>> '{staleness,maximum_forecast_age_hours}') !~ '^[0-9]+([.][0-9]+)?$' THEN
+    RETURN false;
+  END IF;
+  v_candidates := (p_values #>> '{volume_caps,maximum_candidates_per_region}')::numeric;
+  v_recipients := (p_values #>> '{volume_caps,maximum_recipients_per_event}')::numeric;
+  v_projected_sends := (p_values #>> '{volume_caps,maximum_projected_sends_per_window}')::numeric;
+  v_window_minutes := (p_values #>> '{provider_failure_hold,window_minutes}')::numeric;
+  v_rate := (p_values #>> '{provider_failure_hold,maximum_failure_rate}')::numeric;
+  v_minimum_samples := (p_values #>> '{provider_failure_hold,minimum_samples}')::numeric;
+  v_forecast_age_hours := (p_values #>> '{staleness,maximum_forecast_age_hours}')::numeric;
+  RETURN v_candidates > 0
+    AND v_recipients > 0
+    AND v_projected_sends > 0
+    AND v_window_minutes > 0
+    AND v_rate > 0 AND v_rate <= 1
+    AND v_minimum_samples >= 1 AND trunc(v_minimum_samples) = v_minimum_samples
+    AND v_forecast_age_hours > 0;
+EXCEPTION WHEN numeric_value_out_of_range OR invalid_text_representation THEN
+  RETURN false;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."swell_watch_production_policy_values_valid"("p_values" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_projected_send_count"("p_exclude" "uuid" DEFAULT NULL::"uuid") RETURNS bigint
+    LANGUAGE "sql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT count(*) FROM (
+    SELECT notification_event_id, reservation_id, max(reserved_at) AS reserved_at FROM (
+      SELECT notification_event_id, notification_event_id AS reservation_id, created_at AS reserved_at
+      FROM public.swell_watch_notification_event_bindings
+      UNION ALL
+      SELECT notification_event_id, coalesce(notification_event_id, id), claimed_at
+      FROM public.swell_watch_recipient_announcements
+    ) history GROUP BY notification_event_id, reservation_id
+  ) reservation
+  LEFT JOIN public.notification_events queued ON queued.id = reservation.notification_event_id
+  WHERE (p_exclude IS NULL OR reservation.notification_event_id IS DISTINCT FROM p_exclude)
+    AND (reservation.reserved_at > clock_timestamp() - interval '24 hours'
+      OR queued.id IS NULL OR queued.status IN ('pending', 'processing')
+      OR EXISTS (SELECT 1 FROM public.swell_watch_provider_delivery_outcomes outcome
+        WHERE outcome.notification_event_id = reservation.notification_event_id
+          AND outcome.created_at > clock_timestamp() - interval '24 hours'));
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_projected_send_count"("p_exclude" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_provider_evidence_is_current"("p_provider_batch_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT public.swell_watch_provider_evidence_is_current_before_study(p_provider_batch_id)
+    AND NOT EXISTS(SELECT 1 FROM public.swell_watch_provider_run_completed_batches b
+      JOIN public.swell_watch_study_acceptances s ON s.revision_set_id=b.revision_set_id
+      JOIN public.swell_watch_study_authorities accepted ON accepted.epoch=s.authority_epoch
+      JOIN public.swell_watch_study_authorities current_authority ON current_authority.epoch=(SELECT max(epoch) FROM public.swell_watch_study_authorities)
+      WHERE b.id=p_provider_batch_id AND (
+        current_authority.state<>'active'
+        OR accepted.epoch NOT BETWEEN public.swell_watch_study_cycle_start(current_authority.epoch) AND current_authority.epoch
+        OR accepted.policy_hash IS DISTINCT FROM current_authority.policy_hash
+        OR NOT EXISTS(SELECT 1 FROM public.swell_watch_current_study_authority(current_authority.policy_hash) c WHERE c.epoch=current_authority.epoch)
+        OR EXISTS(SELECT 1 FROM public.swell_watch_provider_run_attestations t
+          WHERE t.revision_set_id=s.revision_set_id AND t.state IN ('rejected','revoked'))));
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_provider_evidence_is_current"("p_provider_batch_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_provider_evidence_is_current_before_study"("p_provider_batch_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.swell_watch_provider_run_completed_batches completed
+    JOIN public.swell_watch_provider_run_revision_sets revision_set ON revision_set.id=completed.revision_set_id
+    JOIN public.swell_watch_provider_run_attestations accepted ON accepted.revision_set_id=revision_set.id AND accepted.state='accepted'
+    WHERE completed.id=p_provider_batch_id
+      AND revision_set.revision_number=(SELECT max(candidate.revision_number) FROM public.swell_watch_provider_run_revision_sets candidate WHERE candidate.batch_id=completed.batch_id)
+      AND NOT EXISTS (SELECT 1 FROM public.swell_watch_provider_run_attestations revoked WHERE revoked.state='revoked' AND revoked.revokes_attestation_id=accepted.id)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_provider_evidence_is_current_before_study"("p_provider_batch_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  IF TG_OP IN ('UPDATE', 'DELETE') OR current_setting('app.swell_watch_internal_write', true) IS DISTINCT FROM 'on' THEN
+    RAISE EXCEPTION 'provider run evidence is append-only';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_provider_run_append_only_trigger"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_provider_run_attestation_subject_trigger"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE v_set uuid; v_state text; v_run_text text;
+BEGIN
+  SELECT to_char(issuance.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"') INTO v_run_text
+  FROM public.swell_watch_provider_run_revision_sets revision_set
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id=revision_set.batch_id
+  JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+  WHERE revision_set.id=NEW.revision_set_id;
+  IF v_run_text IS NULL THEN RAISE EXCEPTION 'attestation revision set does not exist'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-provider-run:' || v_run_text,0));
+  IF NEW.state <> 'revoked' THEN RETURN NEW; END IF;
+  SELECT revision_set_id, state INTO v_set, v_state FROM public.swell_watch_provider_run_attestations WHERE id = NEW.revokes_attestation_id;
+  IF v_set IS DISTINCT FROM NEW.revision_set_id OR v_state NOT IN ('accepted', 'rejected') THEN
+    RAISE EXCEPTION 'attestation revocation must reference the same revision set';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_provider_run_attestation_subject_trigger"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_record_provider_delivery_outcome"("p_notification_event_id" "uuid", "p_attempt_number" integer, "p_sample_count" integer, "p_failure_count" integer) RETURNS TABLE("held" boolean, "reason_code" "text", "control_epoch" integer)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_control_state text;
+  v_control_epoch integer;
+  v_values jsonb;
+  v_window_minutes numeric;
+  v_maximum_failure_rate numeric;
+  v_minimum_samples integer;
+  v_samples numeric;
+  v_failures numeric;
+  v_authority_valid boolean;
+  v_existing_sample_count integer;
+  v_existing_failure_count integer;
+BEGIN
+  IF p_notification_event_id IS NULL OR p_attempt_number < 1
+    OR p_sample_count < 1 OR p_sample_count > 1000
+    OR p_failure_count < 0 OR p_failure_count > p_sample_count THEN
+    RAISE EXCEPTION 'invalid swell watch provider outcome' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control', 0));
+  IF NOT EXISTS (
+    SELECT 1 FROM public.notification_events event
+    WHERE event.id = p_notification_event_id AND event.type = 'swell_watch'
+  ) THEN
+    RAISE EXCEPTION 'invalid swell watch provider outcome event' USING ERRCODE = '22023';
+  END IF;
+  SELECT state, epoch INTO v_control_state, v_control_epoch
+  FROM public.swell_watch_get_automation_control();
+  IF v_control_state IS DISTINCT FROM 'armed' THEN
+    RETURN QUERY SELECT false, 'control_not_armed', v_control_epoch;
+    RETURN;
+  END IF;
+  SELECT authority.policy_values,
+    authority.not_before <= transaction_timestamp()
+      AND authority.expires_at > transaction_timestamp()
+      AND NOT EXISTS (
+        SELECT 1 FROM public.swell_watch_production_approval_authority revoked
+        WHERE revoked.state IN ('revoked', 'superseded')
+          AND revoked.revokes_authority_id = authority.authority_id
+      )
+  INTO v_values, v_authority_valid
+  FROM public.swell_watch_production_approval_authority authority
+  WHERE authority.state = 'active'
+    AND authority.production_scope = 'swell_watch_push'
+    AND isfinite(authority.not_before)
+    AND isfinite(authority.expires_at)
+  ORDER BY authority.authority_epoch DESC
+  LIMIT 1;
+  IF v_authority_valid IS DISTINCT FROM true
+    OR public.swell_watch_production_policy_values_valid(v_values) IS DISTINCT FROM true THEN
+    RETURN QUERY SELECT false, 'authority_unavailable', v_control_epoch;
+    RETURN;
+  END IF;
+  v_window_minutes := (v_values #>> '{provider_failure_hold,window_minutes}')::numeric;
+  v_maximum_failure_rate := (v_values #>> '{provider_failure_hold,maximum_failure_rate}')::numeric;
+  v_minimum_samples := (v_values #>> '{provider_failure_hold,minimum_samples}')::integer;
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  SELECT sample_count, failure_count
+  INTO v_existing_sample_count, v_existing_failure_count
+  FROM public.swell_watch_provider_delivery_outcomes
+  WHERE notification_event_id = p_notification_event_id
+    AND attempt_number = p_attempt_number;
+  IF FOUND THEN
+    IF v_existing_sample_count IS DISTINCT FROM p_sample_count
+      OR v_existing_failure_count IS DISTINCT FROM p_failure_count THEN
+      RAISE EXCEPTION 'conflicting swell watch provider outcome replay' USING ERRCODE = '23505';
+    END IF;
+  ELSE
+    INSERT INTO public.swell_watch_provider_delivery_outcomes (
+      id, notification_event_id, attempt_number, sample_count, failure_count
+    ) VALUES (
+      gen_random_uuid(), p_notification_event_id, p_attempt_number, p_sample_count, p_failure_count
+    );
+  END IF;
+  SELECT COALESCE(sum(sample_count), 0), COALESCE(sum(failure_count), 0)
+  INTO v_samples, v_failures
+  FROM public.swell_watch_provider_delivery_outcomes
+  WHERE created_at >= transaction_timestamp() - make_interval(mins => v_window_minutes::integer);
+  IF v_samples >= v_minimum_samples AND v_failures / v_samples > v_maximum_failure_rate THEN
+    PERFORM * FROM public.transition_swell_watch_automation_control(
+      'hold', v_control_epoch, 'provider_failure_rate',
+      'swell-watch-provider-' || p_notification_event_id::text || '-' || p_attempt_number::text,
+      NULL, 'swell_watch_provider_monitor'
+    );
+    RETURN QUERY SELECT true, 'provider_failure_rate', v_control_epoch + 1;
+    RETURN;
+  END IF;
+  RETURN QUERY SELECT false, 'allowed', v_control_epoch;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_record_provider_delivery_outcome"("p_notification_event_id" "uuid", "p_attempt_number" integer, "p_sample_count" integer, "p_failure_count" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_shadow_demand_duplicates"("p_pairs" "jsonb") RETURNS TABLE("regional_event_id" "uuid", "recipient_id" "uuid", "duplicate_of" "uuid")
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  WITH RECURSIVE input AS (
+    SELECT (pair->>'regional_event_id')::uuid AS ev,(pair->>'recipient_id')::uuid AS rec FROM jsonb_array_elements(p_pairs) pair
+  ), bounds AS (
+    SELECT public.swell_watch_coast_domain(event.region_key) AS domain,
+      min(impact.arrival_at) AS start_at,max(impact.arrival_at) AS end_at
+    FROM (SELECT DISTINCT ev FROM input) requested
+    JOIN public.swell_watch_regional_events event ON event.id=requested.ev
+    JOIN public.swell_watch_event_impacts impact ON impact.regional_event_id=event.id
+    GROUP BY 1
+  ), limits AS (
+    SELECT (policy_values #>> '{partition_matching,maximum_period_delta_s}')::numeric AS period_s,
+      (policy_values #>> '{partition_matching,maximum_direction_delta_deg}')::numeric AS direction_deg
+    FROM public.swell_watch_get_matching_policy()
+  ), candidate AS (
+    SELECT DISTINCT event.id,bounds.domain
+    FROM bounds
+    JOIN public.swell_watch_regional_events event ON public.swell_watch_coast_domain(event.region_key)=bounds.domain
+    JOIN public.swell_watch_event_impacts impact ON impact.regional_event_id=event.id
+      AND impact.arrival_at>=bounds.start_at-interval '5 days' AND impact.arrival_at<=bounds.end_at+interval '5 days'
+  ), win AS (
+    SELECT candidate.id,candidate.domain,min(impact.arrival_at) AS start_at,max(impact.arrival_at) AS end_at,
+      (array_agg(observation.period_s ORDER BY beach_impact.projected_face_height_ft DESC,impact.peak_at,impact.id))[1] AS period_s,
+      (array_agg(observation.direction_deg ORDER BY beach_impact.projected_face_height_ft DESC,impact.peak_at,impact.id))[1] AS direction_deg
+    FROM candidate
+    JOIN public.swell_watch_event_impacts impact ON impact.regional_event_id=candidate.id
+    JOIN public.swell_watch_beach_impacts beach_impact ON beach_impact.id=impact.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=beach_impact.observation_id
+    GROUP BY candidate.id,candidate.domain
+  ), ordered AS (
+    SELECT id,domain,start_at,end_at,period_s,direction_deg,row_number() OVER (PARTITION BY domain ORDER BY start_at,id::text) AS rn FROM win
+  ), walk(id,domain,rn,roots,root) AS (
+    SELECT id,domain,rn,ARRAY[id],id FROM ordered WHERE rn=1
+    UNION ALL
+    SELECT o.id,o.domain,o.rn,walk.roots||coalesce(match.root,o.id),coalesce(match.root,o.id)
+    FROM walk JOIN ordered o ON o.domain=walk.domain AND o.rn=walk.rn+1
+    LEFT JOIN LATERAL (
+      SELECT walk.roots[prior.rn::integer] AS root FROM ordered prior
+      JOIN ordered first_event ON first_event.id=walk.roots[prior.rn::integer]
+      CROSS JOIN limits
+      WHERE prior.domain=o.domain AND prior.rn<o.rn
+        AND o.start_at<=prior.end_at+interval '24 hours'
+        AND o.start_at<=first_event.start_at+interval '72 hours'
+        AND abs(prior.period_s-o.period_s)<=limits.period_s
+        AND least(abs(prior.direction_deg-o.direction_deg),
+          360-abs(prior.direction_deg-o.direction_deg))<=limits.direction_deg
+      ORDER BY first_event.start_at,first_event.id::text LIMIT 1
+    ) match ON true
+  ), swell AS (
+    SELECT id,root FROM walk
+  ), requested AS (
+    SELECT input.ev,input.rec,swell.root,win.start_at FROM input
+    JOIN swell ON swell.id=input.ev JOIN win ON win.id=input.ev
+  ), held AS (
+    SELECT DISTINCT ON (r.rec,r.root) r.rec,r.root,pair.regional_event_id AS keeper
+    FROM (SELECT DISTINCT rec,root FROM requested) r
+    JOIN public.swell_watch_shadow_demand_pairs pair ON pair.recipient_id=r.rec
+    JOIN swell ON swell.id=pair.regional_event_id AND swell.root=r.root
+    ORDER BY r.rec,r.root,pair.first_observed_at,pair.regional_event_id::text
+  ), first_requested AS (
+    SELECT DISTINCT ON (rec,root) rec,root,ev AS keeper FROM requested ORDER BY rec,root,start_at,ev::text
+  )
+  SELECT requested.ev,requested.rec,coalesce(held.keeper,first_requested.keeper)
+  FROM requested
+  JOIN first_requested ON first_requested.rec=requested.rec AND first_requested.root=requested.root
+  LEFT JOIN held ON held.rec=requested.rec AND held.root=requested.root
+  WHERE requested.ev<>coalesce(held.keeper,first_requested.keeper);
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_shadow_demand_duplicates"("p_pairs" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_study_cycle_start"("p_epoch" bigint) RETURNS bigint
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE current_authority public.swell_watch_study_authorities; prior public.swell_watch_study_authorities; start_epoch bigint;
+BEGIN
+  SELECT * INTO current_authority FROM public.swell_watch_study_authorities WHERE epoch=p_epoch;
+  IF NOT FOUND OR current_authority.state<>'active' THEN RETURN NULL; END IF;
+  start_epoch := p_epoch;
+  LOOP
+    SELECT * INTO prior FROM public.swell_watch_study_authorities WHERE epoch=start_epoch-1;
+    EXIT WHEN NOT FOUND OR prior.state<>'active'
+      OR prior.policy_hash IS DISTINCT FROM current_authority.policy_hash
+      OR prior.qualification_rule IS DISTINCT FROM current_authority.qualification_rule
+      OR prior.cohort IS DISTINCT FROM current_authority.cohort
+      OR prior.scope_inputs IS DISTINCT FROM current_authority.scope_inputs
+      OR prior.target_days IS DISTINCT FROM current_authority.target_days;
+    start_epoch := start_epoch-1;
+  END LOOP;
+  RETURN start_epoch;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_study_cycle_start"("p_epoch" bigint) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_study_scope_inputs"("p_cohort" "jsonb") RETURNS "jsonb"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT coalesce(jsonb_agg(jsonb_build_object('sourcePointId',b.id,'latitude',b.lat,'longitude',b.lon,
+    'beach',jsonb_build_object('swell_window_center_deg',b.swell_window_center_deg,
+      'swell_window_halfwidth_deg',b.swell_window_halfwidth_deg,'swell_access_factors',b.swell_access_factors,
+      'terrain_enabled',b.terrain_enabled,'deepwater_decay_factor',b.deepwater_decay_factor,
+      'shoaling_factors',b.shoaling_factors)) ORDER BY b.id),'[]'::jsonb)
+  FROM public.beaches b WHERE b.id IN (SELECT (c->>'sourcePointId')::uuid FROM jsonb_array_elements(p_cohort) c)
+    AND b.deleted_at IS NULL AND b.is_private=false AND b.owner_id IS NULL;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_study_scope_inputs"("p_cohort" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_validate_notification_release"("p_regional_event_id" "uuid", "p_beach_id" "uuid", "p_recipient_id" "uuid", "p_forecast_at" timestamp with time zone, "p_notification_event_id" "uuid") RETURNS TABLE("allowed" boolean, "reason_code" "text", "control_epoch" integer)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_identity_kind text;
+  v_provider_batch_id uuid;
+  v_supporting_evidence_count integer;
+  v_current_supporting_evidence_count integer;
+  v_supporting_issuance_count integer;
+  v_policy_values jsonb;
+  v_policy_hash text;
+  v_required numeric;
+  v_max_direction numeric;
+  v_max_period numeric;
+  v_max_hours numeric;
+  v_continuous boolean;
+  v_latest_issuances uuid[];
+  v_fresh boolean;
+BEGIN
+  IF p_regional_event_id IS NULL OR p_beach_id IS NULL OR p_recipient_id IS NULL
+    OR p_forecast_at IS NULL OR NOT isfinite(p_forecast_at) OR p_notification_event_id IS NULL THEN
+    RETURN QUERY SELECT false,'invalid_release_input',NULL::integer;
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-event:' || p_regional_event_id::text,0));
+  IF NOT pg_try_advisory_xact_lock_shared(hashtextextended('swell-watch-completed-provider-frontier',0)) THEN
+    RETURN QUERY SELECT false,'provider_evidence_unavailable',NULL::integer;
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+    'swell-watch-provider-run:' || to_char(provider_runs.run_utc AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI"Z"'),0
+  ))
+  FROM (
+    SELECT DISTINCT issuance.run_utc
+    FROM public.swell_watch_event_impacts evaluation
+    JOIN public.swell_watch_beach_impacts impact ON impact.id=evaluation.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+    JOIN public.swell_watch_provider_run_completed_batches completed ON completed.id=observation.provider_batch_id
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE evaluation.regional_event_id=p_regional_event_id AND impact.beach_id=p_beach_id
+      AND observation.identity_kind='genuine_completed'
+  ) provider_runs
+  ORDER BY provider_runs.run_utc;
+  SELECT observation.identity_kind,observation.provider_batch_id INTO v_identity_kind,v_provider_batch_id
+  FROM public.swell_watch_event_state_transitions transition
+  JOIN public.swell_watch_event_impacts evaluation ON evaluation.regional_event_id=transition.regional_event_id
+  JOIN public.swell_watch_beach_impacts impact ON impact.id=evaluation.beach_impact_id
+  JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+  WHERE transition.regional_event_id=p_regional_event_id AND impact.beach_id=p_beach_id
+  ORDER BY transition.version DESC,evaluation.evaluated_at DESC,evaluation.id DESC LIMIT 1;
+  SELECT count(*),
+    count(*) FILTER (WHERE identity_kind='genuine_completed'
+      AND public.swell_watch_provider_evidence_is_current(provider_batch_id) IS TRUE),
+    count(DISTINCT issuance_id)
+  INTO v_supporting_evidence_count,v_current_supporting_evidence_count,v_supporting_issuance_count
+  FROM (
+    SELECT observation.identity_kind,observation.provider_batch_id,issuance.id AS issuance_id
+    FROM public.swell_watch_event_impacts evaluation
+    JOIN public.swell_watch_beach_impacts impact ON impact.id=evaluation.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+    LEFT JOIN public.swell_watch_provider_run_completed_batches completed ON completed.id=observation.provider_batch_id
+    LEFT JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    LEFT JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE evaluation.regional_event_id=p_regional_event_id AND impact.beach_id=p_beach_id
+      AND evaluation.evaluated_at>coalesce((SELECT max(transition.created_at) FROM public.swell_watch_event_state_transitions transition WHERE transition.regional_event_id=p_regional_event_id AND transition.state='suppressed'),'-infinity'::timestamptz)
+    ORDER BY evaluation.evaluated_at DESC,evaluation.id DESC LIMIT 2
+  ) supporting_evidence;
+  IF v_identity_kind IS DISTINCT FROM 'genuine_completed'
+    OR public.swell_watch_provider_evidence_is_current(v_provider_batch_id) IS DISTINCT FROM true
+    OR v_supporting_evidence_count IS DISTINCT FROM 2
+    OR v_current_supporting_evidence_count IS DISTINCT FROM 2
+    OR v_supporting_issuance_count IS DISTINCT FROM 2 THEN
+    RETURN QUERY SELECT false,'provider_evidence_unavailable',NULL::integer;
+    RETURN;
+  END IF;
+  -- A stable row and two authentic runs do not prove they describe one swell.
+  -- Use owner-approved thresholds, never caller-supplied matching tolerances.
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control',0));
+  SELECT authority.policy_values,authority.policy_hash INTO v_policy_values,v_policy_hash
+  FROM public.swell_watch_production_approval_authority authority
+  WHERE authority.state='active' AND authority.production_scope='swell_watch_push'
+  ORDER BY authority.authority_epoch DESC LIMIT 1;
+  IF jsonb_typeof(v_policy_values #> '{partition_matching,maximum_direction_delta_deg}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(v_policy_values #> '{partition_matching,maximum_period_delta_s}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(v_policy_values #> '{partition_matching,maximum_arrival_delta_hours}') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(v_policy_values #> '{stability,minimum_genuine_evaluations}') IS DISTINCT FROM 'number' THEN
+    RETURN QUERY SELECT false,'authority_unavailable',NULL::integer;
+    RETURN;
+  END IF;
+  v_max_direction := (v_policy_values #>> '{partition_matching,maximum_direction_delta_deg}')::numeric;
+  v_max_period := (v_policy_values #>> '{partition_matching,maximum_period_delta_s}')::numeric;
+  v_max_hours := (v_policy_values #>> '{partition_matching,maximum_arrival_delta_hours}')::numeric;
+  v_required := (v_policy_values #>> '{stability,minimum_genuine_evaluations}')::numeric;
+  IF v_max_direction<=0 OR v_max_period<=0 OR v_max_hours<=0
+    OR v_required<2 OR v_required>2147483647 OR trunc(v_required)<>v_required THEN
+    RETURN QUERY SELECT false,'authority_unavailable',NULL::integer;
+    RETURN;
+  END IF;
+  SELECT array_agg(latest.id ORDER BY latest.run_utc DESC) INTO v_latest_issuances
+  FROM (
+    SELECT DISTINCT issuance.id,issuance.run_utc
+    FROM public.swell_watch_provider_run_completed_batches completed
+    JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    JOIN public.swell_watch_provider_run_batch_scopes scope ON scope.batch_id=batch.id
+    WHERE scope.source_point_id=p_beach_id
+    ORDER BY issuance.run_utc DESC LIMIT v_required::integer
+  ) latest;
+  WITH supporting AS (
+    SELECT evaluation.id,evaluation.evaluated_at,evaluation.arrival_at,evaluation.peak_at,
+      observation.provider,observation.period_s,observation.direction_deg,
+      observation.provider_batch_id,impact.policy_hash,issuance.id AS issuance_id,issuance.run_utc
+    FROM public.swell_watch_event_impacts evaluation
+    JOIN public.swell_watch_beach_impacts impact ON impact.id=evaluation.beach_impact_id
+    JOIN public.swell_watch_observations observation ON observation.id=impact.observation_id
+    LEFT JOIN public.swell_watch_provider_run_completed_batches completed ON completed.id=observation.provider_batch_id
+    LEFT JOIN public.swell_watch_provider_run_batches batch ON batch.id=completed.batch_id
+    LEFT JOIN public.swell_watch_provider_run_issuances issuance ON issuance.id=batch.issuance_id
+    WHERE evaluation.regional_event_id=p_regional_event_id AND impact.beach_id=p_beach_id
+      AND evaluation.evaluated_at>coalesce((SELECT max(transition.created_at) FROM public.swell_watch_event_state_transitions transition WHERE transition.regional_event_id=p_regional_event_id AND transition.state='suppressed'),'-infinity'::timestamptz)
+    ORDER BY evaluation.evaluated_at DESC,evaluation.id DESC LIMIT v_required::integer
+  ), pairs AS (
+    SELECT *,lead(provider) OVER sequence AS prior_provider,
+      lead(period_s) OVER sequence AS prior_period,lead(direction_deg) OVER sequence AS prior_direction,
+      lead(arrival_at) OVER sequence AS prior_arrival,lead(peak_at) OVER sequence AS prior_peak,
+      lead(run_utc) OVER sequence AS prior_run
+    FROM supporting WINDOW sequence AS (ORDER BY evaluated_at DESC,id DESC)
+  )
+  SELECT cardinality(v_latest_issuances)=v_required AND bool_and(issuance_id=ANY(v_latest_issuances)),
+    count(*)=v_required AND count(DISTINCT issuance_id)=v_required
+    AND bool_and(public.swell_watch_provider_evidence_is_current(provider_batch_id) IS TRUE
+      AND policy_hash=v_policy_hash AND isfinite(arrival_at) AND isfinite(peak_at)
+      AND (prior_provider IS NULL OR (
+        provider=prior_provider AND run_utc>prior_run
+        AND abs(period_s-prior_period)<=v_max_period
+        AND least(abs(direction_deg-prior_direction),360-abs(direction_deg-prior_direction))<=v_max_direction
+        AND abs(extract(epoch FROM arrival_at-prior_arrival))<=v_max_hours*3600
+        AND abs(extract(epoch FROM peak_at-prior_peak))<=v_max_hours*3600)))
+  INTO v_fresh,v_continuous FROM pairs;
+  IF v_continuous IS DISTINCT FROM true THEN
+    RETURN QUERY SELECT false,'event_not_releasable',NULL::integer;
+    RETURN;
+  END IF;
+  IF v_fresh IS DISTINCT FROM true THEN
+    RETURN QUERY SELECT false,'provider_evidence_unavailable',NULL::integer;
+    RETURN;
+  END IF;
+  RETURN QUERY SELECT * FROM public.swell_watch_validate_notification_release_internal(p_regional_event_id,p_beach_id,p_recipient_id,p_forecast_at,p_notification_event_id);
+END; $$;
+
+
+ALTER FUNCTION "public"."swell_watch_validate_notification_release"("p_regional_event_id" "uuid", "p_beach_id" "uuid", "p_recipient_id" "uuid", "p_forecast_at" timestamp with time zone, "p_notification_event_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_validate_notification_release_internal"("p_regional_event_id" "uuid", "p_beach_id" "uuid", "p_recipient_id" "uuid", "p_forecast_at" timestamp with time zone, "p_notification_event_id" "uuid") RETURNS TABLE("allowed" boolean, "reason_code" "text", "control_epoch" integer)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_control_state text;
+  v_control_epoch integer;
+  v_policy_hash text;
+  v_authority_policy_hash text;
+  v_authority_evidence_hash text;
+  v_authority_provenance text;
+  v_authority_values jsonb;
+  v_authority_id uuid;
+  v_authority_epoch integer;
+  v_authority_valid boolean;
+  v_maximum_forecast_age_hours numeric;
+  v_event_state text;
+  v_arrival_at timestamptz;
+  v_observed_at timestamptz;
+  v_relationship_active boolean;
+  v_preferences_active boolean;
+  v_active_device boolean;
+  v_claimed boolean;
+  v_queue_created_at timestamptz;
+  v_binding public.swell_watch_notification_event_bindings%ROWTYPE;
+  v_existing_receipt uuid;
+BEGIN
+  IF p_regional_event_id IS NULL OR p_beach_id IS NULL OR p_recipient_id IS NULL
+    OR p_forecast_at IS NULL OR NOT isfinite(p_forecast_at) OR p_notification_event_id IS NULL THEN
+    RETURN QUERY SELECT false, 'invalid_release_input', NULL::integer;
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control', 0));
+  SELECT event.created_at INTO v_queue_created_at
+  FROM public.notification_events event
+  WHERE event.id = p_notification_event_id
+    AND event.type = 'swell_watch'
+    AND event.recipient_user_id = p_recipient_id
+    AND event.payload ->> 'regional_event_id' = p_regional_event_id::text
+    AND event.payload ->> 'beach_id' = p_beach_id::text
+    AND (event.payload ->> 'forecast_at')::timestamptz = p_forecast_at;
+  IF v_queue_created_at IS NULL THEN
+    RETURN QUERY SELECT false, 'notification_binding_mismatch', NULL::integer;
+    RETURN;
+  END IF;
+  SELECT control.state, control.epoch INTO v_control_state, v_control_epoch
+  FROM public.swell_watch_get_automation_control() control;
+  IF v_control_state IS DISTINCT FROM 'armed' THEN
+    RETURN QUERY SELECT false, 'control_not_armed', v_control_epoch;
+    RETURN;
+  END IF;
+  SELECT authority.policy_hash, authority.approval_evidence_hash, authority.policy_provenance,
+    authority.policy_values, authority.authority_id, authority.authority_epoch,
+    authority.not_before <= transaction_timestamp()
+      AND authority.expires_at > transaction_timestamp()
+      AND NOT EXISTS (
+        SELECT 1 FROM public.swell_watch_production_approval_authority revoked
+        WHERE revoked.state IN ('revoked', 'superseded')
+          AND revoked.revokes_authority_id = authority.authority_id
+      )
+  INTO v_authority_policy_hash, v_authority_evidence_hash, v_authority_provenance,
+    v_authority_values, v_authority_id, v_authority_epoch, v_authority_valid
+  FROM public.swell_watch_production_approval_authority authority
+  WHERE authority.state = 'active'
+    AND authority.production_scope = 'swell_watch_push'
+    AND isfinite(authority.not_before)
+    AND isfinite(authority.expires_at)
+  ORDER BY authority.authority_epoch DESC
+  LIMIT 1;
+  IF v_authority_policy_hash IS NULL
+    OR v_authority_valid IS DISTINCT FROM true
+    OR public.swell_watch_production_policy_values_valid(v_authority_values) IS DISTINCT FROM true THEN
+    RETURN QUERY SELECT false, 'authority_unavailable', v_control_epoch;
+    RETURN;
+  END IF;
+  v_maximum_forecast_age_hours :=
+    (v_authority_values #>> '{staleness,maximum_forecast_age_hours}')::numeric;
+  SELECT transition.state, impact.policy_hash, evaluation.arrival_at, observation.observed_at
+  INTO v_event_state, v_policy_hash, v_arrival_at, v_observed_at
+  FROM public.swell_watch_event_state_transitions transition
+  JOIN public.swell_watch_event_impacts evaluation
+    ON evaluation.regional_event_id = transition.regional_event_id
+  JOIN public.swell_watch_beach_impacts impact ON impact.id = evaluation.beach_impact_id
+  JOIN public.swell_watch_observations observation ON observation.id = impact.observation_id
+  WHERE transition.regional_event_id = p_regional_event_id
+    AND impact.beach_id = p_beach_id
+  ORDER BY transition.version DESC, evaluation.evaluated_at DESC
+  LIMIT 1;
+  IF v_event_state IS DISTINCT FROM 'stable' OR v_policy_hash IS DISTINCT FROM v_authority_policy_hash
+    OR v_arrival_at < transaction_timestamp() + interval '2 days'
+    OR v_arrival_at > transaction_timestamp() + interval '5 days'
+    OR v_observed_at < transaction_timestamp()
+        - make_interval(secs => (v_maximum_forecast_age_hours * 3600)::double precision) THEN
+    RETURN QUERY SELECT false, 'event_not_releasable', v_control_epoch;
+    RETURN;
+  END IF;
+  IF p_forecast_at < transaction_timestamp()
+      - make_interval(secs => (v_maximum_forecast_age_hours * 3600)::double precision) THEN
+    RETURN QUERY SELECT false, 'forecast_stale', v_control_epoch;
+    RETURN;
+  END IF;
+  SELECT * INTO v_binding
+  FROM public.swell_watch_notification_event_bindings binding
+  WHERE binding.notification_event_id = p_notification_event_id;
+  IF FOUND THEN
+    IF v_binding.regional_event_id <> p_regional_event_id
+      OR v_binding.beach_id <> p_beach_id
+      OR v_binding.recipient_id <> p_recipient_id
+      OR v_binding.control_epoch <> v_control_epoch
+      OR v_binding.authority_id <> v_authority_id
+      OR v_binding.authority_epoch <> v_authority_epoch
+      OR v_binding.policy_hash <> v_authority_policy_hash
+      OR v_binding.approval_evidence_hash <> v_authority_evidence_hash
+      OR v_binding.policy_provenance <> v_authority_provenance
+      OR v_binding.policy_values <> v_authority_values THEN
+      RETURN QUERY SELECT false, 'notification_binding_mismatch', v_control_epoch;
+      RETURN;
+    END IF;
+  ELSE
+    IF v_control_epoch IS NULL OR v_control_epoch < 1
+      OR (SELECT state FROM public.swell_watch_automation_control_transitions
+          WHERE created_at <= v_queue_created_at ORDER BY epoch DESC LIMIT 1) IS DISTINCT FROM 'armed'
+      OR (SELECT epoch FROM public.swell_watch_automation_control_transitions
+          WHERE created_at <= v_queue_created_at ORDER BY epoch DESC LIMIT 1) IS DISTINCT FROM v_control_epoch
+      OR (SELECT authority.authority_id FROM public.swell_watch_production_approval_authority authority
+          WHERE authority.state = 'active' AND authority.created_at <= v_queue_created_at
+          ORDER BY authority.authority_epoch DESC LIMIT 1) IS DISTINCT FROM v_authority_id
+      OR (SELECT authority.authority_epoch FROM public.swell_watch_production_approval_authority authority
+          WHERE authority.state = 'active' AND authority.created_at <= v_queue_created_at
+          ORDER BY authority.authority_epoch DESC LIMIT 1) IS DISTINCT FROM v_authority_epoch THEN
+      RETURN QUERY SELECT false, 'notification_binding_mismatch', v_control_epoch;
+      RETURN;
+    END IF;
+  END IF;
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles home
+    WHERE home.id = p_recipient_id AND home.home_beach_id = p_beach_id
+    UNION ALL
+    SELECT 1 FROM public.favorite_beaches favorite
+    WHERE favorite.user_id = p_recipient_id AND favorite.beach_id = p_beach_id
+      AND favorite.alerts_enabled = true AND favorite.custom_spot_id IS NULL
+    UNION ALL
+    SELECT 1 FROM public.alert_rules rule
+    WHERE rule.user_id = p_recipient_id AND rule.beach_id = p_beach_id
+      AND rule.enabled = true AND rule.notify_push = true
+  ) INTO v_relationship_active;
+  SELECT profile.notif_push_enabled AND profile.notif_forecast_alerts
+  INTO v_preferences_active
+  FROM public.profiles profile WHERE profile.id = p_recipient_id;
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_devices device
+    WHERE device.user_id = p_recipient_id AND device.retired_at IS NULL
+  ) INTO v_active_device;
+  IF v_relationship_active IS DISTINCT FROM true
+    OR v_preferences_active IS DISTINCT FROM true
+    OR v_active_device IS DISTINCT FROM true THEN
+    RETURN QUERY SELECT false, 'recipient_not_eligible', v_control_epoch;
+    RETURN;
+  END IF;
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  SELECT notification_event_id INTO v_existing_receipt
+  FROM public.swell_watch_recipient_announcements
+  WHERE regional_event_id = p_regional_event_id AND recipient_id = p_recipient_id;
+  IF FOUND AND v_existing_receipt IS DISTINCT FROM p_notification_event_id THEN
+    RETURN QUERY SELECT false, 'recipient_deduplicated', v_control_epoch;
+    RETURN;
+  END IF;
+  IF v_authority_values #> '{volume_caps,projected_send_window_hours}' IS DISTINCT FROM '24'::jsonb THEN
+    RETURN QUERY SELECT false, 'authority_unavailable', v_control_epoch;
+    RETURN;
+  END IF;
+  -- Retain unresolved claims; late delivery attempts restart their budget window.
+  IF public.swell_watch_projected_send_count(p_notification_event_id) + 1
+    > (v_authority_values #>> '{volume_caps,maximum_projected_sends_per_window}')::numeric THEN
+    PERFORM * FROM public.transition_swell_watch_automation_control(
+      'hold', v_control_epoch, 'projected_send_cap_exceeded',
+      'projected-send-cap:' || v_control_epoch::text, NULL, 'swell_watch_provider_monitor'
+    );
+    RETURN QUERY SELECT false, 'projected_send_cap_exceeded', v_control_epoch + 1;
+    RETURN;
+  END IF;
+  IF NOT FOUND THEN
+    -- The control lock serializes release claims across workers and producers.
+    IF (SELECT count(*) + 1 FROM (
+        SELECT recipient_id FROM public.swell_watch_recipient_announcements WHERE regional_event_id = p_regional_event_id
+        UNION
+        SELECT recipient_id FROM public.swell_watch_notification_event_bindings WHERE regional_event_id = p_regional_event_id
+      ) recipients WHERE recipient_id <> p_recipient_id)
+      > (v_authority_values #>> '{volume_caps,maximum_recipients_per_event}')::numeric THEN
+      PERFORM * FROM public.transition_swell_watch_automation_control(
+        'hold', v_control_epoch, 'recipient_cap_exceeded',
+        'recipient-cap:' || p_regional_event_id::text || ':' || v_control_epoch::text,
+        NULL, 'swell_watch_provider_monitor'
+      );
+      RETURN QUERY SELECT false, 'recipient_cap_exceeded', v_control_epoch + 1;
+      RETURN;
+    END IF;
+    INSERT INTO public.swell_watch_recipient_announcements (id, regional_event_id, recipient_id, notification_event_id)
+    VALUES (gen_random_uuid(), p_regional_event_id, p_recipient_id, p_notification_event_id);
+  END IF;
+  IF v_binding.notification_event_id IS NULL THEN
+    INSERT INTO public.swell_watch_notification_event_bindings (
+      notification_event_id, regional_event_id, beach_id, recipient_id, control_epoch,
+      authority_id, authority_epoch, policy_hash, approval_evidence_hash, policy_provenance, policy_values
+    ) VALUES (
+      p_notification_event_id, p_regional_event_id, p_beach_id, p_recipient_id, v_control_epoch,
+      v_authority_id, v_authority_epoch, v_authority_policy_hash, v_authority_evidence_hash,
+      v_authority_provenance, v_authority_values
+    );
+  END IF;
+  RETURN QUERY SELECT true, 'allowed', v_control_epoch;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_validate_notification_release_internal"("p_regional_event_id" "uuid", "p_beach_id" "uuid", "p_recipient_id" "uuid", "p_forecast_at" timestamp with time zone, "p_notification_event_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."swell_watch_verify_provider_batch_trigger"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE v_completed_id uuid; v_revision_set_id uuid; v_evaluation text;
+BEGIN
+  IF NEW.identity_kind = 'synthetic_fixture' THEN
+    IF NEW.provider_batch_id IS NOT NULL THEN RAISE EXCEPTION 'synthetic fixtures cannot use provider batches'; END IF;
+    RETURN NEW;
+  END IF;
+  IF NEW.identity_kind <> 'genuine_completed' OR current_setting('app.swell_watch_verified_batch_id', true) IS NULL THEN
+    RAISE EXCEPTION 'genuine completed observations require a verified provider batch';
+  END IF;
+  NEW.provider_batch_id := current_setting('app.swell_watch_verified_batch_id', true)::uuid;
+  SELECT completed.id, completed.revision_set_id, 'genuine_completed:' || batch.id INTO v_completed_id, v_revision_set_id, v_evaluation
+  FROM public.swell_watch_provider_run_completed_batches completed
+  JOIN public.swell_watch_provider_run_batches batch ON batch.id = completed.batch_id
+  WHERE completed.id = NEW.provider_batch_id;
+  IF v_completed_id IS NULL OR NEW.evaluation_id IS DISTINCT FROM v_evaluation OR NEW.provider <> 'open_meteo'
+    OR NOT EXISTS (
+      SELECT 1
+      FROM public.swell_watch_provider_run_revision_sets current_set
+      WHERE current_set.id = v_revision_set_id
+        AND current_set.revision_number = (
+          SELECT max(candidate.revision_number)
+          FROM public.swell_watch_provider_run_revision_sets candidate
+          WHERE candidate.batch_id = current_set.batch_id
+        )
+    )
+    OR NOT EXISTS (
+      SELECT 1
+      FROM public.swell_watch_provider_run_attestations accepted
+      WHERE accepted.revision_set_id = v_revision_set_id
+        AND accepted.state = 'accepted'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.swell_watch_provider_run_attestations revoked
+          WHERE revoked.state = 'revoked'
+            AND revoked.revokes_attestation_id = accepted.id
+        )
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM public.swell_watch_provider_run_revision_set_members member
+      JOIN public.swell_watch_provider_run_batch_scopes scope ON scope.id = member.scope_id
+      JOIN public.swell_watch_provider_run_revision_components component ON component.revision_id = member.revision_id
+      WHERE member.revision_set_id = v_revision_set_id AND scope.source_point_id = NEW.source_point_id
+        AND component.unavailable_reason IS NULL
+        AND component.forecast_at = NEW.forecast_at AND component.source_slot = NEW.source_slot
+        AND component.height_m = NEW.height_m AND component.period_s = NEW.period_s AND component.direction_deg = NEW.direction_deg
+    ) THEN RAISE EXCEPTION 'genuine completed observation does not match provider batch'; END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."swell_watch_verify_provider_batch_trigger"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."swell_windows_overlap"("p_min1" numeric, "p_max1" numeric, "p_min2" numeric, "p_max2" numeric) RETURNS numeric
@@ -15459,10 +20630,18 @@ DECLARE
   nearest_prediction public.ml_predictions_log%rowtype;
   nearest_delta_minutes numeric;
   normalized_source_created_by text;
+  session_height_source text;
+  session_size_vs_forecast text;
+  session_shown_height_ft numeric;
 BEGIN
   IF p_session_id IS NULL THEN
     RETURN NULL;
   END IF;
+
+  SELECT s.wave_height_source, s.wave_size_vs_forecast, s.forecast_wave_height_ft
+  INTO session_height_source, session_size_vs_forecast, session_shown_height_ft
+  FROM public.sessions s
+  WHERE s.id = p_session_id;
 
   normalized_source_created_by := CASE
     WHEN p_source_created_by = 'backfill' THEN 'backfill'
@@ -15479,6 +20658,13 @@ BEGIN
     rejection_reason_text := 'missing_wave_height_ft';
   ELSIF p_wave_height_ft <= 0 OR p_wave_height_ft > 50 THEN
     rejection_reason_text := 'invalid_wave_height_ft';
+  ELSIF session_height_source = 'forecast_prefill'
+    AND session_size_vs_forecast IS DISTINCT FROM 'about_right'
+  THEN
+    -- The surfer accepted the form's forecast estimate without changing it, so
+    -- the height is the forecast, not an observation of it. A prefill the surfer
+    -- answered 'about_right' is kept: it confirms the shown height.
+    rejection_reason_text := 'forecast_prefilled_wave_height';
   END IF;
 
   IF rejection_reason_text IS NOT NULL THEN
@@ -15516,7 +20702,9 @@ BEGIN
       snapshot_v5_model_version,
       snapshot_candidate_model_version,
       snapshot_display_source,
-      forecast_horizon_hours
+      forecast_horizon_hours,
+      reported_size_vs_forecast,
+      shown_forecast_height_ft
     ) VALUES (
       p_session_id,
       p_user_id,
@@ -15541,7 +20729,9 @@ BEGIN
       NULL,
       NULL,
       NULL,
-      NULL
+      NULL,
+      session_size_vs_forecast,
+      session_shown_height_ft
     )
     ON CONFLICT (session_id) DO UPDATE SET
       user_id = excluded.user_id,
@@ -15566,13 +20756,25 @@ BEGIN
       snapshot_candidate_model_version = NULL,
       snapshot_display_source = NULL,
       forecast_horizon_hours = NULL,
+      reported_size_vs_forecast = excluded.reported_size_vs_forecast,
+      shown_forecast_height_ft = excluded.shown_forecast_height_ft,
       updated_at = now()
     RETURNING id INTO candidate_id;
 
     RETURN candidate_id;
   END IF;
 
-  observed_height_m := round((p_wave_height_ft * 0.3048)::numeric, 3);
+  -- A confirmed prefill observes the height the form showed, not the chip it rounded to.
+  observed_height_m := round((
+    CASE
+      WHEN session_height_source = 'forecast_prefill'
+        AND session_size_vs_forecast = 'about_right'
+        AND session_shown_height_ft > 0
+        AND session_shown_height_ft <= 50
+      THEN session_shown_height_ft
+      ELSE p_wave_height_ft
+    END * 0.3048
+  )::numeric, 3);
 
   SELECT p.*
   INTO nearest_prediction
@@ -15623,7 +20825,9 @@ BEGIN
     snapshot_v5_model_version,
     snapshot_candidate_model_version,
     snapshot_display_source,
-    forecast_horizon_hours
+    forecast_horizon_hours,
+    reported_size_vs_forecast,
+    shown_forecast_height_ft
   ) VALUES (
     p_session_id,
     p_user_id,
@@ -15641,14 +20845,24 @@ BEGIN
     coalesce(nearest_prediction.offset_corrected_display_height_m, nearest_prediction.raw_display_height_m, nearest_prediction.corrected_forecast_m, nearest_prediction.raw_forecast_m, nearest_prediction.wave_height_om),
     nearest_prediction.wave_height_om,
     nearest_prediction.v5_shadow_height_m,
-    nearest_prediction.observed_m,
+    (
+      SELECT g.observed_m
+      FROM public.get_prediction_observations(
+        p_beach_id,
+        nearest_prediction.predicted_at,
+        nearest_prediction.predicted_at + interval '1 second'
+      ) g
+      WHERE g.prediction_id = nearest_prediction.id
+    ),
     nearest_prediction.raw_forecast_m,
     nearest_prediction.corrected_forecast_m,
     nearest_prediction.model_version,
     nearest_prediction.v5_model_version,
     nearest_prediction.candidate_model_version,
     nearest_prediction.display_source,
-    nearest_prediction.forecast_horizon_hours
+    nearest_prediction.forecast_horizon_hours,
+    session_size_vs_forecast,
+    session_shown_height_ft
   )
   ON CONFLICT (session_id) DO UPDATE SET
     user_id = excluded.user_id,
@@ -15673,6 +20887,8 @@ BEGIN
     snapshot_candidate_model_version = excluded.snapshot_candidate_model_version,
     snapshot_display_source = excluded.snapshot_display_source,
     forecast_horizon_hours = excluded.forecast_horizon_hours,
+    reported_size_vs_forecast = excluded.reported_size_vs_forecast,
+    shown_forecast_height_ft = excluded.shown_forecast_height_ft,
     updated_at = now()
   RETURNING id INTO candidate_id;
 
@@ -15684,7 +20900,7 @@ $$;
 ALTER FUNCTION "public"."sync_session_wave_observation_candidate"("p_session_id" "uuid", "p_user_id" "uuid", "p_beach_id" "uuid", "p_arrival_time" timestamp with time zone, "p_status" "text", "p_wave_height_ft" numeric, "p_source_created_by" "text") OWNER TO "postgres";
 
 
-COMMENT ON FUNCTION "public"."sync_session_wave_observation_candidate"("p_session_id" "uuid", "p_user_id" "uuid", "p_beach_id" "uuid", "p_arrival_time" timestamp with time zone, "p_status" "text", "p_wave_height_ft" numeric, "p_source_created_by" "text") IS 'Stores user-logged sessions.wave_height_ft as weak observation candidates matched to the nearest face-Hs display ml_predictions_log.predicted_at within +/- 6 hours. Phase 0 tie-breaks same-slot snapshots toward the shortest forecast horizon. It snapshots model values for analytics and never updates ml_predictions_log.observed_m.';
+COMMENT ON FUNCTION "public"."sync_session_wave_observation_candidate"("p_session_id" "uuid", "p_user_id" "uuid", "p_beach_id" "uuid", "p_arrival_time" timestamp with time zone, "p_status" "text", "p_wave_height_ft" numeric, "p_source_created_by" "text") IS 'Stores user-logged sessions.wave_height_ft as weak observation candidates matched to the nearest face-Hs display ml_predictions_log.predicted_at within +/- 6 hours. Phase 0 tie-breaks same-slot snapshots toward the shortest forecast horizon. Heights with sessions.wave_height_source = forecast_prefill are rejected as forecast_prefilled_wave_height unless the surfer answered wave_size_vs_forecast = about_right. Every candidate copies the size answer and the shown height. It snapshots model values for analytics and never updates ml_predictions_log.observed_m.';
 
 
 
@@ -15705,7 +20921,7 @@ COMMENT ON FUNCTION "public"."toggle_favorite_beach_guarded"("p_beach_id" "uuid"
 
 CREATE OR REPLACE FUNCTION "public"."toggle_favorite_spot_guarded"("p_beach_id" "uuid" DEFAULT NULL::"uuid", "p_custom_spot_id" "uuid" DEFAULT NULL::"uuid") RETURNS "text"
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public', 'extensions', 'pg_temp'
+    SET "search_path" TO 'public'
     AS $$
 DECLARE
   current_user_id uuid := auth.uid();
@@ -15713,6 +20929,7 @@ DECLARE
   favorite_count integer;
   next_rank integer;
   has_unlimited_favorites boolean;
+  has_billing_issue boolean;
 BEGIN
   IF current_user_id IS NULL THEN
     RAISE EXCEPTION 'not_authenticated';
@@ -15757,30 +20974,44 @@ BEGIN
     RETURN 'removed';
   END IF;
 
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_entitlements ue
-    WHERE ue.user_id = current_user_id
-      AND (ue.is_pro = true OR ue.is_trialing = true)
-      AND (
-        ue.expires_at IS NULL
-        OR ue.expires_at > now()
-        OR ue.billing_issue = true
-      )
-  ) INTO has_unlimited_favorites;
+  IF p_custom_spot_id IS NULL THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.user_entitlements ue
+      WHERE ue.user_id = current_user_id
+        AND (ue.is_pro = true OR ue.is_trialing = true)
+        AND (
+          ue.expires_at IS NULL
+          OR ue.expires_at > now()
+          OR ue.billing_issue = true
+        )
+    ) INTO has_unlimited_favorites;
 
-  SELECT count(*) INTO favorite_count
-  FROM public.favorite_beaches
-  WHERE user_id = current_user_id;
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.user_entitlements ue
+      WHERE ue.user_id = current_user_id
+        AND ue.billing_issue = true
+    ) INTO has_billing_issue;
 
-  IF NOT has_unlimited_favorites AND favorite_count >= 3 THEN
-    RAISE EXCEPTION 'favorite_quota_exceeded'
-      USING DETAIL = 'free_favorites_limit';
+    SELECT count(*) INTO favorite_count
+    FROM public.favorite_beaches fb
+    WHERE fb.user_id = current_user_id
+      AND fb.beach_id IS NOT NULL;
+
+    -- Founding access lifts the cap while the switch is on; saved rows stay when it goes off.
+    -- Billing-issue rows never get founding access, matching the TS gates.
+    IF NOT has_unlimited_favorites
+      AND favorite_count >= 3
+      AND (has_billing_issue OR NOT public.founding_access_enabled()) THEN
+      RAISE EXCEPTION 'favorite_quota_exceeded'
+        USING DETAIL = 'free_favorites_limit';
+    END IF;
   END IF;
 
-  SELECT COALESCE(max(rank), 0) + 1 INTO next_rank
-  FROM public.favorite_beaches
-  WHERE user_id = current_user_id;
+  SELECT COALESCE(max(fb.rank), 0) + 1 INTO next_rank
+  FROM public.favorite_beaches fb
+  WHERE fb.user_id = current_user_id;
 
   INSERT INTO public.favorite_beaches (
     user_id,
@@ -15803,6 +21034,21 @@ $$;
 
 
 ALTER FUNCTION "public"."toggle_favorite_spot_guarded"("p_beach_id" "uuid", "p_custom_spot_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."track_email_due_age"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ IF NEW.status<>'due' THEN NEW.first_due_at:=NULL;
+ ELSIF TG_OP='UPDATE' AND OLD.status='due' AND (OLD.job,OLD.episode) IS NOT DISTINCT FROM (NEW.job,NEW.episode) THEN NEW.first_due_at:=coalesce(OLD.first_due_at,now());
+ ELSE NEW.first_due_at:=now(); END IF;
+ RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."track_email_due_age"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."track_session_media_upload"() RETURNS "trigger"
@@ -15830,6 +21076,179 @@ ALTER FUNCTION "public"."track_session_media_upload"() OWNER TO "postgres";
 
 COMMENT ON FUNCTION "public"."track_session_media_upload"() IS 'Trigger function that automatically updates storage_usage when session_media records are inserted or deleted';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."transition_swell_watch_automation_control"("p_operation" "text", "p_expected_epoch" integer, "p_reason_code" "text", "p_idempotency_key" "text", "p_actor_user_id" "uuid", "p_system_actor" "text" DEFAULT NULL::"text") RETURNS TABLE("state" "text", "epoch" integer, "reason_code" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+DECLARE
+  v_current_state text;
+  v_current_epoch integer;
+  v_next_state text;
+  v_existing public.swell_watch_automation_control_transitions%ROWTYPE;
+  v_authority_exists boolean;
+BEGIN
+  IF p_operation NOT IN ('hold', 'reset_shadow', 'arm')
+    OR p_expected_epoch < 0
+    OR p_reason_code !~ '^[a-z0-9_:-]{3,96}$'
+    OR p_idempotency_key !~ '^[A-Za-z0-9:_-]{8,160}$'
+    OR (p_actor_user_id IS NULL AND (p_operation IS DISTINCT FROM 'hold' OR p_system_actor IS DISTINCT FROM 'swell_watch_provider_monitor'))
+    OR (p_actor_user_id IS NOT NULL AND p_system_actor IS NOT NULL) THEN
+    RAISE EXCEPTION 'invalid swell watch control transition' USING ERRCODE = '22023';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended('swell-watch-control', 0));
+  SELECT * INTO v_existing
+  FROM public.swell_watch_automation_control_transitions
+  WHERE idempotency_key = p_idempotency_key;
+  IF FOUND THEN
+    IF v_existing.operation IS DISTINCT FROM p_operation
+      OR v_existing.expected_epoch IS DISTINCT FROM p_expected_epoch
+      OR v_existing.reason_code IS DISTINCT FROM p_reason_code
+      OR v_existing.actor_user_id IS DISTINCT FROM p_actor_user_id
+      OR v_existing.system_actor IS DISTINCT FROM p_system_actor THEN
+      RAISE EXCEPTION 'conflicting swell watch control replay' USING ERRCODE = '23505';
+    END IF;
+    RETURN QUERY SELECT v_existing.state, v_existing.epoch, v_existing.reason_code;
+    RETURN;
+  END IF;
+
+  SELECT resolved.state, resolved.epoch INTO v_current_state, v_current_epoch
+  FROM public.swell_watch_get_automation_control() resolved;
+  IF v_current_epoch IS NULL THEN
+    RAISE EXCEPTION 'swell watch control unavailable' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_current_epoch IS DISTINCT FROM p_expected_epoch THEN
+    RAISE EXCEPTION 'swell watch control epoch conflict' USING ERRCODE = '40001';
+  END IF;
+
+  v_next_state := CASE p_operation
+    WHEN 'hold' THEN 'held'
+    WHEN 'reset_shadow' THEN 'shadow'
+    WHEN 'arm' THEN 'armed'
+  END;
+  IF p_operation = 'reset_shadow' AND v_current_state <> 'held' THEN
+    RAISE EXCEPTION 'only held control may reset to shadow' USING ERRCODE = '22023';
+  END IF;
+  IF p_operation = 'arm' THEN
+    IF v_current_state <> 'shadow' THEN
+      RAISE EXCEPTION 'only shadow control may arm' USING ERRCODE = '22023';
+    END IF;
+    SELECT authority.not_before <= transaction_timestamp()
+      AND authority.expires_at > transaction_timestamp()
+      AND NOT EXISTS (
+        SELECT 1 FROM public.swell_watch_production_approval_authority revoked
+        WHERE revoked.state IN ('revoked', 'superseded')
+          AND revoked.revokes_authority_id = authority.authority_id
+      )
+    INTO v_authority_exists
+    FROM public.swell_watch_production_approval_authority authority
+    WHERE authority.state = 'active'
+      AND authority.production_scope = 'swell_watch_push'
+      AND isfinite(authority.not_before)
+      AND isfinite(authority.expires_at)
+    ORDER BY authority.authority_epoch DESC
+    LIMIT 1;
+    IF v_authority_exists IS DISTINCT FROM true THEN
+      RAISE EXCEPTION 'production approval authority unavailable' USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  PERFORM set_config('app.swell_watch_internal_write', 'on', true);
+  INSERT INTO public.swell_watch_automation_control_transitions (
+    id, operation, state, epoch, expected_epoch, reason_code, idempotency_key, actor_user_id, actor_kind, system_actor
+  ) VALUES (
+    gen_random_uuid(), p_operation, v_next_state, v_current_epoch + 1,
+    p_expected_epoch, p_reason_code, p_idempotency_key, p_actor_user_id,
+    CASE WHEN p_actor_user_id IS NULL THEN 'system' ELSE 'operator' END, p_system_actor
+  );
+  RETURN QUERY SELECT v_next_state, v_current_epoch + 1, p_reason_code;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."transition_swell_watch_automation_control"("p_operation" "text", "p_expected_epoch" integer, "p_reason_code" "text", "p_idempotency_key" "text", "p_actor_user_id" "uuid", "p_system_actor" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."trial_feedback_attention_count"() RETURNS integer
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT (SELECT count(*) FROM public.trial_feedback_outcomes WHERE attention IS NOT NULL AND store IN ('APP_STORE','PLAY_STORE'))
+ + (SELECT count(*) FROM public.trial_feedback_submissions WHERE state='reserved' AND store IN ('APP_STORE','PLAY_STORE') AND reserved_at<now()-interval '30 minutes'
+   AND (last_reconciled_at IS NULL OR last_reconciled_at<now()-interval '30 minutes'))
+ + (SELECT count(*) FROM public.trial_feedback_offer_policy WHERE enabled AND expires_at<=now());
+$$;
+
+
+ALTER FUNCTION "public"."trial_feedback_attention_count"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."trial_feedback_context"("p_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE f public.trial_feedback_submissions%ROWTYPE; policy public.trial_feedback_offer_policy%ROWTYPE; t jsonb; offer jsonb; status text;
+BEGIN
+ SELECT * INTO f FROM public.trial_feedback_submissions WHERE user_id=p_user_id;
+ t:=public.current_feedback_trial(p_user_id);
+ IF NOT EXISTS(SELECT 1 FROM public.trial_feedback_controls WHERE singleton AND enabled) THEN
+   status:='disabled';
+ ELSIF f.id IS NOT NULL THEN status:='submitted';
+ ELSIF t IS NULL THEN status:='unavailable'; ELSE status:='available'; END IF;
+ IF f.id IS NOT NULL AND f.state='verified' THEN status:='verified'; END IF;
+ IF f.id IS NOT NULL AND f.state<>'verified' AND f.provider_handoff_at IS NULL AND t->>'trial_event_id'=f.trial_event_id
+   AND EXISTS(SELECT 1 FROM public.trial_feedback_controls WHERE singleton AND enabled AND redemption_enabled) THEN
+   SELECT * INTO policy FROM public.trial_feedback_offer_policy WHERE product_id=f.product_id AND store=f.store AND enabled
+     AND approved_at<=now() AND expires_at>now() AND length(trim(stacking_evidence))>0;
+   IF policy.product_id IS NOT NULL AND (f.state='submitted' OR (f.offer_identifier=policy.offer_identifier AND f.terms_version=policy.terms_version)) THEN
+     offer:=jsonb_build_object('product_id',f.product_id,'offer_identifier',policy.offer_identifier,'terms_version',policy.terms_version,
+       'trial_ends_at',f.trial_ends_at,'free_ends_at',((f.trial_ends_at AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC',
+       'store',f.store,'months',1);
+   END IF;
+ END IF;
+ RETURN jsonb_build_object('contract_version',1,'user_id',p_user_id,'status',status,
+   'submission_id',f.id,'reservation_id',f.reservation_id,'offer',offer,'redemption_state',f.state,'verified_until',CASE WHEN f.state='verified' THEN f.expected_expires_at END);
+END; $$;
+
+
+ALTER FUNCTION "public"."trial_feedback_context"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."trial_feedback_web_attention_count"() RETURNS integer
+    LANGUAGE "sql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+ SELECT count(*)::integer FROM public.trial_feedback_web_recoveries WHERE attention IS NOT NULL
+   OR (state<>'closed' AND next_check_at<now()-interval '30 minutes')
+   OR (state IN ('reserved','pending') AND reserved_at<now()-interval '30 minutes');
+$$;
+
+
+ALTER FUNCTION "public"."trial_feedback_web_attention_count"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."trial_feedback_web_context"("p_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE r public.trial_feedback_web_recoveries%ROWTYPE; context jsonb; offer jsonb; start_at timestamptz;
+BEGIN
+ SELECT * INTO r FROM public.trial_feedback_web_recoveries WHERE user_id=p_user_id;
+ IF FOUND THEN RETURN jsonb_build_object('recovery',to_jsonb(r),'offer',NULL); END IF;
+ IF EXISTS(SELECT 1 FROM public.trial_feedback_controls WHERE singleton AND enabled AND redemption_enabled AND web_enabled) THEN
+   context:=public.trial_feedback_context(p_user_id); offer:=context->'offer';
+   IF offer->>'store'='RC_BILLING' THEN
+     SELECT e.purchased_at INTO start_at FROM public.trial_feedback_submissions f JOIN public.revenuecat_provider_events e ON e.provider_event_id=f.trial_event_id WHERE f.user_id=p_user_id;
+     RETURN jsonb_build_object('recovery',NULL,'offer',offer||jsonb_build_object('original_starts_at',start_at));
+   END IF;
+ END IF;
+ RETURN jsonb_build_object('recovery',NULL,'offer',NULL);
+END; $$;
+
+
+ALTER FUNCTION "public"."trial_feedback_web_context"("p_user_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."trigger_manual_maintenance"() RETURNS "json"
@@ -16017,7 +21436,9 @@ CREATE OR REPLACE FUNCTION "public"."trusted_forecast_canonical_snapshot"("p_row
     ),
     '{}'::jsonb
   )
-  FROM unnest(public.trusted_forecast_snapshot_columns()) AS column_name;
+  FROM unnest(public.trusted_forecast_snapshot_columns()) AS column_name
+  WHERE column_name <> 'display_replay_context'
+     OR (p_row -> column_name IS NOT NULL AND p_row -> column_name <> 'null'::jsonb);
 $$;
 
 
@@ -16062,6 +21483,7 @@ CREATE OR REPLACE FUNCTION "public"."trusted_forecast_snapshot_columns"() RETURN
     'display_source',
     'display_wave_source',
     'display_raw_input_height_m',
+    'display_replay_context',
     'model_version',
     'wave_height_om',
     'noaa_swell_1_height_m',
@@ -16108,6 +21530,27 @@ $$;
 
 
 ALTER FUNCTION "public"."trusted_forecast_snapshot_columns"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."try_acquire_swell_watch_collection_lease"("p_owner" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    SET "lock_timeout" TO '10s'
+    SET "statement_timeout" TO '60s'
+    AS $$
+BEGIN
+  IF p_owner IS NULL THEN RAISE EXCEPTION 'collection owner required'; END IF;
+  INSERT INTO public.swell_watch_collection_lease(id,owner_token,expires_at)
+  VALUES (1,p_owner,clock_timestamp()+interval '10 minutes')
+  ON CONFLICT (id) DO UPDATE SET owner_token=EXCLUDED.owner_token,
+    expires_at=clock_timestamp()+interval '10 minutes'
+  WHERE swell_watch_collection_lease.expires_at <= clock_timestamp();
+  RETURN FOUND;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."try_acquire_swell_watch_collection_lease"("p_owner" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."try_insert_similarity_alert"("p_user_id" "uuid", "p_rule_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_send_at" timestamp with time zone, "p_window_start" timestamp with time zone, "p_window_end" timestamp with time zone, "p_best_hour" timestamp with time zone, "p_conditions_snapshot" "jsonb") RETURNS TABLE("inserted" boolean, "alert_queue_id" "uuid")
@@ -16190,6 +21633,136 @@ COMMENT ON FUNCTION "public"."try_insert_similarity_alert"("p_user_id" "uuid", "
 
 
 
+CREATE OR REPLACE FUNCTION "public"."try_insert_system_feed_post"("p_user_id" "uuid", "p_beach_id" "uuid", "p_latitude" numeric, "p_longitude" numeric, "p_tag" "text", "p_title" "text", "p_description" "text", "p_is_active" boolean, "p_dedupe_hash" "text", "p_surf_conditions" "jsonb", "p_expires_at" timestamp with time zone, "p_created_at" timestamp with time zone, "p_daily_cap" integer DEFAULT 12, "p_beach_daily_cap" integer DEFAULT 2, "p_beach_weekly_cap" integer DEFAULT 7) RETURNS TABLE("post_id" "uuid", "status" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  day_start timestamptz;
+  day_end timestamptz;
+  existing_post_id uuid;
+  daily_count integer;
+  beach_daily_count integer;
+  beach_weekly_count integer;
+  inserted_post_id uuid;
+BEGIN
+  day_start := date_trunc('day', p_created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC';
+  day_end := day_start + interval '1 day';
+
+  -- All system producers share one lock for the UTC day. The lock is held
+  -- through the count checks and insert, so retries cannot reserve the same
+  -- capacity concurrently.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('quiver:system-feed:' || day_start::text, 0)
+  );
+
+  IF p_dedupe_hash IS NOT NULL THEN
+    SELECT ip.id
+    INTO existing_post_id
+    FROM public.intel_posts ip
+    JOIN public.profiles p ON p.id = ip.user_id
+    WHERE p.is_system_account IS TRUE
+      AND ip.dedupe_hash = p_dedupe_hash
+      AND ip.created_at >= day_start
+      AND ip.created_at < day_end
+    LIMIT 1;
+
+    IF existing_post_id IS NOT NULL THEN
+      RETURN QUERY SELECT existing_post_id, 'duplicate'::text;
+      RETURN;
+    END IF;
+  END IF;
+
+  SELECT count(*)
+  INTO daily_count
+  FROM public.intel_posts ip
+  JOIN public.profiles p ON p.id = ip.user_id
+  WHERE p.is_system_account IS TRUE
+    AND ip.created_at >= day_start
+    AND ip.created_at < day_end;
+
+  IF daily_count >= p_daily_cap THEN
+    RETURN QUERY SELECT NULL::uuid, 'daily_cap'::text;
+    RETURN;
+  END IF;
+
+  SELECT count(*)
+  INTO beach_daily_count
+  FROM public.intel_posts ip
+  JOIN public.profiles p ON p.id = ip.user_id
+  WHERE p.is_system_account IS TRUE
+    AND ip.beach_id = p_beach_id
+    AND ip.created_at >= day_start
+    AND ip.created_at < day_end;
+
+  IF beach_daily_count >= p_beach_daily_cap THEN
+    RETURN QUERY SELECT NULL::uuid, 'beach_daily_cap'::text;
+    RETURN;
+  END IF;
+
+  SELECT count(*)
+  INTO beach_weekly_count
+  FROM public.intel_posts ip
+  JOIN public.profiles p ON p.id = ip.user_id
+  WHERE p.is_system_account IS TRUE
+    AND ip.beach_id = p_beach_id
+    AND ip.created_at >= p_created_at - interval '7 days'
+    AND ip.created_at <= p_created_at;
+
+  IF beach_weekly_count >= p_beach_weekly_cap THEN
+    RETURN QUERY SELECT NULL::uuid, 'beach_weekly_cap'::text;
+    RETURN;
+  END IF;
+
+  INSERT INTO public.intel_posts (
+    user_id,
+    beach_id,
+    latitude,
+    longitude,
+    tag,
+    title,
+    description,
+    is_active,
+    dedupe_hash,
+    surf_conditions,
+    expires_at,
+    created_at
+  ) VALUES (
+    p_user_id,
+    p_beach_id,
+    p_latitude,
+    p_longitude,
+    p_tag::public.intel_post_tag,
+    p_title,
+    p_description,
+    p_is_active,
+    p_dedupe_hash,
+    p_surf_conditions,
+    p_expires_at,
+    p_created_at
+  )
+  RETURNING id INTO inserted_post_id;
+
+  RETURN QUERY SELECT inserted_post_id, 'inserted'::text;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."try_insert_system_feed_post"("p_user_id" "uuid", "p_beach_id" "uuid", "p_latitude" numeric, "p_longitude" numeric, "p_tag" "text", "p_title" "text", "p_description" "text", "p_is_active" boolean, "p_dedupe_hash" "text", "p_surf_conditions" "jsonb", "p_expires_at" timestamp with time zone, "p_created_at" timestamp with time zone, "p_daily_cap" integer, "p_beach_daily_cap" integer, "p_beach_weekly_cap" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."unknown_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ UPDATE public.pro_offer_awards SET state='unknown',reason='provider_outcome_unknown' WHERE id=p_award_id AND reservation_id=p_reservation_id AND state='handoff_started';
+END; $$;
+
+
+ALTER FUNCTION "public"."unknown_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."unpin_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_idempotency_key" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -16255,6 +21828,21 @@ $$;
 
 
 ALTER FUNCTION "public"."unrestrict_community_photo_contributor_v1"("p_contributor_id" "uuid", "p_actor_id" "uuid", "p_idempotency_key" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."unsubscribe_email_lifecycle"("p_user_id" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+ PERFORM pg_advisory_xact_lock(739301);
+ UPDATE public.email_contact_state SET lifecycle_consent_at=NULL,marketing_consent_at=NULL,account_permission_reviewed_at=NULL,account_permission_reference=NULL,paused_at=now() WHERE user_id=p_user_id;
+ UPDATE public.email_contact_attempts SET state='cancelled',error_code='unsubscribed' WHERE user_id=p_user_id AND state='reserved';
+ UPDATE public.email_lifecycle_recipients SET status='held',reason='unsubscribed',next_eligible_at=NULL WHERE user_id=p_user_id;
+END; $$;
+
+
+ALTER FUNCTION "public"."unsubscribe_email_lifecycle"("p_user_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."update_beach_affinity_on_session_change"() RETURNS "trigger"
@@ -16384,17 +21972,43 @@ CREATE TABLE IF NOT EXISTS "public"."custom_spots" (
     "exposure_level" "text",
     "fingerprint_confidence" "text",
     "fingerprint_updated_at" timestamp with time zone,
+    "swell_access_factors" real[],
+    "wind_exposure_factors" real[],
+    "terrain_method" "text",
+    "terrain_params" "jsonb",
+    "terrain_params_hash" "text",
+    "terrain_analyzed_at" timestamp with time zone,
+    "terrain_status" "text",
+    "terrain_analysis_debug" "jsonb",
+    "preferred_tide_ft_min" numeric,
+    "preferred_tide_ft_max" numeric,
+    "preferred_tide_direction" "text",
+    "tide_direction_sensitivity" "text",
+    "skill_level" "text",
+    "fingerprint_provenance_state" "text" DEFAULT 'unset'::"text" NOT NULL,
+    "fingerprint_model_version" "text",
+    "fingerprint_coordinate_hash" "text",
+    "fingerprint_provenance" "jsonb" DEFAULT '{"fields": {}, "schema_version": 1}'::"jsonb" NOT NULL,
+    "analysis_requested_at" timestamp with time zone,
     CONSTRAINT "custom_spots_break_type" CHECK ((("break_type" IS NULL) OR ("break_type" = ANY (ARRAY['reef'::"text", 'point'::"text", 'beach'::"text", 'rivermouth'::"text", 'jetty'::"text"])))),
     CONSTRAINT "custom_spots_exposure_level_check" CHECK ((("exposure_level" IS NULL) OR ("exposure_level" = ANY (ARRAY['sheltered'::"text", 'mixed'::"text", 'exposed'::"text"])))),
     CONSTRAINT "custom_spots_facing_direction_deg_range" CHECK ((("facing_direction_deg" IS NULL) OR (("facing_direction_deg" >= (0)::numeric) AND ("facing_direction_deg" < (360)::numeric)))),
     CONSTRAINT "custom_spots_fingerprint_confidence_check" CHECK ((("fingerprint_confidence" IS NULL) OR ("fingerprint_confidence" = ANY (ARRAY['unset'::"text", 'user_set'::"text", 'calibrating'::"text", 'modeled'::"text"])))),
+    CONSTRAINT "custom_spots_fingerprint_provenance_state_check" CHECK (("fingerprint_provenance_state" = ANY (ARRAY['unset'::"text", 'modeled'::"text", 'independently_reviewed'::"text", 'user_corrected'::"text", 'failed'::"text"]))),
     CONSTRAINT "custom_spots_lat_range" CHECK ((("lat" >= ('-90'::integer)::numeric) AND ("lat" <= (90)::numeric))),
     CONSTRAINT "custom_spots_lon_range" CHECK ((("lon" >= ('-180'::integer)::numeric) AND ("lon" <= (180)::numeric))),
     CONSTRAINT "custom_spots_name_length" CHECK ((("char_length"("name") >= 1) AND ("char_length"("name") <= 60))),
     CONSTRAINT "custom_spots_offshore_direction_deg_range" CHECK ((("offshore_direction_deg" IS NULL) OR (("offshore_direction_deg" >= (0)::numeric) AND ("offshore_direction_deg" < (360)::numeric)))),
+    CONSTRAINT "custom_spots_preferred_tide_direction_check" CHECK ((("preferred_tide_direction" IS NULL) OR ("preferred_tide_direction" = ANY (ARRAY['rising'::"text", 'falling'::"text", 'either'::"text", 'slack'::"text"])))),
+    CONSTRAINT "custom_spots_skill_level_check" CHECK ((("skill_level" IS NULL) OR ("skill_level" = ANY (ARRAY['beginner'::"text", 'intermediate'::"text", 'advanced'::"text", 'expert'::"text"])))),
+    CONSTRAINT "custom_spots_swell_access_factors_valid" CHECK ("public"."is_valid_directional_factor_array"("swell_access_factors")),
     CONSTRAINT "custom_spots_swell_window_max_deg_range" CHECK ((("swell_window_max_deg" IS NULL) OR (("swell_window_max_deg" >= (0)::numeric) AND ("swell_window_max_deg" < (360)::numeric)))),
     CONSTRAINT "custom_spots_swell_window_min_deg_range" CHECK ((("swell_window_min_deg" IS NULL) OR (("swell_window_min_deg" >= (0)::numeric) AND ("swell_window_min_deg" < (360)::numeric)))),
-    CONSTRAINT "custom_spots_visibility" CHECK (("visibility" = ANY (ARRAY['private'::"text", 'public'::"text"])))
+    CONSTRAINT "custom_spots_terrain_status_check" CHECK ((("terrain_status" IS NULL) OR ("terrain_status" = ANY (ARRAY['queued'::"text", 'processing'::"text", 'ok'::"text", 'wind_only'::"text", 'failed'::"text"])))),
+    CONSTRAINT "custom_spots_tide_direction_sensitivity_check" CHECK ((("tide_direction_sensitivity" IS NULL) OR ("tide_direction_sensitivity" = ANY (ARRAY['low'::"text", 'medium'::"text", 'high'::"text"])))),
+    CONSTRAINT "custom_spots_tide_height_range_check" CHECK ((("preferred_tide_ft_min" IS NULL) OR ("preferred_tide_ft_max" IS NULL) OR ("preferred_tide_ft_min" <= "preferred_tide_ft_max"))),
+    CONSTRAINT "custom_spots_visibility" CHECK (("visibility" = ANY (ARRAY['private'::"text", 'public'::"text"]))),
+    CONSTRAINT "custom_spots_wind_exposure_factors_valid" CHECK ("public"."is_valid_directional_factor_array"("wind_exposure_factors"))
 );
 
 
@@ -16442,6 +22056,26 @@ COMMENT ON COLUMN "public"."custom_spots"."exposure_level" IS 'User-set custom s
 
 
 COMMENT ON COLUMN "public"."custom_spots"."fingerprint_confidence" IS 'Fingerprint state for custom spots: unset, user_set, calibrating, modeled.';
+
+
+
+COMMENT ON COLUMN "public"."custom_spots"."swell_access_factors" IS 'Coordinate-derived local swell access in 72 five-degree bins. Forecast observations remain anchored to nearest_beach_id.';
+
+
+
+COMMENT ON COLUMN "public"."custom_spots"."wind_exposure_factors" IS 'Coordinate-derived local wind exposure in 72 five-degree bins.';
+
+
+
+COMMENT ON COLUMN "public"."custom_spots"."terrain_analysis_debug" IS 'Privacy-safe terrain diagnostics. Must not contain the custom spot name or precise coordinate.';
+
+
+
+COMMENT ON COLUMN "public"."custom_spots"."fingerprint_provenance_state" IS 'Compact state: unset, modeled, independently_reviewed, user_corrected, or failed.';
+
+
+
+COMMENT ON COLUMN "public"."custom_spots"."fingerprint_provenance" IS 'Field-level provenance and model metadata. Must not contain the private spot name or precise coordinate.';
 
 
 
@@ -17001,6 +22635,97 @@ COMMENT ON FUNCTION "public"."update_user_storage_usage"("p_user_id" "uuid", "p_
 
 
 
+CREATE OR REPLACE FUNCTION "public"."user_match_access_result"("p_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_role text := COALESCE(auth.role(), 'anon');
+  v_caller uuid := auth.uid();
+  v_is_paid boolean := false;
+  v_billing_issue boolean := false;
+  v_expires_at timestamptz;
+BEGIN
+  IF v_role <> 'service_role' THEN
+    IF v_caller IS NULL OR p_user_id <> v_caller THEN
+      RETURN jsonb_build_object(
+        'state', 'locked',
+        'score', NULL,
+        'fit_label', 'Personal match unlocks with your account',
+        'reason_bullets', jsonb_build_array('Sign in with the matching account to use personal match.'),
+        'session_count', 0,
+        'sessions_needed', 5,
+        'quality_band', 'locked',
+        'lock_reason', 'forbidden'
+      );
+    END IF;
+
+    SELECT
+      COALESCE(ue.is_pro, false) OR COALESCE(ue.is_trialing, false),
+      COALESCE(ue.billing_issue, false),
+      ue.expires_at
+    INTO v_is_paid, v_billing_issue, v_expires_at
+    FROM public.user_entitlements ue
+    WHERE ue.user_id = p_user_id
+    LIMIT 1;
+
+    IF v_billing_issue THEN
+      RETURN jsonb_build_object(
+        'state', 'locked',
+        'score', NULL,
+        'fit_label', 'Update payment to use personal match',
+        'reason_bullets', jsonb_build_array('Your forecast is still here. Update your payment method to turn personal match back on.'),
+        'session_count', 0,
+        'sessions_needed', 5,
+        'quality_band', 'locked',
+        'lock_reason', 'billing_issue'
+      );
+    END IF;
+
+    IF (NOT COALESCE(v_is_paid, false) OR (v_expires_at IS NOT NULL AND v_expires_at < now()))
+      AND NOT public.founding_access_enabled() THEN
+      RETURN jsonb_build_object(
+        'state', 'locked',
+        'score', NULL,
+        'fit_label', 'Personal match unlocks with Pro',
+        'reason_bullets', jsonb_build_array('Forecasts stay free. Pro adds your fit, reasons, ranked windows, and personal alerts.'),
+        'session_count', 0,
+        'sessions_needed', 5,
+        'quality_band', 'locked',
+        'lock_reason', 'free'
+      );
+    END IF;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."user_match_access_result"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."verify_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_receipt" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE a public.pro_offer_awards%ROWTYPE;
+BEGIN
+ PERFORM pg_advisory_xact_lock(739302);
+ SELECT * INTO a FROM public.pro_offer_awards WHERE id=p_award_id AND reservation_id=p_reservation_id FOR UPDATE;
+ IF NOT FOUND OR a.state NOT IN ('handoff_started','unknown','verified') THEN RAISE EXCEPTION 'Offer not handed off'; END IF;
+ IF (p_receipt->>'store') IS DISTINCT FROM 'promotional' OR (p_receipt->>'user_id') IS DISTINCT FROM a.user_id::text
+ OR (p_receipt->>'entitlement_id') IS DISTINCT FROM a.entitlement_id OR (p_receipt->>'expires_at')::timestamptz IS DISTINCT FROM a.expires_at
+ OR nullif(p_receipt->>'product_id','') IS NULL THEN RAISE EXCEPTION 'Offer receipt mismatch'; END IF;
+ INSERT INTO public.earned_pro_grants(user_id,entitlement_id,granted_at,expires_at,reason,offer_award_id)
+ VALUES(a.user_id,a.entitlement_id,a.handoff_at,a.expires_at,a.program_id,a.id) ON CONFLICT(offer_award_id) DO NOTHING;
+ UPDATE public.pro_offer_awards SET state='verified',verified_at=coalesce(verified_at,now()),provider_receipt=p_receipt,reason=NULL WHERE id=a.id;
+END; $$;
+
+
+ALTER FUNCTION "public"."verify_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_receipt" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."vote_community_spot_photo_v1"("p_photo_id" "uuid", "p_voter_id" "uuid", "p_vote" "text", "p_idempotency_key" "uuid") RETURNS TABLE("photo_id" "uuid", "vote" "text", "upvotes" integer, "downvotes" integer, "vote_score" double precision)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -17086,6 +22811,50 @@ $$;
 ALTER FUNCTION "public"."vote_community_spot_photo_v1"("p_photo_id" "uuid", "p_voter_id" "uuid", "p_vote" "text", "p_idempotency_key" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."watch_upload_mark_chunks"("p_id" "uuid", "p_user_id" "uuid", "p_add" integer[], "p_remove" integer[]) RETURNS integer[]
+    LANGUAGE "sql"
+    SET "search_path" TO 'public'
+    AS $$
+  UPDATE public.watch_uploads
+  SET received_chunks = ARRAY(
+    SELECT DISTINCT chunk
+    FROM unnest(received_chunks || p_add) AS chunk
+    WHERE NOT (chunk = ANY (p_remove))
+    ORDER BY chunk
+  )
+  WHERE id = p_id AND user_id = p_user_id AND import_id IS NULL
+  RETURNING received_chunks;
+$$;
+
+
+ALTER FUNCTION "public"."watch_upload_mark_chunks"("p_id" "uuid", "p_user_id" "uuid", "p_add" integer[], "p_remove" integer[]) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."week_scout_story_active_regions"() RETURNS TABLE("region" "text", "timezone" "text")
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+  SELECT b.region, (array_agg(b.timezone ORDER BY b.id))[1]
+  FROM public.beaches b
+  JOIN public.profiles p ON p.home_beach_id = b.id
+  WHERE b.region IS NOT NULL AND b.deleted_at IS NULL
+    AND p.is_mock IS NOT TRUE AND p.is_system_account IS NOT TRUE AND (
+    EXISTS (
+      SELECT 1 FROM public.user_events e
+      WHERE e.user_id = p.id AND e.created_at >= now() - interval '30 days'
+        AND e.bot_flagged IS NOT TRUE
+    ) OR EXISTS (
+      SELECT 1 FROM auth.users u WHERE u.id = p.id
+        AND u.last_sign_in_at >= now() - interval '30 days'
+    )
+  )
+  GROUP BY b.region
+$$;
+
+
+ALTER FUNCTION "public"."week_scout_story_active_regions"() OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "maintenance"."omg_history_move_backup_20260511" (
     "backup_id" "text" NOT NULL,
     "table_name" "text" NOT NULL,
@@ -17146,7 +22915,7 @@ CASE
     ELSE NULL::"extensions"."geography"
 END) STORED,
     "cdip_station" "text",
-    "timezone" "text" DEFAULT 'America/Los_Angeles'::"text",
+    "timezone" "text" NOT NULL,
     "preferred_tide_direction" "text",
     "tide_direction_sensitivity" "text",
     "wind_exposure_factors" real[],
@@ -17184,8 +22953,19 @@ END) STORED,
     "seo_indexable" boolean DEFAULT false NOT NULL,
     "editorial_reviewed_at" timestamp with time zone,
     "editorial_sources" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "recommendation_eligible" boolean DEFAULT true NOT NULL,
+    "seo_title" "text",
+    "seo_description" "text",
+    "short_name" "text",
+    "mop_point_id" "text",
+    "mop_shore_normal_deg" smallint,
+    "mop_point_distance_m" integer,
     CONSTRAINT "beaches_editorial_sources_array_check" CHECK (("jsonb_typeof"("editorial_sources") = 'array'::"text")),
+    CONSTRAINT "beaches_mop_shore_normal_deg_check" CHECK ((("mop_shore_normal_deg" IS NULL) OR (("mop_shore_normal_deg" >= 0) AND ("mop_shore_normal_deg" <= 359)))),
+    CONSTRAINT "beaches_pacific_timezone_longitude_check" CHECK ((("timezone" <> 'America/Los_Angeles'::"text") OR ("lon" IS NULL) OR ("lon" <= ('-114'::integer)::double precision))),
     CONSTRAINT "beaches_preferred_tide_direction_check" CHECK (("preferred_tide_direction" = ANY (ARRAY['rising'::"text", 'falling'::"text", 'either'::"text", 'slack'::"text"]))),
+    CONSTRAINT "beaches_seo_description_length_check" CHECK ((("seo_description" IS NULL) OR (("char_length"("seo_description") >= 50) AND ("char_length"("seo_description") <= 160)))),
+    CONSTRAINT "beaches_seo_title_length_check" CHECK ((("seo_title" IS NULL) OR (("char_length"("seo_title") >= 10) AND ("char_length"("seo_title") <= 60)))),
     CONSTRAINT "beaches_tide_direction_sensitivity_check" CHECK ((("tide_direction_sensitivity" IS NULL) OR ("tide_direction_sensitivity" = ANY (ARRAY['low'::"text", 'medium'::"text", 'high'::"text"])))),
     CONSTRAINT "chk_beaches_aspect_range" CHECK ((("aspect_deg" IS NULL) OR (("aspect_deg" >= 0) AND ("aspect_deg" < 360)))),
     CONSTRAINT "chk_beaches_lat_range" CHECK ((("lat" >= ('-90'::integer)::double precision) AND ("lat" <= (90)::double precision))),
@@ -17294,7 +23074,7 @@ COMMENT ON COLUMN "public"."beaches"."slug" IS 'URL-friendly unique identifier f
 
 
 
-COMMENT ON COLUMN "public"."beaches"."timezone" IS 'IANA timezone for forecast timestamp conversion (e.g., America/Los_Angeles)';
+COMMENT ON COLUMN "public"."beaches"."timezone" IS 'IANA timezone for this beach, required on insert. No default: a beach-insert migration that omits it must fail loudly rather than inherit Pacific time (see 20260820120100). Verify new values with `yarn tsx scripts/audit-beach-timezones.ts`.';
 
 
 
@@ -17435,6 +23215,14 @@ COMMENT ON COLUMN "public"."beaches"."editorial_sources" IS 'Reviewed source pro
 
 
 
+COMMENT ON COLUMN "public"."beaches"."recommendation_eligible" IS 'Whether the beach may enter positive recommendation candidate pools; map and direct forecast visibility are independent.';
+
+
+
+COMMENT ON COLUMN "public"."beaches"."short_name" IS 'Approved short display name for push titles. NULL = use name.';
+
+
+
 CREATE OR REPLACE VIEW "posthog_export"."beaches" AS
  SELECT "beaches"."id",
     "beaches"."name",
@@ -17475,7 +23263,8 @@ CREATE TABLE IF NOT EXISTS "public"."email_send_log" (
     "opened_at" timestamp with time zone,
     "clicked_at" timestamp with time zone,
     "bounced_at" timestamp with time zone,
-    CONSTRAINT "email_send_log_email_type_check" CHECK (("email_type" = ANY (ARRAY['welcome'::"text", 'forecast_digest'::"text", 'reengagement'::"text", 'weekly_recap'::"text", 'conditions_alert'::"text", 'session_prompt'::"text", 'first_session_nudge'::"text", 'swell_watch'::"text"])))
+    "message_instance_id" "uuid",
+    CONSTRAINT "email_send_log_email_type_check" CHECK (("email_type" = ANY (ARRAY['welcome'::"text", 'forecast_digest'::"text", 'reengagement'::"text", 'weekly_recap'::"text", 'conditions_alert'::"text", 'session_prompt'::"text", 'first_session_nudge'::"text", 'swell_watch'::"text", 'trial_started'::"text", 'trial_ending'::"text", 'trial_ended'::"text", 'trial_invitation'::"text", 'founder_story'::"text"])))
 );
 
 
@@ -17490,7 +23279,7 @@ COMMENT ON COLUMN "public"."email_send_log"."email_type" IS 'Type of email sent:
 
 
 
-COMMENT ON CONSTRAINT "email_send_log_email_type_check" ON "public"."email_send_log" IS 'Allowed email types: welcome, forecast_digest, reengagement, weekly_recap, conditions_alert, session_prompt, first_session_nudge, swell_watch';
+COMMENT ON CONSTRAINT "email_send_log_email_type_check" ON "public"."email_send_log" IS 'Allowed email types: welcome, forecast_digest, reengagement, weekly_recap, conditions_alert, session_prompt, first_session_nudge, swell_watch, trial_started, trial_ending, trial_ended, trial_invitation, founder_story';
 
 
 
@@ -17549,22 +23338,17 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "android_waitlist_placement" "text",
     "analytics_is_real_user" boolean DEFAULT true NOT NULL,
     "analytics_exclusion_reason" "text",
-    "preferred_wave_size" "text",
-    "crowd_tolerance" "text",
-    "tide_comfort" "text",
-    "wind_comfort" "text",
     "paywall_soft_prompt_shown" boolean DEFAULT false NOT NULL,
     "sound_effects_enabled" boolean DEFAULT false NOT NULL,
     "max_drive_minutes" integer,
+    "daily_call_time" "text" DEFAULT '06:00'::"text" NOT NULL,
+    "notif_swell_alerts" boolean DEFAULT true NOT NULL,
     CONSTRAINT "check_preferred_session_time" CHECK ((("preferred_session_time" IS NULL) OR ("preferred_session_time" = ANY (ARRAY['dawn_patrol'::"text", 'morning'::"text", 'lunch'::"text", 'afternoon'::"text", 'evening'::"text", 'any'::"text"])))),
     CONSTRAINT "experience_level_check" CHECK ((("experience_level" IS NULL) OR ("experience_level" = ANY (ARRAY['beginner'::"text", 'intermediate'::"text", 'advanced'::"text", 'expert'::"text"])))),
     CONSTRAINT "profiles_activity_level_check" CHECK (("activity_level" = ANY (ARRAY['high'::"text", 'medium'::"text", 'low'::"text"]))),
-    CONSTRAINT "profiles_crowd_tolerance_check" CHECK ((("crowd_tolerance" IS NULL) OR ("crowd_tolerance" = ANY (ARRAY['empty_only'::"text", 'mellow'::"text", 'social'::"text", 'crowd_ok'::"text"])))),
+    CONSTRAINT "profiles_daily_call_time_check" CHECK (("daily_call_time" = ANY (ARRAY['05:00'::"text", '05:30'::"text", '06:00'::"text", '06:30'::"text", '07:00'::"text", '07:30'::"text", '08:00'::"text", 'sunrise'::"text"]))),
     CONSTRAINT "profiles_personality_type_check" CHECK (("personality_type" = ANY (ARRAY['rookie'::"text", 'local'::"text", 'traveler'::"text", 'photographer'::"text", 'tactical'::"text", 'competitor'::"text", 'forecaster'::"text"]))),
-    CONSTRAINT "profiles_preferred_wave_size_check" CHECK ((("preferred_wave_size" IS NULL) OR ("preferred_wave_size" = ANY (ARRAY['knee_waist'::"text", 'waist_chest'::"text", 'chest_head'::"text", 'head_overhead'::"text", 'overhead_plus'::"text"])))),
-    CONSTRAINT "profiles_tide_comfort_check" CHECK ((("tide_comfort" IS NULL) OR ("tide_comfort" = ANY (ARRAY['low'::"text", 'medium'::"text", 'high'::"text"])))),
-    CONSTRAINT "profiles_trust_score_range" CHECK ((("trust_score" >= (0)::numeric) AND ("trust_score" <= (1)::numeric))),
-    CONSTRAINT "profiles_wind_comfort_check" CHECK ((("wind_comfort" IS NULL) OR ("wind_comfort" = ANY (ARRAY['low'::"text", 'medium'::"text", 'high'::"text"]))))
+    CONSTRAINT "profiles_trust_score_range" CHECK ((("trust_score" >= (0)::numeric) AND ("trust_score" <= (1)::numeric)))
 );
 
 
@@ -17691,22 +23475,6 @@ COMMENT ON COLUMN "public"."profiles"."analytics_exclusion_reason" IS 'Non-PII r
 
 
 
-COMMENT ON COLUMN "public"."profiles"."preferred_wave_size" IS 'Surfer preferred wave-size bucket (learned-me calibration). Tokens: knee_waist|waist_chest|chest_head|head_overhead|overhead_plus.';
-
-
-
-COMMENT ON COLUMN "public"."profiles"."crowd_tolerance" IS 'Crowd tolerance: empty_only|mellow|social|crowd_ok.';
-
-
-
-COMMENT ON COLUMN "public"."profiles"."tide_comfort" IS 'Tide comfort level: low|medium|high.';
-
-
-
-COMMENT ON COLUMN "public"."profiles"."wind_comfort" IS 'Wind comfort level: low|medium|high.';
-
-
-
 COMMENT ON COLUMN "public"."profiles"."paywall_soft_prompt_shown" IS 'One-time soft paywall-prompt dedup flag (activation loop D1c).';
 
 
@@ -17716,6 +23484,14 @@ COMMENT ON COLUMN "public"."profiles"."sound_effects_enabled" IS 'In-app UI soun
 
 
 COMMENT ON COLUMN "public"."profiles"."max_drive_minutes" IS 'Optional maximum drive time preference in minutes for discovery candidate radius. NULL means no cap/current behavior.';
+
+
+
+COMMENT ON COLUMN "public"."profiles"."daily_call_time" IS 'Local send time for the daily call push, or ''sunrise''. Spec 2026-09-17 D5.';
+
+
+
+COMMENT ON COLUMN "public"."profiles"."notif_swell_alerts" IS 'Per-type pref for swell_watch pushes. Default true; free for all users.';
 
 
 
@@ -17744,6 +23520,20 @@ CREATE OR REPLACE VIEW "posthog_export"."email_send_log" AS
 ALTER TABLE "posthog_export"."email_send_log" OWNER TO "postgres";
 
 
+CREATE OR REPLACE VIEW "posthog_export"."install_to_paid_profiles" AS
+ SELECT "p"."id",
+    "p"."created_at",
+    "p"."onboarding_completed_at",
+    "p"."analytics_is_real_user",
+    "p"."analytics_exclusion_reason",
+    "p"."is_system_account"
+   FROM "public"."profiles" "p"
+  WHERE (("p"."deleted_at" IS NULL) AND ("p"."analytics_is_real_user" = true) AND (COALESCE("p"."is_mock", false) = false) AND (COALESCE("p"."is_system_account", false) = false) AND ("p"."id" <> ALL (ARRAY['73040cff-afe9-4fa0-a874-2016203fc015'::"uuid", 'c15c2ab3-275c-49d1-ac4f-dcc493db0653'::"uuid"])));
+
+
+ALTER TABLE "posthog_export"."install_to_paid_profiles" OWNER TO "postgres";
+
+
 CREATE OR REPLACE VIEW "posthog_export"."profiles" AS
  SELECT "profiles"."id",
     "profiles"."created_at",
@@ -17767,6 +23557,76 @@ CREATE OR REPLACE VIEW "posthog_export"."profiles" AS
 
 
 ALTER TABLE "posthog_export"."profiles" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."revenuecat_provider_events" (
+    "provider_event_id" "text" NOT NULL,
+    "app_user_id" "uuid",
+    "app_user_id_status" "text" NOT NULL,
+    "original_app_user_id" "uuid",
+    "event_type" "text" NOT NULL,
+    "event_timestamp" timestamp with time zone NOT NULL,
+    "purchased_at" timestamp with time zone,
+    "expiration_at" timestamp with time zone,
+    "product_id" "text",
+    "period_type" "text",
+    "environment" "text" NOT NULL,
+    "store" "text",
+    "entitlement_ids" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "received_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "processed_at" timestamp with time zone,
+    "cancellation_reason" "text",
+    "offer_code" "text",
+    "price" numeric,
+    "environment_verified" boolean DEFAULT false NOT NULL,
+    CONSTRAINT "revenuecat_provider_events_app_user_id_consistency" CHECK (((("app_user_id_status" = 'uuid'::"text") AND ("app_user_id" IS NOT NULL)) OR (("app_user_id_status" <> 'uuid'::"text") AND ("app_user_id" IS NULL)))),
+    CONSTRAINT "revenuecat_provider_events_app_user_id_status_check" CHECK (("app_user_id_status" = ANY (ARRAY['uuid'::"text", 'missing'::"text", 'anonymous'::"text", 'invalid'::"text"]))),
+    CONSTRAINT "revenuecat_provider_events_environment_check" CHECK (("environment" = ANY (ARRAY['PRODUCTION'::"text", 'SANDBOX'::"text"]))),
+    CONSTRAINT "revenuecat_provider_events_event_type_length" CHECK ((("char_length"("event_type") >= 1) AND ("char_length"("event_type") <= 64))),
+    CONSTRAINT "revenuecat_provider_events_period_type_check" CHECK ((("period_type" IS NULL) OR ("period_type" = ANY (ARRAY['NORMAL'::"text", 'TRIAL'::"text", 'INTRO'::"text", 'PROMOTIONAL'::"text", 'PREPAID'::"text"])))),
+    CONSTRAINT "revenuecat_provider_events_product_id_length" CHECK ((("product_id" IS NULL) OR ("char_length"("product_id") <= 255))),
+    CONSTRAINT "revenuecat_provider_events_provider_event_id_length" CHECK ((("char_length"("provider_event_id") >= 1) AND ("char_length"("provider_event_id") <= 255))),
+    CONSTRAINT "revenuecat_provider_events_store_length" CHECK ((("store" IS NULL) OR ("char_length"("store") <= 64)))
+);
+
+
+ALTER TABLE "public"."revenuecat_provider_events" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."revenuecat_provider_events" IS 'Immutable allowlisted RevenueCat webhook history for reproducible entitlement state; only processed_at is mutable as a delivery completion marker, and raw payloads and PII are intentionally excluded.';
+
+
+
+CREATE OR REPLACE VIEW "posthog_export"."revenuecat_provider_events" AS
+ SELECT "rpe"."provider_event_id",
+    "rpe"."app_user_id",
+    "rpe"."event_type",
+    "rpe"."event_timestamp",
+    "rpe"."purchased_at",
+    "rpe"."expiration_at",
+    "rpe"."product_id",
+    "rpe"."period_type",
+    "rpe"."environment",
+    "rpe"."store",
+    "rpe"."received_at"
+   FROM ("public"."revenuecat_provider_events" "rpe"
+     JOIN "posthog_export"."install_to_paid_profiles" "p" ON (("p"."id" = "rpe"."app_user_id")));
+
+
+ALTER TABLE "posthog_export"."revenuecat_provider_events" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "posthog_export"."revenuecat_unjoined_daily" AS
+ SELECT "date_trunc"('day'::"text", "revenuecat_provider_events"."event_timestamp") AS "event_day",
+    "revenuecat_provider_events"."app_user_id_status",
+    "revenuecat_provider_events"."environment",
+    "count"(*) AS "event_count"
+   FROM "public"."revenuecat_provider_events"
+  WHERE ("revenuecat_provider_events"."app_user_id_status" <> 'uuid'::"text")
+  GROUP BY ("date_trunc"('day'::"text", "revenuecat_provider_events"."event_timestamp")), "revenuecat_provider_events"."app_user_id_status", "revenuecat_provider_events"."environment";
+
+
+ALTER TABLE "posthog_export"."revenuecat_unjoined_daily" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."sessions" (
@@ -17828,21 +23688,63 @@ END) STORED,
     "forecast_tide_status" "text",
     "wave_height_correct" boolean,
     "tide_status_correct" boolean,
+    "email_completed_at" timestamp with time zone,
+    "call_id" "text",
+    "swell_period_s" numeric(4,1),
+    "swell_direction_deg" smallint,
+    "swell_height_ft" numeric(4,1),
+    "offshore_swell_period_s" numeric(4,1),
+    "offshore_swell_direction_deg" smallint,
+    "offshore_swell_height_ft" numeric(4,1),
+    "wind_direction_deg" smallint,
+    "conditions_forecast_at" timestamp with time zone,
+    "conditions_source" "text",
+    "conditions_queued_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "conditions_wind_filled" boolean DEFAULT false NOT NULL,
+    "tide_status_user_set" boolean DEFAULT false NOT NULL,
+    "nearshore_point_id" "text",
+    "nearshore_observed_at" timestamp with time zone,
+    "nearshore_hs_m" numeric(4,2),
+    "nearshore_tp_s" numeric(4,1),
+    "nearshore_dp_deg" smallint,
+    "nearshore_dm_deg" smallint,
+    "nearshore_swellband_tm_s" numeric(4,1),
+    "nearshore_focus_ratio" numeric(4,2),
+    "nearshore_source" "text",
+    "water_temp_source" "text",
+    "wave_height_source" "text",
+    "wave_size_vs_forecast" "text",
+    "timing_user_set" boolean DEFAULT false NOT NULL,
+    "wave_height_min_ft" numeric,
+    "wave_height_max_ft" numeric,
     CONSTRAINT "check_forecast_accuracy" CHECK ((("forecast_accuracy" = ANY (ARRAY['accurate'::"text", 'somewhat'::"text", 'inaccurate'::"text"])) OR ("forecast_accuracy" IS NULL))),
     CONSTRAINT "check_tide_height_ft" CHECK (((("tide_height_ft" >= ('-10'::integer)::numeric) AND ("tide_height_ft" <= (50)::numeric)) OR ("tide_height_ft" IS NULL))),
     CONSTRAINT "check_tide_status" CHECK ((("tide_status" = ANY (ARRAY['rising'::"text", 'falling'::"text", 'high'::"text", 'low'::"text"])) OR ("tide_status" IS NULL))),
     CONSTRAINT "check_wave_height_ft" CHECK (((("wave_height_ft" >= (0)::numeric) AND ("wave_height_ft" <= (50)::numeric)) OR ("wave_height_ft" IS NULL))),
     CONSTRAINT "check_wind_speed_mph" CHECK (((("wind_speed_mph" >= 0) AND ("wind_speed_mph" <= 150)) OR ("wind_speed_mph" IS NULL))),
     CONSTRAINT "sessions_board_fit_check" CHECK ((("board_fit" IS NULL) OR ("board_fit" = ANY (ARRAY['not_right'::"text", 'good'::"text", 'perfect'::"text"])))),
+    CONSTRAINT "sessions_conditions_source_check" CHECK ((("conditions_source" IS NULL) OR ("conditions_source" = ANY (ARRAY['client'::"text", 'forecast_row'::"text", 'snapshot_backfill'::"text", 'none'::"text"])) OR ("conditions_source" = 'hindcast_open_meteo'::"text"))),
     CONSTRAINT "sessions_forecast_tide_status_check" CHECK ((("forecast_tide_status" IS NULL) OR ("forecast_tide_status" = ANY (ARRAY['rising'::"text", 'falling'::"text", 'high'::"text", 'low'::"text"])))),
     CONSTRAINT "sessions_forecast_wave_height_ft_check" CHECK ((("forecast_wave_height_ft" IS NULL) OR (("forecast_wave_height_ft" >= (0)::numeric) AND ("forecast_wave_height_ft" <= (50)::numeric)))),
-    CONSTRAINT "sessions_recommendation_call_accuracy_check" CHECK ((("recommendation_call_accuracy" IS NULL) OR ("recommendation_call_accuracy" = ANY (ARRAY['right'::"text", 'partly'::"text", 'wrong'::"text", 'not_sure'::"text"])))),
+    CONSTRAINT "sessions_nearshore_dm_deg_check" CHECK ((("nearshore_dm_deg" IS NULL) OR (("nearshore_dm_deg" >= 0) AND ("nearshore_dm_deg" <= 359)))),
+    CONSTRAINT "sessions_nearshore_dp_deg_check" CHECK ((("nearshore_dp_deg" IS NULL) OR (("nearshore_dp_deg" >= 0) AND ("nearshore_dp_deg" <= 359)))),
+    CONSTRAINT "sessions_nearshore_source_check" CHECK ((("nearshore_source" IS NULL) OR ("nearshore_source" = ANY (ARRAY['cdip_mop_nowcast'::"text", 'cdip_mop_backfill'::"text", 'unavailable'::"text", 'unmapped'::"text"])))),
+    CONSTRAINT "sessions_offshore_swell_direction_deg_check" CHECK ((("offshore_swell_direction_deg" IS NULL) OR (("offshore_swell_direction_deg" >= 0) AND ("offshore_swell_direction_deg" <= 359)))),
+    CONSTRAINT "sessions_recommendation_call_accuracy_check" CHECK ((("recommendation_call_accuracy" IS NULL) OR ("recommendation_call_accuracy" = ANY (ARRAY['right'::"text", 'partly'::"text", 'wrong'::"text", 'not_sure'::"text", 'nailed_it'::"text", 'better'::"text", 'worse'::"text"])))),
     CONSTRAINT "sessions_rip_current_observed_check" CHECK ((("rip_current_observed" IS NULL) OR ("rip_current_observed" = ANY (ARRAY['none'::"text", 'light'::"text", 'strong'::"text"])))),
     CONSTRAINT "sessions_rip_current_risk_check" CHECK ((("rip_current_risk" IS NULL) OR ("rip_current_risk" = ANY (ARRAY['low'::"text", 'moderate'::"text", 'high'::"text"])))),
-    CONSTRAINT "sessions_source_check" CHECK ((("source" IS NULL) OR ("source" = ANY (ARRAY['manual'::"text", 'auto_title'::"text", 'conditions_report'::"text", 'email_one_tap'::"text", 'maestro_smoke'::"text"])))),
+    CONSTRAINT "sessions_source_check" CHECK ((("source" IS NULL) OR ("source" = ANY (ARRAY['manual'::"text", 'auto_title'::"text", 'conditions_report'::"text", 'email_one_tap'::"text", 'maestro_smoke'::"text"])) OR ("source" = ANY ('{file_import}'::"text"[])) OR ("source" = ANY ('{garmin_watch}'::"text"[])))),
+    CONSTRAINT "sessions_swell_direction_deg_check" CHECK ((("swell_direction_deg" IS NULL) OR (("swell_direction_deg" >= 0) AND ("swell_direction_deg" <= 359)))),
     CONSTRAINT "sessions_tide_data_source_check" CHECK ((("tide_data_source" IS NULL) OR ("tide_data_source" = ANY (ARRAY['noaa'::"text", 'open-meteo'::"text", 'user'::"text"])))),
     CONSTRAINT "sessions_tide_rate_ft_per_hr_check" CHECK ((("tide_rate_ft_per_hr" IS NULL) OR (("tide_rate_ft_per_hr" >= ('-10'::integer)::numeric) AND ("tide_rate_ft_per_hr" <= (10)::numeric)))),
-    CONSTRAINT "sessions_wave_characteristics_check" CHECK ((("wave_characteristics" IS NULL) OR ("wave_characteristics" <@ ARRAY['clean'::"text", 'glassy'::"text", 'choppy'::"text", 'blown_out'::"text", 'fat'::"text", 'mushy'::"text", 'peaky'::"text", 'powerful'::"text", 'closeouts'::"text", 'barreling'::"text", 'reform'::"text", 'walled'::"text", 'rights'::"text", 'lefts'::"text", 'steep'::"text"])))
+    CONSTRAINT "sessions_water_temp_source_check" CHECK (("water_temp_source" = ANY (ARRAY['user'::"text", 'watch'::"text"]))),
+    CONSTRAINT "sessions_wave_characteristics_check" CHECK ((("wave_characteristics" IS NULL) OR ("wave_characteristics" <@ ARRAY['clean'::"text", 'glassy'::"text", 'choppy'::"text", 'blown_out'::"text", 'fat'::"text", 'mushy'::"text", 'peaky'::"text", 'powerful'::"text", 'closeouts'::"text", 'barreling'::"text", 'reform'::"text", 'walled'::"text", 'rights'::"text", 'lefts'::"text", 'steep'::"text"]))),
+    CONSTRAINT "sessions_wave_height_max_ft_check" CHECK ((("wave_height_max_ft" IS NULL) OR (("wave_height_max_ft" >= (0)::numeric) AND ("wave_height_max_ft" <= (50)::numeric)))),
+    CONSTRAINT "sessions_wave_height_min_ft_check" CHECK ((("wave_height_min_ft" IS NULL) OR (("wave_height_min_ft" >= (0)::numeric) AND ("wave_height_min_ft" <= (50)::numeric)))),
+    CONSTRAINT "sessions_wave_height_range_order_check" CHECK ((("wave_height_min_ft" IS NULL) OR ("wave_height_max_ft" IS NULL) OR ("wave_height_min_ft" <= "wave_height_max_ft"))),
+    CONSTRAINT "sessions_wave_height_source_check" CHECK (("wave_height_source" = ANY (ARRAY['user'::"text", 'forecast_prefill'::"text"]))),
+    CONSTRAINT "sessions_wave_size_vs_forecast_check" CHECK (("wave_size_vs_forecast" = ANY (ARRAY['smaller'::"text", 'about_right'::"text", 'bigger'::"text"]))),
+    CONSTRAINT "sessions_wind_direction_deg_check" CHECK ((("wind_direction_deg" IS NULL) OR (("wind_direction_deg" >= 0) AND ("wind_direction_deg" <= 359))))
 );
 
 
@@ -17913,7 +23815,23 @@ COMMENT ON COLUMN "public"."sessions"."recommendation_call_accuracy" IS 'User an
 
 
 
-COMMENT ON CONSTRAINT "sessions_source_check" ON "public"."sessions" IS 'Allowed session source values. auto_title identifies generated native titles; maestro_smoke identifies test cleanup rows.';
+COMMENT ON COLUMN "public"."sessions"."forecast_wave_height_ft" IS 'Face height in feet the log form showed for this beach and session time (the wave-chip prefill and the anchor of wave_size_vs_forecast). NULL when the form had no forecast.';
+
+
+
+COMMENT ON COLUMN "public"."sessions"."wave_height_source" IS 'Who set wave_height_ft: user (the surfer chose or changed it) or forecast_prefill (the form''s forecast estimate, saved untouched). NULL = unknown. Forecast-truth consumers must exclude forecast_prefill and keep NULL.';
+
+
+
+COMMENT ON COLUMN "public"."sessions"."wave_size_vs_forecast" IS 'The surfer''s answer to how the surf compared with the height Quiver showed (forecast_wave_height_ft): smaller, about_right or bigger. NULL = not asked or skipped.';
+
+
+
+COMMENT ON COLUMN "public"."sessions"."wave_height_min_ft" IS 'Low end of the wave-height range (feet) the surfer logged from the Log Session grid. wave_height_ft holds the range midpoint. NULL when no range was logged.';
+
+
+
+COMMENT ON COLUMN "public"."sessions"."wave_height_max_ft" IS 'High end of the wave-height range (feet) the surfer logged from the Log Session grid. wave_height_ft holds the range midpoint. NULL when no range was logged.';
 
 
 
@@ -17961,9 +23879,9 @@ CREATE TABLE IF NOT EXISTS "public"."user_events" (
     "expires_at" timestamp with time zone DEFAULT ("now"() + '90 days'::interval) NOT NULL,
     "session_id" "uuid",
     "bot_flagged" boolean DEFAULT false,
-    CONSTRAINT "user_events_event_type_check" CHECK ((("event_type" = ANY (ARRAY['anon_alert_capture_error'::"text", 'anon_alert_capture_submit'::"text", 'anon_alert_capture_view'::"text", 'anon_alert_magic_link_clicked'::"text", 'anon_alert_signup_success'::"text", 'app_deeplink_clicked'::"text", 'deeplink_received'::"text", 'spot_resolve'::"text", 'session_prefill_shown'::"text", 'session_silent_submit'::"text", 'app_handoff_email_failed'::"text", 'app_handoff_email_sent'::"text", 'app_handoff_email_submit'::"text", 'app_handoff_link_opened'::"text", 'app_handoff_qr_rendered'::"text", 'app_handoff_view'::"text", 'apple_beta_prompt_copy_link_clicked'::"text", 'apple_beta_prompt_dismissed'::"text", 'apple_beta_prompt_eligible'::"text", 'apple_beta_prompt_open_testflight_clicked'::"text", 'apple_beta_prompt_qr_rendered'::"text", 'apple_beta_prompt_viewed'::"text", 'auth_failed'::"text", 'auth_method_selected'::"text", 'auth_modal_closed_without_action'::"text", 'auth_modal_opened'::"text", 'auth_provider_selected'::"text", 'beach_search'::"text", 'beach_search_result_click'::"text", 'beach_view'::"text", 'board_form_saved'::"text", 'cam_share'::"text", 'client_error'::"text", 'cta_click'::"text", 'cta_impression'::"text", 'custom_spot_create_started'::"text", 'custom_spot_failed'::"text", 'custom_spot_forecast_source_viewed'::"text", 'custom_spot_save_confirmation_viewed'::"text", 'custom_spot_saved'::"text", 'custom_spots_feedback_viewed'::"text", 'custom_spots_feedback_voted'::"text", 'discovery_click'::"text", 'discovery_skip'::"text", 'empty_state_shown'::"text", 'favorite_shown_in_carousel'::"text", 'feedback_roadmap_opened'::"text", 'feedback_roadmap_request_created'::"text", 'feedback_roadmap_viewed'::"text", 'feedback_roadmap_vote_submitted'::"text", 'first_beach_view_post_signup'::"text", 'first_session_logged'::"text", 'for_you_tap'::"text", 'forecast_accuracy_table_viewed'::"text", 'forecast_check'::"text", 'forecast_interaction'::"text", 'forecast_ready'::"text", 'forecast_tab_click'::"text", 'forecast_visual_layer_selected'::"text", 'founder_100_popup_cta_tapped'::"text", 'founder_100_popup_dismissed'::"text", 'founder_100_popup_viewed'::"text", 'home_at_beach_click'::"text", 'home_beach_forecast_viewed'::"text", 'home_first_session_cta_tap'::"text", 'home_hero_forecast_viewed'::"text", 'home_locked_best_spot_teaser_tap'::"text", 'home_map_tap'::"text", 'home_menu_tap'::"text", 'home_nearby_spot_tap'::"text", 'home_notifications_tap'::"text", 'home_plan_weekend_click'::"text", 'home_plan_weekend_no_recommendation'::"text", 'home_quick_log_tapped'::"text", 'home_search_tap'::"text", 'home_set_alarm_tap'::"text", 'home_surf_call_tap'::"text", 'home_timeline_tap'::"text", 'home_viewed'::"text", 'horizon_strip_day_selected'::"text", 'intel_post_confirmed'::"text", 'intel_post_created'::"text", 'invite_app_store_clicked'::"text", 'invite_consumed'::"text", 'invite_continue_web_clicked'::"text", 'invite_link_opened'::"text", 'invite_open_app_clicked'::"text", 'learned_me_moment_viewed'::"text", 'learning_progress_revealed'::"text", 'learning_signal'::"text", 'local_intel_tab_viewed'::"text", 'location_permission_denied'::"text", 'location_permission_granted'::"text", 'location_update'::"text", 'login_form_submitted'::"text", 'login_success'::"text", 'make_call_card_viewed'::"text", 'make_call_submitted'::"text", 'map_interaction'::"text", 'map_load_failed'::"text", 'map_marker_click'::"text", 'map_marker_tapped'::"text", 'map_ready'::"text", 'map_viewed'::"text", 'match_alert_toggle'::"text", 'match_card_rendered'::"text", 'match_score_teaser_click'::"text", 'match_score_teaser_view'::"text", 'match_strip_tap'::"text", 'mini_log_teaser_click'::"text", 'missing_spot_prompt_tapped'::"text", 'missing_spot_prompt_viewed'::"text", 'native_app_first_open'::"text", 'native_open_from_email'::"text", 'native_open_from_push'::"text", 'onboarding_completed'::"text", 'onboarding_intro_get_started'::"text", 'onboarding_paywall_skipped'::"text", 'onboarding_started'::"text", 'onboarding_step'::"text", 'onboarding_step_auto_skipped'::"text", 'onboarding_step_completed'::"text", 'onboarding_step_viewed'::"text", 'onboarding_trial_started'::"text", 'onboarding_video_completed'::"text", 'onboarding_video_skipped'::"text", 'onboarding_video_started'::"text", 'page_view'::"text", 'paywall_cadence_selected'::"text", 'paywall_dismissed'::"text", 'paywall_lifetime_cta_tapped'::"text", 'paywall_opened'::"text", 'paywall_plan_selected'::"text", 'paywall_purchase_failed'::"text", 'paywall_purchase_started'::"text", 'paywall_purchase_success'::"text", 'paywall_ready'::"text", 'paywall_restore_failed'::"text", 'paywall_restore_started'::"text", 'paywall_restore_success'::"text", 'paywall_soft_prompt_shown'::"text", 'paywall_trial_cta_tapped'::"text", 'personalized_score_shown'::"text", 'plan_session_from_intel'::"text", 'plan_unlock_click'::"text", 'product_tour_completed'::"text", 'product_tour_skipped'::"text", 'product_tour_started'::"text", 'product_tour_step_viewed'::"text", 'profile_update'::"text", 'push_device_registered'::"text", 'push_device_registration_failed'::"text", 'push_permission_denied'::"text", 'push_token_fetch_failed'::"text", 'review_form_abandon'::"text", 'review_form_open'::"text", 'review_submit'::"text", 'review_validation_error'::"text", 'roadmap_item_status_changed'::"text", 'roadmap_item_submitted'::"text", 'roadmap_vote_cast'::"text", 'save_alert_clicked'::"text", 'scroll_depth'::"text", 'seo_intent_page_window_clicked'::"text", 'session_action'::"text", 'session_board_fit_feedback_selected'::"text", 'session_custom_spot_cta_tapped'::"text", 'session_custom_spot_returned'::"text", 'session_decomposition_selected'::"text", 'session_draft_discarded'::"text", 'session_draft_resumed'::"text", 'session_log_abandon'::"text", 'session_log_beach_selected'::"text", 'session_log_conditions_set'::"text", 'session_log_draft_opened'::"text", 'session_log_draft_progress'::"text", 'session_log_photo_added'::"text", 'session_log_rating_set'::"text", 'session_log_start'::"text", 'session_log_submit'::"text", 'session_log_time_selected'::"text", 'session_log_validation_failed'::"text", 'session_photo_upload_failed'::"text", 'session_photo_upload_started'::"text", 'session_photo_upload_succeeded'::"text", 'session_share_closed_post_save'::"text", 'session_share_opened_post_save'::"text", 'session_spot_search_no_results'::"text", 'set_home_beach'::"text", 'share_completed'::"text", 'share_image_saved'::"text", 'share_intel_button_clicked'::"text", 'share_intel_signin_prompt'::"text", 'share_link_copied'::"text", 'share_link_opened'::"text", 'share_sheet_blocked_pending'::"text", 'share_started'::"text", 'signed_in'::"text", 'signin_cta_click'::"text", 'signup_cta_click'::"text", 'signup_cta_view'::"text", 'signup_form_submitted'::"text", 'signup_started'::"text", 'signup_success'::"text", 'social_follow'::"text", 'social_intel_confirm'::"text", 'social_invite_respond'::"text", 'social_invite_send'::"text", 'social_like'::"text", 'social_share'::"text", 'surf_plan_share'::"text", 'surf_profile_progress_shown'::"text", 'surf_profile_viewed'::"text", 'surf_window_click'::"text", 'surf_window_impression'::"text", 'synced_forecast_time_selected'::"text", 'tab_view'::"text", 'time_on_page'::"text", 'trial_active'::"text", 'trial_entitlement_received'::"text", 'unlock_toast_shown'::"text", 'value_moment_offer_tapped'::"text", 'watch_spot_tapped'::"text", 'why_this_call_opened'::"text"])) OR ("event_type" = ANY ('{session_created}'::"text"[])) OR ("event_type" = ANY ('{free_growth_education_impression,free_growth_education_cta_tapped,alert_rule_created}'::"text"[])) OR ("event_type" = ANY ('{surf_drop_created,surf_drop_share_opened,surf_drop_link_view,surf_drop_link_view_authenticated,surf_drop_claimed,surf_drop_joined,surf_drop_left,surf_drop_cancelled,surf_drop_map_toggle_layer}'::"text"[])) OR ("event_type" = ANY ('{login_failed,signup_failed}'::"text"[])) OR ("event_type" = ANY ('{android_lead_captured}'::"text"[])) OR ("event_type" = ANY (ARRAY['discover_page_view'::"text", 'discover_suggested_users_impression'::"text", 'discover_profile_open'::"text", 'discover_follow_attempt'::"text"])) OR ("event_type" = ANY ('{recommendation_impression}'::"text"[])) OR ("event_type" = ANY ('{session_log_form_view}'::"text"[])) OR ("event_type" = ANY ('{app_handoff_native_open}'::"text"[])) OR ("event_type" = ANY ('{native_install_attribution_joined}'::"text"[])) OR ("event_type" = ANY ('{acquisition_source_self_reported}'::"text"[])) OR ("event_type" = ANY ('{apple_orphan_recovery_flagged}'::"text"[])) OR ("event_type" = ANY ('{apple_orphan_precheck_indeterminate,apple_orphan_prevented}'::"text"[])) OR ("event_type" = ANY ('{onboarding_paywall_viewed,onboarding_free_selected,onboarding_purchase_started,onboarding_purchase_success,onboarding_purchase_failed,onboarding_purchase_cancelled,onboarding_restore_result,community_filter_selected,siri_shortcut_opened,garmin_connect_viewed,garmin_designated_activity_set}'::"text"[])))),
     CONSTRAINT "user_events_identity_check" CHECK ((("user_id" IS NOT NULL) OR ("session_id" IS NOT NULL)))
-);
+)
+WITH ("autovacuum_vacuum_scale_factor"='0.02');
 
 
 ALTER TABLE "public"."user_events" OWNER TO "postgres";
@@ -18056,6 +23974,25 @@ COMMENT ON TABLE "private"."tide_forecasts_integrity_backup_20260723" IS 'Rows c
 
 
 
+CREATE TABLE IF NOT EXISTS "private"."tide_forecasts_station_supersede_backup_20260929" (
+    "id" "uuid",
+    "beach_id" "uuid",
+    "ts" timestamp with time zone,
+    "tide_height_m" numeric,
+    "tide_phase" "text",
+    "source" "text",
+    "created_at" timestamp with time zone,
+    "station_id" "text"
+);
+
+
+ALTER TABLE "private"."tide_forecasts_station_supersede_backup_20260929" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "private"."tide_forecasts_station_supersede_backup_20260929" IS 'Rows removed by docs/operations/tide-station-supersede-20260929.sql.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."account_deletions" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid" NOT NULL,
@@ -18137,6 +24074,7 @@ CREATE TABLE IF NOT EXISTS "public"."alert_delivery_attempts" (
     "status" "text" NOT NULL,
     "skip_reason" "text",
     "attempted_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "message_instance_id" "uuid",
     CONSTRAINT "alert_delivery_attempts_channel_check" CHECK (("channel" = ANY (ARRAY['email'::"text", 'push'::"text"]))),
     CONSTRAINT "alert_delivery_attempts_status_check" CHECK (("status" = ANY (ARRAY['sent'::"text", 'shadow_withheld'::"text", 'skipped_disabled'::"text", 'skipped_allowlist'::"text", 'skipped_cooldown'::"text", 'skipped_user_cap'::"text", 'skipped_no_device'::"text", 'skipped_no_email'::"text", 'skipped_channel_disabled'::"text", 'skipped_dedup_collision'::"text", 'skipped_stale_forecast'::"text", 'failed_provider'::"text", 'failed_internal'::"text"])))
 );
@@ -18188,7 +24126,7 @@ CREATE TABLE IF NOT EXISTS "public"."alert_rules" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "auto_created_at" timestamp with time zone,
-    CONSTRAINT "alert_rules_preset_type_check" CHECK (("preset_type" = ANY (ARRAY['glass_off'::"text", 'big_day'::"text", 'clean_groundswell'::"text", 'mellow_session'::"text", 'tide_window'::"text", 'dawn_patrol'::"text", 'epic_conditions'::"text", 'similarity_alert'::"text", 'similarity_match'::"text", 'daily_check_in'::"text", 'weekend_warrior'::"text", 'after_work'::"text"])))
+    CONSTRAINT "alert_rules_preset_type_check" CHECK (("preset_type" = ANY (ARRAY['glass_off'::"text", 'big_day'::"text", 'clean_groundswell'::"text", 'mellow_session'::"text", 'tide_window'::"text", 'dawn_patrol'::"text", 'epic_conditions'::"text", 'similarity_alert'::"text", 'similarity_match'::"text", 'daily_check_in'::"text", 'weekend_warrior'::"text", 'after_work'::"text", 'watched_call'::"text"])))
 );
 
 
@@ -18550,6 +24488,17 @@ COMMENT ON TABLE "public"."android_waitlist_source_links" IS 'Exact immutable li
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."app_runtime_flags" (
+    "key" "text" NOT NULL,
+    "enabled" boolean DEFAULT false NOT NULL,
+    "note" "text",
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."app_runtime_flags" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."apple_identity_recovery_audit" (
     "id" bigint NOT NULL,
     "recovery_id" "uuid",
@@ -18674,6 +24623,26 @@ ALTER TABLE "public"."beach_amenity_sources" OWNER TO "postgres";
 
 
 COMMENT ON TABLE "public"."beach_amenity_sources" IS 'Beach-to-CCC access location linkage created by spatial proximity matching. A single beach may link to multiple nearby CCC access points; distance_m records the centroid-to-centroid distance in metres.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."beach_coordinate_corrections" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "beach_id" "uuid" NOT NULL,
+    "slug" "text" NOT NULL,
+    "old_lat" double precision NOT NULL,
+    "old_lon" double precision NOT NULL,
+    "new_lat" double precision NOT NULL,
+    "new_lon" double precision NOT NULL,
+    "reason" "text" NOT NULL,
+    "corrected_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."beach_coordinate_corrections" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."beach_coordinate_corrections" IS 'Audit + rollback source for beach lat/lon corrections. One row per changed beach.';
 
 
 
@@ -18961,6 +24930,7 @@ CREATE TABLE IF NOT EXISTS "public"."ml_predictions_log" (
     "feedback_height_calibration_candidate_id" "uuid",
     "feedback_height_offset_ft" numeric(4,2),
     "feedback_height_calibration_applied" boolean DEFAULT false NOT NULL,
+    "display_replay_context" "jsonb",
     CONSTRAINT "ml_predictions_log_display_raw_input_height_nonnegative_check" CHECK ((("display_raw_input_height_m" IS NULL) OR ("display_raw_input_height_m" >= (0)::numeric))),
     CONSTRAINT "ml_predictions_log_display_wave_source_check" CHECK ((("display_wave_source" IS NULL) OR ("display_wave_source" = ANY (ARRAY['cdip_sig'::"text", 'model_swell'::"text", 'cdip_swell'::"text", 'model_hs'::"text", 'ndbc_buoy'::"text", 'nowcast_anchor'::"text"])))),
     CONSTRAINT "ml_predictions_log_feedback_height_offset_check" CHECK ((("feedback_height_offset_ft" IS NULL) OR (("feedback_height_offset_ft" >= '-0.50'::numeric) AND ("feedback_height_offset_ft" <= 0.50)))),
@@ -18979,7 +24949,8 @@ CREATE TABLE IF NOT EXISTS "public"."ml_predictions_log" (
     CONSTRAINT "ml_predictions_log_wind_wave_direction_om_check" CHECK ((("wind_wave_direction_om" IS NULL) OR (("wind_wave_direction_om" >= (0)::double precision) AND ("wind_wave_direction_om" <= (360)::double precision)))),
     CONSTRAINT "ml_predictions_log_wind_wave_peak_period_om_check" CHECK ((("wind_wave_peak_period_om" IS NULL) OR (("wind_wave_peak_period_om" >= (0)::double precision) AND ("wind_wave_peak_period_om" <= (30)::double precision)))),
     CONSTRAINT "ml_predictions_log_wind_wave_period_om_check" CHECK ((("wind_wave_period_om" IS NULL) OR (("wind_wave_period_om" >= (0)::double precision) AND ("wind_wave_period_om" <= (30)::double precision))))
-);
+)
+WITH ("autovacuum_vacuum_scale_factor"='0.02');
 
 
 ALTER TABLE "public"."ml_predictions_log" OWNER TO "postgres";
@@ -19097,6 +25068,10 @@ COMMENT ON COLUMN "public"."ml_predictions_log"."feedback_height_offset_ft" IS '
 
 
 
+COMMENT ON COLUMN "public"."ml_predictions_log"."display_replay_context" IS 'Versioned same-generation transform inputs and handoff endpoints. First-write-wins with the prediction. NULL historical rows are not replayable; never backfill from a later forecast run.';
+
+
+
 CREATE MATERIALIZED VIEW "public"."beach_ml_performance_baseline" AS
  WITH "live_predictions" AS (
          SELECT "b"."id" AS "beach_id",
@@ -19148,6 +25123,23 @@ ALTER TABLE "public"."beach_ml_performance_baseline" OWNER TO "postgres";
 
 
 COMMENT ON MATERIALIZED VIEW "public"."beach_ml_performance_baseline" IS 'Per-beach ML performance metrics over rolling 14-day window. Uses live face-Hs display rows against buoy observed_m for the public forecast-accuracy report. Refreshed daily at 7am UTC.';
+
+
+
+CREATE MATERIALIZED VIEW "public"."beach_observation_stations" AS
+ SELECT "mapped"."beach_id",
+    "mapped"."station_id"
+   FROM ( SELECT "b"."id" AS "beach_id",
+            "public"."get_beach_observation_station"("b"."id") AS "station_id"
+           FROM "public"."beaches" "b") "mapped"
+  WHERE ("mapped"."station_id" IS NOT NULL)
+  WITH NO DATA;
+
+
+ALTER TABLE "public"."beach_observation_stations" OWNER TO "postgres";
+
+
+COMMENT ON MATERIALIZED VIEW "public"."beach_observation_stations" IS 'Daily snapshot of get_beach_observation_station per beach, so read-time buoy matching never calls the ~0.4 s resolver per row. Refreshed by refresh_beach_observation_stations().';
 
 
 
@@ -19212,7 +25204,7 @@ CREATE TABLE IF NOT EXISTS "public"."beach_photos" (
     "fetched_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "approved" boolean DEFAULT false NOT NULL,
     "deleted_at" timestamp with time zone,
-    CONSTRAINT "beach_photos_source_check" CHECK (("source" = ANY (ARRAY['openverse'::"text", 'flickr'::"text", 'unsplash'::"text", 'pexels'::"text", 'wikimedia'::"text", 'user'::"text", 'google_places'::"text"])))
+    CONSTRAINT "beach_photos_source_check" CHECK (("source" = ANY (ARRAY['openverse'::"text", 'flickr'::"text", 'unsplash'::"text", 'pexels'::"text", 'wikimedia'::"text", 'user'::"text", 'google_places'::"text", 'ai_generated'::"text"])))
 );
 
 
@@ -19253,37 +25245,6 @@ ALTER TABLE "public"."beach_photos_featured" OWNER TO "postgres";
 
 COMMENT ON VIEW "public"."beach_photos_featured" IS 'Returns the most recent approved, non-deleted photo for each beach. Used for featured images in 
   listings and search results.';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."beach_photos_history" (
-    "history_id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "id" "uuid" NOT NULL,
-    "beach_id" "uuid",
-    "source" "text",
-    "source_id" "text",
-    "image_url" "text",
-    "thumb_url" "text",
-    "title" "text",
-    "creator_name" "text",
-    "creator_url" "text",
-    "license_code" "text",
-    "license_url" "text",
-    "attribution_html" "text",
-    "fetched_at" timestamp with time zone,
-    "approved" boolean,
-    "deleted_at" timestamp with time zone,
-    "changed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "changed_by" "uuid",
-    "change_type" "text" NOT NULL,
-    CONSTRAINT "beach_photos_history_change_type_check" CHECK (("change_type" = ANY (ARRAY['UPDATE'::"text", 'DELETE'::"text"])))
-);
-
-
-ALTER TABLE "public"."beach_photos_history" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."beach_photos_history" IS 'Audit trail for beach_photos table. Captures snapshots on UPDATE/DELETE operations.';
 
 
 
@@ -19384,7 +25345,6 @@ COMMENT ON TABLE "public"."beach_reviews_history" IS 'Audit trail for beach_revi
 
 CREATE TABLE IF NOT EXISTS "public"."beach_sources" (
     "beach_id" "uuid" NOT NULL,
-    "ndbc_buoy_ids" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
     "forecast_source_id" "text",
     "camera_url" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
@@ -19419,6 +25379,22 @@ COMMENT ON COLUMN "public"."beach_sources"."youtube_last_resolved_at" IS 'Timest
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."beach_traffic_weights" (
+    "beach_id" "uuid" NOT NULL,
+    "views_30d" integer DEFAULT 0 NOT NULL,
+    "weight" numeric DEFAULT 1 NOT NULL,
+    "market_key" "text" NOT NULL,
+    "allocation_tier" "text" NOT NULL,
+    "computed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "beach_traffic_weights_allocation_tier_check" CHECK (("allocation_tier" = ANY (ARRAY['proven'::"text", 'adjacent'::"text", 'exploration'::"text"]))),
+    CONSTRAINT "beach_traffic_weights_views_30d_check" CHECK (("views_30d" >= 0)),
+    CONSTRAINT "beach_traffic_weights_weight_check" CHECK (("weight" >= (0)::numeric))
+);
+
+
+ALTER TABLE "public"."beach_traffic_weights" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."beach_water_quality" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "beach_id" "uuid" NOT NULL,
@@ -19439,6 +25415,26 @@ CREATE TABLE IF NOT EXISTS "public"."beach_water_quality" (
 
 
 ALTER TABLE "public"."beach_water_quality" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."beach_wind_observations" (
+    "beach_id" "uuid" NOT NULL,
+    "observed_at" timestamp with time zone NOT NULL,
+    "wind_speed_mph" numeric NOT NULL,
+    "wind_direction" "text",
+    "wind_direction_deg" numeric,
+    "wind_gust_mph" numeric,
+    "source" "text" NOT NULL,
+    "domain" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "beach_wind_observations_direction_range" CHECK ((("wind_direction_deg" IS NULL) OR (("wind_direction_deg" >= (0)::numeric) AND ("wind_direction_deg" <= (360)::numeric)))),
+    CONSTRAINT "beach_wind_observations_gust_nonnegative" CHECK ((("wind_gust_mph" IS NULL) OR (("wind_gust_mph" >= (0)::numeric) AND ("wind_gust_mph" <= (300)::numeric)))),
+    CONSTRAINT "beach_wind_observations_speed_nonnegative" CHECK ((("wind_speed_mph" >= (0)::numeric) AND ("wind_speed_mph" <= (250)::numeric)))
+);
+
+
+ALTER TABLE "public"."beach_wind_observations" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."user_blocks" (
@@ -19488,11 +25484,16 @@ CREATE TABLE IF NOT EXISTS "public"."boards" (
     "shaper" "text",
     "model" "text",
     "color" "text",
+    "retired_at" timestamp with time zone,
     CONSTRAINT "boards_fin_setup_check" CHECK ((("fin_setup" IS NULL) OR ("fin_setup" = ANY (ARRAY['finless'::"text", 'single'::"text", 'twin'::"text", 'thruster'::"text", 'quad'::"text"]))))
 );
 
 
 ALTER TABLE "public"."boards" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."boards"."retired_at" IS 'When the owner retired the board. Retired boards drop out of board lists and the 10-board cap; sessions keep referencing them.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."buoys" (
@@ -19513,6 +25514,124 @@ CREATE TABLE IF NOT EXISTS "public"."buoys" (
 
 
 ALTER TABLE "public"."buoys" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."forecast_feedback_contexts" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid",
+    "session_id" "text",
+    "anonymous_client_id" "text",
+    "beach_id" "uuid" NOT NULL,
+    "forecast_at" timestamp with time zone NOT NULL,
+    "window_start" timestamp with time zone,
+    "window_end" timestamp with time zone,
+    "issued_at" timestamp with time zone,
+    "predicted_at" timestamp with time zone,
+    "forecast_horizon_hours" integer,
+    "feedback_kind" "text" NOT NULL,
+    "feedback_value" "text" NOT NULL,
+    "feedback_note" "text",
+    "displayed_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "source_model_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "calibration_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "surf_call_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "missing_flags" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "audit_metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "client_source" "text" NOT NULL,
+    "client_version" "text",
+    "schema_version" integer DEFAULT 1 NOT NULL,
+    "contract_version" "text" DEFAULT 'forecast-feedback-context.v1'::"text" NOT NULL,
+    "ingest_path" "text" NOT NULL,
+    "request_id" "text",
+    "correlation_id" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "call_id" "text",
+    CONSTRAINT "forecast_feedback_contexts_feedback_kind_check" CHECK ((("feedback_kind" = ANY (ARRAY['forecast_accuracy'::"text", 'surf_call'::"text", 'condition_report'::"text", 'other'::"text"])) OR ("feedback_kind" = 'call_check'::"text"))),
+    CONSTRAINT "forecast_feedback_contexts_forecast_horizon_hours_check" CHECK ((("forecast_horizon_hours" IS NULL) OR (("forecast_horizon_hours" >= 0) AND ("forecast_horizon_hours" <= 168)))),
+    CONSTRAINT "forecast_feedback_contexts_schema_version_check" CHECK (("schema_version" >= 1)),
+    CONSTRAINT "forecast_feedback_window_order" CHECK ((("window_start" IS NULL) OR ("window_end" IS NULL) OR ("window_start" <= "window_end")))
+);
+
+
+ALTER TABLE "public"."forecast_feedback_contexts" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."forecast_feedback_contexts" IS 'Forecast feedback context rows captured with displayed forecast, source/model, calibration, surf-call, missing-context, and audit metadata. Phase 1 storage only; not a training label source.';
+
+
+
+CREATE OR REPLACE VIEW "public"."call_feedback_summary" WITH ("security_invoker"='true') AS
+ WITH "shown_calls" AS (
+         SELECT DISTINCT ON ("ue"."user_id", ("ue"."metadata" ->> 'call_id'::"text")) "ue"."user_id",
+            ("ue"."metadata" ->> 'call_id'::"text") AS "call_id",
+            "ue"."beach_id",
+            COALESCE(("ue"."metadata" ->> 'forecast_at'::"text"), ("ue"."metadata" ->> 'selected_forecast_at'::"text")) AS "forecast_at",
+            ("ue"."metadata" ->> 'surface'::"text") AS "surface",
+            ("ue"."metadata" ->> 'label'::"text") AS "label",
+            ("ue"."metadata" ->> 'board_class'::"text") AS "board_class",
+            (NULLIF(("ue"."metadata" ->> 'board_id'::"text"), ''::"text"))::"uuid" AS "board_id",
+            (("ue"."metadata" ->> 'is_any_board'::"text"))::boolean AS "is_any_board",
+            (("ue"."metadata" ->> 'is_personal'::"text"))::boolean AS "is_personal",
+            ("ue"."metadata" ->> 'plan'::"text") AS "plan",
+            "ue"."created_at" AS "first_shown_at",
+            ("ue"."metadata" -> 'served_conditions'::"text") AS "served_conditions"
+           FROM "public"."user_events" "ue"
+          WHERE (("ue"."event_type" = 'board_pick_exposed'::"text") AND ("ue"."user_id" IS NOT NULL) AND (NULLIF(("ue"."metadata" ->> 'call_id'::"text"), ''::"text") IS NOT NULL))
+          ORDER BY "ue"."user_id", ("ue"."metadata" ->> 'call_id'::"text"), "ue"."created_at"
+        )
+ SELECT "shown_calls"."user_id",
+    "shown_calls"."call_id",
+    "shown_calls"."beach_id",
+    "shown_calls"."forecast_at",
+    "shown_calls"."surface",
+    "shown_calls"."label",
+    "shown_calls"."board_class",
+    "shown_calls"."board_id",
+    "shown_calls"."is_any_board",
+    "shown_calls"."is_personal",
+    "shown_calls"."plan",
+    "shown_calls"."first_shown_at",
+    "sessions"."id" AS "session_id",
+    "sessions"."rating",
+    "sessions"."recommendation_call_accuracy",
+    "sessions"."board_fit",
+    "sessions"."session_board_fit",
+    "feedback"."feedback_value",
+    ("feedback"."surf_call_context" ->> 'board_value'::"text") AS "board_value",
+    "boards"."name" AS "board_name",
+    "boards"."board_type",
+    "shown_calls"."served_conditions"
+   FROM ((("shown_calls"
+     LEFT JOIN "public"."sessions" "sessions" ON ((("sessions"."user_id" = "shown_calls"."user_id") AND ("sessions"."call_id" = "shown_calls"."call_id"))))
+     LEFT JOIN "public"."forecast_feedback_contexts" "feedback" ON ((("feedback"."user_id" = "shown_calls"."user_id") AND ("feedback"."call_id" = "shown_calls"."call_id") AND ("feedback"."feedback_kind" = 'call_check'::"text"))))
+     LEFT JOIN "public"."boards" "boards" ON ((("boards"."user_id" = "shown_calls"."user_id") AND ("boards"."id" = "shown_calls"."board_id"))));
+
+
+ALTER TABLE "public"."call_feedback_summary" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."cancellation_feedback" (
+    "cancellation_event_id" "text" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "outcome" "text" NOT NULL,
+    "reason" "text",
+    "note" "text" DEFAULT ''::"text" NOT NULL,
+    "source" "text" NOT NULL,
+    "app_version" "text",
+    "app_build" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "cancellation_feedback_app_build_check" CHECK (("char_length"("app_build") <= 40)),
+    CONSTRAINT "cancellation_feedback_app_version_check" CHECK (("char_length"("app_version") <= 40)),
+    CONSTRAINT "cancellation_feedback_check" CHECK (((("outcome" = 'submitted'::"text") AND ("reason" IS NOT NULL)) OR (("outcome" = 'dismissed'::"text") AND ("reason" IS NULL) AND ("note" = ''::"text")))),
+    CONSTRAINT "cancellation_feedback_note_check" CHECK (("char_length"("note") <= 2000)),
+    CONSTRAINT "cancellation_feedback_outcome_check" CHECK (("outcome" = ANY (ARRAY['submitted'::"text", 'dismissed'::"text"]))),
+    CONSTRAINT "cancellation_feedback_reason_check" CHECK (("reason" = ANY (ARRAY['avoid_charge'::"text", 'price'::"text", 'missing_spot'::"text", 'forecast'::"text", 'technical'::"text", 'usage'::"text", 'other'::"text"]))),
+    CONSTRAINT "cancellation_feedback_source_check" CHECK (("source" = ANY (ARRAY['native_home'::"text", 'native_settings'::"text"])))
+);
+
+
+ALTER TABLE "public"."cancellation_feedback" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."ccc_access_locations" (
@@ -19697,6 +25816,21 @@ COMMENT ON TABLE "public"."community_photo_reports" IS 'Private one-current-reas
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."community_photo_terms_acceptances" (
+    "user_id" "uuid" DEFAULT "auth"."uid"() NOT NULL,
+    "terms_version" "text" NOT NULL,
+    "accepted_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "community_photo_terms_acceptances_terms_version_check" CHECK (((("char_length"("terms_version") >= 1) AND ("char_length"("terms_version") <= 64)) AND ("terms_version" ~ '^[A-Za-z0-9][A-Za-z0-9._-]*$'::"text")))
+);
+
+
+ALTER TABLE "public"."community_photo_terms_acceptances" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."community_photo_terms_acceptances" IS 'One row per user per accepted community-photo terms version; per-photo ownership attestation remains in community_photo_consents.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."community_photo_votes" (
     "photo_id" "uuid" NOT NULL,
     "voter_id" "uuid" NOT NULL,
@@ -19782,22 +25916,81 @@ COMMENT ON TABLE "public"."content_reports" IS 'Polymorphic content reports. tar
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."corrected_forecasts" (
+CREATE TABLE IF NOT EXISTS "public"."county_beach_advisories" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "beach_id" "uuid" NOT NULL,
-    "forecast_ts" timestamp with time zone NOT NULL,
-    "valid_time_utc" timestamp with time zone NOT NULL,
-    "raw_height_m" numeric(4,2),
-    "corrected_height_m" numeric(4,2),
-    "bias_applied_m" numeric(4,2),
-    "model_version" "text" NOT NULL,
-    "corrected_at" timestamp with time zone DEFAULT "now"(),
-    "primary_source" "text" DEFAULT 'NOAA_NWS'::"text" NOT NULL,
-    CONSTRAINT "corrected_forecasts_primary_source_check" CHECK (("primary_source" = ANY (ARRAY['NOAA_NWS'::"text", 'OPEN_METEO'::"text"])))
+    "run_id" "uuid" NOT NULL,
+    "source_identifier" "text" NOT NULL,
+    "source_name" "text" NOT NULL,
+    "source_url" "text" NOT NULL,
+    "source_site_identifier" "text" NOT NULL,
+    "advisory_type" "text" NOT NULL,
+    "beach_id" "uuid",
+    "county_latitude" numeric(9,6) NOT NULL,
+    "county_longitude" numeric(10,6) NOT NULL,
+    "match_distance_meters" numeric,
+    "valid_from" timestamp with time zone,
+    "valid_until" timestamp with time zone,
+    "raw_payload" "jsonb" NOT NULL,
+    "raw_payload_hash" "text" NOT NULL,
+    "fetched_at" timestamp with time zone NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "county_beach_advisories_advisory_type_check" CHECK (("advisory_type" = ANY (ARRAY['advisory'::"text", 'closure'::"text", 'warning'::"text"]))),
+    CONSTRAINT "county_beach_advisories_county_latitude_check" CHECK ((("county_latitude" >= ('-90'::integer)::numeric) AND ("county_latitude" <= (90)::numeric))),
+    CONSTRAINT "county_beach_advisories_county_longitude_check" CHECK ((("county_longitude" >= ('-180'::integer)::numeric) AND ("county_longitude" <= (180)::numeric)))
 );
 
 
-ALTER TABLE "public"."corrected_forecasts" OWNER TO "postgres";
+ALTER TABLE "public"."county_beach_advisories" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."county_beach_advisory_ingest_state" (
+    "source_identifier" "text" NOT NULL,
+    "accepted_version_token" "text",
+    "accepted_version_sequence" integer,
+    "observed_version_token" "text",
+    "observed_version_sequence" integer,
+    "consecutive_failures" integer DEFAULT 0 NOT NULL,
+    "circuit_open" boolean DEFAULT false NOT NULL,
+    "next_attempt_at" timestamp with time zone,
+    "last_request_at" timestamp with time zone,
+    "last_success_at" timestamp with time zone,
+    "last_failure_at" timestamp with time zone,
+    "last_error" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "county_beach_advisory_ingest_state_consecutive_failures_check" CHECK (("consecutive_failures" >= 0))
+);
+
+
+ALTER TABLE "public"."county_beach_advisory_ingest_state" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."county_beach_advisory_runs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "source_identifier" "text" NOT NULL,
+    "status" "text" NOT NULL,
+    "version_token" "text" NOT NULL,
+    "version_sequence" integer NOT NULL,
+    "fetched_at" timestamp with time zone NOT NULL,
+    "completed_at" timestamp with time zone,
+    "advisory_count" integer DEFAULT 0 NOT NULL,
+    "closure_count" integer DEFAULT 0 NOT NULL,
+    "warning_count" integer DEFAULT 0 NOT NULL,
+    "unmatched_site_count" integer DEFAULT 0 NOT NULL,
+    "match_rate" numeric,
+    "error_kind" "text",
+    "error_message" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "county_beach_advisory_runs_advisory_count_check" CHECK (("advisory_count" >= 0)),
+    CONSTRAINT "county_beach_advisory_runs_closure_count_check" CHECK (("closure_count" >= 0)),
+    CONSTRAINT "county_beach_advisory_runs_match_rate_check" CHECK ((("match_rate" IS NULL) OR (("match_rate" >= (0)::numeric) AND ("match_rate" <= (1)::numeric)))),
+    CONSTRAINT "county_beach_advisory_runs_status_check" CHECK (("status" = ANY (ARRAY['started'::"text", 'completed'::"text", 'failed'::"text"]))),
+    CONSTRAINT "county_beach_advisory_runs_unmatched_site_count_check" CHECK (("unmatched_site_count" >= 0)),
+    CONSTRAINT "county_beach_advisory_runs_warning_count_check" CHECK (("warning_count" >= 0))
+);
+
+
+ALTER TABLE "public"."county_beach_advisory_runs" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."cron_runs" (
@@ -19809,11 +26002,49 @@ CREATE TABLE IF NOT EXISTS "public"."cron_runs" (
     "summary" "jsonb",
     "error_message" "text",
     "duration_ms" integer,
-    CONSTRAINT "cron_runs_status_check" CHECK (("status" = ANY (ARRAY['started'::"text", 'ok'::"text", 'error'::"text", 'timeout'::"text"])))
-);
+    "job" "text" NOT NULL,
+    "unit" "text",
+    "produced" integer,
+    "expected_min" integer,
+    "expected_max" integer,
+    "legitimately_zero_reason" "text",
+    "ran_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "cron_runs_status_check" CHECK (("status" = ANY (ARRAY['started'::"text", 'ok'::"text", 'failed'::"text", 'error'::"text", 'timeout'::"text"])))
+)
+WITH ("autovacuum_vacuum_scale_factor"='0.02');
 
 
 ALTER TABLE "public"."cron_runs" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."custom_spot_analysis_jobs" (
+    "id" bigint NOT NULL,
+    "custom_spot_id" "uuid" NOT NULL,
+    "requested_model_version" "text" NOT NULL,
+    "status" "text" DEFAULT 'queued'::"text" NOT NULL,
+    "attempts" integer DEFAULT 0 NOT NULL,
+    "next_attempt_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "locked_at" timestamp with time zone,
+    "last_error_code" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "custom_spot_analysis_jobs_attempts_check" CHECK (("attempts" >= 0)),
+    CONSTRAINT "custom_spot_analysis_jobs_status_check" CHECK (("status" = ANY (ARRAY['queued'::"text", 'processing'::"text", 'retry'::"text", 'complete'::"text", 'failed'::"text"])))
+);
+
+
+ALTER TABLE "public"."custom_spot_analysis_jobs" OWNER TO "postgres";
+
+
+ALTER TABLE "public"."custom_spot_analysis_jobs" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."custom_spot_analysis_jobs_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."daily_calls" (
@@ -19931,6 +26162,7 @@ CREATE TABLE IF NOT EXISTS "public"."earned_pro_grants" (
     "revoked_at" timestamp with time zone,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "offer_award_id" "uuid",
     CONSTRAINT "earned_pro_grants_expires_after_granted" CHECK (("expires_at" > "granted_at"))
 );
 
@@ -19948,6 +26180,84 @@ COMMENT ON COLUMN "public"."earned_pro_grants"."reason" IS 'Grant reason key, e.
 
 COMMENT ON COLUMN "public"."earned_pro_grants"."streak_snapshot" IS 'JSON snapshot of streak inputs used when deciding eligibility.';
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."pro_offer_awards" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "program_id" "text" NOT NULL,
+    "code_hash" "text" NOT NULL,
+    "eligibility_reference" "text" NOT NULL,
+    "terms_version" "text" NOT NULL,
+    "enrolled_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "earned_at" timestamp with time zone,
+    "session_ids" "uuid"[],
+    "state" "text" DEFAULT 'enrolled'::"text" NOT NULL,
+    "reason" "text",
+    "reservation_id" "uuid",
+    "reserved_at" timestamp with time zone,
+    "handoff_at" timestamp with time zone,
+    "expires_at" timestamp with time zone,
+    "entitlement_id" "text",
+    "provider_receipt" "jsonb",
+    "verified_at" timestamp with time zone,
+    "mirror_verified_at" timestamp with time zone,
+    "claim_requested_at" timestamp with time zone,
+    "next_attempt_at" timestamp with time zone,
+    "retry_count" integer DEFAULT 0 NOT NULL,
+    "last_reconciled_at" timestamp with time zone,
+    "claim_message_instance_id" "uuid",
+    CONSTRAINT "pro_offer_awards_code_hash_check" CHECK (("code_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "pro_offer_awards_eligibility_reference_check" CHECK (("length"(TRIM(BOTH FROM "eligibility_reference")) > 0)),
+    CONSTRAINT "pro_offer_awards_state_check" CHECK (("state" = ANY (ARRAY['enrolled'::"text", 'held'::"text", 'reserved'::"text", 'handoff_started'::"text", 'unknown'::"text", 'verified'::"text"]))),
+    CONSTRAINT "pro_offer_awards_terms_version_check" CHECK (("length"(TRIM(BOTH FROM "terms_version")) > 0))
+);
+
+
+ALTER TABLE "public"."pro_offer_awards" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."email_automation_attention" WITH ("security_invoker"='true') AS
+ SELECT 'contact'::"text" AS "kind",
+    ("s"."user_id")::"text" AS "record_id",
+        CASE
+            WHEN ("s"."approved_campaign" IS NULL) THEN 'enrollment_pending'::"text"
+            WHEN (("s"."entitlement_verified_until" IS NULL) OR ("s"."entitlement_verified_until" <= "now"())) THEN 'entitlement_stale'::"text"
+            ELSE NULL::"text"
+        END AS "reason"
+   FROM "public"."email_contact_state" "s"
+  WHERE ("public"."lifecycle_permission_verified"("s".*) AND ("s"."paused_at" IS NULL) AND (("s"."approved_campaign" IS NULL) OR ("s"."entitlement_verified_until" IS NULL) OR ("s"."entitlement_verified_until" <= "now"())))
+UNION ALL
+ SELECT 'offer'::"text" AS "kind",
+    ("pro_offer_awards"."id")::"text" AS "record_id",
+        CASE
+            WHEN ("pro_offer_awards"."claim_requested_at" IS NULL) THEN 'awaiting_user_acceptance'::"text"
+            ELSE 'claim_due'::"text"
+        END AS "reason"
+   FROM "public"."pro_offer_awards"
+  WHERE (("pro_offer_awards"."earned_at" IS NOT NULL) AND ("pro_offer_awards"."state" = ANY (ARRAY['enrolled'::"text", 'held'::"text"])) AND (("pro_offer_awards"."claim_requested_at" IS NULL) OR ("pro_offer_awards"."next_attempt_at" < ("now"() - '00:30:00'::interval))));
+
+
+ALTER TABLE "public"."email_automation_attention" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."email_campaigns" (
+    "id" "text" NOT NULL,
+    "version" integer NOT NULL,
+    "content_hash" "text" NOT NULL,
+    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "owner" "text" NOT NULL,
+    "approved_by" "text",
+    "approved_at" timestamp with time zone,
+    "expires_at" timestamp with time zone,
+    CONSTRAINT "email_campaigns_check" CHECK ((("status" <> 'approved'::"text") OR (("approved_by" IS NOT NULL) AND ("approved_at" IS NOT NULL) AND ("expires_at" IS NOT NULL) AND ("expires_at" > "approved_at")))),
+    CONSTRAINT "email_campaigns_content_hash_check" CHECK (("content_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "email_campaigns_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'approved'::"text", 'paused'::"text", 'retired'::"text"]))),
+    CONSTRAINT "email_campaigns_version_check" CHECK (("version" > 0))
+);
+
+
+ALTER TABLE "public"."email_campaigns" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."email_click_events" (
@@ -19993,6 +26303,49 @@ ALTER SEQUENCE "public"."email_click_events_id_seq" OWNED BY "public"."email_cli
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."email_contact_attempts" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "email_type" "text" NOT NULL,
+    "claimed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "provider_id" "text",
+    "sent_at" timestamp with time zone,
+    "campaign_id" "text",
+    "campaign_version" integer,
+    "episode" "text",
+    "lifecycle_job" "text",
+    "state" "text" DEFAULT 'unknown'::"text" NOT NULL,
+    "source_hash" "text",
+    "content_hash" "text",
+    "payload" "jsonb",
+    "payload_hash" "text",
+    "handoff_at" timestamp with time zone,
+    "error_code" "text",
+    CONSTRAINT "email_contact_attempts_check" CHECK ((("provider_id" IS NULL) = ("sent_at" IS NULL))),
+    CONSTRAINT "email_contact_attempts_state_check" CHECK (("state" = ANY (ARRAY['reserved'::"text", 'handoff_started'::"text", 'accepted'::"text", 'unknown'::"text", 'cancelled'::"text", 'failed'::"text"])))
+);
+
+
+ALTER TABLE "public"."email_contact_attempts" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."email_contact_controls" (
+    "singleton" boolean DEFAULT true NOT NULL,
+    "enabled" boolean DEFAULT false NOT NULL,
+    "daily_cap" integer,
+    "lifecycle_enabled" boolean DEFAULT false NOT NULL,
+    "automation_campaign" "text",
+    "history_cutover_at" timestamp with time zone,
+    "history_cutover_reference" "text",
+    "account_policy_reference" "text",
+    CONSTRAINT "email_contact_controls_daily_cap_check" CHECK ((("daily_cap" IS NULL) OR ("daily_cap" > 0))),
+    CONSTRAINT "email_contact_controls_singleton_check" CHECK ("singleton")
+);
+
+
+ALTER TABLE "public"."email_contact_controls" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."email_delivery_events" (
     "id" bigint NOT NULL,
     "email_send_log_id" bigint,
@@ -20001,7 +26354,7 @@ CREATE TABLE IF NOT EXISTS "public"."email_delivery_events" (
     "event_type" "text" NOT NULL,
     "event_at" timestamp with time zone NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "email_delivery_events_event_type_check" CHECK (("event_type" = ANY (ARRAY['email.delivered'::"text", 'email.opened'::"text", 'email.clicked'::"text", 'email.bounced'::"text"])))
+    CONSTRAINT "email_delivery_events_event_type_check" CHECK (("event_type" = ANY (ARRAY['email.delivered'::"text", 'email.opened'::"text", 'email.clicked'::"text", 'email.bounced'::"text", 'email.complained'::"text", 'email.failed'::"text", 'email.delivery_delayed'::"text"])))
 );
 
 
@@ -20037,6 +26390,139 @@ ALTER TABLE "public"."email_delivery_events_id_seq" OWNER TO "postgres";
 
 ALTER SEQUENCE "public"."email_delivery_events_id_seq" OWNED BY "public"."email_delivery_events"."id";
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."email_lifecycle_recipients" (
+    "user_id" "uuid" NOT NULL,
+    "campaign_id" "text",
+    "job" "text",
+    "episode" "text",
+    "status" "text" NOT NULL,
+    "reason" "text" NOT NULL,
+    "due_at" timestamp with time zone,
+    "next_eligible_at" timestamp with time zone,
+    "expires_at" timestamp with time zone,
+    "evaluated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "owner" "text" DEFAULT 'Steve'::"text" NOT NULL,
+    "snapshot" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "first_due_at" timestamp with time zone
+);
+
+
+ALTER TABLE "public"."email_lifecycle_recipients" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."email_lifecycle_due" WITH ("security_invoker"='true') AS
+ SELECT "r"."user_id",
+    "r"."campaign_id",
+    "r"."job",
+    "r"."status",
+    "r"."reason",
+    "r"."due_at",
+    "r"."next_eligible_at",
+    "r"."expires_at",
+    "r"."evaluated_at",
+    "r"."owner",
+    ("now"() - "r"."evaluated_at") AS "evaluation_age",
+        CASE
+            WHEN ("r"."status" = 'due'::"text") THEN GREATEST(("now"() - "r"."due_at"), '00:00:00'::interval)
+            ELSE NULL::interval
+        END AS "due_age",
+    "a"."id" AS "attempt_id",
+    "a"."state" AS "attempt_state",
+    "a"."provider_id",
+    "a"."handoff_at",
+    "a"."error_code",
+    "l"."delivered_at",
+    "l"."opened_at",
+    "l"."clicked_at",
+    "l"."bounced_at"
+   FROM (("public"."email_lifecycle_recipients" "r"
+     LEFT JOIN LATERAL ( SELECT "email_contact_attempts"."id",
+            "email_contact_attempts"."state",
+            "email_contact_attempts"."provider_id",
+            "email_contact_attempts"."handoff_at",
+            "email_contact_attempts"."error_code"
+           FROM "public"."email_contact_attempts"
+          WHERE (("email_contact_attempts"."user_id" = "r"."user_id") AND ("email_contact_attempts"."lifecycle_job" IS NOT NULL))
+          ORDER BY "email_contact_attempts"."claimed_at" DESC
+         LIMIT 1) "a" ON (true))
+     LEFT JOIN "public"."email_send_log" "l" ON (("l"."resend_message_id" = "a"."provider_id")));
+
+
+ALTER TABLE "public"."email_lifecycle_due" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."email_lifecycle_outcomes" WITH ("security_invoker"='true') AS
+ SELECT "a"."id" AS "message_instance_id",
+    "a"."user_id",
+    "a"."campaign_id",
+    "a"."lifecycle_job",
+    "a"."handoff_at",
+    "a"."provider_id",
+    ("now"() >= ("a"."handoff_at" + '7 days'::interval)) AS "seven_day_window_mature",
+    LEAST("entry"."clicked_at", "entry"."event_at") AS "attributed_entry_at",
+    ( SELECT "count"(*) AS "count"
+           FROM "public"."sessions" "s"
+          WHERE (("s"."user_id" = "a"."user_id") AND ("s"."status" = 'completed'::"text") AND ("s"."deleted_at" IS NULL) AND (("s"."email_completed_at" >= "a"."handoff_at") AND ("s"."email_completed_at" <= ("a"."handoff_at" + '7 days'::interval))))) AS "completed_sessions_after_send",
+        CASE
+            WHEN (("entry"."event_at" IS NOT NULL) AND (("entry"."clicked_at" IS NULL) OR ("entry"."event_at" <= "entry"."clicked_at"))) THEN 'app_event'::"text"
+            WHEN ("entry"."clicked_at" IS NOT NULL) THEN 'email_click'::"text"
+            ELSE NULL::"text"
+        END AS "attributed_entry_source"
+   FROM ("public"."email_contact_attempts" "a"
+     CROSS JOIN LATERAL ( SELECT ( SELECT "min"(COALESCE("c"."clicked_at", "c"."created_at")) AS "min"
+                   FROM "public"."email_click_events" "c"
+                  WHERE (("a"."provider_id" IS NOT NULL) AND ("c"."resend_message_id" = "a"."provider_id") AND ("c"."link" ~ '^https://(www|go)\.quiversurf\.app/(app|beach|sessions|forecast|map)([/?#]|$)'::"text") AND ("c"."user_agent" IS NOT NULL) AND ("c"."user_agent" !~* '(bot|crawl|spider|preview|scan|safelinks|proofpoint|mimecast|barracuda|headless)'::"text") AND ((COALESCE("c"."clicked_at", "c"."created_at") >= "a"."handoff_at") AND (COALESCE("c"."clicked_at", "c"."created_at") <= ("a"."handoff_at" + '7 days'::interval))))) AS "clicked_at",
+            ( SELECT "min"("e"."created_at") AS "min"
+                   FROM "public"."user_events" "e"
+                  WHERE (("e"."user_id" = "a"."user_id") AND ("e"."bot_flagged" IS NOT TRUE) AND (("e"."metadata" ->> 'message_instance_id'::"text") = ANY (ARRAY[("a"."id")::"text", ( SELECT ("l"."message_instance_id")::"text" AS "message_instance_id"
+                           FROM "public"."email_send_log" "l"
+                          WHERE (("a"."provider_id" IS NOT NULL) AND ("l"."resend_message_id" = "a"."provider_id") AND ("l"."message_instance_id" IS NOT NULL))
+                          ORDER BY "l"."id"
+                         LIMIT 1)])) AND (("e"."created_at" >= "a"."handoff_at") AND ("e"."created_at" <= ("a"."handoff_at" + '7 days'::interval))))) AS "event_at") "entry")
+  WHERE (("a"."state" = 'accepted'::"text") AND ("a"."lifecycle_job" IS NOT NULL));
+
+
+ALTER TABLE "public"."email_lifecycle_outcomes" OWNER TO "postgres";
+
+
+COMMENT ON VIEW "public"."email_lifecycle_outcomes" IS 'Message-linked entry (a non-scanner Resend click into the product, or an app event carrying the attempt or delivery id; attributed_entry_source says which came first) and observational post-send sessions; not causal attribution or proof of paid conversion.';
+
+
+
+CREATE OR REPLACE VIEW "public"."email_offer_outcomes" WITH ("security_invoker"='true') AS
+ SELECT "a"."id" AS "award_id",
+    "a"."user_id",
+    "a"."program_id",
+    "a"."earned_at",
+    "a"."claim_requested_at",
+    "a"."verified_at",
+    "a"."mirror_verified_at",
+    "a"."claim_message_instance_id",
+    "message"."provider_id",
+    "message"."campaign_id",
+    "message"."campaign_version",
+    "message"."handoff_at"
+   FROM ("public"."pro_offer_awards" "a"
+     LEFT JOIN "public"."email_contact_attempts" "message" ON (("message"."id" = "a"."claim_message_instance_id")));
+
+
+ALTER TABLE "public"."email_offer_outcomes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."email_reply_events" (
+    "provider_id" "text" NOT NULL,
+    "webhook_id" "text" NOT NULL,
+    "sender" "text" NOT NULL,
+    "received_at" timestamp with time zone NOT NULL,
+    "recorded_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "thread_id" "text",
+    "in_reply_to" "text"
+);
+
+
+ALTER TABLE "public"."email_reply_events" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."email_send_log_id_seq"
@@ -20144,7 +26630,8 @@ CREATE TABLE IF NOT EXISTS "public"."enhanced_forecasts" (
     "swell_period_om" real,
     "swell_direction_om" real,
     "wind_wave_height_om" real,
-    "om_fetched_at" timestamp with time zone
+    "om_fetched_at" timestamp with time zone,
+    "wind_model_run_at" timestamp with time zone
 );
 
 
@@ -20164,6 +26651,10 @@ COMMENT ON COLUMN "public"."enhanced_forecasts"."wind_direction_deg" IS 'Wind di
 
 
 COMMENT ON COLUMN "public"."enhanced_forecasts"."wind_source" IS 'Source that last wrote wind columns. Priority: HRRR > NWS > OPEN_METEO_WIND > null. Higher-priority sources are not overwritten by lower-priority ones.';
+
+
+
+COMMENT ON COLUMN "public"."enhanced_forecasts"."wind_model_run_at" IS 'HRRR model issuance time supplied by the producer, never database write or forecast valid time.';
 
 
 
@@ -20267,50 +26758,6 @@ COMMENT ON CONSTRAINT "forecast_alert_deliveries_alert_type_check" ON "public"."
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."forecast_feedback_contexts" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "user_id" "uuid",
-    "session_id" "text",
-    "anonymous_client_id" "text",
-    "beach_id" "uuid" NOT NULL,
-    "forecast_at" timestamp with time zone NOT NULL,
-    "window_start" timestamp with time zone,
-    "window_end" timestamp with time zone,
-    "issued_at" timestamp with time zone,
-    "predicted_at" timestamp with time zone,
-    "forecast_horizon_hours" integer,
-    "feedback_kind" "text" NOT NULL,
-    "feedback_value" "text" NOT NULL,
-    "feedback_note" "text",
-    "displayed_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "source_model_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "calibration_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "surf_call_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "missing_flags" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "audit_metadata" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "client_source" "text" NOT NULL,
-    "client_version" "text",
-    "schema_version" integer DEFAULT 1 NOT NULL,
-    "contract_version" "text" DEFAULT 'forecast-feedback-context.v1'::"text" NOT NULL,
-    "ingest_path" "text" NOT NULL,
-    "request_id" "text",
-    "correlation_id" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "forecast_feedback_contexts_feedback_kind_check" CHECK (("feedback_kind" = ANY (ARRAY['forecast_accuracy'::"text", 'surf_call'::"text", 'condition_report'::"text", 'other'::"text"]))),
-    CONSTRAINT "forecast_feedback_contexts_forecast_horizon_hours_check" CHECK ((("forecast_horizon_hours" IS NULL) OR (("forecast_horizon_hours" >= 0) AND ("forecast_horizon_hours" <= 168)))),
-    CONSTRAINT "forecast_feedback_contexts_schema_version_check" CHECK (("schema_version" >= 1)),
-    CONSTRAINT "forecast_feedback_window_order" CHECK ((("window_start" IS NULL) OR ("window_end" IS NULL) OR ("window_start" <= "window_end")))
-);
-
-
-ALTER TABLE "public"."forecast_feedback_contexts" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."forecast_feedback_contexts" IS 'Forecast feedback context rows captured with displayed forecast, source/model, calibration, surf-call, missing-context, and audit metadata. Phase 1 storage only; not a training label source.';
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."garmin_accounts" (
     "user_id" "uuid" NOT NULL,
     "garmin_user_id" "text",
@@ -20359,55 +26806,6 @@ COMMENT ON COLUMN "public"."garmin_session_candidates"."garmin_activity_id" IS '
 
 
 COMMENT ON COLUMN "public"."garmin_session_candidates"."state" IS 'Candidate lifecycle state: pending, consumed, or dismissed.';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."gfs_wave_shadow_forecasts" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "beach_id" "uuid" NOT NULL,
-    "predicted_at" timestamp with time zone NOT NULL,
-    "forecast_horizon_hours" integer NOT NULL,
-    "source" "text" DEFAULT 'open_meteo'::"text" NOT NULL,
-    "source_model" "text" DEFAULT 'ncep_gfswave016'::"text" NOT NULL,
-    "capture_status" "text" DEFAULT 'ok'::"text" NOT NULL,
-    "wave_height_m" numeric(6,3),
-    "wave_period_s" numeric(6,2),
-    "wave_direction_deg" numeric(6,2),
-    "wave_peak_period_s" numeric(6,2),
-    "swell_height_m" numeric(6,3),
-    "swell_period_s" numeric(6,2),
-    "swell_direction_deg" numeric(6,2),
-    "swell_wave_peak_period_s" numeric(6,2),
-    "wind_wave_height_m" numeric(6,3),
-    "wind_wave_period_s" numeric(6,2),
-    "wind_wave_direction_deg" numeric(6,2),
-    "wind_wave_peak_period_s" numeric(6,2),
-    "secondary_swell_height_m" numeric(6,3),
-    "secondary_swell_period_s" numeric(6,2),
-    "secondary_swell_direction_deg" numeric(6,2),
-    "tertiary_swell_height_m" numeric(6,3),
-    "tertiary_swell_period_s" numeric(6,2),
-    "tertiary_swell_direction_deg" numeric(6,2),
-    "fetched_at" timestamp with time zone NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "gfs_wave_shadow_forecasts_capture_status_check" CHECK (("capture_status" = ANY (ARRAY['ok'::"text", 'all_zero_wave_height'::"text", 'missing_wave_height'::"text"]))),
-    CONSTRAINT "gfs_wave_shadow_forecasts_forecast_horizon_hours_check" CHECK ((("forecast_horizon_hours" >= 0) AND ("forecast_horizon_hours" <= 168))),
-    CONSTRAINT "gfs_wave_shadow_forecasts_source_check" CHECK (("source" = 'open_meteo'::"text"))
-);
-
-
-ALTER TABLE "public"."gfs_wave_shadow_forecasts" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."gfs_wave_shadow_forecasts" IS 'Issue-time GFS-Wave source shadow rows for Phase 9 mixed-swell evaluation. Written by Quiver forecast-builder when GFS_WAVE_SHADOW_CAPTURE_ENABLED=true; read by Seaside diagnostics only.';
-
-
-
-COMMENT ON COLUMN "public"."gfs_wave_shadow_forecasts"."source_model" IS 'Open-Meteo marine API models parameter. Phase 9 Tier 1 uses ncep_gfswave016.';
-
-
-
-COMMENT ON COLUMN "public"."gfs_wave_shadow_forecasts"."capture_status" IS 'ok = numeric GFS-Wave values captured; all_zero_wave_height = Open-Meteo/GFS coastal land-cell zero-mode treated as missing; missing_wave_height = no usable wave_height for the slot.';
 
 
 
@@ -20594,6 +26992,26 @@ CREATE OR REPLACE VIEW "public"."growth_native_install_activation_v1" WITH ("sec
            FROM ("native_first_open_candidates" "nfc"
              LEFT JOIN "public"."profiles" "p" ON (("p"."id" = "nfc"."linked_profile_id")))
           WHERE (("nfc"."install_rank" = 1) AND (("nfc"."linked_profile_id" IS NULL) OR (("p"."analytics_is_real_user" = true) AND (COALESCE("p"."is_mock", false) = false) AND (COALESCE("p"."is_system_account", false) = false) AND ("p"."deleted_at" IS NULL) AND ("p"."id" <> '73040cff-afe9-4fa0-a874-2016203fc015'::"uuid") AND ("p"."id" <> 'c15c2ab3-275c-49d1-ac4f-dcc493db0653'::"uuid"))))
+        ), "native_installs_with_handoff" AS (
+         SELECT "ni"."native_install_id",
+            "ni"."linked_profile_id",
+            "ni"."cohort_anchor",
+            "ni"."platform",
+            "ni"."app_build",
+            "ni"."reviewed_source_group",
+            "ni"."utm_source",
+            "ni"."utm_medium",
+            "ni"."utm_campaign",
+            "ni"."referrer_domain",
+            "ni"."entrypoint",
+            "lower"(COALESCE("ni"."handoff_id", "post_install_handoff"."handoff_id")) AS "handoff_id",
+            (("ni"."handoff_id" IS NULL) AND ("post_install_handoff"."handoff_id" IS NOT NULL)) AS "handoff_from_post_install_open"
+           FROM ("native_installs" "ni"
+             LEFT JOIN LATERAL ( SELECT "lower"(("ue"."metadata" ->> 'handoff_id'::"text")) AS "handoff_id"
+                   FROM "public"."user_events" "ue"
+                  WHERE (("ue"."event_type" = 'app_handoff_native_open'::"text") AND ("ue"."metadata" ? 'native_install_id'::"text") AND (("ue"."metadata" ->> 'native_install_id'::"text") = "ni"."native_install_id") AND (COALESCE("ue"."bot_flagged", false) = false) AND (COALESCE(("ue"."metadata" ->> 'is_emulator'::"text"), 'false'::"text") <> ALL (ARRAY['true'::"text", '1'::"text"])) AND (COALESCE(("ue"."metadata" ->> 'is_test'::"text"), 'false'::"text") <> ALL (ARRAY['true'::"text", '1'::"text"])) AND (NULLIF(("ue"."metadata" ->> 'handoff_id'::"text"), ''::"text") ~* '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::"text") AND ("ue"."created_at" < ("ni"."cohort_anchor" + '24:00:00'::interval)))
+                  ORDER BY "ue"."created_at", "ue"."id"
+                 LIMIT 1) "post_install_handoff" ON (true))
         ), "native_cohorts" AS (
          SELECT "ni"."native_install_id",
             "ni"."linked_profile_id",
@@ -20607,7 +27025,7 @@ CREATE OR REPLACE VIEW "public"."growth_native_install_activation_v1" WITH ("sec
             "ni"."referrer_domain",
             "ni"."entrypoint",
             "ni"."handoff_id",
-            "ni"."install_rank",
+            "ni"."handoff_from_post_install_open",
                 CASE
                     WHEN ("ni"."reviewed_source_group" IS NOT NULL) THEN "ni"."reviewed_source_group"
                     WHEN ("ni"."utm_source" IS NOT NULL) THEN "ni"."utm_source"
@@ -20620,8 +27038,11 @@ CREATE OR REPLACE VIEW "public"."growth_native_install_activation_v1" WITH ("sec
                     WHEN ((COALESCE("ni"."reviewed_source_group", "ni"."utm_source", "ni"."utm_medium", "ni"."utm_campaign", "ni"."handoff_id", "ni"."referrer_domain") IS NOT NULL) OR ("ni"."entrypoint" = 'direct'::"text")) THEN 'captured'::"text"
                     ELSE 'missing'::"text"
                 END AS "source_capture_status",
-            'exact'::"text" AS "evidence_level"
-           FROM "native_installs" "ni"
+                CASE
+                    WHEN "ni"."handoff_from_post_install_open" THEN 'post_install_open'::"text"
+                    ELSE 'exact'::"text"
+                END AS "evidence_level"
+           FROM "native_installs_with_handoff" "ni"
         ), "native_outcomes" AS (
          SELECT "nc"."native_install_id",
             "nc"."linked_profile_id",
@@ -20635,7 +27056,7 @@ CREATE OR REPLACE VIEW "public"."growth_native_install_activation_v1" WITH ("sec
             "nc"."referrer_domain",
             "nc"."entrypoint",
             "nc"."handoff_id",
-            "nc"."install_rank",
+            "nc"."handoff_from_post_install_open",
             "nc"."source_group",
             "nc"."source_capture_status",
             "nc"."evidence_level",
@@ -20707,7 +27128,7 @@ CREATE OR REPLACE VIEW "public"."growth_native_install_activation_v1" WITH ("sec
 ALTER TABLE "public"."growth_native_install_activation_v1" OWNER TO "postgres";
 
 
-COMMENT ON VIEW "public"."growth_native_install_activation_v1" IS 'One row per real-device native install ID; install-grain activation denominator.';
+COMMENT ON VIEW "public"."growth_native_install_activation_v1" IS 'One row per real-device native install ID; install-grain activation denominator. handoff_id comes from first-open metadata or, with evidence_level post_install_open, a handoff link opened in the installed app within 24 hours.';
 
 
 
@@ -20907,9 +27328,12 @@ CREATE TABLE IF NOT EXISTS "public"."install_attribution_tokens" (
     "expires_at" timestamp with time zone NOT NULL,
     "consumed_at" timestamp with time zone,
     "redemption_key_hash" "text",
+    "handoff_id" "uuid",
+    "handoff_context" "jsonb",
     CONSTRAINT "install_attribution_tokens_campaign_check" CHECK (("campaign" = ANY (ARRAY['app_first_v1'::"text", 'pbsc_2026'::"text", 'partner_access'::"text", 'invite_access'::"text"]))),
     CONSTRAINT "install_attribution_tokens_consumption_check" CHECK (((("consumed_at" IS NULL) AND ("redemption_key_hash" IS NULL)) OR (("consumed_at" IS NOT NULL) AND ("redemption_key_hash" IS NOT NULL)))),
     CONSTRAINT "install_attribution_tokens_expiry_check" CHECK (("expires_at" > "created_at")),
+    CONSTRAINT "install_attribution_tokens_handoff_pair_check" CHECK (((("handoff_id" IS NULL) AND ("handoff_context" IS NULL)) OR (("handoff_id" IS NOT NULL) AND ("handoff_context" IS NOT NULL) AND ("jsonb_typeof"("handoff_context") = 'object'::"text") AND ("pg_column_size"("handoff_context") <= 4096)))),
     CONSTRAINT "install_attribution_tokens_placement_check" CHECK (("placement" = ANY (ARRAY['direct'::"text", 'navbar_primary'::"text", 'navbar_mobile_primary'::"text", 'hero_primary'::"text", 'hero_secondary'::"text", 'platform_strip'::"text", 'final_cta'::"text", 'final_secondary'::"text", 'final'::"text", 'hero'::"text", 'plans_primary'::"text", 'plans_compact'::"text", 'plans_signed_in'::"text", 'plans_compact_signed_in'::"text", 'primary_android'::"text", 'native_app_nudge'::"text", 'primary_app_store'::"text", 'handoff_page'::"text", 'email'::"text", 'bottom_primary'::"text", 'desktop_partner_qr'::"text", 'desktop_invite_qr'::"text", 'instructions_qr'::"text", 'field_guide_qr'::"text", 'session_share_qr'::"text", 'surf_call_share_qr'::"text"]))),
     CONSTRAINT "install_attribution_tokens_redemption_key_hash_check" CHECK ((("redemption_key_hash" IS NULL) OR ("redemption_key_hash" ~ '^[a-f0-9]{64}$'::"text"))),
     CONSTRAINT "install_attribution_tokens_source_check" CHECK (("source" = ANY (ARRAY['android_beta_page'::"text", 'landing-navbar'::"text", 'landing_hero'::"text", 'landing_platform_strip'::"text", 'landing_final_cta'::"text", 'landing_final'::"text", 'download_hero'::"text", 'download_final'::"text", 'features-hero-android-waitlist'::"text", 'features-final-android-waitlist'::"text", 'plans-android-waitlist'::"text", 'partner_landing'::"text", 'invite_landing'::"text", 'post_session_log'::"text", 'session_share'::"text", 'app_handoff_route'::"text", 'app_link_email'::"text", 'pbsc-flyer'::"text", 'share_card'::"text", 'map_literacy_panel'::"text"]))),
@@ -20966,7 +27390,7 @@ CREATE TABLE IF NOT EXISTS "public"."intel_posts" (
     "session_id" "uuid",
     CONSTRAINT "intel_posts_emoji_rating_check" CHECK (("emoji_rating" = ANY (ARRAY['fire'::"text", 'shaka'::"text", 'meh'::"text", 'thumbsdown'::"text"]))),
     CONSTRAINT "intel_posts_vibe_check" CHECK ((("vibe" IS NULL) OR ("vibe" = ANY (ARRAY['firing'::"text", 'fun'::"text", 'meh'::"text", 'rough'::"text"])))),
-    CONSTRAINT "intel_posts_wave_size_range_check" CHECK ((("wave_size_range" IS NULL) OR ("wave_size_range" = ANY (ARRAY['1-2ft'::"text", '2-3ft'::"text", '3-4ft'::"text", '4-5ft'::"text", '5+ft'::"text"]))))
+    CONSTRAINT "intel_posts_wave_size_range_check" CHECK ((("wave_size_range" IS NULL) OR ("wave_size_range" = ANY (ARRAY['1-2ft'::"text", '2-3ft'::"text", '3-4ft'::"text", '3-5ft'::"text", '4-5ft'::"text", '5+ft'::"text"]))))
 );
 
 ALTER TABLE ONLY "public"."intel_posts" REPLICA IDENTITY FULL;
@@ -21104,7 +27528,8 @@ CASE
     ELSE ("wind_direction_deg")::integer
 END) STORED,
     CONSTRAINT "marine_forecasts_source_check" CHECK (("source" = ANY (ARRAY['open-meteo'::"text", 'cdip'::"text", 'ndbc'::"text", 'cdip_persistence'::"text", 'ndbc_persistence'::"text", 'nws_wind'::"text"])))
-);
+)
+WITH ("autovacuum_vacuum_scale_factor"='0.02', "fillfactor"='90');
 
 
 ALTER TABLE "public"."marine_forecasts" OWNER TO "postgres";
@@ -21691,6 +28116,59 @@ CREATE TABLE IF NOT EXISTS "public"."posting_log" (
 ALTER TABLE "public"."posting_log" OWNER TO "postgres";
 
 
+CREATE OR REPLACE VIEW "public"."pro_offer_attention" WITH ("security_invoker"='true') AS
+ SELECT "pro_offer_awards"."id",
+    "pro_offer_awards"."user_id",
+    "pro_offer_awards"."program_id",
+    "pro_offer_awards"."state",
+    "pro_offer_awards"."reason",
+    "pro_offer_awards"."enrolled_at",
+    "pro_offer_awards"."earned_at",
+    "pro_offer_awards"."handoff_at",
+    "pro_offer_awards"."expires_at",
+    "pro_offer_awards"."verified_at",
+    "pro_offer_awards"."mirror_verified_at",
+        CASE
+            WHEN (("pro_offer_awards"."state" = 'verified'::"text") AND ("pro_offer_awards"."mirror_verified_at" IS NULL)) THEN 'mirror_unverified'::"text"
+            WHEN ("pro_offer_awards"."state" = ANY (ARRAY['unknown'::"text", 'handoff_started'::"text"])) THEN 'reconcile_provider'::"text"
+            WHEN (("pro_offer_awards"."state" = 'reserved'::"text") AND ("pro_offer_awards"."reserved_at" < ("now"() - '00:02:00'::interval))) THEN 'stale_reservation'::"text"
+            WHEN (("pro_offer_awards"."earned_at" IS NOT NULL) AND ("pro_offer_awards"."state" = ANY (ARRAY['enrolled'::"text", 'held'::"text"]))) THEN 'earned_unfulfilled'::"text"
+            ELSE "pro_offer_awards"."state"
+        END AS "attention"
+   FROM "public"."pro_offer_awards";
+
+
+ALTER TABLE "public"."pro_offer_attention" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."pro_offer_programs" (
+    "id" "text" NOT NULL,
+    "months" integer NOT NULL,
+    "terms_version" "text" DEFAULT 'v1'::"text" NOT NULL,
+    "enabled" boolean DEFAULT false NOT NULL,
+    "approval_reference" "text",
+    "approved_at" timestamp with time zone,
+    "expires_at" timestamp with time zone,
+    "max_awards" integer DEFAULT 25,
+    "automatic_enrollment" boolean DEFAULT false NOT NULL,
+    "inactivity_days" integer,
+    CONSTRAINT "pro_offer_programs_check" CHECK (((("id" = 'five_sessions_month'::"text") AND ("months" = 1)) OR (("id" = 'return_three_months'::"text") AND ("months" = 3)))),
+    CONSTRAINT "pro_offer_programs_check1" CHECK (((NOT "enabled") OR (("approval_reference" IS NOT NULL) AND ("length"(TRIM(BOTH FROM "approval_reference")) > 0) AND ("approved_at" IS NOT NULL) AND ("expires_at" IS NOT NULL) AND ("expires_at" > "approved_at")))),
+    CONSTRAINT "pro_offer_programs_id_check" CHECK (("id" = ANY (ARRAY['five_sessions_month'::"text", 'return_three_months'::"text"]))),
+    CONSTRAINT "pro_offer_programs_inactivity_days_check" CHECK ((("inactivity_days" >= 14) AND ("inactivity_days" <= 180))),
+    CONSTRAINT "pro_offer_programs_max_awards_check" CHECK ((("max_awards" IS NULL) OR ("max_awards" > 0))),
+    CONSTRAINT "return_rule_required" CHECK (((NOT "automatic_enrollment") OR ("id" <> 'return_three_months'::"text") OR ("inactivity_days" IS NOT NULL))),
+    CONSTRAINT "three_month_gift_manual_only" CHECK ((("id" <> 'return_three_months'::"text") OR (NOT "automatic_enrollment")))
+);
+
+
+ALTER TABLE "public"."pro_offer_programs" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."pro_offer_programs"."max_awards" IS 'NULL is an explicitly approved unlimited program budget; positive values remain lifetime award limits.';
+
+
+
 CREATE OR REPLACE VIEW "public"."profiles_with_home_beach" WITH ("security_invoker"='true') AS
  SELECT "p"."id",
     "p"."full_name",
@@ -21843,6 +28321,44 @@ ALTER TABLE "public"."qr_business_venues" OWNER TO "postgres";
 
 COMMENT ON TABLE "public"."qr_business_venues" IS 'QR-activated venue pins. Public map visibility is gated by activated_at or admin_visible; no broad business seeding.';
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."rain_advisory_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "region" "text" NOT NULL,
+    "source" "text" NOT NULL,
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "started_at" timestamp with time zone NOT NULL,
+    "last_rain_at" timestamp with time zone,
+    "expires_at" timestamp with time zone NOT NULL,
+    "ended_at" timestamp with time zone,
+    "end_reason" "text",
+    "sources" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "rain_advisory_events_check" CHECK ((("source" <> 'metar_runoff'::"text") OR ("last_rain_at" IS NOT NULL))),
+    CONSTRAINT "rain_advisory_events_check1" CHECK (("expires_at" >= (COALESCE("last_rain_at", "started_at") + '72:00:00'::interval))),
+    CONSTRAINT "rain_advisory_events_check2" CHECK ((("status" = 'ended'::"text") = (("ended_at" IS NOT NULL) AND ("end_reason" IS NOT NULL)))),
+    CONSTRAINT "rain_advisory_events_end_reason_check" CHECK (("end_reason" = ANY (ARRAY['dry_72h'::"text", 'county_lifted'::"text"]))),
+    CONSTRAINT "rain_advisory_events_source_check" CHECK (("source" = ANY (ARRAY['county_general'::"text", 'metar_runoff'::"text"]))),
+    CONSTRAINT "rain_advisory_events_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'ended'::"text"])))
+);
+
+
+ALTER TABLE "public"."rain_advisory_events" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."rainfall_runoff_readings" (
+    "cluster_id" "text" NOT NULL,
+    "window_end" timestamp with time zone NOT NULL,
+    "total_in" numeric(5,2) NOT NULL,
+    "station_totals" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "rainfall_runoff_readings_total_in_check" CHECK (("total_in" >= (0)::numeric))
+);
+
+
+ALTER TABLE "public"."rainfall_runoff_readings" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."recommendation_impressions" (
@@ -22124,6 +28640,36 @@ ALTER SEQUENCE "public"."saved_windows_id_seq" OWNED BY "public"."saved_windows"
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."seaside_cron_runs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "job_id" "text" NOT NULL,
+    "status" "text" DEFAULT 'running'::"text" NOT NULL,
+    "started_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "finished_at" timestamp with time zone,
+    "duration_ms" bigint,
+    "row_count" bigint,
+    "peak_memory_mb" numeric,
+    "error_message" "text",
+    "source_evidence" "jsonb",
+    CONSTRAINT "seaside_cron_runs_completion_check" CHECK (((("status" = 'running'::"text") AND ("finished_at" IS NULL)) OR (("status" = ANY (ARRAY['succeeded'::"text", 'failed'::"text"])) AND ("finished_at" IS NOT NULL)))),
+    CONSTRAINT "seaside_cron_runs_duration_ms_check" CHECK ((("duration_ms" IS NULL) OR ("duration_ms" >= 0))),
+    CONSTRAINT "seaside_cron_runs_peak_memory_mb_check" CHECK ((("peak_memory_mb" IS NULL) OR ("peak_memory_mb" >= (0)::numeric))),
+    CONSTRAINT "seaside_cron_runs_row_count_check" CHECK ((("row_count" IS NULL) OR ("row_count" >= 0))),
+    CONSTRAINT "seaside_cron_runs_status_check" CHECK (("status" = ANY (ARRAY['running'::"text", 'succeeded'::"text", 'failed'::"text"])))
+);
+
+
+ALTER TABLE "public"."seaside_cron_runs" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."seaside_cron_runs" IS 'Durable Fly cron execution ledger, including outcome, row count, duration, and peak RSS.';
+
+
+
+COMMENT ON COLUMN "public"."seaside_cron_runs"."source_evidence" IS 'Internal producer evidence using existing SourceStatus values; source times, coverage and safe retry outcomes. NULL means unverified.';
+
+
+
 CREATE OR REPLACE VIEW "public"."session_activation_report" WITH ("security_invoker"='true') AS
  WITH "real_users" AS (
          SELECT "p"."id" AS "user_id",
@@ -22229,6 +28775,29 @@ COMMENT ON COLUMN "public"."session_forecast_snapshots"."forecast_vs_actual" IS 
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."session_imports" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "storage_path" "text" NOT NULL,
+    "original_filename" "text",
+    "sha256" "text",
+    "status" "text" DEFAULT 'uploaded'::"text" NOT NULL,
+    "error" "text",
+    "session_id" "uuid",
+    "summary" "jsonb",
+    "purge_requested_at" timestamp with time zone,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "origin" "text" DEFAULT 'file'::"text" NOT NULL,
+    "device_id" "uuid",
+    CONSTRAINT "session_imports_origin_check" CHECK (("origin" = ANY (ARRAY['file'::"text", 'garmin_watch'::"text"]))),
+    CONSTRAINT "session_imports_status_check" CHECK (("status" = ANY (ARRAY['uploaded'::"text", 'needs_beach'::"text", 'completed'::"text", 'failed'::"text"])))
+);
+
+
+ALTER TABLE "public"."session_imports" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."session_invitations" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "session_id" "uuid" NOT NULL,
@@ -22331,6 +28900,33 @@ COMMENT ON COLUMN "public"."session_media_history"."moderation_status" IS 'Mirro
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."session_prompt_responses" (
+    "id" "uuid" NOT NULL,
+    "user_id" "uuid" DEFAULT "auth"."uid"() NOT NULL,
+    "source" "text" NOT NULL,
+    "beach_id" "uuid",
+    "swell_event_key" "text",
+    "prompted_at" timestamp with time zone NOT NULL,
+    "response" "text" NOT NULL,
+    "session_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "session_prompt_responses_response_check" CHECK (("response" = ANY (ARRAY['logged'::"text", 'not_surfed'::"text", 'dismissed'::"text"]))),
+    CONSTRAINT "session_prompt_responses_source_check" CHECK (("source" = ANY (ARRAY['beach_visit'::"text", 'swell_event'::"text"])))
+);
+
+
+ALTER TABLE "public"."session_prompt_responses" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."session_prompt_responses" IS 'One row per native session prompt (beach visit or swell event), keyed by a client-generated id so retries are idempotent.';
+
+
+
+COMMENT ON COLUMN "public"."session_prompt_responses"."session_id" IS 'sessions.id when response = logged. No foreign key: the session may sync after this row.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."session_share_links" (
     "share_id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "session_id" "uuid" NOT NULL,
@@ -22404,6 +29000,78 @@ COMMENT ON CONSTRAINT "check_platform" ON "public"."session_shares" IS 'Ensures 
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."session_tracks" (
+    "session_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "import_id" "uuid",
+    "storage_path" "text" NOT NULL,
+    "format" "text" NOT NULL,
+    "sha256" "text" NOT NULL,
+    "recorded_by" "text",
+    "sport" "text",
+    "sub_sport" "text",
+    "started_at" timestamp with time zone NOT NULL,
+    "ended_at" timestamp with time zone NOT NULL,
+    "sample_count" integer NOT NULL,
+    "gps_coverage" real NOT NULL,
+    "max_gap_s" integer NOT NULL,
+    "speed_reliable" boolean DEFAULT true NOT NULL,
+    "user_wave_count" integer,
+    "timing_from_track" boolean DEFAULT true NOT NULL,
+    "user_arrival_time" timestamp with time zone,
+    "user_duration_minutes" integer,
+    "track_geojson" "jsonb" NOT NULL,
+    "speed_series" "jsonb" NOT NULL,
+    "water_temp_c" real,
+    "purge_requested_at" timestamp with time zone,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "paddle_distance_m" real,
+    "hr_avg" smallint,
+    "hr_max" smallint,
+    "source_device" "text",
+    "water_temp_start_c" real,
+    "water_temp_end_c" real,
+    "calories" smallint,
+    CONSTRAINT "session_tracks_format_check" CHECK (("format" = ANY (ARRAY['fit'::"text", 'gpx'::"text", 'quiver_watch'::"text"]))),
+    CONSTRAINT "session_tracks_user_wave_count_check" CHECK ((("user_wave_count" >= 0) AND ("user_wave_count" <= 200)))
+);
+
+
+ALTER TABLE "public"."session_tracks" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."session_watch_claims" (
+    "session_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "device_id" "uuid",
+    "window_start" timestamp with time zone NOT NULL,
+    "window_end" timestamp with time zone NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "claimed_import_id" "uuid",
+    "claimed_at" timestamp with time zone,
+    "merge_result" "jsonb",
+    CONSTRAINT "session_watch_claims_window_check" CHECK ((("window_end" > "window_start") AND (("window_end" - "window_start") <= '24:00:00'::interval)))
+);
+
+
+ALTER TABLE "public"."session_watch_claims" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."session_wave_corrections" (
+    "id" "uuid" NOT NULL,
+    "session_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "started_at" timestamp with time zone NOT NULL,
+    "ended_at" timestamp with time zone NOT NULL,
+    "action" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "session_wave_corrections_action_check" CHECK (("action" = ANY (ARRAY['exclude'::"text", 'include'::"text"])))
+);
+
+
+ALTER TABLE "public"."session_wave_corrections" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."session_wave_observation_candidates" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "session_id" "uuid" NOT NULL,
@@ -22433,8 +29101,11 @@ CREATE TABLE IF NOT EXISTS "public"."session_wave_observation_candidates" (
     "forecast_horizon_hours" integer,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "reported_size_vs_forecast" "text",
+    "shown_forecast_height_ft" numeric,
     CONSTRAINT "session_wave_observation_candidates_created_by_check" CHECK (("source_created_by" = ANY (ARRAY['trigger'::"text", 'backfill'::"text"]))),
     CONSTRAINT "session_wave_observation_candidates_quality_check" CHECK (("quality_state" = ANY (ARRAY['weak'::"text", 'calibrated_user'::"text", 'consensus'::"text", 'rejected'::"text"]))),
+    CONSTRAINT "session_wave_observation_candidates_size_vs_forecast_check" CHECK (("reported_size_vs_forecast" = ANY (ARRAY['smaller'::"text", 'about_right'::"text", 'bigger'::"text"]))),
     CONSTRAINT "session_wave_observation_candidates_source_check" CHECK (("observation_source" = 'user_session'::"text")),
     CONSTRAINT "session_wave_observation_candidates_weight_check" CHECK ((("observation_weight" >= (0)::numeric) AND ("observation_weight" <= (1)::numeric)))
 );
@@ -22449,6 +29120,33 @@ COMMENT ON TABLE "public"."session_wave_observation_candidates" IS 'Weak user-se
 
 COMMENT ON COLUMN "public"."session_wave_observation_candidates"."observation_weight" IS 'Informational weak-label weight. Current ML training, gates, offsets, drift checks, and accuracy metrics do not consume this table.';
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."session_waves" (
+    "id" "uuid" NOT NULL,
+    "session_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "detection_version" "text" NOT NULL,
+    "wave_index" integer NOT NULL,
+    "is_current" boolean DEFAULT true NOT NULL,
+    "started_at" timestamp with time zone NOT NULL,
+    "ended_at" timestamp with time zone NOT NULL,
+    "duration_s" real NOT NULL,
+    "distance_m" real NOT NULL,
+    "max_speed_mps" real,
+    "avg_speed_mps" real,
+    "start_lat" double precision NOT NULL,
+    "start_lon" double precision NOT NULL,
+    "end_lat" double precision NOT NULL,
+    "end_lon" double precision NOT NULL,
+    "heading_deg" real,
+    "confidence" real NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "session_waves_confidence_check" CHECK ((("confidence" >= (0)::double precision) AND ("confidence" <= (1)::double precision)))
+);
+
+
+ALTER TABLE "public"."session_waves" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."spot_feedback" (
@@ -22540,7 +29238,7 @@ ALTER TABLE "public"."sun_times" OWNER TO "postgres";
 
 CREATE TABLE IF NOT EXISTS "public"."surf_alert_delivery_slots" (
     "recipient_user_id" "uuid" NOT NULL,
-    "beach_id" "uuid" NOT NULL,
+    "beach_id" "uuid",
     "alert_date" "date" NOT NULL,
     "winner_notification_event_id" "uuid" NOT NULL,
     "priority" smallint NOT NULL,
@@ -22616,18 +29314,723 @@ COMMENT ON TABLE "public"."surf_drops" IS 'Surf Drops V1 planned surf pins. user
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."surfline_shadow_forecasts" (
+CREATE TABLE IF NOT EXISTS "public"."surf_game_scores" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "beach_id" "uuid" NOT NULL,
-    "forecast_ts" timestamp with time zone NOT NULL,
-    "wave_height_min_m" numeric(4,2),
-    "wave_height_max_m" numeric(4,2),
-    "surfline_spot_id" "text" NOT NULL,
-    "fetched_at" timestamp with time zone DEFAULT "now"()
+    "user_id" "uuid",
+    "initials" "text" NOT NULL,
+    "score" integer NOT NULL,
+    "break_slug" "text" NOT NULL,
+    "waves" smallint DEFAULT 0 NOT NULL,
+    "barrels" smallint DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "surf_game_scores_break_check" CHECK ((("char_length"("break_slug") >= 1) AND ("char_length"("break_slug") <= 32))),
+    CONSTRAINT "surf_game_scores_initials_check" CHECK (("initials" ~ '^[A-Z0-9]{1,3}$'::"text")),
+    CONSTRAINT "surf_game_scores_score_check" CHECK ((("score" >= 0) AND ("score" <= 1000000)))
 );
 
 
-ALTER TABLE "public"."surfline_shadow_forecasts" OWNER TO "postgres";
+ALTER TABLE "public"."surf_game_scores" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."surf_game_scores" IS 'Top-score bracket for the EL NIÑO SWELL surf game; API-only via service role.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_event_alerts" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "event_key" "text" NOT NULL,
+    "peak_date" "date" NOT NULL,
+    "lead_beach_id" "uuid" NOT NULL,
+    "payload" "jsonb" NOT NULL,
+    "notification_event_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "sent_at" timestamp with time zone
+);
+
+
+ALTER TABLE "public"."swell_event_alerts" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_event_forecast_snapshots" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "beach_id" "uuid" NOT NULL,
+    "event_key" "text" NOT NULL,
+    "detector_version" "text" NOT NULL,
+    "run_date" "date" NOT NULL,
+    "detected_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "direction_deg" numeric NOT NULL,
+    "direction_band" "text" NOT NULL,
+    "period_s" numeric NOT NULL,
+    "peak_offshore_height_ft" numeric NOT NULL,
+    "peak_face_height_ft" numeric NOT NULL,
+    "exposure" numeric NOT NULL,
+    "energy_ratio" numeric NOT NULL,
+    "arrival_at" timestamp with time zone NOT NULL,
+    "peak_at" timestamp with time zone NOT NULL,
+    "fade_at" timestamp with time zone,
+    "crossing_direction_deg" numeric,
+    "crossing_period_s" numeric,
+    "crossing_offshore_height_ft" numeric,
+    "lead_days" numeric,
+    "outcome" "text",
+    "outcome_resolved_at" timestamp with time zone,
+    CONSTRAINT "swell_event_forecast_snapshots_outcome_check" CHECK (("outcome" = ANY (ARRAY['held'::"text", 'vanished'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_event_forecast_snapshots" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."swell_event_forecast_snapshots"."lead_days" IS 'Days from this run (detected_at) to the predicted peak.';
+
+
+
+COMMENT ON COLUMN "public"."swell_event_forecast_snapshots"."outcome" IS 'held: present at the last eligible run (pulse: at least 24h before peak; notable: before peak). vanished: absent.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_event_user_state" (
+    "user_id" "uuid" NOT NULL,
+    "event_key" "text" NOT NULL,
+    "beach_id" "uuid" NOT NULL,
+    "last_arrival_at" timestamp with time zone NOT NULL,
+    "last_peak_at" timestamp with time zone NOT NULL,
+    "last_face_height_ft" numeric NOT NULL,
+    "last_period_s" numeric NOT NULL,
+    "last_direction_deg" numeric NOT NULL,
+    "serious" boolean DEFAULT false NOT NULL,
+    "last_kind" "text" DEFAULT 'coming'::"text" NOT NULL,
+    "told_kinds" "text"[] DEFAULT ARRAY['coming'::"text"] NOT NULL,
+    "last_told_at" timestamp with time zone NOT NULL,
+    "last_followup_at" timestamp with time zone,
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "swell_event_user_state_last_kind_check" CHECK (("last_kind" = ANY (ARRAY['coming'::"text", 'bigger'::"text", 'smaller'::"text", 'moved'::"text", 'dropped'::"text", 'arrived'::"text"]))),
+    CONSTRAINT "swell_event_user_state_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'arrived'::"text", 'dropped'::"text", 'passed'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_event_user_state" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_event_verifications" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "event_key" "text" NOT NULL,
+    "beach_id" "uuid" NOT NULL,
+    "source" "text" NOT NULL,
+    "detector_version" "text" NOT NULL,
+    "forecast_issued_at" timestamp with time zone NOT NULL,
+    "forecast_arrival_at" timestamp with time zone,
+    "forecast_peak_at" timestamp with time zone NOT NULL,
+    "forecast_fade_at" timestamp with time zone,
+    "forecast_peak_offshore_height_ft" numeric,
+    "forecast_peak_face_height_ft" numeric,
+    "forecast_peak_period_s" numeric,
+    "forecast_direction_deg" numeric,
+    "station_id" "text",
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "observed_baseline_height_ft" numeric,
+    "observed_peak_height_ft" numeric,
+    "observed_peak_at" timestamp with time zone,
+    "observed_peak_period_s" numeric,
+    "observed_peak_direction_deg" numeric,
+    "observation_count" integer,
+    "peak_error_hours" numeric,
+    "height_ratio" numeric,
+    "verified_at" timestamp with time zone,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "swell_event_verifications_source_check" CHECK (("source" = ANY (ARRAY['alert'::"text", 'snapshot'::"text"]))),
+    CONSTRAINT "swell_event_verifications_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'hit'::"text", 'miss_no_show'::"text", 'miss_timing'::"text", 'miss_size'::"text", 'no_observations'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_event_verifications" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."swell_event_verifications" IS 'One forecast per (event_key, beach_id, source), checked against buoy total Hs after the event. Buoys have no partitions, so wind sea counts toward the observed height.';
+
+
+
+COMMENT ON COLUMN "public"."swell_event_verifications"."forecast_issued_at" IS 'When the forecast was made; the send time for alerts.';
+
+
+
+COMMENT ON COLUMN "public"."swell_event_verifications"."forecast_peak_offshore_height_ft" IS 'Offshore swell component height at peak, not surf height.';
+
+
+
+COMMENT ON COLUMN "public"."swell_event_verifications"."forecast_peak_face_height_ft" IS 'Projected surf face height at peak.';
+
+
+
+COMMENT ON COLUMN "public"."swell_event_verifications"."station_id" IS 'Observation station resolved at verification time via get_beach_observation_station.';
+
+
+
+COMMENT ON COLUMN "public"."swell_event_verifications"."peak_error_hours" IS 'observed_peak_at - forecast_peak_at in hours (signed).';
+
+
+
+COMMENT ON COLUMN "public"."swell_event_verifications"."height_ratio" IS 'observed_peak_height_ft / forecast_peak_offshore_height_ft.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_outlook_user_state" (
+    "user_id" "uuid" NOT NULL,
+    "consecutive_unanswered" integer DEFAULT 0 NOT NULL,
+    "last_sent_at" timestamp with time zone,
+    "paused_since" timestamp with time zone,
+    "last_answered_at" timestamp with time zone,
+    "last_exception_at" timestamp with time zone,
+    "last_first_sighting_at" timestamp with time zone,
+    "outlook_list" "jsonb",
+    "outlook_prev_list" "jsonb",
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "swell_outlook_user_state_consecutive_unanswered_check" CHECK (("consecutive_unanswered" >= 0))
+);
+
+
+ALTER TABLE "public"."swell_outlook_user_state" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_automation_control" (
+    "id" "uuid" NOT NULL,
+    "state" "text" NOT NULL,
+    "reason_code" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_automation_control_state_check" CHECK (("state" = ANY (ARRAY['disabled'::"text", 'shadow'::"text", 'armed'::"text", 'held'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_automation_control" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_automation_control_transitions" (
+    "id" "uuid" NOT NULL,
+    "operation" "text" NOT NULL,
+    "state" "text" NOT NULL,
+    "epoch" integer NOT NULL,
+    "expected_epoch" integer NOT NULL,
+    "reason_code" "text" NOT NULL,
+    "idempotency_key" "text" NOT NULL,
+    "actor_user_id" "uuid",
+    "actor_kind" "text" DEFAULT 'operator'::"text" NOT NULL,
+    "system_actor" "text",
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_automation_control_transition_idempotency_key_check" CHECK (("idempotency_key" ~ '^[A-Za-z0-9:_-]{8,160}$'::"text")),
+    CONSTRAINT "swell_watch_automation_control_transitions_actor_kind_check" CHECK (("actor_kind" = ANY (ARRAY['operator'::"text", 'system'::"text"]))),
+    CONSTRAINT "swell_watch_automation_control_transitions_check" CHECK (((("actor_kind" = 'operator'::"text") AND ("actor_user_id" IS NOT NULL) AND ("system_actor" IS NULL)) OR (("actor_kind" = 'system'::"text") AND ("actor_user_id" IS NULL) AND (NOT ("system_actor" IS DISTINCT FROM 'swell_watch_provider_monitor'::"text"))))),
+    CONSTRAINT "swell_watch_automation_control_transitions_epoch_check" CHECK (("epoch" > 0)),
+    CONSTRAINT "swell_watch_automation_control_transitions_expected_epoch_check" CHECK (("expected_epoch" >= 0)),
+    CONSTRAINT "swell_watch_automation_control_transitions_operation_check" CHECK (("operation" = ANY (ARRAY['hold'::"text", 'reset_shadow'::"text", 'arm'::"text"]))),
+    CONSTRAINT "swell_watch_automation_control_transitions_reason_code_check" CHECK (("reason_code" ~ '^[a-z0-9_:-]{3,96}$'::"text")),
+    CONSTRAINT "swell_watch_automation_control_transitions_state_check" CHECK (("state" = ANY (ARRAY['shadow'::"text", 'armed'::"text", 'held'::"text"]))),
+    CONSTRAINT "swell_watch_automation_control_transitions_system_actor_check" CHECK ((("system_actor" IS NULL) OR ("system_actor" = 'swell_watch_provider_monitor'::"text")))
+);
+
+
+ALTER TABLE "public"."swell_watch_automation_control_transitions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_beach_impacts" (
+    "id" "uuid" NOT NULL,
+    "observation_id" "uuid" NOT NULL,
+    "beach_id" "uuid" NOT NULL,
+    "evaluation_id" "text" NOT NULL,
+    "projected_face_height_ft" numeric NOT NULL,
+    "policy_id" "text" NOT NULL,
+    "policy_hash" "text" NOT NULL,
+    "impact_hash" "text" NOT NULL,
+    "evaluated_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_beach_impacts_impact_hash_check" CHECK (("impact_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_beach_impacts_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_beach_impacts_projected_face_height_ft_check" CHECK ((("projected_face_height_ft" >= (0)::numeric) AND ("projected_face_height_ft" <> ALL (ARRAY['NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric]))))
+);
+
+
+ALTER TABLE "public"."swell_watch_beach_impacts" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_collection_lease" (
+    "id" integer NOT NULL,
+    "owner_token" "uuid" NOT NULL,
+    "expires_at" timestamp with time zone NOT NULL,
+    CONSTRAINT "swell_watch_collection_lease_id_check" CHECK (("id" = 1))
+);
+
+
+ALTER TABLE "public"."swell_watch_collection_lease" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_evaluation_policies" (
+    "epoch" bigint NOT NULL,
+    "state" "text" NOT NULL,
+    "policy_hash" "text" NOT NULL,
+    "policy_values" "jsonb" NOT NULL,
+    "reviewer" "text" NOT NULL,
+    "evidence_hash" "text" NOT NULL,
+    "not_before" timestamp with time zone NOT NULL,
+    "expires_at" timestamp with time zone NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_evaluation_policies_check" CHECK (("isfinite"("expires_at") AND ("expires_at" > "not_before"))),
+    CONSTRAINT "swell_watch_evaluation_policies_epoch_check" CHECK (("epoch" > 0)),
+    CONSTRAINT "swell_watch_evaluation_policies_evidence_hash_check" CHECK (("evidence_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_evaluation_policies_not_before_check" CHECK ("isfinite"("not_before")),
+    CONSTRAINT "swell_watch_evaluation_policies_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_evaluation_policies_policy_values_check" CHECK ("public"."swell_watch_production_policy_values_valid"("policy_values")),
+    CONSTRAINT "swell_watch_evaluation_policies_policy_values_check1" CHECK ((("jsonb_typeof"(("policy_values" #> '{partition_matching,maximum_arrival_delta_hours}'::"text"[])) = 'number'::"text") AND ((("policy_values" #>> '{partition_matching,maximum_arrival_delta_hours}'::"text"[]))::numeric > (0)::numeric) AND ("jsonb_typeof"(("policy_values" #> '{partition_matching,maximum_period_delta_s}'::"text"[])) = 'number'::"text") AND ((("policy_values" #>> '{partition_matching,maximum_period_delta_s}'::"text"[]))::numeric > (0)::numeric) AND ("jsonb_typeof"(("policy_values" #> '{partition_matching,maximum_direction_delta_deg}'::"text"[])) = 'number'::"text") AND ((("policy_values" #>> '{partition_matching,maximum_direction_delta_deg}'::"text"[]))::numeric > (0)::numeric) AND ((("policy_values" #>> '{partition_matching,maximum_direction_delta_deg}'::"text"[]))::numeric <= (180)::numeric))),
+    CONSTRAINT "swell_watch_evaluation_policies_policy_values_check2" CHECK (((("policy_values" #> '{partition_matching,maximum_arrival_delta_hours}'::"text"[]) IS NOT NULL) AND (("policy_values" #> '{partition_matching,maximum_period_delta_s}'::"text"[]) IS NOT NULL) AND (("policy_values" #> '{partition_matching,maximum_direction_delta_deg}'::"text"[]) IS NOT NULL))),
+    CONSTRAINT "swell_watch_evaluation_policies_reviewer_check" CHECK ((("char_length"("btrim"("reviewer")) >= 1) AND ("char_length"("btrim"("reviewer")) <= 200))),
+    CONSTRAINT "swell_watch_evaluation_policies_state_check" CHECK (("state" = ANY (ARRAY['active'::"text", 'revoked'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_evaluation_policies" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_event_aliases" (
+    "id" "uuid" NOT NULL,
+    "regional_event_id" "uuid" NOT NULL,
+    "alias_key" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_event_aliases_alias_key_check" CHECK ((("char_length"("alias_key") >= 1) AND ("char_length"("alias_key") <= 200)))
+);
+
+
+ALTER TABLE "public"."swell_watch_event_aliases" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_event_evaluations" (
+    "id" "uuid" NOT NULL,
+    "regional_event_id" "uuid" NOT NULL,
+    "evaluation_id" "text" NOT NULL,
+    "identity_kind" "text" NOT NULL,
+    "beach_impact_id" "uuid" NOT NULL,
+    "arrival_at" timestamp with time zone NOT NULL,
+    "peak_at" timestamp with time zone NOT NULL,
+    "evaluated_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_event_evaluations_identity_kind_check" CHECK (("identity_kind" = ANY (ARRAY['genuine_completed'::"text", 'synthetic_fixture'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_event_evaluations" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_event_impacts" (
+    "id" "uuid" NOT NULL,
+    "regional_event_id" "uuid" NOT NULL,
+    "evaluation_id" "text" NOT NULL,
+    "beach_id" "uuid" NOT NULL,
+    "beach_impact_id" "uuid" NOT NULL,
+    "arrival_at" timestamp with time zone NOT NULL,
+    "peak_at" timestamp with time zone NOT NULL,
+    "evaluated_at" timestamp with time zone NOT NULL,
+    CONSTRAINT "swell_watch_event_impacts_arrival_at_check" CHECK ("isfinite"("arrival_at")),
+    CONSTRAINT "swell_watch_event_impacts_check" CHECK (("isfinite"("peak_at") AND ("peak_at" >= "arrival_at")))
+);
+
+
+ALTER TABLE "public"."swell_watch_event_impacts" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_event_state_transitions" (
+    "id" "uuid" NOT NULL,
+    "regional_event_id" "uuid" NOT NULL,
+    "state" "text" NOT NULL,
+    "version" integer NOT NULL,
+    "trigger_evaluation_id" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_event_state_transitions_state_check" CHECK (("state" = ANY (ARRAY['candidate'::"text", 'stable'::"text", 'suppressed'::"text"]))),
+    CONSTRAINT "swell_watch_event_state_transitions_version_check" CHECK (("version" > 0))
+);
+
+
+ALTER TABLE "public"."swell_watch_event_state_transitions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_notification_event_bindings" (
+    "notification_event_id" "uuid" NOT NULL,
+    "regional_event_id" "uuid" NOT NULL,
+    "beach_id" "uuid" NOT NULL,
+    "recipient_id" "uuid" NOT NULL,
+    "control_epoch" integer NOT NULL,
+    "authority_id" "uuid" NOT NULL,
+    "authority_epoch" integer NOT NULL,
+    "policy_hash" "text" NOT NULL,
+    "approval_evidence_hash" "text" NOT NULL,
+    "policy_provenance" "text" NOT NULL,
+    "policy_values" "jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_notification_event_bin_approval_evidence_hash_check" CHECK (("approval_evidence_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_notification_event_bindings_authority_epoch_check" CHECK (("authority_epoch" > 0)),
+    CONSTRAINT "swell_watch_notification_event_bindings_control_epoch_check" CHECK (("control_epoch" > 0)),
+    CONSTRAINT "swell_watch_notification_event_bindings_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_notification_event_bindings_policy_provenance_check" CHECK (("policy_provenance" = 'production_approved'::"text")),
+    CONSTRAINT "swell_watch_notification_event_bindings_policy_values_check" CHECK ("public"."swell_watch_production_policy_values_valid"("policy_values"))
+);
+
+
+ALTER TABLE "public"."swell_watch_notification_event_bindings" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_observations" (
+    "id" "uuid" NOT NULL,
+    "evaluation_id" "text" NOT NULL,
+    "source_point_id" "uuid" NOT NULL,
+    "provider" "text" NOT NULL,
+    "forecast_at" timestamp with time zone NOT NULL,
+    "source_slot" "text" NOT NULL,
+    "height_m" numeric NOT NULL,
+    "period_s" numeric NOT NULL,
+    "direction_deg" numeric NOT NULL,
+    "identity_kind" "text" NOT NULL,
+    "observed_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    "provider_batch_id" "uuid",
+    CONSTRAINT "swell_watch_observations_direction_deg_check" CHECK ((("direction_deg" >= (0)::numeric) AND ("direction_deg" < (360)::numeric))),
+    CONSTRAINT "swell_watch_observations_evaluation_id_check" CHECK ((("char_length"("evaluation_id") >= 1) AND ("char_length"("evaluation_id") <= 200))),
+    CONSTRAINT "swell_watch_observations_height_m_check" CHECK ((("height_m" >= (0)::numeric) AND ("height_m" <> ALL (ARRAY['NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric])))),
+    CONSTRAINT "swell_watch_observations_identity_kind_check" CHECK (("identity_kind" = ANY (ARRAY['genuine_completed'::"text", 'synthetic_fixture'::"text"]))),
+    CONSTRAINT "swell_watch_observations_period_s_check" CHECK ((("period_s" > (0)::numeric) AND ("period_s" <> ALL (ARRAY['NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric])))),
+    CONSTRAINT "swell_watch_observations_provider_check" CHECK (("provider" = ANY (ARRAY['noaa'::"text", 'open_meteo'::"text"]))),
+    CONSTRAINT "swell_watch_observations_source_slot_check" CHECK (("source_slot" = ANY (ARRAY['s1'::"text", 's2'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_observations" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_production_approval_authority" (
+    "record_id" "uuid" NOT NULL,
+    "authority_id" "uuid" NOT NULL,
+    "authority_epoch" integer NOT NULL,
+    "state" "text" NOT NULL,
+    "revokes_authority_id" "uuid",
+    "policy_hash" "text" NOT NULL,
+    "policy_provenance" "text" NOT NULL,
+    "policy_values" "jsonb" NOT NULL,
+    "approval_id" "text" NOT NULL,
+    "approval_evidence_hash" "text" NOT NULL,
+    "production_scope" "text" NOT NULL,
+    "reviewer" "text" NOT NULL,
+    "not_before" timestamp with time zone NOT NULL,
+    "expires_at" timestamp with time zone NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_production_approval_au_approval_evidence_hash_check" CHECK (("approval_evidence_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_production_approval_authori_policy_provenance_check" CHECK (("policy_provenance" = 'production_approved'::"text")),
+    CONSTRAINT "swell_watch_production_approval_authorit_production_scope_check" CHECK (("production_scope" = 'swell_watch_push'::"text")),
+    CONSTRAINT "swell_watch_production_approval_authority_approval_id_check" CHECK ((("char_length"("approval_id") >= 1) AND ("char_length"("approval_id") <= 200))),
+    CONSTRAINT "swell_watch_production_approval_authority_authority_epoch_check" CHECK (("authority_epoch" > 0)),
+    CONSTRAINT "swell_watch_production_approval_authority_check" CHECK (("isfinite"("expires_at") AND ("expires_at" > "not_before"))),
+    CONSTRAINT "swell_watch_production_approval_authority_check1" CHECK (((("state" = 'active'::"text") AND ("revokes_authority_id" IS NULL)) OR (("state" = ANY (ARRAY['revoked'::"text", 'superseded'::"text"])) AND ("revokes_authority_id" IS NOT NULL)))),
+    CONSTRAINT "swell_watch_production_approval_authority_not_before_check" CHECK ("isfinite"("not_before")),
+    CONSTRAINT "swell_watch_production_approval_authority_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_production_approval_authority_policy_values_check" CHECK ("public"."swell_watch_production_policy_values_valid"("policy_values")),
+    CONSTRAINT "swell_watch_production_approval_authority_reviewer_check" CHECK ((("char_length"("reviewer") >= 1) AND ("char_length"("reviewer") <= 200))),
+    CONSTRAINT "swell_watch_production_approval_authority_state_check" CHECK (("state" = ANY (ARRAY['active'::"text", 'revoked'::"text", 'superseded'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_production_approval_authority" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_delivery_outcomes" (
+    "id" "uuid" NOT NULL,
+    "notification_event_id" "uuid" NOT NULL,
+    "attempt_number" integer NOT NULL,
+    "sample_count" integer NOT NULL,
+    "failure_count" integer NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_delivery_outcomes_attempt_number_check" CHECK (("attempt_number" > 0)),
+    CONSTRAINT "swell_watch_provider_delivery_outcomes_check" CHECK ((("failure_count" >= 0) AND ("failure_count" <= "sample_count"))),
+    CONSTRAINT "swell_watch_provider_delivery_outcomes_sample_count_check" CHECK ((("sample_count" >= 1) AND ("sample_count" <= 1000)))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_delivery_outcomes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_attestations" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "revision_set_id" "uuid" NOT NULL,
+    "state" "text" NOT NULL,
+    "reviewer" "text" NOT NULL,
+    "evidence_sha256" "text" NOT NULL,
+    "provider_contract_ref" "text" NOT NULL,
+    "revokes_attestation_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_run_attestatio_provider_contract_ref_check" CHECK ((("char_length"("provider_contract_ref") >= 1) AND ("char_length"("provider_contract_ref") <= 500))),
+    CONSTRAINT "swell_watch_provider_run_attestations_check" CHECK ((("state" = 'revoked'::"text") = ("revokes_attestation_id" IS NOT NULL))),
+    CONSTRAINT "swell_watch_provider_run_attestations_evidence_sha256_check" CHECK (("evidence_sha256" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_provider_run_attestations_reviewer_check" CHECK ((("char_length"("reviewer") >= 1) AND ("char_length"("reviewer") <= 200))),
+    CONSTRAINT "swell_watch_provider_run_attestations_state_check" CHECK (("state" = ANY (ARRAY['accepted'::"text", 'rejected'::"text", 'revoked'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_attestations" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_batch_scopes" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "batch_id" "uuid" NOT NULL,
+    "source_point_id" "uuid" NOT NULL,
+    "canonical_request" "jsonb" NOT NULL,
+    "requested_lat" numeric NOT NULL,
+    "requested_lon" numeric NOT NULL,
+    "forecast_days" integer NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_run_batch_scopes_forecast_days_check" CHECK ((("forecast_days" >= 1) AND ("forecast_days" <= 7))),
+    CONSTRAINT "swell_watch_provider_run_batch_scopes_requested_lat_check" CHECK ((("requested_lat" >= ('-90'::integer)::numeric) AND ("requested_lat" <= (90)::numeric))),
+    CONSTRAINT "swell_watch_provider_run_batch_scopes_requested_lon_check" CHECK ((("requested_lon" >= ('-180'::integer)::numeric) AND ("requested_lon" <= (180)::numeric)))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_batch_scopes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_batches" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "issuance_id" "uuid" NOT NULL,
+    "scope_hash" "text" NOT NULL,
+    "expected_component_count" integer NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_run_batches_expected_component_count_check" CHECK ((("expected_component_count" > 0) AND (("expected_component_count" % 2) = 0))),
+    CONSTRAINT "swell_watch_provider_run_batches_scope_hash_check" CHECK (("scope_hash" ~ '^[a-f0-9]{64}$'::"text"))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_batches" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_completed_batches" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "batch_id" "uuid" NOT NULL,
+    "revision_set_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_completed_batches" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_issuances" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "transport_provider" "text" NOT NULL,
+    "model" "text" NOT NULL,
+    "run_utc" timestamp with time zone NOT NULL,
+    "parser_version" "text" NOT NULL,
+    "upstream_model_provider" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_run_issuance_upstream_model_provider_check" CHECK (("upstream_model_provider" = 'ncep'::"text")),
+    CONSTRAINT "swell_watch_provider_run_issuances_model_check" CHECK (("model" = 'ncep_gfswave016'::"text")),
+    CONSTRAINT "swell_watch_provider_run_issuances_parser_version_check" CHECK (("parser_version" = 'open-meteo-single-runs-receipt.v1'::"text")),
+    CONSTRAINT "swell_watch_provider_run_issuances_transport_provider_check" CHECK (("transport_provider" = 'open_meteo_single_runs'::"text"))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_issuances" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_revision_components" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "revision_id" "uuid" NOT NULL,
+    "provider_forecast_at" "text" NOT NULL,
+    "forecast_at" timestamp with time zone NOT NULL,
+    "source_slot" "text" NOT NULL,
+    "height_m" numeric NOT NULL,
+    "period_s" numeric NOT NULL,
+    "direction_deg" numeric NOT NULL,
+    "raw_field_provenance" "jsonb" NOT NULL,
+    "time_provenance" "jsonb" NOT NULL,
+    "unavailable_reason" "text",
+    CONSTRAINT "swell_watch_component_availability_check" CHECK ((("period_s" <> ALL (ARRAY['NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric])) AND ((("unavailable_reason" IS NULL) AND ("period_s" > (0)::numeric)) OR (("unavailable_reason" IS NOT NULL) AND ("unavailable_reason" = 'provider_zero_tuple'::"text") AND ("height_m" = (0)::numeric) AND ("period_s" = (0)::numeric) AND ("direction_deg" = (0)::numeric))))),
+    CONSTRAINT "swell_watch_provider_run_revision_component_direction_deg_check" CHECK ((("direction_deg" >= (0)::numeric) AND ("direction_deg" < (360)::numeric))),
+    CONSTRAINT "swell_watch_provider_run_revision_components_height_m_check" CHECK ((("height_m" >= (0)::numeric) AND ("height_m" <> ALL (ARRAY['NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric])))),
+    CONSTRAINT "swell_watch_provider_run_revision_components_source_slot_check" CHECK (("source_slot" = ANY (ARRAY['s1'::"text", 's2'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_components" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_revision_raw_responses" (
+    "revision_id" "uuid" NOT NULL,
+    "raw_response_sha256" "text" NOT NULL,
+    "raw_response" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_run_revision_raw_raw_response_sha256_check" CHECK (("raw_response_sha256" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_provider_run_revision_raw_respon_raw_response_check" CHECK (("octet_length"("raw_response") <= 524288)),
+    CONSTRAINT "swell_watch_provider_run_revision_raw_responses_check" CHECK (("encode"("extensions"."digest"("raw_response", 'sha256'::"text"), 'hex'::"text") = "raw_response_sha256"))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_raw_responses" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_revision_set_members" (
+    "revision_set_id" "uuid" NOT NULL,
+    "scope_id" "uuid" NOT NULL,
+    "revision_id" "uuid" NOT NULL
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_set_members" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_revision_sets" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "batch_id" "uuid" NOT NULL,
+    "revision_number" integer NOT NULL,
+    "revision_set_hash" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_run_revision_sets_revision_number_check" CHECK (("revision_number" > 0)),
+    CONSTRAINT "swell_watch_provider_run_revision_sets_revision_set_hash_check" CHECK (("revision_set_hash" ~ '^[a-f0-9]{64}$'::"text"))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_sets" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_provider_run_revisions" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "scope_id" "uuid" NOT NULL,
+    "semantic_revision_hash" "text" NOT NULL,
+    "semantic_payload" "jsonb" NOT NULL,
+    "selected_grid" "jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_provider_run_revisions_semantic_revision_hash_check" CHECK (("semantic_revision_hash" ~ '^[a-f0-9]{64}$'::"text"))
+);
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revisions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_recipient_announcements" (
+    "id" "uuid" NOT NULL,
+    "regional_event_id" "uuid" NOT NULL,
+    "recipient_id" "uuid" NOT NULL,
+    "claimed_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    "notification_event_id" "uuid"
+);
+
+
+ALTER TABLE "public"."swell_watch_recipient_announcements" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_regional_events" (
+    "id" "uuid" NOT NULL,
+    "region_key" "text" NOT NULL,
+    "physical_key" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "transaction_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_regional_events_physical_key_check" CHECK ((("char_length"("physical_key") >= 1) AND ("char_length"("physical_key") <= 200))),
+    CONSTRAINT "swell_watch_regional_events_region_key_check" CHECK ((("char_length"("region_key") >= 1) AND ("char_length"("region_key") <= 100)))
+);
+
+
+ALTER TABLE "public"."swell_watch_regional_events" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_shadow_demand_observations" (
+    "provider_batch_id" "uuid" NOT NULL,
+    "policy_hash" "text" NOT NULL,
+    "regional_event_id" "uuid" NOT NULL,
+    "recipient_id" "uuid" NOT NULL,
+    "observed_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    "duplicate_of_regional_event_id" "uuid",
+    CONSTRAINT "swell_watch_shadow_demand_observations_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text"))
+);
+
+
+ALTER TABLE "public"."swell_watch_shadow_demand_observations" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_shadow_demand_pairs" (
+    "regional_event_id" "uuid" NOT NULL,
+    "recipient_id" "uuid" NOT NULL,
+    "first_observed_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL
+);
+
+
+ALTER TABLE "public"."swell_watch_shadow_demand_pairs" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_shadow_demand_runs" (
+    "provider_batch_id" "uuid" NOT NULL,
+    "policy_hash" "text" NOT NULL,
+    "observed_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    "recipient_events" "jsonb" NOT NULL,
+    "recorded_pairs_24h" bigint NOT NULL,
+    CONSTRAINT "swell_watch_shadow_demand_runs_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_shadow_demand_runs_recipient_events_check" CHECK (("jsonb_typeof"("recipient_events") = 'array'::"text")),
+    CONSTRAINT "swell_watch_shadow_demand_runs_recorded_pairs_24h_check" CHECK (("recorded_pairs_24h" >= 0))
+);
+
+
+ALTER TABLE "public"."swell_watch_shadow_demand_runs" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_study_acceptances" (
+    "revision_set_id" "uuid" NOT NULL,
+    "authority_epoch" bigint NOT NULL,
+    "attestation_id" "uuid" NOT NULL,
+    "evidence_manifest" "jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL
+);
+
+
+ALTER TABLE "public"."swell_watch_study_acceptances" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_study_evaluations" (
+    "id" bigint NOT NULL,
+    "provider_batch_id" "uuid" NOT NULL,
+    "authority_epoch" bigint NOT NULL,
+    "policy_hash" "text" NOT NULL,
+    "result" "jsonb" NOT NULL,
+    "result_hash" "text" NOT NULL,
+    "status" "text" NOT NULL,
+    "recorded_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    CONSTRAINT "swell_watch_study_evaluations_policy_hash_check" CHECK (("policy_hash" ~ '^[a-f0-9]{64}$'::"text")),
+    CONSTRAINT "swell_watch_study_evaluations_status_check" CHECK (("status" = ANY (ARRAY['evaluated'::"text", 'suppressed'::"text"])))
+);
+
+
+ALTER TABLE "public"."swell_watch_study_evaluations" OWNER TO "postgres";
+
+
+ALTER TABLE "public"."swell_watch_study_evaluations" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME "public"."swell_watch_study_evaluations_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."swell_watch_study_recovery_failures" (
+    "id" bigint NOT NULL,
+    "revision_set_id" "uuid" NOT NULL,
+    "failed_at" timestamp with time zone DEFAULT "clock_timestamp"() NOT NULL,
+    "code" "text" NOT NULL,
+    CONSTRAINT "swell_watch_study_recovery_failures_code_check" CHECK ((("char_length"("btrim"("code")) >= 1) AND ("char_length"("btrim"("code")) <= 100)))
+);
+
+
+ALTER TABLE "public"."swell_watch_study_recovery_failures" OWNER TO "postgres";
+
+
+ALTER TABLE "public"."swell_watch_study_recovery_failures" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME "public"."swell_watch_study_recovery_failures_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
 
 
 CREATE OR REPLACE VIEW "public"."ten_day_enhanced_forecasts" WITH ("security_invoker"='true') AS
@@ -22689,7 +30092,8 @@ CASE
 END) STORED,
     "station_id" "text",
     CONSTRAINT "tide_forecasts_source_check" CHECK (("source" = ANY (ARRAY['open-meteo'::"text", 'noaa'::"text", 'noaa_hilo_interpolated'::"text", 'fes2022'::"text"])))
-);
+)
+WITH ("autovacuum_vacuum_scale_factor"='0.02');
 
 
 ALTER TABLE "public"."tide_forecasts" OWNER TO "postgres";
@@ -22712,6 +30116,154 @@ ALTER TABLE "public"."trial_ending_push_log" OWNER TO "postgres";
 
 COMMENT ON TABLE "public"."trial_ending_push_log" IS 'Day-12 trial-ending push idempotency log. One row per user = one push ever for this trial cycle.';
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."trial_feedback_controls" (
+    "singleton" boolean DEFAULT true NOT NULL,
+    "enabled" boolean DEFAULT false NOT NULL,
+    "redemption_enabled" boolean DEFAULT false NOT NULL,
+    "web_enabled" boolean DEFAULT false NOT NULL,
+    CONSTRAINT "trial_feedback_controls_singleton_check" CHECK ("singleton")
+);
+
+
+ALTER TABLE "public"."trial_feedback_controls" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."trial_feedback_offer_policy" (
+    "store" "text" NOT NULL,
+    "product_id" "text" NOT NULL,
+    "offer_identifier" "text" NOT NULL,
+    "terms_version" "text" NOT NULL,
+    "enabled" boolean DEFAULT false NOT NULL,
+    "approved_at" timestamp with time zone,
+    "expires_at" timestamp with time zone,
+    "stacking_evidence" "text",
+    CONSTRAINT "trial_feedback_offer_policy_check" CHECK (((NOT "enabled") OR (("approved_at" IS NOT NULL) AND ("expires_at" IS NOT NULL) AND ("expires_at" > "approved_at") AND (COALESCE("length"(TRIM(BOTH FROM "stacking_evidence")), 0) > 0)))),
+    CONSTRAINT "trial_feedback_offer_policy_store_check" CHECK (("store" = ANY (ARRAY['APP_STORE'::"text", 'PLAY_STORE'::"text", 'STRIPE'::"text", 'RC_BILLING'::"text"]))),
+    CONSTRAINT "trial_feedback_offer_policy_terms_version_check" CHECK ((("length"("terms_version") >= 1) AND ("length"("terms_version") <= 80)))
+);
+
+
+ALTER TABLE "public"."trial_feedback_offer_policy" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."trial_feedback_submissions" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "trial_event_id" "text" NOT NULL,
+    "cancellation_event_id" "text" NOT NULL,
+    "store" "text" NOT NULL,
+    "product_id" "text" NOT NULL,
+    "trial_ends_at" timestamp with time zone NOT NULL,
+    "request_id" "uuid" NOT NULL,
+    "reason" "text" NOT NULL,
+    "note" "text" DEFAULT ''::"text" NOT NULL,
+    "source_message_id" "uuid",
+    "submitted_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "state" "text" DEFAULT 'submitted'::"text" NOT NULL,
+    "reservation_id" "uuid",
+    "reserved_at" timestamp with time zone,
+    "provider_handoff_at" timestamp with time zone,
+    "offer_identifier" "text",
+    "terms_version" "text",
+    "expected_expires_at" timestamp with time zone,
+    "provider_event_id" "text",
+    "verified_at" timestamp with time zone,
+    "last_reconciled_at" timestamp with time zone,
+    CONSTRAINT "trial_feedback_submissions_check" CHECK (((("state" = 'submitted'::"text") AND ("reservation_id" IS NULL)) OR (("state" = ANY (ARRAY['reserved'::"text", 'verified'::"text"])) AND ("reservation_id" IS NOT NULL) AND ("reserved_at" IS NOT NULL) AND ("offer_identifier" IS NOT NULL) AND ("terms_version" IS NOT NULL) AND ("expected_expires_at" IS NOT NULL)))),
+    CONSTRAINT "trial_feedback_submissions_check1" CHECK ((("state" = 'verified'::"text") = (("verified_at" IS NOT NULL) AND ("provider_event_id" IS NOT NULL)))),
+    CONSTRAINT "trial_feedback_submissions_note_check" CHECK (("length"("note") <= 2000)),
+    CONSTRAINT "trial_feedback_submissions_reason_check" CHECK (("reason" = ANY (ARRAY['forecast'::"text", 'value'::"text", 'time'::"text", 'feature'::"text", 'price'::"text", 'technical'::"text", 'other'::"text"]))),
+    CONSTRAINT "trial_feedback_submissions_state_check" CHECK (("state" = ANY (ARRAY['submitted'::"text", 'reserved'::"text", 'verified'::"text"]))),
+    CONSTRAINT "trial_feedback_submissions_store_check" CHECK (("store" = ANY (ARRAY['APP_STORE'::"text", 'PLAY_STORE'::"text", 'STRIPE'::"text", 'RC_BILLING'::"text"])))
+);
+
+
+ALTER TABLE "public"."trial_feedback_submissions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."trial_feedback_web_recoveries" (
+    "user_id" "uuid" NOT NULL,
+    "submission_id" "uuid" NOT NULL,
+    "reservation_id" "uuid" NOT NULL,
+    "subscription_id" "text" NOT NULL,
+    "baseline" "jsonb" NOT NULL,
+    "original_starts_at" timestamp with time zone NOT NULL,
+    "original_ends_at" timestamp with time zone NOT NULL,
+    "expected_ends_at" timestamp with time zone NOT NULL,
+    "terms_version" "text" NOT NULL,
+    "state" "text" DEFAULT 'reserved'::"text" NOT NULL,
+    "reserved_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "handoff_at" timestamp with time zone,
+    "extension_verified_at" timestamp with time zone,
+    "renewal_verified_at" timestamp with time zone,
+    "mirror_verified_at" timestamp with time zone,
+    "last_observed_at" timestamp with time zone,
+    "last_checked_at" timestamp with time zone,
+    "next_check_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "attention" "text",
+    CONSTRAINT "trial_feedback_web_recoveries_check" CHECK (("expected_ends_at" > "original_ends_at")),
+    CONSTRAINT "trial_feedback_web_recoveries_check1" CHECK ((("state" <> ALL (ARRAY['pending'::"text", 'extended'::"text", 'renewing'::"text", 'closed'::"text"])) OR ("handoff_at" IS NOT NULL))),
+    CONSTRAINT "trial_feedback_web_recoveries_check2" CHECK ((("state" <> ALL (ARRAY['extended'::"text", 'renewing'::"text", 'closed'::"text"])) OR ("extension_verified_at" IS NOT NULL))),
+    CONSTRAINT "trial_feedback_web_recoveries_check3" CHECK ((("state" <> 'renewing'::"text") OR ("renewal_verified_at" IS NOT NULL))),
+    CONSTRAINT "trial_feedback_web_recoveries_state_check" CHECK (("state" = ANY (ARRAY['reserved'::"text", 'pending'::"text", 'extended'::"text", 'renewing'::"text", 'review_required'::"text", 'closed'::"text"]))),
+    CONSTRAINT "trial_feedback_web_recoveries_subscription_id_check" CHECK (("subscription_id" ~ '^sub[a-zA-Z0-9]+$'::"text"))
+);
+
+
+ALTER TABLE "public"."trial_feedback_web_recoveries" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."trial_feedback_outcomes" WITH ("security_invoker"='true') AS
+ SELECT "f"."id",
+    "f"."store",
+    "f"."product_id",
+    "f"."user_id",
+    "f"."trial_event_id",
+    "f"."source_message_id",
+    "f"."submitted_at",
+    "f"."reason",
+    "f"."state",
+    "f"."reserved_at",
+    "f"."provider_handoff_at",
+    "f"."verified_at",
+    ( SELECT "count"(*) AS "count"
+           FROM "public"."sessions" "session"
+          WHERE (("session"."user_id" = "f"."user_id") AND ("session"."status" = 'completed'::"text") AND ("session"."deleted_at" IS NULL) AND (("session"."email_completed_at" >= "f"."submitted_at") AND ("session"."email_completed_at" <= "now"())))) AS "completed_sessions_after_feedback",
+    ( SELECT "min"("event"."created_at") AS "min"
+           FROM "public"."user_events" "event"
+          WHERE (("event"."user_id" = "f"."user_id") AND ("event"."bot_flagged" IS NOT TRUE) AND ("event"."event_type" = ANY (ARRAY['beach_view'::"text", 'forecast_check'::"text", 'home_beach_forecast_viewed'::"text", 'home_hero_forecast_viewed'::"text"])) AND (("event"."created_at" >= "f"."submitted_at") AND ("event"."created_at" <= "now"())))) AS "first_return_after_feedback",
+    "f"."expected_expires_at",
+    "a"."provider_id",
+    "a"."sent_at",
+    "log"."delivered_at",
+    "log"."opened_at",
+    "log"."clicked_at",
+    "log"."bounced_at",
+    ( SELECT "min"("e"."purchased_at") AS "min"
+           FROM "public"."revenuecat_provider_events" "e"
+          WHERE (("e"."app_user_id" = "f"."user_id") AND ("e"."product_id" = "f"."product_id") AND ("e"."environment" = 'PRODUCTION'::"text") AND "e"."environment_verified" AND ("e"."processed_at" IS NOT NULL) AND ("e"."event_type" = 'RENEWAL'::"text") AND ("e"."store" = "f"."store") AND ("e"."price" > (0)::numeric) AND ("e"."period_type" = 'NORMAL'::"text") AND ("e"."purchased_at" >= "f"."expected_expires_at") AND ("e"."purchased_at" <= "now"()))) AS "first_paid_renewal_at",
+        CASE
+            WHEN ("w"."user_id" IS NOT NULL) THEN COALESCE("w"."attention",
+            CASE
+                WHEN (("w"."state" <> 'closed'::"text") AND (("w"."next_check_at" < ("now"() - '00:30:00'::interval)) OR (("w"."state" = ANY (ARRAY['reserved'::"text", 'pending'::"text"])) AND ("w"."reserved_at" < ("now"() - '00:30:00'::interval))))) THEN 'web_reconciliation_overdue'::"text"
+                ELSE NULL::"text"
+            END)
+            WHEN (("f"."store" = ANY (ARRAY['APP_STORE'::"text", 'PLAY_STORE'::"text"])) AND ("f"."state" = 'reserved'::"text") AND ("f"."trial_ends_at" < ("now"() - '00:30:00'::interval))) THEN 'awaiting_provider_receipt'::"text"
+            ELSE NULL::"text"
+        END AS "attention",
+    "w"."state" AS "web_state",
+    "w"."extension_verified_at" AS "web_extension_verified_at",
+    "w"."renewal_verified_at" AS "web_renewal_verified_at",
+    "w"."mirror_verified_at" AS "web_mirror_verified_at"
+   FROM ((("public"."trial_feedback_submissions" "f"
+     LEFT JOIN "public"."trial_feedback_web_recoveries" "w" ON (("w"."user_id" = "f"."user_id")))
+     LEFT JOIN "public"."email_contact_attempts" "a" ON (("a"."id" = "f"."source_message_id")))
+     LEFT JOIN "public"."email_send_log" "log" ON (("log"."message_instance_id" = "a"."id")));
+
+
+ALTER TABLE "public"."trial_feedback_outcomes" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."trusted_forecast_applications" (
@@ -22889,6 +30441,24 @@ COMMENT ON COLUMN "public"."trusted_forecast_issues"."day_part" IS 'Sub-day wind
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."trusted_forecast_serving_projections" (
+    "beach_id" "uuid" NOT NULL,
+    "forecast_at" timestamp with time zone NOT NULL,
+    "display_wave_height" "text" NOT NULL,
+    "baseline_max_face_ft" numeric(8,4) NOT NULL,
+    "refreshed_at" timestamp with time zone NOT NULL,
+    CONSTRAINT "trusted_forecast_serving_projections_baseline_max_face_ft_check" CHECK ((("baseline_max_face_ft" >= (0)::numeric) AND ("baseline_max_face_ft" <= (60)::numeric))),
+    CONSTRAINT "trusted_forecast_serving_projections_display_wave_height_check" CHECK ((("length"("display_wave_height") >= 1) AND ("length"("display_wave_height") <= 32)))
+);
+
+
+ALTER TABLE "public"."trusted_forecast_serving_projections" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."trusted_forecast_serving_projections" IS 'Mutable service-role-only serving state for the latest regenerated baseline. Immutable Phase 21 audit history remains in trusted_forecast_applications.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."user_badges" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid" NOT NULL,
@@ -22935,58 +30505,6 @@ ALTER TABLE "public"."user_beach_exclusions" OWNER TO "postgres";
 
 
 COMMENT ON TABLE "public"."user_beach_exclusions" IS 'Per-user beach blocklist used to remove disliked beaches from personalized discovery candidates.';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."user_devices" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "platform" "text" NOT NULL,
-    "device_token" "text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "app_version" "text",
-    "os_version" "text",
-    "expo_sdk" "text",
-    "timezone" "text",
-    "build_number" "text",
-    "expo_update_id" character varying(64),
-    "expo_channel" character varying(64),
-    "expo_runtime_version" character varying(64),
-    "expo_is_embedded_launch" boolean,
-    "expo_is_emergency_launch" boolean,
-    CONSTRAINT "user_devices_platform_check" CHECK (("platform" = ANY (ARRAY['ios'::"text", 'android'::"text", 'web'::"text"])))
-);
-
-
-ALTER TABLE "public"."user_devices" OWNER TO "postgres";
-
-
-COMMENT ON COLUMN "public"."user_devices"."timezone" IS 'Optional IANA timezone captured from the registering browser or native device.';
-
-
-
-COMMENT ON COLUMN "public"."user_devices"."build_number" IS 'Optional native binary build number captured from iOS CFBundleVersion or Android versionCode.';
-
-
-
-COMMENT ON COLUMN "public"."user_devices"."expo_update_id" IS 'Optional non-secret Expo Updates update ID reported by the native client.';
-
-
-
-COMMENT ON COLUMN "public"."user_devices"."expo_channel" IS 'Optional Expo Updates channel reported by the native client.';
-
-
-
-COMMENT ON COLUMN "public"."user_devices"."expo_runtime_version" IS 'Optional Expo Updates runtime version reported by the native client.';
-
-
-
-COMMENT ON COLUMN "public"."user_devices"."expo_is_embedded_launch" IS 'Whether the native client launched the update embedded in the binary.';
-
-
-
-COMMENT ON COLUMN "public"."user_devices"."expo_is_emergency_launch" IS 'Whether Expo Updates reported an emergency launch.';
 
 
 
@@ -23359,6 +30877,142 @@ CREATE OR REPLACE VIEW "public"."v_tide_forecast_latest" WITH ("security_invoker
 ALTER TABLE "public"."v_tide_forecast_latest" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."watch_devices" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "platform" "text" DEFAULT 'garmin'::"text" NOT NULL,
+    "device_uid" "text" NOT NULL,
+    "device_part_number" "text",
+    "device_name" "text",
+    "app_version" "text",
+    "token_hash" "text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "last_seen_at" timestamp with time zone,
+    "revoked_at" timestamp with time zone,
+    CONSTRAINT "watch_devices_platform_check" CHECK (("platform" = 'garmin'::"text"))
+);
+
+
+ALTER TABLE "public"."watch_devices" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."watch_link_codes" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "code" "text" NOT NULL,
+    "poll_secret_hash" "text" NOT NULL,
+    "device_uid" "text" NOT NULL,
+    "device_part_number" "text",
+    "app_version" "text",
+    "user_id" "uuid",
+    "device_id" "uuid",
+    "expires_at" timestamp with time zone NOT NULL,
+    "confirmed_at" timestamp with time zone,
+    "claimed_at" timestamp with time zone,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."watch_link_codes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."watch_uploads" (
+    "id" "uuid" NOT NULL,
+    "device_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "chunk_count" integer,
+    "received_chunks" integer[] DEFAULT '{}'::integer[] NOT NULL,
+    "header" "jsonb",
+    "import_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "purge_requested_at" timestamp with time zone
+);
+
+
+ALTER TABLE "public"."watch_uploads" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."water_quality_held_beaches" (
+    "beach_id" "uuid" NOT NULL,
+    "reason" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."water_quality_held_beaches" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."week_scout_ranking_context" WITH ("security_invoker"='true') AS
+ SELECT "p"."id" AS "user_id",
+    "to_jsonb"("prefs".*) AS "learned_prefs",
+    "to_jsonb"("implicit".*) AS "implicit_prefs",
+    COALESCE(( SELECT "jsonb_agg"("jsonb_build_object"('beach_id', "a"."beach_id", 'affinity_score', "a"."affinity_score")) AS "jsonb_agg"
+           FROM "public"."user_beach_affinity" "a"
+          WHERE ("a"."user_id" = "p"."id")), '[]'::"jsonb") AS "affinity_rows"
+   FROM (("public"."profiles" "p"
+     LEFT JOIN "public"."user_surf_preferences" "prefs" ON (("prefs"."user_id" = "p"."id")))
+     LEFT JOIN "public"."user_implicit_preferences" "implicit" ON (("implicit"."user_id" = "p"."id")));
+
+
+ALTER TABLE "public"."week_scout_ranking_context" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."week_scout_story_editions" (
+    "artifact_id" "text" NOT NULL,
+    "region" "text" NOT NULL,
+    "edition_date" "date" NOT NULL,
+    "input_hash" "text" NOT NULL,
+    "source_published_at" timestamp with time zone NOT NULL,
+    "valid_until" timestamp with time zone NOT NULL,
+    "schema_version" integer NOT NULL,
+    "generation_version" "text" NOT NULL,
+    "model" "text" NOT NULL,
+    "briefing" "jsonb" NOT NULL,
+    "provenance" "jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "week_scout_story_editions_schema_version_check" CHECK (("schema_version" = 3))
+);
+
+
+ALTER TABLE "public"."week_scout_story_editions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."week_scout_story_inputs" (
+    "input_hash" "text" NOT NULL,
+    "region" "text" NOT NULL,
+    "edition_date" "date" NOT NULL,
+    "source_published_at" timestamp with time zone NOT NULL,
+    "valid_until" timestamp with time zone NOT NULL,
+    "schema_version" integer NOT NULL,
+    "snapshot" "jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "week_scout_story_inputs_schema_version_check" CHECK (("schema_version" = 3))
+);
+
+
+ALTER TABLE "public"."week_scout_story_inputs" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."week_scout_story_jobs" (
+    "region" "text" NOT NULL,
+    "edition_date" "date" NOT NULL,
+    "input_hash" "text" NOT NULL,
+    "generation_version" "text" NOT NULL,
+    "model" "text" NOT NULL,
+    "lease_owner" "text",
+    "lease_until" timestamp with time zone,
+    "attempts" integer DEFAULT 0 NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "last_error" "text",
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "week_scout_story_jobs_attempts_check" CHECK (("attempts" >= 0)),
+    CONSTRAINT "week_scout_story_jobs_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'leased'::"text", 'published'::"text", 'failed'::"text"])))
+);
+
+
+ALTER TABLE "public"."week_scout_story_jobs" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."weekend_scout_snapshots" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid" NOT NULL,
@@ -23449,6 +31103,90 @@ CREATE TABLE IF NOT EXISTS "public"."xp_events" (
 
 
 ALTER TABLE "public"."xp_events" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "quiver_agent_evidence"."profiles" WITH ("security_barrier"='true') AS
+ SELECT "profiles"."id",
+    "profiles"."created_at",
+    "profiles"."analytics_is_real_user",
+    "profiles"."onboarding_completed_at"
+   FROM "public"."profiles";
+
+
+ALTER TABLE "quiver_agent_evidence"."profiles" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "quiver_agent_evidence"."user_events" WITH ("security_barrier"='true') AS
+ SELECT "user_events"."id",
+    "user_events"."user_id",
+        CASE
+            WHEN ("user_events"."event_type" ~ '^[a-z0-9][a-z0-9._:-]{0,63}$'::"text") THEN "user_events"."event_type"
+            ELSE '[invalid]'::"text"
+        END AS "event_type",
+    "user_events"."created_at",
+    "user_events"."expires_at",
+    "user_events"."session_id",
+    "user_events"."bot_flagged",
+        CASE
+            WHEN (COALESCE(("user_events"."metadata" ->> 'platform'::"text"), ("user_events"."metadata" ->> '_platform'::"text")) ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$'::"text") THEN COALESCE(("user_events"."metadata" ->> 'platform'::"text"), ("user_events"."metadata" ->> '_platform'::"text"))
+            ELSE NULL::"text"
+        END AS "platform",
+        CASE
+            WHEN (COALESCE(("user_events"."metadata" ->> 'app_build'::"text"), ("user_events"."metadata" ->> '$app_build'::"text")) ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$'::"text") THEN COALESCE(("user_events"."metadata" ->> 'app_build'::"text"), ("user_events"."metadata" ->> '$app_build'::"text"))
+            ELSE NULL::"text"
+        END AS "app_build",
+        CASE
+            WHEN (COALESCE(("user_events"."metadata" ->> 'app_version'::"text"), ("user_events"."metadata" ->> '$app_version'::"text")) ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$'::"text") THEN COALESCE(("user_events"."metadata" ->> 'app_version'::"text"), ("user_events"."metadata" ->> '$app_version'::"text"))
+            ELSE NULL::"text"
+        END AS "app_version",
+        CASE
+            WHEN (COALESCE(("user_events"."metadata" ->> 'runtime_version'::"text"), ("user_events"."metadata" ->> 'expo_runtime_version'::"text")) ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,79}$'::"text") THEN COALESCE(("user_events"."metadata" ->> 'runtime_version'::"text"), ("user_events"."metadata" ->> 'expo_runtime_version'::"text"))
+            ELSE NULL::"text"
+        END AS "runtime_version",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'source'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'source'::"text")
+            ELSE NULL::"text"
+        END AS "source",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'mode'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'mode'::"text")
+            ELSE NULL::"text"
+        END AS "mode",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'step'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'step'::"text")
+            ELSE NULL::"text"
+        END AS "step",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'action'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'action'::"text")
+            ELSE NULL::"text"
+        END AS "action",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'screen'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'screen'::"text")
+            ELSE NULL::"text"
+        END AS "screen",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'provider'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'provider'::"text")
+            ELSE NULL::"text"
+        END AS "provider",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'email_method'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'email_method'::"text")
+            ELSE NULL::"text"
+        END AS "email_method",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'reason'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,79}$'::"text") THEN ("user_events"."metadata" ->> 'reason'::"text")
+            ELSE NULL::"text"
+        END AS "reason",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'view'::"text") ~ '^[a-z0-9][a-z0-9._:-]{0,39}$'::"text") THEN ("user_events"."metadata" ->> 'view'::"text")
+            ELSE NULL::"text"
+        END AS "view",
+        CASE
+            WHEN (("user_events"."metadata" ->> 'requires_verification'::"text") = ANY (ARRAY['true'::"text", 'false'::"text"])) THEN ("user_events"."metadata" ->> 'requires_verification'::"text")
+            ELSE NULL::"text"
+        END AS "requires_verification"
+   FROM "public"."user_events";
+
+
+ALTER TABLE "quiver_agent_evidence"."user_events" OWNER TO "postgres";
 
 
 ALTER TABLE ONLY "public"."dev_session_mutation_audit" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."dev_session_mutation_audit_id_seq"'::"regclass");
@@ -23652,6 +31390,11 @@ ALTER TABLE ONLY "public"."android_waitlist_source_links"
 
 
 
+ALTER TABLE ONLY "public"."app_runtime_flags"
+    ADD CONSTRAINT "app_runtime_flags_pkey" PRIMARY KEY ("key");
+
+
+
 ALTER TABLE ONLY "public"."apple_identity_recovery_audit"
     ADD CONSTRAINT "apple_identity_recovery_audit_pkey" PRIMARY KEY ("id");
 
@@ -23699,6 +31442,11 @@ ALTER TABLE ONLY "public"."beach_amenity_sources"
 
 ALTER TABLE ONLY "public"."beach_amenity_sources"
     ADD CONSTRAINT "beach_amenity_sources_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."beach_coordinate_corrections"
+    ADD CONSTRAINT "beach_coordinate_corrections_pkey" PRIMARY KEY ("id");
 
 
 
@@ -23767,11 +31515,6 @@ ALTER TABLE ONLY "public"."beach_photos"
 
 
 
-ALTER TABLE ONLY "public"."beach_photos_history"
-    ADD CONSTRAINT "beach_photos_history_pkey" PRIMARY KEY ("history_id");
-
-
-
 ALTER TABLE ONLY "public"."beach_photos"
     ADD CONSTRAINT "beach_photos_pkey" PRIMARY KEY ("id");
 
@@ -23807,6 +31550,11 @@ ALTER TABLE ONLY "public"."beach_sources"
 
 
 
+ALTER TABLE ONLY "public"."beach_traffic_weights"
+    ADD CONSTRAINT "beach_traffic_weights_pkey" PRIMARY KEY ("beach_id");
+
+
+
 ALTER TABLE ONLY "public"."beach_water_quality"
     ADD CONSTRAINT "beach_water_quality_beach_id_key" UNIQUE ("beach_id");
 
@@ -23814,6 +31562,11 @@ ALTER TABLE ONLY "public"."beach_water_quality"
 
 ALTER TABLE ONLY "public"."beach_water_quality"
     ADD CONSTRAINT "beach_water_quality_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."beach_wind_observations"
+    ADD CONSTRAINT "beach_wind_observations_pkey" PRIMARY KEY ("beach_id", "observed_at", "source");
 
 
 
@@ -23829,6 +31582,11 @@ ALTER TABLE ONLY "public"."boards"
 
 ALTER TABLE ONLY "public"."buoys"
     ADD CONSTRAINT "buoys_pkey" PRIMARY KEY ("buoy_uuid");
+
+
+
+ALTER TABLE ONLY "public"."cancellation_feedback"
+    ADD CONSTRAINT "cancellation_feedback_pkey" PRIMARY KEY ("cancellation_event_id");
 
 
 
@@ -23907,6 +31665,11 @@ ALTER TABLE ONLY "public"."community_photo_reports"
 
 
 
+ALTER TABLE ONLY "public"."community_photo_terms_acceptances"
+    ADD CONSTRAINT "community_photo_terms_acceptances_pkey" PRIMARY KEY ("user_id", "terms_version");
+
+
+
 ALTER TABLE ONLY "public"."community_photo_votes"
     ADD CONSTRAINT "community_photo_votes_pkey" PRIMARY KEY ("photo_id", "voter_id");
 
@@ -23927,13 +31690,38 @@ ALTER TABLE ONLY "public"."content_reports"
 
 
 
-ALTER TABLE ONLY "public"."corrected_forecasts"
-    ADD CONSTRAINT "corrected_forecasts_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."county_beach_advisories"
+    ADD CONSTRAINT "county_beach_advisories_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."county_beach_advisories"
+    ADD CONSTRAINT "county_beach_advisories_run_id_source_site_identifier_advis_key" UNIQUE ("run_id", "source_site_identifier", "advisory_type");
+
+
+
+ALTER TABLE ONLY "public"."county_beach_advisory_ingest_state"
+    ADD CONSTRAINT "county_beach_advisory_ingest_state_pkey" PRIMARY KEY ("source_identifier");
+
+
+
+ALTER TABLE ONLY "public"."county_beach_advisory_runs"
+    ADD CONSTRAINT "county_beach_advisory_runs_pkey" PRIMARY KEY ("id");
 
 
 
 ALTER TABLE ONLY "public"."cron_runs"
     ADD CONSTRAINT "cron_runs_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."custom_spot_analysis_jobs"
+    ADD CONSTRAINT "custom_spot_analysis_jobs_custom_spot_id_key" UNIQUE ("custom_spot_id");
+
+
+
+ALTER TABLE ONLY "public"."custom_spot_analysis_jobs"
+    ADD CONSTRAINT "custom_spot_analysis_jobs_pkey" PRIMARY KEY ("id");
 
 
 
@@ -23973,7 +31761,17 @@ ALTER TABLE ONLY "public"."digest_run_stats"
 
 
 ALTER TABLE ONLY "public"."earned_pro_grants"
+    ADD CONSTRAINT "earned_pro_grants_offer_award_id_key" UNIQUE ("offer_award_id");
+
+
+
+ALTER TABLE ONLY "public"."earned_pro_grants"
     ADD CONSTRAINT "earned_pro_grants_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."email_campaigns"
+    ADD CONSTRAINT "email_campaigns_pkey" PRIMARY KEY ("id");
 
 
 
@@ -23982,8 +31780,38 @@ ALTER TABLE ONLY "public"."email_click_events"
 
 
 
+ALTER TABLE ONLY "public"."email_contact_attempts"
+    ADD CONSTRAINT "email_contact_attempts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."email_contact_attempts"
+    ADD CONSTRAINT "email_contact_attempts_provider_id_key" UNIQUE ("provider_id");
+
+
+
+ALTER TABLE ONLY "public"."email_contact_controls"
+    ADD CONSTRAINT "email_contact_controls_pkey" PRIMARY KEY ("singleton");
+
+
+
+ALTER TABLE ONLY "public"."email_contact_state"
+    ADD CONSTRAINT "email_contact_state_pkey" PRIMARY KEY ("user_id");
+
+
+
 ALTER TABLE ONLY "public"."email_delivery_events"
     ADD CONSTRAINT "email_delivery_events_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."email_lifecycle_recipients"
+    ADD CONSTRAINT "email_lifecycle_recipients_pkey" PRIMARY KEY ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."email_reply_events"
+    ADD CONSTRAINT "email_reply_events_pkey" PRIMARY KEY ("provider_id");
 
 
 
@@ -24074,16 +31902,6 @@ ALTER TABLE ONLY "public"."garmin_session_candidates"
 
 ALTER TABLE ONLY "public"."garmin_session_candidates"
     ADD CONSTRAINT "garmin_session_candidates_user_activity_unique" UNIQUE ("user_id", "garmin_activity_id");
-
-
-
-ALTER TABLE ONLY "public"."gfs_wave_shadow_forecasts"
-    ADD CONSTRAINT "gfs_wave_shadow_forecasts_beach_id_predicted_at_source_mode_key" UNIQUE ("beach_id", "predicted_at", "source_model");
-
-
-
-ALTER TABLE ONLY "public"."gfs_wave_shadow_forecasts"
-    ADD CONSTRAINT "gfs_wave_shadow_forecasts_pkey" PRIMARY KEY ("id");
 
 
 
@@ -24192,6 +32010,16 @@ ALTER TABLE ONLY "public"."notification_delivery_attempts"
 
 
 
+ALTER TABLE ONLY "public"."notification_delivery_targets"
+    ADD CONSTRAINT "notification_delivery_targets_notification_event_id_install_key" UNIQUE ("notification_event_id", "installation_id");
+
+
+
+ALTER TABLE ONLY "public"."notification_delivery_targets"
+    ADD CONSTRAINT "notification_delivery_targets_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."notification_events"
     ADD CONSTRAINT "notification_events_pkey" PRIMARY KEY ("id");
 
@@ -24247,6 +32075,26 @@ ALTER TABLE ONLY "public"."posting_log"
 
 
 
+ALTER TABLE ONLY "public"."pro_offer_awards"
+    ADD CONSTRAINT "pro_offer_awards_code_hash_key" UNIQUE ("code_hash");
+
+
+
+ALTER TABLE ONLY "public"."pro_offer_awards"
+    ADD CONSTRAINT "pro_offer_awards_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."pro_offer_awards"
+    ADD CONSTRAINT "pro_offer_awards_user_id_program_id_key" UNIQUE ("user_id", "program_id");
+
+
+
+ALTER TABLE ONLY "public"."pro_offer_programs"
+    ADD CONSTRAINT "pro_offer_programs_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("id");
 
@@ -24254,6 +32102,21 @@ ALTER TABLE ONLY "public"."profiles"
 
 ALTER TABLE ONLY "public"."qr_business_venues"
     ADD CONSTRAINT "qr_business_venues_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."rain_advisory_events"
+    ADD CONSTRAINT "rain_advisory_events_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."rain_advisory_events"
+    ADD CONSTRAINT "rain_advisory_events_region_started_at_key" UNIQUE ("region", "started_at");
+
+
+
+ALTER TABLE ONLY "public"."rainfall_runoff_readings"
+    ADD CONSTRAINT "rainfall_runoff_readings_pkey" PRIMARY KEY ("cluster_id", "window_end");
 
 
 
@@ -24312,6 +32175,11 @@ ALTER TABLE ONLY "public"."regional_recommendation_holds"
 
 
 
+ALTER TABLE ONLY "public"."revenuecat_provider_events"
+    ADD CONSTRAINT "revenuecat_provider_events_pkey" PRIMARY KEY ("provider_event_id");
+
+
+
 ALTER TABLE ONLY "public"."rip_current_risks"
     ADD CONSTRAINT "rip_current_risks_beach_id_valid_date_key" UNIQUE ("beach_id", "valid_date");
 
@@ -24347,8 +32215,23 @@ ALTER TABLE ONLY "public"."saved_windows"
 
 
 
+ALTER TABLE ONLY "public"."seaside_cron_runs"
+    ADD CONSTRAINT "seaside_cron_runs_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."session_forecast_snapshots"
     ADD CONSTRAINT "session_forecast_snapshots_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."session_imports"
+    ADD CONSTRAINT "session_imports_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."session_imports"
+    ADD CONSTRAINT "session_imports_user_id_sha256_key" UNIQUE ("user_id", "sha256");
 
 
 
@@ -24392,6 +32275,11 @@ ALTER TABLE ONLY "public"."session_media"
 
 
 
+ALTER TABLE ONLY "public"."session_prompt_responses"
+    ADD CONSTRAINT "session_prompt_responses_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."session_share_links"
     ADD CONSTRAINT "session_share_links_pkey" PRIMARY KEY ("share_id");
 
@@ -24402,6 +32290,21 @@ ALTER TABLE ONLY "public"."session_shares"
 
 
 
+ALTER TABLE ONLY "public"."session_tracks"
+    ADD CONSTRAINT "session_tracks_pkey" PRIMARY KEY ("session_id");
+
+
+
+ALTER TABLE ONLY "public"."session_watch_claims"
+    ADD CONSTRAINT "session_watch_claims_pkey" PRIMARY KEY ("session_id");
+
+
+
+ALTER TABLE ONLY "public"."session_wave_corrections"
+    ADD CONSTRAINT "session_wave_corrections_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."session_wave_observation_candidates"
     ADD CONSTRAINT "session_wave_observation_candidates_pkey" PRIMARY KEY ("id");
 
@@ -24409,6 +32312,16 @@ ALTER TABLE ONLY "public"."session_wave_observation_candidates"
 
 ALTER TABLE ONLY "public"."session_wave_observation_candidates"
     ADD CONSTRAINT "session_wave_observation_candidates_session_unique" UNIQUE ("session_id");
+
+
+
+ALTER TABLE ONLY "public"."session_waves"
+    ADD CONSTRAINT "session_waves_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."session_waves"
+    ADD CONSTRAINT "session_waves_session_id_detection_version_wave_index_key" UNIQUE ("session_id", "detection_version", "wave_index");
 
 
 
@@ -24448,7 +32361,7 @@ ALTER TABLE ONLY "public"."sun_times"
 
 
 ALTER TABLE ONLY "public"."surf_alert_delivery_slots"
-    ADD CONSTRAINT "surf_alert_delivery_slots_pkey" PRIMARY KEY ("recipient_user_id", "beach_id", "alert_date");
+    ADD CONSTRAINT "surf_alert_delivery_slots_pkey" PRIMARY KEY ("recipient_user_id", "alert_date");
 
 
 
@@ -24472,8 +32385,323 @@ ALTER TABLE ONLY "public"."surf_drops"
 
 
 
-ALTER TABLE ONLY "public"."surfline_shadow_forecasts"
-    ADD CONSTRAINT "surfline_shadow_forecasts_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."surf_game_scores"
+    ADD CONSTRAINT "surf_game_scores_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_event_alerts"
+    ADD CONSTRAINT "swell_event_alerts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_event_alerts"
+    ADD CONSTRAINT "swell_event_alerts_user_id_event_key_key" UNIQUE ("user_id", "event_key");
+
+
+
+ALTER TABLE ONLY "public"."swell_event_forecast_snapshots"
+    ADD CONSTRAINT "swell_event_forecast_snapshots_beach_id_event_key_run_date_key" UNIQUE ("beach_id", "event_key", "run_date");
+
+
+
+ALTER TABLE ONLY "public"."swell_event_forecast_snapshots"
+    ADD CONSTRAINT "swell_event_forecast_snapshots_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_event_user_state"
+    ADD CONSTRAINT "swell_event_user_state_pkey" PRIMARY KEY ("user_id", "event_key");
+
+
+
+ALTER TABLE ONLY "public"."swell_event_verifications"
+    ADD CONSTRAINT "swell_event_verifications_event_key_beach_id_source_key" UNIQUE ("event_key", "beach_id", "source");
+
+
+
+ALTER TABLE ONLY "public"."swell_event_verifications"
+    ADD CONSTRAINT "swell_event_verifications_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_outlook_user_state"
+    ADD CONSTRAINT "swell_outlook_user_state_pkey" PRIMARY KEY ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_automation_control"
+    ADD CONSTRAINT "swell_watch_automation_control_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_automation_control_transitions"
+    ADD CONSTRAINT "swell_watch_automation_control_transitions_epoch_key" UNIQUE ("epoch");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_automation_control_transitions"
+    ADD CONSTRAINT "swell_watch_automation_control_transitions_idempotency_key_key" UNIQUE ("idempotency_key");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_automation_control_transitions"
+    ADD CONSTRAINT "swell_watch_automation_control_transitions_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_beach_impacts"
+    ADD CONSTRAINT "swell_watch_beach_impacts_id_beach_id_evaluation_id_key" UNIQUE ("id", "beach_id", "evaluation_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_beach_impacts"
+    ADD CONSTRAINT "swell_watch_beach_impacts_observation_id_beach_id_key" UNIQUE ("observation_id", "beach_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_beach_impacts"
+    ADD CONSTRAINT "swell_watch_beach_impacts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_collection_lease"
+    ADD CONSTRAINT "swell_watch_collection_lease_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_evaluation_policies"
+    ADD CONSTRAINT "swell_watch_evaluation_policies_pkey" PRIMARY KEY ("epoch");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_aliases"
+    ADD CONSTRAINT "swell_watch_event_aliases_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_aliases"
+    ADD CONSTRAINT "swell_watch_event_aliases_regional_event_id_alias_key_key" UNIQUE ("regional_event_id", "alias_key");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_evaluations"
+    ADD CONSTRAINT "swell_watch_event_evaluations_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_evaluations"
+    ADD CONSTRAINT "swell_watch_event_evaluations_regional_event_id_evaluation__key" UNIQUE ("regional_event_id", "evaluation_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_impacts"
+    ADD CONSTRAINT "swell_watch_event_impacts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_impacts"
+    ADD CONSTRAINT "swell_watch_event_impacts_regional_event_id_evaluation_id_b_key" UNIQUE ("regional_event_id", "evaluation_id", "beach_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_state_transitions"
+    ADD CONSTRAINT "swell_watch_event_state_transitio_regional_event_id_version_key" UNIQUE ("regional_event_id", "version");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_state_transitions"
+    ADD CONSTRAINT "swell_watch_event_state_transitions_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_notification_event_bindings"
+    ADD CONSTRAINT "swell_watch_notification_event_bindings_pkey" PRIMARY KEY ("notification_event_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_observations"
+    ADD CONSTRAINT "swell_watch_observations_evaluation_id_source_point_id_prov_key" UNIQUE ("evaluation_id", "source_point_id", "provider", "forecast_at", "source_slot");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_observations"
+    ADD CONSTRAINT "swell_watch_observations_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_production_approval_authority"
+    ADD CONSTRAINT "swell_watch_production_approval_authority_authority_epoch_key" UNIQUE ("authority_epoch");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_production_approval_authority"
+    ADD CONSTRAINT "swell_watch_production_approval_authority_pkey" PRIMARY KEY ("record_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_delivery_outcomes"
+    ADD CONSTRAINT "swell_watch_provider_delivery_notification_event_id_attempt_key" UNIQUE ("notification_event_id", "attempt_number");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_delivery_outcomes"
+    ADD CONSTRAINT "swell_watch_provider_delivery_outcomes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_attestations"
+    ADD CONSTRAINT "swell_watch_provider_run_attestations_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_batch_scopes"
+    ADD CONSTRAINT "swell_watch_provider_run_batch_sco_batch_id_source_point_id_key" UNIQUE ("batch_id", "source_point_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_batch_scopes"
+    ADD CONSTRAINT "swell_watch_provider_run_batch_scopes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_batches"
+    ADD CONSTRAINT "swell_watch_provider_run_batches_issuance_id_key" UNIQUE ("issuance_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_batches"
+    ADD CONSTRAINT "swell_watch_provider_run_batches_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_completed_batches"
+    ADD CONSTRAINT "swell_watch_provider_run_completed_batches_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_completed_batches"
+    ADD CONSTRAINT "swell_watch_provider_run_completed_batches_revision_set_id_key" UNIQUE ("revision_set_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_issuances"
+    ADD CONSTRAINT "swell_watch_provider_run_issu_transport_provider_model_run__key" UNIQUE ("transport_provider", "model", "run_utc");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_issuances"
+    ADD CONSTRAINT "swell_watch_provider_run_issuances_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_components"
+    ADD CONSTRAINT "swell_watch_provider_run_revi_revision_id_forecast_at_sourc_key" UNIQUE ("revision_id", "forecast_at", "source_slot");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revisions"
+    ADD CONSTRAINT "swell_watch_provider_run_revi_scope_id_semantic_revision_ha_key" UNIQUE ("scope_id", "semantic_revision_hash");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_set_members"
+    ADD CONSTRAINT "swell_watch_provider_run_revisi_revision_set_id_revision_id_key" UNIQUE ("revision_set_id", "revision_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_sets"
+    ADD CONSTRAINT "swell_watch_provider_run_revisio_batch_id_revision_set_hash_key" UNIQUE ("batch_id", "revision_set_hash");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_sets"
+    ADD CONSTRAINT "swell_watch_provider_run_revision__batch_id_revision_number_key" UNIQUE ("batch_id", "revision_number");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_components"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_components_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_raw_responses"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_raw_responses_pkey" PRIMARY KEY ("revision_id", "raw_response_sha256");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_set_members"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_set_members_pkey" PRIMARY KEY ("revision_set_id", "scope_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_sets"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_sets_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revisions"
+    ADD CONSTRAINT "swell_watch_provider_run_revisions_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_recipient_announcements"
+    ADD CONSTRAINT "swell_watch_recipient_announc_regional_event_id_recipient_i_key" UNIQUE ("regional_event_id", "recipient_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_recipient_announcements"
+    ADD CONSTRAINT "swell_watch_recipient_announcements_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_regional_events"
+    ADD CONSTRAINT "swell_watch_regional_events_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_observations"
+    ADD CONSTRAINT "swell_watch_shadow_demand_observations_pkey" PRIMARY KEY ("provider_batch_id", "policy_hash", "regional_event_id", "recipient_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_pairs"
+    ADD CONSTRAINT "swell_watch_shadow_demand_pairs_pkey" PRIMARY KEY ("regional_event_id", "recipient_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_runs"
+    ADD CONSTRAINT "swell_watch_shadow_demand_runs_pkey" PRIMARY KEY ("provider_batch_id", "policy_hash");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_acceptances"
+    ADD CONSTRAINT "swell_watch_study_acceptances_attestation_id_key" UNIQUE ("attestation_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_acceptances"
+    ADD CONSTRAINT "swell_watch_study_acceptances_pkey" PRIMARY KEY ("revision_set_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_authorities"
+    ADD CONSTRAINT "swell_watch_study_authorities_pkey" PRIMARY KEY ("epoch");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_evaluations"
+    ADD CONSTRAINT "swell_watch_study_evaluations_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_evaluations"
+    ADD CONSTRAINT "swell_watch_study_evaluations_provider_batch_id_policy_hash_key" UNIQUE ("provider_batch_id", "policy_hash", "result_hash");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_recovery_failures"
+    ADD CONSTRAINT "swell_watch_study_recovery_failures_pkey" PRIMARY KEY ("id");
 
 
 
@@ -24489,6 +32717,56 @@ ALTER TABLE ONLY "public"."tide_forecasts"
 
 ALTER TABLE ONLY "public"."trial_ending_push_log"
     ADD CONSTRAINT "trial_ending_push_log_pkey" PRIMARY KEY ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_controls"
+    ADD CONSTRAINT "trial_feedback_controls_pkey" PRIMARY KEY ("singleton");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_offer_policy"
+    ADD CONSTRAINT "trial_feedback_offer_policy_pkey" PRIMARY KEY ("store", "product_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_provider_event_id_key" UNIQUE ("provider_event_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_reservation_id_key" UNIQUE ("reservation_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_user_id_key" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_web_recoveries"
+    ADD CONSTRAINT "trial_feedback_web_recoveries_pkey" PRIMARY KEY ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_web_recoveries"
+    ADD CONSTRAINT "trial_feedback_web_recoveries_reservation_id_key" UNIQUE ("reservation_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_web_recoveries"
+    ADD CONSTRAINT "trial_feedback_web_recoveries_submission_id_key" UNIQUE ("submission_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_web_recoveries"
+    ADD CONSTRAINT "trial_feedback_web_recoveries_subscription_id_key" UNIQUE ("subscription_id");
 
 
 
@@ -24552,6 +32830,11 @@ ALTER TABLE ONLY "public"."trusted_forecast_issues"
 
 
 
+ALTER TABLE ONLY "public"."trusted_forecast_serving_projections"
+    ADD CONSTRAINT "trusted_forecast_serving_projections_pkey" PRIMARY KEY ("beach_id", "forecast_at");
+
+
+
 ALTER TABLE ONLY "public"."trusted_forecast_ingest_source_results"
     ADD CONSTRAINT "trusted_forecast_source_results_run_source_key" UNIQUE ("ingest_run_id", "source_key");
 
@@ -24562,18 +32845,8 @@ ALTER TABLE ONLY "public"."beach_forecast_accuracy"
 
 
 
-ALTER TABLE ONLY "public"."corrected_forecasts"
-    ADD CONSTRAINT "unique_beach_forecast_ts" UNIQUE ("beach_id", "forecast_ts");
-
-
-
 ALTER TABLE ONLY "public"."session_forecast_snapshots"
     ADD CONSTRAINT "unique_session_forecast_snapshot" UNIQUE ("session_id");
-
-
-
-ALTER TABLE ONLY "public"."surfline_shadow_forecasts"
-    ADD CONSTRAINT "unique_surfline_beach_forecast_ts" UNIQUE ("beach_id", "forecast_ts");
 
 
 
@@ -24622,11 +32895,6 @@ ALTER TABLE ONLY "public"."user_devices"
 
 
 
-ALTER TABLE ONLY "public"."user_devices"
-    ADD CONSTRAINT "user_devices_user_id_device_token_key" UNIQUE ("user_id", "device_token");
-
-
-
 ALTER TABLE ONLY "public"."user_email_prefs"
     ADD CONSTRAINT "user_email_prefs_pkey" PRIMARY KEY ("user_id");
 
@@ -24639,6 +32907,11 @@ ALTER TABLE ONLY "public"."user_entitlements_failed_webhooks"
 
 ALTER TABLE ONLY "public"."user_entitlements"
     ADD CONSTRAINT "user_entitlements_pkey" PRIMARY KEY ("user_id");
+
+
+
+ALTER TABLE "public"."user_events"
+    ADD CONSTRAINT "user_events_event_type_check" CHECK ((("event_type" = ANY (ARRAY['anon_alert_capture_error'::"text", 'anon_alert_capture_submit'::"text", 'anon_alert_capture_view'::"text", 'anon_alert_magic_link_clicked'::"text", 'anon_alert_signup_success'::"text", 'app_deeplink_clicked'::"text", 'deeplink_received'::"text", 'spot_resolve'::"text", 'session_prefill_shown'::"text", 'session_silent_submit'::"text", 'app_handoff_email_failed'::"text", 'app_handoff_email_sent'::"text", 'app_handoff_email_submit'::"text", 'app_handoff_link_opened'::"text", 'app_handoff_qr_rendered'::"text", 'app_handoff_view'::"text", 'apple_beta_prompt_copy_link_clicked'::"text", 'apple_beta_prompt_dismissed'::"text", 'apple_beta_prompt_eligible'::"text", 'apple_beta_prompt_open_testflight_clicked'::"text", 'apple_beta_prompt_qr_rendered'::"text", 'apple_beta_prompt_viewed'::"text", 'auth_failed'::"text", 'auth_method_selected'::"text", 'auth_modal_closed_without_action'::"text", 'auth_modal_opened'::"text", 'auth_provider_selected'::"text", 'beach_search'::"text", 'beach_search_result_click'::"text", 'beach_view'::"text", 'board_form_saved'::"text", 'cam_share'::"text", 'client_error'::"text", 'cta_click'::"text", 'cta_impression'::"text", 'custom_spot_create_started'::"text", 'custom_spot_failed'::"text", 'custom_spot_forecast_source_viewed'::"text", 'custom_spot_save_confirmation_viewed'::"text", 'custom_spot_saved'::"text", 'custom_spots_feedback_viewed'::"text", 'custom_spots_feedback_voted'::"text", 'discovery_click'::"text", 'discovery_skip'::"text", 'empty_state_shown'::"text", 'favorite_shown_in_carousel'::"text", 'feedback_roadmap_opened'::"text", 'feedback_roadmap_request_created'::"text", 'feedback_roadmap_viewed'::"text", 'feedback_roadmap_vote_submitted'::"text", 'first_beach_view_post_signup'::"text", 'first_session_logged'::"text", 'for_you_tap'::"text", 'forecast_accuracy_table_viewed'::"text", 'forecast_check'::"text", 'forecast_interaction'::"text", 'forecast_ready'::"text", 'forecast_tab_click'::"text", 'forecast_visual_layer_selected'::"text", 'founder_100_popup_cta_tapped'::"text", 'founder_100_popup_dismissed'::"text", 'founder_100_popup_viewed'::"text", 'home_at_beach_click'::"text", 'home_beach_forecast_viewed'::"text", 'home_first_session_cta_tap'::"text", 'home_hero_forecast_viewed'::"text", 'home_locked_best_spot_teaser_tap'::"text", 'home_map_tap'::"text", 'home_menu_tap'::"text", 'home_nearby_spot_tap'::"text", 'home_notifications_tap'::"text", 'home_plan_weekend_click'::"text", 'home_plan_weekend_no_recommendation'::"text", 'home_quick_log_tapped'::"text", 'home_search_tap'::"text", 'home_set_alarm_tap'::"text", 'home_surf_call_tap'::"text", 'home_timeline_tap'::"text", 'home_viewed'::"text", 'horizon_strip_day_selected'::"text", 'intel_post_confirmed'::"text", 'intel_post_created'::"text", 'invite_app_store_clicked'::"text", 'invite_consumed'::"text", 'invite_continue_web_clicked'::"text", 'invite_link_opened'::"text", 'invite_open_app_clicked'::"text", 'learned_me_moment_viewed'::"text", 'learning_progress_revealed'::"text", 'learning_signal'::"text", 'local_intel_tab_viewed'::"text", 'location_permission_denied'::"text", 'location_permission_granted'::"text", 'location_update'::"text", 'login_form_submitted'::"text", 'login_success'::"text", 'make_call_card_viewed'::"text", 'make_call_submitted'::"text", 'map_interaction'::"text", 'map_load_failed'::"text", 'map_marker_click'::"text", 'map_marker_tapped'::"text", 'map_ready'::"text", 'map_viewed'::"text", 'match_alert_toggle'::"text", 'match_card_rendered'::"text", 'match_score_teaser_click'::"text", 'match_score_teaser_view'::"text", 'match_strip_tap'::"text", 'mini_log_teaser_click'::"text", 'missing_spot_prompt_tapped'::"text", 'missing_spot_prompt_viewed'::"text", 'native_app_first_open'::"text", 'native_open_from_email'::"text", 'native_open_from_push'::"text", 'onboarding_completed'::"text", 'onboarding_intro_get_started'::"text", 'onboarding_paywall_skipped'::"text", 'onboarding_started'::"text", 'onboarding_step'::"text", 'onboarding_step_auto_skipped'::"text", 'onboarding_step_completed'::"text", 'onboarding_step_viewed'::"text", 'onboarding_trial_started'::"text", 'onboarding_video_completed'::"text", 'onboarding_video_skipped'::"text", 'onboarding_video_started'::"text", 'page_view'::"text", 'paywall_cadence_selected'::"text", 'paywall_dismissed'::"text", 'paywall_lifetime_cta_tapped'::"text", 'paywall_opened'::"text", 'paywall_plan_selected'::"text", 'paywall_purchase_failed'::"text", 'paywall_purchase_started'::"text", 'paywall_purchase_success'::"text", 'paywall_ready'::"text", 'paywall_restore_failed'::"text", 'paywall_restore_started'::"text", 'paywall_restore_success'::"text", 'paywall_soft_prompt_shown'::"text", 'paywall_trial_cta_tapped'::"text", 'personalized_score_shown'::"text", 'plan_session_from_intel'::"text", 'plan_unlock_click'::"text", 'product_tour_completed'::"text", 'product_tour_skipped'::"text", 'product_tour_started'::"text", 'product_tour_step_viewed'::"text", 'profile_update'::"text", 'push_device_registered'::"text", 'push_device_registration_failed'::"text", 'push_permission_denied'::"text", 'push_token_fetch_failed'::"text", 'review_form_abandon'::"text", 'review_form_open'::"text", 'review_submit'::"text", 'review_validation_error'::"text", 'roadmap_item_status_changed'::"text", 'roadmap_item_submitted'::"text", 'roadmap_vote_cast'::"text", 'save_alert_clicked'::"text", 'scroll_depth'::"text", 'seo_intent_page_window_clicked'::"text", 'session_action'::"text", 'session_board_fit_feedback_selected'::"text", 'session_custom_spot_cta_tapped'::"text", 'session_custom_spot_returned'::"text", 'session_decomposition_selected'::"text", 'session_draft_discarded'::"text", 'session_draft_resumed'::"text", 'session_log_abandon'::"text", 'session_log_beach_selected'::"text", 'session_log_conditions_set'::"text", 'session_log_draft_opened'::"text", 'session_log_draft_progress'::"text", 'session_log_photo_added'::"text", 'session_log_rating_set'::"text", 'session_log_start'::"text", 'session_log_submit'::"text", 'session_log_time_selected'::"text", 'session_log_validation_failed'::"text", 'session_photo_upload_failed'::"text", 'session_photo_upload_started'::"text", 'session_photo_upload_succeeded'::"text", 'session_share_closed_post_save'::"text", 'session_share_opened_post_save'::"text", 'session_spot_search_no_results'::"text", 'set_home_beach'::"text", 'share_completed'::"text", 'share_image_saved'::"text", 'share_intel_button_clicked'::"text", 'share_intel_signin_prompt'::"text", 'share_link_copied'::"text", 'share_link_opened'::"text", 'share_sheet_blocked_pending'::"text", 'share_started'::"text", 'signed_in'::"text", 'signin_cta_click'::"text", 'signup_cta_click'::"text", 'signup_cta_view'::"text", 'signup_form_submitted'::"text", 'signup_started'::"text", 'signup_success'::"text", 'social_follow'::"text", 'social_intel_confirm'::"text", 'social_invite_respond'::"text", 'social_invite_send'::"text", 'social_like'::"text", 'social_share'::"text", 'surf_plan_share'::"text", 'surf_profile_progress_shown'::"text", 'surf_profile_viewed'::"text", 'surf_window_click'::"text", 'surf_window_impression'::"text", 'synced_forecast_time_selected'::"text", 'tab_view'::"text", 'time_on_page'::"text", 'trial_active'::"text", 'trial_entitlement_received'::"text", 'unlock_toast_shown'::"text", 'value_moment_offer_tapped'::"text", 'watch_spot_tapped'::"text", 'why_this_call_opened'::"text"])) OR ("event_type" = ANY ('{session_created}'::"text"[])) OR ("event_type" = ANY ('{free_growth_education_impression,free_growth_education_cta_tapped,alert_rule_created}'::"text"[])) OR ("event_type" = ANY ('{surf_drop_created,surf_drop_share_opened,surf_drop_link_view,surf_drop_link_view_authenticated,surf_drop_claimed,surf_drop_joined,surf_drop_left,surf_drop_cancelled,surf_drop_map_toggle_layer}'::"text"[])) OR ("event_type" = ANY ('{login_failed,signup_failed}'::"text"[])) OR ("event_type" = ANY ('{android_lead_captured}'::"text"[])) OR ("event_type" = ANY (ARRAY['discover_page_view'::"text", 'discover_suggested_users_impression'::"text", 'discover_profile_open'::"text", 'discover_follow_attempt'::"text"])) OR ("event_type" = ANY ('{recommendation_impression}'::"text"[])) OR ("event_type" = ANY ('{session_log_form_view}'::"text"[])) OR ("event_type" = ANY ('{app_handoff_native_open}'::"text"[])) OR ("event_type" = ANY ('{native_install_attribution_joined}'::"text"[])) OR ("event_type" = ANY ('{acquisition_source_self_reported}'::"text"[])) OR ("event_type" = ANY ('{apple_orphan_recovery_flagged}'::"text"[])) OR ("event_type" = ANY ('{apple_orphan_precheck_indeterminate,apple_orphan_prevented}'::"text"[])) OR ("event_type" = ANY ('{onboarding_paywall_viewed,onboarding_free_selected,onboarding_purchase_started,onboarding_purchase_success,onboarding_purchase_failed,onboarding_purchase_cancelled,onboarding_restore_result,community_filter_selected,siri_shortcut_opened,garmin_connect_viewed,garmin_designated_activity_set}'::"text"[])) OR ("event_type" = ANY ('{beach_follow_started,beach_follow_saved_local,beach_follow_sync_started,beach_follow_sync_completed,follow_topic_changed,visitor_intent_selected,surf_intent_qualified,my_coast_viewed,my_coast_beach_opened,watched_call_exposed,watched_call_created,watched_call_already_exists,watched_call_update_eligible,watched_call_update_suppressed,watched_call_update_delivered,watched_call_update_opened,watched_call_manual_reopened,watched_call_context_resolved,home_mode_restored,home_mode_expired,home_recommendation_changed}'::"text"[])) OR ("event_type" = ANY ('{alert_message_activated,alert_app_returned,alert_return_to_decision,alert_decision_action}'::"text"[])) OR ("event_type" = 'week_scout_stability'::"text") OR ("event_type" = 'decision_loop_completed'::"text") OR ("event_type" = 'board_pick_exposed'::"text") OR ("event_type" = ANY ('{call_check_prompted,call_check_answered,session_linked_to_call}'::"text"[])) OR ("event_type" = 'home_hero_swiped'::"text") OR ("event_type" = ANY ('{session_import_failed,session_waves_viewed,session_wave_excluded,session_wave_count_reported}'::"text"[])) OR ("event_type" = ANY ('{garmin_link_confirmed,garmin_watch_unlinked,garmin_import_beach_chosen}'::"text"[])) OR ("event_type" = ANY ('{session_wave_included}'::"text"[])))) NOT VALID;
 
 
 
@@ -24697,6 +32970,56 @@ ALTER TABLE ONLY "public"."user_xp"
 
 
 
+ALTER TABLE ONLY "public"."watch_devices"
+    ADD CONSTRAINT "watch_devices_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."watch_devices"
+    ADD CONSTRAINT "watch_devices_token_hash_key" UNIQUE ("token_hash");
+
+
+
+ALTER TABLE ONLY "public"."watch_devices"
+    ADD CONSTRAINT "watch_devices_user_id_device_uid_key" UNIQUE ("user_id", "device_uid");
+
+
+
+ALTER TABLE ONLY "public"."watch_link_codes"
+    ADD CONSTRAINT "watch_link_codes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."watch_uploads"
+    ADD CONSTRAINT "watch_uploads_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."water_quality_held_beaches"
+    ADD CONSTRAINT "water_quality_held_beaches_pkey" PRIMARY KEY ("beach_id");
+
+
+
+ALTER TABLE ONLY "public"."week_scout_story_editions"
+    ADD CONSTRAINT "week_scout_story_editions_pkey" PRIMARY KEY ("artifact_id");
+
+
+
+ALTER TABLE ONLY "public"."week_scout_story_editions"
+    ADD CONSTRAINT "week_scout_story_editions_region_edition_date_input_hash_ge_key" UNIQUE ("region", "edition_date", "input_hash", "generation_version", "model");
+
+
+
+ALTER TABLE ONLY "public"."week_scout_story_inputs"
+    ADD CONSTRAINT "week_scout_story_inputs_pkey" PRIMARY KEY ("input_hash");
+
+
+
+ALTER TABLE ONLY "public"."week_scout_story_jobs"
+    ADD CONSTRAINT "week_scout_story_jobs_pkey" PRIMARY KEY ("region", "edition_date", "input_hash", "generation_version", "model");
+
+
+
 ALTER TABLE ONLY "public"."weekend_scout_snapshots"
     ADD CONSTRAINT "weekend_scout_snapshots_pkey" PRIMARY KEY ("id");
 
@@ -24740,6 +33063,10 @@ CREATE INDEX "account_deletions_user_idx" ON "public"."account_deletions" USING 
 
 
 
+CREATE INDEX "alert_delivery_attempts_message_instance_id_idx" ON "public"."alert_delivery_attempts" USING "btree" ("message_instance_id") WHERE ("message_instance_id" IS NOT NULL);
+
+
+
 CREATE INDEX "alert_delivery_attempts_queue_idx" ON "public"."alert_delivery_attempts" USING "btree" ("queue_id");
 
 
@@ -24761,6 +33088,10 @@ END)) WHERE (("conditions_snapshot" ->> 'alert_type'::"text") = 'similarity_matc
 
 
 COMMENT ON INDEX "public"."alert_queue_similarity_canonical_decision_dedupe" IS 'Deduplicates similarity alerts by user, beach, forecast window, and canonical session verdict; legacy missing verdicts are treated as go.';
+
+
+
+CREATE UNIQUE INDEX "alert_rules_active_watched_call_identity_uidx" ON "public"."alert_rules" USING "btree" ("user_id", (("conditions" #>> '{watched_call,dedupeKey}'::"text"[]))) WHERE (("enabled" = true) AND ("preset_type" = 'watched_call'::"text") AND (("conditions" #>> '{watched_call,dedupeKey}'::"text"[]) IS NOT NULL));
 
 
 
@@ -24804,6 +33135,10 @@ CREATE INDEX "beach_amenity_sources_ccc_location_id_idx" ON "public"."beach_amen
 
 
 
+CREATE UNIQUE INDEX "beach_observation_stations_beach_id_idx" ON "public"."beach_observation_stations" USING "btree" ("beach_id");
+
+
+
 CREATE INDEX "beach_review_likes_review_id_idx" ON "public"."beach_review_likes" USING "btree" ("review_id");
 
 
@@ -24832,6 +33167,10 @@ CREATE INDEX "beach_reviews_user_id_idx" ON "public"."beach_reviews" USING "btre
 
 
 
+CREATE INDEX "beach_traffic_weights_market_idx" ON "public"."beach_traffic_weights" USING "btree" ("market_key", "allocation_tier");
+
+
+
 CREATE INDEX "beach_water_quality_active_status_idx" ON "public"."beach_water_quality" USING "btree" ("status") WHERE ("status" = ANY (ARRAY['advisory'::"text", 'closure'::"text"]));
 
 
@@ -24840,11 +33179,19 @@ CREATE INDEX "beach_water_quality_status_changed_at_idx" ON "public"."beach_wate
 
 
 
+CREATE INDEX "beach_wind_observations_latest_idx" ON "public"."beach_wind_observations" USING "btree" ("beach_id", "observed_at" DESC);
+
+
+
 CREATE UNIQUE INDEX "beaches_name_unique" ON "public"."beaches" USING "btree" ("lower"("name"));
 
 
 
 CREATE INDEX "beaches_region_id_idx" ON "public"."beaches" USING "btree" ("region_id");
+
+
+
+CREATE INDEX "cancellation_feedback_user_idx" ON "public"."cancellation_feedback" USING "btree" ("user_id");
 
 
 
@@ -24888,7 +33235,23 @@ CREATE INDEX "content_reports_target_idx" ON "public"."content_reports" USING "b
 
 
 
+CREATE INDEX "county_beach_advisories_beach_idx" ON "public"."county_beach_advisories" USING "btree" ("beach_id", "advisory_type", "fetched_at" DESC);
+
+
+
+CREATE INDEX "county_beach_advisory_runs_latest_idx" ON "public"."county_beach_advisory_runs" USING "btree" ("source_identifier", "status", "fetched_at" DESC);
+
+
+
+CREATE INDEX "cron_runs_job_ran_at_idx" ON "public"."cron_runs" USING "btree" ("job", "ran_at" DESC);
+
+
+
 CREATE INDEX "cron_runs_route_started_idx" ON "public"."cron_runs" USING "btree" ("route", "started_at" DESC);
+
+
+
+CREATE INDEX "custom_spot_analysis_jobs_ready_idx" ON "public"."custom_spot_analysis_jobs" USING "btree" ("next_attempt_at", "id") WHERE ("status" = ANY (ARRAY['queued'::"text", 'retry'::"text"]));
 
 
 
@@ -24909,6 +33272,26 @@ CREATE INDEX "custom_spots_public_location_idx" ON "public"."custom_spots" USING
 
 
 CREATE INDEX "custom_spots_user_id_idx" ON "public"."custom_spots" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "email_contact_attempts_time" ON "public"."email_contact_attempts" USING "btree" ("claimed_at");
+
+
+
+CREATE INDEX "email_contact_attempts_user_time" ON "public"."email_contact_attempts" USING "btree" ("user_id", "claimed_at" DESC);
+
+
+
+CREATE UNIQUE INDEX "email_lifecycle_once" ON "public"."email_contact_attempts" USING "btree" ("user_id", "lifecycle_job", "episode") WHERE (("lifecycle_job" IS NOT NULL) AND ("state" <> ALL (ARRAY['cancelled'::"text", 'failed'::"text"])));
+
+
+
+CREATE INDEX "email_reply_events_sender" ON "public"."email_reply_events" USING "btree" ("sender");
+
+
+
+CREATE UNIQUE INDEX "email_send_log_message_instance_id_idx" ON "public"."email_send_log" USING "btree" ("message_instance_id") WHERE ("message_instance_id" IS NOT NULL);
 
 
 
@@ -25070,18 +33453,6 @@ CREATE INDEX "idx_beach_photos_deleted_at" ON "public"."beach_photos" USING "btr
 
 
 
-CREATE INDEX "idx_beach_photos_history_changed_at" ON "public"."beach_photos_history" USING "btree" ("changed_at" DESC);
-
-
-
-CREATE INDEX "idx_beach_photos_history_changed_by" ON "public"."beach_photos_history" USING "btree" ("changed_by");
-
-
-
-CREATE INDEX "idx_beach_photos_history_id" ON "public"."beach_photos_history" USING "btree" ("id", "changed_at" DESC);
-
-
-
 CREATE INDEX "idx_beach_recommendation_calibration_beach_id" ON "public"."beach_recommendation_calibration" USING "btree" ("beach_id");
 
 
@@ -25186,6 +33557,10 @@ CREATE INDEX "idx_bfa_updated" ON "public"."beach_forecast_accuracy" USING "btre
 
 
 
+CREATE INDEX "idx_boards_user_id_active" ON "public"."boards" USING "btree" ("user_id") WHERE ("retired_at" IS NULL);
+
+
+
 CREATE INDEX "idx_boards_user_id_fkey" ON "public"."boards" USING "btree" ("user_id");
 
 
@@ -25258,7 +33633,7 @@ CREATE INDEX "idx_comments_user_id" ON "public"."comments" USING "btree" ("user_
 
 
 
-CREATE INDEX "idx_corrected_forecasts_beach_ts" ON "public"."corrected_forecasts" USING "btree" ("beach_id", "forecast_ts" DESC);
+CREATE INDEX "idx_cron_runs_started_at_started" ON "public"."cron_runs" USING "btree" ("started_at") WHERE ("status" = 'started'::"text");
 
 
 
@@ -25279,10 +33654,6 @@ CREATE INDEX "idx_earned_pro_grants_expires_at" ON "public"."earned_pro_grants" 
 
 
 CREATE INDEX "idx_earned_pro_grants_user_revoked" ON "public"."earned_pro_grants" USING "btree" ("user_id", "revoked_at");
-
-
-
-CREATE INDEX "idx_ef_beach_forecast_at" ON "public"."enhanced_forecasts" USING "btree" ("beach_id", "forecast_at");
 
 
 
@@ -25318,7 +33689,15 @@ CREATE UNIQUE INDEX "idx_email_delivery_events_webhook_message_id" ON "public"."
 
 
 
+CREATE INDEX "idx_email_lifecycle_due" ON "public"."email_lifecycle_recipients" USING "btree" ("next_eligible_at");
+
+
+
 CREATE INDEX "idx_email_send_log_resend_message_id" ON "public"."email_send_log" USING "btree" ("resend_message_id") WHERE ("resend_message_id" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_email_send_log_trial_stages" ON "public"."email_send_log" USING "btree" ("user_id", "email_type") WHERE ("email_type" = ANY (ARRAY['trial_started'::"text", 'trial_ending'::"text", 'trial_ended'::"text", 'trial_invitation'::"text", 'founder_story'::"text"]));
 
 
 
@@ -25414,6 +33793,10 @@ CREATE INDEX "idx_forecast_feedback_contexts_session_id" ON "public"."forecast_f
 
 
 
+CREATE INDEX "idx_forecast_feedback_contexts_user_call_id" ON "public"."forecast_feedback_contexts" USING "btree" ("user_id", "call_id") WHERE ("call_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_forecast_feedback_contexts_user_id" ON "public"."forecast_feedback_contexts" USING "btree" ("user_id") WHERE ("user_id" IS NOT NULL);
 
 
@@ -25443,18 +33826,6 @@ CREATE INDEX "idx_garmin_session_candidates_beach_id" ON "public"."garmin_sessio
 
 
 CREATE INDEX "idx_garmin_session_candidates_user_state_created" ON "public"."garmin_session_candidates" USING "btree" ("user_id", "state", "created_at" DESC);
-
-
-
-CREATE INDEX "idx_gfs_wave_shadow_beach_predicted_at" ON "public"."gfs_wave_shadow_forecasts" USING "btree" ("beach_id", "predicted_at" DESC);
-
-
-
-CREATE INDEX "idx_gfs_wave_shadow_predicted_at" ON "public"."gfs_wave_shadow_forecasts" USING "btree" ("predicted_at" DESC);
-
-
-
-CREATE INDEX "idx_gfs_wave_shadow_status_window" ON "public"."gfs_wave_shadow_forecasts" USING "btree" ("capture_status", "predicted_at" DESC);
 
 
 
@@ -25778,7 +34149,11 @@ CREATE INDEX "idx_referrals_status" ON "public"."referrals" USING "btree" ("stat
 
 
 
-CREATE INDEX "idx_rip_current_risks_beach_date" ON "public"."rip_current_risks" USING "btree" ("beach_id", "valid_date");
+CREATE INDEX "idx_revenuecat_provider_events_received_at" ON "public"."revenuecat_provider_events" USING "btree" ("received_at" DESC);
+
+
+
+CREATE INDEX "idx_revenuecat_provider_events_user_time" ON "public"."revenuecat_provider_events" USING "btree" ("app_user_id", "event_timestamp", "provider_event_id") WHERE ("app_user_id" IS NOT NULL);
 
 
 
@@ -25787,6 +34162,10 @@ CREATE INDEX "idx_rip_current_risks_valid_date" ON "public"."rip_current_risks" 
 
 
 CREATE INDEX "idx_saved_windows_user_created" ON "public"."saved_windows" USING "btree" ("user_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_seaside_cron_runs_job_started" ON "public"."seaside_cron_runs" USING "btree" ("job_id", "started_at" DESC);
 
 
 
@@ -25970,6 +34349,10 @@ CREATE INDEX "idx_sessions_skill_ratings" ON "public"."sessions" USING "gin" ("s
 
 
 
+CREATE INDEX "idx_sessions_user_call_id" ON "public"."sessions" USING "btree" ("user_id", "call_id") WHERE ("call_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_sessions_user_rated_completed" ON "public"."sessions" USING "btree" ("user_id", "rating" DESC, "arrival_time" DESC) WHERE (("status" = 'completed'::"text") AND ("rating" IS NOT NULL) AND ("rating" >= 3));
 
 
@@ -26031,14 +34414,6 @@ CREATE INDEX "idx_storage_usage_user_id" ON "public"."storage_usage" USING "btre
 
 
 CREATE INDEX "idx_sun_times_beach_created_desc" ON "public"."sun_times" USING "btree" ("beach_id", "created_at" DESC);
-
-
-
-CREATE INDEX "idx_sun_times_beach_date" ON "public"."sun_times" USING "btree" ("beach_id", "date");
-
-
-
-CREATE INDEX "idx_surfline_shadow_beach_ts" ON "public"."surfline_shadow_forecasts" USING "btree" ("beach_id", "forecast_ts" DESC);
 
 
 
@@ -26164,6 +34539,14 @@ CREATE INDEX "idx_user_events_session_id_unlinked" ON "public"."user_events" USI
 
 
 CREATE INDEX "idx_user_events_user_id" ON "public"."user_events" USING "btree" ("user_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_user_events_user_type_created" ON "public"."user_events" USING "btree" ("user_id", "event_type", "created_at" DESC) WHERE ("bot_flagged" IS NOT TRUE);
+
+
+
+COMMENT ON INDEX "public"."idx_user_events_user_type_created" IS 'Supports the per-user activity lookups in evaluate_email_lifecycle.';
 
 
 
@@ -26299,7 +34682,19 @@ CREATE INDEX "notification_delivery_attempts_event_idx" ON "public"."notificatio
 
 
 
+CREATE INDEX "notification_delivery_targets_claim_idx" ON "public"."notification_delivery_targets" USING "btree" ("status", "claimed_at");
+
+
+
+CREATE UNIQUE INDEX "notification_events_home_morning_call_dedupe" ON "public"."notification_events" USING "btree" ("recipient_user_id", "type", "dedupe_key") WHERE (("type" = 'home_morning_call'::"text") AND ("dedupe_key" IS NOT NULL));
+
+
+
 CREATE INDEX "notification_events_recipient_idx" ON "public"."notification_events" USING "btree" ("recipient_user_id", "created_at" DESC);
+
+
+
+CREATE UNIQUE INDEX "notification_events_swell_watch_v2_recipient_event_dedupe" ON "public"."notification_events" USING "btree" ("recipient_user_id", "type", ((("payload" ->> 'regional_event_id'::"text"))::"uuid")) WHERE (("type" = 'swell_watch'::"text") AND (("payload" ->> 'schema_version'::"text") = 'swell-watch-notification.v2'::"text"));
 
 
 
@@ -26308,6 +34703,10 @@ CREATE INDEX "pending_alert_captures_cleanup_idx" ON "public"."pending_alert_cap
 
 
 CREATE INDEX "pending_alert_captures_pending_lookup_idx" ON "public"."pending_alert_captures" USING "btree" ("email", "expires_at") WHERE ("consumed_at" IS NULL);
+
+
+
+CREATE UNIQUE INDEX "pro_offer_one_pending_grant" ON "public"."pro_offer_awards" USING "btree" ("user_id") WHERE ("state" = ANY (ARRAY['reserved'::"text", 'handoff_started'::"text", 'unknown'::"text"]));
 
 
 
@@ -26320,6 +34719,18 @@ CREATE INDEX "qr_business_venues_bbox_idx" ON "public"."qr_business_venues" USIN
 
 
 CREATE INDEX "qr_business_venues_public_visible_idx" ON "public"."qr_business_venues" USING "btree" ("activated_at", "admin_visible");
+
+
+
+CREATE UNIQUE INDEX "rain_advisory_events_one_active_region_idx" ON "public"."rain_advisory_events" USING "btree" ("region") WHERE ("status" = 'active'::"text");
+
+
+
+CREATE INDEX "rain_advisory_events_region_started_at_idx" ON "public"."rain_advisory_events" USING "btree" ("region", "started_at" DESC);
+
+
+
+CREATE INDEX "rainfall_runoff_readings_window_end_idx" ON "public"."rainfall_runoff_readings" USING "btree" ("window_end" DESC);
 
 
 
@@ -26395,7 +34806,55 @@ CREATE INDEX "roadmap_votes_user_id_idx" ON "public"."roadmap_votes" USING "btre
 
 
 
+CREATE INDEX "session_imports_device_id_idx" ON "public"."session_imports" USING "btree" ("device_id");
+
+
+
+CREATE INDEX "session_imports_session_id_idx" ON "public"."session_imports" USING "btree" ("session_id");
+
+
+
+CREATE INDEX "session_prompt_responses_user_created_idx" ON "public"."session_prompt_responses" USING "btree" ("user_id", "created_at" DESC);
+
+
+
+CREATE INDEX "session_tracks_import_id_idx" ON "public"."session_tracks" USING "btree" ("import_id");
+
+
+
+CREATE INDEX "session_tracks_user_id_idx" ON "public"."session_tracks" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "session_watch_claims_claimed_import_id_idx" ON "public"."session_watch_claims" USING "btree" ("claimed_import_id");
+
+
+
+CREATE INDEX "session_watch_claims_device_id_idx" ON "public"."session_watch_claims" USING "btree" ("device_id");
+
+
+
+CREATE INDEX "session_watch_claims_user_window_idx" ON "public"."session_watch_claims" USING "btree" ("user_id", "window_end");
+
+
+
+CREATE INDEX "session_wave_corrections_session_id_idx" ON "public"."session_wave_corrections" USING "btree" ("session_id");
+
+
+
+CREATE INDEX "session_waves_current_session_idx" ON "public"."session_waves" USING "btree" ("session_id") WHERE "is_current";
+
+
+
 CREATE INDEX "sessions_beach_idx" ON "public"."sessions" USING "btree" ("beach_id", "created_at" DESC);
+
+
+
+CREATE INDEX "sessions_conditions_pending_idx" ON "public"."sessions" USING "btree" ("arrival_time") WHERE (("deleted_at" IS NULL) AND (("conditions_source" IS NULL) OR ("nearshore_source" IS NULL)));
+
+
+
+CREATE INDEX "sessions_conditions_queued_idx" ON "public"."sessions" USING "btree" ("conditions_queued_at") WHERE (("deleted_at" IS NULL) AND (("conditions_source" IS NULL) OR ("nearshore_source" IS NULL)));
 
 
 
@@ -26448,6 +34907,58 @@ CREATE UNIQUE INDEX "surf_drops_slug_idx" ON "public"."surf_drops" USING "btree"
 
 
 CREATE INDEX "surf_drops_user_idx" ON "public"."surf_drops" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "surf_game_scores_rank_idx" ON "public"."surf_game_scores" USING "btree" ("score" DESC, "created_at");
+
+
+
+CREATE UNIQUE INDEX "surf_game_scores_user_idx" ON "public"."surf_game_scores" USING "btree" ("user_id") WHERE ("user_id" IS NOT NULL);
+
+
+
+CREATE INDEX "swell_event_alerts_user_created_idx" ON "public"."swell_event_alerts" USING "btree" ("user_id", "created_at" DESC);
+
+
+
+CREATE INDEX "swell_event_forecast_snapshots_beach_detected_idx" ON "public"."swell_event_forecast_snapshots" USING "btree" ("beach_id", "detected_at" DESC);
+
+
+
+CREATE INDEX "swell_event_user_state_active_idx" ON "public"."swell_event_user_state" USING "btree" ("user_id", "event_key") WHERE ("status" = 'active'::"text");
+
+
+
+CREATE INDEX "swell_event_verifications_status_peak_idx" ON "public"."swell_event_verifications" USING "btree" ("status", "forecast_peak_at");
+
+
+
+CREATE UNIQUE INDEX "swell_watch_recipient_announcements_notification_event_idx" ON "public"."swell_watch_recipient_announcements" USING "btree" ("notification_event_id") WHERE ("notification_event_id" IS NOT NULL);
+
+
+
+CREATE INDEX "swell_watch_shadow_demand_observations_time" ON "public"."swell_watch_shadow_demand_observations" USING "btree" ("observed_at");
+
+
+
+CREATE INDEX "swell_watch_shadow_demand_pairs_time" ON "public"."swell_watch_shadow_demand_pairs" USING "btree" ("first_observed_at");
+
+
+
+CREATE INDEX "swell_watch_study_recovery_failures_revision_time" ON "public"."swell_watch_study_recovery_failures" USING "btree" ("revision_set_id", "failed_at" DESC);
+
+
+
+CREATE UNIQUE INDEX "swell_watch_study_success_once" ON "public"."swell_watch_study_evaluations" USING "btree" ("provider_batch_id", "policy_hash") WHERE ("status" = 'evaluated'::"text");
+
+
+
+CREATE INDEX "trial_feedback_reconcile_queue" ON "public"."trial_feedback_submissions" USING "btree" ("last_reconciled_at" NULLS FIRST, "reserved_at") WHERE ("state" = 'reserved'::"text");
+
+
+
+CREATE INDEX "trial_feedback_web_queue" ON "public"."trial_feedback_web_recoveries" USING "btree" ("next_check_at") WHERE ("state" <> 'closed'::"text");
 
 
 
@@ -26551,6 +35062,22 @@ CREATE INDEX "user_blocks_blocked_id_idx" ON "public"."user_blocks" USING "btree
 
 
 
+CREATE UNIQUE INDEX "user_devices_active_installation" ON "public"."user_devices" USING "btree" ("installation_id") WHERE (("installation_id" IS NOT NULL) AND ("retired_at" IS NULL));
+
+
+
+CREATE UNIQUE INDEX "user_devices_active_legacy_token" ON "public"."user_devices" USING "btree" ("user_id", "device_token") WHERE (("installation_id" IS NULL) AND ("retired_at" IS NULL));
+
+
+
+CREATE UNIQUE INDEX "user_events_alert_attribution_idempotency_idx" ON "public"."user_events" USING "btree" ("user_id", "event_type", (("metadata" ->> 'message_instance_id'::"text")), COALESCE(("metadata" ->> 'action'::"text"), ''::"text")) WHERE (("event_type" = ANY (ARRAY['alert_message_activated'::"text", 'alert_app_returned'::"text", 'alert_return_to_decision'::"text", 'alert_decision_action'::"text"])) AND ("metadata" ? 'message_instance_id'::"text"));
+
+
+
+CREATE UNIQUE INDEX "user_events_decision_loop_completed_event_id_uidx" ON "public"."user_events" USING "btree" ("user_id", (("metadata" ->> 'event_id'::"text"))) WHERE (("event_type" = 'decision_loop_completed'::"text") AND (("metadata" ->> 'event_id'::"text") IS NOT NULL) AND (("metadata" ->> 'event_id'::"text") <> ''::"text"));
+
+
+
 CREATE UNIQUE INDEX "user_events_native_install_attribution_event_id_uidx" ON "public"."user_events" USING "btree" ("user_id", (("metadata" ->> 'event_id'::"text"))) WHERE (("event_type" = 'native_install_attribution_joined'::"text") AND (("metadata" ->> 'event_id'::"text") IS NOT NULL) AND (("metadata" ->> 'event_id'::"text") <> ''::"text"));
 
 
@@ -26568,6 +35095,38 @@ COMMENT ON INDEX "public"."user_events_native_session_funnel_event_id_uidx" IS '
 
 
 CREATE UNIQUE INDEX "user_events_session_created_session_id_uidx" ON "public"."user_events" USING "btree" ((("metadata" ->> 'session_id'::"text"))) WHERE (("event_type" = 'session_created'::"text") AND ("metadata" ? 'session_id'::"text"));
+
+
+
+CREATE INDEX "watch_link_codes_device_id_idx" ON "public"."watch_link_codes" USING "btree" ("device_id");
+
+
+
+CREATE UNIQUE INDEX "watch_link_codes_unconfirmed_code_idx" ON "public"."watch_link_codes" USING "btree" ("code") WHERE ("confirmed_at" IS NULL);
+
+
+
+CREATE INDEX "watch_link_codes_user_id_idx" ON "public"."watch_link_codes" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "watch_uploads_device_id_idx" ON "public"."watch_uploads" USING "btree" ("device_id");
+
+
+
+CREATE INDEX "watch_uploads_import_id_idx" ON "public"."watch_uploads" USING "btree" ("import_id");
+
+
+
+CREATE INDEX "watch_uploads_user_id_idx" ON "public"."watch_uploads" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "week_scout_story_editions_latest" ON "public"."week_scout_story_editions" USING "btree" ("region", "edition_date" DESC, "source_published_at" DESC, "created_at" DESC);
+
+
+
+CREATE INDEX "week_scout_story_inputs_lookup" ON "public"."week_scout_story_inputs" USING "btree" ("region", "edition_date" DESC, "created_at" DESC);
 
 
 
@@ -26595,6 +35154,10 @@ CREATE OR REPLACE TRIGGER "beach_review_likes_count_trigger" AFTER INSERT OR DEL
 
 
 
+CREATE OR REPLACE TRIGGER "capture_lifecycle_email_preference" AFTER UPDATE OF "notif_email_enabled" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."capture_lifecycle_email_preference"();
+
+
+
 CREATE OR REPLACE TRIGGER "city_editorial_content_updated_at" BEFORE UPDATE ON "public"."city_editorial_content" FOR EACH ROW EXECUTE FUNCTION "public"."update_city_editorial_updated_at"();
 
 
@@ -26607,11 +35170,39 @@ CREATE OR REPLACE TRIGGER "custom_spots_lock_user_id_trigger" BEFORE UPDATE ON "
 
 
 
+CREATE OR REPLACE TRIGGER "custom_spots_prepare_analysis_state" BEFORE INSERT OR UPDATE ON "public"."custom_spots" FOR EACH ROW EXECUTE FUNCTION "public"."prepare_custom_spot_analysis_state"();
+
+
+
+CREATE OR REPLACE TRIGGER "custom_spots_queue_analysis" AFTER INSERT OR UPDATE OF "lat", "lon", "break_type" ON "public"."custom_spots" FOR EACH ROW EXECUTE FUNCTION "public"."queue_custom_spot_analysis"();
+
+
+
 CREATE OR REPLACE TRIGGER "dev_trap_session_mutations" AFTER INSERT OR DELETE OR UPDATE ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."dev_log_session_mutation"();
 
 
 
+CREATE OR REPLACE TRIGGER "earn_pro_offer_on_session" AFTER INSERT OR UPDATE OF "status", "deleted_at" ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."earn_pro_offer_on_session"();
+
+
+
+CREATE OR REPLACE TRIGGER "email_session_completion" BEFORE INSERT OR UPDATE ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."stamp_email_session_completion"();
+
+
+
 CREATE OR REPLACE TRIGGER "enforce_user_board_limit_on_insert" BEFORE INSERT ON "public"."boards" FOR EACH ROW EXECUTE FUNCTION "private"."enforce_user_board_limit"();
+
+
+
+CREATE OR REPLACE TRIGGER "enforce_user_board_limit_on_unretire" BEFORE UPDATE OF "retired_at" ON "public"."boards" FOR EACH ROW WHEN ((("old"."retired_at" IS NOT NULL) AND ("new"."retired_at" IS NULL))) EXECUTE FUNCTION "private"."enforce_user_board_limit"();
+
+
+
+CREATE OR REPLACE TRIGGER "freeze_email_campaign" BEFORE UPDATE ON "public"."email_campaigns" FOR EACH ROW EXECUTE FUNCTION "public"."freeze_email_campaign"();
+
+
+
+CREATE OR REPLACE TRIGGER "freeze_pro_offer_program" BEFORE UPDATE ON "public"."pro_offer_programs" FOR EACH ROW EXECUTE FUNCTION "public"."freeze_pro_offer_program"();
 
 
 
@@ -26683,11 +35274,171 @@ CREATE OR REPLACE TRIGGER "set_roadmap_items_updated_at" BEFORE UPDATE ON "publi
 
 
 
+CREATE OR REPLACE TRIGGER "set_session_imports_updated_at" BEFORE UPDATE ON "public"."session_imports" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_session_prompt_responses_updated_at" BEFORE UPDATE ON "public"."session_prompt_responses" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
 CREATE OR REPLACE TRIGGER "set_user_entitlements_updated_at" BEFORE UPDATE ON "public"."user_entitlements" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
+CREATE OR REPLACE TRIGGER "set_watch_uploads_updated_at" BEFORE UPDATE ON "public"."watch_uploads" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
 CREATE OR REPLACE TRIGGER "surf_drops_set_updated_at" BEFORE UPDATE ON "public"."surf_drops" FOR EACH ROW EXECUTE FUNCTION "public"."set_surf_drops_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_outlook_user_state_updated_at" BEFORE UPDATE ON "public"."swell_outlook_user_state" FOR EACH ROW EXECUTE FUNCTION "public"."set_swell_outlook_user_state_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_aliases_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_event_aliases" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_announcements_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_recipient_announcements" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_beach_impacts_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_beach_impacts" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_control_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_automation_control" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_control_transitions_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_automation_control_transitions" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_evaluation_policy_guard" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_evaluation_policies" FOR EACH ROW EXECUTE FUNCTION "public"."guard_swell_watch_evaluation_policy"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_event_evaluations_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_event_evaluations" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_event_impacts_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_event_impacts" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_events_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_regional_events" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_notification_event_bindings_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_notification_event_bindings" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_observations_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_observations" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_observations_verify_provider_batch" BEFORE INSERT ON "public"."swell_watch_observations" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_verify_provider_batch_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_observations_z_study_guard" BEFORE INSERT ON "public"."swell_watch_observations" FOR EACH ROW EXECUTE FUNCTION "public"."guard_swell_watch_study_observation"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_production_authority_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_production_approval_authority" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_delivery_outcomes_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_delivery_outcomes" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_attestation_subject" BEFORE INSERT ON "public"."swell_watch_provider_run_attestations" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_attestation_subject_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_attestations_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_attestations" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_batches_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_batches" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_completed_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_completed_batches" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_components_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_revision_components" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_issuances_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_issuances" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_raw_responses_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_revision_raw_responses" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_revision_members_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_revision_set_members" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_revision_sets_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_revision_sets" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_revisions_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_revisions" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_provider_run_scopes_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_provider_run_batch_scopes" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_shadow_demand_observations_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_shadow_demand_observations" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_shadow_demand_pairs_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_shadow_demand_pairs" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_shadow_demand_runs_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_shadow_demand_runs" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_state_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_event_state_transitions" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_study_acceptances_guard" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_study_acceptances" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_study_authority_guard" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_study_authorities" FOR EACH ROW EXECUTE FUNCTION "public"."guard_swell_watch_study_authority"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_study_beach_scope_guard" BEFORE UPDATE OF "lat", "lon", "swell_window_center_deg", "swell_window_halfwidth_deg", "swell_access_factors", "terrain_enabled", "deepwater_decay_factor", "shoaling_factors" ON "public"."beaches" FOR EACH ROW EXECUTE FUNCTION "public"."guard_swell_watch_study_beach_scope"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_study_evaluations_guard" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_study_evaluations" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_provider_run_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "swell_watch_study_recovery_failures_append_only" BEFORE INSERT OR DELETE OR UPDATE ON "public"."swell_watch_study_recovery_failures" FOR EACH ROW EXECUTE FUNCTION "public"."swell_watch_append_only_trigger"();
+
+
+
+CREATE OR REPLACE TRIGGER "track_email_due_age" BEFORE INSERT OR UPDATE ON "public"."email_lifecycle_recipients" FOR EACH ROW EXECUTE FUNCTION "public"."track_email_due_age"();
 
 
 
@@ -26727,11 +35478,19 @@ CREATE OR REPLACE TRIGGER "trigger_apply_session_tide_snapshot" BEFORE INSERT OR
 
 
 
+CREATE OR REPLACE TRIGGER "trigger_apply_session_wave_height_source" BEFORE INSERT OR UPDATE OF "wave_height_ft" ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."apply_session_wave_height_source"();
+
+
+
+CREATE OR REPLACE TRIGGER "trigger_apply_submit_wave_height_source" AFTER INSERT ON "public"."user_events" FOR EACH ROW WHEN (("new"."event_type" = 'session_log_submit'::"text")) EXECUTE FUNCTION "public"."apply_submit_wave_height_source_to_session"();
+
+
+
 CREATE OR REPLACE TRIGGER "trigger_capture_board_snapshot" BEFORE INSERT OR UPDATE ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."capture_board_snapshot"();
 
 
 
-CREATE OR REPLACE TRIGGER "trigger_create_session_forecast_snapshot" AFTER INSERT OR UPDATE OF "status", "beach_id", "wave_quality", "water_temp", "crowd_level", "parking_ease", "rating", "notes", "duration_minutes", "arrival_time", "wave_height_ft", "wind_speed_mph", "wind_direction", "forecast_accuracy", "tide_height_ft", "tide_status" ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."create_session_forecast_snapshot"();
+CREATE OR REPLACE TRIGGER "trigger_create_session_forecast_snapshot" AFTER INSERT OR UPDATE OF "status", "beach_id", "wave_quality", "water_temp", "crowd_level", "parking_ease", "rating", "notes", "duration_minutes", "arrival_time", "wave_height_ft", "wind_speed_mph", "wind_direction", "forecast_accuracy", "tide_height_ft", "tide_status", "wave_size_vs_forecast", "forecast_wave_height_ft" ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."create_session_forecast_snapshot"();
 
 
 
@@ -26744,6 +35503,10 @@ CREATE OR REPLACE TRIGGER "trigger_increment_share_count" AFTER INSERT ON "publi
 
 
 CREATE OR REPLACE TRIGGER "trigger_maintain_board_session_count" AFTER INSERT OR DELETE OR UPDATE OF "board_id" ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."maintain_board_session_count"();
+
+
+
+CREATE OR REPLACE TRIGGER "trigger_requeue_session_conditions" BEFORE UPDATE OF "beach_id", "arrival_time", "wind_speed_mph", "wind_direction", "wind_direction_deg" ON "public"."sessions" FOR EACH ROW EXECUTE FUNCTION "public"."requeue_session_conditions"();
 
 
 
@@ -27004,6 +35767,11 @@ ALTER TABLE ONLY "public"."beach_amenity_sources"
 
 
 
+ALTER TABLE ONLY "public"."beach_coordinate_corrections"
+    ADD CONSTRAINT "beach_coordinate_corrections_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."beach_daily_intel"
     ADD CONSTRAINT "beach_daily_intel_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
 
@@ -27064,11 +35832,6 @@ ALTER TABLE ONLY "public"."beach_photos"
 
 
 
-ALTER TABLE ONLY "public"."beach_photos_history"
-    ADD CONSTRAINT "beach_photos_history_changed_by_fkey" FOREIGN KEY ("changed_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."beach_recommendation_calibration"
     ADD CONSTRAINT "beach_recommendation_calibration_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id");
 
@@ -27104,6 +35867,11 @@ ALTER TABLE ONLY "public"."beach_sources"
 
 
 
+ALTER TABLE ONLY "public"."beach_traffic_weights"
+    ADD CONSTRAINT "beach_traffic_weights_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."beach_water_quality"
     ADD CONSTRAINT "beach_water_quality_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
 
@@ -27114,8 +35882,23 @@ ALTER TABLE ONLY "public"."beach_water_quality"
 
 
 
+ALTER TABLE ONLY "public"."beach_wind_observations"
+    ADD CONSTRAINT "beach_wind_observations_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."beaches"
     ADD CONSTRAINT "beaches_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."cancellation_feedback"
+    ADD CONSTRAINT "cancellation_feedback_cancellation_event_id_fkey" FOREIGN KEY ("cancellation_event_id") REFERENCES "public"."revenuecat_provider_events"("provider_event_id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."cancellation_feedback"
+    ADD CONSTRAINT "cancellation_feedback_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -27224,6 +36007,11 @@ ALTER TABLE ONLY "public"."community_photo_reports"
 
 
 
+ALTER TABLE ONLY "public"."community_photo_terms_acceptances"
+    ADD CONSTRAINT "community_photo_terms_acceptances_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."community_photo_votes"
     ADD CONSTRAINT "community_photo_votes_photo_id_fkey" FOREIGN KEY ("photo_id") REFERENCES "public"."community_spot_photos"("id") ON DELETE CASCADE;
 
@@ -27264,8 +36052,18 @@ ALTER TABLE ONLY "public"."content_reports"
 
 
 
-ALTER TABLE ONLY "public"."corrected_forecasts"
-    ADD CONSTRAINT "corrected_forecasts_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."county_beach_advisories"
+    ADD CONSTRAINT "county_beach_advisories_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."county_beach_advisories"
+    ADD CONSTRAINT "county_beach_advisories_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "public"."county_beach_advisory_runs"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."custom_spot_analysis_jobs"
+    ADD CONSTRAINT "custom_spot_analysis_jobs_custom_spot_id_fkey" FOREIGN KEY ("custom_spot_id") REFERENCES "public"."custom_spots"("id") ON DELETE CASCADE;
 
 
 
@@ -27295,6 +36093,11 @@ ALTER TABLE ONLY "public"."dev_notes_queue"
 
 
 ALTER TABLE ONLY "public"."earned_pro_grants"
+    ADD CONSTRAINT "earned_pro_grants_offer_award_id_fkey" FOREIGN KEY ("offer_award_id") REFERENCES "public"."pro_offer_awards"("id");
+
+
+
+ALTER TABLE ONLY "public"."earned_pro_grants"
     ADD CONSTRAINT "earned_pro_grants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
@@ -27304,8 +36107,38 @@ ALTER TABLE ONLY "public"."email_click_events"
 
 
 
+ALTER TABLE ONLY "public"."email_contact_attempts"
+    ADD CONSTRAINT "email_contact_attempts_campaign_id_fkey" FOREIGN KEY ("campaign_id") REFERENCES "public"."email_campaigns"("id");
+
+
+
+ALTER TABLE ONLY "public"."email_contact_attempts"
+    ADD CONSTRAINT "email_contact_attempts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."email_contact_controls"
+    ADD CONSTRAINT "email_contact_controls_automation_campaign_fkey" FOREIGN KEY ("automation_campaign") REFERENCES "public"."email_campaigns"("id");
+
+
+
+ALTER TABLE ONLY "public"."email_contact_state"
+    ADD CONSTRAINT "email_contact_state_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."email_delivery_events"
     ADD CONSTRAINT "email_delivery_events_email_send_log_id_fkey" FOREIGN KEY ("email_send_log_id") REFERENCES "public"."email_send_log"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."email_lifecycle_recipients"
+    ADD CONSTRAINT "email_lifecycle_recipients_campaign_id_fkey" FOREIGN KEY ("campaign_id") REFERENCES "public"."email_campaigns"("id");
+
+
+
+ALTER TABLE ONLY "public"."email_lifecycle_recipients"
+    ADD CONSTRAINT "email_lifecycle_recipients_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -27376,11 +36209,6 @@ ALTER TABLE ONLY "public"."garmin_session_candidates"
 
 ALTER TABLE ONLY "public"."garmin_session_candidates"
     ADD CONSTRAINT "garmin_session_candidates_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id");
-
-
-
-ALTER TABLE ONLY "public"."gfs_wave_shadow_forecasts"
-    ADD CONSTRAINT "gfs_wave_shadow_forecasts_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
 
 
 
@@ -27469,6 +36297,11 @@ ALTER TABLE ONLY "public"."notification_delivery_attempts"
 
 
 
+ALTER TABLE ONLY "public"."notification_delivery_targets"
+    ADD CONSTRAINT "notification_delivery_targets_notification_event_id_fkey" FOREIGN KEY ("notification_event_id") REFERENCES "public"."notification_events"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."notification_events"
     ADD CONSTRAINT "notification_events_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
@@ -27506,6 +36339,21 @@ ALTER TABLE ONLY "public"."pending_alert_captures"
 
 ALTER TABLE ONLY "public"."personalization_milestones"
     ADD CONSTRAINT "personalization_milestones_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."pro_offer_awards"
+    ADD CONSTRAINT "pro_offer_awards_claim_message_instance_id_fkey" FOREIGN KEY ("claim_message_instance_id") REFERENCES "public"."email_contact_attempts"("id");
+
+
+
+ALTER TABLE ONLY "public"."pro_offer_awards"
+    ADD CONSTRAINT "pro_offer_awards_program_id_fkey" FOREIGN KEY ("program_id") REFERENCES "public"."pro_offer_programs"("id");
+
+
+
+ALTER TABLE ONLY "public"."pro_offer_awards"
+    ADD CONSTRAINT "pro_offer_awards_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -27619,6 +36467,21 @@ ALTER TABLE ONLY "public"."session_forecast_snapshots"
 
 
 
+ALTER TABLE ONLY "public"."session_imports"
+    ADD CONSTRAINT "session_imports_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "public"."watch_devices"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."session_imports"
+    ADD CONSTRAINT "session_imports_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."session_imports"
+    ADD CONSTRAINT "session_imports_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."session_invitations"
     ADD CONSTRAINT "session_invitations_invitee_id_fkey" FOREIGN KEY ("invitee_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
@@ -27669,6 +36532,16 @@ ALTER TABLE ONLY "public"."session_media"
 
 
 
+ALTER TABLE ONLY "public"."session_prompt_responses"
+    ADD CONSTRAINT "session_prompt_responses_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."session_prompt_responses"
+    ADD CONSTRAINT "session_prompt_responses_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."session_share_links"
     ADD CONSTRAINT "session_share_links_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE CASCADE;
 
@@ -27689,6 +36562,41 @@ ALTER TABLE ONLY "public"."session_shares"
 
 
 
+ALTER TABLE ONLY "public"."session_tracks"
+    ADD CONSTRAINT "session_tracks_import_id_fkey" FOREIGN KEY ("import_id") REFERENCES "public"."session_imports"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."session_tracks"
+    ADD CONSTRAINT "session_tracks_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."session_watch_claims"
+    ADD CONSTRAINT "session_watch_claims_claimed_import_id_fkey" FOREIGN KEY ("claimed_import_id") REFERENCES "public"."session_imports"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."session_watch_claims"
+    ADD CONSTRAINT "session_watch_claims_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "public"."watch_devices"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."session_watch_claims"
+    ADD CONSTRAINT "session_watch_claims_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."session_watch_claims"
+    ADD CONSTRAINT "session_watch_claims_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."session_wave_corrections"
+    ADD CONSTRAINT "session_wave_corrections_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."session_wave_observation_candidates"
     ADD CONSTRAINT "session_wave_observation_candidates_ml_prediction_id_fkey" FOREIGN KEY ("ml_prediction_id") REFERENCES "public"."ml_predictions_log"("id") ON DELETE SET NULL;
 
@@ -27696,6 +36604,11 @@ ALTER TABLE ONLY "public"."session_wave_observation_candidates"
 
 ALTER TABLE ONLY "public"."session_wave_observation_candidates"
     ADD CONSTRAINT "session_wave_observation_candidates_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."session_waves"
+    ADD CONSTRAINT "session_waves_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."sessions"("id") ON DELETE CASCADE;
 
 
 
@@ -27784,8 +36697,293 @@ ALTER TABLE ONLY "public"."surf_drops"
 
 
 
-ALTER TABLE ONLY "public"."surfline_shadow_forecasts"
-    ADD CONSTRAINT "surfline_shadow_forecasts_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."surf_game_scores"
+    ADD CONSTRAINT "surf_game_scores_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."swell_event_alerts"
+    ADD CONSTRAINT "swell_event_alerts_lead_beach_id_fkey" FOREIGN KEY ("lead_beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."swell_event_alerts"
+    ADD CONSTRAINT "swell_event_alerts_notification_event_id_fkey" FOREIGN KEY ("notification_event_id") REFERENCES "public"."notification_events"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."swell_event_alerts"
+    ADD CONSTRAINT "swell_event_alerts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."swell_event_forecast_snapshots"
+    ADD CONSTRAINT "swell_event_forecast_snapshots_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."swell_event_user_state"
+    ADD CONSTRAINT "swell_event_user_state_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."swell_event_user_state"
+    ADD CONSTRAINT "swell_event_user_state_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."swell_event_verifications"
+    ADD CONSTRAINT "swell_event_verifications_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."swell_outlook_user_state"
+    ADD CONSTRAINT "swell_outlook_user_state_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_automation_control_transitions"
+    ADD CONSTRAINT "swell_watch_automation_control_transitions_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_beach_impacts"
+    ADD CONSTRAINT "swell_watch_beach_impacts_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_beach_impacts"
+    ADD CONSTRAINT "swell_watch_beach_impacts_observation_id_fkey" FOREIGN KEY ("observation_id") REFERENCES "public"."swell_watch_observations"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_aliases"
+    ADD CONSTRAINT "swell_watch_event_aliases_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_evaluations"
+    ADD CONSTRAINT "swell_watch_event_evaluations_beach_impact_id_fkey" FOREIGN KEY ("beach_impact_id") REFERENCES "public"."swell_watch_beach_impacts"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_evaluations"
+    ADD CONSTRAINT "swell_watch_event_evaluations_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_impacts"
+    ADD CONSTRAINT "swell_watch_event_impacts_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_impacts"
+    ADD CONSTRAINT "swell_watch_event_impacts_beach_impact_id_beach_id_evaluat_fkey" FOREIGN KEY ("beach_impact_id", "beach_id", "evaluation_id") REFERENCES "public"."swell_watch_beach_impacts"("id", "beach_id", "evaluation_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_impacts"
+    ADD CONSTRAINT "swell_watch_event_impacts_beach_impact_id_fkey" FOREIGN KEY ("beach_impact_id") REFERENCES "public"."swell_watch_beach_impacts"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_impacts"
+    ADD CONSTRAINT "swell_watch_event_impacts_regional_event_id_evaluation_id_fkey" FOREIGN KEY ("regional_event_id", "evaluation_id") REFERENCES "public"."swell_watch_event_evaluations"("regional_event_id", "evaluation_id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_impacts"
+    ADD CONSTRAINT "swell_watch_event_impacts_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_event_state_transitions"
+    ADD CONSTRAINT "swell_watch_event_state_transitions_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_notification_event_bindings"
+    ADD CONSTRAINT "swell_watch_notification_event_bindi_notification_event_id_fkey" FOREIGN KEY ("notification_event_id") REFERENCES "public"."notification_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_notification_event_bindings"
+    ADD CONSTRAINT "swell_watch_notification_event_bindings_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_notification_event_bindings"
+    ADD CONSTRAINT "swell_watch_notification_event_bindings_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_notification_event_bindings"
+    ADD CONSTRAINT "swell_watch_notification_event_bindings_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_observations"
+    ADD CONSTRAINT "swell_watch_observations_provider_batch_id_fkey" FOREIGN KEY ("provider_batch_id") REFERENCES "public"."swell_watch_provider_run_completed_batches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_observations"
+    ADD CONSTRAINT "swell_watch_observations_source_point_id_fkey" FOREIGN KEY ("source_point_id") REFERENCES "public"."beaches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_delivery_outcomes"
+    ADD CONSTRAINT "swell_watch_provider_delivery_outcom_notification_event_id_fkey" FOREIGN KEY ("notification_event_id") REFERENCES "public"."notification_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_attestations"
+    ADD CONSTRAINT "swell_watch_provider_run_attestatio_revokes_attestation_id_fkey" FOREIGN KEY ("revokes_attestation_id") REFERENCES "public"."swell_watch_provider_run_attestations"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_attestations"
+    ADD CONSTRAINT "swell_watch_provider_run_attestations_revision_set_id_fkey" FOREIGN KEY ("revision_set_id") REFERENCES "public"."swell_watch_provider_run_revision_sets"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_batch_scopes"
+    ADD CONSTRAINT "swell_watch_provider_run_batch_scopes_batch_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "public"."swell_watch_provider_run_batches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_batch_scopes"
+    ADD CONSTRAINT "swell_watch_provider_run_batch_scopes_source_point_id_fkey" FOREIGN KEY ("source_point_id") REFERENCES "public"."beaches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_batches"
+    ADD CONSTRAINT "swell_watch_provider_run_batches_issuance_id_fkey" FOREIGN KEY ("issuance_id") REFERENCES "public"."swell_watch_provider_run_issuances"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_completed_batches"
+    ADD CONSTRAINT "swell_watch_provider_run_completed_batches_batch_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "public"."swell_watch_provider_run_batches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_completed_batches"
+    ADD CONSTRAINT "swell_watch_provider_run_completed_batches_revision_set_id_fkey" FOREIGN KEY ("revision_set_id") REFERENCES "public"."swell_watch_provider_run_revision_sets"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_components"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_components_revision_id_fkey" FOREIGN KEY ("revision_id") REFERENCES "public"."swell_watch_provider_run_revisions"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_raw_responses"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_raw_response_revision_id_fkey" FOREIGN KEY ("revision_id") REFERENCES "public"."swell_watch_provider_run_revisions"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_set_members"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_set_memb_revision_set_id_fkey" FOREIGN KEY ("revision_set_id") REFERENCES "public"."swell_watch_provider_run_revision_sets"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_set_members"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_set_members_revision_id_fkey" FOREIGN KEY ("revision_id") REFERENCES "public"."swell_watch_provider_run_revisions"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_set_members"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_set_members_scope_id_fkey" FOREIGN KEY ("scope_id") REFERENCES "public"."swell_watch_provider_run_batch_scopes"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revision_sets"
+    ADD CONSTRAINT "swell_watch_provider_run_revision_sets_batch_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "public"."swell_watch_provider_run_batches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_provider_run_revisions"
+    ADD CONSTRAINT "swell_watch_provider_run_revisions_scope_id_fkey" FOREIGN KEY ("scope_id") REFERENCES "public"."swell_watch_provider_run_batch_scopes"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_recipient_announcements"
+    ADD CONSTRAINT "swell_watch_recipient_announcements_notification_event_id_fkey" FOREIGN KEY ("notification_event_id") REFERENCES "public"."notification_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_recipient_announcements"
+    ADD CONSTRAINT "swell_watch_recipient_announcements_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_recipient_announcements"
+    ADD CONSTRAINT "swell_watch_recipient_announcements_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_observations"
+    ADD CONSTRAINT "swell_watch_shadow_demand_obs_duplicate_of_regional_event__fkey" FOREIGN KEY ("duplicate_of_regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_observations"
+    ADD CONSTRAINT "swell_watch_shadow_demand_observations_provider_batch_id_fkey" FOREIGN KEY ("provider_batch_id") REFERENCES "public"."swell_watch_provider_run_completed_batches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_observations"
+    ADD CONSTRAINT "swell_watch_shadow_demand_observations_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_observations"
+    ADD CONSTRAINT "swell_watch_shadow_demand_observations_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_pairs"
+    ADD CONSTRAINT "swell_watch_shadow_demand_pairs_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_pairs"
+    ADD CONSTRAINT "swell_watch_shadow_demand_pairs_regional_event_id_fkey" FOREIGN KEY ("regional_event_id") REFERENCES "public"."swell_watch_regional_events"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_shadow_demand_runs"
+    ADD CONSTRAINT "swell_watch_shadow_demand_runs_provider_batch_id_fkey" FOREIGN KEY ("provider_batch_id") REFERENCES "public"."swell_watch_provider_run_completed_batches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_acceptances"
+    ADD CONSTRAINT "swell_watch_study_acceptances_attestation_id_fkey" FOREIGN KEY ("attestation_id") REFERENCES "public"."swell_watch_provider_run_attestations"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_acceptances"
+    ADD CONSTRAINT "swell_watch_study_acceptances_authority_epoch_fkey" FOREIGN KEY ("authority_epoch") REFERENCES "public"."swell_watch_study_authorities"("epoch");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_acceptances"
+    ADD CONSTRAINT "swell_watch_study_acceptances_revision_set_id_fkey" FOREIGN KEY ("revision_set_id") REFERENCES "public"."swell_watch_provider_run_revision_sets"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_evaluations"
+    ADD CONSTRAINT "swell_watch_study_evaluations_authority_epoch_fkey" FOREIGN KEY ("authority_epoch") REFERENCES "public"."swell_watch_study_authorities"("epoch");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_evaluations"
+    ADD CONSTRAINT "swell_watch_study_evaluations_provider_batch_id_fkey" FOREIGN KEY ("provider_batch_id") REFERENCES "public"."swell_watch_provider_run_completed_batches"("id");
+
+
+
+ALTER TABLE ONLY "public"."swell_watch_study_recovery_failures"
+    ADD CONSTRAINT "swell_watch_study_recovery_failures_revision_set_id_fkey" FOREIGN KEY ("revision_set_id") REFERENCES "public"."swell_watch_provider_run_revision_sets"("id");
 
 
 
@@ -27796,6 +36994,41 @@ ALTER TABLE ONLY "public"."tide_forecasts"
 
 ALTER TABLE ONLY "public"."trial_ending_push_log"
     ADD CONSTRAINT "trial_ending_push_log_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_cancellation_event_id_fkey" FOREIGN KEY ("cancellation_event_id") REFERENCES "public"."revenuecat_provider_events"("provider_event_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_provider_event_id_fkey" FOREIGN KEY ("provider_event_id") REFERENCES "public"."revenuecat_provider_events"("provider_event_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_source_message_id_fkey" FOREIGN KEY ("source_message_id") REFERENCES "public"."email_contact_attempts"("id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_trial_event_id_fkey" FOREIGN KEY ("trial_event_id") REFERENCES "public"."revenuecat_provider_events"("provider_event_id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_submissions"
+    ADD CONSTRAINT "trial_feedback_submissions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_web_recoveries"
+    ADD CONSTRAINT "trial_feedback_web_recoveries_submission_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "public"."trial_feedback_submissions"("id");
+
+
+
+ALTER TABLE ONLY "public"."trial_feedback_web_recoveries"
+    ADD CONSTRAINT "trial_feedback_web_recoveries_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -27851,6 +37084,11 @@ ALTER TABLE ONLY "public"."trusted_forecast_issues"
 
 ALTER TABLE ONLY "public"."trusted_forecast_issues"
     ADD CONSTRAINT "trusted_forecast_issues_supersedes_issue_id_fkey" FOREIGN KEY ("supersedes_issue_id") REFERENCES "public"."trusted_forecast_issues"("issue_id") ON DELETE RESTRICT;
+
+
+
+ALTER TABLE ONLY "public"."trusted_forecast_serving_projections"
+    ADD CONSTRAINT "trusted_forecast_serving_projections_application_fkey" FOREIGN KEY ("beach_id", "forecast_at") REFERENCES "public"."trusted_forecast_applications"("beach_id", "forecast_at") ON DELETE RESTRICT;
 
 
 
@@ -27974,6 +37212,51 @@ ALTER TABLE ONLY "public"."user_xp"
 
 
 
+ALTER TABLE ONLY "public"."watch_devices"
+    ADD CONSTRAINT "watch_devices_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."watch_link_codes"
+    ADD CONSTRAINT "watch_link_codes_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "public"."watch_devices"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."watch_link_codes"
+    ADD CONSTRAINT "watch_link_codes_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."watch_uploads"
+    ADD CONSTRAINT "watch_uploads_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "public"."watch_devices"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."watch_uploads"
+    ADD CONSTRAINT "watch_uploads_import_id_fkey" FOREIGN KEY ("import_id") REFERENCES "public"."session_imports"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."watch_uploads"
+    ADD CONSTRAINT "watch_uploads_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."water_quality_held_beaches"
+    ADD CONSTRAINT "water_quality_held_beaches_beach_id_fkey" FOREIGN KEY ("beach_id") REFERENCES "public"."beaches"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."week_scout_story_editions"
+    ADD CONSTRAINT "week_scout_story_editions_input_hash_fkey" FOREIGN KEY ("input_hash") REFERENCES "public"."week_scout_story_inputs"("input_hash") ON DELETE RESTRICT;
+
+
+
+ALTER TABLE ONLY "public"."week_scout_story_jobs"
+    ADD CONSTRAINT "week_scout_story_jobs_input_hash_fkey" FOREIGN KEY ("input_hash") REFERENCES "public"."week_scout_story_inputs"("input_hash") ON DELETE RESTRICT;
+
+
+
 ALTER TABLE ONLY "public"."weekend_scout_snapshots"
     ADD CONSTRAINT "weekend_scout_snapshots_lead_beach_id_fkey" FOREIGN KEY ("lead_beach_id") REFERENCES "public"."beaches"("id");
 
@@ -28062,10 +37345,6 @@ CREATE POLICY "Admins can view audit logs" ON "public"."admin_audit_log" FOR SEL
 
 
 CREATE POLICY "Admins can view media history" ON "public"."session_media_history" FOR SELECT USING ("public"."is_admin_user"());
-
-
-
-CREATE POLICY "Admins can view photos history" ON "public"."beach_photos_history" FOR SELECT USING ("public"."is_admin_user"());
 
 
 
@@ -28215,6 +37494,10 @@ CREATE POLICY "Service role has full access to session logs" ON "public"."sessio
 
 
 
+CREATE POLICY "Service role inserts RevenueCat provider events" ON "public"."revenuecat_provider_events" FOR INSERT TO "service_role" WITH CHECK (true);
+
+
+
 CREATE POLICY "Service role manages activation push log" ON "public"."activation_push_log" TO "service_role" USING (true) WITH CHECK (true);
 
 
@@ -28228,6 +37511,10 @@ CREATE POLICY "Service role manages session wave observation candidates" ON "pub
 
 
 CREATE POLICY "Service role manages trial-ending push log" ON "public"."trial_ending_push_log" TO "service_role" USING (true) WITH CHECK (true);
+
+
+
+CREATE POLICY "Service role reads RevenueCat provider events" ON "public"."revenuecat_provider_events" FOR SELECT TO "service_role" USING (true);
 
 
 
@@ -28610,6 +37897,9 @@ ALTER TABLE "public"."android_waitlist_events" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."android_waitlist_source_links" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."app_runtime_flags" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."apple_identity_recovery_audit" ENABLE ROW LEVEL SECURITY;
 
 
@@ -28643,6 +37933,9 @@ CREATE POLICY "beach_amenity_sources_select_public" ON "public"."beach_amenity_s
 
 CREATE POLICY "beach_amenity_sources_update_service_role" ON "public"."beach_amenity_sources" FOR UPDATE TO "service_role" USING (true) WITH CHECK (true);
 
+
+
+ALTER TABLE "public"."beach_coordinate_corrections" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."beach_daily_intel" ENABLE ROW LEVEL SECURITY;
@@ -28702,9 +37995,6 @@ ALTER TABLE "public"."beach_photo_submissions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."beach_photos" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."beach_photos_history" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "beach_photos_read_public" ON "public"."beach_photos" FOR SELECT USING ((("deleted_at" IS NULL) AND ("approved" = true)));
 
 
@@ -28745,6 +38035,9 @@ CREATE POLICY "beach_reviews_update_own" ON "public"."beach_reviews" FOR UPDATE 
 ALTER TABLE "public"."beach_sources" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."beach_traffic_weights" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."beach_water_quality" ENABLE ROW LEVEL SECURITY;
 
 
@@ -28762,6 +38055,9 @@ CREATE POLICY "beach_water_quality_select_public" ON "public"."beach_water_quali
 
 CREATE POLICY "beach_water_quality_update_service_role" ON "public"."beach_water_quality" FOR UPDATE TO "service_role" USING (true) WITH CHECK (true);
 
+
+
+ALTER TABLE "public"."beach_wind_observations" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."beaches" ENABLE ROW LEVEL SECURITY;
@@ -28827,6 +38123,9 @@ CREATE POLICY "calibration_versions_authenticated_read" ON "public"."ml_calibrat
 
 CREATE POLICY "calibration_versions_service_role" ON "public"."ml_calibration_versions" USING ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text"));
 
+
+
+ALTER TABLE "public"."cancellation_feedback" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."ccc_access_locations" ENABLE ROW LEVEL SECURITY;
@@ -28904,6 +38203,17 @@ ALTER TABLE "public"."community_photo_moderation_events" ENABLE ROW LEVEL SECURI
 ALTER TABLE "public"."community_photo_reports" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."community_photo_terms_acceptances" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "community_photo_terms_acceptances_insert_own" ON "public"."community_photo_terms_acceptances" FOR INSERT TO "authenticated" WITH CHECK (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "community_photo_terms_acceptances_select_own" ON "public"."community_photo_terms_acceptances" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
 ALTER TABLE "public"."community_photo_votes" ENABLE ROW LEVEL SECURITY;
 
 
@@ -28913,14 +38223,19 @@ ALTER TABLE "public"."community_spot_photos" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."content_reports" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."corrected_forecasts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."county_beach_advisories" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "corrected_forecasts_select_all" ON "public"."corrected_forecasts" FOR SELECT USING (true);
+ALTER TABLE "public"."county_beach_advisory_ingest_state" ENABLE ROW LEVEL SECURITY;
 
+
+ALTER TABLE "public"."county_beach_advisory_runs" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."cron_runs" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."custom_spot_analysis_jobs" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."custom_spots" ENABLE ROW LEVEL SECURITY;
@@ -28976,10 +38291,28 @@ CREATE POLICY "earned_pro_grants_service_role_all" ON "public"."earned_pro_grant
 
 
 
+ALTER TABLE "public"."email_campaigns" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."email_click_events" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."email_contact_attempts" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."email_contact_controls" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."email_contact_state" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."email_delivery_events" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."email_lifecycle_recipients" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."email_reply_events" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."email_send_log" ENABLE ROW LEVEL SECURITY;
@@ -29090,13 +38423,6 @@ CREATE POLICY "garmin_session_candidates_service_role_all" ON "public"."garmin_s
 
 
 
-ALTER TABLE "public"."gfs_wave_shadow_forecasts" ENABLE ROW LEVEL SECURITY;
-
-
-CREATE POLICY "gfs_wave_shadow_forecasts_service_role" ON "public"."gfs_wave_shadow_forecasts" USING (((( SELECT "auth"."jwt"() AS "jwt") ->> 'role'::"text") = 'service_role'::"text")) WITH CHECK (((( SELECT "auth"."jwt"() AS "jwt") ->> 'role'::"text") = 'service_role'::"text"));
-
-
-
 ALTER TABLE "public"."install_attribution_audit" ENABLE ROW LEVEL SECURITY;
 
 
@@ -29186,6 +38512,9 @@ ALTER TABLE "public"."ndbc_direct_stations" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notification_delivery_attempts" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."notification_delivery_targets" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."notification_events" ENABLE ROW LEVEL SECURITY;
 
 
@@ -29218,6 +38547,12 @@ ALTER TABLE "public"."posting_config" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."posting_log" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."pro_offer_awards" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."pro_offer_programs" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 
 
@@ -29242,6 +38577,12 @@ CREATE POLICY "qr_business_venues_select_public_active" ON "public"."qr_business
 
 CREATE POLICY "qr_business_venues_update_service_role" ON "public"."qr_business_venues" FOR UPDATE TO "service_role" USING (true) WITH CHECK (true);
 
+
+
+ALTER TABLE "public"."rain_advisory_events" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."rainfall_runoff_readings" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."recommendation_impressions" ENABLE ROW LEVEL SECURITY;
@@ -29285,6 +38626,9 @@ ALTER TABLE "public"."regional_recommendation_holds" ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "reporter can view own reports" ON "public"."content_reports" FOR SELECT TO "authenticated" USING (("reporter_id" = "auth"."uid"()));
 
+
+
+ALTER TABLE "public"."revenuecat_provider_events" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."rip_current_risks" ENABLE ROW LEVEL SECURITY;
@@ -29334,11 +38678,21 @@ CREATE POLICY "roadmap_votes_public_read" ON "public"."roadmap_votes" FOR SELECT
 ALTER TABLE "public"."saved_windows" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."seaside_cron_runs" ENABLE ROW LEVEL SECURITY;
+
+
 CREATE POLICY "select_all" ON "public"."beach_sources" FOR SELECT USING (true);
 
 
 
 ALTER TABLE "public"."session_forecast_snapshots" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."session_imports" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "session_imports_select_own" ON "public"."session_imports" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
 
 
 ALTER TABLE "public"."session_invitations" ENABLE ROW LEVEL SECURITY;
@@ -29394,13 +38748,80 @@ CREATE POLICY "session_media_update_owner_or_admin" ON "public"."session_media" 
 
 
 
+ALTER TABLE "public"."session_prompt_responses" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "session_prompt_responses_insert_own" ON "public"."session_prompt_responses" FOR INSERT TO "authenticated" WITH CHECK (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "session_prompt_responses_select_own" ON "public"."session_prompt_responses" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "session_prompt_responses_update_own" ON "public"."session_prompt_responses" FOR UPDATE TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
 ALTER TABLE "public"."session_share_links" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."session_shares" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."session_tracks" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "session_tracks_select_own" ON "public"."session_tracks" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."session_watch_claims" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "session_watch_claims_delete_own" ON "public"."session_watch_claims" FOR DELETE TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "session_watch_claims_insert_own" ON "public"."session_watch_claims" FOR INSERT TO "authenticated" WITH CHECK ((("user_id" = ( SELECT "auth"."uid"() AS "uid")) AND (EXISTS ( SELECT 1
+   FROM "public"."sessions" "s"
+  WHERE (("s"."id" = "session_watch_claims"."session_id") AND ("s"."user_id" = ( SELECT "auth"."uid"() AS "uid")) AND ("s"."deleted_at" IS NULL)))) AND (("device_id" IS NULL) OR (EXISTS ( SELECT 1
+   FROM "public"."watch_devices" "d"
+  WHERE (("d"."id" = "session_watch_claims"."device_id") AND ("d"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))))));
+
+
+
+CREATE POLICY "session_watch_claims_select_own" ON "public"."session_watch_claims" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."session_wave_corrections" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "session_wave_corrections_delete_own" ON "public"."session_wave_corrections" FOR DELETE TO "authenticated" USING ((("user_id" = ( SELECT "auth"."uid"() AS "uid")) AND (EXISTS ( SELECT 1
+   FROM "public"."sessions" "s"
+  WHERE (("s"."id" = "session_wave_corrections"."session_id") AND ("s"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))));
+
+
+
+CREATE POLICY "session_wave_corrections_insert_own" ON "public"."session_wave_corrections" FOR INSERT TO "authenticated" WITH CHECK ((("user_id" = ( SELECT "auth"."uid"() AS "uid")) AND (EXISTS ( SELECT 1
+   FROM "public"."sessions" "s"
+  WHERE (("s"."id" = "session_wave_corrections"."session_id") AND ("s"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))));
+
+
+
+CREATE POLICY "session_wave_corrections_select_own" ON "public"."session_wave_corrections" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
 ALTER TABLE "public"."session_wave_observation_candidates" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."session_waves" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "session_waves_select_own" ON "public"."session_waves" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
 
 
 ALTER TABLE "public"."sessions" ENABLE ROW LEVEL SECURITY;
@@ -29529,23 +38950,118 @@ CREATE POLICY "surf_drops_update_own" ON "public"."surf_drops" FOR UPDATE TO "au
 
 
 
-ALTER TABLE "public"."surfline_shadow_forecasts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."surf_game_scores" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "surfline_shadow_select_all" ON "public"."surfline_shadow_forecasts" FOR SELECT USING (true);
+ALTER TABLE "public"."swell_event_alerts" ENABLE ROW LEVEL SECURITY;
 
 
-
-CREATE POLICY "surfline_shadow_service_role_delete" ON "public"."surfline_shadow_forecasts" FOR DELETE USING ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text"));
-
+ALTER TABLE "public"."swell_event_forecast_snapshots" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "surfline_shadow_service_role_insert" ON "public"."surfline_shadow_forecasts" FOR INSERT WITH CHECK ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text"));
+ALTER TABLE "public"."swell_event_user_state" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."swell_event_verifications" ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "surfline_shadow_service_role_update" ON "public"."surfline_shadow_forecasts" FOR UPDATE USING ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text")) WITH CHECK ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text"));
 
+ALTER TABLE "public"."swell_outlook_user_state" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_automation_control" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_automation_control_transitions" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_beach_impacts" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_collection_lease" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_evaluation_policies" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_event_aliases" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_event_evaluations" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_event_impacts" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_event_state_transitions" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_notification_event_bindings" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_observations" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_production_approval_authority" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_delivery_outcomes" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_attestations" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_batch_scopes" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_batches" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_completed_batches" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_issuances" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_components" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_raw_responses" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_set_members" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revision_sets" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_provider_run_revisions" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_recipient_announcements" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_regional_events" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_shadow_demand_observations" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_shadow_demand_pairs" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_shadow_demand_runs" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_study_acceptances" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_study_authorities" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_study_evaluations" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."swell_watch_study_recovery_failures" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."tide_forecasts" ENABLE ROW LEVEL SECURITY;
@@ -29556,6 +39072,18 @@ CREATE POLICY "tide_forecasts_select_all" ON "public"."tide_forecasts" FOR SELEC
 
 
 ALTER TABLE "public"."trial_ending_push_log" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."trial_feedback_controls" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."trial_feedback_offer_policy" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."trial_feedback_submissions" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."trial_feedback_web_recoveries" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."trusted_forecast_alerts" ENABLE ROW LEVEL SECURITY;
@@ -29577,6 +39105,9 @@ ALTER TABLE "public"."trusted_forecast_ingest_source_results" ENABLE ROW LEVEL S
 
 
 ALTER TABLE "public"."trusted_forecast_issues" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."trusted_forecast_serving_projections" ENABLE ROW LEVEL SECURITY;
 
 
 CREATE POLICY "user can delete own blocks" ON "public"."user_blocks" FOR DELETE TO "authenticated" USING (("blocker_id" = "auth"."uid"()));
@@ -29677,6 +39208,35 @@ ALTER TABLE "public"."user_xp" ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "users read own notification events" ON "public"."notification_events" FOR SELECT USING ((( SELECT "auth"."uid"() AS "uid") = "recipient_user_id"));
 
+
+
+ALTER TABLE "public"."watch_devices" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "watch_devices_select_own" ON "public"."watch_devices" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."watch_link_codes" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."watch_uploads" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "watch_uploads_select_own" ON "public"."watch_uploads" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."water_quality_held_beaches" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."week_scout_story_editions" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."week_scout_story_inputs" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."week_scout_story_jobs" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."weekend_scout_snapshots" ENABLE ROW LEVEL SECURITY;
@@ -29784,6 +39344,10 @@ GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+GRANT USAGE ON SCHEMA "quiver_agent_evidence" TO "quiver_agent_readonly";
 
 
 
@@ -32191,6 +41755,11 @@ GRANT ALL ON FUNCTION "public"."admin_list_community_spot_photos_v1"("p_status" 
 
 
 
+REVOKE ALL ON FUNCTION "public"."advance_swell_watch_event"("p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_beach_impact_id" "uuid", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone, "p_transition_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."advance_swell_watch_event"("p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_beach_impact_id" "uuid", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone, "p_transition_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."experiment_assignments" TO "service_role";
 
 
@@ -32229,6 +41798,11 @@ GRANT ALL ON FUNCTION "public"."append_regional_recommendation_hold_transition"(
 
 
 
+REVOKE ALL ON FUNCTION "public"."append_swell_watch_state_transition"("p_transition_id" "uuid", "p_regional_event_id" "uuid", "p_expected_version" integer, "p_state" "text", "p_evaluation_id" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."append_swell_watch_state_transition"("p_transition_id" "uuid", "p_regional_event_id" "uuid", "p_expected_version" integer, "p_state" "text", "p_evaluation_id" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."apply_android_tester_roster_snapshot"("p_actor_user_id" "uuid", "p_claim_token" "uuid", "p_snapshot_complete" boolean, "p_observed_at" timestamp with time zone, "p_observations" "jsonb", "p_direct_user_count" integer, "p_failure_code" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."apply_android_tester_roster_snapshot"("p_actor_user_id" "uuid", "p_claim_token" "uuid", "p_snapshot_complete" boolean, "p_observed_at" timestamp with time zone, "p_observations" "jsonb", "p_direct_user_count" integer, "p_failure_code" "text") TO "service_role";
 
@@ -32243,6 +41817,21 @@ GRANT ALL ON FUNCTION "public"."apply_session_rip_current_risk"() TO "service_ro
 GRANT ALL ON FUNCTION "public"."apply_session_tide_snapshot"() TO "anon";
 GRANT ALL ON FUNCTION "public"."apply_session_tide_snapshot"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_session_tide_snapshot"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."apply_session_wave_height_source"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."apply_session_wave_height_source"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."apply_submit_wave_height_source_to_session"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."apply_submit_wave_height_source_to_session"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."apply_verified_pro_offer_mirror"("p_award_id" "uuid", "p_receipt" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."apply_verified_pro_offer_mirror"("p_award_id" "uuid", "p_receipt" "jsonb") TO "service_role";
 
 
 
@@ -32266,6 +41855,15 @@ GRANT ALL ON FUNCTION "public"."assign_signup_experiments"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."attest_swell_watch_provider_run"("p_attestation_id" "uuid", "p_revision_set_id" "uuid", "p_state" "text", "p_reviewer" "text", "p_evidence_sha256" "text", "p_provider_contract_ref" "text", "p_revokes_attestation_id" "uuid") FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."attribute_pro_offer_claim"("p_user_id" "uuid", "p_award_id" "uuid", "p_message_instance_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."attribute_pro_offer_claim"("p_user_id" "uuid", "p_award_id" "uuid", "p_message_instance_id" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."backfill_android_waitlist_entries"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."backfill_android_waitlist_entries"() TO "service_role";
 
@@ -32282,9 +41880,45 @@ GRANT ALL ON FUNCTION "public"."backfill_ml_observations_batch"("batch_size" int
 
 
 
-GRANT ALL ON FUNCTION "public"."bulk_update_hrrr_wind"("payload" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."bulk_update_hrrr_wind"("payload" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."begin_email_lifecycle"("p_attempt_id" "uuid", "p_payload" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."begin_email_lifecycle"("p_attempt_id" "uuid", "p_payload" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."begin_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."begin_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."begin_trial_feedback_handoff"("p_user_id" "uuid", "p_reservation_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."begin_trial_feedback_handoff"("p_user_id" "uuid", "p_reservation_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."begin_trial_feedback_web"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."begin_trial_feedback_web"("p_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."break_type_families"("p_break_type" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."break_type_families"("p_break_type" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."break_type_families"("p_break_type" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."break_types_match"("p_a" "text", "p_b" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."break_types_match"("p_a" "text", "p_b" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."break_types_match"("p_a" "text", "p_b" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bulk_update_hrrr_wind"("payload" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."bulk_update_hrrr_wind"("payload" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bulk_upsert_rtma_wind_observations"("payload" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."bulk_upsert_rtma_wind_observations"("payload" "jsonb") TO "service_role";
 
 
 
@@ -32296,6 +41930,11 @@ GRANT ALL ON FUNCTION "public"."can_view_surf_drop"("p_drop_id" "uuid", "p_viewe
 
 REVOKE ALL ON FUNCTION "public"."capture_board_snapshot"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."capture_board_snapshot"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."capture_lifecycle_email_preference"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."capture_lifecycle_email_preference"() TO "service_role";
 
 
 
@@ -32319,13 +41958,39 @@ GRANT ALL ON FUNCTION "public"."claim_android_tester_roster_sync"("p_actor_user_
 
 
 
+REVOKE ALL ON FUNCTION "public"."claim_custom_spot_analysis_jobs"("p_batch_size" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_custom_spot_analysis_jobs"("p_batch_size" integer) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."claim_daily_forecast_notification_slot"("p_user_id" "uuid", "p_beach_id" "uuid", "p_notification_type" "text", "p_local_forecast_date" "date") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."claim_daily_forecast_notification_slot"("p_user_id" "uuid", "p_beach_id" "uuid", "p_notification_type" "text", "p_local_forecast_date" "date") TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."claim_email_contact"("p_user_id" "uuid", "p_email" "text", "p_email_type" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_email_contact"("p_user_id" "uuid", "p_email" "text", "p_email_type" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."claim_email_lifecycle"("p_user_id" "uuid", "p_version" integer, "p_content_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_email_lifecycle"("p_user_id" "uuid", "p_version" integer, "p_content_hash" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."claim_forecast_delivery_slot"("p_user_id" "uuid", "p_beach_id" "uuid", "p_alert_type" "text", "p_dedupe_hours" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."claim_forecast_delivery_slot"("p_user_id" "uuid", "p_beach_id" "uuid", "p_alert_type" "text", "p_dedupe_hours" integer) TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."notification_delivery_targets" TO "anon";
+GRANT ALL ON TABLE "public"."notification_delivery_targets" TO "authenticated";
+GRANT ALL ON TABLE "public"."notification_delivery_targets" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."claim_notification_delivery_targets"("p_event_id" "uuid", "p_installation_ids" "text"[], "p_claim_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_notification_delivery_targets"("p_event_id" "uuid", "p_installation_ids" "text"[], "p_claim_id" "uuid") TO "service_role";
 
 
 
@@ -32340,13 +42005,33 @@ GRANT ALL ON FUNCTION "public"."claim_notification_events"("p_batch_size" intege
 
 
 
+REVOKE ALL ON FUNCTION "public"."claim_requested_email_alert"("p_user_id" "uuid", "p_episode" "text", "p_payload" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_requested_email_alert"("p_user_id" "uuid", "p_episode" "text", "p_payload" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."claim_stuck_community_spot_photo_uploads_v1"("p_now" timestamp with time zone, "p_limit" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."claim_stuck_community_spot_photo_uploads_v1"("p_now" timestamp with time zone, "p_limit" integer) TO "service_role";
 
 
 
-REVOKE ALL ON FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_priority" smallint) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_priority" smallint) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_alert_date" "date", "p_priority" smallint) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_surf_alert_slot"("p_event_id" "uuid", "p_recipient_user_id" "uuid", "p_alert_date" "date", "p_priority" smallint) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."claim_swell_outlook_first_sighting"("p_user_id" "uuid", "p_event_key" "text", "p_event_keys" "text"[], "p_peak_date" "date", "p_beach_id" "uuid", "p_payload" "jsonb", "p_now" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_swell_outlook_first_sighting"("p_user_id" "uuid", "p_event_key" "text", "p_event_keys" "text"[], "p_peak_date" "date", "p_beach_id" "uuid", "p_payload" "jsonb", "p_now" timestamp with time zone) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."claim_swell_watch_recipient_announcement"("p_claim_id" "uuid", "p_regional_event_id" "uuid", "p_recipient_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_swell_watch_recipient_announcement"("p_claim_id" "uuid", "p_regional_event_id" "uuid", "p_recipient_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."claim_trial_feedback_web_queue"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_trial_feedback_web_queue"() TO "service_role";
 
 
 
@@ -32401,6 +42086,21 @@ GRANT ALL ON FUNCTION "public"."community_photo_wilson_lower_bound"("p_upvotes" 
 
 
 
+REVOKE ALL ON FUNCTION "public"."complete_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_update" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."complete_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_update" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."complete_swell_watch_provider_run_receipt"("p_revision_set_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."complete_swell_watch_provider_run_receipt"("p_revision_set_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."complete_swell_watch_study_run"("p_revision_set_id" "uuid", "p_policy_hash" "text", "p_cohort" "jsonb", "p_scope_inputs" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."complete_swell_watch_study_run"("p_revision_set_id" "uuid", "p_policy_hash" "text", "p_cohort" "jsonb", "p_scope_inputs" "jsonb") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."compute_all_affinities_initial"() TO "anon";
 GRANT ALL ON FUNCTION "public"."compute_all_affinities_initial"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."compute_all_affinities_initial"() TO "service_role";
@@ -32441,6 +42141,11 @@ GRANT ALL ON FUNCTION "public"."compute_user_match_score_core"("p_user_id" "uuid
 
 
 
+REVOKE ALL ON FUNCTION "public"."compute_user_match_scores"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."compute_user_match_scores"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."concat_text_array"("vals" "text"[]) TO "anon";
 GRANT ALL ON FUNCTION "public"."concat_text_array"("vals" "text"[]) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."concat_text_array"("vals" "text"[]) TO "service_role";
@@ -32474,6 +42179,11 @@ GRANT ALL ON FUNCTION "public"."create_session_forecast_snapshot"() TO "service_
 
 
 
+REVOKE ALL ON FUNCTION "public"."current_feedback_trial"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_feedback_trial"("p_user_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."custom_spots_lock_user_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."custom_spots_lock_user_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."custom_spots_lock_user_id"() TO "service_role";
@@ -32482,6 +42192,11 @@ GRANT ALL ON FUNCTION "public"."custom_spots_lock_user_id"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."decrement_session_share_count"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."decrement_session_share_count"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."defer_pro_offer_retry"("p_award_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."defer_pro_offer_retry"("p_award_id" "uuid") TO "service_role";
 
 
 
@@ -32510,8 +42225,48 @@ GRANT ALL ON FUNCTION "public"."dev_log_session_mutation"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."earn_five_session_offer"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."earn_five_session_offer"("p_user_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."earn_pro_offer_on_session"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."earn_pro_offer_on_session"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."email_automation_dashboard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."email_automation_dashboard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."email_automation_health"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."email_automation_health"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."email_contact_timezone"("p_timezone" "text", "p_home_beach_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."email_contact_timezone"("p_timezone" "text", "p_home_beach_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."email_lifecycle_cohort"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."email_lifecycle_cohort"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."enforce_experiment_assignment_write_once"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."enforce_experiment_assignment_write_once"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."enroll_automatic_pro_offers"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."enroll_automatic_pro_offers"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."enroll_self_service_pro_offer"("p_user_id" "uuid", "p_terms_version" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."enroll_self_service_pro_offer"("p_user_id" "uuid", "p_terms_version" "text") TO "service_role";
 
 
 
@@ -32523,6 +42278,11 @@ GRANT ALL ON FUNCTION "public"."ensure_user_xp"("p_user_id" "uuid") TO "service_
 
 REVOKE ALL ON FUNCTION "public"."erase_regional_recommendation_hold_operator_v1"("p_user_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."erase_regional_recommendation_hold_operator_v1"("p_user_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."evaluate_email_lifecycle"("p_user_id" "uuid", "p_ignore_attempt" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."evaluate_email_lifecycle"("p_user_id" "uuid", "p_ignore_attempt" "uuid") TO "service_role";
 
 
 
@@ -32541,6 +42301,11 @@ GRANT ALL ON FUNCTION "public"."fail_community_spot_photo_upload_v1"("p_photo_id
 
 
 
+REVOKE ALL ON FUNCTION "public"."fail_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_provenance_state" "text", "p_error_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."fail_custom_spot_analysis_job"("p_job_id" bigint, "p_claimed_at" timestamp with time zone, "p_spot_updated_at" timestamp with time zone, "p_provenance_state" "text", "p_error_code" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."finalize_anon_alert_capture"("p_user_id" "uuid", "p_email" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."finalize_anon_alert_capture"("p_user_id" "uuid", "p_email" "text") TO "service_role";
 GRANT ALL ON FUNCTION "public"."finalize_anon_alert_capture"("p_user_id" "uuid", "p_email" "text") TO "authenticated";
@@ -32549,6 +42314,11 @@ GRANT ALL ON FUNCTION "public"."finalize_anon_alert_capture"("p_user_id" "uuid",
 
 REVOKE ALL ON FUNCTION "public"."finalize_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_width" integer, "p_height" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."finalize_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_width" integer, "p_height" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."finalize_notification_delivery_target"("p_target_id" "uuid", "p_claim_id" "uuid", "p_claim_version" bigint, "p_status" "text", "p_provider_response" "jsonb", "p_error_message" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."finalize_notification_delivery_target"("p_target_id" "uuid", "p_claim_id" "uuid", "p_claim_version" bigint, "p_status" "text", "p_provider_response" "jsonb", "p_error_message" "text") TO "service_role";
 
 
 
@@ -32592,9 +42362,36 @@ GRANT ALL ON FUNCTION "public"."find_orphaned_session_media"() TO "service_role"
 
 
 
+REVOKE ALL ON FUNCTION "public"."finish_email_contact"("p_attempt_id" "uuid", "p_provider_id" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."finish_email_contact"("p_attempt_id" "uuid", "p_provider_id" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."finish_email_lifecycle"("p_attempt_id" "uuid", "p_provider_id" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."finish_email_lifecycle"("p_attempt_id" "uuid", "p_provider_id" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."follow_user_with_notification"("p_target_user_id" "uuid", "p_actor_id" "uuid", "p_dedupe_key" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."follow_user_with_notification"("p_target_user_id" "uuid", "p_actor_id" "uuid", "p_dedupe_key" "text") TO "service_role";
 GRANT ALL ON FUNCTION "public"."follow_user_with_notification"("p_target_user_id" "uuid", "p_actor_id" "uuid", "p_dedupe_key" "text") TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."founding_access_enabled"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."founding_access_enabled"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."founding_access_enabled"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."freeze_email_campaign"() TO "anon";
+GRANT ALL ON FUNCTION "public"."freeze_email_campaign"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."freeze_email_campaign"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."freeze_pro_offer_program"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."freeze_pro_offer_program"() TO "service_role";
 
 
 
@@ -32702,6 +42499,11 @@ GRANT ALL ON FUNCTION "public"."get_bulk_current_forecasts"("p_beach_ids" "uuid"
 
 
 
+REVOKE ALL ON FUNCTION "public"."get_bulk_forecast_decision_context"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb", "p_start" "date", "p_end" "date") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_bulk_forecast_decision_context"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb", "p_start" "date", "p_end" "date") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_cities_with_beach_skills"("min_beaches" integer) TO "anon";
 GRANT ALL ON FUNCTION "public"."get_cities_with_beach_skills"("min_beaches" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_cities_with_beach_skills"("min_beaches" integer) TO "service_role";
@@ -32745,6 +42547,13 @@ GRANT ALL ON FUNCTION "public"."get_conditions_alert_candidates"("p_min_score" i
 
 REVOKE ALL ON FUNCTION "public"."get_conversion_funnel"("days" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_conversion_funnel"("days" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."get_current_beach_wind"("p_beach_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_current_beach_wind"("p_beach_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_current_beach_wind"("p_beach_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_current_beach_wind"("p_beach_id" "uuid") TO "service_role";
 
 
 
@@ -32864,6 +42673,11 @@ GRANT ALL ON FUNCTION "public"."get_popular_beaches"("p_limit" integer) TO "auth
 
 
 
+REVOKE ALL ON FUNCTION "public"."get_prediction_observations"("p_beach_id" "uuid", "p_since" timestamp with time zone, "p_until" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_prediction_observations"("p_beach_id" "uuid", "p_since" timestamp with time zone, "p_until" timestamp with time zone) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."get_profile_stats"("p_user_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_profile_stats"("p_user_id" "uuid") TO "service_role";
 GRANT ALL ON FUNCTION "public"."get_profile_stats"("p_user_id" "uuid") TO "authenticated";
@@ -32946,8 +42760,18 @@ GRANT ALL ON FUNCTION "public"."get_user_viral_coefficient"("p_user_id" "uuid") 
 
 
 
+REVOKE ALL ON FUNCTION "public"."get_week_scout_personalization"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_week_scout_personalization"("p_user_id" "uuid", "p_beach_ids" "uuid"[], "p_slots" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."get_weekend_scout_candidates"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "limit_count" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_weekend_scout_candidates"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "limit_count" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."get_weekend_scout_candidates_page"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "offset_count" integer, "limit_count" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_weekend_scout_candidates_page"("input_user_id" "uuid", "input_lat" double precision, "input_lon" double precision, "max_distance_meters" integer, "offset_count" integer, "limit_count" integer) TO "service_role";
 
 
 
@@ -32993,6 +42817,11 @@ GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "t
 GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "text", integer, "internal", "internal", "internal") TO "anon";
 GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "text", integer, "internal", "internal", "internal") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "text", integer, "internal", "internal", "internal") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."gmail_reply_known"("p_message_ids" "text"[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."gmail_reply_known"("p_message_ids" "text"[]) TO "service_role";
 
 
 
@@ -33059,6 +42888,22 @@ GRANT ALL ON FUNCTION "public"."gtrgm_union"("internal", "internal") TO "service
 
 
 
+REVOKE ALL ON FUNCTION "public"."guard_swell_watch_evaluation_policy"() FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."guard_swell_watch_study_authority"() FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."guard_swell_watch_study_beach_scope"() FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."guard_swell_watch_study_observation"() FROM PUBLIC;
+
+
+
 REVOKE ALL ON FUNCTION "public"."handle_new_user"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
 
@@ -33072,6 +42917,11 @@ GRANT ALL ON FUNCTION "public"."has_user_block_between"("a" "uuid", "b" "uuid") 
 
 REVOKE ALL ON FUNCTION "public"."hold_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_reason" "text", "p_idempotency_key" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."hold_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_reason" "text", "p_idempotency_key" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."hold_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_reason" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."hold_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_reason" "text") TO "service_role";
 
 
 
@@ -33096,6 +42946,30 @@ GRANT ALL ON FUNCTION "public"."increment_user_xp"("p_user_id" "uuid", "p_amount
 
 
 
+REVOKE ALL ON FUNCTION "public"."ingest_swell_watch_cohort"("p_impacts" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."ingest_swell_watch_cohort"("p_impacts" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."ingest_swell_watch_evaluation"("p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_provider" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_identity_kind" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."ingest_swell_watch_evaluation"("p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_provider" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_identity_kind" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."ingest_swell_watch_evaluation_internal"("p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_evaluation_id" "text", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_provider" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_identity_kind" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."ingest_swell_watch_run"("p_impacts" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."ingest_swell_watch_run"("p_impacts" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."ingest_verified_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."ingest_verified_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_regional_event_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."is_admin_user"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."is_admin_user"() TO "anon";
 GRANT ALL ON FUNCTION "public"."is_admin_user"() TO "authenticated";
@@ -33103,9 +42977,40 @@ GRANT ALL ON FUNCTION "public"."is_admin_user"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."is_historical_file_import"("p_source" "text", "p_arrival" timestamp with time zone, "p_duration_minutes" integer, "p_as_of" timestamp with time zone) TO "anon";
+GRANT ALL ON FUNCTION "public"."is_historical_file_import"("p_source" "text", "p_arrival" timestamp with time zone, "p_duration_minutes" integer, "p_as_of" timestamp with time zone) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_historical_file_import"("p_source" "text", "p_arrival" timestamp with time zone, "p_duration_minutes" integer, "p_as_of" timestamp with time zone) TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."is_mutual_follow"("a" "uuid", "b" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."is_mutual_follow"("a" "uuid", "b" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_mutual_follow"("a" "uuid", "b" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_valid_directional_factor_array"("p_values" real[]) TO "anon";
+GRANT ALL ON FUNCTION "public"."is_valid_directional_factor_array"("p_values" real[]) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_valid_directional_factor_array"("p_values" real[]) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."issue_pro_offer"("p_user_id" "uuid", "p_program_id" "text", "p_code_hash" "text", "p_reference" "text", "p_terms_version" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."issue_pro_offer"("p_user_id" "uuid", "p_program_id" "text", "p_code_hash" "text", "p_reference" "text", "p_terms_version" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."lifecycle_entitlement_queue"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."lifecycle_entitlement_queue"() TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_contact_state" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."lifecycle_permission_verified"("p_state" "public"."email_contact_state") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."lifecycle_permission_verified"("p_state" "public"."email_contact_state") TO "service_role";
 
 
 
@@ -33140,6 +43045,11 @@ GRANT ALL ON FUNCTION "public"."list_orphan_community_photo_objects_v1"("p_now" 
 
 
 
+REVOKE ALL ON FUNCTION "public"."list_owned_pro_offers"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."list_owned_pro_offers"("p_user_id" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."list_owned_removed_community_spot_photos_v1"("p_uploader_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."list_owned_removed_community_spot_photos_v1"("p_uploader_id" "uuid") TO "service_role";
 
@@ -33152,6 +43062,11 @@ GRANT ALL ON FUNCTION "public"."log_revision"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."maintain_board_session_count"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."maintain_board_session_count"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."mark_email_lifecycle_unknown"("p_attempt_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."mark_email_lifecycle_unknown"("p_attempt_id" "uuid") TO "service_role";
 
 
 
@@ -33173,13 +43088,28 @@ GRANT ALL ON TABLE "public"."user_activities" TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."notify_session_invite"("p_actor_id" "uuid", "p_recipient_id" "uuid", "p_session_id" "uuid", "p_payload" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."notify_session_invite"("p_actor_id" "uuid", "p_recipient_id" "uuid", "p_session_id" "uuid", "p_payload" "jsonb") TO "service_role";
-GRANT ALL ON FUNCTION "public"."notify_session_invite"("p_actor_id" "uuid", "p_recipient_id" "uuid", "p_session_id" "uuid", "p_payload" "jsonb") TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."owned_pro_offer_key"("p_user_id" "uuid", "p_award_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."owned_pro_offer_key"("p_user_id" "uuid", "p_award_id" "uuid") TO "service_role";
 
 
 
 GRANT ALL ON FUNCTION "public"."parse_numeric_from_text"("input" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."parse_numeric_from_text"("input" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."parse_numeric_from_text"("input" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."parse_numeric_or_null"("input" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."parse_numeric_or_null"("input" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."parse_wave_height_midpoint_ft"("p_raw" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."parse_wave_height_midpoint_ft"("p_raw" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."parse_wave_height_midpoint_ft"("p_raw" "text") TO "service_role";
 
 
 
@@ -33195,6 +43125,12 @@ GRANT ALL ON FUNCTION "public"."pin_community_spot_photo_v1"("p_photo_id" "uuid"
 
 REVOKE ALL ON FUNCTION "public"."preflight_community_spot_photo_upload_v1"("p_uploader_id" "uuid", "p_idempotency_key" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."preflight_community_spot_photo_upload_v1"("p_uploader_id" "uuid", "p_idempotency_key" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."prepare_custom_spot_analysis_state"() TO "anon";
+GRANT ALL ON FUNCTION "public"."prepare_custom_spot_analysis_state"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."prepare_custom_spot_analysis_state"() TO "service_role";
 
 
 
@@ -33216,8 +43152,28 @@ GRANT ALL ON FUNCTION "public"."prevent_delete_on_protected"() TO "service_role"
 
 
 
+REVOKE ALL ON FUNCTION "public"."preview_pro_offer"("p_user_id" "uuid", "p_code_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."preview_pro_offer"("p_user_id" "uuid", "p_code_hash" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."pro_offer_fulfillment_queue"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."pro_offer_fulfillment_queue"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."pro_offer_reconciliation_queue"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."pro_offer_reconciliation_queue"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."prune_forecasts_retention"("keep_days_raw" integer, "keep_days_enhanced" integer, "batch_size" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."prune_forecasts_retention"("keep_days_raw" integer, "keep_days_enhanced" integer, "batch_size" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."publish_week_scout_story_edition"("p_artifact_id" "text", "p_region" "text", "p_edition_date" "date", "p_input_hash" "text", "p_source_published_at" timestamp with time zone, "p_valid_until" timestamp with time zone, "p_generation_version" "text", "p_model" "text", "p_briefing" "jsonb", "p_provenance" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."publish_week_scout_story_edition"("p_artifact_id" "text", "p_region" "text", "p_edition_date" "date", "p_input_hash" "text", "p_source_published_at" timestamp with time zone, "p_valid_until" timestamp with time zone, "p_generation_version" "text", "p_model" "text", "p_briefing" "jsonb", "p_provenance" "jsonb") TO "service_role";
 
 
 
@@ -33241,6 +43197,67 @@ GRANT ALL ON FUNCTION "public"."purge_removed_community_spot_photos_v1"("p_now" 
 
 
 
+GRANT ALL ON FUNCTION "public"."queue_custom_spot_analysis"() TO "anon";
+GRANT ALL ON FUNCTION "public"."queue_custom_spot_analysis"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."queue_custom_spot_analysis"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."read_swell_watch_attested_components"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid", "p_forecast_at" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."read_swell_watch_attested_components"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid", "p_forecast_at" timestamp with time zone) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."read_swell_watch_attested_run"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."read_swell_watch_attested_run"("p_provider_batch_id" "uuid", "p_source_point_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."read_swell_watch_delivery_health"("p_policy_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."read_swell_watch_delivery_health"("p_policy_hash" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."read_swell_watch_provider_run_states"("p_run_utcs" timestamp with time zone[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."read_swell_watch_provider_run_states"("p_run_utcs" timestamp with time zone[]) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."read_swell_watch_run_scope"("p_provider_batch_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."read_swell_watch_run_scope"("p_provider_batch_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."read_swell_watch_study_health"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."read_swell_watch_study_health"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."read_swell_watch_study_pending_runs"("p_policy_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."read_swell_watch_study_pending_runs"("p_policy_hash" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."reconcile_email_lifecycle"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."reconcile_email_lifecycle"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."reconcile_pro_offer_mirrors"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."reconcile_pro_offer_mirrors"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."reconcile_trial_feedback"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."reconcile_trial_feedback"("p_user_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."reconcile_trial_feedback_queue"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."reconcile_trial_feedback_queue"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."record_android_tester_roster_audit"("p_actor_user_id" "uuid", "p_entry_id" "uuid", "p_action" "text", "p_outcome" "text", "p_evidence" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."record_android_tester_roster_audit"("p_actor_user_id" "uuid", "p_entry_id" "uuid", "p_action" "text", "p_outcome" "text", "p_evidence" "jsonb") TO "service_role";
 
@@ -33261,9 +43278,84 @@ GRANT ALL ON FUNCTION "public"."record_android_tester_roster_stage"("p_actor_use
 
 
 
+REVOKE ALL ON FUNCTION "public"."record_email_lifecycle_decision"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_email_lifecycle_decision"("p_user_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_email_reply"("p_event_id" "text", "p_webhook_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_email_reply"("p_event_id" "text", "p_webhook_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_gmail_reply"("p_lease_id" "uuid", "p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_gmail_reply"("p_lease_id" "uuid", "p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_gmail_reply_v2"("p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_gmail_reply_v2"("p_mailbox" "text", "p_message_id" "text", "p_thread_id" "text", "p_sender" "text", "p_received_at" timestamp with time zone, "p_in_reply_to" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_leased_swell_watch_provider_run_receipt"("p_owner" "uuid", "p_scopes" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_leased_swell_watch_provider_run_receipt"("p_owner" "uuid", "p_scopes" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_lifecycle_entitlement_attempt"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_lifecycle_entitlement_attempt"("p_user_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_lifecycle_entitlement_check"("p_user_id" "uuid", "p_active" boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_lifecycle_entitlement_check"("p_user_id" "uuid", "p_active" boolean) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_lifecycle_provider_event"("p_webhook_id" "text", "p_provider_id" "text", "p_type" "text", "p_at" timestamp with time zone, "p_recipients" "text"[], "p_hard_bounce" boolean, "p_link" "text", "p_user_agent" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_lifecycle_provider_event"("p_webhook_id" "text", "p_provider_id" "text", "p_type" "text", "p_at" timestamp with time zone, "p_recipients" "text"[], "p_hard_bounce" boolean, "p_link" "text", "p_user_agent" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_lifecycle_provider_snapshot"("p_user_id" "uuid", "p_active" boolean, "p_trial" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_lifecycle_provider_snapshot"("p_user_id" "uuid", "p_active" boolean, "p_trial" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_pro_offer_reconciliation"("p_award_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_pro_offer_reconciliation"("p_award_id" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."record_referral_attribution"("referrer" "uuid", "referee" "uuid", "source" "text", "referral_code" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."record_referral_attribution"("referrer" "uuid", "referee" "uuid", "source" "text", "referral_code" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."record_referral_attribution"("referrer" "uuid", "referee" "uuid", "source" "text", "referral_code" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_swell_watch_provider_run_receipt"("p_scopes" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_swell_watch_provider_run_receipt"("p_scopes" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_swell_watch_shadow_demand"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_pairs" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_swell_watch_shadow_demand"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_pairs" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_swell_watch_study_evaluation"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_result" "jsonb", "p_scope_inputs" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_swell_watch_study_evaluation"("p_provider_batch_id" "uuid", "p_policy_hash" "text", "p_result" "jsonb", "p_scope_inputs" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_swell_watch_study_recovery_failure"("p_revision_set_id" "uuid", "p_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_swell_watch_study_recovery_failure"("p_revision_set_id" "uuid", "p_code" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_trial_feedback_web"("p_user_id" "uuid", "p_snapshot" "jsonb", "p_attention" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_trial_feedback_web"("p_user_id" "uuid", "p_snapshot" "jsonb", "p_attention" "text") TO "service_role";
 
 
 
@@ -33287,8 +43379,18 @@ GRANT ALL ON FUNCTION "public"."refresh_beach_ml_baseline"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."refresh_beach_observation_stations"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."refresh_beach_observation_stations"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."refresh_enhanced_forecasts_for_active_beaches"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."refresh_enhanced_forecasts_for_active_beaches"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."refresh_lifecycle_enrollment"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."refresh_lifecycle_enrollment"() TO "service_role";
 
 
 
@@ -33304,6 +43406,26 @@ GRANT ALL ON FUNCTION "public"."refresh_observable_beaches"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."regional_recommendation_hold_canonical_payload"("p_row" "public"."regional_recommendation_holds") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."regional_recommendation_hold_canonical_payload"("p_row" "public"."regional_recommendation_holds") TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."user_devices" TO "anon";
+GRANT ALL ON TABLE "public"."user_devices" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_devices" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."register_device_installation"("p_user_id" "uuid", "p_installation_id" "text", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."register_device_installation"("p_user_id" "uuid", "p_installation_id" "text", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."register_device_installation"("p_user_id" "uuid", "p_installation_id" "text", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."register_device_installation"("p_user_id" "uuid", "p_installation_id" "text", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."register_legacy_device_token"("p_user_id" "uuid", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."register_legacy_device_token"("p_user_id" "uuid", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."register_legacy_device_token"("p_user_id" "uuid", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."register_legacy_device_token"("p_user_id" "uuid", "p_platform" "text", "p_device_token" "text", "p_metadata" "jsonb") TO "service_role";
 
 
 
@@ -33342,6 +43464,11 @@ GRANT ALL ON FUNCTION "public"."release_stuck_community_spot_photo_uploads_v1"("
 
 
 
+REVOKE ALL ON FUNCTION "public"."release_swell_watch_collection_lease"("p_owner" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."release_swell_watch_collection_lease"("p_owner" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."remove_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_idempotency_key" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."remove_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_idempotency_key" "uuid") TO "service_role";
 
@@ -33354,8 +43481,6 @@ GRANT ALL ON FUNCTION "public"."remove_custom_spot_favorite_on_soft_delete"() TO
 
 
 REVOKE ALL ON FUNCTION "public"."repair_strict_session_snapshots"("p_limit" integer, "p_apply" boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."repair_strict_session_snapshots"("p_limit" integer, "p_apply" boolean) TO "anon";
-GRANT ALL ON FUNCTION "public"."repair_strict_session_snapshots"("p_limit" integer, "p_apply" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."repair_strict_session_snapshots"("p_limit" integer, "p_apply" boolean) TO "service_role";
 
 
@@ -33365,13 +43490,44 @@ GRANT ALL ON FUNCTION "public"."report_community_spot_photo_v1"("p_photo_id" "uu
 
 
 
+REVOKE ALL ON FUNCTION "public"."request_pro_offer_claim"("p_user_id" "uuid", "p_code_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."request_pro_offer_claim"("p_user_id" "uuid", "p_code_hash" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."requeue_session_conditions"() TO "anon";
+GRANT ALL ON FUNCTION "public"."requeue_session_conditions"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."requeue_session_conditions"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."reserve_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_target_type" "text", "p_target_id" "uuid", "p_visibility" "text", "p_storage_path" "text", "p_terms_version" "text", "p_rights_confirmed" boolean, "p_idempotency_key" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."reserve_community_spot_photo_v1"("p_photo_id" "uuid", "p_uploader_id" "uuid", "p_target_type" "text", "p_target_id" "uuid", "p_visibility" "text", "p_storage_path" "text", "p_terms_version" "text", "p_rights_confirmed" boolean, "p_idempotency_key" "uuid") TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."reserve_pro_offer"("p_user_id" "uuid", "p_code_hash" "text", "p_entitlement_id" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."reserve_pro_offer"("p_user_id" "uuid", "p_code_hash" "text", "p_entitlement_id" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."reserve_trial_feedback_offer"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."reserve_trial_feedback_offer"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."reserve_trial_feedback_web"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text", "p_snapshot" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."reserve_trial_feedback_web"("p_user_id" "uuid", "p_request_id" "uuid", "p_terms_version" "text", "p_snapshot" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."resolve_active_regional_recommendation_holds"("p_as_of" timestamp with time zone, "p_beach_ids" "uuid"[], "p_window_start" timestamp with time zone, "p_window_end" timestamp with time zone) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."resolve_active_regional_recommendation_holds"("p_as_of" timestamp with time zone, "p_beach_ids" "uuid"[], "p_window_start" timestamp with time zone, "p_window_end" timestamp with time zone) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."resolve_and_ingest_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."resolve_and_ingest_swell_watch_evaluation"("p_provider_batch_id" "uuid", "p_observation_id" "uuid", "p_impact_id" "uuid", "p_source_point_id" "uuid", "p_region_key" "text", "p_physical_key" "text", "p_forecast_at" timestamp with time zone, "p_source_slot" "text", "p_height_m" numeric, "p_period_s" numeric, "p_direction_deg" numeric, "p_projected_face_height_ft" numeric, "p_policy_id" "text", "p_policy_hash" "text", "p_impact_hash" "text", "p_arrival_at" timestamp with time zone, "p_peak_at" timestamp with time zone) TO "service_role";
 
 
 
@@ -33395,6 +43551,11 @@ GRANT ALL ON FUNCTION "public"."resolve_community_spot_photos_v1"("p_target_type
 
 
 
+REVOKE ALL ON FUNCTION "public"."resolve_swell_event_outcomes"("p_now" timestamp with time zone, "p_pulse_detector_version" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."resolve_swell_event_outcomes"("p_now" timestamp with time zone, "p_pulse_detector_version" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."restore_entity"("table_name" "text", "entity_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."restore_entity"("table_name" "text", "entity_id" "uuid") TO "service_role";
 
@@ -33410,8 +43571,24 @@ GRANT ALL ON FUNCTION "public"."run_database_maintenance"("cleanup_forecasts" bo
 
 
 
+GRANT ALL ON FUNCTION "public"."session_condition_similarity"("p_past_wave" numeric, "p_past_period" numeric, "p_past_wind" numeric, "p_past_wind_dir" numeric, "p_past_rel_tide" numeric, "p_past_tide_dir" "text", "p_past_break_type" "text", "p_cur_wave" numeric, "p_cur_period" numeric, "p_cur_wind" numeric, "p_cur_wind_dir" numeric, "p_cur_rel_tide" numeric, "p_cur_tide_dir" "text", "p_cur_break_type" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."session_condition_similarity"("p_past_wave" numeric, "p_past_period" numeric, "p_past_wind" numeric, "p_past_wind_dir" numeric, "p_past_rel_tide" numeric, "p_past_tide_dir" "text", "p_past_break_type" "text", "p_cur_wave" numeric, "p_cur_period" numeric, "p_cur_wind" numeric, "p_cur_wind_dir" numeric, "p_cur_rel_tide" numeric, "p_cur_tide_dir" "text", "p_cur_break_type" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."session_condition_similarity"("p_past_wave" numeric, "p_past_period" numeric, "p_past_wind" numeric, "p_past_wind_dir" numeric, "p_past_rel_tide" numeric, "p_past_tide_dir" "text", "p_past_break_type" "text", "p_cur_wave" numeric, "p_cur_period" numeric, "p_cur_wind" numeric, "p_cur_wind_dir" numeric, "p_cur_rel_tide" numeric, "p_cur_tide_dir" "text", "p_cur_break_type" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."session_wave_height_source_from_submit"("p_metadata" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."session_wave_height_source_from_submit"("p_metadata" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."set_audit_triggers_enabled"("enabled" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."set_audit_triggers_enabled"("enabled" boolean) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."set_lifecycle_consent"("p_user_id" "uuid", "p_consent" boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."set_lifecycle_consent"("p_user_id" "uuid", "p_consent" boolean) TO "service_role";
 
 
 
@@ -33430,6 +43607,11 @@ GRANT ALL ON FUNCTION "public"."set_profile_analytics_real_user_fields"() TO "se
 GRANT ALL ON FUNCTION "public"."set_surf_drops_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."set_surf_drops_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_surf_drops_updated_at"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."set_swell_outlook_user_state_updated_at"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."set_swell_outlook_user_state_updated_at"() TO "service_role";
 
 
 
@@ -33478,9 +43660,13 @@ GRANT ALL ON FUNCTION "public"."soft_delete_entity"("table_name" "text", "entity
 
 
 
+GRANT ALL ON FUNCTION "public"."stamp_email_session_completion"() TO "anon";
+GRANT ALL ON FUNCTION "public"."stamp_email_session_completion"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."stamp_email_session_completion"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."strict_session_snapshot_repair_candidates"("p_limit" integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."strict_session_snapshot_repair_candidates"("p_limit" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."strict_session_snapshot_repair_candidates"("p_limit" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."strict_session_snapshot_repair_candidates"("p_limit" integer) TO "service_role";
 
 
@@ -33520,6 +43706,112 @@ GRANT ALL ON FUNCTION "public"."strict_word_similarity_op"("text", "text") TO "s
 
 
 
+REVOKE ALL ON FUNCTION "public"."submit_trial_feedback"("p_user_id" "uuid", "p_request_id" "uuid", "p_reason" "text", "p_note" "text", "p_message_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."submit_trial_feedback"("p_user_id" "uuid", "p_request_id" "uuid", "p_reason" "text", "p_note" "text", "p_message_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_event_crossing_history"("p_beach_ids" "uuid"[], "p_since" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."swell_event_crossing_history"("p_beach_ids" "uuid"[], "p_since" timestamp with time zone) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."swell_watch_append_only_trigger"() TO "anon";
+GRANT ALL ON FUNCTION "public"."swell_watch_append_only_trigger"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."swell_watch_append_only_trigger"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_coast_domain"("p_region_key" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."swell_watch_coast_domain"("p_region_key" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_current_study_authority"("p_policy_hash" "text") FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_enqueue_notification"("p_recipient_id" "uuid", "p_payload" "jsonb", "p_expected_epoch" integer, "p_policy_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."swell_watch_enqueue_notification"("p_recipient_id" "uuid", "p_payload" "jsonb", "p_expected_epoch" integer, "p_policy_hash" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_get_automation_control"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."swell_watch_get_automation_control"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_get_matching_policy"() FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_get_production_authority"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."swell_watch_get_production_authority"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."swell_watch_production_policy_values_valid"("p_values" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."swell_watch_production_policy_values_valid"("p_values" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."swell_watch_production_policy_values_valid"("p_values" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_projected_send_count"("p_exclude" "uuid") FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_provider_evidence_is_current"("p_provider_batch_id" "uuid") FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_provider_evidence_is_current_before_study"("p_provider_batch_id" "uuid") FROM PUBLIC;
+
+
+
+GRANT ALL ON FUNCTION "public"."swell_watch_provider_run_append_only_trigger"() TO "anon";
+GRANT ALL ON FUNCTION "public"."swell_watch_provider_run_append_only_trigger"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."swell_watch_provider_run_append_only_trigger"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."swell_watch_provider_run_attestation_subject_trigger"() TO "anon";
+GRANT ALL ON FUNCTION "public"."swell_watch_provider_run_attestation_subject_trigger"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."swell_watch_provider_run_attestation_subject_trigger"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_record_provider_delivery_outcome"("p_notification_event_id" "uuid", "p_attempt_number" integer, "p_sample_count" integer, "p_failure_count" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."swell_watch_record_provider_delivery_outcome"("p_notification_event_id" "uuid", "p_attempt_number" integer, "p_sample_count" integer, "p_failure_count" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_shadow_demand_duplicates"("p_pairs" "jsonb") FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_study_cycle_start"("p_epoch" bigint) FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_study_scope_inputs"("p_cohort" "jsonb") FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_validate_notification_release"("p_regional_event_id" "uuid", "p_beach_id" "uuid", "p_recipient_id" "uuid", "p_forecast_at" timestamp with time zone, "p_notification_event_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."swell_watch_validate_notification_release"("p_regional_event_id" "uuid", "p_beach_id" "uuid", "p_recipient_id" "uuid", "p_forecast_at" timestamp with time zone, "p_notification_event_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."swell_watch_validate_notification_release_internal"("p_regional_event_id" "uuid", "p_beach_id" "uuid", "p_recipient_id" "uuid", "p_forecast_at" timestamp with time zone, "p_notification_event_id" "uuid") FROM PUBLIC;
+
+
+
+GRANT ALL ON FUNCTION "public"."swell_watch_verify_provider_batch_trigger"() TO "anon";
+GRANT ALL ON FUNCTION "public"."swell_watch_verify_provider_batch_trigger"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."swell_watch_verify_provider_batch_trigger"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."swell_windows_overlap"("p_min1" numeric, "p_max1" numeric, "p_min2" numeric, "p_max2" numeric) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."swell_windows_overlap"("p_min1" numeric, "p_max1" numeric, "p_min2" numeric, "p_max2" numeric) TO "service_role";
 
@@ -33527,7 +43819,6 @@ GRANT ALL ON FUNCTION "public"."swell_windows_overlap"("p_min1" numeric, "p_max1
 
 REVOKE ALL ON FUNCTION "public"."sync_session_wave_observation_candidate"("p_session_id" "uuid", "p_user_id" "uuid", "p_beach_id" "uuid", "p_arrival_time" timestamp with time zone, "p_status" "text", "p_wave_height_ft" numeric, "p_source_created_by" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."sync_session_wave_observation_candidate"("p_session_id" "uuid", "p_user_id" "uuid", "p_beach_id" "uuid", "p_arrival_time" timestamp with time zone, "p_status" "text", "p_wave_height_ft" numeric, "p_source_created_by" "text") TO "service_role";
-GRANT ALL ON FUNCTION "public"."sync_session_wave_observation_candidate"("p_session_id" "uuid", "p_user_id" "uuid", "p_beach_id" "uuid", "p_arrival_time" timestamp with time zone, "p_status" "text", "p_wave_height_ft" numeric, "p_source_created_by" "text") TO "authenticated";
 
 
 
@@ -33544,8 +43835,38 @@ GRANT ALL ON FUNCTION "public"."toggle_favorite_spot_guarded"("p_beach_id" "uuid
 
 
 
+REVOKE ALL ON FUNCTION "public"."track_email_due_age"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."track_email_due_age"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."track_session_media_upload"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."track_session_media_upload"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."transition_swell_watch_automation_control"("p_operation" "text", "p_expected_epoch" integer, "p_reason_code" "text", "p_idempotency_key" "text", "p_actor_user_id" "uuid", "p_system_actor" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."transition_swell_watch_automation_control"("p_operation" "text", "p_expected_epoch" integer, "p_reason_code" "text", "p_idempotency_key" "text", "p_actor_user_id" "uuid", "p_system_actor" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."trial_feedback_attention_count"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."trial_feedback_attention_count"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."trial_feedback_context"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."trial_feedback_context"("p_user_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."trial_feedback_web_attention_count"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."trial_feedback_web_attention_count"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."trial_feedback_web_context"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."trial_feedback_web_context"("p_user_id" "uuid") TO "service_role";
 
 
 
@@ -33594,8 +43915,18 @@ GRANT ALL ON FUNCTION "public"."trusted_forecast_snapshot_columns"() TO "service
 
 
 
+REVOKE ALL ON FUNCTION "public"."try_acquire_swell_watch_collection_lease"("p_owner" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."try_acquire_swell_watch_collection_lease"("p_owner" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."try_insert_similarity_alert"("p_user_id" "uuid", "p_rule_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_send_at" timestamp with time zone, "p_window_start" timestamp with time zone, "p_window_end" timestamp with time zone, "p_best_hour" timestamp with time zone, "p_conditions_snapshot" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."try_insert_similarity_alert"("p_user_id" "uuid", "p_rule_id" "uuid", "p_beach_id" "uuid", "p_alert_date" "date", "p_send_at" timestamp with time zone, "p_window_start" timestamp with time zone, "p_window_end" timestamp with time zone, "p_best_hour" timestamp with time zone, "p_conditions_snapshot" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."try_insert_system_feed_post"("p_user_id" "uuid", "p_beach_id" "uuid", "p_latitude" numeric, "p_longitude" numeric, "p_tag" "text", "p_title" "text", "p_description" "text", "p_is_active" boolean, "p_dedupe_hash" "text", "p_surf_conditions" "jsonb", "p_expires_at" timestamp with time zone, "p_created_at" timestamp with time zone, "p_daily_cap" integer, "p_beach_daily_cap" integer, "p_beach_weekly_cap" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."try_insert_system_feed_post"("p_user_id" "uuid", "p_beach_id" "uuid", "p_latitude" numeric, "p_longitude" numeric, "p_tag" "text", "p_title" "text", "p_description" "text", "p_is_active" boolean, "p_dedupe_hash" "text", "p_surf_conditions" "jsonb", "p_expires_at" timestamp with time zone, "p_created_at" timestamp with time zone, "p_daily_cap" integer, "p_beach_daily_cap" integer, "p_beach_weekly_cap" integer) TO "service_role";
 
 
 
@@ -33627,6 +43958,11 @@ GRANT ALL ON FUNCTION "public"."unaccent_lexize"("internal", "internal", "intern
 
 
 
+REVOKE ALL ON FUNCTION "public"."unknown_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."unknown_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."unpin_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_idempotency_key" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."unpin_community_spot_photo_v1"("p_photo_id" "uuid", "p_actor_id" "uuid", "p_idempotency_key" "uuid") TO "service_role";
 
@@ -33634,6 +43970,11 @@ GRANT ALL ON FUNCTION "public"."unpin_community_spot_photo_v1"("p_photo_id" "uui
 
 REVOKE ALL ON FUNCTION "public"."unrestrict_community_photo_contributor_v1"("p_contributor_id" "uuid", "p_actor_id" "uuid", "p_idempotency_key" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."unrestrict_community_photo_contributor_v1"("p_contributor_id" "uuid", "p_actor_id" "uuid", "p_idempotency_key" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."unsubscribe_email_lifecycle"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."unsubscribe_email_lifecycle"("p_user_id" "uuid") TO "service_role";
 
 
 
@@ -33733,8 +44074,6 @@ GRANT ALL ON FUNCTION "public"."update_npc_template_updated_at"() TO "service_ro
 
 
 REVOKE ALL ON FUNCTION "public"."update_open_meteo_wind_for_beach"("p_beach_id" "uuid", "p_points" "jsonb") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."update_open_meteo_wind_for_beach"("p_beach_id" "uuid", "p_points" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."update_open_meteo_wind_for_beach"("p_beach_id" "uuid", "p_points" "jsonb") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_open_meteo_wind_for_beach"("p_beach_id" "uuid", "p_points" "jsonb") TO "service_role";
 
 
@@ -33779,8 +44118,28 @@ GRANT ALL ON FUNCTION "public"."update_user_storage_usage"("p_user_id" "uuid", "
 
 
 
+REVOKE ALL ON FUNCTION "public"."user_match_access_result"("p_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."user_match_access_result"("p_user_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."verify_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_receipt" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."verify_pro_offer"("p_award_id" "uuid", "p_reservation_id" "uuid", "p_receipt" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."vote_community_spot_photo_v1"("p_photo_id" "uuid", "p_voter_id" "uuid", "p_vote" "text", "p_idempotency_key" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."vote_community_spot_photo_v1"("p_photo_id" "uuid", "p_voter_id" "uuid", "p_vote" "text", "p_idempotency_key" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."watch_upload_mark_chunks"("p_id" "uuid", "p_user_id" "uuid", "p_add" integer[], "p_remove" integer[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."watch_upload_mark_chunks"("p_id" "uuid", "p_user_id" "uuid", "p_add" integer[], "p_remove" integer[]) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."week_scout_story_active_regions"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."week_scout_story_active_regions"() TO "service_role";
 
 
 
@@ -34190,26 +44549,6 @@ GRANT SELECT("analytics_exclusion_reason") ON TABLE "public"."profiles" TO "auth
 
 
 
-GRANT SELECT("preferred_wave_size") ON TABLE "public"."profiles" TO "anon";
-GRANT SELECT("preferred_wave_size") ON TABLE "public"."profiles" TO "authenticated";
-
-
-
-GRANT SELECT("crowd_tolerance") ON TABLE "public"."profiles" TO "anon";
-GRANT SELECT("crowd_tolerance") ON TABLE "public"."profiles" TO "authenticated";
-
-
-
-GRANT SELECT("tide_comfort") ON TABLE "public"."profiles" TO "anon";
-GRANT SELECT("tide_comfort") ON TABLE "public"."profiles" TO "authenticated";
-
-
-
-GRANT SELECT("wind_comfort") ON TABLE "public"."profiles" TO "anon";
-GRANT SELECT("wind_comfort") ON TABLE "public"."profiles" TO "authenticated";
-
-
-
 GRANT SELECT("paywall_soft_prompt_shown") ON TABLE "public"."profiles" TO "anon";
 GRANT SELECT("paywall_soft_prompt_shown") ON TABLE "public"."profiles" TO "authenticated";
 
@@ -34225,7 +44564,19 @@ GRANT SELECT("max_drive_minutes") ON TABLE "public"."profiles" TO "authenticated
 
 
 
+GRANT SELECT("daily_call_time") ON TABLE "public"."profiles" TO "authenticated";
+
+
+
+GRANT SELECT("notif_swell_alerts") ON TABLE "public"."profiles" TO "authenticated";
+
+
+
 GRANT SELECT ON TABLE "posthog_export"."email_send_log" TO "posthog_readonly";
+
+
+
+GRANT SELECT ON TABLE "posthog_export"."install_to_paid_profiles" TO "posthog_readonly";
 
 
 
@@ -34233,9 +44584,37 @@ GRANT SELECT ON TABLE "posthog_export"."profiles" TO "posthog_readonly";
 
 
 
+GRANT SELECT,INSERT,REFERENCES,TRIGGER ON TABLE "public"."revenuecat_provider_events" TO "service_role";
+
+
+
+GRANT UPDATE("processed_at") ON TABLE "public"."revenuecat_provider_events" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "posthog_export"."revenuecat_provider_events" TO "posthog_readonly";
+
+
+
+GRANT SELECT ON TABLE "posthog_export"."revenuecat_unjoined_daily" TO "posthog_readonly";
+
+
+
 GRANT ALL ON TABLE "public"."sessions" TO "anon";
 GRANT ALL ON TABLE "public"."sessions" TO "authenticated";
 GRANT ALL ON TABLE "public"."sessions" TO "service_role";
+
+
+
+GRANT SELECT("timing_user_set"),INSERT("timing_user_set"),UPDATE("timing_user_set") ON TABLE "public"."sessions" TO "authenticated";
+
+
+
+GRANT SELECT("wave_height_min_ft"),INSERT("wave_height_min_ft"),UPDATE("wave_height_min_ft") ON TABLE "public"."sessions" TO "authenticated";
+
+
+
+GRANT SELECT("wave_height_max_ft"),INSERT("wave_height_max_ft"),UPDATE("wave_height_max_ft") ON TABLE "public"."sessions" TO "authenticated";
 
 
 
@@ -34377,6 +44756,10 @@ GRANT ALL ON TABLE "public"."android_waitlist_source_links" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."app_runtime_flags" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."apple_identity_recovery_audit" TO "service_role";
 
 
@@ -34408,6 +44791,12 @@ GRANT ALL ON TABLE "public"."badge_definitions" TO "service_role";
 GRANT ALL ON TABLE "public"."beach_amenity_sources" TO "anon";
 GRANT ALL ON TABLE "public"."beach_amenity_sources" TO "authenticated";
 GRANT ALL ON TABLE "public"."beach_amenity_sources" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."beach_coordinate_corrections" TO "anon";
+GRANT ALL ON TABLE "public"."beach_coordinate_corrections" TO "authenticated";
+GRANT ALL ON TABLE "public"."beach_coordinate_corrections" TO "service_role";
 
 
 
@@ -34469,6 +44858,10 @@ GRANT ALL ON TABLE "public"."beach_ml_performance_baseline" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."beach_observation_stations" TO "service_role";
+
+
+
 GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE ON TABLE "public"."beach_photo_submission_votes" TO "anon";
 GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE ON TABLE "public"."beach_photo_submission_votes" TO "authenticated";
 GRANT ALL ON TABLE "public"."beach_photo_submission_votes" TO "service_role";
@@ -34490,12 +44883,6 @@ GRANT ALL ON TABLE "public"."beach_photos" TO "service_role";
 GRANT ALL ON TABLE "public"."beach_photos_featured" TO "anon";
 GRANT ALL ON TABLE "public"."beach_photos_featured" TO "authenticated";
 GRANT ALL ON TABLE "public"."beach_photos_featured" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."beach_photos_history" TO "anon";
-GRANT ALL ON TABLE "public"."beach_photos_history" TO "authenticated";
-GRANT ALL ON TABLE "public"."beach_photos_history" TO "service_role";
 
 
 
@@ -34529,9 +44916,21 @@ GRANT ALL ON TABLE "public"."beach_sources" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."beach_traffic_weights" TO "anon";
+GRANT ALL ON TABLE "public"."beach_traffic_weights" TO "authenticated";
+GRANT ALL ON TABLE "public"."beach_traffic_weights" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."beach_water_quality" TO "anon";
 GRANT ALL ON TABLE "public"."beach_water_quality" TO "authenticated";
 GRANT ALL ON TABLE "public"."beach_water_quality" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."beach_wind_observations" TO "anon";
+GRANT ALL ON TABLE "public"."beach_wind_observations" TO "authenticated";
+GRANT ALL ON TABLE "public"."beach_wind_observations" TO "service_role";
 
 
 
@@ -34556,6 +44955,18 @@ GRANT ALL ON TABLE "public"."boards" TO "service_role";
 GRANT ALL ON TABLE "public"."buoys" TO "anon";
 GRANT ALL ON TABLE "public"."buoys" TO "authenticated";
 GRANT ALL ON TABLE "public"."buoys" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."forecast_feedback_contexts" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."call_feedback_summary" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."cancellation_feedback" TO "service_role";
 
 
 
@@ -34603,6 +45014,19 @@ GRANT ALL ON TABLE "public"."community_photo_reports" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."community_photo_terms_acceptances" TO "service_role";
+GRANT SELECT ON TABLE "public"."community_photo_terms_acceptances" TO "authenticated";
+
+
+
+GRANT INSERT("user_id") ON TABLE "public"."community_photo_terms_acceptances" TO "authenticated";
+
+
+
+GRANT INSERT("terms_version") ON TABLE "public"."community_photo_terms_acceptances" TO "authenticated";
+
+
+
 GRANT ALL ON TABLE "public"."community_photo_votes" TO "service_role";
 
 
@@ -34617,15 +45041,37 @@ GRANT ALL ON TABLE "public"."content_reports" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."corrected_forecasts" TO "anon";
-GRANT ALL ON TABLE "public"."corrected_forecasts" TO "authenticated";
-GRANT ALL ON TABLE "public"."corrected_forecasts" TO "service_role";
+GRANT ALL ON TABLE "public"."county_beach_advisories" TO "anon";
+GRANT ALL ON TABLE "public"."county_beach_advisories" TO "authenticated";
+GRANT ALL ON TABLE "public"."county_beach_advisories" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."county_beach_advisory_ingest_state" TO "anon";
+GRANT ALL ON TABLE "public"."county_beach_advisory_ingest_state" TO "authenticated";
+GRANT ALL ON TABLE "public"."county_beach_advisory_ingest_state" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."county_beach_advisory_runs" TO "anon";
+GRANT ALL ON TABLE "public"."county_beach_advisory_runs" TO "authenticated";
+GRANT ALL ON TABLE "public"."county_beach_advisory_runs" TO "service_role";
 
 
 
 GRANT ALL ON TABLE "public"."cron_runs" TO "anon";
 GRANT ALL ON TABLE "public"."cron_runs" TO "authenticated";
 GRANT ALL ON TABLE "public"."cron_runs" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."custom_spot_analysis_jobs" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."custom_spot_analysis_jobs_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."custom_spot_analysis_jobs_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."custom_spot_analysis_jobs_id_seq" TO "service_role";
 
 
 
@@ -34665,6 +45111,18 @@ GRANT ALL ON TABLE "public"."earned_pro_grants" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."pro_offer_awards" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_automation_attention" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_campaigns" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."email_click_events" TO "service_role";
 
 
@@ -34675,11 +45133,39 @@ GRANT ALL ON SEQUENCE "public"."email_click_events_id_seq" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."email_contact_attempts" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_contact_controls" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."email_delivery_events" TO "service_role";
 
 
 
 GRANT ALL ON SEQUENCE "public"."email_delivery_events_id_seq" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_lifecycle_recipients" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_lifecycle_due" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_lifecycle_outcomes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_offer_outcomes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."email_reply_events" TO "service_role";
 
 
 
@@ -34743,10 +45229,6 @@ GRANT ALL ON TABLE "public"."forecast_alert_deliveries" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."forecast_feedback_contexts" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."garmin_accounts" TO "service_role";
 
 
@@ -34781,12 +45263,6 @@ GRANT SELECT ON TABLE "public"."garmin_session_candidates" TO "authenticated";
 
 
 GRANT UPDATE("state") ON TABLE "public"."garmin_session_candidates" TO "authenticated";
-
-
-
-GRANT ALL ON TABLE "public"."gfs_wave_shadow_forecasts" TO "anon";
-GRANT ALL ON TABLE "public"."gfs_wave_shadow_forecasts" TO "authenticated";
-GRANT ALL ON TABLE "public"."gfs_wave_shadow_forecasts" TO "service_role";
 
 
 
@@ -34974,6 +45450,14 @@ GRANT ALL ON TABLE "public"."posting_log" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."pro_offer_attention" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."pro_offer_programs" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."profiles_with_home_beach" TO "authenticated";
 GRANT ALL ON TABLE "public"."profiles_with_home_beach" TO "service_role";
 
@@ -34994,6 +45478,14 @@ GRANT ALL ON TABLE "public"."public_session_feed_eligibility" TO "service_role";
 GRANT SELECT ON TABLE "public"."qr_business_venues" TO "anon";
 GRANT SELECT ON TABLE "public"."qr_business_venues" TO "authenticated";
 GRANT ALL ON TABLE "public"."qr_business_venues" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."rain_advisory_events" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."rainfall_runoff_readings" TO "service_role";
 
 
 
@@ -35063,6 +45555,10 @@ GRANT ALL ON SEQUENCE "public"."saved_windows_id_seq" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."seaside_cron_runs" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."session_activation_report" TO "service_role";
 
 
@@ -35070,6 +45566,11 @@ GRANT ALL ON TABLE "public"."session_activation_report" TO "service_role";
 GRANT ALL ON TABLE "public"."session_forecast_snapshots" TO "anon";
 GRANT ALL ON TABLE "public"."session_forecast_snapshots" TO "authenticated";
 GRANT ALL ON TABLE "public"."session_forecast_snapshots" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."session_imports" TO "service_role";
+GRANT SELECT ON TABLE "public"."session_imports" TO "authenticated";
 
 
 
@@ -35103,6 +45604,11 @@ GRANT ALL ON TABLE "public"."session_media_history" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."session_prompt_responses" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "public"."session_prompt_responses" TO "authenticated";
+
+
+
 GRANT ALL ON TABLE "public"."session_share_links" TO "authenticated";
 GRANT ALL ON TABLE "public"."session_share_links" TO "service_role";
 
@@ -35114,9 +45620,49 @@ GRANT ALL ON TABLE "public"."session_shares" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."session_tracks" TO "service_role";
+GRANT SELECT ON TABLE "public"."session_tracks" TO "authenticated";
+
+
+
+GRANT ALL ON TABLE "public"."session_watch_claims" TO "service_role";
+GRANT SELECT,DELETE ON TABLE "public"."session_watch_claims" TO "authenticated";
+
+
+
+GRANT INSERT("session_id") ON TABLE "public"."session_watch_claims" TO "authenticated";
+
+
+
+GRANT INSERT("user_id") ON TABLE "public"."session_watch_claims" TO "authenticated";
+
+
+
+GRANT INSERT("device_id") ON TABLE "public"."session_watch_claims" TO "authenticated";
+
+
+
+GRANT INSERT("window_start") ON TABLE "public"."session_watch_claims" TO "authenticated";
+
+
+
+GRANT INSERT("window_end") ON TABLE "public"."session_watch_claims" TO "authenticated";
+
+
+
+GRANT ALL ON TABLE "public"."session_wave_corrections" TO "service_role";
+GRANT SELECT,INSERT,DELETE ON TABLE "public"."session_wave_corrections" TO "authenticated";
+
+
+
 GRANT ALL ON TABLE "public"."session_wave_observation_candidates" TO "anon";
 GRANT ALL ON TABLE "public"."session_wave_observation_candidates" TO "authenticated";
 GRANT ALL ON TABLE "public"."session_wave_observation_candidates" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."session_waves" TO "service_role";
+GRANT SELECT ON TABLE "public"."session_waves" TO "authenticated";
 
 
 
@@ -35171,9 +45717,81 @@ GRANT ALL ON TABLE "public"."surf_drops" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."surfline_shadow_forecasts" TO "anon";
-GRANT ALL ON TABLE "public"."surfline_shadow_forecasts" TO "authenticated";
-GRANT ALL ON TABLE "public"."surfline_shadow_forecasts" TO "service_role";
+GRANT ALL ON TABLE "public"."surf_game_scores" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."swell_event_alerts" TO "anon";
+GRANT ALL ON TABLE "public"."swell_event_alerts" TO "authenticated";
+GRANT ALL ON TABLE "public"."swell_event_alerts" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."swell_event_forecast_snapshots" TO "anon";
+GRANT ALL ON TABLE "public"."swell_event_forecast_snapshots" TO "authenticated";
+GRANT ALL ON TABLE "public"."swell_event_forecast_snapshots" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."swell_event_user_state" TO "anon";
+GRANT ALL ON TABLE "public"."swell_event_user_state" TO "authenticated";
+GRANT ALL ON TABLE "public"."swell_event_user_state" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."swell_event_verifications" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."swell_outlook_user_state" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_automation_control" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_beach_impacts" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_event_aliases" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_event_evaluations" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_event_impacts" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_event_state_transitions" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_observations" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_recipient_announcements" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."swell_watch_regional_events" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."swell_watch_study_evaluations_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."swell_watch_study_evaluations_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."swell_watch_study_evaluations_id_seq" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."swell_watch_study_recovery_failures_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."swell_watch_study_recovery_failures_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."swell_watch_study_recovery_failures_id_seq" TO "service_role";
 
 
 
@@ -35192,6 +45810,26 @@ GRANT ALL ON TABLE "public"."tide_forecasts" TO "service_role";
 GRANT ALL ON TABLE "public"."trial_ending_push_log" TO "anon";
 GRANT ALL ON TABLE "public"."trial_ending_push_log" TO "authenticated";
 GRANT ALL ON TABLE "public"."trial_ending_push_log" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."trial_feedback_controls" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."trial_feedback_offer_policy" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."trial_feedback_submissions" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."trial_feedback_web_recoveries" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."trial_feedback_outcomes" TO "service_role";
 
 
 
@@ -35215,6 +45853,10 @@ GRANT SELECT,INSERT ON TABLE "public"."trusted_forecast_issues" TO "service_role
 
 
 
+GRANT SELECT,INSERT,UPDATE ON TABLE "public"."trusted_forecast_serving_projections" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."user_badges" TO "anon";
 GRANT ALL ON TABLE "public"."user_badges" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_badges" TO "service_role";
@@ -35230,12 +45872,6 @@ GRANT ALL ON TABLE "public"."user_beach_affinity" TO "service_role";
 GRANT ALL ON TABLE "public"."user_beach_exclusions" TO "anon";
 GRANT ALL ON TABLE "public"."user_beach_exclusions" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_beach_exclusions" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."user_devices" TO "anon";
-GRANT ALL ON TABLE "public"."user_devices" TO "authenticated";
-GRANT ALL ON TABLE "public"."user_devices" TO "service_role";
 
 
 
@@ -35310,6 +45946,81 @@ GRANT ALL ON TABLE "public"."v_tide_forecast_latest" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."watch_devices" TO "service_role";
+
+
+
+GRANT SELECT("id") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("user_id") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("platform") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("device_uid") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("device_part_number") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("device_name") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("app_version") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("created_at") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("last_seen_at") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT SELECT("revoked_at") ON TABLE "public"."watch_devices" TO "authenticated";
+
+
+
+GRANT ALL ON TABLE "public"."watch_link_codes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."watch_uploads" TO "service_role";
+GRANT SELECT ON TABLE "public"."watch_uploads" TO "authenticated";
+
+
+
+GRANT ALL ON TABLE "public"."water_quality_held_beaches" TO "anon";
+GRANT ALL ON TABLE "public"."water_quality_held_beaches" TO "authenticated";
+GRANT ALL ON TABLE "public"."water_quality_held_beaches" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."week_scout_ranking_context" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "public"."week_scout_story_editions" TO "service_role";
+
+
+
+GRANT SELECT,INSERT ON TABLE "public"."week_scout_story_inputs" TO "service_role";
+
+
+
+GRANT SELECT,INSERT,UPDATE ON TABLE "public"."week_scout_story_jobs" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."weekend_scout_snapshots" TO "service_role";
 GRANT SELECT ON TABLE "public"."weekend_scout_snapshots" TO "authenticated";
 
@@ -35330,6 +46041,14 @@ GRANT ALL ON TABLE "public"."wq_samples" TO "service_role";
 GRANT ALL ON TABLE "public"."xp_events" TO "anon";
 GRANT ALL ON TABLE "public"."xp_events" TO "authenticated";
 GRANT ALL ON TABLE "public"."xp_events" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "quiver_agent_evidence"."profiles" TO "quiver_agent_readonly";
+
+
+
+GRANT SELECT ON TABLE "quiver_agent_evidence"."user_events" TO "quiver_agent_readonly";
 
 
 
