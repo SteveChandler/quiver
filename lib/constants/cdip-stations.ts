@@ -181,8 +181,9 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     parameters: ["wave", "weather"],
   },
 
-  // 12 km off Ocean Beach SF; replaces Harvest for Sloat (Nov 2026: 0.38 ft
-  // lower held-out face error). Shallow, so it saturates on the biggest days.
+  // 12 km off Ocean Beach SF; the measured buoy for Sloat (Nov 2026: 0.38 ft
+  // lower held-out face error than Harvest). Shallow, so it saturates on the
+  // biggest days.
   "142": {
     id: "142",
     name: "San Francisco Bar",
