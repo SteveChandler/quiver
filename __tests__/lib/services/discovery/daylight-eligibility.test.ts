@@ -201,6 +201,17 @@ describe('usable light interval cache', () => {
     expect(usableLightIntervalForDate('2026-09-23', 'UTC', sun).start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
     expect(usableLightIntervalForDate('2026-09-24', TIMEZONE, sun).start).toEqual(localTime('2026-09-24', '06:00'));
   });
+
+  it('shares one entry across wrappers rebuilt around the same arrays', () => {
+    const sunrises = [...SEP23_SUN.sunrises];
+    const sunsets = [...SEP23_SUN.sunsets];
+    const first = usableLightIntervalForDate('2026-09-23', TIMEZONE, { sunrises, sunsets });
+    // Same length, new value: only a read that hit the cache still returns the first answer.
+    sunrises[0] = new Date('2026-09-23T14:37:00Z');
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, { sunrises, sunsets })).toEqual(first);
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, { sunrises: [...sunrises], sunsets }).start.toISOString())
+      .toBe('2026-09-23T14:07:00.000Z');
+  });
 });
 
 describe('createDaylightPointChecker', () => {

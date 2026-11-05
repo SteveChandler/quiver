@@ -128,7 +128,6 @@ export function softenTideBandCeiling(ceiling: number): number {
   return ceiling;
 }
 
-/** "by ~1 PM" in the beach's timezone, rounded up to the half hour. */
 // Scoring formats this per forecast row; building a formatter each time cost
 // more than the rest of the tide assessment. Failed constructions are not cached.
 const tideClockFormatters = new Map<string, Intl.DateTimeFormat>();
@@ -142,6 +141,7 @@ function tideClockFormatter(timezone: string): Intl.DateTimeFormat {
   return formatter;
 }
 
+/** "by ~1 PM" in the beach's timezone, rounded up to the half hour. */
 export function formatTideWhen(from: Date, hoursAhead: number, timezone: string | null | undefined): string {
   const fromMs = from.getTime();
   if (!timezone || !Number.isFinite(fromMs) || !Number.isFinite(hoursAhead)) return TIDE_WITHIN_THE_HOUR;
