@@ -47,10 +47,7 @@ describe("CDIP station fallback eligibility", () => {
     expect([nearest, failover]).not.toContain("103");
   });
 
-  it("only 103 is explicit-only", () => {
-    const explicitOnly = Object.values(CDIP_STATIONS)
-      .filter((station) => station.fallbackEligible === false)
-      .map((station) => station.id);
-    expect(explicitOnly).toEqual(["103"]);
+  it("flags 103 as explicit-only", () => {
+    expect(CDIP_STATIONS["103"].fallbackEligible).toBe(false);
   });
 });

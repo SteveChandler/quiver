@@ -276,7 +276,9 @@ export class CDIPService {
   }
 
   /**
-   * Find the nearest CDIP station to a given location
+   * Find the nearest CDIP station to a given location. Skips explicit-only
+   * stations (fallbackEligible: false), so this is the fallback/failover pick,
+   * not necessarily the physically nearest buoy.
    *
    * @param latitude - Latitude in degrees
    * @param longitude - Longitude in degrees
