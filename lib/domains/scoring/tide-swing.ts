@@ -129,17 +129,26 @@ export function softenTideBandCeiling(ceiling: number): number {
 }
 
 /** "by ~1 PM" in the beach's timezone, rounded up to the half hour. */
+// Scoring formats this per forecast row; building a formatter each time cost
+// more than the rest of the tide assessment. Failed constructions are not cached.
+const tideClockFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function tideClockFormatter(timezone: string): Intl.DateTimeFormat {
+  let formatter = tideClockFormatters.get(timezone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
+    tideClockFormatters.set(timezone, formatter);
+  }
+  return formatter;
+}
+
 export function formatTideWhen(from: Date, hoursAhead: number, timezone: string | null | undefined): string {
   const fromMs = from.getTime();
   if (!timezone || !Number.isFinite(fromMs) || !Number.isFinite(hoursAhead)) return TIDE_WITHIN_THE_HOUR;
   const halfHourMs = 30 * 60 * 1000;
   const targetMs = Math.ceil((fromMs + hoursAhead * 3_600_000) / halfHourMs) * halfHourMs;
   try {
-    const clock = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: timezone,
-    }).format(new Date(targetMs));
+    const clock = tideClockFormatter(timezone).format(new Date(targetMs));
     return `by ~${clock.replace(':00', '')}`;
   } catch {
     // An unknown IANA zone throws RangeError; the relative phrase is still true.

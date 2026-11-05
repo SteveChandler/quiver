@@ -1,5 +1,6 @@
 import {
   clampToUsableLight,
+  createDaylightPointChecker,
   currentHourRowStart,
   isDaylightInterval,
   lightMetadata,
@@ -199,5 +200,34 @@ describe('usable light interval cache', () => {
     expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, sun).start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
     expect(usableLightIntervalForDate('2026-09-23', 'UTC', sun).start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
     expect(usableLightIntervalForDate('2026-09-24', TIMEZONE, sun).start).toEqual(localTime('2026-09-24', '06:00'));
+  });
+});
+
+describe('createDaylightPointChecker', () => {
+  const FIVE_MIN = 5 * 60_000;
+  const pointsAcross = (from: string, hours: number): Date[] => Array.from(
+    { length: (hours * 60) / 5 },
+    (_, index) => new Date(Date.parse(from) + index * FIVE_MIN),
+  );
+
+  it.each<[string, BeachSunTimes, string]>([
+    ['America/Los_Angeles', SEP23_SUN, '2026-09-23T12:00:00Z'],
+    // A half-hour zone puts local midnight mid-way through a UTC hour.
+    ['Asia/Kolkata', {
+      sunrises: [new Date('2026-09-23T00:40:00Z'), new Date('2026-09-24T00:40:00Z')],
+      sunsets: [new Date('2026-09-23T12:50:00Z'), new Date('2026-09-24T12:50:00Z')],
+    }, '2026-09-23T00:00:00Z'],
+  ])('answers exactly as a 1 ms isDaylightInterval in %s, midnight hours included', (timezone, sunTimes, from) => {
+    // Rebuilt wrappers around the same arrays, as the edge scan passes them.
+    const check = createDaylightPointChecker(timezone, { sunrises: sunTimes.sunrises, sunsets: sunTimes.sunsets });
+    const points = pointsAcross(from, 36);
+    const expected = points.map((time) => isDaylightInterval(time, new Date(time.getTime() + 1), timezone, sunTimes));
+    expect(points.map(check)).toEqual(expected);
+    expect(expected).toContain(true);
+    expect(expected).toContain(false);
+  });
+
+  it('rejects an invalid time', () => {
+    expect(createDaylightPointChecker(TIMEZONE, SEP23_SUN)(new Date(Number.NaN))).toBe(false);
   });
 });
