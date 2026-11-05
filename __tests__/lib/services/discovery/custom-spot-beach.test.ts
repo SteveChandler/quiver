@@ -1,8 +1,13 @@
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import {
+  anchorForTerrainRatio,
+  fetchAnchorReferenceTerrain,
   buildCustomSpotBeach,
   type CustomSpotDiscoveryRow,
 } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Beach } from '@/types/database';
+import { getTerrainParamsHash } from '@/lib/services/custom-spot-analysis/core';
 
 const nearest = {
   id: 'nearest', name: 'Nearest Beach', lat: 32, lon: -117,
@@ -57,5 +62,68 @@ describe('buildCustomSpotBeach', () => {
     );
     expect(beach.aspect_deg).toBe(225);
     expect(beach.wind_offshore_deg).toBe(45);
+  });
+});
+
+describe('anchorForTerrainRatio', () => {
+  const reference = { swell_access_factors: Array(72).fill(0.6), wind_exposure_factors: Array(72).fill(0.7) };
+  const bare = { ...nearest, terrain_enabled: false, swell_access_factors: null, wind_exposure_factors: null } as unknown as Beach;
+
+  it('uses reference terrain for an anchor with none of its own', () => {
+    const anchor = anchorForTerrainRatio(bare, reference);
+    expect(anchor.terrain_enabled).toBe(true);
+    expect(anchor.swell_access_factors).toBe(reference.swell_access_factors);
+    expect(bare.terrain_enabled).toBe(false);
+  });
+
+  it("keeps an anchor's own terrain", () => {
+    expect(anchorForTerrainRatio(nearest, reference)).toBe(nearest);
+  });
+
+  it('leaves an anchor without reference terrain unchanged', () => {
+    expect(anchorForTerrainRatio(bare, undefined)).toBe(bare);
+  });
+});
+
+describe('fetchAnchorReferenceTerrain', () => {
+  const bareAnchor = { ...nearest, id: 'bare', lat: 33, lon: -118, terrain_enabled: false, swell_access_factors: null, wind_exposure_factors: null } as unknown as Beach;
+  const row = (overrides: Record<string, unknown> = {}) => ({
+    beach_id: 'bare', lat: 33, lon: -118,
+    swell_access_factors: Array(72).fill(0.5), wind_exposure_factors: Array(72).fill(0.5),
+    model_version: 'custom_spot_terrain_v1', terrain_params_hash: getTerrainParamsHash(),
+    ...overrides,
+  });
+  const clientReturning = (data: unknown[], error: unknown = null) => {
+    const query = { select: () => query, in: async () => ({ data, error }) };
+    return { from: jest.fn(() => query) } as unknown as SupabaseClient & { from: jest.Mock };
+  };
+
+  it('returns current reference terrain for anchors without their own', async () => {
+    const result = await fetchAnchorReferenceTerrain([{ spot: spot(), nearestBeach: bareAnchor }], clientReturning([row()]));
+    expect(result.get('bare')?.swell_access_factors).toEqual(Array(72).fill(0.5));
+  });
+
+  it.each([
+    { model_version: 'custom_spot_terrain_v0' },
+    { terrain_params_hash: 'old' },
+    { lat: 33.01 },
+  ])('ignores a stale reference row: %j', async (overrides) => {
+    const result = await fetchAnchorReferenceTerrain([{ spot: spot(), nearestBeach: bareAnchor }], clientReturning([row(overrides)]));
+    expect(result.size).toBe(0);
+  });
+
+  it('does not query when every anchor has its own terrain or no spot is modeled', async () => {
+    const client = clientReturning([row()]);
+    await fetchAnchorReferenceTerrain([
+      { spot: spot(), nearestBeach: nearest },
+      { spot: spot({ terrain_status: 'queued' }), nearestBeach: bareAnchor },
+    ], client);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('returns nothing when the read fails', async () => {
+    const result = await fetchAnchorReferenceTerrain([{ spot: spot(), nearestBeach: bareAnchor }], clientReturning([], { message: 'relation does not exist' }));
+    expect(result.size).toBe(0);
+    expectConsoleWarnings([/Anchor reference terrain unavailable/]);
   });
 });

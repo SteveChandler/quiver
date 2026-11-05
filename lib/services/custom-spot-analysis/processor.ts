@@ -1,10 +1,16 @@
+import { createContextLogger } from '@/lib/logger';
+
 import {
+  analyzeAnchorTerrain,
   analyzeCustomSpot,
+  type AnchorTerrainResult,
   CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION,
   getCustomSpotCoordinateHash,
   type CustomSpotAnalysisDependencies,
   type CustomSpotAnalysisResult,
 } from './core';
+
+const log = createContextLogger('CustomSpotAnalysis');
 
 const MAX_ATTEMPTS = 3;
 
@@ -59,7 +65,16 @@ export interface CustomSpotModeledUpdate {
   fingerprintUpdatedAt: string;
 }
 
+/** The spot's anchor beach, when it has no terrain and no current reference terrain. */
+export interface AnchorNeedingTerrain {
+  beachId: string;
+  lat: number;
+  lon: number;
+}
+
 export interface CustomSpotAnalysisStore {
+  getAnchorNeedingTerrain(customSpotId: string): Promise<AnchorNeedingTerrain | null>;
+  saveAnchorTerrain(beachId: string, terrain: AnchorTerrainResult): Promise<void>;
   claimJobs(batchSize: number): Promise<ClaimedCustomSpotAnalysisJob[]>;
   getSpot(customSpotId: string): Promise<CustomSpotForAnalysis | null>;
   writeModeledResult(
@@ -202,9 +217,35 @@ function sanitizeErrorCode(error: unknown): string {
   return 'terrain_analysis_failed';
 }
 
+/**
+ * Best effort: a spot whose anchor beach has no terrain can only be scaled
+ * against reference terrain at the anchor's coordinate. Failing here leaves
+ * the spot on its anchor's forecast and never fails the spot's job.
+ */
+async function ensureAnchorTerrain(
+  store: CustomSpotAnalysisStore,
+  customSpotId: string,
+  attemptedAnchors: Set<string>,
+  dependencies?: CustomSpotAnalysisDependencies
+): Promise<void> {
+  try {
+    const anchor = await store.getAnchorNeedingTerrain(customSpotId);
+    // One attempt per anchor per run; the next daily run retries a failure.
+    if (!anchor || attemptedAnchors.has(anchor.beachId)) return;
+    attemptedAnchors.add(anchor.beachId);
+    const terrain = await analyzeAnchorTerrain(anchor.beachId, anchor.lat, anchor.lon, dependencies);
+    await store.saveAnchorTerrain(anchor.beachId, terrain);
+  } catch (error) {
+    log.warn('Anchor terrain skipped', {
+      code: error instanceof Error ? error.message.split(':')[0] : 'anchor_terrain_failed',
+    });
+  }
+}
+
 async function processJob(
   store: CustomSpotAnalysisStore,
   job: ClaimedCustomSpotAnalysisJob,
+  attemptedAnchors: Set<string>,
   dependencies?: CustomSpotAnalysisDependencies
 ): Promise<keyof Omit<CustomSpotAnalysisBatchSummary, 'claimed'>> {
   const spot = await store.getSpot(job.customSpotId);
@@ -226,6 +267,7 @@ async function processJob(
     && spot.fingerprintCoordinateHash === coordinateHash
   ) {
     await store.markJobComplete(job.jobId, job.claimedAt);
+    await ensureAnchorTerrain(store, spot.id, attemptedAnchors, dependencies);
     return 'cached';
   }
 
@@ -236,6 +278,7 @@ async function processJob(
       await store.markJobRetry(job.jobId, job.claimedAt, 0, 'coordinate_changed');
       return 'retried';
     }
+    await ensureAnchorTerrain(store, spot.id, attemptedAnchors, dependencies);
     return 'completed';
   } catch (error) {
     const errorCode = sanitizeErrorCode(error);
@@ -256,6 +299,7 @@ export async function processCustomSpotAnalysisBatch(
 ): Promise<CustomSpotAnalysisBatchSummary> {
   const boundedBatchSize = Math.max(1, Math.min(25, Math.trunc(batchSize)));
   const jobs = await store.claimJobs(boundedBatchSize);
+  const attemptedAnchors = new Set<string>();
   const summary: CustomSpotAnalysisBatchSummary = {
     claimed: jobs.length,
     completed: 0,
@@ -271,7 +315,7 @@ export async function processCustomSpotAnalysisBatch(
       summary.failed += 1;
       continue;
     }
-    const outcome = await processJob(store, job, dependencies);
+    const outcome = await processJob(store, job, attemptedAnchors, dependencies);
     summary[outcome] += 1;
   }
 
