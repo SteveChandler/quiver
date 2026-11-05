@@ -13,7 +13,7 @@
  * season in the window.
  *   node --import tsx scripts/replay-model-swell-calibration.ts .env.local 30 --write --seam-fixtures
  *
- * Fit 2026-11-05 at commit e832c143d over 30 days: ml_predictions_log
+ * Fit 2026-11-05 at commit 967a6b7f8 over 30 days: ml_predictions_log
  * model_swell rows, horizon 12-48 h, CDIP 30-minute realtime buoy reading
  * within 45 min. A beach gets an entry only with at least
  * MODEL_SWELL_FACTOR_MIN_ROWS rows and |k - 1| >= MODEL_SWELL_FACTOR_MIN_EFFECT.
@@ -31,7 +31,8 @@ export const MODEL_SWELL_FACTOR_MIN_EFFECT = 0.08;
 export const MODEL_SWELL_FACTOR_MIN_ROWS = 100;
 
 /**
- * Lower cap by cdip_station, hand-set and kept across refits.
+ * Lower cap by cdip_station, hand-set. Edit it in this file: a refit reads it
+ * and writes it back unchanged.
  *
  * "215" (Long Beach Channel; Huntington and Newport): the Nov 2026 fit gave
  * 1.8-2.3, but the window was 82-98% south swell and in model-west hours the
@@ -39,7 +40,7 @@ export const MODEL_SWELL_FACTOR_MIN_ROWS = 100;
  * (Nov 13 replay: HB Pier Northside 9.7-10.4 ft against a plausible 5.5-7).
  * The buckets these beaches are fit to also disagree with CDIP MOP. Held at
  * the old 1.6 cap until a buoy-confirmed 11 s+ west swell validates the fit;
- * delete the entry then.
+ * delete the entry and refit then.
  */
 export const MODEL_SWELL_STATION_FACTOR_HOLDS: Readonly<Record<string, number>> = {
   "215": 1.6,

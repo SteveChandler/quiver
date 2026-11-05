@@ -500,10 +500,15 @@ async function main(): Promise<void> {
   const entries = emitted
     .map((e) => `  "${e.id}": ${e.k.toFixed(2)}, // ${e.name} (n=${e.n})`)
     .join("\n");
+  // Holds carry over from the current table, so editing that file is the way to change one.
+  const holds = Object.entries(MODEL_SWELL_STATION_FACTOR_HOLDS)
+    .map(([station, cap]) => `  ${JSON.stringify(station)}: ${cap},`)
+    .join("\n");
   const source = readTemplate()
     .replace("__FIT_DATE__", today)
     .replace("__COMMIT__", fitCommit())
     .replaceAll("__DAYS__", String(DAYS))
+    .replace("__HOLDS__", holds)
     .replace("__ENTRIES__", entries);
   writeFileSync(OUT_PATH, source);
   console.log(`wrote ${OUT_PATH}`);
@@ -543,7 +548,8 @@ export const MODEL_SWELL_FACTOR_MIN_EFFECT = 0.08;
 export const MODEL_SWELL_FACTOR_MIN_ROWS = 100;
 
 /**
- * Lower cap by cdip_station, hand-set and kept across refits.
+ * Lower cap by cdip_station, hand-set. Edit it in this file: a refit reads it
+ * and writes it back unchanged.
  *
  * "215" (Long Beach Channel; Huntington and Newport): the Nov 2026 fit gave
  * 1.8-2.3, but the window was 82-98% south swell and in model-west hours the
@@ -551,10 +557,10 @@ export const MODEL_SWELL_FACTOR_MIN_ROWS = 100;
  * (Nov 13 replay: HB Pier Northside 9.7-10.4 ft against a plausible 5.5-7).
  * The buckets these beaches are fit to also disagree with CDIP MOP. Held at
  * the old 1.6 cap until a buoy-confirmed 11 s+ west swell validates the fit;
- * delete the entry then.
+ * delete the entry and refit then.
  */
 export const MODEL_SWELL_STATION_FACTOR_HOLDS: Readonly<Record<string, number>> = {
-  "215": 1.6,
+__HOLDS__
 };
 
 export const MODEL_SWELL_CALIBRATION_FACTORS: Readonly<Record<string, number>> = {
