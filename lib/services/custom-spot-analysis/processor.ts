@@ -1,3 +1,5 @@
+import { createContextLogger } from '@/lib/logger';
+
 import {
   analyzeAnchorTerrain,
   analyzeCustomSpot,
@@ -7,6 +9,8 @@ import {
   type CustomSpotAnalysisDependencies,
   type CustomSpotAnalysisResult,
 } from './core';
+
+const log = createContextLogger('CustomSpotAnalysis');
 
 const MAX_ATTEMPTS = 3;
 
@@ -221,21 +225,27 @@ function sanitizeErrorCode(error: unknown): string {
 async function ensureAnchorTerrain(
   store: CustomSpotAnalysisStore,
   customSpotId: string,
+  attemptedAnchors: Set<string>,
   dependencies?: CustomSpotAnalysisDependencies
 ): Promise<void> {
   try {
     const anchor = await store.getAnchorNeedingTerrain(customSpotId);
-    if (!anchor) return;
+    // One attempt per anchor per run; the next daily run retries a failure.
+    if (!anchor || attemptedAnchors.has(anchor.beachId)) return;
+    attemptedAnchors.add(anchor.beachId);
     const terrain = await analyzeAnchorTerrain(anchor.beachId, anchor.lat, anchor.lon, dependencies);
     await store.saveAnchorTerrain(anchor.beachId, terrain);
-  } catch {
-    // Retried naturally the next time any spot on this anchor is analyzed.
+  } catch (error) {
+    log.warn('Anchor terrain skipped', {
+      code: error instanceof Error ? error.message.split(':')[0] : 'anchor_terrain_failed',
+    });
   }
 }
 
 async function processJob(
   store: CustomSpotAnalysisStore,
   job: ClaimedCustomSpotAnalysisJob,
+  attemptedAnchors: Set<string>,
   dependencies?: CustomSpotAnalysisDependencies
 ): Promise<keyof Omit<CustomSpotAnalysisBatchSummary, 'claimed'>> {
   const spot = await store.getSpot(job.customSpotId);
@@ -257,7 +267,7 @@ async function processJob(
     && spot.fingerprintCoordinateHash === coordinateHash
   ) {
     await store.markJobComplete(job.jobId, job.claimedAt);
-    await ensureAnchorTerrain(store, spot.id, dependencies);
+    await ensureAnchorTerrain(store, spot.id, attemptedAnchors, dependencies);
     return 'cached';
   }
 
@@ -268,7 +278,7 @@ async function processJob(
       await store.markJobRetry(job.jobId, job.claimedAt, 0, 'coordinate_changed');
       return 'retried';
     }
-    await ensureAnchorTerrain(store, spot.id, dependencies);
+    await ensureAnchorTerrain(store, spot.id, attemptedAnchors, dependencies);
     return 'completed';
   } catch (error) {
     const errorCode = sanitizeErrorCode(error);
@@ -289,6 +299,7 @@ export async function processCustomSpotAnalysisBatch(
 ): Promise<CustomSpotAnalysisBatchSummary> {
   const boundedBatchSize = Math.max(1, Math.min(25, Math.trunc(batchSize)));
   const jobs = await store.claimJobs(boundedBatchSize);
+  const attemptedAnchors = new Set<string>();
   const summary: CustomSpotAnalysisBatchSummary = {
     claimed: jobs.length,
     completed: 0,
@@ -304,7 +315,7 @@ export async function processCustomSpotAnalysisBatch(
       summary.failed += 1;
       continue;
     }
-    const outcome = await processJob(store, job, dependencies);
+    const outcome = await processJob(store, job, attemptedAnchors, dependencies);
     summary[outcome] += 1;
   }
 

@@ -114,14 +114,18 @@ export class SupabaseCustomSpotAnalysisStore implements CustomSpotAnalysisStore 
 
     const { data: reference, error: referenceError } = await this.client
       .from('custom_spot_anchor_terrain')
-      .select('model_version, terrain_params_hash')
+      .select('lat, lon, model_version, terrain_params_hash')
       .eq('beach_id', beachId)
       .maybeSingle();
     if (referenceError) throw referenceError;
-    const current = reference as { model_version: string; terrain_params_hash: string } | null;
+    const current = reference as {
+      lat: number; lon: number; model_version: string; terrain_params_hash: string;
+    } | null;
     if (
       current?.model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
       && current.terrain_params_hash === getTerrainParamsHash()
+      && current.lat === row.lat
+      && current.lon === row.lon
     ) {
       return null;
     }
@@ -133,6 +137,8 @@ export class SupabaseCustomSpotAnalysisStore implements CustomSpotAnalysisStore 
       .from('custom_spot_anchor_terrain')
       .upsert({
         beach_id: beachId,
+        lat: terrain.lat,
+        lon: terrain.lon,
         swell_access_factors: terrain.swellAccessFactors,
         wind_exposure_factors: terrain.windExposureFactors,
         model_version: terrain.modelVersion,

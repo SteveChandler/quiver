@@ -1,3 +1,4 @@
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import {
   processCustomSpotAnalysisBatch,
   type ClaimedCustomSpotAnalysisJob,
@@ -216,9 +217,27 @@ describe('custom spot analysis processor', () => {
     expect(store.anchorSaves).toEqual([]);
   });
 
+  it('tries each anchor once per run', async () => {
+    let analyses = 0;
+    const counting = { ...terrain, analyzeTerrain: async () => { analyses += 1; return terrain.analyzeTerrain(); } };
+    const store = createStore({
+      jobs: [1, 2, 3].map((jobId) => ({
+        jobId, customSpotId: 'spot-1', requestedModelVersion: 'custom_spot_terrain_v1',
+        attempts: 1, claimedAt: '2026-08-28T12:00:00.000Z',
+      })),
+      anchor: { beachId: 'beach-1', lat: 32.4, lon: -117.0 },
+    });
+    store.saveAnchorTerrain = async () => { throw new Error('write failed'); };
+    await processCustomSpotAnalysisBatch(store, 3, counting);
+    expectConsoleWarnings([/Anchor terrain skipped/]);
+    // 3 spot analyses + 1 anchor attempt, not 3.
+    expect(analyses).toBe(4);
+  });
+
   it('never fails the spot job when the anchor step fails', async () => {
     const store = createStore({ anchorError: new Error('db down') });
     const summary = await processCustomSpotAnalysisBatch(store, 1, terrain);
+    expectConsoleWarnings([/Anchor terrain skipped/]);
     expect(summary.completed).toBe(1);
     expect(store.events).not.toContain('retry');
     expect(store.events).not.toContain('analysis-failed');

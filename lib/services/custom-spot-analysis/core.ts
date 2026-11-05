@@ -226,6 +226,8 @@ export async function analyzeCustomSpot(
 }
 
 export interface AnchorTerrainResult {
+  lat: number;
+  lon: number;
   swellAccessFactors: number[];
   windExposureFactors: number[];
   modelVersion: string;
@@ -253,6 +255,8 @@ export async function analyzeAnchorTerrain(
     throw new Error('invalid_directional_factors');
   }
   return {
+    lat,
+    lon,
     swellAccessFactors: terrain.swellAccessFactors,
     windExposureFactors: terrain.windExposureFactors,
     modelVersion: CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION,

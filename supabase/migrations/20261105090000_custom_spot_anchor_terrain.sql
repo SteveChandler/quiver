@@ -12,6 +12,9 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.custom_spot_anchor_terrain (
   beach_id uuid PRIMARY KEY REFERENCES public.beaches (id) ON DELETE CASCADE,
+  -- The coordinate the terrain was computed at; a re-pinned beach no longer matches.
+  lat double precision NOT NULL,
+  lon double precision NOT NULL,
   swell_access_factors real[] NOT NULL,
   wind_exposure_factors real[] NOT NULL,
   model_version text NOT NULL,

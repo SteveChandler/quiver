@@ -34,7 +34,10 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
 import { getFavoriteBeachesFromDb } from '@/lib/services/beach-query-service';
-import { CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION } from '@/lib/services/custom-spot-analysis/core';
+import {
+  CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION,
+  getTerrainParamsHash,
+} from '@/lib/services/custom-spot-analysis/core';
 import { applyCustomSpotForecastGeometry } from '@/lib/services/custom-spot-analysis/forecast-overlay';
 import type { Beach, Json } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -927,13 +930,21 @@ async function fetchAnchorReferenceTerrain(
     const client = createSupabaseServiceRoleClient() as unknown as SupabaseClient;
     const { data, error } = await client
       .from('custom_spot_anchor_terrain')
-      .select('beach_id, swell_access_factors, wind_exposure_factors, model_version')
+      .select('beach_id, lat, lon, swell_access_factors, wind_exposure_factors, model_version, terrain_params_hash')
       .in('beach_id', beachIds);
     if (error) throw error;
-    const rows = (data ?? []) as Array<AnchorReferenceTerrain & { beach_id: string; model_version: string }>;
+    const rows = (data ?? []) as Array<AnchorReferenceTerrain & {
+      beach_id: string; lat: number; lon: number; model_version: string; terrain_params_hash: string;
+    }>;
+    const anchors = new Map(candidates.map((candidate) => [candidate.nearestBeach.id, candidate.nearestBeach]));
+    const paramsHash = getTerrainParamsHash();
+    // Same staleness rule as the worker: model, parameters and coordinate must all match.
     return new Map(
       rows
-        .filter((row) => row.model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION)
+        .filter((row) => row.model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
+          && row.terrain_params_hash === paramsHash
+          && row.lat === anchors.get(row.beach_id)?.lat
+          && row.lon === anchors.get(row.beach_id)?.lon)
         .map((row) => [row.beach_id, row]),
     );
   } catch (error) {
