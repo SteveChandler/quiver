@@ -179,15 +179,16 @@ describe("/custom-spots/[id] page", () => {
       screen.getByRole("heading", { name: "Public Peak" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("custom-spot-zine-surface")).toBeInTheDocument();
-    expect(screen.getByAltText("Ocean Beach surf zone")).toHaveAttribute(
+    expect(screen.getByAltText("Public Peak surf zone")).toHaveAttribute(
       "src",
       beachPhoto.thumb_url,
     );
     expect(
-      screen.getByAltText("Ocean Beach surf zone"),
+      screen.getByAltText("Public Peak surf zone"),
     ).not.toHaveAttribute("data-unoptimized");
-    expect(screen.getByText("Borrowed from Ocean Beach")).toBeInTheDocument();
-    expect(screen.getByText(/Forecast borrowed from Ocean Beach/i)).toBeInTheDocument();
+    // The nearby beach supplying the forecast is never named to the user.
+    expect(screen.queryByText(/Ocean Beach/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/borrowed/i)).not.toBeInTheDocument();
     expect(screen.getByTestId("custom-spot-forecast-table")).toHaveClass(
       "zine-forecast-table",
     );
