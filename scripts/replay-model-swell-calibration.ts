@@ -47,6 +47,7 @@ import {
   MODEL_SWELL_FACTOR_MIN_EFFECT,
   MODEL_SWELL_FACTOR_MIN_ROWS,
   MODEL_SWELL_FACTOR_REVIEW,
+  MODEL_SWELL_STATION_FACTOR_HOLDS,
 } from "../lib/utils/model-swell-calibration-factors";
 
 const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
@@ -145,12 +146,10 @@ function mean(values: number[]): number {
 function shippedFactor(
   ratios: number[],
   minRows: number = MODEL_SWELL_FACTOR_MIN_ROWS,
+  max: number = MODEL_SWELL_FACTOR_MAX,
 ): number {
   if (ratios.length < minRows) return 1;
-  const k = Math.min(
-    MODEL_SWELL_FACTOR_MAX,
-    Math.max(MODEL_SWELL_FACTOR_MIN, median(ratios)),
-  );
+  const k = Math.min(max, Math.max(MODEL_SWELL_FACTOR_MIN, median(ratios)));
   return Math.abs(k - 1) >= MODEL_SWELL_FACTOR_MIN_EFFECT
     ? Math.round(k * 100) / 100
     : 1;
@@ -278,6 +277,7 @@ async function main(): Promise<void> {
   const truthSource = new Map<string, "cdip-realtime" | "stored">();
   const noTruth: string[] = [];
   const farBuoy: string[] = [];
+  const held: string[] = [];
   const totals = {
     logged: [] as number[],
     current: [] as number[],
@@ -387,7 +387,12 @@ async function main(): Promise<void> {
         seam[beach.id] = { name: beach.name, pairs: recent };
     }
 
-    const allK = shippedFactor(recs.map((r) => r.truth / r.uncalibrated));
+    const cap = MODEL_SWELL_STATION_FACTOR_HOLDS[beach.cdip_station] ?? MODEL_SWELL_FACTOR_MAX;
+    const ratios = recs.map((r) => r.truth / r.uncalibrated);
+    const allK = shippedFactor(ratios, MODEL_SWELL_FACTOR_MIN_ROWS, cap);
+    const unheldK = shippedFactor(ratios);
+    if (unheldK > allK)
+      held.push(`${beach.name} (CDIP ${beach.cdip_station}): fit ${unheldK.toFixed(2)}, ships ${allK.toFixed(2)}`);
     if (allK !== 1)
       emitted.push({ id: beach.id, name: beach.name, k: allK, n: recs.length });
     if (recs.length < 40) continue;
@@ -400,6 +405,7 @@ async function main(): Promise<void> {
     const trainK = shippedFactor(
       train.map((r) => r.truth / r.uncalibrated),
       MODEL_SWELL_FACTOR_MIN_ROWS / 2,
+      cap,
     );
     const mae = (pick: (r: Rec) => number): number =>
       mean(test.map((r) => Math.abs(r.truth - pick(r))));
@@ -454,6 +460,12 @@ async function main(): Promise<void> {
       `\nbuoy more than ${MAX_BUOY_DISTANCE_KM} km from the beach, so no factor (wrong cdip_station): ${farBuoy.length} beaches`,
     );
     for (const name of farBuoy.sort()) console.log(`  ${name}`);
+  }
+  if (held.length > 0) {
+    console.log(
+      `\nheld below the fit by MODEL_SWELL_STATION_FACTOR_HOLDS: ${held.length} beaches`,
+    );
+    for (const line of held.sort()) console.log(`  ${line}`);
   }
   const review = emitted.filter(
     (e) => e.k > MODEL_SWELL_FACTOR_REVIEW || e.k <= MODEL_SWELL_FACTOR_MIN,
@@ -529,6 +541,21 @@ export const MODEL_SWELL_FACTOR_MAX = 2.5;
 export const MODEL_SWELL_FACTOR_REVIEW = 1.6;
 export const MODEL_SWELL_FACTOR_MIN_EFFECT = 0.08;
 export const MODEL_SWELL_FACTOR_MIN_ROWS = 100;
+
+/**
+ * Lower cap by cdip_station, hand-set and kept across refits.
+ *
+ * "215" (Long Beach Channel; Huntington and Newport): the Nov 2026 fit gave
+ * 1.8-2.3, but the window was 82-98% south swell and in model-west hours the
+ * buoy/model ratio was about 1.0, so a single k over-calls west swell here
+ * (Nov 13 replay: HB Pier Northside 9.7-10.4 ft against a plausible 5.5-7).
+ * The buckets these beaches are fit to also disagree with CDIP MOP. Held at
+ * the old 1.6 cap until a buoy-confirmed 11 s+ west swell validates the fit;
+ * delete the entry then.
+ */
+export const MODEL_SWELL_STATION_FACTOR_HOLDS: Readonly<Record<string, number>> = {
+  "215": 1.6,
+};
 
 export const MODEL_SWELL_CALIBRATION_FACTORS: Readonly<Record<string, number>> = {
 __ENTRIES__
