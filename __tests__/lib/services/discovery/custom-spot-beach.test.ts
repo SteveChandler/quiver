@@ -1,4 +1,5 @@
 import {
+  anchorForTerrainRatio,
   buildCustomSpotBeach,
   type CustomSpotDiscoveryRow,
 } from '@/lib/services/discovery/surf-discovery-orchestrator';
@@ -57,5 +58,25 @@ describe('buildCustomSpotBeach', () => {
     );
     expect(beach.aspect_deg).toBe(225);
     expect(beach.wind_offshore_deg).toBe(45);
+  });
+});
+
+describe('anchorForTerrainRatio', () => {
+  const reference = { swell_access_factors: Array(72).fill(0.6), wind_exposure_factors: Array(72).fill(0.7) };
+  const bare = { ...nearest, terrain_enabled: false, swell_access_factors: null, wind_exposure_factors: null } as unknown as Beach;
+
+  it('uses reference terrain for an anchor with none of its own', () => {
+    const anchor = anchorForTerrainRatio(bare, reference);
+    expect(anchor.terrain_enabled).toBe(true);
+    expect(anchor.swell_access_factors).toBe(reference.swell_access_factors);
+    expect(bare.terrain_enabled).toBe(false);
+  });
+
+  it("keeps an anchor's own terrain", () => {
+    expect(anchorForTerrainRatio(nearest, reference)).toBe(nearest);
+  });
+
+  it('leaves an anchor without reference terrain unchanged', () => {
+    expect(anchorForTerrainRatio(bare, undefined)).toBe(bare);
   });
 });

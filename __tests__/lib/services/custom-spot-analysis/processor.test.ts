@@ -22,7 +22,14 @@ function createStore(overrides: {
   jobs?: ClaimedCustomSpotAnalysisJob[];
   spot?: CustomSpotForAnalysis | null;
   writeResult?: boolean;
-} = {}): CustomSpotAnalysisStore & { updates: CustomSpotModeledUpdate[]; events: string[] } {
+  anchor?: { beachId: string; lat: number; lon: number } | null;
+  anchorError?: Error;
+} = {}): CustomSpotAnalysisStore & {
+  updates: CustomSpotModeledUpdate[];
+  events: string[];
+  anchorSaves: Array<{ beachId: string; modelVersion: string }>;
+} {
+  const anchorSaves: Array<{ beachId: string; modelVersion: string }> = [];
   const updates: CustomSpotModeledUpdate[] = [];
   const events: string[] = [];
   const spot = overrides.spot === undefined ? {
@@ -41,6 +48,14 @@ function createStore(overrides: {
   return {
     updates,
     events,
+    anchorSaves,
+    getAnchorNeedingTerrain: async () => {
+      if (overrides.anchorError) throw overrides.anchorError;
+      return overrides.anchor ?? null;
+    },
+    saveAnchorTerrain: async (beachId, result) => {
+      anchorSaves.push({ beachId, modelVersion: result.modelVersion });
+    },
     claimJobs: async () => overrides.jobs ?? [{
       jobId: 1, customSpotId: 'spot-1', requestedModelVersion: 'custom_spot_terrain_v1',
       attempts: 1, claimedAt: '2026-08-28T12:00:00.000Z',
@@ -186,5 +201,26 @@ describe('custom spot analysis processor', () => {
     expect(summary.failed).toBe(1);
     expect(store.updates).toHaveLength(0);
     expect(store.events).toEqual(['analysis-failed']);
+  });
+
+  it('stores reference terrain for an anchor beach that has none', async () => {
+    const store = createStore({ anchor: { beachId: 'beach-1', lat: 32.4, lon: -117.0 } });
+    const summary = await processCustomSpotAnalysisBatch(store, 1, terrain);
+    expect(summary.completed).toBe(1);
+    expect(store.anchorSaves).toEqual([{ beachId: 'beach-1', modelVersion: 'custom_spot_terrain_v1' }]);
+  });
+
+  it('skips the anchor when it already has terrain', async () => {
+    const store = createStore({ anchor: null });
+    await processCustomSpotAnalysisBatch(store, 1, terrain);
+    expect(store.anchorSaves).toEqual([]);
+  });
+
+  it('never fails the spot job when the anchor step fails', async () => {
+    const store = createStore({ anchorError: new Error('db down') });
+    const summary = await processCustomSpotAnalysisBatch(store, 1, terrain);
+    expect(summary.completed).toBe(1);
+    expect(store.events).not.toContain('retry');
+    expect(store.events).not.toContain('analysis-failed');
   });
 });

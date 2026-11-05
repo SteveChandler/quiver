@@ -1,4 +1,5 @@
 import {
+  analyzeAnchorTerrain,
   analyzeCustomSpot,
   deriveSwellWindow,
   getCustomSpotCoordinateHash,
@@ -69,5 +70,24 @@ describe('custom spot analysis core', () => {
     const moved = getCustomSpotCoordinateHash({ customSpotId: 'spot', lat: 32.50001, lon: -117.1, breakType: 'reef' });
 
     expect(new Set([reef, beach, moved]).size).toBe(3);
+  });
+
+  describe('analyzeAnchorTerrain', () => {
+    const deps = (swell: number[]) => ({
+      analyzeTerrain: async () => ({ swellAccessFactors: swell, windExposureFactors: factors(0.5), debug: {} }),
+      now: () => new Date('2026-11-05T00:00:00.000Z'),
+    });
+
+    it('returns factors for an open coast with no single window', async () => {
+      const result = await analyzeAnchorTerrain('beach-1', 32.7, -117.2, deps(factors(1)));
+      expect(result.swellAccessFactors).toEqual(factors(1));
+      expect(result.modelVersion).toBe('custom_spot_terrain_v1');
+      expect(result.terrainParamsHash).toMatch(/\S/);
+    });
+
+    it('rejects invalid coordinates and factor arrays', async () => {
+      await expect(analyzeAnchorTerrain('beach-1', 95, 0, deps(factors(1)))).rejects.toThrow('invalid_coordinate');
+      await expect(analyzeAnchorTerrain('beach-1', 32, -117, deps(factors(1).slice(1)))).rejects.toThrow('invalid_directional_factors');
+    });
   });
 });

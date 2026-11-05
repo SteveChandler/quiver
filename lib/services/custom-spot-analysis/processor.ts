@@ -1,5 +1,7 @@
 import {
+  analyzeAnchorTerrain,
   analyzeCustomSpot,
+  type AnchorTerrainResult,
   CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION,
   getCustomSpotCoordinateHash,
   type CustomSpotAnalysisDependencies,
@@ -59,7 +61,16 @@ export interface CustomSpotModeledUpdate {
   fingerprintUpdatedAt: string;
 }
 
+/** The spot's anchor beach, when it has no terrain and no current reference terrain. */
+export interface AnchorNeedingTerrain {
+  beachId: string;
+  lat: number;
+  lon: number;
+}
+
 export interface CustomSpotAnalysisStore {
+  getAnchorNeedingTerrain(customSpotId: string): Promise<AnchorNeedingTerrain | null>;
+  saveAnchorTerrain(beachId: string, terrain: AnchorTerrainResult): Promise<void>;
   claimJobs(batchSize: number): Promise<ClaimedCustomSpotAnalysisJob[]>;
   getSpot(customSpotId: string): Promise<CustomSpotForAnalysis | null>;
   writeModeledResult(
@@ -202,6 +213,26 @@ function sanitizeErrorCode(error: unknown): string {
   return 'terrain_analysis_failed';
 }
 
+/**
+ * Best effort: a spot whose anchor beach has no terrain can only be scaled
+ * against reference terrain at the anchor's coordinate. Failing here leaves
+ * the spot on its anchor's forecast and never fails the spot's job.
+ */
+async function ensureAnchorTerrain(
+  store: CustomSpotAnalysisStore,
+  customSpotId: string,
+  dependencies?: CustomSpotAnalysisDependencies
+): Promise<void> {
+  try {
+    const anchor = await store.getAnchorNeedingTerrain(customSpotId);
+    if (!anchor) return;
+    const terrain = await analyzeAnchorTerrain(anchor.beachId, anchor.lat, anchor.lon, dependencies);
+    await store.saveAnchorTerrain(anchor.beachId, terrain);
+  } catch {
+    // Retried naturally the next time any spot on this anchor is analyzed.
+  }
+}
+
 async function processJob(
   store: CustomSpotAnalysisStore,
   job: ClaimedCustomSpotAnalysisJob,
@@ -226,6 +257,7 @@ async function processJob(
     && spot.fingerprintCoordinateHash === coordinateHash
   ) {
     await store.markJobComplete(job.jobId, job.claimedAt);
+    await ensureAnchorTerrain(store, spot.id, dependencies);
     return 'cached';
   }
 
@@ -236,6 +268,7 @@ async function processJob(
       await store.markJobRetry(job.jobId, job.claimedAt, 0, 'coordinate_changed');
       return 'retried';
     }
+    await ensureAnchorTerrain(store, spot.id, dependencies);
     return 'completed';
   } catch (error) {
     const errorCode = sanitizeErrorCode(error);

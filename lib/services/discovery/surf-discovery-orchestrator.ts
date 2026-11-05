@@ -898,6 +898,61 @@ async function buildCustomSpotCandidates(
     .filter((candidate): candidate is CustomSpotDiscoveryCandidate => candidate !== null);
 }
 
+export interface AnchorReferenceTerrain {
+  swell_access_factors: number[];
+  wind_exposure_factors: number[];
+}
+
+function hasOwnTerrain(beach: Beach): boolean {
+  return beach.terrain_enabled === true
+    && beach.swell_access_factors?.length === 72
+    && beach.wind_exposure_factors?.length === 72;
+}
+
+/**
+ * Reference terrain for anchor beaches that have none of their own, so their
+ * custom spots can still be scaled like-for-like. Best effort: a failed read
+ * leaves those spots on the anchor's forecast.
+ */
+async function fetchAnchorReferenceTerrain(
+  candidates: CustomSpotDiscoveryCandidate[],
+): Promise<Map<string, AnchorReferenceTerrain>> {
+  const beachIds = [...new Set(
+    candidates
+      .filter((candidate) => hasModeledTerrain(candidate.spot) && !hasOwnTerrain(candidate.nearestBeach))
+      .map((candidate) => candidate.nearestBeach.id),
+  )];
+  if (beachIds.length === 0) return new Map();
+  try {
+    const client = createSupabaseServiceRoleClient() as unknown as SupabaseClient;
+    const { data, error } = await client
+      .from('custom_spot_anchor_terrain')
+      .select('beach_id, swell_access_factors, wind_exposure_factors, model_version')
+      .in('beach_id', beachIds);
+    if (error) throw error;
+    const rows = (data ?? []) as Array<AnchorReferenceTerrain & { beach_id: string; model_version: string }>;
+    return new Map(
+      rows
+        .filter((row) => row.model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION)
+        .map((row) => [row.beach_id, row]),
+    );
+  } catch (error) {
+    log.warn('Anchor reference terrain unavailable', { error });
+    return new Map();
+  }
+}
+
+/** The anchor as the terrain ratio sees it; never used for the anchor's own forecast. */
+export function anchorForTerrainRatio(beach: Beach, reference: AnchorReferenceTerrain | undefined): Beach {
+  if (!reference || hasOwnTerrain(beach)) return beach;
+  return {
+    ...beach,
+    terrain_enabled: true,
+    swell_access_factors: reference.swell_access_factors,
+    wind_exposure_factors: reference.wind_exposure_factors,
+  };
+}
+
 function hasModeledTerrain(spot: CustomSpotDiscoveryRow): boolean {
   return spot.terrain_status === 'ok'
     && spot.fingerprint_model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
@@ -1764,6 +1819,8 @@ async function discoverSurfSpotsInner(
     return { ...emptyResponse(maxResults, 'no_candidates'), candidateRejections, ...(savedSpotsOnly ? { emptyReason: 'no_recommendable_saved_window_72h' as const } : {}) };
   }
 
+  const anchorReferenceTerrain = await fetchAnchorReferenceTerrain(customSpotCandidates);
+
   log.debug(
     `Found ${finalCandidates.length} candidate beaches ` +
     `(${nearbyCandidateSlots} nearby, ${includedCandidates.length} included, ` +
@@ -2337,8 +2394,9 @@ async function discoverSurfSpotsInner(
       const customBeach = buildCustomSpotBeach(customCandidate.spot, beach);
       // Spots without their own modeled terrain keep the anchor's forecast as-is.
       const customTerrain = hasModeledTerrain(customCandidate.spot);
+      const ratioAnchor = anchorForTerrainRatio(beach, anchorReferenceTerrain.get(beach.id));
       const customForecast = customTerrain
-        ? applyCustomSpotForecastGeometry(bestWindowForecast, customBeach, beach)
+        ? applyCustomSpotForecastGeometry(bestWindowForecast, customBeach, ratioAnchor)
         : bestWindowForecast;
       const customResponseWindow = customForecast === bestWindowForecast
         ? responseWindow
@@ -2374,7 +2432,7 @@ async function discoverSurfSpotsInner(
       const customDistinction = computeWindowDistinctionReason(
         customForecast,
         customTerrain
-          ? forecasts.map((row) => applyCustomSpotForecastGeometry(row, customBeach, beach))
+          ? forecasts.map((row) => applyCustomSpotForecastGeometry(row, customBeach, ratioAnchor))
           : forecasts,
         customBeach,
         beachTz,
