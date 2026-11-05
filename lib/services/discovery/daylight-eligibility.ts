@@ -58,10 +58,12 @@ function addLocalDays(date: string, days: number): string {
 }
 
 /**
- * Light intervals by sun-times object, then by zone and date (with the array lengths, so a list
- * grown after a read is read again). Epoch ms are cached and every call returns fresh Dates.
+ * Light intervals by the sunrise and sunset arrays, then by zone and date (with the array lengths,
+ * so a list grown after a read is read again). Keyed on the arrays rather than the wrapper because
+ * callers rebuild `{ sunrises, sunsets }` per check; a wrapper key missed on every edge-scan step.
+ * Epoch ms are cached and every call returns fresh Dates.
  */
-const lightIntervalCache = new WeakMap<BeachSunTimes, Map<string, { startMs: number; endMs: number }>>();
+const lightIntervalCache = new WeakMap<Date[], WeakMap<Date[], Map<string, { startMs: number; endMs: number }>>>();
 
 export function usableLightIntervalForDate(
   date: string,
@@ -69,10 +71,15 @@ export function usableLightIntervalForDate(
   sunTimes?: BeachSunTimes,
 ): UsableLightInterval {
   if (!sunTimes) return computeUsableLightInterval(date, timezone);
-  let byDate = lightIntervalCache.get(sunTimes);
+  let bySunsets = lightIntervalCache.get(sunTimes.sunrises);
+  if (!bySunsets) {
+    bySunsets = new WeakMap();
+    lightIntervalCache.set(sunTimes.sunrises, bySunsets);
+  }
+  let byDate = bySunsets.get(sunTimes.sunsets);
   if (!byDate) {
     byDate = new Map();
-    lightIntervalCache.set(sunTimes, byDate);
+    bySunsets.set(sunTimes.sunsets, byDate);
   }
   const key = `${timezone}|${date}|${sunTimes.sunrises.length}|${sunTimes.sunsets.length}`;
   let cached = byDate.get(key);
@@ -127,6 +134,38 @@ export function isDaylightInterval(
   }
 
   return false;
+}
+
+/**
+ * `(t) => isDaylightInterval(t, t + 1 ms, ...)` for many nearby points. Edge
+ * scans call it every few minutes, and each call formats two local dates; here
+ * a UTC hour whose first and last millisecond share a local date shares that
+ * date's light interval. An hour that crosses local midnight is checked per point.
+ */
+export function createDaylightPointChecker(
+  timezone: string,
+  sunTimes?: BeachSunTimes,
+): (time: Date) => boolean {
+  const byHour = new Map<number, { startMs: number; endMs: number } | null>();
+  return (time) => {
+    const ms = time.getTime();
+    if (!Number.isFinite(ms)) return false;
+    const hour = Math.floor(ms / HOUR_MS);
+    let light = byHour.get(hour);
+    if (light === undefined) {
+      const hourStart = new Date(hour * HOUR_MS);
+      const date = getLocalDateStr(hourStart, timezone);
+      if (date === getLocalDateStr(new Date(hourStart.getTime() + HOUR_MS - 1), timezone)) {
+        const interval = usableLightIntervalForDate(date, timezone, sunTimes);
+        light = { startMs: interval.start.getTime(), endMs: interval.end.getTime() };
+      } else {
+        light = null;
+      }
+      byHour.set(hour, light);
+    }
+    if (!light) return isDaylightInterval(time, new Date(ms + 1), timezone, sunTimes);
+    return ms >= light.startMs && ms < light.endMs;
+  };
 }
 
 /**

@@ -1217,8 +1217,8 @@ async function finalizeWeekScoutDays(
       }
     }
   }
-  const similarity = await deps.fetchMatchEvidence(userId, beachIds,
-    [...returnedDrafts.values()].map((draft) => draft.recommendation.forecast));
+  const similarity = await timeStage('ws-match', () => deps.fetchMatchEvidence(userId, beachIds,
+    [...returnedDrafts.values()].map((draft) => draft.recommendation.forecast)));
   const verdicts = new Map<string, WeekScoutVerdict>();
   const personalCalls = new Map<string, ReturnType<typeof getCanonicalPersonalCall>>();
   for (const [id, draft] of returnedDrafts) {
@@ -1348,7 +1348,8 @@ async function generateWeekScoutForecastScoped(
     ] as const;
   }));
 
-  const authoritiesByDate = new Map(localDates.map((localDate) => [
+  // Synchronous: this pass is most of the request's CPU and blocks the instance.
+  const authoritiesByDate = timeStageSync('ws-select', () => new Map(localDates.map((localDate) => [
     localDate,
     new Map(beaches.map((candidate) => [
       candidate.id,
@@ -1365,9 +1366,9 @@ async function generateWeekScoutForecastScoped(
         rowLiveness: 'until-next-row',
       }),
     ])),
-  ]));
+  ])));
   const coverageByDate = new Map<string, WeekScoutCoverageDay>();
-  const days = localDates.map((localDate): WeekScoutDayResponse => {
+  const days = timeStageSync('ws-drafts', () => localDates.map((localDate): WeekScoutDayResponse => {
     const authoritiesByBeach = authoritiesByDate.get(localDate)!;
     const bucketCoverage: WeekScoutCoverageBucket[] = [];
     const windows = BUCKETS.flatMap((bucket) => {
@@ -1461,7 +1462,7 @@ async function generateWeekScoutForecastScoped(
       bestDayWindow: null,
       exclusionReasons: exclusionReasonsForDay(windows, best?.id ?? null),
     };
-  });
+  }));
   const coverage: WeekScoutCoverage = {
     expiresAt: coverageExpiry(generatedAt),
     days: localDates.map((localDate) => coverageByDate.get(localDate)!),
