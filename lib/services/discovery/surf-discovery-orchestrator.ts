@@ -917,8 +917,11 @@ function hasOwnTerrain(beach: Beach): boolean {
  * custom spots can still be scaled like-for-like. Best effort: a failed read
  * leaves those spots on the anchor's forecast.
  */
-async function fetchAnchorReferenceTerrain(
-  candidates: CustomSpotDiscoveryCandidate[],
+let anchorReferenceWarned = false;
+
+export async function fetchAnchorReferenceTerrain(
+  candidates: Array<Pick<CustomSpotDiscoveryCandidate, 'spot' | 'nearestBeach'>>,
+  client: SupabaseClient = createSupabaseServiceRoleClient() as unknown as SupabaseClient,
 ): Promise<Map<string, AnchorReferenceTerrain>> {
   const beachIds = [...new Set(
     candidates
@@ -927,7 +930,6 @@ async function fetchAnchorReferenceTerrain(
   )];
   if (beachIds.length === 0) return new Map();
   try {
-    const client = createSupabaseServiceRoleClient() as unknown as SupabaseClient;
     const { data, error } = await client
       .from('custom_spot_anchor_terrain')
       .select('beach_id, lat, lon, swell_access_factors, wind_exposure_factors, model_version, terrain_params_hash')
@@ -948,7 +950,11 @@ async function fetchAnchorReferenceTerrain(
         .map((row) => [row.beach_id, row]),
     );
   } catch (error) {
-    log.warn('Anchor reference terrain unavailable', { error });
+    // Once per instance: until the migration is applied this fails on every request.
+    if (!anchorReferenceWarned) {
+      anchorReferenceWarned = true;
+      log.warn('Anchor reference terrain unavailable', { error });
+    }
     return new Map();
   }
 }
