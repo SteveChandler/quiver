@@ -563,9 +563,9 @@ function scoringComponentForForecast(
 }
 
 /**
- * The answer is good for one forecast-sync interval after it is generated: the app refetches at
- * this deadline, and a 60 s deadline made every open Home ask for a heavy answer once a minute
- * (Nov 4 2026). Holds and session decisions carry their own deadlines. Our ingest
+ * The answer is good for an hour after it is generated: the app refetches at this deadline
+ * (the session decision shares it), and a 60 s deadline made every open Home ask for a heavy
+ * answer once a minute (Nov 4 2026). Holds carry their own deadlines. Our ingest
  * age is not the forecast's age: a CDIP row the sync has not revisited in a few
  * hours still holds the same forward forecast, so it must not expire the
  * answer before it arrives (a past deadline voided the whole week).
