@@ -489,6 +489,11 @@ export interface CDIPStationConfig {
   deployDepth: number;
   hullType: string;
   parameters: string[];
+  /**
+   * false = served only to beaches that name it in beaches.cdip_station;
+   * never picked as a nearest-station fallback or failover target.
+   */
+  fallbackEligible?: boolean;
 }
 
 // Tide Chart Types - see components/forecast/tide-chart-recharts.tsx for TidePoint and TideChartProps
