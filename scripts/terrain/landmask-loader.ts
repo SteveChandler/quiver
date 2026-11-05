@@ -13,7 +13,7 @@
 
 import type { TerrainAnalysisParams } from '../../types/terrain'
 import { loadDEMTile, getElevation, pointAtDistanceAndBearing } from './dem-loader'
-import type { DEMTile } from './dem-loader'
+import type { DEMTile, TerrainLoadOptions } from './dem-loader'
 import * as projection from './projection'
 
 // Check for mock mode
@@ -46,20 +46,22 @@ export interface LandmaskTile {
 export async function loadLandmask(
   latitude: number,
   longitude: number,
-  params: TerrainAnalysisParams
+  params: TerrainAnalysisParams,
+  options: TerrainLoadOptions = {}
 ): Promise<LandmaskTile> {
+  const shouldLog = options.log !== false
   if (USE_MOCK) {
-    console.log(`[Landmask] Loading landmask for (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) with radius ${params.swell_ray_length_m}m`)
+    if (shouldLog) console.log(`[Landmask] Loading landmask for (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) with radius ${params.swell_ray_length_m}m`)
     return createMockLandmaskTile(latitude, longitude, params.swell_ray_length_m)
   }
 
-  console.log(`[Landmask] Loading real landmask for (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`)
+  if (shouldLog) console.log(`[Landmask] Loading real landmask for (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`)
 
   // Load DEM tile for elevation-based detection
   const demTile = await loadDEMTile(latitude, longitude, {
     ...params,
     max_radius_m: params.swell_ray_length_m,
-  })
+  }, options)
 
   return {
     bounds: demTile.bounds,

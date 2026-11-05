@@ -11,6 +11,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron/custom-spot-analysis?batchSize=25",
+      "schedule": "30 11 * * *"
+    },
+    {
       "path": "/api/cron/email-lifecycle",
       "schedule": "25 0,1,13-23 * * *"
     },
