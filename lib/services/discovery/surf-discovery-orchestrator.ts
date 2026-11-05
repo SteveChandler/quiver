@@ -2336,7 +2336,8 @@ async function discoverSurfSpotsInner(
     for (const customCandidate of customCandidates) {
       const customBeach = buildCustomSpotBeach(customCandidate.spot, beach);
       // Spots without their own modeled terrain keep the anchor's forecast as-is.
-      const customForecast = hasModeledTerrain(customCandidate.spot)
+      const customTerrain = hasModeledTerrain(customCandidate.spot);
+      const customForecast = customTerrain
         ? applyCustomSpotForecastGeometry(bestWindowForecast, customBeach, beach)
         : bestWindowForecast;
       const customResponseWindow = customForecast === bestWindowForecast
@@ -2372,7 +2373,9 @@ async function discoverSurfSpotsInner(
 
       const customDistinction = computeWindowDistinctionReason(
         customForecast,
-        forecasts,
+        customTerrain
+          ? forecasts.map((row) => applyCustomSpotForecastGeometry(row, customBeach, beach))
+          : forecasts,
         customBeach,
         beachTz,
         userSkillLevel,
