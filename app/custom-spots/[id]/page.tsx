@@ -17,6 +17,10 @@ import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
+import {
+  loadCustomSpotForecastAdjusters,
+  type CustomSpotDiscoveryRow,
+} from "@/lib/services/discovery/surf-discovery-orchestrator";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -85,6 +89,20 @@ async function getBorrowedForecasts(
   if (!result.success || !result.data) return [];
 
   return result.data;
+}
+
+/** Scales the borrowed rows to the spot's own terrain, exactly as Home does. */
+async function adjustForCustomSpot(
+  spot: CustomSpotRow,
+  nearestBeach: Beach | null,
+  forecasts: EnhancedForecastEntity[],
+): Promise<EnhancedForecastEntity[]> {
+  if (!nearestBeach || forecasts.length === 0) return forecasts;
+  const adjusters = await loadCustomSpotForecastAdjusters([
+    { spot: spot as unknown as CustomSpotDiscoveryRow, nearestBeach },
+  ]);
+  const adjust = adjusters.get(spot.id);
+  return adjust ? forecasts.map(adjust) : forecasts;
 }
 
 function normalizePhotoUrl(value: string | null | undefined): string | null {
@@ -194,12 +212,13 @@ export default async function CustomSpotDetailPage(
   if (!spot) notFound();
 
   const viewerId = await getCurrentViewerId();
-  const [nearestBeach, forecasts, borrowedPhotoUrl, customSpotPhotos] = await Promise.all([
+  const [nearestBeach, borrowedForecasts, borrowedPhotoUrl, customSpotPhotos] = await Promise.all([
     getNearestBeach(spot.nearest_beach_id),
     getBorrowedForecasts(spot.nearest_beach_id),
     getNearestBeachPhoto(spot.nearest_beach_id),
     getCustomSpotPhotos(spot.id, viewerId),
   ]);
+  const forecasts = await adjustForCustomSpot(spot, nearestBeach, borrowedForecasts);
   const featuredSpotPhoto = customSpotPhotos[0] ?? null;
   const heroPhotoUrl =
     featuredSpotPhoto?.thumbUrl ??

@@ -970,6 +970,37 @@ export function anchorForTerrainRatio(beach: Beach, reference: AnchorReferenceTe
   };
 }
 
+export type CustomSpotForecastAdjuster = (row: EnhancedForecastEntity) => EnhancedForecastEntity;
+
+/**
+ * Scales an anchor-beach forecast row to the custom spot. Null when the spot has
+ * no current modeled terrain, so callers keep the anchor's forecast as-is.
+ */
+export function customSpotForecastAdjuster(
+  spot: CustomSpotDiscoveryRow,
+  nearestBeach: Beach,
+  reference: AnchorReferenceTerrain | undefined,
+): CustomSpotForecastAdjuster | null {
+  if (!hasModeledTerrain(spot)) return null;
+  const customBeach = buildCustomSpotBeach(spot, nearestBeach);
+  const ratioAnchor = anchorForTerrainRatio(nearestBeach, reference);
+  return (row) => applyCustomSpotForecastGeometry(row, customBeach, ratioAnchor);
+}
+
+/** The same adjustment Home applies, for surfaces that show a custom spot's forecast. */
+export async function loadCustomSpotForecastAdjusters(
+  pairs: Array<{ spot: CustomSpotDiscoveryRow; nearestBeach: Beach }>,
+  client?: SupabaseClient,
+): Promise<Map<string, CustomSpotForecastAdjuster>> {
+  const references = await fetchAnchorReferenceTerrain(pairs, client);
+  const adjusters = new Map<string, CustomSpotForecastAdjuster>();
+  for (const { spot, nearestBeach } of pairs) {
+    const adjust = customSpotForecastAdjuster(spot, nearestBeach, references.get(nearestBeach.id));
+    if (adjust) adjusters.set(spot.id, adjust);
+  }
+  return adjusters;
+}
+
 function hasModeledTerrain(spot: CustomSpotDiscoveryRow): boolean {
   return spot.terrain_status === 'ok'
     && spot.fingerprint_model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
@@ -2410,11 +2441,12 @@ async function discoverSurfSpotsInner(
     for (const customCandidate of customCandidates) {
       const customBeach = buildCustomSpotBeach(customCandidate.spot, beach);
       // Spots without their own modeled terrain keep the anchor's forecast as-is.
-      const customTerrain = hasModeledTerrain(customCandidate.spot);
-      const ratioAnchor = anchorForTerrainRatio(beach, anchorReferenceTerrain.get(beach.id));
-      const customForecast = customTerrain
-        ? applyCustomSpotForecastGeometry(bestWindowForecast, customBeach, ratioAnchor)
-        : bestWindowForecast;
+      const adjustForecast = customSpotForecastAdjuster(
+        customCandidate.spot,
+        beach,
+        anchorReferenceTerrain.get(beach.id),
+      );
+      const customForecast = adjustForecast ? adjustForecast(bestWindowForecast) : bestWindowForecast;
       const customResponseWindow = customForecast === bestWindowForecast
         ? responseWindow
         : { ...responseWindow, waveHeight: customForecast.wave_height ?? responseWindow.waveHeight };
@@ -2448,9 +2480,7 @@ async function discoverSurfSpotsInner(
 
       const customDistinction = computeWindowDistinctionReason(
         customForecast,
-        customTerrain
-          ? forecasts.map((row) => applyCustomSpotForecastGeometry(row, customBeach, ratioAnchor))
-          : forecasts,
+        adjustForecast ? forecasts.map(adjustForecast) : forecasts,
         customBeach,
         beachTz,
         userSkillLevel,

@@ -117,6 +117,7 @@ import { useExpandableSwellTimeline } from "@/hooks/use-expandable-swell-timelin
 import { calendarDayTimelineHours } from "@/components/map/hourly-swell-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
+import { useCustomSpotCurrentDisplays } from "@/hooks/use-custom-spot-current-displays";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
@@ -677,6 +678,17 @@ export function InteractiveMap({
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
   const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
+  const customSpotIds = useMemo(() => customSpots.map((spot) => spot.id), [customSpots]);
+  // Refetch exactly when an anchor's current row moves, so pin and anchor share an hour.
+  const customSpotAnchorRowsKey = customSpots
+    .map((spot) => (spot.nearestBeachId ? displayForecastMap.get(spot.nearestBeachId)?.forecastAt ?? "" : ""))
+    .join("|");
+  const customSpotDisplays = useCustomSpotCurrentDisplays(
+    customSpotIds,
+    customSpotAnchorRowsKey,
+    getAccessToken,
+    onAuthTokenExpired,
+  );
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [initialConditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [initialRecommendationLabelMap, setRecommendationLabelMap] = useState<Map<string, RecommendationLabel>>(new Map());
@@ -3262,7 +3274,10 @@ export function InteractiveMap({
         ? {
             recommendationLabel: recommendationLabelMap.get(nearestBeachId),
             conditionScore: conditionScoreMap.get(nearestBeachId),
-            waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
+            // Same label Home shows: adjusted to the spot's terrain when analyzed.
+            waveLabel: customSpotDisplays.get(spot.id)?.label
+              ?? displayForecastMap.get(nearestBeachId)?.label
+              ?? null,
           }
         : undefined;
       const lngLat: [number, number] = [spot.lon, spot.lat];
@@ -3338,6 +3353,7 @@ export function InteractiveMap({
   }, [
     clusters,
     customSpots,
+    customSpotDisplays,
     onCustomSpotClick,
     isMapReady,
     conditionScoreMap,

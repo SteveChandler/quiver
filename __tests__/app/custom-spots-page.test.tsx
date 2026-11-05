@@ -8,6 +8,12 @@ import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const getResolvedSpotPhotos = jest.fn();
+const loadCustomSpotForecastAdjusters = jest.fn();
+
+jest.mock("@/lib/services/discovery/surf-discovery-orchestrator", () => ({
+  loadCustomSpotForecastAdjusters: (...args: unknown[]) =>
+    loadCustomSpotForecastAdjusters(...args),
+}));
 
 jest.mock("@/lib/community-photos", () => ({
   getResolvedSpotPhotos: (...args: unknown[]) => getResolvedSpotPhotos(...args),
@@ -49,8 +55,15 @@ jest.mock("@/components/conditions/conditions-ticker", () => ({
 }));
 
 jest.mock("@/components/forecast/forecast-table", () => ({
-  MultiDayForecastTable: ({ forecasts }: { forecasts: unknown[] }) => (
-    <div data-testid="forecast-table">{forecasts.length} forecasts</div>
+  MultiDayForecastTable: ({
+    forecasts,
+  }: {
+    forecasts: Array<{ wave_height?: string | null }>;
+  }) => (
+    <div data-testid="forecast-table">
+      {forecasts.length} forecasts
+      <span data-testid="forecast-table-first-height">{forecasts[0]?.wave_height}</span>
+    </div>
   ),
 }));
 
@@ -162,6 +175,7 @@ describe("/custom-spots/[id] page", () => {
       data: [forecast],
     });
     getResolvedSpotPhotos.mockResolvedValue([]);
+    loadCustomSpotForecastAdjusters.mockResolvedValue(new Map());
   });
 
   it("renders a public custom spot with borrowed forecast data", async () => {
@@ -199,6 +213,25 @@ describe("/custom-spots/[id] page", () => {
       "1 forecasts",
     );
     expect(getEnhancedBeachForecasts).toHaveBeenCalledWith("beach-1", 10);
+    expect(screen.getByTestId("forecast-table-first-height")).toHaveTextContent("3-4 ft");
+  });
+
+  it("shows the forecast adjusted to the spot's terrain, as Home does", async () => {
+    mockTableSingle("custom_spots", publicSpot);
+    mockTableSingle("beaches", nearestBeach);
+    loadCustomSpotForecastAdjusters.mockResolvedValue(
+      new Map([["spot-public", (row: object) => ({ ...row, wave_height: "2-3 ft" })]]),
+    );
+
+    const page = await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-public" }),
+    });
+    render(page);
+
+    expect(loadCustomSpotForecastAdjusters).toHaveBeenCalledWith([
+      { spot: expect.objectContaining({ id: "spot-public" }), nearestBeach: expect.objectContaining({ id: "beach-1" }) },
+    ]);
+    expect(screen.getByTestId("forecast-table-first-height")).toHaveTextContent("2-3 ft");
   });
 
   it("prefers an eligible custom-spot community photo with safe attribution", async () => {

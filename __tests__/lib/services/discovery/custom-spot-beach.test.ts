@@ -3,11 +3,15 @@ import {
   anchorForTerrainRatio,
   fetchAnchorReferenceTerrain,
   buildCustomSpotBeach,
+  customSpotForecastAdjuster,
+  loadCustomSpotForecastAdjusters,
   type CustomSpotDiscoveryRow,
 } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Beach } from '@/types/database';
 import { getTerrainParamsHash } from '@/lib/services/custom-spot-analysis/core';
+import { applyCustomSpotForecastGeometry } from '@/lib/services/custom-spot-analysis/forecast-overlay';
+import type { EnhancedForecastEntity } from '@/types/forecast';
 
 const nearest = {
   id: 'nearest', name: 'Nearest Beach', lat: 32, lon: -117,
@@ -125,5 +129,35 @@ describe('fetchAnchorReferenceTerrain', () => {
     const result = await fetchAnchorReferenceTerrain([{ spot: spot(), nearestBeach: bareAnchor }], clientReturning([], { message: 'relation does not exist' }));
     expect(result.size).toBe(0);
     expectConsoleWarnings([/Anchor reference terrain unavailable/]);
+  });
+});
+
+describe('customSpotForecastAdjuster', () => {
+  const row = {
+    beach_id: 'nearest', forecast_at: '2026-11-05T15:00:00.000Z',
+    wave_height: '4.0 ft', wave_period: '14', wave_direction: 'W',
+    swell_1_height: '4', swell_1_period: '14', swell_1_direction: 'W',
+  } as unknown as EnhancedForecastEntity;
+
+  it("applies Home's terrain overlay for a spot with modeled terrain", () => {
+    const adjust = customSpotForecastAdjuster(spot(), nearest, undefined);
+    expect(adjust).not.toBeNull();
+    const adjusted = adjust!(row);
+    expect(adjusted).toEqual(applyCustomSpotForecastGeometry(row, buildCustomSpotBeach(spot(), nearest), nearest));
+    expect(adjusted.wave_height).not.toBe(row.wave_height);
+  });
+
+  it('is null when the spot has no current modeled terrain', () => {
+    expect(customSpotForecastAdjuster(spot({ terrain_status: 'queued' }), nearest, undefined)).toBeNull();
+    expect(customSpotForecastAdjuster(spot({ fingerprint_model_version: 'old' }), nearest, undefined)).toBeNull();
+  });
+
+  it('loads adjusters only for modeled spots', async () => {
+    const client = { from: jest.fn() } as unknown as SupabaseClient;
+    const adjusters = await loadCustomSpotForecastAdjusters([
+      { spot: spot(), nearestBeach: nearest },
+      { spot: spot({ id: 'unanalyzed', terrain_status: 'queued' }), nearestBeach: nearest },
+    ], client);
+    expect([...adjusters.keys()]).toEqual(['custom']);
   });
 });
