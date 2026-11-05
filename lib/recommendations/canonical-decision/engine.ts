@@ -341,7 +341,7 @@ export function buildCanonicalSessionDecision(
   const createdAt = anchor.toISOString();
   const scopeEnd = new Date(input.scope.windowEnd).getTime();
   const expiresAt = new Date(
-    Math.min(anchor.getTime() + DECISION_TTL_MS, scopeEnd),
+    Math.min(anchor.getTime() + (input.ttlMs ?? DECISION_TTL_MS), scopeEnd),
   ).toISOString();
   const skill = canonicalSkill(input.profileExperience);
   const isUnknownSkill = skill === "unknown";

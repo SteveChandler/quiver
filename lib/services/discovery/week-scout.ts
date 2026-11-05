@@ -110,9 +110,10 @@ const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
 const WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX = '+hourly-bridge-v1';
 const HOUR_MS = 60 * 60 * 1000;
-// One forecast-sync interval. Measured from each answer, not snapped to the :00/:30 sync slots,
-// so open apps don't all refetch together at the top of the hour.
-const WEEK_SCOUT_COVERAGE_TTL_MS = 30 * 60 * 1000;
+// Native refetches at the earlier of coverage and session-decision expiry, so both use this.
+// A week planner tolerates one missed 30-minute forecast sync. Measured from each answer, not
+// snapped to the sync slots, so open apps don't all refetch together at the top of the hour.
+const WEEK_SCOUT_COVERAGE_TTL_MS = 60 * 60 * 1000;
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 // The swell reads start with the forecast fetch, so this bounds the extra
 // wait after the main result is ready; a slower snapshot read omits `swells`.
@@ -1628,6 +1629,7 @@ function buildCanonicalWeekScoutResponse(
     profileExperience: context.userSkillLevel,
     recommendationAvailability: context.heldResponse.recommendationAvailability,
     candidates: canonicalCandidates,
+    ttlMs: WEEK_SCOUT_COVERAGE_TTL_MS,
   });
 
   const dayBestResponse = sessionTimePreference
