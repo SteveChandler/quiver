@@ -875,6 +875,8 @@ interface DecomposedFaceHeightResult {
   shortPeriodBucketCapped?: boolean;
   /** Per-beach model_swell multiplier, present only when one was applied. */
   modelCalibrationFactor?: number;
+  /** ECMWF hybrid scale, present only when it replaced the production factor. */
+  ecmwfHybrid?: { r: number; k: number };
 }
 
 /**
@@ -944,7 +946,26 @@ export function transformToFaceHeightDecomposed(params: {
   rawHeightFt: number;
   periodS: number | null;
   swellDirectionDeg: number | null;
+  /**
+   * ECMWF hybrid (model_swell only): components and rawHeightFt × r, then
+   * × k in place of the production factor. See ecmwf-hybrid-k-factors.ts.
+   */
+  ecmwfHybrid?: { r: number; k: number } | null;
 }): DecomposedFaceHeightResult {
+  const hybrid = params.source === 'model_swell' ? params.ecmwfHybrid : null;
+  if (hybrid) {
+    const { r, k } = hybrid;
+    const scaled = transformToFaceHeightDecomposedUncalibrated({
+      ...params,
+      rawHeightFt: params.rawHeightFt * r,
+      components: params.components.map((c) => (c ? { ...c, heightFt: c.heightFt * r } : null)),
+    });
+    return {
+      ...scaled,
+      faceHeightFt: k === 1 ? scaled.faceHeightFt : Math.round(scaled.faceHeightFt * k * 10) / 10,
+      ecmwfHybrid: { r, k },
+    };
+  }
   const result = transformToFaceHeightDecomposedUncalibrated(params);
   const factor = modelSwellCalibrationFactor(params.source, params.beach);
   if (factor === 1) return result;

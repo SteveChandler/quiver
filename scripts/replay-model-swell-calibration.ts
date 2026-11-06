@@ -154,9 +154,11 @@ function shippedFactor(
     : 1;
 }
 
+// Also drops the ECMWF hybrid scale: this table is fit on the MFWAM-only basis.
 function withoutBeachId(input: ForecastReplayInput): ForecastReplayInput {
   const { id: _id, ...beach } = input.beach;
-  return { ...input, beach };
+  const { ecmwfHybrid: _hybrid, ...rest } = input;
+  return { ...rest, beach };
 }
 
 const PAGE_SIZE = 1000;
