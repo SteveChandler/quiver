@@ -176,6 +176,15 @@ describe("findAttachTarget", () => {
     expect(mock.lte).toHaveBeenCalledWith("arrival_time", "2026-10-17T14:30:00.000Z");
   });
 
+  it("keeps a user-set time within 90 minutes of the watch start", async () => {
+    const mock = mockAttachClient([
+      { ...session("user-set", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon), timing_user_set: true },
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();
+    expect(mock.sessionSelect).toHaveBeenCalledWith(expect.stringContaining("timing_user_set"));
+  });
+
   it("prefers a session whose span overlaps the watch over a closer start that does not", async () => {
     const mock = mockAttachClient([
       session("before", "2026-10-17T11:20:00.000Z", beach.id, beach.lat, beach.lon),

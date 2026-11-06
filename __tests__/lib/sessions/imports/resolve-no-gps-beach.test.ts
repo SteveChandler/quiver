@@ -94,6 +94,16 @@ it("matches a phone log saved after the surf ended", async () => {
   });
 });
 
+it("keeps a user-set time within 90 minutes of the watch start", async () => {
+  sessions = [{ id: "user-set", user_id: "user", beach_id: "c", arrival_time: "2026-08-15T15:00:00.000Z",
+    timing_user_set: true }];
+  snapshot = null;
+  const client = service();
+  await expect(resolveNoGpsBeach(client, "user", inWater, start, end)).resolves.toEqual({
+    status: "needs_beach", candidates: [],
+  });
+});
+
 it("skips a session another watch import already merged into and takes the next closest", async () => {
   sessions = [{ id: "merged", user_id: "user", beach_id: "c", arrival_time: start },
     { id: "free", user_id: "user", beach_id: "a", arrival_time: "2026-08-15T12:30:00.000Z" }];

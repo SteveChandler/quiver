@@ -8,11 +8,11 @@ const DEFAULT_DURATION_MS = 60 * 60 * 1000;
 // Never surfs: their own rows (imports) or a report written from the beach.
 const NON_ATTACHABLE_SOURCES = new Set(["garmin_watch", "file_import", "conditions_report"]);
 
-type TimedSession = { arrival_time: string; duration_minutes?: number | null };
+type TimedSession = { arrival_time: string; duration_minutes?: number | null; timing_user_set?: boolean | null };
 type Point = { lat: number | string | null; lon: number | string | null };
 
-// Phones often log after the surf, with arrival = save time, so arrivals up to 90 min past the
-// watch end still count.
+// Phones often log after the surf with arrival = save time, so an untouched arrival up to 90 min
+// past the watch end still counts. The query uses the widest bound; withinWindow narrows it.
 function arrivalBounds(inWaterStart: string, inWaterEnd: string): { startMs: number; endMs: number; from: string; to: string } {
   const startMs = Date.parse(inWaterStart);
   const parsedEnd = Date.parse(inWaterEnd);
@@ -28,9 +28,20 @@ function overlapsWatch(session: TimedSession, startMs: number, endMs: number): b
   return arrivalMs <= endMs && arrivalMs + durationMs >= startMs;
 }
 
+/**
+ * A time the user set is the surf start, so it keeps ±90 min of the watch start; only the phone's
+ * untouched "now" default (the save time) may fall up to 90 min past the watch end.
+ */
+function withinWindow(session: TimedSession, startMs: number, endMs: number): boolean {
+  const arrivalMs = Date.parse(session.arrival_time);
+  const latestMs = session.timing_user_set === true ? startMs : endMs;
+  return arrivalMs >= startMs - ATTACH_WINDOW_MS && arrivalMs <= latestMs + ATTACH_WINDOW_MS;
+}
+
 /** Overlapping spans first, then the arrival closest to the watch start. */
 function pickClosest<T extends TimedSession>(sessions: T[], startMs: number, endMs: number): T | undefined {
   return sessions
+    .filter(session => withinWindow(session, startMs, endMs))
     .map(session => ({ session, overlaps: overlapsWatch(session, startMs, endMs),
       distance: Math.abs(Date.parse(session.arrival_time) - startMs) }))
     .sort((a, b) => Number(b.overlaps) - Number(a.overlaps) || a.distance - b.distance)[0]?.session;
@@ -58,7 +69,7 @@ export async function findNoGpsAttachTarget(
   source: string | null } | null> {
   const { startMs, endMs, from, to } = arrivalBounds(inWaterStart, inWaterEnd);
   const { data: sessions, error } = await supabase.from("sessions")
-    .select("id, beach_id, arrival_time, duration_minutes, source")
+    .select("id, beach_id, arrival_time, duration_minutes, timing_user_set, source")
     .eq("user_id", userId).is("deleted_at", null)
     .gte("arrival_time", from)
     .lte("arrival_time", to);
@@ -95,7 +106,7 @@ export async function findAttachTarget(
   const { data: sessions, error: sessionsError } = await supabase
     .from("sessions")
     .select(
-      "id, source, beach_id, custom_spot_id, arrival_time, duration_minutes, deleted_at, beaches!sessions_beach_id_fkey(lat, lon), custom_spots!sessions_custom_spot_id_fkey(lat, lon)",
+      "id, source, beach_id, custom_spot_id, arrival_time, duration_minutes, timing_user_set, deleted_at, beaches!sessions_beach_id_fkey(lat, lon), custom_spots!sessions_custom_spot_id_fkey(lat, lon)",
     )
     .eq("user_id", userId)
     .is("deleted_at", null)

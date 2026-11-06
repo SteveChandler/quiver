@@ -1252,20 +1252,28 @@ describe("phone-claimed watch recordings", () => {
     expect(inserts("sessions")[0]).toMatchObject({ payload: { user_id: userId, source: "garmin_watch" } });
   });
 
-  it("attaches a phone session logged an hour after the surf without a claim", async () => {
+  it("attaches an untouched phone session saved an hour after the surf without a claim", async () => {
     stationaryWatch();
     phoneSession("after", minutes(inWaterEnd, 60));
     expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "after", attached: true });
     expect(inserts("sessions")).toHaveLength(0);
   });
 
-  it("keeps a late-synced dawn surf off a phone-logged surf more than 90 minutes after it ended", async () => {
+  it.each(["2026-10-20T09:15:00.000Z", "2026-10-20T09:35:00.000Z"])(
+    "keeps a late-synced dawn surf off a later surf whose time the user set (%s)", async arrival => {
+      stationaryWatch("2026-10-20T06:00:00.000Z", "2026-10-20T08:00:00.000Z");
+      phoneSession("later-surf", arrival, { timing_user_set: true });
+      expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+      expect(rows.sessions.find(row => row.id === "later-surf")).toMatchObject({ arrival_time: arrival, duration_minutes: 60 });
+      expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: "2026-10-20T06:00:00.000Z" } });
+      expect(rows.session_watch_claims ?? []).toHaveLength(0);
+    });
+
+  it("attaches an untouched \"now\" phone save made 40 minutes after a dawn surf", async () => {
     stationaryWatch("2026-10-20T06:00:00.000Z", "2026-10-20T08:00:00.000Z");
-    phoneSession("later-surf", "2026-10-20T09:35:00.000Z");
-    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
-    expect(rows.sessions.find(row => row.id === "later-surf")).toMatchObject({ arrival_time: "2026-10-20T09:35:00.000Z", duration_minutes: 60 });
-    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: "2026-10-20T06:00:00.000Z" } });
-    expect(rows.session_watch_claims ?? []).toHaveLength(0);
+    phoneSession("saved-now", "2026-10-20T08:40:00.000Z");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "saved-now", attached: true });
+    expect(inserts("sessions")).toHaveLength(0);
   });
 
   it("records a claimed merge for a time-matched attach with no claim row", async () => {
