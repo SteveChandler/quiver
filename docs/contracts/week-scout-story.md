@@ -24,6 +24,7 @@ type WeekScoutStory = {
     slot: `swell:${string}` | `day:${string}` | `quiet:${string}`;
     text: string; // the regional candidate's text, or the edition's written sentence for it when that passes its claim check; gated against live data
   }>;
+  glance: { sentences: string[]; source: Array<'code' | 'written'> } | null; // At a glance; see "story.glance on the wire"
   days: Array<{
     localDate: string;
     pick: null | {
@@ -74,7 +75,7 @@ Quiet-week example (no recommendable regional event and complete coverage for ev
 {"story":{"schemaVersion":3,"region":"San Diego","availability":"ready","cover":{"text":"A quieter stretch along the coast.","swells":[]},"lead":null,"turn":null,"chapters":[{"slot":"quiet:2026-10-28..2026-11-03","text":"No clear regional pulse through this stretch."}],"days":[{"localDate":"2026-10-28","pick":null},{"localDate":"2026-10-29","pick":null},{"localDate":"2026-10-30","pick":null},{"localDate":"2026-10-31","pick":null},{"localDate":"2026-11-01","pick":null},{"localDate":"2026-11-02","pick":null},{"localDate":"2026-11-03","pick":null}]}}
 ```
 
-The worker API is separate: `GET /api/internal/week-scout-story/regions`, `GET /api/internal/week-scout-story/input?region=<URL-encoded beaches.region>`, `POST /api/internal/week-scout-story/editions`, and `GET /api/internal/week-scout-story/latest?region=<URL-encoded beaches.region>`. Region values are the original `beaches.region` strings, including spaces or accents. It uses the briefing publisher's Bearer authentication pattern with its own `WEEK_SCOUT_STORY_PUBLISHER_TOKEN` (at least 32 characters), schema 3, candidate IDs (plus, under `week-scout-story-2`, sentences written for them), and a deterministic artifact ID. It never sends user data to the reader, and model prose reaches the reader only as a written sentence that passed its claim check for a selected candidate whose gate holds.
+The worker API is separate: `GET /api/internal/week-scout-story/regions`, `GET /api/internal/week-scout-story/input?region=<URL-encoded beaches.region>`, `POST /api/internal/week-scout-story/editions`, and `GET /api/internal/week-scout-story/latest?region=<URL-encoded beaches.region>`. Region values are the original `beaches.region` strings, including spaces or accents. It uses the briefing publisher's Bearer authentication pattern with its own `WEEK_SCOUT_STORY_PUBLISHER_TOKEN` (at least 32 characters), schema 3, candidate IDs (plus, under `week-scout-story-2` or `week-scout-story-3`, sentences written for them, and under `week-scout-story-3` At a glance rewordings), and a deterministic artifact ID. It never sends user data to the reader, and model prose reaches the reader only as a written sentence that passed its claim check for a selected candidate whose gate holds.
 
 Worker request and response shapes:
 
@@ -106,23 +107,25 @@ type StoryInput = {
   briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: [] };
   copyFacts: Candidate[];
   beachNames: Record<string, string>; // every region beach, id to name
+  glance?: Array<{ role: 'today' | 'next' | 'long_range'; fingerprint: string; text: string }>; // at most 6; the code's At a glance sentences, offered to a -3 edition
   provenance: { sourceIds: string[]; sourceHashes: string[]; generationInputVersion: string;
     representativeBeachIds: string[]; coverageDates: string[];
     coverage?: Array<{ localDate: string; sampleBeaches: number; rows: number }>;
     fixture?: boolean };
 };
 type StoryArtifact = Omit<StoryInput, 'copyFacts' | 'beachNames' | 'briefing'> & {
-  artifactId: string; generationVersion: 'week-scout-story-1' | 'week-scout-story-2'; model: string;
+  artifactId: string; generationVersion: 'week-scout-story-1' | 'week-scout-story-2' | 'week-scout-story-3'; model: string;
   briefing: {
     schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[];
-    written?: Array<{ slot: string; basedOn: string; text: string }>; // week-scout-story-2 only
+    written?: Array<{ slot: string; basedOn: string; text: string }>; // week-scout-story-2 and week-scout-story-3 only
+    glance?: Array<{ fingerprint: string; text: string }>; // week-scout-story-3 only
   };
 };
 ```
 
-`GET /regions` returns `RegionList`. `GET /input` returns `StoryInput`; a sparse or stale region returns HTTP 409. The worker submits `StoryArtifact` to `POST /editions`; the server accepts only issued candidate IDs in issue order (at most 200, one per slot), requires `cover` and `story:lead` when offered, and rejects changed fields. `event:<storyKey>:story` and `event:<storyKey>:beach:<beachId>` candidates are the regional swells card's lines (one per forecast event and one per beach the card lists for it); the Week Scout story never serves them. `GET /api/beaches/[id]/swell-events` serves them as each forecast event's `story` and each listed beach's `why`: the written sentence for that slot when the region's edition is today's `week-scout-story-2`, still valid, selected the slot, passes the claim check and its gate holds against the request's region build; otherwise the server line from that build, for any beach the card lists. A beach's server line takes its wind bucket from its rating's own hours (`windowStartAt` to `windowEndAt`; the event's rating window only when the rating has none), and a rating whose reason is `blown out` always reads as windy; a written beach sentence serves only when its gate's wind bucket equals that own-hours bucket and the reason is not `blown out`. On a shadowed beach, the line says it is sheltered from the swell and keeps wind without size or feel. With null exposure, it has no exposure lead and starts with its capitalized size/feel phrase or wind phrase. The additive `breaker` field is `pitching` for swells at 13 seconds or longer, `crumbly` for storms or periods under 10 seconds, and null otherwise. With `?beaches=<comma-separated UUIDs>`, the response also includes `watch` per event: it selects the first 40 distinct valid region beach IDs in request order, each with its exposure, not-working reason (null when working or unrated), and chronological per-day lines from today forward for daylight rows inside the event's rating window. Each event's list sorts working beaches first by rating score, then beach name; early looks sort by exposure, then beach name. Each day carries `localDate`, `faceFt` as a whole-foot range or single value (null without parsable height), and `why`. These lines reuse the beach-day facts and server line; a written sentence can serve only on the peak date, after both its stored candidate and sentence pass against that day's current facts and its gate holds. The blown-out override applies on the rating's start day; other watch days use their own wind. Without `beaches`, `watch` is omitted. If watch computation fails, the route logs the failure, omits `watch`, and still returns card stories and beach lines. Only the region build is cached; requested beach pools and their skill-based ratings are assembled per response under the API's private cache policy. Early looks carry `breaker: null`, exposure-only watch entries with `reason: null` and `days: []`, `story: null` and `why: null`; a beach with no swell window still receives a line when it has size or wind facts. The route reads the edition only when the region build has a stored-forecast event, never serves an edition whose input is a fixture, keeps up to 16 loaded inputs in memory by `inputHash` (inputs are content-addressed), and if building the narrative throws it logs once and returns the rated events with `story` and `why` null. `artifactId` is SHA-256 of canonical JSON with `artifactId` omitted, using the existing briefing hash rule. The response is `{ artifactId: string }`, HTTP 201 for first publish or 200 for an identical retry. `GET /latest` returns the stored `StoryArtifact` or HTTP 404. All four routes send `Cache-Control: private, no-store, no-cache, must-revalidate` through the publisher wrapper.
+`GET /regions` returns `RegionList`. `GET /input` returns `StoryInput`; a sparse or stale region returns HTTP 409. The worker submits `StoryArtifact` to `POST /editions`; the server accepts only issued candidate IDs in issue order (at most 200, one per slot), requires `cover` and `story:lead` when offered, and rejects changed fields. `event:<storyKey>:story` and `event:<storyKey>:beach:<beachId>` candidates are the regional swells card's lines (one per forecast event and one per beach the card lists for it); the Week Scout story never serves them. `GET /api/beaches/[id]/swell-events` serves them as each forecast event's `story` and each listed beach's `why`: the written sentence for that slot when the region's edition is today's `week-scout-story-2` or `week-scout-story-3`, still valid, selected the slot, passes the claim check and its gate holds against the request's region build; otherwise the server line from that build, for any beach the card lists. A beach's server line takes its wind bucket from its rating's own hours (`windowStartAt` to `windowEndAt`; the event's rating window only when the rating has none), and a rating whose reason is `blown out` always reads as windy; a written beach sentence serves only when its gate's wind bucket equals that own-hours bucket and the reason is not `blown out`. On a shadowed beach, the line says it is sheltered from the swell and keeps wind without size or feel. With null exposure, it has no exposure lead and starts with its capitalized size/feel phrase or wind phrase. The additive `breaker` field is `pitching` for swells at 13 seconds or longer, `crumbly` for storms or periods under 10 seconds, and null otherwise. With `?beaches=<comma-separated UUIDs>`, the response also includes `watch` per event: it selects the first 40 distinct valid region beach IDs in request order, each with its exposure, not-working reason (null when working or unrated), and chronological per-day lines from today forward for daylight rows inside the event's rating window. Each event's list sorts working beaches first by rating score, then beach name; early looks sort by exposure, then beach name. Each day carries `localDate`, `faceFt` as a whole-foot range or single value (null without parsable height), and `why`. These lines reuse the beach-day facts and server line; a written sentence can serve only on the peak date, after both its stored candidate and sentence pass against that day's current facts and its gate holds. The blown-out override applies on the rating's start day; other watch days use their own wind. Without `beaches`, `watch` is omitted. If watch computation fails, the route logs the failure, omits `watch`, and still returns card stories and beach lines. Only the region build is cached; requested beach pools and their skill-based ratings are assembled per response under the API's private cache policy. Early looks carry `breaker: null`, exposure-only watch entries with `reason: null` and `days: []`, `story: null` and `why: null`; a beach with no swell window still receives a line when it has size or wind facts. The route reads the edition only when the region build has a stored-forecast event, never serves an edition whose input is a fixture, keeps up to 16 loaded inputs in memory by `inputHash` (inputs are content-addressed), and if building the narrative throws it logs once and returns the rated events with `story` and `why` null. `artifactId` is SHA-256 of canonical JSON with `artifactId` omitted, using the existing briefing hash rule. The response is `{ artifactId: string }`, HTTP 201 for first publish or 200 for an identical retry. `GET /latest` returns the stored `StoryArtifact` or HTTP 404. All four routes send `Cache-Control: private, no-store, no-cache, must-revalidate` through the publisher wrapper.
 
-`week-scout-story-1` editions select candidates only. A `week-scout-story-2` edition may also carry `briefing.written`: sentences the worker wrote for some of its selections, with no table or schema change (the wire stays schema 3). At publish the server checks their shape only and rejects the artifact with HTTP 400 and a specific code: `written_not_allowed` (`written` under `week-scout-story-1`), `written_invalid` (not an array of `{ slot, basedOn, text }` strings, or extra keys), `written_too_long` (over 240 characters), `written_not_selected` (`basedOn` is not in `selections`), `written_slot_mismatch` (`slot` is not that candidate's slot), `written_duplicate_slot`. The briefing equality check ignores `written`. Claims are checked when the story is served, by `checkWrittenSentence` in `week-scout-story-claims.ts`. Every list it reads is in the `json claims` block below, equal string for string to the exported constant of the same name (`COMPASS` and `WEEKDAY` come from `week-scout-story-candidates.ts`), and the PC worker mirrors them. A slot shows its written sentence only when its candidate's gate holds and the sentence passes every check below, in order. The checks read claim words only: any word outside these lists is free prose. The first failed check is the refusal reason. That slot then shows the candidate's own text, and the other slots keep their written sentences.
+`week-scout-story-1` editions select candidates only. A `week-scout-story-2` or `week-scout-story-3` edition may also carry `briefing.written`: sentences the worker wrote for some of its selections, with no table or schema change (the wire stays schema 3). At publish the server checks their shape only and rejects the artifact with HTTP 400 and a specific code: `written_not_allowed` (`written` under any generation other than `week-scout-story-2` or `week-scout-story-3`), `written_invalid` (not an array of `{ slot, basedOn, text }` strings, or extra keys), `written_too_long` (over 240 characters), `written_not_selected` (`basedOn` is not in `selections`), `written_slot_mismatch` (`slot` is not that candidate's slot), `written_duplicate_slot`. The briefing equality check ignores `written`. Claims are checked when the story is served, by `checkWrittenSentence` in `week-scout-story-claims.ts`. Every list it reads is in the `json claims` block below, equal string for string to the exported constant of the same name (`COMPASS` and `WEEKDAY` come from `week-scout-story-candidates.ts`), and the PC worker mirrors them. A slot shows its written sentence only when its candidate's gate holds and the sentence passes every check below, in order. The checks read claim words only: any word outside these lists is free prose. The first failed check is the refusal reason. That slot then shows the candidate's own text, and the other slots keep their written sentences.
 
 The rules, for the worker to copy:
 
@@ -212,3 +215,127 @@ Any other word is free prose: against "Faces the west groundswell dead on, with 
   "WEEKDAY_ABBREVIATIONS": ["Sun", "Mon", "Tue", "Tues", "Wed", "Thu", "Thur", "Thurs", "Fri", "Sat"]
 }
 ```
+
+## `story.glance` on the wire
+
+`story.glance` is additive; the wire stays schema 3, and `cover`, `lead`, `turn` and `chapters` are unchanged for installed builds. Its shape is `{ sentences: string[]; source: Array<'code' | 'written'> } | null`. `sentences` holds one to six whole sentences in paragraph order: what is in the water today (or `No clear swell in the water today.` when today is fully covered and nothing is in the water), then up to four named arriving swells, then at most one early look further out. `source` has the same length; `source[i]` is `written` when `sentences[i]` is the edition's rewording and `code` when it is the server's own sentence. Days are words, never digits: `today`, `tomorrow`, a weekday, `a week from <weekday>`, `a week from today`, or `the week after next`. Roles and fingerprints stay off the wire.
+
+The server splits the paragraph, so no client parses prose. Week Scout shows every sentence. Home takes `sentences.slice(0, 2)`.
+
+`glance` is `null` when there is no home beach or the home region is not an active story region (`availability: 'outside_region'`), when the region build cannot be read, when the build yields no sentence, or when building the paragraph throws (logged once as `[week-scout-story] glance failed`). It is built from the region build on its own, independently of the edition and candidate path, so it can be present when `availability` is `unavailable`, and it never falls back to cover or lead prose. When `glance` is null, clients keep today's cover and lead/turn layout. With `WEEK_SCOUT_STORY_ENABLED` off there is no `story` at all, as before.
+
+## Generation `week-scout-story-3`
+
+`week-scout-story-3` is a superset of `week-scout-story-2`. The worker must keep `selections` and `written` exactly as it does for `-2`: the server keeps one edition per region, and the Swell Watch card's `event:` written lines are read from it under `-2` or `-3`, so a `-3` edition without them would strip the card's written lines.
+
+The input offers `StoryInput.glance[]`: at most six `{ role, fingerprint, text }` entries in paragraph order, where `role` is `today`, `next` or `long_range` and `text` is the code sentence. The offer is part of the input hash, so an input cached before the field existed is rebuilt to carry it. The worker returns `briefing.glance[]` as `{ fingerprint, text }`, one entry per offered fingerprint it rewords, with text of at most 240 characters and no other keys. It copies each fingerprint verbatim and never parses or rebuilds it. A sentence it does not reword gets no entry and serves its code sentence. The fingerprint names the sentence's role and, for each swell it names, the direction label, swell noun, arrival, peak and fade dates, confidence, and whether the lead swell is a fresh one. Size is left out on purpose: a size refresh keeps the fingerprint and is caught by the claim check instead.
+
+At publish, `POST /editions` checks shape only and rejects with HTTP 400 and a specific code. `written_not_allowed` is `written` under any generation other than `-2` or `-3`. `glance_not_allowed` is `glance` under any generation other than `-3`. `glance_invalid` is a `glance` that is not an array, has more than six entries, or has an entry that is not an object, has extra keys, has a non-string `fingerprint` or `text`, or has `text` over 240 characters. Every entry's shape is checked before any fingerprint: `glance_not_offered` is a fingerprint the input's `glance` did not offer (also when it offered none), and `glance_duplicate` is a fingerprint sent twice. The briefing equality check ignores `glance`, as it ignores `written`.
+
+At serve, the server rebuilds the code paragraph from the region build. For each sentence it serves the edition's rewording only when all of these hold; otherwise that sentence serves its code text and the other sentences are unaffected:
+
+1. The region's edition is `week-scout-story-3`, its `editionDate` is the region's today, and `sourcePublishedAt <= now <= validUntil`. (The artifact was validated against its input at publish; that check is not rerun here.) The glance gate does not depend on the edition's selections serving: an edition whose candidates fail their live gates still lends its rewordings.
+2. The entry is well formed (string `fingerprint` and `text`); a malformed entry is dropped, not fatal. The first entry for a fingerprint wins.
+3. Its fingerprint equals the rebuilt sentence's fingerprint exactly.
+4. It passes `checkWrittenSentence(text, { text: codeSentence, facts }, regionBuildBeachNames, [region])`, where `facts` are the sentence's lead swell facts. The `No clear swell in the water today.` and long-range sentences carry no facts, so any size, wind-timing or breaker claim in their rewording refuses.
+5. It passes `checkGlanceWording(text, codeSentence)` from `week-scout-glance-wording.ts`.
+
+## PC worker: At a glance prompt and wording check
+
+Prompt rules for each offered sentence:
+
+- Reword one sentence at a time: one sentence in, one sentence out. Never merge, split or reorder sentences.
+- Keep every direction, day, size phrase and certainty phrase exactly as the code sentence has it.
+- Use at most one wave-feel word (one `BREAKER_WORDS` entry).
+- No lists of adjectives.
+- No digits, except foot ranges already present in the code sentence.
+
+The wording check also refuses a word stem used more often than the code sentence uses it, and `bigger` when the code sentence does not say it. Before publishing, the worker runs `check_glance_wording` on each rewording and sends no entry for one that fails. The input's `glance` offer carries no facts, so the worker cannot run the size, wind-timing and breaker claim checks locally; the server runs them at serve time, which is why size phrases are copied verbatim.
+
+The mirror of `checkGlanceWording` and its five rules, first failure wins: `feel_words` (more than one `BREAKER_WORDS` entry has a form in the text; an entry's forms count once), `repeated_word` (a lowercased letter token of at least four letters, stemmed by the first suffix that leaves at least four letters, appears more than `max(1, code count)` times), `adjective_list` (case-sensitive), `certainty` (the sets of certainty phrases differ; phrases are read longest first, and each match is blanked with spaces before shorter ones are read), and `bigger`. Whole words use letter-or-digit lookarounds, not `\b`; feel words, certainty phrases and `bigger` ignore case; multi-word phrases match literally with exactly one space. Python's compiled patterns keep no `lastIndex`, so the TypeScript resets have no counterpart. `BREAKER_WORDS` equals the list of that name in the `json claims` block above. It needs `regex` from PyPI for `\p{L}` and `\p{N}`.
+
+```python
+from typing import Literal, TypedDict
+
+import regex
+
+BREAKER_WORDS = [["pitching", "pitches", "throwing", "throws"], ["hollow"], ["punchy"], ["crumbly", "crumbling", "crumbles", "spilling"],
+  ["soft", "mushy"], ["peaky"], ["lined up", "lined-up", "lines up", "lining up"],
+  ["closing out", "closes out", "close out", "closeouts", "closeout", "close-out", "close outs", "close-outs", "closed out", "closed-out"]]
+
+CERTAINTY_PHRASES = ["too early to call", "already in the water", "still in the water",
+  "looks likely", "early look", "on the radar", "on the way", "likely", "due"]
+
+STEM_SUFFIXES = ["ing", "es", "ed", "ly", "y", "s"]
+MIN_WORD = 4
+ADJECTIVE_LIST = regex.compile(r"(?:[\p{L}-]+,\s+){2,}(?:(?:and|or)\s+)?[\p{L}-]+")
+LETTERS = regex.compile(r"\p{L}+")
+
+Reason = Literal["feel_words", "repeated_word", "adjective_list", "certainty", "bigger"]
+
+
+class GlanceWordingCheck(TypedDict, total=False):
+    ok: bool
+    reason: Reason
+
+
+def whole_phrase(phrase: str) -> "regex.Pattern[str]":
+    return regex.compile(r"(?<![\p{L}\p{N}])" + regex.escape(phrase) + r"(?![\p{L}\p{N}])", regex.IGNORECASE)
+
+
+BIGGER = whole_phrase("bigger")
+FEEL_ENTRIES = [[whole_phrase(form) for form in forms] for forms in BREAKER_WORDS]
+CERTAINTY_BY_LENGTH = sorted(CERTAINTY_PHRASES, key=lambda phrase: -len(phrase))  # stable, like Array.prototype.sort
+
+
+def stem(token: str) -> str:
+    for end in STEM_SUFFIXES:
+        if token.endswith(end) and len(token) - len(end) >= MIN_WORD:
+            return token[: -len(end)]
+    return token
+
+
+def stem_counts(text: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for token in LETTERS.findall(text.lower()):
+        if len(token) < MIN_WORD:
+            continue
+        key = stem(token)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def repeats_a_word(text: str, code_text: str) -> bool:
+    code = stem_counts(code_text)
+    return any(count > max(1, code.get(key, 0)) for key, count in stem_counts(text).items())
+
+
+def certainty_phrases(text: str) -> set[str]:
+    # Longest first, blanking each match, so "likely" never re-reads the "likely" inside "looks likely".
+    found: set[str] = set()
+    rest = text
+    for phrase in CERTAINTY_BY_LENGTH:
+        pattern = whole_phrase(phrase)
+        if not pattern.search(rest):
+            continue
+        found.add(phrase)
+        rest = pattern.sub(lambda match: " " * len(match.group(0)), rest)
+    return found
+
+
+def check_glance_wording(text: str, code_text: str) -> GlanceWordingCheck:
+    feel_entries = sum(1 for forms in FEEL_ENTRIES if any(form.search(text) for form in forms))
+    if feel_entries > 1:
+        return {"ok": False, "reason": "feel_words"}
+    if repeats_a_word(text, code_text):
+        return {"ok": False, "reason": "repeated_word"}
+    if ADJECTIVE_LIST.search(text):
+        return {"ok": False, "reason": "adjective_list"}
+    if certainty_phrases(text) != certainty_phrases(code_text):
+        return {"ok": False, "reason": "certainty"}
+    if BIGGER.search(text) and not BIGGER.search(code_text):
+        return {"ok": False, "reason": "bigger"}
+    return {"ok": True}
+```
+
+Steven applies this to `feat/swell-briefing-pc-worker` on the PC and runs a dry run (no publish) before scheduling.

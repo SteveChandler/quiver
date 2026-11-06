@@ -220,6 +220,17 @@ describe("narrateRegionEvents", () => {
     expect(byKey(events, EARLY.key).story).toBeNull();
   });
 
+  it("serves a week-scout-story-3 edition's written lines exactly as a -2 edition's", () => {
+    const written = [sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN), sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN)];
+    const third = edition(written, { artifact: { generationVersion: "week-scout-story-3" } });
+
+    const events = narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: third, now: NOW });
+
+    expect(byKey(events, SSW.key).story).toBe(SSW_WRITTEN);
+    expect(whyByBeach(byKey(events, SSW.key))).toEqual({ ...SSW_WHY, a: OCEAN_BEACH_WRITTEN });
+    expect(events).toEqual(narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: edition(written), now: NOW }));
+  });
+
   it("ignores yesterday's edition", () => {
     const written = [sentence(`event:${SSW_KEY}:story`, SSW_WRITTEN), sentence(`event:${SSW_KEY}:beach:a`, OCEAN_BEACH_WRITTEN)];
     // Still within its validity, so only the day turns it away.

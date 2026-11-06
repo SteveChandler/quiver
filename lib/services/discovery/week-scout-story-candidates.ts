@@ -188,16 +188,21 @@ export function addSwellHeadlines(facts: StoryCandidate[], swell: HeadlineSwell,
   const arrivalPast = arrivalDate < firstDate;
   // Phrasings that open with the day, or follow "by", only read with a real weekday.
   const namedDays = arrivalDate >= firstDate && arrivalDate <= lastDate && peakDate >= firstDate && peakDate <= lastDate;
+  // Compare the words, not the dates: two days that read the same would repeat the word.
+  const sameDay = arrival === peakDay;
+  const arrivalPhrase = sameDay ? "" : ` ${arrival}`;
   add(facts, `cover-${idPrefix}pulse-${key}`, "cover", withRegionalSize(arrivalPast
     ? `A ${period} from the ${direction} is already in the water and peaks ${peakDay}.`
     : region
-      ? `A ${period} from the ${direction} reaches ${region} ${arrival} and peaks ${peakDay}.`
-      : `A ${period} from the ${direction} arrives ${arrival} and peaks ${peakDay}.`, candidateFacts), gate, candidateFacts);
-  if (namedDays && region) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", withRegionalSize(`${region} gets ${withArticle(namedSwell(direction, swell.periodS, swell.kind))} by ${arrival}, with the most swell ${peakDay}.`, candidateFacts), gate, candidateFacts);
+      ? `A ${period} from the ${direction} reaches ${region}${arrivalPhrase} and peaks ${peakDay}.`
+      : `A ${period} from the ${direction} arrives${arrivalPhrase} and peaks ${peakDay}.`, candidateFacts), gate, candidateFacts);
+  if (namedDays && region && !sameDay) add(facts, `cover-${idPrefix}pulse-alt-${key}`, "cover", withRegionalSize(`${region} gets ${withArticle(namedSwell(direction, swell.periodS, swell.kind))} by ${arrival}, with the most swell ${peakDay}.`, candidateFacts), gate, candidateFacts);
   add(facts, `lead-${idPrefix}pulse-${key}`, "story:lead", arrivalPast
     ? `The ${direction} pulse is already in the water and peaks ${peakDay}.`
-    : `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate, candidateFacts);
-  if (namedDays) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate, candidateFacts);
+    : sameDay
+      ? `The ${direction} pulse arrives and peaks ${peakDay}.`
+      : `The ${direction} pulse builds from ${arrival} into ${peakDay}.`, gate, candidateFacts);
+  if (namedDays && !sameDay) add(facts, `lead-${idPrefix}pulse-alt-${key}`, "story:lead", `${arrival} starts the ${direction} swell's run toward a ${peakDay} peak.`, gate, candidateFacts);
 }
 
 /**
