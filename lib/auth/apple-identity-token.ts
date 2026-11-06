@@ -1,3 +1,4 @@
+import { APPLE_APP_BUNDLE_ID, APPLE_SIGN_IN_WEB_CLIENT_ID } from "@/lib/constants/public-services";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const APPLE_ISSUER = "https://appleid.apple.com";
@@ -29,8 +30,8 @@ export class AppleIdentityTokenError extends Error {
 function getAppleAudiences(): string[] {
   const configured = [
     ...(process.env.APPLE_RECOVERY_AUDIENCES ?? "").split(","),
-    process.env.APPLE_APP_BUNDLE_ID,
-    process.env.NEXT_PUBLIC_APPLE_CLIENT_ID,
+    process.env.APPLE_APP_BUNDLE_ID ?? APPLE_APP_BUNDLE_ID,
+    process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ?? APPLE_SIGN_IN_WEB_CLIENT_ID,
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));

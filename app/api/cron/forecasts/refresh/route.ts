@@ -37,7 +37,7 @@ export const revalidate = 0;
 export const maxDuration = 300;
 
 const MAX_DURATION_SECONDS = 300;
-const DEFAULT_SAFETY_MARGIN_MS = 20_000;
+const DEFAULT_SAFETY_MARGIN_MS = 60_000;
 const MARINE_INPUT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 // One flaky beach (a single wind fetch or write) is retried by the next hourly run; only a wider
 // failure means the provider or database is down.
