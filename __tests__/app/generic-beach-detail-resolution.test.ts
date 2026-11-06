@@ -18,8 +18,10 @@ import {
 import { isValidElement, type ReactNode } from "react";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
-import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
-import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
+import {
+  getCachedBeachCameraUrl,
+  getCachedBeachFeaturedPhoto,
+} from "@/lib/data/server/beach-detail-static-reads";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
@@ -68,8 +70,10 @@ jest.mock("@/lib/services/spot-surf-report-service", () => ({
   }),
 }));
 
-jest.mock("@/actions/spot/spot-data-actions", () => ({
-  getSpotFeaturedPhoto: jest.fn().mockResolvedValue(null),
+jest.mock("@/lib/data/server/beach-detail-static-reads", () => ({
+  ...jest.requireActual("@/lib/data/server/beach-detail-static-reads"),
+  getCachedBeachCameraUrl: jest.fn().mockResolvedValue(null),
+  getCachedBeachFeaturedPhoto: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
@@ -220,9 +224,6 @@ jest.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-jest.mock("@/actions/beach/cam-actions", () => ({
-  getBeachCameraUrl: jest.fn().mockResolvedValue(null),
-}));
 
 jest.mock("@/actions/forecast-actions", () => ({
   getBeachForecastPreview: jest.fn().mockResolvedValue({ success: true, data: null }),
@@ -467,8 +468,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
 
   it.each([
     ["forecast", getSpotSurfReportPublic],
-    ["photo", getSpotFeaturedPhoto],
-    ["camera", getBeachCameraUrl],
+    ["photo", getCachedBeachFeaturedPhoto],
+    ["camera", getCachedBeachCameraUrl],
     ["nearby", getNearbyBeaches],
   ] as const)("renders the beach when the %s loader throws", async (section, loader) => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
