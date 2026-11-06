@@ -93,21 +93,38 @@ function nextText(groups: readonly GlanceGroup[], first: string, today: string):
   return `${opening}${withSize(size)}, ${then}.`;
 }
 
-function todayText(groups: readonly GlanceGroup[], first: string, today: string): string {
+/** Every member's local peak date: `peakDate` is the anchor's alone, and a bigger member may peak later. */
+function memberPeakDates(group: GlanceGroup, timezone: string): string[] {
+  return group.events.map((event) => localDate(event.peakAt, timezone));
+}
+
+function todayPredicate(group: GlanceGroup, today: string, timezone: string): string {
+  const peaks = memberPeakDates(group, timezone);
+  if (peaks.includes(today)) return "peaks today";
+  const future = peaks.filter((peak) => peak > today);
+  if (future.length === 0) return "is still in the water";
+  const nextPeak = future.reduce((early, peak) => peak < early ? peak : early);
+  return `is already in the water and peaks ${glanceDay(nextPeak, today)}`;
+}
+
+function todayText(groups: readonly GlanceGroup[], first: string, today: string, timezone: string): string {
   const fade = laterFade(groups);
   // A fade on the peak day goes unsaid, or a swell would peak and ease the same day.
-  const latestPeak = groups.reduce((late, group) => group.peakDate > late ? group.peakDate : late, today);
+  const latestPeak = groups.flatMap((group) => memberPeakDates(group, timezone))
+    .reduce((late, peak) => peak > late ? peak : late, today);
   const ease = fade && fade > latestPeak ? `, easing by ${glanceDay(fade, today)}` : "";
   const [lead, follow] = groups;
   const size = groupSize(lead);
   if (follow) return `${capitalise(first)} and ${nounPhrase(follow)} both peak today${withSize(size)}${ease}.`;
-  const predicate = lead.peakDate === today ? "peaks today"
-    : lead.peakDate > today ? `is already in the water and peaks ${glanceDay(lead.peakDate, today)}` : "is still in the water";
-  return `${capitalise(first)} ${predicate}${withSize(size)}${ease}.`;
+  return `${capitalise(first)} ${todayPredicate(lead, today, timezone)}${withSize(size)}${ease}.`;
 }
 
-function pairsToday(a: GlanceGroup, b: GlanceGroup, today: string): boolean {
-  return a.peakDate === today && b.peakDate === today && groupSize(a) === groupSize(b);
+function peaksToday(group: GlanceGroup, today: string, timezone: string): boolean {
+  return memberPeakDates(group, timezone).includes(today);
+}
+
+function pairsToday(a: GlanceGroup, b: GlanceGroup, today: string, timezone: string): boolean {
+  return peaksToday(a, today, timezone) && peaksToday(b, today, timezone) && groupSize(a) === groupSize(b);
 }
 
 function pairsNext(a: GlanceGroup, b: GlanceGroup): boolean {
@@ -158,8 +175,8 @@ export function buildGlance(args: {
   }
   for (let index = 0; index < todayGroups.length && sentences.length < MAX_GLANCE_SENTENCES; index += 1) {
     const group = todayGroups[index];
-    const pair = todayGroups[index + 1] && pairsToday(group, todayGroups[index + 1], today) ? [group, todayGroups[index + 1]] : [group];
-    write("today", pair, (first) => todayText(pair, first, today));
+    const pair = todayGroups[index + 1] && pairsToday(group, todayGroups[index + 1], today, timezone) ? [group, todayGroups[index + 1]] : [group];
+    write("today", pair, (first) => todayText(pair, first, today, timezone));
     index += pair.length - 1;
   }
 

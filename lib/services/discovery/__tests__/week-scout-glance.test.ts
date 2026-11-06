@@ -149,6 +149,50 @@ describe("buildGlance", () => {
     expect(glance.map((s) => s.text)).toEqual(["A west groundswell is still in the water, chest-high at most spots, easing by tomorrow."]);
   });
 
+  describe("dates a today group by its members' peaks, not the anchor's", () => {
+    const small = (e: RegionalSwellEvent): CandidateFacts => e.regionalKey.endsWith("anchor") ? sized({ min: 1, max: 2 }) : chest();
+    const selfChecks = (text: string, facts: CandidateFacts | null): void => {
+      expect(checkWrittenSentence(text, { text, facts: facts ?? undefined }, [], ["San Diego"])).toEqual({ ok: true });
+    };
+
+    it("peaks today when a bigger member peaks today though the anchor peaked yesterday", () => {
+      const group = [event("w-anchor", 270, "2026-11-03T20:00:00Z", "2026-11-04T20:00:00Z", "2026-11-06T20:00:00Z"),
+        event("w-big", 275, "2026-11-04T08:00:00Z", "2026-11-05T20:00:00Z", "2026-11-07T20:00:00Z")];
+      const glance = buildGlance({ stored: group, tail: [], timezone, today, now, todayCovered: true, factsFor: small });
+      expect(glance.map((s) => s.text)).toEqual(["A west groundswell peaks today, chest-high at most spots, easing by Saturday."]);
+      selfChecks(glance[0].text, glance[0].facts);
+      // The fingerprint still dates the group by its anchor.
+      expect(JSON.parse(glance[0].fingerprint)[2][3]).toBe("2026-11-04");
+    });
+
+    it("is still in the water only when every member peaked before today", () => {
+      const group = [event("w-anchor", 270, "2026-11-02T20:00:00Z", "2026-11-03T20:00:00Z", "2026-11-06T20:00:00Z"),
+        event("w-big", 275, "2026-11-03T08:00:00Z", "2026-11-04T18:00:00Z", "2026-11-06T18:00:00Z")];
+      const glance = buildGlance({ stored: group, tail: [], timezone, today, now, todayCovered: true, factsFor: small });
+      expect(glance.map((s) => s.text)).toEqual(["A west groundswell is still in the water, chest-high at most spots, easing by tomorrow."]);
+    });
+
+    it("peaks on the earliest future member peak when none peaks today", () => {
+      // 23:00 PST yesterday and 08:00 PST tomorrow, 33 h apart.
+      const group = [event("w-anchor", 270, "2026-11-03T20:00:00Z", "2026-11-05T07:00:00Z", "2026-11-07T20:00:00Z"),
+        event("w-big", 275, "2026-11-04T08:00:00Z", "2026-11-06T16:00:00Z", "2026-11-08T20:00:00Z")];
+      const glance = buildGlance({ stored: group, tail: [], timezone, today, now, todayCovered: true, factsFor: small });
+      expect(glance.map((s) => s.text)).toEqual([
+        "A west groundswell is already in the water and peaks tomorrow, chest-high at most spots, easing by Sunday."]);
+      selfChecks(glance[0].text, glance[0].facts);
+    });
+
+    it("pairs with another group peaking today on a member's peak", () => {
+      const stored = [event("w-anchor", 270, "2026-11-03T20:00:00Z", "2026-11-04T20:00:00Z", "2026-11-06T20:00:00Z"),
+        event("w-big", 275, "2026-11-04T08:00:00Z", "2026-11-05T20:00:00Z", "2026-11-07T20:00:00Z"),
+        event("s-today", 180, "2026-11-04T08:00:00Z", "2026-11-05T18:00:00Z", "2026-11-07T18:00:00Z")];
+      const glance = buildGlance({ stored, tail: [], timezone, today, now, todayCovered: true, factsFor: small });
+      expect(glance.map((s) => s.text)).toEqual([
+        "A west groundswell and a south groundswell both peak today, chest-high at most spots, easing by Saturday."]);
+      selfChecks(glance[0].text, glance[0].facts);
+    });
+  });
+
   it("says no ease when the swell fades on the day it peaks", () => {
     // Peaks 10:00 and fades 20:00 PST tomorrow: never "peaks tomorrow, easing by tomorrow".
     const sameDay = event("w-same", 270, "2026-11-05T14:00:00Z", "2026-11-06T18:00:00Z", "2026-11-07T04:00:00Z");
