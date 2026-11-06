@@ -85,7 +85,6 @@ const DESKTOP_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
 
 const HANDOFF = "content-page-app-handoff-cta-surf_cams";
-const ORIGINAL_FLAG = process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
 const originalIntersectionObserver = globalThis.IntersectionObserver;
 
 const CAMERAS = [
@@ -138,7 +137,6 @@ beforeEach(() => {
   pathname = "/surf-cams/san-diego";
   window.localStorage.clear();
   Object.defineProperty(window, "scrollY", { value: 900, configurable: true, writable: true });
-  delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
 });
 
 afterEach(() => {
@@ -152,8 +150,6 @@ afterEach(() => {
     writable: true,
     value: originalIntersectionObserver,
   });
-  if (ORIGINAL_FLAG === undefined) delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-  else process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = ORIGINAL_FLAG;
 });
 
 describe("SeoLocationPage install CTA on /surf-cams", () => {
@@ -248,8 +244,7 @@ describe("SeoLocationPage install CTA on /surf-cams", () => {
   it.each([
     ["Android", ANDROID_UA],
     ["desktop", DESKTOP_UA],
-  ])("keeps the in-page handoff and the signup bar on %s with the bar on", async (_name, userAgent) => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
+  ])("keeps the in-page handoff and the signup bar on %s", async (_name, userAgent) => {
     setUserAgent(userAgent);
     await renderPage();
     await act(async () => {});
@@ -266,7 +261,6 @@ describe("SeoLocationPage install CTA on /surf-cams", () => {
     ["Safari", IPHONE_SAFARI_UA],
     ["Chrome", IPHONE_CHROME_UA],
   ])("gives iPhone %s one ask: the install bar, no signup bar, handoff or banner", async (_name, userAgent) => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(userAgent);
     await renderPage();
 
@@ -278,7 +272,6 @@ describe("SeoLocationPage install CTA on /surf-cams", () => {
   });
 
   it("tracks the install bar's view and tap under the surf_cams surface", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_CHROME_UA);
     await renderPage();
 
@@ -303,15 +296,5 @@ describe("SeoLocationPage install CTA on /surf-cams", () => {
         handoff_id: expect.any(String),
       }),
     );
-  });
-
-  it("keeps today's asks with the bar off: banner for iPhone Chrome, handoff and signup bar", async () => {
-    setUserAgent(IPHONE_CHROME_UA);
-    await renderPage();
-
-    await waitFor(() => expect(screen.getByTestId("iphone-app-banner")).toBeInTheDocument());
-    expect(screen.getByTestId(HANDOFF)).toBeInTheDocument();
-    expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
-    expect(screen.queryByTestId("install-bar")).not.toBeInTheDocument();
   });
 });

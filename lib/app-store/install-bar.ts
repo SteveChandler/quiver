@@ -3,12 +3,11 @@ import {
   isIphoneAppBannerExcludedPath,
   isIphoneUserAgent,
 } from "@/lib/app-store/iphone-app-banner";
-import { isInstallBarEnabled } from "@/lib/flags/install-bar";
 
 /*
  * Install bar: every iPhone visitor (any browser) on beach detail, city
  * water-temp, city hub and surf-cam region pages gets one fixed-bottom install
- * ask when NEXT_PUBLIC_INSTALL_BAR_ENABLED=true. There is no split test; it is read
+ * ask. There is no split test; it is read
  * before/after (see components/app-store/ARCHITECTURE.md):
  *   - taps: `cta_click` rows with `placement = 'install_bar'`, by surface;
  *   - corroboration: App Store Connect web-referrer first-time downloads;
@@ -62,21 +61,17 @@ interface InstallBarOwnershipInput {
   userAgent: string;
   pathname: string;
   isStandalone?: boolean;
-  /** Defaults to the build-time flag. */
-  enabled?: boolean;
 }
 
 /**
  * The surface the bar owns for this visitor, or null. Any iPhone browser,
- * not an installed home-screen app, on a bar surface, flag on.
+ * not an installed home-screen app, on a bar surface.
  */
 export function getInstallBarOwnedSurface({
   userAgent,
   pathname,
   isStandalone = false,
-  enabled = isInstallBarEnabled(),
 }: InstallBarOwnershipInput): InstallBarSurface | null {
-  if (!enabled) return null;
   if (!isIphoneUserAgent(userAgent)) return null;
   if (isStandalone) return null;
   if (isIphoneAppBannerExcludedPath(pathname)) return null;
