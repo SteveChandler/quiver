@@ -363,10 +363,11 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
   return story;
 }
 
-/** Today counts as covered when the live response evaluated every eligible beach for it. */
+/** Today counts as covered on the quiet-day check's coverage terms: every eligible beach evaluated, no bucket held or missing. */
 function todayCovered(live: Live, editionDate: string): boolean {
   const coverage = live.coverage?.days.find((day) => day.localDate === editionDate);
-  return Boolean(coverage && coverage.eligible > 0 && coverage.missing === 0);
+  return Boolean(coverage && coverage.eligible > 0 && coverage.missing === 0
+    && coverage.buckets.every((bucket) => bucket.held === 0 && bucket.missing === 0));
 }
 
 /** Today's -3 rewordings, well-formed entries only: a malformed one would otherwise throw in bindGlance and drop the paragraph. */

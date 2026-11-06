@@ -750,6 +750,21 @@ describe("deterministic fallback and live gates", () => {
       for (const key of named) expect(rated).toContain(key);
     });
 
+    it("says today is quiet only when no bucket is held or missing", async () => {
+      const later = regionEvent(180, 16, "2026-07-19T18:00:00Z", "2026-07-20T18:00:00Z", "2026-07-21T18:00:00Z");
+      mockLoadRegion.mockResolvedValue(regionBuild([later]));
+      const covered = (held: number, missing = 0): CanonicalWeekScoutResponse => ({ ...live(), coverage: {
+        expiresAt: "2026-07-22T00:00:00Z", days: [{ localDate: "2026-07-15", eligible: 1, evaluated: 1, missing: 0, excluded: null,
+          buckets: [{ bucket: "morning", eligible: 1, evaluated: 1, missing, noWindow: 1, held }] }],
+      } } as CanonicalWeekScoutResponse);
+      const glance = async (response: CanonicalWeekScoutResponse) => (await loadAndBindStory({ client: client as never,
+        homeBeachId: "home", live: response, startLocalDate: "2026-07-15", now })).glance?.sentences ?? [];
+      expect((await glance(covered(0)))[0]).toBe("No clear swell in the water today.");
+      expect(await glance(covered(1))).not.toContain("No clear swell in the water today.");
+      expect(await glance(covered(0, 1))).not.toContain("No clear swell in the water today.");
+      expect((await glance(covered(1))).length).toBeGreaterThanOrEqual(1);
+    });
+
     it("has no glance without a home beach", async () => {
       const story = await loadAndBindStory({ client: client as never, homeBeachId: null, live: live(),
         startLocalDate: "2026-07-15", now });
