@@ -35,6 +35,23 @@ export function haversineDistance(
 }
 
 /**
+ * The point `stepDeg` degrees of arc from (lat, lon) along a compass bearing.
+ * Flat-earth step: good for offsets of a few tens of kilometres.
+ */
+export function pointAlongBearing(
+  lat: number,
+  lon: number,
+  bearingDeg: number,
+  stepDeg: number
+): { lat: number; lon: number } {
+  const bearing = (bearingDeg * Math.PI) / 180;
+  return {
+    lat: lat + stepDeg * Math.cos(bearing),
+    lon: lon + (stepDeg * Math.sin(bearing)) / Math.cos((lat * Math.PI) / 180),
+  };
+}
+
+/**
  * Convert degrees to cardinal direction (N, NE, E, SE, S, SW, W, NW).
  * Uses 8-point compass (45° increments).
  *
