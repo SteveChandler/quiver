@@ -1,5 +1,6 @@
 "use client";
 
+import { GOOGLE_WEB_CLIENT_ID } from "@/lib/constants/public-services";
 import { useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -170,7 +171,7 @@ export function GoogleOneTap() {
     if (user) return;
     if (promptShownRef.current) return;
 
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? GOOGLE_WEB_CLIENT_ID;
     if (!clientId) return;
     const allowLocalhost =
       process.env.NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST === "true";

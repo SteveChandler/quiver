@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import appLinkContract from "@/config/app-link-contract.json";
+import { APPLE_APP_BUNDLE_ID } from "@/lib/constants/public-services";
 
 const DEFAULT_APPLE_TEAM_ID = "QBA8TA48NG";
-const DEFAULT_APPLE_BUNDLE_IDS = "app.quiversurf.mobile";
 const APPLE_TEAM_ID_PATTERN = /^[A-Z0-9]{10}$/;
 
 function isPlaceholderValue(value: string): boolean {
@@ -58,7 +58,7 @@ const webCredentialApps = (process.env.APPLE_WEB_CREDENTIALS_APP_IDS ?? "")
 // Support multiple bundle IDs (comma-separated), falling back to singular var
 const bundleIdsEnv = process.env.APPLE_APP_BUNDLE_IDS ??
   process.env.APPLE_APP_BUNDLE_ID ??
-  DEFAULT_APPLE_BUNDLE_IDS;
+  APPLE_APP_BUNDLE_ID;
 const bundleIds = bundleIdsEnv.split(',').map(id => id.trim()).filter(Boolean);
 
 export const revalidate = 3600;

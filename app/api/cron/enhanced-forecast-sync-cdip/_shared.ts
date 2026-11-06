@@ -23,7 +23,7 @@ import {
 } from "@/lib/monitoring/sentry-cron";
 
 const MAX_DURATION_SECONDS = 300;
-const DEFAULT_SAFETY_MARGIN_MS = 20_000;
+const DEFAULT_SAFETY_MARGIN_MS = 60_000;
 
 function getCronDeadlineMs(): {
   deadlineMs: number;

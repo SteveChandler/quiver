@@ -4,11 +4,10 @@
  */
 
 import { getToken, onMessage, type Unsubscribe } from "firebase/messaging";
-import { getFirebaseMessaging } from "@/lib/firebase/config";
+import { FIREBASE_WEB_PUSH_VAPID_KEY } from "@/lib/constants/public-services";
+import { getFirebaseMessaging, isFirebaseConfigured } from "@/lib/firebase/config";
 
-// VAPID key from Firebase Console (Cloud Messaging → Web Push certificates)
-// This is a public key and safe to include in client-side code
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "";
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ?? FIREBASE_WEB_PUSH_VAPID_KEY;
 let unsubscribeFromMessages: Unsubscribe | null = null;
 
 function getRuntimeIanaTimezone(): string | null {
@@ -45,18 +44,11 @@ export async function registerWebPushNotifications(): Promise<void> {
     return;
   }
 
-  // Check if Firebase is configured before attempting to initialize
-  // This prevents 400 errors when NEXT_PUBLIC_FIREBASE_* env vars are missing
-  const firebaseConfigured = !!(
-    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
-    process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-  );
-
-  if (!firebaseConfigured) {
+  // An empty NEXT_PUBLIC_FIREBASE_* override would make Firebase answer 400.
+  if (!isFirebaseConfigured()) {
     if (process.env.NODE_ENV === "development") {
       console.log(
-        "Push notifications: Firebase not configured (missing NEXT_PUBLIC_FIREBASE_* environment variables)"
+        "Push notifications: Firebase not configured (a NEXT_PUBLIC_FIREBASE_* override is empty)"
       );
     }
     return;

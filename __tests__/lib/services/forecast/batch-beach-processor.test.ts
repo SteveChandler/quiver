@@ -151,7 +151,7 @@ describe("loadBatchConfig", () => {
     const config = loadBatchConfig();
     expect(config.batchSize).toBe(3);
     expect(config.batchDelayMs).toBe(1000);
-    expect(config.maxBeachesPerRun).toBe(45);
+    expect(config.maxBeachesPerRun).toBe(30);
     expect(config.freshnessWindowHours).toBe(12);
     expect(config.refreshLeadHours).toBe(4);
     expect(getRefreshSelectionWindowHours(config)).toBe(8);
@@ -186,7 +186,7 @@ describe("loadBatchConfig", () => {
     expect(config.batchSize).toBe(7);
     // Others remain at defaults
     expect(config.batchDelayMs).toBe(1000);
-    expect(config.maxBeachesPerRun).toBe(45);
+    expect(config.maxBeachesPerRun).toBe(30);
     expect(config.freshnessWindowHours).toBe(12);
     expect(config.refreshLeadHours).toBe(4);
   });
@@ -215,7 +215,7 @@ describe("loadCdipBatchConfig", () => {
     const config = loadCdipBatchConfig();
     expect(config.batchSize).toBe(3);
     expect(config.batchDelayMs).toBe(1000);
-    expect(config.maxBeachesPerRun).toBe(25);
+    expect(config.maxBeachesPerRun).toBe(30);
     expect(config.freshnessWindowHours).toBe(2);
     expect(config.refreshLeadHours).toBe(0.5);
     expect(getRefreshSelectionWindowHours(config)).toBe(1.5);
