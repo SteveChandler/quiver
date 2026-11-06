@@ -252,7 +252,7 @@ Prompt rules for each offered sentence:
 
 The wording check also refuses a word stem used more often than the code sentence uses it, and `bigger` when the code sentence does not say it. Before publishing, the worker runs `check_glance_wording` on each rewording and sends no entry for one that fails. The input's `glance` offer carries no facts, so the worker cannot run the size, wind-timing and breaker claim checks locally; the server runs them at serve time, which is why size phrases are copied verbatim.
 
-The mirror of `checkGlanceWording` and its five rules, first failure wins: `feel_words` (more than one `BREAKER_WORDS` entry has a form in the text; an entry's forms count once), `repeated_word` (a lowercased letter token of at least four letters, stemmed by the first suffix that leaves at least four letters, appears more than `max(1, code count)` times), `adjective_list` (case-sensitive), `certainty` (the sets of certainty phrases differ; phrases are read longest first, and each match is blanked with spaces before shorter ones are read), and `bigger`. Whole words use letter-or-digit lookarounds, not `\b`; feel words, certainty phrases and `bigger` ignore case; multi-word phrases match literally with exactly one space. Python's compiled patterns keep no `lastIndex`, so the TypeScript resets have no counterpart. `BREAKER_WORDS` equals the list of that name in the `json claims` block above. It needs `regex` from PyPI for `\p{L}` and `\p{N}`.
+The mirror of `checkGlanceWording` and its six rules, first failure wins: `feel_words` (more than one `BREAKER_WORDS` entry has a form in the text; an entry's forms count once), `repeated_word` (a lowercased letter token of at least four letters, stemmed by the first suffix that leaves at least four letters, appears more than `max(1, code count)` times), `adjective_list` (case-sensitive), `certainty` (the sets of certainty phrases differ; phrases are read longest first, and each match is blanked with spaces before shorter ones are read), `bigger`, and `time_words` (the lowercased sequence of `GLANCE_TIME_WORDS` read in order differs from the code sentence's, so a rewording keeps every part of the day in the code's order and adds none). Whole words use letter-or-digit lookarounds, not `\b`; feel words, certainty phrases and `bigger` ignore case; multi-word phrases match literally with exactly one space. Python's compiled patterns keep no `lastIndex`, so the TypeScript resets have no counterpart. `BREAKER_WORDS` equals the list of that name in the `json claims` block above. It needs `regex` from PyPI for `\p{L}` and `\p{N}`.
 
 ```python
 from typing import Literal, TypedDict
@@ -269,9 +269,11 @@ CERTAINTY_PHRASES = ["too early to call", "already in the water", "still in the 
 STEM_SUFFIXES = ["ing", "es", "ed", "ly", "y", "s"]
 MIN_WORD = 4
 ADJECTIVE_LIST = regex.compile(r"(?:[\p{L}-]+,\s+){2,}(?:(?:and|or)\s+)?[\p{L}-]+")
+GLANCE_TIME_WORDS = ["early", "morning", "midday", "afternoon", "evening", "night", "tonight", "overnight"]
+TIME_WORD = regex.compile(r"(?<![\p{L}\p{N}])(?:" + "|".join(GLANCE_TIME_WORDS) + r")(?![\p{L}\p{N}])", regex.IGNORECASE)
 LETTERS = regex.compile(r"\p{L}+")
 
-Reason = Literal["feel_words", "repeated_word", "adjective_list", "certainty", "bigger"]
+Reason = Literal["feel_words", "repeated_word", "adjective_list", "certainty", "bigger", "time_words"]
 
 
 class GlanceWordingCheck(TypedDict, total=False):
@@ -335,6 +337,8 @@ def check_glance_wording(text: str, code_text: str) -> GlanceWordingCheck:
         return {"ok": False, "reason": "certainty"}
     if BIGGER.search(text) and not BIGGER.search(code_text):
         return {"ok": False, "reason": "bigger"}
+    if [w.lower() for w in TIME_WORD.findall(text)] != [w.lower() for w in TIME_WORD.findall(code_text)]:
+        return {"ok": False, "reason": "time_words"}
     return {"ok": True}
 ```
 
