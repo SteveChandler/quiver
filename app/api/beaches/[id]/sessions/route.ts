@@ -6,6 +6,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 import { PROFILE_PUBLIC_SESSION_RELATION_SELECT } from "@/lib/profile/constants";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 
 // GET /api/beaches/[id]/sessions?limit=5 - fetch recent completed sessions for beach
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -27,7 +28,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       `
       )
       .eq("beach_id", params.id)
-      .eq("status", "completed");
+      .eq("status", "completed")
+      .or(SURF_SESSION_SOURCE_FILTER);
 
     if (publicOnly) {
       query = query.eq("is_public", true);

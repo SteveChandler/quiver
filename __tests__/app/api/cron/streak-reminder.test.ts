@@ -74,7 +74,7 @@ interface TableState {
 }
 
 interface Filter {
-  op: "eq" | "lte" | "gte" | "lt" | "in" | "is" | "not";
+  op: "eq" | "lte" | "gte" | "lt" | "in" | "is" | "not" | "or";
   column: string;
   value: unknown;
 }
@@ -107,6 +107,16 @@ function applyFilters(
         return Array.isArray(filter.value) && filter.value.includes(value);
       }
       if (filter.op === "not") return value !== null;
+      if (filter.op === "or") {
+        return String(filter.value).split(",").some((clause) => {
+          const [column, operator, ...rest] = clause.split(".");
+          const expected = rest.join(".");
+          if (operator === "is" && expected === "null") return (row[column] ?? null) === null;
+          if (operator === "neq") return row[column] !== expected;
+          if (operator === "eq") return row[column] === expected;
+          throw new Error(`Unsupported or clause: ${clause}`);
+        });
+      }
       return value === filter.value;
     })
   );
@@ -148,6 +158,10 @@ function buildQuery(table: string) {
   });
   builder.not = jest.fn((column: string, _operator: string, value: unknown) => {
     filters.push({ op: "not", column, value });
+    return builder;
+  });
+  builder.or = jest.fn((expression: string) => {
+    filters.push({ op: "or", column: "", value: expression });
     return builder;
   });
   builder.order = jest.fn((column: string) => {
@@ -711,6 +725,7 @@ describe("weekly streak pagination and local weeks", () => {
         { op: "in", column: "user_id", value: ["u-default", "u-hawaii", "u-new-york"] },
         { op: "gte", column: "arrival_time", value: "2025-12-15T08:00:00.000Z" },
         { op: "lt", column: "arrival_time", value: "2026-06-29T04:00:00.000Z" },
+        { op: "or", column: "", value: "source.is.null,source.neq.conditions_report" },
       ]));
   });
 
