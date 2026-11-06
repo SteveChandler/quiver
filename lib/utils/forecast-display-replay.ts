@@ -31,12 +31,16 @@ const inputSchema = z.object({
     heightFt: finite.nonnegative(), periodS: finite, directionDeg: nullableFinite,
     partition: z.enum(['swell', 'wind_wave']).optional(),
   }).nullable()).max(3),
+  // v2 only: the ECMWF hybrid scale (components × r, then × k in place of the production factor).
+  ecmwfHybrid: z.object({ r: finite.positive(), k: finite.positive() }).optional(),
 });
 const slotSchema = z.object({ input: inputSchema, supported: z.boolean() });
 const endpointSchema = slotSchema.extend({ forecastAt: z.string().datetime({ offset: true }) });
 // ponytail: v1 excludes conditional guardrails, offsets and decay overrides; version their replay before admitting them.
+// v2 = v1 plus input.ecmwfHybrid; the builder writes v2 only when a slot used the hybrid.
+export const FORECAST_DISPLAY_REPLAY_HYBRID_VERSION = 2;
 const contextSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(FORECAST_DISPLAY_REPLAY_HYBRID_VERSION)]),
   generatedAt: z.string().datetime({ offset: true }),
   forecastAt: z.string().datetime({ offset: true }),
   base: slotSchema,
@@ -53,6 +57,9 @@ export function parseForecastDisplayReplayContext(value: unknown): ForecastDispl
   const parsed = contextSchema.safeParse(value);
   if (!parsed.success) return null;
   const ctx = parsed.data;
+  const inputs = [ctx.base.input, ctx.handoff?.cdip.input, ctx.handoff?.model.input];
+  // The version says whether a slot used the hybrid; reject a context whose inputs disagree.
+  if ((ctx.version === FORECAST_DISPLAY_REPLAY_HYBRID_VERSION) !== inputs.some((input) => input?.ecmwfHybrid)) return null;
   if (ctx.handoff && (Date.parse(ctx.handoff.cdip.forecastAt) > Date.parse(ctx.handoff.model.forecastAt) ||
     Date.parse(ctx.handoff.model.forecastAt) > Date.parse(ctx.forecastAt))) return null;
   if (ctx.handoff && (!['cdip_sig', 'cdip_swell'].includes(ctx.handoff.cdip.input.source) ||
