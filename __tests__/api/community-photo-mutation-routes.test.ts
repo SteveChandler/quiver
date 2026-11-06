@@ -34,39 +34,12 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   withRateLimit: (handler: (...args: unknown[]) => unknown) => handler,
 }));
 
-describe("community photo viewer and mutation runtime gates", () => {
-  const originalRead = process.env.COMMUNITY_PHOTOS_READ_ENABLED;
-  const originalWrite = process.env.COMMUNITY_PHOTOS_WRITE_ENABLED;
-  const originalCanary = process.env.COMMUNITY_PHOTOS_CANARY_USER_IDS;
-
+describe("community photo viewer and mutation routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.COMMUNITY_PHOTOS_READ_ENABLED;
-    delete process.env.COMMUNITY_PHOTOS_WRITE_ENABLED;
-    delete process.env.COMMUNITY_PHOTOS_CANARY_USER_IDS;
   });
 
-  afterAll(() => {
-    process.env.COMMUNITY_PHOTOS_READ_ENABLED = originalRead;
-    process.env.COMMUNITY_PHOTOS_WRITE_ENABLED = originalWrite;
-    process.env.COMMUNITY_PHOTOS_CANARY_USER_IDS = originalCanary;
-  });
-
-  it("fails closed before downloading an image when this viewer cannot read", async () => {
-    const { GET } = await import(
-      "@/app/api/community-photos/[photoId]/image/route"
-    );
-    const response = await GET(
-      new NextRequest(`https://example.com/api/community-photos/${PHOTO_ID}/image`),
-      { params: { photoId: PHOTO_ID } },
-    );
-
-    expect(response.status).toBe(403);
-    expect(mockDownloadCommunityPhoto).not.toHaveBeenCalled();
-  });
-
-  it("allows an exact canary viewer through the image gate", async () => {
-    process.env.COMMUNITY_PHOTOS_CANARY_USER_IDS = USER_ID;
+  it("serves the image to the signed-in viewer", async () => {
     mockDownloadCommunityPhoto.mockResolvedValue({
       bytes: Buffer.from("webp"),
       contentType: "image/webp",
@@ -85,7 +58,6 @@ describe("community photo viewer and mutation runtime gates", () => {
       viewerId: USER_ID,
     });
   });
-
   it.each([
     {
       method: "vote",
@@ -118,16 +90,18 @@ describe("community photo viewer and mutation runtime gates", () => {
         ),
       mutation: mockReportCommunityPhoto,
     },
-  ])("blocks $method before its write RPC when runtime writes are off", async ({
+  ])("passes $method through to its write RPC", async ({
     load,
     request,
     mutation,
   }) => {
-    process.env.COMMUNITY_PHOTOS_READ_ENABLED = "true";
+    mutation.mockResolvedValue({ ok: true });
     const handler = await load();
     const response = await handler(request(), { params: { photoId: PHOTO_ID } });
 
-    expect(response.status).toBe(403);
-    expect(mutation).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mutation).toHaveBeenCalledWith(
+      expect.objectContaining({ photoId: PHOTO_ID }),
+    );
   });
 });

@@ -3,10 +3,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import {
-  CommunityPhotoError,
   communityPhotoErrorResponse,
   downloadCommunityPhoto,
-  getCommunityPhotoFeatureFlags,
   withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
@@ -26,9 +24,6 @@ async function imageHandler(
 ): Promise<NextResponse> {
   try {
     const photoId = idSchema.parse(params.photoId);
-    if (!getCommunityPhotoFeatureFlags(user?.id ?? null).readEnabled) {
-      throw new CommunityPhotoError("feature_disabled");
-    }
     const image = await downloadCommunityPhoto({
       photoId,
       viewerId: user?.id ?? null,
