@@ -8,7 +8,7 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 - `POST /api/install-attribution/issue` creates a 30-day Google Play referrer token after the guided Android beta handoff unlocks. The database stores only the token's SHA-256 hash and bounded acquisition dimensions.
 - `POST /api/install-attribution/redeem` is intentionally public so Android can resolve the Play Install Referrer before authentication. It ignores optional bearer credentials, uses only the static rate limiter, and atomically consumes tokens through the service-role RPC.
-- `INSTALL_ATTRIBUTION_ISSUANCE_ENABLED` and `INSTALL_ATTRIBUTION_REDEMPTION_ENABLED` are independent, exact-`true`, default-off controls. Issuance-off returns the ordinary Play listing. Redemption-off returns a retryable unattributed response before any RPC so active tokens remain drainable later.
+- Install attribution issuance and redemption are always on (their env flags were retired in Nov 2026). Turning either off now means a code change; keep redemption live for 30 days after issuance stops so issued tokens can drain.
 - Both routes and their explicit Next.js header override use `private, no-store, no-cache, must-revalidate`.
 - Schema, replay behavior, rollout approval, and production monitoring are documented in [`docs/install-attribution-runbook.md`](../../docs/install-attribution-runbook.md).
 
