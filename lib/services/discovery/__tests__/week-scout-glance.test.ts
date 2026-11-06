@@ -55,6 +55,35 @@ describe("buildGlance", () => {
     }
   });
 
+  it("every other template passes the claim checker against itself", () => {
+    const shapes: Array<[RegionalSwellEvent[], (e: RegionalSwellEvent) => CandidateFacts | null]> = [
+      [[event("w-past", 270, "2026-11-03T20:00:00Z", "2026-11-04T20:00:00Z", "2026-11-06T20:00:00Z")], chest],
+      [[event("w-build", 270, "2026-11-04T20:00:00Z", "2026-11-07T20:00:00Z", "2026-11-09T20:00:00Z")], chest],
+      [[event("w-tomorrow", 270, "2026-11-06T16:00:00Z", "2026-11-06T20:00:00Z", null)], chest],
+      [[event("w-radar", 270, "2026-11-15T20:00:00Z", "2026-11-16T20:00:00Z", null, "on_the_radar"),
+        event("s-radar", 180, "2026-11-16T20:00:00Z", "2026-11-17T20:00:00Z", null, "on_the_radar")], chest],
+      [[event("w-far", 270, "2026-11-18T20:00:00Z", "2026-11-19T20:00:00Z", null, "likely")], chest],
+    ];
+    const texts: string[] = [];
+    for (const [events, facts] of shapes) {
+      for (const s of buildGlance({ stored: events, tail, timezone, today, todayCovered: false, factsFor: facts })) {
+        texts.push(s.text);
+        expect(checkWrittenSentence(s.text, { text: s.text, facts: s.facts ?? undefined }, [], ["San Diego"])).toEqual({ ok: true });
+      }
+    }
+    expect(texts).toEqual([
+      "A west groundswell is still in the water, chest-high at most spots, easing by tomorrow.",
+      "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
+      "A west groundswell is already in the water and peaks Saturday, chest-high at most spots, easing by Monday.",
+      "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
+      "A west groundswell arrives and peaks tomorrow, chest-high at most spots.",
+      "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
+      "A week from Monday brings an early look at a west groundswell with a south groundswell behind it, chest-high at most spots.",
+      "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
+      "The week after next looks likely to bring a west groundswell, chest-high at most spots.",
+    ]);
+  });
+
   it("adds the long-range sentence when nothing was skipped", () => {
     const glance = buildGlance({ stored, tail, timezone, today, todayCovered: true, factsFor });
     expect(glance.map((s) => s.text)).toEqual([...S,
