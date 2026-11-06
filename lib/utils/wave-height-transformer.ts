@@ -49,6 +49,13 @@ export interface ShoalingFactors {
   buckets: ShoalingBucket[];
   /** Provenance metadata for the calibration — not used at runtime */
   calibration?: Record<string, unknown>;
+  /**
+   * Apply calibratedShadowFactor on top of the bucket. Off by default: the
+   * bucket is the median face/Hs over the beach's own direction mix, so it
+   * already holds the beach's sheltering. Set only where an independent check
+   * shows a real direction penalty the period bucket misses.
+   */
+  direction_shadow?: boolean;
 }
 
 /**
@@ -476,18 +483,21 @@ export function transformToFaceHeightWithMetadata(
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
-      // No direction shadow and no low-factor quarantine on this path: the
-      // bucket is the median face/Hs over the beach's own direction mix, so
-      // it already holds the beach's sheltering. Nov 2026 held-out test over
-      // 77 calibrated beaches: face MAE 0.557 ft without either, 0.658 with
-      // both (quarantine fitted to an Oregon-buoy Rincon bucket, shadow
-      // double-counting sheltering).
+      // No low-factor quarantine, and the direction shadow only where the
+      // beach opts in (ShoalingFactors.direction_shadow). Nov 2026 held-out
+      // test over 77 calibrated beaches: face MAE 0.557 ft without either,
+      // 0.658 with both. The CDIP MOP nearshore model confirmed the shadow is
+      // wrong at 7 beaches outside Point Loma and left the Point Loma group
+      // open, so only that group keeps it.
       // The decomposed path excludes this short-period energy entirely.
       const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
         ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
         : bucketFactor;
+      const shadow = beach?.shoaling_factors?.direction_shadow === true
+        ? calibratedShadowFactor(swellDirectionDeg, beach)
+        : 1;
       return {
-        faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * 10) / 10,
+        faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * shadow * 10) / 10,
         isCalibrated: true,
         provenance: 'measured',
         ...(periodCappedFactor < bucketFactor ? { shortPeriodBucketCapped: true } : {}),
@@ -651,6 +661,55 @@ export function alignmentFactor(
   const normalized = distance / windowHalfwidthDeg; // [0, 1)
   const cosValue = Math.cos((normalized * Math.PI) / 2);
   return Math.max(cosValue * cosValue, ALIGNMENT_FLOOR);
+}
+
+/**
+ * Direction-aware shadow multiplier for the CDIP calibrated short-circuit,
+ * applied only to beaches whose shoaling_factors set direction_shadow.
+ *
+ * The period bucket (surfline_face / cdip_hs) is direction-blind, so on the
+ * CDIP path a south swell at a Point-Loma-shadowed break can read the full
+ * offshore Hs. This applies a floored geometric-shadow factor, but only when
+ * the incident direction is outside the beach's swell window.
+ */
+export function calibratedShadowFactor(
+  swellDirectionDeg: number | null | undefined,
+  beach: BeachTerrainConfig | null | undefined,
+): number {
+  if (swellDirectionDeg == null || !Number.isFinite(swellDirectionDeg)) {
+    return 1.0;
+  }
+
+  const center = beach?.swell_window_center_deg;
+  const halfwidth = beach?.swell_window_halfwidth_deg;
+  if (
+    center == null ||
+    halfwidth == null ||
+    !Number.isFinite(center) ||
+    !Number.isFinite(halfwidth) ||
+    halfwidth <= 0
+  ) {
+    return 1.0;
+  }
+
+  const rawDelta = ((swellDirectionDeg - center) % 360 + 540) % 360 - 180;
+  const distance = Math.abs(rawDelta);
+  if (distance < halfwidth) {
+    return 1.0;
+  }
+
+  const access = beach?.swell_access_factors;
+  if (!Array.isArray(access) || access.length !== TERRAIN_BINS) {
+    return 1.0;
+  }
+
+  const rawAccess = access[toBin5(swellDirectionDeg)];
+  if (!Number.isFinite(rawAccess)) {
+    return 1.0;
+  }
+
+  const clampedAccess = Math.max(0, Math.min(1, rawAccess));
+  return DIRECTION_FACTOR_MIN + Math.sqrt(clampedAccess) * DIRECTION_FACTOR_RANGE;
 }
 
 function hasValidSwellAccessFactors(
