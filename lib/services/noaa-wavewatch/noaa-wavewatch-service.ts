@@ -12,6 +12,7 @@ import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logge
 import { fetchNOAAPointData, fetchNOAAGridData, fetchOpenMeteoData, constructGridUrl } from "./api-client";
 import { processNOAAGridData, processOpenMeteoData } from "./data-processors";
 import { mergeWaveSources } from "./source-selection";
+import { buildEcmwfOutlookSeries, fetchEcmwfWamSeries } from "./ecmwf-outlook";
 import { FORECAST_CONFIG } from "./constants";
 import { hasValidWaveData, logWaveDataAvailability, metersToFeet, getWaveDirectionText } from "./wave-analysis";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
@@ -123,46 +124,59 @@ export class NOAAWaveWatchService {
         `Fetching NOAA + Open-Meteo in parallel for ${latitude}, ${longitude}`
       );
 
-      // Fetch both sources in parallel
-      const [noaaResult, openMeteoResult] = await Promise.allSettled([
+      // Fetch all sources in parallel. WAM is its own request: one model per call.
+      const [noaaResult, openMeteoResult, wamResult] = await Promise.allSettled([
         this.fetchNOAANWSData(latitude, longitude, days, reviewedNwsPoint),
         this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, FORECAST_CONFIG.OPEN_METEO_MAX_DAYS)),
+        fetchEcmwfWamSeries(latitude, longitude),
       ]);
 
       const noaaData =
         noaaResult.status === "fulfilled" ? noaaResult.value : null;
       const openMeteoData =
         openMeteoResult.status === "fulfilled" ? openMeteoResult.value : null;
-
-      // If we have both, select by input quality at each valid time.
-      if (noaaData?.forecast.length && openMeteoData?.forecast.length) {
-        return this.mergeForecasts(noaaData, openMeteoData, latitude, longitude);
-      }
-
-      // If only one source, use it. When OM is unavailable but NOAA is not,
-      // the downstream rows will be written with NULL _om columns — expected.
-      if (noaaData?.forecast.length) {
-        if (!openMeteoData?.forecast.length) {
-          trackFallback({
-            domain: "noaa-wavewatch",
-            field: "open_meteo_values",
-            fallbackValue: "null",
-            reason: "open_meteo_unavailable",
-            context: { latitude, longitude },
-          });
-        }
-        return { ...noaaData, forecast: mergeWaveSources(noaaData.forecast, []) };
-      }
-      if (openMeteoData?.forecast.length) return { ...openMeteoData, forecast: mergeWaveSources([], openMeteoData.forecast) };
-
-      log.debug(
-        `Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
-      );
-      return null;
+      const wam = wamResult.status === "fulfilled" ? wamResult.value : null;
+      const merged = this.mergeAvailable(noaaData, openMeteoData, latitude, longitude);
+      if (!merged) return null;
+      const outlook = buildEcmwfOutlookSeries(merged.forecast, wam);
+      return outlook ? { ...merged, ecmwf_outlook: outlook } : merged;
     } catch (error) {
       log.error("Error fetching real wave data:", error);
       return null;
     }
+  }
+
+  private mergeAvailable(
+    noaaData: WaveWatchForecast | null,
+    openMeteoData: WaveWatchForecast | null,
+    latitude: number,
+    longitude: number,
+  ): WaveWatchForecast | null {
+    // If we have both, select by input quality at each valid time.
+    if (noaaData?.forecast.length && openMeteoData?.forecast.length) {
+      return this.mergeForecasts(noaaData, openMeteoData, latitude, longitude);
+    }
+
+    // If only one source, use it. When OM is unavailable but NOAA is not,
+    // the downstream rows will be written with NULL _om columns — expected.
+    if (noaaData?.forecast.length) {
+      if (!openMeteoData?.forecast.length) {
+        trackFallback({
+          domain: "noaa-wavewatch",
+          field: "open_meteo_values",
+          fallbackValue: "null",
+          reason: "open_meteo_unavailable",
+          context: { latitude, longitude },
+        });
+      }
+      return { ...noaaData, forecast: mergeWaveSources(noaaData.forecast, []) };
+    }
+    if (openMeteoData?.forecast.length) return { ...openMeteoData, forecast: mergeWaveSources([], openMeteoData.forecast) };
+
+    log.debug(
+      `Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
+    );
+    return null;
   }
 
   /**
