@@ -1,5 +1,6 @@
 import type { RegionalSwellEvent } from "../week-scout-story-candidates";
 import { groupGlanceEvents, onGlanceStrip } from "../week-scout-glance-groups";
+import { sizeWordsFor, type CandidateFacts } from "../week-scout-story-facts";
 import { glanceSanDiego } from "./fixtures/glance-san-diego-2026-11-05";
 
 const { today, timezone, stored, factsFor } = glanceSanDiego;
@@ -28,6 +29,26 @@ describe("groupGlanceEvents", () => {
     const third = westAt("third", "2026-11-09T16:00:00Z");
     const groups = groupGlanceEvents([third, member, anchor], timezone, () => null);
     expect(groups.map((g) => g.events.map((e) => e.regionalKey))).toEqual([["anchor", "member"], ["third"]]);
+  });
+
+  it("takes the standout range and words together from a non-lead member", () => {
+    const lead = westAt("lead", "2026-11-08T00:00:00Z");
+    const member = westAt("member", "2026-11-08T10:00:00Z");
+    const leadFacts: CandidateFacts = { faceFt: { min: 4, max: 5 }, sizes: sizeWordsFor({ min: 4, max: 5 }), breaker: null,
+      standoutFt: { min: 5, max: 6 }, standoutSizes: sizeWordsFor({ min: 5, max: 6 }) };
+    const memberStandout = { min: 8, max: 10 };
+    const memberFacts: CandidateFacts = { faceFt: { min: 2, max: 3 }, sizes: sizeWordsFor({ min: 2, max: 3 }), breaker: null,
+      standoutFt: memberStandout, standoutSizes: sizeWordsFor(memberStandout) };
+    const [group] = groupGlanceEvents([lead, member], timezone, (e) => e === lead ? leadFacts : memberFacts);
+    expect(group.lead).toBe(lead);
+    expect(group.facts).toMatchObject({ faceFt: leadFacts.faceFt, sizes: leadFacts.sizes });
+    expect(group.facts?.standoutFt).toEqual(memberStandout);
+    expect(group.facts?.standoutSizes).toEqual(sizeWordsFor(memberStandout));
+    // A standout range without words never borrows the lead's words.
+    const { standoutSizes: _words, ...bare } = memberFacts;
+    const [unworded] = groupGlanceEvents([lead, member], timezone, (e) => e === lead ? leadFacts : bare);
+    expect(unworded.facts?.standoutFt).toEqual(memberStandout);
+    expect(unworded.facts).not.toHaveProperty("standoutSizes");
   });
 
   it("names the group by its biggest event, not its anchor", () => {

@@ -59,7 +59,9 @@ function groupFacts(events: readonly RegionalSwellEvent[], lead: RegionalSwellEv
     if (!standout?.standoutFt || facts.standoutFt.max > standout.standoutFt.max) standout = facts;
   }
   if (!standout?.standoutFt) return leadFacts;
-  return { ...leadFacts, standoutFt: standout.standoutFt, ...(standout.standoutSizes ? { standoutSizes: standout.standoutSizes } : {}) };
+  // Both standout fields leave the lead, so its words never sit beside another event's range.
+  const { standoutFt: _standoutFt, standoutSizes: _standoutSizes, ...rest } = leadFacts;
+  return { ...rest, standoutFt: standout.standoutFt, ...(standout.standoutSizes ? { standoutSizes: standout.standoutSizes } : {}) };
 }
 
 export function groupGlanceEvents(events: readonly RegionalSwellEvent[], timezone: string,
