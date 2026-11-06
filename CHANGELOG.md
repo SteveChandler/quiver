@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Moves "67" to San Nicolas Island; its old label was "San Pedro South" at San Pedro.
     - Moves "71" to Harvest and keeps it as an alias of "071" for Jalama; its old label was "Half Moon Bay" at Half Moon Bay.
     - Fixes the "071" and "157" coordinates and drops three blacklisted NDBC-id entries.
+    - Adds "092" San Pedro at the coordinates "67" used to carry. No forecast falls back to it. It keeps the cron's 80 km marine-observation fallback (Seaside's derived rip-current input) on a local buoy for South Bay, Santa Monica Bay and north Orange County.
     - The 28 beaches with no station whose fallback this would move were pinned to `model_only` in prod first. 18 of them barely used San Nicolas. The other 10 read Harvest from 370 km away, which scores worse than the model. So this changes no forecast.
   - Prod DB changes made Nov 6 with Steven's approval (SQL and rollback in `.quiver/ops/cdip-reassign-nov2026/`):
     - Removed `direction_shadow` from all 12 beaches. At the Point Loma group, shadowed hours scored 0.48 ft MAE without the shadow against 1.03 with it, on held-out truth with 5 independent truth groups. CDIP MOP's fired/non-fired bias was +5% without it against -27% with it.

@@ -132,9 +132,25 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
   },
 
   // Additional SoCal Stations
+  // The real San Pedro buoy, at the coordinates "67" used to carry. No beach
+  // forecast falls back to it (every station-less beach within 150 km is
+  // pinned to model_only); it keeps the cron's 80 km marine-observation
+  // fallback for South Bay, Santa Monica Bay and north Orange County on a
+  // local buoy instead of San Nicolas Island.
+  "092": {
+    id: "092",
+    name: "San Pedro",
+    latitude: 33.61428,
+    longitude: -118.31417,
+    deployDepth: 457,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    ndbcTwinId: "46222",
+  },
+
   // CDIP 067 is San Nicolas Island (CDIP metadata and NDBC 46219), ~150 km
   // offshore. This entry was labelled "San Pedro South" at San Pedro's
-  // coordinates (that buoy is CDIP 213), which made it the nearest-station
+  // coordinates (that buoy is CDIP 092), which made it the nearest-station
   // fallback for Santa Monica Bay, South Bay and north Orange County beaches.
   "67": {
     id: "67",
