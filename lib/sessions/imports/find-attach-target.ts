@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CONDITIONS_REPORT_SOURCE } from "@/lib/sessions/surf-session-filter";
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import type { ImportBeach } from "./resolve-import-beach";
 
@@ -7,7 +8,8 @@ const MAX_BEACH_DISTANCE_KM = 3;
 const DEFAULT_DURATION_MS = 60 * 60 * 1000;
 const NOW_DEFAULT_TOLERANCE_MS = 5 * 60 * 1000;
 // Never surfs: their own rows (imports) or a report written from the beach.
-const NON_ATTACHABLE_SOURCES = new Set(["garmin_watch", "file_import", "conditions_report"]);
+export const NON_ATTACHABLE_SOURCES: ReadonlySet<string> =
+  new Set(["garmin_watch", "file_import", CONDITIONS_REPORT_SOURCE]);
 
 type TimedSession = { arrival_time: string; created_at?: string | null; duration_minutes?: number | null;
   timing_user_set?: boolean | null };
@@ -130,7 +132,8 @@ export async function findAttachTarget(
   const closest = pickClosest((sessions ?? [])
     .filter((session) => {
       if (session.deleted_at) return false;
-      if (session.source === "conditions_report") return false;
+      // Imported sources are handled later in process-import; a report never absorbs a surf.
+      if (session.source === CONDITIONS_REPORT_SOURCE) return false;
       if (session.beach_id === beach.id) return true;
       if (session.beach_id) return withinReach(beach, embedded(session.beaches));
       return session.custom_spot_id != null && withinReach(beach, embedded(session.custom_spots));
