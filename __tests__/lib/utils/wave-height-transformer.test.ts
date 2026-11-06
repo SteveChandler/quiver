@@ -1,4 +1,4 @@
-import { transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
+import { calibratedShadowFactor, transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
 import { TERRAIN_BINS, toBin5 } from '@/types/terrain';
 import {
   createMockBeach,
@@ -1268,7 +1268,7 @@ describe('Wave Height Transformer', () => {
       ],
     };
 
-    it('does not shadow OB Pier south swell on the CDIP calibrated path', () => {
+    it('does not shadow OB Pier south swell without the direction_shadow flag', () => {
       const result = transformToFaceHeightWithMetadata({
         rawHeightFt: 4.30,
         periodS: 14,
@@ -1284,6 +1284,36 @@ describe('Wave Height Transformer', () => {
 
       expect(result.isCalibrated).toBe(true);
       expect(result.faceHeightFt).toBeCloseTo(4.5, 1);
+    });
+
+    it('shadows OB Pier south swell when the beach opts in with direction_shadow', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.30,
+        periodS: 14,
+        swellDirectionDeg: 202,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: { ...OB_BUCKETS, direction_shadow: true },
+          swell_window_center_deg: 293,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+        },
+      });
+
+      expect(result.isCalibrated).toBe(true);
+      expect(result.faceHeightFt).toBeCloseTo(2.8, 1);
+    });
+
+    it('calibratedShadowFactor floors an out-of-window low-access direction and passes in-window ones', () => {
+      const obBeach = {
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+      };
+      expect(calibratedShadowFactor(293, obBeach)).toBe(1.0);
+      expect(calibratedShadowFactor(202, obBeach)).toBeCloseTo(0.6353, 3);
+      expect(calibratedShadowFactor(null, obBeach)).toBe(1.0);
+      expect(calibratedShadowFactor(202, null)).toBe(1.0);
     });
 
     it('leaves OB Pier own in-window WNW swell unchanged', () => {
