@@ -35,7 +35,7 @@ async function getHandler(
       viewerId: user?.id ?? null,
     });
     return NextResponse.json(
-      { photos, feature: getCommunityPhotoFeatureFlags(user?.id ?? null) },
+      { photos, feature: getCommunityPhotoFeatureFlags() },
       {
         headers: {
           "Cache-Control": "private, no-store, no-cache, must-revalidate",

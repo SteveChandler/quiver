@@ -297,8 +297,12 @@ describe("UnifiedAuthModal", () => {
       });
     });
 
-    describe("when NEXT_PUBLIC_APPLE_CLIENT_ID is not set", () => {
+    describe("when NEXT_PUBLIC_APPLE_CLIENT_ID is overridden to empty", () => {
       beforeEach(() => {
+        process.env.NEXT_PUBLIC_APPLE_CLIENT_ID = "";
+      });
+
+      afterEach(() => {
         delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
       });
 

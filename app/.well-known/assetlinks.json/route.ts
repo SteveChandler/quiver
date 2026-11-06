@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { ANDROID_SHA256_CERT_FINGERPRINTS } from "@/lib/constants/public-services";
 
 const SHA256_FINGERPRINT_PATTERN = /^(?:[A-Fa-f0-9]{2}:){31}[A-Fa-f0-9]{2}$/;
 
-const fingerprintEnv = process.env.ANDROID_SHA256_FINGERPRINTS ?? "";
+const fingerprintEnv = process.env.ANDROID_SHA256_FINGERPRINTS ?? ANDROID_SHA256_CERT_FINGERPRINTS;
 
 function isPlaceholderFingerprint(value: string): boolean {
   const normalized = value.trim().toUpperCase();

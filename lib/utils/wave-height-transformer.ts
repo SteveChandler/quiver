@@ -49,6 +49,13 @@ export interface ShoalingFactors {
   buckets: ShoalingBucket[];
   /** Provenance metadata for the calibration — not used at runtime */
   calibration?: Record<string, unknown>;
+  /**
+   * Apply calibratedShadowFactor on top of the bucket. Off by default: the
+   * bucket is the median face/Hs over the beach's own direction mix, so it
+   * already holds the beach's sheltering. Set only where an independent check
+   * shows a real direction penalty the period bucket misses.
+   */
+  direction_shadow?: boolean;
 }
 
 /**
@@ -418,7 +425,6 @@ interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
-  calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
 }
 
@@ -470,8 +476,6 @@ export function transformToFaceHeightWithMetadata(
     return { faceHeightFt: 0, isCalibrated: false, provenance: 'generic' };
   }
 
-  let calibrationBucketQuarantined = false;
-
   // Short-circuit: empirically calibrated per-beach shoaling lookup.
   // Gated on CDIP Hs or an eligible nowcast anchor because the bucket factor
   // is measured as `surfline_face_ft / cdip_hs_ft`. Model inputs use the
@@ -479,21 +483,25 @@ export function transformToFaceHeightWithMetadata(
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
-      if (shouldQuarantineCalibratedShoalingBucket(source, periodS, bucketFactor)) {
-        calibrationBucketQuarantined = true;
-      } else {
-        // The decomposed path excludes this short-period energy entirely.
-        const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
-          ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
-          : bucketFactor;
-        const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
-        return {
-          faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * shadow * 10) / 10,
-          isCalibrated: true,
-          provenance: 'measured',
-          ...(periodCappedFactor < bucketFactor ? { shortPeriodBucketCapped: true } : {}),
-        };
-      }
+      // No low-factor quarantine, and the direction shadow only where the
+      // beach opts in (ShoalingFactors.direction_shadow). Nov 2026 held-out
+      // test over 77 calibrated beaches: face MAE 0.557 ft without either,
+      // 0.658 with both. The CDIP MOP nearshore model confirmed the shadow is
+      // wrong at 7 beaches outside Point Loma and left the Point Loma group
+      // open, so only that group keeps it.
+      // The decomposed path excludes this short-period energy entirely.
+      const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
+        ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
+        : bucketFactor;
+      const shadow = beach?.shoaling_factors?.direction_shadow === true
+        ? calibratedShadowFactor(swellDirectionDeg, beach)
+        : 1;
+      return {
+        faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * shadow * 10) / 10,
+        isCalibrated: true,
+        provenance: 'measured',
+        ...(periodCappedFactor < bucketFactor ? { shortPeriodBucketCapped: true } : {}),
+      };
     }
   }
 
@@ -519,7 +527,6 @@ export function transformToFaceHeightWithMetadata(
     faceHeightFt: Math.round(faceHeight * 10) / 10,
     isCalibrated: false,
     provenance: baseShoaling.provenance,
-    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }
 
@@ -577,8 +584,6 @@ export const SHORT_PERIOD_CUTOFF_S = 8;
 export const WIND_WAVE_FACE_HEIGHT_CUTOFF_S = 9;
 
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_PERIOD_S = 15;
-const CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S = 15;
-const CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR = 0.8;
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_ACCESS = 0.02;
 const SOUTH_SWELL_FLOOR_MIN_DIRECTION_DEG = 160;
 const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
@@ -659,7 +664,8 @@ export function alignmentFactor(
 }
 
 /**
- * Direction-aware shadow multiplier for the CDIP calibrated short-circuit.
+ * Direction-aware shadow multiplier for the CDIP calibrated short-circuit,
+ * applied only to beaches whose shoaling_factors set direction_shadow.
  *
  * The period bucket (surfline_face / cdip_hs) is direction-blind, so on the
  * CDIP path a south swell at a Point-Loma-shadowed break can read the full
@@ -760,18 +766,6 @@ function canUseCalibratedShoaling(
 ): boolean {
   return source === 'cdip_sig' ||
     (source === 'nowcast_anchor' && allowCalibratedShoaling === true);
-}
-
-function shouldQuarantineCalibratedShoalingBucket(
-  source: WaveHeightSourceTag | undefined,
-  periodS: number | null | undefined,
-  bucketFactor: number,
-): boolean {
-  return source === 'cdip_sig' &&
-    periodS != null &&
-    Number.isFinite(periodS) &&
-    periodS >= CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S &&
-    bucketFactor < CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR;
 }
 
 function shouldApplyDeepwaterDecay(
@@ -878,7 +872,6 @@ interface DecomposedFaceHeightResult {
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
   path: 'decomposed' | 'legacy';
-  calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
   /** Per-beach model_swell multiplier, present only when one was applied. */
   modelCalibrationFactor?: number;
@@ -1009,9 +1002,6 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       isCalibrated: legacy.isCalibrated,
       provenance: legacy.provenance,
       path: 'legacy',
-      ...(legacy.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
-        : {}),
       ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
@@ -1026,7 +1016,6 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
     : 1.0;
 
   let sumOfSquares = 0;
-  let calibrationBucketQuarantined = false;
   let calibratedBucketUsed = false;
   let populationPriorUsed = false;
   for (const component of populated) {
@@ -1059,21 +1048,9 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
 
     // Only use calibrated bucket factors for CDIP sources — the buckets are
     // measured as surfline_face / cdip_hs and produce overshoot on model data.
-    const rawBucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
+    const bucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
       ? lookupShoalingBucket(component.periodS, shoalingFactors)
       : null;
-    const bucketFactor =
-      rawBucketFactor != null &&
-      shouldQuarantineCalibratedShoalingBucket(
-        source,
-        component.periodS,
-        rawBucketFactor,
-      )
-        ? null
-        : rawBucketFactor;
-    if (rawBucketFactor != null && bucketFactor == null) {
-      calibrationBucketQuarantined = true;
-    }
     if (bucketFactor != null) {
       calibratedBucketUsed = true;
     }
@@ -1111,9 +1088,6 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       isCalibrated: legacy.isCalibrated,
       provenance: legacy.provenance,
       path: 'legacy',
-      ...(legacy.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
-        : {}),
       ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
@@ -1130,6 +1104,5 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
         ? POPULATION_PRIOR_PROVENANCE
         : 'generic',
     path: 'decomposed',
-    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }

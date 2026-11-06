@@ -74,6 +74,9 @@ export function getRefreshSelectionWindowHours(
   return Math.max(0, freshnessWindowHours - refreshLeadHours);
 }
 
+// Prod ran 30 for both the model and CDIP crons via env before this became the default.
+const DEFAULT_MAX_BEACHES_PER_RUN = 30;
+
 /**
  * Load batch processing configuration from environment variables
  */
@@ -81,7 +84,7 @@ export function loadBatchConfig(overrides?: Partial<BatchProcessConfig>): BatchP
   return {
     batchSize: Number(process.env.FORECAST_BATCH_SIZE ?? 3),
     batchDelayMs: Number(process.env.FORECAST_BATCH_DELAY_MS ?? 1000),
-    maxBeachesPerRun: Number(process.env.FORECAST_MAX_BEACHES_PER_RUN ?? 45),
+    maxBeachesPerRun: Number(process.env.FORECAST_MAX_BEACHES_PER_RUN ?? DEFAULT_MAX_BEACHES_PER_RUN),
     freshnessWindowHours: Number(process.env.FORECAST_FRESHNESS_WINDOW_HOURS ?? 12),
     refreshLeadHours: Number(process.env.FORECAST_REFRESH_LEAD_HOURS ?? 4),
     ...overrides,
@@ -98,7 +101,7 @@ export function loadCdipBatchConfig(): BatchProcessConfig {
     maxBeachesPerRun: Number(
       process.env.FORECAST_CDIP_MAX_BEACHES_PER_RUN ??
         process.env.FORECAST_MAX_BEACHES_PER_RUN ??
-        25
+        DEFAULT_MAX_BEACHES_PER_RUN
     ),
     freshnessWindowHours: Number(process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS ?? 2),
     refreshLeadHours: Number(process.env.FORECAST_CDIP_REFRESH_LEAD_HOURS ?? 0.5),

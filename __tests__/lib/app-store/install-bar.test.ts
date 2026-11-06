@@ -8,7 +8,6 @@ import {
   isInstallAskInView,
 } from "@/lib/app-store/install-bar";
 import { iphoneBannerOwnsInstallAsk } from "@/lib/app-store/beach-subpage-install-cta";
-import { isInstallBarEnabled } from "@/lib/flags/install-bar";
 
 const BEACH = "/ca/san-diego/blacks";
 const UAS = {
@@ -24,39 +23,6 @@ const UAS = {
   desktop:
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
 } as const;
-
-describe("isInstallBarEnabled", () => {
-  const original = process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-
-  afterEach(() => {
-    if (original === undefined) delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-    else process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = original;
-  });
-
-  it("defaults off and turns on only for the literal string true", () => {
-    delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-    expect(isInstallBarEnabled()).toBe(false);
-
-    for (const value of ["", "1", "TRUE", "yes", "false"]) {
-      process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = value;
-      expect(isInstallBarEnabled()).toBe(false);
-    }
-
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
-    expect(isInstallBarEnabled()).toBe(true);
-  });
-
-  it("keeps the bar off everywhere when the flag is unset", () => {
-    delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-
-    expect(
-      installBarOwnsInstallAsk({ userAgent: UAS.iphoneSafari, pathname: BEACH }),
-    ).toBe(false);
-    expect(
-      iphoneInstallAskOwnedElsewhere({ userAgent: UAS.android, pathname: BEACH }),
-    ).toBe(false);
-  });
-});
 
 describe("getInstallBarSurface", () => {
   it.each([
@@ -82,7 +48,7 @@ describe("getInstallBarSurface", () => {
 });
 
 describe("getInstallBarOwnedSurface", () => {
-  const base = { pathname: BEACH, enabled: true };
+  const base = { pathname: BEACH };
 
   it.each([
     ["Safari", UAS.iphoneSafari],
@@ -100,10 +66,9 @@ describe("getInstallBarOwnedSurface", () => {
     expect(getInstallBarOwnedSurface({ ...base, userAgent })).toBeNull();
   });
 
-  it("is off with the flag, in standalone mode, on excluded routes and on other pages", () => {
+  it("is off in standalone mode, on excluded routes and on other pages", () => {
     const userAgent = UAS.iphoneSafari;
 
-    expect(getInstallBarOwnedSurface({ userAgent, pathname: BEACH, enabled: false })).toBeNull();
     expect(getInstallBarOwnedSurface({ ...base, userAgent, isStandalone: true })).toBeNull();
     expect(getInstallBarOwnedSurface({ ...base, userAgent, pathname: "/welcome" })).toBeNull();
     expect(getInstallBarOwnedSurface({ ...base, userAgent, pathname: "/forecast" })).toBeNull();
@@ -112,36 +77,31 @@ describe("getInstallBarOwnedSurface", () => {
   it("resolves each bar surface", () => {
     const userAgent = UAS.iphoneChrome;
 
-    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/water-temp/san-diego", enabled: true })).toBe("water_temp");
-    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/beaches/usa/ca/san-diego", enabled: true })).toBe("city_hub");
-    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/surf-cams/san-diego", enabled: true })).toBe("surf_cams");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/water-temp/san-diego" })).toBe("water_temp");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/beaches/usa/ca/san-diego" })).toBe("city_hub");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/surf-cams/san-diego" })).toBe("surf_cams");
   });
 });
 
 describe("one install ask at a time", () => {
   it("suppresses the iPhone banner's ask wherever the bar owns the page, so the two never coexist", () => {
-    for (const userAgent of Object.values(UAS)) {
-      const bannerAsk = iphoneBannerOwnsInstallAsk({ userAgent, pathname: BEACH });
-      const barOwns = installBarOwnsInstallAsk({ userAgent, pathname: BEACH, enabled: true });
-
-      // Every visitor the banner would target on a bar page is also owned by the bar.
-      if (bannerAsk) expect(barOwns).toBe(true);
+    // Every visitor the banner would target on a bar page is also owned by the bar.
+    const bannerVisitors = Object.values(UAS).filter((userAgent) =>
+      iphoneBannerOwnsInstallAsk({ userAgent, pathname: BEACH }),
+    );
+    expect(bannerVisitors.length).toBeGreaterThan(0);
+    for (const userAgent of bannerVisitors) {
+      expect(installBarOwnsInstallAsk({ userAgent, pathname: BEACH })).toBe(true);
     }
   });
 
-  it("suppresses the in-page install section for every bar visitor and keeps today's rule otherwise", () => {
-    const on = { pathname: BEACH, enabled: true };
+  it("suppresses the in-page install section for every bar visitor and nobody else", () => {
+    const on = { pathname: BEACH };
 
     expect(iphoneInstallAskOwnedElsewhere({ ...on, userAgent: UAS.iphoneSafari })).toBe(true);
     expect(iphoneInstallAskOwnedElsewhere({ ...on, userAgent: UAS.iphoneChrome })).toBe(true);
     expect(iphoneInstallAskOwnedElsewhere({ ...on, userAgent: UAS.android })).toBe(false);
     expect(iphoneInstallAskOwnedElsewhere({ ...on, userAgent: UAS.desktop })).toBe(false);
-    expect(
-      iphoneInstallAskOwnedElsewhere({ pathname: BEACH, enabled: false, userAgent: UAS.iphoneChrome }),
-    ).toBe(true);
-    expect(
-      iphoneInstallAskOwnedElsewhere({ pathname: BEACH, enabled: false, userAgent: UAS.iphoneSafari }),
-    ).toBe(false);
   });
 });
 

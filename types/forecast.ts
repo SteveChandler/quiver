@@ -577,8 +577,6 @@ export interface WaveHeightProvenance {
   components_used: boolean;
   /** True when the per-beach `shoaling_factors` lookup actually fired. */
   calibrated_shoaling_fired: boolean;
-  /** True when a low long-period CDIP bucket was skipped by quarantine rules. */
-  calibration_bucket_quarantined?: boolean;
   /** True when a short-period calibrated bucket exceeded the period cap. */
   short_period_bucket_capped?: boolean;
   /** Per-beach multiplier applied to a model_swell face (lib/utils/model-swell-calibration-factors.ts). */

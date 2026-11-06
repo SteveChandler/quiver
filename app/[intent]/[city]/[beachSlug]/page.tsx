@@ -28,22 +28,21 @@ import {
 } from "@/lib/utils/beach-url-utils";
 import { notFound, redirect } from "next/navigation";
 import type { Beach } from "@/types/database";
-import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
-import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
-import {
-  createPublicReadClient,
-  createSupabaseServiceRoleClient,
-} from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
-import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
+import {
+  getCachedBeachAmenities,
+  getCachedBeachCameraUrl,
+  getCachedBeachFeaturedPhoto,
+} from "@/lib/data/server/beach-detail-static-reads";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 import {
@@ -178,16 +177,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     nearbyResult,
   ] = await Promise.all([
     optionalSection("forecast", () => getSpotSurfReportPublic(beach)),
-    optionalSection("amenities", async () => {
-      const supabase = createSupabaseServiceRoleClient();
-      const { data, error } = await supabase
-        .from("mv_beach_amenities")
-        .select("*")
-        .eq("beach_id", beach.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data as BeachAmenities | null;
-    }),
+    optionalSection("amenities", () => getCachedBeachAmenities(beach.id)),
     optionalSection("waterQuality", async () => {
       const supabase = createPublicReadClient();
       const { data, error } = await supabase
@@ -204,8 +194,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
       return (await withRainfallNotice(await currentWaterQuality([data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
     }),
-    optionalSection("camera", () => getBeachCameraUrl(beach.id)),
-    optionalSection("photo", () => getSpotFeaturedPhoto(beach.id).then((photo) =>
+    optionalSection("camera", () => getCachedBeachCameraUrl(beach.id)),
+    optionalSection("photo", () => getCachedBeachFeaturedPhoto(beach.id).then((photo) =>
       photo
         ? {
             image_url: photo.thumbUrl ?? photo.imageUrl,

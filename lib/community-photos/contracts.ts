@@ -45,22 +45,11 @@ type CommunityPhotoUploadFields = z.output<typeof uploadFieldsSchema>;
 type CommunityPhotoVoteInput = z.output<typeof voteSchema>;
 type CommunityPhotoReportInput = z.output<typeof reportSchema>;
 
-export function getCommunityPhotoFeatureFlags(
-  userId: string | null = null,
-): CommunityPhotoFeatureFlags {
-  const canaryIds = new Set(
-    (process.env.COMMUNITY_PHOTOS_CANARY_USER_IDS ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => z.string().uuid().safeParse(value).success),
-  );
-  const readEnabled =
-    process.env.COMMUNITY_PHOTOS_READ_ENABLED === "true" ||
-    Boolean(userId && canaryIds.has(userId));
+// Always on since Aug 2026. Installed native binaries still read these fields.
+export function getCommunityPhotoFeatureFlags(): CommunityPhotoFeatureFlags {
   return {
-    readEnabled,
-    writeEnabled:
-      readEnabled && process.env.COMMUNITY_PHOTOS_WRITE_ENABLED === "true",
+    readEnabled: true,
+    writeEnabled: true,
     termsVersion: COMMUNITY_PHOTO_TERMS_VERSION,
   };
 }
