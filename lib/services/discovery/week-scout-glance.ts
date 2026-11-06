@@ -103,8 +103,11 @@ function todayPredicate(group: GlanceGroup, today: string, timezone: string): st
   if (peaks.includes(today)) return "peaks today";
   const future = peaks.filter((peak) => peak > today);
   if (future.length === 0) return "is still in the water";
-  const nextPeak = future.reduce((early, peak) => peak < early ? peak : early);
-  return `is already in the water and peaks ${glanceDay(nextPeak, today)}`;
+  const day = glanceDay(future.reduce((early, peak) => peak < early ? peak : early), today);
+  // The peak is a forecast like any next swell's, so it takes the group's certainty words.
+  if (group.confidence === "likely") return `is already in the water and looks likely to peak ${day}`;
+  if (group.confidence === "on_the_radar") return `is already in the water, with an early look at a peak ${day}`;
+  return `is already in the water and peaks ${day}`;
 }
 
 function todayText(groups: readonly GlanceGroup[], first: string, today: string, timezone: string): string {
