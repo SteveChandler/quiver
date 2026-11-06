@@ -27,6 +27,14 @@ import type {
   CDIPBuoyDataDiagnostic,
   CDIPSkipReason,
 } from "@/lib/services/cdip/types";
+import {
+  fetchStoredCDIPBuoyData,
+  latestReadingMs,
+} from "@/lib/services/cdip/stored-readings";
+import {
+  CALIBRATED_CDIP_HOLD_HOURS,
+  STALENESS_THRESHOLDS,
+} from "@/lib/config/forecast-staleness";
 import type { Beach } from "@/types/database";
 import { createContextLogger } from "@/lib/logger";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
@@ -101,6 +109,27 @@ function shouldTryExplicitCDIPStationFailover(
     diagnostic.status === undefined &&
     diagnostic.errorMessage === undefined
   );
+}
+
+/**
+ * A calibrated beach reads its own buoy from storage when the live fetch has
+ * nothing usable: a failed fetch, or a latest reading older than the live
+ * nowcast window. Unknown and blacklisted stations stay off.
+ */
+export function shouldReadStoredCDIPReadings(
+  diagnostic: CDIPBuoyDataDiagnostic,
+  nowMs: number,
+): boolean {
+  if (
+    diagnostic.skipReason === "unknown_station" ||
+    diagnostic.skipReason === "blacklisted_station" ||
+    diagnostic.skipReason === "no_station"
+  ) {
+    return false;
+  }
+  const latest = latestReadingMs(diagnostic.data);
+  if (latest === null) return true;
+  return nowMs - latest > STALENESS_THRESHOLDS.CDIP * 3_600_000;
 }
 
 interface ComprehensiveForecastDiagnosticResult {
@@ -377,12 +406,18 @@ export class EnhancedForecastService {
         const cdipService = this.dataSourceManager.getCDIPService();
         let cdipData = await cdipService.fetchBuoyDataWithDiagnostics(selectedStation);
 
+        // A calibrated beach's buckets fit only its own buoy, so it never
+        // fails over to another one; it holds its own buoy's stored readings
+        // instead, then falls back to the model.
+        const calibrated = beachAny.shoaling_factors != null;
+
         // Explicit overrides are operator intent, but a deterministic ERDDAP
         // 400/404, blacklist, or no-row response should not discard a nearby
         // configured buoy that is demonstrably serving data. Never fail over
         // 5xx/network/timeout/breaker/rate-limit failures.
         if (
           beachAny.cdip_station &&
+          !calibrated &&
           shouldTryExplicitCDIPStationFailover(cdipData)
         ) {
           const alternateStation = await cdipService.getNearestStation(
@@ -400,6 +435,35 @@ export class EnhancedForecastService {
             cdipData = await cdipService.fetchBuoyDataWithDiagnostics(
               alternateStation,
             );
+          }
+        }
+
+        if (
+          beachAny.cdip_station &&
+          calibrated &&
+          shouldReadStoredCDIPReadings(cdipData, Date.now())
+        ) {
+          const stored = await fetchStoredCDIPBuoyData(
+            selectedStation,
+            CALIBRATED_CDIP_HOLD_HOURS,
+          );
+          const storedLatest = latestReadingMs(stored);
+          const liveLatest = latestReadingMs(cdipData.data);
+          if (
+            stored &&
+            storedLatest !== null &&
+            (liveLatest === null || storedLatest > liveLatest)
+          ) {
+            log.warn(
+              "CDIP station " + selectedStation + " returned " +
+                cdipData.skipReason + "; using stored readings from " +
+                new Date(storedLatest).toISOString() + " for " + beach.name,
+            );
+            cdipData = {
+              data: stored,
+              stationId: selectedStation,
+              skipReason: "success",
+            };
           }
         }
 

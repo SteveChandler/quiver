@@ -23,6 +23,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather", "drifter"],
+    ndbcTwinId: "46225",
   },
 
   "155": {
@@ -33,6 +34,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 18,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46235",
   },
 
   "191": {
@@ -43,6 +45,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46232",
   },
 
   "201": {
@@ -53,6 +56,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 20,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46254",
   },
 
   "153": {
@@ -63,6 +67,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 15,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46266",
   },
 
   "220": {
@@ -73,6 +78,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 100,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46258",
   },
 
   "208": {
@@ -114,6 +120,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46224",
   },
 
   // Ventura / Channel Islands area
@@ -125,6 +132,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46248",
   },
 
   // Outside the Channel Islands; the measured buoy for the Ventura beaches
@@ -137,6 +145,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 1890,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46251",
   },
 
   // The measured buoy for Point Dume, Leo Carrillo and Latigo (Nov 2026:
@@ -150,6 +159,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 20,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46268",
     fallbackEligible: false,
   },
 
@@ -162,6 +172,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 880,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46219",
   },
 
   "071": {
@@ -172,6 +183,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 476,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46218",
   },
 
   "46221": {
@@ -193,6 +205,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 274,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46218",
   },
 
   // 12 km off Ocean Beach SF; the measured buoy for Sloat (Nov 2026: 0.38 ft
@@ -206,6 +219,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 15,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46237",
   },
 
   "157": {
@@ -216,6 +230,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 384,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46239",
   },
 };
 
