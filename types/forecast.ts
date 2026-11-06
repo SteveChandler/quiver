@@ -383,7 +383,9 @@ export interface ForecastCardVariant {
 
 // Constants
 export const FORECAST_CONSTANTS = {
-  DAYS: 12,
+  // Stored horizon. Model swell ends near day 9.3; later slots are FALLBACK
+  // rows that carry only the ECMWF WAM outlook (to about day 14.3).
+  DAYS: 15,
   INTERVAL_HOURS: 3,
   FORECASTS_PER_DAY: 8,
   MAX_CONFIDENCE: 100,

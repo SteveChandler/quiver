@@ -233,7 +233,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
       });
     });
 
-    it("should have forecasts spanning from today to 12 days ahead", async () => {
+    it("should have forecasts spanning the stored horizon", async () => {
       const result = await fetchBeachForecasts("462bfb3b-b402-485d-b907-7eedfe5e828e");
 
       const dates = Object.keys(result.forecastsByDate).sort();
@@ -245,16 +245,15 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
         (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      // Should span approximately 11 days (from day 0 to day 11 = 12 days total)
-      expect(dayDifference).toBe(11);
+      // Day 0 to day DAYS - 1.
+      expect(dayDifference).toBe(FORECAST_CONSTANTS.DAYS - 1);
     });
   });
 
   describe("generateComprehensiveForecast", () => {
-    it("should generate forecasts for 12 days", async () => {
+    it("should generate forecasts for the stored horizon", async () => {
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      // Should generate 96 total forecasts (12 days × 8 per day)
       expect(forecasts.length).toBe(TOTAL_FORECASTS);
 
       // Verify forecasts span the expected date range
