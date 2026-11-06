@@ -22,7 +22,7 @@ INSERT INTO _surfers_beach_el_granada VALUES
    'Surfers Beach, also called Princeton Jetty, starts at the south jetty of Pillar Point Harbor in El Granada, across Highway 1 from town and about 3 miles north of Half Moon Bay. It is a sandy beach break with rights and lefts. The main peak sits closest to the jetty and crowds easily. The beach further from the jetty is quieter and suits newer surfers, and several surf schools work nearby.',
    'Free parking is along the side of Highway 1 near the RV park and at Pillar Point Harbor. Public restrooms are at the harbor boat launch ramp, a short walk from the beach.',
    ARRAY['Rip currents','Sneaker waves','Waves reach the highway riprap at high tide','Crowded main peak by the jetty']::text[],
-   '[{"url":"https://www.visithalfmoonbay.org/places/surfers-beach/","publisher":"Visit Half Moon Bay","retrievedAt":"2026-11-06","fields":["identity","skill","crowds","hazards","surf_schools"]},{"url":"https://www.pacificbeachcoalition.org/take-action/monthly-adopt-a-beach-cleanups/surfers-beach-and-bluff/","publisher":"Pacific Beach Coalition","retrievedAt":"2026-11-06","fields":["identity","jetty","tide","access","parking","restrooms"]},{"url":"http://en.wannasurf.com/spot/North_America/USA/California/SF_Marin/el_granada/","publisher":"Wannasurf","retrievedAt":"2026-11-06","fields":["identity","break_type","bottom","direction","crowds"]},{"url":"https://www.mondo.surf/surf-spot/princeton-breakwater/guide/10985","publisher":"Mondo Surf","retrievedAt":"2026-11-06","fields":["identity","alias_princeton","coordinate_reference","peak_by_jetty","beginner_area"],"verification":"Lists Princeton Breakwater at 37.50068,-122.47103, at the shore by the jetty, about 145 m from the selected pin."},{"url":"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-122.4750%2C37.4970%2C-122.4670%2C37.5020&bboxSR=4326&imageSR=4326&size=1000%2C625&format=png&f=image","publisher":"Esri World Imagery","retrievedAt":"2026-11-06","fields":["lat","lon","pin_meaning"],"verification":"Pin is nearshore water about 185 m south of the jetty root, just outside the whitewater of the jetty peak."}]'::jsonb);
+   '[{"url":"https://www.visithalfmoonbay.org/places/surfers-beach/","publisher":"Visit Half Moon Bay","retrievedAt":"2026-11-06","fields":["identity","skill","crowds","hazards","surf_schools"]},{"url":"https://www.pacificbeachcoalition.org/take-action/monthly-adopt-a-beach-cleanups/surfers-beach-and-bluff/","publisher":"Pacific Beach Coalition","retrievedAt":"2026-11-06","fields":["identity","jetty","tide","access","parking","restrooms"]},{"url":"https://en.wannasurf.com/spot/North_America/USA/California/SF_Marin/el_granada/","publisher":"Wannasurf","retrievedAt":"2026-11-06","fields":["identity","break_type","bottom","direction","crowds"]},{"url":"https://www.mondo.surf/surf-spot/princeton-breakwater/guide/10985","publisher":"Mondo Surf","retrievedAt":"2026-11-06","fields":["identity","alias_princeton","coordinate_reference","peak_by_jetty","beginner_area"],"verification":"Lists Princeton Breakwater at 37.50068,-122.47103, at the shore by the jetty, about 145 m from the selected pin."},{"url":"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-122.4750%2C37.4970%2C-122.4670%2C37.5020&bboxSR=4326&imageSR=4326&size=1000%2C625&format=png&f=image","publisher":"Esri World Imagery","retrievedAt":"2026-11-06","fields":["lat","lon","pin_meaning"],"verification":"Pin is nearshore water about 185 m south of the jetty root, just outside the whitewater of the jetty peak."}]'::jsonb);
 
 DO $$ BEGIN
   IF EXISTS (
@@ -35,11 +35,12 @@ DO $$ BEGIN
        OR b.lat IS DISTINCT FROM p.lat OR b.lon IS DISTINCT FROM p.lon
        OR b.deleted_at IS NOT NULL
   ) THEN RAISE EXCEPTION 'Surfers Beach import UUID identity or coordinate conflict'; END IF;
-  -- A row this close would be the same break under another name; stop rather than duplicate it.
+  -- A catalog row this close would be the same break under another name; stop rather than
+  -- duplicate it. Private custom spots are user-owned and do not count.
   IF EXISTS (
     SELECT 1 FROM _surfers_beach_el_granada p JOIN public.beaches b
       ON b.id NOT IN (SELECT id FROM _surfers_beach_el_granada)
-    WHERE b.deleted_at IS NULL AND b.lat IS NOT NULL AND b.lon IS NOT NULL
+    WHERE b.deleted_at IS NULL AND NOT coalesce(b.is_private, false) AND b.lat IS NOT NULL AND b.lon IS NOT NULL
       AND sqrt(power((b.lat - p.lat) * 111320, 2)
              + power((b.lon - p.lon) * 111320 * cos(radians(p.lat)), 2)) < 300
   ) THEN RAISE EXCEPTION 'Surfers Beach import has an existing beach within 300 m'; END IF;

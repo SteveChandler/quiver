@@ -35,7 +35,7 @@ OTA is needed.
 |---|---|
 | [Visit Half Moon Bay](https://www.visithalfmoonbay.org/places/surfers-beach/) | Directly south of Pillar Point Harbor; suits beginners and experienced surfers; rip currents and sneaker waves; several surf schools and rental shops nearby |
 | [Pacific Beach Coalition](https://www.pacificbeachcoalition.org/take-action/monthly-adopt-a-beach-cleanups/surfers-beach-and-bluff/) | Starts at the South Jetty of Pillar Point Harbor, across Highway 1, near El Granada; waves reach the highway riprap at high tide; free parking on Highway 1 near the RV park and at the harbor; restrooms at the boat launch ramp |
-| [Wannasurf: El Granada](http://en.wannasurf.com/spot/North_America/USA/California/SF_Marin/el_granada/) | 3 mi north of Half Moon Bay between Mirada Rd and the east breakwater; beach break, sandy bottom, rights and lefts; main peak crowds easily |
+| [Wannasurf: El Granada](https://en.wannasurf.com/spot/North_America/USA/California/SF_Marin/el_granada/) | 3 mi north of Half Moon Bay between Mirada Rd and the east breakwater; beach break, sandy bottom, rights and lefts; main peak crowds easily |
 | [Mondo Surf: Princeton Breakwater](https://www.mondo.surf/surf-spot/princeton-breakwater/guide/10985) | Princeton name; peak closest to the jetty; beginners do better further down the beach; reference point 37.50068,-122.47103 |
 | Esri World Imagery (`wide.png`, `close.png`) | Pin placement |
 | OpenStreetMap (Overpass) | Pillar Point Harbor features; Mateo Coast State Beaches polygon starts at 37.50051,-122.46995 |
@@ -76,6 +76,7 @@ guide (no Surfline access this run).
   - exactly one new beach, and an idempotent re-run
   - existing rows and sources unchanged
   - the UUID/coordinate, nearby 300 m and slug conflict guards each raise
+  - a private custom spot inside 300 m does not block the import
 
   All writes were rolled back, and the throwaway database was stopped.
 - PASS `yarn jest --runInBand __tests__/migrations/surfers-beach-el-granada.test.ts` (2 tests).

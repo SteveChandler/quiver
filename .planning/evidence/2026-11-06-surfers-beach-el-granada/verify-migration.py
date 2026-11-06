@@ -64,9 +64,13 @@ expect_failure('uuid', body + rerun + f"UPDATE public.beaches SET lat = lat + 0.
 expect_failure('nearby', "INSERT INTO public.beaches (id, name, slug, lat, lon, timezone) VALUES "
                "(gen_random_uuid(), 'Nearby Test', 'nearby-test', 37.5000, -122.4712, 'America/Los_Angeles');\n",
                'existing beach within 300 m')
+# A user's private custom spot inside 300 m is not a catalog duplicate and must not block the import.
+subprocess.run(command, input='BEGIN;\n' + "INSERT INTO public.beaches (id, name, slug, lat, lon, timezone, is_private) VALUES "
+               "(gen_random_uuid(), 'My Jetty', 'my-jetty-private', 37.5000, -122.4712, 'America/Los_Angeles', true);\n"
+               + body + 'ROLLBACK;\n', text=True, check=True, capture_output=True)
 # A slug collision under a different UUID must also stop it.
 expect_failure('slug', "INSERT INTO public.beaches (id, name, slug, lat, lon, timezone) VALUES "
                f"(gen_random_uuid(), 'Other Name', '{s}', 36.0, -121.0, 'America/Los_Angeles');\n",
                'conflicts with existing name or slug')
 print('PASS: exact row, open_meteo source, all three user terms match by name, one new row, '
-      'idempotent re-run, existing rows unchanged, UUID/nearby/slug guards fire; all writes rolled back')
+      'idempotent re-run, existing rows unchanged, UUID/nearby/slug guards fire, private custom spot nearby does not block; all writes rolled back')
