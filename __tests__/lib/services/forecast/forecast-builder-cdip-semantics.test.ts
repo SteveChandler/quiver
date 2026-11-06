@@ -540,7 +540,7 @@ describe("ForecastBuilder CDIP height semantics", () => {
     expect(extractFt(forecasts[0].wave_height)).toBeCloseTo(4, 1);
   });
 
-  test("Rincon-style low long-period CDIP bucket renders from generic path with quarantine debug", async () => {
+  test("Rincon-style low long-period CDIP bucket is applied as fitted", async () => {
     const builder = makeBuilder();
 
     const forecasts = await builder.buildForecasts({
@@ -559,17 +559,16 @@ describe("ForecastBuilder CDIP height semantics", () => {
     expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     const prov = forecasts[0].raw_forecast?.wave_height_provenance;
-    expect(extractFt(forecasts[0].wave_height)).toBeGreaterThan(4.5);
+    expect(extractFt(forecasts[0].wave_height)).toBe(1.5);
     expect(prov).toEqual(
       expect.objectContaining({
         source: "cdip_sig",
-        transform_path: "scalar_generic",
+        transform_path: "scalar_calibrated",
         components_used: false,
-        calibrated_shoaling_fired: false,
-        calibration_bucket_quarantined: true,
+        calibrated_shoaling_fired: true,
       }),
     );
-    expect(prov?.calibration_bucket_quarantined).toBe(true);
+    expect(prov).not.toHaveProperty("calibration_bucket_quarantined");
   });
 
   test("NOAA-only (no CDIP): wave_height uses decomposed component path", async () => {

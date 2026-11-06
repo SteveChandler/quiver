@@ -648,8 +648,6 @@ export interface DecomposedFaceHeightParams extends FaceHeightParams {
  * - `componentsUsed`: true when the decomposed branch RMS-summed components.
  * - `calibratedShoalingFired`: true when the empirical bucket lookup hit
  *   (CDIP Hs or an eligible nowcast anchor at a calibrated beach).
- * - `calibrationBucketQuarantined`: true when a low long-period CDIP bucket
- *   was skipped and the generic transformer path rendered the row instead.
  * - `shortPeriodBucketCapped`: true when the short-period cap reduced a
  *   calibrated bucket factor.
  * - `cdipRejection`: present when `selectWaveHeightSource` rejected CDIP as
@@ -662,7 +660,6 @@ export interface WaveHeightDebugInfo {
   transformPath: 'scalar_calibrated' | 'scalar_generic' | 'decomposed' | null;
   componentsUsed: boolean;
   calibratedShoalingFired: boolean;
-  calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
   modelCalibrationFactor?: number;
   handoffDiscontinuityFt?: number;
@@ -727,9 +724,6 @@ export function toFaceHeightFeetDecomposedWithDebug(
       transformPath,
       componentsUsed: result.path === 'decomposed',
       calibratedShoalingFired: result.isCalibrated,
-      ...(result.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
-        : {}),
       ...(result.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
       ...(result.modelCalibrationFactor != null
         ? { modelCalibrationFactor: result.modelCalibrationFactor }
