@@ -18,8 +18,11 @@ export interface GlanceGroup {
   lead: RegionalSwellEvent;
   label: string;
   noun: GlanceNoun;
+  /** The earliest member arrival. */
+  arrivalAt: string;
   arrivalDate: string;
   /** The anchor's peak, not the lead's: the group lands when its first swell peaks. */
+  peakAt: string;
   peakDate: string;
   fadeDate: string | null;
   confidence: RegionalSwellEvent["confidence"];
@@ -81,14 +84,16 @@ export function groupGlanceEvents(events: readonly RegionalSwellEvent[], timezon
     for (const member of members) grouped.add(member);
     const lead = [...members].sort((a, b) => faceMax(b) - faceMax(a) || b.periodS - a.periodS
       || Date.parse(a.peakAt) - Date.parse(b.peakAt))[0];
-    const arrivalMs = Math.min(...members.map((event) => Date.parse(event.arrivalAt)));
+    const arrivalAt = new Date(Math.min(...members.map((event) => Date.parse(event.arrivalAt)))).toISOString();
     const fades = members.flatMap((event) => event.fadeAt ? [Date.parse(event.fadeAt)] : []);
     groups.push({
       events: members,
       lead,
       label: COMPASS[directionIndex(lead.directionDeg)],
       noun: nounFor(members),
-      arrivalDate: localDate(new Date(arrivalMs).toISOString(), timezone),
+      arrivalAt,
+      arrivalDate: localDate(arrivalAt, timezone),
+      peakAt: anchor.peakAt,
       peakDate: localDate(anchor.peakAt, timezone),
       fadeDate: fades.length > 0 ? localDate(new Date(Math.max(...fades)).toISOString(), timezone) : null,
       confidence: members.reduce((low, event) => CONFIDENCE_RANK[event.confidence] < CONFIDENCE_RANK[low] ? event.confidence : low, anchor.confidence),
