@@ -93,9 +93,11 @@ import {
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
 import {
+  CALIBRATED_CDIP_HOLD_HOURS,
   CDIP_NOWCAST_HORIZON_HOURS,
   STALENESS_THRESHOLDS,
 } from "@/lib/config/forecast-staleness";
+import { shoalingFactorsForStation } from "@/lib/services/cdip/calibration-station";
 import {
   createForecastHandoffBlendState,
   processForecastHandoffBlendSlot,
@@ -180,6 +182,8 @@ export function resolveCdipNowcastPoint(args: {
   nowMs: number;
   horizonHours: number;
   maxMeasurementAgeHours: number;
+  /** Also reject a reading older than this at the slot's own time. */
+  maxAgeAtTargetHours?: number;
 }): CDIPDataPoint | null {
   const {
     cdipData,
@@ -187,6 +191,7 @@ export function resolveCdipNowcastPoint(args: {
     nowMs,
     horizonHours,
     maxMeasurementAgeHours,
+    maxAgeAtTargetHours,
   } = args;
   if (!cdipData?.data || cdipData.data.length === 0) return null;
 
@@ -210,6 +215,12 @@ export function resolveCdipNowcastPoint(args: {
 
   const measurementAgeHours = (nowMs - latest.timestampMs) / 3_600_000;
   if (measurementAgeHours > maxMeasurementAgeHours) {
+    return null;
+  }
+  if (
+    maxAgeAtTargetHours !== undefined &&
+    (targetMs - latest.timestampMs) / 3_600_000 > maxAgeAtTargetHours
+  ) {
     return null;
   }
 
@@ -517,6 +528,13 @@ export class ForecastBuilder {
     if (buoyData) dataSources.push("NOAA_BUOY");
     if (dataSources.length === 0) dataSources.push("FALLBACK");
 
+    // A beach's own calibrated buoy is held longer than an uncalibrated one;
+    // see CALIBRATED_CDIP_HOLD_HOURS.
+    const cdipHoldHours =
+      shoalingFactorsForStation(beach.shoaling_factors ?? null, cdipData?.stationId) != null
+        ? CALIBRATED_CDIP_HOLD_HOURS
+        : null;
+
     // Track processed dates to store tide_schedule only once per day
     const processedDates = new Set<string>();
 
@@ -536,7 +554,7 @@ export class ForecastBuilder {
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
       const tideInfo = this.getTideInfo(tideData, forecastTime, beach.timezone);
       const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
-      const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
+      const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime, cdipHoldHours);
 
       // Determine data source for this time point.
       // Per-slot wavePoint.data_source is canonical (NOAA_NWS for days 1-3,
@@ -1010,6 +1028,7 @@ export class ForecastBuilder {
       useCDIPData,
       beach,
       nowcastAnchor,
+      cdipData?.stationId ?? null,
     );
     const replayBase = waveHeightResult.debug.replayInput
       ? { input: waveHeightResult.debug.replayInput, supported: southOcSanoGuardrail.kind === "noop" }
@@ -1471,6 +1490,7 @@ export class ForecastBuilder {
             stationName: cdipData.stationName,
             lastUpdated: cdipData.lastUpdated,
             dataSource: "CDIP" as const,
+            ...(cdipData.readingSource && { readingSource: cdipData.readingSource }),
             data: Array.isArray(cdipData.data) ? cdipData.data.slice(0, 2) : [],
           },
         }),
@@ -1574,14 +1594,20 @@ export class ForecastBuilder {
    * Helper methods for data extraction
    */
 
-  private getCDIPDataForTime(cdipData: CDIPBuoyData | null, targetTime: Date) {
+  /** `holdHours` null keeps the 4 h build-time limit; otherwise the reading's age at the slot. */
+  private getCDIPDataForTime(
+    cdipData: CDIPBuoyData | null,
+    targetTime: Date,
+    holdHours: number | null,
+  ) {
     const now = new Date();
     return resolveCdipNowcastPoint({
       cdipData,
       targetMs: targetTime.getTime(),
       nowMs: now.getTime(),
       horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
-      maxMeasurementAgeHours: STALENESS_THRESHOLDS.CDIP,
+      maxMeasurementAgeHours: holdHours ?? STALENESS_THRESHOLDS.CDIP,
+      ...(holdHours !== null && { maxAgeAtTargetHours: holdHours }),
     });
   }
 
@@ -1681,6 +1707,7 @@ export class ForecastBuilder {
     useCDIPData: boolean,
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
+    cdipStationId: string | null = null,
   ): { value: string | null; debug: WaveHeightDebugInfo } {
     // Extract period: prefer anchor period when anchored, else CDIP peak, model swell, buoy.
     const periodS =
@@ -1712,7 +1739,10 @@ export class ForecastBuilder {
       id: beach.id,
       swell_access_factors: beach.swell_access_factors ?? null,
       terrain_enabled: beach.terrain_enabled ?? false,
-      shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,
+      // Buckets apply only to readings from the buoy they were fitted on.
+      shoaling_factors: (useCDIPData && !nowcastAnchor
+        ? shoalingFactorsForStation(beach.shoaling_factors ?? null, cdipStationId)
+        : beach.shoaling_factors ?? null) as ShoalingFactors | null,
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
       // Default-off scoped rollout: null makes the transformer use decay = 1.
