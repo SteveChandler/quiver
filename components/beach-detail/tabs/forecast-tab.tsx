@@ -62,6 +62,8 @@ const ConditionsOverview = dynamic(
 interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
+  /** Rows to the stored horizon, read only by the ECMWF outlook. Defaults to `forecasts`. */
+  outlookForecasts?: EnhancedForecastEntity[];
   /** True until the forecast fetch settles, so an empty array is not read as "no forecast". */
   forecastsLoading?: boolean;
   currentForecast: EnhancedForecastEntity | null;
@@ -76,6 +78,7 @@ interface ForecastTabProps {
 export function ForecastTab({
   beach,
   forecasts,
+  outlookForecasts,
   forecastsLoading = false,
   currentForecast,
   forecastMetadata,
@@ -164,8 +167,8 @@ export function ForecastTab({
 
   // Days past the forecast that only the long-range ECMWF outlook reaches.
   const outlookDays = useMemo(
-    () => aggregateOutlookDays(forecasts, beachTimezone || beach.timezone || DEFAULT_TIMEZONE),
-    [forecasts, beachTimezone, beach.timezone]
+    () => aggregateOutlookDays(outlookForecasts ?? forecasts, beachTimezone || beach.timezone || DEFAULT_TIMEZONE),
+    [outlookForecasts, forecasts, beachTimezone, beach.timezone]
   );
 
   // Forecasts filtered by horizon strip selection
