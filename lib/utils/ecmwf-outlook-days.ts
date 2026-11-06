@@ -90,3 +90,19 @@ export function aggregateOutlookDays(forecasts: EnhancedForecastEntity[], timezo
       return { localDate, dayName, date, lowFt, highFt, trend };
     });
 }
+
+/**
+ * Rows inside a `days` window, bounded as `fetchBeachForecasts` bounds it:
+ * before UTC midnight of now + days + 1. The beach page fetches the stored
+ * horizon for the outlook and trims every other surface to this window.
+ */
+export function rowsWithinForecastDays<T extends Pick<EnhancedForecastEntity, "forecast_at">>(
+  rows: T[],
+  days: number,
+  nowMs: number = Date.now(),
+): T[] {
+  const endDate = new Date(nowMs + (days + 1) * 86_400_000).toISOString().split("T")[0];
+  const endMs = Date.parse(`${endDate}T00:00:00Z`);
+  const trimmed = rows.filter((row) => !row.forecast_at || Date.parse(row.forecast_at) < endMs);
+  return trimmed.length === rows.length ? rows : trimmed;
+}

@@ -8,6 +8,7 @@ import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { ForecastBuilder } from "@/lib/services/forecast/forecast-builder";
 import type { ForecastInputs } from "@/lib/services/forecast/forecast-builder";
 import type { Beach } from "@/types/database";
+import { FORECAST_CONSTANTS, TOTAL_FORECASTS } from "@/types/forecast";
 
 jest.mock("@/lib/services/forecast/confidence-scorer", () => ({
   calculateConfidenceScore: jest.fn(() => 75),
@@ -114,5 +115,40 @@ describe("ForecastBuilder past the real wave horizon", () => {
     expect(outlookRows.every((row) => Date.parse(row.forecast_at!) > seamMs)).toBe(true);
     expect(outlookRows.every((row) => row.data_source === "FALLBACK" && row.wave_height === null)).toBe(true);
     expect(rows.filter((row) => row.data_source !== "FALLBACK").some((row) => row.raw_forecast?.ecmwf_outlook)).toBe(false);
+  });
+
+  it("stores the outlook to the end of the WAM run past day 12 (stored horizon is 15 days)", async () => {
+    const slotMs = 3 * 3_600_000;
+    const firstSlot = Math.floor(Date.now() / slotMs) * slotMs;
+    const base = inputs() as unknown as { waveData: { forecast: Array<Record<string, unknown>>; ecmwf_outlook?: unknown } };
+    const template = base.waveData.forecast[0];
+    // Model to about day 9.3, WAM to about day 14.3, as measured Nov 6 2026.
+    base.waveData.forecast = Array.from({ length: 75 }, (_, i) => ({
+      ...template,
+      timestamp: new Date(firstSlot + i * slotMs).toISOString(),
+    }));
+    const seamMs = firstSlot + 74 * slotMs;
+    const wamEndHour = Math.round(14.3 * 24);
+    base.waveData.ecmwf_outlook = {
+      model: "ecmwf_wam025",
+      points: Array.from({ length: wamEndHour + 1 }, (_, h) => ({ ms: firstSlot + h * 3_600_000, hs_m: 1.5 })),
+      starts_after_ms: seamMs,
+      model_ratio: 1.1,
+      model_ratio_pairs: 24,
+    };
+
+    const rows = await builder.buildForecasts(base as unknown as ForecastInputs);
+    const outlookMs = rows
+      .filter((row) => row.raw_forecast?.ecmwf_outlook)
+      .map((row) => Date.parse(row.forecast_at!));
+    const lastOutlookDay = (Math.max(...outlookMs) - firstSlot) / 86_400_000;
+
+    expect(FORECAST_CONSTANTS.DAYS).toBe(15);
+    expect(rows).toHaveLength(TOTAL_FORECASTS);
+    expect(lastOutlookDay).toBeGreaterThan(14);
+    expect(lastOutlookDay).toBeLessThanOrEqual(14.3);
+    const pastDay12 = rows.filter((row) => Date.parse(row.forecast_at!) >= firstSlot + 12 * 86_400_000);
+    expect(pastDay12.length).toBe(3 * FORECAST_CONSTANTS.FORECASTS_PER_DAY);
+    expect(pastDay12.every((row) => row.data_source === "FALLBACK" && row.wave_height === null)).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { aggregateOutlookDays } from "@/lib/utils/ecmwf-outlook-days";
+import { aggregateOutlookDays, rowsWithinForecastDays } from "@/lib/utils/ecmwf-outlook-days";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 function modelRow(at: string, ft: number): EnhancedForecastEntity {
@@ -41,5 +41,19 @@ describe("aggregateOutlookDays", () => {
 
   it("returns nothing when no row carries an outlook", () => {
     expect(aggregateOutlookDays(day("2026-11-15", []).concat([outlookRow("2026-11-15T00:00:00Z", null)]), "UTC")).toEqual([]);
+  });
+});
+
+describe("rowsWithinForecastDays", () => {
+  const nowMs = Date.parse("2026-11-06T20:00:00Z");
+
+  it("keeps rows before UTC midnight of now + days + 1, as fetchBeachForecasts bounds it", () => {
+    const rows = ["2026-11-16T21:00:00Z", "2026-11-17T00:00:00Z", "2026-11-20T12:00:00Z"].map((at) => modelRow(at, 3));
+    expect(rowsWithinForecastDays(rows, 10, nowMs).map((row) => row.forecast_at)).toEqual(["2026-11-16T21:00:00Z"]);
+  });
+
+  it("returns the same array when nothing is past the window", () => {
+    const rows = [modelRow("2026-11-07T00:00:00Z", 3)];
+    expect(rowsWithinForecastDays(rows, 10, nowMs)).toBe(rows);
   });
 });
