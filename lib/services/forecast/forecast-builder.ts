@@ -1511,9 +1511,6 @@ export class ForecastBuilder {
         transform_path: waveHeightDebug.transformPath,
         components_used: waveHeightDebug.componentsUsed,
         calibrated_shoaling_fired: waveHeightDebug.calibratedShoalingFired,
-        ...(waveHeightDebug.calibrationBucketQuarantined
-          ? { calibration_bucket_quarantined: true }
-          : {}),
         ...(waveHeightDebug.shortPeriodBucketCapped
           ? { short_period_bucket_capped: true }
           : {}),
@@ -1560,17 +1557,8 @@ export class ForecastBuilder {
             }
           : {}),
       },
-      ...(waveHeightDebug.calibrationBucketQuarantined || waveHeightDebug.shortPeriodBucketCapped
-        ? {
-            wave_height_debug: {
-              ...(waveHeightDebug.calibrationBucketQuarantined
-                ? { calibrationBucketQuarantined: true }
-                : {}),
-              ...(waveHeightDebug.shortPeriodBucketCapped
-                ? { shortPeriodBucketCapped: true }
-                : {}),
-            },
-          }
+      ...(waveHeightDebug.shortPeriodBucketCapped
+        ? { wave_height_debug: { shortPeriodBucketCapped: true } }
         : {}),
       ...(isFirstOfDay && tideData && tideData.tides && tideData.tides.length > 0
         ? {

@@ -72,10 +72,10 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
-// The truth path must see what production's buoy path sees: without the
-// access array, calibratedShadowFactor returns 1 for out-of-window buoy
-// directions and k came out ~1.3-1.5x too high where production shadows
-// the buoy hours (Ocean Beach, Sunset Cliffs, 204s, HB Pier Northside).
+// The truth path must see the beach row production's buoy path sees. Since
+// Nov 2026 the calibrated bucket path applies no direction shadow, so the
+// window and access fields only matter when a reading falls back to the
+// generic path.
 interface Beach {
   id: string;
   name: string;
