@@ -444,7 +444,14 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
   };
   return async (live) => {
     const { regional, build } = await regionRead;
-    const story = await bindEditionOrFallback(live, regional);
+    // A failed story build never takes the glance with it.
+    let story: StoryWire;
+    try {
+      story = await bindEditionOrFallback(live, regional);
+    } catch (error) {
+      console.warn("[week-scout-story] story bind failed", { region, error: String(error) });
+      story = bindStory({ region, availability: "unavailable", input: null, selections: null, live });
+    }
     let glance: StoryGlance | null = null;
     try {
       glance = build ? bindGlance(glanceFromBuild(build, editionDate, todayCovered(live, editionDate), now),

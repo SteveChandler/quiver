@@ -262,8 +262,16 @@ describe("deterministic fallback and live gates", () => {
       new (StoryInputError as unknown as new (code: string, status: number) => Error)("story_forecast_read_failed", 503),
     ).mockResolvedValueOnce({ ...input(), editionDate: date });
     const request = () => loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
-      startLocalDate: date, now: new Date(`${date}T13:00:00Z`) }).catch(() => null);
-    await request();
+      startLocalDate: date, now: new Date(`${date}T13:00:00Z`) });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // The failed build serves an unavailable story rather than throwing.
+      expect((await request()).availability).toBe("unavailable");
+      expect(warn).toHaveBeenCalledWith("[week-scout-story] story bind failed",
+        { region, error: expect.stringContaining("story_forecast_read_failed") });
+    } finally {
+      warn.mockRestore();
+    }
     await request();
     expect(mockBuildInput).toHaveBeenCalledTimes(2);
   });
@@ -697,6 +705,32 @@ describe("deterministic fallback and live gates", () => {
       expect(story.availability).toBe("unavailable");
       expect(story.glance).toEqual(codeGlance(build, date, at));
       expect(story.glance?.sentences.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("keeps the glance when the fallback input build throws", async () => {
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const failures: Array<[string, Error]> = [
+          ["2026-08-03", new Error("Failed to load forecasts: timeout")],
+          ["2026-08-05", new (StoryInputError as unknown as new (code: string, status: number) => Error)("story_source_read_failed", 503)],
+        ];
+        for (const [date, failure] of failures) {
+          const at = new Date(`${date}T13:00:00Z`);
+          const build = regionBuild([regionEvent(270, 15, `${date}T18:00:00Z`, `${addDays(date, 1)}T18:00:00Z`, `${addDays(date, 2)}T23:00:00Z`)]);
+          mockLoadRegion.mockResolvedValue(build);
+          mockBuildInput.mockRejectedValue(failure);
+          const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+            startLocalDate: date, now: at });
+          expect(mockBuildInput).toHaveBeenCalled();
+          expect(story.availability).toBe("unavailable");
+          expect(story.glance).toEqual(codeGlance(build, date, at));
+          expect(story.glance?.sentences.length).toBeGreaterThanOrEqual(1);
+          expect(warn).toHaveBeenCalledWith("[week-scout-story] story bind failed", { region, error: String(failure) });
+          mockBuildInput.mockClear();
+        }
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     it("has no glance without a home beach", async () => {
