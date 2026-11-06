@@ -288,6 +288,17 @@ function rowsInWindow(rows: readonly RatingRow[], event: EventTimes, now: Date):
   });
 }
 
+/**
+ * The card's drop rule for a forecast event past its peak, without a user: some region beach still has an
+ * hour of it left to rate. A beach rates an event only on an hour in its window with a wave in it, whatever
+ * the skill, and the card drops a past-peak event that no beach rates.
+ */
+export function hasHoursLeftToRate(build: RegionBuild, event: EventTimes, now: Date): boolean {
+  if (Date.parse(event.peakAt) >= now.getTime()) return true;
+  return build.beaches.some((beach) => rowsInWindow(build.rowsByBeach[beach.id] ?? [], event, now)
+    .some((row) => nativeScoreInputsFromForecast(row as EnhancedForecastEntity).waveHeightFt > 0));
+}
+
 /** Requested region beaches, ordered by score (exposure for early looks), then name. */
 export function rateEventBeaches(
   build: RegionBuild,

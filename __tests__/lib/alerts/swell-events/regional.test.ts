@@ -30,6 +30,7 @@ import {
   type RatingRow,
   type RegionBuild,
 } from "@/lib/alerts/swell-events/regional";
+import { hasHoursLeftToRate } from "@/lib/alerts/swell-events/regional-rating";
 import { fetchGfsTailRows } from "@/lib/alerts/swell-events/gfs-tail";
 import {
   fetchWamDays,
@@ -1126,6 +1127,24 @@ describe("events with nothing left to show today", () => {
     const [event] = rate(built, NOW.toISOString());
 
     expect(event).toMatchObject({ leadDays: EVENT_DAY, here: null, working: [], notWorking: [] });
+  });
+
+  it("finds hours left to rate exactly when the card keeps a past-peak event", () => {
+    const built = builtWith({}, peakDayRows);
+    const [event] = built.events;
+
+    expect(hasHoursLeftToRate(built, event, new Date(localIsoOf(EVENT_DAY, 20)))).toBe(false);
+    expect(rate(built, localIsoOf(EVENT_DAY, 20))).toEqual([]);
+    expect(hasHoursLeftToRate(built, event, new Date(localIsoOf(EVENT_DAY, 16)))).toBe(true);
+    expect(rate(built, localIsoOf(EVENT_DAY, 16))).toHaveLength(1);
+  });
+
+  it("counts no hour without a wave in it, and every hour before the peak", () => {
+    const built = builtWith({}, [ratingRow(EVENT_DAY, 18, { wave: null, wind: "3 mph" })]);
+    const [event] = built.events;
+
+    expect(hasHoursLeftToRate(built, event, new Date(localIsoOf(EVENT_DAY, 16)))).toBe(false);
+    expect(hasHoursLeftToRate(built, event, NOW)).toBe(true);
   });
 
   it("leaves an early look alone once its peak has passed", () => {

@@ -40,6 +40,6 @@ export const glanceSanDiego = { today, timezone, now, stored, factsFor };
 
 export const glanceSanDiegoSentences: readonly string[] = [
   "A west groundswell and a south-southwest groundswell both peak today, chest-high at most spots and overhead at the standouts, easing by Saturday.",
-  "A fresh south-southwest groundswell arrives and peaks Sunday, then a west-northwest mid-period swell follows Monday, both chest-high at most spots.",
+  "A fresh south-southwest groundswell arrives Sunday morning and peaks that afternoon, then a west-northwest mid-period swell follows Monday afternoon, both chest-high at most spots.",
   "A week from Friday looks likely to bring a bigger west swell with a south-southwest groundswell behind it, head-high at most spots and overhead at the standouts.",
 ];
