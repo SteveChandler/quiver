@@ -352,17 +352,10 @@ export class NOAAWaveWatchService {
       return data;
     }
 
+    // A land cell is permanent, so this is a log line, not a fallback event on every sync.
     log.debug(
       `Open-Meteo cell at ${latitude}, ${longitude} is land; using seaward point ${seaward.lat}, ${seaward.lon} (aspect ${aspectDeg}°)`
     );
-    trackFallback({
-      domain: "noaa-wavewatch",
-      field: "open_meteo_point",
-      fallbackValue: "seaward",
-      reason: "land_cell",
-      severity: "low",
-      context: { latitude, longitude, aspectDeg, seawardLat: seaward.lat, seawardLon: seaward.lon },
-    });
     return retry;
   }
 

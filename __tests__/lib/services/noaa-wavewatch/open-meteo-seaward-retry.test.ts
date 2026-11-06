@@ -86,9 +86,7 @@ describe("Open-Meteo seaward retry for land cells", () => {
     expect(result!.forecast.length).toBeGreaterThan(0);
     expect(result!.forecast.every((slot) => slot.has_reported_wave_height)).toBe(true);
     expect(result!.forecast[0].om_values?.wave_height_om).toBe(0.64);
-    expect(trackFallback).toHaveBeenCalledWith(
-      expect.objectContaining({ field: "open_meteo_point", fallbackValue: "seaward", reason: "land_cell" }),
-    );
+    expect(trackFallback).not.toHaveBeenCalledWith(expect.objectContaining({ field: "open_meteo_point" }));
   });
 
   it("makes no extra request when the first response has wave heights", async () => {
