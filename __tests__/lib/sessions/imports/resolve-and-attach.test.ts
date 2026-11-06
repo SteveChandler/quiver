@@ -168,7 +168,9 @@ describe("findAttachTarget", () => {
   });
 
   it("matches a phone log saved after the surf ended", async () => {
-    const mock = mockAttachClient([session("after", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon)]);
+    const mock = mockAttachClient([
+      { ...session("after", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon), created_at: "2026-10-17T13:46:00.000Z" },
+    ]);
 
     await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves
       .toMatchObject({ sessionId: "after" });
@@ -176,9 +178,20 @@ describe("findAttachTarget", () => {
     expect(mock.lte).toHaveBeenCalledWith("arrival_time", "2026-10-17T14:30:00.000Z");
   });
 
+  it("keeps an old-build arrival saved hours later within 90 minutes of the watch start", async () => {
+    const mock = mockAttachClient([
+      { ...session("old-build", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon),
+        created_at: "2026-10-17T16:00:00.000Z", timing_user_set: false },
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();
+    expect(mock.sessionSelect).toHaveBeenCalledWith(expect.stringContaining("created_at"));
+  });
+
   it("keeps a user-set time within 90 minutes of the watch start", async () => {
     const mock = mockAttachClient([
-      { ...session("user-set", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon), timing_user_set: true },
+      { ...session("user-set", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon),
+        created_at: "2026-10-17T13:45:00.000Z", timing_user_set: true },
     ]);
 
     await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();

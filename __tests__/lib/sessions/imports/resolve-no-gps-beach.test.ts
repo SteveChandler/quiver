@@ -87,16 +87,27 @@ it("does not treat a conditions report as a logged surf", async () => {
 });
 
 it("matches a phone log saved after the surf ended", async () => {
-  sessions = [{ id: "after", user_id: "user", beach_id: "c", arrival_time: "2026-08-15T15:00:00.000Z" }];
+  sessions = [{ id: "after", user_id: "user", beach_id: "c", arrival_time: "2026-08-15T15:00:00.000Z",
+    created_at: "2026-08-15T15:01:00.000Z" }];
   const client = service();
   await expect(resolveNoGpsBeach(client, "user", inWater, start, end)).resolves.toMatchObject({
     status: "resolved", source: "logged_session", attachTarget: { sessionId: "after" },
   });
 });
 
+it("keeps an old-build arrival saved hours later within 90 minutes of the watch start", async () => {
+  sessions = [{ id: "old-build", user_id: "user", beach_id: "c", arrival_time: "2026-08-15T15:00:00.000Z",
+    created_at: "2026-08-15T18:00:00.000Z", timing_user_set: false }];
+  snapshot = null;
+  const client = service();
+  await expect(resolveNoGpsBeach(client, "user", inWater, start, end)).resolves.toEqual({
+    status: "needs_beach", candidates: [],
+  });
+});
+
 it("keeps a user-set time within 90 minutes of the watch start", async () => {
   sessions = [{ id: "user-set", user_id: "user", beach_id: "c", arrival_time: "2026-08-15T15:00:00.000Z",
-    timing_user_set: true }];
+    created_at: "2026-08-15T15:00:00.000Z", timing_user_set: true }];
   snapshot = null;
   const client = service();
   await expect(resolveNoGpsBeach(client, "user", inWater, start, end)).resolves.toEqual({
