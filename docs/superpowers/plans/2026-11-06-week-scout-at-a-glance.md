@@ -41,7 +41,8 @@
 
 ## Workspace
 
-- Web: one worktree, `git -C ~/Desktop/dev/quiver worktree add .worktrees/at-a-glance -b feat/week-scout-at-a-glance origin/main`. Copy `.env*` from the main checkout.
+- Web: one worktree, `git -C ~/Desktop/dev/quiver worktree add .worktrees/at-a-glance -b feat/week-scout-at-a-glance docs/week-scout-at-a-glance-spec`. It branches from the local docs branch so the spec and this plan are in the checkout, and they land with the web PR. Copy `.env*` from the main checkout. Remove the sparse `.worktrees/at-a-glance-spec` worktree once the web PR merges.
+- Native implementers read the spec and plan from the web worktree by absolute path.
 - Native: one worktree, `git -C ~/Desktop/dev/quiver-native worktree add .worktrees/at-a-glance -b feat/week-scout-at-a-glance origin/main`. Copy `.env*`. Push from `.worktrees/`, not `.claude/worktrees/`, because jest ignores the latter.
 - Both run `npm ci` first. Stage by path; never `git add -A`.
 
@@ -193,6 +194,7 @@ Capitalise the first letter when the anchor opens a sentence.
 **Noun phrase.** `np(g)` is `withArticle([fresh] [bigger] {label} {noun})`.
 - "fresh" applies only to a sentence's first group, when an earlier sentence named a group with the same `label`.
 - "bigger" applies only to a sentence's first group, when its `facts.faceFt.max` is greater than that of every group named before it.
+- "bigger" and "fresh" never appear together. When both rules apply, "bigger" wins. In the fixture, S[2]'s west group would qualify for both and gets only "bigger"; S[1] gets "fresh", because its maximum of 5 is not greater than 5.
 
 **Slots, in order.**
 1. **Today.**
@@ -204,7 +206,7 @@ Capitalise the first letter when the anchor opens a sentence.
    - The ease clause is `", easing by {glanceDay(fade)}"` when the fade date is after today.
    - The sentence is `"{NP} {predicate}, {size}{ease}."`, leaving out ", {size}" when the size clause is null.
    - Two adjacent today groups share one sentence only when both peak today and their size clauses are equal: `"{NP1} and {np2} both peak today, {size}{ease from the later fade}."`
-   - When there are no today groups and `todayCovered` is true, the sentence is "No clear swell in the water today." When `todayCovered` is false, there is no today sentence.
+   - Today groups are written whenever they exist, whatever `todayCovered` says. `todayCovered` only decides the empty case: with no today groups, it gives "No clear swell in the water today." when true and no today sentence when false.
 2. **Next.**
    - The groups come from stored events with arrival after today, on the strip, in anchor-peak order. Name at most `MAX_NEXT_GROUPS`.
    - **Pairing.** Pair greedily. Two adjacent groups share a sentence when their peak dates are the same or one day apart and they have the same confidence.
