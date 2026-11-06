@@ -1,9 +1,15 @@
+import type { GlanceRole } from "./week-scout-glance";
+import type { GlanceWritten, StoryGlance } from "./week-scout-glance-wording";
 import type { CandidateFacts } from "./week-scout-story-facts";
 
 const WEEK_SCOUT_STORY_SCHEMA_VERSION = 3 as const;
 export const WEEK_SCOUT_STORY_GENERATION_VERSION = "week-scout-story-1";
-/** -1 selects candidates; -2 also sends a sentence Gemma wrote for some picks, checked when served. */
-export const WEEK_SCOUT_STORY_GENERATION_VERSIONS = ["week-scout-story-1", "week-scout-story-2"] as const;
+/** -1 selects candidates; -2 also sends a sentence Gemma wrote for some picks, checked when served; -3 adds At a glance rewordings. */
+export const WEEK_SCOUT_STORY_GENERATION_VERSIONS = ["week-scout-story-1", "week-scout-story-2", "week-scout-story-3"] as const;
+/** The generations that carry the PC's written sentences; -3 is a superset of -2. */
+export const WRITTEN_GENERATION_VERSIONS: ReadonlySet<string> = new Set(["week-scout-story-2", "week-scout-story-3"]);
+/** The only generation that carries At a glance rewordings. */
+export const GLANCE_GENERATION_VERSION = "week-scout-story-3";
 
 export type StoryGate =
   | { kind: "swell"; regionalEventKey: string; directionSector: number; directionIndex?: number; periodBand: number; periodClass?: "long" | "mid" | "short"; arrivalLocalDate: string; peakLocalDate: string; fadeLocalDate: string | null; confidence: "on_the_radar" | "likely" | "locked"; minimumBeaches: number }
@@ -38,6 +44,8 @@ export interface StoryInput {
   copyFacts: StoryCandidate[];
   /** Every region beach, id to name, so a rewritten sentence can be checked for beaches its fact doesn't name. */
   beachNames: Record<string, string>;
+  /** The code's At a glance sentences, offered for a -3 edition to reword; each rewording names its sentence's fingerprint. */
+  glance?: Array<{ role: GlanceRole; fingerprint: string; text: string }>;
   provenance: { sourceIds: string[]; sourceHashes: string[]; generationInputVersion: string; representativeBeachIds: string[]; coverageDates: string[]; coverage?: Array<{ localDate: string; sampleBeaches: number; rows: number }>; fixture?: boolean };
   inputHash: string;
 }
@@ -59,7 +67,7 @@ export interface StoryArtifact {
   validUntil: string;
   generationVersion: string;
   model: string;
-  briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[]; written?: StoryWrittenSentence[] };
+  briefing: { schemaVersion: 3; editionDate: string; generatedAt: string; selections: string[]; written?: StoryWrittenSentence[]; glance?: GlanceWritten[] };
   provenance: StoryInput["provenance"];
 }
 
@@ -71,6 +79,7 @@ export interface StoryWire {
   lead: string | null;
   turn: string | null;
   chapters: Array<{ slot: string; text: string }>;
+  glance: StoryGlance | null;
   days: Array<{ localDate: string; pick: null | {
     windowId: string; beachId: string; bucket: "morning" | "midday" | "evening";
     verdict: "worth_it" | "maybe" | "skip" | null;

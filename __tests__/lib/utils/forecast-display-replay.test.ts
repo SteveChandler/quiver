@@ -98,6 +98,8 @@ describe('immutable forecast display replay', () => {
   it('rejects missing, malformed, offset and conditional guardrail contexts', () => {
     const ctx = generate(beach)[2].context;
     expect(replayForecastDisplayHeightM(null)).toBeNull();
+    expect(replayForecastDisplayHeightM({ ...ctx, version: 3 })).toBeNull();
+    // v2 must carry the ECMWF hybrid scale.
     expect(replayForecastDisplayHeightM({ ...ctx, version: 2 })).toBeNull();
     expect(replayForecastDisplayHeightM({ ...ctx, unsupportedReason: 'offset' })).toBeNull();
     expect(replayForecastDisplayHeightM({ ...ctx, base: { ...ctx.base, supported: false } })).toBeNull();

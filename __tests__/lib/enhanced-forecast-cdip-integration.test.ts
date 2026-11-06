@@ -6,7 +6,7 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { CDIPService } from "@/lib/services/cdip";
-import { CDIPBuoyData } from "@/types/forecast";
+import { CDIPBuoyData, TOTAL_FORECASTS } from "@/types/forecast";
 import type { CDIPBuoyDataDiagnostic } from "@/lib/services/cdip/types";
 
 // Create spy for Supabase upsert
@@ -604,7 +604,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      expect(forecasts).toHaveLength(96); // Should still generate 12 days of forecasts
+      expect(forecasts).toHaveLength(TOTAL_FORECASTS);
       expect(forecasts[0].data_source).toBe("NOAA_NWS");
     });
 
@@ -619,7 +619,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      expect(forecasts).toHaveLength(96);
+      expect(forecasts).toHaveLength(TOTAL_FORECASTS);
       expect(forecasts[0].data_source).toBe("CDIP");
     });
 
@@ -643,7 +643,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       // Invalid/future-unusable CDIP rows are ignored by the nowcast resolver.
       expect(forecasts[0].data_source).toBe("NOAA_NWS");
-      expect(forecasts).toHaveLength(96);
+      expect(forecasts).toHaveLength(TOTAL_FORECASTS);
     });
   });
 
@@ -657,8 +657,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const forecast2 = await service.generateComprehensiveForecast(mockBeach);
 
       // Both forecasts should be generated successfully
-      expect(forecast1).toHaveLength(96); // 12 days * 8 forecasts per day
-      expect(forecast2).toHaveLength(96);
+      expect(forecast1).toHaveLength(TOTAL_FORECASTS);
+      expect(forecast2).toHaveLength(TOTAL_FORECASTS);
       expect(forecast1[0].data_source).toBe("CDIP");
       expect(forecast2[0].data_source).toBe("CDIP");
 

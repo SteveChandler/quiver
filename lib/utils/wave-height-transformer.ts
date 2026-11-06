@@ -484,11 +484,12 @@ export function transformToFaceHeightWithMetadata(
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
       // No low-factor quarantine, and the direction shadow only where the
-      // beach opts in (ShoalingFactors.direction_shadow). Nov 2026 held-out
-      // test over 77 calibrated beaches: face MAE 0.557 ft without either,
-      // 0.658 with both. The CDIP MOP nearshore model confirmed the shadow is
-      // wrong at 7 beaches outside Point Loma and left the Point Loma group
-      // open, so only that group keeps it.
+      // beach opts in (ShoalingFactors.direction_shadow; no beach does as of
+      // Nov 6 2026). Held-out test over 77 calibrated beaches: face MAE 0.557
+      // ft without either, 0.658 with both. At the Point Loma group, shadowed
+      // hours scored 0.48 ft without the shadow against 1.03 with it (5
+      // independent truth groups), and CDIP MOP's fired/non-fired bias was +5%
+      // without it against -27% with it.
       // The decomposed path excludes this short-period energy entirely.
       const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
         ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
@@ -875,6 +876,8 @@ interface DecomposedFaceHeightResult {
   shortPeriodBucketCapped?: boolean;
   /** Per-beach model_swell multiplier, present only when one was applied. */
   modelCalibrationFactor?: number;
+  /** ECMWF hybrid scale, present only when it replaced the production factor. */
+  ecmwfHybrid?: { r: number; k: number };
 }
 
 /**
@@ -944,7 +947,26 @@ export function transformToFaceHeightDecomposed(params: {
   rawHeightFt: number;
   periodS: number | null;
   swellDirectionDeg: number | null;
+  /**
+   * ECMWF hybrid (model_swell only): components and rawHeightFt × r, then
+   * × k in place of the production factor. See ecmwf-hybrid-k-factors.ts.
+   */
+  ecmwfHybrid?: { r: number; k: number } | null;
 }): DecomposedFaceHeightResult {
+  const hybrid = params.source === 'model_swell' ? params.ecmwfHybrid : null;
+  if (hybrid) {
+    const { r, k } = hybrid;
+    const scaled = transformToFaceHeightDecomposedUncalibrated({
+      ...params,
+      rawHeightFt: params.rawHeightFt * r,
+      components: params.components.map((c) => (c ? { ...c, heightFt: c.heightFt * r } : null)),
+    });
+    return {
+      ...scaled,
+      faceHeightFt: k === 1 ? scaled.faceHeightFt : Math.round(scaled.faceHeightFt * k * 10) / 10,
+      ecmwfHybrid: { r, k },
+    };
+  }
   const result = transformToFaceHeightDecomposedUncalibrated(params);
   const factor = modelSwellCalibrationFactor(params.source, params.beach);
   if (factor === 1) return result;

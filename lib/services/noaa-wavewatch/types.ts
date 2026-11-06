@@ -205,6 +205,28 @@ export interface WaveWatchForecast {
   lng: number;
   /** Array of wave forecast data points */
   forecast: WaveWatchData[];
+  /**
+   * ECMWF WAM total Hs for the long-range outlook. Never merged into
+   * `forecast`: rows past the model seam stay FALLBACK and carry it on the side.
+   */
+  ecmwf_outlook?: EcmwfOutlookSeries;
+  /**
+   * The whole ECMWF WAM total Hs series from the outlook request, kept even
+   * when the outlook seam gate rejects it. The ECMWF hybrid scale reads it.
+   */
+  ecmwf_wam?: Array<{ ms: number; hsM: number }>;
+}
+
+/** ECMWF WAM total Hs past the model seam, with the per-beach seam ratio that gated it. */
+export interface EcmwfOutlookSeries {
+  model: "ecmwf_wam025";
+  /** Every WAM hour up to the 15-day cap, including the seam window before `starts_after_ms`. */
+  points: Array<{ ms: number; hs_m: number }>;
+  /** Epoch ms of the last valid model slot; outlook slots are strictly after it. */
+  starts_after_ms: number;
+  /** Median WAM/model total Hs over the seam window. */
+  model_ratio: number;
+  model_ratio_pairs: number;
 }
 
 /**

@@ -258,6 +258,8 @@ export interface EnhancedForecastEntity {
     wave_height_provenance?: WaveHeightProvenance;
     /** Set only on synthetic hourly rows built by bridgeForecastsHourly. */
     hourly_bridge?: HourlyBridgeProvenance;
+    /** Long-range outlook on a FALLBACK row; never a forecast height. */
+    ecmwf_outlook?: EcmwfOutlookSlot;
   } | null;
 }
 
@@ -381,7 +383,9 @@ export interface ForecastCardVariant {
 
 // Constants
 export const FORECAST_CONSTANTS = {
-  DAYS: 12,
+  // Stored horizon. Model swell ends near day 9.3; later slots are FALLBACK
+  // rows that carry only the ECMWF WAM outlook (to about day 14.3).
+  DAYS: 15,
   INTERVAL_HOURS: 3,
   FORECASTS_PER_DAY: 8,
   MAX_CONFIDENCE: 100,
@@ -647,5 +651,24 @@ export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
     tide_station?: TideStationInfo;
     /** Per-row wave_height provenance metadata (source, transform path, etc.). */
     wave_height_provenance?: WaveHeightProvenance;
+    /** Long-range outlook on a FALLBACK row; never a forecast height. */
+    ecmwf_outlook?: EcmwfOutlookSlot;
   };
+}
+
+/**
+ * ECMWF WAM outlook for one FALLBACK slot past the model seam. A coarse size
+ * for a range-and-trend outlook only: no partitions, no score, no alert.
+ */
+export interface EcmwfOutlookSlot {
+  model: "ecmwf_wam025";
+  /** WAM total Hs scaled by this beach's seam face ratio (ft). */
+  face_ft: number;
+  /** Raw WAM total Hs (m). */
+  hs_m: number;
+  /** Median displayed face ft per WAM Hs m over the seam window. */
+  face_ft_per_m: number;
+  seam_pairs: number;
+  /** Median WAM/model total Hs over the seam window (the trust gate). */
+  model_ratio: number;
 }

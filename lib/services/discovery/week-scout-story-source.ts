@@ -13,6 +13,7 @@ import { addDays, localDate, zonedWallClockToUtc } from "./local-date";
 import { buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion, type RegionalDaySignal } from "./week-scout-story-candidates";
 import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
 import { median } from "@/lib/utils/median";
+import { glanceFromBuild } from "./week-scout-glance";
 import { buildRegionGateContext } from "./week-scout-story-region-gate";
 import { loadLatestStoryInput, saveStoryInput, activeStoryRegions } from "./week-scout-story-store";
 import type { StoryInput } from "./week-scout-story-types";
@@ -222,8 +223,17 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   // Past the cap the latest events lose their lines; the card writes those from the build itself.
   const copyFacts = [...storyFacts, ...buildEventCandidates(build, allEvents, buildRegionGateContext(build, editionDate), now)]
     .slice(0, MAX_FACTS);
+  // A glance failure leaves the offer out, never the story's input.
+  let glance: StoryInput["glance"];
+  try {
+    glance = glanceFromBuild(build, editionDate, signals[0].complete, now)
+      .map(({ role, fingerprint, text }) => ({ role, fingerprint, text }));
+  } catch (error) {
+    console.warn("[week-scout-story] glance offer failed", { region, error: String(error) });
+  }
+  // The offer is hashed, so an input cached before it existed is rebuilt to carry it.
   const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, events: allEvents,
-    candidateFacts: copyFacts.map(({ id, facts }) => ({ id, facts })) }));
+    candidateFacts: copyFacts.map(({ id, facts }) => ({ id, facts })), ...(glance ? { glance } : {}) }));
   recordStage("story-compute", performance.now() - computeStartedAt);
   const existing = await loadLatestStoryInput(client, region, editionDate);
   if (existing?.provenance?.sourceHashes?.[0] === sourceHash) return existing;
@@ -234,6 +244,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     briefing: { schemaVersion: 3, editionDate, generatedAt: now.toISOString(), selections: [] },
     copyFacts,
     beachNames: Object.fromEntries(allBeaches.map((beach) => [beach.id, beach.name])),
+    ...(glance ? { glance } : {}),
     provenance: { sourceIds: rows.map((row) => row.id), sourceHashes: [sourceHash],
       generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: beachIds,
       coverageDates: signals.map((day) => day.localDate),

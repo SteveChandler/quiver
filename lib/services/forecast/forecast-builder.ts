@@ -1,3 +1,6 @@
+import { attachEcmwfOutlook } from "./ecmwf-outlook-rows";
+import { FORECAST_DISPLAY_REPLAY_HYBRID_VERSION } from "@/lib/utils/forecast-display-replay";
+import { ECMWF_HYBRID_FIT_DATE } from "@/lib/utils/ecmwf-hybrid-k-factors";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Forecast Builder
@@ -537,6 +540,8 @@ export class ForecastBuilder {
 
     // Track processed dates to store tide_schedule only once per day
     const processedDates = new Set<string>();
+    // Every WAM hour, days 1-9 included: the ECMWF hybrid scale reads it per slot.
+    const wamHsByHour = new Map((waveData?.ecmwf_wam ?? []).map((point) => [point.ms, point.hsM]));
 
     // Rows are stored at forecast_at, the 3-hour grid mark at or before the
     // slot, so every input is resolved at that mark. Resolving at build time
@@ -552,6 +557,7 @@ export class ForecastBuilder {
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
+      const ecmwfWamHsM = wamHsByHour.get(Math.floor(forecastTime.getTime() / 3_600_000) * 3_600_000) ?? null;
       const tideInfo = this.getTideInfo(tideData, forecastTime, beach.timezone);
       const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
       const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime, cdipHoldHours);
@@ -631,10 +637,14 @@ export class ForecastBuilder {
         trustedSlotBuffer,
         calibrationCoverage,
         handoffBlendState,
+        ecmwfWamHsM,
       });
 
       forecasts.push(forecast);
     }
+
+    // Outlook rows stay FALLBACK; the outlook rides on raw_forecast only.
+    attachEcmwfOutlook(forecasts, waveData?.ecmwf_outlook);
 
     if (hasCalibrationLoss(calibrationCoverage)) {
       log.warn("calibrated_shoaling_coverage_gap", {
@@ -987,6 +997,8 @@ export class ForecastBuilder {
     calibrationCoverage: CalibrationCoverage;
     handoffBlendState: ForecastHandoffBlendState;
     calibration: Awaited<ReturnType<typeof getActiveCalibration>>;
+    /** ECMWF WAM total Hs (m) at this slot's valid hour; null when WAM has none. */
+    ecmwfWamHsM?: number | null;
   }): EnhancedForecastWithRawData {
     const {
       beach,
@@ -1016,6 +1028,7 @@ export class ForecastBuilder {
       calibrationCoverage,
       handoffBlendState,
       calibration,
+      ecmwfWamHsM = null,
     } = params;
 
     // Compute wave height once and capture provenance metadata for raw_forecast.
@@ -1029,6 +1042,7 @@ export class ForecastBuilder {
       beach,
       nowcastAnchor,
       cdipData?.stationId ?? null,
+      ecmwfWamHsM,
     );
     const replayBase = waveHeightResult.debug.replayInput
       ? { input: waveHeightResult.debug.replayInput, supported: southOcSanoGuardrail.kind === "noop" }
@@ -1043,6 +1057,9 @@ export class ForecastBuilder {
         useCDIPData,
         beach,
         southOcSanoGuardrail.anchor,
+        null,
+        // Same ruler as the base value, so the higher-of comparison is fair at hybrid beaches.
+        ecmwfWamHsM,
       );
       const baseFt = parseDisplayHeightFt(waveHeightResult.value).numericFt;
       const guardedFt = parseDisplayHeightFt(guardedWaveHeightResult.value).numericFt;
@@ -1255,7 +1272,9 @@ export class ForecastBuilder {
         display_wave_source: waveHeightResult.debug.source,
         display_raw_input_height_m: displayRawInputHeightM,
         display_replay_context: replayBase ? JSON.parse(JSON.stringify({
-          version: 1, generatedAt: now.toISOString(), forecastAt, base: replayBase,
+          version: [replayBase.input, handoffBlendState.replay?.model.input].some((input) => input?.ecmwfHybrid)
+            ? FORECAST_DISPLAY_REPLAY_HYBRID_VERSION : 1,
+          generatedAt: now.toISOString(), forecastAt, base: replayBase,
           handoff: handoffBlendState.replay ?? null,
           unsupportedReason: (beachOffsetCfgRow.enabled && heightOffset != null) || feedbackCalibrationCandidate != null
             ? "offset" : null,
@@ -1517,6 +1536,17 @@ export class ForecastBuilder {
         ...(waveHeightDebug.modelCalibrationFactor != null
           ? { model_calibration_factor: waveHeightDebug.modelCalibrationFactor }
           : {}),
+        ...(waveHeightDebug.ecmwfHybrid
+          ? {
+              ecmwf_hybrid: {
+                r: waveHeightDebug.ecmwfHybrid.r,
+                r_raw: waveHeightDebug.ecmwfHybrid.rRaw,
+                k: waveHeightDebug.ecmwfHybrid.k,
+                ecmwf_hs_m: waveHeightDebug.ecmwfHybrid.ecmwfHsM,
+                fit_date: ECMWF_HYBRID_FIT_DATE,
+              },
+            }
+          : {}),
         ...(waveHeightDebug.cdipRejection
           ? {
               cdip_rejection: {
@@ -1696,6 +1726,7 @@ export class ForecastBuilder {
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
     cdipStationId: string | null = null,
+    ecmwfWamHsM: number | null = null,
   ): { value: string | null; debug: WaveHeightDebugInfo } {
     // Extract period: prefer anchor period when anchored, else CDIP peak, model swell, buoy.
     const periodS =
@@ -1854,6 +1885,7 @@ export class ForecastBuilder {
       periodS,
       swellDirectionDeg,
       components,
+      ecmwfWamHsM,
     });
   }
 

@@ -15,7 +15,7 @@ import { checkWrittenSentence } from "@/lib/services/discovery/week-scout-story-
 import { buildRegionGateContext, regionGateHolds, windBucket, type RegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
-import type { StoryArtifact, StoryGate, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
+import { WRITTEN_GENERATION_VERSIONS, type StoryArtifact, type StoryGate, type StoryInput } from "@/lib/services/discovery/week-scout-story-types";
 import type { Database } from "@/types/database";
 import type { RegionBeachRating, RegionSwellEvent, RegionWatchBeach } from "@/types/region-swell-events";
 
@@ -30,8 +30,6 @@ export interface NarrativeEdition {
   artifact: StoryArtifact;
 }
 
-/** Only this generation carries the PC's written sentences. */
-const WRITTEN_GENERATION_VERSION = "week-scout-story-2";
 /** Story inputs are content-addressed by hash, so a loaded one never goes stale; keep the most recent few. */
 const MAX_CACHED_INPUTS = 16;
 const storyInputs = new Map<string, Promise<StoryInput | null>>();
@@ -56,10 +54,10 @@ function cachedStoryInput(client: Client, hash: string): Promise<StoryInput | nu
   return input;
 }
 
-/** The region's edition for its own today, still valid and already published: prepareStory's conditions, -2 only. */
+/** The region's edition for its own today, still valid and already published: prepareStory's conditions, -2 or -3 only. */
 function isCurrentEdition(artifact: StoryArtifact, timezone: string, now: Date): boolean {
   return artifact.schemaVersion === 3
-    && artifact.generationVersion === WRITTEN_GENERATION_VERSION
+    && WRITTEN_GENERATION_VERSIONS.has(artifact.generationVersion)
     && artifact.editionDate === localDate(now, timezone)
     && Date.parse(artifact.validUntil) >= now.getTime()
     && Date.parse(artifact.sourcePublishedAt) <= now.getTime();

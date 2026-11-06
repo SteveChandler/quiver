@@ -27,7 +27,7 @@ import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { useConditionIntelligence } from "@/hooks/use-condition-intelligence";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-time";
-import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { resolveBeachTimezone, getLocalDateString, DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
 import { useSunTimes } from "@/hooks/use-sun-times";
@@ -38,6 +38,8 @@ import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
+import { aggregateOutlookDays } from "@/lib/utils/ecmwf-outlook-days";
+import { EcmwfOutlookStrip } from "@/components/forecast/ecmwf-outlook-strip";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
@@ -60,6 +62,8 @@ const ConditionsOverview = dynamic(
 interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
+  /** Rows to the stored horizon, read only by the ECMWF outlook. Defaults to `forecasts`. */
+  outlookForecasts?: EnhancedForecastEntity[];
   /** True until the forecast fetch settles, so an empty array is not read as "no forecast". */
   forecastsLoading?: boolean;
   currentForecast: EnhancedForecastEntity | null;
@@ -74,6 +78,7 @@ interface ForecastTabProps {
 export function ForecastTab({
   beach,
   forecasts,
+  outlookForecasts,
   forecastsLoading = false,
   currentForecast,
   forecastMetadata,
@@ -159,6 +164,12 @@ export function ForecastTab({
       sunTimesCache: todaySunTimesCache,
     });
   }, [forecasts, beach, beachTimezone, profileExperienceLevel, todaySunTimesCache]);
+
+  // Days past the forecast that only the long-range ECMWF outlook reaches.
+  const outlookDays = useMemo(
+    () => aggregateOutlookDays(outlookForecasts ?? forecasts, beachTimezone || beach.timezone || DEFAULT_TIMEZONE),
+    [outlookForecasts, forecasts, beachTimezone, beach.timezone]
+  );
 
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
@@ -396,6 +407,8 @@ export function ForecastTab({
           />
         </section>
       )}
+
+      <EcmwfOutlookStrip days={outlookDays} />
 
       {/* Tabbed Content */}
       <Tabs

@@ -8,11 +8,14 @@ import { addSwellHeadlines, directionIndex, directionSector, periodBand, periodC
   windTimingPhrase, type RegionalSwellEvent } from "./week-scout-story-candidates";
 import { faceRangeFt, sizeWordsFor, type CandidateFacts } from "./week-scout-story-facts";
 import { checkWrittenSentence } from "./week-scout-story-claims";
+import { glanceFromBuild } from "./week-scout-glance";
+import { bindGlance, type GlanceWritten, type StoryGlance } from "./week-scout-glance-wording";
 import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from "./week-scout-story-region-gate";
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
-import type { StoryCandidate, StoryGate, StoryInput, StoryWire, StoryWrittenSentence } from "./week-scout-story-types";
+import { GLANCE_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryGate, type StoryInput, type StoryWire,
+  type StoryWrittenSentence } from "./week-scout-story-types";
 
 type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
@@ -252,7 +255,7 @@ export function bindStory(args: {
   });
   const empty = (availability: StoryWire["availability"]): StoryWire => ({
     schemaVersion: 3, region, availability, cover: { text: null, swells }, lead: null, turn: null,
-    chapters: [], days,
+    chapters: [], glance: null, days,
   });
   if (!input || !args.selections || args.availability !== "ready") return empty(args.availability);
   const selectedIds = new Set(args.selections);
@@ -326,6 +329,7 @@ export function bindStory(args: {
     schemaVersion: 3, region, availability: "ready", cover: { text: text("cover"), swells },
     lead: text("story:lead"), turn: text("story:turn"),
     chapters: chapters.map((fact) => ({ slot: fact.slot, text: served(fact) })),
+    glance: null,
     days,
   };
 }
@@ -360,6 +364,23 @@ export function bindFallbackStory(region: string, fullInput: StoryInput, live: L
   return story;
 }
 
+/** Today counts as covered on the quiet-day check's coverage terms: every eligible beach evaluated, no bucket held or missing. */
+function todayCovered(live: Live, editionDate: string): boolean {
+  const coverage = live.coverage?.days.find((day) => day.localDate === editionDate);
+  return Boolean(coverage && coverage.eligible > 0 && coverage.missing === 0
+    && coverage.buckets.every((bucket) => bucket.held === 0 && bucket.missing === 0));
+}
+
+/** Today's -3 rewordings, well-formed entries only: a malformed one would otherwise throw in bindGlance and drop the paragraph. */
+function writtenGlance(edition: StoryArtifact | null, editionDate: string, now: Date): GlanceWritten[] | undefined {
+  if (!edition || edition.generationVersion !== GLANCE_GENERATION_VERSION || edition.editionDate !== editionDate
+    || !(Date.parse(edition.validUntil) >= now.getTime()) || !(Date.parse(edition.sourcePublishedAt) <= now.getTime())) return undefined;
+  const glance: unknown = edition.briefing?.glance;
+  if (!Array.isArray(glance)) return undefined;
+  return glance.filter((entry): entry is GlanceWritten => Boolean(entry) && typeof entry === "object"
+    && typeof (entry as GlanceWritten).fingerprint === "string" && typeof (entry as GlanceWritten).text === "string");
+}
+
 type StoryLoadArgs = { client: Client; homeBeachId: string | null; startLocalDate: string; now: Date };
 type StoryBinder = (live: Live) => Promise<StoryWire>;
 
@@ -382,11 +403,12 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
   const editionDate = localDate(now.toISOString(), activeRegion.timezone);
   // Cached per region and day, so this costs no forecast read on a warm cache. Never rejects: without
   // the build, swell, exposure and beach claims fail closed and the story falls back.
-  const regionRead = loadRegionForecastEvents({ client, region, now, timezone: activeRegion.timezone })
-    .then((build) => storyRegion(build, editionDate))
+  const regionRead: Promise<{ regional: StoryRegion; build: RegionBuild | null }> = loadRegionForecastEvents({
+    client, region, now, timezone: activeRegion.timezone,
+  }).then((build) => ({ regional: storyRegion(build, editionDate), build }))
     .catch((error: unknown) => {
       console.warn("[week-scout-story] region gate read failed", { region, error: String(error) });
-      return CLOSED_REGION;
+      return { regional: CLOSED_REGION, build: null };
     });
   const [edition, cached] = await Promise.all([
     loadLatestStoryEdition(client, region),
@@ -406,8 +428,7 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
   // one, build only if the edition fails its live gates.
   const fallback = usable ? Promise.resolve(cached) : publishedInput ? null : regionalFallback(client, region, editionDate, now);
   fallback?.catch(() => undefined);
-  return async (live) => {
-    const regional = await regionRead;
+  const bindEditionOrFallback = async (live: Live, regional: StoryRegion): Promise<StoryWire> => {
     if (edition && publishedInput) {
       try {
         assertStoryArtifactMatchesInput(edition, publishedInput, now);
@@ -422,6 +443,25 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
       return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
     }
     return bindFallbackStory(region, input, live, regional);
+  };
+  return async (live) => {
+    const { regional, build } = await regionRead;
+    // A failed story build never takes the glance with it.
+    let story: StoryWire;
+    try {
+      story = await bindEditionOrFallback(live, regional);
+    } catch (error) {
+      console.warn("[week-scout-story] story bind failed", { region, error: String(error) });
+      story = bindStory({ region, availability: "unavailable", input: null, selections: null, live });
+    }
+    let glance: StoryGlance | null = null;
+    try {
+      glance = build ? bindGlance(glanceFromBuild(build, editionDate, todayCovered(live, editionDate), now),
+        writtenGlance(edition, editionDate, now), build.beaches.map((beach) => beach.name), region) : null;
+    } catch (error) {
+      console.warn("[week-scout-story] glance failed", { region, error: String(error) });
+    }
+    return { ...story, glance };
   };
 }
 

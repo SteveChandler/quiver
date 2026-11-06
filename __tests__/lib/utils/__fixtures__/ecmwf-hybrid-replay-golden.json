@@ -1,0 +1,452 @@
+[
+ {
+  "name": "C Street / Ventura Point",
+  "beachId": "486dc095-4b21-4edb-838c-97f68b40d1df",
+  "predictedAt": "2026-11-01T00:00:00+00:00",
+  "issuedAt": "2026-10-28T23:50:41.693096+00:00",
+  "leadH": 72.2,
+  "beach": {
+   "terrain_enabled": true,
+   "swell_access_factors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.00367423,
+    0.0130053,
+    0.0169879,
+    0.010364,
+    0.00412132,
+    0.00282843,
+    0.0212132,
+    0.0720345,
+    0.0860862,
+    0.0352649,
+    0.00282843,
+    0.0372473,
+    0.198959,
+    0.407316,
+    0.459583,
+    0.402987,
+    0.371463,
+    0.395976,
+    0.47117,
+    0.575489,
+    0.740404,
+    0.92398,
+    1,
+    1,
+    1,
+    0.92398,
+    0.847961,
+    0.92398,
+    1,
+    0.92398,
+    0.740404,
+    0.575489,
+    0.47117,
+    0.385762,
+    0.347314,
+    0.385762,
+    0.47117,
+    0.575489,
+    0.740404,
+    0.847961,
+    0.771941,
+    0.771941,
+    0.847961,
+    0.740404,
+    0.575489,
+    0.47117,
+    0.385762,
+    0.315835,
+    0.258584,
+    0.21171,
+    0.173334,
+    0.113155,
+    0.035126,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "swell_window_center_deg": 225,
+   "swell_window_halfwidth_deg": 95,
+   "shoaling_factors": {
+    "type": "period_lookup",
+    "buckets": [
+     {
+      "factor": 0.64,
+      "tp_max_s": 8,
+      "tp_min_s": 0
+     },
+     {
+      "factor": 0.81,
+      "tp_max_s": 12,
+      "tp_min_s": 8
+     },
+     {
+      "factor": 0.89,
+      "tp_max_s": 16,
+      "tp_min_s": 12
+     },
+     {
+      "factor": 0.88,
+      "tp_max_s": 999,
+      "tp_min_s": 16
+     }
+    ],
+    "version": 1,
+    "calibration": {
+     "notes": "Nov 2026 evidence-based reassignment",
+     "method": "surfline_lotus_vs_cdip_historical_refit_nov2026",
+     "samples": 8749,
+     "date_range": "2025-04-07 to 2026-04-07",
+     "reference_buoy": "CDIP 203"
+    }
+   },
+   "deepwater_decay_factor": 1
+  },
+  "input": {
+   "rawHeightFt": 1.5091864000000002,
+   "periodS": 10.25,
+   "swellDirectionDeg": 189,
+   "components": [
+    {
+     "periodS": 10.25,
+     "heightFt": 1.5091864000000002,
+     "directionDeg": 189
+    },
+    {
+     "periodS": 14.9,
+     "heightFt": 0.8530184000000001,
+     "directionDeg": 194
+    },
+    {
+     "periodS": 0.9,
+     "heightFt": 0.19685039999999998,
+     "partition": "wind_wave",
+     "directionDeg": 117
+    }
+   ]
+  },
+  "ecmwfHsM": 0.76,
+  "replay": {
+   "uncal": 1.8,
+   "rRss": 1.4291370874447427,
+   "hybRssCap": 2.6,
+   "kHybrid": 1.22
+  }
+ },
+ {
+  "name": "Carlsbad State Beach",
+  "beachId": "c0977bcd-5475-4745-b4b8-0ca1e16a7faf",
+  "predictedAt": "2026-10-26T21:00:00+00:00",
+  "issuedAt": "2026-10-19T23:51:00.569187+00:00",
+  "leadH": 165.1,
+  "beach": {
+   "terrain_enabled": true,
+   "swell_access_factors": [
+    0,
+    0.000707107,
+    0.00141421,
+    0.00141421,
+    0.00141421,
+    0.00141421,
+    0.00141421,
+    0.000707107,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.000707107,
+    0.00212132,
+    0.00212132,
+    0.00141421,
+    0.0365402,
+    0.113862,
+    0.173334,
+    0.225704,
+    0.28657,
+    0.329828,
+    0.385762,
+    0.47117,
+    0.575489,
+    0.740404,
+    0.92398,
+    0.92398,
+    0.847961,
+    0.847961,
+    0.740404,
+    0.575489,
+    0.47117,
+    0.385762,
+    0.315835,
+    0.258584,
+    0.21171,
+    0.173334,
+    0.113862,
+    0.0372473,
+    0.00282843,
+    0.00282843,
+    0.00282843,
+    0.00412132,
+    0.00670711,
+    0.008,
+    0.00670711,
+    0.00541421,
+    0.00670711,
+    0.00670711,
+    0.0113199,
+    0.0172256,
+    0.00931991,
+    0.000707107,
+    0,
+    0,
+    0,
+    0.000707107,
+    0.00141421,
+    0.000707107
+   ],
+   "swell_window_center_deg": 198,
+   "swell_window_halfwidth_deg": 48,
+   "shoaling_factors": {
+    "type": "period_lookup",
+    "buckets": [
+     {
+      "factor": 1.25,
+      "tp_max_s": 8,
+      "tp_min_s": 0
+     },
+     {
+      "factor": 1.4,
+      "tp_max_s": 12,
+      "tp_min_s": 8
+     },
+     {
+      "factor": 1.38,
+      "tp_max_s": 16,
+      "tp_min_s": 12
+     },
+     {
+      "factor": 1.34,
+      "tp_max_s": 999,
+      "tp_min_s": 16
+     }
+    ],
+    "version": 1,
+    "calibration": {
+     "notes": "Per-beach calibration for Carlsbad State Beach",
+     "method": "surfline_lotus_vs_cdip_historical",
+     "samples": 8753,
+     "date_range": "2025-04-07 to 2026-04-07",
+     "reference_buoy": "CDIP 45"
+    }
+   },
+   "deepwater_decay_factor": 1
+  },
+  "input": {
+   "rawHeightFt": 1.5091864000000002,
+   "periodS": 11.2,
+   "swellDirectionDeg": 192,
+   "components": [
+    {
+     "periodS": 11.2,
+     "heightFt": 1.5091864000000002,
+     "directionDeg": 192
+    },
+    {
+     "periodS": 14.75,
+     "heightFt": 0.9186352000000001,
+     "directionDeg": 224
+    },
+    {
+     "periodS": 0.3,
+     "heightFt": 0.0656168,
+     "partition": "wind_wave",
+     "directionDeg": 301
+    }
+   ]
+  },
+  "ecmwfHsM": 0.68,
+  "replay": {
+   "uncal": 1.8,
+   "rRss": 1.2618583523428493,
+   "hybRssCap": 2.3,
+   "kHybrid": 1.36
+  }
+ },
+ {
+  "name": "Church",
+  "beachId": "a0332432-4877-48c5-855d-b30fd097ba38",
+  "predictedAt": "2026-11-05T18:00:00+00:00",
+  "issuedAt": "2026-10-29T19:50:57.511753+00:00",
+  "leadH": 166.2,
+  "beach": {
+   "terrain_enabled": true,
+   "swell_access_factors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.035126,
+    0.113155,
+    0.173334,
+    0.21171,
+    0.258584,
+    0.315835,
+    0.385762,
+    0.47117,
+    0.575489,
+    0.740404,
+    0.847961,
+    0.740404,
+    0.575489,
+    0.47117,
+    0.385762,
+    0.315835,
+    0.28932,
+    0.313419,
+    0.313419,
+    0.28932,
+    0.315835,
+    0.385762,
+    0.47117,
+    0.575489,
+    0.740404,
+    0.92398,
+    1,
+    1,
+    1,
+    0.92398,
+    0.740404,
+    0.575489,
+    0.518131,
+    0.575489,
+    0.740404,
+    0.92398,
+    1,
+    0.92398,
+    0.847961,
+    0.92398,
+    1,
+    0.92398,
+    0.740404,
+    0.575489,
+    0.47117,
+    0.385762,
+    0.315835,
+    0.258584,
+    0.21171,
+    0.173334,
+    0.113155,
+    0.035126,
+    0,
+    0
+   ],
+   "swell_window_center_deg": 218,
+   "swell_window_halfwidth_deg": 118,
+   "shoaling_factors": {
+    "type": "period_lookup",
+    "buckets": [
+     {
+      "factor": 1.08,
+      "tp_max_s": 8,
+      "tp_min_s": 0
+     },
+     {
+      "factor": 1.18,
+      "tp_max_s": 12,
+      "tp_min_s": 8
+     },
+     {
+      "factor": 1.45,
+      "tp_max_s": 16,
+      "tp_min_s": 12
+     },
+     {
+      "factor": 1.56,
+      "tp_max_s": 999,
+      "tp_min_s": 16
+     }
+    ],
+    "version": 1,
+    "calibration": {
+     "notes": "Per-beach calibration for Church",
+     "method": "surfline_lotus_vs_cdip_historical",
+     "samples": 8753,
+     "date_range": "2025-04-07 to 2026-04-07",
+     "reference_buoy": "CDIP 45"
+    }
+   },
+   "deepwater_decay_factor": 1
+  },
+  "input": {
+   "rawHeightFt": 1.7716536,
+   "periodS": 10.15,
+   "swellDirectionDeg": 198,
+   "components": [
+    {
+     "periodS": 10.15,
+     "heightFt": 1.7716536,
+     "directionDeg": 198
+    },
+    {
+     "periodS": 15.7,
+     "heightFt": 0.9186352000000001,
+     "directionDeg": 193
+    },
+    {
+     "periodS": 0.75,
+     "heightFt": 0.0656168,
+     "partition": "wind_wave",
+     "directionDeg": 333
+    }
+   ]
+  },
+  "ecmwfHsM": 1.58,
+  "replay": {
+   "uncal": 1.8,
+   "rRss": 2.5961010806080607,
+   "hybRssCap": 3.6,
+   "kHybrid": 1.53
+  }
+ }
+]

@@ -61,6 +61,7 @@ describe("Week Scout story response", () => {
     const disabled = await call(null);
     expect(disabled.raw).toBe(absent.raw);
     expect(disabled.data).not.toHaveProperty("story");
+    expect(absent.raw).not.toMatch(/"glance"/);
     expect(mockStory).not.toHaveBeenCalled();
   });
 

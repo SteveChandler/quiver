@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **Buoy assignment follow-ups, Nov 6: station table corrected, model factors refit after the prod DB changes, refit script reads current beach settings** (`lib/constants/cdip-stations.ts`, `lib/utils/model-swell-calibration-factors.ts`, `scripts/replay-model-swell-calibration.ts`, `lib/utils/wave-height-transformer.ts`).
+  - Station table:
+    - Deletes "179", which is Astoria Canyon, Oregon; no beach uses it any more.
+    - Moves "67" to San Nicolas Island; its old label was "San Pedro South" at San Pedro.
+    - Moves "71" to Harvest and keeps it as an alias of "071" for Jalama; its old label was "Half Moon Bay" at Half Moon Bay.
+    - Fixes the "071" and "157" coordinates and drops three blacklisted NDBC-id entries.
+    - Adds "092" San Pedro at the coordinates "67" used to carry. No forecast falls back to it. It keeps the cron's 80 km marine-observation fallback (Seaside's derived rip-current input) on a local buoy for South Bay, Santa Monica Bay and north Orange County.
+    - The 28 beaches with no station whose fallback this would move were pinned to `model_only` in prod first. 18 of them barely used San Nicolas. The other 10 read Harvest from 370 km away, which scores worse than the model. So this changes no forecast.
+  - Prod DB changes made Nov 6 with Steven's approval (SQL and rollback in `.quiver/ops/cdip-reassign-nov2026/`):
+    - Removed `direction_shadow` from all 12 beaches. At the Point Loma group, shadowed hours scored 0.48 ft MAE without the shadow against 1.03 with it, on held-out truth with 5 independent truth groups. CDIP MOP's fired/non-fired bias was +5% without it against -27% with it.
+    - Moved Solimar back to 203 and Tijuana Sloughs to 191. Held-out MAE 0.27 vs 0.68 ft and 0.30 vs 0.48 against model-only. Mondos and Rincon stay model-only (tie or loss).
+    - Moved County Line from "217" (North Carolina) to 103 with buckets fitted to its own truth.
+  - The refit script now replays model hours with the beach's current swell window and access array, not the logged ones. `--beach-override` fits a settings change that is approved but not yet applied.
+  - Refit results:
+    - Point Loma group back to its no-shadow factors (Ocean Beach 1.68, OB Pier 1.56, Avalanche 1.66, Luscombs 1.41).
+    - Solimar and Sloughs 0.87; County Line 2.50 (cap; fit about 3.1).
+    - Leo Carrillo 2.50 → 1.22, fitted on the wider swell window (200 ± 85) that is applied right after this ships. Leo's old 180-270 window cut its main south swell. Held-out model-hour MAE is about 0.7 ft against 1.4 with the old window and 2.50.
 - **The calibrated direction shadow comes back only at the Point Loma group, behind a per-beach flag** (`lib/utils/wave-height-transformer.ts`, `lib/utils/model-swell-calibration-factors.ts`, `scripts/replay-model-swell-calibration.ts`).
   - Before (#1330, on main, not on prod): the shadow was removed everywhere.
   - Now: `calibratedShadowFactor` is restored and applies on the CDIP calibrated path only when the beach's `shoaling_factors.direction_shadow` is true. The quarantine stays removed everywhere.

@@ -1,3 +1,4 @@
+import { pointAlongBearing } from "@/lib/utils/geo-utils";
 import type { SwellEventForecastRow } from "./detector";
 
 // GFS-Wave carries swell partitions to day 16. The stored forecast's default model stops near day 10.
@@ -48,13 +49,10 @@ export function regionOffshorePoint(
   // Bearings average as vectors, so 350° and 10° face north.
   const east = facings.reduce((sum, facing) => sum + Math.sin(facing * RAD), 0);
   const north = facings.reduce((sum, facing) => sum + Math.cos(facing * RAD), 0);
-  const facing = Math.atan2(east, north);
+  const facingDeg = Math.atan2(east, north) / RAD;
   const lat = beaches.reduce((sum, beach) => sum + beach.lat, 0) / beaches.length;
   const lon = beaches.reduce((sum, beach) => sum + beach.lon, 0) / beaches.length;
-  return {
-    lat: lat + OFFSHORE_STEP_DEG * Math.cos(facing),
-    lon: lon + (OFFSHORE_STEP_DEG * Math.sin(facing)) / Math.cos(lat * RAD),
-  };
+  return pointAlongBearing(lat, lon, facingDeg, OFFSHORE_STEP_DEG);
 }
 
 function finite(value: number | null | undefined): number | null {

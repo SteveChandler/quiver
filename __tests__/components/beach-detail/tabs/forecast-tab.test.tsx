@@ -140,6 +140,11 @@ jest.mock("@/lib/utils/date-time", () => ({
   formatTimeInBeachTimezone: jest.fn(() => "7:00 AM"),
 }));
 
+jest.mock("@/lib/utils/ecmwf-outlook-days", () => ({
+  ...jest.requireActual("@/lib/utils/ecmwf-outlook-days"),
+  aggregateOutlookDays: jest.fn(() => []),
+}));
+
 // Mock Tabs components — TabsTrigger threads onValueChange from Tabs via context
 jest.mock("@/components/ui/tabs", () => {
   const React = require("react") as typeof import("react");
@@ -175,6 +180,7 @@ jest.mock("@/components/ui/tabs", () => {
 // Import mocked dependencies
 import { track } from "@/lib/analytics";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
+import { aggregateOutlookDays } from "@/lib/utils/ecmwf-outlook-days";
 
 // Mock beach + forecast factories
 const mockBeach: Beach = {
@@ -725,4 +731,16 @@ describe("ForecastTab", () => {
     });
   });
 
+  describe("ECMWF outlook rows", () => {
+    it("builds the outlook from outlookForecasts, which reach past the trimmed window", () => {
+      const outlookRows = [mockForecast, { ...mockForecast, id: "f-day-14", forecast_at: "2026-02-24T12:00Z" }];
+      render(<ForecastTab {...defaultProps} outlookForecasts={outlookRows} />);
+      expect(aggregateOutlookDays).toHaveBeenCalledWith(outlookRows, "America/Los_Angeles");
+    });
+
+    it("falls back to forecasts when no outlook rows are passed", () => {
+      render(<ForecastTab {...defaultProps} />);
+      expect(aggregateOutlookDays).toHaveBeenCalledWith(defaultProps.forecasts, "America/Los_Angeles");
+    });
+  });
 });

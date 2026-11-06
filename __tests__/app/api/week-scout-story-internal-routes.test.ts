@@ -108,4 +108,57 @@ describe("Week Scout story worker routes", () => {
     expect((await refused.json()).error).toBe("written_slot_mismatch");
     expect(mockPublish).toHaveBeenCalledTimes(3);
   });
+
+  it("publishes At a glance rewordings only under week-scout-story-3 and only for offered fingerprints", async () => {
+    const issued: StoryInput = {
+      schemaVersion: 3, region: "coast", editionDate: "2026-10-27", inputHash: "issued-hash",
+      sourcePublishedAt: "2026-10-27T12:00:00Z", validUntil: "2026-10-29T06:59:59Z",
+      briefing: { schemaVersion: 3, editionDate: "2026-10-27", generatedAt: "2026-10-27T12:00:00Z", selections: [] },
+      copyFacts: [{ id: "cover", slot: "cover", text: "A west swell approaches.", gate: {
+        kind: "swell", regionalEventKey: "6-5-2026-10-28", directionSector: 6, periodBand: 5,
+        arrivalLocalDate: "2026-10-27", peakLocalDate: "2026-10-28", fadeLocalDate: null,
+        confidence: "likely", minimumBeaches: 2,
+      } }],
+      glance: [
+        { role: "today", fingerprint: "fp-today", text: "A west groundswell peaks today." },
+        { role: "next", fingerprint: "fp-next", text: "A south swell arrives Thursday." },
+      ],
+      beachNames: { beach: "Ocean Beach" },
+      provenance: { sourceIds: ["source"], sourceHashes: ["hash"], generationInputVersion: "1",
+        representativeBeachIds: ["beach"], coverageDates: ["2026-10-27"] },
+    };
+    const artifactWith = (generationVersion: string, glance: unknown): StoryArtifact => {
+      const artifact: StoryArtifact = {
+        artifactId: "", schemaVersion: 3, region: issued.region, editionDate: issued.editionDate,
+        inputHash: issued.inputHash, sourcePublishedAt: issued.sourcePublishedAt, validUntil: issued.validUntil,
+        generationVersion, model: "local",
+        briefing: { ...issued.briefing, generatedAt: "2026-10-27T13:00:00Z", selections: ["cover"],
+          written: [{ slot: "cover", basedOn: "cover", text: "West swell, building." }], glance: glance as never },
+        provenance: issued.provenance,
+      };
+      artifact.artifactId = briefingArtifactId(artifact as unknown as Record<string, unknown>);
+      return artifact;
+    };
+    const publish = async (artifact: StoryArtifact): Promise<{ status: number; error?: string }> => {
+      const response = await editions(req("editions", "POST", artifact));
+      return { status: response.status, error: (await response.json()).error };
+    };
+    mockLoadInput.mockResolvedValue(issued);
+    mockPublish.mockResolvedValue({ artifactId: "saved", created: true });
+
+    const glance = [{ fingerprint: "fp-today", text: "The west groundswell peaks today." }];
+    expect(await publish(artifactWith("week-scout-story-3", glance))).toEqual({ status: 201 });
+    expect(mockPublish).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({
+      briefing: expect.objectContaining({ glance }) }));
+    expect(await publish(artifactWith("week-scout-story-2", glance))).toEqual({ status: 400, error: "glance_not_allowed" });
+    expect(await publish(artifactWith("week-scout-story-3", [{ fingerprint: "fp-invented", text: "Big." }])))
+      .toEqual({ status: 400, error: "glance_not_offered" });
+    expect(await publish(artifactWith("week-scout-story-3", [...glance, { fingerprint: "fp-today", text: "Again." }])))
+      .toEqual({ status: 400, error: "glance_duplicate" });
+    for (const malformed of [{ fingerprint: "fp-today" }, [null], [{ ...glance[0], extra: 1 }],
+      [{ fingerprint: "fp-today", text: "x".repeat(241) }], Array.from({ length: 7 }, () => glance[0])]) {
+      expect(await publish(artifactWith("week-scout-story-3", malformed))).toEqual({ status: 400, error: "glance_invalid" });
+    }
+    expect(mockPublish).toHaveBeenCalledTimes(1);
+  });
 });

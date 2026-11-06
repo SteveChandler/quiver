@@ -58,7 +58,9 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
   it("forwards the reviewed point only to NOAA, preserving Open-Meteo beach coordinates", async () => {
     await new NOAAWaveWatchService().fetchWaveWatchForecast(35.22, -75.63, 3, [35.17, -75.61]);
     expect(fetchNOAAPointData).toHaveBeenLastCalledWith(35.22, -75.63, [35.17, -75.61]);
-    expect(fetchOpenMeteoData).toHaveBeenLastCalledWith(35.22, -75.63, 3);
+    expect(fetchOpenMeteoData).toHaveBeenCalledWith(35.22, -75.63, 3);
+    // The ECMWF outlook is its own request at the beach coordinates.
+    expect(fetchOpenMeteoData).toHaveBeenCalledWith(35.22, -75.63, 16, expect.objectContaining({ model: "ecmwf_wam025" }));
   });
   const snapSlot = (d: Date): Date => {
     const ms = Math.round(d.getTime() / (3 * 3600000)) * (3 * 3600000);
