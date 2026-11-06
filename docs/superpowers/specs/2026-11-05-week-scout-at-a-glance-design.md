@@ -1,6 +1,6 @@
 # Week Scout "At a glance" — design (2026-11-05)
 
-Status: draft for Steven's approval. Nothing is built.
+Status: approved by Steven on 2026-11-06. Implementation plan: `docs/superpowers/plans/2026-11-06-week-scout-at-a-glance.md`.
 
 ## Intent
 
