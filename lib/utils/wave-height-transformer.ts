@@ -418,7 +418,6 @@ interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
-  calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
 }
 
@@ -470,8 +469,6 @@ export function transformToFaceHeightWithMetadata(
     return { faceHeightFt: 0, isCalibrated: false, provenance: 'generic' };
   }
 
-  let calibrationBucketQuarantined = false;
-
   // Short-circuit: empirically calibrated per-beach shoaling lookup.
   // Gated on CDIP Hs or an eligible nowcast anchor because the bucket factor
   // is measured as `surfline_face_ft / cdip_hs_ft`. Model inputs use the
@@ -479,21 +476,22 @@ export function transformToFaceHeightWithMetadata(
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
-      if (shouldQuarantineCalibratedShoalingBucket(source, periodS, bucketFactor)) {
-        calibrationBucketQuarantined = true;
-      } else {
-        // The decomposed path excludes this short-period energy entirely.
-        const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
-          ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
-          : bucketFactor;
-        const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
-        return {
-          faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * shadow * 10) / 10,
-          isCalibrated: true,
-          provenance: 'measured',
-          ...(periodCappedFactor < bucketFactor ? { shortPeriodBucketCapped: true } : {}),
-        };
-      }
+      // No direction shadow and no low-factor quarantine on this path: the
+      // bucket is the median face/Hs over the beach's own direction mix, so
+      // it already holds the beach's sheltering. Nov 2026 held-out test over
+      // 77 calibrated beaches: face MAE 0.557 ft without either, 0.658 with
+      // both (quarantine fitted to an Oregon-buoy Rincon bucket, shadow
+      // double-counting sheltering).
+      // The decomposed path excludes this short-period energy entirely.
+      const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
+        ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
+        : bucketFactor;
+      return {
+        faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * 10) / 10,
+        isCalibrated: true,
+        provenance: 'measured',
+        ...(periodCappedFactor < bucketFactor ? { shortPeriodBucketCapped: true } : {}),
+      };
     }
   }
 
@@ -519,7 +517,6 @@ export function transformToFaceHeightWithMetadata(
     faceHeightFt: Math.round(faceHeight * 10) / 10,
     isCalibrated: false,
     provenance: baseShoaling.provenance,
-    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }
 
@@ -577,8 +574,6 @@ export const SHORT_PERIOD_CUTOFF_S = 8;
 export const WIND_WAVE_FACE_HEIGHT_CUTOFF_S = 9;
 
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_PERIOD_S = 15;
-const CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S = 15;
-const CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR = 0.8;
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_ACCESS = 0.02;
 const SOUTH_SWELL_FLOOR_MIN_DIRECTION_DEG = 160;
 const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
@@ -658,53 +653,6 @@ export function alignmentFactor(
   return Math.max(cosValue * cosValue, ALIGNMENT_FLOOR);
 }
 
-/**
- * Direction-aware shadow multiplier for the CDIP calibrated short-circuit.
- *
- * The period bucket (surfline_face / cdip_hs) is direction-blind, so on the
- * CDIP path a south swell at a Point-Loma-shadowed break can read the full
- * offshore Hs. This applies a floored geometric-shadow factor, but only when
- * the incident direction is outside the beach's swell window.
- */
-export function calibratedShadowFactor(
-  swellDirectionDeg: number | null | undefined,
-  beach: BeachTerrainConfig | null | undefined,
-): number {
-  if (swellDirectionDeg == null || !Number.isFinite(swellDirectionDeg)) {
-    return 1.0;
-  }
-
-  const center = beach?.swell_window_center_deg;
-  const halfwidth = beach?.swell_window_halfwidth_deg;
-  if (
-    center == null ||
-    halfwidth == null ||
-    !Number.isFinite(center) ||
-    !Number.isFinite(halfwidth) ||
-    halfwidth <= 0
-  ) {
-    return 1.0;
-  }
-
-  const rawDelta = ((swellDirectionDeg - center) % 360 + 540) % 360 - 180;
-  const distance = Math.abs(rawDelta);
-  if (distance < halfwidth) {
-    return 1.0;
-  }
-
-  const access = beach?.swell_access_factors;
-  if (!Array.isArray(access) || access.length !== TERRAIN_BINS) {
-    return 1.0;
-  }
-
-  const rawAccess = access[toBin5(swellDirectionDeg)];
-  if (!Number.isFinite(rawAccess)) {
-    return 1.0;
-  }
-
-  const clampedAccess = Math.max(0, Math.min(1, rawAccess));
-  return DIRECTION_FACTOR_MIN + Math.sqrt(clampedAccess) * DIRECTION_FACTOR_RANGE;
-}
 
 function hasValidSwellAccessFactors(
   beach: BeachTerrainConfig | null | undefined,
@@ -762,17 +710,6 @@ function canUseCalibratedShoaling(
     (source === 'nowcast_anchor' && allowCalibratedShoaling === true);
 }
 
-function shouldQuarantineCalibratedShoalingBucket(
-  source: WaveHeightSourceTag | undefined,
-  periodS: number | null | undefined,
-  bucketFactor: number,
-): boolean {
-  return source === 'cdip_sig' &&
-    periodS != null &&
-    Number.isFinite(periodS) &&
-    periodS >= CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S &&
-    bucketFactor < CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR;
-}
 
 function shouldApplyDeepwaterDecay(
   source: WaveHeightSourceTag | undefined,
@@ -878,7 +815,6 @@ interface DecomposedFaceHeightResult {
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
   path: 'decomposed' | 'legacy';
-  calibrationBucketQuarantined?: boolean;
   shortPeriodBucketCapped?: boolean;
   /** Per-beach model_swell multiplier, present only when one was applied. */
   modelCalibrationFactor?: number;
@@ -1009,9 +945,6 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       isCalibrated: legacy.isCalibrated,
       provenance: legacy.provenance,
       path: 'legacy',
-      ...(legacy.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
-        : {}),
       ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
@@ -1026,7 +959,6 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
     : 1.0;
 
   let sumOfSquares = 0;
-  let calibrationBucketQuarantined = false;
   let calibratedBucketUsed = false;
   let populationPriorUsed = false;
   for (const component of populated) {
@@ -1059,21 +991,9 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
 
     // Only use calibrated bucket factors for CDIP sources — the buckets are
     // measured as surfline_face / cdip_hs and produce overshoot on model data.
-    const rawBucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
+    const bucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
       ? lookupShoalingBucket(component.periodS, shoalingFactors)
       : null;
-    const bucketFactor =
-      rawBucketFactor != null &&
-      shouldQuarantineCalibratedShoalingBucket(
-        source,
-        component.periodS,
-        rawBucketFactor,
-      )
-        ? null
-        : rawBucketFactor;
-    if (rawBucketFactor != null && bucketFactor == null) {
-      calibrationBucketQuarantined = true;
-    }
     if (bucketFactor != null) {
       calibratedBucketUsed = true;
     }
@@ -1111,9 +1031,6 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       isCalibrated: legacy.isCalibrated,
       provenance: legacy.provenance,
       path: 'legacy',
-      ...(legacy.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
-        : {}),
       ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
@@ -1130,6 +1047,5 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
         ? POPULATION_PRIOR_PROVENANCE
         : 'generic',
     path: 'decomposed',
-    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }

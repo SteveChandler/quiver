@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **Calibrated buoy readings are applied as fitted: no low-factor quarantine, no second direction shadow** (`lib/utils/wave-height-transformer.ts`, `lib/utils/wave-formatters.ts`, `lib/services/forecast/forecast-builder.ts`, `lib/utils/model-swell-calibration-factors.ts`).
+  - Before: on the CDIP calibrated path, a bucket below 0.8 at Tp of 15 s or more was ignored and the reading took the generic path. That rule was added Jul 8 for a Rincon bucket fitted against the Oregon buoy "179". The reading was also scaled by `calibratedShadowFactor` whenever the buoy direction fell outside the beach's window. The buckets are the median face/Hs over each beach's own direction mix, so they already hold its sheltering, and the shadow counted it twice.
+  - Now: face = buoy Hs x period bucket (with the short-period cap), nothing else. The quarantine is gone from the decomposed path too, and `calibratedShadowFactor` is deleted. `calibration_bucket_quarantined` is no longer written to provenance.
+  - Evidence: a held-out test over 77 calibrated beaches on 8 live buoys (64 independent truths; buckets refit on half the months, scored on the other half through the real transform):
+    - Face MAE fell from 0.658 to 0.557 ft on the odd/even split (-0.101, CI -0.111 to -0.091) and from 0.689 to 0.594 on the Apr-Sep vs Oct-Mar split.
+    - The change wins in 42 truth groups and loses in 3.
+    - Hours where the shadow fired went from 0.85 ft low to 0.05 ft low. Ocean Beach / OB Pier went from 1.12 / 0.91 ft to 0.55 ft. Rincon went from 0.88 to 0.45 ft and Solimar from 0.98 to 0.28 ft.
+    - Removing only the quarantine was worse at 6 Point Loma and Sunset Cliffs beaches. A shadow-aware refit lost to this change by 0.03 ft.
+  - Model-swell factors are refit with the new buoy path (30 days, same script). They move where the shadow or quarantine used to fire (Avalanche 1.25 to 1.85, Mission Beach Central 1.08 to 1.59, Ocean Beach 1.18 to 1.68, Luscombs 0.90 to 1.42). The beaches reassigned Nov 5-6 get factors too. Shoaling regression gates A-D, F and G pass.
+  - Caveats: the truth is archived face heights for mostly Southern California beaches; the 1.8x outlier rule and the 10 ft cap were not part of the held-out test; and every option still under-reads big days by about 0.8 ft.
 - **A calibrated beach no longer shows another buoy through its own calibration, and it rides out short outages of its own buoy** (`lib/services/enhanced-forecast-service.ts`, `lib/services/forecast/forecast-builder.ts`, `lib/services/cdip/calibration-station.ts`, `lib/services/cdip/stored-readings.ts`, `lib/config/forecast-staleness.ts`, `lib/constants/cdip-stations.ts`).
   - Before: when a calibrated beach's buoy returned 400/404 or no rows, the forecast failed over to the nearest other buoy and kept the beach's buckets, which were fitted to the dead buoy. Andrew Molera showed 8.8 ft from a buoy ~200 km away. And a reading older than 4 h was dropped even though it stays useful for most of a day.
   - Now:
