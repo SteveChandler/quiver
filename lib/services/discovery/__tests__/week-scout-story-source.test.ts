@@ -2,6 +2,10 @@ jest.mock("../week-scout-story-candidates", () => {
   const actual = jest.requireActual("../week-scout-story-candidates");
   return { ...actual, buildStoryCandidates: jest.fn(actual.buildStoryCandidates) };
 });
+jest.mock("../week-scout-glance", () => {
+  const actual = jest.requireActual("../week-scout-glance");
+  return { ...actual, glanceFromBuild: jest.fn(actual.glanceFromBuild) };
+});
 const mockActiveRegions = jest.fn();
 const mockLatestInput = jest.fn();
 const mockSaveInput = jest.fn();
@@ -213,6 +217,23 @@ describe("regional story source snapshot", () => {
     const code = glanceFromBuild(regionBuild([ssw, storm]), "2026-10-27", true, now);
     expect(code.length).toBeGreaterThan(0);
     expect(issued.glance).toEqual(code.map(({ role, fingerprint, text }) => ({ role, fingerprint, text })));
+  });
+
+  it("builds the input without the At a glance offer when the glance throws", async () => {
+    const plain = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      jest.mocked(glanceFromBuild).mockImplementationOnce(() => { throw new Error("bad group"); });
+      const issued = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+      expect(warn).toHaveBeenCalledWith("[week-scout-story] glance offer failed", { region: "San Diego", error: "Error: bad group" });
+      expect(issued).not.toHaveProperty("glance");
+      expect(issued.copyFacts).toEqual(plain.copyFacts);
+      // The offer leaves the source hash too, so the input is not mistaken for one that carried it.
+      expect(issued.provenance.sourceHashes[0]).not.toBe(plain.provenance.sourceHashes[0]);
+      expect(issued.inputHash).not.toBe(plain.inputHash);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("hashes the mapped events, not the raw build: a WAM early look changes only the At a glance offer", async () => {
