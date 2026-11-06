@@ -456,9 +456,7 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
     }
     let glance: StoryGlance | null = null;
     try {
-      // The gate context's facts, cached per build, so the glance reads no event's rows a second time.
-      glance = build ? bindGlance(glanceFromBuild(build, editionDate, todayCovered(live, editionDate), now,
-        (event) => regional.context.eventFacts(storyEventKey(event))),
+      glance = build ? bindGlance(glanceFromBuild(build, editionDate, todayCovered(live, editionDate), now),
         writtenGlance(edition, editionDate, now), build.beaches.map((beach) => beach.name), region) : null;
     } catch (error) {
       console.warn("[week-scout-story] glance failed", { region, error: String(error) });

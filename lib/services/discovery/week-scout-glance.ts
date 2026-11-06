@@ -214,8 +214,7 @@ export function buildGlance(args: {
 }
 
 /** The glance from a region build: its stored forecast events, its early-look tail, and each event's facts from its rows. */
-export function glanceFromBuild(build: RegionBuild, today: string, todayCovered: boolean, now: Date,
-  factsFor?: (event: RegionalSwellEvent) => CandidateFacts | null): GlanceSentence[] {
+export function glanceFromBuild(build: RegionBuild, today: string, todayCovered: boolean, now: Date): GlanceSentence[] {
   // Grouping sorts on facts, so each event's facts are read from the build's rows once.
   const facts = new Map<RegionalSwellEvent, CandidateFacts | null>();
   return buildGlance({
@@ -225,9 +224,9 @@ export function glanceFromBuild(build: RegionBuild, today: string, todayCovered:
     today,
     todayCovered,
     now,
-    factsFor: factsFor ?? ((event) => {
+    factsFor: (event) => {
       if (!facts.has(event)) facts.set(event, eventFactsFromBuild(build, event));
       return facts.get(event) ?? null;
-    }),
+    },
   });
 }
