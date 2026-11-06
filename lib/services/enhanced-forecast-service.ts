@@ -278,6 +278,7 @@ export class EnhancedForecastService {
         beach.lon ?? 0,
         FORECAST_CONSTANTS.DAYS,
         getReviewedNwsPoint(beach.preference_model, beach.lat ?? 0, beach.lon ?? 0),
+        beach.aspect_deg,
       )
     );
     if (!result) {
