@@ -36,6 +36,27 @@ describe("conditions reports are not surf sessions migration", () => {
     expect(fn).toContain(`and deleted_at is null and ${exclusion}`);
   });
 
+  it("drops reports from the most-visited beach and keeps it SECURITY INVOKER", () => {
+    const fn = section("create or replace function public.get_most_visited_beach", "$$;");
+    expect(fn).toContain("security invoker");
+    expect(fn).not.toContain("security definer");
+    expect(fn).toContain(`and s.deleted_at is null and s.${exclusion}`);
+  });
+
+  it("keeps prod's search_path on the two profile-card functions", () => {
+    for (const name of ["get_profile_stats", "get_most_visited_beach"]) {
+      const fn = section(`create or replace function public.${name}`, "$$;");
+      expect(fn).toContain("set search_path = public, extensions, pg_temp");
+    }
+    const streaks = section("create or replace function public.get_user_streaks", "$$;");
+    expect(streaks).toContain("security definer set search_path = public as");
+  });
+
+  it("does not re-grant the profile-card functions", () => {
+    expect(normalized).not.toMatch(/grant [^;]*get_profile_stats/);
+    expect(normalized).not.toMatch(/grant [^;]*get_most_visited_beach/);
+  });
+
   it("drops reports from the weekly session streak and keeps the self-read guard", () => {
     const fn = section("create or replace function public.get_user_streaks", "$$;");
     const weeks = fn.slice(fn.indexOf("with weeks as"), fn.indexOf("islands as"));

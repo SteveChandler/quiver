@@ -1,13 +1,18 @@
 -- A conditions report writes a hidden session (source = 'conditions_report', duration 0,
 -- is_public = true) so approved report videos satisfy the public session_media RLS arm.
--- It is not a surf: keep it out of the public feed, profile totals and the weekly streak.
+-- It is not a surf: keep it out of the public feed, profile totals, most-visited beach and the
+-- weekly streak.
 -- is_public stays as-is because report-video RLS depends on it.
 --
 -- Each object is recreated from its latest definition with only the source filter added:
 --   public_session_feed_eligibility  20260709123000_public_session_feed_eligibility.sql
 --   get_profile_stats                20260313033921_add_get_profile_stats_rpc.sql, made SECURITY
 --                                    INVOKER by 20260521120000 and 20261020233000 (kept here)
+--   get_most_visited_beach           20260313033921_add_get_profile_stats_rpc.sql, made SECURITY
+--                                    INVOKER by 20260521120000 and 20261020233000 (kept here)
 --   get_user_streaks                 20260622032237_create_daily_calls_and_daily_streak.sql
+-- get_profile_stats and get_most_visited_beach keep prod's search_path (public, extensions,
+-- pg_temp, checked read-only 2026-11-05); the migration files still say public only.
 -- CREATE OR REPLACE keeps existing grants and comments; the view's columns are unchanged.
 BEGIN;
 
@@ -72,7 +77,7 @@ CREATE OR REPLACE FUNCTION public.get_profile_stats(p_user_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path = public
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
   result JSON;
@@ -109,6 +114,29 @@ BEGIN
     AND source IS DISTINCT FROM 'conditions_report';
 
   RETURN result;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_most_visited_beach(user_id UUID)
+RETURNS TABLE(beach_id UUID, visit_count BIGINT, beach_name TEXT)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, extensions, pg_temp
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    s.beach_id,
+    COUNT(s.id)::BIGINT AS visit_count,
+    b.name              AS beach_name
+  FROM sessions s
+  JOIN beaches b ON b.id = s.beach_id
+  WHERE s.user_id = get_most_visited_beach.user_id
+    AND s.deleted_at IS NULL
+    AND s.source IS DISTINCT FROM 'conditions_report'
+  GROUP BY s.beach_id, b.name
+  ORDER BY visit_count DESC
+  LIMIT 1;
 END;
 $$;
 
