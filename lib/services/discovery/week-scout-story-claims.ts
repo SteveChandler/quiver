@@ -521,7 +521,7 @@ function inOrder(sentence: readonly string[], fact: readonly string[]): boolean 
  * abbreviations and Capitalised or ALL-CAPS weekday abbreviations count as the full word. `regionNames`
  * are the names a fact may carry for its region (the cover's "reaches North Shore").
  */
-export function checkWrittenSentence(text: string, fact: StoryCandidate, beachNames: readonly string[],
+export function checkWrittenSentence(text: string, fact: Pick<StoryCandidate, "text" | "facts">, beachNames: readonly string[],
   regionNames: readonly string[] = []): WrittenSentenceCheck {
   const refuse = (reason: WrittenSentenceRefusal): WrittenSentenceCheck => ({ ok: false, reason });
   if (typeof text !== "string" || text.trim().length === 0) return refuse("empty");

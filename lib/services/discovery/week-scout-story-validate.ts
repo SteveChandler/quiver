@@ -1,6 +1,6 @@
 import { canonicalJson } from "./swell-briefing-hash";
 import type { StoryArtifact, StoryInput } from "./week-scout-story-types";
-import { WEEK_SCOUT_STORY_GENERATION_VERSIONS } from "./week-scout-story-types";
+import { GLANCE_GENERATION_VERSION, WEEK_SCOUT_STORY_GENERATION_VERSIONS, WRITTEN_GENERATION_VERSIONS } from "./week-scout-story-types";
 
 export class StoryValidationError extends Error {
   constructor(code: string, readonly status = 400) { super(code); this.name = "StoryValidationError"; }
@@ -10,6 +10,8 @@ export class StoryValidationError extends Error {
 const MAX_SELECTIONS = 200;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
 const MAX_WRITTEN_LENGTH = 240;
+/** The glance module's cap, restated so the publish route pulls in no forecast code; a test keeps the two equal. */
+export const MAX_GLANCE_SENTENCES = 6;
 
 /**
  * A written sentence's shape only: one per selected candidate's slot, at most 240 characters. Its
@@ -30,6 +32,23 @@ function assertWrittenShape(written: unknown, selected: StoryInput["copyFacts"])
     if (fact.slot !== slot) throw new StoryValidationError("written_slot_mismatch");
     if (slots.has(slot)) throw new StoryValidationError("written_duplicate_slot");
     slots.add(slot);
+  }
+}
+
+/** At a glance rewordings: at most one per offered sentence, keyed by its fingerprint. Claims and wording are checked when served. */
+function assertGlanceShape(glance: unknown, offered: StoryInput["glance"]): void {
+  if (!Array.isArray(glance) || glance.length > MAX_GLANCE_SENTENCES) throw new StoryValidationError("glance_invalid");
+  const fingerprints = new Set<string>();
+  for (const entry of glance) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new StoryValidationError("glance_invalid");
+    const { fingerprint, text, ...rest } = entry as Record<string, unknown>;
+    if (Object.keys(rest).length > 0 || typeof fingerprint !== "string" || typeof text !== "string"
+      || text.length > MAX_WRITTEN_LENGTH) throw new StoryValidationError("glance_invalid");
+  }
+  for (const { fingerprint } of glance as Array<{ fingerprint: string }>) {
+    if (!offered?.some((sentence) => sentence.fingerprint === fingerprint)) throw new StoryValidationError("glance_not_offered");
+    if (fingerprints.has(fingerprint)) throw new StoryValidationError("glance_duplicate");
+    fingerprints.add(fingerprint);
   }
 }
 
@@ -74,10 +93,14 @@ export function assertStoryArtifactMatchesInput(artifact: StoryArtifact, input: 
       throw new StoryValidationError("required_slot_missing");
     }
   }
-  const { written, ...briefing } = artifact.briefing;
+  const { written, glance, ...briefing } = artifact.briefing;
   if (written !== undefined) {
-    if (artifact.generationVersion !== "week-scout-story-2") throw new StoryValidationError("written_not_allowed");
+    if (!WRITTEN_GENERATION_VERSIONS.has(artifact.generationVersion)) throw new StoryValidationError("written_not_allowed");
     assertWrittenShape(written, selected);
+  }
+  if (glance !== undefined) {
+    if (artifact.generationVersion !== GLANCE_GENERATION_VERSION) throw new StoryValidationError("glance_not_allowed");
+    assertGlanceShape(glance, input.glance);
   }
   if (canonicalJson(briefing) !== canonicalJson({
     ...input.briefing, generatedAt: artifact.briefing.generatedAt, selections: ids,

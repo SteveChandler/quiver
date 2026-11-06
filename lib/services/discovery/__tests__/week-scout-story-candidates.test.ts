@@ -1,14 +1,14 @@
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { addDays } from "../local-date";
 import {
-  beachLine, sizePhrase, windTimingPhrase, beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion, swellChapterPhases,
+  addSwellHeadlines, beachLine, sizePhrase, windTimingPhrase, beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion, swellChapterPhases,
   type BeachLineFacts, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import { sizeWordsFor, type CandidateFacts, type WindHour } from "../week-scout-story-facts";
 import { CLOSED_WORD_SETS } from "../week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds } from "../week-scout-story-region-gate";
 import { assertStoryArtifactMatchesInput } from "../week-scout-story-validate";
-import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryInput } from "../week-scout-story-types";
+import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryInput } from "../week-scout-story-types";
 
 const start = "2026-10-27";
 const days = (height: number | null = 1): RegionalDaySignal[] => Array.from({ length: 7 }, (_, index) => ({
@@ -216,6 +216,27 @@ describe("regional Week Scout story candidates", () => {
       .toBe("The long-period groundswell is already in the water and peaks Monday before easing Tuesday.");
   });
 
+  it("says 'arrives and peaks' on the cover and lead when a swell lands and peaks the same day", () => {
+    const sameDay = { ...event(), arrivalAt: "2026-11-01T15:00:00Z", peakAt: "2026-11-01T20:00:00Z" };
+    const candidates = buildStoryCandidates(days(3), "San Diego", [sameDay]);
+    const headlines = candidates.filter((item) => item.slot === "cover" || item.slot === "story:lead");
+    expect(headlines.map((item) => item.text)).not.toContainEqual(
+      expect.stringMatching(/from (\w+) into \1|(\w+) starts .* toward a \2 peak|by (\w+), with the most swell \3/));
+    expect(candidates.find((item) => item.slot === "cover")?.text)
+      .toBe("A long-period groundswell from the south-southwest reaches San Diego and peaks Sunday.");
+    expect(candidates.find((item) => item.slot === "story:lead")?.text).toBe("The south-southwest pulse arrives and peaks Sunday.");
+    expect(headlines.some((item) => item.id.includes("pulse-alt"))).toBe(false);
+
+    const noRegion: StoryCandidate[] = [];
+    const gate = candidates.find((item) => item.slot === "cover")!.gate;
+    addSwellHeadlines(noRegion, { key: "k", kind: "swell", directionIndex: 9, periodS: 13.4, arrivalDate: "2026-11-01", peakDate: "2026-11-01" },
+      null, start, addDays(start, 6), gate);
+    expect(noRegion.map((item) => item.text)).toEqual([
+      "A long-period groundswell from the south-southwest arrives and peaks Sunday.",
+      "The south-southwest pulse arrives and peaks Sunday.",
+    ]);
+  });
+
   it("writes no turn line whose peak and fade read the same word", () => {
     // The window runs 2026-10-27 to 2026-11-02, so a peak Thursday 2026-11-05 and a fade 2026-11-08 both read "next week".
     const turns = (peakAt: string, fadeAt: string) => buildStoryCandidates(days(3), "San Diego", [{ ...event(),
@@ -231,7 +252,8 @@ describe("regional Week Scout story candidates", () => {
     const facts = buildStoryCandidates(days(3), "San Diego", [event(), spike]);
     expect(new Set(facts.map((fact) => fact.id)).size).toBe(facts.length);
     expect(facts.filter((fact) => fact.slot === "cover").map((fact) => fact.id)).toEqual([
-      "cover-pulse-6-6-2026-10-27", "cover-pulse-alt-6-6-2026-10-27",
+      // The spike arrives and peaks Tuesday, so it gets no alt cover.
+      "cover-pulse-6-6-2026-10-27",
       "cover-pulse-4-4-2026-11-01", "cover-pulse-alt-4-4-2026-11-01"]);
     for (const fact of facts.filter((item) => item.slot === "cover" || item.slot === "story:lead")) {
       expect(fact.gate).toMatchObject({ kind: "swell", fadeLocalDate: null });
@@ -353,7 +375,7 @@ describe("story artifact candidate validation", () => {
     expect(() => assertStoryArtifactMatchesInput(picked(201), wide, now)).toThrow("selections_invalid");
   });
 
-  it("accepts written with week-scout-story-2 and rejects it with -1", () => {
+  it("accepts written with week-scout-story-2 and -3 and rejects it with -1", () => {
     const withWritten = (version: string, written: unknown): StoryArtifact => {
       const value = artifact();
       value.generationVersion = version;
@@ -373,7 +395,9 @@ describe("story artifact candidate validation", () => {
     const plain = artifact(); plain.generationVersion = "week-scout-story-2";
     expect(() => assertStoryArtifactMatchesInput(plain, input, now)).not.toThrow();
     expect(refusal("week-scout-story-1", lines)).toBe("written_not_allowed");
-    expect(refusal("week-scout-story-3", lines)).toBe("generation_version_unsupported");
+    // -3 is a superset of -2: it keeps the written lines.
+    expect(refusal("week-scout-story-3", lines)).toBe("accepted");
+    expect(refusal("week-scout-story-4", lines)).toBe("generation_version_unsupported");
     expect(refusal("week-scout-story-2", null)).toBe("written_invalid");
     expect(refusal("week-scout-story-2", [{ ...lines[0], text: 7 }])).toBe("written_invalid");
     expect(refusal("week-scout-story-2", [{ ...lines[0], tone: "hype" }])).toBe("written_invalid");

@@ -81,7 +81,7 @@ export function ratingWindow(event: EventTimes): { startMs: number; endMs: numbe
 }
 
 /** Still in the water: before its fade, or without one, within 12 h of its peak. */
-function isEventCurrent(event: EventTimes, now: Date): boolean {
+export function isEventCurrent(event: EventTimes, now: Date): boolean {
   const endMs = event.fadeAt ? Date.parse(event.fadeAt) : Date.parse(event.peakAt) + CURRENT_AFTER_PEAK_MS;
   return now.getTime() < endMs;
 }
