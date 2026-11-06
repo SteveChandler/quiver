@@ -149,6 +149,14 @@ describe("buildGlance", () => {
     expect(glance.map((s) => s.text)).toEqual(["A west groundswell is still in the water, chest-high at most spots, easing by tomorrow."]);
   });
 
+  it("says no ease when the swell fades on the day it peaks", () => {
+    // Peaks 10:00 and fades 20:00 PST tomorrow: never "peaks tomorrow, easing by tomorrow".
+    const sameDay = event("w-same", 270, "2026-11-05T14:00:00Z", "2026-11-06T18:00:00Z", "2026-11-07T04:00:00Z");
+    const glance = buildGlance({ stored: [sameDay], tail: [], timezone, today, now, todayCovered: true, factsFor: chest });
+    expect(glance.map((s) => s.text)).toEqual(["A west groundswell is already in the water and peaks tomorrow, chest-high at most spots."]);
+    expect(checkWrittenSentence(glance[0].text, { text: glance[0].text, facts: glance[0].facts ?? undefined }, [], ["San Diego"])).toEqual({ ok: true });
+  });
+
   it("leaves out a swell that faded earlier today, as the Swell Watch does", () => {
     // Fades 06:00 PST; at 14:00 PST it is still on today's strip but no longer in the water.
     const gone = event("w-gone", 270, "2026-11-04T08:00:00Z", "2026-11-04T20:00:00Z", "2026-11-05T14:00:00Z");

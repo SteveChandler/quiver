@@ -95,7 +95,9 @@ function nextText(groups: readonly GlanceGroup[], first: string, today: string):
 
 function todayText(groups: readonly GlanceGroup[], first: string, today: string): string {
   const fade = laterFade(groups);
-  const ease = fade && fade > today ? `, easing by ${glanceDay(fade, today)}` : "";
+  // A fade on the peak day goes unsaid, or a swell would peak and ease the same day.
+  const latestPeak = groups.reduce((late, group) => group.peakDate > late ? group.peakDate : late, today);
+  const ease = fade && fade > latestPeak ? `, easing by ${glanceDay(fade, today)}` : "";
   const [lead, follow] = groups;
   const size = groupSize(lead);
   if (follow) return `${capitalise(first)} and ${nounPhrase(follow)} both peak today${withSize(size)}${ease}.`;

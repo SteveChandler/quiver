@@ -707,8 +707,9 @@ describe("deterministic fallback and live gates", () => {
 
     it("serves a -3 edition's rewording of a sentence whose fingerprint still matches", async () => {
       const code = glanceFromBuild(regionBuild([west]), "2026-07-15", false, now);
-      expect(code[0].text).toBe("A west groundswell is already in the water and peaks tomorrow, easing by tomorrow.");
-      const reworded = "Already in the water, a west groundswell peaks tomorrow, easing by tomorrow.";
+      // It fades the day it peaks, so the sentence names no ease.
+      expect(code[0].text).toBe("A west groundswell is already in the water and peaks tomorrow.");
+      const reworded = "Already in the water, a west groundswell peaks tomorrow.";
       const issued: StoryInput = { ...input(), glance: code.map(({ role, fingerprint, text }) => ({ role, fingerprint, text })) };
       const glance = [{ fingerprint: code[0].fingerprint, text: reworded }];
       mockLoadInput.mockResolvedValue(issued);
