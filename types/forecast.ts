@@ -446,6 +446,8 @@ export interface CDIPBuoyData {
   data: CDIPDataPoint[];
   dataSource: "CDIP";
   lastUpdated: string;
+  /** "stored" = read from ioos_observations / ndbc_direct_observations after the live fetch failed or lagged. */
+  readingSource?: "live" | "stored";
 }
 
 export interface CDIPMetaResponse {
@@ -494,6 +496,8 @@ export interface CDIPStationConfig {
    * never picked as a nearest-station fallback or failover target.
    */
   fallbackEligible?: boolean;
+  /** The same physical buoy in ndbc_direct_observations, an ingest path independent of CDIP ERDDAP. */
+  ndbcTwinId?: string;
 }
 
 // Tide Chart Types - see components/forecast/tide-chart-recharts.tsx for TidePoint and TideChartProps

@@ -23,7 +23,10 @@ import {
   resolveCdipNowcastPoint,
 } from "@/lib/services/forecast/forecast-builder";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
-import { CDIP_NOWCAST_HORIZON_HOURS } from "@/lib/config/forecast-staleness";
+import {
+  CALIBRATED_CDIP_HOLD_HOURS,
+  CDIP_NOWCAST_HORIZON_HOURS,
+} from "@/lib/config/forecast-staleness";
 import type { Beach } from "@/types/database";
 import { MODEL_SWELL_CALIBRATION_FACTORS } from "@/lib/utils/model-swell-calibration-factors";
 
@@ -808,8 +811,9 @@ describe("ForecastBuilder CDIP height semantics", () => {
   test("calibrated beach logs a coverage gap when later slots lose calibrated shoaling", async () => {
     const builder = makeBuilder();
     const consoleWarnSpy = jest.spyOn(console, "warn");
+    // Older than the calibrated hold, so the nowcast slots lose the buoy.
     const staleCdipIso = new Date(
-      Date.parse(FROZEN_NOW_ISO) - 6 * 3_600_000,
+      Date.parse(FROZEN_NOW_ISO) - (CALIBRATED_CDIP_HOLD_HOURS + 1) * 3_600_000,
     ).toISOString();
 
     await builder.buildForecasts({
@@ -918,5 +922,87 @@ describe("ForecastBuilder CDIP height semantics", () => {
       consoleInfoSpy.mockRestore();
       consoleLogSpy.mockRestore();
     }
+  });
+});
+
+describe("ForecastBuilder calibrated-buoy guard and hold", () => {
+  afterEach(() => {
+    expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
+
+  const withReference = (reference: string) => ({
+    ...CALIBRATED_SHOALING,
+    calibration: { reference_buoy: reference },
+  });
+
+  async function build(
+    shoaling: object | null,
+    cdipData: ReturnType<typeof makeCdipBuoyData>,
+  ) {
+    return makeBuilder().buildForecasts({
+      beach: makeBeach({ shoaling_factors: shoaling as unknown as Beach["shoaling_factors"] }),
+      waveData: makeWaveData(FROZEN_NOW_ISO),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: cdipData as never,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+  }
+
+  function readingAged(hours: number) {
+    const iso = new Date(Date.parse(FROZEN_NOW_ISO) - hours * 3_600_000).toISOString();
+    return makeCdipBuoyData(iso, 2.0);
+  }
+
+  test("buckets apply to the buoy they were fitted on", async () => {
+    const forecasts = await build(withReference("CDIP 220"), makeCdipBuoyData(FROZEN_NOW_ISO, 2.0));
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(forecasts[0].raw_forecast?.wave_height_provenance).toEqual(
+      expect.objectContaining({ source: "cdip_sig", calibrated_shoaling_fired: true, station_id: "220" }),
+    );
+    expect(extractFt(forecasts[0].wave_height)).toBeCloseTo(4.0, 1);
+  });
+
+  test("another buoy's reading takes the uncalibrated path, not the beach's buckets", async () => {
+    const forecasts = await build(withReference("CDIP 155"), makeCdipBuoyData(FROZEN_NOW_ISO, 2.0));
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(forecasts[0].raw_forecast?.wave_height_provenance).toEqual(
+      expect.objectContaining({ source: "cdip_sig", calibrated_shoaling_fired: false, station_id: "220" }),
+    );
+    expect(extractFt(forecasts[0].wave_height)).toBeLessThan(4.0);
+  });
+
+  test("a calibrated beach holds its own buoy's 8 h old reading", async () => {
+    const forecasts = await build(withReference("CDIP 220"), readingAged(8));
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(forecasts[0].data_source).toBe("CDIP");
+    expect(forecasts[0].raw_forecast?.wave_height_provenance).toEqual(
+      expect.objectContaining({ calibrated_shoaling_fired: true }),
+    );
+  });
+
+  test("the hold ends after CALIBRATED_CDIP_HOLD_HOURS", async () => {
+    const forecasts = await build(
+      withReference("CDIP 220"),
+      readingAged(CALIBRATED_CDIP_HOLD_HOURS + 1),
+    );
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(forecasts[0].data_source).not.toBe("CDIP");
+  });
+
+  test.each([
+    ["an uncalibrated beach", null],
+    ["a beach calibrated on another buoy", withReference("CDIP 155")],
+  ])("%s keeps the 4 h limit", async (_label, shoaling) => {
+    const forecasts = await build(shoaling, readingAged(8));
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(forecasts[0].data_source).not.toBe("CDIP");
   });
 });
