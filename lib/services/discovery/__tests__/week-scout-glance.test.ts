@@ -1,7 +1,7 @@
 import type { RegionalSwellEvent } from "../week-scout-story-candidates";
 import { sizeWordsFor, type CandidateFacts, type FaceRange } from "../week-scout-story-facts";
 import { checkWrittenSentence } from "../week-scout-story-claims";
-import { buildGlance, glanceDay, MAX_NEXT_GROUPS } from "../week-scout-glance";
+import { buildGlance, glanceDay, MAX_GLANCE_SENTENCES, MAX_NEXT_GROUPS } from "../week-scout-glance";
 import { glanceSanDiego, glanceSanDiegoSentences as S } from "./fixtures/glance-san-diego-2026-11-05";
 
 const { today, timezone, stored, factsFor } = glanceSanDiego;
@@ -17,6 +17,7 @@ const sized = (faceFt: FaceRange, standoutFt?: FaceRange): CandidateFacts => ({
 });
 
 const chest = (): CandidateFacts => sized({ min: 3, max: 5 });
+const lockedPairFacts = (e: RegionalSwellEvent): CandidateFacts => e.regionalKey === "w-one" ? chest() : sized({ min: 5, max: 6 });
 
 const tail = [{ key: "tail", directionDeg: 292, arrivalAt: null, peakAt: "2026-11-18T18:00:00Z", fadeAt: null }];
 
@@ -63,6 +64,8 @@ describe("buildGlance", () => {
       [[event("w-radar", 270, "2026-11-15T20:00:00Z", "2026-11-16T20:00:00Z", null, "on_the_radar"),
         event("s-radar", 180, "2026-11-16T20:00:00Z", "2026-11-17T20:00:00Z", null, "on_the_radar")], chest],
       [[event("w-far", 270, "2026-11-18T20:00:00Z", "2026-11-19T20:00:00Z", null, "likely")], chest],
+      [[event("w-one", 270, "2026-11-07T20:00:00Z", "2026-11-08T20:00:00Z", null),
+        event("s-two", 180, "2026-11-09T16:00:00Z", "2026-11-09T20:00:00Z", null)], lockedPairFacts],
     ];
     const texts: string[] = [];
     for (const [events, facts] of shapes) {
@@ -81,6 +84,8 @@ describe("buildGlance", () => {
       "A week from Monday brings an early look at a west groundswell with a south groundswell behind it, chest-high at most spots.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
       "The week after next looks likely to bring a west groundswell, chest-high at most spots.",
+      "A west groundswell arrives Saturday and peaks Sunday, chest-high at most spots, then a south groundswell follows Monday.",
+      "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
     ]);
   });
 
@@ -163,14 +168,43 @@ describe("buildGlance", () => {
     expect(glance.map((s) => s.text)).toEqual(["A week from Monday brings an early look at a west groundswell, chest-high at most spots."]);
   });
 
-  it("gives a locked pair of different sizes a clause each", () => {
-    const first = event("w-one", 270, "2026-11-07T20:00:00Z", "2026-11-08T20:00:00Z", null);
-    const second = event("s-two", 180, "2026-11-09T16:00:00Z", "2026-11-09T20:00:00Z", null);
-    const glance = buildGlance({ stored: [first, second], tail: [], timezone, today, todayCovered: false,
-      factsFor: (e) => e.regionalKey === "w-one" ? chest() : sized({ min: 5, max: 6 }) });
-    expect(glance.map((s) => s.text)).toEqual([
-      "A west groundswell arrives Saturday and peaks Sunday, chest-high at most spots, then a south groundswell follows Monday, head-high at most spots.",
-    ]);
+  describe("a locked pair of different sizes", () => {
+    const pair = [event("w-one", 270, "2026-11-07T20:00:00Z", "2026-11-08T20:00:00Z", null),
+      event("s-two", 180, "2026-11-09T16:00:00Z", "2026-11-09T20:00:00Z", null)];
+
+    it("states only the lead's size", () => {
+      const glance = buildGlance({ stored: pair, tail: [], timezone, today, todayCovered: false, factsFor: lockedPairFacts });
+      expect(glance.map((s) => s.text)).toEqual([
+        "A west groundswell arrives Saturday and peaks Sunday, chest-high at most spots, then a south groundswell follows Monday.",
+      ]);
+    });
+
+    it("states no size when the lead has none", () => {
+      const glance = buildGlance({ stored: pair, tail: [], timezone, today, todayCovered: false,
+        factsFor: (e) => e.regionalKey === "w-one" ? null : sized({ min: 5, max: 6 }) });
+      expect(glance.map((s) => s.text)).toEqual([
+        "A west groundswell arrives Saturday and peaks Sunday, then a south groundswell follows Monday.",
+      ]);
+      expect(glance[0].facts).toBeNull();
+    });
+  });
+
+  it("stops at six sentences and drops the long range", () => {
+    const sizes: Record<string, CandidateFacts> = {
+      "w-t": sized({ min: 1, max: 2 }), "s-t": sized({ min: 3, max: 5 }), "n-t": sized({ min: 5, max: 6 }),
+    };
+    const inWater = [
+      event("w-t", 270, "2026-11-04T16:00:00Z", "2026-11-05T16:00:00Z", "2026-11-06T16:00:00Z"),
+      event("s-t", 180, "2026-11-04T16:00:00Z", "2026-11-05T18:00:00Z", "2026-11-06T18:00:00Z"),
+      event("n-t", 0, "2026-11-04T16:00:00Z", "2026-11-05T20:00:00Z", "2026-11-06T20:00:00Z"),
+    ];
+    // Peaks two days apart, so no two next groups share a sentence.
+    const ahead = ["2026-11-07", "2026-11-09", "2026-11-11", "2026-11-13"].map((day, index) =>
+      event(`next-${index}`, 270, `${day}T04:00:00Z`, `${day}T20:00:00Z`, null));
+    const glance = buildGlance({ stored: [...inWater, ...ahead], tail, timezone, today, todayCovered: true, factsFor: (e) => sizes[e.regionalKey] ?? chest() });
+    expect(glance).toHaveLength(MAX_GLANCE_SENTENCES);
+    expect(glance.map((s) => s.role)).toEqual(["today", "today", "today", "next", "next", "next"]);
+    expect(glance.flatMap((s) => s.eventKeys)).not.toContain("next-3");
   });
 
   describe("fingerprints ignore size", () => {

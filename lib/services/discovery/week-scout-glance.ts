@@ -87,10 +87,10 @@ function nextText(groups: readonly GlanceGroup[], first: string, today: string):
   }
   const opening = `${capitalise(first)} ${nextArrival(lead, today)}`;
   if (!follow) return `${opening}${withSize(size)}.`;
-  const followSize = groupSize(follow);
   const then = `then ${nounPhrase(follow)} follows ${glanceDay(follow.peakDate, today)}`;
-  if (size && size === followSize) return `${opening}, ${then}, both ${size}.`;
-  return `${opening}${withSize(size)}, ${then}${withSize(followSize)}.`;
+  if (size && size === groupSize(follow)) return `${opening}, ${then}, both ${size}.`;
+  // Only the lead's size: the sentence's facts are the lead's, so a second size would fail the claim check.
+  return `${opening}${withSize(size)}, ${then}.`;
 }
 
 function todayText(groups: readonly GlanceGroup[], first: string, today: string): string {
@@ -114,6 +114,7 @@ function pairsNext(a: GlanceGroup, b: GlanceGroup): boolean {
 
 export function buildGlance(args: {
   stored: readonly RegionalSwellEvent[];
+  /** In peak order, as `build.events` is: the first qualifying event is the earliest. */
   tail: readonly TailEvent[];
   timezone: string; today: string; todayCovered: boolean;
   factsFor: (event: RegionalSwellEvent) => CandidateFacts | null;
