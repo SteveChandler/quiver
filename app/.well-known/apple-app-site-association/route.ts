@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import appLinkContract from "@/config/app-link-contract.json";
-import { APPLE_APP_BUNDLE_ID } from "@/lib/constants/public-services";
+import { APPLE_APP_BUNDLE_ID, APPLE_TEAM_ID } from "@/lib/constants/public-services";
 
-const DEFAULT_APPLE_TEAM_ID = "QBA8TA48NG";
 const APPLE_TEAM_ID_PATTERN = /^[A-Z0-9]{10}$/;
 
 function isPlaceholderValue(value: string): boolean {
@@ -19,9 +18,9 @@ function isPlaceholderValue(value: string): boolean {
 
 function normalizeAppleTeamId(value: string | undefined): string {
   const normalized = value?.trim().toUpperCase();
-  if (!normalized) return DEFAULT_APPLE_TEAM_ID;
-  if (isPlaceholderValue(normalized)) return DEFAULT_APPLE_TEAM_ID;
-  if (!APPLE_TEAM_ID_PATTERN.test(normalized)) return DEFAULT_APPLE_TEAM_ID;
+  if (!normalized) return APPLE_TEAM_ID;
+  if (isPlaceholderValue(normalized)) return APPLE_TEAM_ID;
+  if (!APPLE_TEAM_ID_PATTERN.test(normalized)) return APPLE_TEAM_ID;
 
   return normalized;
 }

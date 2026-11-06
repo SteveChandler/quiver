@@ -16,6 +16,7 @@ export const FIREBASE_WEB_CONFIG = {
 export const FIREBASE_WEB_PUSH_VAPID_KEY =
   "BOPUrm9VNqgRwNl4lL7z6jJ7qH6mf7wHRZPkEyl0fexR4MrBsufQg-NvveWMgle2K78Y1G5sECVi524Lq7pu-Ds"; // gitleaks:allow
 
+export const APPLE_TEAM_ID = "QBA8TA48NG";
 export const APPLE_APP_BUNDLE_ID = "app.quiversurf.mobile";
 export const APPLE_SIGN_IN_WEB_CLIENT_ID = "app.quiversurf.mobile.web";
 
