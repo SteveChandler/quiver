@@ -139,7 +139,8 @@ export class NOAAWaveWatchService {
       const merged = this.mergeAvailable(noaaData, openMeteoData, latitude, longitude);
       if (!merged) return null;
       const outlook = buildEcmwfOutlookSeries(merged.forecast, wam);
-      return outlook ? { ...merged, ecmwf_outlook: outlook } : merged;
+      const withWam = wam ? { ...merged, ecmwf_wam: wam } : merged;
+      return outlook ? { ...withWam, ecmwf_outlook: outlook } : withWam;
     } catch (error) {
       log.error("Error fetching real wave data:", error);
       return null;

@@ -210,6 +210,11 @@ export interface WaveWatchForecast {
    * `forecast`: rows past the model seam stay FALLBACK and carry it on the side.
    */
   ecmwf_outlook?: EcmwfOutlookSeries;
+  /**
+   * The whole ECMWF WAM total Hs series from the outlook request, kept even
+   * when the outlook seam gate rejects it. The ECMWF hybrid scale reads it.
+   */
+  ecmwf_wam?: Array<{ ms: number; hsM: number }>;
 }
 
 /** ECMWF WAM total Hs past the model seam, with the per-beach seam ratio that gated it. */

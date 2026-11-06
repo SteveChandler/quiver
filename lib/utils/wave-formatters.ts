@@ -32,6 +32,7 @@ import {
   MAX_TRUSTED_CDIP_FT,
 } from '@/lib/config/forecast-staleness';
 import type { ForecastReplayInput } from './forecast-display-replay';
+import { resolveEcmwfHybridScale, type ResolvedEcmwfHybridScale } from './ecmwf-hybrid-scale';
 
 // Re-export for backward compatibility (consumers may import from here)
 export { METERS_TO_FEET };
@@ -628,6 +629,12 @@ export interface DecomposedFaceHeightParams extends FaceHeightParams {
    * "no data" for that component.
    */
   components: Array<SwellComponentInput | null>;
+  /**
+   * ECMWF WAM total Hs (m) at this valid hour. Only the forecast builder
+   * passes it; with it, a model_swell hour at a beach in the hybrid k table
+   * takes the ECMWF hybrid scale (see ecmwf-hybrid-scale.ts).
+   */
+  ecmwfWamHsM?: number | null;
 }
 
 /**
@@ -662,6 +669,8 @@ export interface WaveHeightDebugInfo {
   calibratedShoalingFired: boolean;
   shortPeriodBucketCapped?: boolean;
   modelCalibrationFactor?: number;
+  /** Present only when the ECMWF hybrid replaced the production factor. */
+  ecmwfHybrid?: ResolvedEcmwfHybridScale;
   handoffDiscontinuityFt?: number;
   replayInput?: ForecastReplayInput;
   cdipRejection?: {
@@ -693,6 +702,13 @@ export function toFaceHeightFeetDecomposedWithDebug(
     };
   }
 
+  const hybrid = resolveEcmwfHybridScale({
+    beachId: params.beach?.id,
+    source: source.source,
+    components: params.components,
+    ecmwfHsM: params.ecmwfWamHsM,
+  });
+  // Components stay unscaled here; r and k ride beside them so a replay can tell the bases apart.
   const replayInput = {
     components: params.components,
     beach: params.beach ?? {},
@@ -701,6 +717,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
     periodS: params.periodS ?? null,
     swellDirectionDeg: params.swellDirectionDeg ?? null,
     allowCalibratedShoaling: params.allowCalibratedShoaling,
+    ...(hybrid ? { ecmwfHybrid: { r: hybrid.r, k: hybrid.k } } : {}),
   };
   const result = transformToFaceHeightDecomposed(replayInput);
 
@@ -728,6 +745,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
       ...(result.modelCalibrationFactor != null
         ? { modelCalibrationFactor: result.modelCalibrationFactor }
         : {}),
+      ...(hybrid ? { ecmwfHybrid: hybrid } : {}),
       ...(source.cdipRejection ? { cdipRejection: source.cdipRejection } : {}),
     },
   };
