@@ -9,6 +9,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { readAllPages } from "@/lib/alerts/swell-events/paging";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { chunk } from "@/lib/utils/chunk";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 import { normalizeIanaTimezone } from "@/lib/utils/iana-timezone";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { buildNotificationRelevanceMetadata } from "@/lib/notifications/relevance";
@@ -273,6 +274,7 @@ async function _GET(request: Request): Promise<Response> {
           .select("user_id, arrival_time")
           .in("user_id", userIds)
           .is("deleted_at", null)
+          .or(SURF_SESSION_SOURCE_FILTER)
           .gte("arrival_time", startsAt)
           .lt("arrival_time", endsAt)
           .order("id")

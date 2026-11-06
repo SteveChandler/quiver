@@ -47,6 +47,7 @@ export function setupProfileApiMocks(
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
+          or: jest.fn().mockReturnThis(),
           data: sessions,
           error: null,
         };

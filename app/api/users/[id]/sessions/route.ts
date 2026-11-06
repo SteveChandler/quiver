@@ -10,6 +10,7 @@ import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 import { isGarminWatchUserAllowed } from "@/lib/flags/garmin-watch";
 import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 
 async function addOwnerTrackStatus<T extends { id: string }>(
   supabase: OptionalAuthContext["supabase"],
@@ -144,6 +145,7 @@ async function handler(
     `,
     )
     .eq("user_id", targetUserId)
+    .or(SURF_SESSION_SOURCE_FILTER)
     .order("arrival_time", { ascending: false })
     .limit(limit);
 
@@ -164,6 +166,7 @@ async function handler(
       .from("sessions")
       .select(USER_SESSION_ROW_SELECT)
       .eq("user_id", targetUserId)
+      .or(SURF_SESSION_SOURCE_FILTER)
       .order("arrival_time", { ascending: false })
       .limit(limit);
 

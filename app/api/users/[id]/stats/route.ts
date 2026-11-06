@@ -8,6 +8,7 @@ import {
   methodNotAllowed,
 } from "@/lib/middleware/api-wrappers";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 
 export const GET = withAuth(async (_request, { user, supabase, params }) => {
   const targetUserId = params.id;
@@ -35,7 +36,8 @@ export const GET = withAuth(async (_request, { user, supabase, params }) => {
   const { count: sessionCount, error: sessionError } = await supabase
     .from("sessions")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", targetUserId);
+    .eq("user_id", targetUserId)
+    .or(SURF_SESSION_SOURCE_FILTER);
   if (sessionError) throw sessionError;
 
   const { count: boardCount, error: boardError } = await supabase
@@ -49,7 +51,8 @@ export const GET = withAuth(async (_request, { user, supabase, params }) => {
   const { data: qualityData, error: qualityError } = await supabase
     .from("sessions")
     .select("wave_quality")
-    .eq("user_id", targetUserId);
+    .eq("user_id", targetUserId)
+    .or(SURF_SESSION_SOURCE_FILTER);
   if (qualityError) throw qualityError;
 
   let averageRating = 0;
