@@ -12,11 +12,9 @@ import {
   buildPlayStoreInstallUrl,
   createOpaqueInstallToken,
   hashOpaqueInstallToken,
-  isInstallAttributionIssuanceEnabled,
   parseInstallHandoffAttribution,
 } from "@/lib/install-attribution-server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { ANDROID_PLAY_STORE_LISTING_URL } from "@/lib/constants/app-store";
 
 export const dynamic = "force-dynamic";
 
@@ -24,17 +22,6 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 const handler = async (request: NextRequest): Promise<NextResponse> => {
-  if (!isInstallAttributionIssuanceEnabled()) {
-    return NextResponse.json(
-      {
-        success: true,
-        storeUrl: ANDROID_PLAY_STORE_LISTING_URL,
-        attributionEnabled: false,
-      },
-      { headers: NO_STORE_HEADERS },
-    );
-  }
-
   const input = (await request.json().catch(() => ({}))) as Record<
     string,
     unknown

@@ -13,7 +13,6 @@ import {
   ANDROID_BETA_CONTACT_MAILTO,
   ANDROID_BETA_GROUP_URL,
   ANDROID_BETA_PLAY_URL,
-  ANDROID_PLAY_STORE_LISTING_URL,
 } from "@/lib/constants/app-store";
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
@@ -85,13 +84,7 @@ function trackAndroidBetaOutboundClick(destinationType: string): void {
   }
 }
 
-interface AndroidBetaClientProps {
-  installAttributionIssuanceEnabled: boolean;
-}
-
-export function AndroidBetaClient({
-  installAttributionIssuanceEnabled,
-}: AndroidBetaClientProps) {
+export function AndroidBetaClient() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [capturedEmail, setCapturedEmail] = useState<string | null>(null);
@@ -105,9 +98,7 @@ export function AndroidBetaClient({
     [searchParams],
   );
   const [attributedStoreUrl, setAttributedStoreUrl] = useState<string | null>(
-    installAttributionIssuanceEnabled
-      ? null
-      : ANDROID_PLAY_STORE_LISTING_URL,
+    null,
   );
   const [installLinkFailed, setInstallLinkFailed] = useState(false);
   const [installLinkLoading, setInstallLinkLoading] = useState(false);

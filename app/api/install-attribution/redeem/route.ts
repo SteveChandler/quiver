@@ -7,7 +7,6 @@ import {
 } from "@/lib/install-attribution";
 import {
   hashOpaqueInstallToken,
-  isInstallAttributionRedemptionEnabled,
   parseInstallHandoffAttribution,
   parseOpaqueInstallToken,
 } from "@/lib/install-attribution-server";
@@ -43,10 +42,6 @@ function noStoreJson(body: unknown): NextResponse {
 }
 
 const handler = async (request: NextRequest): Promise<NextResponse> => {
-  if (!isInstallAttributionRedemptionEnabled()) {
-    return noStoreJson(RETRYABLE_RESPONSE);
-  }
-
   const input = (await request.json().catch(() => ({}))) as Record<
     string,
     unknown
