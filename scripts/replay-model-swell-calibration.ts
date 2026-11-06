@@ -72,10 +72,9 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
-// The truth path must see the beach row production's buoy path sees. Since
-// Nov 2026 the calibrated bucket path applies no direction shadow, so the
-// window and access fields only matter when a reading falls back to the
-// generic path.
+// The truth path must see the beach row production's buoy path sees: beaches
+// whose shoaling_factors set direction_shadow still get calibratedShadowFactor
+// on the bucket path, which needs the window and access fields.
 interface Beach {
   id: string;
   name: string;

@@ -75,6 +75,26 @@ describe('immutable forecast display replay', () => {
     expect(replayForecastDisplayHeightM(context)).toBe(Math.round(parseFloat(rendered.value!) / METERS_TO_FEET * 1000) / 1000);
   });
 
+  it('keeps the direction_shadow flag when replaying a calibrated buoy slot', () => {
+    const access = Array(72).fill(1);
+    access[40] = 0.008; // 202 deg bin
+    const shadowed: BeachTerrainConfig = {
+      swell_window_center_deg: 293, swell_window_halfwidth_deg: 73, swell_access_factors: access,
+      shoaling_factors: { version: 1, type: 'period_lookup', direction_shadow: true,
+        buckets: [{ tp_min_s: 0, tp_max_s: 999, factor: 1 }] },
+    };
+    const params: DecomposedFaceHeightParams = { cdipSigFt: 4, components: [], periodS: 14, swellDirectionDeg: 202 };
+    const rendered = toFaceHeightFeetDecomposedWithDebug({ ...params, beach: shadowed });
+    const unshadowed = toFaceHeightFeetDecomposedWithDebug({ ...params, beach: { ...shadowed,
+      shoaling_factors: { ...shadowed.shoaling_factors!, direction_shadow: false } } });
+    expect(parseFloat(rendered.value!)).toBeLessThan(parseFloat(unshadowed.value!));
+    const context = JSON.parse(JSON.stringify({
+      version: 1, generatedAt, forecastAt: generatedAt,
+      base: { input: rendered.debug.replayInput!, supported: true }, handoff: null, unsupportedReason: null,
+    }));
+    expect(replayForecastDisplayHeightM(context)).toBe(Math.round(parseFloat(rendered.value!) / METERS_TO_FEET * 1000) / 1000);
+  });
+
   it('rejects missing, malformed, offset and conditional guardrail contexts', () => {
     const ctx = generate(beach)[2].context;
     expect(replayForecastDisplayHeightM(null)).toBeNull();

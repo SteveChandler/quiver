@@ -51,7 +51,8 @@ const terrain = z.object({
   deepwater_decay_factor: z.number().finite().nonnegative().nullish(),
   shoaling_factors: z.object({ version: z.literal(1), type: z.literal("period_lookup"),
     buckets: z.array(z.object({ tp_min_s: z.number().finite(), tp_max_s: z.number().finite(),
-      factor: z.number().finite().positive() })), calibration: z.record(z.string(), z.unknown()).optional() }).nullish(),
+      factor: z.number().finite().positive() })), calibration: z.record(z.string(), z.unknown()).optional(),
+    direction_shadow: z.boolean().optional() }).nullish(),
 });
 
 /** The caller supplies the fixed operational membership; never infer a smaller cohort from returned rows. */
