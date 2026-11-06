@@ -25,7 +25,9 @@ One paragraph, regional (the same for everyone in the region, not personalised t
 
 Example built from real San Diego data on Nov 5 2026. The copy is illustrative; the facts are real.
 
-> A west groundswell and a south-southwest groundswell both peak today, chest-high at most spots and overhead at the standouts, easing by Saturday. A fresh SSW groundswell is on the way for Sunday, then a WNW swell Monday. Late next week looks likely to bring a bigger mix of west and south-southwest, head-high at most spots, around Friday the 13th.
+> A west groundswell and a south-southwest groundswell both peak today, chest-high at most spots and overhead at the standouts, easing by Saturday. A fresh south-southwest groundswell arrives and peaks Sunday, chest-high at most spots. A west-northwest swell follows Monday, chest-high with head-high standouts. A week from Friday looks likely to bring a bigger mix of west and south-southwest, head-high at most spots.
+
+(Shown to Steven during brainstorming as three sentences, with Sunday and Monday sharing one sentence and the last sentence ending "around Friday the 13th". The rules below make it one sentence per group with no digits, which gives the version above. The facts are the same.)
 
 ### Week Scout layout (story view)
 
@@ -74,38 +76,55 @@ The Days to watch card shows the **first two sentences** of At a glance where it
 
 ### Source
 
-Use the region's swell event build in `lib/alerts/swell-events/regional.ts` (`RegionBuild`, the build behind `GET /api/beaches/[id]/swell-events` that the native Swell Watch draws), including its early-look (`source: 'wam'`) events. Do not use the Week Scout response's `swells[]`. The region is resolved the way the story resolves it today: from the user's home beach.
+Use the cached regional event build the story already reads: `loadRegionForecastEvents` in `lib/alerts/swell-events/regional.ts`. It is the same detector and ratings behind `GET /api/beaches/[id]/swell-events`, which the native Swell Watch draws. It includes its GFS-tail early-look events. Do not use the Week Scout response's `swells[]`.
+
+- Do **not** add a `buildRegionEvents` / WAM-buoy fetch to the Week Scout request path. WAM buoy peaks are always the furthest-out items, so leaving them out never skips something before a named swell.
+- Apply the Swell Watch's 15-day strip filter (`regional-swells-event-window.ts` on the native side, or its server equivalent) so the paragraph never names a swell the strip can't show.
+- The region is resolved the way the story resolves it today: from the user's home beach (`profile.home_beach_id`).
+- The paragraph shows even when the Swell Watch doesn't render, for example when its client flag is off or the home beach is hidden. It is the summary, and it does not depend on the animation.
 
 ### Sentence slots, in order
 
 1. **Today.** Every event in the water on the region's local today (arrival ≤ today ≤ fade, or peak is today), grouped as below. It says when they peak and when they ease.
-   - If nothing is in the water and the build has coverage for today, it says so briefly ("No clear swell in the water today.").
-   - If coverage is missing, the slot is omitted. Missing data is never presented as a quiet day.
-2. **Next swells.** The following groups from the stored forecast, in date order, **at most three groups**.
-3. **Long range.** At most one sentence for the first early-look event past the groups already named, worded as too early to call. No beach sizes; use the existing estimated face only if the event already carries one.
+   - "Coverage for today" means the live Week Scout response's `coverage.days` entry for today, which the existing quiet-span check already uses (`week-scout-story-serve.ts`).
+   - If nothing is in the water and today is covered, the slot says so briefly ("No clear swell in the water today.").
+   - If today isn't covered, the slot is omitted. Missing data is never presented as a quiet day.
+2. **Next swells.** The following groups from stored-forecast (`source: 'forecast'`) events, in date order, **at most four groups**, one sentence each.
+   - Groups 10 or more days out carry `early_look` confidence and get its words ("an early look at…"). They keep the "most spots" size only, with no standouts clause.
+3. **Long range.** At most one sentence for the first GFS-tail early-look event (`source: 'wam'`) after the last stored group.
+   - It appears only when **every** stored group within the strip was named, so it never jumps past a skipped swell.
+   - It needs a direction. It is worded as too early to call, with no sizes. The estimated face lives on per-beach ratings, not on the event, so there is none to use.
+   - If there are more than four stored groups, the paragraph ends after the fourth and the long-range sentence is left out.
 
-The total is 1–5 sentences.
+The total is 1–6 sentences.
 
 ### Grouping (my call)
 
-Events whose peaks fall within 36 hours of each other form one group. This matches the existing duplicate-peak window in the outlook detector.
-- **Direction:** a group names its distinct direction families, biggest first ("a mix of west and south-southwest").
-- **Size:** the group's largest "most spots" and "standouts" sizes.
-- **Confidence:** the group's lowest confidence.
+A group is anchored on its earliest-peaking event, and takes in every later event whose peak falls within 36 hours of that **anchor**. The window is not chained. The existing 36-hour windows in the detectors dedupe one swell component. Here the same span is reused for a different job: treating different swells that land together as one system.
 
-On Nov 5, San Diego's input split Nov 13–14 into four events (WNW long, W mid, W storm, SSW). Grouping must make that one sentence.
+Each group names at most two directions, biggest first:
+- Take each event's 16-point label.
+- Fold any label within 22.5° of a bigger event's label into that bigger one (WNW folds into W).
+- Name the top two that remain ("a mix of west and south-southwest").
+- A one-event group uses its own label ("a west-northwest swell").
+
+Each group also carries:
+- **Size:** the group's largest "most spots" and "standouts" sizes.
+- **Confidence:** the lowest confidence among its events.
+
+On Nov 5, San Diego's input split Nov 13–14 into four events (WNW long, W mid, W storm, SSW). Grouping makes that one sentence. Sunday's SSW (peak Nov 8) and Monday's WNW (peak Nov 9) are about 24 hours apart and would be one group under this rule. The builder should replay the fixture. If peaks a day apart from different quadrants read better as two sentences, add a quadrant split (only fold events whose directions are within 45°) and record the choice.
 
 ### Time anchors (my call; builder may refine)
 
-All anchors are in the region's local date:
+All anchors are in the region's local date. **No digits.** The claim checker refuses numerals outside foot ranges, candidates with digits are dropped, and the regional types promise "digits only in foot ranges". Keep that contract.
 
 | Days from today | Anchor |
 |---|---|
 | 0 | today |
 | 1 | tomorrow |
 | 2–6 | the weekday ("Sunday") |
-| 7–13 | "next {weekday}" or "late next week" / "early next week", with "around the {Nth}" when it helps |
-| early look | "around the {Nth}" |
+| 7–13 | "a week from {weekday}" (the existing template's phrase), or "early next week" / "late next week" for a span |
+| beyond the strip's stored days | "the week after next" / "further out" |
 
 - Arrival and peak on the same day reads "arrives and peaks Sunday". It never reads "builds from Sunday into Sunday". This fixes problem 2 and covers every slot, including the legacy lead.
 - A past arrival reads as already in the water.
@@ -121,7 +140,7 @@ These come from the event's data, never from the model:
 | `likely` | "looks likely" |
 | `early_look` | "an early look at…", "too early to call" |
 
-Map the story gate's `locked / likely / on_the_radar` onto these consistently; the builder decides the mapping and documents it.
+Use the existing `STORY_CONFIDENCE` mapping in `week-scout-story-candidates.ts`, which works from lead days, so the paragraph and the gates agree. "In the water" comes from the arrival date being today or earlier.
 
 ### Sizes
 
@@ -129,7 +148,15 @@ Use the existing regional size tail and `sizePhrase` rules ("chest-high at most 
 
 ## Model wording (PC worker)
 
-- The worker receives each code sentence together with its **fact fingerprint**: slot role, direction families (16-point), period class, kind (swell/storm), arrival/peak/fade local dates, confidence tier and size words. It returns one reworded sentence per slot. This means a new `generation_version` (`week-scout-story-3`) and an updated worker prompt and output schema.
+- The worker receives each code sentence together with its **fact fingerprint**: slot role, the named direction labels, period class (long/mid/short, not the 3 s band), kind (swell/storm), arrival/peak/fade local dates, and confidence tier.
+  - **Size is not in the fingerprint.** Sizes move with every forecast refresh. Size claims in a reworded sentence are re-checked against live size facts by `checkWrittenSentence`, as today.
+- It returns one reworded sentence per slot.
+- This means a new `generation_version` (`week-scout-story-3`) and an updated worker prompt and output schema.
+- A `-3` edition is a **superset of `-2`**: it still carries the Swell Watch card's `event:` and `beach:` written lines. `loadLatestStoryEdition` returns one edition per region, so a `-3` edition without them would silently strip the card's written lines.
+- Update `regional-narrative.ts` (`WRITTEN_GENERATION_VERSION`) and `week-scout-story-validate.ts` to accept `-2` and `-3`. Allow `written` under both.
+- The worker lives on Steven's Windows PC (branch `feat/swell-briefing-pc-worker` in a local checkout), not on either repo's `main`, and mirrors the claim lists in Python.
+  - The builder writes the worker change as a patch and updates the Python mirror of the new wording check.
+  - Steven runs and schedules it.
 - Reworded sentences are stored against the fingerprint, **not** the event key.
 - At serve time, the server rebuilds the code paragraph from live data. For each slot, it uses the stored reworded sentence only if the edition is today's and the fingerprint still matches exactly, and the sentence passes:
   - the existing claim checker (`checkWrittenSentence`);
@@ -166,8 +193,10 @@ Use the existing regional size tail and `sizePhrase` rules ("chest-high at most 
 ## Acceptance checks (use Nov 5 2026 San Diego as the fixture)
 
 - The paragraph matches the example's facts: two groundswells peak today and ease by Saturday; SSW Sunday; WNW Monday; one sentence for the Nov 13–14 mix, worded "likely".
-- No sentence anywhere says "from X into X".
-- Changing one event's direction or period bucket between edition time and serve time falls back that sentence only. The paragraph still renders.
+- No sentence anywhere says "from X into X", and no sentence has a digit outside a foot range.
+- Changing one event's direction or period class between edition time and serve time falls back that sentence only. The paragraph still renders.
+- A size change alone keeps a reworded sentence only if `checkWrittenSentence` still passes it.
+- Publishing a `-3` edition leaves the Swell Watch card's written lines in place.
 - The Nov 5 word-salad sentence is rejected by the wording check.
 - Every swell named in the paragraph is in the Swell Watch events for the same region and date.
 - Home shows exactly the first two sentences.
@@ -176,10 +205,19 @@ Use the existing regional size tail and `sizePhrase` rules ("chest-high at most 
 ## Left to the builder
 
 - The exact sentence templates and connective wording, within the rules above.
-- The confidence mapping between story gates and Swell Watch tiers.
 - Fingerprint encoding, storage shape for reworded sentences, and the migration, if one is needed. Any migration needs Steven's approval before it is applied.
-- Tuning the 36-hour grouping window against a week of stored inputs.
+- Tuning the 36-hour grouping window and the quadrant split against a week of stored inputs.
 - How the legacy cover/lead keep working until installed builds age out.
+
+## Calls made without Steven (check these)
+
+1. Size is left out of the fingerprint. The claim checker guards size instead, so a refresh doesn't knock out every reworded sentence.
+2. No digits in any sentence. "A week from Friday" replaces "around the 13th".
+3. One sentence per group, groups anchored on the first peak within 36 hours, at most two directions named.
+4. Up to four groups. The long-range sentence appears only when no stored group was skipped.
+5. Long range uses the GFS-tail early look already in the cached build. No WAM-buoy fetch on the request path.
+6. The paragraph shows even when the Swell Watch animation doesn't render.
+7. `-3` editions are a superset of `-2`, so the Swell Watch card keeps its written lines.
 
 ## Follow-ups (out of scope, found during the Nov 5 data check)
 
