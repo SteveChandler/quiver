@@ -33,6 +33,7 @@ import { buildEventCandidates, buildStoryCandidates, storyEventKey } from "../we
 import { buildRegionGateContext } from "../week-scout-story-region-gate";
 import { addDays } from "../local-date";
 import { glanceFromBuild } from "../week-scout-glance";
+import { rateRegionEventsWithRatings } from "@/lib/alerts/swell-events/regional-rating";
 
 const HONOLULU = "Pacific/Honolulu";
 
@@ -731,6 +732,22 @@ describe("deterministic fallback and live gates", () => {
       } finally {
         warn.mockRestore();
       }
+    });
+
+    it("names only swells the Swell Watch rates from the same build and now", () => {
+      // Faded at 02:00 HST, an hour before now: still on today's strip, gone from the water.
+      const faded = regionEvent(200, 14, "2026-07-13T18:00:00Z", "2026-07-14T18:00:00Z", "2026-07-15T12:00:00Z");
+      const later = regionEvent(180, 16, "2026-07-19T18:00:00Z", "2026-07-20T18:00:00Z", "2026-07-21T18:00:00Z");
+      const early = regionEvent(300, 15, "2026-07-27T18:00:00Z", "2026-07-27T18:00:00Z", null,
+        { source: "wam", arrivalAt: null, key: "south-shore:wam:2026-07-27" });
+      const build = regionBuild([faded, west, later, early]);
+      const rated = new Set(rateRegionEventsWithRatings(build, { beachId: "x", skill: "intermediate", now }).events
+        .map((event) => event.key));
+      const glance = glanceFromBuild(build, "2026-07-15", false, now);
+      const named = glance.flatMap((sentence) => sentence.eventKeys);
+      expect(named).toEqual(expect.arrayContaining([west.key, later.key, early.key]));
+      expect(named).not.toContain(faded.key);
+      for (const key of named) expect(rated).toContain(key);
     });
 
     it("has no glance without a home beach", async () => {
