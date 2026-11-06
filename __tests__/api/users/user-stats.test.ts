@@ -30,6 +30,15 @@ jest.mock("@/lib/profile/fetchers", () => ({
 // Import after mocks
 const { GET, POST, PUT, PATCH, DELETE } = require("@/app/api/users/[id]/stats/route");
 const { getProfileWithHomeBeachById } = require("@/lib/profile/fetchers");
+const { SURF_SESSION_SOURCE_FILTER } = require("@/lib/sessions/surf-session-filter");
+
+// Session reads end in .or(SURF_SESSION_SOURCE_FILTER); other reads end at .eq.
+const orCalls: string[] = [];
+function eqThenOr(result: unknown) {
+  return jest.fn(() => Object.assign(Promise.resolve(result), {
+    or: jest.fn((filter: string) => { orCalls.push(filter); return Promise.resolve(result); }),
+  }));
+}
 
 describe("GET /api/users/[id]/stats", () => {
   const userId = "550e8400-e29b-41d4-a716-446655440000";
@@ -153,7 +162,7 @@ describe("GET /api/users/[id]/stats", () => {
       // Mock session count
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
+        eq: eqThenOr({ count: 5, error: null }),
       };
 
       // Mock board count
@@ -166,7 +175,7 @@ describe("GET /api/users/[id]/stats", () => {
       // Mock wave quality data
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: [{ wave_quality: 4 }, { wave_quality: 5 }, { wave_quality: 3 }],
           error: null,
         }),
@@ -188,7 +197,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -233,7 +242,7 @@ describe("GET /api/users/[id]/stats", () => {
     it("returns correct stats for user with sessions and boards", async () => {
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 10, error: null }),
+        eq: eqThenOr({ count: 10, error: null }),
       };
 
       const boardCountChain: any = {
@@ -244,7 +253,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: [
             { wave_quality: 5 },
             { wave_quality: 4 },
@@ -270,7 +279,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -279,7 +288,9 @@ describe("GET /api/users/[id]/stats", () => {
         `http://localhost:3000/api/users/${userId}/stats`
       );
 
+      orCalls.length = 0;
       const res = await GET(req as any, { params: { id: userId } });
+      expect(orCalls).toEqual([SURF_SESSION_SOURCE_FILTER, SURF_SESSION_SOURCE_FILTER]);
       const body = await expectSuccessResponse(res, 200);
 
       const stats = (body.data as any).stats;
@@ -295,7 +306,7 @@ describe("GET /api/users/[id]/stats", () => {
     it("handles user with no sessions", async () => {
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+        eq: eqThenOr({ count: 0, error: null }),
       };
 
       const boardCountChain: any = {
@@ -306,7 +317,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: [],
           error: null,
         }),
@@ -327,7 +338,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -359,7 +370,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
+        eq: eqThenOr({ count: 5, error: null }),
       };
 
       const boardCountChain: any = {
@@ -370,7 +381,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: [{ wave_quality: 4 }],
           error: null,
         }),
@@ -391,7 +402,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -411,7 +422,7 @@ describe("GET /api/users/[id]/stats", () => {
     it("calculates average rating correctly with decimals", async () => {
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 3, error: null }),
+        eq: eqThenOr({ count: 3, error: null }),
       };
 
       const boardCountChain: any = {
@@ -422,7 +433,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: [
             { wave_quality: 5 },
             { wave_quality: 4 },
@@ -447,7 +458,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -467,7 +478,7 @@ describe("GET /api/users/[id]/stats", () => {
     it("handles null wave_quality values", async () => {
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 4, error: null }),
+        eq: eqThenOr({ count: 4, error: null }),
       };
 
       const boardCountChain: any = {
@@ -478,7 +489,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: [
             { wave_quality: 5 },
             { wave_quality: null },
@@ -504,7 +515,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -524,7 +535,7 @@ describe("GET /api/users/[id]/stats", () => {
     it("handles RPC error for most visited beach gracefully", async () => {
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
+        eq: eqThenOr({ count: 5, error: null }),
       };
 
       const boardCountChain: any = {
@@ -535,7 +546,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: [{ wave_quality: 4 }],
           error: null,
         }),
@@ -557,7 +568,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -594,7 +605,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           count: null,
           error: { message: "Query failed", code: "PGRST001" },
         }),
@@ -604,7 +615,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "sessions") return sessionCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -630,7 +641,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
+        eq: eqThenOr({ count: 5, error: null }),
       };
 
       const boardCountChain: any = {
@@ -647,7 +658,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 
@@ -673,7 +684,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const sessionCountChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
+        eq: eqThenOr({ count: 5, error: null }),
       };
 
       const boardCountChain: any = {
@@ -684,7 +695,7 @@ describe("GET /api/users/[id]/stats", () => {
 
       const qualityChain: any = {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
+        eq: eqThenOr({
           data: null,
           error: { message: "Query failed", code: "PGRST001" },
         }),
@@ -700,7 +711,7 @@ describe("GET /api/users/[id]/stats", () => {
         if (table === "boards") return boardCountChain;
         return {
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ count: 0, error: null }),
+          eq: eqThenOr({ count: 0, error: null }),
         };
       });
 

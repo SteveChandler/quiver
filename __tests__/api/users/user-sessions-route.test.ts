@@ -110,6 +110,7 @@ describe("/api/users/[id]/sessions", () => {
     const chain: any = {
       select: jest.fn().mockReturnThis(),
       eq: eqMock.mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       then: jest.fn((onResolve: any) => onResolve({ data: [], error: null })),
@@ -142,6 +143,7 @@ describe("/api/users/[id]/sessions", () => {
       (args: any[]) => args[0] === "is_public" && args[1] === true
     );
     expect(hadIsPublicFilter).toBe(true);
+    expect(chain.or).toHaveBeenCalledWith("source.is.null,source.neq.conditions_report");
   });
 });
 

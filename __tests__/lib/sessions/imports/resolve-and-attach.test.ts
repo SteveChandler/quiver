@@ -43,15 +43,19 @@ function mockAttachClient(sessions: unknown[], track: unknown = null) {
 }
 
 const start = "2026-10-17T12:00:00.000Z";
+const end = "2026-10-17T13:00:00.000Z";
 
 function session(id: string, arrivalTime: string, beachId: string, lat: number, lon: number, deletedAt: string | null = null) {
   return {
     id,
     source: "manual",
     arrival_time: arrivalTime,
+    duration_minutes: 30,
     beach_id: beachId,
+    custom_spot_id: null,
     deleted_at: deletedAt,
     beaches: { lat, lon },
+    custom_spots: null,
   };
 }
 
@@ -123,7 +127,7 @@ describe("findAttachTarget", () => {
       session("far", "2026-10-17T12:01:00.000Z", "beach-3", 33.0, -117.2),
     ], { session_id: "near", import_id: "import-1" });
 
-    await expect(findAttachTarget(mock.client, "user-1", beach, start)).resolves.toEqual({
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toEqual({
       sessionId: "near",
       hasTrack: true,
       trackImportId: "import-1",
@@ -132,7 +136,7 @@ describe("findAttachTarget", () => {
     expect(mock.sessionEq).toHaveBeenCalledWith("user_id", "user-1");
     expect(mock.is).toHaveBeenCalledWith("deleted_at", null);
     expect(mock.gte).toHaveBeenCalledWith("arrival_time", "2026-10-17T10:30:00.000Z");
-    expect(mock.lte).toHaveBeenCalledWith("arrival_time", "2026-10-17T13:30:00.000Z");
+    expect(mock.lte).toHaveBeenCalledWith("arrival_time", "2026-10-17T14:30:00.000Z");
     expect(mock.sessionSelect).toHaveBeenCalledWith(expect.stringContaining("beaches!sessions_beach_id_fkey(lat, lon)"));
     expect(mock.trackEq).toHaveBeenCalledWith("session_id", "near");
     expect(mock.from).toHaveBeenCalledWith("session_tracks");
@@ -145,7 +149,7 @@ describe("findAttachTarget", () => {
       session("live", "2026-10-17T12:10:00.000Z", beach.id, beach.lat, beach.lon),
     ]);
 
-    await expect(findAttachTarget(mock.client, "user-1", beach, start)).resolves.toEqual({
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toEqual({
       sessionId: "live",
       hasTrack: false,
       trackImportId: null,
@@ -159,7 +163,80 @@ describe("findAttachTarget", () => {
       session("far", start, "beach-3", 33.0, -117.2),
     ]);
 
-    await expect(findAttachTarget(mock.client, "user-1", beach, start)).resolves.toBeNull();
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();
     expect(mock.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("matches a phone log saved after the surf ended", async () => {
+    const mock = mockAttachClient([
+      { ...session("after", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon), created_at: "2026-10-17T13:46:00.000Z" },
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves
+      .toMatchObject({ sessionId: "after" });
+    expect(mock.gte).toHaveBeenCalledWith("arrival_time", "2026-10-17T10:30:00.000Z");
+    expect(mock.lte).toHaveBeenCalledWith("arrival_time", "2026-10-17T14:30:00.000Z");
+  });
+
+  it("keeps an old-build arrival saved hours later within 90 minutes of the watch start", async () => {
+    const mock = mockAttachClient([
+      { ...session("old-build", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon),
+        created_at: "2026-10-17T16:00:00.000Z", timing_user_set: false },
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();
+    expect(mock.sessionSelect).toHaveBeenCalledWith(expect.stringContaining("created_at"));
+  });
+
+  it("keeps a user-set time within 90 minutes of the watch start", async () => {
+    const mock = mockAttachClient([
+      { ...session("user-set", "2026-10-17T13:45:00.000Z", beach.id, beach.lat, beach.lon),
+        created_at: "2026-10-17T13:45:00.000Z", timing_user_set: true },
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();
+    expect(mock.sessionSelect).toHaveBeenCalledWith(expect.stringContaining("timing_user_set"));
+  });
+
+  it("prefers a session whose span overlaps the watch over a closer start that does not", async () => {
+    const mock = mockAttachClient([
+      session("before", "2026-10-17T11:20:00.000Z", beach.id, beach.lat, beach.lon),
+      session("overlap", "2026-10-17T12:50:00.000Z", beach.id, beach.lat, beach.lon),
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves
+      .toMatchObject({ sessionId: "overlap" });
+  });
+
+  it("treats a zero duration as 60 minutes when checking overlap", async () => {
+    const mock = mockAttachClient([
+      { ...session("zero", "2026-10-17T11:10:00.000Z", beach.id, beach.lat, beach.lon), duration_minutes: 0 },
+      session("later", "2026-10-17T12:55:00.000Z", beach.id, beach.lat, beach.lon),
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves
+      .toMatchObject({ sessionId: "zero" });
+  });
+
+  it("never attaches to a conditions report", async () => {
+    const mock = mockAttachClient([
+      { ...session("report", start, beach.id, beach.lat, beach.lon), source: "conditions_report" },
+    ]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves.toBeNull();
+    expect(mock.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("matches a custom-spot session by the spot's location", async () => {
+    const custom = (id: string, lat: number) => ({
+      ...session(id, start, "unused", 0, 0), beach_id: null, beaches: null,
+      custom_spot_id: `spot-${id}`, custom_spots: { lat: String(lat), lon: "-117.2" },
+    });
+    const mock = mockAttachClient([custom("far", 33.0), custom("near", 32.81)]);
+
+    await expect(findAttachTarget(mock.client, "user-1", beach, start, end)).resolves
+      .toMatchObject({ sessionId: "near" });
+    expect(mock.sessionSelect).toHaveBeenCalledWith(
+      expect.stringContaining("custom_spots!sessions_custom_spot_id_fkey(lat, lon)"));
   });
 });

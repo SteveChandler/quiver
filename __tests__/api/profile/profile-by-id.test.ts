@@ -191,6 +191,7 @@ describe("/api/profile/[id]", () => {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
+            or: jest.fn().mockReturnThis(),
             data: mockSessions,
             error: null,
           };
@@ -303,6 +304,7 @@ describe("/api/profile/[id]", () => {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
+            or: jest.fn().mockReturnThis(),
             data: [],
             error: null,
           };
