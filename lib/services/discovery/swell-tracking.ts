@@ -55,11 +55,11 @@ function weekdayName(date: Date, timezone: string): string {
   return formatter.format(date);
 }
 
-type PartOfDay = 'early' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+export type PartOfDay = 'early' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
 
 // Same boundaries and wording as native's formatSwellPeakWhen, so the card
 // title and this text never name different parts of the day for one peak.
-function partOfDay(hour: number): PartOfDay {
+export function partOfDay(hour: number): PartOfDay {
   if (hour < 5) return 'early';
   if (hour < 11) return 'morning';
   if (hour < 14) return 'midday';

@@ -1,7 +1,8 @@
 import type { RegionalSwellEvent } from "../week-scout-story-candidates";
 import { sizeWordsFor, type CandidateFacts, type FaceRange } from "../week-scout-story-facts";
 import { checkWrittenSentence } from "../week-scout-story-claims";
-import { buildGlance, glanceDay, MAX_GLANCE_SENTENCES, MAX_NEXT_GROUPS } from "../week-scout-glance";
+import type { InternalRegionEvent, RegionBuild } from "@/lib/alerts/swell-events/regional";
+import { buildGlance, glanceDay, glanceFromBuild, glanceWhen, MAX_GLANCE_SENTENCES, MAX_NEXT_GROUPS } from "../week-scout-glance";
 import { MAX_GLANCE_SENTENCES as MAX_GLANCE_REWORDINGS } from "../week-scout-story-validate";
 import { glanceSanDiego, glanceSanDiegoSentences as S } from "./fixtures/glance-san-diego-2026-11-05";
 
@@ -48,9 +49,10 @@ describe("buildGlance", () => {
       ["w-today", "ssw-today"], ["ssw-sun", "wnw-mon"], ["wnw-fri", "w-fri", "w-storm-sat", "ssw-sat"],
     ]);
     expect(glance.map((s) => s.facts?.faceFt)).toEqual([{ min: 3, max: 5 }, { min: 3, max: 5 }, { min: 5, max: 6 }]);
-    expect(JSON.parse(glance[1].fingerprint)).toEqual(["glance-1", "next",
-      ["south-southwest", "groundswell", "2026-11-08", "2026-11-08", "2026-11-09", "locked", true],
-      ["west-northwest", "mid-period swell", "2026-11-09", "2026-11-09", "2026-11-10", "locked", false]]);
+    expect(JSON.parse(glance[1].fingerprint)).toEqual(["glance-2", "next",
+      ["south-southwest", "groundswell", "2026-11-08", "2026-11-08", "2026-11-09", "locked", true, "Sunday morning", "Sunday afternoon"],
+      ["west-northwest", "mid-period swell", "2026-11-09", "2026-11-09", "2026-11-10", "locked", false, "Monday morning", "Monday afternoon"]]);
+    expect(JSON.parse(glance[0].fingerprint).slice(2).map((group: unknown[]) => group.slice(7))).toEqual([[false, "this morning"], [false, "midday today"]]);
   });
 
   it("every code sentence passes the claim checker against itself and has no stray digit or 'from X into X'", () => {
@@ -82,20 +84,20 @@ describe("buildGlance", () => {
       }
     }
     expect(texts).toEqual([
-      "A west groundswell is still in the water, chest-high at most spots, easing by tomorrow.",
+      "A west groundswell peaked midday yesterday, chest-high at most spots, easing by tomorrow.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
-      "A west groundswell is already in the water and peaks Saturday, chest-high at most spots, easing by Monday.",
+      "A west groundswell is already in the water and peaks midday Saturday, chest-high at most spots, easing by Monday.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
       "A west groundswell is already in the water and looks likely to peak Wednesday, chest-high at most spots.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
       "A west groundswell is already in the water, with an early look at a peak a week from Tuesday, chest-high at most spots.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
-      "A west groundswell arrives and peaks tomorrow, chest-high at most spots.",
+      "A west groundswell arrives tomorrow morning and peaks around midday, chest-high at most spots.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
       "A week from Monday brings an early look at a west groundswell with a south groundswell behind it, chest-high at most spots.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
       "The week after next looks likely to bring a west groundswell, chest-high at most spots.",
-      "A west groundswell arrives Saturday and peaks Sunday, chest-high at most spots, then a south groundswell follows Monday.",
+      "A west groundswell arrives midday Saturday and peaks midday Sunday, chest-high at most spots, then a south groundswell follows midday Monday.",
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
     ]);
   });
@@ -107,7 +109,7 @@ describe("buildGlance", () => {
     expect(glance[3]).toEqual({
       role: "long_range",
       text: "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call.",
-      fingerprint: JSON.stringify(["glance-1", "long_range", "west-northwest", "2026-11-18"]),
+      fingerprint: JSON.stringify(["glance-2", "long_range", "west-northwest", "2026-11-18"]),
       facts: null,
       eventKeys: ["tail"],
     });
@@ -144,7 +146,7 @@ describe("buildGlance", () => {
     const glance = buildGlance({ stored: ahead, tail: [], timezone, today, now, todayCovered: true, factsFor });
     expect(glance.map((s) => s.text)).toEqual([
       "No clear swell in the water today.",
-      "A south-southwest groundswell arrives and peaks Sunday, then a west-northwest mid-period swell follows Monday, both chest-high at most spots.",
+      "A south-southwest groundswell arrives Sunday morning and peaks that afternoon, then a west-northwest mid-period swell follows Monday afternoon, both chest-high at most spots.",
       S[2],
     ]);
     expect(glance[0]).toMatchObject({ role: "today", facts: null, eventKeys: [] });
@@ -161,11 +163,11 @@ describe("buildGlance", () => {
     expect(glance.map((s) => s.text)).toEqual([S[0]]);
   });
 
-  it("reads a swell past its peak as still in the water", () => {
+  it("says when a swell past its peak peaked", () => {
     const past = event("w-past", 270, "2026-11-03T20:00:00Z", "2026-11-04T20:00:00Z", "2026-11-06T20:00:00Z");
     const glance = buildGlance({ stored: [past], tail: [], timezone, today, now, todayCovered: true, factsFor: chest });
     // Nov 6 is the day after Nov 5, so the anchor table names it "tomorrow".
-    expect(glance.map((s) => s.text)).toEqual(["A west groundswell is still in the water, chest-high at most spots, easing by tomorrow."]);
+    expect(glance.map((s) => s.text)).toEqual(["A west groundswell peaked midday yesterday, chest-high at most spots, easing by tomorrow."]);
   });
 
   describe("dates a today group by its members' peaks, not the anchor's", () => {
@@ -178,17 +180,17 @@ describe("buildGlance", () => {
       const group = [event("w-anchor", 270, "2026-11-03T20:00:00Z", "2026-11-04T20:00:00Z", "2026-11-06T20:00:00Z"),
         event("w-big", 275, "2026-11-04T08:00:00Z", "2026-11-05T20:00:00Z", "2026-11-07T20:00:00Z")];
       const glance = buildGlance({ stored: group, tail: [], timezone, today, now, todayCovered: true, factsFor: small });
-      expect(glance.map((s) => s.text)).toEqual(["A west groundswell peaks today, chest-high at most spots, easing by Saturday."]);
+      expect(glance.map((s) => s.text)).toEqual(["A west groundswell peaks midday today, chest-high at most spots, easing by Saturday."]);
       selfChecks(glance[0].text, glance[0].facts);
       // The fingerprint still dates the group by its anchor.
       expect(JSON.parse(glance[0].fingerprint)[2][3]).toBe("2026-11-04");
     });
 
-    it("is still in the water only when every member peaked before today", () => {
+    it("says it peaked, at the latest member peak, only when every member has peaked", () => {
       const group = [event("w-anchor", 270, "2026-11-02T20:00:00Z", "2026-11-03T20:00:00Z", "2026-11-06T20:00:00Z"),
         event("w-big", 275, "2026-11-03T08:00:00Z", "2026-11-04T18:00:00Z", "2026-11-06T18:00:00Z")];
       const glance = buildGlance({ stored: group, tail: [], timezone, today, now, todayCovered: true, factsFor: small });
-      expect(glance.map((s) => s.text)).toEqual(["A west groundswell is still in the water, chest-high at most spots, easing by tomorrow."]);
+      expect(glance.map((s) => s.text)).toEqual(["A west groundswell peaked yesterday morning, chest-high at most spots, easing by tomorrow."]);
     });
 
     it("peaks on the earliest future member peak when none peaks today", () => {
@@ -197,7 +199,7 @@ describe("buildGlance", () => {
         event("w-big", 275, "2026-11-04T08:00:00Z", "2026-11-06T16:00:00Z", "2026-11-08T20:00:00Z")];
       const glance = buildGlance({ stored: group, tail: [], timezone, today, now, todayCovered: true, factsFor: small });
       expect(glance.map((s) => s.text)).toEqual([
-        "A west groundswell is already in the water and peaks tomorrow, chest-high at most spots, easing by Sunday."]);
+        "A west groundswell is already in the water and peaks tomorrow morning, chest-high at most spots, easing by Sunday."]);
       selfChecks(glance[0].text, glance[0].facts);
     });
 
@@ -216,7 +218,7 @@ describe("buildGlance", () => {
     // Peaks 10:00 and fades 20:00 PST tomorrow: never "peaks tomorrow, easing by tomorrow".
     const sameDay = event("w-same", 270, "2026-11-05T14:00:00Z", "2026-11-06T18:00:00Z", "2026-11-07T04:00:00Z");
     const glance = buildGlance({ stored: [sameDay], tail: [], timezone, today, now, todayCovered: true, factsFor: chest });
-    expect(glance.map((s) => s.text)).toEqual(["A west groundswell is already in the water and peaks tomorrow, chest-high at most spots."]);
+    expect(glance.map((s) => s.text)).toEqual(["A west groundswell is already in the water and peaks tomorrow morning, chest-high at most spots."]);
     expect(checkWrittenSentence(glance[0].text, { text: glance[0].text, facts: glance[0].facts ?? undefined }, [], ["San Diego"])).toEqual({ ok: true });
   });
 
@@ -236,13 +238,13 @@ describe("buildGlance", () => {
   it("reads a swell peaking later as already in the water, and leaves out a null size", () => {
     const building = event("w-build", 270, "2026-11-04T20:00:00Z", "2026-11-07T20:00:00Z", "2026-11-09T20:00:00Z");
     const glance = buildGlance({ stored: [building], tail: [], timezone, today, now, todayCovered: true, factsFor: () => null });
-    expect(glance.map((s) => s.text)).toEqual(["A west groundswell is already in the water and peaks Saturday, easing by Monday."]);
+    expect(glance.map((s) => s.text)).toEqual(["A west groundswell is already in the water and peaks midday Saturday, easing by Monday."]);
   });
 
   it("dates by the region's local day near midnight", () => {
     const late = event("w-late", 270, "2026-11-08T20:00:00Z", "2026-11-09T07:30:00Z", null);
     const glance = buildGlance({ stored: [late], tail: [], timezone, today, now, todayCovered: false, factsFor: chest });
-    expect(glance.map((s) => s.text)).toEqual(["A west groundswell arrives and peaks Sunday, chest-high at most spots."]);
+    expect(glance.map((s) => s.text)).toEqual(["A west groundswell arrives midday Sunday and peaks that night, chest-high at most spots."]);
   });
 
   it("writes an early look without the standouts", () => {
@@ -259,7 +261,7 @@ describe("buildGlance", () => {
     it("states only the lead's size", () => {
       const glance = buildGlance({ stored: pair, tail: [], timezone, today, now, todayCovered: false, factsFor: lockedPairFacts });
       expect(glance.map((s) => s.text)).toEqual([
-        "A west groundswell arrives Saturday and peaks Sunday, chest-high at most spots, then a south groundswell follows Monday.",
+        "A west groundswell arrives midday Saturday and peaks midday Sunday, chest-high at most spots, then a south groundswell follows midday Monday.",
       ]);
     });
 
@@ -267,7 +269,7 @@ describe("buildGlance", () => {
       const glance = buildGlance({ stored: pair, tail: [], timezone, today, now, todayCovered: false,
         factsFor: (e) => e.regionalKey === "w-one" ? null : sized({ min: 5, max: 6 }) });
       expect(glance.map((s) => s.text)).toEqual([
-        "A west groundswell arrives Saturday and peaks Sunday, then a south groundswell follows Monday.",
+        "A west groundswell arrives midday Saturday and peaks midday Sunday, then a south groundswell follows midday Monday.",
       ]);
       expect(glance[0].facts).toBeNull();
     });
@@ -312,5 +314,103 @@ describe("buildGlance", () => {
       expect(large.map((s) => s.fingerprint)).toEqual(small.map((s) => s.fingerprint));
       expect(large.map((s) => s.text)).not.toEqual(small.map((s) => s.text));
     });
+  });
+});
+
+describe("glanceWhen", () => {
+  it("words a day and part of the day as the Swell Watch card does", () => {
+    const when = (at: string): string => glanceWhen(at, today, timezone);
+    expect(when("2026-11-05T12:00:00Z")).toBe("early this morning");
+    expect(when("2026-11-05T17:00:00Z")).toBe("this morning");
+    expect(when("2026-11-05T20:00:00Z")).toBe("midday today");
+    expect(when("2026-11-05T23:00:00Z")).toBe("this afternoon");
+    expect(when("2026-11-06T03:00:00Z")).toBe("this evening");
+    expect(when("2026-11-06T06:00:00Z")).toBe("tonight");
+    expect(when("2026-11-06T17:00:00Z")).toBe("tomorrow morning");
+    expect(when("2026-11-07T12:00:00Z")).toBe("early Saturday morning");
+    expect(when("2026-11-08T20:00:00Z")).toBe("midday Sunday");
+    expect(when("2026-11-05T06:00:00Z")).toBe("last night");
+    expect(when("2026-11-04T23:00:00Z")).toBe("yesterday afternoon");
+  });
+
+  it("keeps the day alone past six days", () => {
+    expect(glanceWhen("2026-11-12T20:00:00Z", today, timezone)).toBe("a week from today");
+    expect(glanceWhen("2026-11-13T20:00:00Z", today, timezone)).toBe("a week from Friday");
+  });
+});
+
+describe("buildGlance times", () => {
+  const afternoon = new Date("2026-11-05T23:00:00Z");
+  const morning = new Date("2026-11-05T16:00:00Z");
+  const build = (events: RegionalSwellEvent[], at: Date) =>
+    buildGlance({ stored: events, tail: [], timezone, today, now: at, todayCovered: true, factsFor: chest });
+  const selfCheck = (texts: readonly { text: string; facts: CandidateFacts | null }[]): void => {
+    for (const s of texts) {
+      expect(checkWrittenSentence(s.text, { text: s.text, facts: s.facts ?? undefined }, [], ["San Diego"])).toEqual({ ok: true });
+    }
+  };
+
+  it("says a swell that peaked this morning is easing", () => {
+    const glance = build([event("w-am", 270, "2026-11-05T08:00:00Z", "2026-11-05T17:00:00Z", "2026-11-06T04:00:00Z")], afternoon);
+    expect(glance.map((s) => s.text)).toEqual(["A west groundswell peaked this morning and is easing, chest-high at most spots."]);
+    selfCheck(glance);
+  });
+
+  it("says when a swell still ahead today peaks", () => {
+    const glance = build([event("w-pm", 270, "2026-11-05T08:00:00Z", "2026-11-05T23:00:00Z", null)], morning);
+    expect(glance.map((s) => s.text)).toEqual(["A west groundswell peaks this afternoon, chest-high at most spots."]);
+    selfCheck(glance);
+  });
+
+  it("pairs two swells that both peaked this morning", () => {
+    const glance = build([event("w-am", 270, "2026-11-05T08:00:00Z", "2026-11-05T17:00:00Z", "2026-11-06T04:00:00Z"),
+      event("s-am", 180, "2026-11-05T08:00:00Z", "2026-11-05T18:00:00Z", "2026-11-06T04:00:00Z")], afternoon);
+    expect(glance.map((s) => s.text)).toEqual([
+      "A west groundswell and a south groundswell both peaked this morning and are easing, chest-high at most spots."]);
+    selfCheck(glance);
+  });
+
+  it("never pairs a swell that peaked with one still ahead", () => {
+    const glance = build([event("w-am", 270, "2026-11-05T08:00:00Z", "2026-11-05T17:00:00Z", "2026-11-06T04:00:00Z"),
+      event("s-pm", 180, "2026-11-05T08:00:00Z", "2026-11-06T01:00:00Z", "2026-11-06T04:00:00Z")], afternoon);
+    expect(glance.map((s) => s.text)).toEqual([
+      "A west groundswell peaked this morning and is easing, chest-high at most spots.",
+      "A south groundswell peaks this afternoon, chest-high at most spots."]);
+  });
+
+  it("says one time when a next swell arrives and peaks in the same part of a day", () => {
+    const glance = build([event("w-sun", 270, "2026-11-08T22:00:00Z", "2026-11-08T23:30:00Z", null)], morning);
+    expect(glance.map((s) => s.text)).toEqual(["No clear swell in the water today.",
+      "A west groundswell arrives and peaks Sunday afternoon, chest-high at most spots."]);
+  });
+
+  it("changes the today fingerprint once the swell has peaked, so an old rewording stops serving", () => {
+    const pm = [event("w-pm", 270, "2026-11-05T08:00:00Z", "2026-11-05T21:00:00Z", "2026-11-06T04:00:00Z")];
+    const before = build(pm, morning)[0];
+    const after = build(pm, afternoon)[0];
+    expect(before.text).toBe("A west groundswell peaks midday today, chest-high at most spots.");
+    expect(after.text).toBe("A west groundswell peaked midday today and is easing, chest-high at most spots.");
+    expect(after.fingerprint).not.toBe(before.fingerprint);
+  });
+
+  it("changes a next fingerprint when the peak moves to another part of the same day", () => {
+    const at = (peakAt: string) => build([event("w-sun", 270, "2026-11-08T16:00:00Z", peakAt, null)], morning).at(-1)!;
+    expect(at("2026-11-08T23:00:00Z").fingerprint).not.toBe(at("2026-11-09T03:00:00Z").fingerprint);
+  });
+});
+
+describe("glanceFromBuild", () => {
+  const regionEvent = (key: string, peakAt: string, fadeAt: string): InternalRegionEvent => ({
+    key, kind: "swell", source: "forecast", directionDeg: 270, directionLabel: "W", periodS: 16,
+    arrivalAt: "2026-11-05T08:00:00Z", peakAt, fadeAt, peakLocalDate: "2026-11-05", offshoreFt: "4 ft", history: null, memberCount: 3,
+  });
+
+  it("leaves out a past-peak swell no beach can still rate, as the Swell Watch drops it", () => {
+    const build = {
+      region: "San Diego", timezone, buoy: null, wamDays: null, beaches: [], rowsByBeach: {},
+      events: [regionEvent("gone", "2026-11-05T17:00:00Z", "2026-11-06T04:00:00Z"), regionEvent("ahead", "2026-11-06T01:00:00Z", "2026-11-06T04:00:00Z")],
+    } as unknown as RegionBuild;
+    const glance = glanceFromBuild(build, today, true, new Date("2026-11-05T23:00:00Z"));
+    expect(glance.flatMap((s) => s.eventKeys)).toEqual(["ahead"]);
   });
 });
