@@ -17,6 +17,7 @@ const beachSchema = z.object({
     type: z.literal('period_lookup'),
     version: z.literal(1),
     buckets: z.array(z.object({ tp_min_s: finite, tp_max_s: finite, factor: finite })),
+    direction_shadow: z.boolean().optional(),
   }).nullable().optional(),
 });
 const inputSchema = z.object({
