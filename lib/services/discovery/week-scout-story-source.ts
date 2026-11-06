@@ -223,7 +223,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   // Past the cap the latest events lose their lines; the card writes those from the build itself.
   const copyFacts = [...storyFacts, ...buildEventCandidates(build, allEvents, buildRegionGateContext(build, editionDate), now)]
     .slice(0, MAX_FACTS);
-  const glance = glanceFromBuild(build, editionDate, signals[0].complete)
+  const glance = glanceFromBuild(build, editionDate, signals[0].complete, now)
     .map(({ role, fingerprint, text }) => ({ role, fingerprint, text }));
   // The offer is hashed, so an input cached before it existed is rebuilt to carry it.
   const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, events: allEvents,

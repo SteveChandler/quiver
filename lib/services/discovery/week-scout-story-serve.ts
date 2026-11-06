@@ -447,7 +447,7 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
     const story = await bindEditionOrFallback(live, regional);
     let glance: StoryGlance | null = null;
     try {
-      glance = build ? bindGlance(glanceFromBuild(build, editionDate, todayCovered(live, editionDate)),
+      glance = build ? bindGlance(glanceFromBuild(build, editionDate, todayCovered(live, editionDate), now),
         writtenGlance(edition, editionDate, now), build.beaches.map((beach) => beach.name), region) : null;
     } catch (error) {
       console.warn("[week-scout-story] glance failed", { region, error: String(error) });

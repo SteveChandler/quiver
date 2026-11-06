@@ -1,5 +1,5 @@
 import type { InternalRegionEvent, RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { localDayDiff } from "@/lib/alerts/swell-events/regional-rating";
+import { isEventCurrent, localDayDiff } from "@/lib/alerts/swell-events/regional-rating";
 import { groupGlanceEvents, onGlanceStrip, type GlanceGroup } from "./week-scout-glance-groups";
 import { COMPASS, directionIndex, sizePhrase, storyEventsFromRegion, WEEKDAY, type RegionalSwellEvent } from "./week-scout-story-candidates";
 import { eventFactsFromBuild, type CandidateFacts } from "./week-scout-story-facts";
@@ -117,9 +117,13 @@ export function buildGlance(args: {
   /** In peak order, as `build.events` is: the first qualifying event is the earliest. */
   tail: readonly TailEvent[];
   timezone: string; today: string; todayCovered: boolean;
+  /** Swells gone by now are left out, as the Swell Watch drops them. */
+  now: Date;
   factsFor: (event: RegionalSwellEvent) => CandidateFacts | null;
 }): GlanceSentence[] {
-  const { stored, tail, timezone, today, todayCovered, factsFor } = args;
+  const { stored: allStored, tail: allTail, timezone, today, todayCovered, now, factsFor } = args;
+  const stored = allStored.filter((event) => isEventCurrent(event, now));
+  const tail = allTail.filter((event) => isEventCurrent(event, now));
   const sentences: GlanceSentence[] = [];
   const namedLabels = new Set<string>();
   let namedMax: number | null = null;
@@ -186,7 +190,7 @@ export function buildGlance(args: {
 }
 
 /** The glance from a region build: its stored forecast events, its early-look tail, and each event's facts from its rows. */
-export function glanceFromBuild(build: RegionBuild, today: string, todayCovered: boolean): GlanceSentence[] {
+export function glanceFromBuild(build: RegionBuild, today: string, todayCovered: boolean, now: Date): GlanceSentence[] {
   // Grouping sorts on facts, so each event's facts are read from the build's rows once.
   const facts = new Map<RegionalSwellEvent, CandidateFacts | null>();
   return buildGlance({
@@ -195,6 +199,7 @@ export function glanceFromBuild(build: RegionBuild, today: string, todayCovered:
     timezone: build.timezone,
     today,
     todayCovered,
+    now,
     factsFor: (event) => {
       if (!facts.has(event)) facts.set(event, eventFactsFromBuild(build, event));
       return facts.get(event) ?? null;

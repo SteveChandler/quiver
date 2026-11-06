@@ -660,8 +660,8 @@ describe("deterministic fallback and live gates", () => {
   });
 
   describe("At a glance", () => {
-    const codeGlance = (build: RegionBuild, date: string) => {
-      const sentences = glanceFromBuild(build, date, false);
+    const codeGlance = (build: RegionBuild, date: string, at: Date = now) => {
+      const sentences = glanceFromBuild(build, date, false, at);
       return { sentences: sentences.map((sentence) => sentence.text), source: sentences.map(() => "code") };
     };
     const editionFor = (issued: StoryInput, at: Date, overrides: Partial<StoryArtifact> = {}): StoryArtifact => ({
@@ -695,7 +695,7 @@ describe("deterministic fallback and live gates", () => {
       const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
         startLocalDate: date, now: at });
       expect(story.availability).toBe("unavailable");
-      expect(story.glance).toEqual(codeGlance(build, date));
+      expect(story.glance).toEqual(codeGlance(build, date, at));
       expect(story.glance?.sentences.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -706,7 +706,7 @@ describe("deterministic fallback and live gates", () => {
     });
 
     it("serves a -3 edition's rewording of a sentence whose fingerprint still matches", async () => {
-      const code = glanceFromBuild(regionBuild([west]), "2026-07-15", false);
+      const code = glanceFromBuild(regionBuild([west]), "2026-07-15", false, now);
       expect(code[0].text).toBe("A west groundswell is already in the water and peaks tomorrow, easing by tomorrow.");
       const reworded = "Already in the water, a west groundswell peaks tomorrow, easing by tomorrow.";
       const issued: StoryInput = { ...input(), glance: code.map(({ role, fingerprint, text }) => ({ role, fingerprint, text })) };

@@ -32,8 +32,11 @@ function factsFor(event: RegionalSwellEvent): CandidateFacts | null {
   return factsById.get(event.regionalKey) ?? null;
 }
 
+/** 08:00 PST: every stored swell is still in the water. */
+const now = new Date("2026-11-05T16:00:00Z");
+
 /** San Diego's stored swells on Nov 5 2026, the morning of the approved At a glance mockup. */
-export const glanceSanDiego = { today, timezone, stored, factsFor };
+export const glanceSanDiego = { today, timezone, now, stored, factsFor };
 
 export const glanceSanDiegoSentences: readonly string[] = [
   "A west groundswell and a south-southwest groundswell both peak today, chest-high at most spots and overhead at the standouts, easing by Saturday.",

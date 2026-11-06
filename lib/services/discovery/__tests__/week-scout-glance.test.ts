@@ -4,7 +4,7 @@ import { checkWrittenSentence } from "../week-scout-story-claims";
 import { buildGlance, glanceDay, MAX_GLANCE_SENTENCES, MAX_NEXT_GROUPS } from "../week-scout-glance";
 import { glanceSanDiego, glanceSanDiegoSentences as S } from "./fixtures/glance-san-diego-2026-11-05";
 
-const { today, timezone, stored, factsFor } = glanceSanDiego;
+const { today, timezone, now, stored, factsFor } = glanceSanDiego;
 
 const event = (regionalKey: string, directionDeg: number, arrivalAt: string, peakAt: string, fadeAt: string | null,
   confidence: RegionalSwellEvent["confidence"] = "locked"): RegionalSwellEvent => ({
@@ -36,7 +36,7 @@ describe("glanceDay", () => {
 
 describe("buildGlance", () => {
   it("reproduces the Nov 5 San Diego paragraph", () => {
-    const glance = buildGlance({ stored, tail: [], timezone, today, todayCovered: true, factsFor });
+    const glance = buildGlance({ stored, tail: [], timezone, today, now, todayCovered: true, factsFor });
     expect(glance.map((s) => s.text)).toEqual(S);
     expect(glance.map((s) => s.role)).toEqual(["today", "next", "next"]);
     expect(glance.map((s) => s.eventKeys)).toEqual([
@@ -49,7 +49,7 @@ describe("buildGlance", () => {
   });
 
   it("every code sentence passes the claim checker against itself and has no stray digit or 'from X into X'", () => {
-    for (const s of buildGlance({ stored, tail, timezone, today, todayCovered: true, factsFor })) {
+    for (const s of buildGlance({ stored, tail, timezone, today, now, todayCovered: true, factsFor })) {
       expect(checkWrittenSentence(s.text, { text: s.text, facts: s.facts ?? undefined }, [], ["San Diego"])).toEqual({ ok: true });
       expect(s.text).not.toMatch(/\bfrom (\w+) into \1\b/);
       expect(s.text.replace(/\d+(?:-\d+)? ?ft/g, "")).not.toMatch(/\d/);
@@ -69,7 +69,7 @@ describe("buildGlance", () => {
     ];
     const texts: string[] = [];
     for (const [events, facts] of shapes) {
-      for (const s of buildGlance({ stored: events, tail, timezone, today, todayCovered: false, factsFor: facts })) {
+      for (const s of buildGlance({ stored: events, tail, timezone, today, now, todayCovered: false, factsFor: facts })) {
         texts.push(s.text);
         expect(checkWrittenSentence(s.text, { text: s.text, facts: s.facts ?? undefined }, [], ["San Diego"])).toEqual({ ok: true });
       }
@@ -90,7 +90,7 @@ describe("buildGlance", () => {
   });
 
   it("adds the long-range sentence when nothing was skipped", () => {
-    const glance = buildGlance({ stored, tail, timezone, today, todayCovered: true, factsFor });
+    const glance = buildGlance({ stored, tail, timezone, today, now, todayCovered: true, factsFor });
     expect(glance.map((s) => s.text)).toEqual([...S,
       "Further out, a west-northwest swell is on the radar for a week from Wednesday, too early to call."]);
     expect(glance[3]).toEqual({
@@ -105,13 +105,13 @@ describe("buildGlance", () => {
   it("skips a tail event with no direction or one peaking before the last next group", () => {
     const early = { key: "early", directionDeg: 292, arrivalAt: null, peakAt: "2026-11-14T08:00:00Z", fadeAt: null };
     const blind = { key: "blind", directionDeg: null, arrivalAt: null, peakAt: "2026-11-17T18:00:00Z", fadeAt: null };
-    const glance = buildGlance({ stored, tail: [early, blind, ...tail], timezone, today, todayCovered: true, factsFor });
+    const glance = buildGlance({ stored, tail: [early, blind, ...tail], timezone, today, now, todayCovered: true, factsFor });
     expect(glance.at(-1)?.eventKeys).toEqual(["tail"]);
   });
 
   it("stops at four next groups and drops the long range", () => {
     const fifth = event("s-tue", 180, "2026-11-16T16:00:00Z", "2026-11-17T18:00:00Z", "2026-11-18T18:00:00Z", "likely");
-    const glance = buildGlance({ stored: [...stored, fifth], tail, timezone, today, todayCovered: true, factsFor });
+    const glance = buildGlance({ stored: [...stored, fifth], tail, timezone, today, now, todayCovered: true, factsFor });
     expect(glance.map((s) => s.text)).toEqual(S);
     const nextKeys = glance.filter((s) => s.role === "next").flatMap((s) => s.eventKeys);
     expect(nextKeys).not.toContain("s-tue");
@@ -122,48 +122,61 @@ describe("buildGlance", () => {
 
   it("says so when nothing is in the water and today is covered", () => {
     const ahead = stored.filter((e) => e.arrivalAt >= "2026-11-06");
-    const glance = buildGlance({ stored: ahead, tail: [], timezone, today, todayCovered: true, factsFor });
+    const glance = buildGlance({ stored: ahead, tail: [], timezone, today, now, todayCovered: true, factsFor });
     expect(glance.map((s) => s.text)).toEqual([
       "No clear swell in the water today.",
       "A south-southwest groundswell arrives and peaks Sunday, then a west-northwest mid-period swell follows Monday, both chest-high at most spots.",
       S[2],
     ]);
     expect(glance[0]).toMatchObject({ role: "today", facts: null, eventKeys: [] });
-    const uncovered = buildGlance({ stored: ahead, tail: [], timezone, today, todayCovered: false, factsFor });
+    const uncovered = buildGlance({ stored: ahead, tail: [], timezone, today, now, todayCovered: false, factsFor });
     expect(uncovered.map((s) => s.role)).toEqual(["next", "next"]);
   });
 
   it("returns [] for no events and an uncovered today", () => {
-    expect(buildGlance({ stored: [], tail: [], timezone, today, todayCovered: false, factsFor })).toEqual([]);
+    expect(buildGlance({ stored: [], tail: [], timezone, today, now, todayCovered: false, factsFor })).toEqual([]);
   });
 
   it("writes today's groups even when today is not covered", () => {
-    const glance = buildGlance({ stored: stored.slice(0, 2), tail: [], timezone, today, todayCovered: false, factsFor });
+    const glance = buildGlance({ stored: stored.slice(0, 2), tail: [], timezone, today, now, todayCovered: false, factsFor });
     expect(glance.map((s) => s.text)).toEqual([S[0]]);
   });
 
   it("reads a swell past its peak as still in the water", () => {
     const past = event("w-past", 270, "2026-11-03T20:00:00Z", "2026-11-04T20:00:00Z", "2026-11-06T20:00:00Z");
-    const glance = buildGlance({ stored: [past], tail: [], timezone, today, todayCovered: true, factsFor: chest });
+    const glance = buildGlance({ stored: [past], tail: [], timezone, today, now, todayCovered: true, factsFor: chest });
     // Nov 6 is the day after Nov 5, so the anchor table names it "tomorrow".
     expect(glance.map((s) => s.text)).toEqual(["A west groundswell is still in the water, chest-high at most spots, easing by tomorrow."]);
   });
 
+  it("leaves out a swell that faded earlier today, as the Swell Watch does", () => {
+    // Fades 06:00 PST; at 14:00 PST it is still on today's strip but no longer in the water.
+    const gone = event("w-gone", 270, "2026-11-04T08:00:00Z", "2026-11-04T20:00:00Z", "2026-11-05T14:00:00Z");
+    const goneTail = { key: "tail-gone", directionDeg: 270, arrivalAt: null, peakAt: "2026-11-04T20:00:00Z", fadeAt: "2026-11-05T14:00:00Z" };
+    const dawn = new Date("2026-11-05T13:00:00Z");
+    const afternoon = new Date("2026-11-05T22:00:00Z");
+    const args = { stored: [gone], tail: [goneTail], timezone, today, todayCovered: true, factsFor: chest };
+    expect(buildGlance({ ...args, now: dawn }).flatMap((s) => s.eventKeys)).toContain("w-gone");
+    const glance = buildGlance({ ...args, now: afternoon });
+    expect(glance.map((s) => s.text)).toEqual(["No clear swell in the water today."]);
+    expect(glance.flatMap((s) => s.eventKeys)).toEqual([]);
+  });
+
   it("reads a swell peaking later as already in the water, and leaves out a null size", () => {
     const building = event("w-build", 270, "2026-11-04T20:00:00Z", "2026-11-07T20:00:00Z", "2026-11-09T20:00:00Z");
-    const glance = buildGlance({ stored: [building], tail: [], timezone, today, todayCovered: true, factsFor: () => null });
+    const glance = buildGlance({ stored: [building], tail: [], timezone, today, now, todayCovered: true, factsFor: () => null });
     expect(glance.map((s) => s.text)).toEqual(["A west groundswell is already in the water and peaks Saturday, easing by Monday."]);
   });
 
   it("dates by the region's local day near midnight", () => {
     const late = event("w-late", 270, "2026-11-08T20:00:00Z", "2026-11-09T07:30:00Z", null);
-    const glance = buildGlance({ stored: [late], tail: [], timezone, today, todayCovered: false, factsFor: chest });
+    const glance = buildGlance({ stored: [late], tail: [], timezone, today, now, todayCovered: false, factsFor: chest });
     expect(glance.map((s) => s.text)).toEqual(["A west groundswell arrives and peaks Sunday, chest-high at most spots."]);
   });
 
   it("writes an early look without the standouts", () => {
     const radar = event("w-radar", 270, "2026-11-15T20:00:00Z", "2026-11-16T20:00:00Z", null, "on_the_radar");
-    const glance = buildGlance({ stored: [radar], tail: [], timezone, today, todayCovered: false,
+    const glance = buildGlance({ stored: [radar], tail: [], timezone, today, now, todayCovered: false,
       factsFor: () => sized({ min: 3, max: 5 }, { min: 8, max: 10 }) });
     expect(glance.map((s) => s.text)).toEqual(["A week from Monday brings an early look at a west groundswell, chest-high at most spots."]);
   });
@@ -173,14 +186,14 @@ describe("buildGlance", () => {
       event("s-two", 180, "2026-11-09T16:00:00Z", "2026-11-09T20:00:00Z", null)];
 
     it("states only the lead's size", () => {
-      const glance = buildGlance({ stored: pair, tail: [], timezone, today, todayCovered: false, factsFor: lockedPairFacts });
+      const glance = buildGlance({ stored: pair, tail: [], timezone, today, now, todayCovered: false, factsFor: lockedPairFacts });
       expect(glance.map((s) => s.text)).toEqual([
         "A west groundswell arrives Saturday and peaks Sunday, chest-high at most spots, then a south groundswell follows Monday.",
       ]);
     });
 
     it("states no size when the lead has none", () => {
-      const glance = buildGlance({ stored: pair, tail: [], timezone, today, todayCovered: false,
+      const glance = buildGlance({ stored: pair, tail: [], timezone, today, now, todayCovered: false,
         factsFor: (e) => e.regionalKey === "w-one" ? null : sized({ min: 5, max: 6 }) });
       expect(glance.map((s) => s.text)).toEqual([
         "A west groundswell arrives Saturday and peaks Sunday, then a south groundswell follows Monday.",
@@ -201,7 +214,7 @@ describe("buildGlance", () => {
     // Peaks two days apart, so no two next groups share a sentence.
     const ahead = ["2026-11-07", "2026-11-09", "2026-11-11", "2026-11-13"].map((day, index) =>
       event(`next-${index}`, 270, `${day}T04:00:00Z`, `${day}T20:00:00Z`, null));
-    const glance = buildGlance({ stored: [...inWater, ...ahead], tail, timezone, today, todayCovered: true, factsFor: (e) => sizes[e.regionalKey] ?? chest() });
+    const glance = buildGlance({ stored: [...inWater, ...ahead], tail, timezone, today, now, todayCovered: true, factsFor: (e) => sizes[e.regionalKey] ?? chest() });
     expect(glance).toHaveLength(MAX_GLANCE_SENTENCES);
     expect(glance.map((s) => s.role)).toEqual(["today", "today", "today", "next", "next", "next"]);
     expect(glance.flatMap((s) => s.eventKeys)).not.toContain("next-3");
@@ -216,15 +229,15 @@ describe("buildGlance", () => {
     };
 
     it("keeps every fingerprint when every range grows a foot", () => {
-      const before = buildGlance({ stored, tail, timezone, today, todayCovered: true, factsFor });
-      const after = buildGlance({ stored, tail, timezone, today, todayCovered: true, factsFor: shifted(1) });
+      const before = buildGlance({ stored, tail, timezone, today, now, todayCovered: true, factsFor });
+      const after = buildGlance({ stored, tail, timezone, today, now, todayCovered: true, factsFor: shifted(1) });
       expect(after.map((s) => s.fingerprint)).toEqual(before.map((s) => s.fingerprint));
       expect(after.map((s) => s.text)).not.toEqual(before.map((s) => s.text));
     });
 
     it("keeps every fingerprint between two uniform sizes, 3–5 and 4–6", () => {
-      const small = buildGlance({ stored, tail, timezone, today, todayCovered: true, factsFor: () => sized({ min: 3, max: 5 }) });
-      const large = buildGlance({ stored, tail, timezone, today, todayCovered: true, factsFor: () => sized({ min: 4, max: 6 }) });
+      const small = buildGlance({ stored, tail, timezone, today, now, todayCovered: true, factsFor: () => sized({ min: 3, max: 5 }) });
+      const large = buildGlance({ stored, tail, timezone, today, now, todayCovered: true, factsFor: () => sized({ min: 4, max: 6 }) });
       expect(large.map((s) => s.fingerprint)).toEqual(small.map((s) => s.fingerprint));
       expect(large.map((s) => s.text)).not.toEqual(small.map((s) => s.text));
     });

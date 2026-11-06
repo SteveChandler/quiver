@@ -210,7 +210,7 @@ describe("regional story source snapshot", () => {
 
   it("offers the code's At a glance sentences by role, fingerprint and text", async () => {
     const issued = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
-    const code = glanceFromBuild(regionBuild([ssw, storm]), "2026-10-27", true);
+    const code = glanceFromBuild(regionBuild([ssw, storm]), "2026-10-27", true, now);
     expect(code.length).toBeGreaterThan(0);
     expect(issued.glance).toEqual(code.map(({ role, fingerprint, text }) => ({ role, fingerprint, text })));
   });

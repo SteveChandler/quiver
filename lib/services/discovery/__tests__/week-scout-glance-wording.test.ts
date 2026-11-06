@@ -5,10 +5,10 @@ import { buildGlance } from "../week-scout-glance";
 import { bindGlance, CERTAINTY_PHRASES, checkGlanceWording, type GlanceWritten } from "../week-scout-glance-wording";
 import { glanceSanDiego, glanceSanDiegoSentences as S } from "./fixtures/glance-san-diego-2026-11-05";
 
-const { today, timezone, stored, factsFor } = glanceSanDiego;
+const { today, timezone, now, stored, factsFor } = glanceSanDiego;
 const region = "San Diego";
 const build = (events: readonly RegionalSwellEvent[] = stored, facts = factsFor) =>
-  buildGlance({ stored: events, tail: [], timezone, today, todayCovered: true, factsFor: facts });
+  buildGlance({ stored: events, tail: [], timezone, today, now, todayCovered: true, factsFor: facts });
 
 const salad = "Expect crumbly, crumbling, crumbles, spilling, soft, mushy, or peaky waves.";
 const reworded1 = "A fresh south-southwest groundswell arrives and peaks Sunday, and a west-northwest mid-period swell follows Monday, both chest-high at most spots.";
