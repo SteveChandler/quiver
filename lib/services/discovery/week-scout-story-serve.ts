@@ -14,7 +14,8 @@ import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from 
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
-import type { StoryArtifact, StoryCandidate, StoryGate, StoryInput, StoryWire, StoryWrittenSentence } from "./week-scout-story-types";
+import { GLANCE_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryGate, type StoryInput, type StoryWire,
+  type StoryWrittenSentence } from "./week-scout-story-types";
 
 type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
@@ -372,7 +373,7 @@ function todayCovered(live: Live, editionDate: string): boolean {
 
 /** Today's -3 rewordings, well-formed entries only: a malformed one would otherwise throw in bindGlance and drop the paragraph. */
 function writtenGlance(edition: StoryArtifact | null, editionDate: string, now: Date): GlanceWritten[] | undefined {
-  if (!edition || edition.generationVersion !== "week-scout-story-3" || edition.editionDate !== editionDate
+  if (!edition || edition.generationVersion !== GLANCE_GENERATION_VERSION || edition.editionDate !== editionDate
     || !(Date.parse(edition.validUntil) >= now.getTime()) || !(Date.parse(edition.sourcePublishedAt) <= now.getTime())) return undefined;
   const glance: unknown = edition.briefing?.glance;
   if (!Array.isArray(glance)) return undefined;

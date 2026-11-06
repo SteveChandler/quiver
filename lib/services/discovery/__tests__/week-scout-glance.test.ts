@@ -2,6 +2,7 @@ import type { RegionalSwellEvent } from "../week-scout-story-candidates";
 import { sizeWordsFor, type CandidateFacts, type FaceRange } from "../week-scout-story-facts";
 import { checkWrittenSentence } from "../week-scout-story-claims";
 import { buildGlance, glanceDay, MAX_GLANCE_SENTENCES, MAX_NEXT_GROUPS } from "../week-scout-glance";
+import { MAX_GLANCE_SENTENCES as MAX_GLANCE_REWORDINGS } from "../week-scout-story-validate";
 import { glanceSanDiego, glanceSanDiegoSentences as S } from "./fixtures/glance-san-diego-2026-11-05";
 
 const { today, timezone, now, stored, factsFor } = glanceSanDiego;
@@ -35,6 +36,10 @@ describe("glanceDay", () => {
 });
 
 describe("buildGlance", () => {
+  it("caps the paragraph where the publish route caps its rewordings", () => {
+    expect(MAX_GLANCE_REWORDINGS).toBe(MAX_GLANCE_SENTENCES);
+  });
+
   it("reproduces the Nov 5 San Diego paragraph", () => {
     const glance = buildGlance({ stored, tail: [], timezone, today, now, todayCovered: true, factsFor });
     expect(glance.map((s) => s.text)).toEqual(S);

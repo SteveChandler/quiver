@@ -6,6 +6,10 @@ const WEEK_SCOUT_STORY_SCHEMA_VERSION = 3 as const;
 export const WEEK_SCOUT_STORY_GENERATION_VERSION = "week-scout-story-1";
 /** -1 selects candidates; -2 also sends a sentence Gemma wrote for some picks, checked when served; -3 adds At a glance rewordings. */
 export const WEEK_SCOUT_STORY_GENERATION_VERSIONS = ["week-scout-story-1", "week-scout-story-2", "week-scout-story-3"] as const;
+/** The generations that carry the PC's written sentences; -3 is a superset of -2. */
+export const WRITTEN_GENERATION_VERSIONS: ReadonlySet<string> = new Set(["week-scout-story-2", "week-scout-story-3"]);
+/** The only generation that carries At a glance rewordings. */
+export const GLANCE_GENERATION_VERSION = "week-scout-story-3";
 
 export type StoryGate =
   | { kind: "swell"; regionalEventKey: string; directionSector: number; directionIndex?: number; periodBand: number; periodClass?: "long" | "mid" | "short"; arrivalLocalDate: string; peakLocalDate: string; fadeLocalDate: string | null; confidence: "on_the_radar" | "likely" | "locked"; minimumBeaches: number }

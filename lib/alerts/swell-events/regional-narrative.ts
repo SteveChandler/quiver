@@ -15,7 +15,7 @@ import { checkWrittenSentence } from "@/lib/services/discovery/week-scout-story-
 import { buildRegionGateContext, regionGateHolds, windBucket, type RegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
-import type { StoryArtifact, StoryGate, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
+import { WRITTEN_GENERATION_VERSIONS, type StoryArtifact, type StoryGate, type StoryInput } from "@/lib/services/discovery/week-scout-story-types";
 import type { Database } from "@/types/database";
 import type { RegionBeachRating, RegionSwellEvent, RegionWatchBeach } from "@/types/region-swell-events";
 
@@ -30,8 +30,6 @@ export interface NarrativeEdition {
   artifact: StoryArtifact;
 }
 
-/** The generations that carry the PC's written sentences; -3 is a superset of -2. */
-const WRITTEN_GENERATION_VERSIONS: ReadonlySet<string> = new Set(["week-scout-story-2", "week-scout-story-3"]);
 /** Story inputs are content-addressed by hash, so a loaded one never goes stale; keep the most recent few. */
 const MAX_CACHED_INPUTS = 16;
 const storyInputs = new Map<string, Promise<StoryInput | null>>();

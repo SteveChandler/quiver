@@ -1,6 +1,6 @@
 import { canonicalJson } from "./swell-briefing-hash";
 import type { StoryArtifact, StoryInput } from "./week-scout-story-types";
-import { WEEK_SCOUT_STORY_GENERATION_VERSIONS } from "./week-scout-story-types";
+import { GLANCE_GENERATION_VERSION, WEEK_SCOUT_STORY_GENERATION_VERSIONS, WRITTEN_GENERATION_VERSIONS } from "./week-scout-story-types";
 
 export class StoryValidationError extends Error {
   constructor(code: string, readonly status = 400) { super(code); this.name = "StoryValidationError"; }
@@ -10,8 +10,8 @@ export class StoryValidationError extends Error {
 const MAX_SELECTIONS = 200;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
 const MAX_WRITTEN_LENGTH = 240;
-const MAX_GLANCE_SENTENCES = 6;
-const WRITTEN_GENERATION_VERSIONS: ReadonlySet<string> = new Set(["week-scout-story-2", "week-scout-story-3"]);
+/** The glance module's cap, restated so the publish route pulls in no forecast code; a test keeps the two equal. */
+export const MAX_GLANCE_SENTENCES = 6;
 
 /**
  * A written sentence's shape only: one per selected candidate's slot, at most 240 characters. Its
@@ -99,7 +99,7 @@ export function assertStoryArtifactMatchesInput(artifact: StoryArtifact, input: 
     assertWrittenShape(written, selected);
   }
   if (glance !== undefined) {
-    if (artifact.generationVersion !== "week-scout-story-3") throw new StoryValidationError("glance_not_allowed");
+    if (artifact.generationVersion !== GLANCE_GENERATION_VERSION) throw new StoryValidationError("glance_not_allowed");
     assertGlanceShape(glance, input.glance);
   }
   if (canonicalJson(briefing) !== canonicalJson({
