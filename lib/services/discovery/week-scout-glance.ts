@@ -195,7 +195,9 @@ export function buildGlance(args: {
   }
 
   if (written < nextGroups.length || sentences.length >= MAX_GLANCE_SENTENCES) return sentences;
-  const after = named.at(-1)?.peakDate ?? today;
+  // After every swell named so far, today's included: a today group can peak later than any next one.
+  const after = [...todayGroups, ...named].flatMap((group) => memberPeakDates(group, timezone))
+    .reduce((late, peak) => peak > late ? peak : late, today);
   const far = tail.find((event) => event.directionDeg !== null && onGlanceStrip(event, today, timezone)
     && localDate(event.peakAt, timezone) > after);
   if (!far || far.directionDeg === null) return sentences;

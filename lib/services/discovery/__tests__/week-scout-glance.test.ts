@@ -115,6 +115,14 @@ describe("buildGlance", () => {
     expect(glance.at(-1)?.eventKeys).toEqual(["tail"]);
   });
 
+  it("puts the long range after a today group's peak, not only the last next group's", () => {
+    const building = event("w-build", 270, "2026-11-04T20:00:00Z", "2026-11-15T20:00:00Z", null);
+    const nine = { key: "tail-nine", directionDeg: 292, arrivalAt: null, peakAt: "2026-11-14T20:00:00Z", fadeAt: null };
+    const glance = buildGlance({ stored: [building], tail: [nine], timezone, today, now, todayCovered: true, factsFor: chest });
+    expect(glance.map((s) => s.role)).toEqual(["today"]);
+    expect(glance.flatMap((s) => s.eventKeys)).not.toContain("tail-nine");
+  });
+
   it("stops at four next groups and drops the long range", () => {
     const fifth = event("s-tue", 180, "2026-11-16T16:00:00Z", "2026-11-17T18:00:00Z", "2026-11-18T18:00:00Z", "likely");
     const glance = buildGlance({ stored: [...stored, fifth], tail, timezone, today, now, todayCovered: true, factsFor });
