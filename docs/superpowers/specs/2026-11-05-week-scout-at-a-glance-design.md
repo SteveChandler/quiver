@@ -25,9 +25,9 @@ One paragraph, regional (the same for everyone in the region, not personalised t
 
 Example built from real San Diego data on Nov 5 2026. The copy is illustrative; the facts are real.
 
-> A west groundswell and a south-southwest groundswell both peak today, chest-high at most spots and overhead at the standouts, easing by Saturday. A fresh south-southwest groundswell arrives and peaks Sunday, chest-high at most spots. A west-northwest swell follows Monday, chest-high with head-high standouts. A week from Friday looks likely to bring a bigger mix of west and south-southwest, head-high at most spots.
+> A west groundswell and a south-southwest groundswell both peak today, chest-high at most spots and overhead at the standouts, easing by Saturday. A fresh south-southwest groundswell arrives and peaks Sunday, then a west-northwest swell follows Monday, both chest-high at most spots. A week from Friday looks likely to bring a bigger west swell with south-southwest behind it, head-high at most spots and overhead at the standouts.
 
-(Shown to Steven during brainstorming as three sentences, with Sunday and Monday sharing one sentence and the last sentence ending "around Friday the 13th". The rules below make it one sentence per group with no digits, which gives the version above. The facts are the same.)
+The mockup Steven approved had the same three sentence boundaries. Only its last time anchor differs: it said "around Friday the 13th", which the no-digits rule below replaces. Home shows the first two sentences.
 
 ### Week Scout layout (story view)
 
@@ -47,7 +47,8 @@ The Days to watch card shows the **first two sentences** of At a glance where it
 - It is regional, not personalised.
 - Code writes the paragraph from live data on every request. The model only rewords individual sentences, and a reworded sentence is kept only while its facts still match the live data.
 - Home shows the first two sentences.
-- Nothing from the competitor's report is pulled into Quiver, including its rain note.
+
+(Steven asked whether the competitor's rain note could be pulled in. The recommendation was no: derive rain from our own data later. That is recorded under "Calls made without Steven".)
 
 ## Goals
 
@@ -89,7 +90,7 @@ Use the cached regional event build the story already reads: `loadRegionForecast
    - "Coverage for today" means the live Week Scout response's `coverage.days` entry for today, which the existing quiet-span check already uses (`week-scout-story-serve.ts`).
    - If nothing is in the water and today is covered, the slot says so briefly ("No clear swell in the water today.").
    - If today isn't covered, the slot is omitted. Missing data is never presented as a quiet day.
-2. **Next swells.** The following groups from stored-forecast (`source: 'forecast'`) events, in date order, **at most four groups**, one sentence each.
+2. **Next swells.** The following groups from stored-forecast (`source: 'forecast'`) events, in date order, packed into sentences as below, **at most four groups in total**.
    - Groups 10 or more days out carry `early_look` confidence and get its words ("an early look at…"). They keep the "most spots" size only, with no standouts clause.
 3. **Long range.** At most one sentence for the first GFS-tail early-look event (`source: 'wam'`) after the last stored group.
    - It appears only when **every** stored group within the strip was named, so it never jumps past a skipped swell.
@@ -100,19 +101,27 @@ The total is 1–6 sentences.
 
 ### Grouping (my call)
 
-A group is anchored on its earliest-peaking event, and takes in every later event whose peak falls within 36 hours of that **anchor**. The window is not chained. The existing 36-hour windows in the detectors dedupe one swell component. Here the same span is reused for a different job: treating different swells that land together as one system.
+Two rules: **grouping** decides what is one system, and **packing** decides what shares a sentence.
 
-Each group names at most two directions, biggest first:
-- Take each event's 16-point label.
-- Fold any label within 22.5° of a bigger event's label into that bigger one (WNW folds into W).
-- Name the top two that remain ("a mix of west and south-southwest").
-- A one-event group uses its own label ("a west-northwest swell").
+**Grouping (one system).** A group is anchored on its earliest-peaking event; on a tie, the bigger event anchors. It takes in every later event that meets both conditions:
+- its peak is within 36 hours of the anchor's peak (not chained);
+- its direction is within 45° of the anchor's.
 
-Each group also carries:
-- **Size:** the group's largest "most spots" and "standouts" sizes.
+The 36-hour span matches the detectors' duplicate-peak window. Here it serves a different job: treating different swells from one direction that land together as one system. A group is named by its biggest event's 16-point label ("a bigger west swell"). It carries:
+- **Size:** its largest "most spots" and "standouts" sizes.
 - **Confidence:** the lowest confidence among its events.
 
-On Nov 5, San Diego's input split Nov 13–14 into four events (WNW long, W mid, W storm, SSW). Grouping makes that one sentence. Sunday's SSW (peak Nov 8) and Monday's WNW (peak Nov 9) are about 24 hours apart and would be one group under this rule. The builder should replay the fixture. If peaks a day apart from different quadrants read better as two sentences, add a quadrant split (only fold events whose directions are within 45°) and record the choice.
+**Packing (sentences).** A sentence holds one group, or two adjacent groups whose peaks fall on the same or consecutive local days, joined by "and", "then" or "with". The second group may share the first's size clause ("both chest-high at most spots") or omit size. Pair greedily in date order. Never put three groups in one sentence.
+
+**Nov 5 San Diego fixture (the rules must reproduce this):**
+
+| Events (peak) | Groups | Sentence |
+|---|---|---|
+| W long (Thu 5), SSW long (Thu 5) | 2 groups (90° apart) | 1, packed: same day, the "today" slot |
+| SSW long (Sun 8), WNW mid (Mon 9) | 2 groups (90° apart) | 2, packed: consecutive days |
+| WNW long (Fri 13), W mid (Fri 13), W storm (Sat 14), SSW long (Sat 14) | {WNW, W, W storm} plus {SSW} | 3, packed: the west group, with the SSW behind it |
+
+That is three sentences, matching the example. Home's two sentences are today and Sunday/Monday.
 
 ### Time anchors (my call; builder may refine)
 
@@ -192,7 +201,10 @@ Use the existing regional size tail and `sizePhrase` rules ("chest-high at most 
 
 ## Acceptance checks (use Nov 5 2026 San Diego as the fixture)
 
-- The paragraph matches the example's facts: two groundswells peak today and ease by Saturday; SSW Sunday; WNW Monday; one sentence for the Nov 13–14 mix, worded "likely".
+- The paragraph has exactly the fixture's three sentences:
+  - today's W and SSW peak and ease by Saturday;
+  - SSW Sunday, then WNW Monday;
+  - the Nov 13–14 west group with the SSW behind it, worded "likely".
 - No sentence anywhere says "from X into X", and no sentence has a digit outside a foot range.
 - Changing one event's direction or period class between edition time and serve time falls back that sentence only. The paragraph still renders.
 - A size change alone keeps a reworded sentence only if `checkWrittenSentence` still passes it.
@@ -206,18 +218,19 @@ Use the existing regional size tail and `sizePhrase` rules ("chest-high at most 
 
 - The exact sentence templates and connective wording, within the rules above.
 - Fingerprint encoding, storage shape for reworded sentences, and the migration, if one is needed. Any migration needs Steven's approval before it is applied.
-- Tuning the 36-hour grouping window and the quadrant split against a week of stored inputs.
+- Checking the 36-hour / 45° grouping against a week of stored inputs. If a change is needed, the Nov 5 fixture must still produce three sentences.
 - How the legacy cover/lead keep working until installed builds age out.
 
 ## Calls made without Steven (check these)
 
 1. Size is left out of the fingerprint. The claim checker guards size instead, so a refresh doesn't knock out every reworded sentence.
 2. No digits in any sentence. "A week from Friday" replaces "around the 13th".
-3. One sentence per group, groups anchored on the first peak within 36 hours, at most two directions named.
+3. A group is one direction system: peaks within 36 hours and directions within 45°. Two adjacent groups on the same or consecutive days share a sentence. This reproduces the three sentences in the mockup.
 4. Up to four groups. The long-range sentence appears only when no stored group was skipped.
 5. Long range uses the GFS-tail early look already in the cached build. No WAM-buoy fetch on the request path.
 6. The paragraph shows even when the Swell Watch animation doesn't render.
 7. `-3` editions are a superset of `-2`, so the Swell Watch card keeps its written lines.
+8. No competitor content is pulled in, including its rain note. Rain later comes from our own weather data.
 
 ## Follow-ups (out of scope, found during the Nov 5 data check)
 
