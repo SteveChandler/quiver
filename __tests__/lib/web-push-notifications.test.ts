@@ -16,6 +16,7 @@ jest.mock("firebase/messaging", () => ({
 
 jest.mock("@/lib/firebase/config", () => ({
   getFirebaseMessaging: jest.fn(() => mockGetMessaging()),
+  isFirebaseConfigured: jest.fn(() => true),
 }));
 
 // Mock global Notification API
