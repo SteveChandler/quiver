@@ -16,21 +16,24 @@
 
 import { fetchOpenMeteoData } from "./api-client";
 import { getOceanGridPoint } from "./grid-utils";
+import { median } from "@/lib/utils/median";
 import type { EcmwfOutlookSeries, WaveWatchData } from "./types";
 
 const ECMWF_OUTLOOK_MODEL = "ecmwf_wam025";
+/** The outlook is optional: a slow WAM response must not hold up the beach's sync. */
+export const WAM_FETCH_TIMEOUT_MS = 10_000;
 /** Open-Meteo serves WAM to about day 14.5; 15 is the product cap. */
 const ECMWF_OUTLOOK_MAX_DAYS = 15;
 const FETCH_DAYS = 16;
 /** Seam window: the last 72 h of valid model slots. */
-const SEAM_WINDOW_MS = 72 * 3_600_000;
+export const SEAM_WINDOW_MS = 72 * 3_600_000;
 /** Fewer matched slots than this and the ratio is noise. */
 export const MIN_SEAM_PAIRS = 8;
 /** WAM/model Hs ratio band; outside it the two cells disagree too much to scale. */
 const MIN_MODEL_RATIO = 0.5;
 const MAX_MODEL_RATIO = 2;
 /** Below this Hs (m) a ratio is dominated by rounding. */
-const MIN_RATIO_HS_M = 0.1;
+export const MIN_RATIO_HS_M = 0.1;
 
 export interface WamPoint {
   /** Epoch ms of the valid hour. */
@@ -90,12 +93,6 @@ export function parseWamSeries(
     points.push({ ms: time * 1000, hsM });
   });
   return points.length > 0 ? points : null;
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function hasModelHeight(point: WaveWatchData): boolean {

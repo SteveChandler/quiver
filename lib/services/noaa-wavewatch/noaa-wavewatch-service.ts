@@ -12,7 +12,7 @@ import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logge
 import { fetchNOAAPointData, fetchNOAAGridData, fetchOpenMeteoData, constructGridUrl } from "./api-client";
 import { processNOAAGridData, processOpenMeteoData } from "./data-processors";
 import { mergeWaveSources } from "./source-selection";
-import { buildEcmwfOutlookSeries, fetchEcmwfWamSeries } from "./ecmwf-outlook";
+import { buildEcmwfOutlookSeries, fetchEcmwfWamSeries, WAM_FETCH_TIMEOUT_MS } from "./ecmwf-outlook";
 import { FORECAST_CONFIG } from "./constants";
 import { hasValidWaveData, logWaveDataAvailability, metersToFeet, getWaveDirectionText } from "./wave-analysis";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
@@ -128,7 +128,7 @@ export class NOAAWaveWatchService {
       const [noaaResult, openMeteoResult, wamResult] = await Promise.allSettled([
         this.fetchNOAANWSData(latitude, longitude, days, reviewedNwsPoint),
         this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, FORECAST_CONFIG.OPEN_METEO_MAX_DAYS)),
-        fetchEcmwfWamSeries(latitude, longitude),
+        fetchEcmwfWamSeries(latitude, longitude, AbortSignal.timeout(WAM_FETCH_TIMEOUT_MS)),
       ]);
 
       const noaaData =

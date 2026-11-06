@@ -1,23 +1,12 @@
-import { parseWaveHeightRangeFt } from "@/lib/alerts/forecast-parsers";
+import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 import type { EcmwfOutlookSeries } from "@/lib/services/noaa-wavewatch/types";
 import type { EcmwfOutlookSlot, EnhancedForecastWithRawData } from "@/types/forecast";
-import { MIN_SEAM_PAIRS } from "@/lib/services/noaa-wavewatch/ecmwf-outlook";
-
-/** Seam window for the face scale: the last 72 h of rows with a displayed height. */
-const SEAM_WINDOW_MS = 72 * 3_600_000;
-const MIN_HS_M = 0.1;
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
+import { MIN_RATIO_HS_M, MIN_SEAM_PAIRS, SEAM_WINDOW_MS } from "@/lib/services/noaa-wavewatch/ecmwf-outlook";
+import { median } from "@/lib/utils/median";
 
 function displayedFaceFt(row: EnhancedForecastWithRawData): number | null {
-  if (isFallbackForecastRow(row)) return null;
-  const range = parseWaveHeightRangeFt(row.wave_height ?? null);
-  return range ? (range.min + range.max) / 2 : null;
+  return isFallbackForecastRow(row) ? null : parseWaveHeightMidpointFt(row.wave_height);
 }
 
 /**
@@ -46,7 +35,7 @@ export function attachEcmwfOutlook(
   for (const entry of faced) {
     if (entry.ms <= lastFacedMs - SEAM_WINDOW_MS) continue;
     const hsM = hsByMs.get(entry.ms);
-    if (hsM === undefined || hsM < MIN_HS_M) continue;
+    if (hsM === undefined || hsM < MIN_RATIO_HS_M) continue;
     ratios.push(entry.face / hsM);
   }
   if (ratios.length < MIN_SEAM_PAIRS) return 0;

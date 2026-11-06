@@ -1,3 +1,4 @@
+import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -18,6 +19,7 @@ export interface OutlookDay {
 const TREND_THRESHOLD = 0.15;
 /** Half a day of 3-hour slots; a thinner day at the end of the run would show a misleading range. */
 const MIN_SLOTS_PER_DAY = 4;
+const SLOTS_PER_DAY = 8;
 
 function outlookFaceFt(row: EnhancedForecastEntity): number | null {
   if (!isFallbackForecastRow(row)) return null;
@@ -26,9 +28,7 @@ function outlookFaceFt(row: EnhancedForecastEntity): number | null {
 }
 
 function modelFaceFt(row: EnhancedForecastEntity): number | null {
-  if (isFallbackForecastRow(row) || row.wave_height == null) return null;
-  const values = String(row.wave_height).match(/[\d.]+/g)?.map(Number).filter(Number.isFinite);
-  return values?.length ? (Math.min(...values) + Math.max(...values)) / 2 : null;
+  return isFallbackForecastRow(row) ? null : parseWaveHeightMidpointFt(row.wave_height);
 }
 
 function mean(values: number[]): number {
@@ -52,12 +52,14 @@ function trendFrom(previous: number | null, current: number): OutlookTrend {
 export function aggregateOutlookDays(forecasts: EnhancedForecastEntity[], timezone: string): OutlookDay[] {
   const outlookByDate = new Map<string, number[]>();
   const modelByDate = new Map<string, number[]>();
+  const modelFaces: Array<{ ms: number; face: number }> = [];
   for (const row of forecasts) {
     if (!row.forecast_at) continue;
     const date = extractForecastDate(row.forecast_at, timezone);
     const model = modelFaceFt(row);
     if (model !== null) {
       modelByDate.set(date, [...(modelByDate.get(date) ?? []), model]);
+      modelFaces.push({ ms: Date.parse(row.forecast_at), face: model });
       continue;
     }
     const outlook = outlookFaceFt(row);
@@ -66,7 +68,9 @@ export function aggregateOutlookDays(forecasts: EnhancedForecastEntity[], timezo
 
   const modelDates = [...modelByDate.keys()].sort();
   const lastModelDate = modelDates.at(-1);
-  let previousMean = lastModelDate ? mean(modelByDate.get(lastModelDate)!) : null;
+  // The last model date is often a few slots at the seam; trend against its last 24 h instead.
+  const lastDayFaces = modelFaces.sort((a, b) => a.ms - b.ms).slice(-SLOTS_PER_DAY).map((entry) => entry.face);
+  let previousMean = lastDayFaces.length > 0 ? mean(lastDayFaces) : null;
 
   return [...outlookByDate.keys()]
     .filter((date) => !modelByDate.has(date) && (!lastModelDate || date > lastModelDate))

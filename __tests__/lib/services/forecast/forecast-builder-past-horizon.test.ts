@@ -87,4 +87,32 @@ describe("ForecastBuilder past the real wave horizon", () => {
       }
     }
   });
+
+  it("puts the ECMWF outlook on FALLBACK rows after the seam and keeps them FALLBACK", async () => {
+    const slotMs = 3 * 3_600_000;
+    const firstSlot = Math.floor(Date.now() / slotMs) * slotMs;
+    const base = inputs() as unknown as { waveData: { forecast: Array<Record<string, unknown>>; ecmwf_outlook?: unknown } };
+    const template = base.waveData.forecast[0];
+    // Four days of model slots, then nothing: the seam is at day 4.
+    base.waveData.forecast = Array.from({ length: 32 }, (_, i) => ({
+      ...template,
+      timestamp: new Date(firstSlot + i * slotMs).toISOString(),
+    }));
+    const seamMs = firstSlot + 31 * slotMs;
+    base.waveData.ecmwf_outlook = {
+      model: "ecmwf_wam025",
+      points: Array.from({ length: 12 * 24 }, (_, h) => ({ ms: firstSlot + h * 3_600_000, hs_m: 1.5 })),
+      starts_after_ms: seamMs,
+      model_ratio: 1.1,
+      model_ratio_pairs: 24,
+    };
+
+    const rows = await builder.buildForecasts(base as unknown as ForecastInputs);
+    const outlookRows = rows.filter((row) => row.raw_forecast?.ecmwf_outlook);
+
+    expect(outlookRows.length).toBeGreaterThan(0);
+    expect(outlookRows.every((row) => Date.parse(row.forecast_at!) > seamMs)).toBe(true);
+    expect(outlookRows.every((row) => row.data_source === "FALLBACK" && row.wave_height === null)).toBe(true);
+    expect(rows.filter((row) => row.data_source !== "FALLBACK").some((row) => row.raw_forecast?.ecmwf_outlook)).toBe(false);
+  });
 });
