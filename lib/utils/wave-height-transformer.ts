@@ -653,7 +653,6 @@ export function alignmentFactor(
   return Math.max(cosValue * cosValue, ALIGNMENT_FLOOR);
 }
 
-
 function hasValidSwellAccessFactors(
   beach: BeachTerrainConfig | null | undefined,
 ): beach is BeachTerrainConfig & { swell_access_factors: number[] } {
@@ -709,7 +708,6 @@ function canUseCalibratedShoaling(
   return source === 'cdip_sig' ||
     (source === 'nowcast_anchor' && allowCalibratedShoaling === true);
 }
-
 
 function shouldApplyDeepwaterDecay(
   source: WaveHeightSourceTag | undefined,

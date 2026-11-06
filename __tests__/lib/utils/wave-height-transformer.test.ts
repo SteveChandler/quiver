@@ -1662,6 +1662,27 @@ describe('Wave Height Transformer', () => {
       expect(result.faceHeightFt).toBeGreaterThan(0);
     });
 
+    it('applies a low long-period bucket to a CDIP component (no quarantine)', () => {
+      const result = transformToFaceHeightDecomposed({
+        components: [{ heightFt: 4.2, periodS: 18, directionDeg: 270 }, null, null],
+        beach: {
+          shoaling_factors: {
+            version: 1,
+            type: 'period_lookup',
+            buckets: [{ tp_min_s: 15, tp_max_s: 999, factor: 0.36 }],
+          },
+        },
+        source: 'cdip_sig',
+        rawHeightFt: 4.2,
+        periodS: 18,
+        swellDirectionDeg: 270,
+      });
+
+      expect(result.path).toBe('decomposed');
+      expect(result.isCalibrated).toBe(true);
+      expect(result.faceHeightFt).toBe(1.5);
+    });
+
     it('Blacks clean-day scenario — matches legacy within 5%', () => {
       // Single 5 ft 16s SSW primary approximately aligned with the Blacks
       // swell window. The decomposed path should closely agree with the
