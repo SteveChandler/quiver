@@ -32,6 +32,7 @@ import { StoryInputError, storyEventsFromRegion } from "../week-scout-story-sour
 import { buildEventCandidates, buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
 import { buildRegionGateContext } from "../week-scout-story-region-gate";
 import { addDays } from "../local-date";
+import { glanceFromBuild } from "../week-scout-glance";
 
 const HONOLULU = "Pacific/Honolulu";
 
@@ -652,9 +653,83 @@ describe("deterministic fallback and live gates", () => {
         chapters: [{ slot: "day:2026-07-15", text: "Light morning wind." }] });
       expect(warn).toHaveBeenCalledWith("[week-scout-story] region gate read failed",
         { region, error: "Error: Failed to load region beaches: timeout" });
+      expect(story.glance).toBeNull();
     } finally {
       warn.mockRestore();
     }
+  });
+
+  describe("At a glance", () => {
+    const codeGlance = (build: RegionBuild, date: string) => {
+      const sentences = glanceFromBuild(build, date, false);
+      return { sentences: sentences.map((sentence) => sentence.text), source: sentences.map(() => "code") };
+    };
+    const editionFor = (issued: StoryInput, at: Date, overrides: Partial<StoryArtifact> = {}): StoryArtifact => ({
+      artifactId: "artifact", schemaVersion: 3, region, editionDate: issued.editionDate,
+      inputHash: issued.inputHash, sourcePublishedAt: issued.sourcePublishedAt, validUntil: issued.validUntil,
+      generationVersion: "week-scout-story-3", model: "worker",
+      briefing: { ...issued.briefing, generatedAt: at.toISOString(), selections: ["cover", "lead"] },
+      provenance: issued.provenance, ...overrides,
+    });
+
+    it("serves the region build's paragraph in its code wording", async () => {
+      const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+        startLocalDate: "2026-07-15", now });
+      expect(story.glance?.sentences.length).toBeGreaterThanOrEqual(1);
+      expect(story.glance?.source.every((source) => source === "code")).toBe(true);
+      expect(story.glance).toEqual(codeGlance(regionBuild([west]), "2026-07-15"));
+    });
+
+    it("keeps the glance on a story whose edition fails its gates", async () => {
+      const date = "2026-07-26";
+      const at = new Date(`${date}T13:00:00Z`);
+      // The region build's swell is a later one: the edition's Thursday cover no longer holds.
+      const build = regionBuild([regionEvent(270, 15, `${date}T18:00:00Z`, "2026-07-27T18:00:00Z", "2026-07-27T23:00:00Z")]);
+      mockLoadRegion.mockResolvedValue(build);
+      const issued: StoryInput = { ...input(), editionDate: date, sourcePublishedAt: `${date}T12:00:00Z`,
+        validUntil: `${addDays(date, 2)}T06:59:59Z`,
+        briefing: { schemaVersion: 3, editionDate: date, generatedAt: `${date}T12:00:00Z`, selections: [] } };
+      mockLatestEdition.mockResolvedValue(editionFor(issued, at));
+      mockLoadInput.mockResolvedValue(issued);
+      mockBuildInput.mockRejectedValue(new (StoryInputError as unknown as new (code: string, status: number) => Error)("story_coverage_sparse", 409));
+      const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+        startLocalDate: date, now: at });
+      expect(story.availability).toBe("unavailable");
+      expect(story.glance).toEqual(codeGlance(build, date));
+      expect(story.glance?.sentences.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("has no glance without a home beach", async () => {
+      const story = await loadAndBindStory({ client: client as never, homeBeachId: null, live: live(),
+        startLocalDate: "2026-07-15", now });
+      expect(story).toMatchObject({ availability: "outside_region", glance: null });
+    });
+
+    it("serves a -3 edition's rewording of a sentence whose fingerprint still matches", async () => {
+      const code = glanceFromBuild(regionBuild([west]), "2026-07-15", false);
+      expect(code[0].text).toBe("A west groundswell is already in the water and peaks tomorrow, easing by tomorrow.");
+      const reworded = "Already in the water, a west groundswell peaks tomorrow, easing by tomorrow.";
+      const issued: StoryInput = { ...input(), glance: code.map(({ role, fingerprint, text }) => ({ role, fingerprint, text })) };
+      const glance = [{ fingerprint: code[0].fingerprint, text: reworded }];
+      mockLoadInput.mockResolvedValue(issued);
+      const serve = async (artifact: StoryArtifact) => {
+        mockLatestEdition.mockResolvedValue(artifact);
+        return (await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+          startLocalDate: "2026-07-15", now })).glance;
+      };
+      const edition = editionFor(issued, now);
+      edition.briefing.glance = glance;
+      expect(await serve(edition)).toEqual({ sentences: [reworded, ...code.slice(1).map((sentence) => sentence.text)],
+        source: ["written", ...code.slice(1).map(() => "code")] });
+      // Malformed entries are dropped, not allowed to take the paragraph down.
+      const messy = editionFor(issued, now);
+      messy.briefing.glance = [null, 7, { fingerprint: 1, text: "x" }, ...glance] as never;
+      expect((await serve(messy))?.source[0]).toBe("written");
+      // Only a -3 edition carries rewordings.
+      const older = editionFor(issued, now, { generationVersion: "week-scout-story-2" });
+      older.briefing.glance = glance;
+      expect((await serve(older))?.source[0]).toBe("code");
+    });
   });
 });
 

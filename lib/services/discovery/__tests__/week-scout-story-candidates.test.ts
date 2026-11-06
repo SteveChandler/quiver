@@ -375,7 +375,7 @@ describe("story artifact candidate validation", () => {
     expect(() => assertStoryArtifactMatchesInput(picked(201), wide, now)).toThrow("selections_invalid");
   });
 
-  it("accepts written with week-scout-story-2 and rejects it with -1", () => {
+  it("accepts written with week-scout-story-2 and -3 and rejects it with -1", () => {
     const withWritten = (version: string, written: unknown): StoryArtifact => {
       const value = artifact();
       value.generationVersion = version;
@@ -395,7 +395,9 @@ describe("story artifact candidate validation", () => {
     const plain = artifact(); plain.generationVersion = "week-scout-story-2";
     expect(() => assertStoryArtifactMatchesInput(plain, input, now)).not.toThrow();
     expect(refusal("week-scout-story-1", lines)).toBe("written_not_allowed");
-    expect(refusal("week-scout-story-3", lines)).toBe("generation_version_unsupported");
+    // -3 is a superset of -2: it keeps the written lines.
+    expect(refusal("week-scout-story-3", lines)).toBe("accepted");
+    expect(refusal("week-scout-story-4", lines)).toBe("generation_version_unsupported");
     expect(refusal("week-scout-story-2", null)).toBe("written_invalid");
     expect(refusal("week-scout-story-2", [{ ...lines[0], text: 7 }])).toBe("written_invalid");
     expect(refusal("week-scout-story-2", [{ ...lines[0], tone: "hype" }])).toBe("written_invalid");

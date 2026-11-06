@@ -30,8 +30,8 @@ export interface NarrativeEdition {
   artifact: StoryArtifact;
 }
 
-/** Only this generation carries the PC's written sentences. */
-const WRITTEN_GENERATION_VERSION = "week-scout-story-2";
+/** The generations that carry the PC's written sentences; -3 is a superset of -2. */
+const WRITTEN_GENERATION_VERSIONS: ReadonlySet<string> = new Set(["week-scout-story-2", "week-scout-story-3"]);
 /** Story inputs are content-addressed by hash, so a loaded one never goes stale; keep the most recent few. */
 const MAX_CACHED_INPUTS = 16;
 const storyInputs = new Map<string, Promise<StoryInput | null>>();
@@ -56,10 +56,10 @@ function cachedStoryInput(client: Client, hash: string): Promise<StoryInput | nu
   return input;
 }
 
-/** The region's edition for its own today, still valid and already published: prepareStory's conditions, -2 only. */
+/** The region's edition for its own today, still valid and already published: prepareStory's conditions, -2 or -3 only. */
 function isCurrentEdition(artifact: StoryArtifact, timezone: string, now: Date): boolean {
   return artifact.schemaVersion === 3
-    && artifact.generationVersion === WRITTEN_GENERATION_VERSION
+    && WRITTEN_GENERATION_VERSIONS.has(artifact.generationVersion)
     && artifact.editionDate === localDate(now, timezone)
     && Date.parse(artifact.validUntil) >= now.getTime()
     && Date.parse(artifact.sourcePublishedAt) <= now.getTime();

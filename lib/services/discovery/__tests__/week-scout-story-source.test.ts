@@ -16,6 +16,7 @@ jest.mock("../week-scout-story-store", () => ({
 import { buildStoryInput, storyEventsFromRegion } from "../week-scout-story-source";
 import { buildStoryCandidates, storyEventKey } from "../week-scout-story-candidates";
 import { addDays } from "../local-date";
+import { glanceFromBuild } from "../week-scout-glance";
 import { loadRegionForecastEvents, type InternalRegionEvent, type RatingRow, type RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { Database } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -207,16 +208,30 @@ describe("regional story source snapshot", () => {
     expect(changed.copyFacts.find((fact) => fact.slot === "cover")?.facts?.standoutFt).toEqual({ min: 3, max: 8 });
   });
 
-  it("hashes the mapped events, not the raw build: a WAM early look never changes inputHash", async () => {
+  it("offers the code's At a glance sentences by role, fingerprint and text", async () => {
+    const issued = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    const code = glanceFromBuild(regionBuild([ssw, storm]), "2026-10-27", true);
+    expect(code.length).toBeGreaterThan(0);
+    expect(issued.glance).toEqual(code.map(({ role, fingerprint, text }) => ({ role, fingerprint, text })));
+  });
+
+  it("hashes the mapped events, not the raw build: a WAM early look changes only the At a glance offer", async () => {
     const plain = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    const wamDays = [{ localDate: "2026-11-08", maxHsM: 2.6, peakAt: "2026-11-08T20:00:00Z", periodS: 9, directionDeg: 270 }];
+    jest.mocked(loadRegionForecastEvents).mockResolvedValueOnce(regionBuild(
+      [{ ...ssw, offshoreFt: "6 ft", history: "Biggest at the buoy since March." }, storm], { wamDays }));
+    const unmapped = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    expect(plain.inputHash).not.toBe("");
+    expect(unmapped.inputHash).toBe(plain.inputHash);
+    // The early look is the glance's long-range sentence, offered for rewording; no candidate moves.
     const wam = regionEvent("San Diego:W:2026-11-08:s", 270, 9, "2026-11-08T20:00:00Z", "2026-11-08T20:00:00Z", null,
       { kind: "storm", source: "wam", arrivalAt: null, memberCount: 0 });
-    jest.mocked(loadRegionForecastEvents).mockResolvedValueOnce(regionBuild(
-      [{ ...ssw, offshoreFt: "6 ft", history: "Biggest at the buoy since March." }, storm, wam],
-      { wamDays: [{ localDate: "2026-11-08", maxHsM: 2.6, peakAt: "2026-11-08T20:00:00Z", periodS: 9, directionDeg: 270 }] }));
+    jest.mocked(loadRegionForecastEvents).mockResolvedValueOnce(regionBuild([ssw, storm, wam], { wamDays }));
     const withWam = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
-    expect(plain.inputHash).not.toBe("");
-    expect(withWam.inputHash).toBe(plain.inputHash);
+    expect(withWam.copyFacts).toEqual(plain.copyFacts);
+    expect(withWam.glance?.filter((sentence) => sentence.role !== "long_range")).toEqual(plain.glance);
+    expect(withWam.glance?.at(-1)).toMatchObject({ role: "long_range", text: expect.stringContaining("west swell is on the radar") });
+    expect(withWam.inputHash).not.toBe(plain.inputHash);
     jest.mocked(loadRegionForecastEvents).mockResolvedValueOnce(regionBuild([ssw, { ...storm, memberCount: 2 }]));
     const fewerBeaches = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
     expect(fewerBeaches.inputHash).not.toBe(plain.inputHash);
