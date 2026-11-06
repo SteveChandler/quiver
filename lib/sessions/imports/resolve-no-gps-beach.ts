@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CONDITIONS_REPORT_SOURCE } from "@/lib/sessions/surf-session-filter";
 import { haversineM } from "../tracks/track-geometry";
 import { findNoGpsAttachTarget } from "./find-attach-target";
 import { loadImportBeach, type ImportBeach } from "./resolve-import-beach";
@@ -79,13 +80,14 @@ export async function rankNoGpsCandidates(
   const seen = new Set(candidates.map(beach => beach.id));
 
   const { data: sessions, error: sessionsError } = await service.from("sessions")
-    .select("beach_id").eq("user_id", userId).eq("status", "completed").is("deleted_at", null)
+    .select("beach_id, source").eq("user_id", userId).eq("status", "completed").is("deleted_at", null)
     .gte("arrival_time", new Date(now.getTime() - 60 * 86400_000).toISOString())
     .lte("arrival_time", now.toISOString());
   if (sessionsError) throw sessionsError;
   const counts = new Map<string, number>();
   for (const session of sessions ?? []) {
-    if (session.beach_id) counts.set(session.beach_id, (counts.get(session.beach_id) ?? 0) + 1);
+    // A conditions report is not a surf at that beach.
+    if (session.beach_id && session.source !== CONDITIONS_REPORT_SOURCE) counts.set(session.beach_id, (counts.get(session.beach_id) ?? 0) + 1);
   }
   const mostSurfed = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
 

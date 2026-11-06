@@ -203,3 +203,13 @@ it("ranks phone beaches, the most-surfed recent beach, and home beach without du
   const ranked = await rankNoGpsCandidates(client, "user", start, end, new Date("2026-08-16T00:00:00Z"));
   expect(ranked.map(beach => beach.id)).toEqual(["a", "b", "c"]);
 });
+
+it("does not count conditions reports toward the most-surfed recent beach", async () => {
+  snapshot = null;
+  sessions = [{ user_id: "user", beach_id: "c", arrival_time: start, status: "completed", source: "conditions_report" },
+    { user_id: "user", beach_id: "c", arrival_time: end, status: "completed", source: "conditions_report" },
+    { user_id: "user", beach_id: "b", arrival_time: end, status: "completed", source: "manual" }];
+  const client = service();
+  const ranked = await rankNoGpsCandidates(client, "user", start, end, new Date("2026-08-16T00:00:00Z"));
+  expect(ranked.map(beach => beach.id)).toEqual(["b"]);
+});
