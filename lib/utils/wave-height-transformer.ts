@@ -484,11 +484,12 @@ export function transformToFaceHeightWithMetadata(
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
       // No low-factor quarantine, and the direction shadow only where the
-      // beach opts in (ShoalingFactors.direction_shadow). Nov 2026 held-out
-      // test over 77 calibrated beaches: face MAE 0.557 ft without either,
-      // 0.658 with both. The CDIP MOP nearshore model confirmed the shadow is
-      // wrong at 7 beaches outside Point Loma and left the Point Loma group
-      // open, so only that group keeps it.
+      // beach opts in (ShoalingFactors.direction_shadow; no beach does as of
+      // Nov 6 2026). Held-out test over 77 calibrated beaches: face MAE 0.557
+      // ft without either, 0.658 with both. At the Point Loma group, shadowed
+      // hours scored 0.48 ft without the shadow against 1.03 with it (5
+      // independent truth groups), and CDIP MOP's fired/non-fired bias was +5%
+      // without it against -27% with it.
       // The decomposed path excludes this short-period energy entirely.
       const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
         ? Math.min(bucketFactor, calculatePeriodFactor(periodS))

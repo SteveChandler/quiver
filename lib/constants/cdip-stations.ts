@@ -91,26 +91,6 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     parameters: ["wave"],
   },
 
-  "46225": {
-    id: "46225",
-    name: "Point Reyes",
-    latitude: 37.751,
-    longitude: -122.839,
-    deployDepth: 430,
-    hullType: "3-meter discus buoy",
-    parameters: ["wave", "weather"],
-  },
-
-  "46236": {
-    id: "46236",
-    name: "Monterey Bay",
-    latitude: 36.771,
-    longitude: -122.186,
-    deployDepth: 1100,
-    hullType: "3-meter discus buoy",
-    parameters: ["wave", "weather", "sst"],
-  },
-
   // Orange County / Camp Pendleton area
   "45": {
     id: "45",
@@ -121,18 +101,6 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     hullType: "Waverider buoy",
     parameters: ["wave"],
     ndbcTwinId: "46224",
-  },
-
-  // Ventura / Channel Islands area
-  "179": {
-    id: "179",
-    name: "Anacapa Passage",
-    latitude: 34.0008,
-    longitude: -119.3592,
-    deployDepth: 200,
-    hullType: "Waverider buoy",
-    parameters: ["wave"],
-    ndbcTwinId: "46248",
   },
 
   // Outside the Channel Islands; the measured buoy for the Ventura beaches
@@ -164,12 +132,16 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
   },
 
   // Additional SoCal Stations
+  // CDIP 067 is San Nicolas Island (CDIP metadata and NDBC 46219), ~150 km
+  // offshore. This entry was labelled "San Pedro South" at San Pedro's
+  // coordinates (that buoy is CDIP 213), which made it the nearest-station
+  // fallback for Santa Monica Bay, South Bay and north Orange County beaches.
   "67": {
     id: "67",
-    name: "San Pedro South",
-    latitude: 33.618,
-    longitude: -118.318,
-    deployDepth: 880,
+    name: "San Nicolas Island",
+    latitude: 33.2255,
+    longitude: -119.8915,
+    deployDepth: 315,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
     ndbcTwinId: "46219",
@@ -178,31 +150,24 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
   "071": {
     id: "071",
     name: "Harvest",
-    latitude: 34.443,
-    longitude: -120.775,
-    deployDepth: 476,
+    latitude: 34.4515,
+    longitude: -120.78,
+    deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
     ndbcTwinId: "46218",
   },
 
-  "46221": {
-    id: "46221",
-    name: "Point Arena",
-    latitude: 38.837,
-    longitude: -123.737,
-    deployDepth: 100,
-    hullType: "3-meter discus buoy",
-    parameters: ["wave", "weather"],
-  },
-
-  // Central California
+  // Same buoy as "071" (ERDDAP pads "71" to "071"; NDBC 46218). Kept because
+  // Jalama's cdip_station is "71". It was labelled "Half Moon Bay" at Half Moon
+  // Bay's coordinates, which made Harvest (~370 km south) the nearest-station
+  // fallback for Pacifica, Mavericks and Santa Cruz.
   "71": {
     id: "71",
-    name: "Half Moon Bay",
-    latitude: 37.494,
-    longitude: -122.469,
-    deployDepth: 274,
+    name: "Harvest",
+    latitude: 34.4515,
+    longitude: -120.78,
+    deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
     ndbcTwinId: "46218",
@@ -225,9 +190,9 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
   "157": {
     id: "157",
     name: "Pt. Sur",
-    latitude: 36.3,
-    longitude: -121.892,
-    deployDepth: 384,
+    latitude: 36.3416,
+    longitude: -122.1096,
+    deployDepth: 366,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
     ndbcTwinId: "46239",

@@ -26,7 +26,14 @@
  * the most recent real CDIP→model handoff pairs at each regression-fixture
  * beach plus Del Mar, which Gate G of scripts/shoaling-regression.ts replays.
  *
- * Run: node --import tsx scripts/replay-model-swell-calibration.ts <env file> [days] [--write] [--seam-fixtures]
+ * The model hours replay with the beach's swell window and access array as
+ * they are in the beaches table now, not as logged, so a settings change is
+ * fitted on the full window right away. --beach-override=<id>:<json> merges
+ * JSON into one beach row first, for a settings change that is approved but
+ * not yet applied; the change must then land with the release that ships the
+ * factors. Repeatable.
+ *
+ * Run: node --import tsx scripts/replay-model-swell-calibration.ts <env file> [days] [--write] [--seam-fixtures] [--beach-override=<id>:<json>]
  */
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -53,6 +60,16 @@ import {
 const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
 const WRITE = process.argv.includes("--write");
 const SEAM_FIXTURES = process.argv.includes("--seam-fixtures");
+const OVERRIDE_FLAG = "--beach-override=";
+const BEACH_OVERRIDES = new Map<string, Record<string, unknown>>(
+  process.argv
+    .filter((arg) => arg.startsWith(OVERRIDE_FLAG))
+    .map((arg) => {
+      const value = arg.slice(OVERRIDE_FLAG.length);
+      const split = value.indexOf(":");
+      return [value.slice(0, split), JSON.parse(value.slice(split + 1))];
+    }),
+);
 try {
   process.loadEnvFile(args[0]);
 } catch (error) {
@@ -72,9 +89,9 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
-// The truth path must see the beach row production's buoy path sees: beaches
-// whose shoaling_factors set direction_shadow still get calibratedShadowFactor
-// on the bucket path, which needs the window and access fields.
+// The truth path must see the beach row production's buoy path sees (a beach
+// whose shoaling_factors set direction_shadow gets calibratedShadowFactor on
+// the bucket path), and the model replay uses the current window and access.
 interface Beach {
   id: string;
   name: string;
@@ -157,6 +174,19 @@ function shippedFactor(
 function withoutBeachId(input: ForecastReplayInput): ForecastReplayInput {
   const { id: _id, ...beach } = input.beach;
   return { ...input, beach };
+}
+
+function withCurrentTerrain(input: ForecastReplayInput, row: Beach): ForecastReplayInput {
+  return {
+    ...input,
+    beach: {
+      ...input.beach,
+      swell_window_center_deg: row.swell_window_center_deg,
+      swell_window_halfwidth_deg: row.swell_window_halfwidth_deg,
+      swell_access_factors: row.swell_access_factors,
+      terrain_enabled: row.terrain_enabled ?? undefined,
+    },
+  };
 }
 
 const PAGE_SIZE = 1000;
@@ -256,7 +286,7 @@ function fitCommit(): string {
 async function main(): Promise<void> {
   const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();
   const until = new Date(Date.now() - 3 * 3_600_000).toISOString();
-  const { data: beaches, error } = await supabase
+  const { data: beachRows, error } = await supabase
     .from("beaches")
     .select(
       "id,name,lat,lon,cdip_station,shoaling_factors,swell_window_center_deg,swell_window_halfwidth_deg,swell_access_factors,terrain_enabled",
@@ -264,6 +294,10 @@ async function main(): Promise<void> {
     .not("shoaling_factors", "is", null)
     .not("cdip_station", "is", null);
   if (error) throw error;
+  for (const id of BEACH_OVERRIDES.keys()) {
+    if (!(beachRows as Beach[]).some((b) => b.id === id)) throw new Error(`--beach-override: no calibrated beach ${id}`);
+  }
+  const beaches = (beachRows as Beach[]).map((b) => ({ ...b, ...BEACH_OVERRIDES.get(b.id) }) as Beach);
 
   const fixture = JSON.parse(readFileSync(FIXTURE_PATH, "utf8"));
   const seamIds = new Set<string>(
@@ -287,7 +321,7 @@ async function main(): Promise<void> {
   let reproduced = 0;
   let replayed = 0;
 
-  for (const beach of beaches as Beach[]) {
+  for (const beach of beaches) {
     const station = `edu_ucsd_cdip_${beach.cdip_station.padStart(3, "0")}`;
     if (!obsByStation.has(station)) {
       let truth: StationTruth;
@@ -369,12 +403,13 @@ async function main(): Promise<void> {
       // the height, so the replay cannot reproduce them.
       if (!ctx.base.supported) continue;
       const uncalibrated = transformToFaceHeightDecomposed(
-        withoutBeachId(ctx.base.input),
+        withCurrentTerrain(withoutBeachId(ctx.base.input), beach),
       ).faceHeightFt;
       const logged = row.raw_display_height_m * M_TO_FT;
       if (uncalibrated <= 0 || logged <= 0) continue;
       replayed += 1;
-      if (Math.abs(uncalibrated - logged) <= 0.15) reproduced += 1;
+      const asLogged = transformToFaceHeightDecomposed(withoutBeachId(ctx.base.input)).faceHeightFt;
+      if (Math.abs(asLogged - logged) <= 0.15) reproduced += 1;
       recs.push({ at, truth: truth.faceHeightFt, logged, uncalibrated });
     }
 
@@ -507,6 +542,8 @@ async function main(): Promise<void> {
     .replace("__FIT_DATE__", today)
     .replace("__COMMIT__", fitCommit())
     .replaceAll("__DAYS__", String(DAYS))
+    .replace("__OVERRIDES__", [...BEACH_OVERRIDES].map(([id, patch]) =>
+      `\n * Fitted with a pending settings change for ${id}: ${JSON.stringify(patch)}.`).join(""))
     .replace("__HOLDS__", holds)
     .replace("__ENTRIES__", entries);
   writeFileSync(OUT_PATH, source);
@@ -534,7 +571,7 @@ function readTemplate(): string {
  * within 45 min. A beach gets an entry only with at least
  * MODEL_SWELL_FACTOR_MIN_ROWS rows and |k - 1| >= MODEL_SWELL_FACTOR_MIN_EFFECT.
  * The fit is only valid for the transform at that commit; refit after any
- * change to wave-height-transformer.ts.
+ * change to wave-height-transformer.ts.__OVERRIDES__
  *
  * The cap was 1.6 until Nov 2026, when it bound at 30 of 91 beaches; a
  * held-out half scored 0.69 ft MAE at 2.5 against 0.85 at 1.6. Factors above
