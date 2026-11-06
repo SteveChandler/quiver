@@ -28,6 +28,8 @@ const pointCache = new Map<
 
 interface OpenMeteoFetchBaseOptions {
   model?: string;
+  /** Overrides the default hourly variable list (for a model with fewer fields). */
+  hourly?: readonly string[];
   signal?: AbortSignal;
 }
 
@@ -277,7 +279,7 @@ export async function fetchOpenMeteoData(
     const params = new URLSearchParams({
       latitude: latitude.toString(),
       longitude: longitude.toString(),
-      hourly: [
+      hourly: (requestOptions.hourly ?? [
         "wave_height",
         "wave_direction",
         "wave_period",
@@ -296,7 +298,7 @@ export async function fetchOpenMeteoData(
         "tertiary_swell_wave_height",
         "tertiary_swell_wave_period",
         "tertiary_swell_wave_direction",
-      ].join(","),
+      ]).join(","),
       timezone: requestOptions.timezone ?? "UTC",
       forecast_days: Math.min(days, FORECAST_CONFIG.OPEN_METEO_API_LIMIT).toString(),
     });

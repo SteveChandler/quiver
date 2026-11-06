@@ -1,3 +1,4 @@
+import { attachEcmwfOutlook } from "./ecmwf-outlook-rows";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Forecast Builder
@@ -635,6 +636,9 @@ export class ForecastBuilder {
 
       forecasts.push(forecast);
     }
+
+    // Outlook rows stay FALLBACK; the outlook rides on raw_forecast only.
+    attachEcmwfOutlook(forecasts, waveData?.ecmwf_outlook);
 
     if (hasCalibrationLoss(calibrationCoverage)) {
       log.warn("calibrated_shoaling_coverage_gap", {
