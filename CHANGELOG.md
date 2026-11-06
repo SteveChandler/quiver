@@ -21,10 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Calibrated beaches never fail over to another buoy.
     - Buckets apply only to readings from the buoy named in `calibration.reference_buoy`, normalised so "CDIP 045", "45" and "045" match. All 117 calibrated beaches match today, so this changes nothing until a mismatched reading arrives.
     - When the live ERDDAP fetch fails or lags, the beach reads its own buoy from storage: `ioos_observations`, plus the same buoy in `ndbc_direct_observations` (new `ndbcTwinId`), which keeps working when ERDDAP is down.
-    - A calibrated beach's own reading is held for up to 12 h (`CALIBRATED_CDIP_HOLD_HOURS`) instead of 4.
+    - A calibrated beach's own reading is held for up to 12 h, measured at the slot it drives (`CALIBRATED_CDIP_HOLD_HOURS`), instead of 4 h at build time. Until the Ventura beaches move to 203, this also holds their Oregon "179" readings longer.
     - Rows built from stored readings carry `cdip_data.readingSource = "stored"`.
   - Evidence:
-    - Hold: a replay over calibrated beaches scores the held reading at 0.55 ft face MAE at 6 h and 0.68 ft at 12 h, against ~0.83 ft for model hours; it loses past ~14 h.
+    - Hold: a replay over calibrated beaches scores the held reading at 0.55 ft face MAE at 6 h and 0.68 ft at 12 h. Model hours scored ~0.83 ft, but that was measured at 18-24 h leads; model error at nowcast leads is unmeasured. The 12 h limit applies to the reading's age at the slot it drives.
     - Imperial Beach/Coronado and Molera, whose buoys are dead (155 since May 3, 157 since Oct 24): over a year at 9 measured beaches, the model alone scores 0.53-0.62 ft at 7 of them, against 0.92-1.29 ft for the borrowed buoy through the dead buoy's buckets. Imperial Beach Pier is the exception (1.57 vs 1.29) and Molera is a tie.
     - Live trace: Del Mar from stored readings shows 5.5 ft against 5.3 ft from the live fetch.
   - Side effect: the 15 beaches on 155 and Molera on 157 show model heights until they are reassigned to a live buoy with refit buckets.

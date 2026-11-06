@@ -39,11 +39,12 @@ export const STALENESS_THRESHOLDS = {
 export const CDIP_NOWCAST_HORIZON_HOURS = STALENESS_THRESHOLDS.CDIP;
 
 /**
- * How old a reading from a beach's own calibrated buoy may be and still drive
- * the nowcast slots. Nov 2026 replay over calibrated beaches: holding the last
- * reading scores face MAE 0.55 ft at 6 h and 0.68 ft at 12 h, against ~0.83 ft
- * for model hours, and loses to the model past ~14 h. Uncalibrated beaches keep
- * STALENESS_THRESHOLDS.CDIP.
+ * How old a reading from a beach's own calibrated buoy may be, at the slot it
+ * drives, and still be used. Nov 2026 replay over calibrated beaches: holding
+ * the last reading scores face MAE 0.55 ft at 6 h and 0.68 ft at 12 h. Model
+ * hours scored ~0.83 ft, but that was measured at 18-24 h leads; model error at
+ * 0-12 h was not measured, so 12 h is the conservative end of the crossover.
+ * Uncalibrated beaches keep STALENESS_THRESHOLDS.CDIP.
  */
 export const CALIBRATED_CDIP_HOLD_HOURS = 12;
 

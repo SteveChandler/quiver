@@ -9,7 +9,7 @@ import { createContextLogger } from "@/lib/logger";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { getStationConfig } from "@/lib/constants/cdip-stations";
 import type { CDIPBuoyData, CDIPDataResponse } from "@/types/forecast";
-import { transformToCDIPBuoyData } from "./data-parser";
+import { normalizeStationIdForErddap, transformToCDIPBuoyData } from "./data-parser";
 import { normalizeCdipStationId } from "./calibration-station";
 
 const log = createContextLogger("CDIPStoredReadings");
@@ -25,7 +25,7 @@ interface StoredRow {
 
 export function ioosStationIdForCdip(stationId: string): string | null {
   const bare = normalizeCdipStationId(stationId);
-  return bare ? `edu_ucsd_cdip_${bare.padStart(3, "0")}` : null;
+  return bare ? `edu_ucsd_cdip_${normalizeStationIdForErddap(bare)}` : null;
 }
 
 /** Newest reading time in a buoy series, or null. */

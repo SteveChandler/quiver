@@ -182,6 +182,8 @@ export function resolveCdipNowcastPoint(args: {
   nowMs: number;
   horizonHours: number;
   maxMeasurementAgeHours: number;
+  /** Also reject a reading older than this at the slot's own time. */
+  maxAgeAtTargetHours?: number;
 }): CDIPDataPoint | null {
   const {
     cdipData,
@@ -189,6 +191,7 @@ export function resolveCdipNowcastPoint(args: {
     nowMs,
     horizonHours,
     maxMeasurementAgeHours,
+    maxAgeAtTargetHours,
   } = args;
   if (!cdipData?.data || cdipData.data.length === 0) return null;
 
@@ -212,6 +215,12 @@ export function resolveCdipNowcastPoint(args: {
 
   const measurementAgeHours = (nowMs - latest.timestampMs) / 3_600_000;
   if (measurementAgeHours > maxMeasurementAgeHours) {
+    return null;
+  }
+  if (
+    maxAgeAtTargetHours !== undefined &&
+    (targetMs - latest.timestampMs) / 3_600_000 > maxAgeAtTargetHours
+  ) {
     return null;
   }
 
@@ -524,7 +533,7 @@ export class ForecastBuilder {
     const cdipHoldHours =
       shoalingFactorsForStation(beach.shoaling_factors ?? null, cdipData?.stationId) != null
         ? CALIBRATED_CDIP_HOLD_HOURS
-        : STALENESS_THRESHOLDS.CDIP;
+        : null;
 
     // Track processed dates to store tide_schedule only once per day
     const processedDates = new Set<string>();
@@ -1585,10 +1594,11 @@ export class ForecastBuilder {
    * Helper methods for data extraction
    */
 
+  /** `holdHours` null keeps the 4 h build-time limit; otherwise the reading's age at the slot. */
   private getCDIPDataForTime(
     cdipData: CDIPBuoyData | null,
     targetTime: Date,
-    maxMeasurementAgeHours: number,
+    holdHours: number | null,
   ) {
     const now = new Date();
     return resolveCdipNowcastPoint({
@@ -1596,7 +1606,8 @@ export class ForecastBuilder {
       targetMs: targetTime.getTime(),
       nowMs: now.getTime(),
       horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
-      maxMeasurementAgeHours,
+      maxMeasurementAgeHours: holdHours ?? STALENESS_THRESHOLDS.CDIP,
+      ...(holdHours !== null && { maxAgeAtTargetHours: holdHours }),
     });
   }
 

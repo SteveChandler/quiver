@@ -986,6 +986,27 @@ describe("ForecastBuilder calibrated-buoy guard and hold", () => {
     );
   });
 
+  test("the hold is measured at the slot, not at build time", async () => {
+    const forecasts = await build(withReference("CDIP 220"), readingAged(10));
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    // Slot 0 is 10 h after the reading; slot 1, 3 h later, would be 13 h.
+    expect(forecasts[0].data_source).toBe("CDIP");
+    expect(forecasts[1].data_source).not.toBe("CDIP");
+  });
+
+  test("rows built from stored readings say so in raw_forecast", async () => {
+    const forecasts = await build(withReference("CDIP 220"), {
+      ...readingAged(5),
+      readingSource: "stored",
+    } as ReturnType<typeof makeCdipBuoyData>);
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(forecasts[0].raw_forecast?.cdip_data).toEqual(
+      expect.objectContaining({ stationId: "220", readingSource: "stored" }),
+    );
+  });
+
   test("the hold ends after CALIBRATED_CDIP_HOLD_HOURS", async () => {
     const forecasts = await build(
       withReference("CDIP 220"),
