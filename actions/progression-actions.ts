@@ -2,6 +2,7 @@
 
 import { makeAuthenticatedAction } from "@/lib/server-action-utils";
 import { calculateStreak } from "@/lib/progression/streak-calculator";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 import type { Json } from "@/types/supabase";
 import {
   generateInsights,
@@ -326,6 +327,7 @@ export const getProgressionDashboard = makeAuthenticatedAction(
       )
       .eq("user_id", user.id)
       .eq("status", "completed")
+      .or(SURF_SESSION_SOURCE_FILTER)
       .order("arrival_time", { ascending: true });
 
     if (sessionsError) {

@@ -54,7 +54,9 @@ function getBeachDefaults(): Omit<
     description: null,
     editorial_reviewed_at: null,
     editorial_sources: [],
+    seo_description: null,
     seo_indexable: false,
+    seo_title: null,
     short_name: null,
     skill_level: "", // non-nullable in DB schema; "" is the zero/empty state
     break_type: null,
@@ -143,6 +145,10 @@ function getBeachDefaults(): Omit<
     wave_punchiness_ai: null,
     wave_punchiness_ai_confidence: null,
     wave_punchiness_ai_meta: null,
+    mop_point_distance_m: null,
+    mop_point_id: null,
+    mop_shore_normal_deg: null,
+    recommendation_eligible: true, // DB default
   };
 }
 

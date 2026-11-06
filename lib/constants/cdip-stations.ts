@@ -23,6 +23,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather", "drifter"],
+    ndbcTwinId: "46225",
   },
 
   "155": {
@@ -33,6 +34,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 18,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46235",
   },
 
   "191": {
@@ -43,6 +45,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46232",
   },
 
   "201": {
@@ -53,6 +56,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 20,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46254",
   },
 
   "153": {
@@ -63,6 +67,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 15,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46266",
   },
 
   "220": {
@@ -73,6 +78,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 100,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46258",
   },
 
   "208": {
@@ -114,6 +120,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46224",
   },
 
   // Ventura / Channel Islands area
@@ -125,6 +132,35 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46248",
+  },
+
+  // Outside the Channel Islands; the measured buoy for the Ventura beaches
+  // (Nov 2026: held-out face error 0.25-0.52 ft vs 0.67-1.40 on "179").
+  "203": {
+    id: "203",
+    name: "Santa Cruz Basin",
+    latitude: 33.7685,
+    longitude: -119.563,
+    deployDepth: 1890,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    ndbcTwinId: "46251",
+  },
+
+  // The measured buoy for Point Dume, Leo Carrillo and Latigo (Nov 2026:
+  // Leo held-out face error 0.31 ft vs 2.05 model-only). Explicit-only: as a
+  // fallback it would move 10 uncalibrated Santa Monica Bay beaches off "67".
+  "103": {
+    id: "103",
+    name: "Topanga Nearshore",
+    latitude: 34.02305,
+    longitude: -118.5783,
+    deployDepth: 20,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    ndbcTwinId: "46268",
+    fallbackEligible: false,
   },
 
   // Additional SoCal Stations
@@ -136,6 +172,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 880,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46219",
   },
 
   "071": {
@@ -146,6 +183,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 476,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46218",
   },
 
   "46221": {
@@ -167,6 +205,21 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 274,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46218",
+  },
+
+  // 12 km off Ocean Beach SF; the measured buoy for Sloat (Nov 2026: 0.38 ft
+  // lower held-out face error than Harvest). Shallow, so it saturates on the
+  // biggest days.
+  "142": {
+    id: "142",
+    name: "San Francisco Bar",
+    latitude: 37.788,
+    longitude: -122.6318,
+    deployDepth: 15,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    ndbcTwinId: "46237",
   },
 
   "157": {
@@ -177,6 +230,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 384,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46239",
   },
 };
 

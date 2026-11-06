@@ -34,7 +34,12 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
 import { getFavoriteBeachesFromDb } from '@/lib/services/beach-query-service';
-import type { Beach } from '@/types/database';
+import {
+  CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION,
+  getTerrainParamsHash,
+} from '@/lib/services/custom-spot-analysis/core';
+import { applyCustomSpotForecastGeometry } from '@/lib/services/custom-spot-analysis/forecast-overlay';
+import type { Beach, Json } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
   SurfDiscoveryRecommendation,
@@ -224,7 +229,7 @@ class SurfDiscoveryOperationalError extends Error {
   }
 }
 
-interface CustomSpotDiscoveryRow {
+export interface CustomSpotDiscoveryRow {
   id: string;
   user_id: string;
   name: string;
@@ -239,6 +244,14 @@ interface CustomSpotDiscoveryRow {
   swell_window_max_deg: number | null;
   offshore_direction_deg: number | null;
   exposure_level: string | null;
+  swell_access_factors: number[] | null;
+  wind_exposure_factors: number[] | null;
+  terrain_method: string | null;
+  terrain_params: Json | null;
+  terrain_params_hash: string | null;
+  terrain_analyzed_at: string | null;
+  terrain_status: string | null;
+  fingerprint_model_version: string | null;
   deleted_at: string | null;
 }
 
@@ -787,6 +800,14 @@ async function fetchCustomSpotRows(
       'swell_window_max_deg',
       'offshore_direction_deg',
       'exposure_level',
+      'swell_access_factors',
+      'wind_exposure_factors',
+      'terrain_method',
+      'terrain_params',
+      'terrain_params_hash',
+      'terrain_analyzed_at',
+      'terrain_status',
+      'fingerprint_model_version',
       'deleted_at',
     ].join(', ');
     const bounds = boundingBoxForRadius(userLocation, radiusMiles);
@@ -880,16 +901,138 @@ async function buildCustomSpotCandidates(
     .filter((candidate): candidate is CustomSpotDiscoveryCandidate => candidate !== null);
 }
 
-function buildCustomSpotBeach(
+export interface AnchorReferenceTerrain {
+  swell_access_factors: number[];
+  wind_exposure_factors: number[];
+}
+
+function hasOwnTerrain(beach: Beach): boolean {
+  return beach.terrain_enabled === true
+    && beach.swell_access_factors?.length === 72
+    && beach.wind_exposure_factors?.length === 72;
+}
+
+/**
+ * Reference terrain for anchor beaches that have none of their own, so their
+ * custom spots can still be scaled like-for-like. Best effort: a failed read
+ * leaves those spots on the anchor's forecast.
+ */
+let anchorReferenceWarned = false;
+
+export async function fetchAnchorReferenceTerrain(
+  candidates: Array<Pick<CustomSpotDiscoveryCandidate, 'spot' | 'nearestBeach'>>,
+  client: SupabaseClient = createSupabaseServiceRoleClient() as unknown as SupabaseClient,
+): Promise<Map<string, AnchorReferenceTerrain>> {
+  const beachIds = [...new Set(
+    candidates
+      .filter((candidate) => hasModeledTerrain(candidate.spot) && !hasOwnTerrain(candidate.nearestBeach))
+      .map((candidate) => candidate.nearestBeach.id),
+  )];
+  if (beachIds.length === 0) return new Map();
+  try {
+    const { data, error } = await client
+      .from('custom_spot_anchor_terrain')
+      .select('beach_id, lat, lon, swell_access_factors, wind_exposure_factors, model_version, terrain_params_hash')
+      .in('beach_id', beachIds);
+    if (error) throw error;
+    const rows = (data ?? []) as Array<AnchorReferenceTerrain & {
+      beach_id: string; lat: number; lon: number; model_version: string; terrain_params_hash: string;
+    }>;
+    const anchors = new Map(candidates.map((candidate) => [candidate.nearestBeach.id, candidate.nearestBeach]));
+    const paramsHash = getTerrainParamsHash();
+    // Same staleness rule as the worker: model, parameters and coordinate must all match.
+    return new Map(
+      rows
+        .filter((row) => row.model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
+          && row.terrain_params_hash === paramsHash
+          && row.lat === anchors.get(row.beach_id)?.lat
+          && row.lon === anchors.get(row.beach_id)?.lon)
+        .map((row) => [row.beach_id, row]),
+    );
+  } catch (error) {
+    // Once per instance: until the migration is applied this fails on every request.
+    if (!anchorReferenceWarned) {
+      anchorReferenceWarned = true;
+      log.warn('Anchor reference terrain unavailable', { error });
+    }
+    return new Map();
+  }
+}
+
+/** The anchor as the terrain ratio sees it; never used for the anchor's own forecast. */
+export function anchorForTerrainRatio(beach: Beach, reference: AnchorReferenceTerrain | undefined): Beach {
+  if (!reference || hasOwnTerrain(beach)) return beach;
+  return {
+    ...beach,
+    terrain_enabled: true,
+    swell_access_factors: reference.swell_access_factors,
+    wind_exposure_factors: reference.wind_exposure_factors,
+  };
+}
+
+export type CustomSpotForecastAdjuster = (row: EnhancedForecastEntity) => EnhancedForecastEntity;
+
+/**
+ * Scales an anchor-beach forecast row to the custom spot. Null when the spot has
+ * no current modeled terrain, so callers keep the anchor's forecast as-is.
+ */
+export function customSpotForecastAdjuster(
+  spot: CustomSpotDiscoveryRow,
+  nearestBeach: Beach,
+  reference: AnchorReferenceTerrain | undefined,
+): CustomSpotForecastAdjuster | null {
+  if (!hasModeledTerrain(spot)) return null;
+  const customBeach = buildCustomSpotBeach(spot, nearestBeach);
+  const ratioAnchor = anchorForTerrainRatio(nearestBeach, reference);
+  return (row) => applyCustomSpotForecastGeometry(row, customBeach, ratioAnchor);
+}
+
+/** The same adjustment Home applies, for surfaces that show a custom spot's forecast. */
+export async function loadCustomSpotForecastAdjusters(
+  pairs: Array<{ spot: CustomSpotDiscoveryRow; nearestBeach: Beach }>,
+  client?: SupabaseClient,
+): Promise<Map<string, CustomSpotForecastAdjuster>> {
+  const references = await fetchAnchorReferenceTerrain(pairs, client);
+  const adjusters = new Map<string, CustomSpotForecastAdjuster>();
+  for (const { spot, nearestBeach } of pairs) {
+    const adjust = customSpotForecastAdjuster(spot, nearestBeach, references.get(nearestBeach.id));
+    if (adjust) adjusters.set(spot.id, adjust);
+  }
+  return adjusters;
+}
+
+function hasModeledTerrain(spot: CustomSpotDiscoveryRow): boolean {
+  return spot.terrain_status === 'ok'
+    && spot.fingerprint_model_version === CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION
+    && spot.swell_access_factors?.length === 72
+    && spot.wind_exposure_factors?.length === 72;
+}
+
+export function buildCustomSpotBeach(
   spot: CustomSpotDiscoveryRow,
   nearestBeach: Beach,
 ): Beach {
   const minDeg = spot.swell_window_min_deg ?? nearestBeach.swell_window_min_deg;
   const maxDeg = spot.swell_window_max_deg ?? nearestBeach.swell_window_max_deg;
   const computedSwellWindow = swellCenterAndHalfwidth(minDeg, maxDeg);
+  // Modeled terrain replaces the anchor's only when the whole result is current;
+  // otherwise the spot keeps the nearest beach's terrain.
+  const terrain = hasModeledTerrain(spot)
+    ? {
+        swell_access_factors: spot.swell_access_factors,
+        wind_exposure_factors: spot.wind_exposure_factors,
+        terrain_enabled: true,
+        terrain_method: spot.terrain_method,
+        terrain_params: spot.terrain_params,
+        terrain_params_hash: spot.terrain_params_hash,
+        terrain_analyzed_at: spot.terrain_analyzed_at,
+        terrain_status: 'ok',
+      }
+    : {};
 
   return {
     ...nearestBeach,
+    ...terrain,
     name: spot.name,
     lat: spot.lat,
     lon: spot.lon,
@@ -1724,6 +1867,8 @@ async function discoverSurfSpotsInner(
     return { ...emptyResponse(maxResults, 'no_candidates'), candidateRejections, ...(savedSpotsOnly ? { emptyReason: 'no_recommendable_saved_window_72h' as const } : {}) };
   }
 
+  const anchorReferenceTerrain = await fetchAnchorReferenceTerrain(customSpotCandidates);
+
   log.debug(
     `Found ${finalCandidates.length} candidate beaches ` +
     `(${nearbyCandidateSlots} nearby, ${includedCandidates.length} included, ` +
@@ -2295,15 +2440,25 @@ async function discoverSurfSpotsInner(
     const customCandidates = customSpotCandidatesByNearestBeachId.get(beach.id) ?? [];
     for (const customCandidate of customCandidates) {
       const customBeach = buildCustomSpotBeach(customCandidate.spot, beach);
+      // Spots without their own modeled terrain keep the anchor's forecast as-is.
+      const adjustForecast = customSpotForecastAdjuster(
+        customCandidate.spot,
+        beach,
+        anchorReferenceTerrain.get(beach.id),
+      );
+      const customForecast = adjustForecast ? adjustForecast(bestWindowForecast) : bestWindowForecast;
+      const customResponseWindow = customForecast === bestWindowForecast
+        ? responseWindow
+        : { ...responseWindow, waveHeight: customForecast.wave_height ?? responseWindow.waveHeight };
       const customPersResult = calculatePersonalizationBonus(
         customBeach,
-        bestWindowForecast,
+        customForecast,
         personalizationCtx,
       );
       const customDetailedScore = await scoreBeachForDiscovery({
         driveRadiusMiles,
         beach: customBeach,
-        forecast: bestWindowForecast,
+        forecast: customForecast,
         userPrefs,
         userSkillLevel,
         distanceMiles: customCandidate.distanceMiles,
@@ -2324,8 +2479,8 @@ async function discoverSurfSpotsInner(
       }
 
       const customDistinction = computeWindowDistinctionReason(
-        bestWindowForecast,
-        forecasts,
+        customForecast,
+        adjustForecast ? forecasts.map(adjustForecast) : forecasts,
         customBeach,
         beachTz,
         userSkillLevel,
@@ -2348,7 +2503,7 @@ async function discoverSurfSpotsInner(
         character: customConditionCharacter,
       } = resolveRecommendationLabel({
         beach: customBeach,
-        forecast: bestWindowForecast,
+        forecast: customForecast,
         score: customDetailedScore.total,
       });
       const customRecommendation: SurfDiscoveryRecommendation = {
@@ -2357,8 +2512,8 @@ async function discoverSurfSpotsInner(
         visibility: customCandidate.spot.visibility,
         isOwn: customCandidate.isOwn,
         beach: customBeach,
-        window: { ...responseWindow },
-        forecast: bestWindowForecast,
+        window: { ...customResponseWindow },
+        forecast: customForecast,
         score: customDetailedScore.total,
         rankingScore: customDetailedScore.rankingTotal,
         matchQuality: customDetailedScore.matchQuality,
@@ -2366,7 +2521,7 @@ async function discoverSurfSpotsInner(
         spotProfile: beachToSpotProfile(customBeach),
         recommendationLabel: customRecommendationLabel,
         subscores: customDetailedScore.subscores,
-        summary: generateDiscoverySummary(customBeach, responseWindow, customDetailedScore),
+        summary: generateDiscoverySummary(customBeach, customResponseWindow, customDetailedScore),
         message: buildDiscoveryMessage(
           customDetailedScore.total,
           customDetailedScore.reasons,

@@ -276,7 +276,8 @@ export async function processImport(
       : noGps && claimBeach
         ? { status: "resolved" as const, beach: claimBeach, source: "logged_session" as const, attachTarget: null }
         : noGps
-          ? await resolveNoGpsBeach(serviceClient, userId, summary.inWaterStart, track.meta.startedAt, track.meta.endedAt)
+          ? await resolveNoGpsBeach(serviceClient, userId,
+            { start: summary.inWaterStart, end: summary.inWaterEnd, importId }, track.meta.startedAt, track.meta.endedAt)
           : await resolveImportBeach(userClient, summary.centroid!);
     if (resolution.status === "needs_beach" && claimBeach) {
       resolution = { status: "resolved", beach: claimBeach };
@@ -335,7 +336,7 @@ export async function processImport(
       && "attachTarget" in resolution && resolution.attachTarget) {
       target = resolution.attachTarget as NonNullable<typeof target>;
     } else {
-      target = await findAttachTarget(userClient, userId, beach, summary.inWaterStart);
+      target = await findAttachTarget(userClient, userId, beach, summary.inWaterStart, summary.inWaterEnd);
     }
     if (target?.hasTrack && target.trackImportId !== importId) {
       if (!isWatch) return duplicate(target.sessionId);

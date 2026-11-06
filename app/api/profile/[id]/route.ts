@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 import { getProfileDTOById, getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 import {
   createSuccessResponse,
@@ -107,7 +108,8 @@ const profileHandler = withAuth(
         .from("sessions")
         .select("id, rating, status")
         .eq("user_id", userId)
-        .eq("is_public", true);
+        .eq("is_public", true)
+        .or(SURF_SESSION_SOURCE_FILTER);
 
       let sessionStats: { session_count: number; average_rating: number | null } = {
         session_count: 0,

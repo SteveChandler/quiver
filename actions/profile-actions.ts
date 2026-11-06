@@ -7,6 +7,7 @@ import type { Profile } from "@/types/database";
 import type { Database } from "@/types/supabase";
 import { z } from "zod";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 import {
   PROFILE_PUBLIC_SELECT,
   PROFILE_PUBLIC_WITH_HOME_BEACH_SELECT,
@@ -474,7 +475,8 @@ export async function getUserMetadata(userId: string) {
     const { count } = await supabase
       .from("sessions")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .or(SURF_SESSION_SOURCE_FILTER);
 
     return { 
       success: true as const, 

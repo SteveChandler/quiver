@@ -76,7 +76,7 @@ describe("profile share metadata", () => {
             }),
           }
         : {
-            select: () => ({ eq: async () => ({ count: 0 }) }),
+            select: () => ({ eq: () => ({ or: async () => ({ count: 0 }) }) }),
           },
     });
 
