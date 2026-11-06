@@ -61,7 +61,9 @@ export async function findClaimTarget(
       .select("id, beach_id, source").eq("id", candidate.session_id).eq("user_id", claim.userId)
       .is("deleted_at", null).maybeSingle();
     if (sessionError) throw sessionError;
-    if (!session || session.source === "garmin_watch" || session.source === "file_import") continue;
+    // Claim inserts only check ownership, so a claim can point at a conditions report.
+    if (!session || session.source === "garmin_watch" || session.source === "file_import"
+      || session.source === "conditions_report") continue;
     const { data: track, error: trackError } = await userClient.from("session_tracks")
       .select("session_id, import_id").eq("session_id", session.id).maybeSingle();
     if (trackError) throw trackError;

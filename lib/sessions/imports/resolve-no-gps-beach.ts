@@ -50,9 +50,10 @@ async function phoneCandidates(
 }
 
 export async function resolveNoGpsBeach(
-  service: SupabaseClient, userId: string, inWaterStart: string, startedAt: string, endedAt: string,
+  service: SupabaseClient, userId: string,
+  inWater: { start: string; end: string; importId: string }, startedAt: string, endedAt: string,
 ): Promise<NoGpsBeachResolution> {
-  const target = await findNoGpsAttachTarget(service, userId, inWaterStart);
+  const target = await findNoGpsAttachTarget(service, userId, inWater.start, inWater.end, inWater.importId);
   if (target) {
     const beach = await loadImportBeach(service, target.beachId);
     if (beach) return { status: "resolved", beach, source: "logged_session", attachTarget: target };
