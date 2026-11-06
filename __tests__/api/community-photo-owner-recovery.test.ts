@@ -36,8 +36,6 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 describe("community photo owner recovery API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.COMMUNITY_PHOTOS_READ_ENABLED = "true";
-    process.env.COMMUNITY_PHOTOS_WRITE_ENABLED = "true";
   });
 
   it("lists only the authenticated owner's recoverable rows", async () => {

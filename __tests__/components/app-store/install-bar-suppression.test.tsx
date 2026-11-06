@@ -28,28 +28,12 @@ function setUserAgent(userAgent: string): void {
   Object.defineProperty(window.navigator, "userAgent", { configurable: true, value: userAgent });
 }
 
-const ORIGINAL_FLAG = process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-
 beforeEach(() => {
   pathname = "/ca/san-diego/blacks";
 });
 
-afterEach(() => {
-  if (ORIGINAL_FLAG === undefined) delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-  else process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = ORIGINAL_FLAG;
-});
-
 describe("IphoneAppBannerGate", () => {
-  it("shows the banner for non-Safari iPhone when the bar is off", async () => {
-    delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-    setUserAgent(IPHONE_CHROME_UA);
-    render(<IphoneAppBannerGate />);
-
-    await waitFor(() => expect(screen.getByTestId("iphone-app-banner")).toBeInTheDocument());
-  });
-
-  it("drops the banner on a bar page when the bar is on", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
+  it("drops the banner on a bar page", async () => {
     setUserAgent(IPHONE_CHROME_UA);
     render(<IphoneAppBannerGate />);
     await act(async () => {});
@@ -58,7 +42,6 @@ describe("IphoneAppBannerGate", () => {
   });
 
   it("keeps the banner on pages the bar does not run on", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_CHROME_UA);
     pathname = "/forecast";
     render(<IphoneAppBannerGate />);
@@ -71,14 +54,12 @@ describe("HideWhenInstallBarOwns", () => {
   const child = <div data-testid="handoff">in-page ask</div>;
 
   it("renders its child on the server, so CDN HTML is unchanged", () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_SAFARI_UA);
 
     expect(renderToStaticMarkup(<HideWhenInstallBarOwns>{child}</HideWhenInstallBarOwns>)).toContain("in-page ask");
   });
 
   it("hides the child for bar iPhone visitors after mount", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_SAFARI_UA);
     render(<HideWhenInstallBarOwns>{child}</HideWhenInstallBarOwns>);
     await act(async () => {});
@@ -86,13 +67,8 @@ describe("HideWhenInstallBarOwns", () => {
     expect(screen.queryByTestId("handoff")).not.toBeInTheDocument();
   });
 
-  it.each([
-    ["Android with the bar on", ANDROID_UA, "true"],
-    ["iPhone with the bar off", IPHONE_SAFARI_UA, undefined],
-  ])("keeps the child for %s", async (_name, userAgent, flag) => {
-    if (flag === undefined) delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-    else process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = flag;
-    setUserAgent(userAgent);
+  it("keeps the child for Android", async () => {
+    setUserAgent(ANDROID_UA);
     render(<HideWhenInstallBarOwns>{child}</HideWhenInstallBarOwns>);
     await act(async () => {});
 
@@ -100,7 +76,7 @@ describe("HideWhenInstallBarOwns", () => {
   });
 });
 
-describe("BeachDetailInstallCta with the bar on", () => {
+describe("BeachDetailInstallCta under the bar", () => {
   function cta() {
     return (
       <BeachDetailInstallCta
@@ -115,7 +91,6 @@ describe("BeachDetailInstallCta with the bar on", () => {
     ["iPhone Safari", IPHONE_SAFARI_UA],
     ["iPhone Chrome", IPHONE_CHROME_UA],
   ])("hides the in-page install section on %s", async (_name, userAgent) => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(userAgent);
     render(cta());
     await act(async () => {});
@@ -124,7 +99,6 @@ describe("BeachDetailInstallCta with the bar on", () => {
   });
 
   it("still shows it on Android", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(ANDROID_UA);
     render(cta());
 

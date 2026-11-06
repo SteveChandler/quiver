@@ -2,9 +2,7 @@ import { z } from "zod";
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  CommunityPhotoError,
   communityPhotoErrorResponse,
-  getCommunityPhotoFeatureFlags,
   listOwnedRemovedCommunityPhotos,
   withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
@@ -23,9 +21,6 @@ async function handler(
   { user }: AuthenticatedContext,
 ): Promise<NextResponse> {
   try {
-    if (!getCommunityPhotoFeatureFlags(user.id).readEnabled) {
-      throw new CommunityPhotoError("feature_disabled");
-    }
     querySchema.parse(request.nextUrl.searchParams.get("status"));
     const photos = await listOwnedRemovedCommunityPhotos({
       uploaderId: user.id,

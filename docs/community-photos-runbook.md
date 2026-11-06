@@ -1,26 +1,16 @@
 # Community spot photos runbook
 
-Community spot photos launch behind two independent, fail-closed layers:
+Community spot photos are gated by one fail-closed layer: database
+`community_photo_feature_config.read_enabled` and `writes_enabled`. The
+migration defaults both to `false`; production verification on 2026-08-13
+found both `true`, with the row updated on 2026-08-11. The database RPCs
+require these flags, so they are the kill switch.
 
-- Database `community_photo_feature_config.read_enabled` and
-  `writes_enabled`. The migration defaults both to `false`; production
-  verification on 2026-08-13 found both `true`, with the row updated on
-  2026-08-11.
-- Runtime `COMMUNITY_PHOTOS_READ_ENABLED` and
-  `COMMUNITY_PHOTOS_WRITE_ENABLED`, both disabled unless exactly `true`.
-  Runtime writes are effective only while runtime reads are enabled.
-- `COMMUNITY_PHOTOS_CANARY_USER_IDS` optionally contains an exact
-  comma-separated UUID allowlist. Listed authenticated users receive reads and,
-  only when the runtime write flag is on, writes before global reads turn on.
-
-`lib/community-photos/contracts.ts` is the runtime source of truth. It ignores
-allowlist values that are not UUIDs, enables reads for a listed user when the
-global read flag is off, and computes `writeEnabled` as
-`readEnabled && COMMUNITY_PHOTOS_WRITE_ENABLED === "true"`. A canary user
-therefore gets writes only when the runtime write flag is on; a non-canary user
-gets neither read nor write access while the global read flag is off. The
-database RPCs independently require their database flags, so the runtime
-allowlist does not bypass the database gate.
+The runtime `COMMUNITY_PHOTOS_READ_ENABLED`, `COMMUNITY_PHOTOS_WRITE_ENABLED`
+and `COMMUNITY_PHOTOS_CANARY_USER_IDS` env flags were retired in Nov 2026.
+`getCommunityPhotoFeatureFlags()` in `lib/community-photos/contracts.ts` now
+always reports reads and writes on, because installed native apps still read
+those response fields.
 
 ## Current status
 
