@@ -1057,6 +1057,9 @@ export class ForecastBuilder {
         useCDIPData,
         beach,
         southOcSanoGuardrail.anchor,
+        null,
+        // Same ruler as the base value, so the higher-of comparison is fair at hybrid beaches.
+        ecmwfWamHsM,
       );
       const baseFt = parseDisplayHeightFt(waveHeightResult.value).numericFt;
       const guardedFt = parseDisplayHeightFt(guardedWaveHeightResult.value).numericFt;
