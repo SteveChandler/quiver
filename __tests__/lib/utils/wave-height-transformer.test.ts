@@ -1,5 +1,6 @@
 import { calibratedShadowFactor, transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, estimatedWindowAccessFactor, ESTIMATED_WINDOW_SHOULDER_DEG, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
 import { ECMWF_HYBRID_K_FACTORS } from '@/lib/utils/ecmwf-hybrid-k-factors';
+import { MODEL_SWELL_CALIBRATION_FACTORS } from '@/lib/utils/model-swell-calibration-factors';
 import { TERRAIN_BINS, toBin5 } from '@/types/terrain';
 import {
   createMockBeach,
@@ -1667,6 +1668,13 @@ describe('Wave Height Transformer', () => {
         const fittedId = Object.keys(ECMWF_HYBRID_K_FACTORS)[0];
         expect(
           componentAccessFactor(288, 11, { ...laFondaOld, id: fittedId }, 'model_swell'),
+        ).toBe(0);
+        const modelFittedId = Object.keys(MODEL_SWELL_CALIBRATION_FACTORS).find(
+          (id) => ECMWF_HYBRID_K_FACTORS[id] == null,
+        )!;
+        expect(typeof modelFittedId).toBe('string');
+        expect(
+          componentAccessFactor(288, 11, { ...laFondaOld, id: modelFittedId }, 'model_swell'),
         ).toBe(0);
       });
 

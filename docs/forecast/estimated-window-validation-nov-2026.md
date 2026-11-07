@@ -21,7 +21,7 @@ Branch: `ccr-f212ab21-yh3phk` (bea134452) against main 44c7df5. Read-only run. N
 - Logged model hours: `ml_predictions_log` rows with `display_replay_context`, source `model_swell` or `model_hs`, horizon 12 to 48 h. 85,224 rows were read (all horizons up to 72 h); 44,008 rows are in the 12 to 48 h scoring set.
 - Each row was replayed through `transformToFaceHeightDecomposed` imported from each worktree (base and branch). Same logged components. Beach settings are the current prod settings (window, terrain flag, shoaling factors, id). No row was skipped for parse, support, or hybrid reasons.
 - Date range: 2026-10-08 to 2026-11-07. This is 30 days, not 4 to 6 weeks. Replay context does not exist in the log before Oct 8. The replay reproduces the logged height within 0.15 ft for 83.8% of rows. The other 16.2% likely differ because settings changed since logging. I did not check this.
-- Scripts (untracked): `scripts/ew/*.ts`, `scripts/ew/analyze*.py` in the branch worktree.
+- Scripts: `scripts/ew/*.ts` and `scripts/ew/analyze*.py`. They are local helpers and are not in the repository.
 
 ## Affected beaches
 

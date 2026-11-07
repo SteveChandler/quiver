@@ -15,13 +15,22 @@
 
 BEGIN;
 
-UPDATE public.beaches
-SET
-  swell_window_min_deg = 180,
-  swell_window_max_deg = 330,
-  swell_window_center_deg = 255,
-  swell_window_halfwidth_deg = 75
-WHERE id = '803f0345-3d9d-5a3f-a356-083418d48884'
-  AND slug = 'la-fonda';
+DO $$
+DECLARE
+  updated integer;
+BEGIN
+  UPDATE public.beaches
+  SET
+    swell_window_min_deg = 180,
+    swell_window_max_deg = 330,
+    swell_window_center_deg = 255,
+    swell_window_halfwidth_deg = 75
+  WHERE id = '803f0345-3d9d-5a3f-a356-083418d48884'
+    AND slug = 'la-fonda';
+  GET DIAGNOSTICS updated = ROW_COUNT;
+  IF updated <> 1 THEN
+    RAISE EXCEPTION 'Expected to update 1 La Fonda row, updated %', updated;
+  END IF;
+END $$;
 
 COMMIT;
