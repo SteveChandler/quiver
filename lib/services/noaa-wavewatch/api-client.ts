@@ -211,24 +211,26 @@ function attemptSignal(signal?: AbortSignal): AbortSignal {
     OPEN_METEO_ATTEMPT_TIMEOUT_MS
   );
   (timer as { unref?: () => void }).unref?.();
+  const onCallerAbort = (): void => controller.abort(signal?.reason);
+  // The timer always fires (or the caller aborts), so this also detaches the caller listener.
+  controller.signal.addEventListener(
+    "abort",
+    () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onCallerAbort);
+    },
+    { once: true }
+  );
   if (signal?.aborted) {
     controller.abort(signal.reason);
   } else {
-    signal?.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
+    signal?.addEventListener("abort", onCallerAbort, { once: true });
   }
-  controller.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
   return controller.signal;
 }
 
 function isRetryableStatus(status: number): boolean {
   return status === 429 || status >= 500;
-}
-
-function isAbortError(error: unknown, signal?: AbortSignal): boolean {
-  return (
-    signal?.aborted === true ||
-    (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
-  );
 }
 
 function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
@@ -350,7 +352,8 @@ export async function fetchOpenMeteoData(
 
     return data;
   } catch (error) {
-    if (isAbortError(error, options.signal)) {
+    // Only the caller's abort is quiet; exhausted per-attempt timeouts warn like other failures.
+    if (options.signal?.aborted) {
       log.debug("Open-Meteo fetch aborted");
       return null;
     }

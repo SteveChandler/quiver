@@ -77,7 +77,7 @@ describe("fetchOpenMeteoData", () => {
 
     afterEach(() => {
       jest.useRealTimers();
-      expectConsoleWarnings([/Open-Meteo (fetch failed|returned \d+).*; retrying/]);
+      expectConsoleWarnings([/Open-Meteo (fetch failed|returned \d+).*; retrying/, /Error fetching Open-Meteo data/]);
     });
 
     async function runWithTimers<T>(promise: Promise<T>): Promise<T> {
