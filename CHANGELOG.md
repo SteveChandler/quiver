@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **Model forecasts at uncalibrated beaches without terrain no longer drop swell just outside an estimated window** (`lib/utils/wave-height-transformer.ts`, `supabase/migrations/20261107180000_widen_la_fonda_swell_window.sql`).
+  - On Nov 7 La Fonda read 0.8 ft while the surf was 4-5 ft. Open-Meteo had a 5.1 ft 11 s swell from 288°; the imported 180-285° window gave it zero weight and only a 1.7 ft 198° swell counted.
+  - Model partitions at beaches with no terrain access array, `shoaling_factors = null`, and no fitted model or ECMWF factor now use the same access curve terrain beaches get on the model path (0.6-1.0 inside the window), tapering to zero over 30° past the edge. Affects the 188 such beaches in the Nov 5 snapshot (105 Baja, 83 US); Point Dume, Leo Carrillo and Latigo keep the strict window they were fitted on. CDIP and direct sources are unchanged.
+  - La Fonda's window moves to 180-330° (open ocean from Punta Banda to Point Loma). The Nov 7 hour reads 3.7 ft with the code change alone and 5.3 ft with the new window.
 - **Buoy assignment follow-ups, Nov 6: station table corrected, model factors refit after the prod DB changes, refit script reads current beach settings** (`lib/constants/cdip-stations.ts`, `lib/utils/model-swell-calibration-factors.ts`, `scripts/replay-model-swell-calibration.ts`, `lib/utils/wave-height-transformer.ts`).
   - Station table:
     - Deletes "179", which is Astoria Canyon, Oregon; no beach uses it any more.

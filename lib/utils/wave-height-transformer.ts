@@ -19,6 +19,7 @@
 import { toBin5, TERRAIN_BINS } from '@/types/terrain';
 import type { WaveHeightSourceTag } from './wave-height-source';
 import { MODEL_SWELL_CALIBRATION_FACTORS } from './model-swell-calibration-factors';
+import { ECMWF_HYBRID_K_FACTORS } from './ecmwf-hybrid-k-factors';
 
 export type { WaveHeightSourceTag } from './wave-height-source';
 
@@ -743,6 +744,71 @@ function terrainAccessFactor(access: number): number {
   return DIRECTION_FACTOR_MIN + Math.sqrt(access) * DIRECTION_FACTOR_RANGE;
 }
 
+/**
+ * Degrees past a swell-window edge over which an estimated window tapers to
+ * zero instead of cutting off at the edge.
+ */
+export const ESTIMATED_WINDOW_SHOULDER_DEG = 30;
+
+/**
+ * True when a model partition at this beach has only an unmeasured swell
+ * window to go on: no terrain access array, explicitly uncalibrated
+ * (`shoaling_factors === null`, the same signal as the population prior), and
+ * no per-beach model factor fitted against the strict-window transform.
+ */
+function usesEstimatedWindowAccess(
+  beach: BeachTerrainConfig | null | undefined,
+  source: WaveHeightSourceTag | undefined,
+): boolean {
+  if (!isTerrainWeightedModelSource(source) || hasValidSwellAccessFactors(beach)) {
+    return false;
+  }
+  if (beach?.shoaling_factors !== null) return false;
+  const id = beach?.id;
+  return !id || (
+    MODEL_SWELL_CALIBRATION_FACTORS[id] == null &&
+    ECMWF_HYBRID_K_FACTORS[id] == null
+  );
+}
+
+/**
+ * Access factor for a model partition against an estimated swell window.
+ *
+ * Inside the window this is `terrainAccessFactor(cos²)`, the curve a
+ * terrain-enabled beach gets on the model path. Past the edge it tapers from
+ * DIRECTION_FACTOR_MIN to 0 over ESTIMATED_WINDOW_SHOULDER_DEG, so a swell a
+ * few degrees outside an editorial window is not dropped outright (La Fonda,
+ * 2026-11-07: a 5.1 ft 11 s swell at 288° against a 285° edge read 0.8 ft).
+ * Returns null when the window or direction is unusable.
+ */
+export function estimatedWindowAccessFactor(
+  componentDirDeg: number | null | undefined,
+  windowCenterDeg: number | null | undefined,
+  windowHalfwidthDeg: number | null | undefined,
+): number | null {
+  if (
+    componentDirDeg == null || !Number.isFinite(componentDirDeg) ||
+    windowCenterDeg == null || !Number.isFinite(windowCenterDeg) ||
+    windowHalfwidthDeg == null || !Number.isFinite(windowHalfwidthDeg) ||
+    windowHalfwidthDeg <= 0
+  ) {
+    return null;
+  }
+
+  const rawDelta = ((componentDirDeg - windowCenterDeg) % 360 + 540) % 360 - 180;
+  const distance = Math.abs(rawDelta);
+
+  if (distance < windowHalfwidthDeg) {
+    const cosValue = Math.cos(((distance / windowHalfwidthDeg) * Math.PI) / 2);
+    return DIRECTION_FACTOR_MIN + cosValue * DIRECTION_FACTOR_RANGE;
+  }
+
+  const beyond = distance - windowHalfwidthDeg;
+  if (beyond >= ESTIMATED_WINDOW_SHOULDER_DEG) return 0;
+  const taper = Math.cos(((beyond / ESTIMATED_WINDOW_SHOULDER_DEG) * Math.PI) / 2);
+  return DIRECTION_FACTOR_MIN * taper * taper;
+}
+
 function directObservationFloorAccessFactor(access: number): number {
   if (access <= 0) {
     return 0;
@@ -781,7 +847,8 @@ function shouldApplyDeepwaterDecay(
  * CDIP and other calibrated/direct sources keep the strict swell-window
  * alignment. Model-derived sources can use terrain swell access instead,
  * because deep-water model partitions otherwise get over-zeroed at protected
- * or canyon-amplified beaches where partial access is real.
+ * or canyon-amplified beaches where partial access is real. Model sources at
+ * uncalibrated beaches without terrain use `estimatedWindowAccessFactor`.
  */
 export function componentAccessFactor(
   componentDirDeg: number | null | undefined,
@@ -829,6 +896,15 @@ export function componentAccessFactor(
     }
 
     return strictAlignment;
+  }
+
+  if (usesEstimatedWindowAccess(beach, source)) {
+    const estimated = estimatedWindowAccessFactor(
+      componentDirDeg,
+      beach?.swell_window_center_deg ?? null,
+      beach?.swell_window_halfwidth_deg ?? null,
+    );
+    if (estimated != null) return estimated;
   }
 
   return alignmentFactor(

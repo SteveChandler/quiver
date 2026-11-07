@@ -1,4 +1,5 @@
-import { calibratedShadowFactor, transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
+import { calibratedShadowFactor, transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, estimatedWindowAccessFactor, ESTIMATED_WINDOW_SHOULDER_DEG, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
+import { ECMWF_HYBRID_K_FACTORS } from '@/lib/utils/ecmwf-hybrid-k-factors';
 import { TERRAIN_BINS, toBin5 } from '@/types/terrain';
 import {
   createMockBeach,
@@ -1590,6 +1591,94 @@ describe('Wave Height Transformer', () => {
       expect(alignmentFactor(192, 18, 293, 73)).toBe(0);
       expect(access).toBeGreaterThan(0);
       expect(access).toBeLessThan(0.25);
+    });
+
+    describe('estimated windows on the model path (no terrain, uncalibrated)', () => {
+      // La Fonda before and after 20261107180000_widen_la_fonda_swell_window.sql.
+      const laFondaOld: BeachTerrainConfig = {
+        id: '803f0345-3d9d-5a3f-a356-083418d48884',
+        terrain_enabled: false,
+        swell_access_factors: null,
+        shoaling_factors: null,
+        swell_window_center_deg: 232.5,
+        swell_window_halfwidth_deg: 52.5,
+        deepwater_decay_factor: 1,
+      };
+      const laFonda: BeachTerrainConfig = {
+        ...laFondaOld,
+        swell_window_center_deg: 255,
+        swell_window_halfwidth_deg: 75,
+      };
+      // Open-Meteo at La Fonda, 2026-11-07 08:00 local.
+      const nov7Components: SwellComponentInput[] = [
+        { heightFt: 5.118, periodS: 11.25, directionDeg: 288, partition: 'swell' },
+        { heightFt: 1.706, periodS: 13.05, directionDeg: 198, partition: 'swell' },
+        { heightFt: 0.066, periodS: 1.3, directionDeg: 31, partition: 'wind_wave' },
+      ];
+      const nov7 = (beach: BeachTerrainConfig, source: WaveHeightSourceTag = 'model_swell') =>
+        transformToFaceHeightDecomposed({
+          components: nov7Components,
+          beach,
+          source,
+          rawHeightFt: 5.381,
+          periodS: 13.7,
+          swellDirectionDeg: 282,
+        });
+
+      it('uses the terrain-style curve inside the window', () => {
+        expect(estimatedWindowAccessFactor(255, 255, 75)).toBeCloseTo(1, 6);
+        expect(estimatedWindowAccessFactor(255 + 37.5, 255, 75)).toBeCloseTo(
+          DIRECTION_FACTOR_MIN + Math.cos(Math.PI / 4) * DIRECTION_FACTOR_RANGE,
+          6,
+        );
+      });
+
+      it('tapers past the edge instead of cutting to zero', () => {
+        const atEdge = estimatedWindowAccessFactor(285, 232.5, 52.5)!;
+        const justPast = estimatedWindowAccessFactor(288, 232.5, 52.5)!;
+        expect(atEdge).toBeCloseTo(DIRECTION_FACTOR_MIN, 1);
+        expect(justPast).toBeGreaterThan(0.5);
+        expect(justPast).toBeLessThan(atEdge);
+        expect(
+          estimatedWindowAccessFactor(285 + ESTIMATED_WINDOW_SHOULDER_DEG, 232.5, 52.5),
+        ).toBe(0);
+        expect(estimatedWindowAccessFactor(30, 232.5, 52.5)).toBe(0);
+      });
+
+      it('returns null for an unusable window or direction', () => {
+        expect(estimatedWindowAccessFactor(null, 255, 75)).toBeNull();
+        expect(estimatedWindowAccessFactor(255, null, 75)).toBeNull();
+        expect(estimatedWindowAccessFactor(255, 255, 0)).toBeNull();
+      });
+
+      it('applies only to model sources at explicitly uncalibrated beaches', () => {
+        expect(componentAccessFactor(288, 11, laFondaOld, 'model_swell')).toBeGreaterThan(0.5);
+        expect(componentAccessFactor(288, 11, laFondaOld, 'model_hs')).toBeGreaterThan(0.5);
+        // CDIP/direct sources keep the strict window.
+        expect(componentAccessFactor(288, 11, laFondaOld, 'cdip_swell')).toBe(0);
+        // shoaling_factors not supplied: the strict window still applies.
+        const { shoaling_factors: _omit, ...unknownCalibration } = laFondaOld;
+        expect(componentAccessFactor(288, 11, unknownCalibration, 'model_swell')).toBe(0);
+      });
+
+      it('keeps the strict window at beaches with fitted model factors', () => {
+        // Point Dume, Leo Carrillo and Latigo have no terrain but were fitted
+        // against the strict-window transform.
+        const fittedId = Object.keys(ECMWF_HYBRID_K_FACTORS)[0];
+        expect(
+          componentAccessFactor(288, 11, { ...laFondaOld, id: fittedId }, 'model_swell'),
+        ).toBe(0);
+      });
+
+      it('reads the Nov 7 WNW swell at La Fonda as surf, not flat', () => {
+        // Before: the 288° swell was dropped and only the 198° swell counted.
+        expect(nov7({ ...laFondaOld, shoaling_factors: undefined }).faceHeightFt).toBeLessThan(1);
+        const codeOnly = nov7(laFondaOld).faceHeightFt;
+        const withWindow = nov7(laFonda).faceHeightFt;
+        expect(codeOnly).toBeGreaterThan(3);
+        expect(withWindow).toBeGreaterThanOrEqual(4);
+        expect(withWindow).toBeLessThanOrEqual(6);
+      });
     });
 
     it('keeps exact-zero terrain-access south swell blocked', () => {
