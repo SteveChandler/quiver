@@ -199,6 +199,26 @@ export function constructGridUrl(pointData: NOAAWavePoint): string | null {
 // so a couple of quick retries usually recover before the caller falls back.
 // Kept short: the sync cron runs beaches in sequential batches under a deadline.
 const OPEN_METEO_RETRY_DELAYS_MS = [500, 1_500];
+// Without a per-attempt cap, one stalled request (seen after a 429 on Nov 7)
+// hangs the whole sync cron until Vercel kills it at 300 s.
+export const OPEN_METEO_ATTEMPT_TIMEOUT_MS = 10_000;
+
+/** Aborts after the per-attempt timeout or when the caller's signal aborts; covers the body read too. */
+function attemptSignal(signal?: AbortSignal): AbortSignal {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new DOMException("Open-Meteo attempt timed out", "TimeoutError")),
+    OPEN_METEO_ATTEMPT_TIMEOUT_MS
+  );
+  (timer as { unref?: () => void }).unref?.();
+  if (signal?.aborted) {
+    controller.abort(signal.reason);
+  } else {
+    signal?.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
+  }
+  controller.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+  return controller.signal;
+}
 
 function isRetryableStatus(status: number): boolean {
   return status === 429 || status >= 500;
@@ -239,7 +259,7 @@ async function fetchOpenMeteoWithRetry(
         headers: {
           "User-Agent": HTTP_CONFIG.USER_AGENT,
         },
-        signal,
+        signal: attemptSignal(signal),
       });
       if (response.ok || !isRetryableStatus(response.status) || delayMs === undefined) {
         return response;
@@ -248,7 +268,8 @@ async function fetchOpenMeteoWithRetry(
       // Release the connection before retrying.
       await response.body?.cancel().catch(() => undefined);
     } catch (error) {
-      if (isAbortError(error, signal)) throw error;
+      // A per-attempt timeout is retried like a network failure; only the caller's abort stops the loop.
+      if (signal?.aborted) throw error;
       if (delayMs === undefined) throw error;
       log.warn(`Open-Meteo fetch failed (${String(error)}); retrying in ${delayMs}ms`);
     }
