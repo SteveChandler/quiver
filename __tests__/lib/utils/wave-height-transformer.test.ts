@@ -1675,9 +1675,38 @@ describe('Wave Height Transformer', () => {
         expect(nov7({ ...laFondaOld, shoaling_factors: undefined }).faceHeightFt).toBeLessThan(1);
         const codeOnly = nov7(laFondaOld).faceHeightFt;
         const withWindow = nov7(laFonda).faceHeightFt;
-        expect(codeOnly).toBeGreaterThan(3);
-        expect(withWindow).toBeGreaterThanOrEqual(4);
-        expect(withWindow).toBeLessThanOrEqual(6);
+        expect(codeOnly).toBe(3.7);
+        expect(withWindow).toBe(5.3);
+        expect(nov7(laFondaOld).path).toBe('decomposed');
+        expect(nov7(laFonda).path).toBe('decomposed');
+      });
+
+      it('keeps the legacy fallback when the strict window zeroes every component', () => {
+        // Both swells sit past the 285° edge but inside the taper shoulder.
+        const pastEdge: SwellComponentInput[] = [
+          { heightFt: 4, periodS: 12, directionDeg: 290, partition: 'swell' },
+          { heightFt: 2, periodS: 10, directionDeg: 300, partition: 'swell' },
+        ];
+        const legacyInputs = {
+          rawHeightFt: 5.381,
+          periodS: 13.7,
+          swellDirectionDeg: 282,
+          beach: laFondaOld,
+          source: 'model_swell' as const,
+        };
+        const result = transformToFaceHeightDecomposed({ ...legacyInputs, components: pastEdge });
+        expect(result.path).toBe('legacy');
+        expect(result.faceHeightFt).toBe(
+          transformToFaceHeightWithMetadata(legacyInputs).faceHeightFt,
+        );
+
+        // One swell inside the strict window: the taper applies and the
+        // past-edge swells still add to it.
+        const inside: SwellComponentInput = { heightFt: 2, periodS: 12, directionDeg: 250, partition: 'swell' };
+        const mixed = transformToFaceHeightDecomposed({ ...legacyInputs, components: [...pastEdge, inside] });
+        const insideOnly = transformToFaceHeightDecomposed({ ...legacyInputs, components: [inside] });
+        expect(mixed.path).toBe('decomposed');
+        expect(mixed.faceHeightFt).toBeGreaterThan(insideOnly.faceHeightFt);
       });
     });
 

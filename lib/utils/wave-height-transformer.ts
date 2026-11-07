@@ -1113,6 +1113,10 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
     ? beach.deepwater_decay_factor
     : 1.0;
 
+  // The estimated-window taper must not suppress the legacy fallback: when the
+  // strict window would zero every component, keep the fallback as before.
+  const estimatedWindow = usesEstimatedWindowAccess(beach, source);
+  let strictWindowAccess = !estimatedWindow;
   let sumOfSquares = 0;
   let calibratedBucketUsed = false;
   let populationPriorUsed = false;
@@ -1137,6 +1141,18 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
       shortPeriodGated ? undefined : { shortPeriodCutoffS: 0 },
     );
     if (windowAccess === 0) continue;
+    if (
+      !strictWindowAccess &&
+      alignmentFactor(
+        component.directionDeg,
+        component.periodS,
+        beach.swell_window_center_deg ?? null,
+        beach.swell_window_halfwidth_deg ?? null,
+        shortPeriodGated ? undefined : { shortPeriodCutoffS: 0 },
+      ) > 0
+    ) {
+      strictWindowAccess = true;
+    }
     // A model partition under the buoy cutoff weighs by the legacy direction
     // factor, so on its own it reads exactly what the legacy fallback gave it
     // and a longer-period partition beside it can only add.
@@ -1176,7 +1192,7 @@ function transformToFaceHeightDecomposedUncalibrated(params: {
 
   // If every component was zeroed (e.g. all buoy periods ≤ 8s or all components
   // are outside the beach window), fall back to legacy rather than displaying 0 ft.
-  if (sumOfSquares === 0) {
+  if (sumOfSquares === 0 || !strictWindowAccess) {
     const legacy = transformToFaceHeightWithMetadata({
       rawHeightFt, periodS, swellDirectionDeg, beach, source,
       allowCalibratedShoaling,
