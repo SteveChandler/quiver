@@ -11,7 +11,7 @@ const build = (events: readonly RegionalSwellEvent[] = stored, facts = factsFor)
   buildGlance({ stored: events, tail: [], timezone, today, now, todayCovered: true, factsFor: facts });
 
 const salad = "Expect crumbly, crumbling, crumbles, spilling, soft, mushy, or peaky waves.";
-const reworded1 = "A fresh south-southwest groundswell arrives and peaks Sunday, and a west-northwest mid-period swell follows Monday, both chest-high at most spots.";
+const reworded1 = "A fresh south-southwest groundswell arrives Sunday morning and peaks that afternoon, and a west-northwest mid-period swell follows Monday afternoon, both chest-high at most spots.";
 const reworded2 = "A week from Friday looks likely to bring a bigger west swell, with a south-southwest groundswell behind it, head-high at most spots and overhead at the standouts.";
 
 describe("checkGlanceWording", () => {
@@ -48,6 +48,29 @@ describe("checkGlanceWording", () => {
   it("refuses a comma list of three or more", () => {
     expect(checkGlanceWording("Clean, glassy, and smooth.", "Clean.")).toEqual({ ok: false, reason: "adjective_list" });
     expect(checkGlanceWording("Clean, glassy smooth.", "Clean.")).toEqual({ ok: true });
+  });
+
+  describe("parts of the day", () => {
+    const code = "A west groundswell arrives tomorrow morning and peaks Sunday afternoon, chest-high at most spots.";
+    const facts = { faceFt: { min: 3, max: 5 }, sizes: sizeWordsFor({ min: 3, max: 5 }), breaker: null } as CandidateFacts;
+
+    it("refuses a rewording that swaps the arrival's and the peak's, though the claim check passes", () => {
+      const swapped = "A west groundswell arrives tomorrow afternoon and peaks Sunday morning, chest-high at most spots.";
+      expect(checkWrittenSentence(swapped, { text: code, facts }, [], [region])).toEqual({ ok: true });
+      expect(checkGlanceWording(swapped, code)).toEqual({ ok: false, reason: "time_words" });
+    });
+
+    it("refuses an added or dropped part of the day", () => {
+      expect(checkGlanceWording("A west groundswell arrives early tomorrow morning and peaks Sunday afternoon, chest-high at most spots.", code))
+        .toEqual({ ok: false, reason: "time_words" });
+      expect(checkGlanceWording("A west groundswell arrives tomorrow and peaks Sunday afternoon, chest-high at most spots.", code))
+        .toEqual({ ok: false, reason: "time_words" });
+    });
+
+    it("accepts a rewording that keeps them in order, whatever the case", () => {
+      expect(checkGlanceWording("Arriving tomorrow Morning, a west groundswell peaks Sunday afternoon, chest-high at most spots.", code))
+        .toEqual({ ok: true });
+    });
   });
 
   it("matches certainty phrases longest first and as whole words", () => {

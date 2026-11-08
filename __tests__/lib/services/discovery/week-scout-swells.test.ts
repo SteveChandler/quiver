@@ -56,7 +56,7 @@ function forecastRows(beachId: string, specs: Array<PartitionSpec | null>, peakD
 }
 
 const PEAK: PartitionSpec = { heightFt: 4, periodS: 16, direction: 270 };
-const SMALLER_PEAK: PartitionSpec = { heightFt: 3.5, periodS: 16, direction: 270 };
+const SMALLER_PEAK: PartitionSpec = { heightFt: 2.5, periodS: 16, direction: 270 };
 const WEEK = (peak: PartitionSpec): Array<PartitionSpec | null> => [FLAT, FLAT, FLAT, peak, FLAT, FLAT, FLAT];
 
 function window(id: string, beachId: string, day: number, overrides: Partial<Window> = {}): Window {
