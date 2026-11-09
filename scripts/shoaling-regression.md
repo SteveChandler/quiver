@@ -116,8 +116,15 @@ hour before them. With the factors removed this gate fails (Lower Trestles
 **Failure signal:** a transform change, or removal of a compensator, drops
 model hours off the buoy ruler. Replay the seam before removing anything that
 was masking it.
-**Refresh:** `node --import tsx scripts/replay-model-swell-calibration.ts .env.local 30 --write --seam-fixtures`
-(read-only against prod).
+**Model-failure days:** a fixture day is a model-failure day when the median
+pair that day has the model period at least 3 s shorter than the buoy Tp
+(Nov 3–4 2026: a 14–18 s west swell read as 11–12 s). A per-beach factor
+cannot fix a mis-periodized swell. The gate prints every pair, but the
+blocking check uses only the pairs from other days. When every fixture pair is
+on a model-failure day, Gate G is report-only (advisory) for that fixture set.
+**Refresh:** `scripts/refit-model-swell-tables.sh .env.local 30 --write`
+(read-only against prod). It refits both model-hour factor tables and writes
+the fixtures.
 
 ## Fixtures
 
