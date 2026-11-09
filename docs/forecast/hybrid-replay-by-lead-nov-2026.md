@@ -221,3 +221,5 @@ Face MAE in ft: refit → RSS hybrid. Beach wins count the beaches with ≥ 30 r
 Note: against in-sample prod, the result at 1–3 d is a tie. The difference comes from the prod leakage (section 1).
 
 **Eligible beaches.** The eligible beaches are calibrated, have live CDIP truth and an ECMWF cell, are not on station 215, and have a refit k and an RSS-hybrid k that are not clamped. There are 56. For 19 of them, k = 1, which means no factor. The ids and k values are in `quiver/.worktrees/hybrid-replay/scripts/hybrid-k-eligible.json`. Each k was fit on all weeks of 0–24 h rows.
+
+**Update, Nov 9 2026.** 10 of the 56 were removed (Ocean Beach, Ocean Beach Pier, Avalanche, Mission Beach x2, Sunset Cliffs x3, Osprey Point, New Break). The replay truth at these beaches still carried `direction_shadow`, which prod dropped later on Nov 6. Their truth is 0.63–0.74 × the current buoy ruler, so their k and their scores in this report are not valid for today's prod. 46 beaches stay.

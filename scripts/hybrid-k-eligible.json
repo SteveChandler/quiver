@@ -1,17 +1,11 @@
 {
- "note": "RSS-basis hybrid per-beach k, fit Nov 6 2026 on 0-24 h rows Oct 7-Nov 6 (all weeks); excludes station 215, clamped k (0.8/1.6/2.5 on refit or hybrid), no ECMWF cell, no live CDIP truth",
+ "note": "RSS-basis hybrid per-beach k, fit Nov 6 2026 on 0-24 h rows Oct 7-Nov 6 (all weeks); excludes station 215, clamped k (0.8/1.6/2.5 on refit or hybrid), no ECMWF cell, no live CDIP truth, and 10 Point Loma / Mission Beach spots whose truth still carried direction_shadow (STALE_TRUTH)",
  "beaches": [
   {
    "id": "0f0dcd5a-be9d-4c0d-a7ba-d6f932f9b769",
    "name": "Agate Street",
    "stn": "45",
    "k_hybrid_rss": 0.86
-  },
-  {
-   "id": "63af8c07-1aed-44bd-b03b-9b20abdff56c",
-   "name": "Avalanche",
-   "stn": "220",
-   "k_hybrid_rss": 1.09
   },
   {
    "id": "dbbafa09-3143-4f73-82e8-90a69a4121f5",
@@ -140,36 +134,6 @@
    "k_hybrid_rss": 1.21
   },
   {
-   "id": "c02b4ede-69d9-440e-b8de-22ea4bde10ef",
-   "name": "Mission Beach",
-   "stn": "220",
-   "k_hybrid_rss": 1.0
-  },
-  {
-   "id": "cdcf733b-a704-45ef-affc-d8152ffde1e4",
-   "name": "Mission Beach (Central)",
-   "stn": "220",
-   "k_hybrid_rss": 1.0
-  },
-  {
-   "id": "d920e1b9-9e23-4ba8-9f8e-776571435f6f",
-   "name": "New Break (Nubes)",
-   "stn": "191",
-   "k_hybrid_rss": 1.0
-  },
-  {
-   "id": "15c7337e-5258-4339-9dc3-c435c666926b",
-   "name": "Ocean Beach",
-   "stn": "220",
-   "k_hybrid_rss": 1.1
-  },
-  {
-   "id": "65d177de-e75a-4ad8-aa0d-48a67c0851b0",
-   "name": "Ocean Beach Pier",
-   "stn": "220",
-   "k_hybrid_rss": 1.11
-  },
-  {
    "id": "a30b9870-aace-48ef-a3e6-e275ad9c28c1",
    "name": "Oceanside Harbor",
    "stn": "45",
@@ -186,12 +150,6 @@
    "name": "Old Man's (SanO)",
    "stn": "45",
    "k_hybrid_rss": 1.58
-  },
-  {
-   "id": "c3b42f85-e650-445f-89b1-1debe661652e",
-   "name": "Osprey Point",
-   "stn": "191",
-   "k_hybrid_rss": 1.0
   },
   {
    "id": "13ef0aa1-c857-4d82-a40d-a83612110943",
@@ -264,24 +222,6 @@
    "name": "Strands",
    "stn": "45",
    "k_hybrid_rss": 1.22
-  },
-  {
-   "id": "d305ba0d-47cd-4494-b790-f924dac7bf1f",
-   "name": "Sunset Cliffs North (Garbage)",
-   "stn": "191",
-   "k_hybrid_rss": 1.0
-  },
-  {
-   "id": "b939f928-2653-494a-831d-6394cb548190",
-   "name": "Sunset Cliffs \u2013 Garbage",
-   "stn": "191",
-   "k_hybrid_rss": 1.0
-  },
-  {
-   "id": "34af0af5-b61c-4b86-9d9d-bf328f538a12",
-   "name": "Sunset Cliffs \u2013 Luscombs",
-   "stn": "191",
-   "k_hybrid_rss": 0.9
   },
   {
    "id": "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0",
