@@ -6,6 +6,7 @@ straight from beaches.shoaling_factors (saved by hybrid-replay-collect.ts), not 
 A median off 1.00 means the truth is on a different ruler from today's buckets (for example a
 direction_shadow, or a cache from before a bucket change), and a k fit on it is stale.
 Rows with buoy Tp at or under 8 s are left out: the transformer caps short-period buckets there.
+A beach whose shoaling_factors set direction_shadow is reported but not checked: its truth carries the shadow.
 
 Exit 1 when a beach in `--ids` (comma list, or a hybrid-k-eligible.json path) or, without --ids, any
 beach is outside LO..HI.
@@ -44,11 +45,12 @@ for line in open(f"{CACHE}/recs.jsonl"):
 bad = []
 for b, xs in sorted(ratios.items(), key=lambda kv: meta[kv[0]]["name"]):
     med = st.median(xs)
-    checked = ids is None or b in ids
+    shadowed = (meta[b].get("shoaling_factors") or {}).get("direction_shadow") is True
+    checked = (ids is None or b in ids) and not shadowed
     flag = checked and not (LO <= med <= HI)
     if flag: bad.append(meta[b]["name"])
     print("%-34s %4s n=%5d  truth/(Hs x bucket) median %.3f%s" % (
-        meta[b]["name"][:34], meta[b]["stn"], len(xs), med, "  OUT" if flag else ("" if checked else "  (not checked)")))
+        meta[b]["name"][:34], meta[b]["stn"], len(xs), med, "  OUT" if flag else ("" if checked else "  (shadowed, not checked)" if shadowed else "  (not checked)")))
 missing = sorted(meta[b]["name"] for b in (ids or set()) if b not in ratios)
 if missing: print("no Tp > 8 s rows:", ", ".join(missing))
 if bad:

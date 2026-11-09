@@ -44,6 +44,20 @@ node --import tsx scripts/hybrid-replay-collect.ts "$ENV_FILE" "$DAYS" | tail -1
 python3 scripts/hybrid-replay-ruler-check.py > "$CACHE/ruler.txt" || { grep -E "OUT|FAILED" "$CACHE/ruler.txt"; exit 1; }
 tail -1 "$CACHE/ruler.txt"
 
+# The production fit writes its table and the seam fixtures before the hybrid checks run. If any
+# later step fails, put every tracked output back so one table never ships without the other.
+TRACKED=(lib/utils/model-swell-calibration-factors.ts lib/utils/ecmwf-hybrid-k-factors.ts
+  scripts/hybrid-k-eligible.json scripts/__fixtures__/model-seam-fixtures.json)
+if [ "$WRITE" = 1 ]; then
+  mkdir -p "$CACHE/backup"
+  for f in "${TRACKED[@]}"; do cp "$f" "$CACHE/backup/$(basename "$f")"; done
+  restore() {
+    for f in "${TRACKED[@]}"; do cp "$CACHE/backup/$(basename "$f")" "$f"; done
+    echo "refit failed: restored ${TRACKED[*]}" >&2
+  }
+  trap restore ERR
+fi
+
 PROD_ARGS=("$ENV_FILE" "$DAYS" "--dump-rows=$CACHE/prod-fit-rows.jsonl")
 [ "$WRITE" = 1 ] && PROD_ARGS+=(--write --seam-fixtures)
 node --import tsx scripts/replay-model-swell-calibration.ts "${PROD_ARGS[@]}" > "$CACHE/prod-fit.txt"
@@ -60,4 +74,6 @@ if [ "$WRITE" = 0 ]; then
 fi
 cp "$ELIGIBLE" scripts/hybrid-k-eligible.json
 python3 scripts/hybrid-k-write-table.py "$DAYS" "$COMMIT"
-node --import tsx scripts/shoaling-regression.ts | grep -E "^\[|PASS:|FAIL:|note:"
+node --import tsx scripts/shoaling-regression.ts > "$CACHE/regression.txt"
+grep -E "^\[|PASS:|note:" "$CACHE/regression.txt"
+trap - ERR

@@ -12,8 +12,9 @@
  * Excluded: station 215 (its 1.6 hold), beaches with a clamped refit or hybrid
  * k (0.8, 1.6 or 2.5), beaches with no ECMWF cell, and beaches with no live
  * CDIP truth. A beach that is not in the table yet also needs the entry gate:
- * held out by ISO week, its 0-24 h hybrid MAE is at or below its
- * production-factor MAE and its 0-24 h bias is within +/-0.2 ft.
+ * held out by ISO week, its 0-24 h hybrid MAE is at or below the MAE of both
+ * the shipped production factor and the production factor refit on the same
+ * rows, and its 0-24 h bias is within +/-0.2 ft.
  *
  * Generated — do not hand-edit entries. Refit this table and
  * MODEL_SWELL_CALIBRATION_FACTORS together, on the same rows and the same

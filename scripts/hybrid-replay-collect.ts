@@ -34,7 +34,9 @@ process.loadEnvFile(process.argv[2] ?? ".env.local");
 const DAYS = Number(process.argv[3] ?? 30);
 const CACHE = "scripts/.hybrid-cache";
 // A cached truth file carries the beaches rows of the day it was fetched; a
-// refit on old truth is how the Nov 9 stale-k defect happened.
+// refit on old truth is how the Nov 9 stale-k defect happened. This also
+// drops archive-recs.jsonl (same risk); rerun hybrid-replay-archive.ts for
+// the 3-5 d bin.
 rmSync(CACHE, { recursive: true, force: true });
 mkdirSync(CACHE, { recursive: true });
 const NOW = Date.now();

@@ -672,13 +672,13 @@ async function runGateG(): Promise<GateResult> {
     return sorted[Math.floor(sorted.length / 2)];
   };
 
-  const periodGap = (pair: SeamFixture['pairs'][number]): number =>
-    (pair.cdip.periodS ?? 0) - (pair.model.periodS ?? 0);
   const gapsByDay = new Map<string, number[]>();
   for (const fixture of Object.values(seam)) {
     for (const pair of fixture.pairs) {
+      // A pair with no period on either side says nothing about mis-periodizing.
+      if (pair.cdip.periodS == null || pair.model.periodS == null) continue;
       const day = pair.modelForecastAt.slice(0, 10);
-      gapsByDay.set(day, [...(gapsByDay.get(day) ?? []), periodGap(pair)]);
+      gapsByDay.set(day, [...(gapsByDay.get(day) ?? []), pair.cdip.periodS - pair.model.periodS]);
     }
   }
   const failureDays = new Set(
@@ -699,7 +699,7 @@ async function runGateG(): Promise<GateResult> {
   const beaches = Object.entries(seam).map(([id, fixture]) => {
     const ratios = fixture.pairs.map((pair) => ratioOf(id, pair));
     const ratio = median(ratios);
-    const clean = fixture.pairs.filter((pair) => !onFailureDay(pair)).map((pair) => ratioOf(id, pair));
+    const clean = ratios.filter((_, i) => !onFailureDay(fixture.pairs[i]));
     const cleanRatio = clean.length > 0 ? median(clean) : null;
     return {
       slug: id,

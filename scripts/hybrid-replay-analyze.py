@@ -83,7 +83,7 @@ for b, rows in by_beach.items():
     peers = [o for o in by_beach if o != b and by_beach[o][0]["stn"] == stn] or [o for o in by_beach if o != b]
     for m in ["uncal"] + METHODS:
         k = st.median([k_all[o][m] for o in peers])
-        for r in rows: r["bh_" + m] = r[m] * k
+        for r in rows: r["bh_" + m] = r[m] * k if m not in R_KEY or r[R_KEY[m]] is not None else r["prod"]
 
 PRED = {"prod": lambda r: r["prod"], "refit": lambda r: r["p_refit"], "hybrid": lambda r: r["p_hyb"],
         "refit-unheld215": lambda r: r["p_refitUnheld"],
