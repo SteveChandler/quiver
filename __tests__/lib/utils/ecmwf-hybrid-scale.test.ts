@@ -79,13 +79,25 @@ describe("resolveEcmwfHybridScale", () => {
 });
 
 describe("ECMWF_HYBRID_K_FACTORS", () => {
-  it("is exactly the 56 beaches in scripts/hybrid-k-eligible.json", () => {
+  it("is exactly the 47 beaches in scripts/hybrid-k-eligible.json", () => {
     const eligible = JSON.parse(
       readFileSync(path.join(__dirname, "../../../scripts/hybrid-k-eligible.json"), "utf8"),
     ) as { beaches: Array<{ id: string; stn: string; k_hybrid_rss: number }> };
-    expect(eligible.beaches).toHaveLength(56);
+    expect(eligible.beaches).toHaveLength(47);
     expect(ECMWF_HYBRID_K_FACTORS).toEqual(Object.fromEntries(eligible.beaches.map((b) => [b.id, b.k_hybrid_rss])));
     expect(eligible.beaches.some((b) => b.stn === "215")).toBe(false);
+  });
+
+  it("leaves out the beaches whose k was fit before their direction shadow came off", () => {
+    // Ocean Beach, Ocean Beach Pier, Mission Beach: k fit against shadowed buoy truth (Nov 6 2026).
+    for (const id of [
+      "15c7337e-5258-4339-9dc3-c435c666926b",
+      "65d177de-e75a-4ad8-aa0d-48a67c0851b0",
+      "c02b4ede-69d9-440e-b8de-22ea4bde10ef",
+    ]) {
+      expect(ECMWF_HYBRID_K_FACTORS[id]).toBeUndefined();
+      expect(MODEL_SWELL_CALIBRATION_FACTORS[id]).toBeGreaterThan(1);
+    }
   });
 });
 

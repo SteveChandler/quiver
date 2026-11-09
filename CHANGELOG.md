@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **Model hours at 9 Point Loma and Mission Beach spots no longer read low against their buoy hours** (`lib/utils/ecmwf-hybrid-k-factors.ts`, `scripts/hybrid-k-eligible.json`).
+  - The ECMWF hybrid k at Ocean Beach, Ocean Beach Pier, Mission Beach x2, Sunset Cliffs x3, Osprey Point and New Break was fit on Nov 6 while those beaches still had `direction_shadow`. The shadow came off later that day, so the k sat on a buoy ruler 0.63-0.74 x the current one, and model hours read about 21-39% under the buoy hours.
+  - These 9 leave the hybrid table and use their `MODEL_SWELL_CALIBRATION_FACTORS` (1.21-1.68, refit on the current ruler in #1338). The hybrid stays on at the other 47 beaches. A hybrid refit can put the 9 back.
 - **Model forecasts at uncalibrated beaches without terrain no longer drop swell just outside an estimated window** (`lib/utils/wave-height-transformer.ts`, `supabase/migrations/20261107180000_widen_la_fonda_swell_window.sql`).
   - On Nov 7 La Fonda read 0.8 ft while the surf was 4-5 ft. Open-Meteo had a 5.1 ft 11 s swell from 288°; the imported 180-285° window gave it zero weight and only a 1.7 ft 198° swell counted.
   - Model partitions at beaches with no terrain access array, `shoaling_factors = null`, and no fitted model or ECMWF factor now use the same access curve terrain beaches get on the model path (0.6-1.0 inside the window), tapering to zero over 30° past the edge. Affects 185 beaches in prod on Nov 7 (105 Baja, 80 US); Point Dume, Leo Carrillo and Latigo keep the strict window they were fitted on. CDIP and direct sources are unchanged.

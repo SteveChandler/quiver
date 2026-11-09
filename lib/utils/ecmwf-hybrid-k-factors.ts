@@ -25,6 +25,14 @@
  * no clamped k): 0–24 h 0.62→0.55, 1–3 d 0.63→0.59, 3–5 d 1.04→0.95,
  * 5–7 d 0.75→0.63 ft. The fit is valid for wave-height-transformer.ts at
  * 419643ee8; refit after any change to the transform.
+ *
+ * Removed 2026-11-09: the 9 Point Loma / Mission Beach entries (Ocean Beach,
+ * Ocean Beach Pier, Mission Beach x2, Sunset Cliffs x3, Osprey Point, New
+ * Break). Their k was fit while those beaches still had `direction_shadow`,
+ * so the buoy truth was 0.63-0.74 x the ruler prod has used since the shadow
+ * came off later on Nov 6. They use MODEL_SWELL_CALIBRATION_FACTORS, refit
+ * on the current ruler, until a hybrid refit puts them back. A k here is
+ * also stale after any change to a beach's shoaling_factors.
  */
 export const ECMWF_HYBRID_FIT_DATE = "2026-11-06";
 export const ECMWF_HYBRID_R_MIN = 0.5;
@@ -54,15 +62,9 @@ export const ECMWF_HYBRID_K_FACTORS: Readonly<Record<string, number>> = {
   "ca9f0f1b-f4f5-4601-91c5-5e972c5f1a41": 1.00, // Latigo Point (CDIP 103)
   "9b292a48-7a88-4d79-926f-16601515d7a0": 1.00, // Marine Street Beach (CDIP 201)
   "b5bcd27f-3399-4a0a-b5d5-da8147e43b9a": 1.21, // Middles (CDIP 45)
-  "c02b4ede-69d9-440e-b8de-22ea4bde10ef": 1.00, // Mission Beach (CDIP 220)
-  "cdcf733b-a704-45ef-affc-d8152ffde1e4": 1.00, // Mission Beach (Central) (CDIP 220)
-  "d920e1b9-9e23-4ba8-9f8e-776571435f6f": 1.00, // New Break (Nubes) (CDIP 191)
-  "15c7337e-5258-4339-9dc3-c435c666926b": 1.10, // Ocean Beach (CDIP 220)
-  "65d177de-e75a-4ad8-aa0d-48a67c0851b0": 1.11, // Ocean Beach Pier (CDIP 220)
   "a30b9870-aace-48ef-a3e6-e275ad9c28c1": 1.79, // Oceanside Harbor (CDIP 45)
   "cceecad1-7668-4ad8-88ff-ade893c605cd": 1.52, // Oceanside Pier (CDIP 45)
   "a956de46-b204-448e-a541-db427be7e85f": 1.58, // Old Man's (SanO) (CDIP 45)
-  "c3b42f85-e650-445f-89b1-1debe661652e": 1.00, // Osprey Point (CDIP 191)
   "13ef0aa1-c857-4d82-a40d-a83612110943": 2.15, // PB Point (CDIP 201)
   "65809772-20bc-4009-b9b2-89c8ef3c4127": 1.11, // Pacific Beach (CDIP 201)
   "b9c4a949-4562-47db-ae7d-b2131e20d7a7": 1.26, // Poche Beach (CDIP 45)
@@ -75,9 +77,6 @@ export const ECMWF_HYBRID_K_FACTORS: Readonly<Record<string, number>> = {
   "8a47b323-0874-45d9-aa17-ced468f70f2d": 1.65, // San Onofre State Beach (CDIP 45)
   "5a34b2ac-01b9-4b83-8c05-c47b1b55d923": 1.00, // Seaside Reef (CDIP 153)
   "80e4aada-7d4a-4df1-b11b-841a97603979": 1.22, // Strands (CDIP 45)
-  "d305ba0d-47cd-4494-b790-f924dac7bf1f": 1.00, // Sunset Cliffs North (Garbage) (CDIP 191)
-  "b939f928-2653-494a-831d-6394cb548190": 1.00, // Sunset Cliffs – Garbage (CDIP 191)
-  "34af0af5-b61c-4b86-9d9d-bf328f538a12": 0.90, // Sunset Cliffs – Luscombs (CDIP 191)
   "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0": 1.79, // Swami's (CDIP 153)
   "dfeecc16-6395-4600-89e6-baf8456e3d69": 1.21, // T-Street (CDIP 45)
   "b1b49703-2376-407d-b1fb-9df06130ac1d": 1.00, // Tamarack (CDIP 45)
