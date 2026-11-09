@@ -149,7 +149,8 @@ for bid, rows in by_beach.items():
         cells.append("%4.2f/%4.2f/%4.2f" % (mae(x, PRED["prod"]), mae(x, PRED["refit"]), mae(x, PRED["hybrid"])) if x else "      -       ")
     lines.append((m.get("name", bid)[:30], rows[0]["stn"], len(rr), cells, m.get("cellKm", float("nan")),
                   st.median(rs) if rs else float("nan"), nulls, k_all[bid]))
-for name, stn, n, cells, km, rmed, nulls, ks in sorted(lines, key=lambda x: x[1] + x[0]):
+# Station 215 stays blind until the pre-registered west-swell test (reports/hb-newport-215-west-swell-prereg-nov2026.md).
+for name, stn, n, cells, km, rmed, nulls, ks in sorted((l for l in lines if l[1] != "215"), key=lambda x: x[1] + x[0]):
     print("%-30s %4s %5d  %s  cell %5.1f km  r %.2f  null %3.0f%%  k uncal %.2f hyb %.2f rss %.2f" %
           (name, stn, n, "  ".join(cells), km, rmed, nulls * 100, ks["uncal"], ks["hyb"], ks["hybRss"]))
 

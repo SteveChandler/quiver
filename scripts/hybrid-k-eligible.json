@@ -1,11 +1,17 @@
 {
- "note": "RSS-basis hybrid per-beach k on clamped r (0.5-2.0), fit on 0-24 h rows 2026-W41..2026-W46 (all weeks); excludes station 215, clamped k (0.8/1.6/2.5 on refit or hybrid), no ECMWF cell and no live CDIP truth; a beach not already in the table also passed the held-out entry gate (0-24 h MAE <= production factor, |bias| <= 0.2 ft)",
+ "note": "RSS-basis hybrid per-beach k on clamped r (0.5-2.0), fit on 0-24 h rows 2026-W41..2026-W46 (all weeks); excludes station 215, no ECMWF cell and no live CDIP truth; every beach passed the held-out gate (0-24 h MAE <= shipped and refit production factor, |bias| <= 0.2 ft); a k on a bound does not exclude",
  "beaches": [
   {
    "id": "0f0dcd5a-be9d-4c0d-a7ba-d6f932f9b769",
    "name": "Agate Street",
    "stn": "45",
    "k_hybrid_rss": 0.86
+  },
+  {
+   "id": "22536002-c7d2-48ab-a676-9b489fd79874",
+   "name": "Beacons",
+   "stn": "153",
+   "k_hybrid_rss": 0.8
   },
   {
    "id": "dbbafa09-3143-4f73-82e8-90a69a4121f5",
@@ -26,12 +32,6 @@
    "k_hybrid_rss": 1.09
   },
   {
-   "id": "1f8660f2-891d-4f79-8f16-cad8ebd59c79",
-   "name": "Brooks Street",
-   "stn": "45",
-   "k_hybrid_rss": 0.87
-  },
-  {
    "id": "486dc095-4b21-4edb-838c-97f68b40d1df",
    "name": "C Street / Ventura Point",
    "stn": "203",
@@ -50,16 +50,16 @@
    "k_hybrid_rss": 1.37
   },
   {
-   "id": "a0332432-4877-48c5-855d-b30fd097ba38",
-   "name": "Church",
-   "stn": "45",
-   "k_hybrid_rss": 1.51
-  },
-  {
    "id": "2c1d7948-72c1-4787-93e8-f33ac9567db0",
    "name": "Cottons",
    "stn": "45",
    "k_hybrid_rss": 1.53
+  },
+  {
+   "id": "71bdbe5a-67f6-429c-b1e4-80ec390ec4a3",
+   "name": "County Line",
+   "stn": "103",
+   "k_hybrid_rss": 2.25
   },
   {
    "id": "902a215b-2a3d-40af-9391-16b0afed7dee",
@@ -86,6 +86,12 @@
    "k_hybrid_rss": 1.2
   },
   {
+   "id": "a4575b12-2bc3-44d4-ba53-4415707f3851",
+   "name": "Doheny State Beach",
+   "stn": "45",
+   "k_hybrid_rss": 0.8
+  },
+  {
    "id": "21eae8b9-387c-438c-b144-55796bab5caa",
    "name": "Emma Wood",
    "stn": "203",
@@ -98,34 +104,40 @@
    "k_hybrid_rss": 1.17
   },
   {
+   "id": "7dca6429-25ee-4161-a2c2-800555ed8a6a",
+   "name": "George's",
+   "stn": "153",
+   "k_hybrid_rss": 0.8
+  },
+  {
+   "id": "f29ddb0a-6d46-4589-a4a4-da406ddd3d5c",
+   "name": "Grandview Beach",
+   "stn": "153",
+   "k_hybrid_rss": 0.8
+  },
+  {
    "id": "30e68b00-c27d-4d22-ba57-2d92156964c6",
    "name": "Horseshoe",
    "stn": "201",
    "k_hybrid_rss": 1.0
   },
   {
-   "id": "9e94759c-d531-4e5c-9bc2-d022acea9dcd",
-   "name": "Imperial Beach",
-   "stn": "191",
-   "k_hybrid_rss": 1.0
-  },
-  {
-   "id": "d9f93c82-7f4b-440a-865a-55cdbb821f74",
-   "name": "Imperial Beach Pier",
-   "stn": "191",
-   "k_hybrid_rss": 1.4
-  },
-  {
-   "id": "ca9f0f1b-f4f5-4601-91c5-5e972c5f1a41",
-   "name": "Latigo Point",
-   "stn": "103",
-   "k_hybrid_rss": 1.1
+   "id": "d291411d-d331-4bf1-ad1a-302da3c69de0",
+   "name": "La Jolla Shores",
+   "stn": "201",
+   "k_hybrid_rss": 0.8
   },
   {
    "id": "a13f108b-ad2a-43fa-8ea7-40577ebce66c",
    "name": "Leo Carrillo State Beach",
    "stn": "103",
    "k_hybrid_rss": 1.0
+  },
+  {
+   "id": "193a3f9a-66d0-4362-bf55-d25bb831dae4",
+   "name": "Lower Trestles",
+   "stn": "45",
+   "k_hybrid_rss": 2.5
   },
   {
    "id": "9b292a48-7a88-4d79-926f-16601515d7a0",
@@ -152,6 +164,12 @@
    "k_hybrid_rss": 1.5
   },
   {
+   "id": "deea2ae1-849d-47a1-9c27-b7bd505dbc07",
+   "name": "Moonlight State Beach",
+   "stn": "153",
+   "k_hybrid_rss": 0.8
+  },
+  {
    "id": "15c7337e-5258-4339-9dc3-c435c666926b",
    "name": "Ocean Beach",
    "stn": "220",
@@ -176,22 +194,10 @@
    "k_hybrid_rss": 1.48
   },
   {
-   "id": "a956de46-b204-448e-a541-db427be7e85f",
-   "name": "Old Man's (SanO)",
-   "stn": "45",
-   "k_hybrid_rss": 1.55
-  },
-  {
    "id": "13ef0aa1-c857-4d82-a40d-a83612110943",
    "name": "PB Point",
    "stn": "201",
    "k_hybrid_rss": 2.22
-  },
-  {
-   "id": "65809772-20bc-4009-b9b2-89c8ef3c4127",
-   "name": "Pacific Beach",
-   "stn": "201",
-   "k_hybrid_rss": 1.15
   },
   {
    "id": "b9c4a949-4562-47db-ae7d-b2131e20d7a7",
@@ -200,21 +206,9 @@
    "k_hybrid_rss": 1.26
   },
   {
-   "id": "bba95994-b2a3-4505-8e6f-1f85ccfbb0dc",
-   "name": "Point Dume",
-   "stn": "103",
-   "k_hybrid_rss": 1.53
-  },
-  {
    "id": "badd7986-4609-421a-ab3d-81fcd8409a5b",
    "name": "Ponto",
    "stn": "153",
-   "k_hybrid_rss": 1.0
-  },
-  {
-   "id": "f0ddfc6a-7392-40c5-9211-836c05e449f1",
-   "name": "Rosarito",
-   "stn": "191",
    "k_hybrid_rss": 1.0
   },
   {
@@ -242,10 +236,22 @@
    "k_hybrid_rss": 1.63
   },
   {
+   "id": "4b0cf129-c706-4e24-8210-2219defc5ea7",
+   "name": "Scripps",
+   "stn": "201",
+   "k_hybrid_rss": 0.8
+  },
+  {
    "id": "5a34b2ac-01b9-4b83-8c05-c47b1b55d923",
    "name": "Seaside Reef",
    "stn": "153",
    "k_hybrid_rss": 1.0
+  },
+  {
+   "id": "65d3a4de-1f4b-4a1d-8ce0-b5b67288ee08",
+   "name": "Solana Beach",
+   "stn": "153",
+   "k_hybrid_rss": 0.8
   },
   {
    "id": "80e4aada-7d4a-4df1-b11b-841a97603979",
@@ -266,16 +272,28 @@
    "k_hybrid_rss": 1.38
   },
   {
+   "id": "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0",
+   "name": "Swami's",
+   "stn": "153",
+   "k_hybrid_rss": 1.83
+  },
+  {
    "id": "dfeecc16-6395-4600-89e6-baf8456e3d69",
    "name": "T-Street",
    "stn": "45",
    "k_hybrid_rss": 1.2
   },
   {
-   "id": "b1b49703-2376-407d-b1fb-9df06130ac1d",
-   "name": "Tamarack",
+   "id": "1fe4bf73-c425-48a5-899d-a7e8ee2d67e3",
+   "name": "Terramar Point",
    "stn": "45",
-   "k_hybrid_rss": 0.9
+   "k_hybrid_rss": 0.8
+  },
+  {
+   "id": "2a2195ef-27d1-4b35-a006-b7177b34dad2",
+   "name": "Thalia Street",
+   "stn": "45",
+   "k_hybrid_rss": 0.8
   },
   {
    "id": "762fcfa2-8fd8-40ea-8955-b9cc6945a422",
@@ -296,16 +314,16 @@
    "k_hybrid_rss": 2.0
   },
   {
-   "id": "91df193c-f2c8-4e6c-984e-b859bd741061",
-   "name": "Tourmaline Surf Park",
-   "stn": "201",
-   "k_hybrid_rss": 2.06
-  },
-  {
    "id": "2f3e2136-b094-49d7-b90f-948160cbb854",
    "name": "Trails",
    "stn": "45",
    "k_hybrid_rss": 1.0
+  },
+  {
+   "id": "f924aa96-395f-41e0-b966-502b37def7ac",
+   "name": "Upper Trestles",
+   "stn": "45",
+   "k_hybrid_rss": 2.05
   },
   {
    "id": "6f42d47d-215b-47cb-ac14-b83bf8c2a797",
