@@ -15,7 +15,7 @@ import {
 } from "@/lib/utils/forecast-display-replay";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 
-const CHURCH = "a0332432-4877-48c5-855d-b30fd097ba38"; // hybrid k 1.53, production 1.82
+const CHURCH = "a0332432-4877-48c5-855d-b30fd097ba38"; // hybrid k 1.51, production 1.82
 const HB_PIER = "071db1df-b5ee-4af6-a022-ea8a09667cbe"; // station 215, production 1.60
 const COMPONENTS: SwellComponentInput[] = [
   { heightFt: 3, periodS: 14, directionDeg: 220 },
@@ -50,7 +50,7 @@ describe("resolveEcmwfHybridScale", () => {
     const scale = resolve(hsMForR(1.3))!;
     expect(scale.r).toBeCloseTo(1.3, 10);
     expect(scale.rRaw).toBeCloseTo(1.3, 10);
-    expect(scale.k).toBe(1.53);
+    expect(scale.k).toBe(1.51);
   });
 
   it("clamps r to 0.5-2.0 and keeps the raw value", () => {
@@ -79,11 +79,11 @@ describe("resolveEcmwfHybridScale", () => {
 });
 
 describe("ECMWF_HYBRID_K_FACTORS", () => {
-  it("is exactly the 46 beaches in scripts/hybrid-k-eligible.json", () => {
+  it("is exactly the 52 beaches in scripts/hybrid-k-eligible.json", () => {
     const eligible = JSON.parse(
       readFileSync(path.join(__dirname, "../../../scripts/hybrid-k-eligible.json"), "utf8"),
     ) as { beaches: Array<{ id: string; stn: string; k_hybrid_rss: number }> };
-    expect(eligible.beaches).toHaveLength(46);
+    expect(eligible.beaches).toHaveLength(52);
     expect(ECMWF_HYBRID_K_FACTORS).toEqual(Object.fromEntries(eligible.beaches.map((b) => [b.id, b.k_hybrid_rss])));
     expect(eligible.beaches.some((b) => b.stn === "215")).toBe(false);
   });
@@ -138,9 +138,9 @@ describe("toFaceHeightFeetDecomposedWithDebug", () => {
 
   it("records r and k in the debug and the replay input, with unscaled components", () => {
     const out = toFaceHeightFeetDecomposedWithDebug(params(CHURCH, hsMForR(1.25)));
-    expect(out.debug.ecmwfHybrid).toMatchObject({ r: expect.closeTo(1.25, 10), k: 1.53, ecmwfHsM: hsMForR(1.25) });
+    expect(out.debug.ecmwfHybrid).toMatchObject({ r: expect.closeTo(1.25, 10), k: 1.51, ecmwfHsM: hsMForR(1.25) });
     expect(out.debug.modelCalibrationFactor).toBeUndefined();
-    expect(out.debug.replayInput?.ecmwfHybrid).toEqual({ r: out.debug.ecmwfHybrid!.r, k: 1.53 });
+    expect(out.debug.replayInput?.ecmwfHybrid).toEqual({ r: out.debug.ecmwfHybrid!.r, k: 1.51 });
     expect(out.debug.replayInput?.components[0]?.heightFt).toBe(3);
   });
 });
@@ -156,7 +156,7 @@ describe("display replay context with the hybrid scale", () => {
   }));
 
   it("replays a v2 context to the issued height", () => {
-    expect(parseForecastDisplayReplayContext(ctx(2))?.base.input.ecmwfHybrid?.k).toBe(1.53);
+    expect(parseForecastDisplayReplayContext(ctx(2))?.base.input.ecmwfHybrid?.k).toBe(1.51);
     const issuedFt = Number.parseFloat(input.value!);
     expect(replayForecastDisplayHeightM(ctx(2))).toBe(Math.round((issuedFt / METERS_TO_FEET) * 1000) / 1000);
   });

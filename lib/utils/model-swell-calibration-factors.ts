@@ -10,8 +10,13 @@
  * a beach's model hours land on its buoy ruler.
  *
  * Generated — do not hand-edit entries. Refit monthly; the fit only covers the
- * season in the window.
- *   node --import tsx scripts/replay-model-swell-calibration.ts .env.local 30 --write --seam-fixtures
+ * season in the window. Refit this table and ECMWF_HYBRID_K_FACTORS
+ * (ecmwf-hybrid-k-factors.ts) together, on the same rows and the same truth:
+ *   scripts/refit-model-swell-tables.sh .env.local 30 --write
+ * Both tables are stale, and must be refit together, after any change to
+ * beaches.shoaling_factors, direction_shadow, the CDIP station table
+ * (lib/constants/cdip-stations.ts or a beach's cdip_station) or
+ * wave-height-transformer.ts.
  *
  * Fit 2026-11-06 at commit 58626f9b5 over 30 days: ml_predictions_log
  * model_swell rows, horizon 12-48 h, CDIP 30-minute realtime buoy reading
