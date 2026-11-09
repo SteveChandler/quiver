@@ -79,11 +79,11 @@ describe("resolveEcmwfHybridScale", () => {
 });
 
 describe("ECMWF_HYBRID_K_FACTORS", () => {
-  it("is exactly the 56 beaches in scripts/hybrid-k-eligible.json", () => {
+  it("is exactly the 46 beaches in scripts/hybrid-k-eligible.json", () => {
     const eligible = JSON.parse(
       readFileSync(path.join(__dirname, "../../../scripts/hybrid-k-eligible.json"), "utf8"),
     ) as { beaches: Array<{ id: string; stn: string; k_hybrid_rss: number }> };
-    expect(eligible.beaches).toHaveLength(56);
+    expect(eligible.beaches).toHaveLength(46);
     expect(ECMWF_HYBRID_K_FACTORS).toEqual(Object.fromEntries(eligible.beaches.map((b) => [b.id, b.k_hybrid_rss])));
     expect(eligible.beaches.some((b) => b.stn === "215")).toBe(false);
   });
