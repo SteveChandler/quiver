@@ -26,13 +26,14 @@
  * 5–7 d 0.75→0.63 ft. The fit is valid for wave-height-transformer.ts at
  * 419643ee8; refit after any change to the transform.
  *
- * Removed 2026-11-09: the 9 Point Loma / Mission Beach entries (Ocean Beach,
- * Ocean Beach Pier, Mission Beach x2, Sunset Cliffs x3, Osprey Point, New
- * Break). Their k was fit while those beaches still had `direction_shadow`,
- * so the buoy truth was 0.63-0.74 x the ruler prod has used since the shadow
- * came off later on Nov 6. They use MODEL_SWELL_CALIBRATION_FACTORS, refit
- * on the current ruler, until a hybrid refit puts them back. A k here is
- * also stale after any change to a beach's shoaling_factors.
+ * Left out since 2026-11-09 (STALE_TRUTH in hybrid-replay-vs-refit.py): 10
+ * Point Loma / Mission Beach spots (Ocean Beach, Ocean Beach Pier, Avalanche,
+ * Mission Beach x2, Sunset Cliffs x3, Osprey Point, New Break). Their k was
+ * fit while they still had `direction_shadow`, so the buoy truth was
+ * 0.63-0.74 x the ruler prod has used since the shadow came off later on
+ * Nov 6. They use MODEL_SWELL_CALIBRATION_FACTORS, refit on the current
+ * ruler, until a fresh replay refits their k. A k here is also stale after
+ * any change to a beach's shoaling_factors.
  */
 export const ECMWF_HYBRID_FIT_DATE = "2026-11-06";
 export const ECMWF_HYBRID_R_MIN = 0.5;
@@ -40,7 +41,6 @@ export const ECMWF_HYBRID_R_MAX = 2;
 
 export const ECMWF_HYBRID_K_FACTORS: Readonly<Record<string, number>> = {
   "0f0dcd5a-be9d-4c0d-a7ba-d6f932f9b769": 0.86, // Agate Street (CDIP 45)
-  "63af8c07-1aed-44bd-b03b-9b20abdff56c": 1.09, // Avalanche (CDIP 220)
   "dbbafa09-3143-4f73-82e8-90a69a4121f5": 0.90, // Big Rock (CDIP 201)
   "ca2b1d6f-2428-4273-ab02-7555eeec4323": 0.90, // Birdrock (CDIP 201)
   "01330afc-00d3-461b-88f3-b173774766f4": 1.00, // Blacks Beach (CDIP 201)

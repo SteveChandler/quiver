@@ -1,17 +1,11 @@
 {
- "note": "RSS-basis hybrid per-beach k, fit Nov 6 2026 on 0-24 h rows Oct 7-Nov 6 (all weeks); excludes station 215, clamped k (0.8/1.6/2.5 on refit or hybrid), no ECMWF cell, no live CDIP truth; Nov 9 2026: 9 Point Loma / Mission Beach entries removed by hand (their truth carried the direction shadow that prod dropped on Nov 6), see lib/utils/ecmwf-hybrid-k-factors.ts",
+ "note": "RSS-basis hybrid per-beach k, fit Nov 6 2026 on 0-24 h rows Oct 7-Nov 6 (all weeks); excludes station 215, clamped k (0.8/1.6/2.5 on refit or hybrid), no ECMWF cell, no live CDIP truth, and 10 Point Loma / Mission Beach spots whose truth still carried direction_shadow (STALE_TRUTH)",
  "beaches": [
   {
    "id": "0f0dcd5a-be9d-4c0d-a7ba-d6f932f9b769",
    "name": "Agate Street",
    "stn": "45",
    "k_hybrid_rss": 0.86
-  },
-  {
-   "id": "63af8c07-1aed-44bd-b03b-9b20abdff56c",
-   "name": "Avalanche",
-   "stn": "220",
-   "k_hybrid_rss": 1.09
   },
   {
    "id": "dbbafa09-3143-4f73-82e8-90a69a4121f5",
