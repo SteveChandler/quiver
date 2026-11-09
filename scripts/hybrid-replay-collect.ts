@@ -11,10 +11,16 @@
  * scored row to scripts/.hybrid-cache/recs.jsonl; scripts/hybrid-replay-analyze.py
  * scores it.
  *
+ * The window is the same as scripts/replay-model-swell-calibration.ts: the
+ * last DAYS days of predicted_at, up to 3 h ago. The cache is cleared at the
+ * start of every run, so the truth always uses today's beaches rows
+ * (shoaling_factors, swell window, access array).
+ *
  * Run (needs network to CDIP THREDDS and previous-runs-api.open-meteo.com):
- *   node --import tsx scripts/hybrid-replay-collect.ts .env.local
+ *   node --import tsx scripts/hybrid-replay-collect.ts .env.local [days]
+ * Normally run through scripts/refit-model-swell-tables.sh.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { parseOpendapAscii } from "../lib/services/cdip-mop/mop-client";
 import {
@@ -25,10 +31,17 @@ import {
 import { MODEL_SWELL_CALIBRATION_FACTORS } from "../lib/utils/model-swell-calibration-factors";
 
 process.loadEnvFile(process.argv[2] ?? ".env.local");
+const DAYS = Number(process.argv[3] ?? 30);
 const CACHE = "scripts/.hybrid-cache";
+// A cached truth file carries the beaches rows of the day it was fetched; a
+// refit on old truth is how the Nov 9 stale-k defect happened. This also
+// drops archive-recs.jsonl (same risk); rerun hybrid-replay-archive.ts for
+// the 3-5 d bin.
+rmSync(CACHE, { recursive: true, force: true });
 mkdirSync(CACHE, { recursive: true });
-const SINCE = "2026-10-07T00:00:00Z";
-const UNTIL = new Date(Date.now() - 3 * 3_600_000).toISOString();
+const NOW = Date.now();
+const SINCE = new Date(NOW - DAYS * 86_400_000).toISOString();
+const UNTIL = new Date(NOW - 3 * 3_600_000).toISOString();
 const M_TO_FT = 3.28084;
 const MAX_BUOY_DISTANCE_KM = 100;
 
@@ -121,7 +134,7 @@ async function ecmwfPrevious(beach: Beach): Promise<Ecmwf> {
       ...PREV_DAYS.map((n) => varName("wave_peak_period", n)),
     ].join(",");
     const url = `https://previous-runs-api.open-meteo.com/v1/forecast?latitude=${beach.lat}&longitude=${beach.lon}` +
-      `&models=ecmwf_wam025&cell_selection=sea&hourly=${vars}&start_date=2026-10-07&end_date=2026-11-06&timezone=UTC`;
+      `&models=ecmwf_wam025&cell_selection=sea&hourly=${vars}&start_date=${SINCE.slice(0, 10)}&end_date=${UNTIL.slice(0, 10)}&timezone=UTC`;
     const doc = JSON.parse(await fetchText(url));
     if (!doc.hourly) throw new Error(`ECMWF ${beach.name}: ${doc.reason ?? "no hourly"}`);
     return { lat: doc.latitude, lon: doc.longitude, hourly: doc.hourly };
@@ -161,6 +174,7 @@ async function logRows(beach: Beach): Promise<LogRow[]> {
           .eq("beach_id", beach.id)
           .eq("display_wave_source", "model_swell")
           .gte("created_at", SINCE)
+          .gte("predicted_at", SINCE)
           .lte("predicted_at", UNTIL)
           .gte("forecast_horizon_hours", lo)
           .lte("forecast_horizon_hours", hi)
@@ -287,14 +301,14 @@ async function main(): Promise<void> {
         hyb: hCons.ft, hybCap: hConsCap, hybRss: hRss.ft, hybRssCap: hRssCap, hybOpt: hOpt.ft,
         r: hCons.r, rRss: hRss.r, rOpt: hOpt.r, eHs: eCons, mfHs,
         tpTruth: o.tp, tpProd: row.period_s, tpMf: row.wave_peak_period_om, tpEc: ecmwfAt("wave_peak_period", nCons, at),
-        truthHs: o.hs,
+        truthHs: o.hs, dpTruth: o.dp,
       }));
       n++;
     }
     meta.push({
       id: beach.id, name: beach.name, stn: beach.cdip_station, lat: beach.lat, lon: beach.lon,
       cellLat: ecmwf.lat, cellLon: ecmwf.lon, cellKm: distanceKm(beach.lat, beach.lon, ecmwf.lat, ecmwf.lon),
-      buoyKm, rows: rows.length, scored: n,
+      buoyKm, rows: rows.length, scored: n, shoaling_factors: beach.shoaling_factors,
     });
     console.log(`${beach.name}: rows ${rows.length} scored ${n} cell ${ecmwf.lat},${ecmwf.lon}`);
   }

@@ -146,7 +146,7 @@
    "uncal": 1.8,
    "rRss": 1.4291370874447427,
    "hybRssCap": 2.6,
-   "kHybrid": 1.22
+   "kHybrid": 1.21
   }
  },
  {
@@ -296,7 +296,7 @@
    "uncal": 1.8,
    "rRss": 1.2618583523428493,
    "hybRssCap": 2.3,
-   "kHybrid": 1.36
+   "kHybrid": 1.37
   }
  },
  {
@@ -446,7 +446,7 @@
    "uncal": 1.8,
    "rRss": 2.5961010806080607,
    "hybRssCap": 3.6,
-   "kHybrid": 1.53
+   "kHybrid": 1.51
   }
  }
 ]
