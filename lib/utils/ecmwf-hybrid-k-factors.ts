@@ -12,9 +12,9 @@
  * Excluded: station 215 (its 1.6 hold), beaches with no ECMWF cell, and
  * beaches with no live CDIP truth. Every other beach is on the table only if
  * it passes one gate, applied the same way to every beach at every refit:
- * held out by ISO week, its 0-24 h hybrid MAE is at or below the MAE of both
- * the shipped production factor and the production factor refit on the same
- * rows, and its 0-24 h bias is within +/-0.2 ft. A k on a bound (0.8 or 2.5,
+ * at least 100 0-24 h rows and, held out by ISO week, a 0-24 h hybrid MAE at
+ * or below the MAE of both the shipped production factor and the production
+ * factor refit on the same rows, with a 0-24 h bias within +/-0.2 ft. A k on a bound (0.8 or 2.5,
  * refit or hybrid) does not exclude a beach: the held-out score already uses
  * the clamped k, so the gate measures what the bound costs.
  *

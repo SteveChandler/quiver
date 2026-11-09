@@ -2,7 +2,8 @@
 """RSS hybrid (r clamped 0.5-2.0) vs refit (both held out by week), four beach cuts, plus the eligible hybrid-k set.
 
 Eligibility (header of lib/utils/ecmwf-hybrid-k-factors.ts): live CDIP truth, an ECMWF cell, not station 215, and
-the gate, applied the same way to every beach whether or not it is in the table now: held out by ISO week, its
+the gate, applied the same way to every beach whether or not it is in the table now: at least 100 0-24 h rows,
+and, held out by ISO week, its
 0-24 h hybrid MAE <= the MAE of both the shipped production factor and the production factor that
 replay-model-swell-calibration.ts fits on the same rows in this run, and |0-24 h bias| <= 0.2 ft.
 A k on a bound (0.8 or 2.5, refit or hybrid) does not exclude a beach: the held-out score uses the clamped k, so
@@ -27,11 +28,10 @@ BOUNDS = (0.8, 1.6, 2.5)
 HYB = "hybRssCap"  # production clamps r to ECMWF_HYBRID_R_MIN..MAX, so k is fit on clamped r
 clamped = {b for b, k in log["k_all"].items() if k["uncal"] in BOUNDS or k[HYB] in BOUNDS}
 noec = {b for b, rows in log["by_beach"].items() if all(r["rRss"] is None for r in rows)}
+# hybrid-replay-analyze.py drops station 215 rows, so every cut is already without 215.
 cuts = {
-    "all": lambda r: True,
-    "no 215": lambda r: r["stn"] != "215",
-    "no clamped": lambda r: r["b"] not in clamped,
-    "no 215, no clamped": lambda r: r["stn"] != "215" and r["b"] not in clamped,
+    "all (no 215)": lambda r: True,
+    "no 215, no clamped": lambda r: r["b"] not in clamped,
 }
 mae = log["mae"]
 H = lambda r: r["p_" + HYB]; R = lambda r: r["p_refit"]; P = lambda r: r["prod"]
@@ -89,6 +89,9 @@ if fresh_k is None and REQUIRE_PROD_ROWS:
 TABLE = "lib/utils/ecmwf-hybrid-k-factors.ts"
 in_table = set(re.findall(r'^\s*"([0-9a-f-]{36})":', open(TABLE).read(), re.M))
 GATE_MAX_BIAS = 0.2
+GATE_MIN_ROWS = 100  # MODEL_SWELL_FACTOR_MIN_ROWS: fewer rows cannot show a beach is better
+if fresh_k is None:
+    print(f"note: no {PROD_ROWS}, so the gate compares with the shipped production factor only")
 gate = {}
 out = ["\nGate, 0-24 h held out by week (hybrid vs shipped / refit production factor), then 5-7 d hybrid vs shipped;"
        " * = beach not in the table now"]
@@ -100,7 +103,7 @@ for b, rows in sorted(log["by_beach"].items(), key=lambda kv: names[kv[0]]):
     if not d1: continue
     hm, pm, hb = mae(d1, H), mae(d1, P), bias(d1, H)
     fm = mae(d1, lambda r: r["uncal"] * fresh_k.get(b, 1.0)) if fresh_k is not None else pm
-    gate[b] = hm <= min(pm, fm) and abs(hb) <= GATE_MAX_BIAS
+    gate[b] = len(d1) >= GATE_MIN_ROWS and hm <= min(pm, fm) and abs(hb) <= GATE_MAX_BIAS
     h7, p7 = (mae(d7, H), mae(d7, P)) if d7 else (float("nan"), float("nan"))
     if gate[b] and d7 and h7 > p7 + 0.05: worse_5_7.append(f"{names[b]} {h7:.2f} vs {p7:.2f}")
     out.append("  %s%-32s %4s n=%5d  hybrid %.2f (%+.2f)  prod %.2f (%+.2f) / refit prod %.2f  k %.2f  %s  | 5-7d %.2f vs %.2f" % (
