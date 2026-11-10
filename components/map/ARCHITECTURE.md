@@ -56,10 +56,12 @@ The WebGL swell field lives under `components/map/swell-field/`. `swell-particle
 
 The signed-in home hero draws the primary-swell field in the dark-stage palette on a 2D canvas (`components/oracle/zine/hero-swell-field.tsx`), as native's home hero does. It shares:
 
-- **The look:** `particle-style.ts` (counts, spacing, dash size, speed, fades), plus `SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE` and `SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE`.
+- **The look:** `particle-style.ts` (counts, spacing, dash size, speed, fades), plus `SWELL_FIELD_PARTICLE_COLOR` and `SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE`.
 - **The flow:** `rowToSwellPartition` and `partitionToPoint`, then `flowForPoint` in `field-sampler.ts`, what a field cell reads beside one beach.
 
 It finds water from the static streets-v11 image's pixels (`waterMaskFromPixels` in `water-mask.ts`, a port of native's), since it has no vector water polygons. Change the look in `particle-style.ts` so both surfaces move together.
+
+The field has one style on every web surface, as native does (quiver#830). `/map`, `/embed/map` and the home hero all draw `SWELL_FIELD_PARTICLE_COLOR` with the 1.9 dash scale on the dark stage: a `#252D6B` dim at 0.4 and `#4B78A9` water. The `stage` embed parameter now changes only the map chrome (logo position). Hiding the field restores the basemap water.
 
 ## **PHASE 2 MOTION ENHANCEMENTS**
 

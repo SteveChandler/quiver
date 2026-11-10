@@ -4,7 +4,6 @@ import {
   SWELL_MAP_STICKER_RADIUS,
   SWELL_LAYER_COLOR,
   SWELL_FIELD_PARTICLE_COLOR,
-  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
   SWELL_FIELD_DARK_STAGE_DIM,
   SWELL_FIELD_DARK_STAGE_WATER,
   SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
@@ -38,36 +37,8 @@ describe("swell-map-theme tokens", () => {
     for (const bad of banned) expect(values).not.toContain(bad);
   });
 
-  it("darkens the native brand hues so the flow field reads on the light basemap", () => {
-    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#8A3B0A");
-    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#252D6B");
-    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#004C40");
-    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#8A3B0A");
-    // The field rides the LIGHT Windy-style basemap (no recolor), so the dashes are
-    // DARKENED variants of the native hues — recognizably the brand colors, just dark
-    // enough to read on light-blue water. Each field color must be DARKER than its
-    // bright chip counterpart (lower summed RGB), which keeps the selector chips bright.
-    const hexSum = (hex: string): number => {
-      const h = hex.replace("#", "");
-      return (
-        parseInt(h.slice(0, 2), 16) +
-        parseInt(h.slice(2, 4), 16) +
-        parseInt(h.slice(4, 6), 16)
-      );
-    };
-    for (const id of ["s1", "s2", "wind", "combined"] as SwellLayerId[]) {
-      expect(hexSum(SWELL_FIELD_PARTICLE_COLOR[id])).toBeLessThan(
-        hexSum(SWELL_LAYER_COLOR[id])
-      );
-    }
-    // Still no banned cyan/purple hues.
-    const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
-    const values = Object.values(SWELL_FIELD_PARTICLE_COLOR).map((c) => c.toLowerCase());
-    for (const bad of banned) expect(values).not.toContain(bad);
-  });
-
-  it("defines the dark-stage flow-field palette and basemap treatment", () => {
-    expect(SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE).toEqual({
+  it("uses the native particle palette and dark-stage treatment on every surface", () => {
+    expect(SWELL_FIELD_PARTICLE_COLOR).toEqual({
       s1: "#F4EBD8",
       s2: "#FDB84B",
       wind: "#00D4AA",
@@ -76,6 +47,9 @@ describe("swell-map-theme tokens", () => {
     expect(SWELL_FIELD_DARK_STAGE_DIM).toEqual({ color: "#252D6B", opacity: 0.4 });
     expect(SWELL_FIELD_DARK_STAGE_WATER).toBe("#4B78A9");
     expect(SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE).toBe(1.9);
+    const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
+    const values = Object.values(SWELL_FIELD_PARTICLE_COLOR).map((c) => c.toLowerCase());
+    for (const bad of banned) expect(values).not.toContain(bad);
   });
 
   it("ships an AA-safe interactive CTA class (ocean-blue, not raw orange)", () => {

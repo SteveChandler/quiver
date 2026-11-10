@@ -73,7 +73,6 @@ import type {
 import {
   degreesToCompass,
   SWELL_FIELD_PARTICLE_COLOR,
-  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
   SWELL_FIELD_DARK_STAGE_DIM,
   SWELL_FIELD_DARK_STAGE_WATER,
   SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
@@ -2303,7 +2302,7 @@ export function InteractiveMap({
             : swellLayerId === "wind"
               ? "wind"
               : "swell"
-        }|${reducedMotion ? "rm" : "mo"}|${swellFieldStage}`;
+        }|${reducedMotion ? "rm" : "mo"}`;
     // Skip the teardown only when the shape is unchanged AND the layer is genuinely
     // still mounted (a style reload can wipe layers while the ref says otherwise).
     const mountedProbeId =
@@ -2316,7 +2315,9 @@ export function InteractiveMap({
     if (alreadyCorrect) return;
 
     teardown();
-    if (swellFieldStage !== "dark" && darkStageWaterOriginalColorRef.current) {
+    // Restore the basemap water whenever the field comes down; it is re-tinted below
+    // if the field is re-added, so hiding the field leaves the plain basemap.
+    if (darkStageWaterOriginalColorRef.current) {
       if (map.getLayer("water")) {
         map.setPaintProperty(
           "water",
@@ -2332,31 +2333,25 @@ export function InteractiveMap({
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
     const baseParticleCount = resolveParticleCount(viewportWidthPx);
-    const particlePalette = swellFieldStage === "dark"
-      ? SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE
-      : SWELL_FIELD_PARTICLE_COLOR;
-    const dashStageScale = swellFieldStage === "dark"
-      ? SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE
-      : 1;
+    // One particle style on every surface (native parity): the dark stage always
+    // rides under the field, so the palette and dash scale never switch by stage.
+    const particlePalette = SWELL_FIELD_PARTICLE_COLOR;
+    const dashStageScale = SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE;
 
-    if (swellFieldStage === "dark") {
-      if (map.getLayer("water")) {
-        if (!darkStageWaterOriginalColorRef.current) {
-          darkStageWaterOriginalColorRef.current = {
-            value: map.getPaintProperty("water", "fill-color"),
-          };
-        }
-        map.setPaintProperty("water", "fill-color", SWELL_FIELD_DARK_STAGE_WATER);
-      }
-      map.addLayer({
-        id: `${SWELL_FIELD_LAYER_ID}-stage-dim`,
-        type: "background",
-        paint: {
-          "background-color": SWELL_FIELD_DARK_STAGE_DIM.color,
-          "background-opacity": SWELL_FIELD_DARK_STAGE_DIM.opacity,
-        },
-      });
+    if (map.getLayer("water")) {
+      darkStageWaterOriginalColorRef.current = {
+        value: map.getPaintProperty("water", "fill-color"),
+      };
+      map.setPaintProperty("water", "fill-color", SWELL_FIELD_DARK_STAGE_WATER);
     }
+    map.addLayer({
+      id: `${SWELL_FIELD_LAYER_ID}-stage-dim`,
+      type: "background",
+      paint: {
+        "background-color": SWELL_FIELD_DARK_STAGE_DIM.color,
+        "background-opacity": SWELL_FIELD_DARK_STAGE_DIM.opacity,
+      },
+    });
     if (swellLayerId === "combined") {
       // Overlay the three components, each its own colored layer + flow field. Cap
       // per-layer particle count so three stacked layers stay in budget.
@@ -2413,7 +2408,7 @@ export function InteractiveMap({
     swellLayerKeyRef.current = shapeKey;
     // No cleanup teardown: the layer persists across same-shape switches and is
     // removed on the next shape change (or with the map on unmount).
-  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, swellFieldStage, mapStyleRevision]);
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, mapStyleRevision]);
 
   // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
   // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion

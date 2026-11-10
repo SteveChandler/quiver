@@ -3,6 +3,7 @@
 import type { ReactElement } from "react";
 import {
   buildLegendRampCss,
+  SWELL_FIELD_PARTICLE_COLOR,
   SWELL_LAYER_COLOR,
   SWELL_MAP_LEGEND_SURFACE,
   SWELL_MAP_SURFACE,
@@ -23,6 +24,9 @@ const LAYERS: Array<{ id: SwellLayerId; label: string }> = [
 // dot of all three single-layer hues so it reads as "all layers" instead — three equal
 // vertical bands clipped to the circle. Sanctioned hues only, no new color introduced.
 const COMBINED_SWATCH_SEGMENTS: SwellLayerId[] = ["s1", "s2", "wind"];
+// Swatches show the colour each layer paints on the map, so they read the field
+// palette. The cream swell swatch needs an ink ring to show on the cream legend.
+const SWATCH_RING = "1px solid rgba(17,16,13,0.55)";
 
 function captionForLayer(activeLayer: SwellLayerId): string {
   if (activeLayer === "wind") return "flow streaks = wind speed & direction";
@@ -113,13 +117,14 @@ export function SwellLayerSelector({
                   aria-hidden="true"
                   data-testid={`swell-layer-${layer.id}-swatch`}
                   className="flex h-2 w-2 overflow-hidden rounded-full sm:h-2.5 sm:w-2.5"
+                  style={{ border: SWATCH_RING }}
                 >
                   {COMBINED_SWATCH_SEGMENTS.map((segId) => (
                     <span
                       key={segId}
                       data-testid={`swell-layer-combined-swatch-${segId}`}
                       className="h-full flex-1"
-                      style={{ background: SWELL_LAYER_COLOR[segId] }}
+                      style={{ background: SWELL_FIELD_PARTICLE_COLOR[segId] }}
                     />
                   ))}
                 </span>
@@ -129,7 +134,8 @@ export function SwellLayerSelector({
                   data-testid={`swell-layer-${layer.id}-swatch`}
                   className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
                   style={{
-                    background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
+                    background: isActive ? "#161A40" : SWELL_FIELD_PARTICLE_COLOR[layer.id],
+                    border: SWATCH_RING,
                   }}
                 />
               )}

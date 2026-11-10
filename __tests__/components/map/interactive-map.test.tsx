@@ -532,6 +532,48 @@ describe("InteractiveMap", () => {
     });
   });
 
+  it.each([undefined, "light", "dark"] as const)(
+    "draws the one dark-stage field style for stage=%s and restores water when hidden",
+    async (stage) => {
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      const { rerender, unmount } = render(
+        <InteractiveMap beaches={[]} showSwellField={false} swellFieldStage={stage} />,
+      );
+      await waitFor(() => expect(mockMapHandlers["style.load"]).toHaveLength(1));
+      const map = getMapInstance() as ReturnType<typeof getMapInstance> & {
+        getBounds: jest.Mock;
+        addLayer: jest.Mock;
+        getLayer: jest.Mock;
+        removeLayer: jest.Mock;
+        getPaintProperty: jest.Mock;
+        setPaintProperty: jest.Mock;
+      };
+      await waitFor(() => expect(map.getBounds).toHaveBeenCalled());
+      const mounted = new Set<string>(["water"]);
+      map.getLayer.mockImplementation((id: string) => (mounted.has(id) ? { id } : undefined));
+      map.addLayer.mockImplementation((layer: { id: string }) => { mounted.add(layer.id); });
+      map.removeLayer.mockImplementation((id: string) => { mounted.delete(id); });
+      map.getPaintProperty = jest.fn(() => "#A8CFE0");
+      map.setPaintProperty = jest.fn();
+
+      rerender(<InteractiveMap beaches={[]} showSwellField swellLayerId="s1" swellFieldStage={stage} />);
+      await waitFor(() => expect(map.addLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "quiver-swell-field-stage-dim",
+          paint: { "background-color": "#252D6B", "background-opacity": 0.4 },
+        }),
+      ));
+      expect(map.setPaintProperty).toHaveBeenLastCalledWith("water", "fill-color", "#4B78A9");
+
+      rerender(<InteractiveMap beaches={[]} showSwellField={false} swellFieldStage={stage} />);
+      await waitFor(() => expect(map.setPaintProperty).toHaveBeenLastCalledWith(
+        "water", "fill-color", "#A8CFE0",
+      ));
+      expect(mounted.has("quiver-swell-field-stage-dim")).toBe(false);
+      unmount();
+    },
+  );
+
   it("retries an overlay mount deferred by tile loading without another style.load", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const { rerender, unmount } = render(<InteractiveMap beaches={[]} showSwellField={false} />);

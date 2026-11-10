@@ -59,23 +59,17 @@ export const SWELL_MAP_TIMELINE_CSS_VARIABLES = {
   "--swell-timeline-sticker-shadow": SWELL_MAP_TIMELINE.stickerShadow,
 } as const;
 
-// Particle-trail colors for the Windy-style swell flow field. The field rides the
-// LIGHT Windy-style basemap (no recolor, see interactive-map.tsx), so these are
-// darker, high-contrast brand colors. S1/S2/Wind intentionally use different hue
-// families so the Combined/All view remains legible.
+// Particle-trail colors for the swell flow field. One style on every web surface,
+// matching native (quiver-native condition-vector-grid.ts): light marks on the dark
+// stage, which dims the basemap and recolors its water so cream dashes read.
+// S1/S2/Wind use different hue families so the Combined view stays legible.
 export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
-  s1: "#8A3B0A",   // primary swell - deep Charming Orange
-  s2: "#252D6B",   // secondary swell - Deep Twilight navy for hue separation
-  wind: "#004C40", // wind - dark Pacific Teal, distinct from S2 navy
-  combined: "#8A3B0A",
-};
-
-export const SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE: Record<SwellLayerId, string> = {
   s1: "#F4EBD8",
   s2: "#FDB84B",
   wind: "#00D4AA",
   combined: "#F4EBD8",
 };
+
 export const SWELL_FIELD_DARK_STAGE_DIM = { color: "#252D6B", opacity: 0.4 } as const;
 export const SWELL_FIELD_DARK_STAGE_WATER = "#4B78A9";
 export const SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE = 1.9;

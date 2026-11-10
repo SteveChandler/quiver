@@ -22,7 +22,7 @@ import {
 import { waterMaskFromPixels } from "@/components/map/swell-field/water-mask";
 import {
   SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
-  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
+  SWELL_FIELD_PARTICLE_COLOR,
 } from "@/components/map/swell-map-theme";
 import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
 
@@ -149,7 +149,7 @@ export function HeroSwellField({
       const crestY = flow.vx * halfLength;
       const densityFloor = 0.55 + strength * 0.45;
 
-      context.strokeStyle = SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE.s1;
+      context.strokeStyle = SWELL_FIELD_PARTICLE_COLOR.s1;
       context.lineCap = "butt";
       // /map sets crest weight in device pixels.
       context.lineWidth = (DASH_WIDTH_PX_BASE + strength * DASH_WIDTH_PX_GAIN) / ratio;
