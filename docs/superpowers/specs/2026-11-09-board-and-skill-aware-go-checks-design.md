@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-09
 **Owner:** Steven
-**Status:** Draft for Steven's review. Nothing is built. Steven decided D3b and the learner scope on 2026-11-09 (section 9). The D2 thresholds wait for his look at the preview (section 6).
+**Status:** Approved by Steven on 2026-11-09 (all of section 9). Nothing is built.
 **Repos:** `quiver` (scoring, Daily Call, swell alert, Week Scout, one new response field). `quiver-native` only for the D5 notice.
 **Code read at:** `origin/main` 8bf24c561 (2026-11-09). All line numbers are from that commit.
 **Builds on:** `docs/superpowers/specs/2026-10-11-one-surf-call-ranking-design.md` (one judge for every surf call).
@@ -188,7 +188,7 @@ A spike behind `SPIKE_GO_CHECKS` (local only, never committed) and `scripts/tmp-
 
 ## 9. Steven decides
 
-1. **D2 thresholds (open):** "Worth it" for learners on `medium-mixed` under 3 ft, and on weak-swell `small-weak` at 1 ft or more with a period of 6 s or more. Steven checks them against the preview (section 6a).
+1. **D2 thresholds: approved** (2026-11-09, after the preview in section 6a). "Worth it" for learners on `medium-mixed` under 3 ft, and on weak-swell `small-weak` at 1 ft or more with a period of 6 s or more.
 2. **D3b: decided yes** (2026-11-09). No-skill users are treated as beginners, engine included, and D5 tells them.
 3. **Learner scope: decided yes** (2026-11-09). An intermediate on a longboard gets the learner gate.
 4. **D5 "Keep beginner" (my call, open to change):** it writes nothing to the profile. Writing `beginner` would make the call "personal" with "for your level" copy.
