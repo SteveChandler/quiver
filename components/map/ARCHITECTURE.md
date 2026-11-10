@@ -61,7 +61,7 @@ The signed-in home hero draws the primary-swell field in the dark-stage palette 
 
 It finds water from the static streets-v11 image's pixels (`waterMaskFromPixels` in `water-mask.ts`, a port of native's), since it has no vector water polygons. Change the look in `particle-style.ts` so both surfaces move together.
 
-The field has one style on every web surface, as native does (quiver#830). `/map`, `/embed/map` and the home hero all draw `SWELL_FIELD_PARTICLE_COLOR` with the 1.9 dash scale on the dark stage: a `#252D6B` dim at 0.4 and `#4B78A9` water. The `stage` embed parameter now changes only the map chrome (logo position). Hiding the field restores the basemap water.
+The field has one style on every web surface, as native does (quiver#830). `/map`, `/embed/map` and the home hero all draw `SWELL_FIELD_PARTICLE_COLOR` (swell `#DCE8FF`, swell 2 `#FDB84B`, wind `#00D4AA`, equal to native's `SWELL_FIELD_LAYER_COLORS` in `src/lib/swell-field/condition-vector-grid.ts`) with the 1.9 dash scale on the dark stage: a `#252D6B` dim at 0.4 and `#4B78A9` water. The `stage` embed parameter now changes only the map chrome (logo position). Hiding the field restores the basemap water.
 
 ## **PHASE 2 MOTION ENHANCEMENTS**
 

@@ -25,7 +25,8 @@ const LAYERS: Array<{ id: SwellLayerId; label: string }> = [
 // vertical bands clipped to the circle. Sanctioned hues only, no new color introduced.
 const COMBINED_SWATCH_SEGMENTS: SwellLayerId[] = ["s1", "s2", "wind"];
 // Swatches show the colour each layer paints on the map, so they read the field
-// palette. The cream swell swatch needs an ink ring to show on the cream legend.
+// palette. The pale-blue swell swatch is about 1:1 against the cream legend, so it
+// needs an ink ring to show.
 const SWATCH_RING = "1px solid rgba(17,16,13,0.55)";
 
 function captionForLayer(activeLayer: SwellLayerId): string {

@@ -59,15 +59,15 @@ export const SWELL_MAP_TIMELINE_CSS_VARIABLES = {
   "--swell-timeline-sticker-shadow": SWELL_MAP_TIMELINE.stickerShadow,
 } as const;
 
-// Particle-trail colors for the swell flow field. One style on every web surface,
-// matching native (quiver-native condition-vector-grid.ts): light marks on the dark
-// stage, which dims the basemap and recolors its water so cream dashes read.
-// S1/S2/Wind use different hue families so the Combined view stays legible.
+// Particle-trail colors for the swell flow field, one style on every web surface.
+// Reference: quiver-native src/lib/swell-field/condition-vector-grid.ts
+// SWELL_FIELD_LAYER_COLORS. Keep these equal to it. Light marks need the dark stage,
+// which dims the basemap and recolors its water.
 export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
-  s1: "#F4EBD8",
+  s1: "#DCE8FF",
   s2: "#FDB84B",
   wind: "#00D4AA",
-  combined: "#F4EBD8",
+  combined: "#DCE8FF",
 };
 
 export const SWELL_FIELD_DARK_STAGE_DIM = { color: "#252D6B", opacity: 0.4 } as const;

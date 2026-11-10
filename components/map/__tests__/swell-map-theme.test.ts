@@ -39,10 +39,10 @@ describe("swell-map-theme tokens", () => {
 
   it("uses the native particle palette and dark-stage treatment on every surface", () => {
     expect(SWELL_FIELD_PARTICLE_COLOR).toEqual({
-      s1: "#F4EBD8",
+      s1: "#DCE8FF",
       s2: "#FDB84B",
       wind: "#00D4AA",
-      combined: "#F4EBD8",
+      combined: "#DCE8FF",
     });
     expect(SWELL_FIELD_DARK_STAGE_DIM).toEqual({ color: "#252D6B", opacity: 0.4 });
     expect(SWELL_FIELD_DARK_STAGE_WATER).toBe("#4B78A9");
