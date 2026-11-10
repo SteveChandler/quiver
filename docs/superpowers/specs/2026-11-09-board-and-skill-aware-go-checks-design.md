@@ -118,12 +118,14 @@ Steven: "we should have a popup on next time they come and let them know why the
 - Mount in `home.tsx` next to `FoundingGiftSheet`. Gate on `homeOfferReady`, `InteractionManager`, a 1.5 s settle, the `canPresent` checks from `use-founding-gift.ts:46-64`, and `claimSessionAsk('skill_default_notice')`.
 - Show once per user per device: AsyncStorage key `@quiver/skill-default-notice-shown/<uid>`, written at show time, plus an in-process Set.
 - At present time, check again that the profile skill is still null. Never show while the profile is loading (`undefined`).
-- **Look: a sign coming down (Steven, 2026-11-09).** Not a bottom sheet. A hanging sign drops from the top of the screen on two ropes over a dimmed Home, swings, and comes to rest level:
-  - Sign face: `Colors.paper` board, 2 px ink border, the two ropes in ink from the top safe area to two points on the sign. Title as the sign heading (one line), then body, muted hint, and the primary and secondary pills on the sign.
+- **Look: a wooden sign that falls down on chains (Steven, 2026-11-09, with a reference picture).** Not a bottom sheet. A hanging sign drops from the top of the screen on two chains over a dimmed Home, swings, and comes to rest level:
+  - Sign face: a wide wooden plank board (warm honey-brown wood with horizontal grain), a thin gold frame with a darker inner edge, and a brass nail in each corner. Two brass chains run from the top safe area to the top corners of the board.
+  - Draw it ourselves (vector or our own bitmap asset). Do not use the reference picture, because its owner is unknown.
+  - Text sits on the wood in dark ink with enough contrast (WCAG AA): the title as the sign heading (one line), then body and hint. The two buttons sit on the board: primary "Set my level", secondary "Keep beginner".
   - Motion (Reanimated): the sign drops with a spring and a small overshoot (about 600 ms), swings twice with damping (at most ±6°, pivot at the rope tops), and stops at 0°. Light haptic when it settles. On dismiss, the sign pulls back up (about 300 ms) and the dim fades.
   - Reduced motion: no drop and no swing. The sign fades in at rest (about 200 ms).
   - Backdrop tap and Android back mean "Keep beginner". No emoji.
-  - Brand note: `.impeccable.md` and the comic-style rule ban tilts. Here the tilt is motion only, and the sign rests straight. Steven asked for this exception.
+  - Brand note: the wood-and-chain look and the swing are an exception that Steven asked for. The rest of the app stays flat paper and ink. The tilt happens only in motion, and the sign rests straight.
 - The behaviour (trigger, once only, latch, gates) still copies the founding gift; only the visual changes.
 
 **Copy (brand voice).**
