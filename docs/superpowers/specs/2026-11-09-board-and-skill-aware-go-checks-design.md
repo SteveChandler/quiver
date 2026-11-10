@@ -2,8 +2,8 @@
 
 **Date:** 2026-11-09
 **Owner:** Steven
-**Status:** Draft for Steven's review. Nothing is built.
-**Repos:** `quiver` (scoring, Daily Call, swell alert, Week Scout). No `quiver-native` change.
+**Status:** Draft for Steven's review. Nothing is built. Steven decided D3b and the learner scope on 2026-11-09 (section 9). The D2 thresholds wait for his look at the preview (section 6).
+**Repos:** `quiver` (scoring, Daily Call, swell alert, Week Scout, one new response field). `quiver-native` only for the D5 notice.
 **Code read at:** `origin/main` 8bf24c561 (2026-11-09). All line numbers are from that commit.
 **Builds on:** `docs/superpowers/specs/2026-10-11-one-surf-call-ranking-design.md` (one judge for every surf call).
 
@@ -51,7 +51,7 @@ Data (prod, read-only, 2026-11-09):
 - No change to the condition character labels that users read (for example "Small & clean — glassy conditions"). Only which categories may be "Worth it" changes.
 - No change to scores or labels for a user with no saved boards and a known skill level (G1). G2 can change their label only when they are a beginner.
 - No change to the personal match SQL (`compute_user_match_scores`). It already learns from the board in each session and from `session_board_fit`.
-- No native change. Native Week Scout reads the server's labels. Native Beach Detail scores on the phone (`surf-decision.ts`); it can disagree with the server until a later change (see section 8).
+- No native scoring change. D5 adds one native notice and nothing else. Native Week Scout reads the server's labels. Native Beach Detail scores on the phone (`surf-decision.ts`); it can disagree with the server until a later change (see section 8).
 
 ## 4. Anti-goals (a failure even if it works)
 
@@ -97,11 +97,44 @@ Data (prod, read-only, 2026-11-09):
 D3 has two parts. Both apply only behind the flag, at the call sites, not inside the shared scorer or engine. `resolveNativeSkillLevel(..., "intermediate")` in the scorer and the engine's `"unknown"` skill stay as they are for flag-off and non-flagged callers, so "flag off is identical" holds.
 
 - **D3a. The score (my call, always with the flag).** The flagged call sites resolve a null skill to beginner before they call the scorer. Week Scout already scores these users as beginners (`week-scout.ts:703`). So the forecast check moves to Week Scout's choice. This is needed for G1: without it, the forecast check scores these 54 users as intermediate and Week Scout scores them as beginners.
-- **D3b. The engine (Steven decides, section 9).** The flagged call sites also pass beginner as `profileExperience` to the canonical engine instead of null. Effects for these users:
+- **D3b. The engine (Steven: yes, 2026-11-09, "no skill users are treated as beginner").** The flagged call sites also pass beginner as `profileExperience` to the canonical engine instead of null. Effects for these users:
   - the beach-skill check runs, so beaches rated above beginner are vetoed;
   - the personal match verdict starts to apply (today the engine skips it when skill is unknown, `engine.ts` `skill === "unknown" ? null`).
-- If Steven says no to D3b, D3a still ships, and the engine keeps treating these users as unknown (beginner wave cap, no beach-skill check).
+- The default is a server rating rule. It does not write `experience_level` to the profile. The user stays "no level set", and D5 tells them.
+- **Audience trap.** Do not set `skillSource` or `userTier` for these users. Native decides "general" vs "personal" from null-ness (native `use-surf-call.ts:648`, `:703`; `surf-decision.ts:140`). A non-null value would add "for your level" copy for a level the user never gave.
 - About five call sites pass `profileExperience` (Week Scout `week-scout.ts:1236`, `bulk-decision-context.ts`, `resolveHeldBeaches`, the swell alert, the Daily Call). Each is flag-gated with its own test.
+
+### D5. Tell no-skill users why they see a beginner rating (Steven, 2026-11-09)
+
+Steven: "we should have a popup on next time they come and let them know why they are seeing the rating they are and how to change".
+
+**Server signal.** Native cannot read the Vercel flag or the allowlist. So the server adds one optional boolean, `skillDefaultApplied`, to the `/api/surf/call` report, next to `skillSource` and `userTier`. It is `true` only when the flag is on, the user is allowlisted, the profile skill is null or blank, and the server scored this response as beginner. Otherwise the field is absent. An older server or flag off means no field, so the notice never shows (it fails closed). The field can also go on `/api/forecasts/scored/[beachId]` (`route.ts:575`) if Beach Detail needs it later.
+
+**Trigger.** The first Home focus after a surf-call response with `source === 'api'` and `skillDefaultApplied === true`. It does not wait for a second visit, because the rating has already changed. Not in the session where the user finishes onboarding. Not for guests.
+
+**Build.** Copy the founding gift (native #668, `src/features/founding-access/`):
+
+- New folder `src/features/skill-default-notice/`: `useSkillDefaultNotice({ isFocused, ready: homeOfferReady, serverApplied })` and `SkillDefaultNoticeSheet`, with its own entry point like `gift.ts`.
+- Mount in `home.tsx` next to `FoundingGiftSheet`. Gate on `homeOfferReady`, `InteractionManager`, a 1.5 s settle, the `canPresent` checks from `use-founding-gift.ts:46-64`, and `claimSessionAsk('skill_default_notice')`.
+- Show once per user per device: AsyncStorage key `@quiver/skill-default-notice-shown/<uid>`, written at show time, plus an in-process Set.
+- At present time, check again that the profile skill is still null. Never show while the profile is loading (`undefined`).
+- Layout as the gift sheet: paper sheet, ink border, one-line H1 title, body, muted hint, primary and secondary pills. Backdrop tap and Android back mean "Keep beginner". No emoji, no comic style, no tilt.
+
+**Copy (brand voice).**
+
+- Title: "Rated for a beginner" (other choice: "Calls set for a beginner").
+- Body: "You haven't picked a level, so Quiver rates each call as if you're just starting out. Pick yours and the calls fit how you surf."
+- Hint: "Change it anytime in Settings, under Surfing."
+- Primary: "Set my level". Secondary: "Keep beginner".
+
+**Actions.**
+
+- "Set my level" closes the notice and opens the existing `SkillSheet` in place on Home. `SkillSheet` needs a `source` prop (today it hard-codes `source: 'value_first'`, `skill-sheet.tsx:37-41`) and must render outside the `showHomePersonalize` gate (`home.tsx:4647-4654`). On save, `useUpdateProfile` already refetches profile, surf call, discovery and Week Scout (`use-update-profile.ts:25-34`), so Home re-rates at once.
+- "Keep beginner" closes the notice and writes nothing to the profile. The rating stays beginner. The notice does not return.
+
+**Analytics (PostHog only).** `skill_default_notice_shown`; `skill_default_notice_dismissed { action: 'set_level' | 'keep' | 'backdrop' | 'back' }`; the existing `skill_added` with `source: 'default_notice'`. Measure the set-level rate.
+
+**Order of release.** Server field first (absent while the flag is off). Then the native OTA (dormant until the field arrives). Then the flag and allowlist. Each prod step needs Steven's yes.
 
 ### D4. Rollout
 
@@ -119,12 +152,28 @@ D3 has two parts. Both apply only behind the flag, at the call sites, not inside
 - **Parity:** `scripts/check-call-parity.ts` must keep saying AGREE for each allowlisted account. A new DIFFER after the flag turns on is a bug.
 - **Expected direction:** more go days for the beginner account and for users with soft or long boards. No change for users with no boards and a non-beginner skill.
 
+### 6a. Preview on Steven's accounts (2026-11-09, read-only)
+
+A spike behind `SPIKE_GO_CHECKS` (local only, never committed) and `scripts/tmp-go-check-preview.ts` scored Nov 10–16 for both of Steven's accounts. Days with a Daily Call push:
+
+| Account | Old path (no sessions) | Shared ranking (live at the next prod deploy) | Shared + this design |
+|---|---|---|---|
+| 610a5745 (intermediate, longboard) | 6 of 7 | 1 of 7 | 3 of 7 (adds Nov 11 and Nov 12, Scripps 7–9:30 AM, longboard) |
+| 73040cff (advanced, shortboard) | 6 of 7 | 4 of 7 | 5 of 7 (adds Nov 12, La Fonda 1–3:30 PM, longboard); scores +3 to +5 |
+
+- 610a5745 had 14 windows that changed label. All are `medium-mixed`, under 3 ft, with a longboard as the best board. No `small-weak` window changed. 73040cff had none.
+- Adversarial checks: the design lens and the flag-off lens did not refute the spike (all 455 windows match the rule; flag off is unchanged).
+- **Limit.** The harness does not reproduce this morning's sends (Mission Beach for 610a5745; Renes for 73040cff). Production sets `HOURLY_BRIDGE_ENABLED`, `NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED`, `TRUSTED_FORECAST_*` and `NEXT_PUBLIC_TIDE_SWING_ENABLED`, and the harness ran with them unset. Turning on the plateau flag alone moved Mission Beach from 74 to 88. Also, 73040cff's location fix was overwritten after the send. So the exact beaches can differ in production. The difference between the columns is valid, because all three columns use the same harness. The flag-and-allowlist gate matched the forced shared path for both accounts.
+- **Finding for the shared-ranking rollout.** With the shared ranking alone, 610a5745 gets a push on 1 day of 7. The parity task watches beach agreement, not this drop in send days.
+
 ## 7. Tests
 
 - `evaluateForecastVerdict`: no boards gives today's score; a longboard on 1 ft clean gives a higher score; a board never lets a beginner pass the 4 ft cap or an above-beginner beach.
 - Daily Call: a beginner with a longboard on a clean 1–2 ft row now sends on the shared path (the verdict no longer mismatches); the same user with no boards behaves as today.
 - Gate: in learner context, `medium-mixed` at 2.5 ft is "Worth it" at score 72 and "Maybe" at 3.5 ft; the onshore `small-weak` branches stay "Maybe"; outside learner context nothing changes.
-- Null skill (D3, if Steven accepts it): row score, Week Scout score and engine all use beginner.
+- Null skill (D3): row score, Week Scout score and engine all use beginner; `skillSource` and `userTier` stay null.
+- `skillDefaultApplied`: true only with flag on, allowlisted, null skill; absent otherwise. Paired contract fixtures in both repos.
+- D5 notice: copy `use-founding-gift.test.tsx` (shows once, latch loses to another ask, skill set before show means no show and no key, guest never sees it, Keep writes nothing).
 - Flag off: all existing tests pass unchanged.
 - Before auto-merge: `/code-review high` (scoring and alert logic).
 
@@ -139,6 +188,7 @@ D3 has two parts. Both apply only behind the flag, at the call sites, not inside
 
 ## 9. Steven decides
 
-1. **D2 thresholds:** "Worth it" for learners on `medium-mixed` under 3 ft, and on weak-swell `small-weak` at 1 ft or more with a period of 6 s or more. Are these the days you mean?
-2. **D3b:** for the 54 users with no skill level, should the safety engine treat them as beginners too? That vetoes beaches rated above beginner for them and turns on their personal match verdict. (D3a, scoring them as beginners, ships either way, because Week Scout already does it.)
-3. **Scope of learner context:** beginner skill OR a clean-preferring best board. Should an intermediate on a longboard also get the learner gate? This design says yes.
+1. **D2 thresholds (open):** "Worth it" for learners on `medium-mixed` under 3 ft, and on weak-swell `small-weak` at 1 ft or more with a period of 6 s or more. Steven checks them against the preview (section 6a).
+2. **D3b: decided yes** (2026-11-09). No-skill users are treated as beginners, engine included, and D5 tells them.
+3. **Learner scope: decided yes** (2026-11-09). An intermediate on a longboard gets the learner gate.
+4. **D5 "Keep beginner" (my call, open to change):** it writes nothing to the profile. Writing `beginner` would make the call "personal" with "for your level" copy.
