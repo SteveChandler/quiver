@@ -284,5 +284,44 @@
     "licenseStatus": "defensible",
     "usageNotes": "Wave diffraction guide breakwaters section image: 'Breakwater subject to high surf' sign on the Dana Point Harbor jetty. Licence checked on the Wikimedia Commons file page (CC BY-SA 3.0) on 2026-11-03; stored at native resolution (3838 px), no crop, no upscale.",
     "runtimeAssetPath": "public/images/learn/learn-dana-point-breakwater-sign.webp"
+  },
+  {
+    "slug": "what-is-a-king-tide",
+    "name": "learn-king-tide-malibu-road",
+    "imageUrl": "https://live.staticflickr.com/7003/6757727785_dea563b29e_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/75139013@N06/6757727785",
+    "title": "King Tides 2012: Water under beachfront homes",
+    "creator": "LA Waterkeeper",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "King tide guide hero/thumbnail: king tide water running under beachfront homes on Malibu Road, Malibu. Licence checked on the Flickr source page (CC BY 2.0) on 2026-11-10; stored at native resolution (1024 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-king-tide-malibu-road.webp"
+  },
+  {
+    "slug": "what-is-a-king-tide",
+    "name": "learn-king-tide-morro-strand",
+    "imageUrl": "https://live.staticflickr.com/8354/8279439698_da3d097165_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/99003655@N00/8279439698",
+    "title": "Morro Strand Beach, Morro Bay - During King Tide of 7.0 on 12/13/2012",
+    "creator": "docentjoyce",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "King tide guide section image: the beach at Morro Strand under water during a 7.0 ft king tide. Licence checked on the Flickr source page (CC BY 2.0) on 2026-11-10; stored at native resolution (1024 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-king-tide-morro-strand.webp"
+  },
+  {
+    "slug": "what-is-a-king-tide",
+    "name": "learn-king-tide-san-francisco-embarcadero",
+    "imageUrl": "https://live.staticflickr.com/1715/24249380510_164faf7955_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/42982698@N00/24249380510",
+    "title": "San Francisco King Tide | January 22, 2016",
+    "creator": "Chris Martin",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "King tide guide section image: bay water splashing over the Embarcadero railing during the January 2016 king tide. Licence checked on the Flickr source page (CC BY 2.0) on 2026-11-10; stored at native resolution (1024 px), no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-king-tide-san-francisco-embarcadero.webp"
   }
 ]

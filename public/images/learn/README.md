@@ -71,6 +71,9 @@ no crop, no upscale.
 | `learn-charlestown-harbor-diffraction.webp` | `/learn/what-is-wave-diffraction` | Charlestown - wave diffraction | Stephen Craven | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Charlestown_-_wave_diffraction_-_geograph.org.uk_-_6002891.jpg |
 | `learn-anacapa-island-santa-barbara-channel.webp` | `/learn/what-is-wave-diffraction` | Anacapa Island from Excursion on Santa Barbara Channel Between Ventura and Santa Cruz Island, California 2 | Ken Lund | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Anacapa_Island_from_Excursion_on_Santa_Barbara_Channel_Between_Ventura_and_Santa_Cruz_Island,_California_2_(4066985844).jpg |
 | `learn-dana-point-breakwater-sign.webp` | `/learn/what-is-wave-diffraction` | Dana Point, Orange County, California - Breakwater | Steve Hedin | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Dana_Point,_Orange_County,_California_-_Breakwater_-_panoramio.jpg |
+| `learn-king-tide-malibu-road.webp` | `/learn/what-is-a-king-tide` | King Tides 2012: Water under beachfront homes | LA Waterkeeper | CC BY 2.0 | https://www.flickr.com/photos/75139013@N06/6757727785 |
+| `learn-king-tide-morro-strand.webp` | `/learn/what-is-a-king-tide` | Morro Strand Beach, Morro Bay - During King Tide of 7.0 on 12/13/2012 | docentjoyce | CC BY 2.0 | https://www.flickr.com/photos/99003655@N00/8279439698 |
+| `learn-king-tide-san-francisco-embarcadero.webp` | `/learn/what-is-a-king-tide` | San Francisco King Tide \| January 22, 2016 | Chris Martin | CC BY 2.0 | https://www.flickr.com/photos/42982698@N00/24249380510 |
 
 The older `learn-*.jpg` files in this directory predate the ledger and have no
 recorded provenance.

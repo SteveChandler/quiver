@@ -115,6 +115,7 @@ const CATEGORIES: {
       "how-are-ocean-waves-formed",
       "what-is-wave-diffraction",
       "how-do-tides-work",
+      "what-is-a-king-tide",
     ],
   },
   {

@@ -1028,6 +1028,11 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
+        label: "What Is a King Tide?",
+        href: "/learn/what-is-a-king-tide",
+        description: "California's highest tides of the year and how they change the surf.",
+      },
+      {
         label: "How Do Tides Work?",
         href: "/learn/how-do-tides-work",
         description:
@@ -2393,6 +2398,11 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
+        label: "What Is a King Tide?",
+        href: "/learn/what-is-a-king-tide",
+        description: "How 7-foot winter tides and backwash change the shorebreak.",
+      },
+      {
         label: "Newport Beach surf report today",
         href: "/surf-report/newport-beach-today",
         description: "Today's size, wind and tide for a classic sandbar beach.",
@@ -2608,6 +2618,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
+      {
+        label: "What Is a King Tide?",
+        href: "/learn/what-is-a-king-tide",
+        description: "Why the year's biggest tides hit in winter, with this season's dates.",
+      },
       {
         label: "Best Tide for Surfing",
         href: "/learn/best-tide-for-surfing",
@@ -3992,6 +4007,144 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver shows swell size, period and direction for Santa Barbara, Ventura and Dana Point beaches, so you can tell if a sheltered spot is breaking before you drive.",
       ctaLabel: "Check Santa Barbara-area beaches",
+    },
+  },
+  {
+    slug: "what-is-a-king-tide",
+    title: "What Is a King Tide? California Dates and Surf",
+    description:
+      "A king tide is the highest tide of the year, set by a full or new moon at its closest. California's run Nov 24-26, Dec 23-25 and Jan 21-22.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-10",
+    dateModified: "2026-11-10",
+    heroImage: "/images/learn/learn-king-tide-malibu-road.webp",
+    thumbnailImage: "/images/learn/learn-king-tide-malibu-road.webp",
+    keywords: [
+      "what is a king tide",
+      "king tide",
+      "king tides california",
+      "king tide san diego",
+      "when is the next king tide",
+      "king tide 2026",
+      "perigean spring tide",
+      "highest tide of the year",
+      "king tide surfing",
+      "what time of day is high tide typically",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>A king tide is the highest tide of the year. It comes when a full or new moon lines up with the moon at its closest point to Earth. In La Jolla, NOAA predicts 7.1 feet at 8:23 a.m. on December 24, almost 2 feet above an average high tide.</p><p>California's 2026-27 king tides fall on November 24-26, December 23-25 and January 21-22. Check the hour-by-hour curve on the <a href="/tide/la-jolla">La Jolla tide page</a> before you plan a morning session.</p>`,
+        keyTakeaway:
+          "About 7 feet in San Diego, roughly 2 feet over a normal high.",
+      },
+      {
+        id: "dates",
+        heading: "When are the next king tides in California?",
+        content: `<p>The California Coastal Commission's King Tides Project lists three runs this winter: November 24-26, December 23-25 and January 21-22. NOAA's predictions agree. December 24 is the biggest: 7.1 feet at La Jolla at 8:23 a.m. and 7.2 feet in San Francisco at 10:37 a.m.</p><p>Every one of these peaks lands in the morning. The same days bring the lowest tides of the year in the afternoon, near -1.9 feet at La Jolla. That's a 9-foot swing between breakfast and sunset. The <a href="/tide/san-francisco">San Francisco tide page</a> shows the Bay version.</p>`,
+        keyTakeaway:
+          "Big highs in the morning, big lows by 3 or 4 p.m.",
+        image: {
+          src: "/images/learn/learn-king-tide-san-francisco-embarcadero.webp",
+          alt: "Bay water splashing over the railing onto the Embarcadero walkway in San Francisco during a January king tide",
+          position: "right",
+        },
+      },
+      {
+        id: "cause",
+        heading: "What causes a king tide?",
+        content: `<p>Tides come from the moon and sun pulling on the ocean. At a full or new moon they pull in a line, which makes a spring tide. When that lines up with perigee, the moon's closest pass, you get what NOAA calls a perigean spring tide. In early January Earth is also at its closest to the sun, which is why California's biggest tides land in winter.</p><p>"King tide" isn't a science word. NOAA calls it a popular term for exceptionally high tides. Our guide to <a href="/learn/how-do-tides-work">how tides work</a> covers spring and neap cycles.</p>`,
+        keyTakeaway:
+          "Full or new moon plus the moon's closest pass equals a king tide.",
+      },
+      {
+        id: "surf",
+        heading: "How does a king tide change the surf?",
+        content: `<p>At 7 feet, most beach breaks stop working. Waves roll in fat and then dump straight on the sand, and the backwash off the steep beach slams into the next wave. Reefs like Cardiff Reef go soft and slow.</p><p>The afternoon low flips it. At -1.9 feet, reefs sit shallow, sandbars close out, and rocks you never see stick out. The mid-tide push between the two is usually the best window. Our guide to the <a href="/learn/best-tide-for-surfing">best tide for surfing</a> matches tide to break type.</p>`,
+        keyTakeaway:
+          "Skip the 7-foot peak. Surf the push from low to mid tide.",
+        image: {
+          src: "/images/learn/learn-king-tide-morro-strand.webp",
+          alt: "The beach at Morro Strand in Morro Bay covered by calm water during a 7.0-foot king tide, with surf breaking offshore",
+          position: "left",
+        },
+      },
+      {
+        id: "running-high",
+        heading: "Why this year's king tides could top the forecast",
+        content: `<p>NOAA's tide tables only predict the moon and sun. They leave out warm water, low pressure and storm surge, all of which push the sea higher. In the 72 hours to November 10, NOAA's own La Jolla gauge read about 1.25 feet above its predicted tide.</p><p>If the water stays that high, a 7.1-foot king tide reaches past 8 feet. Add a winter swell and the surf runs up to the bluffs at Del Mar and across Highway 101 at Cardiff. Check <a href="/tide/del-mar">Del Mar's tide</a> and <a href="/tide/cardiff">Cardiff's tide</a> before you park.</p>`,
+        keyTakeaway:
+          "Tide tables leave out warm water. Add a foot this winter.",
+      },
+      {
+        id: "safety",
+        heading: "Is it safe to surf during a king tide?",
+        content: `<p>The danger is getting in and out, not the waves. Beach access stairs end in water, the dry sand you walk back on is gone, and logs and kelp ride the high water. Strong backwash also feeds rip currents, so read our <a href="/learn/what-is-a-rip-current">rip current guide</a> first.</p><p>No tide is a promise of safe water. If you're not sure, don't paddle out. Watch from shore for 10 minutes and find your exit before you go. New to San Diego? Start with the <a href="/beginner/san-diego">San Diego beginner guide</a>.</p>`,
+        keyTakeaway:
+          "Find your exit first. At 7 feet the beach may not be there.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is a king tide?",
+        answer:
+          "A king tide is a popular name for the highest tides of the year. NOAA calls it a non-scientific term. It happens when a full or new moon lines up with the moon's closest pass to Earth, which is a perigean spring tide.",
+      },
+      {
+        question: "When is the next king tide in California?",
+        answer:
+          "The 2026-27 California king tides fall on November 24-26, December 23-25 and January 21-22. December 24 is the biggest, with NOAA predicting 7.1 feet at La Jolla and 7.2 feet in San Francisco, both in the morning.",
+      },
+      {
+        question: "How high is a king tide in San Diego?",
+        answer:
+          "NOAA predicts 6.9 to 7.1 feet at La Jolla for this winter's king tides, against an average high tide of about 5.3 feet. This fall the water has run about a foot above the predictions, so the real peak can pass 8 feet.",
+      },
+      {
+        question: "What time of day is high tide typically?",
+        answer:
+          "There's no fixed time. High tide comes about 50 minutes later each day. In California's winter, the biggest highs land in the morning and the lowest lows in the afternoon, which is the pattern for every king tide this season.",
+      },
+      {
+        question: "Can you surf during a king tide?",
+        answer:
+          "Most beach breaks shut down at the peak because waves dump on the sand. The better plan is to surf the afternoon low or the mid-tide push. If you can't see a safe way in and out, watch from shore and don't paddle out.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How Tides Work for Surfing",
+        href: "/learn/how-do-tides-work",
+        description: "Spring tides, neap tides and why high tide shifts each day.",
+      },
+      {
+        label: "What Is the Best Tide for Surfing?",
+        href: "/learn/best-tide-for-surfing",
+        description: "Match the tide to beach, reef and point breaks.",
+      },
+      {
+        label: "La Jolla tide chart",
+        href: "/tide/la-jolla",
+        description: "Hour-by-hour tide heights for La Jolla today.",
+      },
+      {
+        label: "San Francisco tide chart",
+        href: "/tide/san-francisco",
+        description: "Today's highs and lows inside the Golden Gate.",
+      },
+      {
+        label: "What Is a Rip Current?",
+        href: "/learn/what-is-a-rip-current",
+        description: "How backwash and big tides feed rips, and how to get out.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "King tide week",
+      title: "See when the 7-foot tide drops enough to surf.",
+      description:
+        "Quiver plots the tide hour by hour next to swell and wind for La Jolla, Cardiff and Del Mar, so you can pick the window after the king tide peak.",
+      ctaLabel: "Check San Diego tides",
     },
   },
 ];
