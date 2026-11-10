@@ -77,6 +77,22 @@ export interface ConditionCharacter {
   category: ConditionCharacterCategory;
 }
 
+/** Which small-weak branch the classifier took. */
+export type SmallWeakReason = 'onshore-chop' | 'weak-swell' | 'marginal';
+
+/**
+ * The character plus the small-weak branch. The reason sits beside the
+ * character, not on it, because callers serialize the whole character.
+ */
+interface ConditionCharacterDetails {
+  character: ConditionCharacter;
+  smallWeakReason: SmallWeakReason | null;
+}
+
+function withoutReason(character: ConditionCharacter): ConditionCharacterDetails {
+  return { character, smallWeakReason: null };
+}
+
 /**
  * Subscore thresholds in the new 0-100 space (translated from legacy
  * 0-20/0-15 fractions — see file header for the full mapping).
@@ -242,6 +258,18 @@ export function getConditionCharacter(
   profile: SpotProfile,
   composite: CompositeScore
 ): ConditionCharacter {
+  return getConditionCharacterDetails(snapshot, profile, composite).character;
+}
+
+/**
+ * `getConditionCharacter` plus which small-weak branch it took
+ * (null for every other category).
+ */
+export function getConditionCharacterDetails(
+  snapshot: ConditionsSnapshot,
+  profile: SpotProfile,
+  composite: CompositeScore
+): ConditionCharacterDetails {
   const waveHeight = snapshot.waveHeight;
   const wavePeriod = snapshot.wavePeriod;
   const windSpeed = snapshot.wind.speedMph;
@@ -254,11 +282,11 @@ export function getConditionCharacter(
   // 1. Skip conditions — label by the cause, so a flat row or a setup risk
   //    never reads as wind and a blown-out flat row never reads as flat.
   const skipCause = getSkipCause(snapshot, profile, composite);
-  if (skipCause) return getSkipCharacter(skipCause);
+  if (skipCause) return withoutReason(getSkipCharacter(skipCause));
 
   // 2. Flat — barely anything to surf, unless nobody measured it
   if (waveHeight < 0.5) {
-    return { category: 'flat', label: snapshot.waveHeightKnown === false ? NO_SIZE_FORECAST_LABEL : 'Flat — rest day' };
+    return withoutReason({ category: 'flat', label: snapshot.waveHeightKnown === false ? NO_SIZE_FORECAST_LABEL : 'Flat — rest day' });
   }
 
   // 3. Small waves (0.5–2ft)
@@ -266,9 +294,15 @@ export function getConditionCharacter(
     // Small-weak: short period wind chop (checked early, like legacy)
     if (wavePeriod < 8) {
       if (isOnshore && windSpeed !== null && windSpeed > 5) {
-        return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
+        return {
+          character: { category: 'small-weak', label: 'Small & choppy — onshore wind' },
+          smallWeakReason: 'onshore-chop',
+        };
       }
-      return { category: 'small-weak', label: 'Weak swell — minimal energy' };
+      return {
+        character: { category: 'small-weak', label: 'Weak swell — minimal energy' },
+        smallWeakReason: 'weak-swell',
+      };
     }
 
     // Small-quality: long period + good direction alignment + non-onshore.
@@ -282,36 +316,42 @@ export function getConditionCharacter(
         snapshot.primarySwell?.directionDeg ?? snapshot.waveDirection ?? null;
       const directionFit = calculateSwellDirectionFit(swellDirection, profile);
       if (directionFit >= 0.85) {
-        return {
+        return withoutReason({
           category: 'small-quality',
           label: 'Small but powerful — long-period energy',
-        };
+        });
       }
       if (directionFit >= 0.4) {
-        return {
+        return withoutReason({
           category: 'small-quality',
           label: 'Small with some push — angled swell',
-        };
+        });
       }
     }
 
     // Unknown wind neither blocks nor earns "clean": a neutral small day.
     if (windUnknown) {
-      return { category: 'small-clean', label: 'Small but surfable' };
+      return withoutReason({ category: 'small-clean', label: 'Small but surfable' });
     }
 
     // Small-clean: light wind, not onshore (8s+ period).
     if (windSpeed !== null && windSpeed <= 5 && !isOnshore) {
-      return { category: 'small-clean', label: 'Small & clean — glassy conditions' };
+      return withoutReason({ category: 'small-clean', label: 'Small & clean — glassy conditions' });
     }
 
     // Small-weak: onshore wind (8-11s period)
     if (isOnshore && windSpeed !== null && windSpeed > 5) {
-      return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
+      return {
+        character: { category: 'small-weak', label: 'Small & choppy — onshore wind' },
+        smallWeakReason: 'onshore-chop',
+      };
     }
 
     // Catch-all small fallback
-    return { category: 'small-weak', label: 'Small — marginal conditions' };
+    return {
+      character: { category: 'small-weak', label: 'Small — marginal conditions' },
+      smallWeakReason: 'marginal',
+    };
   }
 
   // 4. Medium waves (2–5ft)
@@ -321,32 +361,36 @@ export function getConditionCharacter(
   if (waveHeight < 5) {
     const tideIsGood = tideFit >= TIDE_FIT_GOOD_THRESHOLD;
     if (windUnknown) {
-      return tideIsGood && wavePeriod >= 10
-        ? { category: 'medium-clean', label: 'Lined up — good swell and tide' }
-        : { category: 'medium-mixed', label: 'Decent — some quality in the mix' };
+      return withoutReason(
+        tideIsGood && wavePeriod >= 10
+          ? { category: 'medium-clean', label: 'Lined up — good swell and tide' }
+          : { category: 'medium-mixed', label: 'Decent — some quality in the mix' }
+      );
     }
     const windIsGood = windQuality >= WIND_QUALITY_GOOD_THRESHOLD;
     if (windIsGood && tideIsGood && wavePeriod >= 10) {
-      return { category: 'medium-clean', label: 'Lined up — clean wind, good tide' };
+      return withoutReason({ category: 'medium-clean', label: 'Lined up — clean wind, good tide' });
     }
     if (windQuality < WIND_QUALITY_ROUGH_THRESHOLD) {
-      return {
+      return withoutReason({
         category: 'medium-rough',
         label: 'Mixed and choppy — wind-affected',
-      };
+      });
     }
-    return { category: 'medium-mixed', label: 'Decent — some quality in the mix' };
+    return withoutReason({ category: 'medium-mixed', label: 'Decent — some quality in the mix' });
   }
 
   // 5. Large waves (5ft+)
   if (windUnknown) {
-    return wavePeriod >= 10
-      ? { category: 'large-clean', label: 'Big groundswell — experts only' }
-      : { category: 'large-rough', label: 'Big surf — experts only' };
+    return withoutReason(
+      wavePeriod >= 10
+        ? { category: 'large-clean', label: 'Big groundswell — experts only' }
+        : { category: 'large-rough', label: 'Big surf — experts only' }
+    );
   }
   const windIsClean = windQuality >= WIND_QUALITY_CLEAN_THRESHOLD;
   if (windIsClean && wavePeriod >= 10) {
-    return { category: 'large-clean', label: 'Big and clean — groundswell, light wind' };
+    return withoutReason({ category: 'large-clean', label: 'Big and clean — groundswell, light wind' });
   }
-  return { category: 'large-rough', label: 'Big and rough — experts only' };
+  return withoutReason({ category: 'large-rough', label: 'Big and rough — experts only' });
 }
