@@ -1427,6 +1427,8 @@ async function scoreBeachForDiscovery(args: {
   personalizationReasons?: string[];
   dominantBoardClass?: BoardClass | null;
   boardClasses?: readonly BoardClass[];
+  /** Skill for the gated score only; copy keeps userSkillLevel. */
+  ratingSkillLevel?: SkillLevel | null;
 }): Promise<DetailedScore & { rankingTotal: number }> {
   const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
@@ -1455,7 +1457,7 @@ async function scoreBeachForDiscovery(args: {
   const displayScore = buildDiscoveryDisplayScore({
     beach,
     forecast,
-    userSkillLevel,
+    userSkillLevel: args.ratingSkillLevel !== undefined ? args.ratingSkillLevel : userSkillLevel,
     affinityBonus,
     distancePenalty,
     personalizationBonus: persBonus,
@@ -1812,6 +1814,9 @@ async function discoverSurfSpotsInner(
     ),
     buildCustomSpotCandidates(userId, userLocation, radiusMiles, savedSpotsOnly ? savedCustomSpots : undefined),
   ]);
+  const skillAware = isSkillAwareGoChecksOn(userId);
+  const ratingSkill = getSkillLevelOrDefault(userSkillLevel);
+  const scoringSkill = skillAware ? ratingSkill : userSkillLevel;
 
   // Explicit include targets and custom-spot host beaches reserve their slots
   // first; whatever is left of the pool budget goes to nearby discovery.
@@ -2177,7 +2182,7 @@ async function discoverSurfSpotsInner(
         ? (() => {
             const immediate = selectImmediateWindow(
               forecasts, beach, sunTimesCache, scopedStart ?? selectionNow,
-              userSkillLevel, boardClasses,
+              scoringSkill, boardClasses,
             );
             if (!immediate.window && immediate.afterDark && scopedForecast) {
               windowRejection = { gate: 'daylight', observed: { count: 1 } };
@@ -2191,7 +2196,7 @@ async function discoverSurfSpotsInner(
                 beach,
                 sunTimesCache,
                 nowForFallback,
-                userSkillLevel,
+                scoringSkill,
                 boardClasses,
               );
               if (immediate.afterDark) {
@@ -2211,7 +2216,7 @@ async function discoverSurfSpotsInner(
                   beachTz,
                   sunTimesCache,
                   nowForFallback,
-                  userSkillLevel,
+                  scoringSkill,
                   boardClasses,
                 ));
               }
@@ -2227,7 +2232,7 @@ async function discoverSurfSpotsInner(
                 timeSlot,
                 now: nowForFallback,
                 maxWindows: 3,
-                userSkillLevel,
+                userSkillLevel: scoringSkill,
                 boardClasses,
                 onRejection,
               })
@@ -2248,7 +2253,7 @@ async function discoverSurfSpotsInner(
         timeSlot,
         now: nowForFallback,
         maxWindows: 3,
-        userSkillLevel,
+        userSkillLevel: scoringSkill,
         boardClasses,
         onRejection,
       });
@@ -2330,6 +2335,7 @@ async function discoverSurfSpotsInner(
       personalizationReasons: persResult.reasons,
       dominantBoardClass,
       boardClasses,
+      ...(skillAware ? { ratingSkillLevel: ratingSkill } : {}),
     });
 
     // Apply water quality override after scoring
@@ -2395,6 +2401,16 @@ async function discoverSurfSpotsInner(
       beach,
       forecast: bestWindowForecast,
       score: detailedScore.total,
+      ...(skillAware
+        ? {
+            learner: {
+              skill: ratingSkill,
+              boardClass: scoreWindowConditionDetails(
+                bestWindowForecast, beach, ratingSkill, null, boardClasses,
+              ).boardClass,
+            },
+          }
+        : {}),
     });
     const baseRecommendation: SurfDiscoveryRecommendation = {
       kind: 'beach',
@@ -2470,6 +2486,7 @@ async function discoverSurfSpotsInner(
         personalizationReasons: customPersResult.reasons,
         dominantBoardClass,
         boardClasses,
+        ...(skillAware ? { ratingSkillLevel: ratingSkill } : {}),
       });
 
       if (wqStatus === 'closure') {
@@ -2508,6 +2525,16 @@ async function discoverSurfSpotsInner(
         beach: customBeach,
         forecast: customForecast,
         score: customDetailedScore.total,
+        ...(skillAware
+          ? {
+              learner: {
+                skill: ratingSkill,
+                boardClass: scoreWindowConditionDetails(
+                  customForecast, customBeach, ratingSkill, null, boardClasses,
+                ).boardClass,
+              },
+            }
+          : {}),
       });
       const customRecommendation: SurfDiscoveryRecommendation = {
         kind: 'custom_spot',
@@ -2634,7 +2661,7 @@ async function discoverSurfSpotsInner(
   // closure. An unreachable probe drops nothing, so the pool stays intact.
   const safeRecsScored = rankedRecommendations.map(
     ({ recommendation }) => recommendation,
-  ).filter((rec) => !savedSpotsOnly || getCanonicalRecommendationLabel(rec, userSkillLevel) === "Worth it");
+  ).filter((rec) => !savedSpotsOnly || getCanonicalRecommendationLabel(rec, scoringSkill) === "Worth it");
   for (const beachId of requestedIncludeBeachIds) {
     if (candidateRejections[beachId] || !allRecsScored.some((rec) => rec.beach.id === beachId)) continue;
     if (!rankedRecommendations.some(({ recommendation }) => recommendation.beach.id === beachId)) {
@@ -2662,7 +2689,7 @@ async function discoverSurfSpotsInner(
       rec,
       allHourly,
       scoringEngine,
-      userSkillLevel,
+      scoringSkill,
       boardClasses,
     );
   }
@@ -2807,7 +2834,7 @@ async function discoverSurfSpotsInner(
         horizonHours,
         sunTimesCache,
         timeSlot: 'late-morning',
-        userSkillLevel,
+        userSkillLevel: scoringSkill,
         boardClasses,
       });
       if (!lateWindow) continue;
@@ -2830,6 +2857,7 @@ async function discoverSurfSpotsInner(
         distanceMiles: distMiles,
         dominantBoardClass,
         boardClasses,
+        ...(skillAware ? { ratingSkillLevel: ratingSkill } : {}),
       });
       sleepInScores.set(rec.beach.id, lateScore.total);
     }
@@ -2891,7 +2919,7 @@ async function discoverSurfSpotsInner(
       sunTimesCache.get(rec.forecast.beach_id),
     ));
     rec.physicalRecommendationLabel ??= rec.recommendationLabel;
-    rec.recommendationLabel = getCanonicalRecommendationLabel(rec, userSkillLevel);
+    rec.recommendationLabel = getCanonicalRecommendationLabel(rec, scoringSkill);
     rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
     rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score, rec.character?.category);
     rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
