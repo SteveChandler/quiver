@@ -1378,6 +1378,39 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(query.is).toHaveBeenCalledWith('retired_at', null);
   });
 
+  describe('board class order under skill-aware go checks', () => {
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    test.each([
+      [false, ['shortboard', 'longboard']],
+      [true, ['longboard', 'shortboard']],
+    ] as const)('flag on %s gives board classes %j', async (on, expected) => {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = 'user-1';
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+      mockState.boards = [
+        { id: 'sb-1', name: 'Driver', board_type: 'shortboard' },
+        { id: 'lb-1', name: 'Log', board_type: 'longboard' },
+      ];
+
+      const context = await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', true);
+
+      expect(context.boardClasses).toEqual(expected);
+    });
+  });
+
   test('attaches condition-based board picks for Pro users with saved boards', async () => {
     mockState.boards = [
       { id: 'lb-1', name: "9'0 Torq Longboard", board_type: 'longboard', volume: 75 },

@@ -82,6 +82,8 @@ import { waterQualityCandidateRejection } from '@/lib/recommendations/major-even
 import type { WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
 import { isBoardPicksFreeEnabled } from '@/lib/flags/board-picks-free';
 import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
+import { orderBoardClasses } from '@/lib/profile/board-classes';
 import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from '@/lib/services/tide-series-loader';
 import { bridgeBeachForecastRows, tideWindowForRows } from './hourly-bridge-rows';
 import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
@@ -1248,10 +1250,11 @@ export async function fetchUserBoardContext(
   }
 
   const rows = data as unknown as UserBoardContextRow[];
+  const boardClasses = resolveBoardClasses(rows);
 
   return {
     dominantBoardClass: resolveDominantBoardClass(rows),
-    boardClasses: resolveBoardClasses(rows),
+    boardClasses: isSkillAwareGoChecksOn(userId) ? orderBoardClasses(boardClasses) : boardClasses,
     boardsForPicks: picksEnabled
       ? rows
           .map((row) => normalizeBoardForPick(row))

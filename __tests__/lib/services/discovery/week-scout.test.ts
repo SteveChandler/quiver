@@ -2023,6 +2023,54 @@ describe('generateWeekScoutForecast', () => {
       { beachId: BEACH_A, rankingScore: rawScores[BEACH_A] },
     ]);
   });
+
+  describe('board order under skill-aware go checks', () => {
+    const USER = 'go-check-user';
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    async function scoredBoardClasses(on: boolean): Promise<unknown> {
+      setFlag(on);
+      const deps = dependencies();
+      const row = forecast(BEACH_A, '2026-07-31T20:00:00.000Z');
+      deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Ala Moana')]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [row]]]));
+      deps.fetchBoardClasses = jest.fn(async () => ['shortboard' as const, 'longboard' as const]);
+      deps.scoreWindowCondition = jest.fn(() => 64);
+      await generateWeekScoutRankingForDays(USER, {
+        candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31', dayCount: 1,
+      }, deps);
+      // precondition: the scorer ran for the row
+      expect(deps.scoreWindowCondition).toHaveBeenCalled();
+      return (deps.scoreWindowCondition as jest.Mock).mock.calls[0][3];
+    }
+
+    it('keeps the read order with the flag off', async () => {
+      await expect(scoredBoardClasses(false)).resolves.toEqual(['shortboard', 'longboard']);
+    });
+
+    it('gives the scorer the fixed class order with the flag on', async () => {
+      await expect(scoredBoardClasses(true)).resolves.toEqual(['longboard', 'shortboard']);
+    });
+  });
 });
 
 describe('Week Scout hourly bridge', () => {

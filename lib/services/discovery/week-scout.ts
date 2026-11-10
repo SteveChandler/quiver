@@ -9,7 +9,7 @@ import {
   getCanonicalRecommendationLabel,
 } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
-import { fetchUserBoardClasses } from '@/lib/profile/board-classes';
+import { fetchUserBoardClasses, orderBoardClasses } from '@/lib/profile/board-classes';
 import { batchFetchForecasts } from '@/lib/services/discovery/forecast-batch-fetcher';
 import { getBatchSunTimes } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import {
@@ -100,6 +100,7 @@ import {
   type WeekScoutSwell,
 } from '@/lib/services/discovery/week-scout-swells';
 import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
 import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from '@/lib/services/tide-series-loader';
 import { bridgeBeachForecastRows } from '@/lib/services/discovery/hourly-bridge-rows';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
@@ -1318,7 +1319,9 @@ async function generateWeekScoutForecastScoped(
     deps.fetchSunTimes(beachIds, sunDates),
     deps.fetchRankingContext(userId),
     deps.fetchSkill(userId),
-    deps.fetchBoardClasses?.(userId) ?? Promise.resolve([]),
+    deps.fetchBoardClasses?.(userId).then((classes) => (
+      isSkillAwareGoChecksOn(userId) ? orderBoardClasses(classes) : classes
+    )) ?? Promise.resolve([]),
     tideRequest,
   ]);
   recordStage('ws-reads', performance.now() - forecastReadsStartedAt);

@@ -16,10 +16,10 @@ function toBoardClasses(boardTypes: ReadonlyArray<string | null>): BoardClass[] 
   );
 }
 
-// boards.id is a random uuid, so id order is not a real order. A fixed class order keeps
-// the scorer's first-board tie pick the same for every batch reader.
-function toCanonicalBoardClasses(boardTypes: ReadonlyArray<string | null>): BoardClass[] {
-  const present = new Set(toBoardClasses(boardTypes));
+// Row order is not a real order (no ORDER BY, or a random uuid id). On a tied score the
+// scorer keeps the first board, so go-check readers use this fixed class order.
+export function orderBoardClasses(boardClasses: readonly BoardClass[]): BoardClass[] {
+  const present = new Set(boardClasses);
   return BOARD_CLASSES.filter((boardClass) => present.has(boardClass));
 }
 
@@ -77,7 +77,7 @@ export async function fetchBoardClassesByUser(
     const chunk = ids.slice(start, start + BOARD_USER_CHUNK_SIZE);
     const boardTypesByUser = await fetchChunkBoardTypes(supabase, chunk);
     for (const userId of chunk) {
-      boardClassesByUser.set(userId, toCanonicalBoardClasses(boardTypesByUser?.get(userId) ?? []));
+      boardClassesByUser.set(userId, orderBoardClasses(toBoardClasses(boardTypesByUser?.get(userId) ?? [])));
     }
   }
 

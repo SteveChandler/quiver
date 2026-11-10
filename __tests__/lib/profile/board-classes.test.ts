@@ -1,6 +1,7 @@
 import {
   fetchBoardClassesByUser,
   fetchUserBoardClasses,
+  orderBoardClasses,
 } from "@/lib/profile/board-classes";
 import { createTableClient } from "@/__tests__/helpers/table-client";
 
@@ -119,5 +120,35 @@ describe("fetchBoardClassesByUser", () => {
 
     await expect(fetchBoardClassesByUser(client, [])).resolves.toEqual(new Map());
     expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe("orderBoardClasses", () => {
+  it("makes the single read match the batch read whatever the row order", async () => {
+    const boardTypes = ["shortboard", "fish", "longboard"];
+    for (const rows of [boardTypes, [...boardTypes].reverse()]) {
+      const single = createTableClient({
+        rows: { boards: rows.map((boardType, index) => row(index, "u0", boardType)) },
+      });
+      const batch = createTableClient({
+        rows: { boards: rows.map((boardType, index) => row(index, "u0", boardType)) },
+      });
+
+      const singleClasses = await fetchUserBoardClasses(single.client, "u0");
+      const batchClasses = (await fetchBoardClassesByUser(batch.client, ["u0"])).get("u0");
+
+      // precondition: the single read keeps row order, so the two reads differ without the helper
+      expect(singleClasses).toEqual(rows);
+      expect(orderBoardClasses(singleClasses)).toEqual(["longboard", "fish", "shortboard"]);
+      expect(orderBoardClasses(singleClasses)).toEqual(batchClasses);
+    }
+  });
+
+  it("dedupes and keeps the BOARD_CLASSES order", () => {
+    expect(orderBoardClasses(["shortboard", "foamie", "shortboard", "longboard"])).toEqual([
+      "foamie",
+      "longboard",
+      "shortboard",
+    ]);
   });
 });

@@ -10,6 +10,8 @@ import {
   type BoardClass,
 } from "@/lib/domains/rideability";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { isSkillAwareGoChecksOn } from "@/lib/flags/skill-aware-go-checks";
+import { orderBoardClasses } from "@/lib/profile/board-classes";
 import {
   forecastToMatchSlot,
   interpretRpcResult,
@@ -171,17 +173,18 @@ export async function fetchBulkDecisionContext(
       );
     }
   }
+  const boardClasses = [
+    ...new Set(
+      (data.boards as Array<{ board_type: string }>)
+        .map((board) => normalizeBoardClass(board.board_type))
+        .filter((board): board is BoardClass => board !== null),
+    ),
+  ];
   return {
     beaches: data.beaches,
     boards: Array.isArray(data.personalization?.boards) ? data.personalization.boards : [],
     skillLevel: parseSkillLevel(data.profile?.experience_level),
-    boardClasses: [
-      ...new Set(
-        (data.boards as Array<{ board_type: string }>)
-          .map((board) => normalizeBoardClass(board.board_type))
-          .filter((board): board is BoardClass => board !== null),
-      ),
-    ],
+    boardClasses: isSkillAwareGoChecksOn(userId) ? orderBoardClasses(boardClasses) : boardClasses,
     sunTimes,
     matches,
     rowDurationsMs,

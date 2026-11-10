@@ -520,6 +520,38 @@ it.each([false, true])('feature-detects board history with one RPC (present: %s)
   expect(mockFrom).not.toHaveBeenCalled();
 });
 
+describe("board class order under skill-aware go checks", () => {
+  const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+  const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+  afterEach(() => {
+    if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+    if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+  });
+
+  it.each([
+    [false, ["shortboard", "longboard"]],
+    [true, ["longboard", "shortboard"]],
+  ] as const)("flag on %s gives board classes %j", async (on, expected) => {
+    if (on) {
+      process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+      process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = id(800);
+    } else {
+      delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    }
+    const data = rpcData(1, NOW.toISOString());
+    data.boards = [{ board_type: "shortboard" }, { board_type: "longboard" }];
+    mockRpc.mockReturnValue(query(data));
+
+    const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
+
+    expect(context.boardClasses).toEqual(expected);
+  });
+});
+
 describe("bulk timeline daylight gate", () => {
   // 2026-09-23 San Diego: sunrise 06:39 PT, sunset 18:44 PT.
   const sun = {
