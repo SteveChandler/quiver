@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
+import { BOARD_CLASSES, normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
 import type { Database } from "@/types/database.generated";
 
 // Small chunks keep the `in()` URL short; paging gets past the PostgREST row cap.
@@ -14,6 +14,13 @@ function toBoardClasses(boardTypes: ReadonlyArray<string | null>): BoardClass[] 
         .filter((boardClass): boardClass is BoardClass => boardClass !== null)
     )
   );
+}
+
+// boards.id is a random uuid, so id order is not a real order. A fixed class order keeps
+// the scorer's first-board tie pick the same for every batch reader.
+function toCanonicalBoardClasses(boardTypes: ReadonlyArray<string | null>): BoardClass[] {
+  const present = new Set(toBoardClasses(boardTypes));
+  return BOARD_CLASSES.filter((boardClass) => present.has(boardClass));
 }
 
 export async function fetchUserBoardClasses(
@@ -70,7 +77,7 @@ export async function fetchBoardClassesByUser(
     const chunk = ids.slice(start, start + BOARD_USER_CHUNK_SIZE);
     const boardTypesByUser = await fetchChunkBoardTypes(supabase, chunk);
     for (const userId of chunk) {
-      boardClassesByUser.set(userId, toBoardClasses(boardTypesByUser?.get(userId) ?? []));
+      boardClassesByUser.set(userId, toCanonicalBoardClasses(boardTypesByUser?.get(userId) ?? []));
     }
   }
 

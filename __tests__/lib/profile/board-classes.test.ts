@@ -94,6 +94,26 @@ describe("fetchBoardClassesByUser", () => {
     }
   });
 
+  it("gives the same class order whatever the board ids", async () => {
+    const read = async (boardTypes: string[]) => {
+      const { client } = createTableClient({
+        rows: { boards: boardTypes.map((boardType, index) => row(index, "u0", boardType)) },
+      });
+      return (await fetchBoardClassesByUser(client, ["u0"])).get("u0");
+    };
+
+    await expect(read(["shortboard", "fish", "longboard"])).resolves.toEqual([
+      "longboard",
+      "fish",
+      "shortboard",
+    ]);
+    await expect(read(["longboard", "shortboard", "fish"])).resolves.toEqual([
+      "longboard",
+      "fish",
+      "shortboard",
+    ]);
+  });
+
   it("makes no query for no users", async () => {
     const { client, from } = createTableClient();
 
