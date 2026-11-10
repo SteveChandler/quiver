@@ -69,6 +69,14 @@ Data (prod, read-only, 2026-11-09):
 - `DailyCallProfile` (`daily-call-runner.ts:~100`) gets `boardClasses`. `loadDailyCallProfiles` (`:851`) loads them for the profiles it returns, in one query for all users, not one per user.
 - The swell alert's profile loader does the same, and its `evaluateForecastVerdict` call (`swell-alert-runner.ts:601`) passes them.
 - Result: for a user with no boards, nothing changes. For a user with boards, the row score can only go up (the scorer keeps the best of the baseline and each board, `window-scorer.ts:153-203`). The vetoes are still applied after the score.
+- **Boards count for every user, free or Pro (my call).** Week Scout already scores with boards for everyone, with no entitlement check. The swell alert also reads boards through `fetchUserBoardContext(..., tier === "premium")` (`swell-alert-runner.ts:653`) for the board pick it shows. That entitlement rule stays for the board pick, but the go check uses the shared, ungated loader.
+- **One score per row, everywhere it is read (my call).** In the swell alert, the same board-aware verdict also feeds `buildScoreHistory` (the "first good day after flat" logic) and `peakScore` ordering. That is intended: a user must not get a different score for the same row in two parts of one push.
+
+### D1b. The forecast check gets the same character gate as Week Scout (my call)
+
+- Today `evaluateForecastVerdict` labels the row with `getRecommendationLabel(score)` and no character gate (`canonical-forecast-verdict.ts:66`). Only Week Scout gates.
+- D1 raises scores for board owners. Without a gate, the non-shared Daily Call path and the swell alert could send a choppy onshore day that a foamie lifted to 70 or more. That breaks anti-goal 3.
+- So, behind the flag, `evaluateForecastVerdict` computes the character (as `resolveRecommendationLabel` does) and uses the D2 gate with the same learner context. The forecast check and Week Scout then agree on the label as well as the score.
 
 ### D2. The character gate uses skill and board
 
@@ -81,13 +89,19 @@ Data (prod, read-only, 2026-11-09):
 - These thresholds (3 ft, 1 ft, 6 s) are my call. Steven checks them (section 9).
 - `getConditionCharacter` returns which `small-weak` branch it took, so the gate does not re-derive it. Add a field to its result, for example `reason: 'onshore-chop' | 'weak-swell' | 'marginal'`. The user-facing `label` text does not change.
 - `resolveRecommendationLabel` (`recommendation-label.ts:16`) takes the skill and best board and passes them on. Week Scout calls it at `week-scout.ts:739` and already has both.
+- **Every caller of the gate follows D2 behind the flag (my call).** Besides Week Scout and D1b, `resolveRecommendationLabel` / `getRecommendationLabelGated` are called from `surf-discovery-orchestrator.ts` (2 places), `lib/services/forecast/bulk-decision-context.ts:213` and `lib/utils/surf-call-logic.ts:751`. All of them pass the learner context, so an allowlisted user does not see "Worth it" on Week Scout and "Maybe" on Beach Detail or the timeline (anti-goal 2). Where a caller has no user boards today, it loads them with the shared loader. The builder lists every caller with `git grep` and covers each one.
 - Outside learner context the gate is exactly as today.
 
 ### D3. One default for no skill level
 
-- My recommendation: beginner everywhere. The code's own default is beginner "for safety" (`skill-level.ts:19-21`), Week Scout already uses it, and the engine already caps these users at 4 ft.
-- Then `window-scorer.ts:136-139` resolves a null skill to beginner instead of intermediate, and the engine runs its beach-skill check for these users as beginners.
-- Effect: for these 54 users, scores on bigger days go down and advanced beaches are vetoed. This is Steven's decision (section 9).
+D3 has two parts. Both apply only behind the flag, at the call sites, not inside the shared scorer or engine. `resolveNativeSkillLevel(..., "intermediate")` in the scorer and the engine's `"unknown"` skill stay as they are for flag-off and non-flagged callers, so "flag off is identical" holds.
+
+- **D3a. The score (my call, always with the flag).** The flagged call sites resolve a null skill to beginner before they call the scorer. Week Scout already scores these users as beginners (`week-scout.ts:703`). So the forecast check moves to Week Scout's choice. This is needed for G1: without it, the forecast check scores these 54 users as intermediate and Week Scout scores them as beginners.
+- **D3b. The engine (Steven decides, section 9).** The flagged call sites also pass beginner as `profileExperience` to the canonical engine instead of null. Effects for these users:
+  - the beach-skill check runs, so beaches rated above beginner are vetoed;
+  - the personal match verdict starts to apply (today the engine skips it when skill is unknown, `engine.ts` `skill === "unknown" ? null`).
+- If Steven says no to D3b, D3a still ships, and the engine keeps treating these users as unknown (beginner wave cap, no beach-skill check).
+- About five call sites pass `profileExperience` (Week Scout `week-scout.ts:1236`, `bulk-decision-context.ts`, `resolveHeldBeaches`, the swell alert, the Daily Call). Each is flag-gated with its own test.
 
 ### D4. Rollout
 
@@ -119,10 +133,12 @@ Data (prod, read-only, 2026-11-09):
 - The exact file for the shared board loader and how the Daily Call batches it.
 - How the flag reaches the gate (argument or a resolved context object).
 - Whether `small-weak`'s branch is a new field or a finer category, as long as the label text and other callers do not change.
+- Whether the board band already lowers the score for chop. D1b's gate is the guard either way; note what you find in the PR.
+- **Must check: Week Scout caching.** Confirm that no cache keyed without the flag state serves one user's labels to another, or serves flag-off labels to an allowlisted user. If a cache key needs the flag state, add it.
 - Native Beach Detail: record in the PR whether its phone-side score now disagrees with Week Scout for allowlisted users, and open a follow-up issue if it does. Do not change native in this work.
 
 ## 9. Steven decides
 
 1. **D2 thresholds:** "Worth it" for learners on `medium-mixed` under 3 ft, and on weak-swell `small-weak` at 1 ft or more with a period of 6 s or more. Are these the days you mean?
-2. **D3:** should users with no skill level be treated as beginners everywhere?
+2. **D3b:** for the 54 users with no skill level, should the safety engine treat them as beginners too? That vetoes beaches rated above beginner for them and turns on their personal match verdict. (D3a, scoring them as beginners, ships either way, because Week Scout already does it.)
 3. **Scope of learner context:** beginner skill OR a clean-preferring best board. Should an intermediate on a longboard also get the learner gate? This design says yes.
