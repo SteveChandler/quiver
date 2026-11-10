@@ -46,7 +46,7 @@ describe("swell-map-theme tokens", () => {
     });
     expect(SWELL_FIELD_DARK_STAGE_DIM).toEqual({ color: "#252D6B", opacity: 0.4 });
     expect(SWELL_FIELD_DARK_STAGE_WATER).toBe("#4B78A9");
-    expect(SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE).toBe(1.9);
+    expect(SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE).toBe(0.81);
     const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
     const values = Object.values(SWELL_FIELD_PARTICLE_COLOR).map((c) => c.toLowerCase());
     for (const bad of banned) expect(values).not.toContain(bad);

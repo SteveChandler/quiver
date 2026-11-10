@@ -7,8 +7,10 @@ import type {
 import {
   BIRTH_FADE_PORTION,
   DASH_FRACTION,
-  DASH_WIDTH_PX_BASE,
-  DASH_WIDTH_PX_GAIN,
+  CREST_DEPTH_ASPECT,
+  CREST_SOLID_PORTION,
+  CREST_WAKE_START_ALPHA,
+  crestSizeScale,
   DEATH_FADE_PORTION,
   FRAME_MS,
   LIFE_JITTER_FRAMES,
@@ -77,6 +79,26 @@ void main() {
   gl_FragColor = vec4(u_color, v_alpha * u_alpha);
 }
 `;
+
+// Vertex order of a quad: A-near, A-far, B-far, A-near, B-far, B-near.
+const QUAD_NEAR_EDGE = [true, false, false, true, false, true] as const;
+
+/**
+ * Write one quad of a crest mark: the crest runs from A (centre - c) to B
+ * (centre + c), and the quad spans `near` to `far` along travel `u`.
+ */
+function writeCrestQuad(
+  out: Float64Array, offset: number, x: number, y: number,
+  cx: number, cy: number, ux: number, uy: number, near: number, far: number,
+): void {
+  const nx = ux * near, ny = uy * near, fx = ux * far, fy = uy * far;
+  out[offset + 0] = x - cx + nx; out[offset + 1] = y - cy + ny;
+  out[offset + 2] = x - cx + fx; out[offset + 3] = y - cy + fy;
+  out[offset + 4] = x + cx + fx; out[offset + 5] = y + cy + fy;
+  out[offset + 6] = x - cx + nx; out[offset + 7] = y - cy + ny;
+  out[offset + 8] = x + cx + fx; out[offset + 9] = y + cy + fy;
+  out[offset + 10] = x + cx + nx; out[offset + 11] = y + cy + ny;
+}
 
 /** Pick a fresh in-box spawn point. `rng` injectable for deterministic tests. */
 export function reseedParticle(rng: () => number, box: MercatorBox): ParticleSeed {
@@ -452,11 +474,11 @@ export function createSwellParticleLayer(
   // Wind renders as a wiggling "worm": a short sinuous polyline. Each segment is a
   // GL LINES pair, so a worm of N segments needs N*2 vertices.
   const STREAK_SEGMENTS = 10;
-  // A dash is drawn as a width-controllable quad (two triangles = 6 verts) instead
-  // of a 1px GL line, because gl.lineWidth is pinned to 1px on most drivers and the
-  // hairline crest washed out on the bright basemap. Streak stays a polyline; dot a point.
+  // A dash is native's crest chip: a solid crest quad plus a fading wake quad
+  // (two triangles each = 12 verts), since gl.lineWidth is pinned to 1px on most
+  // drivers. Streak stays a polyline; dot a point.
   const verticesPerParticle =
-    markStyle === "dot" ? 1 : markStyle === "streak" ? STREAK_SEGMENTS * 2 : 6;
+    markStyle === "dot" ? 1 : markStyle === "streak" ? STREAK_SEGMENTS * 2 : 12;
   const clampMotion = (v: number | undefined, fallback: number): number =>
     v != null && Number.isFinite(v) ? Math.max(0, v) : fallback;
   const clampSmoothing = (v: number | undefined, fallback: number): number =>
@@ -620,10 +642,10 @@ export function createSwellParticleLayer(
     const motionScale = clampMotion(dyn?.motionScale, staticMotionScale);
     const velocitySmoothing = clampSmoothing(dyn?.velocitySmoothing, staticVelocitySmoothing);
     const dashLengthScale = clampDashScale(dyn?.dashLengthScale, staticDashLengthScale);
-    // Mercator units per device pixel, so dash thickness can be set in pixels for a
-    // consistent on-screen weight regardless of zoom or DPR.
+    // Mercator units per device pixel: the crest is never thinner than one.
     const canvasWidthPx = map.getCanvas().width || 1;
     const mercPerPx = span / canvasWidthPx;
+    const crestScale = crestSizeScale(map.getCanvas().clientWidth || 0);
     const { cols: seedCols, rows: seedRows } = gridDimensions(count, box);
     const seedCellWidth = (box.maxX - box.minX) / seedCols;
     const seedCellHeight = (box.maxY - box.minY) / seedRows;
@@ -758,34 +780,33 @@ export function createSwellParticleLayer(
         continue;
       }
 
-      // Draw a fixed-length crest mark PERPENDICULAR to the flow vector, centered on
-      // the particle (visible length is independent of drift speed). It is a quad
-      // (two triangles), not a 1px line, so it has real width and reads on the light
-      // basemap; stronger swell -> longer and thicker.
+      // Native's crest chip, centred on the particle: a crest PERPENDICULAR to the
+      // flow (its length is independent of drift speed), a solid band at the leading
+      // edge and a wake fading behind it. Depth is length / 1.6, so strength grows
+      // the whole mark.
       const vlen = Math.hypot(flowVx, flowVy) || 1;
+      const ux = flowVx / vlen;
+      const uy = flowVy / vlen;
       const dashHalf =
-        span * DASH_FRACTION * dashLengthScale * (0.45 + strength) * 0.5;
-      // Crest direction (perpendicular to flow) gives the dash its length...
-      const cx = (-flowVy / vlen) * dashHalf;
-      const cy = (flowVx / vlen) * dashHalf;
-      // ...flow direction gives the dash its thickness, in pixels for crisp weight.
-      const halfWidth = (DASH_WIDTH_PX_BASE + strength * DASH_WIDTH_PX_GAIN) * 0.5 * mercPerPx;
-      const wx = (flowVx / vlen) * halfWidth;
-      const wy = (flowVy / vlen) * halfWidth;
-      const ax = px[i] - cx;
-      const ay = py[i] - cy;
-      const bx = px[i] + cx;
-      const by = py[i] + cy;
+        span * crestScale * DASH_FRACTION * dashLengthScale * (0.45 + strength) * 0.5;
+      const depth = (dashHalf * 2) / CREST_DEPTH_ASPECT;
+      const solid = Math.max(depth * CREST_SOLID_PORTION, mercPerPx);
+      // Crest direction (perpendicular to flow) gives the dash its length.
+      const cx = -uy * dashHalf;
+      const cy = ux * dashHalf;
+      // Leading edge, back of the solid band, and back of the wake along travel.
+      const front = depth * 0.5;
+      const mid = front - solid;
+      const back = -depth * 0.5;
       const baseVertex = i * verticesPerParticle;
-      let o = baseVertex * 2;
-      // Triangle 1: A-side near, A-side far, B-side far. Triangle 2: A near, B far, B near.
-      vertexPos[o + 0] = ax - wx; vertexPos[o + 1] = ay - wy;
-      vertexPos[o + 2] = ax + wx; vertexPos[o + 3] = ay + wy;
-      vertexPos[o + 4] = bx + wx; vertexPos[o + 5] = by + wy;
-      vertexPos[o + 6] = ax - wx; vertexPos[o + 7] = ay - wy;
-      vertexPos[o + 8] = bx + wx; vertexPos[o + 9] = by + wy;
-      vertexPos[o + 10] = bx - wx; vertexPos[o + 11] = by - wy;
-      for (let v = 0; v < 6; v += 1) vertexAlpha[baseVertex + v] = fade;
+      writeCrestQuad(vertexPos, baseVertex * 2, px[i], py[i], cx, cy, ux, uy, front, mid);
+      writeCrestQuad(vertexPos, baseVertex * 2 + 12, px[i], py[i], cx, cy, ux, uy, mid, back);
+      // Solid crest at full fade; the wake's near edge starts at 0.85 and its far edge is clear.
+      const wake = fade * CREST_WAKE_START_ALPHA;
+      for (let v = 0; v < 6; v += 1) {
+        vertexAlpha[baseVertex + v] = fade;
+        vertexAlpha[baseVertex + 6 + v] = QUAD_NEAR_EDGE[v] ? wake : 0;
+      }
     }
   }
 
@@ -908,7 +929,7 @@ export function createSwellParticleLayer(
         gl.lineWidth(1);
         gl.drawArrays(gl.LINES, 0, activeCount * verticesPerParticle);
       } else {
-        // Dash: quads (two triangles per particle) for real, controllable width.
+        // Dash: crest and wake quads (four triangles per particle).
         gl.drawArrays(gl.TRIANGLES, 0, activeCount * verticesPerParticle);
       }
 

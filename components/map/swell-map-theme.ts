@@ -72,7 +72,10 @@ export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
 
 export const SWELL_FIELD_DARK_STAGE_DIM = { color: "#252D6B", opacity: 0.4 } as const;
 export const SWELL_FIELD_DARK_STAGE_WATER = "#4B78A9";
-export const SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE = 1.9;
+// Native crest length is viewport width x 0.008 x 3.23 x layer scale x (0.45 + strength)
+// (quiver-native condition-vector-grid.ts spriteWidthForFrame). Web draws
+// DASH_FRACTION (0.032) x this scale x the same terms, so 0.02584 / 0.032 = 0.81.
+export const SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE = 0.81;
 
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue
 // (#9E5010, AA-safe), NEVER bg-[#f78e42] white-text (2.36:1 AA fail). Decorative orange
