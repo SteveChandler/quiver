@@ -109,6 +109,12 @@ const expectedLearnMetadata = [
     description:
       "Wave diffraction is swell spreading sideways into the shadow behind an island, jetty or harbor wall. On the shadow line, waves run about half size.",
   },
+  {
+    slug: "what-is-a-king-tide",
+    title: "What Is a King Tide? California Dates and Surf",
+    description:
+      "A king tide is the highest tide of the year, set by a full or new moon at its closest. California's run Nov 24-26, Dec 23-25 and Jan 21-22.",
+  },
 ];
 
 describe("learn article SEO metadata", () => {
