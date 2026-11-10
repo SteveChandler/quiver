@@ -1178,6 +1178,9 @@ describe('generateWeekScoutForecast', () => {
     // A stale client date never yields an already-expired answer.
     expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-07', 'America/Los_Angeles'))
       .toBe('2026-11-09T19:06:00.000Z');
+    // A client date ahead of the server's never stretches an answer past 25 hours.
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-12', 'America/Los_Angeles'))
+      .toBe('2026-11-10T19:06:00.000Z');
     expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-09', 'Not/AZone'))
       .toBe('2026-11-09T19:06:00.000Z');
   });

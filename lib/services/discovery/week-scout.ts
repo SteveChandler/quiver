@@ -113,6 +113,8 @@ const WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX = '+hourly-bridge-v1';
 const HOUR_MS = 60 * 60 * 1000;
 // Fallback life of an answer when the request's local date cannot give a day end.
 const WEEK_SCOUT_FALLBACK_TTL_MS = 60 * 60 * 1000;
+// A correct local date ends within 25 h (a DST day); a client date ahead of ours must not stretch it.
+const WEEK_SCOUT_MAX_TTL_MS = 25 * 60 * 60 * 1000;
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 // The swell reads start with the forecast fetch, so this bounds the extra
 // wait after the main result is ready; a slower snapshot read omits `swells`.
@@ -586,7 +588,7 @@ export function weekScoutAnswerExpiry(
   if (!Number.isFinite(dayEndMs) || dayEndMs <= generatedMs) {
     return new Date(generatedMs + WEEK_SCOUT_FALLBACK_TTL_MS).toISOString();
   }
-  return new Date(dayEndMs).toISOString();
+  return new Date(Math.min(dayEndMs, generatedMs + WEEK_SCOUT_MAX_TTL_MS)).toISOString();
 }
 
 function isSafe(score: DetailedScore): boolean {
