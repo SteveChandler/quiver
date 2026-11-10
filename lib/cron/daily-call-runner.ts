@@ -13,6 +13,9 @@ import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-ca
 import { capNearbyPool, loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import { resolveHeldPushBeaches, type ResolveHeldPushBeaches } from "@/lib/alerts/push-beach-holds";
 import { isSharedCallRankingEnabled, isSharedCallRankingUserAllowed } from "@/lib/flags/shared-call-ranking";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
+import { fetchBoardClassesByUser } from "@/lib/profile/board-classes";
+import type { BoardClass } from "@/lib/domains/rideability";
 import { selectDayCall } from "@/lib/recommendations/day-call";
 import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
 import {
@@ -106,6 +109,11 @@ export interface DailyCallProfile {
   preferredSessionTime?: SessionTime | null;
   anchor?: { lat: number; lon: number } | null;
   homeBeach: Beach | null;
+  /**
+   * Present only when the user was on the skill-aware go-check path at load
+   * time; `[]` means no boards.
+   */
+  boardClasses?: readonly BoardClass[];
 }
 
 interface CandidateBuildResult {
@@ -413,6 +421,7 @@ function evaluateForecast(
     timezone: resolveBeachTimezone(pool.beach.timezone || timezone),
     now,
     candidateIdPrefix: "daily-call",
+    ...(profile.boardClasses ? { goChecks: { boardClasses: profile.boardClasses } } : {}),
   });
 }
 
@@ -460,7 +469,7 @@ function decisionForWindow(
   const decision = buildCanonicalSessionDecision({
     anchorTime: now.toISOString(),
     scope: { kind: "plan_next_session", windowStart: window.start, windowEnd: window.end, timezone: beachTimezone },
-    profileExperience: profile.experienceLevel,
+    profileExperience: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
     recommendationAvailability: {
       state: "available",
       holdEpoch: evaluation.decision.holdEpoch,
@@ -675,7 +684,8 @@ export async function buildCandidates(
         userPrefs: null,
         now: args.now,
         maxWindows: 1,
-        userSkillLevel: args.profile.experienceLevel,
+        userSkillLevel: ratingExperience(args.profile.experienceLevel, args.profile.boardClasses !== undefined),
+        ...(args.profile.boardClasses ? { boardClasses: args.profile.boardClasses } : {}),
       })[0];
       const window = capToBestWindow(refined, selected);
       const serving = forecastsServingWindow(beachForecasts, window, args.now);
@@ -788,7 +798,7 @@ async function buildSharedCall(
       startsAt: window.displayWindowStart,
       endsAt: window.displayWindowEnd,
     })),
-    profileExperience: profile.experienceLevel,
+    profileExperience: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
     asOf: now,
   });
   const heldReason = (window: WeekScoutWindowResponse): string | undefined =>
@@ -875,6 +885,8 @@ async function loadProfiles(
   }
   const locations = new Map((locationsResult.data ?? []).map((row) => [row.user_id, row]));
   const beaches = new Map(((beachesResult.data ?? []) as Beach[]).map((beach) => [beach.id, beach]));
+  const goCheckIds = new Set(loadedUserIds.filter(isSkillAwareGoChecksOn));
+  const boards = goCheckIds.size > 0 ? await fetchBoardClassesByUser(supabase, [...goCheckIds]) : null;
   return rows.map((row) => ({
     id: row.id,
     homeBeachId: row.home_beach_id,
@@ -887,6 +899,7 @@ async function loadProfiles(
     preferredSessionTime: parseSessionTime(row.preferred_session_time),
     location: locations.get(row.id) ?? null,
     homeBeach: row.home_beach_id ? beaches.get(row.home_beach_id) ?? null : null,
+    ...(boards && goCheckIds.has(row.id) ? { boardClasses: boards.get(row.id) ?? [] } : {}),
   }));
 }
 
@@ -1089,7 +1102,7 @@ export async function runDailyCallCron(args: {
             startsAt: candidate.window.start,
             endsAt: candidate.window.end,
           })),
-          profileExperience: profile.experienceLevel,
+          profileExperience: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
           asOf: args.now,
         });
         const heldReason = (candidate: DailyCallCandidate): string | undefined =>

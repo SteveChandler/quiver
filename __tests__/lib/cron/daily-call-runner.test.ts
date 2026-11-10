@@ -59,7 +59,12 @@ import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-e
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { parseDailyCallPayload } from "@/lib/notifications/types/daily-call";
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
-import type { Database } from "@/types/database";
+import type { Beach, Database } from "@/types/database";
+import type { BoardClass } from "@/lib/domains/rideability";
+import {
+  SKILL_AWARE_GO_CHECKS_ENABLED_FLAG,
+  SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG,
+} from "@/lib/flags/skill-aware-go-checks";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 const now = new Date("2026-09-16T13:00:00.000Z");
@@ -522,8 +527,8 @@ describe("daily call advertised window decisions", () => {
     confidence_score: hour === 5 ? 84 : 70,
   }));
 
-  async function build(forecasts = rows, asOf = runNow): ReturnType<typeof buildCandidates> {
-    const client = {
+  function forecastClient(forecasts: EnhancedForecastEntity[]): SupabaseClient<Database> {
+    return {
       from: jest.fn((table: string) => {
         const query = {
           select: () => query, in: () => query, eq: () => query,
@@ -534,6 +539,10 @@ describe("daily call advertised window decisions", () => {
         return query;
       }),
     } as unknown as SupabaseClient<Database>;
+  }
+
+  async function build(forecasts = rows, asOf = runNow): ReturnType<typeof buildCandidates> {
+    const client = forecastClient(forecasts);
     return buildCandidates(client, new TideCache(), {
       profile, pool: [beach], timezone: "America/Los_Angeles", alertDate: "2026-10-15", now: asOf,
     });
@@ -597,6 +606,35 @@ describe("daily call advertised window decisions", () => {
     expect(Date.parse(decision.expiresAt)).toBeGreaterThanOrEqual(Date.parse(payload.window_end as string));
     expect(Date.parse(decision.expiresAt)).toBeGreaterThan(Date.parse(decision.createdAt));
     expect(parseDailyCallPayload(payload)).not.toBeNull();
+  });
+
+  it("shapes the window with the rating skill and boards only on the go-check path (:672)", async () => {
+    const realVerdict = jest.requireActual("@/lib/alerts/canonical-forecast-verdict")
+      .evaluateForecastVerdict as typeof evaluateForecastVerdict;
+    // Both runs need go rows to reach the selector, so the verdict ignores the profile.
+    jest.mocked(evaluateForecastVerdict).mockImplementation(({ goChecks: _goChecks, ...args }) =>
+      realVerdict({ ...args, experienceLevel: "intermediate" } as Parameters<typeof evaluateForecastVerdict>[0]));
+    const shapeArgs = async (override: Partial<DailyCallProfile>): Promise<Record<string, unknown>> => {
+      const selector = jest.mocked(selectBestWindows);
+      selector.mockClear();
+      await buildCandidates(forecastClient(rows), new TideCache(), {
+        profile: { ...profile, ...override },
+        pool: [beach],
+        timezone: "America/Los_Angeles",
+        alertDate: "2026-10-15",
+        now: runNow,
+      });
+      expect(selector).toHaveBeenCalled(); // precondition
+      return selector.mock.calls[0][0] as unknown as Record<string, unknown>;
+    };
+
+    const off = await shapeArgs({ experienceLevel: null });
+    expect(off.userSkillLevel).toBeNull();
+    expect("boardClasses" in off).toBe(false);
+
+    const on = await shapeArgs({ experienceLevel: null, boardClasses: ["longboard"] });
+    expect(on.userSkillLevel).toBe("beginner");
+    expect(on.boardClasses).toEqual(["longboard"]);
   });
 
   it("skips a window at its end even when a row still has grid coverage", async () => {
@@ -1605,6 +1643,151 @@ describe("shared ranking (flag on)", () => {
     const result = await runDailyCallCron({ now, supabase, deps: mocked });
     expect(result).toMatchObject({ sent: 1, errors: 0 });
     expect(mocked.rankDay).toHaveBeenCalledTimes(1);
+  });
+
+  describe("skill-aware go checks (flag on)", () => {
+    const goChecksEnabledBefore = process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG];
+    const goChecksAllowlistBefore = process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG];
+    const realVerdict = jest.requireActual("@/lib/alerts/canonical-forecast-verdict")
+      .evaluateForecastVerdict as typeof evaluateForecastVerdict;
+    const runAt = new Date("2026-09-16T13:08:00.000Z");
+    const learnerHome: PoolBeach = {
+      ...home,
+      beach: {
+        ...home.beach, lat: 32.89, lon: -117.25, skill_level: "beginner", wind_offshore_deg: 90,
+      } as PoolBeach["beach"],
+    };
+    const peak = sharedForecast(blacksId, {
+      id: "peak",
+      wave_height: "1",
+      wave_period: "11",
+      wind_speed: "3",
+      wind_direction: "E",
+      wind_direction_deg: 90,
+    });
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG] = "true";
+        process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG] = userId;
+        return;
+      }
+      delete process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG];
+      delete process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG];
+    }
+
+    async function runShared(
+      { experienceLevel = "beginner", boardClasses }: {
+        experienceLevel?: string | null;
+        boardClasses?: BoardClass[];
+      },
+      extra: Partial<DailyCallDeps & DailyCallRankingDeps> = {},
+    ): Promise<{
+      result: Awaited<ReturnType<typeof runDailyCallCron>>;
+      mocked: DailyCallDeps & DailyCallRankingDeps;
+    }> {
+      verdict.mockClear();
+      setFlag(boardClasses !== undefined);
+      const mocked = sharedDeps(day([window(blacksId)]), {
+        loadProfiles: jest.fn(async () => [{
+          ...profile,
+          homeBeach: learnerHome.beach,
+          experienceLevel,
+          ...(boardClasses !== undefined ? { boardClasses } : {}),
+        }]),
+        loadPool: jest.fn(async () => [learnerHome]),
+        loadBeachDay: jest.fn(async () => ({ forecasts: [peak], tideSamples: null })),
+        ...extra,
+      });
+      const result = await runDailyCallCron({ now: runAt, supabase, deps: mocked });
+      return { result, mocked };
+    }
+
+    function heldExperience(mocked: DailyCallDeps): unknown[] {
+      return jest.mocked(mocked.resolveHeldBeaches).mock.calls.map(([args]) => args.profileExperience);
+    }
+
+    beforeEach(() => {
+      verdict.mockImplementation(realVerdict);
+    });
+
+    afterEach(() => {
+      if (goChecksEnabledBefore === undefined) delete process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG];
+      else process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG] = goChecksEnabledBefore;
+      if (goChecksAllowlistBefore === undefined) delete process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG];
+      else process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG] = goChecksAllowlistBefore;
+    });
+
+    it("sends a beginner with a longboard on a clean 1 ft row on the shared path", async () => {
+      const off = await runShared({});
+      expect(off.result.sent).toBe(0);
+      expect(off.result.skippedCounts.no_in_window_row).toBe(1); // precondition
+
+      const on = await runShared({ boardClasses: ["longboard"] });
+      expect(on.result.sent).toBe(1);
+    });
+
+    it("rates a no-skill user as beginner in the window decision only on the go-check path (:463)", async () => {
+      verdict.mockImplementation((args) => realVerdict({
+        ...args,
+        beach: args.beach as Beach,
+        experienceLevel: "beginner",
+        goChecks: { boardClasses: ["longboard"] },
+      }));
+      const decisionSkill = (mocked: DailyCallDeps): unknown => {
+        const payload = jest.mocked(mocked.enqueue).mock.calls[0][0].payload!;
+        return (payload.session_decision as ForecastVerdict["decision"]).skillEligibility.skill;
+      };
+
+      const off = await runShared({ experienceLevel: null });
+      expect(off.result.sent).toBe(1); // precondition
+      expect(decisionSkill(off.mocked)).toBe("unknown");
+
+      const on = await runShared({ experienceLevel: null, boardClasses: [] });
+      expect(on.result.sent).toBe(1);
+      expect(decisionSkill(on.mocked)).toBe("beginner");
+    });
+
+    it("passes beginner to the non-shared hold check only on the go-check path (:1092)", async () => {
+      const extra = { usesSharedRanking: () => false };
+
+      const off = await runShared({ experienceLevel: null }, extra);
+      expect(off.mocked.buildCandidates).toHaveBeenCalled(); // precondition
+      expect(heldExperience(off.mocked)).toEqual([null]);
+
+      const on = await runShared({ experienceLevel: null, boardClasses: [] }, extra);
+      expect(on.mocked.buildCandidates).toHaveBeenCalled(); // precondition
+      expect(heldExperience(on.mocked)).toEqual(["beginner"]);
+    });
+
+    it("passes beginner to the shared hold check for a no-skill user only on the go-check path (:791)", async () => {
+      const off = await runShared({ experienceLevel: null });
+      expect(off.mocked.buildCandidates).not.toHaveBeenCalled(); // precondition
+      expect(heldExperience(off.mocked)).toEqual([null]);
+
+      const on = await runShared({ experienceLevel: null, boardClasses: [] });
+      const experiences = heldExperience(on.mocked);
+      expect(experiences.length).toBeGreaterThan(0);
+      expect(experiences.every((experience) => experience === "beginner")).toBe(true);
+    });
+
+    it("behaves as today for the same user with no boards", async () => {
+      const { durationMs: _offDuration, ...off } = (await runShared({})).result;
+      const { durationMs: _onDuration, ...on } = (await runShared({ boardClasses: [] })).result;
+      expect(on).toEqual(off);
+    });
+
+    it("adds goChecks to the verdict arguments only on the go-check path", async () => {
+      await runShared({});
+      const offCalls = verdict.mock.calls.map(([args]) => args);
+      expect(offCalls.length).toBeGreaterThan(0);
+      expect(offCalls.some((args) => "goChecks" in args)).toBe(false);
+
+      await runShared({ boardClasses: ["longboard"] });
+      const onCalls = verdict.mock.calls.map(([args]) => args);
+      expect(onCalls.length).toBeGreaterThan(0);
+      expect(onCalls.every((args) => args.goChecks?.boardClasses[0] === "longboard")).toBe(true);
+    });
   });
 });
 
