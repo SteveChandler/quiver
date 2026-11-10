@@ -118,7 +118,13 @@ Steven: "we should have a popup on next time they come and let them know why the
 - Mount in `home.tsx` next to `FoundingGiftSheet`. Gate on `homeOfferReady`, `InteractionManager`, a 1.5 s settle, the `canPresent` checks from `use-founding-gift.ts:46-64`, and `claimSessionAsk('skill_default_notice')`.
 - Show once per user per device: AsyncStorage key `@quiver/skill-default-notice-shown/<uid>`, written at show time, plus an in-process Set.
 - At present time, check again that the profile skill is still null. Never show while the profile is loading (`undefined`).
-- Layout as the gift sheet: paper sheet, ink border, one-line H1 title, body, muted hint, primary and secondary pills. Backdrop tap and Android back mean "Keep beginner". No emoji, no comic style, no tilt.
+- **Look: a sign coming down (Steven, 2026-11-09).** Not a bottom sheet. A hanging sign drops from the top of the screen on two ropes over a dimmed Home, swings, and comes to rest level:
+  - Sign face: `Colors.paper` board, 2 px ink border, the two ropes in ink from the top safe area to two points on the sign. Title as the sign heading (one line), then body, muted hint, and the primary and secondary pills on the sign.
+  - Motion (Reanimated): the sign drops with a spring and a small overshoot (about 600 ms), swings twice with damping (at most ±6°, pivot at the rope tops), and stops at 0°. Light haptic when it settles. On dismiss, the sign pulls back up (about 300 ms) and the dim fades.
+  - Reduced motion: no drop and no swing. The sign fades in at rest (about 200 ms).
+  - Backdrop tap and Android back mean "Keep beginner". No emoji.
+  - Brand note: `.impeccable.md` and the comic-style rule ban tilts. Here the tilt is motion only, and the sign rests straight. Steven asked for this exception.
+- The behaviour (trigger, once only, latch, gates) still copies the founding gift; only the visual changes.
 
 **Copy (brand voice).**
 
