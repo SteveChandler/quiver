@@ -1,10 +1,6 @@
 /** @jest-environment node */
 import { bulkForecastHandler } from "@/app/api/forecasts/bulk/route";
-import {
-  bulkRecommendationLabel,
-  fetchBulkDecisionContext,
-  type BulkDecisionContext,
-} from "@/lib/services/forecast/bulk-decision-context";
+import { bulkRecommendationLabel, bulkSessionDecision, fetchBulkDecisionContext, type BulkDecisionContext } from "@/lib/services/forecast/bulk-decision-context";
 import { buildCanonicalDecisionFromSurfDiscovery } from "@/lib/recommendations/canonical-decision/discovery-adapter";
 import { recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
@@ -549,6 +545,47 @@ describe("board class order under skill-aware go checks", () => {
     const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
 
     expect(context.boardClasses).toEqual(expected);
+  });
+});
+
+describe("skillAware", () => {
+  const key = (row: EnhancedForecastEntity): string => `${row.beach_id}:${row.forecast_at}`;
+  const spot = beach(1);
+  const mixed25 = {
+    ...forecast(1),
+    wave_height: "2.5 ft",
+    wave_period: "9s",
+    wind_speed: "3 mph",
+    wind_direction_deg: 90,
+  } as EnhancedForecastEntity;
+  const context = {
+    skillLevel: null,
+    boardClasses: [] as BulkDecisionContext["boardClasses"],
+    sunTimes: new Map(),
+    matches: new Map(),
+    rowDurationsMs: new Map([[key(mixed25), 3_600_000]]),
+  } as BulkDecisionContext;
+
+  it("has a medium-mixed fixture (precondition)", () => {
+    // precondition
+    expect(
+      resolveRecommendationLabel({ beach: spot, forecast: mixed25, score: 72 }).character?.category,
+    ).toBe("medium-mixed");
+  });
+
+  it("labels a learner's 2.5 ft medium-mixed row at 72 Worth it only with skillAware", () => {
+    const withBoards = { ...context, boardClasses: ["longboard"] } as BulkDecisionContext;
+    expect(bulkSessionDecision(withBoards, spot, mixed25, 72, NOW).verdict).toBe("maybe");
+    expect(
+      bulkSessionDecision({ ...withBoards, skillAware: true }, spot, mixed25, 72, NOW).verdict,
+    ).toBe("go");
+  });
+
+  it("rates a no-skill user as beginner in the engine with skillAware only", () => {
+    expect(bulkSessionDecision(context, spot, mixed25, 72, NOW).skillEligibility.skill).toBe("unknown");
+    expect(
+      bulkSessionDecision({ ...context, skillAware: true }, spot, mixed25, 72, NOW).skillEligibility.skill,
+    ).toBe("beginner");
   });
 });
 
