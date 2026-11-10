@@ -9,6 +9,7 @@ import {
   getCanonicalRecommendationLabel,
 } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { fetchUserBoardClasses } from '@/lib/profile/board-classes';
 import { batchFetchForecasts } from '@/lib/services/discovery/forecast-batch-fetcher';
 import { getBatchSunTimes } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import {
@@ -40,10 +41,7 @@ import {
   getSkillLevelOrDefault,
   type SkillLevel,
 } from '@/lib/domains/user-preferences';
-import {
-  normalizeBoardClass,
-  type BoardClass,
-} from '@/lib/domains/rideability';
+import type { BoardClass } from '@/lib/domains/rideability';
 import type { SpotProfile } from '@/lib/domains/spot-profile/types';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -645,22 +643,7 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
     fetchSkill: async (userId) => (
       getProfileExperienceLevel(createSupabaseServiceRoleClient(), userId)
     ),
-    fetchBoardClasses: async (userId) => {
-      const { data, error } = await createSupabaseServiceRoleClient()
-        .from('boards')
-        .select('board_type')
-        .eq('user_id', userId)
-        .is('retired_at', null);
-      if (error || !Array.isArray(data)) return [];
-
-      return Array.from(
-        new Set(
-          data
-            .map((row) => normalizeBoardClass(row.board_type))
-            .filter((boardClass): boardClass is BoardClass => boardClass !== null)
-        )
-      );
-    },
+    fetchBoardClasses: (userId) => fetchUserBoardClasses(createSupabaseServiceRoleClient(), userId),
     fetchMatchEvidence: fetchWeekScoutMatchEvidence,
     calculatePersonalizationBonus,
     selectBestWindows,
