@@ -16,9 +16,14 @@ from collections import defaultdict
 
 CACHE = "scripts/.hybrid-cache"
 RECS = next((a for a in sys.argv[1:] if a.endswith(".jsonl")), f"{CACHE}/recs.jsonl")
-recs = [json.loads(l) for l in open(RECS) if l.strip()]
+# Station 215 is never on the hybrid table and stays blind until the pre-registered west-swell test
+# (reports/hb-newport-215-west-swell-prereg-nov2026.md), so its rows are not scored here at all.
+recs = [r for r in (json.loads(l) for l in open(RECS) if l.strip()) if r["stn"] != "215"]
 meta = {m["id"]: m for m in json.load(open(f"{CACHE}/beaches.json"))}
 METHODS = ["hyb", "hybCap", "hybRss", "hybRssCap", "hybOpt"]
+# The r each hybrid method used. A row with no r (no ECMWF value) is the production path live,
+# so it is left out of every hybrid k fit and scored with the production factor.
+R_KEY = {"hyb": "r", "hybCap": "r", "hybRss": "rRss", "hybRssCap": "rRss", "hybOpt": "rOpt"}
 
 
 def lead_bin(lead):
@@ -48,6 +53,7 @@ MIN_ROWS = 20 if "archive" in RECS else 50
 
 
 def fit(rows, key):
+    if key in R_KEY: rows = [r for r in rows if r[R_KEY[key]] is not None]
     return rule([r["truth"] / r[key] for r in rows if r[key] > 0], min_rows=MIN_ROWS, cap=cap_for(rows[0]["stn"]) if rows else 2.5)
 
 
@@ -67,7 +73,7 @@ for b, rows in by_beach.items():
         for r in test:
             r["p_refit"] = r["uncal"] * k_ref
             r["p_refitUnheld"] = r["uncal"] * k_unheld
-            for m in METHODS: r["p_" + m] = r[m] * ks[m]
+            for m in METHODS: r["p_" + m] = r[m] * ks[m] if r[R_KEY[m]] is not None else r["prod"]
 
 # ---- beach hold-out: per-beach k fit on all weeks (0-24 h), then borrowed from other beaches
 k_all = {}
@@ -79,7 +85,7 @@ for b, rows in by_beach.items():
     peers = [o for o in by_beach if o != b and by_beach[o][0]["stn"] == stn] or [o for o in by_beach if o != b]
     for m in ["uncal"] + METHODS:
         k = st.median([k_all[o][m] for o in peers])
-        for r in rows: r["bh_" + m] = r[m] * k
+        for r in rows: r["bh_" + m] = r[m] * k if m not in R_KEY or r[R_KEY[m]] is not None else r["prod"]
 
 PRED = {"prod": lambda r: r["prod"], "refit": lambda r: r["p_refit"], "hybrid": lambda r: r["p_hyb"],
         "refit-unheld215": lambda r: r["p_refitUnheld"],

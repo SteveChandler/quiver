@@ -221,3 +221,16 @@ Face MAE in ft: refit → RSS hybrid. Beach wins count the beaches with ≥ 30 r
 Note: against in-sample prod, the result at 1–3 d is a tie. The difference comes from the prod leakage (section 1).
 
 **Eligible beaches.** The eligible beaches are calibrated, have live CDIP truth and an ECMWF cell, are not on station 215, and have a refit k and an RSS-hybrid k that are not clamped. There are 56. For 19 of them, k = 1, which means no factor. The ids and k values are in `quiver/.worktrees/hybrid-replay/scripts/hybrid-k-eligible.json`. Each k was fit on all weeks of 0–24 h rows.
+
+**Update, Nov 9 2026.** 10 of the 56 were removed (Ocean Beach, Ocean Beach Pier, Avalanche, Mission Beach x2, Sunset Cliffs x3, Osprey Point, New Break). The replay truth at these beaches still carried `direction_shadow`, which prod dropped later on Nov 6. Their truth is 0.63–0.74 × the current buoy ruler, so their k and their scores in this report are not valid for today's prod. 46 beaches stay.
+
+**Refit, Nov 9 2026.** A fresh replay (predicted_at Oct 10–Nov 9, 30 days, cache cleared) refit every k on clamped r (0.5–2.0). Rows with no ECMWF value are now left out of the k fit and scored with the production factor.
+
+- Ruler: the median of truth / (buoy Hs × current bucket) is 0.999–1.002 at all 97 beaches with truth (buoy Tp over 8 s).
+- Same rows: all 21,335 hybrid 0–24 h rows are in the production fit, with the same truth and the same uncalibrated face. This held only after the production fit was changed to replay the current `shoaling_factors`. Before that, 596 rows at Point Dume, Latigo Point and Leo Carrillo differed.
+- Held out by week, refit → hybrid (no station 215, no clamped k): 0–24 h 0.68 → 0.57, 1–3 d 0.70 → 0.62, 5–7 d 0.92 → 0.74 ft.
+- A beach that enters the table must pass the entry gate: held out by week, the 0–24 h hybrid MAE is at or below the production-factor MAE, and the bias is within ±0.2 ft. Of the 10 removed beaches, 6 passed and came back. Avalanche, Sunset Cliffs – Garbage, Osprey Point and New Break failed.
+- The table has 52 beaches. Leo Carrillo joined. Swami's left, because its refit k is on the 2.5 bound.
+- Refit both tables with `scripts/refit-model-swell-tables.sh .env.local 30 --write`.
+
+**One gate for every beach, Nov 9 2026.** The same gate now decides every beach, including beaches that were already on the table, and a k on a bound no longer excludes a beach. On the same Nov 9 rows, 11 beaches left and 14 joined, for 55. Pooled MAE, with no station 215 and each beach on its live path: 0–24 h 0.60 → 0.56, 1–3 d 0.64 → 0.61, 5–7 d 0.79 → 0.76 ft. No beach that passes is worse by more than 0.05 ft at 5–7 d. Several beaches that left score better on the hybrid at 5–7 d (Church 0.78 against 0.92, Rosarito 0.64 against 0.84, Tamarack 0.54 against 0.73), but the gate reads only 0–24 h.

@@ -33,7 +33,13 @@
  * not yet applied; the change must then land with the release that ships the
  * factors. Repeatable.
  *
- * Run: node --import tsx scripts/replay-model-swell-calibration.ts <env file> [days] [--write] [--seam-fixtures] [--beach-override=<id>:<json>]
+ * --dump-rows=<path> writes every fitted row (beach, predicted_at, truth,
+ * uncalibrated face) as JSON lines, so scripts/hybrid-replay-vs-refit.py can
+ * prove the ECMWF hybrid k is fit on the same rows and the same truth.
+ *
+ * Run: node --import tsx scripts/replay-model-swell-calibration.ts <env file> [days] [--write] [--seam-fixtures] [--dump-rows=<path>] [--beach-override=<id>:<json>]
+ * To refit this table and ECMWF_HYBRID_K_FACTORS together (the normal path),
+ * run scripts/refit-model-swell-tables.sh.
  */
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -60,6 +66,7 @@ import {
 const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
 const WRITE = process.argv.includes("--write");
 const SEAM_FIXTURES = process.argv.includes("--seam-fixtures");
+const DUMP_ROWS = process.argv.find((arg) => arg.startsWith("--dump-rows="))?.slice("--dump-rows=".length);
 const OVERRIDE_FLAG = "--beach-override=";
 const BEACH_OVERRIDES = new Map<string, Record<string, unknown>>(
   process.argv
@@ -187,6 +194,9 @@ function withCurrentTerrain(input: ForecastReplayInput, row: Beach): ForecastRep
       swell_window_halfwidth_deg: row.swell_window_halfwidth_deg,
       swell_access_factors: row.swell_access_factors,
       terrain_enabled: row.terrain_enabled ?? undefined,
+      // The model path reads calibration status from shoaling_factors (generic
+      // base); the logged value can predate a bucket change.
+      shoaling_factors: row.shoaling_factors,
     },
   };
 }
@@ -322,6 +332,7 @@ async function main(): Promise<void> {
   const lines: string[] = [];
   let reproduced = 0;
   let replayed = 0;
+  const dumped: string[] = [];
 
   for (const beach of beaches) {
     const station = `edu_ucsd_cdip_${beach.cdip_station.padStart(3, "0")}`;
@@ -413,6 +424,8 @@ async function main(): Promise<void> {
       const asLogged = transformToFaceHeightDecomposed(withoutBeachId(ctx.base.input)).faceHeightFt;
       if (Math.abs(asLogged - logged) <= 0.15) reproduced += 1;
       recs.push({ at, truth: truth.faceHeightFt, logged, uncalibrated });
+      if (DUMP_ROWS)
+        dumped.push(JSON.stringify({ b: beach.id, at: row.predicted_at, truth: truth.faceHeightFt, uncal: uncalibrated }));
     }
 
     if (seamIds.has(beach.id) || beach.name === "Del Mar") {
@@ -530,6 +543,11 @@ async function main(): Promise<void> {
     );
   }
 
+  if (DUMP_ROWS) {
+    writeFileSync(DUMP_ROWS, dumped.join("\n") + "\n");
+    console.log(`wrote ${dumped.length} fitted rows to ${DUMP_ROWS}`);
+  }
+
   if (!WRITE) return;
   emitted.sort((a, b) => a.name.localeCompare(b.name));
   const today = new Date().toISOString().slice(0, 10);
@@ -565,8 +583,13 @@ function readTemplate(): string {
  * a beach's model hours land on its buoy ruler.
  *
  * Generated — do not hand-edit entries. Refit monthly; the fit only covers the
- * season in the window.
- *   node --import tsx scripts/replay-model-swell-calibration.ts .env.local __DAYS__ --write --seam-fixtures
+ * season in the window. Refit this table and ECMWF_HYBRID_K_FACTORS
+ * (ecmwf-hybrid-k-factors.ts) together, on the same rows and the same truth:
+ *   scripts/refit-model-swell-tables.sh .env.local __DAYS__ --write
+ * Both tables are stale, and must be refit together, after any change to
+ * beaches.shoaling_factors, direction_shadow, the CDIP station table
+ * (lib/constants/cdip-stations.ts or a beach's cdip_station) or
+ * wave-height-transformer.ts.
  *
  * Fit __FIT_DATE__ at commit __COMMIT__ over __DAYS__ days: ml_predictions_log
  * model_swell rows, horizon 12-48 h, CDIP 30-minute realtime buoy reading

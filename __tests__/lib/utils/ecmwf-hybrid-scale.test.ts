@@ -15,7 +15,7 @@ import {
 } from "@/lib/utils/forecast-display-replay";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 
-const CHURCH = "a0332432-4877-48c5-855d-b30fd097ba38"; // hybrid k 1.53, production 1.82
+const CARLSBAD = "c0977bcd-5475-4745-b4b8-0ca1e16a7faf"; // hybrid k 1.37, production 1.57
 const HB_PIER = "071db1df-b5ee-4af6-a022-ea8a09667cbe"; // station 215, production 1.60
 const COMPONENTS: SwellComponentInput[] = [
   { heightFt: 3, periodS: 14, directionDeg: 220 },
@@ -43,14 +43,14 @@ describe("resolveEcmwfHybridScale", () => {
     if (prev === undefined) delete process.env.ECMWF_HYBRID_SCALE_ENABLED;
     else process.env.ECMWF_HYBRID_SCALE_ENABLED = prev;
   });
-  const resolve = (ecmwfHsM: number | null, beachId = CHURCH, source: "model_swell" | "model_hs" = "model_swell") =>
+  const resolve = (ecmwfHsM: number | null, beachId = CARLSBAD, source: "model_swell" | "model_hs" = "model_swell") =>
     resolveEcmwfHybridScale({ beachId, source, components: [...COMPONENTS, null], ecmwfHsM });
 
   it("computes r = ECMWF Hs / RSS of the components, with the beach's hybrid k", () => {
     const scale = resolve(hsMForR(1.3))!;
     expect(scale.r).toBeCloseTo(1.3, 10);
     expect(scale.rRaw).toBeCloseTo(1.3, 10);
-    expect(scale.k).toBe(1.53);
+    expect(scale.k).toBe(1.37);
   });
 
   it("clamps r to 0.5-2.0 and keeps the raw value", () => {
@@ -64,13 +64,13 @@ describe("resolveEcmwfHybridScale", () => {
   });
 
   it("returns null with no component energy", () => {
-    expect(resolveEcmwfHybridScale({ beachId: CHURCH, source: "model_swell", components: [null, null, null], ecmwfHsM: 1 })).toBeNull();
+    expect(resolveEcmwfHybridScale({ beachId: CARLSBAD, source: "model_swell", components: [null, null, null], ecmwfHsM: 1 })).toBeNull();
   });
 
   it("returns null off the table, for other sources, and when the kill switch is off", () => {
     expect(resolve(1, HB_PIER)).toBeNull();
     expect(resolve(1, "not-a-beach")).toBeNull();
-    expect(resolve(1, CHURCH, "model_hs")).toBeNull();
+    expect(resolve(1, CARLSBAD, "model_hs")).toBeNull();
     process.env.ECMWF_HYBRID_SCALE_ENABLED = "false";
     expect(resolve(1)).toBeNull();
     process.env.ECMWF_HYBRID_SCALE_ENABLED = "true";
@@ -79,18 +79,18 @@ describe("resolveEcmwfHybridScale", () => {
 });
 
 describe("ECMWF_HYBRID_K_FACTORS", () => {
-  it("is exactly the 56 beaches in scripts/hybrid-k-eligible.json", () => {
+  it("is exactly the 55 beaches in scripts/hybrid-k-eligible.json", () => {
     const eligible = JSON.parse(
       readFileSync(path.join(__dirname, "../../../scripts/hybrid-k-eligible.json"), "utf8"),
     ) as { beaches: Array<{ id: string; stn: string; k_hybrid_rss: number }> };
-    expect(eligible.beaches).toHaveLength(56);
+    expect(eligible.beaches).toHaveLength(55);
     expect(ECMWF_HYBRID_K_FACTORS).toEqual(Object.fromEntries(eligible.beaches.map((b) => [b.id, b.k_hybrid_rss])));
     expect(eligible.beaches.some((b) => b.stn === "215")).toBe(false);
   });
 });
 
 describe("transformToFaceHeightDecomposed with the hybrid scale", () => {
-  const beach: BeachTerrainConfig = { id: CHURCH };
+  const beach: BeachTerrainConfig = { id: CARLSBAD };
   const base = { beach, source: "model_swell" as const, rawHeightFt: 3, periodS: 14, swellDirectionDeg: 220, components: [...COMPONENTS, null] };
 
   it("scales components by r and applies k in place of the production factor", () => {
@@ -104,7 +104,7 @@ describe("transformToFaceHeightDecomposed with the hybrid scale", () => {
     expect(result.faceHeightFt).toBe(Math.round(uncalScaled * 1.53 * 10) / 10);
     expect(result.ecmwfHybrid).toEqual({ r: 1.2, k: 1.53 });
     expect(result.modelCalibrationFactor).toBeUndefined();
-    expect(MODEL_SWELL_CALIBRATION_FACTORS[CHURCH]).toBe(1.82);
+    expect(MODEL_SWELL_CALIBRATION_FACTORS[CARLSBAD]).toBe(1.57);
   });
 
   it("ignores the hybrid scale for a non-model_swell source", () => {
@@ -130,24 +130,24 @@ describe("toFaceHeightFeetDecomposedWithDebug", () => {
   });
 
   it("leaves an eligible beach on the production path when ECMWF is null", () => {
-    const prod = toFaceHeightFeetDecomposedWithDebug(params(CHURCH));
-    expect(toFaceHeightFeetDecomposedWithDebug(params(CHURCH, null))).toEqual(prod);
-    expect(prod.debug.modelCalibrationFactor).toBe(1.82);
+    const prod = toFaceHeightFeetDecomposedWithDebug(params(CARLSBAD));
+    expect(toFaceHeightFeetDecomposedWithDebug(params(CARLSBAD, null))).toEqual(prod);
+    expect(prod.debug.modelCalibrationFactor).toBe(1.57);
     expect(prod.debug.replayInput).not.toHaveProperty("ecmwfHybrid");
   });
 
   it("records r and k in the debug and the replay input, with unscaled components", () => {
-    const out = toFaceHeightFeetDecomposedWithDebug(params(CHURCH, hsMForR(1.25)));
-    expect(out.debug.ecmwfHybrid).toMatchObject({ r: expect.closeTo(1.25, 10), k: 1.53, ecmwfHsM: hsMForR(1.25) });
+    const out = toFaceHeightFeetDecomposedWithDebug(params(CARLSBAD, hsMForR(1.25)));
+    expect(out.debug.ecmwfHybrid).toMatchObject({ r: expect.closeTo(1.25, 10), k: 1.37, ecmwfHsM: hsMForR(1.25) });
     expect(out.debug.modelCalibrationFactor).toBeUndefined();
-    expect(out.debug.replayInput?.ecmwfHybrid).toEqual({ r: out.debug.ecmwfHybrid!.r, k: 1.53 });
+    expect(out.debug.replayInput?.ecmwfHybrid).toEqual({ r: out.debug.ecmwfHybrid!.r, k: 1.37 });
     expect(out.debug.replayInput?.components[0]?.heightFt).toBe(3);
   });
 });
 
 describe("display replay context with the hybrid scale", () => {
   const input = toFaceHeightFeetDecomposedWithDebug({
-    modelSwellM: 1, beach: { id: CHURCH }, periodS: 14, swellDirectionDeg: 220,
+    modelSwellM: 1, beach: { id: CARLSBAD }, periodS: 14, swellDirectionDeg: 220,
     components: [...COMPONENTS, null], ecmwfWamHsM: hsMForR(1.25),
   });
   const ctx = (version: number) => JSON.parse(JSON.stringify({
@@ -156,7 +156,7 @@ describe("display replay context with the hybrid scale", () => {
   }));
 
   it("replays a v2 context to the issued height", () => {
-    expect(parseForecastDisplayReplayContext(ctx(2))?.base.input.ecmwfHybrid?.k).toBe(1.53);
+    expect(parseForecastDisplayReplayContext(ctx(2))?.base.input.ecmwfHybrid?.k).toBe(1.37);
     const issuedFt = Number.parseFloat(input.value!);
     expect(replayForecastDisplayHeightM(ctx(2))).toBe(Math.round((issuedFt / METERS_TO_FEET) * 1000) / 1000);
   });
