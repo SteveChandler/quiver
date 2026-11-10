@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **One gate decides every beach on the ECMWF hybrid table** (`lib/utils/ecmwf-hybrid-k-factors.ts`, `scripts/hybrid-k-eligible.json`, `scripts/hybrid-replay-vs-refit.py`).
+  - The gate from #1349 now applies to every beach, including beaches already on the table. Held out by ISO week, the 0-24 h hybrid MAE must be at or below the MAE of both the shipped production factor and the production factor refit on the same rows, and the 0-24 h bias must be within ±0.2 ft.
+  - A k on a bound (0.8 or 2.5) no longer excludes a beach. The held-out score already uses the clamped k, so the gate measures what the bound costs.
+  - 11 beaches fail and go back to `MODEL_SWELL_CALIBRATION_FACTORS`: Brooks Street, Church, Imperial Beach, Imperial Beach Pier, Latigo Point, Old Man's (SanO), Pacific Beach, Point Dume, Rosarito, Tamarack and Tourmaline Surf Park.
+  - 14 beaches pass and join: Beacons, County Line, Doheny State Beach, George's, Grandview Beach, La Jolla Shores, Lower Trestles, Moonlight State Beach, Scripps, Solana Beach, Swami's, Terramar Point, Thalia Street and Upper Trestles. The table has 55 beaches. Every beach that stays keeps its k.
+  - Same Nov 9 rows, no station 215, each beach on its live path: pooled MAE 0-24 h 0.60 → 0.56, 1-3 d 0.64 → 0.61, 5-7 d 0.79 → 0.76 ft. No beach that passes is worse by more than 0.05 ft at 5-7 d.
+  - Station 215 rows are no longer scored or printed by the hybrid scripts, so the pre-registered west-swell test stays blind.
 - **ECMWF hybrid k refit on today's buoy ruler; one command refits both model-hour factor tables** (`lib/utils/ecmwf-hybrid-k-factors.ts`, `scripts/hybrid-k-eligible.json`, `scripts/refit-model-swell-tables.sh`, `yarn refit:model-swell`).
   - Fresh replay, Oct 10-Nov 9 2026. Truth / (buoy Hs x current bucket) has a median of 0.999-1.002 at all 97 beaches with truth (buoy Tp over 8 s), so no beach carries the old `direction_shadow` ruler.
   - k is now fit on clamped r (0.5-2.0), as production applies it. Rows with no ECMWF value are left out of the fit.

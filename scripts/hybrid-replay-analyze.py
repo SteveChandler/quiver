@@ -16,7 +16,9 @@ from collections import defaultdict
 
 CACHE = "scripts/.hybrid-cache"
 RECS = next((a for a in sys.argv[1:] if a.endswith(".jsonl")), f"{CACHE}/recs.jsonl")
-recs = [json.loads(l) for l in open(RECS) if l.strip()]
+# Station 215 is never on the hybrid table and stays blind until the pre-registered west-swell test
+# (reports/hb-newport-215-west-swell-prereg-nov2026.md), so its rows are not scored here at all.
+recs = [r for r in (json.loads(l) for l in open(RECS) if l.strip()) if r["stn"] != "215"]
 meta = {m["id"]: m for m in json.load(open(f"{CACHE}/beaches.json"))}
 METHODS = ["hyb", "hybCap", "hybRss", "hybRssCap", "hybOpt"]
 # The r each hybrid method used. A row with no r (no ECMWF value) is the production path live,

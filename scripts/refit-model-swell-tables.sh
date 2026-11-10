@@ -17,7 +17,7 @@
 #   2. hybrid-replay-ruler-check.py  truth / (buoy Hs x bucket) = 0.97-1.03 at every beach, before any fit
 #   3. replay-model-swell-calibration.ts --dump-rows   production fit, same window
 #   4. hybrid-replay-analyze.py      held-out-by-week scores
-#   5. hybrid-replay-vs-refit.py     hybrid k on clamped r, entry gate, same-rows check
+#   5. hybrid-replay-vs-refit.py     hybrid k on clamped r, one gate for every beach, same-rows check
 #   6. hybrid-k-write-table.py       (--write) ECMWF_HYBRID_K_FACTORS from the eligible set
 #   7. shoaling-regression.ts        (--write) Gate G is report-only on model-failure days
 #
