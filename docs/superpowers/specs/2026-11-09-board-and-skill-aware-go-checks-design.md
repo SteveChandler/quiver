@@ -125,6 +125,13 @@ Steven: "we should have a popup on next time they come and let them know why the
   - **One look for every pop-up (Steven, 2026-11-09: "i want all popup notifications to look the same").** Build the sign as a shared component (for example `src/components/quiver-sign/`), not inside the notice folder. The notice is its first user. Later in-app pop-ups (the Record first-look pop-up, the founding gift, the second-chance offer) move to it in their own changes. System prompts (push permission, App Store review) stay as the OS draws them.
   - Text sits on the wood in dark ink with enough contrast (WCAG AA): the title as the sign heading (one line), then body and hint. The two buttons sit on the board: primary "Set my level", secondary "Keep beginner".
   - Motion (Reanimated): the sign drops with a spring and a small overshoot (about 600 ms), swings twice with damping (at most ±6°, pivot at the rope tops), and stops at 0°. Light haptic when it settles. On dismiss, the sign pulls back up (about 300 ms) and the dim fades.
+  - **Sound (Steven, 2026-11-09: "like chains then when it hits the end").** A short chain rattle plays during the drop, and a wooden clunk plays when the sign reaches the end of the chains (the bottom of the drop, with the haptic). The pull-up exit plays a short, quiet chain rattle. Rules:
+    - Two or three short sound files that we own: made by us or under a CC0 licence, with the source recorded in the PR. Each file is under 1 s and under 50 KB.
+    - Use the audio library that the app already uses (the builder confirms it on `origin/main`). Do not add a new dependency for this.
+    - Obey the iOS silent switch: no sound when the phone is silent. Mix with other audio and duck it; never stop the user's music or podcast.
+    - Quiet volume (about 0.5). The sound plays one time for each show; it does not loop.
+    - Reduced motion: no chain rattle, but the soft clunk plays at the fade-in.
+    - When the sound fails to load or play, the sign still shows. A sound error is never shown to the user.
   - Reduced motion: no drop and no swing. The sign fades in at rest (about 200 ms).
   - Backdrop tap and Android back mean "Keep beginner". No emoji.
   - Brand note: the wood-and-chain look and the swing are an exception that Steven asked for. The rest of the app stays flat paper and ink. The tilt happens only in motion, and the sign rests straight.
