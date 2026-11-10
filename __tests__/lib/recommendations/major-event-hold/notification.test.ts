@@ -141,6 +141,37 @@ describe("notification major-event hold adapter", () => {
     expect(evaluateCandidates).toHaveBeenCalledTimes(1);
   });
 
+  it("delivers a weekend snapshot push for a user with no profile skill", async () => {
+    const evaluateCandidates = evaluatorReturning("allowed");
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-weekend-no-skill",
+        type: "weekend_window",
+        payload: {
+          beach_id: BEACH_ID,
+          forecast_at: STARTS_AT,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: BEACH_ID,
+            starts_at: STARTS_AT,
+            ends_at: ENDS_AT,
+          },
+        },
+        profileExperience: null,
+        mode: "enforce",
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({
+      status: "allowed",
+      candidate: { beachId: BEACH_ID, startsAt: STARTS_AT, endsAt: ENDS_AT },
+    });
+    expect(evaluateCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({ profileExperience: null }),
+    );
+  });
+
   function homeMorningPayload(expiresAt: string): Record<string, unknown> {
     return {
       verdict: "YES",
