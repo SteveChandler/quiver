@@ -23,6 +23,7 @@ import {
   generateWeekScoutRankingForDays,
   alignDayBestWithSessionPick,
   type WeekScoutRequest,
+  weekScoutAnswerExpiry,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision/discovery-adapter';
@@ -1163,8 +1164,25 @@ describe('generateWeekScoutForecast', () => {
       dayCount: 1,
     }, deps);
 
-    expect(Date.parse(response.coverage!.expiresAt)).toBe(deps.now.getTime() + 60 * 60_000);
-    expect(Date.parse(response.sessionDecision.expiresAt)).toBe(deps.now.getTime() + 60 * 60_000);
+    // 04:00 in Honolulu; the answer lasts until the local midnight that ends Jul 31.
+    expect(response.coverage!.expiresAt).toBe('2026-08-01T10:00:00.000Z');
+    expect(response.sessionDecision.expiresAt).toBe('2026-08-01T10:00:00.000Z');
+  });
+
+  it('keeps an answer until the end of the local day, falling back to an hour', () => {
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-09', 'America/Los_Angeles'))
+      .toBe('2026-11-10T08:00:00.000Z');
+    // The Nov 1 DST change: midnight after Oct 31 is still PDT.
+    expect(weekScoutAnswerExpiry('2026-10-31T20:00:00.000Z', '2026-10-31', 'America/Los_Angeles'))
+      .toBe('2026-11-01T07:00:00.000Z');
+    // A stale client date never yields an already-expired answer.
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-07', 'America/Los_Angeles'))
+      .toBe('2026-11-09T19:06:00.000Z');
+    // A client date ahead of the server's never stretches an answer past 25 hours.
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-12', 'America/Los_Angeles'))
+      .toBe('2026-11-10T19:06:00.000Z');
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-09', 'Not/AZone'))
+      .toBe('2026-11-09T19:06:00.000Z');
   });
 
   it('assigns dayparts and coverage in the beach timezone', async () => {

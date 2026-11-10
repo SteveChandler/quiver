@@ -35,6 +35,7 @@ import {
 } from '@/lib/domains/scoring';
 import { rerankHero, type RerankResult } from '@/lib/services/discovery/hero-ranking';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { zonedWallClockToUtc } from './local-date';
 import {
   getSkillLevelOrDefault,
   type SkillLevel,
@@ -110,10 +111,10 @@ const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
 const WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX = '+hourly-bridge-v1';
 const HOUR_MS = 60 * 60 * 1000;
-// Native refetches at the earlier of coverage and session-decision expiry, so both use this.
-// A week planner tolerates one missed 30-minute forecast sync. Measured from each answer, not
-// snapped to the sync slots, so open apps don't all refetch together at the top of the hour.
-const WEEK_SCOUT_COVERAGE_TTL_MS = 60 * 60 * 1000;
+// Fallback life of an answer when the request's local date cannot give a day end.
+const WEEK_SCOUT_FALLBACK_TTL_MS = 60 * 60 * 1000;
+// A correct local date ends within 25 h (a DST day); a client date ahead of ours must not stretch it.
+const WEEK_SCOUT_MAX_TTL_MS = 25 * 60 * 60 * 1000;
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 // The swell reads start with the forecast fetch, so this bounds the extra
 // wait after the main result is ready; a slower snapshot read omits `swells`.
@@ -563,15 +564,31 @@ function scoringComponentForForecast(
 }
 
 /**
- * The answer is good for an hour after it is generated: the app refetches at this deadline
+ * The answer is good until the end of the surfer's local day: a week planner needs one answer a
+ * day, and the app marks passed windows itself in between. The app refetches at this deadline
  * (the session decision shares it), and a 60 s deadline made every open Home ask for a heavy
  * answer once a minute (Nov 4 2026). Holds carry their own deadlines. Our ingest
  * age is not the forecast's age: a CDIP row the sync has not revisited in a few
  * hours still holds the same forward forecast, so it must not expire the
  * answer before it arrives (a past deadline voided the whole week).
  */
-function coverageExpiry(generatedAt: string): string {
-  return new Date(Date.parse(generatedAt) + WEEK_SCOUT_COVERAGE_TTL_MS).toISOString();
+export function weekScoutAnswerExpiry(
+  generatedAt: string,
+  startLocalDate: string,
+  timezone: string,
+): string {
+  const generatedMs = Date.parse(generatedAt);
+  let dayEndMs = Number.NaN;
+  try {
+    dayEndMs = Date.parse(zonedWallClockToUtc(addLocalDays(startLocalDate, 1), '00:00:00', timezone));
+  } catch {
+    // An unknown zone or a malformed date falls through to the fixed fallback.
+  }
+  // A client date that is already past (or wrong) must not hand out an expired answer.
+  if (!Number.isFinite(dayEndMs) || dayEndMs <= generatedMs) {
+    return new Date(generatedMs + WEEK_SCOUT_FALLBACK_TTL_MS).toISOString();
+  }
+  return new Date(Math.min(dayEndMs, generatedMs + WEEK_SCOUT_MAX_TTL_MS)).toISOString();
 }
 
 function isSafe(score: DetailedScore): boolean {
@@ -1465,7 +1482,7 @@ async function generateWeekScoutForecastScoped(
     };
   }));
   const coverage: WeekScoutCoverage = {
-    expiresAt: coverageExpiry(generatedAt),
+    expiresAt: weekScoutAnswerExpiry(generatedAt, request.startLocalDate, request.localTimezone),
     days: localDates.map((localDate) => coverageByDate.get(localDate)!),
   };
 
@@ -1629,7 +1646,7 @@ function buildCanonicalWeekScoutResponse(
     profileExperience: context.userSkillLevel,
     recommendationAvailability: context.heldResponse.recommendationAvailability,
     candidates: canonicalCandidates,
-    ttlMs: WEEK_SCOUT_COVERAGE_TTL_MS,
+    ttlMs: Math.max(0, Date.parse(context.coverage.expiresAt) - Date.parse(context.generatedAt)),
   });
 
   const dayBestResponse = sessionTimePreference
