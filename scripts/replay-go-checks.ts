@@ -31,8 +31,11 @@ export function parseReplayArgs(argv: string[]): ReplayArgs {
   }
   const users = values.get("--users");
   if (!users) throw new Error("--users is required");
-  const userIds = users.split(",");
+  // Database ids are lowercase; a mixed-case id misses the sample exclusion and its own board rows.
+  const userIds = users.split(",").map((userId) => userId.toLowerCase());
   if (!userIds.every((userId) => UUID_PATTERN.test(userId))) throw new Error("--users must be UUIDs");
+  const repeated = userIds.find((userId, index) => userIds.indexOf(userId) !== index);
+  if (repeated) throw new Error(`Duplicate user in --users: ${repeated}`);
   return {
     userIds,
     beginnerSample: boundedInteger(values.get("--beginner-sample"), 20, 0, 50, "--beginner-sample must be 0-50"),
@@ -107,7 +110,21 @@ export function summarizeReplay(
   });
 }
 
-const REPLAY_SCORING_FLAGS = ["HOURLY_BRIDGE_ENABLED", "NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED", "NEXT_PUBLIC_TIDE_SWING_ENABLED"] as const;
+/**
+ * fetchBoardClassesByUser returns [] when its read fails, which prints like a user with no boards.
+ * The replay compares it with a checked read of the same rows and stops on a mismatch.
+ */
+export function boardReadMismatch(
+  activeRows: number,
+  expected: readonly BoardClass[],
+  actual: readonly BoardClass[],
+): string | null {
+  if (expected.length === actual.length && expected.every((boardClass, index) => boardClass === actual[index])) return null;
+  return `boards table has ${activeRows} active rows (${expected.join(", ") || "no known class"}), `
+    + `but fetchBoardClassesByUser returned ${actual.join(", ") || "none"}`;
+}
+
+const REPLAY_SCORING_FLAGS =["HOURLY_BRIDGE_ENABLED", "NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED", "NEXT_PUBLIC_TIDE_SWING_ENABLED"] as const;
 const TRUSTED_FORECAST_PREFIX = "TRUSTED_FORECAST_";
 
 const READ_ONLY_RPCS = new Set([
@@ -215,7 +232,8 @@ async function main(): Promise<void> {
     const { loadDailyCallProfiles, groupGoForecasts } = await import("@/lib/cron/daily-call-runner");
     const { capNearbyPool, loadUserPool } = await import("@/lib/alerts/user-pool");
     const { evaluateForecastVerdict } = await import("@/lib/alerts/canonical-forecast-verdict");
-    const { fetchBoardClassesByUser } = await import("@/lib/profile/board-classes");
+    const { fetchBoardClassesByUser, orderBoardClasses } = await import("@/lib/profile/board-classes");
+    const { normalizeBoardClass } = await import("@/lib/domains/rideability");
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
     const { DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS, resolveLocationAnchor } = await import("@/lib/alerts/location-freshness");
     const { getLocalDateString, resolveBeachTimezone } = await import("@/lib/utils/timezone-utils");
@@ -286,6 +304,19 @@ async function main(): Promise<void> {
       }
       const boardClasses = (await read(`fetchBoardClassesByUser for ${userId}`, () => fetchBoardClassesByUser(client, [userId])))
         .get(userId) ?? [];
+      const boardTypes: string[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await read(`boards check for ${userId} at ${from}`, async () => await client
+          .from("boards").select("id, board_type").eq("user_id", userId).is("retired_at", null)
+          .order("id").range(from, from + PAGE_SIZE - 1));
+        if (error) throw new Error(`Failed to check boards for ${userId}: ${error.message}`);
+        boardTypes.push(...(data ?? []).map(({ board_type }) => board_type));
+        if ((data ?? []).length < PAGE_SIZE) break;
+      }
+      const expectedClasses = orderBoardClasses(boardTypes.map((boardType) => normalizeBoardClass(boardType))
+        .filter((boardClass): boardClass is BoardClass => boardClass !== null));
+      const mismatch = boardReadMismatch(boardTypes.length, expectedClasses, boardClasses);
+      if (mismatch) throw new Error(`Board read for ${userId} is not trusted: ${mismatch}`);
       const { anchor, source } = resolveLocationAnchor(profile.location, now, profile.homeBeach, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
       const { pool } = capNearbyPool(await read(`loadUserPool for ${userId}`, () => loadUserPool({
         supabase: client, userId, homeBeachId: profile.homeBeachId,
@@ -330,7 +361,7 @@ async function main(): Promise<void> {
         }
       }
 
-      console.log(`\nUser ${userId}: skill=${profile.experienceLevel ?? "none"}; boards=${boardClasses.join(", ") || "none"}; pool=${pool.length} beaches; rows=${rows.length}`);
+      console.log(`\nUser ${userId}: skill=${profile.experienceLevel ?? "none"}; boards=${boardClasses.join(", ") || "none"} (${boardTypes.length} active rows); pool=${pool.length} beaches; rows=${rows.length}`);
       const [summary] = summarizeReplay(rows, groupGoForecasts);
       if (!summary) {
         console.log("  No forecast rows in the window.");

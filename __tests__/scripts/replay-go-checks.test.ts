@@ -4,7 +4,7 @@ import { groupGoForecasts } from "@/lib/cron/daily-call-runner";
 import type { ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import { parseReplayArgs, summarizeReplay, type ReplayRow } from "@/scripts/replay-go-checks";
+import { boardReadMismatch, parseReplayArgs, summarizeReplay, type ReplayRow } from "@/scripts/replay-go-checks";
 
 const A = "00000000-0000-4000-8000-00000000000a";
 const B = "00000000-0000-4000-8000-00000000000b";
@@ -43,6 +43,23 @@ describe("replay-go-checks", () => {
     expect(parseReplayArgs(["--users", `${A},${B}`])).toEqual({ userIds: [A, B], beginnerSample: 20, days: 7 });
     expect(() => parseReplayArgs(["--users", "nope"])).toThrow("--users must be UUIDs");
     expect(() => parseReplayArgs(["--users", A, "--days", "8"])).toThrow("--days must be 1-7");
+  });
+
+  it("lowercases users and rejects a repeated user", () => {
+    expect(parseReplayArgs(["--users", `${A.toUpperCase()},${B}`]).userIds).toEqual([A, B]);
+    expect(() => parseReplayArgs(["--users", `${A},${B},${A}`])).toThrow(`Duplicate user in --users: ${A}`);
+    expect(() => parseReplayArgs(["--users", `${A},${A.toUpperCase()}`])).toThrow(`Duplicate user in --users: ${A}`);
+  });
+
+  it("flags a board read that disagrees with the boards table", () => {
+    expect(boardReadMismatch(0, [], [])).toBeNull();
+    expect(boardReadMismatch(2, ["shortboard", "longboard"], ["shortboard", "longboard"])).toBeNull();
+    expect(boardReadMismatch(3, ["longboard"], [])).toBe(
+      "boards table has 3 active rows (longboard), but fetchBoardClassesByUser returned none",
+    );
+    expect(boardReadMismatch(2, ["shortboard", "longboard"], ["longboard", "shortboard"])).not.toBeNull();
+    // Rows with no known class give no classes on both sides; the row count tells this apart from no boards.
+    expect(boardReadMismatch(1, [], [])).toBeNull();
   });
 
   it("counts go windows and days per side and lists changed rows", () => {
