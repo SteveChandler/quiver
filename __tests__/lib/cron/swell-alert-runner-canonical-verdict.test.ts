@@ -31,6 +31,10 @@ jest.mock("@/lib/alerts/canonical-forecast-verdict", () => {
     evaluateForecastVerdict: jest.fn(actual.evaluateForecastVerdict),
   };
 });
+jest.mock("@/lib/services/discovery/window-selector", () => {
+  const actual = jest.requireActual("@/lib/services/discovery/window-selector");
+  return { ...actual, selectBestWindows: jest.fn(actual.selectBestWindows) };
+});
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -46,6 +50,7 @@ import {
 } from "@/lib/cron/swell-alert-runner";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import { selectBestWindows } from "@/lib/services/discovery/window-selector";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -289,6 +294,72 @@ describe("swell alert pool evaluation with the canonical verdict", () => {
     expect(
       jest.mocked(evaluateForecastVerdict).mock.calls.map(([args]) => args.forecast.id),
     ).not.toContain("sep-16-predawn");
+  });
+});
+
+describe("skill-aware go checks", () => {
+  async function run(user: SwellAlertProfile): Promise<Partial<SwellAlertDeps>> {
+    const deps = { ...dependencies(), loadProfiles: async () => [user] };
+    await runSwellAlertCron({
+      now: NOW,
+      supabase: forecastClient([...flatHistory, at(clean, "peak", PEAK_AT)]),
+      deps,
+    });
+    return deps;
+  }
+
+  it("uses one board-aware verdict for history and peak", async () => {
+    await run({ ...profile, boardClasses: ["longboard"] });
+
+    const calls = jest.mocked(evaluateForecastVerdict).mock.calls.map(([args]) => args);
+    expect(calls.map(({ forecast }) => forecast.id)).toEqual(
+      expect.arrayContaining(["flat-14", "flat-15", "flat-16", "peak"]),
+    );
+    for (const args of calls) {
+      expect(args).toMatchObject({
+        beach,
+        experienceLevel: "intermediate",
+        goChecks: { boardClasses: ["longboard"] },
+      });
+    }
+  });
+
+  it("passes beginner to the hold checks for a no-skill user only on the go-check path", async () => {
+    const off = await run({ ...profile, experienceLevel: null });
+    const offCalls = jest.mocked(off.resolveHeldBeaches!).mock.calls.map(([args]) => args);
+    // precondition: the send-hour hold check ran
+    expect(offCalls.length).toBeGreaterThan(0);
+    for (const args of offCalls) expect(args.profileExperience).toBeNull();
+
+    const on = await run({ ...profile, experienceLevel: null, boardClasses: [] });
+    const onCalls = jest.mocked(on.resolveHeldBeaches!).mock.calls.map(([args]) => args);
+    expect(onCalls.length).toBeGreaterThan(0);
+    for (const args of onCalls) expect(args.profileExperience).toBe("beginner");
+  });
+
+  it("shapes the peak-day window with the rating skill and boards only on the go-check path (:811)", async () => {
+    const select = jest.mocked(selectBestWindows);
+    // The real beginner verdict at Grandview gives no go run, so the selector would never run.
+    jest.mocked(evaluateForecastVerdict).mockImplementation(({ forecast }) => ({
+      forecast,
+      score: forecast.id === "peak" ? 80 : 30,
+      verdict: forecast.id === "peak" ? "go" : "no",
+      decision: {} as CanonicalSessionDecision,
+    }));
+
+    await run({ ...profile, experienceLevel: null });
+    // precondition: the push reached the peak-day window
+    expect(select).toHaveBeenCalled();
+    const offArgs = select.mock.calls.at(-1)![0] as unknown as Record<string, unknown>;
+    expect(offArgs.userSkillLevel).toBeNull();
+    expect(offArgs).not.toHaveProperty("boardClasses");
+
+    select.mockClear();
+    await run({ ...profile, experienceLevel: null, boardClasses: ["longboard"] });
+    expect(select).toHaveBeenCalled();
+    const onArgs = select.mock.calls.at(-1)![0] as unknown as Record<string, unknown>;
+    expect(onArgs.userSkillLevel).toBe("beginner");
+    expect(onArgs.boardClasses).toEqual(["longboard"]);
   });
 });
 

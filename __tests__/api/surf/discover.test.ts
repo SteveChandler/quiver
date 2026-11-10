@@ -525,6 +525,56 @@ describe("/api/surf/discover entitlement resolution", () => {
     );
   });
 
+  describe("skill-aware go checks", () => {
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = "user-contract";
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    it("passes beginner to the decision for an allowlisted user with no skill", async () => {
+      mockGetProfileExperienceLevel.mockResolvedValue(null);
+      mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+
+      setFlag(true);
+      const onResponse = await callDiscoverRoute(null);
+      expect(onResponse.status).toBe(200);
+      expect(mockBuildCanonicalDecisionFromSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: "beginner" }),
+      );
+      expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+        expect.anything(),
+        "beginner",
+      );
+
+      jest.clearAllMocks();
+      setFlag(false);
+      const offResponse = await callDiscoverRoute(null);
+      expect(offResponse.status).toBe(200);
+      expect(mockBuildCanonicalDecisionFromSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: null }),
+      );
+      expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+        expect.anything(),
+        null,
+      );
+    });
+  });
+
   it("does not normalize an explicit major-event hold as a legacy empty result", async () => {
     const heldDiscovery = {
       recommendations: [],

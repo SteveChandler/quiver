@@ -429,7 +429,13 @@ jest.mock('@/lib/domains/scoring', () => ({
     dataSource: 'NOAA_NWS',
   })),
   getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
+  getConditionCharacterDetails: jest.fn(() => ({ character: { label: 'Clean', category: 'good-clean' }, smallWeakReason: null })),
 }));
+
+jest.mock('@/lib/services/discovery/recommendation-label', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/recommendation-label');
+  return { ...actual, resolveRecommendationLabel: jest.fn(actual.resolveRecommendationLabel) };
+});
 
 jest.mock('@/lib/scoring/native-condition-score', () => {
   const actual = jest.requireActual('@/lib/scoring/native-condition-score');
@@ -474,7 +480,9 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
 
 // Import after mocks
 import { discoverSurfSpots, fetchUserBoardContext } from '@/lib/services/discovery/surf-discovery-orchestrator';
-import { selectBestWindows } from '@/lib/services/discovery/window-selector';
+import { selectBestWindow, selectBestWindows, scoreWindowConditionScore } from '@/lib/services/discovery/window-selector';
+import { resolveRecommendationLabel } from '@/lib/services/discovery/recommendation-label';
+import { getConditionCharacterDetails } from '@/lib/domains/scoring';
 import { WORTH_THE_DRIVE_REASON } from '@/lib/services/discovery/distance-friction';
 import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
 
@@ -1376,6 +1384,39 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     }
     const query = mockSupabaseFrom.mock.results.find((_, i) => mockSupabaseFrom.mock.calls[i][0] === 'boards')!.value;
     expect(query.is).toHaveBeenCalledWith('retired_at', null);
+  });
+
+  describe('board class order under skill-aware go checks', () => {
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    test.each([
+      [false, ['shortboard', 'longboard']],
+      [true, ['longboard', 'shortboard']],
+    ] as const)('flag on %s gives board classes %j', async (on, expected) => {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = 'user-1';
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+      mockState.boards = [
+        { id: 'sb-1', name: 'Driver', board_type: 'shortboard' },
+        { id: 'lb-1', name: 'Log', board_type: 'longboard' },
+      ];
+
+      const context = await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', true);
+
+      expect(context.boardClasses).toEqual(expected);
+    });
   });
 
   test('attaches condition-based board picks for Pro users with saved boards', async () => {
@@ -4639,5 +4680,138 @@ describe('discoverSurfSpots - hourly bridge', () => {
     expect(mockState.tideQueries).toHaveLength(1);
     expect(result.recommendations[0]?.forecast).toMatchObject({ id: 'row-15:h+1', tide_height: '2 ft' });
     expect(result.recommendations[0]?.forecast.raw_forecast?.hourly_bridge).toMatchObject({ tide_source: 'row_lerp' });
+  });
+});
+
+describe('discoverSurfSpots - skill-aware go checks', () => {
+  const USER = 'skill-aware-user';
+  const SKILL_COPY = /your experience level|your usual range|conditions are manageable/;
+  const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+  const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+  afterEach(() => {
+    if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+    if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+  });
+
+  function setFlag(on: boolean): void {
+    if (on) {
+      process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+      process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+    } else {
+      delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    }
+  }
+
+  async function run(
+    skill: string | null,
+    on: boolean,
+    beaches: Partial<Beach>[] = [mockBeach1],
+  ) {
+    setFlag(on);
+    mockState.candidatePoolResponse = {
+      candidates: beaches,
+      preferredWaveSize: null,
+      userSkillLevel: skill,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: beaches.map((beach) => ({
+        beach,
+        forecasts: [{ ...mockForecast, beach_id: beach.id }],
+      })),
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
+    mockState.boardsError = null;
+    mockState.favoriteBeaches = [];
+    mockState.customSpots = [];
+    jest.clearAllMocks();
+    // Earlier suites leave their own selector implementations behind.
+    (selectBestWindow as jest.Mock).mockImplementation(() => ({
+      start: new Date('2024-01-15T12:00:00Z'),
+      end: new Date('2024-01-15T15:00:00Z'),
+      tide: 'Rising',
+      wind: '8 mph W',
+      waveHeight: '3-4 ft',
+      wavePeriod: '12s',
+      dataSource: 'CDIP',
+      confidence: 85,
+      timezone: 'America/Los_Angeles',
+    }));
+    (selectBestWindows as jest.Mock).mockImplementation((options: unknown) => [
+      (selectBestWindow as jest.Mock)(options),
+    ]);
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      maxResults: 5,
+    });
+    // precondition: the beach reached the scored response
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    return result;
+  }
+
+  it('passes the learner context to the label only for an allowlisted user', async () => {
+    // Top-level imports: a later suite resets the module registry.
+    const labelSpy = resolveRecommendationLabel as jest.Mock;
+    const characterDetails = getConditionCharacterDetails as jest.Mock;
+
+    await run(null, true);
+    expect(labelSpy.mock.calls.some(([input]) => input.learner !== undefined)).toBe(true);
+    expect(labelSpy).toHaveBeenCalledWith(expect.objectContaining({
+      learner: expect.objectContaining({ skill: 'beginner' }),
+    }));
+    expect(characterDetails).toHaveBeenCalled();
+
+    await run(null, false);
+    expect(labelSpy.mock.calls.length).toBeGreaterThan(0);
+    expect(labelSpy.mock.calls.every(([input]) => !('learner' in input))).toBe(true);
+    expect(characterDetails).not.toHaveBeenCalled();
+  });
+
+  it('scores the gated row with the beginner rating skill only for an allowlisted no-skill user', async () => {
+    const scorer = scoreWindowConditionScore as jest.Mock;
+
+    await run(null, false);
+    expect(scorer.mock.calls.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.some((call) => call[2] === 'beginner')).toBe(false);
+
+    await run(null, true);
+    // Every scorer site rates with the rating skill, the gated row included.
+    expect(scorer.mock.calls.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.every((call) => call[2] === 'beginner')).toBe(true);
+  });
+
+  it('shapes windows with the beginner rating skill only for an allowlisted no-skill user', async () => {
+    const shapeMany = selectBestWindows as jest.Mock;
+    const shapeOne = selectBestWindow as jest.Mock;
+    const lateMorningCalls = () =>
+      shapeOne.mock.calls.filter(([options]) => options?.timeSlot === 'late-morning');
+
+    await run(null, false, [mockBeach1, mockBeach2]);
+    // precondition
+    expect(shapeMany.mock.calls.length).toBeGreaterThan(0);
+    expect(shapeMany.mock.calls.every(([options]) => options.userSkillLevel === null)).toBe(true);
+    // precondition
+    expect(lateMorningCalls().length).toBeGreaterThan(0);
+    expect(lateMorningCalls().every(([options]) => options.userSkillLevel === null)).toBe(true);
+
+    await run(null, true, [mockBeach1, mockBeach2]);
+    expect(shapeMany.mock.calls.length).toBeGreaterThan(0);
+    expect(shapeMany.mock.calls.every(([options]) => options.userSkillLevel === 'beginner')).toBe(true);
+    expect(lateMorningCalls().length).toBeGreaterThan(0);
+    expect(lateMorningCalls().every(([options]) => options.userSkillLevel === 'beginner')).toBe(true);
+  });
+
+  it('adds no skill-match reason for a no-skill user with the flag on', async () => {
+    const control = await run('beginner', true);
+    expect(control.recommendations[0].reasons.join(' ')).toMatch(SKILL_COPY);
+
+    const result = await run(null, true);
+    expect(result.recommendations[0].reasons.join(' ')).not.toMatch(SKILL_COPY);
   });
 });

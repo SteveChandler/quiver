@@ -153,8 +153,9 @@ type BeachRow = {
 let mockContextBeaches: unknown[] = [];
 let mockContextError: { message: string } | null = null;
 let mockProfileSkill: string | null = null;
+let mockContextBoards: Array<{ board_type: string }> = [];
 const mockContextRpc = jest.fn(() => queryChain({
-  data: { beaches: mockContextBeaches, profile: { experience_level: mockProfileSkill }, boards: [], sun_times: [], personalization: null, water_quality: {} },
+  data: { beaches: mockContextBeaches, profile: { experience_level: mockProfileSkill }, boards: mockContextBoards, sun_times: [], personalization: null, water_quality: {} },
   error: mockContextError,
 }));
 const mockSupabaseClient = createMockSupabaseClient();
@@ -253,6 +254,7 @@ jest.mock("@/lib/services/forecast/today-headline", () => ({
 
 jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
   scoreWindowConditionScore: jest.fn(() => 72),
+  scoreWindowConditionDetails: jest.fn(() => ({ score: 72, boardClass: null })),
   scoreWindowWithComposite: jest.fn(() => ({ effects: [] })),
 }));
 
@@ -583,6 +585,7 @@ describe("/api/forecasts/bulk", () => {
     mockContextBeaches = [];
     mockContextError = null;
     mockProfileSkill = null;
+    mockContextBoards = [];
     mockSupabaseClient.auth.getUser.mockResolvedValue({
       data: { user: null },
       error: null,
@@ -779,6 +782,97 @@ describe("/api/forecasts/bulk", () => {
     );
     expect(data.data.conditionScores[BOUND_BEACH_ID]).toBe(73);
     expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe("GOOD");
+  });
+
+  describe("skill-aware go checks", () => {
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = "user-1";
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    async function requestAsNoSkillUser(): Promise<void> {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "7")],
+        beachRows: [beachRow(BOUND_BEACH_ID)],
+      });
+      const response = await bulkForecastHandler(
+        createMockRequest(
+          "GET",
+          `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        ),
+        {
+          params: {},
+          user: { id: "user-1" } as never,
+          supabase: mockSupabaseClient as never,
+        },
+      );
+      await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    }
+
+    const scorerSkills = (): unknown[] =>
+      (scoreWindowConditionScore as jest.Mock).mock.calls.map((call) => call[2]);
+    const holdSkills = (): unknown[] =>
+      mockEvaluateMajorEventHoldCandidates.mock.calls.map(
+        ([input]: [{ profileExperience: unknown }]) => input.profileExperience,
+      );
+
+    it("scores with beginner for an allowlisted user with no skill", async () => {
+      setFlag(true);
+      await requestAsNoSkillUser();
+      expect(scorerSkills().length).toBeGreaterThan(0);
+      expect(scorerSkills().every((skill) => skill === "beginner")).toBe(true);
+      expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: "beginner" }),
+      );
+      expect(holdSkills().every((skill) => skill === "beginner")).toBe(true);
+
+      (scoreWindowConditionScore as jest.Mock).mockClear();
+      mockEvaluateMajorEventHoldCandidates.mockClear();
+      setFlag(false);
+      await requestAsNoSkillUser();
+      expect(scorerSkills().length).toBeGreaterThan(0);
+      expect(scorerSkills()).not.toContain("beginner");
+      expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: null }),
+      );
+      expect(holdSkills().every((skill) => skill === null)).toBe(true);
+    });
+
+    it("shapes the today headline with the rating skill and boards only for an allowlisted user", async () => {
+      mockContextBoards = [{ board_type: "longboard" }];
+      setFlag(true);
+      await requestAsNoSkillUser();
+      expect(resolveTodayHeadline).toHaveBeenCalledWith(
+        expect.objectContaining({ userSkillLevel: "beginner", boardClasses: ["longboard"] }),
+      );
+
+      (resolveTodayHeadline as jest.Mock).mockClear();
+      setFlag(false);
+      await requestAsNoSkillUser();
+      expect(resolveTodayHeadline).toHaveBeenCalledWith(
+        expect.objectContaining({ userSkillLevel: null }),
+      );
+      expect(
+        (resolveTodayHeadline as jest.Mock).mock.calls.some(
+          ([options]) => "boardClasses" in options,
+        ),
+      ).toBe(false);
+    });
   });
 
   it.each([

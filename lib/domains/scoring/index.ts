@@ -36,8 +36,14 @@ export type {
   ConditionCharacter,
   ConditionCharacterCategory,
   SkipCause,
+  SmallWeakReason,
 } from './condition-character';
-export { getConditionCharacter, getSkipCause, getSkipCharacter } from './condition-character';
+export {
+  getConditionCharacter,
+  getConditionCharacterDetails,
+  getSkipCause,
+  getSkipCharacter,
+} from './condition-character';
 
 // Discovery adapter (backwards compatibility with surf-discovery-service)
 export {

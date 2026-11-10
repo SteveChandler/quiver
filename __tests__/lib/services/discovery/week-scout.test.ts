@@ -16,17 +16,30 @@ jest.mock('@/lib/supabase/server', () => ({
     })),
   })),
 }));
+jest.mock('@/lib/services/discovery/week-scout-swells', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/week-scout-swells');
+  return { ...actual, buildWeekScoutSwells: jest.fn(actual.buildWeekScoutSwells) };
+});
+jest.mock('@/lib/recommendations/canonical-decision/discovery-adapter', () => {
+  const actual = jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter');
+  return { ...actual, getCanonicalPersonalCall: jest.fn(actual.getCanonicalPersonalCall) };
+});
 
 import {
   generateWeekScoutForecast,
   generateWeekScoutForecastForDays,
   generateWeekScoutRankingForDays,
   alignDayBestWithSessionPick,
+  type CanonicalWeekScoutResponse,
   type WeekScoutRequest,
   weekScoutAnswerExpiry,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
-import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import {
+  buildCanonicalDecisionFromSurfDiscovery,
+  getCanonicalPersonalCall,
+} from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import { buildWeekScoutSwells } from '@/lib/services/discovery/week-scout-swells';
 import { verdictScoreLabel } from '@/lib/recommendations/canonical-decision/engine';
 import { resolveRecommendationLabel } from '@/lib/services/discovery/recommendation-label';
 import { getQualityLabel } from '@/lib/utils/score-color-utils';
@@ -2022,6 +2035,242 @@ describe('generateWeekScoutForecast', () => {
       { beachId: BEACH_B, rankingScore: rawScores[BEACH_B] },
       { beachId: BEACH_A, rankingScore: rawScores[BEACH_A] },
     ]);
+  });
+
+  describe('board order under skill-aware go checks', () => {
+    const USER = 'go-check-user';
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    async function scoredBoardClasses(on: boolean): Promise<unknown> {
+      setFlag(on);
+      const deps = dependencies();
+      const row = forecast(BEACH_A, '2026-07-31T20:00:00.000Z');
+      deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Ala Moana')]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [row]]]));
+      deps.fetchBoardClasses = jest.fn(async () => ['shortboard' as const, 'longboard' as const]);
+      deps.scoreWindowCondition = jest.fn(() => 64);
+      await generateWeekScoutRankingForDays(USER, {
+        candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31', dayCount: 1,
+      }, deps);
+      // precondition: the scorer ran for the row
+      expect(deps.scoreWindowCondition).toHaveBeenCalled();
+      return (deps.scoreWindowCondition as jest.Mock).mock.calls[0][3];
+    }
+
+    it('keeps the read order with the flag off', async () => {
+      await expect(scoredBoardClasses(false)).resolves.toEqual(['shortboard', 'longboard']);
+    });
+
+    it('gives the scorer the fixed class order with the flag on', async () => {
+      await expect(scoredBoardClasses(true)).resolves.toEqual(['longboard', 'shortboard']);
+    });
+  });
+
+  describe('skill-aware go checks', () => {
+    const USER = 'go-check-user';
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    const learnerBeach: Beach = { ...beach(BEACH_A, 'Ala Moana'), skill_level: 'beginner' };
+    // Clean 2.5 ft at 9 s with a light offshore: medium-mixed.
+    const row = {
+      ...forecast(BEACH_A, '2026-07-31T16:00:00.000Z'),
+      wave_height: '2.5',
+      wave_period: '9s',
+      wind_speed: '3',
+      wind_direction: 'E',
+      wind_direction_deg: 90,
+    } as EnhancedForecastEntity;
+    const request: WeekScoutRequest = {
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 7,
+    };
+    let deps: WeekScoutServiceDependencies;
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    beforeEach(() => {
+      deps = dependencies();
+      deps.fetchBeaches = jest.fn(async () => [learnerBeach]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [row]]]));
+      deps.fetchSkill = jest.fn(async (): Promise<SkillLevel | null> => null);
+      deps.fetchBoardClasses = jest.fn(async () => ['longboard' as const]);
+      deps.scoreWindowCondition = jest.fn(() => 72);
+      deps.scoreWindowConditionDetails = jest.fn(() => ({ score: 72, boardClass: 'longboard' as const }));
+    });
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    function rankedRecommendations(fromCall = 0): SurfDiscoveryRecommendation[] {
+      return (deps.rankWindows as jest.Mock).mock.calls
+        .slice(fromCall)
+        .flatMap(([recommendations]: [SurfDiscoveryRecommendation[]]) => recommendations);
+    }
+
+    async function runBoth() {
+      setFlag(false);
+      const off = await generateWeekScoutForecast(USER, request, deps);
+      const offRecommendations = rankedRecommendations();
+      const onFromCall = (deps.rankWindows as jest.Mock).mock.calls.length;
+      setFlag(true);
+      const on = await generateWeekScoutForecast(USER, request, deps);
+      return {
+        off,
+        on,
+        offWindow: off.days[0].windows[0],
+        onWindow: on.days[0].windows[0],
+        offRecommendations,
+        onRecommendations: rankedRecommendations(onFromCall),
+      };
+    }
+
+    function labelsOf(response: CanonicalWeekScoutResponse): unknown[] {
+      return response.days.flatMap((day) => day.windows.map((window) => [
+        window.beachId,
+        day.localDate,
+        window.bucket,
+        window.verdict,
+        window.personalVerdict,
+        window.conditionScore,
+      ]));
+    }
+
+    it("labels a beginner's clean 2.5 ft medium-mixed window Worth it only when allowlisted", async () => {
+      const { off, on, offWindow, onWindow, offRecommendations, onRecommendations } = await runBoth();
+
+      // precondition: both runs resolved the character (the label catch returns no character)
+      for (const [window, recommendations] of [
+        [offWindow, offRecommendations],
+        [onWindow, onRecommendations],
+      ] as const) {
+        expect(recommendations.find((candidate) => candidate.recommendationId === window.id)?.character?.category)
+          .toBe('medium-mixed');
+      }
+      expect(offWindow).toMatchObject({ verdict: 'maybe', personalVerdict: 'maybe' });
+      expect(onWindow).toMatchObject({ verdict: 'worth_it', personalVerdict: 'go' });
+      expect(onWindow.id).not.toBe(offWindow.id);
+      expect(on.scorerVersion).toMatch(/\+skill-aware-go-v1$/);
+      expect(off.scorerVersion).not.toMatch(/skill-aware/);
+    });
+
+    it('keeps labels for an intermediate with no boards', async () => {
+      deps.fetchSkill = jest.fn(async (): Promise<SkillLevel | null> => 'intermediate');
+      deps.fetchBoardClasses = jest.fn(async () => []);
+      deps.scoreWindowConditionDetails = jest.fn(() => ({ score: 72, boardClass: null }));
+      const { off, on } = await runBoth();
+
+      expect(labelsOf(off).length).toBeGreaterThan(0);
+      expect(labelsOf(on)).toEqual(labelsOf(off));
+    });
+
+    it('passes beginner to the engine but keeps the raw skill for swells', async () => {
+      setFlag(true);
+      deps.fetchBoardClasses = jest.fn(async () => []);
+      deps.scoreWindowConditionDetails = jest.fn(() => ({ score: 72, boardClass: null }));
+      deps.loadSwellSnapshots = jest.fn(async () => []);
+      await generateWeekScoutForecast(USER, { ...request, includeSwells: true }, deps);
+
+      expect(buildWeekScoutSwells).toHaveBeenCalledWith(expect.objectContaining({ userSkillLevel: null }));
+      const skills = (getCanonicalPersonalCall as jest.Mock).mock.calls.map(([, skill]) => skill);
+      expect(skills.length).toBeGreaterThan(0);
+      expect(new Set(skills)).toEqual(new Set(['beginner']));
+    });
+
+    it('rates a no-skill user as beginner in the hold check (:1183) and the session decision (:1629) only when allowlisted', async () => {
+      const holdSkills = (): unknown[] => mockEvaluateMajorEventHoldCandidates.mock.calls
+        .map(([args]: [{ profileExperience: unknown }]) => args.profileExperience);
+
+      setFlag(false);
+      mockEvaluateMajorEventHoldCandidates.mockClear();
+      const off = await generateWeekScoutForecast(USER, request, deps);
+      // precondition: the hold check ran
+      expect(holdSkills().length).toBeGreaterThan(0);
+      expect(new Set(holdSkills())).toEqual(new Set([null]));
+      expect(off.sessionDecision.skillEligibility.skill).toBe('unknown');
+
+      setFlag(true);
+      mockEvaluateMajorEventHoldCandidates.mockClear();
+      const on = await generateWeekScoutForecast(USER, request, deps);
+      expect(holdSkills().length).toBeGreaterThan(0);
+      expect(new Set(holdSkills())).toEqual(new Set(['beginner']));
+      expect(on.sessionDecision.skillEligibility.skill).toBe('beginner');
+    });
+
+    it('keeps an unsafe above-beginner window as a vetoed candidate only when allowlisted (:1604)', async () => {
+      deps.fetchBeaches = jest.fn(async () => [{ ...learnerBeach, skill_level: 'advanced' }]);
+      deps.scoreBeach = jest.fn(() => ({
+        total: 82,
+        matchQuality: 'excellent',
+        subscores: {
+          waveHeightFit: 22,
+          periodEnergyScore: 18,
+          windAlignment: 19,
+          tideFit: 14,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        reasons: ['Strong conditions'],
+        warnings: ['Unsafe hazard at this beach'],
+      }));
+      const { off, on, onWindow } = await runBoth();
+
+      // precondition: the window is an unsafe skip
+      expect(onWindow).toMatchObject({ safe: false, verdict: 'skip' });
+      expect(off.sessionDecision.reasonCode).not.toBe('beach_skill_exceeds_user');
+      expect(on.sessionDecision.reasonCode).toBe('beach_skill_exceeds_user');
+    });
+
+    it('applies the flag to Weekend Scout rankings, with the Week Scout label for the same window', async () => {
+      setFlag(false);
+      const off = await generateWeekScoutRankingForDays(USER, request, deps);
+      expect(deps.scoreWindowConditionDetails).not.toHaveBeenCalled();
+      expect(off.days[0].windows[0].verdict).toBe('maybe');
+
+      setFlag(true);
+      const on = await generateWeekScoutRankingForDays(USER, request, deps);
+      const week = await generateWeekScoutForecast(USER, request, deps);
+      const onWindow = on.days[0].windows[0];
+      expect(onWindow.verdict).toBe('worth_it');
+      expect(onWindow.id).toBe(week.days[0].windows[0].id);
+      expect(onWindow.verdict).toBe(week.days[0].windows[0].verdict);
+      expect(on.scorerVersion).toMatch(/\+skill-aware-go-v1$/);
+      expect(off.scorerVersion).not.toMatch(/skill-aware/);
+      expect(deps.scoreWindowConditionDetails).toHaveBeenCalled();
+    });
   });
 });
 

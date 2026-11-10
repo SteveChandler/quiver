@@ -25,7 +25,7 @@ import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-ev
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
-import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { getSkillLevelOrDefault, parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {
   resolveSelectedHourDisplay,
   resolveTodayHeadline,
@@ -645,6 +645,7 @@ async function buildScoredHourlySwellTimeline(
   const displayByTime = new Map(displayRows.map((row) => [`${row.beach_id}:${row.forecast_at}`, row]));
   let scores: Map<EnhancedForecastEntity, number | null> | undefined;
   let beaches: Map<string, Beach> | undefined;
+  const ratingSkillLevel = context?.skillAware ? getSkillLevelOrDefault(context.skillLevel) : context?.skillLevel;
   if (context) {
     beaches = new Map(context.beaches.map((beach) => [beach.id, beach]));
     scores = new Map();
@@ -652,7 +653,7 @@ async function buildScoredHourlySwellTimeline(
       const displayRow = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
       const beach = beaches.get(row.beach_id);
       const score = beach && displayRow.wave_height != null && !isFallbackForecastRow(displayRow)
-        ? scoreWindowConditionScore(displayRow, beach, context.skillLevel, null, context.boardClasses)
+        ? scoreWindowConditionScore(displayRow, beach, ratingSkillLevel, null, context.boardClasses)
         : null;
       scores.set(row, score != null && Number.isFinite(score) ? score : null);
     }
@@ -679,7 +680,7 @@ async function buildScoredHourlySwellTimeline(
         endsAt: new Date(Date.parse(timeline.timestamps[index]) + HOUR_MS).toISOString(),
       }]),
     );
-    const decisions = await evaluateMajorEventHoldCandidates({ candidates, profileExperience: context.skillLevel, applyWaterQualityHolds: true }, {
+    const decisions = await evaluateMajorEventHoldCandidates({ candidates, profileExperience: ratingSkillLevel, applyWaterQualityHolds: true }, {
       resolveWaterQualityHolds: (rows) => resolveWaterQualityHolds(rows, { client: context.waterQuality }),
     });
     const boundary = resolveMajorEventHoldBoundary(candidates, candidates, decisions);
@@ -824,6 +825,8 @@ export async function bulkForecastHandler(
     signal.throwIfAborted();
     const userSkillLevel = decisionContext?.skillLevel ?? parseSkillLevel(searchParams.get("skillLevel"));
     if (decisionContext) decisionContext.skillLevel = userSkillLevel;
+    // Rating and window shape use the beginner default; the board pick keeps the raw skill.
+    const ratingSkillLevel = decisionContext?.skillAware ? getSkillLevelOrDefault(userSkillLevel) : userSkillLevel;
     const boardClasses = decisionContext?.boardClasses ?? [];
     const sunTimesCache = decisionContext?.sunTimes;
     const hourlySwellTimeline = hourlyTimelineWindow ? await buildScoredHourlySwellTimeline(
@@ -945,7 +948,8 @@ export async function bulkForecastHandler(
           userPrefs: null,
           horizonHours: 24,
           sunTimesCache,
-          userSkillLevel,
+          userSkillLevel: ratingSkillLevel,
+          ...(decisionContext?.skillAware ? { boardClasses } : {}),
         });
         if (headline) {
           const window = withDisplayWindow(
@@ -978,7 +982,7 @@ export async function bulkForecastHandler(
         const score = scoreWindowConditionScore(
           forecast,
           beach,
-          userSkillLevel,
+          ratingSkillLevel,
           null,
           boardClasses,
         );
@@ -1061,7 +1065,7 @@ export async function bulkForecastHandler(
       await sanitizeBulkResponse(
         response,
         selectedScoreForecastAtByBeach,
-        userSkillLevel,
+        ratingSkillLevel,
         decisionContext,
       )
     );

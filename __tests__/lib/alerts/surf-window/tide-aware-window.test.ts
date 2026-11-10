@@ -387,3 +387,16 @@ it('ranks by mean window score before duration and peak closeness', () => {
     verdictFor: (row) => ({ forecast: row, score: scores.get(row.id) ?? 0, verdict: scores.has(row.id) ? 'go' : 'no' } as ForecastVerdict) });
   expect(result.window).toMatchObject({ start: at(12), end: at(16) });
 });
+
+it('passes boardClasses to the shaping selector only when given', () => {
+  const select = jest.mocked(windowSelector.selectBestWindows);
+  select.mockClear();
+  findTideAwareWindow(input);
+  // precondition: the shaping selector ran
+  expect(select).toHaveBeenCalled();
+  for (const [args] of select.mock.calls) expect(args).not.toHaveProperty('boardClasses');
+
+  select.mockClear();
+  findTideAwareWindow({ ...input, boardClasses: ['longboard'] });
+  expect(select).toHaveBeenCalledWith(expect.objectContaining({ boardClasses: ['longboard'] }));
+});

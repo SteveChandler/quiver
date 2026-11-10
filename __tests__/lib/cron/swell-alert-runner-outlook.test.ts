@@ -151,6 +151,19 @@ describe("swell alert cron: outlook users", () => {
     expect(savedState(deps)).toMatchObject({ consecutiveUnanswered: 1, lastFirstSightingAt: MORNING.toISOString() });
   });
 
+  it("passes beginner to the lead hold check only on the go-check path (:1548)", async () => {
+    const leadExperience = async (user: SwellAlertProfile): Promise<unknown> => {
+      const deps = makeDeps({ loadProfiles: jest.fn(async () => [user]) });
+      await runSwellAlertCron({ now: MORNING, deps: deps as never });
+      const call = deps.resolveHeldBeaches.mock.calls
+        .find(([args]) => args.candidates[0]?.candidateId === "lead")!;
+      return call[0].profileExperience;
+    };
+
+    expect(await leadExperience(profile({ experienceLevel: null }))).toBeNull();
+    expect(await leadExperience(profile({ experienceLevel: null, boardClasses: [] }))).toBe("beginner");
+  });
+
   it("adds an official hazard at the lead beach to the push text", async () => {
     const deps = makeDeps({ loadFirstSightingHazard: jest.fn(async () => "high_rip_current" as const) });
     await runSwellAlertCron({ now: MORNING, deps: deps as never });
