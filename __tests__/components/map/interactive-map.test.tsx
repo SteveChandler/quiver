@@ -23,7 +23,7 @@ let mockAutoLoadMap = true;
 let mockMapBoundsAvailable = true;
 let mockMapBounds = { west: -117.3, south: 32.7, east: -117.2, north: 32.8 };
 let mockTilesLoaded = true;
-let mockStyleLayers: Array<{ id: string; source?: string }> = [];
+let mockStyleLayers: Array<{ id: string; source?: string; type?: string }> = [];
 const mockQueryRenderedFeatures = jest.fn((_query?: unknown, _options?: unknown): unknown[] => [{}]);
 const mockProject = jest.fn((_lngLat: [number, number]) => ({ x: 400, y: 300 }));
 
@@ -555,6 +555,14 @@ describe("InteractiveMap", () => {
       map.removeLayer.mockImplementation((id: string) => { mounted.delete(id); });
       map.getPaintProperty = jest.fn(() => "#A8CFE0");
       map.setPaintProperty = jest.fn();
+      // The dim goes under the first symbol layer, so roads and labels stay crisp.
+      mockStyleLayers = [
+        { id: "land", type: "background" },
+        { id: "water", type: "fill" },
+        { id: "road-primary", type: "line" },
+        { id: "road-oneway-arrow", type: "symbol" },
+        { id: "road-label", type: "symbol" },
+      ];
 
       rerender(<InteractiveMap beaches={[]} showSwellField swellLayerId="s1" swellFieldStage={stage} />);
       await waitFor(() => expect(map.addLayer).toHaveBeenCalledWith(
@@ -562,6 +570,7 @@ describe("InteractiveMap", () => {
           id: "quiver-swell-field-stage-dim",
           paint: { "background-color": "#252D6B", "background-opacity": 0.4 },
         }),
+        "road-oneway-arrow",
       ));
       expect(map.setPaintProperty).toHaveBeenLastCalledWith("water", "fill-color", "#4B78A9");
 

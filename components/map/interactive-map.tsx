@@ -2344,14 +2344,22 @@ export function InteractiveMap({
       };
       map.setPaintProperty("water", "fill-color", SWELL_FIELD_DARK_STAGE_WATER);
     }
-    map.addLayer({
-      id: `${SWELL_FIELD_LAYER_ID}-stage-dim`,
-      type: "background",
-      paint: {
-        "background-color": SWELL_FIELD_DARK_STAGE_DIM.color,
-        "background-opacity": SWELL_FIELD_DARK_STAGE_DIM.opacity,
+    // Dim only the base fills: insert under the style's first symbol layer, so
+    // roads, labels and shields above it keep full contrast.
+    const firstSymbolLayerId = map
+      .getStyle()
+      ?.layers?.find((layer) => layer.type === "symbol")?.id;
+    map.addLayer(
+      {
+        id: `${SWELL_FIELD_LAYER_ID}-stage-dim`,
+        type: "background",
+        paint: {
+          "background-color": SWELL_FIELD_DARK_STAGE_DIM.color,
+          "background-opacity": SWELL_FIELD_DARK_STAGE_DIM.opacity,
+        },
       },
-    });
+      firstSymbolLayerId,
+    );
     if (swellLayerId === "combined") {
       // Overlay the three components, each its own colored layer + flow field. Cap
       // per-layer particle count so three stacked layers stay in budget.
