@@ -7,6 +7,7 @@ import { GET } from "@/app/api/surf/call/route";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
+import fixture from "@/__tests__/fixtures/surf-call-skill-default-v1.json";
 
 const mockSupabase = {
   from: jest.fn(),
@@ -99,9 +100,11 @@ jest.mock("@/lib/services/discovery/major-event-hold", () => ({
 }));
 
 const mockGetProfileExperienceLevel = jest.fn();
+const mockReadProfileSkill = jest.fn();
 jest.mock("@/lib/profile/skill-level", () => ({
   getProfileExperienceLevel: (...args: unknown[]) =>
     mockGetProfileExperienceLevel(...args),
+  readProfileSkill: (...args: unknown[]) => mockReadProfileSkill(...args),
 }));
 
 function mockBeachQuery(
@@ -1466,6 +1469,146 @@ describe("GET /api/surf/call", () => {
         reasonCode: "major_event_hold",
         holdEpoch: "major-event-epoch",
       });
+    });
+  });
+
+  describe("skill default (flag on)", () => {
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    type FlagEnv = { enabled?: string; allow?: string };
+    type SkillRead = { ok: true; level: string | null; blank: boolean } | { ok: false };
+    const BEACH_ID = "11111111-1111-4111-8111-111111111111";
+    const ON: FlagEnv = { enabled: "true", allow: "native-user-123" };
+    const UNSET: SkillRead = { ok: true, level: null, blank: true };
+
+    afterEach(() => {
+      // The includeNow block below has no beforeEach and reads this mock as left here.
+      mockResolveCanonicalSessionDecisionContext.mockResolvedValue(canonicalContext);
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    function setFlag(env: FlagEnv) {
+      if (env.enabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = env.enabled;
+      if (env.allow === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = env.allow;
+    }
+
+    function setRead(read: SkillRead) {
+      mockReadProfileSkill.mockResolvedValue(read);
+    }
+
+    // Each helper gives the mock a fresh decision, so the shared canned context stays as beforeEach built it.
+    function withDecision(changes: Record<string, unknown>) {
+      mockResolveCanonicalSessionDecisionContext.mockResolvedValue({
+        ...canonicalContext,
+        decision: { ...canonicalContext.decision, ...changes },
+      });
+    }
+
+    function decisionSkill(skill: string) {
+      withDecision({ skillEligibility: { skill, state: "eligible", reasonCodes: [] } });
+    }
+
+    function vetoDecision(reasonCode: string, candidateRejection: Record<string, unknown>) {
+      withDecision({
+        verdict: "no",
+        decisionBasis: "safety_override",
+        reasonCode,
+        candidateRejection,
+        selection: null,
+        skillEligibility: { skill: "beginner", state: "eligible", reasonCodes: [] },
+      });
+    }
+
+    async function callRoute() {
+      mockBeachQuery({ id: BEACH_ID, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+      const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${BEACH_ID}`));
+      return response.json();
+    }
+
+    it("sets skillDefaultApplied for an allowlisted user with no skill and keeps the audience fields null", async () => {
+      setFlag(ON);
+      setRead(UNSET);
+      withDecision({ skillEligibility: fixture.skillEligibility });
+
+      const body = await callRoute();
+
+      expect(body.data.report).toMatchObject(fixture.report);
+      expect(body.data.sessionDecision.skillEligibility).toEqual(fixture.skillEligibility);
+      expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: "beginner" }),
+      );
+    });
+
+    it("does not read the skill twice with the flag off", async () => {
+      setFlag({});
+
+      await callRoute();
+
+      expect(mockReadProfileSkill).not.toHaveBeenCalled();
+      expect(mockGetProfileExperienceLevel).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["flag off", {}, UNSET],
+      ["not allowlisted", { enabled: "true", allow: "someone-else" }, UNSET],
+      ["known skill", ON, { ok: true, level: "intermediate", blank: false }],
+      ["garbage skill", ON, { ok: true, level: null, blank: false }],
+      ["failed read", ON, { ok: false }],
+    ] as const)("omits skillDefaultApplied when %s", async (_label, env: FlagEnv, read: SkillRead) => {
+      setFlag(env);
+      setRead(read);
+      mockGetProfileExperienceLevel.mockResolvedValue(read.ok ? read.level : null);
+      decisionSkill(read.ok && read.level ? read.level : "beginner");
+
+      const body = await callRoute();
+
+      expect(body.data.report).not.toHaveProperty("skillDefaultApplied");
+    });
+
+    it("omits skillDefaultApplied for an anonymous viewer", async () => {
+      setFlag({ enabled: "true", allow: "" });
+      mockRequestUser = null;
+
+      const body = await callRoute();
+
+      expect(body.data.report).not.toHaveProperty("skillDefaultApplied");
+      expect(mockReadProfileSkill).not.toHaveBeenCalled();
+    });
+
+    it("never says 'your profile is beginner' for an allowlisted user with no skill", async () => {
+      setFlag(ON);
+      setRead(UNSET);
+      vetoDecision("beach_skill_exceeds_user", { observed: { skill: "intermediate" }, allowed: { skill: "beginner" } });
+
+      const body = await callRoute();
+
+      expect(body.data.report.whySentence).not.toMatch(/your profile is/i);
+      expect(body.data.report.whySentence).toContain("You haven't set a level");
+    });
+
+    it("keeps 'your profile is beginner' for a user who set beginner (control)", async () => {
+      setFlag(ON);
+      setRead({ ok: true, level: "beginner", blank: false });
+      vetoDecision("beach_skill_exceeds_user", { observed: { skill: "intermediate" }, allowed: { skill: "beginner" } });
+
+      const body = await callRoute();
+
+      expect(body.data.report.whySentence).toMatch(/your profile is beginner/);
+    });
+
+    it("keeps the 'applied when skill is unknown' wave text for a defaulted skill", async () => {
+      setFlag(ON);
+      setRead(UNSET);
+      vetoDecision("wave_height_exceeds_skill", { observed: { waveHeightFt: 5 }, allowed: { skill: "beginner", minimumWaveHeightFt: 1, maximumWaveHeightFt: 4 } });
+
+      const body = await callRoute();
+
+      expect(body.data.report.whySentence).toMatch(/applied when skill is unknown/);
     });
   });
 });

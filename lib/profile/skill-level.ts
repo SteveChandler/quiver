@@ -48,3 +48,33 @@ export async function getProfileExperienceLevel(
 
   return parseSkillLevel(data?.experience_level);
 }
+
+type ProfileSkillRead = { ok: true; level: SkillLevel | null; blank: boolean } | { ok: false };
+
+/**
+ * Read the profile skill and say whether it is blank, so a caller can tell a
+ * user with no level from a failed read.
+ */
+export async function readProfileSkill(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<ProfileSkillRead> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("experience_level")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error || !data) return { ok: false };
+
+    const raw = data.experience_level;
+    return {
+      ok: true,
+      level: parseSkillLevel(raw),
+      blank: raw === null || raw.trim() === "",
+    };
+  } catch {
+    return { ok: false };
+  }
+}
