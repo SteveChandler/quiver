@@ -46,6 +46,8 @@ import { getDaylightWindow } from "@/lib/alerts/sunrise";
 import { capToBestWindow, refineWindow, type RefinedWindow } from "@/lib/alerts/window-refiner";
 import { groupGoForecasts, loadTideSamples, rankDayWithWeekScout, rowServesDay, type RankDay } from "@/lib/cron/daily-call-runner";
 import { driveRadiusMiles } from "@/lib/profile/drive-range";
+import { fetchBoardClassesByUser } from "@/lib/profile/board-classes";
+import type { BoardClass } from "@/lib/domains/rideability";
 import { capNearbyPool, loadUserPool } from "@/lib/alerts/user-pool";
 import {
   forecastSlotCandidate,
@@ -55,6 +57,7 @@ import {
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { isDailyCallEnabled, isDailyCallUserAllowed } from "@/lib/flags/daily-call";
 import { isSharedCallRankingEnabled, isSharedCallRankingUserAllowed } from "@/lib/flags/shared-call-ranking";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
 import { isSwellAlertEnabled, isSwellAlertUserAllowed } from "@/lib/flags/swell-alert";
 import { isSwellFollowupEnabled, isSwellFollowupUserAllowed } from "@/lib/flags/swell-followup";
 import { SWELL_FOLLOWUP_THRESHOLDS } from "@/lib/alerts/swell-followup/change-detection";
@@ -166,6 +169,11 @@ export interface SwellAlertProfile {
   notifPushEnabled: boolean | null;
   notifSwellAlerts: boolean | null;
   notifForecastAlerts: boolean | null;
+  /**
+   * Present only when the user was on the skill-aware go-check path at load
+   * time; `[]` means no boards.
+   */
+  boardClasses?: readonly BoardClass[];
 }
 
 export interface SwellAlertCandidate {
@@ -438,6 +446,8 @@ async function loadProfiles(
   const { data, error } = await (userIds ? query.in("id", userIds) : query);
   if (error) throw new Error(`Failed to load swell alert users: ${error.message}`);
 
+  const goCheckIds = new Set((data ?? []).map(({ id }) => id).filter(isSkillAwareGoChecksOn));
+  const boards = goCheckIds.size > 0 ? await fetchBoardClassesByUser(client, [...goCheckIds]) : new Map<string, BoardClass[]>();
   return (data ?? []).map((value) => {
     const row = value as typeof value & {
       user_location_snapshots:
@@ -463,6 +473,7 @@ async function loadProfiles(
       notifPushEnabled: row.notif_push_enabled,
       notifSwellAlerts: row.notif_swell_alerts,
       notifForecastAlerts: row.notif_forecast_alerts,
+      ...(goCheckIds.has(row.id) ? { boardClasses: boards.get(row.id) ?? [] } : {}),
     };
   });
 }
@@ -605,6 +616,7 @@ function makeVerdictFor(
     timezone: profile.timezone,
     now,
     candidateIdPrefix: "swell-alert",
+    ...(profile.boardClasses ? { goChecks: { boardClasses: profile.boardClasses } } : {}),
   });
 }
 
@@ -701,6 +713,7 @@ async function evaluatePool(
       timezone: beachTimezone,
       now,
       experienceLevel: profile.experienceLevel,
+      ...(profile.boardClasses ? { boardClasses: profile.boardClasses } : {}),
       verdictFor,
     }).catch((error: unknown) => {
       // No window means the push says "Wed morning"; never drop the alert for it.
@@ -772,6 +785,7 @@ async function peakDayWindow(args: {
   timezone: string;
   now: Date;
   experienceLevel: string | null;
+  boardClasses?: readonly BoardClass[];
   verdictFor: (forecast: EnhancedForecastEntity, beach: Beach) => ForecastVerdict;
 }): Promise<RefinedWindow | null> {
   // The daily call's day: 05:00–20:00 local, so daylight resolves to this date.
@@ -814,7 +828,8 @@ async function peakDayWindow(args: {
     userPrefs: null,
     now: args.now,
     maxWindows: 1,
-    userSkillLevel: args.experienceLevel,
+    userSkillLevel: ratingExperience(args.experienceLevel, args.boardClasses !== undefined),
+    ...(args.boardClasses ? { boardClasses: args.boardClasses } : {}),
   })[0];
   return capToBestWindow(refined, best);
 }
@@ -1267,7 +1282,7 @@ async function sendFollowups(
         candidates: [recommended
           ? { candidateId: "followup", beachId: pinned.beach.id, startsAt: recommended.start, endsAt: recommended.end }
           : forecastSlotCandidate("followup", pinned.beach.id, shown.peakAt)],
-        profileExperience: profile.experienceLevel,
+        profileExperience: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
         asOf: now,
       });
       const heldReason = held.get("followup");
@@ -1433,7 +1448,7 @@ function isOutlookRecipient(deps: RunnerDeps, userId: string): deps is OutlookRu
       && deps.hasFirstSightingAlert && deps.assessSwellRarity);
 }
 
-async function loadSurfWindow(
+export async function loadSurfWindow(
   client: ServiceClient,
   tideCache: TideCache,
   profile: SwellAlertProfile,
@@ -1455,7 +1470,9 @@ async function loadSurfWindow(
   ]);
   const verdictFor = makeVerdictFor({ ...profile, timezone }, now);
   return findTideAwareWindow({ beach, forecasts, tideSamples, arrivalAt, peakAt: event.peakAt,
-    fadeAt: event.fadeAt, timezone, now, skillLevel: profile.experienceLevel,
+    fadeAt: event.fadeAt, timezone, now,
+    skillLevel: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
+    ...(profile.boardClasses ? { boardClasses: profile.boardClasses } : {}),
     verdictFor: (row) => verdictFor(row, beach), isTideReasonEligible: isTideReasonEligibleBeach });
 }
 
@@ -1545,7 +1562,7 @@ async function sendFirstSighting(
         ...(swell.options ?? []).map((option, index) =>
           forecastSlotCandidate(`option:${index}`, option.beachId, swell.peakAt)),
       ],
-      profileExperience: profile.experienceLevel,
+      profileExperience: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
       asOf: now,
     });
     const leadHold = held.get("lead");
@@ -1798,7 +1815,7 @@ export async function runSwellAlertCron(args: {
       const held = await deps.resolveHeldBeaches({
         candidates: candidates.map((candidate, index) =>
           forecastSlotCandidate(`swell:${index}`, candidate.beach.id, candidate.event.peakAt)),
-        profileExperience: profile.experienceLevel,
+        profileExperience: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
         asOf: args.now,
       });
       const clearCandidates = candidates.filter((_, index) => {

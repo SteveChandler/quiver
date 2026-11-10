@@ -182,6 +182,19 @@ describe("swell follow-ups", () => {
     });
   });
 
+  it("passes beginner to the follow-up hold check only on the go-check path (:1270)", async () => {
+    const followupExperience = async (user: SwellAlertProfile): Promise<unknown> => {
+      const deps = dependencies({ loadProfiles: jest.fn(async () => [user]) });
+      await runSwellAlertCron({ now: MORNING, deps });
+      const call = jest.mocked(deps.resolveHeldBeaches).mock.calls
+        .find(([args]) => args.candidates[0]?.candidateId === "followup")!;
+      return call[0].profileExperience;
+    };
+
+    expect(await followupExperience(profile({ experienceLevel: null }))).toBeNull();
+    expect(await followupExperience(profile({ experienceLevel: null, boardClasses: [] }))).toBe("beginner");
+  });
+
   it("re-evaluates the pinned beach and never re-runs the lead-beach pick", async () => {
     const deps = dependencies();
 
