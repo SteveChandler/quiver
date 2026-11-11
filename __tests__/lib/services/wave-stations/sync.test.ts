@@ -1,0 +1,204 @@
+/**
+ * @jest-environment node
+ */
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  syncLatestObservations,
+  syncRegistry,
+  syncSwellSplit,
+  type CatalogueClient,
+} from "@/lib/services/wave-stations/sync";
+import { parseLatestObs, parseSpecFile } from "@/lib/services/wave-stations/ndbc/parsers";
+import type {
+  SourceStation,
+  StationHistoryResult,
+  WaveStationSourceAdapter,
+} from "@/lib/services/wave-stations/types";
+
+const fixture = (name: string): string =>
+  readFileSync(path.join(__dirname, "../../../fixtures/ndbc-wave-stations", name), "utf8");
+
+interface Call {
+  table: string;
+  ops: Array<[string, unknown[]]>;
+}
+
+/** Chainable PostgREST stand-in: every `from()` chain resolves to the next queued result for that table. */
+function fakeDb(selectResults: Record<string, unknown[][]> = {}) {
+  const calls: Call[] = [];
+  const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const db = {
+    from(table: string) {
+      const call: Call = { table, ops: [] };
+      calls.push(call);
+      const builder: Record<string, unknown> = {};
+      for (const op of ["select", "eq", "order", "range", "or", "limit", "upsert", "update", "in", "not", "is"]) {
+        builder[op] = (...args: unknown[]) => {
+          call.ops.push([op, args]);
+          return builder;
+        };
+      }
+      builder.then = (resolve: (value: unknown) => unknown) => {
+        const isRead = call.ops[0]?.[0] === "select";
+        const data = isRead ? (selectResults[table]?.shift() ?? []) : null;
+        return Promise.resolve({ data, error: null }).then(resolve);
+      };
+      return builder;
+    },
+    rpc(name: string, args: Record<string, unknown>) {
+      rpcCalls.push({ name, args });
+      const rows = Array.isArray(args.p_rows) ? args.p_rows.length : 7;
+      return Promise.resolve({ data: rows, error: null });
+    },
+  };
+  return { db: db as unknown as CatalogueClient, calls, rpcCalls };
+}
+
+function adapter(overrides: Partial<WaveStationSourceAdapter> = {}): WaveStationSourceAdapter {
+  return {
+    source: "ndbc",
+    fetchStations: jest.fn(async () => []),
+    fetchLatestObservations: jest.fn(async () => parseLatestObs(fixture("latest_obs.txt"))),
+    fetchStationHistory: jest.fn(async (): Promise<StationHistoryResult> => ({ status: "not_modified" })),
+    ...overrides,
+  };
+}
+
+describe("syncLatestObservations", () => {
+  it("drops unknown stations and older rows, and merges the rest", async () => {
+    const { db, rpcCalls } = fakeDb({
+      wave_stations: [[
+        { id: "ndbc:46225", last_observed_at: "2026-11-11T02:26:00+00:00" },
+        { id: "ndbc:46086", last_observed_at: "2026-11-11T03:00:00+00:00" },
+        { id: "ndbc:51201", last_observed_at: "2026-11-11T03:30:00+00:00" },
+      ]],
+    });
+    const result = await syncLatestObservations(db, adapter(), Date.parse("2026-11-11T03:34:00Z"));
+
+    expect(result).toMatchObject({ rowsInFeed: 7, rowsUnknownStation: 4, rowsStale: 1, rowsSent: 2, rowsPruned: 0 });
+    expect(rpcCalls).toHaveLength(1);
+    const rows = rpcCalls[0].args.p_rows as Array<Record<string, unknown>>;
+    expect(rows.map((row) => row.station_id).sort()).toEqual(["ndbc:46086", "ndbc:46225"]);
+    // The latest feed never sends swell-split keys, so it cannot null them.
+    expect(rows.every((row) => !("swell_height_m" in row))).toBe(true);
+  });
+
+  it("prunes past the 180-day retention on the first run of the hour", async () => {
+    const { db, rpcCalls } = fakeDb({ wave_stations: [[]] });
+    const result = await syncLatestObservations(db, adapter(), Date.parse("2026-11-11T03:04:00Z"));
+    const prune = rpcCalls.find((call) => call.name === "prune_wave_station_observations");
+    expect(prune?.args).toEqual({ p_before: "2026-05-15T03:04:00.000Z", p_limit: 5000 });
+    expect(result.rowsPruned).toBe(7);
+  });
+});
+
+describe("syncSwellSplit", () => {
+  const options = { maxStations: 10, maxBackfills: 1, concurrency: 2, budgetMs: 60_000 };
+
+  it("backfills a new station once, defers extra backfills, and sends only new rows otherwise", async () => {
+    const { db, calls, rpcCalls } = fakeDb({
+      wave_stations: [[
+        { id: "ndbc:46225", source_station_id: "46225", spec_last_modified: null, spec_last_observed_at: null },
+        { id: "ndbc:46254", source_station_id: "46254", spec_last_modified: null, spec_last_observed_at: null },
+        {
+          id: "ndbc:46086",
+          source_station_id: "46086",
+          spec_last_modified: "Tue, 10 Nov 2026 02:15:00 GMT",
+          spec_last_observed_at: "2026-11-07T19:10:00+00:00",
+        },
+      ]],
+    });
+    const fetchStationHistory = jest.fn(
+      async (id: string): Promise<StationHistoryResult> => ({
+        status: "ok",
+        lastModified: "Wed, 11 Nov 2026 03:10:22 GMT",
+        observations: parseSpecFile(fixture(id === "46086" ? "46086.spec" : "46225.spec"), id),
+      }),
+    );
+    const result = await syncSwellSplit(
+      db,
+      adapter({ fetchStationHistory }),
+      Date.parse("2026-11-11T03:11:00Z"),
+      options,
+    );
+
+    expect(result).toMatchObject({ stationsDue: 3, fetched: 2, backfilled: 1, backfillDeferred: 1, rowsWritten: 4 });
+    expect(fetchStationHistory).toHaveBeenCalledWith("46225", { ifModifiedSince: null });
+    expect(fetchStationHistory).toHaveBeenCalledWith("46086", { ifModifiedSince: "Tue, 10 Nov 2026 02:15:00 GMT" });
+
+    const sent = rpcCalls.flatMap((call) => call.args.p_rows as Array<{ station_id: string; observed_at: string }>);
+    expect(sent.filter((row) => row.station_id === "ndbc:46225")).toHaveLength(3);
+    expect(sent.filter((row) => row.station_id === "ndbc:46086").map((row) => row.observed_at)).toEqual([
+      "2026-11-10T01:40:00.000Z",
+    ]);
+
+    const updates = calls.filter((call) => call.ops[0]?.[0] === "update").map((call) => call.ops[0][1][0]);
+    expect(updates).toContainEqual({
+      spec_checked_at: "2026-11-11T03:11:00.000Z",
+      spec_last_modified: "Wed, 11 Nov 2026 03:10:22 GMT",
+      spec_last_observed_at: "2026-11-10T01:40:00.000Z",
+    });
+    expect(updates).toContainEqual({
+      spec_checked_at: "2026-11-11T03:11:00.000Z",
+      spec_last_modified: "Wed, 11 Nov 2026 03:10:22 GMT",
+      spec_last_observed_at: "2026-11-11T02:56:00.000Z",
+    });
+  });
+
+  it("records a 304 as checked without writing rows", async () => {
+    const { db, rpcCalls } = fakeDb({
+      wave_stations: [[
+        {
+          id: "ndbc:46225",
+          source_station_id: "46225",
+          spec_last_modified: "Wed, 11 Nov 2026 03:10:22 GMT",
+          spec_last_observed_at: "2026-11-11T02:56:00+00:00",
+        },
+      ]],
+    });
+    const result = await syncSwellSplit(db, adapter(), Date.now(), options);
+    expect(result).toMatchObject({ notModified: 1, fetched: 0, rowsWritten: 0 });
+    expect(rpcCalls).toHaveLength(0);
+  });
+});
+
+describe("syncRegistry", () => {
+  it("refuses an empty station list instead of deactivating everything", async () => {
+    const { db } = fakeDb();
+    await expect(syncRegistry(db, adapter(), Date.now())).rejects.toThrow(/station list is empty/);
+  });
+
+  it("upserts stations and counts wave stations by country", async () => {
+    const stations: SourceStation[] = [
+      {
+        sourceStationId: "46225", name: "Torrey Pines Outer, CA", lat: 32.9, lon: -117.4,
+        stationType: "buoy", owner: "SCRIPPS", program: "IOOS Partners", countryCode: "US",
+        region: "CA", cdipStationId: "100", hasWave: true, hasSwellSplit: true, hasMet: true,
+        license: "public-domain-us-gov", attribution: "NOAA NDBC",
+      },
+      {
+        sourceStationId: "15001", name: "Station 15001", lat: -10, lon: -10,
+        stationType: "buoy", owner: null, program: "International Partners", countryCode: null,
+        region: null, cdipStationId: null, hasWave: false, hasSwellSplit: false, hasMet: true,
+        license: "public-domain-us-gov", attribution: "NOAA NDBC",
+      },
+    ];
+    const { db, calls } = fakeDb({ wave_stations: [[]] });
+    const result = await syncRegistry(db, adapter({ fetchStations: async () => stations }), Date.now());
+    expect(result).toEqual({
+      stationsListed: 2,
+      withWave: 1,
+      withSwellSplit: 1,
+      waveStationsByCountry: { US: 1 },
+      upserted: 2,
+      deactivated: 0,
+    });
+    const upsert = calls.find((call) => call.ops[0]?.[0] === "upsert");
+    const rows = upsert?.ops[0][1][0] as Array<Record<string, unknown>>;
+    expect(rows[0]).not.toHaveProperty("first_seen_at");
+    expect(rows[0]).not.toHaveProperty("last_observed_at");
+    expect(rows[0].slug).toBe("torrey-pines-outer-ca-46225");
+  });
+});
