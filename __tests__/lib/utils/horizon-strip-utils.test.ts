@@ -105,7 +105,7 @@ describe('horizon-strip-utils', () => {
     });
 
     it('formats single value when min equals max', () => {
-      expect(formatWaveRange(3, 3)).toBe('3ft');
+      expect(formatWaveRange(3, 3)).toBe('2-3ft');
       expect(formatWaveRange(2.4, 2.6)).toBe('2-3ft'); // Rounds differently
     });
 
@@ -123,7 +123,7 @@ describe('horizon-strip-utils', () => {
     });
 
     it('shows single value for exact integers', () => {
-      expect(formatWaveRange(6.0, 6.0)).toBe('6ft');
+      expect(formatWaveRange(6.0, 6.0)).toBe('5-6ft');
     });
 
     it('shows range when min and max are different integers', () => {

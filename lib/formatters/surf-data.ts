@@ -1,20 +1,34 @@
 import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
-// Cross-platform note: web now matches quiver-native/src/lib/format-wave-height.ts —
-// floor/ceil bracket on face Hs, no "sets" expansion, no "sets" suffix.
+// Cross-platform note: web matches quiver-native/src/lib/format-wave-height.ts —
+// floor/ceil bracket on face Hs, whole numbers read as a band, no "sets" suffix.
+
+/**
+ * Bracket a face height the way quiver-native's `formatWaveRange` does
+ * (src/lib/format-wave-height.ts `formatBounds`), so one forecast reads the
+ * same on every web and native screen. Inputs are first rounded to the 0.1 ft
+ * the forecast API sends (`roundWaveHeight`), because native brackets that
+ * rounded string. A whole number reads as the band just below it ("3" → "2-3ft").
+ */
+export function bracketFaceHeightFeet(minFt: number, maxFt: number): string {
+  if (!Number.isFinite(minFt) || !Number.isFinite(maxFt)) return 'Flat';
+  const min = Math.round(Math.min(minFt, maxFt) * 10) / 10;
+  const max = Math.round(Math.max(minFt, maxFt) * 10) / 10;
+  const low = Math.max(0, Math.floor(min));
+  const high = Math.max(low, Math.ceil(max));
+  if (low <= 0 && high <= 0) return 'Flat';
+  if (low === high) return `${low - 1}-${low}ft`;
+  return `${low}-${high}ft`;
+}
 
 /**
  * Format wave height as a surfer-friendly range string.
  * Returns "Flat" for zero, negative, NaN, or Infinity values.
- * Uses Surfline-style floor/ceil bracket on face Hs (no × 1.5 set expansion);
- * collapses to a single value when floor and ceil are equal.
+ * Uses the floor/ceil bracket on face Hs (no × 1.5 set expansion), with
+ * native's whole-number band (see `bracketFaceHeightFeet`).
  */
 export function formatWaveHeightRange(ft: number): string {
-  if (!Number.isFinite(ft)) return 'Flat';
-  if (ft <= 0) return 'Flat';
-  const low = Math.floor(ft);
-  const high = Math.ceil(ft);
-  if (low === high) return `${low}ft`;
-  return `${low}-${high}ft`;
+  if (!Number.isFinite(ft) || ft <= 0) return 'Flat';
+  return bracketFaceHeightFeet(ft, ft);
 }
 
 /**
