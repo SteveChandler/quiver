@@ -264,10 +264,10 @@ describe('buildDiscoveryMessage', () => {
     expect(message).toBe('Skip - Strong onshore wind');
   });
 
-  it('should build Skip message with default when no warnings', () => {
+  it('returns no message (no stand-in reason) for a Skip with no warnings', () => {
     const message = buildDiscoveryMessage(25, [], []);
 
-    expect(message).toBe('Skip - Conditions not favorable');
+    expect(message).toBe('');
   });
 
   it('should build Worth it message with reasons', () => {
@@ -311,10 +311,9 @@ describe('buildDiscoveryMessage', () => {
     expect(message).toBe('Maybe - Good wave size, Clean swell. Watch: Side-shore wind');
   });
 
-  it('should handle empty reasons gracefully', () => {
-    const message = buildDiscoveryMessage(70, [], []);
-
-    expect(message).toBe('Worth it - Conditions look surfable');
+  it('returns no message (no stand-in reason) when there are no reasons', () => {
+    expect(buildDiscoveryMessage(70, [], [])).toBe('');
+    expect(buildDiscoveryMessage(55, [], ['Wind picking up'])).toBe('');
   });
 
   it('should only use top 2 reasons', () => {
@@ -577,5 +576,14 @@ describe('generateDiscoverySummary without wind', () => {
 
     expect(summary).not.toMatch(/with|Unknown|null/);
     expect(summary).toContain('4-5 ft.');
+  });
+});
+
+describe('generateDiscoverySummary without wave height', () => {
+  it.each(['', 'Unknown'])('leaves the height clause out for %j', (waveHeight) => {
+    const summary = generateDiscoverySummary(mockBeach, { ...mockWindow, waveHeight }, createDetailedScore({}));
+
+    expect(summary).not.toMatch(/Unknown| - \./);
+    expect(summary).toContain("Black's Beach with 5 mph offshore.");
   });
 });

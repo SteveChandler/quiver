@@ -208,9 +208,11 @@ export function TopRankedBeachHero({
                   Peak {formatPeakTime(bestSurfWindow.peakIso, bestSurfWindow.timezone)} ·{" "}
                   {bestSurfWindow.confidence.summary}
                 </dd>
-                <dd className="mt-1 text-xs text-[#11100D]/65">
-                  {bestSurfWindow.positives[0] ?? "Selector conditions align"}
-                </dd>
+                {bestSurfWindow.positives[0] && (
+                  <dd className="mt-1 text-xs text-[#11100D]/65">
+                    {bestSurfWindow.positives[0]}
+                  </dd>
+                )}
               </>
             ) : (
               <dd className="mt-1 font-semibold text-[#11100D]">
