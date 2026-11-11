@@ -5,7 +5,7 @@ import {
 
 describe("surf summary display contract", () => {
   it("normalizes broad decimal wave ranges for compact headline display", () => {
-    expect(formatCompactWaveHeight("0.5-5.5 ft")).toBe("3ft");
+    expect(formatCompactWaveHeight("0.5-5.5 ft")).toBe("2-3ft");
   });
 
   it("keeps clean compact integer ranges stable", () => {
@@ -13,7 +13,7 @@ describe("surf summary display contract", () => {
   });
 
   it("accepts numeric wave heights from untyped API payloads", () => {
-    expect(formatCompactWaveHeight(3)).toBe("3ft");
+    expect(formatCompactWaveHeight(3)).toBe("2-3ft");
   });
 
   it("builds a scannable wave, wind, swell, and tide summary", () => {
@@ -29,14 +29,14 @@ describe("surf summary display contract", () => {
     });
 
     expect(summary).toMatchObject({
-      waveHeightHeadline: "3ft",
+      waveHeightHeadline: "2-3ft",
       windSummary: "Wind NW 8 mph",
       swellSummary: "Swell WNW @ 14s",
       tideSummary: "Tide 3.2 ft rising",
       whySummary: "Clean enough early before wind fills in.",
     });
     expect(summary.conditionLine).toBe(
-      "3ft · Wind NW 8 mph · Swell WNW @ 14s · Tide 3.2 ft rising"
+      "2-3ft · Wind NW 8 mph · Swell WNW @ 14s · Tide 3.2 ft rising"
     );
   });
 
@@ -50,7 +50,7 @@ describe("surf summary display contract", () => {
     });
 
     expect(summary).toMatchObject({
-      waveHeightHeadline: "3ft",
+      waveHeightHeadline: "2-3ft",
       windSummary: "Wind NW 8 mph",
       tideSummary: "Tide 3.2 rising",
     });

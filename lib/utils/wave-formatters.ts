@@ -11,6 +11,7 @@
  * @module lib/utils/wave-formatters
  */
 
+import { bracketFaceHeightFeet } from '@/lib/formatters/surf-data';
 import {
   transformToFaceHeight,
   transformToFaceHeightDecomposed,
@@ -192,14 +193,7 @@ export function formatWaveRange(
       return `${lower}-${upper}ft`;
     }
 
-    const minHeight = rangeOrMin;
-    const maxHeight = precisionOrMax;
-    if (minHeight <= 0 && maxHeight <= 0) return "Flat";
-
-    const minInt = Math.max(0, Math.floor(minHeight));
-    const maxInt = Math.ceil(maxHeight);
-    if (minInt === maxInt) return `${minInt}ft`;
-    return `${minInt}-${maxInt}ft`;
+    return bracketFaceHeightFeet(rangeOrMin, precisionOrMax);
   }
 
   const [min, max] = rangeOrMin;
@@ -374,10 +368,7 @@ export function parseWaveHeight(
  * @returns Formatted range like "3-4ft" or "4ft"
  */
 export function formatWaveHeightRangeString(low: number, high: number): string {
-  const lo = Math.floor(low);
-  const hi = Math.ceil(high);
-  if (lo === hi) return `${lo}ft`;
-  return `${lo}-${hi}ft`;
+  return bracketFaceHeightFeet(low, high);
 }
 
 // ============================================================================

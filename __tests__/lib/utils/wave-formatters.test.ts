@@ -633,8 +633,8 @@ describe("wave-formatters", () => {
     it("collapses to a single value when floor and ceil match", () => {
       // floor(0.8)=0, ceil(1.2)=2 -> "0-2ft" (range still meaningful)
       expect(formatWaveHeightRangeString(0.8, 1.2)).toBe("0-2ft");
-      // Both bounds collapse to 2
-      expect(formatWaveHeightRangeString(2.0, 2.0)).toBe("2ft");
+      // Both bounds collapse to 2, which reads as native's band below it
+      expect(formatWaveHeightRangeString(2.0, 2.0)).toBe("1-2ft");
       // floor(1.8)=1, ceil(2.2)=3 -> "1-3ft"
       expect(formatWaveHeightRangeString(1.8, 2.2)).toBe("1-3ft");
     });
@@ -655,7 +655,7 @@ describe("wave-formatters", () => {
       // Single-point face Hs idiom: pass low === high, get floor/ceil bracket.
       expect(formatWaveHeightRangeString(3.2, 3.2)).toBe("3-4ft");
       expect(formatWaveHeightRangeString(2.5, 2.5)).toBe("2-3ft");
-      expect(formatWaveHeightRangeString(5, 5)).toBe("5ft");
+      expect(formatWaveHeightRangeString(5, 5)).toBe("4-5ft");
     });
   });
 
@@ -902,8 +902,8 @@ describe("wave-formatters", () => {
         cdipSigFt: 2.0,
         periodS: 10,
       });
-      // 2.0 * 1.0 = 2.0ft face → floor/ceil bracket collapses to "2ft" (Surfline parity, no × 1.5).
-      expect(result).toBe("2ft");
+      // 2.0 * 1.0 = 2.0ft face → a whole number reads as native's band below it (no × 1.5).
+      expect(result).toBe("1-2ft");
     });
 
     it("should return null when no data available", () => {
@@ -941,7 +941,7 @@ describe("wave-formatters", () => {
 
     it("should apply beach terrain direction factor", () => {
       const fullAccess = toFaceHeightRangeFeet({
-        cdipSigFt: 2.0,
+        cdipSigFt: 4.0,
         periodS: 10,
         swellDirectionDeg: 180,
         beach: {
@@ -950,7 +950,7 @@ describe("wave-formatters", () => {
         },
       });
       const noAccess = toFaceHeightRangeFeet({
-        cdipSigFt: 2.0,
+        cdipSigFt: 4.0,
         periodS: 10,
         swellDirectionDeg: 180,
         beach: {
@@ -958,6 +958,9 @@ describe("wave-formatters", () => {
           swell_access_factors: Array(72).fill(0.0),
         },
       });
+      // 4.0 ft full access vs 2.4 ft at the 0.6 direction floor. At 2.0 ft both
+      // (2.0 and 1.2) read "1-2ft" under the whole-number band, so use a size where
+      // the terrain factor moves the bracket.
       // Full access should produce larger range
       expect(fullAccess).not.toBe(noAccess);
     });

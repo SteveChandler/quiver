@@ -79,7 +79,7 @@ describe("GET /api/custom-spots/current-display", () => {
 
     expect(response.status).toBe(200);
     expect(Object.keys(body.data.displays)).toEqual([SPOT_A]);
-    expect(body.data.displays[SPOT_A]).toMatchObject({ label: "3ft", forecastAt: currentRow.forecast_at });
+    expect(body.data.displays[SPOT_A]).toMatchObject({ label: "2-3ft", forecastAt: currentRow.forecast_at });
     expect(fetchBulkForecastRowsWithV51Display).toHaveBeenCalledWith(
       context.supabase, ["beach-1"], expect.any(Date), expect.any(Date), expect.anything(),
     );

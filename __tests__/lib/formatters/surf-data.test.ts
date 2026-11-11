@@ -70,24 +70,38 @@ describe("formatWaveHeightRange", () => {
   });
 
   describe("standard ranges (Surfline-style floor/ceil bracket on face Hs)", () => {
-    it("formats whole-number 1ft as '1ft'", () => {
-      expect(formatWaveHeightRange(1)).toBe("1ft");
+    it("formats whole-number 1ft as the band below it, like native", () => {
+      expect(formatWaveHeightRange(1)).toBe("0-1ft");
     });
 
-    it("formats 3ft as '3ft' (floor=ceil=3, no × 1.5 expansion)", () => {
-      expect(formatWaveHeightRange(3)).toBe("3ft");
+    it("formats 3ft as '2-3ft' (native whole-number band, no × 1.5 expansion)", () => {
+      expect(formatWaveHeightRange(3)).toBe("2-3ft");
     });
 
-    it("formats 6ft as '6ft'", () => {
-      expect(formatWaveHeightRange(6)).toBe("6ft");
+    it("formats 6ft as '5-6ft'", () => {
+      expect(formatWaveHeightRange(6)).toBe("5-6ft");
     });
 
-    it("formats 10ft as '10ft'", () => {
-      expect(formatWaveHeightRange(10)).toBe("10ft");
+    it("formats 10ft as '9-10ft'", () => {
+      expect(formatWaveHeightRange(10)).toBe("9-10ft");
     });
 
     it("formats 3.4ft as '3-4ft' (Surfline-style face bracket)", () => {
       expect(formatWaveHeightRange(3.4)).toBe("3-4ft");
+    });
+  });
+
+  describe("parity with quiver-native formatWaveRange", () => {
+    // Native brackets the API's one-decimal string ("3 ft", "3.04" → "3 ft"),
+    // so web must bracket the same 0.1 ft value to print the same band.
+    it.each([
+      [3.04, "2-3ft"],
+      [2.96, "2-3ft"],
+      [3.06, "3-4ft"],
+      [0.04, "Flat"],
+      [0.06, "0-1ft"],
+    ])("formats %p as %p", (input, expected) => {
+      expect(formatWaveHeightRange(input)).toBe(expected);
     });
   });
 
