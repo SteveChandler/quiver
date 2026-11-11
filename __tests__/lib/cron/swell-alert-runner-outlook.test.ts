@@ -18,6 +18,9 @@ jest.mock("@/lib/alerts/surf-window/tide-aware-window", () => {
   return { ...actual, findTideAwareWindow: jest.fn(actual.findTideAwareWindow) };
 });
 
+jest.mock("@sentry/nextjs", () => ({ ...jest.requireActual("@sentry/nextjs"), captureException: jest.fn() }));
+
+import * as Sentry from "@sentry/nextjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -190,6 +193,32 @@ describe("swell alert cron: outlook users", () => {
     restore.mockRestore();
     expect(summary.sentByKind.coming).toBe(1);
     expect(deps.enqueue.mock.calls[0][0].payload.body).not.toContain("NWS");
+  });
+
+  it("reports a failed hazard lookup to Sentry and counts it, without holding the push", async () => {
+    jest.mocked(Sentry.captureException).mockClear();
+    const restore = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const deps = makeDeps({ loadFirstSightingHazard: jest.fn(async () => { throw new Error("NWS down"); }) });
+    const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    restore.mockRestore();
+    expect(summary.sentByKind.coming).toBe(1);
+    expect(summary.hazardLookupFailures).toBe(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "NWS down" }),
+      expect.objectContaining({
+        tags: expect.objectContaining({ swell_alert_hazard_source: "first_sighting_hazard" }),
+        extra: { beach_id: HOME },
+      }),
+    );
+  });
+
+  it("reports nothing for a hazard lookup that finds no hazard", async () => {
+    jest.mocked(Sentry.captureException).mockClear();
+    const deps = makeDeps();
+    const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    expect(summary.sentByKind.coming).toBe(1);
+    expect(summary.hazardLookupFailures).toBe(0);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   it("does not push a swell that is not in range, or is only shrinking", async () => {
