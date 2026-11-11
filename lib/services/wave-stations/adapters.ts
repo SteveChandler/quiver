@@ -5,9 +5,10 @@
  */
 
 import { aodnAdapter } from "./aodn/adapter";
+import { fmiAdapter } from "./fmi/adapter";
 import { marineIeAdapter } from "./marine-ie/adapter";
 import { ndbcAdapter } from "./ndbc/adapter";
 import type { WaveStationSourceAdapter } from "./types";
 
 /** Registry order. The duplicate pass runs after each source, so the order does not change the result. */
-export const SOURCE_ADAPTERS: readonly WaveStationSourceAdapter[] = [ndbcAdapter, marineIeAdapter, aodnAdapter];
+export const SOURCE_ADAPTERS: readonly WaveStationSourceAdapter[] = [ndbcAdapter, marineIeAdapter, aodnAdapter, fmiAdapter];
