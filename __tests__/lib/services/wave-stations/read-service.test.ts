@@ -9,6 +9,7 @@ import {
   getNearbyStations,
   getObservationHistory,
   getStationBySlug,
+  getStationForBeach,
   listStations,
 } from "@/lib/services/wave-stations";
 
@@ -29,7 +30,7 @@ function fakeClient(respond: (table: string, ops: Ops) => unknown) {
   const chain = (table: string, ops: Ops) => {
     chains.push({ table, ops });
     const builder: Record<string, unknown> = {};
-    for (const op of ["select", "eq", "order", "range", "limit", "in", "not", "is", "gte"]) {
+    for (const op of ["select", "eq", "order", "range", "limit", "in", "not", "is", "gte", "or"]) {
       builder[op] = (...args: unknown[]) => {
         ops.push([op, args]);
         return builder;
@@ -188,5 +189,91 @@ describe("getBeachesForStation", () => {
     });
     expect(result.relation).toBe("nearby");
     expect(result.beaches[0].links).toEqual(["nearby"]);
+  });
+});
+
+describe("getStationForBeach", () => {
+  const BEACH = { id: "b1", lat: 32.92, lon: -117.26, cdip_station: null as string | null };
+  const TORREY = { ...STATION, id: "ndbc:46225", slug: "torrey-pines-outer-ca-46225", name: "Torrey Pines Outer" };
+  const DEL_MAR = {
+    ...STATION, id: "ndbc:46266", source_station_id: "46266", cdip_station_id: "153", name: "Del Mar Nearshore",
+    slug: "del-mar-nearshore-ca-46266", lat: 32.957, lon: -117.279,
+  };
+
+  function clients(options: {
+    beach?: typeof BEACH | null;
+    forecastStationId?: string | null;
+    catalogue?: Array<typeof TORREY>;
+    nearby?: Array<typeof TORREY>;
+  }) {
+    const publicRead = fakeClient((table, ops) => {
+      if (table === "beaches") return options.beach === undefined ? BEACH : options.beach;
+      if (table === "rpc:get_nearby_wave_stations") return options.nearby ?? [];
+      if (table === "wave_stations") {
+        const filter = ops.find(([op]) => op === "in");
+        const [column, values] = filter![1] as [string, string[]];
+        return (options.catalogue ?? []).filter((station) =>
+          values.includes(String((station as Record<string, unknown>)[column])));
+      }
+      return null;
+    });
+    const serviceRole = fakeClient((table, ops) => {
+      expect(table).toBe("beach_observation_stations");
+      expect(ops).toContainEqual(["eq", ["beach_id", "b1"]]);
+      return options.forecastStationId ? { station_id: options.forecastStationId } : null;
+    });
+    return { publicRead, serviceRole, arg: { publicRead: publicRead.client, serviceRole: serviceRole.client } };
+  }
+
+  it("returns the forecast station and wins over a closer nearby buoy", async () => {
+    const c = clients({ forecastStationId: "wmo_46225", catalogue: [TORREY, DEL_MAR], nearby: [DEL_MAR] });
+    const result = await getStationForBeach("b1", c.arg);
+    if (result.kind !== "found") throw new Error(result.kind);
+    expect(result.match.relation).toBe("forecast_station");
+    expect(result.match.station.id).toBe("ndbc:46225");
+    expect(result.match.distance_km).toBeGreaterThan(10);
+    expect(c.publicRead.chains.some((chain) => chain.table === "rpc:get_nearby_wave_stations")).toBe(false);
+    // Private and deleted beaches never resolve.
+    expect(c.publicRead.chains[0].ops).toEqual(expect.arrayContaining([
+      ["or", ["is_private.is.null,is_private.eq.false"]],
+      ["is", ["deleted_at", null]],
+    ]));
+  });
+
+  it("maps a CDIP forecast id to the catalogue station by cdip_station_id", async () => {
+    const c = clients({ forecastStationId: "edu_ucsd_cdip_100", catalogue: [TORREY, DEL_MAR] });
+    const result = await getStationForBeach("b1", c.arg);
+    if (result.kind !== "found") throw new Error(result.kind);
+    expect(result.match).toMatchObject({ relation: "forecast_station", station: { id: "ndbc:46225" } });
+    expect(c.publicRead.chains.flatMap((chain) => chain.ops)).toContainEqual(["in", ["cdip_station_id", ["100"]]]);
+  });
+
+  it("uses beaches.cdip_station when the forecast map has no row", async () => {
+    const c = clients({ beach: { ...BEACH, cdip_station: "153" }, catalogue: [TORREY, DEL_MAR], nearby: [TORREY] });
+    const result = await getStationForBeach("b1", c.arg);
+    if (result.kind !== "found") throw new Error(result.kind);
+    expect(result.match).toMatchObject({ relation: "forecast_station", station: { id: "ndbc:46266" } });
+  });
+
+  it("falls back to the nearest wave station when no link is in the catalogue", async () => {
+    const c = clients({ forecastStationId: "46999", catalogue: [], nearby: [DEL_MAR] });
+    const result = await getStationForBeach("b1", c.arg);
+    if (result.kind !== "found") throw new Error(result.kind);
+    expect(result.match.relation).toBe("nearby");
+    expect(result.match.station.id).toBe("ndbc:46266");
+    expect(result.match.station).not.toHaveProperty("distance_km");
+    expect(result.match.distance_km).toBeLessThan(10);
+  });
+
+  it("finds no station when the nearest buoy is more than 150 km away", async () => {
+    const far = { ...DEL_MAR, lat: 34.5, lon: -120.5 };
+    const c = clients({ nearby: [far] });
+    await expect(getStationForBeach("b1", c.arg)).resolves.toEqual({ kind: "no-station" });
+  });
+
+  it("does not resolve a private, deleted or unknown beach", async () => {
+    const c = clients({ beach: null, nearby: [TORREY] });
+    await expect(getStationForBeach("b1", c.arg)).resolves.toEqual({ kind: "beach-not-found" });
+    expect(c.serviceRole.chains).toHaveLength(0);
   });
 });

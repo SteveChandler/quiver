@@ -9,8 +9,10 @@ import {
   getNearbyStations,
   getObservationHistory,
   getStationBySlug,
+  getStationForBeach,
   getStationSlugById,
   listStations,
+  type BeachStationLookup,
   type LatestObservation,
   type ListStationsFilter,
   type NearbyWaveStation,
@@ -38,6 +40,7 @@ export interface BuoyPageSource {
     stations: Array<Pick<WaveStationRow, "id" | "last_wave_observed_at">>,
   ): Promise<Map<string, LatestWaveReading>>;
   getBeachesForStation(stationId: string): Promise<StationBeaches>;
+  getStationForBeach(beachId: string): Promise<BeachStationLookup>;
   getBeachForecastSummaries(beachIds: string[], now: Date): Promise<Map<string, BeachForecastSummary>>;
   fetchModelAtBuoy(lat: number, lon: number): Promise<ModelSeries | null>;
 }
@@ -52,6 +55,7 @@ const catalogueSource: BuoyPageSource = {
   getNearbyStations: (lat, lon, limit) => getNearbyStations(lat, lon, limit),
   getLatestWaveObservations: (stations) => getLatestWaveObservations(stations),
   getBeachesForStation: (stationId) => getBeachesForStation(stationId),
+  getStationForBeach: (beachId) => getStationForBeach(beachId),
   getBeachForecastSummaries: (beachIds, now) => getBeachForecastSummaries(beachIds, now),
   fetchModelAtBuoy: (lat, lon) => fetchModelAtBuoy(lat, lon),
 };
