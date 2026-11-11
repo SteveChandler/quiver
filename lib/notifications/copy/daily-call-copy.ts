@@ -83,10 +83,10 @@ export function formatWindowLabel(
 /** "4–5 ft at 15s WSW", the same height range the app shows. */
 export function swellPhrase(forecast: ForecastNumbers): string {
   const height = numberOf(forecast.wave_height);
+  // Period and direction qualify the size ("at 15s WSW"); alone they read as a broken phrase.
+  if (height === null) return "";
   const period = numberOf(forecast.wave_period);
-  const size = height === null
-    ? null
-    : formatWaveHeightRange(height).replace("-", "–").replace(/ft$/, " ft");
+  const size = formatWaveHeightRange(height).replace("-", "–").replace(/ft$/, " ft");
   return [
     size,
     period === null ? null : `at ${Math.round(period)}s`,

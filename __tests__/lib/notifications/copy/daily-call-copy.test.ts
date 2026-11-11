@@ -47,6 +47,11 @@ describe("daily call copy", () => {
     expect(swellPhrase({ wave_height: "3 ft", wave_period: "11.4", wave_direction: null })).toBe("2–3 ft at 11s");
   });
 
+  it("states no swell phrase without a size, never a bare \"at 15s WSW\"", () => {
+    expect(swellPhrase({ wave_height: null, wave_period: "15", wave_direction: "WSW" })).toBe("");
+    expect(swellPhrase({})).toBe("");
+  });
+
   it("calls light wind light instead of printing its speed", () => {
     expect(windPhrase({ wind_speed: "3", wind_direction: "W" })).toBe("light wind");
     expect(windPhrase({ wind_speed: "8.4", wind_direction: "WNW" })).toBe("8 mph WNW wind");
