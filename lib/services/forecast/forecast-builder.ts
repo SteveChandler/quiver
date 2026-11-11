@@ -121,6 +121,8 @@ import {
  * forecast-builder + the display-side `fetchLatestObservation` helper.
  */
 const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
+/** NWS hourly periods are 1 h and day/night periods 12 h; a start farther than this is another day's weather. */
+const WEATHER_PERIOD_MATCH_MS = 6 * 60 * 60 * 1000;
 const ANCHOR_FRESHNESS_MS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR * 60 * 60 * 1000;
 const MPH_TO_METERS_PER_SECOND = 0.44704;
 
@@ -1424,8 +1426,8 @@ export class ForecastBuilder {
 
       // Weather conditions
       // No NWS point (Mexico, Canada, a failed fetch): store no weather rather than a stand-in.
-      weather_condition: weatherPoint?.shortForecast?.trim() || null,
-      air_temperature: this.getAirTemperature(weatherPoint),
+      weather_condition: this.weatherForHour(weatherPoint, forecastTime)?.shortForecast?.trim() || null,
+      air_temperature: this.getAirTemperature(this.weatherForHour(weatherPoint, forecastTime)),
 
       beach_id: beach.id,
       confidence_score: effectiveConfidence,
@@ -2104,8 +2106,16 @@ export class ForecastBuilder {
     return weatherPoint?.windDirection?.trim() || null;
   }
 
+  /** Past the NWS horizon the nearest period is days away; its sky and temperature are not this hour's. */
+  private weatherForHour(weatherPoint: WeatherPeriod | null, forecastTime: Date): WeatherPeriod | null {
+    if (!weatherPoint) return null;
+    const gapMs = Math.abs(Date.parse(weatherPoint.startTime) - forecastTime.getTime());
+    return gapMs <= WEATHER_PERIOD_MATCH_MS ? weatherPoint : null;
+  }
+
   private getAirTemperature(weatherPoint: WeatherPeriod | null): string | null {
-    return Number.isFinite(weatherPoint?.temperature) ? `${weatherPoint!.temperature}°F` : null;
+    const temperature = weatherPoint?.temperature;
+    return typeof temperature === "number" && Number.isFinite(temperature) ? `${temperature}°F` : null;
   }
 
   /**
