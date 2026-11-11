@@ -380,7 +380,7 @@ interface ComparisonMetric {
 interface ForecastPreviewData {
   wave_height: string;
   wind_speed: string;
-  weather_condition: string;
+  weather_condition: string | null; // null when NWS has no period for the hour
   confidence_score: number;
   data_source: string;
   data_sources: string[];
