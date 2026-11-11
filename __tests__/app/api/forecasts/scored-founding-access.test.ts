@@ -15,6 +15,7 @@ const mockFetchUserBoardContext = jest.fn();
 const mockResolveFeatureAccess = jest.fn(featureAccessOff);
 let mockAuthContext: unknown;
 let mockEntitlementRow: Record<string, unknown> | null = null;
+let mockEntitlementError: { code: string; message: string } | null = null;
 
 jest.mock("@ducanh2912/next-pwa", () => ({ __esModule: true, default: () => (config: unknown) => config }));
 jest.mock("@sentry/nextjs", () => ({ withSentryConfig: (config: unknown) => config }));
@@ -57,7 +58,9 @@ function supabaseStub() {
       if (table === "beaches") {
         return chain(() => ({ data: { id: BEACH_ID, name: "Test", timezone: "America/Los_Angeles", shoaling_factors: null }, error: null }));
       }
-      if (table === "user_entitlements") return chain(() => ({ data: mockEntitlementRow, error: null }));
+      if (table === "user_entitlements") {
+        return chain(() => ({ data: mockEntitlementError ? null : mockEntitlementRow, error: mockEntitlementError }));
+      }
       return chain(() => ({ data: null, error: null }));
     },
   };
@@ -77,6 +80,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   delete process.env.BOARD_PICKS_FREE_ENABLED;
   mockEntitlementRow = null;
+  mockEntitlementError = null;
   mockResolveFeatureAccess.mockImplementation(featureAccessOff);
   mockFetchUserBoardContext.mockResolvedValue({ dominantBoardClass: null, boardClasses: [], boardsForPicks: [] });
 });
@@ -105,4 +109,17 @@ it("Pro keeps plan pro and board picks on", async () => {
   const data = await get();
   expect(mockResolveFeatureAccess).toHaveBeenCalledWith(USER_ID, true, { billingIssue: false });
   expect(data).toMatchObject({ plan: "pro", boardPicksEnabled: true });
+});
+
+it("fails instead of scoring a Pro user as free when the entitlement read fails", async () => {
+  mockEntitlementRow = { is_pro: true };
+  mockEntitlementError = { code: "57014", message: "canceling statement due to statement timeout" };
+  mockAuthContext = { params: { beachId: BEACH_ID }, user: { id: USER_ID }, supabase: supabaseStub() };
+  const { GET } = await import("@/app/api/forecasts/scored/[beachId]/route");
+
+  await expect(GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}`))).rejects.toThrow(
+    "canceling statement due to statement timeout",
+  );
+  expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
+  expect(mockFetchUserBoardContext).not.toHaveBeenCalled();
 });

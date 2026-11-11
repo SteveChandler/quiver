@@ -531,13 +531,17 @@ export const GET = withNoStore(withAuth(
       context.user?.id
     );
 
-    const { data: entitlementRow } = context.user
+    const { data: entitlementRow, error: entitlementError } = context.user
       ? await supabase
           .from("user_entitlements")
           .select("is_pro, is_trialing, billing_issue, expires_at")
           .eq("user_id", context.user.id)
           .maybeSingle()
-      : { data: null };
+      : { data: null, error: null };
+    // A failed read is not a missing row: scoring it as free would show a Pro user the free plan.
+    if (entitlementError) {
+      throw new Error(entitlementError.message);
+    }
     const { isPro, hasFeatureAccess } = await resolveFeatureAccessFromRow(
       context.user?.id,
       entitlementRow,

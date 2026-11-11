@@ -478,13 +478,18 @@ export async function computeCanonicalSurfCall({
     }
     ratingSkill = profileExperience;
   }
-  const { data: entitlementRow } = userId
+  const { data: entitlementRow, error: entitlementError } = userId
     ? await supabase
         .from('user_entitlements')
         .select('is_pro, is_trialing, billing_issue, expires_at')
         .eq('user_id', userId)
         .maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  // A failed read is not a missing row: a free call for a Pro user would look correct.
+  if (entitlementError) {
+    console.error('[surf-call:entitlement-error]', entitlementError);
+    return { status: 'unavailable', error: entitlementError };
+  }
   const access = await resolveFeatureAccessFromRow(userId, entitlementRow);
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
