@@ -23,8 +23,10 @@ export interface StationIdMatch {
 }
 
 /**
- * Stations whose source id ("46225", "LJPC1", either case) or CDIP id ("100",
- * "0100") equals `alternateId`. Callers redirect only on exactly one match.
+ * Stations whose source id ("46225", "LJPC1", either case), WMO number
+ * ("62095") or CDIP id ("100", "0100") equals `alternateId`. Duplicate rows
+ * are left out, so a relayed WMO number resolves to the primary station.
+ * Callers redirect only on exactly one match.
  */
 export async function findStationsByAlternateId(
   alternateId: string,
@@ -34,12 +36,15 @@ export async function findStationsByAlternateId(
   const db = publicClient(client);
   const sourceIds = [...new Set([alternateId, alternateId.toUpperCase(), alternateId.toLowerCase()])];
   const queries = [
-    db.from("wave_stations").select("id, slug").in("source_station_id", sourceIds),
+    db.from("wave_stations").select("id, slug").in("source_station_id", sourceIds).is("duplicate_of", null),
   ];
+  if (/^\d{5,7}$/.test(alternateId)) {
+    queries.push(db.from("wave_stations").select("id, slug").eq("wmo_id", alternateId).is("duplicate_of", null));
+  }
   if (/^\d{1,4}$/.test(alternateId)) {
     const n = String(Number(alternateId));
     const cdipIds = [...new Set([alternateId, n, n.padStart(3, "0")])];
-    queries.push(db.from("wave_stations").select("id, slug").in("cdip_station_id", cdipIds));
+    queries.push(db.from("wave_stations").select("id, slug").in("cdip_station_id", cdipIds).is("duplicate_of", null));
   }
   const results = await Promise.all(queries);
   const matches = new Map<string, StationIdMatch>();

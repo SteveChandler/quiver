@@ -66,6 +66,8 @@ async function fetchStations(): Promise<SourceStation[]> {
       countryCode: location.countryCode,
       region: location.region,
       cdipStationId: parseCdipStationId(station.rawName),
+      // Five-digit NDBC ids are WMO numbers (62095 = Irish buoy M6).
+      wmoId: /^\d{5}$/.test(station.id) ? station.id : null,
       hasWave: hasSwellSplit || latestWaveIds.has(station.id),
       hasSwellSplit,
       hasMet: station.hasMet,
@@ -105,6 +107,7 @@ async function fetchStationHistory(
 
 export const ndbcAdapter: WaveStationSourceAdapter = {
   source: "ndbc",
+  latestEveryMinutes: 15,
   fetchStations,
   fetchLatestObservations,
   fetchStationHistory,
