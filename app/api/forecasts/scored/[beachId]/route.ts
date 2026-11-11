@@ -540,7 +540,7 @@ export const GET = withNoStore(withAuth(
       : { data: null, error: null };
     // A failed read is not a missing row: scoring it as free would show a Pro user the free plan.
     if (entitlementError) {
-      throw new Error(entitlementError.message);
+      throw new Error(`user_entitlements read failed: ${entitlementError.message}`, { cause: entitlementError });
     }
     const { isPro, hasFeatureAccess } = await resolveFeatureAccessFromRow(
       context.user?.id,
