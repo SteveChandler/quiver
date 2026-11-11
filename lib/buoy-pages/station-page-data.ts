@@ -93,6 +93,16 @@ function stationTimeZone(station: Pick<WaveStationRow, "lat" | "lon">): string {
   return findCanonicalTimezoneFromCoords(station.lat, station.lon) ?? "UTC";
 }
 
+const NEARBY_RADIUS_KM = 300;
+const NEARBY_WIDE_RADIUS_KM = 600;
+
+/** Buoys within 300 km, or within 600 km when fewer than two are that close. */
+export function withinNearbyRadius<T extends { distance_km: number }>(candidates: T[]): T[] {
+  const close = candidates.filter((candidate) => candidate.distance_km <= NEARBY_RADIUS_KM);
+  if (close.length >= 2) return close;
+  return candidates.filter((candidate) => candidate.distance_km <= NEARBY_WIDE_RADIUS_KM);
+}
+
 function localDay(ms: number, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
 }
@@ -172,7 +182,7 @@ export async function loadStationPage(
   // Start the history at a UTC midnight so regenerations within a day keep the same window.
   const historyStart = Math.floor(nowMs / DAY_MS) * DAY_MS - HISTORY_DAYS * DAY_MS;
   const history = historyRaw.filter((row) => Date.parse(row.observed_at) >= historyStart);
-  const nearbyStations = nearbyRaw.filter((candidate) => candidate.id !== station.id).slice(0, NEARBY_LIMIT);
+  const nearbyStations = withinNearbyRadius(nearbyRaw.filter((candidate) => candidate.id !== station.id)).slice(0, NEARBY_LIMIT);
   const listedBeaches = beachLinks.beaches.slice(0, BEACH_SUMMARY_LIMIT);
   const [nearbyLatest, beachSummaries] = await Promise.all([
     source.getLatestWaveObservations(nearbyStations),

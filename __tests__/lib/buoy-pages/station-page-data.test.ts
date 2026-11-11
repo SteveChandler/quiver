@@ -5,7 +5,7 @@
 import { createFixtureSource } from "@/lib/buoy-pages/dev-fixture-source";
 import { loadAreaHub, loadRootHub, mapPins } from "@/lib/buoy-pages/hub-data";
 import { isMissingCatalogueError, type BuoyPageSource } from "@/lib/buoy-pages/source";
-import { loadStationPage, resolveStationSlug } from "@/lib/buoy-pages/station-page-data";
+import { loadStationPage, resolveStationSlug, withinNearbyRadius } from "@/lib/buoy-pages/station-page-data";
 
 // The newest capture in the fixtures is 2026-11-11T03:26Z (46225).
 const NOW = new Date("2026-11-11T03:46:00Z");
@@ -35,11 +35,12 @@ describe("loadStationPage", () => {
     expect(data.model?.comparisonText).toMatch(/^Over the last \d days, the model /);
     expect(data.model?.peaks.length).toBeGreaterThan(5);
     expect(data.beaches.relation).toBe("fed_by");
-    expect(data.nearby.map((item) => item.station.id)).not.toContain("ndbc:46225");
+    // Halibut Bank (1,898 km) is past the 600 km cap.
+    expect(data.nearby.map((item) => item.station.id)).toEqual(["ndbc:46086"]);
   });
 
   it("shows a buoy that stopped sending waves as stale, without a 6-hour trend", async () => {
-    const result = await loadStationPage(source(), "san-clemente-basin-27nm-se-of-san-clemente-is-ca-46086", NOW);
+    const result = await loadStationPage(source(), "san-clemente-basin-ca-46086", NOW);
     if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
     expect(result.data.status).toBe("stale");
     expect(result.data.index.indexable).toBe(true);
@@ -95,6 +96,15 @@ describe("loadStationPage", () => {
     const result = await loadStationPage(source({ fetchModelAtBuoy: async () => null }), "torrey-pines-outer-ca-46225", NOW);
     if (result.kind !== "found") throw new Error("expected found");
     expect(result.data.model).toBeNull();
+  });
+});
+
+describe("withinNearbyRadius", () => {
+  const at = (km: number) => ({ distance_km: km });
+  it("keeps buoys within 300 km, widening to 600 km only when fewer than two are that close", () => {
+    expect(withinNearbyRadius([at(20), at(250), at(400), at(1898)])).toEqual([at(20), at(250)]);
+    expect(withinNearbyRadius([at(76), at(420), at(1898)])).toEqual([at(76), at(420)]);
+    expect(withinNearbyRadius([at(1898)])).toEqual([]);
   });
 });
 

@@ -50,7 +50,7 @@ export default async function BuoysHubPage() {
         <main>
           <header className="relative mb-8">
             <QuiverSticker sticker="orangeMap" className="absolute -right-4 -top-6 hidden w-28 -rotate-6 opacity-80 lg:block" />
-            <h1 className="zine-h1 font-black uppercase leading-[0.9] text-[#11100D]">Wave buoys</h1>
+            <h1 className="zine-h1 font-black uppercase leading-[0.9] text-[#11100D] [overflow-wrap:anywhere] [hyphens:auto]">Wave buoys</h1>
             <p className="mt-4 max-w-2xl text-lg leading-relaxed text-[#11100D]/75">
               {`${hub.all.length} buoys reporting waves. Each page has the latest reading, the swell split where the buoy sends one, 30-day charts and the model forecast at the buoy.`}
             </p>

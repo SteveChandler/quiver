@@ -43,7 +43,7 @@ export function AreaHubView({ hub, title, breadcrumbs, regionHref }: AreaHubView
           </nav>
           <header className="relative mb-8">
             <QuiverSticker sticker="orangeMap" className="absolute -right-4 -top-6 hidden w-28 -rotate-6 opacity-80 lg:block" />
-            <h1 className="zine-h1 font-black uppercase leading-[0.9] text-[#11100D]">{`${title} wave buoys`}</h1>
+            <h1 className="zine-h1 font-black uppercase leading-[0.9] text-[#11100D] [overflow-wrap:anywhere] [hyphens:auto]">{`${title} wave buoys`}</h1>
             <p className="mt-4 font-mono text-sm uppercase tracking-[0.12em] text-[#11100D]/65" data-testid="buoy-hub-counts">
               {`${hub.stationCount} ${hub.stationCount === 1 ? "buoy" : "buoys"} · ${hub.liveCount} live now`}
             </p>

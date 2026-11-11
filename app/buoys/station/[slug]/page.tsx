@@ -129,7 +129,7 @@ export default async function BuoyStationPage({ params }: PageProps) {
                 {`Buoy ${station.source_station_id.toUpperCase()}`}
               </span>
             </div>
-            <h1 className="zine-h1 font-black uppercase leading-[0.9] text-[#11100D]">{station.name}</h1>
+            <h1 className="zine-h1 font-black uppercase leading-[0.9] text-[#11100D] [overflow-wrap:anywhere] [hyphens:auto]">{station.name}</h1>
             {place ? <p className="mt-3 text-lg text-[#11100D]/75">{place}</p> : null}
             <p className="mt-2 text-sm text-[#11100D]/75">
               Last wave reading:{" "}
