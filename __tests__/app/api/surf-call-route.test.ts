@@ -786,8 +786,17 @@ describe("GET /api/surf/call", () => {
     expect(body.data.sessionDecision.conditionLabel).toBe("MEH");
   });
 
-  it("returns a retryable error instead of a free call when the entitlement read fails", async () => {
+  it("still makes the call with free access when the entitlement read fails twice", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
+    // The switch is on, so a fallback through founding access would open paid discovery.
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    mockDiscoverSurfSpots.mockResolvedValue({
+      recommendations: [],
+      includedRecommendations: [],
+      recommendationAvailability: { state: "available", holdEpoch: "now-test" },
+      searchCriteria: { maxResults: 1 },
+      metadata: { outcome: "success", generated_at: new Date().toISOString() },
+    });
     mockBeachQuery({
       id: beachId,
       name: "Ocean Beach Pier",
@@ -801,22 +810,48 @@ describe("GET /api/surf/call", () => {
       data: null,
       error: { code: "57014", message: "canceling statement due to statement timeout" },
     };
-    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.report.verdict).toEqual(expect.any(String));
+    expect(body.data.planStatus).toBe("unknown");
+    expect(mockSupabase.from.mock.calls.filter(([table]: [string]) => table === "user_entitlements")).toHaveLength(2);
+    expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: false }) }),
+    );
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledWith(
+      mockUser.id,
+      expect.objectContaining({ discoveryMode: "now", isPro: false }),
+    );
+    consoleWarn.mockRestore();
+  });
+
+  it("omits planStatus when the entitlement read succeeds", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
 
     const response = await GET(
       new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
     );
     const body = await response.json();
 
-    expect(response.status).toBe(503);
-    expect(body).toMatchObject({ success: false, retryable: true, code: "internal_error" });
-    expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
-    expect(mockResolveCanonicalSessionDecisionContext).not.toHaveBeenCalled();
-    expect(consoleError).toHaveBeenCalledWith(
-      "[surf-call:entitlement-error]",
-      expect.objectContaining({ code: "57014" }),
-    );
-    consoleError.mockRestore();
+    expect(response.status).toBe(200);
+    expect(body.data).not.toHaveProperty("planStatus");
   });
 
   it("returns a retryable error when canonical discovery fails operationally", async () => {
