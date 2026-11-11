@@ -23,11 +23,17 @@ const DEACTIVATE_BATCH = 100;
 const RETENTION_DAYS = 180;
 const PRUNE_LIMIT = 5000;
 const SPEC_REFRESH_MS = 50 * 60 * 1000;
+/** Rows stamped further ahead than this are bad data; storing one would block later rows. */
+const MAX_FUTURE_MS = 60 * 60 * 1000;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
   return chunks;
+}
+
+function isFuture(obs: SourceObservation, nowMs: number): boolean {
+  return Date.parse(obs.observedAt) > nowMs + MAX_FUTURE_MS;
 }
 
 function toMergePayload(stationId: string, source: string, obs: SourceObservation) {
@@ -121,6 +127,8 @@ interface LatestSyncResult {
   /** Met-only rows (no wave value) from wave stations; not stored (row volume). */
   rowsWithoutWave: number;
   rowsStale: number;
+  /** Rows stamped more than an hour after now; dropped as bad data. */
+  rowsFuture: number;
   rowsSent: number;
   rowsWritten: number;
   rowsPruned: number;
@@ -147,12 +155,17 @@ export async function syncLatestObservations(
   let rowsNonWaveStation = 0;
   let rowsWithoutWave = 0;
   let rowsStale = 0;
+  let rowsFuture = 0;
   const payload: ReturnType<typeof toMergePayload>[] = [];
   for (const obs of observations) {
     const stationId = buildStationId(adapter.source, obs.sourceStationId);
     const station = stationById.get(stationId);
     if (!station) {
       rowsUnknownStation++;
+      continue;
+    }
+    if (isFuture(obs, nowMs)) {
+      rowsFuture++;
       continue;
     }
     // Row volume: only rows with a wave value are stored (with their met fields).
@@ -192,6 +205,7 @@ export async function syncLatestObservations(
     rowsNonWaveStation,
     rowsWithoutWave,
     rowsStale,
+    rowsFuture,
     rowsSent: payload.length,
     rowsWritten,
     rowsPruned,
@@ -220,6 +234,8 @@ interface SwellSplitSyncResult {
   backfillDeferred: number;
   skippedForTime: number;
   rowsWritten: number;
+  /** Rows stamped more than an hour after now; dropped as bad data. */
+  rowsFuture: number;
   errors: string[];
 }
 
@@ -311,6 +327,7 @@ async function syncHistoryQueue(
     backfillDeferred: 0,
     skippedForTime: 0,
     rowsWritten: 0,
+    rowsFuture: 0,
     errors: [],
   };
   let backfillSlots = options.maxBackfills;
@@ -354,7 +371,13 @@ async function syncHistoryQueue(
 
       result.fetched++;
       const sinceMs = station.lastObservedAt ? Date.parse(station.lastObservedAt) : -Infinity;
-      const fresh = history.observations.filter((obs) => Date.parse(obs.observedAt) > sinceMs);
+      const fresh = history.observations.filter((obs) => {
+        if (isFuture(obs, nowMs)) {
+          result.rowsFuture++;
+          return false;
+        }
+        return Date.parse(obs.observedAt) > sinceMs;
+      });
       // Await first: `x += await` reads x before the await and loses other workers' writes.
       const written = await mergeObservations(
         db,

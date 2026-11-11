@@ -123,6 +123,22 @@ describe("syncLatestObservations", () => {
     expect(rows.map((row) => row.station_id)).toEqual(["ndbc:46146"]);
   });
 
+  it("drops rows stamped more than an hour in the future", async () => {
+    const { db, rpcCalls } = fakeDb({
+      wave_stations: [[{ id: "ndbc:46225", last_observed_at: null, has_wave: true }]],
+    });
+    // 46225's row is 02:56Z; "now" 01:50Z puts it 66 minutes ahead.
+    const result = await syncLatestObservations(db, adapter(), Date.parse("2026-11-11T01:50:00Z"));
+    expect(result).toMatchObject({ rowsFuture: 1, rowsSent: 0 });
+    expect(rpcCalls.filter((call) => call.name === "merge_wave_station_observations")).toHaveLength(0);
+
+    const nearNow = fakeDb({
+      wave_stations: [[{ id: "ndbc:46225", last_observed_at: null, has_wave: true }]],
+    });
+    const ok = await syncLatestObservations(nearNow.db, adapter(), Date.parse("2026-11-11T02:00:00Z"));
+    expect(ok).toMatchObject({ rowsFuture: 0, rowsSent: 1 });
+  });
+
   it("prunes past the 180-day retention on the first run of the hour", async () => {
     const { db, rpcCalls } = fakeDb({ wave_stations: [[]] });
     const result = await syncLatestObservations(db, adapter(), Date.parse("2026-11-11T03:04:00Z"));
@@ -186,6 +202,36 @@ describe("syncSwellSplit", () => {
       spec_last_modified: "Wed, 11 Nov 2026 03:10:22 GMT",
       spec_last_observed_at: "2026-11-11T02:56:00.000Z",
     });
+  });
+
+  it("drops future-stamped history rows so they cannot advance the stored state", async () => {
+    const { db, calls, rpcCalls } = fakeDb({
+      wave_stations: [[
+        {
+          id: "ndbc:46225",
+          source_station_id: "46225",
+          spec_last_modified: "Wed, 11 Nov 2026 01:10:22 GMT",
+          spec_last_observed_at: "2026-11-11T00:56:00+00:00",
+        },
+      ]],
+    });
+    const fetchStationHistory = async (): Promise<StationHistoryResult> => ({
+      status: "ok",
+      lastModified: "Wed, 11 Nov 2026 03:10:22 GMT",
+      observations: parseSpecFile(fixture("46225.spec"), "46225"),
+    });
+    // now = 00:58Z: 01:56Z is 58 min ahead (kept), 02:26Z and 02:56Z are > 1 h ahead (dropped).
+    const result = await syncSwellSplit(
+      db,
+      adapter({ fetchStationHistory }),
+      Date.parse("2026-11-11T00:58:00Z"),
+      options,
+    );
+    expect(result).toMatchObject({ rowsFuture: 2, rowsWritten: 1 });
+    const sent = rpcCalls.flatMap((call) => call.args.p_rows as Array<{ observed_at: string }>);
+    expect(sent.map((row) => row.observed_at)).toEqual(["2026-11-11T01:56:00.000Z"]);
+    const update = calls.find((call) => call.ops[0]?.[0] === "update")?.ops[0][1][0];
+    expect(update).toMatchObject({ spec_last_observed_at: "2026-11-11T01:56:00.000Z" });
   });
 
   it("records a 304 as checked without writing rows", async () => {
