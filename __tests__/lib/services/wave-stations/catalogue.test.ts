@@ -41,6 +41,18 @@ describe("buildStationSlug", () => {
     expect(buildStationSlug("9414750 - Alameda, CA", "AAMC1")).toBe("9414750-alameda-ca-aamc1");
   });
 
+  it("drops the distance and bearing clause from the slug but keeps the state", () => {
+    expect(buildStationSlug("San Clemente Basin - 27NM SE of San Clemente Is, CA", "46086")).toBe("san-clemente-basin-ca-46086");
+    expect(buildStationSlug("Northern Hawaii One - 245NM NE of Honolulu HI", "51000")).toBe("northern-hawaii-one-51000");
+    expect(buildStationSlug("Nantucket 54 NM Southeast of Nantucket", "44008")).toBe("nantucket-44008");
+    expect(buildStationSlug("East Superior -70 NM NE Marquette, MI", "45004")).toBe("east-superior-mi-45004");
+    expect(buildStationSlug("Tillamook, OR - 85 NM WNW of Tillamook, OR", "46089")).toBe("tillamook-or-46089");
+    expect(
+      buildStationSlug("Neah Bay - 6 NM North of Cape Flattery, WA (Traffic Separation Lighted Buoy)", "46087"),
+    ).toBe("neah-bay-wa-46087");
+    expect(buildStationSlug("Mid Gulf - 180 nm South of Southwest Pass, LA", "42001")).toBe("mid-gulf-la-42001");
+  });
+
   it("is deterministic and truncates long names on a word boundary", () => {
     const name = "NORTH MICHIGAN- Halfway between North Manitou and Washington Islands.";
     const slug = buildStationSlug(name, "45002");

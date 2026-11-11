@@ -308,6 +308,27 @@ describe("Middleware", () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
+  test.each([
+    "/buoys/station/torrey-pines-outer-ca-46225",
+    "/buoys/us/ca",
+    "/buoys/us",
+    "/buoys/46225",
+  ])("routes buoy page %s normally instead of as an international city", async (pathname) => {
+    const request: any = {
+      nextUrl: { pathname, clone: () => ({ pathname }) },
+      url: `http://localhost${pathname}`,
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRewrite).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
   test("allows authenticated user to access beach page", async () => {
     mockUser = { id: "user-123", email: "test@example.com" };
     mockSession = { user: mockUser, access_token: "token" };

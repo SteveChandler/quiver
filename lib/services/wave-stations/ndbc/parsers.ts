@@ -85,14 +85,63 @@ export function parseCdipStationId(rawName: string): string | null {
   return match ? match[1].padStart(3, "0") : null;
 }
 
-/** Display name: CDIP suffix removed, whitespace collapsed, dangling dash dropped. */
+/** Upper-case tokens that stay upper case: compass points and distance units. */
+const KEEP_UPPER = new Set([
+  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+  "NM", "KM",
+]);
+/** Acronyms NDBC writes in capitals inside mixed-case names. */
+const KEEP_ACRONYMS = new Set([
+  "AWS", "CDIP", "FRF", "NDBC", "NOAA", "NOS", "NSF", "OOI", "USCG", "UTMSI", "DISL", "FGBNMS", "CBIBS", "CORMP",
+]);
+const LOWER_WORDS = new Set(["of", "and", "or", "the", "at", "off", "in", "on", "to"]);
+
+/**
+ * Title-case words NDBC ships in capitals ("SAN CLEMENTE BASIN" -> "San Clemente
+ * Basin"). Kept as written: compass points and units (SE, NM), a US state code
+ * that ends the name or a clause, known acronyms, and any token with a digit or underscore
+ * (ids such as 27NM, CAP2WAVE, SPOT-33114C), a two-letter code after a comma
+ * ("Cozumel, MX") and anything in parentheses ("(PNCWAVE)"). "of", "and" and
+ * similar read lower case after the first word.
+ */
+function displayCase(name: string): string {
+  let first = true;
+  return name.replace(/\([^)]*\)|[A-Za-z0-9_.'-]+/g, (token, offset: number) => {
+    const isFirst = first;
+    first = false;
+    if (token.startsWith("(") || /[\d_]/.test(token)) return token;
+    if (/^[A-Z]{2}$/.test(token)) {
+      const rest = name.slice(offset + token.length);
+      // A code after a comma ("Cozumel, MX"); a state code that ends the name or a clause ("Honolulu HI").
+      if (/,\s*$/.test(name.slice(0, offset))) return token;
+      if (US_REGION_CODES.has(token) && (/^[\s.]*$/.test(rest) || /^\s+-\s/.test(rest))) return token;
+    }
+    return token
+      .split("-")
+      .map((part) => {
+        if (!part) return part;
+        const upper = part.toUpperCase();
+        if (part === upper && (KEEP_UPPER.has(upper) || KEEP_ACRONYMS.has(upper))) {
+          return part;
+        }
+        if (!isFirst && LOWER_WORDS.has(part.toLowerCase())) return part.toLowerCase();
+        if (part !== upper) return part;
+        if (part.length === 1) return part;
+        return upper.charAt(0) + upper.slice(1).toLowerCase();
+      })
+      .join("-");
+  });
+}
+
+/** Display name: CDIP suffix removed, whitespace collapsed, dangling dash dropped, capitals tamed. */
 export function cleanStationName(rawName: string, stationId: string): string {
   const name = rawName
     .replace(CDIP_SUFFIX, "")
     .replace(/\s+/g, " ")
     .replace(/[\s-]+$/, "")
+    .replace(/(\S)- /g, "$1 - ")
     .trim();
-  return name || `Station ${stationId}`;
+  return name ? displayCase(name) : `Station ${stationId}`;
 }
 
 const US_REGION_CODES = new Set([
@@ -109,6 +158,9 @@ const NAMED_PLACES: Array<{ pattern: RegExp; countryCode: string; region: string
   { pattern: /,\s*(US |U\.S\. )?Virgin Islands$/i, countryCode: "US", region: "VI" },
   { pattern: /,\s*(Northern Mariana Islands|Saipan|CNMI)$/i, countryCode: "US", region: "MP" },
   { pattern: /,\s*Marshall Islands$/i, countryCode: "MH", region: null },
+  // NDBC buoys named for the nearest foreign coast, e.g. "NE BAHAMAS - 350 NM ENE of Nassau, Bahamas".
+  { pattern: /,\s*Bahamas$/i, countryCode: "BS", region: null },
+  { pattern: /,\s*Jamaica$/i, countryCode: "JM", region: null },
   { pattern: /,\s*Palau$/i, countryCode: "PW", region: null },
   { pattern: /,\s*Micronesia$/i, countryCode: "FM", region: null },
 ];

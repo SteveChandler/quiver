@@ -66,6 +66,8 @@ import {
   getCachedForecastIndexabilitySnapshots,
 } from "@/lib/seo/forecast-indexability-cache";
 import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
+import { buildBuoySitemapEntries } from "@/lib/buoy-pages/sitemap-routes";
+import { listStations } from "@/lib/services/wave-stations";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -474,6 +476,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     bestTimeRoutes,
     learnRoutes,
     blogRoutes,
+    buoyRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
     Promise.resolve(
@@ -494,6 +497,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getBestTimeToSurfRoutes(cityEditorialRoutes),
     Promise.resolve(getLearnRoutes()),
     Promise.resolve(getBlogRoutes()),
+    getBuoyRoutes(),
   ]);
 
   const routes = [
@@ -508,6 +512,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...bestTimeRoutes,
     ...learnRoutes,
     ...blogRoutes,
+    ...buoyRoutes,
     ...getToolsRoutes(),
   ];
 
@@ -1145,6 +1150,25 @@ async function getBestTimeToSurfRoutes(
       error,
     );
     return routes;
+  }
+}
+
+/**
+ * Public buoy pages. Any read failure (including the catalogue migration not
+ * being applied yet) returns no buoy routes and leaves the rest of the sitemap.
+ */
+async function getBuoyRoutes(): Promise<MetadataRoute.Sitemap> {
+  try {
+    const stations = await listStations({});
+    return buildBuoySitemapEntries(stations, Date.now()).map((entry) => ({
+      url: `${baseUrl}${entry.path}`,
+      lastModified: entry.lastModified,
+    }));
+  } catch (error) {
+    console.warn("Sitemap: buoy routes skipped", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
   }
 }
 

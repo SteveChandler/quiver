@@ -65,6 +65,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "app",
   "beach",
   "beaches",
+  "buoys",
   "discover",
   "embed",
   "features",
