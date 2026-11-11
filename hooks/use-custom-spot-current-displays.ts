@@ -9,8 +9,24 @@ const MAX_SPOTS = 50;
 /** The browser could not reach the route (offline, page unload): a user state, not an outage. */
 class NetworkFailure extends Error {}
 
-/** The route's rate limit answered; a throttle, not an outage. */
-class RateLimited extends Error {}
+/** A 4xx answer (rate limit, bad id): an expected response, not an outage. */
+class ClientRejected extends Error {}
+
+/** The server reports its own 5xx; the browser adds one report per window, not one per pan. */
+const REPORT_WINDOW_MS = 5 * 60 * 1000;
+let lastReportAt = Number.NEGATIVE_INFINITY;
+
+function reportOnce(error: unknown): void {
+  const now = Date.now();
+  if (now - lastReportAt < REPORT_WINDOW_MS) return;
+  lastReportAt = now;
+  Sentry.captureException(error, { tags: { hook: "use-custom-spot-current-displays" } });
+}
+
+/** Test-only: reset the report window. */
+export function resetCustomSpotDisplayReportWindow(): void {
+  lastReportAt = Number.NEGATIVE_INFINITY;
+}
 
 interface CurrentDisplayResponse {
   data?: { displays?: Record<string, ForecastDisplay> };
@@ -55,7 +71,7 @@ export function useCustomSpotCurrentDisplays(
       })
       .then((response) => {
         if (response.ok) return response.json();
-        if (response.status === 429) throw new RateLimited();
+        if (response.status < 500) throw new ClientRejected(`custom spot current-display returned ${response.status}`);
         throw new Error(`custom spot current-display returned ${response.status}`);
       })
       .then((json: CurrentDisplayResponse) => {
@@ -66,8 +82,8 @@ export function useCustomSpotCurrentDisplays(
         if (controller.signal.aborted) return;
         // Drop the previous hour's labels so pins fall back to their anchor's fresh label.
         setDisplays((current) => (current.size === 0 ? current : new Map()));
-        if (error instanceof NetworkFailure || error instanceof RateLimited) return;
-        Sentry.captureException(error, { tags: { hook: "use-custom-spot-current-displays" } });
+        if (error instanceof NetworkFailure || error instanceof ClientRejected) return;
+        reportOnce(error);
       });
     return () => controller.abort();
     // The auth callbacks are read per request, not triggers.

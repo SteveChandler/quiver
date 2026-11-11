@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import * as Sentry from "@sentry/nextjs";
-import { useCustomSpotCurrentDisplays } from "@/hooks/use-custom-spot-current-displays";
+import { resetCustomSpotDisplayReportWindow, useCustomSpotCurrentDisplays } from "@/hooks/use-custom-spot-current-displays";
 
 jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
@@ -9,6 +9,7 @@ describe("useCustomSpotCurrentDisplays", () => {
   afterEach(() => {
     global.fetch = originalFetch;
     jest.mocked(Sentry.captureException).mockClear();
+    resetCustomSpotDisplayReportWindow();
   });
 
   it("loads adjusted labels for the given spots with the caller's token", async () => {
@@ -118,6 +119,33 @@ describe("useCustomSpotCurrentDisplays", () => {
 
     await waitFor(() => expect(result.current.size).toBe(0));
     expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it("drops the previous labels on a 400 without reporting it", async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { displays: { a: { label: "3ft" } } } }) })
+      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const { result, rerender } = renderHook(({ key }) => useCustomSpotCurrentDisplays(["a"], key), { initialProps: { key: "15:00" } });
+    await waitFor(() => expect(result.current.get("a")?.label).toBe("3ft"));
+
+    rerender({ key: "18:00" });
+
+    await waitFor(() => expect(result.current.size).toBe(0));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it("reports server errors at most once per window", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const { rerender } = renderHook(({ key }) => useCustomSpotCurrentDisplays(["a"], key), { initialProps: { key: "15:00" } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    rerender({ key: "16:00" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
   it("does not report a request it aborted itself", async () => {
