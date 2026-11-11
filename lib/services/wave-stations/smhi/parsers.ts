@@ -21,7 +21,7 @@
 import type { SourceObservation, SourceStation, WaveObservationValues } from "../types";
 import { BOUNDS, numberInRange } from "../values";
 
-export const SMHI_LICENSE = "CC-BY-4.0";
+const SMHI_LICENSE = "CC-BY-4.0";
 export const SMHI_PARAMETERS = {
   "1": { field: "wave_height_m", unit: "m", bounds: BOUNDS.height },
   "9": { field: "dominant_period_s", unit: "s", bounds: BOUNDS.period },

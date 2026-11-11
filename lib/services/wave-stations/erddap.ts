@@ -5,7 +5,7 @@
 
 import { splitCsvLine } from "./values";
 
-export interface ErddapTable {
+interface ErddapTable {
   columns: string[];
   units: Record<string, string>;
   rows: Array<Record<string, string>>;

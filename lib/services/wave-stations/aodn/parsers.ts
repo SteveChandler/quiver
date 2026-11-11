@@ -33,7 +33,7 @@
 import type { SourceObservation, SourceStation } from "../types";
 import { BOUNDS, compactValues, numberInRange, parseUtcTime, round, splitCsvLine } from "../values";
 
-export const AODN_LICENSE = "CC-BY-4.0";
+const AODN_LICENSE = "CC-BY-4.0";
 
 const IMOS_ACK =
   "Data was sourced from Australia’s Integrated Marine Observing System (IMOS) - IMOS is enabled by the National Collaborative Research Infrastructure Strategy (NCRIS)";
@@ -72,7 +72,7 @@ export const AODN_EXCLUDED: Record<string, string> = {
 export const REQUIRED_COLUMNS = ["institution", "site_name", "TIME", "LATITUDE", "LONGITUDE"] as const;
 export const WAVE_COLUMNS = ["WSSH", "WHTH", "WPPE", "WPFM", "WPMH", "WPDI", "WAVE_quality_control"] as const;
 
-export interface AodnRow {
+interface AodnRow {
   institution: string;
   siteName: string;
   observedAt: string;

@@ -162,7 +162,7 @@ export function planRegistryUpsert(
  * Lower wins. The operator's own feed beats NDBC, which relays some non-US
  * buoys (62095 is the Irish M6) with fewer fields and a rounded position.
  */
-export const SOURCE_PRIORITY: Record<WaveStationSource, number> = {
+const SOURCE_PRIORITY: Record<WaveStationSource, number> = {
   marine_ie: 0,
   aodn: 0,
   fmi: 0,
@@ -171,7 +171,7 @@ export const SOURCE_PRIORITY: Record<WaveStationSource, number> = {
 };
 
 /** Name-matched stations must be this close. NDBC's M6 position is ~24 km from the Marine Institute's. */
-export const DUPLICATE_NAME_RADIUS_KM = 30;
+const DUPLICATE_NAME_RADIUS_KM = 30;
 
 /** Words that do not identify a buoy on their own. */
 const GENERIC_NAME_WORDS = new Set([

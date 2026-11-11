@@ -22,7 +22,7 @@ import type { SourceObservation, SourceStation } from "../types";
 import { assertErddapUnits, parseErddapCsv } from "../erddap";
 import { BOUNDS, compactValues, KNOTS_TO_MS, numberInRange, parseUtcTime, round } from "../values";
 
-export const MARINE_IE_LICENSE = "CC-BY-4.0";
+const MARINE_IE_LICENSE = "CC-BY-4.0";
 export const MARINE_IE_ATTRIBUTION =
   "Marine Institute, Irish Weather Buoy Network, run with Met Éireann";
 
@@ -38,9 +38,9 @@ const BUOY_NAMES: Record<string, string> = {
 
 const STATION_ID = /^[A-Z]{1,3}\d{1,2}$/;
 
-export const REGISTRY_UNITS = { longitude: "degrees_east", latitude: "degrees_north", time: "UTC" };
+const REGISTRY_UNITS = { longitude: "degrees_east", latitude: "degrees_north", time: "UTC" };
 
-export const LATEST_UNITS = {
+const LATEST_UNITS = {
   time: "UTC",
   WaveHeight: "meters",
   WavePeriod: "seconds",

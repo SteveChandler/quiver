@@ -20,7 +20,7 @@
 import type { SourceObservation, SourceStation } from "../types";
 import { BOUNDS, compactValues, numberInRange } from "../values";
 
-export const FMI_LICENSE = "CC-BY-4.0";
+const FMI_LICENSE = "CC-BY-4.0";
 export const FMI_ATTRIBUTION = "Finnish Meteorological Institute (FMI) open data";
 export const FMI_PARAMETERS = ["WaveHs", "WTP", "ModalWDi", "TWATER"] as const;
 
