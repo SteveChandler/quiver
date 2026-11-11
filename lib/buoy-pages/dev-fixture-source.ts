@@ -182,6 +182,8 @@ export function createFixtureSource(options: FixtureSourceOptions = {}): BuoyPag
       owner: raw.owner,
       program: raw.program,
       cdip_station_id: parseCdipStationId(raw.rawName),
+      wmo_id: /^\d{5}$/.test(raw.id) ? raw.id : null,
+      duplicate_of: null,
       has_wave: waves.length > 0,
       has_swell_split: hasSpec,
       has_met: raw.hasMet,
@@ -216,6 +218,9 @@ export function createFixtureSource(options: FixtureSourceOptions = {}): BuoyPag
   return {
     async getStationBySlug(slug) {
       return stations.find((station) => station.slug === slug) ?? null;
+    },
+    async getStationSlugById(id) {
+      return byId.get(id)?.slug ?? null;
     },
     async findStationsByAlternateId(alternateId) {
       const lower = alternateId.toLowerCase();

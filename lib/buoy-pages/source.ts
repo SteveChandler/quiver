@@ -10,6 +10,7 @@ import {
   getObservationHistory,
   getStationBySlug,
   getStationForBeach,
+  getStationSlugById,
   listStations,
   type BeachStationLookup,
   type LatestObservation,
@@ -29,6 +30,7 @@ import { fetchModelAtBuoy, type ModelSeries } from "./model-at-buoy";
 
 export interface BuoyPageSource {
   getStationBySlug(slug: string): Promise<WaveStationRow | null>;
+  getStationSlugById(id: string): Promise<string | null>;
   findStationsByAlternateId(alternateId: string): Promise<StationIdMatch[]>;
   listStations(filter: ListStationsFilter): Promise<WaveStationRow[]>;
   getLatestObservation(stationId: string): Promise<LatestObservation>;
@@ -45,6 +47,7 @@ export interface BuoyPageSource {
 
 const catalogueSource: BuoyPageSource = {
   getStationBySlug: (slug) => getStationBySlug(slug),
+  getStationSlugById: (id) => getStationSlugById(id),
   findStationsByAlternateId: (alternateId) => findStationsByAlternateId(alternateId),
   listStations: (filter) => listStations(filter),
   getLatestObservation: (stationId) => getLatestObservation(stationId),

@@ -14,7 +14,8 @@ type ReadClient = SupabaseClient;
 
 const STATION_COLUMNS = [
   "id", "source", "source_station_id", "name", "slug", "country_code", "region", "lat", "lon",
-  "station_type", "owner", "program", "cdip_station_id", "has_wave", "has_swell_split", "has_met",
+  "station_type", "owner", "program", "cdip_station_id", "wmo_id", "duplicate_of",
+  "has_wave", "has_swell_split", "has_met",
   "license", "attribution", "active", "first_seen_at", "last_observed_at", "last_wave_observed_at",
   "spec_checked_at", "spec_last_modified", "spec_last_observed_at",
   "txt_checked_at", "txt_last_modified", "txt_last_observed_at", "created_at", "updated_at",
@@ -45,6 +46,17 @@ export async function getStationBySlug(
   return (data as WaveStationRow | null) ?? null;
 }
 
+/** Slug of a station by catalogue id (a duplicate's page redirects to its primary). */
+export async function getStationSlugById(id: string, client?: ReadClient): Promise<string | null> {
+  const { data, error } = await publicClient(client)
+    .from("wave_stations")
+    .select("slug")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) fail("getStationSlugById", error);
+  return (data as { slug: string } | null)?.slug ?? null;
+}
+
 export interface ListStationsFilter {
   country?: string;
   region?: string;
@@ -65,6 +77,8 @@ export async function listStations(
     if (filter.region) query = query.eq("region", filter.region.toUpperCase());
     if (!filter.includeNonWave) query = query.eq("has_wave", true);
     if (!filter.includeInactive) query = query.eq("active", true);
+    // The same buoy from a second source is listed once, under its primary.
+    query = query.is("duplicate_of", null);
     return query.order("name").order("id").range(from, to) as unknown as PromiseLike<{
       data: WaveStationRow[] | null;
       error: { message: string } | null;
@@ -154,7 +168,7 @@ export async function getNearbyStations(
     .select(STATION_COLUMNS);
   if (error) fail("getNearbyStations", error);
   const rows = ((data ?? []) as unknown as WaveStationRow[])
-    .filter((station) => station.id !== excludeStationId)
+    .filter((station) => station.id !== excludeStationId && !station.duplicate_of)
     .map((station) => ({
       ...station,
       distance_km: haversineDistance(lat, lon, station.lat, station.lon),

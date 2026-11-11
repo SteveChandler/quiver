@@ -4,7 +4,13 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildStationId, planRegistryUpsert, type ExistingStation } from "./catalogue";
+import {
+  buildStationId,
+  planDuplicates,
+  planRegistryUpsert,
+  type DuplicateCandidate,
+  type ExistingStation,
+} from "./catalogue";
 import { hasWaveValue } from "./ndbc/parsers";
 import { selectAllPages } from "./paging";
 import type {
@@ -29,6 +35,8 @@ const CROSS_CHECK_GAP_MS = 20 * 60 * 1000;
 const MAX_FUTURE_MS = 60 * 60 * 1000;
 /** A station list this much smaller than the active catalogue looks like a broken feed. */
 const MIN_LIST_RATIO_FOR_DEACTIVATION = 0.8;
+/** Up to this many stations may go even when the list shrank below the ratio (small sources). */
+const MAX_UNGUARDED_DEACTIVATIONS = 2;
 const HISTORY_QUEUE_FETCH_LIMIT = 1000;
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -69,8 +77,19 @@ interface RegistrySyncResult {
   waveStationsByCountry: Record<string, number>;
   upserted: number;
   deactivated: number;
-  /** Set when the list was under 80% of the active catalogue, so nothing was deactivated. */
+  /** Set when the list shrank below 80% and more than 2 stations would go, so nothing was deactivated. */
   deactivationSkipped: { activeStored: number; listed: number } | null;
+  /** Set when a seasonal source listed no station; stored stations were left as they are. */
+  emptyListReason?: string;
+}
+
+/** A shrunken list deactivates nothing only when it is under 80% of the active rows AND more than 2 would go. */
+export function shouldSkipDeactivation(activeStored: number, listed: number, toDeactivate: number): boolean {
+  return (
+    activeStored > 0
+    && listed < activeStored * MIN_LIST_RATIO_FOR_DEACTIVATION
+    && toDeactivate > MAX_UNGUARDED_DEACTIVATIONS
+  );
 }
 
 export async function syncRegistry(
@@ -79,7 +98,19 @@ export async function syncRegistry(
   nowMs: number,
 ): Promise<RegistrySyncResult> {
   const stations = await adapter.fetchStations();
-  if (stations.length === 0) throw new Error(`${adapter.source}: station list is empty`);
+  if (stations.length === 0) {
+    if (!adapter.emptyStationListReason) throw new Error(`${adapter.source}: station list is empty`);
+    return {
+      stationsListed: 0,
+      withWave: 0,
+      withSwellSplit: 0,
+      waveStationsByCountry: {},
+      upserted: 0,
+      deactivated: 0,
+      deactivationSkipped: null,
+      emptyListReason: adapter.emptyStationListReason,
+    };
+  }
 
   const existing = await selectAllPages<ExistingStation>((from, to) =>
     db
@@ -103,7 +134,7 @@ export async function syncRegistry(
   ).length;
   let deactivationSkipped: RegistrySyncResult["deactivationSkipped"] = null;
   let deactivated = 0;
-  if (activeStored > 0 && plan.rows.length < activeStored * MIN_LIST_RATIO_FOR_DEACTIVATION) {
+  if (shouldSkipDeactivation(activeStored, plan.rows.length, plan.deactivateIds.length)) {
     deactivationSkipped = { activeStored, listed: plan.rows.length };
     console.warn(
       `[WaveStations] ${adapter.source} listed ${plan.rows.length} stations vs ${activeStored} active; ` +
@@ -135,6 +166,32 @@ export async function syncRegistry(
   };
 }
 
+/**
+ * Re-evaluate duplicate_of across every source, once after the last source's
+ * registry run (see planDuplicates), so the result does not depend on order.
+ */
+export async function syncDuplicates(db: CatalogueClient): Promise<{ marked: number; cleared: number }> {
+  const all = await selectAllPages<DuplicateCandidate>((from, to) =>
+    db
+      .from("wave_stations")
+      .select("id, source, name, lat, lon, wmo_id, active, duplicate_of")
+      .order("id")
+      .range(from, to),
+  );
+  let marked = 0;
+  let cleared = 0;
+  for (const change of planDuplicates(all)) {
+    const { error } = await db
+      .from("wave_stations")
+      .update({ duplicate_of: change.duplicate_of })
+      .eq("id", change.id);
+    if (error) throw new Error(`wave_stations duplicate_of: ${error.message}`);
+    if (change.duplicate_of) marked++;
+    else cleared++;
+  }
+  return { marked, cleared };
+}
+
 // ---------------------------------------------------------------------------
 // Latest observations (every 15 minutes)
 // ---------------------------------------------------------------------------
@@ -158,7 +215,10 @@ export async function syncLatestObservations(
   db: CatalogueClient,
   adapter: WaveStationSourceAdapter,
   nowMs: number,
+  /** The prune is table-wide, so only one source's run per cron call does it. */
+  options: { prune?: boolean } = {},
 ): Promise<LatestSyncResult> {
+  const prune = options.prune ?? true;
   const observations = await adapter.fetchLatestObservations();
   const stations = await selectAllPages<Pick<WaveStationRow, "id" | "last_observed_at" | "has_wave">>(
     (from, to) =>
@@ -209,7 +269,7 @@ export async function syncLatestObservations(
 
   // Prune once an hour (the first run after :00), in a bounded batch.
   let rowsPruned = 0;
-  if (new Date(nowMs).getUTCMinutes() < 15) {
+  if (prune && new Date(nowMs).getUTCMinutes() < 15) {
     const cutoff = new Date(nowMs - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await db.rpc("prune_wave_station_observations", {
       p_before: cutoff,
@@ -328,6 +388,8 @@ async function syncHistoryQueue(
   options: SwellSplitSyncOptions,
   config: HistoryQueueConfig,
 ): Promise<SwellSplitSyncResult> {
+  const fetchHistory = adapter.fetchStationHistory;
+  if (!fetchHistory) throw new Error(`${adapter.source}: no per-station history files`);
   const startedMs = Date.now();
   const dueBefore = new Date(nowMs - SPEC_REFRESH_MS).toISOString();
   const { data, error } = await db
@@ -397,7 +459,7 @@ async function syncHistoryQueue(
     try {
       // Always send the stored Last-Modified: an empty or unchanged file then
       // answers 304 instead of a full re-download every hour.
-      const history = await adapter.fetchStationHistory(station.sourceStationId, {
+      const history = await fetchHistory(station.sourceStationId, {
         ifModifiedSince: station.lastModified,
         file: config.file,
       });
