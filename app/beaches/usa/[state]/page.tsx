@@ -360,7 +360,7 @@ export default async function UsaStatePage(
       <SeoFunnelNextSteps
         variant="paper"
         title={`Plan a ${stateName} surf session`}
-        description="Use the state hub to choose a city, then move into live conditions, water temperature, or the map before you drive."
+        description="Use the state hub to choose a city, then move into conditions, water temperature, or the map before you drive."
         steps={[
           {
             label: `Browse ${stateName} surf cities`,
