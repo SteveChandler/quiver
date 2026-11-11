@@ -447,4 +447,18 @@ describe("GET /api/alerts/activity", () => {
       reason: null,
     });
   });
+
+  it.each([
+    ["forecast_alert", { beach_name: "Blacks", forecast_at: "2026-05-26T14:00:00.000Z" }, ""],
+    ["similarity_match", { beach_name: "Blacks" }, "Match at Blacks"],
+  ])("returns empty title and body text, not stand-in copy, when a %s row has none", async (type, data, title) => {
+    notificationRows = [{ id: "row-1", type, created_at: "2026-05-26T06:00:00.000Z", read_at: null, data }];
+
+    const response = await GET(new NextRequest("http://localhost:3000/api/alerts/activity"));
+    const item = (await response.json()).data.activity[0];
+
+    expect(item.body).toBe("");
+    expect(JSON.stringify(item)).not.toMatch(/A watched surf window|Forecast alert/);
+    expect(item.title).toBe(title);
+  });
 });

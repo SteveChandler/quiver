@@ -145,7 +145,8 @@ function titleFor(
     return beachName ? `${prefix} at ${beachName}` : prefix;
   }
 
-  return "Forecast alert";
+  // Installed clients type this as a string; empty reads as absent there.
+  return "";
 }
 
 function bodyFor(row: NotificationRow, data: Record<string, unknown>): string {
@@ -156,11 +157,11 @@ function bodyFor(row: NotificationRow, data: Record<string, unknown>): string {
     return (
       nonEmptyString(data.reason) ??
       nonEmptyString(data.condition_summary) ??
-      "A watched surf window matched your preferences."
+      ""
     );
   }
 
-  return "A watched surf window is lining up.";
+  return "";
 }
 
 function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
