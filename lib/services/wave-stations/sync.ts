@@ -35,6 +35,8 @@ const CROSS_CHECK_GAP_MS = 20 * 60 * 1000;
 const MAX_FUTURE_MS = 60 * 60 * 1000;
 /** A station list this much smaller than the active catalogue looks like a broken feed. */
 const MIN_LIST_RATIO_FOR_DEACTIVATION = 0.8;
+/** Up to this many stations may go even when the list shrank below the ratio (small sources). */
+const MAX_UNGUARDED_DEACTIVATIONS = 2;
 const HISTORY_QUEUE_FETCH_LIMIT = 1000;
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -75,10 +77,19 @@ interface RegistrySyncResult {
   waveStationsByCountry: Record<string, number>;
   upserted: number;
   deactivated: number;
-  /** Set when the list was under 80% of the active catalogue, so nothing was deactivated. */
+  /** Set when the list shrank below 80% and more than 2 stations would go, so nothing was deactivated. */
   deactivationSkipped: { activeStored: number; listed: number } | null;
-  /** duplicate_of changes across all sources in this run. */
-  duplicates: { marked: number; cleared: number };
+  /** Set when a seasonal source listed no station; stored stations were left as they are. */
+  emptyListReason?: string;
+}
+
+/** A shrunken list deactivates nothing only when it is under 80% of the active rows AND more than 2 would go. */
+export function shouldSkipDeactivation(activeStored: number, listed: number, toDeactivate: number): boolean {
+  return (
+    activeStored > 0
+    && listed < activeStored * MIN_LIST_RATIO_FOR_DEACTIVATION
+    && toDeactivate > MAX_UNGUARDED_DEACTIVATIONS
+  );
 }
 
 export async function syncRegistry(
@@ -87,7 +98,19 @@ export async function syncRegistry(
   nowMs: number,
 ): Promise<RegistrySyncResult> {
   const stations = await adapter.fetchStations();
-  if (stations.length === 0) throw new Error(`${adapter.source}: station list is empty`);
+  if (stations.length === 0) {
+    if (!adapter.emptyStationListReason) throw new Error(`${adapter.source}: station list is empty`);
+    return {
+      stationsListed: 0,
+      withWave: 0,
+      withSwellSplit: 0,
+      waveStationsByCountry: {},
+      upserted: 0,
+      deactivated: 0,
+      deactivationSkipped: null,
+      emptyListReason: adapter.emptyStationListReason,
+    };
+  }
 
   const existing = await selectAllPages<ExistingStation>((from, to) =>
     db
@@ -111,7 +134,7 @@ export async function syncRegistry(
   ).length;
   let deactivationSkipped: RegistrySyncResult["deactivationSkipped"] = null;
   let deactivated = 0;
-  if (activeStored > 0 && plan.rows.length < activeStored * MIN_LIST_RATIO_FOR_DEACTIVATION) {
+  if (shouldSkipDeactivation(activeStored, plan.rows.length, plan.deactivateIds.length)) {
     deactivationSkipped = { activeStored, listed: plan.rows.length };
     console.warn(
       `[WaveStations] ${adapter.source} listed ${plan.rows.length} stations vs ${activeStored} active; ` +
@@ -132,8 +155,6 @@ export async function syncRegistry(
     waveStationsByCountry[key] = (waveStationsByCountry[key] ?? 0) + 1;
   }
 
-  const duplicates = await syncDuplicates(db);
-
   return {
     stationsListed: stations.length,
     withWave: plan.rows.filter((row) => row.has_wave).length,
@@ -142,15 +163,14 @@ export async function syncRegistry(
     upserted,
     deactivated,
     deactivationSkipped,
-    duplicates,
   };
 }
 
 /**
- * Re-evaluate duplicate_of across every source after a registry run, so the
- * result does not depend on which source ran first (see planDuplicates).
+ * Re-evaluate duplicate_of across every source, once after the last source's
+ * registry run (see planDuplicates), so the result does not depend on order.
  */
-async function syncDuplicates(db: CatalogueClient): Promise<{ marked: number; cleared: number }> {
+export async function syncDuplicates(db: CatalogueClient): Promise<{ marked: number; cleared: number }> {
   const all = await selectAllPages<DuplicateCandidate>((from, to) =>
     db
       .from("wave_stations")

@@ -5,8 +5,8 @@
  * 6 hours. Licence and field notes are in ./parsers.ts.
  *
  * The open-sea buoys are lifted before the sea freezes, so in winter the
- * registry can find no buoy and the run reports this source as failed
- * ("station list is empty") until they return.
+ * registry can find no buoy. That is declared legitimate
+ * (emptyStationListReason): stored buoys stay active and show offline.
  */
 
 import type { SourceObservation, SourceStation, WaveStationSourceAdapter } from "../types";
@@ -50,6 +50,7 @@ async function fetchLatestObservations(): Promise<SourceObservation[]> {
 export const fmiAdapter: WaveStationSourceAdapter = {
   source: "fmi",
   latestEveryMinutes: 30,
+  emptyStationListReason: "FMI lifts its wave buoys before the sea freezes; none reported in the last 7 days",
   fetchStations,
   fetchLatestObservations,
 };

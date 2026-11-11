@@ -1,7 +1,7 @@
 /** @jest-environment node */
 import { GET } from "@/app/api/cron/wave-stations-sync/route";
 import { withCronOutcome } from "@/lib/cron/outcome";
-import { syncLatestObservations, syncRegistry } from "@/lib/services/wave-stations/sync";
+import { syncDuplicates, syncLatestObservations, syncRegistry } from "@/lib/services/wave-stations/sync";
 
 jest.mock("@/lib/cron/outcome", () => ({
   withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
@@ -23,6 +23,7 @@ jest.mock("@/lib/services/wave-stations/adapters", () => {
 });
 jest.mock("@/lib/services/wave-stations/sync", () => ({
   syncRegistry: jest.fn(),
+  syncDuplicates: jest.fn(),
   syncLatestObservations: jest.fn(),
   syncSwellSplit: jest.fn(),
   syncStandardHistory: jest.fn(),
@@ -65,7 +66,8 @@ describe("/api/cron/wave-stations-sync", () => {
     expect((syncLatestObservations as jest.Mock).mock.calls.map((call) => call[1].source)).toEqual(["ndbc"]);
   });
 
-  it("runs the registry for every source in order and keeps going past a failure", async () => {
+  it("runs the registry for every source in order, keeps going past a failure, then one duplicate pass", async () => {
+    (syncDuplicates as jest.Mock).mockResolvedValue({ marked: 1, cleared: 0 });
     const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
     (syncRegistry as jest.Mock).mockImplementation(async (_db, adapter) => {
       if (adapter.source === "aodn") throw new Error("timeout");
@@ -77,7 +79,9 @@ describe("/api/cron/wave-stations-sync", () => {
     expect((syncRegistry as jest.Mock).mock.calls.map((call) => call[1].source)).toEqual(["ndbc", "marine_ie", "aodn"]);
     const [options] = (withCronOutcome as jest.Mock).mock.calls[0] as [Options];
     const body = await response.json();
-    expect(options.getProduced(body.data.sources)).toBe(1361);
-    expect(options.failureReason(body.data.sources)).toBe("aodn: timeout");
+    expect(syncDuplicates).toHaveBeenCalledTimes(1);
+    expect(body.data.duplicates).toEqual({ marked: 1, cleared: 0 });
+    expect(options.getProduced(body.data)).toBe(1361);
+    expect(options.failureReason(body.data)).toBe("aodn: timeout");
   });
 });

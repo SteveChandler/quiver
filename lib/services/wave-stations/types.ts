@@ -117,6 +117,12 @@ export interface WaveStationSourceAdapter {
   readonly source: WaveStationSource;
   /** How often the latest phase calls this source (its own update rate), in minutes. */
   readonly latestEveryMinutes: 15 | 30 | 60;
+  /**
+   * Set for a seasonal source whose station list can be empty for months
+   * (buoys lifted for ice). An empty list is then not a failure and stored
+   * stations stay active, so they show offline through the 30-day rule.
+   */
+  readonly emptyStationListReason?: string;
   fetchStations(): Promise<SourceStation[]>;
   /** One cheap request for the newest readings of every station (a bounded recent window). */
   fetchLatestObservations(): Promise<SourceObservation[]>;

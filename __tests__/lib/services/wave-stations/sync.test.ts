@@ -432,6 +432,53 @@ describe("syncRegistry", () => {
     expect(result).toMatchObject({ deactivated: 1, deactivationSkipped: null });
   });
 
+  it("accepts an empty list from a seasonal source and leaves its stations as they are", async () => {
+    const { db, calls } = fakeDb();
+    const result = await syncRegistry(
+      db,
+      adapter({ source: "fmi", emptyStationListReason: "buoys lifted for ice" }),
+      Date.now(),
+    );
+    expect(result).toMatchObject({ stationsListed: 0, upserted: 0, deactivated: 0, emptyListReason: "buoys lifted for ice" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("deactivates one lost buoy in a 4-station source (4 -> 3)", async () => {
+    const make = (id: string): SourceStation => ({
+      sourceStationId: id, name: `M${id}`, lat: 53, lon: -10, stationType: "buoy",
+      owner: "Marine Institute", program: null, countryCode: "IE", region: null,
+      cdipStationId: null, hasWave: true, hasSwellSplit: false, hasMet: true,
+      license: "CC-BY-4.0", attribution: "Marine Institute",
+    });
+    const stored = ["M2", "M3", "M5", "M6"].map((id) => ({
+      id: `marine_ie:${id}`, slug: `s-${id}`, active: true, last_wave_observed_at: null,
+    }));
+    const { db } = fakeDb({ wave_stations: [stored] });
+    const result = await syncRegistry(
+      db,
+      adapter({ source: "marine_ie", fetchStations: async () => ["M2", "M3", "M5"].map(make) }),
+      Date.now(),
+    );
+    expect(result).toMatchObject({ deactivated: 1, deactivationSkipped: null });
+  });
+
+  it("skips deactivation when a large source shrinks to a broken list (1357 -> 200)", async () => {
+    const make = (id: string): SourceStation => ({
+      sourceStationId: id, name: `Station ${id}`, lat: 30, lon: -120, stationType: "buoy",
+      owner: "NDBC", program: null, countryCode: "US", region: null,
+      cdipStationId: null, hasWave: true, hasSwellSplit: false, hasMet: true,
+      license: "public-domain-us-gov", attribution: "NOAA NDBC",
+    });
+    const ids = Array.from({ length: 1357 }, (_, i) => String(10000 + i));
+    const stored = ids.map((id) => ({ id: `ndbc:${id}`, slug: `s-${id}`, active: true, last_wave_observed_at: null }));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { db, calls } = fakeDb({ wave_stations: [stored] });
+    const result = await syncRegistry(db, adapter({ fetchStations: async () => ids.slice(0, 200).map(make) }), Date.now());
+    warn.mockRestore();
+    expect(result).toMatchObject({ deactivated: 0, deactivationSkipped: { activeStored: 1357, listed: 200 } });
+    expect(calls.some((call) => call.ops[0]?.[0] === "update")).toBe(false);
+  });
+
   it("upserts stations and counts wave stations by country", async () => {
     const stations: SourceStation[] = [
       {
@@ -457,7 +504,6 @@ describe("syncRegistry", () => {
       upserted: 2,
       deactivated: 0,
       deactivationSkipped: null,
-      duplicates: { marked: 0, cleared: 0 },
     });
     const upsert = calls.find((call) => call.ops[0]?.[0] === "upsert");
     const rows = upsert?.ops[0][1][0] as Array<Record<string, unknown>>;

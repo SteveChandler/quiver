@@ -18,6 +18,7 @@ import {
 } from "@/lib/services/wave-stations/run-sources";
 import {
   syncLatestObservations,
+  syncDuplicates,
   syncRegistry,
   syncStandardHistory,
   syncSwellSplit,
@@ -89,19 +90,28 @@ async function _GET(request: Request): Promise<Response> {
           job,
           unit: "stations_upserted",
           expectedMin: 1,
-          getProduced: (runs) => sumOk(runs, (value) => value.upserted),
-          failureReason: (runs) => failedSources(runs),
+          getProduced: (value) => sumOk(value.sources, (run) => run.upserted),
+          failureReason: (value) =>
+            [failedSources(value.sources), value.duplicates.error ? `duplicates: ${value.duplicates.error}` : null]
+              .filter(Boolean)
+              .join("; ") || null,
         },
-        // Sequential: the duplicate pass at the end of each run then sees every source written so far.
+        // Sources one after another (gentle on shared storage), then one duplicate pass over all of them.
         async () => {
-          const runs: Array<SourceRun<Awaited<ReturnType<typeof syncRegistry>>>> = [];
+          const sources: Array<SourceRun<Awaited<ReturnType<typeof syncRegistry>>>> = [];
           for (const adapter of SOURCE_ADAPTERS) {
-            runs.push(...(await runPerSource([adapter], (one) => syncRegistry(db, one, nowMs))));
+            sources.push(...(await runPerSource([adapter], (one) => syncRegistry(db, one, nowMs))));
           }
-          return runs;
+          let duplicates: { marked: number; cleared: number; error?: string };
+          try {
+            duplicates = await syncDuplicates(db);
+          } catch (error) {
+            duplicates = { marked: 0, cleared: 0, error: error instanceof Error ? error.message : String(error) };
+          }
+          return { sources, duplicates };
         },
       );
-      return createSuccessResponse({ sources: result });
+      return createSuccessResponse(result);
     }
 
     if (phase === "latest") {
