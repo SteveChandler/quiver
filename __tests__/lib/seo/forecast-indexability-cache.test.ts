@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { unstable_cache } from "next/cache";
 
 import {
@@ -6,17 +7,24 @@ import {
   getCachedForecastIndexabilitySnapshots,
 } from "@/lib/seo/forecast-indexability-cache";
 import {
+  ForecastIndexabilityUnavailableError,
   getForecastIndexabilityForBeaches,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+
+jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((fn: unknown) => fn),
 }));
 
-jest.mock("@/lib/seo/forecast-indexability", () => ({
-  getForecastIndexabilityForBeaches: jest.fn(),
-}));
+jest.mock("@/lib/seo/forecast-indexability", () => {
+  const actual = jest.requireActual("@/lib/seo/forecast-indexability");
+  return {
+    ForecastIndexabilityUnavailableError: actual.ForecastIndexabilityUnavailableError,
+    getForecastIndexabilityForBeaches: jest.fn(),
+  };
+});
 
 const snapshot: ForecastIndexabilitySnapshot = {
   forecastAvailable: true,
@@ -62,5 +70,24 @@ describe("getCachedForecastIndexabilitySnapshots", () => {
     const result = await getCachedForecastIndexabilitySnapshots([{ id: "beach-2" }]);
 
     expect(result.size).toBe(0);
+  });
+
+  it("reports a coverage read failure and returns an empty map without caching it", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const failure = new ForecastIndexabilityUnavailableError("coverage query failed", "timeout");
+    (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValue(failure);
+
+    const result = await getCachedForecastIndexabilitySnapshots([{ id: "beach-1" }]);
+
+    expect(result.size).toBe(0);
+    expect(Sentry.captureException).toHaveBeenCalledWith(failure, expect.anything());
+    consoleError.mockRestore();
+  });
+
+  it("lets an unrelated error through", async () => {
+    (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValue(new TypeError("boom"));
+
+    await expect(getCachedForecastIndexabilitySnapshots([{ id: "beach-1" }])).rejects.toThrow("boom");
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 });
