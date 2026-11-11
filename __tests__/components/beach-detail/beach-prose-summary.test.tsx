@@ -68,4 +68,21 @@ describe("BeachProseSummary", () => {
       screen.getByText("Local guidance reviewed against NOAA, Local Surf Club."),
     ).toBeInTheDocument();
   });
+
+  it("leaves out a wind or tide the surf call reports as Unknown", () => {
+    const { container } = render(
+      <BeachProseSummary
+        beach={createMockBeach({ description: null, wave_tips: null, crowd_tips: null, best_conditions_prose: null })}
+        surfCallReport={{
+          waveHeight: "4.9 ft",
+          windDescription: "Unknown",
+          tideDescription: "Falling → low tide",
+          whySentence: null,
+        } as never}
+      />,
+    );
+
+    expect(container).toHaveTextContent("Current conditions: 4.9 ft waves, falling → low tide.");
+    expect(container).not.toHaveTextContent(/unknown/i);
+  });
 });
