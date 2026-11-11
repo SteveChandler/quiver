@@ -34,14 +34,15 @@ interface BeachUrlRow {
   country: string | null;
 }
 
-const MAX_BEACHES = 12;
+/** The page lists at most this many beaches; the 60 h window keeps the read under ~1000 rows. */
+export const BEACH_SUMMARY_LIMIT = 12;
 
 export async function getBeachForecastSummaries(
   beachIds: string[],
   now: Date,
   client?: SupabaseClient<Database>,
 ): Promise<Map<string, BeachForecastSummary>> {
-  const ids = [...new Set(beachIds)].slice(0, MAX_BEACHES);
+  const ids = [...new Set(beachIds)].slice(0, BEACH_SUMMARY_LIMIT);
   const summaries = new Map<string, BeachForecastSummary>();
   if (ids.length === 0) return summaries;
   const db = client ?? createPublicReadClient();
@@ -52,10 +53,7 @@ export async function getBeachForecastSummaries(
     fetchBulkForecastRowsWithV51Display(db, ids, start, end),
   ]);
   if (beachResult.error) throw new Error(`getBeachForecastSummaries: ${beachResult.error.message}`);
-  // A missing forecast only removes the label; the beach link still helps.
-  if (forecastResult.error) {
-    console.warn("[buoy-pages] beach forecast read failed", { message: forecastResult.error.message });
-  }
+  if (forecastResult.error) throw new Error(`getBeachForecastSummaries forecasts: ${forecastResult.error.message}`);
 
   const rowsByBeach = new Map<string, EnhancedForecastEntity[]>();
   for (const row of forecastResult.data ?? []) {

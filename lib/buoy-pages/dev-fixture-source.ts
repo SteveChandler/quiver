@@ -194,6 +194,9 @@ export function createFixtureSource(options: FixtureSourceOptions = {}): BuoyPag
       spec_checked_at: null,
       spec_last_modified: null,
       spec_last_observed_at: null,
+      txt_checked_at: null,
+      txt_last_modified: null,
+      txt_last_observed_at: null,
       created_at: "2026-11-10T00:00:00.000Z",
       updated_at: "2026-11-10T00:00:00.000Z",
     };

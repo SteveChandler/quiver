@@ -6,7 +6,7 @@
 import type { StationBeaches } from "@/lib/services/wave-stations";
 import type { WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
 import { findCanonicalTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
-import type { BeachForecastSummary } from "./beach-summaries";
+import { BEACH_SUMMARY_LIMIT, type BeachForecastSummary } from "./beach-summaries";
 import { buildChartRanges, type ChartRange, type ChartRangeData } from "./chart-ranges";
 import {
   compareModelToObserved,
@@ -28,7 +28,7 @@ import {
 import { orEmptyWhenMissing, type BuoyPageSource } from "./source";
 import { classifyStationStatus, evaluateStationIndexability, type StationIndexDecision, type StationStatus } from "./status";
 
-const HISTORY_HOURS = 30 * 24;
+const HISTORY_DAYS = 30;
 const COMPARISON_DAYS = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NEARBY_LIMIT = 6;
@@ -71,7 +71,14 @@ interface StationPageData {
   trend: TrendPoint[];
   chartRanges: Partial<Record<ChartRange, ChartRangeData>>;
   model: ModelBlock | null;
-  beaches: { relation: StationBeaches["relation"]; items: StationBeachView[] };
+  beaches: {
+    relation: StationBeaches["relation"];
+    items: StationBeachView[];
+    /** Linked beaches left off the list (the list shows the closest ones). */
+    moreCount: number;
+    /** False when the forecast read failed: labels are unknown, not missing. */
+    forecastsLoaded: boolean;
+  };
   nearby: NearbyBuoy[];
   /** Distance to the closest listed beach, in km, for the explainer. */
   nearestBeachKm: number | null;
@@ -147,9 +154,9 @@ export async function loadStationPage(
 
   const nowMs = now.getTime();
   const timeZone = stationTimeZone(station);
-  const [latest, history, beachLinks, nearbyRaw, model] = await Promise.all([
+  const [latest, historyRaw, beachLinks, nearbyRaw, model] = await Promise.all([
     source.getLatestObservation(station.id),
-    source.getObservationHistory(station.id, HISTORY_HOURS),
+    source.getObservationHistory(station.id, (HISTORY_DAYS + 1) * 24),
     source.getBeachesForStation(station.id).catch((error: unknown) => {
       // Beach links are a side block; a failed read must not take the buoy page down.
       console.warn("[buoy-pages] beach links failed", {
@@ -162,15 +169,19 @@ export async function loadStationPage(
     source.fetchModelAtBuoy(station.lat, station.lon),
   ]);
 
+  // Start the history at a UTC midnight so regenerations within a day keep the same window.
+  const historyStart = Math.floor(nowMs / DAY_MS) * DAY_MS - HISTORY_DAYS * DAY_MS;
+  const history = historyRaw.filter((row) => Date.parse(row.observed_at) >= historyStart);
   const nearbyStations = nearbyRaw.filter((candidate) => candidate.id !== station.id).slice(0, NEARBY_LIMIT);
+  const listedBeaches = beachLinks.beaches.slice(0, BEACH_SUMMARY_LIMIT);
   const [nearbyLatest, beachSummaries] = await Promise.all([
     source.getLatestWaveObservations(nearbyStations),
-    source.getBeachForecastSummaries(beachLinks.beaches.map((beach) => beach.id), now).catch((error: unknown) => {
+    source.getBeachForecastSummaries(listedBeaches.map((beach) => beach.id), now).catch((error: unknown) => {
       console.warn("[buoy-pages] beach summaries failed", {
         station: station.id,
         message: error instanceof Error ? error.message : String(error),
       });
-      return new Map<string, BeachForecastSummary>();
+      return null;
     }),
   ]);
 
@@ -195,12 +206,14 @@ export async function loadStationPage(
       model: status === "offline" ? null : buildModelBlock(model, history, latest.latestWave, timeZone, nowMs),
       beaches: {
         relation: beachLinks.relation,
-        items: beachLinks.beaches.map((beach) => ({
+        items: listedBeaches.map((beach) => ({
           id: beach.id,
           name: beach.name,
           distanceKm: beach.distance_km,
-          summary: beachSummaries.get(beach.id) ?? null,
+          summary: beachSummaries?.get(beach.id) ?? null,
         })),
+        moreCount: beachLinks.beaches.length - listedBeaches.length,
+        forecastsLoaded: beachSummaries !== null,
       },
       nearby: nearbyStations.map((candidate) => ({
         station: candidate,

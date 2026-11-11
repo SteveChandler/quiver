@@ -25,9 +25,13 @@ const NOTE = "mt-3 max-w-3xl text-xs leading-5 text-[#655C4C]";
 export function StationBeaches({
   relation,
   items,
+  moreCount,
+  forecastsLoaded,
 }: {
   relation: "fed_by" | "nearby";
   items: StationBeachView[];
+  moreCount: number;
+  forecastsLoaded: boolean;
 }) {
   if (items.length === 0) return null;
   const fedBy = relation === "fed_by";
@@ -62,14 +66,21 @@ export function StationBeaches({
                   <>
                     Quiver forecast now: <span className="font-mono font-bold text-[#11100D]">{label}</span>
                   </>
-                ) : (
+                ) : forecastsLoaded ? (
                   "No current Quiver forecast"
+                ) : (
+                  "Quiver forecast unavailable right now"
                 )}
               </p>
             </li>
           );
         })}
       </ul>
+      {moreCount > 0 ? (
+        <p className="mt-3 text-sm text-[#11100D]/75">
+          {`+${moreCount} more ${moreCount === 1 ? "beach" : "beaches"} ${fedBy ? "use this buoy" : "nearby"}, further away.`}
+        </p>
+      ) : null}
       <p className={NOTE}>
         Beach numbers are each beach&apos;s own Quiver forecast, not a conversion of this buoy reading.
       </p>

@@ -5,7 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPublicReadClient } from "@/lib/supabase/server";
-import { selectAllPages } from "./sync";
+import { selectAllPages } from "./paging";
 import type { WaveStationObservationRow, WaveStationRow } from "./types";
 
 type ReadClient = SupabaseClient;

@@ -66,7 +66,7 @@ test.describe("Buoy pages", () => {
     const response = await page.goto("/buoys/us");
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/United States wave buoys/i);
-    await expect(page.getByRole("link", { name: "California" })).toHaveAttribute("href", "/buoys/us/ca");
+    await expect(page.getByRole("link", { name: "California", exact: true })).toHaveAttribute("href", "/buoys/us/ca");
     const torrey = page.getByTestId("buoy-hub-station").filter({ hasText: "Torrey Pines Outer" });
     await expect(torrey).toContainText(/Live|Stale|Offline/);
     await torrey.getByRole("link").click();

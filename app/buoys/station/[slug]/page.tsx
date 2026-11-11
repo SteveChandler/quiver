@@ -165,7 +165,12 @@ export default async function BuoyStationPage({ params }: PageProps) {
             </section>
           ) : null}
 
-          <StationBeaches relation={data.beaches.relation} items={data.beaches.items} />
+          <StationBeaches
+            relation={data.beaches.relation}
+            items={data.beaches.items}
+            moreCount={data.beaches.moreCount}
+            forecastsLoaded={data.beaches.forecastsLoaded}
+          />
           <NearbyBuoys items={data.nearby} />
           <TideStationSlot tideStation={null} />
           <OtherReadings observation={data.latestAny} timeZone={timeZone} />
