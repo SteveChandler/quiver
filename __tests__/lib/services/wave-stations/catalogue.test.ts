@@ -4,7 +4,9 @@
 
 import {
   buildStationSlug,
+  planDuplicates,
   planRegistryUpsert,
+  type DuplicateCandidate,
   type ExistingStation,
 } from "@/lib/services/wave-stations/catalogue";
 import type { SourceStation } from "@/lib/services/wave-stations/types";
@@ -110,5 +112,50 @@ describe("planRegistryUpsert", () => {
 
   it("drops duplicate station ids from the source list", () => {
     expect(planRegistryUpsert("ndbc", [station(), station()], [], NOW).rows).toHaveLength(1);
+  });
+
+  it("stores the WMO number when the source gives one", () => {
+    expect(planRegistryUpsert("ndbc", [station({ wmoId: "46225" })], [], NOW).rows[0].wmo_id).toBe("46225");
+    expect(planRegistryUpsert("ndbc", [station()], [], NOW).rows[0].wmo_id).toBeNull();
+  });
+});
+
+describe("planDuplicates", () => {
+  const row = (overrides: Partial<DuplicateCandidate>): DuplicateCandidate => ({
+    id: "ndbc:62095",
+    source: "ndbc",
+    name: "M6 - West Coast",
+    lat: 53.04,
+    lon: -15.53,
+    wmo_id: "62095",
+    active: true,
+    duplicate_of: null,
+    ...overrides,
+  });
+  // Real positions: NDBC's 62095 is ~24 km from the Marine Institute's M6.
+  const m6 = row({ id: "marine_ie:M6", source: "marine_ie", name: "M6 West Coast", lat: 53.07482, lon: -15.88135 });
+
+  it("marks the NDBC relay of an Irish M-buoy as a duplicate by WMO number", () => {
+    expect(planDuplicates([row({}), m6])).toEqual([{ id: "ndbc:62095", duplicate_of: "marine_ie:M6" }]);
+  });
+
+  it("matches on a distinctive shared name within 30 km when there is no WMO number", () => {
+    const relay = row({ wmo_id: null });
+    const primary = { ...m6, wmo_id: null };
+    expect(planDuplicates([relay, primary])).toEqual([{ id: "ndbc:62095", duplicate_of: "marine_ie:M6" }]);
+    // Generic words ("West Coast") alone are not enough.
+    expect(planDuplicates([row({ wmo_id: null, name: "West Coast" }), { ...primary, name: "West Coast Buoy" }])).toEqual([]);
+    // Too far apart for a name match.
+    expect(planDuplicates([relay, { ...primary, lat: 54, lon: -15.88 }])).toEqual([]);
+  });
+
+  it("never marks the higher-priority source and clears a mark when the primary goes inactive", () => {
+    const marked = row({ duplicate_of: "marine_ie:M6" });
+    expect(planDuplicates([marked, m6])).toEqual([]);
+    expect(planDuplicates([marked, { ...m6, active: false }])).toEqual([{ id: "ndbc:62095", duplicate_of: null }]);
+  });
+
+  it("keeps two stations of the same source apart even with the same WMO number", () => {
+    expect(planDuplicates([row({}), row({ id: "ndbc:62095B" })])).toEqual([]);
   });
 });

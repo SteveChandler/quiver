@@ -32,10 +32,10 @@ function fitDescription(candidates: string[]): string {
 }
 
 export function buildStationTitle(station: Pick<WaveStationRow, "name" | "source_station_id">): string {
-  const id = station.source_station_id.toUpperCase();
+  const id = titleCode(station);
   const name = station.name.replace(/\s+buoy$/i, "");
   return fitTitle([
-    `${name} Buoy ${id}: Live Swell & Waves`,
+    ...(id ? [`${name} Buoy ${id}: Live Swell & Waves`] : []),
     `${name} Buoy: Live Swell & Waves`,
     `${name} Buoy: Swell & Waves`,
     `${name} Buoy`,
@@ -45,8 +45,14 @@ export function buildStationTitle(station: Pick<WaveStationRow, "name" | "source
 export function buildStationDescription(
   station: Pick<WaveStationRow, "name" | "source_station_id" | "has_swell_split">,
 ): string {
-  const id = station.source_station_id.toUpperCase();
+  const id = titleCode(station);
   const split = station.has_swell_split ? ", swell vs wind waves" : "";
+  if (!id) {
+    return fitDescription([
+      `Live wave height, period and direction${split} from the ${station.name} buoy, with trend charts and the model forecast at the buoy. Buoy readings, not surf height.`,
+      `Live wave height, period and direction from the ${station.name} buoy, trend charts and the model forecast at the buoy.`,
+    ]);
+  }
   return fitDescription([
     `Live wave height, period and direction${split} from the ${station.name} buoy (${id}), with trend charts and the model forecast at the buoy. Buoy readings, not surf height.`,
     `Live wave height, period and direction${split} from buoy ${id}, with trend charts and the model forecast at the buoy. Buoy readings, not surf height.`,
@@ -67,16 +73,43 @@ export function buildHubDescription(place: string | null, stationCount: number):
   ]);
 }
 
-/** "public-domain-us-gov" and similar registry values to a licence URL. */
+/** Registry licence value for Creative Commons Attribution 4.0 (SPDX id). */
+export const CC_BY_4 = "CC-BY-4.0";
+
+/** "public-domain-us-gov", "CC-BY-4.0" and similar registry values to a licence URL. */
 export function licenseUrl(license: string): string | null {
   if (license === "public-domain-us-gov") return "https://www.usa.gov/government-works";
+  if (license === CC_BY_4) return "https://creativecommons.org/licenses/by/4.0/";
   if (/^https?:\/\//.test(license)) return license;
   return null;
 }
 
 export function licenseLabel(license: string): string {
   if (license === "public-domain-us-gov") return "Public domain (US government work)";
+  if (license === CC_BY_4) return "CC BY 4.0";
   return license;
+}
+
+/** Attribution licences require saying what was changed. */
+export function licenseRequiresChangeNote(license: string): boolean {
+  return license === CC_BY_4;
+}
+
+/**
+ * The station's own code for display ("46225", "M6", "134220"), or null when
+ * the source has no real id and ours is only the name in another form
+ * (Australian sites such as "wooli").
+ */
+export function stationCode(station: Pick<WaveStationRow, "source_station_id">): string | null {
+  const code = station.source_station_id.toUpperCase();
+  return /\d/.test(code) ? code : null;
+}
+
+/** The code, unless the name already shows it ("M6 West Coast"). */
+function titleCode(station: Pick<WaveStationRow, "name" | "source_station_id">): string | null {
+  const code = stationCode(station);
+  if (!code) return null;
+  return new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, "i").test(station.name) ? null : code;
 }
 
 /**
@@ -88,14 +121,14 @@ export function buildStationDatasetJsonLd(
   canonicalPath: string,
   lastWaveObservedAt: string | null,
 ): Record<string, unknown> {
-  const id = station.source_station_id.toUpperCase();
+  const id = titleCode(station);
   const license = licenseUrl(station.license);
   return {
     "@context": "https://schema.org",
     "@type": "Dataset",
-    name: `${station.name} buoy ${id} wave observations`,
+    name: id ? `${station.name} buoy ${id} wave observations` : `${station.name} buoy wave observations`,
     description:
-      `Significant wave height, dominant period and mean wave direction${station.has_swell_split ? ", with swell and wind-wave components," : ""} measured at ${station.name} (${id}). Buoy readings, not surf height at the beach.`,
+      `Significant wave height, dominant period and mean wave direction${station.has_swell_split ? ", with swell and wind-wave components," : ""} measured at ${station.name}${id ? ` (${id})` : ""}. Buoy readings, not surf height at the beach.`,
     url: `${SITE_URL}${canonicalPath}`,
     isAccessibleForFree: true,
     creator: { "@type": "Organization", name: station.attribution },

@@ -1,0 +1,13 @@
+FID,institution,site_name,TIME,LATITUDE,LONGITUDE,WSSH,WPFM,WPPE,WPDI,WAVE_quality_control,WHTH,WPMH
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2995,The University of Western Australia,Exmouth Gulf North,2026-11-11T02:50:00,-21.8045,114.2645,0.6,4.46,14.62,269.261,4,,
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2996,The University of Western Australia,Exmouth Gulf North,2026-11-11T03:20:00,-21.8045,114.2645,0.54,4.32,14.62,266.532,1,,
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2a24,Deakin University,Port Fairy,2026-11-11T03:55:00,-38.3816,142.2871,2,7.14,14.62,207.575,1,,
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2a55,IMOS Coastal Wave Buoys Facility,Wooli,2026-11-11T03:25:00,-29.8577,153.3137,1.176,6.21,11.378,163.47,1,,
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2a56,IMOS Coastal Wave Buoys Facility,Wooli,2026-11-11T04:25:00,-29.8577,153.3137,1.196,6.106,11.378,161.661,1,,
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2a80,IMOS Coastal Wave Buoys Facility,Mission Beach,2026-11-11T03:35:00,-17.9723,146.1913,0.44,3.334,5.689,239.826,4,,
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2aae,Bureau Of Meteorology,Cape Du Couedic,2026-11-11T04:30:00,-36.07,136.62,,,13.3,248,2,2.47,7.1
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2afc,Queensland Department of Environment and Science/Gold Coast City Council,Gold Coast,2026-11-11T03:00:00,-27.97,153.45,,,11.1,128,2,0.88,4.4
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2afd,Queensland Department of Environment and Science/Gold Coast City Council,Gold Coast,2026-11-11T03:30:00,-27.97,153.45,,,0,0,2,0.86,0
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2b3a,Department of Transport WA,Cottesloe,2026-11-11T03:00:00,-31.98,115.68,,,12.8,248,2,0.58,5.2
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2b3e,"Manly Hydraulics Laboratory -NSW Department of Planning, Industry and Environment",Byron Bay,2026-11-11T03:00:00,-28.87,153.68,,,10.3,164,2,1.36,6
+aodn_wave_nrt_v2_timeseries_data.fid--331b4545_1a1c903bd37_2b53,"New South Wales Department of Climate Change, Energy, the Environment and Water",Tathra,2026-11-11T03:45:00,-36.7083,150.0008,1.35,7.597,9.309,120.964,1,,

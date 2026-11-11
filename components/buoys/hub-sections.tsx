@@ -6,6 +6,7 @@ import { stationPath } from "@/lib/buoy-pages/geo-names";
 import type { HubGroup, HubStation } from "@/lib/buoy-pages/hub-data";
 import { STATUS_LABELS, type StationStatus } from "@/lib/buoy-pages/status";
 import { getStaticMapImageUrlWithPins } from "@/lib/map-utils";
+import { stationCode } from "@/lib/seo/buoy-meta";
 import { cn } from "@/lib/utils";
 
 const STATUS_TEXT: Record<StationStatus, string> = {
@@ -44,7 +45,9 @@ function StationRow({ item }: { item: HubStation }) {
     <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5" data-testid="buoy-hub-station">
       <Link href={stationPath(station.slug)} className="font-semibold text-[#11100D] underline-offset-2 hover:underline">
         {station.name}
-        <span className="ml-2 font-mono text-xs font-normal text-[#11100D]/50">{station.source_station_id.toUpperCase()}</span>
+        {stationCode(station) ? (
+          <span className="ml-2 font-mono text-xs font-normal text-[#11100D]/50">{stationCode(station)}</span>
+        ) : null}
       </Link>
       <span className="flex items-baseline gap-3 font-mono text-sm text-[#11100D]">
         {height ? <span>{[height, period, direction].filter(Boolean).join(" · ")}</span> : null}

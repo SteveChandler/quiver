@@ -1,3 +1,4 @@
+import { haversineDistance } from "@/lib/utils/geo-utils";
 import type { SourceStation, WaveStationRow, WaveStationSource } from "./types";
 
 const SLUG_NAME_MAX = 60;
@@ -38,11 +39,14 @@ function slugPlace(name: string): string {
   return `${place}, ${state[1]}`;
 }
 
-/** Readable name plus the source station id: "torrey-pines-outer-ca-46225". */
+/**
+ * Readable name plus the source station id: "torrey-pines-outer-ca-46225".
+ * A name that already starts or ends with the id keeps it once ("m6-west-coast").
+ */
 export function buildStationSlug(name: string, sourceStationId: string): string {
   const id = sourceStationId.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const namePart = slugifyName(slugPlace(name));
-  if (!namePart || namePart === id || namePart.endsWith(`-${id}`)) {
+  if (!namePart || namePart === id || namePart.endsWith(`-${id}`) || namePart.startsWith(`${id}-`)) {
     return namePart || `buoy-${id}`;
   }
   return `${namePart}-${id}`;
@@ -70,6 +74,7 @@ type RegistryUpsertRow = Pick<
   | "owner"
   | "program"
   | "cdip_station_id"
+  | "wmo_id"
   | "has_wave"
   | "has_swell_split"
   | "has_met"
@@ -132,6 +137,7 @@ export function planRegistryUpsert(
       owner: station.owner,
       program: station.program,
       cdip_station_id: station.cdipStationId,
+      wmo_id: station.wmoId ?? null,
       has_wave: station.hasWave || recentWave,
       has_swell_split: station.hasSwellSplit,
       has_met: station.hasMet,
@@ -146,4 +152,85 @@ export function planRegistryUpsert(
     .map((row) => row.id);
 
   return { rows, deactivateIds };
+}
+
+// ---------------------------------------------------------------------------
+// Same physical buoy in two sources
+// ---------------------------------------------------------------------------
+
+/**
+ * Lower wins. The operator's own feed beats NDBC, which relays some non-US
+ * buoys (62095 is the Irish M6) with fewer fields and a rounded position.
+ */
+const SOURCE_PRIORITY: Record<WaveStationSource, number> = {
+  marine_ie: 0,
+  aodn: 0,
+  fmi: 0,
+  smhi: 0,
+  ndbc: 1,
+};
+
+/** Name-matched stations must be this close. NDBC's M6 position is ~24 km from the Marine Institute's. */
+const DUPLICATE_NAME_RADIUS_KM = 30;
+
+/** Words that do not identify a buoy on their own. */
+const GENERIC_NAME_WORDS = new Set([
+  "buoy", "boj", "wave", "waves", "waverider", "vagboj", "aaltopoiju", "station", "the", "of", "and",
+  "north", "south", "east", "west", "northeast", "northwest", "southeast", "southwest", "coast", "bay",
+  "island", "is", "point", "head", "harbour", "harbor", "beach", "outer", "inner", "inshore", "offshore",
+  "sea", "gulf", "river", "port", "cape", "basin", "nm", "km", "de", "la",
+]);
+
+function nameTokens(name: string): Set<string> {
+  return new Set(
+    name
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length >= 2 && !GENERIC_NAME_WORDS.has(token) && !/^\d{1,2}$/.test(token)),
+  );
+}
+
+function sharesDistinctiveName(a: string, b: string): boolean {
+  const tokens = nameTokens(a);
+  for (const token of nameTokens(b)) if (tokens.has(token)) return true;
+  return false;
+}
+
+export type DuplicateCandidate = Pick<
+  WaveStationRow,
+  "id" | "source" | "name" | "lat" | "lon" | "wmo_id" | "active" | "duplicate_of"
+>;
+
+/**
+ * Mark a station as a duplicate of another source's station when both are
+ * active, the other source has a higher priority, and either
+ * - both carry the same WMO number, or
+ * - they are within 30 km and share a distinctive name word ("M6").
+ * The nearest such primary wins. A station whose primary goes away is unmarked.
+ * Returns only the rows whose duplicate_of must change.
+ */
+export function planDuplicates(
+  stations: DuplicateCandidate[],
+): Array<{ id: string; duplicate_of: string | null }> {
+  const active = stations.filter((station) => station.active);
+  const changes: Array<{ id: string; duplicate_of: string | null }> = [];
+  for (const station of stations) {
+    let primary: { id: string; km: number } | null = null;
+    if (station.active) {
+      for (const other of active) {
+        if (other.source === station.source) continue;
+        if (SOURCE_PRIORITY[other.source] >= SOURCE_PRIORITY[station.source]) continue;
+        const km = haversineDistance(station.lat, station.lon, other.lat, other.lon);
+        const sameWmo = Boolean(station.wmo_id) && station.wmo_id === other.wmo_id;
+        const sameName = km <= DUPLICATE_NAME_RADIUS_KM && sharesDistinctiveName(station.name, other.name);
+        if (!sameWmo && !sameName) continue;
+        if (!primary || km < primary.km) primary = { id: other.id, km };
+      }
+    }
+    const next = primary?.id ?? null;
+    if ((station.duplicate_of ?? null) !== next) changes.push({ id: station.id, duplicate_of: next });
+  }
+  return changes;
 }

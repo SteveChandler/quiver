@@ -13,7 +13,7 @@ const CHIP_CLASSES: Record<StationStatus, string> = {
 };
 
 /** Re-evaluates status after mount: the ISR page may be up to 15 minutes old. */
-function useClientStatus(lastWaveAt: string | null, serverStatus: StationStatus) {
+function useClientStatus(lastWaveAt: string | null, serverStatus: StationStatus, freshForMs?: number) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
@@ -23,7 +23,7 @@ function useClientStatus(lastWaveAt: string | null, serverStatus: StationStatus)
   if (now === null) return { status: serverStatus, ageMs: null };
   const at = lastWaveAt ? Date.parse(lastWaveAt) : NaN;
   return {
-    status: classifyStationStatus(lastWaveAt, now),
+    status: classifyStationStatus(lastWaveAt, now, freshForMs),
     ageMs: Number.isFinite(at) ? now - at : null,
   };
 }
@@ -33,6 +33,8 @@ interface StatusChipProps {
   serverStatus: StationStatus;
   /** Station-local time of the newest wave reading, rendered on the server. */
   absolute: string;
+  /** The station's Live limit (liveLimitMs), so the client applies the server's rule. */
+  freshForMs: number;
   className?: string;
 }
 
@@ -41,8 +43,8 @@ interface StatusChipProps {
  * never says "Live": a fresh reading renders as "Reported <time>" and the
  * client upgrades the label to Live / Stale / Offline after mount.
  */
-export function StatusChip({ lastWaveAt, serverStatus, absolute, className }: StatusChipProps) {
-  const { status, ageMs } = useClientStatus(lastWaveAt, serverStatus);
+export function StatusChip({ lastWaveAt, serverStatus, absolute, freshForMs, className }: StatusChipProps) {
+  const { status, ageMs } = useClientStatus(lastWaveAt, serverStatus, freshForMs);
   const label = ageMs === null && status === "fresh" ? `Reported ${absolute}` : STATUS_LABELS[status];
   return (
     <span
