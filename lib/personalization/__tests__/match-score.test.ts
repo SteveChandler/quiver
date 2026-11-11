@@ -331,6 +331,27 @@ describe("resolveMatchScoreState", () => {
     );
   });
 
+  it("leaves out the tide line when native sends tide_height \"null\"", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, tideHeight: "null" },
+      rpcResult: {
+        state: "learned",
+        score: 7.4,
+        label: "GOOD",
+        reason_bullets: ["raw score 7 confidence low"],
+        sessions_in_profile: 12,
+        profile_kind: "preference_only",
+      },
+    });
+
+    expect(result.reason_bullets.join(" ")).not.toMatch(/null|NaN|undefined/);
+    expect(result.reason_bullets).toEqual([
+      "This window sits around 3 ft at 12s with 4 mph wind.",
+      "Keep rating sessions to sharpen the call.",
+    ]);
+  });
+
   it("uses cautious low-signal copy without exposing confidence labels", () => {
     const result = resolveMatchScoreState({
       eligibilitySource: "entitlement",

@@ -222,10 +222,14 @@ function reasonFactsFor(
   return facts;
 }
 
+/** A forecast param as sent: native sends String(null) = "null" for a missing value. */
+function knownNumber(value: string | null | undefined): boolean {
+  return Number.isFinite(Number.parseFloat(value ?? ""));
+}
+
 /** Wind clause for the generated reasons; none when the forecast has no wind speed. */
 function windClause(forecast: MatchScoreForecastInput, lead: string): string {
-  const known = Number.isFinite(Number.parseFloat(forecast.windSpeed ?? ""));
-  return known ? `${lead} ${forecast.windSpeed} mph wind` : "";
+  return knownNumber(forecast.windSpeed) ? `${lead} ${forecast.windSpeed} mph wind` : "";
 }
 
 function starterReasons(
@@ -248,13 +252,18 @@ function learnedReasons(
   const clean = (rpcResult.reason_bullets ?? []).filter(
     (reason) => reason && !hasDebugCopy(reason),
   );
+  // A line whose number is unknown is left out, never printed as "null ft".
   const generated = [
-    `This window sits around ${forecast.waveHeight} ft at ${forecast.wavePeriod}s${windClause(forecast, " with")}.`,
+    knownNumber(forecast.waveHeight) && knownNumber(forecast.wavePeriod)
+      ? `This window sits around ${forecast.waveHeight} ft at ${forecast.wavePeriod}s${windClause(forecast, " with")}.`
+      : null,
     boardPick
       ? boardPick.reason
-      : `Tide near ${forecast.tideHeight} ft keeps this tied to the current window, not a generic beach score.`,
+      : knownNumber(forecast.tideHeight)
+        ? `Tide near ${forecast.tideHeight} ft keeps this tied to the current window, not a generic beach score.`
+        : null,
     "Keep rating sessions to sharpen the call.",
-  ];
+  ].filter((line): line is string => line !== null);
 
   if (rpcResult.confidence === "low" || sessionCount < 10) {
     return [
