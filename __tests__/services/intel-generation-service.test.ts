@@ -270,4 +270,67 @@ describe("IntelGenerationService", () => {
     expect(intel.payload.bestWindowStart).toBeUndefined();
     expect(intel.payload.bestWindowEnd).toBeUndefined();
   });
+
+  describe("read errors", () => {
+    const timeout = {
+      code: "57014",
+      message: "canceling statement due to statement timeout",
+    };
+
+    function mockTables(overrides: Record<string, unknown>): void {
+      mockFrom.mockImplementation((table: string) => {
+        if (table in overrides) return queryBuilder(overrides[table]);
+        if (table === "beaches") return queryBuilder({ data: beachRow, error: null });
+        if (table === "enhanced_forecasts") return forecastQuery;
+        if (table === "beach_water_quality") return queryBuilder({ data: null, error: null });
+        if (table === "beach_daily_intel") return intelQuery;
+        throw new Error(`Unexpected table ${table}`);
+      });
+    }
+
+    beforeEach(() => {
+      mockSelectBeachDayWindows.mockReturnValue(authorityResult(null));
+    });
+
+    it("fails generation when the beach read errors", async () => {
+      mockTables({ beaches: { data: null, error: timeout } });
+      const service = new IntelGenerationService("https://example.supabase.co", "test-key");
+
+      await expect(
+        service.generateIntel("beach-1", "06:00", "America/Los_Angeles")
+      ).rejects.toThrow("canceling statement due to statement timeout");
+    });
+
+    it("still generates when the beach row is missing (PGRST116)", async () => {
+      mockTables({
+        beaches: { data: null, error: { code: "PGRST116", message: "0 rows" } },
+      });
+      const service = new IntelGenerationService("https://example.supabase.co", "test-key");
+
+      const intel = await service.generateIntel("beach-1", "06:00", "America/Los_Angeles");
+
+      expect(intel.spotName).toBe("Beach");
+      expect(intel.beachPreferences).toBeUndefined();
+    });
+
+    it("fails generation when the water quality read errors", async () => {
+      mockTables({ beach_water_quality: { data: null, error: timeout } });
+      const service = new IntelGenerationService("https://example.supabase.co", "test-key");
+
+      await expect(
+        service.generateIntel("beach-1", "06:00", "America/Los_Angeles")
+      ).rejects.toThrow("canceling statement due to statement timeout");
+      expect(intelQuery.upsert).not.toHaveBeenCalled();
+    });
+
+    it("generates with no advisory when the water quality row is missing", async () => {
+      mockTables({});
+      const service = new IntelGenerationService("https://example.supabase.co", "test-key");
+
+      const intel = await service.generateIntel("beach-1", "06:00", "America/Los_Angeles");
+
+      expect(intel.spotName).toBe("Pacific Test Beach");
+      expect(intel.payload.waterQuality).toBeUndefined();
+    });
+  });
 });

@@ -327,15 +327,24 @@ async function syncObservations(): Promise<ObservationSyncResult> {
 
     let activeIOOSIds = new Set<string>();
     if (ioosLinkedIds.length > 0) {
-      const { data: activeIOOS } = await supabase
+      const { data: activeIOOS, error: activeIOOSError } = await supabase
         .from("ioos_stations")
         .select("station_id")
         .in("station_id", ioosLinkedIds)
         .eq("active", true);
 
-      activeIOOSIds = new Set(
-        (activeIOOS || []).map((s) => s.station_id)
-      );
+      if (activeIOOSError) {
+        // Fail safe: an unknown IOOS state must not cause duplicate observations,
+        // so IOOS-linked stations wait for the next run; unlinked stations still sync.
+        result.errors.push(
+          `Failed to fetch active IOOS stations; skipped IOOS-linked stations: ${activeIOOSError.message}`
+        );
+        activeIOOSIds = new Set(ioosLinkedIds);
+      } else {
+        activeIOOSIds = new Set(
+          (activeIOOS || []).map((s) => s.station_id)
+        );
+      }
     }
 
     const exclusiveStations = stations.filter((s) => {

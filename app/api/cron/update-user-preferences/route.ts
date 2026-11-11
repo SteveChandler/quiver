@@ -105,12 +105,17 @@ async function _GET(request: Request): Promise<Response> {
 
     // First, get NPC/bot user IDs to exclude from production preference learning.
     // Manual cron calls can pass includeMock=true to exercise seeded data.
-    const { data: npcUsers } = includeMockUsers
-      ? { data: [] as Array<{ id: string }> }
+    const { data: npcUsers, error: npcUsersError } = includeMockUsers
+      ? { data: [] as Array<{ id: string }>, error: null }
       : await supabase
           .from('profiles')
           .select('id')
           .eq('is_mock', true);
+
+    if (npcUsersError) {
+      console.error('❌ Failed to query NPC users:', npcUsersError);
+      throw new Error(`Failed to query NPC users: ${npcUsersError.message}`);
+    }
 
     const npcUserIds = new Set(npcUsers?.map((u) => u.id) || []);
 
