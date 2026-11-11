@@ -5,7 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPublicReadClient } from "@/lib/supabase/server";
-import { selectAllPages } from "./paging";
+import { errorWithCode, selectAllPages } from "./paging";
 import type { WaveStationObservationRow, WaveStationRow } from "./types";
 
 type ReadClient = SupabaseClient;
@@ -44,21 +44,27 @@ export async function findStationsByAlternateId(
   const results = await Promise.all(queries);
   const matches = new Map<string, StationIdMatch>();
   for (const { data, error } of results) {
-    if (error) throw new Error(`findStationsByAlternateId: ${error.message}`);
+    if (error) throw errorWithCode(`findStationsByAlternateId: ${error.message}`, error);
     for (const row of (data ?? []) as StationIdMatch[]) matches.set(row.id, row);
   }
   return [...matches.values()];
 }
 
+export type LatestWaveReading = Pick<
+  WaveStationObservationRow,
+  "station_id" | "observed_at" | "wave_height_m" | "dominant_period_s" | "mean_wave_direction_deg"
+>;
+
 /**
- * The row at each station's `last_wave_observed_at`, keyed by station id. One
- * query per 100 stations: rows are filtered by station and by the set of those
- * timestamps, then matched exactly in memory.
+ * The reading at each station's `last_wave_observed_at`, keyed by station id,
+ * with only the columns a list shows. One query per 100 stations, filtered by
+ * station, by the set of those timestamps and by the oldest of them; rows are
+ * then matched exactly in memory.
  */
 export async function getLatestWaveObservations(
   stations: Array<Pick<WaveStationRow, "id" | "last_wave_observed_at">>,
   client?: ReadClient,
-): Promise<Map<string, WaveStationObservationRow>> {
+): Promise<Map<string, LatestWaveReading>> {
   const db = publicClient(client);
   const wanted = new Map<string, number>();
   for (const station of stations) {
@@ -66,15 +72,17 @@ export async function getLatestWaveObservations(
     if (Number.isFinite(at)) wanted.set(station.id, at);
   }
   const ids = [...wanted.keys()];
-  const latest = new Map<string, WaveStationObservationRow>();
+  const latest = new Map<string, LatestWaveReading>();
   for (let start = 0; start < ids.length; start += IN_CHUNK) {
     const chunk = ids.slice(start, start + IN_CHUNK);
     const times = [...new Set(chunk.map((id) => new Date(wanted.get(id) as number).toISOString()))];
-    const rows = await selectAllPages<WaveStationObservationRow>((from, to) =>
+    const oldest = new Date(Math.min(...chunk.map((id) => wanted.get(id) as number))).toISOString();
+    const rows = await selectAllPages<LatestWaveReading>((from, to) =>
       db
         .from("wave_station_observations")
-        .select("*")
+        .select("station_id, observed_at, wave_height_m, dominant_period_s, mean_wave_direction_deg")
         .in("station_id", chunk)
+        .gte("observed_at", oldest)
         .in("observed_at", times)
         .order("station_id")
         .order("observed_at")

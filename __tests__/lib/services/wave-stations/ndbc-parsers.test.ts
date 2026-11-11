@@ -100,6 +100,10 @@ describe("station names, CDIP ids and location", () => {
     ["UTMSI_BUOY_1 - Environmental List 1415.02 (SPOT-33114C)", "UTMSI_BUOY_1 - Environmental List 1415.02 (SPOT-33114C)"],
     ["OOI Pioneer - Mid-Atlantic Bight Southern Surface Mooring", "OOI Pioneer - Mid-Atlantic Bight Southern Surface Mooring"],
     ["Ocean Station PAPA  (166)", "Ocean Station Papa"],
+    ["LA PEROUSE BANK", "La Perouse Bank"],
+    ["SALT LAKE OR ME ISLAND", "Salt Lake or Me Island"],
+    ["Hilo, Hawaii, HI", "Hilo, Hawaii, HI"],
+    ["Galveston,TX -  22 NM East of Galveston, TX", "Galveston,TX - 22 NM East of Galveston, TX"],
   ])("title-cases %s for display", (raw, display) => {
     expect(cleanStationName(raw, "00000")).toBe(display);
   });

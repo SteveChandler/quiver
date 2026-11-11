@@ -94,12 +94,12 @@ const KEEP_UPPER = new Set([
 const KEEP_ACRONYMS = new Set([
   "AWS", "CDIP", "FRF", "NDBC", "NOAA", "NOS", "NSF", "OOI", "USCG", "UTMSI", "DISL", "FGBNMS", "CBIBS", "CORMP",
 ]);
-const LOWER_WORDS = new Set(["of", "and", "the", "at", "off", "in", "on", "to"]);
+const LOWER_WORDS = new Set(["of", "and", "or", "the", "at", "off", "in", "on", "to"]);
 
 /**
  * Title-case words NDBC ships in capitals ("SAN CLEMENTE BASIN" -> "San Clemente
- * Basin"). Kept as written: compass points and units (SE, NM), US state and
- * territory codes, known acronyms, and any token with a digit or underscore
+ * Basin"). Kept as written: compass points and units (SE, NM), a US state code
+ * that ends the name or a clause, known acronyms, and any token with a digit or underscore
  * (ids such as 27NM, CAP2WAVE, SPOT-33114C), a two-letter code after a comma
  * ("Cozumel, MX") and anything in parentheses ("(PNCWAVE)"). "of", "and" and
  * similar read lower case after the first word.
@@ -110,13 +110,18 @@ function displayCase(name: string): string {
     const isFirst = first;
     first = false;
     if (token.startsWith("(") || /[\d_]/.test(token)) return token;
-    if (/^[A-Z]{2}$/.test(token) && /,\s*$/.test(name.slice(0, offset))) return token;
+    if (/^[A-Z]{2}$/.test(token)) {
+      const rest = name.slice(offset + token.length);
+      // A code after a comma ("Cozumel, MX"); a state code that ends the name or a clause ("Honolulu HI").
+      if (/,\s*$/.test(name.slice(0, offset))) return token;
+      if (US_REGION_CODES.has(token) && (/^[\s.]*$/.test(rest) || /^\s+-\s/.test(rest))) return token;
+    }
     return token
       .split("-")
       .map((part) => {
         if (!part) return part;
         const upper = part.toUpperCase();
-        if (part === upper && (KEEP_UPPER.has(upper) || KEEP_ACRONYMS.has(upper) || US_REGION_CODES.has(upper))) {
+        if (part === upper && (KEEP_UPPER.has(upper) || KEEP_ACRONYMS.has(upper))) {
           return part;
         }
         if (!isFirst && LOWER_WORDS.has(part.toLowerCase())) return part.toLowerCase();

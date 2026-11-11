@@ -19,7 +19,7 @@ function fakeClient(respond: (table: string, ops: Ops) => unknown) {
       const ops: Ops = [];
       chains.push({ table, ops });
       const builder: Record<string, unknown> = {};
-      for (const op of ["select", "in", "order", "range"]) {
+      for (const op of ["select", "in", "gte", "order", "range"]) {
         builder[op] = (...args: unknown[]) => {
           ops.push([op, args]);
           return builder;
@@ -84,6 +84,10 @@ describe("getLatestWaveObservations", () => {
     ]);
     expect(argsOf(chains[0].ops, "in", "station_id")).toEqual(["ndbc:a", "ndbc:b"]);
     expect(argsOf(chains[0].ops, "in", "observed_at")).toEqual(["2026-11-11T03:26:00.000Z", "2026-11-11T02:40:00.000Z"]);
+    expect(argsOf(chains[0].ops, "gte", "observed_at")).toBe("2026-11-11T02:40:00.000Z");
+    expect(chains[0].ops.find(([op]) => op === "select")?.[1][0]).toBe(
+      "station_id, observed_at, wave_height_m, dominant_period_s, mean_wave_direction_deg",
+    );
   });
 
   it("skips the query when no station has a wave time", async () => {
