@@ -130,13 +130,21 @@ These read as "surf brand" not "surfer" — mass market, tourist-facing, sponsor
 | Promo purple | `#7B2FFF` | Tech/crypto aesthetic |
 | Sterile white | `#FFFFFF` | Never as a primary surface |
 
-### Texture, type and graphics
+### Color and type (replaced)
 
-The visual rules are in Visual and brand direction in `soul.md` and in `docs/STYLE_GUIDE.md`. They replace the older mood text that was here (saturated purples and pinks, hand-drawn type, "personality over consistency"). In short:
+The legacy palette paragraph (saturated purples, pinks, sky blues) and the hand-drawn type paragraph that were here are replaced by Visual and brand direction in `soul.md` and by `docs/STYLE_GUIDE.md`: Space Grotesk for display, DM Sans for body and UI, Space Mono for technical values, and no handwritten or marker face.
 
-- Texture: paper grain, halftone, tape and scan lines, used with restraint and only where they support the hierarchy. Data stays crisp.
-- Type: Space Grotesk for display, DM Sans for body and UI, Space Mono for technical values. There is no handwritten or marker face.
-- Graphics: reuse the established sticker and zine assets (`components/zine/`, Brand-Vault stickers). Accessibility and data clarity override decoration.
+### Texture & surface
+
+> Where this paragraph and Visual and brand direction in `soul.md` disagree, `soul.md` is correct (restrained texture, data stays crisp, accessibility over decoration).
+
+Nothing should feel flat or sterile. Grain, noise, texture — surfaces that feel physical. The VHS/analog quality: slightly imperfect, warm, not digitally crisp. Like a surf magazine page you've folded and kept, not a Figma export.
+
+### Illustration & graphics
+
+> Where this paragraph and Visual and brand direction in `soul.md` disagree, `soul.md` is correct (restrained texture, data stays crisp, accessibility over decoration).
+
+Hand-drawn over geometric. Icons that look like someone sketched them, not pulled from a library. Every graphic element should have a point of view — no two things should look like they came from the same template. Personality over consistency. A sticker-sheet mentality: varied, playful, human.
 
 ### Photography & imagery
 

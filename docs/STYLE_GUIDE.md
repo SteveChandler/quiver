@@ -240,13 +240,14 @@ A rating never appears without its call, in the same words as native. Build it w
 
 **Direction:** Quiver is zine-first — cream paper content on a twilight stage. See `app/styles/zine.css` (canonical tokens) and Visual and brand direction in `soul.md`. The dark card surfaces below are legacy stage-layer values.
 
-The app uses a **cream-paper-on-twilight model**: a deep twilight gradient is the page **stage** (backdrop only), and cream paper with ink text is the **default content surface** — content lives on paper, not on the dark stage. Charming Orange remains the **primary action color**. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` but now maps to `#F78E42` (Charming Orange) — do not assume it is blue or pink. Accents tuned for dark backgrounds do not survive on cream: orange on paper is for fills/marks/stamps, not small body text, and secondary text on paper uses reduced-opacity ink, never the white-on-dark tiers.
+The app uses a **cream-paper-on-twilight model**: a deep twilight gradient is the page **stage** (backdrop only), and cream paper with ink text is the **default content surface** — content lives on paper, not on the dark stage. Charming Orange remains the **primary action color**. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` and maps to `#9E5010` (dark orange); `.theme-retro-dark` paints filled `bg-ocean-blue` buttons `#F78E42` — do not assume it is blue or pink. Accents tuned for dark backgrounds do not survive on cream: orange on paper is for fills/marks/stamps, not small body text, and secondary text on paper uses reduced-opacity ink, never the white-on-dark tiers.
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `ocean-blue` | `#F78E42` | **Primary action color** -- CTAs, links, active states, buttons (token retained; value is now Charming Orange) |
-| `sunset-orange` | `#FF7F11` | Secondary accent -- warm highlights, badges, decorative emphasis |
-| `sandy-beige` | `#F5F5DC` | Decorative -- beach-detail gradient background (1 usage, keep) |
+| `ocean-blue` | `#9E5010` | **Primary action color** -- CTAs, links, active states, buttons. `.theme-retro-dark` paints filled `bg-ocean-blue` buttons Charming Orange `#F78E42` (see CSS custom property below) |
+| `ocean-blue-decorative` | `#F78E42` | Charming Orange fills and marks |
+| `sunset-orange` | `#FDB84B` | Secondary accent (Paradise Gold value) -- warm highlights, badges |
+| `sandy-beige` | `#2D357D` | Legacy dark card value despite the name; do not use for new work |
 | `dark-grey` | `#333333` | High-contrast text |
 
 ### Zine palette: stage vs. paper
@@ -297,10 +298,10 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 
 ### Do / Don't
 
-- **Do** use `ocean-blue` (Charming Orange `#F78E42`) for all primary actions and CTAs
+- **Do** use `ocean-blue` (rendered Charming Orange `#F78E42` on filled buttons) for all primary actions and CTAs
 - **Do** use `#4A70D9` (Twilight Blue) for links and secondary highlights on the stage only, never on paper
 - **Do** use `#FDB84B` (Paradise Gold) for badges and rating marks on the stage; on paper use gold ink `#8A5E00`
-- **Do** use `#D3408B` (Valentina Pink) only on the stage, and only where it is already in use (legacy, see above)
+- **Do** use `#D3408B` (Valentina Pink) only on the stage (legacy, see above)
 - **Don't** use `#0077B6` anywhere -- that is the old corporate blue and has been replaced
 - **Don't** use `#FF3B8B` (old hot pink) -- replaced by Charming Orange `#F78E42`
 - **Don't** use `#0B1426` (old deep navy) -- replaced by Deep Twilight `#252D6B`
