@@ -161,7 +161,7 @@ describe("harmonic predictions", () => {
 });
 
 describe("California sea-level adjustment on station pages", () => {
-  const base = { country_code: "US", region: "CA" as string | null, reference_station_id: null as string | null };
+  const base = { reference_station_id: null as string | null };
 
   it("leaves 941* stations to the NOAA service, which already adds it", () => {
     expect(californiaAdjustment({ ...base, source_station_id: "9410230" })).toEqual({ appliedByServiceFt: 1.5, extraFt: 0 });
@@ -173,9 +173,15 @@ describe("California sea-level adjustment on station pages", () => {
     ).toEqual({ appliedByServiceFt: 0, extraFt: 1.5 });
   });
 
-  it("does not carry it outside California", () => {
+  it("carries it to an Oregon or Baja subordinate station whose reference station is in California", () => {
     expect(
-      californiaAdjustment({ ...base, region: "OR", source_station_id: "9431011", reference_station_id: "9419750" })
+      californiaAdjustment({ source_station_id: "9431011", reference_station_id: "9419750" })
+    ).toEqual({ appliedByServiceFt: 0, extraFt: 1.5 });
+  });
+
+  it("adds nothing when the reference station has no adjustment", () => {
+    expect(
+      californiaAdjustment({ source_station_id: "9435385", reference_station_id: "9435380" })
     ).toEqual({ appliedByServiceFt: 0, extraFt: 0 });
   });
 });

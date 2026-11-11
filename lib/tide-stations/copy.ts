@@ -94,7 +94,7 @@ export function buildStationCopy({
         : `a NOAA subordinate station in ${place}: its highs and lows are offsets from ${referenceStationName ?? `reference station ${station.reference_station_id ?? "nearby"}`}`;
     const datum =
       adjustmentFt !== 0
-        ? `feet above mean lower low water (MLLW), plus Quiver's +${adjustmentFt.toFixed(1)} ft California sea-level adjustment`
+        ? `feet above mean lower low water (MLLW), plus Quiver's +${adjustmentFt.toFixed(1)} ft sea-level adjustment`
         : "feet above mean lower low water (MLLW)";
     paragraphs.push(`${station.name} is ${kind}. Heights are ${datum}.`);
   } else {
