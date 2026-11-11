@@ -46,7 +46,10 @@ export function BeachAlertCta({
   // Fetch alert rules only for authenticated users — filter by beach_id client-side
   const fetchRules = useCallback(async (): Promise<AlertRule[]> => {
     const res = await fetch("/api/alerts/rules");
-    if (!res.ok) return [];
+    // A lapsed session has no rules to show. Any other failure must not be
+    // cached as "no alerts" for a user who has them.
+    if (res.status === 401) return [];
+    if (!res.ok) throw new Error(`alert rules request failed with ${res.status}`);
     const json = await res.json();
     return (json.data ?? []) as AlertRule[];
   }, []);
