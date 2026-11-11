@@ -25,6 +25,8 @@ const PRUNE_LIMIT = 5000;
 const SPEC_REFRESH_MS = 50 * 60 * 1000;
 /** Rows stamped further ahead than this are bad data; storing one would block later rows. */
 const MAX_FUTURE_MS = 60 * 60 * 1000;
+/** A station list this much smaller than the active catalogue looks like a broken feed. */
+const MIN_LIST_RATIO_FOR_DEACTIVATION = 0.8;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -64,6 +66,8 @@ interface RegistrySyncResult {
   waveStationsByCountry: Record<string, number>;
   upserted: number;
   deactivated: number;
+  /** Set when the list was under 80% of the active catalogue, so nothing was deactivated. */
+  deactivationSkipped: { activeStored: number; listed: number } | null;
 }
 
 export async function syncRegistry(
@@ -91,11 +95,23 @@ export async function syncRegistry(
     upserted += batch.length;
   }
 
+  const activeStored = existing.filter(
+    (row) => row.active && row.id.startsWith(`${adapter.source}:`),
+  ).length;
+  let deactivationSkipped: RegistrySyncResult["deactivationSkipped"] = null;
   let deactivated = 0;
-  for (const ids of chunk(plan.deactivateIds, DEACTIVATE_BATCH)) {
-    const { error } = await db.from("wave_stations").update({ active: false }).in("id", ids);
-    if (error) throw new Error(`wave_stations deactivate: ${error.message}`);
-    deactivated += ids.length;
+  if (activeStored > 0 && plan.rows.length < activeStored * MIN_LIST_RATIO_FOR_DEACTIVATION) {
+    deactivationSkipped = { activeStored, listed: plan.rows.length };
+    console.warn(
+      `[WaveStations] ${adapter.source} listed ${plan.rows.length} stations vs ${activeStored} active; ` +
+        `skipping deactivation of ${plan.deactivateIds.length}`,
+    );
+  } else {
+    for (const ids of chunk(plan.deactivateIds, DEACTIVATE_BATCH)) {
+      const { error } = await db.from("wave_stations").update({ active: false }).in("id", ids);
+      if (error) throw new Error(`wave_stations deactivate: ${error.message}`);
+      deactivated += ids.length;
+    }
   }
 
   const waveStationsByCountry: Record<string, number> = {};
@@ -112,6 +128,7 @@ export async function syncRegistry(
     waveStationsByCountry,
     upserted,
     deactivated,
+    deactivationSkipped,
   };
 }
 
