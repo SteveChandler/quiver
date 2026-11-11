@@ -304,7 +304,8 @@ RETURNS SETOF public.wave_stations
 LANGUAGE sql
 STABLE
 SECURITY INVOKER
-SET search_path = public, pg_temp
+-- PostGIS may live in the extensions schema (same as get_nearby_beaches).
+SET search_path = public, extensions, pg_temp
 AS $$
   SELECT s.*
   FROM public.wave_stations s

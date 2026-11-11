@@ -155,9 +155,12 @@ export function forecastStationIds(
   station: Pick<WaveStationRow, "source" | "source_station_id" | "cdip_station_id">,
 ): string[] {
   if (station.source !== "ndbc") return [];
-  const ids = [station.source_station_id, `wmo_${station.source_station_id.toLowerCase()}`];
-  if (station.cdip_station_id) ids.push(`edu_ucsd_cdip_${station.cdip_station_id.padStart(3, "0")}`);
-  return ids;
+  const upper = station.source_station_id.toUpperCase();
+  const lower = station.source_station_id.toLowerCase();
+  // ndbc_direct_stations keeps the case of its own feed, so send both cases.
+  const ids = new Set([upper, lower, `wmo_${lower}`]);
+  if (station.cdip_station_id) ids.add(`edu_ucsd_cdip_${station.cdip_station_id.padStart(3, "0")}`);
+  return [...ids];
 }
 
 export type BeachLink = "forecast_station" | "cdip_station" | "nearby";

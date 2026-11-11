@@ -70,6 +70,11 @@ describe("forecastStationIds", () => {
       "46086",
       "wmo_46086",
     ]);
+    expect(forecastStationIds({ source: "ndbc", source_station_id: "LJPC1", cdip_station_id: null })).toEqual([
+      "LJPC1",
+      "ljpc1",
+      "wmo_ljpc1",
+    ]);
   });
 });
 

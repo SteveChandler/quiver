@@ -54,13 +54,34 @@ describe("station names, CDIP ids and location", () => {
     expect(parseCdipStationId("Halibut Bank")).toBeNull();
   });
 
+  // Names copied from the live activestations.xml (2026-11-11) for every twin in the constants file.
+  const LIVE_TWIN_NAMES: Record<string, string> = {
+    "46225": "Torrey Pines Outer, CA (100)",
+    "46235": "Imperial Beach Nearshore, CA (155)",
+    "46232": "Point Loma South, CA  (191)",
+    "46254": "SCRIPPS Nearshore, CA (201)",
+    "46266": "Del Mar Nearshore, CA (153)",
+    "46258": "Mission Bay West, CA (220)",
+    "46224": "Oceanside Offshore, CA (045)",
+    "46251": "Santa Cruz Basin, CA (203)",
+    "46268": "Topanga Nearshore, CA (103)",
+    "46222": "San Pedro, CA (092)",
+    "46219": "San Nicolas Island, CA (067)",
+    "46218": "Harvest, CA (071)",
+    "46237": "San Francisco Bar, CA  (142)",
+    "46239": "Point Sur, CA (157)",
+  };
+
   it("agrees with every NDBC twin in lib/constants/cdip-stations.ts", () => {
-    const stations = parseActiveStationsXml(fixture("activestations.xml"));
-    const torrey = stations.find((station) => station.id === "46225");
-    const twinIds = Object.values(CDIP_STATIONS)
-      .filter((config) => config.ndbcTwinId === "46225")
-      .map((config) => config.id.padStart(3, "0"));
-    expect(twinIds).toEqual([parseCdipStationId(torrey?.rawName ?? "")]);
+    const twins = Object.values(CDIP_STATIONS).filter((config) => config.ndbcTwinId);
+    expect(twins.length).toBeGreaterThanOrEqual(14);
+    for (const twin of twins) {
+      const name = LIVE_TWIN_NAMES[twin.ndbcTwinId!];
+      expect([twin.ndbcTwinId, parseCdipStationId(name)]).toEqual([
+        twin.ndbcTwinId,
+        twin.id.padStart(3, "0"),
+      ]);
+    }
   });
 
   it.each([
