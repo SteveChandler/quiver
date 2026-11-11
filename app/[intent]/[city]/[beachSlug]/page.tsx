@@ -52,6 +52,7 @@ import {
 } from "@/lib/utils/public-forecast-facts";
 import {
   evaluateBeachPageIndexability,
+  forecastCoverageFor,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
@@ -423,7 +424,7 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
       getWaterTempMetaData(beach.id),
       getTideMetaData(beach.id, beach.timezone),
     ]);
-    const forecastSnapshot = forecastSnapshots.get(beach.id);
+    const forecastSnapshot = forecastCoverageFor(forecastSnapshots, beach.id);
     const hasWaterTemp = isBeachSubPageIndexable(
       forecastSnapshot,
       `${beachPath}/water-temp`,
@@ -572,7 +573,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       { id: beach.id, timezone: beach.timezone ?? null },
     ]);
     const decision = evaluateBeachPageIndexability(
-      snapshots.get(beach.id),
+      forecastCoverageFor(snapshots, beach.id),
       path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
     );
     return applyIndexabilityToMetadata(metadata, decision);

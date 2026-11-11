@@ -39,6 +39,7 @@ import { slugifyAscii } from "@/lib/utils/text-utils";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
+  forecastCoverageFor,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
@@ -431,7 +432,7 @@ export async function generateBeachSubPageMetadata({
           )
         : tempMetaForIndexing?.tempF != null || isGscPerformanceProtected(subPagePath);
     const indexable = isBeachSubPageIndexable(
-      snapshots.get(beach.id),
+      forecastCoverageFor(snapshots, beach.id),
       subPagePath,
       { hasSubPageData },
     );

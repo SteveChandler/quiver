@@ -61,6 +61,26 @@ describe("Mexico beach metadata indexability", () => {
     });
   });
 
+  it("keeps the canonical beach URL indexable when forecast coverage is unknown", async () => {
+    (getCachedForecastIndexabilitySnapshots as jest.Mock).mockResolvedValue(
+      "forecast-coverage-unknown",
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        region: "baja-california",
+        city: "popotla",
+        beachSlug: "alfonsos",
+      }),
+    });
+
+    expect(metadata.robots).toEqual({
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true },
+    });
+  });
+
   it.each([
     "Bahia Tortugas (Turtle Bay)",
     "Acapulquito (Costa Azul)",

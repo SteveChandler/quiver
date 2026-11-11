@@ -7,7 +7,12 @@ import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { getIndexableSeoFunnelRoutes } from "@/lib/seo/funnel-pages";
 import { evaluateBeachForecastIndexability } from "@/lib/seo/indexability";
-import { getForecastIndexabilityForBeaches } from "@/lib/seo/forecast-indexability";
+import {
+  ForecastIndexabilityUnavailableError,
+  getForecastIndexabilityForBeaches,
+  reportForecastCoverageUnavailable,
+  type ForecastIndexabilitySnapshot,
+} from "@/lib/seo/forecast-indexability";
 import {
   buildBeachUrl,
   hasCountryHubPages,
@@ -311,9 +316,17 @@ async function collectBeachDetailUrls(): Promise<string[]> {
       from += pageSize;
     }
 
-    const forecastIndexabilityByBeachId = await getForecastIndexabilityForBeaches(
-      beaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
-    );
+    let forecastIndexabilityByBeachId: Map<string, ForecastIndexabilitySnapshot>;
+    try {
+      forecastIndexabilityByBeachId = await getForecastIndexabilityForBeaches(
+        beaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
+      );
+    } catch (error) {
+      if (!(error instanceof ForecastIndexabilityUnavailableError)) throw error;
+      // Coverage is unknown: submit no beach URLs this run; the next run reads again.
+      reportForecastCoverageUnavailable(error);
+      return urls;
+    }
 
     for (const beach of beaches) {
       const beachPath = buildBeachUrl(beach);

@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/nextjs";
+
 import { chunk } from "@/lib/utils/chunk";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
@@ -43,13 +45,45 @@ const FORECAST_COVERAGE_SELECT =
 const BEACH_ID_BATCH_SIZE = 20;
 
 /**
+ * The coverage read failed for this request, so the forecast state is not
+ * known. Distinct from "no snapshot", which means the beach has no forecast.
+ */
+export const FORECAST_COVERAGE_UNKNOWN = "forecast-coverage-unknown" as const;
+
+export type ForecastCoverage =
+  | ForecastIndexabilitySnapshot
+  | undefined
+  | typeof FORECAST_COVERAGE_UNKNOWN;
+
+/** Snapshots by beach id, or unknown for every beach when the read failed. */
+export type ForecastCoverageLookup =
+  | ReadonlyMap<string, ForecastIndexabilitySnapshot>
+  | typeof FORECAST_COVERAGE_UNKNOWN;
+
+export function forecastCoverageFor(
+  lookup: ForecastCoverageLookup,
+  beachId: string,
+): ForecastCoverage {
+  if (lookup === FORECAST_COVERAGE_UNKNOWN) return FORECAST_COVERAGE_UNKNOWN;
+  return lookup.get(beachId);
+}
+
+/**
  * One decision for the beach detail page, shared by the sitemap and the page's
  * generateMetadata so a submitted URL cannot answer with noindex.
+ *
+ * Unknown coverage skips only the forecast gate: an ISR page or sitemap must not
+ * store noindex for an hour because one coverage read failed.
  */
 export function evaluateBeachPageIndexability(
-  snapshot: ForecastIndexabilitySnapshot | undefined,
+  snapshot: ForecastCoverage,
   canonicalValid: boolean,
 ): IndexabilityDecision {
+  if (snapshot === FORECAST_COVERAGE_UNKNOWN) {
+    return canonicalValid
+      ? { indexable: true, reason: "forecast-coverage-unknown" }
+      : { indexable: false, reason: "invalid-canonical" };
+  }
   if (!snapshot) return { indexable: false, reason: "forecast-missing" };
 
   return evaluateBeachForecastIndexability({
@@ -65,12 +99,13 @@ export function evaluateBeachPageIndexability(
  * and generateMetadata so a submitted URL cannot answer with noindex.
  */
 export function isBeachSubPageIndexable(
-  snapshot: ForecastIndexabilitySnapshot | undefined,
+  snapshot: ForecastCoverage,
   canonicalPath: string,
   availability: SubPageDataAvailability,
 ): boolean {
-  if (!snapshot) return false;
   if (!availability.hasSubPageData) return false;
+  if (snapshot === FORECAST_COVERAGE_UNKNOWN) return !canonicalPath.startsWith("/beach/");
+  if (!snapshot) return false;
 
   return evaluateBeachForecastIndexability({
     canonicalValid: !canonicalPath.startsWith("/beach/"),
@@ -169,6 +204,31 @@ export class ForecastIndexabilityUnavailableError extends Error {
     super(`[getForecastIndexabilityForBeaches] ${stage}: ${detail}`);
     this.name = "ForecastIndexabilityUnavailableError";
   }
+}
+
+const UNAVAILABLE_REPORT_WINDOW_MS = 5 * 60 * 1000;
+let lastUnavailableReportAtMs: number | null = null;
+
+/**
+ * Report a coverage read failure to Sentry at most once per process per five
+ * minutes; every caller hits it during one outage.
+ */
+export function reportForecastCoverageUnavailable(
+  error: ForecastIndexabilityUnavailableError,
+): void {
+  console.error(error.message);
+  const nowMs = Date.now();
+  if (
+    lastUnavailableReportAtMs !== null &&
+    nowMs - lastUnavailableReportAtMs < UNAVAILABLE_REPORT_WINDOW_MS
+  ) {
+    return;
+  }
+  lastUnavailableReportAtMs = nowMs;
+  Sentry.captureException(error, {
+    level: "warning",
+    tags: { area: "seo-indexability" },
+  });
 }
 
 const errorMessage = (error: unknown): string =>

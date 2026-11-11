@@ -58,8 +58,10 @@ import {
 } from "@/lib/seo/indexability";
 import {
   evaluateBeachPageIndexability,
+  FORECAST_COVERAGE_UNKNOWN,
+  forecastCoverageFor,
   isBeachSubPageIndexable,
-  type ForecastIndexabilitySnapshot,
+  type ForecastCoverageLookup,
 } from "@/lib/seo/forecast-indexability";
 import {
   FORECAST_INDEXABILITY_REVALIDATE_SECONDS,
@@ -589,10 +591,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  */
 export function buildBeachRoutes(
   beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>,
-  forecastIndexabilityByBeachId: ReadonlyMap<
-    string,
-    ForecastIndexabilitySnapshot
-  >,
+  forecastIndexabilityByBeachId: ForecastCoverageLookup,
   subPageCoverage?: BeachSubPageCoverage,
 ): MetadataRoute.Sitemap {
   const subPageTypes = ["tides", "water-temp"] as const;
@@ -625,7 +624,9 @@ export function buildBeachRoutes(
       const stateSlug = stateToSlug(beach.state);
       const isUsa = isUsaCountry(beach.country) && isValidStateSlug(stateSlug);
       const hasDedicatedSubPages = isUsa || countrySlug === "mexico";
-      const forecastSnapshot = forecastIndexabilityByBeachId.get(beach.id);
+      // Unknown coverage keeps beach URLs listed, matching the pages' metadata
+      // for the same failure; dropping them would delist every beach.
+      const forecastSnapshot = forecastCoverageFor(forecastIndexabilityByBeachId, beach.id);
       const forecastIndexable = evaluateBeachPageIndexability(
         forecastSnapshot,
         !beachPath.startsWith("/beach/"),
@@ -994,11 +995,11 @@ function getGuideRoutes(): MetadataRoute.Sitemap {
  */
 function latestForecastModifiedForBeaches(
   beaches: Array<{ id: string }>,
-  forecastIndexabilityByBeachId: ReadonlyMap<
-    string,
-    ForecastIndexabilitySnapshot
-  >,
+  forecastIndexabilityByBeachId: ForecastCoverageLookup,
 ): string {
+  if (forecastIndexabilityByBeachId === FORECAST_COVERAGE_UNKNOWN) {
+    return SITEMAP_CONTENT_VERSIONS.forecastTemplate;
+  }
   return latestSitemapDate(
     SITEMAP_CONTENT_VERSIONS.forecastTemplate,
     ...beaches.map(
@@ -1010,10 +1011,7 @@ function latestForecastModifiedForBeaches(
 
 function getForecastRoutes(
   allBeaches: Beach[],
-  forecastIndexabilityByBeachId: ReadonlyMap<
-    string,
-    ForecastIndexabilitySnapshot
-  >,
+  forecastIndexabilityByBeachId: ForecastCoverageLookup,
 ): MetadataRoute.Sitemap {
   const routes: MetadataRoute.Sitemap = [];
 

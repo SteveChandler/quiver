@@ -8,9 +8,12 @@ import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
+  ForecastIndexabilityUnavailableError,
   getForecastIndexabilityForBeaches,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+
+jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 // The sub-page metadata reads the coverage snapshot through unstable_cache so it
 // shares the sitemap's clock; outside a Next request there is no cache to hit.
@@ -159,5 +162,36 @@ describe("beach sub-page metadata indexability", () => {
     });
 
     expect(meta.robots).toMatchObject({ index: false, follow: true });
+  });
+
+  describe("when the forecast coverage read fails", () => {
+    const TIDES = { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM", nextHighHeight: 4.2, nextLowHeight: 0.4 };
+    const NO_TIDES = { nextHighTime: null, nextLowTime: null, nextHighHeight: null, nextLowHeight: null };
+    let consoleError: jest.SpyInstance;
+
+    beforeEach(() => {
+      consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValue(
+        new ForecastIndexabilityUnavailableError("coverage query failed", "timeout"),
+      );
+    });
+
+    afterEach(() => consoleError.mockRestore());
+
+    it("keeps a tides page with tide data indexable", async () => {
+      (getTideMetaData as jest.Mock).mockResolvedValue(TIDES);
+
+      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "tides", beachPath: "/ca/la-jolla/windansea" });
+
+      expect(meta.robots).toMatchObject({ index: true, follow: true });
+    });
+
+    it("still noindexes a tides page without tide data", async () => {
+      (getTideMetaData as jest.Mock).mockResolvedValue(NO_TIDES);
+
+      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "tides", beachPath: "/ca/la-jolla/windansea" });
+
+      expect(meta.robots).toMatchObject({ index: false, follow: true });
+    });
   });
 });

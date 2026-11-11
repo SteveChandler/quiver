@@ -1103,6 +1103,24 @@ describe("Sitemap Generation", () => {
       expect(urls).toContain(`${baseUrl}/ca/la-jolla/windansea/water-temp`);
     });
 
+    it("keeps beach URLs listed when forecast coverage is unknown", () => {
+      const routes = buildBeachRoutes(
+        [BEACH_WITH_FRESH_FORECAST] as unknown as Parameters<
+          typeof buildBeachRoutes
+        >[0],
+        "forecast-coverage-unknown",
+        {
+          tideCoverage: new Set<string>(),
+          waterTempCoverage: new Set([BEACH_WITH_FRESH_FORECAST.id]),
+        },
+      );
+      const urls = routes.map((route) => route.url);
+
+      expect(urls).toContain(`${baseUrl}/ca/la-jolla/windansea`);
+      expect(urls).toContain(`${baseUrl}/ca/la-jolla/windansea/water-temp`);
+      expect(urls).not.toContain(`${baseUrl}/ca/la-jolla/windansea/tides`);
+    });
+
     it("keeps the three GSC-protected water-temp beach routes in the sitemap", () => {
       const protectedRoutes = [
         {

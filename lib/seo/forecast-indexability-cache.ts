@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
-import * as Sentry from "@sentry/nextjs";
 import { unstable_cache } from "next/cache";
 
 import {
+  FORECAST_COVERAGE_UNKNOWN,
   ForecastIndexabilityUnavailableError,
   getForecastIndexabilityForBeaches,
+  reportForecastCoverageUnavailable,
+  type ForecastCoverageLookup,
   type ForecastIndexabilityBeach,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
@@ -22,7 +24,7 @@ export function fingerprintBeachIds(beachIds: readonly string[]): string {
 
 export async function getCachedForecastIndexabilitySnapshots(
   beaches: ReadonlyArray<ForecastIndexabilityBeach>,
-): Promise<Map<string, ForecastIndexabilitySnapshot>> {
+): Promise<ForecastCoverageLookup> {
   // Maps do not survive the data cache's JSON round trip, so the cached layer
   // deals in entry arrays and the Map is rebuilt here.
   const load = unstable_cache(
@@ -40,10 +42,9 @@ export async function getCachedForecastIndexabilitySnapshots(
     return new Map(await load());
   } catch (error) {
     if (!(error instanceof ForecastIndexabilityUnavailableError)) throw error;
-    // This request treats every beach as forecast-missing, as before; the
-    // failure is reported and the next request reads again.
-    console.error(error.message);
-    Sentry.captureException(error, { tags: { area: "seo-indexability" } });
-    return new Map();
+    // Unknown, not "no forecast": callers keep the forecast gate open for this
+    // request instead of storing noindex for every beach.
+    reportForecastCoverageUnavailable(error);
+    return FORECAST_COVERAGE_UNKNOWN;
   }
 }

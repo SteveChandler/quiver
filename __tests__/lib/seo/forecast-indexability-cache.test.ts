@@ -8,6 +8,8 @@ import {
 } from "@/lib/seo/forecast-indexability-cache";
 import {
   ForecastIndexabilityUnavailableError,
+  evaluateBeachPageIndexability,
+  forecastCoverageFor,
   getForecastIndexabilityForBeaches,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
@@ -18,13 +20,16 @@ jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((fn: unknown) => fn),
 }));
 
-jest.mock("@/lib/seo/forecast-indexability", () => {
-  const actual = jest.requireActual("@/lib/seo/forecast-indexability");
-  return {
-    ForecastIndexabilityUnavailableError: actual.ForecastIndexabilityUnavailableError,
-    getForecastIndexabilityForBeaches: jest.fn(),
-  };
-});
+jest.mock("@/lib/seo/forecast-indexability", () => ({
+  ...jest.requireActual("@/lib/seo/forecast-indexability"),
+  getForecastIndexabilityForBeaches: jest.fn(),
+}));
+
+const REPORT_WINDOW_MS = 5 * 60 * 1000;
+// The Sentry report window is module state; each test starts an hour after the
+// last so an earlier test's report does not suppress this one's.
+let clockMs = Date.parse("2026-11-11T00:00:00.000Z");
+let spies: jest.SpyInstance[] = [];
 
 const snapshot: ForecastIndexabilitySnapshot = {
   forecastAvailable: true,
@@ -39,6 +44,11 @@ const snapshot: ForecastIndexabilitySnapshot = {
 describe("getCachedForecastIndexabilitySnapshots", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clockMs += 60 * 60 * 1000;
+    spies = [
+      jest.spyOn(Date, "now").mockImplementation(() => clockMs),
+      jest.spyOn(console, "error").mockImplementation(() => undefined),
+    ];
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(
       new Map([["beach-1", snapshot]]),
     );
@@ -50,7 +60,7 @@ describe("getCachedForecastIndexabilitySnapshots", () => {
     ]);
 
     expect(result).toBeInstanceOf(Map);
-    expect(result.get("beach-1")).toEqual(snapshot);
+    expect((result as ReadonlyMap<string, ForecastIndexabilitySnapshot>).get("beach-1")).toEqual(snapshot);
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
       ["forecast-indexability-snapshots", fingerprintBeachIds(["beach-1"])],
@@ -64,24 +74,49 @@ describe("getCachedForecastIndexabilitySnapshots", () => {
     expect(fingerprintBeachIds(["a"])).not.toBe(fingerprintBeachIds(["a", "b"]));
   });
 
-  it("returns an empty map when no snapshots exist", async () => {
+  afterEach(() => {
+    for (const spy of spies) spy.mockRestore();
+  });
+
+  it("gives noindex for a beach with no forecast rows", async () => {
     (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
 
     const result = await getCachedForecastIndexabilitySnapshots([{ id: "beach-2" }]);
 
-    expect(result.size).toBe(0);
+    expect(result).toBeInstanceOf(Map);
+    const snapshots = result as ReadonlyMap<string, ForecastIndexabilitySnapshot>;
+    expect(evaluateBeachPageIndexability(snapshots.get("beach-2"), true)).toEqual({
+      indexable: false,
+      reason: "forecast-missing",
+    });
   });
 
-  it("reports a coverage read failure and returns an empty map without caching it", async () => {
-    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+  it("keeps a beach indexable when the coverage read fails", async () => {
     const failure = new ForecastIndexabilityUnavailableError("coverage query failed", "timeout");
     (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValue(failure);
 
     const result = await getCachedForecastIndexabilitySnapshots([{ id: "beach-1" }]);
 
-    expect(result.size).toBe(0);
-    expect(Sentry.captureException).toHaveBeenCalledWith(failure, expect.anything());
-    consoleError.mockRestore();
+    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "beach-1"), true).indexable).toBe(true);
+    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "beach-1"), false).indexable).toBe(false);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      failure,
+      expect.objectContaining({ level: "warning" }),
+    );
+  });
+
+  it("reports repeated coverage failures to Sentry once per five minutes", async () => {
+    const failure = new ForecastIndexabilityUnavailableError("coverage query failed", "timeout");
+    (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValue(failure);
+
+    await getCachedForecastIndexabilitySnapshots([{ id: "beach-1" }]);
+    clockMs += REPORT_WINDOW_MS - 1;
+    await getCachedForecastIndexabilitySnapshots([{ id: "beach-1" }]);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+
+    clockMs += 1;
+    await getCachedForecastIndexabilitySnapshots([{ id: "beach-1" }]);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(2);
   });
 
   it("lets an unrelated error through", async () => {
