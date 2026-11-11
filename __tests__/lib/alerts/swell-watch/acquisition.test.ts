@@ -116,6 +116,41 @@ describe("leased Swell Watch acquisition", () => {
     ]);
   });
 
+  it.each([503, 429])("tags retryable provider HTTP status %s", async (status) => {
+    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce(new Response("{}", { status }));
+    jest.mocked(acquireProviderRunReceipts).mockImplementationOnce(async (_input, fetcher) => {
+      await fetcher("https://provider.test", { method: "GET", redirect: "error" });
+      return stored;
+    });
+    await expect(acquireSwellWatchCohort(cohort, client)).rejects.toThrow("Provider HTTP response is transient");
+    fetchMock.mockRestore();
+  });
+
+  it.each([400, 200])("passes provider HTTP status %s through to the caller", async (status) => {
+    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce(new Response("{}", { status }));
+    let returned: number | undefined;
+    jest.mocked(acquireProviderRunReceipts).mockImplementationOnce(async (_input, fetcher) => {
+      returned = (await fetcher("https://provider.test", { method: "GET", redirect: "error" })).status;
+      return stored;
+    });
+    expect(await acquireSwellWatchCohort(cohort, client)).toEqual(stored);
+    expect(returned).toBe(status);
+    fetchMock.mockRestore();
+  });
+
+  it("reports provider_fetch again for a fetch after receipt storage", async () => {
+    const onStage = jest.fn();
+    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    jest.mocked(acquireProviderRunReceipts).mockImplementationOnce(async (_input, fetcher, writer) => {
+      await writer.rpc("record_swell_watch_provider_run_receipt", { p_scopes: [] });
+      await fetcher("https://provider.test", { method: "GET", redirect: "error" });
+      return stored;
+    });
+    await acquireSwellWatchCohort(cohort, client, onStage);
+    expect(onStage.mock.calls.slice(-2)).toEqual([["receipt_storage"], ["provider_fetch"]]);
+    fetchMock.mockRestore();
+  });
+
   it("fails with a fixed provider budget error before provider work can consume the route budget", async () => {
     const now = jest.spyOn(Date, "now").mockReturnValueOnce(1_000).mockReturnValue(181_001);
     jest.mocked(acquireProviderRunReceipts).mockImplementationOnce(async (_input, fetcher) => {
