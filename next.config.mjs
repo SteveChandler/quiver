@@ -6,6 +6,7 @@ import {
   isCacheableRuntimeImage,
 } from "./config/forecast-api-cache-rules.mjs";
 import { apiCacheHeaderRules } from "./config/api-cache-header-rules.mjs";
+import { withoutPerRenderTraceMeta } from "./config/per-render-trace-meta.mjs";
 
 validateEnvironment();
 
@@ -863,5 +864,5 @@ const sentryOptions = {
 };
 
 export default isProd
-  ? withSentryConfig(pwaConfig(nextConfig), sentryOptions)
+  ? withoutPerRenderTraceMeta(withSentryConfig(pwaConfig(nextConfig), sentryOptions))
   : pwaConfig(nextConfig);
