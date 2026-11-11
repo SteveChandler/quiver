@@ -91,6 +91,58 @@ describe("loadStationPage", () => {
     await expect(loadStationPage(never, "torrey-pines-outer-ca-46225", NOW)).resolves.toEqual({ kind: "not-found" });
   });
 
+  it("redirects a duplicate row (same buoy from a second source) to its primary station", async () => {
+    const base = source();
+    const station = await base.getStationBySlug("torrey-pines-outer-ca-46225");
+    if (!station) throw new Error("fixture missing");
+    const duplicated = source({
+      getStationBySlug: async () => ({ ...station, duplicate_of: "marine_ie:M6" }),
+      getStationSlugById: async (id) => (id === "marine_ie:M6" ? "m6-west-coast" : null),
+    });
+    await expect(loadStationPage(duplicated, "torrey-pines-outer-ca-46225", NOW)).resolves.toEqual({
+      kind: "redirect",
+      slug: "m6-west-coast",
+    });
+    await expect(resolveStationSlug(duplicated, "torrey-pines-outer-ca-46225")).resolves.toBe("m6-west-coast");
+  });
+
+  it("loads a non-US station without a swell split in its own time zone", async () => {
+    const base = source();
+    const torrey = await base.getStationBySlug("torrey-pines-outer-ca-46225");
+    if (!torrey) throw new Error("fixture missing");
+    const wooli = {
+      ...torrey,
+      id: "aodn:wooli",
+      source: "aodn" as const,
+      source_station_id: "wooli",
+      name: "Wooli",
+      slug: "wooli",
+      country_code: "AU",
+      region: null,
+      lat: -29.8577,
+      lon: 153.3137,
+      cdip_station_id: null,
+      has_swell_split: false,
+      license: "CC-BY-4.0",
+      attribution: "Data was sourced from Australia’s Integrated Marine Observing System (IMOS).",
+    };
+    const result = await loadStationPage(
+      source({
+        getStationBySlug: async (slug) => (slug === "wooli" ? wooli : null),
+        getLatestObservation: (id) => base.getLatestObservation(id === "aodn:wooli" ? torrey.id : id),
+        getObservationHistory: (id, hours) => base.getObservationHistory(id === "aodn:wooli" ? torrey.id : id, hours),
+      }),
+      "wooli",
+      NOW,
+    );
+    if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
+    expect(result.data.timeZone).toBe("Australia/Sydney");
+    expect(result.data.status).toBe("fresh");
+    expect(result.data.nowObservation?.wave_height_m).not.toBeNull();
+    // No model fixture at this position: the block is left out, not broken.
+    expect(result.data.model).toBeNull();
+  });
+
   it("is not found for unknown slugs and met-only stations", async () => {
     await expect(loadStationPage(source(), "no-such-buoy", NOW)).resolves.toEqual({ kind: "not-found" });
     await expect(loadStationPage(source(), "9414750-alameda-ca-aamc1", NOW)).resolves.toEqual({ kind: "not-found" });
@@ -149,6 +201,15 @@ describe("hubs", () => {
     const california = hub?.groups.find((group) => group.code === "CA");
     expect(california?.stations.map((item) => item.station.source_station_id)).toEqual(["46086", "46225"]);
     expect(california?.stations.find((item) => item.station.source_station_id === "46225")?.latest?.wave_height_m).toBe(1.4);
+  });
+
+  it("puts a country without region codes in one plain group", async () => {
+    const base = source();
+    const torrey = await base.getStationBySlug("torrey-pines-outer-ca-46225");
+    if (!torrey) throw new Error("fixture missing");
+    const irish = { ...torrey, id: "marine_ie:M3", source: "marine_ie" as const, country_code: "IE", region: null };
+    const hub = await loadAreaHub(source({ listStations: async () => [irish] }), "ie", null, NOW);
+    expect(hub?.groups.map((group) => group.name)).toEqual(["All wave buoys"]);
   });
 
   it("returns null (a 404) for a country or region with no stations", async () => {

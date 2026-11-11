@@ -35,11 +35,13 @@ import { formatStationTime } from "@/lib/buoy-pages/format";
 import { countryName, countryPath, placeLabel, regionName, regionPath, stationPath } from "@/lib/buoy-pages/geo-names";
 import { getBuoyPageSource } from "@/lib/buoy-pages/source";
 import { loadStationPage } from "@/lib/buoy-pages/station-page-data";
+import { liveLimitMs } from "@/lib/buoy-pages/status";
 import {
   absoluteUrl,
   buildStationDatasetJsonLd,
   buildStationDescription,
   buildStationTitle,
+  stationCode,
 } from "@/lib/seo/buoy-meta";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { buildPageMetadata } from "@/lib/seo/meta";
@@ -65,7 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     path: stationPath(station.slug),
     keywords: [
       `${station.name} buoy`,
-      `buoy ${station.source_station_id}`,
+      ...(stationCode(station) ? [`buoy ${station.source_station_id}`] : []),
       `${station.name} swell`,
       "buoy data",
       "wave buoy",
@@ -132,10 +134,13 @@ export default async function BuoyStationPage({ params }: PageProps) {
                 lastWaveAt={lastWaveAt}
                 serverStatus={status}
                 absolute={lastWaveAt ? formatStationTime(lastWaveAt, timeZone) : ""}
+                freshForMs={liveLimitMs(station)}
               />
-              <span className="font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
-                {`Buoy ${station.source_station_id.toUpperCase()}`}
-              </span>
+              {stationCode(station) ? (
+                <span className="font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
+                  {`Buoy ${stationCode(station)}`}
+                </span>
+              ) : null}
             </div>
             <h1 className="zine-h1 font-black uppercase leading-[0.9] text-[#11100D] [overflow-wrap:anywhere] [hyphens:auto]">{station.name}</h1>
             {place ? <p className="mt-3 text-lg text-[#11100D]/75">{place}</p> : null}

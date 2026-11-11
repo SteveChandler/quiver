@@ -119,6 +119,8 @@ const FIXTURE_BEACHES: Record<string, StationBeaches> = {
   },
 };
 
+const FIXTURE_MISSING_BEACH_ID = "00000000-0000-4000-8000-000000000000";
+
 export function createFixtureSource(options: FixtureSourceOptions = {}): BuoyPageSource {
   const xml = read("activestations.xml") ?? "";
   const latestObs = parseLatestObs(read("latest_obs.txt") ?? "#STN\n#text\n");
@@ -180,6 +182,8 @@ export function createFixtureSource(options: FixtureSourceOptions = {}): BuoyPag
       owner: raw.owner,
       program: raw.program,
       cdip_station_id: parseCdipStationId(raw.rawName),
+      wmo_id: /^\d{5}$/.test(raw.id) ? raw.id : null,
+      duplicate_of: null,
       has_wave: waves.length > 0,
       has_swell_split: hasSpec,
       has_met: raw.hasMet,
@@ -214,6 +218,9 @@ export function createFixtureSource(options: FixtureSourceOptions = {}): BuoyPag
   return {
     async getStationBySlug(slug) {
       return stations.find((station) => station.slug === slug) ?? null;
+    },
+    async getStationSlugById(id) {
+      return byId.get(id)?.slug ?? null;
     },
     async findStationsByAlternateId(alternateId) {
       const lower = alternateId.toLowerCase();
@@ -258,6 +265,22 @@ export function createFixtureSource(options: FixtureSourceOptions = {}): BuoyPag
     },
     async getBeachesForStation(stationId) {
       return FIXTURE_BEACHES[stationId] ?? { relation: "nearby", beaches: [] };
+    },
+    async getStationForBeach(beachId) {
+      // Fixture runs have no beach table: every beach resolves to Torrey Pines
+      // Outer (46225) as its forecast buoy, except FIXTURE_MISSING_BEACH_ID, which is not found.
+      if (beachId === FIXTURE_MISSING_BEACH_ID) return { kind: "beach-not-found" };
+      const station = byId.get("ndbc:46225");
+      if (!station) return { kind: "no-station" };
+      const blacks = FIXTURE_BEACHES["ndbc:46225"].beaches[0];
+      return {
+        kind: "found",
+        match: {
+          relation: "forecast_station",
+          station,
+          distance_km: haversineDistance(blacks.lat, blacks.lon, station.lat, station.lon),
+        },
+      };
     },
     async getBeachForecastSummaries(beachIds) {
       const summaries = new Map<string, BeachForecastSummary>();

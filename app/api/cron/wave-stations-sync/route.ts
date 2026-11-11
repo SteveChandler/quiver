@@ -7,9 +7,18 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { SOURCE_ADAPTERS } from "@/lib/services/wave-stations/adapters";
 import { ndbcAdapter } from "@/lib/services/wave-stations/ndbc/adapter";
 import {
+  failedSources,
+  isLatestDue,
+  runPerSource,
+  sumOk,
+  type SourceRun,
+} from "@/lib/services/wave-stations/run-sources";
+import {
   syncLatestObservations,
+  syncDuplicates,
   syncRegistry,
   syncStandardHistory,
   syncSwellSplit,
@@ -47,10 +56,12 @@ const TXT_OPTIONS = {
  *
  * Public wave-station catalogue (wave_stations, wave_station_observations).
  * Separate from ndbc-direct-sync / ioos-sync, which feed the forecast.
- * - registry: daily station list from activestations.xml
- * - latest: every 15 min, one latest_obs.txt request for all stations
- * - spec: every 15 min, a staggered batch of realtime2 .spec files (swell split),
- *   then .txt files (waves with dominant period, plus met) for every wave station
+ * - registry: daily station list from every source (NDBC activestations.xml,
+ *   then the non-US sources), then the cross-source duplicate pass
+ * - latest: every 15 min; one bulk request per due source (NDBC every quarter,
+ *   others at their own update rate, see isLatestDue)
+ * - spec: every 15 min, NDBC only: a staggered batch of realtime2 .spec files
+ *   (swell split), then .txt files (waves with dominant period, plus met)
  */
 async function _GET(request: Request): Promise<Response> {
   try {
@@ -71,20 +82,55 @@ async function _GET(request: Request): Promise<Response> {
     const nowMs = Date.now();
     const job = `/api/cron/wave-stations-sync?phase=${phase}`;
 
+    // Each source runs on its own: one failing source is reported in the
+    // outcome (failureReason) without stopping the others.
     if (phase === "registry") {
       const result = await withCronOutcome(
-        { job, unit: "stations_upserted", expectedMin: 1, getProduced: (value) => value.upserted },
-        () => syncRegistry(db, ndbcAdapter, nowMs),
+        {
+          job,
+          unit: "stations_upserted",
+          expectedMin: 1,
+          getProduced: (value) => sumOk(value.sources, (run) => run.upserted),
+          failureReason: (value) =>
+            [failedSources(value.sources), value.duplicates.error ? `duplicates: ${value.duplicates.error}` : null]
+              .filter(Boolean)
+              .join("; ") || null,
+        },
+        // Sources one after another (gentle on shared storage), then one duplicate pass over all of them.
+        async () => {
+          const sources: Array<SourceRun<Awaited<ReturnType<typeof syncRegistry>>>> = [];
+          for (const adapter of SOURCE_ADAPTERS) {
+            sources.push(...(await runPerSource([adapter], (one) => syncRegistry(db, one, nowMs))));
+          }
+          let duplicates: { marked: number; cleared: number; error?: string };
+          try {
+            duplicates = await syncDuplicates(db);
+          } catch (error) {
+            duplicates = { marked: 0, cleared: 0, error: error instanceof Error ? error.message : String(error) };
+          }
+          return { sources, duplicates };
+        },
       );
       return createSuccessResponse(result);
     }
 
     if (phase === "latest") {
+      const due = SOURCE_ADAPTERS.filter((adapter) => isLatestDue(adapter, nowMs));
       const result = await withCronOutcome(
-        { job, unit: "rows_sent", expectedMin: 1, getProduced: (value) => value.rowsSent },
-        () => syncLatestObservations(db, ndbcAdapter, nowMs),
+        {
+          job,
+          unit: "rows_sent",
+          expectedMin: 1,
+          getProduced: (runs) => sumOk(runs, (value) => value.rowsSent),
+          failureReason: (runs) => failedSources(runs),
+        },
+        () =>
+          runPerSource(due, (adapter) =>
+            // The prune is table-wide; NDBC runs every quarter, so it carries it.
+            syncLatestObservations(db, adapter, nowMs, { prune: adapter.source === "ndbc" }),
+          ),
       );
-      return createSuccessResponse(result);
+      return createSuccessResponse({ sources: result });
     }
 
     const result = await withCronOutcome(

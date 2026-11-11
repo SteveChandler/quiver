@@ -16,7 +16,8 @@ import { stationPath } from "@/lib/buoy-pages/geo-names";
 import type { NearbyBuoy, StationBeachView } from "@/lib/buoy-pages/station-page-data";
 import { STATUS_LABELS } from "@/lib/buoy-pages/status";
 import type { WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
-import { licenseLabel, licenseUrl } from "@/lib/seo/buoy-meta";
+import { licenseLabel, licenseRequiresChangeNote, licenseUrl, stationCode } from "@/lib/seo/buoy-meta";
+import { sourceStationUrl } from "@/lib/services/wave-stations/source-links";
 
 export const SECTION = "mb-12";
 export const HEADING = "mb-4 font-display text-2xl font-black uppercase text-[#11100D]";
@@ -182,11 +183,6 @@ function timeZoneLabel(timeZone: string): string {
   return `${name ?? timeZone} (open ocean)`;
 }
 
-function sourceStationUrl(station: WaveStationRow): string | null {
-  if (station.source !== "ndbc") return null;
-  return `https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(station.source_station_id.toLowerCase())}`;
-}
-
 const STATION_TYPE_LABELS: Record<string, string> = {
   buoy: "Moored buoy",
   fixed: "Fixed station",
@@ -206,8 +202,9 @@ export function StationFacts({
 }) {
   const sourceUrl = sourceStationUrl(station);
   const license = licenseUrl(station.license);
+  const code = stationCode(station);
   const facts = [
-    { label: "Station id", value: station.source_station_id.toUpperCase() },
+    code ? { label: "Station id", value: code } : null,
     station.cdip_station_id ? { label: "CDIP id", value: station.cdip_station_id } : null,
     station.owner ? { label: "Operator", value: station.owner } : null,
     station.program ? { label: "Program", value: station.program } : null,
@@ -236,7 +233,7 @@ export function StationFacts({
         ))}
       </dl>
       <p className="mt-4 text-sm text-[#11100D]" data-testid="buoy-attribution">
-        Source: {station.attribution}.{" "}
+        Source: {/[.!?]$/.test(station.attribution) ? station.attribution : `${station.attribution}.`}{" "}
         Licence:{" "}
         {license ? (
           <a href={license} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
@@ -246,6 +243,9 @@ export function StationFacts({
           licenseLabel(station.license)
         )}
         .
+        {licenseRequiresChangeNote(station.license)
+          ? " Changes: Quiver converts the units (feet, knots, °F) and shows a subset of the published fields."
+          : null}
         {sourceUrl ? (
           <>
             {" "}

@@ -9,7 +9,10 @@ import {
   getNearbyStations,
   getObservationHistory,
   getStationBySlug,
+  getStationForBeach,
+  getStationSlugById,
   listStations,
+  type BeachStationLookup,
   type LatestObservation,
   type ListStationsFilter,
   type NearbyWaveStation,
@@ -27,6 +30,7 @@ import { fetchModelAtBuoy, type ModelSeries } from "./model-at-buoy";
 
 export interface BuoyPageSource {
   getStationBySlug(slug: string): Promise<WaveStationRow | null>;
+  getStationSlugById(id: string): Promise<string | null>;
   findStationsByAlternateId(alternateId: string): Promise<StationIdMatch[]>;
   listStations(filter: ListStationsFilter): Promise<WaveStationRow[]>;
   getLatestObservation(stationId: string): Promise<LatestObservation>;
@@ -36,12 +40,14 @@ export interface BuoyPageSource {
     stations: Array<Pick<WaveStationRow, "id" | "last_wave_observed_at">>,
   ): Promise<Map<string, LatestWaveReading>>;
   getBeachesForStation(stationId: string): Promise<StationBeaches>;
+  getStationForBeach(beachId: string): Promise<BeachStationLookup>;
   getBeachForecastSummaries(beachIds: string[], now: Date): Promise<Map<string, BeachForecastSummary>>;
   fetchModelAtBuoy(lat: number, lon: number): Promise<ModelSeries | null>;
 }
 
 const catalogueSource: BuoyPageSource = {
   getStationBySlug: (slug) => getStationBySlug(slug),
+  getStationSlugById: (id) => getStationSlugById(id),
   findStationsByAlternateId: (alternateId) => findStationsByAlternateId(alternateId),
   listStations: (filter) => listStations(filter),
   getLatestObservation: (stationId) => getLatestObservation(stationId),
@@ -49,6 +55,7 @@ const catalogueSource: BuoyPageSource = {
   getNearbyStations: (lat, lon, limit) => getNearbyStations(lat, lon, limit),
   getLatestWaveObservations: (stations) => getLatestWaveObservations(stations),
   getBeachesForStation: (stationId) => getBeachesForStation(stationId),
+  getStationForBeach: (beachId) => getStationForBeach(beachId),
   getBeachForecastSummaries: (beachIds, now) => getBeachForecastSummaries(beachIds, now),
   fetchModelAtBuoy: (lat, lon) => fetchModelAtBuoy(lat, lon),
 };

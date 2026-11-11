@@ -7,7 +7,7 @@ import type { LatestWaveReading } from "@/lib/services/wave-stations/lookup";
 import type { WaveStationRow } from "@/lib/services/wave-stations/types";
 import { countryName, regionName } from "./geo-names";
 import { orEmptyWhenMissing, type BuoyPageSource } from "./source";
-import { classifyStationStatus, evaluateStationIndexability, type StationStatus } from "./status";
+import { classifyStationStatus, evaluateStationIndexability, liveLimitMs, type StationStatus } from "./status";
 
 export interface HubStation {
   station: WaveStationRow;
@@ -35,7 +35,7 @@ function toHubStation(
   latest: Map<string, LatestWaveReading>,
   nowMs: number,
 ): HubStation {
-  const status = classifyStationStatus(station.last_wave_observed_at, nowMs);
+  const status = classifyStationStatus(station.last_wave_observed_at, nowMs, liveLimitMs(station));
   return {
     station,
     latest: status === "offline" ? null : latest.get(station.id) ?? null,
@@ -71,7 +71,7 @@ export async function loadRootHub(source: BuoyPageSource, now: Date): Promise<Ro
       liveCount: 0,
     };
     summary.stationCount += 1;
-    if (classifyStationStatus(station.last_wave_observed_at, nowMs) === "fresh") summary.liveCount += 1;
+    if (classifyStationStatus(station.last_wave_observed_at, nowMs, liveLimitMs(station)) === "fresh") summary.liveCount += 1;
     counts.set(station.country_code, summary);
   }
   const latest = await source.getLatestWaveObservations(unplacedRows);
@@ -118,6 +118,9 @@ export async function loadAreaHub(
     group.stations.push(toHubStation(station, latest, nowMs));
     groups.set(key, group);
   }
+  // Countries without region codes (all but the US today) get one plain group.
+  const unnamed = groups.get("");
+  if (unnamed && groups.size === 1) unnamed.name = "All wave buoys";
   const sorted = [...groups.values()]
     .map((group) => ({ ...group, stations: group.stations.sort((a, b) => byName(a.station, b.station)) }))
     // Named regions first, alphabetically; the unnamed group last.
