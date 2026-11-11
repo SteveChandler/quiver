@@ -23,10 +23,13 @@ const DEACTIVATE_BATCH = 100;
 const RETENTION_DAYS = 180;
 const PRUNE_LIMIT = 5000;
 const SPEC_REFRESH_MS = 50 * 60 * 1000;
+/** A station's .spec and .txt checks stay at least this far apart, so they settle ~30 min apart. */
+const CROSS_CHECK_GAP_MS = 20 * 60 * 1000;
 /** Rows stamped further ahead than this are bad data; storing one would block later rows. */
 const MAX_FUTURE_MS = 60 * 60 * 1000;
 /** A station list this much smaller than the active catalogue looks like a broken feed. */
 const MIN_LIST_RATIO_FOR_DEACTIVATION = 0.8;
+const HISTORY_QUEUE_FETCH_LIMIT = 1000;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -230,9 +233,12 @@ export async function syncLatestObservations(
 }
 
 // ---------------------------------------------------------------------------
-// Station history files, staggered so each station is fetched about once an hour:
-// .spec (swell split) where the station has one, else the standard .txt file so
-// wave stations without a .spec still get a gap-free wave history.
+// Station history files, each checked about once an hour with If-Modified-Since:
+// - .spec (swell split) for stations with has_swell_split;
+// - .txt (WVHT, DPD, APD, MWD + met) for every wave station, because .spec has
+//   no dominant period and the latest feed often catches only the met row.
+// A station's two checks are kept at least 20 minutes apart, so with hourly
+// cadences they settle roughly 30 minutes apart and waves refresh ~2x an hour.
 // ---------------------------------------------------------------------------
 
 interface SwellSplitSyncOptions {
@@ -256,28 +262,35 @@ interface SwellSplitSyncResult {
   errors: string[];
 }
 
+type CheckedColumn = "spec_checked_at" | "txt_checked_at";
+
 interface HistoryQueueConfig {
   file: StationHistoryFile;
-  checkedAt: "spec_checked_at" | "txt_checked_at";
+  checkedAt: CheckedColumn;
+  /** The other file's check time; this queue waits until it is 20+ minutes old. */
+  otherCheckedAt: CheckedColumn;
   lastModified: "spec_last_modified" | "txt_last_modified";
   lastObservedAt: "spec_last_observed_at" | "txt_last_observed_at";
-  hasSwellSplit: boolean;
+  /** Extra eligibility filter column (has_swell_split for .spec, has_wave for .txt). */
+  eligibility: "has_swell_split" | "has_wave";
 }
 
 const SPEC_QUEUE: HistoryQueueConfig = {
   file: "spec",
   checkedAt: "spec_checked_at",
+  otherCheckedAt: "txt_checked_at",
   lastModified: "spec_last_modified",
   lastObservedAt: "spec_last_observed_at",
-  hasSwellSplit: true,
+  eligibility: "has_swell_split",
 };
 
 const TXT_QUEUE: HistoryQueueConfig = {
   file: "txt",
   checkedAt: "txt_checked_at",
+  otherCheckedAt: "spec_checked_at",
   lastModified: "txt_last_modified",
   lastObservedAt: "txt_last_observed_at",
-  hasSwellSplit: false,
+  eligibility: "has_wave",
 };
 
 interface HistoryQueueRow {
@@ -285,6 +298,7 @@ interface HistoryQueueRow {
   sourceStationId: string;
   lastModified: string | null;
   lastObservedAt: string | null;
+  otherCheckedAt: string | null;
 }
 
 /** Swell split from .spec files, for active stations with has_swell_split. */
@@ -297,7 +311,7 @@ export async function syncSwellSplit(
   return syncHistoryQueue(db, adapter, nowMs, options, SPEC_QUEUE);
 }
 
-/** Standard .txt history (waves + met), for active wave stations without a .spec file. */
+/** Standard .txt history (waves incl. dominant period, plus met), for every active wave station. */
 export async function syncStandardHistory(
   db: CatalogueClient,
   adapter: WaveStationSourceAdapter,
@@ -316,25 +330,32 @@ async function syncHistoryQueue(
 ): Promise<SwellSplitSyncResult> {
   const startedMs = Date.now();
   const dueBefore = new Date(nowMs - SPEC_REFRESH_MS).toISOString();
-  let query = db
+  const { data, error } = await db
     .from("wave_stations")
-    .select(`id, source_station_id, ${config.lastModified}, ${config.lastObservedAt}`)
+    .select(
+      `id, source_station_id, ${config.lastModified}, ${config.lastObservedAt}, ${config.otherCheckedAt}`,
+    )
     .eq("source", adapter.source)
     .eq("active", true)
-    .eq("has_swell_split", config.hasSwellSplit);
-  if (!config.hasSwellSplit) query = query.eq("has_wave", true);
-  const { data, error } = await query
+    .eq(config.eligibility, true)
     .or(`${config.checkedAt}.is.null,${config.checkedAt}.lt.${dueBefore}`)
     .order(config.checkedAt, { ascending: true, nullsFirst: true })
-    .limit(options.maxStations);
+    .limit(HISTORY_QUEUE_FETCH_LIMIT);
   if (error) throw new Error(`wave_stations ${config.file} queue: ${error.message}`);
 
-  const queue: HistoryQueueRow[] = ((data ?? []) as Array<Record<string, string | null>>).map((row) => ({
-    id: String(row.id),
-    sourceStationId: String(row.source_station_id),
-    lastModified: row[config.lastModified] ?? null,
-    lastObservedAt: row[config.lastObservedAt] ?? null,
-  }));
+  // The due set is a few hundred rows at most, so the cross-check gap is applied here.
+  const otherGapBefore = nowMs - CROSS_CHECK_GAP_MS;
+  const queue: HistoryQueueRow[] = ((data ?? []) as Array<Record<string, string | null>>)
+    .map((row) => ({
+      id: String(row.id),
+      sourceStationId: String(row.source_station_id),
+      lastModified: row[config.lastModified] ?? null,
+      lastObservedAt: row[config.lastObservedAt] ?? null,
+      otherCheckedAt: row[config.otherCheckedAt] ?? null,
+    }))
+    .filter((row) => !row.otherCheckedAt || Date.parse(row.otherCheckedAt) < otherGapBefore)
+    .slice(0, options.maxStations);
+
   const result: SwellSplitSyncResult = {
     stationsDue: queue.length,
     fetched: 0,
@@ -359,19 +380,25 @@ async function syncHistoryQueue(
   };
 
   const processStation = async (station: HistoryQueueRow): Promise<void> => {
-    const needsBackfill = !station.lastObservedAt;
-    if (needsBackfill) {
-      // Leave the station due; it is picked first next run.
+    // A possible backfill (no rows stored yet) holds a slot while it runs; the
+    // slot is given back unless a 200 body actually wrote the first rows.
+    const mayBackfill = !station.lastObservedAt;
+    let holdsSlot = false;
+    if (mayBackfill) {
       if (backfillSlots <= 0) {
+        // Leave the station due; it is picked first next run.
         result.backfillDeferred++;
         return;
       }
       backfillSlots--;
+      holdsSlot = true;
     }
 
     try {
+      // Always send the stored Last-Modified: an empty or unchanged file then
+      // answers 304 instead of a full re-download every hour.
       const history = await adapter.fetchStationHistory(station.sourceStationId, {
-        ifModifiedSince: needsBackfill ? null : station.lastModified,
+        ifModifiedSince: station.lastModified,
         file: config.file,
       });
       if (history.status === "not_modified") {
@@ -382,7 +409,7 @@ async function syncHistoryQueue(
       if (history.status === "not_found") {
         result.notFound++;
         // The daily registry sync turns has_swell_split back on if the file returns.
-        await markChecked(station.id, config.hasSwellSplit ? { has_swell_split: false } : {});
+        await markChecked(station.id, config.file === "spec" ? { has_swell_split: false } : {});
         return;
       }
 
@@ -401,7 +428,10 @@ async function syncHistoryQueue(
         fresh.map((obs) => toMergePayload(station.id, adapter.source, obs)),
       );
       result.rowsWritten += written;
-      if (needsBackfill && fresh.length > 0) result.backfilled++;
+      if (mayBackfill && fresh.length > 0) {
+        result.backfilled++;
+        holdsSlot = false;
+      }
 
       const newestMs = fresh.reduce((max, obs) => Math.max(max, Date.parse(obs.observedAt)), sinceMs);
       const newest = Number.isFinite(newestMs) ? new Date(newestMs).toISOString() : station.lastObservedAt;
@@ -413,6 +443,8 @@ async function syncHistoryQueue(
       result.errors.push(`${station.id}: ${err instanceof Error ? err.message : String(err)}`);
       // Rotate a failing station to the back instead of retrying it every run.
       await markChecked(station.id, {});
+    } finally {
+      if (holdsSlot) backfillSlots++;
     }
   };
 

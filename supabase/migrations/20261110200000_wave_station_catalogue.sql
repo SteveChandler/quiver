@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.wave_stations (
   spec_checked_at timestamptz,               -- swell-split sync state
   spec_last_modified text,                   -- Last-Modified header, sent back as If-Modified-Since
   spec_last_observed_at timestamptz,         -- newest swell-split row stored
-  txt_checked_at timestamptz,                -- standard .txt sync state, wave stations without .spec
+  txt_checked_at timestamptz,                -- standard .txt sync state (every wave station)
   txt_last_modified text,
   txt_last_observed_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS wave_stations_cdip_station_id_idx
 CREATE INDEX IF NOT EXISTS wave_stations_spec_queue_idx
   ON public.wave_stations (spec_checked_at NULLS FIRST) WHERE active AND has_swell_split;
 CREATE INDEX IF NOT EXISTS wave_stations_txt_queue_idx
-  ON public.wave_stations (txt_checked_at NULLS FIRST) WHERE active AND has_wave AND NOT has_swell_split;
+  ON public.wave_stations (txt_checked_at NULLS FIRST) WHERE active AND has_wave;
 
 DROP TRIGGER IF EXISTS trg_wave_stations_set_updated_at ON public.wave_stations;
 CREATE TRIGGER trg_wave_stations_set_updated_at

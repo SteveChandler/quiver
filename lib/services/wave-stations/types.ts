@@ -113,7 +113,7 @@ export interface WaveStationSourceAdapter {
   fetchLatestObservations(): Promise<SourceObservation[]>;
   /**
    * Per-station history; honours If-Modified-Since. `file` "spec" (default) has
-   * the swell split; "txt" is the standard file for stations without one.
+   * the swell split; "txt" is the standard file (waves with dominant period, plus met).
    */
   fetchStationHistory(
     sourceStationId: string,

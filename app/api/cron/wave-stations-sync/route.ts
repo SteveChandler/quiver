@@ -24,20 +24,22 @@ export const maxDuration = 300;
 type SyncPhase = "registry" | "latest" | "spec";
 const PHASES: readonly SyncPhase[] = ["registry", "latest", "spec"];
 
-// ~250 NDBC .spec stations / 70 per run x 4 runs an hour = each about hourly.
+// Each wave station gets a .spec check (if it has one) and a .txt check about
+// once an hour, at least 20 minutes apart (see sync.ts). 4 runs an hour:
+// ~250 .spec stations / 70 per run, ~300 wave stations / 80 per run.
+// Budgets (130 s + 110 s + one in-flight request) stay inside maxDuration 300.
 const SPEC_OPTIONS = {
   maxStations: 70,
   maxBackfills: 10,
   concurrency: 6,
-  budgetMs: 160_000,
+  budgetMs: 130_000,
 };
 
-// ~45 wave stations without a .spec / 15 per run x 4 runs an hour = each about hourly.
 const TXT_OPTIONS = {
-  maxStations: 15,
-  maxBackfills: 3,
-  concurrency: 3,
-  budgetMs: 60_000,
+  maxStations: 80,
+  maxBackfills: 8,
+  concurrency: 6,
+  budgetMs: 110_000,
 };
 
 /**
@@ -48,7 +50,7 @@ const TXT_OPTIONS = {
  * - registry: daily station list from activestations.xml
  * - latest: every 15 min, one latest_obs.txt request for all stations
  * - spec: every 15 min, a staggered batch of realtime2 .spec files (swell split),
- *   then .txt files for wave stations that have no .spec
+ *   then .txt files (waves with dominant period, plus met) for every wave station
  */
 async function _GET(request: Request): Promise<Response> {
   try {

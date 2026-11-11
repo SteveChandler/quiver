@@ -254,7 +254,7 @@ describe("syncSwellSplit", () => {
 describe("syncStandardHistory", () => {
   const options = { maxStations: 15, maxBackfills: 3, concurrency: 2, budgetMs: 60_000 };
 
-  it("queues wave stations without a .spec and keeps its own .txt sync state", async () => {
+  it("queues every wave station (with or without a .spec) and keeps its own .txt sync state", async () => {
     const { db, calls, rpcCalls } = fakeDb({
       wave_stations: [[
         { id: "ndbc:46146", source_station_id: "46146", txt_last_modified: null, txt_last_observed_at: null },
@@ -288,10 +288,8 @@ describe("syncStandardHistory", () => {
     });
 
     const queueOps = calls[0].ops;
-    expect(queueOps).toEqual(expect.arrayContaining([
-      ["eq", ["has_swell_split", false]],
-      ["eq", ["has_wave", true]],
-    ]));
+    expect(queueOps).toContainEqual(["eq", ["has_wave", true]]);
+    expect(queueOps.some(([op, args]) => op === "eq" && args[0] === "has_swell_split")).toBe(false);
     // Only rows newer than the stored .txt state are sent for 44042.
     const sent44042 = rpcCalls
       .flatMap((call) => call.args.p_rows as Array<{ station_id: string; observed_at: string }>)
@@ -305,6 +303,63 @@ describe("syncStandardHistory", () => {
       txt_last_observed_at: "2026-11-11T03:00:00.000Z",
     });
     expect(updates.every((fields) => !("spec_checked_at" in (fields as object)))).toBe(true);
+  });
+
+  it("waits until the station's .spec check is 20+ minutes old (checks ~30 min apart)", async () => {
+    const now = Date.parse("2026-11-11T03:11:00Z");
+    const { db, calls } = fakeDb({
+      wave_stations: [[
+        // .spec checked 5 min ago (e.g. earlier in this same cron run): not due for .txt yet.
+        { id: "ndbc:46225", source_station_id: "46225", txt_last_modified: null,
+          txt_last_observed_at: null, spec_checked_at: "2026-11-11T03:06:00+00:00" },
+        // .spec checked 25 min ago: due.
+        { id: "ndbc:46086", source_station_id: "46086", txt_last_modified: null,
+          txt_last_observed_at: null, spec_checked_at: "2026-11-11T02:46:00+00:00" },
+        // No .spec at all: due.
+        { id: "ndbc:46146", source_station_id: "46146", txt_last_modified: null,
+          txt_last_observed_at: null, spec_checked_at: null },
+      ]],
+    });
+    const fetchStationHistory = jest.fn(async (): Promise<StationHistoryResult> => ({ status: "not_modified" }));
+    const result = await syncStandardHistory(db, adapter({ fetchStationHistory }), now, options);
+
+    expect(result.stationsDue).toBe(2);
+    expect(fetchStationHistory.mock.calls.map(([id]) => id).sort()).toEqual(["46086", "46146"]);
+    expect(calls[0].ops).toContainEqual(["select", [
+      "id, source_station_id, txt_last_modified, txt_last_observed_at, spec_checked_at",
+    ]]);
+  });
+
+  it("sends a stored Last-Modified even with no rows, and a 304 does not use a backfill slot", async () => {
+    const { db } = fakeDb({
+      wave_stations: [[
+        { id: "ndbc:22101", source_station_id: "22101", txt_last_modified: "Mon, 09 Nov 2026 00:00:00 GMT",
+          txt_last_observed_at: null, spec_checked_at: null },
+        { id: "ndbc:22102", source_station_id: "22102", txt_last_modified: "Mon, 09 Nov 2026 00:00:00 GMT",
+          txt_last_observed_at: null, spec_checked_at: null },
+        { id: "ndbc:22103", source_station_id: "22103", txt_last_modified: null,
+          txt_last_observed_at: null, spec_checked_at: null },
+      ]],
+    });
+    const fetchStationHistory = jest.fn(
+      async (id: string): Promise<StationHistoryResult> =>
+        id === "22103"
+          ? { status: "ok", lastModified: "Wed, 11 Nov 2026 03:10:20 GMT", observations: [] }
+          : { status: "not_modified" },
+    );
+    const result = await syncStandardHistory(
+      db,
+      adapter({ fetchStationHistory }),
+      Date.parse("2026-11-11T03:11:00Z"),
+      { ...options, maxBackfills: 1, concurrency: 1 },
+    );
+
+    expect(fetchStationHistory).toHaveBeenCalledWith("22101", {
+      ifModifiedSince: "Mon, 09 Nov 2026 00:00:00 GMT",
+      file: "txt",
+    });
+    // All three ran with one slot: 304s and an empty 200 body give the slot back.
+    expect(result).toMatchObject({ notModified: 2, fetched: 1, backfilled: 0, backfillDeferred: 0 });
   });
 
   it("does not touch has_swell_split when a .txt file is missing", async () => {
