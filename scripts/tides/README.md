@@ -35,7 +35,7 @@ Rebuild the seed file (macOS `zone.tab` maps time zones to countries; pass `--zo
 node --conditions=import --import tsx scripts/tides/build-tide-station-registry.ts --noaa /tmp/noaa-stations.json --ticon /tmp/ticon4.csv > /tmp/tide-registry-report.json
 ```
 
-Load it after `supabase/migrations/20261110200000_create_tide_stations.sql` is applied. The upsert is idempotent; it writes to the database in `.env.local`, so run it only with approval:
+Load it after `supabase/migrations/20261111090000_create_tide_stations.sql` is applied. The upsert is idempotent; it writes to the database in `.env.local`, so run it only with approval:
 
 ```sh
 node --import tsx scripts/tides/seed-tide-stations.ts --dry-run

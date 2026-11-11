@@ -2,7 +2,7 @@
  * Loads scripts/tides/data/tide-stations.json.gz into public.tide_stations.
  * Idempotent: upserts on id, so a re-run updates rows in place.
  *
- * Requires migration 20261110200000_create_tide_stations.sql to be applied first.
+ * Requires migration 20261111090000_create_tide_stations.sql to be applied first.
  * Writes to the database named by NEXT_PUBLIC_SUPABASE_URL (shared prod/dev):
  * run only with approval.
  *

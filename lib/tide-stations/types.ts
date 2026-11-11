@@ -1,5 +1,5 @@
 /**
- * Local row types for `tide_stations` (migration 20261110200000_create_tide_stations).
+ * Local row types for `tide_stations` (migration 20261111090000_create_tide_stations).
  * `types/database.generated.ts` does not know this table until the migration is
  * applied and types are regenerated, so reads cast to these shapes.
  */

@@ -1,7 +1,7 @@
 /**
  * Public tide station pages (/tides/station/{slug}) and hubs (/tides/...).
  *
- * Needs migration 20261110200000_create_tide_stations.sql applied and the
+ * Needs migration 20261111090000_create_tide_stations.sql applied and the
  * registry seeded (scripts/tides/seed-tide-stations.ts). Before that, every
  * /tides URL is a real 404 and these tests fail by design.
  */
