@@ -119,17 +119,24 @@ export function NearbyBuoys({ items }: { items: NearbyBuoy[] }) {
 }
 
 /**
- * Optional slot for the nearest tide station. Tide station pages are built on
- * another branch (/tides/station/[slug]); until they ship this renders nothing.
+ * Nearest tide station within ~100 km (lib/tide-stations). Renders nothing when
+ * there is none or the tide registry is not live yet. Name, distance and link
+ * only: this page revalidates every 15 min and tide times live on the tide page.
  */
-export function TideStationSlot({ tideStation }: { tideStation?: { slug: string; name: string } | null }) {
+export function TideStationSlot({
+  tideStation,
+}: {
+  tideStation?: { slug: string; name: string; distanceKm: number } | null;
+}) {
   if (!tideStation) return null;
   return (
-    <p className="mb-12 text-sm">
+    <p className="mb-12 text-sm" data-testid="buoy-tide-station">
       Nearest tide station:{" "}
       <Link href={`/tides/station/${tideStation.slug}`} className="underline underline-offset-2">
         {tideStation.name}
-      </Link>
+      </Link>{" "}
+      <span className="font-mono text-xs text-[#11100D]/62">{Math.round(tideStation.distanceKm)} km</span>
+      {" "}for today’s highs and lows.
     </p>
   );
 }

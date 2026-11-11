@@ -36,6 +36,7 @@ import {
 } from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { getTideStationSitemapRoutes } from "@/lib/tide-stations/sitemap";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import {
   getForecastIndexabilityForBeaches,
@@ -108,6 +109,12 @@ jest.mock("@/lib/supabase/server", () => ({
 
 jest.mock("@/lib/services/wave-stations", () => ({
   listStations: jest.fn(async () => []),
+}));
+
+// Tide station URLs come from their own registry query (covered in
+// __tests__/lib/tide-stations); here only their place in the flat sitemap matters.
+jest.mock("@/lib/tide-stations/sitemap", () => ({
+  getTideStationSitemapRoutes: jest.fn(async () => []),
 }));
 
 // Coverage is no longer "a row exists" -- the sitemap now runs the same
@@ -1945,6 +1952,23 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Combined Sitemap", () => {
+    it("adds tide hub and station URLs from the tide registry", async () => {
+      (getTideStationSitemapRoutes as jest.Mock).mockResolvedValueOnce([
+        { url: `${baseUrl}/tides` },
+        { url: `${baseUrl}/tides/station/la-jolla-scripps-institution-wharf-ca-9410230` },
+      ]);
+
+      const result = await sitemap();
+
+      expect(getTideStationSitemapRoutes).toHaveBeenCalledWith(baseUrl);
+      expect(result.map((r) => r.url)).toEqual(
+        expect.arrayContaining([
+          `${baseUrl}/tides`,
+          `${baseUrl}/tides/station/la-jolla-scripps-institution-wharf-ca-9410230`,
+        ]),
+      );
+    });
+
     it("should include all route types in single sitemap", async () => {
       // Beach is in "San Diego" — add a La Jolla beach so validCitySlugs includes it
       (getBeaches as jest.Mock).mockResolvedValue({
