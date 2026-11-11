@@ -424,18 +424,14 @@ function reportHazardLookupFailure(
   source: "nws_advisories" | "first_sighting_hazard",
   beachId: string,
 ): void {
-  try {
-    Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
-      level: "warning",
-      tags: {
-        cron_route: "/api/cron/swell-alert",
-        swell_alert_hazard_source: source,
-      },
-      extra: { beach_id: beachId },
-    });
-  } catch {
-    // Error capture is best effort and must never change what the push sends.
-  }
+  Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+    level: "warning",
+    tags: {
+      cron_route: "/api/cron/swell-alert",
+      swell_alert_hazard_source: source,
+    },
+    extra: { beach_id: beachId },
+  });
 }
 
 function increment(summary: SwellAlertRunSummary, reason: string): void {
