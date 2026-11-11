@@ -1145,7 +1145,7 @@ describe("POST /api/alerts/rules — existing rules read", () => {
           notify_email: false,
         })
       )
-    ).rejects.toMatchObject(statementTimeout);
+    ).rejects.toMatchObject({ message: expect.stringContaining(statementTimeout.message), cause: statementTimeout });
 
     expect(insertSpy).not.toHaveBeenCalled();
     expect(upsertSpy).not.toHaveBeenCalled();
