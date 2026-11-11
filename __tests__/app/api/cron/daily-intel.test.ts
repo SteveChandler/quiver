@@ -293,4 +293,33 @@ describe("daily intel cron route", () => {
       failed: 0,
     });
   });
+
+  it("counts a beach whose generation fails and saves no intel for it", async () => {
+    mockBeachesQuery({
+      data: [
+        {
+          id: "beach-1",
+          lat: 32.75,
+          lon: -117.25,
+          preferred_tide_ft_min: 1,
+          preferred_tide_ft_max: 4,
+        },
+      ],
+      error: null,
+    });
+    mockGenerateIntel.mockRejectedValueOnce(
+      new Error("Failed to fetch water quality for beach beach-1: canceling statement due to statement timeout")
+    );
+
+    const response = await GET(
+      new Request("http://localhost/api/cron/daily-intel?generationTime=07:30&maxBeaches=1")
+    );
+    const data = await response.json();
+
+    expect(mockSaveIntel).not.toHaveBeenCalled();
+    expect(data.data.results).toEqual([
+      expect.objectContaining({ beachId: "beach-1", ok: false }),
+    ]);
+    expect(data.data.summary).toMatchObject({ processed: 1, successful: 0, failed: 1 });
+  });
 });
