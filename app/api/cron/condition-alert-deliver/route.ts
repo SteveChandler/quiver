@@ -1456,6 +1456,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const emailSubject = buildConsolidatedSubject(
                       emailMatches,
                       alertDate,
+                      emailDecision.verdict,
                     );
                     const sendResult = !forecastDeliveryEnabled
                       ? { data: null, error: null }
