@@ -85,8 +85,30 @@ describe("station names, CDIP ids and location", () => {
     }
   });
 
+  // Raw names from the live activestations.xml (2026-11-11).
+  it.each([
+    ["SAN CLEMENTE BASIN - 27NM SE Of San Clemente Is, CA", "San Clemente Basin - 27NM SE of San Clemente Is, CA"],
+    ["NORTHERN HAWAII ONE - 245NM NE of Honolulu HI", "Northern Hawaii One - 245NM NE of Honolulu HI"],
+    ["NE ST MARTIN - 330 NM NE St Martin Is", "NE St Martin - 330 NM NE St Martin Is"],
+    ["EAST BAHAMAS - 335 NM East of San Salvador Is,  Bahamas", "East Bahamas - 335 NM East of San Salvador Is, Bahamas"],
+    ["NORTH MICHIGAN- Halfway between North Manitou and Washington Islands.", "North Michigan - Halfway between North Manitou and Washington Islands."],
+    ["BAY OF CAMPECHE - 214 NM NE of Veracruz, MX", "Bay of Campeche - 214 NM NE of Veracruz, MX"],
+    ["TILLAMOOK, OR - 85 NM WNW of Tillamook, OR", "Tillamook, OR - 85 NM WNW of Tillamook, OR"],
+    ["Duck FRF, NC", "Duck FRF, NC"],
+    ["Michigan City Buoy, IN", "Michigan City Buoy, IN"],
+    ["Ponce de Leon Inlet Waves (PNCWAVE)", "Ponce de Leon Inlet Waves (PNCWAVE)"],
+    ["UTMSI_BUOY_1 - Environmental List 1415.02 (SPOT-33114C)", "UTMSI_BUOY_1 - Environmental List 1415.02 (SPOT-33114C)"],
+    ["OOI Pioneer - Mid-Atlantic Bight Southern Surface Mooring", "OOI Pioneer - Mid-Atlantic Bight Southern Surface Mooring"],
+    ["Ocean Station PAPA  (166)", "Ocean Station Papa"],
+  ])("title-cases %s for display", (raw, display) => {
+    expect(cleanStationName(raw, "00000")).toBe(display);
+  });
+
   it.each([
     ["Torrey Pines Outer, CA (100)", "SCRIPPS", "IOOS Partners", "US", "CA"],
+    ["EAST BAHAMAS - 335 NM East of San Salvador Is,  Bahamas", "NDBC", "NDBC Meteorological/Ocean", "BS", null],
+    ["Western Caribbean - 195 NM WSW of Negril, Jamaica", "NDBC", "NDBC Meteorological/Ocean", "JM", null],
+    ["WEST BERMUDA - 240 NM West of Bermuda", "NDBC", "NDBC Meteorological/Ocean", "US", null],
     ["Neah Bay - 6 NM North of Cape Flattery, WA (Traffic Separation Lighted Buoy)", "NDBC", "NDBC Meteorological/Ocean", "US", "WA"],
     ["Rincon, Puerto Rico (181)", "CarICoos", "IOOS Partners", "US", "PR"],
     ["Kalo, Majuro, Marshall Islands (163)", "PacIOOS", "IOOS Partners", "MH", null],
