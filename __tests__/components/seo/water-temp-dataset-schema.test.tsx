@@ -177,4 +177,31 @@ describe("WaterTempDatasetSchema", () => {
     const schema = schemas[0];
     expect(schema.spatialCoverage.name).toBe("Rincon");
   });
+
+  it("renders identical JSON for two renders on the same UTC day", () => {
+    // ISR writes are charged only when the regenerated page differs, so the
+    // schema must not carry a render-time value.
+    const props = {
+      cityOrBeachName: "San Diego",
+      state: "CA",
+      url: "https://www.quiversurf.app/water-temp/san-diego",
+      tempF: 62,
+      wetsuitRec: "3/2mm fullsuit",
+    };
+    const jsonAt = (iso: string): string | null | undefined => {
+      jest.setSystemTime(new Date(iso));
+      const { container } = render(<WaterTempDatasetSchema {...props} />);
+      return container.querySelector('script[type="application/ld+json"]')?.textContent;
+    };
+
+    jest.useFakeTimers();
+    try {
+      const first = jsonAt("2026-01-15T00:56:42.002Z");
+      const second = jsonAt("2026-01-15T01:56:43.417Z");
+      expect(second).toBe(first);
+      expect(JSON.parse(first || "{}").dateModified).toBe("2026-01-15");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
