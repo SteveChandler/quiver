@@ -85,4 +85,11 @@ describe("next.config private endpoint cache policy", () => {
     expect(resolvedCacheControl("/api/control-path", headers))
       .toBe("private, max-age=60, stale-while-revalidate=120");
   });
+  it("lets shared caches store the public beach buoy reading", async () => {
+    const headers = await loadConfiguredHeaders();
+    expect(resolvedCacheControl("/api/beaches/5a0e0e0e-1111-4222-8333-944444444444/buoy", headers))
+      .toBe("public, s-maxage=300, stale-while-revalidate=600");
+    expect(resolvedCacheControl("/api/beaches/5a0e0e0e-1111-4222-8333-944444444444/sources", headers))
+      .toBe("private, max-age=60, stale-while-revalidate=120");
+  });
 });
