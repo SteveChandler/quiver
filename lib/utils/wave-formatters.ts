@@ -200,10 +200,7 @@ export function formatWaveRange(
   const precision = precisionOrMax === "integer" ? "integer" : "decimal";
 
   if (precision === "integer") {
-    const minInt = Math.round(min);
-    const maxInt = Math.round(max);
-    if (minInt === maxInt) return `${minInt}ft`;
-    return `${minInt}-${maxInt}ft`;
+    return bracketFaceHeightFeet(min, max);
   }
 
   if (min === max) {
@@ -365,7 +362,7 @@ export function parseWaveHeight(
  *
  * @param low Lower face wave height in feet
  * @param high Upper face wave height in feet (pass `low` for single-point inputs)
- * @returns Formatted range like "3-4ft" or "4ft"
+ * @returns Formatted range like "3-4ft" ("2-3ft" for a whole 3), or "Flat"
  */
 export function formatWaveHeightRangeString(low: number, high: number): string {
   return bracketFaceHeightFeet(low, high);

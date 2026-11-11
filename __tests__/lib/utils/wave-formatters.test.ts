@@ -101,13 +101,14 @@ describe("wave-formatters", () => {
       });
 
       it("formats single value ranges", () => {
-        expect(formatWaveRange([4, 4], "integer")).toBe("4ft");
-        expect(formatWaveRange([3.5, 3.5], "integer")).toBe("4ft");
+        // Integer precision uses the shared face bracket, so a whole 4 reads like native.
+        expect(formatWaveRange([4, 4], "integer")).toBe("3-4ft");
+        expect(formatWaveRange([3.5, 3.5], "integer")).toBe("3-4ft");
       });
 
-      it("rounds correctly", () => {
+      it("brackets floor/ceil like native", () => {
         expect(formatWaveRange([2.4, 5.6], "integer")).toBe("2-6ft");
-        expect(formatWaveRange([2.5, 5.5], "integer")).toBe("3-6ft");
+        expect(formatWaveRange([2.5, 5.5], "integer")).toBe("2-6ft");
       });
     });
 
