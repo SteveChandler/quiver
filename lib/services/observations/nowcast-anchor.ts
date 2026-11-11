@@ -54,24 +54,20 @@ interface NowcastAnchorsFetch {
 }
 
 function reportAnchorFailure(error: unknown, failure: "rpc_error" | "throw", options: FetchOptions): void {
-  try {
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof (error as { message?: unknown })?.message === "string"
-          ? (error as { message: string }).message
-          : String(error);
-    Sentry.captureException(error instanceof Error ? error : new Error(message), {
-      level: "warning",
-      tags: {
-        component: "nowcast-anchor",
-        nowcast_anchor_failure: failure,
-        nowcast_anchor_scope: options.beachId === undefined ? "batch" : "single_beach",
-      },
-    });
-  } catch {
-    // Error capture is best effort and must never change the forecast-only fallback.
-  }
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof (error as { message?: unknown })?.message === "string"
+        ? (error as { message: string }).message
+        : String(error);
+  Sentry.captureException(error instanceof Error ? error : new Error(message), {
+    level: "warning",
+    tags: {
+      component: "nowcast-anchor",
+      nowcast_anchor_failure: failure,
+      nowcast_anchor_scope: options.beachId === undefined ? "batch" : "single_beach",
+    },
+  });
 }
 
 /**

@@ -30,17 +30,13 @@ const reportedStrippedColumns = new Set<string>();
 function reportStrippedColumn(column: string): void {
   if (reportedStrippedColumns.has(column)) return;
   reportedStrippedColumns.add(column);
-  try {
-    Sentry.captureException(
-      new Error(`enhanced_forecasts write dropped missing column '${column}' (PGRST204)`),
-      {
-        level: "warning",
-        tags: { component: "forecast-storage", forecast_schema_stripped_column: column },
-      },
-    );
-  } catch {
-    // Error capture is best effort and must never change the strip-and-retry write.
-  }
+  Sentry.captureException(
+    new Error(`enhanced_forecasts write dropped missing column '${column}' (PGRST204)`),
+    {
+      level: "warning",
+      tags: { component: "forecast-storage", forecast_schema_stripped_column: column },
+    },
+  );
 }
 
 /**
