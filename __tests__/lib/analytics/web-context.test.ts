@@ -35,6 +35,8 @@ describe("web analytics context", () => {
     ["/cams/pacific-northwest", "cams-directory", "cams"],
     ["/surf-cams/san-diego", "surf-cams-seo", "surf_cams"],
     ["/water-temp/huntington-beach", "water-temp", "water_temp"],
+    ["/buoys", "buoys", "buoys"],
+    ["/buoys/station/torrey-pines-outer-ca-46225", "buoys", "buoys"],
   ])("maps %s to surface %s and page %s", (pathname, surface, page) => {
     expect(deriveSurfaceFromPath(pathname)).toBe(surface);
     expect(getPageName(pathname)).toBe(page);

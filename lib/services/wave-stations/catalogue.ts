@@ -22,10 +22,26 @@ function slugifyName(name: string): string {
   return (lastDash > 20 ? cut.slice(0, lastDash) : cut).replace(/-+$/, "");
 }
 
+/**
+ * The place part of a name for its slug: a trailing "(...)" note and a
+ * "- 27NM SE of San Clemente Is" distance clause are dropped, a trailing
+ * state code is kept ("San Clemente Basin - 27NM SE of ..., CA" -> "San
+ * Clemente Basin, CA"). The display name keeps both.
+ */
+function slugPlace(name: string): string {
+  const base = name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  const clause = base.match(/^(.+?)\s+-?\s*\d[\d.]*\s*(?:NM|KM|MI)\b.*$/i);
+  if (!clause || !clause[1].trim()) return base;
+  const state = base.match(/,\s*([A-Z]{2})$/);
+  const place = clause[1].replace(/[\s,-]+$/, "");
+  if (!state || new RegExp(`,\\s*${state[1]}$`).test(place)) return place;
+  return `${place}, ${state[1]}`;
+}
+
 /** Readable name plus the source station id: "torrey-pines-outer-ca-46225". */
 export function buildStationSlug(name: string, sourceStationId: string): string {
   const id = sourceStationId.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const namePart = slugifyName(name);
+  const namePart = slugifyName(slugPlace(name));
   if (!namePart || namePart === id || namePart.endsWith(`-${id}`)) {
     return namePart || `buoy-${id}`;
   }

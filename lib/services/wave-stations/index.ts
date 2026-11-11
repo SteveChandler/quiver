@@ -6,7 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { haversineDistance } from "@/lib/utils/geo-utils";
-import { selectAllPages } from "./paging";
+import { errorWithCode, selectAllPages } from "./paging";
 import type { WaveStationObservationRow, WaveStationRow } from "./types";
 
 /** Untyped until types/database.generated.ts is regenerated with the catalogue tables. */
@@ -28,8 +28,8 @@ function publicClient(client?: ReadClient): ReadClient {
   return client ?? (createPublicReadClient() as unknown as ReadClient);
 }
 
-function fail(context: string, error: { message: string }): never {
-  throw new Error(`${context}: ${error.message}`);
+function fail(context: string, error: { message: string; code?: string }): never {
+  throw errorWithCode(`${context}: ${error.message}`, error);
 }
 
 export async function getStationBySlug(
