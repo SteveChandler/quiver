@@ -5,6 +5,7 @@
  */
 
 import { aodnAdapter } from "./aodn/adapter";
+import { copernicusAdapter } from "./copernicus/adapter";
 import { fmiAdapter } from "./fmi/adapter";
 import { marineIeAdapter } from "./marine-ie/adapter";
 import { ndbcAdapter } from "./ndbc/adapter";
@@ -18,4 +19,6 @@ export const SOURCE_ADAPTERS: readonly WaveStationSourceAdapter[] = [
   aodnAdapter,
   fmiAdapter,
   smhiAdapter,
+  // Last: it aggregates other operators' buoys, and the duplicate pass hides any a direct source has.
+  copernicusAdapter,
 ];

@@ -12,10 +12,14 @@
  */
 
 import { SITE_URL } from "@/lib/constants/seo";
+import { isShortPlatformCode } from "@/lib/services/wave-stations/catalogue";
 import type { WaveStationRow } from "@/lib/services/wave-stations/types";
 import { truncateTitleForSEO } from "./meta";
 
 const MAX_TITLE = 60 - " | Quiver".length;
+
+/** The source, when the caller has it, decides whether a platform code is a real id (see stationCode). */
+type CodeSource = { source?: WaveStationRow["source"] };
 const MAX_DESCRIPTION = 160;
 
 function fitTitle(candidates: string[]): string {
@@ -31,7 +35,7 @@ function fitDescription(candidates: string[]): string {
   return `${cut.slice(0, cut.lastIndexOf(" ")).replace(/[,\s]+$/, "")}.`;
 }
 
-export function buildStationTitle(station: Pick<WaveStationRow, "name" | "source_station_id">): string {
+export function buildStationTitle(station: Pick<WaveStationRow, "name" | "source_station_id"> & CodeSource): string {
   const id = titleCode(station);
   const name = station.name.replace(/\s+buoy$/i, "");
   return fitTitle([
@@ -43,7 +47,7 @@ export function buildStationTitle(station: Pick<WaveStationRow, "name" | "source
 }
 
 export function buildStationDescription(
-  station: Pick<WaveStationRow, "name" | "source_station_id" | "has_swell_split">,
+  station: Pick<WaveStationRow, "name" | "source_station_id" | "has_swell_split"> & CodeSource,
 ): string {
   const id = titleCode(station);
   const split = station.has_swell_split ? ", swell vs wind waves" : "";
@@ -76,10 +80,14 @@ export function buildHubDescription(place: string | null, stationCount: number):
 /** Registry licence value for Creative Commons Attribution 4.0 (SPDX id). */
 export const CC_BY_4 = "CC-BY-4.0";
 
+/** Registry licence value for the Copernicus Marine Service licence. */
+export const COPERNICUS_MARINE = "copernicus-marine";
+
 /** "public-domain-us-gov", "CC-BY-4.0" and similar registry values to a licence URL. */
 export function licenseUrl(license: string): string | null {
   if (license === "public-domain-us-gov") return "https://www.usa.gov/government-works";
   if (license === CC_BY_4) return "https://creativecommons.org/licenses/by/4.0/";
+  if (license === COPERNICUS_MARINE) return "https://marine.copernicus.eu/user-corner/service-commitments-and-licence";
   if (/^https?:\/\//.test(license)) return license;
   return null;
 }
@@ -87,12 +95,13 @@ export function licenseUrl(license: string): string | null {
 export function licenseLabel(license: string): string {
   if (license === "public-domain-us-gov") return "Public domain (US government work)";
   if (license === CC_BY_4) return "CC BY 4.0";
+  if (license === COPERNICUS_MARINE) return "Copernicus Marine Service licence";
   return license;
 }
 
-/** Attribution licences require saying what was changed. */
+/** Attribution licences require saying what was changed (CC BY 4.0; Copernicus licence section 2.4). */
 export function licenseRequiresChangeNote(license: string): boolean {
-  return license === CC_BY_4;
+  return license === CC_BY_4 || license === COPERNICUS_MARINE;
 }
 
 /**
@@ -100,13 +109,19 @@ export function licenseRequiresChangeNote(license: string): boolean {
  * the source has no real id and ours is only the name in another form
  * (Australian sites such as "wooli").
  */
-export function stationCode(station: Pick<WaveStationRow, "source_station_id">): string | null {
+export function stationCode(
+  station: Pick<WaveStationRow, "source_station_id"> & { source?: WaveStationRow["source"] },
+): string | null {
   const code = station.source_station_id.toUpperCase();
-  return /\d/.test(code) ? code : null;
+  if (!/\d/.test(code)) return null;
+  // Copernicus platform codes are often the place name run together
+  // ("A2Buoy", "IL3-SouthHunter"); only numbers and short codes ("K13a") are ids.
+  if (station.source === "copernicus" && !isShortPlatformCode(station.source_station_id)) return null;
+  return code;
 }
 
 /** The code, unless the name already shows it ("M6 West Coast"). */
-function titleCode(station: Pick<WaveStationRow, "name" | "source_station_id">): string | null {
+function titleCode(station: Pick<WaveStationRow, "name" | "source_station_id"> & CodeSource): string | null {
   const code = stationCode(station);
   if (!code) return null;
   return new RegExp(`(^|[^A-Z0-9])${code}([^A-Z0-9]|$)`, "i").test(station.name) ? null : code;
