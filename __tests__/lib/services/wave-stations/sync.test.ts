@@ -320,7 +320,9 @@ describe("syncStandardHistory", () => {
           txt_last_observed_at: null, spec_checked_at: null },
       ]],
     });
-    const fetchStationHistory = jest.fn(async (): Promise<StationHistoryResult> => ({ status: "not_modified" }));
+    const fetchStationHistory = jest.fn(
+      async (_id: string): Promise<StationHistoryResult> => ({ status: "not_modified" }),
+    );
     const result = await syncStandardHistory(db, adapter({ fetchStationHistory }), now, options);
 
     expect(result.stationsDue).toBe(2);
