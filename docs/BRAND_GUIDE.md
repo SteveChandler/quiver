@@ -110,7 +110,7 @@ Dawn Patrol is the originating mood board (pre-dawn, salt air, quiet water). Its
 
 | Mood (Dawn Patrol) | Canonical zine token | Hex | Role |
 |---|---|---|---|
-| Midnight navy / Deep ocean | twilight stage | `#252D6B → #1A1535 → #0D1020` | Page backdrop (stage only) |
+| Midnight navy / Deep ocean | twilight stage | `#252D6B` (chrome `#0D1020`) | Page backdrop (stage only). The `#0D1020 → #252D6B` gradient is for hero and marketing art, not the page stage |
 | Sun-bleached | cream paper | `#F4EBD8` / `#F5EEDC` | Default content surface |
 | (ink) | ink | `#11100D` | Text on paper |
 | Amber dawn | Charming Orange | `#F78E42` | Primary accent |
@@ -130,25 +130,13 @@ These read as "surf brand" not "surfer" — mass market, tourist-facing, sponsor
 | Promo purple | `#7B2FFF` | Tech/crypto aesthetic |
 | Sterile white | `#FFFFFF` | Never as a primary surface |
 
-### Color palette direction (legacy)
+### Texture, type and graphics
 
-Move away from clean corporate blue toward saturated, warm, analog tones. Deep ocean teals, electric purples, warm amber/orange — like a sunset captured on VHS. Not flat pastels, not muted minimalism. Saturated and alive, with the warmth of a CRT screen.
+The visual rules are in Visual and brand direction in `soul.md` and in `docs/STYLE_GUIDE.md`. They replace the older mood text that was here (saturated purples and pinks, hand-drawn type, "personality over consistency"). In short:
 
-Black as a confident anchor — bold, not afraid of contrast. Pinks, sky blues, yellows as accent energy — the sticker sheet palette.
-
-### Texture & surface
-
-Nothing should feel flat or sterile. Grain, noise, texture — surfaces that feel physical. The VHS/analog quality: slightly imperfect, warm, not digitally crisp. Like a surf magazine page you've folded and kept, not a Figma export.
-
-### Typography direction
-
-Bold, expressive, confident — not the thin clean sans-serifs of SaaS products. Hand-drawn energy even in digital type: weight, personality, slight irregularity. The Rip Curl ad and sticker sheet lettering as north stars — unapologetic, local, fun.
-
-Long-term: explore custom or display typefaces that feel drawn, not rendered.
-
-### Illustration & graphics
-
-Hand-drawn over geometric. Icons that look like someone sketched them, not pulled from a library. Every graphic element should have a point of view — no two things should look like they came from the same template. Personality over consistency. A sticker-sheet mentality: varied, playful, human.
+- Texture: paper grain, halftone, tape and scan lines, used with restraint and only where they support the hierarchy. Data stays crisp.
+- Type: Space Grotesk for display, DM Sans for body and UI, Space Mono for technical values. There is no handwritten or marker face.
+- Graphics: reuse the established sticker and zine assets (`components/zine/`, Brand-Vault stickers). Accessibility and data clarity override decoration.
 
 ### Photography & imagery
 
