@@ -161,6 +161,20 @@ export function buildForecastIndexabilitySnapshot(
 
 
 /**
+ * The coverage read failed. Thrown, not returned as an empty Map, so a cache
+ * layer does not store "no forecast" for every beach.
+ */
+export class ForecastIndexabilityUnavailableError extends Error {
+  constructor(stage: string, detail: string) {
+    super(`[getForecastIndexabilityForBeaches] ${stage}: ${detail}`);
+    this.name = "ForecastIndexabilityUnavailableError";
+  }
+}
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+/**
  * Fetch the small forecast-coverage envelope needed by the sitemap. Keeping
  * this separate from the page report avoids one full forecast query per URL.
  */
@@ -189,10 +203,7 @@ export async function getForecastIndexabilityForBeaches(
   try {
     supabase = await createSupabaseServiceRoleClient();
   } catch (error) {
-    console.error("[getForecastIndexabilityForBeaches] Client creation failed", {
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return new Map();
+    throw new ForecastIndexabilityUnavailableError("client creation failed", errorMessage(error));
   }
 
   let responses: Array<{
@@ -218,19 +229,12 @@ export async function getForecastIndexabilityForBeaches(
       }),
     );
   } catch (error) {
-    console.error("[getForecastIndexabilityForBeaches] Coverage query failed", {
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return new Map();
+    throw new ForecastIndexabilityUnavailableError("coverage query failed", errorMessage(error));
   }
 
-  if (responses.some(({ error }) => error)) {
-    console.error("[getForecastIndexabilityForBeaches] Coverage query failed", {
-      errors: responses
-        .map(({ error }) => error?.message)
-        .filter(Boolean),
-    });
-    return new Map();
+  const failed = responses.flatMap(({ error }) => (error ? [error.message] : []));
+  if (failed.length > 0) {
+    throw new ForecastIndexabilityUnavailableError("coverage query failed", failed.join("; "));
   }
 
   const rowsByBeach = new Map<string, ForecastCoverageRow[]>();
