@@ -8,6 +8,7 @@
  * - data/realtime2/{ID}.txt: standard met + wave rows, same columns and units as latest_obs
  */
 
+import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 import type { SourceObservation, WaveObservationValues } from "../types";
 
 interface NdbcActiveStation {
@@ -170,18 +171,19 @@ export function deriveNdbcLocation(
   return { countryCode: null, region: null };
 }
 
-const COMPASS_POINTS = [
-  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
-];
-
-/** 16-point compass to degrees true (22.5 degree steps); numeric strings pass through. */
+/**
+ * 16-point compass to degrees true (22.5 degree steps) via the shared
+ * cardinalToDegrees, a module with no imports. Numeric strings are range
+ * checked here instead, because cardinalToDegrees wraps the NDBC 999 fill
+ * value to 279 degrees.
+ */
 export function compassToDegrees(token: string | undefined): number | null {
   if (!token) return null;
   const upper = token.trim().toUpperCase();
-  const index = COMPASS_POINTS.indexOf(upper);
-  if (index >= 0) return index * 22.5;
-  return inRange(parseNumber(upper), 0, 360);
+  const numeric = parseNumber(upper);
+  if (numeric !== null) return inRange(numeric, 0, 360);
+  if (upper === "MM") return null;
+  return cardinalToDegrees(upper);
 }
 
 function parseNumber(token: string | undefined): number | null {
