@@ -28,7 +28,7 @@ import {
   type TrendPoint,
 } from "./series";
 import { orEmptyWhenMissing, type BuoyPageSource } from "./source";
-import { classifyStationStatus, evaluateStationIndexability, type StationIndexDecision, type StationStatus } from "./status";
+import { classifyStationStatus, evaluateStationIndexability, liveLimitMs, type StationIndexDecision, type StationStatus } from "./status";
 
 const HISTORY_DAYS = 30;
 const COMPARISON_DAYS = 5;
@@ -210,7 +210,7 @@ export async function loadStationPage(
   ]);
 
   const status = station.has_wave
-    ? classifyStationStatus(station.last_wave_observed_at ?? latest.latestWave?.observed_at, nowMs)
+    ? classifyStationStatus(station.last_wave_observed_at ?? latest.latestWave?.observed_at, nowMs, liveLimitMs(station))
     : "offline";
   const showNow = status !== "offline" ? selectNowObservation(station.has_swell_split, latest.latestWave, history) : null;
 
@@ -246,7 +246,7 @@ export async function loadStationPage(
         station: candidate,
         distanceKm: candidate.distance_km,
         latest: nearbyLatest.get(candidate.id) ?? null,
-        status: classifyStationStatus(candidate.last_wave_observed_at, nowMs),
+        status: classifyStationStatus(candidate.last_wave_observed_at, nowMs, liveLimitMs(candidate)),
       })),
       nearestBeachKm: beachLinks.beaches.length > 0
         ? Math.min(...beachLinks.beaches.map((beach) => beach.distance_km))

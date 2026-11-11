@@ -34,6 +34,7 @@ import { formatStationTime } from "@/lib/buoy-pages/format";
 import { countryName, countryPath, placeLabel, regionName, regionPath, stationPath } from "@/lib/buoy-pages/geo-names";
 import { getBuoyPageSource } from "@/lib/buoy-pages/source";
 import { loadStationPage } from "@/lib/buoy-pages/station-page-data";
+import { liveLimitMs } from "@/lib/buoy-pages/status";
 import {
   absoluteUrl,
   buildStationDatasetJsonLd,
@@ -131,6 +132,7 @@ export default async function BuoyStationPage({ params }: PageProps) {
                 lastWaveAt={lastWaveAt}
                 serverStatus={status}
                 absolute={lastWaveAt ? formatStationTime(lastWaveAt, timeZone) : ""}
+                freshForMs={liveLimitMs(station)}
               />
               {stationCode(station) ? (
                 <span className="font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
