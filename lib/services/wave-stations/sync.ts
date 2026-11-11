@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildStationId, planRegistryUpsert, type ExistingStation } from "./catalogue";
 import { hasWaveValue } from "./ndbc/parsers";
+import { selectAllPages } from "./paging";
 import type {
   SourceObservation,
   StationHistoryFile,
@@ -16,30 +17,12 @@ import type {
 /** Untyped until types/database.generated.ts is regenerated with the catalogue tables. */
 export type CatalogueClient = SupabaseClient;
 
-const PAGE_SIZE = 1000;
 const REGISTRY_UPSERT_BATCH = 500;
 const MERGE_BATCH = 1000;
 const DEACTIVATE_BATCH = 100;
 const RETENTION_DAYS = 180;
 const PRUNE_LIMIT = 5000;
 const SPEC_REFRESH_MS = 50 * 60 * 1000;
-
-interface PageResult<T> {
-  data: T[] | null;
-  error: { message: string } | null;
-}
-
-export async function selectAllPages<T>(
-  page: (from: number, to: number) => PromiseLike<PageResult<T>>,
-): Promise<T[]> {
-  const rows: T[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await page(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE_SIZE) return rows;
-  }
-}
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
