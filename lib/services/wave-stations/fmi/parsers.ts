@@ -6,9 +6,10 @@
  * (https://en.ilmatieteenlaitos.fi/open-data-licence). No account or key.
  *
  * Parameters (FMI observable-property metadata, language=fin):
- * - WaveHs "Aallonkorkeus", m. FMI's wave buoys report significant wave
- *   height; the metadata label says only "wave height", so the parameter
- *   name (Hs) is the evidence. -> wave_height_m
+ * - WaveHs "Aallonkorkeus", m -> wave_height_m. FMI's buoy table at
+ *   https://en.ilmatieteenlaitos.fi/wave-height labels these same readings
+ *   "Significant wave height" and "Wave direction from" (checked 2026-11-11:
+ *   Bothnian Sea 0.8 m, 351°, 4.4 s matched this feed).
  * - WTP "Modaalinen periodi" (modal = peak period), s -> dominant_period_s
  * - ModalWDi "Aallokon tulosuunta" (direction the waves come FROM), deg ->
  *   mean_wave_direction_deg (modal, like NDBC MWD)
