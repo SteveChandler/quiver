@@ -214,14 +214,14 @@ function transformToTimeWindows(
         conditions = extractConditions(matchedRec.forecast);
         isCalibrated = matchedRec.forecast.isCalibrated;
       } else {
-        // No recommendation scored this slot, so it has no quality of its
-        // own: draw the placeholder bar. Its height and conditions come only
-        // from the top rec's hourly row for this slot (SAME beach, so
-        // calibration matches); a slot with no row shows the empty "—" state
-        // rather than copying the best window's values.
-        quality = 0.2;
+        // Height and conditions come only from the top rec's hourly row for
+        // this slot (SAME beach, so calibration matches). A slot with no row
+        // shows the empty "—" state and placeholder bar rather than copying
+        // the best window's values.
         slotLabel = label;
         const slotData = topRec.slotForecasts?.[hour];
+        const hourDiff = Math.abs(hour - bestHour);
+        quality = slotData ? Math.max(0.1, bestScore - hourDiff * 0.15) : 0.2;
         isCalibrated = slotData ? topIsCalibrated : undefined;
         height = slotData?.waveHeightBadge || slotData?.waveHeight || "—";
         conditions = {
