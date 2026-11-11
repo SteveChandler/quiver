@@ -1,0 +1,5 @@
+#YY  MM DD hh mm WDIR WSPD GST  WVHT   DPD   APD MWD   PRES  ATMP  WTMP  DEWP  VIS PTDY  TIDE
+#yr  mo dy hr mn degT m/s  m/s     m   sec   sec degT   hPa  degC  degC  degC  nmi  hPa    ft
+2026 11 11 03 00  90 12.0 14.0   1.0     4    MM  MM 1012.1  12.5  10.3    MM   MM -0.4    MM
+2026 11 11 02 00  90 12.0 15.0   1.0     4    MM  MM 1012.1  12.1  10.3    MM   MM -1.1    MM
+2026 11 11 01 00  90 11.0 13.0   0.8     4    MM  MM 1012.3  12.0  10.3    MM   MM -1.4    MM
