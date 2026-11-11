@@ -221,6 +221,109 @@ interface BeachRow {
   lon: number;
 }
 
+const BEACH_NEARBY_STATION_MAX_KM = 150;
+const CDIP_FORECAST_ID = /^edu_ucsd_cdip_(\d{1,4})$/i;
+
+function cdipVariants(raw: string): string[] {
+  const n = String(Number(raw));
+  return [...new Set([raw, n, n.padStart(3, "0")])];
+}
+
+export interface BeachStationMatch {
+  /** forecast_station: the forecast pipeline reads this buoy for the beach. */
+  relation: "forecast_station" | "nearby";
+  station: WaveStationRow;
+  distance_km: number;
+}
+
+export type BeachStationLookup =
+  | { kind: "beach-not-found" }
+  | { kind: "no-station" }
+  | { kind: "found"; match: BeachStationMatch };
+
+interface BeachPointRow {
+  id: string;
+  lat: number | null;
+  lon: number | null;
+  cdip_station: string | null;
+}
+
+/**
+ * Catalogue stations for one forecast station id, kept only when
+ * forecastStationIds maps them back to that id (the inverse of that function).
+ */
+async function catalogueStationsForForecastId(db: ReadClient, forecastId: string): Promise<WaveStationRow[]> {
+  const cdip = CDIP_FORECAST_ID.exec(forecastId);
+  const query = cdip
+    ? db.from("wave_stations").select(STATION_COLUMNS).in("cdip_station_id", cdipVariants(cdip[1]))
+    : db.from("wave_stations").select(STATION_COLUMNS).in("source_station_id", [
+      ...new Set([forecastId.replace(/^wmo_/i, "").toUpperCase(), forecastId.replace(/^wmo_/i, "").toLowerCase()]),
+    ]);
+  const { data, error } = await query;
+  if (error) fail("getStationForBeach catalogue", error);
+  const rows = (data ?? []) as unknown as WaveStationRow[];
+  const cdipId = cdip ? `edu_ucsd_cdip_${String(Number(cdip[1])).padStart(3, "0")}` : null;
+  return rows.filter((station) => forecastStationIds(station).includes(cdipId ?? forecastId));
+}
+
+/**
+ * The buoy behind one beach: the station the forecast pipeline reads
+ * (beach_observation_stations, then beaches.cdip_station), else the nearest
+ * active wave station within 150 km. Private and deleted beaches are not found.
+ * Read-only; the forecast tables are never written.
+ */
+export async function getStationForBeach(
+  beachId: string,
+  clients: { publicRead?: ReadClient; serviceRole?: ReadClient } = {},
+): Promise<BeachStationLookup> {
+  const db = publicClient(clients.publicRead);
+  const { data: beachData, error: beachError } = await db
+    .from("beaches")
+    .select("id, lat, lon, cdip_station")
+    .eq("id", beachId)
+    .or("is_private.is.null,is_private.eq.false")
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (beachError) fail("getStationForBeach beach", beachError);
+  const beach = beachData as BeachPointRow | null;
+  if (!beach) return { kind: "beach-not-found" };
+
+  const hasPoint = Number.isFinite(beach.lat) && Number.isFinite(beach.lon);
+  const distanceTo = (station: WaveStationRow): number =>
+    hasPoint ? haversineDistance(beach.lat as number, beach.lon as number, station.lat, station.lon) : NaN;
+  const closest = (stations: WaveStationRow[]): WaveStationRow | null =>
+    [...stations].sort((a, b) => (distanceTo(a) || 0) - (distanceTo(b) || 0))[0] ?? null;
+
+  // beach_observation_stations is service-role only; read it, never widen it.
+  const serviceRole = clients.serviceRole ?? (createSupabaseServiceRoleClient() as unknown as ReadClient);
+  const { data: linkData, error: linkError } = await serviceRole
+    .from("beach_observation_stations")
+    .select("station_id")
+    .eq("beach_id", beach.id)
+    .maybeSingle();
+  if (linkError) fail("getStationForBeach forecast link", linkError);
+  const forecastId = (linkData as { station_id: string | null } | null)?.station_id ?? null;
+
+  const linked = forecastId ? closest(await catalogueStationsForForecastId(db, forecastId)) : null;
+  const cdipStation = beach.cdip_station?.trim() ?? "";
+  const cdipLinked = !linked && /^\d{1,4}$/.test(cdipStation)
+    ? closest(await catalogueStationsForForecastId(db, `edu_ucsd_cdip_${cdipStation}`))
+    : null;
+  const forecastStation = linked ?? cdipLinked;
+  if (forecastStation) {
+    return {
+      kind: "found",
+      match: { relation: "forecast_station", station: forecastStation, distance_km: distanceTo(forecastStation) },
+    };
+  }
+
+  if (!hasPoint) return { kind: "no-station" };
+  const [nearest] = await getNearbyStations(beach.lat as number, beach.lon as number, 1, db);
+  if (!nearest || nearest.distance_km > BEACH_NEARBY_STATION_MAX_KM) return { kind: "no-station" };
+  const { distance_km, ...station } = nearest;
+  return { kind: "found", match: { relation: "nearby", station, distance_km } };
+}
+
 export async function getBeachesForStation(
   stationId: string,
   clients: { publicRead?: ReadClient; serviceRole?: ReadClient } = {},
