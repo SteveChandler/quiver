@@ -536,6 +536,7 @@ describe("First-Session-Nudge Push Cron", () => {
 
     it.each([
       ["12 days left", "2026-07-29T17:00:00.000Z"],
+      ["6.9 days left", "2026-07-24T14:36:00.000Z"],
       ["no trial end", null],
     ])("trialing_home with %s drops the fixed 7-day clause", async (_label, trialEndsAt) => {
       jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));

@@ -289,7 +289,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function trialDaysLeft(trialEndsAt: string | null, now: Date): number | null {
   const endsMs = Date.parse(trialEndsAt ?? "");
   if (!Number.isFinite(endsMs)) return null;
-  return Math.round((endsMs - now.getTime()) / DAY_MS);
+  // Whole days left: a user first enters the [now-8d, now-6d) window at 6-7 days old, so
+  // a 14-day trial has 7.0-8.0 days left and "7 days left" stays true.
+  return Math.floor((endsMs - now.getTime()) / DAY_MS);
 }
 
 async function resolveCohort(
