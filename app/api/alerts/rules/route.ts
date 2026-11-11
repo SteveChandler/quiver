@@ -187,7 +187,9 @@ export const POST = withAuth(
       .select("id, user_id, beach_id, name, preset_type, conditions, notify_email, notify_push, enabled, created_at, updated_at")
       .eq("user_id", user.id);
     // Zero rows on a failed read would skip the caps and the dedupe guards.
-    if (existingRulesError) throw existingRulesError;
+    if (existingRulesError) {
+      throw new Error(`alert_rules read failed: ${existingRulesError.message}`, { cause: existingRulesError });
+    }
 
     if (preset_type === "watched_call") {
       const dedupeKey = (validation.conditions?.watched_call)?.dedupeKey;
