@@ -78,26 +78,30 @@ describe("syncLatestObservations", () => {
         { id: "ndbc:46225", last_observed_at: "2026-11-11T02:26:00+00:00", has_wave: true },
         { id: "ndbc:46086", last_observed_at: "2026-11-11T03:00:00+00:00", has_wave: true },
         { id: "ndbc:51201", last_observed_at: "2026-11-11T03:30:00+00:00", has_wave: true },
+        { id: "ndbc:46146", last_observed_at: null, has_wave: true },
       ]],
     });
     const result = await syncLatestObservations(db, adapter(), Date.parse("2026-11-11T03:34:00Z"));
 
     expect(result).toMatchObject({
       rowsInFeed: 7,
-      rowsUnknownStation: 4,
+      rowsUnknownStation: 3,
       rowsNonWaveStation: 0,
+      // 46086's 03:00 row is met-only (waves come later in the hour): not stored.
+      rowsWithoutWave: 1,
       rowsStale: 1,
       rowsSent: 2,
       rowsPruned: 0,
     });
     expect(rpcCalls).toHaveLength(1);
     const rows = rpcCalls[0].args.p_rows as Array<Record<string, unknown>>;
-    expect(rows.map((row) => row.station_id).sort()).toEqual(["ndbc:46086", "ndbc:46225"]);
-    // Met fields of wave stations are kept (46086 reported wind and pressure only).
-    expect(rows.find((row) => row.station_id === "ndbc:46086")).toMatchObject({
-      wind_speed_ms: 5,
-      pressure_hpa: 1017.4,
-      water_temp_c: 23,
+    expect(rows.map((row) => row.station_id).sort()).toEqual(["ndbc:46146", "ndbc:46225"]);
+    // Met fields that arrive on a wave row are kept.
+    expect(rows.find((row) => row.station_id === "ndbc:46146")).toMatchObject({
+      wave_height_m: 1,
+      wind_speed_ms: 12,
+      pressure_hpa: 1012.1,
+      water_temp_c: 10.3,
     });
     // The latest feed never sends swell-split keys, so it cannot null them.
     expect(rows.every((row) => !("swell_height_m" in row))).toBe(true);

@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildStationId, planRegistryUpsert, type ExistingStation } from "./catalogue";
+import { hasWaveValue } from "./ndbc/parsers";
 import type {
   SourceObservation,
   StationHistoryFile,
@@ -134,6 +135,8 @@ interface LatestSyncResult {
   rowsUnknownStation: number;
   /** Rows for catalogue stations with has_wave = false; not stored (row volume). */
   rowsNonWaveStation: number;
+  /** Met-only rows (no wave value) from wave stations; not stored (row volume). */
+  rowsWithoutWave: number;
   rowsStale: number;
   rowsSent: number;
   rowsWritten: number;
@@ -159,6 +162,7 @@ export async function syncLatestObservations(
 
   let rowsUnknownStation = 0;
   let rowsNonWaveStation = 0;
+  let rowsWithoutWave = 0;
   let rowsStale = 0;
   const payload: ReturnType<typeof toMergePayload>[] = [];
   for (const obs of observations) {
@@ -168,10 +172,11 @@ export async function syncLatestObservations(
       rowsUnknownStation++;
       continue;
     }
-    // Met-only stations stay in the registry but their readings are not stored.
-    // A wave height is new evidence of waves, so that row is kept (it sets has_wave).
-    if (!station.has_wave && obs.values.wave_height_m == null) {
-      rowsNonWaveStation++;
+    // Row volume: only rows with a wave value are stored (with their met fields).
+    // A met-only station's row with a wave value is kept, and the merge sets has_wave.
+    if (!hasWaveValue(obs.values)) {
+      if (station.has_wave) rowsWithoutWave++;
+      else rowsNonWaveStation++;
       continue;
     }
     // Same-time rows still go through: a later file can fill a field the
@@ -202,6 +207,7 @@ export async function syncLatestObservations(
     rowsInFeed: observations.length,
     rowsUnknownStation,
     rowsNonWaveStation,
+    rowsWithoutWave,
     rowsStale,
     rowsSent: payload.length,
     rowsWritten,

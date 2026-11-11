@@ -344,6 +344,11 @@ export function parseSpecFile(text: string, sourceStationId: string): SourceObse
 
 const WAVE_FIELDS = ["wave_height_m", "dominant_period_s", "average_period_s", "mean_wave_direction_deg"] as const;
 
+/** True when a row carries any wave value (height, periods or direction). */
+export function hasWaveValue(values: Partial<WaveObservationValues>): boolean {
+  return WAVE_FIELDS.some((field) => values[field] != null);
+}
+
 /**
  * Standard file (realtime2/{ID}.txt): same columns and units as latest_obs.txt,
  * newest first. Met rows come every 6-10 minutes and waves about hourly, so
@@ -360,7 +365,7 @@ export function parseStandardFile(text: string, sourceStationId: string): Source
     const observedAt = parseTimestamp(cells, table.header, "YY");
     if (!observedAt) continue;
     const values = readValues(cells, table.header, LATEST_OBS_COLUMNS);
-    if (!WAVE_FIELDS.some((field) => values[field] != null)) continue;
+    if (!hasWaveValue(values)) continue;
     observations.push({ sourceStationId: sourceStationId.toUpperCase(), observedAt, values });
   }
   return observations;
