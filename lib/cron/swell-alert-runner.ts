@@ -200,6 +200,8 @@ export interface SwellAlertCandidate {
   boardName?: string | null;
   /** An NWS statement in effect at this beach, named in the push. */
   hazard?: "high_surf" | "high_rip_current" | null;
+  /** The NWS advisory read failed, so `hazard` is unknown rather than "none in effect". */
+  hazardLookupFailed?: true;
   /** The daily call's go window on the peak day, edges snapped to tide, wind and light. */
   window?: RefinedWindow | null;
 }
@@ -207,8 +209,6 @@ export interface SwellAlertCandidate {
 export interface SwellAlertPoolEvaluation {
   history: DayScore[];
   candidates: SwellAlertCandidate[];
-  /** Beaches whose NWS advisory read failed; their candidates carry no hazard line. */
-  hazardLookupFailures?: number;
   poolBeachIds?: string[];
   anchor?: { lat: number; lon: number } | null;
 }
@@ -304,7 +304,8 @@ interface SwellWindowEvent {
 }
 
 type RunnerDeps = SwellAlertDeps & SwellFollowupDeps & Partial<SwellOutlookDeps>
-  & Required<Pick<SwellAlertDeps, "rankDay" | "usesSharedRanking">>;
+  & Required<Pick<SwellAlertDeps, "rankDay" | "usesSharedRanking">>
+  & { hazardLookupFailures: HazardLookupFailureLog };
 type OutlookRunnerDeps = RunnerDeps & SwellOutlookDeps;
 
 interface EngagementGate {
@@ -328,7 +329,11 @@ interface SwellAlertRunSummary {
   sentByKind: Partial<Record<SwellKind, number>>;
   followupsEvaluated: number;
   followupStateFailures: number;
-  /** Hazard reads that failed; the push still went out without a hazard line. */
+  /**
+   * Pushes sent whose hazard lookup failed, so they went out without a hazard
+   * line. Failed lookups for swells that were never sent are not counted here;
+   * the once-per-run Sentry report carries the raw failed-lookup count.
+   */
   hazardLookupFailures: number;
   durationMs: number;
 }
@@ -419,19 +424,65 @@ function countSent(summary: SwellAlertRunSummary, kind: SwellKind): void {
   summary.sentByKind[kind] = (summary.sentByKind[kind] ?? 0) + 1;
 }
 
-function reportHazardLookupFailure(
-  error: unknown,
-  source: "nws_advisories" | "first_sighting_hazard",
-  beachId: string,
-): void {
-  Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
-    level: "warning",
-    tags: {
-      cron_route: "/api/cron/swell-alert",
-      swell_alert_hazard_source: source,
-    },
-    extra: { beach_id: beachId },
-  });
+type HazardLookupSource = "nws_advisories" | "first_sighting_hazard";
+
+const REPORTED_BEACH_IDS_MAX = 20;
+
+/**
+ * Collects failed hazard lookups for one run and reports each source to Sentry
+ * once at the end, so one api.weather.gov outage is one event, not users x beaches.
+ */
+class HazardLookupFailureLog {
+  private readonly bySource = new Map<HazardLookupSource, { count: number; error: unknown; beachIds: Set<string> }>();
+
+  record(source: HazardLookupSource, error: unknown, beachId: string): void {
+    const entry = this.bySource.get(source) ?? { count: 0, error, beachIds: new Set<string>() };
+    entry.count += 1;
+    entry.beachIds.add(beachId);
+    this.bySource.set(source, entry);
+  }
+
+  flush(): void {
+    for (const [source, { count, error, beachIds }] of this.bySource) {
+      Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+        level: "warning",
+        tags: {
+          cron_route: "/api/cron/swell-alert",
+          swell_alert_hazard_source: source,
+        },
+        extra: {
+          failed_lookups: count,
+          beach_count: beachIds.size,
+          beach_ids: [...beachIds].sort().slice(0, REPORTED_BEACH_IDS_MAX),
+        },
+      });
+    }
+    this.bySource.clear();
+  }
+}
+
+type LoadNwsAdvisories = typeof loadNwsSwellAdvisories;
+
+/**
+ * One run's NWS reader: after a zone's fetch fails, later beaches in that zone
+ * get the same error without a new fetch. Only failures are shared; a success
+ * is re-read per beach (the adapter's own cache serves it) because the adapter
+ * scopes its advisories to the beach it was asked for.
+ */
+export function createRunNwsAdvisoryLoader(load: LoadNwsAdvisories = loadNwsSwellAdvisories): LoadNwsAdvisories {
+  const firstAttempt = new Map<string, Promise<{ error: unknown } | null>>();
+  return async (input) => {
+    const zone = input.zone?.trim().toUpperCase() ?? "";
+    const prior = firstAttempt.get(zone);
+    if (prior) {
+      const failed = await prior;
+      if (failed) throw failed.error;
+      return load(input);
+    }
+    const attempt = load(input);
+    firstAttempt.set(zone, attempt.then(() => null, (error: unknown) => ({ error })));
+    return attempt;
+  };
 }
 
 function increment(summary: SwellAlertRunSummary, reason: string): void {
@@ -585,6 +636,7 @@ async function loadFirstSightingHazard(
   beachId: string,
   timezone: string,
   now: Date,
+  loadNws: LoadNwsAdvisories = loadNwsSwellAdvisories,
 ): Promise<FirstSightingHazard | null> {
   const { data: beach, error } = await client
     .from("beaches")
@@ -594,7 +646,7 @@ async function loadFirstSightingHazard(
   if (error) throw new Error(`Failed to load beach zone: ${error.message}`);
   const [ledger, nws] = await Promise.all([
     loadOfficialSwellAdvisories({ supabase: client, beachId, timezone, now }),
-    loadNwsSwellAdvisories({ zone: (beach as { nws_forecast_zone?: string | null } | null)?.nws_forecast_zone, beachId, now }),
+    loadNws({ zone: (beach as { nws_forecast_zone?: string | null } | null)?.nws_forecast_zone, beachId, now }),
   ]);
   const advisories = [...ledger, ...nws];
   const inEffect = (kind: FirstSightingHazard): boolean => validOfficialEvidenceRefs(
@@ -668,10 +720,16 @@ function buildScoreHistory(args: {
   return [...historyByDate.values()].sort((left, right) => left.localDate.localeCompare(right.localDate));
 }
 
+interface HazardLookupRun {
+  loadNws: LoadNwsAdvisories;
+  failures: HazardLookupFailureLog;
+}
+
 async function evaluatePool(
   client: ServiceClient,
   profile: SwellAlertProfile,
   now: Date,
+  hazardRun: HazardLookupRun = { loadNws: loadNwsSwellAdvisories, failures: new HazardLookupFailureLog() },
 ): Promise<SwellAlertPoolEvaluation> {
   const pool = await loadUserPool({
     supabase: client,
@@ -704,7 +762,6 @@ async function evaluatePool(
 
   const tomorrow = addCivilDays(today, 1);
   const snapshots = await loadKeySnapshots(client, pool.map(({ beach }) => beach.id), now) ?? [];
-  let hazardLookupFailures = 0;
   const candidates = await Promise.all(pool.map(async ({ beach }) => {
     const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
     const events = resolveEventKeys(
@@ -750,16 +807,17 @@ async function evaluatePool(
       now,
     });
     let nwsAdvisories: Awaited<ReturnType<typeof loadNwsSwellAdvisories>> = [];
+    let hazardLookupFailed = false;
     try {
-      nwsAdvisories = await loadNwsSwellAdvisories({
+      nwsAdvisories = await hazardRun.loadNws({
         zone: beach.nws_forecast_zone,
         beachId: beach.id,
         now,
       });
     } catch (error) {
       console.warn(`[swell-alert] NWS advisory fetch failed for ${beach.id}:`, error);
-      hazardLookupFailures += 1;
-      reportHazardLookupFailure(error, "nws_advisories", beach.id);
+      hazardLookupFailed = true;
+      hazardRun.failures.record("nws_advisories", error, beach.id);
     }
     const officialAdvisories = [...ledgerAdvisories, ...nwsAdvisories];
     const officialEvidenceRefs = validOfficialEvidenceRefs(officialAdvisories, beach.id, now);
@@ -783,6 +841,7 @@ async function evaluatePool(
       officialEvidenceRefs,
       boardName: recommendBoard(boardsForPicks, peakForecast, beach, profile.experienceLevel)?.name ?? null,
       hazard: inEffect("high_surf") ? "high_surf" : inEffect("high_rip_current") ? "high_rip_current" : null,
+      ...(hazardLookupFailed ? { hazardLookupFailed: true as const } : {}),
       window,
     };
     return candidate;
@@ -792,7 +851,6 @@ async function evaluatePool(
     history,
     poolBeachIds: capNearbyPool(pool, { experienceLevel: profile.experienceLevel }).pool.map(({ beach }) => beach.id),
     anchor: profile.location,
-    ...(hazardLookupFailures > 0 ? { hazardLookupFailures } : {}),
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,
     ),
@@ -1038,6 +1096,10 @@ function defaultDependencies(args: {
 }): RunnerDeps {
   let client = args.supabase;
   const firstSightingTideCache = new TideCache();
+  const hazardRun: HazardLookupRun = {
+    loadNws: createRunNwsAdvisoryLoader(),
+    failures: args.deps?.hazardLookupFailures ?? new HazardLookupFailureLog(),
+  };
   const rarityByUser = new Map<string, Promise<SwellRarityAssessor>>();
   let swellRunDates: Promise<string[]> | undefined;
   const getClient = (): ServiceClient => {
@@ -1053,7 +1115,7 @@ function defaultDependencies(args: {
       ?? ((userId) => isSharedCallRankingEnabled() && isSharedCallRankingUserAllowed(userId)),
     loadProfiles: args.deps?.loadProfiles ?? (() => loadProfiles(getClient(), args.now)),
     evaluatePool: args.deps?.evaluatePool
-      ?? ((profile, now) => evaluatePool(getClient(), profile, now)),
+      ?? ((profile, now) => evaluatePool(getClient(), profile, now, hazardRun)),
     loadAlertState: args.deps?.loadAlertState
       ?? ((userId, eventKey, now) => loadAlertState(getClient(), userId, eventKey, now)),
     insertAlert: args.deps?.insertAlert ?? (async (input) => {
@@ -1157,9 +1219,10 @@ function defaultDependencies(args: {
     loadSurfWindow: args.deps?.loadSurfWindow
       ?? ((profile, event, now) => loadSurfWindow(getClient(), firstSightingTideCache, profile, event, now)),
     loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
-      ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now)),
+      ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now, hazardRun.loadNws)),
     loadBeachDistancesKm: args.deps?.loadBeachDistancesKm
       ?? ((profile, beachIds) => loadBeachDistancesKm(getClient(), profile, beachIds)),
+    hazardLookupFailures: hazardRun.failures,
   };
 }
 
@@ -1568,12 +1631,13 @@ async function sendFirstSighting(
       console.warn(`[swell-alert] First-sighting window computation failed for ${swell.beach.id}:`, error);
       return undefined;
     });
+    let hazardLookupFailed = false;
     const hazardPromise = Promise.resolve().then(() =>
       deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now) ?? null,
     ).catch((error: unknown) => {
       console.warn(`[swell-alert] First-sighting hazard lookup failed for ${swell.beach.id}:`, error);
-      summary.hazardLookupFailures += 1;
-      reportHazardLookupFailure(error, "first_sighting_hazard", swell.beach.id);
+      hazardLookupFailed = true;
+      deps.hazardLookupFailures.record("first_sighting_hazard", error, swell.beach.id);
       return null;
     });
     const [surfWindow, hazard] = await Promise.all([windowPromise, hazardPromise]);
@@ -1638,6 +1702,7 @@ async function sendFirstSighting(
       return;
     }
     countSent(summary, "coming");
+    if (hazardLookupFailed) summary.hazardLookupFailures += 1;
     recordOutlookSend(gate, now, "first_sighting", decision.exception);
     try {
       await deps.markAlertEnqueued(alert.id, enqueued.eventId);
@@ -1778,8 +1843,16 @@ export async function runSwellAlertCron(args: {
   supabase?: ServiceClient;
   deps?: Partial<RunnerDeps>;
 }): Promise<SwellAlertRunSummary> {
-  const startedAt = Date.now();
   const deps = defaultDependencies(args);
+  try {
+    return await runWithDeps(deps, args.now);
+  } finally {
+    deps.hazardLookupFailures.flush();
+  }
+}
+
+async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSummary> {
+  const startedAt = Date.now();
   const summary = createSummary();
   if (!deps.isEnabled()) {
     summary.skipped = true;
@@ -1817,34 +1890,33 @@ export async function runSwellAlertCron(args: {
     if (profile.awayFromHome) {
       increment(summary, "away_from_home");
       const pinnedStates = followupStates.get(profile.id);
-      if (pinnedStates) await closeExpiredFollowups(deps, summary, profile, pinnedStates, args.now);
+      if (pinnedStates) await closeExpiredFollowups(deps, summary, profile, pinnedStates, now);
       continue;
     }
     if (isOutlookRecipient(deps, profile.id)) {
-      await runOutlookUser(deps, summary, profile, followupStates.get(profile.id) ?? [], args.now, followupEnabled);
+      await runOutlookUser(deps, summary, profile, followupStates.get(profile.id) ?? [], now, followupEnabled);
       continue;
     }
     const pinnedStates = followupStates.get(profile.id);
     if (pinnedStates && deps.isFollowupUserAllowed(profile.id)) {
-      await sendFollowups(deps, summary, profile, pinnedStates, args.now);
+      await sendFollowups(deps, summary, profile, pinnedStates, now);
     }
-    if (getLocalHour(args.now, profile.timezone) !== SEND_HOUR) {
+    if (getLocalHour(now, profile.timezone) !== SEND_HOUR) {
       increment(summary, "not_send_hour");
       continue;
     }
 
     try {
-      const evaluation = await deps.evaluatePool(profile, args.now);
-      summary.hazardLookupFailures += evaluation.hazardLookupFailures ?? 0;
+      const evaluation = await deps.evaluatePool(profile, now);
       const candidates = await orderSwellCandidatesForTomorrow({
-        profile, evaluation, now: args.now, rankDay: deps.rankDay, usesSharedRanking: deps.usesSharedRanking,
+        profile, evaluation, now: now, rankDay: deps.rankDay, usesSharedRanking: deps.usesSharedRanking,
       });
       summary.candidates += candidates.length;
       const held = await deps.resolveHeldBeaches({
         candidates: candidates.map((candidate, index) =>
           forecastSlotCandidate(`swell:${index}`, candidate.beach.id, candidate.event.peakAt)),
         profileExperience: ratingExperience(profile.experienceLevel, profile.boardClasses !== undefined),
-        asOf: args.now,
+        asOf: now,
       });
       const clearCandidates = candidates.filter((_, index) => {
         const reason = held.get(`swell:${index}`);
@@ -1857,7 +1929,7 @@ export async function runSwellAlertCron(args: {
         continue;
       }
       if (dailyCallOwnsToday(profile)
-        && getLocalDateString(new Date(lead.event.peakAt), profile.timezone) === getLocalDateString(args.now, profile.timezone)) {
+        && getLocalDateString(new Date(lead.event.peakAt), profile.timezone) === getLocalDateString(now, profile.timezone)) {
         increment(summary, "skipped_daily_call_owns_today");
         continue;
       }
@@ -1875,13 +1947,13 @@ export async function runSwellAlertCron(args: {
 
       // The detector's resolved key, so Week Scout can focus this exact swell.
       const eventKey = lead.event.eventKey;
-      const state = await deps.loadAlertState(profile.id, eventKey, args.now);
+      const state = await deps.loadAlertState(profile.id, eventKey, now);
       if (state.eventExists) {
         increment(summary, "event_exists");
         continue;
       }
       const lastAlertAt = Date.parse(state.lastAlertAt ?? "");
-      if (Number.isFinite(lastAlertAt) && args.now.getTime() - lastAlertAt < COOLDOWN_MS) {
+      if (Number.isFinite(lastAlertAt) && now.getTime() - lastAlertAt < COOLDOWN_MS) {
         increment(summary, "cooldown_7d");
         continue;
       }
@@ -1972,7 +2044,7 @@ export async function runSwellAlertCron(args: {
         beachId: lead.beach.id,
         source: "alert",
         detectorVersion: SWELL_EVENT_DETECTOR_VERSION,
-        issuedAt: args.now.toISOString(),
+        issuedAt: now.toISOString(),
         arrivalAt: lead.event.arrivalAt,
         peakAt: lead.event.peakAt,
         fadeAt: lead.event.fadeAt,
@@ -2000,6 +2072,7 @@ export async function runSwellAlertCron(args: {
 
       await deps.markAlertEnqueued(alert.id, enqueued.eventId);
       countSent(summary, "coming");
+      if (lead.hazardLookupFailed) summary.hazardLookupFailures += 1;
       if (followupEnabled) {
         try {
           await deps.saveFirstTold({
@@ -2014,7 +2087,7 @@ export async function runSwellAlertCron(args: {
               directionDeg: lead.event.directionDeg,
               serious: lead.serious,
               kind: "coming",
-              toldAt: args.now.toISOString(),
+              toldAt: now.toISOString(),
               status: "active",
             },
           });

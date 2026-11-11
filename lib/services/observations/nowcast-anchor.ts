@@ -6,11 +6,6 @@ import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
 const DEFAULT_MAX_AGE_HOURS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR;
 const LOG_PREFIX = "[nowcast-anchor]";
 
-type FetchOptions = {
-  maxAgeHours?: number;
-  beachId?: string;
-};
-
 type RpcRow = {
   beach_id: string;
   station_id: string;
@@ -26,34 +21,42 @@ function toNumberOrNull(v: number | string | null | undefined): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-/**
- * Fetch the latest buoy observation per observable beach via the
- * `get_nowcast_anchors` RPC (see migration 20260419150000).
- *
- * Returns a Map keyed by beach_id so callers can do O(1) lookup while
- * iterating ~300 beaches in the forecast builder. Beaches without a
- * recent observation are absent from the map (caller treats missing
- * as "no anchor, forecast-only path").
- *
- * Failures are logged and reported to Sentry, then fall through to an
- * empty map — a broken observation pipeline must never halt the forecast
- * build cron. Downstream callers check
- * `map.get(beachId)` truthiness and fall through on miss.
- */
-export async function fetchNowcastAnchors(
-  supabase: SupabaseClient,
-  options: FetchOptions = {},
-): Promise<Map<string, NowcastAnchor>> {
-  return (await fetchNowcastAnchorsWithStatus(supabase, options)).anchors;
+type ReportScope = "run" | "request";
+
+type FetchOptions = {
+  maxAgeHours?: number;
+  beachId?: string;
+  /**
+   * "run" (a cron that reads anchors once per run) reports every failure.
+   * "request" (the default; request paths) reports at most once per process
+   * per REQUEST_REPORT_WINDOW_MS, so an RPC outage is not one event per request.
+   */
+  reportScope?: ReportScope;
+};
+
+export const REQUEST_REPORT_WINDOW_MS = 5 * 60 * 1000;
+
+let lastRequestReportAt: number | null = null;
+let suppressedRequestReports = 0;
+
+/** Test hook: forget the request-scope report window. */
+export function resetNowcastAnchorReportWindow(): void {
+  lastRequestReportAt = null;
+  suppressedRequestReports = 0;
 }
 
-interface NowcastAnchorsFetch {
-  anchors: Map<string, NowcastAnchor>;
-  /** True when the RPC failed, so the empty map means "unknown", not "no fresh observations". */
-  unavailable: boolean;
-}
-
-function reportAnchorFailure(error: unknown, failure: "rpc_error" | "throw", options: FetchOptions): void {
+function reportAnchorFailure(error: unknown, failure: "rpc_error" | "throw", scope: ReportScope): void {
+  let suppressed = 0;
+  if (scope === "request") {
+    const now = Date.now();
+    if (lastRequestReportAt !== null && now - lastRequestReportAt < REQUEST_REPORT_WINDOW_MS) {
+      suppressedRequestReports += 1;
+      return;
+    }
+    lastRequestReportAt = now;
+    suppressed = suppressedRequestReports;
+    suppressedRequestReports = 0;
+  }
   const message =
     error instanceof Error
       ? error.message
@@ -65,20 +68,32 @@ function reportAnchorFailure(error: unknown, failure: "rpc_error" | "throw", opt
     tags: {
       component: "nowcast-anchor",
       nowcast_anchor_failure: failure,
-      nowcast_anchor_scope: options.beachId === undefined ? "batch" : "single_beach",
+      nowcast_anchor_scope: scope,
     },
+    ...(scope === "request" ? { extra: { suppressed_since_last_report: suppressed } } : {}),
   });
 }
 
 /**
- * Same lookup as fetchNowcastAnchors, plus whether the RPC failed. The forecast
- * cron uses the flag to report a degraded (forecast-only) build.
+ * Fetch the latest buoy observation per observable beach via the
+ * `get_nowcast_anchors` RPC (see migration 20260419150000).
+ *
+ * Returns a Map keyed by beach_id so callers can do O(1) lookup while
+ * iterating ~300 beaches in the forecast builder. Beaches without a
+ * recent observation are absent from the map (caller treats missing
+ * as "no anchor, forecast-only path").
+ *
+ * Failures are logged and reported to Sentry (see `reportScope`), then fall
+ * through to an empty map — a broken observation pipeline must never halt the
+ * forecast build cron. Downstream callers check
+ * `map.get(beachId)` truthiness and fall through on miss.
  */
-export async function fetchNowcastAnchorsWithStatus(
+export async function fetchNowcastAnchors(
   supabase: SupabaseClient,
   options: FetchOptions = {},
-): Promise<NowcastAnchorsFetch> {
+): Promise<Map<string, NowcastAnchor>> {
   const maxAgeHours = options.maxAgeHours ?? DEFAULT_MAX_AGE_HOURS;
+  const scope = options.reportScope ?? "request";
 
   try {
     const query = supabase.rpc("get_nowcast_anchors", {
@@ -90,8 +105,8 @@ export async function fetchNowcastAnchorsWithStatus(
 
     if (error) {
       console.warn(`${LOG_PREFIX} RPC error, falling through to forecast-only`, error);
-      reportAnchorFailure(error, "rpc_error", options);
-      return { anchors: new Map(), unavailable: true };
+      reportAnchorFailure(error, "rpc_error", scope);
+      return new Map();
     }
 
     const rows: RpcRow[] = (data as RpcRow[] | null) ?? [];
@@ -108,11 +123,11 @@ export async function fetchNowcastAnchorsWithStatus(
         waveDirectionDeg: toNumberOrNull(r.wave_direction_deg),
       });
     }
-    return { anchors: map, unavailable: false };
+    return map;
   } catch (err) {
     console.warn(`${LOG_PREFIX} unexpected failure, falling through to forecast-only`, err);
-    reportAnchorFailure(err, "throw", options);
-    return { anchors: new Map(), unavailable: true };
+    reportAnchorFailure(err, "throw", scope);
+    return new Map();
   }
 }
 
