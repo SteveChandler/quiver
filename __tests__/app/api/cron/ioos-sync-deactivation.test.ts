@@ -474,4 +474,60 @@ describe("IOOS Sync - Station Deactivation", () => {
     expect(incrementRpc).not.toHaveBeenCalled();
     expect(deactivateMock.gte).not.toHaveBeenCalled();
   });
+  it("records a failed active-count read and skips miss counting and deactivation", async () => {
+    let deactivateCalled = false;
+    const incrementRpc = jest.fn(() => Promise.resolve({ data: null, error: null }));
+
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === "ioos_stations") {
+        return {
+          upsert: jest.fn(() => Promise.resolve({ error: null })),
+          update: jest.fn((data: any) => {
+            if (data.active === false) {
+              deactivateCalled = true;
+              return {
+                gte: jest.fn(() => ({
+                  eq: jest.fn(() => Promise.resolve({ error: null })),
+                })),
+              };
+            }
+            return {
+              in: jest.fn(() => Promise.resolve({ error: null })),
+            };
+          }),
+          select: jest.fn(() => ({
+            eq: jest.fn(() =>
+              Promise.resolve({
+                data: null,
+                count: null,
+                error: { code: "57014", message: "canceling statement due to statement timeout" },
+              })
+            ),
+          })),
+        };
+      }
+      if (table === "beaches") {
+        return createChainMock({
+          data: [
+            { id: "beach-1", name: "Test Beach 1", lat: 32.9, lon: -117.25 },
+            { id: "beach-2", name: "Test Beach 2", lat: 32.95, lon: -117.27 },
+          ],
+          error: null,
+        });
+      }
+      return createChainMock({ data: [], error: null });
+    });
+
+    mockSupabase.rpc = incrementRpc;
+
+    const request = new NextRequest("http://localhost/api/cron/ioos-sync?phase=stations");
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(data.errors).toEqual(
+      expect.arrayContaining([expect.stringContaining("canceling statement due to statement timeout")])
+    );
+    expect(incrementRpc).not.toHaveBeenCalled();
+    expect(deactivateCalled).toBe(false);
+  });
 });

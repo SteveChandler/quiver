@@ -155,4 +155,88 @@ describe("NDBC direct sync cron route", () => {
     expect(refreshRpc).not.toHaveBeenCalled();
     expect(fetchRecentNDBCObservations).not.toHaveBeenCalled();
   });
+  describe("active IOOS dedup read", () => {
+    const stations = [
+      { station_id: "46225", ioos_station_id: "ioos-46225" },
+      { station_id: "46086", ioos_station_id: null },
+    ];
+
+    function buildSupabase(ioosResult: {
+      data: Array<{ station_id: string }> | null;
+      error: { code?: string; message: string } | null;
+    }) {
+      const upsert = jest.fn().mockResolvedValue({ error: null });
+      const supabase = {
+        from: jest.fn((table: string) => {
+          if (table === "ndbc_direct_stations") {
+            const query = createObservationStationsQuery({ data: stations, error: null });
+            return Object.assign(query, {
+              update: jest.fn(() => ({ in: jest.fn().mockResolvedValue({ error: null }) })),
+            });
+          }
+          if (table === "ioos_stations") {
+            return {
+              select: jest.fn(() => ({
+                in: jest.fn(() => ({ eq: jest.fn().mockResolvedValue(ioosResult) })),
+              })),
+            };
+          }
+          if (table === "ndbc_direct_observations") {
+            return { upsert };
+          }
+          throw new Error(`unexpected table ${table}`);
+        }),
+        rpc: jest.fn(),
+      };
+      return supabase;
+    }
+
+    beforeEach(() => {
+      (fetchRecentNDBCObservations as jest.Mock).mockResolvedValue([
+        {
+          ts: "2026-11-11T00:00:00Z",
+          wave_height_m: 1,
+          wave_period_s: 12,
+          wave_direction_deg: 270,
+          water_temp_c: 15,
+          wind_speed_ms: 2,
+          wind_direction_deg: 300,
+        },
+      ]);
+    });
+
+    it("skips stations that are active in IOOS when the read succeeds", async () => {
+      const supabase = buildSupabase({ data: [{ station_id: "ioos-46225" }], error: null });
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+
+      const response = await GET(
+        new NextRequest("http://localhost/api/cron/ndbc-direct-sync?phase=observations")
+      );
+      const data = await response.json();
+
+      expect(data.data.errors).toEqual([]);
+      expect(data.data.stationsSkippedIOOS).toBe(1);
+      expect(fetchRecentNDBCObservations).toHaveBeenCalledTimes(1);
+      expect(fetchRecentNDBCObservations).toHaveBeenCalledWith("46086", 24);
+    });
+
+    it("records a failed IOOS read and does not sync IOOS-linked stations", async () => {
+      const supabase = buildSupabase({
+        data: null,
+        error: { code: "57014", message: "canceling statement due to statement timeout" },
+      });
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+
+      const response = await GET(
+        new NextRequest("http://localhost/api/cron/ndbc-direct-sync?phase=observations")
+      );
+      const data = await response.json();
+
+      expect(data.data.errors).toEqual([
+        expect.stringContaining("canceling statement due to statement timeout"),
+      ]);
+      expect(fetchRecentNDBCObservations).not.toHaveBeenCalledWith("46225", expect.anything());
+      expect(fetchRecentNDBCObservations).toHaveBeenCalledWith("46086", 24);
+    });
+  });
 });

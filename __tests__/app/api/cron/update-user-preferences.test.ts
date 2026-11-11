@@ -74,13 +74,14 @@ function createSessionsChain(
 
 // Helper to create a mock chain for profiles (NPC users)
 function createProfilesChain(
-  npcIds: string[] = [] // NPC user IDs to exclude
+  npcIds: string[] = [], // NPC user IDs to exclude
+  error: { code: string; message: string } | null = null
 ) {
   return {
     select: jest.fn().mockReturnThis(),
     eq: jest.fn(() => Promise.resolve({
-      data: npcIds.map(id => ({ id })),
-      error: null
+      data: error ? null : npcIds.map(id => ({ id })),
+      error,
     })),
   };
 }
@@ -596,6 +597,30 @@ describe('User Preference Update Cron Job API', () => {
       expect(computeUserPreferences).toHaveBeenCalledWith('user-1');
       expect(computeUserPreferences).toHaveBeenCalledWith('user-2');
       expect(computeUserPreferences).toHaveBeenCalledWith('user-3');
+    });
+      it('should fail the run and learn no preferences when the NPC user read fails', async () => {
+      mockSupabaseClient.from = jest.fn((table: string) => {
+        if (table === 'profiles') {
+          return createProfilesChain([], {
+            code: '57014',
+            message: 'canceling statement due to statement timeout',
+          });
+        }
+        return createSessionsChain([{ user_id: 'user-1' }, { user_id: 'user-2' }]);
+      });
+
+      const request = mockRequest({
+        authorization: 'Bearer valid-cron-secret',
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(data.success).toBe(false);
+      expect(data.details).toMatchObject({
+        error: expect.stringContaining('Failed to query NPC users'),
+      });
+      expect(computeUserPreferences).not.toHaveBeenCalled();
     });
   });
 });
