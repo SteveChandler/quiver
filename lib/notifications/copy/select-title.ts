@@ -137,7 +137,8 @@ export function selectTitle(args: SelectTitleArgs): SelectedTitle {
   if (!selected) {
     // Rotation spent every title, but the body text is the same for each title
     // of a kind, so the body of the best-ranked tag match still states the facts.
-    const bodySource = topRankedOf(tagMatches)[0];
+    // Film entries carry the only Hawaii body ("North Shore: …"), which is not true of every HI beach.
+    const bodySource = topRankedOf(tagMatches.filter((entry) => !entry.film))[0];
     return {
       id: "fallback",
       title: fallbackTitle(args.pool, args.vars),

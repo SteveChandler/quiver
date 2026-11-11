@@ -272,6 +272,16 @@ describe("selectTitle", () => {
     expect(selected.body).toBe("Weekday: SW 4ft @ 14s, peak Wed AM. Your call: Blacks, grab your 7'2. Best this month.");
   });
 
+  it("does not borrow the North Shore body for a Hawaii swell when rotation has used every title", () => {
+    const selected = selectTitle(swellArgs({
+      tags: ["weekday", "manageable", "generic", "hawaii", "northwest"],
+      recentTitleIds: titlePool.swell.map((entry) => entry.id),
+    }));
+
+    expect(selected.id).toBe("fallback");
+    expect(selected.body).toMatch(/^Weekday: /);
+  });
+
   it("keeps a serious body for a serious swell when rotation has used every title", () => {
     const base = swellArgs({ recentTitleIds: titlePool.swell.map((entry) => entry.id) });
     const selected = selectTitle({ ...base, tags: ["weekday", "serious", "generic"] });
