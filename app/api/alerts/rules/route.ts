@@ -182,10 +182,12 @@ export const POST = withAuth(
     }
 
     // Count existing rules and distinct beaches for this user
-    const { data: existingRules } = await (supabase as any)
+    const { data: existingRules, error: existingRulesError } = await (supabase as any)
       .from("alert_rules")
       .select("id, user_id, beach_id, name, preset_type, conditions, notify_email, notify_push, enabled, created_at, updated_at")
       .eq("user_id", user.id);
+    // Zero rows on a failed read would skip the caps and the dedupe guards.
+    if (existingRulesError) throw existingRulesError;
 
     if (preset_type === "watched_call") {
       const dedupeKey = (validation.conditions?.watched_call)?.dedupeKey;
