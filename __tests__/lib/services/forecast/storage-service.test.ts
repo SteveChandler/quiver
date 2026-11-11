@@ -16,6 +16,8 @@ const existingRowsResult: { data: Array<{ forecast_at: string }> | null; error: 
 };
 const selectMock = jest.fn();
 
+jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
+
 // Mock Supabase client
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(async () => ({
@@ -37,6 +39,7 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
+import * as Sentry from "@sentry/nextjs";
 import { ForecastStorageService } from "@/lib/services/forecast/storage-service";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
@@ -272,6 +275,63 @@ describe("ForecastStorageService", () => {
       expect(result.success).toBe(true);
       expect(upsertedTimes()).toEqual(["2026-10-18T15:00:00.000Z"]);
       expectConsoleWarnings([/Could not check existing forecasts/]);
+    });
+  });
+  describe("PGRST204 schema strip", () => {
+    const missingColumn = (column: string) => ({
+      data: null,
+      error: { code: "PGRST204", message: `Could not find the '${column}' column of 'enhanced_forecasts' in the schema cache` },
+    });
+    const withColumn = (column: string) =>
+      ({ ...mockForecast, [column]: 1.2 }) as unknown as EnhancedForecastEntity;
+
+    it("retries without the missing column, returns it, and reports it to Sentry once per process", async () => {
+      upsertMock
+        .mockReturnValueOnce(missingColumn("strip_test_col_a"))
+        .mockReturnValueOnce({ data: [], error: null })
+        .mockReturnValueOnce(missingColumn("strip_test_col_a"))
+        .mockReturnValueOnce({ data: [], error: null });
+
+      const first = await service.storeEnhancedForecasts(mockBeach, [withColumn("strip_test_col_a")]);
+      const second = await new ForecastStorageService({ verboseLogging: false })
+        .storeEnhancedForecasts(mockBeach, [withColumn("strip_test_col_a")]);
+
+      expect(first).toMatchObject({ success: true, strippedColumns: ["strip_test_col_a"] });
+      expect(second).toMatchObject({ success: true, strippedColumns: ["strip_test_col_a"] });
+      const [originalRows] = upsertMock.mock.calls[0];
+      const [retriedRows] = upsertMock.mock.calls[1];
+      const { strip_test_col_a: _dropped, ...expectedRow } = originalRows[0];
+      expect(retriedRows).toEqual([expectedRow]);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining("strip_test_col_a") }),
+        expect.objectContaining({
+          tags: expect.objectContaining({ forecast_schema_stripped_column: "strip_test_col_a" }),
+        }),
+      );
+      expectConsoleWarnings([/missing column 'strip_test_col_a'/, /missing column 'strip_test_col_a'/]);
+    });
+
+    it("a clean write returns no stripped columns and reports nothing", async () => {
+      const result = await service.storeEnhancedForecasts(mockBeach, [mockForecast]);
+
+      expect(result).toEqual({ success: true, data: [] });
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it("a non-PGRST204 error still fails the write and is not stripped or reported", async () => {
+      upsertMock.mockReturnValueOnce({
+        data: null,
+        error: { code: "57014", message: "canceling statement due to statement timeout" },
+      });
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await service.storeEnhancedForecasts(mockBeach, [withColumn("strip_test_col_b")]);
+
+      expect(result).toEqual({ success: false, error: "canceling statement due to statement timeout" });
+      expect(upsertMock).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
   });
 });
