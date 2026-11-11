@@ -7,7 +7,7 @@
  */
 
 /** One id per data provider; the station id is `{source}:{source_station_id}`. */
-export type WaveStationSource = "ndbc" | "marine_ie" | "aodn" | "fmi" | "smhi";
+export type WaveStationSource = "ndbc" | "marine_ie" | "aodn" | "fmi" | "smhi" | "copernicus";
 
 export interface WaveStationRow {
   id: string;
@@ -87,6 +87,11 @@ export interface SourceStation {
   region: string | null;
   cdipStationId: string | null;
   wmoId?: string | null;
+  /**
+   * The id part of a new slug; defaults to sourceStationId. Empty when the
+   * source's id is only the name run together (Copernicus "WesthinderBuoy").
+   */
+  slugId?: string;
   hasWave: boolean;
   hasSwellSplit: boolean;
   hasMet: boolean;
@@ -109,9 +114,11 @@ export type StationHistoryResult =
   | { status: "ok"; lastModified: string | null; observations: SourceObservation[] };
 
 /**
- * One wave-data source. NDBC needs per-station history files; the other
+ * One wave-data source. NDBC needs per-station history files; most other
  * sources answer one bulk request for recent hours, so they leave
- * fetchStationHistory out and the "spec" cron phase skips them.
+ * fetchStationHistory out and the "spec" cron phase skips them. Copernicus
+ * has one file per station and no bulk feed: its latest phase runs the
+ * station history queue instead (latestVia "history").
  */
 export interface WaveStationSourceAdapter {
   readonly source: WaveStationSource;
@@ -123,9 +130,21 @@ export interface WaveStationSourceAdapter {
    * stations stay active, so they show offline through the 30-day rule.
    */
   readonly emptyStationListReason?: string;
+  /**
+   * "bulk" (default): the latest phase calls fetchLatestObservations.
+   * "history": the latest phase checks each station's file through
+   * fetchStationHistory (state in the txt_* columns).
+   */
+  readonly latestVia?: "bulk" | "history";
+  /**
+   * The history queue also resends rows this many minutes older than the
+   * newest one stored, so a reading that lands late (after a newer one) is
+   * still merged. The merge skips rows that did not change. Default 0.
+   */
+  readonly historyOverlapMinutes?: number;
   fetchStations(): Promise<SourceStation[]>;
   /** One cheap request for the newest readings of every station (a bounded recent window). */
-  fetchLatestObservations(): Promise<SourceObservation[]>;
+  fetchLatestObservations?(): Promise<SourceObservation[]>;
   /**
    * Per-station history; honours If-Modified-Since. `file` "spec" (default) has
    * the swell split; "txt" is the standard file (waves with dominant period, plus met).

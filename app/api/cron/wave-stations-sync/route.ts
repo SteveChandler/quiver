@@ -24,6 +24,7 @@ import {
   syncSwellSplit,
   type CatalogueClient,
 } from "@/lib/services/wave-stations/sync";
+import type { WaveStationSourceAdapter } from "@/lib/services/wave-stations/types";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -51,6 +52,31 @@ const TXT_OPTIONS = {
   budgetMs: 110_000,
 };
 
+// Copernicus, once an hour in the latest phase: one file per station (~85 KB,
+// one UTC day of readings), downloaded only when it changed. A first run
+// backfills at most that day, so backfills need no separate cap. The other
+// latest sources finish in seconds, so 200 s stays inside maxDuration 300.
+const FILE_LATEST_OPTIONS = {
+  maxStations: 600,
+  maxBackfills: 600,
+  concurrency: 6,
+  budgetMs: 200_000,
+};
+
+type LatestRun =
+  | Awaited<ReturnType<typeof syncLatestObservations>>
+  | (Awaited<ReturnType<typeof syncStandardHistory>> & { rowsSent: number });
+
+/** One due source's latest run: its bulk feed, or its per-station files (latestVia "history"). */
+async function runLatest(db: CatalogueClient, adapter: WaveStationSourceAdapter, nowMs: number): Promise<LatestRun> {
+  if (adapter.latestVia === "history") {
+    const result = await syncStandardHistory(db, adapter, nowMs, FILE_LATEST_OPTIONS);
+    return { ...result, rowsSent: result.rowsWritten };
+  }
+  // The prune is table-wide; NDBC runs every quarter, so it carries it.
+  return syncLatestObservations(db, adapter, nowMs, { prune: adapter.source === "ndbc" });
+}
+
 /**
  * GET /api/cron/wave-stations-sync?phase=registry|latest|spec
  *
@@ -59,7 +85,8 @@ const TXT_OPTIONS = {
  * - registry: daily station list from every source (NDBC activestations.xml,
  *   then the non-US sources), then the cross-source duplicate pass
  * - latest: every 15 min; one bulk request per due source (NDBC every quarter,
- *   others at their own update rate, see isLatestDue)
+ *   others at their own update rate, see isLatestDue); Copernicus reads its
+ *   changed per-station files instead, once an hour
  * - spec: every 15 min, NDBC only: a staggered batch of realtime2 .spec files
  *   (swell split), then .txt files (waves with dominant period, plus met)
  */
@@ -124,11 +151,7 @@ async function _GET(request: Request): Promise<Response> {
           getProduced: (runs) => sumOk(runs, (value) => value.rowsSent),
           failureReason: (runs) => failedSources(runs),
         },
-        () =>
-          runPerSource(due, (adapter) =>
-            // The prune is table-wide; NDBC runs every quarter, so it carries it.
-            syncLatestObservations(db, adapter, nowMs, { prune: adapter.source === "ndbc" }),
-          ),
+        () => runPerSource(due, (adapter) => runLatest(db, adapter, nowMs)),
       );
       return createSuccessResponse({ sources: result });
     }

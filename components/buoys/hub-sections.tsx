@@ -91,12 +91,24 @@ export function HubGroups({ groups, regionHref }: { groups: HubGroup[]; regionHr
   );
 }
 
+const COPERNICUS_DOI_URL = "https://doi.org/10.48670/moi-00036";
+
 export function HubFootnote() {
   return (
-    <p className="mt-8 max-w-3xl text-xs leading-5 text-[#655C4C]">
-      Heights are significant wave height at each buoy, not surf height at a beach. Live: a wave reading in the
-      last 3 hours. Stale: older than 3 hours. Offline: no wave reading in 30 days. Each buoy page names its
-      data source and licence. Not for navigation.
-    </p>
+    <>
+      <p className="mt-8 max-w-3xl text-xs leading-5 text-[#655C4C]">
+        Heights are significant wave height at each buoy, not surf height at a beach. Live: a wave reading in the
+        last 3 hours, or longer for sources that publish late. Stale: older than that. Offline: no wave reading in
+        30 days. Each buoy page names its data source and licence. Not for navigation.
+      </p>
+      <p className="mt-2 max-w-3xl text-xs leading-5 text-[#655C4C]" data-testid="buoy-hub-credits">
+        Data: NOAA National Data Buoy Center; Marine Institute and Met Éireann; Australian Ocean Data Network
+        (IMOS and partners); Finnish Meteorological Institute; SMHI; E.U. Copernicus Marine Service Information (
+        <a href={COPERNICUS_DOI_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+          {COPERNICUS_DOI_URL}
+        </a>
+        ).
+      </p>
+    </>
   );
 }

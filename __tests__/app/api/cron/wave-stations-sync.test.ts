@@ -1,7 +1,12 @@
 /** @jest-environment node */
 import { GET } from "@/app/api/cron/wave-stations-sync/route";
 import { withCronOutcome } from "@/lib/cron/outcome";
-import { syncDuplicates, syncLatestObservations, syncRegistry } from "@/lib/services/wave-stations/sync";
+import {
+  syncDuplicates,
+  syncLatestObservations,
+  syncRegistry,
+  syncStandardHistory,
+} from "@/lib/services/wave-stations/sync";
 
 jest.mock("@/lib/cron/outcome", () => ({
   withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
@@ -13,13 +18,16 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 jest.mock("@/lib/cron/observability", () => ({ withObservedCron: jest.fn((_route, handler) => handler) }));
 jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jest.fn(() => ({})) }));
 jest.mock("@/lib/services/wave-stations/adapters", () => {
-  const make = (source: string, latestEveryMinutes: number) => ({
+  const make = (source: string, latestEveryMinutes: number, latestVia?: "history") => ({
     source,
     latestEveryMinutes,
+    latestVia,
     fetchStations: jest.fn(),
     fetchLatestObservations: jest.fn(),
   });
-  return { SOURCE_ADAPTERS: [make("ndbc", 15), make("marine_ie", 60), make("aodn", 30)] };
+  return {
+    SOURCE_ADAPTERS: [make("ndbc", 15), make("marine_ie", 60), make("aodn", 30), make("copernicus", 60, "history")],
+  };
 });
 jest.mock("@/lib/services/wave-stations/sync", () => ({
   syncRegistry: jest.fn(),
@@ -41,6 +49,7 @@ describe("/api/cron/wave-stations-sync", () => {
       if (adapter.source === "marine_ie") throw new Error("HTTP 503");
       return { rowsSent: adapter.source === "ndbc" ? 40 : 12 };
     });
+    (syncStandardHistory as jest.Mock).mockResolvedValue({ fetched: 3, notModified: 1, rowsWritten: 7, errors: [] });
     const response = await GET(new Request("http://localhost/api/cron/wave-stations-sync?phase=latest"));
     jest.useRealTimers();
     error.mockRestore();
@@ -52,9 +61,13 @@ describe("/api/cron/wave-stations-sync", () => {
       ["marine_ie", { prune: false }],
       ["aodn", { prune: false }],
     ]);
+    // Copernicus has no bulk feed: its changed per-station files go through the history queue.
+    expect((syncStandardHistory as jest.Mock).mock.calls.map((call) => [call[1].source, call[3]])).toEqual([
+      ["copernicus", { maxStations: 600, maxBackfills: 600, concurrency: 6, budgetMs: 200_000 }],
+    ]);
     const [options] = (withCronOutcome as jest.Mock).mock.calls[0] as [Options];
     const body = await response.json();
-    expect(options.getProduced(body.data.sources)).toBe(52);
+    expect(options.getProduced(body.data.sources)).toBe(59);
     expect(options.failureReason(body.data.sources)).toBe("marine_ie: HTTP 503");
   });
 
@@ -64,6 +77,7 @@ describe("/api/cron/wave-stations-sync", () => {
     await GET(new Request("http://localhost/api/cron/wave-stations-sync?phase=latest"));
     jest.useRealTimers();
     expect((syncLatestObservations as jest.Mock).mock.calls.map((call) => call[1].source)).toEqual(["ndbc"]);
+    expect(syncStandardHistory).not.toHaveBeenCalled();
   });
 
   it("runs the registry for every source in order, keeps going past a failure, then one duplicate pass", async () => {
@@ -76,12 +90,12 @@ describe("/api/cron/wave-stations-sync", () => {
     const response = await GET(new Request("http://localhost/api/cron/wave-stations-sync?phase=registry"));
     error.mockRestore();
     expect(response.status).toBe(200);
-    expect((syncRegistry as jest.Mock).mock.calls.map((call) => call[1].source)).toEqual(["ndbc", "marine_ie", "aodn"]);
+    expect((syncRegistry as jest.Mock).mock.calls.map((call) => call[1].source)).toEqual(["ndbc", "marine_ie", "aodn", "copernicus"]);
     const [options] = (withCronOutcome as jest.Mock).mock.calls[0] as [Options];
     const body = await response.json();
     expect(syncDuplicates).toHaveBeenCalledTimes(1);
     expect(body.data.duplicates).toEqual({ marked: 1, cleared: 0 });
-    expect(options.getProduced(body.data)).toBe(1361);
+    expect(options.getProduced(body.data)).toBe(1365);
     expect(options.failureReason(body.data)).toBe("aodn: timeout");
   });
 });

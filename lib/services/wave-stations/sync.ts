@@ -174,7 +174,7 @@ export async function syncDuplicates(db: CatalogueClient): Promise<{ marked: num
   const all = await selectAllPages<DuplicateCandidate>((from, to) =>
     db
       .from("wave_stations")
-      .select("id, source, name, lat, lon, wmo_id, active, duplicate_of")
+      .select("id, source, name, lat, lon, wmo_id, active, duplicate_of, has_wave")
       .order("id")
       .range(from, to),
   );
@@ -219,6 +219,7 @@ export async function syncLatestObservations(
   options: { prune?: boolean } = {},
 ): Promise<LatestSyncResult> {
   const prune = options.prune ?? true;
+  if (!adapter.fetchLatestObservations) throw new Error(`${adapter.source}: no bulk latest feed`);
   const observations = await adapter.fetchLatestObservations();
   const stations = await selectAllPages<Pick<WaveStationRow, "id" | "last_observed_at" | "has_wave">>(
     (from, to) =>
@@ -476,7 +477,8 @@ async function syncHistoryQueue(
       }
 
       result.fetched++;
-      const sinceMs = station.lastObservedAt ? Date.parse(station.lastObservedAt) : -Infinity;
+      const lastMs = station.lastObservedAt ? Date.parse(station.lastObservedAt) : -Infinity;
+      const sinceMs = lastMs - (adapter.historyOverlapMinutes ?? 0) * 60 * 1000;
       const fresh = history.observations.filter((obs) => {
         if (isFuture(obs, nowMs)) {
           result.rowsFuture++;
@@ -495,7 +497,7 @@ async function syncHistoryQueue(
         holdsSlot = false;
       }
 
-      const newestMs = fresh.reduce((max, obs) => Math.max(max, Date.parse(obs.observedAt)), sinceMs);
+      const newestMs = fresh.reduce((max, obs) => Math.max(max, Date.parse(obs.observedAt)), lastMs);
       const newest = Number.isFinite(newestMs) ? new Date(newestMs).toISOString() : station.lastObservedAt;
       await markChecked(station.id, {
         [config.lastModified]: history.lastModified,

@@ -6,6 +6,7 @@ import {
   buildStationDescription,
   buildStationTitle,
   CC_BY_4,
+  COPERNICUS_MARINE,
   licenseLabel,
   licenseRequiresChangeNote,
   licenseUrl,
@@ -19,6 +20,13 @@ describe("licence rendering for non-US sources", () => {
     expect(licenseLabel(CC_BY_4)).toBe("CC BY 4.0");
     expect(licenseRequiresChangeNote(CC_BY_4)).toBe(true);
     expect(licenseRequiresChangeNote("public-domain-us-gov")).toBe(false);
+  });
+
+  it("links the Copernicus Marine licence page and asks for the change note (licence section 2.4)", () => {
+    expect(COPERNICUS_MARINE).toBe("copernicus-marine");
+    expect(licenseUrl(COPERNICUS_MARINE)).toBe("https://marine.copernicus.eu/user-corner/service-commitments-and-licence");
+    expect(licenseLabel(COPERNICUS_MARINE)).toBe("Copernicus Marine Service licence");
+    expect(licenseRequiresChangeNote(COPERNICUS_MARINE)).toBe(true);
   });
 });
 
