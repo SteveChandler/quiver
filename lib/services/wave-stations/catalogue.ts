@@ -39,11 +39,14 @@ function slugPlace(name: string): string {
   return `${place}, ${state[1]}`;
 }
 
-/** Readable name plus the source station id: "torrey-pines-outer-ca-46225". */
+/**
+ * Readable name plus the source station id: "torrey-pines-outer-ca-46225".
+ * A name that already starts or ends with the id keeps it once ("m6-west-coast").
+ */
 export function buildStationSlug(name: string, sourceStationId: string): string {
   const id = sourceStationId.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const namePart = slugifyName(slugPlace(name));
-  if (!namePart || namePart === id || namePart.endsWith(`-${id}`)) {
+  if (!namePart || namePart === id || namePart.endsWith(`-${id}`) || namePart.startsWith(`${id}-`)) {
     return namePart || `buoy-${id}`;
   }
   return `${namePart}-${id}`;

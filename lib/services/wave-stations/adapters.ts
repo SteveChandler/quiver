@@ -4,7 +4,9 @@
  * adapter's header for the evidence.
  */
 
+import { marineIeAdapter } from "./marine-ie/adapter";
 import { ndbcAdapter } from "./ndbc/adapter";
 import type { WaveStationSourceAdapter } from "./types";
 
-export const SOURCE_ADAPTERS: readonly WaveStationSourceAdapter[] = [ndbcAdapter];
+/** Registry order. The duplicate pass runs after each source, so the order does not change the result. */
+export const SOURCE_ADAPTERS: readonly WaveStationSourceAdapter[] = [ndbcAdapter, marineIeAdapter];
