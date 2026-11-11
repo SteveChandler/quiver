@@ -259,6 +259,26 @@ describe("selectTitle", () => {
     expect(selected.title).toBe(`${[...rendered].slice(0, TITLE_MAX_CHARS - 1).join("")}…`);
     expect([...selected.title].length).toBe(TITLE_MAX_CHARS);
   });
+
+
+  it("keeps the swell facts in the body when rotation has used every title", () => {
+    const selected = selectTitle(swellArgs({
+      tags: ["weekday", "manageable", "generic"],
+      recentTitleIds: titlePool.swell.map((entry) => entry.id),
+    }));
+
+    expect(selected.id).toBe("fallback");
+    expect(selected.title).toBe("Swell peaks Wed");
+    expect(selected.body).toBe("Weekday: SW 4ft @ 14s, peak Wed AM. Your call: Blacks, grab your 7'2. Best this month.");
+  });
+
+  it("keeps a serious body for a serious swell when rotation has used every title", () => {
+    const base = swellArgs({ recentTitleIds: titlePool.swell.map((entry) => entry.id) });
+    const selected = selectTitle({ ...base, tags: ["weekday", "serious", "generic"] });
+
+    expect(selected.id).toBe("fallback");
+    expect(selected.body).toMatch(/^Serious /);
+  });
 });
 
 describe("renderTemplate", () => {

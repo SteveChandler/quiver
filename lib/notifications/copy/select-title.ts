@@ -110,36 +110,38 @@ function fallbackTitle(pool: Pool, vars: TitleVars): string {
 export function selectTitle(args: SelectTitleArgs): SelectedTitle {
   const entries: readonly TitleEntry[] = titlePool[args.pool];
   const recentIds = new Set(args.recentTitleIds);
-  let candidates = entries.filter((entry) =>
-    entry.tags.every((tag) => args.tags.includes(tag)) && !recentIds.has(entry.id),
-  );
-
+  let tagMatches = entries.filter((entry) => entry.tags.every((tag) => args.tags.includes(tag)));
   if (args.tags.includes("serious")) {
-    candidates = candidates.filter((entry) => entry.tags.includes("serious"));
+    tagMatches = tagMatches.filter((entry) => entry.tags.includes("serious"));
   }
+  let candidates = tagMatches.filter((entry) => !recentIds.has(entry.id));
 
   if (args.pool === "swell" && args.recentFilmCount >= 1) {
     candidates = candidates.filter((entry) => !entry.film);
   }
 
   const priority = args.pool === "swell" ? SWELL_TAG_PRIORITY : DAILY_TAG_PRIORITY;
-  const bestRank = Math.min(...candidates.map((entry) => {
+  const rankOf = (entry: TitleEntry): number => {
     const rank = priority.findIndex((tag) => entry.tags.includes(tag));
     return rank === -1 ? priority.length : rank;
-  }));
-  const topRanked = candidates.filter((entry) => {
-    const rank = priority.findIndex((tag) => entry.tags.includes(tag));
-    return (rank === -1 ? priority.length : rank) === bestRank;
-  });
+  };
+  const topRankedOf = (pool: readonly TitleEntry[]): TitleEntry[] => {
+    const bestRank = Math.min(...pool.map(rankOf));
+    return pool.filter((entry) => rankOf(entry) === bestRank);
+  };
+  const topRanked = topRankedOf(candidates);
   const selected = topRanked.length > 0
     ? topRanked[hashIndex(`${args.userId}${args.eventKey}`, topRanked.length)]
     : undefined;
 
   if (!selected) {
+    // Rotation spent every title, but the body text is the same for each title
+    // of a kind, so the body of the best-ranked tag match still states the facts.
+    const bodySource = topRankedOf(tagMatches)[0];
     return {
       id: "fallback",
       title: fallbackTitle(args.pool, args.vars),
-      body: "",
+      body: bodySource ? renderTemplate(bodySource.body, args.vars) : "",
       fallback: true,
     };
   }

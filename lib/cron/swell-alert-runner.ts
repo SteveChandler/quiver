@@ -1916,6 +1916,11 @@ export async function runSwellAlertCron(args: {
           call: personalCall(beachNames[0], lead, beachTimezone),
         },
       });
+      // A hazard line alone is not a swell alert; without the swell facts, send nothing.
+      if (!selected.body) {
+        increment(summary, "swell_no_copy");
+        continue;
+      }
       const body = lead.hazard ? `${selected.body} ${HAZARD_LINES[lead.hazard]}` : selected.body;
       // selectTitle still picks (tags, rotation, length); the push shows that
       // id as the card function renders it, so push and card stay one text.

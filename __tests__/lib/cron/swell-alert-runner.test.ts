@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { capNearbyPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import type { Database } from "@/types/database";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
+import { selectTitle } from "@/lib/notifications/copy/select-title";
 import {
   loadSwellAlertProfiles,
   orderSwellCandidatesForTomorrow,
@@ -21,6 +22,11 @@ import type {
   WeekScoutWindowResponse,
 } from "@/lib/services/discovery/week-scout";
 import { beachSwellEvent } from "@/__tests__/helpers/swell-events";
+
+jest.mock("@/lib/notifications/copy/select-title", () => {
+  const actual = jest.requireActual("@/lib/notifications/copy/select-title");
+  return { ...actual, selectTitle: jest.fn(actual.selectTitle) };
+});
 
 const NOW = new Date("2026-09-18T00:00:00.000Z");
 const USER_ID = "73040cff-afe9-4fa0-a874-2016203fc015";
@@ -270,6 +276,78 @@ describe("runSwellAlertCron", () => {
     expect(payload?.body).toContain("Your call: Blacks Saturday 6:20–10 AM.");
     expect(payload?.body).toMatch(/peak:? Friday evening/i);
     expect(payload?.peak_date).toBe("2026-09-19");
+  });
+
+  describe("when rotation has used every swell title", () => {
+    const exhausted = (): Partial<SwellAlertDeps> => ({
+      loadAlertState: jest.fn(async () => ({
+        eventExists: false,
+        lastAlertAt: null,
+        recentTitleIds: titlePool.swell.map(({ id }) => id),
+        recentFilmCount: 0,
+      })),
+    });
+
+    it("sends the swell facts under the fallback title, with the hazard after them", async () => {
+      const pool = evaluation();
+      pool.candidates[0] = { ...pool.candidates[0], hazard: "high_rip_current" };
+      const deps = dependencies({ ...exhausted(), evaluatePool: jest.fn(async () => pool) });
+
+      const result = await runSwellAlertCron({ now: NOW, deps });
+
+      expect(result.sent).toBe(1);
+      const { title, body, title_id } = jest.mocked(deps.enqueue).mock.calls[0][0].payload as {
+        title: string;
+        body: string;
+        title_id: string;
+      };
+      expect(title_id).toBe("fallback");
+      expect(title).toMatch(/^Swell peaks /);
+      expect(body).toMatch(/^\S/);
+      expect(body).toContain("@");
+      expect(body).toMatch(/Rip current statement in effect\.$/);
+      expect(body).not.toMatch(/^Rip current/);
+    });
+
+    it("still sends without a hazard instead of losing the alert to an empty body", async () => {
+      const deps = dependencies(exhausted());
+
+      const result = await runSwellAlertCron({ now: NOW, deps });
+
+      expect(result.sent).toBe(1);
+      expect(result.errors).toBe(0);
+      const { body } = jest.mocked(deps.enqueue).mock.calls[0][0].payload as { body: string };
+      expect(body.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("records swell_no_copy and sends nothing when the title pool yields no body", async () => {
+    jest.mocked(selectTitle).mockReturnValueOnce({
+      id: "fallback",
+      title: "Swell peaks Friday",
+      body: "",
+      fallback: true,
+    });
+    const pool = evaluation();
+    pool.candidates[0] = { ...pool.candidates[0], hazard: "high_surf" };
+    const deps = dependencies({ evaluatePool: jest.fn(async () => pool) });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.skippedCounts.swell_no_copy).toBe(1);
+    expect(result.errors).toBe(0);
+    expect(deps.insertAlert).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("does not count an unrelated enqueue failure as swell_no_copy", async () => {
+    const deps = dependencies({
+      enqueue: jest.fn(async () => ({ enqueued: false as const, reason: "internal_error" as const, message: "boom" })),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.skippedCounts.swell_no_copy).toBeUndefined();
   });
 
   it("selects weekday title copy for a Friday beach peak whose user-zone date is Saturday", async () => {
