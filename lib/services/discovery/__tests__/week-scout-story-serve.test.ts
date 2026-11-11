@@ -554,7 +554,7 @@ describe("deterministic fallback and live gates", () => {
         startLocalDate: "2026-07-15", now });
       expect(story.availability).toBe("ready");
       expect(info).toHaveBeenCalledWith("[week-scout-story] plain text served",
-        { region, path: "fallback", slots: ["cover", "lead", "day:2026-07-15"] });
+        { region, path: "fallback", slots: ["cover", "lead"] });
     } finally {
       info.mockRestore();
     }
@@ -587,7 +587,7 @@ describe("deterministic fallback and live gates", () => {
       expect(story).toMatchObject({ availability: "ready", cover: { text: written[0].text }, lead: texts.lead });
       expect(story.source).toEqual({ cover: "written", lead: "code", turn: null, chapters: ["code"] });
       expect(info).toHaveBeenCalledWith("[week-scout-story] plain text served",
-        { region, path: "edition", slots: ["lead", "day:2026-07-15"] });
+        { region, path: "edition", slots: ["lead"] });
     } finally {
       info.mockRestore();
     }

@@ -311,10 +311,19 @@ export function bindStory(args: {
     return checkWrittenSentence(entry.text, { ...fact, facts: liveFacts(fact, regional, live) }, beachNames, [input.region]).ok
       ? { text: entry.text, source: "written" } : { text: fact.text, source: "code" };
   };
-  const served = (fact: StoryInput["copyFacts"][number]): string => servedWith(fact).text;
+  // Each fact's claim check runs once per request; the text and its source reuse the result.
+  const servedByFact = new Map<StoryInput["copyFacts"][number], { text: string; source: StoryTextSource }>();
+  const servedOnce = (fact: StoryInput["copyFacts"][number]): { text: string; source: StoryTextSource } => {
+    const known = servedByFact.get(fact);
+    if (known) return known;
+    const result = servedWith(fact);
+    servedByFact.set(fact, result);
+    return result;
+  };
+  const served = (fact: StoryInput["copyFacts"][number]): string => servedOnce(fact).text;
   const slotServed = (slot: string): { text: string; source: StoryTextSource } | null => {
     const fact = chosen.find((item) => item.slot === slot);
-    return fact ? servedWith(fact) : null;
+    return fact ? servedOnce(fact) : null;
   };
   const text = (slot: string): string | null => slotServed(slot)?.text ?? null;
   if (!text("cover") && args.requireCover !== false) return empty("unavailable");
@@ -334,7 +343,7 @@ export function bindStory(args: {
     chapters: chapters.map((fact) => ({ slot: fact.slot, text: served(fact) })),
     source: {
       cover: slotServed("cover")?.source ?? null, lead: slotServed("story:lead")?.source ?? null,
-      turn: slotServed("story:turn")?.source ?? null, chapters: chapters.map((fact) => servedWith(fact).source),
+      turn: slotServed("story:turn")?.source ?? null, chapters: chapters.map((fact) => servedOnce(fact).source),
     },
     glance: null,
     days,
@@ -388,12 +397,14 @@ function writtenGlance(edition: StoryArtifact | null, editionDate: string, now: 
     && typeof (entry as GlanceWritten).fingerprint === "string" && typeof (entry as GlanceWritten).text === "string");
 }
 
-/** One line per ready story that serves any candidate sentence, so the plain-text rate is measurable in the logs. */
+/**
+ * One line per ready story whose cover, lead or turn is a candidate sentence, so the plain-narrative rate is
+ * measurable in the logs. Plain day chapters alone are routine (pick lines) and are not logged.
+ */
 export function logPlainText(story: StoryWire, region: string, path: "edition" | "fallback"): StoryWire {
   if (story.availability !== "ready") return story;
-  const { cover, lead, turn, chapters } = story.source;
-  const slots = [...(cover === "code" ? ["cover"] : []), ...(lead === "code" ? ["lead"] : []), ...(turn === "code" ? ["turn"] : []),
-    ...story.chapters.filter((_, index) => chapters[index] === "code").map((chapter) => chapter.slot)];
+  const { cover, lead, turn } = story.source;
+  const slots = [...(cover === "code" ? ["cover"] : []), ...(lead === "code" ? ["lead"] : []), ...(turn === "code" ? ["turn"] : [])];
   if (slots.length > 0) console.info("[week-scout-story] plain text served", { region, path, slots });
   return story;
 }
