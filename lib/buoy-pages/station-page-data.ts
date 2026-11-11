@@ -93,8 +93,29 @@ type StationLookup =
   | { kind: "redirect"; slug: string }
   | { kind: "not-found" };
 
-function stationTimeZone(station: Pick<WaveStationRow, "lat" | "lon">): string {
-  return findCanonicalTimezoneFromCoords(station.lat, station.lon) ?? "UTC";
+/**
+ * Offshore points resolve to a nautical zone (Etc/GMT, no daylight saving):
+ * 67 of 235 European buoys did on 2026-11-11, 1-2 h off the clock their
+ * readers use. Those take their country's zone instead.
+ */
+const COUNTRY_TIME_ZONES: Record<string, string> = {
+  BE: "Europe/Brussels",
+  DE: "Europe/Berlin",
+  DK: "Europe/Copenhagen",
+  ES: "Europe/Madrid",
+  FR: "Europe/Paris",
+  GB: "Europe/London",
+  GR: "Europe/Athens",
+  IE: "Europe/Dublin",
+  NL: "Europe/Amsterdam",
+  NO: "Europe/Oslo",
+  PT: "Europe/Lisbon",
+};
+
+export function stationTimeZone(station: Pick<WaveStationRow, "lat" | "lon" | "country_code">): string {
+  const zone = findCanonicalTimezoneFromCoords(station.lat, station.lon);
+  if (zone && !zone.startsWith("Etc/")) return zone;
+  return (station.country_code ? COUNTRY_TIME_ZONES[station.country_code] : undefined) ?? zone ?? "UTC";
 }
 
 const NEARBY_RADIUS_KM = 300;

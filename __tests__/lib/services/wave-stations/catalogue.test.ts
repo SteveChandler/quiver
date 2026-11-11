@@ -130,6 +130,7 @@ describe("planDuplicates", () => {
     wmo_id: "62095",
     active: true,
     duplicate_of: null,
+    has_wave: true,
     ...overrides,
   });
   // Real positions: NDBC's 62095 is ~24 km from the Marine Institute's M6.
@@ -157,5 +158,46 @@ describe("planDuplicates", () => {
 
   it("keeps two stations of the same source apart even with the same WMO number", () => {
     expect(planDuplicates([row({}), row({ id: "ndbc:62095B" })])).toEqual([]);
+  });
+
+  describe("Copernicus (lowest priority), real ids and positions from 2026-11-11", () => {
+    const sevenstonesNdbc = row({ id: "ndbc:62107", name: "Sevenstones Lightship", lat: 50.102, lon: -6.1, wmo_id: "62107", has_wave: true });
+    const sevenstones = row({ id: "copernicus:6200107", source: "copernicus", name: "Sevenstones Lightship", lat: 50.102, lon: -6.1, wmo_id: "62107" });
+    // NDBC relays K4 as a met-only row ~100 km from the Met Office position.
+    const k4Ndbc = row({ id: "ndbc:62105", name: "K4 Buoy", lat: 55.41, lon: -11.81, wmo_id: "62105", has_wave: false });
+    const k4 = row({ id: "copernicus:6200105", source: "copernicus", name: "K4", lat: 54.55, lon: -12.367, wmo_id: "62105" });
+
+    it("hides a Copernicus station behind the NDBC row of the same buoy", () => {
+      expect(planDuplicates([sevenstonesNdbc, sevenstones])).toEqual([{ id: "copernicus:6200107", duplicate_of: "ndbc:62107" }]);
+    });
+
+    it("keeps a Copernicus station with waves visible when the NDBC row has none", () => {
+      expect(planDuplicates([k4Ndbc, k4])).toEqual([]);
+      // Once NDBC reports waves for it, the NDBC row wins again.
+      expect(planDuplicates([{ ...k4Ndbc, has_wave: true }, k4])).toEqual([{ id: "copernicus:6200105", duplicate_of: "ndbc:62105" }]);
+      // A Copernicus row without waves is still hidden.
+      expect(planDuplicates([k4Ndbc, { ...k4, has_wave: false }])).toEqual([{ id: "copernicus:6200105", duplicate_of: "ndbc:62105" }]);
+    });
+
+    it("loses to every direct source, never the other way round", () => {
+      const m6Copernicus = row({ id: "copernicus:6200095", source: "copernicus", name: "M6", lat: 53.0748, lon: -15.8814, wmo_id: "62095" });
+      expect(planDuplicates([row({}), m6, m6Copernicus])).toEqual([
+        { id: "ndbc:62095", duplicate_of: "marine_ie:M6" },
+        { id: "copernicus:6200095", duplicate_of: "marine_ie:M6" },
+      ]);
+      // FMI and SMHI ids by name within 30 km (Copernicus has no WMO number for them).
+      const fmi = row({ id: "fmi:134220", source: "fmi", name: "Northern Baltic Proper", lat: 59.25, lon: 21.0, wmo_id: null });
+      const fmiCopernicus = row({ id: "copernicus:NorthernBaltic", source: "copernicus", name: "Northern Baltic", lat: 59.248, lon: 21.0, wmo_id: null });
+      expect(planDuplicates([fmi, fmiCopernicus])).toEqual([{ id: "copernicus:NorthernBaltic", duplicate_of: "fmi:134220" }]);
+      const smhi = row({ id: "smhi:33008", source: "smhi", name: "Knolls grund", lat: 57.52, lon: 17.62, wmo_id: null });
+      const smhiCopernicus = row({ id: "copernicus:Knollsgrund", source: "copernicus", name: "Knolls grund", lat: 57.51, lon: 17.61, wmo_id: null });
+      expect(planDuplicates([smhi, smhiCopernicus])).toEqual([{ id: "copernicus:Knollsgrund", duplicate_of: "smhi:33008" }]);
+    });
+
+    it("does not match the 7-digit Chapel Point id with NDBC's E1 (62050)", () => {
+      const e1 = row({ id: "ndbc:62050", name: "E1", lat: 50, lon: -4.4, wmo_id: "62050" });
+      const chapel = row({ id: "copernicus:6201050", source: "copernicus", name: "Chapel Point wave buoy", lat: 53.2449, lon: 0.447, wmo_id: "6201050" });
+      expect(planDuplicates([e1, chapel])).toEqual([]);
+    });
   });
 });

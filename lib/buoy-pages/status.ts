@@ -23,6 +23,8 @@ const SOURCE_FRESHNESS: Record<WaveStationSource, { expectedLatencyMinutes: numb
   aodn: { expectedLatencyMinutes: 60, cadenceMinutes: 30 },
   fmi: { expectedLatencyMinutes: 90, cadenceMinutes: 30 },
   smhi: { expectedLatencyMinutes: 30, cadenceMinutes: 60 },
+  // 95th percentile of (file LastModified - newest wave reading) over 214 stations: 212 min.
+  copernicus: { expectedLatencyMinutes: 210, cadenceMinutes: 60 },
 };
 
 /** Queensland's AODN buoys publish 2.5-2.9 h after the reading (owner = the AODN institution). */

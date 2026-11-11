@@ -306,6 +306,37 @@ describe("syncStandardHistory", () => {
     expect(updates.every((fields) => !("spec_checked_at" in (fields as object)))).toBe(true);
   });
 
+  it("resends rows inside the adapter's overlap window so a late reading still merges", async () => {
+    const { db, calls, rpcCalls } = fakeDb({
+      wave_stations: [[
+        {
+          id: "copernicus:WesthinderBuoy",
+          source_station_id: "WesthinderBuoy",
+          txt_last_modified: "2026-11-11T13:20:00.000Z",
+          txt_last_observed_at: "2026-11-11T13:00:00+00:00",
+        },
+      ]],
+    });
+    const row = (observedAt: string) => ({ sourceStationId: "WesthinderBuoy", observedAt, values: { wave_height_m: 1 } });
+    const fetchStationHistory = jest.fn(async (): Promise<StationHistoryResult> => ({
+      status: "ok",
+      lastModified: "2026-11-11T14:20:00.000Z",
+      // 09:30 is outside the 3 h window; 10:30 landed late; 13:30 is new.
+      observations: [row("2026-11-11T09:30:00.000Z"), row("2026-11-11T10:30:00.000Z"), row("2026-11-11T13:30:00.000Z")],
+    }));
+    await syncStandardHistory(
+      db,
+      adapter({ source: "copernicus", historyOverlapMinutes: 180, fetchStationHistory }),
+      Date.parse("2026-11-11T14:04:00Z"),
+      options,
+    );
+    const sent = rpcCalls.flatMap((call) => call.args.p_rows as Array<{ observed_at: string }>).map((r) => r.observed_at);
+    expect(sent).toEqual(["2026-11-11T10:30:00.000Z", "2026-11-11T13:30:00.000Z"]);
+    const updates = calls.filter((call) => call.ops[0]?.[0] === "update").map((call) => call.ops[0][1][0]);
+    // The stored newest time moves to the newest row, never back into the overlap.
+    expect(updates).toContainEqual(expect.objectContaining({ txt_last_observed_at: "2026-11-11T13:30:00.000Z" }));
+  });
+
   it("waits until the station's .spec check is 20+ minutes old (checks ~30 min apart)", async () => {
     const now = Date.parse("2026-11-11T03:11:00Z");
     const { db, calls } = fakeDb({

@@ -39,13 +39,20 @@ function slugPlace(name: string): string {
   return `${place}, ${state[1]}`;
 }
 
+/** "6200105", "K13a", "A121": an id, not a name run together ("WesthinderBuoy", "A2Buoy"). */
+export function isShortPlatformCode(code: string): boolean {
+  return /\d/.test(code) && !/[A-Za-z]{4,}/.test(code);
+}
+
 /**
  * Readable name plus the source station id: "torrey-pines-outer-ca-46225".
  * A name that already starts or ends with the id keeps it once ("m6-west-coast").
+ * An empty id gives the name alone ("westhinder-buoy").
  */
 export function buildStationSlug(name: string, sourceStationId: string): string {
   const id = sourceStationId.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const namePart = slugifyName(slugPlace(name));
+  if (!id) return namePart || "buoy";
   if (!namePart || namePart === id || namePart.endsWith(`-${id}`) || namePart.startsWith(`${id}-`)) {
     return namePart || `buoy-${id}`;
   }
@@ -115,7 +122,7 @@ export function planRegistryUpsert(
     const stored = existingById.get(id);
     let slug = stored?.slug;
     if (!slug) {
-      slug = buildStationSlug(station.name, station.sourceStationId);
+      slug = buildStationSlug(station.name, station.slugId ?? station.sourceStationId);
       if (takenSlugs.has(slug)) slug = `${slug}-${source}`;
       takenSlugs.add(slug);
     }
@@ -161,6 +168,7 @@ export function planRegistryUpsert(
 /**
  * Lower wins. The operator's own feed beats NDBC, which relays some non-US
  * buoys (62095 is the Irish M6) with fewer fields and a rounded position.
+ * Copernicus aggregates other operators' feeds, so every direct source beats it.
  */
 const SOURCE_PRIORITY: Record<WaveStationSource, number> = {
   marine_ie: 0,
@@ -168,6 +176,7 @@ const SOURCE_PRIORITY: Record<WaveStationSource, number> = {
   fmi: 0,
   smhi: 0,
   ndbc: 1,
+  copernicus: 2,
 };
 
 /** Name-matched stations must be this close. NDBC's M6 position is ~24 km from the Marine Institute's. */
@@ -200,7 +209,7 @@ function sharesDistinctiveName(a: string, b: string): boolean {
 
 export type DuplicateCandidate = Pick<
   WaveStationRow,
-  "id" | "source" | "name" | "lat" | "lon" | "wmo_id" | "active" | "duplicate_of"
+  "id" | "source" | "name" | "lat" | "lon" | "wmo_id" | "active" | "duplicate_of" | "has_wave"
 >;
 
 /**
@@ -208,7 +217,10 @@ export type DuplicateCandidate = Pick<
  * active, the other source has a higher priority, and either
  * - both carry the same WMO number, or
  * - they are within 30 km and share a distinctive name word ("M6").
- * The nearest such primary wins. A station whose primary goes away is unmarked.
+ * A primary without waves never hides a station with waves: NDBC relays the
+ * UK Met Office K-buoys (62105 = K4) as met-only rows, while Copernicus
+ * carries their waves. The nearest such primary wins. A station whose
+ * primary goes away is unmarked.
  * Returns only the rows whose duplicate_of must change.
  */
 export function planDuplicates(
@@ -222,6 +234,7 @@ export function planDuplicates(
       for (const other of active) {
         if (other.source === station.source) continue;
         if (SOURCE_PRIORITY[other.source] >= SOURCE_PRIORITY[station.source]) continue;
+        if (station.has_wave && !other.has_wave) continue;
         const km = haversineDistance(station.lat, station.lon, other.lat, other.lon);
         const sameWmo = Boolean(station.wmo_id) && station.wmo_id === other.wmo_id;
         const sameName = km <= DUPLICATE_NAME_RADIUS_KM && sharesDistinctiveName(station.name, other.name);
