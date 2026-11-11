@@ -268,8 +268,9 @@ it("stops before new acquisition if recovery reaches the target", async () => {
   it.each([
     [Object.assign(new Error("private URL"), { name: "TimeoutError" }), "request_aborted_or_timed_out", "warn"],
     [new TypeError("fetch failed"), "network_fetch_failed", "warn"],
-    [new Error("Single Runs HTTP response was unsuccessful"), "single_runs_http_response_was_unsuccessful", "warn"],
-    [new Error("Provider availability read unsuccessful"), "provider_availability_read_unsuccessful", "warn"],
+    [new Error("Provider HTTP response is transient"), "provider_http_response_is_transient", "warn"],
+    [new Error("Single Runs HTTP response was unsuccessful"), "single_runs_http_response_was_unsuccessful", "error"],
+    [new Error("Provider availability read unsuccessful"), "provider_availability_read_unsuccessful", "error"],
     [new Error("provider budget exceeded"), "provider_budget_exceeded", "error"],
     [new Error("Single Runs tuple is invalid"), "single_runs_tuple_is_invalid", "error"],
   ] as const)("logs provider fetch failure %# at the right level and still fails the run", async (error, code, level) => {
