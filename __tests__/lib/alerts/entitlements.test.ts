@@ -132,6 +132,23 @@ describe("getUserEntitlement", () => {
     expect(await getUserEntitlement("user-apricot", supabase)).toBe("free");
   });
 
+  it("throws when the mirror read fails instead of resolving free", async () => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    const timeout = { code: "57014", message: "canceling statement due to statement timeout" };
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({ maybeSingle: async () => ({ data: null, error: timeout }) }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+    await expect(getUserEntitlement("pro-user", supabase)).rejects.toThrow(
+      "user_entitlements read failed: canceling statement due to statement timeout",
+    );
+    expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
+  });
+
   it("returns free when mirror row is missing", async () => {
     delete process.env.ALERT_PREVIEW_MODE;
     delete process.env.ALERT_BETA_USER_IDS;

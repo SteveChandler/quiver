@@ -50,11 +50,15 @@ export async function getUserEntitlement(
   const bypass = envBypassTier(userId);
   if (bypass) return bypass;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_entitlements")
     .select("is_pro, is_trialing, billing_issue, expires_at")
     .eq("user_id", userId)
     .maybeSingle();
+  // A failed read is not a missing row: resolving it as free would demote a paying user.
+  if (error) {
+    throw new Error(`user_entitlements read failed: ${error.message}`, { cause: error });
+  }
 
   const isPro = entitlementFromRow(data) === "premium";
   const billingIssue = data?.billing_issue === true;
