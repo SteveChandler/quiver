@@ -149,6 +149,12 @@ export function deriveNdbcLocation(
     .replace(/[\s-]+$/, "")
     .trim();
 
+  // Foreign partners first: a state-like suffix on their names is not a US state.
+  if (program === "International Partners") {
+    const ownerCountry = owner ? OWNER_COUNTRIES.find((entry) => entry.pattern.test(owner)) : undefined;
+    return { countryCode: ownerCountry?.countryCode ?? null, region: null };
+  }
+
   const suffix = name.match(/,\s*([A-Z]{2})$/);
   if (suffix) {
     const code = suffix[1];
@@ -158,11 +164,6 @@ export function deriveNdbcLocation(
 
   for (const place of NAMED_PLACES) {
     if (place.pattern.test(name)) return { countryCode: place.countryCode, region: place.region };
-  }
-
-  if (program === "International Partners" && owner) {
-    const ownerCountry = OWNER_COUNTRIES.find((entry) => entry.pattern.test(owner));
-    return { countryCode: ownerCountry?.countryCode ?? null, region: null };
   }
 
   if (program && US_PROGRAMS.has(program)) return { countryCode: "US", region: null };

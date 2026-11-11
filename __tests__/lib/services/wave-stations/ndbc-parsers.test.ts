@@ -94,6 +94,10 @@ describe("station names, CDIP ids and location", () => {
     ["Halibut Bank", "Environment and Climate Change Canada", "International Partners", "CA", null],
     ["", "Korean Meteorological Administration", "International Partners", "KR", null],
     ["West Sole \"A\" AWS", "Private Industry Oil Platform", "International Partners", null, null],
+    // A partner station whose name ends in a state-like code stays with its owner's country.
+    ["Pointe-au-Pere, QC, CA", "Environment and Climate Change Canada", "International Partners", "CA", null],
+    ["Brest Approaches, FR, AL", "Meteo France", "International Partners", "FR", null],
+    ["Unknown Partner Buoy, WA", "Some Other Agency", "International Partners", null, null],
     ["NORTHERN HAWAII ONE - 245NM NE of Honolulu HI", "NDBC", "NDBC Meteorological/Ocean", "US", null],
     ["5N 95W", "NDBC", "TAO", null, null],
   ])("derives location for %s", (name, owner, program, countryCode, region) => {
