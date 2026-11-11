@@ -340,10 +340,10 @@ describe("BeachAlertCta", () => {
       await expect(renderAndGetFetch()()).rejects.toThrow("500");
     });
 
-    it("returns no rules for a lapsed session", async () => {
+    it("throws for a lapsed session so the empty answer is not cached", async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) }) as unknown as typeof fetch;
 
-      await expect(renderAndGetFetch()()).resolves.toEqual([]);
+      await expect(renderAndGetFetch()()).rejects.toThrow("401");
     });
 
     it("returns the user's rules on success", async () => {
