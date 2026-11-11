@@ -1,9 +1,13 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect, useState } from "react";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 const MAX_SPOTS = 50;
+
+/** The browser could not reach the route (offline, page unload): a user state, not an outage. */
+class NetworkFailure extends Error {}
 
 interface CurrentDisplayResponse {
   data?: { displays?: Record<string, ForecastDisplay> };
@@ -43,13 +47,23 @@ export function useCustomSpotCurrentDisplays(
       return fetch(url, { signal: controller.signal });
     };
     request()
-      .then((response) => (response.ok ? response.json() : null))
-      .then((json: CurrentDisplayResponse | null) => {
+      .catch((error: unknown) => {
+        throw new NetworkFailure(error instanceof Error ? error.message : String(error));
+      })
+      .then((response) => {
+        if (response.ok) return response.json();
+        throw new Error(`custom spot current-display returned ${response.status}`);
+      })
+      .then((json: CurrentDisplayResponse) => {
         if (controller.signal.aborted) return;
         setDisplays(new Map(Object.entries(json?.data?.displays ?? {})));
       })
-      .catch(() => {
-        // Best effort: on failure the pins keep their anchor beach's label.
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        // Drop the previous hour's labels so pins fall back to their anchor's fresh label.
+        setDisplays((current) => (current.size === 0 ? current : new Map()));
+        if (error instanceof NetworkFailure) return;
+        Sentry.captureException(error, { tags: { hook: "use-custom-spot-current-displays" } });
       });
     return () => controller.abort();
     // The auth callbacks are read per request, not triggers.
