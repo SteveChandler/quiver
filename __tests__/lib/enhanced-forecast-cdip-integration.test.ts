@@ -176,7 +176,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
     // Setup default NOAA weather API mocks
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url.includes("points")) {
+      if (url.includes("/points/")) {
         return Promise.resolve({
           ok: true,
           json: () =>
@@ -513,8 +513,9 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      // Without premium CDIP data, confidence should be lower than with CDIP
-      expect(forecasts[0].confidence_score).toBeLessThan(95);
+      // Without premium CDIP data, confidence should be lower than with CDIP.
+      // The NOAA weather mock now reaches the builder (+10), so the non-CDIP hour-0 score is 95; CDIP gives 100.
+      expect(forecasts[0].confidence_score).toBeLessThan(100);
       expect(forecasts[0].confidence_score).toBeGreaterThan(70);
     });
 

@@ -121,6 +121,8 @@ import {
  * forecast-builder + the display-side `fetchLatestObservation` helper.
  */
 const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
+/** NWS hourly periods are 1 h and day/night periods 12 h; a start farther than this is another day's weather. */
+const WEATHER_PERIOD_MATCH_MS = 6 * 60 * 60 * 1000;
 const ANCHOR_FRESHNESS_MS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR * 60 * 60 * 1000;
 const MPH_TO_METERS_PER_SECOND = 0.44704;
 
@@ -1423,8 +1425,9 @@ export class ForecastBuilder {
       coops_station_id: tideData?.station_id || null,
 
       // Weather conditions
-      weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
-      air_temperature: this.getAirTemperature(weatherPoint, beach, forecastTime),
+      // No NWS point (Mexico, Canada, a failed fetch): store no weather rather than a stand-in.
+      weather_condition: this.weatherForHour(weatherPoint, forecastTime)?.shortForecast?.trim() || null,
+      air_temperature: this.getAirTemperature(this.weatherForHour(weatherPoint, forecastTime)),
 
       beach_id: beach.id,
       confidence_score: effectiveConfidence,
@@ -2103,11 +2106,16 @@ export class ForecastBuilder {
     return weatherPoint?.windDirection?.trim() || null;
   }
 
-  private getAirTemperature(weatherPoint: WeatherPeriod | null, beach: Beach, forecastTime: Date): string | null {
-    if (weatherPoint) {
-      return `${weatherPoint.temperature}°F`;
-    }
-    return this.estimateAirTemperature(beach.lat ?? 0, forecastTime);
+  /** Past the NWS horizon the nearest period is days away; its sky and temperature are not this hour's. */
+  private weatherForHour(weatherPoint: WeatherPeriod | null, forecastTime: Date): WeatherPeriod | null {
+    if (!weatherPoint) return null;
+    const gapMs = Math.abs(Date.parse(weatherPoint.startTime) - forecastTime.getTime());
+    return gapMs <= WEATHER_PERIOD_MATCH_MS ? weatherPoint : null;
+  }
+
+  private getAirTemperature(weatherPoint: WeatherPeriod | null): string | null {
+    const temperature = weatherPoint?.temperature;
+    return typeof temperature === "number" && Number.isFinite(temperature) ? `${temperature}°F` : null;
   }
 
   /**
@@ -2164,41 +2172,5 @@ export class ForecastBuilder {
 
     const estimatedTemp = baseTemp + seasonalAdjustment;
     return formatWaterTemp(estimatedTemp);
-  }
-
-  private estimateAirTemperature(lat: number, date: Date): string {
-    const month = date.getMonth();
-    const absLat = Math.abs(lat);
-
-    // Base air temperature varies by latitude zone (in degrees F)
-    let baseTemp: number;
-    let seasonalAmplitude: number;
-
-    if (absLat < 20) {
-      // Tropical: warm year-round
-      baseTemp = 84;
-      seasonalAmplitude = 4;
-    } else if (absLat < 30) {
-      // Subtropical
-      baseTemp = 78;
-      seasonalAmplitude = 10;
-    } else if (absLat < 40) {
-      // Temperate
-      baseTemp = 65;
-      seasonalAmplitude = 15;
-    } else if (absLat < 50) {
-      // Cool temperate
-      baseTemp = 55;
-      seasonalAmplitude = 18;
-    } else {
-      // Northern/polar
-      baseTemp = 48;
-      seasonalAmplitude = 15;
-    }
-
-    // Air temp peaks ~July (month 6), earlier than water temp
-    const seasonalAdjustment = seasonalAmplitude * Math.sin(((month - 3) * Math.PI) / 6);
-    const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
-    return `${estimatedTemp}°F`;
   }
 }
