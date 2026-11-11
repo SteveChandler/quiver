@@ -31,11 +31,19 @@ function useClientStatus(lastWaveAt: string | null, serverStatus: StationStatus)
 interface StatusChipProps {
   lastWaveAt: string | null;
   serverStatus: StationStatus;
+  /** Station-local time of the newest wave reading, rendered on the server. */
+  absolute: string;
   className?: string;
 }
 
-export function StatusChip({ lastWaveAt, serverStatus, className }: StatusChipProps) {
-  const { status } = useClientStatus(lastWaveAt, serverStatus);
+/**
+ * The cached HTML may be served long after it was rendered, so the server
+ * never says "Live": a fresh reading renders as "Reported <time>" and the
+ * client upgrades the label to Live / Stale / Offline after mount.
+ */
+export function StatusChip({ lastWaveAt, serverStatus, absolute, className }: StatusChipProps) {
+  const { status, ageMs } = useClientStatus(lastWaveAt, serverStatus);
+  const label = ageMs === null && status === "fresh" ? `Reported ${absolute}` : STATUS_LABELS[status];
   return (
     <span
       className={cn(
@@ -47,7 +55,7 @@ export function StatusChip({ lastWaveAt, serverStatus, className }: StatusChipPr
       data-status={status}
     >
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
-      {STATUS_LABELS[status]}
+      {label}
     </span>
   );
 }

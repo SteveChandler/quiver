@@ -148,3 +148,29 @@ export function hourlyObservedHeights(rows: WaveStationObservationRow[]): Hourly
     .sort(([a], [b]) => a - b)
     .map(([t, values]) => ({ t, hs: values.reduce((sum, value) => sum + value, 0) / values.length }));
 }
+
+const SPLIT_ROW_MAX_LAG_MS = 90 * 60 * 1000;
+
+function hasSplit(row: WaveStationObservationRow): boolean {
+  return finiteOrNull(row.swell_height_m) !== null && finiteOrNull(row.wind_wave_height_m) !== null;
+}
+
+/**
+ * The single row behind the "Now" block. The 15-minute latest feed stores a
+ * reading before the hourly .spec check adds its swell split, so for a station
+ * with a split the newest wave row often has none yet. Use the newest row that
+ * carries the split when it is at most 90 minutes older than the newest wave
+ * row; otherwise the newest wave row, shown without a split.
+ */
+export function selectNowObservation(
+  hasSwellSplit: boolean,
+  newestWave: WaveStationObservationRow | null,
+  history: WaveStationObservationRow[],
+): WaveStationObservationRow | null {
+  if (!newestWave || !hasSwellSplit || hasSplit(newestWave)) return newestWave;
+  const newestAt = Date.parse(newestWave.observed_at);
+  const withSplit = waveRows(history)
+    .filter((row) => hasSplit(row) && newestAt - Date.parse(row.observed_at) <= SPLIT_ROW_MAX_LAG_MS)
+    .pop();
+  return withSplit ?? newestWave;
+}

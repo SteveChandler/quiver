@@ -36,7 +36,10 @@ test.describe("Buoy pages", () => {
     expect(response?.status()).toBe(200);
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/Torrey Pines Outer/i);
-    await expect(page.getByTestId("buoy-status-chip")).toHaveAttribute("data-status", /^(fresh|stale|offline)$/);
+    const chip = page.getByTestId("buoy-status-chip");
+    await expect(chip).toHaveAttribute("data-status", /^(fresh|stale|offline)$/);
+    // The server label avoids "Live"; the client upgrades it after mount.
+    await expect(chip).toHaveText(/^(Live|Stale|Offline)$/);
     await expect(page.getByText("Significant wave height at the buoy")).toBeVisible();
     await expect(page.getByText(/not surf height at a beach/i).first()).toBeVisible();
     await expect(page.getByTestId("buoy-attribution")).toContainText("NOAA National Data Buoy Center");

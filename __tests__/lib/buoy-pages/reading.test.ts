@@ -1,5 +1,5 @@
 import { buildReadingSentence, classifyPeriod } from "@/lib/buoy-pages/reading";
-import { computeHeightTrend } from "@/lib/buoy-pages/series";
+import { computeHeightTrend, selectNowObservation } from "@/lib/buoy-pages/series";
 import type { WaveStationObservationRow } from "@/lib/services/wave-stations/types";
 
 const EMPTY = {
@@ -155,5 +155,29 @@ describe("computeHeightTrend", () => {
 
   it("returns null without readings 5-7 hours back", () => {
     expect(computeHeightTrend([row("2026-11-12T00:00:00Z", 1), row("2026-11-12T03:00:00Z", 1.5)])).toBeNull();
+  });
+});
+
+describe("selectNowObservation", () => {
+  const split = (observedAt: string, hs: number) => ({ ...row(observedAt, hs), swell_height_m: 1, wind_wave_height_m: 0.5 });
+
+  it("uses the newest split row when it is within 90 minutes of the newest wave row", () => {
+    const newest = row("2026-11-11T03:26:00Z", 1.4);
+    const history = [split("2026-11-11T01:56:00Z", 1.2), split("2026-11-11T02:26:00Z", 1.3), newest];
+    expect(selectNowObservation(true, newest, history)?.observed_at).toBe("2026-11-11T02:26:00Z");
+  });
+
+  it("falls back to the newest wave row, without a split, when the split row is older than 90 minutes", () => {
+    const newest = row("2026-11-11T03:26:00Z", 1.4);
+    const history = [split("2026-11-11T01:46:00Z", 1.2), newest];
+    expect(selectNowObservation(true, newest, history)).toBe(newest);
+  });
+
+  it("keeps the newest row when it already has the split, or the station has none", () => {
+    const newest = split("2026-11-11T03:26:00Z", 1.4);
+    expect(selectNowObservation(true, newest, [newest])).toBe(newest);
+    const plain = row("2026-11-11T03:26:00Z", 1.4);
+    expect(selectNowObservation(false, plain, [split("2026-11-11T03:00:00Z", 1.3), plain])).toBe(plain);
+    expect(selectNowObservation(true, null, [])).toBeNull();
   });
 });

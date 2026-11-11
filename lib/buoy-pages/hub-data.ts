@@ -3,14 +3,15 @@
  * station list read plus one batched latest-reading read per 100 stations.
  */
 
-import type { WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
+import type { LatestWaveReading } from "@/lib/services/wave-stations/lookup";
+import type { WaveStationRow } from "@/lib/services/wave-stations/types";
 import { countryName, regionName } from "./geo-names";
 import { orEmptyWhenMissing, type BuoyPageSource } from "./source";
 import { classifyStationStatus, evaluateStationIndexability, type StationStatus } from "./status";
 
 export interface HubStation {
   station: WaveStationRow;
-  latest: WaveStationObservationRow | null;
+  latest: LatestWaveReading | null;
   status: StationStatus;
   indexable: boolean;
 }
@@ -31,7 +32,7 @@ interface CountrySummary {
 
 function toHubStation(
   station: WaveStationRow,
-  latest: Map<string, WaveStationObservationRow>,
+  latest: Map<string, LatestWaveReading>,
   nowMs: number,
 ): HubStation {
   const status = classifyStationStatus(station.last_wave_observed_at, nowMs);

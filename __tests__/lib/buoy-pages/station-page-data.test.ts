@@ -66,6 +66,31 @@ describe("loadStationPage", () => {
     await expect(loadStationPage(ambiguous, "123", NOW)).resolves.toEqual({ kind: "not-found" });
   });
 
+  it("rejects a missing column instead of answering 404", async () => {
+    const broken = source({
+      getStationBySlug: async () => {
+        throw Object.assign(new Error("getStationBySlug: Could not find the 'slug' column of 'wave_stations' in the schema cache"), {
+          code: "PGRST204",
+        });
+      },
+    });
+    await expect(loadStationPage(broken, "torrey-pines-outer-ca-46225", NOW)).rejects.toThrow(/column/);
+  });
+
+  it("keeps an offline, noindex page for a station that once had waves after has_wave is cleared", async () => {
+    const base = source();
+    const station = await base.getStationBySlug("torrey-pines-outer-ca-46225");
+    if (!station) throw new Error("fixture missing");
+    const cleared = source({ getStationBySlug: async () => ({ ...station, has_wave: false }) });
+    const result = await loadStationPage(cleared, "torrey-pines-outer-ca-46225", NOW);
+    if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
+    expect(result.data.status).toBe("offline");
+    expect(result.data.index).toEqual({ indexable: false, reason: "no-wave-data" });
+    expect(result.data.nowObservation).toBeNull();
+    const never = source({ getStationBySlug: async () => ({ ...station, has_wave: false, last_wave_observed_at: null }) });
+    await expect(loadStationPage(never, "torrey-pines-outer-ca-46225", NOW)).resolves.toEqual({ kind: "not-found" });
+  });
+
   it("is not found for unknown slugs and met-only stations", async () => {
     await expect(loadStationPage(source(), "no-such-buoy", NOW)).resolves.toEqual({ kind: "not-found" });
     await expect(loadStationPage(source(), "9414750-alameda-ca-aamc1", NOW)).resolves.toEqual({ kind: "not-found" });
@@ -157,9 +182,22 @@ describe("hubs", () => {
 });
 
 describe("isMissingCatalogueError", () => {
-  it("matches PostgREST and Postgres missing-table messages only", () => {
+  const withCode = (message: string, code: string) => Object.assign(new Error(message), { code });
+
+  it("matches a missing catalogue table or RPC only", () => {
     expect(isMissingCatalogueError(MISSING_TABLE)).toBe(true);
+    expect(isMissingCatalogueError(withCode(MISSING_TABLE.message, "PGRST205"))).toBe(true);
     expect(isMissingCatalogueError(new Error('relation "public.wave_stations" does not exist'))).toBe(true);
+    expect(
+      isMissingCatalogueError(withCode("getNearbyStations: Could not find the function public.get_nearby_wave_stations", "PGRST202")),
+    ).toBe(true);
+  });
+
+  it("does not hide a missing column, another table or a transient failure", () => {
+    const column = "listStations: Could not find the 'region' column of 'wave_stations' in the schema cache";
+    expect(isMissingCatalogueError(new Error(column))).toBe(false);
+    expect(isMissingCatalogueError(withCode(column, "PGRST204"))).toBe(false);
+    expect(isMissingCatalogueError(withCode("Could not find the table 'public.beaches' in the schema cache", "PGRST205"))).toBe(false);
     expect(isMissingCatalogueError(new Error("fetch failed"))).toBe(false);
   });
 });

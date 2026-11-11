@@ -80,10 +80,12 @@ export default async function BuoyStationPage({ params }: PageProps) {
   if (result.kind === "not-found") notFound();
 
   const data = result.data;
-  const { station, timeZone, status, latestWave } = data;
+  const { station, timeZone, status, latestWave, nowObservation } = data;
   const canonicalPath = stationPath(station.slug);
   const place = placeLabel(station);
+  // The chip keys off the newest wave reading; the reading time matches the row "Now" shows.
   const lastWaveAt = latestWave?.observed_at ?? station.last_wave_observed_at;
+  const shownAt = nowObservation?.observed_at ?? lastWaveAt;
   const dayFormat = new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" });
   const explainer = buildExplainerLines({
     station,
@@ -124,7 +126,11 @@ export default async function BuoyStationPage({ params }: PageProps) {
           <header className="relative mb-10">
             <QuiverSticker sticker="spotSwellMatch" className="absolute -right-4 -top-6 hidden w-28 rotate-6 opacity-80 lg:block" />
             <div className="mb-3 flex flex-wrap items-center gap-3">
-              <StatusChip lastWaveAt={lastWaveAt} serverStatus={status} />
+              <StatusChip
+                lastWaveAt={lastWaveAt}
+                serverStatus={status}
+                absolute={lastWaveAt ? formatStationTime(lastWaveAt, timeZone) : ""}
+              />
               <span className="font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
                 {`Buoy ${station.source_station_id.toUpperCase()}`}
               </span>
@@ -134,14 +140,14 @@ export default async function BuoyStationPage({ params }: PageProps) {
             <p className="mt-2 text-sm text-[#11100D]/75">
               Last wave reading:{" "}
               <ReadingAge
-                lastWaveAt={lastWaveAt}
+                lastWaveAt={shownAt}
                 serverStatus={status}
-                absolute={lastWaveAt ? formatStationTime(lastWaveAt, timeZone) : ""}
+                absolute={shownAt ? formatStationTime(shownAt, timeZone) : ""}
               />
             </p>
           </header>
 
-          <NowPanel observation={latestWave} status={status} hasSwellSplit={station.has_swell_split} reading={data.reading} />
+          <NowPanel observation={nowObservation} status={status} hasSwellSplit={station.has_swell_split} reading={data.reading} />
 
           {hasTrend ? (
             <section className={SECTION} aria-labelledby="buoy-trend-heading">

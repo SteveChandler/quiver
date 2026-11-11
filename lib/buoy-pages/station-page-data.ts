@@ -4,6 +4,7 @@
  */
 
 import type { StationBeaches } from "@/lib/services/wave-stations";
+import type { LatestWaveReading } from "@/lib/services/wave-stations/lookup";
 import type { WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
 import { findCanonicalTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { BEACH_SUMMARY_LIMIT, type BeachForecastSummary } from "./beach-summaries";
@@ -21,6 +22,7 @@ import { buildReadingSentence } from "./reading";
 import {
   buildTrendSeries,
   computeHeightTrend,
+  selectNowObservation,
   hourlyObservedHeights,
   type HourlyObservation,
   type TrendPoint,
@@ -36,7 +38,7 @@ const NEARBY_LIMIT = 6;
 export interface NearbyBuoy {
   station: WaveStationRow;
   distanceKm: number;
-  latest: WaveStationObservationRow | null;
+  latest: LatestWaveReading | null;
   status: StationStatus;
 }
 
@@ -65,6 +67,8 @@ interface StationPageData {
   status: StationStatus;
   index: StationIndexDecision;
   latestWave: WaveStationObservationRow | null;
+  /** The one row every "Now" field comes from (see selectNowObservation); null when offline. */
+  nowObservation: WaveStationObservationRow | null;
   latestAny: WaveStationObservationRow | null;
   reading: string | null;
   /** Hourly points over the stored history (up to 30 days). */
@@ -160,7 +164,9 @@ export async function loadStationPage(
     if (matches.length === 1 && matches[0].slug !== slugOrId) return { kind: "redirect", slug: matches[0].slug };
     return { kind: "not-found" };
   }
-  if (!station.has_wave) return { kind: "not-found" };
+  // Met-only stations have nothing to show. A station that once reported waves
+  // keeps its page (offline, noindex) even after the registry clears has_wave.
+  if (!station.has_wave && !station.last_wave_observed_at) return { kind: "not-found" };
 
   const nowMs = now.getTime();
   const timeZone = stationTimeZone(station);
@@ -195,8 +201,10 @@ export async function loadStationPage(
     }),
   ]);
 
-  const status = classifyStationStatus(station.last_wave_observed_at ?? latest.latestWave?.observed_at, nowMs);
-  const showNow = status !== "offline" ? latest.latestWave : null;
+  const status = station.has_wave
+    ? classifyStationStatus(station.last_wave_observed_at ?? latest.latestWave?.observed_at, nowMs)
+    : "offline";
+  const showNow = status !== "offline" ? selectNowObservation(station.has_swell_split, latest.latestWave, history) : null;
 
   return {
     kind: "found",
@@ -206,6 +214,7 @@ export async function loadStationPage(
       status,
       index: evaluateStationIndexability(station, nowMs),
       latestWave: latest.latestWave,
+      nowObservation: showNow,
       latestAny: latest.latestAny,
       // "Over the last 6 hours" is only true while the reading is fresh.
       reading: showNow
