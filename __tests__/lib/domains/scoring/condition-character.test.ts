@@ -12,7 +12,7 @@
  *   skip → flat → small → medium → large → fallback
  */
 
-import { getConditionCharacter, getSkipCause } from '@/lib/domains/scoring/condition-character';
+import { getConditionCharacter, getConditionCharacterDetails, getSkipCause } from '@/lib/domains/scoring/condition-character';
 import { baseConditionsScorer, setupRiskScorer, windQualityScorer } from '@/lib/domains/scoring';
 import type { CompositeScore } from '@/lib/domains/scoring';
 import type { SpotProfile } from '@/lib/domains/spot-profile';
@@ -420,6 +420,56 @@ describe('getConditionCharacter (domain engine port)', () => {
       const result = getConditionCharacter(snap, profile, baseComposite);
       expect(result.category).toBe('small-weak');
       expect(result.label).toMatch(/choppy/i);
+    });
+
+    // The profile's offshore bearing is 90° with a 45° tolerance.
+    const WIND_DEG = { onshore: 270, offshore: 90, cross: 180 } as const;
+
+    function snapshotWith(
+      waves: { heightFt: number; periodS: number },
+      wind: 'onshore' | 'offshore' | 'cross',
+      mph: number
+    ): ConditionsSnapshot {
+      return createSnapshot({
+        ...baseSnapshot,
+        waveHeight: waves.heightFt,
+        wavePeriod: waves.periodS,
+        waveDirection: 260,
+        primarySwell: createSwell(waves.heightFt, waves.periodS, 260),
+        wind: { speedMph: mph, directionDeg: WIND_DEG[wind] },
+      });
+    }
+
+    it.each([
+      ['onshore-chop', 1.5, 7, 'onshore', 8],
+      ['weak-swell', 1.5, 7, 'offshore', 3],
+      ['onshore-chop', 1.5, 9, 'onshore', 8],
+      ['marginal', 1.5, 9, 'cross', 10],
+    ] as const)('names the %s small-weak branch', (reason, heightFt, periodS, wind, mph) => {
+      const details = getConditionCharacterDetails(
+        snapshotWith({ heightFt, periodS }, wind, mph),
+        profile,
+        baseComposite
+      );
+      expect(details.character.category).toBe('small-weak');
+      expect(details.smallWeakReason).toBe(reason);
+    });
+
+    it('returns no reason outside small-weak', () => {
+      const details = getConditionCharacterDetails(
+        snapshotWith({ heightFt: 3, periodS: 9 }, 'cross', 10),
+        profile,
+        makeComposite({ windQuality: 50, tideFit: 50 })
+      );
+      expect(details.character.category).toBe('medium-mixed');
+      expect(details.smallWeakReason).toBeNull();
+    });
+
+    it('keeps the character object shape', () => {
+      const snap = snapshotWith({ heightFt: 1.5, periodS: 7 }, 'onshore', 8);
+      const character = getConditionCharacter(snap, profile, baseComposite);
+      expect(Object.keys(character).sort()).toEqual(['category', 'label']);
+      expect(getConditionCharacterDetails(snap, profile, baseComposite).character).toEqual(character);
     });
   });
 

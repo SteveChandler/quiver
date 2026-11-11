@@ -20,7 +20,9 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 import type { RecommendationLabel } from '@/lib/scoring';
-import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
+import type { ConditionCharacterCategory, SmallWeakReason } from '@/lib/domains/scoring';
+import { getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
+import type { SkillLevel } from '@/lib/domains/user-preferences';
 
 // Re-export FALLBACK_IMAGE_BY_NAME for backward compatibility
 export { FALLBACK_IMAGE_BY_NAME };
@@ -179,6 +181,20 @@ const POSITIVE_CHARACTER_CATEGORIES: ReadonlySet<ConditionCharacterCategory> =
     'small-clean',
   ]);
 
+// A small, soft day that caps an experienced surfer is a good day for a
+// learner. Onshore chop and marginal small-weak days stay capped.
+const LEARNER_MEDIUM_MIXED_MAX_FT = 3;
+const LEARNER_WEAK_SWELL_MIN_FT = 1;
+const LEARNER_WEAK_SWELL_MIN_PERIOD_S = 6;
+
+interface LearnerGateContext {
+  skill: SkillLevel;
+  boardClass: BoardClass | null;
+  waveHeightFt: number;
+  wavePeriodS: number;
+  smallWeakReason: SmallWeakReason | null;
+}
+
 /**
  * Recommendation label gated on the character category, not score alone.
  *
@@ -191,11 +207,13 @@ const POSITIVE_CHARACTER_CATEGORIES: ReadonlySet<ConditionCharacterCategory> =
  *
  * @param score - Total composite score (0-100)
  * @param characterCategory - Optional character category from getConditionCharacter
+ * @param learner - Optional rating context; a learner gets extra "Worth it" cases
  * @returns Recommendation label
  */
 export function getRecommendationLabelGated(
   score: number,
-  characterCategory: ConditionCharacterCategory | null | undefined
+  characterCategory: ConditionCharacterCategory | null | undefined,
+  learner?: LearnerGateContext
 ): RecommendationLabel {
   const baseLabel = getRecommendationLabel(score);
 
@@ -205,7 +223,35 @@ export function getRecommendationLabelGated(
 
   if (!characterCategory) return baseLabel;
 
-  return POSITIVE_CHARACTER_CATEGORIES.has(characterCategory) ? 'Worth it' : 'Maybe';
+  if (POSITIVE_CHARACTER_CATEGORIES.has(characterCategory)) return 'Worth it';
+
+  if (!learner || !isLearnerContext(learner.skill, learner.boardClass)) return 'Maybe';
+
+  return isLearnerWorthIt(characterCategory, learner) ? 'Worth it' : 'Maybe';
+}
+
+export function isLearnerContext(skill: SkillLevel, boardClass: BoardClass | null): boolean {
+  return (
+    skill === 'beginner' ||
+    (boardClass !== null && getRideabilityBand(skill, boardClass).prefersClean)
+  );
+}
+
+function isLearnerWorthIt(
+  characterCategory: ConditionCharacterCategory,
+  learner: LearnerGateContext
+): boolean {
+  if (characterCategory === 'medium-mixed') {
+    return learner.waveHeightFt < LEARNER_MEDIUM_MIXED_MAX_FT;
+  }
+  if (characterCategory === 'small-weak') {
+    return (
+      learner.smallWeakReason === 'weak-swell' &&
+      learner.waveHeightFt >= LEARNER_WEAK_SWELL_MIN_FT &&
+      learner.wavePeriodS >= LEARNER_WEAK_SWELL_MIN_PERIOD_S
+    );
+  }
+  return false;
 }
 
 // ============================================================================

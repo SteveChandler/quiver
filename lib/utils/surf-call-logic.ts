@@ -115,6 +115,8 @@ export interface SurfCallResult {
    * Additive telemetry/debug metadata for web and native clients.
    */
   skillSource?: SkillSource | null;
+  /** True when the server rated this call as beginner because the profile has no skill level. */
+  skillDefaultApplied?: true;
   /**
    * User-facing cautions from setup-specific guardrails. Additive for web and
    * native consumers; absent/empty means no extra warning needs to be shown.

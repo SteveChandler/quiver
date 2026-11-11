@@ -38,6 +38,8 @@ jest.mock('@/lib/supabase/query-builders', () => ({
 // Import after mocks
 import {
   getRecommendationLabel,
+  getRecommendationLabelGated,
+  isLearnerContext,
   buildDiscoveryMessage,
   generateDiscoverySummary,
   enrichWithPhotos,
@@ -164,6 +166,86 @@ describe('getRecommendationLabel', () => {
   it('should handle edge cases at boundaries', () => {
     expect(getRecommendationLabel(39.9)).toBe('Skip');
     expect(getRecommendationLabel(69.9)).toBe('Maybe');
+  });
+});
+
+// ============================================================================
+// getRecommendationLabelGated learner context
+// ============================================================================
+
+type LearnerGateContext = NonNullable<Parameters<typeof getRecommendationLabelGated>[2]>;
+
+describe('getRecommendationLabelGated learner context', () => {
+  const ctx = (o: Partial<LearnerGateContext> = {}): LearnerGateContext => ({
+    skill: 'beginner',
+    boardClass: null,
+    waveHeightFt: 2.5,
+    wavePeriodS: 9,
+    smallWeakReason: null,
+    ...o,
+  });
+
+  it("lets a learner's medium-mixed day under 3 ft be Worth it", () => {
+    expect(getRecommendationLabelGated(72, 'medium-mixed', ctx())).toBe('Worth it');
+    expect(getRecommendationLabelGated(72, 'medium-mixed', ctx({ waveHeightFt: 3 }))).toBe('Maybe');
+    expect(getRecommendationLabelGated(72, 'medium-mixed', ctx({ waveHeightFt: 3.5 }))).toBe('Maybe');
+    expect(getRecommendationLabelGated(69, 'medium-mixed', ctx())).toBe('Maybe');
+  });
+
+  it('keeps medium-rough capped for a learner', () => {
+    expect(getRecommendationLabelGated(80, 'medium-rough', ctx())).toBe('Maybe');
+  });
+
+  it('lets only the weak-swell small-weak branch through, from 1 ft and 6 s', () => {
+    const weak: Partial<LearnerGateContext> = {
+      waveHeightFt: 1,
+      wavePeriodS: 6,
+      smallWeakReason: 'weak-swell',
+    };
+    expect(getRecommendationLabelGated(72, 'small-weak', ctx(weak))).toBe('Worth it');
+    expect(getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, waveHeightFt: 0.9 }))).toBe('Maybe');
+    expect(getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, wavePeriodS: 5.9 }))).toBe('Maybe');
+    expect(
+      getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, smallWeakReason: 'onshore-chop' }))
+    ).toBe('Maybe');
+    expect(
+      getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, smallWeakReason: 'marginal' }))
+    ).toBe('Maybe');
+  });
+
+  it('keeps onshore chop capped for an intermediate on a foamie', () => {
+    expect(
+      getRecommendationLabelGated(
+        75,
+        'small-weak',
+        ctx({
+          skill: 'intermediate',
+          boardClass: 'foamie',
+          waveHeightFt: 1.5,
+          wavePeriodS: 7,
+          smallWeakReason: 'onshore-chop',
+        })
+      )
+    ).toBe('Maybe');
+  });
+
+  it('treats an intermediate on a prefers-clean board as a learner, not on a fish or shortboard', () => {
+    expect(isLearnerContext('intermediate', 'longboard')).toBe(true);
+    expect(isLearnerContext('intermediate', 'fish')).toBe(false);
+    expect(isLearnerContext('intermediate', null)).toBe(false);
+    expect(
+      getRecommendationLabelGated(
+        72,
+        'medium-mixed',
+        ctx({ skill: 'intermediate', boardClass: 'shortboard' })
+      )
+    ).toBe('Maybe');
+  });
+
+  it("is today's gate without a learner context", () => {
+    expect(getRecommendationLabelGated(72, 'medium-mixed')).toBe('Maybe');
+    expect(getRecommendationLabelGated(72, 'small-clean')).toBe('Worth it');
+    expect(getRecommendationLabelGated(55, 'medium-clean')).toBe('Maybe');
   });
 });
 

@@ -5,6 +5,7 @@
 import snapshot from "@/__tests__/fixtures/grandview-crossing-swells-20260911.json";
 import { evaluateForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
+import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
 import { getRecommendationLabel } from "@/lib/services/discovery/response-formatter";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector";
 import type { Beach } from "@/types/database";
@@ -127,5 +128,151 @@ describe("evaluateForecastVerdict", () => {
     expect(swell.decision.holdEpoch).toBe("swell-alert");
     expect(daily.decision.holdEpoch).toBe("daily-call");
     expect(swell.decision.decisionId).not.toBe(daily.decision.decisionId);
+  });
+});
+
+describe("evaluateForecastVerdict with go checks", () => {
+  const beach: Beach = { ...(snapshot.beach as unknown as Beach), skill_level: "beginner" };
+  const base = { timezone: TIMEZONE, now: NOW, candidateIdPrefix: "daily-call" };
+  const rowAt = (
+    id: string,
+    ft: string,
+    s: string,
+    mph: string,
+    deg: number,
+  ): EnhancedForecastEntity => ({
+    ...clean,
+    id,
+    wave_height: `${ft} ft`,
+    wave_period: `${s}s`,
+    swell_1_height: `${ft} ft`,
+    swell_1_period: `${s}s`,
+    swell_2_height: null,
+    swell_2_period: null,
+    swell_2_direction: null,
+    wind_wave_height: null,
+    wind_wave_period: null,
+    wind_wave_direction: null,
+    wind_speed: `${mph} mph`,
+    wind_direction_deg: deg,
+  });
+  const cleanAt = (ft: string, s: string): EnhancedForecastEntity =>
+    rowAt(`clean-${ft}-${s}`, ft, s, "3", 45);
+  const mixed3 = rowAt("mixed3", "3", "9", "3", 45);
+
+  it("keeps today's score with no boards and adds no key without goChecks", () => {
+    const today = evaluateForecastVerdict({
+      ...base,
+      forecast: clean,
+      beach,
+      experienceLevel: "intermediate",
+    });
+    const checked = evaluateForecastVerdict({
+      ...base,
+      forecast: clean,
+      beach,
+      experienceLevel: "intermediate",
+      goChecks: { boardClasses: [] },
+    });
+
+    expect(checked.score).toBe(today.score);
+    expect(Object.keys(today).sort()).toEqual(["decision", "forecast", "score", "verdict"]);
+  });
+
+  it("scores a clean 1 ft row higher with a longboard", () => {
+    const forecast = cleanAt("1", "11");
+    const noBoard = evaluateForecastVerdict({
+      ...base,
+      forecast,
+      beach,
+      experienceLevel: "beginner",
+      goChecks: { boardClasses: [] },
+    });
+    const longboard = evaluateForecastVerdict({
+      ...base,
+      forecast,
+      beach,
+      experienceLevel: "beginner",
+      goChecks: { boardClasses: ["longboard"] },
+    });
+
+    expect(longboard.score).toBeGreaterThan(noBoard.score);
+    expect(longboard.boardClass).toBe("longboard");
+    expect(noBoard.boardClass).toBeNull();
+  });
+
+  it("never lets a board pass the beginner 4 ft cap", () => {
+    const result = evaluateForecastVerdict({
+      ...base,
+      forecast: headHigh,
+      beach,
+      experienceLevel: null,
+      goChecks: { boardClasses: ["longboard", "foamie"] },
+    });
+
+    expect(result.verdict).toBe("no");
+    expect(result.decision.reasonCode).toBe("wave_height_exceeds_skill");
+  });
+
+  it("vetoes an above-beginner beach for a no-skill user on the go-check path only", () => {
+    const intermediateBeach: Beach = { ...beach, skill_level: "intermediate" };
+    const today = evaluateForecastVerdict({
+      ...base,
+      forecast: clean,
+      beach: intermediateBeach,
+      experienceLevel: null,
+    });
+    const checked = evaluateForecastVerdict({
+      ...base,
+      forecast: clean,
+      beach: intermediateBeach,
+      experienceLevel: null,
+      goChecks: { boardClasses: ["longboard"] },
+    });
+
+    expect(today.verdict).toBe("go");
+    expect(checked.verdict).toBe("no");
+    expect(checked.decision.reasonCode).toBe("beach_skill_exceeds_user");
+  });
+
+  it("rates a no-skill user as beginner in the score and the engine", () => {
+    const result = evaluateForecastVerdict({
+      ...base,
+      forecast: clean,
+      beach,
+      experienceLevel: null,
+      goChecks: { boardClasses: [] },
+    });
+
+    expect(result.score).toBe(scoreWindowConditionScore(clean, beach, "beginner"));
+    expect(result.decision.skillEligibility).toMatchObject({
+      skill: "beginner",
+      state: "eligible",
+      reasonCodes: [],
+    });
+  });
+
+  it("gates a flagged intermediate with no boards on the push path (D1b)", () => {
+    // precondition
+    expect(
+      resolveRecommendationLabel({ beach, forecast: mixed3, score: 75 }).character?.category,
+    ).toBe("medium-mixed");
+    const today = evaluateForecastVerdict({
+      ...base,
+      forecast: mixed3,
+      beach,
+      experienceLevel: "intermediate",
+    });
+    const checked = evaluateForecastVerdict({
+      ...base,
+      forecast: mixed3,
+      beach,
+      experienceLevel: "intermediate",
+      goChecks: { boardClasses: [] },
+    });
+
+    expect(today.verdict).toBe("go");
+    expect(checked.score).toBeGreaterThanOrEqual(70);
+    expect(checked.verdict).toBe("maybe");
   });
 });

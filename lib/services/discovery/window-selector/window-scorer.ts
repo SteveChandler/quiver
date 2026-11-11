@@ -46,7 +46,7 @@ const COMPOSITE_SKIP_CEILING = 39; // top of MEH
  * @param beach - Beach metadata
  * @returns Score from 0-100
  */
-interface WindowConditionScoreDetails {
+export interface WindowConditionScoreDetails {
   score: number;
   boardClass: BoardClass | null;
   rideabilityBand: RideabilityBand | null;

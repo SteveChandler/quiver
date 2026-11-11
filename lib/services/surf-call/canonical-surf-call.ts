@@ -4,7 +4,9 @@ import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-servi
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { resolveFeatureAccessFromRow } from '@/lib/alerts/entitlements';
-import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { getProfileExperienceLevel, readProfileSkill } from '@/lib/profile/skill-level';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
+import { getSkillLevelOrDefault } from '@/lib/domains/user-preferences/skill-level';
 import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
 import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
 import type { CanonicalSessionDecision } from '@/lib/recommendations/canonical-decision/types';
@@ -199,7 +201,11 @@ function appendBoardNote(whySentence: string, boardNote: string | null): string 
   return whySentence ? `${whySentence} ${sentence}` : sentence;
 }
 
-function safetyReason(decision: CanonicalSessionDecision, beachName: string): string {
+function safetyReason(
+  decision: CanonicalSessionDecision,
+  beachName: string,
+  skillDefaulted = false,
+): string {
   const rejection = decision.candidateRejection;
   const waterQualityReason = rejection?.observed?.status === 'advisory'
     ? `Water quality is under an advisory at ${beachName}; an open status is required.`
@@ -246,13 +252,16 @@ function safetyReason(decision: CanonicalSessionDecision, beachName: string): st
     case 'major_event_hold':
       return 'Major-event conditions are unresolved.';
     case 'beach_skill_exceeds_user':
+      if (skillDefaulted) {
+        return `This break calls for ${rejection?.observed?.skill ?? 'a higher skill level'}. You haven't set a level, so Quiver rates you as a beginner.`;
+      }
       return `This break requires ${rejection?.observed?.skill ?? 'a higher skill level'}; your profile is ${rejection?.allowed?.skill ?? decision.skillEligibility.skill}.`;
     case 'wave_height_exceeds_skill':
       if (rejection?.observed?.waveHeightFt !== undefined && rejection.allowed?.minimumWaveHeightFt !== undefined && rejection.allowed.maximumWaveHeightFt !== undefined) {
         const observed = `${rejection.observed.waveHeightFt} ft`;
         const range = `${rejection.allowed.minimumWaveHeightFt}-${rejection.allowed.maximumWaveHeightFt} ft`;
         const appliedSkill = rejection.allowed.skill ?? 'profile';
-        return decision.skillEligibility?.skill === 'unknown'
+        return decision.skillEligibility?.skill === 'unknown' || skillDefaulted
           ? `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range} applied when skill is unknown.`
           : `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range}.`;
       }
@@ -279,6 +288,8 @@ function buildCanonicalSurfCall(
   profileExperience: SkillLevel | null,
   boardClass: BoardClass | null,
   recommendationAvailability: RecommendationAvailability,
+  skillDefaultApplied = false,
+  skillDefaulted = false,
 ): Omit<CanonicalSurfCallResponse, 'waterQuality'> {
   const selection = decision.selection;
   const selectedRecommendation = selection
@@ -343,7 +354,7 @@ function buildCanonicalSurfCall(
     selection?.evidence.personalMatch?.reasons.join(' ') ?? '';
   const whySentence = appendBoardNote(
     decision.decisionBasis === 'safety_override'
-      ? safetyReason(decision, beach.name)
+      ? safetyReason(decision, beach.name, skillDefaulted)
       : personalReasons || baseline.whySentence,
     boardNote,
   );
@@ -367,6 +378,7 @@ function buildCanonicalSurfCall(
         : null,
     userTier: profileExperience,
     skillSource: profileExperience ? 'profile' as const : null,
+    ...(skillDefaultApplied ? { skillDefaultApplied: true as const } : {}),
     recommendationAvailability,
   };
 
@@ -446,13 +458,25 @@ export async function computeCanonicalSurfCall({
   }
   const typedBeach = beach as unknown as RecommendationGateBeach;
 
+  const skillAware = isSkillAwareGoChecksOn(userId);
   let profileExperience: SkillLevel | null = null;
-  if (userId) {
+  let ratingSkill: SkillLevel | null = null;
+  // A failed read stays unknown skill; only a read row with no level is rated as beginner.
+  let skillBlank = false;
+  let skillDefaulted = false;
+  if (userId && skillAware) {
+    const read = await readProfileSkill(supabase, userId);
+    profileExperience = read.ok ? read.level : null;
+    ratingSkill = read.ok ? getSkillLevelOrDefault(read.level) : null;
+    skillBlank = read.ok && read.blank;
+    skillDefaulted = read.ok && read.level === null;
+  } else if (userId) {
     try {
       profileExperience = await getProfileExperienceLevel(supabase, userId);
     } catch {
       profileExperience = null;
     }
+    ratingSkill = profileExperience;
   }
   const { data: entitlementRow } = userId
     ? await supabase
@@ -489,7 +513,7 @@ export async function computeCanonicalSurfCall({
         userId,
         beach: typedBeach,
         access,
-        profileExperience,
+        profileExperience: ratingSkill,
         now: anchor,
       })
     : null;
@@ -507,7 +531,7 @@ export async function computeCanonicalSurfCall({
   try {
     canonicalContext = await resolveCanonicalSessionDecisionContext({
       userId,
-      profileExperience,
+      profileExperience: ratingSkill,
       anchorTime,
       candidateBeachIds: [beachId],
       scope: {
@@ -560,6 +584,8 @@ export async function computeCanonicalSurfCall({
       profileExperience,
       boardClass,
       recommendationAvailability,
+      skillBlank && sessionDecision.skillEligibility?.skill === 'beginner',
+      skillDefaulted,
     ),
     waterQuality,
     ...(nowRecommendationResult

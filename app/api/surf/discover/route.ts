@@ -18,6 +18,8 @@ import { resolveFeatureAccessFromRow } from '@/lib/alerts/entitlements';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { getSkillLevelOrDefault } from '@/lib/domains/user-preferences/skill-level';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
 import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
 import { findNearestBeach } from '@/lib/alerts/user-pool';
@@ -384,7 +386,10 @@ async function surfDiscoveryHandler(
     }));
   }
 
-  const profileExperience = await profileExperiencePromise;
+  const rawExperience = await profileExperiencePromise;
+  const profileExperience = isSkillAwareGoChecksOn(user.id)
+    ? getSkillLevelOrDefault(rawExperience)
+    : rawExperience;
   const hasIncomingMajorEventHold = hasExplicitMajorEventHold(discovery);
   const isSuccessfulNoCandidateResult =
     hasNoDiscoveryCandidates(discovery) &&

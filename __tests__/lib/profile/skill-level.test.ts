@@ -1,7 +1,4 @@
-import {
-  getProfileExperienceLevel,
-  getVerifiedProfileExperience,
-} from "@/lib/profile/skill-level";
+import { getProfileExperienceLevel, getVerifiedProfileExperience, readProfileSkill } from "@/lib/profile/skill-level";
 
 type ProfileSkillClient = Parameters<typeof getProfileExperienceLevel>[0];
 
@@ -72,6 +69,26 @@ describe("getProfileExperienceLevel", () => {
     expect(select).toHaveBeenCalledWith("experience_level");
     expect(eq).toHaveBeenCalledWith("id", "user-123");
     expect(maybeSingle).toHaveBeenCalled();
+  });
+});
+
+describe("readProfileSkill", () => {
+  function read(result: Parameters<typeof supabaseWithProfileResult>[0]) {
+    return readProfileSkill(asProfileSkillClient(supabaseWithProfileResult(result).supabase), "u1");
+  }
+
+  it.each([
+    [null, true, null],
+    ["  ", true, null],
+    ["pro", false, null],
+    ["Beginner", false, "beginner"],
+  ] as const)("reads %p", async (raw, blank, level) => {
+    await expect(read({ data: { experience_level: raw }, error: null })).resolves.toEqual({ ok: true, level, blank });
+  });
+
+  it("fails closed on an error or a missing row", async () => {
+    await expect(read({ data: null, error: { message: "profile unavailable" } })).resolves.toEqual({ ok: false });
+    await expect(read({ data: null, error: null })).resolves.toEqual({ ok: false });
   });
 });
 

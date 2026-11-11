@@ -9,6 +9,7 @@ import {
   getCanonicalRecommendationLabel,
 } from '@/lib/recommendations/canonical-decision/discovery-adapter';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { fetchUserBoardClasses, orderBoardClasses } from '@/lib/profile/board-classes';
 import { batchFetchForecasts } from '@/lib/services/discovery/forecast-batch-fetcher';
 import { getBatchSunTimes } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import {
@@ -19,9 +20,11 @@ import {
 } from '@/lib/services/discovery/personalization-layer';
 import {
   selectBestWindows,
+  scoreWindowConditionDetails,
   scoreWindowConditionScore,
   scoreWindowWithComposite,
   getLocalDateStr,
+  type WindowConditionScoreDetails,
 } from '@/lib/services/discovery/window-selector';
 import {
   daypartForTime,
@@ -35,14 +38,12 @@ import {
 } from '@/lib/domains/scoring';
 import { rerankHero, type RerankResult } from '@/lib/services/discovery/hero-ranking';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { zonedWallClockToUtc } from './local-date';
 import {
   getSkillLevelOrDefault,
   type SkillLevel,
 } from '@/lib/domains/user-preferences';
-import {
-  normalizeBoardClass,
-  type BoardClass,
-} from '@/lib/domains/rideability';
+import type { BoardClass } from '@/lib/domains/rideability';
 import type { SpotProfile } from '@/lib/domains/spot-profile/types';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -101,6 +102,7 @@ import {
   type WeekScoutSwell,
 } from '@/lib/services/discovery/week-scout-swells';
 import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
 import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } from '@/lib/services/tide-series-loader';
 import { bridgeBeachForecastRows } from '@/lib/services/discovery/hourly-bridge-rows';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
@@ -109,11 +111,13 @@ import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
 const WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX = '+hourly-bridge-v1';
+/** Skill-aware go checks label windows by another rule, so they get their own ids. */
+const WEEK_SCOUT_SKILL_AWARE_SUFFIX = '+skill-aware-go-v1';
 const HOUR_MS = 60 * 60 * 1000;
-// Native refetches at the earlier of coverage and session-decision expiry, so both use this.
-// A week planner tolerates one missed 30-minute forecast sync. Measured from each answer, not
-// snapped to the sync slots, so open apps don't all refetch together at the top of the hour.
-const WEEK_SCOUT_COVERAGE_TTL_MS = 60 * 60 * 1000;
+// Fallback life of an answer when the request's local date cannot give a day end.
+const WEEK_SCOUT_FALLBACK_TTL_MS = 60 * 60 * 1000;
+// A correct local date ends within 25 h (a DST day); a client date ahead of ours must not stretch it.
+const WEEK_SCOUT_MAX_TTL_MS = 25 * 60 * 60 * 1000;
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 // The swell reads start with the forecast fetch, so this bounds the extra
 // wait after the main result is ready; a slower snapshot read omits `swells`.
@@ -309,6 +313,8 @@ interface GeneratedWeekScoutContext {
   beaches: Beach[];
   forecastsByBeach: Map<string, EnhancedForecastEntity[]>;
   userSkillLevel: SkillLevel | null;
+  /** The skill the engine rates with: beginner for a missing skill under skill-aware go checks. */
+  ratingSkillLevel: SkillLevel | null;
   boardClasses: BoardClass[];
   generatedAt: string;
   now: Date;
@@ -355,6 +361,12 @@ export interface WeekScoutServiceDependencies {
     skillLevel?: SkillLevel | null,
     boardClasses?: readonly BoardClass[],
   ) => number;
+  scoreWindowConditionDetails?: (
+    forecast: EnhancedForecastEntity,
+    beach: Beach,
+    skillLevel?: SkillLevel | null,
+    boardClasses?: readonly BoardClass[],
+  ) => Pick<WindowConditionScoreDetails, 'score' | 'boardClass'>;
   scoreBeach: (
     beach: Beach,
     forecast: EnhancedForecastEntity,
@@ -398,11 +410,19 @@ function isEarlyLookDay(startLocalDate: string, localDate: string): boolean {
   return localDayOffset(startLocalDate, localDate) >= HEADLINE_DAY_COUNT;
 }
 
-function weekScoutScorerVersion(): string {
-  return isHourlyBridgeEnabledFor('week-scout')
+function weekScoutScorerVersion(skillAware = false): string {
+  const version = isHourlyBridgeEnabledFor('week-scout')
     ? `${WEEK_SCOUT_SCORER_VERSION}${WEEK_SCOUT_HOURLY_BRIDGE_SUFFIX}`
     : WEEK_SCOUT_SCORER_VERSION;
+  return skillAware ? `${version}${WEEK_SCOUT_SKILL_AWARE_SUFFIX}` : version;
 }
+
+const defaultScoreWindowConditionDetails: NonNullable<WeekScoutServiceDependencies['scoreWindowConditionDetails']> = (
+  forecast,
+  beach,
+  skillLevel,
+  boardClasses,
+) => scoreWindowConditionDetails(forecast, beach, skillLevel, null, boardClasses);
 
 /**
  * The tide read for the bridged headline days: from just before now to a few hours past the
@@ -563,15 +583,31 @@ function scoringComponentForForecast(
 }
 
 /**
- * The answer is good for an hour after it is generated: the app refetches at this deadline
+ * The answer is good until the end of the surfer's local day: a week planner needs one answer a
+ * day, and the app marks passed windows itself in between. The app refetches at this deadline
  * (the session decision shares it), and a 60 s deadline made every open Home ask for a heavy
  * answer once a minute (Nov 4 2026). Holds carry their own deadlines. Our ingest
  * age is not the forecast's age: a CDIP row the sync has not revisited in a few
  * hours still holds the same forward forecast, so it must not expire the
  * answer before it arrives (a past deadline voided the whole week).
  */
-function coverageExpiry(generatedAt: string): string {
-  return new Date(Date.parse(generatedAt) + WEEK_SCOUT_COVERAGE_TTL_MS).toISOString();
+export function weekScoutAnswerExpiry(
+  generatedAt: string,
+  startLocalDate: string,
+  timezone: string,
+): string {
+  const generatedMs = Date.parse(generatedAt);
+  let dayEndMs = Number.NaN;
+  try {
+    dayEndMs = Date.parse(zonedWallClockToUtc(addLocalDays(startLocalDate, 1), '00:00:00', timezone));
+  } catch {
+    // An unknown zone or a malformed date falls through to the fixed fallback.
+  }
+  // A client date that is already past (or wrong) must not hand out an expired answer.
+  if (!Number.isFinite(dayEndMs) || dayEndMs <= generatedMs) {
+    return new Date(generatedMs + WEEK_SCOUT_FALLBACK_TTL_MS).toISOString();
+  }
+  return new Date(Math.min(dayEndMs, generatedMs + WEEK_SCOUT_MAX_TTL_MS)).toISOString();
 }
 
 function isSafe(score: DetailedScore): boolean {
@@ -628,28 +664,14 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
     fetchSkill: async (userId) => (
       getProfileExperienceLevel(createSupabaseServiceRoleClient(), userId)
     ),
-    fetchBoardClasses: async (userId) => {
-      const { data, error } = await createSupabaseServiceRoleClient()
-        .from('boards')
-        .select('board_type')
-        .eq('user_id', userId)
-        .is('retired_at', null);
-      if (error || !Array.isArray(data)) return [];
-
-      return Array.from(
-        new Set(
-          data
-            .map((row) => normalizeBoardClass(row.board_type))
-            .filter((boardClass): boardClass is BoardClass => boardClass !== null)
-        )
-      );
-    },
+    fetchBoardClasses: (userId) => fetchUserBoardClasses(createSupabaseServiceRoleClient(), userId),
     fetchMatchEvidence: fetchWeekScoutMatchEvidence,
     calculatePersonalizationBonus,
     selectBestWindows,
     scoreWindowCondition: (forecast, beach, skillLevel, boardClasses) => (
       scoreWindowConditionScore(forecast, beach, skillLevel, null, boardClasses)
     ),
+    scoreWindowConditionDetails: defaultScoreWindowConditionDetails,
     scoreBeach: (beach, forecast, options) => (
       scoreBeachWithEngine(scoringEngine, beach, forecast, options)
     ),
@@ -699,6 +721,7 @@ function buildDraftWindow(args: {
   generatedAt: string;
   distanceMiles?: number;
   deps: WeekScoutServiceDependencies;
+  skillAware?: boolean;
 }): DraftWindow | null {
   const skillLevel = getSkillLevelOrDefault(args.userSkillLevel);
   const { window } = args;
@@ -714,12 +737,23 @@ function buildDraftWindow(args: {
     userSkillLevel: skillLevel,
     beachSkillLevel: args.beach.skill_level,
   });
-  const conditionScore = args.deps.scoreWindowCondition(
-    forecast,
-    args.beach,
-    skillLevel,
-    args.boardClasses,
-  );
+  // The learner gate needs the best board, so skill-aware windows read the score details.
+  const details = args.skillAware
+    ? (args.deps.scoreWindowConditionDetails ?? defaultScoreWindowConditionDetails)(
+      forecast,
+      args.beach,
+      skillLevel,
+      args.boardClasses,
+    )
+    : null;
+  const conditionScore = details
+    ? details.score
+    : args.deps.scoreWindowCondition(
+      forecast,
+      args.beach,
+      skillLevel,
+      args.boardClasses,
+    );
   const representativeScore = clampScore(
     conditionScore + personalization.affinityBonus + personalization.personalizationBonus,
   );
@@ -727,7 +761,7 @@ function buildDraftWindow(args: {
     args.beach.id,
     args.localDate,
     args.bucket,
-    weekScoutScorerVersion(),
+    weekScoutScorerVersion(args.skillAware),
   ]).slice(0, 24);
   const windowForecasts = args.forecasts.filter((row) => {
     const time = new Date(row.forecast_at).getTime();
@@ -738,6 +772,7 @@ function buildDraftWindow(args: {
   );
   const { label, character } = resolveRecommendationLabel({
     beach: args.beach, forecast, score: conditionScore,
+    ...(details ? { learner: { skill: skillLevel, boardClass: details.boardClass } } : {}),
   });
   const slotScores = windowForecasts
     .map((row) => args.deps.scoreWindowCondition(
@@ -1085,6 +1120,7 @@ interface FinalizeWeekScoutContext {
   draftsBySlot: ReadonlyMap<string, DraftWindow>;
   compactResponse: boolean;
   deps: WeekScoutServiceDependencies;
+  skillAware?: boolean;
 }
 
 /**
@@ -1098,10 +1134,11 @@ async function finalizeWeekScoutDays(
 ): Promise<MajorEventHoldWeekScoutResponse> {
   const {
     userId, generatedAt, beachIds, userSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
+    skillAware,
   } = context;
   let response: WeekScoutResponse = {
     generatedAt,
-    scorerVersion: weekScoutScorerVersion(),
+    scorerVersion: weekScoutScorerVersion(skillAware),
     candidateFingerprint: hash([...beachIds].sort()),
     days: segmentDays,
   };
@@ -1285,6 +1322,7 @@ async function generateWeekScoutForecastScoped(
   dependencies: WeekScoutServiceDependencies | undefined,
   compactResponse: boolean,
 ): Promise<GeneratedWeekScoutContext> {
+  const skillAware = isSkillAwareGoChecksOn(userId);
   const deps = dependencies ?? defaultDependencies(new Date());
   const generatedAt = deps.now.toISOString();
   const localDates = Array.from(
@@ -1318,10 +1356,14 @@ async function generateWeekScoutForecastScoped(
     deps.fetchSunTimes(beachIds, sunDates),
     deps.fetchRankingContext(userId),
     deps.fetchSkill(userId),
-    deps.fetchBoardClasses?.(userId) ?? Promise.resolve([]),
+    deps.fetchBoardClasses?.(userId).then((classes) => (
+      skillAware ? orderBoardClasses(classes) : classes
+    )) ?? Promise.resolve([]),
     tideRequest,
   ]);
   recordStage('ws-reads', performance.now() - forecastReadsStartedAt);
+  // Swells and rideability keep the raw skill; only the engine rates a missing skill as beginner.
+  const ratingSkillLevel = skillAware ? getSkillLevelOrDefault(userSkillLevel) : userSkillLevel;
   const forecastsByBeach = bridgeHourly
     ? bridgeHeadlineForecasts(beaches, fetchedForecastsByBeach, tideByBeach, sunTimes, request.startLocalDate, deps.now)
     : fetchedForecastsByBeach;
@@ -1398,6 +1440,7 @@ async function generateWeekScoutForecastScoped(
           generatedAt,
           distanceMiles: distanceByBeachId.get(candidate.id),
           deps,
+          skillAware,
         });
         if (draft) {
           draftsById.set(draft.response.id, draft);
@@ -1418,7 +1461,7 @@ async function generateWeekScoutForecastScoped(
       for (const draft of drafts) {
         const label = getCanonicalRecommendationLabel({
           ...draft.recommendation, score: draft.response.conditionScore,
-        }, userSkillLevel);
+        }, ratingSkillLevel);
         draft.response.verdict = label === 'Worth it' ? 'worth_it' : label === 'Maybe' ? 'maybe' : 'skip';
       }
       return rankDrafts(drafts, deps, request.driveRadiusMiles);
@@ -1465,7 +1508,7 @@ async function generateWeekScoutForecastScoped(
     };
   }));
   const coverage: WeekScoutCoverage = {
-    expiresAt: coverageExpiry(generatedAt),
+    expiresAt: weekScoutAnswerExpiry(generatedAt, request.startLocalDate, request.localTimezone),
     days: localDates.map((localDate) => coverageByDate.get(localDate)!),
   };
 
@@ -1474,7 +1517,8 @@ async function generateWeekScoutForecastScoped(
   // response-level recommendationAvailability. Early-look days keep the
   // whole-horizon pass, so their per-day results are unchanged.
   const finalize = (segmentDays: WeekScoutDayResponse[], coverageDays: WeekScoutCoverageDay[]) => finalizeWeekScoutDays({
-    userId, generatedAt, beachIds, userSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
+    userId, generatedAt, beachIds, userSkillLevel: ratingSkillLevel, distanceByBeachId, draftsById, draftsBySlot,
+    compactResponse, deps, skillAware,
   }, segmentDays, coverageDays);
   const isEarlyLook = (localDate: string): boolean => isEarlyLookDay(request.startLocalDate, localDate);
   let heldResponse: MajorEventHoldWeekScoutResponse;
@@ -1503,6 +1547,7 @@ async function generateWeekScoutForecastScoped(
     beaches,
     forecastsByBeach,
     userSkillLevel,
+    ratingSkillLevel,
     boardClasses,
     generatedAt,
     now: deps.now,
@@ -1601,7 +1646,7 @@ function buildCanonicalWeekScoutResponse(
     days: context.heldResponse.days.filter((day) => !isEarlyLookDay(request.startLocalDate, day.localDate)),
   };
   const candidateArgs = {
-    profileExperience: context.userSkillLevel,
+    profileExperience: context.ratingSkillLevel,
     response: headlineResponse,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
@@ -1626,10 +1671,10 @@ function buildCanonicalWeekScoutResponse(
       ).toISOString(),
       timezone: request.localTimezone,
     },
-    profileExperience: context.userSkillLevel,
+    profileExperience: context.ratingSkillLevel,
     recommendationAvailability: context.heldResponse.recommendationAvailability,
     candidates: canonicalCandidates,
-    ttlMs: WEEK_SCOUT_COVERAGE_TTL_MS,
+    ttlMs: Math.max(0, Date.parse(context.coverage.expiresAt) - Date.parse(context.generatedAt)),
   });
 
   const dayBestResponse = sessionTimePreference
