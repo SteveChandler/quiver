@@ -160,7 +160,7 @@ export default async function BuoyStationPage({ params }: PageProps) {
 
           {data.model ? (
             <section className={SECTION} aria-labelledby="buoy-model-heading">
-              <h2 id="buoy-model-heading" className={HEADING}>Forecast vs what arrived</h2>
+              <h2 id="buoy-model-heading" className={HEADING}>Model vs the buoy</h2>
               <ModelVsObserved model={data.model} timeZone={timeZone} stationName={station.name} />
             </section>
           ) : null}
