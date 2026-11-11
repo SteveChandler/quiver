@@ -75,15 +75,25 @@ describe("resolveMatchScoreState", () => {
     ]));
   });
 
-  it("keeps 0 and negative numbers as real values in the starter line", () => {
+  it("keeps a 0 ft height and a negative tide as real values in the starter line", () => {
     const result = resolveMatchScoreState({
       eligibilitySource: "entitlement",
-      forecast: { ...forecast, waveHeight: "0", wavePeriod: "0", tideHeight: "-0.4" },
+      forecast: { ...forecast, waveHeight: "0", wavePeriod: "9", tideHeight: "-0.4" },
       rpcResult: { state: "onboarding", session_count: 0, sessions_needed: 5 },
     });
 
-    expect(result.reason_bullets.join(" ")).toMatch(/Current window: 0 ft, 0s period/);
+    expect(result.reason_bullets.join(" ")).toMatch(/Current window: 0 ft, 9s period/);
     expect(result.reason_facts).toEqual(expect.arrayContaining([{ kind: "tide_height", value: "-0.4" }]));
+  });
+
+  it("leaves out the Current window line for a 0 s period", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, wavePeriod: "0" },
+      rpcResult: { state: "onboarding", session_count: 0, sessions_needed: 5 },
+    });
+
+    expect(result.reason_bullets.join(" ")).not.toMatch(/0s period/);
   });
 
   it("passes through starter prior score and backend copy", () => {

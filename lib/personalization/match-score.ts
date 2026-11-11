@@ -233,6 +233,11 @@ function knownNumber(value: string | null | undefined): boolean {
   return Number.isFinite(Number.parseFloat(value ?? ""));
 }
 
+/** A wave period of 0 s is no period; the sentence needs a real one. */
+function knownPeriod(value: string | null | undefined): boolean {
+  return knownNumber(value) && Number.parseFloat(value!) > 0;
+}
+
 /** Wind clause for the generated reasons; none when the forecast has no wind speed. */
 function windClause(forecast: MatchScoreForecastInput, lead: string): string {
   return knownNumber(forecast.windSpeed) ? `${lead} ${forecast.windSpeed} mph wind` : "";
@@ -244,7 +249,7 @@ function starterReasons(
 ): string[] {
   return [
     body,
-    knownNumber(forecast.waveHeight) && knownNumber(forecast.wavePeriod)
+    knownNumber(forecast.waveHeight) && knownPeriod(forecast.wavePeriod)
       ? `Current window: ${forecast.waveHeight} ft, ${forecast.wavePeriod}s period${windClause(forecast, ",")}.`
       : null,
     "Rate sessions after you surf so Quiver can learn what works for you.",
@@ -262,7 +267,7 @@ function learnedReasons(
   );
   // A line whose number is unknown is left out, never printed as "null ft".
   const generated = [
-    knownNumber(forecast.waveHeight) && knownNumber(forecast.wavePeriod)
+    knownNumber(forecast.waveHeight) && knownPeriod(forecast.wavePeriod)
       ? `This window sits around ${forecast.waveHeight} ft at ${forecast.wavePeriod}s${windClause(forecast, " with")}.`
       : null,
     boardPick
