@@ -89,6 +89,7 @@ export default async function TideStationPage(props: PageProps) {
         tideType,
         nearestBeach: nearbyBeaches[0] ?? null,
         referenceStationName: reference?.name ?? null,
+        adjustmentFt: series.adjustmentFt,
       })
     : [];
   const todayIso = new Date(renderedAtMs).toISOString().slice(0, 10);
@@ -202,7 +203,13 @@ export default async function TideStationPage(props: PageProps) {
             <Fact label="Coordinates" value={`${station.lat.toFixed(4)}, ${station.lon.toFixed(4)}`} mono />
             <Fact
               label="Datum"
-              value={station.source === "noaa" ? "MLLW (mean lower low water)" : "Computed MLLW from TICON-4 constants (mean sea level + offset)"}
+              value={
+                station.source !== "noaa"
+                  ? "Computed MLLW from TICON-4 constants (mean sea level + offset)"
+                  : ok && series.adjustmentFt !== 0
+                    ? `MLLW + ${series.adjustmentFt.toFixed(1)} ft California sea-level adjustment`
+                    : "MLLW (mean lower low water)"
+              }
             />
             {tideType && <Fact label="Tide type" value={tideTypeLabel(tideType.type)} />}
             <Fact label="Time zone" value={station.timezone} />

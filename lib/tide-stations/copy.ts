@@ -68,13 +68,22 @@ interface StationCopyInput {
   tideType: TideTypeResult | null;
   nearestBeach?: { name: string; distanceKm: number } | null;
   referenceStationName?: string | null;
+  /** Feet Quiver adds to NOAA's table (California sea-level adjustment), 0 when none. */
+  adjustmentFt?: number;
 }
 
 /**
  * Short explanatory paragraphs built only from this station's own facts, so no
  * two stations read the same unless their tides really are the same.
  */
-export function buildStationCopy({ station, extremes, tideType, nearestBeach, referenceStationName }: StationCopyInput): string[] {
+export function buildStationCopy({
+  station,
+  extremes,
+  tideType,
+  nearestBeach,
+  referenceStationName,
+  adjustmentFt = 0,
+}: StationCopyInput): string[] {
   const place = placeInSentence(stationPlaceLabel(station));
   const paragraphs: string[] = [];
 
@@ -83,7 +92,11 @@ export function buildStationCopy({ station, extremes, tideType, nearestBeach, re
       station.station_kind === "reference"
         ? `a NOAA reference station in ${place}, with its own harmonic constants`
         : `a NOAA subordinate station in ${place}: its highs and lows are offsets from ${referenceStationName ?? `reference station ${station.reference_station_id ?? "nearby"}`}`;
-    paragraphs.push(`${station.name} is ${kind}. Heights are feet above mean lower low water (MLLW).`);
+    const datum =
+      adjustmentFt !== 0
+        ? `feet above mean lower low water (MLLW), plus Quiver's +${adjustmentFt.toFixed(1)} ft California sea-level adjustment`
+        : "feet above mean lower low water (MLLW)";
+    paragraphs.push(`${station.name} is ${kind}. Heights are ${datum}.`);
   } else {
     paragraphs.push(
       `${station.name} is a tide gauge in ${place}, run by ${station.operator}. Quiver computes these tides from the gauge's TICON-4 harmonic constants. Heights are feet above a computed mean lower low water, not a published chart datum.`

@@ -136,7 +136,8 @@ export async function getNearbyBeachLinks(lat: number, lon: number, limit = 6, r
   const { data, error } = await db()
     .from("beaches")
     .select("id, name, slug, city, state, country, lat, lon")
-    .eq("is_private", false)
+    // Same public-beach filter as beach-query-service: NULL is_private is public.
+    .or("is_private.is.null,is_private.eq.false")
     .is("deleted_at", null)
     .not("slug", "is", null)
     .gte("lat", box.minLat)

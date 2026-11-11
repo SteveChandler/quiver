@@ -1,3 +1,5 @@
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
+
 import { countryName, usRegionName } from "./geography";
 import { getTideStationRegionCounts, TideStationsUnavailableError } from "./queries";
 import type { TideStationRegionCount } from "./types";
@@ -8,13 +10,24 @@ interface HubEntry {
   count: number;
 }
 
-/** Region counts, or null when the registry is not live (missing table or no rows): a 404. */
+/**
+ * Region counts, or null when the registry is not live (missing table or no rows): a 404.
+ * Other errors throw at runtime so ISR keeps serving the last good page. During
+ * `next build`, /tides is prerendered and a database outage must not fail the
+ * deploy, so it builds as a 404 and regenerates on the next revalidation.
+ */
 export async function loadRegionCounts(): Promise<TideStationRegionCount[] | null> {
   try {
     const rows = await getTideStationRegionCounts();
     return rows.length ? rows : null;
   } catch (error) {
     if (error instanceof TideStationsUnavailableError) return null;
+    if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) {
+      console.warn("Tide hub counts unavailable during build", {
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+      return null;
+    }
     throw error;
   }
 }

@@ -1,5 +1,5 @@
 import { predictorConstituentName } from "@/lib/tide-stations/harmonics";
-import { computeHarmonicSeries } from "@/lib/tide-stations/predictions";
+import { californiaAdjustment, computeHarmonicSeries } from "@/lib/tide-stations/predictions";
 import {
   classifyFormFactor,
   classifyTideTypeFromConstituents,
@@ -157,5 +157,25 @@ describe("harmonic predictions", () => {
       status: "failed",
       reason: "no-constituents",
     });
+  });
+});
+
+describe("California sea-level adjustment on station pages", () => {
+  const base = { country_code: "US", region: "CA" as string | null, reference_station_id: null as string | null };
+
+  it("leaves 941* stations to the NOAA service, which already adds it", () => {
+    expect(californiaAdjustment({ ...base, source_station_id: "9410230" })).toEqual({ appliedByServiceFt: 1.5, extraFt: 0 });
+  });
+
+  it("gives a California subordinate station its reference station's adjustment", () => {
+    expect(
+      californiaAdjustment({ ...base, source_station_id: "TWC0439", reference_station_id: "9410660" })
+    ).toEqual({ appliedByServiceFt: 0, extraFt: 1.5 });
+  });
+
+  it("does not carry it outside California", () => {
+    expect(
+      californiaAdjustment({ ...base, region: "OR", source_station_id: "9431011", reference_station_id: "9419750" })
+    ).toEqual({ appliedByServiceFt: 0, extraFt: 0 });
   });
 });
