@@ -32,7 +32,7 @@ describe("getForecastIndexabilityForBeaches read failures", () => {
   });
 
   it("throws a typed error when the client cannot be created", async () => {
-    jest.mocked(createSupabaseServiceRoleClient).mockRejectedValue(new Error("missing service role key"));
+    jest.mocked(createSupabaseServiceRoleClient).mockRejectedValue(new Error("missing service role key") as never);
 
     await expect(getForecastIndexabilityForBeaches(["beach-1"])).rejects.toThrow(/client creation failed/);
   });
