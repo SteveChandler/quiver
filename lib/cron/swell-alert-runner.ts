@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import {
   isAwayFromHome,
   resolveLocationAnchor,
@@ -206,6 +207,8 @@ export interface SwellAlertCandidate {
 export interface SwellAlertPoolEvaluation {
   history: DayScore[];
   candidates: SwellAlertCandidate[];
+  /** Beaches whose NWS advisory read failed; their candidates carry no hazard line. */
+  hazardLookupFailures?: number;
   poolBeachIds?: string[];
   anchor?: { lat: number; lon: number } | null;
 }
@@ -325,6 +328,8 @@ interface SwellAlertRunSummary {
   sentByKind: Partial<Record<SwellKind, number>>;
   followupsEvaluated: number;
   followupStateFailures: number;
+  /** Hazard reads that failed; the push still went out without a hazard line. */
+  hazardLookupFailures: number;
   durationMs: number;
 }
 
@@ -404,6 +409,7 @@ function createSummary(): SwellAlertRunSummary {
     sentByKind: {},
     followupsEvaluated: 0,
     followupStateFailures: 0,
+    hazardLookupFailures: 0,
     durationMs: 0,
   };
 }
@@ -411,6 +417,25 @@ function createSummary(): SwellAlertRunSummary {
 function countSent(summary: SwellAlertRunSummary, kind: SwellKind): void {
   summary.sent += 1;
   summary.sentByKind[kind] = (summary.sentByKind[kind] ?? 0) + 1;
+}
+
+function reportHazardLookupFailure(
+  error: unknown,
+  source: "nws_advisories" | "first_sighting_hazard",
+  beachId: string,
+): void {
+  try {
+    Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+      level: "warning",
+      tags: {
+        cron_route: "/api/cron/swell-alert",
+        swell_alert_hazard_source: source,
+      },
+      extra: { beach_id: beachId },
+    });
+  } catch {
+    // Error capture is best effort and must never change what the push sends.
+  }
 }
 
 function increment(summary: SwellAlertRunSummary, reason: string): void {
@@ -683,6 +708,7 @@ async function evaluatePool(
 
   const tomorrow = addCivilDays(today, 1);
   const snapshots = await loadKeySnapshots(client, pool.map(({ beach }) => beach.id), now) ?? [];
+  let hazardLookupFailures = 0;
   const candidates = await Promise.all(pool.map(async ({ beach }) => {
     const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
     const events = resolveEventKeys(
@@ -736,6 +762,8 @@ async function evaluatePool(
       });
     } catch (error) {
       console.warn(`[swell-alert] NWS advisory fetch failed for ${beach.id}:`, error);
+      hazardLookupFailures += 1;
+      reportHazardLookupFailure(error, "nws_advisories", beach.id);
     }
     const officialAdvisories = [...ledgerAdvisories, ...nwsAdvisories];
     const officialEvidenceRefs = validOfficialEvidenceRefs(officialAdvisories, beach.id, now);
@@ -768,6 +796,7 @@ async function evaluatePool(
     history,
     poolBeachIds: capNearbyPool(pool, { experienceLevel: profile.experienceLevel }).pool.map(({ beach }) => beach.id),
     anchor: profile.location,
+    ...(hazardLookupFailures > 0 ? { hazardLookupFailures } : {}),
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,
     ),
@@ -1547,6 +1576,8 @@ async function sendFirstSighting(
       deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now) ?? null,
     ).catch((error: unknown) => {
       console.warn(`[swell-alert] First-sighting hazard lookup failed for ${swell.beach.id}:`, error);
+      summary.hazardLookupFailures += 1;
+      reportHazardLookupFailure(error, "first_sighting_hazard", swell.beach.id);
       return null;
     });
     const [surfWindow, hazard] = await Promise.all([windowPromise, hazardPromise]);
@@ -1808,6 +1839,7 @@ export async function runSwellAlertCron(args: {
 
     try {
       const evaluation = await deps.evaluatePool(profile, args.now);
+      summary.hazardLookupFailures += evaluation.hazardLookupFailures ?? 0;
       const candidates = await orderSwellCandidatesForTomorrow({
         profile, evaluation, now: args.now, rankDay: deps.rankDay, usesSharedRanking: deps.usesSharedRanking,
       });

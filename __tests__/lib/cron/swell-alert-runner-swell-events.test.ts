@@ -23,6 +23,10 @@ jest.mock("@/lib/alerts/canonical-forecast-verdict", () => ({
   evaluateForecastVerdict: jest.fn(),
 }));
 
+jest.mock("@sentry/nextjs", () => ({ ...jest.requireActual("@sentry/nextjs"), captureException: jest.fn() }));
+
+import * as Sentry from "@sentry/nextjs";
+import { loadNwsSwellAdvisories } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
@@ -221,6 +225,38 @@ describe("swell alert runner on the swell-events detector", () => {
     expect(runDeps.enqueue).toHaveBeenCalledWith(expect.objectContaining({
       payload: expect.objectContaining({ beach_id: BEACH_ID, event_key: PREVIOUS_RUN_KEY }),
     }));
+  });
+
+  it("still sends when the NWS advisory read fails, and reports and counts the failure", async () => {
+    jest.mocked(Sentry.captureException).mockClear();
+    jest.mocked(loadNwsSwellAdvisories).mockRejectedValueOnce(new Error("api.weather.gov 503"));
+    const runDeps = deps();
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: runDeps,
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.hazardLookupFailures).toBe(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "api.weather.gov 503" }),
+      expect.objectContaining({
+        tags: expect.objectContaining({ swell_alert_hazard_source: "nws_advisories" }),
+        extra: { beach_id: BEACH_ID },
+      }),
+    );
+    expectConsoleWarnings([/NWS advisory fetch failed/]);
+  });
+
+  it("reports nothing when the NWS advisory read succeeds with no advisories", async () => {
+    jest.mocked(Sentry.captureException).mockClear();
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: deps(),
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.hazardLookupFailures).toBe(0);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   it("alerts on tomorrow's swell under the key an earlier run gave it", async () => {
