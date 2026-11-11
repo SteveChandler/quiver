@@ -214,7 +214,7 @@ describe("formatDisplayHeightFt", () => {
     it("delegates to formatWaveHeightRange for integer height", () => {
       expect(
         formatDisplayHeightFt({ numericFt: 3, rangeSpread: null })
-      ).toBe("3ft");
+      ).toBe("2-3ft");
     });
 
     it("delegates to formatWaveHeightRange for fractional height", () => {

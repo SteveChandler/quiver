@@ -44,7 +44,7 @@ describe("daily call copy", () => {
 
   it("describes swell like the app: a height range, period and direction", () => {
     expect(swellPhrase({ wave_height: "4.1", wave_period: "15", wave_direction: "WSW" })).toBe("4–5 ft at 15s WSW");
-    expect(swellPhrase({ wave_height: "3 ft", wave_period: "11.4", wave_direction: null })).toBe("3 ft at 11s");
+    expect(swellPhrase({ wave_height: "3 ft", wave_period: "11.4", wave_direction: null })).toBe("2–3 ft at 11s");
   });
 
   it("calls light wind light instead of printing its speed", () => {
