@@ -71,7 +71,7 @@ export default async function TideStationPage(props: PageProps) {
   const { station, series, renderedAtMs } = data;
 
   const [nearbyStations, nearbyBeaches, reference] = await Promise.all([
-    getNearbyTideStations(station),
+    getNearbyTideStations(station.lat, station.lon, 6, { excludeId: station.id }),
     getNearbyBeachLinks(station.lat, station.lon),
     station.reference_station_id ? getTideStationLink(`noaa:${station.reference_station_id}`) : Promise.resolve(null),
   ]);
@@ -93,6 +93,11 @@ export default async function TideStationPage(props: PageProps) {
       })
     : [];
   const todayIso = new Date(renderedAtMs).toISOString().slice(0, 10);
+  // Shown beside every height block that carries the adjustment, and nowhere else.
+  const adjustmentLabel =
+    ok && series.adjustmentFt !== 0
+      ? `NOAA prediction + ${series.adjustmentFt.toFixed(1)} ft Quiver sea-level adjustment`
+      : null;
 
   return (
     <ZineSurface sectionLabel="Tides" data-testid="tide-station-page">
@@ -137,16 +142,25 @@ export default async function TideStationPage(props: PageProps) {
 
         {ok ? (
           <div className="space-y-8">
-            <TideStationNow extremes={extremes} timeZone={station.timezone} renderedAtMs={renderedAtMs} />
+            <TideStationNow
+              extremes={extremes}
+              timeZone={station.timezone}
+              renderedAtMs={renderedAtMs}
+              heightNote={adjustmentLabel}
+            />
 
             <section aria-labelledby="week-heading" className="space-y-3">
               <h2 id="week-heading" className="font-heading text-xl font-bold">Next 7 days</h2>
+              {adjustmentLabel && (
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#8A5E00]" data-testid="tide-adjustment-label">
+                  {adjustmentLabel}
+                </p>
+              )}
               <TideStationCurve hourly={series.hourly} extremes={extremes} days={days} timeZone={station.timezone} />
               <TideWeekTable days={days} timeZone={station.timezone} />
-              {series.adjustmentFt !== 0 && (
+              {adjustmentLabel && (
                 <p className="text-xs leading-relaxed text-[#11100D]/70">
-                  Heights include a +{series.adjustmentFt.toFixed(1)} ft sea-level adjustment Quiver applies at California
-                  stations: water has run this much above NOAA’s tables this season. NOAA’s own table reads{" "}
+                  Water has run this much above NOAA’s California tables this season; NOAA’s own table reads{" "}
                   {series.adjustmentFt.toFixed(1)} ft lower.
                 </p>
               )}
@@ -163,10 +177,10 @@ export default async function TideStationPage(props: PageProps) {
           </div>
         ) : (
           <div role="alert" className="border-2 border-[#B91C1C] bg-[#FBF6E8] p-4" data-testid="tide-station-failure">
-            <p className="font-heading text-lg font-bold">Tide predictions are not loading</p>
+            <p className="font-heading text-lg font-bold">No tide predictions for this station</p>
             <p className="mt-1 text-sm text-[#11100D]/75">
-              {station.source === "noaa" ? "NOAA CO-OPS" : "The prediction model"} did not return tides for this station just now.
-              Try again later.
+              {station.source === "noaa" ? "NOAA CO-OPS" : "The tide model"} has no predictions for this station right now.
+              Try a nearby station below.
             </p>
           </div>
         )}

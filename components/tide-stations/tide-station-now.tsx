@@ -10,11 +10,13 @@ interface TideStationNowProps {
   timeZone: string;
   /** Render time of the cached page; the first client render matches it, then moves to the real clock. */
   renderedAtMs: number;
+  /** What the heights are when they are not the source's plain prediction. */
+  heightNote?: string | null;
 }
 
 const MINUTE_MS = 60_000;
 
-export function TideStationNow({ extremes, timeZone, renderedAtMs }: TideStationNowProps) {
+export function TideStationNow({ extremes, timeZone, renderedAtMs, heightNote }: TideStationNowProps) {
   const [nowMs, setNowMs] = React.useState(renderedAtMs);
 
   React.useEffect(() => {
@@ -67,6 +69,7 @@ export function TideStationNow({ extremes, timeZone, renderedAtMs }: TideStation
         ) : (
           <p className="mt-2 text-sm text-[#11100D]/70">no data</p>
         )}
+        {heightNote && <p className="mt-2 text-[11px] leading-snug text-[#11100D]/65">{heightNote}</p>}
       </div>
     </div>
   );

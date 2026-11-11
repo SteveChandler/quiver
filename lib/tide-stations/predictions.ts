@@ -100,6 +100,12 @@ async function fetchNoaaSeries(station: TideStationRow, nowMs: number): Promise<
   };
 }
 
+/**
+ * A NOAA transport error (HTTP failure, timeout) throws, so ISR keeps serving the
+ * last good page instead of caching a failure for 12 h; a first render answers 500
+ * and is retried on the next request. An empty answer is NOAA saying it has no
+ * predictions for the station, which is a real, cacheable "failed" state.
+ */
 export async function getStationSeries(station: TideStationRow, nowMs: number): Promise<StationSeries> {
   if (station.source === "ticon") return computeHarmonicSeries(station, nowMs);
   try {
@@ -109,6 +115,6 @@ export async function getStationSeries(station: TideStationRow, nowMs: number): 
       stationId: station.id,
       message: error instanceof Error ? error.message : "Unknown error",
     });
-    return { status: "failed", reason: "noaa-error" };
+    throw error;
   }
 }
