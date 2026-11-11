@@ -128,6 +128,22 @@ describe("catalogue reads", () => {
     expect(rows[0].distance_km).toBeLessThan(20);
     await expect(getNearbyStations(NaN, 0, 3, client)).resolves.toEqual([]);
   });
+
+  it("getNearbyStations can leave out the origin station and still returns `limit` rows", async () => {
+    const rows = [
+      { ...STATION, name: "Torrey" },
+      { ...STATION, id: "ndbc:46254", lat: 32.868, lon: -117.267 },
+      { ...STATION, id: "ndbc:46232", lat: 32.517, lon: -117.425 },
+    ];
+    const { client, chains } = fakeClient(() => rows);
+    const nearby = await getNearbyStations(32.933, -117.391, 2, client, { excludeStationId: "ndbc:46225" });
+    expect(nearby.map((station) => station.id)).toEqual(["ndbc:46254", "ndbc:46232"]);
+    expect(chains[0].ops[0]).toEqual(["args", [expect.objectContaining({ p_limit: 3 })]]);
+
+    const plain = fakeClient(() => rows.slice(0, 2));
+    await getNearbyStations(32.933, -117.391, 2, plain.client);
+    expect(plain.chains[0].ops[0]).toEqual(["args", [expect.objectContaining({ p_limit: 2 })]]);
+  });
 });
 
 describe("getBeachesForStation", () => {

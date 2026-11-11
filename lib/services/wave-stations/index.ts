@@ -131,24 +131,35 @@ export async function getObservationHistory(
 
 export type NearbyWaveStation = WaveStationRow & { distance_km: number };
 
+export interface NearbyStationsOptions {
+  /** Leave this station out, e.g. the station whose page lists its neighbours. */
+  excludeStationId?: string;
+}
+
 /** Nearest active wave stations to a point, closest first (limit 1..50). */
 export async function getNearbyStations(
   lat: number,
   lon: number,
   limit = 5,
   client?: ReadClient,
+  options: NearbyStationsOptions = {},
 ): Promise<NearbyWaveStation[]> {
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
     return [];
   }
+  const { excludeStationId } = options;
+  const fetchLimit = excludeStationId ? limit + 1 : limit;
   const { data, error } = await publicClient(client)
-    .rpc("get_nearby_wave_stations", { p_lat: lat, p_lon: lon, p_limit: limit, p_wave_only: true })
+    .rpc("get_nearby_wave_stations", { p_lat: lat, p_lon: lon, p_limit: fetchLimit, p_wave_only: true })
     .select(STATION_COLUMNS);
   if (error) fail("getNearbyStations", error);
-  return ((data ?? []) as unknown as WaveStationRow[]).map((station) => ({
-    ...station,
-    distance_km: haversineDistance(lat, lon, station.lat, station.lon),
-  }));
+  const rows = ((data ?? []) as unknown as WaveStationRow[])
+    .filter((station) => station.id !== excludeStationId)
+    .map((station) => ({
+      ...station,
+      distance_km: haversineDistance(lat, lon, station.lat, station.lon),
+    }));
+  return excludeStationId ? rows.slice(0, limit) : rows;
 }
 
 /** Ids the forecast pipeline uses for the same physical buoy. */
