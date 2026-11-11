@@ -184,7 +184,7 @@ export function SurfSpotCard({
                     <span className="flex items-center gap-0.5">
                       <Waves className="h-3.5 w-3.5 text-cyan-400" />
                       <span className="font-medium text-white/80">
-                        {typeof waveHeight === "string" ? `${Math.round(numericHeight)}ft` : formatWaveHeight(numericHeight)}
+                        {formatWaveHeight(numericHeight)}
                       </span>
                     </span>
                     <span className="text-white/20">·</span>

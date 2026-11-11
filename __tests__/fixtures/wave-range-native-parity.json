@@ -1,0 +1,148 @@
+{
+  "_note": "Generated from quiver-native origin/main src/lib/format-wave-height.ts formatWaveRange (a2c9e5d7). Web must print the same string. Regenerate both copies together if either rule changes.",
+  "cases": [
+    {
+      "ft": 0,
+      "apiString": "0 ft",
+      "native": "Flat"
+    },
+    {
+      "ft": 0.04,
+      "apiString": "0 ft",
+      "native": "Flat"
+    },
+    {
+      "ft": 0.06,
+      "apiString": "0.1 ft",
+      "native": "0-1ft"
+    },
+    {
+      "ft": 0.5,
+      "apiString": "0.5 ft",
+      "native": "0-1ft"
+    },
+    {
+      "ft": 1,
+      "apiString": "1 ft",
+      "native": "0-1ft"
+    },
+    {
+      "ft": 1.2,
+      "apiString": "1.2 ft",
+      "native": "1-2ft"
+    },
+    {
+      "ft": 2,
+      "apiString": "2 ft",
+      "native": "1-2ft"
+    },
+    {
+      "ft": 2.4,
+      "apiString": "2.4 ft",
+      "native": "2-3ft"
+    },
+    {
+      "ft": 2.5,
+      "apiString": "2.5 ft",
+      "native": "2-3ft"
+    },
+    {
+      "ft": 2.96,
+      "apiString": "3 ft",
+      "native": "2-3ft"
+    },
+    {
+      "ft": 3,
+      "apiString": "3 ft",
+      "native": "2-3ft"
+    },
+    {
+      "ft": 3.04,
+      "apiString": "3 ft",
+      "native": "2-3ft"
+    },
+    {
+      "ft": 3.06,
+      "apiString": "3.1 ft",
+      "native": "3-4ft"
+    },
+    {
+      "ft": 3.4,
+      "apiString": "3.4 ft",
+      "native": "3-4ft"
+    },
+    {
+      "ft": 3.5,
+      "apiString": "3.5 ft",
+      "native": "3-4ft"
+    },
+    {
+      "ft": 4.95,
+      "apiString": "5 ft",
+      "native": "4-5ft"
+    },
+    {
+      "ft": 5,
+      "apiString": "5 ft",
+      "native": "4-5ft"
+    },
+    {
+      "ft": 6,
+      "apiString": "6 ft",
+      "native": "5-6ft"
+    },
+    {
+      "ft": 9.99,
+      "apiString": "10 ft",
+      "native": "9-10ft"
+    },
+    {
+      "ft": 10,
+      "apiString": "10 ft",
+      "native": "9-10ft"
+    },
+    {
+      "ft": 12.3,
+      "apiString": "12.3 ft",
+      "native": "12-13ft"
+    }
+  ],
+  "ranges": [
+    {
+      "min": 2.4,
+      "max": 3.1,
+      "apiString": "2.4-3.1 ft",
+      "native": "2-4ft"
+    },
+    {
+      "min": 2.5,
+      "max": 5.5,
+      "apiString": "2.5-5.5 ft",
+      "native": "2-6ft"
+    },
+    {
+      "min": 3,
+      "max": 3,
+      "apiString": "3-3 ft",
+      "native": "2-3ft"
+    },
+    {
+      "min": 0,
+      "max": 0,
+      "apiString": "0-0 ft",
+      "native": "Flat"
+    },
+    {
+      "min": 0.8,
+      "max": 1.2,
+      "apiString": "0.8-1.2 ft",
+      "native": "0-2ft"
+    },
+    {
+      "min": 4,
+      "max": 6,
+      "apiString": "4-6 ft",
+      "native": "4-6ft"
+    }
+  ]
+}
