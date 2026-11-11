@@ -77,6 +77,8 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "sessions",
   "share",
   "spots",
+  // Tide station pages and hubs: /tides/station/{slug}, /tides/{country}/{region}
+  "tides",
   "p",
   "s",
   "user",
