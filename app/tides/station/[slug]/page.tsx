@@ -160,7 +160,7 @@ export default async function TideStationPage(props: PageProps) {
               <TideWeekTable days={days} timeZone={station.timezone} />
               {adjustmentLabel && (
                 <p className="text-xs leading-relaxed text-[#11100D]/70">
-                  Water has run this much above NOAA’s California tables this season; NOAA’s own table reads{" "}
+                  Quiver adds this from water levels measured against NOAA’s California tables this season; NOAA’s own table reads{" "}
                   {series.adjustmentFt.toFixed(1)} ft lower.
                 </p>
               )}
@@ -221,7 +221,7 @@ export default async function TideStationPage(props: PageProps) {
                 station.source !== "noaa"
                   ? "Computed MLLW from TICON-4 constants (mean sea level + offset)"
                   : ok && series.adjustmentFt !== 0
-                    ? `MLLW + ${series.adjustmentFt.toFixed(1)} ft California sea-level adjustment`
+                    ? `MLLW + ${series.adjustmentFt.toFixed(1)} ft Quiver sea-level adjustment`
                     : "MLLW (mean lower low water)"
               }
             />
