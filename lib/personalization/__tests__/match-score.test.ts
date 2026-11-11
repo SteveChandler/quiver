@@ -60,6 +60,32 @@ describe("resolveMatchScoreState", () => {
     });
   });
 
+  it("leaves out the starter Current window line when native sends null height and period", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, waveHeight: "null", wavePeriod: "null", tideHeight: "null" },
+      rpcResult: { state: "onboarding", session_count: 0, sessions_needed: 5 },
+    });
+
+    expect(result.reason_bullets.join(" ")).not.toMatch(/null|NaN|undefined|Current window/);
+    expect(result.reason_facts).toEqual(expect.arrayContaining([
+      { kind: "wave_height", value: null },
+      { kind: "wave_period", value: null },
+      { kind: "tide_height", value: null },
+    ]));
+  });
+
+  it("keeps 0 and negative numbers as real values in the starter line", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, waveHeight: "0", wavePeriod: "0", tideHeight: "-0.4" },
+      rpcResult: { state: "onboarding", session_count: 0, sessions_needed: 5 },
+    });
+
+    expect(result.reason_bullets.join(" ")).toMatch(/Current window: 0 ft, 0s period/);
+    expect(result.reason_facts).toEqual(expect.arrayContaining([{ kind: "tide_height", value: "-0.4" }]));
+  });
+
   it("passes through starter prior score and backend copy", () => {
     const body =
       "A starter read from your skill and this spot's setup. It gets more personal as you rate sessions.";

@@ -165,13 +165,19 @@ function signalBalanceFor(
   return "positive";
 }
 
+/** Native sends String(null) for a missing value; a fact carries null, not the text "null". */
+function factValue(value: string | null | undefined): string | null {
+  const text = value?.trim();
+  return text && text !== "null" && text !== "undefined" ? text : null;
+}
+
 function forecastFacts(forecast: MatchScoreForecastInput): MatchReasonFact[] {
   return [
-    { kind: "wave_height", value: forecast.waveHeight },
-    { kind: "wave_period", value: forecast.wavePeriod },
-    { kind: "wind_speed", value: forecast.windSpeed },
-    { kind: "wind_direction", value: forecast.windDirection },
-    { kind: "tide_height", value: forecast.tideHeight },
+    { kind: "wave_height", value: factValue(forecast.waveHeight) },
+    { kind: "wave_period", value: factValue(forecast.wavePeriod) },
+    { kind: "wind_speed", value: factValue(forecast.windSpeed) },
+    { kind: "wind_direction", value: factValue(forecast.windDirection) },
+    { kind: "tide_height", value: factValue(forecast.tideHeight) },
   ];
 }
 
@@ -238,9 +244,11 @@ function starterReasons(
 ): string[] {
   return [
     body,
-    `Current window: ${forecast.waveHeight} ft, ${forecast.wavePeriod}s period${windClause(forecast, ",")}.`,
+    knownNumber(forecast.waveHeight) && knownNumber(forecast.wavePeriod)
+      ? `Current window: ${forecast.waveHeight} ft, ${forecast.wavePeriod}s period${windClause(forecast, ",")}.`
+      : null,
     "Rate sessions after you surf so Quiver can learn what works for you.",
-  ];
+  ].filter((line): line is string => line !== null);
 }
 
 function learnedReasons(
