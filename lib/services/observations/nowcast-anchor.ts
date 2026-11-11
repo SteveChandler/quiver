@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LatestObservation, NowcastAnchor } from "./nowcast-anchor.types";
 import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
@@ -34,14 +35,53 @@ function toNumberOrNull(v: number | string | null | undefined): number | null {
  * recent observation are absent from the map (caller treats missing
  * as "no anchor, forecast-only path").
  *
- * Failures are logged and swallowed — a broken observation pipeline
- * must never halt the forecast build cron. Downstream callers check
+ * Failures are logged and reported to Sentry, then fall through to an
+ * empty map — a broken observation pipeline must never halt the forecast
+ * build cron. Downstream callers check
  * `map.get(beachId)` truthiness and fall through on miss.
  */
 export async function fetchNowcastAnchors(
   supabase: SupabaseClient,
   options: FetchOptions = {},
 ): Promise<Map<string, NowcastAnchor>> {
+  return (await fetchNowcastAnchorsWithStatus(supabase, options)).anchors;
+}
+
+interface NowcastAnchorsFetch {
+  anchors: Map<string, NowcastAnchor>;
+  /** True when the RPC failed, so the empty map means "unknown", not "no fresh observations". */
+  unavailable: boolean;
+}
+
+function reportAnchorFailure(error: unknown, failure: "rpc_error" | "throw", options: FetchOptions): void {
+  try {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof (error as { message?: unknown })?.message === "string"
+          ? (error as { message: string }).message
+          : String(error);
+    Sentry.captureException(error instanceof Error ? error : new Error(message), {
+      level: "warning",
+      tags: {
+        component: "nowcast-anchor",
+        nowcast_anchor_failure: failure,
+        nowcast_anchor_scope: options.beachId === undefined ? "batch" : "single_beach",
+      },
+    });
+  } catch {
+    // Error capture is best effort and must never change the forecast-only fallback.
+  }
+}
+
+/**
+ * Same lookup as fetchNowcastAnchors, plus whether the RPC failed. The forecast
+ * cron uses the flag to report a degraded (forecast-only) build.
+ */
+export async function fetchNowcastAnchorsWithStatus(
+  supabase: SupabaseClient,
+  options: FetchOptions = {},
+): Promise<NowcastAnchorsFetch> {
   const maxAgeHours = options.maxAgeHours ?? DEFAULT_MAX_AGE_HOURS;
 
   try {
@@ -54,7 +94,8 @@ export async function fetchNowcastAnchors(
 
     if (error) {
       console.warn(`${LOG_PREFIX} RPC error, falling through to forecast-only`, error);
-      return new Map();
+      reportAnchorFailure(error, "rpc_error", options);
+      return { anchors: new Map(), unavailable: true };
     }
 
     const rows: RpcRow[] = (data as RpcRow[] | null) ?? [];
@@ -71,10 +112,11 @@ export async function fetchNowcastAnchors(
         waveDirectionDeg: toNumberOrNull(r.wave_direction_deg),
       });
     }
-    return map;
+    return { anchors: map, unavailable: false };
   } catch (err) {
     console.warn(`${LOG_PREFIX} unexpected failure, falling through to forecast-only`, err);
-    return new Map();
+    reportAnchorFailure(err, "throw", options);
+    return { anchors: new Map(), unavailable: true };
   }
 }
 
