@@ -59,6 +59,7 @@ interface ProfileRow {
 let mockProfile: ProfileRow = { home_beach_id: "beach-home" };
 let mockProfileError: { message: string } | null = null;
 let mockExistingRules: AlertRuleRow[] = [];
+let mockExistingRulesError: { code: string; message: string } | null = null;
 let mockUserEntitlementTier: "free" | "premium" = "premium";
 let mockPersonalizationEligibility = {
   code: "PERSONALIZATION_UNLOCKED",
@@ -141,12 +142,14 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
                 eq(col: string, val: string) {
                   // For POST: .eq("user_id", user.id) returns an awaitable list
                   if (col === "user_id") {
-                    const result = {
-                      data: mockExistingRules.filter(
-                        (r) => r.user_id === val
-                      ),
-                      error: null,
-                    };
+                    const result = mockExistingRulesError
+                      ? { data: null, error: mockExistingRulesError }
+                      : {
+                          data: mockExistingRules.filter(
+                            (r) => r.user_id === val
+                          ),
+                          error: null,
+                        };
                     return {
                       then: (resolve: any) => resolve(result),
                       order: () => Promise.resolve(result),
@@ -355,6 +358,7 @@ beforeEach(() => {
   mockProfile = { home_beach_id: "beach-home" };
   mockProfileError = null;
   mockExistingRules = [];
+  mockExistingRulesError = null;
   mockUserEntitlementTier = "premium";
   mockPersonalizationEligibility = {
     code: "PERSONALIZATION_UNLOCKED",
@@ -1118,5 +1122,98 @@ describe("PATCH /api/alerts/rules/[ruleId] — auto-managed guard", () => {
 
     expect(res.status).toBe(400);
     expect(updateSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/alerts/rules — existing rules read", () => {
+  const statementTimeout = {
+    code: "57014",
+    message: "canceling statement due to statement timeout",
+  };
+
+  it("fails instead of treating a failed rules read as zero rules", async () => {
+    mockExistingRules = [autoSimilarityRule()];
+    mockExistingRulesError = statementTimeout;
+
+    await expect(
+      POST(
+        makeReq({
+          beach_id: "beach-home",
+          name: "Conditions like your best sessions",
+          preset_type: "similarity_match",
+          notify_push: true,
+          notify_email: false,
+        })
+      )
+    ).rejects.toMatchObject({ message: expect.stringContaining(statementTimeout.message), cause: statementTimeout });
+
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
+
+  it("passes the existing rule and beach counts to the cap check", async () => {
+    const { canCreateRule } = jest.requireMock("@/lib/alerts/entitlements") as {
+      canCreateRule: jest.Mock;
+    };
+    canCreateRule.mockClear();
+    mockUserEntitlementTier = "free";
+    mockExistingRules = [
+      userRule({ id: "rule-a" }),
+      userRule({ id: "rule-b", beach_id: "beach-other" }),
+    ];
+
+    await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Another rule",
+        preset_type: "mellow_session",
+        conditions: { swell_height_min: 0.5, swell_height_max: 3 },
+        notify_push: true,
+        notify_email: false,
+      })
+    );
+
+    expect(canCreateRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tier: "free",
+        existingRuleCount: 2,
+        existingBeachCount: 2,
+        isExistingBeach: true,
+      })
+    );
+  });
+
+  it("rejects without inserting when the cap check refuses the rule", async () => {
+    const { canCreateRule } = jest.requireMock("@/lib/alerts/entitlements") as {
+      canCreateRule: jest.Mock;
+    };
+    canCreateRule.mockReturnValueOnce({
+      allowed: false,
+      code: "PERSONALIZATION_LOCKED",
+      reason: "Free plan allows 3 alerts",
+    });
+    mockUserEntitlementTier = "free";
+    mockExistingRules = [
+      userRule({ id: "rule-a" }),
+      userRule({ id: "rule-b" }),
+      userRule({ id: "rule-c" }),
+    ];
+
+    const res = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Fourth rule",
+        preset_type: "mellow_session",
+        conditions: { swell_height_min: 0.5, swell_height_max: 3 },
+        notify_push: true,
+        notify_email: false,
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(canCreateRule).toHaveBeenLastCalledWith(
+      expect.objectContaining({ existingRuleCount: 3 })
+    );
+    expect(insertSpy).not.toHaveBeenCalled();
   });
 });
