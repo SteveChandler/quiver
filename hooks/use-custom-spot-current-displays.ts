@@ -9,6 +9,9 @@ const MAX_SPOTS = 50;
 /** The browser could not reach the route (offline, page unload): a user state, not an outage. */
 class NetworkFailure extends Error {}
 
+/** The route's rate limit answered; a throttle, not an outage. */
+class RateLimited extends Error {}
+
 interface CurrentDisplayResponse {
   data?: { displays?: Record<string, ForecastDisplay> };
 }
@@ -52,6 +55,7 @@ export function useCustomSpotCurrentDisplays(
       })
       .then((response) => {
         if (response.ok) return response.json();
+        if (response.status === 429) throw new RateLimited();
         throw new Error(`custom spot current-display returned ${response.status}`);
       })
       .then((json: CurrentDisplayResponse) => {
@@ -62,7 +66,7 @@ export function useCustomSpotCurrentDisplays(
         if (controller.signal.aborted) return;
         // Drop the previous hour's labels so pins fall back to their anchor's fresh label.
         setDisplays((current) => (current.size === 0 ? current : new Map()));
-        if (error instanceof NetworkFailure) return;
+        if (error instanceof NetworkFailure || error instanceof RateLimited) return;
         Sentry.captureException(error, { tags: { hook: "use-custom-spot-current-displays" } });
       });
     return () => controller.abort();

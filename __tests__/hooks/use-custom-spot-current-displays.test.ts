@@ -106,6 +106,20 @@ describe("useCustomSpotCurrentDisplays", () => {
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
+  it("drops the previous labels on a rate-limited refetch without reporting it", async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { displays: { a: { label: "3ft" } } } }) })
+      .mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const { result, rerender } = renderHook(({ key }) => useCustomSpotCurrentDisplays(["a"], key), { initialProps: { key: "15:00" } });
+    await waitFor(() => expect(result.current.get("a")?.label).toBe("3ft"));
+
+    rerender({ key: "18:00" });
+
+    await waitFor(() => expect(result.current.size).toBe(0));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
   it("does not report a request it aborted itself", async () => {
     const fetchMock = jest.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
       init.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
