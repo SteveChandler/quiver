@@ -211,14 +211,28 @@ describe("formatDisplayHeightFt", () => {
   });
 
   describe("single-value (rangeSpread null)", () => {
-    it("delegates to formatWaveHeightRange for integer height", () => {
+    it("stores an integer height as a single value, not the display band", () => {
       expect(
         formatDisplayHeightFt({ numericFt: 3, rangeSpread: null })
-      ).toBe("2-3ft");
+      ).toBe("3ft");
     });
 
-    it("delegates to formatWaveHeightRange for fractional height", () => {
-      // 2.5 -> floor=2, ceil=3 -> "2-3ft" per formatWaveHeightRange
+    it.each([
+      [3, "3ft", 3],
+      [3.04, "3-4ft", 3.5],
+      [2.96, "2-3ft", 2.5],
+      [6, "6ft", 6],
+    ])(
+      "stores %p as %p, which reads back as %p (pre-#1375 storage)",
+      (numericFt, stored, readBack) => {
+        const text = formatDisplayHeightFt({ numericFt, rangeSpread: null });
+        expect(text).toBe(stored);
+        expect(parseDisplayHeightFt(text).numericFt).toBe(readBack);
+      },
+    );
+
+    it("brackets a fractional height with floor/ceil", () => {
+      // 2.5 -> floor=2, ceil=3 -> "2-3ft"
       expect(
         formatDisplayHeightFt({ numericFt: 2.5, rangeSpread: null })
       ).toBe("2-3ft");
