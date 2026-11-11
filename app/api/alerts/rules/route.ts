@@ -270,9 +270,9 @@ export const POST = withAuth(
 
     // Beyond the free caps the answer depends on the plan, so ask the client to retry.
     if (!entitlementResult.allowed && tier === "unknown") {
-      // Web and native both show `error` as the alert text, so it carries the copy, not the code.
+      // Same text the route already shows on a failed create; no new copy.
       const response = createErrorResponse(
-        "Couldn't check your plan. Try again in a minute.",
+        "Failed to create alert rule",
         { code: "entitlement_unavailable", retryable: true },
         503,
       );

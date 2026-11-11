@@ -1301,7 +1301,7 @@ describe("/api/alerts/rules — failed entitlement read", () => {
     expect(res.headers.get("Retry-After")).toMatch(/^\d+$/);
     expect(json).toMatchObject({
       success: false,
-      error: "Couldn't check your plan. Try again in a minute.",
+      error: "Failed to create alert rule",
       details: { code: "entitlement_unavailable", retryable: true },
     });
     expect(insertSpy).not.toHaveBeenCalled();
