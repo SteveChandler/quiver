@@ -469,4 +469,97 @@ describe("EnhancedForecastService latest-view reads are bounded", () => {
     }
     expect(new Set(seenIdBatches.flat())).toEqual(shardIds);
   });
+  describe("degraded-input reporting", () => {
+    async function runWith(args: {
+      mode: "all" | "cdip";
+      rpcResult: { data: unknown; error: { code?: string; message: string } | null };
+      strippedColumns?: string[];
+    }) {
+      const allBeaches = [{ ...makeBeach("b1", "Beach 1"), cdip_eligible: true }];
+      const latestRows = [{ beach_id: "b1", updated_at: "2025-12-09T08:00:00Z", data_source: "CDIP" }];
+      const captureException = jest.fn();
+      jest.doMock("@sentry/nextjs", () => ({ captureException }));
+      const mockSupabase = {
+        from: (table: string) => {
+          if (table === "beaches") {
+            const all = Promise.resolve({ data: allBeaches, error: null });
+            return {
+              select: () => Object.assign(all, { eq: () => Promise.resolve({ data: allBeaches, error: null }) }),
+            };
+          }
+          if (table === "v_enhanced_forecast_latest") {
+            return {
+              select: () => ({ in: () => Promise.resolve({ data: latestRows, error: null }) }),
+            };
+          }
+          throw new Error(`Unexpected table: ${table}`);
+        },
+        rpc: () => Promise.resolve(args.rpcResult),
+      };
+      jest.doMock("@/lib/supabase/server", () => ({
+        createSupabaseServiceRoleClient: async () => mockSupabase,
+      }));
+
+      const { EnhancedForecastService: Service } = await import(
+        "@/lib/services/enhanced-forecast-service"
+      );
+      const service = new Service() as any;
+      process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS = "2";
+      process.env.FORECAST_FRESHNESS_WINDOW_HOURS = "12";
+      jest
+        .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
+        .mockResolvedValue({ forecasts: [], cdip: { stationId: null, skipReason: "no_station" } });
+      jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({
+        success: true,
+        ...(args.strippedColumns ? { strippedColumns: args.strippedColumns } : {}),
+      });
+      jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+      const run = args.mode === "all"
+        ? service.updateAllEnhancedForecasts()
+        : service.updateCdipEnhancedForecasts();
+      await jest.runAllTimersAsync();
+      const result = await run;
+      warn.mockRestore();
+      return { result, captureException };
+    }
+
+    it.each(["all", "cdip"] as const)(
+      "%s run flags a failed nowcast anchor read and still builds forecast-only",
+      async (mode) => {
+        const { result, captureException } = await runWith({
+          mode,
+          rpcResult: { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } },
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.summary.successful).toBe(1);
+        expect(result.nowcastAnchorsUnavailable).toBe(true);
+        expect(captureException).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it.each(["all", "cdip"] as const)(
+      "%s run does not flag an anchor read that returns zero rows",
+      async (mode) => {
+        const { result, captureException } = await runWith({ mode, rpcResult: { data: [], error: null } });
+
+        expect(result.nowcastAnchorsUnavailable).toBeUndefined();
+        expect(result.summary.schemaStrippedColumns).toBeUndefined();
+        expect(captureException).not.toHaveBeenCalled();
+      },
+    );
+
+    it("surfaces columns the store dropped in the run summary", async () => {
+      const { result } = await runWith({
+        mode: "all",
+        rpcResult: { data: [], error: null },
+        strippedColumns: ["wave_height_om"],
+      });
+
+      expect(result.results[0].schema_stripped_columns).toEqual(["wave_height_om"]);
+      expect(result.summary.schemaStrippedColumns).toEqual(["wave_height_om"]);
+    });
+  });
 });

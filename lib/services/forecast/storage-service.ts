@@ -12,6 +12,7 @@
  * to reduce file size and improve maintainability.
  */
 
+import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach } from "@/types/database";
@@ -22,6 +23,21 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 // comes from the per-component face-Hs transformer at write time.
 
 const FALLBACK_SOURCE = "FALLBACK";
+
+/** Columns already reported to Sentry by this process; one report per column is enough. */
+const reportedStrippedColumns = new Set<string>();
+
+function reportStrippedColumn(column: string): void {
+  if (reportedStrippedColumns.has(column)) return;
+  reportedStrippedColumns.add(column);
+  Sentry.captureException(
+    new Error(`enhanced_forecasts write dropped missing column '${column}' (PGRST204)`),
+    {
+      level: "warning",
+      tags: { component: "forecast-storage", forecast_schema_stripped_column: column },
+    },
+  );
+}
 
 /**
  * Configuration for storage operations
@@ -42,6 +58,8 @@ interface StoreResult {
   success: boolean;
   data?: any;
   error?: string;
+  /** Columns dropped after PGRST204 so the write could succeed; their values were not stored. */
+  strippedColumns?: string[];
 }
 
 /**
@@ -129,11 +147,13 @@ export class ForecastStorageService {
 
       // Upsert in chunks to avoid exceeding PostgREST payload limits
       let lastData: any = null;
+      const strippedColumns = new Set<string>();
       for (let i = 0; i < toRows.length; i += this.config.chunkSize) {
         let chunk: Array<Record<string, unknown>> = toRows.slice(i, i + this.config.chunkSize);
 
         // Try upsert with schema compatibility handling
         const result = await this.upsertChunkWithRetry(supabase, chunk);
+        for (const column of result.strippedColumns ?? []) strippedColumns.add(column);
         if (!result.success) {
           return result;
         }
@@ -145,7 +165,11 @@ export class ForecastStorageService {
       // with very old rows that could have stale updated_at timestamps
       await this.cleanupOldForecasts(supabase, beach.id, 7);
 
-      return { success: true, data: lastData };
+      return {
+        success: true,
+        data: lastData,
+        ...(strippedColumns.size > 0 ? { strippedColumns: [...strippedColumns] } : {}),
+      };
     } catch (error) {
       console.error("Error storing enhanced forecasts:", error);
       return {
@@ -248,6 +272,9 @@ export class ForecastStorageService {
   ): Promise<StoreResult> {
     let currentChunk = chunk;
     let lastError: any = null;
+    const strippedColumns: string[] = [];
+    const withStripped = (result: StoreResult): StoreResult =>
+      strippedColumns.length > 0 ? { ...result, strippedColumns: [...strippedColumns] } : result;
 
     // Allow a few "schema strip" retries in case multiple columns are missing
     for (let attempt = 0; attempt < this.config.maxRetries; attempt += 1) {
@@ -258,7 +285,7 @@ export class ForecastStorageService {
         });
 
       if (!error) {
-        return { success: true, data };
+        return withStripped({ success: true, data });
       }
 
       lastError = error;
@@ -273,7 +300,7 @@ export class ForecastStorageService {
           hint: (error as any).hint,
           code: (error as any).code,
         });
-        return { success: false, error: error.message };
+        return withStripped({ success: false, error: error.message });
       }
 
       if (missingColumn && !this.warnedSchemaColumns.has(missingColumn)) {
@@ -296,9 +323,11 @@ export class ForecastStorageService {
           hint: (error as any).hint,
           code: (error as any).code,
         });
-        return { success: false, error: error.message };
+        return withStripped({ success: false, error: error.message });
       }
 
+      strippedColumns.push(missingColumn);
+      reportStrippedColumn(missingColumn);
       currentChunk = strippedRows;
     }
 
@@ -309,7 +338,7 @@ export class ForecastStorageService {
       hint: (lastError as any).hint,
       code: (lastError as any).code,
     });
-    return { success: false, error: lastError?.message || "Unknown error after retries" };
+    return withStripped({ success: false, error: lastError?.message || "Unknown error after retries" });
   }
 
   /**
