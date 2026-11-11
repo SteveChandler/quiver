@@ -30,6 +30,7 @@ import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { buildExplainerLines } from "@/lib/buoy-pages/explainer";
+import { getNearbyTideStations } from "@/lib/tide-stations/queries";
 import { formatStationTime } from "@/lib/buoy-pages/format";
 import { countryName, countryPath, placeLabel, regionName, regionPath, stationPath } from "@/lib/buoy-pages/geo-names";
 import { getBuoyPageSource } from "@/lib/buoy-pages/source";
@@ -81,6 +82,7 @@ export default async function BuoyStationPage({ params }: PageProps) {
 
   const data = result.data;
   const { station, timeZone, status, latestWave, nowObservation } = data;
+  const [nearestTideStation] = await getNearbyTideStations(station.lat, station.lon, 1, { radiusKm: 100 });
   const canonicalPath = stationPath(station.slug);
   const place = placeLabel(station);
   // The chip keys off the newest wave reading; the reading time matches the row "Now" shows.
@@ -178,7 +180,7 @@ export default async function BuoyStationPage({ params }: PageProps) {
             forecastsLoaded={data.beaches.forecastsLoaded}
           />
           <NearbyBuoys items={data.nearby} />
-          <TideStationSlot tideStation={null} />
+          <TideStationSlot tideStation={nearestTideStation ?? null} />
           <OtherReadings observation={data.latestAny} timeZone={timeZone} />
           <StationFacts station={station} timeZone={timeZone} explainer={explainer} />
           <BuoyGlossary />

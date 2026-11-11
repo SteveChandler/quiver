@@ -85,28 +85,39 @@ interface NearbyTideStation extends TideStationSummary {
   distanceKm: number;
 }
 
+/**
+ * Active tide stations near a point, closest first. A side block on other
+ * pages: a missing registry (migration not applied) or any query error yields
+ * an empty list, logged unless the table is simply not there yet.
+ */
 export async function getNearbyTideStations(
-  station: Pick<TideStationRow, "id" | "lat" | "lon">,
+  lat: number,
+  lon: number,
   limit = 6,
-  radiusKm = 150
+  options: { excludeId?: string; radiusKm?: number } = {}
 ): Promise<NearbyTideStation[]> {
-  const box = boundingBox(station.lat, station.lon, radiusKm);
-  const { data, error } = await db()
+  const radiusKm = options.radiusKm ?? 150;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+  const box = boundingBox(lat, lon, radiusKm);
+  let query = db()
     .from("tide_stations")
     .select(SUMMARY_COLUMNS)
     .eq("active", true)
-    .neq("id", station.id)
     .gte("lat", box.minLat)
     .lte("lat", box.maxLat)
     .gte("lon", box.minLon)
     .lte("lon", box.maxLon)
-    .limit(200);
+    .limit(1000);
+  if (options.excludeId) query = query.neq("id", options.excludeId);
+  const { data, error } = await query;
   if (error) {
-    console.warn("Nearby tide stations query failed", { message: error.message });
+    if (!(error.code && MISSING_RELATION_CODES.has(error.code))) {
+      console.warn("Nearby tide stations query failed", { message: error.message });
+    }
     return [];
   }
   return ((data ?? []) as TideStationSummary[])
-    .map((row) => ({ ...row, distanceKm: calculateDistance(station, row, "km") }))
+    .map((row) => ({ ...row, distanceKm: calculateDistance({ lat, lon }, row, "km") }))
     .filter((row) => row.distanceKm <= radiusKm)
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, limit);
