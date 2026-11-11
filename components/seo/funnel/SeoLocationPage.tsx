@@ -35,7 +35,6 @@ const MAP_LINK = { label: "Explore nearby spots", href: "/map" };
 
 interface BeginnerDecisionLink {
   citySlug: string;
-  decisionSummary: string;
   referenceSpotName: string;
   stateSlug: string;
 }
@@ -121,7 +120,6 @@ function getBeginnerDecisionLink(page: SeoPageConfig): BeginnerDecisionLink | nu
 
   return {
     citySlug: match[2],
-    decisionSummary: page.sections[1]?.body ?? page.intro,
     referenceSpotName: sameCitySpot.label,
     stateSlug: match[1],
   };
@@ -218,7 +216,6 @@ export async function SeoLocationPage({
               conditions={beginnerConditions?.rightNow ?? undefined}
               stateSlug={beginnerDecisionLink.stateSlug}
               referenceSpotName={beginnerDecisionLink.referenceSpotName}
-              decisionSummary={beginnerDecisionLink.decisionSummary}
             />
           </div>
         ) : null}

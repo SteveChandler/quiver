@@ -1011,6 +1011,7 @@ export function OracleHomeScreen() {
             forecastUrl={forecastUrl}
             isTomorrow={isTomorrow}
             eveningTransition={oracle.discovery?.eveningTransition}
+            hasHomeBeach={!!homeBeach}
           />
 
           <NearbySpots

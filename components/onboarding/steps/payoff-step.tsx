@@ -488,14 +488,6 @@ export function PayoffStep() {
                 </div>
               )}
 
-              {/* No Data State */}
-              {!intel && !forecastPreview && (
-                <div className="bg-white/[0.06] border border-white/[0.12] rounded-lg p-5">
-                  <p className="text-sm text-white/50">
-                    Your surf call is ready on the home page
-                  </p>
-                </div>
-              )}
             </motion.div>
           )}
 

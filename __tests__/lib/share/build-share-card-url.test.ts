@@ -123,6 +123,17 @@ describe("buildSurfCallShareUrl", () => {
       const parsed = new URL(url);
       expect(parsed.searchParams.get("tags")).toBe("Clean Swell,Offshore Winds,Rising Tide");
     });
+
+    it("omits the wind param when no wind reading is passed", () => {
+      const url = buildSurfCallShareUrl({
+        beach: "Big Jetty",
+        verdict: "YES",
+        window: "7-10am",
+        waveHeight: "3-5ft",
+      });
+
+      expect(new URL(url).searchParams.has("wind")).toBe(false);
+    });
   });
 
   describe("new parameters (redesigned card)", () => {

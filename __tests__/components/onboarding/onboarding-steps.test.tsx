@@ -563,7 +563,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
     });
 
-    it("shows no-data card when neither intel nor forecast available", async () => {
+    it("shows no surf-call claim when neither intel nor forecast available", async () => {
       mockUseForecastPreview.mockReturnValue({
         forecastPreview: null,
         loading: false,
@@ -580,10 +580,11 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       render(<PayoffStep />);
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/Your surf call is ready on the home page/i),
-        ).toBeInTheDocument();
+        expect(screen.getByText(/You're set up for Malibu/i)).toBeInTheDocument();
       });
+      expect(
+        screen.queryByText(/Your surf call is ready on the home page/i),
+      ).not.toBeInTheDocument();
     });
 
     it("shows XP badge after loading", async () => {

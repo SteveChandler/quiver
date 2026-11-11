@@ -81,16 +81,53 @@ describe("BeginnerSessionDecision", () => {
       name: /beginner session call for huntington beach/i,
     });
 
-    expect(within(region).getByText("MAYBE")).toBeVisible();
+    expect(within(region).queryByText("MAYBE")).not.toBeInTheDocument();
     expect(within(region).getByText("Check the beach first")).toBeVisible();
     expect(within(region).getByText(/1-2 ft surf/i)).toBeVisible();
     expect(within(region).getByRole("link", { name: /open live huntington beach spots/i })).toHaveAttribute("href", "/ca/huntington-beach");
   });
 
+  it("says live data is unavailable, with no verdict pill, when there are no conditions", () => {
+    render(
+      <BeginnerSessionDecision
+        cityName="Huntington Beach"
+        citySlug="huntington-beach"
+        stateSlug="ca"
+        referenceSpotName="Bolsa Chica"
+      />
+    );
+
+    const region = screen.getByRole("region", {
+      name: /beginner session call for huntington beach/i,
+    });
+
+    expect(
+      within(region).getByText(/live wave, wind, tide, and time-window data is unavailable/i),
+    ).toBeVisible();
+    expect(within(region).queryByText(/beginner guide as the first filter/i)).not.toBeInTheDocument();
+    expect(within(region).queryByText("MAYBE")).not.toBeInTheDocument();
+  });
+
+  it("shows no verdict pill for an unknown live rating", () => {
+    render(
+      <BeginnerSessionDecision
+        cityName="Huntington Beach"
+        citySlug="huntington-beach"
+        stateSlug="ca"
+        conditions={{
+          ...conditions,
+          beginnerVerdict: { ...conditions.beginnerVerdict, rating: "unknown" },
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("MAYBE")).not.toBeInTheDocument();
+    expect(screen.getByText("Check the beach first")).toBeVisible();
+  });
+
   it.each([
     ["acceptable", "MAYBE", "Might work"],
     ["poor", "NO", "Skip it"],
-    ["unknown", "MAYBE", "Check the beach first"],
   ] as const)(
     "maps %s conditions to the researched %s verdict",
     (rating, label, headline) => {

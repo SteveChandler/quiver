@@ -591,6 +591,22 @@ export function BestSurfWindow({
     intel.best_window_end,
     forecastDate
   );
+  // Each part is omitted when its daily-intel column is null, so no
+  // "unknown" or bare "mph ()" reaches the card.
+  const windLabel = formatIntelWindLabel(intel.wind_speed_mph, intel.wind_direction_text);
+  const tideTimeLabel = formatTime(intel.tide_time);
+  const tideLabel =
+    intel.tide_height_ft == null
+      ? null
+      : tideTimeLabel
+        ? `${intel.tide_height_ft} ft @ ${tideTimeLabel}`
+        : `${intel.tide_height_ft} ft`;
+  const currentConditionsText = [
+    currentWaveHeightLabel,
+    windLabel && intel.wind_quality ? `${windLabel} (${intel.wind_quality})` : windLabel,
+  ]
+    .filter(Boolean)
+    .join(", ");
   const generatedTime = new Date(intel.generated_at).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -776,10 +792,8 @@ export function BestSurfWindow({
               Current Conditions
             </h4>
             <p className="text-sm text-[#4B4030]">
-              Right now: {currentWaveHeightLabel ?? "unknown surf"},{" "}
-              {intel.wind_speed_mph} mph {intel.wind_direction_text} (
-              {intel.wind_quality}). Check tomorrow&apos;s forecast for next
-              windows.
+              {currentConditionsText ? `Right now: ${currentConditionsText}. ` : null}
+              Check tomorrow&apos;s forecast for next windows.
             </p>
           </div>
         )}
@@ -811,7 +825,7 @@ export function BestSurfWindow({
               </span>
             </div>
             <p className="font-semibold text-[#11100D]">
-              {intel.wind_speed_mph} mph {intel.wind_direction_text}
+              {windLabel ?? "—"}
             </p>
             <p className="text-xs text-muted-foreground truncate">
               {intel.wind_quality}
@@ -827,7 +841,7 @@ export function BestSurfWindow({
               </span>
             </div>
             <p className="font-semibold text-[#11100D]">
-              {intel.tide_height_ft} ft @ {formatTime(intel.tide_time)}
+              {tideLabel ?? "—"}
             </p>
             {intel.tide_optimal_range && (
               <p className="text-xs text-muted-foreground truncate">
@@ -1112,4 +1126,12 @@ function MagicHourLoadingState() {
       </div>
     </div>
   );
+}
+
+export function formatIntelWindLabel(
+  speedMph: number | null | undefined,
+  directionText: string | null | undefined,
+): string | null {
+  if (speedMph == null || !Number.isFinite(speedMph)) return null;
+  return directionText ? `${speedMph} mph ${directionText}` : `${speedMph} mph`;
 }

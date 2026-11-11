@@ -19,10 +19,13 @@ interface BeginnerSessionDecisionProps {
 
 const STICKER_SRC = "/images/quiver-stickers/surf-wax.png";
 
+const LIVE_DATA_UNAVAILABLE_SUMMARY =
+  "Live wave, wind, tide, and time-window data is unavailable. Check the beach first.";
+
 const VERDICT_COPY: Record<
   BeginnerVerdictRating,
   {
-    label: "YES" | "MAYBE" | "NO";
+    label: "YES" | "MAYBE" | "NO" | null;
     headline: string;
     nextStep: string;
     tone: string;
@@ -47,8 +50,9 @@ const VERDICT_COPY: Record<
       "Wait for a smaller, lighter-wind window or book a lesson at a protected beginner break.",
     tone: "border-rose-300 bg-rose-50 text-rose-800",
   },
+  // No rating means no verdict pill: "MAYBE" would read as a real rating.
   unknown: {
-    label: "MAYBE",
+    label: null,
     headline: "Check the beach first",
     nextStep:
       "Confirm the sets, wind, and current before deciding whether this window fits you.",
@@ -69,9 +73,7 @@ export function BeginnerSessionDecision({
   const spotHref = `/${stateSlug}/${citySlug}`;
   const spotName = conditions?.spotName ?? referenceSpotName ?? cityName;
   const summary =
-    conditions?.summary ??
-    decisionSummary ??
-    `Use this ${cityName} beginner guide as the first filter.`;
+    conditions?.summary ?? decisionSummary ?? LIVE_DATA_UNAVAILABLE_SUMMARY;
   const rating = conditions?.beginnerVerdict.rating ?? "unknown";
   const verdict = VERDICT_COPY[rating];
   const reasons = conditions?.beginnerVerdict.reasons ?? [];
@@ -109,11 +111,13 @@ export function BeginnerSessionDecision({
             Can a beginner surf here today?
           </h2>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <span
-              className={`inline-flex rounded-full border px-3 py-1 font-mono text-sm font-black tracking-[0.12em] ${verdict.tone}`}
-            >
-              {verdict.label}
-            </span>
+            {verdict.label ? (
+              <span
+                className={`inline-flex rounded-full border px-3 py-1 font-mono text-sm font-black tracking-[0.12em] ${verdict.tone}`}
+              >
+                {verdict.label}
+              </span>
+            ) : null}
             <p className="text-lg font-bold text-slate-900">
               {verdict.headline}
             </p>

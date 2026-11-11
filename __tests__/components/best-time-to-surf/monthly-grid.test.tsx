@@ -26,3 +26,37 @@ describe("MonthlyGrid seasonal gauges", () => {
     expect(screen.queryByText("Worth planning")).not.toBeInTheDocument();
   });
 });
+
+describe("MonthlyGrid without state monthly data", () => {
+  it("hides crowd, wetsuit and water temp rows the city data does not support", () => {
+    render(
+      <MonthlyGrid
+        monthly={[{ month: 4, monthName: "April", bestMonthCount: 2, score: 60 }]}
+        waterTempRange={null}
+        summerWetsuit={null}
+        winterWetsuit={null}
+      />
+    );
+
+    expect(screen.queryByText("Crowds")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wetsuit")).not.toBeInTheDocument();
+    expect(screen.queryByText("Water temp")).not.toBeInTheDocument();
+    expect(screen.queryByText("3/2mm")).not.toBeInTheDocument();
+    expect(screen.getByText("Beaches peaking")).toBeInTheDocument();
+  });
+
+  it("keeps the city's own wetsuit and temperature for matching seasons", () => {
+    render(
+      <MonthlyGrid
+        monthly={[{ month: 1, monthName: "January", bestMonthCount: 3, score: 70 }]}
+        waterTempRange="55-68"
+        summerWetsuit="3/2mm"
+        winterWetsuit="4/3mm"
+      />
+    );
+
+    expect(screen.getByText("4/3mm")).toBeInTheDocument();
+    expect(screen.getByText("~55°F")).toBeInTheDocument();
+    expect(screen.queryByText("Crowds")).not.toBeInTheDocument();
+  });
+});

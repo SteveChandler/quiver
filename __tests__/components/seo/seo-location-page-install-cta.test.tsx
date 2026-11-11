@@ -54,8 +54,12 @@ jest.mock("@/components/cams/cam-grid", () => ({
 jest.mock("@/actions/beginner/beginner-actions", () => ({
   getBeginnerConditionsData: jest.fn(async () => null),
 }));
+const mockBeginnerSessionDecision = jest.fn();
 jest.mock("@/components/beginner/beginner-session-decision", () => ({
-  BeginnerSessionDecision: () => null,
+  BeginnerSessionDecision: (props: Record<string, unknown>) => {
+    mockBeginnerSessionDecision(props);
+    return null;
+  },
 }));
 jest.mock("@/components/seo/alert-capture-cta", () => ({ AlertCaptureCta: () => null }));
 jest.mock("@/components/seo/breadcrumb-schema", () => ({
@@ -153,6 +157,15 @@ afterEach(() => {
 });
 
 describe("SeoLocationPage install CTA on /surf-cams", () => {
+  it("does not pass editorial page copy to the beginner call as a live summary", async () => {
+    await renderPage("beginner", "huntington-beach");
+
+    expect(mockBeginnerSessionDecision).toHaveBeenCalled();
+    const props = mockBeginnerSessionDecision.mock.calls[0][0];
+    expect(props.conditions).toBeUndefined();
+    expect(props.decisionSummary).toBeUndefined();
+  });
+
   it("renders one handoff right after the cam grid with its own placement", async () => {
     setUserAgent(DESKTOP_UA);
     await renderPage();
