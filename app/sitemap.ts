@@ -28,6 +28,7 @@ import {
   getLatestBlogModifiedDate,
 } from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
+import { getTideStationSitemapRoutes } from "@/lib/tide-stations/sitemap";
 import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { getSurfClimatology } from "@/lib/climatology/get-surf-climatology";
@@ -388,7 +389,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Expected URL count range: ~1,400–2,500 URLs depending on DB beach/city completeness.
   // Breakdown: ~12 static, ~870 beaches (279 × 3 USA + Baja × 1), ~40 city/state locations,
   //   ~300–600 intent pages, ~11 guides, ~17 forecast, ~9 cams, ~1 best-time hub + cities,
-  //   ~6 learn — all well under the 50,000 limit.
+  //   ~6 learn, plus ~7,000 tide station and hub URLs — all well under the 50,000 limit.
 
   // Fetch beaches first — shared between beach routes and location route validation.
   // Location routes are cross-validated against this set to exclude cities whose
@@ -477,6 +478,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     learnRoutes,
     blogRoutes,
     buoyRoutes,
+    tideStationRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
     Promise.resolve(
@@ -498,6 +500,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     Promise.resolve(getLearnRoutes()),
     Promise.resolve(getBlogRoutes()),
     getBuoyRoutes(),
+    getTideStationSitemapRoutes(baseUrl),
   ]);
 
   const routes = [
@@ -514,6 +517,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...blogRoutes,
     ...buoyRoutes,
     ...getToolsRoutes(),
+    ...tideStationRoutes,
   ];
 
   const seenUrls = new Set<string>();

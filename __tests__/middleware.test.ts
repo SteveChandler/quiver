@@ -313,9 +313,11 @@ describe("Middleware", () => {
     "/buoys/us/ca",
     "/buoys/us",
     "/buoys/46225",
-  ])("routes buoy page %s normally instead of as an international city", async (pathname) => {
+    "/tides/station/la-jolla-ca-9410230",
+    "/tides/usa/ca",
+  ])("routes buoy or tide page %s normally instead of as an international city", async (pathname) => {
     const request: any = {
-      nextUrl: { pathname, clone: () => ({ pathname }) },
+      nextUrl: { pathname, search: "", clone: () => ({ pathname, search: "" }) },
       url: `http://localhost${pathname}`,
       method: "GET",
       headers: new Headers(),
