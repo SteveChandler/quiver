@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import {
   compassPoint,
@@ -191,6 +192,19 @@ const STATION_TYPE_LABELS: Record<string, string> = {
   tao: "Tropical array buoy",
 };
 
+/** Credit text with its URLs as links (the Copernicus credit carries the product DOI). */
+function withLinks(text: string): ReactNode[] {
+  return text.split(/(https?:\/\/[^\s;,]+?)(?=[.;,]?(?:\s|$))/).map((part, index) =>
+    index % 2 === 1 ? (
+      <a key={part} href={part} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+        {part}
+      </a>
+    ) : (
+      part
+    ),
+  );
+}
+
 export function StationFacts({
   station,
   timeZone,
@@ -233,7 +247,7 @@ export function StationFacts({
         ))}
       </dl>
       <p className="mt-4 text-sm text-[#11100D]" data-testid="buoy-attribution">
-        Source: {/[.!?]$/.test(station.attribution) ? station.attribution : `${station.attribution}.`}{" "}
+        Source: {withLinks(/[.!?]$/.test(station.attribution) ? station.attribution : `${station.attribution}.`)}{" "}
         Licence:{" "}
         {license ? (
           <a href={license} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
