@@ -91,6 +91,21 @@ describe("loadStationPage", () => {
     await expect(loadStationPage(never, "torrey-pines-outer-ca-46225", NOW)).resolves.toEqual({ kind: "not-found" });
   });
 
+  it("redirects a duplicate row (same buoy from a second source) to its primary station", async () => {
+    const base = source();
+    const station = await base.getStationBySlug("torrey-pines-outer-ca-46225");
+    if (!station) throw new Error("fixture missing");
+    const duplicated = source({
+      getStationBySlug: async () => ({ ...station, duplicate_of: "marine_ie:M6" }),
+      getStationSlugById: async (id) => (id === "marine_ie:M6" ? "m6-west-coast" : null),
+    });
+    await expect(loadStationPage(duplicated, "torrey-pines-outer-ca-46225", NOW)).resolves.toEqual({
+      kind: "redirect",
+      slug: "m6-west-coast",
+    });
+    await expect(resolveStationSlug(duplicated, "torrey-pines-outer-ca-46225")).resolves.toBe("m6-west-coast");
+  });
+
   it("is not found for unknown slugs and met-only stations", async () => {
     await expect(loadStationPage(source(), "no-such-buoy", NOW)).resolves.toEqual({ kind: "not-found" });
     await expect(loadStationPage(source(), "9414750-alameda-ca-aamc1", NOW)).resolves.toEqual({ kind: "not-found" });
@@ -149,6 +164,15 @@ describe("hubs", () => {
     const california = hub?.groups.find((group) => group.code === "CA");
     expect(california?.stations.map((item) => item.station.source_station_id)).toEqual(["46086", "46225"]);
     expect(california?.stations.find((item) => item.station.source_station_id === "46225")?.latest?.wave_height_m).toBe(1.4);
+  });
+
+  it("puts a country without region codes in one plain group", async () => {
+    const base = source();
+    const torrey = await base.getStationBySlug("torrey-pines-outer-ca-46225");
+    if (!torrey) throw new Error("fixture missing");
+    const irish = { ...torrey, id: "marine_ie:M3", source: "marine_ie" as const, country_code: "IE", region: null };
+    const hub = await loadAreaHub(source({ listStations: async () => [irish] }), "ie", null, NOW);
+    expect(hub?.groups.map((group) => group.name)).toEqual(["All wave buoys"]);
   });
 
   it("returns null (a 404) for a country or region with no stations", async () => {

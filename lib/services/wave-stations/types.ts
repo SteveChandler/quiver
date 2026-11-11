@@ -6,7 +6,8 @@
  * 20261110200000_wave_station_catalogue.sql is applied and types are regenerated.
  */
 
-export type WaveStationSource = "ndbc";
+/** One id per data provider; the station id is `{source}:{source_station_id}`. */
+export type WaveStationSource = "ndbc" | "marine_ie" | "aodn" | "fmi" | "smhi";
 
 export interface WaveStationRow {
   id: string;
@@ -22,6 +23,10 @@ export interface WaveStationRow {
   owner: string | null;
   program: string | null;
   cdip_station_id: string | null;
+  /** WMO number when the source gives one; used to find the same buoy in two sources. */
+  wmo_id: string | null;
+  /** Set when another source's station is the same physical buoy; readers hide this row. */
+  duplicate_of: string | null;
   has_wave: boolean;
   has_swell_split: boolean;
   has_met: boolean;
@@ -81,6 +86,7 @@ export interface SourceStation {
   countryCode: string | null;
   region: string | null;
   cdipStationId: string | null;
+  wmoId?: string | null;
   hasWave: boolean;
   hasSwellSplit: boolean;
   hasMet: boolean;
@@ -103,19 +109,22 @@ export type StationHistoryResult =
   | { status: "ok"; lastModified: string | null; observations: SourceObservation[] };
 
 /**
- * One wave-data source. NDBC is the first implementation; later phases add
- * non-US sources behind the same interface.
+ * One wave-data source. NDBC needs per-station history files; the other
+ * sources answer one bulk request for recent hours, so they leave
+ * fetchStationHistory out and the "spec" cron phase skips them.
  */
 export interface WaveStationSourceAdapter {
   readonly source: WaveStationSource;
+  /** How often the latest phase calls this source (its own update rate), in minutes. */
+  readonly latestEveryMinutes: 15 | 30 | 60;
   fetchStations(): Promise<SourceStation[]>;
-  /** One cheap request for the newest reading of every station. */
+  /** One cheap request for the newest readings of every station (a bounded recent window). */
   fetchLatestObservations(): Promise<SourceObservation[]>;
   /**
    * Per-station history; honours If-Modified-Since. `file` "spec" (default) has
    * the swell split; "txt" is the standard file (waves with dominant period, plus met).
    */
-  fetchStationHistory(
+  fetchStationHistory?(
     sourceStationId: string,
     options: { ifModifiedSince: string | null; file?: StationHistoryFile },
   ): Promise<StationHistoryResult>;

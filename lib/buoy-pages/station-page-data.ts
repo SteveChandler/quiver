@@ -144,6 +144,9 @@ function buildModelBlock(
  */
 export async function resolveStationSlug(source: BuoyPageSource, slugOrId: string): Promise<string | null> {
   const station = await orEmptyWhenMissing(() => source.getStationBySlug(slugOrId), null);
+  if (station?.duplicate_of) {
+    return (await orEmptyWhenMissing(() => source.getStationSlugById(station.duplicate_of as string), null)) ?? station.slug;
+  }
   if (station) return station.slug;
   const matches = await orEmptyWhenMissing(() => source.findStationsByAlternateId(slugOrId), []);
   return matches.length === 1 ? matches[0].slug : null;
@@ -163,6 +166,11 @@ export async function loadStationPage(
     const matches = await orEmptyWhenMissing(() => source.findStationsByAlternateId(slugOrId), []);
     if (matches.length === 1 && matches[0].slug !== slugOrId) return { kind: "redirect", slug: matches[0].slug };
     return { kind: "not-found" };
+  }
+  // The same buoy from a second source: send readers to the primary station's page.
+  if (station.duplicate_of) {
+    const primarySlug = await orEmptyWhenMissing(() => source.getStationSlugById(station.duplicate_of as string), null);
+    if (primarySlug && primarySlug !== station.slug) return { kind: "redirect", slug: primarySlug };
   }
   // Met-only stations have nothing to show. A station that once reported waves
   // keeps its page (offline, noindex) even after the registry clears has_wave.

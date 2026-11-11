@@ -64,6 +64,7 @@ function fakeDb(selectResults: Record<string, unknown[][]> = {}) {
 function adapter(overrides: Partial<WaveStationSourceAdapter> = {}): WaveStationSourceAdapter {
   return {
     source: "ndbc",
+    latestEveryMinutes: 15,
     fetchStations: jest.fn(async () => []),
     fetchLatestObservations: jest.fn(async () => parseLatestObs(fixture("latest_obs.txt"))),
     fetchStationHistory: jest.fn(async (): Promise<StationHistoryResult> => ({ status: "not_modified" })),
@@ -456,6 +457,7 @@ describe("syncRegistry", () => {
       upserted: 2,
       deactivated: 0,
       deactivationSkipped: null,
+      duplicates: { marked: 0, cleared: 0 },
     });
     const upsert = calls.find((call) => call.ops[0]?.[0] === "upsert");
     const rows = upsert?.ops[0][1][0] as Array<Record<string, unknown>>;

@@ -4,7 +4,13 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildStationId, planRegistryUpsert, type ExistingStation } from "./catalogue";
+import {
+  buildStationId,
+  planDuplicates,
+  planRegistryUpsert,
+  type DuplicateCandidate,
+  type ExistingStation,
+} from "./catalogue";
 import { hasWaveValue } from "./ndbc/parsers";
 import { selectAllPages } from "./paging";
 import type {
@@ -71,6 +77,8 @@ interface RegistrySyncResult {
   deactivated: number;
   /** Set when the list was under 80% of the active catalogue, so nothing was deactivated. */
   deactivationSkipped: { activeStored: number; listed: number } | null;
+  /** duplicate_of changes across all sources in this run. */
+  duplicates: { marked: number; cleared: number };
 }
 
 export async function syncRegistry(
@@ -124,6 +132,8 @@ export async function syncRegistry(
     waveStationsByCountry[key] = (waveStationsByCountry[key] ?? 0) + 1;
   }
 
+  const duplicates = await syncDuplicates(db);
+
   return {
     stationsListed: stations.length,
     withWave: plan.rows.filter((row) => row.has_wave).length,
@@ -132,7 +142,34 @@ export async function syncRegistry(
     upserted,
     deactivated,
     deactivationSkipped,
+    duplicates,
   };
+}
+
+/**
+ * Re-evaluate duplicate_of across every source after a registry run, so the
+ * result does not depend on which source ran first (see planDuplicates).
+ */
+async function syncDuplicates(db: CatalogueClient): Promise<{ marked: number; cleared: number }> {
+  const all = await selectAllPages<DuplicateCandidate>((from, to) =>
+    db
+      .from("wave_stations")
+      .select("id, source, name, lat, lon, wmo_id, active, duplicate_of")
+      .order("id")
+      .range(from, to),
+  );
+  let marked = 0;
+  let cleared = 0;
+  for (const change of planDuplicates(all)) {
+    const { error } = await db
+      .from("wave_stations")
+      .update({ duplicate_of: change.duplicate_of })
+      .eq("id", change.id);
+    if (error) throw new Error(`wave_stations duplicate_of: ${error.message}`);
+    if (change.duplicate_of) marked++;
+    else cleared++;
+  }
+  return { marked, cleared };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +195,10 @@ export async function syncLatestObservations(
   db: CatalogueClient,
   adapter: WaveStationSourceAdapter,
   nowMs: number,
+  /** The prune is table-wide, so only one source's run per cron call does it. */
+  options: { prune?: boolean } = {},
 ): Promise<LatestSyncResult> {
+  const prune = options.prune ?? true;
   const observations = await adapter.fetchLatestObservations();
   const stations = await selectAllPages<Pick<WaveStationRow, "id" | "last_observed_at" | "has_wave">>(
     (from, to) =>
@@ -209,7 +249,7 @@ export async function syncLatestObservations(
 
   // Prune once an hour (the first run after :00), in a bounded batch.
   let rowsPruned = 0;
-  if (new Date(nowMs).getUTCMinutes() < 15) {
+  if (prune && new Date(nowMs).getUTCMinutes() < 15) {
     const cutoff = new Date(nowMs - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await db.rpc("prune_wave_station_observations", {
       p_before: cutoff,
@@ -328,6 +368,8 @@ async function syncHistoryQueue(
   options: SwellSplitSyncOptions,
   config: HistoryQueueConfig,
 ): Promise<SwellSplitSyncResult> {
+  const fetchHistory = adapter.fetchStationHistory;
+  if (!fetchHistory) throw new Error(`${adapter.source}: no per-station history files`);
   const startedMs = Date.now();
   const dueBefore = new Date(nowMs - SPEC_REFRESH_MS).toISOString();
   const { data, error } = await db
@@ -397,7 +439,7 @@ async function syncHistoryQueue(
     try {
       // Always send the stored Last-Modified: an empty or unchanged file then
       // answers 304 instead of a full re-download every hour.
-      const history = await adapter.fetchStationHistory(station.sourceStationId, {
+      const history = await fetchHistory(station.sourceStationId, {
         ifModifiedSince: station.lastModified,
         file: config.file,
       });

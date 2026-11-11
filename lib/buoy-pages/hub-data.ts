@@ -118,6 +118,9 @@ export async function loadAreaHub(
     group.stations.push(toHubStation(station, latest, nowMs));
     groups.set(key, group);
   }
+  // Countries without region codes (all but the US today) get one plain group.
+  const unnamed = groups.get("");
+  if (unnamed && groups.size === 1) unnamed.name = "All wave buoys";
   const sorted = [...groups.values()]
     .map((group) => ({ ...group, stations: group.stations.sort((a, b) => byName(a.station, b.station)) }))
     // Named regions first, alphabetically; the unnamed group last.

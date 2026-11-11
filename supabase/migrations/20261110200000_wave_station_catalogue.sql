@@ -14,7 +14,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.wave_stations (
   id text PRIMARY KEY,                       -- '{source}:{source_station_id}', e.g. 'ndbc:46225'
-  source text NOT NULL,                      -- 'ndbc'; later phases add more sources
+  source text NOT NULL,                      -- 'ndbc', 'marine_ie', 'aodn', 'fmi', 'smhi' (WaveStationSource)
   source_station_id text NOT NULL,
   name text NOT NULL,
   slug text NOT NULL,                        -- stable once assigned; the sync never rewrites it
@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS public.wave_stations (
   owner text,
   program text,
   cdip_station_id text,                      -- alternate id, 3-digit CDIP number ('100')
+  wmo_id text,                               -- WMO number when the source gives one ('62095')
+  -- Same physical buoy as another source's row (e.g. the NDBC relay of an
+  -- Irish M-buoy). Readers hide it and its page redirects. Set by the registry sync.
+  duplicate_of text REFERENCES public.wave_stations(id) ON DELETE SET NULL,
   has_wave boolean NOT NULL DEFAULT false,
   has_swell_split boolean NOT NULL DEFAULT false,
   has_met boolean NOT NULL DEFAULT false,
@@ -38,25 +42,28 @@ CREATE TABLE IF NOT EXISTS public.wave_stations (
   first_seen_at timestamptz NOT NULL DEFAULT now(),
   last_observed_at timestamptz,
   last_wave_observed_at timestamptz,
-  spec_checked_at timestamptz,               -- swell-split sync state
+  spec_checked_at timestamptz,               -- NDBC swell-split sync state (other sources leave these null)
   spec_last_modified text,                   -- Last-Modified header, sent back as If-Modified-Since
   spec_last_observed_at timestamptz,         -- newest swell-split row stored
-  txt_checked_at timestamptz,                -- standard .txt sync state (every wave station)
+  txt_checked_at timestamptz,                -- NDBC standard .txt sync state (every NDBC wave station)
   txt_last_modified text,
   txt_last_observed_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT wave_stations_id_format CHECK (id = source || ':' || source_station_id),
   CONSTRAINT wave_stations_source_station_key UNIQUE (source, source_station_id),
-  CONSTRAINT wave_stations_slug_key UNIQUE (slug)
+  CONSTRAINT wave_stations_slug_key UNIQUE (slug),
+  CONSTRAINT wave_stations_not_own_duplicate CHECK (duplicate_of IS NULL OR duplicate_of <> id)
 );
 
 CREATE INDEX IF NOT EXISTS wave_stations_country_region_idx
-  ON public.wave_stations (country_code, region) WHERE active AND has_wave;
+  ON public.wave_stations (country_code, region) WHERE active AND has_wave AND duplicate_of IS NULL;
 CREATE INDEX IF NOT EXISTS wave_stations_geog_idx
   ON public.wave_stations USING GIST (geog);
 CREATE INDEX IF NOT EXISTS wave_stations_cdip_station_id_idx
   ON public.wave_stations (cdip_station_id) WHERE cdip_station_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS wave_stations_wmo_id_idx
+  ON public.wave_stations (wmo_id) WHERE wmo_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS wave_stations_spec_queue_idx
   ON public.wave_stations (spec_checked_at NULLS FIRST) WHERE active AND has_swell_split;
 CREATE INDEX IF NOT EXISTS wave_stations_txt_queue_idx
@@ -299,6 +306,7 @@ REVOKE ALL ON FUNCTION public.prune_wave_station_observations(timestamptz, integ
 GRANT EXECUTE ON FUNCTION public.prune_wave_station_observations(timestamptz, integer) TO service_role;
 
 -- Nearest catalogue stations to a point (public read; RLS applies as invoker).
+-- Duplicate rows (duplicate_of set) are left out.
 CREATE OR REPLACE FUNCTION public.get_nearby_wave_stations(
   p_lat double precision,
   p_lon double precision,
@@ -315,6 +323,7 @@ AS $$
   SELECT s.*
   FROM public.wave_stations s
   WHERE s.active
+    AND s.duplicate_of IS NULL
     AND (NOT p_wave_only OR s.has_wave)
   ORDER BY s.geog <-> ST_SetSRID(ST_MakePoint(p_lon, p_lat), 4326)::geography
   LIMIT LEAST(GREATEST(COALESCE(p_limit, 10), 1), 50);
@@ -325,8 +334,8 @@ GRANT EXECUTE ON FUNCTION public.get_nearby_wave_stations(double precision, doub
   TO anon, authenticated, service_role;
 
 COMMENT ON TABLE public.wave_stations IS
-  'Public wave-station catalogue (one row per source station, id = source:source_station_id). Separate from the forecast station tables on purpose.';
+  'Public wave-station catalogue (one row per source station, id = source:source_station_id; sources ndbc, marine_ie, aodn, fmi, smhi). Separate from the forecast station tables on purpose.';
 COMMENT ON TABLE public.wave_station_observations IS
-  'Observations for the public wave-station catalogue (wave stations only), merged from the NDBC latest_obs feed and realtime2 .spec / .txt files. 180-day retention.';
+  'Observations for the public wave-station catalogue (wave stations only), merged from the NDBC latest_obs feed and realtime2 .spec / .txt files and from bulk feeds of the other sources. 180-day retention.';
 
 COMMIT;

@@ -19,7 +19,7 @@ function fakeClient(respond: (table: string, ops: Ops) => unknown) {
       const ops: Ops = [];
       chains.push({ table, ops });
       const builder: Record<string, unknown> = {};
-      for (const op of ["select", "in", "gte", "order", "range"]) {
+      for (const op of ["select", "in", "gte", "order", "range", "is", "eq"]) {
         builder[op] = (...args: unknown[]) => {
           ops.push([op, args]);
           return builder;
@@ -53,6 +53,20 @@ describe("findStationsByAlternateId", () => {
     const padded = fakeClient(() => []);
     await findStationsByAlternateId("0100", padded.client);
     expect(argsOf(padded.chains[1].ops, "in", "cdip_station_id")).toEqual(["0100", "100"]);
+  });
+
+  it("matches a WMO number and leaves duplicate rows out of every query", async () => {
+    const { client, chains } = fakeClient((_, ops) =>
+      argsOf(ops, "eq", "wmo_id") ? [{ id: "marine_ie:M6", slug: "m6-west-coast" }] : [],
+    );
+    await expect(findStationsByAlternateId("62095", client)).resolves.toEqual([
+      { id: "marine_ie:M6", slug: "m6-west-coast" },
+    ]);
+    expect(chains).toHaveLength(2);
+    expect(argsOf(chains[1].ops, "eq", "wmo_id")).toBe("62095");
+    for (const chain of chains) {
+      expect(chain.ops).toContainEqual(["is", ["duplicate_of", null]]);
+    }
   });
 
   it("rejects ids that cannot be station ids without a query", async () => {
