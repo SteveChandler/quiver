@@ -1423,8 +1423,9 @@ export class ForecastBuilder {
       coops_station_id: tideData?.station_id || null,
 
       // Weather conditions
-      weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
-      air_temperature: this.getAirTemperature(weatherPoint, beach, forecastTime),
+      // No NWS point (Mexico, Canada, a failed fetch): store no weather rather than a stand-in.
+      weather_condition: weatherPoint?.shortForecast?.trim() || null,
+      air_temperature: this.getAirTemperature(weatherPoint),
 
       beach_id: beach.id,
       confidence_score: effectiveConfidence,
@@ -2103,11 +2104,8 @@ export class ForecastBuilder {
     return weatherPoint?.windDirection?.trim() || null;
   }
 
-  private getAirTemperature(weatherPoint: WeatherPeriod | null, beach: Beach, forecastTime: Date): string | null {
-    if (weatherPoint) {
-      return `${weatherPoint.temperature}°F`;
-    }
-    return this.estimateAirTemperature(beach.lat ?? 0, forecastTime);
+  private getAirTemperature(weatherPoint: WeatherPeriod | null): string | null {
+    return Number.isFinite(weatherPoint?.temperature) ? `${weatherPoint!.temperature}°F` : null;
   }
 
   /**
@@ -2164,41 +2162,5 @@ export class ForecastBuilder {
 
     const estimatedTemp = baseTemp + seasonalAdjustment;
     return formatWaterTemp(estimatedTemp);
-  }
-
-  private estimateAirTemperature(lat: number, date: Date): string {
-    const month = date.getMonth();
-    const absLat = Math.abs(lat);
-
-    // Base air temperature varies by latitude zone (in degrees F)
-    let baseTemp: number;
-    let seasonalAmplitude: number;
-
-    if (absLat < 20) {
-      // Tropical: warm year-round
-      baseTemp = 84;
-      seasonalAmplitude = 4;
-    } else if (absLat < 30) {
-      // Subtropical
-      baseTemp = 78;
-      seasonalAmplitude = 10;
-    } else if (absLat < 40) {
-      // Temperate
-      baseTemp = 65;
-      seasonalAmplitude = 15;
-    } else if (absLat < 50) {
-      // Cool temperate
-      baseTemp = 55;
-      seasonalAmplitude = 18;
-    } else {
-      // Northern/polar
-      baseTemp = 48;
-      seasonalAmplitude = 15;
-    }
-
-    // Air temp peaks ~July (month 6), earlier than water temp
-    const seasonalAdjustment = seasonalAmplitude * Math.sin(((month - 3) * Math.PI) / 6);
-    const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
-    return `${estimatedTemp}°F`;
   }
 }

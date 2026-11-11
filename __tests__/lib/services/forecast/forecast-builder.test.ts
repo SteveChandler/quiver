@@ -291,6 +291,44 @@ describe("ForecastBuilder", () => {
     expect(f.forecast_time).toBe(utcTime);
   });
 
+  it("stores no weather or air temperature when no NWS point exists, never a stand-in", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].weather_condition).toBeNull();
+    expect(forecasts[0].air_temperature).toBeNull();
+  });
+
+  it("stores the NWS weather and air temperature when a point exists", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [{
+        startTime: mockWaveData.forecast[0].timestamp,
+        temperature: 61,
+        windSpeed: "5 mph",
+        windDirection: "W",
+        shortForecast: "Mostly Sunny",
+      }],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].weather_condition).toBe("Mostly Sunny");
+    expect(forecasts[0].air_temperature).toBe("61°F");
+  });
+
   it("uses '-- ft' fallback when tide interpolation fails", async () => {
     const builderNoTide = new ForecastBuilder({
       getWaveDirectionText: (deg: number) => "SW",
