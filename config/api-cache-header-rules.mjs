@@ -24,11 +24,4 @@ export const apiCacheHeaderRules = [
       },
     ],
   },
-  {
-    // Public buoy reading for the native beach screen: no user data, so shared
-    // caches may store it. Applies to 404s too, so a beach gains its row within
-    // minutes of the catalogue or a station coming online.
-    source: "/api/beaches/:id/buoy",
-    headers: [{ key: "Cache-Control", value: "public, s-maxage=300, stale-while-revalidate=600" }],
-  },
 ];

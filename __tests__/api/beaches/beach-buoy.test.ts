@@ -27,11 +27,13 @@ function fixtureSource(overrides: Partial<BuoyPageSource> = {}): BuoyPageSource 
   return { ...createFixtureSource({ shiftToNow: true }), ...overrides };
 }
 
-async function call(id: string): Promise<{ status: number; body: Record<string, any> }> {
+async function call(id: string): Promise<{ status: number; body: Record<string, any>; cdn: string | null }> {
   const request = new NextRequest(`http://localhost/api/beaches/${id}/buoy`);
   const response = await GET(request, { params: Promise.resolve({ id }) });
-  return { status: response.status, body: await response.json() };
+  return { status: response.status, body: await response.json(), cdn: response.headers.get("Vercel-CDN-Cache-Control") };
 }
+
+const CDN_CACHE = "max-age=300, stale-while-revalidate=600";
 
 describe("GET /api/beaches/[id]/buoy", () => {
   beforeEach(() => {
@@ -42,8 +44,9 @@ describe("GET /api/beaches/[id]/buoy", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("returns the buoy payload in the success envelope", async () => {
-    const { status, body } = await call(BEACH_ID);
+    const { status, body, cdn } = await call(BEACH_ID);
     expect(status).toBe(200);
+    expect(cdn).toBe(CDN_CACHE);
     expect(body.success).toBe(true);
     expect(Object.keys(body.data).sort()).toEqual([
       "distanceKm", "history", "now", "observedAt", "reading", "relation", "station", "status", "trend",
@@ -54,13 +57,14 @@ describe("GET /api/beaches/[id]/buoy", () => {
   });
 
   it("answers 400 for an id that is not a uuid", async () => {
-    expect((await call("not-a-uuid")).status).toBe(400);
+    expect(await call("not-a-uuid")).toMatchObject({ status: 400, cdn: null });
   });
 
   it("answers 404 for a private, deleted or unknown beach", async () => {
     mockSource = fixtureSource({ getStationForBeach: async () => ({ kind: "beach-not-found" }) });
-    const { status, body } = await call(BEACH_ID);
+    const { status, body, cdn } = await call(BEACH_ID);
     expect(status).toBe(404);
+    expect(cdn).toBe(CDN_CACHE);
     expect(body).toMatchObject({ success: false, error: "Beach not found" });
   });
 
@@ -78,7 +82,7 @@ describe("GET /api/beaches/[id]/buoy", () => {
         );
       },
     });
-    expect((await call(BEACH_ID)).status).toBe(404);
+    expect(await call(BEACH_ID)).toMatchObject({ status: 404, cdn: CDN_CACHE });
   });
 
   it("answers 500 for any other read failure", async () => {
@@ -87,8 +91,9 @@ describe("GET /api/beaches/[id]/buoy", () => {
         throw new Error("canceling statement due to statement timeout");
       },
     });
-    const { status, body } = await call(BEACH_ID);
+    const { status, body, cdn } = await call(BEACH_ID);
     expect(status).toBe(500);
+    expect(cdn).toBeNull();
     expect(body.success).toBe(false);
   });
 });

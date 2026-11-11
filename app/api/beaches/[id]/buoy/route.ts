@@ -18,10 +18,18 @@ import {
  * unknown, when no buoy is close enough, or while the wave-station catalogue
  * migration is not applied.
  *
- * Cache-Control comes from config/api-cache-header-rules.mjs: next.config
- * headers override a header set here.
+ * next.config's blanket /api rule overrides Cache-Control (private, 60 s), so
+ * the shared CDN cache is set with Vercel-CDN-Cache-Control, and only on 200
+ * and 404: a 403, 429 or 500 for one caller must never be served to others.
  */
 export const dynamic = "force-dynamic";
+
+const CDN_CACHE = "max-age=300, stale-while-revalidate=600";
+
+function cdnCached(response: NextResponse): NextResponse {
+  response.headers.set("Vercel-CDN-Cache-Control", CDN_CACHE);
+  return response;
+}
 
 async function beachBuoyHandler(
   _request: NextRequest,
@@ -34,11 +42,13 @@ async function beachBuoyHandler(
   try {
     const source = await getBuoyPageSource();
     const result = await loadBeachBuoy(source, beachId, new Date());
-    if (result.kind === "beach-not-found") return createErrorResponse("Beach not found", undefined, 404);
-    if (result.kind === "no-station") return createErrorResponse("No buoy near this beach", undefined, 404);
-    return createSuccessResponse(result.payload);
+    if (result.kind === "beach-not-found") return cdnCached(createErrorResponse("Beach not found", undefined, 404));
+    if (result.kind === "no-station") return cdnCached(createErrorResponse("No buoy near this beach", undefined, 404));
+    return cdnCached(createSuccessResponse(result.payload));
   } catch (error) {
-    if (isMissingCatalogueError(error)) return createErrorResponse("No buoy near this beach", undefined, 404);
+    if (isMissingCatalogueError(error)) {
+      return cdnCached(createErrorResponse("No buoy near this beach", undefined, 404));
+    }
     return handleApiError(error, "Failed to load buoy");
   }
 }
