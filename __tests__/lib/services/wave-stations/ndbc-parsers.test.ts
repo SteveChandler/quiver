@@ -13,6 +13,7 @@ import {
   parseLatestObs,
   parseRealtime2SpecListing,
   parseSpecFile,
+  parseStandardFile,
 } from "@/lib/services/wave-stations/ndbc/parsers";
 import { CDIP_STATIONS } from "@/lib/constants/cdip-stations";
 
@@ -205,6 +206,49 @@ describe("parseSpecFile", () => {
       steepness: null,
       average_period_s: 9.2,
     });
+  });
+});
+
+describe("parseStandardFile", () => {
+  it("parses a wave station's .txt rows with met fields kept", () => {
+    const rows = parseStandardFile(fixture("46146.txt"), "46146");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toEqual({
+      sourceStationId: "46146",
+      observedAt: "2026-11-11T03:00:00.000Z",
+      values: {
+        wind_direction_deg: 90,
+        wind_speed_ms: 12,
+        wind_gust_ms: 14,
+        wave_height_m: 1.0,
+        dominant_period_s: 4,
+        average_period_s: null,
+        mean_wave_direction_deg: null,
+        pressure_hpa: 1012.1,
+        air_temp_c: 12.5,
+        water_temp_c: 10.3,
+      },
+    });
+  });
+
+  it("drops met-only rows (MM waves) and keeps the hourly wave rows", () => {
+    const rows = parseStandardFile(fixture("46086.txt"), "46086");
+    expect(rows.map((row) => row.observedAt)).toEqual([
+      "2026-11-10T01:50:00.000Z",
+      "2026-11-10T01:20:00.000Z",
+    ]);
+    expect(rows[0].values).toMatchObject({
+      wave_height_m: 2.3,
+      dominant_period_s: 15,
+      average_period_s: 11.4,
+      mean_wave_direction_deg: 282,
+      water_temp_c: null,
+    });
+  });
+
+  it("fails loudly when a unit changes", () => {
+    const text = fixture("46146.txt").replace("degT m/s  m/s", "degT kts  m/s");
+    expect(() => parseStandardFile(text, "46146")).toThrow(/WSPD unit is "kts"/);
   });
 });
 

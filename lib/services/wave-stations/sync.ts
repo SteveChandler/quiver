@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildStationId, planRegistryUpsert, type ExistingStation } from "./catalogue";
 import type {
   SourceObservation,
+  StationHistoryFile,
   WaveStationRow,
   WaveStationSourceAdapter,
 } from "./types";
@@ -131,6 +132,8 @@ export async function syncRegistry(
 interface LatestSyncResult {
   rowsInFeed: number;
   rowsUnknownStation: number;
+  /** Rows for catalogue stations with has_wave = false; not stored (row volume). */
+  rowsNonWaveStation: number;
   rowsStale: number;
   rowsSent: number;
   rowsWritten: number;
@@ -143,29 +146,37 @@ export async function syncLatestObservations(
   nowMs: number,
 ): Promise<LatestSyncResult> {
   const observations = await adapter.fetchLatestObservations();
-  const stations = await selectAllPages<Pick<WaveStationRow, "id" | "last_observed_at">>(
+  const stations = await selectAllPages<Pick<WaveStationRow, "id" | "last_observed_at" | "has_wave">>(
     (from, to) =>
       db
         .from("wave_stations")
-        .select("id, last_observed_at")
+        .select("id, last_observed_at, has_wave")
         .eq("source", adapter.source)
         .order("id")
         .range(from, to),
   );
-  const lastObservedById = new Map(stations.map((row) => [row.id, row.last_observed_at]));
+  const stationById = new Map(stations.map((row) => [row.id, row]));
 
   let rowsUnknownStation = 0;
+  let rowsNonWaveStation = 0;
   let rowsStale = 0;
   const payload: ReturnType<typeof toMergePayload>[] = [];
   for (const obs of observations) {
     const stationId = buildStationId(adapter.source, obs.sourceStationId);
-    if (!lastObservedById.has(stationId)) {
+    const station = stationById.get(stationId);
+    if (!station) {
       rowsUnknownStation++;
+      continue;
+    }
+    // Met-only stations stay in the registry but their readings are not stored.
+    // A wave height is new evidence of waves, so that row is kept (it sets has_wave).
+    if (!station.has_wave && obs.values.wave_height_m == null) {
+      rowsNonWaveStation++;
       continue;
     }
     // Same-time rows still go through: a later file can fill a field the
     // earlier one had as MM. The merge function skips unchanged rows.
-    const last = lastObservedById.get(stationId);
+    const last = station.last_observed_at;
     if (last && Date.parse(obs.observedAt) < Date.parse(last)) {
       rowsStale++;
       continue;
@@ -190,6 +201,7 @@ export async function syncLatestObservations(
   return {
     rowsInFeed: observations.length,
     rowsUnknownStation,
+    rowsNonWaveStation,
     rowsStale,
     rowsSent: payload.length,
     rowsWritten,
@@ -198,7 +210,9 @@ export async function syncLatestObservations(
 }
 
 // ---------------------------------------------------------------------------
-// Swell split (.spec), staggered so each station is fetched about once an hour
+// Station history files, staggered so each station is fetched about once an hour:
+// .spec (swell split) where the station has one, else the standard .txt file so
+// wave stations without a .spec still get a gap-free wave history.
 // ---------------------------------------------------------------------------
 
 interface SwellSplitSyncOptions {
@@ -220,31 +234,85 @@ interface SwellSplitSyncResult {
   errors: string[];
 }
 
-type SpecQueueRow = Pick<
-  WaveStationRow,
-  "id" | "source_station_id" | "spec_last_modified" | "spec_last_observed_at"
->;
+interface HistoryQueueConfig {
+  file: StationHistoryFile;
+  checkedAt: "spec_checked_at" | "txt_checked_at";
+  lastModified: "spec_last_modified" | "txt_last_modified";
+  lastObservedAt: "spec_last_observed_at" | "txt_last_observed_at";
+  hasSwellSplit: boolean;
+}
 
+const SPEC_QUEUE: HistoryQueueConfig = {
+  file: "spec",
+  checkedAt: "spec_checked_at",
+  lastModified: "spec_last_modified",
+  lastObservedAt: "spec_last_observed_at",
+  hasSwellSplit: true,
+};
+
+const TXT_QUEUE: HistoryQueueConfig = {
+  file: "txt",
+  checkedAt: "txt_checked_at",
+  lastModified: "txt_last_modified",
+  lastObservedAt: "txt_last_observed_at",
+  hasSwellSplit: false,
+};
+
+interface HistoryQueueRow {
+  id: string;
+  sourceStationId: string;
+  lastModified: string | null;
+  lastObservedAt: string | null;
+}
+
+/** Swell split from .spec files, for active stations with has_swell_split. */
 export async function syncSwellSplit(
   db: CatalogueClient,
   adapter: WaveStationSourceAdapter,
   nowMs: number,
   options: SwellSplitSyncOptions,
 ): Promise<SwellSplitSyncResult> {
+  return syncHistoryQueue(db, adapter, nowMs, options, SPEC_QUEUE);
+}
+
+/** Standard .txt history (waves + met), for active wave stations without a .spec file. */
+export async function syncStandardHistory(
+  db: CatalogueClient,
+  adapter: WaveStationSourceAdapter,
+  nowMs: number,
+  options: SwellSplitSyncOptions,
+): Promise<SwellSplitSyncResult> {
+  return syncHistoryQueue(db, adapter, nowMs, options, TXT_QUEUE);
+}
+
+async function syncHistoryQueue(
+  db: CatalogueClient,
+  adapter: WaveStationSourceAdapter,
+  nowMs: number,
+  options: SwellSplitSyncOptions,
+  config: HistoryQueueConfig,
+): Promise<SwellSplitSyncResult> {
   const startedMs = Date.now();
   const dueBefore = new Date(nowMs - SPEC_REFRESH_MS).toISOString();
-  const { data, error } = await db
+  let query = db
     .from("wave_stations")
-    .select("id, source_station_id, spec_last_modified, spec_last_observed_at")
+    .select(`id, source_station_id, ${config.lastModified}, ${config.lastObservedAt}`)
     .eq("source", adapter.source)
     .eq("active", true)
-    .eq("has_swell_split", true)
-    .or(`spec_checked_at.is.null,spec_checked_at.lt.${dueBefore}`)
-    .order("spec_checked_at", { ascending: true, nullsFirst: true })
+    .eq("has_swell_split", config.hasSwellSplit);
+  if (!config.hasSwellSplit) query = query.eq("has_wave", true);
+  const { data, error } = await query
+    .or(`${config.checkedAt}.is.null,${config.checkedAt}.lt.${dueBefore}`)
+    .order(config.checkedAt, { ascending: true, nullsFirst: true })
     .limit(options.maxStations);
-  if (error) throw new Error(`wave_stations spec queue: ${error.message}`);
+  if (error) throw new Error(`wave_stations ${config.file} queue: ${error.message}`);
 
-  const queue = (data ?? []) as SpecQueueRow[];
+  const queue: HistoryQueueRow[] = ((data ?? []) as Array<Record<string, string | null>>).map((row) => ({
+    id: String(row.id),
+    sourceStationId: String(row.source_station_id),
+    lastModified: row[config.lastModified] ?? null,
+    lastObservedAt: row[config.lastObservedAt] ?? null,
+  }));
   const result: SwellSplitSyncResult = {
     stationsDue: queue.length,
     fetched: 0,
@@ -262,13 +330,13 @@ export async function syncSwellSplit(
   const markChecked = async (stationId: string, fields: Partial<WaveStationRow>): Promise<void> => {
     const { error: updateError } = await db
       .from("wave_stations")
-      .update({ spec_checked_at: checkedAt, ...fields })
+      .update({ [config.checkedAt]: checkedAt, ...fields })
       .eq("id", stationId);
     if (updateError) result.errors.push(`${stationId}: state update failed: ${updateError.message}`);
   };
 
-  const processStation = async (station: SpecQueueRow): Promise<void> => {
-    const needsBackfill = !station.spec_last_observed_at;
+  const processStation = async (station: HistoryQueueRow): Promise<void> => {
+    const needsBackfill = !station.lastObservedAt;
     if (needsBackfill) {
       // Leave the station due; it is picked first next run.
       if (backfillSlots <= 0) {
@@ -279,8 +347,9 @@ export async function syncSwellSplit(
     }
 
     try {
-      const history = await adapter.fetchStationHistory(station.source_station_id, {
-        ifModifiedSince: needsBackfill ? null : station.spec_last_modified,
+      const history = await adapter.fetchStationHistory(station.sourceStationId, {
+        ifModifiedSince: needsBackfill ? null : station.lastModified,
+        file: config.file,
       });
       if (history.status === "not_modified") {
         result.notModified++;
@@ -289,13 +358,13 @@ export async function syncSwellSplit(
       }
       if (history.status === "not_found") {
         result.notFound++;
-        // The daily registry sync turns this back on if the file returns.
-        await markChecked(station.id, { has_swell_split: false });
+        // The daily registry sync turns has_swell_split back on if the file returns.
+        await markChecked(station.id, config.hasSwellSplit ? { has_swell_split: false } : {});
         return;
       }
 
       result.fetched++;
-      const sinceMs = station.spec_last_observed_at ? Date.parse(station.spec_last_observed_at) : -Infinity;
+      const sinceMs = station.lastObservedAt ? Date.parse(station.lastObservedAt) : -Infinity;
       const fresh = history.observations.filter((obs) => Date.parse(obs.observedAt) > sinceMs);
       // Await first: `x += await` reads x before the await and loses other workers' writes.
       const written = await mergeObservations(
@@ -306,12 +375,10 @@ export async function syncSwellSplit(
       if (needsBackfill && fresh.length > 0) result.backfilled++;
 
       const newestMs = fresh.reduce((max, obs) => Math.max(max, Date.parse(obs.observedAt)), sinceMs);
-      const newest = Number.isFinite(newestMs)
-        ? new Date(newestMs).toISOString()
-        : station.spec_last_observed_at;
+      const newest = Number.isFinite(newestMs) ? new Date(newestMs).toISOString() : station.lastObservedAt;
       await markChecked(station.id, {
-        spec_last_modified: history.lastModified,
-        spec_last_observed_at: newest,
+        [config.lastModified]: history.lastModified,
+        [config.lastObservedAt]: newest,
       });
     } catch (err) {
       result.errors.push(`${station.id}: ${err instanceof Error ? err.message : String(err)}`);

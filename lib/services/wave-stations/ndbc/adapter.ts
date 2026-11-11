@@ -1,6 +1,7 @@
 import type {
   SourceObservation,
   SourceStation,
+  StationHistoryFile,
   StationHistoryResult,
   WaveStationSourceAdapter,
 } from "../types";
@@ -12,6 +13,7 @@ import {
   parseLatestObs,
   parseRealtime2SpecListing,
   parseSpecFile,
+  parseStandardFile,
 } from "./parsers";
 
 const NDBC_BASE = "https://www.ndbc.noaa.gov";
@@ -79,21 +81,25 @@ async function fetchLatestObservations(): Promise<SourceObservation[]> {
 
 async function fetchStationHistory(
   sourceStationId: string,
-  options: { ifModifiedSince: string | null },
+  options: { ifModifiedSince: string | null; file?: StationHistoryFile },
 ): Promise<StationHistoryResult> {
+  const file = options.file ?? "spec";
   const headers: Record<string, string> = {};
   if (options.ifModifiedSince) headers["If-Modified-Since"] = options.ifModifiedSince;
   const res = await fetch(
-    `${NDBC_BASE}/data/realtime2/${encodeURIComponent(sourceStationId)}.spec`,
+    `${NDBC_BASE}/data/realtime2/${encodeURIComponent(sourceStationId)}.${file}`,
     { cache: "no-store", headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
   );
   if (res.status === 304) return { status: "not_modified" };
   if (res.status === 404) return { status: "not_found" };
-  if (!res.ok) throw new Error(`NDBC ${sourceStationId}.spec failed: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`NDBC ${sourceStationId}.${file} failed: HTTP ${res.status}`);
+  const text = await res.text();
   return {
     status: "ok",
     lastModified: res.headers.get("last-modified"),
-    observations: parseSpecFile(await res.text(), sourceStationId),
+    observations: file === "spec"
+      ? parseSpecFile(text, sourceStationId)
+      : parseStandardFile(text, sourceStationId),
   };
 }
 

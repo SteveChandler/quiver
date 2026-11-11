@@ -34,6 +34,9 @@ export interface WaveStationRow {
   spec_checked_at: string | null;
   spec_last_modified: string | null;
   spec_last_observed_at: string | null;
+  txt_checked_at: string | null;
+  txt_last_modified: string | null;
+  txt_last_observed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -92,6 +95,8 @@ export interface SourceObservation {
   values: Partial<WaveObservationValues>;
 }
 
+export type StationHistoryFile = "spec" | "txt";
+
 export type StationHistoryResult =
   | { status: "not_modified" }
   | { status: "not_found" }
@@ -106,9 +111,12 @@ export interface WaveStationSourceAdapter {
   fetchStations(): Promise<SourceStation[]>;
   /** One cheap request for the newest reading of every station. */
   fetchLatestObservations(): Promise<SourceObservation[]>;
-  /** Per-station history with swell split; honours If-Modified-Since. */
+  /**
+   * Per-station history; honours If-Modified-Since. `file` "spec" (default) has
+   * the swell split; "txt" is the standard file for stations without one.
+   */
   fetchStationHistory(
     sourceStationId: string,
-    options: { ifModifiedSince: string | null },
+    options: { ifModifiedSince: string | null; file?: StationHistoryFile },
   ): Promise<StationHistoryResult>;
 }

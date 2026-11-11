@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS public.wave_stations (
   spec_checked_at timestamptz,               -- swell-split sync state
   spec_last_modified text,                   -- Last-Modified header, sent back as If-Modified-Since
   spec_last_observed_at timestamptz,         -- newest swell-split row stored
+  txt_checked_at timestamptz,                -- standard .txt sync state, wave stations without .spec
+  txt_last_modified text,
+  txt_last_observed_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT wave_stations_id_format CHECK (id = source || ':' || source_station_id),
@@ -56,6 +59,8 @@ CREATE INDEX IF NOT EXISTS wave_stations_cdip_station_id_idx
   ON public.wave_stations (cdip_station_id) WHERE cdip_station_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS wave_stations_spec_queue_idx
   ON public.wave_stations (spec_checked_at NULLS FIRST) WHERE active AND has_swell_split;
+CREATE INDEX IF NOT EXISTS wave_stations_txt_queue_idx
+  ON public.wave_stations (txt_checked_at NULLS FIRST) WHERE active AND has_wave AND NOT has_swell_split;
 
 DROP TRIGGER IF EXISTS trg_wave_stations_set_updated_at ON public.wave_stations;
 CREATE TRIGGER trg_wave_stations_set_updated_at
@@ -322,6 +327,6 @@ GRANT EXECUTE ON FUNCTION public.get_nearby_wave_stations(double precision, doub
 COMMENT ON TABLE public.wave_stations IS
   'Public wave-station catalogue (one row per source station, id = source:source_station_id). Separate from the forecast station tables on purpose.';
 COMMENT ON TABLE public.wave_station_observations IS
-  'Observations for the public wave-station catalogue, merged from the NDBC latest_obs feed and realtime2 .spec files. 180-day retention.';
+  'Observations for the public wave-station catalogue (wave stations only), merged from the NDBC latest_obs feed and realtime2 .spec / .txt files. 180-day retention.';
 
 COMMIT;

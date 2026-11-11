@@ -5,6 +5,7 @@
  *   (no wave attribute; TAO rows omit met)
  * - data/latest_obs/latest_obs.txt: one newest row per station, all metric, MM = missing
  * - data/realtime2/{ID}.spec: 45 days of swell split, SwD/WWD as 16-point compass strings
+ * - data/realtime2/{ID}.txt: standard met + wave rows, same columns and units as latest_obs
  */
 
 import type { SourceObservation, WaveObservationValues } from "../types";
@@ -336,6 +337,30 @@ export function parseSpecFile(text: string, sourceStationId: string): SourceObse
       values.steepness = token && STEEPNESS_VALUES.has(token) ? token.toLowerCase() : null;
     }
     if (!hasAnyValue(values)) continue;
+    observations.push({ sourceStationId: sourceStationId.toUpperCase(), observedAt, values });
+  }
+  return observations;
+}
+
+const WAVE_FIELDS = ["wave_height_m", "dominant_period_s", "average_period_s", "mean_wave_direction_deg"] as const;
+
+/**
+ * Standard file (realtime2/{ID}.txt): same columns and units as latest_obs.txt,
+ * newest first. Met rows come every 6-10 minutes and waves about hourly, so
+ * only rows with a wave value are kept (with their met fields); the latest
+ * feed already carries the newest met reading.
+ */
+export function parseStandardFile(text: string, sourceStationId: string): SourceObservation[] {
+  const table = splitTable(text, "#YY");
+  if (!table) throw new Error(`${sourceStationId}.txt: header line not found`);
+  assertUnits(table, LATEST_OBS_COLUMNS, `${sourceStationId}.txt`);
+
+  const observations: SourceObservation[] = [];
+  for (const cells of table.rows) {
+    const observedAt = parseTimestamp(cells, table.header, "YY");
+    if (!observedAt) continue;
+    const values = readValues(cells, table.header, LATEST_OBS_COLUMNS);
+    if (!WAVE_FIELDS.some((field) => values[field] != null)) continue;
     observations.push({ sourceStationId: sourceStationId.toUpperCase(), observedAt, values });
   }
   return observations;

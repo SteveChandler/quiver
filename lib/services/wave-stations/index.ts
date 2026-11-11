@@ -16,7 +16,8 @@ const STATION_COLUMNS = [
   "id", "source", "source_station_id", "name", "slug", "country_code", "region", "lat", "lon",
   "station_type", "owner", "program", "cdip_station_id", "has_wave", "has_swell_split", "has_met",
   "license", "attribution", "active", "first_seen_at", "last_observed_at", "last_wave_observed_at",
-  "spec_checked_at", "spec_last_modified", "spec_last_observed_at", "created_at", "updated_at",
+  "spec_checked_at", "spec_last_modified", "spec_last_observed_at",
+  "txt_checked_at", "txt_last_modified", "txt_last_observed_at", "created_at", "updated_at",
 ].join(", ");
 
 const MAX_HISTORY_HOURS = 180 * 24;

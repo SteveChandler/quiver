@@ -7,10 +7,15 @@ import path from "node:path";
 import {
   syncLatestObservations,
   syncRegistry,
+  syncStandardHistory,
   syncSwellSplit,
   type CatalogueClient,
 } from "@/lib/services/wave-stations/sync";
-import { parseLatestObs, parseSpecFile } from "@/lib/services/wave-stations/ndbc/parsers";
+import {
+  parseLatestObs,
+  parseSpecFile,
+  parseStandardFile,
+} from "@/lib/services/wave-stations/ndbc/parsers";
 import type {
   SourceStation,
   StationHistoryResult,
@@ -70,19 +75,48 @@ describe("syncLatestObservations", () => {
   it("drops unknown stations and older rows, and merges the rest", async () => {
     const { db, rpcCalls } = fakeDb({
       wave_stations: [[
-        { id: "ndbc:46225", last_observed_at: "2026-11-11T02:26:00+00:00" },
-        { id: "ndbc:46086", last_observed_at: "2026-11-11T03:00:00+00:00" },
-        { id: "ndbc:51201", last_observed_at: "2026-11-11T03:30:00+00:00" },
+        { id: "ndbc:46225", last_observed_at: "2026-11-11T02:26:00+00:00", has_wave: true },
+        { id: "ndbc:46086", last_observed_at: "2026-11-11T03:00:00+00:00", has_wave: true },
+        { id: "ndbc:51201", last_observed_at: "2026-11-11T03:30:00+00:00", has_wave: true },
       ]],
     });
     const result = await syncLatestObservations(db, adapter(), Date.parse("2026-11-11T03:34:00Z"));
 
-    expect(result).toMatchObject({ rowsInFeed: 7, rowsUnknownStation: 4, rowsStale: 1, rowsSent: 2, rowsPruned: 0 });
+    expect(result).toMatchObject({
+      rowsInFeed: 7,
+      rowsUnknownStation: 4,
+      rowsNonWaveStation: 0,
+      rowsStale: 1,
+      rowsSent: 2,
+      rowsPruned: 0,
+    });
     expect(rpcCalls).toHaveLength(1);
     const rows = rpcCalls[0].args.p_rows as Array<Record<string, unknown>>;
     expect(rows.map((row) => row.station_id).sort()).toEqual(["ndbc:46086", "ndbc:46225"]);
+    // Met fields of wave stations are kept (46086 reported wind and pressure only).
+    expect(rows.find((row) => row.station_id === "ndbc:46086")).toMatchObject({
+      wind_speed_ms: 5,
+      pressure_hpa: 1017.4,
+      water_temp_c: 23,
+    });
     // The latest feed never sends swell-split keys, so it cannot null them.
     expect(rows.every((row) => !("swell_height_m" in row))).toBe(true);
+  });
+
+  it("stores no rows for met-only stations unless the row has a wave height", async () => {
+    const { db, rpcCalls } = fakeDb({
+      wave_stations: [[
+        { id: "ndbc:AAMC1", last_observed_at: null, has_wave: false },
+        { id: "ndbc:15001", last_observed_at: null, has_wave: false },
+        { id: "ndbc:46146", last_observed_at: null, has_wave: false },
+      ]],
+    });
+    const result = await syncLatestObservations(db, adapter(), Date.parse("2026-11-11T03:34:00Z"));
+
+    expect(result).toMatchObject({ rowsNonWaveStation: 2, rowsSent: 1 });
+    const rows = rpcCalls[0].args.p_rows as Array<Record<string, unknown>>;
+    // 46146 reported WVHT 1.0: the merge function then sets has_wave.
+    expect(rows.map((row) => row.station_id)).toEqual(["ndbc:46146"]);
   });
 
   it("prunes past the 180-day retention on the first run of the hour", async () => {
@@ -125,8 +159,11 @@ describe("syncSwellSplit", () => {
     );
 
     expect(result).toMatchObject({ stationsDue: 3, fetched: 2, backfilled: 1, backfillDeferred: 1, rowsWritten: 4 });
-    expect(fetchStationHistory).toHaveBeenCalledWith("46225", { ifModifiedSince: null });
-    expect(fetchStationHistory).toHaveBeenCalledWith("46086", { ifModifiedSince: "Tue, 10 Nov 2026 02:15:00 GMT" });
+    expect(fetchStationHistory).toHaveBeenCalledWith("46225", { ifModifiedSince: null, file: "spec" });
+    expect(fetchStationHistory).toHaveBeenCalledWith("46086", {
+      ifModifiedSince: "Tue, 10 Nov 2026 02:15:00 GMT",
+      file: "spec",
+    });
 
     const sent = rpcCalls.flatMap((call) => call.args.p_rows as Array<{ station_id: string; observed_at: string }>);
     expect(sent.filter((row) => row.station_id === "ndbc:46225")).toHaveLength(3);
@@ -161,6 +198,80 @@ describe("syncSwellSplit", () => {
     const result = await syncSwellSplit(db, adapter(), Date.now(), options);
     expect(result).toMatchObject({ notModified: 1, fetched: 0, rowsWritten: 0 });
     expect(rpcCalls).toHaveLength(0);
+  });
+});
+
+describe("syncStandardHistory", () => {
+  const options = { maxStations: 15, maxBackfills: 3, concurrency: 2, budgetMs: 60_000 };
+
+  it("queues wave stations without a .spec and keeps its own .txt sync state", async () => {
+    const { db, calls, rpcCalls } = fakeDb({
+      wave_stations: [[
+        { id: "ndbc:46146", source_station_id: "46146", txt_last_modified: null, txt_last_observed_at: null },
+        {
+          id: "ndbc:44042",
+          source_station_id: "44042",
+          txt_last_modified: "Wed, 11 Nov 2026 02:10:20 GMT",
+          txt_last_observed_at: "2026-11-11T02:00:00+00:00",
+        },
+      ]],
+    });
+    const fetchStationHistory = jest.fn(
+      async (id: string): Promise<StationHistoryResult> => ({
+        status: "ok",
+        lastModified: "Wed, 11 Nov 2026 03:10:20 GMT",
+        observations: parseStandardFile(fixture("46146.txt"), id),
+      }),
+    );
+    const result = await syncStandardHistory(
+      db,
+      adapter({ fetchStationHistory }),
+      Date.parse("2026-11-11T03:11:00Z"),
+      options,
+    );
+
+    expect(result).toMatchObject({ stationsDue: 2, fetched: 2, backfilled: 1, rowsWritten: 4 });
+    expect(fetchStationHistory).toHaveBeenCalledWith("46146", { ifModifiedSince: null, file: "txt" });
+    expect(fetchStationHistory).toHaveBeenCalledWith("44042", {
+      ifModifiedSince: "Wed, 11 Nov 2026 02:10:20 GMT",
+      file: "txt",
+    });
+
+    const queueOps = calls[0].ops;
+    expect(queueOps).toEqual(expect.arrayContaining([
+      ["eq", ["has_swell_split", false]],
+      ["eq", ["has_wave", true]],
+    ]));
+    // Only rows newer than the stored .txt state are sent for 44042.
+    const sent44042 = rpcCalls
+      .flatMap((call) => call.args.p_rows as Array<{ station_id: string; observed_at: string }>)
+      .filter((row) => row.station_id === "ndbc:44042");
+    expect(sent44042.map((row) => row.observed_at)).toEqual(["2026-11-11T03:00:00.000Z"]);
+
+    const updates = calls.filter((call) => call.ops[0]?.[0] === "update").map((call) => call.ops[0][1][0]);
+    expect(updates).toContainEqual({
+      txt_checked_at: "2026-11-11T03:11:00.000Z",
+      txt_last_modified: "Wed, 11 Nov 2026 03:10:20 GMT",
+      txt_last_observed_at: "2026-11-11T03:00:00.000Z",
+    });
+    expect(updates.every((fields) => !("spec_checked_at" in (fields as object)))).toBe(true);
+  });
+
+  it("does not touch has_swell_split when a .txt file is missing", async () => {
+    const { db, calls } = fakeDb({
+      wave_stations: [[
+        { id: "ndbc:22101", source_station_id: "22101", txt_last_modified: null, txt_last_observed_at: null },
+      ]],
+    });
+    const result = await syncStandardHistory(
+      db,
+      adapter({ fetchStationHistory: async () => ({ status: "not_found" }) }),
+      Date.parse("2026-11-11T03:11:00Z"),
+      options,
+    );
+    expect(result.notFound).toBe(1);
+    const updates = calls.filter((call) => call.ops[0]?.[0] === "update").map((call) => call.ops[0][1][0]);
+    expect(updates).toEqual([{ txt_checked_at: "2026-11-11T03:11:00.000Z" }]);
   });
 });
 

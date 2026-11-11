@@ -11,6 +11,7 @@ import { ndbcAdapter } from "@/lib/services/wave-stations/ndbc/adapter";
 import {
   syncLatestObservations,
   syncRegistry,
+  syncStandardHistory,
   syncSwellSplit,
   type CatalogueClient,
 } from "@/lib/services/wave-stations/sync";
@@ -28,7 +29,15 @@ const SPEC_OPTIONS = {
   maxStations: 70,
   maxBackfills: 10,
   concurrency: 6,
-  budgetMs: 200_000,
+  budgetMs: 160_000,
+};
+
+// ~45 wave stations without a .spec / 15 per run x 4 runs an hour = each about hourly.
+const TXT_OPTIONS = {
+  maxStations: 15,
+  maxBackfills: 3,
+  concurrency: 3,
+  budgetMs: 60_000,
 };
 
 /**
@@ -38,7 +47,8 @@ const SPEC_OPTIONS = {
  * Separate from ndbc-direct-sync / ioos-sync, which feed the forecast.
  * - registry: daily station list from activestations.xml
  * - latest: every 15 min, one latest_obs.txt request for all stations
- * - spec: every 15 min, a staggered batch of realtime2 .spec files (swell split)
+ * - spec: every 15 min, a staggered batch of realtime2 .spec files (swell split),
+ *   then .txt files for wave stations that have no .spec
  */
 async function _GET(request: Request): Promise<Response> {
   try {
@@ -80,10 +90,18 @@ async function _GET(request: Request): Promise<Response> {
         job,
         unit: "stations_checked",
         expectedMin: 1,
-        getProduced: (value) => value.fetched + value.notModified,
+        getProduced: (value) =>
+          value.swellSplit.fetched + value.swellSplit.notModified
+          + value.standard.fetched + value.standard.notModified,
         legitimatelyZero: (value) =>
-          value.stationsDue === 0 ? { reason: "no station due for a .spec check" } : undefined,      },
-      () => syncSwellSplit(db, ndbcAdapter, nowMs, SPEC_OPTIONS),
+          value.swellSplit.stationsDue + value.standard.stationsDue === 0
+            ? { reason: "no station due for a .spec or .txt check" }
+            : undefined,
+      },
+      async () => ({
+        swellSplit: await syncSwellSplit(db, ndbcAdapter, nowMs, SPEC_OPTIONS),
+        standard: await syncStandardHistory(db, ndbcAdapter, nowMs, TXT_OPTIONS),
+      }),
     );
     return createSuccessResponse(result);
   } catch (error) {
