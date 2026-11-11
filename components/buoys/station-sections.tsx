@@ -226,7 +226,7 @@ export function StationFacts({
         ))}
       </dl>
       <p className="mt-4 text-sm text-[#11100D]" data-testid="buoy-attribution">
-        Source: {station.attribution}.{" "}
+        Source: {/[.!?]$/.test(station.attribution) ? station.attribution : `${station.attribution}.`}{" "}
         Licence:{" "}
         {license ? (
           <a href={license} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">

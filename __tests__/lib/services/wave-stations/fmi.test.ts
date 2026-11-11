@@ -59,6 +59,14 @@ describe("FMI wave coverage parser", () => {
     });
   });
 
+  it("returns no rows for a feature collection without members (buoys lifted for the ice season)", () => {
+    // Synthetic: the WFS 2.0 empty-result shape; a live empty window could not be requested.
+    const empty = '<?xml version="1.0"?><wfs:FeatureCollection numberMatched="0" numberReturned="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"></wfs:FeatureCollection>';
+    const coverage = parseFmiCoverage(empty);
+    expect(fmiObservations(coverage)).toEqual([]);
+    expect(fmiStations(coverage)).toEqual([]);
+  });
+
   it("fails on an exception report or a missing field", () => {
     expect(() => parseFmiCoverage("<ExceptionReport>bad</ExceptionReport>")).toThrow(/exception/);
     expect(() => parseFmiCoverage(xml.replace('<swe:field name="WTP"', '<swe:field name="X"'))).toThrow(/WTP missing/);

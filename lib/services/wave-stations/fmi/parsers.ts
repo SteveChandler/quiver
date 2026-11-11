@@ -51,6 +51,9 @@ const posKey = (lat: number, lon: number) => `${lat.toFixed(5)},${lon.toFixed(5)
 
 export function parseFmiCoverage(xml: string): FmiCoverage {
   if (/<ExceptionReport|<ows:ExceptionReport/.test(xml)) throw new Error("FMI WFS returned an exception report");
+  if (!/<wfs:FeatureCollection/.test(xml)) throw new Error("FMI WFS: not a feature collection");
+  // No member means no buoy reported in the window (buoys are lifted for the ice season).
+  if (!/<wfs:member>/.test(xml)) return { stations: [], fields: [], samples: [] };
   const names = new Map<string, string>();
   for (const match of xml.matchAll(
     /<gml:identifier codeSpace="[^"]*fmisid">(\d+)<\/gml:identifier>\s*<gml:name codeSpace="[^"]*locationcode\/name">([^<]+)<\/gml:name>/g,

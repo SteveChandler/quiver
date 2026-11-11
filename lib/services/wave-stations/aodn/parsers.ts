@@ -13,7 +13,10 @@
  *   older terms forbade commercial use without written approval; the current
  *   terms point to a NSW disclaimer page not verified here: excluded until the
  *   owner checks it. Every other contributor below has only the CC BY licence
- *   plus a warranty disclaimer and an acknowledgement wording, used verbatim.
+ *   plus a warranty disclaimer and an acknowledgement wording; the credit
+ *   sentences are copied from the files and the record. The Bureau of
+ *   Meteorology record points to its disclaimer; its copyright page licenses
+ *   CC BY content with the wording used in BOM_CREDIT.
  * Unknown institution strings are excluded (fail closed).
  *
  * Fields (IMOS NetCDF attributes; the WFS CSV carries no units):
@@ -35,32 +38,54 @@ import { BOUNDS, compactValues, numberInRange, parseUtcTime, round, splitCsvLine
 
 const AODN_LICENSE = "CC-BY-4.0";
 
+// Credit sentences copied from the files' `acknowledgement` attributes and
+// the collection record; the page shows the operator (institution) separately.
 const IMOS_ACK =
-  "Data was sourced from Australia’s Integrated Marine Observing System (IMOS) - IMOS is enabled by the National Collaborative Research Infrastructure Strategy (NCRIS)";
+  "Data was sourced from Australia’s Integrated Marine Observing System (IMOS) - IMOS is enabled by the National Collaborative Research Infrastructure Strategy (NCRIS).";
+const CATCHING_OZ_WAVES =
+  "This dataset is an output from the Catching Oz Waves project, which received investment (https://doi.org/10.47486/DP748) from the Australian Research Data Commons (ARDC). The ARDC is funded by the National Collaborative Research Infrastructure Strategy (NCRIS).";
+const UWA_QC = "This wave data was collected and quality controlled by the University of Western Australia.";
+/** Preferred wording on the Bureau's copyright page (bom.gov.au/other/copyright.shtml) for CC BY content. */
+const BOM_CREDIT =
+  "Bureau of Meteorology, © Commonwealth of Australia. Licensed from the Commonwealth of Australia under a Creative Commons Attribution 4.0 International licence.";
 
 /** Allowed contributors (exact WFS institution strings) and the credit each asks for. */
 export const AODN_CONTRIBUTORS: Record<string, string> = {
-  "IMOS Coastal Wave Buoys Facility": `${IMOS_ACK}. Station operated by the IMOS Coastal Wave Buoys Facility`,
-  "The University of Western Australia": `${IMOS_ACK}. This wave data was collected and quality controlled by the University of Western Australia`,
-  "Deakin University": `${IMOS_ACK}. Station operated by Deakin University (Victorian Coastal Monitoring Program)`,
-  "Department for Environment and Water": `${IMOS_ACK}. Station operated by the South Australian Department for Environment and Water`,
-  "Flinders University": `${IMOS_ACK}. This wave data was collected by Flinders University in South Australia, funded by the South Australia Department for Environment and Water`,
+  "IMOS Coastal Wave Buoys Facility": IMOS_ACK,
+  "The University of Western Australia": `${IMOS_ACK} ${UWA_QC} ${CATCHING_OZ_WAVES}`,
+  // Deakin's files carry the same wording as UWA's, crediting UWA for collection and QC.
+  "Deakin University": `${IMOS_ACK} ${UWA_QC} ${CATCHING_OZ_WAVES}`,
+  "Department for Environment and Water": IMOS_ACK,
+  "Flinders University":
+    "This wave data was collected by Flinders University in South Australia. The funding body is the South Australia Department for Environment and Water (DEW). This project is a collaboration between Flinders University, the South Australian Research and Development Institute (SARDI), SA Water and the Environment Protection Authority (EPA), supported by IMOS. " +
+    IMOS_ACK,
   "New South Wales Department of Climate Change, Energy, the Environment and Water":
     "NSW wave data sourced from IMOS were collected, processed and provided by the NSW Nearshore Wave Data Program operated by the NSW Department of Climate Change, Energy, the Environment and Water. " +
-    `${IMOS_ACK}`,
-  "Bureau Of Meteorology": `${IMOS_ACK}. Station operated by the Australian Bureau of Meteorology`,
-  "Gippsland Ports": `${IMOS_ACK}. Station operated by Gippsland Ports`,
-  "Queensland Department of Environment and Science": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science`,
-  "Queensland Department of Environment and Science/City of Gold Coast": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with the City of Gold Coast`,
-  "Queensland Department of Environment and Science/Gold Coast City Council": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with the City of Gold Coast`,
-  "Queensland Department of Environment and Science/Department of Transport and Main Roads": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with the Department of Transport and Main Roads`,
-  "Queensland Department of Environment and Science/Gladstone Ports Corporation": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with Gladstone Ports Corporation`,
-  "Queensland Department of Environment and Science/Metro Mining Limited": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with Metro Mining Limited`,
-  "Queensland Department of Environment and Science/North Queensland Bulk Ports Corporation Limited": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with North Queensland Bulk Ports Corporation`,
-  "Queensland Department of Environment and Science/Port of Brisbane Corporation": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with the Port of Brisbane`,
-  "Queensland Department of Environment and Science/Tweed River Sand Bypassing Project": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with the Tweed River Sand Bypassing Project`,
-  "Queensland Department of Environment and Science/Tweed River entrance sand bypass project": `${IMOS_ACK}. Station operated by the State of Queensland, Department of Environment and Science, with the Tweed River Sand Bypassing Project`,
+    `${CATCHING_OZ_WAVES} ${IMOS_ACK}`,
+  "Bureau Of Meteorology": `${BOM_CREDIT} ${IMOS_ACK}`,
+  "Gippsland Ports": IMOS_ACK,
+  "Queensland Department of Environment and Science": IMOS_ACK,
+  "Queensland Department of Environment and Science/City of Gold Coast": IMOS_ACK,
+  "Queensland Department of Environment and Science/Gold Coast City Council": IMOS_ACK,
+  "Queensland Department of Environment and Science/Department of Transport and Main Roads": IMOS_ACK,
+  "Queensland Department of Environment and Science/Gladstone Ports Corporation": IMOS_ACK,
+  "Queensland Department of Environment and Science/Metro Mining Limited": IMOS_ACK,
+  "Queensland Department of Environment and Science/North Queensland Bulk Ports Corporation Limited": IMOS_ACK,
+  "Queensland Department of Environment and Science/Port of Brisbane Corporation": IMOS_ACK,
+  "Queensland Department of Environment and Science/Tweed River Sand Bypassing Project": IMOS_ACK,
+  "Queensland Department of Environment and Science/Tweed River entrance sand bypass project": IMOS_ACK,
 };
+
+/** The collection record asks for the Catching Oz Waves credit for the Cape Bridgewater trial buoys too. */
+const SITE_EXTRA_CREDIT: Record<string, string> = {
+  "Cape Bridgewater": CATCHING_OZ_WAVES,
+};
+
+export function aodnAttribution(institution: string, siteName: string): string {
+  const base = AODN_CONTRIBUTORS[institution];
+  const extra = SITE_EXTRA_CREDIT[siteName];
+  return extra && !base.includes(extra) ? `${base} ${extra}` : base;
+}
 
 /** Excluded on purpose (licence terms); kept here so the reason travels with the code. */
 export const AODN_EXCLUDED: Record<string, string> = {
@@ -148,7 +173,7 @@ export function aodnStations(rows: AodnRow[]): SourceStation[] {
     hasSwellSplit: false,
     hasMet: false,
     license: AODN_LICENSE,
-    attribution: AODN_CONTRIBUTORS[row.institution],
+    attribution: aodnAttribution(row.institution, row.siteName),
   }));
 }
 

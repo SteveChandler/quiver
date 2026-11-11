@@ -8,6 +8,7 @@ import { aodnAdapter, aodnUrl } from "@/lib/services/wave-stations/aodn/adapter"
 import {
   AODN_CONTRIBUTORS,
   AODN_EXCLUDED,
+  aodnAttribution,
   aodnObservations,
   aodnStationId,
   aodnStations,
@@ -69,6 +70,12 @@ describe("AODN wave NRT parser", () => {
     ]);
   });
 
+  it("treats GeoServer's header-only answer as an empty window", () => {
+    const empty = readFileSync(path.join(__dirname, "../../../fixtures/aodn-wave-stations/wave-nrt-empty-window.csv"), "utf8");
+    expect(parseAodnCsv(empty)).toEqual({ rows: [], excludedInstitutions: {} });
+    expect(() => parseAodnCsv("")).toThrow(/empty body/);
+  });
+
   it("fails the run when an expected column disappears", () => {
     expect(() => parseAodnCsv(csv.replace("site_name", "site"), columns)).toThrow(/site_name missing/);
   });
@@ -105,6 +112,15 @@ describe("AODN registry", () => {
     });
     expect(byId.get("aodn:tathra")?.attribution).toMatch(/^NSW wave data sourced from IMOS were collected, processed and provided by the NSW Nearshore Wave Data Program/);
     for (const row of plan.rows) expect(row.attribution).toContain("Integrated Marine Observing System (IMOS)");
+    expect(byId.get("aodn:cape-du-couedic")?.attribution).toMatch(
+      /^Bureau of Meteorology, © Commonwealth of Australia\. Licensed from the Commonwealth of Australia under a Creative Commons Attribution 4\.0 International licence\./,
+    );
+    expect(byId.get("aodn:port-fairy")?.attribution).toContain("Catching Oz Waves");
     expect(aodnStationId("Victor Harbouroffshore")).toBe("victor-harbouroffshore");
+  });
+
+  it("adds the trial-buoy credit the collection record asks for at Cape Bridgewater", () => {
+    expect(aodnAttribution("IMOS Coastal Wave Buoys Facility", "Cape Bridgewater")).toMatch(/IMOS.*Catching Oz Waves/);
+    expect(aodnAttribution("IMOS Coastal Wave Buoys Facility", "Wooli")).not.toContain("Catching Oz Waves");
   });
 });

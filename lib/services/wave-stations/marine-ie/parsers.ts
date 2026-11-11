@@ -26,12 +26,13 @@ const MARINE_IE_LICENSE = "CC-BY-4.0";
 export const MARINE_IE_ATTRIBUTION =
   "Marine Institute, Irish Weather Buoy Network, run with Met Éireann";
 
-/** Names the Marine Institute uses for each buoy position. */
+/**
+ * Display names: the buoy id plus the sea area at its reported position (NDBC
+ * names M6 "M6 - West Coast"). Not the Marine Institute's own wording.
+ */
 const BUOY_NAMES: Record<string, string> = {
-  M1: "M1 Galway Bay",
   M2: "M2 Irish Sea",
   M3: "M3 Southwest Coast",
-  M4: "M4 Donegal Bay",
   M5: "M5 Southeast Coast",
   M6: "M6 West Coast",
 };
