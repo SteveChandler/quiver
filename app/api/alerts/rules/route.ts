@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAlertsDeliveryEnabled } from "@/lib/flags/alerts-delivery";
 import {
   withAuth,
+  withNoStore,
   createSuccessResponse,
   createValidationError,
   createErrorResponse,
@@ -25,6 +26,7 @@ import {
   resolveRequestPlatform,
   scheduleAlertCreatedEvents,
 } from "@/lib/analytics/alert-created-server";
+import { retryAfterSeconds } from "@/lib/utils/retry-after";
 
 interface AlertRulesEntitlementSignal {
   tier: Tier;
@@ -49,13 +51,18 @@ function buildAlertRulesEntitlementSignal(
 
 function createAlertRulesListResponse<T>(
   data: T,
-  entitlement: AlertRulesEntitlementSignal,
+  tier: Tier | "unknown",
 ) {
+  // Installed native builds read `entitlement?.tier`; an unknown plan omits the
+  // signal so no free-tier copy shows, and says why in `planStatus`.
+  const plan = tier === "unknown"
+    ? { planStatus: "unknown" as const }
+    : { entitlement: buildAlertRulesEntitlementSignal(tier) };
   return NextResponse.json(
     {
       success: true,
       data,
-      entitlement,
+      ...plan,
       timestamp: new Date().toISOString(),
     },
     {
@@ -119,7 +126,7 @@ function createPersonalizationDenialResponse(
 /**
  * GET /api/alerts/rules — List the authenticated user's alert rules
  */
-export const GET = withAuth(
+export const GET = withNoStore(withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const tier = await getUserEntitlement(user.id, supabase);
     const { data, error } = await (supabase as any)
@@ -130,13 +137,10 @@ export const GET = withAuth(
 
     if (error) throw error;
 
-    return createAlertRulesListResponse(
-      data ?? [],
-      buildAlertRulesEntitlementSignal(tier),
-    );
+    return createAlertRulesListResponse(data ?? [], tier);
   },
   { errorMessage: "Failed to fetch alert rules" }
-);
+));
 
 /**
  * POST /api/alerts/rules — Create a new alert rule
@@ -254,8 +258,9 @@ export const POST = withAuth(
 
     const tier = await getUserEntitlement(user.id, supabase);
     const isExistingBeach = existingBeachIds.has(beach_id);
+    // An unknown plan gets the free caps: a failed read never grants paid limits.
     const entitlementResult = canCreateRule({
-      tier,
+      tier: tier === "unknown" ? "free" : tier,
       homeBeachId,
       targetBeachId: beach_id,
       existingRuleCount,
@@ -263,6 +268,18 @@ export const POST = withAuth(
       isExistingBeach,
       presetType: preset_type ?? null,
     });
+
+    // Beyond the free caps the answer depends on the plan, so ask the client to retry.
+    if (!entitlementResult.allowed && tier === "unknown") {
+      // Same text the route already shows on a failed create; no new copy.
+      const response = createErrorResponse(
+        "Failed to create alert rule",
+        { code: "entitlement_unavailable", retryable: true },
+        503,
+      );
+      response.headers.set("Retry-After", String(retryAfterSeconds()));
+      return response;
+    }
 
     if (!entitlementResult.allowed) {
       return createEligibilityErrorResponse(
