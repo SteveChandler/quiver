@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { validateURL } from "@/lib/security/ip-validation";
@@ -104,6 +105,10 @@ async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
     // SECURITY VALIDATION: Comprehensive SSRF Prevention
     // ============================================================================
 
+    if (isBlockedCameraUrl(imageUrl)) {
+      return new NextResponse("Image unavailable", { status: 410, headers: { "Cache-Control": "no-store" } });
+    }
+
     // Validate URL against whitelist, DNS resolution, and private IP ranges
     // This prevents:
     // - Subdomain bypass attacks (evil.api.openverse.org)
@@ -135,6 +140,7 @@ async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
     try {
       // Fetch the image with security headers and timeout
       const response = await fetch(imageUrl, {
+        redirect: "error",
         headers: {
           "User-Agent": "QuiverApp/1.0",
         },

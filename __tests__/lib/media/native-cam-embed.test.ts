@@ -4,6 +4,12 @@ import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
 const embed = (url: string | null | undefined) => toNativeCamEmbed(buildCamEmbed(url));
 
 describe("toNativeCamEmbed", () => {
+  it("rejects the resort page whose player uses the retired provider", () => {
+    const src = "https://www.hanaleibayresort.com/live-web-camera/";
+    expect(toNativeCamEmbed({ kind: "iframe", src })).toBeNull();
+    expect(toNativeCamEmbed({ kind: "external", pageUrl: src, provider: "Hanalei Bay Resort" })).toBeNull();
+  });
+
   it("maps youtube watch?v= URLs to an https embed", () => {
     expect(embed("https://www.youtube.com/watch?v=abc123")).toEqual({
       kind: "iframe",
@@ -45,7 +51,6 @@ describe("toNativeCamEmbed", () => {
 
   it.each([
     ["https://cams.example.com/blacks", "cams.example.com"],
-    ["https://www.hanaleibayresort.com/live-web-camera/", "hanaleibayresort.com"],
     ["https://g1.ipcamlive.com/some-landing-page", "ipcamlive"],
     // Ozolio player endpoints are site-locked and never play in the app.
     ["https://relay.ozolio.com/pub.cgi?cmd=iframe&oid=CID_XCLW000002D1", "ozolio"],

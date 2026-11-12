@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import type { buildCamEmbed } from "@/lib/media/cam-embed";
 
 type CamEmbedIntent = ReturnType<typeof buildCamEmbed>;
@@ -5,7 +6,7 @@ type CamEmbedIntent = ReturnType<typeof buildCamEmbed>;
 /**
  * Additive `cam_embed` field on GET /api/beaches/[id]/sources. Consumed by
  * quiver-native for cams its own players cannot handle (direct video, HLS,
- * HDOnTap and Surfline embeds keep priority and yield `null` here).
+ * HDRelay and Surfline embeds keep priority and yield `null` here).
  */
 type NativeCamEmbed =
   | { kind: "iframe"; src: string; provider: string; title?: string }
@@ -23,6 +24,7 @@ const KNOWN_EMBED_PROVIDERS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 function parseHttps(url: string): URL | null {
+  if (isBlockedCameraUrl(url)) return null;
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return null;
