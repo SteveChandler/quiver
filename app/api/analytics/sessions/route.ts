@@ -10,6 +10,7 @@ import {
   getSessionAnalytics,
   getCalendarHeatmapData,
 } from "@/lib/analytics/session-analytics";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export const dynamic = "force-dynamic";
  * argument, so they pick up the Bearer-scoped client from the withAuth context
  * directly.
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -112,3 +113,5 @@ export const PATCH = withAuth(
   },
   { errorMessage: "Failed to update session privacy" },
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/analytics/sessions");

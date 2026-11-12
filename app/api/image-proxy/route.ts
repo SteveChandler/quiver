@@ -2,6 +2,7 @@ import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { validateURL } from "@/lib/security/ip-validation";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 // Force dynamic rendering - this route uses request.url
 export const dynamic = 'force-dynamic';
@@ -223,4 +224,6 @@ async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
 }
 
 // Apply rate limiting to prevent SSRF attacks
-export const GET = withRateLimit(imageProxyHandler, "image-proxy");
+const handleGet = withRateLimit(imageProxyHandler, "image-proxy");
+
+export const GET = withErrorNoStore(handleGet, "/api/image-proxy");

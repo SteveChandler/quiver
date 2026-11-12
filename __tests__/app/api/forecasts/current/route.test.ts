@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 import { NextRequest } from "next/server";
 import currentForecastContract from "@/__tests__/fixtures/current-forecast-contract-v1.json";
@@ -618,10 +619,12 @@ describe("GET /api/forecasts/current", () => {
       tide: [{ data: null, error: { message: "tide query failed" } }],
     });
 
-    await expect(
-      callRoute(
-        `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}&refresh=if-stale`,
-      ),
-    ).rejects.toThrow("tide query failed");
+    // The failure is a no-store 500 (withErrorNoStore), not a cached or partial read.
+    const res = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}&refresh=if-stale`,
+    );
+    expectConsoleErrors([/tide query failed/]);
+    expect(res.status).toBe(500);
+    expect(res.headers.get("Cache-Control")).toContain("no-store");
   });
 });

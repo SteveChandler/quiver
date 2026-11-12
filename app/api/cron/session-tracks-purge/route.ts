@@ -7,6 +7,7 @@ import {
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -324,4 +325,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(ROUTE, _GET);
+const handleGet = withObservedCron(ROUTE, _GET);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/session-tracks-purge");

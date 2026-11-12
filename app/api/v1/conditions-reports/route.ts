@@ -13,6 +13,7 @@ import {
 } from "@/lib/conditions-report/submit-conditions-report";
 import type { WaveSizeRange, Vibe } from "@/types/conditions-report";
 import { VIBE_OPTIONS, WAVE_SIZE_OPTIONS } from "@/types/conditions-report";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -113,4 +114,6 @@ export const POST = withNoStore(
   withAuth(handler, { errorMessage: "Failed to submit conditions report" }),
 );
 
-export const GET = withNoStore(async () => methodNotAllowed(["POST"]));
+const handleGet = withNoStore(async () => methodNotAllowed(["POST"]));
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/conditions-reports");

@@ -27,6 +27,7 @@ import {
   scheduleAlertCreatedEvents,
 } from "@/lib/analytics/alert-created-server";
 import { retryAfterSeconds } from "@/lib/utils/retry-after";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 interface AlertRulesEntitlementSignal {
   tier: Tier;
@@ -126,7 +127,7 @@ function createPersonalizationDenialResponse(
 /**
  * GET /api/alerts/rules — List the authenticated user's alert rules
  */
-export const GET = withNoStore(withAuth(
+const handleGet = withNoStore(withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const tier = await getUserEntitlement(user.id, supabase);
     const { data, error } = await (supabase as any)
@@ -347,3 +348,5 @@ export const POST = withAuth(
   },
   { errorMessage: "Failed to create alert rule" }
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/alerts/rules");

@@ -11,6 +11,7 @@ import {
   LandscapeInstallShareCard,
   SHARE_CARD_COLORS,
 } from "@/app/api/og/_components/install-share-card";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -141,7 +142,7 @@ async function resolveSurfCallCard(
   };
 }
 
-export async function GET(request: NextRequest): Promise<ImageResponse> {
+async function handleGet(request: NextRequest): Promise<ImageResponse> {
   try {
     const origin = new URL(request.url).origin;
     const { searchParams } = new URL(request.url);
@@ -195,3 +196,5 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
     return renderFallback();
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/og/surf-call");

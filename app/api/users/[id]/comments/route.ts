@@ -8,6 +8,7 @@ import {
   withBotBlockingAndRateLimit,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * Core handler for fetching user comments
@@ -42,7 +43,7 @@ async function fetchUserComments(userId: string): Promise<NextResponse> {
  * GET /api/users/[id]/comments
  * Bot blocking and rate limiting applied to prevent abuse
  */
-export async function GET(
+async function handleGet(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
@@ -59,3 +60,5 @@ export async function GET(
 export function POST() {
   return methodNotAllowed(["GET"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/comments");

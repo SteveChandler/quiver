@@ -5,6 +5,7 @@ import dataset from "@/lib/data/big-swells.json";
 import { handleApiError, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { RouteContext } from "@/lib/middleware/api-wrappers/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -109,4 +110,6 @@ async function bigSwellsHandler(_request: NextRequest, context?: RouteContext): 
   }
 }
 
-export const GET = withRateLimit(bigSwellsHandler, { key: "public-default" });
+const handleGet = withRateLimit(bigSwellsHandler, { key: "public-default" });
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/big-swells");

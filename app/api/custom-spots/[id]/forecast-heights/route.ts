@@ -15,6 +15,7 @@ import {
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +112,7 @@ export async function customSpotForecastHeightsHandler(
   }
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(
     withAuth(customSpotForecastHeightsHandler, {
       optional: true,
@@ -120,3 +121,5 @@ export const GET = withNoStore(
     "public-default",
   ),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/custom-spots/[id]/forecast-heights");

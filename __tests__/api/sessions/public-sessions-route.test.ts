@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -436,6 +437,13 @@ describe("/api/sessions/public", () => {
       "http://localhost:3000/api/sessions/public?lat=32.75&lon=-117.25&page=1&limit=10",
     );
 
-    await expect(GET(req as any)).rejects.toThrow("column beaches.center_lat does not exist");
+    // A failed lookup is a no-store 500, never an empty feed (withErrorNoStore).
+    const res = await GET(req as any);
+    expectConsoleErrors([/column beaches\.center_lat does not exist/]);
+    expect(res.status).toBe(500);
+    expect(res.headers.get("Cache-Control")).toContain("no-store");
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.data).toBeUndefined();
   });
 });

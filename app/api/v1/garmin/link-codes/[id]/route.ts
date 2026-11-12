@@ -4,10 +4,11 @@ import { isGarminWatchEnabled } from "@/lib/flags/garmin-watch";
 import { withErrorHandler, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { createServiceRoleClient } from "@/lib/supabase";
 import { generateSecret, hashSecret } from "@/lib/watch/device-token";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
-export const GET = withNoStore(withErrorHandler(withRateLimit(async (request, context) => {
+const handleGet = withNoStore(withErrorHandler(withRateLimit(async (request, context) => {
   if (!isGarminWatchEnabled()) return createErrorResponse("not_found", undefined, 404);
   const { id } = context?.params ? await context.params : { id: "" };
   if (!z.uuid().safeParse(id).success) return createErrorResponse("not_found", undefined, 404);
@@ -55,3 +56,5 @@ export const GET = withNoStore(withErrorHandler(withRateLimit(async (request, co
     throw claimFailure;
   }
 }, "watch-link-poll"), { errorMessage: "Failed to poll watch link code" }));
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/garmin/link-codes/[id]");
