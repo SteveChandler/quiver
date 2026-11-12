@@ -1984,7 +1984,7 @@ const BEGINNER_PAGES = [
     spots: [
       {
         label: "San Onofre State Beach",
-        href: "/ca/san-onofre/san-onofre-state-beach",
+        href: "/ca/san-clemente/san-onofre-state-beach",
         beachSlug: "san-onofre-state-beach",
       },
       {
@@ -2831,7 +2831,7 @@ const CAM_PAGES = [
       },
       {
         label: "San Onofre State Beach",
-        href: "/ca/san-onofre/san-onofre-state-beach",
+        href: "/ca/san-clemente/san-onofre-state-beach",
         beachSlug: "san-onofre-state-beach",
       },
       { label: "Open OC map", href: "/map?search=Orange%20County" },
