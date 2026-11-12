@@ -47,4 +47,4 @@ const handleGet = withNoStore(
   withAuth(handler, { errorMessage: "Failed to load assignment" })
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/experiments/assignment");

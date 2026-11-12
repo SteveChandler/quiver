@@ -224,4 +224,4 @@ const handleGet = withObservedCron("/api/cron/swell-watch-acquire", async (reque
   return response;
 }, { slug: "swell-watch-acquire", schedule: "15 * * * *", maxRuntimeMinutes: 6 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/swell-watch-acquire");

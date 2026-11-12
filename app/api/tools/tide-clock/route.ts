@@ -203,4 +203,4 @@ async function tideClockHandler(request: NextRequest) {
 
 const handleGet = withRateLimit(tideClockHandler, "public-default");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/tools/tide-clock");

@@ -66,4 +66,4 @@ const handleGet = withNoStore(withRateLimit(withAuth(async (_request, { user, su
   });
 }, { errorMessage: "Failed to load session import" }), "authenticated-default"));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/session-imports/[id]");

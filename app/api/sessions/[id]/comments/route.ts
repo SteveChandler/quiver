@@ -103,4 +103,4 @@ export function DELETE() {
   return methodNotAllowed(["GET", "POST"]);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]/comments");

@@ -37,4 +37,4 @@ export const POST = withRateLimit(withAuth(async (request, { user }) => {
   }
 }), { key: "authenticated-default" });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/trial-feedback/web");

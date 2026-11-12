@@ -213,4 +213,4 @@ const handleGet = withCommunityPhotoRouteObservability(
   }),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/community-photo-retention");

@@ -353,4 +353,4 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
 
 const handleGet = withRateLimit(camResolveHandler, "cam-resolve");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cam-resolve");

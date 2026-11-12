@@ -326,4 +326,4 @@ async function _POST(request: Request): Promise<Response> {
 const handleGet = withObservedCron("/api/cron/update-user-preferences", _GET);
 export const POST = withObservedCron("/api/cron/update-user-preferences", _POST);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/update-user-preferences");

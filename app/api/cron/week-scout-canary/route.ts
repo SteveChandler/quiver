@@ -41,4 +41,4 @@ const handleGet = withObservedCron(ROUTE, _GET, {
   maxRuntimeMinutes: 2,
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/week-scout-canary");

@@ -71,4 +71,4 @@ const handleGet = withObservedCron(ROUTE, _GET, {
   maxRuntimeMinutes: 5,
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/rainfall-runoff");

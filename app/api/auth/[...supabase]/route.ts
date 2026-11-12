@@ -132,4 +132,4 @@ export async function DELETE() {
   return new Response(null, { status: 204 });
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/auth/[...supabase]");

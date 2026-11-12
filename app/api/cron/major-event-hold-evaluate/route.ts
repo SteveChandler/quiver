@@ -452,4 +452,4 @@ async function handleGet(request: Request): Promise<Response> {
   return observedEnabledEvaluation(request);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/major-event-hold-evaluate");

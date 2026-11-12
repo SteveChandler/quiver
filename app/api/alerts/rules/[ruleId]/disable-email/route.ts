@@ -68,4 +68,4 @@ async function disableEmailForRule(
   });
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/alerts/rules/[ruleId]/disable-email");

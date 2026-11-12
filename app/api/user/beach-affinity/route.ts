@@ -65,4 +65,4 @@ const handleGet = withAuth(async (request, { user, supabase }) => {
   });
 }, { errorMessage: "Failed to retrieve beach affinity data" });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/user/beach-affinity");

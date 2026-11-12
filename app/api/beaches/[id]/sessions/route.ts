@@ -55,4 +55,4 @@ async function handleGet(request: NextRequest, props: { params: Promise<{ id: st
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/sessions");

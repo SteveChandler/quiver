@@ -60,4 +60,4 @@ const handleGet = withCommunityPhotoRouteObservability(
   withAdminAuth(listHandler),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/admin/community-photos");

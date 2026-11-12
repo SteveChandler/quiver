@@ -127,4 +127,4 @@ const handleGet = withAuth(userSearchHandler, {
   errorMessage: "Failed to search users",
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/users/search");

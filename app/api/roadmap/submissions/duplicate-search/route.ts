@@ -31,4 +31,4 @@ async function handleGet(req: Request): Promise<Response> {
   return Response.json({ matches: data ?? [] });
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/roadmap/submissions/duplicate-search");

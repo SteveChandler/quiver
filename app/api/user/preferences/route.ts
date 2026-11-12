@@ -52,4 +52,4 @@ const handleGet = withAuth(async (_request, { user, supabase }) => {
   return createSuccessResponse(preferences);
 }, { errorMessage: "Internal server error" });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/user/preferences");

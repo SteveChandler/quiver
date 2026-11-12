@@ -142,4 +142,4 @@ async function _POST(request: Request): Promise<Response> {
 
 export const POST = withObservedCron("/api/cron/resolve-cam-thumbnails", _POST);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/resolve-cam-thumbnails");

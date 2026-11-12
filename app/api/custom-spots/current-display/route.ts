@@ -102,4 +102,4 @@ const handleGet = withNoStore(
   ),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/custom-spots/current-display");

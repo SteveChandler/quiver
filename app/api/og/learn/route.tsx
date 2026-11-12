@@ -41,4 +41,4 @@ async function handleGet(request: Request) {
   );
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/og/learn");

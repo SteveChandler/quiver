@@ -246,4 +246,4 @@ async function hlsProxyHandler(
 const handleGet = withRateLimit(hlsProxyHandler, "hls-proxy") as unknown as
   (request: NextRequest, context: { params: Promise<{ path: string[] }> }) => Promise<Response>;
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/hls-proxy/[...path]");

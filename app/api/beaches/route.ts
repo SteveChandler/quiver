@@ -196,4 +196,4 @@ export const POST = withAuth(beachesPostHandler, {
   errorMessage: "Failed to save location",
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches");

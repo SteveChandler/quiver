@@ -30,4 +30,4 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/email/lifecycle/unsubscribe");

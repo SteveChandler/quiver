@@ -68,4 +68,4 @@ export function POST() {
   return methodNotAllowed(["GET"]);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/follow");

@@ -112,4 +112,4 @@ async function bigSwellsHandler(_request: NextRequest, context?: RouteContext): 
 
 const handleGet = withRateLimit(bigSwellsHandler, { key: "public-default" });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/big-swells");

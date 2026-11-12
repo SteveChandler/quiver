@@ -6,4 +6,4 @@ import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrap
 export const dynamic = "force-dynamic";
 const handleGet = withAdminAuth(async () => NextResponse.json(await lifecycleRpc("email_automation_dashboard"), { headers: { "Cache-Control": "private, no-store" } }));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/admin/email/status");

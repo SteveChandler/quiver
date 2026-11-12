@@ -462,4 +462,4 @@ export const POST = withAuth(
   { errorMessage: "Failed to create intel post" }
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/intel");

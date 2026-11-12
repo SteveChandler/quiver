@@ -57,4 +57,4 @@ const handleGet = withNoStore(withErrorHandler(withRateLimit(async (request, con
   }
 }, "watch-link-poll"), { errorMessage: "Failed to poll watch link code" }));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/garmin/link-codes/[id]");

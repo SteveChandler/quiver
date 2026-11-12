@@ -93,4 +93,4 @@ const handleGet = withAdminAuth(
   { errorMessage: "Android tester roster identity reveal failed" },
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/admin/android-tester-roster/identity/[entryId]");

@@ -122,4 +122,4 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   return createSuccessResponse({ summary });
 }, { errorMessage: "Failed to update session wave count" }), "authenticated-default"));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/sessions/[id]/waves");

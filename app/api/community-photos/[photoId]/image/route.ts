@@ -53,4 +53,4 @@ const handleGet = withCommunityPhotoRouteObservability(
   withAuth(imageHandler, { optional: true }),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/community-photos/[photoId]/image");

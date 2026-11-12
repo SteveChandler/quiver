@@ -71,4 +71,4 @@ const handleGet = withObservedCron("/api/cron/notifications-deliver", _GET, SENT
   skipIdleRuns: true,
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/notifications-deliver");

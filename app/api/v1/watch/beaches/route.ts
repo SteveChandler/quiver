@@ -231,4 +231,4 @@ const handleGet = withNoStore(withRateLimit(withWatchAuth(async (request, { user
   });
 }, { errorMessage: "Failed to load watch beaches" }), "authenticated-default"));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/watch/beaches");

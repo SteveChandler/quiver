@@ -94,4 +94,4 @@ async function swellEventHandler(
 
 const handleGet = withRateLimit(swellEventHandler, { key: "public-default" });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/swell/[eventKey]");

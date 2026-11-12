@@ -40,4 +40,4 @@ const getStatus = withAuth(
 
 const handleGet = withNoStore(getStatus);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/android-beta/status");

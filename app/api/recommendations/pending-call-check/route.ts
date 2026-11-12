@@ -77,4 +77,4 @@ const handleGet = withNoStore(
   withRateLimit(withAuth(pendingCallHandler, { errorMessage: "Failed to load pending call" }), "authenticated-default"),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/recommendations/pending-call-check");

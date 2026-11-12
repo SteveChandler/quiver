@@ -52,4 +52,4 @@ const handleGet = withAuth(
   { errorMessage: "Failed to load favorite beaches" }
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/favorites");

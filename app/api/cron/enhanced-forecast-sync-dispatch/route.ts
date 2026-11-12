@@ -41,4 +41,4 @@ const handleGet = _GET;
 export const POST = _POST;
 export const HEAD = _HEAD;
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/enhanced-forecast-sync-dispatch");

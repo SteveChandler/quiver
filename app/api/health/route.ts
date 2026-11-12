@@ -88,4 +88,4 @@ export async function PATCH() {
   return methodNotAllowed(["GET"]);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/health");

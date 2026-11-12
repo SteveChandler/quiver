@@ -327,4 +327,4 @@ async function _GET(request: Request): Promise<Response> {
 
 const handleGet = withObservedCron(ROUTE, _GET);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/session-tracks-purge");

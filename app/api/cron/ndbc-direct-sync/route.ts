@@ -487,4 +487,4 @@ async function syncObservations(): Promise<ObservationSyncResult> {
   return result;
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/ndbc-direct-sync");

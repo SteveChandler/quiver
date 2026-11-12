@@ -24,4 +24,4 @@ const handleGet = withStoryPublisher(async (request: NextRequest) => {
   }
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/internal/week-scout-story/input");

@@ -135,4 +135,4 @@ const handleGet = withObservedCron(ROUTE, runRetention, {
   schedule: "15 9 * * 0",
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/major-event-hold-retention");

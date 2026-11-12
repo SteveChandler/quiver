@@ -230,4 +230,4 @@ const handleGet = withRateLimit(
   "surf-discovery",
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/forecasts/current");

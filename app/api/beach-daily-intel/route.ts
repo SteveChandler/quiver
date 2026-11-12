@@ -172,4 +172,4 @@ const handleGet = withNoStore(
   })
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beach-daily-intel");

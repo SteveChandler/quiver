@@ -95,4 +95,4 @@ export const POST = withRateLimit(withAuth(async (request, { user }) => {
   return NextResponse.json({ saved: true }, { headers });
 }), { key: "authenticated-default" });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cancellation-feedback");

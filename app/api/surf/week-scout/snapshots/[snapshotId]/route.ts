@@ -47,4 +47,4 @@ const handleGet = withRateLimit(
   'surf-discovery',
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/surf/week-scout/snapshots/[snapshotId]");

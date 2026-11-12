@@ -695,4 +695,4 @@ function toRad(deg: number): number {
   return deg * (Math.PI / 180);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/ioos-sync");

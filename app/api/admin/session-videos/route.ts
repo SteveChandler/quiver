@@ -35,4 +35,4 @@ export const POST = withAdminAuth(async (request: NextRequest, { supabase }: Adm
   return NextResponse.json({ ok: true }, { headers });
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/admin/session-videos");

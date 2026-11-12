@@ -280,4 +280,4 @@ async function handleGet(request: NextRequest): Promise<ImageResponse> {
   return response;
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/og/swell");

@@ -148,4 +148,4 @@ async function getFollowCounts(
   };
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/follow/toggle");

@@ -179,4 +179,4 @@ export const POST = withNoStore(
   ),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/admin/recommendation-holds");

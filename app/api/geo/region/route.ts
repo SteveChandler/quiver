@@ -61,4 +61,4 @@ async function geoRegionHandler(request: NextRequest): Promise<NextResponse> {
 
 const handleGet = withRateLimit(withNoStore(geoRegionHandler), "public-default");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/geo/region");

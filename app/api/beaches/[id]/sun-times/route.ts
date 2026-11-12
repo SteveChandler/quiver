@@ -44,4 +44,4 @@ async function handleGet(
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/sun-times");

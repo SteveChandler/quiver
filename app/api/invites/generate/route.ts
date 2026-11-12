@@ -59,4 +59,4 @@ function handleGet() {
   return methodNotAllowed(["POST"]);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/invites/generate");

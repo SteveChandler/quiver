@@ -116,4 +116,4 @@ export const POST = withNoStore(
 
 const handleGet = withNoStore(async () => methodNotAllowed(["POST"]));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/conditions-reports");

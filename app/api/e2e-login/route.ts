@@ -80,4 +80,4 @@ async function handleGet(req: Request) {
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/e2e-login");

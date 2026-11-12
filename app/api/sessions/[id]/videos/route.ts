@@ -42,4 +42,4 @@ export const POST = withAuth(async (request: NextRequest, { params, user, supaba
 
 const handleGet = () => error("Method Not Allowed", 405);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]/videos");

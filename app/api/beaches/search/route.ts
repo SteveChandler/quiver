@@ -57,4 +57,4 @@ async function beachSearchHandler(request: NextRequest) {
 // Apply bot blocking and rate limiting to prevent abuse of expensive search operations
 const handleGet = withBotBlockingAndRateLimit(beachSearchHandler, "beach-search");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/search");

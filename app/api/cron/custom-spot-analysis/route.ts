@@ -38,4 +38,4 @@ async function handler(request: Request): Promise<Response> {
 
 const handleGet = withObservedCron('/api/cron/custom-spot-analysis', handler);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/custom-spot-analysis");

@@ -193,4 +193,4 @@ async function handleGet(_request: NextRequest) {
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/og/forecast-accuracy");

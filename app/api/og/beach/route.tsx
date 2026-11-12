@@ -248,4 +248,4 @@ async function handleGet(request: NextRequest): Promise<Response> {
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/og/beach");

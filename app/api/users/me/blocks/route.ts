@@ -41,4 +41,4 @@ const handleGet = withAuth(
   { errorMessage: "Failed to load blocked accounts" },
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/users/me/blocks");

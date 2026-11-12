@@ -401,4 +401,4 @@ async function createFallbackPost(
   return createIntelPost(supabase, npc.id, beach, content, timestamp);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/npc-activity");

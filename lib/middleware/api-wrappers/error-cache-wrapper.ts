@@ -30,6 +30,31 @@ function markNoStore(response: Response): Response {
   }
 }
 
+// What Next's onRequestError (Sentry.captureRequestError in instrumentation.ts)
+// received before this wrapper caught the error, so Sentry keeps the same
+// route context, transaction name and unhandled mechanism.
+function reportUnhandled(error: unknown, request: unknown, routePath: string): void {
+  if (!(request instanceof Request)) {
+    Sentry.captureException(error, { mechanism: { handled: false, type: "auto.function.nextjs.on_request_error" } });
+    return;
+  }
+  const url = new URL(request.url);
+  Sentry.captureRequestError(
+    error,
+    { path: url.pathname + url.search, method: request.method, headers: Object.fromEntries(request.headers) },
+    { routerKind: "App Router", routePath, routeType: "route" }
+  );
+}
+
+function isClientAbort(error: unknown, request: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.name === "AbortError" &&
+    request instanceof Request &&
+    request.signal.aborted
+  );
+}
+
 /**
  * Keeps a failed GET out of every cache.
  *
@@ -39,17 +64,25 @@ function markNoStore(response: Response): Response {
  * minutes, for example the signed-out answer right after sign-in. This wrapper
  * marks every response with status 400 or more `no-store` and removes CDN
  * cache headers from it. It does not touch 1xx, 2xx or 3xx responses (304s and
- * redirects keep their headers). A thrown error is reported to Sentry and
- * becomes a `no-store` 500; Next's own control-flow errors are re-thrown.
+ * redirects keep their headers). A thrown error is reported to Sentry with the
+ * route context Next would have given it and becomes a `no-store` 500. Next's
+ * own control-flow errors and client aborts are re-thrown, as before.
+ *
+ * Only GET is wrapped: browsers and NSURLCache store only GET (and HEAD, which
+ * Next answers from GET); other methods are never served from a cache.
+ *
+ * @param routePath The route as Next names it, e.g. "/api/beaches/[id]".
  */
 // An async handler keeps its exact type (every overload and parameter list),
 // so callers and Next's route type check see the same GET as before.
-export function withErrorNoStore<H extends (...args: never[]) => Promise<Response>>(handler: H): H;
+export function withErrorNoStore<H extends (...args: never[]) => Promise<Response>>(handler: H, routePath: string): H;
 export function withErrorNoStore<A extends unknown[], R extends Response>(
-  handler: (...args: A) => R | Promise<R>
+  handler: (...args: A) => R | Promise<R>,
+  routePath: string
 ): (...args: A) => Promise<R>;
 export function withErrorNoStore<A extends unknown[], R extends Response>(
-  handler: (...args: A) => R | Promise<R>
+  handler: (...args: A) => R | Promise<R>,
+  routePath: string
 ): (...args: A) => Promise<R> {
   return async (...args: A): Promise<R> => {
     let response: R;
@@ -57,7 +90,8 @@ export function withErrorNoStore<A extends unknown[], R extends Response>(
       response = await handler(...args);
     } catch (error) {
       unstable_rethrow(error);
-      Sentry.captureException(error);
+      if (isClientAbort(error, args[0])) throw error;
+      reportUnhandled(error, args[0], routePath);
       console.error("Unhandled API GET error:", redactSecrets(error instanceof Error ? error.message : String(error)));
       return markNoStore(
         NextResponse.json(
@@ -66,7 +100,8 @@ export function withErrorNoStore<A extends unknown[], R extends Response>(
         )
       ) as R;
     }
-    if (!(response.status >= 400)) return response;
+    // A handler that returns nothing fails in Next exactly as it did before.
+    if (!(response?.status >= 400)) return response;
     return markNoStore(response) as R;
   };
 }

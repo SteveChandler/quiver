@@ -47,4 +47,4 @@ const handleGet = withObservedCron(
   _GET,
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/refresh-beach-traffic-weights");

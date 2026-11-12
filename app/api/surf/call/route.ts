@@ -146,4 +146,4 @@ const handleGet = async (
   return response;
 };
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/surf/call");

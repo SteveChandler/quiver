@@ -224,4 +224,4 @@ async function getEnhancedForecasts(
 
 const handleGet = withAuth(getEnhancedForecasts, { optional: true });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/forecasts/update-enhanced");

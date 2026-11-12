@@ -255,4 +255,4 @@ async function handleGet(request: NextRequest) {
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/og/intent");

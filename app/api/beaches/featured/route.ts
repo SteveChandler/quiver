@@ -110,4 +110,4 @@ export const POST = notAllowed;
 export const PUT = notAllowed;
 export const DELETE = notAllowed;
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/featured");

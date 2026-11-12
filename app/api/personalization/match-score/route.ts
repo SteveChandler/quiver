@@ -93,4 +93,4 @@ const handleGet = withAuth(
   { errorMessage: "Failed to load personalization match score" },
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/personalization/match-score");

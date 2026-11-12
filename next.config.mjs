@@ -267,16 +267,7 @@ const nextConfig = {
         ],
       },
       {
-        source: "/api/surf/week-scout",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, must-revalidate",
-          },
-        ],
-      },
-      {
-        // The exact rule above misses snapshots/[id].
+        // `:path*` also matches /api/surf/week-scout itself and covers snapshots/[id].
         source: "/api/surf/week-scout/:path*",
         headers: [
           {

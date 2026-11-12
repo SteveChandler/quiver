@@ -39,4 +39,4 @@ async function handleGet(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/pro-offer-reconcile");

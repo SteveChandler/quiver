@@ -55,4 +55,4 @@ const handleGet = withCommunityPhotoRouteObservability(
   withAdminAuth(handler),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/admin/community-photos/[photoId]/image");

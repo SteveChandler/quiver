@@ -220,4 +220,4 @@ async function dawnPatrolHandler(request: NextRequest) {
 
 const handleGet = withRateLimit(dawnPatrolHandler, "public-default");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/tools/dawn-patrol");

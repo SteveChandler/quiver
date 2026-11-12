@@ -117,4 +117,4 @@ const handleGet = withAuth(suggestedUsersHandler, {
   errorMessage: "Failed to load suggested users",
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/users/suggested");

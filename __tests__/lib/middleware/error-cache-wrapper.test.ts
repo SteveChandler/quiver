@@ -8,8 +8,10 @@ jest.mock("next/navigation", () => jest.requireActual("next/navigation"));
 import { redirect, notFound } from "next/navigation";
 
 const mockCaptureException = jest.fn();
+const mockCaptureRequestError = jest.fn();
 jest.mock("@sentry/nextjs", () => ({
   captureException: (...args: unknown[]) => mockCaptureException(...args),
+  captureRequestError: (...args: unknown[]) => mockCaptureRequestError(...args),
 }));
 
 import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
@@ -27,12 +29,13 @@ const BLANKET = "private, max-age=60, stale-while-revalidate=120";
 // Route handlers are called by Next with a request; zero-argument test handlers
 // take the RouteHandler overload, so call them the same way.
 function call(handler: (req: NextRequest) => Promise<Response>): Promise<Response> {
-  return withErrorNoStore(handler)(new NextRequest("https://x.test/api/thing"));
+  return withErrorNoStore(handler, "/api/thing")(new NextRequest("https://x.test/api/thing"));
 }
 
 describe("withErrorNoStore", () => {
   beforeEach(() => {
     mockCaptureException.mockClear();
+    mockCaptureRequestError.mockClear();
     jest.spyOn(console, "error").mockImplementation(() => {});
   });
   afterEach(() => jest.restoreAllMocks());
@@ -74,7 +77,8 @@ describe("withErrorNoStore", () => {
     });
     expect(res.status).toBe(500);
     expect(res.headers.get("Cache-Control")).toBe(NO_STORE_CACHE_CONTROL);
-    expect(mockCaptureException).toHaveBeenCalledWith(boom);
+    expect(mockCaptureRequestError).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException).not.toHaveBeenCalled();
     const body = await res.json();
     expect(body.error).toBe("Internal server error");
     expect(JSON.stringify(body)).not.toContain("hunter2");
@@ -84,6 +88,45 @@ describe("withErrorNoStore", () => {
     await expect(call(async () => redirect("/elsewhere"))).rejects.toThrow();
     await expect(call(async () => notFound())).rejects.toThrow();
     expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(mockCaptureRequestError).not.toHaveBeenCalled();
+  });
+
+  it("reports a thrown error with the route context Next's onRequestError used", async () => {
+    const boom = new Error("read failed");
+    const req = new NextRequest("https://x.test/api/beaches/7/buoy?units=ft", { headers: { "user-agent": "t" } });
+    const res = await withErrorNoStore(async (_r: NextRequest): Promise<Response> => {
+      throw boom;
+    }, "/api/beaches/[id]/buoy")(req);
+    expect(res.status).toBe(500);
+    expect(mockCaptureRequestError).toHaveBeenCalledWith(
+      boom,
+      expect.objectContaining({ path: "/api/beaches/7/buoy?units=ft", method: "GET", headers: expect.objectContaining({ "user-agent": "t" }) }),
+      { routerKind: "App Router", routePath: "/api/beaches/[id]/buoy", routeType: "route" }
+    );
+  });
+
+  it("re-throws a client abort instead of reporting a 500", async () => {
+    const controller = new AbortController();
+    const req = new NextRequest("https://x.test/api/thing", { signal: controller.signal });
+    controller.abort();
+    const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
+    await expect(withErrorNoStore(async (_r: NextRequest): Promise<Response> => {
+      throw abort;
+    }, "/api/thing")(req)).rejects.toBe(abort);
+    expect(mockCaptureRequestError).not.toHaveBeenCalled();
+  });
+
+  it("treats an AbortError on a live request as a failure", async () => {
+    const abort = Object.assign(new Error("upstream aborted"), { name: "AbortError" });
+    const res = await call(async () => {
+      throw abort;
+    });
+    expect(res.status).toBe(500);
+    expect(mockCaptureRequestError).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a handler that returns nothing to fail in Next as before", async () => {
+    expect(await call(async () => undefined as unknown as Response)).toBeUndefined();
   });
 
   it("returns a 2xx response untouched, headers and object included", async () => {
@@ -151,7 +194,7 @@ describe("withErrorNoStore", () => {
     );
     const req = new Request("https://x.test/api/thing/7");
     const ctx = { params: Promise.resolve({ id: "7" }) };
-    const res = await withErrorNoStore(handler)(req, ctx);
+    const res = await withErrorNoStore(handler, "/api/thing/[id]")(req, ctx);
     expect(handler).toHaveBeenCalledWith(req, ctx);
     expect(await res.json()).toEqual({ id: "7" });
   });

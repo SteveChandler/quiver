@@ -75,4 +75,4 @@ const handleGet = withNoStore(withRateLimit(withWatchAuth(async (request, { user
   });
 }, { errorMessage: "Failed to load watch glance" }), "authenticated-default"));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/watch/glance");

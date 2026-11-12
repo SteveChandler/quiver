@@ -213,4 +213,4 @@ const handleGet = withObservedCron(ROUTE, runRetention, {
   schedule: "50 9 * * *",
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/session-video-retention");

@@ -598,4 +598,4 @@ const handleGet = withNoStore(withAuth(
   { optional: true, rejectInvalidCredentials: true, errorMessage: "Failed to fetch scored forecast" }
 ));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/forecasts/scored/[beachId]");

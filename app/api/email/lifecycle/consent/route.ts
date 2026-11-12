@@ -32,4 +32,4 @@ export const POST = withRateLimit(withAuth(async (request, { user }) => {
   return NextResponse.json({ consent: body.data.consent, contract_version: 1 }, { headers });
 }), { key: "authenticated-default" });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/email/lifecycle/consent");

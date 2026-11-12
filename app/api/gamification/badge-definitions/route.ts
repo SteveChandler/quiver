@@ -22,4 +22,4 @@ const handleGet = withAuth(
   { errorMessage: "Failed to load badge definitions" }
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/gamification/badge-definitions");

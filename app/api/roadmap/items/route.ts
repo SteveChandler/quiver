@@ -67,4 +67,4 @@ async function handleGet(req: Request): Promise<Response> {
   return Response.json(response);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/roadmap/items");

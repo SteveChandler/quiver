@@ -54,4 +54,4 @@ export function DELETE() {
   return methodNotAllowed(["GET"]);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/gamification/user-badges");

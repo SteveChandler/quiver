@@ -88,4 +88,4 @@ const handleGet = withNoStore(withRateLimit(withAuth(async (_request, { user, su
   } satisfies WatchStatusResponse);
 }, { errorMessage: "Failed to load watch status" }), "authenticated-default"));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/sessions/[id]/watch-status");

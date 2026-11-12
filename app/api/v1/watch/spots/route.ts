@@ -11,4 +11,4 @@ const handleGet = withNoStore(withRateLimit(withWatchAuth(async (_request, { use
   return createSuccessResponse({ spots });
 }, { errorMessage: "Failed to load watch spots" }), "authenticated-default"));
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/v1/watch/spots");

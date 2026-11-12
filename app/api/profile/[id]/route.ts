@@ -190,4 +190,4 @@ const profileHandler = withAuth(
 // Compose: bot blocking + rate limit → optional-auth handler.
 const handleGet = withBotBlockingAndRateLimit(profileHandler, "public-default");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/profile/[id]");

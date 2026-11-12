@@ -36,4 +36,4 @@ export async function HEAD(request: NextRequest): Promise<Response> {
   return runEnhancedForecastSyncHead(request);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/enhanced-forecast-sync");

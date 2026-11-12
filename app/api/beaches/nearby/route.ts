@@ -62,4 +62,4 @@ async function nearbyBeachesHandler(request: NextRequest) {
 // Apply rate limiting
 const handleGet = withRateLimit(nearbyBeachesHandler, "public-default");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/nearby");

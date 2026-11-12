@@ -59,4 +59,4 @@ async function handleGet(
   return wrappedHandler(request);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/view-count");

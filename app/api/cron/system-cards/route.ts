@@ -294,4 +294,4 @@ function isSystemCardClass(value: unknown): value is SystemCardClass {
 
 type SystemCardClass = import("@/lib/npc/system-card-types").SystemCardClass;
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/system-cards");

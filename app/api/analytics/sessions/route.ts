@@ -114,4 +114,4 @@ export const PATCH = withAuth(
   { errorMessage: "Failed to update session privacy" },
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/analytics/sessions");

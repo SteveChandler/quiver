@@ -291,4 +291,4 @@ const handleGet = withAuth(
   { errorMessage: "Failed to fetch alert activity" },
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/alerts/activity");

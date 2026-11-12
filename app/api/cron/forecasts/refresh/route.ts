@@ -1164,4 +1164,4 @@ async function _GET(request: Request): Promise<Response> {
 
 const handleGet = withObservedCron("/api/cron/forecasts/refresh", _GET);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/forecasts/refresh");

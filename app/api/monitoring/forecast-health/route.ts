@@ -190,4 +190,4 @@ async function _GET(request: Request): Promise<Response> {
 
 const handleGet = withObservedCron("/api/monitoring/forecast-health", _GET, SENTRY_MONITOR);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/monitoring/forecast-health");

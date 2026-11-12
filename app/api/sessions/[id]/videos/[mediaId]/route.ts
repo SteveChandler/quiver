@@ -27,4 +27,4 @@ const handleGet = withAuth(async (_request: NextRequest, { params, user, supabas
   return noStore(NextResponse.json({ url: data.signedUrl, expiresIn: 300 }));
 }, { optional: true });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]/videos/[mediaId]");

@@ -75,4 +75,4 @@ function handleGet() {
   return methodNotAllowed(["POST", "DELETE"]);
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/block");

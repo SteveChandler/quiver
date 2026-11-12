@@ -49,4 +49,4 @@ const handleGet = withCommunityPhotoRouteObservability(
   withAuth(handler),
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/community-photos/mine");

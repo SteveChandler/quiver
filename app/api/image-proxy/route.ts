@@ -226,4 +226,4 @@ async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
 // Apply rate limiting to prevent SSRF attacks
 const handleGet = withRateLimit(imageProxyHandler, "image-proxy");
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/image-proxy");

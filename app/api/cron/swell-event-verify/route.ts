@@ -41,4 +41,4 @@ const handleGet = withObservedCron(
   SENTRY_MONITOR,
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/swell-event-verify");

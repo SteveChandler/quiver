@@ -349,4 +349,4 @@ export const POST = withAuth(
   { errorMessage: "Failed to create alert rule" }
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/alerts/rules");

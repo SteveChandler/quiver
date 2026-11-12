@@ -147,4 +147,4 @@ export const POST = withErrorHandler(
   { errorMessage: "Failed to save the surf game score" },
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/surf-game/scores");

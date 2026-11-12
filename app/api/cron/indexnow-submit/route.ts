@@ -82,4 +82,4 @@ async function _GET(request: Request): Promise<Response> {
 
 const handleGet = withObservedCron("/api/cron/indexnow-submit", _GET);
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/indexnow-submit");

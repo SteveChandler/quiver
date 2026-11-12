@@ -80,4 +80,4 @@ async function handleGet(request: NextRequest): Promise<ImageResponse> {
   );
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/og/share-sticker");

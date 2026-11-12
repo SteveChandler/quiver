@@ -12,4 +12,4 @@ const handleGet = withStoryPublisher(async (_request: NextRequest) => {
   return NextResponse.json({ schemaVersion: 3, regions });
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/internal/week-scout-story/regions");

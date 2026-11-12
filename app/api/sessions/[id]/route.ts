@@ -348,4 +348,4 @@ export const DELETE = withAuth(
   { errorMessage: "Failed to delete session" }
 );
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]");

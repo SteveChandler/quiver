@@ -242,4 +242,4 @@ async function runMatchPhase(
   };
 }
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/cron/ccc-sync");

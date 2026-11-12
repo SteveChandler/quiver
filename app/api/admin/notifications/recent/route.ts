@@ -142,4 +142,4 @@ const handleGet = withAdminAuth(async (request: NextRequest) => {
   });
 });
 
-export const GET = withErrorNoStore(handleGet);
+export const GET = withErrorNoStore(handleGet, "/api/admin/notifications/recent");
