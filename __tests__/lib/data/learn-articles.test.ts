@@ -191,4 +191,13 @@ describe("learn article imagery", () => {
       }
     }
   });
+
+  it("links Rincon at its live beach page, not the retired /forecasts path", () => {
+    const hrefs = learnArticles.flatMap((article) =>
+      article.relatedLinks.map((link) => link.href),
+    );
+
+    expect(hrefs.filter((href) => href.startsWith("/forecasts/"))).toEqual([]);
+    expect(hrefs).toContain("/ca/carpinteria/rincon-carpinteria-ca");
+  });
 });

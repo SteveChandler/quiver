@@ -827,7 +827,7 @@ const LONGBOARD_PAGES = [
     spots: [
       {
         label: "Moonlight Beach",
-        href: "/ca/encinitas/moonlight-beach",
+        href: "/ca/encinitas/moonlight-state-beach",
         beachSlug: "moonlight-beach",
       },
       {
@@ -952,7 +952,7 @@ const LONGBOARD_PAGES = [
       { label: "Open the Quiver map", href: "/map?search=Ventura" },
     ],
     spots: [
-      { label: "Mondos", href: "/ca/ventura/mondos", beachSlug: "mondos" },
+      { label: "Mondos", href: "/ca/ventura/mondos-beach-ventura-ca", beachSlug: "mondos" },
       { label: "Ventura Pier", href: "/map?search=Ventura%20Pier" },
       { label: "Malibu today", href: "/surf-report/malibu-today" },
     ],
@@ -1013,7 +1013,7 @@ const LONGBOARD_PAGES = [
     spots: [
       {
         label: "Leadbetter",
-        href: "/ca/santa-barbara/leadbetter",
+        href: "/ca/santa-barbara/leadbetter-santa-barbara-ca",
         beachSlug: "leadbetter",
       },
       { label: "Rincon search", href: "/map?search=Rincon" },
@@ -1330,7 +1330,7 @@ const BEGINNER_PAGES = [
     spots: [
       {
         label: "Capitola Beach",
-        href: "/ca/capitola/capitola-beach",
+        href: "/ca/capitola/capitola-capitola-ca",
         beachSlug: "capitola-beach",
       },
       { label: "Pleasure Point search", href: "/map?search=Pleasure%20Point" },
@@ -1393,7 +1393,7 @@ const BEGINNER_PAGES = [
     spots: [
       {
         label: "Bolsa Chica",
-        href: "/ca/huntington-beach/bolsa-chica",
+        href: "/ca/huntington-beach/bolsa-chica-state-beach-huntington-beach-ca",
         beachSlug: "bolsa-chica",
       },
       {
@@ -1408,7 +1408,7 @@ const BEGINNER_PAGES = [
       },
       {
         label: "Doheny Beach",
-        href: "/ca/dana-point/doheny-beach",
+        href: "/ca/dana-point/doheny",
         beachSlug: "doheny-beach",
       },
       { label: "San Onofre", href: "/beginner/san-onofre" },
@@ -1492,7 +1492,7 @@ const BEGINNER_PAGES = [
     spots: [
       {
         label: "Bolsa Chica",
-        href: "/ca/huntington-beach/bolsa-chica",
+        href: "/ca/huntington-beach/bolsa-chica-state-beach-huntington-beach-ca",
         beachSlug: "bolsa-chica",
       },
       {
@@ -1723,7 +1723,7 @@ const BEGINNER_PAGES = [
       },
       {
         label: "Leadbetter context",
-        href: "/ca/santa-barbara/leadbetter",
+        href: "/ca/santa-barbara/leadbetter-santa-barbara-ca",
         beachSlug: "leadbetter",
       },
       { label: "Santa Barbara map", href: "/map?search=Santa%20Barbara" },
@@ -2195,7 +2195,7 @@ const TODAY_PAGES = [
       },
       {
         label: "Blacks Beach",
-        href: "/ca/la-jolla/blacks-beach",
+        href: "/ca/san-diego/blacks",
         beachSlug: "blacks-beach",
       },
     ],
@@ -2526,7 +2526,7 @@ const TODAY_PAGES = [
       },
       {
         label: "Bolsa Chica",
-        href: "/ca/huntington-beach/bolsa-chica",
+        href: "/ca/huntington-beach/bolsa-chica-state-beach-huntington-beach-ca",
         beachSlug: "bolsa-chica",
       },
       {
@@ -2826,7 +2826,7 @@ const CAM_PAGES = [
     spots: [
       {
         label: "Doheny Beach",
-        href: "/ca/dana-point/doheny-beach",
+        href: "/ca/dana-point/doheny",
         beachSlug: "doheny-beach",
       },
       {
