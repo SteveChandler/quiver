@@ -563,6 +563,31 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
     });
 
+    it("shows no forecast card or home-page claim when the forecast preview is empty", async () => {
+      mockUseForecastPreview.mockReturnValue({
+        forecastPreview: { wave_height: null, wind_speed: null, wind_direction: null },
+        loading: false,
+      });
+
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/You're set up for Malibu/i)).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/Today's Conditions/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Full forecast available on your home page/i),
+      ).not.toBeInTheDocument();
+    });
+
     it("shows no surf-call claim when neither intel nor forecast available", async () => {
       mockUseForecastPreview.mockReturnValue({
         forecastPreview: null,

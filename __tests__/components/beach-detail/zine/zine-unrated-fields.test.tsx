@@ -42,6 +42,34 @@ describe("beach pages with an unrated skill level or break type", () => {
     expect(screen.queryByText("BREAK")).not.toBeInTheDocument();
   });
 
+  it("hero hides the About section when it has no chips and no prose", () => {
+    const beach = createMockBeach({
+      name: "Fort Ebey",
+      skill_level: null,
+      break_type: null,
+      average_rating: null,
+      review_count: 0,
+      best_conditions_prose: null,
+    });
+    render(<ZineHero beach={beach} />);
+
+    expect(screen.queryByText(/About this spot/)).not.toBeInTheDocument();
+  });
+
+  it("hero keeps the About section for prose alone, with no empty chip row", () => {
+    const beach = createMockBeach({
+      skill_level: null,
+      break_type: null,
+      average_rating: null,
+      review_count: 0,
+      best_conditions_prose: "Works on a west swell at mid tide.",
+    });
+    const { container } = render(<ZineHero beach={beach} />);
+
+    expect(screen.getByText(/About this spot/)).toBeInTheDocument();
+    expect(container.querySelector("details .flex.flex-wrap")).toBeNull();
+  });
+
   it("hero keeps a rated skill level and break type", () => {
     const beach = createMockBeach({ skill_level: "beginner", break_type: "beach" });
     render(<ZineHero beach={beach} />);

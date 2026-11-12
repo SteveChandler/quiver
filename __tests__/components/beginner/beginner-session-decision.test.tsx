@@ -73,7 +73,7 @@ describe("BeginnerSessionDecision", () => {
         citySlug="huntington-beach"
         stateSlug="ca"
         referenceSpotName="Bolsa Chica"
-        decisionSummary="The local beginner pattern is 1-2 ft surf, light wind, and low-to-mid tide."
+        guideSummary="The local beginner pattern is 1-2 ft surf, light wind, and low-to-mid tide."
       />
     );
 
@@ -84,6 +84,10 @@ describe("BeginnerSessionDecision", () => {
     expect(within(region).queryByText("MAYBE")).not.toBeInTheDocument();
     expect(within(region).getByText("Check the beach first")).toBeVisible();
     expect(within(region).getByText(/1-2 ft surf/i)).toBeVisible();
+    expect(within(region).getByText("Field guide:")).toBeVisible();
+    expect(
+      within(region).getByText(/live wave, wind, tide, and time-window data is unavailable/i),
+    ).toBeVisible();
     expect(within(region).getByRole("link", { name: /open live huntington beach spots/i })).toHaveAttribute("href", "/ca/huntington-beach");
   });
 
@@ -175,5 +179,20 @@ describe("BeginnerSessionDecision", () => {
       screen.getByText(/wait for a smaller, lighter-wind window/i),
     ).toBeVisible();
     expect(screen.queryByText(/\bsafe\b/i)).not.toBeInTheDocument();
+  });
+
+  it("never shows the field guide beside a live read", () => {
+    render(
+      <BeginnerSessionDecision
+        cityName="Huntington Beach"
+        citySlug="huntington-beach"
+        stateSlug="ca"
+        conditions={conditions}
+        guideSummary="The local beginner pattern is 1-2 ft surf."
+      />
+    );
+
+    expect(screen.queryByText("Field guide:")).not.toBeInTheDocument();
+    expect(screen.getByText(/small waves with light wind/i)).toBeVisible();
   });
 });

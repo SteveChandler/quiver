@@ -59,4 +59,31 @@ describe("MonthlyGrid without state monthly data", () => {
     expect(screen.getByText("~55°F")).toBeInTheDocument();
     expect(screen.queryByText("Crowds")).not.toBeInTheDocument();
   });
+
+  it("keeps the city's summer suit in a shoulder month", () => {
+    render(
+      <MonthlyGrid
+        monthly={[{ month: 4, monthName: "April", bestMonthCount: 2, score: 60 }]}
+        waterTempRange="55-68"
+        summerWetsuit="3/2mm"
+        winterWetsuit="4/3mm"
+      />
+    );
+
+    expect(screen.getByText("3/2mm")).toBeInTheDocument();
+    expect(screen.getByText("~62°F")).toBeInTheDocument();
+  });
+
+  it("reads a water-temp range written with an en dash", () => {
+    render(
+      <MonthlyGrid
+        monthly={[{ month: 1, monthName: "January", bestMonthCount: 3, score: 70 }]}
+        waterTempRange={"55\u201368"}
+        summerWetsuit={null}
+        winterWetsuit={null}
+      />
+    );
+
+    expect(screen.getByText("~55°F")).toBeInTheDocument();
+  });
 });

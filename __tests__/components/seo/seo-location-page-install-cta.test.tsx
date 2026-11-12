@@ -157,13 +157,15 @@ afterEach(() => {
 });
 
 describe("SeoLocationPage install CTA on /surf-cams", () => {
-  it("does not pass editorial page copy to the beginner call as a live summary", async () => {
+  it("passes the page's own editorial text to the beginner call as the guide, not as a live summary", async () => {
     await renderPage("beginner", "huntington-beach");
 
     expect(mockBeginnerSessionDecision).toHaveBeenCalled();
     const props = mockBeginnerSessionDecision.mock.calls[0][0];
+    const page = funnelPage("beginner", "huntington-beach");
     expect(props.conditions).toBeUndefined();
     expect(props.decisionSummary).toBeUndefined();
+    expect(props.guideSummary).toBe(page.sections[1]?.body ?? page.intro);
   });
 
   it("renders one handoff right after the cam grid with its own placement", async () => {

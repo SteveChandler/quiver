@@ -48,7 +48,7 @@ function getMonthContextFromRange(
   const isSummer = summerMonths.has(month);
   const isWinter = winterMonths.has(month);
 
-  const parts = waterTempRange?.split("-").map(Number) ?? [];
+  const parts = waterTempRange?.split(/\s*[-\u2013]\s*/).map(Number) ?? [];
   const hasTempRange = parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]);
   const [lowTemp, highTemp] = parts;
   const tempLabel = !hasTempRange
@@ -59,7 +59,9 @@ function getMonthContextFromRange(
         ? `~${lowTemp}°F`
         : `~${Math.round((lowTemp + highTemp) / 2)}°F`;
 
-  const wetsuit = isSummer ? summerWetsuit : isWinter ? winterWetsuit : null;
+  // Shoulder months fall back to the city's summer suit, as before; only an
+  // invented default is dropped.
+  const wetsuit = isWinter ? winterWetsuit : summerWetsuit;
 
   return { wetsuit, tempLabel, waveRange: null, crowdLevel: null, bestFor: null };
 }

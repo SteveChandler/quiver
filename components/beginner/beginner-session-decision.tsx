@@ -13,7 +13,8 @@ interface BeginnerSessionDecisionProps {
   stateSlug: string;
   conditions?: RightNowConditions;
   referenceSpotName?: string;
-  decisionSummary?: string;
+  /** The page's own editorial text, shown as the field guide when live data is missing. */
+  guideSummary?: string;
   bestTimeToSurfUrl?: string;
 }
 
@@ -66,14 +67,16 @@ export function BeginnerSessionDecision({
   stateSlug,
   conditions,
   referenceSpotName,
-  decisionSummary,
+  guideSummary,
   bestTimeToSurfUrl,
 }: BeginnerSessionDecisionProps): ReactElement {
   const seasonalHref = bestTimeToSurfUrl ?? `/best-time-to-surf/${citySlug}`;
   const spotHref = `/${stateSlug}/${citySlug}`;
   const spotName = conditions?.spotName ?? referenceSpotName ?? cityName;
-  const summary =
-    conditions?.summary ?? decisionSummary ?? LIVE_DATA_UNAVAILABLE_SUMMARY;
+  const summary = conditions?.summary ?? LIVE_DATA_UNAVAILABLE_SUMMARY;
+  // Editorial text never stands in for the live read; it shows beside the
+  // unavailable notice, labelled as the guide, so each page keeps its own copy.
+  const guide = conditions ? null : guideSummary;
   const rating = conditions?.beginnerVerdict.rating ?? "unknown";
   const verdict = VERDICT_COPY[rating];
   const reasons = conditions?.beginnerVerdict.reasons ?? [];
@@ -125,6 +128,11 @@ export function BeginnerSessionDecision({
           <p className="mt-2 text-sm leading-6 text-slate-700">
             <strong>{spotName}:</strong> {summary}
           </p>
+          {guide ? (
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              <strong>Field guide:</strong> {guide}
+            </p>
+          ) : null}
           {reasons.length > 0 ? (
             <dl className="mt-4 grid gap-2 sm:grid-cols-2">
               {reasons.map((reason) => (

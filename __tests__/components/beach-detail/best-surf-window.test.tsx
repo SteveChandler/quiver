@@ -1072,6 +1072,20 @@ describe("BestSurfWindow", () => {
       expect(screen.getByText(/Check tomorrow.s forecast for next windows/)).toBeInTheDocument();
     });
 
+    it("shows no wind quality or best tide under an empty cell", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: { ...sparseIntel, wind_quality: "Offshore", tide_optimal_range: "2-4 ft" },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.queryByText("Offshore")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Best: 2-4 ft/)).not.toBeInTheDocument();
+    });
+
     it("keeps the wind and tide parts that are present", () => {
       mockGetWindowStatus.mockReturnValue({
         status: "passed",

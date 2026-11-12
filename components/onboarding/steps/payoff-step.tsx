@@ -458,7 +458,11 @@ export function PayoffStep() {
               )}
 
               {/* Fallback Card (when no intel, using forecastPreview) */}
-              {!intel && forecastPreview && (
+              {!intel &&
+                forecastPreview &&
+                (forecastPreview.wave_height ||
+                  forecastPreview.wind_speed ||
+                  forecastPreview.wind_direction) && (
                 <div className="bg-white/[0.06] border border-white/[0.12] rounded-lg p-5 space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
                     Today&apos;s Conditions

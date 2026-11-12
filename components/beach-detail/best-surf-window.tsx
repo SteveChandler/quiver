@@ -827,9 +827,11 @@ export function BestSurfWindow({
             <p className="font-semibold text-[#11100D]">
               {windLabel ?? "—"}
             </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {intel.wind_quality}
-            </p>
+            {windLabel && intel.wind_quality ? (
+              <p className="text-xs text-muted-foreground truncate">
+                {intel.wind_quality}
+              </p>
+            ) : null}
           </div>
 
           {/* Tide */}
@@ -843,7 +845,7 @@ export function BestSurfWindow({
             <p className="font-semibold text-[#11100D]">
               {tideLabel ?? "—"}
             </p>
-            {intel.tide_optimal_range && (
+            {tideLabel && intel.tide_optimal_range && (
               <p className="text-xs text-muted-foreground truncate">
                 Best: {intel.tide_optimal_range}
               </p>
