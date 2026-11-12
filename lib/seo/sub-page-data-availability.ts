@@ -18,6 +18,39 @@ export class SubPageDataUnavailableError extends Error {
   }
 }
 
+/**
+ * Thrown by a sub-page render whose data read is unknown. These routes are
+ * force-static ISR: a render that throws is not stored. On a regeneration Next
+ * keeps serving the last good page (and retries); on a first render the visitor
+ * gets an uncached 500 (`no-store`) and the next request renders again. Either
+ * is better than storing a thin page, or noindex, for an hour.
+ */
+export class SubPageDataUnknownError extends Error {
+  constructor(source: string) {
+    super(`[${source}] sub-page data unknown; not storing this render`);
+    this.name = "SubPageDataUnknownError";
+  }
+}
+
+export function throwIfSubPageDataUnknown(
+  meta: { availability?: typeof SUB_PAGE_DATA_UNKNOWN } | null | undefined,
+  source: string,
+): void {
+  if (meta?.availability === SUB_PAGE_DATA_UNKNOWN) throw new SubPageDataUnknownError(source);
+}
+
+/**
+ * A code bug, not a failed read: callers rethrow these instead of wrapping
+ * them as SubPageDataUnavailableError.
+ */
+export function isProgrammingError(error: unknown): boolean {
+  return (
+    error instanceof TypeError ||
+    error instanceof ReferenceError ||
+    error instanceof SyntaxError
+  );
+}
+
 /** Matches the forecast-coverage store; above the ~1,500 beaches the sitemap reads. */
 const LAST_GOOD_MAX_BEACHES = 5000;
 
@@ -46,9 +79,10 @@ export function createLastGoodSubPageData(
 }
 
 /**
- * The sub-page data gate. A failed read with no last good "no data" answer
- * keeps the gate open: a force-static page must not store noindex for an hour
- * because one read failed. The canonical and forecast gates still apply.
+ * The sub-page data gate for links to a sub-page. A failed read with no last
+ * good "no data" answer keeps the gate open; the sub-page itself does not
+ * render in that state (see throwIfSubPageDataUnknown). The canonical and
+ * forecast gates still apply.
  */
 export function hasSubPageDataOrUnknown(
   meta: { availability?: typeof SUB_PAGE_DATA_UNKNOWN } | null | undefined,

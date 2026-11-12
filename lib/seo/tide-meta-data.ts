@@ -15,6 +15,7 @@ import {
   SUB_PAGE_DATA_UNKNOWN,
   SubPageDataUnavailableError,
   createLastGoodSubPageData,
+  isProgrammingError,
   reportSubPageDataUnavailable,
   subPageErrorMessage,
 } from "@/lib/seo/sub-page-data-availability";
@@ -213,6 +214,7 @@ async function readTideRows(
   try {
     supabase = await createSupabaseServiceRoleClient();
   } catch (error) {
+    if (isProgrammingError(error)) throw error;
     throw new SubPageDataUnavailableError(TIDE_META_SOURCE, subPageErrorMessage(error));
   }
 
@@ -248,6 +250,7 @@ async function readTideRows(
       .lte("ts", tideWindow.to)
       .order("ts", { ascending: true });
   } catch (error) {
+    if (isProgrammingError(error)) throw error;
     throw new SubPageDataUnavailableError(TIDE_META_SOURCE, subPageErrorMessage(error));
   }
 

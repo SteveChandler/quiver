@@ -71,6 +71,7 @@ import {
 import {
   SubPageDataUnavailableError,
   createLastGoodSubPageData,
+  isProgrammingError,
   reportSubPageDataUnavailable,
   subPageErrorMessage,
 } from "@/lib/seo/sub-page-data-availability";
@@ -299,6 +300,7 @@ async function fetchBeachSubPageCoverage(
   try {
     supabase = await createSupabaseServiceRoleClient();
   } catch (error) {
+    if (isProgrammingError(error)) throw error;
     throw new SubPageDataUnavailableError(
       SUB_PAGE_COVERAGE_SOURCE,
       `client creation failed: ${subPageErrorMessage(error)}`,
@@ -343,6 +345,7 @@ async function fetchBeachSubPageCoverage(
       responses.push(...(await Promise.all(group.map(readBatch))));
     }
   } catch (error) {
+    if (isProgrammingError(error)) throw error;
     throw new SubPageDataUnavailableError(
       SUB_PAGE_COVERAGE_SOURCE,
       `coverage query failed: ${subPageErrorMessage(error)}`,

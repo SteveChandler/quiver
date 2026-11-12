@@ -24,7 +24,7 @@ import {
   buildDynamicWaterTempMetadata,
 } from "@/lib/seo/meta";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
-import { hasSubPageDataOrUnknown } from "@/lib/seo/sub-page-data-availability";
+import { throwIfSubPageDataUnknown } from "@/lib/seo/sub-page-data-availability";
 import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
@@ -163,6 +163,8 @@ export async function renderBeachSubPage({
     pageType === "tides" ? getTideMetaData(beach.id, beach.timezone) : Promise.resolve(null),
     pageType === "water-temp" ? getWaterTempMetaData(beach.id) : Promise.resolve(null),
   ]);
+  // A failed read must not become this route's stored page; see SubPageDataUnknownError.
+  throwIfSubPageDataUnknown(tideMeta ?? waterTempMeta, `renderBeachSubPage:${pageType}`);
 
   const hasTideHero = pageType === "tides" &&
     Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
@@ -415,6 +417,11 @@ export async function generateBeachSubPageMetadata({
       title = result.title;
       description = result.description;
     }
+    // After the catch above, so this throw fails the render instead of degrading.
+    throwIfSubPageDataUnknown(
+      tideMetaForIndexing ?? tempMetaForIndexing,
+      `generateBeachSubPageMetadata:${pageType}`,
+    );
 
     const meta = buildPageMetadata({
       title,
@@ -428,15 +435,11 @@ export async function generateBeachSubPageMetadata({
     ]);
     const hasSubPageData =
       pageType === "tides"
-        ? hasSubPageDataOrUnknown(
-            tideMetaForIndexing,
-            Boolean(
-              tideMetaForIndexing?.nextHighTime ||
-                tideMetaForIndexing?.nextLowTime,
-            ),
+        ? Boolean(
+            tideMetaForIndexing?.nextHighTime ||
+              tideMetaForIndexing?.nextLowTime,
           )
-        : hasSubPageDataOrUnknown(tempMetaForIndexing, tempMetaForIndexing?.tempF != null) ||
-          isGscPerformanceProtected(subPagePath);
+        : tempMetaForIndexing?.tempF != null || isGscPerformanceProtected(subPagePath);
     const forecastCoverage = forecastCoverageFor(snapshots, beach.id);
     const indexable = isBeachSubPageIndexable(
       forecastCoverage,

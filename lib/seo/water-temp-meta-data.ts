@@ -11,6 +11,7 @@ import {
   SUB_PAGE_DATA_UNKNOWN,
   SubPageDataUnavailableError,
   createLastGoodSubPageData,
+  isProgrammingError,
   reportSubPageDataUnavailable,
   subPageErrorMessage,
 } from "@/lib/seo/sub-page-data-availability";
@@ -85,6 +86,7 @@ async function readNewestWaterTemp(beachId: string): Promise<string | null> {
   try {
     supabase = await createSupabaseServiceRoleClient();
   } catch (error) {
+    if (isProgrammingError(error)) throw error;
     throw new SubPageDataUnavailableError(WATER_TEMP_META_SOURCE, subPageErrorMessage(error));
   }
 
@@ -114,6 +116,7 @@ async function readNewestWaterTemp(beachId: string): Promise<string | null> {
         .limit(1)
         .single();
     } catch (error) {
+      if (isProgrammingError(error)) throw error;
       throw new SubPageDataUnavailableError(WATER_TEMP_META_SOURCE, subPageErrorMessage(error));
     }
     const { data: forecast, error } = response;

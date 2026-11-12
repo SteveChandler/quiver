@@ -142,6 +142,34 @@ describe("getTideMetaData read failures", () => {
   });
 });
 
+describe("programming errors inside the read", () => {
+  // A client without from(): the query call itself throws a TypeError. That is
+  // a code bug, not an outage, so it is not wrapped as a failed read.
+  it("lets a TypeError from the tide query propagate without a report", async () => {
+    const { tides, createClient, captureException } = freshModules();
+    createClient.mockResolvedValue({});
+
+    await expect(tides.getTideMetaData("beach-a", "America/Los_Angeles")).rejects.toThrow(TypeError);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("lets a TypeError from the water-temp query propagate without a report", async () => {
+    const { waterTemp, createClient, captureException } = freshModules();
+    createClient.mockResolvedValue({});
+
+    await expect(waterTemp.getWaterTempMetaData("beach-a")).rejects.toThrow(TypeError);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("lets a ReferenceError from client creation propagate without a report", async () => {
+    const { tides, createClient, captureException } = freshModules();
+    createClient.mockRejectedValue(new ReferenceError("supabaseUrl is not defined"));
+
+    await expect(tides.getTideMetaData("beach-a", "America/Los_Angeles")).rejects.toThrow(ReferenceError);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+});
+
 describe("getWaterTempMetaData read failures", () => {
   it("marks a failed read unknown when there is no last good read", async () => {
     const { waterTemp, createClient, captureException } = freshModules();

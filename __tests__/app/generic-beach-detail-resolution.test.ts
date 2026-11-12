@@ -172,6 +172,20 @@ jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
 }));
 
+// The service-role client double here does not model tide queries; the tide
+// reader now lets that TypeError propagate, so stub the reader like water temp.
+jest.mock("@/lib/seo/tide-meta-data", () => ({
+  getTideMetaData: jest.fn().mockResolvedValue({
+    source: null,
+    nextHighTime: "2:30 PM",
+    nextLowTime: "8:45 AM",
+    nextHighHeight: 4.2,
+    nextLowHeight: 0.4,
+    nextHighAt: null,
+    nextLowAt: null,
+  }),
+}));
+
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
   StickySignupBar: () => null,
 }));

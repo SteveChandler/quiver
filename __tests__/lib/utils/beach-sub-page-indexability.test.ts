@@ -224,34 +224,31 @@ describe("beach sub-page metadata indexability", () => {
       wetsuitRec: null,
       availability: "sub-page-data-unknown" as const,
     };
+    const MEXICO_BEACH = { ...UNREVIEWED_BEACH, id: "beach-mx", slug: "san-miguel", name: "San Miguel", city: "Ensenada", state: "Baja California", country: "Mexico" };
+    const cases = [
+      ["US", UNREVIEWED_BEACH, "/ca/la-jolla/windansea", undefined],
+      ["Mexico", MEXICO_BEACH, "/mexico/baja-california/ensenada/san-miguel", { region: "baja-california", city: "ensenada" }],
+    ] as const;
 
-    it("keeps a tides page indexable", async () => {
+    // The metadata throws so the render fails and ISR keeps the last good page,
+    // instead of storing noindex or a thin index page for an hour.
+    it.each(cases)("fails %s tides metadata instead of storing noindex", async (_label, row, beachPath, expectedMexicoLocation) => {
+      (getBeachBySlugOrId as jest.Mock).mockResolvedValue(row);
       (getTideMetaData as jest.Mock).mockResolvedValue(UNKNOWN_TIDES);
 
-      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "tides", beachPath: "/ca/la-jolla/windansea" });
-
-      expect(meta.robots).toMatchObject({ index: true, follow: true });
+      await expect(
+        generateBeachSubPageMetadata({ beachSlug: row.slug, pageType: "tides", beachPath, expectedMexicoLocation }),
+      ).rejects.toMatchObject({ name: "SubPageDataUnknownError" });
     });
 
-    it("keeps a water-temp page indexable", async () => {
+    it.each(cases)("fails %s water-temp metadata instead of storing noindex", async (_label, row, beachPath, expectedMexicoLocation) => {
+      (getBeachBySlugOrId as jest.Mock).mockResolvedValue(row);
       (getWaterTempMetaData as jest.Mock).mockResolvedValue(UNKNOWN_WATER_TEMP);
-      // Windansea's water-temp page is GSC-protected; take that path out.
       jest.mocked(isGscPerformanceProtected).mockReturnValue(false);
 
-      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "water-temp", beachPath: "/ca/la-jolla/windansea" });
-
-      expect(meta.robots).toMatchObject({ index: true, follow: true });
-    });
-
-    it("still applies the forecast gate", async () => {
-      (getTideMetaData as jest.Mock).mockResolvedValue(UNKNOWN_TIDES);
-      (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(
-        new Map([[UNREVIEWED_BEACH.id, { ...FRESH_SNAPSHOT, forecastFresh: false, isStale: true }]]),
-      );
-
-      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "tides", beachPath: "/ca/la-jolla/windansea" });
-
-      expect(meta.robots).toMatchObject({ index: false, follow: true });
+      await expect(
+        generateBeachSubPageMetadata({ beachSlug: row.slug, pageType: "water-temp", beachPath, expectedMexicoLocation }),
+      ).rejects.toMatchObject({ name: "SubPageDataUnknownError" });
     });
   });
 });

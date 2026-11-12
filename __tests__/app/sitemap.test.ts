@@ -2152,6 +2152,49 @@ describe("Sitemap Generation", () => {
       expect(urls).toContain(`${baseUrl}/ca/encinitas/last-good/water-temp`);
     });
 
+    it("does not store a failed coverage read in the data cache; the next request reads again", async () => {
+      // A cache double that, like unstable_cache, keeps what the loader resolves
+      // per key and serves it on the next call.
+      const stored = new Map<string, unknown>();
+      (unstable_cache as jest.Mock).mockImplementation(
+        (loader: () => Promise<unknown>, keyParts: string[]) => async () => {
+          const key = keyParts.join("|");
+          if (stored.has(key)) return stored.get(key);
+          const value = await loader();
+          stored.set(key, value);
+          return value;
+        },
+      );
+      const coverageKeys = () => [...stored.keys()].filter((key) => key.startsWith("beach-sub-page-coverage|"));
+      try {
+        (getBeaches as jest.Mock).mockResolvedValue({ success: true, data: [beachRow("cache-fail")] });
+        (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(failingClient());
+
+        await sitemap();
+        expect(coverageKeys()).toHaveLength(0);
+
+        (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+          from: jest.fn((table: string) => createCoverageQueryMock(table)),
+        });
+        const urls = (await sitemap()).map((route) => route.url);
+
+        expect(coverageKeys()).toHaveLength(1);
+        expect(urls).toContain(`${baseUrl}/ca/encinitas/cache-fail/tides`);
+      } finally {
+        (unstable_cache as jest.Mock).mockImplementation((fn: unknown) => fn);
+      }
+    });
+
+    it("lets a TypeError from the coverage query propagate without a report", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({ success: true, data: [beachRow("client-type-error")] });
+      // A client without from(): the query call throws a TypeError, a code bug.
+      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({});
+      jest.mocked(Sentry.captureException).mockClear();
+
+      await expect(sitemap()).rejects.toThrow(TypeError);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
     it("lets an unrelated TypeError propagate without a report", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({ success: true, data: [beachRow("type-error")] });
       (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
