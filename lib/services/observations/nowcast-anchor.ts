@@ -36,6 +36,10 @@ type FetchOptions = {
 
 export const REQUEST_REPORT_WINDOW_MS = 5 * 60 * 1000;
 
+// Module state, so the window is per server instance: N warm instances in an
+// outage send up to N events per window. Failures suppressed inside a window are
+// counted and sent as suppressed_since_last_report on the next report; if no
+// later failure comes on this instance, that count is lost.
 let lastRequestReportAt: number | null = null;
 let suppressedRequestReports = 0;
 

@@ -200,7 +200,7 @@ export interface SwellAlertCandidate {
   boardName?: string | null;
   /** An NWS statement in effect at this beach, named in the push. */
   hazard?: "high_surf" | "high_rip_current" | null;
-  /** The NWS advisory read failed, so `hazard` is unknown rather than "none in effect". */
+  /** The NWS advisory read failed and no ledger advisory named a hazard, so the push has no hazard line. */
   hazardLookupFailed?: true;
   /** The daily call's go window on the peak day, edges snapped to tide, wind and light. */
   window?: RefinedWindow | null;
@@ -463,26 +463,42 @@ class HazardLookupFailureLog {
 
 type LoadNwsAdvisories = typeof loadNwsSwellAdvisories;
 
+/** How long a failed zone fetch is reused before the next beach in that zone tries again. */
+export const NWS_FAILURE_REUSE_MS = 60_000;
+
 /**
- * One run's NWS reader: after a zone's fetch fails, later beaches in that zone
- * get the same error without a new fetch. Only failures are shared; a success
- * is re-read per beach (the adapter's own cache serves it) because the adapter
- * scopes its advisories to the beach it was asked for.
+ * One run's NWS reader. A zone fetch that fails is tried once more at once; if
+ * that also fails, beaches in the zone get the same error for
+ * NWS_FAILURE_REUSE_MS, then the next one fetches again. A short reuse window,
+ * not a run-wide one, so one api.weather.gov blip does not strip the hazard line
+ * from every push in the zone for the rest of the run. A success is never shared:
+ * the adapter scopes its advisories to the beach that asked (its own cache serves
+ * the repeat).
  */
 export function createRunNwsAdvisoryLoader(load: LoadNwsAdvisories = loadNwsSwellAdvisories): LoadNwsAdvisories {
-  const firstAttempt = new Map<string, Promise<{ error: unknown } | null>>();
-  return async (input) => {
+  const attempts = new Map<string, Promise<{ error: unknown; at: number } | null>>();
+  const read: LoadNwsAdvisories = async (input) => {
     const zone = input.zone?.trim().toUpperCase() ?? "";
-    const prior = firstAttempt.get(zone);
+    const prior = attempts.get(zone);
     if (prior) {
       const failed = await prior;
-      if (failed) throw failed.error;
-      return load(input);
+      if (!failed) return load(input);
+      if (Date.now() - failed.at < NWS_FAILURE_REUSE_MS) throw failed.error;
+      // Another beach may already have started the fresh attempt; share it.
+      if (attempts.get(zone) !== prior) return read(input);
     }
-    const attempt = load(input);
-    firstAttempt.set(zone, attempt.then(() => null, (error: unknown) => ({ error })));
+    const attempt = load(input).catch(() => load(input));
+    const outcome = attempt.then(
+      () => {
+        if (attempts.get(zone) === outcome) attempts.delete(zone);
+        return null;
+      },
+      (error: unknown) => ({ error, at: Date.now() }),
+    );
+    attempts.set(zone, outcome);
     return attempt;
   };
+  return read;
 }
 
 function increment(summary: SwellAlertRunSummary, reason: string): void {
@@ -841,9 +857,10 @@ async function evaluatePool(
       officialEvidenceRefs,
       boardName: recommendBoard(boardsForPicks, peakForecast, beach, profile.experienceLevel)?.name ?? null,
       hazard: inEffect("high_surf") ? "high_surf" : inEffect("high_rip_current") ? "high_rip_current" : null,
-      ...(hazardLookupFailed ? { hazardLookupFailed: true as const } : {}),
       window,
     };
+    // Counted only when the failure left the push without a hazard line; a ledger advisory still names one.
+    if (hazardLookupFailed && candidate.hazard === null) candidate.hazardLookupFailed = true;
     return candidate;
   }));
 
