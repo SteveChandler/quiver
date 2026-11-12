@@ -48,6 +48,19 @@ function isQuiverHost(hostname: string, requestHost: string): boolean {
  * Both apps put the session page URL (`/sessions/{id}`) in the card's `shareUrl`.
  * A URL on another host is not a Quiver session page, so it gives no id.
  */
+/** True only for an http(s) URL on a Quiver host; look-alikes and malformed URLs fail. */
+export function isQuiverShareUrl(value: string, requestHost: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") &&
+      isQuiverHost(url.hostname, requestHost)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function sessionIdFromShareUrl(
   value: string | null,
   requestHost: string,

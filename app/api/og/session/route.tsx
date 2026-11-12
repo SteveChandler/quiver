@@ -12,6 +12,7 @@ import {
   formatShareWaveSize,
 } from "@/lib/share/session-share-card-details";
 import {
+  isQuiverShareUrl,
   lookupPublicSessionShare,
   sessionIdFromShareUrl,
 } from "@/lib/share/public-session-share-record";
@@ -444,16 +445,18 @@ function SessionShareCard({
             >
               Open this session on Quiver
             </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 24,
-                fontWeight: 700,
-                color: SHARE_CARD_COLORS.muted,
-              }}
-            >
-              {footer}
-            </div>
+            {footer ? (
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: SHARE_CARD_COLORS.muted,
+                }}
+              >
+                {footer}
+              </div>
+            ) : null}
           </div>
           <div
             style={{
@@ -488,9 +491,10 @@ async function renderSessionShareCard(request: NextRequest): Promise<Response> {
   const useJpeg = searchParams.get("format") === "jpeg";
   try {
     const param = (name: string): string => searchParams.get(name) || "";
+    const requestHost = new URL(request.url).host;
     const sessionId = sessionIdFromShareUrl(
       searchParams.get("shareUrl"),
-      new URL(request.url).host,
+      requestHost,
     );
     const lookup = sessionId ? await lookupPublicSessionShare(sessionId) : null;
     const stored = lookup?.status === "found" ? lookup.record : null;
@@ -519,9 +523,14 @@ async function renderSessionShareCard(request: NextRequest): Promise<Response> {
     const tagline = truncate(stored?.tagline || param("tagline"), 64);
     const date = truncate(stored?.date || param("date"), 32);
     const bg = trustedBackgroundUrl(searchParams.get("bg"));
+    const shareUrl = searchParams.get("shareUrl");
+    // Only a Quiver address is printed. For any other host the card keeps its
+    // "Open this session on Quiver" line and shows no address.
     const footer = truncate(
-      searchParams.get("shareUrl")
-        ? `Open this session at ${formatShareUrl(searchParams.get("shareUrl") || "")}`
+      shareUrl
+        ? isQuiverShareUrl(shareUrl, requestHost)
+          ? `Open this session at ${formatShareUrl(shareUrl)}`
+          : ""
         : searchParams.get("footer") || "Free surf forecasts and session tracking by Quiver",
       86,
     );

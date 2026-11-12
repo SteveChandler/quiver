@@ -285,3 +285,38 @@ describe("session share card for a stored session", () => {
     expect(cardProps().stars).toBe(4);
   });
 });
+
+describe("session share card footer address", () => {
+  const footerFor = async (shareUrl: string): Promise<unknown> => {
+    await render(
+      `beach=La+Fonda&stars=4&shareUrl=${encodeURIComponent(shareUrl)}`,
+    );
+    return cardProps().footer;
+  };
+
+  it("prints the address of a Quiver share URL", async () => {
+    expect(await footerFor("https://www.quiversurf.app/sessions/abc")).toBe(
+      "Open this session at quiversurf.app/sessions/abc",
+    );
+  });
+
+  it.each([
+    ["a foreign host", "https://evil.example/sessions/abc"],
+    [
+      "a look-alike host with the Quiver name first",
+      "https://quiversurf.app.evil.example/sessions/abc",
+    ],
+    [
+      "a look-alike host that ends in the Quiver name",
+      "https://evilquiversurf.app/sessions/abc",
+    ],
+    ["a malformed URL", "not a url"],
+  ])("prints no address for %s", async (_label, shareUrl) => {
+    const footer = await footerFor(shareUrl);
+
+    expect(footer).toBe("");
+    const markup = cardMarkup();
+    expect(markup).toContain("Open this session on Quiver");
+    expect(markup).not.toMatch(/evil|not a url/);
+  });
+});
