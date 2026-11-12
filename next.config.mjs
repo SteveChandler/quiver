@@ -54,7 +54,7 @@ const nextConfig = {
   turbopack: {},
 
   // External packages for server components (moved from experimental)
-  serverExternalPackages: ["@supabase/supabase-js", "geo-tz", "firebase-admin"],
+  serverExternalPackages: ["@supabase/supabase-js", "geo-tz", "firebase-admin", "h5wasm"],
 
   // @vercel/og only uses sharp when it is installed and otherwise renders with
   // resvg. With geo-tz already traced, sharp's libvips pushed this function past

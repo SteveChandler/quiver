@@ -21,3 +21,23 @@ npx tsx --conditions=import scripts/tides/validate-fes2022.ts --raw /tmp/fes-raw
 ```
 
 The list step reads `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) and NOAA's current tide prediction stations. `--conditions=import` loads the model predictor's ESM-only package in these scripts. Review unresolved points and the validation report before using the catalog.
+
+# Public tide station registry (`/tides`)
+
+`scripts/tides/data/tide-stations.json.gz` holds every station behind `/tides/station/{slug}`: NOAA CO-OPS tide prediction stations plus TICON-4 gauges whose GESLA provider allows commercial use (see `lib/tide-stations/licence.ts`). Raw downloads stay out of git:
+
+- NOAA: `https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions`
+- TICON-4 (CC BY 4.0, https://doi.org/10.17882/109129): `https://www.seanoe.org/data/00980/109129/data/122848.csv` (47,420,699 bytes, sha256 `cea4a8d11cea3d7a5db02d3b75662c32a1459c262c4427b0eb28bb4fca5de366` as of 2026-11-10)
+
+Rebuild the seed file (macOS `zone.tab` maps time zones to countries; pass `--zone-tab` elsewhere). TICON datums take about half a second per gauge:
+
+```sh
+node --conditions=import --import tsx scripts/tides/build-tide-station-registry.ts --noaa /tmp/noaa-stations.json --ticon /tmp/ticon4.csv > /tmp/tide-registry-report.json
+```
+
+Load it after `supabase/migrations/20261111090000_create_tide_stations.sql` is applied. The upsert is idempotent; it writes to the database in `.env.local`, so run it only with approval:
+
+```sh
+node --import tsx scripts/tides/seed-tide-stations.ts --dry-run
+node --import tsx scripts/tides/seed-tide-stations.ts
+```

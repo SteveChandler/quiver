@@ -2,7 +2,7 @@
 
 Practical reference for maintaining visual consistency. Use semantic tokens (CSS variables, Tailwind theme, shadcn/ui components) rather than hardcoded values.
 
-**Source of truth:** `app/globals.css` (CSS custom properties), `tailwind.config.ts` (theme extensions), `components/ui/` (shared components).
+**Source of truth:** `soul.md` (Visual and brand direction) sets the direction. The tokens are in `app/styles/zine.css` (zine palette and type), `app/globals.css` (theme CSS variables), and `tailwind.config.ts` (theme extensions). The primitives are in `components/zine/` and `components/ui/`. When this file and the code disagree, the code is correct; update this file.
 
 ---
 
@@ -92,13 +92,13 @@ Font families loaded via CSS variables: DM Sans (default sans), Space Grotesk (h
 | Body text         | `text-sm` or `text-base`                           |
 | Caption / Helper  | `text-xs text-muted-foreground`                    |
 
-The Space Grotesk / DM Sans / Space Mono trio above remains the core hierarchy and is still accurate. On **zine surfaces** the zine layer adds display and marker fonts for headings and hand-lettered accents — see §5 for the full list.
+The Space Grotesk / DM Sans / Space Mono trio above is the core hierarchy. On **zine surfaces** the zine layer adds one display cut of Space Grotesk Bold for headings. There is no handwritten or marker face. See §5.
 
 ---
 
 ## 5. Font Family Rules
 
-Three font families are loaded via Google Fonts and configured as CSS variables:
+Three font families are loaded through `next/font/google` and configured as CSS variables:
 
 | Font | Tailwind Class | CSS Variable | Usage |
 |------|---------------|-------------|-------|
@@ -238,20 +238,21 @@ A rating never appears without its call, in the same words as native. Build it w
 
 ## 10. Brand Colors
 
-**Direction:** Quiver is zine-first — cream paper content on a twilight stage. See `app/styles/zine.css` (canonical tokens) and the Design Context in `CLAUDE.md`. The dark card surfaces below are legacy stage-layer values.
+**Direction:** Quiver is zine-first — cream paper content on a twilight stage. See `app/styles/zine.css` (canonical tokens) and Visual and brand direction in `soul.md`. The dark card surfaces below are legacy stage-layer values.
 
-The app uses a **cream-paper-on-twilight model**: a deep twilight gradient is the page **stage** (backdrop only), and cream paper with ink text is the **default content surface** — content lives on paper, not on the dark stage. Charming Orange remains the **primary action color**. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` but now maps to `#F78E42` (Charming Orange) — do not assume it is blue or pink. Accents tuned for dark backgrounds do not survive on cream: orange on paper is for fills/marks/stamps, not small body text, and secondary text on paper uses reduced-opacity ink, never the white-on-dark tiers.
+The app uses a **cream-paper-on-twilight model**: a deep twilight gradient is the page **stage** (backdrop only), and cream paper with ink text is the **default content surface** — content lives on paper, not on the dark stage. Charming Orange remains the **primary action color**. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` and maps to `#9E5010` (dark orange); `.theme-retro-dark` paints filled `bg-ocean-blue` buttons `#F78E42` — do not assume it is blue or pink. Accents tuned for dark backgrounds do not survive on cream: orange on paper is for fills/marks/stamps, not small body text, and secondary text on paper uses reduced-opacity ink, never the white-on-dark tiers.
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `ocean-blue` | `#F78E42` | **Primary action color** -- CTAs, links, active states, buttons (token retained; value is now Charming Orange) |
-| `sunset-orange` | `#FF7F11` | Secondary accent -- warm highlights, badges, decorative emphasis |
-| `sandy-beige` | `#F5F5DC` | Decorative -- beach-detail gradient background (1 usage, keep) |
+| `ocean-blue` | `#9E5010` | **Primary action color** -- CTAs, links, active states, buttons. `.theme-retro-dark` paints filled `bg-ocean-blue` buttons Charming Orange `#F78E42` (see CSS custom property below) |
+| `ocean-blue-decorative` | `#F78E42` | Charming Orange fills and marks |
+| `sunset-orange` | `#FDB84B` | Secondary accent (Paradise Gold value) -- warm highlights, badges |
+| `sandy-beige` | `#2D357D` | Legacy dark card value despite the name; do not use for new work |
 | `dark-grey` | `#333333` | High-contrast text |
 
 ### Zine palette: stage vs. paper
 
-The page is built in two layers. The twilight stage is the backdrop only; cream paper is the default content surface. Apply these directly (not tokenized as Tailwind colors — use `bg-[#...]` or CSS custom properties), and prefer the `app/styles/zine.css` tokens.
+The page is built in two layers. The twilight stage is the backdrop only; cream paper is the default content surface. Inside a zine surface (`.zine-tab`), use the `app/styles/zine.css` custom properties, for example `var(--paper)` and `var(--ink)`. Those properties are declared only under `.zine-tab`. Outside it, use the Tailwind tokens (`bg-paper`, `text-ink`, `text-kicker-ink`). Use a raw `bg-[#...]` value only when no token exists, and name the token it copies.
 
 **(a) Twilight stage (backdrop only)**
 
@@ -297,10 +298,10 @@ Use Tailwind opacity modifiers instead of separate dark tokens:
 
 ### Do / Don't
 
-- **Do** use `ocean-blue` (Charming Orange `#F78E42`) for all primary actions and CTAs
-- **Do** use `#4A70D9` (Twilight Blue) for links and secondary highlights in dark contexts
-- **Do** use `#FDB84B` (Paradise Gold) for badges and energy/rating indicators
-- **Do** use `#D3408B` (Valentina Pink) sparingly as a tertiary pop color
+- **Do** use `ocean-blue` (rendered Charming Orange `#F78E42` on filled buttons) for all primary actions and CTAs
+- **Do** use `#4A70D9` (Twilight Blue) for links and secondary highlights on the stage only, never on paper
+- **Do** use `#FDB84B` (Paradise Gold) for badges and rating marks on the stage; on paper use gold ink `#8A5E00`
+- **Do** use `#D3408B` (Valentina Pink) only on the stage (legacy, see above)
 - **Don't** use `#0077B6` anywhere -- that is the old corporate blue and has been replaced
 - **Don't** use `#FF3B8B` (old hot pink) -- replaced by Charming Orange `#F78E42`
 - **Don't** use `#0B1426` (old deep navy) -- replaced by Deep Twilight `#252D6B`
@@ -355,7 +356,7 @@ On the twilight stage (Deep Twilight `#252D6B`), its `#0D1020` chrome, and the m
 
 Both `text-high` and `text-medium` are CSS utility classes defined in `app/globals.css` under `@layer utilities`. They are not Tailwind theme tokens — use the class names directly.
 
-`text-muted-foreground` (`#9AABC6`) is separate from this system. It comes from the shadcn/ui theme and is intended for UI chrome (form labels, helper text inside UI components). Do not substitute it for `text-medium` on dark surfaces.
+`text-muted-foreground` (`#B0BFDA` under `.theme-retro-dark`, from `app/globals.css`; the base variable is `#B8C7E0`) is separate from this system. It comes from the shadcn/ui theme and is intended for UI chrome (form labels, helper text inside UI components). Do not substitute it for `text-medium` on dark surfaces.
 
 ### Ink-on-paper (cream content surfaces)
 
@@ -434,8 +435,8 @@ Cards, panels, photos, labels and buttons sit square: no tilt (`.rot-*` is a no-
 Each class sets `position: relative; isolation: isolate` on the element and injects a full-bleed `::after` pseudo-element with `mix-blend-mode: overlay`. The grain layer sits on top of the content at `z-index: 1` with `pointer-events: none`, so it never interferes with interaction.
 
 ```tsx
-// Card with standard grain
-<div className="noise-texture rounded-xl bg-[#2D357D] p-4">
+// Stage panel with standard grain (content cards sit on cream paper, see §10)
+<div className="noise-texture rounded-xl bg-[#252D6B] p-4">
   ...
 </div>
 
@@ -484,4 +485,4 @@ Each class sets `position: relative; isolation: isolate` on the element and inje
 ## Asset Notes
 
 - `public/fonts/` directories (Inter, Roboto, OpenSans, Montserrat, NotoSans) are used by `scripts/fetch-fonts.mjs` for Satori OG image rendering. Do not delete.
-- Fonts for web pages are loaded via Google Fonts CDN (configured in layout.tsx).
+- Fonts for web pages are loaded through `next/font` (configured in `app/layout.tsx`): Google Fonts, plus the local display cut in `app/fonts/`.

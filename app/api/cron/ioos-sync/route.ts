@@ -282,12 +282,17 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
 
       // Safety cap: if discovery found <50% of active stations, skip deactivation
       // (ERDDAP catalog may be partially down; activeCount includes just-upserted stations by design)
-      const { count: activeCount } = await supabase
+      const { count: activeCount, error: activeCountError } = await supabase
         .from("ioos_stations")
         .select("*", { count: "exact", head: true })
         .eq("active", true);
 
-      if (seenIds.length < (activeCount ?? 0) * 0.5) {
+      if (activeCountError || activeCount === null) {
+        // Without the active count the safety cap cannot run, so miss counters must not move
+        result.errors.push(
+          `Failed to count active stations; skipped deactivation: ${activeCountError?.message ?? "count missing"}`
+        );
+      } else if (seenIds.length < activeCount * 0.5) {
         console.warn(
           `[IOOS] Discovery found only ${seenIds.length}/${activeCount} active stations. Skipping deactivation to prevent mass-deactivation from incomplete ERDDAP results.`
         );

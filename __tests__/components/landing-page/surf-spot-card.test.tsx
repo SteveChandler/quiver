@@ -144,8 +144,8 @@ describe("SurfSpotCard", () => {
     it("renders numeric wave height via formatWaveHeightRange", () => {
       // Numeric path still uses the formatter (backward compat)
       render(<SurfSpotCard {...defaultProps} waveHeight={3} />);
-      // Surfline-parity: floor(3)=3, ceil(3)=3 → "3ft" (no × 1.5 expansion).
-      expect(screen.getByText("3ft")).toBeInTheDocument();
+      // A whole number reads as the band below it, like native: 3 → "2-3ft".
+      expect(screen.getByText("2-3ft")).toBeInTheDocument();
     });
   });
 });

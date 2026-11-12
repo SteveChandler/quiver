@@ -44,6 +44,8 @@ const customJestConfig = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
     "^@neaps/tide-predictor$": "<rootDir>/node_modules/@neaps/tide-predictor/dist/index.js",
+    // ESM-only, "import" condition only (the Copernicus NetCDF reader).
+    "^h5wasm$": "<rootDir>/node_modules/h5wasm/dist/esm/hdf5_hl.js",
     // Mock the realtime module specifically
     "^@supabase/realtime-js$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     // Mock canvas module that jsdom tries to require
@@ -57,7 +59,7 @@ const customJestConfig = {
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
-    "node_modules/(?!(@supabase|@supabase/.*/?|@neaps|jose|uuid|date-fns|supercluster|kdbush|@vercel/speed-insights)/)",
+    "node_modules/(?!(@supabase|@supabase/.*/?|@neaps|jose|uuid|date-fns|supercluster|kdbush|@vercel/speed-insights|h5wasm)/)",
   ],
   // Add module file extensions
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],
@@ -110,7 +112,7 @@ const customJestConfig = {
 module.exports = async () => {
   const config = await createJestConfig(customJestConfig)();
   config.transformIgnorePatterns = config.transformIgnorePatterns.map(
-    (pattern) => pattern.replace("(geist|", "(@neaps/tide-predictor|geist|")
+    (pattern) => pattern.replace("(geist|", "(@neaps/tide-predictor|h5wasm|geist|")
   );
   return config;
 };

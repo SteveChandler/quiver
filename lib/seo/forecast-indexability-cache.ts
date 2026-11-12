@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { unstable_cache } from "next/cache";
 
 import {
+  ForecastIndexabilityUnavailableError,
   getForecastIndexabilityForBeaches,
   type ForecastIndexabilityBeach,
   type ForecastIndexabilitySnapshot,
@@ -34,5 +36,14 @@ export async function getCachedForecastIndexabilitySnapshots(
     { revalidate: FORECAST_INDEXABILITY_REVALIDATE_SECONDS },
   );
 
-  return new Map(await load());
+  try {
+    return new Map(await load());
+  } catch (error) {
+    if (!(error instanceof ForecastIndexabilityUnavailableError)) throw error;
+    // This request treats every beach as forecast-missing, as before; the
+    // failure is reported and the next request reads again.
+    console.error(error.message);
+    Sentry.captureException(error, { tags: { area: "seo-indexability" } });
+    return new Map();
+  }
 }

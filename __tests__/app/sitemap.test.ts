@@ -36,6 +36,7 @@ import {
 } from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { getTideStationSitemapRoutes } from "@/lib/tide-stations/sitemap";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import {
   getForecastIndexabilityForBeaches,
@@ -44,6 +45,7 @@ import {
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import { tideExtremesWindow } from "@/lib/seo/tide-meta-data";
 import { unstable_cache } from "next/cache";
+import { listStations } from "@/lib/services/wave-stations";
 
 const BEACH_WITH_FRESH_FORECAST = {
   id: "windansea",
@@ -103,6 +105,16 @@ jest.mock("@/lib/seo/forecast-indexability", () => ({
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
+}));
+
+jest.mock("@/lib/services/wave-stations", () => ({
+  listStations: jest.fn(async () => []),
+}));
+
+// Tide station URLs come from their own registry query (covered in
+// __tests__/lib/tide-stations); here only their place in the flat sitemap matters.
+jest.mock("@/lib/tide-stations/sitemap", () => ({
+  getTideStationSitemapRoutes: jest.fn(async () => []),
 }));
 
 // Coverage is no longer "a row exists" -- the sitemap now runs the same
@@ -466,6 +478,48 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/florida`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/cams/hawaii`)).toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/hawaii`)).not.toBeUndefined();
+    });
+  });
+
+  describe("Buoy Routes", () => {
+    it("lists indexable buoy stations and their hubs, and skips buoys on a read failure", async () => {
+      jest.mocked(listStations).mockResolvedValueOnce([
+        {
+          slug: "torrey-pines-outer-ca-46225",
+          country_code: "US",
+          region: "CA",
+          active: true,
+          has_wave: true,
+          last_wave_observed_at: new Date(Date.now() - 30 * 60_000).toISOString(),
+        },
+        {
+          slug: "retired-buoy-1",
+          country_code: "US",
+          region: "CA",
+          active: true,
+          has_wave: true,
+          last_wave_observed_at: "2025-01-01T00:00:00Z",
+        },
+      ] as never);
+      const urls = (await sitemap()).map((route) => route.url);
+      expect(urls).toEqual(
+        expect.arrayContaining([
+          `${baseUrl}/buoys`,
+          `${baseUrl}/buoys/us`,
+          `${baseUrl}/buoys/us/ca`,
+          `${baseUrl}/buoys/station/torrey-pines-outer-ca-46225`,
+        ]),
+      );
+      expect(urls).not.toContain(`${baseUrl}/buoys/station/retired-buoy-1`);
+
+      jest.mocked(listStations).mockRejectedValueOnce(
+        new Error("Could not find the table 'public.wave_stations' in the schema cache"),
+      );
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      const withoutBuoys = (await sitemap()).map((route) => route.url);
+      expect(withoutBuoys.some((url) => url.includes("/buoys"))).toBe(false);
+      expect(withoutBuoys).toContain(`${baseUrl}/blog`);
+      warn.mockRestore();
     });
   });
 
@@ -1898,6 +1952,23 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Combined Sitemap", () => {
+    it("adds tide hub and station URLs from the tide registry", async () => {
+      (getTideStationSitemapRoutes as jest.Mock).mockResolvedValueOnce([
+        { url: `${baseUrl}/tides` },
+        { url: `${baseUrl}/tides/station/la-jolla-scripps-institution-wharf-ca-9410230` },
+      ]);
+
+      const result = await sitemap();
+
+      expect(getTideStationSitemapRoutes).toHaveBeenCalledWith(baseUrl);
+      expect(result.map((r) => r.url)).toEqual(
+        expect.arrayContaining([
+          `${baseUrl}/tides`,
+          `${baseUrl}/tides/station/la-jolla-scripps-institution-wharf-ca-9410230`,
+        ]),
+      );
+    });
+
     it("should include all route types in single sitemap", async () => {
       // Beach is in "San Diego" — add a La Jolla beach so validCitySlugs includes it
       (getBeaches as jest.Mock).mockResolvedValue({

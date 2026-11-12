@@ -37,18 +37,23 @@ export async function acquireSwellWatchCohort(
     onStage?.("acquisition_scope");
     const scopes = await loadSwellWatchAcquisitionScope(cohort, client);
     const fetcher: Parameters<typeof acquireProviderRunReceipts>[1] = async (url, init) => {
+      onStage?.("provider_fetch");
       const remaining = providerDeadline - Date.now();
       if (remaining <= 0) throw new Error("provider budget exceeded");
       const timeout = Math.min(PROVIDER_REQUEST_TIMEOUT_MS, remaining);
       const signal = AbortSignal.timeout(timeout);
+      let response: Response;
       try {
-        return await fetch(url, { ...init, signal, cache: "no-store" });
+        response = await fetch(url, { ...init, signal, cache: "no-store" });
       } catch (error) {
         if (Date.now() >= providerDeadline || signal.aborted && timeout === remaining) {
           throw new Error("provider budget exceeded");
         }
         throw error;
       }
+      // Callers reject every non-2xx; tag the retryable ones so the route can tell them from 4xx contract errors.
+      if (response.status === 429 || response.status >= 500) throw new Error("Provider HTTP response is transient");
+      return response;
     };
     onStage?.("provider_fetch");
     return await acquireProviderRunReceipts({ latestAvailableAt: new Date(), forecastDays: 7, scopes }, fetcher, {
