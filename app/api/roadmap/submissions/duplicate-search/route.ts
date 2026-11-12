@@ -1,8 +1,9 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request): Promise<Response> {
+async function handleGet(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim();
 
@@ -29,3 +30,5 @@ export async function GET(req: Request): Promise<Response> {
 
   return Response.json({ matches: data ?? [] });
 }
+
+export const GET = withErrorNoStore(handleGet);

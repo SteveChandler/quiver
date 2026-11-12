@@ -47,6 +47,7 @@ import {
   type TideSeriesClient,
   type TideSeriesSample,
 } from "@/lib/services/tide-series-loader";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -451,7 +452,7 @@ async function loadScoredTideSeries(
 // Route handler
 // ---------------------------------------------------------------------------
 
-export const GET = withNoStore(withAuth(
+const handleGet = withNoStore(withAuth(
   async (request: NextRequest, context) => {
     const params = context.params ?? {};
     const beachId = (params as Record<string, string>).beachId;
@@ -596,3 +597,5 @@ export const GET = withNoStore(withAuth(
   },
   { optional: true, rejectInvalidCredentials: true, errorMessage: "Failed to fetch scored forecast" }
 ));
+
+export const GET = withErrorNoStore(handleGet);

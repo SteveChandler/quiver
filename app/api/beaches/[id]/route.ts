@@ -7,6 +7,7 @@ import {
   handleApiError,
   withBotBlockingAndRateLimit,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const BEACH_DETAIL_SELECT = `
   access_tips,
@@ -129,7 +130,7 @@ async function fetchBeachById(beachId: string): Promise<NextResponse> {
 
 // GET /api/beaches/[id] - fetch a single beach by ID
 // Bot blocking and rate limiting applied to prevent abuse
-export async function GET(
+async function handleGet(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
@@ -143,3 +144,5 @@ export async function GET(
 
   return wrappedHandler(request);
 }
+
+export const GET = withErrorNoStore(handleGet);

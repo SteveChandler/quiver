@@ -16,6 +16,7 @@ import {
   createErrorResponse,
   validateCronRequest,
 } from '@/lib/middleware/api-wrappers';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const HEALTH_RANK: Record<HealthStatus, number> = { healthy: 0, degraded: 1, critical: 2 };
 
@@ -187,4 +188,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/monitoring/forecast-health", _GET, SENTRY_MONITOR);
+const handleGet = withObservedCron("/api/monitoring/forecast-health", _GET, SENTRY_MONITOR);
+
+export const GET = withErrorNoStore(handleGet);

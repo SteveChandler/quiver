@@ -6,6 +6,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Uses the Bearer-aware supabase client from withAuth context so native
  * clients can load this list (server actions use cookie-only auth).
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (request: NextRequest, { supabase, params }: AuthenticatedContext) => {
     const uuidResult = validateUuidParam(params.id, "user");
     if ("error" in uuidResult) return uuidResult.error;
@@ -48,3 +49,5 @@ export const GET = withAuth(
 export function POST() {
   return methodNotAllowed(["GET"]);
 }
+
+export const GET = withErrorNoStore(handleGet);

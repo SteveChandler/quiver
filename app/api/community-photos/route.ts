@@ -11,6 +11,7 @@ import {
   withAuth,
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,10 +50,12 @@ async function getHandler(
   }
 }
 
-export const GET = withCommunityPhotoRouteObservability(
+const handleGet = withCommunityPhotoRouteObservability(
   {
     route: "/api/community-photos",
     surface: "read",
   },
   withAuth(getHandler, { optional: true }),
 );
+
+export const GET = withErrorNoStore(handleGet);

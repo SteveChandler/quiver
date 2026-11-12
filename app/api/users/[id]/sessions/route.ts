@@ -11,6 +11,7 @@ import { isGarminWatchUserAllowed } from "@/lib/flags/garmin-watch";
 import { isSessionImportsUserAllowed } from "@/lib/flags/session-imports";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 async function addOwnerTrackStatus<T extends { id: string }>(
   supabase: OptionalAuthContext["supabase"],
@@ -248,7 +249,7 @@ async function handler(
   });
 }
 
-export const GET = withAuth(handler, {
+const handleGet = withAuth(handler, {
   optional: true,
   errorMessage: "Failed to load user sessions",
 });
@@ -256,3 +257,5 @@ export const GET = withAuth(handler, {
 export function POST() {
   return methodNotAllowed(["GET"]);
 }
+
+export const GET = withErrorNoStore(handleGet);

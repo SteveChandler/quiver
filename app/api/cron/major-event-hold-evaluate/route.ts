@@ -13,6 +13,7 @@ import {
   type MajorEventHoldCacheScope,
 } from "@/lib/recommendations/major-event-hold/cache-invalidation";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -423,7 +424,7 @@ const observedEnabledEvaluation = withObservedCron(
   async (_request: Request) => runEnabledEvaluation(),
 );
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGet(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) {
     return jsonResponse(
       { ok: false, status: "unauthorized", errorCode: "unauthorized" },
@@ -450,3 +451,5 @@ export async function GET(request: Request): Promise<Response> {
 
   return observedEnabledEvaluation(request);
 }
+
+export const GET = withErrorNoStore(handleGet);

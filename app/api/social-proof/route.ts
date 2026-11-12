@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { countRealSurfers } from "@/lib/social-proof/count-real-surfers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ async function socialProofHandler(
   }
 }
 
-export const GET = withBotBlockingAndRateLimit(
+const handleGet = withBotBlockingAndRateLimit(
   socialProofHandler,
   "public-default"
 );
+
+export const GET = withErrorNoStore(handleGet);

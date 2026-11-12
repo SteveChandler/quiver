@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { type NextRequest } from "next/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ async function loadFont(assetBaseUrl: string): Promise<ArrayBuffer | null> {
   }
 }
 
-export async function GET(request: NextRequest): Promise<ImageResponse> {
+async function handleGet(request: NextRequest): Promise<ImageResponse> {
   const requestUrl = new URL(request.url);
   const beachName = queryValue(requestUrl.searchParams, "beachName", "Quiver beach");
   const waveRange = queryValue(requestUrl.searchParams, "waveRange", "—");
@@ -78,3 +79,5 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
     },
   );
 }
+
+export const GET = withErrorNoStore(handleGet);

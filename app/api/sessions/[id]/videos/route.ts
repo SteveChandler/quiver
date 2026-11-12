@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, requireOwnership, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 import type { Database } from "@/types/database.generated";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const MAX_SIZE = 62914560;
 const noStore = (response: NextResponse): NextResponse => { response.headers.set("Cache-Control", "no-store"); return response; };
@@ -39,4 +40,6 @@ export const POST = withAuth(async (request: NextRequest, { params, user, supaba
   return noStore(NextResponse.json({ mediaId: data.id }, { status: 201 }));
 }, { errorMessage: "Failed to finalize session video" });
 
-export const GET = () => error("Method Not Allowed", 405);
+const handleGet = () => error("Method Not Allowed", 405);
+
+export const GET = withErrorNoStore(handleGet);

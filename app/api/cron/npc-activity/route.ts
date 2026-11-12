@@ -30,6 +30,7 @@ import type { Database } from '@/types/database';
 import { withObservedCron } from '@/lib/cron/observability';
 import { withCronOutcome } from '@/lib/cron/outcome';
 import { isPersonaPostingEnabled } from '@/lib/npc/system-card-config';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = 'nodejs';
@@ -237,7 +238,7 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron('/api/cron/npc-activity', _GET);
+const handleGet = withObservedCron('/api/cron/npc-activity', _GET);
 
 /**
  * Select content type based on weighted probability
@@ -399,3 +400,5 @@ async function createFallbackPost(
 
   return createIntelPost(supabase, npc.id, beach, content, timestamp);
 }
+
+export const GET = withErrorNoStore(handleGet);

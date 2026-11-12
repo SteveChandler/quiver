@@ -18,6 +18,7 @@ import {
   type AuthenticatedContext,
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -274,7 +275,7 @@ const intelGetHandler = withAuth(
 );
 
 // Compose: bot blocking + rate limit → optional-auth handler.
-export const GET = withBotBlockingAndRateLimit(
+const handleGet = withBotBlockingAndRateLimit(
   intelGetHandler,
   "public-default"
 );
@@ -460,3 +461,5 @@ export const POST = withAuth(
   },
   { errorMessage: "Failed to create intel post" }
 );
+
+export const GET = withErrorNoStore(handleGet);

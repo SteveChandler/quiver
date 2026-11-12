@@ -1,6 +1,7 @@
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { RoadmapItem, RoadmapItemsResponse, RoadmapStatus } from "@/lib/roadmap/types";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ const ALLOWED_STATUSES: readonly RoadmapStatus[] = [
   "declined",
 ];
 
-export async function GET(req: Request): Promise<Response> {
+async function handleGet(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const statusFilter = url.searchParams.get("status");
 
@@ -65,3 +66,5 @@ export async function GET(req: Request): Promise<Response> {
   const response: RoadmapItemsResponse = { items };
   return Response.json(response);
 }
+
+export const GET = withErrorNoStore(handleGet);

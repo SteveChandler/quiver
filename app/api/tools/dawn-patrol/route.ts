@@ -11,6 +11,7 @@ import {
 import { COOPS_STATIONS } from "@/lib/services/noaa-coops/constants/station-mappings";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import SunCalc from "suncalc";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -217,4 +218,6 @@ async function dawnPatrolHandler(request: NextRequest) {
   }
 }
 
-export const GET = withRateLimit(dawnPatrolHandler, "public-default");
+const handleGet = withRateLimit(dawnPatrolHandler, "public-default");
+
+export const GET = withErrorNoStore(handleGet);

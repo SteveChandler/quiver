@@ -9,6 +9,7 @@ import {
   DEFAULT_SECURITY_HEADERS,
   handleApiError,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 function extractBearerToken(request: NextRequest): string | null {
   const authHeader = request.headers.get("authorization");
@@ -17,7 +18,7 @@ function extractBearerToken(request: NextRequest): string | null {
   return match ? match[1] : null;
 }
 
-export async function GET(request?: NextRequest) {
+async function handleGet(request?: NextRequest) {
   try {
     const bearerToken = request ? extractBearerToken(request) : null;
     if (bearerToken) {
@@ -99,3 +100,5 @@ export async function GET(request?: NextRequest) {
     return handleApiError(error, "Failed to check session");
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

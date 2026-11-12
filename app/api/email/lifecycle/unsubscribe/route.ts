@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { verifyEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 import { lifecycleRpc } from "@/lib/email/lifecycle";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ function userFromRequest(request: Request): string | null {
   return id.success && token && verifyEmailUnsubscribeToken(id.data, token) ? id.data : null;
 }
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGet(request: Request): Promise<Response> {
   if (!userFromRequest(request)) return new Response("Invalid unsubscribe link", { status: 400 });
   // Link scanners cannot change a preference. The signed query survives form POST.
   return new Response('<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribe from Quiver</title><body><main><h1>Stop Quiver lifecycle emails?</h1><form method="post"><button type="submit">Unsubscribe</button></form></main></body></html>', { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
@@ -28,3 +29,5 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Unable to unsubscribe. Please retry.", { status: 503 });
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

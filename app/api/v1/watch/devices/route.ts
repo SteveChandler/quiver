@@ -2,10 +2,11 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { importStartedAt } from "@/lib/sessions/imports/import-start-time";
 import { isGarminWatchUserAllowed } from "@/lib/flags/garmin-watch";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
-export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase }) => {
+const handleGet = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase }) => {
   if (!isGarminWatchUserAllowed(user.id)) return createErrorResponse("not_found", undefined, 404);
   const { data: devices, error: devicesError } = await supabase.from("watch_devices")
     .select("id, user_id, platform, device_uid, device_part_number, device_name, app_version, created_at, last_seen_at, revoked_at")
@@ -48,3 +49,5 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     })),
   });
 }, { errorMessage: "Failed to load watch devices" }), "authenticated-default"));
+
+export const GET = withErrorNoStore(handleGet);

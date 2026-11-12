@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { fetchRealActivitySignals } from "@/lib/analytics/real-activity-signals";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/beaches/[id]/view-count
@@ -46,7 +47,7 @@ async function fetchWatchers(beachId: string): Promise<NextResponse> {
   );
 }
 
-export async function GET(
+async function handleGet(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
@@ -57,3 +58,5 @@ export async function GET(
   );
   return wrappedHandler(request);
 }
+
+export const GET = withErrorNoStore(handleGet);

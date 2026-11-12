@@ -25,6 +25,7 @@ import {
   type CatalogueClient,
 } from "@/lib/services/wave-stations/sync";
 import type { WaveStationSourceAdapter } from "@/lib/services/wave-stations/types";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -181,4 +182,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/wave-stations-sync", _GET);
+const handleGet = withObservedCron("/api/cron/wave-stations-sync", _GET);
+
+export const GET = withErrorNoStore(handleGet);

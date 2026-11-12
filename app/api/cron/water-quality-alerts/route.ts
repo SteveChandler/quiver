@@ -8,6 +8,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { processWaterQualityAlerts } from "@/lib/services/water-quality/water-quality-alerts-service";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -60,4 +61,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/water-quality-alerts", _GET);
+const handleGet = withObservedCron("/api/cron/water-quality-alerts", _GET);
+
+export const GET = withErrorNoStore(handleGet);

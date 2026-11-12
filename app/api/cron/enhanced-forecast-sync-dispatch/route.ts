@@ -21,6 +21,7 @@ import {
   runEnhancedForecastSync,
   runEnhancedForecastSyncHead,
 } from "../enhanced-forecast-sync/_shared";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const maxDuration = 300;
 
@@ -36,6 +37,8 @@ async function _HEAD(request: Request): Promise<Response> {
   return runEnhancedForecastSyncHead(request as NextRequest);
 }
 
-export const GET = _GET;
+const handleGet = _GET;
 export const POST = _POST;
 export const HEAD = _HEAD;
+
+export const GET = withErrorNoStore(handleGet);

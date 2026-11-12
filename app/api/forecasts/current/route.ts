@@ -13,6 +13,7 @@ import { readLatestForecastMetadata } from "@/lib/utils/forecast-service-utils";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -224,7 +225,9 @@ async function currentForecastHandler(
   return response;
 }
 
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   withAuth(currentForecastHandler, { errorMessage: "Failed to load current conditions" }),
   "surf-discovery",
 );
+
+export const GET = withErrorNoStore(handleGet);

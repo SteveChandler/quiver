@@ -9,6 +9,7 @@ import {
 import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from '@/lib/flags/swell-outlook';
 import { loadSwellOutlookForUser } from '@/lib/services/discovery/swell-outlook-loader';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,8 @@ async function outlookHandler(_request: NextRequest, { user }: AuthenticatedCont
   return NextResponse.json(outlook);
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(withAuth(outlookHandler, { errorMessage: 'Error loading swell outlook' }), 'surf-discovery'),
 );
+
+export const GET = withErrorNoStore(handleGet);

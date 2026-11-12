@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { SurfGameScoreSchema } from "@/lib/validation/schemas";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,7 @@ async function readYou(supabase: ScoresTable, userId: string): Promise<{ best: n
   return { best: best.score, rank: (count ?? 0) + 1, initials: best.initials };
 }
 
-export const GET = withErrorHandler(
+const handleGet = withErrorHandler(
   withBotBlockingAndRateLimit(
     withAuth(
       async (request: NextRequest, { user }: OptionalAuthContext) => {
@@ -145,3 +146,5 @@ export const POST = withErrorHandler(
   ),
   { errorMessage: "Failed to save the surf game score" },
 );
+
+export const GET = withErrorNoStore(handleGet);

@@ -13,6 +13,7 @@ import {
 import type { FetchResult, UpsertResult, MatchResult } from "@/lib/services/ccc";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -144,7 +145,7 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/ccc-sync", _GET);
+const handleGet = withObservedCron("/api/cron/ccc-sync", _GET);
 
 function isSyncPhase(value: string): value is SyncPhase {
   return (SYNC_PHASES as readonly string[]).includes(value);
@@ -240,3 +241,5 @@ async function runMatchPhase(
     duration_ms: Date.now() - startTime,
   };
 }
+
+export const GET = withErrorNoStore(handleGet);

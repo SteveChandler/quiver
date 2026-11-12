@@ -3,11 +3,12 @@ import { z } from "zod";
 import { withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { lifecycleRpc } from "@/lib/email/lifecycle";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
 // Lets the app show the saved choice as one switch instead of both opt-in and opt-out buttons.
-export const GET = withRateLimit(withAuth(async (_request, { user }) => {
+const handleGet = withRateLimit(withAuth(async (_request, { user }) => {
   const headers = { "Cache-Control": "private, no-store" };
   const db = await createSupabaseServiceRoleClient();
   const { data, error } = await (db as unknown as {
@@ -30,3 +31,5 @@ export const POST = withRateLimit(withAuth(async (request, { user }) => {
   await lifecycleRpc("set_lifecycle_consent", { p_user_id: user.id, p_consent: body.data.consent });
   return NextResponse.json({ consent: body.data.consent, contract_version: 1 }, { headers });
 }), { key: "authenticated-default" });
+
+export const GET = withErrorNoStore(handleGet);

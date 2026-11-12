@@ -8,6 +8,7 @@ import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -52,4 +53,6 @@ async function _GET(request: Request): Promise<Response> {
   return NextResponse.json({ ok: true, ...outcome });
 }
 
-export const GET = withObservedCron("/api/cron/cleanup-pending-alert-captures", _GET);
+const handleGet = withObservedCron("/api/cron/cleanup-pending-alert-captures", _GET);
+
+export const GET = withErrorNoStore(handleGet);

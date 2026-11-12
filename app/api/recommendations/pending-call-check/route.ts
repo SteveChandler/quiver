@@ -9,6 +9,7 @@ import {
   withRateLimit,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,8 @@ async function pendingCallHandler(
   return NextResponse.json({ success: true, data: { call: responseCall } });
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(withAuth(pendingCallHandler, { errorMessage: "Failed to load pending call" }), "authenticated-default"),
 );
+
+export const GET = withErrorNoStore(handleGet);

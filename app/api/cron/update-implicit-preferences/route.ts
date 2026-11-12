@@ -9,6 +9,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/utils/validation";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -178,5 +179,7 @@ async function _POST(request: Request): Promise<Response> {
   return _GET(request);
 }
 
-export const GET = withObservedCron("/api/cron/update-implicit-preferences", _GET);
+const handleGet = withObservedCron("/api/cron/update-implicit-preferences", _GET);
 export const POST = withObservedCron("/api/cron/update-implicit-preferences", _POST);
+
+export const GET = withErrorNoStore(handleGet);

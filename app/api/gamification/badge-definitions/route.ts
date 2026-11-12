@@ -2,11 +2,12 @@ import { NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/gamification/badge-definitions - Get all available badge definitions
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { supabase }: { supabase: SupabaseClient<Database> }) => {
     const { data, error } = await supabase
       .from("badge_definitions")
@@ -21,13 +22,4 @@ export const GET = withAuth(
   { errorMessage: "Failed to load badge definitions" }
 );
 
-
-
-
-
-
-
-
-
-
-
+export const GET = withErrorNoStore(handleGet);

@@ -6,6 +6,7 @@ import { importStartedAt } from "@/lib/sessions/imports/import-start-time";
 import { resolveImportBeach, type ImportBeach } from "@/lib/sessions/imports/resolve-import-beach";
 import { rankNoGpsCandidates } from "@/lib/sessions/imports/resolve-no-gps-beach";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,7 @@ function summaryData(summary: unknown): { startedAt: string | null; headerStarte
   return { startedAt, headerStartedAt, endedAt, centroid: { lat: centroid.lat, lon: centroid.lon } };
 }
 
-export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
+const handleGet = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
   if (!canViewSessionWaves(user.id) || !z.uuid().safeParse(params.id).success) {
     return createErrorResponse("not_found", undefined, 404);
   }
@@ -64,3 +65,5 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     startedAt, candidates, sessionId: imported.session_id, reason: imported.error,
   });
 }, { errorMessage: "Failed to load session import" }), "authenticated-default"));
+
+export const GET = withErrorNoStore(handleGet);

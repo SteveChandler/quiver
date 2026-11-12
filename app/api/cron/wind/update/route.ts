@@ -15,6 +15,7 @@ import { validateCronRequest, createSuccessResponse, createErrorResponse } from 
 import { fetchHourlyWind } from '@/lib/services/open-meteo-wind-service';
 import { withObservedCron } from '@/lib/cron/observability';
 import { withCronOutcome } from '@/lib/cron/outcome';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const maxDuration = 120;
 
@@ -172,4 +173,6 @@ async function _GET(request: Request): Promise<Response> {
   ));
 }
 
-export const GET = withObservedCron('/api/cron/wind/update', _GET);
+const handleGet = withObservedCron('/api/cron/wind/update', _GET);
+
+export const GET = withErrorNoStore(handleGet);

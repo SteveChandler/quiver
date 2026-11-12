@@ -5,11 +5,12 @@ import {
   methodNotAllowed,
   type AuthenticatedHandler,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/gamification/user-badges - Get current user's unlocked badges
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   (async (_request: NextRequest, { user, supabase }) => {
     const { data, error } = await supabase
       .from("user_badges")
@@ -53,15 +54,4 @@ export function DELETE() {
   return methodNotAllowed(["GET"]);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
+export const GET = withErrorNoStore(handleGet);

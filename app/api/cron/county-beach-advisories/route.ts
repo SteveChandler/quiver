@@ -11,6 +11,7 @@ import {
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { syncCountyRainAdvisory } from "@/lib/services/water-quality/rain-advisory-events-sync";
 import { processRainAdvisoryPushes } from "@/lib/services/water-quality/rain-advisory-push";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -98,8 +99,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(ROUTE, _GET, {
+const handleGet = withObservedCron(ROUTE, _GET, {
   slug: "county-beach-advisories",
   schedule: "*/30 * * * *",
   maxRuntimeMinutes: 2,
 });
+
+export const GET = withErrorNoStore(handleGet);

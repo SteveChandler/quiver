@@ -7,6 +7,7 @@ import {
 import { runDailyCallCron } from "@/lib/cron/daily-call-runner";
 import { runWithWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -32,8 +33,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(
+const handleGet = withObservedCron(
   "/api/cron/daily-call",
   _GET,
   SENTRY_MONITOR,
 );
+
+export const GET = withErrorNoStore(handleGet);

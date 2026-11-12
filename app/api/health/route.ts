@@ -5,8 +5,9 @@ import {
   DEFAULT_SECURITY_HEADERS,
 } from "@/lib/middleware/api-wrappers";
 import { checkForecastHealth } from "@/lib/monitoring/forecast-health-check";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const deep = request.nextUrl.searchParams.get("deep") === "true";
 
   if (!deep) {
@@ -86,3 +87,5 @@ export async function DELETE() {
 export async function PATCH() {
   return methodNotAllowed(["GET"]);
 }
+
+export const GET = withErrorNoStore(handleGet);

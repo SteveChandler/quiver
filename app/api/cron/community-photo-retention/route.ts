@@ -4,6 +4,7 @@ import { withCommunityPhotoRouteObservability } from "@/lib/community-photos";
 import { withObservedCron } from "@/lib/cron/observability";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -200,7 +201,7 @@ async function runRetention(request: Request): Promise<Response> {
   });
 }
 
-export const GET = withCommunityPhotoRouteObservability(
+const handleGet = withCommunityPhotoRouteObservability(
   {
     route: "/api/cron/community-photo-retention",
     surface: "retention",
@@ -211,3 +212,5 @@ export const GET = withCommunityPhotoRouteObservability(
     schedule: "35 9 * * *",
   }),
 );
+
+export const GET = withErrorNoStore(handleGet);

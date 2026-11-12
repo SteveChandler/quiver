@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, type OptionalAuthContext } from "@/lib/middleware/api-wrappers";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
+
 const noStore = (r: NextResponse): NextResponse => { r.headers.set("Cache-Control", "no-store"); return r; };
-export const GET = withAuth(async (_request: NextRequest, { params, user, supabase }: OptionalAuthContext) => {
+const handleGet = withAuth(async (_request: NextRequest, { params, user, supabase }: OptionalAuthContext) => {
   const { data: media, error: mediaError } = await supabase
     .from("session_media")
     .select("id, session_id, user_id, storage_path, moderation_status, sessions!inner(is_public)")
@@ -24,3 +26,5 @@ export const GET = withAuth(async (_request: NextRequest, { params, user, supaba
   }
   return noStore(NextResponse.json({ url: data.signedUrl, expiresIn: 300 }));
 }, { optional: true });
+
+export const GET = withErrorNoStore(handleGet);

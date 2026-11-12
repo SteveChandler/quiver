@@ -21,6 +21,7 @@ import {
   sessionRatingLabel,
   sessionRatingStars,
 } from "@/lib/share/session-rating";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -594,7 +595,9 @@ function knownFooter(value: string | null): string {
   return value && KNOWN_FOOTERS.has(value.trim()) ? value.trim() : DEFAULT_FOOTER;
 }
 
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   renderSessionShareCard as (request: NextRequest) => Promise<NextResponse>,
   "public-default",
 );
+
+export const GET = withErrorNoStore(handleGet);

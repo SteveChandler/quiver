@@ -20,6 +20,7 @@ import {
 import { resolveSelectedHourDisplay, type ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,7 @@ export async function customSpotCurrentDisplayHandler(
   }
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(
     withAuth(customSpotCurrentDisplayHandler, {
       optional: true,
@@ -100,3 +101,5 @@ export const GET = withNoStore(
     "public-default",
   ),
 );
+
+export const GET = withErrorNoStore(handleGet);

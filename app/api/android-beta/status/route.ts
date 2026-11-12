@@ -8,6 +8,7 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -37,4 +38,6 @@ const getStatus = withAuth(
   { errorMessage: "Failed to load Android waitlist status" },
 );
 
-export const GET = withNoStore(getStatus);
+const handleGet = withNoStore(getStatus);
+
+export const GET = withErrorNoStore(handleGet);

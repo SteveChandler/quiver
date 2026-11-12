@@ -4,6 +4,7 @@ import {
   createSuccessResponse,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,8 @@ async function userSearchHandler(
   return response;
 }
 
-export const GET = withAuth(userSearchHandler, {
+const handleGet = withAuth(userSearchHandler, {
   errorMessage: "Failed to search users",
 });
+
+export const GET = withErrorNoStore(handleGet);

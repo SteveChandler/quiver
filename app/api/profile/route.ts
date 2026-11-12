@@ -7,11 +7,12 @@ import {
   createNotFoundError,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/profile - Get current user's profile with home beach name
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     // Get standardized profile DTO via view
     const dto = await getProfileDTOById(user.id, supabase);
@@ -51,3 +52,5 @@ export const GET = withAuth(
   },
   { errorMessage: "Failed to load profile" }
 );
+
+export const GET = withErrorNoStore(handleGet);

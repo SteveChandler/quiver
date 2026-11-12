@@ -66,6 +66,7 @@ import {
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 import { getClientIdentifier } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
 import { withBulkForecastSlot, bulkForecastShedResponse, FORECAST_BULK_DEADLINE_MS } from "@/lib/api/bulk-forecast-guard";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
@@ -1080,7 +1081,7 @@ export async function bulkForecastHandler(
 }
 
 // Apply rate limiting to prevent abuse of bulk operations
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(
     withBulkForecastSlot(withAuth(bulkForecastHandler, {
       optional: true,
@@ -1089,3 +1090,5 @@ export const GET = withNoStore(
     "forecast-bulk"
   )
 );
+
+export const GET = withErrorNoStore(handleGet);

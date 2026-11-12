@@ -17,6 +17,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { processPendingEvents } from "@/lib/notifications/worker";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -66,6 +67,8 @@ async function _GET(request: Request): Promise<NextResponse> {
 }
 
 // ~99.6% of minutely runs find an empty queue; the Sentry monitor covers liveness.
-export const GET = withObservedCron("/api/cron/notifications-deliver", _GET, SENTRY_MONITOR, {
+const handleGet = withObservedCron("/api/cron/notifications-deliver", _GET, SENTRY_MONITOR, {
   skipIdleRuns: true,
 });
+
+export const GET = withErrorNoStore(handleGet);

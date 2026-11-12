@@ -8,6 +8,7 @@ import {
 } from "@/lib/android-tester-roster/crypto";
 import { loadTesterIdentityKey } from "@/lib/android-tester-roster/keys";
 import { withAdminAuth } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,7 +24,7 @@ interface IdentityRow {
   auth_tag: string;
 }
 
-export const GET = withAdminAuth(
+const handleGet = withAdminAuth(
   async (request: NextRequest, { user, supabase, params }) => {
     void request;
     const parsedEntryId = z.string().uuid().safeParse(params.entryId);
@@ -91,3 +92,5 @@ export const GET = withAdminAuth(
   },
   { errorMessage: "Android tester roster identity reveal failed" },
 );
+
+export const GET = withErrorNoStore(handleGet);

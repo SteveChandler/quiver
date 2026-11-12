@@ -4,6 +4,7 @@ import {
   createSuccessResponse,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ interface BlockedUserRow {
   blocked: { id: string; full_name: string | null; avatar_url: string | null } | null;
 }
 
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { data, error } = await supabase
       .from("user_blocks")
@@ -39,3 +40,5 @@ export const GET = withAuth(
   },
   { errorMessage: "Failed to load blocked accounts" },
 );
+
+export const GET = withErrorNoStore(handleGet);

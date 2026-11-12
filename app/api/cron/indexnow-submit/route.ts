@@ -11,6 +11,7 @@ import {
 } from "@/lib/seo/indexnow-url-collectors";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -79,4 +80,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/indexnow-submit", _GET);
+const handleGet = withObservedCron("/api/cron/indexnow-submit", _GET);
+
+export const GET = withErrorNoStore(handleGet);

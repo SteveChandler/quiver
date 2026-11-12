@@ -1,6 +1,7 @@
 import { syncCanonicalAndroidTesterRoster } from "@/lib/android-tester-roster/canonical-sync";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ function summarizeSync(result: Record<string, unknown>): MaintenanceOutcome {
   };
 }
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGet(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) {
     return json({ ok: false, outcome: "unauthorized" }, 401);
   }
@@ -120,3 +121,5 @@ export async function GET(request: Request): Promise<Response> {
     failed ? 503 : 200,
   );
 }
+
+export const GET = withErrorNoStore(handleGet);

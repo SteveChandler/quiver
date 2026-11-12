@@ -12,6 +12,7 @@ import {
 } from "@/lib/services/noaa-tide-service";
 import { COOPS_STATIONS } from "@/lib/services/noaa-coops/constants/station-mappings";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -200,4 +201,6 @@ async function tideClockHandler(request: NextRequest) {
   }
 }
 
-export const GET = withRateLimit(tideClockHandler, "public-default");
+const handleGet = withRateLimit(tideClockHandler, "public-default");
+
+export const GET = withErrorNoStore(handleGet);

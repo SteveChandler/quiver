@@ -13,6 +13,7 @@ import type { BoardClass } from '@/lib/domains/user-preferences';
 import { runWithWaterQualityReadScope } from '@/lib/recommendations/major-event-hold/read-scope';
 import { computeCanonicalSurfCall } from '@/lib/services/surf-call/canonical-surf-call';
 import { retryAfterSeconds } from '@/lib/utils/retry-after';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -128,7 +129,7 @@ const optionalGET = withAuth(
   },
 );
 
-export const GET = async (
+const handleGet = async (
   request: NextRequest,
   context?: RouteContext,
 ): Promise<NextResponse> => {
@@ -144,3 +145,5 @@ export const GET = async (
   );
   return response;
 };
+
+export const GET = withErrorNoStore(handleGet);

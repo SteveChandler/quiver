@@ -4,12 +4,13 @@ import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { runEmailLifecycle } from "@/lib/email/lifecycle-dispatcher";
 import { lifecycleEnabled } from "@/lib/email/lifecycle";
 import { startCronCheckIn, completeCronCheckIn } from "@/lib/monitoring/sentry-cron";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 180;
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGet(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const mode = new URL(request.url).searchParams.get("mode");
   if (mode && mode !== "dry-run" && mode !== "live") return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
@@ -30,3 +31,5 @@ export async function GET(request: Request): Promise<Response> {
     if (checkIn) await completeCronCheckIn(checkIn, slug, status);
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

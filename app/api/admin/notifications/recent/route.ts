@@ -23,6 +23,7 @@ import { isUuid } from "@/lib/utils/validation";
 import { NextRequest, NextResponse } from "next/server";
 import { withAdminAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ const ALLOWED_STATUSES = new Set([
   "cancelled",
 ]);
 
-export const GET = withAdminAuth(async (request: NextRequest) => {
+const handleGet = withAdminAuth(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const userIdParam = searchParams.get("user_id");
   const typeParam = searchParams.get("type");
@@ -140,3 +141,5 @@ export const GET = withAdminAuth(async (request: NextRequest) => {
     events: data ?? [],
   });
 });
+
+export const GET = withErrorNoStore(handleGet);

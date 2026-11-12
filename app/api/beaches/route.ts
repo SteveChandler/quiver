@@ -15,6 +15,7 @@ import {
   withAuth,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 // GET method to retrieve all beaches with optimized caching
 async function beachesHandler(request: NextRequest) {
@@ -104,7 +105,7 @@ async function beachesHandler(request: NextRequest) {
 }
 
 // Apply bot blocking and rate limiting to public GET endpoint
-export const GET = withBotBlockingAndRateLimit(beachesHandler, "public-default");
+const handleGet = withBotBlockingAndRateLimit(beachesHandler, "public-default");
 
 // Matches Ruby LocationsController#create functionality
 // POST is admin-protected, so no bot blocking needed
@@ -194,3 +195,5 @@ async function beachesPostHandler(
 export const POST = withAuth(beachesPostHandler, {
   errorMessage: "Failed to save location",
 });
+
+export const GET = withErrorNoStore(handleGet);

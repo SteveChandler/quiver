@@ -4,10 +4,11 @@ import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { runProOfferAutomation } from "@/lib/subscription/offer-automation";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { startCronCheckIn, completeCronCheckIn } from "@/lib/monitoring/sentry-cron";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 180;
-export async function GET(request: Request): Promise<Response> {
+async function handleGet(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const mode = new URL(request.url).searchParams.get("mode") ?? "live";
   if (mode !== "live" && mode !== "dry-run") return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
@@ -37,3 +38,5 @@ export async function GET(request: Request): Promise<Response> {
     if (finishError) return NextResponse.json({ error: "Cannot finish offer reconciliation run" }, { status: 503 });
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

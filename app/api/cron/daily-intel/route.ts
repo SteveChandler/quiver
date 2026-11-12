@@ -10,6 +10,7 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -142,4 +143,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/daily-intel", _GET);
+const handleGet = withObservedCron("/api/cron/daily-intel", _GET);
+
+export const GET = withErrorNoStore(handleGet);

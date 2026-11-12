@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { withAuth, createSuccessResponse, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 import { initializeUserXP } from "@/lib/gamification/xp-service";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const LEVEL_THRESHOLDS = [
   { level: 1, title: "Kook", xp_required: 0 },
@@ -25,7 +26,7 @@ function calculateLevel(xpTotal: number) {
 /**
  * GET /api/gamification/xp-status - Get current user's XP and level status
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     await initializeUserXP(user.id, supabase);
 
@@ -65,14 +66,4 @@ export const GET = withAuth(
   { errorMessage: "Failed to load XP status" }
 );
 
-
-
-
-
-
-
-
-
-
-
-
+export const GET = withErrorNoStore(handleGet);

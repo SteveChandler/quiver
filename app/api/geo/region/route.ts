@@ -7,6 +7,7 @@ import {
   withNoStore,
   withRateLimit,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -58,4 +59,6 @@ async function geoRegionHandler(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const GET = withRateLimit(withNoStore(geoRegionHandler), "public-default");
+const handleGet = withRateLimit(withNoStore(geoRegionHandler), "public-default");
+
+export const GET = withErrorNoStore(handleGet);

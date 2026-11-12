@@ -21,6 +21,7 @@ import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import type { RecommendationHoldReasonCode } from "@/lib/recommendations/major-event-hold/types";
 import { discoverSurfSpots } from "@/lib/services/surf-discovery-service";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -118,7 +119,7 @@ interface ConditionAlertEvaluationSummary {
   errors: number;
 }
 
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -709,3 +710,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

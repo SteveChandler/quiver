@@ -1,8 +1,9 @@
 import { ImageResponse } from "next/og";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get("slug") ?? "groundswell-vs-wind-swell";
   void slug; // reserved for future per-slug variants
@@ -39,3 +40,5 @@ export async function GET(request: Request) {
     }
   );
 }
+
+export const GET = withErrorNoStore(handleGet);

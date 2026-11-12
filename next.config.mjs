@@ -150,11 +150,18 @@ const nextConfig = {
       // API route caching — default blanket.
       //
       // `private` (not `public`) because many /api/* routes return per-user
-      // data (follow status, likedByMe enrichment, friends feed, etc.) and
-      // this header applies to ALL matching routes, overriding any route-
-      // level Cache-Control the handler sets. Shared caches (CDN, corporate
-      // proxy) MUST NOT store these responses or they leak user A's state
-      // to user B. Browsers / NSURLCache can still cache within session.
+      // data (follow status, likedByMe enrichment, friends feed, etc.).
+      // Shared caches (CDN, corporate proxy) MUST NOT store these responses
+      // or they leak user A's state to user B. Browsers / NSURLCache can
+      // still cache within session.
+      //
+      // Precedence: on Vercel a Cache-Control the handler sets WINS over this
+      // rule (measured Nov 12 2026 on dev and www); the rule only fills
+      // responses that set none. Self-hosted Next 16 does the opposite. Error
+      // responses must not be kept: every GET export goes through
+      // `withErrorNoStore` (lib/middleware/api-wrappers/error-cache-wrapper.ts),
+      // which marks status >= 400 no-store, and app/api/[...unknown] does the
+      // same for unknown paths.
       //
       // Routes that are intentionally public and benefit from shared caches
       // (OG images, forecasts) should set `Cache-Control: public, ...`
@@ -261,6 +268,16 @@ const nextConfig = {
       },
       {
         source: "/api/surf/week-scout",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        // The exact rule above misses snapshots/[id].
+        source: "/api/surf/week-scout/:path*",
         headers: [
           {
             key: "Cache-Control",

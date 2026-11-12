@@ -8,6 +8,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,8 @@ export const DELETE = withRateLimit(
   { key: "authenticated-default" },
 );
 
-export function GET() {
+function handleGet() {
   return methodNotAllowed(["POST", "DELETE"]);
 }
+
+export const GET = withErrorNoStore(handleGet);

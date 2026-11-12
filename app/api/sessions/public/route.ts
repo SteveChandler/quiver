@@ -8,6 +8,7 @@ import {
   withRateLimit,
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";
@@ -371,10 +372,12 @@ async function publicSessionsHandler(
 // the caller from Bearer token (native) or cookie session (web), or leaves
 // user=null for unauth access — matching the public nature of this feed.
 // No bot blocking — consumed by mobile apps.
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   withAuth(publicSessionsHandler, {
     optional: true,
     errorMessage: "Failed to fetch public sessions",
   }),
   "public-default"
 );
+
+export const GET = withErrorNoStore(handleGet);

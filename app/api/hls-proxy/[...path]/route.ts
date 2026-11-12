@@ -1,6 +1,7 @@
 import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -242,5 +243,7 @@ async function hlsProxyHandler(
 // Type assertion needed: withRateLimit returns RouteHandler (Record<string, string> params)
 // but Next.js catch-all routes require { path: string[] } params.
 // The handler internally handles the string[] via pathSegments extraction.
-export const GET = withRateLimit(hlsProxyHandler, "hls-proxy") as unknown as
+const handleGet = withRateLimit(hlsProxyHandler, "hls-proxy") as unknown as
   (request: NextRequest, context: { params: Promise<{ path: string[] }> }) => Promise<Response>;
+
+export const GET = withErrorNoStore(handleGet);

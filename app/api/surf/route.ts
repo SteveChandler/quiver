@@ -9,10 +9,11 @@ import {
   handleApiError,
 } from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const beach = searchParams.get("beach");
@@ -83,3 +84,5 @@ export async function GET(request: NextRequest) {
     return handleApiError(error, "Failed to fetch surf forecast");
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

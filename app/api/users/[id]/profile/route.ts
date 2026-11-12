@@ -5,10 +5,11 @@ import {
   isValidUuid,
 } from "@/lib/middleware/api-wrappers";
 import { GET as canonicalGet } from "@/app/api/profile/[id]/route";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+async function handleGet(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
     const userId = params?.id;
@@ -20,3 +21,4 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
   }
 }
 
+export const GET = withErrorNoStore(handleGet);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store, no-cache, must-revalidate" };
@@ -45,7 +46,7 @@ async function latestCancellation(db: SupabaseClient, userId: string): Promise<z
   return event;
 }
 
-export const GET = withRateLimit(withAuth(async (_request, { user }) => {
+const handleGet = withRateLimit(withAuth(async (_request, { user }) => {
   if (process.env.CANCELLATION_FEEDBACK_ENABLED !== "true") {
     return NextResponse.json({ cancellation: null }, { headers });
   }
@@ -93,3 +94,5 @@ export const POST = withRateLimit(withAuth(async (request, { user }) => {
   }
   return NextResponse.json({ saved: true }, { headers });
 }), { key: "authenticated-default" });
+
+export const GET = withErrorNoStore(handleGet);

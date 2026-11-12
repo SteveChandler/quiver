@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import { withAuth, validateUuidParam, createSuccessResponse, methodNotAllowed, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
     const uuidResult = validateUuidParam(params.id, "session");
     if ("error" in uuidResult) return uuidResult.error;
@@ -43,3 +44,4 @@ export function POST() {
   return methodNotAllowed(["GET"]);
 }
 
+export const GET = withErrorNoStore(handleGet);

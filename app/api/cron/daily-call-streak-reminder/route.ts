@@ -28,6 +28,7 @@ import {
   resolveBeachTimezone,
 } from "@/lib/utils/timezone-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -660,8 +661,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(
+const handleGet = withObservedCron(
   "/api/cron/daily-call-streak-reminder",
   _GET,
   SENTRY_MONITOR
 );
+
+export const GET = withErrorNoStore(handleGet);

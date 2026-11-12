@@ -7,6 +7,7 @@ import {
   handleApiError,
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -36,8 +37,10 @@ async function swellAlertCron(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(
+const handleGet = withObservedCron(
   "/api/cron/swell-alert",
   swellAlertCron,
   SENTRY_MONITOR,
 );
+
+export const GET = withErrorNoStore(handleGet);

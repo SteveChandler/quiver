@@ -14,6 +14,7 @@ import {
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { applyTrustedForecastServing } from "@/lib/services/forecast/trusted-forecast-serving";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const PRIVATE_NO_STORE = "private, no-store, no-cache, must-revalidate";
 
@@ -221,4 +222,6 @@ async function getEnhancedForecasts(
   }
 }
 
-export const GET = withAuth(getEnhancedForecasts, { optional: true });
+const handleGet = withAuth(getEnhancedForecasts, { optional: true });
+
+export const GET = withErrorNoStore(handleGet);

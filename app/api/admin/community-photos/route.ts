@@ -10,6 +10,7 @@ import {
   withAdminAuth,
   type AdminAuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -51,10 +52,12 @@ async function listHandler(
   }
 }
 
-export const GET = withCommunityPhotoRouteObservability(
+const handleGet = withCommunityPhotoRouteObservability(
   {
     route: "/api/admin/community-photos",
     surface: "admin",
   },
   withAdminAuth(listHandler),
 );
+
+export const GET = withErrorNoStore(handleGet);

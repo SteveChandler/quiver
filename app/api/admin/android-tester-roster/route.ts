@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { recordMandatoryRosterAudit } from "@/lib/android-tester-roster/admin-audit";
 import { withAdminAuth } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -10,7 +11,7 @@ const NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store, no-cache, must-revalidate",
 };
 
-export const GET = withAdminAuth(
+const handleGet = withAdminAuth(
   async (request: NextRequest, { user, supabase }) => {
     void request;
     const audited = await recordMandatoryRosterAudit(supabase as any, {
@@ -40,3 +41,5 @@ export const GET = withAdminAuth(
   },
   { errorMessage: "Android tester roster summary failed" },
 );
+
+export const GET = withErrorNoStore(handleGet);

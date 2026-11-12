@@ -12,6 +12,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import { parseWaveHeightMidpointFt } from "@/lib/alerts/forecast-parsers";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { selectBeach } from "@/lib/recommendations/selection";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -382,7 +383,7 @@ function renderNeutralWeekendCard(spaceGroteskData: ArrayBuffer): ImageResponse 
   );
 }
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const spaceGroteskData = await fetch(
       new URL(
@@ -959,3 +960,5 @@ export async function GET(request: NextRequest) {
     return renderFallback();
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

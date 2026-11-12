@@ -6,6 +6,7 @@ import { acquisitionConfig, acquireSwellWatchCohort, type SwellWatchAcquisitionS
 import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig, SwellWatchStudySkip, type SwellWatchStudyStage } from "@/lib/alerts/swell-watch/study";
 import { getSingleRunTupleDiagnostic } from "@/lib/alerts/swell-watch/single-run-receipt";
 import { z } from "zod";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -217,8 +218,10 @@ async function acquire(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/swell-watch-acquire", async (request: Request): Promise<Response> => {
+const handleGet = withObservedCron("/api/cron/swell-watch-acquire", async (request: Request): Promise<Response> => {
   const response = await acquire(request);
   response.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
   return response;
 }, { slug: "swell-watch-acquire", schedule: "15 * * * *", maxRuntimeMinutes: 6 });
+
+export const GET = withErrorNoStore(handleGet);

@@ -2,6 +2,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { verifyDisableToken } from "@/lib/alerts/email-token";
 import { getBaseUrl } from "@/lib/mailer/client";
 import { renderEmailActionPage } from "@/lib/email/html-response";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/alerts/rules/[ruleId]/disable-email
@@ -11,7 +12,7 @@ import { renderEmailActionPage } from "@/lib/email/html-response";
  * user is not authenticated when clicking from an email.
  * Requires a valid HMAC token in the query string to prevent unauthorized access.
  */
-export async function GET(
+async function handleGet(
   request: Request,
   { params }: { params: Promise<{ ruleId: string }> }
 ): Promise<Response> {
@@ -66,3 +67,5 @@ async function disableEmailForRule(
     buttonUrl: `${baseUrl}/settings`,
   });
 }
+
+export const GET = withErrorNoStore(handleGet);

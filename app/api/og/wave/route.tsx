@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,7 @@ function renderFallback() {
   );
 }
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
   const { searchParams } = new URL(request.url);
 
@@ -192,3 +193,5 @@ export async function GET(request: NextRequest) {
     return renderFallback();
   }
 }
+
+export const GET = withErrorNoStore(handleGet);

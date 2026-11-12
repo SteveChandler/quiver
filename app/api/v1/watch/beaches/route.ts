@@ -11,6 +11,7 @@ import { haversineDistance } from "@/lib/utils/geo-utils";
 import { retryAfterSeconds } from "@/lib/utils/retry-after";
 import { loadWatchSpots, type WatchSpot } from "@/lib/watch/saved-spots";
 import { withWatchAuth } from "@/lib/watch/with-watch-auth";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const maxDuration = 20;
@@ -106,7 +107,7 @@ function unavailable(): Response {
   return response;
 }
 
-export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { userId, service }) => {
+const handleGet = withNoStore(withRateLimit(withWatchAuth(async (request, { userId, service }) => {
   const { searchParams } = new URL(request.url);
   const validation = validateOrError(QuerySchema, {
     lat: searchParams.get("lat") || undefined,
@@ -229,3 +230,5 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
     updatedAt: new Date().toISOString(),
   });
 }, { errorMessage: "Failed to load watch beaches" }), "authenticated-default"));
+
+export const GET = withErrorNoStore(handleGet);

@@ -6,11 +6,12 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import type { Beach } from "@/types/database";
 import type { SavedSpotTarget } from "@/types/saved-spot";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/beaches/favorites - List authenticated user's favorite beaches
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { data, error: dbError } = await supabase
       .from("favorite_beaches")
@@ -50,3 +51,5 @@ export const GET = withAuth(
   },
   { errorMessage: "Failed to load favorite beaches" }
 );
+
+export const GET = withErrorNoStore(handleGet);

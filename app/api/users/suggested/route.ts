@@ -4,6 +4,7 @@ import {
   createSuccessResponse,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,8 @@ async function suggestedUsersHandler(
   return response;
 }
 
-export const GET = withAuth(suggestedUsersHandler, {
+const handleGet = withAuth(suggestedUsersHandler, {
   errorMessage: "Failed to load suggested users",
 });
+
+export const GET = withErrorNoStore(handleGet);

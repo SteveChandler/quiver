@@ -13,6 +13,7 @@ import {
   type SwellShareImageFormat,
 } from "@/lib/share/swell-share";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -231,7 +232,7 @@ async function loadEvent(eventKey: string | null): Promise<SwellShareEvent | nul
  * Every param is validated and nothing from the URL is drawn: the headline
  * comes from getSwellCardHeadline and the numbers from stored snapshots.
  */
-export async function GET(request: NextRequest): Promise<ImageResponse> {
+async function handleGet(request: NextRequest): Promise<ImageResponse> {
   const requestUrl = new URL(request.url);
   const { searchParams } = requestUrl;
   const format = parseSwellImageFormat(searchParams.get("format"));
@@ -278,3 +279,5 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
   response.headers.set("Cache-Control", view.generic ? "no-store" : CACHE_CONTROL);
   return response;
 }
+
+export const GET = withErrorNoStore(handleGet);
