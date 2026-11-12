@@ -68,6 +68,12 @@ import {
   fingerprintBeachIds,
   getCachedForecastIndexabilitySnapshots,
 } from "@/lib/seo/forecast-indexability-cache";
+import {
+  SubPageDataUnavailableError,
+  createLastGoodSubPageData,
+  reportSubPageDataUnavailable,
+  subPageErrorMessage,
+} from "@/lib/seo/sub-page-data-availability";
 import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
 import { buildBuoySitemapEntries } from "@/lib/buoy-pages/sitemap-routes";
 import { listStations } from "@/lib/services/wave-stations";
@@ -220,6 +226,12 @@ function batchBeachIds(ids: readonly string[]): string[][] {
  * window entirely would mean making the sub-pages dynamic.
  */
 
+const SUB_PAGE_COVERAGE_SOURCE = "sitemap-sub-page-coverage";
+// The sitemap's own store, apart from the page readers': its water-temp read
+// covers today only, the page's also covers yesterday.
+const lastGoodTideCoverage = createLastGoodSubPageData();
+const lastGoodWaterTempCoverage = createLastGoodSubPageData();
+
 async function getBeachSubPageCoverage(
   beachIds: readonly string[],
 ): Promise<BeachSubPageCoverage> {
@@ -237,11 +249,32 @@ async function getBeachSubPageCoverage(
     { revalidate: FORECAST_INDEXABILITY_REVALIDATE_SECONDS },
   );
 
-  const { tideCoverage, waterTempCoverage } = await load();
-  return {
-    tideCoverage: new Set(tideCoverage),
-    waterTempCoverage: new Set(waterTempCoverage),
-  };
+  try {
+    const loaded = await load();
+    const coverage = {
+      tideCoverage: new Set(loaded.tideCoverage),
+      waterTempCoverage: new Set(loaded.waterTempCoverage),
+    };
+    for (const beachId of beachIds) {
+      lastGoodTideCoverage.remember(beachId, coverage.tideCoverage.has(beachId));
+      lastGoodWaterTempCoverage.remember(beachId, coverage.waterTempCoverage.has(beachId));
+    }
+    return coverage;
+  } catch (error) {
+    if (!(error instanceof SubPageDataUnavailableError)) throw error;
+    reportSubPageDataUnavailable(SUB_PAGE_COVERAGE_SOURCE, error);
+    // The throw happened inside the cached loader, so nothing was stored. A
+    // beach keeps its last known answer; one with none stays listed, as the
+    // sub-page's own metadata keeps it indexable for the same failure.
+    return {
+      tideCoverage: new Set(
+        beachIds.filter((beachId) => lastGoodTideCoverage.get(beachId) !== false),
+      ),
+      waterTempCoverage: new Set(
+        beachIds.filter((beachId) => lastGoodWaterTempCoverage.get(beachId) !== false),
+      ),
+    };
+  }
 }
 
 function warnIfTruncated(rowCount: number, label: string): void {
@@ -266,10 +299,10 @@ async function fetchBeachSubPageCoverage(
   try {
     supabase = await createSupabaseServiceRoleClient();
   } catch (error) {
-    console.error("Sitemap: Failed to create sub-page coverage client", {
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return { tideCoverage, waterTempCoverage };
+    throw new SubPageDataUnavailableError(
+      SUB_PAGE_COVERAGE_SOURCE,
+      `client creation failed: ${subPageErrorMessage(error)}`,
+    );
   }
 
   const now = new Date();
@@ -278,102 +311,105 @@ async function fetchBeachSubPageCoverage(
   const tomorrow = new Date(`${today}T00:00:00.000Z`);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
+  const readBatch = async (batch: string[]) => {
+    const [tideResponse, waterTempResponse] = await Promise.all([
+      supabase
+        .from("tide_forecasts")
+        .select("beach_id, ts, tide_height_m, source, station_id, created_at")
+        .in("beach_id", batch)
+        .gte("ts", tideWindow.from)
+        .lte("ts", tideWindow.to)
+        .limit(POSTGREST_MAX_ROWS),
+      supabase
+        .from("enhanced_forecasts")
+        .select("beach_id, water_temp, forecast_at")
+        .in("beach_id", batch)
+        .gte("forecast_at", `${today}T00:00:00.000Z`)
+        .lt("forecast_at", tomorrow.toISOString())
+        .not("water_temp", "is", null)
+        .limit(POSTGREST_MAX_ROWS),
+    ]);
+
+    return { tideResponse, waterTempResponse };
+  };
+
+  // Firing every batch at once sent ~116 queries to the database in one burst
+  // whenever this cache expired; a few batches at a time spreads that out.
+  const batches = batchBeachIds(beachIds);
+  const responses: Awaited<ReturnType<typeof readBatch>>[] = [];
   try {
-    const readBatch = async (batch: string[]) => {
-      const [tideResponse, waterTempResponse] = await Promise.all([
-        supabase
-          .from("tide_forecasts")
-          .select("beach_id, ts, tide_height_m, source, station_id, created_at")
-          .in("beach_id", batch)
-          .gte("ts", tideWindow.from)
-          .lte("ts", tideWindow.to)
-          .limit(POSTGREST_MAX_ROWS),
-        supabase
-          .from("enhanced_forecasts")
-          .select("beach_id, water_temp, forecast_at")
-          .in("beach_id", batch)
-          .gte("forecast_at", `${today}T00:00:00.000Z`)
-          .lt("forecast_at", tomorrow.toISOString())
-          .not("water_temp", "is", null)
-          .limit(POSTGREST_MAX_ROWS),
-      ]);
-
-      return { tideResponse, waterTempResponse };
-    };
-
-    // Firing every batch at once sent ~116 queries to the database in one burst
-    // whenever this cache expired; a few batches at a time spreads that out.
-    const batches = batchBeachIds(beachIds);
-    const responses: Awaited<ReturnType<typeof readBatch>>[] = [];
     for (let index = 0; index < batches.length; index += BEACH_COVERAGE_CONCURRENCY) {
       const group = batches.slice(index, index + BEACH_COVERAGE_CONCURRENCY);
       responses.push(...(await Promise.all(group.map(readBatch))));
     }
+  } catch (error) {
+    throw new SubPageDataUnavailableError(
+      SUB_PAGE_COVERAGE_SOURCE,
+      `coverage query failed: ${subPageErrorMessage(error)}`,
+    );
+  }
 
-    for (const { tideResponse, waterTempResponse } of responses) {
-      if (tideResponse.error) {
-        console.error("Sitemap: Tide coverage query failed", {
-          message: tideResponse.error.message,
+  for (const { tideResponse, waterTempResponse } of responses) {
+    if (tideResponse.error) {
+      throw new SubPageDataUnavailableError(
+        SUB_PAGE_COVERAGE_SOURCE,
+        `tide coverage query failed: ${tideResponse.error.message}`,
+      );
+    } else {
+      const rows = (tideResponse.data ?? []) as TideCoverageRow[];
+      warnIfTruncated(rows.length, "tide");
+      const byBeach = new Map<string, Array<TideHeightRow & TideForecastSelectionRow>>();
+      for (const row of rows) {
+        if (!row.beach_id || !row.ts) continue;
+        const beachRows = byBeach.get(row.beach_id) ?? [];
+        beachRows.push({
+          ts: row.ts,
+          tide_height_m: row.tide_height_m,
+          source: row.source,
+          station_id: row.station_id,
+          created_at: row.created_at,
         });
-      } else {
-        const rows = (tideResponse.data ?? []) as TideCoverageRow[];
-        warnIfTruncated(rows.length, "tide");
-        const byBeach = new Map<string, Array<TideHeightRow & TideForecastSelectionRow>>();
-        for (const row of rows) {
-          if (!row.beach_id || !row.ts) continue;
-          const beachRows = byBeach.get(row.beach_id) ?? [];
-          beachRows.push({
-            ts: row.ts,
-            tide_height_m: row.tide_height_m,
-            source: row.source,
-            station_id: row.station_id,
-            created_at: row.created_at,
-          });
-          byBeach.set(row.beach_id, beachRows);
-        }
-        // Same predicate the sub-page runs, on the same single series: rows
-        // alone are not coverage, a detectable high or low is. selectTideSeries
-        // also orders the rows, so coverage does not depend on the database
-        // returning them sorted.
-        for (const [beachId, beachRows] of byBeach) {
-          const { nextHigh, nextLow } = findNextTideExtremes(selectTideSeries(beachRows));
-          if (nextHigh || nextLow) tideCoverage.add(beachId);
+        byBeach.set(row.beach_id, beachRows);
+      }
+      // Same predicate the sub-page runs, on the same single series: rows
+      // alone are not coverage, a detectable high or low is. selectTideSeries
+      // also orders the rows, so coverage does not depend on the database
+      // returning them sorted.
+      for (const [beachId, beachRows] of byBeach) {
+        const { nextHigh, nextLow } = findNextTideExtremes(selectTideSeries(beachRows));
+        if (nextHigh || nextLow) tideCoverage.add(beachId);
+      }
+    }
+
+    if (waterTempResponse.error) {
+      throw new SubPageDataUnavailableError(
+        SUB_PAGE_COVERAGE_SOURCE,
+        `water-temperature coverage query failed: ${waterTempResponse.error.message}`,
+      );
+    } else {
+      const rows = (waterTempResponse.data ?? []) as WaterTempCoverageRow[];
+      warnIfTruncated(rows.length, "water-temperature");
+      // Pick the newest row per beach -- the one getWaterTempMetaData would
+      // select -- then apply the same parse and validity bounds. A present
+      // but unparseable reading is not coverage.
+      const newest = new Map<string, WaterTempCoverageRow>();
+      for (const row of rows) {
+        if (!row.beach_id) continue;
+        const current = newest.get(row.beach_id);
+        if (
+          !current ||
+          Date.parse(row.forecast_at ?? "") >
+            Date.parse(current.forecast_at ?? "")
+        ) {
+          newest.set(row.beach_id, row);
         }
       }
-
-      if (waterTempResponse.error) {
-        console.error("Sitemap: Water-temperature coverage query failed", {
-          message: waterTempResponse.error.message,
-        });
-      } else {
-        const rows = (waterTempResponse.data ?? []) as WaterTempCoverageRow[];
-        warnIfTruncated(rows.length, "water-temperature");
-        // Pick the newest row per beach -- the one getWaterTempMetaData would
-        // select -- then apply the same parse and validity bounds. A present
-        // but unparseable reading is not coverage.
-        const newest = new Map<string, WaterTempCoverageRow>();
-        for (const row of rows) {
-          if (!row.beach_id) continue;
-          const current = newest.get(row.beach_id);
-          if (
-            !current ||
-            Date.parse(row.forecast_at ?? "") >
-              Date.parse(current.forecast_at ?? "")
-          ) {
-            newest.set(row.beach_id, row);
-          }
-        }
-        for (const [beachId, row] of newest) {
-          if (parseWaterTempF(row.water_temp) !== null) {
-            waterTempCoverage.add(beachId);
-          }
+      for (const [beachId, row] of newest) {
+        if (parseWaterTempF(row.water_temp) !== null) {
+          waterTempCoverage.add(beachId);
         }
       }
     }
-  } catch (error) {
-    console.error("Sitemap: Sub-page coverage query failed", {
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
   }
 
   return { tideCoverage, waterTempCoverage };

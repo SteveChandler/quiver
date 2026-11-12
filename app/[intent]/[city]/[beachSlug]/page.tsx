@@ -57,6 +57,7 @@ import {
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { hasSubPageDataOrUnknown } from "@/lib/seo/sub-page-data-availability";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
 // Rendered per request so forecast revisions and windows are current; the HTML
@@ -428,13 +429,16 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
     const hasWaterTemp = isBeachSubPageIndexable(
       forecastSnapshot,
       `${beachPath}/water-temp`,
-      { hasSubPageData: waterTempData.tempF != null },
+      { hasSubPageData: hasSubPageDataOrUnknown(waterTempData, waterTempData.tempF != null) },
     );
     // Same availability test the tides sub-page applies in its own metadata
     // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the
     // target answers indexable.
     const hasTides = isBeachSubPageIndexable(forecastSnapshot, `${beachPath}/tides`, {
-      hasSubPageData: Boolean(tideData.nextHighTime || tideData.nextLowTime),
+      hasSubPageData: hasSubPageDataOrUnknown(
+        tideData,
+        Boolean(tideData.nextHighTime || tideData.nextLowTime),
+      ),
     });
 
     return (

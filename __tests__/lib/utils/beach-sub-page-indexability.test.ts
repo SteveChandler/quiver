@@ -209,4 +209,49 @@ describe("beach sub-page metadata indexability", () => {
       expect(meta.robots).toMatchObject({ index: false, follow: true });
     });
   });
+  describe("when a sub-page data read fails", () => {
+    // What getTideMetaData / getWaterTempMetaData return for a failed read with
+    // no last good "no data" answer (see __tests__/lib/seo/sub-page-data-read-errors.test.ts).
+    const UNKNOWN_TIDES = {
+      nextHighTime: null,
+      nextLowTime: null,
+      nextHighHeight: null,
+      nextLowHeight: null,
+      availability: "sub-page-data-unknown" as const,
+    };
+    const UNKNOWN_WATER_TEMP = {
+      tempF: null,
+      wetsuitRec: null,
+      availability: "sub-page-data-unknown" as const,
+    };
+
+    it("keeps a tides page indexable", async () => {
+      (getTideMetaData as jest.Mock).mockResolvedValue(UNKNOWN_TIDES);
+
+      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "tides", beachPath: "/ca/la-jolla/windansea" });
+
+      expect(meta.robots).toMatchObject({ index: true, follow: true });
+    });
+
+    it("keeps a water-temp page indexable", async () => {
+      (getWaterTempMetaData as jest.Mock).mockResolvedValue(UNKNOWN_WATER_TEMP);
+      // Windansea's water-temp page is GSC-protected; take that path out.
+      jest.mocked(isGscPerformanceProtected).mockReturnValue(false);
+
+      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "water-temp", beachPath: "/ca/la-jolla/windansea" });
+
+      expect(meta.robots).toMatchObject({ index: true, follow: true });
+    });
+
+    it("still applies the forecast gate", async () => {
+      (getTideMetaData as jest.Mock).mockResolvedValue(UNKNOWN_TIDES);
+      (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(
+        new Map([[UNREVIEWED_BEACH.id, { ...FRESH_SNAPSHOT, forecastFresh: false, isStale: true }]]),
+      );
+
+      const meta = await generateBeachSubPageMetadata({ beachSlug: "windansea", pageType: "tides", beachPath: "/ca/la-jolla/windansea" });
+
+      expect(meta.robots).toMatchObject({ index: false, follow: true });
+    });
+  });
 });

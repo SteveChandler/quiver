@@ -17,6 +17,7 @@ import {
 } from "@/lib/seo/forecast-indexability";
 import { isValidElement, type ReactNode } from "react";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { isBeachSubPageIndexable } from "@/lib/seo/forecast-indexability";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import {
   getCachedBeachCameraUrl,
@@ -492,6 +493,42 @@ describe("GenericBeachDetailPage slug resolution", () => {
     } finally {
       log.mockRestore();
     }
+  });
+
+  it("keeps the water-temp guide link gate open when the water-temp read failed", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    (getWaterTempMetaData as jest.Mock).mockResolvedValueOnce({
+      tempF: null,
+      wetsuitRec: null,
+      availability: "sub-page-data-unknown",
+    });
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    const pending: unknown[] = [page];
+    let rendered = false;
+    while (pending.length > 0 && !rendered) {
+      const node = pending.pop();
+      if (Array.isArray(node)) {
+        pending.push(...node);
+        continue;
+      }
+      if (!isValidElement<Record<string, unknown>>(node)) continue;
+      if (typeof node.type === "function" && node.type.name === "DeferredRelatedGuidesSection") {
+        await (node.type as (props: Record<string, unknown>) => Promise<ReactNode>)(node.props);
+        rendered = true;
+        continue;
+      }
+      pending.push(...Object.values(node.props));
+    }
+
+    expect(rendered).toBe(true);
+    const waterTempCall = jest.mocked(isBeachSubPageIndexable).mock.calls
+      .find(([, path]) => path.endsWith("/water-temp"));
+    expect(waterTempCall?.[2]).toEqual({ hasSubPageData: true });
   });
 
   it.each([

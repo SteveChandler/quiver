@@ -24,6 +24,7 @@ import {
   buildDynamicWaterTempMetadata,
 } from "@/lib/seo/meta";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { hasSubPageDataOrUnknown } from "@/lib/seo/sub-page-data-availability";
 import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
@@ -427,11 +428,15 @@ export async function generateBeachSubPageMetadata({
     ]);
     const hasSubPageData =
       pageType === "tides"
-        ? Boolean(
-            tideMetaForIndexing?.nextHighTime ||
-              tideMetaForIndexing?.nextLowTime,
+        ? hasSubPageDataOrUnknown(
+            tideMetaForIndexing,
+            Boolean(
+              tideMetaForIndexing?.nextHighTime ||
+                tideMetaForIndexing?.nextLowTime,
+            ),
           )
-        : tempMetaForIndexing?.tempF != null || isGscPerformanceProtected(subPagePath);
+        : hasSubPageDataOrUnknown(tempMetaForIndexing, tempMetaForIndexing?.tempF != null) ||
+          isGscPerformanceProtected(subPagePath);
     const forecastCoverage = forecastCoverageFor(snapshots, beach.id);
     const indexable = isBeachSubPageIndexable(
       forecastCoverage,
