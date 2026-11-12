@@ -134,6 +134,18 @@ describe("buildSurfCallShareUrl", () => {
 
       expect(new URL(url).searchParams.has("wind")).toBe(false);
     });
+
+    it("omits the wind param when the wind reading is the Unknown sentinel", () => {
+      const url = buildSurfCallShareUrl({
+        beach: "Big Jetty",
+        verdict: "YES",
+        window: "7-10am",
+        waveHeight: "3-5ft",
+        wind: "Unknown",
+      });
+
+      expect(new URL(url).searchParams.has("wind")).toBe(false);
+    });
   });
 
   describe("new parameters (redesigned card)", () => {

@@ -50,6 +50,7 @@ async function renderCard(): Promise<void> {
 
 describe("SurfDecisionCard live cells", () => {
   beforeEach(() => {
+    mockGetSpotSurfReportPublic.mockReset();
     mockGetBeachesBySlug.mockResolvedValue({
       success: true,
       data: [{ id: "b1", slug: "scripps-pier", name: "Scripps Pier", lat: 32.86, lon: -117.25 }],
@@ -84,5 +85,25 @@ describe("SurfDecisionCard live cells", () => {
     expect(screen.getByText(/Live Quiver conditions are temporarily unavailable/)).toBeInTheDocument();
     expect(screen.getByText(decision.windRisk)).toBeInTheDocument();
     expect(screen.getByText(decision.tideRisk)).toBeInTheDocument();
+  });
+
+  it("shows no live call when the slug's beach is missing", async () => {
+    mockGetBeachesBySlug.mockResolvedValue({
+      success: true,
+      data: [{ id: "b2", slug: "la-jolla-shores", name: "La Jolla Shores", lat: 32.86, lon: -117.26 }],
+    });
+    mockGetSpotSurfReportPublic.mockResolvedValue(report({}));
+    await renderCard();
+
+    expect(mockGetSpotSurfReportPublic).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("surf-decision-call")).not.toBeInTheDocument();
+    expect(screen.queryByText("2-3 ft")).not.toBeInTheDocument();
+  });
+
+  it("does not show an Unknown wave height in the Surf cell", async () => {
+    mockGetSpotSurfReportPublic.mockResolvedValue(report({ waveHeight: "Unknown" }));
+    await renderCard();
+
+    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
   });
 });

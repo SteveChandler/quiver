@@ -33,7 +33,7 @@ const FALLBACK_MESSAGE =
 
 function pickBeachBySlug(beaches: Beach[] | null | undefined, slug: string): Beach | null {
   if (!beaches || beaches.length === 0) return null;
-  return beaches.find((beach) => beach.slug === slug) ?? beaches[0] ?? null;
+  return beaches.find((beach) => beach.slug === slug) ?? null;
 }
 
 
@@ -49,8 +49,9 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
     beach?.lat != null && beach?.lon != null
       ? getTimezoneFromCoords(beach.lat, beach.lon)
       : undefined;
+  const liveWaveHeight = knownConditionText(report?.waveHeight);
   const hasLiveData = Boolean(
-    report?.waveHeight || report?.bestWindowStart || report?.windDescription
+    liveWaveHeight || report?.bestWindowStart || knownConditionText(report?.windDescription)
   );
   const backupBeaches = await Promise.all(
     decision.nearbySpotSlugs.map(async (slug) => {
@@ -135,7 +136,7 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
           <DecisionMetric
             icon={Waves}
             label="Surf"
-            value={report?.waveHeight ?? "Check current reading"}
+            value={liveWaveHeight ?? "Check current reading"}
           />
           <DecisionMetric
             icon={ShipWheel}
