@@ -30,6 +30,7 @@ export default async function BeachWaterTempPage(props: PageProps) {
     beachSlug,
     pageType: "water-temp",
     beachPath: `/${intent}/${city}/${beachSlug}`,
+    expectedUsaLocation: { state: intent, city },
   });
 }
 
@@ -45,5 +46,6 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     beachSlug,
     pageType: "water-temp",
     beachPath: `/${intent}/${city}/${beachSlug}`,
+    expectedUsaLocation: { state: intent, city },
   });
 }
