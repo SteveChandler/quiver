@@ -1108,7 +1108,7 @@ describe("Sitemap Generation", () => {
         [BEACH_WITH_FRESH_FORECAST] as unknown as Parameters<
           typeof buildBeachRoutes
         >[0],
-        "forecast-coverage-unknown",
+        new Map([[BEACH_WITH_FRESH_FORECAST.id, "forecast-coverage-unknown" as const]]),
         {
           tideCoverage: new Set<string>(),
           waterTempCoverage: new Set([BEACH_WITH_FRESH_FORECAST.id]),

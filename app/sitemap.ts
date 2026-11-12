@@ -624,8 +624,8 @@ export function buildBeachRoutes(
       const stateSlug = stateToSlug(beach.state);
       const isUsa = isUsaCountry(beach.country) && isValidStateSlug(stateSlug);
       const hasDedicatedSubPages = isUsa || countrySlug === "mexico";
-      // Unknown coverage keeps beach URLs listed, matching the pages' metadata
-      // for the same failure; dropping them would delist every beach.
+      // A beach with unknown coverage stays listed, matching the pages' metadata
+      // for the same failure; dropping it would delist it for one bad read.
       const forecastSnapshot = forecastCoverageFor(forecastIndexabilityByBeachId, beach.id);
       const forecastIndexable = evaluateBeachPageIndexability(
         forecastSnapshot,
@@ -997,15 +997,14 @@ function latestForecastModifiedForBeaches(
   beaches: Array<{ id: string }>,
   forecastIndexabilityByBeachId: ForecastCoverageLookup,
 ): string {
-  if (forecastIndexabilityByBeachId === FORECAST_COVERAGE_UNKNOWN) {
-    return SITEMAP_CONTENT_VERSIONS.forecastTemplate;
-  }
   return latestSitemapDate(
     SITEMAP_CONTENT_VERSIONS.forecastTemplate,
-    ...beaches.map(
-      (beach) =>
-        forecastIndexabilityByBeachId.get(beach.id)?.sourceDataUpdatedAt,
-    ),
+    ...beaches.map((beach) => {
+      const coverage = forecastIndexabilityByBeachId.get(beach.id);
+      return coverage === FORECAST_COVERAGE_UNKNOWN
+        ? null
+        : coverage?.sourceDataUpdatedAt;
+    }),
   );
 }
 

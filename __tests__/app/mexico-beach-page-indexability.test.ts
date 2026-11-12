@@ -63,7 +63,7 @@ describe("Mexico beach metadata indexability", () => {
 
   it("keeps the canonical beach URL indexable when forecast coverage is unknown", async () => {
     (getCachedForecastIndexabilitySnapshots as jest.Mock).mockResolvedValue(
-      "forecast-coverage-unknown",
+      new Map([[beach.id, "forecast-coverage-unknown"]]),
     );
 
     const metadata = await generateMetadata({

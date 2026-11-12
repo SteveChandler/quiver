@@ -95,14 +95,76 @@ describe("getCachedForecastIndexabilitySnapshots", () => {
     const failure = new ForecastIndexabilityUnavailableError("coverage query failed", "timeout");
     (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValue(failure);
 
-    const result = await getCachedForecastIndexabilitySnapshots([{ id: "beach-1" }]);
+    const result = await getCachedForecastIndexabilitySnapshots([{ id: "never-read" }]);
 
-    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "beach-1"), true).indexable).toBe(true);
-    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "beach-1"), false).indexable).toBe(false);
+    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "never-read"), true).indexable).toBe(true);
+    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "never-read"), false).indexable).toBe(false);
     expect(Sentry.captureException).toHaveBeenCalledWith(
       failure,
       expect.objectContaining({ level: "warning" }),
     );
+  });
+
+  it("keeps the last known state of each beach when a later read fails", async () => {
+    const stale = { ...snapshot, forecastFresh: false, isStale: true };
+    const missing = { ...snapshot, forecastAvailable: false, selectedStateComplete: false, forecastFresh: false };
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValueOnce(
+      new Map([["lg-stale", stale], ["lg-missing", missing]]),
+    );
+    await getCachedForecastIndexabilitySnapshots([{ id: "lg-stale" }, { id: "lg-missing" }]);
+    (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValue(
+      new ForecastIndexabilityUnavailableError("coverage query failed", "timeout"),
+    );
+
+    const result = await getCachedForecastIndexabilitySnapshots([
+      { id: "lg-stale" },
+      { id: "lg-missing" },
+      { id: "lg-never-read" },
+    ]);
+
+    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "lg-stale"), true)).toEqual({
+      indexable: false,
+      reason: "forecast-stale",
+    });
+    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "lg-missing"), true)).toEqual({
+      indexable: false,
+      reason: "forecast-missing",
+    });
+    expect(evaluateBeachPageIndexability(forecastCoverageFor(result, "lg-never-read"), true)).toEqual({
+      indexable: true,
+      reason: "forecast-coverage-unknown",
+    });
+  });
+
+  it("does not store a failed read in the data cache; the next call reads again", async () => {
+    // A cache double that, like unstable_cache, keeps what the loader resolves
+    // per key and serves it on the next call.
+    const stored = new Map<string, unknown>();
+    (unstable_cache as jest.Mock).mockImplementation(
+      (loader: () => Promise<unknown>, keyParts: string[]) => async () => {
+        const key = keyParts.join("|");
+        if (stored.has(key)) return stored.get(key);
+        const value = await loader();
+        stored.set(key, value);
+        return value;
+      },
+    );
+    try {
+      (getForecastIndexabilityForBeaches as jest.Mock)
+        .mockRejectedValueOnce(new ForecastIndexabilityUnavailableError("coverage query failed", "timeout"))
+        .mockResolvedValueOnce(new Map([["cache-beach", snapshot]]));
+
+      const failed = await getCachedForecastIndexabilitySnapshots([{ id: "cache-beach" }]);
+      expect(forecastCoverageFor(failed, "cache-beach")).toBe("forecast-coverage-unknown");
+      expect(stored.size).toBe(0);
+
+      const next = await getCachedForecastIndexabilitySnapshots([{ id: "cache-beach" }]);
+      expect(getForecastIndexabilityForBeaches).toHaveBeenCalledTimes(2);
+      expect(forecastCoverageFor(next, "cache-beach")).toEqual(snapshot);
+      expect(stored.size).toBe(1);
+    } finally {
+      (unstable_cache as jest.Mock).mockImplementation((fn: unknown) => fn);
+    }
   });
 
   it("reports repeated coverage failures to Sentry once per five minutes", async () => {

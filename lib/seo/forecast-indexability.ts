@@ -45,8 +45,9 @@ const FORECAST_COVERAGE_SELECT =
 const BEACH_ID_BATCH_SIZE = 20;
 
 /**
- * The coverage read failed for this request, so the forecast state is not
- * known. Distinct from "no snapshot", which means the beach has no forecast.
+ * The coverage read failed and this instance has no earlier answer for the
+ * beach, so its forecast state is not known. Distinct from "no snapshot",
+ * which means the beach has no forecast.
  */
 export const FORECAST_COVERAGE_UNKNOWN = "forecast-coverage-unknown" as const;
 
@@ -55,16 +56,16 @@ export type ForecastCoverage =
   | undefined
   | typeof FORECAST_COVERAGE_UNKNOWN;
 
-/** Snapshots by beach id, or unknown for every beach when the read failed. */
-export type ForecastCoverageLookup =
-  | ReadonlyMap<string, ForecastIndexabilitySnapshot>
-  | typeof FORECAST_COVERAGE_UNKNOWN;
+/** Snapshot by beach id; a beach is unknown only when its read failed. */
+export type ForecastCoverageLookup = ReadonlyMap<
+  string,
+  ForecastIndexabilitySnapshot | typeof FORECAST_COVERAGE_UNKNOWN
+>;
 
 export function forecastCoverageFor(
   lookup: ForecastCoverageLookup,
   beachId: string,
 ): ForecastCoverage {
-  if (lookup === FORECAST_COVERAGE_UNKNOWN) return FORECAST_COVERAGE_UNKNOWN;
   return lookup.get(beachId);
 }
 
@@ -209,22 +210,30 @@ export class ForecastIndexabilityUnavailableError extends Error {
 const UNAVAILABLE_REPORT_WINDOW_MS = 5 * 60 * 1000;
 let lastUnavailableReportAtMs: number | null = null;
 
+let suppressedUnavailableReports = 0;
+
 /**
- * Report a coverage read failure to Sentry at most once per process per five
- * minutes; every caller hits it during one outage.
+ * Report a coverage read failure at most once per five minutes; every page
+ * render hits it during one outage. The window is module state, so it is per
+ * server instance: N warm instances can each report once per window. The log
+ * line uses the same window and carries the count it suppressed.
  */
 export function reportForecastCoverageUnavailable(
   error: ForecastIndexabilityUnavailableError,
 ): void {
-  console.error(error.message);
   const nowMs = Date.now();
   if (
     lastUnavailableReportAtMs !== null &&
     nowMs - lastUnavailableReportAtMs < UNAVAILABLE_REPORT_WINDOW_MS
   ) {
+    suppressedUnavailableReports += 1;
     return;
   }
+  console.error(error.message, {
+    suppressedSinceLastReport: suppressedUnavailableReports,
+  });
   lastUnavailableReportAtMs = nowMs;
+  suppressedUnavailableReports = 0;
   Sentry.captureException(error, {
     level: "warning",
     tags: { area: "seo-indexability" },

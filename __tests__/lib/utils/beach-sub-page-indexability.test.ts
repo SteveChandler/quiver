@@ -186,6 +186,21 @@ describe("beach sub-page metadata indexability", () => {
       expect(meta.robots).toMatchObject({ index: true, follow: true });
     });
 
+    it("keeps noindex for a beach whose last read was stale", async () => {
+      (getTideMetaData as jest.Mock).mockResolvedValue(TIDES);
+      (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValueOnce(
+        new Map([["stale-beach", { ...FRESH_SNAPSHOT, forecastFresh: false, isStale: true }]]),
+      );
+      (getBeachBySlugOrId as jest.Mock).mockResolvedValue({ ...UNREVIEWED_BEACH, id: "stale-beach" });
+      const args = { beachSlug: "windansea", pageType: "tides" as const, beachPath: "/ca/la-jolla/windansea" };
+      expect((await generateBeachSubPageMetadata(args)).robots).toMatchObject({ index: false });
+
+      const meta = await generateBeachSubPageMetadata(args);
+
+      expect(getForecastIndexabilityForBeaches).toHaveBeenCalledTimes(2);
+      expect(meta.robots).toMatchObject({ index: false, follow: true });
+    });
+
     it("still noindexes a tides page without tide data", async () => {
       (getTideMetaData as jest.Mock).mockResolvedValue(NO_TIDES);
 
