@@ -3,19 +3,27 @@ import { NextResponse, type NextRequest } from "next/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import {
   parseNativePlatform,
-  resolveNativeMinimumVersion,
+  readNativeMinimumVersion,
+  type NativeMinimumReadOutcome,
 } from "@/lib/native/minimum-version";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=60";
+// A null that comes from a failed read must not stay in the CDN after the read recovers.
+const NO_STORE = "no-store";
+
+function cacheControlFor(outcome: NativeMinimumReadOutcome): string {
+  return outcome === "found" || outcome === "missing" ? CACHE_CONTROL : NO_STORE;
+}
 
 /**
  * GET /api/v1/app/minimum-version?platform=ios|android
  *
  * The oldest store version and OTA bundle the native app may run. Values come
- * from NATIVE_MIN_* env vars; unset or invalid = null = no forced update.
+ * from the public.native_app_minimums row for the platform; a null, a missing
+ * row, an invalid value or a failed read = null = no forced update.
  */
 async function getMinimumVersion(request: NextRequest): Promise<NextResponse> {
   const platform = parseNativePlatform(request.nextUrl.searchParams.get("platform"));
@@ -23,8 +31,9 @@ async function getMinimumVersion(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid_platform" }, { status: 400 });
   }
 
-  return NextResponse.json(resolveNativeMinimumVersion(platform), {
-    headers: { "Cache-Control": CACHE_CONTROL },
+  const { result, outcome } = await readNativeMinimumVersion(platform);
+  return NextResponse.json(result, {
+    headers: { "Cache-Control": cacheControlFor(outcome) },
   });
 }
 
