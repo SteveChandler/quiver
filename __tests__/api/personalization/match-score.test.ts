@@ -203,6 +203,17 @@ describe("GET /api/personalization/match-score", () => {
     expect(known.data.reason_bullets.join(" ")).toMatch(/4 mph wind/);
   });
 
+  it("leaves out the tide line for the request native sends at a beach with no tide", async () => {
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
+
+    const json = await (await GET(new NextRequest(
+      "https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&wind_speed=4&wind_direction=210&tide_height=null",
+    ))).json();
+
+    expect(json.data.state).toBe("learned");
+    expect(json.data.reason_bullets.join(" ")).not.toMatch(/null|Tide near/);
+  });
+
   it("keeps calm as 0 mph with no direction for the board pick", async () => {
     rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
 
