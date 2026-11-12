@@ -135,6 +135,16 @@ describe("withErrorNoStore", () => {
     expect(await res.text()).toBe("bad gateway");
   });
 
+  it("keeps an error header that already says no-store", async () => {
+    const res = await call(async () => NextResponse.json({ error: "gone" }, { status: 410, headers: { "Cache-Control": "no-store" } }));
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("returns an object without real headers untouched", async () => {
+    const double = { status: 500, json: async () => ({ success: false }) } as unknown as Response;
+    expect(await call(async () => double)).toBe(double);
+  });
+
   it("passes the request and route context through", async () => {
     const handler = jest.fn(async (_req: Request, ctx: { params: Promise<{ id: string }> }) =>
       NextResponse.json({ id: (await ctx.params).id })

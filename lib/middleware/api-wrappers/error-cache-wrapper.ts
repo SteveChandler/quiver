@@ -9,14 +9,18 @@ import { NO_STORE_CACHE_CONTROL } from "./cache-wrappers";
 const CDN_CACHE_HEADERS = ["CDN-Cache-Control", "Vercel-CDN-Cache-Control"] as const;
 
 function markNoStore(response: Response): Response {
+  // Not a real Response (a test double): nothing a cache could keep.
+  if (typeof response.headers?.set !== "function") return response;
+  const current = response.headers.get("Cache-Control") ?? "";
+  const cacheControl = /\bno-store\b/i.test(current) ? current : NO_STORE_CACHE_CONTROL;
   try {
-    response.headers.set("Cache-Control", NO_STORE_CACHE_CONTROL);
+    response.headers.set("Cache-Control", cacheControl);
     for (const header of CDN_CACHE_HEADERS) response.headers.delete(header);
     return response;
   } catch {
     // A passed-through fetch() response has immutable headers; copy it.
     const headers = new Headers(response.headers);
-    headers.set("Cache-Control", NO_STORE_CACHE_CONTROL);
+    headers.set("Cache-Control", cacheControl);
     for (const header of CDN_CACHE_HEADERS) headers.delete(header);
     return new Response(response.body, {
       status: response.status,
@@ -62,7 +66,7 @@ export function withErrorNoStore<A extends unknown[], R extends Response>(
         )
       ) as R;
     }
-    if (response.status < 400) return response;
+    if (!(response.status >= 400)) return response;
     return markNoStore(response) as R;
   };
 }
