@@ -64,6 +64,7 @@ export type IndexabilityReason =
   | "unproven"
   | "forecast-approved"
   | "forecast-missing"
+  | "forecast-coverage-unknown"
   | "forecast-incomplete"
   | "forecast-stale"
   | "invalid-canonical"

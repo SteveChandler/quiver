@@ -25,7 +25,10 @@ import {
   parseEditorialSources,
   type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
-import { evaluateBeachPageIndexability } from "@/lib/seo/forecast-indexability";
+import {
+  evaluateBeachPageIndexability,
+  forecastCoverageFor,
+} from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 
@@ -253,7 +256,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       { id: beach.id, timezone: beach.timezone ?? null },
     ]);
     const decision = evaluateBeachPageIndexability(
-      snapshots.get(beach.id),
+      forecastCoverageFor(snapshots, beach.id),
       canonicalPath === buildBeachUrl(beach) && !canonicalPath.startsWith("/beach/"),
     );
     return applyIndexabilityToMetadata(metadata, decision);
