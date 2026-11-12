@@ -39,6 +39,8 @@ import { slugifyAscii } from "@/lib/utils/text-utils";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
+  FORECAST_COVERAGE_UNKNOWN,
+  forecastCoverageFor,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
@@ -430,14 +432,19 @@ export async function generateBeachSubPageMetadata({
               tideMetaForIndexing?.nextLowTime,
           )
         : tempMetaForIndexing?.tempF != null || isGscPerformanceProtected(subPagePath);
+    const forecastCoverage = forecastCoverageFor(snapshots, beach.id);
     const indexable = isBeachSubPageIndexable(
-      snapshots.get(beach.id),
+      forecastCoverage,
       subPagePath,
       { hasSubPageData },
     );
     return applyIndexabilityToMetadata(metadata, {
       indexable,
-      reason: indexable ? "forecast-approved" : "forecast-missing",
+      reason: !indexable
+        ? "forecast-missing"
+        : forecastCoverage === FORECAST_COVERAGE_UNKNOWN
+          ? "forecast-coverage-unknown"
+          : "forecast-approved",
     });
   }
 

@@ -58,8 +58,10 @@ import {
 } from "@/lib/seo/indexability";
 import {
   evaluateBeachPageIndexability,
+  FORECAST_COVERAGE_UNKNOWN,
+  forecastCoverageFor,
   isBeachSubPageIndexable,
-  type ForecastIndexabilitySnapshot,
+  type ForecastCoverageLookup,
 } from "@/lib/seo/forecast-indexability";
 import {
   FORECAST_INDEXABILITY_REVALIDATE_SECONDS,
@@ -589,10 +591,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  */
 export function buildBeachRoutes(
   beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>,
-  forecastIndexabilityByBeachId: ReadonlyMap<
-    string,
-    ForecastIndexabilitySnapshot
-  >,
+  forecastIndexabilityByBeachId: ForecastCoverageLookup,
   subPageCoverage?: BeachSubPageCoverage,
 ): MetadataRoute.Sitemap {
   const subPageTypes = ["tides", "water-temp"] as const;
@@ -625,7 +624,9 @@ export function buildBeachRoutes(
       const stateSlug = stateToSlug(beach.state);
       const isUsa = isUsaCountry(beach.country) && isValidStateSlug(stateSlug);
       const hasDedicatedSubPages = isUsa || countrySlug === "mexico";
-      const forecastSnapshot = forecastIndexabilityByBeachId.get(beach.id);
+      // A beach with unknown coverage stays listed, matching the pages' metadata
+      // for the same failure; dropping it would delist it for one bad read.
+      const forecastSnapshot = forecastCoverageFor(forecastIndexabilityByBeachId, beach.id);
       const forecastIndexable = evaluateBeachPageIndexability(
         forecastSnapshot,
         !beachPath.startsWith("/beach/"),
@@ -994,26 +995,22 @@ function getGuideRoutes(): MetadataRoute.Sitemap {
  */
 function latestForecastModifiedForBeaches(
   beaches: Array<{ id: string }>,
-  forecastIndexabilityByBeachId: ReadonlyMap<
-    string,
-    ForecastIndexabilitySnapshot
-  >,
+  forecastIndexabilityByBeachId: ForecastCoverageLookup,
 ): string {
   return latestSitemapDate(
     SITEMAP_CONTENT_VERSIONS.forecastTemplate,
-    ...beaches.map(
-      (beach) =>
-        forecastIndexabilityByBeachId.get(beach.id)?.sourceDataUpdatedAt,
-    ),
+    ...beaches.map((beach) => {
+      const coverage = forecastIndexabilityByBeachId.get(beach.id);
+      return coverage === FORECAST_COVERAGE_UNKNOWN
+        ? null
+        : coverage?.sourceDataUpdatedAt;
+    }),
   );
 }
 
 function getForecastRoutes(
   allBeaches: Beach[],
-  forecastIndexabilityByBeachId: ReadonlyMap<
-    string,
-    ForecastIndexabilitySnapshot
-  >,
+  forecastIndexabilityByBeachId: ForecastCoverageLookup,
 ): MetadataRoute.Sitemap {
   const routes: MetadataRoute.Sitemap = [];
 
