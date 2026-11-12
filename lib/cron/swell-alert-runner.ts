@@ -209,6 +209,8 @@ export interface SwellAlertCandidate {
 export interface SwellAlertPoolEvaluation {
   history: DayScore[];
   candidates: SwellAlertCandidate[];
+  /** 1 when the user's plan read failed; the pool was scored without board picks. */
+  entitlementReadFailures?: number;
   poolBeachIds?: string[];
   anchor?: { lat: number; lon: number } | null;
 }
@@ -335,6 +337,8 @@ interface SwellAlertRunSummary {
    * the once-per-run Sentry report carries the raw failed-lookup count.
    */
   hazardLookupFailures: number;
+  /** Users whose plan read failed; their alerts went out without board picks. */
+  entitlementReadFailures: number;
   durationMs: number;
 }
 
@@ -415,6 +419,7 @@ function createSummary(): SwellAlertRunSummary {
     followupsEvaluated: 0,
     followupStateFailures: 0,
     hazardLookupFailures: 0,
+    entitlementReadFailures: 0,
     durationMs: 0,
   };
 }
@@ -757,8 +762,13 @@ async function evaluatePool(
   if (pool.length === 0) return { history: [], candidates: [], poolBeachIds: [], anchor: null };
 
   // The board is optional copy; a failed read sends the alert without one.
+  // An unknown plan gets no board picks; the run summary counts it, the reader reports it.
+  let entitlementReadFailures = 0;
   const boardsForPicks = await getUserEntitlement(profile.id, client)
-    .then((tier) => fetchUserBoardContext(client, profile.id, tier === "premium"))
+    .then((tier) => {
+      if (tier === "unknown") entitlementReadFailures = 1;
+      return fetchUserBoardContext(client, profile.id, tier === "premium");
+    })
     .then((context) => context.boardsForPicks, (error: unknown) => {
       console.warn(`[swell-alert] Board read failed for ${profile.id}:`, error);
       return [];
@@ -868,6 +878,7 @@ async function evaluatePool(
     history,
     poolBeachIds: capNearbyPool(pool, { experienceLevel: profile.experienceLevel }).pool.map(({ beach }) => beach.id),
     anchor: profile.location,
+    ...(entitlementReadFailures > 0 ? { entitlementReadFailures } : {}),
     candidates: candidates.filter(
       (candidate): candidate is SwellAlertCandidate => candidate !== null,
     ),
@@ -1925,6 +1936,7 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
 
     try {
       const evaluation = await deps.evaluatePool(profile, now);
+      summary.entitlementReadFailures += evaluation.entitlementReadFailures ?? 0;
       const candidates = await orderSwellCandidatesForTomorrow({
         profile, evaluation, now: now, rankDay: deps.rankDay, usesSharedRanking: deps.usesSharedRanking,
       });

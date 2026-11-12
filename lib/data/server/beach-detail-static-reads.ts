@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import "server-only";
 
 import { unstable_cache } from "next/cache";
@@ -26,7 +27,7 @@ async function readBeachCameraUrl(beachId: string): Promise<string | null> {
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return data?.camera_url ?? null;
+  return isBlockedCameraUrl(data?.camera_url) ? null : data?.camera_url ?? null;
 }
 
 async function readBeachAmenities(beachId: string): Promise<BeachAmenities | null> {
@@ -60,7 +61,7 @@ function cachedPerBeach<T>(
 }
 
 export const getCachedBeachCameraUrl = cachedPerBeach(
-  "camera-url",
+  "camera-url-v2",
   readBeachCameraUrl,
   STATIC_READ_TTL_SECONDS,
 );

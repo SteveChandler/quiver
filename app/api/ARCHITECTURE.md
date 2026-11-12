@@ -332,7 +332,7 @@ export const GET = withAuth(handler);
 
 **Caching**:
 
-HDOnTap media playlists are checked with a HEAD request to the first segment on its live host or `edgeNN[.region].nginx.hdontap.com` CDN. Redirects are rejected. Expired segments (404/410) trigger at most three retries with 2/4/6-second backoff inside the same 15-second deadline. No expired playlist is returned after exhaustion; failures are uncached. The public proxy allowlist is unchanged.
+Camera media routes reject the retired provider by hostname and reject upstream redirects. The HLS proxy checks playlist URIs in media lines and attributes before returning a manifest. The HDRelay and Surfline allowlists continue to apply.
 
 | Resource Type | `Cache-Control` |
 |---------------|-----------------|

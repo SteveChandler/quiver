@@ -1,3 +1,5 @@
+import { RETIRED_CAMERA_BEACH_IDS } from "@/lib/media/retired-camera-beaches";
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -44,6 +46,7 @@ async function isSurflineHlsAvailable(url: string): Promise<boolean> {
   try {
     const response = await globalThis.fetch(url, {
       method: "HEAD",
+      redirect: "error",
       headers: SURFLINE_HEALTH_HEADERS,
       signal: AbortSignal.timeout(3000),
     });
@@ -119,6 +122,14 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     let cameraUrl: string | null = (data as any)?.camera_url || null;
     let cameraThumbnailUrl: string | null = (data as any)?.thumbnail_url || null;
 
+    const blockedCamera = isBlockedCameraUrl(cameraUrl);
+    if (blockedCamera) {
+      cameraUrl = null;
+      cameraThumbnailUrl = null;
+    } else if (isBlockedCameraUrl(cameraThumbnailUrl)) {
+      cameraThumbnailUrl = null;
+    }
+
     if (isSurflineHlsUrl(cameraUrl)) {
       const hlsAvailable = await isSurflineHlsAvailable(cameraUrl);
       if (!hlsAvailable) {
@@ -168,7 +179,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
     // Server-side preflight for embed allow
     let embedAllowed: boolean | null = null;
-    const camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
+    let camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
     if (cameraUrl) {
       // Known embeddable sources — buildCamEmbed transforms these to proper embed URLs
       if (camIntent.kind === "external") {
@@ -181,7 +192,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         // HLS, video, and resolvable player sources are embeddable via native players
         embedAllowed = true;
       } else if (
-        cameraUrl.includes("hdontap.com/") ||
         cameraUrl.includes("youtube.com/") ||
         cameraUrl.includes("youtu.be/") ||
         cameraUrl.includes("vimeo.com/")
@@ -193,6 +203,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         try {
           const head = await fetch(cameraUrl, {
             method: "HEAD",
+            redirect: "manual",
             signal: AbortSignal.timeout(3000),
           });
           const xfo = head.headers.get("x-frame-options");
@@ -200,7 +211,13 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
           const deniesXfo = xfo && /deny|sameorigin/i.test(xfo);
           const deniesCsp =
             csp && /frame-ancestors\s+('none'|none|self)/i.test(csp);
-          embedAllowed = !(deniesXfo || deniesCsp);
+          embedAllowed = head.ok && !(deniesXfo || deniesCsp);
+          if (head.status >= 300 && head.status < 400 &&
+              isBlockedCameraUrl(head.headers.get("location"))) {
+            cameraUrl = null;
+            cameraThumbnailUrl = null;
+            camIntent = { kind: "none" };
+          }
         } catch {
           // Network or CORS may block reading headers; be optimistic and let client attempt
           embedAllowed = null;
@@ -213,20 +230,17 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       forecast_source_id: (data as any)?.forecast_source_id || null,
       camera_url: cameraUrl,
       embed_allowed: embedAllowed,
-      diorama_url: dioramaUrl,
+      diorama_url: isBlockedCameraUrl(dioramaUrl) ? null : dioramaUrl,
       cam_open_url: cameraUrl ? getViewableUrl(cameraUrl) : null,
       cam_thumbnail_url: cameraThumbnailUrl,
       cam_kind: camIntent.kind,
       cam_embed: toNativeCamEmbed(camIntent),
+      ...(blockedCamera || (!cameraUrl && RETIRED_CAMERA_BEACH_IDS.has(beachId))
+        ? { cam_unavailable: true } : {}),
     };
 
-    // PERFORMANCE OPTIMIZATION: Cache sources for 30 minutes (1800s)
-    // Camera URLs and forecast source ids don't change frequently
     const response = createSuccessResponse({ sources: merged });
-    response.headers.set(
-      "Cache-Control",
-      "public, s-maxage=1800, stale-while-revalidate=7200"
-    );
+    response.headers.set("Cache-Control", "no-store");
 
     return response;
   } catch (err) {
