@@ -8,7 +8,9 @@ describe("session share card details", () => {
     expect(formatShareWaveSize("3")).toBe("3 ft");
     expect(formatShareWaveSize("3-4")).toBe("3-4 ft");
     expect(formatShareWaveSize("9+")).toBe("9+ ft");
-    expect(formatShareWaveSize("Chest-Head")).toBe("Chest-Head");
+    // Intended change: only heights in feet; a bucket name or metres is not a logged height.
+    expect(formatShareWaveSize("Chest-Head")).toBe("");
+    expect(formatShareWaveSize("3-4m")).toBe("");
     expect(formatShareWaveSize("4 ft")).toBe("4 ft");
   });
 
@@ -20,9 +22,14 @@ describe("session share card details", () => {
 
   it("keeps every logged detail in order", () => {
     expect(
-      buildSessionShareDetails({ size: "Chest-Head", board: "Fish", windSpeed: "7 mph", windLabel: "Offshore" }),
+      buildSessionShareDetails({
+        size: "4 ft",
+        board: "Fish",
+        windSpeed: "7 mph",
+        windLabel: "Offshore",
+      }),
     ).toEqual([
-      { label: "Waves", value: "Chest-Head" },
+      { label: "Waves", value: "4 ft" },
       { label: "Board", value: "Fish" },
       { label: "Wind", value: "7 mph Offshore" },
     ]);

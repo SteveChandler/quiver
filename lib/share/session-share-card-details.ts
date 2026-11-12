@@ -3,12 +3,15 @@ interface SessionShareDetail {
   value: string;
 }
 
-// Native builds send the logged wave height as a bare number ("3" or "3-4").
+// Both apps log wave height in feet and send it as a bare number ("3" or "3-4").
 const BARE_WAVE_HEIGHT = /^\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?\+?$/;
+const FEET_WAVE_HEIGHT = /^\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?\+?\s*ft$/i;
 
+/** Feet only: any other text ("3-4m", "Chest-Head") is not a height the app logged. */
 export function formatShareWaveSize(size: string | null | undefined): string {
   const trimmed = size?.trim() ?? "";
-  return BARE_WAVE_HEIGHT.test(trimmed) ? `${trimmed} ft` : trimmed;
+  if (BARE_WAVE_HEIGHT.test(trimmed)) return `${trimmed} ft`;
+  return FEET_WAVE_HEIGHT.test(trimmed) ? trimmed : "";
 }
 
 /** Only details the surfer actually logged; an empty field is left off, never filled with a placeholder. */

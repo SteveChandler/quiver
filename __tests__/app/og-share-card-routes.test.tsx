@@ -1,4 +1,6 @@
+/** @jest-environment node */
 import { isValidElement } from "react";
+import { NextRequest } from "next/server";
 
 let mockCapturedImageElement: unknown = null;
 let mockCapturedOptions: unknown = null;
@@ -30,7 +32,7 @@ describe("install-style OG share cards", () => {
     const { GET } = await import("@/app/api/og/session/route");
 
     const response = await GET(
-      new Request(
+      new NextRequest(
         "http://localhost:3000/api/og/session?format=jpeg&beach=Ocean+Beach&rating=Epic&stars=5&size=Chest-Head&board=Fish&windLabel=Offshore&windSpeed=7+mph&tagline=Clean+morning+waves&bg=https%3A%2F%2Fcdn.quiversurf.app%2Fsession.jpg&shareUrl=https%3A%2F%2Fwww.quiversurf.app%2Fsessions%2Fsession-abc",
       ) as never,
     );
@@ -40,7 +42,7 @@ describe("install-style OG share cards", () => {
     expect(capturedProps()).toEqual(
       expect.objectContaining({
         beach: "Ocean Beach",
-        rating: "Epic",
+        // Intended change: the card derives the label from stars, so no `rating` prop is passed.
         stars: 5,
         size: "Chest-Head",
         board: "Fish",
@@ -58,7 +60,7 @@ describe("install-style OG share cards", () => {
     const { GET } = await import("@/app/api/og/session/route");
 
     const response = await GET(
-      new Request(
+      new NextRequest(
         "http://localhost:3000/api/og/session?beach=Ocean+Beach&rating=Epic&stars=5&size=Chest-Head&board=Fish&bg=http%3A%2F%2F127.0.0.1%3A54321%2Fprivate.png",
       ) as never,
     );
@@ -75,7 +77,7 @@ describe("install-style OG share cards", () => {
     const { GET } = await import("@/app/api/og/session/route");
 
     const response = await GET(
-      new Request(
+      new NextRequest(
         "http://localhost:3000/api/og/session?beach=Ocean+Beach&rating=Epic&bg=https%3A%2F%2Fwww.quiversurf.app%2Fapi%2Fprivate",
       ) as never,
     );
