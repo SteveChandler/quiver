@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { stripCollisionStateSuffix } from "@/lib/seo/city-slug-utils";
 import { NextResponse, type NextRequest } from "next/server";
@@ -128,6 +129,16 @@ function log(message: string, data?: any) {
  * Cyclomatic Complexity: Reduced from 37 → 6
  */
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/_next/image") {
+    if (isBlockedCameraUrl(request.nextUrl.href)) {
+      return new NextResponse("Image unavailable", {
+        status: 410,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+    return NextResponse.next();
+  }
+
   // Canonical domain redirect: non-www → www with 301 (permanent) for SEO link equity
   const hostname = request.headers.get("host") || "";
   if (hostname === GO_HOST && !isGoAppHandoffPath(request.nextUrl.pathname)) {
@@ -881,6 +892,7 @@ function checkAdminPrivileges(user: any) {
 
 export const config = {
   matcher: [
+    "/_next/image",
     /*
      * Match all page routes but exclude:
      * - API routes (/api/*)

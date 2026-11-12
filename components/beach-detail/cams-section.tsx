@@ -1,5 +1,6 @@
 "use client";
 
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -42,7 +43,8 @@ export function CamsSection({
   // Counter to re-mount the player on Refresh
   const [playerKey, setPlayerKey] = useState(0);
 
-  const cameraUrl = sources?.camera_url ?? undefined;
+  const blockedCamera = isBlockedCameraUrl(sources?.camera_url);
+  const cameraUrl = blockedCamera ? undefined : sources?.camera_url ?? undefined;
 
   useEffect(() => {
     setIframeBlocked(false);
@@ -58,35 +60,35 @@ export function CamsSection({
     return getYouTubeWatchUrl(cameraUrl) ?? viewableUrl;
   }, [cameraUrl, viewableUrl]);
   const externalClickoutIntent = intent?.kind === "external" ? intent : null;
-  const storedThumbnailUrl = sources?.cam_thumbnail_url ?? null;
+  const storedThumbnailUrl = blockedCamera || isBlockedCameraUrl(sources?.cam_thumbnail_url)
+    ? null : sources?.cam_thumbnail_url ?? null;
   const allowIframe =
     intent &&
     intent.kind === "iframe" &&
     iframeBlocked === false &&
     sources?.embed_allowed !== false;
 
-  // Resolve HDOnTap page URLs -> HLS stream URLs server-side
-  const hdontapPageUrl = intent?.kind === "hdontap" ? intent.pageUrl : null;
+  // Resolve supported partner pages to HLS server-side
+  const partnerCameraPageUrl = intent?.kind === "hdontap" ? intent.pageUrl : null;
   const openCamUrl = intent?.kind === "hdontap" ? null : viewableUrl;
   useEffect(() => {
-    if (!hdontapPageUrl) return;
+    if (!partnerCameraPageUrl) return;
     let cancelled = false;
     setResolvedHlsUrl(null);
     setHlsError(false);
-    fetch(`/api/cam-resolve?url=${encodeURIComponent(hdontapPageUrl)}`)
+    fetch(`/api/cam-resolve?url=${encodeURIComponent(partnerCameraPageUrl)}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
       .then((data: { hlsUrl?: string }) => {
-        if (!cancelled && data.hlsUrl) {
-          setResolvedHlsUrl(toProxiedHlsUrl(data.hlsUrl));
-        } else if (!cancelled) {
-          setHlsError(true);
-        }
+        if (cancelled) return;
+        const src = data.hlsUrl ? toProxiedHlsUrl(data.hlsUrl) : null;
+        if (src) setResolvedHlsUrl(src);
+        else setHlsError(true);
       })
       .catch(() => {
         if (!cancelled) setHlsError(true);
       });
     return () => { cancelled = true; };
-  }, [hdontapPageUrl, playerKey]);
+  }, [partnerCameraPageUrl, playerKey]);
 
   const handleRefresh = () => {
     setHlsError(false);
@@ -95,7 +97,7 @@ export function CamsSection({
     setPlayerKey((k) => k + 1);
   };
 
-  const dioramaUrl = sources?.diorama_url ?? undefined;
+  const dioramaUrl = isBlockedCameraUrl(sources?.diorama_url) ? null : sources?.diorama_url;
 
   const dioramaVisual = dioramaUrl ? (
     <div className="relative aspect-video w-full overflow-hidden bg-[#252D6B]">
@@ -117,7 +119,7 @@ export function CamsSection({
     <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/80 via-white to-blue-50 text-center">
       <CameraOff className="h-10 w-10 text-ocean-blue" />
       <div className="max-w-sm text-sm text-muted-foreground">
-        No live cam available yet. Know a good angle? Let the crew know.
+        Live camera unavailable. Know a good angle? Let the crew know.
       </div>
       <Button
         asChild

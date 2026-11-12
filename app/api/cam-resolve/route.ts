@@ -1,28 +1,15 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { NextRequest, NextResponse } from "next/server";
 import {
   DEFAULT_SECURITY_HEADERS,
   withRateLimit,
 } from "@/lib/middleware/api-wrappers";
-import { HDONTAP_HLS_RE, HDRELAY_PLAYER_RE } from "@/lib/media/cam-constants";
+import { HDRELAY_PLAYER_RE } from "@/lib/media/cam-constants";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Cam Resolve API Route
- *
- * Resolves camera page URLs (e.g. HDOnTap) to their underlying HLS stream URLs.
- * HDOnTap blocks iframe embedding (X-Frame-Options: DENY) and their HLS
- * streams at live.hdontap.com are CORS-blocked. We extract the signed HLS URL
- * from the page HTML server-side, then the client proxies it via /api/hls-proxy/.
- * Surfline embed widgets expose a cam-config JSON and cam-details JSON; native
- * uses this route to resolve those iframe widgets to the underlying HLS stream.
- *
- * GET /api/cam-resolve?url=https://hdontap.com/stream/186699/...
- * → { hlsUrl: "https://live.hdontap.com/hls/.../playlist.m3u8?t=...&e=..." }
- */
-
 const REQUEST_TIMEOUT = 10_000;
-const MAX_HTML_SIZE = 512 * 1024; // 512 KB — HDOnTap pages are ~50-100 KB
+const MAX_HTML_SIZE = 512 * 1024;
 const MAX_JSON_SIZE = 64 * 1024;
 const HDRELAY_CONFIG_BASE = "https://manage.hdrelay.com/player";
 const SURFLINE_EMBED_HOST = "embed.cdn-surfline.com";
@@ -30,9 +17,6 @@ const SURFLINE_HLS_HOST = "hls.cdn-surfline.com";
 
 /** Hostnames we're willing to scrape for stream URLs */
 const ALLOWED_RESOLVE_HOSTS = [
-  "hdontap.com",
-  "www.hdontap.com",
-  "portal.hdontap.com",
   "www.obhotel.com",
   "obhotel.com",
   "www.portofbrookingsharbor.com",
@@ -167,6 +151,7 @@ async function resolveSurflineEmbed(parsed: URL): Promise<NextResponse> {
     if (
       stream.protocol !== "https:" ||
       stream.hostname !== SURFLINE_HLS_HOST ||
+      stream.username || stream.password || stream.port || isBlockedCameraUrl(hlsUrl) ||
       !stream.pathname.endsWith(".m3u8")
     ) {
       return NextResponse.json(
@@ -198,6 +183,13 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400, headers: DEFAULT_SECURITY_HEADERS });
   }
 
+  if (isBlockedCameraUrl(url)) {
+    return NextResponse.json(
+      { error: "Camera unavailable" },
+      { status: 410, headers: { ...DEFAULT_SECURITY_HEADERS, "Cache-Control": "no-store" } }
+    );
+  }
+
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -209,7 +201,7 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Only HTTPS URLs allowed" }, { status: 400, headers: DEFAULT_SECURITY_HEADERS });
   }
 
-  if (!ALLOWED_RESOLVE_HOSTS.includes(parsed.hostname)) {
+  if (parsed.username || parsed.password || parsed.port || !ALLOWED_RESOLVE_HOSTS.includes(parsed.hostname)) {
     return NextResponse.json({ error: "Host not allowed" }, { status: 403, headers: DEFAULT_SECURITY_HEADERS });
   }
 
@@ -217,13 +209,7 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
     return resolveSurflineEmbed(parsed);
   }
 
-  // Ensure we fetch the /embed/ version (lighter HTML)
-  // Only rewrite pathname for standard HDOnTap /stream/ URLs
-  const isHdontap = parsed.hostname === "hdontap.com" || parsed.hostname === "www.hdontap.com";
-  if (isHdontap) {
-    parsed.pathname = parsed.pathname.replace(/\/?$/, "/embed/");
-  }
-  const embedUrl = parsed.toString();
+  const embedUrl = parsed.href;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
@@ -269,34 +255,7 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Response too large" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
     }
 
-    // Unescape unicode escapes (HDOnTap encodes & as \u0026, = as \u003d, etc.)
-    const unescaped = html.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
-    );
-
-    // Strategy 1: Look for HDOnTap HLS URL directly in page HTML
-    const hdontapMatch = unescaped.match(HDONTAP_HLS_RE);
-    if (hdontapMatch) {
-      const hlsUrl = hdontapMatch[0];
-      try {
-        new URL(hlsUrl);
-      } catch {
-        console.warn("[cam-resolve] Extracted malformed HLS URL:", hlsUrl);
-        return NextResponse.json({ error: "Invalid stream URL extracted" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
-      }
-      return NextResponse.json(
-        { hlsUrl },
-        {
-          headers: {
-            ...DEFAULT_SECURITY_HEADERS,
-            "Cache-Control": "public, max-age=120, stale-while-revalidate=60",
-          },
-        }
-      );
-    }
-
-    // Strategy 2: Look for HDRelay player initialization
-    const hdrelayMatch = unescaped.match(HDRELAY_PLAYER_RE);
+    const hdrelayMatch = html.match(HDRELAY_PLAYER_RE);
     if (hdrelayMatch) {
       const playerId = hdrelayMatch[1];
       try {
@@ -328,7 +287,7 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
         const config = JSON.parse(configText);
         const cameraId = config?.camera?.id;
         const hlsServer = config?.server?.hls?.replace(/^\/\//, "https://");
-        if (!cameraId || !hlsServer) {
+        if (!/^[a-z0-9_-]+$/i.test(String(cameraId ?? "")) || !hlsServer) {
           console.warn("[cam-resolve] HDRelay config missing camera/server:", { playerId });
           return NextResponse.json({ error: "HDRelay config incomplete" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
         }
@@ -336,7 +295,9 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
         // Validate HLS server is a trusted HDRelay domain
         try {
           const serverUrl = new URL(hlsServer.startsWith("http") ? hlsServer : `https://${hlsServer}`);
-          if (!serverUrl.hostname.endsWith(".hdrelay.com")) {
+          if (serverUrl.protocol !== "https:" || serverUrl.username || serverUrl.password ||
+              serverUrl.port || !serverUrl.hostname.endsWith(".hdrelay.com") ||
+              isBlockedCameraUrl(serverUrl.href)) {
             console.warn("[cam-resolve] Untrusted HDRelay HLS server:", serverUrl.hostname);
             return NextResponse.json({ error: "Untrusted stream server" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
           }
