@@ -856,6 +856,31 @@ describe('computeSurfCall', () => {
       });
     });
 
+    describe('unknown wave height', () => {
+      it('YES makes no size claim and keeps the verdict', () => {
+        const forecasts = [makeForecast({ tide_status: 'Rising', next_tide_type: null, next_tide_at: null } as any)];
+        const known = computeSurfCall(makeWindow({ score: 80 }), forecasts, makeBeach());
+        const unknown = computeSurfCall(makeWindow({ score: 80, waveHeight: 'Unknown' }), forecasts, makeBeach());
+
+        expect(unknown.verdict).toBe('YES');
+        expect(unknown.verdict).toBe(known.verdict);
+        expect(unknown.whySentence).not.toMatch(/solid swell|Unknown/);
+        expect(unknown.whySentence).toBe('Clean offshore + rising tide.');
+      });
+
+      it('MAYBE makes no size claim and keeps the verdict', () => {
+        const forecasts = [makeForecast({ tide_status: 'Rising', next_tide_type: null, next_tide_at: null } as any)];
+        const beach = makeBeach({ wind_offshore_deg: null } as any);
+        const known = computeSurfCall(makeWindow({ score: 55 }), forecasts, beach);
+        const unknown = computeSurfCall(makeWindow({ score: 55, waveHeight: 'Unknown' }), forecasts, beach);
+
+        expect(unknown.verdict).toBe('MAYBE');
+        expect(unknown.verdict).toBe(known.verdict);
+        expect(unknown.whySentence).not.toMatch(/modest swell|Unknown/);
+        expect(unknown.whySentence).toBe('Rideable — keep an eye on conditions.');
+      });
+    });
+
     describe('tidePhase passthrough to whySentence', () => {
       it('whySentence references "rising tide" when tide is rising and verdict is YES', () => {
         // The buildWhySentence YES branch checks hasGoodTide (rising or low slack).

@@ -282,7 +282,6 @@ describe("Image Proxy Utils", () => {
     });
 
     it.each([
-      "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot.stream",
       "https://img.youtube.com/vi/abc123/mqdefault.jpg",
       "https://camstills.cdn-surfline.com/some-cam/latest_small.jpg",
     ])(
@@ -293,6 +292,12 @@ describe("Image Proxy Utils", () => {
         expect(result).not.toContain("/api/image-proxy");
       },
     );
+
+    it("does not expose retired thumbnails as image URLs", () => {
+      const retired = "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot.stream";
+      expect(getProxiedImageUrl(retired)).toBe("");
+      expect(getProxiedImageUrl(`/api/image-proxy?url=${encodeURIComponent(retired)}`)).toBe("");
+    });
 
     it("should not proxy Supabase .in storage URLs", () => {
       const result = getProxiedImageUrl(SUPABASE_IN_URL);

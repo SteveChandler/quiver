@@ -1,5 +1,6 @@
 "use server";
 
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { getRegionForBeach } from "@/lib/data/cam-regions";
 import {
@@ -50,7 +51,7 @@ export async function getBeachCameraUrl(
     .limit(1)
     .maybeSingle();
 
-  return data?.camera_url ?? null;
+  return isBlockedCameraUrl(data?.camera_url) ? null : data?.camera_url ?? null;
 }
 
 /**
@@ -92,6 +93,7 @@ export const getBeachesWithCameras = unstable_cache(
     const results: CameraBeachResult[] = [];
 
     for (const row of data) {
+      if (isBlockedCameraUrl(row.camera_url)) continue;
       const beach = (row as any).beaches;
       if (!beach?.slug || !beach?.city || !beach?.state) continue;
 
@@ -102,7 +104,7 @@ export const getBeachesWithCameras = unstable_cache(
         city: beach.city,
         state: beach.state,
         camera_url: row.camera_url!,
-        thumbnail_url: row.thumbnail_url ?? null,
+        thumbnail_url: isBlockedCameraUrl(row.thumbnail_url) ? null : row.thumbnail_url ?? null,
         photo_url: null,
         lat: beach.lat ?? null,
         lon: beach.lon ?? null,
@@ -184,6 +186,6 @@ export const getBeachesWithCameras = unstable_cache(
       regionSlug: beach.regionSlug,
     }));
   },
-  ["beaches-with-unique-cameras"],
+  ["beaches-with-unique-cameras-v2"],
   { revalidate: 3600 },
 );

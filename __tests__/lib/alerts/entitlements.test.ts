@@ -95,6 +95,7 @@ describe("getUserEntitlement", () => {
     it("ON: premium tier lets a free user create rules beyond the free gates", async () => {
       mockIsFoundingAccessEnabled.mockResolvedValue(true);
       const tier = await getUserEntitlement("user-free", makeSupabaseStub({}));
+      if (tier === "unknown") throw new Error("the stub read cannot fail");
       expect(canCreateRule({
         tier, homeBeachId: "home", targetBeachId: "other",
         existingRuleCount: 3, existingBeachCount: 1, isExistingBeach: false,
@@ -104,6 +105,7 @@ describe("getUserEntitlement", () => {
 
     it("OFF: the same request hits the free home-beach gate", async () => {
       const tier = await getUserEntitlement("user-free", makeSupabaseStub({}));
+      if (tier === "unknown") throw new Error("the stub read cannot fail");
       expect(canCreateRule({
         tier, homeBeachId: "home", targetBeachId: "other",
         existingRuleCount: 3, existingBeachCount: 1, isExistingBeach: false,
@@ -132,20 +134,23 @@ describe("getUserEntitlement", () => {
     expect(await getUserEntitlement("user-apricot", supabase)).toBe("free");
   });
 
-  it("throws when the mirror read fails instead of resolving free", async () => {
+  it("returns unknown, not free and not premium, when the mirror read fails twice", async () => {
     delete process.env.ALERT_PREVIEW_MODE;
     delete process.env.ALERT_BETA_USER_IDS;
-    const timeout = { code: "57014", message: "canceling statement due to statement timeout" };
+    // The switch is on, so a fallback through founding access would grant premium.
+    mockIsFoundingAccessEnabled.mockResolvedValue(true);
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const timeout = { code: "08006", message: "connection failure" };
+    const maybeSingle = jest.fn(async () => ({ data: null, error: timeout }));
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({ maybeSingle: async () => ({ data: null, error: timeout }) }),
+          eq: () => ({ maybeSingle }),
         }),
       }),
     } as unknown as SupabaseClient;
-    await expect(getUserEntitlement("pro-user", supabase)).rejects.toThrow(
-      "user_entitlements read failed: canceling statement due to statement timeout",
-    );
+    expect(await getUserEntitlement("pro-user", supabase)).toBe("unknown");
+    expect(maybeSingle).toHaveBeenCalledTimes(2);
     expect(mockIsFoundingAccessEnabled).not.toHaveBeenCalled();
   });
 

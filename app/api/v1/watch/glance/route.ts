@@ -70,5 +70,6 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
       tomorrow: isTomorrow,
       updatedAt: report.updatedAt,
     },
+    ...(outcome.result.planStatus === "unknown" ? { planStatus: "unknown" as const } : {}),
   });
 }, { errorMessage: "Failed to load watch glance" }), "authenticated-default"));

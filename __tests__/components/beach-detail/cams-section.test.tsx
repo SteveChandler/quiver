@@ -154,7 +154,8 @@ describe("CamsSection", () => {
       );
     });
     expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/cam-resolve?url=https%3A%2F%2Fwww.obhotel.com%2FWebcam-Oceanbeach.php"
+      "/api/cam-resolve?url=https%3A%2F%2Fwww.obhotel.com%2FWebcam-Oceanbeach.php",
+      { cache: "no-store" }
     );
     expect(screen.queryByRole("link", { name: /open live cam/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open cam/i })).not.toBeInTheDocument();
@@ -183,7 +184,8 @@ describe("CamsSection", () => {
       );
     });
     expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/cam-resolve?url=https%3A%2F%2Fwww.obhotel.com%2FWebcam-Oceanbeach.php"
+      "/api/cam-resolve?url=https%3A%2F%2Fwww.obhotel.com%2FWebcam-Oceanbeach.php",
+      { cache: "no-store" }
     );
     expect(
       screen.queryByRole("link", {

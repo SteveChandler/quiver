@@ -44,14 +44,14 @@ interface HomeCallPlateProps {
   /** The selected window opens later than now, so positive calls say "plan" not "go". */
   isUpcoming?: boolean;
   waveHeight: string;
-  swellDirection: string;
+  swellDirection: string | null;
   swellPeriod: number;
   /** Primary, secondary and wind from one forecast row, for the swell field. */
   swellPartition: SwellPartition | null;
   windSpeed: number;
   windDirection: string | number;
   tideHeight: number;
-  tideDirection: "rising" | "falling";
+  tideDirection: "rising" | "falling" | null;
   waterTemp: number;
   bestWindowTime: string;
   isTomorrow?: boolean;
@@ -250,12 +250,12 @@ function ConditionStrip({
   waterTemp,
 }: {
   waveHeight: string;
-  swellDirection: string;
+  swellDirection: string | null;
   swellPeriod: number;
   windSpeed: number;
   windDirection: string | number;
   tideHeight: number;
-  tideDirection: "rising" | "falling";
+  tideDirection: "rising" | "falling" | null;
   waterTemp: number;
 }) {
   const cells = [
@@ -265,7 +265,9 @@ function ConditionStrip({
       big: waveHeight,
       ariaLabel: `Wave height ${waveHeight}`,
       testId: "hero-wave-height",
-      sub: swellPeriod > 0 ? `${swellDirection} @ ${swellPeriod}s` : swellDirection,
+      sub: swellDirection
+        ? swellPeriod > 0 ? `${swellDirection} @ ${swellPeriod}s` : swellDirection
+        : swellPeriod > 0 ? `${swellPeriod}s` : null,
       color: STAMP_BLUE,
     },
     {
@@ -279,7 +281,7 @@ function ConditionStrip({
       label: "TIDE",
       icon: <DoodleTide size={20} />,
       big: tideHeight ? `${tideHeight.toFixed(1)}FT` : "—",
-      sub: tideDirection.toUpperCase(),
+      sub: tideDirection ? tideDirection.toUpperCase() : null,
       color: INK,
     },
     {

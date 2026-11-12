@@ -143,6 +143,15 @@ describe('assignStrategyTags', () => {
     expect(result[2].strategyTag?.type).toBe('skip');
   });
 
+  it('gives a skip tag no stand-in reason when no warning explains it', () => {
+    const hero = mockRec({ beachId: 'hero' });
+    const quiet = mockRec({ beachId: 'quiet-skip', score: 30, warnings: [] });
+    const warned = mockRec({ beachId: 'warned-skip', score: 30, warnings: ['Strong onshore wind'] });
+    const result = assignStrategyTags([hero, quiet, warned]);
+    expect(result[1].strategyTag).toMatchObject({ type: 'skip', reason: '' });
+    expect(result[2].strategyTag).toMatchObject({ type: 'skip', reason: 'Strong onshore wind' });
+  });
+
   it('assigns each non-skip tag at most once', () => {
     const hero = mockRec({ beachId: 'hero', waveHeightFit: 10 });
     const c1 = mockRec({ beachId: 'c1', waveHeightFit: 24 });
