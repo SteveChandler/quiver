@@ -267,7 +267,17 @@ const nextConfig = {
         ],
       },
       {
-        // `:path*` also matches /api/surf/week-scout itself and covers snapshots/[id].
+        source: "/api/surf/week-scout",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        // The exact rule above is kept for __tests__/app/api/major-event-hold-routes.test.ts;
+        // this one covers snapshots/[id].
         source: "/api/surf/week-scout/:path*",
         headers: [
           {

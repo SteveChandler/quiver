@@ -128,7 +128,7 @@ describe("community photo observability coverage", () => {
         // observability wrapper; see __tests__/config/api-get-error-no-store.test.ts.
         const pattern =
           method === "GET"
-            ? /const handleGet = withCommunityPhotoRouteObservability.*export const GET = withErrorNoStore\(handleGet\)/
+            ? /const handleGet = withCommunityPhotoRouteObservability.*export const GET = withErrorNoStore\(handleGet, "[^"]+"\)/
             : new RegExp(`export const ${method} = withCommunityPhotoRouteObservability`);
         expect(compact).toMatch(pattern);
       }
