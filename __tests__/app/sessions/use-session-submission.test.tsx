@@ -235,7 +235,11 @@ describe("useSessionSubmission", () => {
 
   it.each([
     ["an unrated session", {}, { stars: undefined, rating: undefined }],
-    ["a session rated 4", { overallRating: "4" }, { stars: 4, rating: "Good" }],
+    [
+      "a session rated 4",
+      { overallRating: "4" },
+      { stars: 4, rating: "Great" },
+    ],
   ])(
     "builds the post-log share card with only the surfer's own rating for %s",
     async (_label, ratingFields, expected) => {

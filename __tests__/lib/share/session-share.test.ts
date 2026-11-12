@@ -68,7 +68,7 @@ describe("session share helpers", () => {
     expect(parsed.searchParams.has("stars")).toBe(false);
   });
 
-  it("labels the surfer's rating on the native scale", () => {
+  it("labels the surfer's rating with the session rating words", () => {
     const labelFor = (rating: number) =>
       new URL(
         buildSessionShareImageUrl({
@@ -79,9 +79,9 @@ describe("session share helpers", () => {
 
     expect([1, 2, 3, 4, 5].map(labelFor)).toEqual([
       "Rough",
-      "Poor",
-      "Fair",
-      "Good",
+      "Meh",
+      "Fun",
+      "Great",
       "Epic",
     ]);
   });
