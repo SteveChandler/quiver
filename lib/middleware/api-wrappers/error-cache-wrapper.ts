@@ -30,6 +30,13 @@ function markNoStore(response: Response): Response {
   }
 }
 
+// beforeSend (redactSecrets) also redacts these; drop them here as well.
+const UNREPORTED_HEADERS = new Set(["authorization", "cookie"]);
+
+function reportableHeaders(headers: Headers): Record<string, string> {
+  return Object.fromEntries([...headers].filter(([name]) => !UNREPORTED_HEADERS.has(name.toLowerCase())));
+}
+
 // What Next's onRequestError (Sentry.captureRequestError in instrumentation.ts)
 // received before this wrapper caught the error, so Sentry keeps the same
 // route context, transaction name and unhandled mechanism.
@@ -41,7 +48,7 @@ function reportUnhandled(error: unknown, request: unknown, routePath: string): v
   const url = new URL(request.url);
   Sentry.captureRequestError(
     error,
-    { path: url.pathname + url.search, method: request.method, headers: Object.fromEntries(request.headers) },
+    { path: url.pathname + url.search, method: request.method, headers: reportableHeaders(request.headers) },
     { routerKind: "App Router", routePath, routeType: "route" }
   );
 }

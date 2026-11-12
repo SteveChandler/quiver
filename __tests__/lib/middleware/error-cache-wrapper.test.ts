@@ -93,7 +93,9 @@ describe("withErrorNoStore", () => {
 
   it("reports a thrown error with the route context Next's onRequestError used", async () => {
     const boom = new Error("read failed");
-    const req = new NextRequest("https://x.test/api/beaches/7/buoy?units=ft", { headers: { "user-agent": "t" } });
+    const req = new NextRequest("https://x.test/api/beaches/7/buoy?units=ft", {
+      headers: { "user-agent": "t", authorization: "Bearer secret", cookie: "sb=secret" },
+    });
     const res = await withErrorNoStore(async (_r: NextRequest): Promise<Response> => {
       throw boom;
     }, "/api/beaches/[id]/buoy")(req);
@@ -103,6 +105,9 @@ describe("withErrorNoStore", () => {
       expect.objectContaining({ path: "/api/beaches/7/buoy?units=ft", method: "GET", headers: expect.objectContaining({ "user-agent": "t" }) }),
       { routerKind: "App Router", routePath: "/api/beaches/[id]/buoy", routeType: "route" }
     );
+    const reportedHeaders = mockCaptureRequestError.mock.calls[0][1].headers;
+    expect(reportedHeaders).not.toHaveProperty("authorization");
+    expect(reportedHeaders).not.toHaveProperty("cookie");
   });
 
   it("re-throws a client abort instead of reporting a 500", async () => {
