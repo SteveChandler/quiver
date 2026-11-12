@@ -148,11 +148,17 @@ function buildSessionSubtitle(params: {
   windSpeed: string;
   tagline: string;
 }): string {
-  const headlineParts = [
-    params.beach ? `${params.beach} session` : "",
-    params.rating ? `${params.rating.toLowerCase()} rating` : "",
-    formatShareWaveSize(params.size),
-  ].filter(Boolean);
+  const size = formatShareWaveSize(params.size);
+  // The rating alone ("epic rating") repeats the stars and label above it, so it
+  // joins the line only beside a beach or a size (Steven, Nov 12: "Remove the line").
+  const headlineParts =
+    params.beach || size
+      ? [
+          params.beach ? `${params.beach} session` : "",
+          params.rating ? `${params.rating.toLowerCase()} rating` : "",
+          size,
+        ].filter(Boolean)
+      : [];
   const details = [params.board, params.windLabel, params.windSpeed]
     .filter(Boolean)
     .join(" · ");
@@ -360,17 +366,19 @@ function SessionShareCard({
           </div>
         ) : null}
 
-        <div
-          style={{
-            display: "flex",
-            fontSize: 40,
-            lineHeight: 1.28,
-            fontWeight: 700,
-            color: SHARE_CARD_COLORS.ink,
-          }}
-        >
-          {tagline || subtitle}
-        </div>
+        {tagline || subtitle ? (
+          <div
+            style={{
+              display: "flex",
+              fontSize: 40,
+              lineHeight: 1.28,
+              fontWeight: 700,
+              color: SHARE_CARD_COLORS.ink,
+            }}
+          >
+            {tagline || subtitle}
+          </div>
+        ) : null}
 
         {detailCards.length > 0 ? (
           <div style={{ display: "flex", gap: 18 }}>

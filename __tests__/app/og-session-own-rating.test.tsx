@@ -333,3 +333,15 @@ describe("session share card footer text with no share URL", () => {
     expect(cardMarkup()).not.toMatch(/evil\.example/);
   });
 });
+
+describe("session share card subtitle line", () => {
+  it("prints no subtitle line for a card with no beach and no size", async () => {
+    await render("stars=5");
+    expect(cardMarkup()).not.toMatch(/epic rating/i);
+  });
+
+  it("keeps the subtitle when the card has a beach", async () => {
+    await render("beach=La+Fonda&stars=5");
+    expect(cardMarkup()).toContain("La Fonda session — epic rating");
+  });
+});
