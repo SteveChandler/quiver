@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { isValidElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { NextRequest } from "next/server";
 
 let mockCapturedImageElement: unknown = null;
 
@@ -30,6 +31,25 @@ const SESSION_ID = "17eb5501-1905-44ff-bfa9-67c90b375ed6";
 const SHARE_URL = encodeURIComponent(
   `https://www.quiversurf.app/sessions/${SESSION_ID}?utm_source=quiver_native`,
 );
+const DAY_CACHE =
+  "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800";
+const SESSION_CACHE =
+  "public, max-age=300, s-maxage=300, stale-while-revalidate=60";
+
+const storedRow = {
+  rating: null,
+  beach_name: "La Fonda",
+  arrival_time: "2026-11-08T01:35:18+00:00",
+  wave_height_ft: 4.5,
+  wave_height_min_ft: null,
+  wave_height_max_ft: null,
+  wind_direction: "ENE",
+  wind_speed_mph: 11,
+  notes: "4-5ft, Fun",
+  description: null,
+  board_id: null,
+  beach: { name: "La Fonda", timezone: "America/Tijuana" },
+};
 
 function cardMarkup(): string {
   if (!isValidElement(mockCapturedImageElement)) {
@@ -45,11 +65,9 @@ function cardProps(): Record<string, unknown> {
   return mockCapturedImageElement.props as Record<string, unknown>;
 }
 
-async function render(query: string): Promise<void> {
+async function render(query: string): Promise<Response> {
   const { GET } = await import("@/app/api/og/session/route");
-  await GET(
-    new Request(`http://localhost:3000/api/og/session?${query}`) as never,
-  );
+  return GET(new NextRequest(`http://localhost:3000/api/og/session?${query}`));
 }
 
 beforeEach(() => {
@@ -64,7 +82,9 @@ describe("session share card shows only the surfer's own rating", () => {
 
     expect(cardProps().stars).toBeNull();
     const markup = cardMarkup();
-    expect(markup).not.toMatch(/Good|Fair|Epic| session<\/div>|rating/);
+    expect(markup).not.toMatch(
+      /Rough|Meh|Fun|Great|Epic|Poor|Fair|Good|rating/,
+    );
     expect(markup).not.toContain("<svg");
   });
 
@@ -75,27 +95,34 @@ describe("session share card shows only the surfer's own rating", () => {
     expect(cardMarkup()).not.toContain("Waist-Chest");
   });
 
-  it("labels stars on the native scale, whatever label text the URL carries", async () => {
-    await render("beach=Del+Mar&rating=Epic&stars=4&size=3.5");
+  it("names the rating from the star number only, never from the URL text", async () => {
+    await render("beach=Del+Mar&rating=Fair&stars=4&size=3.5");
 
     const markup = cardMarkup();
-    expect(markup).toContain("Good session");
-    expect(markup).not.toContain("Epic");
+    expect(markup).toContain("Great session");
+    expect(markup).not.toContain("Fair");
   });
 
-  it("uses the stored rating of a public session over the Fair/3 that installed native builds send", async () => {
-    mockQuery.maybeSingle.mockResolvedValue({
-      data: {
-        rating: null,
-        wave_height_ft: 4.5,
-        wave_height_min_ft: null,
-        wave_height_max_ft: null,
-        board_id: null,
-      },
-      error: null,
-    });
+  it("shows no stand-in beach and no doubled word when the beach is missing", async () => {
+    await render("stars=4&size=3");
 
-    await render(
+    const markup = cardMarkup();
+    expect(markup).not.toContain("Your surf session");
+    expect(markup).not.toMatch(/session session/i);
+  });
+
+  it("shows only wave heights in feet", async () => {
+    await render("beach=La+Fonda&size=3-4m");
+
+    expect(cardMarkup()).not.toContain("3-4m");
+  });
+});
+
+describe("session share card for a stored session", () => {
+  it("uses the stored rating of a public session over the Fair/3 that installed native builds send", async () => {
+    mockQuery.maybeSingle.mockResolvedValue({ data: storedRow, error: null });
+
+    const response = await render(
       `beach=La+Fonda&rating=Fair&stars=3&size=4.5&board=&shareUrl=${SHARE_URL}`,
     );
 
@@ -104,22 +131,41 @@ describe("session share card shows only the surfer's own rating", () => {
     expect(mockQuery.is).toHaveBeenCalledWith("deleted_at", null);
     expect(cardProps().stars).toBeNull();
     expect(cardMarkup()).not.toContain("Fair");
+    expect(response.headers.get("Cache-Control")).toBe(SESSION_CACHE);
   });
 
-  it("drops a size and board the stored public session never logged", async () => {
+  it("takes every stored field over the URL and keeps only the board name RLS hides", async () => {
     mockQuery.maybeSingle.mockResolvedValue({
-      data: {
-        rating: 4,
-        wave_height_ft: null,
-        wave_height_min_ft: null,
-        wave_height_max_ft: null,
-        board_id: null,
-      },
+      data: { ...storedRow, rating: 5, board_id: "board-1" },
       error: null,
     });
 
     await render(
-      `beach=Del+Mar&rating=Good&stars=4&size=Waist-Chest&board=Surfboard&shareUrl=${SHARE_URL}`,
+      `beach=Elsewhere&stars=1&size=9&board=Ghombra&windLabel=W&windSpeed=30+mph&tagline=Other&date=January+1%2C+2020&shareUrl=${SHARE_URL}`,
+    );
+
+    expect(cardProps()).toEqual(
+      expect.objectContaining({
+        beach: "La Fonda",
+        stars: 5,
+        size: "4.5",
+        board: "Ghombra",
+        windLabel: "ENE",
+        windSpeed: "11 mph",
+        tagline: "4-5ft, Fun",
+        date: "November 7, 2026",
+      }),
+    );
+  });
+
+  it("drops a size and board the stored public session never logged", async () => {
+    mockQuery.maybeSingle.mockResolvedValue({
+      data: { ...storedRow, rating: 4, wave_height_ft: null },
+      error: null,
+    });
+
+    await render(
+      `beach=Del+Mar&stars=4&size=3&board=Surfboard&shareUrl=${SHARE_URL}`,
     );
 
     expect(cardProps()).toEqual(
@@ -127,19 +173,66 @@ describe("session share card shows only the surfer's own rating", () => {
     );
   });
 
-  it("keeps the URL params when the session is private or the lookup fails", async () => {
-    mockQuery.maybeSingle.mockResolvedValue({
-      data: null,
-      error: { message: "timeout" },
-    });
+  it("keeps the URL params, with a short cache, when the session is private or deleted", async () => {
+    mockQuery.maybeSingle.mockResolvedValue({ data: null, error: null });
 
-    await render(
-      `beach=La+Fonda&rating=Good&stars=4&size=3&board=Fish&shareUrl=${SHARE_URL}`,
+    const response = await render(
+      `beach=La+Fonda&stars=4&size=3&board=Fish&shareUrl=${SHARE_URL}`,
     );
 
     expect(cardProps()).toEqual(
       expect.objectContaining({ stars: 4, size: "3", board: "Fish" }),
     );
+    expect(response.headers.get("Cache-Control")).toBe(SESSION_CACHE);
+  });
+
+  it("shows no rating and is not cached when the lookup fails", async () => {
+    mockQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: "canceling statement due to statement timeout" },
+    });
+
+    const response = await render(
+      `beach=La+Fonda&rating=Fair&stars=3&size=3&shareUrl=${SHARE_URL}`,
+    );
+
+    expect(cardProps()).toEqual(
+      expect.objectContaining({ stars: null, size: "3" }),
+    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("retries a failed lookup once before giving up on the rating", async () => {
+    mockQuery.maybeSingle
+      .mockResolvedValueOnce({ data: null, error: { message: "AbortError" } })
+      .mockResolvedValueOnce({
+        data: { ...storedRow, rating: 4 },
+        error: null,
+      });
+
+    const response = await render(
+      `beach=La+Fonda&stars=1&shareUrl=${SHARE_URL}`,
+    );
+
+    expect(mockQuery.maybeSingle).toHaveBeenCalledTimes(2);
+    expect(cardProps().stars).toBe(4);
+    expect(response.headers.get("Cache-Control")).toBe(SESSION_CACHE);
+  });
+
+  it("does not use a session id from a share URL on another host", async () => {
+    const response = await render(
+      `beach=La+Fonda&stars=4&shareUrl=${encodeURIComponent(`https://evil.example/sessions/${SESSION_ID}`)}`,
+    );
+
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(cardProps().stars).toBe(4);
+    expect(response.headers.get("Cache-Control")).toBe(DAY_CACHE);
+  });
+
+  it("runs behind the public rate limit", async () => {
+    const response = await render("beach=La+Fonda&stars=4");
+
+    expect(response.headers.get("X-RateLimit-Limit")).not.toBeNull();
   });
 
   it("does not query the database for a share URL that is not a session page", async () => {
