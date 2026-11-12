@@ -10,7 +10,7 @@ const CDN_CACHE_HEADERS = ["CDN-Cache-Control", "Vercel-CDN-Cache-Control"] as c
 
 function markNoStore(response: Response): Response {
   // Not a real Response (a test double): nothing a cache could keep.
-  if (typeof response.headers?.set !== "function") return response;
+  if (typeof response.headers?.set !== "function" || typeof response.headers.get !== "function") return response;
   const current = response.headers.get("Cache-Control") ?? "";
   const cacheControl = /\bno-store\b/i.test(current) ? current : NO_STORE_CACHE_CONTROL;
   try {
