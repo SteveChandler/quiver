@@ -1970,6 +1970,45 @@ describe("runDailyCallCron", () => {
     expect(payload.reason).toContain("around 11 AM.");
   });
 
+  it("records no_swell_copy and sends nothing when the winner has no wave height", async () => {
+    const winner = candidate({ pool: favorite, physicalScore: 82 });
+    winner.sourceForecast = { ...winner.sourceForecast, wave_height: null as unknown as string };
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({ candidates: [winner], hadForecasts: true, noInWindowRowCount: 0 })),
+    });
+
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(summary.sent).toBe(0);
+    expect(summary.errors).toBe(0);
+    expect(summary.skippedCounts.no_swell_copy).toBe(1);
+    expect(mocked.selectTitle).not.toHaveBeenCalled();
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("stores null, not 0 or unknown, for missing period, direction and tide", async () => {
+    const winner = candidate({ pool: favorite, physicalScore: 82 });
+    winner.sourceForecast = {
+      ...winner.sourceForecast,
+      wave_period: null as unknown as string,
+      wave_direction: null,
+      swell_1_direction: null,
+      tide_status: null,
+    } as typeof winner.sourceForecast;
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({ candidates: [winner], hadForecasts: true, noInWindowRowCount: 0 })),
+      selectTitle: realSelectTitle,
+    });
+
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(summary).toMatchObject({ sent: 1, errors: 0 });
+    expect(summary.skippedCounts.no_swell_copy).toBeUndefined();
+    const payload = parseDailyCallPayload(jest.mocked(mocked.enqueue).mock.calls[0][0].payload);
+    expect(payload).toMatchObject({ wave_height_ft: 3, wave_period_s: null, swell_dir: null, tide_label: null });
+    expect(payload.reason).toMatch(/2–3 ft with /);
+  });
+
   it("logs the reason and message when enqueue fails", async () => {
     const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
     const mocked = deps({

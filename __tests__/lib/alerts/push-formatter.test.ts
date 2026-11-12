@@ -78,6 +78,16 @@ describe("formatPushNotification", () => {
     expect(result.body.length).toBeLessThanOrEqual(150);
   });
 
+  it("shows the window alone, with no dash or orphan period, when the snapshot has no wave height", () => {
+    const result = formatPushNotification(
+      [makeMatch({ conditions_snapshot: { wave_height: null, swell_1_period: 12, wind_speed: 5 } })],
+      "go",
+    );
+
+    expect(result.body).not.toMatch(/—|@/);
+    expect(result.body).toMatch(/^Blacks Beach \S.*AM$/);
+  });
+
   it("uses the same units + rounding as the email (mph from knots, ft bracket)", () => {
     // Same snapshot the email tests use for the user's flagged 2026-05-03 case.
     const result = formatPushNotification([

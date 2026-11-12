@@ -97,4 +97,13 @@ describe("assessRarity", () => {
       historyDays: 6,
     });
   });
+
+  it("says 1 day, not 1 days, after a single day of history", () => {
+    expect(assessRarity({
+      peakDate: "2026-09-17",
+      history: [day("2026-09-16", 40)],
+      peakScore: 80,
+      peakGo: true,
+    }).rarityLine).toBe("Best in 1 day");
+  });
 });
