@@ -56,6 +56,23 @@ describe("session share helpers", () => {
     );
   });
 
+  // The share card reads these columns for a public session only because this image,
+  // shown on the public session page, already gives them to any visitor.
+  it("puts the description or notes, wind and date of the session on the public page image", () => {
+    const parsed = new URL(
+      buildSessionShareImageUrl({
+        ...session,
+        description: null,
+        notes: "Lot of water",
+      } as unknown as SessionWithDetails),
+    );
+
+    expect(parsed.searchParams.get("tagline")).toBe("Lot of water");
+    expect(parsed.searchParams.get("windLabel")).toBe("Offshore");
+    expect(parsed.searchParams.get("windSpeed")).toBe("7 mph");
+    expect(parsed.searchParams.get("date")).toBe("April 30, 2026");
+  });
+
   it("sends no rating or stars for a session the surfer did not rate", () => {
     const parsed = new URL(
       buildSessionShareImageUrl({

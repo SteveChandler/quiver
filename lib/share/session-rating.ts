@@ -1,5 +1,5 @@
-// Steven, Nov 12 2026. The same table lives in quiver-native `src/lib/share/build-share-card-url.ts`
-// (`getRatingLabel`); change both together.
+// Steven, Nov 12 2026. The same table lives in quiver-native `src/lib/session-rating-labels.ts`;
+// change both together.
 export const SESSION_RATING_LABELS: Readonly<Record<number, string>> = {
   1: "Rough",
   2: "Meh",

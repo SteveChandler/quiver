@@ -22,6 +22,16 @@ export type PublicSessionShareLookup =
   /** The read failed or timed out, so nothing is known about the row. */
   | { status: "error" };
 
+/**
+ * Only columns the public session page already shows to any visitor
+ * (`app/sessions/[id]/page.tsx` via `getSessionMetadata` and `buildSessionShareImageUrl`):
+ * rating, beach, date, wave height, wind and description/notes. `board_id` only decides
+ * whether the caller's board name stays; the beach timezone places the date.
+ * The logged height range is not on that page, so it is not read here.
+ */
+export const PUBLIC_SESSION_SHARE_COLUMNS =
+  "rating, beach_name, arrival_time, wave_height_ft, wind_direction, wind_speed_mph, notes, description, board_id, beach:beaches(name, timezone)";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LOOKUP_TIMEOUT_MS = 1500;
 
@@ -60,17 +70,6 @@ function formatFeet(value: unknown): string {
   return Number.isFinite(n) && n > 0 ? String(n) : "";
 }
 
-function waveHeightText(row: {
-  wave_height_ft: unknown;
-  wave_height_min_ft: unknown;
-  wave_height_max_ft: unknown;
-}): string {
-  const min = formatFeet(row.wave_height_min_ft);
-  const max = formatFeet(row.wave_height_max_ft);
-  if (min && max) return min === max ? min : `${min}-${max}`;
-  return formatFeet(row.wave_height_ft);
-}
-
 function formatSessionDate(
   raw: string | null,
   timeZone: string | null,
@@ -99,8 +98,6 @@ interface SessionShareRow {
   beach_name: string | null;
   arrival_time: string | null;
   wave_height_ft: unknown;
-  wave_height_min_ft: unknown;
-  wave_height_max_ft: unknown;
   wind_direction: string | null;
   wind_speed_mph: unknown;
   notes: string | null;
@@ -118,7 +115,7 @@ function toRecord(row: SessionShareRow): PublicSessionShareRecord {
     rating: sessionRatingStars(row.rating),
     beach: trimmed(row.beach?.name) || trimmed(row.beach_name),
     date: formatSessionDate(row.arrival_time, row.beach?.timezone ?? null),
-    waveHeight: waveHeightText(row),
+    waveHeight: formatFeet(row.wave_height_ft),
     windLabel: trimmed(row.wind_direction),
     windSpeed: Number.isFinite(mph) ? formatWindSpeed(mph) : "",
     // Same order as the web session page: description, then notes.
@@ -135,9 +132,7 @@ async function lookupOnce(
     const supabase = createPublicReadClient();
     const { data, error } = await supabase
       .from("sessions")
-      .select(
-        "rating, beach_name, arrival_time, wave_height_ft, wave_height_min_ft, wave_height_max_ft, wind_direction, wind_speed_mph, notes, description, board_id, beach:beaches(name, timezone)",
-      )
+      .select(PUBLIC_SESSION_SHARE_COLUMNS)
       .eq("id", sessionId)
       .eq("is_public", true)
       .is("deleted_at", null)

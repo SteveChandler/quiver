@@ -1,6 +1,8 @@
 /** @jest-environment node */
 import { isValidElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
 
 let mockCapturedImageElement: unknown = null;
@@ -156,6 +158,45 @@ describe("session share card for a stored session", () => {
         date: "November 7, 2026",
       }),
     );
+  });
+
+  it("reads only columns the public session page already shows to any visitor", async () => {
+    await render(`beach=La+Fonda&shareUrl=${SHARE_URL}`);
+
+    // The public page reads the session through getSessionMetadata; the card may not read more.
+    const source = readFileSync(
+      join(process.cwd(), "actions/session-actions.ts"),
+      "utf8",
+    );
+    const start = source.indexOf("export async function getSessionMetadata");
+    const pageSelect = source.slice(start, source.indexOf(".eq(", start));
+    const cardColumns = String(mockQuery.select.mock.calls[0][0])
+      .replace(/beach:beaches\([^)]*\)/, "")
+      .split(",")
+      .map((column) => column.trim())
+      .filter(Boolean)
+      // board_id only decides whether the caller's board name stays; the page joins the board.
+      .filter((column) => column !== "board_id");
+
+    for (const column of cardColumns) {
+      expect(pageSelect).toMatch(new RegExp(`\\b${column}\\b`));
+    }
+  });
+
+  it("shows the logged wave height, not the range the public page does not show", async () => {
+    mockQuery.maybeSingle.mockResolvedValue({
+      data: {
+        ...storedRow,
+        wave_height_ft: 3.5,
+        wave_height_min_ft: 3,
+        wave_height_max_ft: 4,
+      },
+      error: null,
+    });
+
+    await render(`beach=La+Fonda&shareUrl=${SHARE_URL}`);
+
+    expect(cardProps().size).toBe("3.5");
   });
 
   it("drops a size and board the stored public session never logged", async () => {
