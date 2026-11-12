@@ -17,6 +17,7 @@ import {
 } from "@/lib/seo/forecast-indexability";
 import { isValidElement, type ReactNode } from "react";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { isBeachSubPageIndexable } from "@/lib/seo/forecast-indexability";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import {
   getCachedBeachCameraUrl,
@@ -169,6 +170,20 @@ jest.mock("next/cache", () => ({
 
 jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
+}));
+
+// The service-role client double here does not model tide queries; the tide
+// reader now lets that TypeError propagate, so stub the reader like water temp.
+jest.mock("@/lib/seo/tide-meta-data", () => ({
+  getTideMetaData: jest.fn().mockResolvedValue({
+    source: null,
+    nextHighTime: "2:30 PM",
+    nextLowTime: "8:45 AM",
+    nextHighHeight: 4.2,
+    nextLowHeight: 0.4,
+    nextHighAt: null,
+    nextLowAt: null,
+  }),
 }));
 
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
@@ -492,6 +507,42 @@ describe("GenericBeachDetailPage slug resolution", () => {
     } finally {
       log.mockRestore();
     }
+  });
+
+  it("keeps the water-temp guide link gate open when the water-temp read failed", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    (getWaterTempMetaData as jest.Mock).mockResolvedValueOnce({
+      tempF: null,
+      wetsuitRec: null,
+      availability: "sub-page-data-unknown",
+    });
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    const pending: unknown[] = [page];
+    let rendered = false;
+    while (pending.length > 0 && !rendered) {
+      const node = pending.pop();
+      if (Array.isArray(node)) {
+        pending.push(...node);
+        continue;
+      }
+      if (!isValidElement<Record<string, unknown>>(node)) continue;
+      if (typeof node.type === "function" && node.type.name === "DeferredRelatedGuidesSection") {
+        await (node.type as (props: Record<string, unknown>) => Promise<ReactNode>)(node.props);
+        rendered = true;
+        continue;
+      }
+      pending.push(...Object.values(node.props));
+    }
+
+    expect(rendered).toBe(true);
+    const waterTempCall = jest.mocked(isBeachSubPageIndexable).mock.calls
+      .find(([, path]) => path.endsWith("/water-temp"));
+    expect(waterTempCall?.[2]).toEqual({ hasSubPageData: true });
   });
 
   it.each([
