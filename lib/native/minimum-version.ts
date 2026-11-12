@@ -52,7 +52,8 @@ function parseMinimumBundleCreatedAt(name: string): string | null {
     return null;
   }
   const ms = Date.parse(value);
-  if (Number.isNaN(ms)) {
+  // A future date would block every install, including ones built after the typo.
+  if (Number.isNaN(ms) || ms > Date.now()) {
     warnInvalid(name);
     return null;
   }

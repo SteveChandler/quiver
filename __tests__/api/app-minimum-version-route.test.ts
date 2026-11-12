@@ -161,4 +161,20 @@ describe("GET /api/v1/app/minimum-version", () => {
     expect(logged).not.toContain(secretLike);
     warn.mockRestore();
   });
+  it("ignores a bundle minimum later than now, with a warning, so a typo cannot block every install", async () => {
+    process.env.NATIVE_MIN_APP_VERSION_IOS = "1.0.6";
+    process.env.NATIVE_MIN_BUNDLE_CREATED_AT_IOS = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await call("?platform=ios");
+
+    expect(result.body).toEqual({
+      platform: "ios",
+      minimum_version: "1.0.6",
+      minimum_bundle_created_at: null,
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0].map(String).join(" ")).toContain("NATIVE_MIN_BUNDLE_CREATED_AT_IOS");
+    warn.mockRestore();
+  });
 });
