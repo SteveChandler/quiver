@@ -5,10 +5,10 @@ import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrap
 // Every /api path with no route of its own lands here. Without this route, Next
 // sends its own 404, which gets the blanket `/api/*` max-age=60 from next.config
 // and stays in browser and iOS caches. Specific routes always match first.
+// Next answers HEAD from GET.
 const notFound = withErrorNoStore(async (_request: NextRequest) => createNotFoundError("API route"));
 
 export const GET = notFound;
-export const HEAD = notFound;
 export const POST = notFound;
 export const PUT = notFound;
 export const PATCH = notFound;
