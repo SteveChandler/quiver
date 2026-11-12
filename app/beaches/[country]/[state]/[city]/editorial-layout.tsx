@@ -42,6 +42,8 @@ import { toCityMapSpot } from "@/lib/utils/map-client-props";
 
 interface EditorialLayoutProps {
   params: LocationPageParams;
+  /** Slug of the city's tide/water-temp pages; null when it has none (a metro). */
+  intentCitySlug: string | null;
   displayCityName: string;
   stats: LocationStats;
   beaches: BeachWithMetrics[];
@@ -56,6 +58,7 @@ interface EditorialLayoutProps {
 
 export function EditorialLayout({
   params,
+  intentCitySlug,
   displayCityName,
   stats,
   beaches,
@@ -206,22 +209,27 @@ export function EditorialLayout({
           title={`Plan the next ${displayCityName} session`}
           description="Use the city guide for spot choice, then move into timing, water temperature, or tide context."
           steps={[
-            {
-              label: `Find the best surf window`,
-              href: bestTimeToSurfUrl ?? `/best-time-to-surf/${params.city}`,
-              description: "Compare the local seasonality before choosing a day.",
-            },
+            // undefined means no best-time page exists for this city.
+            ...(bestTimeToSurfUrl
+              ? [
+                  {
+                    label: `Find the best surf window`,
+                    href: bestTimeToSurfUrl,
+                    description: "Compare the local seasonality before choosing a day.",
+                  },
+                ]
+              : []),
             // City tide/water-temp guides (/[intent]/[city]) are US-only.
-            ...(isUsa
+            ...(isUsa && intentCitySlug
               ? [
                   {
                     label: `Check ${displayCityName} water temperature`,
-                    href: `/water-temp/${params.city}`,
+                    href: `/water-temp/${intentCitySlug}`,
                     description: "Dial in gear before you head to the beach.",
                   },
                   {
                     label: `Watch the tide window`,
-                    href: `/tide/${params.city}`,
+                    href: `/tide/${intentCitySlug}`,
                     description: "See when tide timing helps the main breaks.",
                   },
                 ]
