@@ -75,7 +75,9 @@ export function buildConsolidatedSubject(
   if (matches.length > 1) {
     const sorted = [...matches].sort((a, b) => b.best_score - a.best_score);
     const top = sorted[0];
-    const suffix = ` + ${sorted.length - 1} more spots worth a surf ${alertWeekday(alertDate)}`;
+    // "worth a surf" is the go decision's phrase; any other decision states only the count.
+    const quality = decision === "go" ? " worth a surf" : "";
+    const suffix = ` + ${sorted.length - 1} more spots${quality} ${alertWeekday(alertDate)}`;
     return withTruncatedBeach(top.beach_name, suffix);
   }
 

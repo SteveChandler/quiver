@@ -298,6 +298,7 @@ async function resolveCohort(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
   candidate: Candidate,
   beachById: Map<string, BeachRow>,
+  now: Date,
 ): Promise<ResolvedCohort> {
   const beach = candidate.home_beach_id
     ? (beachById.get(candidate.home_beach_id) ?? null)
@@ -310,7 +311,7 @@ async function resolveCohort(
       return {
         cohort: "trialing_home",
         title: "Unlock your Quiver",
-        body: trialDaysLeft(candidate.trial_ends_at, new Date()) === 7
+        body: trialDaysLeft(candidate.trial_ends_at, now) === 7
           ? "Add your first session when you paddle out — 7 days left in your trial"
           : "Add your first session when you paddle out.",
         beach_id: null,
@@ -694,13 +695,14 @@ async function _GET(request: Request): Promise<Response> {
 
     // 10. Phase 3e: enqueue per candidate. Worker handles devices/FCM.
     for (const candidate of candidates) {
-      // Without the beach row a user with a home break would read "Set your home break".
-      if (beachLookupFailed && candidate.home_beach_id) {
+      // Without the beach row (a read error, or a missing or nameless row) a user with a
+      // home break would read "Set your home break".
+      if (candidate.home_beach_id && (beachLookupFailed || !beachById.get(candidate.home_beach_id)?.name)) {
         summary.skipped.beach_lookup_failed++;
         continue;
       }
       try {
-        const resolved = await resolveCohort(supabase, candidate, beachById);
+        const resolved = await resolveCohort(supabase, candidate, beachById, now);
         summary.cohorts[resolved.cohort]++;
 
         const payload = {

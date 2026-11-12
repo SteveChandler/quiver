@@ -62,9 +62,19 @@ describe("buildConsolidatedSubject", () => {
           match({ beach_name: "Blacks", best_score: 0.9 }),
           match({ beach_name: "Swamis", best_score: 0.7 }),
         ],
-        "Saturday, April 4"
+        "Saturday, April 4",
+        "go",
       )
     ).toBe("Blacks + 2 more spots worth a surf Saturday");
+  });
+
+  it("states no quality for the other spots unless the decision is go", () => {
+    const matches = [
+      match({ beach_name: "Blacks", best_score: 0.9 }),
+      match({ beach_name: "Swamis", best_score: 0.7 }),
+    ];
+    expect(buildConsolidatedSubject(matches, "Saturday, April 4", "no")).toBe("Blacks + 1 more spots Saturday");
+    expect(buildConsolidatedSubject(matches, "Saturday, April 4")).toBe("Blacks + 1 more spots Saturday");
   });
 
   it("keeps surf numbers while truncating long beach names", () => {

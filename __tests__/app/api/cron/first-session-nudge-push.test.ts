@@ -571,8 +571,8 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.data.summary.cohorts.trialing_no_home).toBe(0);
     });
 
-    it("keeps the beach-lookup skip to the lookup error", async () => {
-      // The row is missing but the read succeeded: not a lookup failure.
+    it("skips a user whose home beach row is missing, not 'Set your home break'", async () => {
+      // The read succeeded but returned no row for the home break.
       setupBase("u-bm", {
         home_beach_id: "beach-1",
         entitlement: { is_pro: true, is_trialing: true },
@@ -583,8 +583,8 @@ describe("First-Session-Nudge Push Cron", () => {
       );
       const data = await response.json();
 
-      expect(data.data.summary.skipped.beach_lookup_failed).toBe(0);
-      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      expect(data.data.summary.skipped.beach_lookup_failed).toBe(1);
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
 
     it("trialing_no_home → 'Set your home break'", async () => {

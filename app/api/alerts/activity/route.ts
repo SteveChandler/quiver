@@ -145,8 +145,8 @@ function titleFor(
     return beachName ? `${prefix} at ${beachName}` : prefix;
   }
 
-  // Installed clients type this as a string; empty reads as absent there.
-  return "";
+  // Native renders this as the card title; the beach name is the one true fact left.
+  return beachName ?? "";
 }
 
 function bodyFor(row: NotificationRow, data: Record<string, unknown>): string {
