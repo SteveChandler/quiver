@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 import {
   parseNativePlatform,
   readNativeMinimumVersion,
@@ -37,7 +38,9 @@ async function getMinimumVersion(request: NextRequest): Promise<NextResponse> {
   });
 }
 
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   getMinimumVersion as (request: NextRequest) => Promise<NextResponse>,
   "public-default",
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/app/minimum-version");

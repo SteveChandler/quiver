@@ -172,12 +172,13 @@ describe("GET /api/v1/app/minimum-version", () => {
   });
 
   it.each(["", "?platform=", "?platform=web", "?platform=IOS", "?platform=ios,android"])(
-    "returns 400 invalid_platform for %s without a read",
+    "returns a no-store 400 invalid_platform for %s without a read",
     async (query) => {
       const result = await call(query);
 
       expect(result.status).toBe(400);
       expect(result.body).toEqual({ error: "invalid_platform" });
+      expect(result.cache).toMatch(/\bno-store\b/);
       expect(mockCreatePublicReadClient).not.toHaveBeenCalled();
     },
   );
