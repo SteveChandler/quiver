@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { redirect } from "next/navigation";
+import { permanentRedirect, redirect } from "next/navigation";
 import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import BeachTidesPage from "@/app/beach/[slug]/tides/page";
@@ -15,6 +15,11 @@ jest.mock("next/navigation", () => ({
     throw error;
   }),
   redirect: jest.fn((url: string) => {
+    const error = new Error(`NEXT_REDIRECT:${url}`);
+    (error as { digest?: string }).digest = "NEXT_REDIRECT";
+    throw error;
+  }),
+  permanentRedirect: jest.fn((url: string) => {
     const error = new Error(`NEXT_REDIRECT:${url}`);
     (error as { digest?: string }).digest = "NEXT_REDIRECT";
     throw error;
@@ -65,6 +70,7 @@ describe("legacy /beach/[slug] utility subpages", () => {
     await BeachTidesPage({ params: Promise.resolve({ slug: "legacy-beach" }) });
 
     expect(redirect).not.toHaveBeenCalled();
+    expect(permanentRedirect).not.toHaveBeenCalled();
     expect(renderBeachSubPage).toHaveBeenCalledWith({
       beachSlug: "legacy-beach",
       pageType: "tides",
@@ -76,10 +82,36 @@ describe("legacy /beach/[slug] utility subpages", () => {
     await BeachWaterTempPage({ params: Promise.resolve({ slug: "legacy-beach" }) });
 
     expect(redirect).not.toHaveBeenCalled();
+    expect(permanentRedirect).not.toHaveBeenCalled();
     expect(renderBeachSubPage).toHaveBeenCalledWith({
       beachSlug: "legacy-beach",
       pageType: "water-temp",
       beachPath: "/beach/legacy-beach",
     });
   });
+
+  it.each([
+    ["tides", BeachTidesPage],
+    ["water-temp", BeachWaterTempPage],
+  ] as const)(
+    "permanently redirects a complete beach's %s page to the hierarchical URL",
+    async (pageType, Page) => {
+      (getBeachBySlugOrId as jest.Mock).mockResolvedValue({
+        ...incompleteBeach,
+        slug: "lower-trestles",
+        city: "San Clemente",
+        state: "CA",
+      });
+
+      await expect(
+        Page({ params: Promise.resolve({ slug: "lower-trestles" }) }),
+      ).rejects.toMatchObject({ digest: "NEXT_REDIRECT" });
+
+      expect(permanentRedirect).toHaveBeenCalledWith(
+        `/ca/san-clemente/lower-trestles/${pageType}`,
+      );
+      expect(redirect).not.toHaveBeenCalled();
+      expect(renderBeachSubPage).not.toHaveBeenCalled();
+    },
+  );
 });

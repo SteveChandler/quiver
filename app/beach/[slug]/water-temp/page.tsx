@@ -2,7 +2,7 @@ import { isNextRouterSignal } from "@/lib/utils/next-router-signal";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicWaterTempMetadata } from "@/lib/seo/meta";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
@@ -27,7 +27,7 @@ export default async function BeachWaterTempPage(
       const currentBasePath = `/beach/${params.slug}`;
 
       if (hierarchicalUrl !== currentBasePath) {
-        redirect(`${hierarchicalUrl}/water-temp`);
+        permanentRedirect(`${hierarchicalUrl}/water-temp`);
       }
     }
 

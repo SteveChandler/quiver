@@ -26,7 +26,7 @@ import {
   cityToSlug,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Beach } from "@/types/database";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -158,7 +158,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       expectedCity: expectedCitySlug,
       providedCity: city,
     });
-    redirect(buildBeachUrl(beach));
+    permanentRedirect(buildBeachUrl(beach));
   }
 
   const beachTimezone = await optionalSection("timezone", () =>

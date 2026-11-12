@@ -27,7 +27,7 @@ import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { throwIfSubPageDataUnknown } from "@/lib/seo/sub-page-data-availability";
 import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
@@ -171,7 +171,7 @@ export async function renderBeachSubPage({
 
   const usaLocation = checkExpectedUsaLocation(beach, expectedUsaLocation);
   if (usaLocation === "not-found") notFound();
-  if (usaLocation === "wrong-city") redirect(`${buildBeachUrl(beach)}/${pageType}`);
+  if (usaLocation === "wrong-city") permanentRedirect(`${buildBeachUrl(beach)}/${pageType}`);
 
   const beachTimezone =
     beach.lat != null && beach.lon != null
