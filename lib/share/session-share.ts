@@ -1,6 +1,10 @@
 import { formatWindSpeed } from "@/lib/formatters/surf-data";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
 import { remoteImageUrlOrUndefined } from "@/lib/share/remote-image-url";
+import {
+  sessionRatingLabel,
+  sessionRatingStars,
+} from "@/lib/share/session-rating";
 import type { SessionWithDetails } from "@/types/database";
 
 interface SessionShareSheetData {
@@ -27,39 +31,14 @@ export function getSessionBeachName(session: SessionWithDetails): string {
 }
 
 function getSessionBoardName(session: SessionWithDetails): string {
-  return session.board?.name || session.boards?.name || "Surfboard";
+  return session.board?.name || session.boards?.name || "";
 }
 
-function ratingLabelFromStars(stars: number) {
-  if (stars >= 4) return "Epic";
-  if (stars >= 3) return "Good";
-  return "Fair";
-}
-
-function sizeLabelFromSession(session: SessionWithDetails): string {
-  const height =
-    typeof session.wave_height_ft === "number"
-      ? session.wave_height_ft
-      : Number(session.wave_height_ft);
-  if (Number.isFinite(height) && height > 0) {
-    if (height < 1) return "Ankle-Knee";
-    if (height < 2) return "Waist-Chest";
-    if (height < 4) return "Chest-Head";
-    if (height < 6) return "Overhead";
-    return "Double-Overhead";
-  }
-
-  const quality =
-    typeof session.wave_quality === "number"
-      ? session.wave_quality
-      : Number(session.wave_quality);
-  if (Number.isFinite(quality) && quality > 0) {
-    if (quality >= 4) return "Overhead";
-    if (quality >= 3) return "Chest-Head";
-    return "Waist-Chest";
-  }
-
-  return "Waist-Chest";
+// Logged feet, sent bare like native sends it; the card adds "ft". No size when none was logged.
+function sizeFromSession(session: SessionWithDetails): string {
+  const raw = session.wave_height_ft;
+  const height = raw === null || raw === undefined ? NaN : Number(raw);
+  return Number.isFinite(height) && height > 0 ? String(height) : "";
 }
 
 function formatSessionShareDate(raw: unknown): string | undefined {
@@ -116,21 +95,18 @@ export function buildSessionShareImageUrl(
   session: SessionWithDetails
 ): string {
   const beachName = getSessionBeachName(session);
-  const stars = clampSessionStars(session.rating, 4);
-  const footerBeach =
-    beachName === "Unknown Beach" ? "this beach" : beachName;
+  const stars = sessionRatingStars(session.rating);
 
   return buildSessionShareUrl({
     beach: beachName,
-    stars,
-    rating: ratingLabelFromStars(stars),
-    size: sizeLabelFromSession(session),
+    stars: stars ?? undefined,
+    rating: stars === null ? undefined : sessionRatingLabel(stars),
+    size: sizeFromSession(session),
     board: getSessionBoardName(session),
     date: formatSessionShareDate(session.arrival_time ?? session.session_date),
     windLabel: session.wind_direction || undefined,
     windSpeed: getSessionWindSpeed(session),
     tagline: getSessionTagline(session),
-    footer: `Similar to your best ${footerBeach} sessions`,
     bg: getSessionBackground(session),
     shareUrl: buildSessionPageShareUrl(session.id),
   });

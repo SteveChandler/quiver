@@ -27,10 +27,10 @@ function getBaseUrl(): string {
 interface SessionShareParams {
   /** Beach name */
   beach: string;
-  /** Session rating (e.g., "Epic", "Good", "Fair") */
-  rating: string;
-  /** Star rating (1-5) */
-  stars: number;
+  /** Session rating label; omit when the surfer gave no rating */
+  rating?: string;
+  /** Star rating (1-5); omit when the surfer gave no rating */
+  stars?: number;
   /** Wave size (e.g., "3-5ft") */
   size: string;
   /** Board used (e.g., "6'2\" Shortboard") */
@@ -158,8 +158,10 @@ export function buildSessionShareUrl(params: SessionShareParams): string {
   const searchParams = new URLSearchParams();
 
   searchParams.set('beach', params.beach);
-  searchParams.set('rating', params.rating);
-  searchParams.set('stars', params.stars.toString());
+  if (params.rating && params.stars !== undefined) {
+    searchParams.set('rating', params.rating);
+    searchParams.set('stars', params.stars.toString());
+  }
   searchParams.set('size', params.size);
   searchParams.set('board', params.board);
 
