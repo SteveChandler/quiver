@@ -313,7 +313,7 @@ describe('buildDiscoveryMessage', () => {
 
   it('returns no message (no stand-in reason) when there are no reasons', () => {
     expect(buildDiscoveryMessage(70, [], [])).toBe('');
-    expect(buildDiscoveryMessage(55, [], ['Wind picking up'])).toBe('');
+    expect(buildDiscoveryMessage(55, [], ['Wind picking up'])).toMatch(/ - Watch: Wind picking up$/);
   });
 
   it('should only use top 2 reasons', () => {

@@ -296,7 +296,8 @@ export function buildDiscoveryMessage(
 
   // Pick top 2 reasons for concise message
   const topReasons = reasons.slice(0, 2).join(', ');
-  if (!topReasons) return '';
+  // With no reason, a real warning is still worth saying; with neither, say nothing.
+  if (!topReasons) return warnings[0] ? `${label} - Watch: ${warnings[0]}` : '';
   let message = `${label} - ${topReasons}`;
 
   // Add first warning if present
