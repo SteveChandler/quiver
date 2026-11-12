@@ -729,6 +729,7 @@ describe("SEO funnel pages", () => {
       "/ca/huntington-beach/bolsa-chica",
       "/ca/dana-point/doheny-beach",
       "/ca/la-jolla/blacks-beach",
+      "/ca/san-onofre/san-onofre-state-beach",
     ];
     const hrefs = SEO_FUNNEL_PAGES.flatMap((page) => [
       ...page.nearbySpots.map((spot) => spot.href),
@@ -751,6 +752,7 @@ describe("SEO funnel pages", () => {
         "/ca/huntington-beach/bolsa-chica-state-beach-huntington-beach-ca",
         "/ca/dana-point/doheny",
         "/ca/san-diego/blacks",
+        "/ca/san-clemente/san-onofre-state-beach",
       ]),
     );
   });
