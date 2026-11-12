@@ -2,7 +2,10 @@
 import { NextRequest } from "next/server";
 
 import { GET } from "@/app/api/v1/app/minimum-version/route";
-import { resetMinimumVersionWarningsForTests } from "@/lib/native/minimum-version";
+import {
+  MINIMUM_ROW_CACHE_MS,
+  resetMinimumVersionWarningsForTests,
+} from "@/lib/native/minimum-version";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -267,5 +270,43 @@ describe("GET /api/v1/app/minimum-version", () => {
     expect(result.body).toEqual({ platform: "ios", minimum_version: "1.0.6", minimum_bundle_created_at: null });
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).not.toContain(future);
+  });
+  it("serves a found row from the in-process copy for 30 s, then reads again", async () => {
+    const now = jest.spyOn(Date, "now");
+    const start = Date.parse("2026-11-12T20:00:00Z");
+    now.mockReturnValue(start);
+    mockRead({ data: { minimum_version: "1.0.6", minimum_bundle_created_at: null }, error: null });
+
+    await call("?platform=ios");
+    await call("?platform=ios");
+    expect(mockCreatePublicReadClient).toHaveBeenCalledTimes(1);
+
+    now.mockReturnValue(start + MINIMUM_ROW_CACHE_MS + 1);
+    await call("?platform=ios");
+    expect(mockCreatePublicReadClient).toHaveBeenCalledTimes(2);
+    now.mockRestore();
+  });
+
+  it("keeps a separate copy for each platform", async () => {
+    mockRead({ data: { minimum_version: "1.0.6", minimum_bundle_created_at: null }, error: null });
+
+    await call("?platform=ios");
+    await call("?platform=android");
+
+    expect(mockCreatePublicReadClient).toHaveBeenCalledTimes(2);
+  });
+
+  it("never serves an error from the in-process copy", async () => {
+    mockReadSequence([
+      { data: null, error: { code: "XX000", message: "internal error" } },
+      { data: { minimum_version: "1.0.6", minimum_bundle_created_at: null }, error: null },
+    ]);
+
+    const first = await call("?platform=ios");
+    const second = await call("?platform=ios");
+
+    expect(first.body).toEqual(NULLS_IOS);
+    expect(second.body).toEqual({ platform: "ios", minimum_version: "1.0.6", minimum_bundle_created_at: null });
+    expect(mockCreatePublicReadClient).toHaveBeenCalledTimes(2);
   });
 });

@@ -35,7 +35,12 @@ const VERSION_PATTERN = /^\d+(\.\d+){0,3}$/;
 const ISO_DATE_TIME_PATTERN =
   /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:?\d{2}))?$/;
 
+// Each app check reaches this route (the app's fetch skips the CDN), so a warm instance
+// keeps a good read for a short time. An undo then reaches users within this window.
+export const MINIMUM_ROW_CACHE_MS = 30_000;
+
 let tableMissingWarned = false;
+const rowCache = new Map<NativePlatform, { read: NativeMinimumRead; expiresAt: number }>();
 
 export function parseNativePlatform(value: string | null): NativePlatform | null {
   if (value === "ios" || value === "android") return value;
@@ -174,9 +179,17 @@ async function readOnce(platform: NativePlatform): Promise<AttemptResult> {
  * update locks users out of the app.
  */
 export async function readNativeMinimumVersion(platform: NativePlatform): Promise<NativeMinimumRead> {
+  const cached = rowCache.get(platform);
+  if (cached && cached.expiresAt > Date.now()) return cached.read;
+
   for (let attempt = 1; attempt <= READ_ATTEMPTS; attempt += 1) {
     const result = await readOnce(platform);
-    if (result !== "stalled") return result;
+    if (result === "stalled") continue;
+    // Only a read that worked is kept; a failure must not hide a recovery.
+    if (result.outcome === "found" || result.outcome === "missing") {
+      rowCache.set(platform, { read: result, expiresAt: Date.now() + MINIMUM_ROW_CACHE_MS });
+    }
+    return result;
   }
   console.error(
     `[minimum-version] read timed out ${READ_ATTEMPTS} times after ${MINIMUM_READ_TIMEOUT_MS} ms; returning nulls`,
@@ -184,7 +197,8 @@ export async function readNativeMinimumVersion(platform: NativePlatform): Promis
   return { result: emptyMinimum(platform), outcome: "error" };
 }
 
-/** Test hook: the table-missing warning is logged once per server instance. */
+/** Test hook: clears the once-per-instance warning and the in-process row copy. */
 export function resetMinimumVersionWarningsForTests(): void {
   tableMissingWarned = false;
+  rowCache.clear();
 }
