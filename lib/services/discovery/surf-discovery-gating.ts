@@ -87,7 +87,7 @@ function isConservativePersonalReason(reason: string): boolean {
 
 function buildPersonalExplanation(
   rec: SurfDiscoveryRecommendation
-): string {
+): string | undefined {
   const reasonParts = rec.reasons.filter(isConservativePersonalReason);
   const similarityReason = rec.similarity?.state === "ready"
     ? rec.similarity.reason
@@ -110,9 +110,8 @@ function buildPersonalExplanation(
     conditionReason,
   ].filter((part): part is string => Boolean(part));
 
-  if (parts.length === 0) {
-    return "This window lines up with your profile and the current surf setup.";
-  }
+  // With nothing specific to say, send no explanation (JSON omits it); clients fall to their next reason.
+  if (parts.length === 0) return undefined;
 
   return parts.slice(0, 3).join(". ");
 }

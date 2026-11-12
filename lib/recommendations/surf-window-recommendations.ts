@@ -364,9 +364,8 @@ function buildRecommendation(
   });
   const tide = tideTrend(row);
   const wind = windQuality(row, group.beach);
-  const positives = composite.reasons.length > 0
-    ? [...composite.reasons].slice(0, 3)
-    : ["Conditions line up with this spot"];
+  // Empty when the scorer gave no reason; readers show their own empty state.
+  const positives = composite.reasons.slice(0, 3);
   const watchouts = composite.warnings.length > 0
     ? [...composite.warnings].slice(0, 3)
     : [];

@@ -142,6 +142,31 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Approved beach photo")).not.toBeInTheDocument();
   });
 
+  it("shows no stand-in reason line when the window has no positives", () => {
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          startIso: "2026-08-12T07:00:00Z",
+          endIso: "2026-08-12T09:00:00Z",
+          peakIso: "2026-08-12T08:00:00Z",
+          timezone: "UTC",
+          localTimeLabel: "7:00 AM-9:00 AM",
+          score: 83,
+          verdict: "Worth it" as const,
+          confidence: { level: "high" as const, score: 84, summary: "High confidence", reasons: [] },
+          positives: [],
+          wave: { height: "4.2", period: "14", direction: "W", summary: "4.2ft at 14s" },
+        }}
+      />
+    );
+
+    expect(screen.getByText("Peak 8:00 AM · High confidence")).toBeInTheDocument();
+    expect(screen.queryByText("Selector conditions align")).not.toBeInTheDocument();
+  });
+
   it("shows guests a login CTA without the numeric score or score-band call", () => {
     render(
       <TopRankedBeachHero

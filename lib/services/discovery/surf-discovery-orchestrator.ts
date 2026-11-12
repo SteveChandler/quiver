@@ -529,8 +529,11 @@ export function generatePrimaryReason(
 
   const skillGap = (beachSkill ? SKILL_RANK[beachSkill] : 1) - SKILL_RANK[userSkill];
   const wavesManageable = waveHeight <= userRanges.ideal.max;
+  // Same gate as calculateBeachSkillMatchBonus: a skill match alone says nothing about today's waves.
+  const wavesInIdealRange = waveHeight >= userRanges.ideal.min && waveHeight <= userRanges.ideal.max;
 
   if (skillGap <= 0) {
+    if (!wavesInIdealRange) return null;
     return `Conditions at ${beach.name} match your experience level today`;
   }
 

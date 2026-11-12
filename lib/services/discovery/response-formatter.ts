@@ -133,8 +133,10 @@ export function generateDiscoverySummary(
 
   const wind = window.wind?.trim();
   const windClause = wind && wind.toLowerCase() !== 'unknown' ? ` with ${wind}` : '';
+  const height = window.waveHeight?.trim();
+  const heightClause = height && height.toLowerCase() !== 'unknown' ? ` - ${height}` : '';
 
-  return `${matchDesc} at ${beach.name} - ${window.waveHeight}${windClause}.${warningSuffix}`;
+  return `${matchDesc} at ${beach.name}${heightClause}${windClause}.${warningSuffix}`;
 }
 
 // ============================================================================
@@ -266,7 +268,8 @@ function isLearnerWorthIt(
  * Examples:
  * - "Worth it - Good wave size, Offshore wind. Watch: Tide is high"
  * - "Maybe - Surfable conditions. Watch: Wind picking up"
- * - "Skip - Conditions not favorable"
+ * - "Skip - Strong onshore wind"
+ * - "" when there is no reason (no stand-in clause)
  *
  * @param score - Total score (0-100)
  * @param reasons - Positive factors for recommendation
@@ -285,14 +288,17 @@ export function buildDiscoveryMessage(
 ): string {
   const label = recommendationLabel ?? getRecommendationLabel(score);
 
+  // No reason means no message: a generic clause would read as a real explanation.
   if (label === 'Skip') {
-    const skipReason = warnings[0] || 'Conditions not favorable';
-    return `Skip - ${skipReason}`;
+    const skipReason = warnings[0];
+    return skipReason ? `Skip - ${skipReason}` : '';
   }
 
   // Pick top 2 reasons for concise message
   const topReasons = reasons.slice(0, 2).join(', ');
-  let message = `${label} - ${topReasons || 'Conditions look surfable'}`;
+  // With no reason, a real warning is still worth saying; with neither, say nothing.
+  if (!topReasons) return warnings[0] ? `${label} - Watch: ${warnings[0]}` : '';
+  let message = `${label} - ${topReasons}`;
 
   // Add first warning if present
   if (warnings.length > 0) {
