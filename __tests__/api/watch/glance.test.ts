@@ -92,6 +92,23 @@ it("passes through tomorrow's call and a missing label", async () => {
   expect(body.data.glance).toMatchObject({ label: null, tomorrow: true });
 });
 
+it("still sends the glance and marks the plan unknown when the plan read failed", async () => {
+  mockComputeSurfCall.mockResolvedValue(surfCall({ planStatus: "unknown" }));
+  const response = await glance(request());
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body.data.glance).toMatchObject({ beachId: "home", height: "3-4ft", label: "GOOD" });
+  expect(body.data.planStatus).toBe("unknown");
+  // The glance carries no plan-dependent field; only the marker is added beside it.
+  expect(Object.keys(body.data.glance).sort()).toEqual(["beachId", "height", "label", "name", "tomorrow", "updatedAt"]);
+  expect(Object.keys(body.data).sort()).toEqual(["glance", "planStatus"]);
+});
+
+it("sends no plan marker when the plan read succeeded", async () => {
+  const body = await (await glance(request())).json();
+  expect(body.data).not.toHaveProperty("planStatus");
+});
+
 it("returns a null glance when the user has no saved beach", async () => {
   rows.profiles = { home_beach_id: null };
   rows.favorite_beaches = [{ beach_id: null, beaches: null, custom_spots: { id: "custom", name: "Secret", lat: 34, lon: -118 } }];

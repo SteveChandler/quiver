@@ -38,6 +38,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
 import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
+import { readEntitlementRow, UNKNOWN_PLAN_FEATURE_ACCESS } from "@/lib/subscription/read-entitlement-row";
 import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
 import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
@@ -531,21 +532,14 @@ export const GET = withNoStore(withAuth(
       context.user?.id
     );
 
-    const { data: entitlementRow, error: entitlementError } = context.user
-      ? await supabase
-          .from("user_entitlements")
-          .select("is_pro, is_trialing, billing_issue, expires_at")
-          .eq("user_id", context.user.id)
-          .maybeSingle()
-      : { data: null, error: null };
-    // A failed read is not a missing row: scoring it as free would show a Pro user the free plan.
-    if (entitlementError) {
-      throw new Error(`user_entitlements read failed: ${entitlementError.message}`, { cause: entitlementError });
-    }
-    const { isPro, hasFeatureAccess } = await resolveFeatureAccessFromRow(
-      context.user?.id,
-      entitlementRow,
-    );
+    const entitlementRead = context.user
+      ? await readEntitlementRow(supabase, context.user.id)
+      : { status: "ok" as const, row: null };
+    // A failed read still scores the beach, but with no paid features and no plan label.
+    const planUnknown = entitlementRead.status === "unknown";
+    const { isPro, hasFeatureAccess } = planUnknown
+      ? UNKNOWN_PLAN_FEATURE_ACCESS
+      : await resolveFeatureAccessFromRow(context.user?.id, entitlementRead.row);
     const boardPicksEnabled = hasFeatureAccess || isBoardPicksFreeEnabled();
     const boardContext = context.user
       ? await fetchUserBoardContext(supabase, context.user.id, boardPicksEnabled)
@@ -575,7 +569,8 @@ export const GET = withNoStore(withAuth(
       // Top-level (not per-slot) — the live observation is a single "now"
       // reading that doesn't vary across the 8 forecast slots.
       latestObservation,
-      plan: isPro ? "pro" : "free",
+      // Installed native builds parse `plan` as "free" | "pro"; an unknown plan omits it.
+      ...(planUnknown ? { planStatus: "unknown" as const } : { plan: isPro ? "pro" as const : "free" as const }),
       boardPicksEnabled,
       generalProfile: { skill: "beginner", board: null },
     };

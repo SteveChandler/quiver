@@ -248,6 +248,40 @@ describe("swell alert runner on the swell-events detector", () => {
     expectConsoleWarnings([/NWS advisory fetch failed/]);
   });
 
+  it("still sends with no board picks when the plan read fails, and counts it once without a warning", async () => {
+    const { getUserEntitlement } = jest.requireMock("@/lib/alerts/entitlements") as { getUserEntitlement: jest.Mock };
+    const { fetchUserBoardContext } = jest.requireMock("@/lib/services/discovery/surf-discovery-orchestrator") as {
+      fetchUserBoardContext: jest.Mock;
+    };
+    getUserEntitlement.mockResolvedValueOnce("unknown");
+    fetchUserBoardContext.mockClear();
+    const warn = jest.spyOn(console, "warn");
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: deps(),
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.entitlementReadFailures).toBe(1);
+    expect(fetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), expect.any(String), false);
+    // Fixture rows carry no confidence score; only a per-user swell-alert warning is under test.
+    expect(warn.mock.calls.map(([first]) => String(first)).filter((line) => line.startsWith("[swell-alert]"))).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it("still sends without a board when the plan read throws", async () => {
+    const { getUserEntitlement } = jest.requireMock("@/lib/alerts/entitlements") as { getUserEntitlement: jest.Mock };
+    getUserEntitlement.mockRejectedValueOnce(new Error("client bug"));
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: deps(),
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.entitlementReadFailures).toBe(0);
+    expectConsoleWarnings([/Board read failed/]);
+  });
+
   it("reports nothing when the NWS advisory read succeeds with no advisories", async () => {
     jest.mocked(Sentry.captureException).mockClear();
     const result = await runSwellAlertCron({

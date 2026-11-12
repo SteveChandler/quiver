@@ -4,6 +4,7 @@ import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-servi
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { resolveFeatureAccessFromRow } from '@/lib/alerts/entitlements';
+import { readEntitlementRow, UNKNOWN_PLAN_FEATURE_ACCESS } from '@/lib/subscription/read-entitlement-row';
 import { getProfileExperienceLevel, readProfileSkill } from '@/lib/profile/skill-level';
 import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
 import { getSkillLevelOrDefault } from '@/lib/domains/user-preferences/skill-level';
@@ -33,6 +34,8 @@ import { bridgeBeachForecastRows, SCOPED_BRIDGE_RADIUS_MS } from '@/lib/services
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
+  /** Present only when the plan read failed; the call was made with free access. */
+  planStatus?: 'unknown';
   waterQuality: SurfCallWaterQuality;
   sessionDecision: CanonicalSessionDecision;
   candidateRejection: CanonicalSessionDecision['candidateRejection'];
@@ -478,19 +481,14 @@ export async function computeCanonicalSurfCall({
     }
     ratingSkill = profileExperience;
   }
-  const { data: entitlementRow, error: entitlementError } = userId
-    ? await supabase
-        .from('user_entitlements')
-        .select('is_pro, is_trialing, billing_issue, expires_at')
-        .eq('user_id', userId)
-        .maybeSingle()
-    : { data: null, error: null };
-  // A failed read is not a missing row: a free call for a Pro user would look correct.
-  if (entitlementError) {
-    console.error('[surf-call:entitlement-error]', entitlementError);
-    return { status: 'unavailable', error: entitlementError };
-  }
-  const access = await resolveFeatureAccessFromRow(userId, entitlementRow);
+  const entitlementRead = userId
+    ? await readEntitlementRow(supabase, userId)
+    : { status: 'ok' as const, row: null };
+  // A failed read still makes the call, but with no paid gates opened.
+  const planUnknown = entitlementRead.status === 'unknown';
+  const access = planUnknown
+    ? UNKNOWN_PLAN_FEATURE_ACCESS
+    : await resolveFeatureAccessFromRow(userId, entitlementRead.row);
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
   const requestedForecastTime = forecastAt
@@ -629,5 +627,5 @@ export async function computeCanonicalSurfCall({
   ) as CanonicalSurfCallResponse;
   const result = applyRecommendationEligibilityGate(forcedResult, typedBeach);
 
-  return { status: 'ok', result };
+  return { status: 'ok', result: planUnknown ? { ...result, planStatus: 'unknown' } : result };
 }
