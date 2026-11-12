@@ -145,8 +145,7 @@ function titleFor(
     return beachName ? `${prefix} at ${beachName}` : prefix;
   }
 
-  // Native renders this as the card title; the beach name is the one true fact left.
-  return beachName ?? "";
+  return "Forecast alert";
 }
 
 function bodyFor(row: NotificationRow, data: Record<string, unknown>): string {
@@ -157,11 +156,11 @@ function bodyFor(row: NotificationRow, data: Record<string, unknown>): string {
     return (
       nonEmptyString(data.reason) ??
       nonEmptyString(data.condition_summary) ??
-      ""
+      "A watched surf window matched your preferences."
     );
   }
 
-  return "";
+  return "A watched surf window is lining up.";
 }
 
 function normalizeActivityItem(row: NotificationRow): AlertActivityItem {

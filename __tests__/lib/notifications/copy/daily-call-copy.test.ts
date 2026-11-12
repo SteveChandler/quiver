@@ -153,3 +153,16 @@ describe("daily call copy", () => {
       .toBe("Rated higher than OB Pier today");
   });
 });
+
+describe("daily body slots are never empty", () => {
+  it.each([[{}], [{ wind_speed: null }], [{ wind_speed: "" }], [{ wind_speed: "0" }], [{ wind_speed: "14", wind_direction: "" }]])(
+    "windPhrase fills the wind slot for %j",
+    (forecast) => {
+      expect(windPhrase(forecast as never).trim().length).toBeGreaterThan(0);
+    },
+  );
+
+  it("limitSentence fills the limit slot with no drivers", () => {
+    expect(limitSentence([], "2026-11-12T19:00:00.000Z", "America/Los_Angeles")).toBe("Good until 11 AM.");
+  });
+});
