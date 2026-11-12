@@ -53,6 +53,18 @@ describe('generatePrimaryReason', () => {
     });
   });
 
+  describe('skill gap <= 0, waves outside the ideal range', () => {
+    it.each([
+      ['flat (0.5ft) for a beginner', '0.5', 'beginner'],
+      ['missing wave height for a beginner', '', 'beginner'],
+      ['too big (5ft) for a beginner', '5', 'beginner'],
+      ['too small (2ft) for an advanced surfer', '2', 'advanced'],
+    ] as const)('omits the match line when waves are %s', (_label, height, skill) => {
+      const beach = makeBeach({ skill_level: 'beginner' });
+      expect(generatePrimaryReason(beach, makeForecast(height), skill)).toBeNull();
+    });
+  });
+
   describe('skill gap > 0, waves manageable', () => {
     it.each([
       ['lower-intermediate', 'intermediate'],
