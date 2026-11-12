@@ -1,5 +1,7 @@
 "use client";
 
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
+
 import { useState, type ReactElement } from "react";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -43,13 +45,14 @@ export function ZineHeroMedia({
 }: ZineHeroMediaProps): ReactElement {
   const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
-  const dioramaUrl = sources?.diorama_url;
+  const dioramaUrl = isBlockedCameraUrl(sources?.diorama_url) ? null : sources?.diorama_url;
   // A live cam is the most useful thing a beach can show, so it leads over any photo.
   const photoUrl =
-    !hasLiveCam && beachPhotoUrl && !failedUrls.has(beachPhotoUrl) ? beachPhotoUrl : null;
+    !hasLiveCam && beachPhotoUrl && !isBlockedCameraUrl(beachPhotoUrl) && !failedUrls.has(beachPhotoUrl) ? beachPhotoUrl : null;
   const videoUrl =
     !hasLiveCam && !photoUrl && dioramaUrl && !failedUrls.has(dioramaUrl) ? dioramaUrl : null;
-  const showsCam = hasLiveCam || (!photoUrl && !videoUrl && !!sources?.cam_thumbnail_url);
+  const showsCam = hasLiveCam || (!photoUrl && !videoUrl && !!sources?.cam_thumbnail_url &&
+    !isBlockedCameraUrl(sources.cam_thumbnail_url) && !isBlockedCameraUrl(sources.camera_url));
   const showMap = !photoUrl && !videoUrl && !showsCam;
   const handleMediaError = (url: string): void => {
     setFailedUrls((current) => new Set(current).add(url));
@@ -124,6 +127,9 @@ export function ZineHeroMedia({
           />
         ) : null}
       </div>
+      {!hasLiveCam && (sources?.cam_unavailable || isBlockedCameraUrl(sources?.camera_url)) ? (
+        <p className="mt-3 text-sm text-muted-foreground">Live camera unavailable</p>
+      ) : null}
     </div>
   );
 }

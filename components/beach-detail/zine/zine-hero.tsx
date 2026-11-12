@@ -3,6 +3,7 @@ import type { Beach } from "@/types/database";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
 import { ZineHeroMedia } from "./zine-hero-media";
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import {
   SaltyEyebrow,
@@ -52,7 +53,7 @@ export function ZineHero({
   const heroShowsImagery = hasLiveCam || !!(
     beachPhoto?.image_url ??
     sources?.diorama_url ??
-    sources?.cam_thumbnail_url
+    (sources?.cam_thumbnail_url && !isBlockedCameraUrl(sources.cam_thumbnail_url) && !isBlockedCameraUrl(sources.camera_url))
   );
 
   return (

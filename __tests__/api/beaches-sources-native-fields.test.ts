@@ -53,6 +53,35 @@ describe("GET /api/beaches/[id]/sources", () => {
     jest.restoreAllMocks();
   });
 
+  it.each([true, false])("sanitizes retired camera and thumbnail fields (camera retired: %s)", async (retired) => {
+    const sourceChain = makeChain({
+      data: {
+        beach_id: VALID_BEACH_UUID,
+        forecast_source_id: "forecast",
+        camera_url: retired ? "https://portal.hdontap.com/s/embed" : "https://www.obhotel.com/Webcam-Oceanbeach.php",
+        thumbnail_url: "https://storage.hdontap.com/still.jpg",
+      },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+    mockCreateSupabaseServerClient.mockResolvedValue({ from: (table: string) => table === "beach_sources" ? sourceChain : dioramaChain });
+    const url = new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`);
+    const fetch = jest.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"));
+    const response = await GET({ url: url.href, nextUrl: url } as any, { params: Promise.resolve({ id: VALID_BEACH_UUID }) });
+    const body = await response.json();
+    expect(body.data.sources).toMatchObject({
+      forecast_source_id: "forecast",
+      camera_url: retired ? null : "https://www.obhotel.com/Webcam-Oceanbeach.php",
+      cam_open_url: retired ? null : "https://www.obhotel.com/Webcam-Oceanbeach.php",
+      cam_kind: retired ? "none" : "hdontap",
+      cam_embed: null,
+      cam_thumbnail_url: null,
+      embed_allowed: retired ? null : true,
+    });
+    expect(JSON.stringify(body)).not.toMatch(/\.hdontap\.com/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("returns an absolute compatible HLS URL for the native HDRelay player", async () => {
     const sourceChain = makeChain({ data: { beach_id: VALID_BEACH_UUID, camera_url: "https://watch.hdrelay.io/live/cam/index.m3u8" }, error: null });
     const dioramaChain = makeChain({ data: null, error: null });

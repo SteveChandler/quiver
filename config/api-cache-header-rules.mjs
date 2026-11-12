@@ -3,7 +3,8 @@ export const EXPERIMENT_API_CACHE_CONTROL = "private, no-store, no-cache, must-r
 // Ordered as Next applies them: the final matching Cache-Control header wins.
 export const apiCacheHeaderRules = [
   {
-    source: "/api/(.*)",
+    // Camera and image routes set response-specific cache controls.
+    source: "/api/((?!cam-resolve(?:/|$)|hls-proxy(?:/|$)|image-proxy(?:/|$)|beaches/[^/]+/sources(?:/|$)).*)",
     headers: [
       {
         key: "Cache-Control",

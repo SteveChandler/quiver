@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 /**
  * Image Utilities
  *
@@ -266,7 +267,6 @@ export function pickPhotoThumbUrl(
  * URLs must stay un-proxied — /api/image-proxy's allowlist rejects them.
  */
 const DIRECT_REMOTE_IMAGE_HOSTS = new Set([
-  "storage.hdontap.com",
   "img.youtube.com",
   "camstills.cdn-surfline.com",
   "ccn-media.coastalcameranetwork.com",
@@ -363,6 +363,8 @@ export function getProxiedImageUrl(url: string | null | undefined): string {
   if (!url || url.trim() === '') {
     return '';
   }
+
+  if (isBlockedCameraUrl(url)) return "";
 
   // Normalize known bad thumbnail URLs (Openverse)
   const normalizedUrl = cleanOpenverseThumbUrl(url.trim());
