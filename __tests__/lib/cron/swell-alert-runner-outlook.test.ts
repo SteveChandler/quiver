@@ -207,9 +207,43 @@ describe("swell alert cron: outlook users", () => {
       expect.objectContaining({ message: "NWS down" }),
       expect.objectContaining({
         tags: expect.objectContaining({ swell_alert_hazard_source: "first_sighting_hazard" }),
-        extra: { beach_id: HOME },
+        extra: { failed_lookups: 1, beach_count: 1, beach_ids: [HOME] },
       }),
     );
+  });
+
+  it("reports failed hazard lookups once per run, with the count", async () => {
+    jest.mocked(Sentry.captureException).mockClear();
+    const restore = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const other = "11111111-2222-4333-8444-555555555555";
+    const deps = makeDeps({
+      loadProfiles: jest.fn(async () => [profile(), profile({ id: other })]),
+      loadFirstSightingHazard: jest.fn(async () => { throw new Error("NWS down"); }),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    restore.mockRestore();
+    expect(summary.sentByKind.coming).toBe(2);
+    expect(summary.hazardLookupFailures).toBe(2);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "NWS down" }),
+      expect.objectContaining({ extra: { failed_lookups: 2, beach_count: 1, beach_ids: [HOME] } }),
+    );
+  });
+
+  it("counts a failed hazard lookup only when its push is sent", async () => {
+    jest.mocked(Sentry.captureException).mockClear();
+    const restore = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const deps = makeDeps({
+      insertAlert: jest.fn(async () => null),
+      loadFirstSightingHazard: jest.fn(async () => { throw new Error("NWS down"); }),
+    });
+    const summary = await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    restore.mockRestore();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(summary.sentByKind.coming).toBeUndefined();
+    expect(summary.hazardLookupFailures).toBe(0);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
   it("reports nothing for a hazard lookup that finds no hazard", async () => {
