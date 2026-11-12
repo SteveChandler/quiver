@@ -99,6 +99,42 @@ describe("BeachConditionsGrid view-all link", () => {
     }
   );
 
+  // Forecast region slugs are not always hub guide slugs; the link must use the
+  // same mapping as the forecast page's own guide link.
+  it.each([
+    ["ventura-santa-barbara", "/guides/surfing-ventura"],
+    ["los-angeles", "/guides/surfing-southern-california"],
+  ])("links %s to its mapped hub guide %s", (regionSlug, href) => {
+    render(
+      <BeachConditionsGrid
+        beaches={makeBeaches(35)}
+        regionSlug={regionSlug}
+        maxBeaches={12}
+        showViewAll
+      />
+    );
+
+    const links = screen.getAllByRole("link", { name: /view all/i });
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link).toHaveAttribute("href", href);
+    }
+  });
+
+  it("is hidden for a region with no hub guide after mapping", () => {
+    const { container } = render(
+      <BeachConditionsGrid
+        beaches={makeBeaches(35)}
+        regionSlug="not-a-real-region"
+        maxBeaches={12}
+        showViewAll
+      />
+    );
+
+    expect(screen.queryAllByRole("link", { name: /view all/i })).toHaveLength(0);
+    expect(container.querySelector('a[href^="/guides/"]')).toBeNull();
+  });
+
   it("is hidden when showViewAll is false", () => {
     render(
       <BeachConditionsGrid

@@ -20,7 +20,7 @@ import { ScoreLoginLink } from "./score-login-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { QuiverSticker } from "@/components/zine";
-import { getHubRegion } from "@/lib/data/hub-regions";
+import { getGuideSlugForRegion, hasHubGuide } from "@/lib/data/forecast-regions";
 import { useOptionalAuth } from "@/context/auth-context";
 import {
   Table,
@@ -336,8 +336,10 @@ export function BeachConditionsGrid({
 
   const hasMoreBeaches = beaches.length > maxBeaches;
   // The link target is the region's hub guide; regions without one 404 there.
+  // Forecast slugs can differ from guide slugs (ventura-santa-barbara -> ventura).
+  const guideSlug = getGuideSlugForRegion(regionSlug);
   const showViewAllLink =
-    showViewAll && hasMoreBeaches && getHubRegion(regionSlug) !== null;
+    showViewAll && hasMoreBeaches && hasHubGuide(regionSlug);
   // Built as a string rather than JSX text: SWC drops the leading whitespace of
   // a JSX text node that contains an HTML entity and a newline, so
   // `{n} beaches &rarr;` across two lines rendered "View all 35beaches →".
@@ -387,7 +389,7 @@ export function BeachConditionsGrid({
           </div>
           {showViewAllLink && (
             <Link
-              href={`/guides/surfing-${regionSlug}`}
+              href={`/guides/surfing-${guideSlug}`}
               className={cn(
                 "text-sm font-medium hover:underline transition-colors whitespace-nowrap",
                 "text-[#B56A2B] hover:text-[#11100D]"
@@ -445,7 +447,7 @@ export function BeachConditionsGrid({
         <ScrollReveal variant="fadeUp" delay={displayBeaches.length * 75 + 100}>
           <div className="md:hidden text-center pt-2">
             <Link
-              href={`/guides/surfing-${regionSlug}`}
+              href={`/guides/surfing-${guideSlug}`}
               className={cn(
                 "text-sm font-medium hover:underline transition-colors",
                 "text-[#B56A2B] hover:text-[#11100D]"
