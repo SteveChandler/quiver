@@ -531,7 +531,7 @@ async function renderSessionShareCard(request: NextRequest): Promise<Response> {
         ? isQuiverShareUrl(shareUrl, requestHost)
           ? `Open this session at ${formatShareUrl(shareUrl)}`
           : ""
-        : searchParams.get("footer") || "Free surf forecasts and session tracking by Quiver",
+        : knownFooter(searchParams.get("footer")),
       86,
     );
 
@@ -578,6 +578,14 @@ async function renderSessionShareCard(request: NextRequest): Promise<Response> {
 }
 
 // ImageResponse is a plain Response; the wrapper only reads and sets its headers.
+/** Footer text the apps send; any other text could point a Quiver card at another site. */
+const KNOWN_FOOTERS = new Set(["Logged on Quiver"]);
+const DEFAULT_FOOTER = "Free surf forecasts and session tracking by Quiver";
+
+function knownFooter(value: string | null): string {
+  return value && KNOWN_FOOTERS.has(value.trim()) ? value.trim() : DEFAULT_FOOTER;
+}
+
 export const GET = withRateLimit(
   renderSessionShareCard as (request: NextRequest) => Promise<NextResponse>,
   "public-default",

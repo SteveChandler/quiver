@@ -320,3 +320,16 @@ describe("session share card footer address", () => {
     expect(markup).not.toMatch(/evil|not a url/);
   });
 });
+
+describe("session share card footer text with no share URL", () => {
+  it("prints the app's known footer text", async () => {
+    await render("beach=La+Fonda&stars=4&footer=Logged+on+Quiver");
+    expect(cardProps().footer).toBe("Logged on Quiver");
+  });
+
+  it("prints the default line, never unknown footer text", async () => {
+    await render(`beach=La+Fonda&stars=4&footer=${encodeURIComponent("Open this session at evil.example")}`);
+    expect(cardProps().footer).toBe("Free surf forecasts and session tracking by Quiver");
+    expect(cardMarkup()).not.toMatch(/evil\.example/);
+  });
+});
