@@ -40,7 +40,7 @@ describe("install-style OG share cards", () => {
     expect(capturedProps()).toEqual(
       expect.objectContaining({
         beach: "Ocean Beach",
-        rating: "Epic",
+        // Intended change: the card derives the label from stars, so no `rating` prop is passed.
         stars: 5,
         size: "Chest-Head",
         board: "Fish",

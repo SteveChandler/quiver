@@ -7,7 +7,18 @@ import {
   createQrCodeDataUri,
   SHARE_CARD_COLORS,
 } from "@/app/api/og/_components/install-share-card";
-import { buildSessionShareDetails } from "@/lib/share/session-share-card-details";
+import {
+  buildSessionShareDetails,
+  formatShareWaveSize,
+} from "@/lib/share/session-share-card-details";
+import {
+  readPublicSessionShareRecord,
+  sessionIdFromShareUrl,
+} from "@/lib/share/public-session-share-record";
+import {
+  sessionRatingLabel,
+  sessionRatingStars,
+} from "@/lib/share/session-rating";
 
 export const runtime = "nodejs";
 
@@ -106,8 +117,8 @@ function formatShareUrl(value: string): string {
 
 interface SessionShareCardProps {
   beach: string;
-  rating: string;
-  stars: number;
+  /** The surfer's own 1-5 rating; null hides the rating pill, stars and label. */
+  stars: number | null;
   size: string;
   board: string;
   date: string;
@@ -131,7 +142,7 @@ function buildSessionSubtitle(params: {
   const headlineParts = [
     `${params.beach} session`,
     params.rating ? `${params.rating.toLowerCase()} rating` : "",
-    params.size,
+    formatShareWaveSize(params.size),
   ].filter(Boolean);
   const details = [params.board, params.windLabel, params.windSpeed]
     .filter(Boolean)
@@ -161,7 +172,6 @@ function ShareStar({ filled }: { filled: boolean }) {
 
 function SessionShareCard({
   beach,
-  rating,
   stars,
   size,
   board,
@@ -173,8 +183,13 @@ function SessionShareCard({
   bg,
   qrImageSrc,
 }: SessionShareCardProps) {
-  const detailCards = buildSessionShareDetails({ size, board, windSpeed, windLabel });
-  const clampedStars = Math.max(0, Math.min(5, Math.round(stars)));
+  const detailCards = buildSessionShareDetails({
+    size,
+    board,
+    windSpeed,
+    windLabel,
+  });
+  const rating = stars === null ? "" : sessionRatingLabel(stars);
   const subtitle = buildSessionSubtitle({
     beach,
     rating,
@@ -261,22 +276,24 @@ function SessionShareCard({
             gap: 22,
           }}
         >
-          <div
-            style={{
-              alignSelf: "flex-start",
-              display: "flex",
-              borderRadius: 999,
-              background: SHARE_CARD_COLORS.orange,
-              color: SHARE_CARD_COLORS.navy,
-              padding: "16px 26px",
-              fontSize: 34,
-              fontWeight: 900,
-              letterSpacing: 2,
-              textTransform: "uppercase",
-            }}
-          >
-            {rating} session
-          </div>
+          {rating ? (
+            <div
+              style={{
+                alignSelf: "flex-start",
+                display: "flex",
+                borderRadius: 999,
+                background: SHARE_CARD_COLORS.orange,
+                color: SHARE_CARD_COLORS.navy,
+                padding: "16px 26px",
+                fontSize: 34,
+                fontWeight: 900,
+                letterSpacing: 2,
+                textTransform: "uppercase",
+              }}
+            >
+              {rating} session
+            </div>
+          ) : null}
           <div
             style={{
               display: "flex",
@@ -305,30 +322,32 @@ function SessionShareCard({
           flex: 1,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 58,
-              color: SHARE_CARD_COLORS.orange,
-              gap: 6,
-            }}
-          >
-            {Array.from({ length: 5 }, (_, index) => (
-              <ShareStar key={index} filled={index < clampedStars} />
-            ))}
+        {stars !== null ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 58,
+                color: SHARE_CARD_COLORS.orange,
+                gap: 6,
+              }}
+            >
+              {Array.from({ length: 5 }, (_, index) => (
+                <ShareStar key={index} filled={index < stars} />
+              ))}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 34,
+                fontWeight: 800,
+                color: SHARE_CARD_COLORS.muted,
+              }}
+            >
+              {rating}
+            </div>
           </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 34,
-              fontWeight: 800,
-              color: SHARE_CARD_COLORS.muted,
-            }}
-          >
-            {rating}
-          </div>
-        </div>
+        ) : null}
 
         <div
           style={{
@@ -342,47 +361,49 @@ function SessionShareCard({
           {tagline || subtitle}
         </div>
 
-        <div style={{ display: "flex", gap: 18 }}>
-          {detailCards.map((card) => (
-            <div
-              key={card.label}
-              style={{
-                display: "flex",
-                flex: 1,
-                flexDirection: "column",
-                gap: 12,
-                borderRadius: 28,
-                background: "#F4EBD8",
-                border: "2px solid #E5D4B3",
-                padding: 24,
-              }}
-            >
+        {detailCards.length > 0 ? (
+          <div style={{ display: "flex", gap: 18 }}>
+            {detailCards.map((card) => (
               <div
+                key={card.label}
                 style={{
                   display: "flex",
-                  fontSize: 24,
-                  fontWeight: 900,
-                  color: SHARE_CARD_COLORS.muted,
-                  letterSpacing: 3,
-                  textTransform: "uppercase",
+                  flex: 1,
+                  flexDirection: "column",
+                  gap: 12,
+                  borderRadius: 28,
+                  background: "#F4EBD8",
+                  border: "2px solid #E5D4B3",
+                  padding: 24,
                 }}
               >
-                {card.label}
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 24,
+                    fontWeight: 900,
+                    color: SHARE_CARD_COLORS.muted,
+                    letterSpacing: 3,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {card.label}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 34,
+                    fontWeight: 900,
+                    color: SHARE_CARD_COLORS.ink,
+                    lineHeight: 1.08,
+                  }}
+                >
+                  {card.value}
+                </div>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: 34,
-                  fontWeight: 900,
-                  color: SHARE_CARD_COLORS.ink,
-                  lineHeight: 1.08,
-                }}
-              >
-                {card.value}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : null}
 
         <div
           style={{
@@ -456,16 +477,36 @@ export async function GET(request: NextRequest): Promise<Response> {
   const { searchParams } = new URL(request.url);
   const useJpeg = searchParams.get("format") === "jpeg";
   try {
-    const beach = truncate(searchParams.get("beach") || "Your surf session", 38);
-    const rating = truncate(searchParams.get("rating") || "Good", 18);
-    const size = truncate(searchParams.get("size") || "Waist-Chest", 24);
-    const board = truncate(searchParams.get("board") || "", 34);
+    const beach = truncate(
+      searchParams.get("beach") || "Your surf session",
+      38,
+    );
+    const sessionId = sessionIdFromShareUrl(searchParams.get("shareUrl"));
+    const record = sessionId
+      ? await readPublicSessionShareRecord(sessionId)
+      : null;
+    // The stored session wins: installed native builds send "Fair"/3 stars for an unrated session.
+    const stars = record
+      ? record.rating
+      : sessionRatingStars(searchParams.get("stars"));
+    const urlSize = searchParams.get("size") || "";
+    const size = truncate(
+      record
+        ? record.waveHeight
+          ? urlSize || record.waveHeight
+          : ""
+        : urlSize,
+      24,
+    );
+    const board = truncate(
+      record && !record.hasBoard ? "" : searchParams.get("board") || "",
+      34,
+    );
     const windLabel = truncate(searchParams.get("windLabel") || "", 28);
     const windSpeed = truncate(searchParams.get("windSpeed") || "", 18);
     const tagline = truncate(searchParams.get("tagline") || "", 64);
     const date = truncate(searchParams.get("date") || "", 32);
     const bg = trustedBackgroundUrl(searchParams.get("bg"));
-    const stars = Number(searchParams.get("stars") || 4);
     const footer = truncate(
       searchParams.get("shareUrl")
         ? `Open this session at ${formatShareUrl(searchParams.get("shareUrl") || "")}`
@@ -484,22 +525,19 @@ export async function GET(request: NextRequest): Promise<Response> {
     const qrImageSrc = await createQrCodeDataUri(qrValue);
 
     const response = new ImageResponse(
-      (
-        <SessionShareCard
-          beach={beach}
-          rating={rating}
-          stars={Number.isFinite(stars) ? stars : 4}
-          size={size}
-          board={board}
-          date={date}
-          windLabel={windLabel}
-          windSpeed={windSpeed}
-          tagline={tagline}
-          footer={footer}
-          bg={bg}
-          qrImageSrc={qrImageSrc}
-        />
-      ),
+      <SessionShareCard
+        beach={beach}
+        stars={stars}
+        size={size}
+        board={board}
+        date={date}
+        windLabel={windLabel}
+        windSpeed={windSpeed}
+        tagline={tagline}
+        footer={footer}
+        bg={bg}
+        qrImageSrc={qrImageSrc}
+      />,
       { width: 1080, height: 1920 },
     );
 

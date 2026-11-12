@@ -16,6 +16,10 @@ import {
 import { slugify } from "@/lib/utils/text-utils";
 import { buildSessionPayload } from "@/lib/utils/session-data-builder";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
+import {
+  sessionRatingLabel,
+  sessionRatingStars,
+} from "@/lib/share/session-rating";
 import { saveLastBeach } from "@/hooks/use-nearest-beach";
 
 interface UseSessionSubmissionOptions {
@@ -228,16 +232,16 @@ export function useSessionSubmission({
   };
 
   // Build share card URL from saved session data (null until a session is logged)
+  const savedRatingStars = sessionRatingStars(savedSessionData?.overallRating);
   const shareCardUrl = savedSessionData
     ? buildSessionShareUrl({
         beach: savedSessionData.selectedBeach || savedSessionData.selectedBeachId || "Unknown Beach",
-        rating: savedSessionData.overallRating
-          ? String(savedSessionData.overallRating)
-          : "Good",
-        stars: savedSessionData.overallRating
-          ? Math.round(Number(savedSessionData.overallRating))
-          : 4,
-        size: savedSessionData.waveSize || savedSessionData.waveHeight || "Waist-Chest",
+        stars: savedRatingStars ?? undefined,
+        rating:
+          savedRatingStars === null
+            ? undefined
+            : sessionRatingLabel(savedRatingStars),
+        size: savedSessionData.waveSize || savedSessionData.waveHeight || "",
         board: savedSessionData.boardUsed || savedSessionData.board || "",
       })
     : null;
