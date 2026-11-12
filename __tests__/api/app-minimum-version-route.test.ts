@@ -19,6 +19,12 @@ let lastTable: string | null = null;
 let lastPlatform: unknown = null;
 
 function mockRead(result: ReadResult | Promise<ReadResult>): void {
+  mockReadSequence([result]);
+}
+
+/** Each read attempt takes the next result; the last one repeats. */
+function mockReadSequence(results: Array<ReadResult | Promise<ReadResult>>): void {
+  let attempt = 0;
   mockCreatePublicReadClient.mockReturnValue({
     from: (table: string) => {
       lastTable = table;
@@ -29,7 +35,11 @@ function mockRead(result: ReadResult | Promise<ReadResult>): void {
           return builder;
         },
         abortSignal: () => builder,
-        maybeSingle: () => Promise.resolve(result),
+        maybeSingle: () => {
+          const result = results[Math.min(attempt, results.length - 1)];
+          attempt += 1;
+          return Promise.resolve(result);
+        },
       };
       return builder;
     },
@@ -136,12 +146,57 @@ describe("GET /api/v1/app/minimum-version", () => {
     mockRead(new Promise<ReadResult>(() => {}));
 
     const pending = call("?platform=ios");
-    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(4000);
     const result = await pending;
 
     expect(result).toEqual({ status: 200, body: NULLS_IOS, cache: "no-store" });
     expect(error).toHaveBeenCalledTimes(1);
     expect(String(error.mock.calls[0][0])).toContain("timed out");
+  });
+
+  it("retries once after a stalled read and returns the row", async () => {
+    jest.useFakeTimers({ doNotFake: ["Date"] });
+    mockReadSequence([
+      new Promise<ReadResult>(() => {}),
+      { data: { minimum_version: "1.0.6", minimum_bundle_created_at: null }, error: null },
+    ]);
+
+    const pending = call("?platform=ios");
+    await jest.advanceTimersByTimeAsync(2000);
+    const result = await pending;
+
+    expect(result).toEqual({
+      status: 200,
+      body: { platform: "ios", minimum_version: "1.0.6", minimum_bundle_created_at: null },
+      cache: PUBLIC_CACHE,
+    });
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it.each(["AbortError: This operation was aborted", "TimeoutError: The operation was aborted due to timeout"])(
+    "treats an aborted read (%s) as a stall and retries once",
+    async (message) => {
+      mockReadSequence([
+        { data: null, error: { code: "", message } },
+        { data: { minimum_version: "1.0.6", minimum_bundle_created_at: null }, error: null },
+      ]);
+
+      const result = await call("?platform=ios");
+
+      expect(result.body).toEqual({ platform: "ios", minimum_version: "1.0.6", minimum_bundle_created_at: null });
+      expect(result.cache).toBe(PUBLIC_CACHE);
+    },
+  );
+
+  it("does not retry an ordinary read error", async () => {
+    mockReadSequence([
+      { data: null, error: { code: "XX000", message: "internal error" } },
+      { data: { minimum_version: "1.0.6", minimum_bundle_created_at: null }, error: null },
+    ]);
+
+    const result = await call("?platform=ios");
+
+    expect(result).toEqual({ status: 200, body: NULLS_IOS, cache: "no-store" });
   });
 
   it.each(["PGRST205", "42P01"])(
