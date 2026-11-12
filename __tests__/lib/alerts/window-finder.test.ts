@@ -136,4 +136,23 @@ describe("findMatchingWindows", () => {
       "small waves, light wind, morning window, rising tide.",
     );
   });
+
+  it("names no tide fit in the beginner rationale when the tide status is missing", () => {
+    const windows = findMatchingWindows(
+      {
+        swell_height_min: 0.5,
+        swell_height_max: 3,
+        wind_speed_max_kt: 8,
+        local_time_start: "06:00",
+        local_time_end: "10:00",
+        beginner_sandy_window: true,
+      },
+      [makeForecast(15, { wave_height: 2, tide_status: null })],
+      mockBeach,
+    );
+
+    expect(windows[0].conditions_snapshot.beginner_window_reason).toBe(
+      "small waves, light wind, morning window.",
+    );
+  });
 });

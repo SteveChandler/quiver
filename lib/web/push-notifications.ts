@@ -234,7 +234,8 @@ export function setupWebPushListeners(): void {
 
     const data = payload.data;
     const title = payload.notification?.title || "Quiver";
-    const body = payload.notification?.body || "New notification";
+    // Follow and like pushes have no body by design; the title carries them.
+    const body = payload.notification?.body ?? "";
 
     // Optional: Show a browser notification even when in foreground
     // (Most apps don't do this, but it's possible)

@@ -262,9 +262,9 @@ export function buildComparisonLine(
   );
 }
 
-function numberValue(value: unknown): number {
+function numberValue(value: unknown): number | null {
   const parsed = Number.parseFloat(String(value ?? ""));
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** A missing wind is unknown, never "0mph". */
@@ -376,9 +376,9 @@ function buildPayload(args: {
     drivers: args.candidate.window.drivers,
     wave_height_ft: numberValue(forecast?.wave_height),
     wave_period_s: numberValue(forecast?.wave_period),
-    swell_dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? "unknown",
+    swell_dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? null,
     wind_label: windLabel(forecast),
-    tide_label: forecast?.tide_status ?? "Unknown tide",
+    tide_label: forecast?.tide_status ?? null,
     reason: args.title.body || fallbackReason(args.vars),
     title: args.title.title,
     title_id: args.title.id,
@@ -1153,6 +1153,12 @@ export async function runDailyCallCron(args: {
       const comparison = buildComparisonLine(winner, home);
       const windowTimezone = resolveBeachTimezone(winner.pool.beach.timezone || timezone);
       const vars = titleVars(winner, profile, windowTimezone, comparison);
+      // Every Daily Call body opens with the swell size; without it the body would start on an empty slot.
+      if (!vars.swell) {
+        increment(summary, "no_swell_copy");
+        summary.silent += 1;
+        continue;
+      }
       const title = deps.selectTitle({
         pool: "daily",
         tags: titleTags(winner, profile.homeBeachId, windowTimezone, args.now, swellEventKey),
