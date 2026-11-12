@@ -47,6 +47,8 @@ interface BeachHighlight {
 
 interface StandardLayoutProps {
   params: LocationPageParams;
+  /** Slug of the city's tide/water-temp pages; null when it has none (a metro). */
+  intentCitySlug: string | null;
   displayCityName: string;
   stats: LocationStats;
   location: LocationIdentifier;
@@ -62,6 +64,7 @@ interface StandardLayoutProps {
 
 export function StandardLayout({
   params,
+  intentCitySlug,
   displayCityName,
   stats,
   location,
@@ -195,22 +198,27 @@ export function StandardLayout({
           title={`Plan the next ${displayCityName} session`}
           description="Start with the ranked beach list, then check the condition guide that matches your decision."
           steps={[
-            {
-              label: `Find the best surf window`,
-              href: bestTimeToSurfUrl ?? `/best-time-to-surf/${params.city}`,
-              description: "Use the monthly guide when timing matters more than spot choice.",
-            },
+            // undefined means no best-time page exists for this city.
+            ...(bestTimeToSurfUrl
+              ? [
+                  {
+                    label: `Find the best surf window`,
+                    href: bestTimeToSurfUrl,
+                    description: "Use the monthly guide when timing matters more than spot choice.",
+                  },
+                ]
+              : []),
             // City tide/water-temp guides (/[intent]/[city]) are US-only.
-            ...(isUsa
+            ...(isUsa && intentCitySlug
               ? [
                   {
                     label: `Check ${displayCityName} water temperature`,
-                    href: `/water-temp/${params.city}`,
+                    href: `/water-temp/${intentCitySlug}`,
                     description: "Dial in gear before you head to the beach.",
                   },
                   {
                     label: `Watch the tide window`,
-                    href: `/tide/${params.city}`,
+                    href: `/tide/${intentCitySlug}`,
                     description: "See the tide context before picking a break.",
                   },
                 ]
