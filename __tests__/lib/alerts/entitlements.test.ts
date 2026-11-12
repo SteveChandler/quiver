@@ -140,7 +140,7 @@ describe("getUserEntitlement", () => {
     // The switch is on, so a fallback through founding access would grant premium.
     mockIsFoundingAccessEnabled.mockResolvedValue(true);
     jest.spyOn(console, "warn").mockImplementation(() => {});
-    const timeout = { code: "57014", message: "canceling statement due to statement timeout" };
+    const timeout = { code: "08006", message: "connection failure" };
     const maybeSingle = jest.fn(async () => ({ data: null, error: timeout }));
     const supabase = {
       from: () => ({

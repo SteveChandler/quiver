@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAlertsDeliveryEnabled } from "@/lib/flags/alerts-delivery";
 import {
   withAuth,
+  withNoStore,
   createSuccessResponse,
   createValidationError,
   createErrorResponse,
@@ -125,7 +126,7 @@ function createPersonalizationDenialResponse(
 /**
  * GET /api/alerts/rules — List the authenticated user's alert rules
  */
-export const GET = withAuth(
+export const GET = withNoStore(withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const tier = await getUserEntitlement(user.id, supabase);
     const { data, error } = await (supabase as any)
@@ -139,7 +140,7 @@ export const GET = withAuth(
     return createAlertRulesListResponse(data ?? [], tier);
   },
   { errorMessage: "Failed to fetch alert rules" }
-);
+));
 
 /**
  * POST /api/alerts/rules — Create a new alert rule

@@ -141,7 +141,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
                 maybeSingle: () =>
                   Promise.resolve({
                     data: null,
-                    error: { code: "57014", message: "canceling statement due to statement timeout" },
+                    error: { code: "08006", message: "connection failure" },
                   }),
               }),
             }),
@@ -1284,6 +1284,16 @@ describe("/api/alerts/rules — failed entitlement read", () => {
     expect(json.data).toHaveLength(1);
     expect(json).not.toHaveProperty("entitlement");
     expect(json.planStatus).toBe("unknown");
+    expect(res.headers.get("Cache-Control")).toContain("no-store");
+  });
+
+  it("POST inserts the last rule the free cap allows, with the real cap check", async () => {
+    mockExistingRules = [userRule({ id: "rule-a" }), userRule({ id: "rule-b" })];
+
+    const res = await POST(mellowRule("beach-home"));
+
+    expect(res.status).toBe(201);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
   });
 
   it("POST inserts a rule that fits the free limits", async () => {
@@ -1308,7 +1318,7 @@ describe("/api/alerts/rules — failed entitlement read", () => {
     expect(upsertSpy).not.toHaveBeenCalled();
   });
 
-  it("POST returns 503, not the paid limits, when the user is past the free rule cap", async () => {
+  it("POST returns 503, not the paid limits, when the user is at the free rule cap", async () => {
     mockExistingRules = [
       userRule({ id: "rule-a" }),
       userRule({ id: "rule-b" }),

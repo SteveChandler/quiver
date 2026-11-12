@@ -99,6 +99,9 @@ it("still sends the glance and marks the plan unknown when the plan read failed"
   const body = await response.json();
   expect(body.data.glance).toMatchObject({ beachId: "home", height: "3-4ft", label: "GOOD" });
   expect(body.data.planStatus).toBe("unknown");
+  // The glance carries no plan-dependent field; only the marker is added beside it.
+  expect(Object.keys(body.data.glance).sort()).toEqual(["beachId", "height", "label", "name", "tomorrow", "updatedAt"]);
+  expect(Object.keys(body.data).sort()).toEqual(["glance", "planStatus"]);
 });
 
 it("sends no plan marker when the plan read succeeded", async () => {

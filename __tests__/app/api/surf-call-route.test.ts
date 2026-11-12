@@ -808,7 +808,7 @@ describe("GET /api/surf/call", () => {
     });
     mockEntitlementResult = {
       data: null,
-      error: { code: "57014", message: "canceling statement due to statement timeout" },
+      error: { code: "08006", message: "connection failure" },
     };
     const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
 

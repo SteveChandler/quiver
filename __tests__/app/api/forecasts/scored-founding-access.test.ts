@@ -126,7 +126,7 @@ it("scores with no paid features and no plan when the entitlement read fails twi
   // The switch is on, so a fallback through founding access would turn board picks on.
   mockResolveFeatureAccess.mockImplementation(featureAccessOn);
   mockEntitlementRow = { is_pro: true };
-  mockEntitlementError = { code: "57014", message: "canceling statement due to statement timeout" };
+  mockEntitlementError = { code: "08006", message: "connection failure" };
   mockForecastRows = [{
     beach_id: BEACH_ID, confidence_score: 90, forecast_at: "2099-09-23T12:00:00Z", wave_height: "3.7 ft",
     wave_period: "15s", wind_speed: "3 mph", wind_direction_deg: 150, tide_height: "3 ft", tide_status: "Rising",
@@ -148,7 +148,7 @@ it("scores with no paid features and no plan when the entitlement read fails twi
 
 it("keeps board picks on for an unknown plan only when the free board picks flag is on", async () => {
   process.env.BOARD_PICKS_FREE_ENABLED = "true";
-  mockEntitlementError = { code: "57014", message: "canceling statement due to statement timeout" };
+  mockEntitlementError = { code: "08006", message: "connection failure" };
   jest.spyOn(console, "warn").mockImplementation(() => {});
 
   const data = await get() as unknown as Record<string, unknown>;
@@ -165,7 +165,7 @@ it("keeps the success payload unchanged when the read succeeds on the retry", as
   stub.from = (table: string) => {
     if (table === "user_entitlements") {
       calls += 1;
-      mockEntitlementError = calls === 1 ? { code: "57014", message: "timeout" } : null;
+      mockEntitlementError = calls === 1 ? { code: "08006", message: "connection failure" } : null;
     }
     return from(table);
   };
