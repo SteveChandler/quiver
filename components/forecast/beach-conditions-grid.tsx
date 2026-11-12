@@ -20,6 +20,7 @@ import { ScoreLoginLink } from "./score-login-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { QuiverSticker } from "@/components/zine";
+import { getHubRegion } from "@/lib/data/hub-regions";
 import { useOptionalAuth } from "@/context/auth-context";
 import {
   Table,
@@ -334,6 +335,9 @@ export function BeachConditionsGrid({
     .slice(0, maxBeaches);
 
   const hasMoreBeaches = beaches.length > maxBeaches;
+  // The link target is the region's hub guide; regions without one 404 there.
+  const showViewAllLink =
+    showViewAll && hasMoreBeaches && getHubRegion(regionSlug) !== null;
   // Built as a string rather than JSX text: SWC drops the leading whitespace of
   // a JSX text node that contains an HTML entity and a newline, so
   // `{n} beaches &rarr;` across two lines rendered "View all 35beaches →".
@@ -381,7 +385,7 @@ export function BeachConditionsGrid({
             </p>
             </div>
           </div>
-          {showViewAll && hasMoreBeaches && (
+          {showViewAllLink && (
             <Link
               href={`/guides/surfing-${regionSlug}`}
               className={cn(
@@ -437,7 +441,7 @@ export function BeachConditionsGrid({
       </div>
 
       {/* View All Link for Mobile */}
-      {showViewAll && hasMoreBeaches && (
+      {showViewAllLink && (
         <ScrollReveal variant="fadeUp" delay={displayBeaches.length * 75 + 100}>
           <div className="md:hidden text-center pt-2">
             <Link

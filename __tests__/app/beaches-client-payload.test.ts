@@ -157,6 +157,7 @@ describe("city page client payload", () => {
   it("sends CityMapView and GuidesByIntentGrid only the fields they read on editorial cities", () => {
     const tree = EditorialLayout({
       params: PARAMS,
+      intentCitySlug: PARAMS.city,
       displayCityName: "Test Harbor",
       stats: STATS,
       beaches,
@@ -179,6 +180,7 @@ describe("city page client payload", () => {
   it("sends LocationMapClient only map columns, keeping each row's own keys", () => {
     const tree = StandardLayout({
       params: PARAMS,
+      intentCitySlug: PARAMS.city,
       displayCityName: "Test Harbor",
       stats: STATS,
       location: { country: "USA", state: "CA", city: "Test Harbor" },

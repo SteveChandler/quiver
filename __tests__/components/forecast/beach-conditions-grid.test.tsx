@@ -79,6 +79,26 @@ describe("BeachConditionsGrid view-all link", () => {
     expect(screen.queryAllByRole("link", { name: /view all/i })).toHaveLength(0);
   });
 
+  // /forecast/washington and /forecast/baja-california linked to
+  // /guides/surfing-{region}, which 404 because those regions have no hub guide.
+  it.each(["washington", "baja-california"])(
+    "is hidden for %s, a region without a hub guide",
+    (regionSlug) => {
+      const { container } = render(
+        <BeachConditionsGrid
+          beaches={makeBeaches(35)}
+          regionSlug={regionSlug}
+          maxBeaches={12}
+          showViewAll
+        />
+      );
+
+      expect(screen.queryAllByRole("link", { name: /view all/i })).toHaveLength(0);
+      expect(container.querySelector('a[href^="/guides/"]')).toBeNull();
+      expect(container.querySelector(".md\\:hidden.text-center")).toBeNull();
+    }
+  );
+
   it("is hidden when showViewAll is false", () => {
     render(
       <BeachConditionsGrid
