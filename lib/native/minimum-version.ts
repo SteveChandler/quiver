@@ -7,10 +7,10 @@ interface NativeMinimumVersion {
 }
 
 const VERSION_PATTERN = /^\d+(\.\d+){0,3}$/;
-// Date.parse alone accepts "2026" or "Nov 12 2026"; require an ISO 8601 shape with a zone
-// so the value never depends on the server's local time zone.
+// Date.parse alone accepts "2026" or "Nov 12 2026". A date-only value parses as UTC; a
+// date-time needs a zone so the value never depends on the server's local time zone.
 const ISO_DATE_TIME_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:?\d{2})$/;
+  /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:?\d{2}))?$/;
 
 const ENV_SUFFIX: Record<NativePlatform, string> = {
   ios: "IOS",

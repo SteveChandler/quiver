@@ -65,6 +65,18 @@ describe("GET /api/v1/app/minimum-version", () => {
     });
   });
 
+  it("accepts a date-only bundle minimum as UTC midnight", async () => {
+    process.env.NATIVE_MIN_BUNDLE_CREATED_AT_IOS = "2026-11-12";
+
+    const result = await call("?platform=ios");
+
+    expect(result.body).toEqual({
+      platform: "ios",
+      minimum_version: null,
+      minimum_bundle_created_at: "2026-11-12T00:00:00.000Z",
+    });
+  });
+
   it("returns nulls when the env vars are unset or blank", async () => {
     process.env.NATIVE_MIN_APP_VERSION_IOS = "   ";
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
