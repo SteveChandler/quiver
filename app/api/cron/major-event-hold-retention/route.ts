@@ -4,6 +4,7 @@ import { withCronOutcome } from "@/lib/cron/outcome";
 import { withObservedCron } from "@/lib/cron/observability";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -129,7 +130,9 @@ async function runRetention(request: Request): Promise<Response> {
   });
 }
 
-export const GET = withObservedCron(ROUTE, runRetention, {
+const handleGet = withObservedCron(ROUTE, runRetention, {
   slug: "major-event-hold-retention",
   schedule: "15 9 * * 0",
 });
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/major-event-hold-retention");

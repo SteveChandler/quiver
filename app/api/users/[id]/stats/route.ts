@@ -9,8 +9,9 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
-export const GET = withAuth(async (_request, { user, supabase, params }) => {
+const handleGet = withAuth(async (_request, { user, supabase, params }) => {
   const targetUserId = params.id;
   if (!targetUserId || !isValidUuid(targetUserId)) {
     return createValidationError("Invalid user id format");
@@ -107,3 +108,5 @@ export function PATCH() {
 export function DELETE() {
   return methodNotAllowed(["GET"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/stats");

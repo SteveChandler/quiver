@@ -8,6 +8,7 @@ import {
   withBotBlockingAndRateLimit,
 } from "@/lib/middleware/api-wrappers";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
@@ -54,4 +55,6 @@ async function beachSearchHandler(request: NextRequest) {
 }
 
 // Apply bot blocking and rate limiting to prevent abuse of expensive search operations
-export const GET = withBotBlockingAndRateLimit(beachSearchHandler, "beach-search");
+const handleGet = withBotBlockingAndRateLimit(beachSearchHandler, "beach-search");
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/search");

@@ -8,6 +8,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 interface BeachLookupRow {
   id: string;
@@ -75,7 +76,7 @@ function createBeachSourcesErrorResponse(
 }
 
 // GET /api/beaches/[id]/sources - fetch external source mappings (e.g., camera_url)
-export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+async function handleGet(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
     const requestedBeachId = params.id?.trim();
@@ -247,3 +248,5 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     return handleApiError(err, "Failed to fetch beach sources");
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/sources");

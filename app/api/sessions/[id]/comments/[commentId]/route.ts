@@ -6,6 +6,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const DELETE = withAuth(
   async (request: NextRequest, { params }: AuthenticatedContext) => {
@@ -20,7 +21,8 @@ export const DELETE = withAuth(
   { errorMessage: "Failed to delete comment" }
 );
 
-export function GET() {
+function handleGet() {
   return methodNotAllowed(["DELETE"]);
 }
 
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]/comments/[commentId]");

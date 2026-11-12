@@ -16,6 +16,7 @@ import type {
   EvaluationResult,
 } from "@/lib/services/water-quality";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -159,4 +160,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = _GET;
+const handleGet = _GET;
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/water-quality-sync");

@@ -14,6 +14,7 @@ import {
   type ManualHoldCommand,
 } from "@/lib/recommendations/major-event-hold/control";
 import { deterministicUuidV8 } from "@/lib/recommendations/major-event-hold/identity";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -111,7 +112,7 @@ function errorResponse(
   );
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withAdminAuth(
     async (request: NextRequest, { supabase }) => {
       const traceId = requestId(request);
@@ -177,3 +178,5 @@ export const POST = withNoStore(
     { errorMessage: "Recommendation hold admin request failed" },
   ),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/admin/recommendation-holds");

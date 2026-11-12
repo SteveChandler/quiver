@@ -23,8 +23,9 @@
 import { NextRequest } from 'next/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get('token');
 
@@ -51,3 +52,5 @@ export async function GET(request: NextRequest) {
       "This email-preference link isn't wired up anymore — it came from an older version of our welcome email. Open the app to set your home beach and notification preferences.",
   });
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/prefs/set");

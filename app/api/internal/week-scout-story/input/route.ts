@@ -3,12 +3,13 @@ import { withStoryPublisher } from "@/lib/middleware/api-wrappers/story-publishe
 import { buildStoryInput, StoryInputError } from "@/lib/services/discovery/week-scout-story-source";
 import { StoryStoreError } from "@/lib/services/discovery/week-scout-story-store";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export const GET = withStoryPublisher(async (request: NextRequest) => {
+const handleGet = withStoryPublisher(async (request: NextRequest) => {
   const region = new URL(request.url).searchParams.get("region")?.trim() ?? "";
   if (!region || region.length > 120 || /[\u0000-\u001f\u007f]/.test(region)) {
     return NextResponse.json({ error: "invalid_region" }, { status: 400 });
@@ -22,3 +23,5 @@ export const GET = withStoryPublisher(async (request: NextRequest) => {
     throw error;
   }
 });
+
+export const GET = withErrorNoStore(handleGet, "/api/internal/week-scout-story/input");

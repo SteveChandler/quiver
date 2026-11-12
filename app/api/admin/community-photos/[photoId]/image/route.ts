@@ -10,6 +10,7 @@ import {
   withAdminAuth,
   type AdminAuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ async function handler(
   }
 }
 
-export const GET = withCommunityPhotoRouteObservability(
+const handleGet = withCommunityPhotoRouteObservability(
   {
     route: "/api/admin/community-photos/:photoId/image",
     surface: "admin",
@@ -53,3 +54,5 @@ export const GET = withCommunityPhotoRouteObservability(
   },
   withAdminAuth(handler),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/admin/community-photos/[photoId]/image");

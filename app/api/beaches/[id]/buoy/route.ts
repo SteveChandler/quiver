@@ -8,6 +8,7 @@ import {
   isValidUuid,
   withBotBlockingAndRateLimit,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/beaches/[id]/buoy
@@ -53,4 +54,6 @@ async function beachBuoyHandler(
   }
 }
 
-export const GET = withBotBlockingAndRateLimit(beachBuoyHandler, "public-default");
+const handleGet = withBotBlockingAndRateLimit(beachBuoyHandler, "public-default");
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/buoy");
