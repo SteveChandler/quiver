@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import {
   generateBeachSubPageMetadata,
   renderBeachSubPage,
@@ -25,6 +25,11 @@ jest.mock("next/navigation", () => ({
     throw error;
   }),
   redirect: jest.fn((url: string) => {
+    const error = new Error(`NEXT_REDIRECT:${url}`);
+    (error as { digest?: string }).digest = "NEXT_REDIRECT";
+    throw error;
+  }),
+  permanentRedirect: jest.fn((url: string) => {
     const error = new Error(`NEXT_REDIRECT:${url}`);
     (error as { digest?: string }).digest = "NEXT_REDIRECT";
     throw error;
@@ -103,6 +108,7 @@ describe("US beach subpage location validation", () => {
       ).resolves.toBeTruthy();
 
       expect(redirect).not.toHaveBeenCalled();
+      expect(permanentRedirect).not.toHaveBeenCalled();
       expect(notFound).not.toHaveBeenCalled();
     });
 
@@ -115,17 +121,19 @@ describe("US beach subpage location validation", () => {
         new RegExp(`/hi/waianae/makua-beach-oahu/${pageType}$`),
       );
       expect(redirect).not.toHaveBeenCalled();
+      expect(permanentRedirect).not.toHaveBeenCalled();
       expect(notFound).not.toHaveBeenCalled();
     });
 
-    it("redirects a wrong city to the canonical sub-page URL", async () => {
+    it("permanently redirects a wrong city to the canonical sub-page URL", async () => {
       await expect(
         renderBeachSubPage(argsFor(pageType, "hi", "wai-anae")),
       ).rejects.toMatchObject({ digest: "NEXT_REDIRECT" });
 
-      expect(redirect).toHaveBeenCalledWith(
+      expect(permanentRedirect).toHaveBeenCalledWith(
         `/hi/waianae/makua-beach-oahu/${pageType}`,
       );
+      expect(redirect).not.toHaveBeenCalled();
     });
 
     it("gives a wrong city the canonical metadata path, as the beach page does", async () => {
@@ -149,6 +157,7 @@ describe("US beach subpage location validation", () => {
       ).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
 
       expect(redirect).not.toHaveBeenCalled();
+      expect(permanentRedirect).not.toHaveBeenCalled();
     });
 
     it("404s a beach with no city", async () => {
@@ -165,6 +174,7 @@ describe("US beach subpage location validation", () => {
       ).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
 
       expect(redirect).not.toHaveBeenCalled();
+      expect(permanentRedirect).not.toHaveBeenCalled();
     });
 
     it("redirects a wrong city before the sub-page data read", async () => {

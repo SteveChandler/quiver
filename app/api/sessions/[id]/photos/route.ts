@@ -17,6 +17,7 @@ import {
   validateSessionPhotoInput,
 } from "@/lib/media/session-photo-policy";
 import type { Database } from "@/types/database.generated";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const STORAGE_BUCKET = "session-media";
 
@@ -157,7 +158,7 @@ async function cleanupUploadedPhotos(
  * Authentication is OPTIONAL. Public sessions don't require a user; private
  * sessions require the session owner (cookie-session or Bearer token).
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (
     _request: NextRequest,
     { user, supabase, params }: OptionalAuthContext
@@ -392,3 +393,5 @@ export function PATCH() {
 export function DELETE() {
   return methodNotAllowed(["GET", "POST"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]/photos");

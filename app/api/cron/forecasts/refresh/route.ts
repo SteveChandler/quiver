@@ -31,6 +31,7 @@ import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-u
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 // Vercel cron functions have a 5 minute hard limit
@@ -1161,4 +1162,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/forecasts/refresh", _GET);
+const handleGet = withObservedCron("/api/cron/forecasts/refresh", _GET);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/forecasts/refresh");

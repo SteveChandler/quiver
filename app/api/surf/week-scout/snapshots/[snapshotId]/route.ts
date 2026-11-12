@@ -8,6 +8,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { loadWeekendScoutSnapshot } from '@/lib/services/discovery/weekend-scout-snapshots';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,9 @@ async function snapshotHandler(
   return privateNoStore(createSuccessResponse(stored.snapshot));
 }
 
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   withAuth(snapshotHandler, { errorMessage: 'Error loading Weekend Scout snapshot' }),
   'surf-discovery',
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/surf/week-scout/snapshots/[snapshotId]");

@@ -10,8 +10,9 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { CommentSchema } from "@/lib/validation/schemas";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
     const sessionResult = validateUuidParam(params.id, "session");
     if ("error" in sessionResult) return sessionResult.error;
@@ -101,3 +102,5 @@ export const POST = withAuth(
 export function DELETE() {
   return methodNotAllowed(["GET", "POST"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]/comments");

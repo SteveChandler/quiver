@@ -13,6 +13,7 @@ import {
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { hashInviteToken } from "@/lib/invites/token-hash";
 import { getOwnAnalyticsTrackingAllowed } from "@/lib/analytics/consent";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * POST /api/invites/generate
@@ -54,6 +55,8 @@ const generateHandler = withAuth(
 
 export const POST = withRateLimit(generateHandler, "authenticated-default");
 
-export function GET() {
+function handleGet() {
   return methodNotAllowed(["POST"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/invites/generate");

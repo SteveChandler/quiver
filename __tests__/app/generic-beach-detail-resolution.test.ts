@@ -26,7 +26,7 @@ import {
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
 
@@ -59,6 +59,11 @@ jest.mock("next/navigation", () => ({
   redirect: jest.fn((url: string) => {
     const err = new Error("NEXT_REDIRECT");
     (err as any).digest = `NEXT_REDIRECT;replace;${url};307;`;
+    throw err;
+  }),
+  permanentRedirect: jest.fn((url: string) => {
+    const err = new Error("NEXT_REDIRECT");
+    (err as any).digest = `NEXT_REDIRECT;replace;${url};308;`;
     throw err;
   }),
 }));
@@ -892,7 +897,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     ]);
   });
 
-  it("redirects stale city slugs to the canonical beach URL", async () => {
+  it("permanently redirects stale city slugs to the canonical beach URL", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -918,7 +923,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
     });
 
     expectConsoleWarnings([/\[GenericBeachDetailPage\] City slug mismatch/]);
-    expect(redirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
+    expect(permanentRedirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
+    expect(redirect).not.toHaveBeenCalled();
     expect(notFound).not.toHaveBeenCalled();
     expect(getNearbyBeaches).not.toHaveBeenCalled();
   });

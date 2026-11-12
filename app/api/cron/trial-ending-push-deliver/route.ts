@@ -34,6 +34,7 @@ import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -368,8 +369,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(
+const handleGet = withObservedCron(
   "/api/cron/trial-ending-push-deliver",
   _GET,
   SENTRY_MONITOR,
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/trial-ending-push-deliver");

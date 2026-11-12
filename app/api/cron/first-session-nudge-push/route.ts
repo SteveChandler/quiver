@@ -57,6 +57,7 @@ import {
   type PositiveRecommendationPolicyContext,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import { fromZonedTime } from "date-fns-tz";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -818,8 +819,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(
+const handleGet = withObservedCron(
   "/api/cron/first-session-nudge-push",
   _GET,
   SENTRY_MONITOR,
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/first-session-nudge-push");

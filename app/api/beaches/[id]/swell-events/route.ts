@@ -9,6 +9,7 @@ import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { RegionSwellEventsResponse } from "@/types/region-swell-events";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -106,7 +107,9 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
   }
 }
 
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   withAuth(swellEventsHandler, { optional: true, errorMessage: "Failed to load swell events" }),
   { key: "public-default" },
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/swell-events");

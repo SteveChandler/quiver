@@ -30,6 +30,7 @@ import type {
   TimeSlot,
 } from '@/types/personalization';
 import { retryAfterSeconds } from '@/lib/utils/retry-after';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
@@ -502,7 +503,7 @@ const protectedGET = withRateLimit(
   'surf-discovery'
 );
 
-export const GET = async (
+const handleGet = async (
   ...args: Parameters<typeof protectedGET>
 ): Promise<NextResponse> => {
   const response = await protectedGET(...args);
@@ -513,3 +514,5 @@ export const GET = async (
   );
   return response;
 };
+
+export const GET = withErrorNoStore(handleGet, "/api/surf/discover");

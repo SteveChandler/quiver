@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getLocalDateString, DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
+async function handleGet(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -42,3 +43,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/sun-times");
