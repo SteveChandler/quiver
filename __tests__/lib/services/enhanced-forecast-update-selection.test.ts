@@ -473,7 +473,6 @@ describe("EnhancedForecastService latest-view reads are bounded", () => {
     async function runWith(args: {
       mode: "all" | "cdip";
       rpcResult: { data: unknown; error: { code?: string; message: string } | null };
-      strippedColumns?: string[];
     }) {
       const allBeaches = [{ ...makeBeach("b1", "Beach 1"), cdip_eligible: true }];
       const latestRows = [{ beach_id: "b1", updated_at: "2025-12-09T08:00:00Z", data_source: "CDIP" }];
@@ -509,10 +508,7 @@ describe("EnhancedForecastService latest-view reads are bounded", () => {
       jest
         .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
         .mockResolvedValue({ forecasts: [], cdip: { stationId: null, skipReason: "no_station" } });
-      jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({
-        success: true,
-        ...(args.strippedColumns ? { strippedColumns: args.strippedColumns } : {}),
-      });
+      jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
       jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
       const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -526,7 +522,7 @@ describe("EnhancedForecastService latest-view reads are bounded", () => {
     }
 
     it.each(["all", "cdip"] as const)(
-      "%s run flags a failed nowcast anchor read and still builds forecast-only",
+      "%s run reports a failed nowcast anchor read once and still builds forecast-only",
       async (mode) => {
         const { result, captureException } = await runWith({
           mode,
@@ -535,31 +531,22 @@ describe("EnhancedForecastService latest-view reads are bounded", () => {
 
         expect(result.success).toBe(true);
         expect(result.summary.successful).toBe(1);
-        expect(result.nowcastAnchorsUnavailable).toBe(true);
         expect(captureException).toHaveBeenCalledTimes(1);
+        expect(captureException).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ tags: expect.objectContaining({ nowcast_anchor_scope: "run" }) }),
+        );
       },
     );
 
     it.each(["all", "cdip"] as const)(
-      "%s run does not flag an anchor read that returns zero rows",
+      "%s run does not report an anchor read that returns zero rows",
       async (mode) => {
         const { result, captureException } = await runWith({ mode, rpcResult: { data: [], error: null } });
 
-        expect(result.nowcastAnchorsUnavailable).toBeUndefined();
-        expect(result.summary.schemaStrippedColumns).toBeUndefined();
+        expect(result.summary.successful).toBe(1);
         expect(captureException).not.toHaveBeenCalled();
       },
     );
-
-    it("surfaces columns the store dropped in the run summary", async () => {
-      const { result } = await runWith({
-        mode: "all",
-        rpcResult: { data: [], error: null },
-        strippedColumns: ["wave_height_om"],
-      });
-
-      expect(result.results[0].schema_stripped_columns).toEqual(["wave_height_om"]);
-      expect(result.summary.schemaStrippedColumns).toEqual(["wave_height_om"]);
-    });
   });
 });

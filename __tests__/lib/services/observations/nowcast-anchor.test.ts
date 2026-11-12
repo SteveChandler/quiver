@@ -9,13 +9,15 @@ import * as Sentry from "@sentry/nextjs";
 import {
   fetchLatestObservation,
   fetchNowcastAnchors,
-  fetchNowcastAnchorsWithStatus,
+  REQUEST_REPORT_WINDOW_MS,
+  resetNowcastAnchorReportWindow,
 } from "@/lib/services/observations/nowcast-anchor";
 
 jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 beforeEach(() => {
   jest.mocked(Sentry.captureException).mockClear();
+  resetNowcastAnchorReportWindow();
 });
 
 const mockRpcRows = [
@@ -191,59 +193,89 @@ describe("fetchLatestObservation", () => {
   });
 });
 
-describe("fetchNowcastAnchorsWithStatus", () => {
-  test("reports an RPC error to Sentry and marks anchors unavailable", async () => {
-    const supabase = makeSupabaseMock(null, {
-      code: "57014",
-      message: "canceling statement due to statement timeout",
-    });
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-
-    const result = await fetchNowcastAnchorsWithStatus(supabase);
-
-    expect(result.anchors.size).toBe(0);
-    expect(result.unavailable).toBe(true);
-    expect(Sentry.captureException).toHaveBeenCalledWith(
-      expect.objectContaining({ message: "canceling statement due to statement timeout" }),
-      expect.objectContaining({
-        tags: expect.objectContaining({ component: "nowcast-anchor", nowcast_anchor_failure: "rpc_error" }),
-      }),
-    );
+describe("nowcast anchor failure reports", () => {
+  const timeout = { code: "57014", message: "canceling statement due to statement timeout" };
+  let warnSpy: jest.SpyInstance;
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
     warnSpy.mockRestore();
   });
 
-  test("reports a thrown RPC to Sentry and marks anchors unavailable", async () => {
+  test("a cron run reports an RPC error and still returns the empty map", async () => {
+    const result = await fetchNowcastAnchors(makeSupabaseMock(null, timeout), { reportScope: "run" });
+
+    expect(result).toEqual(new Map());
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "canceling statement due to statement timeout" }),
+      expect.objectContaining({
+        tags: expect.objectContaining({
+          component: "nowcast-anchor", nowcast_anchor_failure: "rpc_error", nowcast_anchor_scope: "run",
+        }),
+      }),
+    );
+  });
+
+  test("a cron run reports a thrown RPC", async () => {
     const supabase = { rpc: jest.fn().mockRejectedValue(new Error("network timeout")) } as any;
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
 
-    const result = await fetchNowcastAnchorsWithStatus(supabase);
+    const result = await fetchNowcastAnchors(supabase, { reportScope: "run" });
 
-    expect(result.unavailable).toBe(true);
+    expect(result).toEqual(new Map());
     expect(Sentry.captureException).toHaveBeenCalledWith(
       expect.objectContaining({ message: "network timeout" }),
       expect.objectContaining({ tags: expect.objectContaining({ nowcast_anchor_failure: "throw" }) }),
     );
-    warnSpy.mockRestore();
+  });
+
+  test("each cron run reports its own failure", async () => {
+    await fetchNowcastAnchors(makeSupabaseMock(null, timeout), { reportScope: "run" });
+    await fetchNowcastAnchors(makeSupabaseMock(null, timeout), { reportScope: "run" });
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(2);
+  });
+
+  test("request paths report once per window, however many requests fail", async () => {
+    const now = jest.spyOn(Date, "now").mockReturnValue(1_000_000);
+    const failing = makeSupabaseMock(null, timeout);
+
+    for (let i = 0; i < 5; i += 1) {
+      expect(await fetchNowcastAnchors(failing)).toEqual(new Map());
+    }
+    expect(await fetchLatestObservation(failing, "beach-a")).toBeNull();
+    now.mockReturnValue(1_000_000 + REQUEST_REPORT_WINDOW_MS - 1);
+    await fetchNowcastAnchors(failing);
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tags: expect.objectContaining({ nowcast_anchor_scope: "request" }) }),
+    );
+
+    now.mockReturnValue(1_000_000 + REQUEST_REPORT_WINDOW_MS);
+    await fetchNowcastAnchors(failing);
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(2);
+    expect(jest.mocked(Sentry.captureException).mock.calls[1][1]).toMatchObject({
+      extra: { suppressed_since_last_report: 6 },
+    });
+    now.mockRestore();
+  });
+
+  test("a request failure inside the window does not silence the next cron run", async () => {
+    const failing = makeSupabaseMock(null, timeout);
+    await fetchNowcastAnchors(failing);
+    await fetchNowcastAnchors(failing);
+    await fetchNowcastAnchors(failing, { reportScope: "run" });
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(2);
   });
 
   test("zero fresh observations is not a failure", async () => {
-    const supabase = makeSupabaseMock([]);
+    const result = await fetchNowcastAnchors(makeSupabaseMock([]), { reportScope: "run" });
 
-    const result = await fetchNowcastAnchorsWithStatus(supabase);
-
-    expect(result.anchors.size).toBe(0);
-    expect(result.unavailable).toBe(false);
+    expect(result.size).toBe(0);
     expect(Sentry.captureException).not.toHaveBeenCalled();
-  });
-
-  test("fetchNowcastAnchors still returns the empty map on RPC error", async () => {
-    const supabase = makeSupabaseMock(null, { message: "boom" });
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-
-    const result = await fetchNowcastAnchors(supabase);
-
-    expect(result).toEqual(new Map());
-    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
-    warnSpy.mockRestore();
   });
 });

@@ -19,8 +19,6 @@ export interface BeachProcessResult {
   error?: string;
   cdip_skip_reason?: CDIPSkipReason;
   cdip_station?: string | null;
-  /** Columns the store dropped after PGRST204 (deploy ran before its migration). */
-  schema_stripped_columns?: string[];
 }
 
 /**
@@ -36,8 +34,6 @@ export interface BatchProcessSummary {
   stopReason?: string;
   remainingMs?: number;
   cdipSkipReasonCounts?: Partial<Record<CDIPSkipReason, number>>;
-  /** Set only when a store dropped columns; those values were not written. */
-  schemaStrippedColumns?: string[];
 }
 
 /**
@@ -48,8 +44,6 @@ export interface BatchProcessResult {
   results: BeachProcessResult[];
   summary?: BatchProcessSummary;
   error?: string;
-  /** Set only when the nowcast anchor read failed and every beach built forecast-only. */
-  nowcastAnchorsUnavailable?: boolean;
 }
 
 /**
@@ -235,8 +229,6 @@ export async function processBeachesInBatches(
   let failCount = 0;
   const cdipSkipReasonCounts: Partial<Record<CDIPSkipReason, number>> = {};
 
-  const schemaStrippedColumns = new Set<string>();
-
   const recordCdipSkipReason = (result: BeachProcessResult): void => {
     if (!result.cdip_skip_reason) return;
     cdipSkipReasonCounts[result.cdip_skip_reason] =
@@ -271,7 +263,6 @@ export async function processBeachesInBatches(
       if (result.status === "fulfilled") {
         allResults.push(result.value);
         recordCdipSkipReason(result.value);
-        for (const column of result.value.schema_stripped_columns ?? []) schemaStrippedColumns.add(column);
         if (result.value.success) {
           successCount++;
         } else {
@@ -324,9 +315,6 @@ export async function processBeachesInBatches(
         ? deadlineTracker.msRemaining()
         : undefined,
       cdipSkipReasonCounts,
-      ...(schemaStrippedColumns.size > 0
-        ? { schemaStrippedColumns: [...schemaStrippedColumns].sort() }
-        : {}),
     },
   };
 }

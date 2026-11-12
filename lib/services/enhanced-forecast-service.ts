@@ -63,7 +63,7 @@ import {
   type EnhancedForecastWithRawData,
 } from "@/types/forecast";
 import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
-import { fetchNowcastAnchorsWithStatus } from "@/lib/services/observations/nowcast-anchor";
+import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import {
   fetchSouthOcSanoShadowZoneSnapshot,
@@ -696,9 +696,6 @@ export class EnhancedForecastService {
         error: result.error,
         cdip_skip_reason: cdip.skipReason,
         cdip_station: cdip.stationId,
-        ...(result.strippedColumns?.length
-          ? { schema_stripped_columns: result.strippedColumns }
-          : {}),
       };
     } catch (error) {
       const errorMsg = describeThrownError(error);
@@ -749,11 +746,10 @@ export class EnhancedForecastService {
       );
 
       // Fetch nowcast observation anchors once per cron invocation. Failure
-      // returns an empty Map (reported to Sentry and flagged on the result), so
-      // the downstream per-beach builds fall through to the forecast-only path.
+      // returns an empty Map (reported to Sentry once for this run), so the
+      // downstream per-beach builds fall through to the forecast-only path.
       const supabase = await createSupabaseServiceRoleClient();
-      const { anchors: nowcastAnchors, unavailable: nowcastAnchorsUnavailable } =
-        await fetchNowcastAnchorsWithStatus(supabase);
+      const nowcastAnchors = await fetchNowcastAnchors(supabase, { reportScope: "run" });
       log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this run`);
       const southOcSanoShadowZoneSnapshot =
         await fetchSouthOcSanoShadowZoneSnapshot(supabase);
@@ -782,7 +778,7 @@ export class EnhancedForecastService {
         }`
       );
 
-      return nowcastAnchorsUnavailable ? { ...result, nowcastAnchorsUnavailable } : result;
+      return result;
     } catch (error) {
       log.error("Error updating all enhanced forecasts:", error);
       return {
@@ -929,8 +925,7 @@ export class EnhancedForecastService {
       // silently overwrites anchored values produced by the main rotation cron
       // for any beach with the `observation_anchor` feature flag set.
       const supabase = await createSupabaseServiceRoleClient();
-      const { anchors: nowcastAnchors, unavailable: nowcastAnchorsUnavailable } =
-        await fetchNowcastAnchorsWithStatus(supabase);
+      const nowcastAnchors = await fetchNowcastAnchors(supabase, { reportScope: "run" });
       log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this CDIP run`);
       const southOcSanoShadowZoneSnapshot =
         await fetchSouthOcSanoShadowZoneSnapshot(supabase);
@@ -959,7 +954,7 @@ export class EnhancedForecastService {
         }`
       );
 
-      return nowcastAnchorsUnavailable ? { ...result, nowcastAnchorsUnavailable } : result;
+      return result;
     } catch (error) {
       log.error("Error updating CDIP enhanced forecasts:", error);
       return {
