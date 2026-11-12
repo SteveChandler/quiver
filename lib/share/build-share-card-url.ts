@@ -1,4 +1,5 @@
 import { remoteImageUrlOrUndefined } from "@/lib/share/remote-image-url";
+import { knownConditionText } from "@/lib/surf-summary-display";
 
 /**
  * Share Card URL Builders
@@ -63,7 +64,7 @@ interface SurfCallShareParams {
   /** Wave height (e.g., "3-5ft") */
   waveHeight: string;
   /** Wind description (e.g., "Light offshore") */
-  wind: string;
+  wind?: string;
   /** Comma-separated trend tags */
   tags?: string;
   /** Score as integer (0-100), e.g., 81 for 8.1/10 */
@@ -102,7 +103,10 @@ export function buildSurfCallShareUrl(params: SurfCallShareParams): string {
   searchParams.set('verdict', params.verdict);
   searchParams.set('window', params.window);
   searchParams.set('waveHeight', params.waveHeight);
-  searchParams.set('wind', params.wind);
+  const wind = knownConditionText(params.wind);
+  if (wind) {
+    searchParams.set('wind', wind);
+  }
 
   if (params.tags) {
     searchParams.set('tags', params.tags);

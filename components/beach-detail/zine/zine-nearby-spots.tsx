@@ -140,7 +140,7 @@ function NearbyCard({
     country: beach.country,
   }) || "/";
   const location = getBeachLocation(beach);
-  const skill = beach.skill_level || "All";
+  const skill = beach.skill_level || null;
   const wave = beach.waveHeight != null ? formatWave(beach.waveHeight) : null;
   const photoUrl = getNearbyCardPhotoUrl(beach);
 
@@ -198,13 +198,9 @@ function NearbyCard({
               fontWeight: 700,
             }}
           >
-            {wave && (
-              <>
-                <span>{wave}</span>
-                <span style={{ opacity: 0.4 }}>·</span>
-              </>
-            )}
-            <span>{skill}</span>
+            {wave && <span>{wave}</span>}
+            {wave && skill && <span style={{ opacity: 0.4 }}>·</span>}
+            {skill && <span>{skill}</span>}
           </div>
 
           {location && (

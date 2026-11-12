@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 import type { Beach } from "@/types/database";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
@@ -38,13 +38,20 @@ export function ZineHero({
   forecastSlot,
   children,
 }: ZineHeroProps): ReactElement {
-  const skill = (beach.skill_level || "All").toUpperCase();
-  const breakType = (beach.break_type || "Spot").toUpperCase();
+  // Unknown skill or break type stays hidden: a default would read as a rating.
+  const skill = beach.skill_level ? beach.skill_level.toUpperCase() : null;
+  const breakType = beach.break_type ? beach.break_type.toUpperCase() : null;
   const rating = typeof beach.average_rating === "number" ? beach.average_rating.toFixed(1) : null;
   const reviewCount = beach.review_count ?? 0;
   const filledStars = rating ? Math.round(parseFloat(rating)) : 0;
   const locationName = [beach.city, beach.state].filter(Boolean).join(", ");
   const HeadingTag = headingLevel;
+  const metaItems: ReactElement[] = [
+    skill ? <MetaItem key="skill" icon={<SkillBars size={28} />} label={skill} /> : null,
+    breakType ? <MetaItem key="break" icon={<DoodleReef size={28} />} label={breakType} sub="BREAK" /> : null,
+    rating ? <RatingStamp key="rating" rating={rating} filled={filledStars} /> : null,
+    reviewCount > 0 ? <ReviewCircle key="reviews" count={reviewCount} /> : null,
+  ].filter((item): item is ReactElement => item !== null);
   // The hero panel shows the live cam when there is one, else real imagery,
   // else the spot map. The collapsed map below appears only when the hero
   // shows something other than the map.
@@ -117,25 +124,19 @@ export function ZineHero({
 
         {forecastSlot ? <div className="mt-5">{forecastSlot}</div> : null}
         {children}
+        {metaItems.length > 0 || beach.best_conditions_prose ? (
         <details className="mt-6 border-t border-[#11100D]/30 pt-4">
           <summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">About this spot · ratings &amp; ideal conditions</summary>
+        {metaItems.length > 0 ? (
         <div className="flex flex-wrap items-center gap-4 md:gap-6 mt-5">
-          <MetaItem icon={<SkillBars size={28} />} label={skill} />
-          <Divider />
-          <MetaItem icon={<DoodleReef size={28} />} label={breakType} sub="BREAK" />
-          {rating && (
-            <>
-              <Divider />
-              <RatingStamp rating={rating} filled={filledStars} />
-            </>
-          )}
-          {reviewCount > 0 && (
-            <>
-              <Divider />
-              <ReviewCircle count={reviewCount} />
-            </>
-          )}
+          {metaItems.map((item, i) => (
+            <Fragment key={item.key}>
+              {i > 0 ? <Divider /> : null}
+              {item}
+            </Fragment>
+          ))}
         </div>
+        ) : null}
 
         {/* Hero prose sits in the left column so it fills the space beside the
             taller photo/map stack rather than leaving dead cream paper there. */}
@@ -155,6 +156,7 @@ export function ZineHero({
           </p>
         )}
         </details>
+        ) : null}
       </div>
 
       {heroShowsImagery ? (
