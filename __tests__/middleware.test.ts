@@ -8,6 +8,10 @@ import {
   shouldSetIpLocationCookie,
 } from "@/proxy";
 
+function matchesProxy(pathname: string): boolean {
+  return config.matcher.some((pattern) => new RegExp(`^${pattern}$`).test(pathname));
+}
+
 // Setup mock variables at the module level
 let mockNext: any;
 let mockRedirect: any;
@@ -123,24 +127,21 @@ describe("Middleware", () => {
   });
 
   test("excludes extension-bearing assets from the proxy matcher", () => {
-    const matcher = new RegExp(`^${config.matcher[0]}$`);
-
-    expect(matcher.test("/images/landing/swell-view-preview-v2.png")).toBe(false);
-    expect(matcher.test("/fonts/SpaceGrotesk/SpaceGrotesk-Bold.ttf")).toBe(false);
-    expect(matcher.test("/profile/jane.doe/settings")).toBe(true);
-    expect(matcher.test("/mexico/baja-california/rosarito")).toBe(true);
-    expect(matcher.test("/vs/surfline/free")).toBe(true);
-    expect(matcher.test("/surf-game")).toBe(true);
-    expect(matcher.test("/surf-game/assets/index-abc123.js")).toBe(false);
+    expect(matchesProxy("/images/landing/swell-view-preview-v2.png")).toBe(false);
+    expect(matchesProxy("/fonts/SpaceGrotesk/SpaceGrotesk-Bold.ttf")).toBe(false);
+    expect(matchesProxy("/profile/jane.doe/settings")).toBe(true);
+    expect(matchesProxy("/mexico/baja-california/rosarito")).toBe(true);
+    expect(matchesProxy("/vs/surfline/free")).toBe(true);
+    expect(matchesProxy("/surf-game")).toBe(true);
+    expect(matchesProxy("/_next/image")).toBe(true);
+    expect(matchesProxy("/surf-game/assets/index-abc123.js")).toBe(false);
   });
 
   test("excludes the PostHog reverse proxy from the proxy matcher", () => {
-    const matcher = new RegExp(`^${config.matcher[0]}$`);
-
-    expect(matcher.test("/ingest/flags/")).toBe(false);
-    expect(matcher.test("/ingest/i/v0/e/")).toBe(false);
-    expect(matcher.test("/ingest/s/")).toBe(false);
-    expect(matcher.test("/ingestion-guide")).toBe(true);
+    expect(matchesProxy("/ingest/flags/")).toBe(false);
+    expect(matchesProxy("/ingest/i/v0/e/")).toBe(false);
+    expect(matchesProxy("/ingest/s/")).toBe(false);
+    expect(matchesProxy("/ingestion-guide")).toBe(true);
   });
 
   test("serves the static surf game at /surf-game via rewrite", async () => {
