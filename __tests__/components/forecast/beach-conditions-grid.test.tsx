@@ -99,12 +99,12 @@ describe("BeachConditionsGrid view-all link", () => {
     }
   );
 
-  // Forecast region slugs are not always hub guide slugs; the link must use the
-  // same mapping as the forecast page's own guide link.
+  // A region with its own hub guide keeps it; regions without one fall back to
+  // the override map (ventura-santa-barbara -> ventura).
   it.each([
     ["ventura-santa-barbara", "/guides/surfing-ventura"],
-    ["los-angeles", "/guides/surfing-southern-california"],
-  ])("links %s to its mapped hub guide %s", (regionSlug, href) => {
+    ["los-angeles", "/guides/surfing-los-angeles"],
+  ])("links %s to its hub guide %s", (regionSlug, href) => {
     render(
       <BeachConditionsGrid
         beaches={makeBeaches(35)}

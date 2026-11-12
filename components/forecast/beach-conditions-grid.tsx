@@ -20,7 +20,8 @@ import { ScoreLoginLink } from "./score-login-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { QuiverSticker } from "@/components/zine";
-import { getGuideSlugForRegion, hasHubGuide } from "@/lib/data/forecast-regions";
+import { getGuideSlugForRegion } from "@/lib/data/forecast-regions";
+import { getHubRegion } from "@/lib/data/hub-regions";
 import { useOptionalAuth } from "@/context/auth-context";
 import {
   Table,
@@ -335,11 +336,15 @@ export function BeachConditionsGrid({
     .slice(0, maxBeaches);
 
   const hasMoreBeaches = beaches.length > maxBeaches;
-  // The link target is the region's hub guide; regions without one 404 there.
-  // Forecast slugs can differ from guide slugs (ventura-santa-barbara -> ventura).
-  const guideSlug = getGuideSlugForRegion(regionSlug);
+  // The link target is a hub guide; a slug without one 404s there. A region
+  // with its own guide keeps it (los-angeles); the override map is only the
+  // fallback for regions without one (ventura-santa-barbara -> ventura).
+  const guideSlug =
+    getHubRegion(regionSlug) !== null
+      ? regionSlug
+      : getGuideSlugForRegion(regionSlug);
   const showViewAllLink =
-    showViewAll && hasMoreBeaches && hasHubGuide(regionSlug);
+    showViewAll && hasMoreBeaches && getHubRegion(guideSlug) !== null;
   // Built as a string rather than JSX text: SWC drops the leading whitespace of
   // a JSX text node that contains an HTML entity and a newline, so
   // `{n} beaches &rarr;` across two lines rendered "View all 35beaches →".
