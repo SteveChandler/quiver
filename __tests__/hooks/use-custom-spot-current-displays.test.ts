@@ -121,10 +121,10 @@ describe("useCustomSpotCurrentDisplays", () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it("drops the previous labels on a 400 without reporting it", async () => {
+  it("drops the previous labels on a 429 without reporting it", async () => {
     const fetchMock = jest.fn()
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { displays: { a: { label: "3ft" } } } }) })
-      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({}) });
+      .mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({}) });
     global.fetch = fetchMock as unknown as typeof fetch;
     const { result, rerender } = renderHook(({ key }) => useCustomSpotCurrentDisplays(["a"], key), { initialProps: { key: "15:00" } });
     await waitFor(() => expect(result.current.get("a")?.label).toBe("3ft"));
@@ -132,6 +132,43 @@ describe("useCustomSpotCurrentDisplays", () => {
     rerender({ key: "18:00" });
 
     await waitFor(() => expect(result.current.size).toBe(0));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it("reports a 400, because the ids come from the user's own spots", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    renderHook(() => useCustomSpotCurrentDisplays(["a"], "k"));
+
+    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not report a connection lost while the body is read", async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { displays: { a: { label: "3ft" } } } }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => { throw new TypeError("network error"); } });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const { result, rerender } = renderHook(({ key }) => useCustomSpotCurrentDisplays(["a"], key), { initialProps: { key: "15:00" } });
+    await waitFor(() => expect(result.current.get("a")?.label).toBe("3ft"));
+
+    rerender({ key: "18:00" });
+
+    await waitFor(() => expect(result.current.size).toBe(0));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it("retries as a guest when the token is forbidden", async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { displays: { a: { label: "2ft" } } } }) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const onExpired = jest.fn();
+
+    const { result } = renderHook(() => useCustomSpotCurrentDisplays(["a"], "k", () => "old", onExpired));
+
+    await waitFor(() => expect(result.current.get("a")?.label).toBe("2ft"));
+    expect(onExpired).toHaveBeenCalledTimes(1);
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 

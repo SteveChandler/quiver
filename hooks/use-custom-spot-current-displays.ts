@@ -9,7 +9,7 @@ const MAX_SPOTS = 50;
 /** The browser could not reach the route (offline, page unload): a user state, not an outage. */
 class NetworkFailure extends Error {}
 
-/** A 4xx answer (rate limit, bad id): an expected response, not an outage. */
+/** A 401, 403, 404 or 429 answer: an expected response, not an outage. */
 class ClientRejected extends Error {}
 
 /** The server reports its own 5xx; the browser adds one report per window, not one per pan. */
@@ -70,8 +70,17 @@ export function useCustomSpotCurrentDisplays(
         throw new NetworkFailure(error instanceof Error ? error.message : String(error));
       })
       .then((response) => {
-        if (response.ok) return response.json();
-        if (response.status < 500) throw new ClientRejected(`custom spot current-display returned ${response.status}`);
+        if (response.ok) {
+          // A body that is not JSON is reported; a connection lost while reading it is offline.
+          return response.json().catch((error: unknown) => {
+            if (error instanceof SyntaxError) throw error;
+            throw new NetworkFailure(error instanceof Error ? error.message : String(error));
+          });
+        }
+        // Ids come from the user's own spots, so a 400 is our bug: report it (windowed).
+        if (response.status < 500 && response.status !== 400) {
+          throw new ClientRejected(`custom spot current-display returned ${response.status}`);
+        }
         throw new Error(`custom spot current-display returned ${response.status}`);
       })
       .then((json: CurrentDisplayResponse) => {
