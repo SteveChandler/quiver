@@ -25,7 +25,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Beaches by State",
   description:
-    "Browse surf beaches by US state. Find live conditions, calibrated forecasts, and community reviews for breaks from California to Hawaii.",
+    "Browse surf beaches by US state. Find conditions, calibrated forecasts, and community reviews for breaks from California to Hawaii.",
   path: "/beaches/usa",
 });
 
@@ -100,7 +100,7 @@ function DirectoryStructuredData({ states }: { states: StateIndexEntry[] }) {
       <WebPageSchema
         name="Best Surf Beaches by State"
         url={`${SITE_URL}/beaches/usa`}
-        description="Browse surf beaches by U.S. state with live conditions, calibrated forecasts, and community reviews."
+        description="Browse surf beaches by U.S. state with conditions, calibrated forecasts, and community reviews."
       />
       <ItemListSchema
         name="U.S. Surf States"
@@ -209,7 +209,7 @@ export default async function UsaStatesIndexPage() {
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
               Pick a state to explore top surf cities and their best beaches —
-              real-time conditions, calibrated forecasts, and community reviews.
+              conditions, calibrated forecasts, and community reviews.
             </p>
             <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/65">
               <span>{states.length} states</span>

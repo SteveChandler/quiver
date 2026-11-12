@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
+import { knownConditionText } from "@/lib/surf-summary-display";
 import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
 import { getBeachByIdFromDb } from "@/lib/services/beach-query-service";
 import {
@@ -132,9 +133,9 @@ async function resolveSurfCallCard(
   return {
     beachName: truncate(beachResult.data.name || "Surf conditions", 40),
     score: report.score,
-    waveHeight: truncate(report.waveHeight || "", 20),
+    waveHeight: truncate(knownConditionText(report.waveHeight) ?? "", 20),
     timeContext: result.isTomorrow ? "Tomorrow" : "Today",
-    conditionLabel: truncate(report.windDescription || "", 28),
+    conditionLabel: truncate(knownConditionText(report.windDescription) ?? "", 28),
     windowTime: truncate(report.peakTime || "", 26),
     message: truncate(report.whySentence || "", 74),
   };

@@ -34,10 +34,10 @@ jest.mock("@/components/beginner/RightNowConditions", () => ({
 
 jest.mock("@/components/beginner/beginner-session-decision", () => ({
   BeginnerSessionDecision: ({
-    decisionSummary,
+    conditions,
   }: {
-    decisionSummary?: string;
-  }) => <div>{decisionSummary ?? "Live beginner decision"}</div>,
+    conditions?: unknown;
+  }) => <div>{conditions ? "Live beginner decision" : "Beginner decision without live data"}</div>,
 }));
 
 jest.mock("@/components/beginner/BeginnerSpotList", () => ({
@@ -115,9 +115,7 @@ describe("BeginnerPageContent", () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /live wave, wind, tide, and time-window data is unavailable/i,
-      ),
+      screen.getByText("Beginner decision without live data"),
     ).toBeInTheDocument();
   });
 

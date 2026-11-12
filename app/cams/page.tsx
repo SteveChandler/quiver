@@ -39,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return buildPageMetadata({
     title: `Live Surf Cams — ${camCount}+ Cameras Across ${stateCount} States`,
-    description: `Watch ${camCount}+ live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more. Updated 24/7 with live conditions.`,
+    description: `Watch ${camCount}+ live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more.`,
     path: "/cams",
     image: "/api/og/cams",
     keywords: [

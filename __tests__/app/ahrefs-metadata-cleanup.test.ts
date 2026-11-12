@@ -26,6 +26,10 @@ describe("Ahrefs metadata cleanup", () => {
     expect(String(beachesUsaMetadata.description).length).toBeLessThanOrEqual(160);
   });
 
+  it("does not claim live conditions in the /beaches/usa meta description", () => {
+    expect(String(beachesUsaMetadata.description)).not.toMatch(/\blive\b|real-time/i);
+  });
+
   it("links the indexed Baja hub to canonical Rosarito routes", async () => {
     (getAllBeachLocations as jest.Mock).mockResolvedValue({
       success: true,

@@ -24,46 +24,46 @@ interface MonthlyGridProps {
   peakMonths?: number[];
 }
 
-/** Fallback: estimate water temp and wetsuit from regional ranges */
+interface MonthContext {
+  wetsuit: string | null;
+  tempLabel: string | null;
+  waveRange: string | null;
+  crowdLevel: string | null;
+  bestFor: string | null;
+}
+
+/**
+ * Fallback: estimate water temp and wetsuit from the city's regional ranges.
+ * A value the city data does not support stays null and its row is hidden;
+ * there is no crowd data at this tier.
+ */
 function getMonthContextFromRange(
   month: number,
   waterTempRange: string | null,
   summerWetsuit: string | null,
   winterWetsuit: string | null
-): { wetsuit: string; tempLabel: string; waveRange: string | null; crowdLevel: string; bestFor: string | null } {
-  let lowTemp = 55;
-  let highTemp = 72;
-  if (waterTempRange) {
-    const parts = waterTempRange.split("-").map(Number);
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      lowTemp = parts[0];
-      highTemp = parts[1];
-    }
-  }
-
+): MonthContext {
   const summerMonths = new Set([6, 7, 8, 9]);
   const winterMonths = new Set([12, 1, 2]);
   const isSummer = summerMonths.has(month);
   const isWinter = winterMonths.has(month);
 
-  const tempLabel = isSummer
-    ? `~${highTemp}°F`
-    : isWinter
-      ? `~${lowTemp}°F`
-      : `~${Math.round((lowTemp + highTemp) / 2)}°F`;
+  const parts = waterTempRange?.split(/\s*[-\u2013]\s*/).map(Number) ?? [];
+  const hasTempRange = parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]);
+  const [lowTemp, highTemp] = parts;
+  const tempLabel = !hasTempRange
+    ? null
+    : isSummer
+      ? `~${highTemp}°F`
+      : isWinter
+        ? `~${lowTemp}°F`
+        : `~${Math.round((lowTemp + highTemp) / 2)}°F`;
 
-  const wetsuit = isSummer
-    ? summerWetsuit || "Spring suit"
-    : isWinter
-      ? winterWetsuit || "4/3mm"
-      : summerWetsuit || "3/2mm";
+  // Shoulder months fall back to the city's summer suit, as before; only an
+  // invented default is dropped.
+  const wetsuit = isWinter ? winterWetsuit : summerWetsuit;
 
-  let crowdLevel = "Moderate";
-  if ([6, 7, 8].includes(month)) crowdLevel = "High";
-  else if ([12, 1].includes(month)) crowdLevel = "Moderate";
-  else if ([3, 4, 5, 9, 10, 11].includes(month)) crowdLevel = "Low-Moderate";
-
-  return { wetsuit, tempLabel, waveRange: null, crowdLevel, bestFor: null };
+  return { wetsuit, tempLabel, waveRange: null, crowdLevel: null, bestFor: null };
 }
 
 function getCrowdBadgeColor(label: string): string {
@@ -89,7 +89,7 @@ export function MonthlyGrid({
         {monthly.map((entry) => {
           // Use hardcoded state data when available, otherwise estimate
           const stateEntry = stateMonthly?.[entry.month - 1];
-          const context = stateEntry
+          const context: MonthContext = stateEntry
             ? {
                 wetsuit: stateEntry.wetsuit,
                 tempLabel: `${stateEntry.waterTemp}°F`,
@@ -100,7 +100,6 @@ export function MonthlyGrid({
             : getMonthContextFromRange(entry.month, waterTempRange, summerWetsuit, winterWetsuit);
 
           const isPeak = peakSet.has(entry.month);
-          const crowdColor = getCrowdBadgeColor(context.crowdLevel);
 
           return (
             <div
@@ -135,22 +134,28 @@ export function MonthlyGrid({
                     <span className="font-medium text-gray-900">{context.waveRange}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between">
-                  <span>Water temp</span>
-                  <span className="font-medium text-gray-900">{context.tempLabel}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Wetsuit</span>
-                  <span className="font-medium text-gray-900 text-right max-w-[120px] truncate">
-                    {context.wetsuit}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Crowds</span>
-                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${crowdColor}`}>
-                    {context.crowdLevel}
-                  </span>
-                </div>
+                {context.tempLabel && (
+                  <div className="flex items-center justify-between">
+                    <span>Water temp</span>
+                    <span className="font-medium text-gray-900">{context.tempLabel}</span>
+                  </div>
+                )}
+                {context.wetsuit && (
+                  <div className="flex items-center justify-between">
+                    <span>Wetsuit</span>
+                    <span className="font-medium text-gray-900 text-right max-w-[120px] truncate">
+                      {context.wetsuit}
+                    </span>
+                  </div>
+                )}
+                {context.crowdLevel && (
+                  <div className="flex items-center justify-between">
+                    <span>Crowds</span>
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${getCrowdBadgeColor(context.crowdLevel)}`}>
+                      {context.crowdLevel}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span>Beaches peaking</span>
                   <span className="font-medium text-gray-900">{entry.bestMonthCount}</span>

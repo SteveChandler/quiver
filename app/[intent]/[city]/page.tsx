@@ -238,7 +238,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
     const metadata = buildPageMetadata({
       title: `${definition.label} Spots in ${stateName}`,
-      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`,
+      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. Conditions, crowd data & surf windows.`,
       path: `/${params.intent}/${params.city}`,
       image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(stateName)}`,
     });
@@ -485,7 +485,7 @@ export default async function IntentPage(props: IntentPageParams) {
         <WebPageSchema
           name={`${intentDefinition.label} Surf Spots in ${stateName}`}
           url={statePageUrl}
-          description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`}
+          description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. Conditions, crowd data & surf windows.`}
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
