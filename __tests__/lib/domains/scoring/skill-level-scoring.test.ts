@@ -145,8 +145,8 @@ describe('Skill Level Wave Scoring', () => {
     it('caps extreme small-wave penalties', () => {
       const result = checkSkillFloor(0, 'expert');
       expect(result.penalty).toBe(WAVE_SIZE_SCORING_CONFIG.skillFloorPenaltyCap);
-      expect(result.warning).toBe('Small surf.');
-        expect(result.warningCode).toBe('small_surf');
+      // No height to describe: the penalty stays, no line.
+      expect(result.warning).toBeNull();
     });
   });
 

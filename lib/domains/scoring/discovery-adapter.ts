@@ -466,6 +466,11 @@ export function checkSkillFloor(
     return { penalty: 0, warning: null };
   }
 
+  // A missing or zero height (an empty forecast row parses to 0) keeps the penalty
+  // but gets no line: "Small surf" would be a claim the row cannot back.
+  if (!Number.isFinite(waveHeight) || waveHeight <= 0) {
+    return { penalty, warning: null };
+  }
   const below = waveHeight < skillRanges.acceptable.min;
   return {
     penalty,
