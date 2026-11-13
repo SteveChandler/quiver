@@ -127,9 +127,6 @@ export function ZineHeroMedia({
           />
         ) : null}
       </div>
-      {!hasLiveCam && (sources?.cam_unavailable || isBlockedCameraUrl(sources?.camera_url)) ? (
-        <p className="mt-3 text-sm text-muted-foreground">Live camera unavailable</p>
-      ) : null}
     </div>
   );
 }
