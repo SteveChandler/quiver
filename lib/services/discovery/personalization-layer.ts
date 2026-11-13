@@ -40,6 +40,8 @@ import { formatLightWind, formatTideNow, type ReasonCode } from '@/lib/domains/s
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { LIGHT_WIND_MPH } from './week-scout-story-facts';
 
+const KNOWN_TIDE_WORDS: ReadonlySet<string> = new Set(['rising', 'falling', 'high', 'low']);
+
 const log = createContextLogger('PersonalizationLayer');
 const MAX_AFFINITY_BONUS = 4;
 const AFFINITY_BONUS_SCALE = 0.05;
@@ -313,7 +315,8 @@ export function calculatePersonalizationBonus(
     if (matchesLearnedTidePrefs(forecast, learned)) {
       personalizationBonus += 8 * conf;
       const tideStatus = forecast.tide_status?.trim();
-      if (tideStatus && tideStatus.toLowerCase() !== 'unknown') {
+      // Only the four tide words read as a fact ("Rising tide."); anything else gets no line.
+      if (tideStatus && KNOWN_TIDE_WORDS.has(tideStatus.toLowerCase())) {
         reasons.push(formatTideNow(tideStatus));
         reasonCodes.push('tide_now');
       }

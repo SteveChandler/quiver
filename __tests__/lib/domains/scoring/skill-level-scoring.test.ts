@@ -266,12 +266,20 @@ describe('Skill Level Wave Scoring', () => {
     });
 
     describe('null/undefined beach skill level defaults to intermediate', () => {
-      it('should treat null beach skill as intermediate', () => {
-        // null beach → intermediate, beginner user, 2ft waves → manageable
-        const result = calculateBeachSkillMatchBonus(2, null, 'beginner');
+      it.each([null, 'not-a-level'])('scores an unknown level (%s) as intermediate but names no level', (level) => {
+        // unknown beach → intermediate for the score, beginner user, 2ft waves → manageable
+        const result = calculateBeachSkillMatchBonus(2, level, 'beginner');
         expect(result.adjustment).toBe(1); // 1-level gap, manageable
-        expect(result.reason).toBe('Intermediate break, mellow today.');
-        expect(result.reasonCode).toBe('break_mellow');
+        expect(result.reason).toBeNull();
+        expect(result.reasonCode).toBeUndefined();
+        expect(result.warning).toBeNull();
+      });
+
+      it('gives no advanced-break caution when the wave height is missing', () => {
+        const result = calculateBeachSkillMatchBonus(Number.NaN, 'expert', 'beginner');
+        expect(result.adjustment).toBe(-6);
+        expect(result.warning).toBeNull();
+        expect(result.warningCode).toBeUndefined();
       });
     });
   });

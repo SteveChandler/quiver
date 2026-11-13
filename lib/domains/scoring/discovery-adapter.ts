@@ -45,6 +45,7 @@ import {
   formatMellowBreak,
   formatSmallSide,
   formatSmallSurf,
+  oneSizeStory,
   prependReasons,
   reasonList,
   takeReasons,
@@ -268,7 +269,8 @@ export function compositeToDetailedScore(
     total: adjustedTotal,
     subscores,
     matchQuality,
-    ...takeReasons(reasonList(composite.reasons, composite.reasonCodes), 5),
+    // One card, one size story: no "Good size" beside a small-surf line, and no line twice.
+    ...takeReasons(oneSizeStory(reasonList(composite.reasons, composite.reasonCodes), composite.warningCodes), 5),
     warnings: [...composite.warnings],
     warningCodes: reasonList(composite.warnings, composite.warningCodes).reasonCodes,
     effects: [...(composite.effects ?? [])],
@@ -421,7 +423,8 @@ export function checkSkillCeiling(
         ? 'well_over'
         : 'over';
 
-  return { penalty, warning: formatBigSurfCaution({ kind, heightFt: waveHeight }), warningCode: 'caution_size_over' };
+  const warning = formatBigSurfCaution({ kind, heightFt: waveHeight });
+  return { penalty, warning, warningCode: warning ? 'caution_size_over' : undefined };
 }
 
 /**
@@ -430,7 +433,7 @@ export function checkSkillCeiling(
 interface SkillFloorResult {
   /** Penalty points (0 if wave height is within/above the user's ideal floor) */
   penalty: number;
-  /** Warning string if conditions are smaller than the user's usual range */
+  /** The small-surf line with its band ("Small surf at 1–2 ft." / "On the small side at 2–3 ft."), or null */
   warning: string | null;
   warningCode?: ReasonCode;
 }
@@ -583,7 +586,9 @@ export function calculateBeachSkillMatchBonus(
   beachSkillLevel: string | null,
   userSkillLevel: SkillLevel
 ): BeachSkillMatchResult {
-  const beachSkill: SkillLevel = parseSkillLevel(beachSkillLevel) ?? 'intermediate';
+  // The score treats an unknown level as intermediate; the copy does not name a level it does not know.
+  const knownBeachSkill = parseSkillLevel(beachSkillLevel);
+  const beachSkill: SkillLevel = knownBeachSkill ?? 'intermediate';
   const userRanges = SKILL_WAVE_RANGES[userSkillLevel];
   const skillGap = SKILL_ORDER[beachSkill] - SKILL_ORDER[userSkillLevel];
   const wavesInIdealRange = waveHeight >= userRanges.ideal.min && waveHeight <= userRanges.ideal.max;
@@ -603,8 +608,8 @@ export function calculateBeachSkillMatchBonus(
   if (skillGap > 0 && wavesManageable) {
     return {
       adjustment: skillGap === 1 ? 1 : 0,
-      reason: formatMellowBreak(beachSkill),
-      reasonCode: 'break_mellow',
+      reason: knownBeachSkill ? formatMellowBreak(knownBeachSkill) : null,
+      reasonCode: knownBeachSkill ? 'break_mellow' : undefined,
       warning: null,
     };
   }
@@ -613,13 +618,14 @@ export function calculateBeachSkillMatchBonus(
   // Note: checkSkillCeiling handles the heavy wave-height penalties separately
   if (skillGap > 0) {
     const penalty = Math.min(skillGap * 2, 6);
+    const warning = skillGap >= 2 && knownBeachSkill
+      ? formatBigSurfCaution({ kind: 'advanced_break', level: knownBeachSkill, heightFt: waveHeight })
+      : null;
     return {
       adjustment: -penalty,
       reason: null,
-      warning: skillGap >= 2
-        ? formatBigSurfCaution({ kind: 'advanced_break', level: beachSkill, heightFt: waveHeight })
-        : null,
-      warningCode: skillGap >= 2 ? 'caution_advanced_break' : undefined,
+      warning,
+      warningCode: warning ? 'caution_advanced_break' : undefined,
     };
   }
 

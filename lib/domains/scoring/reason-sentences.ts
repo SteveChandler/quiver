@@ -254,6 +254,25 @@ export function personalLinesFirst(list: ReasonList): ReasonList {
   };
 }
 
+const SMALL_SIZE_CODES: ReadonlySet<ReasonCode> = new Set<ReasonCode>(['cap_small_surf', 'small_surf', 'small_side']);
+
+/**
+ * One card tells one size story. With a small-surf line on the card (as a
+ * reason or a warning), "Good size" goes. A line that is also a warning (a cap
+ * line, or the scorer's "On the small side" beside the small-side warning) shows
+ * once, as the warning. Cautions and other text stay.
+ */
+export function oneSizeStory(list: ReasonList, warningCodes: readonly ReasonCode[] | null | undefined): ReasonList {
+  const warned = new Set<ReasonCode>((warningCodes ?? []).filter((code) => code != null));
+  const small = [...warned, ...list.reasonCodes].some((code) => SMALL_SIZE_CODES.has(code ?? null));
+  return filterList(list, (_, code) => {
+    if (code === 'size_good' && small) return false;
+    if (code === 'size_below_ideal' && warned.has('small_side')) return false;
+    if (code != null && !isCaution(code) && !isWaveCode(code) && warned.has(code)) return false;
+    return true;
+  });
+}
+
 /** A positive-signal list never carries the "small side" sentence. */
 export function positiveReasons(list: ReasonList): ReasonList {
   return filterList(list, (_, code) => code !== 'size_below_ideal');
@@ -313,7 +332,17 @@ export type BigSurfCaution =
   | { readonly kind: 'over' | 'well_over' | 'far_over'; readonly heightFt: number };
 
 /** The big-surf caution family (rows 3, 6, 7, 8, 9). */
-export function formatBigSurfCaution(caution: BigSurfCaution): string {
+/** A real height to describe; an empty row parses to NaN or 0, which no sentence may call a size. */
+function hasHeight(heightFt: number | null | undefined): heightFt is number {
+  return heightFt != null && Number.isFinite(heightFt) && heightFt > 0;
+}
+
+/**
+ * Null with no height: a big-surf caution is a claim about size, and with no
+ * size the row cannot back it, so no line shows (never "at Flat").
+ */
+export function formatBigSurfCaution(caution: BigSurfCaution): string | null {
+  if (!hasHeight(caution.heightFt)) return null;
   const band = formatHeightBand(caution.heightFt);
   if (bandLowFt(caution.heightFt) >= BIG_FOR_ANYONE_LOW_FT) return `Heads up: big, powerful surf at ${band}.`;
   switch (caution.kind) {
@@ -332,7 +361,7 @@ export function formatBigSurfCaution(caution: BigSurfCaution): string {
 
 /** Row 2 (with a beach name) and row 5 (without): a harder break on a mellow day. */
 export function formatMellowBreak(level: string, beachName?: string, heightFt?: number | null): string {
-  if (beachName && heightFt != null && Number.isFinite(heightFt) && heightFt > 0) {
+  if (beachName && hasHeight(heightFt)) {
     return `${beachName} is ${withArticle(level.toLowerCase())} break, but it's mellow today at ${formatHeightBand(heightFt)}.`;
   }
   return `${capitalize(level.toLowerCase())} break, mellow today.`;
@@ -369,8 +398,9 @@ export function formatTideNow(status: string): string {
 
 export type BoardFitKind = 'big' | 'small' | 'good';
 
-/** Row 20: board-fit notes. */
-export function formatBoardFit(kind: BoardFitKind, board: string, heightFt: number): string {
+/** Row 20: board-fit notes. Null with no height (no "at Flat"). */
+export function formatBoardFit(kind: BoardFitKind, board: string, heightFt: number): string | null {
+  if (!hasHeight(heightFt)) return null;
   const band = formatHeightBand(heightFt);
   if (kind === 'big') return `Big for ${withArticle(board)} at ${band}.`;
   if (kind === 'small') return `Small for ${withArticle(board)} at ${band}.`;

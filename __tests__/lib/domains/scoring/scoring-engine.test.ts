@@ -321,8 +321,9 @@ describe('Scoring Engine', () => {
       const result = engine.score(input);
 
       expect(result.total).toBe(55);
-      const index = result.reasonCodes?.indexOf('cap_small_surf') ?? -1;
-      expect(result.reasons[index]).toBe('Small surf at 1–2 ft.');
+      // One card, one size story: the cap line shows once, as the warning.
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
+      expect(result.reasons).not.toContain('Small surf at 1–2 ft.');
       expect(result.warnings).toContain('Small surf at 1–2 ft.');
       expect(result.warningCodes?.[result.warnings.indexOf('Small surf at 1–2 ft.')]).toBe('cap_small_surf');
     });
@@ -367,7 +368,8 @@ describe('Scoring Engine', () => {
       const result = engine.score(input);
 
       expect(result.total).toBe(75);
-      expect(result.reasons[result.reasonCodes?.indexOf('cap_small_surf') ?? -1]).toBe('Small surf at 2–3 ft.');
+      expect(result.warnings[result.warningCodes?.indexOf('cap_small_surf') ?? -1]).toBe('Small surf at 2–3 ft.');
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
     });
   });
 

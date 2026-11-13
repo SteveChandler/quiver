@@ -26,6 +26,7 @@ import {
   formatWindChop,
   isLeadCode,
   isWaveCode,
+  oneSizeStory,
   SMALL_ONSHORE_SLOP,
   type BigSurfCaution,
   type ScoringReasonFact,
@@ -273,5 +274,49 @@ describe('context codes neither lead nor count as wave sentences', () => {
     expect(isLeadCode('break_mellow')).toBe(false);
     expect(isLeadCode('caution_size_over')).toBe(true);
     expect(isWaveCode('cap_small_surf')).toBe(false);
+  });
+});
+
+describe('no size, no size line', () => {
+  it.each([Number.NaN, 0, -1, Number.POSITIVE_INFINITY])('a caution and a board note with height %s give no line (never "at Flat")', (heightFt) => {
+    expect(formatBigSurfCaution({ kind: 'pumping', beachName: 'Blacks', heightFt })).toBeNull();
+    expect(formatBigSurfCaution({ kind: 'far_over', heightFt })).toBeNull();
+    expect(formatBigSurfCaution({ kind: 'advanced_break', level: 'expert', heightFt })).toBeNull();
+    expect(formatBoardFit('small', 'shortboard', heightFt)).toBeNull();
+  });
+});
+
+describe('oneSizeStory: one card, one size story', () => {
+  // before-after.txt:173/188 — "Good size at 1–2 ft." beside "Small surf at 1–2 ft." on one card.
+  it('drops "Good size" when a small-surf cap line is on the card, and keeps the cap line once, as the warning', () => {
+    const reasons = reasonList(
+      ['Good size at 1–2 ft.', 'Acceptable swell angle (WNW)', 'Good tide', 'Small surf at 1–2 ft.'],
+      ['size_good', null, null, 'cap_small_surf'],
+    );
+    expect(oneSizeStory(reasons, ['cap_small_surf']).reasons).toEqual(['Acceptable swell angle (WNW)', 'Good tide']);
+  });
+
+  it('drops "Good size" beside a small-surf or small-side warning from the skill floor', () => {
+    const reasons = reasonList(['Good size at 2–3 ft.', 'Good tide'], ['size_good', null]);
+    expect(oneSizeStory(reasons, [null, 'small_surf']).reasons).toEqual(['Good tide']);
+    expect(oneSizeStory(reasons, ['small_side']).reasons).toEqual(['Good tide']);
+  });
+
+  it('shows "On the small side" once, as the warning', () => {
+    const reasons = reasonList(['On the small side at 2–3 ft.', 'Good tide'], ['size_below_ideal', null]);
+    expect(oneSizeStory(reasons, ['small_side']).reasons).toEqual(['Good tide']);
+  });
+
+  it('keeps other sizes, cautions and the chop line when no warning repeats them', () => {
+    const reasons = reasonList(
+      ['Heads up: Blacks is pumping at 6–7 ft.', 'Bigger surf at 6–7 ft.', 'Good size at 3–4 ft.'],
+      ['caution_big_surf', 'size_larger', 'size_good'],
+    );
+    expect(oneSizeStory(reasons, ['caution_size_over']).reasons).toEqual(reasons.reasons);
+  });
+
+  it('keeps a chop cap line once, as the warning', () => {
+    const reasons = reasonList(['Good size at 3–4 ft.', 'Choppy onshore wind at 18 mph chops it up.'], ['size_good', 'cap_wind_chop']);
+    expect(oneSizeStory(reasons, ['cap_wind_chop']).reasons).toEqual(['Good size at 3–4 ft.']);
   });
 });

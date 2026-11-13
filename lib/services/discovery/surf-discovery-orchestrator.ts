@@ -562,10 +562,9 @@ export function primaryReasonWithCode(
     return { text: formatMellowBreak(beachSkill, beach.name, waveHeight), code: 'break_mellow' };
   }
 
-  return {
-    text: formatBigSurfCaution({ kind: 'pumping', beachName: beach.name, heightFt: waveHeight }),
-    code: 'caution_big_surf',
-  };
+  // No height, no size claim: an empty row is not "pumping".
+  const pumping = formatBigSurfCaution({ kind: 'pumping', beachName: beach.name, heightFt: waveHeight });
+  return pumping ? { text: pumping, code: 'caution_big_surf' } : null;
 }
 
 /**

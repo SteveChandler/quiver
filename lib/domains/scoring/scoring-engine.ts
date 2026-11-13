@@ -19,7 +19,7 @@ import type {
   ScoringDecisionEffect,
 } from "./types";
 import { DEFAULT_SCORING_CONFIG } from "./types";
-import { dedupeReasons, formatSmallSurf, takeReasons, type ReasonCode } from "./reason-sentences";
+import { dedupeReasons, formatSmallSurf, oneSizeStory, takeReasons, type ReasonCode } from "./reason-sentences";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
 import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
@@ -185,7 +185,7 @@ export class ScoringEngine {
       DEFAULT_SCORING_CONFIG.maxReasons,
     );
     const shownReasons = takeReasons(
-      dedupeReasons({ reasons: allReasons, reasonCodes: allReasonCodes }),
+      oneSizeStory(dedupeReasons({ reasons: allReasons, reasonCodes: allReasonCodes }), allWarningCodes),
       DEFAULT_SCORING_CONFIG.maxReasons,
     );
 

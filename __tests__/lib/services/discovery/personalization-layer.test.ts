@@ -444,6 +444,20 @@ describe('calculatePersonalizationBonus', () => {
     });
   });
 
+  describe('tide fact words', () => {
+    it.each(['N/a', 'unknown', 'Slack-ish', ''])('keeps the bonus but says no tide line for "%s"', (status) => {
+      const learned = makeLearnedPrefs({ confidence: 0.8, preferred_tide_statuses: ['rising'] });
+      mockMatchesLearnedWaveRange.mockReturnValue(false);
+      mockMatchesLearnedWindPrefs.mockReturnValue(false);
+      mockMatchesLearnedTidePrefs.mockReturnValue(true);
+
+      const result = calculatePersonalizationBonus(makeBeach(), makeForecast({ tide_status: status }), makeContext({ learnedPrefs: learned }));
+
+      expect(result.personalizationBonus).toBeCloseTo(6.4);
+      expect(result.reasons).toEqual([]);
+    });
+  });
+
   describe('implicit preferences bonus', () => {
     it('adds implicit bonus when implicitWeight > 0 and implicitPrefs present', () => {
       const implicit = makeImplicitPrefs({ confidence: 0.6 });

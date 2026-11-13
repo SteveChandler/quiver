@@ -82,6 +82,11 @@ describe('generatePrimaryReason', () => {
       expect(generatePrimaryReason(beach, makeForecast('2'), 'beginner')).toBeNull();
     });
 
+    it.each(['', 'unknown'])('sends no pumping line when the row has no wave height (%s), never "at Flat"', (height) => {
+      const beach = makeBeach({ skill_level: 'advanced' });
+      expect(generatePrimaryReason(beach, makeForecast(height), 'beginner')).toBeNull();
+    });
+
     it('still warns on big surf at a beach with a null skill_level', () => {
       const beach = makeBeach({ skill_level: null });
       expect(generatePrimaryReason(beach, makeForecast('6.4'), 'beginner')).toBe('Heads up: PB Point is pumping at 6–7 ft.');

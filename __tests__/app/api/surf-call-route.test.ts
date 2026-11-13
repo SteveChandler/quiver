@@ -1365,7 +1365,7 @@ describe("GET /api/surf/call", () => {
       "longboard",
     );
     expect(body.data.report.whySentence).toContain(
-      "Board fit: Good longboard size at 2–3 ft.",
+      "Board fit: good longboard size at 2–3 ft.",
     );
     // The note is a whole sentence; the board line keeps one full stop.
     expect(body.data.report.whySentence).not.toContain("ft..");
