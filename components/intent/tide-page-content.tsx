@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
@@ -11,9 +9,13 @@ import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { SectionFadeUp } from "@/components/shared/section-fade-up";
-import { TideHeroSection } from "./tide-hero-section";
-import { TideFullChart } from "./tide-full-chart";
-import { SevenDayTideTable } from "./seven-day-tide-table";
+import { TideBreadcrumbs } from "@/components/tide-stations/tide-breadcrumbs";
+import { TideStationNow } from "@/components/tide-stations/tide-station-now";
+import { TideWeekTable } from "@/components/tide-stations/tide-week-table";
+import { TidePanelChart } from "@/components/tides/tide-panel-chart";
+import { ZineSurface } from "@/components/zine";
+import { formatZoneOffset } from "@/lib/tide-stations/format";
+import { tideStationPath } from "@/lib/tide-stations/slug";
 import { BeachTideCards } from "./beach-tide-cards";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
 import { IntentAppHandoffCta } from "./intent-app-handoff-cta";
@@ -28,7 +30,6 @@ interface TidePageContentProps {
   pageContent: IntentPageContent;
   tideData: CityTideDataExpanded;
   spots: SurfSpot[];
-  updatedAt: string;
   baseUrl: string;
   bestTimeToSurfUrl?: string;
   excludeIntents?: IntentKey[];
@@ -49,7 +50,6 @@ export function TidePageContent({
   pageContent,
   tideData,
   spots,
-  updatedAt,
   baseUrl,
   bestTimeToSurfUrl,
   excludeIntents,
@@ -62,72 +62,97 @@ export function TidePageContent({
     stateSlug
   );
 
-  return (
-    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
-      <BreadcrumbStructuredData
-        items={[
-          { name: "Quiver", url: `${baseUrl}/` },
-          {
-            name: `${cityName} Surf`,
-            url: `${baseUrl}/${stateSlug}/${citySlug}`,
-          },
-          {
-            name: "Tides",
-            url: `${baseUrl}/tide/${citySlug}`,
-          },
-        ]}
-      />
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Breadcrumb */}
-        <nav
-          aria-label="breadcrumb"
-          className="flex items-center gap-1 text-sm mb-6"
-        >
-          <Link
-            href={`/${stateSlug}/${citySlug}`}
-            className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to {cityName}
-          </Link>
-          <span className="text-gray-400 mx-2">&rsaquo;</span>
-          <span className="text-gray-800 font-medium">Tides</span>
-        </nav>
+  // An empty series shows nothing rather than "no data" boxes.
+  const view = tideData.view && tideData.view.extremes.length > 0 ? tideData.view : null;
+  const sourceLine = view
+    ? `Predicted tides from ${view.station ? `the NOAA gauge at ${view.station.name}` : "NOAA"}. Times are local (${formatZoneOffset(view.renderedAtMs, view.timeZone)}). Not live water levels.`
+    : null;
 
-        {/* Header */}
-        <SectionFadeUp delay={0}>
+  return (
+    <div>
+      <ZineSurface sectionLabel="Tides" data-testid="city-tide-paper">
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8 sm:py-10 text-[#11100D]">
+          <TideBreadcrumbs
+            crumbs={[
+              { name: "Quiver", path: "/" },
+              { name: `${cityName} Surf`, path: `/${stateSlug}/${citySlug}` },
+              { name: "Tides", path: `/tide/${citySlug}` },
+            ]}
+          />
           <header className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5E00]">
+              Tides · {regionLabel}
+            </p>
+            <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-[#11100D] md:text-4xl">
               {pageContent.heading}
             </h1>
-            <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
-
-            <div className="space-y-2 mt-6">
-              <p className="text-base text-gray-700">
-                Updated {updatedAt} · Tide data refreshes every 30 minutes from
-                NOAA stations.
-              </p>
-              <p className="text-base text-gray-700">{pageContent.intro}</p>
-            </div>
+            {sourceLine && <p className="mt-3 text-sm leading-relaxed text-[#11100D]/75">{sourceLine}</p>}
+            <p className="mt-3 text-base leading-relaxed text-[#11100D]/85">{pageContent.intro}</p>
           </header>
-        </SectionFadeUp>
 
+          {view && (
+            <div className="space-y-8">
+              <TideStationNow extremes={view.extremes} timeZone={view.timeZone} renderedAtMs={view.renderedAtMs} />
+
+              <section aria-labelledby="tide-chart-heading">
+                <h2 id="tide-chart-heading" className="mb-3 font-heading text-2xl font-bold text-[#11100D]">
+                  Tide chart
+                </h2>
+                <TidePanelChart
+                  curve={view.curve}
+                  extremes={view.extremes}
+                  timeZone={view.timeZone}
+                  renderedAtMs={view.renderedAtMs}
+                />
+              </section>
+
+              {view.days.length > 0 && (
+                <section aria-labelledby="tide-week-heading">
+                  <h2 id="tide-week-heading" className="mb-3 font-heading text-2xl font-bold text-[#11100D]">
+                    Next 7 days
+                  </h2>
+                  <TideWeekTable days={view.days} timeZone={view.timeZone} />
+                </section>
+              )}
+
+              {view.station && (
+                <section
+                  aria-labelledby="tide-station-heading"
+                  className="border-2 border-dashed border-[#11100D] p-4"
+                  data-testid="city-tide-station"
+                >
+                  <p
+                    id="tide-station-heading"
+                    className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#8A5E00]"
+                  >
+                    Tide station
+                  </p>
+                  <p className="mt-2 text-[#11100D]">
+                    <span className="font-semibold">{view.station.name}</span>
+                    <span className="font-mono text-sm text-[#11100D]/70"> · NOAA {view.station.sourceStationId}</span>
+                  </p>
+                  <Link
+                    href={tideStationPath(view.station.slug)}
+                    className="mt-2 inline-block font-semibold text-[#AA4918] underline underline-offset-2"
+                  >
+                    Full station tides →
+                  </Link>
+                </section>
+              )}
+
+              <BeachTideCards
+                beaches={tideData.beachTidePreferences}
+                citySlug={citySlug}
+                stateSlug={stateSlug}
+                cityName={cityName}
+              />
+            </div>
+          )}
+        </div>
+      </ZineSurface>
+
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="space-y-12">
-          {/* Module 1: Tide Hero - current conditions */}
-          <SectionFadeUp delay={0.1}>
-            <TideHeroSection data={tideData} />
-          </SectionFadeUp>
-
-          {/* Module 2: Interactive multi-day chart */}
-          <SectionFadeUp delay={0.15}>
-            <TideFullChart hourlyPoints={tideData.hourlyPoints} />
-          </SectionFadeUp>
-
-          {/* Module 3: 7-day high/low table */}
-          <SectionFadeUp>
-            <SevenDayTideTable days={tideData.sevenDayExtrema} />
-          </SectionFadeUp>
-
           <SectionFadeUp>
             <UtilitySessionHandoff
               bestTimeToSurfUrl={bestTimeToSurfUrl}
@@ -135,16 +160,6 @@ export function TidePageContent({
               citySlug={citySlug}
               intent="tide"
               stateSlug={stateSlug}
-            />
-          </SectionFadeUp>
-
-          {/* Module 4: Per-beach tide preferences */}
-          <SectionFadeUp>
-            <BeachTideCards
-              beaches={tideData.beachTidePreferences}
-              citySlug={citySlug}
-              stateSlug={stateSlug}
-              cityName={cityName}
             />
           </SectionFadeUp>
 

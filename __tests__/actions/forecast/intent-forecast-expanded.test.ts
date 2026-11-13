@@ -9,6 +9,14 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
+// Station registry and NOAA are off by default: these tests chart the stored series.
+jest.mock("@/lib/tide-stations/queries", () => ({
+  getNoaaTideStationBySourceId: jest.fn().mockResolvedValue(null),
+}));
+jest.mock("@/lib/tide-stations/predictions", () => ({
+  getStationSeries: jest.fn(),
+}));
+
 jest.mock("@/lib/recommendations/selection", () => ({
   rankBeaches: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
   selectBeach: jest.fn(async <T extends { id: string }>(beach: T | null) => beach),
@@ -207,9 +215,8 @@ describe("getCityTideDataExpanded", () => {
     expect(data.sevenDayExtrema.length).toBeLessThanOrEqual(7);
 
     // First day should be today
-    if (data.sevenDayExtrema.length > 0) {
-      expect(data.sevenDayExtrema[0].isToday).toBe(true);
-    }
+    expect(data.sevenDayExtrema.length).toBeGreaterThan(0);
+    expect(data.sevenDayExtrema[0].isToday).toBe(true);
   });
 
   it("charts one station when an older station's rows overlap the current one", async () => {
@@ -325,4 +332,131 @@ describe("getCityTideDataExpanded", () => {
       expect(currDay.getTime()).toBeGreaterThan(prevDay.getTime());
     }
   });
+
+  it("reads hero, title fields and table from the station's own table when the beach names one", async () => {
+    const { getNoaaTideStationBySourceId } = jest.requireMock("@/lib/tide-stations/queries");
+    const { getStationSeries } = jest.requireMock("@/lib/tide-stations/predictions");
+    const fakeNow = new Date("2026-11-12T16:40:00-10:00");
+    mockDateNow(fakeNow);
+
+    const tideSamples = generateTideSamples(
+      new Date("2026-11-11T00:00:00-10:00"),
+      new Date("2026-11-19T00:00:00-10:00"),
+    ).map((sample) => ({ ...sample, source: "noaa_hilo_interpolated", station_id: "1612668" }));
+    (getNoaaTideStationBySourceId as jest.Mock).mockResolvedValueOnce({
+      id: "noaa:1612668",
+      source: "noaa",
+      source_station_id: "1612668",
+      name: "Haleiwa, Waialua Bay",
+      slug: "haleiwa-waialua-bay-hi-1612668",
+      timezone: "Pacific/Honolulu",
+      station_kind: "subordinate",
+    });
+    (getStationSeries as jest.Mock).mockResolvedValueOnce({
+      status: "ok",
+      hourly: [],
+      extremes: [
+        { ts: "2026-11-12T14:55:00Z", type: "high", heightM: 0.52 },
+        { ts: "2026-11-12T21:29:00Z", type: "low", heightM: 0.1 },
+        { ts: "2026-11-13T02:19:00Z", type: "high", heightM: 0.14 },
+        { ts: "2026-11-13T06:28:00Z", type: "low", heightM: 0.04 },
+        { ts: "2026-11-13T15:38:00Z", type: "high", heightM: 0.49 },
+        { ts: "2026-11-13T22:27:00Z", type: "low", heightM: 0.1 },
+      ],
+      windowStart: "2026-11-11T16:00:00Z",
+      windowEnd: "2026-11-21T16:00:00Z",
+      adjustmentFt: 0,
+    });
+
+    const mockSupa = createMockSupabase({
+      baseTideData: {
+        beach_id: "beach-1",
+        tide_status: "Rising",
+        tide_height: "3.0 ft",
+        next_tide_time: "09:00 PM",
+        next_tide_type: "Low",
+        next_tide_height: "0 ft",
+        // Another beach's schedule: the page must not mix it with the chart's series.
+        raw_forecast: {
+          tide_schedule: [{ time: Math.floor(fakeNow.getTime() / 1000) + 3600, height: 9.9, type: "high" }],
+          tide_station: { id: "cached_beach-1", name: "Cached Tide Data" },
+        },
+        beaches: { id: "beach-1", name: "Chun's Reef", city: "Haleiwa", state: "HI" },
+      },
+      repBeach: { id: "beach-1", name: "Chun's Reef", timezone: "Pacific/Honolulu" },
+      tideSamples,
+      cityBeaches: [],
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(mockSupa);
+
+    const data = (await getCityTideDataExpanded("Haleiwa", "HI")) as CityTideDataExpanded;
+
+    expect(getNoaaTideStationBySourceId).toHaveBeenCalledWith("1612668");
+    expect(data.tideStation).toBe("Haleiwa, Waialua Bay");
+    expect(data.view?.station?.slug).toBe("haleiwa-waialua-bay-hi-1612668");
+    expect(data.currentStatus).toBe("Falling");
+    expect(data.nextTideType).toBe("Low");
+    expect(data.nextTideTime).toBe("8:28 PM");
+    expect(data.nextTideHeight).toBe("0.1 ft");
+    // The hero height sits on the drawn curve between the 0.5 ft high and the 0.1 ft low.
+    expect(data.currentHeight).toBe("0.5 ft");
+    expect(data.sevenDayExtrema[0].label).toBe("Today");
+    expect(data.sevenDayExtrema[0].events.map((e) => e.timeFormatted)).toEqual([
+      "4:55 AM",
+      "11:29 AM",
+      "4:19 PM",
+      "8:28 PM",
+    ]);
+  });
+
+  it("falls back to the stored series when NOAA fails, and still names no station", async () => {
+    const { getNoaaTideStationBySourceId } = jest.requireMock("@/lib/tide-stations/queries");
+    const { getStationSeries } = jest.requireMock("@/lib/tide-stations/predictions");
+    const fakeNow = new Date("2026-11-12T16:40:00-10:00");
+    mockDateNow(fakeNow);
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    (getNoaaTideStationBySourceId as jest.Mock).mockResolvedValueOnce({
+      id: "noaa:1612668",
+      source: "noaa",
+      source_station_id: "1612668",
+      name: "Haleiwa, Waialua Bay",
+      slug: "haleiwa-waialua-bay-hi-1612668",
+      timezone: "Pacific/Honolulu",
+      station_kind: "subordinate",
+    });
+    (getStationSeries as jest.Mock).mockRejectedValueOnce(new Error("NOAA 503"));
+
+    const tideSamples = generateTideSamples(
+      new Date("2026-11-11T00:00:00-10:00"),
+      new Date("2026-11-19T00:00:00-10:00"),
+    ).map((sample) => ({ ...sample, source: "noaa_hilo_interpolated", station_id: "1612668" }));
+    const mockSupa = createMockSupabase({
+      baseTideData: {
+        beach_id: "beach-1",
+        tide_status: "Rising",
+        tide_height: "3.0 ft",
+        next_tide_time: "09:00 PM",
+        next_tide_type: "Low",
+        next_tide_height: "0 ft",
+        raw_forecast: { tide_schedule: [], tide_station: { id: "cached_beach-1", name: "Cached Tide Data" } },
+        beaches: { id: "beach-1", name: "Chun's Reef", city: "Haleiwa", state: "HI" },
+      },
+      repBeach: { id: "beach-1", name: "Chun's Reef", timezone: "Pacific/Honolulu" },
+      tideSamples,
+      cityBeaches: [],
+    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(mockSupa);
+
+    const data = (await getCityTideDataExpanded("Haleiwa", "HI")) as CityTideDataExpanded;
+
+    expect(data.view?.station).toBeNull();
+    expect(data.tideStation).toBeNull();
+    expect(data.hourlyPoints.length).toBeGreaterThan(0);
+    expect(data.nextTideTime).not.toMatch(/^0\d:/);
+    expect(warn).toHaveBeenCalledWith(
+      "City tide page: station table unavailable, using stored series",
+      expect.objectContaining({ message: "NOAA 503" }),
+    );
+  });
+
 });
