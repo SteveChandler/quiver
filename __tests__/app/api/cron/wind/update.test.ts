@@ -269,6 +269,7 @@ describe("GET /api/cron/wind/update", () => {
       fetchErrors: 1,
       sampleErrors: ["Beach 1: fetch failed"],
     });
+    expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("filters null wind speeds before calling the RPC", async () => {
@@ -321,7 +322,7 @@ describe("GET /api/cron/wind/update", () => {
       stoppedReason: "upstream_unavailable",
     });
     expect(lastFailureReason(body.details)).toMatch(/^upstream_unavailable: Open-Meteo wind .*2 consecutive batches.*TimeoutError/);
-    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/]);
+    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("names the connection error code in the upstream reason", async () => {
@@ -335,7 +336,26 @@ describe("GET /api/cron/wind/update", () => {
 
     expect(response.status).toBe(503);
     expect(body.error).toContain("(TypeError/ECONNREFUSED)");
-    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/]);
+    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("names only the errors of the failed streak in the stop reason", async () => {
+    mockClient(40, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockImplementation(async (lat: number) => {
+      const index = Math.round((lat - 30) * 100);
+      // Batch 1: one AbortError among good fetches. Batches 3-4: refused connections.
+      if (index === 3) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+      if (index >= 20) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+      return makeWindPoints(48);
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toContain("(TypeError/ECONNREFUSED)");
+    expect(body.error).not.toContain("AbortError");
+    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("resets the breaker when a batch has one good Open-Meteo fetch", async () => {
@@ -352,6 +372,7 @@ describe("GET /api/cron/wind/update", () => {
     expect(fetchHourlyWind).toHaveBeenCalledTimes(30);
     expect(response.status).toBe(200);
     expect(body.data).toMatchObject({ stoppedReason: null, attemptedBeaches: 30, updated: 8 });
+    expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("does not trip the upstream breaker on RPC errors", async () => {
@@ -379,6 +400,7 @@ describe("GET /api/cron/wind/update", () => {
     expect(body.data).toMatchObject({ fetchErrors: 30, upstreamFetchErrors: 0, stoppedReason: null });
     // Zero rows still fails the outcome through expectedMin; it is just not an upstream stop.
     expect(lastFailureReason(body.data)).toBeNull();
+    expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("stops at the wall-clock deadline and records a non-ok outcome", async () => {

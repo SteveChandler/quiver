@@ -73,7 +73,8 @@ async function _GET(request: Request): Promise<Response> {
   let upstreamDownBatches = 0;
   let stoppedReason: StoppedReason | null = null;
   let stopDetail = '';
-  const upstreamErrorNames = new Set<string>();
+  let upstreamErrorNames = new Set<string>();
+  const allUpstreamErrorNames = new Set<string>();
   const sampleErrors: string[] = [];
   const BATCH_SIZE = 10; // Parallel API fetches per batch (avoid rate limiting)
   const DELAY_BETWEEN_BATCHES_MS = 200;
@@ -89,6 +90,7 @@ async function _GET(request: Request): Promise<Response> {
     const batch = beaches.slice(i, i + BATCH_SIZE);
     let batchAttempted = 0;
     let batchUpstreamFailures = 0;
+    const batchUpstreamErrorNames = new Set<string>();
 
     const results = await Promise.allSettled(
       batch.map(async (beach) => {
@@ -106,7 +108,7 @@ async function _GET(request: Request): Promise<Response> {
           if (isOpenMeteoUpstreamError(err)) {
             batchUpstreamFailures++;
             const causeCode = ((err as Error).cause as { code?: unknown } | undefined)?.code;
-            upstreamErrorNames.add(typeof causeCode === 'string' ? `${(err as Error).name}/${causeCode}` : (err as Error).name);
+            batchUpstreamErrorNames.add(typeof causeCode === 'string' ? `${(err as Error).name}/${causeCode}` : (err as Error).name);
           }
           if (sampleErrors.length < 5 && !sampleErrors.includes(message)) {
             sampleErrors.push(message);
@@ -166,9 +168,13 @@ async function _GET(request: Request): Promise<Response> {
 
     attemptedBeaches += batchAttempted;
     upstreamFetchErrors += batchUpstreamFailures;
-    upstreamDownBatches = batchAttempted > 0 && batchUpstreamFailures === batchAttempted
-      ? upstreamDownBatches + 1
-      : 0;
+    batchUpstreamErrorNames.forEach((name) => allUpstreamErrorNames.add(name));
+    const batchUpstreamDown = batchAttempted > 0 && batchUpstreamFailures === batchAttempted;
+    upstreamDownBatches = batchUpstreamDown ? upstreamDownBatches + 1 : 0;
+    // The stop reason names only the errors of the consecutive failed batches.
+    upstreamErrorNames = batchUpstreamDown
+      ? new Set([...upstreamErrorNames, ...batchUpstreamErrorNames])
+      : new Set();
     if (upstreamDownBatches >= UPSTREAM_DOWN_BATCH_LIMIT) {
       stoppedReason = 'upstream_unavailable';
       stopDetail = `Open-Meteo wind gave no HTTP response in ${upstreamDownBatches} consecutive batches `
@@ -182,7 +188,10 @@ async function _GET(request: Request): Promise<Response> {
     }
   }
 
-  console.log(`[Wind] Done: ${updated} rows updated, ${skipped} skipped (protected), ${errors} errors`);
+  console.log(`[Wind] ${stoppedReason ? `Stopped (${stoppedReason})` : 'Done'}: ${updated} rows updated, ${skipped} skipped (protected), ${errors} errors, ${fetchErrors} fetch errors`);
+  if (fetchErrors > 0) {
+    console.warn(`[Wind] ${fetchErrors} Open-Meteo fetch errors (${upstreamFetchErrors} without HTTP response: ${[...allUpstreamErrorNames].sort().join(', ') || 'none'})`, sampleErrors);
+  }
 
   const summary = {
     beaches: beaches.length,
