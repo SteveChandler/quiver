@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { reasonList, reasonsForVerdict, waveSentencesFirst } from "@/lib/domains/scoring/reason-sentences";
+import { leadReasonLine } from "@/lib/domains/scoring/reason-sentences";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -759,13 +759,8 @@ export function OracleHomeScreen() {
     window,
   );
   // Why the selected window works, from the recommendation's own reasons.
-  // The wave sentence leads; the verdict filter repeats the server's as a harmless second check.
-  const heroReason = heroRec?.reasons
-    ? reasonsForVerdict(
-        waveSentencesFirst(reasonList(heroRec.reasons, heroRec.reasonCodes)),
-        canonicalVerdict === "no",
-      ).reasons[0] ?? null
-    : null;
+  // A caution leads, then the wave sentence; the verdict filter repeats the server's as a harmless second check.
+  const heroReason = leadReasonLine(heroRec?.reasons, heroRec?.reasonCodes, canonicalVerdict === "no");
   // Positive calls switch to planning copy when the window hasn't opened yet.
   const selectedWindowStartMs = Date.parse(selectedCandidate?.windowStart ?? "");
   const heroCallIsUpcoming =

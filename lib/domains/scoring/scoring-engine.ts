@@ -172,7 +172,7 @@ export class ScoringEngine {
         );
         if (binding) {
           allReasons.unshift(binding.message);
-          allReasonCodes.unshift(null);
+          allReasonCodes.unshift('caution_tide');
         }
       }
     }

@@ -24,8 +24,19 @@ type ScoringSizeReasonCode =
 
 export type ScoringReasonCode = ScoringSizeReasonCode | 'period_strong' | 'period_good';
 
-/** The code beside one reason; null for text that no scorer fact produced. */
-export type ReasonCode = ScoringReasonCode | null;
+/**
+ * A caution leads its line on purpose (a safety or data warning placed in
+ * `reasons`). It is not a scorer code: no reorder puts it behind a wave
+ * sentence and no verdict rule removes it.
+ */
+export type CautionReasonCode = 'caution_big_surf' | 'caution_sources_disagree' | 'caution_tide';
+
+/** The code beside one reason; null for other text. */
+export type ReasonCode = ScoringReasonCode | CautionReasonCode | null;
+
+function isCaution(code: ReasonCode | undefined): boolean {
+  return code != null && code.startsWith('caution_');
+}
 
 export type ScoringReasonFact =
   | { readonly code: ScoringSizeReasonCode; readonly heightFt: number }
@@ -78,11 +89,15 @@ export function reasonList(
   };
 }
 
-/** Text from another layer (personalization, board fit, distance) goes in front, uncoded. */
-export function prependReasons(list: ReasonList, texts: readonly string[]): ReasonList {
+/** Text from another layer (personalization, board fit, distance) goes in front; uncoded unless codes are given. */
+export function prependReasons(
+  list: ReasonList,
+  texts: readonly string[],
+  codes?: readonly ReasonCode[],
+): ReasonList {
   return {
     reasons: [...texts, ...list.reasons],
-    reasonCodes: [...texts.map(() => null), ...list.reasonCodes],
+    reasonCodes: [...texts.map((_, index) => codes?.[index] ?? null), ...list.reasonCodes],
   };
 }
 
@@ -112,17 +127,22 @@ export function dedupeReasons(list: ReasonList): ReasonList {
   });
 }
 
-/** The wave sentences lead the shown line; the order inside each group stays. */
+/** Cautions first, then the wave sentences, then other text; the order inside each group stays. */
+function leadRank(code: ReasonCode | undefined): number {
+  if (isCaution(code)) return 0;
+  return code == null ? 2 : 1;
+}
+
 export function waveSentencesFirst(list: ReasonList): ReasonList {
   const order = list.reasons.map((_, index) => index);
-  order.sort((a, b) => Number(list.reasonCodes[a] === null) - Number(list.reasonCodes[b] === null) || a - b);
+  order.sort((a, b) => leadRank(list.reasonCodes[a]) - leadRank(list.reasonCodes[b]) || a - b);
   return {
     reasons: order.map((index) => list.reasons[index]),
     reasonCodes: order.map((index) => list.reasonCodes[index]),
   };
 }
 
-const CONTRADICTS_NEGATIVE_VERDICT: ReadonlySet<ScoringReasonCode> = new Set([
+const CONTRADICTS_NEGATIVE_VERDICT: ReadonlySet<ReasonCode> = new Set<ReasonCode>([
   'size_good',
   'period_strong',
   'period_good',
@@ -148,6 +168,16 @@ export function reasonsForVerdict(list: ReasonList, negativeVerdict: boolean): R
  */
 export function apiReasons(list: ReasonList, negativeVerdict: boolean): ReasonList {
   return reasonsForVerdict(waveSentencesFirst(list), negativeVerdict);
+}
+
+/** The one line a hero shows: the first reason of the API order (a caution, else a wave sentence). */
+export function leadReasonLine(
+  reasons: readonly string[] | null | undefined,
+  reasonCodes: readonly ReasonCode[] | null | undefined,
+  negativeVerdict: boolean,
+): string | null {
+  if (!reasons || reasons.length === 0) return null;
+  return apiReasons(reasonList(reasons, reasonCodes), negativeVerdict).reasons[0] ?? null;
 }
 
 /** A positive-signal list never carries the "small side" sentence. */

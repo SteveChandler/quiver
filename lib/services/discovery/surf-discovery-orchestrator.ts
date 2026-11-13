@@ -526,6 +526,15 @@ export function generatePrimaryReason(
   forecast: EnhancedForecastEntity,
   userSkillLevel: SkillLevel | null
 ): string | null {
+  return primaryReasonWithCode(beach, forecast, userSkillLevel)?.text ?? null;
+}
+
+/** @internal The big-surf heads-up is a caution: it keeps the lead (`waveSentencesFirst`). */
+export function primaryReasonWithCode(
+  beach: Beach,
+  forecast: EnhancedForecastEntity,
+  userSkillLevel: SkillLevel | null
+): { text: string; code: ReasonCode } | null {
   if (!userSkillLevel) return null;
 
   const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
@@ -544,17 +553,20 @@ export function generatePrimaryReason(
 
   if (skillGap <= 0) {
     if (!wavesInIdealRange) return null;
-    return `Conditions at ${beach.name} match your experience level today`;
+    return { text: `Conditions at ${beach.name} match your experience level today`, code: null };
   }
 
   if (skillGap > 0 && wavesManageable) {
     const label = beachSkill ?? 'advanced';
     const heightDisplay = waveHeight > 0 ? ` ${Math.round(waveHeight * 10) / 10}ft` : '';
-    return `${beach.name} is an ${label} spot, but today's${heightDisplay} conditions are manageable`;
+    return { text: `${beach.name} is an ${label} spot, but today's${heightDisplay} conditions are manageable`, code: null };
   }
 
   const heightDisplay = waveHeight > 0 ? `${Math.round(waveHeight * 10) / 10}ft` : '';
-  return `Heads up: ${beach.name} is pumping today —${heightDisplay ? ` ${heightDisplay}` : ''} waves are above your usual range`;
+  return {
+    text: `Heads up: ${beach.name} is pumping today —${heightDisplay ? ` ${heightDisplay}` : ''} waves are above your usual range`,
+    code: 'caution_big_surf',
+  };
 }
 
 /**
@@ -1516,9 +1528,12 @@ async function scoreBeachForDiscovery(args: {
   }
 
   // Generate primary recommendation reason for skill-aware communication
-  const primaryReason = generatePrimaryReason(beach, forecast, userSkillLevel);
+  const primaryReason = primaryReasonWithCode(beach, forecast, userSkillLevel);
   if (primaryReason) {
-    setReasons(detailedScore, prependReasons(withoutReason(reasonsOf(detailedScore), primaryReason), [primaryReason]));
+    setReasons(
+      detailedScore,
+      prependReasons(withoutReason(reasonsOf(detailedScore), primaryReason.text), [primaryReason.text], [primaryReason.code]),
+    );
   }
 
   // Generate condition badges (keep existing badge generation)

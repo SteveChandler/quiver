@@ -426,6 +426,8 @@ describe('Scoring Engine', () => {
         .score(createInput({ waveHeight: 5 }));
       expect(result.total).toBe(69);
       expect(result.reasons).toEqual([tideEffect.message, SIZE_SENTENCE]);
+      // The tide headline is a caution, so the discovery reorder keeps it first.
+      expect(result.reasonCodes).toEqual(['caution_tide', null]);
       expect(result.warnings).toEqual([milderEffect.message, tideEffect.message]);
     });
 

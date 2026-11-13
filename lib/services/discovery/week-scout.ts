@@ -791,10 +791,11 @@ function buildDraftWindow(args: {
     ...detailed.subscores,
     personalizationBonus: personalization.personalizationBonus,
   };
-  const allReasons = prependReasons(reasonList(detailed.reasons, detailed.reasonCodes), [
-    ...(sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : []),
-    ...personalization.reasons,
-  ]);
+  const allReasons = prependReasons(
+    prependReasons(reasonList(detailed.reasons, detailed.reasonCodes), personalization.reasons),
+    sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : [],
+    ['caution_sources_disagree'],
+  );
   const negativeVerdict = label === 'Skip';
   // The sources warning leads when present; otherwise the wave sentence beats a
   // personalization line, which can name the surfer's level (Steven: never).

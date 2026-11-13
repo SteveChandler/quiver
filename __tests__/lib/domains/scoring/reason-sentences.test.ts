@@ -6,6 +6,7 @@ import {
   formatReasonSentence,
   insertReason,
   joinSentences,
+  leadReasonLine,
   positiveReasons,
   prependReasons,
   reasonList,
@@ -15,6 +16,7 @@ import {
   withoutReason,
   type ScoringReasonFact,
 } from '@/lib/domains/scoring/reason-sentences';
+import { buildDiscoveryMessage } from '@/lib/services/discovery/response-formatter';
 
 describe('formatReasonSentence', () => {
   // Approved copy (Steven, mock v2): the waves only, never the surfer's level or range.
@@ -120,5 +122,45 @@ describe('joinSentences', () => {
     expect(joinSentences(['Good tide', 'Solid swell period behind it.', 'Board fit: longboard.']))
       .toBe('Good tide. Solid swell period behind it. Board fit: longboard.');
     expect(joinSentences([' ', ''])).toBe('');
+  });
+});
+
+describe('cautions keep the lead', () => {
+  const headsUp = 'Heads up: PB Point is pumping today — 3.5ft waves are above your usual range';
+  const withCaution = prependReasons(
+    reasonList(
+      ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Good tide'],
+      ['size_good', 'period_good', null],
+    ),
+    [headsUp],
+    ['caution_big_surf'],
+  );
+
+  it('keeps a caution ahead of the wave sentences', () => {
+    expect(waveSentencesFirst(withCaution).reasons.slice(0, 2)).toEqual([headsUp, 'Good size at 3–4 ft.']);
+  });
+
+  it('never removes a caution beside a negative verdict', () => {
+    expect(apiReasons(withCaution, true).reasons).toEqual([headsUp, 'Good tide']);
+    expect(codeContradictsVerdict('caution_big_surf', true)).toBe(false);
+  });
+
+  it('keeps the caution in the top two reasons of the message', () => {
+    const message = buildDiscoveryMessage(55, apiReasons(withCaution, false).reasons, []);
+    expect(message).toBe(`Maybe - ${headsUp}. Good size at 3–4 ft.`);
+  });
+
+  it('shows the caution first in the hero line', () => {
+    expect(leadReasonLine(withCaution.reasons, withCaution.reasonCodes, false)).toBe(headsUp);
+    expect(leadReasonLine(withCaution.reasons, withCaution.reasonCodes, true)).toBe(headsUp);
+    expect(leadReasonLine([], [], false)).toBeNull();
+  });
+
+  it('keeps the tide and data cautions ahead of the wave sentences too', () => {
+    const list = reasonList(
+      ['Good size at 3–4 ft.', 'Tide back in range by ~1 PM', 'Wave forecasts disagree; check conditions before choosing this window.'],
+      ['size_good', 'caution_tide', 'caution_sources_disagree'],
+    );
+    expect(waveSentencesFirst(list).reasons[2]).toBe('Good size at 3–4 ft.');
   });
 });
