@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { interpolateTideHeight } from "@/lib/utils/tide-interpolation";
+import { formatTideAxisValue, tideYTicks } from "@/lib/utils/tide-axis";
 import {
   calculateTideWindow,
   filterToWindow,
@@ -277,6 +278,8 @@ export function TideChart({
     return [low, high];
   }, [yDomain, chartData]);
 
+  const yTicks = React.useMemo(() => tideYTicks(computedYDomain), [computedYDomain]);
+
   const windowDurationLabel = React.useMemo(
     () => formatWindowDuration(windowBounds),
     [windowBounds]
@@ -383,8 +386,9 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               width={36}
+              ticks={yTicks}
               tick={{ fontSize: 12, fill: "#B0BFDA", fontWeight: 500 }}
-              tickFormatter={(v) => v.toFixed(0)}
+              tickFormatter={formatTideAxisValue}
             />
 
             <Area
