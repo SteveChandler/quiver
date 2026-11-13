@@ -1367,6 +1367,8 @@ describe("GET /api/surf/call", () => {
     expect(body.data.report.whySentence).toContain(
       "Board fit: Good longboard size at 2–3 ft.",
     );
+    // The note is a whole sentence; the board line keeps one full stop.
+    expect(body.data.report.whySentence).not.toContain("ft..");
   });
 
   it("ignores invalid boardClass values", async () => {
