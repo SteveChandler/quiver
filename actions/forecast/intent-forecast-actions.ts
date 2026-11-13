@@ -11,6 +11,9 @@ import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import { getTideHeightAtTime, getTideStatusAtTime, getNextTideFromTime } from "@/lib/services/noaa-coops/tide-analysis";
 import type { TideData } from "@/lib/services/noaa-coops/types";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
+import { buildCityTideView, cityTideHeadline, loadStationTideView, type CityTideView } from "@/lib/tides/city-tide-view";
+import { formatDateKey } from "@/lib/tide-stations/format";
+import { localDateKey } from "@/lib/tide-stations/series";
 import { findMagicHour } from "@/lib/services/magic-hour/magic-hour-finder";
 import type { BeachMetadata, MagicHourResult } from "@/lib/services/magic-hour/types";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -97,6 +100,8 @@ export interface CityTideDataExpanded extends CityTideData {
   sevenDayExtrema: TideDayExtrema[];
   hourlyPoints: Array<{ time: string; height: number }>;
   beachTidePreferences: BeachTidePreference[];
+  /** The one series the tide page draws; hero, title and table fields above are read from it. */
+  view: CityTideView | null;
 }
 
 /**
@@ -641,6 +646,7 @@ export async function getCityTideDataExpanded(
         sevenDayExtrema: [],
         hourlyPoints: [],
         beachTidePreferences: [],
+        view: null,
       };
     }
 
@@ -656,6 +662,38 @@ export async function getCityTideDataExpanded(
     console.error("Error in getCityTideDataExpanded:", error);
     return null;
   }
+}
+
+/**
+ * The beach's stored hourly series (already the station's NOAA table, interpolated
+ * to the hour) when the station's own table is not available.
+ */
+function storedSeriesView(
+  rows: Array<{ ts: string; tide_height_m: number | null; tide_ft?: number | null }>,
+  timeZone: string,
+  renderedAtMs: number
+): CityTideView {
+  const samples: Array<{ ts: string; tide_height_m: number }> = [];
+  const hourly: Array<{ ts: string; heightM: number }> = [];
+  for (const row of rows) {
+    const heightM = row.tide_height_m ?? (row.tide_ft != null ? row.tide_ft / METERS_TO_FEET : null);
+    if (heightM == null) continue;
+    samples.push({ ts: row.ts, tide_height_m: heightM });
+    // The curve keeps the stored feet value where there is one, so it matches the beach page.
+    hourly.push({ ts: row.ts, heightM: row.tide_ft != null ? row.tide_ft / METERS_TO_FEET : heightM });
+  }
+  const extrema = new TideExtremaDetector({ precision: 2 }).detectExtrema(samples);
+  return buildCityTideView({
+    timeZone,
+    renderedAtMs,
+    station: null,
+    hourly,
+    extremes: extrema.map((ex) => ({
+      ts: new Date(ex.time * 1000).toISOString(),
+      type: ex.type,
+      heightM: ex.height / METERS_TO_FEET,
+    })),
+  });
 }
 
 async function fetchExpandedTideData(
@@ -685,75 +723,9 @@ async function fetchExpandedTideData(
       .order("name", { ascending: true }),
   ]);
 
-  // Process hourly tide data - keep both feet and meters for different uses
-  const hourlyPoints: Array<{ time: string; height: number }> = [];
-  const samplesForDetector: Array<{ ts: string; tide_height_m: number }> = [];
-
-  if (tideResult.data) {
-    for (const row of selectTideSeries(tideResult.data)) {
-      const heightFt = row.tide_ft ?? (row.tide_height_m != null ? row.tide_height_m * METERS_TO_FEET : null);
-      const heightM = row.tide_height_m ?? (row.tide_ft != null ? row.tide_ft / METERS_TO_FEET : null);
-
-      if (heightFt != null) {
-        hourlyPoints.push({
-          time: row.ts,
-          height: Math.round(heightFt * 100) / 100,
-        });
-      }
-      if (heightM != null) {
-        samplesForDetector.push({ ts: row.ts, tide_height_m: heightM });
-      }
-    }
-  }
-
-  // Use battle-tested TideExtremaDetector (handles boundary + plateau cases)
-  const detector = new TideExtremaDetector({ precision: 2 });
-  const extremaRaw = detector.detectExtrema(samplesForDetector);
-
-  // Group extrema by day with explicit timezone for deterministic output
-  const today = new Date();
-  const dateFmt = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
-  const todayStr = dateFmt.format(today);
-  const isoDateFmt = getLocalDateFormatter(timeZone); // YYYY-MM-DD, lexicographically sortable
-  const todayIso = isoDateFmt.format(today);
-  const dayMap = new Map<string, TideDayExtrema & { _isoDate: string }>();
-
-  const timeFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  for (const ex of extremaRaw) {
-    const exDate = new Date(ex.time * 1000); // TideExtreme.time is unix seconds
-    const dateKey = dateFmt.format(exDate);
-
-    if (!dayMap.has(dateKey)) {
-      dayMap.set(dateKey, {
-        date: dateKey,
-        _isoDate: isoDateFmt.format(exDate),
-        label: formatDayLabel(exDate, today, timeZone),
-        isToday: dateKey === todayStr,
-        events: [],
-      });
-    }
-
-    const day = dayMap.get(dateKey)!;
-    day.events.push({
-      time: exDate.toISOString(),
-      height: ex.height,
-      type: ex.type,
-      timeFormatted: timeFmt.format(exDate),
-    });
-  }
-
-  // Filter out past days, sort chronologically, and limit to 7
-  const sevenDayExtrema = Array.from(dayMap.values())
-    .filter((day) => day._isoDate >= todayIso)
-    .sort((a, b) => a._isoDate.localeCompare(b._isoDate))
-    .slice(0, 7)
-    .map(({ _isoDate: _, ...rest }) => rest);
+  const selectedRows = tideResult.data ? selectTideSeries(tideResult.data) : [];
+  const renderedAtMs = Date.now();
+  const stationView = await loadStationTideView(selectedRows.find((row) => row.station_id)?.station_id, renderedAtMs);
 
   // Process beach preferences
   const beachTidePreferences: BeachTidePreference[] = (beachesResult.data || []).map(
@@ -767,11 +739,44 @@ async function fetchExpandedTideData(
     })
   );
 
+  const view = stationView ?? storedSeriesView(selectedRows, timeZone, renderedAtMs);
+
+  // Hero, title and table read the same series as the chart. The old fields came from
+  // the city's first forecast row, which can be another beach on another station.
+  const headline = cityTideHeadline(view);
+  const todayKey = localDateKey(renderedAtMs, view.timeZone);
+  const tomorrowKey = localDateKey(renderedAtMs + 24 * 60 * 60 * 1000, view.timeZone);
+  const viewDayLabel = (dateKey: string): string =>
+    dateKey === todayKey ? "Today" : dateKey === tomorrowKey ? "Tomorrow" : formatDateKey(dateKey);
+  const viewTimeFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: view.timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
   return {
     ...baseTideData,
-    sevenDayExtrema,
-    hourlyPoints,
+    ...headline,
+    tideStation: view.station?.name ?? null,
+    sevenDayExtrema: view.days.map((day) => ({
+      // MM/DD/YYYY, the field's existing format.
+      date: `${day.dateKey.slice(5, 7)}/${day.dateKey.slice(8, 10)}/${day.dateKey.slice(0, 4)}`,
+      label: viewDayLabel(day.dateKey),
+      isToday: day.dateKey === todayKey,
+      events: day.extremes.map((ex) => ({
+        time: ex.ts,
+        height: Math.round(ex.heightM * METERS_TO_FEET * 100) / 100,
+        type: ex.type,
+        timeFormatted: viewTimeFmt.format(new Date(ex.ts)),
+      })),
+    })),
+    hourlyPoints: view.curve.map((p) => ({
+      time: new Date(p.timestamp).toISOString(),
+      height: Math.round(p.heightFt * 100) / 100,
+    })),
     beachTidePreferences,
+    view,
   };
 }
 
