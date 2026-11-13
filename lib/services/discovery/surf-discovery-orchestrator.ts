@@ -557,8 +557,9 @@ export function primaryReasonWithCode(
   }
 
   if (skillGap > 0 && wavesManageable) {
-    const label = beachSkill ?? 'advanced';
-    return { text: formatMellowBreak(label, beach.name, waveHeight), code: 'break_mellow' };
+    // An unknown break level is not "advanced": with no level there is no true line to say.
+    if (!beachSkill) return null;
+    return { text: formatMellowBreak(beachSkill, beach.name, waveHeight), code: 'break_mellow' };
   }
 
   return {

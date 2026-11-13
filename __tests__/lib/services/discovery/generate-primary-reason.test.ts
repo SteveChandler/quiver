@@ -75,13 +75,16 @@ describe('generatePrimaryReason', () => {
   });
 
   describe('beach with no skill_level', () => {
-    it('defaults to intermediate (rank 1) for null skill_level', () => {
+    it('sends no mellow-break line for a null skill_level: it cannot name the break level', () => {
       const beach = makeBeach({ skill_level: null });
-      // Beginner = rank 0, default beach = rank 1 → skillGap = 1
-      // 2ft <= beginner ideal max (3) → manageable
-      const result = generatePrimaryReason(beach, makeForecast('2'), 'beginner');
-      // The label word keeps its old fallback ('advanced' for a missing skill level).
-      expect(result).toBe("PB Point is an advanced break, but it's mellow today at 1–2 ft.");
+      // Beginner = rank 0, default beach = rank 1 → skillGap = 1; 2ft is manageable.
+      // The old line called an unknown break "advanced", a claim no data backs.
+      expect(generatePrimaryReason(beach, makeForecast('2'), 'beginner')).toBeNull();
+    });
+
+    it('still warns on big surf at a beach with a null skill_level', () => {
+      const beach = makeBeach({ skill_level: null });
+      expect(generatePrimaryReason(beach, makeForecast('6.4'), 'beginner')).toBe('Heads up: PB Point is pumping at 6–7 ft.');
     });
   });
 });
