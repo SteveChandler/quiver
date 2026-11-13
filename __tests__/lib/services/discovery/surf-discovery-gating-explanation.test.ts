@@ -52,4 +52,22 @@ describe("gateSurfDiscoveryResponse personal explanation", () => {
       "Matches your preferred break type. One of your go-to spots. Good size at 3–4 ft.",
     );
   });
+  it("keeps a caution first in the personal explanation, ahead of the personal lines", () => {
+    const result = respond({
+      reasons: [
+        "Heads up: Blacks is pumping today — 6.4ft waves are above your usual range",
+        "Good size at 3–4 ft.",
+        "Matches your preferred break type",
+        "One of your go-to spots",
+        "Wind matches your usual sessions",
+      ],
+      reasonCodes: ["caution_big_surf", "size_good", null, null, null],
+      conditionBadges: [],
+    });
+    const rec = result.recommendations[0] as { personalExplanation?: string };
+
+    expect(rec.personalExplanation).toBe(
+      "Heads up: Blacks is pumping today — 6.4ft waves are above your usual range. Matches your preferred break type. One of your go-to spots.",
+    );
+  });
 });

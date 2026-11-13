@@ -199,12 +199,15 @@ export function leadReasonLine(
 
 /**
  * The personal explanation reads the personal lines (personalization, board
- * fit, skill match): text with no code first, then the coded lines, each group
- * in list order. This undoes the wave-first API order for that one field.
+ * fit, skill match): cautions first, then text with no code, then the wave
+ * sentences, each group in list order. This undoes the wave-first API order
+ * for that one field.
  */
 export function personalLinesFirst(list: ReasonList): ReasonList {
+  // A caution still leads: the app reads this field first, so a cut must never drop it.
+  const rank = (code: ReasonCode | undefined): number => (isCaution(code) ? 0 : code == null ? 1 : 2);
   const order = list.reasons.map((_, index) => index);
-  order.sort((a, b) => Number(list.reasonCodes[a] != null) - Number(list.reasonCodes[b] != null) || a - b);
+  order.sort((a, b) => rank(list.reasonCodes[a]) - rank(list.reasonCodes[b]) || a - b);
   return {
     reasons: order.map((index) => list.reasons[index]),
     reasonCodes: order.map((index) => list.reasonCodes[index]),
