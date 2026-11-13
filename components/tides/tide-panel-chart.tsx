@@ -23,7 +23,7 @@ import {
  */
 
 const HOUR_MS = 3_600_000;
-const WIDTH = 340;
+const WIDTH = 300;
 const HEIGHT = 148;
 const PADDING = { top: 18, right: 12, bottom: 24, left: 34 };
 const INK = "#11100D";
@@ -64,7 +64,9 @@ export function TidePanelChart({ curve, extremes, timeZone, renderedAtMs }: Tide
 
   const hours = SPANS.find((s) => s.key === span)?.hours ?? 24;
   // Same past share as the old page chart: a fifth of the span behind now.
-  const chartStart = Math.floor((nowMs - hours * 0.2 * HOUR_MS) / HOUR_MS) * HOUR_MS;
+  // Never start before the series does, or the left edge is an empty band.
+  const seriesStart = curve.length ? Math.ceil(curve[0].timestamp / HOUR_MS) * HOUR_MS : nowMs;
+  const chartStart = Math.max(seriesStart, Math.floor((nowMs - hours * 0.2 * HOUR_MS) / HOUR_MS) * HOUR_MS);
   const chartEnd = chartStart + hours * HOUR_MS;
   const points = curve.filter((p) => p.timestamp >= chartStart - HOUR_MS && p.timestamp <= chartEnd + HOUR_MS);
   const nowHeight = tideHeightOnCurve(curve, nowMs);
@@ -134,7 +136,7 @@ export function TidePanelChart({ curve, extremes, timeZone, renderedAtMs }: Tide
           {yTicks.map((value) => (
             <g key={`y-${value}`}>
               <line x1={PADDING.left} x2={WIDTH - PADDING.right} y1={scaleY(value)} y2={scaleY(value)} stroke={INK} strokeOpacity={0.15} />
-              <text x={PADDING.left - 6} y={scaleY(value) + 4} fill={INK_MUTED} fontSize={9} textAnchor="end">
+              <text x={PADDING.left - 6} y={scaleY(value) + 4} fill={INK_MUTED} fontSize={10} textAnchor="end">
                 {formatTideAxisValue(value)}
               </text>
             </g>
@@ -153,7 +155,7 @@ export function TidePanelChart({ curve, extremes, timeZone, renderedAtMs }: Tide
               x={scaleX(tick.timestamp)}
               y={HEIGHT - 7}
               fill={INK_MUTED}
-              fontSize={9}
+              fontSize={10}
               textAnchor={index === 0 && span === "24h" ? "start" : index === xTicks.length - 1 && span === "24h" ? "end" : "middle"}
             >
               {tick.label}
@@ -175,7 +177,7 @@ export function TidePanelChart({ curve, extremes, timeZone, renderedAtMs }: Tide
         )}
       </div>
 
-      <div className="flex gap-2 font-mono text-[11px] leading-[14px] text-[#11100D]">
+      <div className="flex flex-col gap-0.5 font-mono text-[11px] leading-[14px] text-[#11100D] sm:flex-row sm:gap-2">
         <span className="min-w-0 flex-1">{nextLow ? formatExtremeLabel(nextLow, timeZone) : "Low —"}</span>
         <span className="min-w-0 flex-1">{nextHigh ? formatExtremeLabel(nextHigh, timeZone) : "High —"}</span>
       </div>
