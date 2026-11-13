@@ -14,7 +14,8 @@ jest.mock("@/lib/cron/observability", () => ({
 }));
 
 jest.mock("@/lib/services/open-meteo-wind-service", () => ({
-  fetchHourlyWind: jest.fn(),
+  fetchHourlyWindOrThrow: jest.fn(),
+  isOpenMeteoUpstreamError: jest.requireActual("@/lib/services/open-meteo-wind-service").isOpenMeteoUpstreamError,
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -47,7 +48,9 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
-import { fetchHourlyWind } from "@/lib/services/open-meteo-wind-service";
+import { fetchHourlyWindOrThrow as fetchHourlyWind } from "@/lib/services/open-meteo-wind-service";
+import { withCronOutcome } from "@/lib/cron/outcome";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { GET } from "@/app/api/cron/wind/update/route";
@@ -71,6 +74,42 @@ function makeWindPoints(count: number) {
     wind_direction_deg: (i * 15) % 360,
     wind_gust_mph: 12 + (i % 5),
   }));
+}
+
+function timeoutError(): Error {
+  return Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+}
+
+function mockClient(
+  beachCount: number,
+  rpc: (args: Record<string, unknown>) => { data: unknown; error: unknown },
+  rpcCalls: Array<{ fn: string; args: Record<string, unknown> }>,
+): void {
+  const beachesQuery = {
+    select: jest.fn().mockReturnValue({
+      not: jest.fn().mockReturnValue({
+        not: jest.fn().mockResolvedValue({ data: makeBeaches(beachCount), error: null }),
+      }),
+    }),
+  };
+  (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+    from: jest.fn((table: string) => {
+      if (table === "beaches") return beachesQuery;
+      throw new Error(`unexpected table: ${table}`);
+    }),
+    rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
+      rpcCalls.push({ fn, args });
+      return rpc(args);
+    }),
+  });
+}
+
+type OutcomeOptions = { failureReason?: (value: unknown) => string | null };
+
+function lastFailureReason(summary: unknown): string | null {
+  const calls = (withCronOutcome as jest.Mock).mock.calls;
+  const options = calls[calls.length - 1][0] as OutcomeOptions;
+  return options.failureReason?.(summary) ?? null;
 }
 
 function makeRequest(): Request {
@@ -230,6 +269,7 @@ describe("GET /api/cron/wind/update", () => {
       fetchErrors: 1,
       sampleErrors: ["Beach 1: fetch failed"],
     });
+    expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("filters null wind speeds before calling the RPC", async () => {
@@ -260,5 +300,130 @@ describe("GET /api/cron/wind/update", () => {
         wind_direction_deg: 90,
       },
     ]);
+  });
+
+  it("stops after two batches in which every Open-Meteo fetch times out", async () => {
+    mockClient(580, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
+
+    const response = await GET(makeRequest());
+    expect(response.status).toBe(503);
+    const body = await response.json();
+
+    expect(fetchHourlyWind).toHaveBeenCalledTimes(20);
+    expect(rpcCalls).toHaveLength(0);
+    expect(body.error).toMatch(/^upstream_unavailable: /);
+    expect(body.details).toMatchObject({
+      beaches: 580,
+      attemptedBeaches: 20,
+      updated: 0,
+      fetchErrors: 20,
+      upstreamFetchErrors: 20,
+      stoppedReason: "upstream_unavailable",
+    });
+    expect(lastFailureReason(body.details)).toMatch(/^upstream_unavailable: Open-Meteo wind .*2 consecutive batches.*TimeoutError/);
+    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("names the connection error code in the upstream reason", async () => {
+    mockClient(20, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(
+      Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }),
+    );
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toContain("(TypeError/ECONNREFUSED)");
+    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("names only the errors of the failed streak in the stop reason", async () => {
+    mockClient(40, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockImplementation(async (lat: number) => {
+      const index = Math.round((lat - 30) * 100);
+      // Batch 1: one AbortError among good fetches. Batches 3-4: refused connections.
+      if (index === 3) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+      if (index >= 20) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+      return makeWindPoints(48);
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toContain("(TypeError/ECONNREFUSED)");
+    expect(body.error).not.toContain("AbortError");
+    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("resets the breaker when a batch has one good Open-Meteo fetch", async () => {
+    mockClient(30, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockImplementation(async (lat: number) => {
+      // Beach 15 (batch 2) answers; all others time out.
+      if (Math.abs(lat - 30.15) < 1e-9) return makeWindPoints(48);
+      throw timeoutError();
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(fetchHourlyWind).toHaveBeenCalledTimes(30);
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({ stoppedReason: null, attemptedBeaches: 30, updated: 8 });
+    expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("does not trip the upstream breaker on RPC errors", async () => {
+    mockClient(40, () => ({ data: null, error: { message: "simulated supabase RST", code: "08006" } }), rpcCalls);
+
+    const response = await GET(makeRequest());
+    expect(response.status).toBe(500);
+    const body = await response.json();
+
+    expect(fetchHourlyWind).toHaveBeenCalledTimes(40);
+    expect(rpcCalls).toHaveLength(40);
+    expect(body.details).toMatchObject({ errors: 40, attemptedBeaches: 40, stoppedReason: null });
+    expect(lastFailureReason(body.details)).toBeNull();
+  });
+
+  it("does not count non-network fetch errors toward the breaker", async () => {
+    mockClient(30, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(fetchHourlyWind).toHaveBeenCalledTimes(30);
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({ fetchErrors: 30, upstreamFetchErrors: 0, stoppedReason: null });
+    // Zero rows still fails the outcome through expectedMin; it is just not an upstream stop.
+    expect(lastFailureReason(body.data)).toBeNull();
+    expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("stops at the wall-clock deadline and records a non-ok outcome", async () => {
+    mockClient(40, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    let now = 1_000_000;
+    const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+    (fetchHourlyWind as jest.Mock).mockImplementation(async () => {
+      now += 5_000; // each fetch takes 5 s of wall clock; a batch of 10 = 50 s
+      return makeWindPoints(48);
+    });
+
+    try {
+      const response = await GET(makeRequest());
+      expect(response.status).toBe(503);
+      const body = await response.json();
+
+      expect(fetchHourlyWind).toHaveBeenCalledTimes(20);
+      expect(body.error).toMatch(/^deadline_exceeded: /);
+      expect(body.details).toMatchObject({ attemptedBeaches: 20, updated: 20 * 8, stoppedReason: "deadline_exceeded" });
+      expect(lastFailureReason(body.details)).toMatch(/^deadline_exceeded: /);
+      expectConsoleWarnings([/\[Wind\] Stopped early: deadline_exceeded/]);
+    } finally {
+      clock.mockRestore();
+    }
   });
 });

@@ -1,4 +1,11 @@
-import { parseOpenMeteoWindResponse, buildOpenMeteoWindUrl } from '@/lib/services/open-meteo-wind-service';
+import {
+  parseOpenMeteoWindResponse,
+  buildOpenMeteoWindUrl,
+  fetchHourlyWind,
+  fetchHourlyWindOrThrow,
+  isOpenMeteoUpstreamError,
+} from '@/lib/services/open-meteo-wind-service';
+import { expectConsoleWarnings } from '@/__tests__/setup/test-utils';
 
 describe('buildOpenMeteoWindUrl', () => {
   it('builds correct URL for a single location', () => {
@@ -53,5 +60,41 @@ describe('parseOpenMeteoWindResponse', () => {
   it('returns empty array for missing hourly data', () => {
     expect(parseOpenMeteoWindResponse({})).toEqual([]);
     expect(parseOpenMeteoWindResponse({ hourly: {} })).toEqual([]);
+  });
+});
+
+describe('isOpenMeteoUpstreamError', () => {
+  it.each([
+    [Object.assign(new Error('aborted due to timeout'), { name: 'TimeoutError' }), true],
+    [Object.assign(new Error('aborted'), { name: 'AbortError' }), true],
+    [new TypeError('fetch failed'), true],
+    [new TypeError('Cannot read properties of undefined'), false],
+    [new SyntaxError('Unexpected token < in JSON'), false],
+    ['fetch failed', false],
+  ])('classifies %p as %p', (err, expected) => {
+    expect(isOpenMeteoUpstreamError(err)).toBe(expected);
+  });
+});
+
+describe('fetchHourlyWindOrThrow / fetchHourlyWind', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('throws when the request gets no HTTP response, and the lenient wrapper returns []', async () => {
+    const timeout = Object.assign(new Error('aborted due to timeout'), { name: 'TimeoutError' });
+    global.fetch = jest.fn().mockRejectedValue(timeout) as unknown as typeof fetch;
+
+    await expect(fetchHourlyWindOrThrow(32.7, -117.2)).rejects.toBe(timeout);
+    await expect(fetchHourlyWind(32.7, -117.2)).resolves.toEqual([]);
+    expectConsoleWarnings([/Open-Meteo wind fetch failed/]);
+  });
+
+  it('returns [] on a non-2xx response without throwing', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 }) as unknown as typeof fetch;
+
+    await expect(fetchHourlyWindOrThrow(32.7, -117.2)).resolves.toEqual([]);
+    expectConsoleWarnings([/returned 503/]);
   });
 });
