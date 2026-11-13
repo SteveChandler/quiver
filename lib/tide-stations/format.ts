@@ -29,7 +29,9 @@ export function formatDateKey(dateKey: string): string {
 }
 
 export function formatFeet(heightM: number): string {
-  return `${metresToFeet(heightM).toFixed(1)} ft`;
+  const feet = Number(metresToFeet(heightM).toFixed(1));
+  // A height that rounds to zero reads "0.0 ft", never "-0.0 ft".
+  return `${(Object.is(feet, -0) ? 0 : feet).toFixed(1)} ft`;
 }
 
 export function formatMetres(heightM: number): string {

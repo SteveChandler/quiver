@@ -19,12 +19,12 @@ Intent components provide:
 Dedicated Tide Page (/tide/[city])
 │
 ├── TidePageContent (root orchestrator)
-│   ├── BreadcrumbStructuredData
+│   ├── ZineSurface (cream paper) with TideBreadcrumbs (visible + BreadcrumbList)
+│   ├── TideStationNow, TideWeekTable (from /components/tide-stations)
+│   ├── TidePanelChart (/components/tides; web port of native CompactTideDrilldownChart)
+│   ├── Tide station card (links /tides/station/[slug])
+│   ├── BeachTideCards ("Tide by spot": range + direction, no skill badges)
 │   ├── FAQSchema
-│   ├── TideHeroSection (current conditions)
-│   ├── TideFullChart (interactive multi-day chart)
-│   ├── SevenDayTideTable (7-day high/low schedule)
-│   ├── BeachTideCards (per-beach tide preferences)
 │   ├── InlineSignupCta
 │   ├── CityMapView (from /components/city)
 │   ├── CTASection
@@ -47,220 +47,22 @@ State Intent Page (/[intent]/[state])
 
 **File**: `tide-page-content.tsx`
 
-**Type**: Server component
+Renders `/tide/[city]`. Every tide number on the page (hero, chart, week table, and the
+`<title>` built in `app/[intent]/[city]/page.tsx`) comes from one series,
+`tideData.view` (`CityTideView`, `lib/tides/city-tide-view.ts`):
 
-**Purpose**: Root orchestrator for `/tide/[city]` pages. Composes the full tide experience from hero section through charts, tables, beach cards, map, editorial content, and CTAs. Includes structured data (breadcrumbs, FAQ schema) for SEO.
+- the NOAA station table for the representative beach's `tide_forecasts.station_id`
+  (the same table `/tides/station/[slug]` shows), or
+- the beach's stored hourly series when the station row or NOAA is unavailable.
 
-**Props**:
+`view` is null (or has no extremes) when there is no series; the tide modules are then hidden.
+The tide modules sit on cream paper (`ZineSurface`); session handoff, app CTA, map, focus
+points, explore links and FAQ follow on the stage.
 
-```typescript
-interface TidePageContentProps {
-  cityName: string;
-  citySlug: string;
-  stateSlug: string;
-  stateName: string;
-  regionLabel: string;
-  pageContent: IntentPageContent;
-  tideData: CityTideDataExpanded;
-  spots: SurfSpot[];
-  updatedAt: string;
-  baseUrl: string;
-}
-```
+### 2–5. Removed (Nov 2026)
 
-**Key Features**:
-
-- Composes TideHeroSection, TideFullChart, SevenDayTideTable, and BeachTideCards in sequence
-- Injects BreadcrumbStructuredData and FAQSchema for SEO
-- Includes CityMapView for spot recommendations when beaches are available
-- Renders editorial "focus points" from SURF_INTENTS definition
-- "Continue exploring" aside links to related intent pages (beginner, water-temp, least-crowded)
-- Includes InlineSignupCta, CTASection, and StickySignupBar for conversion
-
-**Composition Flow**:
-
-```
-Header (breadcrumb + heading + intro)
-  -> TideHeroSection (current conditions)
-  -> TideFullChart (interactive chart)
-  -> SevenDayTideTable (7-day schedule)
-  -> BeachTideCards (per-beach preferences)
-  -> InlineSignupCta
-  -> CityMapView (spot recommendations)
-  -> Focus Points (editorial)
-  -> Continue Exploring (cross-links)
-  -> CTASection + StickySignupBar
-```
-
----
-
-### 2. TideHeroSection
-
-**File**: `tide-hero-section.tsx`
-
-**Type**: Server component
-
-**Purpose**: Prominent hero section displaying current tide conditions with large height readout, status badge (rising/falling), next tide info, and NOAA station attribution.
-
-**Props**:
-
-```typescript
-interface TideHeroSectionProps {
-  data: CityTideDataExpanded;
-}
-```
-
-The component destructures `data` to access: `currentStatus`, `currentHeight`, `nextTideType`, `nextTideTime`, `nextTideHeight`, `beachName`, `tideStation`.
-
-**Key Features**:
-
-- Large numeric height display (e.g., "3.2 ft") parsed from string
-- Rising/falling status badge with directional arrow icons
-- Next tide panel with time and height
-- NOAA station attribution footer
-- Responsive layout: stacked on mobile, side-by-side on desktop
-
-**Icon Logic**:
-
-```typescript
-isRising  -> ArrowUp icon (blue)
-isFalling -> ArrowDown icon (blue)
-nextHigh  -> ArrowUp icon
-nextLow   -> ArrowDown icon
-```
-
-**Styling Patterns**:
-
-- Container: `rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg`
-- Height Display: `text-5xl font-bold text-blue-800` with `text-2xl font-semibold text-blue-600` unit
-- Status Badge: `bg-blue-100/80 text-blue-800`
-- Attribution: `text-xs text-gray-500` with `border-t border-blue-100/50`
-
----
-
-### 3. TideFullChart
-
-**File**: `tide-full-chart.tsx`
-
-**Type**: Client component (`"use client"`)
-
-**Purpose**: Full interactive tide chart with three time range tabs (Today, 3-Day, 7-Day). Wraps the shared `TideChart` component from `/components/forecast` with time range toggling and a larger chart viewport.
-
-**Props**:
-
-```typescript
-interface TideFullChartProps {
-  hourlyPoints: Array<{ time: string; height: number }>;
-}
-```
-
-**Key Features**:
-
-- Three time range tabs: Today (24h), 3-Day (72h), 7-Day (168h)
-- Time window shows 20% past / 80% future relative to current time
-- Wraps shared `TideChart` component with `compact={true}` and dynamic `windowHours`
-- Memoized date reference (`useMemo`) to prevent re-renders
-- Returns `null` when `hourlyPoints` is empty
-
-**Tab Configuration**:
-
-```typescript
-const TAB_CONFIG = [
-  { key: "today", label: "Today",  hours: 24  },
-  { key: "3day",  label: "3-Day",  hours: 72  },
-  { key: "7day",  label: "7-Day",  hours: 168 },
-];
-```
-
-**Styling Patterns**:
-
-- Tab Container: `flex rounded-lg bg-gray-100 p-0.5`
-- Active Tab: `bg-white text-blue-700 shadow-sm`
-- Inactive Tab: `text-gray-600 hover:text-gray-800`
-- Chart Container: `h-80 w-full rounded-2xl border bg-white p-2 shadow-sm`
-- ARIA: `role="tablist"` on container, `role="tab"` with `aria-selected` on buttons
-
----
-
-### 4. SevenDayTideTable
-
-**File**: `seven-day-tide-table.tsx`
-
-**Type**: Client component (`"use client"`)
-
-**Purpose**: 7-day table of high/low tide extrema grouped by day, with responsive layouts for desktop (horizontal table) and mobile (stacked cards).
-
-**Props**:
-
-```typescript
-interface SevenDayTideTableProps {
-  days: TideDayExtrema[];
-}
-```
-
-**Key Features**:
-
-- Desktop: HTML `<table>` with columns Day | High 1 | Low 1 | High 2 | Low 2
-- Mobile: Stacked card-per-day layout with grid of events
-- Today's row highlighted with blue background and left border accent
-- Internal `TideEventCell` component renders individual tide events with directional icons
-- Returns `null` when `days` is empty
-- Accessible: `<caption className="sr-only">` for screen readers
-
-**Internal Components**:
-
-- **`TideEventCell`**: Renders a single tide event with arrow icon (blue for high, indigo for low), formatted time, and height in feet
-
-**Styling Patterns**:
-
-- Desktop Table: `hidden md:block overflow-x-auto rounded-2xl border border-gray-200 shadow-sm`
-- Today Row: `bg-blue-50 border-l-2 border-l-blue-500`
-- Mobile Card: `rounded-xl border p-4 shadow-sm`, today variant: `bg-blue-50 border-blue-200`
-- High Tide Icon: `text-blue-600`
-- Low Tide Icon: `text-indigo-500`
-
----
-
-### 5. BeachTideCards
-
-**File**: `beach-tide-cards.tsx`
-
-**Type**: Server component
-
-**Purpose**: Grid of per-beach tide preference cards showing each beach's preferred tide range, preferred tide direction, and skill level badge. Links to individual beach detail pages.
-
-**Props**:
-
-```typescript
-interface BeachTideCardsProps {
-  beaches: BeachTidePreference[];
-  citySlug: string;
-  stateSlug: string;
-}
-```
-
-**Key Features**:
-
-- Filters beaches to only those with at least one tide preference attribute
-- Skill level color-coded badges (green=beginner, yellow=intermediate, red=advanced)
-- Preferred tide range displayed as pill (e.g., "1.2--3.5 ft")
-- Directional icon for preferred tide direction (rising/falling/neutral)
-- Links to beach detail pages when slug is available; plain card otherwise
-- Returns `null` when no beaches have preference data
-
-**Internal Components**:
-
-- **`DirectionIcon`**: Maps direction strings to ArrowUp (rising), ArrowDown (falling), or Minus (neutral)
-- **`skillLevelColor`**: Returns Tailwind classes based on skill level string
-
-**Styling Patterns**:
-
-- Grid: `grid gap-4 sm:grid-cols-2`
-- Card: `rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow`
-- Tide Range Pill: `rounded-md bg-blue-50 px-2 py-1 text-blue-800 font-medium`
-- Skill Badges: `bg-green-100 text-green-800` (beginner), `bg-yellow-100 text-yellow-800` (intermediate), `bg-red-100 text-red-800` (advanced)
-
----
+`TideHeroSection`, `TideFullChart` and `SevenDayTideTable` were replaced by the station page
+parts and `TidePanelChart`. `BeachTideCards` now renders the paper "Tide by spot" list.
 
 ### 6. TideOverviewSection
 
@@ -412,9 +214,9 @@ interface CityLink {
 │ │ TidePageContent         │ │ TideOverviewSection      │       │
 │ │ (root orchestrator)     │ │ (compact card)           │       │
 │ │                         │ └──────────────────────────┘       │
-│ │ ├── TideHeroSection     │                                    │
-│ │ ├── TideFullChart       │ ┌──────────────────────────┐       │
-│ │ ├── SevenDayTideTable   │ │ WaterTempOverviewSection │       │
+│ │ ├── TideStationNow      │                                    │
+│ │ ├── TidePanelChart      │ ┌──────────────────────────┐       │
+│ │ ├── TideWeekTable       │ │ WaterTempOverviewSection │       │
 │ │ └── BeachTideCards      │ │ (compact card + chart)   │       │
 │ └─────────────────────────┘ └──────────────────────────┘       │
 │                                                                 │
