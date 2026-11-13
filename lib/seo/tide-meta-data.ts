@@ -11,6 +11,14 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
+import {
+  SUB_PAGE_DATA_UNKNOWN,
+  SubPageDataUnavailableError,
+  createLastGoodSubPageData,
+  isProgrammingError,
+  reportSubPageDataUnavailable,
+  subPageErrorMessage,
+} from "@/lib/seo/sub-page-data-availability";
 
 export interface TideMetaData {
   /** tide_forecasts.source of the series read; "fes2022" marks model tides, which need a source note. */
@@ -30,6 +38,12 @@ export interface TideMetaData {
   nextHighAt: string | null;
   /** ISO timestamp of the next low tide. */
   nextLowAt: string | null;
+  /**
+   * Set only when the read failed and no earlier read on this instance found
+   * the beach without tides. The display fields are then null; the indexing
+   * gate stays open (see hasSubPageDataOrUnknown).
+   */
+  availability?: typeof SUB_PAGE_DATA_UNKNOWN;
 }
 
 /**
@@ -120,11 +134,18 @@ export function findNextTideExtremes(
   return { nextHigh, nextLow };
 }
 
+const TIDE_META_SOURCE = "getTideMetaData";
+const lastGoodTideData = createLastGoodSubPageData();
+
 /**
  * Get tide metadata for SEO purposes.
  *
  * Uses React's cache() for request deduplication between generateMetadata
  * and page component calls.
+ *
+ * A failed read returns nulls for display. Stored times are not replayed: an
+ * old "next high" would sit in the cached title for an hour. A programming
+ * error is not a failed read and propagates.
  *
  * @param beachId Beach UUID to fetch tides for
  * @param beachTimezone The beach's IANA timezone when the caller has it
@@ -144,62 +165,97 @@ export const getTideMetaData = cache(
 
     if (!beachId) return nullResult;
 
+    let read: { rows: TideRow[]; timezone: string };
     try {
-      const supabase = await createSupabaseServiceRoleClient();
-
-      // Determine timezone: prefer the caller's beach row, then the DB column,
-      // then geo-tz, then default. Callers already hold the beach, so passing its
-      // timezone saves a beaches lookup per render.
-      let timezone = beachTimezone || DEFAULT_TIMEZONE;
-      if (!beachTimezone) {
-        const { data: beach, error: beachError } = await supabase
-          .from("beaches")
-          .select("lat, lon, timezone")
-          .eq("id", beachId)
-          .single();
-
-        if (!beachError && beach) {
-          if (beach.timezone) {
-            timezone = beach.timezone;
-          } else if (beach.lat != null && beach.lon != null) {
-            timezone = getTimezoneFromCoords(beach.lat, beach.lon) || DEFAULT_TIMEZONE;
-          }
-        }
-      }
-
-      const tideWindow = tideExtremesWindow(new Date());
-
-      // Query tide_forecasts table for this beach
-      const { data: rows, error } = await supabase
-        .from("tide_forecasts")
-        .select("ts, tide_height_m, tide_phase, source, station_id, created_at")
-        .eq("beach_id", beachId)
-        .gte("ts", tideWindow.from)
-        .lte("ts", tideWindow.to)
-        .order("ts", { ascending: true });
-
-      if (error || !rows || rows.length === 0) {
-        return nullResult;
-      }
-
-      const selectedRows = selectTideSeries(rows);
-      const { nextHigh, nextLow } = findNextTideExtremes(selectedRows);
-
-      return {
-        source: selectedRows[0]?.source ?? null,
-        nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
-        nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
-        nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,
-        nextLowHeight: nextLow ? Math.round(nextLow.heightFt * 10) / 10 : null,
-        nextHighAt: nextHigh?.ts ?? null,
-        nextLowAt: nextLow?.ts ?? null,
-      };
+      read = await readTideRows(beachId, beachTimezone);
     } catch (error) {
-      console.error("[getTideMetaData] Error fetching tide data:", {
-        beachId,
-        message: error instanceof Error ? error.message : "Unknown error",
-      });
+      if (!(error instanceof SubPageDataUnavailableError)) throw error;
+      reportSubPageDataUnavailable(TIDE_META_SOURCE, error);
+      return lastGoodTideData.get(beachId) === false
+        ? nullResult
+        : { ...nullResult, availability: SUB_PAGE_DATA_UNKNOWN };
+    }
+
+    const { rows, timezone } = read;
+    if (rows.length === 0) {
+      lastGoodTideData.remember(beachId, false);
       return nullResult;
     }
+
+    const selectedRows = selectTideSeries(rows);
+    const { nextHigh, nextLow } = findNextTideExtremes(selectedRows);
+    lastGoodTideData.remember(beachId, Boolean(nextHigh || nextLow));
+
+    return {
+      source: selectedRows[0]?.source ?? null,
+      nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
+      nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
+      nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,
+      nextLowHeight: nextLow ? Math.round(nextLow.heightFt * 10) / 10 : null,
+      nextHighAt: nextHigh?.ts ?? null,
+      nextLowAt: nextLow?.ts ?? null,
+    };
   }
 );
+
+interface TideRow extends TideHeightRow {
+  tide_phase: string | null;
+  source: string | null;
+  station_id: string | null;
+  created_at: string | null;
+}
+
+/** Throws SubPageDataUnavailableError when the database cannot answer. */
+async function readTideRows(
+  beachId: string,
+  beachTimezone?: string | null,
+): Promise<{ rows: TideRow[]; timezone: string }> {
+  let supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>;
+  try {
+    supabase = await createSupabaseServiceRoleClient();
+  } catch (error) {
+    if (isProgrammingError(error)) throw error;
+    throw new SubPageDataUnavailableError(TIDE_META_SOURCE, subPageErrorMessage(error));
+  }
+
+  // Determine timezone: prefer the caller's beach row, then the DB column,
+  // then geo-tz, then default. Callers already hold the beach, so passing its
+  // timezone saves a beaches lookup per render. A failed lookup only costs the
+  // timezone, so it is not a failed read.
+  let timezone = beachTimezone || DEFAULT_TIMEZONE;
+  if (!beachTimezone) {
+    const { data: beach, error: beachError } = await supabase
+      .from("beaches")
+      .select("lat, lon, timezone")
+      .eq("id", beachId)
+      .single();
+
+    if (!beachError && beach) {
+      if (beach.timezone) {
+        timezone = beach.timezone;
+      } else if (beach.lat != null && beach.lon != null) {
+        timezone = getTimezoneFromCoords(beach.lat, beach.lon) || DEFAULT_TIMEZONE;
+      }
+    }
+  }
+
+  const tideWindow = tideExtremesWindow(new Date());
+  let response: { data: unknown; error: { message: string } | null };
+  try {
+    response = await supabase
+      .from("tide_forecasts")
+      .select("ts, tide_height_m, tide_phase, source, station_id, created_at")
+      .eq("beach_id", beachId)
+      .gte("ts", tideWindow.from)
+      .lte("ts", tideWindow.to)
+      .order("ts", { ascending: true });
+  } catch (error) {
+    if (isProgrammingError(error)) throw error;
+    throw new SubPageDataUnavailableError(TIDE_META_SOURCE, subPageErrorMessage(error));
+  }
+
+  if (response.error) {
+    throw new SubPageDataUnavailableError(TIDE_META_SOURCE, response.error.message);
+  }
+  return { rows: (response.data ?? []) as TideRow[], timezone };
+}

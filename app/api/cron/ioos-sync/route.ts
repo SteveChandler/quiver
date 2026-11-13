@@ -19,6 +19,7 @@ import { IOOSStation, IOOSObservation, PRIORITY_NETWORKS } from "@/types/ioos";
 import { ParsedObservation } from "@/lib/services/ioos";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -135,7 +136,7 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/ioos-sync", _GET);
+const handleGet = withObservedCron("/api/cron/ioos-sync", _GET);
 
 /**
  * Station Discovery Phase
@@ -693,3 +694,5 @@ function calculateDistance(
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/ioos-sync");

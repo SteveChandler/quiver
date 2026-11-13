@@ -4,6 +4,7 @@ import type {
   SurfDiscoveryRecommendation,
   SurfDiscoveryResponse,
 } from "@/types/personalization";
+import { joinSentences, personalLinesFirst, reasonList } from "@/lib/domains/scoring/reason-sentences";
 
 const IMPLICIT_ONLY_REASON_PATTERNS: RegExp[] = [
   /surfing patterns/i,
@@ -87,8 +88,10 @@ function isConservativePersonalReason(reason: string): boolean {
 
 function buildPersonalExplanation(
   rec: SurfDiscoveryRecommendation
-): string {
-  const reasonParts = rec.reasons.filter(isConservativePersonalReason);
+): string | undefined {
+  // The API sends wave sentences first; the explanation keeps the personal lines in front, as before.
+  const reasonParts = personalLinesFirst(reasonList(rec.reasons, rec.reasonCodes)).reasons
+    .filter(isConservativePersonalReason);
   const similarityReason = rec.similarity?.state === "ready"
     ? rec.similarity.reason
     : null;
@@ -110,11 +113,11 @@ function buildPersonalExplanation(
     conditionReason,
   ].filter((part): part is string => Boolean(part));
 
-  if (parts.length === 0) {
-    return "This window lines up with your profile and the current surf setup.";
-  }
+  // With nothing specific to say, send no explanation (JSON omits it); clients fall to their next reason.
+  if (parts.length === 0) return undefined;
 
-  return parts.slice(0, 3).join(". ");
+  // One sentence joiner with the message, so a part that ends in "." never gives "..".
+  return joinSentences(parts.slice(0, 3));
 }
 
 function buildLockedBestSpotTeaser(

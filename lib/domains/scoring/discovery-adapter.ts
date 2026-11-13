@@ -39,6 +39,7 @@ import { tideDirectionScorer } from './scorers/tide-direction-scorer';
 import { setupRiskScorer } from './scorers/setup-risk-scorer';
 import { windowStabilityScorer } from './scorers/window-stability-scorer';
 import { trendPreferenceScorer } from './scorers/trend-preference-scorer';
+import { reasonList, takeReasons } from './reason-sentences';
 
 /**
  * Create a pre-configured scoring engine with all standard scorers.
@@ -257,7 +258,7 @@ export function compositeToDetailedScore(
     total: adjustedTotal,
     subscores,
     matchQuality,
-    reasons: [...composite.reasons].slice(0, 5),
+    ...takeReasons(reasonList(composite.reasons, composite.reasonCodes), 5),
     warnings: [...composite.warnings],
     effects: [...(composite.effects ?? [])],
     conditionBadges: [], // Will be generated separately if needed
@@ -622,6 +623,9 @@ function applyScoreAdjustment(
     ...composite,
     total: Math.max(0, Math.min(100, composite.total + adjustment)),
     reasons: reason ? [...composite.reasons, reason] : composite.reasons,
+    reasonCodes: reason
+      ? [...reasonList(composite.reasons, composite.reasonCodes).reasonCodes, null]
+      : composite.reasonCodes,
     warnings: warning ? [...composite.warnings, warning] : composite.warnings,
   };
 }

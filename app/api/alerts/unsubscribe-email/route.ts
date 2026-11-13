@@ -2,6 +2,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { verifyEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 import { getBaseUrl } from "@/lib/mailer/client";
 import { renderEmailActionPage } from "@/lib/email/html-response";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
  * Public one-click email unsubscribe from alert emails. The HMAC token is
  * scoped to the user id, so the user does not need an authenticated web session.
  */
-export async function GET(request: Request): Promise<Response> {
+async function handleGet(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const userId = url.searchParams.get("user_id");
   const token = url.searchParams.get("token");
@@ -49,3 +50,5 @@ export async function GET(request: Request): Promise<Response> {
     buttonUrl: `${baseUrl}/settings`,
   });
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/alerts/unsubscribe-email");

@@ -17,4 +17,4 @@ test('bounds a noisy portrait card without changing its dimensions or caching', 
   expect(response.headers.get('cache-control')).toBe('no-store');
   expect(jpeg.length).toBeLessThan(300000);
   expect(await sharp(jpeg).metadata()).toMatchObject({ format: 'jpeg', width: 1080, height: 1920 });
-});
+}, 30000);

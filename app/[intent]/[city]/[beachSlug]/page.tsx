@@ -26,7 +26,7 @@ import {
   cityToSlug,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Beach } from "@/types/database";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -52,10 +52,12 @@ import {
 } from "@/lib/utils/public-forecast-facts";
 import {
   evaluateBeachPageIndexability,
+  forecastCoverageFor,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { hasSubPageDataOrUnknown } from "@/lib/seo/sub-page-data-availability";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
 // Rendered per request so forecast revisions and windows are current; the HTML
@@ -156,7 +158,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       expectedCity: expectedCitySlug,
       providedCity: city,
     });
-    redirect(buildBeachUrl(beach));
+    permanentRedirect(buildBeachUrl(beach));
   }
 
   const beachTimezone = await optionalSection("timezone", () =>
@@ -423,17 +425,20 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
       getWaterTempMetaData(beach.id),
       getTideMetaData(beach.id, beach.timezone),
     ]);
-    const forecastSnapshot = forecastSnapshots.get(beach.id);
+    const forecastSnapshot = forecastCoverageFor(forecastSnapshots, beach.id);
     const hasWaterTemp = isBeachSubPageIndexable(
       forecastSnapshot,
       `${beachPath}/water-temp`,
-      { hasSubPageData: waterTempData.tempF != null },
+      { hasSubPageData: hasSubPageDataOrUnknown(waterTempData, waterTempData.tempF != null) },
     );
     // Same availability test the tides sub-page applies in its own metadata
     // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the
     // target answers indexable.
     const hasTides = isBeachSubPageIndexable(forecastSnapshot, `${beachPath}/tides`, {
-      hasSubPageData: Boolean(tideData.nextHighTime || tideData.nextLowTime),
+      hasSubPageData: hasSubPageDataOrUnknown(
+        tideData,
+        Boolean(tideData.nextHighTime || tideData.nextLowTime),
+      ),
     });
 
     return (
@@ -572,7 +577,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       { id: beach.id, timezone: beach.timezone ?? null },
     ]);
     const decision = evaluateBeachPageIndexability(
-      snapshots.get(beach.id),
+      forecastCoverageFor(snapshots, beach.id),
       path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
     );
     return applyIndexabilityToMetadata(metadata, decision);

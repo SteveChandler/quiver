@@ -470,16 +470,17 @@ function buildWhySentence(
     if (hasGoodTide && tide.phase) {
       parts.push(`${tide.phase} tide`);
     }
+    // No size claim without a size.
     const wavePart = waveHeight && waveHeight !== 'Unknown'
-      ? `with ${waveHeight} swell energy`
-      : 'with solid swell';
+      ? ` with ${waveHeight} swell energy`
+      : '';
     if (parts.length >= 2) {
-      return `${capitalize(parts[0])} + ${parts[1]} ${wavePart}.`;
+      return `${capitalize(parts[0])} + ${parts[1]}${wavePart}.`;
     }
     if (parts.length === 1) {
-      return `${capitalize(parts[0])} ${wavePart}.`;
+      return `${capitalize(parts[0])}${wavePart}.`;
     }
-    return `Good conditions ${wavePart}.`;
+    return `Good conditions${wavePart}.`;
   }
 
   if (skipCause) return skipWhySentence(skipCause);
@@ -506,9 +507,9 @@ function buildWhySentence(
       return 'Good swell, but tide is dropping through the window.';
     }
     const wavePart = waveHeight && waveHeight !== 'Unknown'
-      ? `${waveHeight} surf`
-      : 'modest swell';
-    return `Rideable ${wavePart} — keep an eye on conditions.`;
+      ? ` ${waveHeight} surf`
+      : '';
+    return `Rideable${wavePart} — keep an eye on conditions.`;
   }
 
   // NO — state the primary fail gate
@@ -1215,7 +1216,7 @@ export function computeSurfCall(
 
   // Build explanation — override for small-wave MAYBE to explain the nuance
   const smallWaveOverride = (wavesBelowMin || windowWavesBelowMin) && verdict === 'MAYBE'
-    ? `Small for this break but conditions look fun — ${waveHeight ?? 'modest swell'} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
+    ? `Small for this break but conditions look fun${waveHeight ? ` — ${waveHeight}` : ''} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
     : undefined;
   const setupRiskOverride = cautions.length > 0
     ? `${cautions[0]}.`

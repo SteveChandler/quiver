@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { leadReasonLine } from "@/lib/domains/scoring/reason-sentences";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -214,27 +215,24 @@ function transformToTimeWindows(
         conditions = extractConditions(matchedRec.forecast);
         isCalibrated = matchedRec.forecast.isCalibrated;
       } else {
-        // Synthetic fallback: quality degrades away from the best slot.
-        // The slot data — when present — is hourly forecast data from the
-        // top rec's SAME beach (see comment on topIsCalibrated above). So
-        // calibration matches the top rec.
-        isCalibrated = topIsCalibrated;
-        const hourDiff = Math.abs(hour - bestHour);
-        quality = Math.max(0.1, bestScore - hourDiff * 0.15);
+        // Height and conditions come only from the top rec's hourly row for
+        // this slot (SAME beach, so calibration matches). A slot with no row
+        // shows the empty "—" state and placeholder bar rather than copying
+        // the best window's values.
         slotLabel = label;
-        // Use per-slot wave height and conditions when available (from slotForecasts on the top rec)
         const slotData = topRec.slotForecasts?.[hour];
-        height = slotData?.waveHeightBadge ?? slotData?.waveHeight ?? waveHeight;
-        if (slotData) {
-          conditions = {
-            swellPeriod: slotData.swellPeriod ?? topConditions.swellPeriod,
-            swellDirection: slotData.swellDirection ?? topConditions.swellDirection,
-            windSpeed: slotData.windSpeed ?? topConditions.windSpeed,
-            windDirection: slotData.windDirection ?? topConditions.windDirection,
-            tideHeight: slotData.tideHeight ?? topConditions.tideHeight,
-            tideStatus: slotData.tideStatus ?? topConditions.tideStatus,
-          };
-        }
+        const hourDiff = Math.abs(hour - bestHour);
+        quality = slotData ? Math.max(0.1, bestScore - hourDiff * 0.15) : 0.2;
+        isCalibrated = slotData ? topIsCalibrated : undefined;
+        height = slotData?.waveHeightBadge || slotData?.waveHeight || "—";
+        conditions = {
+          swellPeriod: slotData?.swellPeriod ?? undefined,
+          swellDirection: slotData?.swellDirection ?? undefined,
+          windSpeed: slotData?.windSpeed ?? undefined,
+          windDirection: slotData?.windDirection ?? undefined,
+          tideHeight: slotData?.tideHeight ?? undefined,
+          tideStatus: slotData?.tideStatus ?? undefined,
+        };
       }
     }
 
@@ -374,8 +372,7 @@ function transformToNearbySpots(
       strategyTag: rec.strategyTag,
       reasonText:
         buildPersonalizedReason(rec, heroContext) ??
-        rec.strategyTag?.reason ??
-        rec.summary,
+        (rec.strategyTag?.reason || rec.summary),
     };
   });
 }
@@ -709,7 +706,7 @@ export function OracleHomeScreen() {
     currentSlot?.swellDirection ??
     forecast?.swell_1_direction ??
     forecast?.wave_direction ??
-    "W";
+    null;
   const swellPeriod = parseNumeric(
     currentSlot?.swellPeriod ??
     forecast?.swell_1_period ??
@@ -725,9 +722,12 @@ export function OracleHomeScreen() {
       : null;
 
   const tideH = parseNumeric(currentSlot?.tideHeight ?? forecast?.tide_height);
-  const tideDir: "rising" | "falling" =
-    (currentSlot?.tideStatus ?? forecast?.tide_status)?.toLowerCase().includes("rising")
-      ? "rising" : "falling";
+  const tideStatusText = (currentSlot?.tideStatus ?? forecast?.tide_status)?.toLowerCase() ?? "";
+  const tideDir: "rising" | "falling" | null = tideStatusText.includes("rising")
+    ? "rising"
+    : tideStatusText.includes("falling")
+      ? "falling"
+      : null;
   const waterTemp = parseNumeric(forecast?.water_temp);
   const windSpd = parseNumeric(currentSlot?.windSpeed ?? forecast?.wind_speed);
   const windDir = currentSlot?.windDirection ?? forecast?.wind_direction ?? "—";
@@ -759,7 +759,8 @@ export function OracleHomeScreen() {
     window,
   );
   // Why the selected window works, from the recommendation's own reasons.
-  const heroReason = heroRec?.reasons?.[0] ?? null;
+  // A caution leads, then the wave sentence; the verdict filter repeats the server's as a harmless second check.
+  const heroReason = leadReasonLine(heroRec?.reasons, heroRec?.reasonCodes, canonicalVerdict === "no");
   // Positive calls switch to planning copy when the window hasn't opened yet.
   const selectedWindowStartMs = Date.parse(selectedCandidate?.windowStart ?? "");
   const heroCallIsUpcoming =
@@ -1011,6 +1012,7 @@ export function OracleHomeScreen() {
             forecastUrl={forecastUrl}
             isTomorrow={isTomorrow}
             eveningTransition={oracle.discovery?.eveningTransition}
+            hasHomeBeach={!!homeBeach}
           />
 
           <NearbySpots

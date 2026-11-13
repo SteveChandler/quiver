@@ -1,9 +1,32 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect, useState } from "react";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 const MAX_SPOTS = 50;
+
+/** The browser could not reach the route (offline, page unload): a user state, not an outage. */
+class NetworkFailure extends Error {}
+
+/** A 401, 403, 404 or 429 answer: an expected response, not an outage. */
+class ClientRejected extends Error {}
+
+/** The server reports its own 5xx; the browser adds one report per window, not one per pan. */
+const REPORT_WINDOW_MS = 5 * 60 * 1000;
+let lastReportAt = Number.NEGATIVE_INFINITY;
+
+function reportOnce(error: unknown): void {
+  const now = Date.now();
+  if (now - lastReportAt < REPORT_WINDOW_MS) return;
+  lastReportAt = now;
+  Sentry.captureException(error, { tags: { hook: "use-custom-spot-current-displays" } });
+}
+
+/** Test-only: reset the report window. */
+export function resetCustomSpotDisplayReportWindow(): void {
+  lastReportAt = Number.NEGATIVE_INFINITY;
+}
 
 interface CurrentDisplayResponse {
   data?: { displays?: Record<string, ForecastDisplay> };
@@ -43,13 +66,33 @@ export function useCustomSpotCurrentDisplays(
       return fetch(url, { signal: controller.signal });
     };
     request()
-      .then((response) => (response.ok ? response.json() : null))
-      .then((json: CurrentDisplayResponse | null) => {
+      .catch((error: unknown) => {
+        throw new NetworkFailure(error instanceof Error ? error.message : String(error));
+      })
+      .then((response) => {
+        if (response.ok) {
+          // A body that is not JSON is reported; a connection lost while reading it is offline.
+          return response.json().catch((error: unknown) => {
+            if (error instanceof SyntaxError) throw error;
+            throw new NetworkFailure(error instanceof Error ? error.message : String(error));
+          });
+        }
+        // Ids come from the user's own spots, so a 400 is our bug: report it (windowed).
+        if (response.status < 500 && response.status !== 400) {
+          throw new ClientRejected(`custom spot current-display returned ${response.status}`);
+        }
+        throw new Error(`custom spot current-display returned ${response.status}`);
+      })
+      .then((json: CurrentDisplayResponse) => {
         if (controller.signal.aborted) return;
         setDisplays(new Map(Object.entries(json?.data?.displays ?? {})));
       })
-      .catch(() => {
-        // Best effort: on failure the pins keep their anchor beach's label.
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        // Drop the previous hour's labels so pins fall back to their anchor's fresh label.
+        setDisplays((current) => (current.size === 0 ? current : new Map()));
+        if (error instanceof NetworkFailure || error instanceof ClientRejected) return;
+        reportOnce(error);
       });
     return () => controller.abort();
     // The auth callbacks are read per request, not triggers.

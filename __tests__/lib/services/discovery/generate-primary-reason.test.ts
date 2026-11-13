@@ -1,6 +1,6 @@
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { generatePrimaryReason } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import { generatePrimaryReason, primaryReasonWithCode } from '@/lib/services/discovery/surf-discovery-orchestrator';
 
 // `skill_level` is widened to allow null because the orchestrator defends
 // against null at runtime even though Beach.Row pins it to `string`.
@@ -50,6 +50,18 @@ describe('generatePrimaryReason', () => {
       const beach = makeBeach({ skill_level: 'intermediate' });
       const result = generatePrimaryReason(beach, makeForecast('4'), 'advanced');
       expect(result).toBe('Conditions at PB Point match your experience level today');
+    });
+  });
+
+  describe('skill gap <= 0, waves outside the ideal range', () => {
+    it.each([
+      ['flat (0.5ft) for a beginner', '0.5', 'beginner'],
+      ['missing wave height for a beginner', '', 'beginner'],
+      ['too big (5ft) for a beginner', '5', 'beginner'],
+      ['too small (2ft) for an advanced surfer', '2', 'advanced'],
+    ] as const)('omits the match line when waves are %s', (_label, height, skill) => {
+      const beach = makeBeach({ skill_level: 'beginner' });
+      expect(generatePrimaryReason(beach, makeForecast(height), skill)).toBeNull();
     });
   });
 
@@ -109,5 +121,11 @@ describe('generatePrimaryReason', () => {
       const result = generatePrimaryReason(beach, makeForecast('2'), 'beginner');
       expect(result).toContain('conditions are manageable');
     });
+  });
+
+  it('codes the big-surf heads-up as a caution, and the level lines as other text', () => {
+    const advanced = makeBeach({ skill_level: 'advanced' });
+    expect(primaryReasonWithCode(advanced, makeForecast('3.5'), 'beginner')?.code).toBe('caution_big_surf');
+    expect(primaryReasonWithCode(makeBeach(), makeForecast('2'), 'beginner')?.code ?? null).toBeNull();
   });
 });

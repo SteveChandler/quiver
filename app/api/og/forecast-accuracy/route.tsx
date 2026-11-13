@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -56,7 +57,7 @@ function renderFallback() {
   return response;
 }
 
-export async function GET(_request: NextRequest) {
+async function handleGet(_request: NextRequest) {
   try {
     const response = new ImageResponse(
       (
@@ -191,3 +192,5 @@ export async function GET(_request: NextRequest) {
     return renderFallback();
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/og/forecast-accuracy");

@@ -75,6 +75,7 @@ import {
   canonicalAlertCandidateId,
   type CanonicalSessionDecision,
 } from "@/lib/recommendations/canonical-decision";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -388,7 +389,7 @@ function policyContextForMatch(
   };
 }
 
-export async function GET(request: Request): Promise<NextResponse> {
+async function handleGet(request: Request): Promise<NextResponse> {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -1456,6 +1457,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const emailSubject = buildConsolidatedSubject(
                       emailMatches,
                       alertDate,
+                      emailDecision.verdict,
                     );
                     const sendResult = !forecastDeliveryEnabled
                       ? { data: null, error: null }
@@ -2044,3 +2046,5 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/condition-alert-deliver");

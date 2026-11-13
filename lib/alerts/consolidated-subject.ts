@@ -1,5 +1,5 @@
 import type { MatchingWindow } from "@/lib/alerts/types";
-import { qualityWord } from "@/lib/alerts/push-formatter";
+import { decisionLabel, type PushDecisionVerdict } from "@/lib/alerts/push-formatter";
 
 const MAX_SUBJECT_LENGTH = 78;
 
@@ -65,7 +65,8 @@ function withTruncatedBeach(beachName: string, suffix: string): string {
 
 export function buildConsolidatedSubject(
   matches: MatchingWindow[],
-  alertDate: string
+  alertDate: string,
+  decision?: PushDecisionVerdict,
 ): string {
   if (matches.length === 0) {
     return `Surf report for ${alertDate}`.slice(0, MAX_SUBJECT_LENGTH);
@@ -74,7 +75,9 @@ export function buildConsolidatedSubject(
   if (matches.length > 1) {
     const sorted = [...matches].sort((a, b) => b.best_score - a.best_score);
     const top = sorted[0];
-    const suffix = ` + ${sorted.length - 1} more spots worth a surf ${alertWeekday(alertDate)}`;
+    // "worth a surf" is the go decision's phrase; any other decision states only the count.
+    const quality = decision === "go" ? " worth a surf" : "";
+    const suffix = ` + ${sorted.length - 1} more spots${quality} ${alertWeekday(alertDate)}`;
     return withTruncatedBeach(top.beach_name, suffix);
   }
 
@@ -88,7 +91,8 @@ export function buildConsolidatedSubject(
     return withTruncatedBeach(match.beach_name, `: surf window ${label}`);
   }
 
-  const quality = qualityWord(match.best_score).toLowerCase();
-  const suffix = ` ${quality}: ${formatNumber(waveHeight)} ft @ ${formatNumber(period)}s ${label}`;
+  const quality = decisionLabel(match, decision)?.toLowerCase();
+  const facts = `${formatNumber(waveHeight)} ft @ ${formatNumber(period)}s ${label}`;
+  const suffix = quality ? ` ${quality}: ${facts}` : `: ${facts}`;
   return withTruncatedBeach(match.beach_name, suffix);
 }

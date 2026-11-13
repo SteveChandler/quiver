@@ -59,7 +59,11 @@ interface ProfileRow {
 let mockProfile: ProfileRow = { home_beach_id: "beach-home" };
 let mockProfileError: { message: string } | null = null;
 let mockExistingRules: AlertRuleRow[] = [];
+let mockExistingRulesError: { code: string; message: string } | null = null;
 let mockUserEntitlementTier: "free" | "premium" = "premium";
+// When set, the real getUserEntitlement and canCreateRule run against a failing user_entitlements read.
+let mockEntitlementReadFails = false;
+let mockEntitlementReads = 0;
 let mockPersonalizationEligibility = {
   code: "PERSONALIZATION_UNLOCKED",
   canUsePersonalMatch: true,
@@ -82,9 +86,15 @@ jest.mock("@/lib/alerts/entitlements", () => ({
     free: { beaches: 1, rulesPerBeach: 3, totalRules: 3 },
     premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
   },
-  getUserEntitlement: jest.fn(async () => mockUserEntitlementTier),
+  getUserEntitlement: jest.fn(async (...args: unknown[]) =>
+    mockEntitlementReadFails
+      ? jest.requireActual("@/lib/alerts/entitlements").getUserEntitlement(...args)
+      : mockUserEntitlementTier),
   // Always allow — we test the new guards here, not entitlement gating.
-  canCreateRule: jest.fn(() => ({ allowed: true })),
+  canCreateRule: jest.fn((...args: unknown[]) =>
+    mockEntitlementReadFails
+      ? jest.requireActual("@/lib/alerts/entitlements").canCreateRule(...args)
+      : { allowed: true }),
 }));
 
 jest.mock("@/lib/personalization/eligibility", () => ({
@@ -123,6 +133,21 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
           };
         }
 
+        if (table === "user_entitlements") {
+          mockEntitlementReads += 1;
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: null,
+                    error: { code: "08006", message: "connection failure" },
+                  }),
+              }),
+            }),
+          };
+        }
+
         if (table === "favorite_beaches") {
           return {
             upsert: (...args: unknown[]) => {
@@ -141,12 +166,14 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
                 eq(col: string, val: string) {
                   // For POST: .eq("user_id", user.id) returns an awaitable list
                   if (col === "user_id") {
-                    const result = {
-                      data: mockExistingRules.filter(
-                        (r) => r.user_id === val
-                      ),
-                      error: null,
-                    };
+                    const result = mockExistingRulesError
+                      ? { data: null, error: mockExistingRulesError }
+                      : {
+                          data: mockExistingRules.filter(
+                            (r) => r.user_id === val
+                          ),
+                          error: null,
+                        };
                     return {
                       then: (resolve: any) => resolve(result),
                       order: () => Promise.resolve(result),
@@ -355,7 +382,10 @@ beforeEach(() => {
   mockProfile = { home_beach_id: "beach-home" };
   mockProfileError = null;
   mockExistingRules = [];
+  mockExistingRulesError = null;
   mockUserEntitlementTier = "premium";
+  mockEntitlementReadFails = false;
+  mockEntitlementReads = 0;
   mockPersonalizationEligibility = {
     code: "PERSONALIZATION_UNLOCKED",
     canUsePersonalMatch: true,
@@ -1118,5 +1148,186 @@ describe("PATCH /api/alerts/rules/[ruleId] — auto-managed guard", () => {
 
     expect(res.status).toBe(400);
     expect(updateSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/alerts/rules — existing rules read", () => {
+  const statementTimeout = {
+    code: "57014",
+    message: "canceling statement due to statement timeout",
+  };
+
+  it("fails instead of treating a failed rules read as zero rules", async () => {
+    mockExistingRules = [autoSimilarityRule()];
+    mockExistingRulesError = statementTimeout;
+
+    await expect(
+      POST(
+        makeReq({
+          beach_id: "beach-home",
+          name: "Conditions like your best sessions",
+          preset_type: "similarity_match",
+          notify_push: true,
+          notify_email: false,
+        })
+      )
+    ).rejects.toMatchObject({ message: expect.stringContaining(statementTimeout.message), cause: statementTimeout });
+
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
+
+  it("passes the existing rule and beach counts to the cap check", async () => {
+    const { canCreateRule } = jest.requireMock("@/lib/alerts/entitlements") as {
+      canCreateRule: jest.Mock;
+    };
+    canCreateRule.mockClear();
+    mockUserEntitlementTier = "free";
+    mockExistingRules = [
+      userRule({ id: "rule-a" }),
+      userRule({ id: "rule-b", beach_id: "beach-other" }),
+    ];
+
+    await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Another rule",
+        preset_type: "mellow_session",
+        conditions: { swell_height_min: 0.5, swell_height_max: 3 },
+        notify_push: true,
+        notify_email: false,
+      })
+    );
+
+    expect(canCreateRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tier: "free",
+        existingRuleCount: 2,
+        existingBeachCount: 2,
+        isExistingBeach: true,
+      })
+    );
+  });
+
+  it("rejects without inserting when the cap check refuses the rule", async () => {
+    const { canCreateRule } = jest.requireMock("@/lib/alerts/entitlements") as {
+      canCreateRule: jest.Mock;
+    };
+    canCreateRule.mockReturnValueOnce({
+      allowed: false,
+      code: "PERSONALIZATION_LOCKED",
+      reason: "Free plan allows 3 alerts",
+    });
+    mockUserEntitlementTier = "free";
+    mockExistingRules = [
+      userRule({ id: "rule-a" }),
+      userRule({ id: "rule-b" }),
+      userRule({ id: "rule-c" }),
+    ];
+
+    const res = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Fourth rule",
+        preset_type: "mellow_session",
+        conditions: { swell_height_min: 0.5, swell_height_max: 3 },
+        notify_push: true,
+        notify_email: false,
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(canCreateRule).toHaveBeenLastCalledWith(
+      expect.objectContaining({ existingRuleCount: 3 })
+    );
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("/api/alerts/rules — failed entitlement read", () => {
+  const savedPreviewMode = process.env.ALERT_PREVIEW_MODE;
+  const savedBetaUsers = process.env.ALERT_BETA_USER_IDS;
+
+  beforeEach(() => {
+    delete process.env.ALERT_PREVIEW_MODE;
+    delete process.env.ALERT_BETA_USER_IDS;
+    mockEntitlementReadFails = true;
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    if (savedPreviewMode === undefined) delete process.env.ALERT_PREVIEW_MODE;
+    else process.env.ALERT_PREVIEW_MODE = savedPreviewMode;
+    if (savedBetaUsers === undefined) delete process.env.ALERT_BETA_USER_IDS;
+    else process.env.ALERT_BETA_USER_IDS = savedBetaUsers;
+  });
+
+  function mellowRule(beachId: string) {
+    return makeReq({
+      beach_id: beachId,
+      name: "Mellow session",
+      preset_type: "mellow_session",
+      conditions: { swell_height_min: 0.5, swell_height_max: 3 },
+      notify_push: true,
+      notify_email: false,
+    });
+  }
+
+  it("GET still returns the rules, with no entitlement signal and planStatus unknown", async () => {
+    mockExistingRules = [userRule()];
+
+    const res = await GET(makeReq());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEntitlementReads).toBe(2);
+    expect(json.data).toHaveLength(1);
+    expect(json).not.toHaveProperty("entitlement");
+    expect(json.planStatus).toBe("unknown");
+    expect(res.headers.get("Cache-Control")).toContain("no-store");
+  });
+
+  it("POST inserts the last rule the free cap allows, with the real cap check", async () => {
+    mockExistingRules = [userRule({ id: "rule-a" }), userRule({ id: "rule-b" })];
+
+    const res = await POST(mellowRule("beach-home"));
+
+    expect(res.status).toBe(201);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("POST inserts a rule that fits the free limits", async () => {
+    const res = await POST(mellowRule("beach-home"));
+
+    expect(res.status).toBe(201);
+    expect(insertSpy).toHaveBeenCalledWith(expect.objectContaining({ beach_id: "beach-home" }));
+  });
+
+  it("POST returns a retryable 503 and inserts nothing when the rule needs a paid plan", async () => {
+    const res = await POST(mellowRule("beach-other"));
+    const json = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toMatch(/^\d+$/);
+    expect(json).toMatchObject({
+      success: false,
+      error: "Failed to create alert rule",
+      details: { code: "entitlement_unavailable", retryable: true },
+    });
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
+
+  it("POST returns 503, not the paid limits, when the user is at the free rule cap", async () => {
+    mockExistingRules = [
+      userRule({ id: "rule-a" }),
+      userRule({ id: "rule-b" }),
+      userRule({ id: "rule-c" }),
+    ];
+
+    const res = await POST(mellowRule("beach-home"));
+
+    expect(res.status).toBe(503);
+    expect(insertSpy).not.toHaveBeenCalled();
   });
 });

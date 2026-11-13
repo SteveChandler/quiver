@@ -194,6 +194,32 @@ describe("UnifiedSurfCard", () => {
       expect(screen.getByText("Rising")).toBeInTheDocument();
     });
 
+    it("omits the wind and tide cells when the surf call reports them as Unknown", () => {
+      const surfCall = createMockSurfCall({
+        windDescription: "Unknown",
+        tideDescription: "Unknown",
+        tidePhase: null,
+        tideHeight: null,
+      });
+      render(<UnifiedSurfCard surfCall={surfCall} beachName="Test Beach" />);
+
+      expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument();
+      expect(screen.queryByText("Wind")).not.toBeInTheDocument();
+      expect(screen.queryByText("Tide")).not.toBeInTheDocument();
+    });
+
+    it("leaves an Unknown wind out of the share card URL", () => {
+      const { buildSurfCallShareUrl } = jest.requireMock(
+        "@/lib/share/build-share-card-url",
+      ) as { buildSurfCallShareUrl: jest.Mock };
+      const surfCall = createMockSurfCall({ windDescription: "Unknown", waveHeight: "Unknown" });
+      render(<UnifiedSurfCard surfCall={surfCall} beachName="Test Beach" />);
+
+      const params = buildSurfCallShareUrl.mock.calls[0][0];
+      expect(params.wind).toBeUndefined();
+      expect(params.waveHeight).toBe("");
+    });
+
     it("separates a matching wind quality from the wind value", () => {
       const surfCall = createMockSurfCall({
         windDescription: "N 12 mph (offshore)",

@@ -3000,7 +3000,7 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         label: "Rincon Forecast",
-        href: "/forecasts/rincon",
+        href: "/ca/carpinteria/rincon-carpinteria-ca",
         description:
           "Live forecast and refraction-aware conditions for Rincon, CA.",
       },
@@ -3121,7 +3121,7 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         label: "Rincon Forecast",
-        href: "/forecasts/rincon",
+        href: "/ca/carpinteria/rincon-carpinteria-ca",
         description:
           "A calibrated forecast in action at one of California's most direction-sensitive points.",
       },

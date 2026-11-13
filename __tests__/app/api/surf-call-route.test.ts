@@ -107,6 +107,11 @@ jest.mock("@/lib/profile/skill-level", () => ({
   readProfileSkill: (...args: unknown[]) => mockReadProfileSkill(...args),
 }));
 
+let mockEntitlementResult: { data: unknown; error: { code: string; message: string } | null } = {
+  data: null,
+  error: null,
+};
+
 function mockBeachQuery(
   beach: Record<string, unknown> | null,
   forecastRows: Array<{ forecast_at: string }> = [],
@@ -133,7 +138,7 @@ function mockBeachQuery(
       return {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
-            maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+            maybeSingle: jest.fn(async () => mockEntitlementResult),
           })),
         })),
       };
@@ -179,6 +184,7 @@ describe("GET /api/surf/call", () => {
     mockRequestUser = mockUser;
     mockInvalidCredentials = false;
     mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
+    mockEntitlementResult = { data: null, error: null };
     mockResolveWaterQualityHolds.mockResolvedValue({ state: "resolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "empty" });
     const decision = {
       schemaVersion: "canonical-session-decision.v1",
@@ -778,6 +784,74 @@ describe("GET /api/surf/call", () => {
     });
     expect(body.data.conditionLabel).toBe("MEH");
     expect(body.data.sessionDecision.conditionLabel).toBe("MEH");
+  });
+
+  it("still makes the call with free access when the entitlement read fails twice", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    // The switch is on, so a fallback through founding access would open paid discovery.
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    mockDiscoverSurfSpots.mockResolvedValue({
+      recommendations: [],
+      includedRecommendations: [],
+      recommendationAvailability: { state: "available", holdEpoch: "now-test" },
+      searchCriteria: { maxResults: 1 },
+      metadata: { outcome: "success", generated_at: new Date().toISOString() },
+    });
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+    mockEntitlementResult = {
+      data: null,
+      error: { code: "08006", message: "connection failure" },
+    };
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.report.verdict).toEqual(expect.any(String));
+    expect(body.data.planStatus).toBe("unknown");
+    expect(mockSupabase.from.mock.calls.filter(([table]: [string]) => table === "user_entitlements")).toHaveLength(2);
+    expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: false }) }),
+    );
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledWith(
+      mockUser.id,
+      expect.objectContaining({ discoveryMode: "now", isPro: false }),
+    );
+    consoleWarn.mockRestore();
+  });
+
+  it("omits planStatus when the entitlement read succeeds", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).not.toHaveProperty("planStatus");
   });
 
   it("returns a retryable error when canonical discovery fails operationally", async () => {

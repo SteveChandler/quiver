@@ -285,7 +285,7 @@ describe("ForecastStorageService", () => {
     const withColumn = (column: string) =>
       ({ ...mockForecast, [column]: 1.2 }) as unknown as EnhancedForecastEntity;
 
-    it("retries without the missing column, returns it, and reports it to Sentry once per process", async () => {
+    it("retries without the missing column and reports it to Sentry once per process", async () => {
       upsertMock
         .mockReturnValueOnce(missingColumn("strip_test_col_a"))
         .mockReturnValueOnce({ data: [], error: null })
@@ -296,8 +296,8 @@ describe("ForecastStorageService", () => {
       const second = await new ForecastStorageService({ verboseLogging: false })
         .storeEnhancedForecasts(mockBeach, [withColumn("strip_test_col_a")]);
 
-      expect(first).toMatchObject({ success: true, strippedColumns: ["strip_test_col_a"] });
-      expect(second).toMatchObject({ success: true, strippedColumns: ["strip_test_col_a"] });
+      expect(first).toEqual({ success: true, data: [] });
+      expect(second).toEqual({ success: true, data: [] });
       const [originalRows] = upsertMock.mock.calls[0];
       const [retriedRows] = upsertMock.mock.calls[1];
       const { strip_test_col_a: _dropped, ...expectedRow } = originalRows[0];
@@ -312,7 +312,7 @@ describe("ForecastStorageService", () => {
       expectConsoleWarnings([/missing column 'strip_test_col_a'/, /missing column 'strip_test_col_a'/]);
     });
 
-    it("a clean write returns no stripped columns and reports nothing", async () => {
+    it("a clean write reports nothing", async () => {
       const result = await service.storeEnhancedForecasts(mockBeach, [mockForecast]);
 
       expect(result).toEqual({ success: true, data: [] });

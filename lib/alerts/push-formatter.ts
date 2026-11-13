@@ -16,7 +16,7 @@ interface PushContent {
   data: { type: string; beach_id: string; forecast_at?: string };
 }
 
-type PushDecisionVerdict = "go" | "maybe" | "no";
+export type PushDecisionVerdict = "go" | "maybe" | "no";
 
 /**
  * Map a normalized window quality (best_score, 0..1) to a short, factual,
@@ -41,6 +41,27 @@ function shortBeginnerReason(raw: string): string {
   return raw.trim().length > 0 ? "beginner-friendly" : "";
 }
 
+/**
+ * The quality phrase for one match, read from the session decision. Null when
+ * there is no decision, so a caller never states a quality the decision did not make.
+ */
+export function decisionLabel(
+  match: MatchingWindow,
+  decision?: PushDecisionVerdict,
+): string | null {
+  const reason = match.conditions_snapshot?.beginner_window_reason;
+  // A beginner-window rule is intentionally about approachable surf, not
+  // a universal quality claim. Keep the actual wave range in the body and
+  // avoid overselling a 1–2 ft window on the lock screen.
+  if (typeof reason === "string" && reason.trim().length > 0) return "Beginner friendly";
+  if (decision === "go") return "Worth a surf";
+  if (decision === "no") return "Not ideal";
+  if (decision === "maybe") {
+    return fairActionPhrase({ beachId: match.beach_id, instantIso: match.best_hour ?? match.window_start });
+  }
+  return null;
+}
+
 export function formatPushNotification(
   matches: MatchingWindow[],
   decision?: PushDecisionVerdict,
@@ -61,21 +82,7 @@ export function formatPushNotification(
       topMatch.window_end,
       topMatch.beach_timezone,
     );
-    const isBeginnerWindow =
-      typeof snap.beginner_window_reason === "string" &&
-      snap.beginner_window_reason.trim().length > 0;
-    // A beginner-window rule is intentionally about approachable surf, not
-    // a universal quality claim. Keep the actual wave range in the body and
-    // avoid overselling a 1–2 ft window on the lock screen.
-    const titleLabel = isBeginnerWindow
-      ? "Beginner friendly"
-      : decision === "go"
-        ? "Worth a surf"
-        : decision === "no"
-          ? "Not ideal"
-          : decision === "maybe"
-            ? fairActionPhrase({ beachId: topMatch.beach_id, instantIso: topMatch.best_hour ?? topMatch.window_start })
-            : qualityWord(topMatch.best_score);
+    const titleLabel = decisionLabel(topMatch, decision) ?? qualityWord(topMatch.best_score);
     const title = pushTitle(`${titleLabel} at ${topMatch.beach_name}, ${timeWindow}`);
 
     // Match the email's units + rounding so push and email don't disagree.
@@ -104,7 +111,10 @@ export function formatPushNotification(
       topMatch.window_end,
       topMatch.beach_timezone,
     );
-    const core = `${topMatch.beach_name} ${bodyTimeWindow} — ${waveHeight}${period}${wind}`;
+    // Period and wind read as a tail on the size; with no size, show the window alone.
+    const core = waveHeight
+      ? `${topMatch.beach_name} ${bodyTimeWindow} — ${waveHeight}${period}${wind}`
+      : `${topMatch.beach_name} ${bodyTimeWindow}`;
 
     // Append the beginner reason only when it fits within the budget — never
     // let it trigger the truncation fallback that would drop the real data.

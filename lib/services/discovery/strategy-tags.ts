@@ -109,7 +109,8 @@ export function assignStrategyTags(
       rec.strategyTag = {
         type: 'skip',
         label: TAG_LABELS.skip,
-        reason: rec.warnings[0] ?? 'Conditions not favorable',
+        // '' when no warning explains the skip; readers fall back to the summary.
+        reason: rec.warnings[0] ?? '',
       };
     }
   }

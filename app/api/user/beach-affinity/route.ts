@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic';
  *   - lastSurfed: Date of last session
  *   - affinityScore: Calculated affinity score
  */
-export const GET = withAuth(async (request, { user, supabase }) => {
+const handleGet = withAuth(async (request, { user, supabase }) => {
   // Get beach ID from query params
   const searchParams = request.nextUrl.searchParams;
   const beachId = searchParams.get('beachId');
@@ -63,3 +64,5 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     }
   });
 }, { errorMessage: "Failed to retrieve beach affinity data" });
+
+export const GET = withErrorNoStore(handleGet, "/api/user/beach-affinity");

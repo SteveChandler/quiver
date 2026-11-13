@@ -26,12 +26,21 @@ jest.mock("@/lib/alerts/canonical-forecast-verdict", () => ({
 jest.mock("@sentry/nextjs", () => ({ ...jest.requireActual("@sentry/nextjs"), captureException: jest.fn() }));
 
 import * as Sentry from "@sentry/nextjs";
-import { loadNwsSwellAdvisories } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
+import {
+  loadNwsSwellAdvisories,
+  loadOfficialSwellAdvisories,
+} from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { evaluateForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import { loadUserPool, type PoolBeach } from "@/lib/alerts/user-pool";
-import { runSwellAlertCron, type SwellAlertDeps, type SwellAlertProfile } from "@/lib/cron/swell-alert-runner";
+import {
+  createRunNwsAdvisoryLoader,
+  NWS_FAILURE_REUSE_MS,
+  runSwellAlertCron,
+  type SwellAlertDeps,
+  type SwellAlertProfile,
+} from "@/lib/cron/swell-alert-runner";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
@@ -229,7 +238,9 @@ describe("swell alert runner on the swell-events detector", () => {
 
   it("still sends when the NWS advisory read fails, and reports and counts the failure", async () => {
     jest.mocked(Sentry.captureException).mockClear();
-    jest.mocked(loadNwsSwellAdvisories).mockRejectedValueOnce(new Error("api.weather.gov 503"));
+    jest.mocked(loadNwsSwellAdvisories)
+      .mockRejectedValueOnce(new Error("api.weather.gov 503"))
+      .mockRejectedValueOnce(new Error("api.weather.gov 503"));
     const runDeps = deps();
 
     const result = await runSwellAlertCron({
@@ -242,10 +253,177 @@ describe("swell alert runner on the swell-events detector", () => {
       expect.objectContaining({ message: "api.weather.gov 503" }),
       expect.objectContaining({
         tags: expect.objectContaining({ swell_alert_hazard_source: "nws_advisories" }),
-        extra: { beach_id: BEACH_ID },
+        extra: { failed_lookups: 1, beach_count: 1, beach_ids: [BEACH_ID] },
       }),
     );
     expectConsoleWarnings([/NWS advisory fetch failed/]);
+  });
+
+  describe("an NWS outage across users and beaches", () => {
+    const ids = [
+      "60000000-0000-4000-8000-000000000001",
+      "60000000-0000-4000-8000-000000000002",
+      "60000000-0000-4000-8000-000000000003",
+    ];
+    const zones = ["CAZ043", "caz043 ", "CAZ552"];
+    const pool: PoolBeach[] = ids.map((id, index) => ({
+      beach: createMockBeach({ ...beach, id, nws_forecast_zone: zones[index] }),
+      relation: index === 0 ? "home" : "nearby",
+      distanceMiles: index,
+    }));
+    const forecasts = ids.flatMap((id) => SWELL_TOMORROW.map((row) => ({ ...row, id: `${id}:${row.id}`, beach_id: id })));
+    const users = [profile, { ...profile, id: "11111111-2222-4333-8444-555555555555" }];
+    afterEach(() => {
+      jest.mocked(loadNwsSwellAdvisories).mockImplementation(async () => []);
+    });
+
+    it("fetches each failed zone once per run and reports it once, with the count", async () => {
+      jest.mocked(loadUserPool).mockResolvedValue(pool);
+      jest.mocked(loadNwsSwellAdvisories).mockRejectedValue(new Error("api.weather.gov 503"));
+      const runDeps = { ...deps(), loadProfiles: async () => users };
+
+      const result = await runSwellAlertCron({
+        now: NOW, supabase: client(forecasts, { data: [], error: null }), deps: runDeps,
+      });
+
+      expect(result.sent).toBe(2);
+      expect(result.hazardLookupFailures).toBe(2);
+      // Each zone: the first fetch and its one immediate retry; later beaches reuse the failure.
+      expect(loadNwsSwellAdvisories).toHaveBeenCalledTimes(4);
+      expect(jest.mocked(loadNwsSwellAdvisories).mock.calls.map(([input]) => input.zone).sort())
+        .toEqual(["CAZ043", "CAZ043", "CAZ552", "CAZ552"]);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "api.weather.gov 503" }),
+        expect.objectContaining({
+          tags: expect.objectContaining({ swell_alert_hazard_source: "nws_advisories" }),
+          extra: { failed_lookups: 6, beach_count: 3, beach_ids: ids },
+        }),
+      );
+      expectConsoleWarnings([/NWS advisory fetch failed/]);
+    });
+
+    it("starts each run with an empty negative cache", async () => {
+      jest.mocked(loadUserPool).mockResolvedValue(pool);
+      jest.mocked(loadNwsSwellAdvisories).mockRejectedValue(new Error("api.weather.gov 503"));
+
+      for (let run = 0; run < 2; run += 1) {
+        await runSwellAlertCron({ now: NOW, supabase: client(forecasts, { data: [], error: null }), deps: deps() });
+      }
+
+      expect(loadNwsSwellAdvisories).toHaveBeenCalledTimes(8);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(2);
+      expectConsoleWarnings([/NWS advisory fetch failed/]);
+    });
+  });
+
+  const highSurf = {
+    evidenceRef: "official:nws_alert:hsa-1",
+    kind: "high_surf" as const,
+    startsAt: new Date(NOW.getTime() - 3_600_000).toISOString(),
+    endsAt: new Date(NOW.getTime() + 48 * 3_600_000).toISOString(),
+    beachIds: [BEACH_ID],
+  };
+
+  it("retries a failed NWS read at once, and a success keeps the hazard line", async () => {
+    jest.mocked(loadNwsSwellAdvisories)
+      .mockRejectedValueOnce(new Error("api.weather.gov timeout"))
+      .mockResolvedValueOnce([highSurf]);
+    const runDeps = deps();
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: runDeps,
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.hazardLookupFailures).toBe(0);
+    expect(loadNwsSwellAdvisories).toHaveBeenCalledTimes(2);
+    const payload = jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload as Record<string, unknown>;
+    expect(payload.body).toContain("High surf advisory in effect.");
+    expect(payload).toMatchObject({ awareness_signal: "corroborated", official_evidence_refs: [highSurf.evidenceRef] });
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it("does not count a failed NWS read when the ledger still names the hazard", async () => {
+    jest.mocked(loadNwsSwellAdvisories).mockRejectedValue(new Error("api.weather.gov 503"));
+    jest.mocked(loadOfficialSwellAdvisories).mockResolvedValueOnce([highSurf]);
+    const runDeps = deps();
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: runDeps,
+    });
+    jest.mocked(loadNwsSwellAdvisories).mockImplementation(async () => []);
+
+    expect(result.sent).toBe(1);
+    expect(jest.mocked(runDeps.enqueue!).mock.calls[0][0].payload?.body).toContain("High surf advisory in effect.");
+    expect(result.hazardLookupFailures).toBe(0);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expectConsoleWarnings([/NWS advisory fetch failed/]);
+  });
+
+  it("counts a failed NWS read only when its push is sent", async () => {
+    jest.mocked(Sentry.captureException).mockClear();
+    jest.mocked(loadNwsSwellAdvisories)
+      .mockRejectedValueOnce(new Error("api.weather.gov 503"))
+      .mockRejectedValueOnce(new Error("api.weather.gov 503"));
+    const runDeps = { ...deps(), resolveHeldBeaches: jest.fn(async () => new Map([["swell:0", "major_event"]])) };
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: runDeps as never,
+    });
+
+    expect(result.sent).toBe(0);
+    expect(result.hazardLookupFailures).toBe(0);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expectConsoleWarnings([/NWS advisory fetch failed/]);
+  });
+
+  it("a failed advisory-ledger read still fails the user as before, and is not a hazard failure", async () => {
+    jest.mocked(loadOfficialSwellAdvisories).mockRejectedValueOnce(new Error("ledger down"));
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: deps(),
+    });
+    error.mockRestore();
+
+    expect(result).toMatchObject({ sent: 0, errors: 1, hazardLookupFailures: 0 });
+    expect(loadNwsSwellAdvisories).not.toHaveBeenCalled();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it("still sends with no board picks when the plan read fails, and counts it once without a warning", async () => {
+    const { getUserEntitlement } = jest.requireMock("@/lib/alerts/entitlements") as { getUserEntitlement: jest.Mock };
+    const { fetchUserBoardContext } = jest.requireMock("@/lib/services/discovery/surf-discovery-orchestrator") as {
+      fetchUserBoardContext: jest.Mock;
+    };
+    getUserEntitlement.mockResolvedValueOnce("unknown");
+    fetchUserBoardContext.mockClear();
+    const warn = jest.spyOn(console, "warn");
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: deps(),
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.entitlementReadFailures).toBe(1);
+    expect(fetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), expect.any(String), false);
+    // Fixture rows carry no confidence score; only a per-user swell-alert warning is under test.
+    expect(warn.mock.calls.map(([first]) => String(first)).filter((line) => line.startsWith("[swell-alert]"))).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it("still sends without a board when the plan read throws", async () => {
+    const { getUserEntitlement } = jest.requireMock("@/lib/alerts/entitlements") as { getUserEntitlement: jest.Mock };
+    getUserEntitlement.mockRejectedValueOnce(new Error("client bug"));
+
+    const result = await runSwellAlertCron({
+      now: NOW, supabase: client(SWELL_TOMORROW, { data: [PREVIOUS_RUN], error: null }), deps: deps(),
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.entitlementReadFailures).toBe(0);
+    expectConsoleWarnings([/Board read failed/]);
   });
 
   it("reports nothing when the NWS advisory read succeeds with no advisories", async () => {
@@ -340,5 +518,60 @@ describe("swell alert runner on the swell-events detector", () => {
 
     expect(result.skippedCounts.no_event_tomorrow).toBe(1);
     expect(runDeps.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("createRunNwsAdvisoryLoader", () => {
+  const input = (beachId: string, zone: string | null = "CAZ043") => ({ zone, beachId, now: NOW });
+
+  it("shares a failure with concurrent and later reads of the same zone", async () => {
+    const load = jest.fn(async () => { throw new Error("503"); });
+    const loader = createRunNwsAdvisoryLoader(load);
+
+    const results = await Promise.allSettled([loader(input("a")), loader(input("b")), loader(input("c", " caz043"))]);
+
+    expect(results.map(({ status }) => status)).toEqual(["rejected", "rejected", "rejected"]);
+    // The first fetch and its one immediate retry.
+    expect(load).toHaveBeenCalledTimes(2);
+    await expect(loader(input("d"))).rejects.toThrow("503");
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it("fetches the zone again once the failure is older than the reuse window", async () => {
+    jest.useFakeTimers({ now: NOW });
+    try {
+      const advisory = { evidenceRef: "official:nws_alert:x", kind: "high_surf", startsAt: "", endsAt: "", beachIds: ["b"] };
+      const load = jest.fn()
+        .mockRejectedValueOnce(new Error("timeout"))
+        .mockRejectedValueOnce(new Error("timeout"))
+        .mockResolvedValue([advisory]);
+      const loader = createRunNwsAdvisoryLoader(load as never);
+
+      await expect(loader(input("a"))).rejects.toThrow("timeout");
+      jest.setSystemTime(NOW.getTime() + NWS_FAILURE_REUSE_MS - 1);
+      await expect(loader(input("b"))).rejects.toThrow("timeout");
+      expect(load).toHaveBeenCalledTimes(2);
+
+      jest.setSystemTime(NOW.getTime() + NWS_FAILURE_REUSE_MS);
+      await expect(loader(input("b"))).resolves.toEqual([advisory]);
+      expect(load).toHaveBeenCalledTimes(3);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("never reuses a success across beaches, and does not cache other zones' failures", async () => {
+    const load = jest.fn(async (args: { zone: string | null | undefined; beachId: string }) => {
+      if (args.zone === "CAZ552") throw new Error("503");
+      return [{ evidenceRef: "official:nws_alert:x", kind: "high_surf", startsAt: "", endsAt: "", beachIds: [args.beachId] }];
+    });
+    const loader = createRunNwsAdvisoryLoader(load as never);
+
+    const [a, b] = await Promise.all([loader(input("a")), loader(input("b"))]);
+    await expect(loader(input("c", "CAZ552"))).rejects.toThrow("503");
+
+    expect(a[0].beachIds).toEqual(["a"]);
+    expect(b[0].beachIds).toEqual(["b"]);
+    expect(load).toHaveBeenCalledTimes(4);
   });
 });

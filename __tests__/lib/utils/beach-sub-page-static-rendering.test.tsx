@@ -18,6 +18,7 @@ import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summa
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import type { Beach } from "@/types/database";
+import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
 
 type PageTreeElement = ReactElement<{ children?: ReactNode }>;
 
@@ -121,6 +122,52 @@ describe("renderBeachSubPage static rendering", () => {
     expect(getPageChildren(page).some((child) =>
       child.type === "p" && (child.props as { children?: ReactNode }).children === "No live water temperature reading right now. Check back for the next update.",
     )).toBe(showLine);
+  });
+
+  describe("when the sub-page data read is unknown", () => {
+    const mexicoBeach = { ...beach, id: "beach-mx", slug: "san-miguel", name: "San Miguel", city: "Ensenada", state: "Baja California", country: "Mexico" } as Beach;
+    const cases = [
+      ["US", beach, "/ca/san-diego/blacks", undefined],
+      [
+        "Mexico",
+        mexicoBeach,
+        `/mexico/${regionToSlug(mexicoBeach.state)}/${cityToSlug(mexicoBeach.city)}/san-miguel`,
+        { region: regionToSlug(mexicoBeach.state), city: cityToSlug(mexicoBeach.city) },
+      ],
+    ] as const;
+
+    it.each(cases)("fails the %s tides render so ISR keeps the last good page", async (_label, row, beachPath, expectedMexicoLocation) => {
+      jest.mocked(getBeachBySlugOrId).mockResolvedValue(row);
+      jest.mocked(getTideMetaData).mockResolvedValue({
+        source: null, nextHighTime: null, nextHighHeight: null, nextLowTime: null,
+        nextLowHeight: null, nextHighAt: null, nextLowAt: null,
+        availability: "sub-page-data-unknown",
+      });
+
+      // No body, title or Dataset JSON-LD is produced: there is nothing to store.
+      await expect(
+        renderBeachSubPage({ beachSlug: row.slug!, pageType: "tides", beachPath, expectedMexicoLocation }),
+      ).rejects.toMatchObject({ name: "SubPageDataUnknownError" });
+    });
+
+    it.each(cases)("fails the %s water-temp render so ISR keeps the last good page", async (_label, row, beachPath, expectedMexicoLocation) => {
+      jest.mocked(getBeachBySlugOrId).mockResolvedValue(row);
+      jest.mocked(getWaterTempMetaData).mockResolvedValue({
+        tempF: null, wetsuitRec: null, availability: "sub-page-data-unknown",
+      });
+
+      await expect(
+        renderBeachSubPage({ beachSlug: row.slug!, pageType: "water-temp", beachPath, expectedMexicoLocation }),
+      ).rejects.toMatchObject({ name: "SubPageDataUnknownError" });
+    });
+
+    it.each(cases)("renders the %s page when the read found no data", async (_label, row, beachPath, expectedMexicoLocation) => {
+      jest.mocked(getBeachBySlugOrId).mockResolvedValue(row);
+
+      await expect(
+        renderBeachSubPage({ beachSlug: row.slug!, pageType: "tides", beachPath, expectedMexicoLocation }),
+      ).resolves.toBeTruthy();
+    });
   });
 
   it("never reads request headers", async () => {

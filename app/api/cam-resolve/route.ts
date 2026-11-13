@@ -5,6 +5,7 @@ import {
   withRateLimit,
 } from "@/lib/middleware/api-wrappers";
 import { HDRELAY_PLAYER_RE } from "@/lib/media/cam-constants";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -350,4 +351,6 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const GET = withRateLimit(camResolveHandler, "cam-resolve");
+const handleGet = withRateLimit(camResolveHandler, "cam-resolve");
+
+export const GET = withErrorNoStore(handleGet, "/api/cam-resolve");

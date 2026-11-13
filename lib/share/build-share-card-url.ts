@@ -1,4 +1,5 @@
 import { remoteImageUrlOrUndefined } from "@/lib/share/remote-image-url";
+import { knownConditionText } from "@/lib/surf-summary-display";
 
 /**
  * Share Card URL Builders
@@ -26,10 +27,10 @@ function getBaseUrl(): string {
 interface SessionShareParams {
   /** Beach name */
   beach: string;
-  /** Session rating (e.g., "Epic", "Good", "Fair") */
-  rating: string;
-  /** Star rating (1-5) */
-  stars: number;
+  /** Session rating label; omit when the surfer gave no rating */
+  rating?: string;
+  /** Star rating (1-5); omit when the surfer gave no rating */
+  stars?: number;
   /** Wave size (e.g., "3-5ft") */
   size: string;
   /** Board used (e.g., "6'2\" Shortboard") */
@@ -63,7 +64,7 @@ interface SurfCallShareParams {
   /** Wave height (e.g., "3-5ft") */
   waveHeight: string;
   /** Wind description (e.g., "Light offshore") */
-  wind: string;
+  wind?: string;
   /** Comma-separated trend tags */
   tags?: string;
   /** Score as integer (0-100), e.g., 81 for 8.1/10 */
@@ -102,7 +103,10 @@ export function buildSurfCallShareUrl(params: SurfCallShareParams): string {
   searchParams.set('verdict', params.verdict);
   searchParams.set('window', params.window);
   searchParams.set('waveHeight', params.waveHeight);
-  searchParams.set('wind', params.wind);
+  const wind = knownConditionText(params.wind);
+  if (wind) {
+    searchParams.set('wind', wind);
+  }
 
   if (params.tags) {
     searchParams.set('tags', params.tags);
@@ -154,8 +158,10 @@ export function buildSessionShareUrl(params: SessionShareParams): string {
   const searchParams = new URLSearchParams();
 
   searchParams.set('beach', params.beach);
-  searchParams.set('rating', params.rating);
-  searchParams.set('stars', params.stars.toString());
+  if (params.rating && params.stars !== undefined) {
+    searchParams.set('rating', params.rating);
+    searchParams.set('stars', params.stars.toString());
+  }
   searchParams.set('size', params.size);
   searchParams.set('board', params.board);
 

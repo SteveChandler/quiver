@@ -12,6 +12,7 @@ import {
   parseSwellTitleId,
 } from "@/lib/share/swell-share";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -91,4 +92,6 @@ async function swellEventHandler(
   }
 }
 
-export const GET = withRateLimit(swellEventHandler, { key: "public-default" });
+const handleGet = withRateLimit(swellEventHandler, { key: "public-default" });
+
+export const GET = withErrorNoStore(handleGet, "/api/swell/[eventKey]");

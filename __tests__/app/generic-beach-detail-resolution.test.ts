@@ -17,6 +17,7 @@ import {
 } from "@/lib/seo/forecast-indexability";
 import { isValidElement, type ReactNode } from "react";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { isBeachSubPageIndexable } from "@/lib/seo/forecast-indexability";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import {
   getCachedBeachCameraUrl,
@@ -25,7 +26,7 @@ import {
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
 
@@ -58,6 +59,11 @@ jest.mock("next/navigation", () => ({
   redirect: jest.fn((url: string) => {
     const err = new Error("NEXT_REDIRECT");
     (err as any).digest = `NEXT_REDIRECT;replace;${url};307;`;
+    throw err;
+  }),
+  permanentRedirect: jest.fn((url: string) => {
+    const err = new Error("NEXT_REDIRECT");
+    (err as any).digest = `NEXT_REDIRECT;replace;${url};308;`;
     throw err;
   }),
 }));
@@ -169,6 +175,20 @@ jest.mock("next/cache", () => ({
 
 jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
+}));
+
+// The service-role client double here does not model tide queries; the tide
+// reader now lets that TypeError propagate, so stub the reader like water temp.
+jest.mock("@/lib/seo/tide-meta-data", () => ({
+  getTideMetaData: jest.fn().mockResolvedValue({
+    source: null,
+    nextHighTime: "2:30 PM",
+    nextLowTime: "8:45 AM",
+    nextHighHeight: 4.2,
+    nextLowHeight: 0.4,
+    nextHighAt: null,
+    nextLowAt: null,
+  }),
 }));
 
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
@@ -492,6 +512,42 @@ describe("GenericBeachDetailPage slug resolution", () => {
     } finally {
       log.mockRestore();
     }
+  });
+
+  it("keeps the water-temp guide link gate open when the water-temp read failed", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    (getWaterTempMetaData as jest.Mock).mockResolvedValueOnce({
+      tempF: null,
+      wetsuitRec: null,
+      availability: "sub-page-data-unknown",
+    });
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    const pending: unknown[] = [page];
+    let rendered = false;
+    while (pending.length > 0 && !rendered) {
+      const node = pending.pop();
+      if (Array.isArray(node)) {
+        pending.push(...node);
+        continue;
+      }
+      if (!isValidElement<Record<string, unknown>>(node)) continue;
+      if (typeof node.type === "function" && node.type.name === "DeferredRelatedGuidesSection") {
+        await (node.type as (props: Record<string, unknown>) => Promise<ReactNode>)(node.props);
+        rendered = true;
+        continue;
+      }
+      pending.push(...Object.values(node.props));
+    }
+
+    expect(rendered).toBe(true);
+    const waterTempCall = jest.mocked(isBeachSubPageIndexable).mock.calls
+      .find(([, path]) => path.endsWith("/water-temp"));
+    expect(waterTempCall?.[2]).toEqual({ hasSubPageData: true });
   });
 
   it.each([
@@ -841,7 +897,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     ]);
   });
 
-  it("redirects stale city slugs to the canonical beach URL", async () => {
+  it("permanently redirects stale city slugs to the canonical beach URL", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -867,7 +923,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
     });
 
     expectConsoleWarnings([/\[GenericBeachDetailPage\] City slug mismatch/]);
-    expect(redirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
+    expect(permanentRedirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
+    expect(redirect).not.toHaveBeenCalled();
     expect(notFound).not.toHaveBeenCalled();
     expect(getNearbyBeaches).not.toHaveBeenCalled();
   });

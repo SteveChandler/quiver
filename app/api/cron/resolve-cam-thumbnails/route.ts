@@ -7,6 +7,7 @@ import {
 import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -133,10 +134,12 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/resolve-cam-thumbnails", _GET);
+const handleGet = withObservedCron("/api/cron/resolve-cam-thumbnails", _GET);
 
 async function _POST(request: Request): Promise<Response> {
   return _GET(request);
 }
 
 export const POST = withObservedCron("/api/cron/resolve-cam-thumbnails", _POST);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/resolve-cam-thumbnails");

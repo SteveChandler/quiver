@@ -10,6 +10,7 @@ import {
   runEnhancedForecastSyncCdip,
   runEnhancedForecastSyncCdipHead,
 } from "./_shared";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 // Next.js requires `maxDuration` to be statically analyzable (literal).
 export const maxDuration = 300;
@@ -26,7 +27,8 @@ async function _HEAD(request: Request): Promise<Response> {
   return runEnhancedForecastSyncCdipHead(request as NextRequest);
 }
 
-export const GET = _GET;
+const handleGet = _GET;
 export const POST = _POST;
 export const HEAD = _HEAD;
 
+export const GET = withErrorNoStore(handleGet, "/api/cron/enhanced-forecast-sync-cdip");

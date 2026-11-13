@@ -14,6 +14,7 @@ import {
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { getDailyIntelWaveHeightLabels } from "@/lib/services/intel/wave-height-labels";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -165,8 +166,10 @@ async function getBeachDailyIntel(request: NextRequest): Promise<NextResponse> {
   return createSuccessResponse({ intel: sanitizedIntel });
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withErrorHandler(getBeachDailyIntel, {
     errorMessage: "Failed to load beach daily intel",
   })
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/beach-daily-intel");

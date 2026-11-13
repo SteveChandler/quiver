@@ -30,6 +30,7 @@ import {
   SITE_ORIGIN,
   resolveDisplayCityName,
   resolveMetroConfig,
+  resolveIntentCitySlug,
   buildItemListItems,
 } from "./city-page-utils";
 import type { LocationPageProps } from "./city-page-utils";
@@ -73,11 +74,12 @@ export default async function LocationPage(props: LocationPageProps) {
   );
 
   const metroConfig = resolveMetroConfig(params.city);
+  const intentCitySlug = resolveIntentCitySlug(params, location, metroConfig);
 
   // Fetch editorial content, best time to surf URL, sibling cities, and surf report
   const [editorial, bestTimeToSurfUrl, siblingCities, surfReport] = await Promise.all([
     getCityEditorialContent(params.city, params.state, params.country, null, !islandSlug),
-    getBestTimeToSurfUrl(params.city, location.city, location.state, acceptedBeachIds),
+    getBestTimeToSurfUrl(intentCitySlug ?? params.city, location.city, location.state, acceptedBeachIds),
     params.country === "usa"
       ? getTopCitiesInState(params.state, 10).then((cities) =>
           islandSlug
@@ -119,6 +121,7 @@ export default async function LocationPage(props: LocationPageProps) {
         <EditorialLayout
           editorialPhoto={editorialPhoto}
           params={params}
+          intentCitySlug={intentCitySlug}
           displayCityName={displayCityName}
           stats={stats}
           beaches={beaches}
@@ -138,6 +141,7 @@ export default async function LocationPage(props: LocationPageProps) {
     <>
       <StandardLayout
         params={params}
+        intentCitySlug={intentCitySlug}
         displayCityName={displayCityName}
         stats={stats}
         location={location}

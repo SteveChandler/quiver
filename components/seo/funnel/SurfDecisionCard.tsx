@@ -17,6 +17,7 @@ import {
   SCORE_LABEL_PAPER_WASH,
 } from "@/components/forecast/score-band-call";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
+import { knownConditionText } from "@/lib/surf-summary-display";
 import type { SeoDecisionConfig } from "@/lib/seo/funnel-pages";
 import { formatTimeRangeInTimezone } from "@/lib/utils/date-time";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
@@ -32,13 +33,9 @@ const FALLBACK_MESSAGE =
 
 function pickBeachBySlug(beaches: Beach[] | null | undefined, slug: string): Beach | null {
   if (!beaches || beaches.length === 0) return null;
-  return beaches.find((beach) => beach.slug === slug) ?? beaches[0] ?? null;
+  return beaches.find((beach) => beach.slug === slug) ?? null;
 }
 
-function riskLabel(value: string | null | undefined, fallback: string): string {
-  if (!value || value === "Unknown") return fallback;
-  return value;
-}
 
 export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
   const beachResult = await getBeachesBySlug(decision.primarySpotSlug);
@@ -52,8 +49,9 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
     beach?.lat != null && beach?.lon != null
       ? getTimezoneFromCoords(beach.lat, beach.lon)
       : undefined;
+  const liveWaveHeight = knownConditionText(report?.waveHeight);
   const hasLiveData = Boolean(
-    report?.waveHeight || report?.bestWindowStart || report?.windDescription
+    liveWaveHeight || report?.bestWindowStart || knownConditionText(report?.windDescription)
   );
   const backupBeaches = await Promise.all(
     decision.nearbySpotSlugs.map(async (slug) => {
@@ -75,11 +73,14 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
         "-",
       ) ?? "No clean window yet"
     : "Refresh in Quiver";
+  // With live data on the card, a missing live reading hides its cell: the
+  // editorial risk text would read as today's reading. Without live data the
+  // card already says live conditions are unavailable, so the guide text shows.
   const windRisk = hasLiveData
-    ? riskLabel(report?.windDescription, decision.windRisk)
+    ? knownConditionText(report?.windDescription)
     : decision.windRisk;
   const tideRisk = hasLiveData
-    ? riskLabel(report?.tideDescription, decision.tideRisk)
+    ? knownConditionText(report?.tideDescription)
     : decision.tideRisk;
 
   return (
@@ -135,7 +136,7 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
           <DecisionMetric
             icon={Waves}
             label="Surf"
-            value={report?.waveHeight ?? "Check current reading"}
+            value={liveWaveHeight ?? "Check current reading"}
           />
           <DecisionMetric
             icon={ShipWheel}
@@ -147,8 +148,12 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
             label="Wetsuit call"
             value={decision.wetsuitCall}
           />
-          <DecisionMetric icon={Compass} label="Tide risk" value={tideRisk} />
-          <DecisionMetric icon={Wind} label="Wind risk" value={windRisk} />
+          {tideRisk ? (
+            <DecisionMetric icon={Compass} label="Tide risk" value={tideRisk} />
+          ) : null}
+          {windRisk ? (
+            <DecisionMetric icon={Wind} label="Wind risk" value={windRisk} />
+          ) : null}
         </div>
 
         <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">

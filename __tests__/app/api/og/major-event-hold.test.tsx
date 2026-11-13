@@ -236,6 +236,37 @@ describe("major-event hold OG routes", () => {
     expect(JSON.stringify(capturedProps())).not.toMatch(/Fake Beach|9\.9\/10/i);
   });
 
+  it("leaves an Unknown wave height and wind out of the card subtitle", async () => {
+    (getBeachByIdFromDb as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: SATURDAY_BEACH_ID, name: "Server Beach", slug: "server-beach" },
+    });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValue({
+      report: {
+        verdict: "YES",
+        bestWindowStart: SATURDAY_START,
+        bestWindowEnd: SATURDAY_END,
+        waveHeight: "Unknown",
+        windDescription: "Unknown",
+        whySentence: "Clean server forecast",
+        score: 86,
+        peakTime: "8:00 AM",
+        trendTags: [],
+        lowForecastConfidence: false,
+        recommendationAvailability: { state: "available", holdEpoch: "og-hold-epoch" },
+      },
+    });
+    const route = await import("@/app/api/og/surf-call/route");
+    await route.GET(
+      new Request(
+        `http://localhost:3000/api/og/surf-call?beachId=${SATURDAY_BEACH_ID}&startsAt=${encodeURIComponent(SATURDAY_START)}&endsAt=${encodeURIComponent(SATURDAY_END)}`,
+      ) as never,
+    );
+
+    expect(capturedProps()).toMatchObject({ title: "Server Beach is lining up" });
+    expect(String(capturedProps().subtitle)).not.toMatch(/unknown/i);
+  });
+
   it("keeps confidence inert for an exact authorized surf call", async () => {
     (getBeachByIdFromDb as jest.Mock).mockResolvedValue({
       success: true,

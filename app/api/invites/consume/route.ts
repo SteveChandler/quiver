@@ -12,6 +12,7 @@ import {
 import { recordInviteConsumedEvent } from "@/lib/invites/events";
 import { hashInviteToken } from "@/lib/invites/token-hash";
 import { capturePostHogEvent } from "@/lib/posthog-server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * POST /api/invites/consume
@@ -96,6 +97,8 @@ export const POST = withAuth(
   { errorMessage: "Failed to consume invite" },
 );
 
-export function GET() {
+function handleGet() {
   return methodNotAllowed(["POST"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/invites/consume");
