@@ -9,6 +9,7 @@ import type { RecommendedBoard } from "@/lib/scoring/personal-board";
  */
 
 import type { Beach } from "@/types/database";
+import type { ReasonCode } from "@/lib/domains/scoring/reason-sentences";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { SpotProfile } from "@/lib/domains/spot-profile/types";
@@ -250,6 +251,8 @@ export interface DetailedScore {
   matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
   /** Human-readable reasons (3-5 specific factors) */
   reasons: string[];
+  /** `reasonCodes[i]` is the scorer code of `reasons[i]` (`lib/domains/scoring/reason-sentences.ts`), null for other text. */
+  reasonCodes?: ReasonCode[];
   /** Warnings about conditions, skill level, or crowding */
   warnings: string[];
   /** Structured scoring effects; decisions must not be inferred from warning strings. */
@@ -390,6 +393,8 @@ export interface SurfDiscoveryRecommendation {
   message?: string;
   /** Specific reasons for this ranking (3-5 factors) */
   reasons: string[];
+  /** Optional and additive: `reasonCodes[i]` is the scorer code of `reasons[i]`, null for other text. */
+  reasonCodes?: ReasonCode[];
   /** Warnings or cautions about the spot */
   warnings: string[];
   /** Structured condition effects carried into canonical decisions and presentation. */

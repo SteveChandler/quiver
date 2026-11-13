@@ -21,6 +21,7 @@ import {
   buildSurfWindowTrackingContext,
   buildSurfWindowTrackingMetadata,
 } from "./tracking";
+import { positiveReasons, reasonList } from "@/lib/domains/scoring/reason-sentences";
 
 interface WhyThisCallProps {
   recommendation: SurfWindowRecommendation;
@@ -187,7 +188,7 @@ export function WhyThisCall({
                 Positive signals
               </h4>
               <ExplanationList
-                items={recommendation.positives}
+                items={positiveReasons(reasonList(recommendation.positives, recommendation.positiveCodes)).reasons}
                 emptyText="No positive signals are attached."
                 icon="positive"
                 variant={variant}

@@ -1,6 +1,6 @@
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
-import { generatePrimaryReason } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import { generatePrimaryReason, primaryReasonWithCode } from '@/lib/services/discovery/surf-discovery-orchestrator';
 
 // `skill_level` is widened to allow null because the orchestrator defends
 // against null at runtime even though Beach.Row pins it to `string`.
@@ -121,5 +121,11 @@ describe('generatePrimaryReason', () => {
       const result = generatePrimaryReason(beach, makeForecast('2'), 'beginner');
       expect(result).toContain('conditions are manageable');
     });
+  });
+
+  it('codes the big-surf heads-up as a caution, and the level lines as other text', () => {
+    const advanced = makeBeach({ skill_level: 'advanced' });
+    expect(primaryReasonWithCode(advanced, makeForecast('3.5'), 'beginner')?.code).toBe('caution_big_surf');
+    expect(primaryReasonWithCode(makeBeach(), makeForecast('2'), 'beginner')?.code ?? null).toBeNull();
   });
 });

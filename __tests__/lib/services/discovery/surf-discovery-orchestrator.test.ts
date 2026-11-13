@@ -400,7 +400,8 @@ jest.mock('@/lib/domains/scoring', () => ({
       distancePenalty: 0,
     },
     matchQuality: 'excellent',
-    reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+    reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+    reasonCodes: ['size_good', 'period_good', null],
     warnings: [],
     conditionBadges: [],
   })),
@@ -462,6 +463,17 @@ jest.mock('@/lib/utils/timezone-utils.server', () => ({
   getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
 }));
 
+let mockDistinction: string | null | undefined;
+jest.mock('@/lib/services/discovery/window-distinction', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/window-distinction');
+  return {
+    ...actual,
+    computeWindowDistinctionReason: (...args: unknown[]) => (
+      mockDistinction === undefined ? actual.computeWindowDistinctionReason(...args) : mockDistinction
+    ),
+  };
+});
+
 jest.mock('@/lib/services/discovery/personalization-layer', () => ({
   fetchPersonalizationContext: jest.fn(async () => ({
     implicitPrefs: null,
@@ -505,7 +517,8 @@ function resetDefaultDiscoveryMocks(): void {
       distancePenalty: 0,
     },
     matchQuality: 'excellent',
-    reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+    reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+    reasonCodes: ['size_good', 'period_good', null],
     warnings: [],
     conditionBadges: [],
   });
@@ -746,7 +759,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -2597,7 +2611,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -2804,7 +2819,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
           distancePenalty: 0,
         },
         matchQuality: 'excellent',
-        reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+        reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
         warnings: [],
         conditionBadges: [],
       };
@@ -2894,7 +2910,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     }
   });
 
-  test('personalization reasons are prepended to base reasons', async () => {
+  test('a "no" verdict sends no Good size or period line; other reasons stay (API edge)', async () => {
     const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
 
     calculatePersonalizationBonus.mockReturnValue({
@@ -2907,10 +2923,71 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
 
     const rec = result.recommendations[0];
-    // Personalization reason should come first
-    expect(rec.reasons[0]).toBe('Matches your preferred break type');
-    // Base reasons should follow
-    expect(rec.reasons).toEqual(expect.arrayContaining(['Good wave size']));
+    // The canonical decision says "no" for this mocked row (Skip label).
+    expect(rec.verdict).toBe('no');
+    expect(rec.reasons).not.toContain('Good size at 3–4 ft.');
+    expect(rec.reasons).not.toContain('Solid swell period behind it.');
+    expect(rec.reasons).toEqual(['Matches your preferred break type', 'Light winds']);
+    expect(rec.reasonCodes).toEqual([null, null]);
+  });
+
+  test('the first cut (score step) keeps the tide caution behind five personal lines', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const base = scoreBeachWithEngine();
+    scoreBeachWithEngine.mockReturnValue({
+      ...base,
+      reasons: ['Good size at 3–4 ft.', 'Tide back in range by ~1 PM'],
+      reasonCodes: ['size_good', 'caution_tide'],
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 8, affinityBonus: 0, personalizationBonus: 8,
+      reasons: ['Personal 1', 'Personal 2', 'Personal 3', 'Personal 4', 'Personal 5'],
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    const rec = result.recommendations[0];
+    expect(rec.reasons[0]).toBe('Tide back in range by ~1 PM');
+    expect(rec.reasonCodes?.[0]).toBe('caution_tide');
+  });
+
+  test('the second cut (after the window distinction) keeps the tide caution', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const base = scoreBeachWithEngine();
+    scoreBeachWithEngine.mockReturnValue({
+      ...base,
+      reasons: ['Tide back in range by ~1 PM'],
+      reasonCodes: ['caution_tide'],
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 8, affinityBonus: 0, personalizationBonus: 8,
+      reasons: ['Personal 1', 'Personal 2', 'Personal 3', 'Personal 4'],
+    });
+    mockDistinction = 'Best window of the day';
+    try {
+      const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+      const rec = result.recommendations[0];
+      expect(rec.reasons).toContain('Best window of the day');
+      expect(rec.reasons[0]).toBe('Tide back in range by ~1 PM');
+      expect(rec.reasons).toHaveLength(5);
+    } finally {
+      mockDistinction = undefined;
+    }
+  });
+
+  test('each reason leaves the API with its scorer code beside it', async () => {
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    const rec = result.recommendations[0];
+    expect(rec.reasonCodes).toHaveLength(rec.reasons.length);
+    const scorerCodes: Record<string, string> = {
+      'Good size at 3–4 ft.': 'size_good',
+      'Solid swell period behind it.': 'period_good',
+    };
+    expect(rec.reasonCodes).toEqual(rec.reasons.map((reason) => scorerCodes[reason] ?? null));
   });
 
   test('discovery continues when getUserSurfPreferences throws', async () => {
@@ -3378,7 +3455,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -3552,7 +3630,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
         matchQuality: 'excellent',
-        reasons: ['Good wave size'],
+        reasons: ['Good size at 3–4 ft.'],
         warnings: [],
         conditionBadges: [],
       })),
@@ -3752,7 +3830,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
         matchQuality: 'excellent',
-        reasons: ['Good wave size'],
+        reasons: ['Good size at 3–4 ft.'],
         warnings: [],
         conditionBadges: [],
       })),
