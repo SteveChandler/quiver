@@ -47,6 +47,7 @@ import { verdictFromRecommendationLabel } from '@/lib/utils/surf-call-logic';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
 import type { Beach } from '@/types/database';
+import { formatReasonSentence } from '@/lib/domains/scoring/reason-sentences';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { weekScoutPersonalCallViolations } from '@/__tests__/fixtures/week-scout-contract';
 import { scoreLabel } from '@/lib/utils/score-color-utils';
@@ -2392,5 +2393,124 @@ describe('Week Scout hourly bridge', () => {
     const bridged = selectedRows(deps).filter((row) => row.id.includes(':h+'));
     expect(bridged.length).toBeGreaterThan(0);
     expect(bridged.every((row) => row.raw_forecast?.hourly_bridge?.tide_source === 'row_lerp')).toBe(true);
+  });
+});
+
+describe('Week Scout takeaway from scorer reasons', () => {
+  const sizeFact = { code: 'size_good', heightFt: 3.9 } as const;
+
+  function depsWithReasons(conditionScore: number): WeekScoutServiceDependencies {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => conditionScore);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({
+      ...scoreBeach(beach, row, options),
+      reasons: [formatReasonSentence(sizeFact), 'Light trade wind'],
+      reasonCodes: ['size_good' as const, null],
+    }));
+    return deps;
+  }
+
+  async function windows(conditionScore: number) {
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      depsWithReasons(conditionScore),
+    );
+    return response.days.flatMap((day) => day.windows);
+  }
+
+  it('uses the formatted first reason as the takeaway', async () => {
+    const shown = await windows(78);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+  });
+
+  it('shows no takeaway that contradicts a Skip window', async () => {
+    const shown = await windows(25);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === null)).toBe(true);
+  });
+
+  it('drops a Good size takeaway when the FINAL verdict is skip/MEH, even at conditionScore 63', async () => {
+    const personalCall = getCanonicalPersonalCall as jest.Mock;
+    personalCall.mockReturnValue({ verdict: 'no', label: 'MEH' });
+    try {
+      const shown = await windows(63);
+      expect(shown.length).toBeGreaterThan(0);
+      expect(shown.every((window) => window.conditionScore === 63 && window.verdict === 'skip')).toBe(true);
+      expect(shown.every((window) => window.personalLabel === 'MEH')).toBe(true);
+      expect(shown.map((window) => window.takeaway)).toEqual(shown.map(() => null));
+    } finally {
+      personalCall.mockReset();
+      personalCall.mockImplementation(
+        jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter').getCanonicalPersonalCall,
+      );
+    }
+  });
+
+  it('keeps the Good size takeaway when the final verdict is not negative', async () => {
+    const personalCall = getCanonicalPersonalCall as jest.Mock;
+    personalCall.mockReturnValue({ verdict: 'maybe', label: 'FAIR' });
+    try {
+      const shown = await windows(63);
+      expect(shown.length).toBeGreaterThan(0);
+      expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+    } finally {
+      personalCall.mockReset();
+      personalCall.mockImplementation(
+        jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter').getCanonicalPersonalCall,
+      );
+    }
+  });
+
+  it('reads the code, not the words: an uncoded line is never treated as a scorer sentence', async () => {
+    const deps = depsWithReasons(25);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({ ...scoreBeach(beach, row, options), reasonCodes: undefined }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+  });
+
+  it('keeps a binding tide caution as the takeaway ahead of the wave sentence', async () => {
+    const deps = depsWithReasons(78);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({
+      ...scoreBeach(beach, row, options),
+      reasons: ['Tide back in range by ~1 PM', formatReasonSentence(sizeFact)],
+      reasonCodes: ['caution_tide' as const, 'size_good' as const],
+    }));
+    deps.calculatePersonalizationBonus = jest.fn(() => ({
+      affinityBonus: 0, personalizationBonus: 0, reasons: ['Conditions at Avalanche match your experience level today'],
+    }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Tide back in range by ~1 PM')).toBe(true);
+  });
+
+  it('prefers the wave sentence over a personalization line, so the takeaway never names the surfer level', async () => {
+    const deps = depsWithReasons(78);
+    deps.calculatePersonalizationBonus = jest.fn(() => ({
+      affinityBonus: 0, personalizationBonus: 0, reasons: ['Conditions at Avalanche match your experience level today'],
+    }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
   });
 });

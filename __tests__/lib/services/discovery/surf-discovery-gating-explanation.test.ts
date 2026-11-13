@@ -19,6 +19,55 @@ describe("gateSurfDiscoveryResponse personal explanation", () => {
     const result = respond({ reasons: [], conditionBadges: [{ label: "Offshore" }, { label: "Mid tide" }] });
     const rec = result.recommendations[0] as { personalExplanation?: string };
 
-    expect(rec.personalExplanation).toBe("Conditions line up: Offshore, Mid tide");
+    expect(rec.personalExplanation).toBe("Conditions line up: Offshore, Mid tide.");
+  });
+
+  it("joins scorer sentences with one full stop each, never \"..\"", () => {
+    const result = respond({
+      reasons: ["Good size at 3–4 ft.", "Solid swell period behind it."],
+      conditionBadges: [{ label: "Offshore" }],
+    });
+    const rec = result.recommendations[0] as { personalExplanation?: string };
+
+    expect(rec.personalExplanation).toBe(
+      "Good size at 3–4 ft. Solid swell period behind it. Conditions line up: Offshore.",
+    );
+    expect(rec.personalExplanation).not.toContain("..");
+  });
+
+  it("keeps the personal lines when wave sentences lead the API order", () => {
+    const result = respond({
+      reasons: [
+        "Good size at 3–4 ft.",
+        "Solid swell period behind it.",
+        "Matches your preferred break type",
+        "One of your go-to spots",
+      ],
+      reasonCodes: ["size_good", "period_good", null, null],
+      conditionBadges: [],
+    });
+    const rec = result.recommendations[0] as { personalExplanation?: string };
+
+    expect(rec.personalExplanation).toBe(
+      "Matches your preferred break type. One of your go-to spots. Good size at 3–4 ft.",
+    );
+  });
+  it("keeps a caution first in the personal explanation, ahead of the personal lines", () => {
+    const result = respond({
+      reasons: [
+        "Heads up: Blacks is pumping today — 6.4ft waves are above your usual range",
+        "Good size at 3–4 ft.",
+        "Matches your preferred break type",
+        "One of your go-to spots",
+        "Wind matches your usual sessions",
+      ],
+      reasonCodes: ["caution_big_surf", "size_good", null, null, null],
+      conditionBadges: [],
+    });
+    const rec = result.recommendations[0] as { personalExplanation?: string };
+
+    expect(rec.personalExplanation).toBe(
+      "Heads up: Blacks is pumping today — 6.4ft waves are above your usual range. Matches your preferred break type. One of your go-to spots.",
+    );
   });
 });

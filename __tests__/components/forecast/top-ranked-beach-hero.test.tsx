@@ -19,6 +19,9 @@ import { TopRankedBeachHero } from "@/components/forecast/top-ranked-beach-hero"
 import { useOptionalAuth } from "@/context/auth-context";
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
 import { MAX_WINDOW_HOURS } from "@/lib/services/discovery/window-selector";
+import { formatReasonSentence, type ScoringReasonFact } from "@/lib/domains/scoring/reason-sentences";
+
+const SIZE_FACT: ScoringReasonFact = { code: "size_good", heightFt: 4.2 };
 
 const beach: BeachConditionSummary = {
   beachId: "beach-1",
@@ -102,7 +105,7 @@ describe("TopRankedBeachHero", () => {
         summary: "High confidence",
         reasons: ["Forecast model row is present"],
       },
-      positives: ["Good wave size"],
+      positives: [formatReasonSentence(SIZE_FACT)],
       // The card reads height from the window it is describing, not from the
       // region's separate "current conditions" reading.
       wave: {
@@ -131,13 +134,15 @@ describe("TopRankedBeachHero", () => {
     expect(screen.getByText("Worth a surf")).toBeInTheDocument();
     expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
     expect(screen.getByText("Peak 8:00 AM · High confidence")).toBeInTheDocument();
-    expect(screen.getByText("Good wave size")).toBeInTheDocument();
+    expect(screen.getByText("Good size at 4–5 ft.")).toBeInTheDocument();
     const durationHours =
       (Date.parse(selectorWindow.endIso) - Date.parse(selectorWindow.startIso)) /
       (60 * 60 * 1000);
     expect(durationHours).toBeLessThanOrEqual(MAX_WINDOW_HOURS);
     expect(screen.queryByText("6:00 AM–9:00 AM")).not.toBeInTheDocument();
-    expect(screen.getByText("4.2ft")).toBeInTheDocument();
+    // The card height is the same band as the reason line, never a decimal beside it.
+    expect(screen.getByText("4–5 ft")).toBeInTheDocument();
+    expect(screen.queryByText("4.2ft")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Imperial Beach beach photo" })).toBeInTheDocument();
     expect(screen.queryByText("Approved beach photo")).not.toBeInTheDocument();
   });
@@ -167,6 +172,48 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Selector conditions align")).not.toBeInTheDocument();
   });
 
+  it("uses the Why-this-call positive rule: no small-side line, a caution may lead", () => {
+    const window = {
+      startIso: "2026-08-12T07:00:00Z",
+      endIso: "2026-08-12T09:00:00Z",
+      peakIso: "2026-08-12T08:00:00Z",
+      timezone: "UTC",
+      localTimeLabel: "7:00 AM-9:00 AM",
+      score: 60,
+      verdict: "Maybe" as const,
+      confidence: { level: "high" as const, score: 84, summary: "High confidence", reasons: [] },
+      wave: { height: "2.1", period: "12", direction: "W", summary: "2.1ft at 12s" },
+    };
+    const { rerender } = render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          ...window,
+          positives: ["On the small side at 2–3 ft.", "Light offshore wind"],
+          positiveCodes: ["size_below_ideal", null],
+        }}
+      />
+    );
+    expect(screen.queryByText("On the small side at 2–3 ft.")).not.toBeInTheDocument();
+    expect(screen.getByText("Light offshore wind")).toBeInTheDocument();
+
+    rerender(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          ...window,
+          positives: ["Tide back in range by ~1 PM", "On the small side at 2–3 ft."],
+          positiveCodes: ["caution_tide", "size_below_ideal"],
+        }}
+      />
+    );
+    expect(screen.getByText("Tide back in range by ~1 PM")).toBeInTheDocument();
+  });
+
   it("shows guests a login CTA without the numeric score or score-band call", () => {
     render(
       <TopRankedBeachHero
@@ -189,7 +236,7 @@ describe("TopRankedBeachHero", () => {
             summary: "High confidence",
             reasons: [],
           },
-          positives: ["Good wave size"],
+          positives: [formatReasonSentence(SIZE_FACT)],
           wave: {
             height: "4.2",
             period: "14",
@@ -233,7 +280,7 @@ describe("TopRankedBeachHero", () => {
             summary: "High confidence",
             reasons: [],
           },
-          positives: ["Good wave size"],
+          positives: [formatReasonSentence(SIZE_FACT)],
           wave: {
             height: "3.7",
             period: "14",
@@ -250,7 +297,7 @@ describe("TopRankedBeachHero", () => {
 
     // Height belongs to the upcoming window, not the region's current reading.
     expect(screen.getByText("Wave height then")).toBeInTheDocument();
-    expect(screen.getByText("3.7ft")).toBeInTheDocument();
+    expect(screen.getByText("3–4 ft")).toBeInTheDocument();
     expect(screen.queryByText("4.2ft")).not.toBeInTheDocument();
 
     // A window that has not started yet is signposted as the next call rather

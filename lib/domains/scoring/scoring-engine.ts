@@ -19,6 +19,7 @@ import type {
   ScoringDecisionEffect,
 } from "./types";
 import { DEFAULT_SCORING_CONFIG } from "./types";
+import { dedupeReasons, takeReasons, type ReasonCode } from "./reason-sentences";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
 import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
@@ -109,12 +110,15 @@ export class ScoringEngine {
     const allReasons: string[] = [];
     const allWarnings: string[] = [];
     const allEffects: ScoringDecisionEffect[] = [];
+    const allReasonCodes: ReasonCode[] = [];
 
     for (const result of weightedResults) {
       const normalizedWeight = result.weight / totalWeight;
       weightedSum += result.score * normalizedWeight;
       subscores.set(result.name, result.score);
       allReasons.push(...result.reasons);
+      // The base scorer formats `reasons` from `reasonFacts` in order, so the codes line up.
+      allReasonCodes.push(...result.reasons.map((_, index) => result.reasonFacts?.[index]?.code ?? null));
       allWarnings.push(...result.warnings);
       allEffects.push(...(result.effects ?? []));
     }
@@ -142,10 +146,12 @@ export class ScoringEngine {
         : "unknown";
       const capMessage = `Small wave (${heightStr}ft) caps score at ${ceiling}`;
       allReasons.push(capMessage);
+      allReasonCodes.push(null);
       allWarnings.push(capMessage);
     }
     if (chopCeiling && chopCeiling.ceiling < rawTotal) {
       allReasons.push(chopCeiling.reason);
+      allReasonCodes.push(null);
       allWarnings.push(chopCeiling.reason);
     }
     if (effectCeiling < rawTotal) {
@@ -164,11 +170,18 @@ export class ScoringEngine {
         const binding = allEffects.find(
           (effect) => TIDE_EFFECT_CODES.has(effect.code) && effect.verdictCeiling === effectCeiling,
         );
-        if (binding) allReasons.unshift(binding.message);
+        if (binding) {
+          allReasons.unshift(binding.message);
+          allReasonCodes.unshift('caution_tide');
+        }
       }
     }
 
     const matchQuality = this.classifyScore(total);
+    const shownReasons = takeReasons(
+      dedupeReasons({ reasons: allReasons, reasonCodes: allReasonCodes }),
+      DEFAULT_SCORING_CONFIG.maxReasons,
+    );
 
     // Get confidence from input snapshot
     const confidence = input.snapshot.confidence;
@@ -177,7 +190,8 @@ export class ScoringEngine {
       total,
       subscores,
       matchQuality,
-      reasons: this.dedupeAndLimit(allReasons, DEFAULT_SCORING_CONFIG.maxReasons),
+      reasons: shownReasons.reasons,
+      reasonCodes: shownReasons.reasonCodes,
       warnings: this.dedupeAndLimit(allWarnings, DEFAULT_SCORING_CONFIG.maxReasons),
       skipReason: null,
       confidence,

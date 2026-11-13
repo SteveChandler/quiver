@@ -17,7 +17,8 @@ describe('Base Conditions Scorer', () => {
       // 3.5ft: height = round(55 + ((3.5-2)/3)*45) = 78, period(12s)=78
       // Combined: round(78*0.6 + 78*0.4) = 78
       expect(result.score).toBeGreaterThanOrEqual(70);
-      expect(result.reasons).toContain('Good wave size (3.5ft)');
+      expect(result.reasonFacts).toContainEqual({ code: 'size_good', heightFt: 3.5 });
+      expect(result.reasons).toContain('Good size at 3–4 ft.');
     });
 
     it('should score small waves (1-2ft) with compressed score', () => {
@@ -28,6 +29,8 @@ describe('Base Conditions Scorer', () => {
       // Combined: round(41*0.6 + 78*0.4) = 56
       expect(result.score).toBeGreaterThanOrEqual(50);
       expect(result.score).toBeLessThan(70);
+      expect(result.reasonFacts).toContainEqual({ code: 'size_below_ideal', heightFt: 1.5 });
+      expect(result.reasons).toContain('On the small side at 1–2 ft.');
     });
 
     it('should score very small waves (<1ft) with low score', () => {
@@ -56,7 +59,8 @@ describe('Base Conditions Scorer', () => {
       // Combined: round(85*0.6 + 78*0.4) = 82
       expect(result.score).toBeGreaterThanOrEqual(60);
       expect(result.score).toBeLessThan(90);
-      expect(result.reasons).toContain('Larger swell (6.5ft)');
+      expect(result.reasonFacts).toContainEqual({ code: 'size_larger', heightFt: 6.5 });
+      expect(result.reasons).toContain('Bigger surf at 6–7 ft.');
     });
 
     it('should score very large waves (8ft+) as a big swell', () => {
@@ -65,7 +69,8 @@ describe('Base Conditions Scorer', () => {
 
       // Big swell = 85, period(12s) = 78 → combined = round(85*0.6 + 78*0.4) = 82
       expect(result.score).toBeGreaterThanOrEqual(75);
-      expect(result.reasons).toContain('Big swell (10.0ft)');
+      expect(result.reasonFacts).toContainEqual({ code: 'size_big', heightFt: 10 });
+      expect(result.reasons).toContain('Big surf at 9–10 ft.');
     });
   });
 
@@ -74,14 +79,16 @@ describe('Base Conditions Scorer', () => {
       const input = createInput({ wavePeriod: 16 });
       const result = baseConditionsScorer.score(input);
 
-      expect(result.reasons).toContainEqual(expect.stringContaining('Strong swell energy'));
+      expect(result.reasonFacts).toContainEqual({ code: 'period_strong', periodS: 16 });
+      expect(result.reasons).toContain('Long-period swell at 16 s, so the sets have real push.');
     });
 
     it('should score good period (10-14s) well', () => {
       const input = createInput({ wavePeriod: 12 });
       const result = baseConditionsScorer.score(input);
 
-      expect(result.reasons).toContainEqual(expect.stringContaining('swell energy'));
+      expect(result.reasonFacts).toContainEqual({ code: 'period_good' });
+      expect(result.reasons).toContain('Solid swell period behind it.');
     });
 
     it('should penalize short period (<6s) wind swell', () => {
