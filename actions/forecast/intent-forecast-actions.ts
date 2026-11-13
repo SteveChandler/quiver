@@ -725,7 +725,8 @@ async function fetchExpandedTideData(
 
   const selectedRows = tideResult.data ? selectTideSeries(tideResult.data) : [];
   const renderedAtMs = Date.now();
-  const stationView = await loadStationTideView(selectedRows.find((row) => row.station_id)?.station_id, renderedAtMs);
+  // selectTideSeries keeps one station (the latest ingestion), so every selected row names it.
+  const stationView = await loadStationTideView(selectedRows[0]?.station_id, renderedAtMs);
 
   // Process beach preferences
   const beachTidePreferences: BeachTidePreference[] = (beachesResult.data || []).map(

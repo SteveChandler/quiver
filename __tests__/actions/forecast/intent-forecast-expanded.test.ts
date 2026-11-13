@@ -458,4 +458,5 @@ describe("getCityTideDataExpanded", () => {
       expect.objectContaining({ message: "NOAA 503" }),
     );
   });
+
 });

@@ -106,6 +106,29 @@ describe("city tide page", () => {
   });
 });
 
+describe("city tide page with an empty series", () => {
+  it("hides the tide modules instead of showing 'no data'", () => {
+    const data = tideData(false);
+    data.view = buildCityTideView({ timeZone: "Pacific/Honolulu", renderedAtMs: RENDERED_AT, station: null, hourly: [], extremes: [] });
+    render(
+      <TidePageContent
+        cityName="Haleiwa"
+        citySlug="haleiwa"
+        stateSlug="hi"
+        stateName="Hawaii"
+        regionLabel="Haleiwa, Hawaii"
+        pageContent={{ title: "t", description: "d", heading: "Tide conditions for Haleiwa surf spots", intro: "Intro." } as never}
+        tideData={data}
+        spots={[]}
+        baseUrl="https://www.quiversurf.app"
+      />
+    );
+    expect(screen.queryByTestId("tide-station-now")).toBeNull();
+    expect(screen.queryByTestId("tide-panel-chart")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/no data|No upcoming tide/);
+  });
+});
+
 describe("tide by spot", () => {
   it("describes the water, not the surfer", () => {
     render(<BeachTideCards beaches={[pref({})]} citySlug="haleiwa" stateSlug="hi" cityName="Haleiwa" />);

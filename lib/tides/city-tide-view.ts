@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 import { synthesizeFromExtrema, type InternalPoint } from "@/components/forecast/tide-chart/tide-chart-helpers";
 import { formatFeet, formatStationTime } from "@/lib/tide-stations/format";
 import { getStationSeries } from "@/lib/tide-stations/predictions";
@@ -101,6 +103,8 @@ export async function loadStationTideView(
     if (!station) return null;
     series = await getStationSeries(station, renderedAtMs);
   } catch (error) {
+    // Next.js render-control errors (dynamic usage, bailouts) must reach Next, not the fallback.
+    unstable_rethrow(error);
     // Registry or NOAA down: the stored series is the same station's table, so the page still agrees with itself.
     console.warn("City tide page: station table unavailable, using stored series", {
       sourceStationId,

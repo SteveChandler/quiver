@@ -1,3 +1,4 @@
+import type React from "react";
 import Link from "next/link";
 import { cityToSlug } from "@/lib/utils/beach-url-utils";
 import type { BeachTidePreference } from "@/actions/forecast/intent-forecast-actions";
@@ -31,7 +32,7 @@ export function describeTidePreference(beach: BeachTidePreference): string | nul
  * Per-spot tide notes on paper. Describes the water each spot likes; it does not
  * rate the surfer, so no skill badges here.
  */
-export function BeachTideCards({ beaches, citySlug, stateSlug, cityName }: BeachTideCardsProps) {
+export function BeachTideCards({ beaches, citySlug, stateSlug, cityName }: BeachTideCardsProps): React.JSX.Element | null {
   const beachUrlCitySlug = cityToSlug(cityName) || citySlug;
   const rows = beaches
     .map((beach) => ({ beach, note: describeTidePreference(beach) }))

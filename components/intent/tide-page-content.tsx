@@ -62,7 +62,8 @@ export function TidePageContent({
     stateSlug
   );
 
-  const view = tideData.view;
+  // An empty series shows nothing rather than "no data" boxes.
+  const view = tideData.view && tideData.view.extremes.length > 0 ? tideData.view : null;
   const sourceLine = view
     ? `Predicted tides from ${view.station ? `the NOAA gauge at ${view.station.name}` : "NOAA"}. Times are local (${formatZoneOffset(view.renderedAtMs, view.timeZone)}). Not live water levels.`
     : null;

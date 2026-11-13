@@ -51,7 +51,7 @@ function formatExtremeLabel(extreme: TideExtremePoint, timeZone: string): string
   return `${extreme.type === "high" ? "High" : "Low"} ${formatPanelTideHeight(metresToFeet(extreme.heightM))} · ${formatStationTime(extreme.ts, timeZone)}`;
 }
 
-export function TidePanelChart({ curve, extremes, timeZone, renderedAtMs }: TidePanelChartProps) {
+export function TidePanelChart({ curve, extremes, timeZone, renderedAtMs }: TidePanelChartProps): React.JSX.Element | null {
   const [span, setSpan] = React.useState<Span>("24h");
   const [nowMs, setNowMs] = React.useState(renderedAtMs);
   const clipId = React.useId().replace(/:/g, "");
