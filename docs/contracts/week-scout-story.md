@@ -24,6 +24,7 @@ type WeekScoutStory = {
     slot: `swell:${string}` | `day:${string}` | `quiet:${string}`;
     text: string; // the regional candidate's text, or the edition's written sentence for it when that passes its claim check; gated against live data
   }>;
+  source: { cover: 'code' | 'written' | null; lead: 'code' | 'written' | null; turn: 'code' | 'written' | null; chapters: Array<'code' | 'written'> }; // see "story.source on the wire"
   glance: { sentences: string[]; source: Array<'code' | 'written'> } | null; // At a glance; see "story.glance on the wire"
   days: Array<{
     localDate: string;
@@ -215,6 +216,10 @@ Any other word is free prose: against "Faces the west groundswell dead on, with 
   "WEEKDAY_ABBREVIATIONS": ["Sun", "Mon", "Tue", "Tues", "Wed", "Thu", "Thur", "Thurs", "Fri", "Sat"]
 }
 ```
+
+## `story.source` on the wire
+
+`story.source` is additive; the wire stays schema 3, and `cover`, `lead`, `turn` and `chapters` are unchanged for installed builds. It follows the `glance.source` rule. `source.cover`, `source.lead` and `source.turn` are `written` when that slot serves the edition's written sentence after its claim check passed, `code` when the slot serves a server candidate sentence (the edition's selected candidate without a passing written sentence, the live fallback, a composed first-event headline, or a generated pick line), and `null` when the slot has no text. `source.chapters` has the same length and order as `chapters`. Every slot of a live fallback story (no edition) is `code`. A client that wants only written prose reads `lead` and `turn` when their source is `written`; a client that finds `source` absent (an older server) keeps today's behaviour. Each `ready` story that serves at least one `code` slot logs one line, `[week-scout-story] plain text served`, with `region`, `path` (`edition` or `fallback`) and the `code` slot names, so the plain-text rate can be counted in the runtime logs.
 
 ## `story.glance` on the wire
 

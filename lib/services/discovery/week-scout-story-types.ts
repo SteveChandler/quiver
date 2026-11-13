@@ -71,6 +71,9 @@ export interface StoryArtifact {
   provenance: StoryInput["provenance"];
 }
 
+/** "written" is an edition sentence that passed its claim check; "code" is a server candidate sentence. */
+export type StoryTextSource = "code" | "written";
+
 export interface StoryWire {
   schemaVersion: 3;
   region: string | null;
@@ -79,6 +82,8 @@ export interface StoryWire {
   lead: string | null;
   turn: string | null;
   chapters: Array<{ slot: string; text: string }>;
+  /** Parallel to the text slots, as glance.source is to glance.sentences: null where the slot has no text. */
+  source: { cover: StoryTextSource | null; lead: StoryTextSource | null; turn: StoryTextSource | null; chapters: StoryTextSource[] };
   glance: StoryGlance | null;
   days: Array<{ localDate: string; pick: null | {
     windowId: string; beachId: string; bucket: "morning" | "midday" | "evening";

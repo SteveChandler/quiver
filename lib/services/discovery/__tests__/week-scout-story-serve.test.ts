@@ -25,7 +25,7 @@ jest.mock("../week-scout-story-source", () => ({
 import { WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
 import type { InternalRegionEvent, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { CanonicalWeekScoutResponse } from "../week-scout";
-import { bindFallbackStory, bindStory, loadAndBindStory, prepareStory, storyGateHolds, storyRegion } from "../week-scout-story-serve";
+import { bindFallbackStory, bindStory, loadAndBindStory, logPlainText, prepareStory, storyGateHolds, storyRegion } from "../week-scout-story-serve";
 import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryInput } from "../week-scout-story-types";
 import type { CandidateFacts } from "../week-scout-story-facts";
 import { StoryInputError, storyEventsFromRegion } from "../week-scout-story-source";
@@ -543,6 +543,77 @@ describe("deterministic fallback and live gates", () => {
     const moved = regionOf([{ ...west, peakAt: "2026-07-17T18:00:00Z", peakLocalDate: "2026-07-17", fadeAt: null }]);
     expect(bindStory({ region, availability: "ready", input: issued, selections: ["cover", "lead", "good-day"],
       written, live: live(), regional: moved, requireCover: false })).toMatchObject({ cover: { text: null }, lead: null });
+  });
+
+  it("marks a fallback story's candidate sentences as code and logs the plain-text serve", async () => {
+    expect(bindFallbackStory(region, input(), live(), regionOf()).source)
+      .toEqual({ cover: "code", lead: "code", turn: null, chapters: ["code"] });
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+        startLocalDate: "2026-07-15", now });
+      expect(story.availability).toBe("ready");
+      expect(info).toHaveBeenCalledWith("[week-scout-story] plain text served",
+        { region, path: "fallback", slots: ["cover", "lead"] });
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  it("marks an edition's checked sentences written and its failed or unwritten ones code", async () => {
+    const issued = input();
+    const texts: Record<string, string> = {
+      cover: "A long-period groundswell from the west arrives Wednesday and peaks Thursday.",
+      lead: "The west pulse builds from Wednesday into Thursday.",
+    };
+    issued.copyFacts.forEach((fact) => { fact.text = texts[fact.id] ?? fact.text; });
+    const written = [
+      { slot: "cover", basedOn: "cover", text: "The west groundswell shows Wednesday and runs biggest Thursday." },
+      // Saturday is not in its fact, so the lead serves the server's own line.
+      { slot: "story:lead", basedOn: "lead", text: "The west pulse builds from Wednesday into Saturday." },
+    ];
+    mockLatestEdition.mockResolvedValue({
+      artifactId: "artifact", schemaVersion: 3, region, editionDate: issued.editionDate,
+      inputHash: issued.inputHash, sourcePublishedAt: issued.sourcePublishedAt, validUntil: issued.validUntil,
+      generationVersion: "week-scout-story-2", model: "worker",
+      briefing: { ...issued.briefing, generatedAt: now.toISOString(), selections: ["cover", "lead", "good-day"], written },
+      provenance: issued.provenance,
+    } satisfies StoryArtifact);
+    mockLoadInput.mockResolvedValue(issued);
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+        startLocalDate: "2026-07-15", now });
+      expect(story).toMatchObject({ availability: "ready", cover: { text: written[0].text }, lead: texts.lead });
+      expect(story.source).toEqual({ cover: "written", lead: "code", turn: null, chapters: ["code"] });
+      expect(info).toHaveBeenCalledWith("[week-scout-story] plain text served",
+        { region, path: "edition", slots: ["lead"] });
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  it("logs nothing when every served sentence is written", async () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.forecast.waveHeight = "3-4 ft";
+    const date = response.days[0].localDate;
+    const story = baseInput();
+    story.beachNames = { "pick-beach": "Picked Beach" };
+    const gate = { kind: "day_surf" as const, localDate: date, beachId: pick.beachId, faceFt: { min: 3, max: 4 } };
+    story.copyFacts = [{ id: "d1", slot: `day:${date}`, rank: 50, text: "On Wednesday, Picked Beach runs chest-high.", gate,
+      facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null } }];
+    const bound = bindStory({ region: story.region, availability: "ready", input: story, selections: ["d1"],
+      written: [{ basedOn: "d1", slot: `day:${date}`, text: "On Wednesday, Picked Beach looks chest-high." }],
+      live: response, regional: regionOf(), requireCover: false });
+    expect(bound.source).toEqual({ cover: null, lead: null, turn: null, chapters: ["written"] });
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      expect(logPlainText(bound, region, "edition")).toBe(bound);
+      expect(info).not.toHaveBeenCalled();
+    } finally {
+      info.mockRestore();
+    }
   });
 
   it("does not serve a published edition with the old generic candidate set", async () => {

@@ -14,8 +14,8 @@ import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from 
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
 import { assertStoryArtifactMatchesInput } from "./week-scout-story-validate";
-import { GLANCE_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryGate, type StoryInput, type StoryWire,
-  type StoryWrittenSentence } from "./week-scout-story-types";
+import { GLANCE_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryGate, type StoryInput, type StoryTextSource,
+  type StoryWire, type StoryWrittenSentence } from "./week-scout-story-types";
 
 type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
@@ -255,7 +255,7 @@ export function bindStory(args: {
   });
   const empty = (availability: StoryWire["availability"]): StoryWire => ({
     schemaVersion: 3, region, availability, cover: { text: null, swells }, lead: null, turn: null,
-    chapters: [], glance: null, days,
+    chapters: [], source: { cover: null, lead: null, turn: null, chapters: [] }, glance: null, days,
   });
   if (!input || !args.selections || args.availability !== "ready") return empty(args.availability);
   const selectedIds = new Set(args.selections);
@@ -305,15 +305,27 @@ export function bindStory(args: {
   }
   // Per slot: a written sentence that fails its check shows the candidate's own text; the others keep theirs.
   const beachNames = input.beachNames ? Object.values(input.beachNames) : null;
-  const served = (fact: StoryInput["copyFacts"][number]): string => {
+  const servedWith = (fact: StoryInput["copyFacts"][number]): { text: string; source: StoryTextSource } => {
     const entry = args.written?.find((item) => item.basedOn === fact.id && item.slot === fact.slot);
-    if (!entry || !beachNames) return fact.text;
-    return checkWrittenSentence(entry.text, { ...fact, facts: liveFacts(fact, regional, live) }, beachNames, [input.region]).ok ? entry.text : fact.text;
+    if (!entry || !beachNames) return { text: fact.text, source: "code" };
+    return checkWrittenSentence(entry.text, { ...fact, facts: liveFacts(fact, regional, live) }, beachNames, [input.region]).ok
+      ? { text: entry.text, source: "written" } : { text: fact.text, source: "code" };
   };
-  const text = (slot: string): string | null => {
+  // Each fact's claim check runs once per request; the text and its source reuse the result.
+  const servedByFact = new Map<StoryInput["copyFacts"][number], { text: string; source: StoryTextSource }>();
+  const servedOnce = (fact: StoryInput["copyFacts"][number]): { text: string; source: StoryTextSource } => {
+    const known = servedByFact.get(fact);
+    if (known) return known;
+    const result = servedWith(fact);
+    servedByFact.set(fact, result);
+    return result;
+  };
+  const served = (fact: StoryInput["copyFacts"][number]): string => servedOnce(fact).text;
+  const slotServed = (slot: string): { text: string; source: StoryTextSource } | null => {
     const fact = chosen.find((item) => item.slot === slot);
-    return fact ? served(fact) : null;
+    return fact ? servedOnce(fact) : null;
   };
+  const text = (slot: string): string | null => slotServed(slot)?.text ?? null;
   if (!text("cover") && args.requireCover !== false) return empty("unavailable");
   const dayBodies = new Set<string>();
   const chapters = chosen.filter((fact) => fact.slot.startsWith("swell:") || fact.slot.startsWith("day:")
@@ -329,6 +341,10 @@ export function bindStory(args: {
     schemaVersion: 3, region, availability: "ready", cover: { text: text("cover"), swells },
     lead: text("story:lead"), turn: text("story:turn"),
     chapters: chapters.map((fact) => ({ slot: fact.slot, text: served(fact) })),
+    source: {
+      cover: slotServed("cover")?.source ?? null, lead: slotServed("story:lead")?.source ?? null,
+      turn: slotServed("story:turn")?.source ?? null, chapters: chapters.map((fact) => servedOnce(fact).source),
+    },
     glance: null,
     days,
   };
@@ -379,6 +395,18 @@ function writtenGlance(edition: StoryArtifact | null, editionDate: string, now: 
   if (!Array.isArray(glance)) return undefined;
   return glance.filter((entry): entry is GlanceWritten => Boolean(entry) && typeof entry === "object"
     && typeof (entry as GlanceWritten).fingerprint === "string" && typeof (entry as GlanceWritten).text === "string");
+}
+
+/**
+ * One line per ready story whose cover, lead or turn is a candidate sentence, so the plain-narrative rate is
+ * measurable in the logs. Plain day chapters alone are routine (pick lines) and are not logged.
+ */
+export function logPlainText(story: StoryWire, region: string, path: "edition" | "fallback"): StoryWire {
+  if (story.availability !== "ready") return story;
+  const { cover, lead, turn } = story.source;
+  const slots = [...(cover === "code" ? ["cover"] : []), ...(lead === "code" ? ["lead"] : []), ...(turn === "code" ? ["turn"] : [])];
+  if (slots.length > 0) console.info("[week-scout-story] plain text served", { region, path, slots });
+  return story;
 }
 
 type StoryLoadArgs = { client: Client; homeBeachId: string | null; startLocalDate: string; now: Date };
@@ -434,7 +462,7 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
         assertStoryArtifactMatchesInput(edition, publishedInput, now);
         const published = bindStory({ region, availability: "ready", input: publishedInput,
           selections: edition.briefing.selections, written: edition.briefing.written, live, regional });
-        if (published.availability === "ready") return published;
+        if (published.availability === "ready") return logPlainText(published, region, "edition");
       } catch { /* A failed edition falls through to live candidates. */ }
     }
     const input = await (fallback ?? regionalFallback(client, region, editionDate, now));
@@ -442,7 +470,7 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
     if (input.editionDate !== startLocalDate) {
       return bindStory({ region, availability: "unavailable", input: null, selections: null, live });
     }
-    return bindFallbackStory(region, input, live, regional);
+    return logPlainText(bindFallbackStory(region, input, live, regional), region, "fallback");
   };
   return async (live) => {
     const { regional, build } = await regionRead;
