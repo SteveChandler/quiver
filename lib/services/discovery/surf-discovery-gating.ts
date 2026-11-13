@@ -4,6 +4,7 @@ import type {
   SurfDiscoveryRecommendation,
   SurfDiscoveryResponse,
 } from "@/types/personalization";
+import { joinSentences } from "@/lib/domains/scoring/reason-sentences";
 
 const IMPLICIT_ONLY_REASON_PATTERNS: RegExp[] = [
   /surfing patterns/i,
@@ -113,7 +114,8 @@ function buildPersonalExplanation(
   // With nothing specific to say, send no explanation (JSON omits it); clients fall to their next reason.
   if (parts.length === 0) return undefined;
 
-  return parts.slice(0, 3).join(". ");
+  // One sentence joiner with the message, so a part that ends in "." never gives "..".
+  return joinSentences(parts.slice(0, 3));
 }
 
 function buildLockedBestSpotTeaser(

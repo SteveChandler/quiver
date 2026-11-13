@@ -12,8 +12,6 @@ const MESSAGE = buildDiscoveryMessage(
   80,
   [formatReasonSentence({ code: "size_good", heightFt: 3.9 }), formatReasonSentence({ code: "period_good" })],
   [],
-  undefined,
-  [{ code: "size_good", heightFt: 3.9 }, { code: "period_good" }],
 );
 
 describe("buildSessionShareUrl", () => {
@@ -227,7 +225,7 @@ describe("buildSurfCallShareUrl", () => {
       });
 
       const parsed = new URL(url);
-      expect(parsed.searchParams.get("message")).toBe("Worth it. Good size at 3–4 ft, with solid swell period behind it.");
+      expect(parsed.searchParams.get("message")).toBe("Worth it - Good size at 3–4 ft. Solid swell period behind it.");
     });
 
     it("includes all new parameters together", () => {

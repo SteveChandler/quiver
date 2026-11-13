@@ -107,7 +107,12 @@ import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } f
 import { bridgeBeachForecastRows } from '@/lib/services/discovery/hourly-bridge-rows';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
-import { reasonContradictsVerdict, reasonFactFor } from '@/lib/domains/scoring/reason-sentences';
+import {
+  codeContradictsVerdict,
+  prependReasons,
+  reasonList,
+  reasonsForVerdict,
+} from '@/lib/domains/scoring/reason-sentences';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
@@ -786,19 +791,21 @@ function buildDraftWindow(args: {
     ...detailed.subscores,
     personalizationBonus: personalization.personalizationBonus,
   };
-  const reasons = [
+  const allReasons = prependReasons(reasonList(detailed.reasons, detailed.reasonCodes), [
     ...(sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : []),
-    ...personalization.reasons, ...detailed.reasons,
-  ];
+    ...personalization.reasons,
+  ]);
+  const negativeVerdict = label === 'Skip';
   // The sources warning leads when present; otherwise the wave sentence beats a
   // personalization line, which can name the surfer's level (Steven: never).
-  const lead = sourcesDisagree
-    ? reasons[0]
-    : reasons.find((reason) => reasonFactFor(reason, detailed.reasonFacts) !== null) ?? reasons[0];
+  const leadIndex = sourcesDisagree ? 0 : Math.max(0, allReasons.reasonCodes.findIndex((code) => code !== null));
+  const lead = allReasons.reasons[leadIndex];
   // A "Good size" takeaway beside a skip contradicts the chip; no line is the honest state.
-  const takeaway = lead && !reasonContradictsVerdict(lead, detailed.reasonFacts, label === 'Skip')
+  const takeaway = lead && !codeContradictsVerdict(allReasons.reasonCodes[leadIndex], negativeVerdict)
     ? lead
     : null;
+  // The same rule holds for the list that leaves the API.
+  const shownReasons = reasonsForVerdict(allReasons, negativeVerdict);
 
   return {
     response: {
@@ -842,8 +849,8 @@ function buildDraftWindow(args: {
       matchQuality: detailed.matchQuality,
       subscores,
       summary: takeaway ?? '',
-      reasons,
-      reasonFacts: detailed.reasonFacts,
+      reasons: shownReasons.reasons,
+      reasonCodes: shownReasons.reasonCodes,
       warnings: detailed.warnings,
       spotProfile: args.deps.beachToSpotProfile(args.beach),
       windowSlotScores: slotScores,

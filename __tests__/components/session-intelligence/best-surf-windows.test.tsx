@@ -78,7 +78,7 @@ function makeRecommendation(
     },
     bestFor: ["intermediate", "longboard", "dawn-patrol"],
     positives: [formatReasonSentence(SIZE_FACT), "Light offshore wind"],
-    reasonFacts: [SIZE_FACT],
+    positiveCodes: ["size_good", null],
     watchouts: ["Morning crowd may build"],
     dataNotes: [],
     confidence: {
@@ -139,7 +139,7 @@ describe("BestSurfWindows", () => {
       <BestSurfWindows
         recommendations={[makeRecommendation(1, {
           positives: [formatReasonSentence(SIZE_FACT), formatReasonSentence(PERIOD_FACT)],
-          reasonFacts: [SIZE_FACT, PERIOD_FACT],
+          positiveCodes: ["size_good", "period_good"],
         })]}
         variant="zine"
       />,
@@ -148,19 +148,18 @@ describe("BestSurfWindows", () => {
     expect(why).toHaveTextContent("Why: Solid swell period behind it.");
   });
 
-  it("shows no Why line that contradicts a Skip verdict", () => {
+  it("does not pick the Why line by its words when the code is missing", () => {
     render(
       <BestSurfWindows
         recommendations={[makeRecommendation(1, {
-          verdict: "Skip",
           positives: [formatReasonSentence(SIZE_FACT), formatReasonSentence(PERIOD_FACT)],
-          reasonFacts: [SIZE_FACT, PERIOD_FACT],
+          positiveCodes: undefined,
         })]}
         variant="zine"
       />,
     );
-    expect(screen.queryByText("Why:")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Good size at/)).not.toBeInTheDocument();
+    const why = screen.getByText("Why:").parentElement;
+    expect(why).toHaveTextContent("Why: Good size at 3–4 ft.");
   });
 
   it("shows a dated zine decision with visible caveats and one selection-preserving action", async () => {

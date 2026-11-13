@@ -7,12 +7,21 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 }));
 
 let mockStripReasons = false;
+let mockReasons: { reasons: string[]; reasonCodes: (string | null)[] } | null = null;
+let mockWindowScore: number | null = null;
 jest.mock("@/lib/services/discovery/window-selector", () => {
   const actual = jest.requireActual("@/lib/services/discovery/window-selector");
   return {
     ...actual,
+    selectBestWindows: (...args: unknown[]) => {
+      const windows = actual.selectBestWindows(...args);
+      return mockWindowScore === null
+        ? windows
+        : windows.map((window: object) => ({ ...window, score: mockWindowScore }));
+    },
     scoreWindowWithComposite: (...args: unknown[]) => {
       const result = actual.scoreWindowWithComposite(...args);
+      if (mockReasons) return { ...result, ...mockReasons };
       return mockStripReasons ? { ...result, reasons: [] } : result;
     },
   };
@@ -66,6 +75,33 @@ function build() {
 describe("buildSurfWindowRecommendations positives", () => {
   afterEach(() => {
     mockStripReasons = false;
+    mockReasons = null;
+    mockWindowScore = null;
+  });
+
+  const scorerReasons = {
+    reasons: ["Good size at 3–4 ft.", "Solid swell period behind it.", "Good tide"],
+    reasonCodes: ["size_good", "period_good", null],
+  };
+
+  it("sends each positive with its scorer code beside it", () => {
+    mockReasons = scorerReasons;
+    mockWindowScore = 80;
+    const [rec] = build().recommendations;
+
+    expect(rec.verdict).toBe("Worth it");
+    expect(rec.positives).toEqual(scorerReasons.reasons);
+    expect(rec.positiveCodes).toEqual(scorerReasons.reasonCodes);
+  });
+
+  it("drops size_good and period lines from a Skip window before they leave the API", () => {
+    mockReasons = scorerReasons;
+    mockWindowScore = 20;
+    const [rec] = build().recommendations;
+
+    expect(rec.verdict).toBe("Skip");
+    expect(rec.positives).toEqual(["Good tide"]);
+    expect(rec.positiveCodes).toEqual([null]);
   });
 
   it("returns no stand-in positive when the scorer gives no reason, and keeps the score, verdict and rank", () => {

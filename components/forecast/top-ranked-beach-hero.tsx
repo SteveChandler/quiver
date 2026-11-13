@@ -1,13 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { reasonLineForVerdict } from "@/lib/domains/scoring/reason-sentences";
+import { formatHeightBand } from "@/lib/domains/scoring/reason-sentences";
 import Link from "next/link";
 import { Clock3, MapPin, Waves } from "lucide-react";
 
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { formatWaveHeightDecimal } from "@/lib/utils/wave-formatters";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { getScoreCall } from "./score-band-call";
 import { ScoreLoginLink } from "./score-login-link";
@@ -24,7 +23,6 @@ type HeroSurfWindow = Pick<
   | "verdict"
   | "confidence"
   | "positives"
-  | "reasonFacts"
   | "wave"
 >;
 
@@ -106,9 +104,8 @@ export function TopRankedBeachHero({
     ? Boolean(auth?.user && !auth.isLoading)
     : showScores;
   const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
-  const heroReason = bestSurfWindow
-    ? reasonLineForVerdict(bestSurfWindow.positives[0], bestSurfWindow.reasonFacts, bestSurfWindow.verdict === "Skip")
-    : null;
+  // The API already drops a line that contradicts the window's verdict.
+  const heroReason = bestSurfWindow?.positives[0] ?? null;
   const scoreCall = getScoreCall(selectedScore, {
     beachId: beach.beachId,
     instantIso: bestSurfWindow?.startIso ?? beach.currentWindowStart,
@@ -231,7 +228,8 @@ export function TopRankedBeachHero({
               {isUpcoming ? "Wave height then" : "Wave height"}
             </dt>
             <dd className="mt-1 font-semibold text-[#11100D]">
-              {formatWaveHeightDecimal(
+              {/* The same band as the reason line beside it, never a decimal. */}
+              {formatHeightBand(
                 windowWaveHeight(bestSurfWindow) ?? beach.currentWaveHeight
               )}
             </dd>

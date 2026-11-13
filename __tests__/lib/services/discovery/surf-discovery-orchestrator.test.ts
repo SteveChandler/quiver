@@ -401,7 +401,7 @@ jest.mock('@/lib/domains/scoring', () => ({
     },
     matchQuality: 'excellent',
     reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
-    reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
+    reasonCodes: ['size_good', 'period_good', null],
     warnings: [],
     conditionBadges: [],
   })),
@@ -507,7 +507,7 @@ function resetDefaultDiscoveryMocks(): void {
     },
     matchQuality: 'excellent',
     reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
-    reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
+    reasonCodes: ['size_good', 'period_good', null],
     warnings: [],
     conditionBadges: [],
   });
@@ -749,7 +749,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       },
       matchQuality: 'excellent',
       reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
-      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -2601,7 +2601,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
       },
       matchQuality: 'excellent',
       reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
-      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -2809,7 +2809,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
         },
         matchQuality: 'excellent',
         reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
-      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
+      reasonCodes: ['size_good', 'period_good', null],
         warnings: [],
         conditionBadges: [],
       };
@@ -2899,7 +2899,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     }
   });
 
-  test('personalization reasons are prepended to base reasons', async () => {
+  test('a "no" verdict sends no Good size or period line; other reasons stay (API edge)', async () => {
     const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
 
     calculatePersonalizationBonus.mockReturnValue({
@@ -2912,27 +2912,24 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
 
     const rec = result.recommendations[0];
-    // Personalization reason should come first
-    expect(rec.reasons[0]).toBe('Matches your preferred break type');
-    // Base reasons should follow
-    expect(rec.reasons).toEqual(expect.arrayContaining(['Good size at 3–4 ft.']));
+    // The canonical decision says "no" for this mocked row (Skip label).
+    expect(rec.verdict).toBe('no');
+    expect(rec.reasons).not.toContain('Good size at 3–4 ft.');
+    expect(rec.reasons).not.toContain('Solid swell period behind it.');
+    expect(rec.reasons).toEqual(['Matches your preferred break type', 'Light winds']);
+    expect(rec.reasonCodes).toEqual([null, null]);
   });
 
-  test('the scorer facts reach the recommendation and its message builder', async () => {
-    const { buildDiscoveryMessage } = require('@/lib/services/discovery/response-formatter');
-    const facts = [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }];
-
+  test('each reason leaves the API with its scorer code beside it', async () => {
     const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
 
-    expect(result.recommendations[0].reasonFacts).toEqual(facts);
-    // The message is built (and joined) with the codes, not by reading the text.
-    expect(buildDiscoveryMessage).toHaveBeenLastCalledWith(
-      expect.any(Number),
-      expect.arrayContaining(['Good size at 3–4 ft.']),
-      expect.any(Array),
-      expect.any(String),
-      facts,
-    );
+    const rec = result.recommendations[0];
+    expect(rec.reasonCodes).toHaveLength(rec.reasons.length);
+    const scorerCodes: Record<string, string> = {
+      'Good size at 3–4 ft.': 'size_good',
+      'Solid swell period behind it.': 'period_good',
+    };
+    expect(rec.reasonCodes).toEqual(rec.reasons.map((reason) => scorerCodes[reason] ?? null));
   });
 
   test('discovery continues when getUserSurfPreferences throws', async () => {
@@ -3401,7 +3398,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       },
       matchQuality: 'excellent',
       reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
-      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });

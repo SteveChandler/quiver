@@ -6,6 +6,10 @@
  * text fields (`reasons`, `positives`, `takeaway`, `summary`, `message`) carry
  * these sentences, so installed app builds show them with no update.
  *
+ * Inside the server the code travels beside the text as an aligned list
+ * (`reasonCodes[i]` belongs to `reasons[i]`, null for text from another layer),
+ * so no reader recovers a code from words.
+ *
  * Steven's rule: a sentence describes the waves only. It never refers to the
  * surfer's level, range or usual size.
  */
@@ -18,7 +22,10 @@ type ScoringSizeReasonCode =
   | 'size_larger'
   | 'size_big';
 
-type ScoringReasonCode = ScoringSizeReasonCode | 'period_strong' | 'period_good';
+export type ScoringReasonCode = ScoringSizeReasonCode | 'period_strong' | 'period_good';
+
+/** The code beside one reason; null for text that no scorer fact produced. */
+export type ReasonCode = ScoringReasonCode | null;
 
 export type ScoringReasonFact =
   | { readonly code: ScoringSizeReasonCode; readonly heightFt: number }
@@ -26,20 +33,20 @@ export type ScoringReasonFact =
   | { readonly code: 'period_good' };
 
 /** "3–4 ft": the band the app shows (same bracket and dash as the Daily Call `swellPhrase`). */
-function heightBand(heightFt: number): string {
+export function formatHeightBand(heightFt: number): string {
   return formatWaveHeightRange(heightFt).replace('-', '–').replace(/ft$/, ' ft');
 }
 
 export function formatReasonSentence(fact: ScoringReasonFact): string {
   switch (fact.code) {
     case 'size_below_ideal':
-      return `On the small side at ${heightBand(fact.heightFt)}.`;
+      return `On the small side at ${formatHeightBand(fact.heightFt)}.`;
     case 'size_good':
-      return `Good size at ${heightBand(fact.heightFt)}.`;
+      return `Good size at ${formatHeightBand(fact.heightFt)}.`;
     case 'size_larger':
-      return `Bigger surf at ${heightBand(fact.heightFt)}.`;
+      return `Bigger surf at ${formatHeightBand(fact.heightFt)}.`;
     case 'size_big':
-      return `Big surf at ${heightBand(fact.heightFt)}.`;
+      return `Big surf at ${formatHeightBand(fact.heightFt)}.`;
     case 'period_strong':
       return `Long-period swell at ${Math.round(fact.periodS)} s, so the sets have real push.`;
     case 'period_good':
@@ -47,17 +54,72 @@ export function formatReasonSentence(fact: ScoringReasonFact): string {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Aligned reason lists
+// ---------------------------------------------------------------------------
+
+export interface ReasonList {
+  readonly reasons: string[];
+  readonly reasonCodes: ReasonCode[];
+}
+
 /**
- * The fact a shown reason came from, or null for text from another scorer or
- * layer. `reasons` stays a string list for the API, so the code travels beside
- * it as `reasonFacts`; equality with this module's own output links the two.
+ * Pairs reasons with their codes. A missing or misaligned code list reads as
+ * "no codes": every rule below then leaves the text alone.
  */
-export function reasonFactFor(
-  reason: string,
-  facts: readonly ScoringReasonFact[] | null | undefined,
-): ScoringReasonFact | null {
-  if (!facts || facts.length === 0) return null;
-  return facts.find((fact) => formatReasonSentence(fact) === reason) ?? null;
+export function reasonList(
+  reasons: readonly string[],
+  reasonCodes?: readonly ReasonCode[] | null,
+): ReasonList {
+  const aligned = reasonCodes && reasonCodes.length === reasons.length;
+  return {
+    reasons: [...reasons],
+    reasonCodes: aligned ? [...reasonCodes] : reasons.map(() => null),
+  };
+}
+
+/** Text from another layer (personalization, board fit, distance) goes in front, uncoded. */
+export function prependReasons(list: ReasonList, texts: readonly string[]): ReasonList {
+  return {
+    reasons: [...texts, ...list.reasons],
+    reasonCodes: [...texts.map(() => null), ...list.reasonCodes],
+  };
+}
+
+export function insertReason(list: ReasonList, index: number, text: string): ReasonList {
+  const reasons = [...list.reasons];
+  const reasonCodes = [...list.reasonCodes];
+  reasons.splice(index, 0, text);
+  reasonCodes.splice(index, 0, null);
+  return { reasons, reasonCodes };
+}
+
+export function withoutReason(list: ReasonList, text: string): ReasonList {
+  return filterList(list, (reason) => reason !== text);
+}
+
+export function takeReasons(list: ReasonList, count: number): ReasonList {
+  return { reasons: list.reasons.slice(0, count), reasonCodes: list.reasonCodes.slice(0, count) };
+}
+
+/** First occurrence wins, with its code. */
+export function dedupeReasons(list: ReasonList): ReasonList {
+  const seen = new Set<string>();
+  return filterList(list, (reason) => {
+    if (seen.has(reason)) return false;
+    seen.add(reason);
+    return true;
+  });
+}
+
+/** The wave sentences lead the shown line; the order inside each group stays. */
+export function waveSentencesFirst(list: ReasonList): ReasonList {
+  const order = list.reasons.map((_, index) => index);
+  order.sort((a, b) => Number(list.reasonCodes[a] === null) - Number(list.reasonCodes[b] === null) || a - b);
+  return {
+    reasons: order.map((index) => list.reasons[index]),
+    reasonCodes: order.map((index) => list.reasonCodes[index]),
+  };
 }
 
 const CONTRADICTS_NEGATIVE_VERDICT: ReadonlySet<ScoringReasonCode> = new Set([
@@ -71,62 +133,48 @@ const CONTRADICTS_NEGATIVE_VERDICT: ReadonlySet<ScoringReasonCode> = new Set([
  * Skip, MEH, "no"): "Good size" under a skip reads as a contradiction, and the
  * verdict already explains the day.
  */
-export function reasonContradictsVerdict(
-  reason: string,
-  facts: readonly ScoringReasonFact[] | null | undefined,
-  negativeVerdict: boolean,
-): boolean {
-  if (!negativeVerdict) return false;
-  const fact = reasonFactFor(reason, facts);
-  return fact !== null && CONTRADICTS_NEGATIVE_VERDICT.has(fact.code);
+export function codeContradictsVerdict(code: ReasonCode | undefined, negativeVerdict: boolean): boolean {
+  return negativeVerdict && code != null && CONTRADICTS_NEGATIVE_VERDICT.has(code);
+}
+
+/** Drops the reasons that contradict a negative verdict, order kept. */
+export function reasonsForVerdict(list: ReasonList, negativeVerdict: boolean): ReasonList {
+  return filterList(list, (_, code) => !codeContradictsVerdict(code, negativeVerdict));
 }
 
 /**
- * A single-line surface shows its chosen reason, or no line when that reason
- * contradicts the verdict. It never falls through to a weaker reason.
+ * The list a discovery recommendation sends: wave sentences first, and no line
+ * that contradicts a negative verdict, so installed builds read the same list.
  */
-export function reasonLineForVerdict(
-  reason: string | null | undefined,
-  facts: readonly ScoringReasonFact[] | null | undefined,
-  negativeVerdict: boolean,
-): string | null {
-  if (!reason) return null;
-  return reasonContradictsVerdict(reason, facts, negativeVerdict) ? null : reason;
+export function apiReasons(list: ReasonList, negativeVerdict: boolean): ReasonList {
+  return reasonsForVerdict(waveSentencesFirst(list), negativeVerdict);
 }
 
-/** Reasons that may show beside the verdict, order kept. */
-export function reasonsForVerdict(
-  reasons: readonly string[],
-  facts: readonly ScoringReasonFact[] | null | undefined,
-  negativeVerdict: boolean,
-): string[] {
-  return reasons.filter((reason) => !reasonContradictsVerdict(reason, facts, negativeVerdict));
+/** A positive-signal list never carries the "small side" sentence. */
+export function positiveReasons(list: ReasonList): ReasonList {
+  return filterList(list, (_, code) => code !== 'size_below_ideal');
 }
 
-function withoutFinalStop(text: string): string {
-  return text.trim().replace(/\.+$/, '');
+/** Whole sentences, one after the other, each with one full stop. */
+export function joinSentences(parts: readonly string[]): string {
+  return parts
+    .map((part) => part.trim().replace(/\.+$/, ''))
+    .filter((part) => part !== '')
+    .map((part) => `${part}.`)
+    .join(' ');
 }
 
-function asSentence(text: string): string {
-  const body = withoutFinalStop(text);
-  return body ? `${body}.` : '';
-}
-
-/**
- * Two reasons as prose. Two scorer sentences read as one ("Good size at 3–4 ft,
- * with solid swell period behind it."). Other text can start with a place
- * name, so it is not lower-cased into a clause; it stays its own sentence.
- */
-export function joinReasonSentences(
-  reasons: readonly string[],
-  facts: readonly ScoringReasonFact[] | null | undefined,
-): string {
-  const [first, second] = reasons.filter((reason) => withoutFinalStop(reason) !== '');
-  if (!first) return '';
-  if (!second) return asSentence(first);
-  if (reasonFactFor(first, facts) && reasonFactFor(second, facts)) {
-    const clause = withoutFinalStop(second);
-    return `${withoutFinalStop(first)}, with ${clause.charAt(0).toLowerCase()}${clause.slice(1)}.`;
-  }
-  return `${asSentence(first)} ${asSentence(second)}`;
+function filterList(
+  list: ReasonList,
+  keep: (reason: string, code: ReasonCode) => boolean,
+): ReasonList {
+  const reasons: string[] = [];
+  const reasonCodes: ReasonCode[] = [];
+  list.reasons.forEach((reason, index) => {
+    const code = list.reasonCodes[index] ?? null;
+    if (!keep(reason, code)) return;
+    reasons.push(reason);
+    reasonCodes.push(code);
+  });
+  return { reasons, reasonCodes };
 }

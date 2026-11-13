@@ -61,7 +61,7 @@ function makeRecommendation(
     },
     bestFor: ["intermediate", "longboard", "dawn-patrol"],
     positives: [formatReasonSentence(SIZE_FACT), "Light offshore wind"],
-    reasonFacts: [SIZE_FACT],
+    positiveCodes: ["size_good", null],
     watchouts: ["Morning crowd may build"],
     dataNotes: [],
     confidence: {
@@ -111,10 +111,17 @@ describe("WhyThisCall", () => {
     expect(screen.getByText("Forecast model row is present")).toBeInTheDocument();
   });
 
-  it("lists no positive signal that contradicts a Skip verdict", async () => {
+  it("never lists the small-side sentence under Positive signals", async () => {
     const user = userEvent.setup();
 
-    render(<WhyThisCall recommendation={makeRecommendation({ verdict: "Skip" })} />);
+    render(
+      <WhyThisCall
+        recommendation={makeRecommendation({
+          positives: ["On the small side at 1–2 ft.", "Light offshore wind"],
+          positiveCodes: ["size_below_ideal", null],
+        })}
+      />
+    );
 
     await user.click(
       screen.getByRole("button", {
@@ -122,7 +129,7 @@ describe("WhyThisCall", () => {
       })
     );
 
-    expect(screen.queryByText("Good size at 3–4 ft.")).not.toBeInTheDocument();
+    expect(screen.queryByText("On the small side at 1–2 ft.")).not.toBeInTheDocument();
     expect(screen.getByText("Light offshore wind")).toBeInTheDocument();
   });
 

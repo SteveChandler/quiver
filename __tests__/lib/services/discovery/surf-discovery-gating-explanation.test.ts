@@ -19,6 +19,19 @@ describe("gateSurfDiscoveryResponse personal explanation", () => {
     const result = respond({ reasons: [], conditionBadges: [{ label: "Offshore" }, { label: "Mid tide" }] });
     const rec = result.recommendations[0] as { personalExplanation?: string };
 
-    expect(rec.personalExplanation).toBe("Conditions line up: Offshore, Mid tide");
+    expect(rec.personalExplanation).toBe("Conditions line up: Offshore, Mid tide.");
+  });
+
+  it("joins scorer sentences with one full stop each, never \"..\"", () => {
+    const result = respond({
+      reasons: ["Good size at 3–4 ft.", "Solid swell period behind it."],
+      conditionBadges: [{ label: "Offshore" }],
+    });
+    const rec = result.recommendations[0] as { personalExplanation?: string };
+
+    expect(rec.personalExplanation).toBe(
+      "Good size at 3–4 ft. Solid swell period behind it. Conditions line up: Offshore.",
+    );
+    expect(rec.personalExplanation).not.toContain("..");
   });
 });

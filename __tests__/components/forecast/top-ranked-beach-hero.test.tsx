@@ -106,7 +106,6 @@ describe("TopRankedBeachHero", () => {
         reasons: ["Forecast model row is present"],
       },
       positives: [formatReasonSentence(SIZE_FACT)],
-      reasonFacts: [SIZE_FACT],
       // The card reads height from the window it is describing, not from the
       // region's separate "current conditions" reading.
       wave: {
@@ -141,7 +140,9 @@ describe("TopRankedBeachHero", () => {
       (60 * 60 * 1000);
     expect(durationHours).toBeLessThanOrEqual(MAX_WINDOW_HOURS);
     expect(screen.queryByText("6:00 AM–9:00 AM")).not.toBeInTheDocument();
-    expect(screen.getByText("4.2ft")).toBeInTheDocument();
+    // The card height is the same band as the reason line, never a decimal beside it.
+    expect(screen.getByText("4–5 ft")).toBeInTheDocument();
+    expect(screen.queryByText("4.2ft")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Imperial Beach beach photo" })).toBeInTheDocument();
     expect(screen.queryByText("Approved beach photo")).not.toBeInTheDocument();
   });
@@ -171,33 +172,6 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Selector conditions align")).not.toBeInTheDocument();
   });
 
-  it("shows no reason line beside a Skip window when the line would contradict it", () => {
-    render(
-      <TopRankedBeachHero
-        beach={beach}
-        regionName="San Diego"
-        now={new Date("2026-08-12T08:00:00Z")}
-        bestSurfWindow={{
-          startIso: "2026-08-12T07:00:00Z",
-          endIso: "2026-08-12T09:00:00Z",
-          peakIso: "2026-08-12T08:00:00Z",
-          timezone: "UTC",
-          localTimeLabel: "7:00 AM-9:00 AM",
-          score: 30,
-          verdict: "Skip" as const,
-          confidence: { level: "high" as const, score: 84, summary: "High confidence", reasons: [] },
-          positives: [formatReasonSentence(SIZE_FACT), "Good tide"],
-          reasonFacts: [SIZE_FACT],
-          wave: { height: "4.2", period: "14", direction: "W", summary: "4.2ft at 14s" },
-        }}
-      />
-    );
-
-    // The chosen line contradicts the verdict, so no reason line shows (no weaker stand-in).
-    expect(screen.queryByText("Good size at 4–5 ft.")).not.toBeInTheDocument();
-    expect(screen.queryByText("Good tide")).not.toBeInTheDocument();
-  });
-
   it("shows guests a login CTA without the numeric score or score-band call", () => {
     render(
       <TopRankedBeachHero
@@ -221,7 +195,6 @@ describe("TopRankedBeachHero", () => {
             reasons: [],
           },
           positives: [formatReasonSentence(SIZE_FACT)],
-      reasonFacts: [SIZE_FACT],
           wave: {
             height: "4.2",
             period: "14",
@@ -266,7 +239,6 @@ describe("TopRankedBeachHero", () => {
             reasons: [],
           },
           positives: [formatReasonSentence(SIZE_FACT)],
-      reasonFacts: [SIZE_FACT],
           wave: {
             height: "3.7",
             period: "14",
@@ -283,7 +255,7 @@ describe("TopRankedBeachHero", () => {
 
     // Height belongs to the upcoming window, not the region's current reading.
     expect(screen.getByText("Wave height then")).toBeInTheDocument();
-    expect(screen.getByText("3.7ft")).toBeInTheDocument();
+    expect(screen.getByText("3–4 ft")).toBeInTheDocument();
     expect(screen.queryByText("4.2ft")).not.toBeInTheDocument();
 
     // A window that has not started yet is signposted as the next call rather

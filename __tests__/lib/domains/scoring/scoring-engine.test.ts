@@ -258,13 +258,14 @@ describe('Scoring Engine', () => {
       expect(result.subscores.has('baseConditions')).toBe(true);
     });
 
-    it('carries the base scorer facts beside its formatted sentences', () => {
+    it('carries the base scorer codes beside its formatted sentences', () => {
       const engine = new ScoringEngine();
       engine.registerAll([baseConditionsScorer, windQualityScorer, tideFitScorer]);
 
       const result = engine.score(createInput({ waveHeight: 4, wavePeriod: 12 }));
 
-      expect(result.reasonFacts).toEqual([{ code: 'size_good', heightFt: 4 }, { code: 'period_good' }]);
+      expect(result.reasonCodes?.slice(0, 2)).toEqual(['size_good', 'period_good']);
+      expect(result.reasonCodes).toHaveLength(result.reasons.length);
       expect(result.reasons.slice(0, 2)).toEqual(['Good size at 3–4 ft.', 'Solid swell period behind it.']);
     });
 

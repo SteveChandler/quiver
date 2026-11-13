@@ -23,7 +23,7 @@ import type { RecommendationLabel } from '@/lib/scoring';
 import type { ConditionCharacterCategory, SmallWeakReason } from '@/lib/domains/scoring';
 import { getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
-import { joinReasonSentences, type ScoringReasonFact } from '@/lib/domains/scoring/reason-sentences';
+import { joinSentences } from '@/lib/domains/scoring/reason-sentences';
 
 // Re-export FALLBACK_IMAGE_BY_NAME for backward compatibility
 export { FALLBACK_IMAGE_BY_NAME };
@@ -264,40 +264,43 @@ function isLearnerWorthIt(
 /**
  * Build natural language message from score, reasons, and warnings
  *
- * Format: "{Label}. {TopReasons} Watch: {FirstWarning}"
+ * Format: "{Label} - {TopReasons} Watch: {FirstWarning}"
+ *
+ * The "{Label} - " prefix is wire format: installed native builds strip it
+ * with a "label, optional spaces, hyphen" regex (quiver-native surf-decision.ts
+ * and personal-surf-call-display.ts). The reasons are whole sentences, one
+ * after the other.
  *
  * Examples:
- * - "Good. Good size at 3–4 ft, with solid swell period behind it. Watch: Onshore by noon"
- * - "Maybe. Good swell angle (W). Watch: Wind picking up"
- * - "Skip. Strong onshore wind"
+ * - "Worth it - Good size at 3–4 ft. Solid swell period behind it. Watch: Onshore by noon"
+ * - "Maybe - Good swell angle (W). Watch: Wind picking up"
+ * - "Skip - Strong onshore wind"
  * - "" when there is no reason (no stand-in clause)
  *
  * @param score - Total score (0-100)
  * @param reasons - Positive factors for recommendation
  * @param warnings - Cautions or concerns
- * @param reasonFacts - Codes behind the scorer sentences, so two of them join as one sentence
  * @returns Natural language message
  */
 export function buildDiscoveryMessage(
   score: number,
   reasons: string[],
   warnings: string[],
-  recommendationLabel?: RecommendationLabel,
-  reasonFacts?: readonly ScoringReasonFact[],
+  recommendationLabel?: RecommendationLabel
 ): string {
   const label = recommendationLabel ?? getRecommendationLabel(score);
 
   // No reason means no message: a generic clause would read as a real explanation.
   if (label === 'Skip') {
     const skipReason = warnings[0];
-    return skipReason ? `Skip. ${skipReason}` : '';
+    return skipReason ? `Skip - ${skipReason}` : '';
   }
 
   // Pick top 2 reasons for concise message
-  const topReasons = joinReasonSentences(reasons.slice(0, 2), reasonFacts);
+  const topReasons = joinSentences(reasons.slice(0, 2));
   // With no reason, a real warning is still worth saying; with neither, say nothing.
-  if (!topReasons) return warnings[0] ? `${label}. Watch: ${warnings[0]}` : '';
-  let message = `${label}. ${topReasons}`;
+  if (!topReasons) return warnings[0] ? `${label} - Watch: ${warnings[0]}` : '';
+  let message = `${label} - ${topReasons}`;
 
   // Add first warning if present
   if (warnings.length > 0) {

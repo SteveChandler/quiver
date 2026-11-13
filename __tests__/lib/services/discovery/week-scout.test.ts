@@ -2406,7 +2406,7 @@ describe('Week Scout takeaway from scorer reasons', () => {
     deps.scoreBeach = jest.fn((beach, row, options) => ({
       ...scoreBeach(beach, row, options),
       reasons: [formatReasonSentence(sizeFact), 'Light trade wind'],
-      reasonFacts: [sizeFact],
+      reasonCodes: ['size_good' as const, null],
     }));
     return deps;
   }
@@ -2430,6 +2430,20 @@ describe('Week Scout takeaway from scorer reasons', () => {
     const shown = await windows(25);
     expect(shown.length).toBeGreaterThan(0);
     expect(shown.every((window) => window.takeaway === null)).toBe(true);
+  });
+
+  it('reads the code, not the words: an uncoded line is never treated as a scorer sentence', async () => {
+    const deps = depsWithReasons(25);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({ ...scoreBeach(beach, row, options), reasonCodes: undefined }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
   });
 
   it('prefers the wave sentence over a personalization line, so the takeaway never names the surfer level', async () => {

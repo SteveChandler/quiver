@@ -5,7 +5,7 @@
  * server helpers to future UI surfaces.
  */
 
-import type { ScoringReasonFact } from "@/lib/domains/scoring/reason-sentences";
+import type { ReasonCode } from "@/lib/domains/scoring/reason-sentences";
 
 export const SURF_WINDOW_VERDICTS = ["Worth it", "Maybe", "Skip"] as const;
 export type SurfWindowVerdict = (typeof SURF_WINDOW_VERDICTS)[number];
@@ -170,8 +170,8 @@ export interface SurfWindowRecommendation extends SurfWindowLinks {
   tide: SurfWindowTideSummary;
   bestFor: SurfWindowBestForTag[];
   positives: string[];
-  /** Codes behind the scorer sentences in `positives`; additive, so readers pick by code. */
-  reasonFacts?: ScoringReasonFact[];
+  /** Optional and additive: `positiveCodes[i]` is the scorer code of `positives[i]`, null for other text. */
+  positiveCodes?: ReasonCode[];
   watchouts: string[];
   dataNotes: string[];
   confidence: SurfWindowConfidence;

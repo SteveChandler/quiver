@@ -16,7 +16,7 @@ import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { cn } from "@/lib/utils";
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
-import { reasonFactFor, reasonLineForVerdict } from "@/lib/domains/scoring/reason-sentences";
+import { reasonList } from "@/lib/domains/scoring/reason-sentences";
 import {
   HandoffRecommendationMode,
   HandoffRecommendationVerdict,
@@ -734,12 +734,13 @@ function ZineWindowEntry({
   const date = new Intl.DateTimeFormat("en-US", {
     timeZone: recommendation.timezone, weekday: "short", month: "short", day: "numeric",
   }).format(new Date(recommendation.startIso));
-  // The size already shows under Surf, so Why prefers the next reason.
-  const whyReason = reasonLineForVerdict(
-    recommendation.positives.find((reason) => reasonFactFor(reason, recommendation.reasonFacts)?.code !== "size_good") ?? recommendation.positives[0],
-    recommendation.reasonFacts,
-    recommendation.verdict === "Skip",
-  );
+  // The size already shows under Surf, so Why prefers the next reason (picked by code).
+  // The API already drops a line that contradicts the verdict.
+  const positiveCodes = reasonList(recommendation.positives, recommendation.positiveCodes).reasonCodes;
+  const whyReason =
+    recommendation.positives.find((_, index) => positiveCodes[index] !== "size_good") ??
+    recommendation.positives[0] ??
+    null;
 
   function handleWebClick(): void {
     if (!webUrl) return;

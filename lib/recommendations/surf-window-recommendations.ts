@@ -14,6 +14,7 @@ import {
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { buildSurfWindowLinks } from "@/lib/recommendations/surf-window-links";
+import { reasonList, reasonsForVerdict, takeReasons } from "@/lib/domains/scoring/reason-sentences";
 import {
   buildSurfWindowDataNotes,
   buildSurfWindowSourceFlags,
@@ -365,7 +366,11 @@ function buildRecommendation(
   const tide = tideTrend(row);
   const wind = windQuality(row, group.beach);
   // Empty when the scorer gave no reason; readers show their own empty state.
-  const positives = composite.reasons.slice(0, 3);
+  // Beside a Skip, a "Good size" or period line contradicts the verdict, so it never leaves the API.
+  const positiveList = reasonsForVerdict(
+    takeReasons(reasonList(composite.reasons, composite.reasonCodes), 3),
+    verdict === "Skip",
+  );
   const watchouts = composite.warnings.length > 0
     ? [...composite.warnings].slice(0, 3)
     : [];
@@ -401,8 +406,8 @@ function buildRecommendation(
     wind: windSummary(row, wind),
     tide: tideSummary(row, tide),
     bestFor: bestForTags(row, window.start, window.timezone, options),
-    positives,
-    reasonFacts: [...(composite.reasonFacts ?? [])],
+    positives: positiveList.reasons,
+    positiveCodes: positiveList.reasonCodes,
     watchouts,
     dataNotes: buildSurfWindowDataNotes({
       forecast: row,

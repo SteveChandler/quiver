@@ -370,7 +370,7 @@ describe('discoverSurfSpots — personal match evidence stays separate from phys
     expect(result.includedRecommendations).toHaveLength(1);
     for (const rec of [...result.recommendations, ...result.includedRecommendations!]) {
       expect(rec.recommendationLabel).toBe('Worth it');
-      expect(rec.message).toMatch(/^Worth it\. /);
+      expect(rec.message).toMatch(/^Worth it - /);
       expect(rec.score).toBe(mockBaseScores[rec.beach.id]);
     }
   });

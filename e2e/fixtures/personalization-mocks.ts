@@ -102,7 +102,7 @@ const MOCK_DISCOVER_RESPONSE = {
         distancePenalty: 0,
       },
       summary: "Good surf opportunity in the next few hours",
-      message: "Worth it. Good size at 3–4 ft, with solid swell period behind it. Watch: Onshore by noon",
+      message: "Worth it - Good size at 3–4 ft. Solid swell period behind it. Watch: Onshore by noon",
       reasons: [
         "Good size at 3–4 ft.",
         "Solid swell period behind it.",
@@ -110,7 +110,7 @@ const MOCK_DISCOVER_RESPONSE = {
         "Clean offshore conditions",
         "Familiar spot with high affinity",
       ],
-      reasonFacts: [{ code: "size_good" as const, heightFt: 3.9 }, { code: "period_good" as const }],
+      reasonCodes: ["size_good" as const, "period_good" as const, null, null, null],
       warnings: [],
       conditionBadges: [
         { label: "Clean Swell", contribution: 15 },

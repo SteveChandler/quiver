@@ -1,0 +1,99 @@
+Reason sentences: before = origin/main 1efb98665 (separate worktree), after = fix/scorer-reason-sentences working tree (review fixes).
+Harness: reason-harness.cjs (LOCAL Supabase, read only, clock pinned). Diff: reason-diff.py.
+Section 1 must be empty. Section 2 lists the only code-level differences: lines that contradict a Skip / "no" verdict no longer leave the API (discovery reasons, Week Scout takeaways on MEH windows with conditionScore < 40).
+
+input rows: before=888 after=888; input hash equal: True (a7310a8636461dad)
+clock pinned: 2026-11-12T16:00:00.000Z / 2026-11-12T16:00:00.000Z; beaches: Blacks Beach, Huntington Beach Pier, Scripps, Del Mar, Tamarack, Carlsbad State Beach, K-40 (Puerto Nuevo)
+composites: 3552 rows x skill; surf windows per skill: [10, 10, 10, 10]; week scout days: 7; discovery recs: 4
+
+== 1. Scores, subscores, verdicts, labels, ranks, picks, ids, warnings, effects (text fields removed) ==
+diff lines: 0
+
+== 2. Reason lists with the six scorer strings mapped to their codes (before: old text, after: new sentences) ==
+differences: 8
+.discovery.recommendations[1].reasons
+  before: ['<size_good>', '<period_strong>', 'Ideal swell direction (W)', 'Swells aligned - waves combine well', 'Light onshore']
+  after:  ['Ideal swell direction (W)', 'Swells aligned - waves combine well', 'Light onshore']
+.discovery.recommendations[3].reasons
+  before: ['<size_good>', 'Best window of the day', 'Ideal swell direction (W)', 'Swells aligned - waves combine well', 'Light onshore']
+  after:  ['Best window of the day', 'Ideal swell direction (W)', 'Swells aligned - waves combine well', 'Light onshore']
+.weekScout.days[0].windows[2].takeaway
+  before: <size_good>
+  after:  None
+.weekScout.days[0].windows[3].takeaway
+  before: <size_good>
+  after:  None
+.weekScout.days[1].windows[4].takeaway
+  before: <size_good>
+  after:  None
+.weekScout.days[2].windows[1].takeaway
+  before: <size_good>
+  after:  None
+.weekScout.days[3].windows[4].takeaway
+  before: <size_good>
+  after:  None
+.weekScout.days[5].windows[4].takeaway
+  before: <size_good>
+  after:  None
+
+== 3. Text samples (only the words change) ==
+Blacks Beach 2026-11-13T00:00:00+00:00 skill=None
+  before reasons: ['Good wave size (4.6ft)', 'Ideal swell direction (W)']
+  after reasons:  ['Good size at 4–5 ft.', 'Ideal swell direction (W)']
+  before message: Maybe - Good wave size (4.6ft), Ideal swell direction (W). Watch: Strong secondary swell from WNW
+  after message:  Maybe - Good size at 4–5 ft. Ideal swell direction (W). Watch: Strong secondary swell from WNW
+Blacks Beach 2026-11-13T00:00:00+00:00 skill=beginner
+  before reasons: ['Good wave size (4.6ft)', 'Ideal swell direction (W)']
+  after reasons:  ['Good size at 4–5 ft.', 'Ideal swell direction (W)']
+  before message: Maybe - Good wave size (4.6ft), Ideal swell direction (W). Watch: Strong secondary swell from WNW
+  after message:  Maybe - Good size at 4–5 ft. Ideal swell direction (W). Watch: Strong secondary swell from WNW
+Blacks Beach 2026-11-13T00:00:00+00:00 skill=intermediate
+  before reasons: ['Good wave size (4.6ft)', 'Ideal swell direction (W)']
+  after reasons:  ['Good size at 4–5 ft.', 'Ideal swell direction (W)']
+  before message: Maybe - Good wave size (4.6ft), Ideal swell direction (W). Watch: Strong secondary swell from WNW
+  after message:  Maybe - Good size at 4–5 ft. Ideal swell direction (W). Watch: Strong secondary swell from WNW
+Blacks Beach 2026-11-13T00:00:00+00:00 skill=advanced
+  before reasons: ['Good wave size (4.6ft)', 'Ideal swell direction (W)']
+  after reasons:  ['Good size at 4–5 ft.', 'Ideal swell direction (W)']
+  before message: Maybe - Good wave size (4.6ft), Ideal swell direction (W). Watch: Strong secondary swell from WNW
+  after message:  Maybe - Good size at 4–5 ft. Ideal swell direction (W). Watch: Strong secondary swell from WNW
+Blacks Beach 2026-11-13T03:00:00+00:00 skill=None
+  before reasons: ['Larger swell (5.7ft)', 'Good swell energy']
+  after reasons:  ['Bigger surf at 5–6 ft.', 'Solid swell period behind it.']
+  before message: Worth it - Larger swell (5.7ft), Good swell energy. Watch: Strong secondary swell from WNW
+  after message:  Worth it - Bigger surf at 5–6 ft. Solid swell period behind it. Watch: Strong secondary swell from WNW
+Blacks Beach 2026-11-13T03:00:00+00:00 skill=beginner
+  before reasons: ['Larger swell (5.7ft)', 'Good swell energy']
+  after reasons:  ['Bigger surf at 5–6 ft.', 'Solid swell period behind it.']
+  before message: Worth it - Larger swell (5.7ft), Good swell energy. Watch: Strong secondary swell from WNW
+  after message:  Worth it - Bigger surf at 5–6 ft. Solid swell period behind it. Watch: Strong secondary swell from WNW
+Blacks Beach 2026-11-13T03:00:00+00:00 skill=intermediate
+  before reasons: ['Larger swell (5.7ft)', 'Good swell energy']
+  after reasons:  ['Bigger surf at 5–6 ft.', 'Solid swell period behind it.']
+  before message: Worth it - Larger swell (5.7ft), Good swell energy. Watch: Strong secondary swell from WNW
+  after message:  Worth it - Bigger surf at 5–6 ft. Solid swell period behind it. Watch: Strong secondary swell from WNW
+Blacks Beach 2026-11-13T03:00:00+00:00 skill=advanced
+  before reasons: ['Larger swell (5.7ft)', 'Good swell energy']
+  after reasons:  ['Bigger surf at 5–6 ft.', 'Solid swell period behind it.']
+  before message: Worth it - Larger swell (5.7ft), Good swell energy. Watch: Strong secondary swell from WNW
+  after message:  Worth it - Bigger surf at 5–6 ft. Solid swell period behind it. Watch: Strong secondary swell from WNW
+
+== 4. Week Scout takeaways ==
+.days[0].windows[0]: 'Good wave size (3.3ft)' -> 'Good size at 3–4 ft.'
+.days[0].windows[1]: 'Good wave size (3.3ft)' -> 'Good size at 3–4 ft.'
+.days[0].windows[2]: 'Good wave size (4.5ft)' -> None
+.days[0].windows[3]: 'Good wave size (4.6ft)' -> None
+.days[0].windows[4]: 'Good wave size (2.6ft)' -> 'Good size at 2–3 ft.'
+.days[0].windows[5]: 'Good wave size (3.7ft)' -> 'Good size at 3–4 ft.'
+.days[0].windows[6]: 'Wave forecasts disagree; check conditions before choosing this window.' -> 'Wave forecasts disagree; check conditions before choosing this window.'
+.days[0].bestDayWindow: 'Good wave size (3.3ft)' -> 'Good size at 3–4 ft.'
+.days[1].windows[0]: 'Good wave size (3.3ft)' -> 'Good size at 3–4 ft.'
+.days[1].windows[1]: 'Larger swell (6.4ft)' -> 'Bigger surf at 6–7 ft.'
+.days[1].windows[2]: 'Wave forecasts disagree; check conditions before choosing this window.' -> 'Wave forecasts disagree; check conditions before choosing this window.'
+.days[1].windows[3]: 'Good wave size (3.2ft)' -> 'Good size at 3–4 ft.'
+
+== 5. Discovery messages ==
+Tamarack: 'Maybe - Good wave size (2.6ft), Good swell angle (W). Watch: Strong secondary swell from WNW' -> 'Maybe - Good size at 2–3 ft. Good swell angle (W). Watch: Strong secondary swell from WNW'
+Del Mar: 'Skip - Onshore wind' -> 'Skip - Onshore wind'
+Carlsbad State Beach: 'Maybe - Good wave size (3.7ft), Good swell energy. Watch: Crossing swells creating choppy conditions' -> 'Maybe - Good size at 3–4 ft. Solid swell period behind it. Watch: Crossing swells creating choppy conditions'
+Blacks Beach: 'Skip - Strong secondary swell from WNW' -> 'Skip - Strong secondary swell from WNW'

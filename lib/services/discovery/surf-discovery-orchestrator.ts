@@ -148,6 +148,16 @@ import { FORECAST_ALIGNMENT_TOLERANCE_MINUTES, resolveForecastAlignment } from '
 import { withDisplayWindow } from './window-authority';
 import { SCORE_THRESHOLDS } from '@/lib/utils/score-color-utils';
 import { rowToSwellPartition } from '@/lib/domains/conditions/map-forecast';
+import {
+  apiReasons,
+  insertReason,
+  prependReasons,
+  reasonList,
+  takeReasons,
+  withoutReason,
+  type ReasonCode,
+  type ReasonList,
+} from '@/lib/domains/scoring/reason-sentences';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -1170,6 +1180,16 @@ function collapseWindowCandidates(
   });
 }
 
+/** Reasons and their aligned scorer codes (`reason-sentences.ts`). */
+function reasonsOf(target: { reasons: string[]; reasonCodes?: ReasonCode[] }): ReasonList {
+  return reasonList(target.reasons, target.reasonCodes);
+}
+
+function setReasons(target: { reasons: string[]; reasonCodes?: ReasonCode[] }, list: ReasonList): void {
+  target.reasons = list.reasons;
+  target.reasonCodes = list.reasonCodes;
+}
+
 function applyWorthTheDriveReasons(
   recommendations: SurfDiscoveryRecommendation[]
 ): SurfDiscoveryRecommendation[] {
@@ -1183,20 +1203,19 @@ function applyWorthTheDriveReasons(
       return rec;
     }
 
-    const reasons = [
-      WORTH_THE_DRIVE_REASON,
-      ...rec.reasons.filter((reason) => reason !== WORTH_THE_DRIVE_REASON),
-    ].slice(0, 5);
+    const list = takeReasons(
+      prependReasons(withoutReason(reasonList(rec.reasons, rec.reasonCodes), WORTH_THE_DRIVE_REASON), [WORTH_THE_DRIVE_REASON]),
+      5,
+    );
 
     return {
       ...rec,
-      reasons,
+      ...list,
       message: buildDiscoveryMessage(
         rec.score,
-        reasons,
+        list.reasons,
         rec.warnings,
         rec.recommendationLabel,
-        rec.reasonFacts,
       ),
     };
   });
@@ -1481,11 +1500,11 @@ async function scoreBeachForDiscovery(args: {
 
   // Merge personalization reasons
   if (args.personalizationReasons && args.personalizationReasons.length > 0) {
-    detailedScore.reasons = [...args.personalizationReasons, ...detailedScore.reasons];
+    setReasons(detailedScore, prependReasons(reasonsOf(detailedScore), args.personalizationReasons));
   }
 
   if (boardStyle.reason) {
-    detailedScore.reasons = [boardStyle.reason, ...detailedScore.reasons];
+    setReasons(detailedScore, prependReasons(reasonsOf(detailedScore), [boardStyle.reason]));
   }
   if (boardStyle.warning) {
     detailedScore.warnings.push(boardStyle.warning);
@@ -1499,7 +1518,7 @@ async function scoreBeachForDiscovery(args: {
   // Generate primary recommendation reason for skill-aware communication
   const primaryReason = generatePrimaryReason(beach, forecast, userSkillLevel);
   if (primaryReason) {
-    detailedScore.reasons = [primaryReason, ...detailedScore.reasons.filter(r => r !== primaryReason)];
+    setReasons(detailedScore, prependReasons(withoutReason(reasonsOf(detailedScore), primaryReason), [primaryReason]));
   }
 
   // Generate condition badges (keep existing badge generation)
@@ -1513,7 +1532,7 @@ async function scoreBeachForDiscovery(args: {
     ...detailedScore,
     conditionBadges,
     waveHeightBadge: waveHeightBadge ?? undefined,
-    reasons: detailedScore.reasons.slice(0, 5),
+    ...takeReasons(reasonsOf(detailedScore), 5),
   };
 }
 
@@ -2375,10 +2394,7 @@ async function discoverSurfSpotsInner(
       // already-good spots into the 100 ceiling.
       detailedScore.rankingTotal += behaviorApplied.appliedBehaviorScore;
       detailedScore.subscores.behaviorBonus = behaviorApplied.appliedBehaviorScore;
-      detailedScore.reasons = [
-        ...behaviorScore.reasons,
-        ...detailedScore.reasons,
-      ].slice(0, 5);
+      setReasons(detailedScore, takeReasons(prependReasons(reasonsOf(detailedScore), behaviorScore.reasons), 5));
     }
 
     const distinction = computeWindowDistinctionReason(
@@ -2390,13 +2406,9 @@ async function discoverSurfSpotsInner(
       boardClasses,
     );
     if (distinction && !detailedScore.reasons.includes(distinction)) {
-      detailedScore.reasons = [
-        ...detailedScore.reasons.slice(0, 1),
-        distinction,
-        ...detailedScore.reasons.slice(1),
-      ];
+      setReasons(detailedScore, insertReason(reasonsOf(detailedScore), 1, distinction));
     }
-    detailedScore.reasons = detailedScore.reasons.slice(0, 5);
+    setReasons(detailedScore, takeReasons(reasonsOf(detailedScore), 5));
 
     const {
       label: recommendationLabel,
@@ -2439,10 +2451,9 @@ async function discoverSurfSpotsInner(
         detailedScore.reasons,
         detailedScore.warnings,
         recommendationLabel,
-        detailedScore.reasonFacts,
       ),
       reasons: detailedScore.reasons,
-      reasonFacts: detailedScore.reasonFacts,
+      reasonCodes: detailedScore.reasonCodes,
       warnings: detailedScore.warnings,
       effects: detailedScore.effects,
       conditionBadges: detailedScore.conditionBadges,
@@ -2516,13 +2527,9 @@ async function discoverSurfSpotsInner(
         customDistinction &&
         !customDetailedScore.reasons.includes(customDistinction)
       ) {
-        customDetailedScore.reasons = [
-          ...customDetailedScore.reasons.slice(0, 1),
-          customDistinction,
-          ...customDetailedScore.reasons.slice(1),
-        ];
+        setReasons(customDetailedScore, insertReason(reasonsOf(customDetailedScore), 1, customDistinction));
       }
-      customDetailedScore.reasons = customDetailedScore.reasons.slice(0, 5);
+      setReasons(customDetailedScore, takeReasons(reasonsOf(customDetailedScore), 5));
 
       const {
         label: customRecommendationLabel,
@@ -2563,10 +2570,9 @@ async function discoverSurfSpotsInner(
           customDetailedScore.reasons,
           customDetailedScore.warnings,
           customRecommendationLabel,
-          customDetailedScore.reasonFacts,
         ),
         reasons: customDetailedScore.reasons,
-        reasonFacts: customDetailedScore.reasonFacts,
+        reasonCodes: customDetailedScore.reasonCodes,
         warnings: customDetailedScore.warnings,
         conditionBadges: customDetailedScore.conditionBadges,
         waveHeightBadge: customDetailedScore.waveHeightBadge,
@@ -2930,7 +2936,10 @@ async function discoverSurfSpotsInner(
     rec.recommendationLabel = getCanonicalRecommendationLabel(rec, scoringSkill);
     rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
     rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score, rec.character?.category);
-    rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel, rec.reasonFacts);
+    // The API edge: wave sentences lead the shown line, and a line that contradicts
+    // a "no" verdict never leaves the server, so installed builds read the same list.
+    setReasons(rec, apiReasons(reasonsOf(rec), rec.verdict === "no"));
+    rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
   }
 
   const recommendationV2Candidates = [
