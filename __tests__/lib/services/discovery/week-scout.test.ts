@@ -2432,6 +2432,38 @@ describe('Week Scout takeaway from scorer reasons', () => {
     expect(shown.every((window) => window.takeaway === null)).toBe(true);
   });
 
+  it('drops a Good size takeaway when the FINAL verdict is skip/MEH, even at conditionScore 63', async () => {
+    const personalCall = getCanonicalPersonalCall as jest.Mock;
+    personalCall.mockReturnValue({ verdict: 'no', label: 'MEH' });
+    try {
+      const shown = await windows(63);
+      expect(shown.length).toBeGreaterThan(0);
+      expect(shown.every((window) => window.conditionScore === 63 && window.verdict === 'skip')).toBe(true);
+      expect(shown.every((window) => window.personalLabel === 'MEH')).toBe(true);
+      expect(shown.map((window) => window.takeaway)).toEqual(shown.map(() => null));
+    } finally {
+      personalCall.mockReset();
+      personalCall.mockImplementation(
+        jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter').getCanonicalPersonalCall,
+      );
+    }
+  });
+
+  it('keeps the Good size takeaway when the final verdict is not negative', async () => {
+    const personalCall = getCanonicalPersonalCall as jest.Mock;
+    personalCall.mockReturnValue({ verdict: 'maybe', label: 'FAIR' });
+    try {
+      const shown = await windows(63);
+      expect(shown.length).toBeGreaterThan(0);
+      expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+    } finally {
+      personalCall.mockReset();
+      personalCall.mockImplementation(
+        jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter').getCanonicalPersonalCall,
+      );
+    }
+  });
+
   it('reads the code, not the words: an uncoded line is never treated as a scorer sentence', async () => {
     const deps = depsWithReasons(25);
     const scoreBeach = deps.scoreBeach;

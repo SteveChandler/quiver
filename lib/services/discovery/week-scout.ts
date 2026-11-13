@@ -112,6 +112,7 @@ import {
   prependReasons,
   reasonList,
   reasonsForVerdict,
+  type ReasonCode,
 } from '@/lib/domains/scoring/reason-sentences';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
@@ -391,6 +392,8 @@ export interface WeekScoutServiceDependencies {
 interface DraftWindow {
   response: Omit<WeekScoutWindowResponse, 'rankingScore' | 'rankedSpots'>;
   recommendation: SurfDiscoveryRecommendation;
+  /** Code of the takeaway line; the final window verdict decides if it may show. */
+  takeawayCode: ReasonCode;
 }
 
 const BUCKETS: readonly WeekScoutBucket[] = ['morning', 'midday', 'evening'];
@@ -801,10 +804,10 @@ function buildDraftWindow(args: {
   // personalization line, which can name the surfer's level (Steven: never).
   const leadIndex = sourcesDisagree ? 0 : Math.max(0, allReasons.reasonCodes.findIndex((code) => code !== null));
   const lead = allReasons.reasons[leadIndex];
-  // A "Good size" takeaway beside a skip contradicts the chip; no line is the honest state.
-  const takeaway = lead && !codeContradictsVerdict(allReasons.reasonCodes[leadIndex], negativeVerdict)
-    ? lead
-    : null;
+  // The final window verdict (set after the canonical and personal calls) drops a
+  // takeaway that contradicts it; see `dropContradictingTakeaway`.
+  const takeaway = lead ?? null;
+  const takeawayCode = takeaway ? allReasons.reasonCodes[leadIndex] ?? null : null;
   // The same rule holds for the list that leaves the API.
   const shownReasons = reasonsForVerdict(allReasons, negativeVerdict);
 
@@ -859,7 +862,24 @@ function buildDraftWindow(args: {
       distanceMiles: args.distanceMiles,
       generated_at: args.generatedAt,
     },
+    takeawayCode,
   };
+}
+
+/**
+ * A "Good size" or period takeaway beside a skip or MEH chip contradicts it;
+ * no line is the honest state. Runs on the returned window after its final
+ * verdict and personal call are set.
+ */
+function dropContradictingTakeaway(
+  window: Pick<WeekScoutWindowResponse, 'personalVerdict' | 'takeaway'> & { verdict: WeekScoutVerdict | null },
+  draft: DraftWindow | undefined,
+): void {
+  if (!draft) return;
+  const negativeVerdict = window.verdict === 'skip' || window.personalVerdict === 'no';
+  if (!codeContradictsVerdict(draft.takeawayCode, negativeVerdict)) return;
+  window.takeaway = null;
+  draft.recommendation.summary = '';
 }
 
 function rankDrafts(
@@ -1304,6 +1324,7 @@ async function finalizeWeekScoutDays(
       if (window.verdict === null) continue;
       window.verdict = verdicts.get(window.id) ?? window.verdict;
       attachPersonalCall(window, window.id);
+      dropContradictingTakeaway(window, draftsById.get(window.id));
       for (const spot of window.rankedSpots) {
         const draft = draftsBySlot.get(`${day.localDate}:${window.bucket}:${spot.beachId}`);
         if (!draft) continue;
