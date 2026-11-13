@@ -71,28 +71,50 @@ export function parseOpenMeteoWindResponse(
 }
 
 /**
+ * True when an Open-Meteo request never got an HTTP response: the 10 s
+ * attempt timeout fired, the request was aborted, or the connection failed.
+ */
+export function isOpenMeteoUpstreamError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === 'TimeoutError' || err.name === 'AbortError') return true;
+  return err instanceof TypeError && err.message === 'fetch failed';
+}
+
+/**
  * Fetch hourly wind for a single beach location.
- * Returns up to 48 hours of wind data.
+ * Returns up to 48 hours of wind data, or [] on a non-2xx response.
+ * Throws when the request gets no HTTP response, so a batch caller can
+ * tell an upstream outage from a quiet answer.
+ */
+export async function fetchHourlyWindOrThrow(
+  lat: number,
+  lon: number
+): Promise<OpenMeteoWindPoint[]> {
+  const url = buildOpenMeteoWindUrl(lat, lon);
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'QuiverSurf/1.0 (wind-cron)' },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!response.ok) {
+    log.warn(`Open-Meteo wind API returned ${response.status} for ${lat},${lon}`);
+    return [];
+  }
+
+  const data: OpenMeteoHourlyResponse = await response.json();
+  return parseOpenMeteoWindResponse(data);
+}
+
+/**
+ * Fetch hourly wind for a single beach location.
+ * Returns up to 48 hours of wind data, or [] on any failure.
  */
 export async function fetchHourlyWind(
   lat: number,
   lon: number
 ): Promise<OpenMeteoWindPoint[]> {
-  const url = buildOpenMeteoWindUrl(lat, lon);
-
   try {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'QuiverSurf/1.0 (wind-cron)' },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      log.warn(`Open-Meteo wind API returned ${response.status} for ${lat},${lon}`);
-      return [];
-    }
-
-    const data: OpenMeteoHourlyResponse = await response.json();
-    return parseOpenMeteoWindResponse(data);
+    return await fetchHourlyWindOrThrow(lat, lon);
   } catch (err) {
     log.warn(`Open-Meteo wind fetch failed for ${lat},${lon}:`, err);
     return [];
