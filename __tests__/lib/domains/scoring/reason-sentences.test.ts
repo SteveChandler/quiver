@@ -3,6 +3,7 @@ import {
   joinReasonSentences,
   reasonContradictsVerdict,
   reasonFactFor,
+  reasonLineForVerdict,
   reasonsForVerdict,
   type ScoringReasonFact,
 } from '@/lib/domains/scoring/reason-sentences';
@@ -49,6 +50,13 @@ describe('reason codes beside a verdict', () => {
     const reasons = ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Good tide'];
     expect(reasonsForVerdict(reasons, facts, true)).toEqual(['Good tide']);
     expect(reasonsForVerdict(reasons, facts, false)).toEqual(reasons);
+  });
+
+  it('drops a contradicting single line instead of showing a weaker one', () => {
+    expect(reasonLineForVerdict('Good size at 3–4 ft.', facts, true)).toBeNull();
+    expect(reasonLineForVerdict('Good size at 3–4 ft.', facts, false)).toBe('Good size at 3–4 ft.');
+    expect(reasonLineForVerdict('Good tide', facts, true)).toBe('Good tide');
+    expect(reasonLineForVerdict(undefined, facts, false)).toBeNull();
   });
 
   it('keeps small, larger and big size lines beside a negative verdict', () => {

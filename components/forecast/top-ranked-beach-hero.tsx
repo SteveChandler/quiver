@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { reasonsForVerdict } from "@/lib/domains/scoring/reason-sentences";
+import { reasonLineForVerdict } from "@/lib/domains/scoring/reason-sentences";
 import Link from "next/link";
 import { Clock3, MapPin, Waves } from "lucide-react";
 
@@ -107,7 +107,7 @@ export function TopRankedBeachHero({
     : showScores;
   const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
   const heroReason = bestSurfWindow
-    ? reasonsForVerdict(bestSurfWindow.positives, bestSurfWindow.reasonFacts, bestSurfWindow.verdict === "Skip")[0] ?? null
+    ? reasonLineForVerdict(bestSurfWindow.positives[0], bestSurfWindow.reasonFacts, bestSurfWindow.verdict === "Skip")
     : null;
   const scoreCall = getScoreCall(selectedScore, {
     beachId: beach.beachId,

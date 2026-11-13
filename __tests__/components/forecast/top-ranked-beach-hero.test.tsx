@@ -171,7 +171,7 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Selector conditions align")).not.toBeInTheDocument();
   });
 
-  it("shows no Good size line beside a Skip window", () => {
+  it("shows no reason line beside a Skip window when the line would contradict it", () => {
     render(
       <TopRankedBeachHero
         beach={beach}
@@ -193,8 +193,9 @@ describe("TopRankedBeachHero", () => {
       />
     );
 
+    // The chosen line contradicts the verdict, so no reason line shows (no weaker stand-in).
     expect(screen.queryByText("Good size at 4–5 ft.")).not.toBeInTheDocument();
-    expect(screen.getByText("Good tide")).toBeInTheDocument();
+    expect(screen.queryByText("Good tide")).not.toBeInTheDocument();
   });
 
   it("shows guests a login CTA without the numeric score or score-band call", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { reasonsForVerdict } from "@/lib/domains/scoring/reason-sentences";
+import { reasonLineForVerdict } from "@/lib/domains/scoring/reason-sentences";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -759,9 +759,7 @@ export function OracleHomeScreen() {
     window,
   );
   // Why the selected window works, from the recommendation's own reasons.
-  const heroReason = heroRec?.reasons
-    ? reasonsForVerdict(heroRec.reasons, heroRec.reasonFacts, canonicalVerdict === "no")[0] ?? null
-    : null;
+  const heroReason = reasonLineForVerdict(heroRec?.reasons?.[0], heroRec?.reasonFacts, canonicalVerdict === "no");
   // Positive calls switch to planning copy when the window hasn't opened yet.
   const selectedWindowStartMs = Date.parse(selectedCandidate?.windowStart ?? "");
   const heroCallIsUpcoming =

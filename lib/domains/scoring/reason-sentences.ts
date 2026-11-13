@@ -12,13 +12,13 @@
 
 import { formatWaveHeightRange } from '@/lib/formatters/surf-data';
 
-export type ScoringSizeReasonCode =
+type ScoringSizeReasonCode =
   | 'size_below_ideal'
   | 'size_good'
   | 'size_larger'
   | 'size_big';
 
-export type ScoringReasonCode = ScoringSizeReasonCode | 'period_strong' | 'period_good';
+type ScoringReasonCode = ScoringSizeReasonCode | 'period_strong' | 'period_good';
 
 export type ScoringReasonFact =
   | { readonly code: ScoringSizeReasonCode; readonly heightFt: number }
@@ -81,6 +81,19 @@ export function reasonContradictsVerdict(
   return fact !== null && CONTRADICTS_NEGATIVE_VERDICT.has(fact.code);
 }
 
+/**
+ * A single-line surface shows its chosen reason, or no line when that reason
+ * contradicts the verdict. It never falls through to a weaker reason.
+ */
+export function reasonLineForVerdict(
+  reason: string | null | undefined,
+  facts: readonly ScoringReasonFact[] | null | undefined,
+  negativeVerdict: boolean,
+): string | null {
+  if (!reason) return null;
+  return reasonContradictsVerdict(reason, facts, negativeVerdict) ? null : reason;
+}
+
 /** Reasons that may show beside the verdict, order kept. */
 export function reasonsForVerdict(
   reasons: readonly string[],
@@ -94,7 +107,7 @@ function withoutFinalStop(text: string): string {
   return text.trim().replace(/\.+$/, '');
 }
 
-export function asSentence(text: string): string {
+function asSentence(text: string): string {
   const body = withoutFinalStop(text);
   return body ? `${body}.` : '';
 }
