@@ -399,24 +399,15 @@ describe('generateDiscoverySummary', () => {
     expect(summary).toContain('Fair conditions');
   });
 
-  it('should append wave size warning if present', () => {
+  it('adds no warning suffix: no warning carries the old "preferred size" words any more', () => {
     const score = createDetailedScore({
-      warnings: ['Below your preferred size (2-3 ft vs 4-6 ft)', 'Other warning'],
+      warnings: ['Heads up: bigger surf today at 4–5 ft.', 'Small surf at 1–2 ft.'],
     });
 
     const summary = generateDiscoverySummary(mockBeach, mockWindow, score);
 
-    expect(summary).toContain('Below your preferred size');
-  });
-
-  it('should append above preferred size warning if present', () => {
-    const score = createDetailedScore({
-      warnings: ['Above your preferred size (8-10 ft vs 4-6 ft)'],
-    });
-
-    const summary = generateDiscoverySummary(mockBeach, mockWindow, score);
-
-    expect(summary).toContain('Above your preferred size');
+    expect(summary).not.toMatch(/Heads up|Small surf|preferred size/);
+    expect(summary.endsWith('.')).toBe(true);
   });
 
   it('should not include non-wave-size warnings in suffix', () => {

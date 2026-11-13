@@ -236,8 +236,8 @@ export function buildRecommendationsV2({
     empty_state: {
       title: 'Nothing worth chasing for you right now',
       body: closestWatch
-        ? 'The closest watch window is listed, but it still falls below your surfable threshold.'
-        : 'Today and the next 72 hours are below your current surfable threshold.',
+        ? 'The closest watch window is listed, but it is still small.'
+        : 'It stays small today and for the next 3 days.',
       action_label: closestWatch ? 'Watch this window' : 'Check back soon',
     },
   };

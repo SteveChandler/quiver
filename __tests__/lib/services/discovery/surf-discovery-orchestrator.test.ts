@@ -4763,6 +4763,7 @@ describe('discoverSurfSpots - hourly bridge', () => {
 
 describe('discoverSurfSpots - skill-aware go checks', () => {
   const USER = 'skill-aware-user';
+  // The old skill-match words; no line may use them any more.
   const SKILL_COPY = /your experience level|your usual range|conditions are manageable/;
   const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
   const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
@@ -4886,10 +4887,15 @@ describe('discoverSurfSpots - skill-aware go checks', () => {
   });
 
   it('adds no skill-match reason for a no-skill user with the flag on', async () => {
+    // The skill line is found by its code; its words describe the waves only.
     const control = await run('beginner', true);
-    expect(control.recommendations[0].reasons.join(' ')).toMatch(SKILL_COPY);
+    expect(control.recommendations[0].reasonCodes).toContain('caution_big_surf');
+    expect(control.recommendations[0].reasons[0]).toBe('Heads up: Ocean Beach is pumping at 3–4 ft.');
+    expect(control.recommendations[0].reasons.join(' ')).not.toMatch(SKILL_COPY);
 
     const result = await run(null, true);
+    expect(result.recommendations[0].reasonCodes ?? []).not.toContain('caution_big_surf');
+    expect(result.recommendations[0].reasonCodes ?? []).not.toContain('break_mellow');
     expect(result.recommendations[0].reasons.join(' ')).not.toMatch(SKILL_COPY);
   });
 });

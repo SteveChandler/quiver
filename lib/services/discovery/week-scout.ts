@@ -109,6 +109,7 @@ import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
 import {
   codeContradictsVerdict,
+  isLeadCode,
   prependReasons,
   reasonList,
   reasonsForVerdict,
@@ -332,6 +333,7 @@ interface PersonalizationBonus {
   affinityBonus: number;
   personalizationBonus: number;
   reasons: string[];
+  reasonCodes?: ReasonCode[];
 }
 
 interface ScoreBeachOptions {
@@ -621,7 +623,9 @@ export function weekScoutAnswerExpiry(
 
 function isSafe(score: DetailedScore): boolean {
   return !score.warnings.some((warning) => (
-    /\b(danger|hazard|closure|unsafe|above your usual range)\b/i.test(warning)
+    // "above your usual range" left this list: no warning ever carried it (it was the
+    // orchestrator's Heads up reason, which Week Scout never scores), so the result is unchanged.
+    /\b(danger|hazard|closure|unsafe)\b/i.test(warning)
   ));
 }
 
@@ -795,13 +799,17 @@ function buildDraftWindow(args: {
     personalizationBonus: personalization.personalizationBonus,
   };
   const allReasons = prependReasons(
-    prependReasons(reasonList(detailed.reasons, detailed.reasonCodes), personalization.reasons),
+    prependReasons(
+      reasonList(detailed.reasons, detailed.reasonCodes),
+      personalization.reasons,
+      reasonList(personalization.reasons, personalization.reasonCodes).reasonCodes,
+    ),
     sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : [],
     ['caution_sources_disagree'],
   );
   // The sources warning leads when present; otherwise the wave sentence beats a
   // personalization line, which can name the surfer's level (Steven: never).
-  const leadIndex = sourcesDisagree ? 0 : Math.max(0, allReasons.reasonCodes.findIndex((code) => code !== null));
+  const leadIndex = sourcesDisagree ? 0 : Math.max(0, allReasons.reasonCodes.findIndex((code) => isLeadCode(code)));
   const lead = allReasons.reasons[leadIndex];
   // The final window verdict (set after the canonical and personal calls) drops a
   // takeaway that contradicts it; see `dropContradictingTakeaway`.
