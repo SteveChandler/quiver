@@ -89,9 +89,20 @@ describe("runWeekScoutCanary", () => {
     expect(result).toEqual({ healthy: true, rankedWindows: 0, heldBy: "major_event_hold" });
   });
 
-  it("is unhealthy when picks are available but no window is ranked", async () => {
+  // 2026-11-13: an 8-10 ft swell scored every San Diego window "skip"; Week Scout
+  // built and scored 18 windows, so the feed was up and nothing was rideable.
+  it("stays healthy when windows are scored but none is rideable", async () => {
     const result = await runWeekScoutCanary({
       generate: async () => response({ state: "available" }, [0, 0]),
+      now: () => NOW,
+    });
+
+    expect(result).toEqual({ healthy: true, rankedWindows: 0, scoredWindows: 2 });
+  });
+
+  it("is unhealthy when picks are available but no window is built", async () => {
+    const result = await runWeekScoutCanary({
+      generate: async () => response({ state: "available" }, []),
       now: () => NOW,
     });
 
