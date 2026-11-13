@@ -1,6 +1,7 @@
-Reason sentences: before = origin/main 1efb98665 (separate worktree), after = fix/scorer-reason-sentences working tree (review fixes).
+Reason sentences: before = origin/main 1efb98665 (separate worktree), after = fix/scorer-reason-sentences at 4b2adfb17.
 Harness: reason-harness.cjs (LOCAL Supabase, read only, clock pinned). Diff: reason-diff.py.
 Section 1 must be empty. Section 2 lists the only code-level differences: lines that contradict a Skip / "no" verdict no longer leave the API (discovery reasons, Week Scout takeaways on MEH windows with conditionScore < 40).
+Compared with the ea91c4ff2 output on the same rows: 0 differences.
 
 input rows: before=888 after=888; input hash equal: True (a7310a8636461dad)
 clock pinned: 2026-11-12T16:00:00.000Z / 2026-11-12T16:00:00.000Z; beaches: Blacks Beach, Huntington Beach Pier, Scripps, Del Mar, Tamarack, Carlsbad State Beach, K-40 (Puerto Nuevo)
