@@ -6,8 +6,9 @@ import type {
 } from "@/types/personalization";
 import { joinSentences, personalLinesFirst, reasonList } from "@/lib/domains/scoring/reason-sentences";
 
+// "Matches your surfing patterns" is no longer produced (the implicit bonus stays,
+// without a line), so its pattern left this list with no change in what is kept.
 const IMPLICIT_ONLY_REASON_PATTERNS: RegExp[] = [
-  /surfing patterns/i,
   /engagement/i,
   /implicit/i,
 ];

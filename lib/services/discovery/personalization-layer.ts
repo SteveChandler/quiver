@@ -36,6 +36,11 @@ import type { UserImplicitPreferences } from '@/types/implicit-preferences';
 import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
+import { formatLightWind, formatTideNow, type ReasonCode } from '@/lib/domains/scoring/reason-sentences';
+import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
+import { LIGHT_WIND_MPH } from './week-scout-story-facts';
+
+const KNOWN_TIDE_WORDS: ReadonlySet<string> = new Set(['rising', 'falling', 'high', 'low']);
 
 const log = createContextLogger('PersonalizationLayer');
 const MAX_AFFINITY_BONUS = 4;
@@ -83,6 +88,8 @@ interface PersonalizationBonusResult {
   avoidancePenalty: number;
   /** Human-readable reasons, suitable for the recommendation card UI */
   reasons: string[];
+  /** `reasonCodes[i]` is the code of `reasons[i]` (`reason-sentences.ts`). */
+  reasonCodes?: ReasonCode[];
 }
 
 // ============================================================================
@@ -273,6 +280,7 @@ export function calculatePersonalizationBonus(
   let avoidancePenalty = 0;
   let suppressAffinity = false;
   const reasons: string[] = [];
+  const reasonCodes: ReasonCode[] = [];
 
   // ── 1–3. Learned preferences (session history) ────────────────────────────
   // Only apply when there is sufficient confidence to trust the learned model.
@@ -281,9 +289,9 @@ export function calculatePersonalizationBonus(
     const conf = learned.confidence;
 
     // Wave range match: +15 * confidence
+    // The bonus stays; the line is gone (the size sentence says it, without the surfer's range).
     if (matchesLearnedWaveRange(forecast, learned)) {
       personalizationBonus += 15 * conf;
-      reasons.push('Wave size matches your sweet spot');
     }
 
     // Wind preferences match: +10 * confidence
@@ -292,14 +300,26 @@ export function calculatePersonalizationBonus(
     // as observation — not a preference they declared.
     if (matchesLearnedWindPrefs(forecast, learned)) {
       personalizationBonus += 10 * conf;
-      reasons.push('Wind matches your usual sessions');
+      // Say the wind fact only when the same row shows light wind with a direction.
+      const windMph = parseWindSpeedOrNull(forecast.wind_speed);
+      const windDirection = forecast.wind_direction?.trim();
+      // Only a compass word reads as a fact ("Light NE wind."); a bare degree number does not.
+      if (windMph !== null && windMph < LIGHT_WIND_MPH && windDirection && /^[NSEW]{1,3}$/i.test(windDirection)) {
+        reasons.push(formatLightWind(windDirection));
+        reasonCodes.push('wind_light');
+      }
     }
 
     // Tide preferences match: +8 * confidence
     // Same as above — tide isn't asked in onboarding, so frame as observation.
     if (matchesLearnedTidePrefs(forecast, learned)) {
       personalizationBonus += 8 * conf;
-      reasons.push('Tide matches your usual sessions');
+      const tideStatus = forecast.tide_status?.trim();
+      // Only the four tide words read as a fact ("Rising tide."); anything else gets no line.
+      if (tideStatus && KNOWN_TIDE_WORDS.has(tideStatus.toLowerCase())) {
+        reasons.push(formatTideNow(tideStatus));
+        reasonCodes.push('tide_now');
+      }
     }
   }
 
@@ -323,7 +343,6 @@ export function calculatePersonalizationBonus(
 
     if (implicitResult.total > 0) {
       personalizationBonus += implicitResult.total;
-      reasons.push('Matches your surfing patterns');
     }
   }
 
@@ -354,6 +373,7 @@ export function calculatePersonalizationBonus(
   if (affinityScore > 10 && !suppressAffinity) {
     affinityBonus = Math.min(affinityScore * AFFINITY_BONUS_SCALE, MAX_AFFINITY_BONUS);
     reasons.push("One of your go-to spots");
+    reasonCodes.push('go_to_spot');
   }
 
   return {
@@ -362,5 +382,6 @@ export function calculatePersonalizationBonus(
     personalizationBonus,
     avoidancePenalty,
     reasons,
+    reasonCodes,
   };
 }

@@ -255,6 +255,8 @@ export interface DetailedScore {
   reasonCodes?: ReasonCode[];
   /** Warnings about conditions, skill level, or crowding */
   warnings: string[];
+  /** `warningCodes[i]` is the code of `warnings[i]` (cautions lead), null for other text. */
+  warningCodes?: ReasonCode[];
   /** Structured scoring effects; decisions must not be inferred from warning strings. */
   effects?: ScoringDecisionEffect[];
   /** Top condition badges explaining why conditions are good */
@@ -397,6 +399,8 @@ export interface SurfDiscoveryRecommendation {
   reasonCodes?: ReasonCode[];
   /** Warnings or cautions about the spot */
   warnings: string[];
+  /** Optional and additive: `warningCodes[i]` is the code of `warnings[i]`, null for other text. */
+  warningCodes?: ReasonCode[];
   /** Structured condition effects carried into canonical decisions and presentation. */
   effects?: ScoringDecisionEffect[];
   /** Internal canonical-decision safety markers; not a recommendation endorsement. */

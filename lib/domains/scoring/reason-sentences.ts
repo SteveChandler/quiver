@@ -29,13 +29,53 @@ export type ScoringReasonCode = ScoringSizeReasonCode | 'period_strong' | 'perio
  * `reasons`). It is not a scorer code: no reorder puts it behind a wave
  * sentence and no verdict rule removes it.
  */
-export type CautionReasonCode = 'caution_big_surf' | 'caution_sources_disagree' | 'caution_tide';
+export type CautionReasonCode =
+  | 'caution_big_surf'
+  | 'caution_sources_disagree'
+  | 'caution_tide'
+  | 'caution_size_over'
+  | 'caution_advanced_break';
 
-/** The code beside one reason; null for other text. */
-export type ReasonCode = ScoringReasonCode | CautionReasonCode | null;
+/**
+ * Other lines this module writes (a context reason or a warning). They are
+ * neither wave sentences nor cautions, so they never lead and are never kept
+ * by a cut or a verdict rule on purpose.
+ */
+export type ContextReasonCode =
+  | 'break_mellow'
+  | 'cap_small_surf'
+  | 'cap_small_onshore'
+  | 'cap_wind_chop'
+  | 'small_surf'
+  | 'small_side'
+  | 'wind_light'
+  | 'tide_now'
+  | 'go_to_spot';
+
+/** The code beside one reason or warning; null for other text. */
+export type ReasonCode = ScoringReasonCode | CautionReasonCode | ContextReasonCode | null;
+
+const SCORER_CODES: ReadonlySet<ReasonCode> = new Set<ReasonCode>([
+  'size_below_ideal',
+  'size_good',
+  'size_larger',
+  'size_big',
+  'period_strong',
+  'period_good',
+]);
 
 function isCaution(code: ReasonCode | undefined): boolean {
   return code != null && code.startsWith('caution_');
+}
+
+/** A scorer wave sentence (size or period). */
+export function isWaveCode(code: ReasonCode | undefined): boolean {
+  return code != null && SCORER_CODES.has(code);
+}
+
+/** A line that may lead a shown line: a caution or a wave sentence. */
+export function isLeadCode(code: ReasonCode | undefined): boolean {
+  return isCaution(code) || isWaveCode(code);
 }
 
 export type ScoringReasonFact =
@@ -128,7 +168,7 @@ export function takeReasonsKeepingLead(list: ReasonList, count: number): ReasonL
   list.reasonCodes.forEach((code, index) => {
     if (isCaution(code) && keep.size < count) keep.add(index);
   });
-  const firstWave = list.reasonCodes.findIndex((code) => code != null && !isCaution(code));
+  const firstWave = list.reasonCodes.findIndex((code) => isWaveCode(code));
   if (firstWave >= 0 && keep.size < count) keep.add(firstWave);
   for (let index = 0; index < list.reasons.length && keep.size < count; index += 1) keep.add(index);
   return filterList(list, (_, __, index) => keep.has(index));
@@ -147,7 +187,7 @@ export function dedupeReasons(list: ReasonList): ReasonList {
 /** Cautions first, then the wave sentences, then other text; the order inside each group stays. */
 function leadRank(code: ReasonCode | undefined): number {
   if (isCaution(code)) return 0;
-  return code == null ? 2 : 1;
+  return isWaveCode(code) ? 1 : 2;
 }
 
 export function waveSentencesFirst(list: ReasonList): ReasonList {
@@ -205,13 +245,32 @@ export function leadReasonLine(
  */
 export function personalLinesFirst(list: ReasonList): ReasonList {
   // A caution still leads: the app reads this field first, so a cut must never drop it.
-  const rank = (code: ReasonCode | undefined): number => (isCaution(code) ? 0 : code == null ? 1 : 2);
+  const rank = (code: ReasonCode | undefined): number => (isCaution(code) ? 0 : isWaveCode(code) ? 2 : 1);
   const order = list.reasons.map((_, index) => index);
   order.sort((a, b) => rank(list.reasonCodes[a]) - rank(list.reasonCodes[b]) || a - b);
   return {
     reasons: order.map((index) => list.reasons[index]),
     reasonCodes: order.map((index) => list.reasonCodes[index]),
   };
+}
+
+const SMALL_SIZE_CODES: ReadonlySet<ReasonCode> = new Set<ReasonCode>(['cap_small_surf', 'small_surf', 'small_side']);
+
+/**
+ * One card tells one size story. With a small-surf line on the card (as a
+ * reason or a warning), "Good size" goes. A line that is also a warning (a cap
+ * line, or the scorer's "On the small side" beside the small-side warning) shows
+ * once, as the warning. Cautions and other text stay.
+ */
+export function oneSizeStory(list: ReasonList, warningCodes: readonly ReasonCode[] | null | undefined): ReasonList {
+  const warned = new Set<ReasonCode>((warningCodes ?? []).filter((code) => code != null));
+  const small = [...warned, ...list.reasonCodes].some((code) => SMALL_SIZE_CODES.has(code ?? null));
+  return filterList(list, (_, code) => {
+    if (code === 'size_good' && small) return false;
+    if (code === 'size_below_ideal' && warned.has('small_side')) return false;
+    if (code != null && !isCaution(code) && !isWaveCode(code) && warned.has(code)) return false;
+    return true;
+  });
 }
 
 /** A positive-signal list never carries the "small side" sentence. */
@@ -244,4 +303,106 @@ function filterList(
     reasonCodes.push(code);
   });
   return { reasons, reasonCodes };
+}
+
+// ---------------------------------------------------------------------------
+// Context lines and warnings (Steven, Nov 12 2026): the waves only, never the
+// surfer's level, range or usual size.
+// ---------------------------------------------------------------------------
+
+/** "a" or "an" for the word that follows. */
+function withArticle(word: string): string {
+  return `${/^[aeiou]/i.test(word) ? 'an' : 'a'} ${word}`;
+}
+
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+/** Big for every level: the band starts at 12 ft or more (expert ideal tops out at 12 ft). */
+const BIG_FOR_ANYONE_LOW_FT = 12;
+
+function bandLowFt(heightFt: number): number {
+  return Number.parseInt(formatHeightBand(heightFt), 10);
+}
+
+export type BigSurfCaution =
+  | { readonly kind: 'pumping'; readonly beachName: string; readonly heightFt: number }
+  | { readonly kind: 'advanced_break'; readonly level: string; readonly heightFt: number }
+  | { readonly kind: 'over' | 'well_over' | 'far_over'; readonly heightFt: number };
+
+/** The big-surf caution family (rows 3, 6, 7, 8, 9). */
+/** A real height to describe; an empty row parses to NaN or 0, which no sentence may call a size. */
+function hasHeight(heightFt: number | null | undefined): heightFt is number {
+  return heightFt != null && Number.isFinite(heightFt) && heightFt > 0;
+}
+
+/**
+ * Null with no height: a big-surf caution is a claim about size, and with no
+ * size the row cannot back it, so no line shows (never "at Flat").
+ */
+export function formatBigSurfCaution(caution: BigSurfCaution): string | null {
+  if (!hasHeight(caution.heightFt)) return null;
+  const band = formatHeightBand(caution.heightFt);
+  if (bandLowFt(caution.heightFt) >= BIG_FOR_ANYONE_LOW_FT) return `Heads up: big, powerful surf at ${band}.`;
+  switch (caution.kind) {
+    case 'pumping':
+      return `Heads up: ${caution.beachName} is pumping at ${band}.`;
+    case 'advanced_break':
+      return `Heads up: ${withArticle(caution.level.toLowerCase())} break, with more size today at ${band}.`;
+    case 'over':
+      return `Heads up: bigger surf today at ${band}.`;
+    case 'well_over':
+      return `Heads up: much bigger surf today at ${band}.`;
+    case 'far_over':
+      return `Heads up: a big jump in size today at ${band}. Watch it from the beach first.`;
+  }
+}
+
+/** Row 2 (with a beach name) and row 5 (without): a harder break on a mellow day. */
+export function formatMellowBreak(level: string, beachName?: string, heightFt?: number | null): string {
+  if (beachName && hasHeight(heightFt)) {
+    return `${beachName} is ${withArticle(level.toLowerCase())} break, but it's mellow today at ${formatHeightBand(heightFt)}.`;
+  }
+  return `${capitalize(level.toLowerCase())} break, mellow today.`;
+}
+
+/** Rows 10 and 12: "Small surf at 1–2 ft." */
+export function formatSmallSurf(heightFt: number): string {
+  if (!Number.isFinite(heightFt) || heightFt <= 0) return 'Small surf.';
+  return `Small surf at ${formatHeightBand(heightFt)}.`;
+}
+
+/** Row 11: "On the small side at 2–3 ft." */
+export function formatSmallSide(heightFt: number): string {
+  return `On the small side at ${formatHeightBand(heightFt)}.`;
+}
+
+/** Row 13. */
+export const SMALL_ONSHORE_SLOP = 'Small, short-period onshore slop.';
+
+/** Row 14: "Strong onshore wind at 18 mph chops it up." */
+export function formatWindChop(strength: string, surface: string, windMph: number): string {
+  return `${capitalize(strength)} ${surface} wind at ${Math.floor(windMph)} mph chops it up.`;
+}
+
+/** Row 16: "Light NE wind." */
+export function formatLightWind(direction: string): string {
+  return `Light ${direction.trim()} wind.`;
+}
+
+/** Row 17: "Rising tide." */
+export function formatTideNow(status: string): string {
+  return `${capitalize(status.trim())} tide.`;
+}
+
+export type BoardFitKind = 'big' | 'small' | 'good';
+
+/** Row 20: board-fit notes. Null with no height (no "at Flat"). */
+export function formatBoardFit(kind: BoardFitKind, board: string, heightFt: number): string | null {
+  if (!hasHeight(heightFt)) return null;
+  const band = formatHeightBand(heightFt);
+  if (kind === 'big') return `Big for ${withArticle(board)} at ${band}.`;
+  if (kind === 'small') return `Small for ${withArticle(board)} at ${band}.`;
+  return `Good ${board} size at ${band}.`;
 }

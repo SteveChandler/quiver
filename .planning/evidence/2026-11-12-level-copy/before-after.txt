@@ -1,0 +1,725 @@
+Level copy: before = origin/main dd88fe645 (the main parent of the merge in this branch; separate worktree), after = fix/no-level-copy c44885b04.
+Harness: reason-harness.cjs (LOCAL Supabase, read only, clock pinned). Diff: level-diff.py (warnings, watchouts and narrative counted as text).
+Section 1: two text-only hunks (a skip strategy-tag reason that reads warnings[0]; the recommendationsV2 empty-state body). No score, subscore, verdict, label, rank, id or pick changes.
+Section 6: every text change. Reasons now also lose cap/chop lines (kept once, as warnings) and 'Good size' beside a small-surf line; freed places fill with other existing reasons.
+Floor warnings: 950 'Waves are below your usual range' = 942 on rows with no wave height (314 rows x 3 skills; penalty kept, no line) + 6 now 'Small surf at …' + 2 merged with the identical cap line.
+
+input rows: before=888 after=888; input hash equal: True (a7310a8636461dad)
+clock pinned: 2026-11-12T16:00:00.000Z / 2026-11-12T16:00:00.000Z; beaches: Blacks Beach, Huntington Beach Pier, Scripps, Del Mar, Tamarack, Carlsbad State Beach, K-40 (Puerto Nuevo)
+composites: 3552 rows x skill; surf windows per skill: [10, 10, 10, 10]; week scout days: 7; discovery recs: 4
+
+== 1. Scores, subscores, verdicts, labels, ranks, picks, ids, warnings, effects (text fields removed) ==
+diff lines: 12
+--- before
++++ after
+@@ -124330,3 +124330,3 @@
+      "label": "Skip",
+-     "reason": "Strong secondary swell from WNW",
++     "reason": "Heads up: bigger surf today at 4\u20135 ft.",
+      "type": "skip"
+@@ -124369,3 +124369,3 @@
+     "action_label": "Check back soon",
+-    "body": "Today and the next 72 hours are below your current surfable threshold.",
++    "body": "It stays small today and for the next 3 days.",
+     "title": "Nothing worth chasing for you right now"
+
+== 2. Reason lists with the six scorer strings mapped to their codes (before: old text, after: new sentences) ==
+differences: 1103
+.composites[1060].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1061].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1062].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1063].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1064].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)']
+.composites[1065].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)']
+.composites[1066].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)']
+.composites[1067].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)']
+.composites[1148].reasons
+  before: ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1149].reasons
+  before: ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1150].reasons
+  before: ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1151].reasons
+  before: ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1152].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[1153].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[1154].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[1155].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[136].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[137].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[138].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[139].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[1492].reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1493].reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1494].reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1495].reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1580].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1581].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1582].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1583].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1592].reasons
+  before: ['<size_big>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_big>']
+.composites[1593].reasons
+  before: ['<size_big>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_big>']
+.composites[1594].reasons
+  before: ['<size_big>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_big>']
+.composites[1595].reasons
+  before: ['<size_big>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_big>']
+.composites[1608].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[1609].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[1610].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[1611].reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.composites[1612].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1613].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1614].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1615].reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1728].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1729].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1730].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1732].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1733].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1734].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1736].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1737].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1738].reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+  after:  ['<period_good>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.composites[1972].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Light side-shore', 'Good tide']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Light side-shore', 'Good tide']
+.composites[1973].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Light side-shore', 'Good tide']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Light side-shore', 'Good tide']
+.composites[1974].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Light side-shore', 'Good tide']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Light side-shore', 'Good tide']
+.composites[1976].reasons
+  before: ['<size_good>', '<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[1977].reasons
+  before: ['<size_good>', '<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[1978].reasons
+  before: ['<size_good>', '<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[1980].reasons
+  before: ['<size_good>', '<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Clean offshore wind']
+  after:  ['<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Clean offshore wind', 'Good tide']
+.composites[1981].reasons
+  before: ['<size_good>', '<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Clean offshore wind']
+  after:  ['<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Clean offshore wind', 'Good tide']
+.composites[1982].reasons
+  before: ['<size_good>', '<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Clean offshore wind']
+  after:  ['<period_strong>', 'Ideal swell direction (SW)', 'Swells aligned - waves combine well', 'Clean offshore wind', 'Good tide']
+.composites[1984].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[1985].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[1986].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[1988].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Light side-shore']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Light side-shore']
+.composites[1989].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Light side-shore']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Light side-shore']
+.composites[1990].reasons
+  before: ['<size_good>', '<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Light side-shore']
+  after:  ['<period_strong>', 'Good swell angle (WSW)', 'Swells aligned - waves combine well', 'Light side-shore']
+.composites[2128].reasons
+  before: ['<size_good>', 'Good swell angle (W)', 'Swells aligned - waves combine well', 'Glassy conditions', 'Tide rising - good for this spot']
+  after:  ['Good swell angle (W)', 'Swells aligned - waves combine well', 'Glassy conditions', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[2129].reasons
+  before: ['<size_good>', 'Good swell angle (W)', 'Swells aligned - waves combine well', 'Glassy conditions', 'Tide rising - good for this spot']
+  after:  ['Good swell angle (W)', 'Swells aligned - waves combine well', 'Glassy conditions', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[2130].reasons
+  before: ['<size_good>', 'Good swell angle (W)', 'Swells aligned - waves combine well', 'Glassy conditions', 'Tide rising - good for this spot']
+  after:  ['Good swell angle (W)', 'Swells aligned - waves combine well', 'Glassy conditions', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[2136].reasons
+  before: ['<size_good>', '<period_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Light side-shore']
+  after:  ['<period_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Light side-shore', 'Good tide']
+.composites[2137].reasons
+  before: ['<size_good>', '<period_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Light side-shore']
+  after:  ['<period_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Light side-shore', 'Good tide']
+.composites[2138].reasons
+  before: ['<size_good>', '<period_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Light side-shore']
+  after:  ['<period_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Light side-shore', 'Good tide']
+.composites[2288].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2289].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2290].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2291].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2316].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2317].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2318].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2320].reasons
+  before: ['<size_below_ideal>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_below_ideal>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2321].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small wave (1.9ft) caps score at 55']
+  after:  ['Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2322].reasons
+  before: ['<size_below_ideal>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_below_ideal>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2325].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+  after:  ['Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[2352].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2353].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2354].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_good>', 'Acceptable swell angle (WNW)', 'Swells aligned - waves combine well', 'Good tide']
+.composites[2397].reasons
+  before: ['<size_good>', '<period_good>', 'Acceptable swell angle (WNW)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+  after:  ['<period_good>', 'Acceptable swell angle (WNW)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[2401].reasons
+  before: ['<size_good>', '<period_good>', 'Acceptable swell angle (WNW)', 'Small wave (1.6ft) caps score at 55']
+  after:  ['<period_good>', 'Acceptable swell angle (WNW)']
+.composites[2409].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Small short-period onshore surf caps score at 54']
+  after:  ['<size_good>', 'Acceptable swell angle (WNW)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[2413].reasons
+  before: ['<size_good>', 'Acceptable swell angle (WNW)', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+  after:  ['Acceptable swell angle (WNW)', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[2628].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2629].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2630].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2631].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2632].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2633].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2634].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2635].reasons
+  before: ['<size_larger>', '<period_good>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good tide']
+.composites[2636].reasons
+  before: ['<size_larger>', '<period_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>']
+.composites[2637].reasons
+  before: ['<size_larger>', '<period_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>']
+.composites[2638].reasons
+  before: ['<size_larger>', '<period_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>']
+.composites[2639].reasons
+  before: ['<size_larger>', '<period_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>']
+.composites[2744].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2745].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2746].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2747].reasons
+  before: ['<size_good>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>']
+.composites[2752].reasons
+  before: ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[2753].reasons
+  before: ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[2754].reasons
+  before: ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[2755].reasons
+  before: ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[2756].reasons
+  before: ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[2757].reasons
+  before: ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[2758].reasons
+  before: ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[2759].reasons
+  before: ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_good>', 'Good tide', 'Tide dropping - good for this spot', 'Tide moving in preferred direction']
+.composites[285].reasons
+  before: ['<size_good>', '<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide']
+  after:  ['<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide', 'Tide rising - good for this spot']
+.composites[286].reasons
+  before: ['<size_good>', '<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide']
+  after:  ['<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide', 'Tide rising - good for this spot']
+.composites[289].reasons
+  before: ['<size_good>', '<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide']
+  after:  ['<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide', 'Tide rising - good for this spot']
+.composites[290].reasons
+  before: ['<size_good>', '<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide']
+  after:  ['<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Good tide', 'Tide rising - good for this spot']
+.composites[293].reasons
+  before: ['<size_good>', '<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[294].reasons
+  before: ['<size_good>', '<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot']
+  after:  ['<period_strong>', 'Acceptable swell angle (SSW)', 'Swells aligned - waves combine well', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[44].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[45].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[46].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[47].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[48].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[49].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[50].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[512].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[513].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[514].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[515].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[516].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[517].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[518].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[519].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[51].reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.composites[520].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[521].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[522].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[523].reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (W)']
+.composites[636].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)']
+.composites[637].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)']
+.composites[638].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)']
+.composites[639].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)']
+.composites[640].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)', 'Good tide']
+.composites[641].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)', 'Good tide']
+.composites[642].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)', 'Good tide']
+.composites[643].reasons
+  before: ['<size_larger>', 'Good swell angle (W)', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (W)', 'Good tide']
+.composites[644].reasons
+  before: ['<size_larger>', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>']
+.composites[645].reasons
+  before: ['<size_larger>', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>']
+.composites[646].reasons
+  before: ['<size_larger>', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>']
+.composites[647].reasons
+  before: ['<size_larger>', 'Choppy onshore wind (20 mph) caps score at 39']
+  after:  ['<size_larger>']
+.composites[648].reasons
+  before: ['<size_larger>', 'Choppy side-shore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>']
+.composites[649].reasons
+  before: ['<size_larger>', 'Choppy side-shore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>']
+.composites[650].reasons
+  before: ['<size_larger>', 'Choppy side-shore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>']
+.composites[651].reasons
+  before: ['<size_larger>', 'Choppy side-shore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>']
+.detailed[102].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.detailed[103].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.detailed[104].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - good for this spot', 'Tide moving in preferred direction']
+.detailed[1105].score.reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Swells aligned - waves combine well', 'Conditions match your experience level today']
+  after:  ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Swells aligned - waves combine well']
+.detailed[1106].score.reasons
+  before: ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Swells aligned - waves combine well', 'Conditions match your experience level today']
+  after:  ['<size_good>', '<period_good>', 'Ideal swell direction (W)', 'Swells aligned - waves combine well']
+.detailed[1119].score.reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1120].score.reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1121].score.reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1124].score.reasons
+  before: ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Good swell angle (WSW)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1127].score.reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Ideal swell direction (W)', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1130].score.reasons
+  before: ['<size_larger>', 'Ideal swell direction (W)', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Ideal swell direction (W)']
+.detailed[1178].score.reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (WNW)', 'Conditions match your experience level today']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (WNW)']
+.detailed[1181].score.reasons
+  before: ['<size_larger>', '<period_good>', 'Good swell angle (WNW)', 'Conditions match your experience level today']
+  after:  ['<size_larger>', '<period_good>', 'Good swell angle (WNW)']
+.detailed[1185].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1186].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1187].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1190].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1193].score.reasons
+  before: ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1194].score.reasons
+  before: ['<size_big>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_big>']
+.detailed[1195].score.reasons
+  before: ['<size_big>', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_big>']
+.detailed[1196].score.reasons
+  before: ['<size_big>', 'Choppy onshore wind (15 mph) caps score at 39', 'Conditions match your experience level today']
+  after:  ['<size_big>']
+.detailed[1205].score.reasons
+  before: ['<size_larger>', 'Conditions match your experience level today']
+  after:  ['<size_larger>']
+.detailed[1206].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.detailed[1207].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide']
+.detailed[1208].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Choppy onshore wind (15 mph) caps score at 39', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Good tide']
+.detailed[1209].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1210].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1211].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Choppy onshore wind (15 mph) caps score at 39']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1214].score.reasons
+  before: ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1217].score.reasons
+  before: ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_larger>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1219].score.reasons
+  before: ['<size_good>', 'Light onshore', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Light onshore']
+.detailed[1220].score.reasons
+  before: ['<size_good>', 'Light onshore', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Light onshore']
+.detailed[1222].score.reasons
+  before: ['<size_good>', 'Good swell angle (WNW)', 'Swells aligned - waves combine well', 'Light onshore', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Good swell angle (WNW)', 'Swells aligned - waves combine well', 'Light onshore']
+.detailed[1223].score.reasons
+  before: ['<size_good>', 'Good swell angle (WNW)', 'Swells aligned - waves combine well', 'Light onshore', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Good swell angle (WNW)', 'Swells aligned - waves combine well', 'Light onshore']
+.detailed[1225].score.reasons
+  before: ['<size_good>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1226].score.reasons
+  before: ['<size_good>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1228].score.reasons
+  before: ['<size_good>', 'Conditions match your experience level today']
+  after:  ['<size_good>']
+.detailed[1229].score.reasons
+  before: ['<size_good>', 'Conditions match your experience level today']
+  after:  ['<size_good>']
+.detailed[1231].score.reasons
+  before: ['<size_good>', 'Good tide', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Good tide']
+.detailed[1232].score.reasons
+  before: ['<size_good>', 'Good tide', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Good tide']
+.detailed[1233].score.reasons
+  before: ['<size_good>', 'Good tide', "Intermediate spot, but today's conditions are manageable"]
+  after:  ['<size_good>', 'Good tide']
+.detailed[1234].score.reasons
+  before: ['<size_good>', 'Good tide', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Good tide']
+.detailed[1235].score.reasons
+  before: ['<size_good>', 'Good tide']
+  after:  ['Good tide']
+.detailed[1237].score.reasons
+  before: ['<size_good>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1238].score.reasons
+  before: ['<size_good>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Good tide', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+.detailed[1240].score.reasons
+  before: ['<size_good>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction', 'Conditions match your experience level today']
+  after:  ['<size_good>', 'Tide rising - optimal for this spot', 'Tide moving in preferred direction']
+
+== 3. Text samples (only the words change) ==
+Blacks Beach 2026-11-14T09:00:00+00:00 skill=None
+  before reasons: ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+Blacks Beach 2026-11-14T09:00:00+00:00 skill=beginner
+  before reasons: ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+Blacks Beach 2026-11-14T09:00:00+00:00 skill=intermediate
+  before reasons: ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+Blacks Beach 2026-11-14T09:00:00+00:00 skill=advanced
+  before reasons: ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 6–7 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+Blacks Beach 2026-11-14T12:00:00+00:00 skill=None
+  before reasons: ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+Blacks Beach 2026-11-14T12:00:00+00:00 skill=beginner
+  before reasons: ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+Blacks Beach 2026-11-14T12:00:00+00:00 skill=intermediate
+  before reasons: ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+Blacks Beach 2026-11-14T12:00:00+00:00 skill=advanced
+  before reasons: ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  after reasons:  ['Bigger surf at 7–8 ft.', 'Ideal swell direction (W)']
+  before message: Skip - Crossing swells creating choppy conditions
+  after message:  Skip - Crossing swells creating choppy conditions
+
+== 4. Week Scout takeaways ==
+.days[0].windows[0]: 'Good size at 3–4 ft.' -> 'Good size at 3–4 ft.'
+.days[0].windows[1]: 'Good size at 3–4 ft.' -> 'Good size at 3–4 ft.'
+.days[0].windows[2]: None -> None
+.days[0].windows[3]: None -> None
+.days[0].windows[4]: 'Good size at 2–3 ft.' -> 'Good size at 2–3 ft.'
+.days[0].windows[5]: 'Good size at 3–4 ft.' -> 'Good size at 3–4 ft.'
+.days[0].windows[6]: 'Wave forecasts disagree; check conditions before choosing this window.' -> 'Wave forecasts disagree; check conditions before choosing this window.'
+.days[0].bestDayWindow: 'Good size at 3–4 ft.' -> 'Good size at 3–4 ft.'
+.days[1].windows[0]: 'Good size at 3–4 ft.' -> 'Good size at 3–4 ft.'
+.days[1].windows[1]: 'Bigger surf at 6–7 ft.' -> 'Bigger surf at 6–7 ft.'
+.days[1].windows[2]: 'Wave forecasts disagree; check conditions before choosing this window.' -> 'Wave forecasts disagree; check conditions before choosing this window.'
+.days[1].windows[3]: 'Good size at 3–4 ft.' -> 'Good size at 3–4 ft.'
+
+== 5. Discovery messages ==
+Tamarack: 'Maybe - Good size at 2–3 ft. Good swell angle (W). Watch: Strong secondary swell from WNW' -> 'Maybe - Good size at 2–3 ft. Good swell angle (W). Watch: Strong secondary swell from WNW'
+Del Mar: 'Skip - Onshore wind' -> 'Skip - Heads up: bigger surf today at 4–5 ft.'
+Carlsbad State Beach: 'Maybe - Good size at 3–4 ft. Solid swell period behind it. Watch: Crossing swells creating choppy conditions' -> 'Maybe - Good size at 3–4 ft. Solid swell period behind it. Watch: Crossing swells creating choppy conditions'
+Blacks Beach: 'Skip - Strong secondary swell from WNW' -> 'Skip - Heads up: bigger surf today at 4–5 ft.'
+
+== 6. Text changes in warnings and reasons (old line -> new line, counted over every dump) ==
+-- warnings: 2766 line changes
+  -   950  Waves are below your usual range
+  -   431  Waves may exceed your skill level
+  +   431  Heads up: bigger surf today at N–N ft.
+  -   154  Choppy onshore wind (N mph) caps score at N
+  +   154  Choppy onshore wind at N mph chops it up.
+  +    93  Small surf at N–N ft.
+  -    87  Small wave (Nft) caps score at N
+  -    73  Waves significantly exceed your skill level
+  +    73  Heads up: much bigger surf today at N–N ft.
+  -    65  Waves are smaller than your ideal range
+  +    65  On the small side at N–N ft.
+  -    52  Small short-period onshore surf caps score at N
+  +    52  Small, short-period onshore slop.
+  -    35  Choppy side-shore wind (N mph) caps score at N
+  +    35  Choppy side-shore wind at N mph chops it up.
+  -     8  Advanced spot — conditions may be challenging for your level
+  +     8  Heads up: an advanced break, with more size today at N–N ft.
+-- reasons: 1353 line changes
+  -   424  Conditions match your experience level today
+  -   263  Intermediate spot, but today's conditions are manageable
+  -   175  Choppy onshore wind (N mph) caps score at N
+  -   114  Good size at N–N ft.
+  -   112  Advanced spot, but today's conditions are manageable
+  +   112  Advanced break, mellow today.
+  +    66  Intermediate break, mellow today.
+  +    32  Tide moving in preferred direction
+  -    18  Small short-period onshore surf caps score at N
+  +    12  Good tide
+  -    12  On the small side at N–N ft.
+  -     7  Choppy side-shore wind (N mph) caps score at N
+  +     4  Tide rising - good for this spot
+  -     2  Small wave (Nft) caps score at N
+-- watchouts: 0 line changes
