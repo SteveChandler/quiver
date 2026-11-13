@@ -1195,7 +1195,8 @@ function applyWorthTheDriveReasons(
         rec.score,
         reasons,
         rec.warnings,
-        rec.recommendationLabel
+        rec.recommendationLabel,
+        rec.reasonFacts,
       ),
     };
   });
@@ -2438,8 +2439,10 @@ async function discoverSurfSpotsInner(
         detailedScore.reasons,
         detailedScore.warnings,
         recommendationLabel,
+        detailedScore.reasonFacts,
       ),
       reasons: detailedScore.reasons,
+      reasonFacts: detailedScore.reasonFacts,
       warnings: detailedScore.warnings,
       effects: detailedScore.effects,
       conditionBadges: detailedScore.conditionBadges,
@@ -2560,8 +2563,10 @@ async function discoverSurfSpotsInner(
           customDetailedScore.reasons,
           customDetailedScore.warnings,
           customRecommendationLabel,
+          customDetailedScore.reasonFacts,
         ),
         reasons: customDetailedScore.reasons,
+        reasonFacts: customDetailedScore.reasonFacts,
         warnings: customDetailedScore.warnings,
         conditionBadges: customDetailedScore.conditionBadges,
         waveHeightBadge: customDetailedScore.waveHeightBadge,
@@ -2925,7 +2930,7 @@ async function discoverSurfSpotsInner(
     rec.recommendationLabel = getCanonicalRecommendationLabel(rec, scoringSkill);
     rec.verdict = rec.recommendationLabel === "Worth it" ? "go" : rec.recommendationLabel === "Maybe" ? "maybe" : "no";
     rec.conditionLabel = conditionLabelForVerdict(rec.verdict, rec.score, rec.character?.category);
-    rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel);
+    rec.message = buildDiscoveryMessage(rec.score, rec.reasons, rec.warnings, rec.recommendationLabel, rec.reasonFacts);
   }
 
   const recommendationV2Candidates = [

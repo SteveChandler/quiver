@@ -258,6 +258,7 @@ export function compositeToDetailedScore(
     subscores,
     matchQuality,
     reasons: [...composite.reasons].slice(0, 5),
+    reasonFacts: [...(composite.reasonFacts ?? [])],
     warnings: [...composite.warnings],
     effects: [...(composite.effects ?? [])],
     conditionBadges: [], // Will be generated separately if needed

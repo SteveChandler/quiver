@@ -102,12 +102,15 @@ const MOCK_DISCOVER_RESPONSE = {
         distancePenalty: 0,
       },
       summary: "Good surf opportunity in the next few hours",
-      message: "Worth it — Good wave size, Offshore wind",
+      message: "Worth it. Good size at 3–4 ft, with solid swell period behind it. Watch: Onshore by noon",
       reasons: [
+        "Good size at 3–4 ft.",
+        "Solid swell period behind it.",
         "Wave height in your preferred range",
         "Clean offshore conditions",
         "Familiar spot with high affinity",
       ],
+      reasonFacts: [{ code: "size_good" as const, heightFt: 3.9 }, { code: "period_good" as const }],
       warnings: [],
       conditionBadges: [
         { label: "Clean Swell", contribution: 15 },

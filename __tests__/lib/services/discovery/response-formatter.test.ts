@@ -15,6 +15,7 @@ import type {
   DetailedScore,
 } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { formatReasonSentence } from '@/lib/domains/scoring/reason-sentences';
 
 // Mock Supabase client
 const mockSelect = jest.fn().mockReturnThis();
@@ -254,6 +255,11 @@ describe('getRecommendationLabelGated learner context', () => {
 // ============================================================================
 
 describe('buildDiscoveryMessage', () => {
+  const size = { code: 'size_good', heightFt: 3.9 } as const;
+  const period = { code: 'period_good' } as const;
+  const sizeSentence = formatReasonSentence(size);
+  const periodSentence = formatReasonSentence(period);
+
   it('should build Skip message with first warning', () => {
     const message = buildDiscoveryMessage(
       30,
@@ -261,7 +267,7 @@ describe('buildDiscoveryMessage', () => {
       ['Strong onshore wind', 'Flat conditions']
     );
 
-    expect(message).toBe('Skip - Strong onshore wind');
+    expect(message).toBe('Skip. Strong onshore wind');
   });
 
   it('returns no message (no stand-in reason) for a Skip with no warnings', () => {
@@ -270,24 +276,41 @@ describe('buildDiscoveryMessage', () => {
     expect(message).toBe('');
   });
 
-  it('should build Worth it message with reasons', () => {
+  it('joins two scorer reasons into one sentence', () => {
     const message = buildDiscoveryMessage(
       80,
-      ['Good wave size', 'Offshore wind', 'Rising tide'],
-      []
+      [sizeSentence, periodSentence, 'Rising tide'],
+      [],
+      undefined,
+      [size, period],
     );
 
-    expect(message).toBe('Worth it - Good wave size, Offshore wind');
+    expect(sizeSentence).toBe('Good size at 3–4 ft.');
+    expect(message).toBe('Worth it. Good size at 3–4 ft, with solid swell period behind it.');
   });
 
   it('should include Watch warning when present', () => {
     const message = buildDiscoveryMessage(
       75,
-      ['Good wave size', 'Clean swell'],
-      ['Tide getting high']
+      [sizeSentence, periodSentence],
+      ['Onshore by noon'],
+      undefined,
+      [size, period],
     );
 
-    expect(message).toBe('Worth it - Good wave size, Clean swell. Watch: Tide getting high');
+    expect(message).toBe('Worth it. Good size at 3–4 ft, with solid swell period behind it. Watch: Onshore by noon');
+  });
+
+  it('keeps a reason from another scorer as its own sentence', () => {
+    const message = buildDiscoveryMessage(
+      75,
+      [sizeSentence, 'Clean swell'],
+      ['Tide getting high'],
+      undefined,
+      [size],
+    );
+
+    expect(message).toBe('Worth it. Good size at 3–4 ft. Clean swell. Watch: Tide getting high');
   });
 
   it('should build Maybe message with reasons', () => {
@@ -297,23 +320,24 @@ describe('buildDiscoveryMessage', () => {
       ['Wind picking up']
     );
 
-    expect(message).toBe('Maybe - Surfable conditions. Watch: Wind picking up');
+    expect(message).toBe('Maybe. Surfable conditions. Watch: Wind picking up');
   });
 
   it('uses a gated label override when character caps a high score', () => {
     const message = buildDiscoveryMessage(
       75,
-      ['Good wave size', 'Clean swell'],
+      [sizeSentence, periodSentence],
       ['Side-shore wind'],
-      'Maybe'
+      'Maybe',
+      [size, period],
     );
 
-    expect(message).toBe('Maybe - Good wave size, Clean swell. Watch: Side-shore wind');
+    expect(message).toBe('Maybe. Good size at 3–4 ft, with solid swell period behind it. Watch: Side-shore wind');
   });
 
   it('returns no message (no stand-in reason) when there are no reasons', () => {
     expect(buildDiscoveryMessage(70, [], [])).toBe('');
-    expect(buildDiscoveryMessage(55, [], ['Wind picking up'])).toMatch(/ - Watch: Wind picking up$/);
+    expect(buildDiscoveryMessage(55, [], ['Wind picking up'])).toBe('Maybe. Watch: Wind picking up');
   });
 
   it('should only use top 2 reasons', () => {
@@ -323,7 +347,7 @@ describe('buildDiscoveryMessage', () => {
       []
     );
 
-    expect(message).toBe('Worth it - Reason 1, Reason 2');
+    expect(message).toBe('Worth it. Reason 1. Reason 2.');
     expect(message).not.toContain('Reason 3');
   });
 });
@@ -559,14 +583,13 @@ describe('enrichWithPhotos', () => {
 
 describe('FALLBACK_IMAGE_BY_NAME', () => {
   it('should export FALLBACK_IMAGE_BY_NAME constant', () => {
-    expect(FALLBACK_IMAGE_BY_NAME).toBeDefined();
-    expect(typeof FALLBACK_IMAGE_BY_NAME).toBe('object');
+    expect(FALLBACK_IMAGE_BY_NAME).toEqual(expect.any(Object));
   });
 
   it('should contain known beach fallbacks', () => {
-    expect(FALLBACK_IMAGE_BY_NAME["Black's Beach"]).toBeDefined();
-    expect(FALLBACK_IMAGE_BY_NAME["Swami's"]).toBeDefined();
-    expect(FALLBACK_IMAGE_BY_NAME["Ocean Beach"]).toBeDefined();
+    expect(FALLBACK_IMAGE_BY_NAME["Black's Beach"]).toEqual(expect.any(String));
+    expect(FALLBACK_IMAGE_BY_NAME["Swami's"]).toEqual(expect.any(String));
+    expect(FALLBACK_IMAGE_BY_NAME["Ocean Beach"]).toEqual(expect.any(String));
   });
 });
 

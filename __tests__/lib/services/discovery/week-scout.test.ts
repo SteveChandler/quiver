@@ -47,6 +47,7 @@ import { verdictFromRecommendationLabel } from '@/lib/utils/surf-call-logic';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
 import type { Beach } from '@/types/database';
+import { formatReasonSentence } from '@/lib/domains/scoring/reason-sentences';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { weekScoutPersonalCallViolations } from '@/__tests__/fixtures/week-scout-contract';
 import { scoreLabel } from '@/lib/utils/score-color-utils';
@@ -2392,5 +2393,42 @@ describe('Week Scout hourly bridge', () => {
     const bridged = selectedRows(deps).filter((row) => row.id.includes(':h+'));
     expect(bridged.length).toBeGreaterThan(0);
     expect(bridged.every((row) => row.raw_forecast?.hourly_bridge?.tide_source === 'row_lerp')).toBe(true);
+  });
+});
+
+describe('Week Scout takeaway from scorer reasons', () => {
+  const sizeFact = { code: 'size_good', heightFt: 3.9 } as const;
+
+  function depsWithReasons(conditionScore: number): WeekScoutServiceDependencies {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => conditionScore);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({
+      ...scoreBeach(beach, row, options),
+      reasons: [formatReasonSentence(sizeFact), 'Light trade wind'],
+      reasonFacts: [sizeFact],
+    }));
+    return deps;
+  }
+
+  async function windows(conditionScore: number) {
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      depsWithReasons(conditionScore),
+    );
+    return response.days.flatMap((day) => day.windows);
+  }
+
+  it('uses the formatted first reason as the takeaway', async () => {
+    const shown = await windows(78);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+  });
+
+  it('shows no takeaway that contradicts a Skip window', async () => {
+    const shown = await windows(25);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === null)).toBe(true);
   });
 });

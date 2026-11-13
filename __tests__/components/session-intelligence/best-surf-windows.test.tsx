@@ -3,6 +3,10 @@ import userEvent from "@testing-library/user-event";
 
 import { BestSurfWindows } from "@/components/session-intelligence";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
+import { formatReasonSentence, type ScoringReasonFact } from "@/lib/domains/scoring/reason-sentences";
+
+const SIZE_FACT: ScoringReasonFact = { code: "size_good", heightFt: 4 };
+const PERIOD_FACT: ScoringReasonFact = { code: "period_good" };
 
 const mockTrack = jest.fn();
 
@@ -73,7 +77,8 @@ function makeRecommendation(
       summary: "Rising, 3.5 ft",
     },
     bestFor: ["intermediate", "longboard", "dawn-patrol"],
-    positives: ["Good wave size", "Light offshore wind"],
+    positives: [formatReasonSentence(SIZE_FACT), "Light offshore wind"],
+    reasonFacts: [SIZE_FACT],
     watchouts: ["Morning crowd may build"],
     dataNotes: [],
     confidence: {
@@ -127,6 +132,35 @@ describe("BestSurfWindows", () => {
       screen.getByRole("link", { name: "Open this beach in Quiver" })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /why this call/i })).toBeInTheDocument();
+  });
+
+  it("picks the Why line by reason code, after the size line", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[makeRecommendation(1, {
+          positives: [formatReasonSentence(SIZE_FACT), formatReasonSentence(PERIOD_FACT)],
+          reasonFacts: [SIZE_FACT, PERIOD_FACT],
+        })]}
+        variant="zine"
+      />,
+    );
+    const why = screen.getByText("Why:").parentElement;
+    expect(why).toHaveTextContent("Why: Solid swell period behind it.");
+  });
+
+  it("shows no Why line that contradicts a Skip verdict", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[makeRecommendation(1, {
+          verdict: "Skip",
+          positives: [formatReasonSentence(SIZE_FACT), formatReasonSentence(PERIOD_FACT)],
+          reasonFacts: [SIZE_FACT, PERIOD_FACT],
+        })]}
+        variant="zine"
+      />,
+    );
+    expect(screen.queryByText("Why:")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Good size at/)).not.toBeInTheDocument();
   });
 
   it("shows a dated zine decision with visible caveats and one selection-preserving action", async () => {

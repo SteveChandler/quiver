@@ -400,7 +400,8 @@ jest.mock('@/lib/domains/scoring', () => ({
       distancePenalty: 0,
     },
     matchQuality: 'excellent',
-    reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+    reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+    reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
     warnings: [],
     conditionBadges: [],
   })),
@@ -505,7 +506,8 @@ function resetDefaultDiscoveryMocks(): void {
       distancePenalty: 0,
     },
     matchQuality: 'excellent',
-    reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+    reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+    reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
     warnings: [],
     conditionBadges: [],
   });
@@ -746,7 +748,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
       warnings: [],
       conditionBadges: [],
     });
@@ -2597,7 +2600,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
       warnings: [],
       conditionBadges: [],
     });
@@ -2804,7 +2808,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
           distancePenalty: 0,
         },
         matchQuality: 'excellent',
-        reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+        reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
         warnings: [],
         conditionBadges: [],
       };
@@ -2910,7 +2915,24 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     // Personalization reason should come first
     expect(rec.reasons[0]).toBe('Matches your preferred break type');
     // Base reasons should follow
-    expect(rec.reasons).toEqual(expect.arrayContaining(['Good wave size']));
+    expect(rec.reasons).toEqual(expect.arrayContaining(['Good size at 3–4 ft.']));
+  });
+
+  test('the scorer facts reach the recommendation and its message builder', async () => {
+    const { buildDiscoveryMessage } = require('@/lib/services/discovery/response-formatter');
+    const facts = [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }];
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    expect(result.recommendations[0].reasonFacts).toEqual(facts);
+    // The message is built (and joined) with the codes, not by reading the text.
+    expect(buildDiscoveryMessage).toHaveBeenLastCalledWith(
+      expect.any(Number),
+      expect.arrayContaining(['Good size at 3–4 ft.']),
+      expect.any(Array),
+      expect.any(String),
+      facts,
+    );
   });
 
   test('discovery continues when getUserSurfPreferences throws', async () => {
@@ -3378,7 +3400,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonFacts: [{ code: 'size_good', heightFt: 3.9 }, { code: 'period_good' }],
       warnings: [],
       conditionBadges: [],
     });
@@ -3552,7 +3575,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
         matchQuality: 'excellent',
-        reasons: ['Good wave size'],
+        reasons: ['Good size at 3–4 ft.'],
         warnings: [],
         conditionBadges: [],
       })),
@@ -3752,7 +3775,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
         matchQuality: 'excellent',
-        reasons: ['Good wave size'],
+        reasons: ['Good size at 3–4 ft.'],
         warnings: [],
         conditionBadges: [],
       })),

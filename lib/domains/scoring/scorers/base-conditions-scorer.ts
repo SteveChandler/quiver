@@ -26,6 +26,7 @@
 
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS } from '../types';
+import { formatReasonSentence, type ScoringReasonFact } from '../reason-sentences';
 import type { SkillLevel } from '../../spot-profile/types';
 import { SKILL_WAVE_RANGES } from '../../user-preferences/skill-level';
 
@@ -185,7 +186,7 @@ const COMPONENT_WEIGHTS = {
 function scoreWaveHeight(
   height: number,
   config: WaveHeightConfig = DEFAULT_WAVE_CONFIG
-): { score: number; reason: string | null } {
+): { score: number; reason: ScoringReasonFact | null } {
   if (height <= 0) {
     return { score: 0, reason: null };
   }
@@ -200,7 +201,7 @@ function scoreWaveHeight(
     return {
       score: Math.max(0, Math.min(subIdealCeiling, score)),
       reason: height >= WAVE_HEIGHT_SCORING.smallWaveThreshold
-        ? `Below ideal range (${height.toFixed(1)}ft < ${idealMin}ft minimum)`
+        ? { code: 'size_below_ideal', heightFt: height }
         : null,
     };
   }
@@ -212,7 +213,7 @@ function scoreWaveHeight(
     const score = Math.round(subIdealCeiling + progress * rampRange);
     return {
       score,
-      reason: `Good wave size (${height.toFixed(1)}ft)`,
+      reason: { code: 'size_good', heightFt: height },
     };
   }
 
@@ -225,7 +226,7 @@ function scoreWaveHeight(
     const score = Math.round(idealMaxScore - penalty);
     return {
       score: Math.max(WAVE_HEIGHT_SCORING.largeWaveMinScore, score),
-      reason: `Larger swell (${height.toFixed(1)}ft)`,
+      reason: { code: 'size_larger', heightFt: height },
     };
   }
 
@@ -234,7 +235,7 @@ function scoreWaveHeight(
   // Advanced/expert surfers should see high scores for big waves
   return {
     score: WAVE_HEIGHT_SCORING.epicSwellScore,
-    reason: `Big swell (${height.toFixed(1)}ft)`,
+    reason: { code: 'size_big', heightFt: height },
   };
 }
 
@@ -249,7 +250,7 @@ function scoreWaveHeight(
  * - 6-10s: Linear interpolation (40→70)
  * - <6s: Linear from 0 (0→40)
  */
-function scorePeriod(period: number): { score: number; reason: string | null } {
+function scorePeriod(period: number): { score: number; reason: ScoringReasonFact | null } {
   if (period <= 0) {
     return { score: 0, reason: null };
   }
@@ -275,8 +276,8 @@ function scorePeriod(period: number): { score: number; reason: string | null } {
     return {
       score: Math.min(100, score),
       reason: score >= strongSwellThreshold
-        ? `Strong swell energy (${period.toFixed(1)}s period)`
-        : 'Good swell energy',
+        ? { code: 'period_strong', periodS: period }
+        : { code: 'period_good' },
     };
   }
 
@@ -331,11 +332,11 @@ function scoreBaseConditions(input: ScorerInput, config: WaveHeightConfig): Scor
   );
 
   // Collect reasons and warnings
-  const reasons: string[] = [];
+  const reasonFacts: ScoringReasonFact[] = [];
   const warnings: string[] = [];
 
-  if (heightResult.reason) reasons.push(heightResult.reason);
-  if (periodResult.reason) reasons.push(periodResult.reason);
+  if (heightResult.reason) reasonFacts.push(heightResult.reason);
+  if (periodResult.reason) reasonFacts.push(periodResult.reason);
 
   if (snapshot.waveHeight < CONDITION_THRESHOLDS.tooSmallWarningFt) {
     warnings.push('Waves may be too small');
@@ -348,7 +349,8 @@ function scoreBaseConditions(input: ScorerInput, config: WaveHeightConfig): Scor
     name: 'baseConditions',
     score: combinedScore,
     weight: SCORER_WEIGHTS.baseConditions,
-    reasons,
+    reasons: reasonFacts.map(formatReasonSentence),
+    reasonFacts,
     warnings,
     skip: false,
     skipReason: null,

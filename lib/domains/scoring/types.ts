@@ -8,6 +8,7 @@
 import type { SpotProfile } from '../spot-profile/types';
 import type { UserPreferences } from '../user-preferences/types';
 import type { ConditionsSnapshot, ConditionsWindow } from '../conditions/types';
+import type { ScoringReasonFact } from './reason-sentences';
 
 /**
  * Input provided to each scorer.
@@ -41,6 +42,9 @@ export interface ScorerResult {
 
   /** Positive factors that contributed to the score */
   readonly reasons: readonly string[];
+
+  /** Codes and numbers behind the reasons this scorer formatted (`reason-sentences.ts`). */
+  readonly reasonFacts?: readonly ScoringReasonFact[];
 
   /** Negative factors or warnings */
   readonly warnings: readonly string[];
@@ -103,6 +107,9 @@ export interface CompositeScore {
 
   /** Combined positive reasons (top 5) */
   readonly reasons: readonly string[];
+
+  /** Facts behind the scorer-formatted sentences in `reasons`. */
+  readonly reasonFacts?: readonly ScoringReasonFact[];
 
   /** Combined warnings */
   readonly warnings: readonly string[];

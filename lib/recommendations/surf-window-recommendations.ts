@@ -402,6 +402,7 @@ function buildRecommendation(
     tide: tideSummary(row, tide),
     bestFor: bestForTags(row, window.start, window.timezone, options),
     positives,
+    reasonFacts: [...(composite.reasonFacts ?? [])],
     watchouts,
     dataNotes: buildSurfWindowDataNotes({
       forecast: row,

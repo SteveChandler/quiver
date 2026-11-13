@@ -19,6 +19,7 @@ import type {
   ScoringDecisionEffect,
 } from "./types";
 import { DEFAULT_SCORING_CONFIG } from "./types";
+import type { ScoringReasonFact } from "./reason-sentences";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
 import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
@@ -109,12 +110,14 @@ export class ScoringEngine {
     const allReasons: string[] = [];
     const allWarnings: string[] = [];
     const allEffects: ScoringDecisionEffect[] = [];
+    const allReasonFacts: ScoringReasonFact[] = [];
 
     for (const result of weightedResults) {
       const normalizedWeight = result.weight / totalWeight;
       weightedSum += result.score * normalizedWeight;
       subscores.set(result.name, result.score);
       allReasons.push(...result.reasons);
+      allReasonFacts.push(...(result.reasonFacts ?? []));
       allWarnings.push(...result.warnings);
       allEffects.push(...(result.effects ?? []));
     }
@@ -178,6 +181,7 @@ export class ScoringEngine {
       subscores,
       matchQuality,
       reasons: this.dedupeAndLimit(allReasons, DEFAULT_SCORING_CONFIG.maxReasons),
+      reasonFacts: allReasonFacts,
       warnings: this.dedupeAndLimit(allWarnings, DEFAULT_SCORING_CONFIG.maxReasons),
       skipReason: null,
       confidence,

@@ -107,6 +107,7 @@ import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } f
 import { bridgeBeachForecastRows } from '@/lib/services/discovery/hourly-bridge-rows';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
+import { reasonContradictsVerdict } from '@/lib/domains/scoring/reason-sentences';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
@@ -789,6 +790,10 @@ function buildDraftWindow(args: {
     ...(sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : []),
     ...personalization.reasons, ...detailed.reasons,
   ];
+  // A "Good size" takeaway beside a skip contradicts the chip; no line is the honest state.
+  const takeaway = reasons[0] && !reasonContradictsVerdict(reasons[0], detailed.reasonFacts, label === 'Skip')
+    ? reasons[0]
+    : null;
 
   return {
     response: {
@@ -818,7 +823,7 @@ function buildDraftWindow(args: {
         tidePhase: forecast.tide_status ?? null,
         freshnessAt: forecast.updated_at ?? forecast.forecast_at,
       },
-      takeaway: reasons[0] ?? null,
+      takeaway,
     },
     recommendation: {
       recommendationId: id,
@@ -831,8 +836,9 @@ function buildDraftWindow(args: {
       effects: detailed.effects,
       matchQuality: detailed.matchQuality,
       subscores,
-      summary: reasons[0] ?? '',
+      summary: takeaway ?? '',
       reasons,
+      reasonFacts: detailed.reasonFacts,
       warnings: detailed.warnings,
       spotProfile: args.deps.beachToSpotProfile(args.beach),
       windowSlotScores: slotScores,

@@ -23,6 +23,7 @@ import type { RecommendationLabel } from '@/lib/scoring';
 import type { ConditionCharacterCategory, SmallWeakReason } from '@/lib/domains/scoring';
 import { getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
+import { joinReasonSentences, type ScoringReasonFact } from '@/lib/domains/scoring/reason-sentences';
 
 // Re-export FALLBACK_IMAGE_BY_NAME for backward compatibility
 export { FALLBACK_IMAGE_BY_NAME };
@@ -263,46 +264,44 @@ function isLearnerWorthIt(
 /**
  * Build natural language message from score, reasons, and warnings
  *
- * Format: "{Label} - {TopReasons}. Watch: {FirstWarning}"
+ * Format: "{Label}. {TopReasons} Watch: {FirstWarning}"
  *
  * Examples:
- * - "Worth it - Good wave size, Offshore wind. Watch: Tide is high"
- * - "Maybe - Surfable conditions. Watch: Wind picking up"
- * - "Skip - Strong onshore wind"
+ * - "Good. Good size at 3–4 ft, with solid swell period behind it. Watch: Onshore by noon"
+ * - "Maybe. Good swell angle (W). Watch: Wind picking up"
+ * - "Skip. Strong onshore wind"
  * - "" when there is no reason (no stand-in clause)
  *
  * @param score - Total score (0-100)
  * @param reasons - Positive factors for recommendation
  * @param warnings - Cautions or concerns
+ * @param reasonFacts - Codes behind the scorer sentences, so two of them join as one sentence
  * @returns Natural language message
- *
- * @example
- * buildDiscoveryMessage(75, ['Good wave size', 'Offshore wind'], ['Tide is high'])
- * // => "Worth it - Good wave size, Offshore wind. Watch: Tide is high"
  */
 export function buildDiscoveryMessage(
   score: number,
   reasons: string[],
   warnings: string[],
-  recommendationLabel?: RecommendationLabel
+  recommendationLabel?: RecommendationLabel,
+  reasonFacts?: readonly ScoringReasonFact[],
 ): string {
   const label = recommendationLabel ?? getRecommendationLabel(score);
 
   // No reason means no message: a generic clause would read as a real explanation.
   if (label === 'Skip') {
     const skipReason = warnings[0];
-    return skipReason ? `Skip - ${skipReason}` : '';
+    return skipReason ? `Skip. ${skipReason}` : '';
   }
 
   // Pick top 2 reasons for concise message
-  const topReasons = reasons.slice(0, 2).join(', ');
+  const topReasons = joinReasonSentences(reasons.slice(0, 2), reasonFacts);
   // With no reason, a real warning is still worth saying; with neither, say nothing.
-  if (!topReasons) return warnings[0] ? `${label} - Watch: ${warnings[0]}` : '';
-  let message = `${label} - ${topReasons}`;
+  if (!topReasons) return warnings[0] ? `${label}. Watch: ${warnings[0]}` : '';
+  let message = `${label}. ${topReasons}`;
 
   // Add first warning if present
   if (warnings.length > 0) {
-    message += `. Watch: ${warnings[0]}`;
+    message += ` Watch: ${warnings[0]}`;
   }
 
   return message;

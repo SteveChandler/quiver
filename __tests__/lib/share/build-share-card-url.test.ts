@@ -1,9 +1,20 @@
+import { formatReasonSentence } from "@/lib/domains/scoring/reason-sentences";
+import { buildDiscoveryMessage } from "@/lib/services/discovery/response-formatter";
 import {
   buildSessionShareUrl,
   buildSurfCallShareUrl,
   buildProgressionShareUrl,
   buildStreakShareUrl,
 } from "@/lib/share/build-share-card-url";
+
+// The discovery message as the API now builds it from two scorer facts.
+const MESSAGE = buildDiscoveryMessage(
+  80,
+  [formatReasonSentence({ code: "size_good", heightFt: 3.9 }), formatReasonSentence({ code: "period_good" })],
+  [],
+  undefined,
+  [{ code: "size_good", heightFt: 3.9 }, { code: "period_good" }],
+);
 
 describe("buildSessionShareUrl", () => {
   it("builds a session OG URL with required params", () => {
@@ -212,11 +223,11 @@ describe("buildSurfCallShareUrl", () => {
         window: "7-10am",
         waveHeight: "3-5ft",
         wind: "",
-        message: "Good wave size (3.9ft), Good swell energy.",
+        message: MESSAGE,
       });
 
       const parsed = new URL(url);
-      expect(parsed.searchParams.get("message")).toBe("Good wave size (3.9ft), Good swell energy.");
+      expect(parsed.searchParams.get("message")).toBe("Worth it. Good size at 3–4 ft, with solid swell period behind it.");
     });
 
     it("includes all new parameters together", () => {
@@ -230,7 +241,7 @@ describe("buildSurfCallShareUrl", () => {
         headline: "Tomorrow at Big Jetty",
         conditionLabel: "Great Conditions",
         tideBadge: "Falling Tide",
-        message: "Good wave size (3.9ft), Good swell energy.",
+        message: MESSAGE,
       });
 
       const parsed = new URL(url);
@@ -238,7 +249,7 @@ describe("buildSurfCallShareUrl", () => {
       expect(parsed.searchParams.get("headline")).toBe("Tomorrow at Big Jetty");
       expect(parsed.searchParams.get("conditionLabel")).toBe("Great Conditions");
       expect(parsed.searchParams.get("tideBadge")).toBe("Falling Tide");
-      expect(parsed.searchParams.get("message")).toBe("Good wave size (3.9ft), Good swell energy.");
+      expect(parsed.searchParams.get("message")).toBe(MESSAGE);
     });
 
     it("omits new optional params when not provided", () => {

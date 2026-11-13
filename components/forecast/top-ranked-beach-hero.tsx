@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { reasonsForVerdict } from "@/lib/domains/scoring/reason-sentences";
 import Link from "next/link";
 import { Clock3, MapPin, Waves } from "lucide-react";
 
@@ -23,6 +24,7 @@ type HeroSurfWindow = Pick<
   | "verdict"
   | "confidence"
   | "positives"
+  | "reasonFacts"
   | "wave"
 >;
 
@@ -104,6 +106,9 @@ export function TopRankedBeachHero({
     ? Boolean(auth?.user && !auth.isLoading)
     : showScores;
   const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
+  const heroReason = bestSurfWindow
+    ? reasonsForVerdict(bestSurfWindow.positives, bestSurfWindow.reasonFacts, bestSurfWindow.verdict === "Skip")[0] ?? null
+    : null;
   const scoreCall = getScoreCall(selectedScore, {
     beachId: beach.beachId,
     instantIso: bestSurfWindow?.startIso ?? beach.currentWindowStart,
@@ -208,9 +213,9 @@ export function TopRankedBeachHero({
                   Peak {formatPeakTime(bestSurfWindow.peakIso, bestSurfWindow.timezone)} ·{" "}
                   {bestSurfWindow.confidence.summary}
                 </dd>
-                {bestSurfWindow.positives[0] && (
+                {heroReason && (
                   <dd className="mt-1 text-xs text-[#11100D]/65">
-                    {bestSurfWindow.positives[0]}
+                    {heroReason}
                   </dd>
                 )}
               </>
