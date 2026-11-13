@@ -274,7 +274,7 @@ describe('buildDiscoveryMessage', () => {
   it('returns no message (no stand-in reason) for a Skip with no warnings', () => {
     const message = buildDiscoveryMessage(25, [], []);
 
-    expect(message).toBe('');
+    expect(message).toBeUndefined();
   });
 
   it('shows two scorer sentences one after the other', () => {
@@ -313,7 +313,7 @@ describe('buildDiscoveryMessage', () => {
   });
 
   it('returns no message (no stand-in reason) when there are no reasons', () => {
-    expect(buildDiscoveryMessage(70, [], [])).toBe('');
+    expect(buildDiscoveryMessage(70, [], [])).toBeUndefined();
     expect(buildDiscoveryMessage(55, [], ['Wind picking up'])).toBe('Maybe - Watch: Wind picking up');
   });
 
@@ -328,6 +328,20 @@ describe('buildDiscoveryMessage', () => {
     expect(message).not.toContain('Reason 3');
   });
 
+  it('sends no message when there is nothing to say, so native falls through to reasons[0] (contract)', () => {
+    const rec = {
+      personalExplanation: undefined as string | undefined,
+      message: buildDiscoveryMessage(30, ['Good tide'], []),
+      reasons: ['Good tide'],
+    };
+    // JSON omits the field, the same as an installed build receives it.
+    const sent = JSON.parse(JSON.stringify(rec)) as typeof rec;
+
+    expect('message' in sent).toBe(false);
+    // quiver-native src/lib/forecast-context.ts:452
+    expect(sent.personalExplanation ?? sent.message ?? sent.reasons[0] ?? null).toBe('Good tide');
+  });
+
   it('keeps the label prefix that installed native builds strip (contract)', () => {
     const messages = [
       buildDiscoveryMessage(80, [sizeSentence, periodSentence], ['Onshore by noon']),
@@ -338,9 +352,9 @@ describe('buildDiscoveryMessage', () => {
 
     for (const message of messages) {
       expect(message).toMatch(NATIVE_LABEL_PREFIX);
-      expect(message.replace(NATIVE_LABEL_PREFIX, '')).not.toMatch(/^(Worth it|Maybe|Skip)\b/i);
+      expect(message?.replace(NATIVE_LABEL_PREFIX, '')).not.toMatch(/^(Worth it|Maybe|Skip)\b/i);
     }
-    expect(messages.map((message) => message.replace(NATIVE_LABEL_PREFIX, ''))).toEqual([
+    expect(messages.map((message) => message?.replace(NATIVE_LABEL_PREFIX, ''))).toEqual([
       'Good size at 3–4 ft. Solid swell period behind it. Watch: Onshore by noon',
       'Good size at 3–4 ft.',
       'Watch: Wind picking up',

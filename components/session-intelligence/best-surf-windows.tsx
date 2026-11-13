@@ -16,7 +16,7 @@ import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { cn } from "@/lib/utils";
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
-import { reasonList } from "@/lib/domains/scoring/reason-sentences";
+import { positiveReasons, reasonList } from "@/lib/domains/scoring/reason-sentences";
 import {
   HandoffRecommendationMode,
   HandoffRecommendationVerdict,
@@ -736,10 +736,11 @@ function ZineWindowEntry({
   }).format(new Date(recommendation.startIso));
   // The size already shows under Surf, so Why prefers the next reason (picked by code).
   // The API already drops a line that contradicts the verdict.
-  const positiveCodes = reasonList(recommendation.positives, recommendation.positiveCodes).reasonCodes;
+  // The same positive list as Why-this-call and the top beach card.
+  const shown = positiveReasons(reasonList(recommendation.positives, recommendation.positiveCodes));
   const whyReason =
-    recommendation.positives.find((_, index) => positiveCodes[index] !== "size_good") ??
-    recommendation.positives[0] ??
+    shown.reasons.find((_, index) => shown.reasonCodes[index] !== "size_good") ??
+    shown.reasons[0] ??
     null;
 
   function handleWebClick(): void {

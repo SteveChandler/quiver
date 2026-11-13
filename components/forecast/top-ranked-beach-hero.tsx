@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { formatHeightBand } from "@/lib/domains/scoring/reason-sentences";
+import { formatHeightBand, positiveReasons, reasonList } from "@/lib/domains/scoring/reason-sentences";
 import Link from "next/link";
 import { Clock3, MapPin, Waves } from "lucide-react";
 
@@ -23,6 +23,7 @@ type HeroSurfWindow = Pick<
   | "verdict"
   | "confidence"
   | "positives"
+  | "positiveCodes"
   | "wave"
 >;
 
@@ -104,8 +105,11 @@ export function TopRankedBeachHero({
     ? Boolean(auth?.user && !auth.isLoading)
     : showScores;
   const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
+  // The same positive list as Why-this-call (no "small side" line; cautions may lead).
   // The API already drops a line that contradicts the window's verdict.
-  const heroReason = bestSurfWindow?.positives[0] ?? null;
+  const heroReason = bestSurfWindow
+    ? positiveReasons(reasonList(bestSurfWindow.positives, bestSurfWindow.positiveCodes)).reasons[0] ?? null
+    : null;
   const scoreCall = getScoreCall(selectedScore, {
     beachId: beach.beachId,
     instantIso: bestSurfWindow?.startIso ?? beach.currentWindowStart,

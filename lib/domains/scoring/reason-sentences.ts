@@ -117,6 +117,23 @@ export function takeReasons(list: ReasonList, count: number): ReasonList {
   return { reasons: list.reasons.slice(0, count), reasonCodes: list.reasonCodes.slice(0, count) };
 }
 
+/**
+ * Cuts the list to `count` but keeps every caution and the first wave sentence
+ * (when one exists), so a cut that runs before `waveSentencesFirst` never drops
+ * them. The rest fill the free places in list order; the kept items keep their order.
+ */
+export function takeReasonsKeepingLead(list: ReasonList, count: number): ReasonList {
+  if (list.reasons.length <= count) return list;
+  const keep = new Set<number>();
+  list.reasonCodes.forEach((code, index) => {
+    if (isCaution(code) && keep.size < count) keep.add(index);
+  });
+  const firstWave = list.reasonCodes.findIndex((code) => code != null && !isCaution(code));
+  if (firstWave >= 0 && keep.size < count) keep.add(firstWave);
+  for (let index = 0; index < list.reasons.length && keep.size < count; index += 1) keep.add(index);
+  return filterList(list, (_, __, index) => keep.has(index));
+}
+
 /** First occurrence wins, with its code. */
 export function dedupeReasons(list: ReasonList): ReasonList {
   const seen = new Set<string>();
@@ -180,29 +197,46 @@ export function leadReasonLine(
   return apiReasons(reasonList(reasons, reasonCodes), negativeVerdict).reasons[0] ?? null;
 }
 
+/**
+ * The personal explanation reads the personal lines (personalization, board
+ * fit, skill match): text with no code first, then the coded lines, each group
+ * in list order. This undoes the wave-first API order for that one field.
+ */
+export function personalLinesFirst(list: ReasonList): ReasonList {
+  const order = list.reasons.map((_, index) => index);
+  order.sort((a, b) => Number(list.reasonCodes[a] != null) - Number(list.reasonCodes[b] != null) || a - b);
+  return {
+    reasons: order.map((index) => list.reasons[index]),
+    reasonCodes: order.map((index) => list.reasonCodes[index]),
+  };
+}
+
 /** A positive-signal list never carries the "small side" sentence. */
 export function positiveReasons(list: ReasonList): ReasonList {
   return filterList(list, (_, code) => code !== 'size_below_ideal');
 }
 
-/** Whole sentences, one after the other, each with one full stop. */
+/**
+ * Whole sentences, one after the other. A part that already ends in "!" or "?"
+ * keeps it; any other part ends with exactly one full stop.
+ */
 export function joinSentences(parts: readonly string[]): string {
   return parts
     .map((part) => part.trim().replace(/\.+$/, ''))
     .filter((part) => part !== '')
-    .map((part) => `${part}.`)
+    .map((part) => (/[!?]$/.test(part) ? part : `${part}.`))
     .join(' ');
 }
 
 function filterList(
   list: ReasonList,
-  keep: (reason: string, code: ReasonCode) => boolean,
+  keep: (reason: string, code: ReasonCode, index: number) => boolean,
 ): ReasonList {
   const reasons: string[] = [];
   const reasonCodes: ReasonCode[] = [];
   list.reasons.forEach((reason, index) => {
     const code = list.reasonCodes[index] ?? null;
-    if (!keep(reason, code)) return;
+    if (!keep(reason, code, index)) return;
     reasons.push(reason);
     reasonCodes.push(code);
   });

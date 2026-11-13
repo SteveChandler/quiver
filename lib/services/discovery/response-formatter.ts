@@ -275,7 +275,9 @@ function isLearnerWorthIt(
  * - "Worth it - Good size at 3–4 ft. Solid swell period behind it. Watch: Onshore by noon"
  * - "Maybe - Good swell angle (W). Watch: Wind picking up"
  * - "Skip - Strong onshore wind"
- * - "" when there is no reason (no stand-in clause)
+ * - undefined when there is nothing to say: JSON omits the field, so native
+ *   `personalExplanation ?? message ?? reasons[0]` falls through instead of
+ *   stopping at "" (quiver-native forecast-context.ts:452).
  *
  * @param score - Total score (0-100)
  * @param reasons - Positive factors for recommendation
@@ -287,19 +289,19 @@ export function buildDiscoveryMessage(
   reasons: string[],
   warnings: string[],
   recommendationLabel?: RecommendationLabel
-): string {
+): string | undefined {
   const label = recommendationLabel ?? getRecommendationLabel(score);
 
   // No reason means no message: a generic clause would read as a real explanation.
   if (label === 'Skip') {
     const skipReason = warnings[0];
-    return skipReason ? `Skip - ${skipReason}` : '';
+    return skipReason ? `Skip - ${skipReason}` : undefined;
   }
 
   // Pick top 2 reasons for concise message
   const topReasons = joinSentences(reasons.slice(0, 2));
   // With no reason, a real warning is still worth saying; with neither, say nothing.
-  if (!topReasons) return warnings[0] ? `${label} - Watch: ${warnings[0]}` : '';
+  if (!topReasons) return warnings[0] ? `${label} - Watch: ${warnings[0]}` : undefined;
   let message = `${label} - ${topReasons}`;
 
   // Add first warning if present

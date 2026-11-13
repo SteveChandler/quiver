@@ -7,11 +7,13 @@ import {
   insertReason,
   joinSentences,
   leadReasonLine,
+  personalLinesFirst,
   positiveReasons,
   prependReasons,
   reasonList,
   reasonsForVerdict,
   takeReasons,
+  takeReasonsKeepingLead,
   waveSentencesFirst,
   withoutReason,
   type ScoringReasonFact,
@@ -162,5 +164,37 @@ describe('cautions keep the lead', () => {
       ['size_good', 'caution_tide', 'caution_sources_disagree'],
     );
     expect(waveSentencesFirst(list).reasons[2]).toBe('Good size at 3–4 ft.');
+  });
+});
+
+describe('takeReasonsKeepingLead', () => {
+  it('keeps every caution and the first wave sentence when it cuts', () => {
+    const list = reasonList(
+      ['P1', 'P2', 'P3', 'P4', 'P5', 'Good size at 3–4 ft.', 'Solid swell period behind it.', 'Tide back in range by ~1 PM'],
+      [null, null, null, null, null, 'size_good', 'period_good', 'caution_tide'],
+    );
+    expect(takeReasonsKeepingLead(list, 5)).toEqual({
+      reasons: ['P1', 'P2', 'P3', 'Good size at 3–4 ft.', 'Tide back in range by ~1 PM'],
+      reasonCodes: [null, null, null, 'size_good', 'caution_tide'],
+    });
+  });
+
+  it('leaves a short list alone and fills in list order when there is no wave sentence', () => {
+    const short = reasonList(['a', 'b'], [null, 'size_good']);
+    expect(takeReasonsKeepingLead(short, 5)).toBe(short);
+    expect(takeReasonsKeepingLead(reasonList(['a', 'b', 'c']), 2).reasons).toEqual(['a', 'b']);
+  });
+});
+
+describe('personalLinesFirst', () => {
+  it('puts uncoded personal lines ahead of the coded ones, order kept', () => {
+    const list = reasonList(['Good size at 3–4 ft.', 'Matches your break', 'Board fit: longboard'], ['size_good', null, null]);
+    expect(personalLinesFirst(list).reasons).toEqual(['Matches your break', 'Board fit: longboard', 'Good size at 3–4 ft.']);
+  });
+});
+
+describe('joinSentences punctuation', () => {
+  it('keeps a final "!" or "?" and adds no full stop after it', () => {
+    expect(joinSentences(['Firing!', 'Worth a look?', 'Good tide'])).toBe('Firing! Worth a look? Good tide.');
   });
 });

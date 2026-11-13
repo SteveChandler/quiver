@@ -34,4 +34,22 @@ describe("gateSurfDiscoveryResponse personal explanation", () => {
     );
     expect(rec.personalExplanation).not.toContain("..");
   });
+
+  it("keeps the personal lines when wave sentences lead the API order", () => {
+    const result = respond({
+      reasons: [
+        "Good size at 3–4 ft.",
+        "Solid swell period behind it.",
+        "Matches your preferred break type",
+        "One of your go-to spots",
+      ],
+      reasonCodes: ["size_good", "period_good", null, null],
+      conditionBadges: [],
+    });
+    const rec = result.recommendations[0] as { personalExplanation?: string };
+
+    expect(rec.personalExplanation).toBe(
+      "Matches your preferred break type. One of your go-to spots. Good size at 3–4 ft.",
+    );
+  });
 });

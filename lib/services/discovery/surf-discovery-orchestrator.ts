@@ -153,7 +153,7 @@ import {
   insertReason,
   prependReasons,
   reasonList,
-  takeReasons,
+  takeReasonsKeepingLead,
   withoutReason,
   type ReasonCode,
   type ReasonList,
@@ -1215,7 +1215,7 @@ function applyWorthTheDriveReasons(
       return rec;
     }
 
-    const list = takeReasons(
+    const list = takeReasonsKeepingLead(
       prependReasons(withoutReason(reasonList(rec.reasons, rec.reasonCodes), WORTH_THE_DRIVE_REASON), [WORTH_THE_DRIVE_REASON]),
       5,
     );
@@ -1547,7 +1547,8 @@ async function scoreBeachForDiscovery(args: {
     ...detailedScore,
     conditionBadges,
     waveHeightBadge: waveHeightBadge ?? undefined,
-    ...takeReasons(reasonsOf(detailedScore), 5),
+    // The cut runs before the wave-first reorder, so it keeps cautions and a wave sentence.
+    ...takeReasonsKeepingLead(reasonsOf(detailedScore), 5),
   };
 }
 
@@ -2409,7 +2410,7 @@ async function discoverSurfSpotsInner(
       // already-good spots into the 100 ceiling.
       detailedScore.rankingTotal += behaviorApplied.appliedBehaviorScore;
       detailedScore.subscores.behaviorBonus = behaviorApplied.appliedBehaviorScore;
-      setReasons(detailedScore, takeReasons(prependReasons(reasonsOf(detailedScore), behaviorScore.reasons), 5));
+      setReasons(detailedScore, takeReasonsKeepingLead(prependReasons(reasonsOf(detailedScore), behaviorScore.reasons), 5));
     }
 
     const distinction = computeWindowDistinctionReason(
@@ -2423,7 +2424,7 @@ async function discoverSurfSpotsInner(
     if (distinction && !detailedScore.reasons.includes(distinction)) {
       setReasons(detailedScore, insertReason(reasonsOf(detailedScore), 1, distinction));
     }
-    setReasons(detailedScore, takeReasons(reasonsOf(detailedScore), 5));
+    setReasons(detailedScore, takeReasonsKeepingLead(reasonsOf(detailedScore), 5));
 
     const {
       label: recommendationLabel,
@@ -2544,7 +2545,7 @@ async function discoverSurfSpotsInner(
       ) {
         setReasons(customDetailedScore, insertReason(reasonsOf(customDetailedScore), 1, customDistinction));
       }
-      setReasons(customDetailedScore, takeReasons(reasonsOf(customDetailedScore), 5));
+      setReasons(customDetailedScore, takeReasonsKeepingLead(reasonsOf(customDetailedScore), 5));
 
       const {
         label: customRecommendationLabel,

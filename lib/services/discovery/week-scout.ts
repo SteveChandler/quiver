@@ -799,7 +799,6 @@ function buildDraftWindow(args: {
     sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : [],
     ['caution_sources_disagree'],
   );
-  const negativeVerdict = label === 'Skip';
   // The sources warning leads when present; otherwise the wave sentence beats a
   // personalization line, which can name the surfer's level (Steven: never).
   const leadIndex = sourcesDisagree ? 0 : Math.max(0, allReasons.reasonCodes.findIndex((code) => code !== null));
@@ -808,8 +807,6 @@ function buildDraftWindow(args: {
   // takeaway that contradicts it; see `dropContradictingTakeaway`.
   const takeaway = lead ?? null;
   const takeawayCode = takeaway ? allReasons.reasonCodes[leadIndex] ?? null : null;
-  // The same rule holds for the list that leaves the API.
-  const shownReasons = reasonsForVerdict(allReasons, negativeVerdict);
 
   return {
     response: {
@@ -853,8 +850,8 @@ function buildDraftWindow(args: {
       matchQuality: detailed.matchQuality,
       subscores,
       summary: takeaway ?? '',
-      reasons: shownReasons.reasons,
-      reasonCodes: shownReasons.reasonCodes,
+      reasons: allReasons.reasons,
+      reasonCodes: allReasons.reasonCodes,
       warnings: detailed.warnings,
       spotProfile: args.deps.beachToSpotProfile(args.beach),
       windowSlotScores: slotScores,
@@ -877,6 +874,10 @@ function dropContradictingTakeaway(
 ): void {
   if (!draft) return;
   const negativeVerdict = window.verdict === 'skip' || window.personalVerdict === 'no';
+  // The reason list follows the same shown verdict as the takeaway.
+  const shown = reasonsForVerdict(reasonList(draft.recommendation.reasons, draft.recommendation.reasonCodes), negativeVerdict);
+  draft.recommendation.reasons = shown.reasons;
+  draft.recommendation.reasonCodes = shown.reasonCodes;
   if (!codeContradictsVerdict(draft.takeawayCode, negativeVerdict)) return;
   window.takeaway = null;
   draft.recommendation.summary = '';

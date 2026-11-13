@@ -172,6 +172,48 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Selector conditions align")).not.toBeInTheDocument();
   });
 
+  it("uses the Why-this-call positive rule: no small-side line, a caution may lead", () => {
+    const window = {
+      startIso: "2026-08-12T07:00:00Z",
+      endIso: "2026-08-12T09:00:00Z",
+      peakIso: "2026-08-12T08:00:00Z",
+      timezone: "UTC",
+      localTimeLabel: "7:00 AM-9:00 AM",
+      score: 60,
+      verdict: "Maybe" as const,
+      confidence: { level: "high" as const, score: 84, summary: "High confidence", reasons: [] },
+      wave: { height: "2.1", period: "12", direction: "W", summary: "2.1ft at 12s" },
+    };
+    const { rerender } = render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          ...window,
+          positives: ["On the small side at 2–3 ft.", "Light offshore wind"],
+          positiveCodes: ["size_below_ideal", null],
+        }}
+      />
+    );
+    expect(screen.queryByText("On the small side at 2–3 ft.")).not.toBeInTheDocument();
+    expect(screen.getByText("Light offshore wind")).toBeInTheDocument();
+
+    rerender(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          ...window,
+          positives: ["Tide back in range by ~1 PM", "On the small side at 2–3 ft."],
+          positiveCodes: ["caution_tide", "size_below_ideal"],
+        }}
+      />
+    );
+    expect(screen.getByText("Tide back in range by ~1 PM")).toBeInTheDocument();
+  });
+
   it("shows guests a login CTA without the numeric score or score-band call", () => {
     render(
       <TopRankedBeachHero

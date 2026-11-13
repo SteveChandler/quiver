@@ -4,7 +4,7 @@ import type {
   SurfDiscoveryRecommendation,
   SurfDiscoveryResponse,
 } from "@/types/personalization";
-import { joinSentences } from "@/lib/domains/scoring/reason-sentences";
+import { joinSentences, personalLinesFirst, reasonList } from "@/lib/domains/scoring/reason-sentences";
 
 const IMPLICIT_ONLY_REASON_PATTERNS: RegExp[] = [
   /surfing patterns/i,
@@ -89,7 +89,9 @@ function isConservativePersonalReason(reason: string): boolean {
 function buildPersonalExplanation(
   rec: SurfDiscoveryRecommendation
 ): string | undefined {
-  const reasonParts = rec.reasons.filter(isConservativePersonalReason);
+  // The API sends wave sentences first; the explanation keeps the personal lines in front, as before.
+  const reasonParts = personalLinesFirst(reasonList(rec.reasons, rec.reasonCodes)).reasons
+    .filter(isConservativePersonalReason);
   const similarityReason = rec.similarity?.state === "ready"
     ? rec.similarity.reason
     : null;

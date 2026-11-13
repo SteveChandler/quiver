@@ -463,6 +463,17 @@ jest.mock('@/lib/utils/timezone-utils.server', () => ({
   getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
 }));
 
+let mockDistinction: string | null | undefined;
+jest.mock('@/lib/services/discovery/window-distinction', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/window-distinction');
+  return {
+    ...actual,
+    computeWindowDistinctionReason: (...args: unknown[]) => (
+      mockDistinction === undefined ? actual.computeWindowDistinctionReason(...args) : mockDistinction
+    ),
+  };
+});
+
 jest.mock('@/lib/services/discovery/personalization-layer', () => ({
   fetchPersonalizationContext: jest.fn(async () => ({
     implicitPrefs: null,
@@ -2918,6 +2929,53 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(rec.reasons).not.toContain('Solid swell period behind it.');
     expect(rec.reasons).toEqual(['Matches your preferred break type', 'Light winds']);
     expect(rec.reasonCodes).toEqual([null, null]);
+  });
+
+  test('the first cut (score step) keeps the tide caution behind five personal lines', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const base = scoreBeachWithEngine();
+    scoreBeachWithEngine.mockReturnValue({
+      ...base,
+      reasons: ['Good size at 3–4 ft.', 'Tide back in range by ~1 PM'],
+      reasonCodes: ['size_good', 'caution_tide'],
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 8, affinityBonus: 0, personalizationBonus: 8,
+      reasons: ['Personal 1', 'Personal 2', 'Personal 3', 'Personal 4', 'Personal 5'],
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    const rec = result.recommendations[0];
+    expect(rec.reasons[0]).toBe('Tide back in range by ~1 PM');
+    expect(rec.reasonCodes?.[0]).toBe('caution_tide');
+  });
+
+  test('the second cut (after the window distinction) keeps the tide caution', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const base = scoreBeachWithEngine();
+    scoreBeachWithEngine.mockReturnValue({
+      ...base,
+      reasons: ['Tide back in range by ~1 PM'],
+      reasonCodes: ['caution_tide'],
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 8, affinityBonus: 0, personalizationBonus: 8,
+      reasons: ['Personal 1', 'Personal 2', 'Personal 3', 'Personal 4'],
+    });
+    mockDistinction = 'Best window of the day';
+    try {
+      const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+      const rec = result.recommendations[0];
+      expect(rec.reasons).toContain('Best window of the day');
+      expect(rec.reasons[0]).toBe('Tide back in range by ~1 PM');
+      expect(rec.reasons).toHaveLength(5);
+    } finally {
+      mockDistinction = undefined;
+    }
   });
 
   test('each reason leaves the API with its scorer code beside it', async () => {
