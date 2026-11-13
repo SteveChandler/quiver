@@ -16,6 +16,18 @@ import {
   takeReasonsKeepingLead,
   waveSentencesFirst,
   withoutReason,
+  formatBigSurfCaution,
+  formatBoardFit,
+  formatLightWind,
+  formatMellowBreak,
+  formatSmallSide,
+  formatSmallSurf,
+  formatTideNow,
+  formatWindChop,
+  isLeadCode,
+  isWaveCode,
+  SMALL_ONSHORE_SLOP,
+  type BigSurfCaution,
   type ScoringReasonFact,
 } from '@/lib/domains/scoring/reason-sentences';
 import { buildDiscoveryMessage } from '@/lib/services/discovery/response-formatter';
@@ -75,11 +87,11 @@ describe('aligned reason lists', () => {
   });
 
   it('moves the wave sentences in front, order kept inside each group', () => {
-    const list = prependReasons(coded, ['Conditions at Tamarack match your experience level today']);
+    const list = prependReasons(coded, ['One of your go-to spots']);
     expect(waveSentencesFirst(list).reasons).toEqual([
       'Good size at 3–4 ft.',
       'Solid swell period behind it.',
-      'Conditions at Tamarack match your experience level today',
+      'One of your go-to spots',
       'Good tide',
     ]);
   });
@@ -100,10 +112,10 @@ describe('aligned reason lists', () => {
   });
 
   it('sends discovery reasons wave-first and without a contradicting line', () => {
-    const list = prependReasons(coded, ['Conditions at Tamarack match your experience level today']);
+    const list = prependReasons(coded, ['One of your go-to spots']);
     expect(apiReasons(list, false).reasons[0]).toBe('Good size at 3–4 ft.');
     expect(apiReasons(list, true)).toEqual({
-      reasons: ['Conditions at Tamarack match your experience level today', 'Good tide'],
+      reasons: ['One of your go-to spots', 'Good tide'],
       reasonCodes: [null, null],
     });
   });
@@ -128,7 +140,7 @@ describe('joinSentences', () => {
 });
 
 describe('cautions keep the lead', () => {
-  const headsUp = 'Heads up: PB Point is pumping today — 3.5ft waves are above your usual range';
+  const headsUp = 'Heads up: PB Point is pumping at 3–4 ft.';
   const withCaution = prependReasons(
     reasonList(
       ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Good tide'],
@@ -149,7 +161,7 @@ describe('cautions keep the lead', () => {
 
   it('keeps the caution in the top two reasons of the message', () => {
     const message = buildDiscoveryMessage(55, apiReasons(withCaution, false).reasons, []);
-    expect(message).toBe(`Maybe - ${headsUp}. Good size at 3–4 ft.`);
+    expect(message).toBe(`Maybe - ${headsUp} Good size at 3–4 ft.`);
   });
 
   it('shows the caution first in the hero line', () => {
@@ -196,5 +208,70 @@ describe('personalLinesFirst', () => {
 describe('joinSentences punctuation', () => {
   it('keeps a final "!" or "?" and adds no full stop after it', () => {
     expect(joinSentences(['Firing!', 'Worth a look?', 'Good tide'])).toBe('Firing! Worth a look? Good tide.');
+  });
+});
+
+describe('big-surf caution family (Steven, Nov 12 2026)', () => {
+  const cases: ReadonlyArray<[string, BigSurfCaution, string]> = [
+    ['row 9, a little over', { kind: 'over', heightFt: 4.6 }, 'Heads up: bigger surf today at 4–5 ft.'],
+    ['row 8, well over', { kind: 'well_over', heightFt: 6.2 }, 'Heads up: much bigger surf today at 6–7 ft.'],
+    ['row 7, far over', { kind: 'far_over', heightFt: 8.4 }, 'Heads up: a big jump in size today at 8–9 ft. Watch it from the beach first.'],
+    ['row 6, advanced break', { kind: 'advanced_break', level: 'advanced', heightFt: 5.5 }, 'Heads up: an advanced break, with more size today at 5–6 ft.'],
+    ['row 6, expert break', { kind: 'advanced_break', level: 'Expert', heightFt: 7.2 }, 'Heads up: an expert break, with more size today at 7–8 ft.'],
+    ['row 6, article "a"', { kind: 'advanced_break', level: 'big-wave', heightFt: 5.5 }, 'Heads up: a big-wave break, with more size today at 5–6 ft.'],
+    ['row 3, pumping', { kind: 'pumping', beachName: 'Blacks', heightFt: 6.4 }, 'Heads up: Blacks is pumping at 6–7 ft.'],
+    ['override at a 12 ft low end', { kind: 'over', heightFt: 12.1 }, 'Heads up: big, powerful surf at 12–13 ft.'],
+    ['override, far over', { kind: 'far_over', heightFt: 13.2 }, 'Heads up: big, powerful surf at 13–14 ft.'],
+    ['override, advanced break', { kind: 'advanced_break', level: 'advanced', heightFt: 14 }, 'Heads up: big, powerful surf at 13–14 ft.'],
+    ['override, pumping', { kind: 'pumping', beachName: 'Mavericks', heightFt: 20 }, 'Heads up: big, powerful surf at 19–20 ft.'],
+    ['no override below a 12 ft low end', { kind: 'well_over', heightFt: 12 }, 'Heads up: much bigger surf today at 11–12 ft.'],
+  ];
+
+  it.each(cases)('%s', (_label, caution, text) => {
+    expect(formatBigSurfCaution(caution)).toBe(text);
+  });
+
+  it('never names the surfer or uses an absolute danger word', () => {
+    for (const [, caution] of cases) {
+      expect(formatBigSurfCaution(caution)).not.toMatch(/your|skill|level|range|Dangerous|heavy/i);
+    }
+  });
+});
+
+describe('other level-free lines', () => {
+  it.each([
+    ['row 2', formatMellowBreak('advanced', 'Blacks', 2.2), "Blacks is an advanced break, but it's mellow today at 2–3 ft."],
+    ['row 2, "a"', formatMellowBreak('beginner-intermediate', 'Shores', 2.2), "Shores is a beginner-intermediate break, but it's mellow today at 2–3 ft."],
+    ['row 5', formatMellowBreak('advanced'), 'Advanced break, mellow today.'],
+    ['row 10', formatSmallSurf(1.4), 'Small surf at 1–2 ft.'],
+    ['row 10, no height', formatSmallSurf(Number.NaN), 'Small surf.'],
+    ['row 11', formatSmallSide(2.4), 'On the small side at 2–3 ft.'],
+    ['row 13', SMALL_ONSHORE_SLOP, 'Small, short-period onshore slop.'],
+    ['row 14', formatWindChop('Choppy', 'onshore', 18.9), 'Choppy onshore wind at 18 mph chops it up.'],
+    ['row 16', formatLightWind('NE'), 'Light NE wind.'],
+    ['row 17', formatTideNow('rising'), 'Rising tide.'],
+    ['row 20, big', formatBoardFit('big', 'longboard', 5.5), 'Big for a longboard at 5–6 ft.'],
+    ['row 20, small', formatBoardFit('small', 'shortboard', 1.5), 'Small for a shortboard at 1–2 ft.'],
+    ['row 20, good', formatBoardFit('good', 'longboard', 2.5), 'Good longboard size at 2–3 ft.'],
+  ])('%s', (_label, text, expected) => {
+    expect(text).toBe(expected);
+  });
+});
+
+describe('context codes neither lead nor count as wave sentences', () => {
+  it('keeps a caution first, then waves, then context lines', () => {
+    const list = reasonList(
+      ['Advanced break, mellow today.', 'Good size at 3–4 ft.', 'Heads up: Blacks is pumping at 6–7 ft.', 'Light NE wind.'],
+      ['break_mellow', 'size_good', 'caution_big_surf', 'wind_light'],
+    );
+    expect(waveSentencesFirst(list).reasons).toEqual([
+      'Heads up: Blacks is pumping at 6–7 ft.',
+      'Good size at 3–4 ft.',
+      'Advanced break, mellow today.',
+      'Light NE wind.',
+    ]);
+    expect(isLeadCode('break_mellow')).toBe(false);
+    expect(isLeadCode('caution_size_over')).toBe(true);
+    expect(isWaveCode('cap_small_surf')).toBe(false);
   });
 });

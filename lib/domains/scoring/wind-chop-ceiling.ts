@@ -1,6 +1,7 @@
 import { angleDifference, normalizeAngle } from '../shared';
 import { classifyDirection } from './scorers/wind-quality-scorer';
 import type { ScorerInput } from './types';
+import { formatWindChop, SMALL_ONSHORE_SLOP } from './reason-sentences';
 
 const SMALL_ONSHORE_SHORT_PERIOD_CEILING = 54;
 const SMALL_WAVE_MAX_FT = 3;
@@ -18,6 +19,7 @@ const BLOWN_SWELL_STRONG_CEILING = 39; // MEH
 interface WindChopCeiling {
   readonly ceiling: number;
   readonly reason: string;
+  readonly code: 'cap_small_onshore' | 'cap_wind_chop';
 }
 
 export function windChopCeiling(
@@ -71,7 +73,8 @@ function smallShortPeriodCeiling(
 
   return {
     ceiling: SMALL_ONSHORE_SHORT_PERIOD_CEILING,
-    reason: `Small short-period onshore surf caps score at ${SMALL_ONSHORE_SHORT_PERIOD_CEILING}`,
+    reason: SMALL_ONSHORE_SLOP,
+    code: 'cap_small_onshore',
   };
 }
 
@@ -108,6 +111,7 @@ function onshoreBlownSwellCeiling(
   // Floor, not round: 14.6 mph must not print as 15 under the 54 tier.
   return {
     ceiling,
-    reason: `${surface} ${label} wind (${Math.floor(windSpeed)} mph) caps score at ${ceiling}`,
+    reason: formatWindChop(surface, label, windSpeed),
+    code: 'cap_wind_chop',
   };
 }

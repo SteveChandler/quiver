@@ -36,25 +36,29 @@ describe('Skill Level Wave Scoring', () => {
       it('should return penalty when 1ft over limit', () => {
         const result = checkSkillCeiling(5, 'beginner'); // 1ft over 4ft limit
         expect(result.penalty).toBe(8); // 1 * 8
-        expect(result.warning).toBe('Waves may exceed your skill level');
+        expect(result.warning).toBe('Heads up: bigger surf today at 4–5 ft.');
+        expect(result.warningCode).toBe('caution_size_over');
       });
 
       it('should return graduated penalty when 4ft over limit', () => {
         const result = checkSkillCeiling(8, 'beginner'); // 4ft over 4ft limit
         expect(result.penalty).toBe(32); // 4 * 8
-        expect(result.warning).toBe('Waves significantly exceed your skill level');
+        expect(result.warning).toBe('Heads up: much bigger surf today at 7–8 ft.');
+        expect(result.warningCode).toBe('caution_size_over');
       });
 
       it('should return dangerous warning for 8+ ft over limit', () => {
         const result = checkSkillCeiling(12, 'beginner'); // 8ft over 4ft limit
         expect(result.penalty).toBe(64); // 8 * 8
-        expect(result.warning).toBe('Dangerous: Waves far exceed your skill level');
+        expect(result.warning).toBe('Heads up: a big jump in size today at 11–12 ft. Watch it from the beach first.');
+        expect(result.warningCode).toBe('caution_size_over');
       });
 
       it('should return very high penalty for extreme conditions', () => {
         const result = checkSkillCeiling(20, 'beginner'); // 16ft over
         expect(result.penalty).toBe(128); // 16 * 8
-        expect(result.warning).toBe('Dangerous: Waves far exceed your skill level');
+        expect(result.warning).toBe('Heads up: big, powerful surf at 19–20 ft.');
+        expect(result.warningCode).toBe('caution_size_over');
       });
     });
 
@@ -68,7 +72,8 @@ describe('Skill Level Wave Scoring', () => {
       it('should return penalty at 8ft', () => {
         const result = checkSkillCeiling(8, 'intermediate'); // 2ft over
         expect(result.penalty).toBe(16);
-        expect(result.warning).toBe('Waves may exceed your skill level');
+        expect(result.warning).toBe('Heads up: bigger surf today at 7–8 ft.');
+        expect(result.warningCode).toBe('caution_size_over');
       });
     });
 
@@ -82,7 +87,8 @@ describe('Skill Level Wave Scoring', () => {
       it('should return penalty at 15ft', () => {
         const result = checkSkillCeiling(15, 'advanced'); // 3ft over 12ft
         expect(result.penalty).toBe(24);
-        expect(result.warning).toBe('Waves may exceed your skill level');
+        expect(result.warning).toBe('Heads up: big, powerful surf at 14–15 ft.');
+        expect(result.warningCode).toBe('caution_size_over');
       });
     });
 
@@ -96,7 +102,8 @@ describe('Skill Level Wave Scoring', () => {
       it('should return penalty at 25ft', () => {
         const result = checkSkillCeiling(25, 'expert'); // 5ft over 20ft
         expect(result.penalty).toBe(40);
-        expect(result.warning).toBe('Waves significantly exceed your skill level');
+        expect(result.warning).toBe('Heads up: big, powerful surf at 24–25 ft.');
+        expect(result.warningCode).toBe('caution_size_over');
       });
     });
 
@@ -118,13 +125,15 @@ describe('Skill Level Wave Scoring', () => {
     it('soft-penalizes small waves for advanced surfers', () => {
       const result = checkSkillFloor(1.5, 'advanced');
       expect(result.penalty).toBe(13);
-      expect(result.warning).toBe('Waves are below your usual range');
+      expect(result.warning).toBe('Small surf at 1–2 ft.');
+        expect(result.warningCode).toBe('small_surf');
     });
 
     it('applies a lighter penalty below ideal but still acceptable', () => {
       const result = checkSkillFloor(2.5, 'advanced');
       expect(result.penalty).toBe(3);
-      expect(result.warning).toBe('Waves are smaller than your ideal range');
+      expect(result.warning).toBe('On the small side at 2–3 ft.');
+        expect(result.warningCode).toBe('small_side');
     });
 
     it('does not penalize waves at the ideal lower bound', () => {
@@ -136,7 +145,8 @@ describe('Skill Level Wave Scoring', () => {
     it('caps extreme small-wave penalties', () => {
       const result = checkSkillFloor(0, 'expert');
       expect(result.penalty).toBe(WAVE_SIZE_SCORING_CONFIG.skillFloorPenaltyCap);
-      expect(result.warning).toBe('Waves are below your usual range');
+      expect(result.warning).toBe('Small surf.');
+        expect(result.warningCode).toBe('small_surf');
     });
   });
 
@@ -145,14 +155,14 @@ describe('Skill Level Wave Scoring', () => {
       it('should give bonus when beginner at beginner beach with ideal waves', () => {
         const result = calculateBeachSkillMatchBonus(2, 'beginner', 'beginner');
         expect(result.adjustment).toBe(3);
-        expect(result.reason).toBe('Conditions match your experience level today');
+        expect(result.reason).toBeNull(); // the bonus stays; the level line is gone
         expect(result.warning).toBeNull();
       });
 
       it('should give bonus when intermediate at beginner beach with ideal waves', () => {
         const result = calculateBeachSkillMatchBonus(3, 'beginner', 'intermediate');
         expect(result.adjustment).toBe(3);
-        expect(result.reason).toBe('Conditions match your experience level today');
+        expect(result.reason).toBeNull(); // the bonus stays; the level line is gone
       });
 
       it('should give bonus at ideal range boundaries', () => {
@@ -172,7 +182,8 @@ describe('Skill Level Wave Scoring', () => {
         // Intermediate beach, beginner user, 2ft waves (within beginner ideal max 3ft)
         const result = calculateBeachSkillMatchBonus(2, 'intermediate', 'beginner');
         expect(result.adjustment).toBe(1);
-        expect(result.reason).toContain('manageable');
+        expect(result.reason).toBe('Intermediate break, mellow today.');
+        expect(result.reasonCode).toBe('break_mellow');
         expect(result.warning).toBeNull();
       });
 
@@ -180,7 +191,8 @@ describe('Skill Level Wave Scoring', () => {
         // Advanced beach, beginner user, 2ft waves
         const result = calculateBeachSkillMatchBonus(2, 'advanced', 'beginner');
         expect(result.adjustment).toBe(0);
-        expect(result.reason).toContain('manageable');
+        expect(result.reason).toBe('Advanced break, mellow today.');
+        expect(result.reasonCode).toBe('break_mellow');
         expect(result.warning).toBeNull();
       });
     });
@@ -198,14 +210,16 @@ describe('Skill Level Wave Scoring', () => {
         // Advanced beach, beginner user, 5ft waves
         const result = calculateBeachSkillMatchBonus(5, 'advanced', 'beginner');
         expect(result.adjustment).toBe(-4);
-        expect(result.warning).toContain('challenging');
+        expect(result.warning).toBe('Heads up: an advanced break, with more size today at 4–5 ft.');
+        expect(result.warningCode).toBe('caution_advanced_break');
       });
 
       it('should cap penalty at -6', () => {
         // Expert beach, beginner user, 10ft waves
         const result = calculateBeachSkillMatchBonus(10, 'expert', 'beginner');
         expect(result.adjustment).toBe(-6);
-        expect(result.warning).toContain('challenging');
+        expect(result.warning).toBe('Heads up: an expert break, with more size today at 9–10 ft.');
+        expect(result.warningCode).toBe('caution_advanced_break');
       });
     });
 
@@ -214,7 +228,8 @@ describe('Skill Level Wave Scoring', () => {
         // Advanced beach, beginner user, 3ft (within beginner ideal max)
         const result = calculateBeachSkillMatchBonus(3, 'advanced', 'beginner');
         expect(result.adjustment).toBe(0); // 2-level gap → 0 adjustment
-        expect(result.reason).toContain('manageable');
+        expect(result.reason).toBe('Advanced break, mellow today.');
+        expect(result.reasonCode).toBe('break_mellow');
         expect(result.warning).toBeNull();
       });
 
@@ -222,28 +237,31 @@ describe('Skill Level Wave Scoring', () => {
         // Advanced beach, beginner user, 15ft waves
         const result = calculateBeachSkillMatchBonus(15, 'advanced', 'beginner');
         expect(result.adjustment).toBe(-4);
-        expect(result.warning).toContain('challenging');
+        expect(result.warning).toBe('Heads up: big, powerful surf at 14–15 ft.');
+        expect(result.warningCode).toBe('caution_advanced_break');
       });
 
       it('Mellow beach at 2ft for beginner — bonus', () => {
         // Beginner beach, beginner user, 2ft waves (ideal range)
         const result = calculateBeachSkillMatchBonus(2, 'beginner', 'beginner');
         expect(result.adjustment).toBe(3);
-        expect(result.reason).toContain('match your experience');
+        expect(result.reason).toBeNull(); // the bonus stays; the level line is gone
       });
 
       it('Advanced beach at 4ft for intermediate — manageable with small bonus', () => {
         // Advanced beach, intermediate user, 4ft (within intermediate ideal max 5ft)
         const result = calculateBeachSkillMatchBonus(4, 'advanced', 'intermediate');
         expect(result.adjustment).toBe(1); // 1-level gap → +1
-        expect(result.reason).toContain('manageable');
+        expect(result.reason).toBe('Advanced break, mellow today.');
+        expect(result.reasonCode).toBe('break_mellow');
       });
 
       it('Expert beach at 8ft for intermediate — penalty', () => {
         // Expert beach, intermediate user, 8ft (above intermediate ideal max 5ft)
         const result = calculateBeachSkillMatchBonus(8, 'expert', 'intermediate');
         expect(result.adjustment).toBe(-4); // 2-level gap → -4
-        expect(result.warning).toContain('challenging');
+        expect(result.warning).toBe('Heads up: an expert break, with more size today at 7–8 ft.');
+        expect(result.warningCode).toBe('caution_advanced_break');
       });
     });
 
@@ -252,7 +270,8 @@ describe('Skill Level Wave Scoring', () => {
         // null beach → intermediate, beginner user, 2ft waves → manageable
         const result = calculateBeachSkillMatchBonus(2, null, 'beginner');
         expect(result.adjustment).toBe(1); // 1-level gap, manageable
-        expect(result.reason).toContain('manageable');
+        expect(result.reason).toBe('Intermediate break, mellow today.');
+        expect(result.reasonCode).toBe('break_mellow');
       });
     });
   });
@@ -271,7 +290,7 @@ describe('Skill Level Wave Scoring', () => {
       // 8ft - 4ft (beginner max) = 4ft over, 32pt penalty
       const result = checkSkillCeiling(8, getSkillLevelOrDefault(null));
       expect(result.penalty).toBe(32);
-      expect(result.warning).toBe('Waves significantly exceed your skill level');
+      expect(result.warning).toBe('Heads up: much bigger surf today at 7–8 ft.');
     });
 
     it('should not penalize small waves for beginner default', () => {
@@ -350,7 +369,7 @@ describe('Skill Level Wave Scoring', () => {
     it('should handle large wave heights', () => {
       const result = checkSkillCeiling(50, 'expert'); // 30ft over
       expect(result.penalty).toBe(240); // 30 * 8
-      expect(result.warning).toBe('Dangerous: Waves far exceed your skill level');
+      expect(result.warning).toBe('Heads up: big, powerful surf at 49–50 ft.');
     });
   });
 

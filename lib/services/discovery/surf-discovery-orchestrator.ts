@@ -150,6 +150,8 @@ import { SCORE_THRESHOLDS } from '@/lib/utils/score-color-utils';
 import { rowToSwellPartition } from '@/lib/domains/conditions/map-forecast';
 import {
   apiReasons,
+  formatBigSurfCaution,
+  formatMellowBreak,
   insertReason,
   prependReasons,
   reasonList,
@@ -548,23 +550,19 @@ export function primaryReasonWithCode(
 
   const skillGap = (beachSkill ? SKILL_RANK[beachSkill] : 1) - SKILL_RANK[userSkill];
   const wavesManageable = waveHeight <= userRanges.ideal.max;
-  // Same gate as calculateBeachSkillMatchBonus: a skill match alone says nothing about today's waves.
-  const wavesInIdealRange = waveHeight >= userRanges.ideal.min && waveHeight <= userRanges.ideal.max;
 
+  // A level match says nothing about the waves; the size sentence covers it (Steven: no level lines).
   if (skillGap <= 0) {
-    if (!wavesInIdealRange) return null;
-    return { text: `Conditions at ${beach.name} match your experience level today`, code: null };
+    return null;
   }
 
   if (skillGap > 0 && wavesManageable) {
     const label = beachSkill ?? 'advanced';
-    const heightDisplay = waveHeight > 0 ? ` ${Math.round(waveHeight * 10) / 10}ft` : '';
-    return { text: `${beach.name} is an ${label} spot, but today's${heightDisplay} conditions are manageable`, code: null };
+    return { text: formatMellowBreak(label, beach.name, waveHeight), code: 'break_mellow' };
   }
 
-  const heightDisplay = waveHeight > 0 ? `${Math.round(waveHeight * 10) / 10}ft` : '';
   return {
-    text: `Heads up: ${beach.name} is pumping today —${heightDisplay ? ` ${heightDisplay}` : ''} waves are above your usual range`,
+    text: formatBigSurfCaution({ kind: 'pumping', beachName: beach.name, heightFt: waveHeight }),
     code: 'caution_big_surf',
   };
 }
@@ -1202,6 +1200,13 @@ function setReasons(target: { reasons: string[]; reasonCodes?: ReasonCode[] }, l
   target.reasonCodes = list.reasonCodes;
 }
 
+/** Appends an uncoded warning and keeps `warningCodes` aligned. */
+function pushWarning(target: { warnings: string[]; warningCodes?: ReasonCode[] }, warning: string): void {
+  const codes = reasonList(target.warnings, target.warningCodes).reasonCodes;
+  target.warnings = [...target.warnings, warning];
+  target.warningCodes = [...codes, null];
+}
+
 function applyWorthTheDriveReasons(
   recommendations: SurfDiscoveryRecommendation[]
 ): SurfDiscoveryRecommendation[] {
@@ -1460,6 +1465,7 @@ async function scoreBeachForDiscovery(args: {
   affinityBonus?: number;
   personalizationBonus?: number;
   personalizationReasons?: string[];
+  personalizationReasonCodes?: ReasonCode[];
   dominantBoardClass?: BoardClass | null;
   boardClasses?: readonly BoardClass[];
   /** Skill for the gated score only; copy keeps userSkillLevel. */
@@ -1512,19 +1518,26 @@ async function scoreBeachForDiscovery(args: {
 
   // Merge personalization reasons
   if (args.personalizationReasons && args.personalizationReasons.length > 0) {
-    setReasons(detailedScore, prependReasons(reasonsOf(detailedScore), args.personalizationReasons));
+    setReasons(
+      detailedScore,
+      prependReasons(
+        reasonsOf(detailedScore),
+        args.personalizationReasons,
+        reasonList(args.personalizationReasons, args.personalizationReasonCodes).reasonCodes,
+      ),
+    );
   }
 
   if (boardStyle.reason) {
     setReasons(detailedScore, prependReasons(reasonsOf(detailedScore), [boardStyle.reason]));
   }
   if (boardStyle.warning) {
-    detailedScore.warnings.push(boardStyle.warning);
+    pushWarning(detailedScore, boardStyle.warning);
   }
 
   // Add distance warning if far
   if (distanceMiles !== undefined && distanceMiles > 30) {
-    detailedScore.warnings.push(`${Math.round(distanceMiles)} miles away - long drive`);
+    pushWarning(detailedScore, `${Math.round(distanceMiles)} miles away - long drive`);
   }
 
   // Generate primary recommendation reason for skill-aware communication
@@ -2372,6 +2385,7 @@ async function discoverSurfSpotsInner(
       affinityBonus: persResult.affinityBonus,
       personalizationBonus: persResult.personalizationBonus,
       personalizationReasons: persResult.reasons,
+      personalizationReasonCodes: persResult.reasonCodes,
       dominantBoardClass,
       boardClasses,
       ...(skillAware ? { ratingSkillLevel: ratingSkill } : {}),
@@ -2390,8 +2404,9 @@ async function discoverSurfSpotsInner(
       detailedScore.rankingTotal = 0;
       detailedScore.matchQuality = 'fair';
       detailedScore.warnings = wqWarning ? [wqWarning] : [];
+      detailedScore.warningCodes = detailedScore.warnings.map(() => null);
     } else if (wqWarning) {
-      detailedScore.warnings.push(wqWarning);
+      pushWarning(detailedScore, wqWarning);
     }
 
     const behaviorAggregate = aggregateBreakBehaviorSessions(
@@ -2471,6 +2486,7 @@ async function discoverSurfSpotsInner(
       reasons: detailedScore.reasons,
       reasonCodes: detailedScore.reasonCodes,
       warnings: detailedScore.warnings,
+      warningCodes: detailedScore.warningCodes,
       effects: detailedScore.effects,
       conditionBadges: detailedScore.conditionBadges,
       waveHeightBadge: detailedScore.waveHeightBadge,
@@ -2517,6 +2533,7 @@ async function discoverSurfSpotsInner(
         affinityBonus: customPersResult.affinityBonus,
         personalizationBonus: customPersResult.personalizationBonus,
         personalizationReasons: customPersResult.reasons,
+        personalizationReasonCodes: customPersResult.reasonCodes,
         dominantBoardClass,
         boardClasses,
         ...(skillAware ? { ratingSkillLevel: ratingSkill } : {}),
@@ -2527,8 +2544,9 @@ async function discoverSurfSpotsInner(
         customDetailedScore.rankingTotal = 0;
         customDetailedScore.matchQuality = 'fair';
         customDetailedScore.warnings = wqWarning ? [wqWarning] : [];
+        customDetailedScore.warningCodes = customDetailedScore.warnings.map(() => null);
       } else if (wqWarning) {
-        customDetailedScore.warnings.push(wqWarning);
+        pushWarning(customDetailedScore, wqWarning);
       }
 
       const customDistinction = computeWindowDistinctionReason(
@@ -2590,6 +2608,7 @@ async function discoverSurfSpotsInner(
         reasons: customDetailedScore.reasons,
         reasonCodes: customDetailedScore.reasonCodes,
         warnings: customDetailedScore.warnings,
+        warningCodes: customDetailedScore.warningCodes,
         conditionBadges: customDetailedScore.conditionBadges,
         waveHeightBadge: customDetailedScore.waveHeightBadge,
         boardPick: null,

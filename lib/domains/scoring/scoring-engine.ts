@@ -19,7 +19,7 @@ import type {
   ScoringDecisionEffect,
 } from "./types";
 import { DEFAULT_SCORING_CONFIG } from "./types";
-import { dedupeReasons, takeReasons, type ReasonCode } from "./reason-sentences";
+import { dedupeReasons, formatSmallSurf, takeReasons, type ReasonCode } from "./reason-sentences";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
 import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
@@ -109,6 +109,7 @@ export class ScoringEngine {
     const subscores = new Map<string, number>();
     const allReasons: string[] = [];
     const allWarnings: string[] = [];
+    const allWarningCodes: ReasonCode[] = [];
     const allEffects: ScoringDecisionEffect[] = [];
     const allReasonCodes: ReasonCode[] = [];
 
@@ -120,6 +121,7 @@ export class ScoringEngine {
       // The base scorer formats `reasons` from `reasonFacts` in order, so the codes line up.
       allReasonCodes.push(...result.reasons.map((_, index) => result.reasonFacts?.[index]?.code ?? null));
       allWarnings.push(...result.warnings);
+      allWarningCodes.push(...result.warnings.map(() => null));
       allEffects.push(...(result.effects ?? []));
     }
 
@@ -141,18 +143,17 @@ export class ScoringEngine {
     );
 
     if (ceiling < rawTotal) {
-      const heightStr = Number.isFinite(input.snapshot.waveHeight)
-        ? input.snapshot.waveHeight.toFixed(1)
-        : "unknown";
-      const capMessage = `Small wave (${heightStr}ft) caps score at ${ceiling}`;
+      const capMessage = formatSmallSurf(input.snapshot.waveHeight);
       allReasons.push(capMessage);
-      allReasonCodes.push(null);
+      allReasonCodes.push("cap_small_surf");
       allWarnings.push(capMessage);
+      allWarningCodes.push("cap_small_surf");
     }
     if (chopCeiling && chopCeiling.ceiling < rawTotal) {
       allReasons.push(chopCeiling.reason);
-      allReasonCodes.push(null);
+      allReasonCodes.push(chopCeiling.code);
       allWarnings.push(chopCeiling.reason);
+      allWarningCodes.push(chopCeiling.code);
     }
     if (effectCeiling < rawTotal) {
       for (const effect of allEffects) {
@@ -162,6 +163,7 @@ export class ScoringEngine {
           !allWarnings.includes(effect.message)
         ) {
           allWarnings.push(effect.message);
+          allWarningCodes.push(null);
         }
       }
       // A binding tide effect is the headline (Week Scout takeaway); other effects keep today's order.
@@ -178,6 +180,10 @@ export class ScoringEngine {
     }
 
     const matchQuality = this.classifyScore(total);
+    const shownWarnings = takeReasons(
+      dedupeReasons({ reasons: allWarnings, reasonCodes: allWarningCodes }),
+      DEFAULT_SCORING_CONFIG.maxReasons,
+    );
     const shownReasons = takeReasons(
       dedupeReasons({ reasons: allReasons, reasonCodes: allReasonCodes }),
       DEFAULT_SCORING_CONFIG.maxReasons,
@@ -192,7 +198,8 @@ export class ScoringEngine {
       matchQuality,
       reasons: shownReasons.reasons,
       reasonCodes: shownReasons.reasonCodes,
-      warnings: this.dedupeAndLimit(allWarnings, DEFAULT_SCORING_CONFIG.maxReasons),
+      warnings: shownWarnings.reasons,
+      warningCodes: shownWarnings.reasonCodes,
       skipReason: null,
       confidence,
       effects: dedupeEffects(allEffects),

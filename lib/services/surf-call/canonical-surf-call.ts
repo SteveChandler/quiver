@@ -200,7 +200,8 @@ async function readForecastAlignment(
 
 function appendBoardNote(whySentence: string, boardNote: string | null): string {
   if (!boardNote) return whySentence;
-  const sentence = `Board fit: ${boardNote}.`;
+  // The note is a whole sentence ("Big for a longboard at 5–6 ft."); keep one full stop.
+  const sentence = `Board fit: ${boardNote.replace(/\.+$/, '')}.`;
   return whySentence ? `${whySentence} ${sentence}` : sentence;
 }
 

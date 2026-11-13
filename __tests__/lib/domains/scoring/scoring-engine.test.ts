@@ -313,16 +313,18 @@ describe('Scoring Engine', () => {
       expect(result.subscores.get('baseConditions')).toBe(100);
     });
 
-    it('surfaces a "small wave caps score" reason when the ceiling applies', () => {
+    it('surfaces a "small surf" cap reason (code cap_small_surf) when the ceiling applies', () => {
       const engine = new ScoringEngine();
       engine.register(createMockScorer('perfect', 100, 1));
 
       const input = createInput({ waveHeight: 1.7 });
       const result = engine.score(input);
 
-      expect(
-        result.reasons.some((r) => /caps score at 55/.test(r))
-      ).toBe(true);
+      expect(result.total).toBe(55);
+      const index = result.reasonCodes?.indexOf('cap_small_surf') ?? -1;
+      expect(result.reasons[index]).toBe('Small surf at 1–2 ft.');
+      expect(result.warnings).toContain('Small surf at 1–2 ft.');
+      expect(result.warningCodes?.[result.warnings.indexOf('Small surf at 1–2 ft.')]).toBe('cap_small_surf');
     });
 
     it('leaves large-wave composite totals unchanged', () => {
@@ -343,9 +345,7 @@ describe('Scoring Engine', () => {
 
       // 5ft is uncapped (ceiling = 100). Composite should remain > 85.
       expect(result.total).toBeGreaterThan(85);
-      expect(
-        result.reasons.some((r) => /caps score/.test(r))
-      ).toBe(false);
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
     });
 
     it('does not cap when waveHeight is NaN (preserves legacy behavior)', () => {
@@ -356,9 +356,7 @@ describe('Scoring Engine', () => {
       const result = engine.score(input);
 
       expect(result.total).toBe(100);
-      expect(
-        result.reasons.some((r) => /caps score/.test(r))
-      ).toBe(false);
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
     });
 
     it('applies the 75 ceiling to waist-high 2.5ft waves', () => {
@@ -368,10 +366,8 @@ describe('Scoring Engine', () => {
       const input = createInput({ waveHeight: 2.5 });
       const result = engine.score(input);
 
-      expect(result.total).toBeLessThanOrEqual(75);
-      expect(
-        result.reasons.some((r) => /caps score at 75/.test(r))
-      ).toBe(true);
+      expect(result.total).toBe(75);
+      expect(result.reasons[result.reasonCodes?.indexOf('cap_small_surf') ?? -1]).toBe('Small surf at 2–3 ft.');
     });
   });
 

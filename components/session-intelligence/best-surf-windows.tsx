@@ -767,7 +767,7 @@ function ZineWindowEntry({
       <RipCurrentWarning beachId={beach.id} localDate={formatDateInTimezone(new Date(recommendation.startIso), recommendation.timezone)} timezone={recommendation.timezone} />
       {recommendation.watchouts.length > 0 && (
         <ul aria-label="Watchouts" className="border-l-4 border-[#B47A0F] bg-[#F7E7BE] px-3 py-2 text-sm">
-          {recommendation.watchouts.map((warning) => <li key={warning}>{warning.replace(/ caps score (?:at|to) \d+/i, "")}</li>)}
+          {recommendation.watchouts.map((warning) => <li key={warning}>{warning}</li>)}
         </ul>
       )}
       <p className="text-sm">Forecast confidence: {recommendation.confidence.level}.</p>

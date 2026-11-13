@@ -54,7 +54,7 @@ jest.mock("@/lib/utils/dev-force-verdict", () => ({
 const mockCheckBoardFit = jest.fn((..._args: unknown[]) => ({
   penalty: 0,
   bonus: 0,
-  note: "in the sweet spot for your longboard",
+  note: "Good longboard size at 2–3 ft.",
 }));
 jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
   const actual = jest.requireActual("@/lib/domains/scoring/discovery-adapter");
@@ -1365,7 +1365,7 @@ describe("GET /api/surf/call", () => {
       "longboard",
     );
     expect(body.data.report.whySentence).toContain(
-      "Board fit: in the sweet spot for your longboard.",
+      "Board fit: Good longboard size at 2–3 ft.",
     );
   });
 

@@ -106,7 +106,7 @@ export async function enrichWithPhotos(
  *
  * @example
  * generateDiscoverySummary(beach, window, score)
- * // => "Excellent match at Black's Beach - 4-5 ft with 5 mph offshore. Below your preferred size."
+ * // => "Excellent match at Black's Beach - 4-5 ft with 5 mph offshore."
  */
 export function generateDiscoverySummary(
   beach: Beach,
@@ -124,20 +124,13 @@ export function generateDiscoverySummary(
             ? 'Minimal conditions'
             : 'Fair conditions';
 
-  const preferredSizeWarning = score.warnings.find(
-    (w) =>
-      w.startsWith('Below your preferred size') ||
-      w.startsWith('Above your preferred size')
-  );
-
-  const warningSuffix = preferredSizeWarning ? ` ${preferredSizeWarning}.` : '';
 
   const wind = window.wind?.trim();
   const windClause = wind && wind.toLowerCase() !== 'unknown' ? ` with ${wind}` : '';
   const height = window.waveHeight?.trim();
   const heightClause = height && height.toLowerCase() !== 'unknown' ? ` - ${height}` : '';
 
-  return `${matchDesc} at ${beach.name}${heightClause}${windClause}.${warningSuffix}`;
+  return `${matchDesc} at ${beach.name}${heightClause}${windClause}.`;
 }
 
 // ============================================================================
