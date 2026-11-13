@@ -107,7 +107,7 @@ import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } f
 import { bridgeBeachForecastRows } from '@/lib/services/discovery/hourly-bridge-rows';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
-import { reasonContradictsVerdict } from '@/lib/domains/scoring/reason-sentences';
+import { reasonContradictsVerdict, reasonFactFor } from '@/lib/domains/scoring/reason-sentences';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
@@ -790,9 +790,14 @@ function buildDraftWindow(args: {
     ...(sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : []),
     ...personalization.reasons, ...detailed.reasons,
   ];
-  // A "Good size" takeaway beside a skip contradicts the chip; no line is the honest state.
-  const takeaway = reasons[0] && !reasonContradictsVerdict(reasons[0], detailed.reasonFacts, label === 'Skip')
+  // The sources warning leads when present; otherwise the wave sentence beats a
+  // personalization line, which can name the surfer's level (Steven: never).
+  const lead = sourcesDisagree
     ? reasons[0]
+    : reasons.find((reason) => reasonFactFor(reason, detailed.reasonFacts) !== null) ?? reasons[0];
+  // A "Good size" takeaway beside a skip contradicts the chip; no line is the honest state.
+  const takeaway = lead && !reasonContradictsVerdict(lead, detailed.reasonFacts, label === 'Skip')
+    ? lead
     : null;
 
   return {

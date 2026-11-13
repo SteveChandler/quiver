@@ -2431,4 +2431,19 @@ describe('Week Scout takeaway from scorer reasons', () => {
     expect(shown.length).toBeGreaterThan(0);
     expect(shown.every((window) => window.takeaway === null)).toBe(true);
   });
+
+  it('prefers the wave sentence over a personalization line, so the takeaway never names the surfer level', async () => {
+    const deps = depsWithReasons(78);
+    deps.calculatePersonalizationBonus = jest.fn(() => ({
+      affinityBonus: 0, personalizationBonus: 0, reasons: ['Conditions at Avalanche match your experience level today'],
+    }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+  });
 });
