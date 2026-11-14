@@ -53,7 +53,29 @@ describe("Week Scout story response", () => {
     mockForecast.mockResolvedValue(WEEK_SCOUT_CONTRACT_FIXTURE);
     delete process.env.WEEK_SCOUT_STORY_ENABLED;
   });
-  afterEach(() => { delete process.env.WEEK_SCOUT_STORY_ENABLED; jest.useRealTimers(); });
+  afterEach(() => {
+    delete process.env.WEEK_SCOUT_STORY_ENABLED;
+    delete process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST;
+    jest.useRealTimers();
+  });
+
+  it("serves the story only to an allowlisted user when an allowlist is set", async () => {
+    const absent = await call(WEEK_SCOUT_CONTRACT_BEACH_ID);
+    process.env.WEEK_SCOUT_STORY_ENABLED = "true";
+    mockStory.mockImplementation(async ({ live }: { live: typeof WEEK_SCOUT_CONTRACT_FIXTURE }) => ({
+      schemaVersion: 3, region: "south-shore", availability: "ready",
+      cover: { text: "A south swell approaches.", swells: [] }, lead: "The week builds.", turn: null,
+      chapters: [], days: storyDays(live),
+    }));
+    process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "someone-else, another-user";
+    const offList = await call(WEEK_SCOUT_CONTRACT_BEACH_ID);
+    expect(offList.raw).toBe(absent.raw);
+    expect(mockStory).not.toHaveBeenCalled();
+
+    process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "someone-else, story-user";
+    const onList = await call(WEEK_SCOUT_CONTRACT_BEACH_ID);
+    expect((onList.data.story as { availability: string }).availability).toBe("ready");
+  });
 
   it("keeps the complete response byte-identical when the flag is absent or false", async () => {
     const absent = await call(null);

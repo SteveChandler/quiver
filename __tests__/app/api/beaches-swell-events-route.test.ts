@@ -570,6 +570,59 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     expect(loadStoryInput).toHaveBeenCalledWith(client, "written-input-hash");
   });
 
+  it("serves the written sentences only to an allowlisted user when an allowlist is set", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const scene = { lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) };
+    stage(scene);
+    await call(beaches[0].id);
+    const { build } = jest.mocked(narrateRegionEvents).mock.calls[0][0];
+    const today = localDate(0);
+    const facts = buildEventCandidates(build, storyEventsFromRegion(build, today).all, buildRegionGateContext(build, today), NOW);
+    const story = facts.find((fact) => fact.slot.endsWith(":story"))!;
+    const generatedAt = new Date(NOW.getTime() - 3_600_000).toISOString();
+    const input: StoryInput = {
+      schemaVersion: 3, region: REGION, editionDate: today, sourcePublishedAt: generatedAt,
+      validUntil: new Date(NOW.getTime() + 86_400_000).toISOString(),
+      briefing: { schemaVersion: 3, editionDate: today, generatedAt, selections: [] }, copyFacts: facts,
+      beachNames: Object.fromEntries(beaches.map((item) => [item.id, item.name])),
+      provenance: { sourceIds: [], sourceHashes: [], generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: [], coverageDates: [] },
+      inputHash: "allowlist-input-hash",
+    };
+    const writtenStory = "West storm swell shows up and peaks Monday, then is gone by Tuesday.";
+    jest.mocked(loadLatestStoryEdition).mockResolvedValue({
+      artifactId: "allowlist-artifact", schemaVersion: 3, region: REGION, editionDate: today, inputHash: input.inputHash,
+      sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil, generationVersion: "week-scout-story-2", model: "gemma",
+      briefing: { ...input.briefing, selections: facts.map((fact) => fact.id), written: [
+        { slot: story.slot, basedOn: story.id, text: writtenStory },
+      ] },
+      provenance: input.provenance,
+    });
+    jest.mocked(loadStoryInput).mockResolvedValue(input);
+    const OTHER_USER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const storyFor = async (user: { id: string } | null): Promise<string | null | undefined> => {
+      stage({ ...scene, user });
+      const { status, data } = await call(beaches[0].id);
+      expect(status).toBe(200);
+      return stormEvent(data.events)?.story;
+    };
+
+    try {
+      process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = `${OTHER_USER}, ${USER_ID}`;
+      jest.mocked(loadLatestStoryEdition).mockClear();
+      expect(await storyFor({ id: USER_ID })).toBe(writtenStory);
+      expect(loadLatestStoryEdition).toHaveBeenCalledTimes(1);
+
+      process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = OTHER_USER;
+      jest.mocked(loadLatestStoryEdition).mockClear();
+      expect(await storyFor({ id: USER_ID })).toBe(STORM_STORY);
+      expect(await storyFor(null)).toBe(STORM_STORY);
+      // Off the list, the edition is never read.
+      expect(loadLatestStoryEdition).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST;
+    }
+  });
+
   it("reads no story edition when the region has only early looks", async () => {
     const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
     stage({
