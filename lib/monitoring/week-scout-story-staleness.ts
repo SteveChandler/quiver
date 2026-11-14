@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { localDate } from "@/lib/services/discovery/local-date";
 import { activeStoryRegions } from "@/lib/services/discovery/week-scout-story-store";
+import { WRITTEN_GENERATION_VERSIONS } from "@/lib/services/discovery/week-scout-story-types";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -16,7 +17,7 @@ type ActiveRegion = { region: string; timezone: string };
 
 export interface StoryStalenessReads {
   activeRegions(): Promise<ActiveRegion[]>;
-  /** True when the region has at least one edition for that local date. */
+  /** True when the region has at least one edition with written sentences for that local date. */
   hasEdition(region: string, editionDate: string): Promise<boolean>;
 }
 
@@ -32,7 +33,9 @@ type EditionsDb = {
     select: (cols: string) => {
       eq: (col: string, value: string) => {
         eq: (col: string, value: string) => {
-          limit: (n: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+          in: (col: string, values: string[]) => {
+            limit: (n: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+          };
         };
       };
     };
@@ -50,6 +53,8 @@ export function supabaseStoryStalenessReads(
         .select("region")
         .eq("region", region)
         .eq("edition_date", editionDate)
+        // The server serves only these generations; a -1 edition still leaves phones on fallback text.
+        .in("generation_version", [...WRITTEN_GENERATION_VERSIONS])
         .limit(1);
       if (error) throw new Error("story_edition_read_failed");
       return Array.isArray(data) && data.length > 0;
@@ -93,8 +98,9 @@ export async function checkWeekScoutStoryStaleness(
     return { healthy: false, reason: "read_failed", detail: `editions: ${message(error)}`, staleRegions: [] };
   }
 
-  const staleRegions = regions.filter(({ region }) => !fresh.get(region)).map(({ region }) => region).sort();
-  const freshRegions = regions.length - staleRegions.length;
+  // Counts use the active list; the missing list also names San Diego when it is off that list.
+  const freshRegions = regions.filter(({ region }) => fresh.get(region)).length;
+  const staleRegions = checked.filter(({ region }) => !fresh.get(region)).map(({ region }) => region).sort();
 
   if (freshRegions * 2 < regions.length) {
     return {
@@ -106,12 +112,11 @@ export async function checkWeekScoutStoryStaleness(
   }
   if (!fresh.get(STORY_SENTINEL_REGION)) {
     const sentinelDate = localDate(now, checked.find(({ region }) => region === STORY_SENTINEL_REGION)!.timezone);
-    const allStale = staleRegions.includes(STORY_SENTINEL_REGION) ? staleRegions : [...staleRegions, STORY_SENTINEL_REGION].sort();
     return {
       healthy: false,
       reason: "sentinel_stale",
-      detail: `${STORY_SENTINEL_REGION} has no edition for ${sentinelDate}; ${freshRegions} of ${regions.length} active regions have today's edition; missing: ${allStale.join(", ")}`,
-      staleRegions: allStale,
+      detail: `${STORY_SENTINEL_REGION} has no edition for ${sentinelDate}; ${freshRegions} of ${regions.length} active regions have today's edition; missing: ${staleRegions.join(", ")}`,
+      staleRegions,
     };
   }
   return { healthy: true, activeRegions: regions.length, freshRegions, staleRegions };

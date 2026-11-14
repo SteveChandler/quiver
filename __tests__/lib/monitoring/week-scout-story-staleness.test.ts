@@ -84,7 +84,23 @@ describe("checkWeekScoutStoryStaleness", () => {
     const result = await checkWeekScoutStoryStaleness(fake, NOW);
 
     expect(fake.asked).toContainEqual({ region: "San Diego", editionDate: "2026-11-14" });
-    expect(result).toMatchObject({ healthy: false, reason: "sentinel_stale" });
+    expect(result).toMatchObject({ healthy: false, reason: "sentinel_stale", staleRegions: ["San Diego"] });
+    expect(!result.healthy && result.detail).toContain("3 of 3 active regions");
+  });
+
+  it("names an off-list San Diego among the missing regions when too few regions are fresh", async () => {
+    const others = REGIONS.filter(({ region }) => region !== STORY_SENTINEL_REGION);
+
+    const result = await checkWeekScoutStoryStaleness(reads(others, { Oahu: "2026-11-14" }), NOW);
+
+    expect(result).toMatchObject({
+      healthy: false,
+      reason: "too_few_editions",
+      staleRegions: ["Jersey Shore", "Orange County", "San Diego"],
+    });
+    expect(!result.healthy && result.detail).toBe(
+      "1 of 3 active regions have today's edition; missing: Jersey Shore, Orange County, San Diego",
+    );
   });
 
   it("is red when fewer than half of the active regions have today's edition, listing the count and the missing regions", async () => {
@@ -178,6 +194,7 @@ describe("supabaseStoryStalenessReads", () => {
     const chain = {
       select: (cols: string) => { calls.push(["select", cols]); return chain; },
       eq: (col: string, value: unknown) => { calls.push(["eq", col, value]); return chain; },
+      in: (col: string, values: unknown[]) => { calls.push(["in", col, values]); return chain; },
       limit: (n: number) => { calls.push(["limit", n]); return Promise.resolve(result); },
     };
     return {
@@ -189,7 +206,7 @@ describe("supabaseStoryStalenessReads", () => {
     };
   }
 
-  it("reads one row of the region's edition for that exact date, without writing", async () => {
+  it("reads one row of the region's written edition for that exact date, without writing", async () => {
     const fake = client({ data: [{ region: "Oahu" }], error: null });
 
     const found = await supabaseStoryStalenessReads(fake.client as never).hasEdition("Oahu", "2026-11-14");
@@ -200,6 +217,8 @@ describe("supabaseStoryStalenessReads", () => {
       ["select", "region"],
       ["eq", "region", "Oahu"],
       ["eq", "edition_date", "2026-11-14"],
+      // A -1 edition carries no written sentences, so the server does not serve it.
+      ["in", "generation_version", ["week-scout-story-2", "week-scout-story-3"]],
       ["limit", 1],
     ]);
   });
