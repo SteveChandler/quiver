@@ -23,6 +23,8 @@ import {
 export interface TideMetaData {
   /** tide_forecasts.source of the series read; "fes2022" marks model tides, which need a source note. */
   source?: string | null;
+  /** tide_forecasts.station_id of the series read: the NOAA station whose table the rows interpolate. */
+  stationId?: string | null;
   /** Next high tide time formatted for display (e.g., "2:30 PM") */
   nextHighTime: string | null;
   /** Next low tide time formatted for display (e.g., "8:45 AM") */
@@ -155,6 +157,7 @@ export const getTideMetaData = cache(
   async (beachId: string, beachTimezone?: string | null): Promise<TideMetaData> => {
     const nullResult: TideMetaData = {
       source: null,
+      stationId: null,
       nextHighTime: null,
       nextLowTime: null,
       nextHighHeight: null,
@@ -188,6 +191,7 @@ export const getTideMetaData = cache(
 
     return {
       source: selectedRows[0]?.source ?? null,
+      stationId: selectedRows[0]?.station_id ?? null,
       nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
       nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
       nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,

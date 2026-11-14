@@ -16,6 +16,9 @@ import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
+import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
+import { StationTideProvider } from "@/components/beach-detail/station-tide-context";
+import { buildCityTideView, loadStationTideView } from "@/lib/tides/city-tide-view";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import type { Beach } from "@/types/database";
 import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
@@ -46,6 +49,12 @@ jest.mock("@/actions/beach/beach-location-actions", () => ({
 
 jest.mock("@/lib/seo/tide-meta-data", () => ({
   getTideMetaData: jest.fn(),
+  tideExtremesWindow: jest.requireActual("@/lib/seo/tide-meta-data").tideExtremesWindow,
+}));
+
+jest.mock("@/lib/tides/city-tide-view", () => ({
+  ...jest.requireActual("@/lib/tides/city-tide-view"),
+  loadStationTideView: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock("@/lib/seo/water-temp-meta-data", () => ({
@@ -205,6 +214,47 @@ describe("renderBeachSubPage static rendering", () => {
     const dataset = getPageChildren(page).find((child) => child.type === TideDatasetSchema);
 
     expect(dataset).toMatchObject({ props: { source } });
+  });
+
+  it("shows the station's own next tides in the hero and gives the client the same table", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-14T19:13:00Z"));
+    (getTideMetaData as jest.MockedFunction<typeof getTideMetaData>).mockResolvedValue({
+      source: "noaa_hilo_interpolated",
+      stationId: "1612668",
+      nextHighTime: "7:00 PM",
+      nextHighHeight: 0.4,
+      nextLowTime: "2:00 PM",
+      nextLowHeight: 0.3,
+      nextHighAt: "2026-11-15T05:00:00Z",
+      nextLowAt: "2026-11-15T00:00:00Z",
+    });
+    jest.mocked(loadStationTideView).mockResolvedValueOnce(
+      buildCityTideView({
+        timeZone: "Pacific/Honolulu",
+        renderedAtMs: Date.now(),
+        station: { name: "Haleiwa, Waialua Bay", slug: "haleiwa-waialua-bay-hi-1612668", sourceStationId: "1612668" },
+        hourly: [],
+        extremes: [
+          { ts: "2026-11-14T23:27:00Z", type: "low", heightM: 0.09 },
+          { ts: "2026-11-15T04:47:00Z", type: "high", heightM: 0.13 },
+        ],
+      }),
+    );
+
+    const page = await renderBeachSubPage({
+      beachSlug: "blacks",
+      pageType: "tides",
+      beachPath: "/ca/san-diego/blacks",
+    }) as PageTreeElement;
+    const children = getPageChildren(page);
+    const hero = children.find((child) => child.type === TideSummaryHero);
+    const provider = children.find((child) => child.type === StationTideProvider);
+
+    expect(hero?.props).toMatchObject({
+      tideData: { nextLowTime: "1:27 PM", nextHighTime: "6:47 PM" },
+    });
+    expect((provider?.props as { value?: { schedule: unknown[] } }).value?.schedule).toHaveLength(2);
+    jest.restoreAllMocks();
   });
 
   it("wires available water-temperature data into the zine hero", async () => {
