@@ -13,7 +13,15 @@ import { createContextLogger } from '@/lib/logger';
 
 const log = createContextLogger('OpenMeteoWind');
 
-const BASE_URL = 'https://api.open-meteo.com/v1/forecast';
+const BASE_URLS = {
+  primary: 'https://api.open-meteo.com/v1/forecast',
+  // Same models and query on a separate Open-Meteo server. It serves the
+  // latest runs through the forecast horizon we ask for (48 h). Used only
+  // when the primary host gives no HTTP response (Nov 2026 outage).
+  fallback: 'https://historical-forecast-api.open-meteo.com/v1/forecast',
+} as const;
+
+export type OpenMeteoWindHost = keyof typeof BASE_URLS;
 
 export interface OpenMeteoWindPoint {
   ts: string;             // ISO8601 UTC
@@ -35,7 +43,11 @@ interface OpenMeteoHourlyResponse {
  * Build the Open-Meteo Weather API URL for hourly wind data.
  * Requests 48 hours of forecast data.
  */
-export function buildOpenMeteoWindUrl(lat: number, lon: number): string {
+export function buildOpenMeteoWindUrl(
+  lat: number,
+  lon: number,
+  host: OpenMeteoWindHost = 'primary'
+): string {
   const params = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lon),
@@ -44,7 +56,7 @@ export function buildOpenMeteoWindUrl(lat: number, lon: number): string {
     forecast_days: '2',
     timezone: 'UTC',
   });
-  return `${BASE_URL}?${params.toString()}`;
+  return `${BASE_URLS[host]}?${params.toString()}`;
 }
 
 /**
@@ -88,16 +100,17 @@ export function isOpenMeteoUpstreamError(err: unknown): boolean {
  */
 export async function fetchHourlyWindOrThrow(
   lat: number,
-  lon: number
+  lon: number,
+  host: OpenMeteoWindHost = 'primary'
 ): Promise<OpenMeteoWindPoint[]> {
-  const url = buildOpenMeteoWindUrl(lat, lon);
+  const url = buildOpenMeteoWindUrl(lat, lon, host);
   const response = await fetch(url, {
     headers: { 'User-Agent': 'QuiverSurf/1.0 (wind-cron)' },
     signal: AbortSignal.timeout(10000),
   });
 
   if (!response.ok) {
-    log.warn(`Open-Meteo wind API returned ${response.status} for ${lat},${lon}`);
+    log.warn(`Open-Meteo wind API (${host}) returned ${response.status} for ${lat},${lon}`);
     return [];
   }
 
