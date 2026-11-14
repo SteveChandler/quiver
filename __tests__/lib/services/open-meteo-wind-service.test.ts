@@ -18,6 +18,15 @@ describe('buildOpenMeteoWindUrl', () => {
     expect(url).toContain('wind_gusts_10m');
     expect(url).toContain('hourly=');
   });
+
+  it('builds the same query on the fallback host', () => {
+    const primary = new URL(buildOpenMeteoWindUrl(32.7157, -117.1611));
+    const fallback = new URL(buildOpenMeteoWindUrl(32.7157, -117.1611, 'fallback'));
+    expect(primary.host).toBe('api.open-meteo.com');
+    expect(fallback.host).toBe('historical-forecast-api.open-meteo.com');
+    expect(fallback.pathname).toBe(primary.pathname);
+    expect(fallback.search).toBe(primary.search);
+  });
 });
 
 describe('parseOpenMeteoWindResponse', () => {

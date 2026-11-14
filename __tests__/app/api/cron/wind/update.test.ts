@@ -302,7 +302,7 @@ describe("GET /api/cron/wind/update", () => {
     ]);
   });
 
-  it("stops after two batches in which every Open-Meteo fetch times out", async () => {
+  it("stops after two batches on each host in which every Open-Meteo fetch times out", async () => {
     mockClient(580, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
     (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
 
@@ -310,19 +310,24 @@ describe("GET /api/cron/wind/update", () => {
     expect(response.status).toBe(503);
     const body = await response.json();
 
-    expect(fetchHourlyWind).toHaveBeenCalledTimes(20);
+    // 20 on the primary host, then the same 20 again on the fallback host.
+    expect(fetchHourlyWind).toHaveBeenCalledTimes(40);
+    const hosts = (fetchHourlyWind as jest.Mock).mock.calls.map((c) => c[2]);
+    expect(hosts.slice(0, 20).every((h) => h === "primary")).toBe(true);
+    expect(hosts.slice(20).every((h) => h === "fallback")).toBe(true);
     expect(rpcCalls).toHaveLength(0);
     expect(body.error).toMatch(/^upstream_unavailable: /);
     expect(body.details).toMatchObject({
       beaches: 580,
-      attemptedBeaches: 20,
+      attemptedBeaches: 40,
       updated: 0,
-      fetchErrors: 20,
-      upstreamFetchErrors: 20,
+      fetchErrors: 40,
+      upstreamFetchErrors: 40,
+      windHost: "fallback",
       stoppedReason: "upstream_unavailable",
     });
-    expect(lastFailureReason(body.details)).toMatch(/^upstream_unavailable: Open-Meteo wind .*2 consecutive batches.*TimeoutError/);
-    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+    expect(lastFailureReason(body.details)).toMatch(/^upstream_unavailable: Open-Meteo wind .*2 consecutive batches on both hosts.*TimeoutError/);
+    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("names the connection error code in the upstream reason", async () => {
@@ -336,7 +341,7 @@ describe("GET /api/cron/wind/update", () => {
 
     expect(response.status).toBe(503);
     expect(body.error).toContain("(TypeError/ECONNREFUSED)");
-    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("names only the errors of the failed streak in the stop reason", async () => {
@@ -355,7 +360,7 @@ describe("GET /api/cron/wind/update", () => {
     expect(response.status).toBe(503);
     expect(body.error).toContain("(TypeError/ECONNREFUSED)");
     expect(body.error).not.toContain("AbortError");
-    expectConsoleWarnings([/\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("resets the breaker when a batch has one good Open-Meteo fetch", async () => {
@@ -400,6 +405,45 @@ describe("GET /api/cron/wind/update", () => {
     expect(body.data).toMatchObject({ fetchErrors: 30, upstreamFetchErrors: 0, stoppedReason: null });
     // Zero rows still fails the outcome through expectedMin; it is just not an upstream stop.
     expect(lastFailureReason(body.data)).toBeNull();
+    expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("switches to the fallback host when the primary host gives no HTTP response", async () => {
+    mockClient(40, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockImplementation(async (_lat: number, _lon: number, host: string) => {
+      if (host === "fallback") return makeWindPoints(48);
+      throw timeoutError();
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    // 20 primary timeouts, then all 40 beaches (the first 20 retried) on the fallback.
+    expect(fetchHourlyWind).toHaveBeenCalledTimes(60);
+    expect(rpcCalls).toHaveLength(40);
+    expect(new Set(rpcCalls.map((c) => c.args.p_beach_id)).size).toBe(40);
+    expect(body.data).toMatchObject({
+      updated: 40 * 8,
+      windHost: "fallback",
+      stoppedReason: null,
+    });
+    expect(body.data.primaryDownDetail).toMatch(/primary host gave no HTTP response in 2 consecutive batches \(TimeoutError\)/);
+    expect(lastFailureReason(body.data)).toBeNull();
+    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("stays on the primary host when fetches fail with non-network errors", async () => {
+    mockClient(30, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    const hosts = (fetchHourlyWind as jest.Mock).mock.calls.map((c) => c[2]);
+    expect(hosts).toHaveLength(30);
+    expect(hosts.every((h) => h === "primary")).toBe(true);
+    expect(body.data).toMatchObject({ windHost: "primary", primaryDownDetail: null });
     expectConsoleWarnings([/\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
