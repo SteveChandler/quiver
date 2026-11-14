@@ -30,9 +30,34 @@ const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
 // Change seaside QUIVER_SEA_LEVEL_OFFSET_IN with it.
 const CALIFORNIA_SEA_LEVEL_OFFSET_FT = 1.5;
 
-/** Feet to add to predicted tide heights at a CO-OPS station (California IDs start with 941). */
+// Subordinate stations whose ids do not start with 941 but whose NOAA table is a 941* reference
+// station's table plus offsets, so their water carries the same anomaly. From NOAA mdapi
+// stations.json?type=tidepredictions (reference_id), Nov 14 2026; matches tide_stations.
+const SUBORDINATES_OF_CALIFORNIA_REFERENCE = new Set([
+  // 9410170 San Diego
+  "TWC0379", "TWC0381", "TWC0383", "TWC0385", "TWC0387", "TWC0389", "TWC0399", "TWC0401",
+  "TWC0403", "TWC0405", "TWC0413", "TWC0419",
+  // 9410660 Los Angeles
+  "TWC0427", "TWC0439", "TWC0445", "TWC0463",
+  // 9412110 Port San Luis
+  "TWC0473",
+  // 9414290 San Francisco
+  "TWC0547", "TWC0649",
+  // 9416841 Arena Cove
+  "TWC0771", "TWC0777",
+  // 9419750 Crescent City
+  "9430104", "9435362", "9435385", "9436031", "9436101", "9437262", "9437331", "9437581",
+  "9437815", "9437908", "TWC0817", "TWC0857", "TWC0863", "TWC0865",
+]);
+
+/**
+ * Feet to add to predicted tide heights at a CO-OPS station: California ids start with 941, and a
+ * subordinate station takes its 941* reference station's adjustment (Steven, Nov 11 2026).
+ */
 export function seaLevelOffsetFt(stationId: string): number {
-  return stationId.startsWith("941") ? CALIFORNIA_SEA_LEVEL_OFFSET_FT : 0;
+  return stationId.startsWith("941") || SUBORDINATES_OF_CALIFORNIA_REFERENCE.has(stationId)
+    ? CALIFORNIA_SEA_LEVEL_OFFSET_FT
+    : 0;
 }
 
 /**
