@@ -111,6 +111,9 @@ export interface CompositeScore {
   /** `reasonCodes[i]` is the scorer code of `reasons[i]`, null for text from other scorers. */
   readonly reasonCodes?: readonly ReasonCode[];
 
+  /** `warningCodes[i]` is the code of `warnings[i]`, null for text with no code. */
+  readonly warningCodes?: readonly ReasonCode[];
+
   /** Combined warnings */
   readonly warnings: readonly string[];
 

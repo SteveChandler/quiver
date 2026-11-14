@@ -54,6 +54,18 @@ describe("ZineHeroMedia", () => {
     expect(screen.getByRole("link", { name: "Jo" })).toHaveAttribute("href", "/profile/profile-1");
   });
 
+  it("shows no camera label when a beach's camera was retired", () => {
+    render(
+      <ZineHeroMedia
+        {...mediaProps}
+        sources={{ camera_url: null, cam_unavailable: true } as BeachSources}
+      />,
+    );
+
+    expect(screen.queryByText(/camera unavailable/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cam-still")).not.toBeInTheDocument();
+  });
+
   it("uses the labeled map when media is missing", () => {
     render(<ZineHeroMedia {...mediaProps} />);
 

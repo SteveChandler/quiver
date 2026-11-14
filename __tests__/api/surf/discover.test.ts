@@ -174,10 +174,13 @@ function makeDiscoveryResponse() {
           distancePenalty: -5,
         },
         summary: "Best window around late morning",
+        // Personalization lines as the layer writes them now: wind and tide facts.
+        // "Matches your surfing patterns" is no longer produced; an engagement-only
+        // line still exercises the conservative filter.
         reasons: [
-          "Wave size matches your sweet spot",
-          "Wind matches your usual sessions",
-          "Matches your surfing patterns",
+          "Light NE wind.",
+          "Rising tide.",
+          "Lifted by your recent engagement",
         ],
         warnings: [],
         conditionBadges: [
@@ -990,13 +993,13 @@ describe("/api/surf/discover entitlement resolution", () => {
       photo_url: "https://cdn.quiver.test/ob.jpg",
     });
     expect(body.data.recommendations[0].personalExplanation).toEqual(
-      expect.stringContaining("Wave size matches your sweet spot")
+      expect.stringContaining("Light NE wind.")
     );
     expect(body.data.recommendations[0].personalExplanation).toEqual(
-      expect.stringContaining("Wind matches your usual sessions")
+      expect.stringContaining("Rising tide.")
     );
     expect(body.data.recommendations[0].personalExplanation).not.toEqual(
-      expect.stringContaining("Matches your surfing patterns")
+      expect.stringContaining("engagement")
     );
     expect(body.data.sessionDecision).toMatchObject({
       schemaVersion: "canonical-session-decision.v1",

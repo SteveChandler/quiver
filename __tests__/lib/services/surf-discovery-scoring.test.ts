@@ -651,7 +651,7 @@ describe("discoverSurfSpots scoring behavior", () => {
     expect(rec.score).toBeGreaterThanOrEqual(60);
     // Score should be higher than what a beginner would get (50 or less)
     // The key difference is: NO skill ceiling warning for advanced users
-    expect(rec.warnings.some(w => w.includes('exceed your skill level'))).toBe(false);
+    expect(rec.warningCodes ?? []).not.toContain('caution_size_over');
   });
 
   it("gives low score and warning to beginner when waves are 8ft", async () => {
@@ -690,7 +690,10 @@ describe("discoverSurfSpots scoring behavior", () => {
     // Penalty = min(25, 4 * 8) = 25 points
     expect(rec.score).toBeLessThanOrEqual(70);
     // Should have skill ceiling warning
-    expect(rec.warnings.some(w => w.includes('exceed your skill level'))).toBe(true);
+    // The big-surf caution leads the warnings, in the waves' own words.
+    expect(rec.warningCodes?.[0]).toBe('caution_size_over');
+    expect(rec.warnings[0]).toMatch(/^Heads up: (much bigger surf today|a big jump in size today|bigger surf today) at \d+–\d+ ft\./);
+    expect(rec.warnings.join(' ')).not.toMatch(/skill level|your usual range/);
   });
 
   it("gives bonus to intermediate user when waves match skill ideal range", async () => {
@@ -727,7 +730,8 @@ describe("discoverSurfSpots scoring behavior", () => {
     // Should get a reasonable score with bonus for waves matching skill level
     expect(rec.score).toBeGreaterThanOrEqual(60);
     // Should have reason about conditions matching experience level
-    expect(rec.reasons.some(r => r.includes('match your experience level') || r.includes('Great wave size for your level'))).toBe(true);
+    // The bonus stays; no line names the surfer's level any more.
+    expect(rec.reasons.join(' ')).not.toMatch(/experience level|for your level/);
   });
 });
 

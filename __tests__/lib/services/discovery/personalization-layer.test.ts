@@ -260,9 +260,9 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // 15 * 0.8 = 12
+      // 15 * 0.8 = 12. The bonus stays; the line is gone (Steven: no "your sweet spot").
       expect(result.personalizationBonus).toBeCloseTo(12);
-      expect(result.reasons).toContain('Wave size matches your sweet spot');
+      expect(result.reasons).toEqual([]);
     });
 
     it('adds 0 when learned prefs confidence is at or below 0.5', () => {
@@ -276,7 +276,7 @@ describe('calculatePersonalizationBonus', () => {
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Wave size matches your sweet spot');
+      expect(result.reasons).toEqual([]);
     });
 
     it('adds 0 from wave range when learned prefs confidence is below threshold (0.3)', () => {
@@ -354,14 +354,35 @@ describe('calculatePersonalizationBonus', () => {
       mockMatchesLearnedTidePrefs.mockReturnValue(false);
 
       const beach = makeBeach();
-      const forecast = makeForecast({ wind_speed: '10', wind_direction: '280' });
+      const forecast = makeForecast({ wind_speed: '6', wind_direction: 'W' });
       const context = makeContext({ learnedPrefs: learned });
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       // 10 * 0.8 = 8
       expect(result.personalizationBonus).toBeCloseTo(8);
-      expect(result.reasons).toContain('Wind matches your usual sessions');
+      expect(result.reasons).toEqual(['Light W wind.']);
+      expect(result.reasonCodes).toEqual(['wind_light']);
+    });
+
+    it.each([
+      ['wind not light (10 mph)', '10', 'W'],
+      ['direction is a degree number', '6', '280'],
+      ['no direction', '6', ''],
+    ])('keeps the bonus but says no wind line when %s', (_label, speed, direction) => {
+      const learned = makeLearnedPrefs({ confidence: 0.8, max_wind_mph: 15, preferred_wind_directions: [270] });
+      mockMatchesLearnedWaveRange.mockReturnValue(false);
+      mockMatchesLearnedWindPrefs.mockReturnValue(true);
+      mockMatchesLearnedTidePrefs.mockReturnValue(false);
+
+      const result = calculatePersonalizationBonus(
+        makeBeach(),
+        makeForecast({ wind_speed: speed, wind_direction: direction }),
+        makeContext({ learnedPrefs: learned }),
+      );
+
+      expect(result.personalizationBonus).toBeCloseTo(8);
+      expect(result.reasons).toEqual([]);
     });
 
     it('adds 0 from wind when wind conditions do not match', () => {
@@ -379,7 +400,7 @@ describe('calculatePersonalizationBonus', () => {
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Wind matches your usual sessions');
+      expect(result.reasons).toEqual([]);
     });
   });
 
@@ -401,7 +422,8 @@ describe('calculatePersonalizationBonus', () => {
 
       // 8 * 0.8 = 6.4
       expect(result.personalizationBonus).toBeCloseTo(6.4);
-      expect(result.reasons).toContain('Tide matches your usual sessions');
+      expect(result.reasons).toEqual(['Rising tide.']);
+      expect(result.reasonCodes).toEqual(['tide_now']);
     });
 
     it('adds 0 from tide when tide status does not match', () => {
@@ -418,7 +440,21 @@ describe('calculatePersonalizationBonus', () => {
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Tide matches your usual sessions');
+      expect(result.reasons).toEqual([]);
+    });
+  });
+
+  describe('tide fact words', () => {
+    it.each(['N/a', 'unknown', 'Slack-ish', ''])('keeps the bonus but says no tide line for "%s"', (status) => {
+      const learned = makeLearnedPrefs({ confidence: 0.8, preferred_tide_statuses: ['rising'] });
+      mockMatchesLearnedWaveRange.mockReturnValue(false);
+      mockMatchesLearnedWindPrefs.mockReturnValue(false);
+      mockMatchesLearnedTidePrefs.mockReturnValue(true);
+
+      const result = calculatePersonalizationBonus(makeBeach(), makeForecast({ tide_status: status }), makeContext({ learnedPrefs: learned }));
+
+      expect(result.personalizationBonus).toBeCloseTo(6.4);
+      expect(result.reasons).toEqual([]);
     });
   });
 
@@ -440,8 +476,9 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
+      // The implicit bonus stays; the line is gone.
       expect(result.personalizationBonus).toBe(8);
-      expect(result.reasons).toContain('Matches your surfing patterns');
+      expect(result.reasons).toEqual([]);
     });
 
     it('does not add implicit bonus when implicitWeight is 0', () => {
@@ -496,7 +533,7 @@ describe('calculatePersonalizationBonus', () => {
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
       expect(result.personalizationBonus).toBe(0);
-      expect(result.reasons).not.toContain('Matches your surfing patterns');
+      expect(result.reasons).toEqual([]);
     });
 
     it('passes correct forecastData to calculateImplicitBonus', () => {
@@ -705,8 +742,8 @@ describe('calculatePersonalizationBonus', () => {
       expect(result.personalizationBonus).toBeCloseTo(12);
       expect(result.affinityBonus).toBeCloseTo(4);
       expect(result.total).toBeCloseTo(16);
-      expect(result.reasons).toContain('Wave size matches your sweet spot');
-      expect(result.reasons).toContain("One of your go-to spots");
+      expect(result.reasons).toEqual(["One of your go-to spots"]);
+      expect(result.reasonCodes).toEqual(['go_to_spot']);
     });
 
     it('includes all three learned prefs bonuses when all match', () => {
@@ -721,11 +758,9 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // Raw learned bonus is 26.4, capped at 12.
+      // Raw learned bonus is 26.4, capped at 12. Default row: 8 mph (not light), rising tide.
       expect(result.personalizationBonus).toBeCloseTo(12);
-      expect(result.reasons).toContain('Wave size matches your sweet spot');
-      expect(result.reasons).toContain('Wind matches your usual sessions');
-      expect(result.reasons).toContain('Tide matches your usual sessions');
+      expect(result.reasons).toEqual(['Rising tide.']);
     });
 
     it('total equals affinityBonus + personalizationBonus', () => {
@@ -801,8 +836,8 @@ describe('calculatePersonalizationBonus', () => {
       const beach = makeBeach({ break_type: 'reef' });
       const forecast = makeForecast({
         wave_height: '3',
-        wind_speed: '8',
-        wind_direction: '270',
+        wind_speed: '5',
+        wind_direction: 'W',
         tide_status: 'rising',
       });
 
@@ -820,12 +855,9 @@ describe('calculatePersonalizationBonus', () => {
 
       const result = calculatePersonalizationBonus(beach, forecast, context);
 
-      // Should have 4 reasons: 3 learned + affinity
-      expect(result.reasons.length).toBe(4);
-      expect(result.reasons).toContain('Wave size matches your sweet spot');
-      expect(result.reasons).toContain('Wind matches your usual sessions');
-      expect(result.reasons).toContain('Tide matches your usual sessions');
-      expect(result.reasons).toContain("One of your go-to spots");
+      // Wind and tide facts from the same row, then affinity; no level line.
+      expect(result.reasons).toEqual(['Light W wind.', 'Rising tide.', 'One of your go-to spots']);
+      expect(result.reasonCodes).toEqual(['wind_light', 'tide_now', 'go_to_spot']);
     });
 
     it('returns empty reasons array when no bonuses apply', () => {

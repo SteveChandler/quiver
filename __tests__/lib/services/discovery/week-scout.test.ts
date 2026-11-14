@@ -2514,3 +2514,38 @@ describe('Week Scout takeaway from scorer reasons', () => {
     expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
   });
 });
+
+describe('Week Scout safe flag with the new warning words', () => {
+  // isSafe reads warnings by text. The old list also held "above your usual range",
+  // which no warning ever carried; these cases pin the same safe result.
+  async function safeWith(warnings: string[]): Promise<boolean[]> {
+    const deps = dependencies();
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({ ...scoreBeach(beach, row, options), warnings }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    return response.days.flatMap((day) => day.windows).map((window) => window.safe as boolean);
+  }
+
+  it.each([
+    ['row 9', 'Heads up: bigger surf today at 4–5 ft.'],
+    ['row 8', 'Heads up: much bigger surf today at 6–7 ft.'],
+    ['row 7 (was "Dangerous: …", which the \\bdanger\\b test never matched)', 'Heads up: a big jump in size today at 8–9 ft. Watch it from the beach first.'],
+    ['row 6', 'Heads up: an advanced break, with more size today at 5–6 ft.'],
+    ['12 ft override', 'Heads up: big, powerful surf at 12–13 ft.'],
+    ['row 10', 'Small surf at 1–2 ft.'],
+  ])('a %s warning keeps the window safe, as its old words did', async (_label, warning) => {
+    const safe = await safeWith([warning]);
+    expect(safe.length).toBeGreaterThan(0);
+    expect(safe.every(Boolean)).toBe(true);
+  });
+
+  it('a hazard warning still makes the window unsafe', async () => {
+    const safe = await safeWith(['Shark hazard reported']);
+    expect(safe.length).toBeGreaterThan(0);
+    expect(safe.some(Boolean)).toBe(false);
+  });
+});

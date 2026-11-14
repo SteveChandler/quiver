@@ -75,7 +75,8 @@ interface MatchScoreForecastInput {
 
 interface MatchScoreResponse {
   state: MatchState;
-  fit_label: string;
+  /** Null when there is no label to show (the starter state has no level line; native shows its own). */
+  fit_label: string | null;
   reason_bullets: string[];
   session_count: number;
   sessions_needed: number;
@@ -470,7 +471,7 @@ export function resolveMatchScoreState({
 
     return {
       state: "starter",
-      fit_label: rpcResult.fit_label ?? "Based on your skill level",
+      fit_label: rpcResult.fit_label ?? null,
       body: starterBody,
       reason_bullets: starterReasons(forecast, starterBody),
       session_count: sessionCount,

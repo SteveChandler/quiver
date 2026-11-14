@@ -41,6 +41,7 @@ import {
 import { getLocalDateStr } from '@/lib/services/discovery/window-selector/time-slot-utils';
 import { degreeToCardinal } from '@/lib/utils/geo-utils';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { formatHeightBand } from '@/lib/domains/scoring/reason-sentences';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
@@ -154,6 +155,11 @@ export function weekScoutRideableBands(
 export function weekScoutWaveHeightFt(raw: unknown): number | null {
   const parsed = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** The height the row's size fit was judged on: the window's own, else the swell's face height. */
+function sizeFitHeightFt(row: Pick<WeekScoutSwellBeach, 'bestWindow' | 'peakFaceHeightFt'>): number | null {
+  return row.bestWindow ? weekScoutWaveHeightFt(row.bestWindow.waveHeight) : row.peakFaceHeightFt;
 }
 
 function sizeFitFor(faceHeightFt: number | null, bands: readonly RideableBand[]): WeekScoutSwellBeach['sizeFit'] {
@@ -500,9 +506,11 @@ function narrativeFor(
       beach.sizeFit === 'in_range'
       && (beach.bestWindow?.verdict === 'worth_it' || beach.bestWindow?.verdict === 'maybe')
     ));
-    sentences.push(fit
-      ? `It may run above your usual range at ${top.beachName}; ${fit.beachName} is the better size for you.`
-      : 'It may run above your usual range at these spots.');
+    const topFt = sizeFitHeightFt(top);
+    const fitFt = fit ? sizeFitHeightFt(fit) : null;
+    sentences.push(fit && topFt !== null && fitFt !== null
+      ? `It may run big at ${top.beachName}, about ${formatHeightBand(topFt)}; ${fit.beachName} is smaller at ${formatHeightBand(fitFt)}.`
+      : 'It may run big at these spots.');
   }
   return sentences.join(' ');
 }

@@ -200,7 +200,10 @@ async function readForecastAlignment(
 
 function appendBoardNote(whySentence: string, boardNote: string | null): string {
   if (!boardNote) return whySentence;
-  const sentence = `Board fit: ${boardNote}.`;
+  // The note is a whole sentence ("Big for a longboard at 5–6 ft."). After the label it reads
+  // as a clause: lower-case first word (Big/Small/Good, never a name), one full stop.
+  const note = boardNote.replace(/\.+$/, '');
+  const sentence = `Board fit: ${note.charAt(0).toLowerCase()}${note.slice(1)}.`;
   return whySentence ? `${whySentence} ${sentence}` : sentence;
 }
 

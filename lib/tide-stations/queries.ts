@@ -55,6 +55,27 @@ export const getTideStationBySlug = cache(async (slug: string): Promise<TideStat
   }
 });
 
+/**
+ * The NOAA station behind a beach's `tide_forecasts.station_id`, or null when the
+ * id has no active registry row or the registry is not live.
+ */
+export async function getNoaaTideStationBySourceId(sourceStationId: string): Promise<TideStationRow | null> {
+  try {
+    const { data, error } = await db()
+      .from("tide_stations")
+      .select("*")
+      .eq("source", "noaa")
+      .eq("source_station_id", sourceStationId)
+      .eq("active", true)
+      .maybeSingle();
+    handleError(error);
+    return (data as TideStationRow | null) ?? null;
+  } catch (error) {
+    if (error instanceof TideStationsUnavailableError) return null;
+    throw error;
+  }
+}
+
 /** Name and slug of another station (a subordinate station's reference), or null. */
 export async function getTideStationLink(id: string): Promise<{ name: string; slug: string } | null> {
   const { data, error } = await db()
