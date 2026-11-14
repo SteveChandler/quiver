@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildRegionEvents, rateRegionEventsWithRatings } from "@/lib/alerts/swell-events/regional";
 import { loadRegionNarrativeEdition, narrateRegionEvents, prepareRegionNarration, watchRegionEvents, withoutNarrative } from "@/lib/alerts/swell-events/regional-narrative";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
+import { isWeekScoutStoryUserAllowed } from "@/lib/flags/week-scout-story";
 import { handleApiError, withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
@@ -61,8 +62,10 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
     }
 
     // Today's story edition is read beside the skill; a failed read costs only the PC's written sentences.
-    // Only stored-forecast events carry a narrative, so without one there is nothing to read.
-    const narrated = built.events.some((event) => event.source === "forecast");
+    // Only stored-forecast events carry a narrative, so without one there is nothing to read. A user off
+    // the story allowlist gets no edition, so the server's own lines serve.
+    const narrated = built.events.some((event) => event.source === "forecast")
+      && isWeekScoutStoryUserAllowed(user?.id);
     const [profileSkill, edition] = await Promise.all([
       user ? getProfileExperienceLevel(supabase, user.id) : null,
       narrated ? loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }) : null,
