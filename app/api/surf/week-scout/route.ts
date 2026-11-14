@@ -27,6 +27,7 @@ import {
 } from '@/lib/flags/week-scout-swells';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { bindStory, isWeekScoutStoryEnabled, prepareStory } from '@/lib/services/discovery/week-scout-story-serve';
+import { isWeekScoutStoryUserAllowed } from '@/lib/flags/week-scout-story';
 import {
   formatServerTiming,
   recordStage,
@@ -163,7 +164,7 @@ async function weekScoutHandler(
   const { profile, error: profileError } = profileRead;
   // The story input depends on neither the pool nor the ranking; only binding
   // needs the live forecast, so it loads from here on. Never rejects.
-  const storyEnabled = isWeekScoutStoryEnabled();
+  const storyEnabled = isWeekScoutStoryEnabled() && isWeekScoutStoryUserAllowed(user.id);
   const pendingStory = storyEnabled
     ? timeStage('story-load', () => prepareStory({
       client: createSupabaseServiceRoleClient(),
