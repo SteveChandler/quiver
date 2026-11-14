@@ -46,6 +46,16 @@ describe("useDynamicTide - schedule extraction", () => {
     jest.useRealTimers();
   });
 
+  it("prefers the station's own schedule over the forecast rows' hourly one", () => {
+    const now = Math.floor(Date.now() / 1000);
+    const hourly = [createMockForecast([{ time: now + 3600, height: 0.3, type: "low" }])];
+    const station = [{ time: now + 3600 - 33 * 60, height: 0.295, type: "low" as const }];
+
+    const { result } = renderHook(() => useDynamicTide(hourly, "Pacific/Honolulu", station));
+
+    expect(result.current.nextLow).toEqual({ time: now + 3600 - 33 * 60, height: 0.295, type: "low" });
+  });
+
   it("extracts tide_schedule from raw_forecast", () => {
     const futureTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
     const forecasts = [

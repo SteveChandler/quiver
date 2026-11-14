@@ -45,6 +45,8 @@ import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
+import { useStationTide } from "@/components/beach-detail/station-tide-context";
+import { formatStationTime } from "@/lib/tide-stations/format";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { useAuth } from "@/context/auth-context";
 import { useOptionalProfileContext } from "@/context/profile-context";
@@ -196,7 +198,9 @@ export function ForecastTab({
   );
 
   // Dynamic tide computation (always fresh, relative to now)
-  const dynamicTide = useDynamicTide(forecasts, beachTimezone);
+  const stationTide = useStationTide();
+  const tideTimeZone = stationTide?.timeZone ?? beachTimezone ?? null;
+  const dynamicTide = useDynamicTide(forecasts, beachTimezone, stationTide?.schedule);
 
   // Format sun time for display
   const formatSunTime = (date: Date | null) => {
@@ -344,8 +348,9 @@ export function ForecastTab({
   // Helper for next tide time display
   const getNextTideTimeDisplay = () => {
     if (dynamicTide.nextTide) {
-      const date = new Date(dynamicTide.nextTide.time * 1000);
-      return date.toLocaleTimeString([], {
+      const ms = dynamicTide.nextTide.time * 1000;
+      if (tideTimeZone) return formatStationTime(ms, tideTimeZone);
+      return new Date(ms).toLocaleTimeString([], {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
@@ -648,8 +653,12 @@ export function ForecastTab({
         {/* Tides Tab */}
         <TabsContent value="tides" className="space-y-4 mt-6">
           <p className="text-sm">Current tide and upcoming tide cycle · separate from the selected day.</p>
-          <TideStatusStrip dynamicTide={dynamicTide} />
-          <TideChartSection forecasts={forecasts} />
+          <TideStatusStrip dynamicTide={dynamicTide} timeZone={tideTimeZone} />
+          <TideChartSection
+            forecasts={forecasts}
+            stationSchedule={stationTide?.schedule}
+            timeZone={tideTimeZone}
+          />
           {beach.preferred_tide_direction && <TideAlertBadge alert={tideAlert} />}
           <TideConditionsCard
             prose={beach.best_conditions_prose}

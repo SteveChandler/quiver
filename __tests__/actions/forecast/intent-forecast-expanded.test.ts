@@ -454,7 +454,7 @@ describe("getCityTideDataExpanded", () => {
     expect(data.hourlyPoints.length).toBeGreaterThan(0);
     expect(data.nextTideTime).not.toMatch(/^0\d:/);
     expect(warn).toHaveBeenCalledWith(
-      "City tide page: station table unavailable, using stored series",
+      "Tide page: station table unavailable, using stored series",
       expect.objectContaining({ message: "NOAA 503" }),
     );
   });

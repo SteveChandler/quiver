@@ -3,12 +3,15 @@
 import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 import type { DynamicTideResult } from "@/hooks/use-dynamic-tide";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
+import { formatStationTime } from "@/lib/tide-stations/format";
 
 interface TideStatusStripProps {
   dynamicTide: DynamicTideResult;
+  /** The beach's zone; the time prints in it, as the station and city pages do. */
+  timeZone?: string | null;
 }
 
-export function TideStatusStrip({ dynamicTide }: TideStatusStripProps) {
+export function TideStatusStrip({ dynamicTide, timeZone }: TideStatusStripProps) {
   if (!dynamicTide.currentDirection) return null;
 
   const DirectionIcon =
@@ -30,10 +33,10 @@ export function TideStatusStrip({ dynamicTide }: TideStatusStripProps) {
 
     const type = dynamicTide.nextTide.type === "high" ? "High" : "Low";
     const height = formatTideHeight(dynamicTide.nextTide.height);
-    const time = new Date(dynamicTide.nextTide.time * 1000).toLocaleTimeString(
-      [],
-      { hour: "numeric", minute: "2-digit", hour12: true }
-    );
+    const ms = dynamicTide.nextTide.time * 1000;
+    const time = timeZone
+      ? formatStationTime(ms, timeZone)
+      : new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
 
     const totalMinutes = Math.round(dynamicTide.minutesUntil);
     const hours = Math.floor(totalMinutes / 60);

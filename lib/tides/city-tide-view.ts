@@ -106,7 +106,7 @@ export async function loadStationTideView(
     // Next.js render-control errors (dynamic usage, bailouts) must reach Next, not the fallback.
     unstable_rethrow(error);
     // Registry or NOAA down: the stored series is the same station's table, so the page still agrees with itself.
-    console.warn("City tide page: station table unavailable, using stored series", {
+    console.warn("Tide page: station table unavailable, using stored series", {
       sourceStationId,
       message: error instanceof Error ? error.message : "Unknown error",
     });
