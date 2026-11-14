@@ -52,11 +52,11 @@ const FT_TO_M = 0.3048;
 
 /**
  * Feet of sea-level adjustment on top of NOAA's table. noaa-tide-service adds it
- * by id prefix (941*), which misses subordinate stations with other ids whose
- * reference station is 941* (TWC0439 Mormon Island beside 9410660 LA Outer
- * Harbor; 14 Oregon and 9 Baja stations). A subordinate station's table is its
- * reference station's table plus offsets, so it takes the reference station's
- * adjustment in any region (Steven, Nov 11 2026).
+ * through seaLevelOffsetFt, which knows the 941* ids and the subordinate stations
+ * NOAA listed under a 941* reference on Nov 14 2026. A station added since then
+ * still gets it here from tide_stations.reference_station_id. A subordinate
+ * station's table is its reference station's table plus offsets, so it takes the
+ * reference station's adjustment in any region (Steven, Nov 11 2026).
  * Returns the extra feet this module must add, and the total shown on the page.
  */
 export function californiaAdjustment(
