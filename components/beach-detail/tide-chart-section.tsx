@@ -3,7 +3,8 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
-import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { EnhancedForecastEntity, TideScheduleEntry } from "@/types/forecast";
+import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
 
 const TideChart = dynamic(
   () =>
@@ -26,12 +27,26 @@ const TAB_CONFIG: Array<{ key: TimeRange; label: string; hours: number }> = [
 
 interface TideChartSectionProps {
   forecasts: EnhancedForecastEntity[];
+  /** The station's own highs and lows; drawn instead of the forecast rows' schedule. */
+  stationSchedule?: TideScheduleEntry[] | null;
 }
 
-export function TideChartSection({ forecasts }: TideChartSectionProps) {
+export function TideChartSection({ forecasts, stationSchedule }: TideChartSectionProps) {
   const [activeRange, setActiveRange] = React.useState<TimeRange>("today");
   const activeConfig = TAB_CONFIG.find((t) => t.key === activeRange)!;
   const now = React.useMemo(() => new Date(), []);
+  const stationData = React.useMemo<TidePoint[] | undefined>(
+    () =>
+      stationSchedule?.length
+        ? stationSchedule.map((e) => ({
+            t: e.time * 1000,
+            h: e.height,
+            isHigh: e.type === "high",
+            isLow: e.type === "low",
+          }))
+        : undefined,
+    [stationSchedule]
+  );
 
   if (forecasts.length === 0) {
     return null;
@@ -72,6 +87,7 @@ export function TideChartSection({ forecasts }: TideChartSectionProps) {
 
       <div className="h-72 w-full">
         <TideChart
+          data={stationData}
           forecasts={forecasts}
           now={now}
           compact={true}

@@ -1,7 +1,7 @@
 import { isNextRouterSignal } from "@/lib/utils/next-router-signal";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicTideMetadata } from "@/lib/seo/meta";
-import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { getBeachTidePageData } from "@/lib/tides/beach-station-tide";
 import { notFound, permanentRedirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
@@ -67,7 +67,7 @@ export async function generateMetadata(
     // Fetch tide data for dynamic SEO
     let tideData: { nextHighTime?: string | null; nextLowTime?: string | null } | null = null;
     try {
-      const tideMeta = await getTideMetaData(beach.id, beach.timezone);
+      const tideMeta = (await getBeachTidePageData(beach.id, beach.timezone)).display;
       tideData = {
         nextHighTime: tideMeta.nextHighTime,
         nextLowTime: tideMeta.nextLowTime,

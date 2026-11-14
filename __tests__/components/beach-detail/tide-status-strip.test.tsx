@@ -82,3 +82,16 @@ describe("TideStatusStrip", () => {
     expect(screen.queryByText(/Next/)).not.toBeInTheDocument();
   });
 });
+
+describe("TideStatusStrip time zone", () => {
+  it("prints the next tide in the beach's zone, not the viewer's", () => {
+    const low = Date.parse("2026-11-14T23:27:00Z") / 1000;
+    render(
+      <TideStatusStrip
+        dynamicTide={{ ...baseTide, currentDirection: "falling", nextTide: { type: "low", height: 0.3, time: low } }}
+        timeZone="Pacific/Honolulu"
+      />
+    );
+    expect(screen.getByText(/Next Low 0\.3ft @ 1:27 PM/)).toBeInTheDocument();
+  });
+});

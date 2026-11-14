@@ -52,7 +52,9 @@ export function formatSwellPeriod(seconds: number): string {
  */
 export function formatTideHeight(ft: number): string {
   if (!Number.isFinite(ft)) return '--ft';
-  return `${ft.toFixed(1)}ft`;
+  const tenths = Number(ft.toFixed(1));
+  // A low just under zero reads "0.0ft", as the station page prints it, never "-0.0ft".
+  return `${(Object.is(tenths, -0) ? 0 : tenths).toFixed(1)}ft`;
 }
 
 /**
