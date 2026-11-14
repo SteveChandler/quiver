@@ -141,4 +141,22 @@ describe("California sea-level offset", () => {
     expect(california.tideData.map((t) => t.height)).toEqual([6.424]);
     expect(oregon.tideData.map((t) => t.height)).toEqual([4.924]);
   });
+
+  it("raises a subordinate station whose reference station is in California, whatever its id", async () => {
+    const predictions = { predictions: [{ t: "2026-11-15 20:42", v: "3.816", type: "H" }] };
+    const station = { stations: [{ name: "Test Station" }] };
+    // TWC0427 Los Patos -> 9410660 LA; 9435385 Yaquina USCG -> 9419750 Crescent City.
+    for (let i = 0; i < 2; i++) {
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => predictions })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => station });
+    }
+
+    const losPatos = await fetchAllStationData("TWC0427", 1);
+    const yaquina = await fetchAllStationData("9435385", 1);
+
+    expect(losPatos.tideData.map((t) => t.height)).toEqual([5.316]);
+    expect(yaquina.tideData.map((t) => t.height)).toEqual([5.316]);
+  });
 });
