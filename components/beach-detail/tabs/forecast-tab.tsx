@@ -654,7 +654,11 @@ export function ForecastTab({
         <TabsContent value="tides" className="space-y-4 mt-6">
           <p className="text-sm">Current tide and upcoming tide cycle · separate from the selected day.</p>
           <TideStatusStrip dynamicTide={dynamicTide} timeZone={tideTimeZone} />
-          <TideChartSection forecasts={forecasts} stationSchedule={stationTide?.schedule} />
+          <TideChartSection
+            forecasts={forecasts}
+            stationSchedule={stationTide?.schedule}
+            timeZone={tideTimeZone}
+          />
           {beach.preferred_tide_direction && <TideAlertBadge alert={tideAlert} />}
           <TideConditionsCard
             prose={beach.best_conditions_prose}

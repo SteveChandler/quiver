@@ -29,9 +29,11 @@ interface TideChartSectionProps {
   forecasts: EnhancedForecastEntity[];
   /** The station's own highs and lows; drawn instead of the forecast rows' schedule. */
   stationSchedule?: TideScheduleEntry[] | null;
+  /** The beach's zone: the chart's hours, days and tooltip print in it. */
+  timeZone?: string | null;
 }
 
-export function TideChartSection({ forecasts, stationSchedule }: TideChartSectionProps) {
+export function TideChartSection({ forecasts, stationSchedule, timeZone }: TideChartSectionProps) {
   const [activeRange, setActiveRange] = React.useState<TimeRange>("today");
   const activeConfig = TAB_CONFIG.find((t) => t.key === activeRange)!;
   const now = React.useMemo(() => new Date(), []);
@@ -88,6 +90,7 @@ export function TideChartSection({ forecasts, stationSchedule }: TideChartSectio
       <div className="h-72 w-full">
         <TideChart
           data={stationData}
+          timeZone={timeZone}
           forecasts={forecasts}
           now={now}
           compact={true}
