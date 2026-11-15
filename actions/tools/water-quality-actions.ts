@@ -172,8 +172,9 @@ export async function getBeachesWithWaterQuality(): Promise<
 > {
   return withServerAction(async () => {
     const rows = await fetchMonitoredBeachesList();
-    const effective = await currentWaterQuality(rows.map((row) => ({ ...row, beach_id: row.beachId })));
-    return effective.map((row) => ({ ...row,
+    const effective = await currentWaterQuality(rows.map((row) => ({ ...row, beach_id: row.beachId,
+      latest_sample_date: row.latestSampleDate })));
+    return effective.map(({ latest_sample_date: _sampleDate, ...row }) => ({ ...row,
       latestSampleDate: row.county_advisory_status ? null : row.latestSampleDate,
     }));
   });

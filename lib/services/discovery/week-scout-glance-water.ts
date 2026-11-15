@@ -27,7 +27,7 @@ async function readRegionWaterNotice(client: Client, beaches: readonly Beach[], 
     chunks.push(beaches.slice(offset, offset + READ_CHUNK).map((beach) => beach.id));
   }
   const sampled = (await Promise.all(chunks.map(async (ids) => {
-    const { data, error } = await client.from("beach_water_quality").select("beach_id, status").in("beach_id", ids);
+    const { data, error } = await client.from("beach_water_quality").select("beach_id, status, latest_sample_date").in("beach_id", ids);
     if (error) throw error;
     return data ?? [];
   }))).flat();

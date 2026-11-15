@@ -27,6 +27,7 @@ type ChangedBeachRow = {
   status: WaterQualityStatus;
   previous_status: WaterQualityStatus | null;
   status_changed_at: string;
+  latest_sample_date: string | null;
 };
 
 type EligibleProfileRow = {
@@ -106,7 +107,7 @@ export async function processWaterQualityAlerts(
   //    (exclude 'unknown' — those have no actionable notification content)
   const { data: changedBeaches, error: beachWqError } = await supabase
     .from("beach_water_quality")
-    .select("id, beach_id, status, previous_status, status_changed_at")
+    .select("id, beach_id, status, previous_status, status_changed_at, latest_sample_date")
     .gt("status_changed_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .neq("status", "unknown");
 
