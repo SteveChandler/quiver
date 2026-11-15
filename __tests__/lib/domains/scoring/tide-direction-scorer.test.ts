@@ -467,18 +467,35 @@ describe('Tide Direction Scorer: "optimal" needs the tide height too (curated ra
     ).toEqual(['Tide rising - optimal for this spot']);
   });
 
-  it('does not change the slack-tide line', () => {
+  it('drops the slack-tide "good for this spot" line out of range, and keeps it in range', () => {
     expect(
       tideDirectionScorer.score(rangedInput({ heightFt: 0.4, direction: 'slack', preferredDirection: 'slack' })).reasons,
+    ).toEqual([]);
+    expect(
+      tideDirectionScorer.score(rangedInput({ heightFt: 1.6, direction: 'slack', preferredDirection: 'slack' })).reasons,
     ).toEqual(['Slack tide - good for this spot']);
   });
 
-  it('does not change the medium and low lines', () => {
+  it('drops the medium "good for this spot" line out of range, and keeps it in range', () => {
+    // A medium beach break at 0.5 ft rising, band 1.0-3.0 ft: the page alert says "Too low at 0.5 ft".
     expect(
-      tideDirectionScorer.score(rangedInput({ heightFt: 0.4, directionSensitivity: 'medium' })).reasons,
+      tideDirectionScorer.score(rangedInput({ heightFt: 0.5, directionSensitivity: 'medium' })).reasons,
+    ).toEqual([]);
+    expect(
+      tideDirectionScorer.score(rangedInput({ heightFt: 1.6, directionSensitivity: 'medium' })).reasons,
     ).toEqual(['Tide rising - good for this spot']);
+  });
+
+  it('keeps the low line direction-only', () => {
     expect(
       tideDirectionScorer.score(rangedInput({ heightFt: 0.4, directionSensitivity: 'low' })).reasons,
     ).toEqual(['Tide direction favorable']);
+  });
+
+  it('does not change the score when a line drops', () => {
+    expect(tideDirectionScorer.score(rangedInput({ heightFt: 0.5, directionSensitivity: 'medium' })).score).toBe(85);
+    expect(
+      tideDirectionScorer.score(rangedInput({ heightFt: 0.4, direction: 'slack', preferredDirection: 'slack' })).score,
+    ).toBe(90);
   });
 });
