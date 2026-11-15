@@ -36,6 +36,7 @@ import type { YesterdayAccuracy } from "@/types/accuracy";
 import { YesterdaysAccuracyCard } from "@/components/beach-detail/yesterdays-accuracy-card";
 import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
+import { tideAlertHeightContext } from "@/lib/surf/tide-height-now";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { aggregateOutlookDays } from "@/lib/utils/ecmwf-outlook-days";
@@ -221,16 +222,32 @@ export function ForecastTab({
       if (status.includes("rising")) effectiveDirection = "rising";
       else if (status.includes("falling")) effectiveDirection = "falling";
     }
+    // "Optimal" needs the height in the spot's range too, read from the curve the tide chart draws.
+    const height = tideAlertHeightContext({
+      schedule: dynamicTide.schedule,
+      minFt: beach.preferred_tide_ft_min,
+      maxFt: beach.preferred_tide_ft_max,
+      preferredDirection: beach.preferred_tide_direction,
+      nowMs: dynamicTide.computedAtMs,
+      timeZone: tideTimeZone ?? resolveBeachTimezone(beachTimezone),
+    });
     return getTideAlert(
       beach.preferred_tide_direction,
       effectiveDirection,
-      dynamicTide.minutesToDirectionChange
+      dynamicTide.minutesToDirectionChange,
+      height
     );
   }, [
     beach.preferred_tide_direction,
+    beach.preferred_tide_ft_min,
+    beach.preferred_tide_ft_max,
     dynamicTide.currentDirection,
     dynamicTide.minutesToDirectionChange,
+    dynamicTide.schedule,
+    dynamicTide.computedAtMs,
     currentForecast?.tide_status,
+    tideTimeZone,
+    beachTimezone,
   ]);
 
   const formatMetric = (
