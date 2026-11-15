@@ -455,6 +455,12 @@ describe('Tide Direction Scorer: "optimal" needs the tide height too (curated ra
     expect(tideDirectionScorer.score(rangedInput({ heightFt: 2, heightKnown: false })).reasons).toEqual([]);
   });
 
+  it('drops "optimal" without throwing when a snapshot carries no number for the height', () => {
+    const input = rangedInput({ heightFt: 2 });
+    const noHeight = { ...input, snapshot: { ...input.snapshot, tide: { ...input.snapshot.tide, heightFt: undefined as unknown as number } } };
+    expect(tideDirectionScorer.score(noHeight).reasons).toEqual([]);
+  });
+
   it('keeps the direction-only line when the spot has no curated range', () => {
     expect(
       tideDirectionScorer.score(rangedInput({ heightFt: 0.4, explicitRange: false })).reasons,
