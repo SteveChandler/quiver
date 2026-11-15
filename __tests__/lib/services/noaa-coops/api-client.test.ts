@@ -1,7 +1,12 @@
-import {
-  fetchAllStationData,
-  fetchWaterTemperature,
-} from "@/lib/services/noaa-coops/api-client";
+export {};
+let client: typeof import("@/lib/services/noaa-coops/api-client");
+let fetchAllStationData: typeof client.fetchAllStationData;
+let fetchWaterTemperature: typeof client.fetchWaterTemperature;
+beforeEach(() => {
+  jest.resetModules();
+  client = require("@/lib/services/noaa-coops/api-client");
+  ({ fetchAllStationData, fetchWaterTemperature } = client);
+});
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -159,4 +164,20 @@ describe("California sea-level offset", () => {
     expect(losPatos.tideData.map((t) => t.height)).toEqual([5.316]);
     expect(yaquina.tideData.map((t) => t.height)).toEqual([5.316]);
   });
+});
+
+
+it("identifies every legacy datagetter product through the shared request path", async () => {
+  mockFetch.mockReset().mockImplementation(async () => ({
+    ok: true, json: async () => ({ predictions: [], data: [], stations: [{ name: "Test" }] }),
+  }));
+  await fetchAllStationData("test", 1);
+  await fetchWaterTemperature("test");
+  const requests = mockFetch.mock.calls.filter(([url]) => String(url).includes("datagetter"));
+  expect(requests).toHaveLength(3);
+  expect(new URL(client.buildPredictionsUrl("test", "20261115", "20261116")).searchParams.get("application")).toBe("Quiver");
+  for (const [url, init] of requests) {
+    expect(new URL(url).searchParams.get("application")).toBe("Quiver");
+    expect(new Headers(init.headers).get("User-Agent")).toBe("Quiver/1.0 (+https://quiversurf.app)");
+  }
 });
