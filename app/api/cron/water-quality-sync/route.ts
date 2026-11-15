@@ -43,17 +43,16 @@ interface EvaluatePhaseResult {
 /**
  * GET /api/cron/water-quality-sync
  *
- * Cron job: syncs water quality data from CEDEN (California) and PacIOOS
- * ERDDAP (Hawaii) in three phases:
+ * Cron job: syncs water quality data from CEDEN (California) in three phases.
+ * Hawaii has no live sample source (PacIOOS ERDDAP has no row after 2024-06-13).
  *
  * 1. Stations phase (monthly, 1st at 08:00 UTC):
- *    - Fetches coastal monitoring stations from CEDEN + PacIOOS for CA + HI
+ *    - Fetches coastal monitoring stations from CEDEN (CA)
  *    - Matches each station to the nearest beach (within 5km)
  *    - Upserts into wq_monitoring_stations
  *
  * 2. Samples phase (bi-weekly, Tue/Fri at 12:00 UTC):
- *    - Fetches last 90 days of Enterococcus and Fecal Coliform results from
- *      CEDEN. Hawaii has no live sample source (PacIOOS ends 2024-06-13).
+ *    - Fetches last 90 days of Enterococcus and Fecal Coliform results from CEDEN
  *    - Matches samples to known station IDs
  *    - Upserts into wq_samples
  *
