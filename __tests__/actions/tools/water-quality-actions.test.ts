@@ -1,8 +1,12 @@
 /** @jest-environment node */
 
-import { getBeachWaterQuality } from "@/actions/tools/water-quality-actions";
+import {
+  getBeachWaterQuality,
+  getBeachesWithWaterQuality,
+} from "@/actions/tools/water-quality-actions";
 
 let qualityRow: Record<string, unknown> = {};
+const listStateFilters: unknown[] = [];
 
 jest.mock("next/cache", () => ({ unstable_cache: <T>(fn: T): T => fn }));
 jest.mock("@/lib/supabase/server", () => ({
@@ -11,6 +15,10 @@ jest.mock("@/lib/supabase/server", () => ({
       select: () => query,
       eq: () => query,
       or: () => query,
+      in: async (_column: string, states: unknown) => {
+        listStateFilters.push(states);
+        return { data: [], error: null };
+      },
       maybeSingle: async () => ({
         data: { id: "11111111-1111-4111-8111-111111111111", name: "El Porto (Manhattan)", slug: "el-porto-manhattan",
           state: "CA", city: "Manhattan Beach", beach_water_quality: qualityRow },
@@ -45,5 +53,14 @@ describe("getBeachWaterQuality", () => {
     const result = await getBeachWaterQuality("el-porto-manhattan");
     expect(result.success && result.data).toMatchObject({
       status: "closure", latestEnterococcus: 20, latestSampleDate: today, exceedanceCount30d: 2, totalSamples30d: 10 });
+  });
+});
+
+describe("getBeachesWithWaterQuality", () => {
+  it("lists California beaches only, because Hawaii has no live sample feed", async () => {
+    listStateFilters.length = 0;
+    const result = await getBeachesWithWaterQuality();
+    expect(result.success).toBe(true);
+    expect(listStateFilters).toEqual([["CA"]]);
   });
 });
