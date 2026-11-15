@@ -76,9 +76,10 @@ export const tideDirectionScorer: ScorerPlugin = {
     // Match
     if (actualDirection === preferredDirection) {
       score = scores.match;
-      // "Optimal" needs the height too, the same rule as the beach page tide alert.
-      const saysOptimal = directionSensitivity === 'high' && preferredDirection !== 'slack';
-      if (!saysOptimal || heightAllowsOptimal(input)) {
+      // A "... for this spot" line needs the height too, the same rule as the beach page tide alert.
+      // Only the low line ("Tide direction favorable") stays direction-only.
+      const claimsForThisSpot = preferredDirection === 'slack' || directionSensitivity !== 'low';
+      if (!claimsForThisSpot || heightAllowsOptimal(input)) {
         reasons.push(getMatchReason(preferredDirection, directionSensitivity));
       }
     }
