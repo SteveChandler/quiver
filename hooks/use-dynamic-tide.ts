@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { EnhancedForecastEntity, TideScheduleEntry } from "@/types/forecast";
 import { extractMergedTideSchedule } from "@/lib/utils/tide-schedule";
 
 export interface TideExtreme {
@@ -33,7 +33,9 @@ export interface DynamicTideResult {
 
 export function useDynamicTide(
   forecasts: EnhancedForecastEntity[],
-  _beachTimezone?: string | null
+  _beachTimezone?: string | null,
+  /** The station's own highs and lows; preferred over the forecast rows' schedule. */
+  stationSchedule?: TideScheduleEntry[] | null
 ): DynamicTideResult {
   // Initialize as null to avoid hydration mismatch (Date.now() differs
   // between server and client). Real value is set in useEffect on mount.
@@ -41,9 +43,10 @@ export function useDynamicTide(
 
   // Tide schedules are embedded across multiple forecast rows.
   const tideSchedule = useMemo(() => {
+    if (stationSchedule && stationSchedule.length > 0) return stationSchedule;
     const mergedSchedule = extractMergedTideSchedule(forecasts);
     return mergedSchedule.length > 0 ? mergedSchedule : null;
-  }, [forecasts]);
+  }, [forecasts, stationSchedule]);
 
   // Compute next tides from schedule
   const tideResult = useMemo((): DynamicTideResult => {

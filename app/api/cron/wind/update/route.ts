@@ -12,7 +12,7 @@ import { setTimeout as sleep } from "node:timers/promises";
  */
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { validateCronRequest, createSuccessResponse, createErrorResponse } from '@/lib/middleware/api-wrappers';
-import { fetchHourlyWindOrThrow, isOpenMeteoUpstreamError } from '@/lib/services/open-meteo-wind-service';
+import { fetchHourlyWindOrThrow, isOpenMeteoUpstreamError, type OpenMeteoWindHost } from '@/lib/services/open-meteo-wind-service';
 import { withObservedCron } from '@/lib/cron/observability';
 import { withCronOutcome } from '@/lib/cron/outcome';
 import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
@@ -71,6 +71,8 @@ async function _GET(request: Request): Promise<Response> {
   let upstreamFetchErrors = 0;
   let attemptedBeaches = 0;
   let upstreamDownBatches = 0;
+  let windHost: OpenMeteoWindHost = 'primary';
+  let primaryDownDetail: string | null = null;
   let stoppedReason: StoppedReason | null = null;
   let stopDetail = '';
   let upstreamErrorNames = new Set<string>();
@@ -100,7 +102,7 @@ async function _GET(request: Request): Promise<Response> {
         let windPoints: Awaited<ReturnType<typeof fetchHourlyWindOrThrow>>;
         batchAttempted++;
         try {
-          windPoints = await fetchHourlyWindOrThrow(beach.lat, beach.lon);
+          windPoints = await fetchHourlyWindOrThrow(beach.lat, beach.lon, windHost);
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err);
           const message = `${beach.name}: ${reason}`;
@@ -175,9 +177,20 @@ async function _GET(request: Request): Promise<Response> {
     upstreamErrorNames = batchUpstreamDown
       ? new Set([...upstreamErrorNames, ...batchUpstreamErrorNames])
       : new Set();
+    if (upstreamDownBatches >= UPSTREAM_DOWN_BATCH_LIMIT && windHost === 'primary') {
+      // Retry the failed batches, and the rest of the run, on the fallback host.
+      primaryDownDetail = `primary host gave no HTTP response in ${upstreamDownBatches} consecutive batches `
+        + `(${[...upstreamErrorNames].sort().join(', ')}) after ${attemptedBeaches} of ${beaches.length} beaches`;
+      console.warn(`[Wind] Switching to the Open-Meteo fallback host: ${primaryDownDetail}`);
+      windHost = 'fallback';
+      upstreamDownBatches = 0;
+      upstreamErrorNames = new Set();
+      i -= UPSTREAM_DOWN_BATCH_LIMIT * BATCH_SIZE;
+      continue;
+    }
     if (upstreamDownBatches >= UPSTREAM_DOWN_BATCH_LIMIT) {
       stoppedReason = 'upstream_unavailable';
-      stopDetail = `Open-Meteo wind gave no HTTP response in ${upstreamDownBatches} consecutive batches `
+      stopDetail = `Open-Meteo wind gave no HTTP response in ${upstreamDownBatches} consecutive batches on both hosts `
         + `(${[...upstreamErrorNames].sort().join(', ')}); stopped after ${attemptedBeaches} of ${beaches.length} beaches`;
       break;
     }
@@ -201,6 +214,8 @@ async function _GET(request: Request): Promise<Response> {
     fetchErrors,
     upstreamFetchErrors,
     attemptedBeaches,
+    windHost,
+    primaryDownDetail,
     stoppedReason,
     sampleErrors,
   };

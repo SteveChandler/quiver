@@ -6,6 +6,7 @@ import {
   type WamDay,
 } from "@/lib/alerts/swell-events/early-look";
 import type { BigSwellBuoy } from "@/lib/big-swells";
+import dataset from "@/lib/data/big-swells.json";
 
 const TODAY = "2026-11-01";
 const TZ = "America/Los_Angeles";
@@ -44,7 +45,12 @@ describe("regionModelBuoy", () => {
   it("picks the Del Mar buoy the model tracks, not the closer Scripps one it does not", () => {
     const buoy = regionModelBuoy(SAN_DIEGO_BEACHES);
     expect(buoy?.id).toBe("46266");
-    expect(buoy?.modelRatio).toBe(0.88);
+    // The weekly big-swells refresh moves modelRatio by a point or two, so pin
+    // it to the committed dataset and the tracked band, not a literal.
+    const delMar = (dataset.stations as BigSwellBuoy[]).find((station) => station.id === "46266");
+    expect(buoy?.modelRatio).toBe(delMar?.modelRatio);
+    expect(buoy?.modelRatio).toBeGreaterThanOrEqual(0.8);
+    expect(buoy?.modelRatio).toBeLessThanOrEqual(1.25);
   });
 
   it("returns null when no tracked buoy is within 100 km", () => {

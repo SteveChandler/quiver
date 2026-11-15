@@ -23,7 +23,9 @@ import {
   buildDynamicTideMetadata,
   buildDynamicWaterTempMetadata,
 } from "@/lib/seo/meta";
-import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { getBeachTidePageData, type BeachStationTide } from "@/lib/tides/beach-station-tide";
+import type { ReactElement } from "react";
+import { StationTideProvider } from "@/components/beach-detail/station-tide-context";
 import { throwIfSubPageDataUnknown } from "@/lib/seo/sub-page-data-availability";
 import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
@@ -186,12 +188,14 @@ export async function renderBeachSubPage({
 
   // Fetch dataset schema data — uses React cache() so no extra DB queries when
   // generateBeachSubPageMetadata already called these.
-  const [tideMeta, waterTempMeta] = await Promise.all([
-    pageType === "tides" ? getTideMetaData(beach.id, beach.timezone) : Promise.resolve(null),
+  const [tidePage, waterTempMeta] = await Promise.all([
+    pageType === "tides" ? getBeachTidePageData(beach.id, beach.timezone) : Promise.resolve(null),
     pageType === "water-temp" ? getWaterTempMetaData(beach.id) : Promise.resolve(null),
   ]);
   // A failed read must not become this route's stored page; see SubPageDataUnknownError.
-  throwIfSubPageDataUnknown(tideMeta ?? waterTempMeta, `renderBeachSubPage:${pageType}`);
+  throwIfSubPageDataUnknown(tidePage?.rows ?? waterTempMeta, `renderBeachSubPage:${pageType}`);
+  // Hero, schema, CTA and the client tide modules: the station table when it loaded.
+  const tideMeta = tidePage?.display ?? null;
 
   const hasTideHero = pageType === "tides" &&
     Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
@@ -294,32 +298,35 @@ export async function renderBeachSubPage({
         </p>
       )}
 
-      <BeachDetailClient
-        beach={beach}
-        slug={beachSlug}
-        beachTimezone={beachTimezone}
-        defaultTab={config.defaultTab}
-        defaultSubTab={config.defaultSubTab}
-        heroHeadingLevel={hasWaterTempSummary ? "h1" : "h2"}
-        heroHeadingSuffix={
-          hasWaterTempSummary ? "Water Temp & Wetsuit Guide" : undefined
-        }
-        heroSummarySlot={
-          hasWaterTempSummary && waterTempMeta ? (
-            <WaterTempSummaryHero
-              beachName={beach.name}
-              seasonalTrendsHref={
-                // /water-temp/{city} guides exist only for US cities.
-                isValidStateSlug(stateToSlug(beach.state))
-                  ? `/water-temp/${cityToSlug(beach.city)}#seasonal-trends`
-                  : undefined
-              }
-              seasonalTrendsLocation={beach.city || "the area"}
-              waterTempData={waterTempMeta}
-            />
-          ) : undefined
-        }
-      />
+      {withStationTide(
+        <BeachDetailClient
+          beach={beach}
+          slug={beachSlug}
+          beachTimezone={beachTimezone}
+          defaultTab={config.defaultTab}
+          defaultSubTab={config.defaultSubTab}
+          heroHeadingLevel={hasWaterTempSummary ? "h1" : "h2"}
+          heroHeadingSuffix={
+            hasWaterTempSummary ? "Water Temp & Wetsuit Guide" : undefined
+          }
+          heroSummarySlot={
+            hasWaterTempSummary && waterTempMeta ? (
+              <WaterTempSummaryHero
+                beachName={beach.name}
+                seasonalTrendsHref={
+                  // /water-temp/{city} guides exist only for US cities.
+                  isValidStateSlug(stateToSlug(beach.state))
+                    ? `/water-temp/${cityToSlug(beach.city)}#seasonal-trends`
+                    : undefined
+                }
+                seasonalTrendsLocation={beach.city || "the area"}
+                waterTempData={waterTempMeta}
+              />
+            ) : undefined
+          }
+        />,
+        tidePage?.stationTide ?? null,
+      )}
 
       <BeachSubPageCtaSwitch
         beachName={beach.name}
@@ -344,6 +351,12 @@ export async function renderBeachSubPage({
       />
     </>
   );
+}
+
+/** Only tide pages with a loaded station table get a provider; other pages keep BeachDetailClient as a direct child. */
+function withStationTide(client: ReactElement, stationTide: BeachStationTide | null): ReactElement {
+  if (!stationTide) return client;
+  return <StationTideProvider value={stationTide}>{client}</StationTideProvider>;
 }
 
 function BeachSubPageCrawlIntro({ copy }: { copy: BeachSubPageCrawlCopy }) {
@@ -413,19 +426,21 @@ export async function generateBeachSubPageMetadata({
     // Fetch dynamic data for SEO based on page type
     let title: string;
     let description: string;
-    let tideMetaForIndexing: Awaited<ReturnType<typeof getTideMetaData>> | null = null;
+    let tideMetaForIndexing: Awaited<ReturnType<typeof getBeachTidePageData>>["rows"] | null = null;
     let tempMetaForIndexing: Awaited<ReturnType<typeof getWaterTempMetaData>> | null = null;
 
     try {
       if (pageType === "tides") {
-        tideMetaForIndexing = await getTideMetaData(beach.id, beach.timezone);
+        const tidePage = await getBeachTidePageData(beach.id, beach.timezone);
+        // Indexing reads the stored rows; the title reads what the page shows.
+        tideMetaForIndexing = tidePage.rows;
         const result = buildDynamicTideMetadata({
           beach,
           tideData: {
-            nextHighTime: tideMetaForIndexing.nextHighTime,
-            nextLowTime: tideMetaForIndexing.nextLowTime,
-            nextHighHeight: tideMetaForIndexing.nextHighHeight,
-            nextLowHeight: tideMetaForIndexing.nextLowHeight,
+            nextHighTime: tidePage.display.nextHighTime,
+            nextLowTime: tidePage.display.nextLowTime,
+            nextHighHeight: tidePage.display.nextHighHeight,
+            nextLowHeight: tidePage.display.nextLowHeight,
           },
         });
         title = result.title;

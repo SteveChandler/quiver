@@ -224,6 +224,8 @@ The server splits the paragraph, so no client parses prose. Week Scout shows eve
 
 `glance` is `null` when there is no home beach or the home region is not an active story region (`availability: 'outside_region'`), when the region build cannot be read, when the build yields no sentence, or when building the paragraph throws (logged once as `[week-scout-story] glance failed`). It is built from the region build on its own, independently of the edition and candidate path, so it can be present when `availability` is `unavailable`, and it never falls back to cover or lead prose. When `glance` is null, clients keep today's cover and lead/turn layout. With `WEEK_SCOUT_STORY_ENABLED` off there is no `story` at all, as before.
 
+`WEEK_SCOUT_STORY_USER_ALLOWLIST` (comma-separated user ids) limits who reads the PC worker's sentences. When it is set, only those users get `story` from Week Scout, and only they get edition sentences on `/api/beaches/[id]/swell-events`; everyone else, signed-out visitors included, gets the server's own card lines and no edition read. When it is unset or empty, everyone qualifies, as before.
+
 ## Generation `week-scout-story-3`
 
 `week-scout-story-3` is a superset of `week-scout-story-2`. The worker must keep `selections` and `written` exactly as it does for `-2`: the server keeps one edition per region, and the Swell Watch card's `event:` written lines are read from it under `-2` or `-3`, so a `-3` edition without them would strip the card's written lines.

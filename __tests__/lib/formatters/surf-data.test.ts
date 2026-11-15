@@ -306,6 +306,10 @@ describe("formatTideHeight", () => {
     it("formats -2.78 as '-2.8ft' (rounds to 1 decimal)", () => {
       expect(formatTideHeight(-2.78)).toBe("-2.8ft");
     });
+
+    it("formats -0.03 as '0.0ft', as the station page does, never '-0.0ft'", () => {
+      expect(formatTideHeight(-0.03)).toBe("0.0ft");
+    });
   });
 
   describe("return type and format", () => {
