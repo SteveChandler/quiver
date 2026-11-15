@@ -93,7 +93,7 @@ describe("NOAACOOPSService Tide Cache", () => {
       jest.useFakeTimers();
       try {
         (global.fetch as jest.Mock).mockResolvedValue({
-          ok: false, status: 503, text: async () => "down",
+          ok: false, status: 403, text: async () => '{"message":"Forbidden"}',
         });
         const datagetterCalls = (): number => (global.fetch as jest.Mock).mock.calls
           .filter(([url]) => String(url).includes("datagetter")).length;

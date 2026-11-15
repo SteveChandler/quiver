@@ -48,8 +48,9 @@ export async function fetchDatagetter(url: string, timeoutMs = 20_000): Promise<
       );
     }
     if (!response.ok) {
-      if ((response.status === 403 || response.status === 429 || response.status >= 500) &&
-          Date.now() >= cooldownUntil) {
+      // Only throttle answers pause every station; a 5xx can be one bad station, and pausing on it
+      // would skip every later station in the hourly tide cron.
+      if ((response.status === 403 || response.status === 429) && Date.now() >= cooldownUntil) {
         cooldownUntil = Date.now() + cooldownMs;
         cooldownMs = Math.min(cooldownMs * 2, MAX_COOLDOWN_MS);
       }

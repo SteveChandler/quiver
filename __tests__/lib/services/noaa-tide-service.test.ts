@@ -379,12 +379,20 @@ describe("NOAA request hardening", () => {
       .toBe("Quiver/1.0 (+https://quiversurf.app)");
   });
 
-  it.each([403, 429, 500, 503])("cools down globally after %i and recovers after 60 seconds", async (status) => {
+  it.each([403, 429])("cools down globally after %i and recovers after 60 seconds", async (status) => {
     mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, status));
     await expect(service.fetchHighLowTidePredictions("a", start, end)).rejects.toThrow();
     await expect(service.fetchHourlyTidePredictions("b", start, end)).rejects.toThrow();
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
     jest.advanceTimersByTime(60_000);
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1", type: "H" }] }));
+    await expect(service.fetchHighLowTidePredictions("b", start, end)).resolves.toHaveLength(1);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([500, 503])("does not pause other stations after a %i", async (status) => {
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, status));
+    await expect(service.fetchHighLowTidePredictions("a", start, end)).rejects.toThrow();
     mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1", type: "H" }] }));
     await expect(service.fetchHighLowTidePredictions("b", start, end)).resolves.toHaveLength(1);
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
