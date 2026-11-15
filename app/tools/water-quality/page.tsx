@@ -4,7 +4,7 @@ import { JsonLd } from "@/components/seo/funnel/JsonLd";
  *
  * Route: /tools/water-quality
  * Server component. Reads ?beach= param to show a specific beach's water quality.
- * Coverage: CA + HI only (CEDEN + PacIOOS data sources).
+ * Coverage: CA only (CEDEN). Hawaii's public feed has no sample after 2024-06-13.
  */
 
 import type { Metadata } from "next";
@@ -38,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
     title: "Water Quality Check — Is It Safe to Surf?",
     description:
-      "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California and Hawaii beaches.",
+      "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California beaches.",
     path: "/tools/water-quality",
     image: "/images/tools/kelp-forest.jpg",
     keywords: [
@@ -64,12 +64,12 @@ const FAQ_ITEMS = [
   {
     question: "Where does the water quality data come from?",
     answer:
-      "California data comes from CEDEN (California Environmental Data Exchange Network), updated bi-weekly. Hawaii data comes from PacIOOS ERDDAP (Hawaii Department of Health Clean Water Branch). Both are sourced from official EPA monitoring programs.",
+      "California data comes from CEDEN (California Environmental Data Exchange Network), updated bi-weekly from official EPA monitoring programs. Hawaii's public sample feed stopped in June 2024, so we don't show Hawaii samples.",
   },
   {
-    question: "Why is only California and Hawaii covered?",
+    question: "Why only California?",
     answer:
-      "We currently sync data from CEDEN (CA) and PacIOOS ERDDAP (HI) because they provide standardized, machine-readable beach monitoring APIs. We're working to add more states as additional data sources become available.",
+      "CEDEN gives us a standard, machine-readable beach monitoring feed. Hawaii's public feed has had no new samples since June 2024. We'll add more states when their data comes in fresh.",
   },
 ];
 
@@ -116,10 +116,12 @@ function StatusBadge({ status }: { status: WQStatus }) {
 function StatusMessage({
   status,
   beachName,
+  state,
   date,
 }: {
   status: WQStatus;
   beachName: string;
+  state: string;
   date: string | null;
 }) {
   const formattedDate = date
@@ -134,7 +136,9 @@ function StatusMessage({
     [WQ_STATUS.GOOD]: `Water quality is within safe limits at ${beachName}.${formattedDate ? ` Last tested ${formattedDate}.` : ""}`,
     [WQ_STATUS.ADVISORY]: `Elevated bacteria levels detected at ${beachName}. Consider avoiding water contact, especially with open wounds.${formattedDate ? ` Last tested ${formattedDate}.` : ""}`,
     [WQ_STATUS.CLOSURE]: `Health advisory in effect at ${beachName}. Water contact not recommended.${formattedDate ? ` Last updated ${formattedDate}.` : ""}`,
-    [WQ_STATUS.UNKNOWN]: `No recent test data available for ${beachName}. Check back after the next monitoring cycle.`,
+    [WQ_STATUS.UNKNOWN]: state === "HI"
+      ? `No current samples for ${beachName}. Hawaii's public feed stopped in June 2024.`
+      : `No recent test data available for ${beachName}. Check back after the next monitoring cycle.`,
   };
 
   return (
@@ -212,7 +216,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
             name: "Quiver Water Quality Check",
             url: `${SITE_ORIGIN}/tools/water-quality`,
             description:
-              "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California and Hawaii beaches.",
+              "Check bacteria levels before you paddle out. Real water quality data from EPA monitoring stations for California beaches.",
             applicationCategory: "SportsApplication",
             operatingSystem: "Any",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
@@ -227,14 +231,14 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
         imageSrc={TOOL_IMAGES["water-quality"]}
         imageAlt="Kelp forest underwater near a coastal surf zone."
         title="Water Quality Check"
-        description="Check bacteria levels before you paddle out. Updated from EPA monitoring stations. Currently covers CA & HI."
+        description="Check bacteria levels before you paddle out. Updated from EPA monitoring stations. Covers California for now."
       />
 
       <div className="container mx-auto px-4 py-10 max-w-4xl">
         {/* Beach Search */}
         <ScrollReveal>
           <div className="mb-8">
-            <WaterQualitySearch placeholder="Search for a CA or HI beach..." />
+            <WaterQualitySearch placeholder="Search for a California beach..." />
           </div>
         </ScrollReveal>
 
@@ -295,6 +299,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                   ) : <StatusMessage
                     status={wq.status}
                     beachName={wq.beachName}
+                    state={wq.state}
                     date={wq.latestSampleDate}
                   />}
                 </div>
@@ -378,7 +383,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                   See full conditions at {wq.beachName}
                 </Link>
                 <p className="text-xs text-slate-500 text-center">
-                  Data from {wq.state === "HI" ? "PacIOOS ERDDAP" : "CEDEN"}.
+                  {wq.state !== "HI" && "Data from CEDEN. "}
                   Monitoring stations may not be at your exact surf spot. Levels
                   can change rapidly after rain.
                 </p>
@@ -395,7 +400,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
               <p className="text-slate-400 text-sm max-w-sm mx-auto">
                 This beach either isn&apos;t in our monitoring network or
                 hasn&apos;t been tested recently. Water quality data is
-                currently available for California and Hawaii beaches only.
+                currently available for California beaches only.
               </p>
             </div>
           </ScrollReveal>
@@ -456,8 +461,9 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                 bi-weekly
               </li>
               <li>
-                <span className="text-white font-medium">Hawaii:</span> PacIOOS
-                ERDDAP (Hawaii DOH Clean Water Branch) — updated bi-weekly
+                <span className="text-white font-medium">Hawaii:</span> no
+                current samples. The Hawaii DOH feed (via PacIOOS) stopped in
+                June 2024.
               </li>
               <li className="pt-1 text-slate-500">
                 More states coming soon. Monitoring stations may not be at your
