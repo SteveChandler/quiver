@@ -1,7 +1,6 @@
 import { synthesizeFromExtrema, type InternalPoint } from "@/components/forecast/tide-chart/tide-chart-helpers";
 import { formatStationDay, formatStationTime } from "@/lib/tide-stations/format";
 import { localDateKey } from "@/lib/tide-stations/series";
-import { interpolateTideHeight } from "@/lib/utils/tide-interpolation";
 import type { TideScheduleEntry } from "@/types/forecast";
 import { isTideHeightInRange, type TideHeightContext, type TideRangeFt } from "./tide-direction";
 
@@ -38,9 +37,25 @@ function buildCurve(schedule: TideScheduleEntry[] | null | undefined): TideCurve
   return { points, extremes, startMs: extremes[0].ms, endMs: extremes[extremes.length - 1].ms };
 }
 
+/**
+ * Linear between the bracketing curve points, as interpolateTideHeight does for the chart's
+ * "Now" label, with a binary search because the points are already sorted.
+ */
 function heightOnCurve(curve: TideCurve, atMs: number): number | null {
   if (atMs < curve.startMs || atMs > curve.endMs) return null;
-  return interpolateTideHeight(curve.points, atMs);
+  const { points } = curve;
+  let lo = 0;
+  let hi = points.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].time <= atMs) lo = mid;
+    else hi = mid;
+  }
+  const before = points[lo];
+  const after = points[hi];
+  const span = after.time - before.time;
+  if (span <= 0) return before.height;
+  return before.height + (after.height - before.height) * ((atMs - before.time) / span);
 }
 
 /** Same rule as useDynamicTide: the next extreme sets the direction, and the last 30 minutes before it are slack. */
@@ -57,6 +72,23 @@ export function tideHeightAt(schedule: TideScheduleEntry[] | null | undefined, a
   return curve ? heightOnCurve(curve, atMs) : null;
 }
 
+function nextGoodOnCurve(
+  curve: TideCurve,
+  range: TideRangeFt,
+  preferredDirection: string | null | undefined,
+  fromMs: number
+): number | null {
+  const wantDirection = preferredDirection && preferredDirection !== "either" ? preferredDirection : null;
+  const endMs = Math.min(fromMs + HORIZON_MS, curve.endMs);
+  for (let t = Math.floor(fromMs / STEP_MS) * STEP_MS + STEP_MS; t <= endMs; t += STEP_MS) {
+    const height = heightOnCurve(curve, t);
+    if (height === null || !isTideHeightInRange(height, range)) continue;
+    if (wantDirection && directionOnCurve(curve, t) !== wantDirection) continue;
+    return t;
+  }
+  return null;
+}
+
 /**
  * The first time on a 10-minute grid, within 24 h after `fromMs`, when the height is in range
  * and the direction matches. "either" (or no direction) checks the height only.
@@ -68,16 +100,7 @@ export function nextGoodTideMs(
   fromMs: number
 ): number | null {
   const curve = buildCurve(schedule);
-  if (!curve) return null;
-  const wantDirection = preferredDirection && preferredDirection !== "either" ? preferredDirection : null;
-  const endMs = Math.min(fromMs + HORIZON_MS, curve.endMs);
-  for (let t = Math.floor(fromMs / STEP_MS) * STEP_MS + STEP_MS; t <= endMs; t += STEP_MS) {
-    const height = heightOnCurve(curve, t);
-    if (height === null || !isTideHeightInRange(height, range)) continue;
-    if (wantDirection && directionOnCurve(curve, t) !== wantDirection) continue;
-    return t;
-  }
-  return null;
+  return curve ? nextGoodOnCurve(curve, range, preferredDirection, fromMs) : null;
 }
 
 interface TideAlertHeightInput {
@@ -97,8 +120,10 @@ export function tideAlertHeightContext(input: TideAlertHeightInput): TideHeightC
     : null;
   if (!range || nowMs == null) return { range, heightFt: null, nextGoodLabel: null };
 
-  const heightFt = tideHeightAt(input.schedule, nowMs);
-  const goodMs = nextGoodTideMs(input.schedule, range, input.preferredDirection, nowMs);
+  const curve = buildCurve(input.schedule);
+  if (!curve) return { range, heightFt: null, nextGoodLabel: null };
+  const heightFt = heightOnCurve(curve, nowMs);
+  const goodMs = nextGoodOnCurve(curve, range, input.preferredDirection, nowMs);
   if (goodMs === null) return { range, heightFt, nextGoodLabel: null };
 
   const time = formatStationTime(goodMs, timeZone);

@@ -20,9 +20,14 @@ export interface TideHeightContext {
   nextGoodLabel: string | null;
 }
 
-/** In range at the precision the page prints the height (one decimal), so "1.0 ft" never reads as below 1.0. */
+/** The height as the page prints it: toFixed(1), the same rounding as the tide chart's "Now · X ft". */
+export function shownTideHeightFt(heightFt: number): number {
+  return Number(heightFt.toFixed(1));
+}
+
+/** In range at the precision the page prints the height, so "1.0 ft" never reads as below 1.0. */
 export function isTideHeightInRange(heightFt: number, range: TideRangeFt): boolean {
-  const shown = Math.round(heightFt * 10) / 10;
+  const shown = shownTideHeightFt(heightFt);
   return shown >= range.minFt && shown <= range.maxFt;
 }
 
@@ -87,7 +92,7 @@ function getRangedTideAlert(
     return { status: "neutral", message };
   }
 
-  const shown = Math.round(heightFt * 10) / 10;
+  const shown = shownTideHeightFt(heightFt);
   const inRange = isTideHeightInRange(heightFt, range);
   const directionOk = !wantDirection || wantDirection === currentDir;
 

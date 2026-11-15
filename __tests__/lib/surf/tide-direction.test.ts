@@ -100,6 +100,14 @@ describe("getTideAlert", () => {
       expect(getTideAlert("rising", "rising", 60, ctx(0.94)).status).toBe("waiting");
     });
 
+    it("rounds like the tide chart's toFixed(1) at a .x5 height", () => {
+      // The chart prints 0.95 as "0.9ft"; Math.round would have printed 1.0 and said Optimal.
+      expect((0.95).toFixed(1)).toBe("0.9");
+      expect(getTideAlert("rising", "rising", 60, ctx(0.95)).message).toBe(
+        "Too low at 0.9 ft – good from Sun 2:50 AM (1.0–3.0 ft, rising)"
+      );
+    });
+
     it("never says optimal without a height", () => {
       expect(getTideAlert("rising", "rising", 60, ctx(null))).toEqual({
         status: "neutral",
