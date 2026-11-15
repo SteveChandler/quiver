@@ -944,6 +944,27 @@ describe("open-ocean naming", () => {
     expect(swells.map((event) => [event.directionDeg, event.exposureDirectionDeg]).sort()).toEqual([[200, 200], [300, 270]]);
   });
 
+  it("combines a swell's two partitions at one beach into one face for the joined event", async () => {
+    // Del Mar, Nov 14: one swell as W 18 s and WNW 14 s partitions at the same beaches.
+    const WNW_PART: PartitionSpec = { heightFt: 4, periodS: 11, direction: 290 };
+    const beaches = [beach("Ocean Beach", WIDE), beach("Sunset Cliffs", WIDE), beach("Pacific Beach", WIDE)];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { swell: W_RUN }).map((row, index) => {
+      const day = DAYS[Math.floor(index / HOURS.length)];
+      if (day !== EVENT_DAY) return row;
+      return { ...row, swell_2_height: `${WNW_PART.heightFt} ft`, swell_2_period: `${WNW_PART.periodS}s`, swell_2_direction: String(WNW_PART.direction) };
+    }));
+    const apart = await build(beaches, rows);
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean((day, hour) => [nwOverSmallSouth(day, hour)[0]]));
+    const joined = await build(beaches, rows);
+
+    const parts = apart.events.filter((event) => event.kind === "swell");
+    expect(parts).toHaveLength(2);
+    const swells = joined.events.filter((event) => event.kind === "swell");
+    expect(swells).toHaveLength(1);
+    const faceAt = (event: InternalRegionEvent) => event.memberFaceFt?.[beaches[0].id] ?? 0;
+    expect(faceAt(swells[0])).toBeCloseTo(Math.hypot(faceAt(parts[0]), faceAt(parts[1])), 0);
+  });
+
   it("keeps a storm's near-beach name and period: GFS swell partitions leave out the wind sea", async () => {
     const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
     jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));

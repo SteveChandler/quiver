@@ -1,6 +1,6 @@
 import { parseSwellDirectionToDegrees, parseWaveHeightRangeFt } from "@/lib/alerts/forecast-parsers";
 import { exposureFactor, exposureLabel, swellWindowForBeach } from "@/lib/alerts/swell-events/exposure";
-import type { RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
+import type { InternalRegionEvent, RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { CLOSING_OUT_FACE_FT, ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { resolveWindOrientation, type WindOrientationSource } from "@/lib/domains/shared/wind-orientation";
@@ -106,14 +106,47 @@ function exposure(build: RegionBuild, event: RegionalSwellEvent, beachId: string
   return factor === null ? null : exposureLabel(factor);
 }
 
+/** A swell's typical face at its own beaches: the median of the detector's per-swell faces. */
+function ownFaceFt(event: InternalRegionEvent): number | null {
+  const faces = Object.values(event.memberFaceFt ?? {});
+  return faces.length ? median(faces) : null;
+}
+
+/**
+ * The faces a swell gets for its own size: null for the day's leader, which keeps the total surf, as
+ * it is what surfers see that day. Every other swell peaking that day gets the detector's faces from
+ * it alone, so a small south swell under a big NW one no longer takes the day's size. A storm never
+ * outranks a groundswell: its 5–6 s partitions read big faces, and on Nov 14, 2026 a W 10 s storm
+ * would have cut LA's biggest NW groundswell of the season to chest-high.
+ */
+function ownFacesUnlessLeader(build: RegionBuild, event: RegionalSwellEvent): Record<string, number> | null {
+  const internal = build.events.find((item) => item.key === event.regionalKey);
+  const own = internal?.memberFaceFt;
+  if (!internal || !own || Object.keys(own).length === 0) return null;
+  const mine = ownFaceFt(internal) ?? Number.NEGATIVE_INFINITY;
+  const outranked = build.events.some((other) => other !== internal && other.source === "forecast"
+    && other.peakLocalDate === internal.peakLocalDate
+    && (other.kind === internal.kind || other.kind === "swell")
+    && (ownFaceFt(other) ?? Number.NEGATIVE_INFINITY) > mine);
+  return outranked ? own : null;
+}
+
 export function eventFactsFromBuild(build: RegionBuild, event: RegionalSwellEvent): CandidateFacts | null {
   const peakDate = getLocalDateStr(new Date(event.peakAt), build.timezone);
+  const own = ownFacesUnlessLeader(build, event);
   const peaks = build.beaches.flatMap((beach) => {
     const reached = exposure(build, event, beach.id);
     if (reached !== "open" && reached !== "partial") return [];
+    const ownFace = own ? own[beach.id] : undefined;
+    if (own && ownFace === undefined) return [];
     const ranges = beachDayRows(build, event, beach.id, peakDate)
       .flatMap((row) => parseWaveHeightRangeFt(row.wave_height) ?? []);
-    return ranges.length ? [ranges.reduce((peak, range) => range.max > peak.max ? range : peak)] : [];
+    if (!ranges.length) return [];
+    const peak = ranges.reduce((best, range) => range.max > best.max ? range : best);
+    if (ownFace === undefined || peak.max <= 0) return [peak];
+    // The total's range, scaled to this swell's share of it at this beach; never above the total.
+    const share = Math.min(1, ownFace / peak.max);
+    return [{ min: peak.min * share, max: peak.max * share }];
   });
   if (peaks.length < 3) return null;
   const faceFt = { min: Math.round(median(peaks.map((peak) => peak.min))), max: Math.round(median(peaks.map((peak) => peak.max))) };
