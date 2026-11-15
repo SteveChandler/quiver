@@ -32,7 +32,7 @@ interface BeachWaterQualityData extends CountyStatusMetadata {
  * Get water quality data for a beach by its slug.
  * Returns null if no water quality data is available for the beach.
  *
- * Coverage is CA + HI only.
+ * Coverage is CA only. Hawaii's public feed has no sample after 2024-06-13.
  */
 export async function getBeachWaterQuality(
   beachSlug: string
@@ -129,7 +129,7 @@ const fetchMonitoredBeachesList = unstable_cache(
           lon
         )
       `)
-      .in("beach.state" as never, ["CA", "HI"]);
+      .in("beach.state" as never, ["CA"]);
 
     if (error) throw new Error(error.message);
     if (!data) return [];
@@ -161,13 +161,13 @@ const fetchMonitoredBeachesList = unstable_cache(
         };
       });
   },
-  ["water-quality-monitored-beaches-v1"],
+  ["water-quality-monitored-beaches-v2"],
   { revalidate: 3600 },
 );
 
 /**
  * Get all beaches with water quality data (for map/list view).
- * Returns beaches in CA and HI only.
+ * Returns beaches in CA only: Hawaii rows hold no sample, so they never show clean water.
  */
 export async function getBeachesWithWaterQuality(): Promise<
   ServerActionResponse<WaterQualityBeachListItem[]>
