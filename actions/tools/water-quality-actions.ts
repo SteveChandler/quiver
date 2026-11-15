@@ -72,6 +72,8 @@ export async function getBeachWaterQuality(
     if (!wq) return null;
 
     const effective = (await currentWaterQuality([{ ...wq, beach_id: data.id }]))[0];
+    // County status, or a sample too old to be current: old readings must not show as the latest result.
+    const hideSample = Boolean(effective.county_advisory_status) || effective.status === WQ_STATUS.UNKNOWN;
     return {
       county_advisory_status: effective.county_advisory_status,
       county_checked_at: effective.county_checked_at,
@@ -81,11 +83,11 @@ export async function getBeachWaterQuality(
       state: data.state ?? "",
       city: data.city,
       status: (effective.status as WQStatus) ?? WQ_STATUS.UNKNOWN,
-      latestEnterococcus: effective.county_advisory_status ? null : wq.latest_enterococcus,
-      latestFecalColiform: effective.county_advisory_status ? null : wq.latest_fecal_coliform,
-      latestSampleDate: effective.county_advisory_status ? null : wq.latest_sample_date,
-      exceedanceCount30d: effective.county_advisory_status ? 0 : wq.exceedance_count_30d,
-      totalSamples30d: effective.county_advisory_status ? 0 : wq.total_samples_30d,
+      latestEnterococcus: hideSample ? null : wq.latest_enterococcus,
+      latestFecalColiform: hideSample ? null : wq.latest_fecal_coliform,
+      latestSampleDate: hideSample ? null : wq.latest_sample_date,
+      exceedanceCount30d: hideSample ? 0 : wq.exceedance_count_30d,
+      totalSamples30d: hideSample ? 0 : wq.total_samples_30d,
       updatedAt: wq.updated_at,
       epaEnterococcusSTV: EPA_BEACH_CRITERIA.enterococcus.stv,
       epaFecalColiformSTV: EPA_BEACH_CRITERIA.fecalColiform.stv,
