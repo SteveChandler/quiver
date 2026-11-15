@@ -61,6 +61,24 @@ describe("size per swell", () => {
     expect(eventFactsFromBuild(swellBigger, storm)?.faceFt).toEqual({ min: 1, max: 2 });
   });
 
+  it("gives neither of two near-equal swells the day's total, so a small refresh cannot swap them", () => {
+    const west: RegionalSwellEvent = { ...event, regionalKey: "west" };
+    const even = { 0: 3.4, 1: 3.4, 2: 3.4, 3: 3.4, 4: 3.4 };
+    const nearly = { 0: 3.2, 1: 3.2, 2: 3.2, 3: 3.2, 4: 3.2 };
+    for (const [a, b] of [[even, even], [even, nearly], [nearly, even]]) {
+      const built = { ...build(), events: [regionEvent("west", a), regionEvent("south", b)] };
+      expect(eventFactsFromBuild(built, west)?.faceFt).not.toEqual(eventFactsFromBuild(build(), event)?.faceFt);
+      expect(eventFactsFromBuild(built, south)?.faceFt).not.toEqual(eventFactsFromBuild(build(), event)?.faceFt);
+    }
+  });
+
+  it("ranks a swell on the faces at its exposed beaches, not at the ones its window shuts out", () => {
+    // Beach 5's window faces east: its 1 ft never enters the west swell's size, so it must not drag
+    // the west swell's rank (6 ft at its exposed beach) under the clear lead over the south's 4 ft.
+    const built = { ...build(), events: [regionEvent("west", { 0: 6, 5: 1 }), regionEvent("south", LEADER_FACES)] };
+    expect(eventFactsFromBuild(built, { ...event, regionalKey: "west" })).toEqual(eventFactsFromBuild(build(), event));
+  });
+
   it("leaves a swell alone on a day it has to itself, or when the build carries no faces", () => {
     expect(eventFactsFromBuild({ ...build(), events: [regionEvent("south", { 0: 1, 1: 1, 2: 1 })] }, south))
       .toEqual(eventFactsFromBuild(build(), event));

@@ -1,5 +1,5 @@
 import { parseSwellDirectionToDegrees, parseWaveHeightRangeFt } from "@/lib/alerts/forecast-parsers";
-import { exposureFactor, exposureLabel, swellWindowForBeach } from "@/lib/alerts/swell-events/exposure";
+import { exposureDirectionOf, exposureFactor, exposureLabel, swellWindowForBeach } from "@/lib/alerts/swell-events/exposure";
 import type { InternalRegionEvent, RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import { CLOSING_OUT_FACE_FT, ratingWindow } from "@/lib/alerts/swell-events/regional-rating";
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
@@ -106,29 +106,42 @@ function exposure(build: RegionBuild, event: RegionalSwellEvent, beachId: string
   return factor === null ? null : exposureLabel(factor);
 }
 
-/** A swell's typical face at its own beaches: the median of the detector's per-swell faces. */
-function ownFaceFt(event: InternalRegionEvent): number | null {
-  const faces = Object.values(event.memberFaceFt ?? {});
+// A swell keeps the day's total only with a clear lead: two swells within this ratio would trade the
+// lead on every forecast refresh, and each would keep flipping between the total and its own share.
+const CLEAR_LEAD_RATIO = 1.25;
+
+/** A swell's typical face at the beaches that size it: the median per-swell face at its open and partly sheltered members. */
+function ownFaceFt(build: RegionBuild, event: InternalRegionEvent): number | null {
+  const faces = Object.entries(event.memberFaceFt ?? {}).flatMap(([beachId, faceFt]) => {
+    const beach = build.beaches.find((item) => item.id === beachId);
+    const directionDeg = exposureDirectionOf(event, beachId);
+    const factor = beach && directionDeg !== null ? exposureFactor(directionDeg, swellWindowForBeach(beach)) : null;
+    const reached = factor === null ? null : exposureLabel(factor);
+    return reached === "open" || reached === "partial" ? [faceFt] : [];
+  });
   return faces.length ? median(faces) : null;
 }
 
 /**
- * The faces a swell gets for its own size: null for the day's leader, which keeps the total surf, as
- * it is what surfers see that day. Every other swell peaking that day gets the detector's faces from
- * it alone, so a small south swell under a big NW one no longer takes the day's size. A storm never
- * outranks a groundswell: its 5–6 s partitions read big faces, and on Nov 14, 2026 a W 10 s storm
- * would have cut LA's biggest NW groundswell of the season to chest-high.
+ * The faces a swell gets for its own size: null when it leads its day, which keeps the total surf, as
+ * it is what surfers see that day. It leads with a clear lead over every rival peaking that day; a
+ * swell that is outranked, or that only ties, gets the detector's faces from it alone, so a small
+ * south swell under a big NW one no longer takes the day's size. A storm never outranks a groundswell:
+ * its 5–6 s partitions read big faces, and on Nov 14, 2026 a W 10 s storm would have cut LA's biggest
+ * NW groundswell of the season to chest-high.
  */
 function ownFacesUnlessLeader(build: RegionBuild, event: RegionalSwellEvent): Record<string, number> | null {
   const internal = build.events.find((item) => item.key === event.regionalKey);
   const own = internal?.memberFaceFt;
   if (!internal || !own || Object.keys(own).length === 0) return null;
-  const mine = ownFaceFt(internal) ?? Number.NEGATIVE_INFINITY;
-  const outranked = build.events.some((other) => other !== internal && other.source === "forecast"
-    && other.peakLocalDate === internal.peakLocalDate
-    && (other.kind === internal.kind || other.kind === "swell")
-    && (ownFaceFt(other) ?? Number.NEGATIVE_INFINITY) > mine);
-  return outranked ? own : null;
+  const mine = ownFaceFt(build, internal) ?? 0;
+  const rivals = build.events.filter((other) => other !== internal && other.source === "forecast"
+    && other.peakLocalDate === internal.peakLocalDate && (other.kind === internal.kind || other.kind === "swell"));
+  const leads = rivals.every((other) => {
+    const theirs = ownFaceFt(build, other);
+    return theirs === null || mine >= CLEAR_LEAD_RATIO * theirs;
+  });
+  return leads ? null : own;
 }
 
 export function eventFactsFromBuild(build: RegionBuild, event: RegionalSwellEvent): CandidateFacts | null {
