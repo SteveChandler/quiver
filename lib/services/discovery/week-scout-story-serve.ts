@@ -10,6 +10,7 @@ import { faceRangeFt, sizeWordsFor, type CandidateFacts } from "./week-scout-sto
 import { checkWrittenSentence } from "./week-scout-story-claims";
 import { glanceFromBuild } from "./week-scout-glance";
 import { bindGlance, type GlanceWritten, type StoryGlance } from "./week-scout-glance-wording";
+import { loadRegionWaterNotice, waterSentence, withWaterSentence } from "./week-scout-glance-water";
 import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from "./week-scout-story-region-gate";
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
@@ -410,6 +411,13 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
       console.warn("[week-scout-story] region gate read failed", { region, error: String(error) });
       return { regional: CLOSED_REGION, build: null };
     });
+  // Beside the ranking too; never rejects: a failed read leaves the water sentence out.
+  const waterRead: Promise<string | null> = regionRead.then(({ build }) => build
+    ? loadRegionWaterNotice(client, region, build.beaches, now).then((notice) => waterSentence(notice, editionDate, build.timezone))
+    : null).catch((error: unknown) => {
+    console.warn("[week-scout-story] water notice read failed", { region, error: String(error) });
+    return null;
+  });
   const [edition, cached] = await Promise.all([
     loadLatestStoryEdition(client, region),
     loadLatestStoryInput(client, region, editionDate),
@@ -461,6 +469,8 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
     } catch (error) {
       console.warn("[week-scout-story] glance failed", { region, error: String(error) });
     }
+    // A week with no swell sentence still gets the water sentence alone.
+    glance = withWaterSentence(glance, await waterRead);
     return { ...story, glance };
   };
 }
