@@ -1,3 +1,4 @@
+import { DiscoveryStageTimer, type DiscoveryStageSnapshot } from './discovery-stage-timer';
 import { clamp } from "@/lib/utils/clamp";
 /**
  * Surf Discovery Orchestrator
@@ -232,6 +233,7 @@ type SurfDiscoveryOperationalErrorCode =
 
 class SurfDiscoveryOperationalError extends Error {
   readonly retryable = true;
+  stageTimings?: DiscoveryStageSnapshot;
 
   constructor(
     readonly code: SurfDiscoveryOperationalErrorCode,
@@ -1796,6 +1798,7 @@ async function discoverSurfSpotsInner(
   userLocation: { lat: number; lon: number },
   options: SurfDiscoveryOptions,
   startTime: number,
+  stageTimer: DiscoveryStageTimer,
   signal?: AbortSignal,
 ): Promise<SurfDiscoveryResponse> {
   const {
@@ -1842,7 +1845,7 @@ async function discoverSurfSpotsInner(
   log.debug(`Discovering surf spots (maxResults: ${maxResults})`);
 
   // Reuse the existing favorites read before constructing the forecast pool.
-  const favorites = userId ? await getFavoriteBeachesFromDb(userId) : { success: true, data: [] };
+  const favorites = userId ? await stageTimer.time('favorites', () => getFavoriteBeachesFromDb(userId)) : { success: true, data: [] };
   if (savedSpotsOnly && !favorites.success) throw new SurfDiscoveryOperationalError('internal_error', 'Saved spots unavailable');
   const favoriteBeachIds = new Set((favorites.data ?? []).map((beach) => beach.id));
   const savedCustomSpots = ('customSpots' in favorites ? favorites.customSpots ?? [] : [])
@@ -1851,20 +1854,20 @@ async function discoverSurfSpotsInner(
   // Saved-spots-only never reads the nearby beaches (nearbyCandidates is forced empty and
   // nearbyMaxMiles is bypassed below), so only the skill-level read is needed from the pool.
   const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
-    buildCandidatePool(userId, {
+    stageTimer.time('candidates', () => buildCandidatePool(userId, {
       userLocation,
       radiusMiles: requestedRadiusMiles,
       ...(savedSpotsOnly ? { skipNearby: true } : {}),
-    }),
-    savedSpotsOnly ? Promise.resolve((favorites.data ?? [])
+    })),
+    stageTimer.time('included-beaches', () => savedSpotsOnly ? Promise.resolve((favorites.data ?? [])
       .filter((beach) => !beach.is_private || (beach as Beach & { owner_id?: string }).owner_id === userId)
       // Same eligibility rule the other include paths apply.
       .filter((beach) => allowRecommendationIneligibleIncludes
         || (beach as Beach & { recommendation_eligible?: boolean }).recommendation_eligible !== false)) : fetchIncludedBeachCandidates(
       requestedIncludeBeachIds,
       allowRecommendationIneligibleIncludes,
-    ),
-    buildCustomSpotCandidates(userId, userLocation, radiusMiles, savedSpotsOnly ? savedCustomSpots : undefined),
+    )),
+    stageTimer.time('custom-spots', () => buildCustomSpotCandidates(userId, userLocation, radiusMiles, savedSpotsOnly ? savedCustomSpots : undefined)),
   ]);
   const skillAware = isSkillAwareGoChecksOn(userId);
   const ratingSkill = getSkillLevelOrDefault(userSkillLevel);
@@ -1927,7 +1930,7 @@ async function discoverSurfSpotsInner(
     return { ...emptyResponse(maxResults, 'no_candidates'), candidateRejections, ...(savedSpotsOnly ? { emptyReason: 'no_recommendable_saved_window_72h' as const } : {}) };
   }
 
-  const anchorReferenceTerrain = await fetchAnchorReferenceTerrain(customSpotCandidates);
+  const anchorReferenceTerrain = await stageTimer.time('anchor-terrain', () => fetchAnchorReferenceTerrain(customSpotCandidates));
 
   log.debug(
     `Found ${finalCandidates.length} candidate beaches ` +
@@ -1944,13 +1947,13 @@ async function discoverSurfSpotsInner(
   const windowOption = fetchWindowHours ? { forecastWindowHours: fetchWindowHours } : {};
   // Once the request has timed out its response is gone; stop issuing reads for it.
   const abortOption = signal ? { signal } : {};
-  let { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
+  let { successful: beachForecasts, failed: failedForecasts, staleCount } = await stageTimer.time('forecasts', () => batchFetchForecasts(finalCandidates, {
     maxConcurrent,
     timeout,
     overallTimeout,
     ...windowOption,
     ...abortOption,
-  });
+  }));
 
   let usingStaleData = false;
 
@@ -1984,14 +1987,14 @@ async function discoverSurfSpotsInner(
         `[STALE_FALLBACK] No fresh forecasts available — falling back to stale data for ${staleBeachCount}/${finalCandidates.length} beaches. ` +
         `Forecast pipeline may be down. Check cron jobs: enhanced-forecast-sync-cdip, enhanced-forecast-sync.`
       );
-      const staleFallback = await batchFetchForecasts(finalCandidates, {
+      const staleFallback = await stageTimer.time('stale-forecasts', () => batchFetchForecasts(finalCandidates, {
         maxConcurrent,
         timeout,
         overallTimeout,
         allowStale: true,
         ...windowOption,
         ...abortOption,
-      });
+      }));
       beachForecasts = staleFallback.successful;
       failedForecasts = staleFallback.failed;
       staleCount = staleFallback.staleCount;
@@ -2065,12 +2068,12 @@ async function discoverSurfSpotsInner(
     ? tideWindowForRows(beachForecasts.flatMap(({ forecasts }) => forecasts), scopedAtMs)
     : null;
   const tideSeriesPromise: Promise<Map<string, TideSeriesSample[]> | null> = tideWindow
-    ? loadTideSeriesByBeach(
+    ? stageTimer.time('tide-series', () => loadTideSeriesByBeach(
         supabase as unknown as TideSeriesClient,
         candidateBeachIds,
         tideWindow.startIso,
         tideWindow.endIso,
-      ).catch((error: unknown) => {
+      )).catch((error: unknown) => {
         // Bridged hours fall back to the row chord (tide_source 'row_lerp') rather than fail the request.
         log.warn('Hourly bridge tide series read failed; bridging from row tides', error);
         return null;
@@ -2079,7 +2082,7 @@ async function discoverSurfSpotsInner(
 
   // Only personalization depends on preferences; other reads can start immediately.
   const userPrefsPromise = userId
-    ? getUserSurfPreferences(userId).catch((err) => {
+    ? stageTimer.time('preferences', () => getUserSurfPreferences(userId)).catch((err) => {
         log.warn('Failed to fetch user surf preferences, continuing without them', err);
         return null;
       })
@@ -2095,14 +2098,14 @@ async function discoverSurfSpotsInner(
     userPrefs,
     tideSeriesByBeach,
   ] = await Promise.all([
-    getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
-    supabase
+    stageTimer.time('sun-times', () => getBatchSunTimes(Array.from(allBeachIds), uniqueDates)),
+    stageTimer.time('water-quality', () => supabase
       .from('beach_water_quality')
       .select('beach_id, status')
-      .in('beach_id', candidateBeachIds),
-    userPrefsPromise.then((prefs) => fetchPersonalizationContext(userId, candidateBeachIds, prefs)),
-    fetchUserBoardContext(supabase, userId, isPro || isBoardPicksFreeEnabled()),
-    fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
+      .in('beach_id', candidateBeachIds)),
+    stageTimer.time('personalization', () => userPrefsPromise.then((prefs) => fetchPersonalizationContext(userId, candidateBeachIds, prefs))),
+    stageTimer.time('board-context', () => fetchUserBoardContext(supabase, userId, isPro || isBoardPicksFreeEnabled())),
+    stageTimer.time('break-behavior', () => fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now })),
     userPrefsPromise,
     tideSeriesPromise,
   ]);
@@ -2132,11 +2135,12 @@ async function discoverSurfSpotsInner(
   // Unsampled beaches still need County status (a rain advisory covers them too).
   const wqRows = [...sampledWq, ...candidateBeachIds
     .filter((beachId) => !sampledWqIds.has(beachId)).map(unsampledWaterQualityRow)];
-  const currentWqRows = await currentWaterQuality(wqRows);
-  for (const row of await withRainfallNotice(currentWqRows, beachForecasts.map(({ beach }) => beach))) {
+  const currentWqRows = await stageTimer.time('current-water-quality', () => currentWaterQuality(wqRows));
+  for (const row of await stageTimer.time('rainfall', () => withRainfallNotice(currentWqRows, beachForecasts.map(({ beach }) => beach)))) {
     wqMap.set(row.beach_id, { status: row.status, kind: row.county_advisory_kind, rainRunoff: Boolean(row.rain_runoff) });
   }
 
+  stageTimer.start('scoring');
   // 3. Score each beach with detailed breakdown
   const scored: SurfDiscoveryRecommendation[] = [];
 
@@ -2646,6 +2650,7 @@ async function discoverSurfSpotsInner(
     log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty}, pers=${personalizationBonus}, affinity=${affinityBonus}, behavior=${behaviorBonus ?? 0})`);
   });
 
+  stageTimer.end('scoring');
   endStage('scoring');
 
   // Mark favorites with badge flag, but do NOT prioritize in ranking
@@ -2679,18 +2684,18 @@ async function discoverSurfSpotsInner(
   //
   // - Free users: no RPC call; every rec keeps similarity:null.
   // - Pro users: one shared set-based RPC scores every beach/window.
-  const similarityResult = await applySimilarityLayer({
+  const similarityResult = await stageTimer.time('similarity', () => applySimilarityLayer({
     recommendations: allRecs,
     userId,
     isPro,
     supabase,
-  });
+  }));
   endStage('similarity');
   const allRecsScored = collapseWindowCandidates(
     similarityResult.recommendations,
   );
   let waterQualityResolution: WaterQualityHoldResolution | null = null;
-  const rankedRecommendations = await rankBeaches(
+  const rankedRecommendations = await stageTimer.time('ranking', () => rankBeaches(
     allRecsScored.map((recommendation, index) => ({
       id: recommendation.beach.id,
       recommendation,
@@ -2704,7 +2709,7 @@ async function discoverSurfSpotsInner(
         ) || left.index - right.index,
       onWaterQualityResolution: (resolution) => { waterQualityResolution = resolution; },
     },
-  );
+  ));
   endStage('ranking');
   // `rankBeaches` has already dropped any beach with a resolved water-quality
   // closure. An unreachable probe drops nothing, so the pool stays intact.
@@ -2775,10 +2780,10 @@ async function discoverSurfSpotsInner(
   );
 
   // 5. Enrich with photos (independent reads, fetched together)
-  const [finalWithPhotos, includedWithPhotos] = await Promise.all([
+  const [finalWithPhotos, includedWithPhotos] = await stageTimer.time('photos', () => Promise.all([
     enrichWithPhotos(finalSlice),
     enrichWithPhotos(includedSlice),
-  ]);
+  ]));
   let enrichedRanked = applyWindowWaveHeightBadgesForRecommendations(
     finalWithPhotos,
     forecastsByBeachId
@@ -2869,6 +2874,7 @@ async function discoverSurfSpotsInner(
     }
   }
 
+  stageTimer.start('late-scoring');
   // 7. Compute sleep-in scores and assign strategy tags
   const sleepInScores = new Map<string, number>();
   if (discoveryMode !== 'now' && enrichedRanked.length > 1) {
@@ -2914,6 +2920,8 @@ async function discoverSurfSpotsInner(
     // themselves once the relevant window is in the past at the candidate beach.
     assignStrategyTags(enrichedRanked, sleepInScores, new Date());
   }
+
+  stageTimer.end('late-scoring');
 
   // 8. Generate regional call from hero's slot forecasts
   let regionalCall = '';
@@ -3065,6 +3073,7 @@ export async function discoverSurfSpots(
   options: SurfDiscoveryOptions = {}
 ): Promise<SurfDiscoveryResponse> {
   const startTime = Date.now();
+  const stageTimer = options.stageTimer ?? new DiscoveryStageTimer(startTime);
 
   const {
     userLocation,
@@ -3095,14 +3104,20 @@ export async function discoverSurfSpots(
     let timeoutId: ReturnType<typeof setTimeout>;
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
+        const error = new SurfDiscoveryOperationalError('timeout', 'Surf discovery timed out');
+        error.stageTimings = stageTimer.snapshot();
+        log.warn('Discovery timed out', {
+          durationMs: Date.now() - startTime,
+          stages: error.stageTimings,
+        });
         abortController.abort();
-        reject(new Error(`Discovery timeout after ${overallTimeout}ms`));
+        reject(error);
       }, overallTimeout);
     });
 
     try {
       const result = await Promise.race([
-        runWithScoringMemo(() => discoverSurfSpotsInner(userId, userLocation, options, startTime, abortController.signal)),
+        runWithScoringMemo(() => discoverSurfSpotsInner(userId, userLocation, options, startTime, stageTimer, abortController.signal)),
         timeoutPromise,
       ]);
       return result;
@@ -3114,15 +3129,16 @@ export async function discoverSurfSpots(
     log.error(`Discovery failed after ${duration}ms:`, error);
     if (throwOnFailure) {
       if (error instanceof SurfDiscoveryOperationalError) {
+        error.stageTimings ??= stageTimer.snapshot();
         throw error;
       }
-      const isTimeout =
-        error instanceof Error && error.message.startsWith('Discovery timeout');
-      throw new SurfDiscoveryOperationalError(
-        isTimeout ? 'timeout' : 'internal_error',
-        isTimeout ? 'Surf discovery timed out' : 'Surf discovery failed',
+      const failure = new SurfDiscoveryOperationalError(
+        'internal_error',
+        'Surf discovery failed',
         { cause: error },
       );
+      failure.stageTimings = stageTimer.snapshot();
+      throw failure;
     }
     return emptyResponse(maxResults, 'no_candidates');
   }

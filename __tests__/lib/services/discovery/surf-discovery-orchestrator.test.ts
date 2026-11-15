@@ -365,11 +365,12 @@ jest.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
+const mockDiscoveryTimingWarn = jest.fn();
 jest.mock('@/lib/logger', () => ({
   createContextLogger: jest.fn(() => ({
     debug: jest.fn(),
     info: jest.fn(),
-    warn: jest.fn(),
+    warn: (...args: unknown[]) => mockDiscoveryTimingWarn(...args),
     error: jest.fn(),
   })),
 }));
@@ -654,6 +655,77 @@ describe('discoverSurfSpots - Hotfix Candidate Boundaries', () => {
     })).rejects.toMatchObject({
       code: 'forecast_unavailable',
       retryable: true,
+    });
+  });
+
+  it('snapshots the pending dependency and logs exactly once at the deadline', async () => {
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    const { getFavoriteBeachesFromDb } = require('@/lib/services/beach-query-service');
+    getFavoriteBeachesFromDb.mockImplementationOnce(() => new Promise((resolve) => {
+      setTimeout(() => resolve({ success: true, data: [] }), 4651);
+    }));
+    buildCandidatePool.mockImplementationOnce(() => new Promise(() => {}));
+    jest.useFakeTimers();
+    try {
+      const result = discoverSurfSpots('timing-user', {
+        userLocation,
+        overallTimeout: 12000,
+        throwOnFailure: true,
+      }).catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(12000);
+      const error = await result;
+
+      expect(error).toMatchObject({
+        code: 'timeout',
+        stageTimings: {
+          completed: expect.arrayContaining([
+            { stage: 'favorites', durationMs: 4651 },
+          ]),
+          pending: [{ stage: 'candidates', durationMs: 7349 }],
+        },
+      });
+      expect(mockDiscoveryTimingWarn).toHaveBeenCalledTimes(1);
+      expect(mockDiscoveryTimingWarn).toHaveBeenCalledWith('Discovery timed out', {
+        durationMs: 12000,
+        stages: (error as { stageTimings: unknown }).stageTimings,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('attaches completed stages to non-timeout operational failures', async () => {
+    await expect(discoverSurfSpots('timing-outage-user', {
+      userLocation,
+      throwOnFailure: true,
+    })).rejects.toMatchObject({
+      code: 'forecast_unavailable',
+      stageTimings: {
+        completed: expect.arrayContaining([
+          { stage: 'favorites', durationMs: expect.any(Number) },
+          { stage: 'forecasts', durationMs: expect.any(Number) },
+        ]),
+        pending: [],
+      },
+    });
+  });
+
+  it('does not mistake an unexpected error message for the overall deadline', async () => {
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    const cause = new Error('Discovery timeout in an unexpected dependency');
+    buildCandidatePool.mockRejectedValueOnce(cause);
+
+    await expect(discoverSurfSpots('timing-internal-user', {
+      userLocation,
+      throwOnFailure: true,
+    })).rejects.toMatchObject({
+      code: 'internal_error',
+      cause,
+      stageTimings: {
+        completed: expect.arrayContaining([
+          { stage: 'candidates', durationMs: expect.any(Number) },
+        ]),
+      },
     });
   });
 
@@ -2484,6 +2556,30 @@ describe('discoverSurfSpots - failed forecast read', () => {
     };
     mockState.favoriteBeaches = [];
     mockState.favoritesError = null;
+  });
+
+  test('preserves pending forecast timing when abort rejects the dependency', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    mockBatchFetch.mockImplementationOnce((_beaches: unknown, options: { signal: AbortSignal }) =>
+      new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted')))));
+    jest.useFakeTimers();
+    try {
+      const result = discoverSurfSpots('test-user-123', {
+        userLocation: defaultUserLocation,
+        overallTimeout: 12000,
+        throwOnFailure: true,
+      }).catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(12000);
+      expect(await result).toMatchObject({
+        code: 'timeout',
+        stageTimings: {
+          completed: expect.arrayContaining([{ stage: 'favorites', durationMs: 0 }]),
+          pending: [{ stage: 'forecasts', durationMs: 12000 }],
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   // The Promise.race only abandons the response; the signal is what releases the database.
