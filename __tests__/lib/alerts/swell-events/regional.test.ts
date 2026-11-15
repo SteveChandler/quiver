@@ -282,7 +282,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
     expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
     expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
-    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v9", REGION, expect.any(String)], expect.anything());
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v10", REGION, expect.any(String)], expect.anything());
     const beachSelect = selectedColumns.find(({ table }) => table === "beaches")?.columns;
     expect(beachSelect).toContain("wave_punchiness_ai");
     expect(beachSelect).not.toContain("wave_punchiness,");
@@ -317,7 +317,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v9", REGION, "2026-09-25"],
+      ["region-swell-events", "v10", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });

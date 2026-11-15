@@ -327,7 +327,7 @@ describe("regional story source snapshot", () => {
     const input = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now });
     expect(input).toMatchObject({ schemaVersion: 3, region: "San Diego", editionDate: "2026-10-27" });
     expect(input.provenance.representativeBeachIds).toEqual(["a", "b", "c"]);
-    expect(input.provenance.generationInputVersion).toBe("regional-swell-events-9");
+    expect(input.provenance.generationInputVersion).toBe("regional-swell-events-10");
     expect(input.copyFacts.some((fact) => fact.slot === "cover")).toBe(true);
     expect(mockSaveInput).toHaveBeenCalledWith(expect.anything(), input);
   });
