@@ -21,8 +21,10 @@ interface ZineHeroProps {
   sources?: BeachSources | null;
   headingLevel?: ZineHeroHeadingLevel;
   headingSuffix?: string;
-  /** Route-specific answer, shown directly below the beach location. */
+  /** Route-specific answer, shown below the hero media. */
   summarySlot?: ReactNode;
+  /** Show summarySlot directly below the beach location, above the media, so the answer is on a phone's first screen. */
+  summaryAboveMedia?: boolean;
   /** Server-rendered forecast answer, shown in the hero's left column. */
   forecastSlot?: ReactNode;
   children?: ReactNode;
@@ -35,6 +37,7 @@ export function ZineHero({
   headingLevel = "h1",
   headingSuffix,
   summarySlot,
+  summaryAboveMedia = false,
   forecastSlot,
   children,
 }: ZineHeroProps): ReactElement {
@@ -103,6 +106,8 @@ export function ZineHero({
           </p>
         )}
 
+        {summarySlot && summaryAboveMedia ? <div className="mt-5">{summarySlot}</div> : null}
+
         <ZineHeroMedia
           photoUrl={beachPhoto?.image_url}
           attributionKind={beachPhoto?.attribution?.kind}
@@ -120,7 +125,7 @@ export function ZineHero({
           features={beach.features}
         />
 
-        {summarySlot ? <div className="mt-5">{summarySlot}</div> : null}
+        {summarySlot && !summaryAboveMedia ? <div className="mt-5">{summarySlot}</div> : null}
 
         {forecastSlot ? <div className="mt-5">{forecastSlot}</div> : null}
         {children}

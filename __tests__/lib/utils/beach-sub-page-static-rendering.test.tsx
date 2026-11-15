@@ -16,7 +16,7 @@ import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
-import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
+import { BeachTideNow } from "@/components/beach-detail/beach-tide-now";
 import { StationTideProvider } from "@/components/beach-detail/station-tide-context";
 import { buildCityTideView, loadStationTideView } from "@/lib/tides/city-tide-view";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
@@ -247,12 +247,27 @@ describe("renderBeachSubPage static rendering", () => {
       beachPath: "/ca/san-diego/blacks",
     }) as PageTreeElement;
     const children = getPageChildren(page);
-    const hero = children.find((child) => child.type === TideSummaryHero);
-    const provider = children.find((child) => child.type === StationTideProvider);
+    const provider = children.find((child) => child.type === StationTideProvider) as PageTreeElement | undefined;
+    const beachDetail = provider?.props.children as ReactElement | undefined;
+    const detailProps = beachDetail?.props as {
+      heroHeadingLevel?: string;
+      heroHeadingSuffix?: string;
+      heroSummaryAboveMedia?: boolean;
+      heroSummarySlot?: ReactElement;
+    };
 
-    expect(hero?.props).toMatchObject({
-      tideData: { nextLowTime: "1:27 PM", nextHighTime: "6:47 PM" },
+    expect(detailProps).toMatchObject({
+      heroHeadingLevel: "h1",
+      heroHeadingSuffix: "Tide Chart & Surf Windows",
+      heroSummaryAboveMedia: true,
     });
+    expect(detailProps.heroSummarySlot).toMatchObject({
+      type: BeachTideNow,
+      props: { display: { nextLowTime: "1:27 PM", nextHighTime: "6:47 PM" } },
+    });
+    expect((detailProps.heroSummarySlot?.props as { view?: { extremes: unknown[] } }).view?.extremes).toHaveLength(2);
+    // The old navy band above the field-guide card is gone.
+    expect(children.some((child) => (child.type as { name?: string }).name === "TideSummaryHero")).toBe(false);
     expect((provider?.props as { value?: { schedule: unknown[] } }).value?.schedule).toHaveLength(2);
     jest.restoreAllMocks();
   });
