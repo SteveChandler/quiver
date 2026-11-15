@@ -55,6 +55,9 @@ interface EvaluatePhaseResult {
  *    - Fetches last 90 days of Enterococcus and Fecal Coliform results
  *    - Matches samples to known station IDs
  *    - Upserts into wq_samples
+ *    - Reports each source (state, status, newest sample date) in `sources`.
+ *      PacIOOS (HI) has published no sample since 2024-06-13, so it reads
+ *      "empty" and names its newest upstream date in `errors`.
  *
  * 3. Evaluate phase (bi-weekly, Tue/Fri at 12:30 UTC):
  *    - Applies EPA recreational water quality criteria per beach

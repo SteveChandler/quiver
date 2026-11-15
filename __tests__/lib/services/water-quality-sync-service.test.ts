@@ -85,6 +85,11 @@ function createSampleSyncSupabase(): {
     station_id: "CEDEN-KEEP",
     nearest_beach_id: "beach-1",
   };
+  firstPage[1] = {
+    id: "station-uuid-hawaii",
+    station_id: "PACIOOS-152",
+    nearest_beach_id: "beach-hawaii",
+  };
   const secondPage = [
     {
       id: "station-uuid-second",
@@ -297,5 +302,132 @@ describe("water-quality CEDEN ingestion and evaluation", () => {
         latest_sample_date: validDate,
       }),
     ]);
+  });
+});
+
+describe("water-quality sample sources report per state", () => {
+  const cedenRow = {
+    StationCode: "KEEP",
+    SampleDate: `${utcDateOffset(-1)}T00:00:00Z`,
+    Analyte: "Enterococcus",
+    Result: "10",
+    Unit: "CFU/100mL",
+  };
+
+  function mockSources(options: {
+    ceden: () => Response;
+    pacioosWindow: () => Response;
+    pacioosNewest?: () => Response;
+  }): string[] {
+    const urls: string[] = [];
+    jest.spyOn(global, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      urls.push(url);
+      if (url.includes("data.ca.gov")) return options.ceden();
+      if (url.includes("orderByMax")) {
+        return options.pacioosNewest?.() ?? new Response("", { status: 500 });
+      }
+      return options.pacioosWindow();
+    });
+    return urls;
+  }
+
+  const cedenOk = (): Response =>
+    new Response(JSON.stringify({ result: { records: [cedenRow] } }), { status: 200 });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("names a retired Hawaii source and its newest upstream sample", async () => {
+    const { supabase } = createSampleSyncSupabase();
+    mockSources({
+      ceden: cedenOk,
+      pacioosWindow: () => new Response("Error {}", { status: 404 }),
+      pacioosNewest: () =>
+        new Response("time\nUTC\n2024-06-13T22:10:00Z\n", { status: 200 }),
+    });
+
+    const result = await syncWQSamples(supabase);
+
+    expect(result.sources).toEqual([
+      {
+        source: "CEDEN",
+        state: "CA",
+        status: "ok",
+        rowsFetched: 1,
+        samplesMatched: 1,
+        newestSampleDate: utcDateOffset(-1),
+      },
+      {
+        source: "PACIOOS",
+        state: "HI",
+        status: "empty",
+        rowsFetched: 0,
+        samplesMatched: 0,
+        newestSampleDate: null,
+        newestUpstreamDate: "2024-06-13",
+      },
+    ]);
+    expect(result.errors).toEqual([
+      "PacIOOS (HI): no samples in the last 90 days; newest upstream sample 2024-06-13",
+    ]);
+    expect(result.samplesUpserted).toBe(1);
+  });
+
+  it("stores Hawaii samples for tracked PacIOOS stations", async () => {
+    const { supabase, upsertRows } = createSampleSyncSupabase();
+    const sampleDate = utcDateOffset(-2);
+    mockSources({
+      ceden: cedenOk,
+      pacioosWindow: () =>
+        new Response(
+          `time,location_id,location_name,enterococcus\nUTC,,,CFU\n${sampleDate}T20:00:00Z,152,Waikiki,12\n${sampleDate}T20:00:00Z,999,Untracked,40\n`,
+          { status: 200 }
+        ),
+    });
+
+    const result = await syncWQSamples(supabase);
+
+    expect(result.sources[1]).toEqual({
+      source: "PACIOOS",
+      state: "HI",
+      status: "ok",
+      rowsFetched: 3,
+      samplesMatched: 1,
+      newestSampleDate: sampleDate,
+    });
+    expect(upsertRows.flat()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          station_id: "station-uuid-hawaii",
+          sample_date: sampleDate,
+          characteristic: "Enterococcus",
+          value: 12,
+        }),
+      ])
+    );
+    expect(result.errors).toEqual([]);
+  });
+
+  it("keeps a source outage as an error, not an empty window", async () => {
+    const { supabase } = createSampleSyncSupabase();
+    const urls = mockSources({
+      ceden: () => new Response("down", { status: 500 }),
+      pacioosWindow: () => new Response("busy", { status: 503 }),
+    });
+
+    const result = await syncWQSamples(supabase);
+
+    expect(result.sources.map((s) => [s.source, s.status])).toEqual([
+      ["CEDEN", "error"],
+      ["PACIOOS", "error"],
+    ]);
+    expect(result.sources[1]).not.toHaveProperty("newestUpstreamDate");
+    expect(result.errors).toEqual([
+      "CEDEN sample fetch failed: HTTP 500",
+      "PacIOOS sample fetch failed: HTTP 503",
+    ]);
+    expect(urls.some((url) => url.includes("orderByMax"))).toBe(false);
   });
 });
