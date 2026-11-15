@@ -258,7 +258,8 @@ function absorb(into: RegionRun, other: RegionRun): void {
  * Names each swell run from the open-ocean swell it comes from, and joins swell runs that come from
  * the same open-ocean swell: one swell bent to W at one beach and SW at another, or split by the model
  * into a W 18 s and a W 14 s partition at one beach. Runs that share a beach join only when they also
- * read alike there (within the tracking angle), so a real SSW swell beside a W one stays apart.
+ * read alike there (within the tracking angle), so a real SSW swell beside a W one stays apart, and
+ * the second keeps its own near-beach name rather than a copy of the first one's.
  * Storm runs keep their near-beach name: GFS swell partitions leave out the wind sea they are made of.
  * Without open-ocean swells (fetch failed, masked cell) every run keeps its own near-beach name.
  */
@@ -272,15 +273,20 @@ function nameFromOpenOcean(runs: readonly RegionRun[], swells: readonly OpenOcea
     }
     const match = matchOpenOceanSwell({ directionDeg: run.lead.directionDeg, periodS: run.lead.periodS,
       peakAt: run.lead.peakAt, heightFt: run.lead.peakOffshoreHeightFt }, swells);
-    const same = match ? named.find((other) => other.openOcean?.swell === match.swell
-      && Math.abs(Date.parse(other.lead.peakAt) - Date.parse(run.lead.peakAt)) <= SWELL_TRACKING_RULES.groupPeakHours * HOUR_MS
-      && (![...run.beachIds].some((beachId) => other.beachIds.has(beachId))
-        || angleDifference(other.lead.directionDeg, run.lead.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg)) : undefined;
+    const holders = match ? named.filter((other) => other.openOcean?.swell === match.swell
+      && Math.abs(Date.parse(other.lead.peakAt) - Date.parse(run.lead.peakAt)) <= SWELL_TRACKING_RULES.groupPeakHours * HOUR_MS) : [];
+    const same = holders.find((other) => ![...run.beachIds].some((beachId) => other.beachIds.has(beachId))
+      || angleDifference(other.lead.directionDeg, run.lead.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg);
     if (same) {
       absorb(same, run);
       continue;
     }
-    named.push(match ? { ...run, beachIds: new Set(run.beachIds), memberDirections: new Map(run.memberDirections), openOcean: match } : run);
+    // The swell is already held by a run that reads differently on the same beaches: this run is
+    // another swell there, so it keeps its own near-beach name instead of a second copy of that one.
+    const next = match && holders.length === 0
+      ? { ...run, beachIds: new Set(run.beachIds), memberDirections: new Map(run.memberDirections), openOcean: match }
+      : run;
+    named.push(next);
   }
   return named;
 }

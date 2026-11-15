@@ -173,6 +173,12 @@ describe("matchOpenOceanSwell", () => {
     expect(match).toMatchObject({ directionDeg: 190 });
   });
 
+  it("never gives a groundswell run to short-period open-ocean sea", () => {
+    // Oahu, Nov 2026: a 12 s north run took the name of a 7.7 s east trade swell.
+    const trades = openOceanSwells(samples(2, () => [{ heightFt: 7, periodS: 7.7, directionDeg: 84 }]));
+    expect(matchOpenOceanSwell({ directionDeg: 0, periodS: 12, peakAt: iso(8), heightFt: 5 }, trades)).toBeNull();
+  });
+
   it("matches nothing past the bend limit, the period limit, or outside the swell's time in the water", () => {
     // 110° from the NW swell, and the south swell is too small for a 5 ft run.
     expect(matchOpenOceanSwell({ directionDeg: 190, periodS: 16, peakAt: iso(16), heightFt: 5 }, swells)).toBeNull();
