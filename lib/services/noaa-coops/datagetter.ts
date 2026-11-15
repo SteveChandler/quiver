@@ -1,6 +1,7 @@
 import type { TideExtreme } from "./types";
 
 const BASE_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
+export const NOAA_USER_AGENT = "Quiver/1.0 (+https://quiversurf.app)";
 const INITIAL_COOLDOWN_MS = 60_000;
 const MAX_COOLDOWN_MS = 10 * 60_000;
 const inFlight = new Map<string, Promise<DatagetterPayload>>();
@@ -37,7 +38,7 @@ export async function fetchDatagetter(url: string, timeoutMs = 20_000): Promise<
     let response: Response;
     try {
       response = await fetch(url, {
-        headers: { "User-Agent": "Quiver/1.0 (+https://quiversurf.app)" },
+        headers: { "User-Agent": NOAA_USER_AGENT },
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
@@ -61,8 +62,11 @@ export async function fetchDatagetter(url: string, timeoutMs = 20_000): Promise<
       );
     }
     const data: DatagetterPayload = await response.json();
-    cooldownUntil = 0;
-    cooldownMs = INITIAL_COOLDOWN_MS;
+    // A request already in flight when a 403 arrived must not end that pause early.
+    if (Date.now() >= cooldownUntil) {
+      cooldownUntil = 0;
+      cooldownMs = INITIAL_COOLDOWN_MS;
+    }
     return data;
   })();
   inFlight.set(url, request);

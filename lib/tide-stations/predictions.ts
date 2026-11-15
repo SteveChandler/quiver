@@ -116,6 +116,10 @@ async function fetchNoaaSeries(station: TideStationRow, nowMs: number): Promise<
 }
 
 type GoodStationSeries = Extract<StationSeries, { status: "ok" }>;
+function adjustmentTotalFt(station: TideStationRow): number {
+  const { appliedByServiceFt, extraFt } = californiaAdjustment(station);
+  return appliedByServiceFt + extraFt;
+}
 class NoLastGoodTidesError extends Error {}
 
 function dailySnapshot(
@@ -130,8 +134,9 @@ function dailySnapshot(
       if (!series) throw new NoLastGoodTidesError();
       return series;
     },
+    // The offset is in the key so a changed sea-level adjustment never serves old heights.
     ["noaa-station-last-good-v1", station.source_station_id, station.station_kind,
-      station.reference_station_id ?? "", String(day)],
+      station.reference_station_id ?? "", String(day), String(adjustmentTotalFt(station))],
     { revalidate: false },
   )();
 }
@@ -172,7 +177,8 @@ export async function getStationSeries(station: TideStationRow, nowMs: number): 
     return trimToWindow(series, start, end);
   } catch (error) {
     if (!(error instanceof NoaaTideRequestError)) throw error;
-    for (const snapshotDay of [day, day - 1, day - 2]) {
+    // A day-2 snapshot ends before today's window does, so only today and yesterday can cover it.
+    for (const snapshotDay of [day, day - 1]) {
       try {
         const series = await dailySnapshot(station, snapshotDay);
         if (coversWindow(series, start, end)) return trimToWindow(series, start, end);

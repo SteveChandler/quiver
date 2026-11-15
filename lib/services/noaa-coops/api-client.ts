@@ -5,7 +5,7 @@
  * Oceanographic Products and Services (CO-OPS) API.
  */
 
-import { buildDatagetterUrl, fetchDatagetter, NoaaTideRequestError } from "./datagetter";
+import { buildDatagetterUrl, fetchDatagetter, NOAA_USER_AGENT, NoaaTideRequestError } from "./datagetter";
 import type { TideData, TideExtreme, StationInfo } from "./types";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "./tide-analysis";
 
@@ -14,7 +14,6 @@ const COOPS_METADATA_URL =
   "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations";
 
 /** User agent for API requests */
-const USER_AGENT = "quiver-surf-app (contact@quiver.com)";
 
 /** Timeout for optional API calls (water level, station info) */
 const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
@@ -283,7 +282,7 @@ async function fetchStationInfo(
 
     const response = await fetch(url, {
       headers: {
-        "User-Agent": USER_AGENT,
+        "User-Agent": NOAA_USER_AGENT,
       },
       signal: AbortSignal.timeout(OPTIONAL_REQUEST_TIMEOUT_MS),
     });

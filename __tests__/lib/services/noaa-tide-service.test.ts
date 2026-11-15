@@ -398,6 +398,19 @@ describe("NOAA request hardening", () => {
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps a cooldown when a request already in flight succeeds", async () => {
+    let releaseOk: (value: unknown) => void = () => undefined;
+    mockFetchWithTimeout
+      .mockImplementationOnce(() => new Promise((resolve) => { releaseOk = resolve; }))
+      .mockResolvedValueOnce(jsonResponse({}, 403));
+    const slow = service.fetchHighLowTidePredictions("slow", start, end);
+    await expect(service.fetchHighLowTidePredictions("throttled", start, end)).rejects.toThrow();
+    releaseOk(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1", type: "H" }] }));
+    await expect(slow).resolves.toHaveLength(1);
+    await expect(service.fetchHighLowTidePredictions("next", start, end)).rejects.toThrow();
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
   it("doubles cooldown up to ten minutes and resets it on success", async () => {
     for (const duration of [60_000, 120_000, 240_000, 480_000, 600_000, 600_000]) {
       mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, 403));
