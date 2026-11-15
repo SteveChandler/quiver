@@ -138,7 +138,7 @@ export interface SampleSyncResult {
   samplesMatched: number;
   samplesUpserted: number;
   futureSamplesRejected: number;
-  /** Newest matched sample date this run; shows how far CEDEN lags. */
+  /** Newest sample date CEDEN returned for a tracked station (before upsert); shows CEDEN lag. */
   newestSampleDate: string | null;
   errors: string[];
   duration_ms: number;
@@ -802,7 +802,6 @@ export async function syncWQSamples(
     const todayISO = utcDateString();
 
     const ceden = await fetchCEDENSamples(stationLookup, startDateISO, todayISO);
-    const allSamples: SampleUpsertRow[] = ceden.samples;
     result.samplesParsed = ceden.count;
     result.futureSamplesRejected = ceden.futureSamplesRejected;
     result.errors.push(...ceden.errors);
@@ -813,12 +812,12 @@ export async function syncWQSamples(
       }
     }
 
-    result.samplesMatched = allSamples.length;
+    result.samplesMatched = ceden.samples.length;
 
     // Deduplicate: CEDEN can have multiple results per station+date+analyte.
     // Keep the highest value (worst case) for each unique key.
     const deduped = new Map<string, SampleUpsertRow>();
-    for (const s of allSamples) {
+    for (const s of ceden.samples) {
       const key = `${s.station_id}|${s.sample_date}|${s.characteristic}`;
       const existing = deduped.get(key);
       if (!existing || (s.value !== null && (existing.value === null || s.value > existing.value))) {
@@ -830,7 +829,7 @@ export async function syncWQSamples(
     // Upsert all samples in batches
     if (dedupedSamples.length > 0) {
       console.log(
-        `${LOG_PREFIX} Upserting ${dedupedSamples.length} samples (${allSamples.length - dedupedSamples.length} duplicates removed)...`
+        `${LOG_PREFIX} Upserting ${dedupedSamples.length} samples (${ceden.samples.length - dedupedSamples.length} duplicates removed)...`
       );
 
       for (let i = 0; i < dedupedSamples.length; i += UPSERT_BATCH_SIZE) {
