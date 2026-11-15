@@ -546,7 +546,9 @@ describe("water-quality recommendation holds", () => {
     }),
   });
   expect(result.heldBeachIds).toEqual([BEACH_B, BEACH_C]);
-  expect(result.waterQualityEvidenceByBeachId).toMatchObject({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county", countyKind: "site", checkedAt: expect.any(String) }, [BEACH_C]: { source: "hold" } });
+  expect(result.waterQualityEvidenceByBeachId).toMatchObject({ [BEACH_B]: { source: "county", countyKind: "site", checkedAt: expect.any(String) }, [BEACH_C]: { source: "hold" } });
+  // An old sample says nothing on any surface, the map included.
+  expect(result.waterQualityEvidenceByBeachId).not.toHaveProperty(BEACH_A);
   expect(result.waterQualityStatusByBeachId).not.toHaveProperty(BEACH_A);
 });
 
