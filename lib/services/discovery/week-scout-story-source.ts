@@ -24,7 +24,8 @@ type Row = { id: string; beach_id: string; forecast_at: string; wave_height: str
 type BeachRow = Pick<Database["public"]["Tables"]["beaches"]["Row"],
   "id" | "name" | "lat" | "lon" | "aspect_deg" | "swell_window_center_deg" | "swell_window_halfwidth_deg" | "wind_offshore_deg" | "wind_offshore_tol_deg"
   | "wave_punchiness_ai" | "wave_punchiness_ai_confidence" | "persona" | "break_type" | "skill_level">;
-export const STORY_SAMPLE_VERSION = "regional-swell-events-8";
+// 9: events named by their open-ocean swell; near-beach copies of one swell joined.
+export const STORY_SAMPLE_VERSION = "regional-swell-events-9";
 const SOURCE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 const PAGE_SIZE = 500;
 
@@ -136,7 +137,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       return [beach.id, beachScores.length ? Math.max(...beachScores) : null];
     }));
     const exposedBeaches = Object.fromEntries(peaking.map((event) => [storyEventKey(event), allBeaches.flatMap((beach) => {
-      const factor = exposureFactor(event.directionDeg, swellWindowForBeach(beach));
+      const factor = exposureFactor(event.memberDirections?.[beach.id] ?? event.exposureDirectionDeg ?? event.directionDeg, swellWindowForBeach(beach));
       return factor === null ? [] : [{ beachId: beach.id, beachName: beach.name, exposure: exposureLabel(factor),
         qualityScore: qualityScores.get(beach.id) ?? null }];
     })]));
@@ -174,7 +175,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       const faceFt = faceRangeFt(beachRows.map((row) => row.wave_height));
       const punchiness = resolveWavePunchiness({ override: null, ai: beach.wave_punchiness_ai,
         aiConfidence: beach.wave_punchiness_ai_confidence, persona: beach.persona, break_type: beach.break_type, skill_level: beach.skill_level });
-      const swellDirection = coveringEvent?.directionDeg ?? meanDirection(beachRows.flatMap((row) => row.swell_direction_om === null ? [] : [row.swell_direction_om]));
+      const swellDirection = (coveringEvent ? coveringEvent.memberDirections?.[beach.id] ?? coveringEvent.exposureDirectionDeg ?? coveringEvent.directionDeg : null) ?? meanDirection(beachRows.flatMap((row) => row.swell_direction_om === null ? [] : [row.swell_direction_om]));
       const factor = swellDirection === null ? null : exposureFactor(swellDirection, swellWindowForBeach(beach));
       return [{ beachId: beach.id, beachName: beach.name, score, facts: { faceFt, sizes: sizeWordsFor(faceFt),
         windHours: windHoursFor(beachRows, beach, active.timezone), breaker: { character, feel: beachFeel(character, punchiness),

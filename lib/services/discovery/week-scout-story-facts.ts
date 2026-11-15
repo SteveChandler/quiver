@@ -102,7 +102,7 @@ function beachDayRows(build: RegionBuild, event: RegionalSwellEvent, beachId: st
 
 function exposure(build: RegionBuild, event: RegionalSwellEvent, beachId: string): "open" | "partial" | "shadowed" | null {
   const beach = build.beaches.find((item) => item.id === beachId);
-  const factor = beach ? exposureFactor(event.directionDeg, swellWindowForBeach(beach)) : null;
+  const factor = beach ? exposureFactor(event.memberDirections?.[beachId] ?? event.exposureDirectionDeg ?? event.directionDeg, swellWindowForBeach(beach)) : null;
   return factor === null ? null : exposureLabel(factor);
 }
 

@@ -37,7 +37,12 @@ export interface RegionalDaySignal {
 }
 
 export interface RegionalSwellEvent {
+  /** The open-ocean direction the story names the swell by. */
   directionDeg: number;
+  /** The near-beach direction beach windows read for exposure; absent means `directionDeg`. */
+  exposureDirectionDeg?: number;
+  /** Each detected beach's own near-beach direction, read before `exposureDirectionDeg`. */
+  memberDirections?: Record<string, number>;
   periodS: number;
   arrivalAt: string;
   peakAt: string;
@@ -238,11 +243,22 @@ function isForecastEvent(event: InternalRegionEvent): event is ForecastRegionEve
  * The region build's forecast events as story events. `all` is every one, chronological; `week`
  * is those arriving or peaking in the edition's seven days, at most three.
  */
+/** Heights on one scale: a named event's `offshoreHeightFt` is open-ocean, an unnamed one's near-beach. */
+function nearBeachHeight(event: InternalRegionEvent): number {
+  return event.nearBeachHeightFt ?? event.offshoreHeightFt ?? Number.NEGATIVE_INFINITY;
+}
+
 export function storyEventsFromRegion(build: RegionBuild, editionDate: string): { week: RegionalSwellEvent[]; all: RegionalSwellEvent[] } {
+  // Days run in order; within a day the biggest swell comes first, so it leads the story even when
+  // the open-ocean read failed and a bent copy of it is still its own event.
   const all: RegionalSwellEvent[] = build.events.filter(isForecastEvent)
-    .sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt))
+    .sort((a, b) => a.peakLocalDate.localeCompare(b.peakLocalDate)
+      || nearBeachHeight(b) - nearBeachHeight(a)
+      || Date.parse(a.peakAt) - Date.parse(b.peakAt))
     .map((event) => ({
-      directionDeg: event.directionDeg, periodS: event.periodS, arrivalAt: event.arrivalAt, peakAt: event.peakAt,
+      directionDeg: event.directionDeg, exposureDirectionDeg: event.exposureDirectionDeg ?? event.directionDeg,
+      ...(event.memberDirections ? { memberDirections: event.memberDirections } : {}),
+      periodS: event.periodS, arrivalAt: event.arrivalAt, peakAt: event.peakAt,
       fadeAt: event.fadeAt, timezone: build.timezone,
       confidence: STORY_CONFIDENCE[confidenceFor(Math.max(0, localDayDiff(editionDate, event.peakLocalDate)))],
       minimumBeaches: Math.min(3, event.memberCount), kind: event.kind, regionalKey: event.key,
