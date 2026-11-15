@@ -8,7 +8,8 @@
  *
  * Three phases:
  *   1. syncWQStations  -- Monthly station discovery and beach matching
- *   2. syncWQSamples   -- Bi-weekly sample data fetch (last 90 days)
+ *   2. syncWQSamples   -- Bi-weekly sample data fetch (last 90 days, CEDEN only;
+ *                         PacIOOS has published no Hawaii sample since 2024-06-13)
  *   3. evaluateWaterQuality -- Apply EPA criteria to compute per-beach status
  *
  * @module water-quality/water-quality-sync-service
@@ -39,9 +40,6 @@ const IN_BATCH_SIZE = 500;
 
 /** Safety limit for CSV stream parsing (50 MB) */
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
-
-/** Sample lookback window; covers source reporting lag. */
-const SAMPLE_LOOKBACK_DAYS = 90;
 
 /** Maximum rows fetched per CEDEN sample query */
 const CEDEN_SAMPLE_QUERY_LIMIT = 32_000;
@@ -134,42 +132,16 @@ export interface StationSyncResult {
   duration_ms: number;
 }
 
-/**
- * One sample source per state. "empty" means the source answered but gave no
- * sample for a tracked station in the lookback window -- a source that stops
- * publishing looks exactly like this, so the run names it instead of hiding it
- * behind the other state's rows.
- */
-export interface SampleSourceReport {
-  source: "CEDEN" | "PACIOOS";
-  state: "CA" | "HI";
-  status: "ok" | "empty" | "error";
-  rowsFetched: number;
-  samplesMatched: number;
-  /** Newest matched sample date stored by this run. */
-  newestSampleDate: string | null;
-  /** Newest sample date the source holds at all, read only when the window is empty. */
-  newestUpstreamDate?: string | null;
-}
-
 export interface SampleSyncResult {
   statesFetched: number;
   samplesParsed: number;
   samplesMatched: number;
   samplesUpserted: number;
   futureSamplesRejected: number;
-  sources: SampleSourceReport[];
+  /** Newest matched sample date this run; shows how far CEDEN lags. */
+  newestSampleDate: string | null;
   errors: string[];
   duration_ms: number;
-}
-
-interface SourceSampleFetch {
-  samples: SampleUpsertRow[];
-  count: number;
-  futureSamplesRejected: number;
-  errors: string[];
-  failed: boolean;
-  newestUpstreamDate?: string | null;
 }
 
 export interface EvaluationResult {
@@ -669,12 +641,16 @@ async function fetchCEDENSamples(
   stationLookup: Map<string, { uuid: string; beachId: string | null }>,
   startDateISO: string,
   todayISO: string
-): Promise<SourceSampleFetch> {
+): Promise<{
+  samples: SampleUpsertRow[];
+  count: number;
+  futureSamplesRejected: number;
+  errors: string[];
+}> {
   const errors: string[] = [];
   const samples: SampleUpsertRow[] = [];
   let totalRecords = 0;
   let futureSamplesRejected = 0;
-  let failed = false;
 
   try {
     // Format date as YYYY-MM-DD for CEDEN SQL query
@@ -704,7 +680,7 @@ async function fetchCEDENSamples(
 
     if (!response.ok) {
       errors.push(`CEDEN sample fetch failed: HTTP ${response.status}`);
-      return { samples, count: 0, futureSamplesRejected, errors, failed: true };
+      return { samples, count: 0, futureSamplesRejected, errors };
     }
 
     const json = await response.json();
@@ -753,162 +729,9 @@ async function fetchCEDENSamples(
     );
   } catch (error) {
     errors.push(`CEDEN sample fetch error: ${error instanceof Error ? error.message : "unknown"}`);
-    failed = true;
   }
 
-  return { samples, count: totalRecords, futureSamplesRejected, errors, failed };
-}
-
-/**
- * Fetch bacteria sample results from PacIOOS ERDDAP for stations we track.
- * ERDDAP CSV format: line 1 = column names, line 2 = units (skipped by isNaN guard), line 3+ = data.
- */
-async function fetchPacIOOSSamples(
-  stationLookup: Map<string, { uuid: string; beachId: string | null }>,
-  startDateISO: string,
-  todayISO: string
-): Promise<SourceSampleFetch> {
-  const errors: string[] = [];
-  const samples: SampleUpsertRow[] = [];
-  let rowCount = 0;
-  let futureSamplesRejected = 0;
-  let failed = false;
-
-  try {
-    const url = `${PACIOOS_CONFIG.baseUrl}.csv?time,location_id,location_name,enterococcus&time>=${startDateISO}&time<=${todayISO}T23:59:59Z`;
-
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(PACIOOS_CONFIG.requestTimeoutMs),
-    });
-
-    if (!response.ok) {
-      // ERDDAP returns 404 when no matching data exists (e.g. stale dataset)
-      if (response.status === 404) {
-        const newestUpstreamDate = await fetchPacIOOSNewestSampleDate();
-        // A removed or renamed dataset also answers 404; only a readable newest row proves the source is alive.
-        if (newestUpstreamDate === null) {
-          errors.push(
-            `PacIOOS (HI): no samples in the last ${SAMPLE_LOOKBACK_DAYS} days and the newest-sample read failed`
-          );
-          return { samples, count: 0, futureSamplesRejected, errors, failed: true, newestUpstreamDate };
-        }
-        errors.push(
-          `PacIOOS (HI): no samples in the last ${SAMPLE_LOOKBACK_DAYS} days; newest upstream sample ${newestUpstreamDate}`
-        );
-        return { samples, count: 0, futureSamplesRejected, errors, failed: false, newestUpstreamDate };
-      }
-      errors.push(`PacIOOS sample fetch failed: HTTP ${response.status}`);
-      return { samples, count: 0, futureSamplesRejected, errors, failed: true };
-    }
-
-    const { rowCount: parsed, errors: parseErrors } = await streamParseCSV(response, (fields, headers) => {
-      const locationId = getField(fields, headers, "location_id");
-      const timeStr = getField(fields, headers, "time");
-      const enteroStr = getField(fields, headers, "enterococcus");
-
-      const stationKey = `PACIOOS-${locationId}`;
-      const match = stationLookup.get(stationKey);
-      if (!match) return;
-
-      // ERDDAP returns ISO format like "2026-02-20T00:00:00Z"
-      let sampleDate: string | null = null;
-      if (typeof timeStr === "string" && timeStr) {
-        const d = new Date(timeStr);
-        if (!isNaN(d.getTime())) {
-          sampleDate = utcDateString(d);
-        }
-      }
-      if (!sampleDate) return;
-
-      if (sampleDate > todayISO) {
-        futureSamplesRejected++;
-        return;
-      }
-
-      let value: number | null = null;
-      if (enteroStr && enteroStr !== "" && enteroStr !== "NaN") {
-        const parsedVal = parseFloat(enteroStr);
-        if (!isNaN(parsedVal)) value = parsedVal;
-      }
-
-      samples.push({
-        station_id: match.uuid,
-        sample_date: sampleDate,
-        characteristic: "Enterococcus",
-        value,
-        unit: "CFU/100mL",
-        detection_condition: null,
-      });
-    });
-
-    rowCount = parsed;
-    if (parseErrors.length > 0) {
-      errors.push(...parseErrors.map(e => `PacIOOS sample parse: ${e}`));
-      failed = true;
-    }
-
-    console.log(
-      `${LOG_PREFIX} PacIOOS: ${rowCount} rows -> ${samples.length} matched samples (${futureSamplesRejected} future rows rejected)`
-    );
-  } catch (error) {
-    errors.push(`PacIOOS sample fetch error: ${error instanceof Error ? error.message : "unknown"}`);
-    failed = true;
-  }
-
-  return { samples, count: rowCount, futureSamplesRejected, errors, failed };
-}
-
-/**
- * ERDDAP answers 404 for an empty time window, which a retired dataset also
- * does forever. Read the newest row it holds so the run can say how old it is.
- */
-async function fetchPacIOOSNewestSampleDate(): Promise<string | null> {
-  try {
-    const url = `${PACIOOS_CONFIG.baseUrl}.csv?time&orderByMax(${encodeURIComponent('"time"')})`;
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(PACIOOS_CONFIG.requestTimeoutMs),
-    });
-    if (!response.ok) return null;
-    let newest: string | null = null;
-    await streamParseCSV(response, (fields, headers) => {
-      const d = new Date(getField(fields, headers, "time"));
-      if (!isNaN(d.getTime())) newest = utcDateString(d);
-    });
-    return newest;
-  } catch {
-    return null;
-  }
-}
-
-function buildSourceReport(
-  source: SampleSourceReport["source"],
-  state: SampleSourceReport["state"],
-  settled: PromiseSettledResult<SourceSampleFetch>
-): SampleSourceReport {
-  if (settled.status === "rejected") {
-    return { source, state, status: "error", rowsFetched: 0, samplesMatched: 0, newestSampleDate: null };
-  }
-  const value = settled.value;
-  let newestSampleDate: string | null = null;
-  for (const sample of value.samples) {
-    if (newestSampleDate === null || sample.sample_date > newestSampleDate) {
-      newestSampleDate = sample.sample_date;
-    }
-  }
-  const status: SampleSourceReport["status"] = value.failed
-    ? "error"
-    : value.samples.length > 0
-      ? "ok"
-      : "empty";
-  return {
-    source,
-    state,
-    status,
-    rowsFetched: value.count,
-    samplesMatched: value.samples.length,
-    newestSampleDate,
-    ...(value.newestUpstreamDate === undefined ? {} : { newestUpstreamDate: value.newestUpstreamDate }),
-  };
+  return { samples, count: totalRecords, futureSamplesRejected, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -916,8 +739,8 @@ function buildSourceReport(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch recent bacteria sample data from CEDEN (CA) and PacIOOS (HI)
- * for all monitored stations.
+ * Fetch recent bacteria sample data from CEDEN (CA) for all monitored stations.
+ * Hawaii has no live sample source: PacIOOS cwb_water_quality ends 2024-06-13.
  *
  * Fetches the last 90 days of Enterococcus and Fecal Coliform results,
  * matching them to our station records by station_id prefix.
@@ -932,7 +755,7 @@ export async function syncWQSamples(
     samplesMatched: 0,
     samplesUpserted: 0,
     futureSamplesRejected: 0,
-    sources: [],
+    newestSampleDate: null,
     errors: [],
     duration_ms: 0,
   };
@@ -972,42 +795,22 @@ export async function syncWQSamples(
       `${LOG_PREFIX} Loaded ${stations.length} stations for sample matching`
     );
 
+    // 90-day lookback window to account for reporting lag
     const startDate = new Date();
-    startDate.setUTCDate(startDate.getUTCDate() - SAMPLE_LOOKBACK_DAYS);
+    startDate.setUTCDate(startDate.getUTCDate() - 90);
     const startDateISO = startDate.toISOString();
     const todayISO = utcDateString();
 
-    // Fetch from both sources in parallel
-    const [cedenResult, pacioosResult] = await Promise.allSettled([
-      fetchCEDENSamples(stationLookup, startDateISO, todayISO),
-      fetchPacIOOSSamples(stationLookup, startDateISO, todayISO),
-    ]);
-
-    result.sources = [
-      buildSourceReport("CEDEN", "CA", cedenResult),
-      buildSourceReport("PACIOOS", "HI", pacioosResult),
-    ];
-
-    const allSamples: SampleUpsertRow[] = [];
-
-    if (cedenResult.status === "fulfilled") {
-      allSamples.push(...cedenResult.value.samples);
-      result.samplesParsed += cedenResult.value.count;
-      result.futureSamplesRejected += cedenResult.value.futureSamplesRejected;
-      result.errors.push(...cedenResult.value.errors);
-      if (cedenResult.value.samples.length > 0) result.statesFetched++;
-    } else {
-      result.errors.push(`CEDEN sample fetch rejected: ${cedenResult.reason}`);
-    }
-
-    if (pacioosResult.status === "fulfilled") {
-      allSamples.push(...pacioosResult.value.samples);
-      result.samplesParsed += pacioosResult.value.count;
-      result.futureSamplesRejected += pacioosResult.value.futureSamplesRejected;
-      result.errors.push(...pacioosResult.value.errors);
-      if (pacioosResult.value.samples.length > 0) result.statesFetched++;
-    } else {
-      result.errors.push(`PacIOOS sample fetch rejected: ${pacioosResult.reason}`);
+    const ceden = await fetchCEDENSamples(stationLookup, startDateISO, todayISO);
+    const allSamples: SampleUpsertRow[] = ceden.samples;
+    result.samplesParsed = ceden.count;
+    result.futureSamplesRejected = ceden.futureSamplesRejected;
+    result.errors.push(...ceden.errors);
+    if (ceden.samples.length > 0) result.statesFetched = 1;
+    for (const sample of ceden.samples) {
+      if (result.newestSampleDate === null || sample.sample_date > result.newestSampleDate) {
+        result.newestSampleDate = sample.sample_date;
+      }
     }
 
     result.samplesMatched = allSamples.length;

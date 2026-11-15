@@ -1,8 +1,8 @@
 /**
  * Water Quality Sync Module
  *
- * Provides data ingestion from CEDEN (California) and PacIOOS ERDDAP (Hawaii)
- * for coastal bacteria monitoring, with station discovery, sample fetching,
+ * Provides data ingestion from CEDEN (California) samples and CEDEN + PacIOOS
+ * ERDDAP stations for coastal bacteria monitoring, with station discovery, sample fetching,
  * and EPA-criteria evaluation.
  *
  * @module water-quality

@@ -52,12 +52,10 @@ interface EvaluatePhaseResult {
  *    - Upserts into wq_monitoring_stations
  *
  * 2. Samples phase (bi-weekly, Tue/Fri at 12:00 UTC):
- *    - Fetches last 90 days of Enterococcus and Fecal Coliform results
+ *    - Fetches last 90 days of Enterococcus and Fecal Coliform results from
+ *      CEDEN. Hawaii has no live sample source (PacIOOS ends 2024-06-13).
  *    - Matches samples to known station IDs
  *    - Upserts into wq_samples
- *    - Reports each source (state, status, newest sample date) in `sources`.
- *      A source with no sample in the window reads "empty" and names its
- *      newest upstream date in `errors`, so a retired feed stays visible.
  *
  * 3. Evaluate phase (bi-weekly, Tue/Fri at 12:30 UTC):
  *    - Applies EPA recreational water quality criteria per beach
