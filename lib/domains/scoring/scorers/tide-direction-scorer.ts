@@ -120,7 +120,7 @@ function heightAllowsOptimal({ snapshot, profile }: ScorerInput): boolean {
   const { explicitRange, minHeightFt, maxHeightFt } = profile.tidePreferences;
   if (!explicitRange) return true;
   const { heightFt, heightKnown } = snapshot.tide;
-  if (heightKnown === false || !Number.isFinite(heightFt)) return false;
+  if (heightKnown === false) return false;
   return isTideHeightInRange(heightFt, { minFt: minHeightFt, maxFt: maxHeightFt });
 }
 
