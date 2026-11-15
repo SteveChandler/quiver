@@ -450,19 +450,17 @@ export async function syncWQStations(
     );
 
     const ceden = await fetchCEDENStations();
-    const allParsedStations: ParsedStation[] = ceden.stations;
     result.errors.push(...ceden.errors);
     if (ceden.stations.length > 0) result.statesFetched = 1;
 
-    result.stationsParsed = allParsedStations.length;
+    result.stationsParsed = ceden.stations.length;
 
-    // Match stations to nearest beach (filter by state for faster matching)
+    // Match stations to the nearest California beach.
     const allStations: StationUpsertRow[] = [];
+    const radiusKm = CEDEN_CONFIG.matchRadiusM / 1000;
+    const stateBeaches = beaches.filter((b) => b.state === "CA");
 
-    for (const station of allParsedStations) {
-      const radiusKm = CEDEN_CONFIG.matchRadiusM / 1000;
-
-      const stateBeaches = beaches.filter((b) => b.state === station.state_code);
+    for (const station of ceden.stations) {
       let nearestBeachId: string | null = null;
       let nearestDistanceM: number | null = null;
 
