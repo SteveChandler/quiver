@@ -9,6 +9,11 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
+import {
+  DISCOVERY_STAGES,
+  DiscoveryStageTimer,
+  type DiscoveryStageSnapshot,
+} from '@/lib/services/discovery/discovery-stage-timer';
 import { CANDIDATE_POOL_LIMIT } from '@/lib/services/discovery/candidate-pool-builder';
 import {
   hasExplicitMajorEventHold,
@@ -82,7 +87,39 @@ const QuerySchema = z.object({
   }),
 });
 
-function retryableDiscoveryResponse(error: unknown): NextResponse {
+function discoveryServerTiming(
+  timings: Array<[string, number]>,
+  stages: DiscoveryStageSnapshot,
+  startedAt: number,
+): string {
+  const knownStage = (stage: string): boolean =>
+    (DISCOVERY_STAGES as readonly string[]).includes(stage);
+  const duration = (ms: number): number => Math.max(0, Math.round(ms));
+  const entries = [
+    ...stages.pending.filter(({ stage }) => knownStage(stage))
+      .map(({ stage, durationMs }) => `d-${stage};desc="pending";dur=${duration(durationMs)}`),
+    // Only plain stage tokens reach the header, so no value can add its own parameters.
+    ...Array.from(new Map(timings)).filter(([stage]) => /^[a-z][a-z-]{0,39}$/.test(stage))
+      .map(([stage, ms]) => `${stage};dur=${duration(ms)}`),
+    ...stages.completed.filter(({ stage }) => knownStage(stage))
+      .sort((a, b) => b.durationMs - a.durationMs)
+      .map(({ stage, durationMs }) => `d-${stage};dur=${duration(durationMs)}`),
+  ];
+  // Reserve total and prioritize pending dependencies when the header fills up.
+  let header = `total;dur=${duration(Date.now() - startedAt)}`;
+  for (const entry of entries.slice(0, 32)) {
+    if (header.length + entry.length + 2 > 1000) continue;
+    header += `, ${entry}`;
+  }
+  return header;
+}
+
+function retryableDiscoveryResponse(
+  error: unknown,
+  timings: Array<[string, number]>,
+  stageTimer: DiscoveryStageTimer,
+  startedAt: number,
+): NextResponse {
   const candidateCode =
     error && typeof error === 'object' && 'code' in error
       ? error.code
@@ -95,6 +132,9 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       ? candidateCode
       : 'internal_error';
 
+  const stages = error && typeof error === 'object' && 'stageTimings' in error
+    ? (error.stageTimings as DiscoveryStageSnapshot | undefined) ?? stageTimer.snapshot()
+    : stageTimer.snapshot();
   return NextResponse.json(
     {
       success: false,
@@ -104,7 +144,10 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
     },
     {
       status: code === 'timeout' ? 504 : 503,
-      headers: { 'Retry-After': String(retryAfterSeconds()) },
+      headers: {
+        'Retry-After': String(retryAfterSeconds()),
+        'Server-Timing': discoveryServerTiming(timings, stages, startedAt),
+      },
     },
   );
 }
@@ -173,6 +216,7 @@ async function surfDiscoveryHandler(
   { user, supabase }: AuthenticatedContext
 ): Promise<NextResponse> {
   const anchor = new Date();
+  const stageTimer = new DiscoveryStageTimer(anchor.getTime());
   // 1. Parse and validate query parameters
   const { searchParams } = new URL(request.url);
   const queryData = {
@@ -289,6 +333,7 @@ async function surfDiscoveryHandler(
       isPro: hasFeatureAccess,
       includeBeachIds,
       throwOnFailure: true,
+      stageTimer,
       onStageTiming: (discoverStage, durationMs) => {
         timings.push([`${stage}-${discoverStage}`, durationMs]);
       },
@@ -321,7 +366,7 @@ async function surfDiscoveryHandler(
       }
     }
   } catch (error) {
-    return retryableDiscoveryResponse(error);
+    return retryableDiscoveryResponse(error, timings, stageTimer, anchor.getTime());
   }
 
   // 3a. Stamp empirical shoaling calibration status onto each recommendation's
@@ -426,6 +471,9 @@ async function surfDiscoveryHandler(
       Object.assign(new Error('Recommendation hold state unavailable'), {
         code: 'hold_state_unavailable',
       }),
+      timings,
+      stageTimer,
+      anchor.getTime(),
     );
   }
   const gatedDiscovery = gateSurfDiscoveryResponse(
@@ -462,10 +510,9 @@ async function surfDiscoveryHandler(
   const response = createSuccessResponse(stripInternalRankingScore(
     scope ? { ...gatedDiscovery, scope } : gatedDiscovery,
   ));
-  timings.push(['total', Date.now() - anchor.getTime()]);
   response.headers.set(
     'Server-Timing',
-    timings.map(([stage, ms]) => `${stage};dur=${ms}`).join(', '),
+    discoveryServerTiming(timings, stageTimer.snapshot(), anchor.getTime()),
   );
   return response;
 }

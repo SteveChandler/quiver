@@ -1,3 +1,4 @@
+import type { DiscoveryStageTimer } from "@/lib/services/discovery/discovery-stage-timer";
 import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 /**
  * Personalization Types
@@ -587,6 +588,8 @@ export interface SurfDiscoveryOptions {
    * Server-Timing and profiling. Never affects results.
    */
   onStageTiming?: (stage: string, durationMs: number) => void;
+  /** Request-local dependency timing, including work pending at the deadline. */
+  stageTimer?: DiscoveryStageTimer;
   /** Maximum concurrent forecast fetches (default: 5) */
   maxConcurrent?: number;
   /** Timeout per beach forecast in ms (default: 5000) */
