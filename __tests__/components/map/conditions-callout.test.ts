@@ -193,6 +193,14 @@ it.each([false, true])("turns across north by the shortest arc (reduced motion: 
   }
 });
 
+ test("names a current sampled hold with its sample date", () => {
+  (window.matchMedia as jest.Mock).mockReturnValue({ matches: false });
+  const { element } = createConditionsCalloutElement({ beachName: "La Jolla Shores", tempLabel: null, components: [], waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate: "2026-11-14" } });
+  const badge = element.querySelector("[data-callout-water-quality]");
+  expect(badge).toHaveTextContent("Elevated bacteria · sample 2026-11-14");
+  expect(badge).toHaveAttribute("data-callout-water-quality", "advisory");
+});
+
  test("says nothing about an old sample, as every other surface does", () => {
   (window.matchMedia as jest.Mock).mockReturnValue({ matches: false });
   const { element } = createConditionsCalloutElement({ beachName: "La Jolla Shores", tempLabel: null, components: [], waterQualityHold: null, waterQualityEvidence: { source: "sample", sampleDate: "2026-08-11" } });
