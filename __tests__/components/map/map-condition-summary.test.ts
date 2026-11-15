@@ -237,7 +237,7 @@ test("retains a recent sample alert", () => {
   expect(getWaterQualityHold({ ...beach("sample"), waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate: new Date().toISOString() } } as unknown as Beach)).toBe("advisory");
 });
 
-test("changes from a sample hold to an unconfirmed warning at seven days", () => {
+test("drops a sample hold at seven days", () => {
   const now = Date.parse("2026-09-06T12:00:00Z");
   const clock = jest.spyOn(Date, "now").mockReturnValue(now);
   try {
