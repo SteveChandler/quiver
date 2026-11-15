@@ -104,3 +104,25 @@ export const getBeachTidePageData = cache(
     return { display: stationTideMeta(rows, view, nowMs), rows, stationTide, view };
   }
 );
+
+/**
+ * The station table as `GET /api/beaches/[id]/tide-station` sends it to the app:
+ * every high and low of the series (one day back, nine ahead) and the curve the
+ * station pages draw. Heights are unrounded feet; the app rounds once.
+ */
+export interface BeachStationTidePayload {
+  timeZone: string;
+  station: { name: string; slug: string; sourceStationId: string };
+  extremes: Array<{ at: string; type: TideExtremePoint["type"]; heightFt: number }>;
+  curve: Array<{ at: string; heightFt: number }>;
+}
+
+export function toBeachStationTidePayload(view: CityTideView): BeachStationTidePayload | null {
+  if (!view.station || view.extremes.length === 0 || view.curve.length < 2) return null;
+  return {
+    timeZone: view.timeZone,
+    station: view.station,
+    extremes: view.extremes.map((e) => ({ at: e.ts, type: e.type, heightFt: metresToFeet(e.heightM) })),
+    curve: view.curve.map((p) => ({ at: new Date(p.timestamp).toISOString(), heightFt: p.heightFt })),
+  };
+}
