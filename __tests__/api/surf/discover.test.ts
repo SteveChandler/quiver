@@ -1369,6 +1369,7 @@ describe("/api/surf/discover entitlement resolution", () => {
     mockDiscoverSurfSpots.mockImplementation(async (_userId, options) => {
       options.onStageTiming?.("candidates", 12);
       options.onStageTiming?.("forecasts", 34);
+      options.onStageTiming?.("finalize", 5);
       return makeDiscoveryResponse();
     });
     const response = await callDiscoverRoute(null);
@@ -1379,6 +1380,7 @@ describe("/api/surf/discover entitlement resolution", () => {
       "entitlement;dur=",
       "discover-candidates;dur=12",
       "discover-forecasts;dur=34",
+      "discover-finalize;dur=5",
       "discover;dur=",
       "holds;dur=",
       "total;dur=",

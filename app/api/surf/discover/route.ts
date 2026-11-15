@@ -87,13 +87,6 @@ const QuerySchema = z.object({
   }),
 });
 
-const routeTimingStages = new Set([
-  'entitlement', 'discover', 'discover-widened', 'nearest', 'holds',
-  ...['discover', 'discover-widened'].flatMap((prefix) =>
-    ['candidates', 'forecasts', 'context', 'scoring', 'similarity', 'ranking', 'photos']
-      .map((stage) => `${prefix}-${stage}`)),
-]);
-
 function discoveryServerTiming(
   timings: Array<[string, number]>,
   stages: DiscoveryStageSnapshot,
@@ -105,7 +98,8 @@ function discoveryServerTiming(
   const entries = [
     ...stages.pending.filter(({ stage }) => knownStage(stage))
       .map(({ stage, durationMs }) => `d-${stage};desc="pending";dur=${duration(durationMs)}`),
-    ...Array.from(new Map(timings)).filter(([stage]) => routeTimingStages.has(stage))
+    // Only plain stage tokens reach the header, so no value can add its own parameters.
+    ...Array.from(new Map(timings)).filter(([stage]) => /^[a-z][a-z-]{0,39}$/.test(stage))
       .map(([stage, ms]) => `${stage};dur=${duration(ms)}`),
     ...stages.completed.filter(({ stage }) => knownStage(stage))
       .sort((a, b) => b.durationMs - a.durationMs)
