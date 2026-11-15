@@ -389,3 +389,90 @@ describe('Tide Direction Scorer rate grading (TIDE_SWING_ENABLED)', () => {
     expect(match.score).toBe(90);
   });
 });
+
+describe('Tide Direction Scorer: "optimal" needs the tide height too (curated range)', () => {
+  // Laniakea: reef, likes 1.0-3.0 ft on a rising tide.
+  function rangedInput(options: {
+    heightFt: number;
+    heightKnown?: boolean;
+    direction?: TideDirection;
+    preferredDirection?: TidePreferences['preferredDirection'];
+    explicitRange?: boolean;
+    directionSensitivity?: TidePreferences['directionSensitivity'];
+  }): ScorerInput {
+    const direction = options.direction ?? 'rising';
+    return createInput(
+      { tide: { heightFt: options.heightFt, status: direction === 'slack' ? 'slack-high' : direction, direction, heightKnown: options.heightKnown } },
+      {
+        tidePreferences: {
+          minHeightFt: 1,
+          maxHeightFt: 3,
+          preferredDirection: options.preferredDirection ?? 'rising',
+          directionSensitivity: options.directionSensitivity ?? 'high',
+          explicitRange: options.explicitRange ?? true,
+        },
+      },
+    );
+  }
+
+  it('drops "optimal" at 0.4 ft when the spot likes 1.0-3.0 ft rising (Laniakea)', () => {
+    const result = tideDirectionScorer.score(rangedInput({ heightFt: 0.4 }));
+    expect(result.reasons).toEqual([]);
+    expect(result.score).toBe(90); // the direction score does not change; only the line
+  });
+
+  it('drops "optimal" above the range', () => {
+    expect(tideDirectionScorer.score(rangedInput({ heightFt: 3.2 })).reasons).toEqual([]);
+  });
+
+  it('drops "Tide dropping - optimal" when a falling-tide spot is out of range', () => {
+    const result = tideDirectionScorer.score(
+      rangedInput({ heightFt: 0.2, direction: 'falling', preferredDirection: 'falling' }),
+    );
+    expect(result.reasons).toEqual([]);
+  });
+
+  it('keeps "optimal" when direction and height are both good', () => {
+    expect(tideDirectionScorer.score(rangedInput({ heightFt: 1.6 })).reasons).toEqual([
+      'Tide rising - optimal for this spot',
+    ]);
+  });
+
+  it('judges the height at toFixed(1), as the page prints it', () => {
+    // 0.96 ft prints as "1.0 ft", so it is in a 1.0-3.0 ft range.
+    expect(tideDirectionScorer.score(rangedInput({ heightFt: 0.96 })).reasons).toEqual([
+      'Tide rising - optimal for this spot',
+    ]);
+    // 3.04 ft prints as "3.0 ft".
+    expect(tideDirectionScorer.score(rangedInput({ heightFt: 3.04 })).reasons).toEqual([
+      'Tide rising - optimal for this spot',
+    ]);
+    // 0.94 ft prints as "0.9 ft".
+    expect(tideDirectionScorer.score(rangedInput({ heightFt: 0.94 })).reasons).toEqual([]);
+  });
+
+  it('drops "optimal" when the tide height is unknown', () => {
+    expect(tideDirectionScorer.score(rangedInput({ heightFt: 2, heightKnown: false })).reasons).toEqual([]);
+  });
+
+  it('keeps the direction-only line when the spot has no curated range', () => {
+    expect(
+      tideDirectionScorer.score(rangedInput({ heightFt: 0.4, explicitRange: false })).reasons,
+    ).toEqual(['Tide rising - optimal for this spot']);
+  });
+
+  it('does not change the slack-tide line', () => {
+    expect(
+      tideDirectionScorer.score(rangedInput({ heightFt: 0.4, direction: 'slack', preferredDirection: 'slack' })).reasons,
+    ).toEqual(['Slack tide - good for this spot']);
+  });
+
+  it('does not change the medium and low lines', () => {
+    expect(
+      tideDirectionScorer.score(rangedInput({ heightFt: 0.4, directionSensitivity: 'medium' })).reasons,
+    ).toEqual(['Tide rising - good for this spot']);
+    expect(
+      tideDirectionScorer.score(rangedInput({ heightFt: 0.4, directionSensitivity: 'low' })).reasons,
+    ).toEqual(['Tide direction favorable']);
+  });
+});
