@@ -40,6 +40,9 @@ const IN_BATCH_SIZE = 500;
 /** Safety limit for CSV stream parsing (50 MB) */
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 
+/** Sample lookback window; covers source reporting lag. */
+const SAMPLE_LOOKBACK_DAYS = 90;
+
 /** Maximum rows fetched per CEDEN sample query */
 const CEDEN_SAMPLE_QUERY_LIMIT = 32_000;
 
@@ -782,8 +785,15 @@ async function fetchPacIOOSSamples(
       // ERDDAP returns 404 when no matching data exists (e.g. stale dataset)
       if (response.status === 404) {
         const newestUpstreamDate = await fetchPacIOOSNewestSampleDate();
+        // A removed or renamed dataset also answers 404; only a readable newest row proves the source is alive.
+        if (newestUpstreamDate === null) {
+          errors.push(
+            `PacIOOS (HI): no samples in the last ${SAMPLE_LOOKBACK_DAYS} days and the newest-sample read failed`
+          );
+          return { samples, count: 0, futureSamplesRejected, errors, failed: true, newestUpstreamDate };
+        }
         errors.push(
-          `PacIOOS (HI): no samples in the last 90 days; newest upstream sample ${newestUpstreamDate ?? "unknown"}`
+          `PacIOOS (HI): no samples in the last ${SAMPLE_LOOKBACK_DAYS} days; newest upstream sample ${newestUpstreamDate}`
         );
         return { samples, count: 0, futureSamplesRejected, errors, failed: false, newestUpstreamDate };
       }
@@ -834,6 +844,7 @@ async function fetchPacIOOSSamples(
     rowCount = parsed;
     if (parseErrors.length > 0) {
       errors.push(...parseErrors.map(e => `PacIOOS sample parse: ${e}`));
+      failed = true;
     }
 
     console.log(
@@ -961,9 +972,8 @@ export async function syncWQSamples(
       `${LOG_PREFIX} Loaded ${stations.length} stations for sample matching`
     );
 
-    // 90-day lookback window to account for reporting lag
     const startDate = new Date();
-    startDate.setUTCDate(startDate.getUTCDate() - 90);
+    startDate.setUTCDate(startDate.getUTCDate() - SAMPLE_LOOKBACK_DAYS);
     const startDateISO = startDate.toISOString();
     const todayISO = utcDateString();
 

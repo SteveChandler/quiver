@@ -56,8 +56,8 @@ interface EvaluatePhaseResult {
  *    - Matches samples to known station IDs
  *    - Upserts into wq_samples
  *    - Reports each source (state, status, newest sample date) in `sources`.
- *      PacIOOS (HI) has published no sample since 2024-06-13, so it reads
- *      "empty" and names its newest upstream date in `errors`.
+ *      A source with no sample in the window reads "empty" and names its
+ *      newest upstream date in `errors`, so a retired feed stays visible.
  *
  * 3. Evaluate phase (bi-weekly, Tue/Fri at 12:30 UTC):
  *    - Applies EPA recreational water quality criteria per beach

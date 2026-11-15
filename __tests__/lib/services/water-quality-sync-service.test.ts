@@ -410,6 +410,38 @@ describe("water-quality sample sources report per state", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("reads a 404 with no readable newest row as an error", async () => {
+    const { supabase } = createSampleSyncSupabase();
+    mockSources({
+      ceden: cedenOk,
+      pacioosWindow: () => new Response("Error {}", { status: 404 }),
+      pacioosNewest: () => new Response("Error {}", { status: 404 }),
+    });
+
+    const result = await syncWQSamples(supabase);
+
+    expect(result.sources[0].status).toBe("ok");
+    expect(result.sources[1]).toEqual(
+      expect.objectContaining({ status: "error", newestUpstreamDate: null })
+    );
+    expect(result.errors).toEqual([
+      "PacIOOS (HI): no samples in the last 90 days and the newest-sample read failed",
+    ]);
+  });
+
+  it("marks a PacIOOS read with no body as an error", async () => {
+    const { supabase } = createSampleSyncSupabase();
+    mockSources({
+      ceden: cedenOk,
+      pacioosWindow: () => new Response(null, { status: 200 }),
+    });
+
+    const result = await syncWQSamples(supabase);
+
+    expect(result.sources[1].status).toBe("error");
+    expect(result.errors).toEqual(["PacIOOS sample parse: Response body is null"]);
+  });
+
   it("keeps a source outage as an error, not an empty window", async () => {
     const { supabase } = createSampleSyncSupabase();
     const urls = mockSources({
