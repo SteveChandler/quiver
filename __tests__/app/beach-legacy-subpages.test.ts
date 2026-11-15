@@ -115,3 +115,19 @@ describe("legacy /beach/[slug] utility subpages", () => {
     },
   );
 });
+
+describe("beach tide page read failure", () => {
+  it("shows the paper error message, not placeholder numbers", async () => {
+    // The lookup failure is the path this catch owns; a sub-page data failure throws on so it is not cached.
+    jest.mocked(getBeachBySlugOrId).mockRejectedValueOnce(new Error("beach lookup failed"));
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const page = await BeachTidesPage({ params: Promise.resolve({ slug: "legacy-beach" }) });
+    const text = JSON.stringify(page);
+
+    expect(text).toContain("Tides did not load");
+    expect(text).toContain("Something broke on our side. Refresh in a minute.");
+    expect(text).not.toContain("Error Loading Tide Chart");
+    jest.restoreAllMocks();
+  });
+});

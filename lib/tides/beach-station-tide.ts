@@ -17,7 +17,7 @@ export interface BeachStationTide {
   schedule: TideScheduleEntry[];
 }
 
-export interface BeachTidePageData {
+interface BeachTidePageData {
   /** What the page shows: the station's own highs and lows when the table loaded. */
   display: TideMetaData;
   /**
@@ -26,6 +26,8 @@ export interface BeachTidePageData {
    */
   rows: TideMetaData;
   stationTide: BeachStationTide | null;
+  /** The station view the page shows above the fold: the same one `/tide/<city>` renders. */
+  view: CityTideView | null;
 }
 
 /** Same rounding as formatFeet on the station page, so 5.65 ft prints the same everywhere. */
@@ -94,11 +96,11 @@ export function toBeachStationTide(view: CityTideView): BeachStationTide | null 
 export const getBeachTidePageData = cache(
   async (beachId: string, beachTimezone?: string | null): Promise<BeachTidePageData> => {
     const rows = await getTideMetaData(beachId, beachTimezone);
-    if (rows.availability || !rows.stationId) return { display: rows, rows, stationTide: null };
+    if (rows.availability || !rows.stationId) return { display: rows, rows, stationTide: null, view: null };
     const nowMs = Date.now();
     const view = await loadStationTideView(rows.stationId, nowMs);
     const stationTide = view ? toBeachStationTide(view) : null;
-    if (!view || !stationTide) return { display: rows, rows, stationTide: null };
-    return { display: stationTideMeta(rows, view, nowMs), rows, stationTide };
+    if (!view || !stationTide) return { display: rows, rows, stationTide: null, view: null };
+    return { display: stationTideMeta(rows, view, nowMs), rows, stationTide, view };
   }
 );

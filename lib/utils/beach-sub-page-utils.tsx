@@ -13,7 +13,7 @@ import Link from "next/link";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
-import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
+import { BeachTideNow } from "@/components/beach-detail/beach-tide-now";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
@@ -27,7 +27,6 @@ import { getBeachTidePageData, type BeachStationTide } from "@/lib/tides/beach-s
 import type { ReactElement } from "react";
 import { StationTideProvider } from "@/components/beach-detail/station-tide-context";
 import { throwIfSubPageDataUnknown } from "@/lib/seo/sub-page-data-availability";
-import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -281,14 +280,6 @@ export async function renderBeachSubPage({
         />
       )}
 
-      {hasTideHero && tideMeta && (
-        <TideSummaryHero beachName={beach.name} tideData={tideMeta} />
-      )}
-      {pageType === "tides" && tideMeta?.source === MODEL_TIDE_SOURCE && (
-        <p className="container mx-auto px-4 py-2 text-xs text-medium">
-          Modelled for this spot from the FES2022 global tide model, not measured at a tide station. Not for navigation. {FES2022_CITATION}
-        </p>
-      )}
       {!hasTideHero && !hasWaterTempSummary && (
         <BeachSubPageCrawlIntro copy={crawlCopy} />
       )}
@@ -305,12 +296,19 @@ export async function renderBeachSubPage({
           beachTimezone={beachTimezone}
           defaultTab={config.defaultTab}
           defaultSubTab={config.defaultSubTab}
-          heroHeadingLevel={hasWaterTempSummary ? "h1" : "h2"}
+          heroHeadingLevel={hasWaterTempSummary || hasTideHero ? "h1" : "h2"}
           heroHeadingSuffix={
-            hasWaterTempSummary ? "Water Temp & Wetsuit Guide" : undefined
+            hasWaterTempSummary
+              ? "Water Temp & Wetsuit Guide"
+              : hasTideHero
+                ? "Tide Chart & Surf Windows"
+                : undefined
           }
+          heroSummaryAboveMedia={pageType === "tides"}
           heroSummarySlot={
-            hasWaterTempSummary && waterTempMeta ? (
+            pageType === "tides" ? (
+              <BeachTideNow beachName={beach.name} display={tideMeta} view={tidePage?.view ?? null} />
+            ) : hasWaterTempSummary && waterTempMeta ? (
               <WaterTempSummaryHero
                 beachName={beach.name}
                 seasonalTrendsHref={
