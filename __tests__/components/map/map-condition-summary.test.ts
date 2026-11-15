@@ -6,6 +6,7 @@ import {
   getConditionMarkerGradient,
   getWaterTempBadgeColor,
   getWaterQualityHold,
+  hasCurrentSampleTitle,
 } from "@/components/map/map-marker-builder";
 
 const beach = (id: string): Beach =>
@@ -244,4 +245,12 @@ test("changes from a sample hold to an unconfirmed warning at seven days", () =>
     expect(getWaterQualityHold(pin(7 * 86400000 - 1))).toBe("closure");
     expect(getWaterQualityHold(pin(7 * 86400000))).toBeNull();
   } finally { clock.mockRestore(); }
+});
+
+test("gives only a current sample its own pin title", () => {
+  const sample = (sampleDate: string) => ({ waterQualityEvidence: { source: "sample" as const, sampleDate } });
+  expect(hasCurrentSampleTitle(sample(new Date(Date.now() - 60 * 60 * 1000).toISOString()))).toBe(true);
+  expect(hasCurrentSampleTitle(sample("2026-10-27"))).toBe(false);
+  expect(hasCurrentSampleTitle({ waterQualityEvidence: { source: "county" } })).toBe(false);
+  expect(hasCurrentSampleTitle({})).toBe(false);
 });

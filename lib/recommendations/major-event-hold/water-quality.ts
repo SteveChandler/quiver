@@ -685,7 +685,7 @@ export async function resolveWaterQualityHolds(
       .filter((row) => (row.status === "advisory" || row.status === "closure") && row.total_samples_30d > 0
         && isCurrentWaterQualitySample(row.latest_sample_date, now.getTime()))
       .map((row) => [row.beach_id, row]));
-    // The projection reads a stale sample as unknown; the map still names it "not recently verified".
+    // Owner holds keep their stored sample status; the projection reads a stale sample as unknown.
     const storedRowsByBeachId = new Map(rowsByBeachId);
     for (const row of effectiveRows) rowsByBeachId.set(row.beach_id, row);
 
@@ -710,19 +710,6 @@ export async function resolveWaterQualityHolds(
           waterQualityStatusByBeachId[beachId] = heldStatus;
         }
         snapshot.push(`${beachId}:owner-hold`);
-        continue;
-      }
-
-      const stored = storedRowsByBeachId.get(beachId);
-      // The stored sample speaks where the County projection did not set a status of its own.
-      const countySpoke = row?.county_general_expired === true || (row?.county_advisory_status !== undefined
-        && row.county_advisory_status !== "unavailable");
-      if (row && stored && (stored.status === "advisory" || stored.status === "closure")
-        && !countySpoke
-        && !countyHeld.has(beachId)
-        && !isCurrentWaterQualitySample(stored.latest_sample_date, now.getTime())) {
-        evidence[beachId] = { source: "sample", ...(typeof stored.latest_sample_date === "string" ? { sampleDate: stored.latest_sample_date } : {}) };
-        snapshot.push(`${beachId}:sample-unconfirmed:${stored.latest_sample_date ?? "undated"}`);
         continue;
       }
 

@@ -49,6 +49,12 @@ const WATER_QUALITY_HOLD_LABELS: Record<
   held: "Water quality hold",
 };
 
+/** Only a current sample earns its own pin title; an old one says nothing. */
+export function hasCurrentSampleTitle(beach: Partial<MapBeach>): boolean {
+  const evidence = beach.waterQualityEvidence;
+  return evidence?.source === "sample" && isCurrentWaterQualitySample(evidence.sampleDate);
+}
+
 export function getWaterQualityHold(
   beach: Beach | undefined,
 ): WaterQualityHoldKind | null {
@@ -318,10 +324,8 @@ export function createWaveHeightBadge(
     }
     badge.title = `${location.name}: ${conditionMarkerCall.label}`;
     const evidence = (location as Partial<MapBeach>).waterQualityEvidence;
-    if (evidence?.source === "sample") {
-      badge.title = isCurrentWaterQualitySample(evidence.sampleDate)
-        ? `${location.name}: elevated bacteria in ${evidence.sampleDate} sample`
-        : `${location.name}: old water-quality sample; current status unconfirmed`;
+    if (evidence?.source === "sample" && hasCurrentSampleTitle(location as Partial<MapBeach>)) {
+      badge.title = `${location.name}: elevated bacteria in ${evidence.sampleDate} sample`;
       badge.setAttribute("aria-label", badge.title);
     }
     badge.appendChild(visual);
