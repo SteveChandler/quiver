@@ -199,7 +199,7 @@ function rateBeach(
     });
   const best = hours.reduce((max, hour) => (hour.breakdown.score > max.breakdown.score ? hour : max));
   if (best.inputs.waveHeightFt <= 0) return null;
-  const exposure = exposureOf(beach, exposureDirectionOf(event)).label;
+  const exposure = exposureOf(beach, exposureDirectionOf(event, beach.id)).label;
   const working = isWorking(best.label);
   const window = windowFor(hours, best.label, timezone);
   return {
@@ -239,7 +239,7 @@ function earlyLookFace(beach: RegionBeach, event: InternalRegionEvent, exposure:
  * The face is only an estimate from the offshore swell.
  */
 function earlyLookRating(beach: RegionBeach, event: InternalRegionEvent): RankedRating {
-  const exposure = exposureOf(beach, exposureDirectionOf(event));
+  const exposure = exposureOf(beach, exposureDirectionOf(event, beach.id));
   return {
     beachId: beach.id,
     beachName: beach.name,

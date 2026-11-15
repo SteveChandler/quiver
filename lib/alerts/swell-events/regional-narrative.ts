@@ -227,11 +227,14 @@ function faceText(range: FaceRange | null): string | null {
   return range.min === range.max ? `${range.min} ft` : `${range.min}-${range.max} ft`;
 }
 
-function watchStanding(build: RegionBuild, directionDeg: number | null, beachIds: readonly string[]): RegionWatchBeach[] {
+type ExposureSource = Parameters<typeof exposureDirectionOf>[0];
+
+function watchStanding(build: RegionBuild, event: ExposureSource | null, beachIds: readonly string[]): RegionWatchBeach[] {
   const beaches = new Map(build.beaches.map((beach) => [beach.id, beach]));
   return [...new Set(beachIds)].flatMap((id) => {
     const beach = beaches.get(id);
     if (!beach) return [];
+    const directionDeg = event ? exposureDirectionOf(event, id) : null;
     const factor = directionDeg === null ? null : exposureFactor(directionDeg, swellWindowForBeach(beach));
     return [{ beachId: id, beachName: beach.name, exposure: factor === null ? null : exposureLabel(factor), reason: null, days: [] }];
   });
@@ -269,7 +272,7 @@ function watchWithNarration({ build, event, rated, beachIds, now }: WatchInput, 
   const key = storyEventKey(event);
   const today = localDate(now, build.timezone);
   const { startMs, endMs } = ratingWindow(event);
-  const watches = watchStanding(build, exposureDirectionOf(event), beachIds).map((beach) => {
+  const watches = watchStanding(build, event, beachIds).map((beach) => {
     const rating = rated.get(beach.beachId);
     const working = rating && isWorking(rating.label);
     const dates = [...beachRowsByLocalDate(build, beach.beachId)].flatMap(([date, rows]) => {
@@ -315,7 +318,7 @@ export function narrateRegionEvents(input: {
     const story = event.source === "forecast" ? byBuildKey.get(event.key) : undefined;
     const breaker = event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS);
     if (!story) return { ...withoutNarrative(event), breaker,
-      ...(beachIds === undefined ? {} : { watch: watchStanding(build, internal ? exposureDirectionOf(internal) : null, beachIds) }),
+      ...(beachIds === undefined ? {} : { watch: watchStanding(build, internal ?? null, beachIds) }),
     };
     const own = narration.forEvent(story);
     const key = storyEventKey(story);
@@ -369,7 +372,7 @@ function collectRegionWatches(input: RegionWatchInput, narration: ReturnType<typ
       ratedBeaches = new Map();
     }
     if (!story) {
-      watches.set(event.key, sortWatchByRating(watchStanding(build, internal ? exposureDirectionOf(internal) : null, beachIds), ratedBeaches, event.source === "wam"));
+      watches.set(event.key, sortWatchByRating(watchStanding(build, internal ?? null, beachIds), ratedBeaches, event.source === "wam"));
       continue;
     }
     watches.set(event.key, watchWithNarration({ build, event: story, rated: new Map(ratedBeaches), beachIds, edition, now }, narration.forEvent(story)));

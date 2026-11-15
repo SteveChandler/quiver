@@ -85,7 +85,7 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
     const beach = beaches.get(beachId);
     const window = beach ? swellWindowForBeach(beach) : null;
     if (!event || !window) return null;
-    const factor = exposureFactor(event.exposureDirectionDeg ?? event.directionDeg, window);
+    const factor = exposureFactor(event.memberDirections?.[beachId] ?? event.exposureDirectionDeg ?? event.directionDeg, window);
     return factor === null ? null : { event, window, exposure: exposureLabel(factor) };
   };
   return {
@@ -96,7 +96,7 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
     facing(regionalEventKey, beachId) {
       const seen = sighting(regionalEventKey, beachId);
       if (!seen || seen.exposure !== "open") return null;
-      const offset = angleDifference(seen.event.exposureDirectionDeg ?? seen.event.directionDeg, seen.window.centerDeg);
+      const offset = angleDifference(seen.event.memberDirections?.[beachId] ?? seen.event.exposureDirectionDeg ?? seen.event.directionDeg, seen.window.centerDeg);
       return offset <= Math.min(DEAD_ON_MAX_DEG, seen.window.halfWidthDeg * DEAD_ON_WINDOW_SHARE) ? "direct" : "angled";
     },
     eventFacts(regionalEventKey) {

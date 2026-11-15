@@ -66,5 +66,5 @@ The forecast rows behind those editions are gone (stored history is about a week
 ## Limits
 
 - The Nov 14 replay is one day. The 46-cover test checks naming only, with estimated peak hours and heights.
-- When the GFS fetch fails, the region falls back to near-beach names for that 3 h cache window.
+- The open-ocean read is cached per region and local day, so a 6-hourly GFS update cannot move a period band or a 16-point direction (and break the story's gates) during the day. When the day's first read fails, nothing is cached, and the region falls back to near-beach names for that 3 h region-cache window only.
 - The beach detail screen still shows each beach's near-beach partition ("W 18 s"), while the Swell Watch card and the story name the swell (WNW). These are different readings, not one value shown twice.

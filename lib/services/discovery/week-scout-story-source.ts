@@ -137,7 +137,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       return [beach.id, beachScores.length ? Math.max(...beachScores) : null];
     }));
     const exposedBeaches = Object.fromEntries(peaking.map((event) => [storyEventKey(event), allBeaches.flatMap((beach) => {
-      const factor = exposureFactor(event.exposureDirectionDeg ?? event.directionDeg, swellWindowForBeach(beach));
+      const factor = exposureFactor(event.memberDirections?.[beach.id] ?? event.exposureDirectionDeg ?? event.directionDeg, swellWindowForBeach(beach));
       return factor === null ? [] : [{ beachId: beach.id, beachName: beach.name, exposure: exposureLabel(factor),
         qualityScore: qualityScores.get(beach.id) ?? null }];
     })]));
@@ -175,7 +175,7 @@ export async function buildStoryInput(args: { client: Client; region: string; no
       const faceFt = faceRangeFt(beachRows.map((row) => row.wave_height));
       const punchiness = resolveWavePunchiness({ override: null, ai: beach.wave_punchiness_ai,
         aiConfidence: beach.wave_punchiness_ai_confidence, persona: beach.persona, break_type: beach.break_type, skill_level: beach.skill_level });
-      const swellDirection = (coveringEvent ? coveringEvent.exposureDirectionDeg ?? coveringEvent.directionDeg : null) ?? meanDirection(beachRows.flatMap((row) => row.swell_direction_om === null ? [] : [row.swell_direction_om]));
+      const swellDirection = (coveringEvent ? coveringEvent.memberDirections?.[beach.id] ?? coveringEvent.exposureDirectionDeg ?? coveringEvent.directionDeg : null) ?? meanDirection(beachRows.flatMap((row) => row.swell_direction_om === null ? [] : [row.swell_direction_om]));
       const factor = swellDirection === null ? null : exposureFactor(swellDirection, swellWindowForBeach(beach));
       return [{ beachId: beach.id, beachName: beach.name, score, facts: { faceFt, sizes: sizeWordsFor(faceFt),
         windHours: windHoursFor(beachRows, beach, active.timezone), breaker: { character, feel: beachFeel(character, punchiness),

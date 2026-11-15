@@ -468,6 +468,15 @@ describe("event and beach lines the card shows", () => {
     expect(storyEventsFromRegion(built, TODAY).week.map((item) => item.regionalKey)).toEqual(["w", "ssw-copy", "later"]);
   });
 
+  it("orders a day's events on the near-beach scale, not a named swell's open-ocean height", () => {
+    const built = regionBuild([beach("a", "North", 270)], {}, [
+      // Named: 14 ft in the open ocean but only 3 ft at the beaches.
+      regionEvent("named", 300, 18, "2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", null, { offshoreHeightFt: 14, nearBeachHeightFt: 3 }),
+      regionEvent("storm", 270, 9, "2026-10-29T15:00:00Z", "2026-10-29T21:00:00Z", null, { kind: "storm", offshoreHeightFt: 6 }),
+    ]);
+    expect(storyEventsFromRegion(built, TODAY).week.map((item) => item.regionalKey)).toEqual(["storm", "named"]);
+  });
+
   it("carries the near-beach direction for exposure beside the open-ocean name", () => {
     const built = regionBuild([beach("a", "North", 270)], {}, [
       regionEvent("nw", 300, 18, "2026-10-29T15:00:00Z", "2026-10-29T21:00:00Z", null, { exposureDirectionDeg: 270 }),

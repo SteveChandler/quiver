@@ -934,6 +934,36 @@ describe("open-ocean naming", () => {
     expect(events[0].here).toMatchObject({ beachId: narrow.id, exposure: "open" });
   });
 
+  it("rates a beach that joined from a bent run on the direction it saw, not the lead's", async () => {
+    // 175–245°: open to the SSW run this beach sees, shut to the lead's W.
+    const southFacing = beach("Imperial Beach", { swell_window_center_deg: 210, swell_window_halfwidth_deg: 35 });
+    const { beaches, rows } = bentRegion();
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
+    const built = await build([...beaches, southFacing], [...rows, ...rowsFor(southFacing.id, { swell: BENT_RUN })]);
+    const events = rateRegionEvents(built, { beachId: southFacing.id, skill: "intermediate", now: NOW });
+
+    expect(events.filter((event) => event.kind === "swell")).toHaveLength(1);
+    expect(built.events[0].memberDirections?.[southFacing.id]).toBe(210);
+    expect(events[0].here).toMatchObject({ beachId: southFacing.id, exposure: "open" });
+  });
+
+  it("reads the open-ocean swells once per region and local day, and does not keep a failed read", async () => {
+    const { beaches, rows } = bentRegion();
+    await build(beaches, rows);
+
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-open-ocean", "v1", REGION, "2026-09-25"], { revalidate: 86400 });
+    const read = jest.mocked(unstable_cache).mock.calls.find(([, key]) => key?.[0] === "region-open-ocean")![0];
+    await expect(read()).rejects.toThrow("open_ocean_unavailable");
+  });
+
+  it("orders a day's events by near-beach height, so a named swell's open-ocean height does not outrank on scale alone", async () => {
+    const { beaches, rows } = bentRegion();
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
+    const built = await build(beaches, rows);
+
+    expect(built.events[0]).toMatchObject({ offshoreHeightFt: 12, nearBeachHeightFt: 5.5 });
+  });
+
   it("gives the card and the story the same swell name", async () => {
     const { beaches, rows } = bentRegion();
     jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
