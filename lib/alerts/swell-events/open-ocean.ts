@@ -36,8 +36,9 @@ const MATCH_BEND_DEG = 105;
 // partition cannot be the source of a big beach run.
 const MATCH_MAX_GROWTH = 1.5;
 // A groundswell run cannot come from short-period open-ocean sea: a 12 s north swell at Oahu took
-// the name of a 7.7 s east trade swell. Near-beach swell runs start at 11 s (SWELL_EVENT_THRESHOLDS).
-const MATCH_MIN_PERIOD_S = 10;
+// the name of a 7.7 s east trade swell. GFS mean period runs a few seconds under the 11 s+ peak
+// periods of near-beach swell runs, so the floor sits below them.
+const MATCH_MIN_PERIOD_S = 8.5;
 const MIN_TRACK_SAMPLES = 3;
 
 const HOURLY = [

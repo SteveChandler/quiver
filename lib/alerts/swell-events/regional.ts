@@ -241,7 +241,7 @@ function runOf(lead: BeachSwellEvent, members: readonly BeachSwellEvent[]): Regi
     memberDirections: new Map(members.map((member) => [member.beachId, member.directionDeg])) };
 }
 
-/** `into` takes `other`'s window, members and beaches; `into` keeps its lead. */
+/** `into` takes `other`'s window, members and beaches, and its lead when `other`'s is stronger. */
 function absorb(into: RegionRun, other: RegionRun): void {
   const own = runSpan(other);
   // A missing fade means peak + 24 h, so ends compare as windows; the run never ends before either does.
@@ -252,6 +252,7 @@ function absorb(into: RegionRun, other: RegionRun): void {
   for (const [beachId, directionDeg] of other.memberDirections) {
     if (!into.memberDirections.has(beachId)) into.memberDirections.set(beachId, directionDeg);
   }
+  if (other.lead.peakEnergy > into.lead.peakEnergy) into.lead = other.lead;
 }
 
 /**
@@ -266,13 +267,16 @@ function absorb(into: RegionRun, other: RegionRun): void {
 function nameFromOpenOcean(runs: readonly RegionRun[], swells: readonly OpenOceanSwell[] | null): RegionRun[] {
   if (!swells?.length) return [...runs];
   const named: RegionRun[] = [];
-  for (const run of [...runs].sort((left, right) => right.lead.peakEnergy - left.lead.peakEnergy)) {
+  const matched = runs.map((run) => ({ run, match: run.lead.kind === "storm" ? null : matchOpenOceanSwell({
+    directionDeg: run.lead.directionDeg, periodS: run.lead.periodS, peakAt: run.lead.peakAt, heightFt: run.lead.peakOffshoreHeightFt,
+  }, swells) }));
+  // The run that reads closest to its open-ocean swell holds that swell's name; the strongest goes first among equals.
+  const bend = ({ run, match }: (typeof matched)[number]): number => (match ? angleDifference(match.directionDeg, run.lead.directionDeg) : Number.POSITIVE_INFINITY);
+  for (const { run, match } of matched.sort((left, right) => bend(left) - bend(right) || right.run.lead.peakEnergy - left.run.lead.peakEnergy)) {
     if (run.lead.kind === "storm") {
       named.push(run);
       continue;
     }
-    const match = matchOpenOceanSwell({ directionDeg: run.lead.directionDeg, periodS: run.lead.periodS,
-      peakAt: run.lead.peakAt, heightFt: run.lead.peakOffshoreHeightFt }, swells);
     const holders = match ? named.filter((other) => other.openOcean?.swell === match.swell
       && Math.abs(Date.parse(other.lead.peakAt) - Date.parse(run.lead.peakAt)) <= SWELL_TRACKING_RULES.groupPeakHours * HOUR_MS) : [];
     const same = holders.find((other) => ![...run.beachIds].some((beachId) => other.beachIds.has(beachId))
