@@ -35,6 +35,10 @@ const MATCH_BEND_DEG = 105;
 // Near the beach a swell reads at most about this multiple of its open-ocean height, so a small
 // partition cannot be the source of a big beach run.
 const MATCH_MAX_GROWTH = 1.5;
+// A groundswell run cannot come from short-period open-ocean sea: a 12 s north swell at Oahu took
+// the name of a 7.7 s east trade swell. GFS mean period runs a few seconds under the 11 s+ peak
+// periods of near-beach swell runs, so the floor sits below them.
+const MATCH_MIN_PERIOD_S = 8.5;
 const MIN_TRACK_SAMPLES = 3;
 
 const HOURLY = [
@@ -232,7 +236,8 @@ export function matchOpenOceanSwell(run: BeachRunShape, swells: readonly OpenOce
     }
     if (!nearest) return [];
     const { part } = nearest;
-    const fits = Math.abs(part.periodS - run.periodS) <= MATCH_PERIOD_S
+    const fits = part.periodS >= MATCH_MIN_PERIOD_S
+      && Math.abs(part.periodS - run.periodS) <= MATCH_PERIOD_S
       && angleDifference(part.directionDeg, run.directionDeg) <= MATCH_BEND_DEG
       && part.heightFt * MATCH_MAX_GROWTH >= run.heightFt;
     return fits ? [{ ...part, swell }] : [];

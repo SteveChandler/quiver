@@ -913,6 +913,37 @@ describe("open-ocean naming", () => {
     expect(built.events.filter((event) => event.kind === "swell").map((event) => event.directionDeg).sort()).toEqual([190, 300]);
   });
 
+  it("keeps a second swell's own name when the open-ocean swell it would take is held by a different-reading run on the same beaches", async () => {
+    const SSW_RUN: PartitionSpec = { heightFt: 4, periodS: 15, direction: 200 };
+    const beaches = [beach("Ocean Beach", WIDE), beach("Sunset Cliffs", WIDE), beach("Pacific Beach", WIDE)];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { swell: W_RUN }).map((row, index) => {
+      const day = DAYS[Math.floor(index / HOURS.length)];
+      if (day !== EVENT_DAY) return row;
+      return { ...row, swell_2_height: `${SSW_RUN.heightFt} ft`, swell_2_period: `${SSW_RUN.periodS}s`, swell_2_direction: String(SSW_RUN.direction) };
+    }));
+    // Only the NW swell is in the open ocean; the 200° run is within the bend limit of it.
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean((day, hour) => [nwOverSmallSouth(day, hour)[0]]));
+    const built = await build(beaches, rows);
+
+    expect(built.events.filter((event) => event.kind === "swell").map((event) => event.directionDeg).sort()).toEqual([200, 300]);
+  });
+
+  it("gives the open-ocean name to the run that reads closest to it, even when the other run is stronger", async () => {
+    // The 200° run is the bigger one on these beaches, but the 300° swell is the W run's.
+    const BIG_SSW: PartitionSpec = { heightFt: 7, periodS: 15, direction: 200 };
+    const beaches = [beach("Ocean Beach", WIDE), beach("Sunset Cliffs", WIDE), beach("Pacific Beach", WIDE)];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { swell: W_RUN }).map((row, index) => {
+      const day = DAYS[Math.floor(index / HOURS.length)];
+      if (day !== EVENT_DAY) return row;
+      return { ...row, swell_2_height: `${BIG_SSW.heightFt} ft`, swell_2_period: `${BIG_SSW.periodS}s`, swell_2_direction: String(BIG_SSW.direction) };
+    }));
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean((day, hour) => [nwOverSmallSouth(day, hour)[0]]));
+    const built = await build(beaches, rows);
+    const swells = built.events.filter((event) => event.kind === "swell");
+
+    expect(swells.map((event) => [event.directionDeg, event.exposureDirectionDeg]).sort()).toEqual([[200, 200], [300, 270]]);
+  });
+
   it("keeps a storm's near-beach name and period: GFS swell partitions leave out the wind sea", async () => {
     const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
     jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
