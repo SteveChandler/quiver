@@ -56,7 +56,8 @@ export function TideChartSection({ forecasts, stationSchedule, timeZone }: TideC
 
   return (
     <div
-      className="rounded-3xl border border-blue-100/60 bg-white/95 p-4 md:p-6 shadow-lg"
+      id="tide-chart"
+      className="scroll-mt-20 rounded-3xl border border-blue-100/60 bg-white/95 p-4 md:p-6 shadow-lg"
       data-testid="tide-chart-section"
     >
       <div className="flex items-center justify-between mb-4">
