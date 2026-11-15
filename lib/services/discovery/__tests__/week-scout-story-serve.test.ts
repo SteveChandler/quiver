@@ -721,6 +721,24 @@ describe("deterministic fallback and live gates", () => {
       }
     });
 
+    it("leaves the water sentence out when its read is slow", async () => {
+      jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      try {
+        mockWaterNotice.mockReturnValue(new Promise(() => undefined));
+        const pending = loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+          startLocalDate: "2026-07-15", now });
+        await jest.advanceTimersByTimeAsync(2_100);
+        const story = await pending;
+        expect(story.glance).toEqual(codeGlance(regionBuild([west]), "2026-07-15"));
+        expect(warn).toHaveBeenCalledWith("[week-scout-story] water notice read failed",
+          { region, error: "Error: timed out after 2000 ms" });
+      } finally {
+        warn.mockRestore();
+        jest.useRealTimers();
+      }
+    });
+
     it("keeps the glance on a story whose edition fails its gates", async () => {
       const date = "2026-07-26";
       const at = new Date(`${date}T13:00:00Z`);

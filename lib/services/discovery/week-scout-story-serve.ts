@@ -22,6 +22,16 @@ type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
 type SwellGate = Extract<StoryGate, { kind: "swell" }>;
 const FALLBACK_TTL_MS = 5 * 60_000;
+/** The water sentence never holds the Week Scout response: past this, it is left out. */
+const WATER_READ_TIMEOUT_MS = 2_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 const fallbackInputs = new Map<string, { input: Promise<StoryInput | null>; expiresAt: number }>();
 
 function regionalFallback(client: Client, region: string, editionDate: string, now: Date): Promise<StoryInput | null> {
@@ -413,7 +423,8 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
     });
   // Beside the ranking too; never rejects: a failed read leaves the water sentence out.
   const waterRead: Promise<string | null> = regionRead.then(({ build }) => build
-    ? loadRegionWaterNotice(client, region, build.beaches, now).then((notice) => waterSentence(notice, editionDate, build.timezone))
+    ? withTimeout(loadRegionWaterNotice(client, region, build.beaches, now), WATER_READ_TIMEOUT_MS)
+      .then((notice) => waterSentence(notice, editionDate, build.timezone))
     : null).catch((error: unknown) => {
     console.warn("[week-scout-story] water notice read failed", { region, error: String(error) });
     return null;

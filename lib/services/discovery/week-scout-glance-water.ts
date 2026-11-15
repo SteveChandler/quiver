@@ -22,13 +22,15 @@ const cache = new Map<string, { notice: Promise<RegionWaterNotice>; expiresAt: n
 
 /** The cards' projection: sampled rows, then County status, then the rain notice where the County is silent. */
 async function readRegionWaterNotice(client: Client, beaches: readonly Beach[], now: Date): Promise<RegionWaterNotice> {
-  const sampled: Array<{ beach_id: string; status: string }> = [];
+  const chunks: string[][] = [];
   for (let offset = 0; offset < beaches.length; offset += READ_CHUNK) {
-    const ids = beaches.slice(offset, offset + READ_CHUNK).map((beach) => beach.id);
+    chunks.push(beaches.slice(offset, offset + READ_CHUNK).map((beach) => beach.id));
+  }
+  const sampled = (await Promise.all(chunks.map(async (ids) => {
     const { data, error } = await client.from("beach_water_quality").select("beach_id, status").in("beach_id", ids);
     if (error) throw error;
-    sampled.push(...(data ?? []));
-  }
+    return data ?? [];
+  }))).flat();
   const sampledIds = new Set(sampled.map((row) => row.beach_id));
   const rows = [...sampled, ...beaches.filter((beach) => !sampledIds.has(beach.id)).map((beach) => unsampledWaterQualityRow(beach.id))];
   const projected = await withRainfallNotice(
@@ -48,11 +50,12 @@ async function readRegionWaterNotice(client: Client, beaches: readonly Beach[], 
     }
     const general = row.county_advisory_kind === "general";
     if (!general && !row.rain_runoff) continue;
+    const end = general ? row.county_rain_advisory?.expires_at : row.rain_runoff?.expires_at;
+    // An event past its end that the cron has not closed yet is over: it must not read as "72 hours after the rain".
+    if (end && !(Date.parse(end) > now.getTime())) continue;
     raining = true;
     county &&= general;
-    const end = general ? row.county_rain_advisory?.expires_at : row.rain_runoff?.expires_at;
-    // The latest future end; a past end is not an end.
-    if (end && Date.parse(end) > now.getTime() && (endsAt === null || Date.parse(end) > Date.parse(endsAt))) endsAt = end;
+    if (end && (endsAt === null || Date.parse(end) > Date.parse(endsAt))) endsAt = end;
   }
   const rain = raining ? { county, endsAt } : null;
   return { rain, closedBeaches: [...new Set(closedBeaches)].sort() };
@@ -62,13 +65,19 @@ async function readRegionWaterNotice(client: Client, beaches: readonly Beach[], 
 export function loadRegionWaterNotice(client: Client, region: string, beaches: readonly Beach[], now: Date): Promise<RegionWaterNotice> {
   const cached = cache.get(region);
   if (cached && cached.expiresAt > now.getTime()) return cached.notice;
-  const notice = readRegionWaterNotice(client, beaches, now).catch((error: unknown) => {
-    cache.delete(region);
+  const entry = { notice: readRegionWaterNotice(client, beaches, now), expiresAt: now.getTime() + CACHE_TTL_MS };
+  entry.notice = entry.notice.then((notice) => {
+    // Never serve an advisory past its own end from the cache.
+    const endsAt = notice.rain?.endsAt ? Date.parse(notice.rain.endsAt) : NaN;
+    if (endsAt < entry.expiresAt) entry.expiresAt = endsAt;
+    return notice;
+  }, (error: unknown) => {
+    if (cache.get(region) === entry) cache.delete(region);
     throw error;
   });
   if (cache.size >= 64) cache.delete(cache.keys().next().value!);
-  cache.set(region, { notice, expiresAt: now.getTime() + CACHE_TTL_MS });
-  return notice;
+  cache.set(region, entry);
+  return entry.notice;
 }
 
 /** Test seam: the cache outlives a test's clock. */

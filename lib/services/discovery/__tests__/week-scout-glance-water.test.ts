@@ -154,6 +154,32 @@ describe("loadRegionWaterNotice", () => {
     expect(notice).toEqual({ rain: { county: true, endsAt: "2026-11-17T12:00:00Z" }, closedBeaches: ["Tijuana Sloughs"] });
   });
 
+  it("treats an active event past its end as over", async () => {
+    mockRain.mockImplementation(async () => [
+      { beach_id: "venice", status: "advisory", rain_runoff: { stations: [], expires_at: "2026-11-15T05:00:00Z" } },
+    ]);
+    const notice = await loadRegionWaterNotice(client([]) as never, "Los Angeles", beaches, now);
+    expect(notice).toEqual({ rain: null, closedBeaches: [] });
+  });
+
+  it("keeps a reading with no end as an advisory", async () => {
+    mockRain.mockImplementation(async () => [{ beach_id: "venice", status: "advisory", rain_runoff: { stations: [] } }]);
+    const notice = await loadRegionWaterNotice(client([]) as never, "Los Angeles", beaches, now);
+    expect(notice).toEqual({ rain: { county: false, endsAt: null }, closedBeaches: [] });
+  });
+
+  it("stops serving a cached advisory at its own end", async () => {
+    mockRain.mockImplementation(async () => [
+      { beach_id: "venice", status: "advisory", rain_runoff: { stations: [], expires_at: "2026-11-15T05:47:00Z" } },
+    ]);
+    const db = client([]);
+    await loadRegionWaterNotice(db as never, "Los Angeles", beaches, now);
+    await loadRegionWaterNotice(db as never, "Los Angeles", beaches, new Date("2026-11-15T05:46:00Z"));
+    expect(db.from).toHaveBeenCalledTimes(1);
+    await loadRegionWaterNotice(db as never, "Los Angeles", beaches, new Date("2026-11-15T05:48:00Z"));
+    expect(db.from).toHaveBeenCalledTimes(2);
+  });
+
   it("finds no notice in a dry, open region", async () => {
     const notice = await loadRegionWaterNotice(client([]) as never, "Orange County", beaches, now);
     expect(notice).toEqual({ rain: null, closedBeaches: [] });
