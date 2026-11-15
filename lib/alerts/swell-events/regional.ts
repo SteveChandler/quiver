@@ -25,6 +25,7 @@ import { earlyLookPeaks, fetchWamDays, historyLine, regionModelBuoy, type EarlyL
 import { SWELL_EVENT_THRESHOLDS } from "./exposure";
 import { EXCLUDE_SYNTHETIC_ROWS_FILTER } from "./forecast-rows";
 import { fetchGfsTailRows, regionOffshorePoint } from "./gfs-tail";
+import { fetchOpenOceanSamples, matchOpenOceanSwell, openOceanSwells, regionOpenOceanPoint, type OpenOceanMatch, type OpenOceanSwell } from "./open-ocean";
 import { readAllPages } from "./paging";
 import { ratingWindow } from "./regional-rating";
 
@@ -41,6 +42,7 @@ const TAIL_HORIZON_DAYS = 15;
 // The detector's own duplicate-peak window: a tail swell this close to a stored one of the same component is that swell.
 const TAIL_DUPLICATE_MS = 36 * 60 * 60 * 1000;
 const REGION_CACHE_SECONDS = 10_800;
+const OPEN_OCEAN_CACHE_VERSION = "v1";
 // Bump when the cached shape or its contents change, so a deploy never reads an older build.
 // v2: events still in the water past their peak day; rating rows span each event's window.
 // v3: one swell the detector peaked more than once shows as one event.
@@ -49,7 +51,8 @@ const REGION_CACHE_SECONDS = 10_800;
 // v6: storedThrough, the last local day with a stored swell partition.
 // v7: GFS tail swells past the stored partitions.
 // v8: unrounded offshore heights and beach terrain, for early-look face estimates.
-const REGION_CACHE_VERSION = "v8";
+// v9: events named by their open-ocean swell, with near-beach runs of one swell joined.
+const REGION_CACHE_VERSION = "v9";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -105,8 +108,19 @@ export interface InternalRegionEvent {
   kind: "swell" | "storm";
   /** "wam": an early look past the stored forecast (WAM peak or GFS tail swell), rated by exposure only. */
   source: RegionSwellEvent["source"];
+  /** The open-ocean direction the swell is named by; the near-beach lead's when no open-ocean swell matched. */
   directionDeg: number | null;
   directionLabel: string | null;
+  /**
+   * The near-beach lead's direction, which beach swell windows and terrain read for exposure. Absent on
+   * early looks and hand-built events, where it is `directionDeg`.
+   */
+  exposureDirectionDeg?: number | null;
+  /** On a named event, each detected beach's own near-beach direction, which that beach's exposure reads. */
+  memberDirections?: Record<string, number>;
+  /** On a named event, the near-beach lead's height, on the same scale as an unnamed event's `offshoreHeightFt`. */
+  nearBeachHeightFt?: number;
+  /** Open-ocean mean period when matched, else the near-beach lead's. */
   periodS: number | null;
   arrivalAt: string | null;
   peakAt: string;
@@ -183,6 +197,11 @@ interface RegionRun {
   arrivalAt: string;
   fadeAt: string | null;
   memberCount: number;
+  beachIds: Set<string>;
+  /** Each member beach's own near-beach direction: a joined run keeps the direction each beach saw. */
+  memberDirections: Map<string, number>;
+  /** The open-ocean swell the run comes from, read at its lead's peak; it names the run. Absent when none matched. */
+  openOcean?: OpenOceanMatch;
 }
 
 const earlier = (left: string, right: string): string => (Date.parse(right) < Date.parse(left) ? right : left);
@@ -208,31 +227,86 @@ function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
         && span.startMs < own.endMs;
     });
     if (!run) {
-      runs.push({ lead, arrivalAt: lead.arrivalAt, fadeAt: lead.fadeAt, memberCount: members.length });
+      runs.push(runOf(lead, members));
       continue;
     }
-    // A missing fade means peak + 24 h, so ends compare as windows; the run never ends before either does.
-    if (own.endMs > runSpan(run).endMs) run.fadeAt = lead.fadeAt ?? new Date(own.endMs).toISOString();
-    run.arrivalAt = earlier(run.arrivalAt, lead.arrivalAt);
-    run.memberCount += members.length;
+    absorb(run, runOf(lead, members));
   }
   return runs;
 }
 
+function runOf(lead: BeachSwellEvent, members: readonly BeachSwellEvent[]): RegionRun {
+  return { lead, arrivalAt: lead.arrivalAt, fadeAt: lead.fadeAt, memberCount: members.length,
+    beachIds: new Set(members.map((member) => member.beachId)),
+    memberDirections: new Map(members.map((member) => [member.beachId, member.directionDeg])) };
+}
+
+/** `into` takes `other`'s window, members and beaches; `into` keeps its lead. */
+function absorb(into: RegionRun, other: RegionRun): void {
+  const own = runSpan(other);
+  // A missing fade means peak + 24 h, so ends compare as windows; the run never ends before either does.
+  if (own.endMs > runSpan(into).endMs) into.fadeAt = other.fadeAt ?? new Date(own.endMs).toISOString();
+  into.arrivalAt = earlier(into.arrivalAt, other.arrivalAt);
+  into.memberCount += other.memberCount;
+  for (const beachId of other.beachIds) into.beachIds.add(beachId);
+  for (const [beachId, directionDeg] of other.memberDirections) {
+    if (!into.memberDirections.has(beachId)) into.memberDirections.set(beachId, directionDeg);
+  }
+}
+
+/**
+ * Names each swell run from the open-ocean swell it comes from, and joins swell runs that come from
+ * the same open-ocean swell: one swell bent to W at one beach and SW at another, or split by the model
+ * into a W 18 s and a W 14 s partition at one beach. Runs that share a beach join only when they also
+ * read alike there (within the tracking angle), so a real SSW swell beside a W one stays apart.
+ * Storm runs keep their near-beach name: GFS swell partitions leave out the wind sea they are made of.
+ * Without open-ocean swells (fetch failed, masked cell) every run keeps its own near-beach name.
+ */
+function nameFromOpenOcean(runs: readonly RegionRun[], swells: readonly OpenOceanSwell[] | null): RegionRun[] {
+  if (!swells?.length) return [...runs];
+  const named: RegionRun[] = [];
+  for (const run of [...runs].sort((left, right) => right.lead.peakEnergy - left.lead.peakEnergy)) {
+    if (run.lead.kind === "storm") {
+      named.push(run);
+      continue;
+    }
+    const match = matchOpenOceanSwell({ directionDeg: run.lead.directionDeg, periodS: run.lead.periodS,
+      peakAt: run.lead.peakAt, heightFt: run.lead.peakOffshoreHeightFt }, swells);
+    const same = match ? named.find((other) => other.openOcean?.swell === match.swell
+      && Math.abs(Date.parse(other.lead.peakAt) - Date.parse(run.lead.peakAt)) <= SWELL_TRACKING_RULES.groupPeakHours * HOUR_MS
+      && (![...run.beachIds].some((beachId) => other.beachIds.has(beachId))
+        || angleDifference(other.lead.directionDeg, run.lead.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg)) : undefined;
+    if (same) {
+      absorb(same, run);
+      continue;
+    }
+    named.push(match ? { ...run, beachIds: new Set(run.beachIds), memberDirections: new Map(run.memberDirections), openOcean: match } : run);
+  }
+  return named;
+}
+
+/**
+ * Direction, period and offshore height read together ("WNW 13 ft", "offshore at 18 s"), so all three
+ * come from one source: the open-ocean swell at the lead's peak when matched, else the near-beach lead.
+ */
 function detectedEvent(run: RegionRun): UnkeyedRegionEvent {
-  const { lead } = run;
+  const { lead, openOcean } = run;
+  const directionDeg = openOcean ? Math.round(openOcean.directionDeg) : lead.directionDeg;
+  const offshoreHeightFt = openOcean ? openOcean.heightFt : lead.peakOffshoreHeightFt;
   return {
     kind: lead.kind ?? "swell",
     source: "forecast",
-    directionDeg: lead.directionDeg,
-    directionLabel: lead.directionLabel,
-    periodS: round1(lead.periodS),
+    directionDeg,
+    directionLabel: openOcean ? degreeToCardinal(directionDeg) : lead.directionLabel,
+    exposureDirectionDeg: lead.directionDeg,
+    ...(openOcean ? { memberDirections: Object.fromEntries(run.memberDirections), nearBeachHeightFt: lead.peakOffshoreHeightFt } : {}),
+    periodS: round1(openOcean ? openOcean.periodS : lead.periodS),
     arrivalAt: run.arrivalAt,
     peakAt: lead.peakAt,
     fadeAt: run.fadeAt,
     peakLocalDate: lead.peakLocalDate,
-    offshoreFt: `${Math.round(lead.peakOffshoreHeightFt)} ft`,
-    offshoreHeightFt: lead.peakOffshoreHeightFt,
+    offshoreFt: `${Math.round(offshoreHeightFt)} ft`,
+    offshoreHeightFt,
     history: null,
     memberCount: run.memberCount,
   };
@@ -357,17 +431,46 @@ async function gfsTailEvents(input: {
     .map((run): UnkeyedRegionEvent => ({ ...detectedEvent(run), source: "wam" }));
 }
 
+/**
+ * The region's open-ocean swells; null for a region too small to show, with no facing, or when GFS fails.
+ * One read per region and local day: story keys and gates read the names (period band, 16-point
+ * direction), and each 6-hourly GFS run moves them a little, so a name taken at the PC's 05:30 run
+ * must still hold that evening. A failed read is not cached, so the next build tries again.
+ */
+async function openOceanSwellsFor(beachRows: readonly BeachRow[], region: string, today: string): Promise<OpenOceanSwell[] | null> {
+  if (beachRows.length < MIN_REGION_BEACHES) return null;
+  const point = regionOpenOceanPoint(beachRows.map((beach) => ({
+    lat: beach.lat,
+    lon: beach.lon,
+    aspect_deg: beach.aspect_deg ?? null,
+    swell_window_center_deg: beach.swell_window_center_deg ?? null,
+  })));
+  if (!point) return null;
+  const samples = await unstable_cache(
+    async () => {
+      const read = await fetchOpenOceanSamples(point);
+      if (!read) throw new Error("open_ocean_unavailable");
+      return read;
+    },
+    ["region-open-ocean", OPEN_OCEAN_CACHE_VERSION, region, today],
+    { revalidate: DAY_MS / 1000 },
+  )().catch(() => null);
+  return samples ? openOceanSwells(samples) : null;
+}
+
 async function loadRegionBase(input: { client: Client; region: string; now: Date; timezone: string }): Promise<RegionBase> {
   const { client, region, now, timezone } = input;
   const beachRows = await readRegionBeaches(client, region);
+  // Independent of the row read, so it runs beside it.
+  const openOceanRead = openOceanSwellsFor(beachRows, region, getLocalDateStr(now, timezone));
   const from = new Date(now.getTime() - SWELL_EVENT_BASELINE_LOOKBACK_HOURS * HOUR_MS);
   const to = new Date(now.getTime() + DETECTION_HORIZON_DAYS * DAY_MS);
   // One read feeds both detection (swell partitions) and rating (height, wind, tide).
   const rows = beachRows.length ? await readForecastRows(client, beachRows.map((beach) => beach.id), from, to) : [];
   const rowsByBeach = Map.groupBy(rows, (row) => row.beach_id);
 
-  const stored = regionRuns(detectRegion(beachRows, (beach) => rowsByBeach.get(beach.id) ?? [], now, timezone, DETECTION_HORIZON_DAYS))
-    .map(detectedEvent);
+  const storedRuns = regionRuns(detectRegion(beachRows, (beach) => rowsByBeach.get(beach.id) ?? [], now, timezone, DETECTION_HORIZON_DAYS));
+  const stored = nameFromOpenOcean(storedRuns, await openOceanRead).map(detectedEvent);
 
   // Detection reads only partitions, so the stored forecast reaches as far as the last row with one.
   let lastPartitionMs = Number.NEGATIVE_INFINITY;
