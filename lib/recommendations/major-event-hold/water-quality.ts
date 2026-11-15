@@ -714,8 +714,11 @@ export async function resolveWaterQualityHolds(
       }
 
       const stored = storedRowsByBeachId.get(beachId);
+      // The stored sample speaks where the County projection did not set a status of its own.
+      const countySpoke = row?.county_general_expired === true || (row?.county_advisory_status !== undefined
+        && row.county_advisory_status !== "unavailable");
       if (row && stored && (stored.status === "advisory" || stored.status === "closure")
-        && !row.county_advisory_status && !row.county_general_expired
+        && !countySpoke
         && !countyHeld.has(beachId)
         && !isCurrentWaterQualitySample(stored.latest_sample_date, now.getTime())) {
         evidence[beachId] = { source: "sample", ...(typeof stored.latest_sample_date === "string" ? { sampleDate: stored.latest_sample_date } : {}) };

@@ -366,6 +366,17 @@ describe("stale sampled status reads unknown at read time", () => {
     expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
+  it("keeps stale-sample evidence on a County hold beach when the County read is unavailable", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const stale = { ...row, latest_sample_date: "2026-08-19" };
+    const client = clientFor({ beach_water_quality: [stale], county_beach_advisory_runs: [run] }, "county_beach_advisories");
+    const result = await resolveWaterQualityHolds([{ candidateId: "test", beachId: id,
+      startsAt: now.toISOString(), endsAt: "2026-09-04T04:30:00Z" }], { client, now });
+    expect(result.heldBeachIds).toEqual([]);
+    expect(result.waterQualityEvidenceByBeachId?.[id]).toEqual({ source: "sample", sampleDate: "2026-08-19" });
+    consoleError.mockRestore();
+  });
+
   it("keeps the stale-sample evidence the map labels as not recently verified", async () => {
     const client = clientFor({ beach_water_quality: [venice], county_beach_advisory_runs: [run] });
     const result = await resolveWaterQualityHolds([{ candidateId: "test", beachId: other,
