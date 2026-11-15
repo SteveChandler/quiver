@@ -457,6 +457,26 @@ describe("event and beach lines the card shows", () => {
     return { events, context, facts: buildEventCandidates(build, events, context, NOW) };
   }
 
+  it("puts a day's biggest swell first, so a small bent copy of it never leads the week", () => {
+    const beaches = [beach("a", "North", 230), beach("b", "Middle", 250), beach("c", "South", 270)];
+    const built = regionBuild(beaches, {}, [
+      // Peaks first that Saturday, but it is the 4 ft north-county copy of the 8 ft W swell.
+      regionEvent("ssw-copy", 202.5, 17, "2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", "2026-10-30T20:00:00Z", { offshoreFt: "4 ft", offshoreHeightFt: 4 }),
+      regionEvent("w", 270, 22, "2026-10-29T15:00:00Z", "2026-10-29T21:00:00Z", "2026-10-30T20:00:00Z", { offshoreFt: "8 ft", offshoreHeightFt: 8 }),
+      regionEvent("later", 290, 14, "2026-10-30T15:00:00Z", "2026-10-31T18:00:00Z", null, { offshoreFt: "9 ft", offshoreHeightFt: 9 }),
+    ]);
+    expect(storyEventsFromRegion(built, TODAY).week.map((item) => item.regionalKey)).toEqual(["w", "ssw-copy", "later"]);
+  });
+
+  it("carries the near-beach direction for exposure beside the open-ocean name", () => {
+    const built = regionBuild([beach("a", "North", 270)], {}, [
+      regionEvent("nw", 300, 18, "2026-10-29T15:00:00Z", "2026-10-29T21:00:00Z", null, { exposureDirectionDeg: 270 }),
+      regionEvent("plain", 200, 15, "2026-10-30T15:00:00Z", "2026-10-30T21:00:00Z", null),
+    ]);
+    expect(storyEventsFromRegion(built, TODAY).all.map(({ directionDeg, exposureDirectionDeg }) => [directionDeg, exposureDirectionDeg]))
+      .toEqual([[300, 270], [200, 200]]);
+  });
+
   it("attaches event facts to swell candidates and peak-day facts to beach lines", () => {
     const built = regionBuild([beach("a", "North", 202), beach("b", "Middle", 202), beach("c", "South", 202)], {}, [
       regionEvent("ssw", 202, 13, "2026-10-28T15:00:00Z", "2026-10-29T20:00:00Z", "2026-10-30T20:00:00Z")]);

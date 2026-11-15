@@ -12,7 +12,7 @@ import { formatCompactWaveHeight } from "@/lib/surf-summary-display";
 import { scoreLabel } from "@/lib/utils/score-color-utils";
 
 import { swellPartitionFaceHeightFt } from "./detector";
-import { SWELL_EVENT_THRESHOLDS, exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
+import { SWELL_EVENT_THRESHOLDS, exposureDirectionOf, exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "./regional";
 
 type Exposure = RegionBeachRating["exposure"];
@@ -199,7 +199,7 @@ function rateBeach(
     });
   const best = hours.reduce((max, hour) => (hour.breakdown.score > max.breakdown.score ? hour : max));
   if (best.inputs.waveHeightFt <= 0) return null;
-  const exposure = exposureOf(beach, event.directionDeg).label;
+  const exposure = exposureOf(beach, exposureDirectionOf(event)).label;
   const working = isWorking(best.label);
   const window = windowFor(hours, best.label, timezone);
   return {
@@ -239,7 +239,7 @@ function earlyLookFace(beach: RegionBeach, event: InternalRegionEvent, exposure:
  * The face is only an estimate from the offshore swell.
  */
 function earlyLookRating(beach: RegionBeach, event: InternalRegionEvent): RankedRating {
-  const exposure = exposureOf(beach, event.directionDeg);
+  const exposure = exposureOf(beach, exposureDirectionOf(event));
   return {
     beachId: beach.id,
     beachName: beach.name,

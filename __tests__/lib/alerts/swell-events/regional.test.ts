@@ -11,6 +11,10 @@ jest.mock("@/lib/alerts/swell-events/gfs-tail", () => ({
   ...jest.requireActual("@/lib/alerts/swell-events/gfs-tail"),
   fetchGfsTailRows: jest.fn(),
 }));
+jest.mock("@/lib/alerts/swell-events/open-ocean", () => ({
+  ...jest.requireActual("@/lib/alerts/swell-events/open-ocean"),
+  fetchOpenOceanSamples: jest.fn(),
+}));
 jest.mock("@/lib/alerts/swell-events/detector", () => {
   const actual = jest.requireActual("@/lib/alerts/swell-events/detector");
   return { ...actual, detectBeachSwellEvents: jest.fn(actual.detectBeachSwellEvents) };
@@ -32,6 +36,8 @@ import {
 } from "@/lib/alerts/swell-events/regional";
 import { hasHoursLeftToRate } from "@/lib/alerts/swell-events/regional-rating";
 import { fetchGfsTailRows } from "@/lib/alerts/swell-events/gfs-tail";
+import { fetchOpenOceanSamples, type OpenOceanPart, type OpenOceanSample } from "@/lib/alerts/swell-events/open-ocean";
+import { COMPASS, directionIndex, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import {
   fetchWamDays,
   historyLine,
@@ -262,6 +268,7 @@ beforeEach(() => {
   nextId = 0;
   jest.mocked(fetchWamDays).mockResolvedValue(null);
   jest.mocked(fetchGfsTailRows).mockResolvedValue(null);
+  jest.mocked(fetchOpenOceanSamples).mockResolvedValue(null);
 });
 
 describe("buildRegionEvents + rateRegionEvents", () => {
@@ -275,7 +282,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(built.beaches[0]).toMatchObject({ aspect_deg: 270, wind_offshore_deg: 90, wind_offshore_tol_deg: 25 });
     expect(built.rowsByBeach[beaches[0].id].length).toBeGreaterThan(0);
     expect(built.rowsByBeach[beaches[0].id].every((row) => row.wind_direction === "E")).toBe(true);
-    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v8", REGION, expect.any(String)], expect.anything());
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["region-swell-events", "v9", REGION, expect.any(String)], expect.anything());
     const beachSelect = selectedColumns.find(({ table }) => table === "beaches")?.columns;
     expect(beachSelect).toContain("wave_punchiness_ai");
     expect(beachSelect).not.toContain("wave_punchiness,");
@@ -310,7 +317,7 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     });
     expect(unstable_cache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["region-swell-events", "v8", REGION, "2026-09-25"],
+      ["region-swell-events", "v9", REGION, "2026-09-25"],
       { revalidate: 10800 },
     );
   });
@@ -837,6 +844,108 @@ describe("buildRegionEvents + rateRegionEvents", () => {
     expect(beginner.here).toMatchObject({ label: "MEH", reason: "too big for most" });
     expect(beginner.working.map((rating) => rating.beachId)).not.toContain(big.id);
     expect(beginner.notWorking).toEqual([expect.objectContaining({ beachId: big.id, reason: "too big for most" })]);
+  });
+});
+
+describe("open-ocean naming", () => {
+  const OCEAN_DAYS = Array.from({ length: 18 }, (_, index) => index - 2);
+  /** GFS samples at the open-ocean point, three-hourly, with the parts each hour holds. */
+  function ocean(parts: (day: number, hour: number) => OpenOceanPart[]): OpenOceanSample[] {
+    return OCEAN_DAYS.flatMap((day) => HOURS.map((hour) => ({ atMs: Date.parse(localIsoOf(day, hour)), parts: parts(day, hour) })));
+  }
+  /** A NW groundswell that builds to 12 ft at noon on the event day, under a small steady south swell. */
+  function nwOverSmallSouth(day: number, hour: number): OpenOceanPart[] {
+    const nwFt = day === EVENT_DAY ? (hour === 12 ? 12 : 10) : day === EVENT_DAY - 1 || day === EVENT_DAY + 1 ? 6 : 3;
+    return [
+      { heightFt: nwFt, periodS: 17, directionDeg: 300 },
+      { heightFt: 2, periodS: 15, directionDeg: 190 },
+    ];
+  }
+  const WIDE = { swell_window_center_deg: 250, swell_window_halfwidth_deg: 60 };
+  const W_RUN: PartitionSpec = { heightFt: 5, periodS: 15, direction: 270 };
+  // The same NW swell bent around the islands to a north-county beach.
+  const BENT_RUN: PartitionSpec = { heightFt: 4, periodS: 16, direction: 210 };
+
+  function bentRegion() {
+    const south = [beach("Ocean Beach", WIDE), beach("Sunset Cliffs", WIDE)];
+    const north = [beach("Oceanside", WIDE), beach("Trestles", WIDE)];
+    const rows = [
+      ...south.flatMap((item) => rowsFor(item.id, { swell: W_RUN })),
+      ...north.flatMap((item) => rowsFor(item.id, { swell: BENT_RUN })),
+    ];
+    return { beaches: [...south, ...north], rows };
+  }
+
+  it("shows one swell bent to W and SSW at different beaches as one event, named by its open-ocean direction", async () => {
+    const { beaches, rows } = bentRegion();
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
+    const built = await build(beaches, rows);
+    const swells = built.events.filter((event) => event.kind === "swell");
+
+    expect(fetchOpenOceanSamples).toHaveBeenCalledTimes(1);
+    expect(swells).toHaveLength(1);
+    // Direction, period and offshore height all read off the open-ocean swell at the lead's noon peak.
+    expect(swells[0]).toMatchObject({ directionDeg: 300, directionLabel: "WNW", exposureDirectionDeg: 270, periodS: 17,
+      offshoreFt: "12 ft", offshoreHeightFt: 12, memberCount: 4 });
+  });
+
+  it("keeps each near-beach run as its own event, with its own name, when the open-ocean read fails", async () => {
+    const { beaches, rows } = bentRegion();
+    const built = await build(beaches, rows);
+
+    expect(built.events.filter((event) => event.kind === "swell").map((event) => event.directionDeg).sort()).toEqual([210, 270]);
+  });
+
+  it("keeps a real south swell beside a NW one apart, each named by its own open-ocean swell", async () => {
+    const S_RUN: PartitionSpec = { heightFt: 3, periodS: 15, direction: 190 };
+    const beaches = [beach("Ocean Beach", WIDE), beach("Sunset Cliffs", WIDE), beach("Pacific Beach", WIDE)];
+    const rows = beaches.flatMap((item) => rowsFor(item.id, { swell: W_RUN }).map((row, index) => {
+      const day = DAYS[Math.floor(index / HOURS.length)];
+      if (day !== EVENT_DAY) return row;
+      return { ...row, swell_2_height: `${S_RUN.heightFt} ft`, swell_2_period: `${S_RUN.periodS}s`, swell_2_direction: String(S_RUN.direction) };
+    }));
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean((day, hour) => [
+      nwOverSmallSouth(day, hour)[0],
+      { heightFt: day === EVENT_DAY ? 3 : 1, periodS: 15, directionDeg: 190 },
+    ]));
+    const built = await build(beaches, rows);
+
+    expect(built.events.filter((event) => event.kind === "swell").map((event) => event.directionDeg).sort()).toEqual([190, 300]);
+  });
+
+  it("keeps a storm's near-beach name and period: GFS swell partitions leave out the wind sea", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
+    const built = await build(beaches, beaches.flatMap((item) => rowsFor(item.id, { storm: true })));
+
+    expect(built.events).toHaveLength(1);
+    expect(built.events[0]).toMatchObject({ kind: "storm", directionDeg: 270, directionLabel: "W", periodS: 9 });
+  });
+
+  it("rates a beach's exposure on the near-beach direction, not the open-ocean name", async () => {
+    // 215–285°: open to the W run the beach sees, shut to the 300° open-ocean direction.
+    const narrow = beach("Imperial Beach", { swell_window_center_deg: 250, swell_window_halfwidth_deg: 35 });
+    const { beaches, rows } = bentRegion();
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
+    const built = await build([...beaches, narrow], [...rows, ...rowsFor(narrow.id, { swell: W_RUN })]);
+    const events = rateRegionEvents(built, { beachId: narrow.id, skill: "intermediate", now: NOW });
+
+    expect(events.filter((event) => event.kind === "swell")).toHaveLength(1);
+    expect(events[0].here).toMatchObject({ beachId: narrow.id, exposure: "open" });
+  });
+
+  it("gives the card and the story the same swell name", async () => {
+    const { beaches, rows } = bentRegion();
+    jest.mocked(fetchOpenOceanSamples).mockResolvedValue(ocean(nwOverSmallSouth));
+    const built = await build(beaches, rows);
+    const card = rateRegionEvents(built, { beachId: beaches[0].id, skill: "intermediate", now: NOW });
+    const story = storyEventsFromRegion(built, localDate(0)).week;
+
+    expect(card).toHaveLength(1);
+    expect(story).toHaveLength(1);
+    expect(card[0].directionLabel).toBe("WNW");
+    expect(COMPASS[directionIndex(story[0].directionDeg)]).toBe("west-northwest");
+    expect(card[0].periodS).toBe(story[0].periodS);
   });
 });
 

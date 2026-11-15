@@ -65,6 +65,15 @@ export function exposureFactor(
   return cos * cos;
 }
 
+/**
+ * The direction a beach's swell window reads for a region event: the near-beach lead's, not the
+ * open-ocean direction that names the event. Beach windows are drawn in near-beach terms (Imperial
+ * Beach's window is 140–236°, yet a 306° open-ocean swell reaches it at 8 ft).
+ */
+export function exposureDirectionOf(event: { directionDeg: number | null; exposureDirectionDeg?: number | null }): number | null {
+  return event.exposureDirectionDeg ?? event.directionDeg;
+}
+
 export function exposureLabel(factor: number): "open" | "partial" | "shadowed" {
   if (factor >= 0.75) return "open";
   if (factor >= 0.25) return "partial";
