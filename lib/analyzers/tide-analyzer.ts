@@ -93,8 +93,8 @@ export function recommendTideWindow(
     // Score each forecast based on how close it is to optimal tide range
     let missingTideCount = 0;
     const scoredForecasts = morningForecasts.map((f) => {
-      const tideHeight = f.tide_height || 0;
-      if (!f.tide_height) missingTideCount++;
+      const tideHeight = f.tide_height ?? 0;
+      if (f.tide_height == null) missingTideCount++;
       const midTide = (beachPrefs.tideMinFt! + beachPrefs.tideMaxFt!) / 2;
       const distance = Math.abs(tideHeight - midTide);
       const isInRange =

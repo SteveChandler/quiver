@@ -14,7 +14,12 @@ jest.mock("date-fns/format", () => {
 
 import { fromZonedTime } from "date-fns-tz";
 
+jest.mock("@/lib/monitoring/fallback-tracker", () => ({
+  trackFallback: jest.fn(),
+}));
+
 import { recommendTideWindow, tideAt } from "@/lib/analyzers/tide-analyzer";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import type { BeachPreferences, ForecastSlice } from "@/types/morning-intel";
 
 describe("tide-analyzer", () => {
@@ -34,6 +39,67 @@ describe("tide-analyzer", () => {
   });
 
   describe("recommendTideWindow", () => {
+    beforeEach(() => {
+      jest.mocked(trackFallback).mockClear();
+    });
+
+    test("scores a valid 0 ft tide without counting it as missing", () => {
+      const forecasts: ForecastSlice["forecasts"] = [
+        { forecast_date: TODAY, forecast_time: "06:00", tide_height: 2 },
+        { forecast_date: TODAY, forecast_time: "08:00", tide_height: 0 },
+      ];
+
+      const result = recommendTideWindow(forecasts, {
+        name: "Test Beach",
+        tideMinFt: -1,
+        tideMaxFt: 1,
+      });
+
+      expect(result.height).toBe(0);
+      expect(result.recommendedTime).toBe("08:00");
+      expect(trackFallback).not.toHaveBeenCalled();
+    });
+
+    test("counts undefined morning tides without counting a valid 0 ft tide", () => {
+      const forecasts: ForecastSlice["forecasts"] = [
+        { forecast_date: TODAY, forecast_time: "06:00", tide_height: 0 },
+        { forecast_date: TODAY, forecast_time: "07:00", tide_height: undefined },
+        { forecast_date: TODAY, forecast_time: "08:00", tide_height: 3 },
+      ];
+
+      const result = recommendTideWindow(forecasts, {
+        name: "Test Beach",
+        tideMinFt: 2,
+        tideMaxFt: 4,
+      });
+
+      expect(result.height).toBe(3);
+      expect(result.recommendedTime).toBe("08:00");
+      expect(trackFallback).toHaveBeenCalledTimes(1);
+      expect(trackFallback).toHaveBeenCalledWith({
+        domain: "tide-analyzer",
+        field: "tide_height",
+        fallbackValue: 0,
+        context: { missingForecasts: 1 },
+      });
+    });
+
+    test.each([null, undefined])("still tracks a missing %s tide height", (tideHeight) => {
+      const result = recommendTideWindow(
+        [{ forecast_date: TODAY, forecast_time: "08:00", tide_height: tideHeight }],
+        null
+      );
+
+      expect(result.height).toBe(0);
+      expect(trackFallback).toHaveBeenCalledTimes(1);
+      expect(trackFallback).toHaveBeenCalledWith({
+        domain: "tide-analyzer",
+        field: "tide_height",
+        fallbackValue: 0,
+        context: undefined,
+      });
+    });
+
     test("returns safe defaults for empty input", () => {
       expect(recommendTideWindow([], null)).toEqual({
         height: 0,
