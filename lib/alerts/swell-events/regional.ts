@@ -52,7 +52,8 @@ const OPEN_OCEAN_CACHE_VERSION = "v1";
 // v7: GFS tail swells past the stored partitions.
 // v8: unrounded offshore heights and beach terrain, for early-look face estimates.
 // v9: events named by their open-ocean swell, with near-beach runs of one swell joined.
-const REGION_CACHE_VERSION = "v9";
+// v10: each event's member faces, for a swell's own size when it is not the biggest of its day.
+const REGION_CACHE_VERSION = "v10";
 const FEET_PER_METER = 3.281;
 // Small parallel chunks keep each paged read short without a burst on the DB.
 const BEACH_CHUNK_SIZE = 20;
@@ -118,6 +119,11 @@ export interface InternalRegionEvent {
   exposureDirectionDeg?: number | null;
   /** On a named event, each detected beach's own near-beach direction, which that beach's exposure reads. */
   memberDirections?: Record<string, number>;
+  /**
+   * Each detected beach's face height from this swell alone (the detector's per-swell face, which reads
+   * period as well as height). Absent on early looks and hand-built events.
+   */
+  memberFaceFt?: Record<string, number>;
   /** On a named event, the near-beach lead's height, on the same scale as an unnamed event's `offshoreHeightFt`. */
   nearBeachHeightFt?: number;
   /** Open-ocean mean period when matched, else the near-beach lead's. */
@@ -200,6 +206,8 @@ interface RegionRun {
   beachIds: Set<string>;
   /** Each member beach's own near-beach direction: a joined run keeps the direction each beach saw. */
   memberDirections: Map<string, number>;
+  /** Each member beach's face height from this swell alone, two partitions of it combined. */
+  memberFaces: Map<string, number>;
   /** The open-ocean swell the run comes from, read at its lead's peak; it names the run. Absent when none matched. */
   openOcean?: OpenOceanMatch;
 }
@@ -230,7 +238,7 @@ function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
       runs.push(runOf(lead, members));
       continue;
     }
-    absorb(run, runOf(lead, members));
+    absorb(run, runOf(lead, members), "same");
   }
   return runs;
 }
@@ -238,11 +246,21 @@ function joinRuns(groups: readonly SwellGroup[]): RegionRun[] {
 function runOf(lead: BeachSwellEvent, members: readonly BeachSwellEvent[]): RegionRun {
   return { lead, arrivalAt: lead.arrivalAt, fadeAt: lead.fadeAt, memberCount: members.length,
     beachIds: new Set(members.map((member) => member.beachId)),
-    memberDirections: new Map(members.map((member) => [member.beachId, member.directionDeg])) };
+    memberDirections: new Map(members.map((member) => [member.beachId, member.directionDeg])),
+    memberFaces: new Map(members.map((member) => [member.beachId, member.peakFaceHeightFt])) };
 }
 
-/** `into` takes `other`'s window, members and beaches, and its lead when `other`'s is stronger. */
-function absorb(into: RegionRun, other: RegionRun): void {
+/** Wave energy adds, so faces from two partitions of one swell at one beach combine as a root sum of squares. */
+function combinedFace(left: number, right: number): number {
+  return Math.sqrt(left * left + right * right);
+}
+
+/**
+ * `into` takes `other`'s window, members and beaches, and its lead when `other`'s is stronger. On a
+ * beach in both, `faces` says what the two are: one partition the detector peaked twice ("same", the
+ * larger face holds) or two partitions of one swell ("parts", their energy adds).
+ */
+function absorb(into: RegionRun, other: RegionRun, faces: "same" | "parts"): void {
   const own = runSpan(other);
   // A missing fade means peak + 24 h, so ends compare as windows; the run never ends before either does.
   if (own.endMs > runSpan(into).endMs) into.fadeAt = other.fadeAt ?? new Date(own.endMs).toISOString();
@@ -251,6 +269,10 @@ function absorb(into: RegionRun, other: RegionRun): void {
   for (const beachId of other.beachIds) into.beachIds.add(beachId);
   for (const [beachId, directionDeg] of other.memberDirections) {
     if (!into.memberDirections.has(beachId)) into.memberDirections.set(beachId, directionDeg);
+  }
+  for (const [beachId, faceFt] of other.memberFaces) {
+    const held = into.memberFaces.get(beachId);
+    into.memberFaces.set(beachId, held === undefined ? faceFt : faces === "parts" ? combinedFace(held, faceFt) : Math.max(held, faceFt));
   }
   if (other.lead.peakEnergy > into.lead.peakEnergy) into.lead = other.lead;
 }
@@ -282,13 +304,13 @@ function nameFromOpenOcean(runs: readonly RegionRun[], swells: readonly OpenOcea
     const same = holders.find((other) => ![...run.beachIds].some((beachId) => other.beachIds.has(beachId))
       || angleDifference(other.lead.directionDeg, run.lead.directionDeg) <= SWELL_EVENT_THRESHOLDS.trackDirectionDeg);
     if (same) {
-      absorb(same, run);
+      absorb(same, run, "parts");
       continue;
     }
     // The swell is already held by a run that reads differently on the same beaches: this run is
     // another swell there, so it keeps its own near-beach name instead of a second copy of that one.
     const next = match && holders.length === 0
-      ? { ...run, beachIds: new Set(run.beachIds), memberDirections: new Map(run.memberDirections), openOcean: match }
+      ? { ...run, beachIds: new Set(run.beachIds), memberDirections: new Map(run.memberDirections), memberFaces: new Map(run.memberFaces), openOcean: match }
       : run;
     named.push(next);
   }
@@ -319,6 +341,7 @@ function detectedEvent(run: RegionRun): UnkeyedRegionEvent {
     offshoreHeightFt,
     history: null,
     memberCount: run.memberCount,
+    memberFaceFt: Object.fromEntries([...run.memberFaces].map(([beachId, faceFt]) => [beachId, Math.round(faceFt * 10) / 10])),
   };
 }
 

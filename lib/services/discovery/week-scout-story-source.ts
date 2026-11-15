@@ -25,7 +25,8 @@ type BeachRow = Pick<Database["public"]["Tables"]["beaches"]["Row"],
   "id" | "name" | "lat" | "lon" | "aspect_deg" | "swell_window_center_deg" | "swell_window_halfwidth_deg" | "wind_offshore_deg" | "wind_offshore_tol_deg"
   | "wave_punchiness_ai" | "wave_punchiness_ai_confidence" | "persona" | "break_type" | "skill_level">;
 // 9: events named by their open-ocean swell; near-beach copies of one swell joined.
-export const STORY_SAMPLE_VERSION = "regional-swell-events-9";
+// 10: a swell that is not its day's biggest is sized from its own faces.
+export const STORY_SAMPLE_VERSION = "regional-swell-events-10";
 const SOURCE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 const PAGE_SIZE = 500;
 
