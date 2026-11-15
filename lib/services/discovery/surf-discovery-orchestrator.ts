@@ -2101,7 +2101,7 @@ async function discoverSurfSpotsInner(
     stageTimer.time('sun-times', () => getBatchSunTimes(Array.from(allBeachIds), uniqueDates)),
     stageTimer.time('water-quality', () => supabase
       .from('beach_water_quality')
-      .select('beach_id, status')
+      .select('beach_id, status, latest_sample_date')
       .in('beach_id', candidateBeachIds)),
     stageTimer.time('personalization', () => userPrefsPromise.then((prefs) => fetchPersonalizationContext(userId, candidateBeachIds, prefs))),
     stageTimer.time('board-context', () => fetchUserBoardContext(supabase, userId, isPro || isBoardPicksFreeEnabled())),

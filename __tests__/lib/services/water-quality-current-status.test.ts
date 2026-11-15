@@ -23,7 +23,8 @@ const points = new Map<string, { lat: number | null; lon: number | null }>([
 ]);
 const beachRows = [...points].map(([beachId, point]) => ({ id: beachId, ...point }));
 const now = new Date("2026-09-04T03:30:00Z");
-const row = { beach_id: id, status: "advisory", total_samples_30d: 16, latest_enterococcus: 220 };
+const row = { beach_id: id, status: "advisory", total_samples_30d: 16, latest_enterococcus: 220,
+  latest_sample_date: "2026-09-02" as string | null };
 const run = { id: "44444444-4444-4444-8444-444444444444", status: "completed",
   source_identifier: "county-san-diego-dehq-sdbeachinfo", fetched_at: "2026-09-04T03:00:00Z",
   advisory_count: 0, closure_count: 0, warning_count: 0 };
@@ -84,7 +85,7 @@ describe("current county water-quality contract", () => {
     const catalog = Array.from({ length: 500 }, (_, i) => `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, "0")}`);
     const client = clientFor({ county_beach_advisory_runs: [run],
       beaches: [...beachRows, ...catalog.map((beachId) => ({ id: beachId, lat: 21.3, lon: -157.8 }))] });
-    const rows = [row, ...catalog.map((beachId) => ({ beach_id: beachId, status: "good" }))];
+    const rows = [row, ...catalog.map((beachId) => ({ beach_id: beachId, status: "good", latest_sample_date: "2026-09-02" }))];
     const result = await currentWaterQuality(rows, client, now);
     const ownerIndex = jest.mocked(client.from).mock.calls.findIndex(([table]) => table === "water_quality_held_beaches");
     const query = jest.mocked(client.from).mock.results[ownerIndex].value;
@@ -103,7 +104,8 @@ describe("current county water-quality contract", () => {
 
   it.each(["good", "advisory"])("does not send sample-derived %s notifications for county-governed beaches", async (status) => {
     const tables = (beachId: string) => ({
-      beach_water_quality: [{ ...row, beach_id: beachId, status, previous_status: status === "good" ? "advisory" : "good", status_changed_at: now.toISOString() }],
+      beach_water_quality: [{ ...row, beach_id: beachId, status, previous_status: status === "good" ? "advisory" : "good",
+        status_changed_at: now.toISOString(), latest_sample_date: new Date().toISOString() }],
       county_beach_advisory_runs: [{ ...run, fetched_at: new Date().toISOString() }],
       beaches: [{ id: beachId, name: "Test beach", slug: "test-beach", ...points.get(beachId) }],
       profiles: [{ id: "test-user", home_beach_id: beachId, notif_water_quality: true, is_mock: false, timezone: "America/Los_Angeles" }],
@@ -279,5 +281,107 @@ describe("current county water-quality contract", () => {
     const result = await resolveWaterQualityHolds([{ candidateId: "test", beachId: blacks,
       startsAt: now.toISOString(), endsAt: "2026-09-04T04:30:00Z" }], { client, now });
     expect(result.heldBeachIds).toEqual([]);
+  });
+});
+
+// CEDEN posts results about 20 days late: on 2026-11-15 the newest stored sample was 2026-10-28.
+describe("stale sampled status reads unknown at read time", () => {
+  const venice = { ...row, beach_id: other, status: "closure", latest_sample_date: "2026-08-19" };
+  const tables = { county_beach_advisory_runs: [run] };
+
+  it.each(["closure", "advisory", "good"])("reads a stale sampled %s outside County coverage as unknown", async (status) => {
+    const [result] = await currentWaterQuality([{ ...venice, status }], clientFor(tables), now);
+    expect(result.status).toBe("unknown");
+    expect(result).not.toHaveProperty("county_advisory_status");
+    expect(result.latest_sample_date).toBe("2026-08-19");
+  });
+
+  it("keeps a current sample and applies the 7-day boundary", async () => {
+    const [current, sixDays, sevenDays] = await currentWaterQuality([
+      { ...venice, latest_sample_date: "2026-09-02" },
+      { ...venice, latest_sample_date: "2026-08-29" },
+      { ...venice, latest_sample_date: "2026-08-28" },
+    ], clientFor(tables), now);
+    expect(current.status).toBe("closure");
+    expect(sixDays.status).toBe("closure");
+    expect(sevenDays.status).toBe("unknown");
+  });
+
+  it.each([null, "not-a-date", "2026-09-05"])("reads a sampled closure with sample date %s as unknown", async (date) => {
+    const [result] = await currentWaterQuality([{ ...venice, latest_sample_date: date }], clientFor(tables), now);
+    expect(result.status).toBe("unknown");
+  });
+
+  it("does not touch the stored row", async () => {
+    const stored = { ...venice };
+    await currentWaterQuality([stored], clientFor(tables), now);
+    expect(stored.status).toBe("closure");
+  });
+
+  it("applies when beach coordinates cannot be read", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const [result] = await currentWaterQuality([venice], clientFor(tables, "beaches"), now);
+    expect(result.status).toBe("unknown");
+    consoleError.mockRestore();
+  });
+
+  it("applies when the County read fails for a covered beach", async () => {
+    const stale = { ...row, latest_sample_date: "2026-08-19" };
+    const [result] = await currentWaterQuality([stale], clientFor(tables, "county_beach_advisories"), now);
+    expect(result).toMatchObject({ status: "unknown", county_advisory_status: "unavailable" });
+  });
+
+  it("applies when the client throws", async () => {
+    const client = { from: jest.fn(() => { throw new Error("boom"); }) } as unknown as WaterQualityHoldClient;
+    const [result] = await currentWaterQuality([venice], client, now);
+    expect(result.status).toBe("unknown");
+  });
+
+  it("still lets a current County closure win over a stale sample", async () => {
+    const stale = { ...row, status: "advisory", latest_sample_date: "2026-08-19" };
+    const client = clientFor({ county_beach_advisory_runs: [{ ...run, closure_count: 1 }],
+      county_beach_advisories: [{ ...notice, advisory_type: "closure" }] });
+    const [result] = await currentWaterQuality([stale], client, now);
+    expect(result).toMatchObject({ status: "closure", county_advisory_status: "closure" });
+  });
+
+  it("does not show a stale good sample on an owner-held beach when the County is clear", async () => {
+    const stale = { ...row, status: "good", latest_sample_date: "2026-08-19" };
+    const client = clientFor({ ...tables, water_quality_held_beaches: [{ beach_id: id }] });
+    const [result] = await currentWaterQuality([stale], client, now);
+    expect(result.status).toBe("unknown");
+  });
+
+  it("does not send a status-change push for a stale sample", async () => {
+    const beachTables = {
+      beach_water_quality: [{ ...venice, previous_status: "good", status_changed_at: new Date().toISOString(),
+        latest_sample_date: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) }],
+      county_beach_advisory_runs: [{ ...run, fetched_at: new Date().toISOString() }],
+      beaches: [{ id: other, name: "Venice Beach", slug: "venice-beach", ...points.get(other) }],
+      profiles: [{ id: "test-user", home_beach_id: other, notif_water_quality: true, is_mock: false, timezone: "America/Los_Angeles" }],
+    };
+    jest.mocked(enqueueNotification).mockClear();
+    const result = await processWaterQualityAlerts(clientFor(beachTables) as unknown as SupabaseServiceClient);
+    expect(result.notificationsSent).toBe(0);
+    expect(enqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it("keeps stale-sample evidence on a County hold beach when the County read is unavailable", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const stale = { ...row, latest_sample_date: "2026-08-19" };
+    const client = clientFor({ beach_water_quality: [stale], county_beach_advisory_runs: [run] }, "county_beach_advisories");
+    const result = await resolveWaterQualityHolds([{ candidateId: "test", beachId: id,
+      startsAt: now.toISOString(), endsAt: "2026-09-04T04:30:00Z" }], { client, now });
+    expect(result.heldBeachIds).toEqual([]);
+    expect(result.waterQualityEvidenceByBeachId?.[id]).toEqual({ source: "sample", sampleDate: "2026-08-19" });
+    consoleError.mockRestore();
+  });
+
+  it("keeps the stale-sample evidence the map labels as not recently verified", async () => {
+    const client = clientFor({ beach_water_quality: [venice], county_beach_advisory_runs: [run] });
+    const result = await resolveWaterQualityHolds([{ candidateId: "test", beachId: other,
+      startsAt: now.toISOString(), endsAt: "2026-09-04T04:30:00Z" }], { client, now });
+    expect(result.heldBeachIds).toEqual([]);
+    expect(result.waterQualityEvidenceByBeachId?.[other]).toEqual({ source: "sample", sampleDate: "2026-08-19" });
   });
 });
