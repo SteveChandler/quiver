@@ -19,7 +19,6 @@ import type {
   BeachPreferences,
 } from "@/types/morning-intel";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
-import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import { resolveTideHeight } from "@/lib/monitoring/fallback-helpers";
 
 /**
@@ -73,12 +72,12 @@ export function recommendTideWindow(
   // Get morning forecasts (6am-10am) with tide data
   const morningForecasts = forecasts.filter((f) => {
     const hour = parseInt(f.forecast_time.split(":")[0]);
-    return hour >= 6 && hour <= 10 && f.tide_height !== null;
+    return hour >= 6 && hour <= 10 && f.tide_height != null;
   });
 
   if (morningForecasts.length === 0) {
     // Fallback to first forecast with tide data
-    const forecastWithTide = forecasts.find((f) => f.tide_height !== null);
+    const forecastWithTide = forecasts.find((f) => f.tide_height != null);
     return {
       height: resolveTideHeight(forecastWithTide?.tide_height),
       direction: normalizeTideDirection(forecastWithTide?.tide_status),
@@ -91,10 +90,8 @@ export function recommendTideWindow(
 
   if (beachPrefs && beachPrefs.tideMinFt !== null && beachPrefs.tideMaxFt !== null) {
     // Score each forecast based on how close it is to optimal tide range
-    let missingTideCount = 0;
     const scoredForecasts = morningForecasts.map((f) => {
-      const tideHeight = f.tide_height ?? 0;
-      if (f.tide_height == null) missingTideCount++;
+      const tideHeight = f.tide_height!;
       const midTide = (beachPrefs.tideMinFt! + beachPrefs.tideMaxFt!) / 2;
       const distance = Math.abs(tideHeight - midTide);
       const isInRange =
@@ -104,7 +101,6 @@ export function recommendTideWindow(
         score: isInRange ? 100 - distance : -distance,
       };
     });
-    if (missingTideCount > 0) trackFallback({ domain: 'tide-analyzer', field: 'tide_height', fallbackValue: 0, context: { missingForecasts: missingTideCount } });
 
     // Get forecast with best score
     scoredForecasts.sort((a, b) => b.score - a.score);
