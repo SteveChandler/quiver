@@ -1,10 +1,12 @@
 /**
- * Water Quality Sync Service -- CEDEN (California) + PacIOOS ERDDAP (Hawaii)
+ * Water Quality Sync Service -- CEDEN (California)
  *
  * Data pipeline:
  *   CEDEN API    -> wq_monitoring_stations -> beach linkage  (CA)
- *   PacIOOS ERDDAP -> wq_monitoring_stations -> beach linkage  (HI)
  *   wq_samples   -> beach_water_quality (evaluated via EPA criteria)
+ *
+ * Hawaii has no live sample source. PacIOOS ERDDAP cwb_water_quality (Hawaii
+ * DOH) has no row after 2024-06-13, so it is no longer read.
  *
  * Three phases:
  *   1. syncWQStations  -- Monthly station discovery and beach matching
@@ -19,7 +21,6 @@ import {
   EPA_BEACH_CRITERIA,
   WQ_STATUS,
   CEDEN_CONFIG,
-  PACIOOS_CONFIG,
   type WQStatus,
 } from "@/lib/constants/water-quality";
 import type { SupabaseServiceClient } from "@/types/supabase";
@@ -137,6 +138,8 @@ export interface SampleSyncResult {
   samplesMatched: number;
   samplesUpserted: number;
   futureSamplesRejected: number;
+  /** Newest sample date CEDEN returned for a tracked station (before upsert); shows CEDEN lag. */
+  newestSampleDate: string | null;
   errors: string[];
   duration_ms: number;
 }
@@ -396,80 +399,16 @@ async function fetchCEDENStations(): Promise<{ stations: ParsedStation[]; errors
   return { stations, errors };
 }
 
-/**
- * Fetch monitoring stations from PacIOOS ERDDAP (Hawaii DOH Clean Water Branch).
- * Returns CSV with a units row on line 2 that is naturally skipped by the isNaN guard.
- */
-async function fetchPacIOOSStations(): Promise<{ stations: ParsedStation[]; errors: string[] }> {
-  const errors: string[] = [];
-  const stations: ParsedStation[] = [];
-
-  try {
-    const url = `${PACIOOS_CONFIG.baseUrl}.csv?location_id,location_name,latitude,longitude&distinct()`;
-
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(PACIOOS_CONFIG.requestTimeoutMs),
-    });
-
-    if (!response.ok) {
-      errors.push(`PacIOOS station fetch failed: HTTP ${response.status}`);
-      return { stations, errors };
-    }
-
-    const { errors: parseErrors } = await streamParseCSV(response, (fields, headers) => {
-      const locationId = getField(fields, headers, "location_id");
-      const lat = parseFloat(getField(fields, headers, "latitude"));
-      const lon = parseFloat(getField(fields, headers, "longitude"));
-
-      // ERDDAP units row (line 2) will have non-numeric lat/lon -- naturally skipped
-      if (!locationId || isNaN(lat) || isNaN(lon)) return;
-
-      stations.push({
-        station_id: `PACIOOS-${locationId}`,
-        station_name: getField(fields, headers, "location_name") || locationId,
-        organization_id: "PACIOOS",
-        organization_name: "Hawaii DOH Clean Water Branch via PacIOOS",
-        latitude: lat,
-        longitude: lon,
-        county: null,
-        state_code: "HI",
-        state_name: "Hawaii",
-      });
-    });
-
-    if (parseErrors.length > 0) {
-      errors.push(...parseErrors.map(e => `PacIOOS station parse: ${e}`));
-    }
-
-    // Deduplicate by station_id
-    const seen = new Set<string>();
-    const unique: ParsedStation[] = [];
-    for (const s of stations) {
-      if (!seen.has(s.station_id)) {
-        seen.add(s.station_id);
-        unique.push(s);
-      }
-    }
-
-    console.log(`${LOG_PREFIX} PacIOOS: ${unique.length} unique stations`);
-    return { stations: unique, errors };
-  } catch (error) {
-    errors.push(`PacIOOS station fetch error: ${error instanceof Error ? error.message : "unknown"}`);
-  }
-
-  return { stations, errors };
-}
-
 // ---------------------------------------------------------------------------
 // Phase 1: Station sync
 // ---------------------------------------------------------------------------
 
 /**
- * Discover monitoring stations from CEDEN (CA) and PacIOOS (HI), then match
- * each station to the nearest beach within the configured radius.
+ * Discover monitoring stations from CEDEN (CA), then match each station to
+ * the nearest beach within the configured radius.
  *
  * 1. Fetch all beaches with coordinates
- * 2. Fetch CEDEN + PacIOOS stations in parallel
+ * 2. Fetch CEDEN stations
  * 3. Match each station to nearest beach via haversine (within 5km)
  * 4. Upsert into wq_monitoring_stations
  */
@@ -510,43 +449,18 @@ export async function syncWQStations(
       `${LOG_PREFIX} Loaded ${beaches.length} beaches for station matching`
     );
 
-    // Fetch stations from both sources in parallel
-    const [cedenResult, pacioosResult] = await Promise.allSettled([
-      fetchCEDENStations(),
-      fetchPacIOOSStations(),
-    ]);
+    const ceden = await fetchCEDENStations();
+    result.errors.push(...ceden.errors);
+    if (ceden.stations.length > 0) result.statesFetched = 1;
 
-    const allParsedStations: ParsedStation[] = [];
+    result.stationsParsed = ceden.stations.length;
 
-    if (cedenResult.status === "fulfilled") {
-      allParsedStations.push(...cedenResult.value.stations);
-      result.errors.push(...cedenResult.value.errors);
-      if (cedenResult.value.stations.length > 0) result.statesFetched++;
-    } else {
-      result.errors.push(`CEDEN fetch rejected: ${cedenResult.reason}`);
-    }
-
-    if (pacioosResult.status === "fulfilled") {
-      allParsedStations.push(...pacioosResult.value.stations);
-      result.errors.push(...pacioosResult.value.errors);
-      if (pacioosResult.value.stations.length > 0) result.statesFetched++;
-    } else {
-      result.errors.push(`PacIOOS fetch rejected: ${pacioosResult.reason}`);
-    }
-
-    result.stationsParsed = allParsedStations.length;
-
-    // Match stations to nearest beach (filter by state for faster matching)
+    // Match stations to the nearest California beach.
     const allStations: StationUpsertRow[] = [];
+    const radiusKm = CEDEN_CONFIG.matchRadiusM / 1000;
+    const stateBeaches = beaches.filter((b) => b.state === "CA");
 
-    for (const station of allParsedStations) {
-      // Use the correct match radius per source: PacIOOS for HI, CEDEN for CA
-      const radiusM = station.state_code === "HI"
-        ? PACIOOS_CONFIG.matchRadiusM
-        : CEDEN_CONFIG.matchRadiusM;
-      const radiusKm = radiusM / 1000;
-
-      const stateBeaches = beaches.filter((b) => b.state === station.state_code);
+    for (const station of ceden.stations) {
       let nearestBeachId: string | null = null;
       let nearestDistanceM: number | null = null;
 
@@ -731,104 +645,12 @@ async function fetchCEDENSamples(
   return { samples, count: totalRecords, futureSamplesRejected, errors };
 }
 
-/**
- * Fetch bacteria sample results from PacIOOS ERDDAP for stations we track.
- * ERDDAP CSV format: line 1 = column names, line 2 = units (skipped by isNaN guard), line 3+ = data.
- */
-async function fetchPacIOOSSamples(
-  stationLookup: Map<string, { uuid: string; beachId: string | null }>,
-  startDateISO: string,
-  todayISO: string
-): Promise<{
-  samples: SampleUpsertRow[];
-  count: number;
-  futureSamplesRejected: number;
-  errors: string[];
-}> {
-  const errors: string[] = [];
-  const samples: SampleUpsertRow[] = [];
-  let rowCount = 0;
-  let futureSamplesRejected = 0;
-
-  try {
-    const url = `${PACIOOS_CONFIG.baseUrl}.csv?time,location_id,location_name,enterococcus&time>=${startDateISO}&time<=${todayISO}T23:59:59Z`;
-
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(PACIOOS_CONFIG.requestTimeoutMs),
-    });
-
-    if (!response.ok) {
-      // ERDDAP returns 404 when no matching data exists (e.g. stale dataset)
-      if (response.status === 404) {
-        console.log(`${LOG_PREFIX} PacIOOS: no sample data in requested time range (HTTP 404)`);
-        return { samples, count: 0, futureSamplesRejected, errors };
-      }
-      errors.push(`PacIOOS sample fetch failed: HTTP ${response.status}`);
-      return { samples, count: 0, futureSamplesRejected, errors };
-    }
-
-    const { rowCount: parsed, errors: parseErrors } = await streamParseCSV(response, (fields, headers) => {
-      const locationId = getField(fields, headers, "location_id");
-      const timeStr = getField(fields, headers, "time");
-      const enteroStr = getField(fields, headers, "enterococcus");
-
-      const stationKey = `PACIOOS-${locationId}`;
-      const match = stationLookup.get(stationKey);
-      if (!match) return;
-
-      // ERDDAP returns ISO format like "2026-02-20T00:00:00Z"
-      let sampleDate: string | null = null;
-      if (typeof timeStr === "string" && timeStr) {
-        const d = new Date(timeStr);
-        if (!isNaN(d.getTime())) {
-          sampleDate = utcDateString(d);
-        }
-      }
-      if (!sampleDate) return;
-
-      if (sampleDate > todayISO) {
-        futureSamplesRejected++;
-        return;
-      }
-
-      let value: number | null = null;
-      if (enteroStr && enteroStr !== "" && enteroStr !== "NaN") {
-        const parsedVal = parseFloat(enteroStr);
-        if (!isNaN(parsedVal)) value = parsedVal;
-      }
-
-      samples.push({
-        station_id: match.uuid,
-        sample_date: sampleDate,
-        characteristic: "Enterococcus",
-        value,
-        unit: "CFU/100mL",
-        detection_condition: null,
-      });
-    });
-
-    rowCount = parsed;
-    if (parseErrors.length > 0) {
-      errors.push(...parseErrors.map(e => `PacIOOS sample parse: ${e}`));
-    }
-
-    console.log(
-      `${LOG_PREFIX} PacIOOS: ${rowCount} rows -> ${samples.length} matched samples (${futureSamplesRejected} future rows rejected)`
-    );
-  } catch (error) {
-    errors.push(`PacIOOS sample fetch error: ${error instanceof Error ? error.message : "unknown"}`);
-  }
-
-  return { samples, count: rowCount, futureSamplesRejected, errors };
-}
-
 // ---------------------------------------------------------------------------
 // Phase 2: Sample sync
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch recent bacteria sample data from CEDEN (CA) and PacIOOS (HI)
- * for all monitored stations.
+ * Fetch recent bacteria sample data from CEDEN (CA) for all monitored stations.
  *
  * Fetches the last 90 days of Enterococcus and Fecal Coliform results,
  * matching them to our station records by station_id prefix.
@@ -843,6 +665,7 @@ export async function syncWQSamples(
     samplesMatched: 0,
     samplesUpserted: 0,
     futureSamplesRejected: 0,
+    newestSampleDate: null,
     errors: [],
     duration_ms: 0,
   };
@@ -888,40 +711,23 @@ export async function syncWQSamples(
     const startDateISO = startDate.toISOString();
     const todayISO = utcDateString();
 
-    // Fetch from both sources in parallel
-    const [cedenResult, pacioosResult] = await Promise.allSettled([
-      fetchCEDENSamples(stationLookup, startDateISO, todayISO),
-      fetchPacIOOSSamples(stationLookup, startDateISO, todayISO),
-    ]);
-
-    const allSamples: SampleUpsertRow[] = [];
-
-    if (cedenResult.status === "fulfilled") {
-      allSamples.push(...cedenResult.value.samples);
-      result.samplesParsed += cedenResult.value.count;
-      result.futureSamplesRejected += cedenResult.value.futureSamplesRejected;
-      result.errors.push(...cedenResult.value.errors);
-      if (cedenResult.value.samples.length > 0) result.statesFetched++;
-    } else {
-      result.errors.push(`CEDEN sample fetch rejected: ${cedenResult.reason}`);
+    const ceden = await fetchCEDENSamples(stationLookup, startDateISO, todayISO);
+    result.samplesParsed = ceden.count;
+    result.futureSamplesRejected = ceden.futureSamplesRejected;
+    result.errors.push(...ceden.errors);
+    if (ceden.samples.length > 0) result.statesFetched = 1;
+    for (const sample of ceden.samples) {
+      if (result.newestSampleDate === null || sample.sample_date > result.newestSampleDate) {
+        result.newestSampleDate = sample.sample_date;
+      }
     }
 
-    if (pacioosResult.status === "fulfilled") {
-      allSamples.push(...pacioosResult.value.samples);
-      result.samplesParsed += pacioosResult.value.count;
-      result.futureSamplesRejected += pacioosResult.value.futureSamplesRejected;
-      result.errors.push(...pacioosResult.value.errors);
-      if (pacioosResult.value.samples.length > 0) result.statesFetched++;
-    } else {
-      result.errors.push(`PacIOOS sample fetch rejected: ${pacioosResult.reason}`);
-    }
-
-    result.samplesMatched = allSamples.length;
+    result.samplesMatched = ceden.samples.length;
 
     // Deduplicate: CEDEN can have multiple results per station+date+analyte.
     // Keep the highest value (worst case) for each unique key.
     const deduped = new Map<string, SampleUpsertRow>();
-    for (const s of allSamples) {
+    for (const s of ceden.samples) {
       const key = `${s.station_id}|${s.sample_date}|${s.characteristic}`;
       const existing = deduped.get(key);
       if (!existing || (s.value !== null && (existing.value === null || s.value > existing.value))) {
@@ -933,7 +739,7 @@ export async function syncWQSamples(
     // Upsert all samples in batches
     if (dedupedSamples.length > 0) {
       console.log(
-        `${LOG_PREFIX} Upserting ${dedupedSamples.length} samples (${allSamples.length - dedupedSamples.length} duplicates removed)...`
+        `${LOG_PREFIX} Upserting ${dedupedSamples.length} samples (${ceden.samples.length - dedupedSamples.length} duplicates removed)...`
       );
 
       for (let i = 0; i < dedupedSamples.length; i += UPSERT_BATCH_SIZE) {
