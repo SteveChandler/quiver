@@ -33,6 +33,7 @@ import {
   type CanonicalWeekScoutResponse,
   type WeekScoutRequest,
   weekScoutAnswerExpiry,
+  weekScoutDependenciesAt,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
 import {
@@ -2547,5 +2548,12 @@ describe('Week Scout safe flag with the new warning words', () => {
     const safe = await safeWith(['Shark hazard reported']);
     expect(safe.length).toBeGreaterThan(0);
     expect(safe.some(Boolean)).toBe(false);
+  });
+});
+
+describe('weekScoutDependenciesAt', () => {
+  it('pins the clock to the given instant, not the real clock', () => {
+    const at = new Date('2026-11-16T14:00:00.000Z');
+    expect(weekScoutDependenciesAt(at).now).toBe(at);
   });
 });
