@@ -80,19 +80,23 @@ describe("shared Haversine central angle keeps every distance bit-identical", ()
       seed = (seed * 16807) % 2147483647;
       return seed / 2147483647;
     };
-    let mismatches = 0;
+    const mismatches: string[] = [];
     for (let index = 0; index < 20000; index += 1) {
       const lat1 = next() * 140 - 70;
       const lon1 = next() * 360 - 180;
       const lat2 = lat1 + (next() - 0.5) * 2;
       const lon2 = lon1 + (next() - 0.5) * 2;
-      if (!Object.is(haversineDistance(lat1, lon1, lat2, lon2), legacyHaversineDistance(lat1, lon1, lat2, lon2))) mismatches += 1;
+      if (!Object.is(haversineDistance(lat1, lon1, lat2, lon2), legacyHaversineDistance(lat1, lon1, lat2, lon2))) {
+        mismatches.push(`haversineDistance ${lat1},${lon1} -> ${lat2},${lon2}`);
+      }
       for (const unit of UNITS) {
         const shared = calculateDistance({ lat: lat1, lon: lon1 }, { lat: lat2, lon: lon2 }, unit);
-        if (!Object.is(shared, legacyCalculateDistanceRaw(lat1, lon1, lat2, lon2, unit))) mismatches += 1;
+        if (!Object.is(shared, legacyCalculateDistanceRaw(lat1, lon1, lat2, lon2, unit))) {
+          mismatches.push(`calculateDistance ${unit} ${lat1},${lon1} -> ${lat2},${lon2}`);
+        }
       }
     }
-    expect(mismatches).toBe(0);
+    expect(mismatches.slice(0, 5)).toEqual([]);
   });
 
   it("keeps the NaN result for non-finite and missing inputs", () => {
