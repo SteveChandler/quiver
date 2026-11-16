@@ -84,6 +84,9 @@ function mockClient(
   beachCount: number,
   rpc: (args: Record<string, unknown>) => { data: unknown; error: unknown },
   rpcCalls: Array<{ fn: string; args: Record<string, unknown> }>,
+  lastOk: { data: { ran_at: string } | null; error: { message: string } | null } = {
+    data: { ran_at: new Date().toISOString() }, error: null,
+  },
 ): void {
   const beachesQuery = {
     select: jest.fn().mockReturnValue({
@@ -95,6 +98,17 @@ function mockClient(
   (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
     from: jest.fn((table: string) => {
       if (table === "beaches") return beachesQuery;
+      if (table === "cron_runs") {
+        const query = {
+          select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn(),
+          maybeSingle: jest.fn().mockResolvedValue(lastOk),
+        };
+        query.select.mockReturnValue(query);
+        query.eq.mockReturnValue(query);
+        query.order.mockReturnValue(query);
+        query.limit.mockReturnValue(query);
+        return query;
+      }
       throw new Error(`unexpected table: ${table}`);
     }),
     rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
@@ -104,12 +118,21 @@ function mockClient(
   });
 }
 
-type OutcomeOptions = { failureReason?: (value: unknown) => string | null };
+type OutcomeOptions = {
+  failureReason?: (value: unknown) => string | null;
+  legitimatelyZero?: (value: unknown) => { reason: string } | undefined;
+};
 
 function lastFailureReason(summary: unknown): string | null {
   const calls = (withCronOutcome as jest.Mock).mock.calls;
   const options = calls[calls.length - 1][0] as OutcomeOptions;
   return options.failureReason?.(summary) ?? null;
+}
+
+function lastLegitimatelyZero(summary: unknown): { reason: string } | undefined {
+  const calls = (withCronOutcome as jest.Mock).mock.calls;
+  const options = calls[calls.length - 1][0] as OutcomeOptions;
+  return options.legitimatelyZero?.(summary);
 }
 
 function makeRequest(): Request {
@@ -230,6 +253,7 @@ describe("GET /api/cron/wind/update", () => {
       errors: 1,
       sampleErrors: ["simulated supabase RST (code=08006)"],
     });
+    expect(lastFailureReason(body.details)).toBe('Wind update completed with row errors');
   });
 
   it("keeps the cron successful when one Open-Meteo fetch fails", async () => {
@@ -303,11 +327,13 @@ describe("GET /api/cron/wind/update", () => {
   });
 
   it("stops after two batches on each host in which every Open-Meteo fetch times out", async () => {
-    mockClient(580, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    mockClient(580, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls, {
+      data: { ran_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() }, error: null,
+    });
     (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
 
     const response = await GET(makeRequest());
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     const body = await response.json();
 
     // 20 on the primary host, then the same 20 again on the fallback host.
@@ -316,8 +342,7 @@ describe("GET /api/cron/wind/update", () => {
     expect(hosts.slice(0, 20).every((h) => h === "primary")).toBe(true);
     expect(hosts.slice(20).every((h) => h === "fallback")).toBe(true);
     expect(rpcCalls).toHaveLength(0);
-    expect(body.error).toMatch(/^upstream_unavailable: /);
-    expect(body.details).toMatchObject({
+    expect(body.data).toMatchObject({
       beaches: 580,
       attemptedBeaches: 40,
       updated: 0,
@@ -325,9 +350,54 @@ describe("GET /api/cron/wind/update", () => {
       upstreamFetchErrors: 40,
       windHost: "fallback",
       stoppedReason: "upstream_unavailable",
+      outcome: "degraded",
     });
-    expect(lastFailureReason(body.details)).toMatch(/^upstream_unavailable: Open-Meteo wind .*2 consecutive batches on both hosts.*TimeoutError/);
+    expect(lastFailureReason(body.data)).toBeNull();
+    expect(lastLegitimatelyZero(body.data)).toEqual({ reason: 'Open-Meteo unavailable on both hosts' });
     expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+  });
+
+  it("alerts when both hosts have been unavailable for more than six hours", async () => {
+    const lastOk = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    mockClient(40, () => ({ data: null, error: null }), rpcCalls, { data: { ran_at: lastOk }, error: null });
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.details).toMatchObject({ stoppedReason: 'upstream_unavailable', outcome: 'degraded' });
+    expect(body.error).toContain(`Open-Meteo wind unavailable on both hosts for >6 h; last ok run ${lastOk}`);
+    expect(body.error).toContain('Action: check Open-Meteo host availability');
+    expect(lastFailureReason(body.details)).toBe(body.error);
+    expect(lastLegitimatelyZero(body.details)).toBeUndefined();
+    expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: upstream_unavailable/]);
+  });
+
+  it("alerts when there is no recorded ok run", async () => {
+    mockClient(40, () => ({ data: null, error: null }), rpcCalls, { data: null, error: null });
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toContain('last ok run never');
+    expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: upstream_unavailable/]);
+  });
+
+  it("treats a failed last-ok read as a short gap and logs it", async () => {
+    mockClient(40, () => ({ data: null, error: null }), rpcCalls, { data: null, error: { message: 'read timed out' } });
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.outcome).toBe('degraded');
+    expect(lastFailureReason(body.data)).toBeNull();
+    expect(lastLegitimatelyZero(body.data)).toEqual({ reason: 'Open-Meteo unavailable on both hosts' });
+    expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Could not read last ok cron run for upstream gap/, /Stopped early: upstream_unavailable/]);
   });
 
   it("names the connection error code in the upstream reason", async () => {
@@ -339,9 +409,9 @@ describe("GET /api/cron/wind/update", () => {
     const response = await GET(makeRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(503);
-    expect(body.error).toContain("(TypeError/ECONNREFUSED)");
-    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+    expect(response.status).toBe(200);
+    expect(body.data.stoppedReason).toBe('upstream_unavailable');
+    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable.*TypeError\/ECONNREFUSED/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("names only the errors of the failed streak in the stop reason", async () => {
@@ -357,10 +427,9 @@ describe("GET /api/cron/wind/update", () => {
     const response = await GET(makeRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(503);
-    expect(body.error).toContain("(TypeError/ECONNREFUSED)");
-    expect(body.error).not.toContain("AbortError");
-    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({ stoppedReason: 'upstream_unavailable', outcome: 'degraded' });
+    expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable.*TypeError\/ECONNREFUSED/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
   it("resets the breaker when a batch has one good Open-Meteo fetch", async () => {
@@ -390,7 +459,7 @@ describe("GET /api/cron/wind/update", () => {
     expect(fetchHourlyWind).toHaveBeenCalledTimes(40);
     expect(rpcCalls).toHaveLength(40);
     expect(body.details).toMatchObject({ errors: 40, attemptedBeaches: 40, stoppedReason: null });
-    expect(lastFailureReason(body.details)).toBeNull();
+    expect(lastFailureReason(body.details)).toBe('Wind update completed with row errors');
   });
 
   it("does not count non-network fetch errors toward the breaker", async () => {
@@ -466,6 +535,30 @@ describe("GET /api/cron/wind/update", () => {
       expect(body.details).toMatchObject({ attemptedBeaches: 20, updated: 20 * 8, stoppedReason: "deadline_exceeded" });
       expect(lastFailureReason(body.details)).toMatch(/^deadline_exceeded: /);
       expectConsoleWarnings([/\[Wind\] Stopped early: deadline_exceeded/]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("returns a degraded success when the fallback host reaches the deadline", async () => {
+    mockClient(40, () => ({ data: { updated_count: 8, skipped_count: 0 }, error: null }), rpcCalls);
+    let now = 1_000_000;
+    const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    (fetchHourlyWind as jest.Mock).mockImplementation(async (_lat: number, _lon: number, host: string) => {
+      if (host === 'primary') throw timeoutError();
+      now += 5_000;
+      return makeWindPoints(48);
+    });
+
+    try {
+      const response = await GET(makeRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data).toMatchObject({ windHost: 'fallback', stoppedReason: 'deadline_exceeded', outcome: 'degraded', updated: 20 * 8 });
+      expect(lastFailureReason(body.data)).toBeNull();
+      expect(fetchHourlyWind).toHaveBeenCalledTimes(40);
+      expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: deadline_exceeded/]);
     } finally {
       clock.mockRestore();
     }

@@ -25,6 +25,7 @@ const RUN_DEADLINE_MS = 90_000;
 // Batches in a row where every attempted fetch got no HTTP response.
 const UPSTREAM_DOWN_BATCH_LIMIT = 2;
 const JOB = '/api/cron/wind/update';
+const UPSTREAM_GAP_LIMIT_MS = 6 * 60 * 60 * 1000;
 
 type StoppedReason = 'upstream_unavailable' | 'deadline_exceeded';
 
@@ -206,6 +207,29 @@ async function _GET(request: Request): Promise<Response> {
     console.warn(`[Wind] ${fetchErrors} Open-Meteo fetch errors (${upstreamFetchErrors} without HTTP response: ${[...allUpstreamErrorNames].sort().join(', ') || 'none'})`, sampleErrors);
   }
 
+  let failureReason: string | null = null;
+  if (stoppedReason === 'deadline_exceeded' && windHost === 'primary') {
+    failureReason = `${stoppedReason}: ${stopDetail}`;
+  } else if (stoppedReason === 'upstream_unavailable') {
+    try {
+      const { data: lastOk, error } = await supabase.from('cron_runs')
+        .select('ran_at')
+        .eq('job', JOB)
+        .eq('status', 'ok')
+        .order('ran_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (!lastOk || Date.now() - Date.parse(lastOk.ran_at) > UPSTREAM_GAP_LIMIT_MS) {
+        failureReason = `Open-Meteo wind unavailable on both hosts for >6 h; last ok run ${lastOk?.ran_at ?? 'never'}. Action: check Open-Meteo host availability and retry wind update`;
+      }
+    } catch (error) {
+      console.warn('[Wind] Could not read last ok cron run for upstream gap', error);
+    }
+  }
+
+  const outcome = stoppedReason || errors > 0 ? 'degraded' : 'ok';
+
   const summary = {
     beaches: beaches.length,
     updated,
@@ -218,23 +242,28 @@ async function _GET(request: Request): Promise<Response> {
     primaryDownDetail,
     stoppedReason,
     sampleErrors,
+    outcome,
   };
 
-  const stopMessage = stoppedReason ? `${stoppedReason}: ${stopDetail}` : null;
   const recorded = await withCronOutcome(
     {
       job: JOB,
       unit: 'wind_rows_updated',
       expectedMin: 1,
       getProduced: (value) => value.updated,
-      failureReason: () => stopMessage,
+      legitimatelyZero: () => outcome === 'degraded' && stoppedReason === 'upstream_unavailable' && !failureReason && errors === 0
+        ? { reason: 'Open-Meteo unavailable on both hosts' }
+        : undefined,
+      failureReason: () => failureReason ?? (errors > 0 ? 'Wind update completed with row errors' : null),
     },
     async () => summary,
   );
 
-  if (stopMessage) {
-    console.warn(`[Wind] Stopped early: ${stopMessage}`);
-    return createErrorResponse(stopMessage, recorded, 503);
+  if (stoppedReason) {
+    console.warn(`[Wind] Stopped early: ${stoppedReason}: ${stopDetail}`);
+  }
+  if (failureReason) {
+    return createErrorResponse(failureReason, recorded, 503);
   }
   if (errors > 0) {
     return createErrorResponse('Wind update completed with row errors', recorded);
