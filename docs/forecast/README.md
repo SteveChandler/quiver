@@ -897,8 +897,11 @@ if (process.env.DISABLE_MONITORING === 'true') {
 
 The enhanced forecast sync runs from one Vercel cron entry,
 `/api/cron/enhanced-forecast-sync-dispatch` (`0,30 * * * *`). Each run picks
-one of 4 shards from the current UTC time, so one shard runs every 30 minutes
-and a full sweep takes 2 hours. Each run stays under Vercel's 5-minute timeout.
+one of 4 shards from the current UTC time, so each shard runs about every
+2 hours. Each run refreshes up to `FORECAST_MAX_BEACHES_PER_RUN` (default 30)
+beaches of its shard, missing and stale first, and stays under Vercel's
+5-minute timeout. The shard comes from the wall-clock minute, so a run that
+starts 30 or more minutes late runs the next shard.
 
 ### Sharded sync architecture
 
@@ -914,7 +917,7 @@ _shared.ts: runEnhancedForecastSync(request, { resolveShardFromTime: true })
 
 EnhancedForecastService.updateAllEnhancedForecasts()
   ├── Query beaches (missing -> stale -> by updated_at)
-  ├── Select top MAX_BEACHES_PER_RUN (default: 45)
+  ├── Select top MAX_BEACHES_PER_RUN (default: 30)
   ├── Process in batches of BATCH_SIZE (default: 3)
   │   ├── Generate comprehensive forecasts
   │   ├── Store enhanced forecasts
@@ -950,9 +953,9 @@ app/api/cron/
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| FORECAST_MAX_BEACHES_PER_RUN | 45 | Maximum beaches per cron execution |
+| FORECAST_MAX_BEACHES_PER_RUN | 30 | Maximum beaches per cron execution |
 | FORECAST_BATCH_SIZE | 3 | Beaches processed per batch |
-| FORECAST_BATCH_DELAY_MS | 2000 | Delay between batches (ms) |
+| FORECAST_BATCH_DELAY_MS | 1000 | Delay between batches (ms) |
 | FORECAST_VERBOSE_LOGS | false | Enable detailed per-timepoint logs |
 | CRON_SECRET | - | Authentication token for manual triggers |
 

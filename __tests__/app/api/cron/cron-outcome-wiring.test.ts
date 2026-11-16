@@ -89,7 +89,7 @@ describe("Cron outcome wiring", () => {
       expect(source).toContain(unit);
       expect(source).toContain(`expectedMin: ${expectedMin}`);
       expect(source).toContain(extra ?? "withCronOutcome(");
-      expect(!legitimatelyZero || source.includes("legitimatelyZero")).toBe(true);
+      expect(legitimatelyZero ? source : "legitimatelyZero").toContain("legitimatelyZero");
     },
   );
 
