@@ -168,7 +168,7 @@ export async function fetchHourlyTidePredictions(
   options?: { raw?: boolean }
 ): Promise<TidePrediction[]> {
   const cacheKey = `hourly|${options?.raw ? "raw" : "adjusted"}|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
-  const cached = getCachedPredictions(hourlyPredictionsCache, cacheKey);
+  const cached = options?.raw ? null : getCachedPredictions(hourlyPredictionsCache, cacheKey);
   if (cached) return filterPredictionsToWindow(cached, startIso, endIso);
 
   // NOAA CO-OPS datagetter expects begin_date/end_date as YYYYMMDD (date only) or "YYYYMMDD HH:MM"
@@ -208,7 +208,7 @@ export async function fetchHourlyTidePredictions(
       noaaError: noaaErrorMessage(json),
     });
   }
-  setCachedPredictions(hourlyPredictionsCache, cacheKey, preds);
+  if (!options?.raw) setCachedPredictions(hourlyPredictionsCache, cacheKey, preds);
   return filterPredictionsToWindow(preds, startIso, endIso);
 }
 
@@ -219,7 +219,7 @@ export async function fetchHighLowTidePredictions(
   options?: { raw?: boolean }
 ): Promise<HighLowTidePrediction[]> {
   const cacheKey = `hilo|${options?.raw ? "raw" : "adjusted"}|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
-  const cached = getCachedPredictions(highLowPredictionsCache, cacheKey);
+  const cached = options?.raw ? null : getCachedPredictions(highLowPredictionsCache, cacheKey);
   if (cached) return filterPredictionsToWindow(cached, startIso, endIso);
 
   const begin_date = toYmd(startIso);
@@ -262,7 +262,7 @@ export async function fetchHighLowTidePredictions(
       noaaError: noaaErrorMessage(json),
     });
   }
-  setCachedPredictions(highLowPredictionsCache, cacheKey, predictions);
+  if (!options?.raw) setCachedPredictions(highLowPredictionsCache, cacheKey, predictions);
   return filterPredictionsToWindow(predictions, startIso, endIso);
 }
 
