@@ -1,4 +1,6 @@
 import { unstable_cache } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { NoaaTideRequestError } from "@/lib/services/noaa-coops/datagetter";
 import {
   fetchHighLowTidePredictions,
@@ -8,7 +10,7 @@ import { seaLevelOffsetFt } from "@/lib/services/noaa-coops/api-client";
 
 import { predictExtremesFromConstituents, predictHourlyFromConstituents } from "./harmonics";
 import type { TideExtremePoint, TideHeightPoint } from "./series";
-import type { TideStationRow } from "./types";
+import type { TideStationPredictionRow, TideStationRow } from "./types";
 
 const HOUR_MS = 3_600_000;
 /** One day back so "now" sits inside the series; nine ahead so a cached page still covers a full week. */
@@ -31,6 +33,20 @@ export type StationSeries =
 function stationSeriesWindow(nowMs: number): { start: Date; end: Date } {
   const hour = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
   return { start: new Date(hour - WINDOW_BACK_MS), end: new Date(hour + WINDOW_AHEAD_MS) };
+}
+
+function bufferedNoaaWindow(nowMs: number): { start: Date; end: Date } {
+  // Daily snapshots include a buffer so yesterday's data can cover today's whole request.
+  const { start, end } = stationSeriesWindow(nowMs);
+  start.setTime(start.getTime() - 24 * HOUR_MS);
+  end.setTime(end.getTime() + 2 * 24 * HOUR_MS);
+  return { start, end };
+}
+
+/** Shared buffered range keeps ingestion aligned with the page's daily NOAA series. */
+export function storedStationSeriesWindow(nowMs: number): { start: Date; end: Date } {
+  const dayStartMs = Math.floor(nowMs / (24 * HOUR_MS)) * 24 * HOUR_MS;
+  return bufferedNoaaWindow(dayStartMs);
 }
 
 export function computeHarmonicSeries(station: TideStationRow, nowMs: number): StationSeries {
@@ -71,10 +87,7 @@ export function californiaAdjustment(
 }
 
 async function fetchNoaaSeries(station: TideStationRow, nowMs: number): Promise<StationSeries> {
-  const { start, end } = stationSeriesWindow(nowMs);
-  // Daily snapshots include a buffer so yesterday's data can cover today's whole request.
-  start.setTime(start.getTime() - 24 * HOUR_MS);
-  end.setTime(end.getTime() + 2 * 24 * HOUR_MS);
+  const { start, end } = bufferedNoaaWindow(nowMs);
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const id = station.source_station_id;
@@ -116,6 +129,37 @@ async function fetchNoaaSeries(station: TideStationRow, nowMs: number): Promise<
 }
 
 type GoodStationSeries = Extract<StationSeries, { status: "ok" }>;
+
+async function readStoredSeries(station: TideStationRow, nowMs: number): Promise<GoodStationSeries | null> {
+  const { start, end } = storedStationSeriesWindow(nowMs);
+  const db = createPublicReadClient() as unknown as SupabaseClient;
+  const { data, error } = await db.from("tide_station_predictions")
+    .select("station_id, kind, ts, height_m")
+    .eq("station_id", station.id)
+    .gte("ts", start.toISOString())
+    .lte("ts", end.toISOString())
+    .order("ts", { ascending: true });
+  if (error) {
+    console.warn("Stored tide station predictions unavailable", { stationId: station.id, message: error.message });
+    return null;
+  }
+  const rows = (data ?? []) as TideStationPredictionRow[];
+  if (!rows.length) return null;
+  const adjustmentM = adjustmentTotalFt(station) * FT_TO_M;
+  const adjust = (heightM: number): number => Math.round((heightM + adjustmentM) * 1000) / 1000;
+  return {
+    status: "ok",
+    hourly: station.station_kind === "reference"
+      ? rows.filter((row) => row.kind === "hourly").map((row) => ({ ts: row.ts, heightM: adjust(row.height_m) }))
+      : [],
+    extremes: rows.filter((row) => row.kind !== "hourly").map((row) => ({
+      ts: row.ts, type: row.kind as "high" | "low", heightM: adjust(row.height_m),
+    })),
+    windowStart: start.toISOString(),
+    windowEnd: end.toISOString(),
+    adjustmentFt: adjustmentTotalFt(station),
+  };
+}
 function adjustmentTotalFt(station: TideStationRow): number {
   const { appliedByServiceFt, extraFt } = californiaAdjustment(station);
   return appliedByServiceFt + extraFt;
@@ -170,6 +214,8 @@ export async function getStationSeries(station: TideStationRow, nowMs: number): 
   if (station.source === "ticon") return computeHarmonicSeries(station, nowMs);
   const { start, end } = stationSeriesWindow(nowMs);
   const day = Math.floor(nowMs / (24 * HOUR_MS));
+  const stored = await readStoredSeries(station, nowMs);
+  if (stored && coversWindow(stored, start, end)) return trimToWindow(stored, start, end);
   try {
     const series = await fetchNoaaSeries(station, day * 24 * HOUR_MS);
     if (series.status !== "ok") return series;

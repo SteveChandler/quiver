@@ -8,6 +8,15 @@ export type TideStationSource = "noaa" | "ticon";
 
 export type TideStationKind = "reference" | "subordinate" | "harmonic-model";
 
+/** Local type until tide_station_predictions is included in generated database types. */
+export interface TideStationPredictionRow {
+  station_id: string;
+  kind: "high" | "low" | "hourly";
+  ts: string;
+  height_m: number;
+  fetched_at?: string;
+}
+
 export interface StoredTideConstituent {
   name: string;
   amplitudeM: number;

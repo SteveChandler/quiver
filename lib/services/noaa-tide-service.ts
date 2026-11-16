@@ -164,10 +164,11 @@ export async function getNearestTideStation(
 export async function fetchHourlyTidePredictions(
   stationId: string,
   startIso: string,
-  endIso: string
+  endIso: string,
+  options?: { raw?: boolean }
 ): Promise<TidePrediction[]> {
-  const cacheKey = `hourly|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
-  const cached = getCachedPredictions(hourlyPredictionsCache, cacheKey);
+  const cacheKey = `hourly|${options?.raw ? "raw" : "adjusted"}|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
+  const cached = options?.raw ? null : getCachedPredictions(hourlyPredictionsCache, cacheKey);
   if (cached) return filterPredictionsToWindow(cached, startIso, endIso);
 
   // NOAA CO-OPS datagetter expects begin_date/end_date as YYYYMMDD (date only) or "YYYYMMDD HH:MM"
@@ -185,11 +186,11 @@ export async function fetchHourlyTidePredictions(
     end_date,
   });
   const json = await fetchDatagetter(buildDatagetterUrl(params));
-  const offsetM = seaLevelOffsetFt(stationId) * 0.3048;
+  const offsetM = options?.raw ? 0 : seaLevelOffsetFt(stationId) * 0.3048;
   const preds: TidePrediction[] = (json?.predictions || [])
     .map((p): TidePrediction | null => {
       const ts = parseNoaaGmtTimestamp(p?.t);
-      const tideHeightM = Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
+      const tideHeightM = options?.raw ? Number(p?.v) : Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
       if (!ts || !Number.isFinite(tideHeightM)) return null;
       return {
         ts,
@@ -207,17 +208,18 @@ export async function fetchHourlyTidePredictions(
       noaaError: noaaErrorMessage(json),
     });
   }
-  setCachedPredictions(hourlyPredictionsCache, cacheKey, preds);
+  if (!options?.raw) setCachedPredictions(hourlyPredictionsCache, cacheKey, preds);
   return filterPredictionsToWindow(preds, startIso, endIso);
 }
 
 export async function fetchHighLowTidePredictions(
   stationId: string,
   startIso: string,
-  endIso: string
+  endIso: string,
+  options?: { raw?: boolean }
 ): Promise<HighLowTidePrediction[]> {
-  const cacheKey = `hilo|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
-  const cached = getCachedPredictions(highLowPredictionsCache, cacheKey);
+  const cacheKey = `hilo|${options?.raw ? "raw" : "adjusted"}|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
+  const cached = options?.raw ? null : getCachedPredictions(highLowPredictionsCache, cacheKey);
   if (cached) return filterPredictionsToWindow(cached, startIso, endIso);
 
   const begin_date = toYmd(startIso);
@@ -234,11 +236,11 @@ export async function fetchHighLowTidePredictions(
     end_date,
   });
   const json = await fetchDatagetter(buildDatagetterUrl(params));
-  const offsetM = seaLevelOffsetFt(stationId) * 0.3048;
+  const offsetM = options?.raw ? 0 : seaLevelOffsetFt(stationId) * 0.3048;
   const predictions: HighLowTidePrediction[] = (json?.predictions || [])
     .map((p): HighLowTidePrediction | null => {
       const ts = parseNoaaGmtTimestamp(p?.t);
-      const tideHeightM = Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
+      const tideHeightM = options?.raw ? Number(p?.v) : Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
       if (!ts || !Number.isFinite(tideHeightM)) return null;
       if (p?.type !== "H" && p?.type !== "L") return null;
       return {
@@ -260,7 +262,7 @@ export async function fetchHighLowTidePredictions(
       noaaError: noaaErrorMessage(json),
     });
   }
-  setCachedPredictions(highLowPredictionsCache, cacheKey, predictions);
+  if (!options?.raw) setCachedPredictions(highLowPredictionsCache, cacheKey, predictions);
   return filterPredictionsToWindow(predictions, startIso, endIso);
 }
 
