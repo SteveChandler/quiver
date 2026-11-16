@@ -645,7 +645,7 @@ function clampScore(score: number): number {
   return Math.max(0, Math.min(100, score));
 }
 
-/** @public The live dependencies on a fixed clock, so a replay ranks as of a past instant (scripts/check-call-parity.ts). */
+/** @public The live dependencies on a fixed clock (scripts/check-call-parity.ts); forecast rows stay the current batch. */
 export function weekScoutDependenciesAt(now: Date): WeekScoutServiceDependencies {
   return defaultDependencies(now);
 }

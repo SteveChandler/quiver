@@ -34,7 +34,10 @@ export function parseParityArgs(argv: string[]): ParityArgs {
   return { userId, ...(date ? { date } : {}) };
 }
 
-/** A replay ranks as of the cron's instant; Week Scout otherwise reads the real clock, hours after the send. */
+/**
+ * Week Scout ranks on the cron's instant; it otherwise reads the real clock, hours after the send.
+ * Forecast rows are still the current batch, so a replay of a past --date has no rows to rank.
+ */
 export function rankDayAt(rankDay: RankDay, at: Date): RankDay {
   return (args) => rankDay({ ...args, now: at });
 }
@@ -292,14 +295,14 @@ async function main(): Promise<void> {
       console.log(`Home anchor at ${local(poolAt)}: ${anchorLabel(resolved)}; pool: ${homePool.candidates.length} beaches; capped: ${homePool.cappedCount}`);
       return read(`Home -> generateWeekScoutForecast (7 days; pool at ${poolAt.toISOString()})`, () => generateWeekScoutForecast(profile.id, {
         candidateBeachIds: homePool.candidates.map(({ beach }) => beach.id),
-        localTimezone: timezone, startLocalDate: today, dayCount: 7,
+        localTimezone: timezone, startLocalDate: date, dayCount: 7,
         userLocation: resolved.anchor, ...(sessionTime ? { sessionTime } : {}),
         driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes), requirePerRowFreshness: true,
         ...(isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(profile.id) ? { includeSwells: true } : {}),
       }, weekScoutDependenciesAt(poolAt)));
     };
     const home = await loadHomeAt(at);
-    const homePick = showScout(`Home for ${date} (7-day request starts ${today}; pool at ${local(at)})`, home, date, at);
+    const homePick = showScout(`Home for ${date} (7-day request starts ${date}; pool at ${local(at)})`, home, date, at);
     const cronScout = await read("Crons -> rankDayWithWeekScout (1 day)", () => rankDayAt(rankDayWithWeekScout, at)({
       userId: profile.id, poolBeachIds: pool.map(({ beach }) => beach.id), timezone,
       localDate: date, sessionTime, anchor: anchorAtCall.anchor,
