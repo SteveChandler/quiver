@@ -1130,7 +1130,7 @@ function MagicHourLoadingState() {
   );
 }
 
-export function formatIntelWindLabel(
+function formatIntelWindLabel(
   speedMph: number | null | undefined,
   directionText: string | null | undefined,
 ): string | null {

@@ -3,7 +3,7 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { sessionRatingStars } from "@/lib/share/session-rating";
 
 /** What a PUBLIC session row says. Empty strings mean the surfer logged nothing there. */
-export interface PublicSessionShareRecord {
+interface PublicSessionShareRecord {
   rating: number | null;
   beach: string;
   /** Empty when the beach has no timezone to place the date in. */
@@ -15,7 +15,7 @@ export interface PublicSessionShareRecord {
   hasBoard: boolean;
 }
 
-export type PublicSessionShareLookup =
+type PublicSessionShareLookup =
   | { status: "found"; record: PublicSessionShareRecord }
   /** Private, deleted or missing: the anon read returns no row. */
   | { status: "not-public" }
@@ -29,7 +29,7 @@ export type PublicSessionShareLookup =
  * whether the caller's board name stays; the beach timezone places the date.
  * The logged height range is not on that page, so it is not read here.
  */
-export const PUBLIC_SESSION_SHARE_COLUMNS =
+const PUBLIC_SESSION_SHARE_COLUMNS =
   "rating, beach_name, arrival_time, wave_height_ft, wind_direction, wind_speed_mph, notes, description, board_id, beach:beaches(name, timezone)";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

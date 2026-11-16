@@ -51,7 +51,7 @@ const BEACH_ID_BATCH_SIZE = 20;
  */
 export const FORECAST_COVERAGE_UNKNOWN = "forecast-coverage-unknown" as const;
 
-export type ForecastCoverage =
+type ForecastCoverage =
   | ForecastIndexabilitySnapshot
   | undefined
   | typeof FORECAST_COVERAGE_UNKNOWN;
