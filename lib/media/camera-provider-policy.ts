@@ -1,4 +1,7 @@
-/** Recognize the retired provider in direct URLs and Quiver media URLs. */
+/**
+ * Recognize the retired provider in direct URLs and Quiver media URLs.
+ * @public Mirrored by public/camera-cache-policy.js and quiver-native src/lib/camera-provider-policy.ts; kept exported under the HDOnTap legal hold.
+ */
 export function isHdontapHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/\.+$/, "");
   return host === "hdontap.com" || host.endsWith(".hdontap.com");

@@ -109,11 +109,6 @@
       "./*"
     ]
   },
-  "ignoreIssues": {
-    // isHdontapHostname stays exported: public/camera-cache-policy.js and quiver-native
-    // src/lib/camera-provider-policy.ts mirror it, and it sits under the HDOnTap legal hold.
-    "lib/media/camera-provider-policy.ts": ["exports"]
-  },
   "ignoreBinaries": [
     "supabase",
     "psql",
