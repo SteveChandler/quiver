@@ -82,7 +82,7 @@ export interface FeatureAccessOptions {
   billingIssue?: boolean;
 }
 
-export interface FeatureAccessInput {
+interface FeatureAccessInput {
   isPro: boolean;
   signedIn: boolean;
   billingIssue: boolean;

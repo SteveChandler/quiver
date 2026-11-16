@@ -97,7 +97,7 @@ export interface CustomSpotAnalysisStore {
   markJobFailed(jobId: number, claimedAt: string, errorCode: string): Promise<void>;
 }
 
-export interface CustomSpotAnalysisBatchSummary {
+interface CustomSpotAnalysisBatchSummary {
   claimed: number;
   completed: number;
   cached: number;
