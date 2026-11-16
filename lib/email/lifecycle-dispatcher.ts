@@ -21,6 +21,12 @@ function userFailureMessage(step: string, failures: unknown[]): string {
   return `${step} failed for ${failures.length} user(s): ${(first instanceof Error ? first.message : String(first)) || "no error message"}`;
 }
 
+// A stored address the provider cannot take is a property of the user, not a run failure.
+function isInvalidRecipient(error: unknown): boolean {
+  if (!(error instanceof z.ZodError) || error.issues.length === 0) return false;
+  return error.issues.every(issue => issue.path.join(".") === "source.email");
+}
+
 async function dispatchLifecycleUser(userId: string, candidate: LifecycleDecision): Promise<string> {
   if (!lifecycleEnabled()) return "disabled";
   if (candidate.status !== "due") return candidate.reason;
@@ -55,8 +61,10 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
   if (dryRun) {
     users = z.array(z.uuid()).max(50).parse(await lifecycleRpc("email_lifecycle_cohort"));
     for (const userId of users) {
-      const d = lifecycleDecisionSchema.parse(await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }));
-      counts[d.reason] = (counts[d.reason] ?? 0) + 1;
+      const parsed = lifecycleDecisionSchema.safeParse(await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }));
+      if (!parsed.success && !isInvalidRecipient(parsed.error)) throw parsed.error;
+      const reason = parsed.success ? parsed.data.reason : "invalid_email";
+      counts[reason] = (counts[reason] ?? 0) + 1;
     }
     return { mode: "dry_run", candidates: users.length, reasons: counts, accepted: 0 };
   }
@@ -88,6 +96,7 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
       for (const result of results) {
         if (result.status === "fulfilled") { dueCandidates.push(result.value); continue; }
         dueCandidates.push(null);
+        if (isInvalidRecipient(result.reason)) { counts.invalid_email = (counts.invalid_email ?? 0) + 1; continue; }
         evaluationFailures.push(result.reason);
         Sentry.captureException(result.reason, { tags: { component: "email-lifecycle" } });
       }
