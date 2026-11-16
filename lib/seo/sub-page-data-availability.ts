@@ -25,7 +25,7 @@ export class SubPageDataUnavailableError extends Error {
  * gets an uncached 500 (`no-store`) and the next request renders again. Either
  * is better than storing a thin page, or noindex, for an hour.
  */
-export class SubPageDataUnknownError extends Error {
+class SubPageDataUnknownError extends Error {
   constructor(source: string) {
     super(`[${source}] sub-page data unknown; not storing this render`);
     this.name = "SubPageDataUnknownError";
