@@ -8,6 +8,7 @@ import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrap
 import { NoaaTideRequestError } from "@/lib/services/noaa-coops/datagetter";
 import { fetchHighLowTidePredictions, fetchHourlyTidePredictions } from "@/lib/services/noaa-tide-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { storedStationSeriesWindow } from "@/lib/tide-stations/predictions";
 import type { TideStationPredictionRow } from "@/lib/tide-stations/types";
 
 export const maxDuration = 120;
@@ -73,9 +74,10 @@ async function fetchStation(station: Candidate, startIso: string, endIso: string
 async function ingest(db: SupabaseClient, maxStations: number): Promise<Summary> {
   const startedAt = Date.now();
   const now = new Date(startedAt);
-  const startIso = new Date(startedAt - DAY_MS).toISOString();
+  const startIso = storedStationSeriesWindow(startedAt).start.toISOString();
   const endIso = new Date(startedAt + 45 * DAY_MS).toISOString();
-  const cutoff = new Date(startedAt - 3 * DAY_MS).toISOString();
+  const dayStartMs = Math.floor(startedAt / DAY_MS) * DAY_MS;
+  const cutoff = new Date(dayStartMs - 3 * DAY_MS).toISOString();
   const refreshBefore = new Date(startedAt + 20 * DAY_MS).toISOString();
   const { data, error } = await db.from("tide_station_prediction_coverage")
     .select("id, source_station_id, station_kind, coverage_end")

@@ -43,6 +43,12 @@ function bufferedNoaaWindow(nowMs: number): { start: Date; end: Date } {
   return { start, end };
 }
 
+/** Shared buffered range keeps ingestion aligned with the page's daily NOAA series. */
+export function storedStationSeriesWindow(nowMs: number): { start: Date; end: Date } {
+  const dayStartMs = Math.floor(nowMs / (24 * HOUR_MS)) * 24 * HOUR_MS;
+  return bufferedNoaaWindow(dayStartMs);
+}
+
 export function computeHarmonicSeries(station: TideStationRow, nowMs: number): StationSeries {
   if (!station.constituents?.length) return { status: "failed", reason: "no-constituents" };
   const { start, end } = stationSeriesWindow(nowMs);
@@ -125,7 +131,7 @@ async function fetchNoaaSeries(station: TideStationRow, nowMs: number): Promise<
 type GoodStationSeries = Extract<StationSeries, { status: "ok" }>;
 
 async function readStoredSeries(station: TideStationRow, nowMs: number): Promise<GoodStationSeries | null> {
-  const { start, end } = bufferedNoaaWindow(nowMs);
+  const { start, end } = storedStationSeriesWindow(nowMs);
   const db = createPublicReadClient() as unknown as SupabaseClient;
   const { data, error } = await db.from("tide_station_predictions")
     .select("station_id, kind, ts, height_m")
@@ -208,7 +214,7 @@ export async function getStationSeries(station: TideStationRow, nowMs: number): 
   if (station.source === "ticon") return computeHarmonicSeries(station, nowMs);
   const { start, end } = stationSeriesWindow(nowMs);
   const day = Math.floor(nowMs / (24 * HOUR_MS));
-  const stored = await readStoredSeries(station, day * 24 * HOUR_MS);
+  const stored = await readStoredSeries(station, nowMs);
   if (stored && coversWindow(stored, start, end)) return trimToWindow(stored, start, end);
   try {
     const series = await fetchNoaaSeries(station, day * 24 * HOUR_MS);

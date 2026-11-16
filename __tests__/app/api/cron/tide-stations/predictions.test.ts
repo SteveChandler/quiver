@@ -2,14 +2,20 @@
 import { GET } from "@/app/api/cron/tide-stations/predictions/route";
 import { NoaaTideRequestError } from "@/lib/services/noaa-coops/datagetter";
 import { fetchHighLowTidePredictions, fetchHourlyTidePredictions } from "@/lib/services/noaa-tide-service";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { getStationSeries } from "@/lib/tide-stations/predictions";
+import type { TideStationPredictionRow, TideStationRow } from "@/lib/tide-stations/types";
 import * as Sentry from "@sentry/nextjs";
 
 jest.mock("@/lib/services/noaa-tide-service", () => ({
   fetchHighLowTidePredictions: jest.fn(),
   fetchHourlyTidePredictions: jest.fn(),
 }));
-jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jest.fn() }));
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(),
+  createPublicReadClient: jest.fn(),
+}));
+jest.mock("next/cache", () => ({ unstable_cache: (load: () => Promise<unknown>) => load }));
 jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn(), captureMessage: jest.fn() }));
 jest.mock("@/lib/cron/observability", () => ({
   observedCronRun: { getStore: () => undefined },
@@ -32,13 +38,13 @@ const hilo = [{ ts: "2026-11-17T00:00:00Z", tide_height_m: 1.2345, type: "high" 
 const hourly = [{ ts: "2026-11-17T01:00:00Z", tide_height_m: 1.1111, tide_phase: null }];
 
 function mockDatabase(stations: Candidate[], upsertError: string | null = null): {
-  upserts: Array<Array<{ station_id: string; kind: string; height_m: number }>>;
+  upserts: TideStationPredictionRow[][];
   deletes: Array<{ stationId: string; cutoff: string }>;
   orders: string[];
   coverageFilters: string[];
   conflictTargets: string[];
 } {
-  const upserts: Array<Array<{ station_id: string; kind: string; height_m: number }>> = [];
+  const upserts: TideStationPredictionRow[][] = [];
   const deletes: Array<{ stationId: string; cutoff: string }> = [];
   const orders: string[] = [];
   const coverageFilters: string[] = [];
@@ -72,7 +78,7 @@ function mockDatabase(stations: Candidate[], upsertError: string | null = null):
       if (table === "tide_station_prediction_coverage") return coverageQuery;
       if (table === "cron_runs") return { insert: async () => ({ error: null }) };
       if (table === "tide_station_predictions") return {
-        upsert: async (rows: Array<{ station_id: string; kind: string; height_m: number }>, options: { onConflict: string }) => {
+        upsert: async (rows: TideStationPredictionRow[], options: { onConflict: string }) => {
           upserts.push(rows);
           conflictTargets.push(options.onConflict);
           return { error: upsertError ? { message: upsertError } : null };
@@ -117,16 +123,79 @@ it("orders earliest coverage first, fetches hourly only for references, writes r
   expect(db.coverageFilters).toEqual(["coverage_end.is.null,coverage_end.lt.2026-12-06T12:00:00.000Z"]);
   expect((fetchHighLowTidePredictions as jest.Mock).mock.calls.map((call) => call[0])).toEqual(["first", "early", "late"]);
   expect((fetchHourlyTidePredictions as jest.Mock).mock.calls.map((call) => call[0])).toEqual(["first"]);
-  expect(fetchHighLowTidePredictions).toHaveBeenCalledWith("first", "2026-11-15T12:00:00.000Z", "2026-12-31T12:00:00.000Z", { raw: true });
-  expect(fetchHourlyTidePredictions).toHaveBeenCalledWith("first", "2026-11-15T12:00:00.000Z", "2026-12-31T12:00:00.000Z", { raw: true });
+  expect(fetchHighLowTidePredictions).toHaveBeenCalledWith("first", "2026-11-14T00:00:00.000Z", "2026-12-31T12:00:00.000Z", { raw: true });
+  expect(fetchHourlyTidePredictions).toHaveBeenCalledWith("first", "2026-11-14T00:00:00.000Z", "2026-12-31T12:00:00.000Z", { raw: true });
   expect(db.conflictTargets).toEqual(["station_id,ts,kind", "station_id,ts,kind", "station_id,ts,kind"]);
   expect(db.upserts.flat()).toEqual(expect.arrayContaining([
     expect.objectContaining({ station_id: "noaa:first", kind: "high", height_m: 1.2345 }),
     expect.objectContaining({ station_id: "noaa:first", kind: "hourly", height_m: 1.1111 }),
   ]));
   expect(db.deletes).toHaveLength(3);
-  expect(db.deletes[0].cutoff).toBe("2026-11-13T12:00:00.000Z");
+  expect(db.deletes[0].cutoff).toBe("2026-11-13T00:00:00.000Z");
   expect(body.data).toMatchObject({ stationsAttempted: 3, stationsWritten: 3, rowsUpserted: 4, rowsDeleted: 6 });
+});
+
+it.each([
+  ["reference", 0], ["reference", 1], ["subordinate", 0], ["subordinate", 1],
+] as const)("serves ingested %s predictions from storage with NOAA down %i days later", async (kind, daysLater) => {
+  const hourMs = 3_600_000;
+  const dayMs = 24 * hourMs;
+  const nowMs = Date.parse("2026-11-16T23:30:00Z");
+  const clock = jest.spyOn(Date, "now").mockReturnValue(nowMs);
+  jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  const selected = candidate(kind === "reference" ? "8658120" : "8659086", kind);
+  const db = mockDatabase([selected]);
+  const timestamps = (startIso: string, endIso: string, stepMs: number, phaseMs = 0): string[] => {
+    const first = Math.ceil((Date.parse(startIso) - phaseMs) / stepMs) * stepMs + phaseMs;
+    return Array.from({ length: Math.floor((Date.parse(endIso) - first) / stepMs) + 1 }, (_, index) =>
+      new Date(first + index * stepMs).toISOString());
+  };
+  (fetchHighLowTidePredictions as jest.Mock).mockImplementation(async (_id: string, startIso: string, endIso: string) =>
+    timestamps(startIso, endIso, 6 * hourMs, 72 * 60_000).map((ts, index) => ({
+      ts, type: index % 2 === 0 ? "high" : "low", tide_height_m: index % 2 === 0 ? 1.2 : 0.2,
+    })));
+  (fetchHourlyTidePredictions as jest.Mock).mockImplementation(async (_id: string, startIso: string, endIso: string) =>
+    timestamps(startIso, endIso, hourMs).map((ts) => ({ ts, tide_height_m: 0.7, tide_phase: null })));
+
+  const body = await run();
+  expect(body.data.stationsWritten).toBe(1);
+  const rows = db.upserts.flat().filter((row) => Date.parse(row.ts) >= Date.parse(db.deletes[0].cutoff));
+  expect(rows.length).toBeGreaterThan(100);
+  (createPublicReadClient as jest.Mock).mockReturnValue({
+    from: () => ({
+      select: () => ({
+        eq: (_field: string, stationId: string) => ({
+          gte: (_field: string, startIso: string) => ({
+            lte: (_field: string, endIso: string) => ({
+              order: async () => ({
+                data: rows.filter((row) => row.station_id === stationId &&
+                  Date.parse(row.ts) >= Date.parse(startIso) && Date.parse(row.ts) <= Date.parse(endIso))
+                  .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts)),
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  });
+  const unavailable = new NoaaTideRequestError("NOAA tide failed: 504", 504);
+  (fetchHighLowTidePredictions as jest.Mock).mockClear().mockRejectedValue(unavailable);
+  (fetchHourlyTidePredictions as jest.Mock).mockClear().mockRejectedValue(unavailable);
+  const station = {
+    id: selected.id, source_station_id: selected.source_station_id, source: "noaa",
+    station_kind: kind, reference_station_id: null,
+  } as TideStationRow;
+  const readAtMs = nowMs + daysLater * dayMs;
+  clock.mockReturnValue(readAtMs);
+  const series = await getStationSeries(station, readAtMs);
+  expect(series.status).toBe("ok");
+  if (series.status !== "ok") throw new Error("Expected stored predictions");
+  expect(series.extremes.length).toBeGreaterThan(30);
+  expect(series.hourly.length).toBe(kind === "reference" ? 241 : 0);
+  expect(series.windowStart).toBe(new Date(readAtMs - 30 * 60_000 - dayMs).toISOString());
+  expect(fetchHighLowTidePredictions).not.toHaveBeenCalled();
+  expect(fetchHourlyTidePredictions).not.toHaveBeenCalled();
 });
 
 it("skips one NOAA failure and continues without a Sentry error", async () => {
