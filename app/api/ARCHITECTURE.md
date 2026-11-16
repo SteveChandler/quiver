@@ -284,13 +284,6 @@ store only GET (HEAD is answered from GET).
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
   - Keep `CRON_SECRET` in Vercel env if you need to trigger manually
 
-#### `/cron/enhanced-forecast-sync-offset/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Alias entrypoint for the enhanced forecast sync job.
-- **Why it exists**: Enables an effective **90-minute** cron cadence without relying on multiple cron entries targeting the same path.
-  - Scheduled alongside `/api/cron/enhanced-forecast-sync` in `vercel.json` (staggered schedules).
-
 ### 🔮 `/forecasts` - Surf Forecast System
 
 **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC

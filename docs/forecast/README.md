@@ -895,25 +895,29 @@ if (process.env.DISABLE_MONITORING === 'true') {
 
 ## Cron architecture
 
-The enhanced forecast sync uses two staggered endpoints to achieve an effective
-90-minute refresh cadence while staying under Vercel's 5-minute timeout per
-execution.
+The enhanced forecast sync runs from one Vercel cron entry,
+`/api/cron/enhanced-forecast-sync-dispatch` (`0,30 * * * *`). Each run picks
+one of 4 shards from the current UTC time, so each shard runs about every
+2 hours. Each run refreshes up to `FORECAST_MAX_BEACHES_PER_RUN` (default 30)
+beaches of its shard, missing and stale first, and stays under Vercel's
+5-minute timeout. The shard comes from the wall-clock minute, so a run that
+starts 30 or more minutes late runs the next shard.
 
-### Staggered sync architecture
+### Sharded sync architecture
 
 ~~~text
 Vercel Cron Scheduler
-  ├── /api/cron/enhanced-forecast-sync        (every 3 hours)
-  └── /api/cron/enhanced-forecast-sync-offset (90-min offset)
+  └── /api/cron/enhanced-forecast-sync-dispatch (every 30 minutes)
 
-_shared.ts: runEnhancedForecastSync()
+_shared.ts: runEnhancedForecastSync(request, { resolveShardFromTime: true })
   ├── Validates environment (production only)
   ├── Validates cron authentication
+  ├── Resolves the shard from the UTC hour and minute
   └── Calls updateAllBeachForecasts()
 
 EnhancedForecastService.updateAllEnhancedForecasts()
   ├── Query beaches (missing -> stale -> by updated_at)
-  ├── Select top MAX_BEACHES_PER_RUN (default: 45)
+  ├── Select top MAX_BEACHES_PER_RUN (default: 30)
   ├── Process in batches of BATCH_SIZE (default: 3)
   │   ├── Generate comprehensive forecasts
   │   ├── Store enhanced forecasts
@@ -921,63 +925,37 @@ EnhancedForecastService.updateAllEnhancedForecasts()
   └── Return summary (total, successful, failed)
 ~~~
 
-### 90-minute cadence strategy
+Shard mapping (UTC):
 
-Vercel cron jobs have a maximum execution time of 5 minutes. To refresh all
-beaches within a reasonable freshness window (12 hours), use two endpoints on
-staggered schedules.
+| UTC hour | Minute | Shard |
+| --- | --- | --- |
+| even | 00 | 0 |
+| even | 30 | 1 |
+| odd | 00 | 2 |
+| odd | 30 | 3 |
 
-~~~json
-{
-  "crons": [
-    {
-      "path": "/api/cron/enhanced-forecast-sync",
-      "schedule": "0 */3 * * *"
-    },
-    {
-      "path": "/api/cron/enhanced-forecast-sync-offset",
-      "schedule": "30 1-23/3 * * *"
-    }
-  ]
-}
-~~~
-
-Execution timeline (UTC):
-
-| Time | Endpoint |
-| --- | --- |
-| 00:00 | /enhanced-forecast-sync |
-| 01:30 | /enhanced-forecast-sync-offset |
-| 03:00 | /enhanced-forecast-sync |
-| 04:30 | /enhanced-forecast-sync-offset |
-| 06:00 | /enhanced-forecast-sync |
-| ... | continues every 90 minutes |
-
-Throughput:
-
-- Per execution: 45 beaches (MAX_BEACHES_PER_RUN).
-- Executions per day: 16 (every 90 minutes).
-- Total capacity: ~720 beaches/day.
-- Freshness window: all beaches refreshed within 12 hours.
+To run one shard manually, call
+`/api/cron/enhanced-forecast-sync?shard=N&shardCount=4` with
+`Authorization: Bearer <CRON_SECRET>`.
 
 ### Cron file structure
 
 ~~~text
 app/api/cron/
 ├── enhanced-forecast-sync/
-│   ├── route.ts          # Main endpoint (GET/POST/HEAD)
+│   ├── route.ts          # Manual endpoint (GET/POST/HEAD, ?shard=N&shardCount=M)
 │   └── _shared.ts        # Shared handler logic
-└── enhanced-forecast-sync-offset/
-    └── route.ts          # Offset endpoint (reuses _shared.ts)
+└── enhanced-forecast-sync-dispatch/
+    └── route.ts          # Cron endpoint (resolves the shard from the time)
 ~~~
 
 ### Cron environment variables
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| FORECAST_MAX_BEACHES_PER_RUN | 45 | Maximum beaches per cron execution |
+| FORECAST_MAX_BEACHES_PER_RUN | 30 | Maximum beaches per cron execution |
 | FORECAST_BATCH_SIZE | 3 | Beaches processed per batch |
-| FORECAST_BATCH_DELAY_MS | 2000 | Delay between batches (ms) |
+| FORECAST_BATCH_DELAY_MS | 1000 | Delay between batches (ms) |
 | FORECAST_VERBOSE_LOGS | false | Enable detailed per-timepoint logs |
 | CRON_SECRET | - | Authentication token for manual triggers |
 
