@@ -4,13 +4,23 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 jest.mock("@/lib/cron/outcome", () => ({
-  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+  withCronOutcome: jest.fn(jest.requireActual("@/lib/cron/outcome").withCronOutcome),
 }));
 
 // Pass-through observability wrapper so importing GET yields the unwrapped
 // handler. Keeps the route's public surface unchanged.
 jest.mock("@/lib/cron/observability", () => ({
   withObservedCron: <H extends Function>(_route: string, handler: H) => handler,
+  observedCronRun: { getStore: () => undefined },
+}));
+
+jest.mock("@sentry/nextjs", () => ({
+  captureMessage: jest.fn(),
+  captureException: jest.fn(),
+}));
+
+jest.mock("node:timers/promises", () => ({
+  setTimeout: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("@/lib/services/open-meteo-wind-service", () => ({
@@ -54,8 +64,12 @@ import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { GET } from "@/app/api/cron/wind/update/route";
+import * as Sentry from "@sentry/nextjs";
+
+const mockInsertOutcome = jest.fn();
 
 type Beach = { id: string; lat: number; lon: number; name: string };
+type CronQueryMock = Record<'select' | 'eq' | 'gt' | 'order' | 'limit' | 'maybeSingle' | 'insert', jest.Mock>;
 
 function makeBeaches(count: number): Beach[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -87,7 +101,7 @@ function mockClient(
   lastOk: { data: { ran_at: string } | null; error: { message: string } | null } = {
     data: { ran_at: new Date().toISOString() }, error: null,
   },
-): void {
+): CronQueryMock {
   const beachesQuery = {
     select: jest.fn().mockReturnValue({
       not: jest.fn().mockReturnValue({
@@ -95,20 +109,16 @@ function mockClient(
       }),
     }),
   };
+  const cronQuery = {
+    select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(),
+    gt: jest.fn().mockReturnThis(), order: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue(lastOk),
+    insert: mockInsertOutcome,
+  };
   (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
     from: jest.fn((table: string) => {
       if (table === "beaches") return beachesQuery;
-      if (table === "cron_runs") {
-        const query = {
-          select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn(),
-          maybeSingle: jest.fn().mockResolvedValue(lastOk),
-        };
-        query.select.mockReturnValue(query);
-        query.eq.mockReturnValue(query);
-        query.order.mockReturnValue(query);
-        query.limit.mockReturnValue(query);
-        return query;
-      }
+      if (table === "cron_runs") return cronQuery;
       throw new Error(`unexpected table: ${table}`);
     }),
     rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
@@ -116,23 +126,17 @@ function mockClient(
       return rpc(args);
     }),
   });
+  return cronQuery;
 }
 
 type OutcomeOptions = {
   failureReason?: (value: unknown) => string | null;
-  legitimatelyZero?: (value: unknown) => { reason: string } | undefined;
 };
 
 function lastFailureReason(summary: unknown): string | null {
   const calls = (withCronOutcome as jest.Mock).mock.calls;
   const options = calls[calls.length - 1][0] as OutcomeOptions;
   return options.failureReason?.(summary) ?? null;
-}
-
-function lastLegitimatelyZero(summary: unknown): { reason: string } | undefined {
-  const calls = (withCronOutcome as jest.Mock).mock.calls;
-  const options = calls[calls.length - 1][0] as OutcomeOptions;
-  return options.legitimatelyZero?.(summary);
 }
 
 function makeRequest(): Request {
@@ -145,6 +149,7 @@ describe("GET /api/cron/wind/update", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInsertOutcome.mockReset().mockResolvedValue({ error: null });
     rpcCalls = [];
     consoleLog = jest.spyOn(console, "log").mockImplementation(() => undefined);
 
@@ -161,6 +166,7 @@ describe("GET /api/cron/wind/update", () => {
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
       from: jest.fn((table: string) => {
         if (table === "beaches") return beachesQuery;
+        if (table === "cron_runs") return { insert: mockInsertOutcome };
         throw new Error(`unexpected table: ${table}`);
       }),
       rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
@@ -231,6 +237,7 @@ describe("GET /api/cron/wind/update", () => {
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
       from: jest.fn((table: string) => {
         if (table === "beaches") return beachesQuery;
+        if (table === "cron_runs") return { insert: mockInsertOutcome };
         throw new Error(`unexpected table: ${table}`);
       }),
       rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
@@ -253,7 +260,8 @@ describe("GET /api/cron/wind/update", () => {
       errors: 1,
       sampleErrors: ["simulated supabase RST (code=08006)"],
     });
-    expect(lastFailureReason(body.details)).toBe('Wind update completed with row errors');
+    expect(lastFailureReason(body.details)).toBeNull();
+    expect(mockInsertOutcome).toHaveBeenCalledWith(expect.objectContaining({ status: 'ok' }));
   });
 
   it("keeps the cron successful when one Open-Meteo fetch fails", async () => {
@@ -268,6 +276,7 @@ describe("GET /api/cron/wind/update", () => {
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
       from: jest.fn((table: string) => {
         if (table === "beaches") return beachesQuery;
+        if (table === "cron_runs") return { insert: mockInsertOutcome };
         throw new Error(`unexpected table: ${table}`);
       }),
       rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
@@ -353,7 +362,10 @@ describe("GET /api/cron/wind/update", () => {
       outcome: "degraded",
     });
     expect(lastFailureReason(body.data)).toBeNull();
-    expect(lastLegitimatelyZero(body.data)).toEqual({ reason: 'Open-Meteo unavailable on both hosts' });
+    expect(mockInsertOutcome).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'ok', legitimately_zero_reason: 'Upstream gap within allowed duration',
+    }));
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
     expectConsoleWarnings([/\[Wind\] Switching to the Open-Meteo fallback host/, /\[Wind\] Stopped early: upstream_unavailable/, /\[Wind\] \d+ Open-Meteo fetch errors/]);
   });
 
@@ -367,11 +379,61 @@ describe("GET /api/cron/wind/update", () => {
 
     expect(response.status).toBe(503);
     expect(body.details).toMatchObject({ stoppedReason: 'upstream_unavailable', outcome: 'degraded' });
-    expect(body.error).toContain(`Open-Meteo wind unavailable on both hosts for >6 h; last ok run ${lastOk}`);
+    expect(body.error).toContain(`Open-Meteo wind unavailable on both hosts for >6 h; last productive run ${lastOk}`);
     expect(body.error).toContain('Action: check Open-Meteo host availability');
     expect(lastFailureReason(body.details)).toBe(body.error);
-    expect(lastLegitimatelyZero(body.details)).toBeUndefined();
+    expect(mockInsertOutcome).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed', legitimately_zero_reason: null }));
     expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: upstream_unavailable/]);
+  });
+
+  it("alerts on the seventh hourly gap run even after six ok zero-row outcomes", async () => {
+    const t0 = Date.parse('2026-11-16T00:00:00Z');
+    const job = '/api/cron/wind/update';
+    const history: Array<Record<string, unknown>> = [
+      { job, status: 'ok', produced: 8, ran_at: new Date(t0).toISOString() },
+    ];
+    const query = mockClient(40, () => ({ data: null, error: null }), rpcCalls);
+    let filters: Array<(row: Record<string, unknown>) => boolean> = [];
+    query.select.mockImplementation(() => { filters = []; return query; });
+    query.eq.mockImplementation((column: string, value: unknown) => {
+      filters.push((row) => row[column] === value);
+      return query;
+    });
+    query.gt.mockImplementation((column: string, value: number) => {
+      filters.push((row) => Number(row[column]) > value);
+      return query;
+    });
+    query.maybeSingle.mockImplementation(async () => ({
+      data: history.filter((row) => filters.every((filter) => filter(row)))
+        .sort((a, b) => Date.parse(String(b.ran_at)) - Date.parse(String(a.ran_at)))[0] ?? null,
+      error: null,
+    }));
+    mockInsertOutcome.mockImplementation(async (row: Record<string, unknown>) => {
+      history.push(row);
+      return { error: null };
+    });
+    (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
+    jest.useFakeTimers({ now: t0 });
+
+    try {
+      for (let hour = 1; hour <= 7; hour++) {
+        jest.setSystemTime(t0 + hour * 60 * 60 * 1000);
+        const response = await GET(makeRequest());
+        const body = await response.json();
+        expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: upstream_unavailable/]);
+
+        expect(history).toHaveLength(hour + 1);
+        expect(history.at(-1)).toMatchObject({ job, produced: 0, status: hour <= 6 ? 'ok' : 'failed' });
+        expect(response.status).toBe(hour <= 6 ? 200 : 503);
+        expect(history.at(-1)?.error_message).toBe(hour <= 6 ? null : body.error);
+        expect(Sentry.captureMessage).toHaveBeenCalledTimes(hour <= 6 ? 0 : 1);
+      }
+      expect(history.at(-1)?.error_message).toEqual(expect.stringContaining(`last productive run ${new Date(t0).toISOString()}`));
+      expect(history.at(-1)?.error_message).toEqual(expect.stringContaining('>6 h'));
+      expect(query.gt).toHaveBeenCalledWith('produced', 0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("alerts when there is no recorded ok run", async () => {
@@ -382,11 +444,11 @@ describe("GET /api/cron/wind/update", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.error).toContain('last ok run never');
+    expect(body.error).toContain('last productive run never');
     expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: upstream_unavailable/]);
   });
 
-  it("treats a failed last-ok read as a short gap and logs it", async () => {
+  it("treats a failed last-productive read as a short gap and logs it", async () => {
     mockClient(40, () => ({ data: null, error: null }), rpcCalls, { data: null, error: { message: 'read timed out' } });
     (fetchHourlyWind as jest.Mock).mockRejectedValue(timeoutError());
 
@@ -396,8 +458,10 @@ describe("GET /api/cron/wind/update", () => {
     expect(response.status).toBe(200);
     expect(body.data.outcome).toBe('degraded');
     expect(lastFailureReason(body.data)).toBeNull();
-    expect(lastLegitimatelyZero(body.data)).toEqual({ reason: 'Open-Meteo unavailable on both hosts' });
-    expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Could not read last ok cron run for upstream gap/, /Stopped early: upstream_unavailable/]);
+    expect(mockInsertOutcome).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'ok', legitimately_zero_reason: 'Upstream gap within allowed duration',
+    }));
+    expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /could not read last productive run/, /Stopped early: upstream_unavailable/]);
   });
 
   it("names the connection error code in the upstream reason", async () => {
@@ -460,6 +524,37 @@ describe("GET /api/cron/wind/update", () => {
     expect(rpcCalls).toHaveLength(40);
     expect(body.details).toMatchObject({ errors: 40, attemptedBeaches: 40, stoppedReason: null });
     expect(lastFailureReason(body.details)).toBe('Wind update completed with row errors');
+  });
+
+  it.each([1, 2, 3])("tolerates at most ceil(5%%) row errors among 21 attempted beaches (%i errors)", async (errorCount) => {
+    mockClient(21, (args) => Number(String(args.p_beach_id).split('-')[1]) < errorCount
+      ? { data: null, error: { message: 'write timed out' } }
+      : { data: { updated_count: 8, skipped_count: 0 }, error: null }, rpcCalls);
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.details).toMatchObject({ errors: errorCount, attemptedBeaches: 21, outcome: 'degraded', sampleErrors: ['write timed out'] });
+    expect(mockInsertOutcome).toHaveBeenLastCalledWith(expect.objectContaining({
+      status: errorCount > 2 ? 'failed' : 'ok',
+      error_message: errorCount > 2 ? 'Wind update completed with row errors' : null,
+    }));
+    expect(Sentry.captureMessage).toHaveBeenCalledTimes(errorCount > 2 ? 1 : 0);
+  });
+
+  it("keeps a zero-row run degraded when its one write error is within the rounded allowance", async () => {
+    mockClient(1, () => ({ data: null, error: { message: 'write timed out' } }), rpcCalls);
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.details).toMatchObject({ updated: 0, errors: 1, attemptedBeaches: 1, outcome: 'degraded' });
+    expect(mockInsertOutcome).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'ok', error_message: null, legitimately_zero_reason: 'Wind row errors within tolerated limit',
+    }));
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
   });
 
   it("does not count non-network fetch errors toward the breaker", async () => {
@@ -561,6 +656,37 @@ describe("GET /api/cron/wind/update", () => {
       expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: deadline_exceeded/]);
     } finally {
       clock.mockRestore();
+    }
+  });
+
+  it.each([2, 7])("applies the gap limit to a zero-row fallback deadline %i hours after the last productive run", async (hours) => {
+    const t0 = Date.parse('2026-11-16T00:00:00Z');
+    jest.useFakeTimers({ now: t0 + hours * 60 * 60 * 1000 });
+    mockClient(40, () => ({ data: null, error: null }), rpcCalls, {
+      data: { ran_at: new Date(t0).toISOString() }, error: null,
+    });
+    (fetchHourlyWind as jest.Mock).mockImplementation(async (_lat: number, _lon: number, host: string) => {
+      if (host === 'primary') throw timeoutError();
+      jest.setSystemTime(Date.now() + 5_000);
+      return [];
+    });
+
+    try {
+      const response = await GET(makeRequest());
+      const body = await response.json();
+      expectConsoleWarnings([/Switching to the Open-Meteo fallback host/, /Open-Meteo fetch errors/, /Stopped early: deadline_exceeded/]);
+
+      expect(response.status).toBe(hours === 2 ? 200 : 503);
+      expect(body.data ?? body.details).toMatchObject({ windHost: 'fallback', stoppedReason: 'deadline_exceeded', outcome: 'degraded', updated: 0 });
+      expect(mockInsertOutcome).toHaveBeenCalledWith(expect.objectContaining({
+        status: hours === 2 ? 'ok' : 'failed', produced: 0,
+        error_message: hours === 2 ? null : body.error,
+      }));
+      expect(Sentry.captureMessage).toHaveBeenCalledTimes(hours === 2 ? 0 : 1);
+      const expectedError = `Open-Meteo wind primary unavailable and fallback deadline exceeded for >6 h; last productive run ${new Date(t0).toISOString()}. Action: check Open-Meteo host availability and retry wind update`;
+      expect(body.error).toBe(hours === 2 ? undefined : expectedError);
+    } finally {
+      jest.useRealTimers();
     }
   });
 });

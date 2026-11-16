@@ -173,4 +173,122 @@ describe("withCronOutcome", () => {
     expect(title).toContain("produced 0");
     expect(context.fingerprint[2]).toBe("out-of-range");
   });
+
+  describe("upstreamGap", () => {
+    const limitMs = 6 * 60 * 60 * 1000;
+    const query = {
+      eq: jest.fn().mockReturnThis(), gt: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(),
+    };
+    const describeGap = jest.fn((lastRanAt: string | null): string =>
+      `Provider unavailable for >6 h; last productive run ${lastRanAt ?? 'never'}; action: check provider`);
+    const gapOptions = (): CronOutcomeOptions<TestResult> => ({
+      ...optionsFor(JOBS[0]),
+      upstreamGap: { active: () => true, limitMs, describe: describeGap },
+    });
+
+    beforeEach(() => {
+      describeGap.mockClear();
+      query.maybeSingle.mockReset().mockResolvedValue({ data: null, error: null });
+      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+        from: jest.fn(() => ({ select: jest.fn(() => query), insert: mockInsert })),
+      });
+    });
+
+    it.each([2, 6])("allows a zero-row gap %i hours after the last productive run", async (hours) => {
+      const now = Date.parse('2026-11-16T12:00:00Z');
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+      const ranAt = new Date(now - hours * 60 * 60 * 1000).toISOString();
+      query.maybeSingle.mockResolvedValue({ data: { ran_at: ranAt }, error: null });
+
+      try {
+        const value = { produced: 0 };
+        await expect(withCronOutcome(gapOptions(), async () => value)).resolves.toBe(value);
+
+        expect(query.eq).toHaveBeenCalledWith('job', `/api/cron/${JOBS[0].name}`);
+        expect(query.eq).toHaveBeenCalledWith('status', 'ok');
+        expect(query.gt).toHaveBeenCalledWith('produced', 0);
+        expect(query.order).toHaveBeenCalledWith('ran_at', { ascending: false });
+        expect(query.limit).toHaveBeenCalledWith(1);
+        expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+          status: 'ok', produced: 0, error_message: null,
+          legitimately_zero_reason: 'Upstream gap within allowed duration',
+        }));
+        expect(Sentry.captureMessage).not.toHaveBeenCalled();
+        expect(describeGap).not.toHaveBeenCalled();
+        expect(createSupabaseServiceRoleClient).toHaveBeenCalledTimes(1);
+      } finally {
+        clock.mockRestore();
+      }
+    });
+
+    it.each([0, 4])("fails an expired gap even with %i rows produced in this run", async (produced) => {
+      const ranAt = new Date(Date.now() - limitMs - 60_000).toISOString();
+      query.maybeSingle.mockResolvedValue({ data: { ran_at: ranAt }, error: null });
+
+      await withCronOutcome(gapOptions(), async () => ({ produced }));
+
+      expect(describeGap).toHaveBeenCalledWith(ranAt);
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        status: 'failed', produced, error_message: describeGap.mock.results[0].value,
+      }));
+      expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it("fails when there is no productive history", async () => {
+      await withCronOutcome(gapOptions(), async () => ({ produced: 0 }));
+
+      expect(describeGap).toHaveBeenCalledWith(null);
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        status: 'failed', error_message: expect.stringContaining('last productive run never'),
+      }));
+    });
+
+    it.each([false, true])("warns and permits the gap when the read fails (rejection: %s)", async (rejects) => {
+      const error = new Error('history read failed');
+      if (rejects) query.maybeSingle.mockRejectedValue(error);
+      else query.maybeSingle.mockResolvedValue({ data: null, error });
+
+      await withCronOutcome(gapOptions(), async () => ({ produced: 0 }));
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[cron-outcome] could not read last productive run',
+        expect.objectContaining({ job: `/api/cron/${JOBS[0].name}` }),
+      );
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ status: 'ok', error_message: null }));
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
+      expect(describeGap).not.toHaveBeenCalled();
+    });
+
+    it("keeps an explicit handler failure when the gap read fails", async () => {
+      query.maybeSingle.mockRejectedValue(new Error('history read failed'));
+      await withCronOutcome({ ...gapOptions(), failureReason: () => 'database write failed' }, async () => ({ produced: 0 }));
+
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed', error_message: 'database write failed' }));
+      expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not exempt an inactive gap or read its history", async () => {
+      const options = gapOptions();
+      options.upstreamGap!.active = () => false;
+      await withCronOutcome(options, async () => ({ produced: 0 }));
+
+      expect(query.maybeSingle).not.toHaveBeenCalled();
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+      expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['active', 'describe'] as const)("rethrows an unrelated %s callback error", async (callback) => {
+      const options = gapOptions();
+      const error = new Error('unrelated callback bug');
+      options.upstreamGap![callback] = () => { throw error; };
+
+      await expect(withCronOutcome(options, async () => ({ produced: 0 }))).rejects.toBe(error);
+
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', error_message: error.message }));
+      expect(Sentry.captureException).toHaveBeenCalledWith(error, expect.any(Object));
+    });
+  });
 });
