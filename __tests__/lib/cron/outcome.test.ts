@@ -24,7 +24,6 @@ const JOBS: Array<{ name: string; unit: string }> = [
   { name: "water-quality-sync?phase=samples", unit: "samples_stored" },
   { name: "water-quality-sync?phase=evaluate", unit: "beaches_evaluated" },
   { name: "enhanced-forecast-sync", unit: "forecasts_written" },
-  { name: "enhanced-forecast-sync-offset", unit: "forecasts_written" },
   { name: "enhanced-forecast-sync-cdip", unit: "forecasts_written" },
   { name: "enhanced-forecast-sync-dispatch", unit: "forecasts_written" },
   { name: "system-cards", unit: "cards_published" },
