@@ -1,6 +1,22 @@
 /** @jest-environment node */
 import type { TideStationRow } from "@/lib/tide-stations/types";
 
+let mockStoredRows: Array<{ station_id: string; kind: string; ts: string; height_m: number }> = [];
+let mockStoredError: { message: string } | null = null;
+jest.mock("@/lib/supabase/server", () => ({
+  createPublicReadClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          gte: () => ({
+            lte: () => ({ order: async () => ({ data: mockStoredRows, error: mockStoredError }) }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}));
+
 const mockDataCache = new Map<string, unknown>();
 const mockCacheOptions: Array<{ revalidate?: number | false }> = [];
 jest.mock("next/cache", () => ({
@@ -45,12 +61,47 @@ function goodResponse(url: string): Promise<Response> {
 }
 
 beforeEach(() => {
+  mockStoredRows = [];
+  mockStoredError = null;
   mockDataCache.clear();
   mockCacheOptions.length = 0;
   mockFetch.mockReset().mockImplementation(goodResponse);
   global.fetch = mockFetch;
   jest.spyOn(console, "warn").mockImplementation(() => undefined);
   reload();
+});
+
+it("serves covering raw rows with the current California adjustment and never calls NOAA", async () => {
+  const california = { ...station, source_station_id: "9410230", id: "noaa:9410230" };
+  const start = NOW - 3 * 24 * HOUR;
+  mockStoredRows = Array.from({ length: 15 * 24 }, (_, index) => {
+    const ts = new Date(start + index * HOUR).toISOString();
+    return [
+      { station_id: california.id, kind: "hourly", ts, height_m: 1 },
+      ...(index % 6 === 0 ? [{ station_id: california.id, kind: index % 12 === 0 ? "high" : "low", ts, height_m: 1 }] : []),
+    ];
+  }).flat();
+  const result = await getStationSeries(california, NOW);
+  expect(result.status).toBe("ok");
+  if (result.status !== "ok") throw new Error("Expected stored tides");
+  expect(result.adjustmentFt).toBe(1.5);
+  expect(result.extremes[0].heightM).toBe(1.457);
+  expect(result.hourly[0].heightM).toBe(1.457);
+  expect(mockFetch).not.toHaveBeenCalled();
+});
+
+it("uses live NOAA when stored rows do not cover the window", async () => {
+  mockStoredRows = [{ station_id: station.id, kind: "high", ts: new Date(NOW).toISOString(), height_m: 1 }];
+  const result = await getStationSeries(station, NOW);
+  expect(result.status).toBe("ok");
+  expect(mockFetch).toHaveBeenCalled();
+});
+
+it("uses live NOAA after a stored-row Supabase result error", async () => {
+  mockStoredError = { message: "database unavailable" };
+  const result = await getStationSeries(station, NOW);
+  expect(result.status).toBe("ok");
+  expect(mockFetch).toHaveBeenCalled();
 });
 
 it.each(["reference", "subordinate"] as const)("persists a covering last-good %s series across module reload and UTC rollover", async (kind) => {

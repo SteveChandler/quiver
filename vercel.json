@@ -11,6 +11,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron/tide-stations/predictions?maxStations=120",
+      "schedule": "20 * * * *"
+    },
+    {
       "path": "/api/cron/custom-spot-analysis?batchSize=25",
       "schedule": "30 11 * * *"
     },

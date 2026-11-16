@@ -74,6 +74,19 @@ describe("noaa-tide-service", () => {
     ]);
   });
 
+  it("keeps raw NOAA heights separate from adjusted cache entries", async () => {
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-17 01:00", v: "1.2345", type: "H" }],
+    }));
+    const start = "2026-11-17T00:00:00Z";
+    const end = "2026-11-18T00:00:00Z";
+    const raw = await fetchHighLowTidePredictions("9410230", start, end, { raw: true });
+    const adjusted = await fetchHighLowTidePredictions("9410230", start, end);
+    expect(raw[0].tide_height_m).toBe(1.2345);
+    expect(adjusted[0].tide_height_m).toBe(1.692);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
   it("caches hourly NOAA predictions by date and filters narrower same-day windows", async () => {
     mockFetchWithTimeout.mockResolvedValue(
       jsonResponse({
