@@ -9,6 +9,27 @@ export const EARTH_RADIUS_KM = 6371;
 export const EARTH_RADIUS_MI = 3958.8;
 
 /**
+ * Haversine central angle between two coordinates, in radians.
+ * Multiply by an earth radius to get a distance in that radius's unit.
+ */
+export function haversineCentralAngle(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
  * Calculate distance between two coordinates using the Haversine formula.
  *
  * @param lat1 - First point latitude
@@ -23,15 +44,7 @@ export function haversineDistance(
   lat2: number,
   lon2: number
 ): number {
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_KM * haversineCentralAngle(lat1, lon1, lat2, lon2);
 }
 
 /**
