@@ -74,9 +74,9 @@ async function ingest(db: SupabaseClient, maxStations: number): Promise<Summary>
   const startedAt = Date.now();
   const now = new Date(startedAt);
   const startIso = new Date(startedAt - DAY_MS).toISOString();
-  const endIso = new Date(startedAt + 60 * DAY_MS).toISOString();
+  const endIso = new Date(startedAt + 45 * DAY_MS).toISOString();
   const cutoff = new Date(startedAt - 3 * DAY_MS).toISOString();
-  const refreshBefore = new Date(startedAt + 30 * DAY_MS).toISOString();
+  const refreshBefore = new Date(startedAt + 20 * DAY_MS).toISOString();
   const { data, error } = await db.from("tide_station_prediction_coverage")
     .select("id, source_station_id, station_kind, coverage_end")
     .or(`coverage_end.is.null,coverage_end.lt.${refreshBefore}`)
@@ -114,7 +114,7 @@ async function ingest(db: SupabaseClient, maxStations: number): Promise<Summary>
       consecutiveUpstreamFailures = 0;
       for (let offset = 0; offset < result.rows.length; offset += 1000) {
         const { error: writeError } = await db.from("tide_station_predictions")
-          .upsert(result.rows.slice(offset, offset + 1000), { onConflict: "station_id,kind,ts" });
+          .upsert(result.rows.slice(offset, offset + 1000), { onConflict: "station_id,ts,kind" });
         if (writeError) throw new Error(`Failed to upsert ${result.station.id}: ${writeError.message}`);
         summary.rowsUpserted += Math.min(1000, result.rows.length - offset);
       }

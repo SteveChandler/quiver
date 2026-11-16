@@ -35,29 +35,36 @@ function mockDatabase(stations: Candidate[], upsertError: string | null = null):
   upserts: Array<Array<{ station_id: string; kind: string; height_m: number }>>;
   deletes: Array<{ stationId: string; cutoff: string }>;
   orders: string[];
+  coverageFilters: string[];
+  conflictTargets: string[];
 } {
   const upserts: Array<Array<{ station_id: string; kind: string; height_m: number }>> = [];
   const deletes: Array<{ stationId: string; cutoff: string }> = [];
   const orders: string[] = [];
+  const coverageFilters: string[] = [];
+  const conflictTargets: string[] = [];
   const coverageQuery = {
     select: () => ({
-      or: () => ({
-        order: (field: string) => {
-          orders.push(field);
-          return {
-            order: (second: string) => {
-              orders.push(second);
-              return {
-                limit: async (limit: number) => ({
-                  data: stations.slice().sort((a, b) =>
-                    (a.coverage_end ?? "").localeCompare(b.coverage_end ?? "") || a.id.localeCompare(b.id)).slice(0, limit),
-                  error: null,
-                }),
-              };
-            },
-          };
-        },
-      }),
+      or: (filter: string) => {
+        coverageFilters.push(filter);
+        return {
+          order: (field: string) => {
+            orders.push(field);
+            return {
+              order: (second: string) => {
+                orders.push(second);
+                return {
+                  limit: async (limit: number) => ({
+                    data: stations.slice().sort((a, b) =>
+                      (a.coverage_end ?? "").localeCompare(b.coverage_end ?? "") || a.id.localeCompare(b.id)).slice(0, limit),
+                    error: null,
+                  }),
+                };
+              },
+            };
+          },
+        };
+      },
     }),
   };
   (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
@@ -65,8 +72,9 @@ function mockDatabase(stations: Candidate[], upsertError: string | null = null):
       if (table === "tide_station_prediction_coverage") return coverageQuery;
       if (table === "cron_runs") return { insert: async () => ({ error: null }) };
       if (table === "tide_station_predictions") return {
-        upsert: async (rows: Array<{ station_id: string; kind: string; height_m: number }>) => {
+        upsert: async (rows: Array<{ station_id: string; kind: string; height_m: number }>, options: { onConflict: string }) => {
           upserts.push(rows);
+          conflictTargets.push(options.onConflict);
           return { error: upsertError ? { message: upsertError } : null };
         },
         delete: () => ({ eq: (field: string, stationId: string) => ({
@@ -79,7 +87,7 @@ function mockDatabase(stations: Candidate[], upsertError: string | null = null):
       throw new Error(`Unexpected table ${table}`);
     },
   });
-  return { upserts, deletes, orders };
+  return { upserts, deletes, orders, coverageFilters, conflictTargets };
 }
 
 async function run(): Promise<{ data: { stationsAttempted: number; stationsWritten: number; rowsUpserted: number; rowsDeleted: number; upstreamSkipped: Record<string, number>; stoppedReason: string | null; outcome: string } }> {
@@ -98,6 +106,7 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 it("orders earliest coverage first, fetches hourly only for references, writes raw heights and prunes old rows", async () => {
+  jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-16T12:00:00Z"));
   const db = mockDatabase([
     candidate("late", "subordinate", "2026-11-25T00:00:00Z"),
     candidate("first", "reference"),
@@ -105,15 +114,18 @@ it("orders earliest coverage first, fetches hourly only for references, writes r
   ]);
   const body = await run();
   expect(db.orders).toEqual(["coverage_end", "id"]);
+  expect(db.coverageFilters).toEqual(["coverage_end.is.null,coverage_end.lt.2026-12-06T12:00:00.000Z"]);
   expect((fetchHighLowTidePredictions as jest.Mock).mock.calls.map((call) => call[0])).toEqual(["first", "early", "late"]);
   expect((fetchHourlyTidePredictions as jest.Mock).mock.calls.map((call) => call[0])).toEqual(["first"]);
-  expect((fetchHighLowTidePredictions as jest.Mock).mock.calls[0][3]).toEqual({ raw: true });
+  expect(fetchHighLowTidePredictions).toHaveBeenCalledWith("first", "2026-11-15T12:00:00.000Z", "2026-12-31T12:00:00.000Z", { raw: true });
+  expect(fetchHourlyTidePredictions).toHaveBeenCalledWith("first", "2026-11-15T12:00:00.000Z", "2026-12-31T12:00:00.000Z", { raw: true });
+  expect(db.conflictTargets).toEqual(["station_id,ts,kind", "station_id,ts,kind", "station_id,ts,kind"]);
   expect(db.upserts.flat()).toEqual(expect.arrayContaining([
     expect.objectContaining({ station_id: "noaa:first", kind: "high", height_m: 1.2345 }),
     expect.objectContaining({ station_id: "noaa:first", kind: "hourly", height_m: 1.1111 }),
   ]));
   expect(db.deletes).toHaveLength(3);
-  expect(Date.parse(db.deletes[0].cutoff)).toBeLessThan(Date.now() - 2 * 86_400_000);
+  expect(db.deletes[0].cutoff).toBe("2026-11-13T12:00:00.000Z");
   expect(body.data).toMatchObject({ stationsAttempted: 3, stationsWritten: 3, rowsUpserted: 4, rowsDeleted: 6 });
 });
 

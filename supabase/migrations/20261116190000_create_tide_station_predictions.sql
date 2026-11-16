@@ -6,11 +6,8 @@ CREATE TABLE IF NOT EXISTS public.tide_station_predictions (
   ts timestamptz NOT NULL,
   height_m double precision NOT NULL,
   fetched_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (station_id, kind, ts)
+  PRIMARY KEY (station_id, ts, kind)
 );
-
-CREATE INDEX IF NOT EXISTS tide_station_predictions_station_ts_idx
-  ON public.tide_station_predictions (station_id, ts DESC);
 
 ALTER TABLE public.tide_station_predictions ENABLE ROW LEVEL SECURITY;
 
