@@ -36,11 +36,12 @@ interface GfsHourly {
 const RAD = Math.PI / 180;
 
 /**
- * Half a degree seaward of the region's centre, along the beaches' mean facing (a beach's swell-window
- * centre when it has no facing); null when no beach has either.
+ * Half a degree (or `stepDeg`) seaward of the region's centre, along the beaches' mean facing (a beach's
+ * swell-window centre when it has no facing); null when no beach has either.
  */
 export function regionOffshorePoint(
   beaches: ReadonlyArray<{ lat: number; lon: number; aspect_deg: number | null; swell_window_center_deg?: number | null }>,
+  stepDeg: number = OFFSHORE_STEP_DEG,
 ): { lat: number; lon: number } | null {
   const facings = beaches
     .map((beach) => beach.aspect_deg ?? beach.swell_window_center_deg ?? null)
@@ -52,7 +53,7 @@ export function regionOffshorePoint(
   const facingDeg = Math.atan2(east, north) / RAD;
   const lat = beaches.reduce((sum, beach) => sum + beach.lat, 0) / beaches.length;
   const lon = beaches.reduce((sum, beach) => sum + beach.lon, 0) / beaches.length;
-  return pointAlongBearing(lat, lon, facingDeg, OFFSHORE_STEP_DEG);
+  return pointAlongBearing(lat, lon, facingDeg, stepDeg);
 }
 
 function finite(value: number | null | undefined): number | null {

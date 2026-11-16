@@ -590,7 +590,7 @@ describe("discoverSurfSpots scoring behavior", () => {
   ] as const)("warns with the County %s advisory wording", async (kind, wording) => {
     const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
     jest.mocked(currentWaterQuality).mockImplementationOnce(async () => [
-      { beach_id: "beach-1", status: "advisory", county_advisory_status: "advisory", county_advisory_kind: kind },
+      { beach_id: "beach-1", status: "advisory", latest_sample_date: null, county_advisory_status: "advisory", county_advisory_kind: kind },
     ]);
     (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
       new Map([

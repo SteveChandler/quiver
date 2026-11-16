@@ -88,6 +88,7 @@ const waterQualityRowSchema = z
     beach_id: z.string().uuid().transform((value) => value.toLowerCase()),
     status: z.enum(WATER_QUALITY_STATUSES),
     total_samples_30d: z.number().int().nonnegative(),
+    latest_sample_date: z.string().nullable().optional().transform((value) => value ?? null),
   })
   .passthrough();
 
@@ -684,6 +685,8 @@ export async function resolveWaterQualityHolds(
       .filter((row) => (row.status === "advisory" || row.status === "closure") && row.total_samples_30d > 0
         && isCurrentWaterQualitySample(row.latest_sample_date, now.getTime()))
       .map((row) => [row.beach_id, row]));
+    // Owner holds keep their stored sample status; the projection reads a stale sample as unknown.
+    const storedRowsByBeachId = new Map(rowsByBeachId);
     for (const row of effectiveRows) rowsByBeachId.set(row.beach_id, row);
 
     const evidence: Record<string, WaterQualityEvidence> = {};
@@ -700,18 +703,13 @@ export async function resolveWaterQualityHolds(
       if (ownerHeldBeachIds.has(beachId)) {
         evidence[beachId] = { source: "hold" };
         heldBeachIds.push(beachId);
-        if (row?.status === "advisory" || row?.status === "closure") {
-          waterQualityStatusByBeachId[beachId] = row.status;
+        // An owner hold keeps its stored sample status unless a County notice speaks for the beach.
+        const heldStatus = row?.county_advisory_status === "advisory" || row?.county_advisory_status === "closure"
+          ? row.status : storedRowsByBeachId.get(beachId)?.status;
+        if (heldStatus === "advisory" || heldStatus === "closure") {
+          waterQualityStatusByBeachId[beachId] = heldStatus;
         }
         snapshot.push(`${beachId}:owner-hold`);
-        continue;
-      }
-
-      if (row && (row.status === "advisory" || row.status === "closure")
-        && !countyHeld.has(beachId)
-        && !isCurrentWaterQualitySample(row.latest_sample_date, now.getTime())) {
-        evidence[beachId] = { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
-        snapshot.push(`${beachId}:sample-unconfirmed:${row.latest_sample_date ?? "undated"}`);
         continue;
       }
 

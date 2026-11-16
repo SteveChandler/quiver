@@ -1,3 +1,4 @@
+import { buildDatagetterUrl, fetchDatagetter } from "@/lib/services/noaa-coops/datagetter";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "@/lib/services/noaa-coops/tide-analysis";
 import { seaLevelOffsetFt } from "@/lib/services/noaa-coops/api-client";
@@ -183,21 +184,10 @@ export async function fetchHourlyTidePredictions(
     begin_date,
     end_date,
   });
-  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?${params.toString()}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-  if (!res.ok) {
-    const body = await res.text();
-    console.warn("NOAA tide request failed", {
-      status: res.status,
-      url,
-      body: body.slice(0, 300),
-    });
-    throw new Error(`NOAA tide failed: ${res.status}`);
-  }
-  const json = await res.json();
+  const json = await fetchDatagetter(buildDatagetterUrl(params));
   const offsetM = seaLevelOffsetFt(stationId) * 0.3048;
   const preds: TidePrediction[] = (json?.predictions || [])
-    .map((p: any) => {
+    .map((p): TidePrediction | null => {
       const ts = parseNoaaGmtTimestamp(p?.t);
       const tideHeightM = Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
       if (!ts || !Number.isFinite(tideHeightM)) return null;
@@ -243,22 +233,10 @@ export async function fetchHighLowTidePredictions(
     begin_date,
     end_date,
   });
-  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?${params.toString()}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-  if (!res.ok) {
-    const body = await res.text();
-    console.warn("NOAA high/low tide request failed", {
-      status: res.status,
-      url,
-      body: body.slice(0, 300),
-    });
-    throw new Error(`NOAA high/low tide failed: ${res.status}`);
-  }
-
-  const json = await res.json();
+  const json = await fetchDatagetter(buildDatagetterUrl(params));
   const offsetM = seaLevelOffsetFt(stationId) * 0.3048;
   const predictions: HighLowTidePrediction[] = (json?.predictions || [])
-    .map((p: any) => {
+    .map((p): HighLowTidePrediction | null => {
       const ts = parseNoaaGmtTimestamp(p?.t);
       const tideHeightM = Math.round((Number(p?.v) + offsetM) * 1000) / 1000;
       if (!ts || !Number.isFinite(tideHeightM)) return null;

@@ -17,7 +17,7 @@ export interface BeachStationTide {
   schedule: TideScheduleEntry[];
 }
 
-export interface BeachTidePageData {
+interface BeachTidePageData {
   /** What the page shows: the station's own highs and lows when the table loaded. */
   display: TideMetaData;
   /**
@@ -26,6 +26,8 @@ export interface BeachTidePageData {
    */
   rows: TideMetaData;
   stationTide: BeachStationTide | null;
+  /** The station view the page shows above the fold: the same one `/tide/<city>` renders. */
+  view: CityTideView | null;
 }
 
 /** Same rounding as formatFeet on the station page, so 5.65 ft prints the same everywhere. */
@@ -94,11 +96,33 @@ export function toBeachStationTide(view: CityTideView): BeachStationTide | null 
 export const getBeachTidePageData = cache(
   async (beachId: string, beachTimezone?: string | null): Promise<BeachTidePageData> => {
     const rows = await getTideMetaData(beachId, beachTimezone);
-    if (rows.availability || !rows.stationId) return { display: rows, rows, stationTide: null };
+    if (rows.availability || !rows.stationId) return { display: rows, rows, stationTide: null, view: null };
     const nowMs = Date.now();
     const view = await loadStationTideView(rows.stationId, nowMs);
     const stationTide = view ? toBeachStationTide(view) : null;
-    if (!view || !stationTide) return { display: rows, rows, stationTide: null };
-    return { display: stationTideMeta(rows, view, nowMs), rows, stationTide };
+    if (!view || !stationTide) return { display: rows, rows, stationTide: null, view: null };
+    return { display: stationTideMeta(rows, view, nowMs), rows, stationTide, view };
   }
 );
+
+/**
+ * The station table as `GET /api/beaches/[id]/tide-station` sends it to the app:
+ * every high and low of the series (one day back, nine ahead) and the curve the
+ * station pages draw. Heights are unrounded feet; the app rounds once.
+ */
+export interface BeachStationTidePayload {
+  timeZone: string;
+  station: { name: string; slug: string; sourceStationId: string };
+  extremes: Array<{ at: string; type: TideExtremePoint["type"]; heightFt: number }>;
+  curve: Array<{ at: string; heightFt: number }>;
+}
+
+export function toBeachStationTidePayload(view: CityTideView): BeachStationTidePayload | null {
+  if (!view.station || view.extremes.length === 0 || view.curve.length < 2) return null;
+  return {
+    timeZone: view.timeZone,
+    station: view.station,
+    extremes: view.extremes.map((e) => ({ at: e.ts, type: e.type, heightFt: metresToFeet(e.heightM) })),
+    curve: view.curve.map((p) => ({ at: new Date(p.timestamp).toISOString(), heightFt: p.heightFt })),
+  };
+}

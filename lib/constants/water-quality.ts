@@ -48,14 +48,6 @@ export const CEDEN_CONFIG = {
   queryLimit: 10_000,
 } as const;
 
-/** PacIOOS ERDDAP (Hawaii DOH Clean Water Branch) API configuration */
-export const PACIOOS_CONFIG = {
-  /** ERDDAP tabledap dataset base URL */
-  baseUrl: "https://pae-paha.pacioos.hawaii.edu/erddap/tabledap/cwb_water_quality",
-  matchRadiusM: 5000,
-  requestTimeoutMs: 30_000,
-} as const;
-
 /** Display policy: old samples cannot establish current water conditions. */
 export function isCurrentWaterQualitySample(sampleDate: unknown, now: number = Date.now()): boolean {
   if (typeof sampleDate !== "string") return false;

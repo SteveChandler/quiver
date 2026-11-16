@@ -119,7 +119,7 @@ async function surfCallShapedResolution(): Promise<string[][]> {
   const rank = async (ids: string[]) =>
     (await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0, onWaterQualityResolution: labelFromResolution })).map(({ id }) => id);
   const pool = await rank(POOL);
-  await currentWaterQuality([{ beach_id: COUNTY_COVERED, status: "good" }]);
+  await currentWaterQuality([{ beach_id: COUNTY_COVERED, status: "good", latest_sample_date: null }]);
   const discovery = await rank([SAMPLE_HELD, CLEAN, COUNTY_COVERED]);
   const decision = await rank([CLEAN]);
   return [pool, discovery, decision];

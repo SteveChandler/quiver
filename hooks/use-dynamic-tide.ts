@@ -29,6 +29,10 @@ export interface DynamicTideResult {
   currentDirection: "rising" | "falling" | "slack" | null;
   /** Minutes until tide direction changes (same as minutesUntil) */
   minutesToDirectionChange: number | null;
+  /** The highs and lows these values come from (station table first, else the forecast rows). */
+  schedule?: TideScheduleEntry[] | null;
+  /** The client clock these values were computed at; null before mount. */
+  computedAtMs?: number | null;
 }
 
 export function useDynamicTide(
@@ -61,6 +65,8 @@ export function useDynamicTide(
         usingFallback: true,
         currentDirection: null,
         minutesToDirectionChange: null,
+        schedule: tideSchedule,
+        computedAtMs: computedAt,
       };
     }
 
@@ -121,6 +127,8 @@ export function useDynamicTide(
       usingFallback: false,
       currentDirection,
       minutesToDirectionChange: minutesUntil,
+      schedule: tideSchedule,
+      computedAtMs: computedAt,
     };
   }, [tideSchedule, computedAt]);
 

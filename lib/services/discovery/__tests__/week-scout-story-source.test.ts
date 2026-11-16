@@ -267,7 +267,7 @@ describe("regional story source snapshot", () => {
 
     expect(all.map((event) => event.regionalKey)).toEqual([passed.key, ssw.key, storm.key, sunday.key, nextWeek.key]);
     expect(all.map((event) => event.confidence)).toEqual(["locked", "locked", "locked", "likely", "on_the_radar"]);
-    expect(all[0]).toEqual({ directionDeg: 270, periodS: 18, arrivalAt: passed.arrivalAt, peakAt: passed.peakAt,
+    expect(all[0]).toEqual({ directionDeg: 270, exposureDirectionDeg: 270, periodS: 18, arrivalAt: passed.arrivalAt, peakAt: passed.peakAt,
       fadeAt: passed.fadeAt, timezone: TIMEZONE, confidence: "locked", minimumBeaches: 2, kind: "swell", regionalKey: passed.key });
     expect(all.find((event) => event.kind === "storm")?.minimumBeaches).toBe(3);
     // In the week and at most three: the passed spike and next week's swell stay out.
@@ -327,7 +327,7 @@ describe("regional story source snapshot", () => {
     const input = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now });
     expect(input).toMatchObject({ schemaVersion: 3, region: "San Diego", editionDate: "2026-10-27" });
     expect(input.provenance.representativeBeachIds).toEqual(["a", "b", "c"]);
-    expect(input.provenance.generationInputVersion).toBe("regional-swell-events-8");
+    expect(input.provenance.generationInputVersion).toBe("regional-swell-events-10");
     expect(input.copyFacts.some((fact) => fact.slot === "cover")).toBe(true);
     expect(mockSaveInput).toHaveBeenCalledWith(expect.anything(), input);
   });

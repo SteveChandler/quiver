@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   COUNTY_FEED_SOURCE_IDENTIFIER,
@@ -38,6 +39,21 @@ const noticeSchema = z.object({
 interface SampleQualityRow {
   beach_id: string;
   status: string;
+  /** Required so a caller cannot drop it from its select and have every row read as stale. */
+  latest_sample_date: string | null;
+}
+
+const SAMPLED_STATUSES: ReadonlySet<string> = new Set(["good", "advisory", "closure"]);
+
+/**
+ * CEDEN posts results about 20 days after the sample, so a stored status can
+ * be weeks old. A sampled status that fails the current-sample rule reads as
+ * unknown: not a closure, and never "good".
+ */
+function withCurrentSampleStatus<T extends SampleQualityRow>(row: T, now: Date): T {
+  if (!SAMPLED_STATUSES.has(row.status)) return row;
+  if (isCurrentWaterQualitySample(row.latest_sample_date, now.getTime())) return row;
+  return { ...row, status: "unknown" };
 }
 export interface CountyStatusMetadata {
   county_advisory_status?: "clear" | "advisory" | "closure" | "unavailable";
@@ -163,11 +179,13 @@ interface CurrentWaterQualityOptions {
 
 /** Apply the same read-time policy to every consumer; old rows need no rewrite. */
 export async function currentWaterQuality<T extends SampleQualityRow>(
-  rows: readonly T[],
+  storedRows: readonly T[],
   providedClient?: WaterQualityHoldClient,
   now: Date = new Date(),
   options: CurrentWaterQualityOptions = {},
 ): Promise<Array<T & CountyStatusMetadata>> {
+  // First, so every exit below (no coverage, County unavailable, errors) returns the same sample rule.
+  const rows = storedRows.map((row) => withCurrentSampleStatus(row, now));
   const allowed = options.onlyBeachIds ? new Set(options.onlyBeachIds.map((beachId) => beachId.toLowerCase())) : null;
   const candidateIds = [...new Set(rows.map((row) => row.beach_id.toLowerCase()))]
     .filter((beachId) => !allowed || allowed.has(beachId));

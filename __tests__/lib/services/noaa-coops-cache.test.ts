@@ -2,7 +2,7 @@
  * Test for NOAACOOPSService tide caching functionality
  */
 
-import { NOAACOOPSService } from "@/lib/services/noaa-coops";
+import type { NOAACOOPSService } from "@/lib/services/noaa-coops";
 
 // Mock fetch to avoid real API calls
 global.fetch = jest.fn();
@@ -11,7 +11,9 @@ describe("NOAACOOPSService Tide Cache", () => {
   let service: NOAACOOPSService;
   
   beforeEach(() => {
-    service = new NOAACOOPSService();
+    jest.resetModules();
+    const { NOAACOOPSService: Service } = require("@/lib/services/noaa-coops");
+    service = new Service();
     jest.clearAllMocks();
   });
 
@@ -87,21 +89,29 @@ describe("NOAACOOPSService Tide Cache", () => {
       expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(callsAfterFirst);
     });
 
-    it("should not cache an unavailable tide response", async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: false,
-        status: 503,
-        statusText: "Unavailable",
-        text: () => Promise.resolve("down"),
-      });
+    it("does not cache unavailable tides and retries after the cooldown", async () => {
+      jest.useFakeTimers();
+      try {
+        (global.fetch as jest.Mock).mockResolvedValue({
+          ok: false, status: 403, text: async () => '{"message":"Forbidden"}',
+        });
+        const datagetterCalls = (): number => (global.fetch as jest.Mock).mock.calls
+          .filter(([url]) => String(url).includes("datagetter")).length;
+        expect(await service.fetchCOOPSData("9410230", 10)).toBeNull();
+        const firstCalls = datagetterCalls();
+        expect(firstCalls).toBe(2);
+        expect(await service.fetchCOOPSData("9410230", 10)).toBeNull();
+        expect(datagetterCalls()).toBe(firstCalls);
 
-      const firstResult = await service.fetchCOOPSData("9410230", 10);
-      const callsAfterFirst = (global.fetch as jest.Mock).mock.calls.length;
-      const secondResult = await service.fetchCOOPSData("9410230", 10);
-
-      expect(firstResult).toBeNull();
-      expect(secondResult).toBeNull();
-      expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(callsAfterFirst);
+        jest.advanceTimersByTime(60_000);
+        (global.fetch as jest.Mock).mockResolvedValue({
+          ok: true, json: async () => mockTideResponse,
+        });
+        expect((await service.fetchCOOPSData("9410230", 10))?.tides).toHaveLength(2);
+        expect(datagetterCalls()).toBe(firstCalls + 2);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
