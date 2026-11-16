@@ -459,10 +459,6 @@ cd android && ./gradlew bundleRelease
       "schedule": "0 */3 * * *"
     },
     {
-      "path": "/api/cron/enhanced-forecast-sync-offset",
-      "schedule": "30 1-23/3 * * *"
-    },
-    {
       "path": "/api/cron/forecasts/refresh",
       "schedule": "0 12 * * *"
     },
