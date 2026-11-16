@@ -645,6 +645,11 @@ function clampScore(score: number): number {
   return Math.max(0, Math.min(100, score));
 }
 
+/** @public The live dependencies on a fixed clock, so a replay ranks as of a past instant (scripts/check-call-parity.ts). */
+export function weekScoutDependenciesAt(now: Date): WeekScoutServiceDependencies {
+  return defaultDependencies(now);
+}
+
 function defaultDependencies(now: Date): WeekScoutServiceDependencies {
   const scoringEngine = getDiscoveryScoringEngine();
 

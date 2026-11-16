@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { missingParityEnv, parseParityArgs } from "@/scripts/check-call-parity";
+import { missingParityEnv, parseParityArgs, rankDayAt } from "@/scripts/check-call-parity";
 
 const USER_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -71,4 +71,19 @@ it("imports without fetching, installing guards or running main", () => {
     fetchSpy.mockRestore();
     errorSpy.mockRestore();
   }
+});
+
+describe("rankDayAt", () => {
+  it("passes the replay instant to every ranking call, over any clock the caller gives", async () => {
+    const at = new Date("2026-11-16T14:00:00.000Z");
+    const rankDay = jest.fn(async () => ({ days: [] }) as never);
+    const args = {
+      userId: USER_ID, poolBeachIds: ["a"], driveRadiusMiles: 10, timezone: "America/Los_Angeles",
+      localDate: "2026-11-16", sessionTime: null, anchor: null,
+    };
+    await rankDayAt(rankDay, at)(args);
+    await rankDayAt(rankDay, at)({ ...args, now: new Date("2026-11-16T15:43:00.000Z") });
+    expect(rankDay).toHaveBeenNthCalledWith(1, { ...args, now: at });
+    expect(rankDay).toHaveBeenNthCalledWith(2, { ...args, now: at });
+  });
 });

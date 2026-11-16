@@ -1,4 +1,5 @@
 import type { LocationAnchor } from "@/lib/alerts/location-freshness";
+import type { RankDay } from "@/lib/cron/daily-call-runner";
 import type { DailyCallPayload } from "@/lib/notifications/types/daily-call";
 import type { CanonicalWeekScoutResponse, WeekScoutDayResponse, WeekScoutWindowResponse } from "@/lib/services/discovery/week-scout";
 
@@ -31,6 +32,11 @@ export function parseParityArgs(argv: string[]): ParityArgs {
     }
   }
   return { userId, ...(date ? { date } : {}) };
+}
+
+/** A replay ranks as of the cron's instant; Week Scout otherwise reads the real clock, hours after the send. */
+export function rankDayAt(rankDay: RankDay, at: Date): RankDay {
+  return (args) => rankDay({ ...args, now: at });
 }
 
 export function missingParityEnv(env: Readonly<Record<string, string | undefined>>): string[] {
@@ -158,7 +164,7 @@ async function main(): Promise<void> {
 
     const { loadDailyCallProfiles, runDailyCallCron, rankDayWithWeekScout } = await import("@/lib/cron/daily-call-runner");
     const { loadSwellAlertProfiles, evaluateSwellAlertPool, orderSwellCandidatesForTomorrow, SWELL_ALERT_SEND_HOUR } = await import("@/lib/cron/swell-alert-runner");
-    const { generateWeekScoutForecast } = await import("@/lib/services/discovery/week-scout");
+    const { generateWeekScoutForecast, weekScoutDependenciesAt } = await import("@/lib/services/discovery/week-scout");
     const { selectDayCall } = await import("@/lib/recommendations/day-call");
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
     const { capNearbyPool, loadUserPool } = await import("@/lib/alerts/user-pool");
@@ -290,11 +296,11 @@ async function main(): Promise<void> {
         userLocation: resolved.anchor, ...(sessionTime ? { sessionTime } : {}),
         driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes), requirePerRowFreshness: true,
         ...(isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(profile.id) ? { includeSwells: true } : {}),
-      }));
+      }, weekScoutDependenciesAt(poolAt)));
     };
     const home = await loadHomeAt(at);
     const homePick = showScout(`Home for ${date} (7-day request starts ${today}; pool at ${local(at)})`, home, date, at);
-    const cronScout = await read("Crons -> rankDayWithWeekScout (1 day)", () => rankDayWithWeekScout({
+    const cronScout = await read("Crons -> rankDayWithWeekScout (1 day)", () => rankDayAt(rankDayWithWeekScout, at)({
       userId: profile.id, poolBeachIds: pool.map(({ beach }) => beach.id), timezone,
       localDate: date, sessionTime, anchor: anchorAtCall.anchor,
       driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes),
@@ -319,6 +325,7 @@ async function main(): Promise<void> {
             return { enqueued: true, eventId: "parity-no-op" };
           },
           usesSharedRanking: () => shared,
+          rankDay: rankDayAt(rankDayWithWeekScout, at),
         },
       }));
       const payload = captured[0];
@@ -358,7 +365,7 @@ async function main(): Promise<void> {
       const evaluation = await read("evaluateSwellAlertPool", () => evaluateSwellAlertPool(client, swellProfile, eveningAt));
       for (const shared of [false, true]) {
         const ordered = await read(`orderSwellCandidatesForTomorrow (flag ${shared ? "on" : "off"})`, () => orderSwellCandidatesForTomorrow({
-          profile: swellProfile, evaluation, now: eveningAt, rankDay: rankDayWithWeekScout, usesSharedRanking: () => shared,
+          profile: swellProfile, evaluation, now: eveningAt, rankDay: rankDayAt(rankDayWithWeekScout, eveningAt), usesSharedRanking: () => shared,
         }));
         console.log(`Swell flag ${shared ? "on" : "off"} (pool at ${local(eveningAt)}): ${ordered.length ? "top three" : "no swell event for D+1"}`);
         for (const candidate of ordered.slice(0, 3)) {
