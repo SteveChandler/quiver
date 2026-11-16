@@ -396,7 +396,7 @@ export function formatTideNow(status: string): string {
   return `${capitalize(status.trim())} tide.`;
 }
 
-export type BoardFitKind = 'big' | 'small' | 'good';
+type BoardFitKind = 'big' | 'small' | 'good';
 
 /** Row 20: board-fit notes. Null with no height (no "at Flat"). */
 export function formatBoardFit(kind: BoardFitKind, board: string, heightFt: number): string | null {

@@ -928,7 +928,7 @@ async function buildCustomSpotCandidates(
     .filter((candidate): candidate is CustomSpotDiscoveryCandidate => candidate !== null);
 }
 
-export interface AnchorReferenceTerrain {
+interface AnchorReferenceTerrain {
   swell_access_factors: number[];
   wind_exposure_factors: number[];
 }
@@ -997,7 +997,7 @@ export function anchorForTerrainRatio(beach: Beach, reference: AnchorReferenceTe
   };
 }
 
-export type CustomSpotForecastAdjuster = (row: EnhancedForecastEntity) => EnhancedForecastEntity;
+type CustomSpotForecastAdjuster = (row: EnhancedForecastEntity) => EnhancedForecastEntity;
 
 /**
  * Scales an anchor-beach forecast row to the custom spot. Null when the spot has

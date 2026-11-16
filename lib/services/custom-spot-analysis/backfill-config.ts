@@ -1,4 +1,4 @@
-export interface CustomSpotBackfillOptions {
+interface CustomSpotBackfillOptions {
   dryRun: boolean;
   batchSize: number;
   afterId: string | null;
