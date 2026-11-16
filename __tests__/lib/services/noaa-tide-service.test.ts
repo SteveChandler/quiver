@@ -74,6 +74,49 @@ describe("noaa-tide-service", () => {
     ]);
   });
 
+  it("keeps raw NOAA heights separate from adjusted cache entries", async () => {
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-17 01:00", v: "1.2345", type: "H" }],
+    }));
+    const start = "2026-11-17T00:00:00Z";
+    const end = "2026-11-18T00:00:00Z";
+    const raw = await fetchHighLowTidePredictions("9410230", start, end, { raw: true });
+    const adjusted = await fetchHighLowTidePredictions("9410230", start, end);
+    expect(raw[0].tide_height_m).toBe(1.2345);
+    expect(adjusted[0].tide_height_m).toBe(1.692);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["hourly", "hilo"])("always fetches fresh %s raw predictions", async (kind) => {
+    const fetchPredictions = kind === "hourly" ? fetchHourlyTidePredictions : fetchHighLowTidePredictions;
+    let heightM = 1;
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-20 01:00", v: String(heightM++), type: "H" }],
+    }));
+    const range = ["2026-11-20T00:00:00Z", "2026-11-21T00:00:00Z"] as const;
+    const first = await fetchPredictions(`raw-refresh-${kind}`, ...range, { raw: true });
+    const second = await fetchPredictions(`raw-refresh-${kind}`, ...range, { raw: true });
+    expect(first[0].tide_height_m).toBe(1);
+    expect(second[0].tide_height_m).toBe(2);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["hourly", "hilo"])("does not let raw %s ingestion evict cached page predictions", async (kind) => {
+    const fetchPredictions = kind === "hourly" ? fetchHourlyTidePredictions : fetchHighLowTidePredictions;
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-22 01:00", v: "1.2", type: "H" }],
+    }));
+    const range = ["2026-11-22T00:00:00Z", "2026-11-23T00:00:00Z"] as const;
+    const station = `cached-page-${kind}`;
+    await fetchPredictions(station, ...range);
+    for (let index = 0; index < 100; index++) {
+      await fetchPredictions(`raw-ingest-${kind}-${index}`, ...range, { raw: true });
+    }
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(101);
+    await fetchPredictions(station, ...range);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(101);
+  });
+
   it("caches hourly NOAA predictions by date and filters narrower same-day windows", async () => {
     mockFetchWithTimeout.mockResolvedValue(
       jsonResponse({

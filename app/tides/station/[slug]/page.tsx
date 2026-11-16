@@ -22,9 +22,8 @@ import { tideStationPath } from "@/lib/tide-stations/slug";
 import type { TideStationRow } from "@/lib/tide-stations/types";
 
 // Pages render on first request (no generateStaticParams: ~7k stations and every
-// prod deploy empties the cache). 12 h keeps NOAA calls to two per station per day
-// at most; the series covers 9 days ahead, so a cached copy always holds a full
-// week, and the "now" panel re-reads the visitor's clock on load.
+// prod deploy empties the cache). Stored predictions cover the nine-day series;
+// the "now" panel re-reads the visitor's clock on load.
 export const dynamic = "force-static";
 export const revalidate = 43200;
 
