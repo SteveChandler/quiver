@@ -20,6 +20,7 @@ import { selectDayCall } from "@/lib/recommendations/day-call";
 import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
 import {
   generateWeekScoutForecastForDays,
+  weekScoutDependenciesAt,
   type CanonicalWeekScoutResponse,
   type WeekScoutDayResponse,
   type WeekScoutWindowResponse,
@@ -163,20 +164,27 @@ export type RankDay = (args: {
   localDate: string;
   sessionTime: SessionTime | null;
   anchor: { lat: number; lon: number } | null;
+  /** Omitted in production, where Week Scout reads the real clock. */
+  now?: Date;
 }) => Promise<CanonicalWeekScoutResponse>;
 
 /** @public Shared entry point for the swell runner and parity script (plan Tasks 7–8). */
 export const rankDayWithWeekScout: RankDay = ({
-  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor,
-}) => generateWeekScoutForecastForDays(userId, {
-  candidateBeachIds: poolBeachIds,
-  driveRadiusMiles,
-  localTimezone: timezone,
-  startLocalDate: localDate,
-  dayCount: 1,
-  ...(sessionTime ? { sessionTime } : {}),
-  ...(anchor ? { userLocation: anchor } : {}),
-});
+  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor, now,
+}) => {
+  const request = {
+    candidateBeachIds: poolBeachIds,
+    driveRadiusMiles,
+    localTimezone: timezone,
+    startLocalDate: localDate,
+    dayCount: 1,
+    ...(sessionTime ? { sessionTime } : {}),
+    ...(anchor ? { userLocation: anchor } : {}),
+  };
+  return now
+    ? generateWeekScoutForecastForDays(userId, request, weekScoutDependenciesAt(now))
+    : generateWeekScoutForecastForDays(userId, request);
+};
 
 export type LoadBeachDay = (args: {
   beach: Beach;
