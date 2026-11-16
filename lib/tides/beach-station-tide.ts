@@ -110,7 +110,7 @@ export const getBeachTidePageData = cache(
  * every high and low of the series (one day back, nine ahead) and the curve the
  * station pages draw. Heights are unrounded feet; the app rounds once.
  */
-export interface BeachStationTidePayload {
+interface BeachStationTidePayload {
   timeZone: string;
   station: { name: string; slug: string; sourceStationId: string };
   extremes: Array<{ at: string; type: TideExtremePoint["type"]; heightFt: number }>;

@@ -21,7 +21,7 @@ export interface TideHeightContext {
 }
 
 /** The height as the page prints it: toFixed(1), the same rounding as the tide chart's "Now · X ft". */
-export function shownTideHeightFt(heightFt: number): number {
+function shownTideHeightFt(heightFt: number): number {
   return Number(heightFt.toFixed(1));
 }
 

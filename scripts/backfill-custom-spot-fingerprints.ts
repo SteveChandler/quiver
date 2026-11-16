@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { config } from 'dotenv';
+import { config } from './load-env.mjs';
 
 import {
   assertSafeCustomSpotBackfillTarget,

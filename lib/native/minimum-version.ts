@@ -1,8 +1,8 @@
 import { createPublicReadClient } from "@/lib/supabase/server";
 
-export type NativePlatform = "ios" | "android";
+type NativePlatform = "ios" | "android";
 
-export interface NativeMinimumVersion {
+interface NativeMinimumVersion {
   platform: NativePlatform;
   minimum_version: string | null;
   minimum_bundle_created_at: string | null;
@@ -14,7 +14,7 @@ export interface NativeMinimumVersion {
  */
 export type NativeMinimumReadOutcome = "found" | "missing" | "table-missing" | "error";
 
-export interface NativeMinimumRead {
+interface NativeMinimumRead {
   result: NativeMinimumVersion;
   outcome: NativeMinimumReadOutcome;
 }
@@ -25,7 +25,7 @@ interface NativeMinimumRow {
 }
 
 const TABLE = "native_app_minimums";
-export const MINIMUM_READ_TIMEOUT_MS = 2000;
+const MINIMUM_READ_TIMEOUT_MS = 2000;
 // PGRST205: PostgREST has no such table in its schema cache. 42P01: Postgres undefined_table.
 const TABLE_MISSING_CODES = new Set(["PGRST205", "42P01"]);
 
@@ -97,7 +97,7 @@ export function parseMinimumBundleCreatedAt(field: string, raw: unknown): string
   return new Date(ms).toISOString();
 }
 
-export function parseNativeMinimumRow(
+function parseNativeMinimumRow(
   platform: NativePlatform,
   row: NativeMinimumRow | null,
 ): NativeMinimumVersion {

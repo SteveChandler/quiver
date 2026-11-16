@@ -45,7 +45,7 @@ export const EMAIL_ATTRIBUTION_PARAMS = [
   "message_instance_id",
 ] as const;
 
-export type EmailAttributionParams = Partial<
+type EmailAttributionParams = Partial<
   Record<(typeof EMAIL_ATTRIBUTION_PARAMS)[number], string | null | undefined>
 >;
 
