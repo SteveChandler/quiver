@@ -4,7 +4,7 @@ import { METERS_TO_FEET } from './unit-conversions';
 import type { SwellComponentInput, WaveHeightSourceTag } from './wave-height-transformer';
 
 /** What the transform applies: components and raw height × r, then × k in place of the production factor. */
-export interface EcmwfHybridScale {
+interface EcmwfHybridScale {
   r: number;
   k: number;
 }

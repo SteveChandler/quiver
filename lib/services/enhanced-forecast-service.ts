@@ -116,7 +116,7 @@ function shouldTryExplicitCDIPStationFailover(
  * nothing usable: a failed fetch, or a latest reading older than the live
  * nowcast window. Unknown and blacklisted stations stay off.
  */
-export function shouldReadStoredCDIPReadings(
+function shouldReadStoredCDIPReadings(
   diagnostic: CDIPBuoyDataDiagnostic,
   nowMs: number,
 ): boolean {

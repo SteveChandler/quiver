@@ -11,8 +11,8 @@ import {
 } from '@/types/terrain';
 
 export const CUSTOM_SPOT_FINGERPRINT_MODEL_VERSION = 'custom_spot_terrain_v1';
-export const CUSTOM_SPOT_TERRAIN_METHOD = 'dem_horizon_v1';
-export const DIRECTIONAL_FACTOR_COUNT = 72;
+const CUSTOM_SPOT_TERRAIN_METHOD = 'dem_horizon_v1';
+const DIRECTIONAL_FACTOR_COUNT = 72;
 
 const CUSTOM_SPOT_TERRAIN_PARAMS: TerrainAnalysisParams = {
   ...DEFAULT_TERRAIN_PARAMS,
@@ -133,7 +133,7 @@ export function deriveSwellWindow(factors: number[]): DirectionalWindow {
   };
 }
 
-export function deriveExposureLevel(
+function deriveExposureLevel(
   windExposureFactors: number[]
 ): 'sheltered' | 'mixed' | 'exposed' {
   if (!isValidDirectionalFactors(windExposureFactors)) {

@@ -64,7 +64,7 @@ export interface CityTideData {
 /**
  * A single tide extremum event (high or low) for the 7-day table
  */
-export interface TideExtremaEvent {
+interface TideExtremaEvent {
   time: string;
   height: number;
   type: "high" | "low";
