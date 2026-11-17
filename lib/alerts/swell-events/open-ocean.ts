@@ -80,7 +80,7 @@ export interface OpenOceanMatch extends OpenOceanPart {
 }
 
 /** The near-beach run a region event comes from, as matching reads it. */
-export interface BeachRunShape {
+interface BeachRunShape {
   directionDeg: number;
   periodS: number;
   peakAt: string;

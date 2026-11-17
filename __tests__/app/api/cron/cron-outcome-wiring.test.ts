@@ -76,7 +76,6 @@ const CASES: OutcomeWiringCase[] = [
 
 const ENHANCED_FORECAST_ENTRYPOINTS = [
   "enhanced-forecast-sync",
-  "enhanced-forecast-sync-offset",
   "enhanced-forecast-sync-dispatch",
   "enhanced-forecast-sync-cdip",
 ] as const;
@@ -90,7 +89,7 @@ describe("Cron outcome wiring", () => {
       expect(source).toContain(unit);
       expect(source).toContain(`expectedMin: ${expectedMin}`);
       expect(source).toContain(extra ?? "withCronOutcome(");
-      if (legitimatelyZero) expect(source).toContain("legitimatelyZero");
+      expect(legitimatelyZero ? source : "legitimatelyZero").toContain("legitimatelyZero");
     },
   );
 

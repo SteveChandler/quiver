@@ -1113,6 +1113,11 @@ async function _GET(request: Request): Promise<Response> {
       || marineCoverage.rejectedBeachIds.length > marineCoverage.attemptedCoverage * MARINE_TOLERATED_BEACH_FAILURE_SHARE);
     const marineGapSummary = (): string =>
       Object.entries(marineCoverage.coverageGaps).map(([reason, count]) => `${reason} ${count}`).join(", ");
+    const noaaPredictionsGap = source === "tide" && totals.tides === 0
+      && tideIngest.failedStations.length > 0
+      && tideIngest.failedStations.every(({ stationId, reason }) =>
+        stationId !== MODEL_TIDE_STATION_ID && reason === "no_predictions")
+      && tideIngest.failedStations.reduce((count, station) => count + station.beaches, 0) === selectedTideBeaches.length;
     const result = await withCronOutcome(
       {
         job: `/api/cron/forecasts/refresh?source=${source}`,
@@ -1131,12 +1136,15 @@ async function _GET(request: Request): Promise<Response> {
             return `marine refresh failed: ${reasons.length ? reasons.join(", ") : "beaches left unattempted"}`;
           }
           const lapsing = tideIngest.beachesBelowMinCoverage;
-          if (runTide && lapsing > 0) {
+          if (runTide && lapsing > 0 && !noaaPredictionsGap) {
             return `tide coverage under ${TIDE_MIN_COVERAGE_DAYS} days for ${lapsing} beach${lapsing === 1 ? "" : "es"}`;
           }
           return null;
         },
         legitimatelyZero: (value) => {
+          if (noaaPredictionsGap) {
+            return { reason: "NOAA returned no tide predictions for the targeted beaches" };
+          }
           if ((runMarine && marineCoverage.expectedCoverage === 0) || value.totals.beaches === 0) {
             return { reason: runMarine && marineCoverage.expectedCoverage === 0
               ? "No marine caches require refresh" : "No beaches with coordinates were targeted by this refresh" };

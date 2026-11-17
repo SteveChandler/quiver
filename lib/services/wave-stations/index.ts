@@ -145,7 +145,7 @@ export async function getObservationHistory(
 
 export type NearbyWaveStation = WaveStationRow & { distance_km: number };
 
-export interface NearbyStationsOptions {
+interface NearbyStationsOptions {
   /** Leave this station out, e.g. the station whose page lists its neighbours. */
   excludeStationId?: string;
 }
@@ -189,7 +189,7 @@ export function forecastStationIds(
   return [...ids];
 }
 
-export type BeachLink = "forecast_station" | "cdip_station" | "nearby";
+type BeachLink = "forecast_station" | "cdip_station" | "nearby";
 
 export interface StationBeach {
   id: string;
