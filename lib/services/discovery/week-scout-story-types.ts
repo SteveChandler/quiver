@@ -23,7 +23,9 @@ export type StoryGate =
   | { kind: "change"; fromDate: string; toDate: string; direction: "better" | "worse"; minimumScoreChange: number; sourceSeries: string }
   | { kind: "day_surf"; localDate: string; beachId: string; faceFt: { min: number; max: number } }
   | { kind: "day"; localDate: string; bucket: "morning" | "midday" | "evening"; reason: "light_wind" | "rising_tide" | "clean_window" }
-  | { kind: "quiet"; fromDate: string; toDate: string; completeDates: string[] };
+  | { kind: "quiet"; fromDate: string; toDate: string; completeDates: string[] }
+  /** An early look's card sentence: an early look under the same story key, with the same 16-point direction, period class and peak day. */
+  | { kind: "early_look"; regionalEventKey: string; directionIndex: number; periodClass: "long" | "mid" | "short"; peakLocalDate: string };
 
 export interface StoryCandidate {
   id: string;
@@ -32,6 +34,8 @@ export interface StoryCandidate {
   gate: StoryGate;
   rank?: number;
   facts?: CandidateFacts;
+  /** The text hedges (an early look): a rewrite keeps every hedge word. Offered only to a worker with the `hedge` capability. */
+  hedge?: true;
 }
 
 export interface StoryInput {

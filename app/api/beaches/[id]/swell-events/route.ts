@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildRegionEvents, rateRegionEventsWithRatings } from "@/lib/alerts/swell-events/regional";
 import { loadRegionNarrativeEdition, narrateRegionEvents, prepareRegionNarration, watchRegionEvents, withoutNarrative } from "@/lib/alerts/swell-events/regional-narrative";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
+import { isSwellStoryCardEnabled } from "@/lib/flags/swell-story";
 import { isWeekScoutStoryUserAllowed } from "@/lib/flags/week-scout-story";
 import { handleApiError, withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
@@ -66,9 +67,10 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
     // the story allowlist gets no edition, so the server's own lines serve.
     const narrated = built.events.some((event) => event.source === "forecast")
       && isWeekScoutStoryUserAllowed(user?.id);
-    const [profileSkill, edition] = await Promise.all([
+    const [profileSkill, edition, storyOn] = await Promise.all([
       user ? getProfileExperienceLevel(supabase, user.id) : null,
       narrated ? loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }) : null,
+      isSwellStoryCardEnabled(),
     ]);
     const skill = profileSkill ?? DEFAULT_SKILL;
     const requested = request.nextUrl.searchParams.get("beaches");
@@ -98,6 +100,8 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
         console.warn("[swell-events] watch failed", { region: built.region, error: String(watchError) });
       }
     }
+    // Switch off: no event sentence on any surface; beach lines stay.
+    if (!storyOn) events = events.map((event) => ({ ...event, story: null, storySource: null }));
     const data: RegionSwellEventsResponse = {
       region: built.region,
       buoy: built.buoy,
