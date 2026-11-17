@@ -49,4 +49,32 @@ describe("Wikimedia image proxy", () => {
     expect(response.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it("fetches the 1280px thumb when asked for a Commons original", async () => {
+    mockResolve.mockResolvedValue(["208.80.154.240"]);
+    const original = "https://upload.wikimedia.org/wikipedia/commons/e/e9/Rattlesnakes_respect_sign.jpg";
+    const response = await GET(request(original));
+    expect(response.status).toBe(200);
+    expect(mockResolve).toHaveBeenCalledWith("upload.wikimedia.org");
+    expect(fetch).toHaveBeenCalledWith(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Rattlesnakes_respect_sign.jpg/1280px-Rattlesnakes_respect_sign.jpg",
+      expect.any(Object),
+    );
+  });
+
+  it("sends a User-Agent with contact details, as Wikimedia's policy requires", async () => {
+    await GET(request(imageUrl));
+    const init = (fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>)["User-Agent"]).toMatch(/^QuiverImageProxy\/\d+\.\d+ \(https:\/\/www\.quiversurf\.app\/about\)$/);
+  });
+
+  it("passes an upstream 429 through and logs the host and status", async () => {
+    (fetch as jest.Mock).mockResolvedValue({ ok: false, status: 429, statusText: "Too Many Requests" } as Response);
+    const response = await GET(request(imageUrl));
+    expect(response.status).toBe(429);
+    expect(console.warn).toHaveBeenCalledWith("Image proxy: upstream refused", {
+      host: "thumb.wikimedia.org",
+      status: 429,
+    });
+  });
 });
