@@ -222,7 +222,9 @@ const DAY_PHRASE = phrasePattern(DAY_PHRASES)!;
 const RELATIVE_TIME = claimSet(RELATIVE_TIME_WORDS, "s?");
 const NUMBERS = phrasePattern(NUMBER_WORDS)!;
 const SIZES = phrasePattern(SIZE_ADJECTIVES)!;
-const HEDGES = phrasePattern(HEDGE_WORDS)!;
+// Lowercase and case-sensitive, so the month "May" is no hedge; an early-look sentence never opens with "may".
+const HEDGES = new RegExp(`(?<![\\p{L}\\p{N}])(${[...HEDGE_WORDS].sort((a, b) => b.length - a.length)
+  .map((phrase) => phrase.replace(/\s+/g, "[\\s-]+")).join("|")})(?![\\p{L}\\p{N}])`, "gu");
 const COMPASS_SHORT = tokenPattern(COMPASS_ABBREVIATIONS);
 const WEEKDAY_SHORT = tokenPattern(WEEKDAY_ABBREVIATIONS.flatMap((short) => [short, short.toUpperCase()]));
 const CLOSED = (Object.entries(CLOSED_WORD_SETS) as Array<[ClosedWordClass, ReadonlyArray<readonly string[]>]>)

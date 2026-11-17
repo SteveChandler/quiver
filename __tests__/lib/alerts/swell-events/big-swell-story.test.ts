@@ -49,6 +49,27 @@ describe("bigSwellForecastStory", () => {
     expect(await story()).toEqual({ story: null, storySource: null });
   });
 
+  it("of two swells peaking that day, names the one whose peak is nearest the card's peak", async () => {
+    // A WNW groundswell peaks Tuesday morning; the history line sits on the bigger storm swell that evening.
+    const morning = event("San Diego:WNW:2026-11-17", { kind: "swell", directionDeg: 292, directionLabel: "WNW", periodS: 15,
+      peakAt: "2026-11-17T16:00:00Z", offshoreFt: "5 ft" });
+    const evening = { ...STORM, peakAt: "2026-11-18T02:00:00Z" };
+    jest.mocked(buildRegionEvents).mockResolvedValue(build([morning, evening]));
+    expect(await story("2026-11-17T17:00:00Z")).toEqual({
+      story: "A west-northwest long-period groundswell comes and goes Tuesday.", storySource: "code" });
+    expect(await story("2026-11-18T01:00:00Z")).toEqual({
+      story: "A west short-period storm swell comes and goes Tuesday.", storySource: "code" });
+  });
+
+  it("names the bigger offshore swell when two peaks are equally near", async () => {
+    const small = { ...SMALL, peakAt: "2026-11-17T18:00:00Z", offshoreFt: "2 ft" };
+    const big = { ...STORM, peakAt: "2026-11-17T22:00:00Z", offshoreFt: "6 ft" };
+    jest.mocked(buildRegionEvents).mockResolvedValue(build([small, big]));
+    expect((await story("2026-11-17T20:00:00Z")).story).toBe("A west short-period storm swell comes and goes Tuesday.");
+    jest.mocked(buildRegionEvents).mockResolvedValue(build([{ ...small, offshoreFt: "8 ft" }, big]));
+    expect((await story("2026-11-17T20:00:00Z")).story).toMatch(/^A south-southwest long-period groundswell/);
+  });
+
   it("reads the peak day in the region's time zone", async () => {
     jest.mocked(buildRegionEvents).mockResolvedValue(build([STORM]));
     // 05:00 UTC Wednesday is still Tuesday evening in San Diego.

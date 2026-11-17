@@ -547,11 +547,25 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
       .toEqual({ ok: false, reason: "hedge" });
     expect(check("A west-northwest groundswell may peak around a week from Thursday, and the size and the day can still move.", early))
       .toEqual({ ok: true });
-    expect(check("A west-northwest groundswell MAY peak AROUND a week from Thursday; size and day can-still-move.", early))
+    expect(check("A west-northwest groundswell may peak around a week from Thursday; size and day can-still-move.", early))
       .toEqual({ ok: true });
+    // Hedge words are read lowercase only, so a capitalised "May" or "Around" keeps no hedge.
+    expect(check("A west-northwest groundswell MAY peak AROUND a week from Thursday; size and day can still move.", early))
+      .toEqual({ ok: false, reason: "hedge" });
     // A candidate with no hedge words asks for none.
     expect(check("West storm swell may roll in Thursday night and peaks Friday.")).toEqual({ ok: true });
     expect(HEDGE_WORDS).toEqual(["may", "around", "can still move"]);
+  });
+
+  it("never reads the month May as a hedge word", () => {
+    // A date's digit refuses on its own (check 5), so the month is named without its day here.
+    const sinceMay = fact("A west storm swell peaks Friday, the first one since May.");
+    expect(check("A west storm swell peaks Friday.", sinceMay)).toEqual({ ok: true });
+    expect(check("A west storm swell peaks Friday, the first one since May.", sinceMay)).toEqual({ ok: true });
+    // A dropped lowercase "may" next to the month still refuses.
+    const hedged = fact("A west storm swell may peak Friday, the first one since May.");
+    expect(check("A west storm swell peaks Friday, the first one since May.", hedged)).toEqual({ ok: false, reason: "hedge" });
+    expect(check("A west storm swell may peak Friday.", hedged)).toEqual({ ok: true });
   });
 
   it("exports the phase verbs and the degree words", () => {

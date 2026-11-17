@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { bigSwellForecastStory } from "@/lib/alerts/swell-events/big-swell-story";
@@ -97,8 +98,9 @@ async function bigSwellsHandler(_request: NextRequest, context?: RouteContext): 
         story = await bigSwellForecastStory({ client: createSupabaseServiceRoleClient(), region: beach.region,
           timezone: resolveBeachTimezone(beach.timezone), buoyId: match.buoy.id, peakAt: peak.at, now: new Date() });
       } catch (storyError) {
-        // The sentence is optional: the card keeps its template line.
+        // The sentence is optional: the card keeps its template line. Any failure is still reported.
         console.warn("[big-swells] story failed", { id, error: String(storyError) });
+        Sentry.captureException(storyError, { level: "warning", tags: { component: "big-swells-story" }, extra: { beach_id: id } });
       }
     }
     const data = match
