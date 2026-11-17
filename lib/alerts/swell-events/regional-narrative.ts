@@ -6,9 +6,11 @@ import { beachRowsByLocalDate, breakerCharacter, type FaceRange } from "@/lib/se
 import { localDate } from "@/lib/services/discovery/local-date";
 import {
   beachLine,
+  earlyLookStoryText,
   eventStoryText,
   storyEventKey,
   storyEventsFromRegion,
+  type KeyedEarlyLook,
   type RegionalSwellEvent,
 } from "@/lib/services/discovery/week-scout-story-candidates";
 import { checkWrittenSentence } from "@/lib/services/discovery/week-scout-story-claims";
@@ -114,18 +116,19 @@ function writtenLines({ input, artifact }: NarrativeEdition, region: string, con
     const currentFacts = gate.kind === "swell" ? context.eventFacts(gate.regionalEventKey)
       : gate.kind === "beach" ? context.beachDayFacts(gate.regionalEventKey, gate.beachId, gate.localDate) : null;
     const current = { ...fact, facts: currentFacts ?? undefined };
-    if (!checkWrittenSentence(fact.text, current, beachNames, [region]).ok
-      || !checkWrittenSentence(entry.text, current, beachNames, [region]).ok) return null;
+    if (!checkWrittenSentence(fact.text, current, beachNames, [region], { slot }).ok
+      || !checkWrittenSentence(entry.text, current, beachNames, [region], { slot }).ok) return null;
     return regionGateHolds(fact.gate, context) === true ? entry.text : null;
   };
 }
 
-/** The rated event with no story and no beach lines: an early look, or any event when the narrative can't be built. */
+/** The rated event with no story and no beach lines: any event when the narrative can't be built. */
 export function withoutNarrative(event: RegionSwellEvent): RegionSwellEvent {
   const silent = (rating: RegionBeachRating): RegionBeachRating => ({ ...rating, why: null });
   return {
     ...event,
     story: null,
+    storySource: null,
     breaker: event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS),
     here: event.here ? silent(event.here) : null,
     working: event.working.map(silent),
@@ -141,7 +144,12 @@ interface EventNarration {
 /** Share memoized facts and one edition warning across card and watch slots. */
 function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, now: Date): {
   all: RegionalSwellEvent[];
+  /** The build's early looks, each under its story key when it has one. */
+  earlyLooks: KeyedEarlyLook[];
+  today: string;
   forEvent: (event: RegionalSwellEvent) => EventNarration;
+  /** The edition's written sentence for any slot, checked against the whole build's gate context. */
+  written: WrittenLine;
 } {
   const today = localDate(now, build.timezone);
   const { all } = storyEventsFromRegion(build, today);
@@ -174,7 +182,7 @@ function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, 
     }
   };
 
-  return { all, forEvent: (event) => {
+  return { all, earlyLooks: context.earlyLooks ?? [], today, written: writtenFor, forEvent: (event) => {
     const cached = narrationByRegionalKey.get(event.regionalKey);
     if (cached) return cached;
     const first = firstUnderKey.get(storyEventKey(event)) === event.regionalKey;
@@ -188,6 +196,36 @@ function prepareNarration(build: RegionBuild, edition: NarrativeEdition | null, 
 }
 
 type PreparedRegionNarration = ReturnType<typeof prepareNarration>;
+
+export type StorySource = "written" | "code";
+export interface RegionEventStory {
+  story: string | null;
+  storySource: StorySource | null;
+}
+
+const NO_STORY: RegionEventStory = { story: null, storySource: null };
+
+/**
+ * The card's sentence for one region build event, by its build key: the edition's written sentence when it
+ * passes its checks and its gate holds, else the server's own (`eventStoryText`, or `earlyLookStoryText` for an
+ * early look). Every surface that shows a swell's sentence reads it here, so they agree.
+ */
+export function regionEventStory(narration: PreparedRegionNarration, eventKey: string): RegionEventStory {
+  const story = narration.all.find((event) => event.regionalKey === eventKey);
+  if (story) {
+    const own = narration.forEvent(story);
+    const key = storyEventKey(story);
+    const written = own.written(`event:${key}:story`, (gate) => gate.kind === "swell");
+    if (written) return { story: written, storySource: "written" };
+    return { story: eventStoryText(story, narration.today, own.context.eventFacts(key)), storySource: "code" };
+  }
+  const look = narration.earlyLooks.find((item) => item.regionalKey === eventKey);
+  if (!look) return NO_STORY;
+  const written = look.storyKey === null ? null
+    : narration.written(`event:${look.storyKey}:story`, (gate) => gate.kind === "early_look");
+  if (written) return { story: written, storySource: "written" };
+  return { story: earlyLookStoryText(look, narration.today), storySource: "code" };
+}
 
 /** Share one gate context and one edition-warning scope across card lines and watch days. */
 export function prepareRegionNarration(input: {
@@ -310,14 +348,15 @@ export function narrateRegionEvents(input: {
   narration?: PreparedRegionNarration;
 }): RegionSwellEvent[] {
   const { build, rated, edition, now, beachIds, skill = "intermediate", ratingsByEvent } = input;
-  const today = localDate(now, build.timezone);
   const narration = input.narration ?? prepareNarration(build, edition, now);
   const byBuildKey = new Map(narration.all.map((event) => [event.regionalKey, event]));
   const output = rated.map((event) => {
     const internal = build.events.find((item) => item.key === event.key);
     const story = event.source === "forecast" ? byBuildKey.get(event.key) : undefined;
     const breaker = event.source === "wam" ? null : breakerCharacter(event.kind, event.periodS);
+    // An early look has no beach lines, only its own hedged sentence.
     if (!story) return { ...withoutNarrative(event), breaker,
+      ...(event.source === "wam" ? regionEventStory(narration, event.key) : NO_STORY),
       ...(beachIds === undefined ? {} : { watch: watchStanding(build, internal ?? null, beachIds) }),
     };
     const own = narration.forEvent(story);
@@ -334,7 +373,7 @@ export function narrateRegionEvents(input: {
     return {
       ...event,
       breaker,
-      story: own.written(`event:${key}:story`) || eventStoryText(story, today, own.context.eventFacts(key)),
+      ...regionEventStory(narration, event.key),
       here: event.here ? narrate(event.here) : null,
       working: event.working.map(narrate),
       notWorking: event.notWorking.map(narrate),

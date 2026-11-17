@@ -8,6 +8,7 @@ import {
   BODY_SIZES, BREAKER_WORDS, FOOT_UNITS, OVERHEAD_SIZES, SIZE_BUCKETS, SMALL_SIZES, STANDOUT_WORDS, WIND_TIMING,
   CLOSED_WORD_SETS, COMPASS_ABBREVIATIONS, DAY_PHRASES, DEGREE_WORDS, LIST_JOINERS, NEXT_WEEKDAYS, NUMBER_WORDS, PHASE_VERBS,
   RELATIVE_TIME_WORDS, SIZE_ADJECTIVES, TIME_QUALIFIERS, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, WEEKDAY_ABBREVIATIONS, WEEK_FROM_DAYS, checkWrittenSentence,
+  BRACKET_CHARS, HEDGE_WORDS,
 } from "../week-scout-story-claims";
 import { sizeWordsFor, type WindHour, type CandidateFacts } from "../week-scout-story-facts";
 import type { StoryCandidate } from "../week-scout-story-types";
@@ -508,6 +509,65 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
       .toEqual({ ok: false, reason: "beach" });
   });
 
+  it("refuses a bracket left after beach and region names are blanked", () => {
+    const line = fact("Faces the west storm swell head on: head-high and soft, but it's breezy in its window.");
+    expect(check("Faces the west storm swell head on: head-high and soft, but it's breezy (also bumpy) in its window.", line))
+      .toEqual({ ok: false, reason: "bracket" });
+    expect(check("West storm swell peaks Friday (peaks).")).toEqual({ ok: false, reason: "bracket" });
+    for (const char of BRACKET_CHARS) {
+      expect(check(`West storm swell peaks Friday ${char}.`)).toEqual({ ok: false, reason: "bracket" });
+    }
+    const pier = fact("Cayucos Pier (south side) faces the west storm swell head on.");
+    expect(checkWrittenSentence("Cayucos Pier (south side) takes the west storm swell head on.", pier, ["Cayucos Pier (south side)"]))
+      .toEqual({ ok: true });
+    // A short form of the name is not the name, so its bracket refuses.
+    expect(checkWrittenSentence("Cayucos (south side) takes the west storm swell head on.", pier, ["Cayucos Pier (south side)"]))
+      .toEqual({ ok: false, reason: "bracket" });
+  });
+
+  it("refuses any digit in a card story slot, a foot range included, before the size check", () => {
+    const sized: StoryCandidate = { ...storm, facts: { faceFt: { min: 3, max: 5 }, sizes: ["chest"], breaker: null } };
+    const story = { slot: "event:6-2-2026-10-30-s:story" };
+    expect(checkWrittenSentence("West storm swell peaks Friday, 3-5 ft.", sized, BEACHES, [], story))
+      .toEqual({ ok: false, reason: "digit" });
+    expect(checkWrittenSentence("West storm swell peaks Friday, chest-high.", sized, BEACHES, [], story)).toEqual({ ok: true });
+    // A beach line and a slot-less call keep the foot range rules.
+    expect(checkWrittenSentence("West storm swell peaks Friday, 3-5 ft.", sized, BEACHES, [], { slot: "event:6-2-2026-10-30-s:beach:b1" }))
+      .toEqual({ ok: true });
+    expect(checkWrittenSentence("West storm swell peaks Friday, 3-5 ft.", sized, BEACHES)).toEqual({ ok: true });
+    // A digit in a blanked beach name is no claim.
+    const named = fact("A west short-period storm swell peaks Friday at Pier 7.");
+    expect(checkWrittenSentence("The west storm swell peaks Friday at Pier 7.", named, ["Pier 7"], [], story)).toEqual({ ok: true });
+  });
+
+  it("refuses a sentence that drops a hedge word its candidate has", () => {
+    const early = fact("A west-northwest long-period groundswell may peak around a week from Thursday; the size and the day can still move.");
+    expect(check("A west-northwest long-period groundswell peaks a week from Thursday.", early)).toEqual({ ok: false, reason: "hedge" });
+    expect(check("A west-northwest groundswell may peak a week from Thursday; the size and the day can still move.", early))
+      .toEqual({ ok: false, reason: "hedge" });
+    expect(check("A west-northwest groundswell may peak around a week from Thursday, and the size and the day can still move.", early))
+      .toEqual({ ok: true });
+    expect(check("A west-northwest groundswell may peak around a week from Thursday; size and day can-still-move.", early))
+      .toEqual({ ok: true });
+    // Hedge words are read lowercase only, so a capitalised "May" or "Around" keeps no hedge.
+    expect(check("A west-northwest groundswell MAY peak AROUND a week from Thursday; size and day can still move.", early))
+      .toEqual({ ok: false, reason: "hedge" });
+    // A candidate with no hedge words asks for none.
+    expect(check("West storm swell may roll in Thursday night and peaks Friday.")).toEqual({ ok: true });
+    expect(HEDGE_WORDS).toEqual(["may", "around", "can still move"]);
+  });
+
+  it("never reads the month May as a hedge word", () => {
+    // A date's digit refuses on its own (check 5), so the month is named without its day here.
+    const sinceMay = fact("A west storm swell peaks Friday, the first one since May.");
+    expect(check("A west storm swell peaks Friday.", sinceMay)).toEqual({ ok: true });
+    expect(check("A west storm swell peaks Friday, the first one since May.", sinceMay)).toEqual({ ok: true });
+    // A dropped lowercase "may" next to the month still refuses.
+    const hedged = fact("A west storm swell may peak Friday, the first one since May.");
+    expect(check("A west storm swell peaks Friday, the first one since May.", hedged)).toEqual({ ok: false, reason: "hedge" });
+    expect(check("A west storm swell may peak Friday.", hedged)).toEqual({ ok: true });
+  });
+
   it("exports the phase verbs and the degree words", () => {
     expect(Object.keys(PHASE_VERBS)).toEqual(["arrives", "peaks", "fades", "comes and goes", "builds", "eases"]);
     expect(DEGREE_WORDS).toEqual([["partly", "partially"], ["dead on"], ["at an angle", "angled"], ["head on"], ["straight on"]]);
@@ -521,8 +581,10 @@ describe("checkWrittenSentence free prose and binding rules (R19)", () => {
       COMPASS, WEEKDAY, CLOSED_WORD_SETS, DEGREE_WORDS, PHASE_VERBS, TIME_QUALIFIERS, DAY_PHRASES, WEEK_FROM_DAYS, NEXT_WEEKDAYS,
       LIST_JOINERS, RELATIVE_TIME_WORDS, NUMBER_WORDS, SIZE_ADJECTIVES, SIZE_BUCKETS, BODY_SIZES, OVERHEAD_SIZES, SMALL_SIZES,
       STANDOUT_WORDS, FOOT_UNITS, WIND_TIMING, BREAKER_WORDS, VERDICT_WORDS, WIND_STRENGTH_IMPLIES, COMPASS_ABBREVIATIONS,
-      WEEKDAY_ABBREVIATIONS,
+      WEEKDAY_ABBREVIATIONS, BRACKET_CHARS, HEDGE_WORDS,
     });
+    // The worker compares the block byte for byte, key order included.
+    expect(Object.keys(JSON.parse(block![1])).slice(-2)).toEqual(["BRACKET_CHARS", "HEDGE_WORDS"]);
     // Every past phase form is a time qualifier.
     expect(Object.values(PHASE_VERBS).flat().filter((form) => /ed\b|built|went/.test(form))
       .filter((form) => !(TIME_QUALIFIERS as readonly string[]).includes(form))).toEqual([]);

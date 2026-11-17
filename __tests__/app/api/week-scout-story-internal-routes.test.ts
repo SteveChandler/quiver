@@ -63,6 +63,22 @@ describe("Week Scout story worker routes", () => {
     expect(mockBuildInput).toHaveBeenLastCalledWith(expect.objectContaining({ region: "San Diego" }));
   });
 
+  it("asks for early-look candidates only when the worker sends capabilities=hedge", async () => {
+    mockBuildInput.mockResolvedValue({ schemaVersion: 3, region: "coast" });
+    const argsFor = async (query: string) => {
+      mockBuildInput.mockClear();
+      expect((await input(req(`input?region=coast${query}`))).status).toBe(200);
+      return mockBuildInput.mock.calls[0][0] as Record<string, unknown>;
+    };
+    // The installed worker sends none: the call is today's, with no capabilities key at all.
+    for (const query of ["", "&capabilities=", "&capabilities=glance", "&capabilities=hedges,xhedge"]) {
+      expect(Object.keys(await argsFor(query)).sort()).toEqual(["client", "now", "region"]);
+    }
+    for (const query of ["&capabilities=hedge", "&capabilities=glance,hedge", "&capabilities=%20hedge%20,other"]) {
+      expect(await argsFor(query)).toMatchObject({ region: "coast", capabilities: { hedge: true } });
+    }
+  });
+
   it("publishes an issued candidate selection and returns 200 on idempotent retry", async () => {
     const issued: StoryInput = {
       schemaVersion: 3, region: "coast", editionDate: "2026-10-27", inputHash: "issued-hash",

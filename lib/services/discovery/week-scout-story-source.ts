@@ -10,7 +10,8 @@ import { nativeScoreInputsFromForecast, scoreNativeConditionInputs } from "@/lib
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { briefingInputHash, canonicalJson, sha256Hex } from "./swell-briefing-hash";
 import { addDays, localDate, zonedWallClockToUtc } from "./local-date";
-import { buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion, type RegionalDaySignal } from "./week-scout-story-candidates";
+import { buildEarlyLookCandidates, buildEventCandidates, buildStoryCandidates, MAX_FACTS, storyEventKey, storyEventsFromRegion,
+  type RegionalDaySignal } from "./week-scout-story-candidates";
 import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, sizeWordsFor, windHoursFor } from "./week-scout-story-facts";
 import { median } from "@/lib/utils/median";
 import { glanceFromBuild } from "./week-scout-glance";
@@ -49,7 +50,13 @@ function meanDirection(values: number[]): number | null {
 // Lives with the candidates so the region gate can read it without importing this module back.
 export { storyEventsFromRegion };
 
-export async function buildStoryInput(args: { client: Client; region: string; now: Date; persist?: boolean }): Promise<StoryInput> {
+/** What the requesting worker can read beyond today's input. `hedge`: early-look candidates that carry `hedge: true`. */
+interface StoryInputCapabilities {
+  hedge?: boolean;
+}
+
+export async function buildStoryInput(args: { client: Client; region: string; now: Date; persist?: boolean;
+  capabilities?: StoryInputCapabilities }): Promise<StoryInput> {
   const { client, region, now } = args;
   const regions = await activeStoryRegions(client);
   const active = regions.find((item) => item.region === region);
@@ -223,7 +230,10 @@ export async function buildStoryInput(args: { client: Client; region: string; no
   if (storyFacts.length === 0) throw new StoryInputError("story_no_candidates", 409);
   // The card's lines ride after the story's own: every forecast event the card shows, not only the week's.
   // Past the cap the latest events lose their lines; the card writes those from the build itself.
-  const copyFacts = [...storyFacts, ...buildEventCandidates(build, allEvents, buildRegionGateContext(build, editionDate), now)]
+  // Early looks ride last, and only for a worker that reads `hedge`: the installed one refuses any unknown candidate key.
+  const earlyLooks = args.capabilities?.hedge === true
+    ? buildEarlyLookCandidates(build, allEvents.map(storyEventKey), now) : [];
+  const copyFacts = [...storyFacts, ...buildEventCandidates(build, allEvents, buildRegionGateContext(build, editionDate), now), ...earlyLooks]
     .slice(0, MAX_FACTS);
   // A glance failure leaves the offer out, never the story's input.
   let glance: StoryInput["glance"];
@@ -234,8 +244,10 @@ export async function buildStoryInput(args: { client: Client; region: string; no
     console.warn("[week-scout-story] glance offer failed", { region, error: String(error) });
   }
   // The offer is hashed, so an input cached before it existed is rebuilt to carry it.
+  // An early look's text and gate are not in `events`, so they are hashed with it; a plain input hashes as before.
   const sourceHash = sha256Hex(canonicalJson({ sampleVersion: STORY_SAMPLE_VERSION, beachIds, rows, events: allEvents,
-    candidateFacts: copyFacts.map(({ id, facts }) => ({ id, facts })), ...(glance ? { glance } : {}) }));
+    candidateFacts: copyFacts.map(({ id, facts }) => ({ id, facts })), ...(glance ? { glance } : {}),
+    ...(earlyLooks.length > 0 ? { earlyLooks: earlyLooks.map(({ id, text, gate }) => ({ id, text, gate })) } : {}) }));
   recordStage("story-compute", performance.now() - computeStartedAt);
   const existing = await loadLatestStoryInput(client, region, editionDate);
   if (existing?.provenance?.sourceHashes?.[0] === sourceHash) return existing;
