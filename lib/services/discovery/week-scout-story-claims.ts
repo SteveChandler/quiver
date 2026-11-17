@@ -133,10 +133,17 @@ export const VERDICT_WORDS = ["YES", "MAYBE", "NO", "EPIC", "GOOD", "FAIR", "RID
 export const COMPASS_ABBREVIATIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 /** Each a prefix of its WEEKDAY; read only Capitalised or ALL-CAPS, so "the sun" and "we sat" stay prose. */
 export const WEEKDAY_ABBREVIATIONS = ["Sun", "Mon", "Tue", "Tues", "Wed", "Thu", "Thur", "Thurs", "Fri", "Sat"];
+/**
+ * No written sentence carries one once beach and region names are blanked: the worker copied prompt hints such as
+ * "breezy (also bumpy)" and "Saturday (peaks)" into its prose. A name such as "Cayucos Pier (south side)" still passes.
+ */
+export const BRACKET_CHARS = ["(", ")", "[", "]", "{", "}"];
+/** Words that admit a guess: a sentence keeps each one its candidate has, so an early look never reads as sure. */
+export const HEDGE_WORDS = ["may", "around", "can still move"];
 
 type WrittenSentenceRefusal =
   | "empty" | "too_long" | "digit" | "verdict_word" | "the_call" | "number" | "size" | "weekday" | "weekday_order"
-  | "direction" | "beach" | "timing" | "wind_timing" | "breaker" | ClosedWordClass;
+  | "direction" | "beach" | "timing" | "wind_timing" | "breaker" | "bracket" | "hedge" | ClosedWordClass;
 type WrittenSentenceCheck = { ok: true } | { ok: false; reason: WrittenSentenceRefusal };
 
 /** The candidates' own limit (add() in week-scout-story-candidates). */
@@ -146,6 +153,10 @@ const VERDICT_WORD = new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...VERDICT_WORDS].sort
   .map((word) => word.replace(/\s+/g, "\\s+")).join("|")})(?![\\p{L}\\p{N}])`, "u");
 const THE_CALL = /\bthe\s+call\b/i;
 const NUMERAL = /\p{N}/u;
+const BRACKET = new RegExp(`[${BRACKET_CHARS.map((char) => `\\${char}`).join("")}]`, "u");
+const ASCII_DIGIT = /[0-9]/;
+/** A card story slot (`event:<key>:story`): its sentence states no number, so the card states each one once. */
+const CARD_STORY_SLOT = /^event:[^:]+:story$/;
 /** Punctuation that ends a clause: a phase verb never binds a day across one. */
 const CLAUSE_BREAK = /[,;:.!?()…\u2013\u2014]|\s-\s/gu;
 
@@ -211,6 +222,7 @@ const DAY_PHRASE = phrasePattern(DAY_PHRASES)!;
 const RELATIVE_TIME = claimSet(RELATIVE_TIME_WORDS, "s?");
 const NUMBERS = phrasePattern(NUMBER_WORDS)!;
 const SIZES = phrasePattern(SIZE_ADJECTIVES)!;
+const HEDGES = phrasePattern(HEDGE_WORDS)!;
 const COMPASS_SHORT = tokenPattern(COMPASS_ABBREVIATIONS);
 const WEEKDAY_SHORT = tokenPattern(WEEKDAY_ABBREVIATIONS.flatMap((short) => [short, short.toUpperCase()]));
 const CLOSED = (Object.entries(CLOSED_WORD_SETS) as Array<[ClosedWordClass, ReadonlyArray<readonly string[]>]>)
@@ -519,10 +531,12 @@ function inOrder(sentence: readonly string[], fact: readonly string[]): boolean 
  * its region beaches in its order; exactly its time qualifiers and degree words; and relative-time and
  * closed-set words only where the candidate uses them, wind words in its order. Any other word is free prose. Uppercase compass
  * abbreviations and Capitalised or ALL-CAPS weekday abbreviations count as the full word. `regionNames`
- * are the names a fact may carry for its region (the cover's "reaches North Shore").
+ * are the names a fact may carry for its region (the cover's "reaches North Shore"). After names are blanked, a bracket
+ * refuses, and so does any ASCII digit when `options.slot` is a card story slot (`event:<key>:story`). Last, the
+ * sentence must keep each hedge word its candidate has.
  */
 export function checkWrittenSentence(text: string, fact: Pick<StoryCandidate, "text" | "facts">, beachNames: readonly string[],
-  regionNames: readonly string[] = []): WrittenSentenceCheck {
+  regionNames: readonly string[] = [], options: { slot?: string } = {}): WrittenSentenceCheck {
   const refuse = (reason: WrittenSentenceRefusal): WrittenSentenceCheck => ({ ok: false, reason });
   if (typeof text !== "string" || text.trim().length === 0) return refuse("empty");
   if (text.length > MAX_LENGTH) return refuse("too_long");
@@ -531,6 +545,9 @@ export function checkWrittenSentence(text: string, fact: Pick<StoryCandidate, "t
   const beaches = phrasePattern(beachNames);
   const regions = phrasePattern(regionNames);
   let named = blank(blank(text, beaches), regions);
+  if (BRACKET.test(named)) return refuse("bracket");
+  if (options.slot !== undefined && CARD_STORY_SLOT.test(options.slot) && ASCII_DIGIT.test(named)) return refuse("digit");
+  const hedges = found(named, HEDGES);
   if ([...named.matchAll(FOOT_RANGE)].some((match) => match[1].length > 1 && match[1].startsWith("0")
     || (match[2] !== undefined && match[2].length > 1 && match[2].startsWith("0")))) return refuse("digit");
   if (!footRangesHold(named, fact.facts)) return refuse("size");
@@ -559,5 +576,6 @@ export function checkWrittenSentence(text: string, fact: Pick<StoryCandidate, "t
   // Wind words keep the candidate's order, as beaches do: "starts offshore, then turns onshore" never reads the other way.
   if (!inOrder([...sentence.closed.wind], [...source.closed.wind])) return refuse("wind");
   if (!same(sentence.degree, source.degree)) return refuse("exposure");
+  if (!within(found(blank(blank(fact.text, beaches), regions), HEDGES), hedges)) return refuse("hedge");
   return { ok: true };
 }
