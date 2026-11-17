@@ -395,6 +395,11 @@ function sizeWordsHold(text: string, facts: CandidateFacts | undefined): boolean
   return found(text, SIZES).size === 0 && found(blankSizes(text), BARE_BODY_SIZES).size === 0;
 }
 
+/** The text makes a size claim: a foot range, a body or overhead size, a small or hype word, or the standouts. */
+export function namesSize(text: string): boolean {
+  return [FOOT_RANGE, BODY_SIZE, BARE_BODY_SIZES, SMALL, SIZES, BIGGER_STANDOUT].some((pattern) => located(text, pattern).length > 0);
+}
+
 function breakerWordsHold(text: string, facts: CandidateFacts | undefined): boolean {
   const breaker = facts?.breaker;
   const passes: Record<string, boolean> = {
