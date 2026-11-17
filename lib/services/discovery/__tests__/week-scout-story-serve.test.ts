@@ -366,6 +366,25 @@ describe("deterministic fallback and live gates", () => {
     ] });
   });
 
+  it("still serves a server line that names a beach with a bracket in its name", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    pick.forecast.waveHeight = "3-4 ft";
+    const date = response.days[0].localDate;
+    const regional = regionOf([]);
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null });
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Cayucos Pier (south side)" };
+    input.copyFacts = [{ id: "stale", slot: `day:${date}`, rank: 50,
+      text: "On Wednesday, Other Beach runs chest-high.", facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null },
+      gate: { kind: "day_surf", localDate: date, beachId: "other-beach", faceFt: { min: 3, max: 4 } } }];
+
+    expect(bindFallbackStory(region, input, response, regional)).toMatchObject({ availability: "ready", chapters: [
+      { slot: `day:${date}`, text: "On Wednesday, Cayucos Pier (south side) runs chest-high." },
+    ] });
+  });
+
   it("drops a later event's weekday even when its region gate holds", () => {
     const regional = regionOf([west, regionEvent(270, 15, "2026-07-17T18:00:00Z", "2026-07-18T18:00:00Z", null)]);
     const inputWithLater = input();

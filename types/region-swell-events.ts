@@ -51,8 +51,13 @@ export interface RegionSwellEvent {
   /** "7 ft", the rounded offshore height. */
   offshoreFt: string | null;
   history: string | null;
-  /** The event in one sentence with digits only in foot ranges and wind clock hours: direction, kind, period and days. Null for an early look. */
+  /**
+   * The event in one sentence with no digit: direction, kind, period and days, with size words when known. An early
+   * look's sentence hedges ("may peak around …"). Null when the `swell_story_card` switch is off or there is no sentence.
+   */
   story?: string | null;
+  /** Where `story` came from: "written" (the PC worker's sentence, pilot accounts only) or "code" (the server's); null with no story. */
+  storySource?: 'written' | 'code' | null;
   breaker?: 'pitching' | 'crumbly' | null;
   /** Present only when the request names beaches: each named region beach's standing for this event. */
   watch?: RegionWatchBeach[];

@@ -332,6 +332,87 @@ export function eventStory(event: RegionalSwellEvent, today: string, facts: Cand
   return { text: withRegionalSize(text, facts), gate: namesFade ? gate : { ...gate, fadeLocalDate: null } };
 }
 
+/** An early look as its sentence reads it: a peak day, and a direction and period when the model gives them. */
+type EarlyLookSwell = {
+  directionDeg: number | null;
+  periodS: number | null;
+  peakAt: string;
+  timezone: string;
+  kind: RegionalSwellEvent["kind"];
+};
+
+/** An early look's day: the card's day words to thirteen days out, then "the week after next", never "later on". */
+function earlyLookDay(date: string, today: string): string {
+  return localDayDiff(today, date) > 13 ? "the week after next" : cardDay(date, today);
+}
+
+/**
+ * The card's sentence for an early look: its name and one day, hedged, with no size word. "A west-northwest
+ * long-period groundswell may peak around a week from Thursday; the size and the day can still move." With no
+ * direction or no period: "A swell may peak around …".
+ */
+export function earlyLookStoryText(event: EarlyLookSwell, today: string): string {
+  const name = event.directionDeg !== null && event.periodS !== null
+    ? withArticle(namedSwell(directionWords(event.directionDeg), event.periodS, event.kind)) : "a swell";
+  const sentence = `${name} may peak around ${earlyLookDay(eventLocalDate(event.peakAt, event.timezone), today)}; the size and the day can still move.`;
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
+/** An early look under its story key: null when it has no direction or period, or another event already holds the key. */
+export type KeyedEarlyLook = EarlyLookSwell & {
+  regionalKey: string;
+  storyKey: string | null;
+};
+
+/**
+ * The build's early looks (`source === "wam"`), chronological, each with the story key a forecast event would get
+ * (direction sector, period band, local peak date, "-s" for a storm). A forecast event keeps its key, and so does
+ * the first early look under it; a later one gets no key, so no candidate.
+ */
+export function earlyLooksFromRegion(build: RegionBuild, forecastKeys: Iterable<string>): KeyedEarlyLook[] {
+  const taken = new Set(forecastKeys);
+  return build.events.filter((event) => event.source === "wam")
+    .sort((a, b) => Date.parse(a.peakAt) - Date.parse(b.peakAt))
+    .map((event) => {
+      const look: EarlyLookSwell = { directionDeg: event.directionDeg, periodS: event.periodS, peakAt: event.peakAt,
+        timezone: build.timezone, kind: event.kind };
+      let storyKey: string | null = null;
+      if (look.directionDeg !== null && look.periodS !== null) {
+        const key = `${directionSector(look.directionDeg)}-${periodBand(look.periodS)}-${eventLocalDate(look.peakAt, look.timezone)}`;
+        const candidate = look.kind === "storm" ? `${key}-s` : key;
+        if (!taken.has(candidate)) {
+          taken.add(candidate);
+          storyKey = candidate;
+        }
+      }
+      return { ...look, regionalKey: event.key, storyKey };
+    });
+}
+
+type EarlyLookGate = Extract<StoryGate, { kind: "early_look" }>;
+
+/** The gate an early look's sentence rests on: the same key, 16-point direction, period class and peak day. */
+function earlyLookGate(look: KeyedEarlyLook & { directionDeg: number; periodS: number; storyKey: string }): EarlyLookGate {
+  return { kind: "early_look", regionalEventKey: look.storyKey, directionIndex: directionIndex(look.directionDeg),
+    periodClass: periodClass(look.periodS), peakLocalDate: eventLocalDate(look.peakAt, look.timezone) };
+}
+
+/**
+ * Early-look candidates for the worker, one per keyed early look in its `event:<key>:story` slot, offered only to a
+ * worker that asks for the `hedge` capability: `hedge: true` asks it to keep every hedge word. They carry no facts,
+ * so a rewrite that adds a size, wind-timing or breaker claim refuses.
+ */
+export function buildEarlyLookCandidates(build: RegionBuild, forecastKeys: Iterable<string>, now: Date): StoryCandidate[] {
+  const today = localDate(now, build.timezone);
+  const facts: StoryCandidate[] = [];
+  for (const look of earlyLooksFromRegion(build, forecastKeys)) {
+    if (look.storyKey === null || look.directionDeg === null || look.periodS === null) continue;
+    const keyed = { ...look, directionDeg: look.directionDeg, periodS: look.periodS, storyKey: look.storyKey };
+    add(facts, `event-${look.storyKey}-story`, `event:${look.storyKey}:story`, earlyLookStoryText(look, today), earlyLookGate(keyed));
+  }
+  return facts.map((fact) => ({ ...fact, rank: 0, hedge: true }));
+}
+
 /** The swell a beach line names, by kind and period class: a storm's swell, a groundswell, a mid-period swell or a windswell. */
 const BEACH_SWELL_NOUN = { storm: "storm swell", long: "groundswell", mid: "mid-period swell", short: "windswell" } as const;
 /** How a beach line says an open beach faces a swell dead on; the words vary with the swell so one beach's lines differ across events. */

@@ -2,6 +2,7 @@ import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@
 import { addDays } from "../local-date";
 import {
   addSwellHeadlines, beachLine, sizePhrase, windTimingPhrase, beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion, swellChapterPhases,
+  buildEarlyLookCandidates, earlyLookStoryText,
   type BeachLineFacts, type RegionalDaySignal, type RegionalSwellEvent,
 } from "../week-scout-story-candidates";
 import { sizeWordsFor, type CandidateFacts, type WindHour } from "../week-scout-story-facts";
@@ -717,5 +718,72 @@ describe("event and beach lines the card shows", () => {
     const context = buildRegionGateContext(build, TODAY);
     expect(regionGateHolds(fadesOnPeakDay.gate, context)).toBe(true);
     expect(regionGateHolds(arrivesAndPeaks.gate, context)).toBe(false);
+  });
+});
+
+describe("early-look sentence and candidates", () => {
+  const TIMEZONE = "America/Los_Angeles";
+  // Monday Nov 16, 19:55 PT: the mock's San Diego frame.
+  const NOW = new Date("2026-11-17T03:55:00Z");
+  const TODAY = "2026-11-16";
+  const look = (directionDeg: number | null, periodS: number | null, peakAt: string, kind: "swell" | "storm" = "swell") =>
+    ({ directionDeg, periodS, peakAt, timezone: TIMEZONE, kind });
+  const early = (key: string, directionDeg: number | null, periodS: number | null, peakAt: string,
+    kind: "swell" | "storm" = "swell"): InternalRegionEvent => ({
+    key, kind, source: "wam", directionDeg, directionLabel: null, periodS, arrivalAt: null, peakAt, fadeAt: null,
+    peakLocalDate: new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date(peakAt)),
+    offshoreFt: "5 ft", history: null, memberCount: 0,
+  });
+  const build = (events: InternalRegionEvent[]): RegionBuild => ({ region: "San Diego", timezone: TIMEZONE, buoy: null, wamDays: null,
+    beaches: [], events, rowsByBeach: {} });
+
+  it("writes the mock's three San Diego early looks: name, one hedged day and no size word", () => {
+    expect(earlyLookStoryText(look(292.5, 16, "2026-11-26T20:00:00Z"), TODAY)).toBe(
+      "A west-northwest long-period groundswell may peak around a week from Thursday; the size and the day can still move.");
+    expect(earlyLookStoryText(look(292.5, 7, "2026-11-26T20:00:00Z", "storm"), TODAY)).toBe(
+      "A west-northwest short-period storm swell may peak around a week from Thursday; the size and the day can still move.");
+    expect(earlyLookStoryText(look(270, 11, "2026-11-29T20:00:00Z"), TODAY)).toBe(
+      "A west mid-period swell may peak around a week from Sunday; the size and the day can still move.");
+  });
+
+  it("writes the short form with no direction or no period, and never 'later on' past thirteen days", () => {
+    expect(earlyLookStoryText(look(null, 16, "2026-11-26T20:00:00Z"), TODAY)).toBe(
+      "A swell may peak around a week from Thursday; the size and the day can still move.");
+    expect(earlyLookStoryText(look(270, null, "2026-11-26T20:00:00Z"), TODAY)).toBe(
+      "A swell may peak around a week from Thursday; the size and the day can still move.");
+    for (const peakAt of ["2026-11-30T20:00:00Z", "2026-12-01T20:00:00Z"]) {
+      expect(earlyLookStoryText(look(270, 15, peakAt), TODAY)).toBe(
+        "A west long-period groundswell may peak around the week after next; the size and the day can still move.");
+    }
+    expect(earlyLookStoryText(look(90, 15, "2026-11-23T20:00:00Z"), TODAY)).toBe(
+      "An east long-period groundswell may peak around a week from today; the size and the day can still move.");
+  });
+
+  it("offers each keyed early look as a hedged card story candidate; a forecast key or an earlier look keeps its key", () => {
+    const events = [
+      early("San Diego:WNW:2026-11-26", 292.5, 16, "2026-11-26T20:00:00Z"),
+      early("San Diego:WNW:2026-11-26:s", 292.5, 7, "2026-11-26T21:00:00Z", "storm"),
+      // Same sector, band and day as the first: no key, no candidate.
+      early("San Diego:WNW:2026-11-26.2", 300, 15, "2026-11-26T22:00:00Z"),
+      // No period: no key, no candidate.
+      early("San Diego:W:2026-11-29", 270, null, "2026-11-29T20:00:00Z"),
+      // Holds the key a forecast event already has.
+      early("San Diego:SSW:2026-11-27", 202, 13.4, "2026-11-27T20:00:00Z"),
+    ];
+    const candidates = buildEarlyLookCandidates(build(events), ["4-4-2026-11-27"], NOW);
+    expect(candidates).toEqual([
+      { id: "event-7-5-2026-11-26-story", slot: "event:7-5-2026-11-26:story", rank: 0, hedge: true,
+        text: "A west-northwest long-period groundswell may peak around a week from Thursday; the size and the day can still move.",
+        gate: { kind: "early_look", regionalEventKey: "7-5-2026-11-26", directionIndex: 13, periodClass: "long", peakLocalDate: "2026-11-26" } },
+      { id: "event-7-2-2026-11-26-s-story", slot: "event:7-2-2026-11-26-s:story", rank: 0, hedge: true,
+        text: "A west-northwest short-period storm swell may peak around a week from Thursday; the size and the day can still move.",
+        gate: { kind: "early_look", regionalEventKey: "7-2-2026-11-26-s", directionIndex: 13, periodClass: "short", peakLocalDate: "2026-11-26" } },
+    ]);
+    // The gate holds against the same build and fails when the look veers to another 16-point direction.
+    const context = buildRegionGateContext(build(events), TODAY);
+    expect(regionGateHolds(candidates[0].gate, context)).toBe(true);
+    const veered = buildRegionGateContext(build([{ ...events[0], directionDeg: 305 }, ...events.slice(1)]), TODAY);
+    expect(regionGateHolds(candidates[0].gate, veered)).toBe(false);
+    expect(regionGateHolds(candidates[0].gate, buildRegionGateContext(build([]), TODAY))).toBe(false);
   });
 });
