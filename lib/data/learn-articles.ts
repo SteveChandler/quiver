@@ -4189,7 +4189,7 @@ export const learnArticles: LearnArticle[] = [
         id: "answer",
         heading: "The Short Answer",
         content: `<p>A rogue wave is a wave more than twice the height of the waves around it. NOAA calls them extreme storm waves, and they show up with no warning, often from a different direction than the rest of the swell.</p><p>The version that reaches the beach is the sneaker wave. The National Weather Service says one can run 150 feet up the sand after 10 to 20 minutes of small waves. Before you walk out at Ocean Beach or Pacifica on a big day, check the swell period on the <a href="/buoys">live buoy readings</a>.</p>`,
-        keyTakeaway: "Twice the waves around it. On the sand, up to 150 feet of run-up.",
+        keyTakeaway: "Twice the waves around it. On the sand, 150 feet or more of run-up.",
       },
       {
         id: "causes",
@@ -4211,7 +4211,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "when",
         heading: "When are sneaker waves most likely in California?",
-        content: `<p>Watch for them on long-period groundswell. Those swells come in organized sets with long lulls between them, which is exactly the quiet that fools people. Our <a href="/learn/swell-period-explained">swell period guide</a> explains what the seconds mean.</p><p>Watch closest at beaches open to the full Pacific: Ocean Beach in San Francisco, Pacifica, Bolinas and Gray Whale Cove. Check the <a href="/ca/pacifica">Pacifica surf page</a> and the NWS for a beach hazards statement before you go.</p>`,
+        content: `<p>Watch for them on long-period groundswell. Those swells come in organized sets with long lulls between them, which is exactly the quiet that fools people. Our <a href="/learn/swell-period-explained">swell period guide</a> explains what the seconds mean.</p><p>Watch closest at beaches open to the full Pacific: Ocean Beach in San Francisco, Pacifica and Gray Whale Cove. Check the <a href="/ca/pacifica">Pacifica surf page</a> and the NWS for a beach hazards statement before you go.</p>`,
         keyTakeaway: "Long period plus long lulls: stay well back from the water.",
         image: {
           src: "/images/learn/learn-rogue-wave-reynisfjara-runup.webp",
@@ -4288,10 +4288,10 @@ export const learnArticles: LearnArticle[] = [
     ],
     appHandoff: {
       eyebrow: "Big swell on the way",
-      title: "See the period before the long lulls start.",
+      title: "See the swell period before the long lulls start.",
       description:
-        "Quiver shows swell height and period from the buoys off San Francisco and Pacifica, so you know when a long-period swell is coming and when to stay well back from the water.",
-      ctaLabel: "Check the buoys",
+        "Quiver shows swell height and period for Ocean Beach, Pacifica and the rest of your coast, so you know when a long-period swell is coming and to stay well back from the water.",
+      ctaLabel: "Check the swell",
     },
   },
 ];
