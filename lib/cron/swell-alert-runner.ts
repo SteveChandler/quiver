@@ -77,10 +77,15 @@ import {
   FIRST_SIGHTING_BODY_MAX_CHARS,
   firstSightingFaceHeightFt,
   selectFirstSightingCandidates,
+  storyPushFields,
   surfWindowPayload,
   tideReasonSentence,
   type FirstSightingHazard,
+  type PushRegionStory,
 } from "@/lib/alerts/swell-outlook/first-sighting";
+import { createPushStoryCache, loadPushRegionStory, type PushSwell } from "@/lib/alerts/swell-events/regional-match";
+import { namesSize } from "@/lib/services/discovery/week-scout-story-claims";
+import { isSwellStoryPushEnabled } from "@/lib/flags/swell-story";
 import {
   EMPTY_SWELL_OUTLOOK_USER_STATE,
   advanceLists,
@@ -231,6 +236,11 @@ export interface SwellAlertState {
   recentFilmCount: number;
 }
 
+/** `withoutSize`: the push body states the beach's own size, so the sentence states none. */
+interface PushStoryOptions {
+  withoutSize: boolean;
+}
+
 export interface SwellAlertDeps {
   isEnabled: () => boolean;
   isUserAllowed: (userId: string) => boolean;
@@ -262,6 +272,10 @@ export interface SwellAlertDeps {
   markAlertEnqueued: (alertId: string, eventId: string) => Promise<void>;
   recordForecast: (record: SwellEventForecastRecord) => Promise<{ inserted: boolean }>;
   resolveHeldBeaches: ResolveHeldPushBeaches;
+  /** The `swell_story_push` switch; absent reads as off. */
+  isStoryPushEnabled?: () => Promise<boolean>;
+  /** The region swell behind a push and its card sentence; null when none matches. */
+  loadPushStory?: (userId: string, swell: PushSwell, now: Date, options: PushStoryOptions) => Promise<PushRegionStory | null>;
 }
 
 export interface SwellFollowupDeps {
@@ -1129,6 +1143,8 @@ function defaultDependencies(args: {
     failures: args.deps?.hazardLookupFailures ?? new HazardLookupFailureLog(),
   };
   const rarityByUser = new Map<string, Promise<SwellRarityAssessor>>();
+  // One region build and edition read per region for the whole run, however many users it pushes to.
+  const pushStoryCache = createPushStoryCache();
   let swellRunDates: Promise<string[]> | undefined;
   const getClient = (): ServiceClient => {
     client ??= createSupabaseServiceRoleClient();
@@ -1250,8 +1266,28 @@ function defaultDependencies(args: {
       ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now, hazardRun.loadNws)),
     loadBeachDistancesKm: args.deps?.loadBeachDistancesKm
       ?? ((profile, beachIds) => loadBeachDistancesKm(getClient(), profile, beachIds)),
+    isStoryPushEnabled: args.deps?.isStoryPushEnabled ?? isSwellStoryPushEnabled,
+    loadPushStory: args.deps?.loadPushStory
+      ?? ((userId, swell, now, options) => loadPushRegionStory({ client: getClient(), userId, swell, now, ...options, cache: pushStoryCache })),
     hazardLookupFailures: hazardRun.failures,
   };
+}
+
+/**
+ * While `swell_story_push` is on, the region story a push uses: `{ story: null }` with no match or a failed lookup,
+ * so the push goes out as today's text with `body_source: "template"`. Undefined while off: today's payload exactly.
+ */
+async function storyPushFor(deps: SwellAlertDeps, userId: string, swell: PushSwell, now: Date, options: PushStoryOptions):
+  Promise<{ story: PushRegionStory | null } | undefined> {
+  if (!deps.isStoryPushEnabled || !(await deps.isStoryPushEnabled())) return undefined;
+  try {
+    return { story: (await deps.loadPushStory?.(userId, swell, now, options)) ?? null };
+  } catch (error) {
+    // The push still goes out with today's text; the failure is reported, never only logged.
+    console.warn(`[swell-alert] Push story lookup failed for ${userId}:`, error);
+    Sentry.captureException(error, { level: "warning", tags: { cron_route: "/api/cron/swell-alert", component: "swell-push-story" } });
+    return { story: null };
+  }
 }
 
 /** Verification is bookkeeping: a failed write is counted, never allowed to stop the push. */
@@ -1695,8 +1731,12 @@ async function sendFirstSighting(
       return !optionHold;
     });
     const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
+    const storyPush = await storyPushFor(deps, profile.id,
+      { eventKey: swell.eventKey, beachId: swell.beach.id, peakAt: swell.peakAt, directionDeg: swell.directionDeg }, now,
+      // The body states the beach's own size ("Sets up to N ft"), so the sentence states none.
+      { withoutSize: true });
     const payload = buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow,
-      anchorSource: profile.anchorSource, now });
+      anchorSource: profile.anchorSource, now, ...(storyPush ? { storyPush } : {}) });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
     const alert = await deps.insertAlert({
       userId: profile.id,
@@ -1993,8 +2033,17 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
         rank: index + 1,
       }));
       const beachNames = rankedBeaches.map(({ beach_name }) => beach_name);
-      const direction = lead.event.directionLabel;
       const beachTimezone = resolveBeachTimezone(lead.beach.timezone);
+      const call = personalCall(beachNames[0], lead, beachTimezone);
+      const storyPush = await storyPushFor(deps, profile.id,
+        { eventKey, beachId: lead.beach.id, peakAt: lead.event.peakAt, directionDeg: lead.event.directionDeg }, now,
+        // One size per push: the sentence keeps its size only when the call and the rarity line state none
+        // (a board name such as "9 ft log" can).
+        { withoutSize: namesSize(`${call} ${rarity.rarityLine}`) });
+      const story = storyPush?.story ?? null;
+      // The title (and today's body) keep today's facts, so title, title_id and share_url never move;
+      // the story body takes its name from the region swell's own sentence.
+      const direction = lead.event.directionLabel;
       const beachPeakDate = getLocalDateString(new Date(lead.event.peakAt), beachTimezone);
       const peakDayLabel = weekday(beachPeakDate);
       const selected = selectTitle({
@@ -2014,7 +2063,7 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
           peak_day: peakDayLabel,
           peak_part: peakPart(lead.event.peakAt, beachTimezone),
           rarity: rarity.rarityLine,
-          call: personalCall(beachNames[0], lead, beachTimezone),
+          call,
         },
       });
       // A hazard line alone is not a swell alert; without the swell facts, send nothing.
@@ -2022,7 +2071,12 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
         increment(summary, "swell_no_copy");
         continue;
       }
-      const body = lead.hazard ? `${selected.body} ${HAZARD_LINES[lead.hazard]}` : selected.body;
+      // The story body: the card's sentence, the personal call, then the rarity line; today's body past 300 characters.
+      const storyBody = story ? `${story.story} ${call} ${rarity.rarityLine}` : null;
+      const toldBody = storyBody && storyBody.length <= FIRST_SIGHTING_BODY_MAX_CHARS ? storyBody : null;
+      const bodySource = toldBody && story ? story.storySource : "template";
+      const swellBody = toldBody ?? selected.body;
+      const body = lead.hazard ? `${swellBody} ${HAZARD_LINES[lead.hazard]}` : swellBody;
       // selectTitle still picks (tags, rotation, length); the push shows that
       // id as the card function renders it, so push and card stay one text.
       const headline = getSwellCardHeadline({
@@ -2058,6 +2112,7 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
         rarity: rarity.rarityLine,
         event_key: eventKey,
         title_id: selected.id,
+        ...(storyPush ? storyPushFields(story, bodySource) : {}),
         ...(followupEnabled
           ? { kind: "coming", share_url: buildSwellShareUrl(eventKey, "coming", selected.id) }
           : {}),

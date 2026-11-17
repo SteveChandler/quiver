@@ -8,6 +8,8 @@ import {
   selectFirstSightingCandidates,
   swellDayLabel,
   tideReasonSentence,
+  renderStoryPushTitle,
+  type PushRegionStory,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
 
@@ -320,4 +322,68 @@ it('retains the window within 300 characters with a long beach name', () => {
       localDate: '2026-10-08', timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } }, reasons: [] } });
   expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
   expect(payload.body.length).toBeLessThanOrEqual(300);
+});
+
+describe("story push (swell_story_push on)", () => {
+  const timezone = "America/Los_Angeles";
+  // Monday Nov 16, 2026, 10:00 PT.
+  const NOW = new Date("2026-11-16T18:00:00.000Z");
+  const swell = outlookSwell({ arrivalAt: "2026-11-19T15:00:00.000Z", peakAt: "2026-11-20T17:00:00.000Z",
+    directionLabel: "W", periodS: 8, faceHeightFt: { min: 3, max: 4 }, beach: { id: HOME, name: "Solana Beach" },
+    beachCount: 1, sizeByOrientation: { southFacing: null, westFacing: null }, source: "unknown" });
+  const WRITTEN = "A west short-period storm swell arrives Thursday and peaks Friday, head-high at most spots and overhead at the standouts.";
+  const story = (overrides: Partial<PushRegionStory> = {}): PushRegionStory => ({
+    regionEventKey: "San Diego:W:2026-11-20:s", storyKey: "6-2-2026-11-20-s", story: WRITTEN, storySource: "written",
+    directionLabel: "W", kind: "storm", periodS: 8, peakAt: "2026-11-20T17:00:00.000Z", ...overrides,
+  });
+
+  it("titles the judgment first with the region swell's name and no number, as the mock's frames", () => {
+    expect(renderStoryPushTitle(story(), timezone, NOW)).toBe("On the way: W storm swell, Nov 20");
+    const ssw = story({ directionLabel: "SSW", kind: "swell", periodS: 17, peakAt: "2026-11-23T17:00:00.000Z" });
+    expect(renderStoryPushTitle(ssw, timezone, NOW)).toBe("Worth watching: SSW groundswell, Nov 23");
+    expect(renderStoryPushTitle(ssw, timezone, NOW)!.length).toBe(39);
+    // Three days or less: the weekday.
+    expect(renderStoryPushTitle(story({ peakAt: "2026-11-19T17:00:00.000Z" }), timezone, NOW)).toBe("On the way: W storm swell, Thu");
+    expect(renderStoryPushTitle(story({ kind: "swell", periodS: 11 }), timezone, NOW)).toBe("On the way: W swell, Nov 20");
+    expect(renderStoryPushTitle(story({ kind: "swell", periodS: 7 }), timezone, NOW)).toBe("On the way: W windswell, Nov 20");
+  });
+
+  it("names a too-long title's swell plain 'swell', and gives no title past nine days or in the past", () => {
+    // 41 characters with "storm swell".
+    const long = story({ directionLabel: "WNWNW", peakAt: "2026-11-23T17:00:00.000Z" });
+    expect(`Worth watching: WNWNW storm swell, Nov 23`.length).toBe(41);
+    expect(renderStoryPushTitle(long, timezone, NOW)).toBe("Worth watching: WNWNW swell, Nov 23");
+    expect(renderStoryPushTitle(story({ peakAt: "2026-11-26T17:00:00.000Z" }), timezone, NOW)).toBeNull();
+    expect(renderStoryPushTitle(story({ peakAt: "2026-11-15T17:00:00.000Z" }), timezone, NOW)).toBeNull();
+  });
+
+  it("leads with the card sentence, then the one number, and records the source; keys stay today's", () => {
+    const today = buildFirstSightingPayload({ swell, timezone, now: NOW });
+    const told = buildFirstSightingPayload({ swell, timezone, now: NOW, storyPush: { story: story() } });
+    expect(told.title).toBe("On the way: W storm swell, Nov 20");
+    expect(told.body).toBe(`${WRITTEN} Sets up to 4 ft at Solana Beach.`);
+    expect(told).toMatchObject({ region_event_key: "San Diego:W:2026-11-20:s", story_key: "6-2-2026-11-20-s", body_source: "written" });
+    expect({ event_key: told.event_key, title_id: told.title_id, share_url: told.share_url })
+      .toEqual({ event_key: today.event_key, title_id: today.title_id, share_url: today.share_url });
+    const { title: _t, body: _b, region_event_key: _r, story_key: _s, body_source: _o, ...rest } = told;
+    const { title: _tt, body: _bb, ...todayRest } = today;
+    expect(rest).toEqual(todayRest);
+  });
+
+  it("sends today's text, marked template, with no match or a body past 300 characters", () => {
+    const today = buildFirstSightingPayload({ swell, timezone, now: NOW });
+    expect(buildFirstSightingPayload({ swell, timezone, now: NOW, storyPush: { story: null } }))
+      .toEqual({ ...today, body_source: "template" });
+    const long = buildFirstSightingPayload({ swell: { ...swell, beach: { id: HOME, name: "B".repeat(80) } }, timezone, now: NOW,
+      storyPush: { story: story({ story: `${"A west storm swell arrives Thursday. ".repeat(6)}`.trim() }) } });
+    expect(long.title).toBe(renderFirstSightingTitle({ ...swell, beach: { id: HOME, name: "B".repeat(80) } }, timezone, NOW));
+    expect(long).toMatchObject({ region_event_key: "San Diego:W:2026-11-20:s", body_source: "template" });
+    expect(long.body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
+  });
+
+  it("keeps the payload field for field today's without storyPush", () => {
+    const today = buildFirstSightingPayload({ swell, timezone, now: NOW });
+    expect(Object.keys(today)).not.toEqual(expect.arrayContaining(["body_source"]));
+    expect("region_event_key" in today || "story_key" in today || "body_source" in today).toBe(false);
+  });
 });
