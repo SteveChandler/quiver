@@ -982,6 +982,14 @@ describe("rare swell push with the swell_story_push switch on", () => {
     warn.mockRestore();
   });
 
+  it("leaves the size out of the sentence when the call states one, so the push states one size", async () => {
+    const pool = evaluation();
+    pool.candidates[0] = { ...pool.candidates[0], boardName: "9 ft log" };
+    const loadPushStory = jest.fn(async () => STORY);
+    await sent({ evaluatePool: jest.fn(async () => pool), isStoryPushEnabled: jest.fn(async () => true), loadPushStory });
+    expect(loadPushStory).toHaveBeenCalledWith(USER_ID, expect.anything(), NOW, { withoutSize: true });
+  });
+
   it("reads no region story with the switch off", async () => {
     const off = await sent({ isStoryPushEnabled: jest.fn(async () => false), loadPushStory: jest.fn(async () => STORY) });
     expect(off.deps.loadPushStory).not.toHaveBeenCalled();

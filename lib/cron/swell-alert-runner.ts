@@ -83,7 +83,8 @@ import {
   type FirstSightingHazard,
   type PushRegionStory,
 } from "@/lib/alerts/swell-outlook/first-sighting";
-import { loadPushRegionStory, type PushSwell } from "@/lib/alerts/swell-events/regional-match";
+import { createPushStoryCache, loadPushRegionStory, type PushSwell } from "@/lib/alerts/swell-events/regional-match";
+import { namesSize } from "@/lib/services/discovery/week-scout-story-claims";
 import { isSwellStoryPushEnabled } from "@/lib/flags/swell-story";
 import {
   EMPTY_SWELL_OUTLOOK_USER_STATE,
@@ -1142,6 +1143,8 @@ function defaultDependencies(args: {
     failures: args.deps?.hazardLookupFailures ?? new HazardLookupFailureLog(),
   };
   const rarityByUser = new Map<string, Promise<SwellRarityAssessor>>();
+  // One region build and edition read per region for the whole run, however many users it pushes to.
+  const pushStoryCache = createPushStoryCache();
   let swellRunDates: Promise<string[]> | undefined;
   const getClient = (): ServiceClient => {
     client ??= createSupabaseServiceRoleClient();
@@ -1265,7 +1268,7 @@ function defaultDependencies(args: {
       ?? ((profile, beachIds) => loadBeachDistancesKm(getClient(), profile, beachIds)),
     isStoryPushEnabled: args.deps?.isStoryPushEnabled ?? isSwellStoryPushEnabled,
     loadPushStory: args.deps?.loadPushStory
-      ?? ((userId, swell, now, options) => loadPushRegionStory({ client: getClient(), userId, swell, now, ...options })),
+      ?? ((userId, swell, now, options) => loadPushRegionStory({ client: getClient(), userId, swell, now, ...options, cache: pushStoryCache })),
     hazardLookupFailures: hazardRun.failures,
   };
 }
@@ -1280,7 +1283,9 @@ async function storyPushFor(deps: SwellAlertDeps, userId: string, swell: PushSwe
   try {
     return { story: (await deps.loadPushStory?.(userId, swell, now, options)) ?? null };
   } catch (error) {
+    // The push still goes out with today's text; the failure is reported, never only logged.
     console.warn(`[swell-alert] Push story lookup failed for ${userId}:`, error);
+    Sentry.captureException(error, { level: "warning", tags: { cron_route: "/api/cron/swell-alert", component: "swell-push-story" } });
     return { story: null };
   }
 }
@@ -2028,15 +2033,17 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
         rank: index + 1,
       }));
       const beachNames = rankedBeaches.map(({ beach_name }) => beach_name);
+      const beachTimezone = resolveBeachTimezone(lead.beach.timezone);
+      const call = personalCall(beachNames[0], lead, beachTimezone);
       const storyPush = await storyPushFor(deps, profile.id,
         { eventKey, beachId: lead.beach.id, peakAt: lead.event.peakAt, directionDeg: lead.event.directionDeg }, now,
-        // The call and the rarity line state no size, so the sentence keeps its own.
-        { withoutSize: false });
+        // One size per push: the sentence keeps its size only when the call and the rarity line state none
+        // (a board name such as "9 ft log" can).
+        { withoutSize: namesSize(`${call} ${rarity.rarityLine}`) });
       const story = storyPush?.story ?? null;
       // The title (and today's body) keep today's facts, so title, title_id and share_url never move;
       // the story body takes its name from the region swell's own sentence.
       const direction = lead.event.directionLabel;
-      const beachTimezone = resolveBeachTimezone(lead.beach.timezone);
       const beachPeakDate = getLocalDateString(new Date(lead.event.peakAt), beachTimezone);
       const peakDayLabel = weekday(beachPeakDate);
       const selected = selectTitle({
@@ -2056,7 +2063,7 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
           peak_day: peakDayLabel,
           peak_part: peakPart(lead.event.peakAt, beachTimezone),
           rarity: rarity.rarityLine,
-          call: personalCall(beachNames[0], lead, beachTimezone),
+          call,
         },
       });
       // A hazard line alone is not a swell alert; without the swell facts, send nothing.
@@ -2065,7 +2072,7 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
         continue;
       }
       // The story body: the card's sentence, the personal call, then the rarity line; today's body past 300 characters.
-      const storyBody = story ? `${story.story} ${personalCall(beachNames[0], lead, beachTimezone)} ${rarity.rarityLine}` : null;
+      const storyBody = story ? `${story.story} ${call} ${rarity.rarityLine}` : null;
       const toldBody = storyBody && storyBody.length <= FIRST_SIGHTING_BODY_MAX_CHARS ? storyBody : null;
       const bodySource = toldBody && story ? story.storySource : "template";
       const swellBody = toldBody ?? selected.body;

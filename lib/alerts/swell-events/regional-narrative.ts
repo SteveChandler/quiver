@@ -10,10 +10,11 @@ import {
   eventStoryText,
   storyEventKey,
   storyEventsFromRegion,
+  WEEKDAY,
   type KeyedEarlyLook,
   type RegionalSwellEvent,
 } from "@/lib/services/discovery/week-scout-story-candidates";
-import { checkWrittenSentence, namesSize } from "@/lib/services/discovery/week-scout-story-claims";
+import { checkWrittenSentence, namesSize, WEEKDAY_ABBREVIATIONS } from "@/lib/services/discovery/week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds, windBucket, type RegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
@@ -205,14 +206,19 @@ export interface RegionEventStory {
 
 const NO_STORY: RegionEventStory = { story: null, storySource: null };
 
-/** Day words that are true only on the day they are read: a push can be read a day later. */
-const RELATIVE_DAY = /(?<![\p{L}\p{N}])(?:today|tonight|tomorrow|a\s+week\s+from|later\s+on|earlier)(?![\p{L}\p{N}])/iu;
+/**
+ * Any day word: a weekday (or its capitalised short form), or a relative day. A push can be read days later, so a
+ * written push sentence that names a day without its date never serves; the server's sentence dates every day.
+ */
+const DAY_WORD = new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...WEEKDAY, ...WEEKDAY.map((day) => `${day}s`)].join("|")}|today|tonight|tomorrow|`
+  + `a\\s+week\\s+from|next\\s+week|later\\s+on|earlier|weekend)(?![\\p{L}\\p{N}])`, "iu");
+const SHORT_WEEKDAY = new RegExp(`(?<![\\p{L}\\p{N}])(?:${WEEKDAY_ABBREVIATIONS.flatMap((day) => [day, day.toUpperCase()]).join("|")})(?![\\p{L}\\p{N}])`, "u");
 
 /**
  * The card's sentence for one region build event, by its build key: the edition's written sentence when it
  * passes its checks and its gate holds, else the server's own (`eventStoryText`, or `earlyLookStoryText` for an
  * early look). Every surface that shows a swell's sentence reads it here, so they agree. With `datedDays` (the
- * push), a written sentence serves only when it names no relative day, and the server's sentence dates each day.
+ * push), a written sentence serves only when it names no day at all, and the server's sentence dates each day.
  * With `withoutSize` (a push body that states the beach's own size), it names no size: a written sentence that
  * does falls back to the server's sentence, which then leaves out its regional size tail.
  */
@@ -225,7 +231,7 @@ export function regionEventStory(narration: PreparedRegionNarration, eventKey: s
     const own = narration.forEvent(story);
     const key = storyEventKey(story);
     const written = own.written(`event:${key}:story`, (gate) => gate.kind === "swell");
-    if (written && !(datedDays && RELATIVE_DAY.test(written)) && !(withoutSize && namesSize(written))) {
+    if (written && !(datedDays && (DAY_WORD.test(written) || SHORT_WEEKDAY.test(written))) && !(withoutSize && namesSize(written))) {
       return { story: written, storySource: "written" };
     }
     const facts = withoutSize ? null : own.context.eventFacts(key);

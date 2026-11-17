@@ -1257,6 +1257,18 @@ describe("first-sighting push with the swell_story_push switch on", () => {
     expect("body_source" in before.payload).toBe(false);
   });
 
+  it("reports an unexpected story error and sends today's text, marked template", async () => {
+    const today = makeDeps({ isStoryPushEnabled: jest.fn(async () => false) });
+    await runSwellAlertCron({ now: MORNING, deps: today as never });
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const bug = new TypeError("Cannot read properties of undefined (reading 'directionLabel')");
+    const deps = on({ loadPushStory: jest.fn(async () => { throw bug; }) });
+    await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    expect(Sentry.captureException).toHaveBeenCalledWith(bug, expect.objectContaining({
+      tags: expect.objectContaining({ component: "swell-push-story" }) }));
+    expect(deps.enqueue.mock.calls[0][0].payload).toEqual({ ...today.enqueue.mock.calls[0][0].payload, body_source: "template" });
+  });
+
   it("sends today's text, marked template, when the story lookup fails", async () => {
     const today = makeDeps({ isStoryPushEnabled: jest.fn(async () => false) });
     await runSwellAlertCron({ now: MORNING, deps: today as never });

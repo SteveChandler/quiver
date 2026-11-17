@@ -8,7 +8,7 @@ jest.mock("@/lib/alerts/swell-events/regional-narrative", () => {
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { loadRegionForecastEvents, type InternalRegionEvent, type RegionBuild } from "@/lib/alerts/swell-events/regional";
-import { loadPushRegionStory, matchRegionEvent } from "@/lib/alerts/swell-events/regional-match";
+import { createPushStoryCache, loadPushRegionStory, matchRegionEvent } from "@/lib/alerts/swell-events/regional-match";
 import { loadRegionNarrativeEdition, prepareRegionNarration, regionEventStory, type NarrativeEdition } from "@/lib/alerts/swell-events/regional-narrative";
 import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import { buildRegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
@@ -107,22 +107,26 @@ describe("push wording of the card sentence", () => {
       story: "A south-southwest long-period groundswell arrives Sunday, peaks a week from today and fades a week from Wednesday." });
   });
 
-  it("uses a written sentence only when it names no relative day", () => {
+  it("uses a written push sentence only when it names no day at all", () => {
     const region = build([SSW, STORM]);
-    const written = {
-      "event:6-2-2026-11-20-s:story": "West storm swell shows up Thursday and peaks Friday.",
-      "event:4-5-2026-11-23:story": "South-southwest groundswell shows up Sunday, peaks a week from today and fades a week from Wednesday.",
-    };
-    expect(Object.keys(written).every((slot) => edition(region, {}).input.copyFacts.some((fact) => fact.slot === slot))).toBe(true);
-    const narration = prepareRegionNarration({ build: region, edition: edition(region, written), now: NOW });
-    // The card serves both.
-    expect(regionEventStory(narration, STORM.key)).toEqual({ story: written["event:6-2-2026-11-20-s:story"], storySource: "written" });
-    expect(regionEventStory(narration, SSW.key)).toEqual({ story: written["event:4-5-2026-11-23:story"], storySource: "written" });
-    // The push keeps the plain-weekday one and dates the other.
-    expect(regionEventStory(narration, STORM.key, { datedDays: true }))
-      .toEqual({ story: written["event:6-2-2026-11-20-s:story"], storySource: "written" });
-    expect(regionEventStory(narration, SSW.key, { datedDays: true })).toEqual({ storySource: "code",
+    const STORM_SLOT = "event:6-2-2026-11-20-s:story";
+    const SSW_SLOT = "event:4-5-2026-11-23:story";
+    const written = (storm: string) => ({ [STORM_SLOT]: storm,
+      [SSW_SLOT]: "South-southwest groundswell shows up Sunday, peaks a week from today and fades a week from Wednesday." });
+    const narration = (storm: string) => prepareRegionNarration({ build: region, edition: edition(region, written(storm)), now: NOW });
+    const weekdays = narration("West storm swell shows up Thursday and peaks Friday.");
+    // The card serves both written sentences.
+    expect(regionEventStory(weekdays, STORM.key)).toEqual({ story: "West storm swell shows up Thursday and peaks Friday.", storySource: "written" });
+    expect(regionEventStory(weekdays, SSW.key).storySource).toBe("written");
+    // A push can be read days later: a bare weekday, a short one or a relative day gives the server's dated sentence.
+    const dated = { storySource: "code", story: "A west short-period storm swell arrives Thursday Nov 19 and peaks Friday Nov 20." };
+    expect(regionEventStory(weekdays, STORM.key, { datedDays: true })).toEqual(dated);
+    expect(regionEventStory(narration("West storm swell shows up Thu and peaks Fri."), STORM.key, { datedDays: true })).toEqual(dated);
+    expect(regionEventStory(weekdays, SSW.key, { datedDays: true })).toEqual({ storySource: "code",
       story: "A south-southwest long-period groundswell arrives Sunday Nov 22, peaks Monday Nov 23 and fades Wednesday Nov 25." });
+    // With no day word, the written sentence serves in the push too.
+    const dayless = narration("A west storm swell is on the way.");
+    expect(regionEventStory(dayless, STORM.key, { datedDays: true })).toEqual({ story: "A west storm swell is on the way.", storySource: "written" });
   });
 });
 
@@ -157,6 +161,29 @@ describe("loadPushRegionStory", () => {
     process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "someone-else, pilot";
     await loadPushRegionStory({ client: beach, userId: "pilot", swell: push(), now: NOW });
     expect(loadRegionNarrativeEdition).toHaveBeenCalledTimes(1);
+  });
+
+  it("builds a region and reads its edition once per run for two users there", async () => {
+    jest.mocked(loadRegionForecastEvents).mockResolvedValue(build([SSW, STORM]));
+    process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "pilot-a,pilot-b";
+    const reads = jest.fn(async () => ({ data: { region: "San Diego", timezone: TIMEZONE }, error: null }));
+    const counted = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: reads }) }) }) } as unknown as SupabaseClient<Database>;
+    const cache = createPushStoryCache();
+    const storm = push({ eventKey: `${OTHER}:W:2026-11-20:s`, beachId: OTHER, peakAt: "2026-11-20T18:00:00.000Z", directionDeg: 268 });
+    const [first, second] = await Promise.all([
+      loadPushRegionStory({ client: counted, userId: "pilot-a", swell: push(), now: NOW, cache }),
+      loadPushRegionStory({ client: counted, userId: "pilot-b", swell: storm, now: NOW, cache }),
+    ]);
+    expect([first?.regionEventKey, second?.regionEventKey]).toEqual([SSW.key, STORM.key]);
+    expect(loadRegionForecastEvents).toHaveBeenCalledTimes(1);
+    expect(loadRegionNarrativeEdition).toHaveBeenCalledTimes(1);
+    // A third push from the first beach reads nothing again.
+    await loadPushRegionStory({ client: counted, userId: "pilot-a", swell: push(), now: NOW, cache });
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(loadRegionForecastEvents).toHaveBeenCalledTimes(1);
+    // Without a shared cache, each call builds.
+    await loadPushRegionStory({ client: counted, userId: "pilot-a", swell: push(), now: NOW });
+    expect(loadRegionForecastEvents).toHaveBeenCalledTimes(2);
   });
 
   it("gives null for a beach with no region or no matching region swell", async () => {
@@ -207,8 +234,8 @@ describe("loadPushRegionStory", () => {
       jest.mocked(loadRegionForecastEvents).mockResolvedValue(sized);
       process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "pilot";
       const written = (text: string): NarrativeEdition => edition(sized, { "event:6-4-2026-11-17:story": text });
-      const withSize = "West-northwest groundswell shows up Monday, peaks Tuesday and fades Wednesday, head-high at most spots.";
-      const plain = "West-northwest groundswell shows up Monday, peaks Tuesday and fades Wednesday.";
+      const withSize = "A west-northwest groundswell is on the way, head-high at most spots.";
+      const plain = "A west-northwest groundswell is on the way.";
       const told = async (text: string, withoutSize: boolean) => {
         jest.mocked(loadRegionNarrativeEdition).mockResolvedValueOnce(written(text));
         return loadPushRegionStory({ client: client({ region: "San Diego", timezone: TIMEZONE }), userId: "pilot", swell: solana, now: NOW, withoutSize });

@@ -8,7 +8,7 @@ import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { Database } from "@/types/database";
 
 import { loadRegionForecastEvents, type InternalRegionEvent, type RegionBuild } from "./regional";
-import { loadRegionNarrativeEdition, prepareRegionNarration, regionEventStory } from "./regional-narrative";
+import { loadRegionNarrativeEdition, prepareRegionNarration, regionEventStory, type NarrativeEdition } from "./regional-narrative";
 
 /** Peaks this many hours apart or less can be the same swell. */
 const MATCH_PEAK_HOURS = 24;
@@ -45,10 +45,33 @@ export function matchRegionEvent(build: Pick<RegionBuild, "events">, swell: Push
   return aligned.length === 1 ? aligned[0] : null;
 }
 
+/** One run's reads, shared by every push in it: a beach's region, a region's build and its edition. */
+export interface PushStoryCache {
+  beaches: Map<string, Promise<{ region: string | null; timezone: string | null } | null>>;
+  builds: Map<string, Promise<RegionBuild>>;
+  editions: Map<string, Promise<NarrativeEdition | null>>;
+}
+
+export function createPushStoryCache(): PushStoryCache {
+  return { beaches: new Map(), builds: new Map(), editions: new Map() };
+}
+
+/** The cached promise for a key; a failed read is dropped so a later push tries again. */
+function memo<T>(map: Map<string, Promise<T>>, key: string, read: () => Promise<T>): Promise<T> {
+  const cached = map.get(key);
+  if (cached) return cached;
+  const promise = read().catch((error: unknown) => {
+    map.delete(key);
+    throw error;
+  });
+  map.set(key, promise);
+  return promise;
+}
+
 /**
  * The region swell behind a push, with the card's sentence for it in push wording: the PC worker's sentence only
  * for an account on WEEK_SCOUT_STORY_USER_ALLOWLIST (an empty list names no one here) and only when it names no
- * relative day; otherwise the server's sentence with dated days. Null when the beach has no region, no region swell
+ * day word; otherwise the server's sentence with dated days. Null when the beach has no region, no region swell
  * matches, or the match has no sentence.
  */
 export async function loadPushRegionStory(args: {
@@ -58,17 +81,25 @@ export async function loadPushRegionStory(args: {
   now: Date;
   /** The push body states the beach's own size, so the sentence states none (one number per push). */
   withoutSize?: boolean;
+  /** Share the reads across the run's pushes; without it, each call reads its own. */
+  cache?: PushStoryCache;
 }): Promise<PushRegionStory | null> {
   const { client, userId, swell, now } = args;
-  const { data: beach, error } = await client.from("beaches").select("region, timezone").eq("id", swell.beachId).maybeSingle();
-  if (error) throw new Error(`Failed to read the push beach's region: ${error.message}`);
+  const cache = args.cache ?? createPushStoryCache();
+  const beach = await memo(cache.beaches, swell.beachId, async () => {
+    const { data, error } = await client.from("beaches").select("region, timezone").eq("id", swell.beachId).maybeSingle();
+    if (error) throw new Error(`Failed to read the push beach's region: ${error.message}`);
+    return data;
+  });
   if (!beach?.region) return null;
+  const region = beach.region;
   const timezone = resolveBeachTimezone(beach.timezone);
-  const build = await loadRegionForecastEvents({ client, region: beach.region, now, timezone });
+  const build = await memo(cache.builds, region, () => loadRegionForecastEvents({ client, region, now, timezone }));
   const match = matchRegionEvent(build, swell);
   if (!match?.directionLabel || match.periodS === null) return null;
   const edition = getWeekScoutStoryAllowlist().has(userId)
-    ? await loadRegionNarrativeEdition({ client, region: build.region, timezone: build.timezone, now }) : null;
+    ? await memo(cache.editions, build.region, () => loadRegionNarrativeEdition({ client, region: build.region, timezone: build.timezone, now }))
+    : null;
   const narration = prepareRegionNarration({ build, edition, now });
   const event = narration.all.find((item) => item.regionalKey === match.key);
   const told = regionEventStory(narration, match.key, { datedDays: true, withoutSize: args.withoutSize === true });
