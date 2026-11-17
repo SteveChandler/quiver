@@ -323,5 +323,44 @@
     "licenseStatus": "defensible",
     "usageNotes": "King tide guide section image: bay water splashing over the Embarcadero railing during the January 2016 king tide. Licence checked on the Flickr source page (CC BY 2.0) on 2026-11-10; stored at native resolution (1024 px), no crop, no upscale.",
     "runtimeAssetPath": "public/images/learn/learn-king-tide-san-francisco-embarcadero.webp"
+  },
+  {
+    "slug": "what-is-a-rogue-wave",
+    "name": "learn-rogue-wave-bolinas-sneaker-wave",
+    "imageUrl": "https://live.staticflickr.com/5522/12419949853_310b5b18e1_h.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/49503128117@N01/12419949853",
+    "title": "Sneaker Wave",
+    "creator": "Jesse Wagstaff",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Rogue wave guide hero: a sneaker wave sprays two people on the rocks at Bolinas, California (Commons copy File:Sneaker_wave.jpg names Bolinas, CA). Licence checked on the source page on 2026-11-17; stored at the 1600 px Flickr size, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-rogue-wave-bolinas-sneaker-wave.webp"
+  },
+  {
+    "slug": "what-is-a-rogue-wave",
+    "name": "learn-rogue-wave-gray-whale-cove",
+    "imageUrl": "https://live.staticflickr.com/3338/3272164111_4fab4006a0_h.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/71401718@N00/3272164111",
+    "title": "Lively Gray Whale Cove beach - Pacific Ocean south of San Francisco, California, USA",
+    "creator": "Wonderlane",
+    "licenseCode": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Rogue wave guide section image: a wave bursting in front of sea stacks at Gray Whale Cove. Licence checked on the source page on 2026-11-17; stored at the 1600 px Flickr size, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-rogue-wave-gray-whale-cove.webp"
+  },
+  {
+    "slug": "what-is-a-rogue-wave",
+    "name": "learn-rogue-wave-reynisfjara-runup",
+    "imageUrl": "https://live.staticflickr.com/65535/51910048834_7686d8d8b2_h.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/8749778@N06/51910048834",
+    "title": "Sneaker Wave At High Tide",
+    "creator": "Eric Kilby",
+    "licenseCode": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Rogue wave guide section image: sneaker-wave run-up across Reynisfjara beach, Iceland (named in alt text, not shown as California). Licence checked on the source page on 2026-11-17; stored at the 1600 px Flickr size, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-rogue-wave-reynisfjara-runup.webp"
   }
 ]

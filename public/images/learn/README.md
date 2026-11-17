@@ -74,6 +74,9 @@ no crop, no upscale.
 | `learn-king-tide-malibu-road.webp` | `/learn/what-is-a-king-tide` | King Tides 2012: Water under beachfront homes | LA Waterkeeper | CC BY 2.0 | https://www.flickr.com/photos/75139013@N06/6757727785 |
 | `learn-king-tide-morro-strand.webp` | `/learn/what-is-a-king-tide` | Morro Strand Beach, Morro Bay - During King Tide of 7.0 on 12/13/2012 | docentjoyce | CC BY 2.0 | https://www.flickr.com/photos/99003655@N00/8279439698 |
 | `learn-king-tide-san-francisco-embarcadero.webp` | `/learn/what-is-a-king-tide` | San Francisco King Tide \| January 22, 2016 | Chris Martin | CC BY 2.0 | https://www.flickr.com/photos/42982698@N00/24249380510 |
+| `learn-rogue-wave-bolinas-sneaker-wave.webp` | `/learn/what-is-a-rogue-wave` | Sneaker Wave | Jesse Wagstaff | CC BY 2.0 | https://www.flickr.com/photos/49503128117@N01/12419949853 |
+| `learn-rogue-wave-gray-whale-cove.webp` | `/learn/what-is-a-rogue-wave` | Lively Gray Whale Cove beach - Pacific Ocean south of San Francisco, California, USA | Wonderlane | CC0 1.0 | https://www.flickr.com/photos/71401718@N00/3272164111 |
+| `learn-rogue-wave-reynisfjara-runup.webp` | `/learn/what-is-a-rogue-wave` | Sneaker Wave At High Tide | Eric Kilby | CC BY-SA 2.0 | https://www.flickr.com/photos/8749778@N06/51910048834 |
 
 The older `learn-*.jpg` files in this directory predate the ledger and have no
 recorded provenance.
