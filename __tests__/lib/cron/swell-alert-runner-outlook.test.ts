@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 // __tests__/lib/cron/swell-alert-runner-outlook.test.ts
+// The swell_story_push switch is a database row; these pushes are today's text, with it off.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryPushEnabled: jest.fn(async () => false), isSwellStoryCardEnabled: jest.fn(async () => false) }));
 jest.mock("@/lib/alerts/swell-outlook/state", () => ({
   ...jest.requireActual("@/lib/alerts/swell-outlook/state"),
   loadSwellOutlookUserState: jest.fn(), saveSwellOutlookUserState: jest.fn(),
@@ -32,6 +34,7 @@ import * as states from "@/lib/alerts/swell-outlook/state";
 import * as outlookLoader from "@/lib/services/discovery/swell-outlook-loader";
 import snapshot from "@/__tests__/fixtures/grandview-crossing-swells-20260911.json";
 import { runSwellAlertCron, type SwellAlertProfile, type SwellOutlookDeps, type PinnedSwellEvaluation } from "@/lib/cron/swell-alert-runner";
+import type { PushRegionStory } from "@/lib/alerts/swell-outlook/first-sighting";
 import { EMPTY_SWELL_ENGAGEMENT, type SwellEngagementState } from "@/lib/alerts/swell-outlook/engagement";
 import { EMPTY_SWELL_OUTLOOK_USER_STATE, SwellOutlookStateConflictError, type SwellOutlookStateTransition, type SwellOutlookUserState } from "@/lib/alerts/swell-outlook/state";
 import type { SwellFollowupState } from "@/lib/alerts/swell-followup/state";
@@ -1220,5 +1223,47 @@ describe("swell alert cron: held beaches", () => {
     expect(deps.claimFollowup).not.toHaveBeenCalled();
     expect(deps.enqueue).not.toHaveBeenCalled();
     expect(summary.skippedCounts.held_water_quality_hold).toBe(1);
+  });
+});
+
+describe("first-sighting push with the swell_story_push switch on", () => {
+  beforeEach(() => jest.spyOn(console, "error").mockImplementation(() => {}));
+  afterEach(() => jest.restoreAllMocks());
+  const STORY: PushRegionStory = {
+    regionEventKey: "San Diego:WNW:2026-09-21", storyKey: "7-4-2026-09-21", storySource: "written",
+    story: "A west-northwest long-period groundswell arrives and peaks Monday: chest-high at most spots.",
+    directionLabel: "WNW", kind: "swell", periodS: 14, peakAt: "2026-09-21T15:00:00.000Z",
+  };
+  const on = (overrides: Record<string, unknown> = {}) => makeDeps({ isStoryPushEnabled: jest.fn(async () => true),
+    loadPushStory: jest.fn(async () => STORY), ...overrides });
+
+  it("sends the new title and body under today's keys and dedupe", async () => {
+    const today = makeDeps({ isStoryPushEnabled: jest.fn(async () => false) });
+    await runSwellAlertCron({ now: MORNING, deps: today as never });
+    const deps = on();
+    await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    const swell = outlookSwell();
+
+    expect(deps.loadPushStory).toHaveBeenCalledWith(USER,
+      { eventKey: swell.eventKey, beachId: HOME, peakAt: swell.peakAt, directionDeg: 300 }, MORNING);
+    const before = today.enqueue.mock.calls[0][0];
+    const after = deps.enqueue.mock.calls[0][0];
+    expect(after.payload.title).toBe("On the way: WNW groundswell, Mon");
+    expect(after.payload.body.startsWith(`${STORY.story} Sets up to 4.5 ft at Blacks Beach.`)).toBe(true);
+    expect(after.payload).toMatchObject({ region_event_key: STORY.regionEventKey, story_key: STORY.storyKey, body_source: "written" });
+    expect(after.dedupeKey).toBe(before.dedupeKey);
+    expect({ event_key: after.payload.event_key, title_id: after.payload.title_id, share_url: after.payload.share_url }).toEqual(
+      { event_key: before.payload.event_key, title_id: before.payload.title_id, share_url: before.payload.share_url });
+    expect("body_source" in before.payload).toBe(false);
+  });
+
+  it("sends today's text, marked template, when the story lookup fails", async () => {
+    const today = makeDeps({ isStoryPushEnabled: jest.fn(async () => false) });
+    await runSwellAlertCron({ now: MORNING, deps: today as never });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const deps = on({ loadPushStory: jest.fn(async () => { throw new Error("region read failed"); }) });
+    await runSwellAlertCron({ now: MORNING, deps: deps as never });
+    expect(deps.enqueue.mock.calls[0][0].payload).toEqual({ ...today.enqueue.mock.calls[0][0].payload, body_source: "template" });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Push story lookup failed"), expect.any(Error));
   });
 });

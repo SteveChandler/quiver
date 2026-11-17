@@ -1,7 +1,8 @@
 import type { TideAwareWindowResult } from '@/lib/alerts/surf-window/tide-aware-window';
 import { formatWindowLabel } from '@/lib/notifications/copy/daily-call-copy';
 import type { LocationAnchor } from '@/lib/alerts/location-freshness';
-import { buildSwellShareUrl, getSwellCardHeadline } from '@/lib/notifications/copy/swell-card-headline';
+import { confidenceFor, localDayDiff } from '@/lib/alerts/swell-events/regional-rating';
+import { buildSwellShareUrl, getSwellCardHeadline, PUSH_TITLE_MAX_CHARS } from '@/lib/notifications/copy/swell-card-headline';
 import {
   MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
   majorSwellSurfWindowReasonSchema,
@@ -135,6 +136,59 @@ function daySpan(swell: OutlookSwell, timezone: string, withDate: boolean): stri
   return fromDate === toDate ? `${from} ${monthDay(fromDate)}` : `${monthDay(fromDate)}-${monthDay(toDate)}`;
 }
 
+/**
+ * The region swell behind a push's own swell, with its card sentence: the push takes the name, the period and the
+ * sentence from it, so the push and the card agree. `story` is the PC worker's sentence ("written") or the
+ * server's with dated days ("code").
+ */
+export interface PushRegionStory {
+  regionEventKey: string;
+  storyKey: string;
+  story: string;
+  storySource: "written" | "code";
+  directionLabel: string;
+  kind: "swell" | "storm";
+  periodS: number;
+  peakAt: string;
+}
+
+/** Where a story push's text came from; "template" is today's text. */
+type PushBodySource = "written" | "code" | "template";
+
+const STORY_JUDGMENT = { on_the_way: "On the way", likely: "Worth watching" } as const;
+/** The swell's name as the card's beach lines say it, by kind and period class. */
+function storySwellNoun(story: Pick<PushRegionStory, "kind" | "periodS">): string {
+  if (story.kind === "storm") return "storm swell";
+  if (story.periodS >= 13) return "groundswell";
+  return story.periodS >= 10 ? "swell" : "windswell";
+}
+
+/**
+ * "On the way: W storm swell, Nov 20": the judgment first, from the lead time as the card's pill reads it (up to
+ * four days "On the way", up to nine "Worth watching"), then the region swell's name and its peak day ("Tue" within
+ * three days, else "Nov 20"). No number. Past 40 characters the name becomes "swell"; still too long, or an early
+ * look's lead, gives null.
+ */
+export function renderStoryPushTitle(story: PushRegionStory, timezone: string, now: Date): string | null {
+  const peakDate = getLocalDateString(new Date(story.peakAt), timezone);
+  const lead = localDayDiff(getLocalDateString(now, timezone), peakDate);
+  const confidence = lead < 0 ? null : confidenceFor(lead);
+  if (confidence !== "on_the_way" && confidence !== "likely") return null;
+  const day = lead <= WEEKDAY_ONLY_MAX_DAYS_AHEAD ? shortWeekday(story.peakAt, timezone) : monthDay(peakDate);
+  for (const noun of [storySwellNoun(story), "swell"]) {
+    const title = `${STORY_JUDGMENT[confidence]}: ${story.directionLabel} ${noun}, ${day}`;
+    if (title.length <= PUSH_TITLE_MAX_CHARS) return title;
+  }
+  return null;
+}
+
+/** The payload's record of which region swell and which text a story push used; the region keys only on a match. */
+export function storyPushFields(story: Pick<PushRegionStory, "regionEventKey" | "storyKey"> | null, source: PushBodySource): {
+  region_event_key?: string; story_key?: string; body_source: PushBodySource;
+} {
+  return { ...(story ? { region_event_key: story.regionEventKey, story_key: story.storyKey } : {}), body_source: source };
+}
+
 /** Facts, not a title pool: direction, the days it is in the water and how big the sets get. */
 export function renderFirstSightingTitle(swell: OutlookSwell, timezone: string, now: Date = new Date()): string {
   const days = daySpan(swell, timezone, needsDates(swell, timezone, now));
@@ -177,14 +231,18 @@ export function renderFirstSightingBody(args: {
   surfWindow?: TideAwareWindowResult;
   anchorSource?: LocationAnchor['source'];
   now?: Date;
+  /** The region swell's card sentence: it stands in for the name and timing sentences. */
+  story?: string;
 }): string {
   const { swell, timezone, hazard } = args;
   const withDate = needsDates(swell, timezone, args.now ?? new Date());
   const recommendedWindow = args.surfWindow?.state === 'recommended' ? args.surfWindow.window : null;
   const period = swell.periodS === null ? '' : `, ${formatNumber(swell.periodS)}s`;
   const sentences: Array<{ text: string; priority: number }> = [
-    { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
-    { text: timingSentence(swell, timezone, withDate), priority: recommendedWindow ? 2 : 0 },
+    ...(args.story !== undefined ? [{ text: args.story, priority: 0 }] : [
+      { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
+      { text: timingSentence(swell, timezone, withDate), priority: recommendedWindow ? 2 : 0 },
+    ]),
     { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}${args.anchorSource === 'home' ? ', near home' : ''}.`, priority: 0 },
   ];
   if (recommendedWindow) {
@@ -220,9 +278,23 @@ export function buildFirstSightingPayload(args: {
   surfWindow?: TideAwareWindowResult;
   anchorSource?: LocationAnchor['source'];
   now?: Date;
+  /**
+   * Set only while the `swell_story_push` switch is on; `story` is null when no region swell matched. Absent, the
+   * payload is today's, field for field.
+   */
+  storyPush?: { story: PushRegionStory | null };
 }): MajorSwellNotificationPayload {
   const { swell, timezone } = args;
   const now = args.now ?? new Date();
+  const story = args.storyPush?.story ?? null;
+  const storyTitle = story ? renderStoryPushTitle(story, timezone, now) : null;
+  const storyBody = story && storyTitle
+    ? renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow,
+      anchorSource: args.anchorSource, now, story: story.story })
+    : null;
+  // A story push that can't keep the 300-character cap goes out as today's text, title included, so both name one swell.
+  const told = story && storyTitle && storyBody && storyBody.length <= FIRST_SIGHTING_BODY_MAX_CHARS
+    ? { title: storyTitle, body: storyBody, source: story.storySource } : null;
   const faceHeightFt = firstSightingFaceHeightFt(swell);
   const serious = faceHeightFt >= SERIOUS_FACE_HEIGHT_FT;
   const peakDate = getLocalDateString(new Date(swell.peakAt), timezone);
@@ -234,7 +306,7 @@ export function buildFirstSightingPayload(args: {
     peakDayLabel,
     serious,
   });
-  const body = renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow, anchorSource: args.anchorSource, now });
+  const body = told?.body ?? renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow, anchorSource: args.anchorSource, now });
   return parseMajorSwellNotificationPayload({
     schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
     ...(args.anchorSource ? { anchor_source: args.anchorSource } : {}),
@@ -252,8 +324,9 @@ export function buildFirstSightingPayload(args: {
     official_evidence_refs: [],
     would_suppress_cohorts: ['beginner', 'intermediate', 'unknown'],
     enforcement: null,
-    title: renderFirstSightingTitle(swell, timezone, now),
+    title: told?.title ?? renderFirstSightingTitle(swell, timezone, now),
     body,
+    ...(args.storyPush ? storyPushFields(story, told?.source ?? 'template') : {}),
     ...(args.surfWindow ? { surf_window: surfWindowPayload(args.surfWindow) } : {}),
     beaches: [
       { beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 },

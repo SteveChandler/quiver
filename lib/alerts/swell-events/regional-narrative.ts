@@ -205,19 +205,25 @@ export interface RegionEventStory {
 
 const NO_STORY: RegionEventStory = { story: null, storySource: null };
 
+/** Day words that are true only on the day they are read: a push can be read a day later. */
+const RELATIVE_DAY = /(?<![\p{L}\p{N}])(?:today|tonight|tomorrow|a\s+week\s+from|later\s+on|earlier)(?![\p{L}\p{N}])/iu;
+
 /**
  * The card's sentence for one region build event, by its build key: the edition's written sentence when it
  * passes its checks and its gate holds, else the server's own (`eventStoryText`, or `earlyLookStoryText` for an
- * early look). Every surface that shows a swell's sentence reads it here, so they agree.
+ * early look). Every surface that shows a swell's sentence reads it here, so they agree. With `datedDays` (the
+ * push), a written sentence serves only when it names no relative day, and the server's sentence dates each day.
  */
-export function regionEventStory(narration: PreparedRegionNarration, eventKey: string): RegionEventStory {
+export function regionEventStory(narration: PreparedRegionNarration, eventKey: string,
+  options: { datedDays?: boolean } = {}): RegionEventStory {
+  const datedDays = options.datedDays === true;
   const story = narration.all.find((event) => event.regionalKey === eventKey);
   if (story) {
     const own = narration.forEvent(story);
     const key = storyEventKey(story);
     const written = own.written(`event:${key}:story`, (gate) => gate.kind === "swell");
-    if (written) return { story: written, storySource: "written" };
-    return { story: eventStoryText(story, narration.today, own.context.eventFacts(key)), storySource: "code" };
+    if (written && !(datedDays && RELATIVE_DAY.test(written))) return { story: written, storySource: "written" };
+    return { story: eventStoryText(story, narration.today, own.context.eventFacts(key), { datedDays }), storySource: "code" };
   }
   const look = narration.earlyLooks.find((item) => item.regionalKey === eventKey);
   if (!look) return NO_STORY;

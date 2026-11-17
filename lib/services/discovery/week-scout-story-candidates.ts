@@ -292,14 +292,22 @@ function joinClauses(clauses: readonly string[]): string {
  * Each day is named once: "arrives Thursday, peaks Friday and fades Saturday", "arrives and peaks Friday,
  * then fades Saturday", "comes and goes Friday"; a fade on the peak day goes unsaid.
  */
-function eventStoryParts(event: RegionalSwellEvent, today: string): { text: string; namesFade: boolean } {
+/** "Sunday Nov 22": a day that still reads right when the text is read a day later, as a push can be. */
+function datedDay(date: string): string {
+  const monthDay = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+    .format(new Date(`${date}T12:00:00Z`));
+  return `${weekday(date)} ${monthDay}`;
+}
+
+function eventStoryParts(event: RegionalSwellEvent, today: string, datedDays = false): { text: string; namesFade: boolean } {
   const arrival = eventLocalDate(event.arrivalAt, event.timezone);
   const peak = eventLocalDate(event.peakAt, event.timezone);
   const fade = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
+  const dayWord = (date: string): string => datedDays ? datedDay(date) : cardDay(date, today);
   // Words, not dates, decide: two days past two weeks both read "later on", so the second goes unsaid.
-  const arrivalDay = cardDay(arrival, today);
-  const peakDay = cardDay(peak, today);
-  const fadeDay = fade !== null ? cardDay(fade, today) : null;
+  const arrivalDay = dayWord(arrival);
+  const peakDay = dayWord(peak);
+  const fadeDay = fade !== null ? dayWord(fade) : null;
   const fadeClause = fade !== null && fadeDay !== peakDay ? `${fade < today ? "faded" : "fades"} ${fadeDay}` : null;
   let predicate: string;
   let namesFade = fadeClause !== null;
@@ -319,10 +327,12 @@ function eventStoryParts(event: RegionalSwellEvent, today: string): { text: stri
 
 /**
  * The card's story line for one event: direction, kind and period, then its days. "A west short-period
- * storm swell arrives Thursday, peaks Friday and fades Saturday."
+ * storm swell arrives Thursday, peaks Friday and fades Saturday." With `datedDays`, each day carries its
+ * date ("arrives Sunday Nov 22"), for a push that can be read days later.
  */
-export function eventStoryText(event: RegionalSwellEvent, today: string, facts: CandidateFacts | null = null): string {
-  return withRegionalSize(eventStoryParts(event, today).text, facts);
+export function eventStoryText(event: RegionalSwellEvent, today: string, facts: CandidateFacts | null = null,
+  options: { datedDays?: boolean } = {}): string {
+  return withRegionalSize(eventStoryParts(event, today, options.datedDays === true).text, facts);
 }
 
 /** The story line and its swell gate, which claims a fade day only when the line names one. */
