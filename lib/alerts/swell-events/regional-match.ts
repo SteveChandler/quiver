@@ -56,6 +56,8 @@ export async function loadPushRegionStory(args: {
   userId: string;
   swell: PushSwell;
   now: Date;
+  /** The push body states the beach's own size, so the sentence states none (one number per push). */
+  withoutSize?: boolean;
 }): Promise<PushRegionStory | null> {
   const { client, userId, swell, now } = args;
   const { data: beach, error } = await client.from("beaches").select("region, timezone").eq("id", swell.beachId).maybeSingle();
@@ -69,7 +71,7 @@ export async function loadPushRegionStory(args: {
     ? await loadRegionNarrativeEdition({ client, region: build.region, timezone: build.timezone, now }) : null;
   const narration = prepareRegionNarration({ build, edition, now });
   const event = narration.all.find((item) => item.regionalKey === match.key);
-  const told = regionEventStory(narration, match.key, { datedDays: true });
+  const told = regionEventStory(narration, match.key, { datedDays: true, withoutSize: args.withoutSize === true });
   if (!event || told.story === null || told.storySource === null) return null;
   return { regionEventKey: match.key, storyKey: storyEventKey(event), story: told.story, storySource: told.storySource,
     directionLabel: match.directionLabel, kind: match.kind, periodS: match.periodS, peakAt: match.peakAt };

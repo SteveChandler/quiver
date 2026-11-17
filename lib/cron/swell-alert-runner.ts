@@ -235,6 +235,11 @@ export interface SwellAlertState {
   recentFilmCount: number;
 }
 
+/** `withoutSize`: the push body states the beach's own size, so the sentence states none. */
+interface PushStoryOptions {
+  withoutSize: boolean;
+}
+
 export interface SwellAlertDeps {
   isEnabled: () => boolean;
   isUserAllowed: (userId: string) => boolean;
@@ -269,7 +274,7 @@ export interface SwellAlertDeps {
   /** The `swell_story_push` switch; absent reads as off. */
   isStoryPushEnabled?: () => Promise<boolean>;
   /** The region swell behind a push and its card sentence; null when none matches. */
-  loadPushStory?: (userId: string, swell: PushSwell, now: Date) => Promise<PushRegionStory | null>;
+  loadPushStory?: (userId: string, swell: PushSwell, now: Date, options: PushStoryOptions) => Promise<PushRegionStory | null>;
 }
 
 export interface SwellFollowupDeps {
@@ -1260,7 +1265,7 @@ function defaultDependencies(args: {
       ?? ((profile, beachIds) => loadBeachDistancesKm(getClient(), profile, beachIds)),
     isStoryPushEnabled: args.deps?.isStoryPushEnabled ?? isSwellStoryPushEnabled,
     loadPushStory: args.deps?.loadPushStory
-      ?? ((userId, swell, now) => loadPushRegionStory({ client: getClient(), userId, swell, now })),
+      ?? ((userId, swell, now, options) => loadPushRegionStory({ client: getClient(), userId, swell, now, ...options })),
     hazardLookupFailures: hazardRun.failures,
   };
 }
@@ -1269,10 +1274,11 @@ function defaultDependencies(args: {
  * While `swell_story_push` is on, the region story a push uses: `{ story: null }` with no match or a failed lookup,
  * so the push goes out as today's text with `body_source: "template"`. Undefined while off: today's payload exactly.
  */
-async function storyPushFor(deps: SwellAlertDeps, userId: string, swell: PushSwell, now: Date): Promise<{ story: PushRegionStory | null } | undefined> {
+async function storyPushFor(deps: SwellAlertDeps, userId: string, swell: PushSwell, now: Date, options: PushStoryOptions):
+  Promise<{ story: PushRegionStory | null } | undefined> {
   if (!deps.isStoryPushEnabled || !(await deps.isStoryPushEnabled())) return undefined;
   try {
-    return { story: (await deps.loadPushStory?.(userId, swell, now)) ?? null };
+    return { story: (await deps.loadPushStory?.(userId, swell, now, options)) ?? null };
   } catch (error) {
     console.warn(`[swell-alert] Push story lookup failed for ${userId}:`, error);
     return { story: null };
@@ -1721,7 +1727,9 @@ async function sendFirstSighting(
     });
     const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
     const storyPush = await storyPushFor(deps, profile.id,
-      { eventKey: swell.eventKey, beachId: swell.beach.id, peakAt: swell.peakAt, directionDeg: swell.directionDeg }, now);
+      { eventKey: swell.eventKey, beachId: swell.beach.id, peakAt: swell.peakAt, directionDeg: swell.directionDeg }, now,
+      // The body states the beach's own size ("Sets up to N ft"), so the sentence states none.
+      { withoutSize: true });
     const payload = buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow,
       anchorSource: profile.anchorSource, now, ...(storyPush ? { storyPush } : {}) });
     let claimDenied: FirstSightingClaimSkipReason = "event_exists";
@@ -2021,7 +2029,9 @@ async function runWithDeps(deps: RunnerDeps, now: Date): Promise<SwellAlertRunSu
       }));
       const beachNames = rankedBeaches.map(({ beach_name }) => beach_name);
       const storyPush = await storyPushFor(deps, profile.id,
-        { eventKey, beachId: lead.beach.id, peakAt: lead.event.peakAt, directionDeg: lead.event.directionDeg }, now);
+        { eventKey, beachId: lead.beach.id, peakAt: lead.event.peakAt, directionDeg: lead.event.directionDeg }, now,
+        // The call and the rarity line state no size, so the sentence keeps its own.
+        { withoutSize: false });
       const story = storyPush?.story ?? null;
       // The title (and today's body) keep today's facts, so title, title_id and share_url never move;
       // the story body takes its name from the region swell's own sentence.

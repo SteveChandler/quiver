@@ -13,7 +13,7 @@ import {
   type KeyedEarlyLook,
   type RegionalSwellEvent,
 } from "@/lib/services/discovery/week-scout-story-candidates";
-import { checkWrittenSentence } from "@/lib/services/discovery/week-scout-story-claims";
+import { checkWrittenSentence, namesSize } from "@/lib/services/discovery/week-scout-story-claims";
 import { buildRegionGateContext, regionGateHolds, windBucket, type RegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
@@ -213,17 +213,23 @@ const RELATIVE_DAY = /(?<![\p{L}\p{N}])(?:today|tonight|tomorrow|a\s+week\s+from
  * passes its checks and its gate holds, else the server's own (`eventStoryText`, or `earlyLookStoryText` for an
  * early look). Every surface that shows a swell's sentence reads it here, so they agree. With `datedDays` (the
  * push), a written sentence serves only when it names no relative day, and the server's sentence dates each day.
+ * With `withoutSize` (a push body that states the beach's own size), it names no size: a written sentence that
+ * does falls back to the server's sentence, which then leaves out its regional size tail.
  */
 export function regionEventStory(narration: PreparedRegionNarration, eventKey: string,
-  options: { datedDays?: boolean } = {}): RegionEventStory {
+  options: { datedDays?: boolean; withoutSize?: boolean } = {}): RegionEventStory {
   const datedDays = options.datedDays === true;
+  const withoutSize = options.withoutSize === true;
   const story = narration.all.find((event) => event.regionalKey === eventKey);
   if (story) {
     const own = narration.forEvent(story);
     const key = storyEventKey(story);
     const written = own.written(`event:${key}:story`, (gate) => gate.kind === "swell");
-    if (written && !(datedDays && RELATIVE_DAY.test(written))) return { story: written, storySource: "written" };
-    return { story: eventStoryText(story, narration.today, own.context.eventFacts(key), { datedDays }), storySource: "code" };
+    if (written && !(datedDays && RELATIVE_DAY.test(written)) && !(withoutSize && namesSize(written))) {
+      return { story: written, storySource: "written" };
+    }
+    const facts = withoutSize ? null : own.context.eventFacts(key);
+    return { story: eventStoryText(story, narration.today, facts, { datedDays }), storySource: "code" };
   }
   const look = narration.earlyLooks.find((item) => item.regionalKey === eventKey);
   if (!look) return NO_STORY;

@@ -933,7 +933,8 @@ describe("rare swell push with the swell_story_push switch on", () => {
     const told = await sent({ isStoryPushEnabled: jest.fn(async () => true), loadPushStory: jest.fn(async () => STORY) });
 
     expect(told.deps.loadPushStory).toHaveBeenCalledWith(USER_ID,
-      { eventKey: `${BLACKS}:NW:2026-09-20`, beachId: BLACKS, peakAt: "2026-09-20T15:00:00.000Z", directionDeg: 315 }, NOW);
+      { eventKey: `${BLACKS}:NW:2026-09-20`, beachId: BLACKS, peakAt: "2026-09-20T15:00:00.000Z", directionDeg: 315 }, NOW,
+      { withoutSize: false });
     expect(told.push.payload.body).toBe(`${STORY.story} Your call: Blacks. ${today.push.payload.rarity}`);
     expect(told.push.payload).toMatchObject({ region_event_key: STORY.regionEventKey, story_key: STORY.storyKey, body_source: "code" });
     expect(told.push.dedupeKey).toBe(today.push.dedupeKey);

@@ -14,6 +14,9 @@ import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/disc
 import { buildRegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import type { StoryArtifact, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
+import { namesSize } from "@/lib/services/discovery/week-scout-story-claims";
+import { buildFirstSightingPayload } from "@/lib/alerts/swell-outlook/first-sighting";
+import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
 import type { Database } from "@/types/database";
 
 const TIMEZONE = "America/Los_Angeles";
@@ -162,5 +165,58 @@ describe("loadPushRegionStory", () => {
     expect(loadRegionForecastEvents).not.toHaveBeenCalled();
     expect(await loadPushRegionStory({ client: client({ region: "San Diego", timezone: TIMEZONE }), userId: "user", swell: push(), now: NOW }))
       .toBeNull();
+  });
+
+  describe("one size per push: the Solana Beach case", () => {
+    // Four San Diego beaches open to the west-northwest, head-high on the peak day and overhead at the two biggest.
+    const beaches: RegionBuild["beaches"] = ["Solana Beach", "Del Mar", "Cardiff", "Swami's"].map((name, index) => ({
+      id: index === 0 ? SOLANA : `00000000-0000-4000-8000-00000000000${index}`, name, lat: 32.99 + index * 0.02, lon: -117.27,
+      aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null,
+      swell_window_center_deg: 292, swell_window_halfwidth_deg: 40 }));
+    const heights = ["5-6ft", "5-6ft", "7-8ft", "7-9ft"];
+    const WNW = event("San Diego:NW:2026-11-17", { directionDeg: 292, directionLabel: "WNW", periodS: 14.9,
+      arrivalAt: "2026-11-16T15:00:00.000Z", peakAt: "2026-11-17T18:00:00.000Z", fadeAt: "2026-11-18T18:00:00.000Z",
+      peakLocalDate: "2026-11-17", offshoreFt: "7 ft" });
+    const sized: RegionBuild = { ...build([WNW]), beaches, rowsByBeach: Object.fromEntries(beaches.map((beach, index) =>
+      [beach.id, [16, 19, 22].map((hour) => ({ forecast_at: `2026-11-17T${hour}:00:00.000Z`, wave_height: heights[index],
+        wave_period: "15", wind_speed: "5 mph", wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "15s" }))])) };
+    const solana = push({ eventKey: `${SOLANA}:WNW:2026-11-17:p`, peakAt: "2026-11-17T18:00:00.000Z", directionDeg: 290 });
+    const load = (withoutSize?: boolean) => loadPushRegionStory({ client: client({ region: "San Diego", timezone: TIMEZONE }),
+      userId: "user", swell: solana, now: NOW, ...(withoutSize === undefined ? {} : { withoutSize }) });
+
+    it("leaves the regional size out of the sentence when the body states the beach's size", async () => {
+      jest.mocked(loadRegionForecastEvents).mockResolvedValue(sized);
+      const full = await load();
+      expect(full?.story).toBe("A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18: "
+        + "head-high at most spots, overhead at the standouts.");
+      const bare = await load(true);
+      expect(bare).toMatchObject({ storySource: "code",
+        story: "A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18." });
+
+      const outlook = outlookSwell({ id: solana.eventKey, eventKey: solana.eventKey, arrivalAt: WNW.arrivalAt, peakAt: WNW.peakAt,
+        directionDeg: 290, directionLabel: "WNW", periodS: 14.9, faceHeightFt: { min: 3, max: 4 }, beach: { id: SOLANA, name: "Solana Beach" },
+        beachCount: 1, sizeByOrientation: { southFacing: null, westFacing: null }, source: "unknown" });
+      const { body } = buildFirstSightingPayload({ swell: outlook, timezone: TIMEZONE, now: NOW, storyPush: { story: bare } });
+      expect(body).toBe("A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18. "
+        + "Sets up to 4 ft at Solana Beach.");
+      // The beach line is the body's only size statement.
+      expect(namesSize(body.replace("Sets up to 4 ft at Solana Beach.", ""))).toBe(false);
+    });
+
+    it("drops a written sentence that states a size for the server's sentence without one", async () => {
+      jest.mocked(loadRegionForecastEvents).mockResolvedValue(sized);
+      process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "pilot";
+      const written = (text: string): NarrativeEdition => edition(sized, { "event:6-4-2026-11-17:story": text });
+      const withSize = "West-northwest groundswell shows up Monday, peaks Tuesday and fades Wednesday, head-high at most spots.";
+      const plain = "West-northwest groundswell shows up Monday, peaks Tuesday and fades Wednesday.";
+      const told = async (text: string, withoutSize: boolean) => {
+        jest.mocked(loadRegionNarrativeEdition).mockResolvedValueOnce(written(text));
+        return loadPushRegionStory({ client: client({ region: "San Diego", timezone: TIMEZONE }), userId: "pilot", swell: solana, now: NOW, withoutSize });
+      };
+      expect(await told(withSize, false)).toMatchObject({ story: withSize, storySource: "written" });
+      expect(await told(withSize, true)).toMatchObject({ storySource: "code",
+        story: "A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18." });
+      expect(await told(plain, true)).toMatchObject({ story: plain, storySource: "written" });
+    });
   });
 });

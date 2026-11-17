@@ -1245,7 +1245,7 @@ describe("first-sighting push with the swell_story_push switch on", () => {
     const swell = outlookSwell();
 
     expect(deps.loadPushStory).toHaveBeenCalledWith(USER,
-      { eventKey: swell.eventKey, beachId: HOME, peakAt: swell.peakAt, directionDeg: 300 }, MORNING);
+      { eventKey: swell.eventKey, beachId: HOME, peakAt: swell.peakAt, directionDeg: 300 }, MORNING, { withoutSize: true });
     const before = today.enqueue.mock.calls[0][0];
     const after = deps.enqueue.mock.calls[0][0];
     expect(after.payload.title).toBe("On the way: WNW groundswell, Mon");
