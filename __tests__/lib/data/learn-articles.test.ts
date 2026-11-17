@@ -65,7 +65,7 @@ const expectedLearnMetadata = [
     slug: "how-are-waves-measured",
     title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
     description:
-      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
+      "Buoys report significant wave height (Hs). Quiver turns it into a face height: 3 ft at 14 sec reads about 4 ft, sets near 6 ft.",
   },
   {
     slug: "beginner-breaks-santa-cruz",

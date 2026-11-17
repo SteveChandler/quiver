@@ -23,7 +23,7 @@ describe("FigurePoster", () => {
   });
 
   it.each([
-    ["wave-height-reference", /three-foot significant wave-height forecast/i],
+    ["wave-height-reference", /three feet of significant wave height at the buoy/i],
     ["tide-window", /static tide curve rises from low to high/i],
   ] as const)("renders an accessible %s poster", (kind, name) => {
     render(<FigurePoster kind={kind} />);
