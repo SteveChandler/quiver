@@ -447,6 +447,11 @@ export const learnArticles: LearnArticle[] = [
         description:
           "Learn how NOAA models predict period and other swell metrics.",
       },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
+      },
     ],
   },
 
@@ -1138,6 +1143,11 @@ export const learnArticles: LearnArticle[] = [
         href: "/forecast",
         description:
           "See current significant wave height at 279+ beaches.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
       },
     ],
     appHandoff: {
@@ -2426,6 +2436,11 @@ export const learnArticles: LearnArticle[] = [
         label: "Best Conditions for Beginners",
         href: "/learn/best-surf-conditions-for-beginners",
         description: "Pick safer beaches and days before you paddle out.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
       },
     ],
     appHandoff: {
@@ -4145,6 +4160,138 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver plots the tide hour by hour next to swell and wind for La Jolla, Cardiff and Del Mar, so you can pick the window after the king tide peak.",
       ctaLabel: "Check San Diego tides",
+    },
+  },
+  {
+    slug: "what-is-a-rogue-wave",
+    title: "What Is a Rogue Wave? Sneaker Waves in California",
+    description:
+      "A rogue wave is more than twice the height of the waves around it. On the beach, NWS says a sneaker wave can run 150 feet up the sand.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-17",
+    dateModified: "2026-11-17",
+    heroImage: "/images/learn/learn-rogue-wave-bolinas-sneaker-wave.webp",
+    thumbnailImage: "/images/learn/learn-rogue-wave-bolinas-sneaker-wave.webp",
+    keywords: [
+      "what is a rogue wave",
+      "rogue wave",
+      "rogue waves",
+      "what causes rogue waves",
+      "sneaker wave",
+      "what is a sneaker wave",
+      "sneaker waves california",
+      "never turn your back on the ocean",
+      "is it safe to swim in waves",
+      "extreme storm waves",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>A rogue wave is a wave more than twice the height of the waves around it. NOAA calls them extreme storm waves, and they show up with no warning, often from a different direction than the rest of the swell.</p><p>The version that reaches the beach is the sneaker wave. The National Weather Service says one can run 150 feet up the sand after 10 to 20 minutes of small waves. Before you walk out at Ocean Beach or Pacifica on a big day, check the swell period on the <a href="/buoys">live buoy readings</a>.</p>`,
+        keyTakeaway: "Twice the waves around it. On the sand, up to 150 feet of run-up.",
+      },
+      {
+        id: "causes",
+        heading: "What causes a rogue wave?",
+        content: `<p>NOAA names two causes. The first is swells crossing paths. Swells travel at different speeds and directions, and when their crests line up, they stack into one tall wave that fades fast.</p><p>The second is waves running into a current. When storm waves push against a strong current, like the Gulf Stream, the energy bunches up and the waves grow. Our guide on <a href="/learn/how-are-ocean-waves-formed">how ocean waves form</a> covers where swell comes from in the first place.</p>`,
+        keyTakeaway: "Two swells lining up, or waves hitting a current head-on.",
+      },
+      {
+        id: "sneaker",
+        heading: "What is a sneaker wave?",
+        content: `<p>A sneaker wave is a wave that surges much farther up the beach than the ones before it. The NWS says sneaker waves often come after 10 to 20 minutes of small, gentle waves. People see the small ones, sit down too close, and stop watching.</p><p>One wave can lift beach logs that weigh hundreds of pounds and roll them over people. The NWS says that for much of the West Coast, sneaker waves kill more people than all other weather hazards combined.</p>`,
+        keyTakeaway: "A quiet 10 to 20 minutes is the warning sign.",
+        image: {
+          src: "/images/learn/learn-rogue-wave-gray-whale-cove.webp",
+          alt: "A wave breaking in a burst of spray in front of sea stacks at Gray Whale Cove, south of San Francisco, at sunset",
+          position: "right",
+        },
+      },
+      {
+        id: "when",
+        heading: "When are sneaker waves most likely in California?",
+        content: `<p>Watch for them on long-period groundswell. Those swells come in organized sets with long lulls between them, which is exactly the quiet that fools people. Our <a href="/learn/swell-period-explained">swell period guide</a> explains what the seconds mean.</p><p>Watch closest at beaches open to the full Pacific: Ocean Beach in San Francisco, Pacifica, Bolinas and Gray Whale Cove. Check the <a href="/ca/pacifica">Pacifica surf page</a> and the NWS for a beach hazards statement before you go.</p>`,
+        keyTakeaway: "Long period plus long lulls: stay well back from the water.",
+        image: {
+          src: "/images/learn/learn-rogue-wave-reynisfjara-runup.webp",
+          alt: "A thin sheet of foamy water spread far up the black sand at Reynisfjara beach in Iceland after a sneaker wave",
+          position: "left",
+        },
+      },
+      {
+        id: "surfers",
+        heading: "What a rogue set means for surfers",
+        content: `<p>The forecast number is the average of the tallest third of waves, as our guide to <a href="/learn/how-are-waves-measured">how waves are measured</a> explains. So some sets will always be bigger than the number. A rogue set can be twice the average.</p><p>Do what the NWS says lifeguards and experienced surfers do: watch the ocean for at least 20 minutes before you paddle out. Count the biggest set, not the average one. If the biggest set would scare you, don't paddle out.</p>`,
+        keyTakeaway: "Watch 20 minutes. Plan for the biggest set, not the average.",
+      },
+      {
+        id: "back-to-ocean",
+        heading: "Why do they say never turn your back on the ocean?",
+        content: `<p>Because the wave that gets you is the one you don't see. The NWS Wave Safe rules say never turn your back on the waves, even when you walk out of the water.</p><p>Stay farther back than you think you need to, and keep off rocks, jetties and logs on big days. If a wave knocks you down and pulls you out, read our <a href="/learn/what-is-a-rip-current">rip current guide</a> on how to get back in. No forecast can promise a safe beach.</p>`,
+        keyTakeaway: "Face the water, stay high, and keep off rocks and logs.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is a rogue wave?",
+        answer:
+          "A rogue wave is a wave more than twice the size of the waves around it. NOAA calls them extreme storm waves. They are hard to predict and often come from a different direction than the rest of the swell.",
+      },
+      {
+        question: "What causes rogue waves?",
+        answer:
+          "NOAA names two main causes: swells crossing paths so their crests stack into one tall wave, and storm waves running against a strong current such as the Gulf Stream, which bunches the energy together.",
+      },
+      {
+        question: "What is a sneaker wave?",
+        answer:
+          "A sneaker wave is a wave that runs much farther up the beach than the waves before it. The National Weather Service says they often follow 10 to 20 minutes of small waves and can surge 150 feet up the sand.",
+      },
+      {
+        question: "Why do they say never turn your back on the ocean?",
+        answer:
+          "Because a bigger wave can arrive with no warning after a quiet stretch. The NWS Wave Safe rules say never turn your back on the waves, and to watch the ocean for at least 20 minutes before you relax on the beach.",
+      },
+      {
+        question: "Is it safe to swim in waves?",
+        answer:
+          "No beach is ever guaranteed safe. Choose a guarded beach, watch the waves for 20 minutes first, and stay out on big long-period days. If you're not sure, don't go in and watch from shore.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Why long-period swell brings bigger sets and longer lulls.",
+      },
+      {
+        label: "How Big Is 3 ft Surf?",
+        href: "/learn/how-are-waves-measured",
+        description: "Why the biggest sets run bigger than the forecast number.",
+      },
+      {
+        label: "What Is a Rip Current?",
+        href: "/learn/what-is-a-rip-current",
+        description: "How to spot a rip and get back to the beach.",
+      },
+      {
+        label: "Live buoy readings",
+        href: "/buoys",
+        description: "Swell height and period from offshore buoys right now.",
+      },
+      {
+        label: "Pacifica surf",
+        href: "/ca/pacifica",
+        description: "Today's surf and swell for Pacifica's beaches.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Big swell on the way",
+      title: "See the period before the long lulls start.",
+      description:
+        "Quiver shows swell height and period from the buoys off San Francisco and Pacifica, so you know when a long-period swell is coming and when to stay well back from the water.",
+      ctaLabel: "Check the buoys",
     },
   },
 ];

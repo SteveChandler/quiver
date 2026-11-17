@@ -116,6 +116,7 @@ const CATEGORIES: {
       "what-is-wave-diffraction",
       "how-do-tides-work",
       "what-is-a-king-tide",
+      "what-is-a-rogue-wave",
     ],
   },
   {
