@@ -482,7 +482,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "wave-height",
         heading: "What wave height is good for beginners?",
-        content: `<p>Face height of 1 to 3 feet, up to about waist to chest high on you. That's the size at Doheny on a small summer day, or Cowells on a lazy morning. You get 15 or 20 tries a session, and a wipeout is mostly just a swim.</p><p>Forecasts and lifeguards don't always measure the same way. A forecast showing 2 ft can look like 3 to 4 ft faces at the beach. Walk down and look.</p><p>If you can't duck-dive or push through whitewater yet, 4 ft is too big. Watch from the sand for 10 minutes. If you're not sure, don't paddle out.</p>`,
+        content: `<p>Face height of 1 to 3 feet, up to about waist to chest high on you. That's the size at Doheny on a small summer day, or Cowells on a lazy morning. You get 15 or 20 tries a session, and a wipeout is mostly just a swim.</p><p>A buoy number isn't a face number. 2 ft on a buoy at 12 seconds means faces around 2.5 ft, with sets near 4 ft. A Quiver beach forecast already shows the face. Walk down and look anyway.</p><p>If you can't duck-dive or push through whitewater yet, 4 ft is too big. Watch from the sand for 10 minutes. If you're not sure, don't paddle out.</p>`,
         keyTakeaway: "Under 3 ft face while learning; 4 ft needs a confident duck dive.",
         image: {
           src: "/images/activities/beginner-friendly.webp",
@@ -1061,7 +1061,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "how-are-waves-measured",
     title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
     description:
-      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
+      "Buoys report significant wave height (Hs). Quiver turns it into a face height: 3 ft at 14 sec reads about 4 ft, sets near 6 ft.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     dateModified: "2026-09-02",
@@ -1071,7 +1071,7 @@ export const learnArticles: LearnArticle[] = [
       "wave height measurement",
       "significant wave height",
       "how big is 3 foot surf",
-      "face height vs forecast height",
+      "buoy height vs face height",
       "hawaiian scale waves",
       "surf forecast height explained",
     ],
@@ -1079,46 +1079,51 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Surf forecast height is <strong>significant wave height (Hs)</strong> — the average of the tallest third of waves measured by NDBC and CDIP buoys. Face height (what you actually see at the beach) runs <strong>1.5-2x</strong> the forecast number. So a "3-5 ft" forecast means roughly <strong>4.5-10 ft wave faces</strong>. Hawaiian scale uses roughly half of face height, adding further confusion. Always ask: which scale is being used?</p>`,
+        content: `<p>A buoy or wave model gives you <strong>significant wave height (Hs)</strong>: the average of the highest third of the waves. A Quiver beach forecast shows an <strong>estimated face height</strong> built from it, so 3 ft of Hs at 14 seconds reads about <strong>4 ft</strong> on the face, with sets near <strong>6 ft</strong>.</p><p>Check your break on the <a href="/forecast">live forecast</a>, or read raw Hs on the <a href="/buoys">buoy pages</a>.</p>`,
         keyTakeaway:
-          "Forecast height (Hs) is 60-70% of face height. Multiply the forecast by 1.5-2x to estimate what you'll actually see.",
+          "Buoy number is Hs. Quiver's beach number is the face; sets run 1.5x.",
         image: {
           src: "/images/hero/hero-2-barrel-wave.webp",
-          alt: "Barrel wave demonstrating face height vs forecast height",
+          alt: "Barrel wave showing face height compared with buoy height",
           position: "right",
         },
       },
       {
         id: "detail",
-        heading: "The Three Wave Measurement Scales",
+        heading: "Three rulers for one wave",
         figureKey: "wave-height-reference",
-        content: `<p><strong>Significant wave height (Hs)</strong>: Used by NOAA, WaveWatch III, and most forecast models. It's a statistical measure from buoys — the mean of the highest third of waves over a 20-minute sampling window. This is what you see on Quiver and most forecasting apps.</p><p><strong>Face height</strong>: What surfers actually see standing on the beach. A 3-foot Hs reading from a CDIP buoy translates to roughly 4.5-6 foot faces, depending on the break's bathymetry. Sandy beach breaks tend toward the higher multiplier; deep-water reefs toward the lower.</p><p><strong>Hawaiian scale</strong>: Used in Hawaii and by some old-school surfers. Roughly half of face height (or close to Hs). A "6-foot Hawaiian" wave has a 10-12 foot face. If someone in Hawaii says "it's 4 feet," prepare for 8-foot faces.</p>`,
+        content: `<p><strong>Significant wave height (Hs)</strong> is what NOAA and CDIP buoys and models like WaveWatch III report. NDBC averages the highest third of the waves over about 20 minutes, miles offshore.</p><p><strong>Face height</strong> is trough to crest on the front of the wave. Quiver builds it from Hs, period, swell direction and how open the beach is. A 10-second swell reads about the same as Hs; a 14-second groundswell about a third bigger; a 7-second wind swell about a fifth smaller. Sets run about 1.5x the average wave.</p><p>Where Quiver has measured a beach against real surf, it uses that beach's own ratio. Where it hasn't, the number carries a ~ to mark it as approximate.</p><p><strong>Hawaiian scale</strong> is roughly half the face. A "6-foot Hawaiian" wave has a face near 12 feet.</p>`,
         keyTakeaway:
-          "Three scales exist: significant height (buoy/forecast), face height (what you see, 1.5-2x Hs), and Hawaiian scale (~0.5x face height).",
+          "Hs is offshore. Face is what you ride. Hawaiian is half the face.",
       },
       {
         id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p>When Quiver shows "4 ft at 14 sec," expect <strong>6-8 foot faces</strong> at most beach breaks. Beginners comfortable in 3-foot faces should look for forecasts of <strong>1.5-2 ft Hs</strong>. Don't compare numbers across apps without checking their measurement convention — Surfline, Quiver, and Windguru may use different scales or conversions. The best calibration: surf your local break at a known forecast, compare what you see, and build your personal conversion factor. After 10 sessions, you'll know that "3 feet on Quiver" means exactly what at your spot.</p>`,
+        heading: "How big is 3 ft on Quiver?",
+        content: `<p>When a Quiver beach forecast says 3-4 ft, that's the face: about chest to shoulder high at Doheny or Huntington. Don't multiply it again. Beginners want 1-3 ft faces.</p><p>When you read a buoy page, do the math yourself. At Ocean Beach SF, 6 ft of Hs at 14 seconds means faces around 8 ft and sets near 12 ft. If you're not sure, don't paddle out; watch from shore for 10 minutes first.</p><p>Other forecasts use other rulers. Surf your break at a known number a few times and you'll learn what 3 ft means there.</p>`,
         keyTakeaway:
-          "Calibrate forecast numbers to your local break by comparing predictions to what you actually see over several sessions.",
+          "Read Quiver's beach number as is. Only multiply a buoy's Hs.",
       },
     ],
     faqs: [
       {
-        question: "Why don't forecasts just use face height?",
+        question: "Is the Quiver wave height the buoy height?",
         answer:
-          "Significant wave height (Hs) is a standardized measurement from buoys. Face height varies by beach — the same swell produces different face heights at different breaks due to bottom contour, refraction, and focusing effects. Hs is the objective, comparable number.",
+          "No. A Quiver beach forecast shows an estimated face height built from buoy and model Hs. The buoy pages show raw Hs.",
+      },
+      {
+        question: "Why don't buoys report face height?",
+        answer:
+          "A buoy floats in deep water, miles from the break, and Hs is the standard number for that sea state. Face height depends on the bottom: the same swell breaks bigger on a shallow sandbar than over a deep channel.",
       },
       {
         question: "Is a 6-foot wave dangerous for beginners?",
         answer:
-          "If that's 6-foot face height, yes — that's overhead and can hold you under. If it's 6-foot Hs, it means 9-12 foot faces, which is very large surf. Beginners should stay in 1-3 foot face height (roughly 0.5-2 ft Hs).",
+          "Yes. A 6-foot face is overhead and can hold you under. Learn in 1-3 ft faces. If a buoy shows 6 ft of Hs at 14 seconds, faces run around 8 ft with sets near 12 ft.",
       },
       {
         question: "Why do Hawaiians measure waves differently?",
         answer:
-          "Historical tradition from the 1960s-70s surf culture. Hawaiian surfers measured from the back of the wave, not the face. The convention stuck. When a Hawaiian says '10 foot,' they mean a 15-20 foot face — it's not modesty, it's a different ruler.",
+          "Hawaiian surfers measured from the back of the wave, not the face, and the habit stuck. When a Hawaiian says '10 foot,' they mean a face near 20 feet.",
       },
       {
         question: "What's the biggest wave ever measured by a buoy?",
@@ -1142,7 +1147,7 @@ export const learnArticles: LearnArticle[] = [
         label: "Check Wave Heights Now",
         href: "/forecast",
         description:
-          "See current significant wave height at 279+ beaches.",
+          "See the estimated face height at your beach today.",
       },
       {
         label: "What Is a Rogue Wave?",
@@ -1154,7 +1159,7 @@ export const learnArticles: LearnArticle[] = [
       eyebrow: "Same number, your beach",
       title: "See what 3 ft means at your break.",
       description:
-        "Quiver shows forecast height and period for your beach, so you can read the number the way this guide explains it.",
+        "Quiver turns buoy height and period into an estimated face height for your beach, so 3 ft means 3 ft on the face.",
       ctaLabel: "Open my beach's forecast",
     },
   },
