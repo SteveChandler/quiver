@@ -4222,7 +4222,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "surfers",
         heading: "What a rogue set means for surfers",
-        content: `<p>The forecast number is the average of the tallest third of waves, as our guide to <a href="/learn/how-are-waves-measured">how waves are measured</a> explains. So some sets will always be bigger than the number. A rogue set can be twice the average.</p><p>Do what the NWS says lifeguards and experienced surfers do: watch the ocean for at least 20 minutes before you paddle out. Count the biggest set, not the average one. If the biggest set would scare you, don't paddle out.</p>`,
+        content: `<p>A buoy's wave height is the average of the tallest third of the waves it measures, as our guide to <a href="/learn/how-are-waves-measured">how waves are measured</a> explains. So some waves always come in bigger than the buoy number. A rogue set can be twice the size of the waves around it.</p><p>Do what the NWS says lifeguards and experienced surfers do: watch the ocean for at least 20 minutes before you paddle out. Count the biggest set, not the average one. If the biggest set would scare you, don't paddle out.</p>`,
         keyTakeaway: "Watch 20 minutes. Plan for the biggest set, not the average.",
       },
       {
@@ -4268,7 +4268,7 @@ export const learnArticles: LearnArticle[] = [
       {
         label: "How Big Is 3 ft Surf?",
         href: "/learn/how-are-waves-measured",
-        description: "Why the biggest sets run bigger than the forecast number.",
+        description: "Buoy height, face height, and why some sets run bigger.",
       },
       {
         label: "What Is a Rip Current?",
