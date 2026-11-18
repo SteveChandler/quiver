@@ -43,6 +43,7 @@ import {
   buildComparisonLine,
   forecastRowEnds,
   groupGoForecasts,
+  loadDailyCallProfiles,
   rankCandidates,
   rowServesDay,
   runDailyCallCron,
@@ -2621,5 +2622,52 @@ describe("daily call location freshness", () => {
     expect(result.skippedCounts.no_pool).toBe(1);
     expect(injected.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: null }));
     expect(daylight).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("loadDailyCallProfiles at signup scale", () => {
+  it("splits location and home-beach lookups so no request carries hundreds of ids", async () => {
+    // 2026-11-18: one .in() over ~635 profile ids came back 400 Bad Request and every hourly run failed.
+    const id = (n: number, prefix: string) => `${prefix}-0000-4000-8000-${String(n).padStart(12, "0")}`;
+    const profiles = Array.from({ length: 250 }, (_, n) => ({ id: id(n, "10000000"), home_beach_id: id(n % 3, "20000000"),
+      timezone: "America/Los_Angeles", daily_call_time: "06:00", notif_push_enabled: true, notif_forecast_alerts: true,
+      experience_level: null, max_drive_minutes: null, preferred_session_time: null }));
+    const inSizes: Record<string, number[]> = {};
+    const client = { from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      let ids: string[] = [];
+      builder.select = () => builder;
+      builder.is = () => builder;
+      builder.in = (_column: string, values: string[]) => { ids = values; (inSizes[table] ??= []).push(values.length); return builder; };
+      builder.then = (resolve: (value: unknown) => void) => resolve({ error: null, data: table === "profiles" ? profiles
+        : table === "user_location_snapshots" ? ids.map((user_id) => ({ user_id, lat: 32.7, lon: -117.2, timezone: null, captured_at: "2026-11-18T00:00:00Z" }))
+        : ids.map((beachId) => ({ ...home.beach, id: beachId })) });
+      return builder;
+    } } as unknown as SupabaseClient<Database>;
+
+    const loaded = await loadDailyCallProfiles(client);
+
+    expect(loaded).toHaveLength(250);
+    expect(loaded.every((row) => row.location?.lat === 32.7 && row.homeBeach?.id === row.homeBeachId)).toBe(true);
+    expect(Math.max(...inSizes.user_location_snapshots)).toBeLessThanOrEqual(100);
+    expect(inSizes.user_location_snapshots.reduce((sum, size) => sum + size, 0)).toBe(250);
+    expect(inSizes.beaches).toEqual([3]);
+  });
+
+  it("still fails the run when one location chunk errors", async () => {
+    const profiles = Array.from({ length: 150 }, (_, n) => ({ id: `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`, home_beach_id: null }));
+    let call = 0;
+    const client = { from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      builder.select = () => builder;
+      builder.is = () => builder;
+      builder.in = () => builder;
+      builder.then = (resolve: (value: unknown) => void) => resolve(table === "profiles" ? { data: profiles, error: null }
+        : (call += 1) === 2 ? { data: null, error: { message: "Bad Request" } } : { data: [], error: null });
+      return builder;
+    } } as unknown as SupabaseClient<Database>;
+
+    await expect(loadDailyCallProfiles(client)).rejects.toThrow("Failed to load daily-call locations: Bad Request");
   });
 });

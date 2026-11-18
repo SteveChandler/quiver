@@ -56,6 +56,7 @@ import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
 import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
+import { chunk } from "@/lib/utils/chunk";
 import {
   getLocalDateString,
   getLocalHour,
@@ -861,6 +862,18 @@ async function buildSharedCall(
   return { winner, options, home, heldReasons };
 }
 
+const IN_FILTER_CHUNK = 100;
+
+async function selectInChunks<Row>(
+  ids: readonly string[],
+  query: (ids: string[]) => PromiseLike<{ data: Row[] | null; error: { message: string } | null }>,
+): Promise<{ data: Row[]; error: { message: string } | null }> {
+  const results = await Promise.all(chunk(ids, IN_FILTER_CHUNK).map((ids) => query(ids)));
+  const failed = results.find((result) => result.error);
+  if (failed) return { data: [], error: failed.error };
+  return { data: results.flatMap((result) => result.data ?? []), error: null };
+}
+
 async function loadProfiles(
   supabase: SupabaseClient<Database>,
   userIds?: readonly string[],
@@ -873,17 +886,15 @@ async function loadProfiles(
   if (error) throw new Error(`Failed to load daily-call profiles: ${error.message}`);
   const rows = data ?? [];
   const loadedUserIds = rows.map((row) => row.id);
-  const homeBeachIds = rows.flatMap((row) => row.home_beach_id ? [row.home_beach_id] : []);
+  const homeBeachIds = [...new Set(rows.flatMap((row) => row.home_beach_id ? [row.home_beach_id] : []))];
+  // One `.in()` over every profile id made a ~25 KB request that the Supabase edge rejected (400 Bad Request) once
+  // profiles passed ~635 on 2026-11-18; chunk so the run scales with signups.
   const [locationsResult, beachesResult] = await Promise.all([
-    loadedUserIds.length === 0
-      ? Promise.resolve({ data: [], error: null })
-      : supabase
-          .from("user_location_snapshots")
-          .select("user_id, lat, lon, timezone, captured_at")
-          .in("user_id", loadedUserIds),
-    homeBeachIds.length === 0
-      ? Promise.resolve({ data: [], error: null })
-      : supabase.from("beaches").select("*").in("id", homeBeachIds),
+    selectInChunks(loadedUserIds, (ids) => supabase
+      .from("user_location_snapshots")
+      .select("user_id, lat, lon, timezone, captured_at")
+      .in("user_id", ids)),
+    selectInChunks(homeBeachIds, (ids) => supabase.from("beaches").select("*").in("id", ids)),
   ]);
   if (locationsResult.error) {
     throw new Error(`Failed to load daily-call locations: ${locationsResult.error.message}`);
