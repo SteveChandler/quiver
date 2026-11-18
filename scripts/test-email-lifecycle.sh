@@ -66,6 +66,8 @@ psql_local -f "$repo_dir/supabase/migrations/20261007030000_activate_startup_lif
   -f "$repo_dir/__tests__/integration/email-lifecycle-v2-activation.sql"
 psql_local -f "$repo_dir/supabase/migrations/20261031200000_lifecycle_timezone_fallback.sql" \
   -f "$repo_dir/__tests__/integration/email-lifecycle-timezone-fallback.sql"
+psql_local -f "$repo_dir/supabase/migrations/20261117120000_lifecycle_trial_falls_through.sql" \
+  -f "$repo_dir/__tests__/integration/email-lifecycle-trial-fall-through.sql"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \
