@@ -31,8 +31,7 @@ export interface WaterTempMetaData {
 }
 
 const WATER_TEMP_META_SOURCE = "getWaterTempMetaData";
-/** PostgREST answers `.single()` with no matching row this way: no data, not a failure. */
-const NO_ROWS_ERROR_CODE = "PGRST116";
+const UTC_DAY_MS = 86_400_000;
 const lastGoodWaterTempData = createLastGoodSubPageData();
 
 /**
@@ -90,43 +89,28 @@ async function readNewestWaterTemp(beachId: string): Promise<string | null> {
     throw new SubPageDataUnavailableError(WATER_TEMP_META_SOURCE, subPageErrorMessage(error));
   }
 
-  const today = new Date().toISOString().split("T")[0];
-  const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
+  const utcMidnight = new Date().setUTCHours(0, 0, 0, 0);
+  const from = new Date(utcMidnight - UTC_DAY_MS).toISOString();
+  const to = new Date(utcMidnight + UTC_DAY_MS).toISOString();
 
-  for (const [from, to] of [
-    [today, nextDay],
-    [yesterdayStr, today],
-  ]) {
-    let response: {
-      data: { water_temp: string | null } | null;
-      error: { code?: string; message: string } | null;
-    };
-    try {
-      response = await supabase
-        .from("enhanced_forecasts")
-        .select("water_temp")
-        .eq("beach_id", beachId)
-        .gte("forecast_at", `${from}T00:00:00Z`)
-        .lt("forecast_at", `${to}T00:00:00Z`)
-        .not("water_temp", "is", null)
-        .order("forecast_at", { ascending: false })
-        .limit(1)
-        .single();
-    } catch (error) {
-      if (isProgrammingError(error)) throw error;
-      throw new SubPageDataUnavailableError(WATER_TEMP_META_SOURCE, subPageErrorMessage(error));
-    }
-    const { data: forecast, error } = response;
-
-    if (error && error.code !== NO_ROWS_ERROR_CODE) {
-      throw new SubPageDataUnavailableError(WATER_TEMP_META_SOURCE, error.message);
-    }
-    // An unparseable today row still falls back to nothing, as before: only a
-    // missing today row reads yesterday.
-    if (!error && forecast) return forecast.water_temp;
+  let response;
+  try {
+    response = await supabase
+      .from("enhanced_forecasts")
+      .select("water_temp")
+      .eq("beach_id", beachId)
+      .gte("forecast_at", from)
+      .lt("forecast_at", to)
+      .not("water_temp", "is", null)
+      .order("forecast_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+  } catch (error) {
+    if (isProgrammingError(error)) throw error;
+    throw new SubPageDataUnavailableError(WATER_TEMP_META_SOURCE, subPageErrorMessage(error));
   }
-  return null;
+  if (response.error) {
+    throw new SubPageDataUnavailableError(WATER_TEMP_META_SOURCE, response.error.message);
+  }
+  return response.data?.water_temp ?? null;
 }
