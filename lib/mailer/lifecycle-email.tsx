@@ -48,7 +48,9 @@ function activationV4Content(decision: LifecycleDecision, call: ActivationCall |
   if (!LIFECYCLE_V4_ENABLED || decision.job !== "activation" || !call) return null;
   if (call.kind === "window") return activationWindowContent(call, decision.user_id);
   if (call.kind === "fallback") return activationFallbackContent(call);
-  return activationNoBeachContent();
+  if (call.kind === "no_beach") return activationNoBeachContent();
+  // beach_unreadable: no name to print, so the approved v3 activation copy goes out.
+  return null;
 }
 
 /** `activationCall` is read by the v4 activation email only (LIFECYCLE_V4_ENABLED); without it that email keeps the approved v3 copy. */
@@ -93,7 +95,7 @@ async function renderActivationV4(decision: LifecycleDecision, content: Activati
   const paragraphs = [...content.paragraphs, ...offerParagraph(decision)];
   return {
     subject: content.subject,
-    html: await render(<LifecycleEmail headline={content.subject} paragraphs={paragraphs} ctaLabel={content.cta} ctaHref={ctaHref} unsubscribeUrl={unsubscribeUrl} postalAddress={POSTAL_ADDRESS} sticker={VISUALS.activation.sticker} eyebrow={ACTIVATION_V4_COPY.eyebrow} checklist={false} />),
+    html: await render(<LifecycleEmail headline={content.subject} paragraphs={paragraphs} ctaLabel={content.cta} ctaHref={ctaHref} unsubscribeUrl={unsubscribeUrl} postalAddress={POSTAL_ADDRESS} sticker={VISUALS.activation.sticker} eyebrow={content.eyebrow} checklist={false} />),
     text: [...paragraphs, `${content.cta}: ${ctaHref}`, "Steve, Quiver", POSTAL_ADDRESS, `Unsubscribe: ${unsubscribeUrl}`].join("\n\n"),
   };
 }

@@ -36,6 +36,7 @@ function deps(overrides: Partial<ActivationCallDeps> = {}): ActivationCallDeps &
   return {
     readViewedBeachIds: jest.fn(async () => [VIEWED, HOME, VIEWED]),
     readBeach: jest.fn(async (id: string) => id === VIEWED ? beachRow(VIEWED, "Capitola") : id === HOME ? beachRow(HOME, "Pleasure Point") : null),
+    readSessionTime: jest.fn(async () => null),
     generate: jest.fn(async () => response(windowFixture())),
     ...overrides,
   } as ActivationCallDeps & { generate: jest.Mock };
@@ -102,14 +103,27 @@ it("names the home beach in the fallback when the view read fails", async () => 
   expectConsoleWarnings([/Activation email view read failed/]);
 });
 
-it("uses the welcome rule when there is no beach to name", async () => {
+it("uses no_beach only for a user with no beach, and beach_unreadable when the beach read fails", async () => {
   expect(await loadActivationCall({ userId: USER, homeBeachId: null, now: NOW, deps: deps({ readViewedBeachIds: jest.fn(async () => []) }) })).toEqual({ kind: "no_beach", now: NOW.toISOString() });
   const unreadable = deps({ readBeach: jest.fn(async () => { throw new Error("beaches down"); }) });
-  expect(await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: unreadable })).toMatchObject({ kind: "no_beach" });
-  expectConsoleWarnings([/Activation email beach read failed/]);
+  expect(await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: unreadable })).toEqual({ kind: "beach_unreadable", now: NOW.toISOString() });
+  expectConsoleWarnings([/Activation email beach read failed; using the v3 copy/]);
 });
 
 it("does not turn a bug after the reads into fallback copy", async () => {
   const malformed = { days: [] } as unknown as CanonicalWeekScoutResponse;
   await expect(loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: deps({ generate: jest.fn(async () => malformed) }) })).rejects.toThrow(TypeError);
+});
+
+it("passes the user's preferred session time to Week Scout, as the Week Scout route and the Daily Call do", async () => {
+  const d = deps({ readSessionTime: jest.fn(async () => "dawn_patrol" as const) });
+  await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: d });
+  expect(d.generate.mock.calls[0][1]).toEqual({ candidateBeachIds: [VIEWED], localTimezone: "America/Los_Angeles", startLocalDate: "2026-11-19", dayCount: 3, sessionTime: "dawn_patrol" });
+});
+
+it("falls back, without a forecast read, when the session time read fails", async () => {
+  const d = deps({ readSessionTime: jest.fn(async () => { throw new Error("profiles down"); }) });
+  expect(await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: d })).toMatchObject({ kind: "fallback", reason: "read_failed", beach: { id: VIEWED } });
+  expect(d.generate).not.toHaveBeenCalled();
+  expectConsoleWarnings([/Activation email forecast read failed/]);
 });

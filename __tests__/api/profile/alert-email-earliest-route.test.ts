@@ -78,3 +78,9 @@ it("treats only a missing alert_email_earliest column as 'not there yet'", () =>
   expect(isMissingAlertEmailEarliestColumn(new Error("network"))).toBe(false);
   expect(isMissingAlertEmailEarliestColumn(null)).toBe(false);
 });
+
+it("returns 404 when the signed-in user has no profile row to update", async () => {
+  result = { data: null, error: { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned" } };
+  const response = await PATCH(request({ earliest: "05:00" }), {});
+  expect(response.status).toBe(404);
+});

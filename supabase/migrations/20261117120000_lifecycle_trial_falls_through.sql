@@ -1,6 +1,7 @@
 -- Idea 3 (trial gap): a verified trial that opened a forecast no longer goes quiet for the whole trial.
 -- trial_target_reached now removes only the trial_support job; the user falls through to the normal
--- welcome / activation / progress / friction / routine rules. Consent, caps, dedupe and quiet hours are unchanged.
+-- welcome / activation / progress / friction / routine rules. The same happens once trial_support was
+-- attempted (or logged as trial_started) or its slot expired, so it can no longer hold the whole trial. Consent, caps, dedupe and quiet hours are unchanged.
 -- Function replace only; no table change.
 -- Precondition (prod): md5(pg_get_functiondef('public.evaluate_email_lifecycle(uuid,uuid)'::regprocedure))
 --   = '2488f1c44b3d1f1a51f86ae9cb76ab62' (the 20261031200000 text).
@@ -20,7 +21,7 @@ DECLARE
   next_at timestamptz; last_use timestamptz; last_completion timestamptz; count_sessions integer;
   offer public.pro_offer_awards%ROWTYPE; audience text;
   active_days integer; contacts timestamptz[]; local_time timestamp; result jsonb; cap integer;
-  v_timezone text; trial_target_reached boolean := false;
+  v_timezone text; trial_target_reached boolean := false; trial_support_done boolean := false;
 BEGIN
   SELECT * INTO p FROM public.profiles WHERE id=p_user_id;
   v_timezone := public.email_contact_timezone(p.timezone,p.home_beach_id);
@@ -81,12 +82,17 @@ BEGIN
     trial_target_reached := EXISTS(SELECT 1 FROM public.user_events WHERE user_id=p_user_id AND bot_flagged IS NOT TRUE
       AND event_type IN ('home_surf_call_tap','home_beach_forecast_viewed','home_hero_forecast_viewed')
       AND created_at BETWEEN t.purchased_at AND n);
+    -- Once trial_support was attempted or its slot expired, the trial user also gets the stage rules (friction at day 7-10).
+    trial_support_done := n >= least(t.purchased_at+interval '7 days',e.trial_ends_at-interval '24 hours')
+      OR EXISTS(SELECT 1 FROM public.email_contact_attempts WHERE user_id=p_user_id AND lifecycle_job='trial_support'
+        AND episode=t.provider_event_id AND id IS DISTINCT FROM p_ignore_attempt AND state NOT IN ('cancelled','failed'))
+      OR EXISTS(SELECT 1 FROM public.email_send_log WHERE user_id=p_user_id AND email_type='trial_started');
   END IF;
   IF feedback_trial IS NOT NULL THEN
     job:='trial_feedback'; v_episode:=feedback_trial->>'trial_event_id';
     due:=(feedback_trial->>'cancelled_at')::timestamptz+interval '24 hours';
     expiry:=least((feedback_trial->>'cancelled_at')::timestamptz+interval '7 days',(feedback_trial->>'trial_ends_at')::timestamptz);
-  ELSIF e.is_trialing AND NOT trial_target_reached THEN
+  ELSIF e.is_trialing AND NOT trial_target_reached AND NOT trial_support_done THEN
     job := 'trial_support'; v_episode := t.provider_event_id; due := t.purchased_at+interval '24 hours';
     expiry := least(t.purchased_at+interval '7 days',e.trial_ends_at-interval '24 hours');
   ELSIF audience='free' AND EXISTS(SELECT 1 FROM public.pro_offer_awards WHERE user_id=p_user_id AND claim_requested_at IS NOT NULL AND earned_at IS NOT NULL AND state<>'verified') THEN

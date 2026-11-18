@@ -72,3 +72,39 @@ it("a render failure propagates after the claim", async () => {
   await expect(runEmailLifecycle(false)).rejects.toThrow("Missing activation copy value");
   expect(mockSend).not.toHaveBeenCalled();
 });
+
+it("loads the call after the claim when the claimed job became activation", async () => {
+  const order = setup("welcome", async () => ({ allowed: true, attempt_id: USER, decision: decision("activation") }));
+  await runEmailLifecycle(false);
+  expect(mockLoad).toHaveBeenCalledTimes(1);
+  expect(order.indexOf("loadActivationCall")).toBeGreaterThan(order.indexOf("claim_email_lifecycle"));
+  expect(mockRender.mock.calls[0][5]).toBe(call);
+});
+
+it("drops a preloaded call when the claimed job is no longer activation", async () => {
+  setup("activation", async () => ({ allowed: true, attempt_id: USER, decision: decision("progress") }));
+  await runEmailLifecycle(false);
+  expect(mockLoad).toHaveBeenCalledTimes(1);
+  expect(mockRender.mock.calls[0][5]).toBeUndefined();
+});
+
+it("does not read a forecast for an activation candidate that is not due", async () => {
+  setup("activation", async () => ({ allowed: true, attempt_id: USER, decision: decision("activation") }));
+  mockRpc.mockImplementation(async (name: string): Promise<unknown> => {
+    if (name === "email_lifecycle_cohort") return [USER];
+    if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
+    if (name === "evaluate_email_lifecycle") return { ...decision("activation"), status: "deferred", reason: "cadence_or_quiet_hours" };
+    if (name === "email_automation_health") return { due_unsent: 0, enrollment_pending: 0 };
+    return null;
+  });
+  await runEmailLifecycle(false);
+  expect(mockLoad).not.toHaveBeenCalled();
+  expect(mockRpc).not.toHaveBeenCalledWith("claim_email_lifecycle", expect.anything());
+});
+
+it("a claim that holds the user sends nothing, even after a preload", async () => {
+  setup("activation", async () => ({ allowed: false, reason: "version_mismatch" }));
+  await expect(runEmailLifecycle(false)).resolves.toMatchObject({ reasons: { version_mismatch: 1 } });
+  expect(mockRender).not.toHaveBeenCalled();
+  expect(mockSend).not.toHaveBeenCalled();
+});

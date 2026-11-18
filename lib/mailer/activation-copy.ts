@@ -13,6 +13,8 @@ import { getLocalDateString } from "@/lib/utils/timezone-utils";
 export const ACTIVATION_V4_COPY = {
   version: 1,
   eyebrow: "Your next window",
+  // Fallback and no-beach forms name no window.
+  fallbackEyebrow: "Before you drive",
   headlines: {
     GOOD: ["{beach} is looking good {onDay}", "{Day}’s shaping up at {beach}", "{beach}’s lining up for {dayPart}", "Good one coming at {beach} {day}"],
     FAIR: ["{beach} could be fun {onDay}", "Decent shot at {beach} {day}"],
@@ -92,7 +94,7 @@ function windWords(call: Extract<ActivationCall, { kind: "window" }>): string | 
 }
 
 /** `beachSlug` null means the CTA opens home-beach onboarding. */
-export interface ActivationContent { subject: string; paragraphs: string[]; cta: string; beachSlug: string | null }
+export interface ActivationContent { subject: string; eyebrow: string; paragraphs: string[]; cta: string; beachSlug: string | null }
 
 export function activationWindowContent(call: Extract<ActivationCall, { kind: "window" }>, userId: string): ActivationContent {
   const { window, beach, label } = call;
@@ -118,13 +120,14 @@ export function activationWindowContent(call: Extract<ActivationCall, { kind: "w
     wind ? fill(ACTIVATION_V4_COPY.detail.wind, { wind }) : "",
     ACTIVATION_V4_COPY.detail.end,
   ].join("");
-  return { subject, paragraphs: [callLine, detail, ACTIVATION_V4_COPY.closing], cta: ACTIVATION_V4_COPY.cta, beachSlug: beach.slug };
+  return { subject, eyebrow: ACTIVATION_V4_COPY.eyebrow, paragraphs: [callLine, detail, ACTIVATION_V4_COPY.closing], cta: ACTIVATION_V4_COPY.cta, beachSlug: beach.slug };
 }
 
 export function activationFallbackContent(call: Extract<ActivationCall, { kind: "fallback" }>): ActivationContent {
   const vars = { beach: call.beach.name };
   return {
     subject: ACTIVATION_V4_COPY.fallback.subject,
+    eyebrow: ACTIVATION_V4_COPY.fallbackEyebrow,
     paragraphs: [fill(ACTIVATION_V4_COPY.fallback.paragraph, vars)],
     cta: fill(ACTIVATION_V4_COPY.fallback.cta, vars),
     beachSlug: call.beach.slug,
@@ -133,5 +136,5 @@ export function activationFallbackContent(call: Extract<ActivationCall, { kind: 
 
 export function activationNoBeachContent(): ActivationContent {
   const copy = ACTIVATION_V4_COPY.noBeach;
-  return { subject: copy.subject, paragraphs: [copy.paragraph], cta: copy.cta, beachSlug: null };
+  return { subject: copy.subject, eyebrow: ACTIVATION_V4_COPY.fallbackEyebrow, paragraphs: [copy.paragraph], cta: copy.cta, beachSlug: null };
 }

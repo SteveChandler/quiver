@@ -5,7 +5,7 @@ import type { WeekScoutWindowResponse } from '@/lib/services/discovery/week-scou
 jest.mock('@react-email/render', () => ({ render: async (element: unknown) => jest.requireActual('react-dom/server').renderToStaticMarkup(element) }));
 
 // v4 row in 20261117130000_startup_lifecycle_v4_campaign.sql; computed with TRIAL_FEEDBACK_ENABLED=true and LIFECYCLE_V4_ENABLED=true.
-const V4_HASH = 'b078fb0b9942d6b876503bf9f7ddc4ff8bb0ba418e42994d2484323d99d5ba14';
+const V4_HASH = '2cd7425ed6087cc2396653d96a7c5d39566033015a6c059e685c69836e3f1f2b';
 const V3_HASH = 'c4420192008baef0a920860820092f5e13e00788833963112bc2634c929fbde2';
 const USER = '11111111-1111-4111-8111-111111111111';
 const NOW = '2026-11-19T17:00:00Z'; // Thursday 9 AM in Los Angeles
@@ -104,6 +104,8 @@ it('uses the fallback copy without a number when no fresh call is good enough', 
  expect(email.text).toContain('Check Capitola before you drive. Quiver tells you if it’s worth going.');
  expect(email.text).toMatch(/Check Capitola: https:\/\/example\.com\/app\/spot\/capitola\?/);
  expect(email.text).not.toMatch(/\d ft|GOOD|FAIR/);
+ expect(email.html).toContain('Before you drive');
+ expect(email.html).not.toContain('Your next window');
 });
 
 it('uses the fallback form with home-beach onboarding when there is no beach', async () => {
@@ -113,7 +115,8 @@ it('uses the fallback form with home-beach onboarding when there is no beach', a
  expect(email.text).toContain('Pick your home beach and Quiver tells you if it’s worth going.');
  expect(email.text).toMatch(/Choose your home beach: https:\/\/example\.com\/app\?.*email_type=activation.*onboarding=required/);
  expect(email.text).not.toContain('Why I built Quiver');
- expect(email.html).toContain('Your next window');
+ expect(email.html).toContain('Before you drive');
+ expect(email.html).not.toContain('Your next window');
 });
 
 it('keeps the earned-offer note and does not let the paid-user line replace the forecast', async () => {
@@ -136,4 +139,12 @@ it('uses dashes only inside number ranges', async () => {
   const email = await renderWith(v4, call);
   for (const body of [email.subject, email.text]) expect(body.replace(/https?:\/\/\S+/g, '').replace(/\d–\d/g, '')).not.toMatch(/[‐-―−]| - /);
  }
+});
+
+it('keeps the approved v3 activation copy when the beach could not be read, never the no-beach ask', async () => {
+ const v4 = load({ feedback: true, v4: true });
+ const email = await renderWith(v4, { kind: 'beach_unreadable', now: NOW });
+ expect(email).toEqual(await renderWith(v4));
+ expect(email.subject).toBe('How was your last surf?');
+ expect(email.text).not.toContain('Pick your home beach');
 });

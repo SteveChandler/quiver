@@ -6,6 +6,7 @@ export type ActivationWindow = CanonicalWeekScoutResponse["days"][number]["windo
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { notificationBeachName } from "@/lib/notifications/copy/daily-call-copy";
 import { createContextLogger } from "@/lib/logger";
+import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
 
 const log = createContextLogger("activation-email");
 
@@ -31,7 +32,10 @@ export interface ActivationBeach {
 export type ActivationCall =
   | { kind: "window"; beach: ActivationBeach; label: "GOOD" | "FAIR"; window: ActivationWindow; now: string }
   | { kind: "fallback"; beach: ActivationBeach; reason: "no_call" | "stale_call" | "read_failed"; now: string }
-  | { kind: "no_beach"; now: string };
+  /** The user has no beach at all. */
+  | { kind: "no_beach"; now: string }
+  /** A beach exists but could not be read, so there is no name to print: the email keeps the approved v3 copy. */
+  | { kind: "beach_unreadable"; now: string };
 
 type BeachRow = { id: string; name: string; short_name: string | null; slug: string | null; timezone: string | null; wind_offshore_deg: number | null; aspect_deg: number | null };
 
@@ -39,6 +43,8 @@ export interface ActivationCallDeps {
   /** Beach ids from the user's view events in the window, newest first. */
   readViewedBeachIds: (userId: string, since: Date) => Promise<string[]>;
   readBeach: (beachId: string) => Promise<BeachRow | null>;
+  /** profiles.preferred_session_time, the same value the Week Scout route and the Daily Call pass. */
+  readSessionTime: (userId: string) => Promise<SessionTime | null>;
   generate: (userId: string, request: WeekScoutDaysRequest) => Promise<CanonicalWeekScoutResponse>;
 }
 
@@ -63,6 +69,12 @@ function defaultDeps(): ActivationCallDeps {
         .select("id,name,short_name,slug,timezone,wind_offshore_deg,aspect_deg").eq("id", beachId).eq("is_private", false).maybeSingle();
       if (error) throw new Error(error.message);
       return (data as BeachRow | null) ?? null;
+    },
+    readSessionTime: async (userId) => {
+      const { data, error } = await createSupabaseServiceRoleClient().from("profiles")
+        .select("preferred_session_time").eq("id", userId).maybeSingle();
+      if (error) throw new Error(error.message);
+      return parseSessionTime((data as { preferred_session_time?: unknown } | null)?.preferred_session_time);
     },
     generate: (userId, request) => generateWeekScoutForecastForDays(userId, request),
   };
@@ -162,18 +174,20 @@ export async function loadActivationCall(args: {
     beach = await withBudget(readNamedBeach([viewedId, args.homeBeachId], deps), budgetMs);
   } catch (error) {
     if (!(error instanceof ActivationReadError)) throw error;
-    // Without a beach name there is no fallback sentence to write.
-    log.warn("Activation email beach read failed; using the welcome rule", { error: error.message });
-    return { kind: "no_beach", now: nowIso };
+    // The user may have a beach; without its name the email keeps the approved v3 copy.
+    log.warn("Activation email beach read failed; using the v3 copy", { error: error.message });
+    return { kind: "beach_unreadable", now: nowIso };
   }
   if (!beach) return { kind: "no_beach", now: nowIso };
   if (viewsFailed) return { kind: "fallback", beach, reason: "read_failed", now: nowIso };
 
   let response: CanonicalWeekScoutResponse;
   try {
+    const sessionTime = await withBudget(read("session time", () => deps.readSessionTime(args.userId)), budgetMs);
     response = await withBudget(read("forecast", () => deps.generate(args.userId, {
       candidateBeachIds: [beach.id], localTimezone: beach.timezone,
       startLocalDate: getLocalDateString(now, beach.timezone), dayCount: ACTIVATION_CALL_DAYS,
+      ...(sessionTime ? { sessionTime } : {}),
     })), budgetMs);
   } catch (error) {
     if (!(error instanceof ActivationReadError)) throw error;

@@ -4,6 +4,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   createValidationError,
+  createNotFoundError,
   withNoStore,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
@@ -59,6 +60,8 @@ const handlePatch = withAuth(
       if (isMissingAlertEmailEarliestColumn(error)) {
         return createErrorResponse("Alert email setting is not available yet", { code: "not_available" }, 503);
       }
+      // .single() on zero updated rows: the signed-in user has no profile row.
+      if ((error as { code?: unknown }).code === "PGRST116") return createNotFoundError("Profile not found");
       throw error;
     }
     return createSuccessResponse({ earliest: data?.alert_email_earliest ?? parsed.data, supported: true });
