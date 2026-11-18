@@ -564,27 +564,8 @@ export class ForecastBuilder {
       const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
       const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime, cdipHoldHours);
 
-      // Determine data source for this time point.
-      // Per-slot wavePoint.data_source is canonical (NOAA_NWS for days 1-3,
-      // OPEN_METEO for days 4-12 after merge). No wrapper-level fallback —
-      // it would mask one source as the other.
       const useBuoyData = i === 0 && buoyData;
       const useCDIPData = !!cdipPoint;
-      const timepointDataSource = useCDIPData
-        ? "CDIP"
-        : wavePoint
-          ? (wavePoint.data_source ?? "FALLBACK")
-          : (useBuoyData ? "NOAA_BUOY" : "FALLBACK");
-
-      // Calculate confidence score
-      const confidenceScore = calculateConfidenceScore({
-        hasWaveData: !!wavePoint,
-        hasTideData: !!tideInfo,
-        hasWeatherData: !!weatherPoint,
-        hasBuoyData: !!useBuoyData,
-        hasCDIPData: useCDIPData,
-        forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
-      });
 
       // Check if this is the first forecast of the day
       const dateString = getNormalizedDateString(forecastTime);
@@ -621,8 +602,7 @@ export class ForecastBuilder {
         weatherPoint,
         buoyData: useBuoyData ? buoyData : null,
         useCDIPData,
-        confidenceScore,
-        timepointDataSource,
+        forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
         dataSources,
         calibration,
         tideData,
@@ -981,8 +961,7 @@ export class ForecastBuilder {
     weatherPoint: WeatherPeriod | null;
     buoyData: NDBCBuoyRow | null;
     useCDIPData: boolean;
-    confidenceScore: number;
-    timepointDataSource: string;
+    forecastHoursAhead: number;
     dataSources: string[];
     tideData: COOPSForecast | null;
     isFirstOfDay: boolean;
@@ -1012,8 +991,7 @@ export class ForecastBuilder {
       weatherPoint,
       buoyData,
       useCDIPData,
-      confidenceScore,
-      timepointDataSource,
+      forecastHoursAhead,
       dataSources,
       tideData,
       isFirstOfDay,
@@ -1033,9 +1011,7 @@ export class ForecastBuilder {
       ecmwfWamHsM = null,
     } = params;
 
-    // Compute wave height once and capture provenance metadata for raw_forecast.
-    // The debug record explains which source/transform path produced the number,
-    // making post-hoc "why does Quiver show X?" questions answerable from one row.
+    // Capture the wave-height source and transform for raw_forecast.
     let waveHeightResult = this.getWaveHeight(
       cdipPoint,
       wavePoint,
@@ -1046,6 +1022,22 @@ export class ForecastBuilder {
       cdipData?.stationId ?? null,
       ecmwfWamHsM,
     );
+    const cdipRejection = waveHeightResult.debug.cdipRejection;
+    const useCdipWaveFields = useCDIPData && !cdipRejection;
+    // The selected model point identifies which provider supplied this slot.
+    const timepointDataSource = useCdipWaveFields
+      ? "CDIP"
+      : wavePoint
+        ? (wavePoint.data_source ?? "FALLBACK")
+        : (buoyData ? "NOAA_BUOY" : "FALLBACK");
+    const confidenceScore = calculateConfidenceScore({
+      hasWaveData: !!wavePoint,
+      hasTideData: !!tideInfo,
+      hasWeatherData: !!weatherPoint,
+      hasBuoyData: !!buoyData,
+      hasCDIPData: useCdipWaveFields,
+      forecastHoursAhead,
+    });
     const replayBase = waveHeightResult.debug.replayInput
       ? { input: waveHeightResult.debug.replayInput, supported: southOcSanoGuardrail.kind === "noop" }
       : null;
@@ -1066,6 +1058,7 @@ export class ForecastBuilder {
       const baseFt = parseDisplayHeightFt(waveHeightResult.value).numericFt;
       const guardedFt = parseDisplayHeightFt(guardedWaveHeightResult.value).numericFt;
       if (guardedFt != null && (baseFt == null || guardedFt > baseFt)) {
+        if (cdipRejection) guardedWaveHeightResult.debug.cdipRejection = cdipRejection;
         waveHeightResult = guardedWaveHeightResult;
         appliedSouthOcSanoGuardrail = southOcSanoGuardrail;
       }
@@ -1372,22 +1365,22 @@ export class ForecastBuilder {
       // Per-beach offset (when enabled + gates pass) is layered on TOP via
       // applyBeachHeightOffset; otherwise byte-identical to waveHeightResult.value.
       wave_height: finalWaveHeightString,
-      wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
-      wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),
+      wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCdipWaveFields),
+      wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCdipWaveFields),
 
       // Detailed swell information
-      swell_1_height: this.getSwell1Height(cdipPoint, wavePoint, useCDIPData),
-      swell_1_period: this.getSwell1Period(cdipPoint, wavePoint, useCDIPData),
-      swell_1_direction: this.getSwell1Direction(cdipPoint, wavePoint, useCDIPData),
+      swell_1_height: this.getSwell1Height(cdipPoint, wavePoint, useCdipWaveFields),
+      swell_1_period: this.getSwell1Period(cdipPoint, wavePoint, useCdipWaveFields),
+      swell_1_direction: this.getSwell1Direction(cdipPoint, wavePoint, useCdipWaveFields),
 
       swell_2_height: this.getSwell2Height(wavePoint),
       swell_2_period: this.getSwell2Period(wavePoint),
       swell_2_direction: this.getSwell2Direction(wavePoint),
 
       // Wind waves
-      wind_wave_height: this.getWindWaveHeight(cdipPoint, wavePoint, useCDIPData),
-      wind_wave_period: this.getWindWavePeriod(cdipPoint, wavePoint, useCDIPData),
-      wind_wave_direction: this.getWindWaveDirection(cdipPoint, wavePoint, useCDIPData),
+      wind_wave_height: this.getWindWaveHeight(cdipPoint, wavePoint, useCdipWaveFields),
+      wind_wave_period: this.getWindWavePeriod(cdipPoint, wavePoint, useCdipWaveFields),
+      wind_wave_direction: this.getWindWaveDirection(cdipPoint, wavePoint, useCdipWaveFields),
 
       // Raw Open-Meteo values co-located on this row (when OM had data for
       // this slot at fetch time). NULL when outside OM's 168h horizon or
@@ -1824,15 +1817,13 @@ export class ForecastBuilder {
     //
     // Branch priority:
     //   1. Nowcast anchor active → buoy observation drives Hs (scalar path).
-    //   2. CDIP data present → CDIP Hs drives the scalar calibrated path.
+    //   2. CDIP data present → use the scalar path if source selection accepts it.
     //      Without this branch, populated NOAA components would silently
     //      override CDIP `Hs` because the decomposed transformer sums
     //      components and never reads `rawHeightFt` (and so the per-beach
     //      `shoaling_factors` calibration, gated on `cdip_sig` source, is
-    //      bypassed). selectWaveHeightSource still handles CDIP outlier
-    //      rejection (>10ft or >1.8× model); on rejection it falls back to
-    //      model_swell and the legacy generic pipeline runs.
-    //   3. NOAA-only or buoy fallback → original decomposed path.
+    //      bypassed).
+    //   3. CDIP absent or rejected → original model / buoy fallback path.
 
     // Branch 1: Nowcast anchor.
     // Swap in the observation Hs via the explicit nowcastAnchorM slot AND pass empty
@@ -1874,7 +1865,11 @@ export class ForecastBuilder {
         swellDirectionDeg,
         components: [null, null, null],
       });
-      return result;
+      const { cdipRejection } = result.debug;
+      if (!cdipRejection) return result;
+
+      const fallback = this.getWaveHeight(null, wavePoint, buoyData, false, beach, null, null, ecmwfWamHsM);
+      return { ...fallback, debug: { ...fallback.debug, cdipRejection } };
     }
 
     // Branch 3: NOAA-only / buoy fallback — original decomposed path.

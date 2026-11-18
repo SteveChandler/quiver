@@ -16,6 +16,7 @@
  * end-to-end transform actually runs.
  */
 
+import { createHash } from "node:crypto";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import {
   ForecastBuilder,
@@ -27,6 +28,9 @@ import {
   CALIBRATED_CDIP_HOLD_HOURS,
   CDIP_NOWCAST_HORIZON_HOURS,
 } from "@/lib/config/forecast-staleness";
+import type { ForecastInputs } from "@/lib/services/forecast/forecast-builder";
+import { getWaveDirectionText } from "@/lib/services/noaa-wavewatch/wave-analysis";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import type { Beach } from "@/types/database";
 import { MODEL_SWELL_CALIBRATION_FACTORS } from "@/lib/utils/model-swell-calibration-factors";
 
@@ -43,9 +47,9 @@ const FROZEN_NOW_ISO = "2026-04-19T15:00:00Z";
 const CALIBRATION_COVERAGE_WARNING = /calibrated_shoaling_coverage_gap/;
 const HELPER_NOW_MS = Date.parse("2026-06-15T12:00:00Z");
 
-function makeBuilder(): ForecastBuilder {
+function makeBuilder(directionText: (degrees: number) => string = () => "SW"): ForecastBuilder {
   return new ForecastBuilder({
-    getWaveDirectionText: () => "SW",
+    getWaveDirectionText: directionText,
     getTideStatusAtTime: () => "Rising",
     getTideHeightAtTime: () => 3.5,
     getNextTideFromTime: () => null,
@@ -449,6 +453,104 @@ describe("ForecastBuilder CDIP height semantics", () => {
   afterEach(() => {
     expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
   });
+
+  const fallbackInputs = (ecmwfWamHsM: number | null = 2.6): ForecastInputs => ({
+    beach: makeBeach({
+      id: "cdcf733b-a704-45ef-affc-d8152ffde1e4", // Mission Beach (Central), in the hybrid k table.
+      shoaling_factors: { ...CALIBRATED_SHOALING, calibration: { reference_buoy: "191" } },
+    }),
+    waveData: {
+      ...makeWaveData(FROZEN_NOW_ISO, 1.2),
+      forecast: [{ ...makeWaveData(FROZEN_NOW_ISO, 1.2).forecast[0], swell_1_height: 1 }],
+      ecmwf_wam: ecmwfWamHsM == null ? [] : [{ ms: Date.parse(FROZEN_NOW_ISO), hsM: ecmwfWamHsM }],
+    },
+    tideData: null,
+    weatherData: [],
+    buoyData: null,
+    cdipData: null,
+    ioosWaterTempC: null,
+    coopsWaterTempC: null,
+    heightOffset: null,
+    feedbackCalibrationCandidate: null,
+  });
+
+  test.each([
+    { hs: 10.24, reason: "cdip_too_large", ecmwfWamHsM: 2.6 },
+    { hs: 8, reason: "cdip_outlier_vs_model", ecmwfWamHsM: 2.6 },
+    { hs: 10.24, reason: "cdip_too_large", ecmwfWamHsM: null },
+  ])("$reason with ECMWF Hs $ecmwfWamHsM uses the CDIP-absent model row", async ({ hs, reason, ecmwfWamHsM }) => {
+    const builder = makeBuilder(getWaveDirectionText);
+    const inputs = fallbackInputs(ecmwfWamHsM);
+    const [model] = await builder.buildForecasts(inputs);
+    const [rejected] = await builder.buildForecasts({
+      ...inputs,
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, hs, 15.4, 274),
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(rejected.wave_height).toBe(model.wave_height);
+    const { raw_forecast: rejectedRaw, ...rejectedFields } = rejected;
+    const { raw_forecast: modelRaw, ...modelFields } = model;
+    expect(rejectedFields).toEqual(modelFields);
+    const provenance = rejectedRaw?.wave_height_provenance;
+    const modelProvenance = modelRaw?.wave_height_provenance;
+    expect(modelProvenance).toMatchObject({ source: "model_swell", transform_path: "decomposed", components_used: true });
+    const hybrid = (modelProvenance as { ecmwf_hybrid?: { ecmwf_hs_m: number } } | undefined)?.ecmwf_hybrid;
+    expect(hybrid?.ecmwf_hs_m ?? null).toBe(ecmwfWamHsM);
+    expect(provenance).toEqual({
+      ...modelProvenance,
+      cdip_rejection: { reason, raw_cdip_hs: hs, raw_model_hs: METERS_TO_FEET },
+    });
+  });
+
+  test.each([6, undefined])("rejected CDIP without a model or NDBC point returns no wave height (CDIP swell %s)", async (swellHeight) => {
+    const cdipData = makeCdipBuoyData(FROZEN_NOW_ISO, 10.24, 15.4, 274);
+    const [row] = await makeBuilder().buildForecasts({
+      ...fallbackInputs(),
+      waveData: null,
+      cdipData: { ...cdipData, data: [{ ...cdipData.data[0], swellHeight }] },
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(row).toMatchObject({ wave_height: null, wave_period: null, wave_direction: null, data_source: "FALLBACK" });
+    expect(row.raw_forecast?.wave_height_provenance).toMatchObject({
+      source: null,
+      components_used: false,
+      cdip_rejection: { reason: "cdip_too_large", raw_cdip_hs: 10.24, raw_model_hs: null },
+    });
+  });
+
+  test("accepted CDIP and the anchor override retain their pre-fix serialized rows", async () => {
+    const builder = makeBuilder(getWaveDirectionText);
+    const inputs = fallbackInputs();
+    const [accepted] = await builder.buildForecasts({
+      ...inputs,
+      cdipData: { ...makeCdipBuoyData(FROZEN_NOW_ISO, 6, 15.4, 274), stationId: "191" },
+    });
+    const [anchored] = await builder.buildForecasts({
+      ...inputs,
+      beach: { ...inputs.beach, features: ["observation_anchor"] },
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 10.24, 15.4, 274),
+      nowcastAnchor: {
+        beachId: inputs.beach.id,
+        stationId: "edu_ucsd_cdip_220",
+        observedAt: FROZEN_NOW_ISO,
+        waveHeightM: 0.4,
+        wavePeriodS: 14,
+        waveDirectionDeg: 240,
+      },
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(accepted.raw_forecast?.wave_height_provenance?.source).toBe("cdip_sig");
+    expect(anchored.raw_forecast?.wave_height_provenance?.source).toBe("nowcast_anchor");
+    expect([accepted, anchored].map((row) => createHash("sha256").update(JSON.stringify(row)).digest("hex")))
+      .toEqual([
+        "32cea6e60d73adbf3fb1da6e22e4f570d8bd7fd022d39b205d8b164e8b053757",
+        "5772777147f0bb1cac072255ba94338ad496ee31100c88eb333ae8bfdd2d3164",
+      ]);
+  });
+
   test("La Jolla Shores CDIP 2.7 ft at 7 s stays calibrated and records the short-period cap", async () => {
     const cdipData = {
       ...makeCdipBuoyData(FROZEN_NOW_ISO, 2.7, 7, 290),
