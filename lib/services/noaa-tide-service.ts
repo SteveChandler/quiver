@@ -165,7 +165,7 @@ export async function fetchHourlyTidePredictions(
   stationId: string,
   startIso: string,
   endIso: string,
-  options?: { raw?: boolean }
+  options?: { raw?: boolean; timeoutMs?: number }
 ): Promise<TidePrediction[]> {
   const cacheKey = `hourly|${options?.raw ? "raw" : "adjusted"}|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
   const cached = options?.raw ? null : getCachedPredictions(hourlyPredictionsCache, cacheKey);
@@ -185,7 +185,7 @@ export async function fetchHourlyTidePredictions(
     begin_date,
     end_date,
   });
-  const json = await fetchDatagetter(buildDatagetterUrl(params));
+  const json = await fetchDatagetter(buildDatagetterUrl(params), options?.timeoutMs);
   const offsetM = options?.raw ? 0 : seaLevelOffsetFt(stationId) * 0.3048;
   const preds: TidePrediction[] = (json?.predictions || [])
     .map((p): TidePrediction | null => {
@@ -216,7 +216,7 @@ export async function fetchHighLowTidePredictions(
   stationId: string,
   startIso: string,
   endIso: string,
-  options?: { raw?: boolean }
+  options?: { raw?: boolean; timeoutMs?: number }
 ): Promise<HighLowTidePrediction[]> {
   const cacheKey = `hilo|${options?.raw ? "raw" : "adjusted"}|${stationId}|${toYmd(startIso)}|${toYmd(endIso)}`;
   const cached = options?.raw ? null : getCachedPredictions(highLowPredictionsCache, cacheKey);
@@ -235,7 +235,7 @@ export async function fetchHighLowTidePredictions(
     begin_date,
     end_date,
   });
-  const json = await fetchDatagetter(buildDatagetterUrl(params));
+  const json = await fetchDatagetter(buildDatagetterUrl(params), options?.timeoutMs);
   const offsetM = options?.raw ? 0 : seaLevelOffsetFt(stationId) * 0.3048;
   const predictions: HighLowTidePrediction[] = (json?.predictions || [])
     .map((p): HighLowTidePrediction | null => {

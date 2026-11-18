@@ -28,18 +28,21 @@ export function buildDatagetterUrl(params: URLSearchParams): string {
 }
 
 export async function fetchDatagetter(url: string, timeoutMs = 20_000): Promise<DatagetterPayload> {
-  const pending = inFlight.get(url);
+  // A render's short timeout must never cancel a cron or API request.
+  const key = `${timeoutMs}:${url}`;
+  const pending = inFlight.get(key);
   if (pending) return pending;
   if (Date.now() < cooldownUntil) {
     throw new NoaaTideRequestError("NOAA tide request cooling down");
   }
 
   const request = (async (): Promise<DatagetterPayload> => {
+    const signal = AbortSignal.timeout(timeoutMs);
     let response: Response;
     try {
       response = await fetch(url, {
         headers: { "User-Agent": NOAA_USER_AGENT },
-        signal: AbortSignal.timeout(timeoutMs),
+        signal,
       });
     } catch (error) {
       throw new NoaaTideRequestError(
@@ -61,7 +64,16 @@ export async function fetchDatagetter(url: string, timeoutMs = 20_000): Promise<
         response.status,
       );
     }
-    const data: DatagetterPayload = await response.json();
+    let data: DatagetterPayload;
+    try {
+      data = await response.json();
+    } catch (error) {
+      if (!signal.aborted || typeof error !== "object" || !error || !("name" in error)
+          || (error.name !== "AbortError" && error.name !== "TimeoutError")) {
+        throw error;
+      }
+      throw new NoaaTideRequestError("NOAA tide response timed out", undefined, { cause: error });
+    }
     // A request already in flight when a 403 arrived must not end that pause early.
     if (Date.now() >= cooldownUntil) {
       cooldownUntil = 0;
@@ -69,10 +81,10 @@ export async function fetchDatagetter(url: string, timeoutMs = 20_000): Promise<
     }
     return data;
   })();
-  inFlight.set(url, request);
+  inFlight.set(key, request);
   try {
     return await request;
   } finally {
-    inFlight.delete(url);
+    inFlight.delete(key);
   }
 }
