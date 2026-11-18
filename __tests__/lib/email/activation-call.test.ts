@@ -72,12 +72,18 @@ it.each([
   ["a call below FAIR", response(windowFixture({ personalLabel: "RIDEABLE" })), "no_call"],
   ["a no verdict", response(windowFixture(), "no"), "no_call"],
   ["no window", response(null), "no_call"],
-  ["a call older than 3 h", response(windowFixture({ forecast: { ...windowFixture().forecast, freshnessAt: "2026-11-19T13:59:00Z" } })), "stale_call"],
+  ["a call older than 6 h", response(windowFixture({ forecast: { ...windowFixture().forecast, freshnessAt: "2026-11-19T10:59:00Z" } })), "stale_call"],
   ["a window that closes in 20 min", response(windowFixture({ displayWindowEnd: "2026-11-19T17:20:00Z" })), "no_call"],
   ["no wave height", response(windowFixture({ forecast: { ...windowFixture().forecast, waveHeight: null } })), "no_call"],
 ])("falls back on %s", async (_, value, reason) => {
   const call = await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: deps({ generate: jest.fn(async () => value) }) });
   expect(call).toMatchObject({ kind: "fallback", reason, beach: { id: VIEWED } });
+});
+
+it("keeps a call that is 5 h old", async () => {
+  const value = response(windowFixture({ forecast: { ...windowFixture().forecast, freshnessAt: "2026-11-19T12:00:00Z" } }));
+  const call = await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: deps({ generate: jest.fn(async () => value) }) });
+  expect(call).toMatchObject({ kind: "window" });
 });
 
 it("falls back when the forecast read fails or runs past its budget", async () => {

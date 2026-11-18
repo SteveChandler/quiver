@@ -5,7 +5,7 @@ CREATE TEMP TABLE v4_before AS SELECT automation_campaign FROM public.email_cont
 \ir ../../supabase/migrations/20261117130000_startup_lifecycle_v4_campaign.sql
 DO $$ BEGIN
   ASSERT (SELECT count(*) FROM public.email_campaigns WHERE id='startup-lifecycle-v4' AND version=4 AND status='approved'
-    AND content_hash='a4025b67cf2cd848cddfc7023a3812979a8968d0cf4651f28527991824fcb675' AND expires_at>now())=1,'v4 row missing or not approved';
+    AND content_hash='b078fb0b9942d6b876503bf9f7ddc4ff8bb0ba418e42994d2484323d99d5ba14' AND expires_at>now())=1,'v4 row missing or not approved';
   ASSERT (SELECT automation_campaign FROM public.email_contact_controls WHERE singleton) IS NOT DISTINCT FROM (SELECT automation_campaign FROM v4_before),
     'the v4 migration switched the live campaign by itself';
   ASSERT NOT EXISTS (SELECT 1 FROM public.email_contact_state WHERE approved_campaign='startup-lifecycle-v4'),'contacts moved without the switch';

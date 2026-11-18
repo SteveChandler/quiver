@@ -4,7 +4,7 @@ import { render } from "@react-email/render";
 import { buildAppEmailLink, buildBeachEmailLink, buildSessionEmailLink } from "@/lib/mailer/email-links";
 import { LIFECYCLE_CAMPAIGN, LIFECYCLE_V4_ENABLED, type LifecycleDecision, type LifecycleJob } from "@/lib/email/lifecycle";
 import type { ActivationCall } from "@/lib/email/activation-call";
-import { ACTIVATION_V4_COPY, activationFallbackContent, activationWindowContent, type ActivationContent } from "@/lib/mailer/activation-copy";
+import { ACTIVATION_V4_COPY, activationFallbackContent, activationNoBeachContent, activationWindowContent, type ActivationContent } from "@/lib/mailer/activation-copy";
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import { LifecycleEmail } from "@/lib/mailer/templates/LifecycleEmail";
 
@@ -44,11 +44,11 @@ const VISUALS: Record<Exclude<LifecycleJob, "trial_feedback">, { sticker: Quiver
 export const LIFECYCLE_CONTENT_HASH = createHash("sha256").update(JSON.stringify({ copy: COPY, offerCopy: OFFER_COPY, personalCopy: PERSONAL_COPY, visuals: VISUALS, postalAddress: POSTAL_ADDRESS, layout: "LifecycleEmail-v5-steve-signoff", links: "app-session-offers-v2", ...(process.env.TRIAL_FEEDBACK_ENABLED === "true" ? { trialFeedback: { copy: FEEDBACK_COPY, visual: FEEDBACK_VISUAL, path: "/trial-feedback", version: 1 } } : {}), ...(LIFECYCLE_V4_ENABLED ? { activationV4: { copy: ACTIVATION_V4_COPY, sticker: VISUALS.activation.sticker, link: "app-spot-v1" } } : {}) })).digest("hex");
 
 // v4 activation content, or null when the email keeps the approved v1–v3 path.
-function activationV4Content(decision: LifecycleDecision, call: ActivationCall | undefined): ActivationContent | "welcome_rule" | null {
+function activationV4Content(decision: LifecycleDecision, call: ActivationCall | undefined): ActivationContent | null {
   if (!LIFECYCLE_V4_ENABLED || decision.job !== "activation" || !call) return null;
   if (call.kind === "window") return activationWindowContent(call, decision.user_id);
   if (call.kind === "fallback") return activationFallbackContent(call);
-  return "welcome_rule";
+  return activationNoBeachContent();
 }
 
 /** `activationCall` is read by the v4 activation email only (LIFECYCLE_V4_ENABLED); without it that email keeps the approved v3 copy. */
@@ -59,7 +59,6 @@ export async function renderLifecycleEmail(decision: LifecycleDecision, attemptI
   if (decision.job === "offer_ready" && !promotional) throw new Error("Offers require a verified free audience");
   const attribution = { origin, emailType: decision.job, messageInstanceId: attemptId, utmCampaign: LIFECYCLE_CAMPAIGN };
   const v4 = activationV4Content(decision, activationCall);
-  if (v4 === "welcome_rule") return renderWelcomeRule(decision, attribution, unsubscribeUrl);
   if (v4) return renderActivationV4(decision, v4, attribution, unsubscribeUrl);
   const copy = decision.job === "trial_feedback" ? FEEDBACK_COPY : COPY[decision.job];
   const reply = decision.job === "friction" || decision.job === "routine";
@@ -87,25 +86,14 @@ function offerParagraph(decision: LifecycleDecision): string[] {
 }
 
 async function renderActivationV4(decision: LifecycleDecision, content: ActivationContent, attribution: Attribution, unsubscribeUrl: string): Promise<{ subject: string; html: string; text: string }> {
-  const ctaHref = buildBeachEmailLink({ ...attribution, beachSlug: content.beachSlug });
+  const ctaHref = content.beachSlug
+    ? buildBeachEmailLink({ ...attribution, beachSlug: content.beachSlug })
+    : buildAppEmailLink({ ...attribution, params: { onboarding: "required" } });
   // The earned-offer note stays as approved; the paid-user personal line would replace the forecast, so v4 drops it.
   const paragraphs = [...content.paragraphs, ...offerParagraph(decision)];
   return {
     subject: content.subject,
     html: await render(<LifecycleEmail headline={content.subject} paragraphs={paragraphs} ctaLabel={content.cta} ctaHref={ctaHref} unsubscribeUrl={unsubscribeUrl} postalAddress={POSTAL_ADDRESS} sticker={VISUALS.activation.sticker} eyebrow={ACTIVATION_V4_COPY.eyebrow} checklist={false} />),
     text: [...paragraphs, `${content.cta}: ${ctaHref}`, "Steve, Quiver", POSTAL_ADDRESS, `Unsubscribe: ${unsubscribeUrl}`].join("\n\n"),
-  };
-}
-
-/** No beach to name: the activation email reads as the welcome note that asks for a home beach. */
-async function renderWelcomeRule(decision: LifecycleDecision, attribution: Attribution, unsubscribeUrl: string): Promise<{ subject: string; html: string; text: string }> {
-  const copy = COPY.welcome;
-  const ctaLabel = "Choose your home beach";
-  const ctaHref = buildAppEmailLink({ ...attribution, params: { onboarding: "required" } });
-  const paragraphs = [...copy.paragraphs, ...offerParagraph(decision)];
-  return {
-    subject: copy.subject,
-    html: await render(<LifecycleEmail headline={copy.subject} paragraphs={paragraphs} ctaLabel={ctaLabel} ctaHref={ctaHref} unsubscribeUrl={unsubscribeUrl} postalAddress={POSTAL_ADDRESS} {...VISUALS.welcome} checklist={false} />),
-    text: [...paragraphs, `${ctaLabel}: ${ctaHref}`, "Steve, Quiver", POSTAL_ADDRESS, `Unsubscribe: ${unsubscribeUrl}`].join("\n\n"),
   };
 }

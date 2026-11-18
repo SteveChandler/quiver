@@ -25,6 +25,7 @@ export const ACTIVATION_V4_COPY = {
   closing: "Check it before you drive. Quiver updates the call as the swell comes in.",
   cta: "See the window",
   fallback: { subject: "Planning a surf?", paragraph: "Check {beach} before you drive. Quiver tells you if it’s worth going.", cta: "Check {beach}" },
+  noBeach: { subject: "Planning a surf?", paragraph: "Pick your home beach and Quiver tells you if it’s worth going.", cta: "Choose your home beach" },
   days: { today: "today", tomorrow: "tomorrow", on: "on {weekday}", morning: "morning", afternoon: "afternoon", thisPart: "this {part}", dayPart: "{day} {part}" },
 } as const;
 
@@ -90,7 +91,8 @@ function windWords(call: Extract<ActivationCall, { kind: "window" }>): string | 
   return direction ? fill(ACTIVATION_V4_COPY.wind.plain, { speed: rounded, direction }) : `${rounded} mph wind`;
 }
 
-export interface ActivationContent { subject: string; paragraphs: string[]; cta: string; beachSlug: string }
+/** `beachSlug` null means the CTA opens home-beach onboarding. */
+export interface ActivationContent { subject: string; paragraphs: string[]; cta: string; beachSlug: string | null }
 
 export function activationWindowContent(call: Extract<ActivationCall, { kind: "window" }>, userId: string): ActivationContent {
   const { window, beach, label } = call;
@@ -127,4 +129,9 @@ export function activationFallbackContent(call: Extract<ActivationCall, { kind: 
     cta: fill(ACTIVATION_V4_COPY.fallback.cta, vars),
     beachSlug: call.beach.slug,
   };
+}
+
+export function activationNoBeachContent(): ActivationContent {
+  const copy = ACTIVATION_V4_COPY.noBeach;
+  return { subject: copy.subject, paragraphs: [copy.paragraph], cta: copy.cta, beachSlug: null };
 }

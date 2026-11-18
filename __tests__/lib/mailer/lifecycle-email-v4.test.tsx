@@ -5,7 +5,7 @@ import type { WeekScoutWindowResponse } from '@/lib/services/discovery/week-scou
 jest.mock('@react-email/render', () => ({ render: async (element: unknown) => jest.requireActual('react-dom/server').renderToStaticMarkup(element) }));
 
 // v4 row in 20261117130000_startup_lifecycle_v4_campaign.sql; computed with TRIAL_FEEDBACK_ENABLED=true and LIFECYCLE_V4_ENABLED=true.
-const V4_HASH = 'a4025b67cf2cd848cddfc7023a3812979a8968d0cf4651f28527991824fcb675';
+const V4_HASH = 'b078fb0b9942d6b876503bf9f7ddc4ff8bb0ba418e42994d2484323d99d5ba14';
 const V3_HASH = 'c4420192008baef0a920860820092f5e13e00788833963112bc2634c929fbde2';
 const USER = '11111111-1111-4111-8111-111111111111';
 const NOW = '2026-11-19T17:00:00Z'; // Thursday 9 AM in Los Angeles
@@ -106,11 +106,14 @@ it('uses the fallback copy without a number when no fresh call is good enough', 
  expect(email.text).not.toMatch(/\d ft|GOOD|FAIR/);
 });
 
-it('uses the welcome rule when there is no beach', async () => {
+it('uses the fallback form with home-beach onboarding when there is no beach', async () => {
  const email = await renderWith(load({ feedback: true, v4: true }), { kind: 'no_beach', now: NOW }, { ...decision, source: { ...decision.source!, home_beach_id: null } });
- expect(email.subject).toBe('Why I built Quiver');
- expect(email.text).toContain('Pick your home beach and Quiver will tell you if it’s worth going.');
- expect(email.text).toMatch(/Choose your home beach: https:\/\/example\.com\/app\?.*onboarding=required/);
+ expect(email.subject).toBe('Planning a surf?');
+ expect(email.html).toContain('>Planning a surf?</h1>');
+ expect(email.text).toContain('Pick your home beach and Quiver tells you if it’s worth going.');
+ expect(email.text).toMatch(/Choose your home beach: https:\/\/example\.com\/app\?.*email_type=activation.*onboarding=required/);
+ expect(email.text).not.toContain('Why I built Quiver');
+ expect(email.html).toContain('Your next window');
 });
 
 it('keeps the earned-offer note and does not let the paid-user line replace the forecast', async () => {

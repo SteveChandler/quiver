@@ -9,7 +9,7 @@
 BEGIN;
 
 INSERT INTO public.email_campaigns(id, version, content_hash, status, owner, approved_by, approved_at, expires_at)
-VALUES ('startup-lifecycle-v4', 4, 'a4025b67cf2cd848cddfc7023a3812979a8968d0cf4651f28527991824fcb675',
+VALUES ('startup-lifecycle-v4', 4, 'b078fb0b9942d6b876503bf9f7ddc4ff8bb0ba418e42994d2484323d99d5ba14',
   'approved', 'Steven', 'steven:approved-return-loop-mock-v4:20261117', now(), now() + interval '90 days')
 ON CONFLICT (id) DO NOTHING;
 

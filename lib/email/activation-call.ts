@@ -12,7 +12,8 @@ const log = createContextLogger("activation-email");
 /** The views that count as "looked at this beach", the same set the lifecycle activity rule reads. */
 const VIEW_EVENTS = ["beach_view", "forecast_check", "home_beach_forecast_viewed", "home_hero_forecast_viewed"] as const;
 const VIEW_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
-const MAX_CALL_AGE_MS = 3 * 60 * 60 * 1000;
+// Forecast rows refresh about every 2 h; 6 h allows one or two missed refreshes.
+const MAX_CALL_AGE_MS = 6 * 60 * 60 * 1000;
 /** Same close buffer the Daily Call uses: a window that ends within 30 min is not a window to drive to. */
 const CLOSE_BUFFER_MS = 30 * 60 * 1000;
 const ACTIVATION_CALL_DAYS = 3;
