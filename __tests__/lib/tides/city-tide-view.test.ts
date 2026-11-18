@@ -56,6 +56,24 @@ describe("loadStationTideView", () => {
     getStationSeries.mockResolvedValue({ status: "failed", reason: "noaa-empty" });
     await expect(loadStationTideView("1612668", NOW)).resolves.toBeNull();
   });
+
+  it("passes the beach-page policy to station predictions and reports missing data", async () => {
+    getNoaaTideStationBySourceId.mockResolvedValue(STATION);
+    getStationSeries.mockResolvedValue({ status: "failed", reason: "noaa-empty" });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      await expect(loadStationTideView("1612668", NOW, "beach-page")).resolves.toBeNull();
+      expect(getStationSeries).toHaveBeenCalledWith(STATION, NOW, "beach-page");
+      expect(warn).toHaveBeenCalledWith("Tide page: station table unavailable, using stored series", {
+        sourceStationId: "1612668",
+        purpose: "beach-page",
+        outcome: "no-station-data",
+        reason: "noaa-empty",
+      });
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
 
 describe("cityTideHeadline", () => {

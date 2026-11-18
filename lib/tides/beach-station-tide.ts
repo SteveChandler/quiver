@@ -98,7 +98,7 @@ export const getBeachTidePageData = cache(
     const rows = await getTideMetaData(beachId, beachTimezone);
     if (rows.availability || !rows.stationId) return { display: rows, rows, stationTide: null, view: null };
     const nowMs = Date.now();
-    const view = await loadStationTideView(rows.stationId, nowMs);
+    const view = await loadStationTideView(rows.stationId, nowMs, "beach-page");
     const stationTide = view ? toBeachStationTide(view) : null;
     if (!view || !stationTide) return { display: rows, rows, stationTide: null, view: null };
     return { display: stationTideMeta(rows, view, nowMs), rows, stationTide, view };

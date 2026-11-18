@@ -6,6 +6,8 @@
 // mark it so the sub-page gate stays open, unless this instance's last good
 // read found the beach without data.
 
+import { PostgrestClient } from "@supabase/postgrest-js";
+
 type TideModule = typeof import("@/lib/seo/tide-meta-data");
 type WaterTempModule = typeof import("@/lib/seo/water-temp-meta-data");
 
@@ -46,18 +48,18 @@ function client(responses: QueryResponse[]) {
     }
     return query;
   };
-  // Tide reads end at order(); water-temp reads end at single().
+  // Tide reads end at order(); water-temp reads end at maybeSingle().
   const tideQuery = chain();
   tideQuery.order = jest.fn(next);
   const waterTempQuery = chain();
-  waterTempQuery.single = jest.fn(next);
+  waterTempQuery.maybeSingle = jest.fn(next);
   return {
     from: jest.fn((table: string) => (table === "tide_forecasts" ? tideQuery : waterTempQuery)),
+    waterTempQuery,
   };
 }
 
 const TIMEOUT: QueryResponse = { data: null, error: { message: "canceling statement due to statement timeout" } };
-const NO_ROW: QueryResponse = { data: null, error: { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned" } };
 const TIDE_ROWS: QueryResponse = {
   data: [0.5, 1.5, 0.5].map((tide_height_m, i) => ({
     ts: new Date(Date.UTC(2026, 10, 12, 18 + i)).toISOString(),
@@ -170,7 +172,70 @@ describe("programming errors inside the read", () => {
   });
 });
 
-describe("getWaterTempMetaData read failures", () => {
+describe("getWaterTempMetaData", () => {
+  it.each([
+    ["before UTC midnight", "2026-11-12T23:59:59.999Z", "2026-11-11", "2026-11-13"],
+    ["at UTC midnight", "2026-11-13T00:00:00.000Z", "2026-11-12", "2026-11-14"],
+    ["after the year changes", "2027-01-01T00:00:00.000Z", "2026-12-31", "2027-01-02"],
+  ])("reads the newest non-null value across both days in one query %s", async (_label, now, from, to) => {
+    jest.setSystemTime(new Date(now));
+    const { waterTemp, createClient } = freshModules();
+    const db = client([WATER_TEMP_ROW]);
+    createClient.mockResolvedValue(db);
+
+    expect(await waterTemp.getWaterTempMetaData("beach-a")).toEqual({
+      tempF: 64,
+      wetsuitRec: "3/2mm fullsuit",
+    });
+    expect(db.from).toHaveBeenCalledTimes(1);
+    expect(db.from).toHaveBeenCalledWith("enhanced_forecasts");
+    expect(db.waterTempQuery.eq).toHaveBeenCalledWith("beach_id", "beach-a");
+    expect(db.waterTempQuery.gte).toHaveBeenCalledWith("forecast_at", `${from}T00:00:00.000Z`);
+    expect(db.waterTempQuery.lt).toHaveBeenCalledWith("forecast_at", `${to}T00:00:00.000Z`);
+    expect(db.waterTempQuery.not).toHaveBeenCalledWith("water_temp", "is", null);
+    expect(db.waterTempQuery.order).toHaveBeenCalledWith("forecast_at", { ascending: false });
+    expect(db.waterTempQuery.limit).toHaveBeenCalledWith(1);
+    expect(db.waterTempQuery.maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not look for an older value after selecting an unparseable newest value", async () => {
+    const { waterTemp, createClient, captureException } = freshModules();
+    const db = client([{ data: { water_temp: "invalid" }, error: null }, WATER_TEMP_ROW]);
+    createClient.mockResolvedValue(db);
+
+    expect(await waterTemp.getWaterTempMetaData("beach-a")).toEqual({ tempF: null, wetsuitRec: null });
+    expect(db.waterTempQuery.maybeSingle).toHaveBeenCalledTimes(1);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it.each([["today", true], ["only yesterday", false]] as const)(
+    "uses one PostgREST request when a non-null row exists %s",
+    async (_day, hasTodayValue) => {
+      jest.setSystemTime(new Date("2026-11-13T12:00:00.000Z"));
+      const { waterTemp, createClient } = freshModules();
+      const rows = [
+        { forecast_at: "2026-11-12T18:00:00.000Z", water_temp: "64" },
+        { forecast_at: "2026-11-13T18:00:00.000Z", water_temp: hasTodayValue ? "68" : null },
+        { forecast_at: "2026-11-14T00:00:00.000Z", water_temp: "79" },
+      ];
+      const fetch = jest.fn(async (input: RequestInfo | URL) => {
+        const query = new URL(String(input)).searchParams;
+        const [lower, upper] = query.getAll("forecast_at");
+        const selected = rows.filter(({ forecast_at, water_temp }) =>
+          forecast_at >= lower.slice(4) && forecast_at < upper.slice(3)
+          && (query.get("water_temp") !== "not.is.null" || water_temp !== null),
+        );
+        if (query.get("order") === "forecast_at.desc") selected.reverse();
+        return Response.json(selected.slice(0, Number(query.get("limit"))));
+      });
+      createClient.mockReturnValue(new PostgrestClient("https://unit-test.supabase.co/rest/v1", { fetch }));
+
+      const result = await waterTemp.getWaterTempMetaData("beach-a");
+      expect(result.tempF).toBe(hasTodayValue ? 68 : 64);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("marks a failed read unknown when there is no last good read", async () => {
     const { waterTemp, createClient, captureException } = freshModules();
     createClient.mockResolvedValue(client([TIMEOUT]));
@@ -179,13 +244,6 @@ describe("getWaterTempMetaData read failures", () => {
 
     expect(meta).toEqual({ tempF: null, wetsuitRec: null, availability: "sub-page-data-unknown" });
     expect(captureException).toHaveBeenCalledTimes(1);
-  });
-
-  it("marks a failed fallback-day read unknown", async () => {
-    const { waterTemp, createClient } = freshModules();
-    createClient.mockResolvedValue(client([NO_ROW, TIMEOUT]));
-
-    expect((await waterTemp.getWaterTempMetaData("beach-a")).availability).toBe("sub-page-data-unknown");
   });
 
   it("marks a failed read unknown when the last good read had a temperature", async () => {
@@ -198,7 +256,7 @@ describe("getWaterTempMetaData read failures", () => {
 
   it("keeps no data when the last good read found no temperature", async () => {
     const { waterTemp, createClient } = freshModules();
-    createClient.mockResolvedValue(client([NO_ROW, NO_ROW, TIMEOUT]));
+    createClient.mockResolvedValue(client([{ data: null, error: null }, TIMEOUT]));
 
     await waterTemp.getWaterTempMetaData("beach-a");
     const meta = await waterTemp.getWaterTempMetaData("beach-a");
@@ -208,9 +266,11 @@ describe("getWaterTempMetaData read failures", () => {
 
   it("reports a beach with no rows on either day as no data, without a report", async () => {
     const { waterTemp, createClient, captureException } = freshModules();
-    createClient.mockResolvedValue(client([NO_ROW, NO_ROW]));
+    const db = client([{ data: null, error: null }]);
+    createClient.mockResolvedValue(db);
 
     expect(await waterTemp.getWaterTempMetaData("beach-a")).toEqual({ tempF: null, wetsuitRec: null });
+    expect(db.waterTempQuery.maybeSingle).toHaveBeenCalledTimes(1);
     expect(captureException).not.toHaveBeenCalled();
   });
 
