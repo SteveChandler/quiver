@@ -12,13 +12,15 @@ import {
   CloudSun,
 } from "lucide-react";
 import { FormSwitch } from "@/components/ui/form-fields";
-import type { Control } from "react-hook-form";
+import { useWatch, type Control } from "react-hook-form";
+import { AlertEmailEarliestPills } from "@/components/profile/alert-email-earliest-pills";
 
 interface NotificationsSectionProps {
   control: Control<any>;
 }
 
 export function NotificationsSection({ control }: NotificationsSectionProps) {
+  const emailEnabled = useWatch({ control, name: "notif_email_enabled" }) === true;
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">
@@ -49,6 +51,7 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
           icon={Mail}
           variant="row"
         />
+        {emailEnabled ? <AlertEmailEarliestPills /> : null}
         <FormSwitch
           control={control}
           name="notif_inapp_enabled"

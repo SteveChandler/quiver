@@ -3,7 +3,8 @@ import { checkGmailRepliesBeforeSend, gmailFailureCode } from "@/lib/email/gmail
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { lifecycleDecisionSchema, lifecycleEnabled, lifecycleRpc, LIFECYCLE_CAMPAIGN, LIFECYCLE_VERSION, type LifecycleDecision } from "@/lib/email/lifecycle";
+import { lifecycleDecisionSchema, lifecycleEnabled, lifecycleRpc, LIFECYCLE_CAMPAIGN, LIFECYCLE_V4_ENABLED, LIFECYCLE_VERSION, type LifecycleDecision } from "@/lib/email/lifecycle";
+import { loadActivationCall, type ActivationCall } from "@/lib/email/activation-call";
 import { LIFECYCLE_CONTENT_HASH, renderLifecycleEmail } from "@/lib/mailer/lifecycle-email";
 import { getBaseUrl, MAIL_FROM, sendReservedLifecycleEmail } from "@/lib/mailer/client";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
@@ -37,15 +38,22 @@ async function dispatchLifecycleUser(userId: string, candidate: LifecycleDecisio
     // A cached free snapshot must not sell an offer to a newly paid customer.
     await refreshLifecycleUserEligibility(userId);
   }
+  // Read before the claim for a due activation, so a slow forecast does not hold a reservation; a read failure gives fallback copy, not a throw.
+  const preloaded: ActivationCall | undefined = LIFECYCLE_V4_ENABLED && candidate.status === "due" && candidate.job === "activation" && candidate.source
+    ? await loadActivationCall({ userId, homeBeachId: candidate.source.home_beach_id })
+    : undefined;
   const claim = z.object({ allowed: z.boolean(), reason: z.string().optional(), attempt_id: z.uuid().optional(), decision: lifecycleDecisionSchema.optional() }).parse(
     await lifecycleRpc("claim_email_lifecycle", { p_user_id: userId, p_version: LIFECYCLE_VERSION, p_content_hash: LIFECYCLE_CONTENT_HASH }));
   if (!claim.allowed) return claim.reason ?? "held";
   if (!claim.attempt_id || !claim.decision?.source) throw new Error("Invalid lifecycle reservation");
   const attemptId = claim.attempt_id;
+  // The claim re-evaluates: a preloaded call applies only if the claimed job is still activation; a claim that became activation loads it now (the reservation lasts 5 min, the read is capped at 8 s per step).
+  const activationCall: ActivationCall | undefined = !LIFECYCLE_V4_ENABLED || claim.decision.job !== "activation" ? undefined
+    : preloaded ?? await loadActivationCall({ userId, homeBeachId: claim.decision.source.home_beach_id });
   const origin = getBaseUrl();
   if (new URL(origin).protocol !== "https:") throw new Error("Lifecycle links require HTTPS");
   const unsubscribeUrl = `${origin}/api/email/lifecycle/unsubscribe?user_id=${userId}&token=${generateEmailUnsubscribeToken(userId)}`;
-  const content = await renderLifecycleEmail(claim.decision, attemptId, origin, replyTo, unsubscribeUrl);
+  const content = await renderLifecycleEmail(claim.decision, attemptId, origin, replyTo, unsubscribeUrl, activationCall);
   return sendReservedLifecycleEmail(attemptId, {
     from: MAIL_FROM, replyTo, to: claim.decision.source.email, ...content,
     headers: { "List-Unsubscribe": `<${unsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
