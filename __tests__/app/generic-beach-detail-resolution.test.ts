@@ -31,6 +31,24 @@ import { renderToPipeableStream, renderToStaticMarkup } from "react-dom/server";
 import { PassThrough } from "node:stream";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
 
+function streamPage(page: ReactNode, onChunk?: (html: string) => void): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const output = new PassThrough();
+    let content = "";
+    output.setEncoding("utf8");
+    output.on("data", (chunk: string) => {
+      content += chunk;
+      onChunk?.(content);
+    });
+    output.on("end", () => resolve(content));
+    output.on("error", reject);
+    const stream = renderToPipeableStream(page, {
+      onShellReady: () => stream.pipe(output),
+      onError: reject,
+    });
+  });
+}
+
 // Mock React's cache function for server components
 jest.mock("react", () => ({
   ...jest.requireActual("react"),
@@ -743,23 +761,11 @@ describe("GenericBeachDetailPage slug resolution", () => {
     }
 
     let initialHtml = "";
-    const html = await new Promise<string>((resolve, reject) => {
-      const output = new PassThrough();
-      let content = "";
-      output.setEncoding("utf8");
-      output.on("data", (chunk: string) => {
-        content += chunk;
-        if (!initialHtml && content.includes('data-testid="public-forecast-hourly"')) {
-          initialHtml = content;
-          nearby.resolve(nearbyResult);
-        }
-      });
-      output.on("end", () => resolve(content));
-      output.on("error", reject);
-      const stream = renderToPipeableStream(page, {
-        onShellReady: () => stream.pipe(output),
-        onError: reject,
-      });
+    const html = await streamPage(page, (content) => {
+      if (!initialHtml && content.includes('data-testid="public-forecast-hourly"')) {
+        initialHtml = content;
+        nearby.resolve(nearbyResult);
+      }
     });
 
     expect(getHeadingTexts(initialHtml, 1)).toEqual(["Del Mar Surf Forecast"]);
@@ -790,6 +796,42 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).toContain("3.2 ft · Rising");
     expect(html).toContain("92%");
   });
+
+  it.each(["rejected lookup", "unsuccessful lookup", "missing coordinates"] as const)(
+    "completes the forecast stream without nearby links for %s",
+    async (scenario) => {
+      const hasCoordinates = scenario !== "missing coordinates";
+      jest.mocked(getBeachesBySlug).mockResolvedValue({
+        success: true,
+        data: [makeBeach({
+          name: "Del Mar",
+          slug: "del-mar",
+          city: "Del Mar",
+          ...(hasCoordinates ? {} : { lat: null, lon: null }),
+        })],
+      });
+      (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+      if (scenario === "rejected lookup") {
+        jest.mocked(getNearbyBeaches).mockRejectedValueOnce(new Error("Nearby source unavailable"));
+      } else if (scenario === "unsuccessful lookup") {
+        jest.mocked(getNearbyBeaches).mockResolvedValueOnce({ success: false, error: "Nearby source unavailable" });
+      }
+      const log = jest.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const page = await GenericBeachDetailPage({
+          params: Promise.resolve({ intent: "ca", city: "del-mar", beachSlug: "del-mar" }),
+        });
+        const html = await streamPage(page);
+        expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
+        expect(html).toContain('data-testid="public-forecast-hourly"');
+        expect(html).toContain('data-testid="public-forecast-hour"');
+        expect(html).not.toContain('aria-label="Nearby spots"');
+        expect(getNearbyBeaches).toHaveBeenCalledTimes(hasCoordinates ? 1 : 0);
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
 
   it("keeps the surf-forecast H1 when live forecast details are unavailable", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
