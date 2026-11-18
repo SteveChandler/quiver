@@ -168,15 +168,23 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       : null),
   );
 
-  // Fetch above-fold and structured-data essentials in parallel. Nearby spot
-  // enrichment streams below the tabs so it does not block the page shell.
+  // Both nearby sections share the lookup and stream after the forecast.
+  const nearbyBeachesRaw = optionalSection("nearby", async (): Promise<Beach[]> => {
+    if (beach.lat == null || beach.lon == null) return [];
+    const result = await getNearbyBeaches(beach.lat, beach.lon, 25);
+    if (!result.success || !result.data) return [];
+    return result.data
+      .filter((nearby) => nearby.id !== beach.id && nearby.slug !== beach.slug)
+      .slice(0, 4);
+  }).then((beaches) => beaches ?? []);
+
+  // Fetch above-fold and structured-data essentials in parallel.
   const [
     surfReportResult,
     amenitiesResult,
     waterQualityResult,
     cameraUrl,
     beachPhoto,
-    nearbyResult,
   ] = await Promise.all([
     optionalSection("forecast", () => getSpotSurfReportPublic(beach)),
     optionalSection("amenities", () => getCachedBeachAmenities(beach.id)),
@@ -210,9 +218,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }
         : null,
     )),
-    optionalSection("nearby", () => beach.lat != null && beach.lon != null
-      ? getNearbyBeaches(beach.lat, beach.lon, 25)
-      : null),
   ]);
 
   const surfCallReport = surfReportResult?.report || null;
@@ -233,14 +238,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
   };
   const returnTo = buildBeachUrl(publicBeach);
-
-  const nearbyBeachesRaw = nearbyResult?.success && nearbyResult.data
-    ? nearbyResult.data
-        .filter((nearbyBeach) =>
-          nearbyBeach.id !== beach.id && nearbyBeach.slug !== beach.slug,
-        )
-        .slice(0, 4)
-    : [];
 
   return (
     <div className="min-h-screen">
@@ -321,7 +318,11 @@ export default async function GenericBeachDetailPage(props: PageProps) {
               generalCall={publicGeneralCall}
               isTomorrow={surfCallIsTomorrow}
               publicDecisionWindow={publicDecisionWindow}
-              nearbyBeaches={nearbyBeachesRaw}
+              nearbyBeaches={nearbyBeachesRaw.then((beaches) =>
+                beaches.map(({ id, name, slug, city, state, country }) => ({
+                  id, name, slug, city, state, country,
+                })),
+              )}
               headingLevel="h1"
               returnTo={returnTo}
             />
@@ -458,10 +459,10 @@ async function DeferredZineNearbySpots({
   nearbyBeachesRaw,
 }: {
   beach: Beach;
-  nearbyBeachesRaw: Beach[];
+  nearbyBeachesRaw: Promise<Beach[]>;
 }) {
   return optionalSection("nearbyConditions", async () => {
-    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+    const nearbyBeaches = await enrichBeachesWithConditions(await nearbyBeachesRaw);
 
     return (
       <ZineNearbySpots
