@@ -1031,12 +1031,15 @@ export class ForecastBuilder {
 
     if (southOcSanoGuardrail.kind !== "noop") {
       const guardedWaveHeightResult = this.getWaveHeight(
-        null,
-        null,
-        null,
-        false,
+        cdipPoint,
+        wavePoint,
+        buoyData,
+        useCDIPData,
         beach,
         southOcSanoGuardrail.anchor,
+        null,
+        // Same ruler as the base value, so the higher-of comparison is fair at hybrid beaches.
+        ecmwfWamHsM,
       );
       const baseFt = parseDisplayHeightFt(waveHeightResult.value).numericFt;
       const guardedFt = parseDisplayHeightFt(guardedWaveHeightResult.value).numericFt;
