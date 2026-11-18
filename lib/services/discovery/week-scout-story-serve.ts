@@ -177,6 +177,7 @@ export function storyGateHolds(gate: StoryGate, live: Live): boolean {
     case "swell":
     case "exposure":
     case "beach":
+    case "early_look":
       return false;
     case "origin": return false; // No verified track lineage exists in today's swells[] contract.
     case "wind": {

@@ -65,7 +65,7 @@ const expectedLearnMetadata = [
     slug: "how-are-waves-measured",
     title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
     description:
-      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
+      "Buoys report significant wave height (Hs). Quiver turns it into a face height: 3 ft at 14 sec reads about 4 ft, sets near 6 ft.",
   },
   {
     slug: "beginner-breaks-santa-cruz",
@@ -114,6 +114,12 @@ const expectedLearnMetadata = [
     title: "What Is a King Tide? California Dates and Surf",
     description:
       "A king tide is the highest tide of the year, set by a full or new moon at its closest. California's run Nov 24-26, Dec 23-25 and Jan 21-22.",
+  },
+  {
+    slug: "what-is-a-rogue-wave",
+    title: "What Is a Rogue Wave? Sneaker Waves in California",
+    description:
+      "A rogue wave is more than twice the height of the waves around it. On the beach, NWS says a sneaker wave can run 150 feet up the sand.",
   },
 ];
 

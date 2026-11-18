@@ -15,7 +15,7 @@ import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@
 import { narrateRegionEvents, watchBeaches, watchRegionEvents, type NarrativeEdition } from "@/lib/alerts/swell-events/regional-narrative";
 import { rateEventBeaches, rateRegionEvents, rateRegionEventsWithRatings } from "@/lib/alerts/swell-events/regional-rating";
 import * as ratingModule from "@/lib/alerts/swell-events/regional-rating";
-import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
+import { buildEarlyLookCandidates, buildEventCandidates, storyEventKey, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import { buildRegionGateContext, windBucket } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import type { StoryArtifact, StoryCandidate, StoryInput, StoryWrittenSentence } from "@/lib/services/discovery/week-scout-story-types";
@@ -136,6 +136,8 @@ function whyByBeach(event: RegionSwellEvent): Record<string, string | null | und
 
 const SSW_STORY = "A south-southwest long-period groundswell arrives Thursday, peaks Friday and fades Saturday: waist-high at most spots.";
 const STORM_STORY = "A west short-period storm swell arrives Saturday, peaks Sunday and fades Monday.";
+// Thirteen days out: a week from Monday, hedged, with no size word.
+const EARLY_STORY = "A west long-period groundswell may peak around a week from Monday; the size and the day can still move.";
 const SSW_WHY = {
   a: "Faces the south-southwest groundswell dead on: waist-high, with light wind in its window.",
   b: "Faces the south-southwest groundswell dead on: waist-high, but it's breezy in its window.",
@@ -152,10 +154,10 @@ describe("narrateRegionEvents", () => {
   it("gives every forecast event its server story line when there is no edition today", () => {
     const events = narrateRegionEvents({ build: BUILD, rated: rated(), edition: null, now: NOW });
 
-    expect(events.map((event) => [event.key, event.story])).toEqual([
-      [SSW.key, SSW_STORY],
-      [STORM.key, STORM_STORY],
-      [EARLY.key, null],
+    expect(events.map((event) => [event.key, event.story, event.storySource])).toEqual([
+      [SSW.key, SSW_STORY, "code"],
+      [STORM.key, STORM_STORY, "code"],
+      [EARLY.key, EARLY_STORY, "code"],
     ]);
     expect(whyByBeach(byKey(events, SSW.key))).toEqual(SSW_WHY);
     // Every storm row reads its slot's server line, and Sunset Cliffs, which has no card line in the input, gets one too.
@@ -168,7 +170,7 @@ describe("narrateRegionEvents", () => {
       c: "Sheltered from the west storm swell, with light wind in its window.",
       d: "Faces the west storm swell at an angle: knee-high and crumbly, with light wind in its window.",
     });
-    // The early look has no story and no beach lines.
+    // The early look has its hedged sentence and no beach lines.
     const early = byKey(events, EARLY.key);
     expect(early.here).toMatchObject({ beachId: "d", why: null });
     expect(early.working.length).toBeGreaterThan(0);
@@ -215,9 +217,48 @@ describe("narrateRegionEvents", () => {
     const events = narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: edition(written), now: NOW });
 
     expect(byKey(events, SSW.key).story).toBe(SSW_WRITTEN);
+    expect(byKey(events, SSW.key).storySource).toBe("written");
     expect(byKey(events, STORM.key).story).toBe(STORM_STORY);
+    expect(byKey(events, STORM.key).storySource).toBe("code");
     expect(whyByBeach(byKey(events, SSW.key))).toEqual({ ...SSW_WHY, a: OCEAN_BEACH_WRITTEN });
-    expect(byKey(events, EARLY.key).story).toBeNull();
+    // The morning's input offered no early-look candidate, so the early look keeps the server's sentence.
+    expect(byKey(events, EARLY.key).story).toBe(EARLY_STORY);
+    expect(byKey(events, EARLY.key).storySource).toBe("code");
+  });
+
+  it("serves a hedged early-look rewrite only while it keeps every hedge word and its early look holds", () => {
+    const EARLY_KEY = "6-5-2026-11-09";
+    const facts = [...cardFacts(), ...buildEarlyLookCandidates(BUILD, storyEventsFromRegion(BUILD, TODAY).all.map(storyEventKey), NOW)];
+    const offered = facts.find((fact) => fact.slot === `event:${EARLY_KEY}:story`);
+    expect(offered).toMatchObject({ text: EARLY_STORY, hedge: true, gate: { kind: "early_look", regionalEventKey: EARLY_KEY,
+      directionIndex: 12, periodClass: "long", peakLocalDate: "2026-11-09" } });
+    const kept = "A west groundswell may peak around a week from Monday, though the size and the day can still move.";
+    const serve = (text: string, build: RegionBuild = BUILD) => byKey(narrateRegionEvents({ build, rated: rated(),
+      edition: edition([sentence(`event:${EARLY_KEY}:story`, text)], { copyFacts: facts }), now: NOW }), EARLY.key);
+
+    expect(serve(kept)).toMatchObject({ story: kept, storySource: "written" });
+    // Drops "may" and "around": too sure for a swell ten days out.
+    expect(serve("A west groundswell peaks a week from Monday; the size and the day can still move.")).toMatchObject({
+      story: EARLY_STORY, storySource: "code" });
+    // The early look veered to west-northwest under the same key: its gate fails, and the server's sentence names it.
+    const veered = { ...BUILD, events: [SSW, STORM, { ...EARLY, directionDeg: 290 }] };
+    expect(serve(kept, veered)).toMatchObject({
+      story: "A west-northwest long-period groundswell may peak around a week from Monday; the size and the day can still move.",
+      storySource: "code" });
+  });
+
+  it("falls back to the server sentence when a written card story carries a digit, a foot range included", () => {
+    const written = [sentence(`event:${SSW_KEY}:story`, "South-southwest groundswell fills in Thursday, tops out Friday at 2-3 ft.")];
+    const events = narrateRegionEvents({ build: BUILD, rated: ratedOnPeak(), edition: edition(written), now: NOW });
+    expect(byKey(events, SSW.key)).toMatchObject({ story: SSW_STORY, storySource: "code" });
+  });
+
+  it("gives an early look with no direction the short sentence", () => {
+    const build: RegionBuild = { ...BUILD, events: [SSW, STORM, { ...EARLY, directionDeg: null, directionLabel: null }] };
+    const events = narrateRegionEvents({ build, rated: rateRegionEvents(build, { beachId: "d", skill: "intermediate", now: NOW }),
+      edition: null, now: NOW });
+    expect(byKey(events, EARLY.key)).toMatchObject({
+      story: "A swell may peak around a week from Monday; the size and the day can still move.", storySource: "code" });
   });
 
   it("serves a week-scout-story-3 edition's written lines exactly as a -2 edition's", () => {

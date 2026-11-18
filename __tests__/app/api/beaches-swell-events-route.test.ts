@@ -27,6 +27,8 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/middleware/api-wrappers"),
   withRateLimit: (handler: unknown) => handler,
 }));
+// The story switch is a database row; these tests read it on unless they say otherwise.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryCardEnabled: jest.fn() }));
 
 import { GET } from "@/app/api/beaches/[id]/swell-events/route";
 import { historyLine, regionModelBuoy } from "@/lib/alerts/swell-events/early-look";
@@ -35,6 +37,7 @@ import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/disc
 import { buildRegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { isSwellStoryCardEnabled } from "@/lib/flags/swell-story";
 import { createBearerTokenClient } from "@/lib/supabase/bearer-client";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
@@ -53,6 +56,8 @@ const STORM_DAY_WAM_M = 3.2;
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 /** The storm's server story line: it arrives and peaks the same Monday. */
 const STORM_STORY = "A west short-period storm swell arrives and peaks Monday, then fades Tuesday: waist-high at most spots.";
+/** The WAM early look's server sentence, nine days after the storm. */
+const EARLY_STORY = "A west long-period groundswell may peak around a week from Wednesday; the size and the day can still move.";
 /** Every staged beach's window is centred on the storm's west. */
 const STORM_WHY = "Faces the west storm swell head on: waist-high and crumbly, glassy early.";
 
@@ -179,6 +184,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     global.fetch = jest.fn(async () => Response.json({ hourly: { time: [] } })) as typeof fetch;
     jest.mocked(loadLatestStoryEdition).mockResolvedValue(null);
     jest.mocked(loadStoryInput).mockResolvedValue(null);
+    jest.mocked(isSwellStoryCardEnabled).mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -230,8 +236,11 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     const storm = stormEvent(data.events)!;
     expect(storm.story).toBe(STORM_STORY);
     expect(storm.here?.why).toBe(STORM_WHY);
+    expect(storm.storySource).toBe("code");
+    // The early look gets the server's hedged sentence, and still no beach line.
     const early = data.events.find((event) => event.source === "wam")!;
-    expect(early.story).toBeNull();
+    expect(early.story).toBe(EARLY_STORY);
+    expect(early.storySource).toBe("code");
     expect(early.here?.why).toBeNull();
   });
 
@@ -560,6 +569,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
       expect(status).toBe(200);
       const storm = stormEvent(data.events)!;
       expect(storm.story).toBe(writtenStory);
+      expect(storm.storySource).toBe("written");
       expect(storm.here?.why).toBe(writtenHere);
       // The other listed beaches had no written sentence and keep their server lines.
       expect(storm.working.filter((rating) => rating.beachId !== beaches[0].id).map((rating) => rating.why))
@@ -568,6 +578,54 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     // Content-addressed, so the second request reuses the first's input.
     expect(loadStoryInput).toHaveBeenCalledTimes(1);
     expect(loadStoryInput).toHaveBeenCalledWith(client, "written-input-hash");
+  });
+
+  it("sends no event sentence with the switch off, and keeps every beach line, breaker and watch day", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    stage({ lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) });
+    global.fetch = jest.fn(async () => wamResponse()) as typeof fetch;
+    await call(beaches[0].id);
+    const { build } = jest.mocked(narrateRegionEvents).mock.calls[0][0];
+    const today = localDate(0);
+    const facts = buildEventCandidates(build, storyEventsFromRegion(build, today).all, buildRegionGateContext(build, today), NOW);
+    const story = facts.find((fact) => fact.slot.endsWith(":story"))!;
+    const here = facts.find((fact) => fact.slot.endsWith(`:beach:${beaches[0].id}`))!;
+    const generatedAt = new Date(NOW.getTime() - 3_600_000).toISOString();
+    const input: StoryInput = {
+      schemaVersion: 3, region: REGION, editionDate: today, sourcePublishedAt: generatedAt,
+      validUntil: new Date(NOW.getTime() + 86_400_000).toISOString(),
+      briefing: { schemaVersion: 3, editionDate: today, generatedAt, selections: [] }, copyFacts: facts,
+      beachNames: Object.fromEntries(beaches.map((item) => [item.id, item.name])),
+      provenance: { sourceIds: [], sourceHashes: [], generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: [], coverageDates: [] },
+      inputHash: "switch-input-hash",
+    };
+    const writtenHere = "Takes the west storm swell head on, glassy early.";
+    jest.mocked(loadLatestStoryEdition).mockResolvedValue({
+      artifactId: "switch-artifact", schemaVersion: 3, region: REGION, editionDate: today, inputHash: input.inputHash,
+      sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil, generationVersion: "week-scout-story-2", model: "gemma",
+      briefing: { ...input.briefing, selections: facts.map((fact) => fact.id), written: [
+        { slot: story.slot, basedOn: story.id, text: "West storm swell shows up and peaks Monday, then is gone by Tuesday." },
+        { slot: here.slot, basedOn: here.id, text: writtenHere },
+      ] },
+      provenance: input.provenance,
+    });
+    jest.mocked(loadStoryInput).mockResolvedValue(input);
+    const pooled = { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${beaches.map((item) => item.id).join(",")}`) };
+
+    const on = await call(beaches[0].id, pooled);
+    jest.mocked(isSwellStoryCardEnabled).mockResolvedValue(false);
+    const off = await call(beaches[0].id, pooled);
+
+    expect(off.status).toBe(200);
+    expect(on.data.events.filter((event) => event.story !== null).map((event) => event.storySource)).toEqual(["written", "code"]);
+    expect(off.data.events.length).toBe(on.data.events.length);
+    expect(off.data.events.every((event) => event.story === null && event.storySource === null)).toBe(true);
+    // Everything else is the switch-on response, the PC's written beach line included.
+    const withoutStory = ({ story: _story, storySource: _source, ...rest }: RegionSwellEvent) => rest;
+    expect(off.data.events.map(withoutStory)).toEqual(on.data.events.map(withoutStory));
+    expect(stormEvent(off.data.events)?.here?.why).toBe(writtenHere);
+    expect(stormEvent(off.data.events)?.watch?.length).toBe(3);
+    expect(off.data).toMatchObject({ region: on.data.region, buoy: on.data.buoy, beachCount: on.data.beachCount });
   });
 
   it("serves the written sentences only to an allowlisted user when an allowlist is set", async () => {
@@ -636,7 +694,9 @@ describe("GET /api/beaches/[id]/swell-events", () => {
 
     expect(status).toBe(200);
     expect(data.events.length).toBeGreaterThan(0);
-    expect(data.events.every((event) => event.source === "wam" && event.story === null)).toBe(true);
+    // Early looks only: each has its server sentence, and no edition is read.
+    expect(data.events.every((event) => event.source === "wam" && event.storySource === "code"
+      && /may peak around .+; the size and the day can still move\.$/.test(event.story ?? ""))).toBe(true);
     expect(loadLatestStoryEdition).not.toHaveBeenCalled();
     expect(loadStoryInput).not.toHaveBeenCalled();
   });

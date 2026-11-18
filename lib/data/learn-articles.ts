@@ -447,6 +447,11 @@ export const learnArticles: LearnArticle[] = [
         description:
           "Learn how NOAA models predict period and other swell metrics.",
       },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
+      },
     ],
   },
 
@@ -477,7 +482,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "wave-height",
         heading: "What wave height is good for beginners?",
-        content: `<p>Face height of 1 to 3 feet, up to about waist to chest high on you. That's the size at Doheny on a small summer day, or Cowells on a lazy morning. You get 15 or 20 tries a session, and a wipeout is mostly just a swim.</p><p>Forecasts and lifeguards don't always measure the same way. A forecast showing 2 ft can look like 3 to 4 ft faces at the beach. Walk down and look.</p><p>If you can't duck-dive or push through whitewater yet, 4 ft is too big. Watch from the sand for 10 minutes. If you're not sure, don't paddle out.</p>`,
+        content: `<p>Face height of 1 to 3 feet, up to about waist to chest high on you. That's the size at Doheny on a small summer day, or Cowells on a lazy morning. You get 15 or 20 tries a session, and a wipeout is mostly just a swim.</p><p>A buoy number isn't a face number. 2 ft on a buoy at 12 seconds means faces around 2.5 ft, with sets near 4 ft. A Quiver beach forecast already shows the face. Walk down and look anyway.</p><p>If you can't duck-dive or push through whitewater yet, 4 ft is too big. Watch from the sand for 10 minutes. If you're not sure, don't paddle out.</p>`,
         keyTakeaway: "Under 3 ft face while learning; 4 ft needs a confident duck dive.",
         image: {
           src: "/images/activities/beginner-friendly.webp",
@@ -1056,7 +1061,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "how-are-waves-measured",
     title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
     description:
-      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
+      "Buoys report significant wave height (Hs). Quiver turns it into a face height: 3 ft at 14 sec reads about 4 ft, sets near 6 ft.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     dateModified: "2026-09-02",
@@ -1066,7 +1071,7 @@ export const learnArticles: LearnArticle[] = [
       "wave height measurement",
       "significant wave height",
       "how big is 3 foot surf",
-      "face height vs forecast height",
+      "buoy height vs face height",
       "hawaiian scale waves",
       "surf forecast height explained",
     ],
@@ -1074,46 +1079,51 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Surf forecast height is <strong>significant wave height (Hs)</strong> — the average of the tallest third of waves measured by NDBC and CDIP buoys. Face height (what you actually see at the beach) runs <strong>1.5-2x</strong> the forecast number. So a "3-5 ft" forecast means roughly <strong>4.5-10 ft wave faces</strong>. Hawaiian scale uses roughly half of face height, adding further confusion. Always ask: which scale is being used?</p>`,
+        content: `<p>A buoy or wave model gives you <strong>significant wave height (Hs)</strong>: the average of the highest third of the waves. A Quiver beach forecast shows an <strong>estimated face height</strong> built from it, so 3 ft of Hs at 14 seconds reads about <strong>4 ft</strong> on the face, with sets near <strong>6 ft</strong>.</p><p>Check your break on the <a href="/forecast">live forecast</a>, or read raw Hs on the <a href="/buoys">buoy pages</a>.</p>`,
         keyTakeaway:
-          "Forecast height (Hs) is 60-70% of face height. Multiply the forecast by 1.5-2x to estimate what you'll actually see.",
+          "Buoy number is Hs. Quiver's beach number is the face; sets run 1.5x.",
         image: {
           src: "/images/hero/hero-2-barrel-wave.webp",
-          alt: "Barrel wave demonstrating face height vs forecast height",
+          alt: "Barrel wave showing face height compared with buoy height",
           position: "right",
         },
       },
       {
         id: "detail",
-        heading: "The Three Wave Measurement Scales",
+        heading: "Three rulers for one wave",
         figureKey: "wave-height-reference",
-        content: `<p><strong>Significant wave height (Hs)</strong>: Used by NOAA, WaveWatch III, and most forecast models. It's a statistical measure from buoys — the mean of the highest third of waves over a 20-minute sampling window. This is what you see on Quiver and most forecasting apps.</p><p><strong>Face height</strong>: What surfers actually see standing on the beach. A 3-foot Hs reading from a CDIP buoy translates to roughly 4.5-6 foot faces, depending on the break's bathymetry. Sandy beach breaks tend toward the higher multiplier; deep-water reefs toward the lower.</p><p><strong>Hawaiian scale</strong>: Used in Hawaii and by some old-school surfers. Roughly half of face height (or close to Hs). A "6-foot Hawaiian" wave has a 10-12 foot face. If someone in Hawaii says "it's 4 feet," prepare for 8-foot faces.</p>`,
+        content: `<p><strong>Significant wave height (Hs)</strong> is what NOAA and CDIP buoys and models like WaveWatch III report. NDBC averages the highest third of the waves over about 20 minutes, miles offshore.</p><p><strong>Face height</strong> is trough to crest on the front of the wave. Quiver builds it from Hs, period, swell direction and how open the beach is. A 10-second swell reads about the same as Hs; a 14-second groundswell about a third bigger; a 7-second wind swell about a fifth smaller. Sets run about 1.5x the average wave.</p><p>Where Quiver has measured a beach against real surf, it uses that beach's own ratio. Where it hasn't, the number carries a ~ to mark it as approximate.</p><p><strong>Hawaiian scale</strong> is roughly half the face. A "6-foot Hawaiian" wave has a face near 12 feet.</p>`,
         keyTakeaway:
-          "Three scales exist: significant height (buoy/forecast), face height (what you see, 1.5-2x Hs), and Hawaiian scale (~0.5x face height).",
+          "Hs is offshore. Face is what you ride. Hawaiian is half the face.",
       },
       {
         id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p>When Quiver shows "4 ft at 14 sec," expect <strong>6-8 foot faces</strong> at most beach breaks. Beginners comfortable in 3-foot faces should look for forecasts of <strong>1.5-2 ft Hs</strong>. Don't compare numbers across apps without checking their measurement convention — Surfline, Quiver, and Windguru may use different scales or conversions. The best calibration: surf your local break at a known forecast, compare what you see, and build your personal conversion factor. After 10 sessions, you'll know that "3 feet on Quiver" means exactly what at your spot.</p>`,
+        heading: "How big is 3 ft on Quiver?",
+        content: `<p>When a Quiver beach forecast says 3-4 ft, that's the face: about chest to shoulder high at Doheny or Huntington. Don't multiply it again. Beginners want 1-3 ft faces.</p><p>When you read a buoy page, do the math yourself. At Ocean Beach SF, 6 ft of Hs at 14 seconds means faces around 8 ft and sets near 12 ft. If you're not sure, don't paddle out; watch from shore for 10 minutes first.</p><p>Other forecasts use other rulers. Surf your break at a known number a few times and you'll learn what 3 ft means there.</p>`,
         keyTakeaway:
-          "Calibrate forecast numbers to your local break by comparing predictions to what you actually see over several sessions.",
+          "Read Quiver's beach number as is. Only multiply a buoy's Hs.",
       },
     ],
     faqs: [
       {
-        question: "Why don't forecasts just use face height?",
+        question: "Is the Quiver wave height the buoy height?",
         answer:
-          "Significant wave height (Hs) is a standardized measurement from buoys. Face height varies by beach — the same swell produces different face heights at different breaks due to bottom contour, refraction, and focusing effects. Hs is the objective, comparable number.",
+          "No. A Quiver beach forecast shows an estimated face height built from buoy and model Hs. The buoy pages show raw Hs.",
+      },
+      {
+        question: "Why don't buoys report face height?",
+        answer:
+          "A buoy floats in deep water, miles from the break, and Hs is the standard number for that sea state. Face height depends on the bottom: the same swell breaks bigger on a shallow sandbar than over a deep channel.",
       },
       {
         question: "Is a 6-foot wave dangerous for beginners?",
         answer:
-          "If that's 6-foot face height, yes — that's overhead and can hold you under. If it's 6-foot Hs, it means 9-12 foot faces, which is very large surf. Beginners should stay in 1-3 foot face height (roughly 0.5-2 ft Hs).",
+          "Yes. A 6-foot face is overhead and can hold you under. Learn in 1-3 ft faces. If a buoy shows 6 ft of Hs at 14 seconds, faces run around 8 ft with sets near 12 ft.",
       },
       {
         question: "Why do Hawaiians measure waves differently?",
         answer:
-          "Historical tradition from the 1960s-70s surf culture. Hawaiian surfers measured from the back of the wave, not the face. The convention stuck. When a Hawaiian says '10 foot,' they mean a 15-20 foot face — it's not modesty, it's a different ruler.",
+          "Hawaiian surfers measured from the back of the wave, not the face, and the habit stuck. When a Hawaiian says '10 foot,' they mean a face near 20 feet.",
       },
       {
         question: "What's the biggest wave ever measured by a buoy?",
@@ -1137,14 +1147,19 @@ export const learnArticles: LearnArticle[] = [
         label: "Check Wave Heights Now",
         href: "/forecast",
         description:
-          "See current significant wave height at 279+ beaches.",
+          "See the estimated face height at your beach today.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
       },
     ],
     appHandoff: {
       eyebrow: "Same number, your beach",
       title: "See what 3 ft means at your break.",
       description:
-        "Quiver shows forecast height and period for your beach, so you can read the number the way this guide explains it.",
+        "Quiver turns buoy height and period into an estimated face height for your beach, so 3 ft means 3 ft on the face.",
       ctaLabel: "Open my beach's forecast",
     },
   },
@@ -2426,6 +2441,11 @@ export const learnArticles: LearnArticle[] = [
         label: "Best Conditions for Beginners",
         href: "/learn/best-surf-conditions-for-beginners",
         description: "Pick safer beaches and days before you paddle out.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
       },
     ],
     appHandoff: {
@@ -4145,6 +4165,138 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver plots the tide hour by hour next to swell and wind for La Jolla, Cardiff and Del Mar, so you can pick the window after the king tide peak.",
       ctaLabel: "Check San Diego tides",
+    },
+  },
+  {
+    slug: "what-is-a-rogue-wave",
+    title: "What Is a Rogue Wave? Sneaker Waves in California",
+    description:
+      "A rogue wave is more than twice the height of the waves around it. On the beach, NWS says a sneaker wave can run 150 feet up the sand.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-17",
+    dateModified: "2026-11-17",
+    heroImage: "/images/learn/learn-rogue-wave-bolinas-sneaker-wave.webp",
+    thumbnailImage: "/images/learn/learn-rogue-wave-bolinas-sneaker-wave.webp",
+    keywords: [
+      "what is a rogue wave",
+      "rogue wave",
+      "rogue waves",
+      "what causes rogue waves",
+      "sneaker wave",
+      "what is a sneaker wave",
+      "sneaker waves california",
+      "never turn your back on the ocean",
+      "is it safe to swim in waves",
+      "extreme storm waves",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>A rogue wave is a wave more than twice the height of the waves around it. NOAA calls them extreme storm waves, and they show up with no warning, often from a different direction than the rest of the swell.</p><p>The version that reaches the beach is the sneaker wave. The National Weather Service says one can run 150 feet up the sand after 10 to 20 minutes of small waves. Before you walk out at Ocean Beach or Pacifica on a big day, check the swell period on the <a href="/buoys">live buoy readings</a>.</p>`,
+        keyTakeaway: "Twice the waves around it. On the sand, 150 feet or more of run-up.",
+      },
+      {
+        id: "causes",
+        heading: "What causes a rogue wave?",
+        content: `<p>NOAA names two causes. The first is swells crossing paths. Swells travel at different speeds and directions, and when their crests line up, they stack into one tall wave that fades fast.</p><p>The second is waves running into a current. When storm waves push against a strong current, like the Gulf Stream, the energy bunches up and the waves grow. Our guide on <a href="/learn/how-are-ocean-waves-formed">how ocean waves form</a> covers where swell comes from in the first place.</p>`,
+        keyTakeaway: "Two swells lining up, or waves hitting a current head-on.",
+      },
+      {
+        id: "sneaker",
+        heading: "What is a sneaker wave?",
+        content: `<p>A sneaker wave is a wave that surges much farther up the beach than the ones before it. The NWS says sneaker waves often come after 10 to 20 minutes of small, gentle waves. People see the small ones, sit down too close, and stop watching.</p><p>One wave can lift beach logs that weigh hundreds of pounds and roll them over people. The NWS says that for much of the West Coast, sneaker waves kill more people than all other weather hazards combined.</p>`,
+        keyTakeaway: "A quiet 10 to 20 minutes is the warning sign.",
+        image: {
+          src: "/images/learn/learn-rogue-wave-gray-whale-cove.webp",
+          alt: "A wave breaking in a burst of spray in front of sea stacks at Gray Whale Cove, south of San Francisco, at sunset",
+          position: "right",
+        },
+      },
+      {
+        id: "when",
+        heading: "When are sneaker waves most likely in California?",
+        content: `<p>Watch for them on long-period groundswell. Those swells come in organized sets with long lulls between them, which is exactly the quiet that fools people. Our <a href="/learn/swell-period-explained">swell period guide</a> explains what the seconds mean.</p><p>Watch closest at beaches open to the full Pacific: Ocean Beach in San Francisco, Pacifica and Gray Whale Cove. Check the <a href="/ca/pacifica">Pacifica surf page</a> and the NWS for a beach hazards statement before you go.</p>`,
+        keyTakeaway: "Long period plus long lulls: stay well back from the water.",
+        image: {
+          src: "/images/learn/learn-rogue-wave-reynisfjara-runup.webp",
+          alt: "A thin sheet of foamy water spread far up the black sand at Reynisfjara beach in Iceland after a sneaker wave",
+          position: "left",
+        },
+      },
+      {
+        id: "surfers",
+        heading: "What a rogue set means for surfers",
+        content: `<p>A buoy's wave height is the average of the tallest third of the waves it measures, as our guide to <a href="/learn/how-are-waves-measured">how waves are measured</a> explains. So some waves always come in bigger than the buoy number. A rogue set can be twice the size of the waves around it.</p><p>Do what the NWS says lifeguards and experienced surfers do: watch the ocean for at least 20 minutes before you paddle out. Count the biggest set, not the average one. If the biggest set would scare you, don't paddle out.</p>`,
+        keyTakeaway: "Watch 20 minutes. Plan for the biggest set, not the average.",
+      },
+      {
+        id: "back-to-ocean",
+        heading: "Why do they say never turn your back on the ocean?",
+        content: `<p>Because the wave that gets you is the one you don't see. The NWS Wave Safe rules say never turn your back on the waves, even when you walk out of the water.</p><p>Stay farther back than you think you need to, and keep off rocks, jetties and logs on big days. If a wave knocks you down and pulls you out, read our <a href="/learn/what-is-a-rip-current">rip current guide</a> on how to get back in. No forecast can promise a safe beach.</p>`,
+        keyTakeaway: "Face the water, stay high, and keep off rocks and logs.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is a rogue wave?",
+        answer:
+          "A rogue wave is a wave more than twice the size of the waves around it. NOAA calls them extreme storm waves. They are hard to predict and often come from a different direction than the rest of the swell.",
+      },
+      {
+        question: "What causes rogue waves?",
+        answer:
+          "NOAA names two main causes: swells crossing paths so their crests stack into one tall wave, and storm waves running against a strong current such as the Gulf Stream, which bunches the energy together.",
+      },
+      {
+        question: "What is a sneaker wave?",
+        answer:
+          "A sneaker wave is a wave that runs much farther up the beach than the waves before it. The National Weather Service says they often follow 10 to 20 minutes of small waves and can surge 150 feet up the sand.",
+      },
+      {
+        question: "Why do they say never turn your back on the ocean?",
+        answer:
+          "Because a bigger wave can arrive with no warning after a quiet stretch. The NWS Wave Safe rules say never turn your back on the waves, and to watch the ocean for at least 20 minutes before you relax on the beach.",
+      },
+      {
+        question: "Is it safe to swim in waves?",
+        answer:
+          "No beach is ever guaranteed safe. Choose a guarded beach, watch the waves for 20 minutes first, and stay out on big long-period days. If you're not sure, don't go in and watch from shore.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Why long-period swell brings bigger sets and longer lulls.",
+      },
+      {
+        label: "How Big Is 3 ft Surf?",
+        href: "/learn/how-are-waves-measured",
+        description: "Buoy height, face height, and why some sets run bigger.",
+      },
+      {
+        label: "What Is a Rip Current?",
+        href: "/learn/what-is-a-rip-current",
+        description: "How to spot a rip and get back to the beach.",
+      },
+      {
+        label: "Live buoy readings",
+        href: "/buoys",
+        description: "Swell height and period from offshore buoys right now.",
+      },
+      {
+        label: "Pacifica surf",
+        href: "/ca/pacifica",
+        description: "Today's surf and swell for Pacifica's beaches.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Big swell on the way",
+      title: "See the swell period before the long lulls start.",
+      description:
+        "Quiver shows swell height and period for Ocean Beach, Pacifica and the rest of your coast, so you know when a long-period swell is coming and to stay well back from the water.",
+      ctaLabel: "Check the swell",
     },
   },
 ];

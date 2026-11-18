@@ -258,6 +258,32 @@ describe("regional story source snapshot", () => {
     expect(fewerBeaches.inputHash).not.toBe(plain.inputHash);
   });
 
+  it("offers hedged early-look candidates only to a worker with the hedge capability", async () => {
+    const wam = regionEvent("San Diego:W:2026-11-08:s", 270, 9, "2026-11-08T20:00:00Z", "2026-11-08T20:00:00Z", null,
+      { kind: "storm", source: "wam", arrivalAt: null, memberCount: 0 });
+    jest.mocked(loadRegionForecastEvents).mockResolvedValue(regionBuild([ssw, storm, wam]));
+    const plain = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false });
+    const noCapability = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false, capabilities: {} });
+    const hedged = await buildStoryInput({ client: client(forecasts()), region: "San Diego", now, persist: false,
+      capabilities: { hedge: true } });
+
+    // The installed worker refuses any candidate key outside these six, and gets no early look.
+    expect(noCapability).toEqual(plain);
+    expect(JSON.stringify(noCapability)).toBe(JSON.stringify(plain));
+    expect(plain.copyFacts.every((fact) => Object.keys(fact).every((key) => ["id", "slot", "text", "gate", "rank", "facts"].includes(key))))
+      .toBe(true);
+    expect(plain.copyFacts.some((fact) => fact.gate.kind === "early_look")).toBe(false);
+    // With the capability: today's candidates in today's order, then the early look, hedged, under its own input hash.
+    expect(hedged.copyFacts.slice(0, plain.copyFacts.length)).toEqual(plain.copyFacts);
+    expect(hedged.copyFacts.slice(plain.copyFacts.length)).toEqual([{
+      id: "event-6-3-2026-11-08-s-story", slot: "event:6-3-2026-11-08-s:story", rank: 0, hedge: true,
+      text: "A west short-period storm swell may peak around a week from Sunday; the size and the day can still move.",
+      gate: { kind: "early_look", regionalEventKey: "6-3-2026-11-08-s", directionIndex: 12, periodClass: "short", peakLocalDate: "2026-11-08" },
+    }]);
+    expect(hedged.inputHash).not.toBe(plain.inputHash);
+    expect(hedged.provenance.sourceHashes[0]).not.toBe(plain.provenance.sourceHashes[0]);
+  });
+
   it("maps forecast events only, chronologically, with the region's confidence and member counts", () => {
     const passed = regionEvent("San Diego:W:2026-10-26", 270, 18, "2026-10-25T18:00:00Z", "2026-10-26T20:00:00Z", "2026-10-27T20:00:00Z", { memberCount: 2 });
     const sunday = regionEvent("San Diego:NW:2026-11-01", 300, 15, "2026-10-31T18:00:00Z", "2026-11-01T20:00:00Z", null);

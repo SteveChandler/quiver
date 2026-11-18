@@ -31,8 +31,8 @@ export default function WaveHeightReference() {
       <FigureFrame
         kicker="Three scales, one wave"
         title="One Swell, Three Rulers"
-        summary="Static comparison of a three-foot significant wave-height forecast, its likely four-and-a-half to six-foot breaking face, and the smaller Hawaiian scale call."
-        caption="Hs is standardized. The face you surf depends on how your break transforms that energy."
+        summary="Static comparison of a three-foot significant wave height at the buoy, the three- to six-foot face Quiver estimates from it, and the smaller Hawaiian scale call."
+        caption="Hs is the buoy number. Quiver beach forecasts show the face estimate."
         downloadTitle="One Swell, Three Wave-Height Rulers"
       >
         <FigurePoster kind="wave-height-reference" />
@@ -45,14 +45,14 @@ export default function WaveHeightReference() {
 
   return (
     <FigureFrame
-      kicker="Drag the forecast height ↓"
+      kicker="Drag the buoy height ↓"
       title={
         <>
           One Swell, <span className="text-[#F78E42]">Three Rulers</span>
         </>
       }
-      summary="Interactive wave-height converter: adjust significant wave height to compare the buoy or model number with the larger breaking face and the smaller Hawaiian scale call."
-      caption="Hs is standardized. The face you surf depends on how your break transforms that energy."
+      summary="Interactive wave-height converter: adjust significant wave height to compare the buoy or model number with the face Quiver estimates from it and the smaller Hawaiian scale call."
+      caption="Hs is the buoy number. Quiver beach forecasts show the face estimate."
       downloadTitle="One Swell, Three Wave-Height Rulers"
     >
       <div className="overflow-hidden rounded-lg border-[1.5px] border-[#11100D] bg-[#e2e9e8]">
@@ -190,7 +190,7 @@ export default function WaveHeightReference() {
 
       <div className="mt-4 flex items-center gap-3">
         <span className="font-mono text-[11px] uppercase tracking-widest text-[#6b6455]">
-          Forecast Hs
+          Buoy Hs
         </span>
         <input
           type="range"
@@ -212,17 +212,17 @@ export default function WaveHeightReference() {
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {[
           {
-            label: "Forecast / buoy",
+            label: "Buoy / model",
             value: formatFeet(scale.significantHeightFt),
             note: "Significant height (Hs)",
           },
           {
-            label: "Breaking face",
+            label: "Face estimate",
             value: formatFeetRange(
               scale.faceHeightMinFt,
               scale.faceHeightMaxFt,
             ),
-            note: "What you see at shore",
+            note: "Average wave to sets",
           },
           {
             label: "Hawaiian call",
@@ -252,7 +252,7 @@ export default function WaveHeightReference() {
         href="/forecast?source=learn_wave_height_figure"
         className="mt-4 block bg-[#11100D] px-3 py-2.5 text-[13px] leading-snug text-[#F4EBD8]"
       >
-        Start with Hs, then learn how your beach magnifies it.{" "}
+        Quiver turns Hs into the face for your beach.{" "}
         <span className="whitespace-nowrap font-bold text-[#F78E42]">
           Check your beach →
         </span>

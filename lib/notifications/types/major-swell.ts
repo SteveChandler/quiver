@@ -53,6 +53,10 @@ const baseSchema = z.object({
   // What this user was last told; only on follow-ups.
   previous_peak_height_ft: z.number().positive().optional(),
   previous_peak_date: z.string().date().optional(),
+  // Only while the swell_story_push switch is on: the region swell the push named (on a match) and where its text came from.
+  region_event_key: z.string().min(1).optional(),
+  story_key: z.string().min(1).optional(),
+  body_source: z.enum(["written", "code", "template"]).optional(),
 });
 
 const physicalEventSchema = {
