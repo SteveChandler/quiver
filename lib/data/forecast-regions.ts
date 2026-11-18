@@ -173,7 +173,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "santa-cruz": {
     slug: "santa-cruz",
     name: "Santa Cruz",
-    title: "Santa Cruz Surf Forecast — 7-Day Outlook",
+    title: "Santa Cruz Surf Report & 7-Day Forecast",
     metaDescription:
       "Santa Cruz surf forecast covering Steamer Lane, Pleasure Point, and the greater Santa Cruz coast. Cold water, world-class waves.",
     states: ["ca"],
