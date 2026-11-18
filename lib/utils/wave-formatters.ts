@@ -28,10 +28,7 @@ import {
   metersToFeet as convertMetersToFeet,
 } from './unit-conversions';
 import { createContextLogger } from '@/lib/logger';
-import {
-  CDIP_OUTLIER_THRESHOLD,
-  MAX_TRUSTED_CDIP_FT,
-} from '@/lib/config/forecast-staleness';
+import { CDIP_OUTLIER_THRESHOLD, MAX_TRUSTED_CDIP_FT } from '@/lib/config/forecast-staleness';
 import type { ForecastReplayInput } from './forecast-display-replay';
 import { resolveEcmwfHybridScale, type ResolvedEcmwfHybridScale } from './ecmwf-hybrid-scale';
 
@@ -380,6 +377,8 @@ interface WaveHeightSourceParams {
   nowcastAnchorM?: number | null;
   cdipSigFt?: number | null;
   cdipSwellFt?: number | null;
+  /** Whether the beach has a measured bucket for this station and reading's period. */
+  cdipHasStationBucket?: boolean;
   modelSwellM?: number | null;
   modelHsM?: number | null;
   /** NDBC buoy wave height in meters */
@@ -400,8 +399,7 @@ interface WaveHeightSource {
    */
   source: WaveHeightSourceTag;
   /**
-   * Set when CDIP Hs was passed in but the selector rejected it as an
-   * outlier and fell back to a non-CDIP source. Populated for traceability
+   * Set when the selector rejected CDIP Hs. Populated for traceability
    * (see `WaveHeightDebugInfo`). Absent when CDIP was either chosen as the
    * source or simply not available.
    */
@@ -410,6 +408,25 @@ interface WaveHeightSource {
     rawCdipHs: number;
     rawModelHs: number | null;
   };
+}
+
+function getCdipWaveHeightRejection(params: WaveHeightSourceParams): WaveHeightSource['cdipRejection'] {
+  const cdipSig = validateWaveHeight(params.cdipSigFt);
+  if (cdipSig === undefined) return undefined;
+
+  const modelSwell = metersToFeet(params.modelSwellM);
+  if (cdipSig > MAX_TRUSTED_CDIP_FT && !params.cdipHasStationBucket) {
+    return { reason: 'cdip_too_large', rawCdipHs: cdipSig, rawModelHs: modelSwell ?? null };
+  }
+
+  if (
+    modelSwell !== undefined &&
+    cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD &&
+    !isCdipCorroboratedByModelHs(cdipSig, metersToFeet(params.modelHsM))
+  ) {
+    return { reason: 'cdip_outlier_vs_model', rawCdipHs: cdipSig, rawModelHs: modelSwell };
+  }
+  return undefined;
 }
 
 /**
@@ -440,44 +457,17 @@ export function selectWaveHeightSource(
     return { heightFt: nowcastAnchor, source: 'nowcast_anchor' };
   }
 
-  // Prefer CDIP significant height when available and within reasonable range
-  if (cdipSig !== undefined && cdipSig <= MAX_TRUSTED_CDIP_FT) {
-    // If we also have model swell and CDIP is a large outlier, defer to model
-    if (
-      modelSwell !== undefined &&
-      cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD &&
-      !isCdipCorroboratedByModelHs(cdipSig, modelHs)
-    ) {
-      return {
-        heightFt: modelSwell,
-        source: 'model_swell',
-        cdipRejection: {
-          reason: 'cdip_outlier_vs_model',
-          rawCdipHs: cdipSig,
-          rawModelHs: modelSwell,
-        },
-      };
-    }
+  const cdipRejection = getCdipWaveHeightRejection(params);
+  if (cdipSig !== undefined && !cdipRejection) {
     return { heightFt: cdipSig, source: 'cdip_sig' };
   }
-
-  // CDIP present but exceeds MAX_TRUSTED_CDIP_FT — record rejection so the
-  // caller can surface why we fell off the CDIP path.
-  const cdipTooLargeRejection: WaveHeightSource['cdipRejection'] | undefined =
-    cdipSig !== undefined && cdipSig > MAX_TRUSTED_CDIP_FT
-      ? {
-          reason: 'cdip_too_large',
-          rawCdipHs: cdipSig,
-          rawModelHs: modelSwell ?? null,
-        }
-      : undefined;
 
   // Prefer model primary swell
   if (modelSwell !== undefined) {
     return {
       heightFt: modelSwell,
       source: 'model_swell',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -486,7 +476,7 @@ export function selectWaveHeightSource(
     return {
       heightFt: cdipSwell,
       source: 'cdip_swell',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -495,7 +485,7 @@ export function selectWaveHeightSource(
     return {
       heightFt: modelHs,
       source: 'model_hs',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -504,7 +494,7 @@ export function selectWaveHeightSource(
     return {
       heightFt: ndbcBuoy,
       source: 'ndbc_buoy',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -661,11 +651,7 @@ export interface WaveHeightDebugInfo {
   ecmwfHybrid?: ResolvedEcmwfHybridScale;
   handoffDiscontinuityFt?: number;
   replayInput?: ForecastReplayInput;
-  cdipRejection?: {
-    reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
-    rawCdipHs: number;
-    rawModelHs: number | null;
-  };
+  cdipRejection?: WaveHeightSource['cdipRejection'];
 }
 
 /**
@@ -677,6 +663,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
 ): { value: string | null; debug: WaveHeightDebugInfo } {
   const source = selectWaveHeightSource(params);
   if (!source) {
+    const cdipRejection = getCdipWaveHeightRejection(params);
     return {
       value: null,
       debug: {
@@ -686,6 +673,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
         transformPath: null,
         componentsUsed: false,
         calibratedShoalingFired: false,
+        ...(cdipRejection ? { cdipRejection } : {}),
       },
     };
   }
