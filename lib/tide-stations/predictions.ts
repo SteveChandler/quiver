@@ -16,6 +16,7 @@ const HOUR_MS = 3_600_000;
 /** One day back so "now" sits inside the series; nine ahead so a cached page still covers a full week. */
 const WINDOW_BACK_MS = 24 * HOUR_MS;
 const WINDOW_AHEAD_MS = 9 * 24 * HOUR_MS;
+const BEACH_PAGE_NOAA_TIMEOUT_MS = 1_500;
 
 export type StationSeries =
   | {
@@ -86,7 +87,7 @@ export function californiaAdjustment(
   return { appliedByServiceFt: 0, extraFt: seaLevelOffsetFt(station.reference_station_id) };
 }
 
-async function fetchNoaaSeries(station: TideStationRow, nowMs: number): Promise<StationSeries> {
+async function fetchNoaaSeries(station: TideStationRow, nowMs: number, timeoutMs?: number): Promise<StationSeries> {
   const { start, end } = bufferedNoaaWindow(nowMs);
   const startIso = start.toISOString();
   const endIso = end.toISOString();
@@ -94,9 +95,9 @@ async function fetchNoaaSeries(station: TideStationRow, nowMs: number): Promise<
   // Subordinate stations answer only interval=hilo; the curve is drawn from their extremes.
   // A failed hourly call is not a failed page: the curve falls back to the extremes too.
   const [extremeResult, hourlyResult] = await Promise.allSettled([
-    fetchHighLowTidePredictions(id, startIso, endIso),
+    fetchHighLowTidePredictions(id, startIso, endIso, { timeoutMs }),
     station.station_kind === "reference"
-      ? fetchHourlyTidePredictions(id, startIso, endIso)
+      ? fetchHourlyTidePredictions(id, startIso, endIso, { timeoutMs })
       : Promise.resolve([]),
   ]);
   // Inspect both failures before falling back: a faster transport failure must not hide a parser bug.
@@ -169,6 +170,7 @@ class NoLastGoodTidesError extends Error {}
 function dailySnapshot(
   station: TideStationRow,
   day: number,
+  slot: "complete" | "legacy",
   series?: GoodStationSeries,
 ): Promise<GoodStationSeries> {
   // Immutable daily entries use the SAME loader for writes and reads (Next keys include its source).
@@ -180,7 +182,9 @@ function dailySnapshot(
     },
     // The offset is in the key so a changed sea-level adjustment never serves old heights.
     ["noaa-station-last-good-v1", station.source_station_id, station.station_kind,
-      station.reference_station_id ?? "", String(day), String(adjustmentTotalFt(station))],
+      station.reference_station_id ?? "", String(day), String(adjustmentTotalFt(station)),
+      // An extrema-only fallback must not occupy the same cache entry as a complete curve.
+      ...(slot === "complete" ? ["complete"] : [])],
     { revalidate: false },
   )();
 }
@@ -209,28 +213,70 @@ function trimToWindow(series: GoodStationSeries, start: Date, end: Date): GoodSt
   };
 }
 
-/** Only real, covering predictions can rescue a NOAA transport failure. */
-export async function getStationSeries(station: TideStationRow, nowMs: number): Promise<StationSeries> {
+function hasStationCurve(station: TideStationRow, series: GoodStationSeries): boolean {
+  return station.station_kind !== "reference" || series.hourly.length > 0;
+}
+
+async function readCoveringSnapshot(
+  station: TideStationRow, day: number, start: Date, end: Date, requireCurve = false
+): Promise<GoodStationSeries | null> {
+  // A day-2 snapshot ends before today's window does.
+  for (const snapshotDay of [day, day - 1]) {
+    for (const slot of ["complete", "legacy"] as const) {
+      try {
+        const series = await dailySnapshot(station, snapshotDay, slot);
+        if (requireCurve && !hasStationCurve(station, series)) continue;
+        if (coversWindow(series, start, end)) return trimToWindow(series, start, end);
+      } catch (error) {
+        if (!(error instanceof NoLastGoodTidesError)) throw error;
+      }
+    }
+  }
+  return null;
+}
+
+export async function getStationSeries(
+  station: TideStationRow, nowMs: number, purpose?: "beach-page"
+): Promise<StationSeries> {
   if (station.source === "ticon") return computeHarmonicSeries(station, nowMs);
   const { start, end } = stationSeriesWindow(nowMs);
   const day = Math.floor(nowMs / (24 * HOUR_MS));
   const stored = await readStoredSeries(station, nowMs);
   if (stored && coversWindow(stored, start, end)) return trimToWindow(stored, start, end);
+  const isBeachPage = purpose === "beach-page";
+  if (isBeachPage) {
+    const snapshot = await readCoveringSnapshot(station, day, start, end, true);
+    if (snapshot) {
+      console.warn("Beach tide stored coverage fallback", { stationId: station.id, outcome: "snapshot" });
+      return snapshot;
+    }
+  }
   try {
-    const series = await fetchNoaaSeries(station, day * 24 * HOUR_MS);
+    const timeoutMs = isBeachPage ? BEACH_PAGE_NOAA_TIMEOUT_MS : undefined;
+    const series = await fetchNoaaSeries(station, day * 24 * HOUR_MS, timeoutMs);
     if (series.status !== "ok") return series;
-    await dailySnapshot(station, day, series);
+    const hasCurve = hasStationCurve(station, series);
+    const isComplete = hasCurve && coversWindow(series, start, end);
+    await dailySnapshot(station, day, isComplete ? "complete" : "legacy", series);
+    if (isBeachPage) {
+      console.warn("Beach tide stored coverage fallback", {
+        stationId: station.id,
+        outcome: hasCurve ? "live-noaa" : "live-noaa-extrema-only",
+      });
+    }
     return trimToWindow(series, start, end);
   } catch (error) {
     if (!(error instanceof NoaaTideRequestError)) throw error;
-    // A day-2 snapshot ends before today's window does, so only today and yesterday can cover it.
-    for (const snapshotDay of [day, day - 1]) {
-      try {
-        const series = await dailySnapshot(station, snapshotDay);
-        if (coversWindow(series, start, end)) return trimToWindow(series, start, end);
-      } catch (cacheError) {
-        if (!(cacheError instanceof NoLastGoodTidesError)) throw cacheError;
+    // Once NOAA fails, a covering extrema-only series is still a last-good station table.
+    const snapshot = await readCoveringSnapshot(station, day, start, end);
+    if (snapshot) {
+      if (isBeachPage) {
+        console.warn("Beach tide stored coverage fallback", {
+          stationId: station.id,
+          outcome: "snapshot-after-noaa-error",
+        });
       }
+      return snapshot;
     }
     console.warn("Tide station predictions failed", {
       stationId: station.id,

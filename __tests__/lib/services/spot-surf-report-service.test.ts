@@ -92,10 +92,14 @@ describe("spot surf report service", () => {
   function setupDatabase(
     rows: Partial<EnhancedForecastEntity>[] = [forecast],
     error: { message: string; code: string } | null = null,
+    pending?: Promise<never>,
   ): { gte: jest.Mock; lt: jest.Mock; dispatch: jest.Mock } {
     const response = { data: rows, error };
-    const dispatch = jest.fn((resolve: (value: typeof response) => unknown) =>
-      Promise.resolve(response).then(resolve),
+    const dispatch = jest.fn((
+      resolve: (value: typeof response) => unknown,
+      reject: (reason: unknown) => unknown,
+    ) =>
+      (pending ?? Promise.resolve(response)).then(resolve, reject),
     );
     const query = {
       select: jest.fn().mockReturnThis(),
@@ -163,6 +167,42 @@ describe("spot surf report service", () => {
     } finally {
       finishSunTimes();
       await report;
+    }
+  });
+
+  it("returns no report when sun times fail while the forecast query is in flight", async () => {
+    let rejectForecast!: (error: Error) => void;
+    const forecastPending = new Promise<never>((_, reject) => { rejectForecast = reject; });
+    const { dispatch } = setupDatabase([], null, forecastPending);
+    const { getBatchSunTimes } = require("@/lib/services/discovery");
+    let rejectSunTimes!: (error: Error) => void;
+    (getBatchSunTimes as jest.Mock).mockReturnValueOnce(new Promise((_, reject) => {
+      rejectSunTimes = reject;
+    }));
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+    const unhandledRejection = jest.fn();
+    process.on("unhandledRejection", unhandledRejection);
+
+    try {
+      const report = getSpotSurfReportPublic(beach);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      rejectSunTimes(new Error("Sun times unavailable"));
+      await expect(report).resolves.toBeNull();
+      expect(mockEvaluateMajorEventHoldCandidates).not.toHaveBeenCalled();
+      rejectForecast(new Error("Forecast read failed after sun times"));
+      await jest.advanceTimersByTimeAsync(0);
+      expect(errorLog).toHaveBeenCalledTimes(1);
+      expect(errorLog).toHaveBeenCalledWith("[getSpotSurfReportPublic] Error:", {
+        beachId,
+        message: "Sun times unavailable",
+      });
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(unhandledRejection).not.toHaveBeenCalled();
+    } finally {
+      errorLog.mockRestore();
+      process.off("unhandledRejection", unhandledRejection);
     }
   });
 
