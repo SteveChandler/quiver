@@ -863,6 +863,7 @@ async function buildSharedCall(
 }
 
 const IN_FILTER_CHUNK = 100;
+const PROFILE_PAGE_SIZE = 1000;
 
 async function selectInChunks<Row>(
   ids: readonly string[],
@@ -878,13 +879,20 @@ async function loadProfiles(
   supabase: SupabaseClient<Database>,
   userIds?: readonly string[],
 ): Promise<DailyCallProfile[]> {
-  const query = supabase
-    .from("profiles")
-    .select("id, home_beach_id, timezone, daily_call_time, notif_push_enabled, notif_forecast_alerts, experience_level, max_drive_minutes, preferred_session_time")
-    .is("deleted_at", null);
-  const { data, error } = await (userIds ? query.in("id", userIds) : query);
-  if (error) throw new Error(`Failed to load daily-call profiles: ${error.message}`);
-  const rows = data ?? [];
+  // PostgREST returns at most 1,000 rows, so read every page or later signups never get a call.
+  const rows = [];
+  for (let from = 0; ; from += PROFILE_PAGE_SIZE) {
+    const base = supabase
+      .from("profiles")
+      .select("id, home_beach_id, timezone, daily_call_time, notif_push_enabled, notif_forecast_alerts, experience_level, max_drive_minutes, preferred_session_time")
+      .is("deleted_at", null);
+    const { data, error } = await (userIds ? base.in("id", userIds) : base)
+      .order("id")
+      .range(from, from + PROFILE_PAGE_SIZE - 1);
+    if (error) throw new Error(`Failed to load daily-call profiles: ${error.message}`);
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < PROFILE_PAGE_SIZE) break;
+  }
   const loadedUserIds = rows.map((row) => row.id);
   const homeBeachIds = [...new Set(rows.flatMap((row) => row.home_beach_id ? [row.home_beach_id] : []))];
   // One `.in()` over every profile id made a ~25 KB request that the Supabase edge rejected (400 Bad Request) once

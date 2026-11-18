@@ -2501,7 +2501,7 @@ describe("daily call location freshness", () => {
       const builder: Record<string, unknown> = {};
       let ids: string[] = [];
       builder.select = (fields: string) => { select(fields); return builder; };
-      builder.order = builder.eq = builder.not = () => builder;
+      builder.order = builder.eq = builder.not = builder.range = () => builder;
       builder.in = (_column: string, values: string[]) => { ids = values; return builder; };
       builder.is = () => builder;
       builder.then = (resolve: (value: unknown) => void) => resolve({ data: table === "profiles"
@@ -2637,7 +2637,7 @@ describe("loadDailyCallProfiles at signup scale", () => {
     const client = { from: (table: string) => {
       const builder: Record<string, unknown> = {};
       let ids: string[] = [];
-      builder.select = () => builder;
+      builder.select = builder.order = builder.range = () => builder;
       builder.is = () => builder;
       builder.in = (_column: string, values: string[]) => { ids = values; (inSizes[table] ??= []).push(values.length); return builder; };
       builder.then = (resolve: (value: unknown) => void) => resolve({ error: null, data: table === "profiles" ? profiles
@@ -2660,7 +2660,7 @@ describe("loadDailyCallProfiles at signup scale", () => {
     let call = 0;
     const client = { from: (table: string) => {
       const builder: Record<string, unknown> = {};
-      builder.select = () => builder;
+      builder.select = builder.order = builder.range = () => builder;
       builder.is = () => builder;
       builder.in = () => builder;
       builder.then = (resolve: (value: unknown) => void) => resolve(table === "profiles" ? { data: profiles, error: null }
@@ -2669,5 +2669,23 @@ describe("loadDailyCallProfiles at signup scale", () => {
     } } as unknown as SupabaseClient<Database>;
 
     await expect(loadDailyCallProfiles(client)).rejects.toThrow("Failed to load daily-call locations: Bad Request");
+  });
+
+  it("reads profiles past the 1,000-row PostgREST cap", async () => {
+    const all = Array.from({ length: 1500 }, (_, n) => ({ id: `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`, home_beach_id: null }));
+    const client = { from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      let page = [0, 999];
+      builder.select = builder.order = builder.is = builder.in = () => builder;
+      builder.range = (from: number, to: number) => { page = [from, to]; return builder; };
+      builder.then = (resolve: (value: unknown) => void) => resolve({ error: null,
+        data: table === "profiles" ? all.slice(page[0], Math.min(page[1] + 1, page[0] + 1000)) : [] });
+      return builder;
+    } } as unknown as SupabaseClient<Database>;
+
+    const loaded = await loadDailyCallProfiles(client);
+
+    expect(loaded).toHaveLength(1500);
+    expect(new Set(loaded.map((row) => row.id)).size).toBe(1500);
   });
 });
