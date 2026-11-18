@@ -68,18 +68,14 @@ export function formatPushNotification(
   decision?: PushDecisionVerdict,
   primaryMatch?: MatchingWindow,
 ): PushContent {
-  const orderedMatches =
-    primaryMatch && matches.includes(primaryMatch)
-      ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
-      : matches;
-  if (orderedMatches.length === 0)
+  if (matches.length === 0)
     throw new Error("formatPushNotification requires at least one match");
 
   // Canonical producers pass their selected match explicitly. Keep it first so
   // lock-screen identity and summary order cannot drift from the decision.
   const sorted =
     primaryMatch && matches.includes(primaryMatch)
-      ? orderedMatches
+      ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
       : [...matches].sort((a, b) => b.best_score - a.best_score);
   // Two rules at one beach are one break; count beaches, not matches.
   const beaches = firstMatchPerBeach(sorted);

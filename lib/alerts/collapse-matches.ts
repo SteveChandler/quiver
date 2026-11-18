@@ -1,8 +1,12 @@
 import type { MatchingWindow } from "@/lib/alerts/types";
 
+function instantKey(iso: string): string {
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? String(ms) : iso;
+}
+
 function windowKey(match: MatchingWindow): string {
-  const start = Date.parse(match.window_start);
-  return `${match.beach_id}|${Number.isFinite(start) ? start : match.window_start}`;
+  return `${match.beach_id}|${instantKey(match.window_start)}|${instantKey(match.window_end)}`;
 }
 
 /**

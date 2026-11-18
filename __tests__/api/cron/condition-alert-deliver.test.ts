@@ -1294,7 +1294,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     const [props] = mockConsolidatedAlertEmail.mock.calls[0];
     expect(props.matches).toHaveLength(1);
     expect(props.matches[0].rule_id).toBe("00000000-0000-0000-0000-0000000000a9");
-    expect(store.deliveryInserts[0].payload.beaches).toEqual(["Test Beach"]);
+    expect((store.deliveryInserts[0] as { payload: { beaches: string[] } }).payload.beaches).toEqual(["Test Beach"]);
     expect(
       store.attemptInserts
         .filter((a: { channel: string; status: string }) => a.channel === "email" && a.status === "sent")
