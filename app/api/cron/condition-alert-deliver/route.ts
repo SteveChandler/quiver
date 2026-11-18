@@ -40,6 +40,7 @@ import {
   type QueueItemWithMeta,
 } from "@/lib/alerts/payload-builder";
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
+import { collapseSameWindowMatches } from "@/lib/alerts/collapse-matches";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import {
@@ -1451,7 +1452,11 @@ async function handleGet(request: Request): Promise<NextResponse> {
                       matches: candidateEmailMatches,
                       profileExperience,
                     });
-                    const emailMatches = candidateEmailMatches;
+                    // Two rules at one beach and window render as one card.
+                    // Every surviving queue item still records its attempt.
+                    const emailMatches = collapseSameWindowMatches(
+                      candidateEmailMatches,
+                    );
                     const renderedEmailMatches =
                       buildRenderedMatchDetails(emailMatches);
                     const emailSubject = buildConsolidatedSubject(
@@ -1661,14 +1666,17 @@ async function handleGet(request: Request): Promise<NextResponse> {
                     );
                     const canonicalSelectionRejected =
                       primaryPushMatch === null;
-                    const pushMatches = primaryPushMatch
-                      ? [
-                          primaryPushMatch,
-                          ...candidatePushMatches.filter(
-                            (match) => match !== primaryPushMatch,
-                          ),
-                        ]
-                      : candidatePushMatches;
+                    const pushMatches = collapseSameWindowMatches(
+                      primaryPushMatch
+                        ? [
+                            primaryPushMatch,
+                            ...candidatePushMatches.filter(
+                              (match) => match !== primaryPushMatch,
+                            ),
+                          ]
+                        : candidatePushMatches,
+                      primaryPushMatch,
+                    );
                     const renderedPushMatches =
                       buildRenderedMatchDetails(pushMatches);
                     const {
