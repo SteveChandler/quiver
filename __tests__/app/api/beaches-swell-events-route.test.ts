@@ -1,4 +1,14 @@
 /** @jest-environment node */
+const mockAfterTasks: Array<() => Promise<void>> = [];
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: jest.fn((task: () => Promise<void>): void => { mockAfterTasks.push(task); }),
+}));
+jest.mock("@/lib/alerts/swell-outlook/state", () => ({ recordSwellOpen: jest.fn() }));
+jest.mock("@/lib/flags/swell-outlook", () => ({
+  isSwellOutlookEnabled: jest.fn(),
+  isSwellOutlookUserAllowed: jest.fn(),
+}));
 // Round-trips JSON like the real data cache, so a Map or Date in the cached value fails a test.
 jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((fn: (...args: unknown[]) => Promise<unknown>) =>
@@ -31,6 +41,9 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryCardEnabled: jest.fn() }));
 
 import { GET } from "@/app/api/beaches/[id]/swell-events/route";
+import { after } from "next/server";
+import { recordSwellOpen } from "@/lib/alerts/swell-outlook/state";
+import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
 import { historyLine, regionModelBuoy } from "@/lib/alerts/swell-events/early-look";
 import { narrateRegionEvents, watchRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
 import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
@@ -43,7 +56,7 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/l
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
 import type { StoryArtifact, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
 import type { RegionSwellEvent, RegionSwellEventsResponse } from "@/types/region-swell-events";
-import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
+import { expectConsoleErrors, expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { FLAT, NOW, TIMEZONE, dayRows, localDate, localIso, type PartitionSpec } from "@/__tests__/helpers/swell-events";
 
 const REGION = "San Diego";
@@ -108,13 +121,14 @@ function stormRows(beachId: string, surf: Surf = GOOD, withStorm = true): Array<
 
 interface Scene {
   lookup: { region: string | null; timezone: string } | null;
+  lookupError?: Error;
   beaches?: TestBeach[];
   rows?: Array<Record<string, unknown>>;
   user?: { id: string } | null;
 }
 
 /** Service-role stub: the beach lookup (maybeSingle) and the region's paged reads (range). */
-function stage({ lookup, beaches = [], rows = [], user = null }: Scene): { tables: string[]; client: unknown } {
+function stage({ lookup, lookupError, beaches = [], rows = [], user = null }: Scene): { tables: string[]; client: unknown } {
   const tables: string[] = [];
   const client = {
     from: (table: string) => {
@@ -132,7 +146,7 @@ function stage({ lookup, beaches = [], rows = [], user = null }: Scene): { table
           ids = values;
           return query;
         },
-        maybeSingle: async () => ({ data: lookup, error: null }),
+        maybeSingle: async () => ({ data: lookup, error: lookupError ?? null }),
         range: async (start: number, end: number) => {
           const source = table === "beaches"
             ? beaches
@@ -179,6 +193,11 @@ describe("GET /api/beaches/[id]/swell-events", () => {
 
   beforeEach(() => {
     nextId = 0;
+    mockAfterTasks.length = 0;
+    jest.mocked(after).mockImplementation((task) => { mockAfterTasks.push(task as () => Promise<void>); });
+    jest.mocked(recordSwellOpen).mockReset().mockResolvedValue(undefined);
+    jest.mocked(isSwellOutlookEnabled).mockReturnValue(false);
+    jest.mocked(isSwellOutlookUserAllowed).mockReturnValue(false);
     jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
     jest.setSystemTime(NOW);
     global.fetch = jest.fn(async () => Response.json({ hourly: { time: [] } })) as typeof fetch;
@@ -726,5 +745,125 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     stage({ lookup: null });
     expect((await call("ocean-beach")).status).toBe(400);
     expect((await call("00000000-0000-4000-8000-000000000099")).status).toBe(404);
+  });
+
+  describe("swell open recording", () => {
+    const id = "00000000-0000-4000-8000-000000000099";
+    const emptyBody = { success: true, data: { region: null, buoy: null, beachCount: 0, events: [] } };
+
+    function read(beachId: string = id): Promise<Response> {
+      return GET({ nextUrl: new URL(`http://localhost/api/beaches/${beachId}/swell-events`) } as never,
+        { params: Promise.resolve({ id: beachId }) });
+    }
+
+    async function finishBookkeeping(): Promise<void> {
+      for (const task of mockAfterTasks.splice(0)) await task();
+    }
+
+    beforeEach(() => {
+      jest.mocked(isSwellOutlookEnabled).mockReturnValue(true);
+      jest.mocked(isSwellOutlookUserAllowed).mockReturnValue(true);
+    });
+
+    it("records an allowlisted signed-in open exactly once after returning the unchanged response", async () => {
+      const { client } = stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+
+      const response = await read();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(mockAfterTasks).toHaveLength(1);
+      await finishBookkeeping();
+      expect(isSwellOutlookUserAllowed).toHaveBeenCalledWith(USER_ID);
+      expect(recordSwellOpen).toHaveBeenCalledTimes(1);
+      expect(recordSwellOpen).toHaveBeenCalledWith(client, USER_ID, expect.any(Date));
+    });
+
+    it("does not record an anonymous read", async () => {
+      stage({ lookup: { region: null, timezone: TIMEZONE } });
+
+      const response = await read();
+      await finishBookkeeping();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(after).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { enabled: true, allowed: false },
+      { enabled: false, allowed: true },
+    ])("does not record a signed-in read when enabled=$enabled and allowed=$allowed", async ({ enabled, allowed }) => {
+      stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+      jest.mocked(isSwellOutlookEnabled).mockReturnValue(enabled);
+      jest.mocked(isSwellOutlookUserAllowed).mockReturnValue(allowed);
+
+      const response = await read();
+      await finishBookkeeping();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(after).not.toHaveBeenCalled();
+    });
+
+    it("does not record an invalid beach id", async () => {
+      stage({ lookup: null, user: { id: USER_ID } });
+
+      const response = await read("ocean-beach");
+      await finishBookkeeping();
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ success: false, error: "Invalid beach id" });
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(after).not.toHaveBeenCalled();
+    });
+
+    it("preserves the response and warns once if recording fails", async () => {
+      stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+      jest.mocked(recordSwellOpen).mockRejectedValueOnce(new Error("engagement storage unavailable"));
+
+      const response = await read();
+      await finishBookkeeping();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).toHaveBeenCalledTimes(1);
+      const warnings = (globalThis as { __quiverConsoleWarns?: string[] }).__quiverConsoleWarns ?? [];
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("[swell-events] Failed to record swell open:");
+      expectConsoleWarnings([/\[swell-events\] Failed to record swell open:/]);
+    });
+
+    it("preserves the response and warns once if scheduling fails", async () => {
+      stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+      jest.mocked(after).mockImplementationOnce(() => { throw new Error("after unavailable"); });
+
+      const response = await read();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      const warnings = (globalThis as { __quiverConsoleWarns?: string[] }).__quiverConsoleWarns ?? [];
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("[swell-events] Failed to schedule swell open:");
+      expectConsoleWarnings([/\[swell-events\] Failed to schedule swell open:/]);
+    });
+
+    it("preserves a beach lookup failure and still records the valid open", async () => {
+      const { client } = stage({ lookup: null, lookupError: new Error("beach lookup failed"), user: { id: USER_ID } });
+
+      const response = await read();
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ success: false, error: "Failed to fetch beach", timestamp: NOW.toISOString() });
+      expectConsoleErrors([/beach lookup failed/]);
+      await finishBookkeeping();
+      expect(recordSwellOpen).toHaveBeenCalledTimes(1);
+      expect(recordSwellOpen).toHaveBeenCalledWith(client, USER_ID, expect.any(Date));
+      expectConsoleWarnings([]);
+    });
   });
 });
