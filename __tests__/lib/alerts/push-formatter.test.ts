@@ -266,6 +266,27 @@ describe("formatPushNotification", () => {
     });
   });
 
+  it("does not count a second rule at the same beach and window as another break", () => {
+    const result = formatPushNotification([
+      makeMatch({ rule_id: "mellow", best_score: 0.64 }),
+      makeMatch({ rule_id: "weekend", best_score: 0.75 }),
+    ]);
+    expect(result.title).not.toMatch(/more break/);
+    expect(result.title).toContain("Blacks Beach");
+    expect(result.body.match(/Blacks Beach/g)).toHaveLength(1);
+  });
+
+  it("counts distinct beaches in the multi-match title", () => {
+    const result = formatPushNotification([
+      makeMatch({ beach_name: "Trestles", beach_id: "b2", best_score: 0.9 }),
+      makeMatch({ beach_name: "Trestles", beach_id: "b2", rule_id: "r2", best_score: 0.8 }),
+      makeMatch({ beach_name: "Malibu", beach_id: "b3", best_score: 0.7 }),
+    ]);
+    expect(result.title).toContain("Trestles + 1 more break today");
+    expect(result.body).toContain("Malibu");
+    expect(result.body).not.toContain("and 1 more");
+  });
+
   it("formats two beaches", () => {
     const matches = [
       makeMatch(),
@@ -355,5 +376,5 @@ it.each(["Waikiki – Canoes", "Waikiki — Canoes", "Waikiki - Canoes"])("keeps
   const single = formatPushNotification([match]);
   expect(single.title).toContain("at Waikiki Canoes,");
   expect(single.body).toContain(beach_name);
-  expect(formatPushNotification([match, makeMatch({ best_score: 0.2 })]).title).toBe("Waikiki Canoes + 1 more break today");
+  expect(formatPushNotification([match, makeMatch({ beach_id: "b2", best_score: 0.2 })]).title).toBe("Waikiki Canoes + 1 more break today");
 });

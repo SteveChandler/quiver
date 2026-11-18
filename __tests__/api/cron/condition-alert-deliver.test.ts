@@ -1266,6 +1266,68 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expectQueueReasonTotals(body);
   });
 
+  it("sends one card when two rules match the same beach and window (bf4ffdf8, 2026-11-01)", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      id: QUEUE_1,
+      rule_id: RULE_1,
+      best_score: 0.64,
+      alert_rules: { name: "Mellow session at your home break", preset_type: "mellow_session", notify_email: true, notify_push: false },
+    });
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000c9",
+      rule_id: "00000000-0000-0000-0000-0000000000a9",
+      best_score: 0.75,
+      alert_rules: { name: "Weekend windows at your home break", preset_type: "weekend_warrior", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    const [{ subject }] = mockEmailsSend.mock.calls[0];
+    expect(subject).not.toMatch(/more spots/);
+    expect(subject).toMatch(/^Test Beach/);
+    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(1);
+    const [props] = mockConsolidatedAlertEmail.mock.calls[0];
+    expect(props.matches).toHaveLength(1);
+    expect(props.matches[0].rule_id).toBe("00000000-0000-0000-0000-0000000000a9");
+    expect((store.deliveryInserts[0] as { payload: { beaches: string[] } }).payload.beaches).toEqual(["Test Beach"]);
+    expect(
+      store.attemptInserts
+        .filter((a: { channel: string; status: string }) => a.channel === "email" && a.status === "sent")
+        .map((a: { queue_id: string }) => a.queue_id)
+        .sort(),
+    ).toEqual([QUEUE_1, "00000000-0000-0000-0000-0000000000c9"].sort());
+  });
+
+  it("keeps separate cards for two windows at the same beach", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({ best_score: 0.7 });
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000c9",
+      rule_id: "00000000-0000-0000-0000-0000000000a9",
+      window_start: "2026-04-26T21:00:00Z",
+      window_end: "2026-04-26T23:00:00Z",
+      best_hour: "2026-04-26T22:00:00Z",
+      best_score: 0.75,
+      alert_rules: { name: "Afternoon rule", preset_type: "weekend_warrior", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    const [{ subject }] = mockEmailsSend.mock.calls[0];
+    expect(subject).not.toMatch(/more spots/);
+    const [props] = mockConsolidatedAlertEmail.mock.calls[0];
+    expect(props.matches).toHaveLength(2);
+  });
+
   it.each([
     { notifyEmail: true, notifyPush: false, channels: ["email"] },
     { notifyEmail: false, notifyPush: true, channels: ["push"] },
