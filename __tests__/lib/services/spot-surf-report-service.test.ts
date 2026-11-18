@@ -92,18 +92,22 @@ describe("spot surf report service", () => {
   function setupDatabase(
     rows: Partial<EnhancedForecastEntity>[] = [forecast],
     error: { message: string; code: string } | null = null,
-  ): { gte: jest.Mock; lt: jest.Mock } {
+  ): { gte: jest.Mock; lt: jest.Mock; dispatch: jest.Mock } {
+    const response = { data: rows, error };
+    const dispatch = jest.fn((resolve: (value: typeof response) => unknown) =>
+      Promise.resolve(response).then(resolve),
+    );
     const query = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       gte: jest.fn().mockReturnThis(),
       lt: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue({ data: rows, error }),
+      limit: jest.fn().mockReturnValue({ then: dispatch }),
     };
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({ from: jest.fn(() => query) });
-    return query;
+    return { ...query, dispatch };
   }
 
   beforeEach(() => {
@@ -142,6 +146,26 @@ describe("spot surf report service", () => {
 
   afterEach(() => jest.useRealTimers());
 
+  it("starts the forecast query while sun times are still pending", async () => {
+    const { dispatch } = setupDatabase();
+    const { getBatchSunTimes } = require("@/lib/services/discovery");
+    let finishSunTimes!: () => void;
+    (getBatchSunTimes as jest.Mock).mockReturnValueOnce(new Promise((resolve) => {
+      finishSunTimes = () => resolve(new Map());
+    }));
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+
+    const report = getSpotSurfReportPublic(beach);
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(getBatchSunTimes).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledTimes(1);
+    } finally {
+      finishSunTimes();
+      await report;
+    }
+  });
+
   it("deduplicates one render but reads the next revision and clock on the next request", async () => {
     setupDatabase([{ ...forecast, forecast_at: "2024-01-15T23:00:00Z", updated_at: "2024-01-15T17:00:00Z" }]);
     const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
@@ -149,8 +173,9 @@ describe("spot surf report service", () => {
     setupDatabase([{ ...forecast, forecast_at: "2024-01-15T23:00:00Z", updated_at: "2024-01-15T18:01:00Z" }]);
     jest.setSystemTime(new Date("2024-01-15T18:02:00Z"));
     const sameRequest = await getSpotSurfReportPublic({ ...beach, description: "other projection" } as Beach);
-    expect(sameRequest?.forecastContext).toEqual(first?.forecastContext);
+    expect(sameRequest).toBe(first);
     expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(1);
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledTimes(1);
 
     mockRequestCache = new Map(); // React discards its memoization between requests.
     const nextRequest = await getSpotSurfReportPublic(beach);
@@ -159,6 +184,26 @@ describe("spot surf report service", () => {
     expect(nextRequest?.report.updatedAt).toBe("2024-01-15T18:02:00.000Z");
     expect(first?.report.updatedAt).toBe("2024-01-15T18:00:00.000Z");
     expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(2);
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares a failed safety evaluation within one render and retries on the next request", async () => {
+    setupDatabase();
+    mockEvaluateMajorEventHoldCandidates.mockRejectedValueOnce(new Error("Safety lookup unavailable"));
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const errorLog = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const reports = await Promise.all([getSpotSurfReportPublic(beach), getSpotSurfReportPublic(beach)]);
+      expect(reports).toEqual([null, null]);
+      expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledTimes(1);
+
+      mockRequestCache = new Map();
+      const recovered = await getSpotSurfReportPublic(beach);
+      expect(recovered?.report.recommendationAvailability.state).toBe("available");
+      expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledTimes(2);
+    } finally {
+      errorLog.mockRestore();
+    }
   });
 
   it("does not retain a successful report through source failure or cache that failure after recovery", async () => {
@@ -369,7 +414,13 @@ describe("spot surf report service", () => {
       "@/lib/services/spot-surf-report-service"
     );
 
-    const result = await getSpotSurfReportPublic(beach);
+    const [result, metadataResult] = await Promise.all([
+      getSpotSurfReportPublic(beach),
+      getSpotSurfReportPublic({ ...beach, description: "metadata projection" }),
+    ]);
+
+    expect(metadataResult).toBe(result);
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledTimes(1);
 
     expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
       candidates: [
