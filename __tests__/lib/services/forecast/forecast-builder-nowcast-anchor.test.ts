@@ -16,6 +16,7 @@ import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { ForecastBuilder, shouldApplyNowcastAnchor } from "@/lib/services/forecast/forecast-builder";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
+import { getWaveDirectionText } from "@/lib/services/noaa-wavewatch/wave-analysis";
 import {
   buildSouthOcSanoShadowZoneSnapshot,
   SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG,
@@ -215,9 +216,9 @@ describe("ForecastBuilder nowcast anchor output", () => {
     } as unknown as Beach;
   }
 
-  function makeBuilder(): ForecastBuilder {
+  function makeBuilder(directionText: (degrees: number) => string = () => "SW"): ForecastBuilder {
     return new ForecastBuilder({
-      getWaveDirectionText: () => "SW",
+      getWaveDirectionText: directionText,
       getTideStatusAtTime: () => "Rising",
       getTideHeightAtTime: () => 3.5,
       getNextTideFromTime: () => null,
@@ -532,6 +533,58 @@ describe("ForecastBuilder nowcast anchor output", () => {
     expect(result[0].raw_forecast?.wave_height_provenance?.south_oc_sano_guardrail?.branch).toBe(
       "trestles_calibrated_anchor",
     );
+  });
+
+  test("a winning South OC guardrail describes the NDBC anchor after CDIP is rejected", async () => {
+    const nowIso = new Date().toISOString();
+    const waveData = makeSouthOcUndercallWaveData(nowIso);
+    waveData.forecast[0].swell_1_direction = 270;
+    const cdipPoint = { timestamp: nowIso, significantWaveHeight: 8, peakWavePeriod: 12, peakWaveDirection: 274 };
+    const [row] = await makeBuilder(getWaveDirectionText).buildForecasts({
+      beach: makeTestBeach([SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG], {
+        slug: "lower-trestles",
+        deepwater_decay_factor: 0.6,
+        shoaling_factors: {
+          version: 1,
+          type: "period_lookup",
+          buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 1.62 }],
+        },
+      }),
+      waveData,
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: { stationId: "220", stationName: "Mission Bay West", lastUpdated: nowIso, dataSource: "CDIP", data: [cdipPoint] },
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+      southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(row.raw_forecast?.wave_height_provenance).toMatchObject({
+      source: "nowcast_anchor",
+      station_id: "46275",
+      cdip_rejection: { reason: "cdip_outlier_vs_model", raw_cdip_hs: 8 },
+      south_oc_sano_guardrail: { height_floor_applied: true },
+    });
+    expect(row).toMatchObject({
+      wave_height: "5 ft",
+      data_source: "NOAA_BUOY",
+      confidence_score: 80,
+      wave_period: "17s",
+      wave_direction: "SSW",
+      swell_1_height: null,
+      swell_1_period: null,
+      swell_1_direction: null,
+      swell_2_height: null,
+      swell_2_period: null,
+      swell_2_direction: null,
+      wind_wave_height: null,
+      wind_wave_period: null,
+      wind_wave_direction: null,
+    });
+    expect(row.raw_forecast?.data_sources).toEqual(["CDIP", "NOAA_NWS"]);
+    expect(row.raw_forecast?.cdip_data?.data).toEqual([cdipPoint]);
   });
 
   test("South OC guardrail prevents Lower Trestles near-term sawtooth rows", async () => {

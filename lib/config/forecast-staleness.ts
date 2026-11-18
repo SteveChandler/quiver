@@ -54,6 +54,9 @@ export const CALIBRATED_CDIP_HOLD_HOURS = 12;
  */
 export const CDIP_OUTLIER_THRESHOLD = 1.8;
 
+/** Large CDIP Hs needs a station-fitted bucket because the population prior has no shelter term. */
+export const MAX_TRUSTED_CDIP_FT = 10;
+
 type DataSource = keyof typeof STALENESS_THRESHOLDS;
 
 /**

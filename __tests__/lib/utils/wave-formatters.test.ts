@@ -514,6 +514,7 @@ describe("wave-formatters", () => {
       it.each([12, 15, 18])("uses the CDIP bucket and caps the face at 15 ft for %s ft Hs", (cdipSigFt) => {
         const result = toFaceHeightFeet({
           cdipSigFt,
+          cdipHasStationBucket: true,
           modelSwellM: 3.0,
           modelHsM: 4.0,
           periodS: 14,
@@ -786,9 +787,10 @@ describe("wave-formatters", () => {
       expect(result).toEqual({ heightFt: 8.0, source: "cdip_sig" });
     });
 
-    it("rejects 12 ft CDIP when model Hs is absent and 1 m swell does not corroborate it", () => {
+    it("rejects 12 ft CDIP with a station bucket when the model does not corroborate it", () => {
       const result = selectWaveHeightSource({
         cdipSigFt: 12.0,
+        cdipHasStationBucket: true,
         modelSwellM: 1.0,
       });
       expect(result).toEqual({
