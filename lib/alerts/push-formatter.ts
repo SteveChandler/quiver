@@ -1,6 +1,7 @@
 import { pushTitle } from "@/lib/notifications/copy/push-title";
 import { fairActionPhrase } from "@/lib/utils/fair-action-phrase";
 import type { MatchingWindow } from "./types";
+import { firstMatchPerBeach } from "./collapse-matches";
 import {
   formatWaveHeightRange,
   formatWindSpeed,
@@ -71,11 +72,20 @@ export function formatPushNotification(
     primaryMatch && matches.includes(primaryMatch)
       ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
       : matches;
-  const topMatch = orderedMatches[0];
-  if (!topMatch)
+  if (orderedMatches.length === 0)
     throw new Error("formatPushNotification requires at least one match");
 
-  if (orderedMatches.length === 1) {
+  // Canonical producers pass their selected match explicitly. Keep it first so
+  // lock-screen identity and summary order cannot drift from the decision.
+  const sorted =
+    primaryMatch && matches.includes(primaryMatch)
+      ? orderedMatches
+      : [...matches].sort((a, b) => b.best_score - a.best_score);
+  // Two rules at one beach are one break; count beaches, not matches.
+  const beaches = firstMatchPerBeach(sorted);
+
+  if (beaches.length === 1) {
+    const topMatch = sorted[0];
     const snap = topMatch.conditions_snapshot;
     const timeWindow = formatTitleWindow(
       topMatch.window_start,
@@ -138,26 +148,20 @@ export function formatPushNotification(
     };
   }
 
-  // Canonical producers pass their selected match explicitly. Keep it first so
-  // lock-screen identity and summary order cannot drift from the decision.
-  const sorted =
-    primaryMatch && matches.includes(primaryMatch)
-      ? orderedMatches
-      : [...matches].sort((a, b) => b.best_score - a.best_score);
-  const best = sorted[0];
-  const others = sorted.length - 1;
+  const best = beaches[0];
+  const others = beaches.length - 1;
   const title = pushTitle(`${best.beach_name} + ${others} more break${others === 1 ? "" : "s"} today`);
 
-  const showCount = Math.min(sorted.length, 2);
+  const showCount = Math.min(beaches.length, 2);
   const parts: string[] = [];
   for (let i = 0; i < showCount; i++) {
-    const m = sorted[i];
+    const m = beaches[i];
     parts.push(
       `${m.beach_name} ${formatTimeRange(m.window_start, m.window_end, m.beach_timezone)}`,
     );
   }
   let body = parts.join(" · ");
-  if (sorted.length > 2) body += ` and ${sorted.length - 2} more`;
+  if (beaches.length > 2) body += ` and ${beaches.length - 2} more`;
   if (body.length > MAX_BODY_LENGTH)
     body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
   return {
