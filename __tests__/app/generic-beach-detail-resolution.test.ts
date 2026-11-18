@@ -27,7 +27,8 @@ import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToPipeableStream, renderToStaticMarkup } from "react-dom/server";
+import { PassThrough } from "node:stream";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
 
 // Mock React's cache function for server components
@@ -696,7 +697,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(renderToStaticMarkup(page)).toContain("2-3 ft");
   });
 
-  it("renders the forecast answer and hourly rows in initial HTML", async () => {
+  it("streams the forecast and hourly rows before nearby spots are ready", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -711,7 +712,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     forecastResult.forecastContext.displayWindowStart = "2026-09-07T15:00:00.000Z";
     forecastResult.forecastContext.displayWindowEnd = "2026-09-07T17:30:00.000Z";
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
-    (getNearbyBeaches as jest.Mock).mockResolvedValueOnce({
+    const nearbyResult = {
       success: true,
       data: [
         makeBeach({ id: "backup-1", name: "Swami's", slug: "swamis", city: "Encinitas" }),
@@ -719,16 +720,51 @@ describe("GenericBeachDetailPage slug resolution", () => {
         makeBeach({ id: "backup-3", name: "Pipeline", slug: "pipeline", city: "Haleiwa", state: "HI" }),
         makeBeach({ id: "backup-4", name: "Malibu", slug: "malibu", city: "Malibu" }),
       ],
-    });
-
-    const page = await GenericBeachDetailPage({
+    };
+    const nearby = Promise.withResolvers<typeof nearbyResult>();
+    jest.mocked(getNearbyBeaches).mockImplementationOnce(() =>
+      nearby.promise as ReturnType<typeof getNearbyBeaches>,
+    );
+    const pageResult = GenericBeachDetailPage({
       params: Promise.resolve({
         intent: "ca",
         city: "del-mar",
         beachSlug: "del-mar",
       }),
     });
-    const html = renderToStaticMarkup(page);
+    const page = await Promise.race([
+      pageResult,
+      new Promise<null>((resolve) => setImmediate(() => resolve(null))),
+    ]);
+    if (!page) {
+      nearby.resolve(nearbyResult);
+      await pageResult;
+      throw new Error("Page blocked on the nearby beach lookup");
+    }
+
+    let initialHtml = "";
+    const html = await new Promise<string>((resolve, reject) => {
+      const output = new PassThrough();
+      let content = "";
+      output.setEncoding("utf8");
+      output.on("data", (chunk: string) => {
+        content += chunk;
+        if (!initialHtml && content.includes('data-testid="public-forecast-hourly"')) {
+          initialHtml = content;
+          nearby.resolve(nearbyResult);
+        }
+      });
+      output.on("end", () => resolve(content));
+      output.on("error", reject);
+      const stream = renderToPipeableStream(page, {
+        onShellReady: () => stream.pipe(output),
+        onError: reject,
+      });
+    });
+
+    expect(getHeadingTexts(initialHtml, 1)).toEqual(["Del Mar Surf Forecast"]);
+    expect(initialHtml).not.toContain("Nearby spots");
+    expect(getNearbyBeaches).toHaveBeenCalledTimes(1);
 
     expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
     expect(getHeadingTexts(html, 2)).toContain("Del Mar");
