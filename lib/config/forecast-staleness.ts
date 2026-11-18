@@ -54,11 +54,6 @@ export const CALIBRATED_CDIP_HOLD_HOURS = 12;
  */
 export const CDIP_OUTLIER_THRESHOLD = 1.8;
 
-/**
- * Maximum CDIP significant wave height, in feet, trusted by source selection.
- */
-export const MAX_TRUSTED_CDIP_FT = 10;
-
 type DataSource = keyof typeof STALENESS_THRESHOLDS;
 
 /**

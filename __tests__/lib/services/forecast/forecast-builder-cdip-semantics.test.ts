@@ -474,11 +474,46 @@ describe("ForecastBuilder CDIP height semantics", () => {
     feedbackCalibrationCandidate: null,
   });
 
+  const missionBeach = makeBeach({
+    id: "cdcf733b-a704-45ef-affc-d8152ffde1e4",
+    shoaling_factors: {
+      ...CALIBRATED_SHOALING,
+      buckets: [{ tp_min_s: 12, tp_max_s: 16, factor: 0.93 }],
+      calibration: { reference_buoy: "220" },
+    },
+  });
+
+  test.each([2.6, null])("uses the station-matched bucket for 10.24 ft CDIP with ECMWF Hs %s", async (ecmwfWamHsM) => {
+    const inputs = fallbackInputs(ecmwfWamHsM);
+    const waveData = inputs.waveData!;
+    const [row] = await makeBuilder(getWaveDirectionText).buildForecasts({
+      ...inputs,
+      beach: missionBeach,
+      waveData: {
+        ...waveData,
+        forecast: [{ ...waveData.forecast[0], swell_1_height: 1.70, significant_wave_height: 2.58 }],
+      },
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 10.24, 15.4, 274),
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(row).toMatchObject({ wave_height: "9.5 ft", wave_period: "15s", wave_direction: "W", data_source: "CDIP" });
+    const provenance = row.raw_forecast?.wave_height_provenance;
+    expect(provenance).toMatchObject({
+      source: "cdip_sig",
+      station_id: "220",
+      raw_value_ft: 10.24,
+      transform_path: "scalar_calibrated",
+      calibrated_shoaling_fired: true,
+      components_used: false,
+    });
+    expect(provenance?.cdip_rejection).toBeUndefined();
+  });
+
   test.each([
-    { hs: 10.24, reason: "cdip_too_large", ecmwfWamHsM: 2.6 },
-    { hs: 8, reason: "cdip_outlier_vs_model", ecmwfWamHsM: 2.6 },
-    { hs: 10.24, reason: "cdip_too_large", ecmwfWamHsM: null },
-  ])("$reason with ECMWF Hs $ecmwfWamHsM uses the CDIP-absent model row", async ({ hs, reason, ecmwfWamHsM }) => {
+    { hs: 8, ecmwfWamHsM: 2.6 },
+    { hs: 12, ecmwfWamHsM: null },
+  ])("$hs ft CDIP outlier with ECMWF Hs $ecmwfWamHsM uses the CDIP-absent model row", async ({ hs, ecmwfWamHsM }) => {
     const builder = makeBuilder(getWaveDirectionText);
     const inputs = fallbackInputs(ecmwfWamHsM);
     const [model] = await builder.buildForecasts(inputs);
@@ -499,25 +534,29 @@ describe("ForecastBuilder CDIP height semantics", () => {
     expect(hybrid?.ecmwf_hs_m ?? null).toBe(ecmwfWamHsM);
     expect(provenance).toEqual({
       ...modelProvenance,
-      cdip_rejection: { reason, raw_cdip_hs: hs, raw_model_hs: METERS_TO_FEET },
+      cdip_rejection: { reason: "cdip_outlier_vs_model", raw_cdip_hs: hs, raw_model_hs: METERS_TO_FEET },
     });
   });
 
-  test.each([6, undefined])("rejected CDIP without a model or NDBC point returns no wave height (CDIP swell %s)", async (swellHeight) => {
+  test.each([6, undefined])("accepts 10.24 ft CDIP without a model or NDBC point (CDIP swell %s)", async (swellHeight) => {
     const cdipData = makeCdipBuoyData(FROZEN_NOW_ISO, 10.24, 15.4, 274);
-    const [row] = await makeBuilder().buildForecasts({
+    const [row] = await makeBuilder(getWaveDirectionText).buildForecasts({
       ...fallbackInputs(),
+      beach: missionBeach,
       waveData: null,
       cdipData: { ...cdipData, data: [{ ...cdipData.data[0], swellHeight }] },
     });
     expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
-    expect(row).toMatchObject({ wave_height: null, wave_period: null, wave_direction: null, data_source: "FALLBACK" });
+    expect(row).toMatchObject({ wave_height: "9.5 ft", wave_period: "15s", wave_direction: "W", data_source: "CDIP" });
     expect(row.raw_forecast?.wave_height_provenance).toMatchObject({
-      source: null,
+      source: "cdip_sig",
+      station_id: "220",
+      transform_path: "scalar_calibrated",
+      calibrated_shoaling_fired: true,
       components_used: false,
-      cdip_rejection: { reason: "cdip_too_large", raw_cdip_hs: 10.24, raw_model_hs: null },
     });
+    expect(row.raw_forecast?.wave_height_provenance?.cdip_rejection).toBeUndefined();
   });
 
   test("accepted CDIP and the anchor override retain their pre-fix serialized rows", async () => {

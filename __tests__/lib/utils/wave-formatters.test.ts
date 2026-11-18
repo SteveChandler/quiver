@@ -1,5 +1,6 @@
 import { formatWaveHeightDecimal, formatWaveHeightBucket, formatWaveRange, formatWaveHeightRangeString, getWaveSizeDescription, getWaveSizeLabel, WAVE_SIZE_LABELS, parseWaveHeight, toFaceHeightFeet, toFaceHeightRangeFeet, extractNumericWaveHeight, selectWaveHeightSource, metersToFeet, roundWaveHeight, clampWaveHeight, WAVE_HEIGHT_NUMBER_PATTERN } from "@/lib/utils/wave-formatters";
 import type { ShoalingFactors } from "@/lib/utils/wave-height-transformer";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { TERRAIN_BINS } from "@/types/terrain";
 
 describe("wave-formatters", () => {
@@ -510,23 +511,15 @@ describe("wave-formatters", () => {
         expect(result).toBe("3.6 ft");
       });
 
-      it("SKIPS short-circuit when CDIP > MAX_TRUSTED_CDIP_FT (falls back to model_swell)", () => {
-        // XL day: CDIP reports 12 ft, which exceeds the 10 ft trust threshold.
-        // selectWaveHeightSource falls back to model_swell (3.0m = 9.84 ft raw).
-        // The transformer MUST use the legacy pipeline on the model input,
-        // not multiply the model height by Blacks's CDIP-denominated 2.1x
-        // factor (which would display ~20.7 ft — wildly wrong).
+      it.each([12, 15, 18])("uses the CDIP bucket and caps the face at 15 ft for %s ft Hs", (cdipSigFt) => {
         const result = toFaceHeightFeet({
-          cdipSigFt: 12.0, // outside MAX_TRUSTED_CDIP_FT
-          modelSwellM: 3.0, // 9.84 ft raw
+          cdipSigFt,
+          modelSwellM: 3.0,
+          modelHsM: 4.0,
           periodS: 14,
           beach: blacksBeach,
         });
-        // Legacy: 9.84 * 1.0 (base) * 1.2 (capped period at 14s) * 1.0 = 11.808 → 11.8 ft
-        expect(result).toBe("11.8 ft");
-        // Guard against a regression that applies the CDIP bucket factor here:
-        const numeric = parseFloat(result!);
-        expect(numeric).toBeLessThan(15);
+        expect(result).toBe("15 ft");
       });
 
       it("SKIPS short-circuit when CDIP is an outlier vs model swell", () => {
@@ -793,12 +786,20 @@ describe("wave-formatters", () => {
       expect(result).toEqual({ heightFt: 8.0, source: "cdip_sig" });
     });
 
-    it("should reject untrusted high CDIP values", () => {
+    it("rejects 12 ft CDIP when model Hs is absent and 1 m swell does not corroborate it", () => {
       const result = selectWaveHeightSource({
-        cdipSigFt: 12.0, // > 10ft threshold
-        modelSwellM: 2.0,
+        cdipSigFt: 12.0,
+        modelSwellM: 1.0,
       });
-      expect(result?.source).toBe("model_swell");
+      expect(result).toEqual({
+        source: "model_swell",
+        heightFt: METERS_TO_FEET,
+        cdipRejection: {
+          reason: "cdip_outlier_vs_model",
+          rawCdipHs: 12,
+          rawModelHs: METERS_TO_FEET,
+        },
+      });
     });
 
     it("should fall back to CDIP swell when model unavailable", () => {

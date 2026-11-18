@@ -587,7 +587,7 @@ describe('Wave Height Transformer', () => {
       it('should SKIP short-circuit when source is model_swell (not cdip_sig)', () => {
         // Same beach, same factors, same period, same inputs — but the
         // upstream source was model_swell (e.g. CDIP was rejected as an
-        // outlier or exceeded MAX_TRUSTED_CDIP_FT). The bucket factor is
+        // outlier). The bucket factor is
         // measured as surfline_face_ft / cdip_hs_ft — applying it to a
         // model height is a units/semantics mismatch. Must fall through
         // to the legacy base × period × direction pipeline instead.

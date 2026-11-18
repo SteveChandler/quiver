@@ -28,10 +28,7 @@ import {
   metersToFeet as convertMetersToFeet,
 } from './unit-conversions';
 import { createContextLogger } from '@/lib/logger';
-import {
-  CDIP_OUTLIER_THRESHOLD,
-  MAX_TRUSTED_CDIP_FT,
-} from '@/lib/config/forecast-staleness';
+import { CDIP_OUTLIER_THRESHOLD } from '@/lib/config/forecast-staleness';
 import type { ForecastReplayInput } from './forecast-display-replay';
 import { resolveEcmwfHybridScale, type ResolvedEcmwfHybridScale } from './ecmwf-hybrid-scale';
 
@@ -406,7 +403,7 @@ interface WaveHeightSource {
    * source or simply not available.
    */
   cdipRejection?: {
-    reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
+    reason: 'cdip_outlier_vs_model';
     rawCdipHs: number;
     rawModelHs: number | null;
   };
@@ -419,10 +416,6 @@ function getCdipWaveHeightRejection(
   if (cdipSig === undefined) return undefined;
 
   const modelSwell = metersToFeet(params.modelSwellM);
-  if (cdipSig > MAX_TRUSTED_CDIP_FT) {
-    return { reason: 'cdip_too_large', rawCdipHs: cdipSig, rawModelHs: modelSwell ?? null };
-  }
-
   if (
     modelSwell !== undefined &&
     cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD &&
@@ -480,7 +473,6 @@ export function selectWaveHeightSource(
     return {
       heightFt: cdipSwell,
       source: 'cdip_swell',
-      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -489,7 +481,6 @@ export function selectWaveHeightSource(
     return {
       heightFt: modelHs,
       source: 'model_hs',
-      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -498,7 +489,6 @@ export function selectWaveHeightSource(
     return {
       heightFt: ndbcBuoy,
       source: 'ndbc_buoy',
-      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -667,7 +657,6 @@ export function toFaceHeightFeetDecomposedWithDebug(
 ): { value: string | null; debug: WaveHeightDebugInfo } {
   const source = selectWaveHeightSource(params);
   if (!source) {
-    const cdipRejection = getCdipWaveHeightRejection(params);
     return {
       value: null,
       debug: {
@@ -677,7 +666,6 @@ export function toFaceHeightFeetDecomposedWithDebug(
         transformPath: null,
         componentsUsed: false,
         calibratedShoalingFired: false,
-        ...(cdipRejection ? { cdipRejection } : {}),
       },
     };
   }
