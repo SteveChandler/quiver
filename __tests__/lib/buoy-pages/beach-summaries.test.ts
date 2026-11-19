@@ -49,6 +49,38 @@ describe("getBeachForecastSummaries", () => {
     expect(summaries.get("b3")?.href).toBeNull();
   });
 
+  describe("the row nearest the start of the current UTC hour", () => {
+    const slots = [
+      { beach_id: "b1", forecast_at: "2026-11-19T12:00:00Z", wave_height: "2-3 ft", data_source: "NOAA_WAVEWATCH" },
+      { beach_id: "b1", forecast_at: "2026-11-19T15:00:00Z", wave_height: "5-6 ft", data_source: "NOAA_WAVEWATCH" },
+    ];
+    const labelAt = async (now: string, rows: object[]) => {
+      const client = fakeClient({
+        beaches: { data: [BEACHES[0]], error: null },
+        enhanced_forecasts: { data: rows, error: null },
+      });
+      return (await getBeachForecastSummaries(["b1"], new Date(now), client)).get("b1")?.forecastLabel ?? null;
+    };
+
+    it.each([
+      ["2026-11-19T14:30:00Z", "5-6ft"],
+      ["2026-11-19T13:30:00Z", "2-3ft"],
+      ["2026-11-19T15:00:00Z", "5-6ft"],
+    ])("at %s labels the beach %s", async (now, label) => {
+      expect(await labelAt(now, slots)).toBe(label);
+    });
+
+    it("has no label when no row lies within one slot of the hour", async () => {
+      expect(await labelAt("2026-11-19T19:30:00Z", [slots[0]])).toBeNull();
+    });
+
+    it("does not label from a FALLBACK nearest row, nor from an older row", async () => {
+      expect(await labelAt("2026-11-19T14:30:00Z", [
+        slots[0], { ...slots[1], wave_height: null, data_source: "FALLBACK" },
+      ])).toBeNull();
+    });
+  });
+
   it("throws when the forecast read fails, so the page can say it is unavailable", async () => {
     const client = fakeClient({
       beaches: { data: BEACHES, error: null },

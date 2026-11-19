@@ -1,9 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  CURRENT_CONDITIONS_TOLERANCE_MS,
-  currentHourForecastRow,
-  designateCurrentRow,
-} from "@/lib/services/current-conditions/current-row";
+import { currentHourForecastRow } from "@/lib/services/current-conditions/current-row";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 import type { Database } from "@/types/database.generated";
@@ -82,14 +78,4 @@ export async function fetchBulkForecastRowsWithV51Display(
 /** A FALLBACK row carries no model wave data: no height to display and a null height that would score as a flat 0. */
 export function modelForecastRow(row: EnhancedForecastEntity | null): EnhancedForecastEntity | null {
   return row && !isFallbackForecastRow(row) ? row : null;
-}
-
-/** The row the map shows as a beach's current conditions. */
-export function currentMapForecastRow(
-  rows: EnhancedForecastEntity[],
-  now: Date,
-): EnhancedForecastEntity | null {
-  return modelForecastRow(designateCurrentRow(rows, now, {
-    toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-  })?.row ?? null);
 }
