@@ -9,9 +9,12 @@ import type { WeekScoutServiceDependencies } from "@/lib/services/discovery/week
 
 const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = new Date("2026-09-10T20:40:00.000Z");
-const SHIFTED_NOW = new Date("2026-09-10T22:10:00.000Z");
-const CURRENT_AT = "2026-09-10T18:00:00.000Z";
-const NEXT_AT = "2026-09-10T21:00:00.000Z";
+const SHIFTED_NOW = new Date("2026-09-10T23:10:00.000Z");
+// At NOW the latest past row is PAST_AT; the row nearest the start of the
+// 20:00Z hour is CURRENT_AT. Every "now" producer must read CURRENT_AT.
+const PAST_AT = "2026-09-10T18:00:00.000Z";
+const CURRENT_AT = "2026-09-10T21:00:00.000Z";
+const NEXT_AT = "2026-09-11T00:00:00.000Z";
 
 const beach = {
   id: BEACH_ID,
@@ -369,15 +372,17 @@ describe("surf authority producer contract", () => {
   afterAll(() => jest.useRealTimers());
 
   describe("current row", () => {
-    it("keeps current, bulk, and discovery on the latest past row", () => {
+    it("keeps current, bulk, and discovery on the row nearest the current hour", () => {
       const bulkAt = result.bulk.displayForecasts[BEACH_ID].forecastAt;
       expect({
         current: result.current.forecast_at,
         bulk: bulkAt,
         discovery: result.nowRecommendation.forecast.forecast_at,
       }).toEqual({ current: CURRENT_AT, bulk: CURRENT_AT, discovery: CURRENT_AT });
-      expect([result.current.forecast_at, bulkAt, result.nowRecommendation.forecast.forecast_at])
-        .not.toContain(NEXT_AT);
+      // Negative control: no producer reads the latest past row or the slot after.
+      const read = [result.current.forecast_at, bulkAt, result.nowRecommendation.forecast.forecast_at];
+      expect(read).not.toContain(PAST_AT);
+      expect(read).not.toContain(NEXT_AT);
     });
 
     it("moves every current-row producer together after the next row becomes current", () => {
@@ -387,6 +392,8 @@ describe("surf authority producer contract", () => {
         bulk: bulkAt,
         discovery: shifted.recommendation.forecast.forecast_at,
       }).toEqual({ current: NEXT_AT, bulk: NEXT_AT, discovery: NEXT_AT });
+      expect([shifted.current.forecast_at, bulkAt, shifted.recommendation.forecast.forecast_at])
+        .not.toContain(CURRENT_AT);
     });
   });
 
@@ -450,7 +457,7 @@ describe("surf authority producer contract", () => {
       const scopedDiscovery = (at: string) => discoverSurfSpots("contract-user", {
         forecastAt: at, includeBeachIds: [BEACH_ID], userLocation: beach, throwOnFailure: true,
       });
-      const scoped = (await scopedDiscovery(NEXT_AT)).recommendations[0].window;
+      const scoped = (await scopedDiscovery(CURRENT_AT)).recommendations[0].window;
       const ends = [result.nowRecommendation.window.displayWindowEnd!.toISOString()];
       try {
         // 13:52 PDT still maps to the 14:00 row; the peak moves, the band does not.
@@ -465,7 +472,7 @@ describe("surf authority producer contract", () => {
       }
 
       expect(ends).toEqual([scoped.displayWindowEnd!.toISOString(), scoped.displayWindowEnd!.toISOString()]);
-      expect(result.nowRecommendation.window.displayWindowStart!.toISOString()).toBe(NEXT_AT);
+      expect(result.nowRecommendation.window.displayWindowStart!.toISOString()).toBe(CURRENT_AT);
       // The 14:00 row starts 150 minutes before 16:30 PDT; both are before last light.
       expect(ends[0]).toBe("2026-09-10T23:30:00.000Z");
     });

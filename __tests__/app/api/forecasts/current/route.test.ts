@@ -118,12 +118,26 @@ function chain<T>(result: QueryResult<T>) {
 function setupQueries(options: {
   beach?: QueryResult<{ id: string }>;
   latest: Array<QueryResult<{ updated_at: string; data_source: string | null }>>;
-  current: Array<QueryResult<ForecastRow>>;
+  current: Array<QueryResult<ForecastRow | ForecastRow[]>>;
   tide?: Array<QueryResult<TideRow[]>>;
 }) {
   const beach = chain(options.beach ?? { data: { id: BEACH_ID }, error: null });
   const latestQueries = [...options.latest].map(chain);
-  const currentQueries = [...options.current].map(chain);
+  // Forecast reads honour the upper bound, newest first, like the database.
+  const currentQueries = [...options.current].map((result) => {
+    const rows = result.data == null ? [] : Array.isArray(result.data) ? result.data : [result.data];
+    const query = chain(result);
+    const bounded = () => rows.filter((row) => {
+      const bound = query.lte.mock.calls.at(-1)?.[1] as string | undefined;
+      return !bound || Date.parse(row.forecast_at) <= Date.parse(bound);
+    });
+    query.maybeSingle.mockImplementation(() =>
+      Promise.resolve({ data: result.error ? null : bounded()[0] ?? null, error: result.error }));
+    return Object.assign(query, {
+      then: (resolve: (value: QueryResult<ForecastRow[]>) => unknown, reject: (reason: unknown) => unknown) =>
+        Promise.resolve({ data: result.error ? null : bounded(), error: result.error }).then(resolve, reject),
+    });
+  });
   // The tide read awaits the builder itself rather than maybeSingle().
   const tideQueries = [...(options.tide ?? [])].map((result) =>
     Object.assign(chain(result), {
@@ -311,6 +325,59 @@ describe("GET /api/forecasts/current", () => {
     expect(body.data.current.source_fetched_at).toBe(expected);
   });
 
+  describe("the row nearest the start of the current UTC hour", () => {
+    const freshLatest = () => [{
+      data: { updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(), data_source: "OPEN_METEO" },
+      error: null,
+    }];
+    // Newest first, as the route orders them.
+    const rows = (...values: Array<[string, string, string?]>) => values.map(([at, wave, source]) =>
+      currentRow({ forecast_at: at, wave_height: wave, ...(source ? { data_source: source } : {}) }));
+    const currentAt = async (now: string, data: ForecastRow[]) => {
+      jest.setSystemTime(new Date(now));
+      const queries = setupQueries({ current: [{ data, error: null }], latest: freshLatest() });
+      const response = await callRoute(`http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}&includeStale=1`);
+      return { body: await response.json(), queries };
+    };
+    const slots = rows(
+      ["2026-05-21T15:00:00.000Z", "5-6 ft"],
+      ["2026-05-21T12:00:00.000Z", "2-3 ft"],
+    );
+
+    it("returns the later slot when it is nearer, and reads one slot past the hour", async () => {
+      const { body, queries } = await currentAt("2026-05-21T14:30:00.000Z", slots);
+      expect(body.data.current.forecast_at).toBe("2026-05-21T15:00:00.000Z");
+      expect(body.data.current.wave_height).toBe("5-6 ft");
+      expect(queries.current[0].lte).toHaveBeenCalledWith("forecast_at", "2026-05-21T17:00:00.000Z");
+    });
+
+    it("returns the earlier slot when it is nearer", async () => {
+      const { body } = await currentAt("2026-05-21T13:30:00.000Z", slots);
+      expect(body.data.current.forecast_at).toBe("2026-05-21T12:00:00.000Z");
+    });
+
+    it("returns the slot itself exactly on it", async () => {
+      const { body } = await currentAt("2026-05-21T15:00:00.000Z", slots);
+      expect(body.data.current.forecast_at).toBe("2026-05-21T15:00:00.000Z");
+    });
+
+    it("keeps the latest past row when no row lies within one slot of the hour", async () => {
+      const { body } = await currentAt("2026-05-21T14:30:00.000Z", rows(["2026-05-21T06:00:00.000Z", "2-3 ft"]));
+      expect(body.data.current.forecast_at).toBe("2026-05-21T06:00:00.000Z");
+      const none = await currentAt("2026-05-21T14:30:00.000Z", []);
+      expect(none.body.data.current).toBeNull();
+    });
+
+    it("does not let an older model row stand in for a FALLBACK nearest row", async () => {
+      const { body } = await currentAt("2026-05-21T14:30:00.000Z", rows(
+        ["2026-05-21T15:00:00.000Z", "", "FALLBACK"],
+        ["2026-05-21T12:00:00.000Z", "2-3 ft"],
+      ));
+      expect(body.data.current.forecast_at).toBe("2026-05-21T15:00:00.000Z");
+      expect(body.data.current.wave_height).not.toBe("2-3 ft");
+    });
+  });
+
   it("refreshes a missing current row and returns the reread source-backed row", async () => {
     const afterRefresh = new Date("2026-05-21T21:00:01.000Z");
     mockUpdateBeachForecast.mockImplementationOnce(async () => {
@@ -346,7 +413,8 @@ describe("GET /api/forecasts/current", () => {
 
     expect(response.status).toBe(200);
     expect(mockUpdateBeachForecast).toHaveBeenCalledWith(BEACH_ID);
-    expect(queries.current[1].lte).toHaveBeenCalledWith("forecast_at", afterRefresh.toISOString());
+    // The reread reaches one slot past the 21:00Z hour it ran in.
+    expect(queries.current[1].lte).toHaveBeenCalledWith("forecast_at", "2026-05-22T00:00:00.000Z");
     expect(body.data.current.forecast_at).toBe("2026-05-21T21:00:00.000Z");
     expect(body.data.metadata).toEqual(
       expect.objectContaining({
