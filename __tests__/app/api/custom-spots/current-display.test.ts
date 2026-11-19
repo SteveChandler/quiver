@@ -85,6 +85,43 @@ describe("GET /api/custom-spots/current-display", () => {
     );
   });
 
+  describe("the row nearest the start of the current UTC hour", () => {
+    afterEach(() => jest.useRealTimers());
+    const slots = [
+      { beach_id: "beach-1", forecast_at: "2026-11-19T12:00:00.000Z", wave_height: "2.0 ft", data_source: "OPEN_METEO" },
+      { beach_id: "beach-1", forecast_at: "2026-11-19T15:00:00.000Z", wave_height: "4.0 ft", data_source: "OPEN_METEO" },
+    ];
+    const displayAt = async (now: string, rows: object[]) => {
+      jest.useFakeTimers({ now: new Date(now) });
+      fetchBulkForecastRowsWithV51Display.mockResolvedValue({ data: rows, timelineRows: [], error: null });
+      loadCustomSpotForecastAdjusters.mockResolvedValue(new Map([[SPOT_A, (row: object) => row]]));
+      const context = contextWith({
+        custom_spots: [{ id: SPOT_A, nearest_beach_id: "beach-1", terrain_status: "ok" }],
+        beaches: [{ id: "beach-1" }],
+      });
+      const body = await (await customSpotCurrentDisplayHandler(request(SPOT_A), context)).json();
+      return body.data.displays[SPOT_A] ?? null;
+    };
+
+    it.each([
+      ["2026-11-19T14:30:00.000Z", "2026-11-19T15:00:00.000Z"],
+      ["2026-11-19T13:30:00.000Z", "2026-11-19T12:00:00.000Z"],
+      ["2026-11-19T15:00:00.000Z", "2026-11-19T15:00:00.000Z"],
+    ])("at %s labels the spot from the %s row", async (now, row) => {
+      expect((await displayAt(now, slots))?.forecastAt).toBe(row);
+    });
+
+    it("has no label when no row lies within one slot of the hour", async () => {
+      expect(await displayAt("2026-11-19T19:30:00.000Z", [slots[0]])).toBeNull();
+    });
+
+    it("does not label from a FALLBACK nearest row, nor from an older row", async () => {
+      expect(await displayAt("2026-11-19T14:30:00.000Z", [
+        slots[0], { ...slots[1], wave_height: null, data_source: "FALLBACK" },
+      ])).toBeNull();
+    });
+  });
+
   it("skips unanalyzed spots without reading forecasts", async () => {
     const context = contextWith({
       custom_spots: [{ id: SPOT_A, nearest_beach_id: "beach-1", terrain_status: "queued" }],
