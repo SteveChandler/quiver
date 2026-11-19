@@ -441,6 +441,25 @@ describe("surf authority producer contract", () => {
   });
 
   describe("now window", () => {
+    it("keeps the NOW call before last light when the nearest slot starts after dark", async () => {
+      // 19:02 PDT, before the 19:05 sunset; the 20:00 PDT row is nearest the 19:00 hour.
+      const dusk = new Date("2026-09-11T02:02:00.000Z");
+      try {
+        jest.setSystemTime(dusk);
+        const discovery = await discoverSurfSpots("contract-user", {
+          discoveryMode: "now", includeBeachIds: [BEACH_ID], userLocation: beach, throwOnFailure: true,
+        });
+        const recommendation = discovery.recommendations[0];
+        expect(recommendation?.forecast.forecast_at).toBe("2026-09-11T03:00:00.000Z");
+        expect(recommendation.window.start.getTime()).toBeLessThanOrEqual(dusk.getTime());
+        expect(recommendation.window.end.getTime()).toBeGreaterThan(dusk.getTime());
+        expect(recommendation.window.displayWindowEnd!.getTime())
+          .toBeGreaterThan(recommendation.window.displayWindowStart!.getTime());
+      } finally {
+        jest.setSystemTime(NOW);
+      }
+    });
+
     it("shares display bounds between the now recommendation and the surf call context, ending by last light", () => {
       const window = result.nowRecommendation.window;
       expect(window.displayWindowStart).toBeInstanceOf(Date);
