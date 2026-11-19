@@ -1,3 +1,4 @@
+import { getDateTimeFormat } from "./intl-cache";
 import type { StoredTideConstituent } from "./types";
 
 export interface TideHeightPoint {
@@ -120,7 +121,7 @@ export function tideStateAt(extremes: TideExtremePoint[], nowMs: number): TideSt
 
 /** Local calendar date (YYYY-MM-DD) of an instant in `timeZone`. */
 export function localDateKey(ts: string | number, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+  return getDateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
     new Date(ts)
   );
 }
