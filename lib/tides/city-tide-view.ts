@@ -93,7 +93,8 @@ export function buildCityTideView(input: {
  */
 export async function loadStationTideView(
   sourceStationId: string | null | undefined,
-  renderedAtMs: number
+  renderedAtMs: number,
+  purpose?: "beach-page"
 ): Promise<CityTideView | null> {
   if (!sourceStationId || sourceStationId.startsWith("cached_")) return null;
   let station: TideStationRow | null;
@@ -101,18 +102,30 @@ export async function loadStationTideView(
   try {
     station = await getNoaaTideStationBySourceId(sourceStationId);
     if (!station) return null;
-    series = await getStationSeries(station, renderedAtMs);
+    series = await getStationSeries(station, renderedAtMs, purpose);
   } catch (error) {
     // Next.js render-control errors (dynamic usage, bailouts) must reach Next, not the fallback.
     unstable_rethrow(error);
     // Registry or NOAA down: the stored series is the same station's table, so the page still agrees with itself.
     console.warn("Tide page: station table unavailable, using stored series", {
       sourceStationId,
+      purpose,
+      outcome: "read-failed",
       message: error instanceof Error ? error.message : "Unknown error",
     });
     return null;
   }
-  if (series.status !== "ok") return null;
+  if (series.status !== "ok") {
+    if (purpose === "beach-page") {
+      console.warn("Tide page: station table unavailable, using stored series", {
+        sourceStationId,
+        purpose,
+        outcome: "no-station-data",
+        reason: series.reason,
+      });
+    }
+    return null;
+  }
   return buildCityTideView({
     timeZone: station.timezone,
     renderedAtMs,

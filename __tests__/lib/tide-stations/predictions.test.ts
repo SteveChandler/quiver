@@ -81,21 +81,112 @@ it("serves covering raw rows with the current California adjustment and never ca
       ...(index % 6 === 0 ? [{ station_id: california.id, kind: index % 12 === 0 ? "high" : "low", ts, height_m: 1 }] : []),
     ];
   }).flat();
-  const result = await getStationSeries(california, NOW);
+  const result = await getStationSeries(california, NOW, "beach-page");
   expect(result.status).toBe("ok");
   if (result.status !== "ok") throw new Error("Expected stored tides");
   expect(result.adjustmentFt).toBe(1.5);
   expect(result.extremes[0].heightM).toBe(1.457);
   expect(result.hourly[0].heightM).toBe(1.457);
+  expect(mockCacheOptions).toHaveLength(0);
   expect(mockFetch).not.toHaveBeenCalled();
 });
 
 it("uses live NOAA when stored rows do not cover the window", async () => {
   mockStoredRows = [{ station_id: station.id, kind: "high", ts: new Date(NOW).toISOString(), height_m: 1 }];
-  const result = await getStationSeries(station, NOW);
+  jest.mocked(console.warn).mockClear();
+  const result = await getStationSeries(station, NOW, "beach-page");
   expect(result.status).toBe("ok");
   expect(mockFetch).toHaveBeenCalled();
+  expect(console.warn).toHaveBeenCalledWith("Beach tide stored coverage fallback", {
+    stationId: station.id,
+    outcome: "live-noaa",
+  });
 });
+
+it.each(["reference", "subordinate"] as const)(
+  "reuses a covering %s snapshot for a beach page before asking NOAA",
+  async (stationKind) => {
+    const target = { ...station, station_kind: stationKind, reference_station_id: "9410230" };
+    const previous = await getStationSeries(target, NOW);
+    expect(previous).toMatchObject({ status: "ok", adjustmentFt: 1.5 });
+    reload();
+    mockFetch.mockClear().mockRejectedValue(new Error("snapshot should avoid network"));
+    jest.mocked(console.warn).mockClear();
+
+    const result = await getStationSeries(target, NOW + 13 * HOUR, "beach-page");
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith("Beach tide stored coverage fallback", {
+      stationId: target.id,
+      outcome: "snapshot",
+    });
+    if (result.status !== "ok" || previous.status !== "ok") throw new Error("Expected covering predictions");
+    expect(result.windowStart).toBe(new Date(NOW - 11 * HOUR).toISOString());
+    expect(result.adjustmentFt).toBe(previous.adjustmentFt);
+    expect(result.extremes.find((point) => point.ts === previous.extremes[8].ts)).toEqual(previous.extremes[8]);
+    expect(result.hourly.length > 0).toBe(stationKind === "reference");
+  },
+);
+
+it("does not reuse a snapshot for a different datum adjustment", async () => {
+  const modulePath = "@/lib/services/noaa-coops/api-client";
+  const offset = jest.fn().mockReturnValue(0);
+  jest.doMock(modulePath, () => ({ ...jest.requireActual(modulePath), seaLevelOffsetFt: offset }));
+  try {
+    reload();
+    expect(await getStationSeries(station, NOW)).toMatchObject({ status: "ok", adjustmentFt: 0 });
+    offset.mockReturnValue(1.5);
+    reload();
+    mockFetch.mockClear();
+
+    const result = await getStationSeries(station, NOW, "beach-page");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ status: "ok", adjustmentFt: 1.5 });
+  } finally {
+    jest.dontMock(modulePath);
+  }
+});
+
+it("keeps the default live NOAA lookup and deadline even when a covering snapshot exists", async () => {
+  const target = { ...station, station_kind: "subordinate" } as const;
+  expect(await getStationSeries(target, NOW)).toMatchObject({ status: "ok" });
+  reload();
+  mockFetch.mockClear();
+  const timeout = jest.spyOn(AbortSignal, "timeout");
+  try {
+    expect(await getStationSeries(target, NOW)).toMatchObject({ status: "ok" });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(timeout).toHaveBeenCalledWith(20_000);
+  } finally {
+    timeout.mockRestore();
+  }
+});
+
+it.each(["beach-page", undefined] as const)(
+  "fetches a reference curve on the next beach render after an incomplete %s read",
+  async (firstPurpose) => {
+    mockFetch.mockImplementation((url: string) =>
+      new URL(url).searchParams.get("interval") === "h"
+        ? Promise.reject(new DOMException("NOAA deadline elapsed", "TimeoutError"))
+        : goodResponse(url),
+    );
+    const incomplete = await getStationSeries(station, NOW, firstPurpose);
+    expect(incomplete).toMatchObject({ status: "ok", hourly: [] });
+    expect(mockDataCache.size).toBe(1);
+    mockFetch.mockImplementation(goodResponse);
+    mockFetch.mockClear();
+
+    const recovered = await getStationSeries(station, NOW, "beach-page");
+    if (recovered.status !== "ok") throw new Error("Expected reference station predictions");
+    expect(recovered.hourly).toHaveLength(241);
+    const requestedIntervals = mockFetch.mock.calls.map(([url]) => new URL(url).searchParams.get("interval"));
+    expect(requestedIntervals).toContain("h");
+
+    reload();
+    mockFetch.mockClear().mockRejectedValue(new Error("the recovered snapshot should avoid NOAA"));
+    await expect(getStationSeries(station, NOW, "beach-page")).resolves.toEqual(recovered);
+    expect(mockFetch).not.toHaveBeenCalled();
+  },
+);
 
 it("uses live NOAA after a stored-row Supabase result error", async () => {
   mockStoredError = { message: "database unavailable" };
@@ -103,6 +194,40 @@ it("uses live NOAA after a stored-row Supabase result error", async () => {
   expect(result.status).toBe("ok");
   expect(mockFetch).toHaveBeenCalled();
 });
+
+it.each(["beach-page", undefined] as const)(
+  "rescues a beach page with covering high and low times from a prior %s read after live NOAA fails",
+  async (firstPurpose) => {
+    jest.mocked(console.warn).mockClear();
+    mockFetch.mockImplementation((url: string) =>
+      new URL(url).searchParams.get("interval") === "h"
+        ? Promise.reject(new Error("hourly predictions unavailable"))
+        : goodResponse(url),
+    );
+    const partial = await getStationSeries(station, NOW, firstPurpose);
+    expect(partial).toMatchObject({ status: "ok", hourly: [] });
+    const initialOutcomes = jest.mocked(console.warn).mock.calls
+      .filter(([message]) => message === "Beach tide stored coverage fallback")
+      .map(([, details]) => details);
+    expect(initialOutcomes).toEqual(firstPurpose === "beach-page"
+      ? [{ stationId: station.id, outcome: "live-noaa-extrema-only" }]
+      : []);
+
+    reload();
+    mockFetch.mockClear().mockRejectedValue(new DOMException("NOAA deadline elapsed", "TimeoutError"));
+    jest.mocked(console.warn).mockClear();
+    await expect(getStationSeries(station, NOW, "beach-page")).resolves.toEqual(partial);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledWith("Beach tide stored coverage fallback", {
+      stationId: station.id,
+      outcome: "snapshot-after-noaa-error",
+    });
+    expect(console.warn).not.toHaveBeenCalledWith("Beach tide stored coverage fallback", {
+      stationId: station.id,
+      outcome: "snapshot",
+    });
+  },
+);
 
 it.each(["reference", "subordinate"] as const)("persists a covering last-good %s series across module reload and UTC rollover", async (kind) => {
   const s = { ...station, station_kind: kind };
@@ -139,7 +264,9 @@ it("rejects a snapshot when the actual predictions no longer cover the window", 
   }
   reload();
   mockFetch.mockResolvedValue(new Response("{}", { status: 403 }));
-  await expect(getStationSeries(station, NOW)).rejects.toThrow();
+  mockFetch.mockClear();
+  await expect(getStationSeries(station, NOW, "beach-page")).rejects.toThrow("NOAA tide failed: 403");
+  expect(mockFetch).toHaveBeenCalled();
 });
 
 it("keeps throwing on a cold cache when NOAA is unavailable", async () => {
@@ -147,6 +274,60 @@ it("keeps throwing on a cold cache when NOAA is unavailable", async () => {
   await expect(getStationSeries(station, NOW)).rejects.toThrow("fetch failed");
   expect(mockDataCache.size).toBe(0);
   expect(mockCacheOptions.length).toBeGreaterThan(0);
+});
+
+it.each(["headers", "body"])("aborts a beach page NOAA request stalled at the %s without canceling the API", async (stage) => {
+  const deadline = new AbortController();
+  const timeout = jest.spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
+    ms === 1_500 ? deadline.signal : new AbortController().signal,
+  );
+  const target = { ...station, station_kind: "subordinate" } as const;
+  let started!: () => void;
+  const beachRequestStarted = new Promise<void>((resolve) => { started = resolve; });
+  let releaseApi!: () => void;
+  const apiCanRespond = new Promise<void>((resolve) => { releaseApi = resolve; });
+  mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+    if (init?.signal !== deadline.signal) return apiCanRespond.then(() => goodResponse(url));
+    const stalled = new Promise<never>((_, reject) => {
+      deadline.signal.addEventListener("abort", () => reject(deadline.signal.reason), { once: true });
+    });
+    started();
+    return stage === "headers" ? stalled : Promise.resolve({ ok: true, json: () => stalled });
+  });
+  try {
+    const beach = getStationSeries(target, NOW, "beach-page");
+    await beachRequestStarted;
+    const api = getStationSeries(target, NOW);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    deadline.abort(new DOMException("NOAA deadline elapsed", "TimeoutError"));
+    await expect(beach).rejects.toMatchObject({ name: "NoaaTideRequestError" });
+    releaseApi();
+    await expect(api).resolves.toMatchObject({ status: "ok" });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(timeout.mock.calls).toEqual([[1_500], [20_000]]);
+  } finally {
+    releaseApi();
+    timeout.mockRestore();
+  }
+});
+
+it("propagates a parsing error even if the NOAA deadline has expired", async () => {
+  const deadline = new AbortController();
+  const timeout = jest.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+  const bug = new SyntaxError("invalid NOAA response");
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => {
+      deadline.abort(new DOMException("NOAA deadline elapsed", "TimeoutError"));
+      throw bug;
+    },
+  });
+  try {
+    const target = { ...station, station_kind: "subordinate" } as const;
+    await expect(getStationSeries(target, NOW, "beach-page")).rejects.toBe(bug);
+  } finally {
+    timeout.mockRestore();
+  }
 });
 
 it.each(["h", "hilo"])("does not swallow an unrelated TypeError while parsing %s, even with a last-good snapshot", async (interval) => {

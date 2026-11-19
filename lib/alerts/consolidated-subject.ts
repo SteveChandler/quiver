@@ -1,4 +1,5 @@
 import type { MatchingWindow } from "@/lib/alerts/types";
+import { firstMatchPerBeach } from "@/lib/alerts/collapse-matches";
 import { decisionLabel, type PushDecisionVerdict } from "@/lib/alerts/push-formatter";
 
 const MAX_SUBJECT_LENGTH = 78;
@@ -72,16 +73,18 @@ export function buildConsolidatedSubject(
     return `Surf report for ${alertDate}`.slice(0, MAX_SUBJECT_LENGTH);
   }
 
-  if (matches.length > 1) {
-    const sorted = [...matches].sort((a, b) => b.best_score - a.best_score);
+  const sorted = [...matches].sort((a, b) => b.best_score - a.best_score);
+  // Two rules at one beach are one spot; count beaches, not matches.
+  const otherBeaches = firstMatchPerBeach(sorted).length - 1;
+  if (otherBeaches > 0) {
     const top = sorted[0];
     // "worth a surf" is the go decision's phrase; any other decision states only the count.
     const quality = decision === "go" ? " worth a surf" : "";
-    const suffix = ` + ${sorted.length - 1} more spots${quality} ${alertWeekday(alertDate)}`;
+    const suffix = ` + ${otherBeaches} more spots${quality} ${alertWeekday(alertDate)}`;
     return withTruncatedBeach(top.beach_name, suffix);
   }
 
-  const match = matches[0];
+  const match = sorted[0];
   const snap = match.conditions_snapshot ?? {};
   const waveHeight = finiteNumber(snap.wave_height);
   const period = finiteNumber(snap.swell_1_period);

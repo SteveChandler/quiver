@@ -113,7 +113,7 @@ describe("getBeachTidePageData", () => {
     getTideMetaData.mockResolvedValue(ROWS);
     loadStationTideView.mockResolvedValue(HALEIWA);
     const data = await getBeachTidePageData("beach-station", "Pacific/Honolulu");
-    expect(loadStationTideView).toHaveBeenCalledWith("1612668", NOW);
+    expect(loadStationTideView).toHaveBeenCalledWith("1612668", NOW, "beach-page");
     expect(data.rows).toBe(ROWS);
     expect(data.display.nextLowTime).toBe("1:27 PM");
     expect(data.stationTide?.schedule).toHaveLength(4);
