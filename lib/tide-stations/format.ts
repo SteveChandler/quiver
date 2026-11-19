@@ -1,8 +1,9 @@
+import { getDateTimeFormat } from "./intl-cache";
 import { metresToFeet } from "./series";
 
 function parts(ts: string | number, timeZone: string, options: Intl.DateTimeFormatOptions): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const part of new Intl.DateTimeFormat("en-US", { timeZone, ...options }).formatToParts(new Date(ts))) {
+  for (const part of getDateTimeFormat("en-US", { timeZone, ...options }).formatToParts(new Date(ts))) {
     out[part.type] = part.value;
   }
   return out;
