@@ -18,6 +18,58 @@ function queryResult(data: unknown[]) {
 }
 
 describe("getDailyIntelWaveHeightLabels", () => {
+  describe("current label from the row nearest the start of the current UTC hour", () => {
+    afterEach(() => jest.useRealTimers());
+    const forecastRow = (forecast_at: string, wave_height: string | null, data_source = "CDIP") => ({
+      id: forecast_at, beach_id: "beach-1", forecast_at, wave_height, data_source,
+    });
+    // Newest first, as the query orders them.
+    const slots = [forecastRow("2026-11-19T15:00:00.000Z", "4.6 ft"), forecastRow("2026-11-19T12:00:00.000Z", "2.6 ft")];
+    const currentLabelAt = async (now: string, rows: unknown[]) => {
+      jest.useFakeTimers({ now: new Date(now) });
+      // Honours the bounds, as the database would.
+      const currentQuery = queryResult([]);
+      currentQuery.then = (resolve: any) => {
+        const lte = currentQuery.lte.mock.calls.at(-1)?.[1];
+        const gte = currentQuery.gte.mock.calls.at(-1)?.[1];
+        return resolve({
+          data: (rows as Array<{ forecast_at: string }>).filter((row) =>
+            (!lte || row.forecast_at <= lte) && (!gte || row.forecast_at >= gte)),
+          error: null,
+        });
+      };
+      const labels = await getDailyIntelWaveHeightLabels(
+        { from: jest.fn().mockReturnValueOnce(currentQuery) } as any, "beach-1", "2026-11-19",
+      );
+      return { label: labels.current_wave_height_label, currentQuery };
+    };
+
+    it("labels from the later slot when it is nearer, reading one slot past the hour", async () => {
+      const { label, currentQuery } = await currentLabelAt("2026-11-19T14:30:00.000Z", slots);
+      expect(label).toBe("4-5ft");
+      expect(currentQuery.lte).toHaveBeenCalledWith("forecast_at", "2026-11-19T17:00:00.000Z");
+    });
+
+    it.each([
+      ["2026-11-19T13:30:00.000Z", "2-3ft"],
+      ["2026-11-19T15:00:00.000Z", "4-5ft"],
+    ])("at %s labels %s", async (now, expected) => {
+      expect((await currentLabelAt(now, slots)).label).toBe(expected);
+    });
+
+    it("keeps the latest past row when no row lies within one slot of the hour", async () => {
+      const { label } = await currentLabelAt("2026-11-19T19:30:00.000Z", [slots[1]]);
+      expect(label).toBe("2-3ft");
+    });
+
+    it("does not label from a FALLBACK nearest row, nor from an older row", async () => {
+      const { label } = await currentLabelAt("2026-11-19T14:30:00.000Z", [
+        forecastRow("2026-11-19T15:00:00.000Z", null, "FALLBACK"), slots[1],
+      ]);
+      expect(label).toBeNull();
+    });
+  });
+
   it("returns current and best-window labels from enhanced forecasts", async () => {
     const currentQuery = queryResult([
       {
