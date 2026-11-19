@@ -1,4 +1,5 @@
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
+import { currentHourForecastRow } from '@/lib/services/current-conditions/current-row';
 import { getLocalDateStr } from './window-selector/time-slot-utils';
 import { FORECAST_WINDOW_DURATION_MINUTES } from './window-selector/constants';
 
@@ -248,22 +249,16 @@ export function pointInterval(at: Date): LightInterval {
 const HOUR_MS = 60 * 60 * 1000;
 
 /**
- * The source row a client's current hour maps to: the row nearest the start of
- * the current hour, the later one on a tie. This is how the app interpolates
- * hourly rows, so Home NOW asks with this row even when it starts after now.
+ * The source row a client's current hour maps to: currentHourForecastRow, the
+ * one rule every "now" surface uses. This is how the app interpolates hourly
+ * rows, so Home NOW asks with this row even when it starts after now.
  */
 export function currentHourRowStart(rowStarts: readonly Date[], now: Date): Date | null {
-  const hour = Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
-  const sorted = rowStarts
-    .map((start) => start.getTime())
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-  const nextIndex = sorted.findIndex((start) => start > hour);
-  const previous = sorted[(nextIndex === -1 ? sorted.length : nextIndex) - 1];
-  if (previous === undefined) return null;
-  const next = nextIndex === -1 ? undefined : sorted[nextIndex];
-  if (next === undefined) return new Date(previous);
-  return (hour - previous) / (next - previous) < 0.5 ? new Date(previous) : new Date(next);
+  const rows = rowStarts
+    .filter((start) => Number.isFinite(start.getTime()))
+    .map((start) => ({ forecast_at: start.toISOString() }));
+  const row = currentHourForecastRow(rows, now);
+  return row ? new Date(row.forecast_at) : null;
 }
 
 /**

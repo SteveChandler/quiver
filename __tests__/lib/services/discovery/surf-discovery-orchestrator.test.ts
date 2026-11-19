@@ -3200,9 +3200,10 @@ describe('discoverSurfSpots - Now Discovery Mode', () => {
               ...mockForecast,
               id: 'beach-3-future',
               beach_id: 'beach-3',
-              forecast_at: '2024-01-15T20:00:00.000Z',
+              // More than one slot after the 17:00Z hour, so not "now" at 17:30Z.
+              forecast_at: '2024-01-15T21:00:00.000Z',
               forecast_date: '2024-01-15',
-              forecast_time: '12:00:00',
+              forecast_time: '13:00:00',
             },
           ],
         },
@@ -3243,6 +3244,50 @@ describe('discoverSurfSpots - Now Discovery Mode', () => {
         && window.displayWindowStart.getTime() >= window.start.getTime()
         && window.displayWindowEnd.getTime() <= window.end.getTime(),
     )).toBe(true);
+  });
+
+  describe('the row nearest the start of the current UTC hour', () => {
+    const nowFor = async (at: string) => {
+      jest.setSystemTime(new Date(at));
+      const result = await discoverSurfSpots(testUserId, {
+        userLocation: defaultUserLocation,
+        discoveryMode: 'now',
+        maxResults: 5,
+      });
+      return new Map(result.recommendations.map((rec) => [rec.beach.id, rec]));
+    };
+
+    test('scores the later slot when it is nearer, and keeps the window open at now', async () => {
+      const recs = await nowFor('2024-01-15T19:30:00.000Z');
+      const rec = recs.get('beach-1')!;
+      expect(rec.forecast.id).toBe('beach-1-future');
+      expect(rec.window.start.getTime()).toBeLessThanOrEqual(Date.parse('2024-01-15T19:30:00.000Z'));
+      expect(rec.window.end.getTime()).toBeGreaterThan(Date.parse('2024-01-15T19:30:00.000Z'));
+      expect(recs.get('beach-3')?.forecast.id).toBe('beach-3-future');
+    });
+
+    test('scores the earlier slot when it is nearer', async () => {
+      const recs = await nowFor('2024-01-15T18:30:00.000Z');
+      expect(recs.get('beach-1')?.forecast.id).toBe('beach-1-now');
+    });
+
+    test('scores the slot itself exactly on it', async () => {
+      const recs = await nowFor('2024-01-15T20:00:00.000Z');
+      expect(recs.get('beach-1')?.forecast.id).toBe('beach-1-future');
+    });
+
+    test('has no now call when no row lies within one slot of the hour', async () => {
+      const recs = await nowFor('2024-01-15T16:30:00.000Z');
+      expect(recs.has('beach-3')).toBe(false);
+    });
+
+    test('does not score a FALLBACK nearest row, nor fall back to an older row', async () => {
+      const beach1 = mockState.forecastBatchResponse.successful[0];
+      beach1.forecasts[1] = { ...beach1.forecasts[1], data_source: 'FALLBACK' };
+      const recs = await nowFor('2024-01-15T19:30:00.000Z');
+      expect(recs.has('beach-1')).toBe(false);
+      expect(recs.get('beach-2')?.forecast.id).toBe('beach-2-future');
+    });
   });
 
   test('scores custom spots from active nearest-beach forecast buckets in now mode', async () => {
