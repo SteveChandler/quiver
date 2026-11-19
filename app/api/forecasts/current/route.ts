@@ -24,9 +24,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const HOUR_MS = 60 * 60 * 1000;
-// Hourly rows put at most 4 rows after the hour start inside the reach, so 8
-// still includes the latest past row.
-const CURRENT_ROW_CANDIDATE_LIMIT = 8;
+// Enough newest rows to reach past now even with sub-hourly or duplicate rows
+// in the 3 h after the hour start, so the latest past row stays available.
+const CURRENT_ROW_CANDIDATE_LIMIT = 24;
 
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: "beachId must be a valid UUID" }),
