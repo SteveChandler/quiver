@@ -433,6 +433,54 @@ describe("buildForecastRecommendationContext", () => {
   });
 });
 
+describe("buildForecastRecommendationContext now row", () => {
+  const nowContext = (now: string, forecasts: EnhancedForecastEntity[]) => buildForecastRecommendationContext({
+    beach: beach(), forecasts, window: null, now: new Date(now),
+  });
+  const slots = [
+    row({ forecast_at: "2026-05-08T12:00:00.000Z", wave_height: "2 ft" }),
+    row({ forecast_at: "2026-05-08T15:00:00.000Z", wave_height: "3 ft" }),
+  ];
+
+  it("reads the later slot when it is nearer the start of the current hour", () => {
+    const context = nowContext("2026-05-08T14:30:00.000Z", slots);
+    expectContext(context, "now");
+    expect(context?.selectedRowTime).toBe("2026-05-08T15:00:00.000Z");
+    expect(context?.waveHeightFt).toBe(3);
+  });
+
+  it("reads the earlier slot when it is nearer", () => {
+    expect(nowContext("2026-05-08T13:30:00.000Z", slots)?.selectedRowTime).toBe("2026-05-08T12:00:00.000Z");
+  });
+
+  it("reads the slot itself exactly on it", () => {
+    expect(nowContext("2026-05-08T15:00:00.000Z", slots)?.selectedRowTime).toBe("2026-05-08T15:00:00.000Z");
+  });
+
+  it("keeps the latest past row when no row lies within one slot of the hour", () => {
+    const context = nowContext("2026-05-08T14:30:00.000Z", [row({ forecast_at: "2026-05-08T06:00:00.000Z", wave_height: "2 ft" })]);
+    expect(context?.recommendationType).toBe("now");
+    expect(context?.selectedRowTime).toBe("2026-05-08T06:00:00.000Z");
+  });
+
+  it("does not show a FALLBACK nearest row as now, nor an older row in its place", () => {
+    const context = nowContext("2026-05-08T14:30:00.000Z", [
+      slots[0],
+      row({ forecast_at: "2026-05-08T15:00:00.000Z", wave_height: null as never, data_source: "FALLBACK" }),
+    ]);
+    expect(context).toBeNull();
+  });
+
+  it("reads the next local day's first row as now late in the evening", () => {
+    // 23:30 PDT; the 00:00 PDT row is the slot nearest the 23:00 hour.
+    const context = nowContext("2026-05-09T06:30:00.000Z", [
+      row({ forecast_at: "2026-05-09T07:00:00.000Z", wave_height: "2 ft" }),
+    ]);
+    expect(context?.recommendationType).toBe("now");
+    expect(context?.selectedRowTime).toBe("2026-05-09T07:00:00.000Z");
+  });
+});
+
 describe('September 4 selected-window contract', () => {
   const sourceForecast = row({
     forecast_at: '2026-09-04T23:00:00.000Z',

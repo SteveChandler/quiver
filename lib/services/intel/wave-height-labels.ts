@@ -3,6 +3,13 @@ import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-d
 import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SupabaseServerClient } from "@/types/supabase";
+import {
+  CURRENT_CONDITIONS_TOLERANCE_MS,
+  currentHourForecastRow,
+  designateCurrentRow,
+} from "@/lib/services/current-conditions/current-row";
+
+const HOUR_MS = 60 * 60 * 1000;
 
 type DailyIntelWaveHeightLabels = {
   current_wave_height_label: string | null;
@@ -75,19 +82,22 @@ export async function getDailyIntelWaveHeightLabels(
   try {
     const now = new Date();
     const earliest = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+    const hourStartMs = Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
     const { data: currentRows, error: currentError } = await supabase
       .from("enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
-      .lte("forecast_at", now.toISOString())
+      .lte("forecast_at", new Date(hourStartMs + CURRENT_CONDITIONS_TOLERANCE_MS).toISOString())
       .gte("forecast_at", earliest.toISOString())
       .order("forecast_at", { ascending: false })
       .limit(8);
 
-    if (!currentError && currentRows?.length) {
-      const [currentForecast] = await applyDisplayOverride(
-        currentRows as EnhancedForecastEntity[]
-      );
+    const rows = (currentError ? [] : currentRows ?? []) as EnhancedForecastEntity[];
+    // The row every "now" surface reads; with none within one slot, the latest
+    // past row in the last 12 hours, as before.
+    const currentRow = currentHourForecastRow(rows, now) ?? designateCurrentRow(rows, now)?.row;
+    if (currentRow) {
+      const [currentForecast] = await applyDisplayOverride([currentRow]);
       labels.current_wave_height_label = currentForecast
         ? labelFromForecasts([currentForecast])
         : null;
