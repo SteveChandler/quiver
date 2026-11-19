@@ -132,4 +132,41 @@ describe("Week Scout story response", () => {
     });
     info.mockRestore();
   });
+  it("logs input keys that change only when that input changes", async () => {
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const keyed = (body: Record<string, unknown>, homeBeachId: string | null, lat: number) => ({
+      user: { id: "story-user" }, params: {},
+      supabase: { from: (table: string) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({
+        data: table === "user_location_snapshots"
+          ? { lat, lon: -157.8, captured_at: "2026-10-01T00:00:00Z" }
+          : { home_beach_id: homeBeachId, max_drive_minutes: 30 },
+        error: null,
+      }) }) }) }) },
+      body,
+    });
+    const base = { candidateBeachIds: [WEEK_SCOUT_CONTRACT_BEACH_ID], localTimezone: "Pacific/Honolulu", startLocalDate: "2026-07-15", dayCount: 7 };
+    const keysFor = async (body: Record<string, unknown>, homeBeachId: string | null, lat: number) => {
+      info.mockClear();
+      const req = new NextRequest("http://localhost/api/surf/week-scout", { method: "POST", body: JSON.stringify(body) });
+      await POST(req, keyed(body, homeBeachId, lat) as never);
+      const line = info.mock.calls.map(([message]) => String(message)).find((message) => message.startsWith("[WeekScoutTiming] "));
+      const { bodyKey, profileKey, locKey } = JSON.parse(line!.slice("[WeekScoutTiming] ".length));
+      return { bodyKey, profileKey, locKey };
+    };
+    const first = await keysFor(base, "home-a", 21.301);
+    expect(first).toEqual({
+      bodyKey: expect.stringMatching(/^[0-9a-f]{8}$/),
+      profileKey: expect.stringMatching(/^[0-9a-f]{8}$/),
+      locKey: expect.stringMatching(/^[0-9a-f]{8}$/),
+    });
+    // Same inputs, a move inside the same 2-decimal bucket, and a different horizon keep every key.
+    expect(await keysFor({ ...base, dayCount: 10 }, "home-a", 21.302)).toEqual(first);
+    expect(await keysFor({ ...base, startLocalDate: "2026-07-16" }, "home-a", 21.301))
+      .toEqual({ ...first, bodyKey: expect.not.stringMatching(first.bodyKey) });
+    expect(await keysFor(base, "home-b", 21.301))
+      .toEqual({ ...first, profileKey: expect.not.stringMatching(first.profileKey) });
+    expect(await keysFor(base, "home-a", 21.33))
+      .toEqual({ ...first, locKey: expect.not.stringMatching(first.locKey) });
+    info.mockRestore();
+  });
 });

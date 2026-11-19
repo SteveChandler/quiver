@@ -70,6 +70,11 @@ Every Week Scout request logs one line:
 | `update` | `x-quiver-update-id`: the OTA the phone is running. Null on builds before the header OTA |
 | `user` | first 8 hex of sha256(user id). Pairs one person's requests without logging the id |
 | `cold`, `cpuMs`, `totalMs` | instance cold start, CPU, wall time |
+| `bodyKey` | first 8 hex of sha256 of the request body without `dayCount` (scope, filters, map bounds, origin, candidates, time zone, start date) |
+| `profileKey` | the same hash of the profile fields the ranking reads (home beach, drive range, skill, session time); null when the read failed |
+| `locKey` | the same hash of the stored phone location rounded to 2 decimals, the app's location bucket; null with no location |
+
+Each key hashes the user id first, so keys compare only within one user and a log reader cannot recover a location. Two same-day, same-`dayCount` requests from one `user` with all three keys equal are a true repeat. A changed key names the input that changed. Current apps send only `candidateScope`, and the server reads saved spots itself, so a saved-spot change shows in no key: check `favorite_beaches.created_at` for it.
 
 Pull them with the Vercel MCP `get_runtime_logs` (project `prj_z7DDSIF65y1EbOfuDrZfYsx9Mmbx`,
 environment production, query `WeekScoutTiming`) or `vercel logs`.
