@@ -7,7 +7,7 @@ import type { WaveStationSource, WaveStationSourceAdapter } from "./types";
 
 export type SourceRun<T> =
   | { source: WaveStationSource; ok: true; result: T }
-  | { source: WaveStationSource; ok: false; error: string };
+  | { source: WaveStationSource; ok: false; error: string; timedOut?: true };
 
 export async function runPerSource<T>(
   adapters: readonly WaveStationSourceAdapter[],
@@ -18,7 +18,12 @@ export async function runPerSource<T>(
       try {
         return { source: adapter.source, ok: true, result: await job(adapter) };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error || error instanceof DOMException ? error.message : String(error);
+        if ((error instanceof Error || error instanceof DOMException)
+          && (error.name === "TimeoutError" || error.name === "AbortError")) {
+          console.warn(`[WaveStations] ${adapter.source} timed out:`, message);
+          return { source: adapter.source, ok: false, error: message, timedOut: true };
+        }
         console.error(`[WaveStations] ${adapter.source} failed:`, message);
         return { source: adapter.source, ok: false, error: message };
       }
@@ -31,9 +36,9 @@ export function sumOk<T>(runs: Array<SourceRun<T>>, pick: (result: T) => number)
   return runs.reduce((total, run) => total + (run.ok ? pick(run.result) : 0), 0);
 }
 
-/** "marine_ie: HTTP 503; aodn: timeout", or null when every source succeeded. */
+/** Non-timeout source failures, or null when none occurred. */
 export function failedSources<T>(runs: Array<SourceRun<T>>): string | null {
-  const failed = runs.filter((run): run is Extract<SourceRun<T>, { ok: false }> => !run.ok);
+  const failed = runs.filter((run): run is Extract<SourceRun<T>, { ok: false }> => !run.ok && !run.timedOut);
   return failed.length > 0 ? failed.map((run) => `${run.source}: ${run.error}`).join("; ") : null;
 }
 
