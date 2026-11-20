@@ -39,11 +39,9 @@ import {
   type DisplaySwell,
   type DisplaySwellWindow,
 } from "@/lib/domains/conditions/display-swell";
-import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
 import {
   BULK_FORECAST_SELECT,
-  CURRENT_CONDITIONS_TOLERANCE_MS,
-  currentMapForecastRow,
+  currentHourForecastRow,
   fetchBulkForecastRowsWithV51Display,
   modelForecastRow,
   resolveForecastFetchWindow,
@@ -417,9 +415,7 @@ function buildSwellPartitionTimeline(
     const partitions = hourOffsets.map((offsetHours) => {
       const targetMs = nowMs + offsetHours * 60 * 60 * 1000;
       const row = offsetHours === 0
-        ? designateCurrentRow(beachRows, now, {
-            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-          })?.row ?? null
+        ? currentHourForecastRow(beachRows, now)
         : nearestForecastRow(beachRows, targetMs);
       return row ? rowToSwellPartition(row) : null;
     }).filter((partition): partition is SwellPartition => partition !== null);
@@ -814,7 +810,7 @@ export async function bulkForecastHandler(
     signal.throwIfAborted();
     const selectedRows = [...groupForecastsByBeach(data).values()].flatMap((rows) => {
       const row = fetchWindow.selectedAt ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : designateCurrentRow(rows, now, { toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS })?.row;
+        : currentHourForecastRow(rows, now);
       return row ? [row] : [];
     });
     const decisionContext = loadScoring ? await fetchBulkDecisionContext(
@@ -862,9 +858,7 @@ export async function bulkForecastHandler(
     for (const [beachId, rows] of timelineByBeach) {
       const row = fetchWindow.selectedAt
         ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : designateCurrentRow(rows, now, {
-            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-          })?.row ?? null;
+        : currentHourForecastRow(rows, now);
       if (row) {
         swellPartitionRows.set(beachId, row);
         swellPartitionMap[beachId] = rowToSwellPartition(row);
@@ -931,7 +925,7 @@ export async function bulkForecastHandler(
       if (fetchWindow.selectedAt) {
         display = resolveSelectedHourDisplay(forecastForScore);
       } else {
-        const currentRow = currentMapForecastRow(beachForecasts, now);
+        const currentRow = modelForecastRow(currentHourForecastRow(beachForecasts, now));
         display = resolveSelectedHourDisplay(currentRow);
         scoreForecast = currentRow;
 

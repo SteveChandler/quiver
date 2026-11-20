@@ -67,6 +67,7 @@ import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { isFallbackForecastRow } from '@/lib/utils/forecast-row-source';
+import { currentHourForecastRow } from '@/lib/services/current-conditions/current-row';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import { parseWindSpeedOrNull } from '@/lib/utils/number-parsing';
 import { angleDifference, resolveOffshoreDeg } from '@/lib/domains/shared';
@@ -1698,6 +1699,7 @@ function selectImmediateWindow(
   now: Date,
   userSkillLevel?: SkillLevel | string | null,
   boardClasses: readonly BoardClass[] = [],
+  rowRule: 'containing' | 'current-hour' = 'containing',
 ): ImmediateWindowSelection {
   const beachTz =
     (beach as { timezone?: string | null }).timezone ||
@@ -1709,6 +1711,15 @@ function selectImmediateWindow(
     beachTz,
     sunTimes,
   );
+  // NOW reads the row every "now" surface reads: the one nearest the start of
+  // the current hour. A FALLBACK row there is not scored, and no older row
+  // stands in for it.
+  const currentHourRow = rowRule === 'current-hour'
+    ? currentHourForecastRow(allForecasts, now)
+    : null;
+  if (rowRule === 'current-hour' && (!currentHourRow || isFallbackForecastRow(currentHourRow))) {
+    return { window: null, afterDark: currentlyDark };
+  }
   // FALLBACK rows carry no model wave data, so they are never "right now".
   const forecasts = allForecasts.filter((forecast) => !isFallbackForecastRow(forecast));
   if (forecasts.length === 0) return { window: null, afterDark: currentlyDark };
@@ -1721,8 +1732,11 @@ function selectImmediateWindow(
       null,
       boardClasses,
     );
-  const bucket = findImmediateForecastBucket(forecasts, beachTz, now, scoreForecast);
+  const bucketAt = currentHourRow ? resolveForecastTime(currentHourRow, beachTz) : now;
+  const bucket = findImmediateForecastBucket(forecasts, beachTz, bucketAt, scoreForecast);
   if (!bucket) return { window: null, afterDark: currentlyDark };
+  // A row that starts later in the hour still opens the window at now.
+  if (bucket.start.getTime() > now.getTime()) bucket.start = now;
   const end = bucket.end;
   if (end.getTime() <= now.getTime()) return { window: null, afterDark: false };
 
@@ -2254,6 +2268,7 @@ async function discoverSurfSpotsInner(
                 nowForFallback,
                 scoringSkill,
                 boardClasses,
+                'current-hour',
               );
               if (immediate.afterDark) {
                 if (!immediate.window) windowRejection = { gate: 'daylight', observed: { count: forecasts.length } };

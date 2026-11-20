@@ -8,8 +8,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  currentMapForecastRow,
+  currentHourForecastRow,
   fetchBulkForecastRowsWithV51Display,
+  modelForecastRow,
   resolveForecastFetchWindow,
 } from "@/lib/services/forecast/map-current-forecast";
 import { resolveSelectedHourDisplay } from "@/lib/services/forecast/today-headline";
@@ -64,7 +65,7 @@ export async function getBeachForecastSummaries(
 
   for (const beach of (beachResult.data ?? []) as BeachUrlRow[]) {
     const href = beach.slug && beach.city && beach.state ? buildBeachUrl(beach) : null;
-    const current = currentMapForecastRow(rowsByBeach.get(beach.id) ?? [], now);
+    const current = modelForecastRow(currentHourForecastRow(rowsByBeach.get(beach.id) ?? [], now));
     summaries.set(beach.id, {
       href: href && !href.startsWith("/beach/") ? href : null,
       city: beach.city,

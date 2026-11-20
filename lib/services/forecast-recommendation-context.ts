@@ -11,7 +11,8 @@ import {
 } from "@/lib/domains/conditions/display-swell";
 import { resolveOffshoreDeg } from "@/lib/domains/shared/wind-orientation";
 import { getDirectionDegrees } from "@/lib/utils/number-parsing";
-import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
+import { currentHourForecastRow, designateCurrentRow } from "@/lib/services/current-conditions/current-row";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -481,7 +482,12 @@ export function buildForecastRecommendationContext({
     };
   }
 
-  const current = designateCurrentRow(forecasts, now)?.row ?? null;
+  // The row every "now" surface reads; a FALLBACK row there is not "now", and
+  // no older row replaces it. With no row within one slot, the latest past row.
+  const nearest = currentHourForecastRow(forecasts, now);
+  const current = nearest
+    ? (isFallbackForecastRow(nearest) ? null : nearest)
+    : designateCurrentRow(forecasts, now)?.row ?? null;
   if (isRideable(current)) {
     return contextFromRow({
       beach,
