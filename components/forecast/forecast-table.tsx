@@ -331,7 +331,7 @@ function ForecastDayTable({
                       </span>
                       <div className="text-xs">
                         <div className="font-medium text-foreground">
-                          {forecast.air_temperature}
+                          {forecast.air_temperature || "—"}
                         </div>
                         <div className="text-muted-foreground">
                           {forecast.water_temp}

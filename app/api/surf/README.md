@@ -66,6 +66,8 @@ curl "http://localhost:3000/api/surf?beach=Ocean%20Beach"
 }
 ```
 
+`weather_condition` (and the row's `air_temperature`) is `null` when NWS has no forecast period within 6 h of the hour: beaches outside NWS coverage, and hours past NWS's last period (about day 7).
+
 ### Enhanced Forecasts
 
 ```
