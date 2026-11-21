@@ -64,7 +64,7 @@ const MAX_LENGTH = 240;
 const DIGIT = /\d/;
 /** The 16 compass points as every candidate text names them; no card candidate abbreviates a direction (a push sentence does). */
 export const COMPASS = ["north", "north-northeast", "northeast", "east-northeast", "east", "east-southeast", "southeast", "south-southeast", "south", "south-southwest", "southwest", "west-southwest", "west", "west-northwest", "northwest", "north-northwest"];
-/** COMPASS's abbreviations, index for index; read only as whole uppercase tokens, so lowercase "ssw" stays prose. */
+/** COMPASS's abbreviations, index for index: push sentence names, and the tokens the claims checker reads. */
 export const COMPASS_ABBREVIATIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 export const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 

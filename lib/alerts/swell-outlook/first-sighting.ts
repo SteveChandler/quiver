@@ -250,11 +250,13 @@ export function renderFirstSightingBody(args: {
     ]),
   ];
   // One sentence names every break and its height, the lead first; past the cap it keeps the lead alone.
-  const lead = `${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}${args.anchorSource === 'home' ? ', near home' : ''}`;
+  const lead = `${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}`;
+  const home = args.anchorSource === 'home';
   const others = (swell.options ?? []).map((option) => `${formatNumber(option.faceHeightFt.max)} ft at ${option.beachName}`);
-  const leadOnly = `Sets to ${lead}.`;
+  const leadOnly = `Sets to ${lead}${home ? ', near home' : ''}.`;
+  // In a list, a comma before "near home" would read as one more break.
   sentences.push(others.length
-    ? { text: `Sets to ${joinWithAnd([lead, ...others])}.`, priority: 2.5, short: leadOnly }
+    ? { text: `Sets to ${joinWithAnd([`${lead}${home ? ' near home' : ''}`, ...others])}.`, priority: 2.5, short: leadOnly }
     : { text: leadOnly, priority: 0 });
   if (recommendedWindow) {
     sentences.push({ text: bestWindowSentence(recommendedWindow, withDate), priority: 0 });

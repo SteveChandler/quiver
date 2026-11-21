@@ -122,6 +122,12 @@ it.each([
   expect(payload.body).toContain(`Sets to 4.5 ft at Blacks Beach${suffix}.`);
 });
 
+it("names home in the heights list without a comma that reads as one more break", () => {
+  const body = renderFirstSightingBody({ swell: outlookSwell({ options: [OPTIONS[0]] }), timezone: "America/Los_Angeles",
+    hazard: null, anchorSource: "home" });
+  expect(body).toContain("Sets to 4.5 ft at Blacks Beach near home and 4 ft at Scripps.");
+});
+
 it("keeps the home label when optional sentences are trimmed", () => {
   const body = renderFirstSightingBody({
     swell: outlookSwell({ beach: { id: HOME, name: `Blacks ${"Beach ".repeat(25)}` }, options: OPTIONS }),
