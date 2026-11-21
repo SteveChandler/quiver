@@ -326,6 +326,7 @@ async function weekScoutHandler(
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
   recordStage('pool', performance.now() - poolStartedAt);
+  tags.candidates = candidateBeachIds.length;
   const forecast = await timeStage('forecast', () => generateWeekScoutForecast(user.id, {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
@@ -430,6 +431,8 @@ type RequestTags = {
   bodyKey: string;
   profileKey?: string | null;
   locKey?: string | null;
+  /** Candidate beaches sent to the ranking; its cost grows with this count. */
+  candidates?: number;
 };
 const requestTags = new WeakMap<object, RequestTags>();
 

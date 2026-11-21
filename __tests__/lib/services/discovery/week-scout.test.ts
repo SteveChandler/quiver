@@ -58,6 +58,7 @@ import {
 } from '@/lib/services/discovery/distance-friction';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
+import { runWithStageTimings } from '@/lib/observability/request-timing';
 import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
@@ -237,6 +238,20 @@ describe('generateWeekScoutForecast', () => {
           },
         })),
     );
+  });
+
+  it('times each parallel read inside ws-reads', async () => {
+    const deps = dependencies();
+    deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Avalanche')]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [forecast(BEACH_A, '2026-09-23T18:00:00.000Z')]]]));
+    const { stages, result } = runWithStageTimings(() => generateWeekScoutRankingForDays('user-timing', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'America/Los_Angeles',
+      startLocalDate: '2026-09-23', dayCount: 1,
+    }, deps));
+    await result;
+    expect(stages.map((stage) => stage.name)).toEqual(expect.arrayContaining([
+      'ws-read-forecasts', 'ws-read-sun', 'ws-read-context', 'ws-read-skill', 'ws-read-boards', 'ws-read-tide', 'ws-reads',
+    ]));
   });
 
   it('keeps Avalanche at 64 MAYBE/FAIR despite an advanced longboard personalization boost', async () => {
