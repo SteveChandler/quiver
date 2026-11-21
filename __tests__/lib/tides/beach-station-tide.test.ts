@@ -23,6 +23,7 @@ const HALEIWA = buildCityTideView({
   timeZone: "Pacific/Honolulu",
   renderedAtMs: NOW,
   station: { name: "Haleiwa, Waialua Bay", slug: "haleiwa-waialua-bay-hi-1612668", sourceStationId: "1612668" },
+  adjustmentFt: 0,
   hourly: [],
   extremes: [
     { ts: "2026-11-14T16:26:00Z", type: "high", heightM: 0.47 },

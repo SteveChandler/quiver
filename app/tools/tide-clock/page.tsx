@@ -2,7 +2,7 @@ import { JsonLd } from "@/components/seo/funnel/JsonLd";
 /**
  * Tide Clock Tool — /tools/tide-clock
  *
- * Real-time tide display for any beach.
+ * Predicted tide display for any beach.
  * Data: NOAA CO-OPS hourly predictions via tide-clock API route.
  */
 
@@ -22,9 +22,9 @@ const SITE_ORIGIN = (
 
 export function generateMetadata(): Metadata {
   return buildPageMetadata({
-    title: "Tide Clock — Real-Time Tide Heights for Any Beach",
+    title: "Tide Clock — Predicted Tide Heights for Any Beach",
     description:
-      "Check current tide height, next high tide, and next low tide for any surf beach. Real-time tide clock powered by NOAA data.",
+      "Check current tide height, next high tide, and next low tide for any surf beach. Tide clock built on NOAA tide predictions.",
     path: "/tools/tide-clock",
     image: "/images/tools/tide-pools.jpg",
     keywords: [
@@ -33,7 +33,7 @@ export function generateMetadata(): Metadata {
       "what time is high tide",
       "tide chart today",
       "next high tide",
-      "real-time tides",
+      "tide predictions",
       "tide heights",
     ],
   });
@@ -79,7 +79,7 @@ export default function TideClockPage() {
             name: "Quiver Tide Clock",
             url: `${SITE_ORIGIN}/tools/tide-clock`,
             description:
-              "Real-time tide heights, next high tide, and 24-hour tide charts for any surf beach.",
+              "Predicted tide heights, next high tide, and 24-hour tide charts for any surf beach.",
             applicationCategory: "SportsApplication",
             operatingSystem: "Any",
             offers: {

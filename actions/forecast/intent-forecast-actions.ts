@@ -7,6 +7,7 @@ import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
 import type { TideScheduleEntry, WaterTempSource } from "@/types/forecast";
 import { parseWaterTempF, getWetsuitRecommendation } from "@/lib/utils/wetsuit-utils";
 import { TideExtremaDetector } from "@/lib/services/noaa-coops/tide-extrema-detector";
+import { seaLevelOffsetFt } from "@/lib/services/noaa-coops/api-client";
 import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import { getTideHeightAtTime, getTideStatusAtTime, getNextTideFromTime } from "@/lib/services/noaa-coops/tide-analysis";
 import type { TideData } from "@/lib/services/noaa-coops/types";
@@ -669,7 +670,7 @@ export async function getCityTideDataExpanded(
  * to the hour) when the station's own table is not available.
  */
 function storedSeriesView(
-  rows: Array<{ ts: string; tide_height_m: number | null; tide_ft?: number | null }>,
+  rows: Array<{ ts: string; tide_height_m: number | null; tide_ft?: number | null; station_id?: string | null }>,
   timeZone: string,
   renderedAtMs: number
 ): CityTideView {
@@ -687,6 +688,8 @@ function storedSeriesView(
     timeZone,
     renderedAtMs,
     station: null,
+    // The ingest added this offset to the stored rows (noaa-tide-service), keyed on the same station id.
+    adjustmentFt: rows[0]?.station_id ? seaLevelOffsetFt(rows[0].station_id) : 0,
     hourly,
     extremes: extrema.map((ex) => ({
       ts: new Date(ex.time * 1000).toISOString(),

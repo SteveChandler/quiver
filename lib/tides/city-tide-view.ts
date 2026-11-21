@@ -30,6 +30,8 @@ export interface CityTideView {
   timeZone: string;
   renderedAtMs: number;
   station: CityTideStation | null;
+  /** Feet Quiver added to NOAA's heights (the California sea-level adjustment); 0 when none. */
+  adjustmentFt: number;
   extremes: TideExtremePoint[];
   curve: TidePanelPoint[];
   days: TideDay[];
@@ -71,6 +73,7 @@ export function buildCityTideView(input: {
   timeZone: string;
   renderedAtMs: number;
   station: CityTideStation | null;
+  adjustmentFt: number;
   hourly: TideHeightPoint[];
   extremes: TideExtremePoint[];
 }): CityTideView {
@@ -79,6 +82,7 @@ export function buildCityTideView(input: {
     timeZone: input.timeZone,
     renderedAtMs: input.renderedAtMs,
     station: input.station,
+    adjustmentFt: input.adjustmentFt,
     extremes,
     curve: curveFromSeries(input.hourly, extremes),
     days: groupExtremesByLocalDay(extremes, input.timeZone, input.renderedAtMs, WEEK_DAYS),
@@ -130,6 +134,7 @@ export async function loadStationTideView(
     timeZone: station.timezone,
     renderedAtMs,
     station: { name: station.name, slug: station.slug, sourceStationId: station.source_station_id },
+    adjustmentFt: series.adjustmentFt,
     hourly: series.hourly,
     extremes: series.extremes,
   });

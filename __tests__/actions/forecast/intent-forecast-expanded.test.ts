@@ -271,6 +271,8 @@ describe("getCityTideDataExpanded", () => {
     // A semidiurnal week has about four turns a day, not one per hour.
     const turns = data.sevenDayExtrema.reduce((count, day) => count + day.events.length, 0);
     expect(turns).toBeLessThanOrEqual(4 * 8);
+    // The stored San Diego rows carry the California sea-level adjustment, so the page must say so.
+    expect(data.view?.adjustmentFt).toBe(1.5);
   });
 
   it("sorts days correctly across year boundary (Dec 31 → Jan 1)", async () => {
@@ -450,6 +452,7 @@ describe("getCityTideDataExpanded", () => {
     const data = (await getCityTideDataExpanded("Haleiwa", "HI")) as CityTideDataExpanded;
 
     expect(data.view?.station).toBeNull();
+    expect(data.view?.adjustmentFt).toBe(0);
     expect(data.tideStation).toBeNull();
     expect(data.hourlyPoints.length).toBeGreaterThan(0);
     expect(data.nextTideTime).not.toMatch(/^0\d:/);
