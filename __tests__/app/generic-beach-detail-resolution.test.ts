@@ -564,11 +564,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
     renderToStaticMarkup(page);
 
     expect(resolveCamPlayback).toHaveBeenCalledWith(cameraUrl);
-    if (emitted) {
-      expect(jest.mocked(LiveCamSchema).mock.calls[0][0]).toMatchObject({ cameraUrl });
-    } else {
-      expect(LiveCamSchema).not.toHaveBeenCalled();
-    }
+    expect(jest.mocked(LiveCamSchema).mock.calls.map(([props]) => props.cameraUrl))
+      .toEqual(emitted ? [cameraUrl] : []);
   });
 
   it("keeps the water-temp guide link gate open when the water-temp read failed", async () => {
