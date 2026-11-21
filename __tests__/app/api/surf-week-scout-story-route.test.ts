@@ -20,6 +20,7 @@ jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jes
 
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/surf/week-scout/route";
+import { resetWeekScoutAnswerReuseForTests } from "@/lib/services/discovery/week-scout-answer-reuse";
 import { WEEK_SCOUT_CONTRACT_BEACH_ID, WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
 
 const request = (headers: Record<string, string> = {}): NextRequest => new NextRequest("http://localhost/api/surf/week-scout", {
@@ -48,6 +49,8 @@ const call = async (homeBeachId: string | null): Promise<{ raw: string; data: Re
 
 describe("Week Scout story response", () => {
   beforeEach(() => {
+    // Each test asks the same question with different mocks; never reuse across tests.
+    resetWeekScoutAnswerReuseForTests();
     jest.clearAllMocks();
     jest.useFakeTimers().setSystemTime(new Date("2026-10-27T12:00:00Z"));
     mockForecast.mockResolvedValue(WEEK_SCOUT_CONTRACT_FIXTURE);
@@ -130,6 +133,20 @@ describe("Week Scout story response", () => {
       status: 200, cold: expect.any(Boolean), inflight: 1, stages: expect.any(Array),
       dayCount: 7, platform: "ios", update: "f933afba", user: expect.stringMatching(/^[0-9a-f]{8}$/), candidates: 1,
     });
+    info.mockRestore();
+  });
+  it("ranks once for two identical requests and again when an input changes", async () => {
+    resetWeekScoutAnswerReuseForTests();
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const reuseOf = () => info.mock.calls.map(([message]) => String(message))
+      .filter((message) => message.startsWith("[WeekScoutTiming] "))
+      .map((message) => JSON.parse(message.slice("[WeekScoutTiming] ".length)).answerReuse);
+    const [first, second] = await Promise.all([POST(request(), context(null) as never), POST(request(), context(null) as never)]);
+    expect(mockForecast).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(await second.text())).toEqual(JSON.parse(await first.text()));
+    await POST(request(), context("home-b") as never);
+    expect(mockForecast).toHaveBeenCalledTimes(2);
+    expect(reuseOf().sort()).toEqual(["joined", "miss", "miss"]);
     info.mockRestore();
   });
   it("logs input keys that change only when that input changes", async () => {
