@@ -9,7 +9,7 @@ import {
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
 import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
-import { getCamPreflight } from "@/lib/media/cam-embed-preflight";
+import { getCamPreflight, playbackFromPreflight } from "@/lib/media/cam-embed-preflight";
 
 interface BeachLookupRow {
   id: string;
@@ -150,7 +150,8 @@ async function handleGet(request: NextRequest, props: { params: Promise<{ id: st
     let camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
     if (cameraUrl && preflight) {
       embedAllowed = preflight.embedAllowed;
-      if (preflight.redirectsToBlockedProvider) {
+      // The cam directory reads the same rule, so the card, the web player and the native hero agree.
+      if (playbackFromPreflight(cameraUrl, preflight).kind === "none") {
         cameraUrl = null;
         cameraThumbnailUrl = null;
         camIntent = { kind: "none" };
