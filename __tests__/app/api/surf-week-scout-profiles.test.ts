@@ -32,6 +32,7 @@ jest.mock('@/lib/services/discovery/weekend-scout-candidate-pool', () => ({
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
+import { REUSE_MS, resetWeekScoutAnswerReuseForTests } from '@/lib/services/discovery/week-scout-answer-reuse';
 import type {
   CanonicalWeekScoutResponse, WeekScoutRequest, WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
@@ -207,6 +208,8 @@ function radiusContractBeaches(): Beach[] {
 describe('Week Scout route → real ranking profile contracts', () => {
   const originalFlag = process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
   beforeEach(() => {
+    // Each test asks the same question with different mocks; never reuse across tests.
+    resetWeekScoutAnswerReuseForTests();
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     jest.setSystemTime(NOW);
     process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
@@ -422,6 +425,8 @@ describe('Week Scout route → real ranking profile contracts', () => {
     const before = await call([BEACHES[0].id]);
     expect(best(before)).toEqual(expect.objectContaining({ beachId: BEACHES[0].id }));
     mockDependencies.fetchForecasts = async () => new Map([[BEACHES[0].id, rows(BEACHES[0], 8)]]);
+    // The corrected rows arrive with a later sync, past the instance's answer reuse window.
+    jest.setSystemTime(new Date(Date.now() + REUSE_MS + 1000));
     const after = await call([BEACHES[0].id]);
     expect(after.days[0].bestWindowId).toBeNull();
     expect(after.sessionDecision.selection).toBeNull();
