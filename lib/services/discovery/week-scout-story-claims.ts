@@ -1,4 +1,6 @@
-import { COMPASS, WEEKDAY } from "./week-scout-story-candidates";
+import { COMPASS, COMPASS_ABBREVIATIONS, WEEKDAY } from "./week-scout-story-candidates";
+
+export { COMPASS_ABBREVIATIONS };
 import { LIGHT_WIND_MPH, type CandidateFacts, type FaceRange, type SizeWord } from "./week-scout-story-facts";
 import type { StoryCandidate } from "./week-scout-story-types";
 
@@ -129,8 +131,6 @@ export const BREAKER_WORDS = [["pitching", "pitches", "throwing", "throws"], ["h
  * early look's LIKELY and EARLY LOOK). The band shows each user's own label, so prose never repeats one.
  */
 export const VERDICT_WORDS = ["YES", "MAYBE", "NO", "EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH", "LIKELY", "EARLY LOOK"];
-/** COMPASS's abbreviations, index for index; read only as whole uppercase tokens, so lowercase "ssw" stays prose. */
-export const COMPASS_ABBREVIATIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 /** Each a prefix of its WEEKDAY; read only Capitalised or ALL-CAPS, so "the sun" and "we sat" stay prose. */
 export const WEEKDAY_ABBREVIATIONS = ["Sun", "Mon", "Tue", "Tues", "Wed", "Thu", "Thur", "Thurs", "Fri", "Sat"];
 /**

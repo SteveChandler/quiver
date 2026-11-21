@@ -4,6 +4,7 @@ import { addDays, localDate } from "./local-date";
 import type { RegionGateContext } from "./week-scout-story-region-gate";
 import { LIGHT_WIND_MPH, type CandidateFacts, type FaceRange, type SizeWord, type WindHour } from "./week-scout-story-facts";
 import { getLocalDateStr } from "./window-selector/time-slot-utils";
+import { surfHoliday } from "@/lib/utils/us-holidays";
 import type { StoryCandidate, StoryGate } from "./week-scout-story-types";
 
 type Bucket = "morning" | "midday" | "evening";
@@ -61,8 +62,10 @@ export const MAX_FACTS = 200;
 const MAX_BEACH_LINES = 8;
 const MAX_LENGTH = 240;
 const DIGIT = /\d/;
-/** The 16 compass points as every candidate text names them; no candidate abbreviates a direction. */
+/** The 16 compass points as every candidate text names them; no card candidate abbreviates a direction (a push sentence does). */
 export const COMPASS = ["north", "north-northeast", "northeast", "east-northeast", "east", "east-southeast", "southeast", "south-southeast", "south", "south-southwest", "southwest", "west-southwest", "west", "west-northwest", "northwest", "north-northwest"];
+/** COMPASS's abbreviations, index for index; read only as whole uppercase tokens, so lowercase "ssw" stays prose. */
+export const COMPASS_ABBREVIATIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 export const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function directionSector(degrees: number): number {
@@ -288,22 +291,56 @@ function joinClauses(clauses: readonly string[]): string {
 }
 
 /**
- * The card's story line for one event and whether it names a fade day, from the region's local today.
- * Each day is named once: "arrives Thursday, peaks Friday and fades Saturday", "arrives and peaks Friday,
- * then fades Saturday", "comes and goes Friday"; a fade on the peak day goes unsaid.
+ * A push day: the holiday's name ("Thanksgiving Day"), else "Wed Nov 25". Within six days after the day named before
+ * it, the short weekday alone ("Fri") still reads right when the push is read days later.
  */
-/** "Sunday Nov 22": a day that still reads right when the text is read a day later, as a push can be. */
-function datedDay(date: string): string {
+function pushDay(date: string, after: string | null): string {
+  const holiday = surfHoliday(date);
+  if (holiday) return holiday.day;
+  const short = weekday(date).slice(0, 3);
+  const gap = after === null ? 0 : localDayDiff(after, date);
+  if (gap > 0 && gap <= 6) return short;
   const monthDay = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
     .format(new Date(`${date}T12:00:00Z`));
-  return `${weekday(date)} ${monthDay}`;
+  return `${short} ${monthDay}`;
 }
 
-function eventStoryParts(event: RegionalSwellEvent, today: string, datedDays = false): { text: string; namesFade: boolean } {
+/** "A long-period WNW groundswell fills in Wed Nov 25, peaks Thanksgiving Day and fades Fri." Days compare by date. */
+function pushStoryParts(event: RegionalSwellEvent, today: string): { text: string; namesFade: boolean } {
   const arrival = eventLocalDate(event.arrivalAt, event.timezone);
   const peak = eventLocalDate(event.peakAt, event.timezone);
   const fade = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
-  const dayWord = (date: string): string => datedDays ? datedDay(date) : cardDay(date, today);
+  const fadeClause = fade !== null && fade !== peak ? `${fade < today ? "faded" : "fades"} ${pushDay(fade, peak)}` : null;
+  const [length, ...noun] = periodWords(event.periodS, event.kind).split(" ");
+  const name = withArticle(`${length} ${COMPASS_ABBREVIATIONS[directionIndex(event.directionDeg)]} ${noun.join(" ")}`);
+  let predicate: string;
+  let namesFade = fadeClause !== null;
+  if (arrival < today) {
+    predicate = joinClauses(["is already in the water", `${peak < today ? "peaked" : "peaks"} ${pushDay(peak, null)}`, ...(fadeClause ? [fadeClause] : [])]);
+  } else if (arrival === peak && fade === peak) {
+    predicate = `comes and goes ${pushDay(peak, null)}`;
+    namesFade = true;
+  } else if (arrival === peak) {
+    predicate = `arrives and peaks ${pushDay(peak, null)}${fadeClause ? `, then ${fadeClause}` : ""}`;
+  } else {
+    predicate = joinClauses([`fills in ${pushDay(arrival, null)}`, `peaks ${pushDay(peak, arrival)}`, ...(fadeClause ? [fadeClause] : [])]);
+  }
+  const sentence = `${name} ${predicate}.`;
+  return { text: sentence.charAt(0).toUpperCase() + sentence.slice(1), namesFade };
+}
+
+/**
+ * The card's story line for one event and whether it names a fade day, from the region's local today; with
+ * `datedDays`, the push wording.
+ * Each day is named once: "arrives Thursday, peaks Friday and fades Saturday", "arrives and peaks Friday,
+ * then fades Saturday", "comes and goes Friday"; a fade on the peak day goes unsaid.
+ */
+function eventStoryParts(event: RegionalSwellEvent, today: string, datedDays = false): { text: string; namesFade: boolean } {
+  if (datedDays) return pushStoryParts(event, today);
+  const arrival = eventLocalDate(event.arrivalAt, event.timezone);
+  const peak = eventLocalDate(event.peakAt, event.timezone);
+  const fade = event.fadeAt ? eventLocalDate(event.fadeAt, event.timezone) : null;
+  const dayWord = (date: string): string => cardDay(date, today);
   // Words, not dates, decide: two days past two weeks both read "later on", so the second goes unsaid.
   const arrivalDay = dayWord(arrival);
   const peakDay = dayWord(peak);
@@ -327,8 +364,8 @@ function eventStoryParts(event: RegionalSwellEvent, today: string, datedDays = f
 
 /**
  * The card's story line for one event: direction, kind and period, then its days. "A west short-period
- * storm swell arrives Thursday, peaks Friday and fades Saturday." With `datedDays`, each day carries its
- * date ("arrives Sunday Nov 22"), for a push that can be read days later.
+ * storm swell arrives Thursday, peaks Friday and fades Saturday." With `datedDays`, the push wording that still
+ * reads right days later: "A long-period WNW groundswell fills in Wed Nov 25, peaks Thanksgiving Day and fades Fri."
  */
 export function eventStoryText(event: RegionalSwellEvent, today: string, facts: CandidateFacts | null = null,
   options: { datedDays?: boolean } = {}): string {
