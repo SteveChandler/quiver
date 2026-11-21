@@ -19,7 +19,7 @@ function fakeClient(respond: (table: string, ops: Ops) => unknown) {
       const ops: Ops = [];
       chains.push({ table, ops });
       const builder: Record<string, unknown> = {};
-      for (const op of ["select", "in", "gte", "order", "range", "is", "eq"]) {
+      for (const op of ["select", "in", "gte", "or", "order", "range", "is", "eq"]) {
         builder[op] = (...args: unknown[]) => {
           ops.push([op, args]);
           return builder;
@@ -77,6 +77,31 @@ describe("findStationsByAlternateId", () => {
 });
 
 describe("getLatestWaveObservations", () => {
+  it("looks up only each station's exact observation pair in bounded batches", async () => {
+    const stations = Array.from({ length: 51 }, (_, index) => ({
+      id: `ndbc:${index}`,
+      last_wave_observed_at: index === 0 ? "2026-09-28T00:00:00Z" : "2026-11-11T03:26:00Z",
+    }));
+    const { client, chains } = fakeClient(() => []);
+
+    await getLatestWaveObservations(stations, client);
+
+    expect(chains).toHaveLength(2);
+    expect(chains[0].ops).toContainEqual([
+      "or",
+      [expect.stringContaining('and(station_id.eq."ndbc:0",observed_at.eq."2026-09-28T00:00:00.000Z")')],
+    ]);
+    expect(chains[0].ops).toContainEqual([
+      "or",
+      [expect.stringContaining('and(station_id.eq."ndbc:49",observed_at.eq."2026-11-11T03:26:00.000Z")')],
+    ]);
+    expect(chains[1].ops).toContainEqual([
+      "or",
+      ['and(station_id.eq."ndbc:50",observed_at.eq."2026-11-11T03:26:00.000Z")'],
+    ]);
+    expect(chains.flatMap(({ ops }) => ops.filter(([op]) => op === "in" || op === "gte"))).toEqual([]);
+  });
+
   it("returns only rows at each station's own last wave time", async () => {
     const { client, chains } = fakeClient(() => [
       { station_id: "ndbc:a", observed_at: "2026-11-11T03:26:00+00:00", wave_height_m: 1.4 },
@@ -96,9 +121,10 @@ describe("getLatestWaveObservations", () => {
       ["ndbc:a", 1.4],
       ["ndbc:b", 1.1],
     ]);
-    expect(argsOf(chains[0].ops, "in", "station_id")).toEqual(["ndbc:a", "ndbc:b"]);
-    expect(argsOf(chains[0].ops, "in", "observed_at")).toEqual(["2026-11-11T03:26:00.000Z", "2026-11-11T02:40:00.000Z"]);
-    expect(argsOf(chains[0].ops, "gte", "observed_at")).toBe("2026-11-11T02:40:00.000Z");
+    expect(chains[0].ops).toContainEqual([
+      "or",
+      ['and(station_id.eq."ndbc:a",observed_at.eq."2026-11-11T03:26:00.000Z"),and(station_id.eq."ndbc:b",observed_at.eq."2026-11-11T02:40:00.000Z")'],
+    ]);
     expect(chains[0].ops.find(([op]) => op === "select")?.[1][0]).toBe(
       "station_id, observed_at, wave_height_m, dominant_period_s, mean_wave_direction_deg",
     );
