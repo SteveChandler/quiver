@@ -491,8 +491,41 @@ describe("GET /api/beaches/[id]/sources and the cam directory share one prefligh
     const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
     const cameraUrl = "https://cbccstaff.net/whats-new/webcam/";
 
-    expect(await getSources(cameraUrl)).toMatchObject({ cam_kind: "iframe", embed_allowed: false });
+    // The native hero reads these fields; it must not offer a cam the web shows as none.
+    expect(await getSources(cameraUrl)).toMatchObject({
+      camera_url: null,
+      cam_open_url: null,
+      cam_thumbnail_url: null,
+      cam_kind: "none",
+      cam_embed: null,
+      embed_allowed: false,
+    });
     await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "none" });
+  });
+
+  it.each([
+    ["a player that denies framing (Galveston)", "https://v.angelcam.com/iframe?v=4oxyn1pr8v&autoplay=1", 404, { "x-frame-options": "DENY" }],
+    ["a Surfline embed that answers 403 (Scripps)", "https://embed.cdn-surfline.com/cams/5834a0733421b20545c4b584/64ba68ebf1c960a93d1faba8f86cc16a3ed05913", 403, {}],
+  ])("reports no cam to native for %s", async (_label, cameraUrl, status, headers) => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status, headers: new Headers(headers) } as Response);
+    const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
+
+    expect(await getSources(cameraUrl)).toMatchObject({ camera_url: null, cam_kind: "none", cam_embed: null });
+    await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "none" });
+  });
+
+  it("keeps a camera page whose headers cannot be read, as the web player still tries it", async () => {
+    jest.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
+    const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
+    const cameraUrl = "https://www.parks.ca.gov/sanonofre";
+
+    expect(await getSources(cameraUrl)).toMatchObject({
+      camera_url: cameraUrl,
+      cam_kind: "iframe",
+      embed_allowed: null,
+      cam_embed: { kind: "external", pageUrl: cameraUrl, provider: "parks.ca.gov" },
+    });
+    await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "inline" });
   });
 
   it("keeps a Surfline stream on both sides when its health check times out", async () => {
