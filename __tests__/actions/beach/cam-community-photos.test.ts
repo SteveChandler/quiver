@@ -21,6 +21,10 @@ jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(),
 }));
 
+jest.mock("@/lib/media/cam-embed-preflight", () => ({
+  resolveCamPlayback: jest.fn(async () => ({ kind: "inline" })),
+}));
+
 describe("camera directory community photo parity", () => {
   beforeEach(() => {
     jest.clearAllMocks();

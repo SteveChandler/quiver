@@ -11,6 +11,7 @@ import {
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
+import { isLiveCamBeach, sortLiveCamBeachesFirst } from "@/lib/media/cam-directory";
 import { CamsLandingNav } from "@/components/cams/cams-landing-nav";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
@@ -39,15 +40,21 @@ export async function CamsRegionDirectoryPage({
   if (!region) notFound();
 
   const allBeaches = await getBeachesWithCameras();
-  const regionBeaches = allBeaches.filter((b) => b.regionSlug === regionSlug);
+  // Forecast-only spots stay listed after the live cams but are never counted as live.
+  const regionBeaches = sortLiveCamBeachesFirst(
+    allBeaches.filter((b) => b.regionSlug === regionSlug),
+  );
+  const regionLiveBeaches = regionBeaches.filter(isLiveCamBeach);
+  const liveCount = regionLiveBeaches.length;
 
+  // A region whose cams are all offline keeps its page (0 live cameras) so the URL never 404s on a stream outage.
   if (regionBeaches.length === 0) notFound();
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   const regionCounts = new Map<string, number>();
-  for (const beach of allBeaches) {
+  for (const beach of allBeaches.filter(isLiveCamBeach)) {
     regionCounts.set(
       beach.regionSlug,
       (regionCounts.get(beach.regionSlug) ?? 0) + 1,
@@ -76,9 +83,7 @@ export async function CamsRegionDirectoryPage({
       <CamsLandingNav />
       <ZineSurface
         sectionLabel={`${region.name} cams`}
-        editionLabel={`${regionBeaches.length} live ${
-          regionBeaches.length === 1 ? "cam" : "cams"
-        }`}
+        editionLabel={`${liveCount} live ${liveCount === 1 ? "cam" : "cams"}`}
         showMasthead={false}
         data-testid="cams-region-zine-surface"
       >
@@ -110,8 +115,8 @@ export async function CamsRegionDirectoryPage({
           <header className="grid gap-10 pb-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,0.8fr)] lg:items-start">
             <div>
               <p className="typewriter mb-4">
-                {regionBeaches.length} live{" "}
-                {regionBeaches.length === 1 ? "camera" : "cameras"}
+                {liveCount} live{" "}
+                {liveCount === 1 ? "camera" : "cameras"}
               </p>
               <h1 className="zine-h1 max-w-4xl font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
                 {region.name} Surf Cams
@@ -130,7 +135,7 @@ export async function CamsRegionDirectoryPage({
               </div>
             </div>
             <CamsHeroContactSheet
-              beaches={regionBeaches}
+              beaches={regionLiveBeaches}
               label={`${region.name} live cam previews`}
             />
           </header>

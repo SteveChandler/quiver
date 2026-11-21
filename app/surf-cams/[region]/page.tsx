@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { CamsRegionDirectoryPage } from "@/app/cams/[region]/page";
 import { getCamRegionBySlug } from "@/lib/data/cam-regions";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 import { SeoLocationPage } from "@/components/seo/funnel/SeoLocationPage";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import {
@@ -33,7 +34,9 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     }
 
     const cameras = await getBeachesWithCameras();
-    const camCount = cameras.filter((camera) => camera.regionSlug === region).length;
+    const camCount = cameras.filter(
+      (camera) => camera.regionSlug === region && isLiveCamBeach(camera),
+    ).length;
 
     return buildPageMetadata({
       title: `Live Surf Cams in ${camRegion.name} — ${camCount} Cameras`,
@@ -64,7 +67,10 @@ export default async function SeoSurfCamsPage(props: PageProps) {
   const page = getSeoFunnelPageByTypeAndSlug("surf-cams", region);
 
   if (page) {
-    const cameras = filterSeoCamBeaches(page, await getBeachesWithCameras());
+    const cameras = filterSeoCamBeaches(
+      page,
+      (await getBeachesWithCameras()).filter(isLiveCamBeach),
+    );
     return <SeoLocationPage page={page} cameras={cameras} />;
   }
 

@@ -56,12 +56,22 @@ export function CamCard({ beach }: CamCardProps) {
     city: beach.city,
     state: beach.state,
   });
+  // Badge and action follow what the click gives (the beach page player or the
+  // provider's page), never whether a preview picture loaded.
+  const { playback } = beach;
+  const providerHost =
+    playback.kind === "external" ? getProviderHost(playback.pageUrl) : null;
+  const actionLabel =
+    playback.kind === "inline"
+      ? "Watch live cam →"
+      : playback.kind === "external"
+        ? `Watch on ${playback.provider} ↗`
+        : "View forecast →";
+  const cardClassName =
+    "torn torn-tb group block overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-0 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)] transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]";
 
-  return (
-    <Link
-      href={beachUrl}
-      className="torn torn-tb group block overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-0 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)] transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
-    >
+  const content = (
+    <>
       {/* Camera preview area */}
       <div
         className="halftone-photo relative h-44 overflow-hidden border-b-2 border-[#11100D] bg-cover bg-center"
@@ -73,7 +83,7 @@ export function CamCard({ beach }: CamCardProps) {
               key={thumbnailUrl}
               ref={imageRef}
               src={thumbnailUrl}
-              alt={`${beach.name} live camera`}
+              alt={playback.kind === "none" ? beach.name : `${beach.name} live camera`}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -103,16 +113,16 @@ export function CamCard({ beach }: CamCardProps) {
           </div>
         )}
 
-        {showThumbnail ? (
+        {playback.kind === "inline" ? (
           <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 border-2 border-[#11100D] bg-[#F78E42] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)]">
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[#11100D]" />
             LIVE
           </span>
-        ) : (
+        ) : playback.kind === "external" ? (
           <span className="absolute right-3 top-3 z-10 inline-flex border-2 border-[#11100D] bg-[#FDB84B] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)]">
-            Cam link
+            {`Live on ${playback.provider} ↗`}
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Card body */}
@@ -129,9 +139,42 @@ export function CamCard({ beach }: CamCardProps) {
         <p className="mt-3 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#8A5E00] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           {/* One string expression: SWC eats the leading space of a
               multi-line JSX text child that contains an HTML entity. */}
-          {`${showThumbnail ? "Watch live cam" : "Open cam page"} →`}
+          {actionLabel}
         </p>
+        {providerHost ? (
+          <p className="mt-1 font-mono text-[10px] tracking-[0.06em] text-[#11100D]/65">
+            {`Plays on ${providerHost}`}
+          </p>
+        ) : null}
       </div>
+    </>
+  );
+
+  if (playback.kind === "external") {
+    return (
+      <a
+        href={playback.pageUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${beach.name}: watch the live cam on ${playback.provider} (opens ${providerHost ?? "the provider site"})`}
+        className={cardClassName}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={beachUrl} className={cardClassName}>
+      {content}
     </Link>
   );
+}
+
+function getProviderHost(pageUrl: string): string | null {
+  try {
+    return new URL(pageUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
 }

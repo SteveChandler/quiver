@@ -31,6 +31,7 @@ const baseBeach: CamBeachWithRegion = {
   thumbnail_url: "https://img.youtube.com/vi/abc123/hqdefault.jpg",
   photo_url: "https://photos.example/test-beach.jpg",
   regionSlug: "southern-california",
+  playback: { kind: "inline" },
 };
 
 describe("CamCard", () => {
@@ -108,7 +109,61 @@ describe("CamCard", () => {
     fireEvent.error(screen.getByAltText("Test Beach live camera"));
 
     expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
-    expect(screen.getByText("Open cam page →")).toBeInTheDocument();
+    // A failed preview does not change what the click gives (quiver#1477).
+    expect(screen.getByText("Watch live cam →")).toBeInTheDocument();
+    expect(screen.getByText("LIVE")).toBeInTheDocument();
+  });
+
+  it("does not show LIVE for a spot with only a fallback photo and no player", () => {
+    render(
+      <CamCard
+        beach={{
+          ...baseBeach,
+          name: "Cannon Beach (Ecola/Indian)",
+          slug: "cannon-beach-ecolaindian",
+          city: "Cannon Beach",
+          state: "OR",
+          camera_url: "https://cbccstaff.net/whats-new/webcam/",
+          thumbnail_url: null,
+          playback: { kind: "none" },
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Watch/)).not.toBeInTheDocument();
+    expect(screen.getByText("View forecast →")).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      "/or/cannon-beach/cannon-beach-ecolaindian",
+    );
+  });
+
+  it("sends a provider-only cam to the named provider instead of promising a player", () => {
+    render(
+      <CamCard
+        beach={{
+          ...baseBeach,
+          name: "Muir Beach",
+          camera_url: "https://www.sigward.com/",
+          thumbnail_url: null,
+          playback: {
+            kind: "external",
+            provider: "Muir Beach Webcam",
+            pageUrl: "https://www.sigward.com/",
+          },
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
+    expect(screen.getByText("Live on Muir Beach Webcam ↗")).toBeInTheDocument();
+    expect(screen.getByText("Watch on Muir Beach Webcam ↗")).toBeInTheDocument();
+    expect(screen.getByText("Plays on sigward.com")).toBeInTheDocument();
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", "https://www.sigward.com/");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 });
 
