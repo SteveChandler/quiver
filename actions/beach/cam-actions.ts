@@ -13,6 +13,8 @@ import {
 } from "@/lib/community-photos";
 import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import { unstable_cache } from "next/cache";
+import type { CamPlaybackState } from "@/lib/media/cam-embed";
+import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
 
 interface CamBeach {
   id: string;
@@ -27,9 +29,11 @@ interface CamBeach {
 
 export interface CamBeachWithRegion extends CamBeach {
   regionSlug: string;
+  /** Same resolution as the beach page player (GET /api/beaches/[id]/sources). */
+  playback: CamPlaybackState;
 }
 
-type CameraBeachResult = CamBeachWithRegion &
+type CameraBeachResult = Omit<CamBeachWithRegion, "playback"> &
   CamDirectoryBeach & {
     cameraTitleHint: string | null;
   };
@@ -94,6 +98,13 @@ export const getBeachesWithCameras = unstable_cache(
     }
 
     const dedupedResults = dedupeCameraBeachesForDirectory(results);
+    const playbackById = new Map(
+      await Promise.all(
+        dedupedResults.map(
+          async (beach) => [beach.id, await resolveCamPlayback(beach.camera_url)] as const,
+        ),
+      ),
+    );
 
     const beachIds = dedupedResults.map((beach) => beach.id);
     if (beachIds.length > 0) {
@@ -164,8 +175,9 @@ export const getBeachesWithCameras = unstable_cache(
       thumbnail_url: beach.thumbnail_url,
       photo_url: beach.photo_url,
       regionSlug: beach.regionSlug,
+      playback: playbackById.get(beach.id) ?? { kind: "none" },
     }));
   },
-  ["beaches-with-unique-cameras-v2"],
+  ["beaches-with-unique-cameras-v3"],
   { revalidate: 3600 },
 );
