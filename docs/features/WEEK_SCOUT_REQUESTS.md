@@ -87,6 +87,8 @@ Every Week Scout request logs one line:
 | `bodyKey` | first 8 hex of sha256 of the request body without `dayCount` (scope, filters, map bounds, origin, candidates, time zone, start date) |
 | `profileKey` | the same hash of the profile fields the ranking reads (home beach, drive range, skill, session time); null when the read failed |
 | `locKey` | the same hash of the stored phone location rounded to 2 decimals, the app's location bucket; null with no location |
+| `candidates` | the count of candidate beaches sent to the ranking, after the pool; absent on early returns |
+| `ws-read-*` stages | the parallel reads inside `ws-reads`: `forecasts`, `sun`, `context` (learned preferences), `skill`, `boards`, `tide`. They overlap, so `ws-reads` is about the largest one, not their sum |
 | `answerReuse` | `miss` = ranked here; `joined` = shared a ranking in flight; `hit` = reused one that ended in the last 30 s; `off` = reuse turned off |
 | `ws-queue` stage | time spent waiting for the same user's other ranking on the instance |
 

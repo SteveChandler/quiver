@@ -131,7 +131,7 @@ describe("Week Scout story response", () => {
     const line = info.mock.calls.map(([message]) => String(message)).find((message) => message.startsWith("[WeekScoutTiming] "));
     expect(JSON.parse(line!.slice("[WeekScoutTiming] ".length))).toMatchObject({
       status: 200, cold: expect.any(Boolean), inflight: 1, stages: expect.any(Array),
-      dayCount: 7, platform: "ios", update: "f933afba", user: expect.stringMatching(/^[0-9a-f]{8}$/),
+      dayCount: 7, platform: "ios", update: "f933afba", user: expect.stringMatching(/^[0-9a-f]{8}$/), candidates: 1,
     });
     info.mockRestore();
   });

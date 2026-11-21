@@ -327,6 +327,7 @@ async function weekScoutHandler(
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
   recordStage('pool', performance.now() - poolStartedAt);
+  tags.candidates = candidateBeachIds.length;
   const forecastRequest = {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
@@ -442,6 +443,8 @@ type RequestTags = {
   bodyKey: string;
   profileKey?: string | null;
   locKey?: string | null;
+  /** Candidate beaches sent to the ranking; its cost grows with this count. */
+  candidates?: number;
   /** miss = computed here; joined/hit = reused an identical answer on this instance. */
   answerReuse?: AnswerReuse;
 };

@@ -1406,14 +1406,15 @@ async function generateWeekScoutForecastScoped(
     : Promise.resolve(null);
   const forecastReadsStartedAt = performance.now();
   const [fetchedForecastsByBeach, sunTimes, personalizationContext, userSkillLevel, boardClasses, tideByBeach] = await Promise.all([
-    forecastRequest,
-    deps.fetchSunTimes(beachIds, sunDates),
-    deps.fetchRankingContext(userId),
-    deps.fetchSkill(userId),
-    deps.fetchBoardClasses?.(userId).then((classes) => (
+    // Each read has its own stage so the timing line shows which one holds ws-reads.
+    timeStage('ws-read-forecasts', () => forecastRequest),
+    timeStage('ws-read-sun', () => deps.fetchSunTimes(beachIds, sunDates)),
+    timeStage('ws-read-context', () => deps.fetchRankingContext(userId)),
+    timeStage('ws-read-skill', () => deps.fetchSkill(userId)),
+    timeStage('ws-read-boards', () => deps.fetchBoardClasses?.(userId).then((classes) => (
       skillAware ? orderBoardClasses(classes) : classes
-    )) ?? Promise.resolve([]),
-    tideRequest,
+    )) ?? Promise.resolve([])),
+    timeStage('ws-read-tide', () => tideRequest),
   ]);
   recordStage('ws-reads', performance.now() - forecastReadsStartedAt);
   // Swells and rideability keep the raw skill; only the engine rates a missing skill as beginner.
