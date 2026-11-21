@@ -75,6 +75,13 @@ describe("resolveCamPlayback", () => {
     await expect(resolveCamPlayback("https://hls.cdn-surfline.com/oregon/cam/playlist.m3u8")).resolves.toEqual({ kind: "inline" });
   });
 
+  it("returns none for a Surfline stream that fails for a reason other than a timeout", async () => {
+    globalThis.fetch = jest.fn(async () => {
+      throw new TypeError("fetch failed: redirect");
+    }) as unknown as typeof fetch;
+    await expect(resolveCamPlayback("https://hls.cdn-surfline.com/oregon/cam/playlist.m3u8")).resolves.toEqual({ kind: "none" });
+  });
+
   it("does not probe provider-only cams", async () => {
     const fetchMock = mockHead(500);
     await expect(resolveCamPlayback("https://www.sigward.com/")).resolves.toMatchObject({ kind: "external" });

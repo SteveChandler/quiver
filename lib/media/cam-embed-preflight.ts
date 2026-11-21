@@ -26,7 +26,7 @@ export function isSurflineHlsUrl(url: string | null): url is string {
 }
 
 /**
- * "unknown" = the check timed out or the network failed. The sources route
+ * "unknown" = the check timed out. The sources route
  * treats that as down; the directory leaves the card as it is rather than
  * hide a cam on a slow answer.
  */
@@ -43,8 +43,9 @@ export async function checkSurflineHls(
     });
 
     return response.status === 200 ? "up" : "down";
-  } catch {
-    return "unknown";
+  } catch (error) {
+    // Only a slow answer is unknown; redirects, DNS and TLS failures are down, as in the route.
+    return error instanceof Error && error.name === "TimeoutError" ? "unknown" : "down";
   }
 }
 
