@@ -117,6 +117,23 @@ describe("PageTracker", () => {
         expect.any(Object),
       );
     });
+
+    it("tracks king tide guide reach with its pathname", async () => {
+      mockUsePathname.mockReturnValue("/learn/what-is-a-king-tide");
+
+      render(<PageTracker />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith("page_view", {
+          metadata: expect.objectContaining({
+            pathname: "/learn/what-is-a-king-tide",
+            platform: "web",
+          }),
+          debounceMs: 500,
+        });
+      });
+      expect(mockTrack).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("page navigation", () => {
