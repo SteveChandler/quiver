@@ -99,6 +99,10 @@ export function detectBot(request: {
 }): BotDetectionResult {
   const userAgent = (request.headers.get("user-agent") || "").toLowerCase();
   const acceptLanguage = request.headers.get("accept-language");
+  const platform = request.headers.get("x-quiver-platform");
+  const isNativeOkhttp =
+    userAgent.startsWith("okhttp/") &&
+    (platform === "android" || platform === "ios");
 
   // 1. Check for allowed bots first (good crawlers should pass)
   for (const goodBot of ALLOWED_BOTS) {
@@ -113,7 +117,7 @@ export function detectBot(request: {
   }
 
   // 2. Check for empty or suspiciously short user agent
-  if (!userAgent || userAgent.length < 15) {
+  if ((!userAgent || userAgent.length < 15) && !isNativeOkhttp) {
     return {
       isBot: true,
       reason: "empty-or-short-ua",
