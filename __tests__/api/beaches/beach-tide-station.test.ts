@@ -46,6 +46,7 @@ const VIEW = buildCityTideView({
   timeZone: "America/Los_Angeles",
   renderedAtMs: Date.parse("2026-11-15T03:00:00Z"),
   station: { name: "Los Patos (highway bridge)", slug: "los-patos-highway-bridge-ca-twc0427", sourceStationId: "TWC0427" },
+  adjustmentFt: 1.5,
   hourly: [],
   extremes: [
     { ts: "2026-11-15T04:24:00Z", type: "low", heightM: 0.565 },

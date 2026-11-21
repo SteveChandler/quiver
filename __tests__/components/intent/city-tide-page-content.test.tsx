@@ -33,7 +33,9 @@ function pref(overrides: Partial<BeachTidePreference>): BeachTidePreference {
   };
 }
 
-function tideData(station: boolean): CityTideDataExpanded {
+type StationOverride = { name: string; slug: string; sourceStationId: string } | null;
+
+function tideData(station: boolean, adjustmentFt = 0, stationOverride?: StationOverride): CityTideDataExpanded {
   return {
     tidePoints: [],
     currentStatus: "Falling",
@@ -49,16 +51,20 @@ function tideData(station: boolean): CityTideDataExpanded {
     view: buildCityTideView({
       timeZone: "Pacific/Honolulu",
       renderedAtMs: RENDERED_AT,
-      station: station
-        ? { name: "Haleiwa, Waialua Bay", slug: "haleiwa-waialua-bay-hi-1612668", sourceStationId: "1612668" }
-        : null,
+      station:
+        stationOverride !== undefined
+          ? stationOverride
+          : station
+            ? { name: "Haleiwa, Waialua Bay", slug: "haleiwa-waialua-bay-hi-1612668", sourceStationId: "1612668" }
+            : null,
+      adjustmentFt,
       hourly: [],
       extremes: EXTREMES,
     }),
   };
 }
 
-function renderPage(station: boolean) {
+function renderPage(station: boolean, adjustmentFt = 0, stationOverride?: StationOverride) {
   return render(
     <TidePageContent
       cityName="Haleiwa"
@@ -67,12 +73,18 @@ function renderPage(station: boolean) {
       stateName="Hawaii"
       regionLabel="Haleiwa, Hawaii"
       pageContent={{ title: "t", description: "d", heading: "Tide conditions for Haleiwa surf spots", intro: "A foot of tide swing matters here." } as never}
-      tideData={tideData(station)}
+      tideData={tideData(station, adjustmentFt, stationOverride)}
       spots={[]}
       baseUrl="https://www.quiversurf.app"
     />
   );
 }
+
+const LA_JOLLA = {
+  name: "La Jolla (Scripps Institution Wharf)",
+  slug: "la-jolla-scripps-institution-wharf-ca-9410230",
+  sourceStationId: "9410230",
+};
 
 describe("city tide page", () => {
   beforeAll(() => {
@@ -106,10 +118,53 @@ describe("city tide page", () => {
   });
 });
 
+describe("city tide page source line", () => {
+  beforeAll(() => {
+    jest.spyOn(Date, "now").mockReturnValue(RENDERED_AT);
+  });
+
+  it("names Quiver's sea-level adjustment and links NOAA's own table on an adjusted station", () => {
+    renderPage(true, 1.5, LA_JOLLA);
+    const source = screen.getByTestId("city-tide-source");
+    expect(source).toHaveTextContent(
+      "Predicted tides from the NOAA gauge at La Jolla (Scripps Institution Wharf), plus Quiver's +1.5 ft sea-level adjustment. Times are local"
+    );
+    expect(source).toHaveTextContent("Not live water levels.");
+    expect(within(source).getByRole("link", { name: "NOAA's own predictions for 9410230 →" })).toHaveAttribute(
+      "href",
+      "https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=9410230"
+    );
+  });
+
+  it("claims no adjustment on an unadjusted station but still links NOAA's table", () => {
+    renderPage(true, 0);
+    const source = screen.getByTestId("city-tide-source");
+    expect(source.textContent).not.toMatch(/adjustment/);
+    expect(within(source).getByRole("link", { name: "NOAA's own predictions for 1612668 →" })).toHaveAttribute(
+      "href",
+      "https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=1612668"
+    );
+  });
+
+  it("names the adjustment on the stored series without a station link", () => {
+    renderPage(false, 1.5);
+    const source = screen.getByTestId("city-tide-source");
+    expect(source).toHaveTextContent("Predicted tides from NOAA, plus Quiver's +1.5 ft sea-level adjustment. Times are local");
+    expect(within(source).queryByRole("link")).toBeNull();
+  });
+
+  it("calls the tides predicted, not real-time, in the FAQ", () => {
+    renderPage(true, 1.5, LA_JOLLA);
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/Quiver shows predicted tide times and heights next to the surf conditions/);
+    expect(text).not.toMatch(/real-time/i);
+  });
+});
+
 describe("city tide page with an empty series", () => {
   it("hides the tide modules instead of showing 'no data'", () => {
     const data = tideData(false);
-    data.view = buildCityTideView({ timeZone: "Pacific/Honolulu", renderedAtMs: RENDERED_AT, station: null, hourly: [], extremes: [] });
+    data.view = buildCityTideView({ timeZone: "Pacific/Honolulu", renderedAtMs: RENDERED_AT, station: null, adjustmentFt: 0, hourly: [], extremes: [] });
     render(
       <TidePageContent
         cityName="Haleiwa"
