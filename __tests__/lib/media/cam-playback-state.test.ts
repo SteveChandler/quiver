@@ -2,6 +2,11 @@ import { buildCamEmbed, getCamPlaybackState } from "@/lib/media/cam-embed";
 import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
 import { isLiveCamBeach, sortLiveCamBeachesFirst } from "@/lib/media/cam-directory";
 
+// The camera preflight is cached per URL with unstable_cache, which needs a Next request context.
+jest.mock("next/cache", () => ({
+  unstable_cache: (fn: unknown) => fn,
+}));
+
 describe("getCamPlaybackState", () => {
   it("treats players the beach page renders as inline", () => {
     expect(getCamPlaybackState(buildCamEmbed("https://hls.cdn-surfline.com/oregon/cam/playlist.m3u8"), true)).toEqual({ kind: "inline" });

@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import {
   buildCamEmbed,
@@ -6,7 +8,12 @@ import {
   type CamPlaybackState,
 } from "@/lib/media/cam-embed";
 
-const PREFLIGHT_TIMEOUT_MS = 3000;
+/**
+ * One timeout for the beach page and the directory. Measured camera-page HEAD
+ * times were mostly under 0.9 s; one host never answers within 3 s.
+ */
+const PREFLIGHT_TIMEOUT_MS = 1500;
+const PREFLIGHT_REVALIDATE_SECONDS = 3600;
 const SURFLINE_HLS_HOST = "hls.cdn-surfline.com";
 const SURFLINE_HEALTH_HEADERS = {
   "User-Agent":
@@ -25,21 +32,16 @@ export function isSurflineHlsUrl(url: string | null): url is string {
   }
 }
 
-/**
- * "unknown" = the check timed out. The sources route
- * treats that as down; the directory leaves the card as it is rather than
- * hide a cam on a slow answer.
- */
-export async function checkSurflineHls(
-  url: string,
-  timeoutMs: number = PREFLIGHT_TIMEOUT_MS,
-): Promise<"up" | "down" | "unknown"> {
+type SurflineHlsHealth = "up" | "down" | "unknown";
+
+/** "unknown" = the check timed out; the camera stays, and the player falls back to a still if the stream fails. */
+async function checkSurflineHls(url: string): Promise<SurflineHlsHealth> {
   try {
     const response = await globalThis.fetch(url, {
       method: "HEAD",
       redirect: "error",
       headers: SURFLINE_HEALTH_HEADERS,
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(PREFLIGHT_TIMEOUT_MS),
     });
 
     return response.status === 200 ? "up" : "down";
@@ -47,10 +49,6 @@ export async function checkSurflineHls(
     // Only a slow answer is unknown; redirects, DNS and TLS failures are down, as in the route.
     return error instanceof Error && error.name === "TimeoutError" ? "unknown" : "down";
   }
-}
-
-export async function isSurflineHlsAvailable(url: string): Promise<boolean> {
-  return (await checkSurflineHls(url)) === "up";
 }
 
 export interface CamEmbedPreflight {
@@ -62,13 +60,10 @@ export interface CamEmbedPreflight {
 
 /**
  * Server-side check of whether the beach page can play `cameraUrl`.
- * Shared by GET /api/beaches/[id]/sources and the cam directory so a card
- * and the page it opens always agree.
  */
-export async function preflightCamEmbed(
+async function preflightCamEmbed(
   cameraUrl: string,
   intent: CamEmbedIntent,
-  timeoutMs: number = PREFLIGHT_TIMEOUT_MS,
 ): Promise<CamEmbedPreflight> {
   if (intent.kind === "external") {
     return { embedAllowed: false, redirectsToBlockedProvider: false };
@@ -91,7 +86,7 @@ export async function preflightCamEmbed(
     const head = await globalThis.fetch(cameraUrl, {
       method: "HEAD",
       redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(PREFLIGHT_TIMEOUT_MS),
     });
     const xfo = head.headers.get("x-frame-options");
     const csp = head.headers.get("content-security-policy");
@@ -110,27 +105,40 @@ export async function preflightCamEmbed(
   }
 }
 
-/** The directory renders ~100 cams at once, so it waits less than the beach page. */
-export const DIRECTORY_PREFLIGHT_TIMEOUT_MS = 800;
+export interface CamPreflightResult extends CamEmbedPreflight {
+  /** null when the camera is not a Surfline HLS stream. */
+  surflineHls: SurflineHlsHealth | null;
+}
+
+async function runCamPreflight(cameraUrl: string): Promise<CamPreflightResult> {
+  const surflineHls = isSurflineHlsUrl(cameraUrl) ? await checkSurflineHls(cameraUrl) : null;
+  const preflight = await preflightCamEmbed(cameraUrl, buildCamEmbed(cameraUrl));
+  return { surflineHls, ...preflight };
+}
 
 /**
- * The playback the beach page will give for this camera, resolved with the
- * same checks as the sources route. A timeout or network error leaves the cam
- * live, as the beach page also still tries the player when headers are unreadable.
+ * One stored answer per camera URL, read by GET /api/beaches/[id]/sources and
+ * by the cam directory, so a card and the page it opens always agree.
  */
-export async function resolveCamPlayback(
-  cameraUrl: string | null | undefined,
-  timeoutMs: number = DIRECTORY_PREFLIGHT_TIMEOUT_MS,
-): Promise<CamPlaybackState> {
-  if (!cameraUrl || isBlockedCameraUrl(cameraUrl)) return { kind: "none" };
-  if (isSurflineHlsUrl(cameraUrl) && (await checkSurflineHls(cameraUrl, timeoutMs)) === "down") {
+export const getCamPreflight = unstable_cache(runCamPreflight, ["cam-embed-preflight-v1"], {
+  revalidate: PREFLIGHT_REVALIDATE_SECONDS,
+});
+
+export function playbackFromPreflight(
+  cameraUrl: string,
+  preflight: CamPreflightResult,
+): CamPlaybackState {
+  if (preflight.surflineHls === "down" || preflight.redirectsToBlockedProvider) {
     return { kind: "none" };
   }
+  return getCamPlaybackState(buildCamEmbed(cameraUrl), preflight.embedAllowed);
+}
 
-  const intent = buildCamEmbed(cameraUrl);
-  if (intent.kind === "none") return { kind: "none" };
-
-  const preflight = await preflightCamEmbed(cameraUrl, intent, timeoutMs);
-  if (preflight.redirectsToBlockedProvider) return { kind: "none" };
-  return getCamPlaybackState(intent, preflight.embedAllowed);
+/** The playback the beach page will give for this camera. */
+export async function resolveCamPlayback(
+  cameraUrl: string | null | undefined,
+): Promise<CamPlaybackState> {
+  if (!cameraUrl || isBlockedCameraUrl(cameraUrl)) return { kind: "none" };
+  if (buildCamEmbed(cameraUrl).kind === "none") return { kind: "none" };
+  return playbackFromPreflight(cameraUrl, await getCamPreflight(cameraUrl));
 }

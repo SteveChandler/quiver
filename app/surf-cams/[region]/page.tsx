@@ -38,9 +38,16 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       (camera) => camera.regionSlug === region && isLiveCamBeach(camera),
     ).length;
 
+    // A region whose cams are all offline keeps its page; a count of 0 never reaches the title.
     return buildPageMetadata({
-      title: `Live Surf Cams in ${camRegion.name} — ${camCount} Cameras`,
-      description: `Watch ${camCount} live surf cams in ${camRegion.name}. ${camRegion.description}`,
+      title:
+        camCount > 0
+          ? `Live Surf Cams in ${camRegion.name} — ${camCount} Cameras`
+          : `${camRegion.name} Surf Cams`,
+      description:
+        camCount > 0
+          ? `Watch ${camCount} live surf cams in ${camRegion.name}. ${camRegion.description}`
+          : `${camRegion.name} surf cams and beach forecasts. ${camRegion.description}`,
       path: `/surf-cams/${region}`,
       image: `/api/og/cams?region=${encodeURIComponent(region)}&name=${encodeURIComponent(camRegion.name)}`,
       keywords: [

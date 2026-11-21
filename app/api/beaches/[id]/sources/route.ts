@@ -9,11 +9,7 @@ import {
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
 import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
-import {
-  isSurflineHlsAvailable,
-  isSurflineHlsUrl,
-  preflightCamEmbed,
-} from "@/lib/media/cam-embed-preflight";
+import { getCamPreflight } from "@/lib/media/cam-embed-preflight";
 
 interface BeachLookupRow {
   id: string;
@@ -103,11 +99,10 @@ async function handleGet(request: NextRequest, props: { params: Promise<{ id: st
       cameraThumbnailUrl = null;
     }
 
-    if (isSurflineHlsUrl(cameraUrl)) {
-      const hlsAvailable = await isSurflineHlsAvailable(cameraUrl);
-      if (!hlsAvailable) {
-        cameraUrl = null;
-      }
+    // Cached per camera URL and shared with the cam directory, so both read one answer.
+    const preflight = cameraUrl ? await getCamPreflight(cameraUrl) : null;
+    if (preflight?.surflineHls === "down") {
+      cameraUrl = null;
     }
 
     const proxiedCamera = cameraUrl ? toProxiedHlsUrl(cameraUrl) : null;
@@ -153,8 +148,7 @@ async function handleGet(request: NextRequest, props: { params: Promise<{ id: st
     // Server-side preflight for embed allow
     let embedAllowed: boolean | null = null;
     let camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
-    if (cameraUrl) {
-      const preflight = await preflightCamEmbed(cameraUrl, camIntent);
+    if (cameraUrl && preflight) {
       embedAllowed = preflight.embedAllowed;
       if (preflight.redirectsToBlockedProvider) {
         cameraUrl = null;

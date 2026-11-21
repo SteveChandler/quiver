@@ -83,7 +83,11 @@ export async function CamsRegionDirectoryPage({
       <CamsLandingNav />
       <ZineSurface
         sectionLabel={`${region.name} cams`}
-        editionLabel={`${liveCount} live ${liveCount === 1 ? "cam" : "cams"}`}
+        editionLabel={
+          liveCount > 0
+            ? `${liveCount} live ${liveCount === 1 ? "cam" : "cams"}`
+            : undefined
+        }
         showMasthead={false}
         data-testid="cams-region-zine-surface"
       >
@@ -114,10 +118,12 @@ export async function CamsRegionDirectoryPage({
           {/* Hero */}
           <header className="grid gap-10 pb-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,0.8fr)] lg:items-start">
             <div>
-              <p className="typewriter mb-4">
-                {liveCount} live{" "}
-                {liveCount === 1 ? "camera" : "cameras"}
-              </p>
+              {liveCount > 0 ? (
+                <p className="typewriter mb-4">
+                  {liveCount} live{" "}
+                  {liveCount === 1 ? "camera" : "cameras"}
+                </p>
+              ) : null}
               <h1 className="zine-h1 max-w-4xl font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
                 {region.name} Surf Cams
               </h1>

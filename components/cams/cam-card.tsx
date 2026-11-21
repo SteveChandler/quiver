@@ -136,9 +136,8 @@ export function CamCard({ beach }: CamCardProps) {
             {beach.city}, {beach.state}
           </span>
         </div>
-        <p className="mt-3 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#8A5E00] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          {/* One string expression: SWC eats the leading space of a
-              multi-line JSX text child that contains an HTML entity. */}
+        <p className="mt-3 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#8A5E00] transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-visible:opacity-100">
+          {/* Always shown on phones (no hover); revealed on hover or focus from md up. */}
           {actionLabel}
         </p>
         {providerHost ? (
