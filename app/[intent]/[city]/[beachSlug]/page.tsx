@@ -40,6 +40,7 @@ import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
+import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
 import {
   getCachedBeachAmenities,
   getCachedBeachCameraUrl,
@@ -191,7 +192,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     surfReportResult,
     amenitiesResult,
     waterQualityResult,
-    cameraUrl,
+    liveCameraUrl,
     beachPhoto,
   ] = await withBeachReadScope(beach, () => Promise.all([
     optionalSection("forecast", () => getSpotSurfReportPublic(beach)),
@@ -212,7 +213,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
       return (await withRainfallNotice(await currentWaterQuality([data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
     }),
-    optionalSection("camera", () => getCachedBeachCameraUrl(beach.id)),
+    // Same rule as the cam directory and the sources API: no player, no VideoObject.
+    optionalSection("camera", async () => {
+      const url = await getCachedBeachCameraUrl(beach.id);
+      if (!url) return null;
+      return (await resolveCamPlayback(url)).kind === "none" ? null : url;
+    }),
     optionalSection("photo", () => getCachedBeachFeaturedPhoto(beach.id).then((photo) =>
       photo
         ? {
@@ -299,10 +305,10 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       />
 
       {/* VideoObject + BroadcastEvent for live cam — earns LIVE badge in SERPs */}
-      {cameraUrl && (
+      {liveCameraUrl && (
         <LiveCamSchema
           beachName={beach.name}
-          cameraUrl={cameraUrl}
+          cameraUrl={liveCameraUrl}
           pageUrl={buildBeachUrl(beach)}
         />
       )}

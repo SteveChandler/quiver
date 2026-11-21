@@ -25,6 +25,8 @@ import {
   getCachedBeachFeaturedPhoto,
 } from "@/lib/data/server/beach-detail-static-reads";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+import { LiveCamSchema } from "@/components/seo/live-cam-schema";
+import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
@@ -169,7 +171,11 @@ jest.mock("@/components/seo/web-page-schema", () => ({
 }));
 
 jest.mock("@/components/seo/live-cam-schema", () => ({
-  LiveCamSchema: () => null,
+  LiveCamSchema: jest.fn(() => null),
+}));
+
+jest.mock("@/lib/media/cam-embed-preflight", () => ({
+  resolveCamPlayback: jest.fn().mockResolvedValue({ kind: "none" }),
 }));
 
 jest.mock("@/components/beach-detail/nearby-spots-enriched", () => ({
@@ -539,6 +545,29 @@ describe("GenericBeachDetailPage slug resolution", () => {
       );
     } finally {
       log.mockRestore();
+    }
+  });
+
+  it.each([
+    ["no player", { kind: "none" }, false],
+    ["an inline player", { kind: "inline" }, true],
+    ["a provider link", { kind: "external", provider: "Surfline", pageUrl: "https://example.com/cam" }, true],
+  ] as const)("emits the live-cam VideoObject only when the cam has %s", async (_label, playback, emitted) => {
+    const cameraUrl = "https://cbccstaff.net/whats-new/webcam/";
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+    (getCachedBeachCameraUrl as jest.Mock).mockResolvedValueOnce(cameraUrl);
+    (resolveCamPlayback as jest.Mock).mockResolvedValueOnce(playback);
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    renderToStaticMarkup(page);
+
+    expect(resolveCamPlayback).toHaveBeenCalledWith(cameraUrl);
+    if (emitted) {
+      expect(jest.mocked(LiveCamSchema).mock.calls[0][0]).toMatchObject({ cameraUrl });
+    } else {
+      expect(LiveCamSchema).not.toHaveBeenCalled();
     }
   });
 
