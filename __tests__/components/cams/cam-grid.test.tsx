@@ -34,6 +34,7 @@ function makeBeach(index: number): CamBeachWithRegion {
     thumbnail_url: "https://img.youtube.com/vi/abc123/hqdefault.jpg",
     photo_url: null,
     regionSlug: "southern-california",
+    playback: { kind: "inline" },
   };
 }
 
