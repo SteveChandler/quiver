@@ -341,12 +341,13 @@ async function weekScoutHandler(
     ...(swellsEnabled || storyEnabled ? { includeSwells: true } : {}),
   };
   // Saved spots, location, scope and dates are all in forecastRequest; the profile key adds
-  // skill and session settings. Board and learned-preference changes wait out REUSE_MS (60 s).
+  // skill and session settings. Board and learned-preference changes wait out REUSE_MS (30 s).
   const answerKey = createHash('sha256')
     .update(`${user.id}|${tags.profileKey ?? ''}|${JSON.stringify(forecastRequest)}`)
     .digest('hex');
   const forecast = await timeStage('forecast', () => reuseWeekScoutAnswer(
     answerKey,
+    user.id,
     () => generateWeekScoutForecast(user.id, forecastRequest),
     (reuse) => { tags.answerReuse = reuse; },
   ));
