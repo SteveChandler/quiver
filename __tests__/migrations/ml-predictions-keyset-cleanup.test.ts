@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const filename = "20261122054000_index_ml_predictions_cleanup";
+const indexFilename = "20261122053900_ml_predictions_created_at_index";
 const indexName = "idx_ml_predictions_log_created_at_id";
 
 function normalizeSql(sql: string): string {
@@ -11,14 +12,18 @@ function normalizeSql(sql: string): string {
     .trim();
 }
 
+function readSqlFile(directory: "migrations" | "rollbacks", file: string): string {
+  return readFileSync(path.join(process.cwd(), "supabase", directory, `${file}.sql`), "utf8");
+}
+
 function readSql(directory: "migrations" | "rollbacks", file: string): string {
-  return normalizeSql(
-    readFileSync(path.join(process.cwd(), "supabase", directory, `${file}.sql`), "utf8"),
-  );
+  return normalizeSql(readSqlFile(directory, file));
 }
 
 const migration = readSql("migrations", filename);
+const indexMigration = readSql("migrations", indexFilename);
 const rollback = readSql("rollbacks", `${filename}_rollback`);
+const indexRollback = readSql("rollbacks", `${indexFilename}_rollback`);
 const original = readSql(
   "migrations",
   "20260808210000_exempt_trusted_applications_from_ml_retention",
@@ -27,12 +32,19 @@ const flagCheck = "IF current_setting('app.ml_predictions_keyset_cleanup_enabled
 const keysetPath = migration.slice(migration.indexOf(flagCheck), migration.indexOf(" ELSE LOOP"));
 
 describe("ML predictions retention migration", () => {
-  it("builds a valid index in seek order outside the function transaction", () => {
-    expect(migration.startsWith(normalizeSql(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS ${indexName}
-        ON public.ml_predictions_log (created_at, id);
-      BEGIN;
-    `))).toBe(true);
+  it("keeps the concurrent index build alone for manual execution outside a transaction", () => {
+    const indexHeader = readSqlFile("migrations", indexFilename).split("CREATE INDEX")[0];
+    expect(indexHeader).toContain("Apply this statement alone with psql -c outside a transaction.");
+    expect(indexHeader).toContain("Do not apply it with supabase db push");
+    expect(indexHeader).toContain("supabase migration repair --linked --status applied 20261122053900");
+    expect(indexMigration).toBe(
+      normalizeSql(`
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS ${indexName}
+          ON public.ml_predictions_log (created_at, id);
+      `),
+    );
+    expect(migration.startsWith("BEGIN;")).toBe(true);
+    expect(migration).not.toContain("CREATE INDEX CONCURRENTLY");
     expect(migration).toContain(`indexrelid = 'public.${indexName}'::regclass`);
     expect(migration).toContain("AND indisvalid");
   });
@@ -98,7 +110,7 @@ describe("ML predictions retention migration", () => {
     expect(migration).toContain("RETURN deleted_count;");
   });
 
-  it("restores the prior function and grants before dropping the new index", () => {
+  it("restores the prior function and grants in a transaction", () => {
     const originalFunction = original.match(
       /CREATE OR REPLACE FUNCTION .*?GRANT EXECUTE ON FUNCTION cleanup_old_ml_predictions\(\) TO service_role;/,
     )?.[0];
@@ -106,8 +118,14 @@ describe("ML predictions retention migration", () => {
       "FUNCTION cleanup_old_ml_predictions()",
       "FUNCTION public.cleanup_old_ml_predictions()",
     );
-    expect(rollback).toBe(
-      `BEGIN; ${qualifiedFunction} COMMIT; DROP INDEX CONCURRENTLY IF EXISTS public.${indexName};`,
-    );
+    expect(rollback).toBe(`BEGIN; ${qualifiedFunction} COMMIT;`);
+    expect(rollback).not.toContain("DROP INDEX");
+  });
+
+  it("keeps the concurrent index drop alone for manual execution outside a transaction", () => {
+    const rollbackHeader = readSqlFile("rollbacks", `${indexFilename}_rollback`).split("DROP INDEX")[0];
+    expect(rollbackHeader).toContain("Apply this statement alone with psql -c outside a transaction.");
+    expect(indexRollback).toContain("DROP INDEX CONCURRENTLY IF EXISTS public.");
+    expect(indexRollback).toBe(`DROP INDEX CONCURRENTLY IF EXISTS public.${indexName};`);
   });
 });

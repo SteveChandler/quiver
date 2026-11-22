@@ -50,5 +50,3 @@ REVOKE ALL ON FUNCTION public.cleanup_old_ml_predictions() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.cleanup_old_ml_predictions() TO service_role;
 
 COMMIT;
-
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_ml_predictions_log_created_at_id;

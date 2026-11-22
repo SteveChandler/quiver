@@ -1,7 +1,3 @@
--- Build outside the transaction so forecast writes can continue during the scan.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ml_predictions_log_created_at_id
-  ON public.ml_predictions_log (created_at, id);
-
 BEGIN;
 
 -- A failed concurrent build can leave an invalid index that IF NOT EXISTS skips.
