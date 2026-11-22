@@ -1,5 +1,6 @@
 import {
   getCityTideData,
+  getCityIntentDataAvailability,
   getCityWaterTempHistory,
   getIntentForecastSummary,
   CityTideData,
@@ -32,23 +33,31 @@ jest.mock("@/lib/recommendations/selection", () => ({
 
 describe("getCityTideData", () => {
   let mockSupabase: any;
+  let lookupBeaches: jest.Mock;
+  let filterBeaches: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     mockSupabase = {
-      from: jest.fn().mockReturnThis(),
+      from: jest.fn((table: string) => table === "beaches"
+        ? { select: () => Object.assign(lookupBeaches(), { ilike: filterBeaches }) }
+        : mockSupabase),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       in: jest.fn().mockReturnThis(),
       ilike: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockReturnThis(),
-      single: jest.fn(),
+      limit: jest.fn(),
       gte: jest.fn().mockReturnThis(),
       lt: jest.fn().mockReturnThis(),
       not: jest.fn().mockReturnThis(),
     };
+    lookupBeaches = jest.fn().mockResolvedValue({
+      data: [{ id: "other-beach", name: "Other Beach" }, { id: "beach-123", name: "La Jolla Shores" }],
+      error: null,
+    });
+    filterBeaches = jest.fn().mockReturnThis();
 
     (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(
       mockSupabase
@@ -272,23 +281,52 @@ describe("getCityTideData", () => {
   });
 
   it("returns null when no beaches found in city", async () => {
-    mockSupabase.single.mockResolvedValue({
-      data: null,
-      error: { message: "No rows found" },
-    });
+    lookupBeaches.mockResolvedValue({ data: [], error: null });
 
     const result = await getCityTideData("Nonexistent City", "CA");
     expect(result).toBeNull();
+    expect(mockSupabase.from.mock.calls).toEqual([["beaches"], ["beaches"]]);
   });
 
   it("returns null when no forecast data exists", async () => {
-    mockSupabase.single.mockResolvedValue({
-      data: null,
-      error: { message: "No data" },
-    });
+    mockSupabase.limit.mockResolvedValue({ data: [], error: null });
 
     const result = await getCityTideData("San Diego", "CA");
     expect(result).toBeNull();
+  });
+
+  it("retries by city when state matches have no forecasts for the UTC day", async () => {
+    jest.useFakeTimers({ now: new Date("2026-07-19T02:00:00Z") });
+    try {
+      lookupBeaches.mockResolvedValueOnce({ data: [{ id: "ca-beach" }], error: null });
+      mockSupabase.limit
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({ data: [{ beach_id: "beach-123", tide_status: "Rising" }], error: null });
+
+      expect(await getCityTideData("San Diego", "CA")).toMatchObject({
+        beachName: "La Jolla Shores", currentStatus: "Rising",
+      });
+      expect(mockSupabase.from.mock.calls).toEqual([
+        ["beaches"], ["enhanced_forecasts"], ["beaches"], ["enhanced_forecasts"],
+      ]);
+      expect(filterBeaches.mock.calls).toEqual([["city", "San Diego"], ["state", "CA"], ["city", "San Diego"]]);
+      expect(mockSupabase.in.mock.calls).toEqual([["beach_id", ["ca-beach"]], ["beach_id", ["other-beach", "beach-123"]]]);
+      expect(mockSupabase.gte.mock.calls).toEqual(Array(2).fill(["forecast_at", "2026-07-19T00:00:00Z"]));
+      expect(mockSupabase.lt.mock.calls).toEqual(Array(2).fill(["forecast_at", "2026-07-20T00:00:00Z"]));
+      expect(mockSupabase.order.mock.calls).toEqual(Array(2).fill(["forecast_at", { ascending: true }]));
+      expect(mockSupabase.limit.mock.calls).toEqual([[1], [1]]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("checks up to five city forecasts for tide availability", async () => {
+    mockSupabase.limit.mockResolvedValue({ data: [{}, { tide_status: "Rising" }], error: null });
+
+    expect(await getCityIntentDataAvailability("tide", "San Diego", "CA")).toBe("available");
+    expect(mockSupabase.from.mock.calls).toEqual([["beaches"], ["enhanced_forecasts"]]);
+    expect(mockSupabase.in).toHaveBeenCalledWith("beach_id", ["other-beach", "beach-123"]);
+    expect(mockSupabase.limit).toHaveBeenCalledWith(5);
   });
 
   it("parses tide_schedule into TidePoint array with dynamic computation", async () => {
@@ -300,8 +338,8 @@ describe("getCityTideData", () => {
       { time: nowUnix + 7200, height: 4.8, type: "high" as const },   // 2h from now
     ];
 
-    mockSupabase.single.mockResolvedValue({
-      data: {
+    mockSupabase.limit.mockResolvedValue({
+      data: [{
         beach_id: "beach-123",
         tide_status: "Rising",
         tide_height: "3.2 ft",
@@ -312,18 +350,14 @@ describe("getCityTideData", () => {
           tide_schedule: tideSchedule,
           tide_station: { id: "9410230", name: "La Jolla, CA" },
         },
-        beaches: {
-          id: "beach-123",
-          name: "La Jolla Shores",
-          city: "San Diego",
-          state: "CA",
-        },
-      },
+      }],
       error: null,
     });
 
     const result = await getCityTideData("San Diego", "CA");
 
+    expect(mockSupabase.select).toHaveBeenCalledWith(expect.stringContaining("raw_forecast"));
+    expect(mockSupabase.select).not.toHaveBeenCalledWith(expect.stringContaining("beaches"));
     expect(result).not.toBeNull();
     expect(result!.tidePoints).toHaveLength(3);
     expect(result!.tidePoints[0].isHigh).toBe(true);
@@ -341,8 +375,9 @@ describe("getCityTideData", () => {
   });
 
   it("handles missing tide_schedule gracefully (falls back to pre-computed)", async () => {
-    mockSupabase.single.mockResolvedValue({
-      data: {
+    lookupBeaches.mockResolvedValue({ data: [{ id: "beach-123", name: "Ocean Beach" }], error: null });
+    mockSupabase.limit.mockResolvedValue({
+      data: [{
         beach_id: "beach-123",
         tide_status: "Falling",
         tide_height: "2.5 ft",
@@ -350,13 +385,7 @@ describe("getCityTideData", () => {
         next_tide_type: "Low",
         next_tide_height: "0.8 ft",
         raw_forecast: null,
-        beaches: {
-          id: "beach-123",
-          name: "Ocean Beach",
-          city: "San Diego",
-          state: "CA",
-        },
-      },
+      }],
       error: null,
     });
 
