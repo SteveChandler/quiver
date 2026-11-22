@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { compactCronSummary, observedCronRun } from "@/lib/cron/observability";
+import { observedCronRun } from "@/lib/cron/observability";
 
 export interface CronOutcome {
   /** Stable id, matching the scheduled route (and phase, when applicable). */
@@ -109,7 +109,7 @@ async function persistOutcome(outcome: PersistedOutcome, client?: CronRunsClient
       legitimately_zero_reason: outcome.legitimatelyZero?.reason ?? null,
       summary: outcome.summary === undefined
         ? null
-        : compactCronSummary(outcomeSummary(outcome.summary, outcome)),
+        : outcomeSummary(outcome.summary, outcome),
       error_message: outcome.errorMessage ?? null,
     };
     const observedRun = observedCronRun.getStore();

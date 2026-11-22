@@ -8,17 +8,14 @@ function prune(days: number): string {
   return `DELETE FROM public.cron_runs WHERE id IN ( SELECT id FROM public.cron_runs WHERE started_at < now() - interval '${days} days' ORDER BY started_at LIMIT 50000 );`;
 }
 
-it("reschedules bounded 30-day pruning only when explicitly enabled", () => {
+it("reschedules the same job with bounded 30-day pruning", () => {
   const sql = readFileSync(join(process.cwd(), "supabase/migrations", `${name}.sql`), "utf8");
-  const command = sql.match(job)?.[1].replace(/\s+/g, " ");
 
-  expect(command).toContain(
-    `IF current_setting('quiver.internal_log_reduction', true) = '1' THEN ${prune(30)} ELSE ${prune(60)} END IF;`,
-  );
+  expect(sql.match(job)?.[1].trim().replace(/\s+/g, " ")).toBe(prune(30));
   expect(sql).toMatch(/^BEGIN;[\s\S]+COMMIT;\s*$/);
 });
 
-it("restores the same schedule with 60-day pruning regardless of the flag", () => {
+it("restores the same schedule with 60-day pruning", () => {
   const sql = readFileSync(join(process.cwd(), "supabase/rollbacks", `${name}_rollback.sql`), "utf8");
 
   expect(sql.match(job)?.[1].trim().replace(/\s+/g, " ")).toBe(prune(60));
