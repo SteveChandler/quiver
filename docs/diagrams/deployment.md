@@ -459,8 +459,8 @@ cd android && ./gradlew bundleRelease
       "schedule": "0,30 * * * *"
     },
     {
-      "path": "/api/cron/forecasts/refresh",
-      "schedule": "0 12 * * *"
+      "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/cron/update-user-preferences",
@@ -468,7 +468,7 @@ cd android && ./gradlew bundleRelease
     },
     {
       "path": "/api/monitoring/forecast-health",
-      "schedule": "*/30 * * * *"
+      "schedule": "12 * * * *"
     }
   ],
   "headers": [

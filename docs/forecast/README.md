@@ -63,6 +63,13 @@ thresholds, calculates coverage percentage, identifies stale beaches with
 details, categorizes issues as healthy/degraded/critical, and provides a
 data-source breakdown.
 
+By default, `/api/monitoring/forecast-health` reads the latest enhanced,
+marine, and tide forecast views one at a time. Each query filters on up to
+100 beach IDs. If a batch fails, the check reports that source as unavailable
+and discards its partial results. Set `FORECAST_HEALTH_SERIAL_SCANS=false` to
+read the three full views in parallel. The deep check at `/api/health?deep=true`
+always uses the parallel reads.
+
 #### Health monitoring API
 
 GET /api/monitoring/forecast-health returns comprehensive health metrics:
@@ -136,8 +143,8 @@ approaches are:
 
 | Job | Path | Schedule | Function |
 | --- | --- | --- | --- |
-| Forecast sync | /api/cron/enhanced-forecast-sync | Every 2 hours (0 */2 * * *) | Updates forecasts for all beaches |
-| Health check | /api/monitoring/forecast-health | Every 30 minutes, at :12 and :42 (12,42 * * * *) | Monitors freshness and logs issues |
+| Forecast sync | /api/cron/enhanced-forecast-sync-dispatch | Every 30 minutes (`0,30 * * * *`) | Updates one forecast shard per run |
+| Health check | /api/monitoring/forecast-health | Hourly at :12 (`12 * * * *`) | Monitors freshness and logs issues |
 
 ## Architecture
 
@@ -153,6 +160,7 @@ Forecast Monitoring System
              v
   checkForecastHealth()
     - Query beaches
+    - Read enhanced, marine, and tide views in beach ID batches
     - Analyze staleness
     - Calculate metrics
              |
@@ -869,7 +877,7 @@ Disable health-check cron by removing this from vercel.json:
 ~~~json
 {
   "path": "/api/monitoring/forecast-health",
-  "schedule": "12,42 * * * *"
+  "schedule": "12 * * * *"
 }
 ~~~
 
@@ -918,7 +926,7 @@ _shared.ts: runEnhancedForecastSync(request, { resolveShardFromTime: true })
 EnhancedForecastService.updateAllEnhancedForecasts()
   ├── Query beaches (missing -> stale -> by updated_at)
   ├── Select top MAX_BEACHES_PER_RUN (default: 30)
-  ├── Process in batches of BATCH_SIZE (default: 3)
+  ├── Process in batches of up to 2 beaches with write pacing on
   │   ├── Generate comprehensive forecasts
   │   ├── Store enhanced forecasts
   │   └── Wait BATCH_DELAY_MS between batches
@@ -954,10 +962,15 @@ app/api/cron/
 | Variable | Default | Description |
 | --- | --- | --- |
 | FORECAST_MAX_BEACHES_PER_RUN | 30 | Maximum beaches per cron execution |
-| FORECAST_BATCH_SIZE | 3 | Beaches processed per batch |
+| FORECAST_BATCH_SIZE | 3 | Configured beaches per batch. Write pacing caps it at 2. |
 | FORECAST_BATCH_DELAY_MS | 1000 | Delay between batches (ms) |
+| `FORECAST_WRITE_PACING` | `true` | Limits concurrent beach writes to 2 for dispatch, CDIP, and marine refresh. Set `false` to restore the old batching. |
+| `FORECAST_WRITE_CHUNK_SIZE` | 50 enhanced, 25 marine | Maximum rows per paced write. Use a positive integer. Leave unset for the defaults. |
+| `FORECAST_WRITE_DELAY_MS` | 200 | Delay between paced writes in milliseconds. The maximum is 1000. Set `0` to remove this delay. |
 | FORECAST_VERBOSE_LOGS | false | Enable detailed per-timepoint logs |
 | CRON_SECRET | - | Authentication token for manual triggers |
+
+Both write pacing settings apply only when `FORECAST_WRITE_PACING` is on.
 
 ### Authentication
 

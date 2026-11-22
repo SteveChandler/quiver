@@ -652,6 +652,19 @@ WHERE forecast_at BETWEEN current_date AND current_date + 10
 ORDER BY beach_id, forecast_at;
 ```
 
+### `posthog_export.user_events`
+
+PostHog runs an incremental warehouse sync each day at 10:20 UTC. It reads
+this view for rows with `created_at` after the last synced timestamp. The
+`idx_user_events_created_at_id` index supports this range query. The view
+exposes the full available history for backfills. It excludes mock users and
+removes the `email`, `token`, `secret`, and `password` metadata keys.
+
+The separate history importer (`yarn posthog:import:history`) uses a
+`(created_at, id)` cursor by default to read `public.user_events`. Its default
+page size is 500. Set `USER_EVENTS_KEYSET_EXPORT=false` to use offset paging
+in the importer. The flag applies only to the importer.
+
 ---
 
 ## Data Flow Diagram
@@ -743,6 +756,24 @@ SELECT cron.schedule(
   'SELECT run_database_maintenance(true, true, true, 14, 3);'
 );
 ```
+
+### `prune-cron-runs`
+
+The pg_cron job runs daily at 11:45 UTC. It deletes up to 50,000 `cron_runs`
+rows per run, oldest first, when `started_at` is more than 30 days old.
+The [rollback](../../supabase/rollbacks/20261122190007_shorten_cron_runs_retention_rollback.sql)
+restores the 60-day cutoff. Use a backup to recover rows already deleted.
+
+### `cleanup_old_ml_predictions()`
+
+The `cleanup-ml-predictions` pg_cron job calls this function daily at 05:40 UTC.
+It deletes `ml_predictions_log` rows older than 30 days. It keeps snapshots
+referenced by `trusted_forecast_applications.prediction_snapshot_id`.
+
+Set the database setting `app.ml_predictions_keyset_cleanup_enabled` to `on`
+to scan up to 10,000 candidates per page in `(created_at, id)` index order.
+Set it to `off` or leave it unset to use the original delete loop. The change
+applies to new database sessions. Both paths use a single transaction per run.
 
 ### ML Training Data Requirements
 
