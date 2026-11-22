@@ -21,6 +21,17 @@ You can run these scripts in your Supabase SQL Editor:
 - **`delete-auth-users.mjs`** - Node.js script for bulk deletion via Admin REST API
 - **`generate-apple-icons.mjs`** - Generates iOS PWA app icons from source 512x512 icon
 
+## Swell Watch closed-epoch report
+
+[`report-swell-watch-closed-epoch-components.sql`](report-swell-watch-closed-epoch-components.sql)
+lists component counts and estimated row bytes for revisions from closed study
+epochs. It excludes revisions that open or unclassified revision sets still
+use. The estimate covers row values only.
+
+Use `psql` with the command in the script header and set
+`QUIVER_SWELL_WATCH_ARCHIVE_REPORT=1` for the run. The report runs in a
+read-only transaction.
+
 ## Auth User Cleanup
 
 Scripts for safely cleaning up unused/unconfirmed auth users from Supabase.
