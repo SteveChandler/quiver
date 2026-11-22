@@ -30,6 +30,7 @@ jest.mock('@/lib/services/discovery/weekend-scout-candidate-pool', () => ({
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
+import { resetWeekScoutAnswerReuseForTests } from '@/lib/services/discovery/week-scout-answer-reuse';
 import { LOCATION_MAX_AGE_MS } from '@/lib/services/discovery/weekend-scout';
 import {
   WEEK_SCOUT_CONTRACT_BEACH_ID,
@@ -60,6 +61,8 @@ async function callRoute(body: unknown, supabase: unknown = {}) {
 
 describe('POST /api/surf/week-scout', () => {
   beforeEach(() => {
+    // Each test asks the same question with different mocks; never reuse across tests.
+    resetWeekScoutAnswerReuseForTests();
     jest.clearAllMocks();
     process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
     delete process.env.WEEK_SCOUT_SWELLS_ENABLED;

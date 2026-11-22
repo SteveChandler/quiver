@@ -259,7 +259,7 @@ export function WindCheckerClient({
                 Check live tides
               </p>
               <p className="text-xs text-[#7A8CC0] mb-2">
-                Real-time tide height and 24-hour chart for this beach
+                Predicted tide height and 24-hour chart for this beach
               </p>
               <Link
                 href="/tools/tide-clock"

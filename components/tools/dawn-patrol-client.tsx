@@ -671,7 +671,7 @@ export function DawnPatrolClient() {
                     Check live tides
                   </p>
                   <p className="text-[#7A8CC0] text-xs mt-0.5">
-                    Real-time tide height and 24-hour chart for this beach
+                    Predicted tide height and 24-hour chart for this beach
                   </p>
                 </div>
                 <Link
@@ -715,7 +715,7 @@ export function DawnPatrolClient() {
               }}
             >
               <p className="font-heading text-sm font-semibold text-white mb-1">
-                Want real-time tides too?
+                Want the tides too?
               </p>
               <p className="text-[#7A8CC0] text-xs mb-3">
                 Pair dawn patrol times with the live tide clock.

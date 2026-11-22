@@ -9,6 +9,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
+import { reuseWeekScoutAnswer, type AnswerReuse } from '@/lib/services/discovery/week-scout-answer-reuse';
 import { parseSessionTime } from '@/lib/scoring/session-time-preference';
 import {
   buildDriveRangeCandidatePool,
@@ -326,7 +327,8 @@ async function weekScoutHandler(
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
   recordStage('pool', performance.now() - poolStartedAt);
-  const forecast = await timeStage('forecast', () => generateWeekScoutForecast(user.id, {
+  tags.candidates = candidateBeachIds.length;
+  const forecastRequest = {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
     localTimezone: parsed.data.localTimezone,
@@ -338,7 +340,18 @@ async function weekScoutHandler(
       ? { requirePerRowFreshness: true }
       : {}),
     ...(swellsEnabled || storyEnabled ? { includeSwells: true } : {}),
-  }));
+  };
+  // Saved spots, location, scope and dates are all in forecastRequest; the profile key adds
+  // skill and session settings. Board and learned-preference changes wait out REUSE_MS (30 s).
+  const answerKey = createHash('sha256')
+    .update(`${user.id}|${tags.profileKey ?? ''}|${JSON.stringify(forecastRequest)}`)
+    .digest('hex');
+  const forecast = await timeStage('forecast', () => reuseWeekScoutAnswer(
+    answerKey,
+    user.id,
+    () => generateWeekScoutForecast(user.id, forecastRequest),
+    (reuse) => { tags.answerReuse = reuse; },
+  ));
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
   const unavailableStory = () => bindStory({ region: null, availability: 'unavailable', input: null, selections: null, live: forecast });
   const bindLiveStory = pendingStory ? await pendingStory : null;
@@ -430,6 +443,10 @@ type RequestTags = {
   bodyKey: string;
   profileKey?: string | null;
   locKey?: string | null;
+  /** Candidate beaches sent to the ranking; its cost grows with this count. */
+  candidates?: number;
+  /** miss = computed here; joined/hit = reused an identical answer on this instance. */
+  answerReuse?: AnswerReuse;
 };
 const requestTags = new WeakMap<object, RequestTags>();
 

@@ -71,6 +71,33 @@ describe("/api/cron/wave-stations-sync", () => {
     expect(options.failureReason(body.data.sources)).toBe("marine_ie: HTTP 503");
   });
 
+  it("keeps an AODN timeout in the latest summary without a failure reason", async () => {
+    jest.useFakeTimers({ now: Date.parse("2026-11-11T05:04:00Z"), doNotFake: ["nextTick", "setImmediate"] });
+    const warning = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      (syncLatestObservations as jest.Mock).mockImplementation(async (_db, adapter) => {
+        if (adapter.source === "aodn") throw new DOMException("deadline elapsed", "TimeoutError");
+        return { rowsSent: 5 };
+      });
+      (syncStandardHistory as jest.Mock).mockResolvedValue({ fetched: 0, notModified: 0, rowsWritten: 0, errors: [] });
+      const response = await GET(new Request("http://localhost/api/cron/wave-stations-sync?phase=latest"));
+      const body = await response.json();
+      const [options] = (withCronOutcome as jest.Mock).mock.calls[0] as [Options];
+
+      expect(response.status).toBe(200);
+      expect(body.data.sources).toContainEqual({ source: "aodn", ok: false, error: "deadline elapsed", timedOut: true });
+      expect(options.getProduced(body.data.sources)).toBe(10);
+      expect(options.failureReason(body.data.sources)).toBeNull();
+      expect(warning).toHaveBeenCalledWith("[WaveStations] aodn timed out:", "deadline elapsed");
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      warning.mockRestore();
+      error.mockRestore();
+    }
+  });
+
   it("skips sources that are not due in this quarter", async () => {
     jest.useFakeTimers({ now: Date.parse("2026-11-11T05:19:00Z"), doNotFake: ["nextTick", "setImmediate"] });
     (syncLatestObservations as jest.Mock).mockResolvedValue({ rowsSent: 1 });

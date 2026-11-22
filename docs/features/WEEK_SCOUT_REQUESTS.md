@@ -11,6 +11,7 @@ Last reviewed: 2026-11-10.
 | Explore asks for its 10 days only while the tab is visible | quiver-native#672 (replaces #671) | next iOS/Android OTA |
 | Timing log names who asked for what | quiver#1320 + quiver-native `x-quiver-update-id` header | server: Nov 9 release; app: Nov 5 OTA |
 | Answers last until the surfer's local midnight; the app asks once a day | this PR + quiver-native daily-refresh PR | server: next daily release; app: next OTA |
+| One ranking at a time per user on an instance; identical requests share one answer for 30 s | quiver `perf/week-scout-answer-reuse` | next daily release after Nov 21 |
 
 ## Why
 
@@ -36,6 +37,19 @@ deadline, and it re-marks passed windows on the phone (no request) when each win
 on every resume. A settings change that is part of the request key still asks again, because the
 question changed; a home-beach change still refreshes it. The app keeps the day's answer across
 cold starts now, because with a day-long answer most same-day launches reuse it.
+
+**Nov 21: two rankings on one instance.** The Nov 20-21 watch found warm requests at 15-29 s.
+Each was one of a pair: Home's 7 days and Explore's 10 days started less than 1 s apart (the surfer
+tapped search while Home loaded), and Vercel ran both on one instance (`inflight: 2`). The ranking
+uses 3-5 s of CPU, so each request of the pair took about twice as long. A 29 s answer passes the
+app's 25 s timeout, and the app asked again. Alone, requests took about 5.7 s.
+`lib/services/discovery/week-scout-answer-reuse.ts` now runs one ranking at a time for each user on
+an instance (that user's later request waits, at most 10 s, stage `ws-queue`; other users never
+wait). A request with the same user, inputs and profile key as one in flight joins it, and one in
+the 30 s after it ends reuses its answer (`answerReuse` on the timing line). Board and
+learned-preference changes are not in that key, and a forecast sync inside the window is not seen,
+so both can show up to 30 s late. Turn off with `WEEK_SCOUT_RANKING_QUEUE=false` and
+`WEEK_SCOUT_ANSWER_REUSE=false`.
 
 **Options we measured and rejected:**
 - Home asks for 10 days and Explore reuses it: ~5% less work per launch, but Home's Best ~30% slower.
@@ -73,6 +87,10 @@ Every Week Scout request logs one line:
 | `bodyKey` | first 8 hex of sha256 of the request body without `dayCount` (scope, filters, map bounds, origin, candidates, time zone, start date) |
 | `profileKey` | the same hash of the profile fields the ranking reads (home beach, drive range, skill, session time); null when the read failed |
 | `locKey` | the same hash of the stored phone location rounded to 2 decimals, the app's location bucket; null with no location |
+| `candidates` | the count of candidate beaches sent to the ranking, after the pool; absent on early returns |
+| `ws-read-*` stages | the parallel reads inside `ws-reads`: `forecasts`, `sun`, `context` (learned preferences), `skill`, `boards`, `tide`. They overlap, so `ws-reads` is about the largest one, not their sum |
+| `answerReuse` | `miss` = ranked here; `joined` = shared a ranking in flight; `hit` = reused one that ended in the last 30 s; `off` = reuse turned off |
+| `ws-queue` stage | time spent waiting for the same user's other ranking on the instance |
 
 Each key hashes the user id first, so keys compare only within one user and a log reader cannot recover a location. Two same-day, same-`dayCount` requests from one `user` with all three keys equal are a true repeat. A changed key names the input that changed. Current apps send only `candidateScope`, and the server reads saved spots itself, so a saved-spot change shows in no key: check `favorite_beaches.created_at` for it.
 

@@ -29,6 +29,7 @@ const baseBeach: CamBeachWithRegion = {
   thumbnail_url: "https://images.example/test-beach-cam.jpg",
   photo_url: "https://photos.example/test-beach.jpg",
   regionSlug: "southern-california",
+  playback: { kind: "inline" },
 };
 
 describe("LiveCamCard", () => {

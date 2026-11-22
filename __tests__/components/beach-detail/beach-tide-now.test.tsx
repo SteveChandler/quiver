@@ -92,6 +92,7 @@ describe("BeachTideNow with a station table", () => {
       timeZone: "Pacific/Honolulu",
       renderedAtMs: Date.parse("2026-11-15T02:25:00Z"),
       station: { name: "Haleiwa, Waialua Bay", slug: "haleiwa-waialua-bay-hi-1612668", sourceStationId: "1612668" },
+      adjustmentFt: 0,
       hourly: [],
       extremes: [
         { ts: "2026-11-14T16:26:00Z", type: "high", heightM: 0.47 },

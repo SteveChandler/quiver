@@ -233,6 +233,7 @@ describe("renderBeachSubPage static rendering", () => {
         timeZone: "Pacific/Honolulu",
         renderedAtMs: Date.now(),
         station: { name: "Haleiwa, Waialua Bay", slug: "haleiwa-waialua-bay-hi-1612668", sourceStationId: "1612668" },
+        adjustmentFt: 0,
         hourly: [],
         extremes: [
           { ts: "2026-11-14T23:27:00Z", type: "low", heightM: 0.09 },

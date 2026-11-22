@@ -451,7 +451,7 @@ export function TideClockClient() {
         imageSrc={TOOL_IMAGES["tide-clock"]}
         imageAlt="Tide pools exposed at low tide along a rocky shoreline."
         title="Tide Clock"
-        description="Real-time tide heights for any beach."
+        description="Predicted tide heights for any beach."
         headingLevel="p"
       >
         <div className="max-w-md mx-auto">

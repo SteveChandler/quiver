@@ -1,7 +1,7 @@
 import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { findLicensedCamOverride } from "@/lib/media/licensed-cam-overrides";
 
-type CamEmbedIntent =
+export type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
   | { kind: "video"; src: string }
@@ -159,5 +159,41 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
   } catch {
     // If URL parsing fails, don't render — prevents unvalidated URI injection
     return { kind: "none" };
+  }
+}
+
+/**
+ * What a viewer gets after clicking a cam: a player on the beach page, a
+ * link to the provider's own page, or no camera at all. Mirrors the branches
+ * in components/beach-detail/cams-section.tsx so the cam directory never
+ * promises playback the beach page does not give.
+ *
+ * `embedAllowed` is the iframe preflight result (see cam-embed-preflight.ts):
+ * `false` means the beach page hides the iframe; `null` (preflight could not
+ * read headers) means the beach page still tries it, so it counts as inline.
+ *
+ * YouTube resolves to inline here although the web beach page currently shows
+ * a click-out to YouTube; that card state is kept by design (quiver#1477).
+ */
+export type CamPlaybackState =
+  | { kind: "inline" }
+  | { kind: "external"; provider: string; pageUrl: string }
+  | { kind: "none" };
+
+export function getCamPlaybackState(
+  intent: CamEmbedIntent,
+  embedAllowed: boolean | null,
+): CamPlaybackState {
+  switch (intent.kind) {
+    case "external":
+      return { kind: "external", provider: intent.provider, pageUrl: intent.pageUrl };
+    case "iframe":
+      return embedAllowed === false ? { kind: "none" } : { kind: "inline" };
+    case "hls":
+    case "video":
+    case "hdontap":
+      return { kind: "inline" };
+    case "none":
+      return { kind: "none" };
   }
 }

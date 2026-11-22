@@ -306,8 +306,8 @@ export interface SwellOutlookDeps {
   hasFirstSightingAlert: (userId: string, eventKeys: string[]) => Promise<boolean>;
   assessSwellRarity: (profile: SwellAlertProfile, swell: OutlookSwell, now: Date) => Promise<boolean>;
   loadSurfWindow?: (profile: SwellAlertProfile, event: SwellWindowEvent, now: Date) => Promise<TideAwareWindowResult>;
-  /** Official hazard at the lead beach for the push text; null when none or the lookup fails. */
-  loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date) => Promise<FirstSightingHazard | null>;
+  /** Official hazard at the lead beach while the swell is in the water, for the push text; null when none or the lookup fails. */
+  loadFirstSightingHazard?: (beachId: string, timezone: string, now: Date, span: SwellSpan) => Promise<FirstSightingHazard | null>;
   /** Km from the resolved location or home anchor, to each beach; empty when neither is known. */
   loadBeachDistancesKm?: (profile: SwellAlertProfile, beachIds: readonly string[]) => Promise<ReadonlyMap<string, number>>;
 }
@@ -666,11 +666,40 @@ async function loadBeachDistancesKm(
   }));
 }
 
+/** From the swell's arrival (or peak) to its fade (or peak): the days a hazard line in the push speaks for. */
+export interface SwellSpan {
+  startsAt: string;
+  endsAt: string;
+}
+
+/**
+ * The push's hazard: in effect now, and in effect while the swell is in the water. A rip current statement that ends
+ * before a swell five days out arrives says nothing about that swell.
+ */
+export function firstSightingHazardFrom(
+  advisories: readonly OfficialSwellAdvisoryEvidence[],
+  beachId: string,
+  now: Date,
+  span: SwellSpan,
+): FirstSightingHazard | null {
+  const spanStart = Date.parse(span.startsAt);
+  const spanEnd = Date.parse(span.endsAt);
+  const during = advisories.filter((advisory) => Date.parse(advisory.startsAt) <= spanEnd && Date.parse(advisory.endsAt) >= spanStart);
+  const inEffect = (kind: FirstSightingHazard): boolean => validOfficialEvidenceRefs(
+    during.filter((advisory) => advisory.kind === kind), beachId, now,
+  ).length > 0;
+  if (inEffect("tropical_cyclone")) return "tropical_cyclone";
+  if (inEffect("high_surf")) return "high_surf";
+  if (inEffect("high_rip_current")) return "high_rip_current";
+  return null;
+}
+
 async function loadFirstSightingHazard(
   client: SupabaseClient,
   beachId: string,
   timezone: string,
   now: Date,
+  span: SwellSpan,
   loadNws: LoadNwsAdvisories = loadNwsSwellAdvisories,
 ): Promise<FirstSightingHazard | null> {
   const { data: beach, error } = await client
@@ -683,14 +712,7 @@ async function loadFirstSightingHazard(
     loadOfficialSwellAdvisories({ supabase: client, beachId, timezone, now }),
     loadNws({ zone: (beach as { nws_forecast_zone?: string | null } | null)?.nws_forecast_zone, beachId, now }),
   ]);
-  const advisories = [...ledger, ...nws];
-  const inEffect = (kind: FirstSightingHazard): boolean => validOfficialEvidenceRefs(
-    advisories.filter((advisory) => advisory.kind === kind), beachId, now,
-  ).length > 0;
-  if (inEffect("tropical_cyclone")) return "tropical_cyclone";
-  if (inEffect("high_surf")) return "high_surf";
-  if (inEffect("high_rip_current")) return "high_rip_current";
-  return null;
+  return firstSightingHazardFrom([...ledger, ...nws], beachId, now, span);
 }
 
 function validOfficialEvidenceRefs(
@@ -1263,7 +1285,7 @@ function defaultDependencies(args: {
     loadSurfWindow: args.deps?.loadSurfWindow
       ?? ((profile, event, now) => loadSurfWindow(getClient(), firstSightingTideCache, profile, event, now)),
     loadFirstSightingHazard: args.deps?.loadFirstSightingHazard
-      ?? ((beachId, timezone, now) => loadFirstSightingHazard(getClient(), beachId, timezone, now, hazardRun.loadNws)),
+      ?? ((beachId, timezone, now, span) => loadFirstSightingHazard(getClient(), beachId, timezone, now, span, hazardRun.loadNws)),
     loadBeachDistancesKm: args.deps?.loadBeachDistancesKm
       ?? ((profile, beachIds) => loadBeachDistancesKm(getClient(), profile, beachIds)),
     isStoryPushEnabled: args.deps?.isStoryPushEnabled ?? isSwellStoryPushEnabled,
@@ -1697,7 +1719,10 @@ async function sendFirstSighting(
     });
     let hazardLookupFailed = false;
     const hazardPromise = Promise.resolve().then(() =>
-      deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now) ?? null,
+      deps.loadFirstSightingHazard?.(swell.beach.id, profile.timezone, now, {
+        startsAt: swell.arrivalAt ?? swell.peakAt,
+        endsAt: swell.fadeAt && Date.parse(swell.fadeAt) > Date.parse(swell.peakAt) ? swell.fadeAt : swell.peakAt,
+      }) ?? null,
     ).catch((error: unknown) => {
       console.warn(`[swell-alert] First-sighting hazard lookup failed for ${swell.beach.id}:`, error);
       hazardLookupFailed = true;
@@ -1733,7 +1758,7 @@ async function sendFirstSighting(
     const told: OutlookSwell = { ...swell, ...(options ? { options } : {}) };
     const storyPush = await storyPushFor(deps, profile.id,
       { eventKey: swell.eventKey, beachId: swell.beach.id, peakAt: swell.peakAt, directionDeg: swell.directionDeg }, now,
-      // The body states the beach's own size ("Sets up to N ft"), so the sentence states none.
+      // The body states the beach's own size ("Sets to N ft"), so the sentence states none.
       { withoutSize: true });
     const payload = buildFirstSightingPayload({ swell: told, timezone: profile.timezone, hazard, surfWindow,
       anchorSource: profile.anchorSource, now, ...(storyPush ? { storyPush } : {}) });

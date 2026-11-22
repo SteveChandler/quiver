@@ -64,8 +64,10 @@ export function TidePageContent({
 
   // An empty series shows nothing rather than "no data" boxes.
   const view = tideData.view && tideData.view.extremes.length > 0 ? tideData.view : null;
+  // Same wording as the station page (lib/tide-stations/copy.ts), so both pages explain the same height.
+  const adjustment = view && view.adjustmentFt !== 0 ? `, plus Quiver's +${view.adjustmentFt.toFixed(1)} ft sea-level adjustment` : "";
   const sourceLine = view
-    ? `Predicted tides from ${view.station ? `the NOAA gauge at ${view.station.name}` : "NOAA"}. Times are local (${formatZoneOffset(view.renderedAtMs, view.timeZone)}). Not live water levels.`
+    ? `Predicted tides from ${view.station ? `the NOAA gauge at ${view.station.name}` : "NOAA"}${adjustment}. Times are local (${formatZoneOffset(view.renderedAtMs, view.timeZone)}). Not live water levels.`
     : null;
 
   return (
@@ -86,7 +88,24 @@ export function TidePageContent({
             <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-[#11100D] md:text-4xl">
               {pageContent.heading}
             </h1>
-            {sourceLine && <p className="mt-3 text-sm leading-relaxed text-[#11100D]/75">{sourceLine}</p>}
+            {sourceLine && (
+              <p className="mt-3 text-sm leading-relaxed text-[#11100D]/75" data-testid="city-tide-source">
+                {sourceLine}
+                {view?.station && (
+                  <>
+                    {" "}
+                    <a
+                      href={`https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=${encodeURIComponent(view.station.sourceStationId)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-[#AA4918] underline underline-offset-2"
+                    >
+                      NOAA&apos;s own predictions for {view.station.sourceStationId} →
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
             <p className="mt-3 text-base leading-relaxed text-[#11100D]/85">{pageContent.intro}</p>
           </header>
 

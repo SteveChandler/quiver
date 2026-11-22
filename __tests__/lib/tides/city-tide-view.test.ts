@@ -74,6 +74,28 @@ describe("loadStationTideView", () => {
       warn.mockRestore();
     }
   });
+
+  it("carries the station series' sea-level adjustment into the view", async () => {
+    getNoaaTideStationBySourceId.mockResolvedValue({
+      ...STATION,
+      id: "noaa:9410230",
+      source_station_id: "9410230",
+      name: "La Jolla (Scripps Institution Wharf)",
+      slug: "la-jolla-scripps-institution-wharf-ca-9410230",
+      timezone: "America/Los_Angeles",
+      station_kind: "reference",
+    });
+    getStationSeries.mockResolvedValue({
+      status: "ok",
+      hourly: [],
+      extremes: [{ ts: "2026-11-13T14:05:00Z", type: "high", heightM: 2.16 }],
+      windowStart: "2026-11-12T00:00:00Z",
+      windowEnd: "2026-11-20T00:00:00Z",
+      adjustmentFt: 1.5,
+    });
+    const view = await loadStationTideView("9410230", NOW);
+    expect(view?.adjustmentFt).toBe(1.5);
+  });
 });
 
 describe("cityTideHeadline", () => {
@@ -82,6 +104,7 @@ describe("cityTideHeadline", () => {
       timeZone: "Pacific/Honolulu",
       renderedAtMs: NOW,
       station: null,
+      adjustmentFt: 0,
       hourly: [],
       extremes: [
         { ts: "2026-11-13T02:19:00Z", type: "high", heightM: 0.14 },
