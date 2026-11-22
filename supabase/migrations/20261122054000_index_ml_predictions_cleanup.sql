@@ -5,11 +5,11 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_index
-    WHERE indexrelid = 'public.idx_ml_predictions_log_created_at_id'::regclass
+    WHERE indexrelid = to_regclass('public.idx_ml_predictions_log_created_at_id')
       AND indrelid = 'public.ml_predictions_log'::regclass
       AND indisvalid
   ) THEN
-    RAISE EXCEPTION 'Drop the invalid idx_ml_predictions_log_created_at_id index before retrying';
+    RAISE EXCEPTION 'Index public.idx_ml_predictions_log_created_at_id is missing or invalid';
   END IF;
 END;
 $$;

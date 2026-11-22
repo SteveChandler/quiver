@@ -32,21 +32,38 @@ const flagCheck = "IF current_setting('app.ml_predictions_keyset_cleanup_enabled
 const keysetPath = migration.slice(migration.indexOf(flagCheck), migration.indexOf(" ELSE LOOP"));
 
 describe("ML predictions retention migration", () => {
-  it("keeps the concurrent index build alone for manual execution outside a transaction", () => {
-    const indexHeader = readSqlFile("migrations", indexFilename).split("CREATE INDEX")[0];
-    expect(indexHeader).toContain("Apply this statement alone with psql -c outside a transaction.");
-    expect(indexHeader).toContain("Do not apply it with supabase db push");
-    expect(indexHeader).toContain("supabase migration repair --linked --status applied 20261122053900");
+  it("builds the index in seek order and can replay inside a transaction", () => {
+    expect(readSqlFile("migrations", indexFilename)).toContain(
+      `-- CREATE INDEX CONCURRENTLY IF NOT EXISTS ${indexName}`,
+    );
     expect(indexMigration).toBe(
       normalizeSql(`
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS ${indexName}
+        BEGIN;
+        CREATE INDEX IF NOT EXISTS ${indexName}
           ON public.ml_predictions_log (created_at, id);
+        COMMIT;
       `),
     );
-    expect(migration.startsWith("BEGIN;")).toBe(true);
-    expect(migration).not.toContain("CREATE INDEX CONCURRENTLY");
-    expect(migration).toContain(`indexrelid = 'public.${indexName}'::regclass`);
-    expect(migration).toContain("AND indisvalid");
+  });
+
+  it("reports missing and invalid indexes before replacing the function", () => {
+    expect(migration.startsWith(normalizeSql(`
+      BEGIN;
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_catalog.pg_index
+          WHERE indexrelid = to_regclass('public.${indexName}')
+            AND indrelid = 'public.ml_predictions_log'::regclass
+            AND indisvalid
+        ) THEN
+          RAISE EXCEPTION 'Index public.${indexName} is missing or invalid';
+        END IF;
+      END;
+      $$;
+      CREATE OR REPLACE FUNCTION public.cleanup_old_ml_predictions()
+    `))).toBe(true);
+    expect(migration).not.toContain("CREATE INDEX");
   });
 
   it("keeps the existing cleanup as the default and preserves function privileges", () => {
@@ -122,10 +139,10 @@ describe("ML predictions retention migration", () => {
     expect(rollback).not.toContain("DROP INDEX");
   });
 
-  it("keeps the concurrent index drop alone for manual execution outside a transaction", () => {
-    const rollbackHeader = readSqlFile("rollbacks", `${indexFilename}_rollback`).split("DROP INDEX")[0];
-    expect(rollbackHeader).toContain("Apply this statement alone with psql -c outside a transaction.");
-    expect(indexRollback).toContain("DROP INDEX CONCURRENTLY IF EXISTS public.");
-    expect(indexRollback).toBe(`DROP INDEX CONCURRENTLY IF EXISTS public.${indexName};`);
+  it("drops the index in a transaction and documents the concurrent production option", () => {
+    expect(readSqlFile("rollbacks", `${indexFilename}_rollback`)).toContain(
+      `-- DROP INDEX CONCURRENTLY IF EXISTS public.${indexName};`,
+    );
+    expect(indexRollback).toBe(`BEGIN; DROP INDEX IF EXISTS public.${indexName}; COMMIT;`);
   });
 });
