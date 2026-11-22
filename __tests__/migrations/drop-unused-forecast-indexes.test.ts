@@ -24,11 +24,12 @@ function readSql(directory: "migrations" | "rollbacks", name: string): string {
 }
 
 describe.each(indexes)("$name", ({ name, migration, original }) => {
-  it("drops one index concurrently after the Run 2 release hold", () => {
+  it("drops one index in a replayable transaction after the Run 2 release hold", () => {
     const sql = readSql("migrations", migration);
-    expect(sql).toMatch(/^-- pg-delta: transaction=false\n-- Apply after the Nov 28 hybrid-gate Run 2 scores\./);
-    expect(sql.replace(/^--[^\n]*\n/gm, "").trim()).toBe(
-      `DROP INDEX CONCURRENTLY IF EXISTS public.${name};`
+    expect(sql).toMatch(/^-- Apply after the Nov 28 hybrid-gate Run 2 scores\./);
+    expect(sql).toContain(`-- DROP INDEX CONCURRENTLY IF EXISTS public.${name};`);
+    expect(sql.replace(/^--[^\n]*\n/gm, "").replace(/\s+/g, " ").trim()).toBe(
+      `BEGIN; DROP INDEX IF EXISTS public.${name}; COMMIT;`
     );
   });
 
