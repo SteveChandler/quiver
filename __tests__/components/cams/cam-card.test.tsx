@@ -187,3 +187,14 @@ describe("CamCard", () => {
    expect(screen.queryByText("Cannon Beach")).not.toBeInTheDocument();
    expect(screen.getByText("Test Beach")).toBeInTheDocument();
  });
+
+it("walks the hero image chain to the beach photo before showing no preview", () => {
+  render(<CamsHeroContactSheet beaches={[{ ...baseBeach, thumbnail_url: null }]} label="Featured cameras" />);
+  fireEvent.error(screen.getByAltText("Test Beach surf cam preview"));
+  expect(screen.getByAltText("Test Beach surf cam preview")).toHaveAttribute(
+    "src",
+    "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Ftest-beach.jpg",
+  );
+  fireEvent.error(screen.getByAltText("Test Beach surf cam preview"));
+  expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
+});

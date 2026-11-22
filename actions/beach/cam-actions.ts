@@ -179,7 +179,7 @@ export const getBeachesWithCameras = unstable_cache(
       state: beach.state,
       camera_url: beach.camera_url,
       thumbnail_url: beach.thumbnail_url,
-      photo_url: beach.photo_url ?? sourcedCamBeachPhotos[beach.id] ?? null,
+      photo_url: beach.photo_url || sourcedCamBeachPhotos[beach.id] || null,
       regionSlug: beach.regionSlug,
       playback: playbackById.get(beach.id) ?? { kind: "none" },
     }));

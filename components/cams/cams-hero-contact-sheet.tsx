@@ -19,9 +19,10 @@ export function CamsHeroContactSheet({
   beaches,
   label,
 }: CamsHeroContactSheetProps): ReactElement | null {
-  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
+  // Failed image count per beach; each error moves to the next URL in the chain, as CamCard does.
+  const [failedImages, setFailedImages] = useState<Map<string, number>>(() => new Map());
   const featuredBeaches = beaches.filter(isLiveCamBeach).slice(0, 3).map((beach) => {
-    const [imageUrl] = getDisplayCamThumbnailUrls(
+    const imageUrls = getDisplayCamThumbnailUrls(
       {
         cameraUrl: beach.camera_url,
         thumbnailUrl: beach.thumbnail_url,
@@ -31,7 +32,7 @@ export function CamsHeroContactSheet({
 
     return {
       ...beach,
-      imageUrl,
+      imageUrl: imageUrls[failedImages.get(beach.id) ?? 0] ?? null,
     };
   });
 
@@ -54,10 +55,15 @@ export function CamsHeroContactSheet({
                   : "halftone-photo relative aspect-[16/7] overflow-hidden border-2 border-[#11100D] bg-[#0D1020]"
               }
             >
-              {beach.imageUrl && !failedImages.has(beach.id) ? (
+              {beach.imageUrl ? (
                 <Image
+                  key={beach.imageUrl}
                   src={beach.imageUrl}
-                  onError={() => setFailedImages((current) => new Set(current).add(beach.id))}
+                  onError={() =>
+                    setFailedImages((current) =>
+                      new Map(current).set(beach.id, (current.get(beach.id) ?? 0) + 1),
+                    )
+                  }
                   alt={`${beach.name} surf cam preview`}
                   fill
                   className="object-cover"
