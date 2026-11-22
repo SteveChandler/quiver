@@ -181,12 +181,16 @@ describe("getBatchFreshForecastsFromCache", () => {
   ];
 
   let getBatchFreshForecastsFromCache: typeof import("@/lib/utils/forecast-service-utils").getBatchFreshForecastsFromCache;
+  let getNearbyForecastsFromCache: typeof import("@/lib/utils/forecast-service-utils").getNearbyForecastsFromCache;
   let latestBatchResult: QueryResult<Array<{ beach_id: string; updated_at: string; data_source: string | null }>>;
   let forecastsBatchResult: QueryResult<any[]>;
   let forecastPageResults: QueryResult<any[]>[];
   let forecastRangeCalls: Array<[number, number]>;
   let enhancedForecastsQueried: boolean;
   let latestViewQueried: boolean;
+  let selectForecastColumns: jest.Mock<(columns: string) => unknown>;
+  let filterForecastSources: jest.Mock<(filters: string) => unknown>;
+  let forecastBounds: string[];
 
   beforeEach(async () => {
     jest.useFakeTimers();
@@ -200,6 +204,8 @@ describe("getBatchFreshForecastsFromCache", () => {
     forecastRangeCalls = [];
     enhancedForecastsQueried = false;
     latestViewQueried = false;
+    forecastBounds = [];
+    filterForecastSources = jest.fn();
 
     jest.doMock("@/lib/supabase/server", () => ({
       createSupabaseServiceRoleClient: jest.fn(async () => ({
@@ -216,25 +222,25 @@ describe("getBatchFreshForecastsFromCache", () => {
           }
 
           if (table === "enhanced_forecasts") {
-            return {
-              select: jest.fn(() => ({
-                in: jest.fn(() => ({
-                  gte: jest.fn(() => ({
-                    lt: jest.fn(() => ({
-                      order: jest.fn(() => ({
-                        order: jest.fn(() => ({
-                          range: jest.fn(async (from: number, to: number) => {
-                            enhancedForecastsQueried = true;
-                            forecastRangeCalls.push([from, to]);
-                            return forecastPageResults.shift() ?? forecastsBatchResult;
-                          }),
-                        })),
-                      })),
-                    })),
-                  })),
-                })),
-              })),
+            const query = {
+              in: jest.fn().mockReturnThis(),
+              gte: (_column: string, value: string) => {
+                forecastBounds.push(value);
+                return query;
+              },
+              lt: (_column: string, value: string) => {
+                forecastBounds.push(value);
+                return query;
+              },
+              or: filterForecastSources.mockReturnThis(),
+              order: jest.fn().mockReturnThis(),
+              range: async (from: number, to: number) => {
+                enhancedForecastsQueried = true;
+                forecastRangeCalls.push([from, to]);
+                return forecastPageResults.shift() ?? forecastsBatchResult;
+              },
             };
+            return { select: selectForecastColumns.mockReturnValue(query) };
           }
 
           throw new Error(`Unexpected table: ${table}`);
@@ -242,11 +248,52 @@ describe("getBatchFreshForecastsFromCache", () => {
       })),
     }));
 
-    ({ getBatchFreshForecastsFromCache } = await import("@/lib/utils/forecast-service-utils"));
+    selectForecastColumns = jest.fn();
+    ({ getBatchFreshForecastsFromCache, getNearbyForecastsFromCache } =
+      await import("@/lib/utils/forecast-service-utils"));
   });
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it.each([
+    [undefined, true],
+    ["false", false],
+  ])("projects only nearby fields when PUBLIC_READ_SHARING=%s", async (flag, narrow) => {
+    const original = process.env.PUBLIC_READ_SHARING;
+    try {
+      if (flag === undefined) delete process.env.PUBLIC_READ_SHARING;
+      else process.env.PUBLIC_READ_SHARING = flag;
+      const beachId = BEACH_IDS[0];
+      const updatedAt = new Date().toISOString();
+      latestBatchResult = { data: [{ beach_id: beachId, updated_at: updatedAt, data_source: "OPEN_METEO" }], error: null };
+      const row = { beach_id: beachId, updated_at: updatedAt, forecast_at: updatedAt, wave_height: "3 ft" };
+      forecastPageResults = [
+        { data: Array.from({ length: 1000 }, () => row), error: null },
+        { data: [{ ...row, wave_height: "4 ft" }], error: null },
+      ];
+
+      const result = await getNearbyForecastsFromCache([beachId]);
+      expect(result.get(beachId)?.forecasts.at(-1)?.wave_height).toBe("4 ft");
+      expect(forecastRangeCalls).toEqual([[0, 999], [1000, 1999]]);
+      expect(forecastBounds.slice(0, 2)).toEqual(["2026-01-04T00:00:00Z", "2026-01-07T00:00:00Z"]);
+      expect(selectForecastColumns).toHaveBeenCalledWith(narrow
+        ? "beach_id,forecast_at,data_source,updated_at,om_fetched_at,wave_height,wave_period,swell_1_period,wind_speed,tide_height,tide_status"
+        : "*");
+      expect(filterForecastSources.mock.calls).toEqual(narrow
+        ? Array.from({ length: 2 }, () => ["data_source.is.null,data_source.neq.FALLBACK"])
+        : []);
+
+      selectForecastColumns.mockClear();
+      filterForecastSources.mockClear();
+      await getBatchFreshForecastsFromCache([beachId], 24);
+      expect(selectForecastColumns).toHaveBeenCalledWith("*");
+      expect(filterForecastSources).not.toHaveBeenCalled();
+    } finally {
+      if (original === undefined) delete process.env.PUBLIC_READ_SHARING;
+      else process.env.PUBLIC_READ_SHARING = original;
+    }
   });
 
   it("returns empty map for empty beach ID array input", async () => {

@@ -4,7 +4,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, readLatestCountyRun } from "@/lib/services/water-quality/current-status";
 import { resolveCountyGeneralAdvisory } from "@/lib/services/county-beach-advisories/general-streak";
 import { insideCountyFeed, readBeachPoints } from "@/lib/services/water-quality/county-coverage";
 import {
@@ -24,6 +24,7 @@ import {
 } from "@/lib/services/county-beach-advisories/types";
 
 import {
+  canShareLatestCountyRun,
   memoizedBeachRowsRead,
   memoizedWaterQualityRead,
   type WaterQualityReadResult,
@@ -288,6 +289,30 @@ function moreSevereWaterQualityStatus(
   return "advisory";
 }
 
+async function readLatestCompletedCountyRun(
+  client: WaterQualityHoldClient,
+  runQuery: WaterQualityQuery,
+): Promise<WaterQualityReadResult> {
+  if (canShareLatestCountyRun()) {
+    const latest = await readLatestCountyRun(client).catch(() => null);
+    if (latest && !latest.error && Array.isArray(latest.data) &&
+      (latest.data.length === 0 ||
+        (latest.data.length === 1 && latest.data[0]?.status === "completed"))) {
+      return latest;
+    }
+  }
+  // A failed or in-progress latest run must not replace the last completed run for holds.
+  return memoizedWaterQualityRead(
+    client,
+    `county_beach_advisory_runs|${COUNTY_LIVE_RUN_SELECT}|completed|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
+    () => runQuery
+      .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+      .eq("status", "completed")
+      .order("fetched_at", { ascending: false })
+      .limit(1),
+  );
+}
+
 async function resolveCountyLiveHolds(
   client: WaterQualityHoldClient,
   requestedBeachIds: readonly string[],
@@ -299,15 +324,7 @@ async function resolveCountyLiveHolds(
   if (!supportsCountyRunQuery(runQuery)) {
     return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
-  const { data: runData, error: runError } = await memoizedWaterQualityRead(
-    client,
-    `county_beach_advisory_runs|${COUNTY_LIVE_RUN_SELECT}|completed|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
-    () => runQuery
-      .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
-      .eq("status", "completed")
-      .order("fetched_at", { ascending: false })
-      .limit(1),
-  );
+  const { data: runData, error: runError } = await readLatestCompletedCountyRun(client, runQuery);
   if (runError !== null && runError !== undefined) {
     return emptyCountyResolution("unresolved", "county-live:run-query-error");
   }

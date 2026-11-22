@@ -14,11 +14,23 @@ import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-h
 import {
   memoizedBeachRowsRead,
   memoizedWaterQualityRead,
+  type WaterQualityReadResult,
 } from "@/lib/recommendations/major-event-hold/read-scope";
 import { insideCountyFeed, readBeachPoints, type BeachPoint } from "./county-coverage";
 
 const RUN_SELECT = "id, status, source_identifier, fetched_at, advisory_count, closure_count, warning_count";
 const NOTICE_SELECT = "beach_id, source_site_identifier, advisory_type, county_latitude, county_longitude";
+
+export function readLatestCountyRun(client: WaterQualityHoldClient): Promise<WaterQualityReadResult> {
+  return memoizedWaterQualityRead(
+    client,
+    `county_beach_advisory_runs|${RUN_SELECT}|latest|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
+    () => client.from("county_beach_advisory_runs")
+      .select(RUN_SELECT)
+      .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+      .order("fetched_at", { ascending: false }).limit(1),
+  );
+}
 
 const runSchema = z.object({
   id: z.string().uuid(), status: z.literal("completed"),
@@ -200,14 +212,7 @@ export async function currentWaterQuality<T extends SampleQualityRow>(
     if (points === null) return [...rows];
     covered = coveredIds(rows, points, options.onlyBeachIds);
     if (covered.size === 0) return [...rows];
-    const { data: runs, error } = await memoizedWaterQualityRead(
-      client,
-      `county_beach_advisory_runs|${RUN_SELECT}|latest|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
-      () => client.from("county_beach_advisory_runs")
-        .select(RUN_SELECT)
-        .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
-        .order("fetched_at", { ascending: false }).limit(1),
-    );
+    const { data: runs, error } = await readLatestCountyRun(client);
     if (error || !Array.isArray(runs) || !runs[0]) return unavailable(rows, covered);
     // Do not fall back to an earlier success after a failed/in-progress run.
     const run = runSchema.safeParse(runs[0]);

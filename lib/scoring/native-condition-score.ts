@@ -70,8 +70,12 @@ export interface NativeConditionScoreBreakdown {
   outOfBand: boolean;
 }
 
-export interface NativeScoredForecast {
-  forecast: EnhancedForecastEntity;
+type NativeForecastSlot = Pick<EnhancedForecastEntity,
+  "forecast_at" | "data_source" | "wave_height" | "wind_speed" |
+  "swell_1_period" | "wave_period" | "tide_height" | "tide_status">;
+
+export interface NativeScoredForecast<Forecast = EnhancedForecastEntity> {
+  forecast: Forecast;
   score: number;
 }
 
@@ -166,7 +170,7 @@ export function displayTideBand(beach: TideBandColumns | null | undefined): Tide
 }
 
 export function nativeScoreInputsFromForecast(
-  forecast: EnhancedForecastEntity,
+  forecast: NativeForecastSlot,
   tideBand?: TideBand | null,
 ): NativeScoreInputs {
   return {
@@ -405,11 +409,11 @@ export function scoreNativeForecastSlot(
   );
 }
 
-export function pickBestNativeForecastSlot(
-  forecasts: EnhancedForecastEntity[],
+export function pickBestNativeForecastSlot<Forecast extends NativeForecastSlot>(
+  forecasts: Forecast[],
   skillLevel?: SkillLevel | string | null,
   options: { beachTz?: string; tideBand?: TideBand | null } = {}
-): NativeScoredForecast | null {
+): NativeScoredForecast<Forecast> | null {
   const { beachTz, tideBand } = options;
   // A FALLBACK row's null wave height parses as 0 ft and would score as a
   // real flat slot.
@@ -429,7 +433,7 @@ export function pickBestNativeForecastSlot(
   const candidates = daylightForecasts.length > 0
     ? daylightForecasts
     : modelForecasts;
-  let best: NativeScoredForecast | null = null;
+  let best: NativeScoredForecast<Forecast> | null = null;
 
   for (const forecast of candidates) {
     const score = scoreNativeConditionInputs(nativeScoreInputsFromForecast(forecast, tideBand), skillLevel);
