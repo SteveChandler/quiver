@@ -47,6 +47,73 @@ interface CronObservabilityOptions<T> {
   errorMessageForResult?: (result: T) => string | null;
 }
 
+const SUMMARY_MAX_BYTES = 8192;
+// Keep ledger state and the fields referenced by the forecast and operations readers.
+const REQUIRED_SUMMARY_KEYS = new Set([
+  "cron_outcome", "lastAttemptedBeachId", "reconcilePendingBeachIds",
+  "presentation_compatibility", "reply_check", "study",
+  "status", "success", "counts", "produced", "expected", "expected_min", "expected_max",
+  "actualCoverage", "attemptedCoverage", "expectedCoverage", "enqueued", "qualification", "reason",
+]);
+const ERROR_SUMMARY_KEYS = new Set(["error", "errors", "message", "originalError", "error_message"]);
+
+function isSummaryObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+export function compactCronSummary(summary: unknown): unknown {
+  if (process.env.QUIVER_INTERNAL_LOG_REDUCTION !== "1") return summary;
+  const json = JSON.stringify(summary);
+  if (json === undefined) return summary;
+  const bytes = Buffer.byteLength(json);
+  if (bytes <= SUMMARY_MAX_BYTES) return summary;
+
+  let remainingBytes = 0;
+  let errorBytes = 1024;
+  function trimObject(value: Record<string, unknown>, depth: number): Record<string, unknown> {
+    const entries: Array<[string, unknown]> = [];
+    for (const [key, detail] of Object.entries(value)) {
+      if (REQUIRED_SUMMARY_KEYS.has(key)) {
+        entries.push([key, detail]);
+        continue;
+      }
+      const keyBytes = Buffer.byteLength(JSON.stringify(key)) + 4;
+      if (isSummaryObject(detail) && depth < 8) {
+        remainingBytes -= keyBytes;
+        const nested = trimObject(detail, depth + 1);
+        if (Object.keys(nested).length > 0) entries.push([key, nested]);
+        else remainingBytes += keyBytes;
+      } else if (!isSummaryObject(detail)) {
+        let stored = detail;
+        const isError = ERROR_SUMMARY_KEYS.has(key);
+        if (isError) {
+          if (typeof detail === "string") stored = detail.slice(0, 160);
+          if (Array.isArray(detail)) stored = detail.slice(0, 5).map((error: unknown) =>
+            typeof error === "string" ? error.slice(0, 160) : error);
+        }
+        if (!isError && remainingBytes <= 0) continue;
+        const fieldBytes = keyBytes + Buffer.byteLength(JSON.stringify(stored));
+        if (fieldBytes > 1024 || fieldBytes > (isError ? errorBytes : remainingBytes)) continue;
+        entries.push([key, stored]);
+        if (isError) errorBytes -= fieldBytes;
+        else remainingBytes -= fieldBytes;
+      }
+    }
+    return Object.fromEntries(entries);
+  }
+
+  const parsed: unknown = JSON.parse(json);
+  const marker = { truncated: true, bytes };
+  if (!isSummaryObject(parsed)) return marker;
+
+  // Reader fields such as the full tide retry list take precedence over the budget.
+  const essentials = { ...trimObject(parsed, 0), ...marker };
+  remainingBytes = SUMMARY_MAX_BYTES - Buffer.byteLength(JSON.stringify(essentials));
+  if (remainingBytes <= 0) return essentials;
+  errorBytes = 1024;
+  return { ...trimObject(parsed, 0), ...marker };
+}
+
 function extractErrorMessage(summary: unknown, statusCode: number): string {
   const fallback = `HTTP ${statusCode}`;
   if (!summary || typeof summary !== "object") return fallback;
@@ -163,8 +230,8 @@ async function finishSentryCronCheckIn(
  *   export const GET = withObservedCron("/api/cron/foo", _GET);
  *
  * On success: stores `status='ok'` (if Response.ok) or `status='error'`,
- * `duration_ms`, and the parsed JSON body as `summary` (best-effort, capped
- * at 8 KB to avoid pathological payloads). On thrown error: stores
+ * `duration_ms`, and the parsed JSON body as `summary` (best-effort, with
+ * an 8 KiB budget for summaries without larger required fields). On thrown error: stores
  * `status='error'` and `error_message`. Observability never blocks the
  * handler — ledger failures are reported with safe codes.
  */
@@ -221,13 +288,14 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
     };
     try {
       const response = await observedCronRun.run(observedRun, () => handler(request));
+      const compactSummary = process.env.QUIVER_INTERNAL_LOG_REDUCTION === "1";
 
       let summary: unknown = null;
       if (authorized || runId) {
         try {
           const cloned = response.clone();
           const text = await cloned.text();
-          if (text && text.length > 8192) {
+          if (text && text.length > SUMMARY_MAX_BYTES && !compactSummary) {
             let keys: string[] = [];
             try {
               const parsed: unknown = JSON.parse(text);
@@ -265,13 +333,15 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       } catch {
         // Some Response headers are immutable; stripping telemetry is best effort.
       }
-      if (authorized && !response.ok) {
+      const failure = response.ok ? null : extractErrorMessage(summary, response.status);
+      const errorMessage = compactSummary ? failure?.slice(0, 1024) ?? null : failure;
+      if (authorized && errorMessage !== null) {
         captureCronFailure(
           route,
-          new Error(extractErrorMessage(summary, response.status)),
+          new Error(errorMessage),
           { source: "response", statusCode: response.status },
         );
-        await recordSkippedFailure(extractErrorMessage(summary, response.status));
+        await recordSkippedFailure(errorMessage);
       }
 
       if (checkInId && monitor) {
@@ -292,13 +362,13 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
             .update({
               finished_at: new Date().toISOString(),
               duration_ms: Date.now() - start,
-              summary: summary as object | null,
+              summary: observedRun.outcome ? null : compactCronSummary(summary),
               // Keep outcome failures and counts when the route returns HTTP 200.
               ...observedRun.outcome,
               status: response.ok ? observedRun.outcome?.status ?? "ok" : "error",
               error_message: response.ok
                 ? observedRun.outcome?.error_message ?? null
-                : extractErrorMessage(summary, response.status),
+                : errorMessage,
             })
             .eq("id", runId);
         });
@@ -371,7 +441,7 @@ export async function withCronObservability<T>(
           status,
           finished_at: new Date().toISOString(),
           duration_ms: Date.now() - start,
-          summary: result as object,
+          summary: compactCronSummary(result),
           error_message:
             status === "error"
               ? options?.errorMessageForResult?.(result) ?? "Cron reported a degraded result"

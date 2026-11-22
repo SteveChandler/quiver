@@ -87,6 +87,101 @@ function makeAuthorizedRequest(): Request {
   });
 }
 
+describe("cron ledger summary compaction", () => {
+  let client: MockChain;
+
+  beforeEach(() => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      CRON_SECRET: "test-cron-secret",
+      QUIVER_INTERNAL_LOG_REDUCTION: "1",
+    });
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it("limits stored UTF-8 bytes while retaining the HTTP error and study receipt", async () => {
+    const details = {
+      error: "provider timeout",
+      enqueued: 0,
+      study: { reason: "suppressed", derivation: { version: "v1" } },
+      payload: "🌊".repeat(3000),
+    };
+    const response = errorEnvelope("Study suppressed", details, 503);
+    const handler = withObservedCron("/api/cron/swell-watch-acquire", async (_request: Request) => response);
+
+    const actual = await handler(makeAuthorizedRequest());
+
+    expect(actual).toBe(response);
+    expect(await actual.json()).toMatchObject({ details });
+    const row = client._updateMock.mock.calls.at(-1)?.[0];
+    expect(row).toMatchObject({
+      status: "error",
+      error_message: "Study suppressed: provider timeout",
+      summary: {
+        error: "Study suppressed",
+        truncated: true,
+        details: { error: "provider timeout", enqueued: 0, study: details.study },
+      },
+    });
+    expect(row?.summary?.details).not.toHaveProperty("payload");
+    expect(Buffer.byteLength(JSON.stringify(row?.summary))).toBeLessThan(8192);
+  });
+
+  it("protects every pending tide ID and the marine cursor in both outcome writes", async () => {
+    const reconcilePendingBeachIds = Array.from({ length: 300 }, (_, index) =>
+      `12345678-1234-4234-8234-${String(index).padStart(12, "0")}`);
+    const result = {
+      marineCoverage: { lastAttemptedBeachId: "marine-cursor", actualCoverage: 2 },
+      tideIngest: { reconcilePendingBeachIds },
+      detail: "x".repeat(50_000),
+    };
+    const handler = withObservedCron("/api/cron/forecasts/refresh", async (_request: Request) => {
+      const value = await withCronOutcome({
+        job: "forecast-refresh", unit: "beaches", expectedMin: 1, expectedMax: 3,
+        getProduced: (outcome) => outcome.marineCoverage.actualCoverage,
+      }, async () => result);
+      return successEnvelope(value);
+    });
+
+    const response = await handler(makeAuthorizedRequest());
+    expect(await response.json()).toMatchObject({ data: result });
+
+    const writes = client._updateMock.mock.calls.map(([row]) => row).filter((row) => row.produced === 2);
+    expect(writes).toHaveLength(2);
+    for (const row of writes) {
+      expect(row).toMatchObject({
+        status: "ok", produced: 2, expected_min: 1, expected_max: 3,
+        summary: {
+          truncated: true,
+          result: {
+            marineCoverage: { lastAttemptedBeachId: "marine-cursor", actualCoverage: 2 },
+            tideIngest: { reconcilePendingBeachIds },
+          },
+          cron_outcome: { status: "ok", produced: 2, expected_min: 1, expected_max: 3 },
+        },
+      });
+      expect(row.summary.result).not.toHaveProperty("detail");
+    }
+  });
+
+  it("compacts value-wrapper summaries only with the flag enabled", async () => {
+    const result = { queued: 3, details: "x".repeat(9000) };
+
+    await expect(withCronObservability("/api/cron/test", async () => result)).resolves.toBe(result);
+    expect(client._updateMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      summary: { queued: 3, truncated: true, bytes: Buffer.byteLength(JSON.stringify(result)) },
+    }));
+
+    delete process.env.QUIVER_INTERNAL_LOG_REDUCTION;
+    await expect(withCronObservability("/api/cron/test", async () => result)).resolves.toBe(result);
+    expect(client._updateMock).toHaveBeenLastCalledWith(expect.objectContaining({ summary: result }));
+  });
+});
+
 describe("withCronObservability", () => {
   it("records start + ok with summary on success", async () => {
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
@@ -270,9 +365,9 @@ describe("withObservedCron", () => {
     ), sentryMonitor, { skipIdleRuns: true });
 
     expect((await handler(makeAuthorizedRequest())).status).toBe(200);
-    expect(client._insertMock).toHaveBeenCalledTimes(rows);
     expect(client._updateMock).not.toHaveBeenCalled();
-    if (rows) expect(client._insertMock.mock.calls[0][0]).toMatchObject({ route: "/api/cron/test", produced });
+    const expectedInserts = rows ? [{ route: "/api/cron/test", produced }] : [];
+    expect(client._insertMock.mock.calls.map(([row]) => row)).toMatchObject(expectedInserts);
     expect(completeCronCheckIn).toHaveBeenCalledTimes(1);
   });
 
