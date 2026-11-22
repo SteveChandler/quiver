@@ -10,6 +10,18 @@ const marineLatestMock = jest.fn<() => Promise<QueryResult>>();
 const tideLatestMock = jest.fn<() => Promise<QueryResult>>();
 const sunLatestMock = jest.fn<() => Promise<QueryResult>>();
 const ioosStationsMock = jest.fn<() => Promise<QueryResult>>();
+const beachListMock = jest.fn<() => Array<{ id: string; name: string }>>();
+const latestBatchMock = jest.fn<(view: string, beachIds: string[]) => Promise<QueryResult>>();
+
+function latestQuery(view: string, readAll: () => Promise<QueryResult>) {
+  return {
+    then: (resolve: (result: QueryResult) => unknown) => readAll().then(resolve),
+    in: (column: string, beachIds: string[]) => {
+      if (column !== 'beach_id') throw new Error(`Unexpected filter: ${column}`);
+      return latestBatchMock(view, beachIds);
+    },
+  };
+}
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
@@ -18,11 +30,7 @@ jest.mock('@/lib/supabase/server', () => ({
         return {
           select: jest.fn(() =>
             Promise.resolve({
-              data: [
-                { id: 'beach-1', name: 'Beach One' },
-                { id: 'beach-2', name: 'Beach Two' },
-                { id: 'beach-3', name: 'Beach Three' },
-              ],
+              data: beachListMock(),
               error: null,
             })
           ),
@@ -31,19 +39,19 @@ jest.mock('@/lib/supabase/server', () => ({
 
       if (table === 'v_enhanced_forecast_latest') {
         return {
-          select: jest.fn(() => enhancedLatestMock()),
+          select: jest.fn(() => latestQuery(table, enhancedLatestMock)),
         };
       }
 
       if (table === 'v_marine_forecast_latest') {
         return {
-          select: jest.fn(() => marineLatestMock()),
+          select: jest.fn(() => latestQuery(table, marineLatestMock)),
         };
       }
 
       if (table === 'v_tide_forecast_latest') {
         return {
-          select: jest.fn(() => tideLatestMock()),
+          select: jest.fn(() => latestQuery(table, tideLatestMock)),
         };
       }
 
@@ -70,6 +78,12 @@ describe('Forecast Health Check', () => {
   let checkForecastHealth: typeof import('@/lib/monitoring/forecast-health-check').checkForecastHealth;
 
   beforeEach(async () => {
+    beachListMock.mockReset().mockReturnValue([
+      { id: 'beach-1', name: 'Beach One' },
+      { id: 'beach-2', name: 'Beach Two' },
+      { id: 'beach-3', name: 'Beach Three' },
+    ]);
+    latestBatchMock.mockReset();
     enhancedLatestMock.mockReset();
     marineLatestMock.mockReset();
     tideLatestMock.mockReset();
@@ -83,6 +97,80 @@ describe('Forecast Health Check', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('bounds and serializes forecast scans with the same health metrics', async () => {
+    const beaches = Array.from({ length: 101 }, (_, i) => ({ id: `beach-${i}`, name: `Beach ${i}` }));
+    beachListMock.mockReturnValue(beaches);
+    const ids = beaches.map(({ id }) => id);
+    const now = new Date().toISOString();
+    const stale = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const rows = {
+      v_enhanced_forecast_latest: ids.map((id, i) => ({
+        beach_id: id, updated_at: i === 100 ? stale : now, data_source: 'CDIP',
+      })),
+      v_marine_forecast_latest: ids.map((id, i) => ({
+        beach_id: id, created_at: now, ts: now, source: 'cdip', is_observed: i % 2 === 0,
+      })),
+      v_tide_forecast_latest: ids.slice(1).map(id => ({ beach_id: id, created_at: now, ts: now, source: 'noaa' })),
+    };
+    enhancedLatestMock.mockResolvedValue({ data: rows.v_enhanced_forecast_latest, error: null });
+    marineLatestMock.mockResolvedValue({ data: rows.v_marine_forecast_latest, error: null });
+    tideLatestMock.mockResolvedValue({ data: rows.v_tide_forecast_latest, error: null });
+    sunLatestMock.mockResolvedValue({ data: [], error: null });
+    ioosStationsMock.mockResolvedValue({ data: [], error: null });
+    let inFlight = 0;
+    let peak = 0;
+    latestBatchMock.mockImplementation(async (view, batch) => {
+      peak = Math.max(peak, ++inFlight);
+      await Promise.resolve();
+      inFlight--;
+      return { data: rows[view as keyof typeof rows].filter(row => batch.includes(row.beach_id)), error: null };
+    });
+
+    const legacy = await checkForecastHealth();
+    const serial = await checkForecastHealth({ serialScans: true });
+
+    expect(latestBatchMock.mock.calls).toEqual(Object.keys(rows).flatMap(view => [
+      [view, ids.slice(0, 100)],
+      [view, ids.slice(100)],
+    ]));
+    expect(peak).toBe(1);
+    expect(serial).toEqual(legacy);
+    expect(serial).toMatchObject({
+      healthStatus: 'critical',
+      beachesWithCriticalStaleData: 1,
+      sources: { marine: { beachesWithData: 101 }, tide: { beachesWithData: 100 } },
+    });
+  });
+
+  it('retries only the timed-out batch and marks the entire source unavailable on repeat failure', async () => {
+    const beaches = Array.from({ length: 101 }, (_, i) => ({ id: `beach-${i}`, name: `Beach ${i}` }));
+    beachListMock.mockReturnValue(beaches);
+    const now = new Date().toISOString();
+    latestBatchMock.mockImplementation(async (view, batch) => {
+      if (view === 'v_enhanced_forecast_latest' && batch.includes('beach-100')) {
+        return { data: null, error: { message: 'statement timeout' } };
+      }
+      return { data: batch.map(beach_id => ({ beach_id, updated_at: now, created_at: now })), error: null };
+    });
+    sunLatestMock.mockResolvedValue({ data: [], error: null });
+    ioosStationsMock.mockResolvedValue({ data: [], error: null });
+
+    const metrics = await checkForecastHealth({ serialScans: true });
+
+    expect(latestBatchMock.mock.calls.filter(([view]) => view === 'v_enhanced_forecast_latest')).toEqual([
+      ['v_enhanced_forecast_latest', beaches.slice(0, 100).map(({ id }) => id)],
+      ['v_enhanced_forecast_latest', ['beach-100']],
+      ['v_enhanced_forecast_latest', ['beach-100']],
+    ]);
+    expect(metrics).toMatchObject({
+      enhancedAvailable: false,
+      healthStatus: 'critical',
+      beachesWithForecasts: 0,
+      sources: { marine: { available: true }, tide: { available: true } },
+      issues: expect.arrayContaining(['Failed to fetch latest enhanced forecasts: statement timeout']),
+    });
   });
 
   it('reports full-stack health using latest-per-beach views', async () => {
