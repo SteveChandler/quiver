@@ -9,6 +9,56 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import type { Beach } from "@/types/database";
 import type { CDIPSkipReason } from "@/lib/services/cdip/types";
+import { chunk } from "@/lib/utils/chunk";
+
+type ForecastWritePacing = {
+  chunkSize: number;
+  delayMs: number;
+};
+
+export function getForecastWritePacing(defaultChunkSize: number): ForecastWritePacing | null {
+  if (process.env.FORECAST_WRITE_PACING === "false") return null;
+
+  const size = Number(process.env.FORECAST_WRITE_CHUNK_SIZE);
+  const delay = Number(process.env.FORECAST_WRITE_DELAY_MS);
+  return {
+    chunkSize: Number.isSafeInteger(size) && size > 0 ? size : defaultChunkSize,
+    delayMs: Number.isSafeInteger(delay) && delay >= 0 && delay <= 1000 ? delay : 200,
+  };
+}
+
+export function forecastWriteConcurrency(batchSize: number): number {
+  if (process.env.FORECAST_WRITE_PACING === "false") return batchSize;
+  return Number.isSafeInteger(batchSize) && batchSize > 0 ? Math.min(batchSize, 2) : 2;
+}
+
+export async function* paceForecastWriteChunks<T extends object>(
+  rows: T[],
+  pacing: ForecastWritePacing | null,
+  msRemaining: () => number,
+  legacyChunkSize = rows.length,
+): AsyncGenerator<T[]> {
+  if (!rows.length) return;
+  let first = true;
+  for (const group of chunk(rows, legacyChunkSize)) {
+    let batches = [group];
+    if (pacing && group.length > pacing.chunkSize) {
+      // PostgREST derives the written columns from the keys across the whole request.
+      // Preserve that union when a legacy batch mixes rows with optional columns.
+      const columns = new Set(group.flatMap(Object.keys));
+      const shape = Object.fromEntries(Array.from(columns, column => [column, undefined]));
+      batches = chunk(group, pacing.chunkSize).map(batch => batch.map(row => ({ ...shape, ...row })));
+    }
+    for (const batch of batches) {
+      // Finish an in-flight beach without adding idle time as the deadline approaches.
+      if (!first && pacing && pacing.delayMs > 0 && msRemaining() > pacing.delayMs) {
+        await sleep(pacing.delayMs);
+      }
+      yield batch;
+      first = false;
+    }
+  }
+}
 
 /**
  * Result of processing a single beach
@@ -219,10 +269,7 @@ export async function processBeachesInBatches(
   }
 
   // Split beaches into batches
-  const batches: Beach[][] = [];
-  for (let i = 0; i < beaches.length; i += config.batchSize) {
-    batches.push(beaches.slice(i, i + config.batchSize));
-  }
+  const batches = chunk(beaches, forecastWriteConcurrency(config.batchSize));
 
   const allResults: BeachProcessResult[] = [];
   let successCount = 0;

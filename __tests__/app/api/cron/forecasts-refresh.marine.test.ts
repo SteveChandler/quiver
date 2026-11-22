@@ -90,6 +90,47 @@ beforeEach(() => {
 });
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 
+it.each([
+  { flag: undefined, peak: 2, sizes: [1, 1] },
+  { flag: 'false', peak: 3, sizes: [2] },
+])('paces the marine cron with FORECAST_WRITE_PACING=$flag', async ({ flag, peak, sizes }) => {
+  jest.replaceProperty(process, 'env', {
+    ...process.env,
+    FORECAST_WRITE_PACING: flag,
+    FORECAST_REFRESH_BATCH_SIZE: '3',
+    FORECAST_REFRESH_BATCH_DELAY_MS: '0',
+    FORECAST_WRITE_CHUNK_SIZE: '1',
+    FORECAST_WRITE_DELAY_MS: '0',
+  });
+  let release!: (points: unknown) => void;
+  const pending = new Promise(resolve => { release = resolve; });
+  mockWind.mockReturnValue(pending);
+
+  const run = GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=3'));
+  await jest.advanceTimersByTimeAsync(0);
+  expect(mockWind).toHaveBeenCalledTimes(peak);
+  const points = ['13', '14'].map(hour => ({
+    ts: `2026-09-09T${hour}:00:00.000Z`, wind_speed_ms: 3.2, wind_direction_deg: 90,
+  }));
+  release(points);
+  const response = await run;
+
+  expect(response.status).toBe(200);
+  expect((await response.json()).data).toMatchObject({
+    totals: { marine: 6 },
+    marineCoverage: { expectedCoverage: 3, attemptedCoverage: 3, lastAttemptedBeachId: 'c' },
+  });
+  for (const beachId of beachIds) {
+    const batches = written.filter(rows => rows[0]?.beach_id === beachId);
+    expect(batches.map(rows => rows.length)).toEqual(sizes);
+    expect(batches.flat()).toEqual(points.map(point => ({
+      ...point, beach_id: beachId, created_at: now.toISOString(),
+      wave_height_m: null, wave_period_s: null, wave_direction_deg: null,
+      source: 'nws_wind', is_observed: false,
+    })));
+  }
+});
+
 it.each(['ndbc', 'cdip'])('shares the in-flight %s fetch and still writes rows for both beaches', async (provider) => {
   let release!: (value: unknown) => void;
   const pending = new Promise(resolve => { release = resolve; });

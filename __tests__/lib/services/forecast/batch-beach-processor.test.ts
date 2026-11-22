@@ -281,6 +281,36 @@ describe("processBeachesInBatches", () => {
     refreshLeadHours: 4,
   };
 
+  it.each([
+    { flag: undefined, peak: 2 },
+    { flag: "false", peak: 3 },
+  ])("bounds concurrent beach writes with FORECAST_WRITE_PACING=$flag", async ({ flag, peak }) => {
+    const env = jest.replaceProperty(process, "env", { ...process.env, FORECAST_WRITE_PACING: flag });
+    try {
+      const beaches = ["A", "B", "C"].map(name => makeBeach(name, name));
+      let release!: () => void;
+      const blocked = new Promise<void>(resolve => { release = resolve; });
+      const processBeach = jest.fn(async (beach: Beach): Promise<BeachProcessResult> => {
+        await blocked;
+        return { beach: beach.name, success: true };
+      });
+
+      const run = processBeachesInBatches({
+        beaches,
+        config: { ...defaultConfig, batchSize: 3 },
+        deadlineTracker: new DeadlineTracker(),
+        processBeach,
+      });
+      expect(processBeach).toHaveBeenCalledTimes(peak);
+      release();
+      const result = await run;
+      expect(result.results.map(row => row.beach)).toEqual(["A", "B", "C"]);
+      expect(result.summary).toMatchObject({ successful: 3, stoppedEarly: false });
+    } finally {
+      env.restore();
+    }
+  });
+
   it("processes all beaches and returns success results", async () => {
     const beaches = [makeBeach("1", "Beach A"), makeBeach("2", "Beach B"), makeBeach("3", "Beach C")];
     const processBeach = jest.fn(async (beach: Beach): Promise<BeachProcessResult> => ({
