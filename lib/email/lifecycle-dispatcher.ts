@@ -28,19 +28,6 @@ function isInvalidRecipient(error: unknown): boolean {
   return error.issues.every(issue => issue.path.join(".") === "source.email");
 }
 
-async function precheckLifecycleHolds(users: string[]): Promise<Map<string, LifecycleDecision>> {
-  if (process.env.EMAIL_LIFECYCLE_SET_PRECHECK !== "true" || users.length === 0) return new Map();
-  try {
-    const holds = z.array(lifecycleDecisionSchema.extend({ status: z.literal("held") })).max(50).parse(
-      await lifecycleRpc("precheck_email_lifecycle", { p_user_ids: users }),
-    );
-    return new Map(holds.map(decision => [decision.user_id, decision]));
-  } catch (error) {
-    Sentry.captureException(error, { tags: { component: "email-lifecycle", step: "set-precheck" } });
-    return new Map();
-  }
-}
-
 async function dispatchLifecycleUser(userId: string, candidate: LifecycleDecision): Promise<string> {
   if (!lifecycleEnabled()) return "disabled";
   if (candidate.status !== "due") return candidate.reason;
@@ -106,14 +93,12 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
     const eligibility = await refreshLifecycleEligibility();
     if (eligibility.failed > 0) errors.push(`Lifecycle eligibility refresh failed for ${eligibility.failed} user(s)`);
     if (process.env.PRO_OFFERS_ENABLED === "true") await lifecycleRpc("enroll_automatic_pro_offers");
-    // Keep known holds in the decision recording loop so the cohort still rotates.
-    const precheckedHolds = await precheckLifecycleHolds(users);
     // 50 concurrent evaluations starve each other past the 8 s statement timeout; sequentially they total ~4 s.
     // One slow user (57014) must not stall the cohort: a failed user stays null, so it is never recorded or sent.
     const dueCandidates: (LifecycleDecision | null)[] = [];
     const evaluationFailures: unknown[] = [];
     for (let offset = 0; offset < users.length; offset += 5) {
-      const results = await Promise.allSettled(users.slice(offset, offset + 5).map(async userId => precheckedHolds.get(userId) ?? lifecycleDecisionSchema.parse(
+      const results = await Promise.allSettled(users.slice(offset, offset + 5).map(async userId => lifecycleDecisionSchema.parse(
         await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }),
       )));
       for (const result of results) {
