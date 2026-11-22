@@ -13,7 +13,7 @@ jest.mock("@/lib/mailer/lifecycle-email", () => ({ LIFECYCLE_CONTENT_HASH: "hash
 jest.mock("@/lib/utils/email-rate-limiter", () => ({ createResendRateLimiter: () => ({ throttle: async () => {} }) }));
 jest.mock("@/lib/alerts/email-token", () => ({ generateEmailUnsubscribeToken: () => "token" }));
 const originalEnv = { ...process.env };
-beforeEach(() => { jest.resetAllMocks(); process.env = { ...originalEnv }; delete process.env.EMAIL_LIFECYCLE_ENABLED; delete process.env.PRO_OFFERS_ENABLED; mockRefreshEligibility.mockResolvedValue({ checked: 0, failed: 0 }); mockReplyCheck.mockResolvedValue({ checked: 4, recorded: 2 }); });
+beforeEach(() => { jest.resetAllMocks(); process.env = { ...originalEnv }; delete process.env.EMAIL_LIFECYCLE_ENABLED; delete process.env.EMAIL_LIFECYCLE_SET_PRECHECK; delete process.env.PRO_OFFERS_ENABLED; mockRefreshEligibility.mockResolvedValue({ checked: 0, failed: 0 }); mockReplyCheck.mockResolvedValue({ checked: 4, recorded: 2 }); });
 afterAll(() => { process.env = originalEnv; });
 it.each([
   [undefined, 5], ["", 5], ["0", 5], ["201", 5], ["5.5", 5], ["12", 12], ["1", 1], ["200", 200],
@@ -126,6 +126,59 @@ it.each(["email_lifecycle_cohort", "reconcile_email_lifecycle", "email_automatio
 const cohortUsers = (count: number): string[] => Array.from({ length: count }, (_, i) => `11111111-1111-4111-8111-${String(i).padStart(12, "0")}`);
 const dueDecision = (userId: string) => ({ user_id: userId, campaign_id: null, status: "due", reason: "eligible", job: "welcome", source: { email: "surfer@example.com", name: null, home_beach_id: null, sessions: 0, last_completion: null, trial_end: null } });
 const rpcUserIds = (name: string): string[] => mockRpc.mock.calls.filter(([called]) => called === name).map(([, args]) => args.p_user_id);
+
+it.each(['success', 'unavailable', 'invalid response'])("preserves send and recording order with a %s set precheck", async scenario => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
+  process.env.EMAIL_LIFECYCLE_MAX_PER_RUN = "1";
+  const users = cohortUsers(6);
+  const held = [
+    { user_id: users[0], campaign_id: "startup-lifecycle-v1", status: "held", reason: "reply_paused" },
+    { user_id: users[3], campaign_id: "startup-lifecycle-v1", status: "held", reason: "suppressed" },
+  ];
+  mockRpc.mockImplementation(async (name: string, args?: { p_user_id: string }): Promise<unknown> => {
+    if (name === "email_lifecycle_cohort") return users;
+    if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
+    if (name === "precheck_email_lifecycle") {
+      if (scenario === "unavailable") throw new Error("statement timeout");
+      return scenario === "success" ? [...held].reverse() : [dueDecision(users[5])];
+    }
+    if (name === "evaluate_email_lifecycle") {
+      if (args!.p_user_id === users[1]) return { ...dueDecision(users[1]), status: "deferred", reason: "cadence_or_quiet_hours" };
+      return held.find(decision => decision.user_id === args!.p_user_id) ?? dueDecision(args!.p_user_id);
+    }
+    if (name === "claim_email_lifecycle") {
+      if (args!.p_user_id === users[2]) return { allowed: false, reason: "daily_cap" };
+      return { allowed: true, attempt_id: args!.p_user_id, decision: dueDecision(args!.p_user_id) };
+    }
+    if (name === "email_automation_health") return { due_unsent: 0, enrollment_pending: 0 };
+    return null;
+  });
+  mockDb.mockResolvedValue({ from: () => ({
+    insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }),
+    update: () => ({ eq: async () => ({ error: null }) }),
+  }) });
+  mockSend.mockResolvedValue("accepted");
+
+  const legacy = await runEmailLifecycle(false);
+  const originalSends = [...mockSend.mock.calls];
+  expect(rpcUserIds("evaluate_email_lifecycle")).toEqual(users);
+  expect(mockRpc).not.toHaveBeenCalledWith("precheck_email_lifecycle", expect.anything());
+  jest.clearAllMocks();
+  process.env.EMAIL_LIFECYCLE_SET_PRECHECK = "true";
+
+  expect(await runEmailLifecycle(false)).toEqual(legacy);
+  expect(legacy).toMatchObject({ status: "ok", candidates: 6, accepted: 1 });
+  expect(mockRpc).toHaveBeenCalledWith("precheck_email_lifecycle", { p_user_ids: users });
+  expect(rpcUserIds("evaluate_email_lifecycle")).toEqual(scenario === "success"
+    ? [users[1], users[2], users[4], users[5]] : users);
+  expect(rpcUserIds("record_email_lifecycle_decision")).toEqual(users);
+  expect(rpcUserIds("claim_email_lifecycle")).toEqual([users[2], users[4]]);
+  expect(mockSend.mock.calls).toEqual(originalSends);
+  expect(mockSend).toHaveBeenCalledWith(users[4], expect.anything());
+  expect(mockReplyCheck).toHaveBeenCalledTimes(1);
+  expect(mockReplyCheck.mock.invocationCallOrder[0]).toBeLessThan(mockSend.mock.invocationCallOrder[0]);
+});
 
 it("skips users whose evaluation fails and still serves the rest of the cohort", async () => {
   process.env.EMAIL_LIFECYCLE_ENABLED = "true";
