@@ -10,14 +10,14 @@ function readStatement(directory: "migrations" | "rollbacks", name: string): str
     .trim();
 }
 
-it("creates a standalone concurrent index in export cursor order", () => {
+it("creates the export cursor index in a replayable transaction", () => {
   expect(readStatement("migrations", fileName)).toBe(
-    "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_events_created_at_id ON public.user_events (created_at, id);"
+    "BEGIN; CREATE INDEX IF NOT EXISTS idx_user_events_created_at_id ON public.user_events (created_at, id); COMMIT;"
   );
 });
 
-it("rolls back only the export index with a standalone concurrent drop", () => {
+it("rolls back only the export index in a replayable transaction", () => {
   expect(readStatement("rollbacks", `${fileName}_rollback`)).toBe(
-    "DROP INDEX CONCURRENTLY IF EXISTS public.idx_user_events_created_at_id;"
+    "BEGIN; DROP INDEX IF EXISTS public.idx_user_events_created_at_id; COMMIT;"
   );
 });
