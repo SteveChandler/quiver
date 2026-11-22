@@ -33,7 +33,7 @@ import * as pools from "@/lib/alerts/user-pool";
 import * as states from "@/lib/alerts/swell-outlook/state";
 import * as outlookLoader from "@/lib/services/discovery/swell-outlook-loader";
 import snapshot from "@/__tests__/fixtures/grandview-crossing-swells-20260911.json";
-import { runSwellAlertCron, type SwellAlertProfile, type SwellOutlookDeps, type PinnedSwellEvaluation } from "@/lib/cron/swell-alert-runner";
+import { firstSightingHazardFrom, runSwellAlertCron, type SwellAlertProfile, type SwellOutlookDeps, type PinnedSwellEvaluation } from "@/lib/cron/swell-alert-runner";
 import type { PushRegionStory } from "@/lib/alerts/swell-outlook/first-sighting";
 import { EMPTY_SWELL_ENGAGEMENT, type SwellEngagementState } from "@/lib/alerts/swell-outlook/engagement";
 import { EMPTY_SWELL_OUTLOOK_USER_STATE, SwellOutlookStateConflictError, type SwellOutlookStateTransition, type SwellOutlookUserState } from "@/lib/alerts/swell-outlook/state";
@@ -173,8 +173,24 @@ describe("swell alert cron: outlook users", () => {
   it("adds an official hazard at the lead beach to the push text", async () => {
     const deps = makeDeps({ loadFirstSightingHazard: jest.fn(async () => "high_rip_current" as const) });
     await runSwellAlertCron({ now: MORNING, deps: deps as never });
-    expect(deps.loadFirstSightingHazard).toHaveBeenCalledWith(HOME, expect.any(String), MORNING);
+    const swell = outlookSwell();
+    expect(deps.loadFirstSightingHazard).toHaveBeenCalledWith(HOME, expect.any(String), MORNING,
+      { startsAt: swell.arrivalAt, endsAt: swell.peakAt });
     expect(deps.enqueue.mock.calls[0][0].payload.body).toContain("NWS beach hazards statement out for rip currents.");
+  });
+
+  it("names a hazard only when it is in effect while the swell is in the water", () => {
+    const now = new Date("2026-11-21T20:24:00.000Z");
+    // The WNW groundswell five days out: in the water Wed Nov 25 to Fri Nov 27.
+    const span = { startsAt: "2026-11-25T16:00:00.000Z", endsAt: "2026-11-27T20:00:00.000Z" };
+    const rip = (startsAt: string, endsAt: string) => ({ evidenceRef: "nws:rip", kind: "high_rip_current" as const, startsAt, endsAt, beachIds: [HOME] });
+    // Today's statement ends Sunday, before the swell arrives.
+    expect(firstSightingHazardFrom([rip("2026-11-21T12:00:00.000Z", "2026-11-23T06:00:00.000Z")], HOME, now, span)).toBeNull();
+    // A statement issued now that runs into the swell's days still names it.
+    expect(firstSightingHazardFrom([rip("2026-11-21T12:00:00.000Z", "2026-11-26T06:00:00.000Z")], HOME, now, span)).toBe("high_rip_current");
+    // In effect now still rules: an advisory that has already ended names nothing.
+    expect(firstSightingHazardFrom([rip("2026-11-20T12:00:00.000Z", "2026-11-21T06:00:00.000Z")], HOME, now,
+      { startsAt: "2026-11-20T00:00:00.000Z", endsAt: "2026-11-22T00:00:00.000Z" })).toBeNull();
   });
 
   it("passes beach distances to selection and still sends when the lookup fails", async () => {
@@ -1192,7 +1208,7 @@ describe("swell alert cron: held beaches", () => {
       beaches: Array<{ beach_id: string }>;
     };
     expect(payload.beaches.map(({ beach_id }) => beach_id)).toEqual([HOME, OTHER]);
-    expect(payload.body).toContain("Also: Osprey up to 3 ft.");
+    expect(payload.body).toContain(" and 3 ft at Osprey.");
     expect(payload.body).not.toContain("Held Spot");
 
     const evaluateCandidates = jest.fn(async ({ candidates }) =>
@@ -1248,8 +1264,8 @@ describe("first-sighting push with the swell_story_push switch on", () => {
       { eventKey: swell.eventKey, beachId: HOME, peakAt: swell.peakAt, directionDeg: 300 }, MORNING, { withoutSize: true });
     const before = today.enqueue.mock.calls[0][0];
     const after = deps.enqueue.mock.calls[0][0];
-    expect(after.payload.title).toBe("On the way: WNW groundswell, Mon");
-    expect(after.payload.body.startsWith(`${STORY.story} Sets up to 4.5 ft at Blacks Beach.`)).toBe(true);
+    expect(after.payload.title).toBe("WNW groundswell on the way, Mon");
+    expect(after.payload.body.startsWith(`${STORY.story} Sets to 4.5 ft at Blacks Beach.`)).toBe(true);
     expect(after.payload).toMatchObject({ region_event_key: STORY.regionEventKey, story_key: STORY.storyKey, body_source: "written" });
     expect(after.dedupeKey).toBe(before.dedupeKey);
     expect({ event_key: after.payload.event_key, title_id: after.payload.title_id, share_url: after.payload.share_url }).toEqual(
