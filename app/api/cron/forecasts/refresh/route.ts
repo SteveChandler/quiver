@@ -8,6 +8,11 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip";
+import {
+  forecastWriteConcurrency,
+  getForecastWritePacing,
+  paceForecastWriteChunks,
+} from "@/lib/services/forecast/batch-beach-processor";
 import { NwsWindService, type NwsForecastCache } from "@/lib/services/nws-wind-service";
 import {
   getNearestNDBCStation,
@@ -416,8 +421,13 @@ async function _GET(request: Request): Promise<Response> {
       : staleTideBeaches;
 
     if (shouldRunNonTideIngest) {
-      const BATCH_SIZE = Number(process.env.FORECAST_REFRESH_BATCH_SIZE ?? process.env.FORECAST_BATCH_SIZE ?? 3);
-      const BATCH_DELAY_MS = Number(process.env.FORECAST_REFRESH_BATCH_DELAY_MS ?? process.env.FORECAST_BATCH_DELAY_MS ?? 1000);
+      const marinePacing = runMarine ? getForecastWritePacing(25) : null;
+      const batchSize = Number(process.env.FORECAST_REFRESH_BATCH_SIZE ?? process.env.FORECAST_BATCH_SIZE ?? 3);
+      // Keep the default total inter-beach wait budget with two beaches per batch.
+      const batchDelayMs = Number(
+        process.env.FORECAST_REFRESH_BATCH_DELAY_MS ?? process.env.FORECAST_BATCH_DELAY_MS
+        ?? (marinePacing ? 650 : 1000)
+      );
 
       if (runMarine) {
         console.log("[Forecast Refresh] Marine selection", {
@@ -437,7 +447,7 @@ async function _GET(request: Request): Promise<Response> {
       const batches = splitIntoChunks(
         // If both marine + sun are requested, run marine selection set (it’s likely superset during recovery).
         runMarine ? selectedMarineBeaches : selectedSunBeaches,
-        BATCH_SIZE
+        runMarine ? forecastWriteConcurrency(batchSize) : batchSize
       );
 
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -461,9 +471,11 @@ async function _GET(request: Request): Promise<Response> {
               marineCoverage.lastAttemptedBeachId = b.id;
               let waveWritten = false;
               const writeMarine = async (rows: Record<string, unknown>[]): Promise<boolean> => {
-                const { error } = await supabase.from("marine_forecasts")
-                  .upsert(rows as any[], { onConflict: "beach_id,ts,source" });
-                if (error) { rejectMarine("write_failed", b.id); return false; }
+                for await (const batch of paceForecastWriteChunks(rows, marinePacing, msRemaining)) {
+                  const { error } = await supabase.from("marine_forecasts")
+                    .upsert(batch as any[], { onConflict: "beach_id,ts,source" });
+                  if (error) { rejectMarine("write_failed", b.id); return false; }
+                }
                 addedMarine += rows.length;
                 return true;
               };
@@ -680,14 +692,14 @@ async function _GET(request: Request): Promise<Response> {
         }
 
         if (batchIndex < batches.length - 1) {
-          if (hasDeadline && msRemaining() <= BATCH_DELAY_MS) {
+          if (hasDeadline && msRemaining() <= batchDelayMs) {
             console.warn("[Forecast Refresh] Skipping batch delay and stopping early due to time budget", {
               batchIndex,
               remainingMs: msRemaining(),
             });
             break;
           }
-          await sleep(BATCH_DELAY_MS);
+          await sleep(batchDelayMs);
         }
       }
     }

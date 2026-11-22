@@ -15,6 +15,7 @@ import { chunk } from "@/lib/utils/chunk";
 import { describeThrownError } from "./forecast/error-message";
 import {
   DeadlineTracker,
+  forecastWriteConcurrency,
   getRefreshSelectionWindowHours,
   loadBatchConfig,
   loadCdipBatchConfig,
@@ -666,15 +667,17 @@ export class EnhancedForecastService {
    */
   async storeEnhancedForecasts(
     beach: Beach,
-    forecasts: EnhancedForecastEntity[]
+    forecasts: EnhancedForecastEntity[],
+    deadlineTracker?: DeadlineTracker,
   ) {
-    return this.storageService.storeEnhancedForecasts(beach, forecasts);
+    return this.storageService.storeEnhancedForecasts(beach, forecasts, deadlineTracker);
   }
 
   async processBeachForecastUpdate(
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
     southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
+    deadlineTracker?: DeadlineTracker,
   ): Promise<BeachProcessResult> {
     try {
       const { forecasts, cdip } = await this.generateComprehensiveForecastWithDiagnostics(
@@ -682,7 +685,7 @@ export class EnhancedForecastService {
         nowcastAnchor,
         southOcSanoShadowZoneSnapshot,
       );
-      const result = await this.storeEnhancedForecasts(beach, forecasts);
+      const result = await this.storeEnhancedForecasts(beach, forecasts, deadlineTracker);
 
       if (result.success) {
         console.log(`${beach.name}: ${forecasts.length} forecasts stored`);
@@ -742,7 +745,7 @@ export class EnhancedForecastService {
         `Starting batch forecast update for ${beaches.selected.length}/${beaches.eligible.length} beaches${shardInfo} ` +
         `(missing: ${beaches.stats.missing}, due>${beaches.refreshSelectionWindowHours}h: ${beaches.stats.dueForRefresh}, ` +
         `stale at ${config.freshnessWindowHours}h, ` +
-        `selectedMissing: ${beaches.stats.selectedMissing}, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
+        `selectedMissing: ${beaches.stats.selectedMissing}, max ${config.maxBeachesPerRun} per run, batch size: ${forecastWriteConcurrency(config.batchSize)})`
       );
 
       // Fetch nowcast observation anchors once per cron invocation. Failure
@@ -767,6 +770,7 @@ export class EnhancedForecastService {
             beach,
             nowcastAnchors.get(beach.id) ?? null,
             southOcSanoShadowZoneSnapshot,
+            deadlineTracker,
           ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "📦 ",
@@ -917,7 +921,7 @@ export class EnhancedForecastService {
       log.info(
         `Starting CDIP-only update for ${beaches.selected.length}/${beaches.totalDueForRefresh} CDIP beaches due for refresh ` +
         `(due>${beaches.refreshSelectionWindowHours}h, target ${config.freshnessWindowHours}h, ` +
-        `max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
+        `max ${config.maxBeachesPerRun} per run, batch size: ${forecastWriteConcurrency(config.batchSize)})`
       );
 
       // Fetch nowcast observation anchors once per CDIP cron invocation, mirroring
@@ -943,6 +947,7 @@ export class EnhancedForecastService {
             beach,
             nowcastAnchors.get(beach.id) ?? null,
             southOcSanoShadowZoneSnapshot,
+            deadlineTracker,
           ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "CDIP ",
