@@ -41,6 +41,7 @@ let ledgerAttempts: number;
 let latest: Record<string, unknown>[];
 let written: Record<string, unknown>[][];
 let failWrite: boolean;
+let failWriteAtCall: number | null;
 let observed: Record<string, unknown> | null;
 
 function query(data: unknown): Record<string, unknown> {
@@ -56,7 +57,7 @@ beforeEach(() => {
   jest.useFakeTimers({ now, doNotFake: ['nextTick', 'setImmediate'] });
   jest.spyOn(console, 'log').mockImplementation(() => {});
   jest.spyOn(console, 'warn').mockImplementation(() => {});
-  previous = null; written = []; failWrite = false; observed = null;
+  previous = null; written = []; failWrite = false; failWriteAtCall = null; observed = null;
   ledger = []; failLedger = false; latest = []; ledgerAttempts = 0;
   mockNearest.mockReset().mockResolvedValue(null);
   mockCdipNearest.mockReset().mockResolvedValue(null);
@@ -82,7 +83,11 @@ beforeEach(() => {
       select: (fields: string) => query(fields.includes('beach_id') ? latest : observed),
       upsert: async (rows: Record<string, unknown>[]) => {
         written.push(rows);
-        return { error: failWrite ? { message: 'private database error' } : null };
+        return {
+          error: failWrite || written.length === failWriteAtCall
+            ? { message: 'private database error' }
+            : null,
+        };
       },
     };
     throw new Error(`Unexpected table ${table}`);
@@ -330,6 +335,29 @@ it('reports failed writes without exposing database errors', async () => {
   expect(body.data.totals.marine).toBe(0);
   expect(body.data.marineCoverage.rejectionCounts.write_failed).toBeGreaterThan(0);
   expect(JSON.stringify(body)).not.toContain('private');
+});
+
+it('does not count a marine write when a later paced chunk fails', async () => {
+  jest.replaceProperty(process, 'env', {
+    ...process.env,
+    FORECAST_WRITE_PACING: 'true',
+    FORECAST_WRITE_CHUNK_SIZE: '1',
+    FORECAST_WRITE_DELAY_MS: '0',
+  });
+  beachIds = ['a'];
+  mockWind.mockResolvedValue([
+    { ts: '2026-09-09T13:00:00.000Z', wind_speed_ms: 3, wind_direction_deg: 90 },
+    { ts: '2026-09-09T14:00:00.000Z', wind_speed_ms: 4, wind_direction_deg: 180 },
+  ]);
+  failWriteAtCall = 2;
+
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
+  const body = await response.json();
+
+  expect(response.status).toBe(503);
+  expect(written.map(rows => rows.length)).toEqual([1, 1]);
+  expect(body.data.totals.marine).toBe(0);
+  expect(body.data.marineCoverage.rejectionCounts).toMatchObject({ write_failed: 1 });
 });
 
 

@@ -20,10 +20,10 @@ export function getForecastWritePacing(defaultChunkSize: number): ForecastWriteP
   if (process.env.FORECAST_WRITE_PACING === "false") return null;
 
   const size = Number(process.env.FORECAST_WRITE_CHUNK_SIZE);
-  const delay = Number(process.env.FORECAST_WRITE_DELAY_MS);
+  const delay = Math.min(Number(process.env.FORECAST_WRITE_DELAY_MS), 1000);
   return {
     chunkSize: Number.isSafeInteger(size) && size > 0 ? size : defaultChunkSize,
-    delayMs: Number.isSafeInteger(delay) && delay >= 0 && delay <= 1000 ? delay : 200,
+    delayMs: Number.isSafeInteger(delay) && delay >= 0 ? delay : 200,
   };
 }
 
@@ -268,8 +268,17 @@ export async function processBeachesInBatches(
     await prefetchCallback(beaches);
   }
 
-  // Split beaches into batches
-  const batches = chunk(beaches, forecastWriteConcurrency(config.batchSize));
+  const effectiveBatchSize = forecastWriteConcurrency(config.batchSize);
+  const batches = chunk(beaches, effectiveBatchSize);
+  const batchGaps = batches.length - 1;
+  // Spread the previous wait budget across the extra gaps created by pacing.
+  const canScaleBatchDelay =
+    batchGaps > 0 &&
+    effectiveBatchSize < config.batchSize &&
+    Number.isSafeInteger(config.batchSize);
+  const batchDelayMs = canScaleBatchDelay
+    ? config.batchDelayMs * (Math.ceil(beaches.length / config.batchSize) - 1) / batchGaps
+    : config.batchDelayMs;
 
   const allResults: BeachProcessResult[] = [];
   let successCount = 0;
@@ -331,7 +340,7 @@ export async function processBeachesInBatches(
 
     // Add delay between batches (except after last batch)
     if (batchIndex < batches.length - 1) {
-      if (!deadlineTracker.hasTimeForDelay(config.batchDelayMs)) {
+      if (!deadlineTracker.hasTimeForDelay(batchDelayMs)) {
         console.warn(`${logPrefix}Skipping batch delay and stopping early due to time budget`, {
           batchIndex,
           attempted: allResults.length,
@@ -339,7 +348,7 @@ export async function processBeachesInBatches(
         });
         break;
       }
-      await sleep(config.batchDelayMs);
+      await sleep(batchDelayMs);
     }
   }
 

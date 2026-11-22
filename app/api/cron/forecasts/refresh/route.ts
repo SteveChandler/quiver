@@ -475,8 +475,8 @@ async function _GET(request: Request): Promise<Response> {
                   const { error } = await supabase.from("marine_forecasts")
                     .upsert(batch as any[], { onConflict: "beach_id,ts,source" });
                   if (error) { rejectMarine("write_failed", b.id); return false; }
-                  addedMarine += batch.length;
                 }
+                addedMarine += rows.length;
                 return true;
               };
               // Marine from NDBC/CDIP

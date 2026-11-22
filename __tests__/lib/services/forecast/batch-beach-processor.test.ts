@@ -7,8 +7,20 @@
  * - processBeachesInBatches(): batch splitting, deadline early-stop, delay, error handling
  */
 
+jest.mock("node:timers/promises", () => ({
+  setTimeout: jest.fn().mockResolvedValue(undefined),
+}));
+
+import { setTimeout as sleep } from "node:timers/promises";
 import type { Beach } from "@/types/database";
-import { DeadlineTracker, loadBatchConfig, loadCdipBatchConfig, getRefreshSelectionWindowHours, processBeachesInBatches } from "@/lib/services/forecast/batch-beach-processor";
+import {
+  DeadlineTracker,
+  getForecastWritePacing,
+  loadBatchConfig,
+  loadCdipBatchConfig,
+  getRefreshSelectionWindowHours,
+  processBeachesInBatches,
+} from "@/lib/services/forecast/batch-beach-processor";
 import type {
   BatchProcessConfig,
   BeachProcessResult,
@@ -251,6 +263,48 @@ describe("loadCdipBatchConfig", () => {
     const config = loadCdipBatchConfig();
     expect(config.refreshLeadHours).toBe(1);
     expect(getRefreshSelectionWindowHours(config)).toBe(1);
+  });
+});
+
+describe("forecast write pacing", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    { flag: undefined, expectedDelays: [500, 500] },
+    { flag: "false", expectedDelays: [1000] },
+  ])("keeps the previous inter-batch wait budget with pacing flag $flag", async ({ flag, expectedDelays }) => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      FORECAST_WRITE_PACING: flag,
+    });
+    jest.mocked(sleep).mockClear();
+
+    await processBeachesInBatches({
+      beaches: Array.from({ length: 6 }, (_, index) => makeBeach(String(index), `Beach ${index}`)),
+      config: {
+        batchSize: 3,
+        batchDelayMs: 1000,
+        maxBeachesPerRun: 10,
+        freshnessWindowHours: 12,
+        refreshLeadHours: 4,
+      },
+      deadlineTracker: new DeadlineTracker(),
+      processBeach: async beach => ({ beach: beach.name, success: true }),
+    });
+
+    expect(jest.mocked(sleep).mock.calls).toEqual(expectedDelays.map(delay => [delay]));
+  });
+
+  it("caps a configured write delay at one second", () => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      FORECAST_WRITE_DELAY_MS: "2500",
+      FORECAST_WRITE_PACING: "true",
+    });
+
+    expect(getForecastWritePacing(50)?.delayMs).toBe(1000);
   });
 });
 
