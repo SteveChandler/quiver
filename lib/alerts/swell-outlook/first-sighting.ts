@@ -11,6 +11,7 @@ import {
 } from '@/lib/notifications/types/major-swell';
 import type { OutlookSwell } from '@/lib/services/discovery/swell-outlook-types';
 import { getLocalDateString, getLocalHour } from '@/lib/utils/timezone-utils';
+import { surfHoliday } from '@/lib/utils/us-holidays';
 
 const SERIOUS_FACE_HEIGHT_FT = 8;
 /** Android shows the full text when expanded; iOS shows about four lines and the rest on long-press. */
@@ -40,6 +41,11 @@ export function selectFirstSightingCandidates(args: {
 
 export function firstSightingFaceHeightFt(swell: OutlookSwell): number {
   return Math.round(((swell.faceHeightFt.min + swell.faceHeightFt.max) / 2) * 10) / 10;
+}
+
+/** "a and b", "a, b and c". */
+function joinWithAnd(parts: readonly string[]): string {
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 function formatNumber(value: number): string {
@@ -155,7 +161,6 @@ export interface PushRegionStory {
 /** Where a story push's text came from; "template" is today's text. */
 type PushBodySource = "written" | "code" | "template";
 
-const STORY_JUDGMENT = { on_the_way: "On the way", likely: "Worth watching" } as const;
 /** The swell's name as the card's beach lines say it, by kind and period class. */
 function storySwellNoun(story: Pick<PushRegionStory, "kind" | "periodS">): string {
   if (story.kind === "storm") return "storm swell";
@@ -164,10 +169,9 @@ function storySwellNoun(story: Pick<PushRegionStory, "kind" | "periodS">): strin
 }
 
 /**
- * "On the way: W storm swell, Nov 20": the judgment first, from the lead time as the card's pill reads it (up to
- * four days "On the way", up to nine "Worth watching"), then the region swell's name and its peak day ("Tue" within
- * three days, else "Nov 20"). No number. Past 40 characters the name becomes "swell"; still too long, or an early
- * look's lead, gives null.
+ * "W storm swell on the way, Nov 20": the region swell's name, then its peak day ("Tue" within three days, else
+ * "Nov 20"); a holiday peak names the holiday instead ("Thanksgiving groundswell on the way"). No number. Up to nine
+ * days out; past 40 characters the name becomes "swell"; still too long, or an early look's lead, gives null.
  */
 export function renderStoryPushTitle(story: PushRegionStory, timezone: string, now: Date): string | null {
   const peakDate = getLocalDateString(new Date(story.peakAt), timezone);
@@ -175,8 +179,9 @@ export function renderStoryPushTitle(story: PushRegionStory, timezone: string, n
   const confidence = lead < 0 ? null : confidenceFor(lead);
   if (confidence !== "on_the_way" && confidence !== "likely") return null;
   const day = lead <= WEEKDAY_ONLY_MAX_DAYS_AHEAD ? shortWeekday(story.peakAt, timezone) : monthDay(peakDate);
+  const holiday = surfHoliday(peakDate);
   for (const noun of [storySwellNoun(story), "swell"]) {
-    const title = `${STORY_JUDGMENT[confidence]}: ${story.directionLabel} ${noun}, ${day}`;
+    const title = holiday ? `${holiday.name} ${noun} on the way` : `${story.directionLabel} ${noun} on the way, ${day}`;
     if (title.length <= PUSH_TITLE_MAX_CHARS) return title;
   }
   return null;
@@ -238,13 +243,21 @@ export function renderFirstSightingBody(args: {
   const withDate = needsDates(swell, timezone, args.now ?? new Date());
   const recommendedWindow = args.surfWindow?.state === 'recommended' ? args.surfWindow.window : null;
   const period = swell.periodS === null ? '' : `, ${formatNumber(swell.periodS)}s`;
-  const sentences: Array<{ text: string; priority: number }> = [
+  const sentences: Array<{ text: string; priority: number; short?: string }> = [
     ...(args.story !== undefined ? [{ text: args.story, priority: 0 }] : [
       { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
       { text: timingSentence(swell, timezone, withDate), priority: recommendedWindow ? 2 : 0 },
     ]),
-    { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}${args.anchorSource === 'home' ? ', near home' : ''}.`, priority: 0 },
   ];
+  // One sentence names every break and its height, the lead first; past the cap it keeps the lead alone.
+  const lead = `${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}`;
+  const home = args.anchorSource === 'home';
+  const others = (swell.options ?? []).map((option) => `${formatNumber(option.faceHeightFt.max)} ft at ${option.beachName}`);
+  const leadOnly = `Sets to ${lead}${home ? ', near home' : ''}.`;
+  // In a list, a comma before "near home" would read as one more break.
+  sentences.push(others.length
+    ? { text: `Sets to ${joinWithAnd([`${lead}${home ? ' near home' : ''}`, ...others])}.`, priority: 2.5, short: leadOnly }
+    : { text: leadOnly, priority: 0 });
   if (recommendedWindow) {
     sentences.push({ text: bestWindowSentence(recommendedWindow, withDate), priority: 0 });
     const tideSentence = tideReasonSentence(args.surfWindow?.reasons ?? []);
@@ -252,12 +265,7 @@ export function renderFirstSightingBody(args: {
   }
   const orientation = orientationSentence(swell);
   if (orientation) sentences.push({ text: orientation, priority: 2 });
-  if (swell.options?.length) sentences.push({
-    text: `Also: ${swell.options.map((option) => `${option.beachName} up to ${formatNumber(option.faceHeightFt.max)} ft`).join(', ')}.`,
-    priority: 2.5,
-  });
   if (swell.fit.boards.length === 1) sentences.push({ text: `Good size for your ${swell.fit.boards[0]}.`, priority: 3 });
-  if (swell.beachCount > 1) sentences.push({ text: `Showing at ${swell.beachCount} nearby breaks.`, priority: 4 });
   if (hazard) sentences.push({ text: HAZARD_SENTENCES[hazard], priority: 1 });
 
   const kept = [...sentences];
@@ -265,7 +273,9 @@ export function renderFirstSightingBody(args: {
   while (length() > FIRST_SIGHTING_BODY_MAX_CHARS) {
     const lowest = kept.reduce((worst, entry, index) => (entry.priority > kept[worst].priority ? index : worst), 0);
     if (kept[lowest].priority === 0) break;
-    kept.splice(lowest, 1);
+    const { short } = kept[lowest];
+    if (short) kept[lowest] = { text: short, priority: 0 };
+    else kept.splice(lowest, 1);
   }
   return kept.map(({ text }) => text).join(' ');
 }

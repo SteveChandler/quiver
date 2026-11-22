@@ -102,9 +102,21 @@ describe("push wording of the card sentence", () => {
   it("dates each day in the server sentence", () => {
     const narration = prepareRegionNarration({ build: build([SSW]), edition: null, now: NOW });
     expect(regionEventStory(narration, SSW.key, { datedDays: true })).toEqual({ storySource: "code",
-      story: "A south-southwest long-period groundswell arrives Sunday Nov 22, peaks Monday Nov 23 and fades Wednesday Nov 25." });
+      story: "A long-period SSW groundswell fills in Sun Nov 22, peaks Mon and fades Wed." });
     expect(regionEventStory(narration, SSW.key)).toEqual({ storySource: "code",
       story: "A south-southwest long-period groundswell arrives Sunday, peaks a week from today and fades a week from Wednesday." });
+  });
+
+  it("names a holiday peak by the holiday and short days after a dated one", () => {
+    // Saturday Nov 21, 2026: the WNW groundswell that peaks on Thanksgiving.
+    const saturday = new Date("2026-11-21T20:24:00.000Z");
+    const wnw = event("San Diego:WNW:2026-11-26", { directionDeg: 292, directionLabel: "WNW",
+      arrivalAt: "2026-11-25T16:00:00.000Z", peakAt: "2026-11-26T20:00:00.000Z", fadeAt: "2026-11-27T20:00:00.000Z", peakLocalDate: "2026-11-26" });
+    const narration = prepareRegionNarration({ build: build([wnw]), edition: null, now: saturday });
+    expect(regionEventStory(narration, wnw.key, { datedDays: true })).toEqual({ storySource: "code",
+      story: "A long-period WNW groundswell fills in Wed Nov 25, peaks Thanksgiving Day and fades Fri." });
+    // The card keeps its own words.
+    expect(regionEventStory(narration, wnw.key).story).toBe("A west-northwest long-period groundswell arrives Wednesday, peaks Thursday and fades Friday.");
   });
 
   it("uses a written push sentence only when it names no day at all", () => {
@@ -119,11 +131,11 @@ describe("push wording of the card sentence", () => {
     expect(regionEventStory(weekdays, STORM.key)).toEqual({ story: "West storm swell shows up Thursday and peaks Friday.", storySource: "written" });
     expect(regionEventStory(weekdays, SSW.key).storySource).toBe("written");
     // A push can be read days later: a bare weekday, a short one or a relative day gives the server's dated sentence.
-    const dated = { storySource: "code", story: "A west short-period storm swell arrives Thursday Nov 19 and peaks Friday Nov 20." };
+    const dated = { storySource: "code", story: "A short-period W storm swell fills in Thu Nov 19 and peaks Fri." };
     expect(regionEventStory(weekdays, STORM.key, { datedDays: true })).toEqual(dated);
     expect(regionEventStory(narration("West storm swell shows up Thu and peaks Fri."), STORM.key, { datedDays: true })).toEqual(dated);
     expect(regionEventStory(weekdays, SSW.key, { datedDays: true })).toEqual({ storySource: "code",
-      story: "A south-southwest long-period groundswell arrives Sunday Nov 22, peaks Monday Nov 23 and fades Wednesday Nov 25." });
+      story: "A long-period SSW groundswell fills in Sun Nov 22, peaks Mon and fades Wed." });
     // With no day word, the written sentence serves in the push too.
     const dayless = narration("A west storm swell is on the way.");
     expect(regionEventStory(dayless, STORM.key, { datedDays: true })).toEqual({ story: "A west storm swell is on the way.", storySource: "written" });
@@ -145,7 +157,7 @@ describe("loadPushRegionStory", () => {
     jest.mocked(loadRegionForecastEvents).mockResolvedValue(build([SSW, STORM]));
     const told = await loadPushRegionStory({ client: client({ region: "San Diego", timezone: TIMEZONE }), userId: "user", swell: push(), now: NOW });
     expect(told).toEqual({ regionEventKey: SSW.key, storyKey: "4-5-2026-11-23", storySource: "code",
-      story: "A south-southwest long-period groundswell arrives Sunday Nov 22, peaks Monday Nov 23 and fades Wednesday Nov 25.",
+      story: "A long-period SSW groundswell fills in Sun Nov 22, peaks Mon and fades Wed.",
       directionLabel: "SSW", kind: "swell", periodS: 17, peakAt: SSW.peakAt });
     expect(loadRegionForecastEvents).toHaveBeenCalledWith(expect.objectContaining({ region: "San Diego", timezone: TIMEZONE, now: NOW }));
   });
@@ -214,20 +226,20 @@ describe("loadPushRegionStory", () => {
     it("leaves the regional size out of the sentence when the body states the beach's size", async () => {
       jest.mocked(loadRegionForecastEvents).mockResolvedValue(sized);
       const full = await load();
-      expect(full?.story).toBe("A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18: "
+      expect(full?.story).toBe("A long-period WNW groundswell fills in Mon Nov 16, peaks Tue and fades Wed: "
         + "head-high at most spots, overhead at the standouts.");
       const bare = await load(true);
       expect(bare).toMatchObject({ storySource: "code",
-        story: "A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18." });
+        story: "A long-period WNW groundswell fills in Mon Nov 16, peaks Tue and fades Wed." });
 
       const outlook = outlookSwell({ id: solana.eventKey, eventKey: solana.eventKey, arrivalAt: WNW.arrivalAt, peakAt: WNW.peakAt,
         directionDeg: 290, directionLabel: "WNW", periodS: 14.9, faceHeightFt: { min: 3, max: 4 }, beach: { id: SOLANA, name: "Solana Beach" },
         beachCount: 1, sizeByOrientation: { southFacing: null, westFacing: null }, source: "unknown" });
       const { body } = buildFirstSightingPayload({ swell: outlook, timezone: TIMEZONE, now: NOW, storyPush: { story: bare } });
-      expect(body).toBe("A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18. "
-        + "Sets up to 4 ft at Solana Beach.");
+      expect(body).toBe("A long-period WNW groundswell fills in Mon Nov 16, peaks Tue and fades Wed. "
+        + "Sets to 4 ft at Solana Beach.");
       // The beach line is the body's only size statement.
-      expect(namesSize(body.replace("Sets up to 4 ft at Solana Beach.", ""))).toBe(false);
+      expect(namesSize(body.replace("Sets to 4 ft at Solana Beach.", ""))).toBe(false);
     });
 
     it("drops a written sentence that states a size for the server's sentence without one", async () => {
@@ -242,7 +254,7 @@ describe("loadPushRegionStory", () => {
       };
       expect(await told(withSize, false)).toMatchObject({ story: withSize, storySource: "written" });
       expect(await told(withSize, true)).toMatchObject({ storySource: "code",
-        story: "A west-northwest long-period groundswell arrives Monday Nov 16, peaks Tuesday Nov 17 and fades Wednesday Nov 18." });
+        story: "A long-period WNW groundswell fills in Mon Nov 16, peaks Tue and fades Wed." });
       expect(await told(plain, true)).toMatchObject({ story: plain, storySource: "written" });
     });
   });
