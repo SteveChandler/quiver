@@ -4,17 +4,17 @@ import { join } from "node:path";
 const indexes = [
   {
     name: "idx_marine_forecasts_beach_ts_utc",
-    migration: "20261129000000_drop_marine_forecasts_beach_ts_utc_index",
+    migration: "20261122220000_drop_marine_forecasts_beach_ts_utc_index",
     original: "20250820132000_add_generated_hourly_columns",
   },
   {
     name: "idx_marine_forecasts_nws_wind_mv_lookup",
-    migration: "20261129000001_drop_marine_forecasts_nws_wind_mv_lookup_index",
+    migration: "20261122220001_drop_marine_forecasts_nws_wind_mv_lookup_index",
     original: "20260120140000_optimize_mv_beach_hourly_scores_indexes",
   },
   {
     name: "idx_mpl_v5_shadow_comparator",
-    migration: "20261129000002_drop_mpl_v5_shadow_comparator_index",
+    migration: "20261122220002_drop_mpl_v5_shadow_comparator_index",
     original: "20260502235421_add_v5_shadow_logging",
   },
 ];
