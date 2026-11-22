@@ -15,7 +15,7 @@ function publicClient(client?: ReadClient): ReadClient {
 }
 
 const ALTERNATE_ID = /^[a-z0-9]{1,12}$/i;
-const IN_CHUNK = 100;
+const PAIR_CHUNK = 50;
 
 export interface StationIdMatch {
   id: string;
@@ -62,9 +62,8 @@ export type LatestWaveReading = Pick<
 
 /**
  * The reading at each station's `last_wave_observed_at`, keyed by station id,
- * with only the columns a list shows. One query per 100 stations, filtered by
- * station, by the set of those timestamps and by the oldest of them; rows are
- * then matched exactly in memory.
+ * with only the columns a list shows. Each predicate specifies one station
+ * and its timestamp so PostgreSQL can use the composite primary key.
  */
 export async function getLatestWaveObservations(
   stations: Array<Pick<WaveStationRow, "id" | "last_wave_observed_at">>,
@@ -78,17 +77,16 @@ export async function getLatestWaveObservations(
   }
   const ids = [...wanted.keys()];
   const latest = new Map<string, LatestWaveReading>();
-  for (let start = 0; start < ids.length; start += IN_CHUNK) {
-    const chunk = ids.slice(start, start + IN_CHUNK);
-    const times = [...new Set(chunk.map((id) => new Date(wanted.get(id) as number).toISOString()))];
-    const oldest = new Date(Math.min(...chunk.map((id) => wanted.get(id) as number))).toISOString();
+  for (let start = 0; start < ids.length; start += PAIR_CHUNK) {
+    const chunk = ids.slice(start, start + PAIR_CHUNK);
+    const pairs = chunk.map((id) =>
+      `and(station_id.eq.${JSON.stringify(id)},observed_at.eq.${JSON.stringify(new Date(wanted.get(id) as number).toISOString())})`,
+    );
     const rows = await selectAllPages<LatestWaveReading>((from, to) =>
       db
         .from("wave_station_observations")
         .select("station_id, observed_at, wave_height_m, dominant_period_s, mean_wave_direction_deg")
-        .in("station_id", chunk)
-        .gte("observed_at", oldest)
-        .in("observed_at", times)
+        .or(pairs.join(","))
         .order("station_id")
         .order("observed_at")
         .range(from, to),
