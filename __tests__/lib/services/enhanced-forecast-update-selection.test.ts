@@ -279,12 +279,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     const { EnhancedForecastService: Service } = await import(
       "@/lib/services/enhanced-forecast-service"
     );
-    const service = new Service() as any;
+    const service = new Service();
 
     process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS = "2";
     process.env.FORECAST_CDIP_MAX_BEACHES_PER_RUN = "10";
 
     const anchorByBeach: Record<string, unknown> = {};
+    const store = jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
     jest
       .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
       .mockImplementation(async (beach: any, anchor: any) => {
@@ -294,10 +295,9 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
           cdip: { stationId: null, skipReason: "no_station" },
         };
       });
-    jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
-    jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
+    jest.spyOn(service as any, "prefetchTideStations").mockResolvedValue(undefined);
 
-    const run = service.updateCdipEnhancedForecasts();
+    const run = service.updateCdipEnhancedForecasts({ deadlineMs: Date.now() + 30_000 });
     await jest.runAllTimersAsync();
     await run;
 
@@ -308,6 +308,7 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
       waveHeightM: 0.6,
     });
     expect(anchorByBeach["b-no-anchor"]).toBeNull();
+    expect(store.mock.calls.map(([, , tracker]) => tracker?.msRemaining())).toEqual([30_000, 30_000]);
   });
 
   it("updateCdipEnhancedForecasts() fetches and passes South OC/SanO validation snapshot per beach", async () => {
