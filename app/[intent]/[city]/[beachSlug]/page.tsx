@@ -1,5 +1,6 @@
 import { cache, Suspense } from "react";
 import { describeThrownError } from "@/lib/services/forecast/error-message";
+import { runWithPublicWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -17,6 +18,7 @@ import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-ap
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
+import { insideCountyFeed } from "@/lib/services/water-quality/county-coverage";
 import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   buildBeachUrl,
@@ -95,6 +97,12 @@ async function optionalSection<T>(
     });
     return null;
   }
+}
+
+function withBeachReadScope<T>(beach: Beach, load: () => Promise<T>): Promise<T> {
+  // A badge outside County coverage skips the unfiltered latest-run query.
+  const hasCountyBadge = beach.lat != null && beach.lon != null && insideCountyFeed(beach);
+  return runWithPublicWaterQualityReadScope(load, hasCountyBadge);
 }
 
 /**
@@ -185,7 +193,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     waterQualityResult,
     cameraUrl,
     beachPhoto,
-  ] = await Promise.all([
+  ] = await withBeachReadScope(beach, () => Promise.all([
     optionalSection("forecast", () => getSpotSurfReportPublic(beach)),
     optionalSection("amenities", () => getCachedBeachAmenities(beach.id)),
     optionalSection("waterQuality", async () => {
@@ -218,7 +226,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }
         : null,
     )),
-  ]);
+  ]));
 
   const surfCallReport = surfReportResult?.report || null;
   const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
@@ -522,7 +530,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     // The title and description use the live report for the wave-height hook.
     // Robots do NOT: they come from the cached coverage snapshot below, the
     // same one the sitemap reads, so both sides answer from one clock.
-    const surfReportResult = await getSpotSurfReportPublic(beach);
+    const surfReportResult = await withBeachReadScope(
+      beach,
+      () => getSpotSurfReportPublic(beach),
+    );
     const forecastContext = surfReportResult?.forecastContext ?? null;
     const forecastData = forecastContext
       ? {

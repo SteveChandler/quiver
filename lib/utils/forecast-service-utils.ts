@@ -2,7 +2,9 @@ import { chunk } from "@/lib/utils/chunk";
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
+import { isPublicReadSharingEnabled } from "@/lib/config/public-read-sharing";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
+import { FALLBACK_FORECAST_DATA_SOURCE } from "@/lib/utils/forecast-row-source";
 import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
 import { fetchSouthOcSanoShadowZoneSnapshot } from "@/lib/services/forecast/south-oc-sano-shadow-guardrail";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -357,12 +359,18 @@ export async function getFreshForecastFromCache(
   }
 }
 
-/**
- * Result type for batch forecast cache operations
- */
-interface BatchForecastCacheResult {
+const NEARBY_FORECAST_FIELDS = [
+  "beach_id", "forecast_at", "data_source", "updated_at", "om_fetched_at",
+  "wave_height", "wave_period", "swell_1_period", "wind_speed", "tide_height", "tide_status",
+] as const;
+
+type NearbyForecastRow = Pick<EnhancedForecastEntity, (typeof NEARBY_FORECAST_FIELDS)[number]>;
+type ForecastRowsByShape = { full: EnhancedForecastEntity; nearby: NearbyForecastRow };
+const NEARBY_FORECAST_SELECT = NEARBY_FORECAST_FIELDS.join(",");
+
+interface BatchForecastCacheResult<Forecast = EnhancedForecastEntity> {
   beachId: string;
-  forecasts: EnhancedForecastEntity[];
+  forecasts: Forecast[];
   metadata: ForecastCacheMetadata;
 }
 
@@ -391,8 +399,29 @@ export async function getBatchFreshForecastsFromCache(
   requirePerRowFreshness: boolean = false,
   signal?: AbortSignal,
 ): Promise<Map<string, BatchForecastCacheResult>> {
+  return getBatchForecastsFromCache(
+    "full", beachIds, windowHours, allowStale, requirePerRowFreshness, signal,
+  );
+}
+
+export function getNearbyForecastsFromCache(
+  beachIds: string[],
+): Promise<Map<string, BatchForecastCacheResult<NearbyForecastRow>>> {
+  if (!isPublicReadSharingEnabled()) return getBatchFreshForecastsFromCache(beachIds, 24);
+  return getBatchForecastsFromCache("nearby", beachIds, 24, false, false);
+}
+
+async function getBatchForecastsFromCache<Shape extends keyof ForecastRowsByShape>(
+  shape: Shape,
+  beachIds: string[],
+  windowHours: number,
+  allowStale: boolean,
+  requirePerRowFreshness: boolean,
+  signal?: AbortSignal,
+): Promise<Map<string, BatchForecastCacheResult<ForecastRowsByShape[Shape]>>> {
+  type ForecastRow = ForecastRowsByShape[Shape];
   const startTime = Date.now();
-  const results = new Map<string, BatchForecastCacheResult>();
+  const results = new Map<string, BatchForecastCacheResult<ForecastRow>>();
 
   if (beachIds.length === 0) {
     return results;
@@ -526,24 +555,29 @@ export async function getBatchFreshForecastsFromCache(
     // exceed that for even a small chunk, so every chunk is range-paged rather
     // than treating a page boundary as an advisory warning.
     const fetchChunkPages = async (chunk: string[]): Promise<{
-      forecasts: EnhancedForecastEntity[];
+      forecasts: ForecastRow[];
       error: unknown | null;
     }> => {
-      const chunkForecasts: EnhancedForecastEntity[] = [];
+      const chunkForecasts: ForecastRow[] = [];
       for (let offset = 0; ; offset += FORECAST_QUERY_PAGE_SIZE) {
         if (signal?.aborted) return { forecasts: chunkForecasts, error: abortedError };
-        const pageQuery = supabase
+        const query = supabase
           .from("enhanced_forecasts")
-          .select("*")
+          .select(shape === "nearby" ? NEARBY_FORECAST_SELECT : "*")
           .in("beach_id", chunk)
           .gte("forecast_at", `${yesterday}T00:00:00Z`)
-          .lt("forecast_at", `${futureDateEnd}T00:00:00Z`)
+          .lt("forecast_at", `${futureDateEnd}T00:00:00Z`);
+        // A tile can pick any hour in this window, but the picker ignores fallback rows.
+        if (shape === "nearby") {
+          query.or(`data_source.is.null,data_source.neq.${FALLBACK_FORECAST_DATA_SOURCE}`);
+        }
+        const pageQuery = query
           .order("beach_id")
           .order("forecast_at", { ascending: true })
           .range(offset, offset + FORECAST_QUERY_PAGE_SIZE - 1);
         const result = await (signal ? pageQuery.abortSignal(signal) : pageQuery);
         if (result.error) return { forecasts: chunkForecasts, error: result.error };
-        const page = (result.data ?? []) as EnhancedForecastEntity[];
+        const page = (result.data ?? []) as unknown as ForecastRow[];
         chunkForecasts.push(...page);
         if (page.length < FORECAST_QUERY_PAGE_SIZE) {
           return { forecasts: chunkForecasts, error: null };
@@ -551,7 +585,7 @@ export async function getBatchFreshForecastsFromCache(
       }
     };
 
-    let forecasts: EnhancedForecastEntity[] = [];
+    let forecasts: ForecastRow[] = [];
     let forecastError: any = null;
     for (let offset = 0; offset < chunks.length; offset += FORECAST_QUERY_CHUNK_CONCURRENCY) {
       const batch = await Promise.all(
@@ -588,13 +622,13 @@ export async function getBatchFreshForecastsFromCache(
     }
 
     // Group forecasts by beach_id
-    const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
+    const forecastsByBeach = new Map<string, ForecastRow[]>();
     for (const forecast of forecasts || []) {
       const beachId = forecast.beach_id;
       if (!forecastsByBeach.has(beachId)) {
         forecastsByBeach.set(beachId, []);
       }
-      forecastsByBeach.get(beachId)!.push(forecast as EnhancedForecastEntity);
+      forecastsByBeach.get(beachId)!.push(forecast);
     }
 
     // Build results for fresh (and allowStale) beaches
