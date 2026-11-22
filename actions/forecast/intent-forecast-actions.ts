@@ -2,6 +2,7 @@
 
 import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 
+import type { PostgrestError } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
 import type { TideScheduleEntry, WaterTempSource } from "@/types/forecast";
@@ -18,6 +19,7 @@ import { localDateKey } from "@/lib/tide-stations/series";
 import { findMagicHour } from "@/lib/services/magic-hour/magic-hour-finder";
 import type { BeachMetadata, MagicHourResult } from "@/lib/services/magic-hour/types";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { Tables } from "@/types/database.generated";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { sanitizeIntentForecastForMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/intent";
@@ -234,67 +236,11 @@ export async function getCityTideData(
   try {
     const supabase = await createSupabaseServiceRoleClient();
     const today = new Date().toISOString().split("T")[0];
-
-    // Find a representative beach with today's forecast
-    // Join beaches with enhanced_forecasts to find one with tide data
-    const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-    const { data: beachWithForecast, error: beachError } = await supabase
-      .from("enhanced_forecasts")
-      .select(
-        `
-        beach_id,
-        forecast_at,
-        tide_status,
-        tide_height,
-        next_tide_time,
-        next_tide_type,
-        next_tide_height,
-        raw_forecast,
-        beaches!inner (
-          id,
-          name,
-          city,
-          state
-        )
-      `
-      )
-      .gte("forecast_at", `${today}T00:00:00Z`)
-      .lt("forecast_at", `${nextDay}T00:00:00Z`)
-      .ilike("beaches.city", cityName)
-      .ilike("beaches.state", state)
-      .order("forecast_at", { ascending: true })
-      .limit(1)
-      .single();
+    const { rows: [beachWithForecast], error: beachError } = await fetchCityTideRows(supabase, cityName, state, today, 1);
 
     if (beachError || !beachWithForecast) {
-      // Try with state abbreviation matching (CA vs California)
-      const { data: altBeach, error: altError } = await supabase
-        .from("enhanced_forecasts")
-        .select(
-          `
-          beach_id,
-          forecast_at,
-          tide_status,
-          tide_height,
-          next_tide_time,
-          next_tide_type,
-          next_tide_height,
-          raw_forecast,
-          beaches!inner (
-            id,
-            name,
-            city,
-            state
-          )
-        `
-        )
-        .gte("forecast_at", `${today}T00:00:00Z`)
-        .lt("forecast_at", `${nextDay}T00:00:00Z`)
-        .ilike("beaches.city", cityName)
-        .order("forecast_at", { ascending: true })
-        .limit(1)
-        .single();
-
+      // City-only fallback covers state names stored as CA or California.
+      const { rows: [altBeach], error: altError } = await fetchCityTideRows(supabase, cityName, undefined, today, 1);
       if (altError || !altBeach) {
         console.log(
           `No tide data found for ${cityName}, ${state}:`,
@@ -319,8 +265,7 @@ export async function getCityTideData(
  * rather than relying on pre-computed fields (which reflect the forecast
  * row's time slot, not the actual current time).
  */
-function processTideData(forecastData: any, state: string): CityTideData | null {
-  const beach = forecastData.beaches;
+function processTideData(forecastData: CityTideForecastRow, state: string): CityTideData | null {
   const rawForecast = forecastData.raw_forecast as {
     tide_schedule?: TideScheduleEntry[];
     tide_station?: { id: string; name: string };
@@ -372,12 +317,12 @@ function processTideData(forecastData: any, state: string): CityTideData | null 
     nextTideType: nextTide ? (nextTide.type === "high" ? "High" : "Low") : (forecastData.next_tide_type || null),
     nextTideTime: nextTideTimeFormatted || (forecastData.next_tide_time || null),
     nextTideHeight: nextTide ? `${nextTide.height} ft` : (forecastData.next_tide_height || null),
-    beachName: beach?.name || "Unknown Beach",
+    beachName: forecastData.beachName || "Unknown Beach",
     tideStation: rawForecast?.tide_station?.name || null,
   };
 }
 
-function hasUsableTideForecastRow(forecastData: any): boolean {
+function hasUsableTideForecastRow(forecastData: CityTideForecastRow): boolean {
   const rawForecast = forecastData.raw_forecast as {
     tide_schedule?: TideScheduleEntry[];
   } | null;
@@ -504,49 +449,50 @@ async function findRepresentativeBeachStrict(
   return alt ? ((await selectBeach(alt, MEASUREMENT_HOLDS)) ?? nextUnheldBeach(supabase, cityName, null)) : null;
 }
 
-async function fetchCityTideRowsForAvailability(
+type CityTideForecastRow = Pick<Tables<"enhanced_forecasts">,
+  "beach_id" | "tide_status" | "tide_height" | "next_tide_time" | "next_tide_type" | "next_tide_height" | "raw_forecast"
+> & { beachName: string | undefined };
+
+async function fetchCityTideRows(
   supabase: SupabaseClient,
   cityName: string,
-  state?: string,
-): Promise<any[]> {
-  const today = new Date().toISOString().split("T")[0];
+  state: string | undefined,
+  today: string,
+  limit: number,
+): Promise<{ rows: CityTideForecastRow[]; error: PostgrestError | null }> {
+  let beachesQuery = supabase.from("beaches").select("id, name").ilike("city", cityName);
+  if (state !== undefined) beachesQuery = beachesQuery.ilike("state", state);
+  const { data: beaches, error: beachesError } = await beachesQuery;
+  if (beachesError || !beaches?.length) return { rows: [], error: beachesError };
+
   const nextDay = new Date(new Date(`${today}T00:00:00Z`).getTime() + 86400000)
     .toISOString()
     .split("T")[0];
 
-  let query = supabase
+  const { data, error } = await supabase
     .from("enhanced_forecasts")
     .select(
       `
       beach_id,
-      forecast_at,
       tide_status,
       tide_height,
       next_tide_time,
       next_tide_type,
       next_tide_height,
-      raw_forecast,
-      beaches!inner (
-        id,
-        name,
-        city,
-        state
-      )
+      raw_forecast
     `
     )
+    .in("beach_id", beaches.map(({ id }) => id))
     .gte("forecast_at", `${today}T00:00:00Z`)
     .lt("forecast_at", `${nextDay}T00:00:00Z`)
-    .ilike("beaches.city", cityName)
     .order("forecast_at", { ascending: true })
-    .limit(5);
+    .limit(limit);
 
-  if (state) {
-    query = query.ilike("beaches.state", state);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data ?? [];
+  const rows = data?.map((row) => ({
+    ...row,
+    beachName: beaches.find(({ id }) => id === row.beach_id)?.name,
+  })) ?? [];
+  return { rows, error };
 }
 
 async function getCityTideDataAvailability(
@@ -554,14 +500,14 @@ async function getCityTideDataAvailability(
   cityName: string,
   state: string,
 ): Promise<CityIntentDataAvailability> {
-  const rowsWithState = await fetchCityTideRowsForAvailability(supabase, cityName, state);
-  const rows = rowsWithState.length > 0
-    ? rowsWithState
-    : await fetchCityTideRowsForAvailability(supabase, cityName);
+  const today = new Date().toISOString().split("T")[0];
+  let result = await fetchCityTideRows(supabase, cityName, state || undefined, today, 5);
+  if (!result.error && result.rows.length === 0) {
+    result = await fetchCityTideRows(supabase, cityName, undefined, today, 5);
+  }
+  if (result.error) throw result.error;
 
-  if (rows.length === 0) return "missing";
-
-  return rows.some(hasUsableTideForecastRow)
+  return result.rows.some(hasUsableTideForecastRow)
     ? "available"
     : "missing";
 }
