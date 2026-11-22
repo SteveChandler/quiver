@@ -10,6 +10,7 @@ import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-s
 import type { Metadata } from "next";
 import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
 import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
+import { runWithPublicWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import {
   buildPageMetadata,
   buildDynamicBeachMetadata,
@@ -85,7 +86,10 @@ export default async function BeachDetailBySlugPage(
       ]);
       amenities = amenitiesResult.data as BeachAmenities | null;
       // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
-      waterQuality = (await withRainfallNotice(await currentWaterQuality([waterQualityResult.data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
+      waterQuality = await runWithPublicWaterQualityReadScope(async () => {
+        const rows = await currentWaterQuality([waterQualityResult.data ?? unsampledWaterQualityRow(beach.id)]);
+        return (await withRainfallNotice(rows, [beach]))[0] as WaterQuality;
+      });
     } catch {
       // Gracefully degrade if tables don't exist yet
     }
