@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
 import { CamCard } from "@/components/cams/cam-card";
-import { CAM_CARD_FALLBACK_IMAGE_URL } from "@/lib/media/cam-thumbnail";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
 
 type MockNextImageProps = ImgHTMLAttributes<HTMLImageElement> & {
@@ -50,9 +49,18 @@ describe("CamCard", () => {
       "src",
       "https://img.youtube.com/vi/abc123/mqdefault.jpg",
     );
+
+    fireEvent.error(screen.getByAltText("Test Beach live camera"));
+    expect(screen.getByAltText("Test Beach beach photo")).toHaveAttribute(
+      "src",
+      "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Ftest-beach.jpg",
+    );
+
+    fireEvent.error(screen.getByAltText("Test Beach beach photo"));
+    expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
   });
 
-  it("uses the beach photo before the generic fallback when no thumbnail exists", () => {
+  it("uses an actual beach photo when no camera thumbnail exists", () => {
     render(
       <CamCard
         beach={{
@@ -63,14 +71,14 @@ describe("CamCard", () => {
       />,
     );
 
-    expect(screen.getByAltText("Test Beach live camera")).toHaveAttribute(
+    expect(screen.getByAltText("Test Beach beach photo")).toHaveAttribute(
       "src",
       "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Ftest-beach.jpg",
     );
     expect(screen.queryByText("Preview unavailable")).not.toBeInTheDocument();
   });
 
-  it("uses the generic fallback only when no camera thumbnail or beach photo exists", () => {
+  it("shows no image when neither a camera thumbnail nor beach photo exists", () => {
     render(
       <CamCard
         beach={{
@@ -82,10 +90,9 @@ describe("CamCard", () => {
       />,
     );
 
-    expect(screen.getByAltText("Test Beach live camera")).toHaveAttribute(
-      "src",
-      CAM_CARD_FALLBACK_IMAGE_URL,
-    );
+    expect(screen.queryByAltText("Test Beach live camera")).not.toBeInTheDocument();
+    expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
+    expect(screen.getByText("LIVE")).toBeInTheDocument();
   });
 
   it("keeps a space before the arrow in the hover label", () => {
@@ -105,8 +112,6 @@ describe("CamCard", () => {
         }}
       />,
     );
-
-    fireEvent.error(screen.getByAltText("Test Beach live camera"));
 
     expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
     // A failed preview does not change what the click gives (quiver#1477).
@@ -167,12 +172,18 @@ describe("CamCard", () => {
   });
 });
 
- it("routes untrusted hero photos through the proxy and falls back when rejected", () => {
+ it("routes untrusted hero photos through the proxy and shows no stock fallback when rejected", () => {
    render(<CamsHeroContactSheet beaches={[{ ...baseBeach, camera_url: "https://example.com/cam", thumbnail_url: null, photo_url: "https://untrusted.example/photo.jpg" }]} label="Featured cameras" />);
    const image = screen.getByAltText("Test Beach surf cam preview");
    expect(image).toHaveAttribute("src", "/api/image-proxy?url=https%3A%2F%2Funtrusted.example%2Fphoto.jpg");
    fireEvent.error(image);
-   expect(image).toHaveAttribute("src", CAM_CARD_FALLBACK_IMAGE_URL);
-   fireEvent.error(image);
-   expect(image).toHaveAttribute("src", CAM_CARD_FALLBACK_IMAGE_URL);
+   expect(image).not.toBeInTheDocument();
+   expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
+ });
+
+ it("omits beaches without playback from the hero roll", () => {
+   render(<CamsHeroContactSheet beaches={[{ ...baseBeach, name: "Cannon Beach", playback: { kind: "none" } }, baseBeach]} label="Featured cameras" />);
+
+   expect(screen.queryByText("Cannon Beach")).not.toBeInTheDocument();
+   expect(screen.getByText("Test Beach")).toBeInTheDocument();
  });

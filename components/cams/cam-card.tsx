@@ -10,26 +10,28 @@ import {
   getDisplayCamThumbnailUrls,
 } from "@/lib/media/cam-thumbnail";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
+import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 
 interface CamCardProps {
   beach: CamBeachWithRegion;
 }
 
 export function CamCard({ beach }: CamCardProps) {
-  const fallbackImageUrl = beach.photo_url ?? CAM_CARD_FALLBACK_IMAGE_URL;
+  const fallbackImageUrl = beach.photo_url;
   const thumbnailUrls = useMemo(
     () =>
       getDisplayCamThumbnailUrls({
         cameraUrl: beach.camera_url,
         thumbnailUrl: beach.thumbnail_url,
         fallbackImageUrl,
-      }),
+      }).filter((url) => url !== CAM_CARD_FALLBACK_IMAGE_URL),
     [beach.camera_url, beach.thumbnail_url, fallbackImageUrl],
   );
   const [thumbnailIndex, setThumbnailIndex] = useState(0);
   const [imgError, setImgError] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const thumbnailUrl = thumbnailUrls[thumbnailIndex] ?? null;
+  const photoUrl = fallbackImageUrl ? getProxiedImageUrl(fallbackImageUrl) : null;
   const showThumbnail = Boolean(thumbnailUrl) && !imgError;
 
   const handleImageError = useCallback((): void => {
@@ -74,8 +76,7 @@ export function CamCard({ beach }: CamCardProps) {
     <>
       {/* Camera preview area */}
       <div
-        className="halftone-photo relative h-44 overflow-hidden border-b-2 border-[#11100D] bg-cover bg-center"
-        style={{ backgroundImage: `url("${fallbackImageUrl}")` }}
+        className="halftone-photo relative h-44 overflow-hidden border-b-2 border-[#11100D]"
       >
         {showThumbnail ? (
           <>
@@ -83,7 +84,7 @@ export function CamCard({ beach }: CamCardProps) {
               key={thumbnailUrl}
               ref={imageRef}
               src={thumbnailUrl}
-              alt={playback.kind === "none" ? beach.name : `${beach.name} live camera`}
+              alt={thumbnailUrl === photoUrl ? `${beach.name} beach photo` : `${beach.name} live camera`}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
