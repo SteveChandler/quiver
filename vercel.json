@@ -67,10 +67,6 @@
       "schedule": "0 0-4,13-17 * * *"
     },
     {
-      "path": "/api/cron/npc-activity",
-      "schedule": "0 5-20 * * *"
-    },
-    {
       "path": "/api/cron/refresh-beach-traffic-weights",
       "schedule": "0 5 * * *"
     },
