@@ -82,7 +82,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { rankBeaches } from '@/lib/recommendations/selection';
 import { waterQualityCandidateRejection } from '@/lib/recommendations/major-event-hold/candidate-rejection';
 import type { WaterQualityHoldResolution } from '@/lib/recommendations/major-event-hold/water-quality';
-import { isBoardPicksFreeEnabled } from '@/lib/flags/board-picks-free';
 import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
 import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
 import { orderBoardClasses } from '@/lib/profile/board-classes';
@@ -1243,8 +1242,7 @@ function applyWorthTheDriveReasons(
 
 export async function fetchUserBoardContext(
   supabase: Pick<SupabaseClient, 'from'>,
-  userId: string | null,
-  isPro: boolean
+  userId: string | null
 ): Promise<UserBoardContext> {
   if (!userId) {
     return {
@@ -1254,26 +1252,18 @@ export async function fetchUserBoardContext(
     };
   }
 
-  const picksEnabled = isPro || isBoardPicksFreeEnabled();
-  // Session history only feeds board picks; skip the embed when picks are off.
-  const { data, error } = picksEnabled
-    ? await supabase
-      .from('boards')
-      .select(PERSONAL_BOARD_SELECT)
-      .eq('user_id', userId)
-      .is('retired_at', null)
-      .eq('sessions.user_id', userId)
-      .eq('sessions.status', 'completed')
-      .is('sessions.deleted_at', null)
-      // Same 12-month window as the match scorer, capped so heavy loggers keep a bounded payload.
-      .gte('sessions.arrival_time', new Date(Date.now() - BOARD_HISTORY_WINDOW_MS).toISOString())
-      .order('arrival_time', { referencedTable: 'sessions', ascending: false })
-      .limit(BOARD_HISTORY_SESSION_CAP, { referencedTable: 'sessions' })
-    : await supabase
-      .from('boards')
-      .select('id, name, board_type, volume, session_count')
-      .eq('user_id', userId)
-      .is('retired_at', null);
+  const { data, error } = await supabase
+    .from('boards')
+    .select(PERSONAL_BOARD_SELECT)
+    .eq('user_id', userId)
+    .is('retired_at', null)
+    .eq('sessions.user_id', userId)
+    .eq('sessions.status', 'completed')
+    .is('sessions.deleted_at', null)
+    // Same 12-month window as the match scorer, capped so heavy loggers keep a bounded payload.
+    .gte('sessions.arrival_time', new Date(Date.now() - BOARD_HISTORY_WINDOW_MS).toISOString())
+    .order('arrival_time', { referencedTable: 'sessions', ascending: false })
+    .limit(BOARD_HISTORY_SESSION_CAP, { referencedTable: 'sessions' });
 
   if (error) {
     log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
@@ -1298,11 +1288,9 @@ export async function fetchUserBoardContext(
   return {
     dominantBoardClass: resolveDominantBoardClass(rows),
     boardClasses: isSkillAwareGoChecksOn(userId) ? orderBoardClasses(boardClasses) : boardClasses,
-    boardsForPicks: picksEnabled
-      ? rows
-          .map((row) => normalizeBoardForPick(row))
-          .filter((board): board is BoardForPick => board !== null)
-      : [],
+    boardsForPicks: rows
+      .map((row) => normalizeBoardForPick(row))
+      .filter((board): board is BoardForPick => board !== null),
   };
 }
 
@@ -2118,7 +2106,7 @@ async function discoverSurfSpotsInner(
       .select('beach_id, status, latest_sample_date')
       .in('beach_id', candidateBeachIds)),
     stageTimer.time('personalization', () => userPrefsPromise.then((prefs) => fetchPersonalizationContext(userId, candidateBeachIds, prefs))),
-    stageTimer.time('board-context', () => fetchUserBoardContext(supabase, userId, isPro || isBoardPicksFreeEnabled())),
+    stageTimer.time('board-context', () => fetchUserBoardContext(supabase, userId)),
     stageTimer.time('break-behavior', () => fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now })),
     userPrefsPromise,
     tideSeriesPromise,

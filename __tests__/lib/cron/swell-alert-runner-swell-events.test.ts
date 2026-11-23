@@ -394,7 +394,7 @@ describe("swell alert runner on the swell-events detector", () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it("still sends with no board picks when the plan read fails, and counts it once without a warning", async () => {
+  it("still loads board context and sends when the plan read fails, and counts it once without a warning", async () => {
     const { getUserEntitlement } = jest.requireMock("@/lib/alerts/entitlements") as { getUserEntitlement: jest.Mock };
     const { fetchUserBoardContext } = jest.requireMock("@/lib/services/discovery/surf-discovery-orchestrator") as {
       fetchUserBoardContext: jest.Mock;
@@ -409,7 +409,7 @@ describe("swell alert runner on the swell-events detector", () => {
 
     expect(result.sent).toBe(1);
     expect(result.entitlementReadFailures).toBe(1);
-    expect(fetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), expect.any(String), false);
+    expect(fetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), expect.any(String));
     // Fixture rows carry no confidence score; only a per-user swell-alert warning is under test.
     expect(warn.mock.calls.map(([first]) => String(first)).filter((line) => line.startsWith("[swell-alert]"))).toEqual([]);
     warn.mockRestore();

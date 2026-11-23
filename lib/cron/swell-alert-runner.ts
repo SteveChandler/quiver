@@ -797,13 +797,13 @@ async function evaluatePool(
   });
   if (pool.length === 0) return { history: [], candidates: [], poolBeachIds: [], anchor: null };
 
-  // The board is optional copy; a failed read sends the alert without one.
-  // An unknown plan gets no board picks; the run summary counts it, the reader reports it.
+  // The board is optional copy; a failed lookup sends the alert without one.
+  // The run summary counts unknown plans while the reader reports them.
   let entitlementReadFailures = 0;
   const boardsForPicks = await getUserEntitlement(profile.id, client)
     .then((tier) => {
       if (tier === "unknown") entitlementReadFailures = 1;
-      return fetchUserBoardContext(client, profile.id, tier === "premium");
+      return fetchUserBoardContext(client, profile.id);
     })
     .then((context) => context.boardsForPicks, (error: unknown) => {
       console.warn(`[swell-alert] Board read failed for ${profile.id}:`, error);

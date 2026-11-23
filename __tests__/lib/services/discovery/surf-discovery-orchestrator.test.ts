@@ -1446,7 +1446,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
   test('bounds the embedded board history to 12 months and 300 recent sessions', async () => {
     mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
     mockSupabaseFrom.mockClear();
-    await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', true);
+    await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1');
     const query = mockSupabaseFrom.mock.results.find((_, i) => mockSupabaseFrom.mock.calls[i][0] === 'boards')!.value;
     const [[column, since]] = query.gte.mock.calls;
     expect(column).toBe('sessions.arrival_time');
@@ -1457,17 +1457,10 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(query.limit).toHaveBeenCalledWith(300, { referencedTable: 'sessions' });
   });
 
-  test.each([true, false])('leaves retired boards out of the board context (picks enabled: %s)', async (isPro) => {
-    const previous = process.env.BOARD_PICKS_FREE_ENABLED;
-    delete process.env.BOARD_PICKS_FREE_ENABLED;
+  test('leaves retired boards out of the board context', async () => {
     mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
     mockSupabaseFrom.mockClear();
-    try {
-      await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', isPro);
-    } finally {
-      if (previous === undefined) delete process.env.BOARD_PICKS_FREE_ENABLED;
-      else process.env.BOARD_PICKS_FREE_ENABLED = previous;
-    }
+    await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1');
     const query = mockSupabaseFrom.mock.results.find((_, i) => mockSupabaseFrom.mock.calls[i][0] === 'boards')!.value;
     expect(query.is).toHaveBeenCalledWith('retired_at', null);
   });
@@ -1499,7 +1492,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
         { id: 'lb-1', name: 'Log', board_type: 'longboard' },
       ];
 
-      const context = await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', true);
+      const context = await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1');
 
       expect(context.boardClasses).toEqual(expected);
     });
@@ -1547,21 +1540,6 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(beach1Rec?.boardPick).toBeNull();;
   });
 
-  test('fetches board context for free users without leaking Pro board picks', async () => {
-    mockState.boards = [
-      { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28, session_count: 3 },
-    ];
-
-    const result = await discoverSurfSpots(testUserId, {
-      userLocation: defaultUserLocation,
-      maxResults: 5,
-      isPro: false,
-    });
-
-    expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
-    expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
-  });
-
   test('degrades to null board picks when Pro board lookup fails', async () => {
     mockState.boardsError = { message: 'Database connection failed' };
 
@@ -1575,24 +1553,19 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
   });
 
-  test('names free-user board picks when the rollback flag is enabled', async () => {
-    const previous = process.env.BOARD_PICKS_FREE_ENABLED;
-    process.env.BOARD_PICKS_FREE_ENABLED = 'true';
+  test('names board picks for free users with saved boards', async () => {
     mockState.boards = [
       { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28 },
     ];
 
-    try {
-      const result = await discoverSurfSpots(testUserId, {
-        userLocation: defaultUserLocation,
-        maxResults: 5,
-        isPro: false,
-      });
-      expect(result.recommendations.find(r => r.beach.id === 'beach-1')?.boardPick?.boardId).toBe('sb-1');
-    } finally {
-      if (previous === undefined) delete process.env.BOARD_PICKS_FREE_ENABLED;
-      else process.env.BOARD_PICKS_FREE_ENABLED = previous;
-    }
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      isPro: false,
+    });
+
+    expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
+    expect(result.recommendations.find(r => r.beach.id === 'beach-1')?.boardPick?.boardId).toBe('sb-1');
   });
 
   test("uses one dominant board class to rank Old Man's above Blacks for logs and Blacks above Old Man's for shortboards", async () => {
