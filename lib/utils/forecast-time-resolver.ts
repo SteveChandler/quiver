@@ -17,6 +17,7 @@
  * @module lib/utils/forecast-time-resolver
  */
 
+import { zonedFormatter } from '@/lib/utils/zoned-formatter';
 import { getLocalHourFormatter } from '@/lib/services/discovery/window-selector/time-slot-utils';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
@@ -55,25 +56,16 @@ export function localDateTimeToUTC(dateStr: string, timeStr: string, tz: string)
   return resolved;
 }
 
-const offsetFormatterByTz = new Map<string, Intl.DateTimeFormat>();
-
-function offsetFormatter(tz: string): Intl.DateTimeFormat {
-  const cached = offsetFormatterByTz.get(tz);
-  if (cached) return cached;
-  // An invalid timezone throws a RangeError here, before anything is cached.
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-  });
-  offsetFormatterByTz.set(tz, formatter);
-  return formatter;
-}
+// An invalid timezone throws a RangeError here, before anything is cached.
+const offsetFormatter = zonedFormatter("en-US", {
+  hourCycle: "h23",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  second: "numeric",
+});
 
 /** UTC offset of `tz` at the instant `ms`, in ms (PST is -8 h). */
 function utcOffsetMsAt(ms: number, tz: string): number {

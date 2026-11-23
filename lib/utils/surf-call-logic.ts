@@ -7,6 +7,7 @@
  * @module lib/utils/surf-call-logic
  */
 
+import { zonedFormatter } from '@/lib/utils/zoned-formatter';
 import type { Beach } from '@/types/database';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -577,31 +578,15 @@ const BETTER_SPAN_FIRST_HOUR = 5;
 const BETTER_SPAN_END_HOUR = 20;
 
 /** One formatter per timezone: building one per row is the slow part of these reads. */
-const localDayFormatters = new Map<string, Intl.DateTimeFormat>();
-const localHourFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function cachedFormatter(
-  cache: Map<string, Intl.DateTimeFormat>,
-  timezone: string,
-  build: () => Intl.DateTimeFormat,
-): Intl.DateTimeFormat {
-  let formatter = cache.get(timezone);
-  if (!formatter) {
-    formatter = build();
-    cache.set(timezone, formatter);
-  }
-  return formatter;
-}
+const localDayFormatter = zonedFormatter('en-CA', {});
+const localHourFormatter = zonedFormatter('en-US', { hour: 'numeric', hourCycle: 'h23' });
 
 function localDayOf(ms: number, timezone: string): string {
-  return cachedFormatter(localDayFormatters, timezone, () =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: timezone })).format(new Date(ms));
+  return localDayFormatter(timezone).format(new Date(ms));
 }
 
 function localHourOf(ms: number, timezone: string): number {
-  return Number(cachedFormatter(localHourFormatters, timezone, () => new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone, hour: 'numeric', hourCycle: 'h23',
-  })).format(new Date(ms)));
+  return Number(localHourFormatter(timezone).format(new Date(ms)));
 }
 
 /** Rows on `ms`'s local day inside the surfable 05:00–20:00 local hours, in time order. */
