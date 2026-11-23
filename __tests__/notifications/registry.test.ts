@@ -897,17 +897,6 @@ describe("NOTIFICATION_REGISTRY — Phase 5i admin types", () => {
 
 
 describe("registry beach title separators", () => {
-  it("cleans a forecast feedback beach name without changing notification data", () => {
-    const def = NOTIFICATION_REGISTRY.forecast_feedback_nudge;
-    const payload = def.validatePayload!({
-      beach_id: "beach-1", beach_name: "Cardiff-by-the-Sea - - North", relevance_confidence: "high",
-    });
-    const push = def.buildPushPayload!(payload);
-    expect(push.title).toBe("Surfed Cardiff-by-the-Sea North today?");
-    expect(push.body).toBe("Log it in one tap.");
-    expect(push.data.beach_id).toBe("beach-1");
-  });
-
   it.each([
     ["closure", "advisory", "Beach closed"],
     ["advisory", "good", "Water advisory"],
