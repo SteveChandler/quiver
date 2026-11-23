@@ -14,7 +14,6 @@ const CASES: OutcomeWiringCase[] = [
   { name: "CCC import", route: "ccc-sync", unit: "ccc_locations_written" },
   { name: "CCC match", route: "ccc-sync", unit: "beach_matches_written" },
   { name: "county advisories", route: "county-beach-advisories", unit: "advisories_synced" },
-  { name: "daily call streak reminder", route: "daily-call-streak-reminder", unit: "reminders_sent" },
   { name: "daily intel", route: "daily-intel", unit: "intel_published" },
   { name: "first-session push nudge", route: "first-session-nudge-push", unit: "nudges_sent" },
   { name: "forecast refresh", route: "forecasts/refresh", unit: "marine_forecasts_written" },

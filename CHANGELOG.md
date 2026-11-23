@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **2026-11-22 — Forecast feedback nudge** (`FORECAST_FEEDBACK_NUDGE_ENABLED`). Removed the daily push because a forecast window gave too little evidence that someone surfed and could prefill the wrong beach or time. The nudge came from PR #353 and was switched off in PR #410. Kept the weekly streak reminder and all existing rows in `streak_reminder_log`, `forecast_feedback_contexts`, `sessions`, `notification_events`, and `notification_delivery_attempts`. [PR #353](https://github.com/SteveChandler/quiver/pull/353) · [PR #410](https://github.com/SteveChandler/quiver/pull/410)
+
 ### Security
 - Bumped `next` 16.2.6 → 16.2.11 and `postcss` → 8.5.25; regenerated transitive `brace-expansion` to 1.1.18/2.1.4. Clears all open Dependabot advisories (SSRF in Server Actions/rewrites, middleware bypass, DoS, cache confusion, source-map path traversal, ReDoS).
 
