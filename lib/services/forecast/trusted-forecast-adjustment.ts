@@ -1,3 +1,4 @@
+import { zonedFormatter } from "@/lib/utils/zoned-formatter";
 import { getLocalDateFormatter } from "@/lib/services/discovery/window-selector/time-slot-utils";
 /**
  * Pure local-day trusted-forecast decision engine (Phase 21, MFA-04 / MFA-05).
@@ -198,7 +199,7 @@ export function localDateInTimeZone(instant: Date, timeZone: string): string {
   return getLocalDateFormatter(timeZone).format(instant);
 }
 
-const LOCAL_HOUR_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+const localHourFormatter = zonedFormatter("en-GB", { hour: "2-digit", hour12: false });
 
 /**
  * The beach's local clock hour for an instant, 0-23.
@@ -207,17 +208,8 @@ const LOCAL_HOUR_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
  * comes from `localDateInTimeZone`, so DST-length days are unaffected.
  */
 function localHourInTimeZone(instant: Date, timeZone: string): number {
-  let formatter = LOCAL_HOUR_FORMATTERS.get(timeZone);
-  if (formatter === undefined) {
-    formatter = new Intl.DateTimeFormat("en-GB", {
-      timeZone,
-      hour: "2-digit",
-      hour12: false,
-    });
-    LOCAL_HOUR_FORMATTERS.set(timeZone, formatter);
-  }
   // "24" is the en-GB midnight rendering under hour12:false.
-  return Number(formatter.format(instant)) % 24;
+  return Number(localHourFormatter(timeZone).format(instant)) % 24;
 }
 
 /**
