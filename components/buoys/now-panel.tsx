@@ -6,11 +6,11 @@ import {
   normalizeDegrees,
 } from "@/lib/buoy-pages/format";
 import type { StationStatus } from "@/lib/buoy-pages/status";
-import type { WaveStationObservationRow } from "@/lib/services/wave-stations/types";
+import type { WaveStationHistoryRow } from "@/lib/services/wave-stations/types";
 import { DirectionArrow } from "./direction-arrow";
 
 interface NowPanelProps {
-  observation: WaveStationObservationRow | null;
+  observation: WaveStationHistoryRow | null;
   status: StationStatus;
   hasSwellSplit: boolean;
   reading: string | null;

@@ -3,7 +3,7 @@
  * reading, never to render time, so ISR output only changes with new data.
  */
 
-import type { WaveStationObservationRow } from "@/lib/services/wave-stations/types";
+import type { WaveStationHistoryRow } from "@/lib/services/wave-stations/types";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -52,7 +52,7 @@ function meanDirection(values: Array<number | null>): number | null {
 }
 
 /** Rows that carry a wave height, oldest first. */
-function waveRows(rows: WaveStationObservationRow[]): WaveStationObservationRow[] {
+function waveRows(rows: WaveStationHistoryRow[]): WaveStationHistoryRow[] {
   return rows
     .filter((row) => finiteOrNull(row.wave_height_m) !== null && Number.isFinite(Date.parse(row.observed_at)))
     .sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at));
@@ -63,10 +63,10 @@ function waveRows(rows: WaveStationObservationRow[]): WaveStationObservationRow[
  * one. A 30-day page stays under ~720 points.
  */
 export function buildTrendSeries(
-  rows: WaveStationObservationRow[],
+  rows: WaveStationHistoryRow[],
   bucketMs: number = HOUR_MS,
 ): TrendPoint[] {
-  const buckets = new Map<number, WaveStationObservationRow[]>();
+  const buckets = new Map<number, WaveStationHistoryRow[]>();
   for (const row of waveRows(rows)) {
     const key = Math.floor(Date.parse(row.observed_at) / bucketMs) * bucketMs;
     const bucket = buckets.get(key) ?? [];
@@ -105,7 +105,7 @@ const TREND_MIN_RATIO = 0.15;
  * at least 0.15 m and 15% of the earlier height; otherwise "steady". Returns
  * null when either window has no readings.
  */
-export function computeHeightTrend(rows: WaveStationObservationRow[]): HeightTrend | null {
+export function computeHeightTrend(rows: WaveStationHistoryRow[]): HeightTrend | null {
   const waves = waveRows(rows);
   const newest = waves[waves.length - 1];
   if (!newest) return null;
@@ -136,7 +136,7 @@ export interface HourlyObservation {
  * Mean observed height per nearest whole hour, for matching against hourly
  * model output (model values are instants on the hour).
  */
-export function hourlyObservedHeights(rows: WaveStationObservationRow[]): HourlyObservation[] {
+export function hourlyObservedHeights(rows: WaveStationHistoryRow[]): HourlyObservation[] {
   const buckets = new Map<number, number[]>();
   for (const row of waveRows(rows)) {
     const key = Math.round(Date.parse(row.observed_at) / HOUR_MS) * HOUR_MS;
@@ -151,7 +151,7 @@ export function hourlyObservedHeights(rows: WaveStationObservationRow[]): Hourly
 
 const SPLIT_ROW_MAX_LAG_MS = 90 * 60 * 1000;
 
-function hasSplit(row: WaveStationObservationRow): boolean {
+function hasSplit(row: WaveStationHistoryRow): boolean {
   return finiteOrNull(row.swell_height_m) !== null && finiteOrNull(row.wind_wave_height_m) !== null;
 }
 
@@ -164,9 +164,9 @@ function hasSplit(row: WaveStationObservationRow): boolean {
  */
 export function selectNowObservation(
   hasSwellSplit: boolean,
-  newestWave: WaveStationObservationRow | null,
-  history: WaveStationObservationRow[],
-): WaveStationObservationRow | null {
+  newestWave: WaveStationHistoryRow | null,
+  history: WaveStationHistoryRow[],
+): WaveStationHistoryRow | null {
   if (!newestWave || !hasSwellSplit || hasSplit(newestWave)) return newestWave;
   const newestAt = Date.parse(newestWave.observed_at);
   const withSplit = waveRows(history)

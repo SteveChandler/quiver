@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import { errorWithCode, selectAllPages } from "./paging";
-import type { WaveStationObservationRow, WaveStationRow } from "./types";
+import type { WaveStationHistoryRow, WaveStationObservationRow, WaveStationRow } from "./types";
 
 /** Untyped until types/database.generated.ts is regenerated with the catalogue tables. */
 type ReadClient = SupabaseClient;
@@ -19,6 +19,14 @@ const STATION_COLUMNS = [
   "license", "attribution", "active", "first_seen_at", "last_observed_at", "last_wave_observed_at",
   "spec_checked_at", "spec_last_modified", "spec_last_observed_at",
   "txt_checked_at", "txt_last_modified", "txt_last_observed_at", "created_at", "updated_at",
+].join(", ");
+
+// The wave fields the charts, trend and "Now" row read, plus water temperature
+// for the beach buoy card. select=* doubled the payload (about 500 KB per 1,000 rows).
+const HISTORY_COLUMNS = [
+  "observed_at", "wave_height_m", "dominant_period_s", "mean_wave_direction_deg",
+  "swell_height_m", "swell_period_s", "swell_direction_deg",
+  "wind_wave_height_m", "wind_wave_period_s", "wind_wave_direction_deg", "water_temp_c",
 ].join(", ");
 
 const MAX_HISTORY_HOURS = 180 * 24;
@@ -128,18 +136,21 @@ export async function getObservationHistory(
   stationId: string,
   hours: number,
   client?: ReadClient,
-): Promise<WaveStationObservationRow[]> {
+): Promise<WaveStationHistoryRow[]> {
   const db = publicClient(client);
   const safeHours = Math.min(MAX_HISTORY_HOURS, Math.max(1, Number.isFinite(hours) ? hours : 1));
   const since = new Date(Date.now() - safeHours * 60 * 60 * 1000).toISOString();
-  return selectAllPages<WaveStationObservationRow>((from, to) =>
+  return selectAllPages<WaveStationHistoryRow>((from, to) =>
     db
       .from("wave_station_observations")
-      .select("*")
+      .select(HISTORY_COLUMNS)
       .eq("station_id", stationId)
       .gte("observed_at", since)
       .order("observed_at", { ascending: true })
-      .range(from, to),
+      .range(from, to) as unknown as PromiseLike<{
+      data: WaveStationHistoryRow[] | null;
+      error: { message: string; code?: string } | null;
+    }>,
   );
 }
 
