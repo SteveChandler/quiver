@@ -35,11 +35,11 @@ interface Entry {
 const entries = new Map<string, Entry>();
 const queueTails = new Map<string, Promise<void>>();
 
-export function isWeekScoutAnswerReuseEnabled(): boolean {
+function isWeekScoutAnswerReuseEnabled(): boolean {
   return process.env.WEEK_SCOUT_ANSWER_REUSE !== 'false';
 }
 
-export function isWeekScoutRankingQueueEnabled(): boolean {
+function isWeekScoutRankingQueueEnabled(): boolean {
   return process.env.WEEK_SCOUT_RANKING_QUEUE !== 'false';
 }
 

@@ -16,12 +16,6 @@ function normalizeScore(score: number | null | undefined): number | undefined {
   return Math.max(0, Math.min(100, score));
 }
 
-export function isHighConfidenceNotification(
-  confidence: NotificationConfidenceLevel | null | undefined,
-): boolean {
-  return confidence === "high";
-}
-
 export function buildNotificationRelevanceMetadata(args: {
   category: string;
   triggerSource: string;

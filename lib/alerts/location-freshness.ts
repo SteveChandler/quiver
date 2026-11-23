@@ -1,7 +1,7 @@
 import { MAX_DRIVE_RADIUS_MILES } from "@/lib/profile/drive-range";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 
-export const LOCATION_FIX_MAX_AGE_HOURS = 24;
+const LOCATION_FIX_MAX_AGE_HOURS = 24;
 /**
  * The morning Daily Call trusts only a fix from the last 12 hours. Returning
  * users reopen the app every ~14 h at the median (PostHog, 2026-10-11), so an
