@@ -7,6 +7,8 @@ import {
   canCachePublicBeachRows,
   runWithPublicBeachRowCache,
   tryReadCachedPublicBeachRows,
+  type PublicBeachCacheRejectReason,
+  type PublicBeachRowsCacheResult,
 } from "@/lib/data/server/public-beach-row-cache";
 
 /**
@@ -41,6 +43,7 @@ interface WaterQualityReadScope {
 
 interface CachedRead {
   isValid: (data: unknown) => boolean;
+  invalidReason?: (data: unknown) => PublicBeachCacheRejectReason;
   ttl?: number;
   key?: string;
   cacheRead?: (load: Load) => PromiseLike<WaterQualityReadResult>;
@@ -147,9 +150,11 @@ export function memoizedWaterQualityRead(
     ? async () => {
         if (options.cacheRead) return options.cacheRead(load);
         const rows = await tryReadCachedPublicBeachRows(
-          client, options.key ?? key, options.ttl ?? WATER_QUALITY_TTL_SECONDS, load, options.isValid,
+          client, options.key ?? key, options.ttl ?? WATER_QUALITY_TTL_SECONDS, load, options.isValid, options.invalidReason,
         );
-        return rows === undefined ? load() : { data: rows, error: null };
+        if (rows.kind === "hit") return { data: rows.rows, error: null };
+        if (rows.kind === "error") return rows.result;
+        return load();
       }
     : load;
   if (!scope || (scope.publicRead && !isPublicReadSharingEnabled())) return start(read);
@@ -204,19 +209,25 @@ export async function tryReadWholeBeachTable<T>(
   beachIds: readonly string[],
   load: () => PromiseLike<{ data: T[] | null; error: unknown }>,
   isValid: (data: unknown) => boolean,
-): Promise<T[] | undefined> {
-  if (!canCacheWaterQualityReads(client)) return undefined;
+): Promise<PublicBeachRowsCacheResult<T[]>> {
+  if (!canCacheWaterQualityReads(client)) return { kind: "bypass" };
   const rows = await tryReadCachedPublicBeachRows(
     client, tableAndColumns, WATER_QUALITY_TTL_SECONDS, load, (data) => {
       if (!Array.isArray(data) || data.length >= POSTGREST_MAX_ROWS || !isValid(data)) return false;
       const ids = new Set(data.map(beachIdOf));
       return !ids.has(null) && ids.size === data.length;
+    }, (data) => {
+      if (!Array.isArray(data)) return "invalid-rows";
+      if (data.length >= POSTGREST_MAX_ROWS) return "row-cap";
+      if (new Set(data.map(beachIdOf)).size !== data.length) return "duplicate-id";
+      return "invalid-rows";
     },
   );
-  if (rows == null) return undefined;
+  if (rows.kind !== "hit") return rows;
   const requested = new Set(beachIds.map((id) => id.toLowerCase()));
-  const allIds = new Set(rows.map((row) => beachIdOf(row)!));
-  return rowsForBeachIds({ data: rows, error: null }, allIds, requested).data as T[];
+  const allRows = rows.rows as T[];
+  const allIds = new Set(allRows.map((row) => beachIdOf(row)!));
+  return { kind: "hit", rows: rowsForBeachIds({ data: allRows, error: null }, allIds, requested).data as T[] };
 }
 
 /** Shares `beach_id IN (...)` reads, including subsets of an earlier read. */
@@ -235,13 +246,12 @@ export function memoizedBeachRowsRead(
     ? async () => {
         const rows = await tryReadWholeBeachTable(
           client, tableAndColumns, beachIds,
-          async () => {
-            const { data, error } = await wholeTable.load();
-            return { data: Array.isArray(data) ? data : null, error };
-          },
+          wholeTable.load as () => PromiseLike<{ data: unknown[] | null; error: unknown }>,
           wholeTable.isValid,
         );
-        return rows === undefined ? load() : { data: rows, error: null };
+        if (rows.kind === "hit") return { data: rows.rows, error: null };
+        if (rows.kind === "error") return rows.result;
+        return load();
       }
     : load;
   if (!scope || (scope.publicRead && !isPublicReadSharingEnabled())) return start(read);

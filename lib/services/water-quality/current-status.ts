@@ -11,6 +11,7 @@ import {
 import { distanceMeters } from "@/lib/services/county-beach-advisories/normalizer";
 import { resolveCountyGeneralAdvisory, type CountyGeneralAdvisory } from "@/lib/services/county-beach-advisories/general-streak";
 import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
+import type { PublicBeachCacheRejectReason } from "@/lib/data/server/public-beach-row-cache";
 import {
   memoizedBeachRowsRead,
   memoizedWaterQualityRead,
@@ -29,7 +30,7 @@ export function readLatestCountyRun(client: WaterQualityHoldClient): Promise<Wat
       .select(RUN_SELECT)
       .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
       .order("fetched_at", { ascending: false }).limit(1),
-    { isValid: (rows) => latestRunRowsSchema.safeParse(rows).success },
+    { isValid: validLatestCountyRunCacheRows, invalidReason: latestCountyRunCacheRejectReason },
   );
 }
 
@@ -41,7 +42,19 @@ const latestRunSchema = z.object({
   closure_count: z.number().int().nonnegative(),
   warning_count: z.number().int().nonnegative(),
 });
-const latestRunRowsSchema = z.array(latestRunSchema).max(1);
+function validLatestCountyRunCacheRows(rows: unknown): boolean {
+  if (!Array.isArray(rows) || rows.length > 1) return false;
+  if (rows.length === 0) return true;
+  const parsed = latestRunSchema.safeParse(rows[0]);
+  return parsed.success && parsed.data.status === "completed";
+}
+
+function latestCountyRunCacheRejectReason(rows: unknown): PublicBeachCacheRejectReason {
+  if (Array.isArray(rows) && rows.length === 1 && typeof rows[0] === "object" && rows[0] !== null &&
+    ["started", "failed"].includes(String((rows[0] as { status?: unknown }).status))) return "not-completed";
+  return "invalid-rows";
+}
+
 const runSchema = latestRunSchema.extend({ status: z.literal("completed") });
 const noticeSchema = z.object({
   beach_id: z.string().uuid().nullable(),

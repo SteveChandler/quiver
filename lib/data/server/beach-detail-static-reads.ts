@@ -108,5 +108,6 @@ export async function readBeachWaterQualitySample(
     () => client.from("beach_water_quality").select("*").limit(1_000),
     (data) => sampleRowsSchema.safeParse(data).success,
   );
-  return rows === undefined ? direct() : { data: rows[0] ?? null, error: null };
+  if (rows.kind === "error") return { data: null, error: rows.result.error as PostgrestError };
+  return rows.kind === "hit" ? { data: rows.rows[0] ?? null, error: null } : direct();
 }

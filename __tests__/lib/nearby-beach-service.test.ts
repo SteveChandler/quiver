@@ -197,8 +197,9 @@ describe("nearby beach service", () => {
     }
 
     expect(mockQuery.select).toHaveBeenCalledWith("id, country, is_private, deleted_at");
-    expect(mockQuery.select).toHaveBeenCalledTimes(4);
+    expect(mockQuery.select.mock.calls.filter(([columns]) => columns === "id, country")).toHaveLength(2);
     expect(mockQuery.in).toHaveBeenCalledTimes(2);
+    expectConsoleWarnings([/public-beach-row-cache/]);
   });
 
   it("returns held beaches for map visibility with their hold kind", async () => {

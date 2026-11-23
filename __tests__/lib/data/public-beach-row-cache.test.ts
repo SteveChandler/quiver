@@ -2,6 +2,7 @@
 
 import { unstable_cache } from "next/cache";
 import {
+  publicBeachRowCacheWindow,
   readPublicBeachRowsForIds,
 } from "@/lib/data/server/public-beach-row-cache";
 import {
@@ -12,7 +13,7 @@ import {
 } from "@/lib/recommendations/major-event-hold/read-scope";
 import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { readBeachPoints } from "@/lib/services/water-quality/county-coverage";
-import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import { expectConsoleErrors, expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 jest.mock("next/cache", () => ({ unstable_cache: jest.fn() }));
 jest.mock("@supabase/supabase-js", () => ({ createClient: jest.fn(() => ({ from: jest.fn() })) }));
@@ -56,12 +57,11 @@ it.each(["county_beach_advisory_runs", "county_beach_advisories", "rain_advisory
       memoizedWaterQualityRead(client, table, load, { isValid: valid }),
     );
     await render();
-    jest.advanceTimersByTime(299_999);
     await render();
     expect(load).toHaveBeenCalledTimes(1);
     expect(nextCache).toHaveBeenCalledWith(expect.any(Function), expect.any(Array),
       expect.objectContaining({ revalidate: 300 }));
-    jest.advanceTimersByTime(1);
+    jest.advanceTimersByTime(300_000);
     await render();
     expect(load).toHaveBeenCalledTimes(2);
   },
@@ -155,6 +155,7 @@ it.each([
   await expect(render()).resolves.toEqual(new Map([[point.id, { lat: point.lat, lon: point.lon }]]));
   expect(reads.filter((read) => !read.filtered)).toHaveLength(2);
   expect(reads.filter((read) => read.filtered)).toHaveLength(2);
+  expectConsoleWarnings([/public-beach-row-cache/]);
 });
 
 it("keeps a null County beaches response fail-closed outside the public scope", async () => {
@@ -201,23 +202,97 @@ it.each([
   await expect(render()).resolves.toEqual(result([{ id: "beach-a", lat: 32.8, lon: -117.2 }]));
   expect(all).toHaveBeenCalledTimes(2);
   expect(direct).toHaveBeenCalledTimes(2);
+  expectConsoleWarnings([/\[public-beach-row-cache\] not cached/]);
 });
 
-it.each([
-  { data: null, error: { code: "503" } },
-  result([{ beach_id: "beach-a" }]),
-])("retries a failed or malformed water-quality read without caching it", async (badResult) => {
+it("returns a whole-table database error without issuing the filtered read", async () => {
   const client = createSupabaseServiceRoleClient();
-  const load = jest.fn(async (): Promise<{ data: unknown; error: unknown }> => result(rows))
-    .mockResolvedValueOnce(badResult).mockResolvedValueOnce(badResult);
+  const failure = { code: "57014", message: "statement timeout" };
+  const all = jest.fn(async () => ({ data: null, error: failure }));
+  const direct = jest.fn(async () => result([{ id: "beach-a", lat: 1, lon: 2 }]));
+  const render = (): Promise<unknown> => runWithPublicWaterQualityReadScope(() =>
+    readPublicBeachRowsForIds(client, "beaches|id,lat,lon", 900, ["beach-a"],
+      (row: { id: string }) => row.id, all, direct, Array.isArray, 1),
+  );
+
+  await expect(render()).resolves.toEqual({ data: null, error: failure });
+  await expect(render()).resolves.toEqual({ data: null, error: failure });
+  expect(all).toHaveBeenCalledTimes(2);
+  expect(direct).not.toHaveBeenCalled();
+});
+
+it("does not cache a started latest County run and retries until completed", async () => {
+  const { readLatestCountyRun } = await import("@/lib/services/water-quality/current-status");
+  const client = createSupabaseServiceRoleClient();
+  const uuid = "9911e905-2e5f-42f7-b47f-10777220ccb2";
+  const completed = {
+    id: uuid, status: "completed", source_identifier: "county-san-diego-dehq-sdbeachinfo",
+    fetched_at: start.toISOString(), advisory_count: 0, closure_count: 0, warning_count: 0,
+  };
+  const started = { ...completed, status: "started" };
+  const responses = [started, started, completed];
+  const mockClient = client as unknown as { from: jest.Mock };
+  mockClient.from.mockImplementation(() => {
+    const query = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(result([responses.shift()])).then(resolve) };
+    return query;
+  });
+  const render = (): Promise<unknown> => runWithPublicWaterQualityReadScope(() => readLatestCountyRun(client as never));
+
+  await expect(render()).resolves.toMatchObject({ data: [started] });
+  await expect(render()).resolves.toMatchObject({ data: [completed] });
+  expect(nextCache).toHaveBeenCalledTimes(2);
+  expectConsoleWarnings([/public-beach-row-cache/]);
+});
+
+it("uses stable but staggered per-key cache windows", () => {
+  const ttlMs = 300_000;
+  const now = Date.parse("2026-11-23T12:00:00Z");
+  const nextBoundary = (key: string): number => {
+    const initial = publicBeachRowCacheWindow(key, ttlMs, now);
+    let low = now;
+    let high = now + ttlMs;
+    while (low + 1 < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (publicBeachRowCacheWindow(key, ttlMs, middle) === initial) low = middle;
+      else high = middle;
+    }
+    return high;
+  };
+  const first = nextBoundary("county-run");
+  const second = nextBoundary("beach-points");
+  expect(first).not.toBe(second);
+  expect(publicBeachRowCacheWindow("county-run", ttlMs, now + 1)).toBe(
+    publicBeachRowCacheWindow("county-run", ttlMs, now + 2),
+  );
+});
+
+it("does not cache an errored water-quality read or issue a second database read", async () => {
+  const client = createSupabaseServiceRoleClient();
+  const badResult = { data: null, error: { code: "503" } };
+  const load = jest.fn(async (): Promise<{ data: unknown; error: unknown }> => badResult);
   const render = (): Promise<unknown> => runWithPublicWaterQualityReadScope(() =>
     memoizedWaterQualityRead(client, "latest-run", load, { isValid: valid }),
   );
   await expect(render()).resolves.toEqual(badResult);
+  expect(load).toHaveBeenCalledTimes(1);
+  await render();
+  expect(load).toHaveBeenCalledTimes(2);
+});
+
+it("falls back after a successful malformed water-quality read and retries cache next time", async () => {
+  const client = createSupabaseServiceRoleClient();
+  const malformed = result([{ beach_id: "beach-a" }]);
+  const load = jest.fn(async (): Promise<{ data: unknown; error: unknown }> => malformed);
+  const render = (): Promise<unknown> => runWithPublicWaterQualityReadScope(() =>
+    memoizedWaterQualityRead(client, "malformed-table", load, { isValid: valid }),
+  );
+  await expect(render()).resolves.toEqual(malformed);
   expect(load).toHaveBeenCalledTimes(2);
   await render();
-  await render();
-  expect(load).toHaveBeenCalledTimes(3);
+  expect(load).toHaveBeenCalledTimes(4);
+  expectConsoleWarnings([/public-beach-row-cache/]);
 });
 
 it("does not retry unrelated exceptions through the cached-read fallback", async () => {
