@@ -20,7 +20,7 @@ jest.mock("next/image", () => ({
 }));
 
 jest.mock("@/components/cams/cam-card", () => ({
-  CamCard: () => null,
+  CamCard: ({ beach }: { beach: CamBeachWithRegion }) => <div>{beach.name}</div>,
 }));
 
 function makeBeach(index: number): CamBeachWithRegion {
@@ -39,6 +39,24 @@ function makeBeach(index: number): CamBeachWithRegion {
 }
 
 describe("CamGrid", () => {
+  it("omits beaches without playback from the directory", () => {
+    render(
+      <CamGrid
+        beaches={[
+          makeBeach(1),
+          { ...makeBeach(2), name: "Cannon Beach", playback: { kind: "none" } },
+          { ...makeBeach(3), name: "Muir Beach", playback: { kind: "external", provider: "Muir Beach Webcam", pageUrl: "https://www.sigward.com/" } },
+        ]}
+        groupByRegion
+      />,
+    );
+
+    expect(screen.getByText("Test Beach 1")).toBeInTheDocument();
+    expect(screen.getByText("Muir Beach")).toBeInTheDocument();
+    expect(screen.queryByText("Cannon Beach")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view all/i })).toHaveTextContent("View all 2 cams →");
+  });
+
   it("keeps a space before the arrow in the region link", () => {
     render(<CamGrid beaches={[makeBeach(1), makeBeach(2)]} groupByRegion />);
 

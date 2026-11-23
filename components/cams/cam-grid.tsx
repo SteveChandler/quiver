@@ -1,5 +1,6 @@
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
 import { CAM_REGIONS, getCamRegionPath } from "@/lib/data/cam-regions";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 import { CamCard } from "./cam-card";
 import Link from "next/link";
 
@@ -14,10 +15,11 @@ interface CamGridProps {
  * Used on both the /cams hub (grouped) and regional cam pages (flat).
  */
 export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
+  const liveBeaches = beaches.filter(isLiveCamBeach);
   if (!groupByRegion) {
     return (
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {beaches.map((beach) => (
+        {liveBeaches.map((beach) => (
           <CamCard key={beach.id} beach={beach} />
         ))}
       </div>
@@ -26,7 +28,7 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
 
   // Group beaches by region, maintaining CAM_REGIONS display order
   const grouped = new Map<string, CamBeachWithRegion[]>();
-  for (const beach of beaches) {
+  for (const beach of liveBeaches) {
     const existing = grouped.get(beach.regionSlug) ?? [];
     existing.push(beach);
     grouped.set(beach.regionSlug, existing);

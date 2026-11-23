@@ -16,6 +16,12 @@ import { unstable_cache } from "next/cache";
 import type { CamPlaybackState } from "@/lib/media/cam-embed";
 import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
 
+const sourcedCamBeachPhotos: Record<string, string> = {
+  "f73cea3d-d7c7-57cf-b2d1-9a4370f75123": "/images/cams/muir-beach.jpg",
+  "313e745b-4521-57d4-9d33-808acaca4761": "/images/cams/kaunaoa-beach.jpg",
+  "34e148b8-08cc-50cb-908f-012464b7fa74": "/images/cams/virginia-beach-oceanfront.jpg",
+};
+
 interface CamBeach {
   id: string;
   name: string;
@@ -173,11 +179,11 @@ export const getBeachesWithCameras = unstable_cache(
       state: beach.state,
       camera_url: beach.camera_url,
       thumbnail_url: beach.thumbnail_url,
-      photo_url: beach.photo_url,
+      photo_url: beach.photo_url || sourcedCamBeachPhotos[beach.id] || null,
       regionSlug: beach.regionSlug,
       playback: playbackById.get(beach.id) ?? { kind: "none" },
     }));
   },
-  ["beaches-with-unique-cameras-v3"],
+  ["beaches-with-unique-cameras-v4"],
   { revalidate: 3600 },
 );
