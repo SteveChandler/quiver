@@ -31,7 +31,6 @@ const CASES: OutcomeWiringCase[] = [
     legitimatelyZero: true,
   },
   { name: "notification delivery", route: "notifications-deliver", unit: "notifications_sent", expectedMin: 0 },
-  { name: "NPC activity", route: "npc-activity", unit: "posts_published" },
   { name: "camera thumbnails", route: "resolve-cam-thumbnails", unit: "thumbnails_updated", expectedMin: 0 },
   { name: "trial-ending push", route: "trial-ending-push-deliver", unit: "notifications_sent" },
   { name: "user preferences", route: "update-user-preferences", unit: "preferences_updated" },

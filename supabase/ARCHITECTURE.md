@@ -997,7 +997,7 @@ COMMENT ON COLUMN profiles.home_beach_id IS 'User''s preferred home beach for fo
 
 #### **NPC Intel Bots System (20260113200001, 20260113200002)**
 
-**Purpose**: Realistic community content generation with personality-driven NPC behavior.
+**Purpose**: The former persona publisher used these migrations to generate community content. Persona posting was retired on November 22, 2026. The migrations, persona profiles, templates and historical content are retained.
 
 **Migration 1: Profile Enhancements (20260113200001_add_npc_profile_fields.sql)**
 
@@ -1071,12 +1071,6 @@ CREATE POLICY npc_templates_select_all ON npc_content_templates
 - Template variable hydration with real forecast data
 - Staleness monitoring to prevent repetitive content
 - System account for daily regional forecasts
-
-**Application Integration**:
-
-- Config files: `config/npc-roster.ts`, `config/regions.ts`
-- Utilities: `lib/npc/` (template-hydration, beach-selection, posting-windows, forecast-formatter)
-- Scripts: `scripts/migrate-npc-profiles.ts`, `scripts/morning-forecast.ts`, `scripts/check-template-health.ts`
 
 **Documentation**: See [docs/features/NPC_INTEL_BOTS.md](/docs/features/NPC_INTEL_BOTS.md) for comprehensive details.
 

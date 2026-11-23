@@ -1,14 +1,6 @@
-const PERSONA_POSTING_FLAG = "NPC_PERSONA_POSTING_ENABLED";
 const SYSTEM_CARDS_FLAG = "QUIVER_SYSTEM_CARDS_ENABLED";
 
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
-
-/** Persona accounts remain intact; this flag is the only re-enable switch. */
-export function isPersonaPostingEnabled(
-  env: RuntimeEnvironment = process.env,
-): boolean {
-  return env[PERSONA_POSTING_FLAG] === "true";
-}
 
 export function areSystemCardsEnabled(
   env: RuntimeEnvironment = process.env,
