@@ -373,11 +373,11 @@ describe('Scoring Engine', () => {
     });
   });
 
-  describe('binding effect leads the reasons (TIDE_SWING_ENABLED)', () => {
-    const originalFlag = process.env.TIDE_SWING_ENABLED;
+  describe('binding effect leads the reasons (NEXT_PUBLIC_TIDE_SWING_ENABLED)', () => {
+    const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     afterEach(() => {
-      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-      else process.env.TIDE_SWING_ENABLED = originalFlag;
+      if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+      else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
     });
 
     const tideEffect = {
@@ -411,7 +411,7 @@ describe('Scoring Engine', () => {
     }
 
     it('flag off keeps reasons as they were', () => {
-      delete process.env.TIDE_SWING_ENABLED;
+      delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
       const result = engineWithEffects(90).score(createInput({ waveHeight: 5 }));
       expect(result.total).toBe(69);
       expect(result.reasons).toEqual([SIZE_SENTENCE]);
@@ -419,7 +419,7 @@ describe('Scoring Engine', () => {
     });
 
     it('puts the lowest binding ceiling\'s message first, once', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       const result = engineWithEffects(90, [SIZE_SENTENCE, tideEffect.message])
         .score(createInput({ waveHeight: 5 }));
       expect(result.total).toBe(69);
@@ -430,13 +430,13 @@ describe('Scoring Engine', () => {
     });
 
     it('does not lead with an effect that does not bind', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       expect(engineWithEffects(60).score(createInput({ waveHeight: 5 })).reasons)
         .toEqual([SIZE_SENTENCE]);
     });
 
     it('leaves the reasons order alone when a non-tide effect binds', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       const crossing = {
         code: 'crossing_swells' as const,
         severity: 'material' as const,
@@ -463,7 +463,7 @@ describe('Scoring Engine', () => {
     });
 
     it('does not lead with an effect when a lower wave-height cap sets the score', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       const result = engineWithEffects(90).score(createInput({ waveHeight: 1.7 }));
       expect(result.total).toBe(55);
       expect(result.reasons[0]).toBe(SIZE_SENTENCE);

@@ -130,7 +130,7 @@ describe('band-aware tide term on tomorrow\'s rows (2026-10-27, intermediate, no
   beforeEach(() => {
     process.env = { ...originalEnv };
     delete process.env.DIRECTION_SCORING_ENABLED;
-    delete process.env.TIDE_SWING_ENABLED;
+    delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
@@ -167,7 +167,7 @@ describe('band-aware tide term on tomorrow\'s rows (2026-10-27, intermediate, no
   });
 
   it('flag on follows each beach\'s band; unbanded Blackies is unchanged', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     const tide = (slug: Slug) => shown(slug).map((d) => Math.round(d.components.tide * 100) / 100);
 
     expect(shown('blackies').map((d) => d.score)).toEqual(today.blackies);
@@ -187,7 +187,7 @@ describe('band-aware tide term on tomorrow\'s rows (2026-10-27, intermediate, no
   });
 
   it('flag on: Tourmaline 11 AM says when the tide is back, PB Point keeps its 55', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     const eleven = (slug: Slug) => scoreWindowWithComposite(
       (tideSwingDay.forecasts[slug] as unknown as EnhancedForecastEntity[])[2],
       tideSwingDay.beaches[slug] as unknown as Beach,
@@ -230,7 +230,7 @@ describe('composite skip ceiling', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     delete process.env.DIRECTION_SCORING_ENABLED;
-    delete process.env.TIDE_SWING_ENABLED;
+    delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
   });
 
   afterAll(() => {
