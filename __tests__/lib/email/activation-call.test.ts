@@ -1,15 +1,26 @@
 /** @jest-environment node */
 import { loadActivationCall, mostViewedBeachId, type ActivationCallDeps } from "@/lib/email/activation-call";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
+import { getSurfCallVerdictCall } from "@/components/forecast/score-band-call";
+import type { SpotSurfReportResult } from "@/lib/services/spot-surf-report-service";
+import { selectPublicGeneralCall } from "@/lib/utils/public-forecast-facts";
 import type { CanonicalWeekScoutResponse, WeekScoutDaysRequest, WeekScoutWindowResponse } from "@/lib/services/discovery/week-scout";
 
 const mockCreateServiceClient = jest.fn<unknown, []>(() => { throw new Error("no database in unit tests"); });
 const mockGenerate = jest.fn();
+const mockGetLinkedBeach = jest.fn();
+const mockGetPublicReport = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: () => mockCreateServiceClient(),
 }));
 jest.mock("@/lib/services/discovery/week-scout", () => ({
   generateWeekScoutForecastForDays: (userId: string, request: WeekScoutDaysRequest) => mockGenerate(userId, request),
+}));
+jest.mock("@/lib/utils/beach-lookup-utils", () => ({
+  getBeachBySlugOrId: (slug: string) => mockGetLinkedBeach(slug),
+}));
+jest.mock("@/lib/services/spot-surf-report-service", () => ({
+  getSpotSurfReportPublic: (beach: unknown) => mockGetPublicReport(beach),
 }));
 
 const USER = "11111111-1111-4111-8111-111111111111";
@@ -42,6 +53,8 @@ function deps(overrides: Partial<ActivationCallDeps> = {}): ActivationCallDeps &
   return {
     readViewedBeachIds: jest.fn(async () => [VIEWED, HOME, VIEWED]),
     readBeach: jest.fn(async (id: string) => id === VIEWED ? beachRow(VIEWED, "Capitola") : id === HOME ? beachRow(HOME, "Pleasure Point") : null),
+    hasAppDevice: jest.fn(async () => true),
+    readPublicReport: jest.fn(async () => null),
     readSessionTime: jest.fn(async () => null),
     hasForecastFeatureAccess: jest.fn(async () => true),
     generate: jest.fn(async () => response(windowFixture())),
@@ -61,6 +74,95 @@ it("reads the week's session pick for the most viewed beach over three beach-loc
   expect(call).toMatchObject({ kind: "window", label: "GOOD", beach: { id: VIEWED, name: "Capitola", slug: "capitola" } });
   expect(d.generate.mock.calls).toEqual([[USER, { candidateBeachIds: [VIEWED], localTimezone: "America/Los_Angeles", startLocalDate: "2026-11-19", dayCount: 3 }]]);
   expect(d.readViewedBeachIds).toHaveBeenCalledWith(USER, new Date("2026-11-12T17:00:00Z"));
+  expect(d.readPublicReport).not.toHaveBeenCalled();
+});
+
+function mockActivationDb({ row = null, switchOn = false, hasDevice = true, deviceError = null }: {
+  row?: object | null; switchOn?: boolean; hasDevice?: boolean; deviceError?: { message: string } | null;
+} = {}): void {
+  mockGenerate.mockResolvedValue(response(windowFixture()));
+  const rows: Record<string, unknown> = {
+    beaches: beachRow(VIEWED, "Capitola"),
+    profiles: { preferred_session_time: null },
+    user_entitlements: row,
+  };
+  mockCreateServiceClient.mockImplementation(() => ({
+    from: (table: string) => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
+      not: jest.fn().mockReturnThis(),
+      gte: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: async () => table === "user_devices"
+        ? { data: hasDevice ? [{ user_id: USER }] : [], error: deviceError }
+        : { data: [{ beach_id: VIEWED }], error: null },
+      maybeSingle: async () => ({ data: rows[table], error: null }),
+    }),
+    rpc: async () => ({ data: switchOn, error: null }),
+  }));
+}
+
+afterEach(() => {
+  mockCreateServiceClient.mockReset().mockImplementation(() => { throw new Error("no database in unit tests"); });
+  mockGenerate.mockReset();
+  mockGetLinkedBeach.mockReset();
+  mockGetPublicReport.mockReset();
+});
+
+it("uses the public page label for a web reader, with the page's full beach row", async () => {
+  mockActivationDb({ hasDevice: false });
+  const linkedBeach = { ...beachRow(VIEWED, "Capitola"), lat: 36.97, lon: -121.95, city: "Capitola", state: "CA", country: "USA" };
+  const windowStart = "2026-11-20T15:00:00Z";
+  const publicResult = {
+    report: { verdict: "MAYBE", score: 80, bestWindowStart: windowStart },
+    isTomorrow: true,
+  } as SpotSurfReportResult;
+  mockGetLinkedBeach.mockResolvedValue(linkedBeach);
+  mockGetPublicReport.mockResolvedValue(publicResult);
+  const pageCall = selectPublicGeneralCall(publicResult.report)!;
+  const pageLabel = getSurfCallVerdictCall(pageCall.verdict, pageCall.score, "upcoming", { beachId: VIEWED, instantIso: windowStart }).label;
+
+  const call = await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW });
+
+  expect(pageLabel).toBe("FAIR");
+  expect(call).toMatchObject({ kind: "public_call", label: pageLabel, beach: { id: VIEWED } });
+  expect(mockGetLinkedBeach).toHaveBeenCalledWith("capitola");
+  expect(mockGetPublicReport).toHaveBeenCalledWith(linkedBeach);
+  expect(mockGenerate).not.toHaveBeenCalled();
+});
+
+it("falls back without a label when the public report is unavailable", async () => {
+  const d = deps({ hasAppDevice: jest.fn(async () => false) });
+  const call = await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW, deps: d });
+  expect(call).toMatchObject({ kind: "fallback", reason: "no_call", beach: { id: VIEWED } });
+  expect(d.generate).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["another beach", { id: HOME }],
+  ["a legacy spot page", { ...beachRow(VIEWED, "Capitola"), city: "Capitola", state: "CA", country: null }],
+])("falls back without a label when the handoff slug resolves to %s", async (_, linkedBeach) => {
+  mockActivationDb({ hasDevice: false });
+  mockGetLinkedBeach.mockResolvedValue(linkedBeach);
+  const call = await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW });
+  expect(call).toMatchObject({ kind: "fallback", reason: "no_call", beach: { id: VIEWED } });
+  expect(mockGetPublicReport).not.toHaveBeenCalled();
+  expect(mockGenerate).not.toHaveBeenCalled();
+});
+
+it("logs a device lookup error and falls back without reading either forecast", async () => {
+  mockActivationDb({ deviceError: { message: "devices down" } });
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  try {
+    const call = await loadActivationCall({ userId: USER, homeBeachId: HOME, now: NOW });
+    expect(call).toMatchObject({ kind: "fallback", reason: "read_failed", beach: { id: VIEWED } });
+    expect(mockGetLinkedBeach).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith("[activation-email]", "Activation email forecast read failed; using fallback copy", { error: "Activation call read failed: device lookup" });
+  } finally {
+    warn.mockRestore();
+  }
 });
 
 describe("activation forecast access", () => {
@@ -84,8 +186,6 @@ describe("activation forecast access", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    mockCreateServiceClient.mockReset().mockImplementation(() => { throw new Error("no database in unit tests"); });
-    mockGenerate.mockReset();
   });
 
   it.each([
@@ -95,24 +195,7 @@ describe("activation forecast access", () => {
     { recipient: "trialing", row: { is_trialing: true }, switchOn: false, days: 3, pick: dayThree },
     { recipient: "free with a billing issue", row: { billing_issue: true }, switchOn: true, days: 2, pick: tomorrow },
   ])("requests $days beach-local days for $recipient", async ({ row, switchOn, days, pick }) => {
-    const rows: Record<string, unknown> = {
-      beaches: beachRow(VIEWED, "Capitola"),
-      profiles: { preferred_session_time: null },
-      user_entitlements: row,
-    };
-    mockCreateServiceClient.mockImplementation(() => ({
-      from: (table: string) => ({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        not: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        limit: async () => ({ data: [{ beach_id: VIEWED }], error: null }),
-        maybeSingle: async () => ({ data: rows[table], error: null }),
-      }),
-      rpc: async () => ({ data: switchOn, error: null }),
-    }));
+    mockActivationDb({ row, switchOn });
     mockGenerate.mockImplementation((_userId: string, request: WeekScoutDaysRequest) =>
       response(request.dayCount === 2 ? tomorrow : dayThree),
     );

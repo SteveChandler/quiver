@@ -4,7 +4,7 @@ import { render } from "@react-email/render";
 import { buildAppEmailLink, buildBeachEmailLink, buildSessionEmailLink } from "@/lib/mailer/email-links";
 import { LIFECYCLE_CAMPAIGN, LIFECYCLE_V4_ENABLED, type LifecycleDecision, type LifecycleJob } from "@/lib/email/lifecycle";
 import type { ActivationCall } from "@/lib/email/activation-call";
-import { ACTIVATION_V4_COPY, activationFallbackContent, activationNoBeachContent, activationWindowContent, type ActivationContent } from "@/lib/mailer/activation-copy";
+import { ACTIVATION_V4_COPY, activationBeachContent, activationNoBeachContent, activationWindowContent, type ActivationContent } from "@/lib/mailer/activation-copy";
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import { LifecycleEmail } from "@/lib/mailer/templates/LifecycleEmail";
 
@@ -41,13 +41,13 @@ const VISUALS: Record<Exclude<LifecycleJob, "trial_feedback">, { sticker: Quiver
   offer_ready: { sticker: "breakingWave", eyebrow: "A note from Steve" },
 };
 // Variant copy participates in approval just like the base messages.
-export const LIFECYCLE_CONTENT_HASH = createHash("sha256").update(JSON.stringify({ copy: COPY, offerCopy: OFFER_COPY, personalCopy: PERSONAL_COPY, visuals: VISUALS, postalAddress: POSTAL_ADDRESS, layout: "LifecycleEmail-v5-steve-signoff", links: "app-session-offers-v2", ...(process.env.TRIAL_FEEDBACK_ENABLED === "true" ? { trialFeedback: { copy: FEEDBACK_COPY, visual: FEEDBACK_VISUAL, path: "/trial-feedback", version: 1 } } : {}), ...(LIFECYCLE_V4_ENABLED ? { activationV4: { copy: ACTIVATION_V4_COPY, sticker: VISUALS.activation.sticker, link: "app-spot-v1" } } : {}) })).digest("hex");
+export const LIFECYCLE_CONTENT_HASH = createHash("sha256").update(JSON.stringify({ copy: COPY, offerCopy: OFFER_COPY, personalCopy: PERSONAL_COPY, visuals: VISUALS, postalAddress: POSTAL_ADDRESS, layout: "LifecycleEmail-v5-steve-signoff", links: "app-session-offers-v2", ...(process.env.TRIAL_FEEDBACK_ENABLED === "true" ? { trialFeedback: { copy: FEEDBACK_COPY, visual: FEEDBACK_VISUAL, path: "/trial-feedback", version: 1 } } : {}), ...(LIFECYCLE_V4_ENABLED ? { activationV4: { copy: ACTIVATION_V4_COPY, sticker: VISUALS.activation.sticker, link: "app-spot-week-scout-v2" } } : {}) })).digest("hex");
 
 // v4 activation content, or null when the email keeps the approved v1–v3 path.
 function activationV4Content(decision: LifecycleDecision, call: ActivationCall | undefined): ActivationContent | null {
   if (!LIFECYCLE_V4_ENABLED || decision.job !== "activation" || !call) return null;
   if (call.kind === "window") return activationWindowContent(call, decision.user_id);
-  if (call.kind === "fallback") return activationFallbackContent(call);
+  if (call.kind === "fallback" || call.kind === "public_call") return activationBeachContent(call);
   if (call.kind === "no_beach") return activationNoBeachContent();
   // beach_unreadable: no name to print, so the approved v3 activation copy goes out.
   return null;
@@ -89,7 +89,11 @@ function offerParagraph(decision: LifecycleDecision): string[] {
 
 async function renderActivationV4(decision: LifecycleDecision, content: ActivationContent, attribution: Attribution, unsubscribeUrl: string): Promise<{ subject: string; html: string; text: string }> {
   const ctaHref = content.beachSlug
-    ? buildBeachEmailLink({ ...attribution, beachSlug: content.beachSlug })
+    ? buildBeachEmailLink({
+      ...attribution,
+      beachSlug: content.beachSlug,
+      params: content.weekScoutDay ? { view: "week-scout", day: content.weekScoutDay } : undefined,
+    })
     : buildAppEmailLink({ ...attribution, params: { onboarding: "required" } });
   // The earned-offer note stays as approved; the paid-user personal line would replace the forecast, so v4 drops it.
   const paragraphs = [...content.paragraphs, ...offerParagraph(decision)];
