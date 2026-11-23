@@ -545,7 +545,7 @@ function lowercaseFirst(s: string): string {
 }
 
 // ============================================================================
-// Tide limiter (TIDE_SWING_ENABLED)
+// Tide limiter (NEXT_PUBLIC_TIDE_SWING_ENABLED)
 // ============================================================================
 
 /** The tide effect holding the call's ceiling, read from the composite of the call's peak row. */
@@ -798,7 +798,7 @@ interface CompositeAndCharacter {
   composite: CompositeScore;
   character: ConditionCharacter;
   skipCause: SkipCause | null;
-  /** Always null with TIDE_SWING_ENABLED off. */
+  /** Always null with NEXT_PUBLIC_TIDE_SWING_ENABLED off. */
   tideLimiter: TideLimiter | null;
 }
 

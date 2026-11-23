@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
+- **2026-11-23 — Server scoring flag overrides.** Removed the unused tide-swing and wave-fit plateau overrides. The `NEXT_PUBLIC_TIDE_SWING_ENABLED` and `NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED` flags still control rollout and rollback.
 - **2026-11-22 — Free board picks flag** (`BOARD_PICKS_FREE_ENABLED`). Removed the rollout flag shipped in PR #800 because board picks are available to signed-in users with eligible boards. Kept saved boards and session history. [PR #800](https://github.com/SteveChandler/quiver/pull/800)
 - **2026-11-22 — Legacy alert delivery flag** (`ALERTS_DELIVERY_ENABLED`). Removed the flag centralized in PR #599 after PR #807 retired its similarity-alert send path. The rules API returns `alertDeliveryPaused: false` for installed clients. Kept alert rules, queue rows, delivery records, and historical skip reasons in `alert_delivery_attempts`. [PR #599](https://github.com/SteveChandler/quiver/pull/599) · [PR #807](https://github.com/SteveChandler/quiver/pull/807)
 - **2026-11-22 · Removed `NPC_PERSONA_POSTING_ENABLED` and the persona publisher.** Synthetic first-person content dominated the 30-day period behind the pause, when real users made zero posts. Persona profiles, `npc_content_templates`, historical posts and reviews, and existing migrations are retained. [PR #549](https://github.com/SteveChandler/quiver/pull/549)

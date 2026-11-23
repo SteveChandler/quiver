@@ -44,11 +44,11 @@ describe('tideFitScorer curated tide band', () => {
   });
 });
 
-describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
-  const originalFlag = process.env.TIDE_SWING_ENABLED;
+describe('tideFitScorer tide swing (NEXT_PUBLIC_TIDE_SWING_ENABLED)', () => {
+  const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
   afterEach(() => {
-    if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-    else process.env.TIDE_SWING_ENABLED = originalFlag;
+    if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+    else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
   });
 
   function swingInput(heightFt: number, rateFtPerHour: number | null, profile: { explicitRange?: boolean; breakType?: string } = {}): ScorerInput {
@@ -70,7 +70,7 @@ describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
   }
 
   it('flag off ignores the rate: the band tiers are unchanged', () => {
-    delete process.env.TIDE_SWING_ENABLED;
+    delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     expect(tideFitScorer.score(swingInput(6.5, -2.5)).effects).toEqual([
       { code: 'tide_outside_band', severity: 'material', verdictCeiling: 55, message: 'Tide is high' },
     ]);
@@ -80,7 +80,7 @@ describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
   });
 
   it('flag on without a rate keeps the band tiers exactly', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     expect(tideFitScorer.score(swingInput(4.4, null)).effects).toEqual([
       { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide a bit high' },
     ]);
@@ -90,7 +90,7 @@ describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
   });
 
   it('softens one tier when the tide is back in range within the hour', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     // Point break: no fast-fall walling, so only the band effect shows.
     // 2.5 ft over at 2.5 ft/h: back in at 12 PM PDT, 55 -> 69.
     expect(tideFitScorer.score(swingInput(6.5, -2.5, { breakType: 'point' })).effects).toEqual([
@@ -105,7 +105,7 @@ describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
   });
 
   it('stacks fast-fall walling below the band floor with the band tier', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     expect(tideFitScorer.score(swingInput(1.5, -2)).effects).toEqual([
       { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide a bit low' },
       { code: 'tide_swing', severity: 'material', verdictCeiling: 69, message: 'Dropping fast, expect it to wall up as it drains' },
@@ -117,7 +117,7 @@ describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
   });
 
   it('is the one emitter of tide_swing effects, alongside the band ceiling', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     const result = tideFitScorer.score(swingInput(5.2, 0.1));
     expect(result.effects).toEqual([
       { code: 'tide_outside_band', severity: 'material', verdictCeiling: 69, message: 'Tide a bit high' },
@@ -134,7 +134,7 @@ describe('tideFitScorer tide swing (TIDE_SWING_ENABLED)', () => {
   });
 
   it('adds only rate effects on an unbanded beach and keeps its flat 70', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     const unbanded = createInput(
       { waveHeight: 4, wavePeriod: 12, tide: { heightFt: 1.5, status: 'falling', direction: 'falling', heightKnown: true, rateFtPerHour: -1.2 } },
       { breakType: 'beach', tidePreferences: { ...DEFAULT_PROFILE.tidePreferences, minHeightFt: -2, maxHeightFt: 8, explicitRange: false } },

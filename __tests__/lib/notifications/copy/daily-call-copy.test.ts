@@ -69,11 +69,11 @@ describe("daily call copy", () => {
     expect(limitSentence([], end, TZ)).toBe("Good until 11 AM.");
   });
 
-  describe("tide swing (TIDE_SWING_ENABLED)", () => {
-    const originalFlag = process.env.TIDE_SWING_ENABLED;
+  describe("tide swing (NEXT_PUBLIC_TIDE_SWING_ENABLED)", () => {
+    const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     afterEach(() => {
-      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-      else process.env.TIDE_SWING_ENABLED = originalFlag;
+      if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+      else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
     });
 
     // PB Point (band 2-4 ft) on Tue 2026-10-27, its real hourly tide from the 9:47 AM high.
@@ -104,14 +104,14 @@ describe("daily call copy", () => {
     }
 
     it("flag off keeps the falling-tide sentence for a window the drop opens and closes", () => {
-      delete process.env.TIDE_SWING_ENABLED;
+      delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
       const window = dropWindow()!;
       expect(window.drivers.every((value) => value.bandEdge === undefined)).toBe(true);
       expect(limitSentence(window.drivers, window.end, TZ)).toBe("Best before the tide drops around 2 PM.");
     });
 
     it("flag on names the drop through the band, with times from the refined window", () => {
-      process.env.TIDE_SWING_ENABLED = "true";
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = "true";
       const window = dropWindow()!;
       expect(window.drivers.map(({ edge, bandEdge }) => [edge, bandEdge])).toEqual([["start", "max"], ["end", "min"]]);
       expect(limitSentence(window.drivers, window.end, TZ))
