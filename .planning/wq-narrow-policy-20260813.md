@@ -29,10 +29,9 @@ Date: 2026-08-13
 | Coast Pulse | Filters the nearest-beach cache in both the service and summary route. |
 | Versioned/API and share recommendations | Enables WQ holds for `/api/v1/recommendations` and the weekend-wave-check OG recommendation. |
 | Quiver-initiated email nudges | Filters session-prompt candidates before suppression and delivery. |
-| Quiver-initiated streak nudges | Filters daily-call-streak candidates before enqueueing. |
-| Notification-based recommendations | The notification adapter applies the split described below to home morning calls, weekend windows, first-session nudges, and forecast-feedback nudges. |
+| Notification-based recommendations | The notification adapter applies the split described below to home morning calls, weekend windows, and first-session nudges. |
 
-Additional beach-picking surfaces found beyond the original list were the intent/location pages, regional guides, beginner editorial pages, Coast Pulse, the versioned recommendations endpoint, the weekend OG recommendation, session-prompt email, and daily-call-streak reminders. They are filtered because they select, rank, or name a beach for the user. No remaining unfiltered Quiver chooser/ranker was found in the reviewed server paths.
+Additional beach-picking surfaces found beyond the original list were the intent/location pages, regional guides, beginner editorial pages, Coast Pulse, the versioned recommendations endpoint, the weekend OG recommendation, and session-prompt email. They are filtered because they select, rank, or name a beach for the user. No remaining unfiltered Quiver chooser/ranker was found in the reviewed server paths.
 
 ## Kept visible
 
@@ -44,7 +43,7 @@ Additional beach-picking surfaces found beyond the original list were the intent
 
 - `evaluateMajorEventHoldCandidates` defaults `applyWaterQualityHolds` to `false`. Ranking/discovery callers pass `true` explicitly; this keeps direct user-selected beach evaluation visible while making recommendation paths opt in.
 - In `adapters/notification.ts`, `forecast_alert` and `similarity_match` are user-configured types and pass `applyWaterQualityHolds: false`. The operator major-event evaluator still runs, so an operator major-event hold can still suppress either alert.
-- `home_morning_call`, `weekend_window`, `log_session_nudge`, and `forecast_feedback_nudge` are Quiver-initiated recommendation types and pass `applyWaterQualityHolds: true`. Candidate extraction supports policy context, forecast fields, and beach-only nudge payloads.
+- `home_morning_call`, `weekend_window`, and `log_session_nudge` are Quiver-initiated recommendation types and pass `applyWaterQualityHolds: true`. Candidate extraction supports policy context, forecast fields, and beach-only nudge payloads.
 - The similarity-alert producer's old unconditional closure filter was removed. User-configured similarity rules now reach the centralized notification split and deliver on a held beach unless an operator major-event hold blocks them.
 - `water_quality_hold` is represented in recommendation availability, canonical-decision contracts, audit events, notification suppression reasons, and condition-alert counters. The shared boundary preserves major-event precedence when both hold types are present.
 
@@ -92,8 +91,6 @@ while the dedicated `similarity_match` rule/subscription is delivered as
 - `weekend_window` — Quiver's weekend scout selects and names the lead beach.
 - `log_session_nudge` — first-session growth paths can carry a positive policy
   context for the selected home beach.
-- `forecast_feedback_nudge` — the daily-call reminder producer selects a
-  beach candidate for the feedback prompt.
 
 The adapter also has a regression for an intentionally unlisted future type,
 `future_quiver_beach_recommendation`, carrying the established positive policy

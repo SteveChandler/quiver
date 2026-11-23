@@ -914,47 +914,6 @@ describe("swell_watch dispatch revalidation", () => {
 });
 
 describe("worker recommendation-hold integration", () => {
-  it("delivers a Quiver feedback nudge for a water-quality-held beach through the worker's real resolver", async () => {
-    const beachId = "11111111-1111-4111-8111-111111111111";
-    mockWaterQualityHeldBeachIds.add(beachId);
-
-    const state = emptyState();
-    state.events.push(
-      buildEvent({
-        id: "evt-water-quality-worker",
-        actor_user_id: null,
-        type: "forecast_feedback_nudge",
-        entity_type: "beach",
-        entity_id: beachId,
-        payload: {
-          beach_id: beachId,
-          forecast_at: "2026-04-29T19:00:00.000Z",
-        },
-      }),
-    );
-    state.profiles.set("user-recipient", buildProfile());
-
-    const summary = await processPendingEventsReal(
-      buildMockSupabase(state) as never,
-      {
-        now: NOON_PT,
-        fcm: null,
-        resolveMajorEventHold: (input) =>
-          resolveNotificationMajorEventHold({ ...input, mode: "enforce" }),
-      },
-    );
-
-    expect(summary.by_status.skipped_disabled).toBeUndefined();
-    expect(state.attempts).not.toContainEqual(
-      expect.objectContaining({
-        provider_response: expect.objectContaining({ audit_code: "major_event_hold" }),
-      }),
-    );
-    expect(state.eventUpdates).not.toContainEqual(
-      expect.objectContaining({ skip_reason: "all_channels_skipped" }),
-    );
-  });
-
   it("delivers a Daily Call naming a water-quality-held alternative with major-event holds off", async () => {
     const leadId = "11111111-1111-4111-8111-111111111111";
     const heldId = "22222222-2222-4222-8222-222222222222";

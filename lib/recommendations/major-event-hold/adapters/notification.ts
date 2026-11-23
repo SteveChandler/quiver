@@ -113,9 +113,7 @@ function isPositiveNotification(type: string, payload: unknown): boolean {
 
 function isNamedNotification(type: string, payload: unknown): boolean {
   if (USER_CONFIGURED_SAFETY_NOTIFICATION_TYPES.has(type)) return true;
-  if (isPositiveNotification(type, payload)) return true;
-  if (type !== "forecast_feedback_nudge" || !isRecord(payload)) return false;
-  return typeof payload.beach_id === "string";
+  return isPositiveNotification(type, payload);
 }
 
 function configuredBeachIdsForNotification(
@@ -445,12 +443,6 @@ function buildNotificationMajorEventHoldCandidate(
     ) {
       return candidateFromForecastMatch(candidateId, input.payload);
     }
-    return (
-      candidateFromForecastAt(candidateId, input.payload) ??
-      candidateFromBeachId(candidateId, input.payload)
-    );
-  }
-  if (input.type === "forecast_feedback_nudge") {
     return (
       candidateFromForecastAt(candidateId, input.payload) ??
       candidateFromBeachId(candidateId, input.payload)

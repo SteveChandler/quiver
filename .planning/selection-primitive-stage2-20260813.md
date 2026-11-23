@@ -113,12 +113,9 @@ assertion. Removing the corresponding primitive call makes that guard fail.
   positive-session policy context in the payload. Guard:
   `__tests__/lib/cron/weekend-scout-runner.test.ts` — “enqueues only the stored
   snapshot summary...” including the exact `selectBeach` input and payload.
-- Session-prompt email and daily call-streak reminder: the producers rank
-  their candidate rows before naming or selecting a deliverable candidate.
-  Guards: `__tests__/app/api/cron/session-prompt-email.test.ts` — “does not
-  send a session-prompt email naming a held home beach”, and the streak
-  reminder candidate-selection coverage in
-  `__tests__/app/api/cron/streak-reminder.test.ts`.
+- Session-prompt email ranks candidates before naming a beach. Guard:
+  `__tests__/app/api/cron/session-prompt-email.test.ts` — “does not send a
+  session-prompt email naming a held home beach”.
 - Similarity alerts: the configured home beach remains available as the
   user-configured anchor, while favorite/nearby alternatives are ranked and
   held alternatives are removed before scoring. Guards:
