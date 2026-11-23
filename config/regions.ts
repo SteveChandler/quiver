@@ -121,7 +121,7 @@ export const REGIONS: Record<string, RegionConfig> = {
     timezone: 'America/Los_Angeles',
     forecastBeaches: ['huntington-beach', 'trestles'],
   },
-  // Visitor regions merge beaches from multiple home regions (handled in getBeachesForNPC)
+  // Visitor regions historically merged beaches from multiple home regions.
   'socal-visitor': { beachSlugs: [], timezone: 'America/Los_Angeles', forecastBeaches: [] },
   'norcal-visitor': { beachSlugs: [], timezone: 'America/Los_Angeles', forecastBeaches: [] },
   'all-regions': { beachSlugs: [], timezone: 'America/Los_Angeles', forecastBeaches: [] },
