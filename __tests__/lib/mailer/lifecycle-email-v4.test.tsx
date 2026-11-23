@@ -1,12 +1,14 @@
 /** @jest-environment node */
+import { createHash } from 'node:crypto';
 import type { LifecycleDecision } from '@/lib/email/lifecycle';
 import type { ActivationCall } from '@/lib/email/activation-call';
 import type { WeekScoutWindowResponse } from '@/lib/services/discovery/week-scout';
 jest.mock('@react-email/render', () => ({ render: async (element: unknown) => jest.requireActual('react-dom/server').renderToStaticMarkup(element) }));
 
-// v4 row in 20261117130000_startup_lifecycle_v4_campaign.sql; computed with TRIAL_FEEDBACK_ENABLED=true and LIFECYCLE_V4_ENABLED=true.
-const V4_HASH = '2cd7425ed6087cc2396653d96a7c5d39566033015a6c059e685c69836e3f1f2b';
+// The revised v4 content requires approval for this hash before rollout.
+const V4_HASH = 'e8b76563662b20161af9bc18d33abdb23ed002332764535a7a24a96b07ce6c58';
 const V3_HASH = 'c4420192008baef0a920860820092f5e13e00788833963112bc2634c929fbde2';
+const V3_RENDER_HASH = '3cadbb4f6b79d968be2e237d581e64e4f93aa2adf74b9ffc7bbc084d91eb59da';
 const USER = '11111111-1111-4111-8111-111111111111';
 const NOW = '2026-11-19T17:00:00Z'; // Thursday 9 AM in Los Angeles
 
@@ -43,13 +45,14 @@ it('keeps the v3 hash and the v3 activation email byte for byte while LIFECYCLE_
  const without = await renderWith(v3);
  expect(withCall).toEqual(without);
  expect(without.subject).toBe('How was your last surf?');
+ expect(createHash('sha256').update(JSON.stringify(without)).digest('hex')).toBe(V3_RENDER_HASH);
 });
 
 it('needs trial feedback on as well, so the flag alone cannot break the approved hash', () => {
  expect(load({ v4: true }).LIFECYCLE_CONTENT_HASH).toBe(load({}).LIFECYCLE_CONTENT_HASH);
 });
 
-it('matches the approved startup-lifecycle-v4 hash, which hashes templates and not the rotated text', async () => {
+it('matches the revised startup-lifecycle-v4 hash, which hashes templates and not the rotated text', async () => {
  const v4 = load({ feedback: true, v4: true });
  expect(v4.LIFECYCLE_CONTENT_HASH).toBe(V4_HASH);
  const subjects = new Set<string>();
@@ -69,9 +72,27 @@ it('leads a GOOD activation email with the window, numbers and a link to that be
  expect(email.text).toContain('GOOD · Worth planning, 7–10 AM.');
  expect(email.text).toContain('~3–4 ft at 12s from the SSW, light wind.');
  expect(email.text).toContain('Check it before you drive. Quiver updates the call as the swell comes in.');
- expect(email.text).toMatch(/See the window: https:\/\/example\.com\/app\/spot\/capitola\?utm_source=email&utm_medium=email&utm_campaign=startup-lifecycle-v4&email_type=activation&message_instance_id=22222222/);
+ expect(email.text).toContain('See the window: https://example.com/app/spot/capitola?view=week-scout&day=2026-11-21&utm_source=email&utm_medium=email&utm_campaign=startup-lifecycle-v4&email_type=activation&message_instance_id=22222222-2222-4222-8222-222222222222');
+ expect(email.html).toContain('view=week-scout&amp;day=2026-11-21');
  expect(email.html).toContain('Your next window');
  expect(email.text).not.toMatch(/undefined|null|NaN|\{\w+\}/);
+});
+
+it('links a FAIR window to its beach-local day when the UTC date is different', async () => {
+ const call: ActivationCall = { ...good, label: 'FAIR', window: windowFixture({}, '2026-11-21T00:00:00Z', '2026-11-21T01:00:00Z') };
+ const email = await renderWith(load({ feedback: true, v4: true }), call);
+ expect(email.subject).toContain('tomorrow');
+ expect(email.text).toContain('FAIR · Worth a look, 4–5 PM.');
+ expect(email.text).toContain('/app/spot/capitola?view=week-scout&day=2026-11-20&');
+});
+
+it('prints the public label for a web reader and keeps the plain beach CTA', async () => {
+ const email = await renderWith(load({ feedback: true, v4: true }), { kind: 'public_call', beach, label: 'RIDEABLE', now: NOW });
+ expect(email.subject).toBe('Planning a surf?');
+ expect(email.html).toContain('General forecast · RIDEABLE.');
+ expect(email.text).toContain('General forecast · RIDEABLE.');
+ expect(email.text).toContain('Check Capitola: https://example.com/app/spot/capitola?utm_source=email&');
+ expect(email.text).not.toMatch(/view=|day=|GOOD|FAIR|\d ft/);
 });
 
 it('rotates the headline by user and day, the same on a second render', async () => {
@@ -98,12 +119,12 @@ it('words a FAIR call and leaves out a missing period, direction and wind', asyn
  expect(email.text).toContain('~3–4 ft.');
 });
 
-it('uses the fallback copy without a number when no fresh call is good enough', async () => {
- const email = await renderWith(load({ feedback: true, v4: true }), { kind: 'fallback', beach, reason: 'stale_call', now: NOW });
+it.each(['no_call', 'read_failed', 'stale_call'] as const)('uses the fallback copy without a rating for %s', async (reason) => {
+ const email = await renderWith(load({ feedback: true, v4: true }), { kind: 'fallback', beach, reason, now: NOW });
  expect(email.subject).toBe('Planning a surf?');
  expect(email.text).toContain('Check Capitola before you drive. Quiver tells you if it’s worth going.');
  expect(email.text).toMatch(/Check Capitola: https:\/\/example\.com\/app\/spot\/capitola\?/);
- expect(email.text).not.toMatch(/\d ft|GOOD|FAIR/);
+ expect(email.text).not.toMatch(/\d ft|General forecast|GOOD|FAIR|RIDEABLE|MEH|EPIC|view=|day=/);
  expect(email.html).toContain('Before you drive');
  expect(email.html).not.toContain('Your next window');
 });

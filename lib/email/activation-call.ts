@@ -1,14 +1,20 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { generateWeekScoutForecastForDays, type CanonicalWeekScoutResponse, type WeekScoutDaysRequest } from "@/lib/services/discovery/week-scout";
-
-/** A window as the canonical Week Scout response carries it (held windows may have no score). */
-export type ActivationWindow = CanonicalWeekScoutResponse["days"][number]["windows"][number];
+import { getSpotSurfReportPublic, type SpotSurfReportResult } from "@/lib/services/spot-surf-report-service";
+import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { selectPublicGeneralCall } from "@/lib/utils/public-forecast-facts";
+import { getSurfCallVerdictCall } from "@/components/forecast/score-band-call";
+import type { ScoreLabel } from "@/lib/utils/score-color-utils";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { notificationBeachName } from "@/lib/notifications/copy/daily-call-copy";
 import { createContextLogger } from "@/lib/logger";
 import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
 import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
 import { readEntitlementRow } from "@/lib/subscription/read-entitlement-row";
+
+/** A window as the canonical Week Scout response carries it (held windows may have no score). */
+export type ActivationWindow = CanonicalWeekScoutResponse["days"][number]["windows"][number];
 
 const log = createContextLogger("activation-email");
 
@@ -35,6 +41,7 @@ export interface ActivationBeach {
 
 export type ActivationCall =
   | { kind: "window"; beach: ActivationBeach; label: "GOOD" | "FAIR"; window: ActivationWindow; now: string }
+  | { kind: "public_call"; beach: ActivationBeach; label: ScoreLabel; now: string }
   | { kind: "fallback"; beach: ActivationBeach; reason: "no_call" | "stale_call" | "read_failed"; now: string }
   /** The user has no beach at all. */
   | { kind: "no_beach"; now: string }
@@ -47,6 +54,8 @@ export interface ActivationCallDeps {
   /** Beach ids from the user's view events in the window, newest first. */
   readViewedBeachIds: (userId: string, since: Date) => Promise<string[]>;
   readBeach: (beachId: string) => Promise<BeachRow | null>;
+  hasAppDevice: (userId: string) => Promise<boolean>;
+  readPublicReport: (beach: ActivationBeach) => Promise<SpotSurfReportResult | null>;
   /** profiles.preferred_session_time, the same value the Week Scout route and the Daily Call pass. */
   readSessionTime: (userId: string) => Promise<SessionTime | null>;
   hasForecastFeatureAccess: (userId: string) => Promise<boolean>;
@@ -74,6 +83,20 @@ function defaultDeps(): ActivationCallDeps {
         .select("id,name,short_name,slug,timezone,wind_offshore_deg,aspect_deg").eq("id", beachId).eq("is_private", false).maybeSingle();
       if (error) throw new Error(error.message);
       return (data as BeachRow | null) ?? null;
+    },
+    hasAppDevice: async (userId) => {
+      const { data, error } = await createSupabaseServiceRoleClient().from("user_devices")
+        .select("user_id").eq("user_id", userId).limit(1);
+      if (error) throw new Error(error.message);
+      return Boolean(data?.length);
+    },
+    readPublicReport: async (beach) => {
+      // The web handoff resolves by slug, which can be shared by multiple beaches.
+      const linkedBeach = await getBeachBySlugOrId(beach.slug);
+      if (linkedBeach?.id !== beach.id) return null;
+      // The legacy spot page has no public call to match.
+      if (buildBeachUrl(linkedBeach).startsWith("/beach/")) return null;
+      return getSpotSurfReportPublic(linkedBeach);
     },
     readSessionTime: async (userId) => {
       const { data, error } = await createSupabaseServiceRoleClient().from("profiles")
@@ -194,6 +217,18 @@ export async function loadActivationCall(args: {
 
   let response: CanonicalWeekScoutResponse;
   try {
+    const hasAppDevice = await withBudget(read("device lookup", () => deps.hasAppDevice(args.userId)), budgetMs);
+    if (!hasAppDevice) {
+      const result = await withBudget(read("public forecast", () => deps.readPublicReport(beach)), budgetMs);
+      const report = result?.report ?? null;
+      const generalCall = selectPublicGeneralCall(report);
+      if (!generalCall) return { kind: "fallback", beach, reason: "no_call", now: nowIso };
+      const { label } = getSurfCallVerdictCall(generalCall.verdict, generalCall.score, result?.isTomorrow ? "upcoming" : "now", {
+        beachId: beach.id,
+        instantIso: result?.forecastContext?.displayWindowStart ?? report?.bestWindowStart ?? result?.forecastContext?.selectedRowTime,
+      });
+      return { kind: "public_call", beach, label, now: nowIso };
+    }
     const [sessionTime, hasFeatureAccess] = await withBudget(Promise.all([
       read("session time", () => deps.readSessionTime(args.userId)),
       read("forecast access", () => deps.hasForecastFeatureAccess(args.userId)),
