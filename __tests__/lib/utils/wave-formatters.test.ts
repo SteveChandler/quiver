@@ -77,6 +77,16 @@ describe("wave-formatters", () => {
   // formatWaveRange
   // =========================================================================
   describe("formatWaveRange", () => {
+    it("brackets a single numeric height", () => {
+      expect(formatWaveRange(3.5)).toBe("3-4ft");
+      expect(formatWaveRange(5.0)).toBe("4-6ft");
+    });
+
+    it("brackets zero and fractional heights in the single-height overload", () => {
+      expect(formatWaveRange(0)).toBe("0-1ft");
+      expect(formatWaveRange(2.49)).toBe("1-3ft");
+    });
+
     describe("with decimal precision (default)", () => {
       it("formats ranges with one decimal place", () => {
         expect(formatWaveRange([3.2, 5.8])).toBe("3.2-5.8ft");

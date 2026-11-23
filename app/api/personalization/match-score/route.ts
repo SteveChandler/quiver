@@ -68,7 +68,7 @@ const handleGet = withAuth(
           const { data: beach, error } = await supabase.from("beaches").select("*").eq("id", beachId).maybeSingle();
           if (error) throw error;
           if (!beach) return null;
-          const { boardsForPicks } = await fetchUserBoardContext(supabase, user.id, true);
+          const { boardsForPicks } = await fetchUserBoardContext(supabase, user.id);
           const experience = await getProfileExperienceLevel(supabase, user.id);
           const boardForecast = {
             beach_id: beachId,

@@ -177,6 +177,12 @@ interface CityLink {
 
 ## Data Flow
 
+The city tide actions look up beach IDs by city and state. They use those IDs
+to filter `enhanced_forecasts` for the current UTC day. The display reads the
+first row in `forecast_at` order. The availability check reads up to five rows.
+Both retry by city alone when the state filter returns no rows.
+The display also retries by city alone if the first query fails.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Server Actions (actions/forecast/intent-forecast-actions.ts)    │

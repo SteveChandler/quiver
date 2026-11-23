@@ -58,25 +58,19 @@ function createMockSupabase(options: {
 }) {
   const { baseTideData, repBeach, tideSamples, cityBeaches } = options;
 
-  // Track call count per table to distinguish first vs second call
-  const fromCallCount: Record<string, number> = {};
-
   const mockFrom = jest.fn().mockImplementation((table: string) => {
-    fromCallCount[table] = (fromCallCount[table] || 0) + 1;
-
     if (table === "enhanced_forecasts") {
-      // getCityTideData query - returns base tide data with beach join
-      return makeChainable({ data: baseTideData, error: null });
+      return makeChainable({ data: [baseTideData], error: null });
     }
 
     if (table === "beaches") {
-      const callNum = fromCallCount[table];
-      if (callNum === 1) {
-        // findRepresentativeBeach - first call with state
-        return makeChainable({ data: repBeach, error: null });
-      }
-      // fetchExpandedTideData - city beaches for preferences
-      return makeChainable({ data: cityBeaches, error: null });
+      return {
+        select: (columns: string) => {
+          if (columns === "id, name") return makeChainable({ data: [repBeach], error: null });
+          if (columns === "id, name, timezone") return makeChainable({ data: repBeach, error: null });
+          return makeChainable({ data: cityBeaches, error: null });
+        },
+      };
     }
 
     if (table === "tide_forecasts") {
@@ -109,22 +103,12 @@ function createMockSupabase(options: {
 /** Create a simple chainable mock that resolves any chain to a final value. */
 function makeChainable(result: { data: unknown; error: unknown }) {
   const chain: Record<string, jest.Mock> = {};
-  const methods = ["select", "eq", "ilike", "gte", "lt", "lte", "not", "order", "limit", "single"];
+  const methods = ["select", "eq", "ilike", "in", "gte", "lt", "lte", "not", "order", "limit"];
   for (const m of methods) {
     chain[m] = jest.fn().mockReturnValue(chain);
   }
-  // Terminal methods that return the result
   chain.single = jest.fn().mockResolvedValue(result);
-  // order() in some paths is terminal (returns data directly)
-  // But for beaches query in fetchExpandedTideData, order is terminal
-  // We handle this by making the mock both chainable and awaitable
-  const orderOriginal = chain.order;
-  chain.order = jest.fn().mockImplementation(() => {
-    const proxy: Record<string, unknown> = { ...chain, then: (resolve: (v: unknown) => void) => resolve(result) };
-    proxy.order = orderOriginal;
-    return proxy;
-  });
-  return chain;
+  return Object.assign(chain, { then: (resolve: (value: unknown) => void) => resolve(result) });
 }
 
 describe("getCityTideDataExpanded", () => {
@@ -176,7 +160,6 @@ describe("getCityTideDataExpanded", () => {
         ],
         tide_station: { id: "9410230", name: "La Jolla, CA" },
       },
-      beaches: { id: "beach-1", name: "Test Beach", city: "San Diego", state: "CA" },
     };
 
     const mockSupa = createMockSupabase({
@@ -251,7 +234,6 @@ describe("getCityTideDataExpanded", () => {
           tide_schedule: [{ time: Math.floor(fakeNow.getTime() / 1000), height: 5.0, type: "high" }],
           tide_station: { id: "9410170", name: "San Diego, CA" },
         },
-        beaches: { id: "beach-1", name: "Shipwrecks", city: "Coronado", state: "CA" },
       },
       repBeach: { id: "beach-1", name: "Shipwrecks", timezone: "America/Los_Angeles" },
       tideSamples,
@@ -298,7 +280,6 @@ describe("getCityTideDataExpanded", () => {
         ],
         tide_station: { id: "9410230", name: "La Jolla, CA" },
       },
-      beaches: { id: "beach-1", name: "Test Beach", city: "San Diego", state: "CA" },
     };
 
     const mockSupa = createMockSupabase({
@@ -383,7 +364,6 @@ describe("getCityTideDataExpanded", () => {
           tide_schedule: [{ time: Math.floor(fakeNow.getTime() / 1000) + 3600, height: 9.9, type: "high" }],
           tide_station: { id: "cached_beach-1", name: "Cached Tide Data" },
         },
-        beaches: { id: "beach-1", name: "Chun's Reef", city: "Haleiwa", state: "HI" },
       },
       repBeach: { id: "beach-1", name: "Chun's Reef", timezone: "Pacific/Honolulu" },
       tideSamples,
@@ -441,7 +421,6 @@ describe("getCityTideDataExpanded", () => {
         next_tide_type: "Low",
         next_tide_height: "0 ft",
         raw_forecast: { tide_schedule: [], tide_station: { id: "cached_beach-1", name: "Cached Tide Data" } },
-        beaches: { id: "beach-1", name: "Chun's Reef", city: "Haleiwa", state: "HI" },
       },
       repBeach: { id: "beach-1", name: "Chun's Reef", timezone: "Pacific/Honolulu" },
       tideSamples,

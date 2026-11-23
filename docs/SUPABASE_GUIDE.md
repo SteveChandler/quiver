@@ -1072,6 +1072,10 @@ export async function GET() {
 
 ## Migration Guide
 
+Follow [Migration Safety](MIGRATION_SAFETY.md) for timestamps and production
+execution. Use the [large-table index procedure](MIGRATION_SAFETY.md#large-table-indexes)
+when you create or drop an index on a large table.
+
 ### Creating New Migrations
 
 ```bash

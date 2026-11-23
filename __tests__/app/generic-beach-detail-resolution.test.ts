@@ -19,6 +19,7 @@ import { isValidElement, type ReactNode } from "react";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { isBeachSubPageIndexable } from "@/lib/seo/forecast-indexability";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
+import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
 import {
   getCachedBeachCameraUrl,
   getCachedBeachFeaturedPhoto,
@@ -454,6 +455,12 @@ describe("GenericBeachDetailPage slug resolution", () => {
     const factory = createSupabaseServiceRoleClient as jest.Mock;
     const original = factory.getMockImplementation();
     factory.mockReturnValue(client);
+    if (notice === "County closure") {
+      jest.mocked(getSpotSurfReportPublic).mockImplementationOnce(async () => {
+        await currentWaterQuality([unsampledWaterQualityRow(beach.id)]);
+        return null;
+      });
+    }
     const log = jest.spyOn(console, "error").mockImplementation(() => {});
     try {
       const page = await GenericBeachDetailPage({
@@ -469,6 +476,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
           ? { status: "closure", county_advisory_status: "closure" }
           : { status: "advisory", rain_runoff: { total_in: 0.4 } }),
       });
+      expect(client.from.mock.calls.filter(([table]) => table === "county_beach_advisory_runs"))
+        .toHaveLength(notice === "County closure" ? 1 : 0);
       expect(notFound).not.toHaveBeenCalled();
       expect(log).toHaveBeenCalledWith(
         "[GenericBeachDetailPage] Optional section unavailable:",

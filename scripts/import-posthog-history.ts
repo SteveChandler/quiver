@@ -1,8 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Json } from "../types/database.generated";
 import { config } from "./load-env.mjs";
-
-config({ path: ".env.local" });
-config();
 
 type Source = "all" | "user-events" | "email" | "notifications";
 
@@ -34,14 +32,14 @@ interface UserEventRow {
 }
 
 interface EmailSendLogRow {
-  id: string;
+  id: number;
   user_id: string;
   email_type: string;
   local_date: string | null;
   sent_at: string | null;
   best_score: number | null;
   best_beach_id: string | null;
-  meta: Record<string, unknown> | null;
+  meta: Json;
   resend_message_id: string | null;
   delivered_at: string | null;
   opened_at: string | null;
@@ -231,7 +229,7 @@ async function sendPostHogBatch(
 }
 
 async function getExcludedUserIds(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient<Database>,
   includeMockUsers: boolean
 ): Promise<Set<string>> {
   if (includeMockUsers) return new Set();
@@ -258,8 +256,8 @@ async function getExcludedUserIds(
   return excluded;
 }
 
-async function importUserEvents(
-  supabase: ReturnType<typeof createClient>,
+export async function importUserEvents(
+  supabase: SupabaseClient<Database>,
   posthogHost: string,
   posthogKey: string,
   excludedUserIds: Set<string>,
@@ -273,7 +271,8 @@ async function importUserEvents(
     sent: 0,
   };
 
-  let from = 0;
+  const useKeyset = process.env.USER_EVENTS_KEYSET_EXPORT !== "false";
+  let cursor: Pick<UserEventRow, "created_at" | "id"> | undefined;
   let remaining = options.limit ?? Number.POSITIVE_INFINITY;
 
   while (remaining > 0) {
@@ -281,11 +280,22 @@ async function importUserEvents(
     let query = supabase
       .from("user_events")
       .select("id, user_id, session_id, event_type, beach_id, metadata, created_at")
-      .order("created_at", { ascending: true })
-      .range(from, from + pageSize - 1);
+      .order("created_at", { ascending: true });
 
     if (options.since) query = query.gte("created_at", options.since);
     if (options.until) query = query.lte("created_at", options.until);
+
+    if (useKeyset) {
+      query = query.order("id", { ascending: true }).limit(pageSize);
+      if (cursor) {
+        // Give Postgres an index range bound outside the OR filter.
+        query = query.gte("created_at", cursor.created_at).or(
+          `created_at.gt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.gt.${cursor.id})`
+        );
+      }
+    } else {
+      query = query.range(stats.scanned, stats.scanned + pageSize - 1);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -329,7 +339,7 @@ async function importUserEvents(
     }
 
     if (rows.length < pageSize) break;
-    from += rows.length;
+    cursor = rows[rows.length - 1];
     remaining -= rows.length;
   }
 
@@ -371,7 +381,7 @@ function buildEmailEvents(row: EmailSendLogRow): PostHogEvent[] {
 }
 
 async function importEmailEvents(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient<Database>,
   posthogHost: string,
   posthogKey: string,
   excludedUserIds: Set<string>,
@@ -404,7 +414,7 @@ async function importEmailEvents(
     const { data, error } = await query;
     if (error) throw error;
 
-    const rows = (data ?? []) as EmailSendLogRow[];
+    const rows = data ?? [];
     if (rows.length === 0) break;
 
     const events: PostHogEvent[] = [];
@@ -477,7 +487,7 @@ function buildNotificationDeliveryEvent(
 }
 
 async function importNotificationEvents(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient<Database>,
   posthogHost: string,
   posthogKey: string,
   excludedUserIds: Set<string>,
@@ -569,7 +579,7 @@ async function main(): Promise<void> {
     throw new Error("Missing required env var: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL");
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const excludedUserIds = await getExcludedUserIds(supabase, options.includeMockUsers);
@@ -628,7 +638,11 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (require.main === module) {
+  config({ path: ".env.local" });
+  config();
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

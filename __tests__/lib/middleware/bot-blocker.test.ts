@@ -64,6 +64,73 @@ describe("withBotBlocking", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(request, undefined);
   });
+
+  it("allows native Android okhttp requests with a platform header", async () => {
+    const handlerResponse = NextResponse.json({ success: true });
+    const handler = jest.fn().mockResolvedValue(handlerResponse);
+    const wrapped = withBotBlocking(handler);
+    const request = makeRequest({
+      "user-agent": "okhttp/4.12.0",
+      "accept-language": "en-US,en;q=0.9",
+      "x-quiver-platform": "android",
+    });
+
+    const response = await wrapped(request);
+
+    expect(response).toBe(handlerResponse);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(request, undefined);
+  });
+
+  it("allows native iOS okhttp requests with a platform header", async () => {
+    const handlerResponse = NextResponse.json({ success: true });
+    const handler = jest.fn().mockResolvedValue(handlerResponse);
+    const wrapped = withBotBlocking(handler);
+    const request = makeRequest({
+      "user-agent": "okhttp/4.12.0",
+      "accept-language": "en-US,en;q=0.9",
+      "x-quiver-platform": "ios",
+    });
+
+    expect(await wrapped(request)).toBe(handlerResponse);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a bare short okhttp request", async () => {
+    const handler = jest.fn().mockResolvedValue(NextResponse.json({ success: true }));
+    const wrapped = withBotBlocking(handler);
+
+    const response = await wrapped(
+      makeRequest({
+        "user-agent": "okhttp/4.12.0",
+        "accept-language": "en-US,en;q=0.9",
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[BOT_BLOCKED]",
+      expect.objectContaining({ reason: "empty-or-short-ua" })
+    );
+  });
+
+  it.each([
+    [{ "x-quiver-platform": "web", "accept-language": "en-US" }, "empty-or-short-ua"],
+    [{ "x-quiver-platform": "android" }, "missing-accept-language"],
+  ])("keeps blocking other short okhttp requests (%s)", async (headers, reason) => {
+    const handler = jest.fn().mockResolvedValue(NextResponse.json({ success: true }));
+    const wrapped = withBotBlocking(handler);
+
+    const response = await wrapped(makeRequest({ "user-agent": "okhttp/4.12.0", ...headers }));
+
+    expect(response.status).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[BOT_BLOCKED]",
+      expect.objectContaining({ reason })
+    );
+  });
 });
 
 describe("bot-blocker source guard", () => {

@@ -1,9 +1,8 @@
 # NPC Intel Bots System
 
-Authoritative reference for Quiver's realistic NPC (Non-Player Character) intel bots that generate authentic community content.
+Historical reference for Quiver's NPC (Non-Player Character) persona publisher.
 
-**Last Updated:** January 2026
-**Status:** Production Ready
+**Status:** Persona posting and its Vercel schedule were removed on November 22, 2026. Persona profiles, `npc_content_templates`, historical posts and reviews, and their migrations are retained. The labeled system-card publisher and beach traffic weights have their own schedules.
 
 ---
 
@@ -22,7 +21,7 @@ The NPC Intel Bots system creates realistic community activity using 25 distinct
 
 ---
 
-## Architecture
+## Original Architecture
 
 ```
 +------------------------------------------------------------------+
@@ -136,66 +135,6 @@ CREATE TABLE npc_content_templates (
 
 ---
 
-## Utility Libraries
-
-### Template Hydration (`lib/npc/template-hydration.ts`)
-
-Replaces `{{variable}}` placeholders with real values:
-
-```typescript
-import { hydrateTemplate } from '@/lib/npc/template-hydration';
-
-const content = hydrateTemplate(
-  "{{time_of_day}} session at {{beach_name}} was solid. Sets in the {{wave_range}} range.",
-  {
-    time_of_day: 'Dawn patrol',
-    beach_name: 'Ocean Beach',
-    wave_range: '4-6ft'
-  }
-);
-// "Dawn patrol session at Ocean Beach was solid. Sets in the 4-6ft range."
-```
-
-### Beach Selection (`lib/npc/beach-selection.ts`)
-
-Weighted beach selection based on NPC configuration:
-
-- 70% - Home beach (from `home_beach_ids`)
-- 25% - Secondary beaches (from `secondary_beaches`)
-- 5% - Adventure/random regional beach
-
-### Posting Windows (`lib/npc/posting-windows.ts`)
-
-Determines if an NPC should post based on personality and time:
-
-```typescript
-import { shouldPostNow } from '@/lib/npc/posting-windows';
-
-if (shouldPostNow('local', 'high', new Date())) {
-  // Local with high activity level has ~15% chance during posting window
-}
-```
-
-Activity level probabilities during posting windows:
-- **high**: 15% per check
-- **medium**: 8% per check
-- **low**: 4% per check
-
-### Forecast Formatter (`lib/npc/forecast-formatter.ts`)
-
-Converts raw forecast data to natural language:
-
-```typescript
-formatWaveRange(4.5)           // "4-5ft"
-formatWindDescription(5, 'nw') // "light NW winds"
-formatTideState(2.1, true)     // "incoming mid-tide"
-formatWaterTemp(58)            // "58F (bring rubber)"
-formatCrowdSentence(3)         // "Crowd is manageable, respectful vibe."
-formatTimeOfDay(new Date())    // "dawn patrol"
-```
-
----
-
 ## Configuration Files
 
 ### NPC Roster (`config/npc-roster.ts`)
@@ -281,9 +220,9 @@ Morning forecast bot pulls from:
 
 ---
 
-## Monitoring and Verification
+## Historical Content
 
-### Verify NPC Activity
+### Find Historical NPC Posts
 
 ```sql
 -- Recent NPC posts
@@ -301,14 +240,6 @@ JOIN profiles p ON i.user_id = p.id
 WHERE p.is_mock = true
   AND i.created_at > now() - interval '7 days'
 GROUP BY p.personality_type;
-```
-
-### GitHub Actions (if configured)
-
-```bash
-# Check workflow runs
-gh run list --workflow="NPC Daily Activity"
-gh run list --workflow="Morning Forecast"
 ```
 
 ---
@@ -330,12 +261,6 @@ gh run list --workflow="Morning Forecast"
 ### Configuration
 - `config/npc-roster.ts` - 25 NPC profiles with personalities
 - `config/regions.ts` - California coast region mappings
-
-### Utilities
-- `lib/npc/template-hydration.ts` - Variable replacement
-- `lib/npc/beach-selection.ts` - Weighted beach picking
-- `lib/npc/posting-windows.ts` - Time-based posting logic
-- `lib/npc/forecast-formatter.ts` - Natural language formatters
 
 ### Database
 - `supabase/migrations/20260113200001_add_npc_profile_fields.sql`

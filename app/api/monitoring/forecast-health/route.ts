@@ -60,7 +60,7 @@ async function _GET(request: Request): Promise<Response> {
     // Run health check. Forecast freshness alone missed the 2026-10-02 County outage (fresh forecasts,
     // every pick withheld), so the inputs picks depend on are judged here too.
     const [forecastMetrics, recommendationInputs] = await Promise.all([
-      checkForecastHealth(),
+      checkForecastHealth({ serialScans: process.env.FORECAST_HEALTH_SERIAL_SCANS !== 'false' }),
       checkRecommendationInputsHealth(),
     ]);
     const metrics = {

@@ -1,6 +1,8 @@
 import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { cache } from "react";
+import { isPublicReadSharingEnabled } from "@/lib/config/public-read-sharing";
 
 /**
  * Request-scoped memo for water-quality hold reads.
@@ -10,8 +12,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * lets those layers share one read per table. It caches rows, never decisions:
  * every caller still validates rows and checks staleness against its own clock.
  *
- * There is no module-level store. Outside `runWithWaterQualityReadScope` every
- * read goes straight to the database, so nothing is shared across requests.
+ * Outside an active scope every read goes straight to the database.
  * Failed reads are never shared: a caller that sees a failure retries on its
  * own, exactly as it would without the scope.
  */
@@ -29,12 +30,32 @@ interface BeachRowsEntry {
 interface WaterQualityReadScope {
   reads: WeakMap<object, Map<string, Promise<WaterQualityReadResult>>>;
   beachRows: WeakMap<object, Map<string, BeachRowsEntry[]>>;
+  shareLatestCountyRun: boolean;
 }
 
 const storage = new AsyncLocalStorage<WaterQualityReadScope>();
 
+function createReadScope(shareLatestCountyRun: boolean): WaterQualityReadScope {
+  return { reads: new WeakMap(), beachRows: new WeakMap(), shareLatestCountyRun };
+}
+
 export function runWithWaterQualityReadScope<T>(fn: () => Promise<T>): Promise<T> {
-  return storage.run({ reads: new WeakMap(), beachRows: new WeakMap() }, fn);
+  return storage.run(createReadScope(false), fn);
+}
+
+// Metadata and the page body can run in separate async contexts in one render.
+const getPublicReadScope = cache(createReadScope);
+
+export function runWithPublicWaterQualityReadScope<T>(
+  fn: () => Promise<T>,
+  shareLatestCountyRun = true,
+): Promise<T> {
+  if (!isPublicReadSharingEnabled()) return fn();
+  return storage.run(getPublicReadScope(shareLatestCountyRun), fn);
+}
+
+export function canShareLatestCountyRun(): boolean {
+  return storage.getStore()?.shareLatestCountyRun ?? false;
 }
 
 function succeeded(result: WaterQualityReadResult): boolean {

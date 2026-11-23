@@ -489,7 +489,6 @@ beforeEach(() => {
     status: "allowed",
     candidate: null,
   });
-  delete process.env.ALERTS_DELIVERY_ENABLED;
   process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
 });
@@ -690,7 +689,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("Allowlist set, user not in list, ENABLED=true writes skipped_allowlist", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST =
       "73040cff-afe9-4fa0-a874-2016203fc015";
     seedQueueRow({
@@ -727,7 +725,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
   it("FORECAST_ALERT_DELIVERY_ENABLED=true restores email delivery", async () => {
     process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -934,7 +931,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("sends a beginner window with a no verdict while withholding other matches", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({ best_score: 20 });
     const beginnerQueueId = "00000000-0000-0000-0000-0000000000c2";
     seedQueueRow({
@@ -993,7 +989,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("consumes a real major-event hold as an explainable skip without degrading", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
@@ -1128,7 +1123,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     "provider unavailable",
     "Alert handoff unknown; held for reconciliation",
   ])("degrades on provider failure: %s", async (errorMessage) => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -1169,7 +1163,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("counts email delivery-row insert failure after send without retrying the provider action", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     store.deliveryInsertError = new Error("dedupe insert failed");
     seedQueueRow({
@@ -1208,7 +1201,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("sends every matching forecast alert instead of selecting one canonical beach", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       id: "00000000-0000-0000-0000-0000000000c2",
@@ -1267,7 +1259,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("sends one card when two rules match the same beach and window (bf4ffdf8, 2026-11-01)", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       id: QUEUE_1,
@@ -1304,7 +1295,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("keeps separate cards for two windows at the same beach", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({ best_score: 0.7 });
     seedQueueRow({
@@ -1432,7 +1422,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
     // Regression for the 2026-04-27 failed_provider crash where Resend rejected
     // a null `to` field. The deliver worker must guard before the provider call.
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -1563,7 +1552,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     { fresh: { wave_height: null }, failedCondition: "wave_height=missing,expected min 1.5" },
     { fresh: { wave_height: "3 ft", wind_speed: "12 kt" }, failedCondition: "wind_speed_kt=12>max 8" },
   ])("fresh forecast revalidation records no_matching_window with $failedCondition", async ({ fresh, failedCondition }) => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -1637,7 +1625,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("persists refreshed alert fields and logs rendered match metadata before sending", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     jest.useFakeTimers().setSystemTime(new Date("2026-04-26T12:00:00Z"));
 
@@ -1757,7 +1744,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("rewrites a one-hour queue row to the hourly window on the same row, with one send (ALERT_HOURLY_WINDOWS)", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     process.env.ALERT_HOURLY_WINDOWS_ENABLED = "true";
     process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST = "";
@@ -1988,7 +1974,6 @@ describe("condition-alert-deliver — watched-call queue", () => {
 
 describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   it("fails closed when the recent sent-attempt history query fails", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     store.recentAttemptsError = new Error("attempt history failed");
     seedQueueRow({
@@ -2014,7 +1999,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   });
 
   it("rule cooldown: prior sent attempt 12h ago records skipped_cooldown and skips provider", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -2054,7 +2038,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   });
 
   it("weekly cap: 10 prior sent attempts in last 7d records skipped_user_cap and skips provider", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -2107,7 +2090,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   });
 
   it("user-set rule max_frequency_per_week caps that rule before provider send", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -2207,7 +2189,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient inside quiet hours: email deferred, NOT sent/deduped/marked-sent", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // A 1-hour quiet window that contains the current local hour.
@@ -2297,7 +2278,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient inside DEFAULT_QUIET (no per-rule override) defers", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // Pin the clock to 06:00 UTC = 23:00 PT (previous day) — inside the default
@@ -2328,7 +2308,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient outside DEFAULT_QUIET (no per-rule override) sends", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // 17:00 UTC = 10:00 PT — well outside the default 22→04 window.
@@ -2357,7 +2336,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient outside quiet hours: email sends, deduped, marked sent", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // A 1-hour quiet window that does NOT contain the current local hour.
@@ -2392,7 +2370,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     // Verifies the retry-safety invariant directly: after a deferral there are
     // zero status='sent' rows for the rule, so the next run's cooldownDecision
     // sees no history and the real send proceeds.
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     const start = ptHourNow();
@@ -2418,7 +2395,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
 
 describe("condition-alert-deliver — orphaned queue rows", () => {
   it("marks rows sent and records failed_internal when the queued user has no profile", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
     });
@@ -2463,7 +2439,6 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
 
 describe("condition-alert-deliver — push branch enqueues via notifications pipeline (Phase 3d)", () => {
   it("enqueues a forecast_alert notification event instead of sending push directly", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
@@ -2526,7 +2501,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("uses the canonical eligible selection for distinct push provenance", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       id: "00000000-0000-0000-0000-0000000000d1",
       rule_id: "00000000-0000-0000-0000-0000000000e1",
@@ -2609,7 +2583,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("uses a stable synthetic forecast identity for queued compatibility rows", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       conditions_snapshot: { wave_height: 3 },
       alert_rules: {
@@ -2654,7 +2627,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("counts push delivery-row insert failure after enqueue without pre-writing a sent attempt", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     store.deliveryInsertError = new Error("dedupe insert failed");
     seedQueueRow({
       alert_rules: {
@@ -2685,7 +2657,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("records skipped_dedup_collision when enqueue returns duplicate", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
@@ -2710,7 +2681,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("records failed_internal when enqueue returns internal_error", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
@@ -2745,7 +2715,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("does NOT enqueue when notif_push_enabled=false", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
