@@ -25,6 +25,7 @@ zero is declared only for an explicit disabled/quiet path; otherwise zero is rec
 | `/api/cron/ccc-sync?phase=import` | `ccc_locations_written` | CCC locations upserted; zero only when the source is unchanged by ETag. | `Pass-2 cron outcome wiring › asserts the outcome for CCC import` |
 | `/api/cron/ccc-sync?phase=match` | `beach_matches_written` | Beach matches written; no quiet zero declared. | `Pass-2 cron outcome wiring › asserts the outcome for CCC match` |
 | `/api/cron/county-beach-advisories` | `advisories_synced` | Records in the successful ingest summary; skipped ingest is legitimate zero. | `… county advisories` |
+| `/api/cron/daily-call-streak-reminder` | `reminders_sent` | Notifications actually sent; disabled/no-candidate paths are legitimate zero. | `… daily call streak reminder` |
 | `/api/cron/daily-intel` | `intel_published` | Successful intel publications; no processed candidates is legitimate zero. | `… daily intel` |
 | `/api/cron/earn-pro-evaluate` | `rewards_evaluated` | Evaluated reward candidates; disabled flag, empty allowlist, or no candidates are legitimate zero. | `… earned Pro evaluation` |
 | `/api/cron/first-session-nudge` | `nudges_sent` | Email nudges sent; no eligible candidates is legitimate zero. | `… first-session email nudge` |
@@ -57,7 +58,7 @@ zero is declared only for an explicit disabled/quiet path; otherwise zero is rec
 The test names abbreviated with `…` above are parameterized cases in
 `__tests__/app/api/cron/cron-outcome-wiring.test.ts`; the full case names are:
 
-`CCC import`, `CCC match`, `county advisories`, `daily intel`,
+`CCC import`, `CCC match`, `county advisories`, `daily call streak reminder`, `daily intel`,
 `earned Pro evaluation`, `first-session email nudge`, `first-session push nudge`, `forecast
 refresh`, `home morning call`, `IOOS stations`, `IOOS observations`, `major-event hold
 evaluation`, `morning forecast bot`, `NDBC stations`, `NDBC observations`, `notification delivery`,

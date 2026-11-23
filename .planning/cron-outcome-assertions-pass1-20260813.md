@@ -90,6 +90,7 @@ by its parallel Pass-1 runner. They should not receive a second, conflicting ass
 | `app/api/cron/cleanup-pending-alert-captures/route.ts` | 3 | `captures_deleted` |
 | `app/api/cron/community-photo-retention/route.ts` | 3 | `photos_deleted` |
 | `app/api/cron/county-beach-advisories/route.ts` | 2 | `advisories_synced` |
+| `app/api/cron/daily-call-streak-reminder/route.ts` | 2 | `reminders_sent` |
 | `app/api/cron/daily-intel/route.ts` | 2 | `intel_published` |
 | `app/api/cron/earn-pro-evaluate/route.ts` | 2 | `rewards_evaluated` |
 | `app/api/cron/enhanced-forecast-sync-cdip/route.ts` | 2* | `forecasts_written` |
