@@ -37,6 +37,49 @@ describe("getForecastIndexabilityForBeaches read failures", () => {
     await expect(getForecastIndexabilityForBeaches(["beach-1"])).rejects.toThrow(/client creation failed/);
   });
 
+  it("reads at most four coverage batches at one time and still reads every beach", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const requested: string[] = [];
+    const query = (): Record<string, unknown> => {
+      const builder: Record<string, unknown> = {
+        select: () => builder,
+        in: (_column: string, ids: string[]) => {
+          requested.push(...ids);
+          return builder;
+        },
+        gte: () => builder,
+        lt: () => builder,
+        order: () => builder,
+        limit: async () => {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 1));
+          inFlight -= 1;
+          return { data: [], error: null };
+        },
+      };
+      return builder;
+    };
+    jest.mocked(createSupabaseServiceRoleClient).mockResolvedValue({ from: jest.fn(query) } as never);
+    const ids = Array.from({ length: 575 }, (_, index) => `beach-${index}`);
+
+    const result = await getForecastIndexabilityForBeaches(ids);
+
+    expect(maxInFlight).toBe(4);
+    expect(new Set(requested).size).toBe(575);
+    expect(result.size).toBe(575);
+  });
+
+  it("starts no more batches after one batch fails", async () => {
+    const client = clientReturning({ data: null, error: { message: "statement timeout" } });
+    jest.mocked(createSupabaseServiceRoleClient).mockResolvedValue(client as never);
+    const ids = Array.from({ length: 575 }, (_, index) => `beach-${index}`);
+
+    await expect(getForecastIndexabilityForBeaches(ids)).rejects.toThrow(/coverage query failed/);
+    expect(client.from.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
   it("returns no snapshot for a beach that has no forecast rows", async () => {
     jest.mocked(createSupabaseServiceRoleClient).mockResolvedValue(
       clientReturning({ data: [], error: null }) as never,
