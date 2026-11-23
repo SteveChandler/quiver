@@ -167,6 +167,13 @@ export const createServerClient = async () => {
   });
 };
 
+// Only cookie-free factories can register a client for shared public reads.
+const publicReadClients = new WeakMap<object, "anon" | "service_role">();
+
+export function publicReadClientRole(client: object): "anon" | "service_role" | undefined {
+  return publicReadClients.get(client);
+}
+
 /**
  * Create a cookie-free public read client using the anon key.
  *
@@ -193,9 +200,11 @@ export const createPublicReadClient = () => {
     );
   }
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  publicReadClients.set(client, "anon");
+  return client;
 };
 
 // Singleton: service-role clients are stateless (no user session, persistSession: false,
@@ -230,5 +239,6 @@ export const createServiceRoleClient = () => {
     },
   });
 
+  publicReadClients.set(_serviceRoleClient, "service_role");
   return _serviceRoleClient;
 };

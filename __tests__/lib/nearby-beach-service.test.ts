@@ -6,6 +6,7 @@ import {
   getNearbyBeachesFromDb,
   normalizeNearbyBeachQuery,
 } from "@/lib/services/nearby-beach-service";
+import { runWithPublicBeachRowCache } from "@/lib/data/server/public-beach-row-cache";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 const mockQuery = {
@@ -16,6 +17,7 @@ const mockQuery = {
   lte: jest.fn(),
   limit: jest.fn(),
   in: jest.fn(),
+  then: jest.fn(),
 };
 const mockSupabase = {
   rpc: jest.fn(),
@@ -51,6 +53,9 @@ jest.mock("@/lib/recommendations/selection", () => ({
   ) => mockRankBeaches(beaches, options),
 }));
 
+jest.mock("next/cache", () => ({ unstable_cache: (load: () => Promise<unknown>) => load }));
+jest.mock("@/lib/supabase", () => ({ publicReadClientRole: jest.fn(() => "anon") }));
+
 jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(() => mockSupabase),
 }));
@@ -65,6 +70,10 @@ describe("nearby beach service", () => {
     mockQuery.lte.mockReturnValue(mockQuery);
     mockQuery.limit.mockResolvedValue({ data: [], error: null });
     mockQuery.in.mockResolvedValue({ data: [], error: null });
+    mockQuery.then.mockImplementation((resolve: (value: unknown) => unknown) =>
+      Promise.resolve({ data: [], error: null }).then(resolve),
+    );
+    delete process.env.PUBLIC_BEACH_ROW_CACHE;
   });
 
   it("hard-caps public radius and result limits", () => {
@@ -161,6 +170,35 @@ describe("nearby beach service", () => {
       "private-beach",
       "deleted-beach",
     ]);
+  });
+
+  it.each([
+    ["non-array", { malformed: true }],
+    ["empty", []],
+  ])("retries the nearby beaches lookup after a %s whole-table result", async (_case, wholeRows) => {
+    const publicBeach = {
+      id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
+      name: "Public Beach",
+      lat: 32.7,
+      lon: -117.2,
+      is_private: false,
+      country: "USA",
+    };
+    mockSupabase.rpc.mockResolvedValue({ data: [publicBeach], error: null });
+    mockQuery.then.mockImplementation((resolve: (value: unknown) => unknown) =>
+      Promise.resolve({ data: wholeRows, error: null }).then(resolve),
+    );
+    mockQuery.in.mockResolvedValue({ data: [
+      { id: publicBeach.id, country: publicBeach.country },
+    ], error: null });
+
+    for (let render = 0; render < 2; render++) {
+      await runWithPublicBeachRowCache(() => getNearbyBeachesFromDb(32.7, -117.2));
+    }
+
+    expect(mockQuery.select).toHaveBeenCalledWith("id, country, is_private, deleted_at");
+    expect(mockQuery.select).toHaveBeenCalledTimes(4);
+    expect(mockQuery.in).toHaveBeenCalledTimes(2);
   });
 
   it("returns held beaches for map visibility with their hold kind", async () => {

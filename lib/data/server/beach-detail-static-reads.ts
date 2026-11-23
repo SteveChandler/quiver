@@ -2,6 +2,10 @@ import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import "server-only";
 
 import { unstable_cache } from "next/cache";
+import type { PostgrestError } from "@supabase/supabase-js";
+import { z } from "zod";
+import { canCacheWaterQualityReads, tryReadWholeBeachTable } from "@/lib/recommendations/major-event-hold/read-scope";
+import type { Database } from "@/types/database.generated";
 import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getResolvedSpotPhotoMap, type ResolvedSpotPhoto } from "@/lib/community-photos";
 import type { BeachAmenities } from "@/types/amenities";
@@ -77,3 +81,32 @@ export const getCachedBeachFeaturedPhoto = cachedPerBeach(
   readBeachFeaturedPhoto,
   PHOTO_TTL_SECONDS,
 );
+
+type SampleRow = Database["public"]["Tables"]["beach_water_quality"]["Row"];
+
+const sampleRowsSchema = z.array(z.object({
+  beach_id: z.string().uuid(),
+  status: z.enum(["good", "advisory", "closure", "unknown"]),
+  latest_enterococcus: z.number().nullable(),
+  latest_fecal_coliform: z.number().nullable(),
+  latest_sample_date: z.iso.date().nullable(),
+  exceedance_count_30d: z.number().int().nonnegative(),
+  total_samples_30d: z.number().int().nonnegative(),
+  status_reason: z.string().nullable(),
+  status_changed_at: z.string().datetime({ offset: true }).nullable(),
+}));
+
+export async function readBeachWaterQualitySample(
+  client: ReturnType<typeof createPublicReadClient>,
+  beachId: string,
+): Promise<{ data: SampleRow | null; error: PostgrestError | null }> {
+  const direct = () => client.from("beach_water_quality").select("*").eq("beach_id", beachId).maybeSingle();
+  if (!canCacheWaterQualityReads(client)) return direct();
+
+  const rows = await tryReadWholeBeachTable(
+    client, "beach_water_quality|*", [beachId],
+    () => client.from("beach_water_quality").select("*").limit(1_000),
+    (data) => sampleRowsSchema.safeParse(data).success,
+  );
+  return rows === undefined ? direct() : { data: rows[0] ?? null, error: null };
+}

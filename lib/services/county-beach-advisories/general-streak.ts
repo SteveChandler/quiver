@@ -8,9 +8,9 @@ import {
   supportsCountyStreakQuery,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
-import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
+import { canCacheWaterQualityReads, memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 import { COUNTY_RAIN_CLUSTER, RAIN_READING_MAX_AGE_MS } from "@/lib/services/water-quality/rainfall-runoff";
-import { RAIN_ADVISORY_EVENTS_TABLE, rainAdvisoryEventSchema } from "@/lib/services/water-quality/rain-advisory-events";
+import { RAIN_ADVISORY_EVENTS_TABLE, rainAdvisoryEventSchema, validRainAdvisoryEventRows } from "@/lib/services/water-quality/rain-advisory-events";
 import type { RainAdvisoryEvent } from "@/lib/services/water-quality/rain-advisory-events";
 import {
   COUNTY_FEED_SOURCE_IDENTIFIER,
@@ -35,10 +35,12 @@ const runSchema = z.object({
   fetched_at: z.string().datetime({ offset: true }),
   advisory_count: z.number().int().nonnegative(),
 });
+const runRowsSchema = z.array(runSchema).max(1);
 const noticeSchema = z.object({
   source_site_identifier: z.string().min(1),
   advisory_type: z.enum(["advisory", "closure", "warning"]),
 });
+const siteRowsSchema = z.array(noticeSchema);
 const rainSchema = z.object({
   window_end: z.string().datetime({ offset: true }),
   total_in: z.coerce.number().finite().nonnegative(),
@@ -51,12 +53,15 @@ const unknownGeneral: CountyGeneralAdvisory = {
 
 async function latestSanDiegoEvent(client: WaterQualityHoldClient): Promise<RainAdvisoryEvent | null> {
   try {
-    const query: unknown = client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*");
-    if (!supportsCountyRunQuery(query)) return null;
+    const cacheRows = canCacheWaterQualityReads(client);
+    const query = cacheRows ? undefined : client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*");
+    if (!cacheRows && !supportsCountyRunQuery(query)) return null;
     const { data, error } = await memoizedWaterQualityRead(
       client,
       "county-general|rain-event|san_diego|latest",
-      () => query.eq("region", COUNTY_RAIN_CLUSTER.id).order("started_at", { ascending: false }).limit(1),
+      () => (query ?? client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*"))
+        .eq("region", COUNTY_RAIN_CLUSTER.id).order("started_at", { ascending: false }).limit(1),
+      { isValid: validRainAdvisoryEventRows },
     );
     if (error || !Array.isArray(data) || !data[0]) return null;
     const parsed = rainAdvisoryEventSchema.safeParse(data[0]);
@@ -113,45 +118,57 @@ export async function resolveCountyGeneralAdvisory(
 
   try {
     if (!runSchema.safeParse(latestRun).success || !Number.isFinite(now.getTime())) return unknownGeneral;
-    const baselineQuery: unknown = client.from("county_beach_advisory_runs").select(runColumns);
-    if (!supportsCountyStreakQuery(baselineQuery)) return unknownGeneral;
+    const cacheRows = canCacheWaterQualityReads(client);
+    const baselineQuery = cacheRows ? undefined : client.from("county_beach_advisory_runs").select(runColumns);
+    if (!cacheRows && !supportsCountyStreakQuery(baselineQuery)) return unknownGeneral;
     const baselineResult = await memoizedWaterQualityRead(
       client,
       `county-general|baseline|${COUNTY_FEED_SOURCE_IDENTIFIER}|${latestRun.fetched_at}`,
-      () => baselineQuery.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
-        .eq("status", "completed")
-        .lt("fetched_at", latestRun.fetched_at)
-        .lt("advisory_count", COUNTY_GENERAL_ADVISORY_MIN_SITES)
-        .order("fetched_at", { ascending: false }).limit(1),
+      () => {
+        const query = baselineQuery ?? client.from("county_beach_advisory_runs").select(runColumns);
+        if (!supportsCountyStreakQuery(query)) throw new TypeError("County streak query is unavailable");
+        return query.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+          .eq("status", "completed")
+          .lt("fetched_at", latestRun.fetched_at)
+          .lt("advisory_count", COUNTY_GENERAL_ADVISORY_MIN_SITES)
+          .order("fetched_at", { ascending: false }).limit(1);
+      },
+      { key: `county-general|baseline|${latestRun.id}`, isValid: (rows) => runRowsSchema.safeParse(rows).success },
     );
     if (baselineResult.error || !Array.isArray(baselineResult.data) || baselineResult.data.length !== 1) return unknownGeneral;
     const baseline = runSchema.safeParse(baselineResult.data[0]);
     if (!baseline.success || baseline.data.advisory_count >= COUNTY_GENERAL_ADVISORY_MIN_SITES
       || Date.parse(baseline.data.fetched_at) >= Date.parse(latestRun.fetched_at)) return unknownGeneral;
 
-    const firstQuery: unknown = client.from("county_beach_advisory_runs").select(runColumns);
-    if (!supportsCountyStreakQuery(firstQuery)) return unknownGeneral;
+    const firstQuery = cacheRows ? undefined : client.from("county_beach_advisory_runs").select(runColumns);
+    if (!cacheRows && !supportsCountyStreakQuery(firstQuery)) return unknownGeneral;
     const firstResult = await memoizedWaterQualityRead(
       client,
       `county-general|first|${COUNTY_FEED_SOURCE_IDENTIFIER}|${baseline.data.fetched_at}`,
-      () => firstQuery.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
-        .eq("status", "completed")
-        .gt("fetched_at", baseline.data.fetched_at)
-        .order("fetched_at", { ascending: true }).limit(1),
+      () => {
+        const query = firstQuery ?? client.from("county_beach_advisory_runs").select(runColumns);
+        if (!supportsCountyStreakQuery(query)) throw new TypeError("County streak query is unavailable");
+        return query.eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+          .eq("status", "completed")
+          .gt("fetched_at", baseline.data.fetched_at)
+          .order("fetched_at", { ascending: true }).limit(1);
+      },
+      { key: `county-general|first|${baseline.data.id}`, isValid: (rows) => runRowsSchema.safeParse(rows).success },
     );
     if (firstResult.error || !Array.isArray(firstResult.data) || firstResult.data.length !== 1) return unknownGeneral;
     const first = runSchema.safeParse(firstResult.data[0]);
     if (!first.success || first.data.advisory_count < COUNTY_GENERAL_ADVISORY_MIN_SITES
       || Date.parse(first.data.fetched_at) > Date.parse(latestRun.fetched_at)) return unknownGeneral;
 
-    const siteQuery: unknown = client.from("county_beach_advisories").select(siteColumns);
-    if (!supportsCountyAdvisoryQuery(siteQuery)) return unknownGeneral;
+    const siteQuery = cacheRows ? undefined : client.from("county_beach_advisories").select(siteColumns);
+    if (!cacheRows && !supportsCountyAdvisoryQuery(siteQuery)) return unknownGeneral;
     const sitesResult = await memoizedWaterQualityRead(
       client,
       `county-general|baseline-sites|${baseline.data.id}`,
-      () => siteQuery.eq("run_id", baseline.data.id),
+      () => (siteQuery ?? client.from("county_beach_advisories").select(siteColumns)).eq("run_id", baseline.data.id),
+      { isValid: (rows) => siteRowsSchema.safeParse(rows).success },
     );
-    const notices = z.array(noticeSchema).safeParse(sitesResult.data);
+    const notices = siteRowsSchema.safeParse(sitesResult.data);
     if (sitesResult.error || !notices.success) return unknownGeneral;
     const advisorySites = notices.data.filter((notice) => notice.advisory_type === "advisory")
       .map((notice) => notice.source_site_identifier);
