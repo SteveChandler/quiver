@@ -7,6 +7,7 @@ import {
 } from '@/lib/services/discovery/weekend-scout-contract';
 import {
   buildWeekendScoutRanking,
+  type WeekendScoutBuildOptions,
   type WeekendScoutBuildResult,
 } from '@/lib/services/discovery/weekend-scout';
 
@@ -42,7 +43,10 @@ export interface WeekendScoutSnapshotInsert {
   lead_window_local: string;
   scorer_version: string;
   contract_version: string;
-  rankings: WeekendScoutSnapshotV1['results'];
+  rankings: Array<WeekendScoutSnapshotV1['results'][number] & {
+    origin?: WeekendScoutSnapshotV1['origin'];
+    leadWindowTimezone?: string;
+  }>;
 }
 
 interface SnapshotInsertError {
@@ -65,13 +69,14 @@ export interface StoredWeekendScoutSnapshot {
   leadBeachId: string;
   leadBeachName: string;
   leadWindowLocal: string;
+  leadWindowTimezone?: string;
 }
 
 export type CreateWeekendScoutSnapshotResult =
   | ({ status: 'ready' } & StoredWeekendScoutSnapshot)
   | Exclude<WeekendScoutBuildResult, { status: 'ready' }>;
 
-function defaultDependencies(): WeekendScoutSnapshotDependencies {
+function defaultDependencies(options?: WeekendScoutBuildOptions): WeekendScoutSnapshotDependencies {
   const supabase = createSupabaseServiceRoleClient();
   const select = '*';
 
@@ -107,11 +112,12 @@ function defaultDependencies(): WeekendScoutSnapshotDependencies {
         error: error ? { code: error.code, message: error.message } : null,
       };
     },
-    buildRanking: (userId) => buildWeekendScoutRanking(userId),
+    buildRanking: (userId) => buildWeekendScoutRanking(userId, undefined, options),
   };
 }
 
 function parseRow(row: WeekendScoutSnapshotRow): StoredWeekendScoutSnapshot {
+  const lead = Array.isArray(row.rankings) ? row.rankings[0] : undefined;
   return {
     snapshot: parseWeekendScoutSnapshot({
       snapshotId: row.id,
@@ -121,6 +127,7 @@ function parseRow(row: WeekendScoutSnapshotRow): StoredWeekendScoutSnapshot {
       generatedAt: row.generated_at,
       locationCapturedAt: row.location_captured_at,
       timezone: row.location_timezone,
+      ...(lead?.origin === undefined ? {} : { origin: lead.origin }),
       qualifyingCount: row.qualifying_count,
       scorerVersion: row.scorer_version,
       results: row.rankings,
@@ -129,6 +136,7 @@ function parseRow(row: WeekendScoutSnapshotRow): StoredWeekendScoutSnapshot {
     leadBeachId: row.lead_beach_id,
     leadBeachName: row.lead_beach_name,
     leadWindowLocal: row.lead_window_local,
+    leadWindowTimezone: typeof lead?.leadWindowTimezone === 'string' ? lead.leadWindowTimezone : undefined,
   };
 }
 
@@ -146,8 +154,9 @@ export async function createOrGetWeekendScoutSnapshot(
   userId: string,
   weekendStart: string,
   dependencies?: WeekendScoutSnapshotDependencies,
+  options?: WeekendScoutBuildOptions,
 ): Promise<CreateWeekendScoutSnapshotResult> {
-  const deps = dependencies ?? defaultDependencies();
+  const deps = dependencies ?? defaultDependencies(options);
   const existing = await deps.findForWeekend(userId, weekendStart);
   if (existing) return { status: 'ready', ...parseRow(existing) };
 
@@ -157,7 +166,8 @@ export async function createOrGetWeekendScoutSnapshot(
     throw new Error('Weekend Scout ranking does not match the requested weekend');
   }
 
-  const lead = built.ranking.results[0];
+  const { results, origin } = built.ranking;
+  const [lead, ...otherResults] = results;
   const inserted = await deps.insert({
     user_id: userId,
     weekend_start: built.ranking.weekendStart,
@@ -172,7 +182,8 @@ export async function createOrGetWeekendScoutSnapshot(
     lead_window_local: lead.bestWindow.localLabel,
     scorer_version: built.ranking.scorerVersion,
     contract_version: built.ranking.contractVersion,
-    rankings: built.ranking.results,
+    // Keep the stored JSON array and put snapshot metadata on its guaranteed first result.
+    rankings: [{ ...lead, origin, leadWindowTimezone: built.leadWindowTimezone }, ...otherResults],
   });
   if (inserted.row) return { status: 'ready', ...parseRow(inserted.row) };
 

@@ -23,7 +23,9 @@ import type {
   MajorEventHoldWeekScoutWindow,
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
+import { parseCoordinate } from '@/lib/utils/number-parsing';
 import { DEFAULT_DRIVE_MINUTES, driveRadiusMiles, NO_LIMIT_DRIVE_MINUTES } from '@/lib/profile/drive-range';
+import type { Beach } from '@/types/database';
 
 export const LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LOCATION_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -35,6 +37,25 @@ export interface WeekendScoutLocation {
   capturedAt: string;
 }
 
+type WeekendScoutHomeBeach = Pick<Beach, 'id' | 'name' | 'lat' | 'lon'> & { timezone: string | null };
+
+interface ResolvedWeekendScoutOrigin {
+  lat: number;
+  lon: number;
+  timezone: string;
+  capturedAt?: string;
+  source: NonNullable<WeekendScoutRankingV1['origin']>;
+}
+
+type WeekendScoutOriginResult =
+  | { status: 'ready'; origin: ResolvedWeekendScoutOrigin }
+  | { status: 'missing_location' | 'stale_location' };
+
+export interface WeekendScoutBuildOptions {
+  now: Date;
+  origin: ResolvedWeekendScoutOrigin;
+}
+
 export interface WeekendScoutUserContext {
   maxDriveMinutes: number | null;
   homeBeachId: string | null;
@@ -44,6 +65,7 @@ export interface WeekendScoutUserContext {
 export interface WeekendScoutDependencies {
   now: Date;
   fetchLocation: (userId: string) => Promise<WeekendScoutLocation | null>;
+  fetchHomeBeach: (beachId: string) => Promise<WeekendScoutHomeBeach | null>;
   fetchUserContext: (userId: string) => Promise<WeekendScoutUserContext>;
   buildCandidatePool: (
     userId: string,
@@ -56,7 +78,12 @@ export interface WeekendScoutDependencies {
 }
 
 export type WeekendScoutBuildResult =
-  | { status: 'ready'; ranking: WeekendScoutRankingV1; maxDriveMinutes: number }
+  | {
+      status: 'ready';
+      ranking: WeekendScoutRankingV1;
+      maxDriveMinutes: number;
+      leadWindowTimezone: string;
+    }
   | {
       status:
         | 'missing_location'
@@ -80,11 +107,66 @@ type RankableWeekScoutWindow = MajorEventHoldWeekScoutWindow & {
   safe: true;
 };
 
+export async function fetchWeekendScoutHomeBeach(
+  beachId: string,
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient> = createSupabaseServiceRoleClient(),
+): Promise<WeekendScoutHomeBeach | null> {
+  const { data, error } = await supabase
+    .from('beaches')
+    .select('id, name, lat, lon, timezone')
+    .eq('id', beachId)
+    .is('deleted_at', null)
+    .or('is_private.is.null,is_private.eq.false')
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load Weekend Scout home beach: ${error.message}`);
+  return data;
+}
+
+function isFreshLocation(location: WeekendScoutLocation, now: Date): boolean {
+  const age = now.getTime() - Date.parse(location.capturedAt);
+  return age >= -LOCATION_MAX_FUTURE_SKEW_MS && age <= LOCATION_MAX_AGE_MS;
+}
+
+export async function resolveWeekendScoutOrigin(
+  location: WeekendScoutLocation | null,
+  now: Date,
+  loadHomeBeach: () => Promise<WeekendScoutHomeBeach | null>,
+): Promise<WeekendScoutOriginResult> {
+  if (location && isFreshLocation(location, now)) {
+    return { status: 'ready', origin: { ...location, source: { kind: 'location' } } };
+  }
+
+  const skipped = { status: location ? 'stale_location' : 'missing_location' } as const;
+  const beach = await loadHomeBeach();
+  if (!beach?.timezone?.trim() || !beach.name.trim()) return skipped;
+  const lat = parseCoordinate(beach.lat, 'lat');
+  const lon = parseCoordinate(beach.lon, 'lon');
+  if (lat === null || lon === null) return skipped;
+  const timezone = resolveBeachTimezone(beach.timezone);
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+  } catch (error) {
+    if (error instanceof RangeError) return skipped;
+    throw error;
+  }
+
+  return {
+    status: 'ready',
+    origin: {
+      lat,
+      lon,
+      timezone,
+      source: { kind: 'home_beach', beachId: beach.id, beachName: beach.name },
+    },
+  };
+}
+
 function defaultDependencies(now: Date): WeekendScoutDependencies {
   const supabase = createSupabaseServiceRoleClient();
 
   return {
     now,
+    fetchHomeBeach: (beachId) => fetchWeekendScoutHomeBeach(beachId, supabase),
     fetchLocation: async (userId) => {
       const { data, error } = await (supabase as any)
         .from('user_location_snapshots')
@@ -155,7 +237,7 @@ function resolveMaxDriveMinutes(configuredMinutes: number | null): number {
   return Math.min(NO_LIMIT_DRIVE_MINUTES, Math.max(1, Math.round(configuredMinutes)));
 }
 
-function weekendDates(now: Date, timezone: string): { start: string; end: string } {
+export function getWeekendScoutDates(now: Date, timezone: string): { start: string; end: string } {
   const today = localDate(now, timezone);
   const date = new Date(`${today}T00:00:00.000Z`);
   const day = date.getUTCDay();
@@ -236,33 +318,33 @@ function rankedWindows(
 export async function buildWeekendScoutRanking(
   userId: string,
   dependencies?: WeekendScoutDependencies,
+  options?: WeekendScoutBuildOptions,
 ): Promise<WeekendScoutBuildResult> {
-  const deps = dependencies ?? defaultDependencies(new Date());
-  const location = await deps.fetchLocation(userId);
-  if (!location) return { status: 'missing_location' };
-
-  const capturedAt = new Date(location.capturedAt).getTime();
-  if (
-    !Number.isFinite(capturedAt)
-    || capturedAt > deps.now.getTime() + LOCATION_MAX_FUTURE_SKEW_MS
-    || deps.now.getTime() - capturedAt > LOCATION_MAX_AGE_MS
-  ) {
-    return { status: 'stale_location' };
-  }
-
-  const context = await deps.fetchUserContext(userId);
-  const maxDriveMinutes = resolveMaxDriveMinutes(context.maxDriveMinutes);
+  const deps = dependencies ?? defaultDependencies(options?.now ?? new Date());
+  const now = options?.now ?? deps.now;
+  let context: WeekendScoutUserContext | undefined;
+  const resolved = options
+    ? { status: 'ready' as const, origin: options.origin }
+    : await resolveWeekendScoutOrigin(await deps.fetchLocation(userId), now, async () => {
+        context = await deps.fetchUserContext(userId);
+        return context.homeBeachId ? deps.fetchHomeBeach(context.homeBeachId) : null;
+      });
+  if (resolved.status !== 'ready') return resolved;
+  const { origin } = resolved;
+  context ??= await deps.fetchUserContext(userId);
+  const userContext = context;
+  const maxDriveMinutes = resolveMaxDriveMinutes(userContext.maxDriveMinutes);
   const pool = await deps.buildCandidatePool(userId, {
-    userLocation: { lat: location.lat, lon: location.lon },
+    userLocation: { lat: origin.lat, lon: origin.lon },
     radiusMiles: driveRadiusMiles(maxDriveMinutes),
   });
   if (pool.wasTruncated) return { status: 'candidate_limit_reached' };
   if (pool.candidates.length === 0) return { status: 'no_candidates' };
 
-  const weekend = weekendDates(deps.now, location.timezone);
+  const weekend = getWeekendScoutDates(now, origin.timezone);
   const forecast = await deps.generateForecast(userId, {
     candidateBeachIds: pool.candidates.map((candidate) => candidate.beach.id),
-    localTimezone: location.timezone,
+    localTimezone: origin.timezone,
     startLocalDate: weekend.start,
     dayCount: 2,
   });
@@ -274,8 +356,10 @@ export async function buildWeekendScoutRanking(
     weekendStart: weekend.start,
     weekendEnd: weekend.end,
     generatedAt: forecast.generatedAt,
-    locationCapturedAt: location.capturedAt,
-    timezone: location.timezone,
+    // The snapshot column is NOT NULL. A home-beach origin has no phone fix.
+    locationCapturedAt: origin.capturedAt ?? forecast.generatedAt,
+    timezone: origin.timezone,
+    origin: origin.source,
     qualifyingCount: qualified.length,
     scorerVersion: forecast.scorerVersion,
     results: qualified.map(({ candidate, window, adjustedScore }, index) => ({
@@ -284,7 +368,7 @@ export async function buildWeekendScoutRanking(
       beachName: candidate.beach.name,
       beachSlug: candidate.beach.slug ?? null,
       distanceMiles: candidate.distanceMiles,
-      sourceLabels: sourceLabels(candidate.beach.id, context),
+      sourceLabels: sourceLabels(candidate.beach.id, userContext),
       bestWindow: {
         start: window.start,
         end: window.end,
@@ -293,7 +377,7 @@ export async function buildWeekendScoutRanking(
         peakTime: window.peakTime,
         localLabel: localWindowLabel(
           window,
-          resolveBeachTimezone(candidate.beach.timezone || location.timezone),
+          resolveBeachTimezone(candidate.beach.timezone || origin.timezone),
         ),
         waveHeight: window.forecast.waveHeight,
         period: window.forecast.period,
@@ -310,5 +394,10 @@ export async function buildWeekendScoutRanking(
     })),
   });
 
-  return { status: 'ready', ranking, maxDriveMinutes };
+  return {
+    status: 'ready',
+    ranking,
+    maxDriveMinutes,
+    leadWindowTimezone: resolveBeachTimezone(qualified[0].candidate.beach.timezone || origin.timezone),
+  };
 }

@@ -4,6 +4,7 @@
 
 import fixture from '@/__tests__/fixtures/weekend-scout-v1.json';
 import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
+import { NOTIFICATION_REGISTRY } from '@/lib/notifications/registry';
 import { parseWeekendScoutSnapshot } from '@/lib/services/discovery/weekend-scout-contract';
 import type { CreateWeekendScoutSnapshotResult } from '@/lib/services/discovery/weekend-scout-snapshots';
 import {
@@ -24,6 +25,7 @@ function profile(overrides: Partial<WeekendScoutCronProfile> = {}): WeekendScout
     id: 'user-1',
     notifPushEnabled: true,
     notifReminders: true,
+    homeBeachId: null,
     location: {
       lat: 32.81,
       lon: -117.27,
@@ -43,6 +45,7 @@ const stored = {
   leadBeachId: fixture.results[0].beachId,
   leadBeachName: fixture.results[0].beachName,
   leadWindowLocal: fixture.results[0].bestWindow.localLabel,
+  leadWindowTimezone: 'America/Los_Angeles',
 };
 
 function dependencies(): WeekendScoutCronDependencies {
@@ -50,6 +53,7 @@ function dependencies(): WeekendScoutCronDependencies {
     now: new Date('2026-07-24T19:00:00.000Z'),
     validateRequest: jest.fn(() => true),
     loadProfiles: jest.fn(async () => [profile()]),
+    fetchHomeBeach: jest.fn(async () => null),
     createSnapshot: jest.fn(async () => stored),
     enqueue: jest.fn(async () => ({ enqueued: true as const, eventId: 'event-1' })),
   };
@@ -97,8 +101,8 @@ describe('runWeekendScoutCron', () => {
     const deps = dependencies();
     deps.loadProfiles = jest.fn(async () => [
       profile(),
-      profile({ id: 'user-disabled', notifReminders: false }),
-      profile({ id: 'user-not-allowed' }),
+      profile({ id: 'user-disabled', notifReminders: false, location: null, homeBeachId: 'beach-1' }),
+      profile({ id: 'user-not-allowed', location: null, homeBeachId: 'beach-1' }),
       profile({ id: 'user-missing', location: null }),
       profile({
         id: 'user-stale',
@@ -126,6 +130,61 @@ describe('runWeekendScoutCron', () => {
       notLocalFridayNoon: 1,
     });
     expect(deps.createSnapshot).toHaveBeenCalledTimes(1);
+    expect(deps.fetchHomeBeach).not.toHaveBeenCalled();
+    expect(result.data.homeBeachOrigin).toBe(0);
+  });
+
+  it('uses the home beach timezone for Friday noon, and counts only fallback candidates', async () => {
+    const deps = dependencies();
+    deps.loadProfiles = jest.fn(async () => [
+      profile({
+        id: 'stale',
+        location: { ...profile().location!, capturedAt: '2026-07-21T18:55:00.000Z', timezone: 'UTC' },
+        homeBeachId: 'west',
+      }),
+      profile({ id: 'missing', location: null, homeBeachId: 'west' }),
+      profile({ id: 'wrong-time', location: null, homeBeachId: 'hawaii' }),
+      profile({ id: 'fresh', homeBeachId: 'hawaii' }),
+    ]);
+    deps.fetchHomeBeach = jest.fn(async (id: string) => ({
+      id, name: 'Home Beach', lat: 32.8, lon: -117.2,
+      timezone: id === 'west' ? 'America/Los_Angeles' : 'Pacific/Honolulu',
+    }));
+
+    const result = await body(await runWeekendScoutCron(new Request('http://localhost/cron'), deps));
+
+    expect(result.data).toMatchObject({ candidates: 3, homeBeachOrigin: 2, sent: 3, errors: 0 });
+    expect(result.data.skippedCounts).toMatchObject({ missingLocation: 0, staleLocation: 0, notLocalFridayNoon: 1 });
+    for (const id of ['stale', 'missing']) {
+      expect(deps.createSnapshot).toHaveBeenCalledWith(id, '2026-07-25', {
+        now: deps.now,
+        origin: {
+          lat: 32.8, lon: -117.2, timezone: 'America/Los_Angeles',
+          source: { kind: 'home_beach', beachId: 'west', beachName: 'Home Beach' },
+        },
+      });
+    }
+    expect(deps.createSnapshot).not.toHaveBeenCalledWith('wrong-time', expect.anything(), expect.anything());
+    expect(deps.createSnapshot).toHaveBeenCalledWith('fresh', '2026-07-25', expect.objectContaining({
+      origin: expect.objectContaining({ source: { kind: 'location' } }),
+    }));
+    expect(deps.fetchHomeBeach).toHaveBeenCalledTimes(3);
+  });
+
+  it('counts a home beach read failure as an error and continues to the next profile', async () => {
+    const deps = dependencies();
+    deps.loadProfiles = jest.fn(async () => [
+      profile({ id: 'failed-home', location: null, homeBeachId: 'beach-1' }),
+      profile(),
+    ]);
+    deps.fetchHomeBeach = jest.fn(async () => { throw new Error('beach database unavailable'); });
+
+    const result = await body(await runWeekendScoutCron(new Request('http://localhost/cron'), deps));
+    expectConsoleErrors([/Error processing failed-home/]);
+
+    expect(result.data).toMatchObject({ errors: 1, candidates: 1, sent: 1, homeBeachOrigin: 0 });
+    expect(result.data.skippedCounts).toMatchObject({ missingLocation: 0, staleLocation: 0 });
+    expect(deps.createSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it('enqueues only the stored snapshot summary with a stable weekend dedupe key', async () => {
@@ -134,7 +193,10 @@ describe('runWeekendScoutCron', () => {
     const result = await body(response);
 
     expect(result.data.sent).toBe(1);
-    expect(deps.createSnapshot).toHaveBeenCalledWith('user-1', '2026-07-25');
+    expect(deps.createSnapshot).toHaveBeenCalledWith('user-1', '2026-07-25', expect.objectContaining({
+      now: deps.now,
+      origin: expect.objectContaining({ source: { kind: 'location' } }),
+    }));
     expect(deps.enqueue).toHaveBeenCalledWith({
       type: 'weekend_window',
       recipientUserId: 'user-1',
@@ -148,6 +210,13 @@ describe('runWeekendScoutCron', () => {
         lead_beach_id: fixture.results[0].beachId,
         lead_beach_name: "Black's",
         lead_window_local: 'Saturday morning',
+        lead_window_time: '7–9:30 AM',
+        lead_window_part_of_day: 'morning',
+        lead_wave_height: '4.2',
+        lead_period: '13',
+        lead_wind_speed: '4',
+        lead_wind_direction: 'E',
+        variant_index: expect.any(Number),
         forecast_at: fixture.results[0].bestWindow.start,
         policy_context: {
           kind: 'positive_session_recommendation',
@@ -157,6 +226,9 @@ describe('runWeekendScoutCron', () => {
         },
       },
     });
+    const [{ payload }] = (deps.enqueue as jest.MockedFunction<typeof deps.enqueue>).mock.calls[0];
+    const def = NOTIFICATION_REGISTRY.weekend_window;
+    expect(def.buildPushPayload(def.validatePayload(payload)).body).toContain('7–9:30 AM');
     expect(mockSelectBeach).toHaveBeenCalledWith({
       id: fixture.results[0].beachId,
       name: fixture.results[0].beachName,

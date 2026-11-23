@@ -7,6 +7,7 @@ import {
   createOrGetWeekendScoutSnapshot,
   loadWeekendScoutSnapshot,
   type WeekendScoutSnapshotDependencies,
+  type WeekendScoutSnapshotInsert,
   type WeekendScoutSnapshotRow,
 } from '@/lib/services/discovery/weekend-scout-snapshots';
 import { parseWeekendScoutRanking } from '@/lib/services/discovery/weekend-scout-contract';
@@ -42,6 +43,7 @@ function dependencies(): WeekendScoutSnapshotDependencies {
       status: 'ready' as const,
       ranking,
       maxDriveMinutes: 45,
+      leadWindowTimezone: fixture.timezone,
     })),
   };
 }
@@ -82,8 +84,35 @@ describe('Weekend Scout snapshots', () => {
       lead_beach_id: fixture.results[0].beachId,
       lead_beach_name: "Black's",
       lead_window_local: 'Saturday morning',
-      rankings: fixture.results,
+      rankings: [{ ...fixture.results[0], leadWindowTimezone: fixture.timezone }, ...fixture.results.slice(1)],
     }));
+  });
+
+  it('round-trips home-beach origin and keeps copy metadata out of API results', async () => {
+    const deps = dependencies();
+    const origin = { kind: 'home_beach', beachId: fixture.results[1].beachId, beachName: 'Scripps Pier' } as const;
+    deps.buildRanking = jest.fn(async () => ({
+      status: 'ready' as const,
+      ranking: { ...ranking, origin, locationCapturedAt: ranking.generatedAt },
+      maxDriveMinutes: 45,
+      leadWindowTimezone: 'America/Los_Angeles',
+    }));
+    const insert = jest.fn(async (input: WeekendScoutSnapshotInsert) => ({
+      row: { id: fixture.snapshotId, ...input },
+      error: null,
+    }));
+    deps.insert = insert;
+
+    const created = await createOrGetWeekendScoutSnapshot('user-1', fixture.weekendStart, deps);
+    expect(created).toMatchObject({
+      status: 'ready',
+      leadWindowTimezone: 'America/Los_Angeles',
+      snapshot: { contractVersion: 'weekend-scout-v1', origin, locationCapturedAt: fixture.generatedAt },
+    });
+    const { row: inserted } = await insert.mock.results[0].value;
+    deps.findById = jest.fn(async () => inserted);
+    const loaded = await loadWeekendScoutSnapshot('user-1', fixture.snapshotId, deps);
+    expect(loaded?.snapshot).toEqual({ ...fixture, origin, locationCapturedAt: fixture.generatedAt });
   });
 
   it('reloads the winner of a uniqueness race', async () => {
