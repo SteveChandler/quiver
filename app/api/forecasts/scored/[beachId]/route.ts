@@ -37,7 +37,6 @@ import {
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
-import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
 import { readEntitlementRow, UNKNOWN_PLAN_FEATURE_ACCESS } from "@/lib/subscription/read-entitlement-row";
 import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
@@ -538,12 +537,11 @@ const handleGet = withNoStore(withAuth(
       : { status: "ok" as const, row: null };
     // A failed read still scores the beach, but with no paid features and no plan label.
     const planUnknown = entitlementRead.status === "unknown";
-    const { isPro, hasFeatureAccess } = planUnknown
+    const { isPro } = planUnknown
       ? UNKNOWN_PLAN_FEATURE_ACCESS
       : await resolveFeatureAccessFromRow(context.user?.id, entitlementRead.row);
-    const boardPicksEnabled = hasFeatureAccess || isBoardPicksFreeEnabled();
     const boardContext = context.user
-      ? await fetchUserBoardContext(supabase, context.user.id, boardPicksEnabled)
+      ? await fetchUserBoardContext(supabase, context.user.id)
       : null;
     const timeSlots = scoreForecastSlots(
       forecastList, beach as Beach, userSkillLevel, boardContext?.boardClasses,
@@ -572,7 +570,7 @@ const handleGet = withNoStore(withAuth(
       latestObservation,
       // Installed native builds parse `plan` as "free" | "pro"; an unknown plan omits it.
       ...(planUnknown ? { planStatus: "unknown" as const } : { plan: isPro ? "pro" as const : "free" as const }),
-      boardPicksEnabled,
+      boardPicksEnabled: true,
       generalProfile: { skill: "beginner", board: null },
     };
     const slotBindings = buildSlotBindings(validBeachId, timeSlots);
