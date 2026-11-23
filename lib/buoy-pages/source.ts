@@ -24,7 +24,7 @@ import {
   type LatestWaveReading,
   type StationIdMatch,
 } from "@/lib/services/wave-stations/lookup";
-import type { WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
+import type { WaveStationHistoryRow, WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
 import { getBeachForecastSummaries, type BeachForecastSummary } from "./beach-summaries";
 import { fetchModelAtBuoy, type ModelSeries } from "./model-at-buoy";
 
@@ -34,7 +34,7 @@ export interface BuoyPageSource {
   findStationsByAlternateId(alternateId: string): Promise<StationIdMatch[]>;
   listStations(filter: ListStationsFilter): Promise<WaveStationRow[]>;
   getLatestObservation(stationId: string): Promise<LatestObservation>;
-  getObservationHistory(stationId: string, hours: number): Promise<WaveStationObservationRow[]>;
+  getObservationHistory(stationId: string, hours: number): Promise<WaveStationHistoryRow[]>;
   getNearbyStations(lat: number, lon: number, limit: number): Promise<NearbyWaveStation[]>;
   getLatestWaveObservations(
     stations: Array<Pick<WaveStationRow, "id" | "last_wave_observed_at">>,

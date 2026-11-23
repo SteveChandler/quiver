@@ -3,7 +3,7 @@
  * formatted here so the client never formats dates during hydration.
  */
 
-import type { WaveStationObservationRow } from "@/lib/services/wave-stations/types";
+import type { WaveStationHistoryRow } from "@/lib/services/wave-stations/types";
 import { buildTrendSeries, type TrendPoint } from "./series";
 
 const HOUR_MS = 3_600_000;
@@ -35,7 +35,7 @@ function hourTicks(start: number, end: number, timeZone: string, hours: number[]
 }
 
 export function buildChartRanges(
-  history: WaveStationObservationRow[],
+  history: WaveStationHistoryRow[],
   timeZone: string,
 ): Partial<Record<ChartRange, ChartRangeData>> {
   const hourly = buildTrendSeries(history, HOUR_MS);
