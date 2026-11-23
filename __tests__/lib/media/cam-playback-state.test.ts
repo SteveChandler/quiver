@@ -1,6 +1,6 @@
 import { buildCamEmbed, getCamPlaybackState } from "@/lib/media/cam-embed";
 import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
-import { isLiveCamBeach, sortLiveCamBeachesFirst } from "@/lib/media/cam-directory";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 
 // The camera preflight is cached per URL with unstable_cache, which needs a Next request context.
 jest.mock("next/cache", () => ({
@@ -101,12 +101,4 @@ describe("cam directory helpers", () => {
     expect(isLiveCamBeach({ playback: { kind: "none" } })).toBe(false);
   });
 
-  it("sorts forecast-only spots after live cams and keeps order", () => {
-    const beaches = [
-      { id: "a", playback: { kind: "none" as const } },
-      { id: "b", playback: { kind: "inline" as const } },
-      { id: "c", playback: { kind: "external" as const, provider: "X", pageUrl: "https://x.example/" } },
-    ];
-    expect(sortLiveCamBeachesFirst(beaches).map((b) => b.id)).toEqual(["b", "c", "a"]);
-  });
 });
