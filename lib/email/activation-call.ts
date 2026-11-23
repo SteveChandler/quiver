@@ -7,6 +7,8 @@ import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-u
 import { notificationBeachName } from "@/lib/notifications/copy/daily-call-copy";
 import { createContextLogger } from "@/lib/logger";
 import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
+import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
+import { readEntitlementRow } from "@/lib/subscription/read-entitlement-row";
 
 const log = createContextLogger("activation-email");
 
@@ -18,6 +20,8 @@ const MAX_CALL_AGE_MS = 6 * 60 * 60 * 1000;
 /** Same close buffer the Daily Call uses: a window that ends within 30 min is not a window to drive to. */
 const CLOSE_BUFFER_MS = 30 * 60 * 1000;
 const ACTIVATION_CALL_DAYS = 3;
+// Matches native's FREE_WEEK_SCOUT_DAY_LIMIT: today and tomorrow.
+const FREE_WEEK_SCOUT_DAY_LIMIT = 2;
 const ACTIVATION_CALL_BUDGET_MS = 8_000;
 
 export interface ActivationBeach {
@@ -45,6 +49,7 @@ export interface ActivationCallDeps {
   readBeach: (beachId: string) => Promise<BeachRow | null>;
   /** profiles.preferred_session_time, the same value the Week Scout route and the Daily Call pass. */
   readSessionTime: (userId: string) => Promise<SessionTime | null>;
+  hasForecastFeatureAccess: (userId: string) => Promise<boolean>;
   generate: (userId: string, request: WeekScoutDaysRequest) => Promise<CanonicalWeekScoutResponse>;
 }
 
@@ -75,6 +80,12 @@ function defaultDeps(): ActivationCallDeps {
         .select("preferred_session_time").eq("id", userId).maybeSingle();
       if (error) throw new Error(error.message);
       return parseSessionTime((data as { preferred_session_time?: unknown } | null)?.preferred_session_time);
+    },
+    hasForecastFeatureAccess: async (userId): Promise<boolean> => {
+      const entitlement = await readEntitlementRow(createSupabaseServiceRoleClient(), userId);
+      if (entitlement.status === "unknown") return false;
+      const { hasFeatureAccess } = await resolveFeatureAccessFromRow(userId, entitlement.row);
+      return hasFeatureAccess;
     },
     generate: (userId, request) => generateWeekScoutForecastForDays(userId, request),
   };
@@ -122,7 +133,7 @@ function callLabel(window: ActivationWindow): "GOOD" | "FAIR" | null {
 
 /**
  * The week's session pick from the same canonical decision the app shows, for
- * one beach over the next three days. Null when the app would not pick a window.
+ * one beach over the requested days. Null when the app would not pick a window.
  */
 function pickActivationWindow(response: CanonicalWeekScoutResponse, now: Date): { window: ActivationWindow; label: "GOOD" | "FAIR" } | null {
   const decision = response.sessionDecision;
@@ -183,10 +194,14 @@ export async function loadActivationCall(args: {
 
   let response: CanonicalWeekScoutResponse;
   try {
-    const sessionTime = await withBudget(read("session time", () => deps.readSessionTime(args.userId)), budgetMs);
+    const [sessionTime, hasFeatureAccess] = await withBudget(Promise.all([
+      read("session time", () => deps.readSessionTime(args.userId)),
+      read("forecast access", () => deps.hasForecastFeatureAccess(args.userId)),
+    ]), budgetMs);
     response = await withBudget(read("forecast", () => deps.generate(args.userId, {
       candidateBeachIds: [beach.id], localTimezone: beach.timezone,
-      startLocalDate: getLocalDateString(now, beach.timezone), dayCount: ACTIVATION_CALL_DAYS,
+      startLocalDate: getLocalDateString(now, beach.timezone),
+      dayCount: hasFeatureAccess ? ACTIVATION_CALL_DAYS : FREE_WEEK_SCOUT_DAY_LIMIT,
       ...(sessionTime ? { sessionTime } : {}),
     })), budgetMs);
   } catch (error) {
