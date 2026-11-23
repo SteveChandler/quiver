@@ -56,7 +56,7 @@ export function localDateTimeToUTC(dateStr: string, timeStr: string, tz: string)
   return resolved;
 }
 
-// An invalid timezone throws a RangeError here, before anything is cached.
+// offsetFormatter(tz) throws a RangeError for an invalid timezone and caches nothing.
 const offsetFormatter = zonedFormatter("en-US", {
   hourCycle: "h23",
   year: "numeric",
