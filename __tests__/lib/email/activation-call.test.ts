@@ -1,10 +1,16 @@
 /** @jest-environment node */
 import { loadActivationCall, mostViewedBeachId, type ActivationCallDeps } from "@/lib/email/activation-call";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
-import type { CanonicalWeekScoutResponse, WeekScoutWindowResponse } from "@/lib/services/discovery/week-scout";
+import type { CanonicalWeekScoutResponse, WeekScoutDaysRequest, WeekScoutWindowResponse } from "@/lib/services/discovery/week-scout";
 
-jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: () => { throw new Error("no database in unit tests"); } }));
-jest.mock("@/lib/services/discovery/week-scout", () => ({ generateWeekScoutForecastForDays: () => { throw new Error("injected deps only"); } }));
+const mockCreateServiceClient = jest.fn<unknown, []>(() => { throw new Error("no database in unit tests"); });
+const mockGenerate = jest.fn();
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: () => mockCreateServiceClient(),
+}));
+jest.mock("@/lib/services/discovery/week-scout", () => ({
+  generateWeekScoutForecastForDays: (userId: string, request: WeekScoutDaysRequest) => mockGenerate(userId, request),
+}));
 
 const USER = "11111111-1111-4111-8111-111111111111";
 const HOME = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -27,7 +33,7 @@ function windowFixture(overrides: Partial<WeekScoutWindowResponse> = {}): WeekSc
 function response(window: WeekScoutWindowResponse | null, verdict: "go" | "maybe" | "no" = "go"): CanonicalWeekScoutResponse {
   return {
     generatedAt: NOW.toISOString(), scorerVersion: "test", candidateFingerprint: "x",
-    days: [{ localDate: "2026-11-21", windows: window ? [window] : [], bestWindowId: window?.id ?? null, bestDayWindow: window, exclusionReasons: [] }],
+    days: [{ localDate: window?.start.slice(0, 10) ?? "2026-11-21", windows: window ? [window] : [], bestWindowId: window?.id ?? null, bestDayWindow: window, exclusionReasons: [] }],
     sessionDecision: { verdict, selection: window ? { candidateId: window.id } : null },
   } as unknown as CanonicalWeekScoutResponse;
 }
@@ -37,6 +43,7 @@ function deps(overrides: Partial<ActivationCallDeps> = {}): ActivationCallDeps &
     readViewedBeachIds: jest.fn(async () => [VIEWED, HOME, VIEWED]),
     readBeach: jest.fn(async (id: string) => id === VIEWED ? beachRow(VIEWED, "Capitola") : id === HOME ? beachRow(HOME, "Pleasure Point") : null),
     readSessionTime: jest.fn(async () => null),
+    hasForecastFeatureAccess: jest.fn(async () => true),
     generate: jest.fn(async () => response(windowFixture())),
     ...overrides,
   } as ActivationCallDeps & { generate: jest.Mock };
@@ -54,6 +61,72 @@ it("reads the week's session pick for the most viewed beach over three beach-loc
   expect(call).toMatchObject({ kind: "window", label: "GOOD", beach: { id: VIEWED, name: "Capitola", slug: "capitola" } });
   expect(d.generate.mock.calls).toEqual([[USER, { candidateBeachIds: [VIEWED], localTimezone: "America/Los_Angeles", startLocalDate: "2026-11-19", dayCount: 3 }]]);
   expect(d.readViewedBeachIds).toHaveBeenCalledWith(USER, new Date("2026-11-12T17:00:00Z"));
+});
+
+describe("activation forecast access", () => {
+  const tomorrow = windowFixture({
+    id: "w-fri",
+    start: "2026-11-20T15:00:00Z",
+    end: "2026-11-20T18:00:00Z",
+    displayWindowStart: "2026-11-20T15:00:00Z",
+    displayWindowEnd: "2026-11-20T18:00:00Z",
+    peakTime: "2026-11-20T16:00:00Z",
+  });
+  const dayThree = windowFixture();
+
+  beforeEach(() => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321",
+      SUPABASE_SERVICE_ROLE_KEY: "placeholder",
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    mockCreateServiceClient.mockReset().mockImplementation(() => { throw new Error("no database in unit tests"); });
+    mockGenerate.mockReset();
+  });
+
+  it.each([
+    { recipient: "free with founding access off", row: null, switchOn: false, days: 2, pick: tomorrow },
+    { recipient: "free with founding access on", row: null, switchOn: true, days: 3, pick: dayThree },
+    { recipient: "Pro", row: { is_pro: true }, switchOn: false, days: 3, pick: dayThree },
+    { recipient: "trialing", row: { is_trialing: true }, switchOn: false, days: 3, pick: dayThree },
+    { recipient: "free with a billing issue", row: { billing_issue: true }, switchOn: true, days: 2, pick: tomorrow },
+  ])("requests $days beach-local days for $recipient", async ({ row, switchOn, days, pick }) => {
+    const rows: Record<string, unknown> = {
+      beaches: beachRow(VIEWED, "Capitola"),
+      profiles: { preferred_session_time: null },
+      user_entitlements: row,
+    };
+    mockCreateServiceClient.mockImplementation(() => ({
+      from: (table: string) => ({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        in: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
+        gte: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        limit: async () => ({ data: [{ beach_id: VIEWED }], error: null }),
+        maybeSingle: async () => ({ data: rows[table], error: null }),
+      }),
+      rpc: async () => ({ data: switchOn, error: null }),
+    }));
+    mockGenerate.mockImplementation((_userId: string, request: WeekScoutDaysRequest) =>
+      response(request.dayCount === 2 ? tomorrow : dayThree),
+    );
+
+    await jest.isolateModulesAsync(async () => {
+      const { loadActivationCall: load } = await import("@/lib/email/activation-call");
+      await expect(load({ userId: USER, homeBeachId: HOME, now: NOW })).resolves.toMatchObject({
+        kind: "window", window: { id: pick.id, displayWindowStart: pick.displayWindowStart },
+      });
+    });
+    expect(mockGenerate).toHaveBeenCalledWith(USER, {
+      candidateBeachIds: [VIEWED], localTimezone: "America/Los_Angeles", startLocalDate: "2026-11-19", dayCount: days,
+    });
+  });
 });
 
 it("uses the home beach when the user viewed none", async () => {
