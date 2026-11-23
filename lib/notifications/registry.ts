@@ -30,7 +30,6 @@ import type {
   NotificationPushPayload,
   NotificationTypeDef,
 } from "./types";
-import { isHighConfidenceNotification } from "./relevance";
 import { pushTitle } from "./copy/push-title";
 import { alsoGoodSentence } from "./copy/daily-call-copy";
 import {
@@ -165,22 +164,6 @@ const logSessionNudgeSchema = z
       });
     }
   });
-
-const forecastFeedbackNudgeSchema = z.object({
-  beach_id: z.string().min(1),
-  beach_slug: z.string().optional(),
-  beach_name: z.string().optional(),
-  forecast_at: z.string().optional(),
-  deeplink: z.string().optional(),
-  notification_category: z.string().optional(),
-  trigger_source: z.string().optional(),
-  relevance_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
-  beach_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
-  assumed_attendance: z.literal(false).optional(),
-  attendance_confidence_score: z.number().finite().optional(),
-  beach_confidence_score: z.number().finite().optional(),
-  relevance_score: z.number().finite().optional(),
-});
 
 const weekendLocalDateSchema = z
   .string()
@@ -389,7 +372,6 @@ type TrialEndingPayload = z.infer<typeof trialEndingSchema>;
 
 type LogSessionNudgePayload = z.infer<typeof logSessionNudgeSchema>;
 
-type ForecastFeedbackNudgePayload = z.infer<typeof forecastFeedbackNudgeSchema>;
 
 type WeekendWindowPayload = z.infer<typeof weekendWindowSchema>;
 
@@ -906,62 +888,6 @@ export const NOTIFICATION_REGISTRY = {
       };
     },
   } satisfies NotificationTypeDef<WatchSessionNeedsBeachPayload>,
-
-  forecast_feedback_nudge: {
-    type: "forecast_feedback_nudge",
-    channels: ["push"],
-    prefs: {
-      master: { push: "notif_push_enabled" },
-      perType: { push: "notif_reminders" },
-    },
-    suppressSelfNotify: false,
-    quietHours: DEFAULT_QUIET,
-    validatePayload: (input) => forecastFeedbackNudgeSchema.parse(input),
-    buildPushPayload: (p) => {
-      const highConfidence = isHighConfidenceNotification(
-        p.relevance_confidence,
-      );
-
-      return {
-        title:
-          highConfidence && p.beach_name
-            ? pushTitle(`Surfed ${p.beach_name} today?`)
-            : "Catch a session today?",
-        body: highConfidence
-          ? "Log it in one tap."
-          : "If you paddle out, log it when you are done.",
-        data: {
-          type: "forecast_feedback_nudge",
-          beach_id: p.beach_id,
-          ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
-          ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
-          ...(p.deeplink ? { deeplink: p.deeplink } : {}),
-          ...(p.notification_category
-            ? { notification_category: p.notification_category }
-            : {}),
-          ...(p.trigger_source ? { trigger_source: p.trigger_source } : {}),
-          ...(p.relevance_confidence
-            ? { relevance_confidence: p.relevance_confidence }
-            : {}),
-          ...(p.beach_confidence
-            ? { beach_confidence: p.beach_confidence }
-            : {}),
-          ...(p.assumed_attendance === false
-            ? { assumed_attendance: false }
-            : {}),
-          ...(p.attendance_confidence_score == null
-            ? {}
-            : { attendance_confidence_score: p.attendance_confidence_score }),
-          ...(p.beach_confidence_score == null
-            ? {}
-            : { beach_confidence_score: p.beach_confidence_score }),
-          ...(p.relevance_score == null
-            ? {}
-            : { relevance_score: p.relevance_score }),
-        },
-      };
-    },
-  } satisfies NotificationTypeDef<ForecastFeedbackNudgePayload>,
 
   weekly_streak_reminder: {
     type: "weekly_streak_reminder",
