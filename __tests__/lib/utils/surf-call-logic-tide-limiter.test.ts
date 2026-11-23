@@ -1,5 +1,5 @@
 /**
- * The tide reason reaches the surf call's why sentence (TIDE_SWING_ENABLED).
+ * The tide reason reaches the surf call's why sentence (NEXT_PUBLIC_TIDE_SWING_ENABLED).
  * Rows are tomorrow's real prod rows (Tue 2026-10-27, La Jolla 6.59 ft high at
  * 09:47, -0.84 ft low at 16:57 PDT). Hourly rows carry each beach's real hourly
  * tide series and rate; swell and wind come from the 3-hourly row in effect.
@@ -17,7 +17,7 @@ type Slug = keyof typeof fixture.beaches;
 type HourlyTide = ReadonlyArray<readonly [utcHour: string, heightFt: number, rateFtPerHour: number]>;
 
 const HOUR_MS = 3_600_000;
-const originalFlag = process.env.TIDE_SWING_ENABLED;
+const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
 
 /** PB Point and Tourmaline share this series, 8 AM to 5 PM PDT. */
 const LA_JOLLA_TIDE: HourlyTide = [
@@ -98,13 +98,13 @@ function callAt(slug: Slug, utcHour: string, score: number, rows: EnhancedForeca
 }
 
 function withFlag(enabled: boolean): void {
-  if (enabled) process.env.TIDE_SWING_ENABLED = 'true';
-  else delete process.env.TIDE_SWING_ENABLED;
+  if (enabled) process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
+  else delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
 }
 
 afterEach(() => {
-  if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-  else process.env.TIDE_SWING_ENABLED = originalFlag;
+  if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+  else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
 });
 
 describe('computeSurfCall tide limiter', () => {

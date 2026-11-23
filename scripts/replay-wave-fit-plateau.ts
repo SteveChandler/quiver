@@ -44,20 +44,16 @@ const profileKey = (skill: SkillLevel, board: BoardChoice): string => (board ? `
 
 function scoreBoth(row: EnhancedForecastEntity, beach: Beach, skill: SkillLevel, board: BoardChoice = null): ScorePair {
   const boards = board ? [board] : null;
-  const saved = process.env.WAVE_FIT_PLATEAU_ENABLED;
-  const savedPublic = process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+  const saved = process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
   try {
-    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
     delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
     const before = scoreWindowConditionDetails(row, beach, skill, null, boards).score;
-    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
     const after = scoreWindowConditionDetails(row, beach, skill, null, boards).score;
     return { beach, row, before, after };
   } finally {
-    if (saved === undefined) delete process.env.WAVE_FIT_PLATEAU_ENABLED;
-    else process.env.WAVE_FIT_PLATEAU_ENABLED = saved;
-    if (savedPublic === undefined) delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
-    else process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = savedPublic;
+    if (saved === undefined) delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    else process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = saved;
   }
 }
 

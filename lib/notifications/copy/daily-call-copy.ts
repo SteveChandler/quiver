@@ -103,7 +103,7 @@ function swingStartClock(iso: string, timezone: string): string {
 /**
  * A window the tide opens and closes moving one way: it entered the band over
  * one edge and leaves over the other. Only band crossings qualify (bandEdge is
- * set only with TIDE_SWING_ENABLED), so a direction-only change never claims
+ * set only with NEXT_PUBLIC_TIDE_SWING_ENABLED), so a direction-only change never claims
  * "too low" or "too full".
  */
 function tideSwingSentence(drivers: readonly WindowDriver[], endClock: string, timezone: string): string | null {

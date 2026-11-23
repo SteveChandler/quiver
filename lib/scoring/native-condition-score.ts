@@ -159,7 +159,7 @@ interface TideBandColumns {
 
 /**
  * The beach's curated tide band for the displayed tide term; same rule as the engine's
- * explicitRange. Null with TIDE_SWING_ENABLED off or a band not fully set, which keeps the
+ * explicitRange. Null with NEXT_PUBLIC_TIDE_SWING_ENABLED off or a band not fully set, which keeps the
  * fixed 1.5-4.5 ft table. Every displayed-score path reads the band through this.
  */
 export function displayTideBand(beach: TideBandColumns | null | undefined): TideBand | null {
