@@ -4,12 +4,13 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { currentWaterQuality, readLatestCountyRun } from "@/lib/services/water-quality/current-status";
+import { currentWaterQuality, readLatestCountyRun, validCountyNoticeRows, validOwnerHoldRows } from "@/lib/services/water-quality/current-status";
 import { resolveCountyGeneralAdvisory } from "@/lib/services/county-beach-advisories/general-streak";
 import { insideCountyFeed, readBeachPoints } from "@/lib/services/water-quality/county-coverage";
 import {
   RAIN_ADVISORY_EVENTS_TABLE,
   rainAdvisoryEventSchema,
+  validRainAdvisoryEventRows,
   rainEventRegion,
   type RainAdvisoryEvent,
 } from "@/lib/services/water-quality/rain-advisory-events";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/services/county-beach-advisories/types";
 
 import {
+  canCacheWaterQualityReads,
   canShareLatestCountyRun,
   memoizedBeachRowsRead,
   memoizedWaterQualityRead,
@@ -96,6 +98,15 @@ const waterQualityRowSchema = z
 const waterQualityHeldRowSchema = z.object({
   beach_id: z.string().uuid().transform((value) => value.toLowerCase()),
 });
+
+const waterQualityRowsSchema = z.array(waterQualityRowSchema);
+const completedRunRowsSchema = z.array(z.object({
+  id: z.string().uuid(),
+  fetched_at: z.string().datetime({ offset: true }),
+  status: z.literal("completed"),
+  source_identifier: z.literal(COUNTY_FEED_SOURCE_IDENTIFIER),
+  advisory_count: z.number().int().nonnegative(),
+})).max(1);
 
 interface WaterQualityQuery {
   in(
@@ -291,7 +302,7 @@ function moreSevereWaterQualityStatus(
 
 async function readLatestCompletedCountyRun(
   client: WaterQualityHoldClient,
-  runQuery: WaterQualityQuery,
+  runQuery?: WaterQualityQuery,
 ): Promise<WaterQualityReadResult> {
   if (canShareLatestCountyRun()) {
     const latest = await readLatestCountyRun(client).catch(() => null);
@@ -305,11 +316,12 @@ async function readLatestCompletedCountyRun(
   return memoizedWaterQualityRead(
     client,
     `county_beach_advisory_runs|${COUNTY_LIVE_RUN_SELECT}|completed|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
-    () => runQuery
+    () => (runQuery ?? client.from("county_beach_advisory_runs").select(COUNTY_LIVE_RUN_SELECT))
       .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
       .eq("status", "completed")
       .order("fetched_at", { ascending: false })
       .limit(1),
+    { isValid: (rows) => completedRunRowsSchema.safeParse(rows).success },
   );
 }
 
@@ -318,10 +330,9 @@ async function resolveCountyLiveHolds(
   requestedBeachIds: readonly string[],
   now: Date,
 ): Promise<CountyLiveHoldResolution> {
-  const runQuery = client
-    .from("county_beach_advisory_runs")
-    .select(COUNTY_LIVE_RUN_SELECT);
-  if (!supportsCountyRunQuery(runQuery)) {
+  const cacheRows = canCacheWaterQualityReads(client);
+  const runQuery = cacheRows ? undefined : client.from("county_beach_advisory_runs").select(COUNTY_LIVE_RUN_SELECT);
+  if (!cacheRows && !supportsCountyRunQuery(runQuery)) {
     return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
   const { data: runData, error: runError } = await readLatestCompletedCountyRun(client, runQuery);
@@ -350,10 +361,8 @@ async function resolveCountyLiveHolds(
     return emptyCountyResolution("unresolved", "county-live:stale");
   }
 
-  const advisoryQuery = client
-    .from("county_beach_advisories")
-    .select(COUNTY_ADVISORY_SELECT) as WaterQualityQuery;
-  if (!supportsCountyAdvisoryQuery(advisoryQuery)) {
+  const advisoryQuery = cacheRows ? undefined : client.from("county_beach_advisories").select(COUNTY_ADVISORY_SELECT);
+  if (!cacheRows && !supportsCountyAdvisoryQuery(advisoryQuery)) {
     return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
   const runId = (run as { id: string }).id;
@@ -363,7 +372,8 @@ async function resolveCountyLiveHolds(
   const { data: advisoryData, error: advisoryError } = await memoizedWaterQualityRead(
     client,
     `county_beach_advisories|${COUNTY_ADVISORY_SELECT}|${runId}`,
-    () => advisoryQuery.eq("run_id", runId),
+    () => (advisoryQuery ?? client.from("county_beach_advisories").select(COUNTY_ADVISORY_SELECT)).eq("run_id", runId),
+    { isValid: validCountyNoticeRows },
   );
   if (advisoryError !== null && advisoryError !== undefined) {
     return emptyCountyResolution(
@@ -474,14 +484,16 @@ async function resolveRainHolds(
   now: Date,
 ): Promise<RainHoldResolution> {
   const held = new Map<string, RainAdvisoryEvent>();
-  const query: unknown = client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*");
-  if (!supportsCountyRunQuery(query)) {
+  const cacheRows = canCacheWaterQualityReads(client);
+  const query = cacheRows ? undefined : client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*");
+  if (!cacheRows && !supportsCountyRunQuery(query)) {
     return { held, unverifiedBeachIds: [], snapshot: [] };
   }
   const { data, error } = await memoizedWaterQualityRead(
     client,
     `${RAIN_ADVISORY_EVENTS_TABLE}|*|active|metar_runoff`,
-    () => query.eq("status", "active").eq("source", "metar_runoff"),
+    () => (query ?? client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*")).eq("status", "active").eq("source", "metar_runoff"),
+    { isValid: validRainAdvisoryEventRows },
   );
   if (hasErrorCode(error, MISSING_TABLE_ERROR_CODE)) {
     return { held, unverifiedBeachIds: [], snapshot: [] };
@@ -548,6 +560,11 @@ function readQualityRows(
       rows.push(...result.data);
     }
     return { data: rows, error: null };
+  }, {
+    load: () => client.from(table).select(columns).limit(1_000),
+    isValid: table === "water_quality_held_beaches"
+      ? validOwnerHoldRows
+      : (rows) => waterQualityRowsSchema.safeParse(rows).success,
   });
 }
 

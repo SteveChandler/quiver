@@ -1,5 +1,6 @@
 import { cache, Suspense } from "react";
 import { describeThrownError } from "@/lib/services/forecast/error-message";
+import { runWithPublicBeachRowCache } from "@/lib/data/server/public-beach-row-cache";
 import { runWithPublicWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -45,6 +46,7 @@ import {
   getCachedBeachAmenities,
   getCachedBeachCameraUrl,
   getCachedBeachFeaturedPhoto,
+  readBeachWaterQualitySample,
 } from "@/lib/data/server/beach-detail-static-reads";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
@@ -179,8 +181,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
   // Both nearby sections share the lookup and stream after the forecast.
   const nearbyBeachesRaw = optionalSection("nearby", async (): Promise<Beach[]> => {
-    if (beach.lat == null || beach.lon == null) return [];
-    const result = await getNearbyBeaches(beach.lat, beach.lon, 25);
+    const { lat, lon } = beach;
+    if (lat == null || lon == null) return [];
+    const result = await runWithPublicBeachRowCache(() => getNearbyBeaches(lat, lon, 25));
     if (!result.success || !result.data) return [];
     return result.data
       .filter((nearby) => nearby.id !== beach.id && nearby.slug !== beach.slug)
@@ -199,11 +202,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     optionalSection("amenities", () => getCachedBeachAmenities(beach.id)),
     optionalSection("waterQuality", async () => {
       const supabase = createPublicReadClient();
-      const { data, error } = await supabase
-        .from("beach_water_quality")
-        .select("*")
-        .eq("beach_id", beach.id)
-        .maybeSingle();
+      const { data, error } = await readBeachWaterQualitySample(supabase, beach.id);
       if (error) {
         console.error("[GenericBeachDetailPage] Optional section unavailable:", {
           section: "waterQuality.sample",

@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { readPublicBeachRowsForIds } from "@/lib/data/server/public-beach-row-cache";
 import { applyBeachCoordinateCorrection } from "@/lib/beach-coordinate-corrections";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
@@ -19,6 +21,14 @@ const WATER_QUALITY_HOLD_OVERFETCH = 5;
 const MAX_FALLBACK_CANDIDATES = 200;
 const NEARBY_BEACH_CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_NEARBY_BEACH_CACHE_ENTRIES = 250;
+
+const visibilityRowSchema = z.object({
+  id: z.string().uuid(),
+  country: z.string().nullable(),
+  is_private: z.boolean().nullable(),
+  deleted_at: z.string().nullable(),
+});
+const visibilityRowsSchema = z.array(visibilityRowSchema);
 
 interface NearbyBeachCacheEntry {
   expiresAt: number;
@@ -197,15 +207,35 @@ export async function getNearbyBeachesFromDb(
     const countryById = new Map<string, string>();
 
     if (rpcRowIds.length > 0) {
-      const { data: visibleRows, error: visibilityError } = await supabase
-        .from("beaches")
-        .select("id, country")
-        .or("is_private.is.null,is_private.eq.false")
-        .is("deleted_at", null)
-        .in("id", rpcRowIds);
+      const { data: visibilityRows, error: visibilityError } = await readPublicBeachRowsForIds(
+        supabase, "beaches|nearby-visibility", 900, rpcRowIds, (row) => row.id,
+        async () => {
+          const { data, error } = await supabase.from("beaches")
+            .select("id, country, is_private, deleted_at");
+          return { data, error };
+        },
+        async () => {
+          const { data, error } = await supabase.from("beaches")
+            .select("id, country")
+            .or("is_private.is.null,is_private.eq.false")
+            .is("deleted_at", null)
+            .in("id", rpcRowIds);
+          return {
+            data: Array.isArray(data)
+              ? data.map((row) => ({ ...row, is_private: false, deleted_at: null }))
+              : null,
+            error,
+          };
+        },
+        (rows) => visibilityRowsSchema.safeParse(rows).success,
+        1,
+      );
 
       if (visibilityError) throw visibilityError;
-      for (const row of visibleRows ?? []) {
+      const visibleRows = (visibilityRows ?? []).filter((row) =>
+        (row.is_private === null || row.is_private === false) && row.deleted_at === null,
+      );
+      for (const row of visibleRows) {
         visibleIds.add(row.id);
         const country = normalizeBeachCountry(row.country);
         if (country) countryById.set(row.id, country);
