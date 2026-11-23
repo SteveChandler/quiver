@@ -8,6 +8,7 @@ import { NOTIFICATION_REGISTRY } from '@/lib/notifications/registry';
 import { parseWeekendScoutSnapshot } from '@/lib/services/discovery/weekend-scout-contract';
 import type { CreateWeekendScoutSnapshotResult } from '@/lib/services/discovery/weekend-scout-snapshots';
 import {
+  homeBeachFromProfileRow,
   isLocalFridayNoon,
   runWeekendScoutCron,
   type WeekendScoutCronDependencies,
@@ -277,5 +278,23 @@ describe('isLocalFridayNoon', () => {
     expect(isLocalFridayNoon(new Date('2026-07-23T22:00:00.000Z'), 'Pacific/Kiritimati')).toBe(true);
     expect(isLocalFridayNoon(new Date('2026-07-25T00:00:00.000Z'), 'Etc/GMT+12')).toBe(true);
     expect(isLocalFridayNoon(new Date('2026-07-24T18:00:00.000Z'), 'America/Los_Angeles')).toBe(false);
+  });
+});
+
+describe('homeBeachFromProfileRow', () => {
+  const beach = { id: 'b1', name: 'La Jolla Shores', lat: 32.86, lon: -117.26, timezone: 'America/Los_Angeles', deleted_at: null, is_private: false };
+
+  it('returns the embedded public home beach', () => {
+    expect(homeBeachFromProfileRow({ home_beach: beach })).toEqual({
+      id: 'b1', name: 'La Jolla Shores', lat: 32.86, lon: -117.26, timezone: 'America/Los_Angeles',
+    });
+    expect(homeBeachFromProfileRow({ home_beach: [beach] })?.id).toBe('b1');
+  });
+
+  it('gives no origin for a deleted, private or missing beach', () => {
+    expect(homeBeachFromProfileRow({ home_beach: { ...beach, deleted_at: '2026-11-01T00:00:00Z' } })).toBeNull();
+    expect(homeBeachFromProfileRow({ home_beach: { ...beach, is_private: true } })).toBeNull();
+    expect(homeBeachFromProfileRow({ home_beach: null })).toBeNull();
+    expect(homeBeachFromProfileRow({})).toBeNull();
   });
 });

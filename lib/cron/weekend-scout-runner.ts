@@ -83,8 +83,21 @@ function defaultSkippedCounts(): WeekendScoutRunSummary['skippedCounts'] {
   };
 }
 
+type HomeBeach = Awaited<ReturnType<typeof fetchWeekendScoutHomeBeach>>;
+
+/** The home beach embedded in the profiles read; deleted or private beaches give no origin. */
+export function homeBeachFromProfileRow(row: { home_beach?: unknown }): HomeBeach {
+  const raw = Array.isArray(row.home_beach) ? row.home_beach[0] : row.home_beach;
+  if (!raw || typeof raw !== 'object') return null;
+  const beach = raw as { id: string; name: string; lat: unknown; lon: unknown; timezone: string | null; deleted_at: string | null; is_private: boolean | null };
+  if (beach.deleted_at !== null || beach.is_private === true) return null;
+  return { id: beach.id, name: beach.name, lat: beach.lat, lon: beach.lon, timezone: beach.timezone } as HomeBeach;
+}
+
 function defaultDependencies(now: Date): WeekendScoutCronDependencies {
   const supabase = createSupabaseServiceRoleClient();
+  // Filled by loadProfiles so the hourly run makes no per-user beach query.
+  const homeBeaches = new Map<string, HomeBeach>();
   return {
     now,
     validateRequest: validateCronRequest,
@@ -96,6 +109,7 @@ function defaultDependencies(now: Date): WeekendScoutCronDependencies {
           notif_push_enabled,
           notif_reminders,
           home_beach_id,
+          home_beach:beaches!profiles_home_beach_id_fkey(id, name, lat, lon, timezone, deleted_at, is_private),
           user_location_snapshots(lat, lon, timezone, captured_at)
         `)
         .is('deleted_at', null);
@@ -104,6 +118,7 @@ function defaultDependencies(now: Date): WeekendScoutCronDependencies {
         const joined = Array.isArray(row.user_location_snapshots)
           ? row.user_location_snapshots[0]
           : row.user_location_snapshots;
+        if (row.home_beach_id) homeBeaches.set(row.home_beach_id, homeBeachFromProfileRow(row));
         return {
           id: row.id,
           notifPushEnabled: row.notif_push_enabled,
@@ -118,7 +133,9 @@ function defaultDependencies(now: Date): WeekendScoutCronDependencies {
         };
       });
     },
-    fetchHomeBeach: (beachId) => fetchWeekendScoutHomeBeach(beachId, supabase),
+    fetchHomeBeach: async (beachId) => (
+      homeBeaches.has(beachId) ? homeBeaches.get(beachId) ?? null : fetchWeekendScoutHomeBeach(beachId, supabase)
+    ),
     createSnapshot: (userId, weekendStart, options) => (
       createOrGetWeekendScoutSnapshot(userId, weekendStart, undefined, options)
     ),
