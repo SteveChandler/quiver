@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **2026-11-22 — V4 activation email links and ratings.** App readers can open Week Scout on the date named in the email and keep their personalized rating. Web readers get the beach page’s general forecast label when available and a link to check the beach.
 - **2026-11-22 — V4 activation email forecast access.** The email picks from today and tomorrow for recipients without Pro, trial, or founding feature access. Recipients with feature access can still get a third-day window.
 - **One gate decides every beach on the ECMWF hybrid table** (`lib/utils/ecmwf-hybrid-k-factors.ts`, `scripts/hybrid-k-eligible.json`, `scripts/hybrid-replay-vs-refit.py`).
   - The gate from #1349 now applies to every beach, including beaches already on the table. Held out by ISO week, the 0-24 h hybrid MAE must be at or below the MAE of both the shipped production factor and the production factor refit on the same rows, and the 0-24 h bias must be within ±0.2 ft.
