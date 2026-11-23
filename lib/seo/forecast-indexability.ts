@@ -43,6 +43,10 @@ interface SubPageDataAvailability {
 const FORECAST_COVERAGE_SELECT =
   "beach_id, forecast_at, wave_height, updated_at, data_source";
 const BEACH_ID_BATCH_SIZE = 20;
+// The sitemap asks for every beach at once. Unbounded, that was ~29 reads in
+// the same instant against a 60-connection database. Same shape and limit as
+// the sub-page coverage loader in app/sitemap.ts.
+const COVERAGE_READ_CONCURRENCY = 4;
 
 /**
  * The coverage read failed and this instance has no earlier answer for the
@@ -275,28 +279,31 @@ export async function getForecastIndexabilityForBeaches(
     throw new ForecastIndexabilityUnavailableError("client creation failed", errorMessage(error));
   }
 
-  let responses: Array<{
-    data: ForecastCoverageRow[];
-    error: { message: string } | null;
-  }>;
-  try {
-    responses = await Promise.all(
-      chunk(ids, BEACH_ID_BATCH_SIZE).map(async (batch) => {
-        const result = await supabase
-          .from("enhanced_forecasts")
-          .select(FORECAST_COVERAGE_SELECT)
-          .in("beach_id", batch)
-          .gte("forecast_at", start)
-          .lt("forecast_at", end)
-          .order("forecast_at", { ascending: true })
-          .limit(1000);
+  const readBatch = async (batch: string[]) => {
+    const result = await supabase
+      .from("enhanced_forecasts")
+      .select(FORECAST_COVERAGE_SELECT)
+      .in("beach_id", batch)
+      .gte("forecast_at", start)
+      .lt("forecast_at", end)
+      .order("forecast_at", { ascending: true })
+      .limit(1000);
 
-        return {
-          data: (result.data ?? []) as ForecastCoverageRow[],
-          error: result.error,
-        };
-      }),
-    );
+    return {
+      data: (result.data ?? []) as ForecastCoverageRow[],
+      error: result.error as { message: string } | null,
+    };
+  };
+
+  const batches = chunk(ids, BEACH_ID_BATCH_SIZE);
+  const responses: Awaited<ReturnType<typeof readBatch>>[] = [];
+  try {
+    for (let index = 0; index < batches.length; index += COVERAGE_READ_CONCURRENCY) {
+      const group = batches.slice(index, index + COVERAGE_READ_CONCURRENCY);
+      responses.push(...(await Promise.all(group.map(readBatch))));
+      // One failed batch fails the whole read, so do not start more.
+      if (responses.some(({ error }) => error)) break;
+    }
   } catch (error) {
     throw new ForecastIndexabilityUnavailableError("coverage query failed", errorMessage(error));
   }
