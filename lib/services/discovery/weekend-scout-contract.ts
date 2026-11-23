@@ -82,6 +82,14 @@ const WeekendScoutRankingFields = {
   generatedAt: IsoTimestampSchema,
   locationCapturedAt: IsoTimestampSchema,
   timezone: z.string().min(1).max(64),
+  origin: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("location") }),
+    z.object({
+      kind: z.literal("home_beach"),
+      beachId: z.string().uuid(),
+      beachName: z.string().min(1),
+    }),
+  ]).optional(),
   qualifyingCount: RankSchema,
   scorerVersion: z.string().min(1),
   results: z.array(WeekendScoutResultSchema).min(1).max(3),
