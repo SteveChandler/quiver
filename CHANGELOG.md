@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
+- **2026-11-22 — Legacy alert delivery flag** (`ALERTS_DELIVERY_ENABLED`). Removed the flag centralized in PR #599 after PR #807 retired its similarity-alert send path. The rules API returns `alertDeliveryPaused: false` for installed clients. Kept alert rules, queue rows, delivery records, and historical skip reasons in `alert_delivery_attempts`. [PR #599](https://github.com/SteveChandler/quiver/pull/599) · [PR #807](https://github.com/SteveChandler/quiver/pull/807)
 - **2026-11-22 — Forecast feedback nudge** (`FORECAST_FEEDBACK_NUDGE_ENABLED`). Removed the daily push because a forecast window gave too little evidence that someone surfed and could prefill the wrong beach or time. The nudge came from PR #353 and was switched off in PR #410. Kept the weekly streak reminder and all existing rows in `streak_reminder_log`, `forecast_feedback_contexts`, `sessions`, `notification_events`, and `notification_delivery_attempts`. [PR #353](https://github.com/SteveChandler/quiver/pull/353) · [PR #410](https://github.com/SteveChandler/quiver/pull/410)
 
 ### Security

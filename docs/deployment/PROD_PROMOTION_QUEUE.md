@@ -34,8 +34,7 @@ cron note under "Known gaps" — the redundant cron has been deleted.
 ### Already `"true"` in production — promotion makes these live immediately
 
 `COMMUNITY_PHOTOS_READ_ENABLED`, `COMMUNITY_PHOTOS_WRITE_ENABLED`,
-`TRUSTED_FORECAST_ADJUSTMENTS_ENABLED`, `FORECAST_ALERT_DELIVERY_ENABLED`,
-`ALERTS_DELIVERY_ENABLED`.
+`TRUSTED_FORECAST_ADJUSTMENTS_ENABLED`, `FORECAST_ALERT_DELIVERY_ENABLED`.
 
 These are open gates, not pending ones. Nothing needs flipping — but nothing is held back
 either, so treat each as shipping to users on the promotion deploy.

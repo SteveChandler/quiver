@@ -8,7 +8,6 @@
 //
 // Hardened (Task 4) with:
 //   - FORECAST_ALERT_DELIVERY_ENABLED forecast send switch (default off)
-//   - ALERTS_DELIVERY_ENABLED legacy similarity-alert send switch
 //   - ALERTS_DELIVERY_USER_ALLOWLIST (comma-separated user_ids; empty = all)
 //   - Per-(queue_id, channel) row in `alert_delivery_attempts` for every
 //     decision (sent, skipped_*, failed_*).

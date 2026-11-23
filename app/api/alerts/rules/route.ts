@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAlertsDeliveryEnabled } from "@/lib/flags/alerts-delivery";
 import {
   withAuth,
   withNoStore,
@@ -64,6 +63,8 @@ function createAlertRulesListResponse<T>(
       success: true,
       data,
       ...plan,
+      // Installed native clients still use this field.
+      alertDeliveryPaused: false,
       timestamp: new Date().toISOString(),
     },
     {
@@ -241,7 +242,7 @@ export const POST = withAuth(
       user.id,
       supabase,
       {
-        alertDeliveryPaused: !isAlertsDeliveryEnabled(),
+        alertDeliveryPaused: false,
         betaAccessRequired:
           process.env.PERSONALIZATION_BETA_REQUIRED === "true" ||
           request.headers.get("x-quiver-beta-access") === "required",
