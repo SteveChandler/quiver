@@ -21,7 +21,7 @@ const SURFLINE_HEALTH_HEADERS = {
   Referer: "https://www.surfline.com/",
 };
 
-export function isSurflineHlsUrl(url: string | null): url is string {
+function isSurflineHlsUrl(url: string | null): url is string {
   if (!url) return false;
 
   try {
@@ -51,7 +51,7 @@ async function checkSurflineHls(url: string): Promise<SurflineHlsHealth> {
   }
 }
 
-export interface CamEmbedPreflight {
+interface CamEmbedPreflight {
   /** false = the beach page hides the player; null = headers unreadable, the client still tries. */
   embedAllowed: boolean | null;
   /** The camera page redirects to a retired provider; treat the camera as gone. */
@@ -105,7 +105,7 @@ async function preflightCamEmbed(
   }
 }
 
-export interface CamPreflightResult extends CamEmbedPreflight {
+interface CamPreflightResult extends CamEmbedPreflight {
   /** null when the camera is not a Surfline HLS stream. */
   surflineHls: SurflineHlsHealth | null;
 }
