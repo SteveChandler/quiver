@@ -408,6 +408,19 @@ beforeEach(() => {
 // ============================================================================
 
 describe("GET /api/alerts/rules — entitlement signal", () => {
+  it("reports alert delivery as unpaused with the retired flag unset", async () => {
+    const env = jest.replaceProperty(process, "env", { ...process.env });
+    delete process.env.ALERTS_DELIVERY_ENABLED;
+    try {
+      const res = await GET(makeReq());
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toHaveProperty("alertDeliveryPaused", false);
+    } finally {
+      env.restore();
+    }
+  });
+
   it("returns rules as data and the free limits as a sidecar entitlement", async () => {
     mockExistingRules = [userRule()];
     mockUserEntitlementTier = "free";

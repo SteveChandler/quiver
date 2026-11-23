@@ -142,7 +142,7 @@ describe("GET /api/personalization/match-score", () => {
     expect(json.data.board_tip).toBe("Twin pin");
     expect(json.data.reason_facts).toContainEqual({ kind: "board_fit", value: "Twin pin" });
     expect(json.data.reason_bullets).toContain(pick.reason);
-    expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), "user-1", true);
+    expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), "user-1");
     expect(mockRecommendBoard).toHaveBeenCalledWith(expect.any(Array),
       expect.objectContaining({ forecast_at: "2026-09-28T15:00:00.000Z", wind_direction_deg: 210, tide_status: "rising" }),
       expect.objectContaining({ id: "beach-1" }), "advanced", { requestDerived: true });

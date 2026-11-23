@@ -1,8 +1,7 @@
 /**
  * @jest-environment node
  *
- * /api/forecasts/scored board picks under the founding access switch: a signed-in
- * free user gets board picks while it is on, and `plan` keeps reporting real Pro.
+ * /api/forecasts/scored offers board picks to signed-in users and reports their plan.
  */
 
 import { NextRequest } from "next/server";
@@ -82,11 +81,8 @@ async function get(): Promise<{ plan: string; boardPicksEnabled: boolean }> {
   return (await response.json()).data;
 }
 
-const savedBoardPicksFree = process.env.BOARD_PICKS_FREE_ENABLED;
-
 beforeEach(() => {
   jest.clearAllMocks();
-  delete process.env.BOARD_PICKS_FREE_ENABLED;
   mockEntitlementRow = null;
   mockEntitlementError = null;
   mockEntitlementReads = 0;
@@ -96,24 +92,16 @@ beforeEach(() => {
   mockFetchUserBoardContext.mockResolvedValue({ dominantBoardClass: null, boardClasses: [], boardsForPicks: [] });
 });
 
-afterAll(() => {
-  if (savedBoardPicksFree === undefined) delete process.env.BOARD_PICKS_FREE_ENABLED;
-  else process.env.BOARD_PICKS_FREE_ENABLED = savedBoardPicksFree;
-});
-
-it("ON: a free user gets board picks and plan stays free", async () => {
-  mockResolveFeatureAccess.mockImplementation(featureAccessOn);
-  const data = await get();
-  expect(mockResolveFeatureAccess).toHaveBeenCalledWith(USER_ID, false, { billingIssue: false });
-  expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), USER_ID, true);
-  expect(data).toMatchObject({ plan: "free", boardPicksEnabled: true });
-});
-
-it("OFF: a free user keeps board picks off", async () => {
-  const data = await get();
-  expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), USER_ID, false);
-  expect(data).toMatchObject({ plan: "free", boardPicksEnabled: false });
-});
+it.each([["with", featureAccessOn], ["without", featureAccessOff]] as const)(
+  "a free user %s founding access gets board picks and plan stays free",
+  async (_label, foundingAccess) => {
+    mockResolveFeatureAccess.mockImplementation(foundingAccess);
+    const data = await get();
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(USER_ID, false, { billingIssue: false });
+    expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), USER_ID);
+    expect(data).toMatchObject({ plan: "free", boardPicksEnabled: true });
+  },
+);
 
 it("Pro keeps plan pro and board picks on", async () => {
   mockEntitlementRow = { is_pro: true };
@@ -122,8 +110,7 @@ it("Pro keeps plan pro and board picks on", async () => {
   expect(data).toMatchObject({ plan: "pro", boardPicksEnabled: true });
 });
 
-it("scores with no paid features and no plan when the entitlement read fails twice", async () => {
-  // The switch is on, so a fallback through founding access would turn board picks on.
+it("scores with board picks and omits the plan when the entitlement read fails twice", async () => {
   mockResolveFeatureAccess.mockImplementation(featureAccessOn);
   mockEntitlementRow = { is_pro: true };
   mockEntitlementError = { code: "08006", message: "connection failure" };
@@ -140,21 +127,10 @@ it("scores with no paid features and no plan when the entitlement read fails twi
   expect(data.timeSlots[0].forecastAt).toBe("2099-09-23T12:00:00Z");
   expect(Array.isArray(data.goldenWindows)).toBe(true);
   expect(data).not.toHaveProperty("plan");
-  expect(data).toMatchObject({ planStatus: "unknown", boardPicksEnabled: false });
-  expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
-  expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), USER_ID, false);
-  expect(mockCaptureException).toHaveBeenCalledTimes(1);
-});
-
-it("keeps board picks on for an unknown plan only when the free board picks flag is on", async () => {
-  process.env.BOARD_PICKS_FREE_ENABLED = "true";
-  mockEntitlementError = { code: "08006", message: "connection failure" };
-  jest.spyOn(console, "warn").mockImplementation(() => {});
-
-  const data = await get() as unknown as Record<string, unknown>;
-
-  expect(data).not.toHaveProperty("plan");
   expect(data).toMatchObject({ planStatus: "unknown", boardPicksEnabled: true });
+  expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
+  expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), USER_ID);
+  expect(mockCaptureException).toHaveBeenCalledTimes(1);
 });
 
 it("keeps the success payload unchanged when the read succeeds on the retry", async () => {
