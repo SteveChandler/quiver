@@ -286,6 +286,8 @@ export interface WeekScoutFartherOut {
   beachName: string;
   waveHeight: string | null;
   personalLabel: WeekScoutPersonalLabel;
+  /** The day part the app names; beach detail shows its own clock window, so the row shows no clock time. */
+  bucket: WeekScoutBucket;
   displayWindowStart: string;
   displayWindowEnd: string;
   /** lib/profile/drive-range.ts rule, rounded up to the next 5. */
