@@ -127,6 +127,7 @@ export function selectFartherOut(
       beachName: candidate.beach.name,
       waveHeight: best.forecast.waveHeight,
       personalLabel: best.personalLabel,
+      bucket: best.bucket,
       displayWindowStart: best.displayWindowStart,
       displayWindowEnd: best.displayWindowEnd,
       // Rounded up, so a beach just past a 15-minute range never reads "about 15 min".

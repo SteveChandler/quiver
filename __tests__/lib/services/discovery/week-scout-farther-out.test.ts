@@ -220,6 +220,7 @@ describe('Week Scout farther-out selection', () => {
       beachName: 'Outer Point',
       waveHeight: outer.days[0].bestDayWindow!.forecast.waveHeight,
       personalLabel: 'GOOD',
+      bucket: outer.days[0].bestDayWindow!.bucket,
       displayWindowStart: outer.days[0].bestDayWindow!.displayWindowStart,
       displayWindowEnd: outer.days[0].bestDayWindow!.displayWindowEnd,
       // 12 mi at half a mile a minute is 24 minutes, rounded to the nearest 5.
