@@ -2958,6 +2958,159 @@ describe("condition-alert-deliver — skill-aware go checks (SKILL_AWARE_GO_CHEC
       status: "skipped_disabled",
       skip_reason: "canonical_decision:beach_skill_exceeds_user",
     }));
-    // The email outcome for the vetoed beach is tracked separately (two-beach email leak).
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: advancedQueueId,
+      channel: "email",
+      status: "skipped_disabled",
+      skip_reason: "canonical_decision:beach_skill_exceeds_user",
+    }));
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("condition-alert-deliver — email follows the payload's canonical selection", () => {
+  const VETOED_QUEUE_ID = QUEUE_1;
+  const SAFE_QUEUE_ID = "00000000-0000-0000-0000-0000000000c2";
+
+  beforeEach(() => {
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+  });
+
+  // Two go alerts in one run: the user-level decision selects the safe beach,
+  // so step 4 consumes nothing and each beach reaches its own payload.
+  function seedTwoBeaches(args: {
+    experienceLevel: string | null;
+    vetoedBeachSkill?: string;
+    vetoedWaveHeight?: number;
+  }): void {
+    seedQueueRow({
+      best_score: 0.8,
+      conditions_snapshot: {
+        wave_height: args.vetoedWaveHeight ?? 3,
+        forecast_id: "enhanced-forecast-vetoed",
+      },
+      beaches: {
+        name: "Advanced Reef",
+        timezone: "America/Los_Angeles",
+        skill_level: args.vetoedBeachSkill ?? "advanced",
+      },
+    });
+    seedQueueRow({
+      id: SAFE_QUEUE_ID,
+      rule_id: "00000000-0000-0000-0000-0000000000a2",
+      beach_id: BEACH_2,
+      window_start: "2026-04-26T15:00:00Z",
+      window_end: "2026-04-26T18:00:00Z",
+      best_hour: "2026-04-26T16:00:00Z",
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-safe" },
+      beaches: { name: "Mellow Cove", timezone: "America/Los_Angeles", skill_level: "beginner" },
+    });
+    seedProfile({ experience_level: args.experienceLevel });
+  }
+
+  function emailedBeaches(): string[][] {
+    return mockConsolidatedAlertEmail.mock.calls.map(([props]) =>
+      props.matches.map((match: { beach_name: string }) => match.beach_name),
+    );
+  }
+
+  function expectEmailRejected(reason: string): void {
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: VETOED_QUEUE_ID,
+      channel: "email",
+      status: "skipped_disabled",
+      skip_reason: `canonical_decision:${reason}`,
+    }));
+    expect(store.attemptInserts).not.toContainEqual(expect.objectContaining({
+      queue_id: VETOED_QUEUE_ID,
+      channel: "email",
+      status: "sent",
+    }));
+  }
+
+  it("does not email a beginner the advanced beach while the beginner beach still sends", async () => {
+    seedTwoBeaches({ experienceLevel: "beginner" });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expectEmailRejected("beach_skill_exceeds_user");
+    expect(emailedBeaches()).toEqual([["Mellow Cove"]]);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: SAFE_QUEUE_ID, channel: "email", status: "sent",
+    }));
+    expect(store.deliveryInserts).not.toContainEqual(expect.objectContaining({
+      beach_id: BEACH_1, channel: "email",
+    }));
+    // Pushes as before: the safe beach is enqueued, the vetoed beach is rejected.
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0].entityId).toBe(BEACH_2);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: VETOED_QUEUE_ID,
+      channel: "push",
+      status: "skipped_disabled",
+      skip_reason: "canonical_decision:beach_skill_exceeds_user",
+    }));
+    // Both rows are consumed, so the vetoed row does not retry every run.
+    expect(store.queueUpdates).toEqual(expect.arrayContaining([
+      { ids: [VETOED_QUEUE_ID], sent: true },
+      { ids: [SAFE_QUEUE_ID], sent: true },
+    ]));
+    expect(body.queue_marked_by_reason).toMatchObject({
+      canonical_safety_rejected: 1,
+      delivered: 1,
+    });
+    expectQueueReasonTotals(body);
+  });
+
+  it("still emails both beaches to an unknown-skill user with the flag off", async () => {
+    seedTwoBeaches({ experienceLevel: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(emailedBeaches()).toEqual([["Advanced Reef"], ["Mellow Cove"]]);
+    for (const queueId of [VETOED_QUEUE_ID, SAFE_QUEUE_ID]) {
+      expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+        queue_id: queueId, channel: "email", status: "sent",
+      }));
+    }
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not email a beach whose wave height exceeds the user's skill cap", async () => {
+    seedTwoBeaches({ experienceLevel: "beginner", vetoedBeachSkill: "beginner", vetoedWaveHeight: 6 });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expectEmailRejected("wave_height_exceeds_skill");
+    expect(emailedBeaches()).toEqual([["Mellow Cove"]]);
+  });
+
+  it("does not list a rejected email in the shadow would-use channels", async () => {
+    process.env.FORECAST_ALERT_DELIVERY_ENABLED = "false";
+    seedTwoBeaches({ experienceLevel: "beginner" });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: VETOED_QUEUE_ID,
+      values: { delivery_shadow_outcome: expect.objectContaining({ would_use_channels: [] }) },
+    });
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: SAFE_QUEUE_ID,
+      values: {
+        delivery_shadow_outcome: expect.objectContaining({
+          would_use_channels: expect.arrayContaining(["email", "push"]),
+        }),
+      },
+    });
+    expectEmailRejected("beach_skill_exceeds_user");
   });
 });
