@@ -71,6 +71,10 @@ psql_local -f "$repo_dir/supabase/migrations/20261117120000_lifecycle_trial_fall
 psql_local -f "$repo_dir/__tests__/integration/email-lifecycle-v4-campaign.sql"
 psql_local -f "$repo_dir/supabase/migrations/20261117140000_alert_email_earliest.sql" \
   -f "$repo_dir/__tests__/integration/email-alert-earliest.sql"
+psql_local -f "$repo_dir/__tests__/integration/email-bounce-suppression-seed.sql" \
+  -f "$repo_dir/supabase/migrations/20261124160000_email_repeat_bounce_suppression.sql" \
+  -f "$repo_dir/supabase/migrations/20261124160000_email_repeat_bounce_suppression.sql" \
+  -f "$repo_dir/__tests__/integration/email-bounce-suppression.sql"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \
