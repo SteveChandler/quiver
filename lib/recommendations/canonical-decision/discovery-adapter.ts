@@ -68,6 +68,7 @@ export function toPersonalMatchEvidence(
     confidence: similarity.confidence,
     sessionCount: similarity.sessionCount,
     ...(similarity.similarSessionCount !== undefined ? { similarSessionCount: similarity.similarSessionCount } : {}),
+    ...(similarity.maxLoggedWaveFt !== undefined ? { maxLoggedWaveFt: similarity.maxLoggedWaveFt } : {}),
     reasons:
       similarity.reasons.length > 0
         ? similarity.reasons
