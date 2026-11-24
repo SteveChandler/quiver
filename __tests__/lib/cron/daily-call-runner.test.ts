@@ -1517,6 +1517,7 @@ describe("shared ranking (flag on)", () => {
     expect(mocked.rankDay).toHaveBeenCalledWith({
       userId, poolBeachIds: [blacksId, ospreyId], timezone: profile.timezone, localDate: "2026-09-16",
       sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon }, driveRadiusMiles: 30,
+      weekStartLocalDate: "2026-09-16",
     });
   });
 
