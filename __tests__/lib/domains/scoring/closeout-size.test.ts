@@ -21,16 +21,18 @@ describe('sand beach size caps', () => {
       acc[cap] = (acc[cap] ?? 0) + 1;
       return acc;
     }, {});
-    expect(caps).toHaveLength(116);
-    expect(counts).toEqual({ 6: 4, 8: 101, 10: 5, 12: 4, 18: 1, 20: 1 });
+    expect(caps).toHaveLength(113);
+    // No cap is below the 6 ft floor: a wrong low cap would hide normal days.
+    expect(Math.min(...caps)).toBe(6);
+    expect(counts[8]).toBe(40);
     expect(sandBeachSizeCapFt(BLACKS_BEACH)).toBeNull();
   });
 
   it('returns the cap for a listed beach and null otherwise', () => {
-    expect(sandBeachSizeCapFt(MISSION_BEACH)).toBe(6);
+    expect(sandBeachSizeCapFt(MISSION_BEACH)).toBe(7);
     expect(sandBeachSizeCapFt(AVALANCHE)).toBe(8);
     expect(sandBeachSizeCapFt(BOLSA_CHICA)).toBe(6);
-    expect(sandBeachSizeCapFt(THE_WEDGE)).toBe(20);
+    expect(sandBeachSizeCapFt(THE_WEDGE)).toBeNull();
     expect(sandBeachSizeCapFt(UNKNOWN_BEACH)).toBeNull();
     expect(sandBeachSizeCapFt(undefined)).toBeNull();
     expect(sandBeachSizeCapFt('toString')).toBeNull();
