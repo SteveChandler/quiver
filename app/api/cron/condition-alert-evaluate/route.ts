@@ -18,6 +18,7 @@ import type { Database } from "@/types/database.generated";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
 import type { Beach } from "@/types/database";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import type { RecommendationHoldReasonCode } from "@/lib/recommendations/major-event-hold/types";
 import { discoverSurfSpots } from "@/lib/services/surf-discovery-service";
@@ -260,7 +261,10 @@ async function handleGet(request: Request) {
         for (const [userId, userRules] of byUser) {
           try {
             const profile = profilesById.get(userId)!;
-            const profileExperience = parseSkillLevel(profile.experience_level);
+            // The rating skill, not the raw one: deliver holds and decides with the same value.
+            const profileExperience = parseSkillLevel(
+              ratingExperience(profile.experience_level, isSkillAwareGoChecksOn(userId)),
+            );
             const homeBeachId = profile.home_beach_id;
             const homeBeach = homeBeachId ? beachesById.get(homeBeachId) : undefined;
             const now = new Date();

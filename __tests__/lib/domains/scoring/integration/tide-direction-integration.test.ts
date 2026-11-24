@@ -403,11 +403,11 @@ describe('Tide Direction Integration Tests', () => {
     });
   });
 
-  describe('tide swing grading in the full pipeline (TIDE_SWING_ENABLED)', () => {
-    const originalFlag = process.env.TIDE_SWING_ENABLED;
+  describe('tide swing grading in the full pipeline (NEXT_PUBLIC_TIDE_SWING_ENABLED)', () => {
+    const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     afterEach(() => {
-      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-      else process.env.TIDE_SWING_ENABLED = originalFlag;
+      if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+      else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
     });
 
     function withRate(rateFtPerHour: number | null): ScorerInput {
@@ -420,7 +420,7 @@ describe('Tide Direction Integration Tests', () => {
     }
 
     it('flag off: a slow wrong-way tide still costs the full high-sensitivity mismatch', () => {
-      delete process.env.TIDE_SWING_ENABLED;
+      delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
       const engine = createFullScoringEngine();
       const slow = engine.score(withRate(-0.2));
       const unknown = engine.score(withRate(null));
@@ -429,7 +429,7 @@ describe('Tide Direction Integration Tests', () => {
     });
 
     it('flag on: a near-slack wrong-way tide costs less than a fast one', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       const engine = createFullScoringEngine();
       const slow = engine.score(withRate(-0.2));
       const fast = engine.score(withRate(-1.2));

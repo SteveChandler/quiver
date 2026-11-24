@@ -1,6 +1,5 @@
 const HOURLY_BRIDGE_ENABLED_FLAG = "HOURLY_BRIDGE_ENABLED";
 const HOURLY_BRIDGE_SURFACES_FLAG = "HOURLY_BRIDGE_SURFACES";
-const TIDE_SWING_ENABLED_FLAG = "TIDE_SWING_ENABLED";
 
 type HourlyBridgeSurface = "discover" | "week-scout" | "daily-call" | "scored";
 
@@ -20,11 +19,9 @@ export function isHourlyBridgeEnabledForAny(): boolean {
 }
 
 /**
- * Band-aware displayed tide points and tide-rate effects. Web Beach Detail scores in the browser,
- * so the flip sets NEXT_PUBLIC_TIDE_SWING_ENABLED (inlined at build; the literal access is what
- * Next replaces) and server and browser agree.
+ * Enables band-aware tide points and tide-rate effects on the server and in Beach Detail.
+ * Keep the literal access so Next.js can inline the value into the browser build.
  */
 export function isTideSwingEnabled(): boolean {
-  return process.env[TIDE_SWING_ENABLED_FLAG] === "true"
-    || process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED === "true";
+  return process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED === "true";
 }

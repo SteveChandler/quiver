@@ -13,7 +13,9 @@ import { createTableClient } from "@/__tests__/helpers/table-client";
 import { findTideAwareWindow } from "@/lib/alerts/surf-window/tide-aware-window";
 import { TideCache } from "@/lib/services/noaa-coops/tide-cache";
 import { loadSurfWindow, type SwellAlertProfile } from "@/lib/cron/swell-alert-runner";
+import type { ForecastVerdict } from "@/lib/alerts/canonical-forecast-verdict";
 import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 const NOW = new Date("2026-09-18T00:00:00.000Z");
 const beachRow = {
@@ -59,5 +61,22 @@ describe("loadSurfWindow", () => {
     const on = await shapeArgs({ ...profile, boardClasses: ["longboard"] });
     expect(on.skillLevel).toBe("beginner");
     expect(on.boardClasses).toEqual(["longboard"]);
+  });
+
+  it("rates the window's rows with the go checks only on the go-check path", async () => {
+    const forecast = snapshot.forecast as unknown as EnhancedForecastEntity;
+    const verdictFor = async (user: SwellAlertProfile): Promise<ForecastVerdict> => {
+      const args = await shapeArgs(user);
+      return (args.verdictFor as (row: EnhancedForecastEntity) => ForecastVerdict)(forecast);
+    };
+
+    const off = await verdictFor(profile);
+    expect(off).not.toHaveProperty("boardClass");
+    expect(off.decision.skillEligibility.skill).not.toBe("beginner");
+
+    const on = await verdictFor({ ...profile, boardClasses: ["longboard"] });
+    // boardClass is set only by the go-check scorer.
+    expect(on).toHaveProperty("boardClass");
+    expect(on.decision.skillEligibility.skill).toBe("beginner");
   });
 });

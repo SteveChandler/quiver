@@ -335,11 +335,11 @@ describe('Tide Direction Scorer', () => {
   });
 });
 
-describe('Tide Direction Scorer rate grading (TIDE_SWING_ENABLED)', () => {
-  const originalFlag = process.env.TIDE_SWING_ENABLED;
+describe('Tide Direction Scorer rate grading (NEXT_PUBLIC_TIDE_SWING_ENABLED)', () => {
+  const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
   afterEach(() => {
-    if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-    else process.env.TIDE_SWING_ENABLED = originalFlag;
+    if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+    else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
   });
 
   function mismatch(
@@ -353,21 +353,21 @@ describe('Tide Direction Scorer rate grading (TIDE_SWING_ENABLED)', () => {
   }
 
   it('flag off keeps the full mismatch whatever the rate', () => {
-    delete process.env.TIDE_SWING_ENABLED;
+    delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     expect(mismatch('high', -0.2)).toBe(10);
     expect(mismatch('medium', -0.2)).toBe(35);
     expect(mismatch('low', -0.2)).toBe(55);
   });
 
   it('flag on with an unknown rate keeps today\'s numbers', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     expect(mismatch('high', null)).toBe(10);
     expect(mismatch('medium', null)).toBe(35);
     expect(mismatch('low', null)).toBe(55);
   });
 
   it('grades a wrong-way tide from slack to the full mismatch by |rate| / 1 ft/h', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     // high: slack 40, mismatch 10.
     expect(mismatch('high', 0)).toBe(40);
     expect(mismatch('high', -0.3)).toBe(31);
@@ -381,7 +381,7 @@ describe('Tide Direction Scorer rate grading (TIDE_SWING_ENABLED)', () => {
   });
 
   it('never touches a direction match', () => {
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     const match = tideDirectionScorer.score(createInput(
       { tide: { heightFt: 3, status: 'rising', direction: 'rising', rateFtPerHour: 0.1 } },
       { tidePreferences: { ...DEFAULT_PROFILE.tidePreferences, preferredDirection: 'rising', directionSensitivity: 'high' } },

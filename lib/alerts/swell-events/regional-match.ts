@@ -46,7 +46,7 @@ export function matchRegionEvent(build: Pick<RegionBuild, "events">, swell: Push
 }
 
 /** One run's reads, shared by every push in it: a beach's region, a region's build and its edition. */
-export interface PushStoryCache {
+interface PushStoryCache {
   beaches: Map<string, Promise<{ region: string | null; timezone: string | null } | null>>;
   builds: Map<string, Promise<RegionBuild>>;
   editions: Map<string, Promise<NarrativeEdition | null>>;

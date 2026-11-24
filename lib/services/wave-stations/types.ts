@@ -74,6 +74,22 @@ export interface WaveStationObservationRow extends WaveObservationValues {
   fetched_at: string;
 }
 
+/** One row of a history read: the time, the wave fields and water temperature. */
+export type WaveStationHistoryRow = Pick<
+  WaveStationObservationRow,
+  | "observed_at"
+  | "wave_height_m"
+  | "dominant_period_s"
+  | "mean_wave_direction_deg"
+  | "swell_height_m"
+  | "swell_period_s"
+  | "swell_direction_deg"
+  | "wind_wave_height_m"
+  | "wind_wave_period_s"
+  | "wind_wave_direction_deg"
+  | "water_temp_c"
+>;
+
 /** A station as one source describes it, before catalogue bookkeeping. */
 export interface SourceStation {
   sourceStationId: string;

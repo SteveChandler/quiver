@@ -11,8 +11,7 @@
     "e2e/**/*.ts",
     "__tests__/**/*.{ts,tsx}",
     "scripts/**/*.{ts,tsx,mjs}",
-    "store/**/*.{ts,tsx}",
-    "config/**/*.{ts,tsx}"
+    "store/**/*.{ts,tsx}"
   ],
   "entry": [
     "app/**/page.tsx",

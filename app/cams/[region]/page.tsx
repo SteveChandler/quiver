@@ -11,7 +11,7 @@ import {
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
-import { isLiveCamBeach, sortLiveCamBeachesFirst } from "@/lib/media/cam-directory";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 import { CamsLandingNav } from "@/components/cams/cams-landing-nav";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
@@ -40,15 +40,10 @@ export async function CamsRegionDirectoryPage({
   if (!region) notFound();
 
   const allBeaches = await getBeachesWithCameras();
-  // Forecast-only spots stay listed after the live cams but are never counted as live.
-  const regionBeaches = sortLiveCamBeachesFirst(
-    allBeaches.filter((b) => b.regionSlug === regionSlug),
+  const regionBeaches = allBeaches.filter(
+    (beach) => beach.regionSlug === regionSlug && isLiveCamBeach(beach),
   );
-  const regionLiveBeaches = regionBeaches.filter(isLiveCamBeach);
-  const liveCount = regionLiveBeaches.length;
-
-  // A region whose cams are all offline keeps its page (0 live cameras) so the URL never 404s on a stream outage.
-  if (regionBeaches.length === 0) notFound();
+  const liveCount = regionBeaches.length;
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -141,14 +136,20 @@ export async function CamsRegionDirectoryPage({
               </div>
             </div>
             <CamsHeroContactSheet
-              beaches={regionLiveBeaches}
+              beaches={regionBeaches}
               label={`${region.name} live cam previews`}
             />
           </header>
 
           {/* Camera grid */}
           <section className="pb-16">
-            <CamGrid beaches={regionBeaches} />
+            {liveCount > 0 ? (
+              <CamGrid beaches={regionBeaches} />
+            ) : (
+              <p className="border-2 border-[#11100D] bg-[#FBF6E8] p-6 font-sans text-[#11100D]">
+                No live cams are available in this region right now.
+              </p>
+            )}
           </section>
 
           {/* Inline Signup CTA */}

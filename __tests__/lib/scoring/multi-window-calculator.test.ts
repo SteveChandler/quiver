@@ -405,18 +405,18 @@ describe('web Beach Detail peak score uses the band-aware tide term', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     delete process.env.DIRECTION_SCORING_ENABLED;
-    delete process.env.TIDE_SWING_ENABLED;
+    delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
   });
 
   afterAll(() => {
     process.env = originalEnv;
   });
 
-  it('equals scoreWindowConditionDetails with TIDE_SWING_ENABLED on and off, and the band moves it', () => {
+  it('equals scoreWindowConditionDetails with NEXT_PUBLIC_TIDE_SWING_ENABLED on and off, and the band moves it', () => {
     const off = beachDetail();
     expect(off.peakScore).toBe(off.shown);
 
-    process.env.TIDE_SWING_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
     const on = beachDetail();
     expect(typeof on.peakScore).toBe('number');
     expect(on.peakScore).toBe(on.shown);

@@ -5,7 +5,7 @@
 
 import type { StationBeaches } from "@/lib/services/wave-stations";
 import type { LatestWaveReading } from "@/lib/services/wave-stations/lookup";
-import type { WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
+import type { WaveStationHistoryRow, WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
 import { findCanonicalTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { BEACH_SUMMARY_LIMIT, type BeachForecastSummary } from "./beach-summaries";
 import { buildChartRanges, type ChartRange, type ChartRangeData } from "./chart-ranges";
@@ -68,7 +68,7 @@ interface StationPageData {
   index: StationIndexDecision;
   latestWave: WaveStationObservationRow | null;
   /** The one row every "Now" field comes from (see selectNowObservation); null when offline. */
-  nowObservation: WaveStationObservationRow | null;
+  nowObservation: WaveStationHistoryRow | null;
   latestAny: WaveStationObservationRow | null;
   reading: string | null;
   /** Hourly points over the stored history (up to 30 days). */
@@ -134,7 +134,7 @@ function localDay(ms: number, timeZone: string): string {
 
 function buildModelBlock(
   model: ModelSeries | null,
-  history: WaveStationObservationRow[],
+  history: WaveStationHistoryRow[],
   latestWave: WaveStationObservationRow | null,
   timeZone: string,
   nowMs: number,

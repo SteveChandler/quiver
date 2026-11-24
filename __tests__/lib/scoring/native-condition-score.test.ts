@@ -35,19 +35,15 @@ function forecast(
 }
 
 describe("native-condition-score", () => {
-  const originalWaveFitFlag = process.env.WAVE_FIT_PLATEAU_ENABLED;
-  const originalPublicWaveFitFlag = process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+  const originalWaveFitFlag = process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
 
   beforeEach(() => {
-    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
     delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
   });
 
   afterEach(() => {
-    if (originalWaveFitFlag === undefined) delete process.env.WAVE_FIT_PLATEAU_ENABLED;
-    else process.env.WAVE_FIT_PLATEAU_ENABLED = originalWaveFitFlag;
-    if (originalPublicWaveFitFlag === undefined) delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
-    else process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = originalPublicWaveFitFlag;
+    if (originalWaveFitFlag === undefined) delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    else process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = originalWaveFitFlag;
   });
 
   const direction = {
@@ -67,7 +63,6 @@ describe("native-condition-score", () => {
   };
 
   it("keeps the midpoint triangle byte-identical with the plateau flag off", () => {
-    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
     delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
     for (const [skill, height, expected] of [
       ["beginner", 1, 15],
@@ -83,7 +78,7 @@ describe("native-condition-score", () => {
   });
 
   it("gives full points from a quarter into the ideal range, linear shoulders, and zero outside the band", () => {
-    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
     for (const skill of ["beginner", "intermediate", "advanced", "expert"] as const) {
       const { waveMinFt, idealMinFt, idealMaxFt, waveMaxFt } = NATIVE_SKILL_THRESHOLDS[skill];
       const plateauStart = idealMinFt + WAVE_FIT_PLATEAU_START_FRACTION * (idealMaxFt - idealMinFt);
@@ -106,7 +101,7 @@ describe("native-condition-score", () => {
   });
 
   it("does not call the bottom of an ideal range GOOD on size alone", () => {
-    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
     const waveFit = (skill: "beginner" | "intermediate" | "advanced", waveHeightFt: number): number =>
       scoreNativeConditionBreakdown({ waveHeightFt, ...pristineInputs }, skill).components.waveFit;
     expect(waveFit("beginner", 1)).toBeCloseTo(45 * (0.5 / 1), 5);
@@ -114,8 +109,7 @@ describe("native-condition-score", () => {
     expect(waveFit("advanced", 3.5)).toBeCloseTo(45 * (1.5 / 2.25), 5);
   });
 
-  it("lets the browser companion flag use the same plateau", () => {
-    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+  it("uses the plateau when the public flag is on", () => {
     process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
     expect(scoreNativeConditionBreakdown(
       { waveHeightFt: 5, ...pristineInputs }, "advanced",
@@ -125,18 +119,18 @@ describe("native-condition-score", () => {
   it("applies the plateau to a rideability-band override", () => {
     const band = getRideabilityBand("advanced", "longboard");
     const waveHeightFt = band.ideal.min;
-    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
     const before = scoreNativeConditionInputs({ waveHeightFt, ...pristineInputs }, "advanced", band);
-    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
     const after = scoreNativeConditionInputs({ waveHeightFt, ...pristineInputs }, "advanced", band);
     expect(after).toBeGreaterThan(before);
   });
 
   it("promotes a clean advanced 3.5 ft groundswell from FAIR to GOOD", () => {
     const inputs = { waveHeightFt: 3.5, ...pristineInputs, windSpeedMph: 8 };
-    delete process.env.WAVE_FIT_PLATEAU_ENABLED;
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
     const before = scoreNativeConditionInputs(inputs, "advanced");
-    process.env.WAVE_FIT_PLATEAU_ENABLED = "true";
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
     const after = scoreNativeConditionInputs(inputs, "advanced");
     expect(before).toBeGreaterThanOrEqual(55);
     expect(before).toBeLessThan(70);

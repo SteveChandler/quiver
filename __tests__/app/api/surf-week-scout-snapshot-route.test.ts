@@ -33,6 +33,8 @@ describe('GET /api/surf/week-scout/snapshots/:snapshotId', () => {
   });
 
   it('scopes retrieval to the authenticated owner and disables caching', async () => {
+    const origin = { kind: 'location' };
+    mockLoadSnapshot.mockResolvedValue({ snapshot: { ...fixture, origin } });
     const response = await GET(
       new NextRequest(`http://localhost/api/surf/week-scout/snapshots/${fixture.snapshotId}`),
       { user: { id: 'user-1' }, supabase: {}, params: { snapshotId: fixture.snapshotId } } as never,
@@ -40,6 +42,7 @@ describe('GET /api/surf/week-scout/snapshots/:snapshotId', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    await expect(response.json()).resolves.toMatchObject({ data: { ...fixture, origin } });
     expect(mockLoadSnapshot).toHaveBeenCalledWith('user-1', fixture.snapshotId);
   });
 

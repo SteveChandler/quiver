@@ -2,7 +2,14 @@ import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { cache } from "react";
-import { isPublicReadSharingEnabled } from "@/lib/config/public-read-sharing";
+import { isPublicBeachRowCacheEnabled, isPublicReadSharingEnabled } from "@/lib/config/public-read-sharing";
+import {
+  canCachePublicBeachRows,
+  runWithPublicBeachRowCache,
+  tryReadCachedPublicBeachRows,
+  type PublicBeachCacheRejectReason,
+  type PublicBeachRowsCacheResult,
+} from "@/lib/data/server/public-beach-row-cache";
 
 /**
  * Request-scoped memo for water-quality hold reads.
@@ -31,12 +38,29 @@ interface WaterQualityReadScope {
   reads: WeakMap<object, Map<string, Promise<WaterQualityReadResult>>>;
   beachRows: WeakMap<object, Map<string, BeachRowsEntry[]>>;
   shareLatestCountyRun: boolean;
+  publicRead: boolean;
 }
+
+interface CachedRead {
+  isValid: (data: unknown) => boolean;
+  invalidReason?: (data: unknown) => PublicBeachCacheRejectReason;
+  ttl?: number;
+  key?: string;
+  cacheRead?: (load: Load) => PromiseLike<WaterQualityReadResult>;
+}
+
+type Load = () => PromiseLike<WaterQualityReadResult>;
+
+const WATER_QUALITY_TTL_SECONDS = 300;
+const POSTGREST_MAX_ROWS = 1_000;
 
 const storage = new AsyncLocalStorage<WaterQualityReadScope>();
 
-function createReadScope(shareLatestCountyRun: boolean): WaterQualityReadScope {
-  return { reads: new WeakMap(), beachRows: new WeakMap(), shareLatestCountyRun };
+function createReadScope(
+  shareLatestCountyRun: boolean,
+  publicRead = false,
+): WaterQualityReadScope {
+  return { reads: new WeakMap(), beachRows: new WeakMap(), shareLatestCountyRun, publicRead };
 }
 
 export function runWithWaterQualityReadScope<T>(fn: () => Promise<T>): Promise<T> {
@@ -50,8 +74,17 @@ export function runWithPublicWaterQualityReadScope<T>(
   fn: () => Promise<T>,
   shareLatestCountyRun = true,
 ): Promise<T> {
-  if (!isPublicReadSharingEnabled()) return fn();
-  return storage.run(getPublicReadScope(shareLatestCountyRun), fn);
+  const share = isPublicReadSharingEnabled();
+  if (!share && !isPublicBeachRowCacheEnabled()) return fn();
+  const scope = share
+    ? getPublicReadScope(shareLatestCountyRun, true)
+    : createReadScope(false, true);
+  return runWithPublicBeachRowCache(() => storage.run(scope, fn));
+}
+
+export function canCacheWaterQualityReads(client: object): boolean {
+  const scope = storage.getStore();
+  return scope?.publicRead !== false && canCachePublicBeachRows(client);
 }
 
 export function canShareLatestCountyRun(): boolean {
@@ -109,10 +142,22 @@ function copyRows(result: WaterQualityReadResult): WaterQualityReadResult {
 export function memoizedWaterQualityRead(
   client: object,
   key: string,
-  load: () => PromiseLike<WaterQualityReadResult>,
+  load: Load,
+  options?: CachedRead,
 ): Promise<WaterQualityReadResult> {
   const scope = storage.getStore();
-  if (!scope) return start(load);
+  const read: Load = options && canCacheWaterQualityReads(client)
+    ? async () => {
+        if (options.cacheRead) return options.cacheRead(load);
+        const rows = await tryReadCachedPublicBeachRows(
+          client, options.key ?? key, options.ttl ?? WATER_QUALITY_TTL_SECONDS, load, options.isValid, options.invalidReason,
+        );
+        if (rows.kind === "hit") return { data: rows.rows, error: null };
+        if (rows.kind === "error") return rows.result;
+        return load();
+      }
+    : load;
+  if (!scope || (scope.publicRead && !isPublicReadSharingEnabled())) return start(read);
 
   let reads = scope.reads.get(client);
   if (!reads) {
@@ -123,7 +168,7 @@ export function memoizedWaterQualityRead(
   if (cached) return retryOnFailure(cached, load, copyRows);
 
   const scopedReads = reads;
-  const pending = settle(load, () => {
+  const pending = settle(read, () => {
     if (scopedReads.get(key) === pending) scopedReads.delete(key);
   });
   scopedReads.set(key, pending);
@@ -157,15 +202,59 @@ function rowsForBeachIds(
   return { data: rows, error: null };
 }
 
+/** Cache membership independent of the caller's beach list. */
+export async function tryReadWholeBeachTable<T>(
+  client: object,
+  tableAndColumns: string,
+  beachIds: readonly string[],
+  load: () => PromiseLike<{ data: T[] | null; error: unknown }>,
+  isValid: (data: unknown) => boolean,
+): Promise<PublicBeachRowsCacheResult<T[]>> {
+  if (!canCacheWaterQualityReads(client)) return { kind: "bypass" };
+  const rows = await tryReadCachedPublicBeachRows(
+    client, tableAndColumns, WATER_QUALITY_TTL_SECONDS, load, (data) => {
+      if (!Array.isArray(data) || data.length >= POSTGREST_MAX_ROWS || !isValid(data)) return false;
+      const ids = new Set(data.map(beachIdOf));
+      return !ids.has(null) && ids.size === data.length;
+    }, (data) => {
+      if (!Array.isArray(data)) return "invalid-rows";
+      if (data.length >= POSTGREST_MAX_ROWS) return "row-cap";
+      if (new Set(data.map(beachIdOf)).size !== data.length) return "duplicate-id";
+      return "invalid-rows";
+    },
+  );
+  if (rows.kind !== "hit") return rows;
+  const requested = new Set(beachIds.map((id) => id.toLowerCase()));
+  const allRows = rows.rows as T[];
+  const allIds = new Set(allRows.map((row) => beachIdOf(row)!));
+  return { kind: "hit", rows: rowsForBeachIds({ data: allRows, error: null }, allIds, requested).data as T[] };
+}
+
 /** Shares `beach_id IN (...)` reads, including subsets of an earlier read. */
 export function memoizedBeachRowsRead(
   client: object,
   tableAndColumns: string,
   beachIds: readonly string[],
-  load: () => PromiseLike<WaterQualityReadResult>,
+  load: Load,
+  wholeTable?: {
+    load: Load;
+    isValid: (data: unknown) => boolean;
+  },
 ): Promise<WaterQualityReadResult> {
   const scope = storage.getStore();
-  if (!scope) return start(load);
+  const read: Load = wholeTable && canCacheWaterQualityReads(client)
+    ? async () => {
+        const rows = await tryReadWholeBeachTable(
+          client, tableAndColumns, beachIds,
+          wholeTable.load as () => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+          wholeTable.isValid,
+        );
+        if (rows.kind === "hit") return { data: rows.rows, error: null };
+        if (rows.kind === "error") return rows.result;
+        return load();
+      }
+    : load;
+  if (!scope || (scope.publicRead && !isPublicReadSharingEnabled())) return start(read);
 
   const requested = new Set(beachIds.map((beachId) => beachId.toLowerCase()));
   let tables = scope.beachRows.get(client);
@@ -187,7 +276,7 @@ export function memoizedBeachRowsRead(
 
   const entry: BeachRowsEntry = {
     beachIds: requested,
-    result: settle(load, () => {
+    result: settle(read, () => {
       const index = entries.indexOf(entry);
       if (index !== -1) entries.splice(index, 1);
     }),

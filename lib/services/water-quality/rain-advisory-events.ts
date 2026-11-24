@@ -32,6 +32,10 @@ export const rainAdvisoryEventSchema = z.object({
   created_at: timestamp,
   updated_at: timestamp,
 });
+export function validRainAdvisoryEventRows(rows: unknown): boolean {
+  return z.array(rainAdvisoryEventSchema).safeParse(rows).success;
+}
+
 export type RainAdvisoryEvent = z.infer<typeof rainAdvisoryEventSchema>;
 
 export function rainAdvisoryExpiresAt(

@@ -1686,6 +1686,34 @@ describe("GET /api/surf/call", () => {
 
       expect(body.data.report.whySentence).toMatch(/applied when skill is unknown/);
     });
+
+    it("holds the includeNow discovery with the rating skill only for an allowlisted user", async () => {
+      const { sanitizeSurfDiscoveryForSerializationMajorEventHold: sanitize } = jest.requireMock(
+        "@/lib/services/discovery/major-event-hold",
+      ) as { sanitizeSurfDiscoveryForSerializationMajorEventHold: jest.Mock };
+      const nowHoldSkill = async (): Promise<unknown> => {
+        sanitize.mockClear();
+        mockDiscoverSurfSpots.mockResolvedValue({ recommendations: [], includedRecommendations: [] });
+        mockBeachQuery({ id: BEACH_ID, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+        await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${BEACH_ID}&includeNow=1`));
+        // precondition: the now discovery ran and reached the hold
+        expect(sanitize).toHaveBeenCalledTimes(1);
+        return sanitize.mock.calls[0][1];
+      };
+
+      try {
+        setFlag(ON);
+        setRead(UNSET);
+        expect(await nowHoldSkill()).toBe("beginner");
+
+        setFlag({});
+        mockGetProfileExperienceLevel.mockResolvedValue(null);
+        expect(await nowHoldSkill()).toBeNull();
+      } finally {
+        // The includeNow block below has no beforeEach and counts these calls.
+        mockDiscoverSurfSpots.mockReset();
+      }
+    });
   });
 });
 

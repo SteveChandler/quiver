@@ -1,3 +1,4 @@
+import { zonedFormatter } from "@/lib/utils/zoned-formatter";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { RegionBeachRating, RegionSwellConfidence, RegionSwellEvent } from "@/types/region-swell-events";
 import { SKILL_WAVE_RANGES, type SkillLevel } from "@/lib/domains/user-preferences";
@@ -61,15 +62,7 @@ export type RegionRatingsByEvent = ReadonlyMap<string, ReadonlyMap<string, Regio
 
 type EventTimes = Pick<InternalRegionEvent, "arrivalAt" | "peakAt" | "fadeAt">;
 
-const weekdayFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function weekdayFormatter(timezone: string): Intl.DateTimeFormat {
-  const formatter = weekdayFormatters.get(timezone);
-  if (formatter) return formatter;
-  const created = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone });
-  weekdayFormatters.set(timezone, created);
-  return created;
-}
+const weekdayFormatter = zonedFormatter("en-US", { weekday: "short" });
 
 /** The span a beach is rated over: arrival (or peak − 12 h) up to, not including, the fade (or peak + 24 h). */
 export function ratingWindow(event: EventTimes): { startMs: number; endMs: number } {

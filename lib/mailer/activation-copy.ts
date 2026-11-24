@@ -11,7 +11,7 @@ import { getLocalDateString } from "@/lib/utils/timezone-utils";
  * LIFECYCLE_CONTENT_HASH, so the per-user headline rotation never changes the hash.
  */
 export const ACTIVATION_V4_COPY = {
-  version: 1,
+  version: 2,
   eyebrow: "Your next window",
   // Fallback and no-beach forms name no window.
   fallbackEyebrow: "Before you drive",
@@ -26,6 +26,7 @@ export const ACTIVATION_V4_COPY = {
   wind: { light: "light wind", relation: "{speed} mph {relation}", plain: "{speed} mph {direction} wind" },
   closing: "Check it before you drive. Quiver updates the call as the swell comes in.",
   cta: "See the window",
+  publicCall: "General forecast · {label}.",
   fallback: { subject: "Planning a surf?", paragraph: "Check {beach} before you drive. Quiver tells you if it’s worth going.", cta: "Check {beach}" },
   noBeach: { subject: "Planning a surf?", paragraph: "Pick your home beach and Quiver tells you if it’s worth going.", cta: "Choose your home beach" },
   days: { today: "today", tomorrow: "tomorrow", on: "on {weekday}", morning: "morning", afternoon: "afternoon", thisPart: "this {part}", dayPart: "{day} {part}" },
@@ -57,9 +58,7 @@ function addDays(localDate: string, days: number): string {
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 
-function dayWords(windowStartIso: string, nowIso: string, timezone: string): { day: string; onDay: string; dayPart: string } {
-  const today = getLocalDateString(new Date(nowIso), timezone);
-  const windowDate = getLocalDateString(new Date(windowStartIso), timezone);
+function dayWords(windowStartIso: string, windowDate: string, today: string, timezone: string): { day: string; onDay: string; dayPart: string } {
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(new Date(windowStartIso)));
   const part = hour < 12 ? ACTIVATION_V4_COPY.days.morning : ACTIVATION_V4_COPY.days.afternoon;
   if (windowDate === today) {
@@ -94,14 +93,16 @@ function windWords(call: Extract<ActivationCall, { kind: "window" }>): string | 
 }
 
 /** `beachSlug` null means the CTA opens home-beach onboarding. */
-export interface ActivationContent { subject: string; eyebrow: string; paragraphs: string[]; cta: string; beachSlug: string | null }
+export interface ActivationContent { subject: string; eyebrow: string; paragraphs: string[]; cta: string; beachSlug: string | null; weekScoutDay?: string }
 
 export function activationWindowContent(call: Extract<ActivationCall, { kind: "window" }>, userId: string): ActivationContent {
   const { window, beach, label } = call;
-  const days = dayWords(window.displayWindowStart, call.now, beach.timezone);
+  const today = getLocalDateString(new Date(call.now), beach.timezone);
+  const weekScoutDay = getLocalDateString(new Date(window.displayWindowStart), beach.timezone);
+  const days = dayWords(window.displayWindowStart, weekScoutDay, today, beach.timezone);
   const vars: Vars = { beach: beach.name, day: days.day, Day: capitalize(days.day), onDay: days.onDay, dayPart: days.dayPart };
   const headlines = ACTIVATION_V4_COPY.headlines[label];
-  const subject = fill(headlines[rotationIndex(`${userId}|${getLocalDateString(new Date(call.now), beach.timezone)}`, headlines.length)], vars);
+  const subject = fill(headlines[rotationIndex(`${userId}|${today}`, headlines.length)], vars);
   const tense = Date.parse(window.displayWindowStart) > Date.parse(call.now) ? "upcoming" : "now";
   const callLine = fill(ACTIVATION_V4_COPY.callLine, {
     label, action: ACTIVATION_V4_COPY.actions[label][tense],
@@ -120,15 +121,17 @@ export function activationWindowContent(call: Extract<ActivationCall, { kind: "w
     wind ? fill(ACTIVATION_V4_COPY.detail.wind, { wind }) : "",
     ACTIVATION_V4_COPY.detail.end,
   ].join("");
-  return { subject, eyebrow: ACTIVATION_V4_COPY.eyebrow, paragraphs: [callLine, detail, ACTIVATION_V4_COPY.closing], cta: ACTIVATION_V4_COPY.cta, beachSlug: beach.slug };
+  return { subject, eyebrow: ACTIVATION_V4_COPY.eyebrow, paragraphs: [callLine, detail, ACTIVATION_V4_COPY.closing], cta: ACTIVATION_V4_COPY.cta, beachSlug: beach.slug, weekScoutDay };
 }
 
-export function activationFallbackContent(call: Extract<ActivationCall, { kind: "fallback" }>): ActivationContent {
+export function activationBeachContent(call: Extract<ActivationCall, { kind: "fallback" | "public_call" }>): ActivationContent {
   const vars = { beach: call.beach.name };
+  const paragraphs = [fill(ACTIVATION_V4_COPY.fallback.paragraph, vars)];
+  if (call.kind === "public_call") paragraphs.unshift(fill(ACTIVATION_V4_COPY.publicCall, { label: call.label }));
   return {
     subject: ACTIVATION_V4_COPY.fallback.subject,
     eyebrow: ACTIVATION_V4_COPY.fallbackEyebrow,
-    paragraphs: [fill(ACTIVATION_V4_COPY.fallback.paragraph, vars)],
+    paragraphs,
     cta: fill(ACTIVATION_V4_COPY.fallback.cta, vars),
     beachSlug: call.beach.slug,
   };

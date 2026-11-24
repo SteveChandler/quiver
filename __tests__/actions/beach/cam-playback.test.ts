@@ -20,7 +20,11 @@ jest.mock("@/lib/supabase/server", () => ({
 
 jest.mock("@/lib/media/cam-embed-preflight", () => ({
   resolveCamPlayback: jest.fn(async (url: string) =>
-    url.includes("cbccstaff.net") ? { kind: "none" } : { kind: "inline" },
+    url.includes("cbccstaff.net")
+      ? { kind: "none" }
+      : url.includes("sigward.com")
+        ? { kind: "external", provider: "Muir Beach Webcam", pageUrl: url }
+        : { kind: "inline" },
   ),
 }));
 
@@ -41,6 +45,8 @@ describe("camera directory playback state", () => {
       data: [
         sourceRow("cannon", "Cannon Beach", "OR", "https://cbccstaff.net/whats-new/webcam/"),
         sourceRow("scripps", "La Jolla", "CA", "https://hls.cdn-surfline.com/socal/scripps/playlist.m3u8"),
+        sourceRow("f73cea3d-d7c7-57cf-b2d1-9a4370f75123", "Muir Beach", "CA", "https://www.sigward.com/"),
+        sourceRow("34e148b8-08cc-50cb-908f-012464b7fa74", "Virginia Beach Oceanfront", "VA", "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/"),
       ],
       error: null,
     });
@@ -58,7 +64,11 @@ describe("camera directory playback state", () => {
 
     expect(result.map((beach) => [beach.id, beach.playback.kind])).toEqual([
       ["scripps", "inline"],
+      ["f73cea3d-d7c7-57cf-b2d1-9a4370f75123", "external"],
       ["cannon", "none"],
+      ["34e148b8-08cc-50cb-908f-012464b7fa74", "inline"],
     ]);
+    expect(result[1]?.photo_url).toBe("/images/cams/muir-beach.jpg");
+    expect(result[3]?.photo_url).toBe("/images/cams/virginia-beach-oceanfront.jpg");
   });
 });

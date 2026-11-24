@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
+- **2026-11-23 — Server scoring flag overrides.** Removed the unused tide-swing and wave-fit plateau overrides. The `NEXT_PUBLIC_TIDE_SWING_ENABLED` and `NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED` flags still control rollout and rollback.
 - **2026-11-22 — Free board picks flag** (`BOARD_PICKS_FREE_ENABLED`). Removed the rollout flag shipped in PR #800 because board picks are available to signed-in users with eligible boards. Kept saved boards and session history. [PR #800](https://github.com/SteveChandler/quiver/pull/800)
 - **2026-11-22 — Legacy alert delivery flag** (`ALERTS_DELIVERY_ENABLED`). Removed the flag centralized in PR #599 after PR #807 retired its similarity-alert send path. The rules API returns `alertDeliveryPaused: false` for installed clients. Kept alert rules, queue rows, delivery records, and historical skip reasons in `alert_delivery_attempts`. [PR #599](https://github.com/SteveChandler/quiver/pull/599) · [PR #807](https://github.com/SteveChandler/quiver/pull/807)
 - **2026-11-22 · Removed `NPC_PERSONA_POSTING_ENABLED` and the persona publisher.** Synthetic first-person content dominated the 30-day period behind the pause, when real users made zero posts. Persona profiles, `npc_content_templates`, historical posts and reviews, and existing migrations are retained. [PR #549](https://github.com/SteveChandler/quiver/pull/549)
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Fixed
+- **2026-11-22 — V4 activation email links and ratings.** App readers can open Week Scout on the date named in the email and keep their personalized rating. Web readers get the beach page’s general forecast label when available and a link to check the beach.
 - **2026-11-22 — V4 activation email forecast access.** The email picks from today and tomorrow for recipients without Pro, trial, or founding feature access. Recipients with feature access can still get a third-day window.
 - **One gate decides every beach on the ECMWF hybrid table** (`lib/utils/ecmwf-hybrid-k-factors.ts`, `scripts/hybrid-k-eligible.json`, `scripts/hybrid-replay-vs-refit.py`).
   - The gate from #1349 now applies to every beach, including beaches already on the table. Held out by ISO week, the 0-24 h hybrid MAE must be at or below the MAE of both the shipped production factor and the production factor refit on the same rows, and the 0-24 h bias must be within ±0.2 ft.
@@ -119,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Shared constants:** /map's particle constants moved into `particle-style.ts`, so the two can't drift. /map's behaviour is unchanged.
 
 ### Changed
+- **2026-11-22 — Weekend Scout home-beach fallback and rotating push copy.** A saved public home beach supplies the origin when a recent phone fix is unavailable. Friday reminders rotate through six messages that describe the lead window when its forecast details are available.
 - **The home hero's swell view matches native's home hero** (`components/oracle/zine/hero-swell-field.tsx`, `home-hero-media.tsx`, `lib/services/discovery/surf-discovery-orchestrator.ts`, `types/personalization.ts`). The primary swell draws as cream crests over the streets map, which is now dimmed like native's. Secondary swell and wind are not drawn, as on native.
   - **Data:** each Today's Windows slot from `/api/surf/discover` now carries `swellPartition`: that slot's row, read as /map reads it. The hero reads the slot the condition strip reads. The response change is additive; native ignores the new field.
 - **A decided no-surf call reads "Doesn't look like a good time to surf."** (`components/oracle/oracle-home-screen.tsx`), native's wording, instead of "We couldn't find any surf spots near you", which implied an empty area. Empty areas, missing data and holds keep their own messages. Home E2E discovery fixtures now carry the canonical session decision the page requires; without it they could only render "No call today", so the hero assertions were not running.

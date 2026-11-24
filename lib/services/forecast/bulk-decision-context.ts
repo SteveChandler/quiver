@@ -8,16 +8,13 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
-import {
-  normalizeBoardClass,
-  type BoardClass,
-} from "@/lib/domains/rideability";
+import { type BoardClass } from "@/lib/domains/rideability";
 import {
   getSkillLevelOrDefault,
   parseSkillLevel,
 } from "@/lib/domains/user-preferences/skill-level";
 import { isSkillAwareGoChecksOn } from "@/lib/flags/skill-aware-go-checks";
-import { orderBoardClasses } from "@/lib/profile/board-classes";
+import { orderBoardClasses, toBoardClasses } from "@/lib/profile/board-classes";
 import {
   forecastToMatchSlot,
   interpretRpcResult,
@@ -182,13 +179,9 @@ export async function fetchBulkDecisionContext(
     }
   }
   const skillAware = isSkillAwareGoChecksOn(userId);
-  const boardClasses = [
-    ...new Set(
-      (data.boards as Array<{ board_type: string }>)
-        .map((board) => normalizeBoardClass(board.board_type))
-        .filter((board): board is BoardClass => board !== null),
-    ),
-  ];
+  const boardClasses = toBoardClasses(
+    (data.boards as Array<{ board_type: string }>).map((board) => board.board_type),
+  );
   return {
     beaches: data.beaches,
     boards: Array.isArray(data.personalization?.boards) ? data.personalization.boards : [],

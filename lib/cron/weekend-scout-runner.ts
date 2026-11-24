@@ -1,4 +1,3 @@
-import { LOCATION_FIX_MAX_AGE_HOURS } from '@/lib/alerts/location-freshness';
 import type { EnqueueArgs, EnqueueResult } from '@/lib/notifications/types';
 import {
   createErrorResponse,
@@ -7,36 +6,41 @@ import {
   validateCronRequest,
 } from '@/lib/middleware/api-wrappers';
 import { enqueueNotification } from '@/lib/notifications/enqueue';
+import { weekendWindowVariant } from '@/lib/notifications/registry';
+import { formatWindowLabel } from '@/lib/notifications/copy/daily-call-copy';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import {
   createOrGetWeekendScoutSnapshot,
   type CreateWeekendScoutSnapshotResult,
 } from '@/lib/services/discovery/weekend-scout-snapshots';
+import {
+  fetchWeekendScoutHomeBeach,
+  getWeekendScoutDates,
+  resolveWeekendScoutOrigin,
+  type WeekendScoutBuildOptions,
+  type WeekendScoutLocation,
+} from '@/lib/services/discovery/weekend-scout';
 import { selectBeach } from '@/lib/recommendations/selection';
 import { withCronOutcome, type CronOutcomeOptions } from '@/lib/cron/outcome';
-
-const MAX_LOCATION_AGE_MS = LOCATION_FIX_MAX_AGE_HOURS * 60 * 60 * 1000;
-const MAX_LOCATION_FUTURE_SKEW_MS = 5 * 60 * 1000;
+import { getLocalHour } from '@/lib/utils/timezone-utils';
 
 export interface WeekendScoutCronProfile {
   id: string;
   notifPushEnabled: boolean | null;
   notifReminders: boolean | null;
-  location: {
-    lat: number;
-    lon: number;
-    timezone: string;
-    capturedAt: string;
-  } | null;
+  location: WeekendScoutLocation | null;
+  homeBeachId: string | null;
 }
 
 export interface WeekendScoutCronDependencies {
   now: Date;
   validateRequest: (request: Request) => boolean;
   loadProfiles: () => Promise<WeekendScoutCronProfile[]>;
+  fetchHomeBeach: (beachId: string) => ReturnType<typeof fetchWeekendScoutHomeBeach>;
   createSnapshot: (
     userId: string,
     weekendStart: string,
+    options: WeekendScoutBuildOptions,
   ) => Promise<CreateWeekendScoutSnapshotResult>;
   enqueue: (args: EnqueueArgs) => Promise<EnqueueResult>;
 }
@@ -46,6 +50,7 @@ interface WeekendScoutRunSummary {
   reason?: string;
   evaluated: number;
   candidates: number;
+  homeBeachOrigin: number;
   sent: number;
   duplicates: number;
   testAllowlistActive: boolean;
@@ -78,8 +83,21 @@ function defaultSkippedCounts(): WeekendScoutRunSummary['skippedCounts'] {
   };
 }
 
+type HomeBeach = Awaited<ReturnType<typeof fetchWeekendScoutHomeBeach>>;
+
+/** The home beach embedded in the profiles read; deleted or private beaches give no origin. */
+export function homeBeachFromProfileRow(row: { home_beach?: unknown }): HomeBeach {
+  const raw = Array.isArray(row.home_beach) ? row.home_beach[0] : row.home_beach;
+  if (!raw || typeof raw !== 'object') return null;
+  const beach = raw as { id: string; name: string; lat: unknown; lon: unknown; timezone: string | null; deleted_at: string | null; is_private: boolean | null };
+  if (beach.deleted_at !== null || beach.is_private === true) return null;
+  return { id: beach.id, name: beach.name, lat: beach.lat, lon: beach.lon, timezone: beach.timezone } as HomeBeach;
+}
+
 function defaultDependencies(now: Date): WeekendScoutCronDependencies {
   const supabase = createSupabaseServiceRoleClient();
+  // Filled by loadProfiles so the hourly run makes no per-user beach query.
+  const homeBeaches = new Map<string, HomeBeach>();
   return {
     now,
     validateRequest: validateCronRequest,
@@ -90,6 +108,8 @@ function defaultDependencies(now: Date): WeekendScoutCronDependencies {
           id,
           notif_push_enabled,
           notif_reminders,
+          home_beach_id,
+          home_beach:beaches!profiles_home_beach_id_fkey(id, name, lat, lon, timezone, deleted_at, is_private),
           user_location_snapshots(lat, lon, timezone, captured_at)
         `)
         .is('deleted_at', null);
@@ -98,10 +118,12 @@ function defaultDependencies(now: Date): WeekendScoutCronDependencies {
         const joined = Array.isArray(row.user_location_snapshots)
           ? row.user_location_snapshots[0]
           : row.user_location_snapshots;
+        if (row.home_beach_id) homeBeaches.set(row.home_beach_id, homeBeachFromProfileRow(row));
         return {
           id: row.id,
           notifPushEnabled: row.notif_push_enabled,
           notifReminders: row.notif_reminders,
+          homeBeachId: row.home_beach_id,
           location: joined ? {
             lat: joined.lat,
             lon: joined.lon,
@@ -111,8 +133,11 @@ function defaultDependencies(now: Date): WeekendScoutCronDependencies {
         };
       });
     },
-    createSnapshot: (userId, weekendStart) => (
-      createOrGetWeekendScoutSnapshot(userId, weekendStart)
+    fetchHomeBeach: async (beachId) => (
+      homeBeaches.has(beachId) ? homeBeaches.get(beachId) ?? null : fetchWeekendScoutHomeBeach(beachId, supabase)
+    ),
+    createSnapshot: (userId, weekendStart, options) => (
+      createOrGetWeekendScoutSnapshot(userId, weekendStart, undefined, options)
     ),
     enqueue: (args) => enqueueNotification(args, supabase),
   };
@@ -127,23 +152,10 @@ function parseAllowlist(): Set<string> {
   );
 }
 
-function localDate(date: Date, timezone: string): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const part = (type: Intl.DateTimeFormatPartTypes): string => (
-    parts.find((entry) => entry.type === type)?.value ?? ''
-  );
-  return `${part('year')}-${part('month')}-${part('day')}`;
-}
-
-function nextLocalDate(date: Date, timezone: string): string {
-  const value = new Date(`${localDate(date, timezone)}T00:00:00.000Z`);
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toISOString().slice(0, 10);
+function partOfDay(hour: number): 'morning' | 'afternoon' | 'evening' {
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
 }
 
 export function isLocalFridayNoon(now: Date, timezone: string): boolean {
@@ -197,6 +209,7 @@ export async function runWeekendScoutCron(
     skipped: false,
     evaluated: 0,
     candidates: 0,
+    homeBeachOrigin: 0,
     sent: 0,
     duplicates: 0,
     testAllowlistActive: false,
@@ -232,28 +245,24 @@ export async function runWeekendScoutCron(
         increment(summary, 'notInAllowlist');
         continue;
       }
-      if (!profile.location) {
-        increment(summary, 'missingLocation');
-        continue;
-      }
-      const capturedAt = Date.parse(profile.location.capturedAt);
-      if (
-        !Number.isFinite(capturedAt)
-        || capturedAt > deps.now.getTime() + MAX_LOCATION_FUTURE_SKEW_MS
-        || deps.now.getTime() - capturedAt > MAX_LOCATION_AGE_MS
-      ) {
-        increment(summary, 'staleLocation');
-        continue;
-      }
-      if (!isLocalFridayNoon(deps.now, profile.location.timezone)) {
-        increment(summary, 'notLocalFridayNoon');
-        continue;
-      }
-
-      summary.candidates += 1;
       try {
-        const weekendStart = nextLocalDate(deps.now, profile.location.timezone);
-        const created = await deps.createSnapshot(profile.id, weekendStart);
+        const resolved = await resolveWeekendScoutOrigin(profile.location, deps.now, async () => (
+          profile.homeBeachId ? deps.fetchHomeBeach(profile.homeBeachId) : null
+        ));
+        if (resolved.status !== 'ready') {
+          increment(summary, skipKey(resolved.status));
+          continue;
+        }
+        const { origin } = resolved;
+        if (!isLocalFridayNoon(deps.now, origin.timezone)) {
+          increment(summary, 'notLocalFridayNoon');
+          continue;
+        }
+
+        summary.candidates += 1;
+        if (origin.source.kind === 'home_beach') summary.homeBeachOrigin += 1;
+        const weekendStart = getWeekendScoutDates(deps.now, origin.timezone).start;
+        const created = await deps.createSnapshot(profile.id, weekendStart, { now: deps.now, origin });
         if (created.status !== 'ready') {
           increment(summary, skipKey(created.status));
           continue;
@@ -276,6 +285,11 @@ export async function runWeekendScoutCron(
           summary.skippedCounts.noCandidates += 1;
           continue;
         }
+        const { bestWindow } = leadResult;
+        const { leadWindowTimezone } = created;
+        const [start, end] = bestWindow.displayWindowStart && bestWindow.displayWindowEnd
+          ? [bestWindow.displayWindowStart, bestWindow.displayWindowEnd]
+          : [bestWindow.start, bestWindow.end];
 
         let enqueueResult: EnqueueResult;
         try {
@@ -292,12 +306,21 @@ export async function runWeekendScoutCron(
               lead_beach_id: created.leadBeachId,
               lead_beach_name: safeLeadBeach.name,
               lead_window_local: created.leadWindowLocal,
-              forecast_at: leadResult.bestWindow.start,
+              lead_wave_height: bestWindow.waveHeight,
+              lead_period: bestWindow.period,
+              lead_wind_speed: bestWindow.windSpeed,
+              lead_wind_direction: bestWindow.windDirection,
+              variant_index: weekendWindowVariant(profile.id, created.snapshot.weekendStart),
+              ...(leadWindowTimezone ? {
+                lead_window_time: formatWindowLabel(start, end, leadWindowTimezone, { forBody: true }),
+                lead_window_part_of_day: partOfDay(getLocalHour(new Date(start), leadWindowTimezone)),
+              } : {}),
+              forecast_at: bestWindow.start,
               policy_context: {
                 kind: 'positive_session_recommendation',
                 beach_id: created.leadBeachId,
-                starts_at: leadResult.bestWindow.start,
-                ends_at: leadResult.bestWindow.end,
+                starts_at: bestWindow.start,
+                ends_at: bestWindow.end,
               },
             },
           });

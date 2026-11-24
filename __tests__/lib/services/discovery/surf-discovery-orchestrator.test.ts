@@ -5013,3 +5013,125 @@ describe('discoverSurfSpots - skill-aware go checks', () => {
     expect(result.recommendations[0].reasons.join(' ')).not.toMatch(SKILL_COPY);
   });
 });
+
+// Each test fails when its site goes back to the raw skill.
+describe('discoverSurfSpots - skill-aware go checks keep the rating skill at every site', () => {
+  const USER = 'skill-aware-site-user';
+  const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+  const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+  const scorer = scoreWindowConditionScore as jest.Mock;
+
+  function row(beach: Partial<Beach>, id: string, forecastAt: string): Partial<EnhancedForecastEntity> {
+    return { ...mockForecast, id, beach_id: beach.id, forecast_at: forecastAt };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetDefaultDiscoveryMocks();
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    // Rows on both sides of 19:00Z: at 19:30Z the current-hour row starts after now.
+    mockState.forecastBatchResponse = {
+      successful: [mockBeach1, mockBeach2].map((beach) => ({
+        beach,
+        forecasts: [
+          row(beach, `${beach.id}-early`, '2024-01-15T17:00:00.000Z'),
+          row(beach, `${beach.id}-late`, '2024-01-15T20:00:00.000Z'),
+        ],
+      })),
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
+    mockState.boardsError = null;
+    mockState.favoriteBeaches = [];
+    mockState.customSpots = [];
+    mockState.userPrefs = null;
+    (selectBestWindow as jest.Mock).mockImplementation(() => ({
+      start: new Date('2024-01-15T12:00:00Z'),
+      end: new Date('2024-01-15T15:00:00Z'),
+      tide: 'Rising',
+      wind: '8 mph W',
+      waveHeight: '3-4 ft',
+      wavePeriod: '12s',
+      dataSource: 'CDIP',
+      confidence: 85,
+      timezone: 'America/Los_Angeles',
+    }));
+    (selectBestWindows as jest.Mock).mockImplementation((options: unknown) => [
+      (selectBestWindow as jest.Mock)(options),
+    ]);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+    if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+  });
+
+  it('scores the now window and its display band with the rating skill', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-01-15T19:30:00.000Z'));
+
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      discoveryMode: 'now',
+      maxResults: 5,
+    });
+
+    // precondition: the now path ran, and the display band re-read the later row
+    expect(selectBestWindows).not.toHaveBeenCalled();
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.map((call) => call[2])).not.toContain(null);
+    expect(scorer.mock.calls.every((call) => call[2] === 'beginner')).toBe(true);
+  });
+
+  it('scores a requested forecastAt row with the rating skill', async () => {
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      forecastAt: '2024-01-15T17:00:00.000Z',
+      maxResults: 5,
+    });
+
+    // precondition: the scoped path ran
+    expect(selectBestWindows).not.toHaveBeenCalled();
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.every((call) => call[2] === 'beginner')).toBe(true);
+  });
+
+  it('labels with the beginner rating, so a beach rated above beginner is a Skip', async () => {
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      maxResults: 5,
+    });
+    const labels = new Map(result.recommendations.map((rec) => [rec.beach.id, rec.recommendationLabel]));
+
+    // beach-1 is rated intermediate; beach-2 is rated beginner.
+    expect(labels.get('beach-1')).toBe('Skip');
+    expect(labels.get('beach-2')).toBe('Worth it');
+  });
+
+  it('keeps only the beaches the beginner rating calls Worth it in saved-spots-only', async () => {
+    mockState.favoriteBeaches = [mockBeach1, mockBeach2];
+
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      savedSpotsOnly: true,
+      maxResults: 5,
+    });
+    const ids = result.recommendations.map((rec) => rec.beach.id);
+
+    expect(ids).toContain('beach-2');
+    expect(ids).not.toContain('beach-1');
+  });
+});
