@@ -56,8 +56,8 @@ export interface TimeRange {
 
 // Weather conditions
 export interface WeatherConditions {
-  readonly airTemperature: string;
-  readonly weatherCondition: string;
+  readonly airTemperature: string | null;
+  readonly weatherCondition: string | null;
   readonly windSpeed: string;
   readonly windDirection: string;
 }
@@ -406,7 +406,8 @@ export interface ForecastPreview {
   wave_height: string;
   wind_speed: string;
   wind_direction: string;
-  weather_condition: string;
+  /** Null when NWS has no period within 6 h of the hour (no coverage, or past its horizon). */
+  weather_condition: string | null;
   confidence_score?: number;
 }
 
