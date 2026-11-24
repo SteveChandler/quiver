@@ -64,6 +64,9 @@ import { isAlertHourlyWindowsEnabledFor } from "@/lib/flags/alert-hourly-windows
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
 import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
+import { isAlertEmailGateEnabled } from "@/lib/flags/alert-email-gate";
+import { decideAlertEmail } from "@/lib/alerts/email-gate";
+import { selectAllPages } from "@/lib/services/wave-stations/paging";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
@@ -1012,6 +1015,9 @@ async function handleGet(request: Request): Promise<NextResponse> {
           display_name: string | null;
           notif_email_enabled: boolean;
           notif_push_enabled: boolean;
+          // The push worker's per-type gate for forecast_alert; the email gate
+          // must not count push as delivered when this is false.
+          notif_forecast_alerts: boolean | null;
           experience_level: string | null;
           // Drives the email quiet-hours window resolution (same source the
           // push worker uses via resolveNotificationTimezone). Nullable;
@@ -1022,7 +1028,7 @@ async function handleGet(request: Request): Promise<NextResponse> {
         const { data: profileRows, error: profilesError } = await supabase
           .from("profiles")
           .select(
-            "id, email, display_name, notif_email_enabled, notif_push_enabled, timezone, experience_level",
+            "id, email, display_name, notif_email_enabled, notif_push_enabled, notif_forecast_alerts, timezone, experience_level",
           )
           .in("id", userIds);
 
@@ -1059,6 +1065,67 @@ async function handleGet(request: Request): Promise<NextResponse> {
             skip_reason: r.skip_reason ?? null,
           }),
         );
+
+        // 3c. Email gate inputs, read once per run. A failed read turns the
+        //     gate off for this run (emails send as before) rather than
+        //     stopping push delivery with a throw.
+        const emailGateEnabled =
+          forecastDeliveryEnabled && isAlertEmailGateEnabled();
+        const activeDeviceUserIds = new Set<string>();
+        const recentAlertEmailOpenedAtByUser = new Map<
+          string,
+          Array<string | null>
+        >();
+        let emailGateReadable = emailGateEnabled;
+        const emailGateUserIds = Array.from(
+          new Set(
+            scoreEligibleItems
+              .filter((item) => item.notify_email)
+              .map((item) => item.user_id),
+          ),
+        );
+        if (emailGateEnabled && emailGateUserIds.length > 0) {
+          try {
+            // Same device definition as the push worker (lib/notifications/worker.ts dispatchPush).
+            const devices = await selectAllPages<{ user_id: string }>(
+              (from, to) =>
+                supabase
+                  .from("user_devices")
+                  .select("user_id")
+                  .in("user_id", emailGateUserIds)
+                  .is("retired_at", null)
+                  .order("id", { ascending: true })
+                  .range(from, to),
+            );
+            for (const device of devices) activeDeviceUserIds.add(device.user_id);
+
+            const alertEmails = await selectAllPages<{
+              user_id: string;
+              opened_at: string | null;
+            }>((from, to) =>
+              supabase
+                .from("email_send_log")
+                .select("user_id, opened_at")
+                .in("user_id", emailGateUserIds)
+                .eq("email_type", "conditions_alert")
+                .order("sent_at", { ascending: false })
+                .order("id", { ascending: false })
+                .range(from, to),
+            );
+            for (const email of alertEmails) {
+              const openedAt =
+                recentAlertEmailOpenedAtByUser.get(email.user_id) ?? [];
+              openedAt.push(email.opened_at);
+              recentAlertEmailOpenedAtByUser.set(email.user_id, openedAt);
+            }
+          } catch (gateReadError) {
+            emailGateReadable = false;
+            console.error(
+              `${CONTEXT_TAG} email gate read failed; sending alert emails ungated this run`,
+              gateReadError,
+            );
+          }
+        }
 
         // 4. Resolve active operator holds and record the canonical decision
         // for shadow observability before applying delivery gates.
@@ -1371,11 +1438,46 @@ async function handleGet(request: Request): Promise<NextResponse> {
                 // trip throttle get an attempt row written here and don't proceed
                 // to channel-pref/dedup/provider. Status priority places these
                 // skips above channel_disabled/dedup_collision.
-                const emailSurvivors = await applyThrottle(emailItems, "email");
-                if (emailSurvivors.length === 0) {
+                const emailThrottleSurvivors = await applyThrottle(
+                  emailItems,
+                  "email",
+                );
+                const emailGateSkips: Array<{
+                  item: QueueItemWithMeta;
+                  reason: string;
+                }> = [];
+                const emailSurvivors = emailThrottleSurvivors.filter((item) => {
+                  if (!emailGateReadable) return true;
+                  const decision = decideAlertEmail({
+                    ruleNotifyPush: item.notify_push,
+                    profilePushEnabled: profile.notif_push_enabled,
+                    profileForecastAlertsPush: profile.notif_forecast_alerts,
+                    hasActiveDevice: activeDeviceUserIds.has(payload.user_id),
+                    recentAlertEmailOpenedAt:
+                      recentAlertEmailOpenedAtByUser.get(payload.user_id) ?? [],
+                  });
+                  if (decision.send) return true;
+                  emailGateSkips.push({ item, reason: decision.reason });
+                  return false;
+                });
+                // channel_disabled consumes the queue row: push (if any) marks
+                // it delivered, and an email cut for no opens is not retried.
+                async function recordEmailGateSkips(): Promise<void> {
+                  for (const { item, reason } of emailGateSkips) {
+                    await recordAttempt({
+                      queueId: item.id,
+                      ruleId: item.rule_id,
+                      userId: payload.user_id,
+                      channel: "email",
+                      status: "skipped_channel_disabled",
+                      skipReason: reason,
+                    });
+                  }
+                }
+                if (emailThrottleSurvivors.length === 0) {
                   // All items blocked by throttle; rows already recorded.
                 } else if (!profile.notif_email_enabled) {
-                  for (const item of emailSurvivors) {
+                  for (const item of emailThrottleSurvivors) {
                     await recordAttempt({
                       queueId: item.id,
                       ruleId: item.rule_id,
@@ -1390,7 +1492,7 @@ async function handleGet(request: Request): Promise<NextResponse> {
                   // `string`.", which surfaced as failed_provider on 2026-04-27.
                   // Guard before the provider call. Push delivery is independent
                   // and continues for the same user below.
-                  for (const item of emailSurvivors) {
+                  for (const item of emailThrottleSurvivors) {
                     await recordAttempt({
                       queueId: item.id,
                       ruleId: item.rule_id,
@@ -1400,7 +1502,10 @@ async function handleGet(request: Request): Promise<NextResponse> {
                       skipReason: "profile.email is null or empty",
                     });
                   }
+                } else if (emailSurvivors.length === 0) {
+                  await recordEmailGateSkips();
                 } else {
+                  await recordEmailGateSkips();
                   // Dedup: only send if no email delivery recorded today
                   const { data: existingEmail, error: existingEmailError } =
                     await supabase
