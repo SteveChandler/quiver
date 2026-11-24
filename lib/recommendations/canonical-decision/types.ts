@@ -50,6 +50,8 @@ export interface CanonicalPersonalMatchEvidence {
   confidence: CanonicalMatchConfidence;
   sessionCount: number;
   similarSessionCount?: number;
+  /** Biggest face height (ft) among the user's eligible logged sessions. */
+  maxLoggedWaveFt?: number;
   reasons: string[];
 }
 

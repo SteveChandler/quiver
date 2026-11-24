@@ -172,8 +172,14 @@ function personalMatchVerdict(candidate: CanonicalDecisionCandidate): "go" | "ma
   if (!match || match.confidence !== "high" || match.sessionCount < 25 ||
       (match.similarSessionCount ?? 0) < 5) return null;
   if (match.label === "GOOD" || match.label === "EPIC") return "go";
-  if (match.label === "MEH") return "no";
-  return null;
+  if (match.label !== "MEH") return null;
+  // A forecast bigger than every logged session scores MEH only for being unlike them, not
+  // because the user rated such days low: with no evidence there, the physical verdict stands.
+  const maxLogged = match.maxLoggedWaveFt;
+  const height = parseWaveHeightRangeFt(typeof candidate.waveHeight === "string" ? candidate.waveHeight : null);
+  if (typeof maxLogged === "number" && Number.isFinite(maxLogged) && maxLogged > 0 &&
+      height !== null && height.max > maxLogged) return null;
+  return "no";
 }
 
 /** True when the engine's own safety gates will veto this candidate. */
