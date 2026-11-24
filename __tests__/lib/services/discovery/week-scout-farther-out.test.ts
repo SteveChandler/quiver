@@ -299,7 +299,7 @@ describe('Week Scout farther-out selection', () => {
 
     expect(selectFartherOut(inRange, outer, [east], ANCHOR).get('2026-07-31')).toMatchObject({
       direction: 'east',
-      driveMinutes: 15,
+      driveMinutes: 20,
     });
   });
 

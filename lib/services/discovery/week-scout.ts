@@ -288,7 +288,7 @@ export interface WeekScoutFartherOut {
   personalLabel: WeekScoutPersonalLabel;
   displayWindowStart: string;
   displayWindowEnd: string;
-  /** lib/profile/drive-range.ts rule, rounded to the nearest 5. */
+  /** lib/profile/drive-range.ts rule, rounded up to the next 5. */
   driveMinutes: number;
   /** From the request's scope anchor to the beach. */
   direction: 'north' | 'south' | 'east' | 'west';

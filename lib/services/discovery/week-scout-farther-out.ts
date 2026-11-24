@@ -129,7 +129,8 @@ export function selectFartherOut(
       personalLabel: best.personalLabel,
       displayWindowStart: best.displayWindowStart,
       displayWindowEnd: best.displayWindowEnd,
-      driveMinutes: Math.round(candidate.distanceMiles / MILES_PER_DRIVE_MINUTE / 5) * 5,
+      // Rounded up, so a beach just past a 15-minute range never reads "about 15 min".
+      driveMinutes: Math.ceil(candidate.distanceMiles / MILES_PER_DRIVE_MINUTE / 5) * 5,
       direction: DIRECTIONS[Math.round(bearingDegreesFromTo(anchor, candidate.beach) / 90) % 4],
     });
   }
