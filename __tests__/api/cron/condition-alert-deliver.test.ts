@@ -132,7 +132,7 @@ interface MockStore {
   deliveryInsertError: Error | null;
   deviceRows: { user_id: string; device_token: string }[];
   // Newest first, as the route orders by sent_at desc.
-  alertEmailLogRows: { user_id: string; email_type: string; opened_at: string | null }[];
+  alertEmailLogRows: { user_id: string; email_type: string; local_date: string; sent_at: string; opened_at: string | null; clicked_at: string | null }[];
   alertEmailLogError: { message: string } | null;
   attemptInserts: AttemptRow[];
   recentAttemptsError: Error | null;
@@ -3149,14 +3149,19 @@ describe("condition-alert-deliver — email follows the payload's canonical sele
 
 describe("alert email gate", () => {
   const OPENED = "2026-04-20T15:00:00Z";
+  // One email per day, newest first.
   function seedAlertEmails(openedAt: Array<string | null>) {
-    for (const opened of openedAt) {
+    openedAt.forEach((opened, index) => {
+      const day = `2026-04-${String(19 - index).padStart(2, "0")}`;
       store.alertEmailLogRows.push({
         user_id: USER_A,
         email_type: "conditions_alert",
+        local_date: day,
+        sent_at: `${day}T14:00:00Z`,
         opened_at: opened,
+        clicked_at: null,
       });
-    }
+    });
   }
   function emailAttempts() {
     return store.attemptInserts.filter((attempt) => attempt.channel === "email");
@@ -3200,7 +3205,7 @@ describe("alert email gate", () => {
     expect(emailAttempts()).toEqual([
       expect.objectContaining({
         status: "skipped_channel_disabled",
-        skip_reason: "email_gate:last_3_alert_emails_unopened",
+        skip_reason: "email_gate:last_3_alert_email_days_unopened",
       }),
     ]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
@@ -3282,5 +3287,64 @@ describe("alert email gate", () => {
     expect(res.status).toBe(200);
     expect(mockEmailsSend).toHaveBeenCalledTimes(1);
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("still sends when three unopened alert emails all went out on one morning", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile({ notif_push_enabled: false });
+    for (let i = 0; i < 3; i++) {
+      store.alertEmailLogRows.push({
+        user_id: USER_A,
+        email_type: "conditions_alert",
+        local_date: "2026-04-19",
+        sent_at: "2026-04-19T14:00:00Z",
+        opened_at: null,
+        clicked_at: null,
+      });
+    }
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts a click with no recorded open as engagement", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile({ notif_push_enabled: false });
+    seedAlertEmails([null, null, null]);
+    store.alertEmailLogRows[1].clicked_at = OPENED;
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("splits a payload: push covers the push rule, the email-only rule still gets its email", async () => {
+    const emailOnlyQueue = "00000000-0000-4000-8000-0000000000e1";
+    const emailOnlyRule = "00000000-0000-4000-8000-0000000000e2";
+    seedQueueRow();
+    seedQueueRow({
+      id: emailOnlyQueue,
+      rule_id: emailOnlyRule,
+      alert_rules: { name: "Email only rule", preset_type: "mellow_session", notify_email: true, notify_push: false },
+    });
+    seedProfile();
+    store.deviceRows.push({ user_id: USER_A, device_token: "device-token" });
+    seedAlertEmails([OPENED, null, null]);
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(emailAttempts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ queue_id: QUEUE_1, status: "skipped_channel_disabled", skip_reason: "email_gate:push_delivered" }),
+        expect.objectContaining({ queue_id: emailOnlyQueue, status: "sent" }),
+      ]),
+    );
+    expect(emailAttempts()).toHaveLength(2);
   });
 });

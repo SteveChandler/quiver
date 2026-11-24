@@ -65,7 +65,11 @@ import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
 import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
 import { isAlertEmailGateEnabled } from "@/lib/flags/alert-email-gate";
-import { decideAlertEmail } from "@/lib/alerts/email-gate";
+import {
+  ALERT_EMAIL_HISTORY_DAYS,
+  alertEmailDaysEngagedByUser,
+  decideAlertEmail,
+} from "@/lib/alerts/email-gate";
 import { selectAllPages } from "@/lib/services/wave-stations/paging";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
@@ -1072,10 +1076,7 @@ async function handleGet(request: Request): Promise<NextResponse> {
         const emailGateEnabled =
           forecastDeliveryEnabled && isAlertEmailGateEnabled();
         const activeDeviceUserIds = new Set<string>();
-        const recentAlertEmailOpenedAtByUser = new Map<
-          string,
-          Array<string | null>
-        >();
+        let alertEmailDaysEngaged = new Map<string, boolean[]>();
         let emailGateReadable = emailGateEnabled;
         const emailGateUserIds = Array.from(
           new Set(
@@ -1099,25 +1100,27 @@ async function handleGet(request: Request): Promise<NextResponse> {
             );
             for (const device of devices) activeDeviceUserIds.add(device.user_id);
 
+            const alertEmailHistoryStart = new Date(
+              Date.now() - ALERT_EMAIL_HISTORY_DAYS * 24 * 60 * 60 * 1000,
+            ).toISOString();
             const alertEmails = await selectAllPages<{
               user_id: string;
+              local_date: string | null;
+              sent_at: string;
               opened_at: string | null;
+              clicked_at: string | null;
             }>((from, to) =>
               supabase
                 .from("email_send_log")
-                .select("user_id, opened_at")
+                .select("user_id, local_date, sent_at, opened_at, clicked_at")
                 .in("user_id", emailGateUserIds)
                 .eq("email_type", "conditions_alert")
+                .gte("sent_at", alertEmailHistoryStart)
                 .order("sent_at", { ascending: false })
                 .order("id", { ascending: false })
                 .range(from, to),
             );
-            for (const email of alertEmails) {
-              const openedAt =
-                recentAlertEmailOpenedAtByUser.get(email.user_id) ?? [];
-              openedAt.push(email.opened_at);
-              recentAlertEmailOpenedAtByUser.set(email.user_id, openedAt);
-            }
+            alertEmailDaysEngaged = alertEmailDaysEngagedByUser(alertEmails);
           } catch (gateReadError) {
             emailGateReadable = false;
             console.error(
@@ -1453,8 +1456,8 @@ async function handleGet(request: Request): Promise<NextResponse> {
                     profilePushEnabled: profile.notif_push_enabled,
                     profileForecastAlertsPush: profile.notif_forecast_alerts,
                     hasActiveDevice: activeDeviceUserIds.has(payload.user_id),
-                    recentAlertEmailOpenedAt:
-                      recentAlertEmailOpenedAtByUser.get(payload.user_id) ?? [],
+                    recentAlertEmailDaysEngaged:
+                      alertEmailDaysEngaged.get(payload.user_id) ?? [],
                   });
                   if (decision.send) return true;
                   emailGateSkips.push({ item, reason: decision.reason });
