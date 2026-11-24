@@ -169,7 +169,7 @@ export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'>
 /** `/api/surf/call`'s `sessionDecision.verdict` vocabulary. */
 type WeekScoutPersonalVerdict = 'go' | 'maybe' | 'no';
 /** The labels a client prints for a call; EPIC stays off until the server can mark a day rare. */
-type WeekScoutPersonalLabel = 'EPIC' | 'GOOD' | 'FAIR' | 'RIDEABLE' | 'MEH';
+export type WeekScoutPersonalLabel = 'EPIC' | 'GOOD' | 'FAIR' | 'RIDEABLE' | 'MEH';
 
 /**
  * The call Beach Detail makes for this window, additive and present only for a
@@ -273,6 +273,25 @@ export interface WeekScoutDayResponse {
   bestWindowId: string | null;
   bestDayWindow: WeekScoutWindowResponse | null;
   exclusionReasons: WeekScoutDayExclusionReason[];
+  /**
+   * Additive, opt-in (`?fartherOut=1`): a beach past the drive range, at most
+   * 45 drive minutes out, whose best window is at least one label above this
+   * day's best. Absent when there is no such beach.
+   */
+  fartherOut?: WeekScoutFartherOut;
+}
+
+export interface WeekScoutFartherOut {
+  beachId: string;
+  beachName: string;
+  waveHeight: string | null;
+  personalLabel: WeekScoutPersonalLabel;
+  displayWindowStart: string;
+  displayWindowEnd: string;
+  /** lib/profile/drive-range.ts rule, rounded up to the next 5. */
+  driveMinutes: number;
+  /** From the request's scope anchor to the beach. */
+  direction: 'north' | 'south' | 'east' | 'west';
 }
 
 export interface WeekScoutResponse {

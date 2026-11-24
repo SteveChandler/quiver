@@ -311,6 +311,10 @@ interface BuildDriveRangeCandidatePoolOptions {
   filters?: readonly WeekScoutFilter[];
   /** Widen an empty drive range to 100 miles and name the nearest beach (Home/Explore scope). */
   widenEmptyRange?: boolean;
+  /** Keep only beaches farther than this; applied before the nearby cap so a ring is not capped away. */
+  beyondMiles?: number;
+  /** Nearby cap override; the default is the Daily Call's own. */
+  nearbyCap?: number;
 }
 
 interface DriveRangeCandidatePoolDependencies {
@@ -382,12 +386,15 @@ export async function buildDriveRangeCandidatePool(
     filters: options.filters,
     nearbyLocation: options.anchor,
   };
+  const beyondMiles = options.beyondMiles;
   const matching = pool.filter(({ beach, distanceMiles }) => (
     matchesScope({ beach, distanceMiles: distanceMiles ?? 0 }, scope)
+    && (beyondMiles === undefined || (distanceMiles !== null && distanceMiles > beyondMiles))
   ));
-  const capped = capNearbyPool(matching, "experienceLevel" in options
-    ? { experienceLevel: options.experienceLevel }
-    : {});
+  const capped = capNearbyPool(matching, {
+    ...("experienceLevel" in options ? { experienceLevel: options.experienceLevel } : {}),
+    ...(options.nearbyCap !== undefined ? { cap: options.nearbyCap } : {}),
+  });
   return {
     candidates: capped.pool.map(({ beach, distanceMiles }) => ({ beach, distanceMiles })),
     enumeratedCount: pool.length,

@@ -1,4 +1,4 @@
-const MILES_PER_DRIVE_MINUTE = 0.5;
+export const MILES_PER_DRIVE_MINUTE = 0.5;
 export const DEFAULT_DRIVE_MINUTES = 60;
 export const NO_LIMIT_DRIVE_MINUTES = 200;
 export const MAX_DRIVE_RADIUS_MILES = 100;
