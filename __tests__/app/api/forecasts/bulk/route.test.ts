@@ -873,6 +873,38 @@ describe("/api/forecasts/bulk", () => {
         ),
       ).toBe(false);
     });
+
+    it("scores the hourly timeline with the rating skill only for an allowlisted user", async () => {
+      const requestTimeline = async (): Promise<number[]> => {
+        const rows = [
+          hourlyTimelineRow(BOUND_BEACH_ID, "2", "2026-07-07T18:00:00.000Z"),
+          hourlyTimelineRow(BOUND_BEACH_ID, "3", "2026-07-07T21:00:00.000Z"),
+        ];
+        mockBulkQueries({ extensionOnly: true, hourlyTimelineRows: rows, beachRows: [beachRow(BOUND_BEACH_ID)] });
+        (scoreWindowConditionScore as jest.Mock).mockClear();
+        const response = await bulkForecastHandler(
+          createHourlyTimelineRequest(
+            `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}&timeline=hourly&timelineOnly=true&includeConditions=true&timelineStart=2026-07-07T18:00:00.000Z&timelineHours=4`,
+          ),
+          { params: {}, user: { id: "user-1" } as never, supabase: mockSupabaseClient as never },
+        );
+        const timeline = (await response.json()).data.hourlySwellTimeline;
+        return timeline.partitionsByBeach[BOUND_BEACH_ID].map(
+          (partition: { conditionScore: number | null }) => partition.conditionScore,
+        );
+      };
+
+      setFlag(true);
+      // precondition: the timeline was scored, and only the timeline called the scorer
+      expect((await requestTimeline()).some((score) => score !== null)).toBe(true);
+      expect(scorerSkills().length).toBeGreaterThan(0);
+      expect(scorerSkills().every((skill) => skill === "beginner")).toBe(true);
+
+      setFlag(false);
+      await requestTimeline();
+      expect(scorerSkills().length).toBeGreaterThan(0);
+      expect(scorerSkills().every((skill) => skill === null)).toBe(true);
+    });
   });
 
   it.each([
