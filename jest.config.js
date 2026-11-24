@@ -65,8 +65,9 @@ const customJestConfig = {
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],
   // Handle dynamic imports and async code better
   preset: undefined,
-  // Cap workers in CI to match GitHub runner vCPUs (2) and reduce contention
-  ...(process.env.CI ? { maxWorkers: 2 } : {}),
+  // CI: match the GitHub runner's 2 vCPUs. Local: each worker holds ~800 MB, and the
+  // default (cores - 1 = 10) takes ~8 GB of an 18 GB Mac. JEST_MAX_WORKERS or --maxWorkers overrides.
+  maxWorkers: process.env.CI ? 2 : process.env.JEST_MAX_WORKERS || 4,
   // Coverage configuration
   coverageProvider: "v8",
   coverageDirectory: "coverage",
