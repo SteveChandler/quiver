@@ -131,6 +131,9 @@ export function interpretRpcResult(
       similarSessionCount: typeof result.similar_session_count === "number"
         ? result.similar_session_count : typeof result.fit_signal_sample_count === "number"
           ? result.fit_signal_sample_count : 0,
+      // Absent until 20261124180000 is applied; null (no logged height) and bad values stay absent.
+      ...(typeof result.max_logged_wave_ft === "number" && Number.isFinite(result.max_logged_wave_ft) &&
+        result.max_logged_wave_ft > 0 ? { maxLoggedWaveFt: result.max_logged_wave_ft } : {}),
     };
   }
 

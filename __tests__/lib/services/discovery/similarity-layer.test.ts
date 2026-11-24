@@ -70,3 +70,15 @@ it('carries no session-count sentence to consumers: an empty bullet list gives a
   const result = interpretRpcResult({ ...match, reason_bullets: [], similar_good_session_count: 0, good_session_count: 19 });
   expect(result).toMatchObject({ state: 'ready', label: 'FAIR', reason: '', reasons: [] });
 });
+
+describe('max_logged_wave_ft', () => {
+  it('reads a finite positive number into maxLoggedWaveFt', () => {
+    expect(interpretRpcResult({ ...match, max_logged_wave_ft: 6 })).toMatchObject({ state: 'ready', maxLoggedWaveFt: 6 });
+  });
+
+  it.each([[undefined], [null], ['6.0'], [Number.NaN], [0], [-2]])('leaves the field absent for %p', (value) => {
+    const result = interpretRpcResult({ ...match, ...(value === undefined ? {} : { max_logged_wave_ft: value }) });
+    expect(result).toMatchObject({ state: 'ready' });
+    expect(result).not.toHaveProperty('maxLoggedWaveFt');
+  });
+});

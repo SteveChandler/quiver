@@ -32,4 +32,16 @@ describe("persistableSessionDecision", () => {
     });
     expect(decision.selection.evidence.personalMatch.similarSessionCount).toBe(9);
   });
+
+  it("drops the nested maxLoggedWaveFt so strict older readers accept the payload", () => {
+    const decision = {
+      decisionId: "d".repeat(64),
+      selection: { evidence: { personalMatch: { label: "MEH", sessionCount: 54, maxLoggedWaveFt: 6 } } },
+    };
+    expect(persistableSessionDecision(decision)).toEqual({
+      decisionId: "d".repeat(64),
+      selection: { evidence: { personalMatch: { label: "MEH", sessionCount: 54 } } },
+    });
+    expect(decision.selection.evidence.personalMatch.maxLoggedWaveFt).toBe(6);
+  });
 });
