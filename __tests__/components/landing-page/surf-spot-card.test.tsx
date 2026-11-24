@@ -112,14 +112,14 @@ describe("SurfSpotCard", () => {
   });
 
   describe("wave height rendering", () => {
-    it("renders string wave height as rounded integer with ft suffix", () => {
+    it("brackets a string wave height like a numeric one", () => {
       render(<SurfSpotCard {...defaultProps} waveHeight="2.8" />);
-      expect(screen.getByText("3ft")).toBeInTheDocument();
+      expect(screen.getByText("2-3ft")).toBeInTheDocument();
     });
 
-    it("renders string wave height '5.2' as '5ft'", () => {
+    it("renders string wave height '5.2' as '5-6ft'", () => {
       render(<SurfSpotCard {...defaultProps} waveHeight="5.2" />);
-      expect(screen.getByText("5ft")).toBeInTheDocument();
+      expect(screen.getByText("5-6ft")).toBeInTheDocument();
     });
 
     it("does not render wave section for string '0'", () => {

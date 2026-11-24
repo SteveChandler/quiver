@@ -173,6 +173,7 @@ export function formatWaveHeightBucket(waveHeight?: number | string | null): str
  * formatWaveRange([3.2, 5.8], "integer")  // "3-6ft"
  * formatWaveRange([4, 4])                 // "4.0ft"
  * formatWaveRange(3.5)                   // "3-4ft"
+ * formatWaveRange(3)                     // "2-3ft"
  * formatWaveRange(2, 4)                   // "2-4ft"
  * ```
  */
@@ -187,13 +188,9 @@ export function formatWaveRange(
   precisionOrMax: "decimal" | "integer" | number = "decimal"
 ): string {
   if (typeof rangeOrMin === "number") {
-    if (typeof precisionOrMax !== "number") {
-      const lower = Math.max(0, Math.floor(rangeOrMin - 0.5));
-      const upper = Math.ceil(rangeOrMin + 0.5);
-      return `${lower}-${upper}ft`;
-    }
-
-    return bracketFaceHeightFeet(rangeOrMin, precisionOrMax);
+    // A single height reads the same as formatWaveHeightRange.
+    const max = typeof precisionOrMax === "number" ? precisionOrMax : rangeOrMin;
+    return bracketFaceHeightFeet(rangeOrMin, max);
   }
 
   const [min, max] = rangeOrMin;
