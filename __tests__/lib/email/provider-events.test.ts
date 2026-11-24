@@ -13,7 +13,7 @@ it("routes a signed reply by exact mailbox and normalized sender", async () => {
 });
 it.each(["email.complained", "email.bounced", "email.delivered", "email.opened", "email.clicked"])("durably passes %s to the transactional receipt processor", async type => {
   await recordProviderEvent({ type, created_at: "2026-09-11T13:00:00Z", data: { email_id: "p1", created_at: "2026-09-11T12:00:00Z", to: ["surfer@example.com"], bounce: { type: "Permanent" } } }, "w1");
-  expect(mockRpc).toHaveBeenCalledWith("record_lifecycle_provider_event", expect.objectContaining({ p_type: type, p_provider_id: "p1", p_webhook_id: "w1", p_hard_bounce: true, p_at: "2026-09-11T13:00:00Z" }));
+  expect(mockRpc).toHaveBeenCalledWith("record_lifecycle_provider_event_v2", expect.objectContaining({ p_type: type, p_provider_id: "p1", p_webhook_id: "w1", p_hard_bounce: true, p_at: "2026-09-11T13:00:00Z" }));
 });
 it("propagates storage errors so the signed webhook can be retried", async () => {
   mockRpc.mockRejectedValue(new Error("write failed"));
@@ -23,7 +23,7 @@ it("propagates storage errors so the signed webhook can be retried", async () =>
 it("does not suppress a temporary bounce or accept a missing event timestamp", async () => {
  const event = { type: "email.bounced", created_at: "2026-09-11T13:00:00Z", data: { email_id: "p1", created_at: "2026-09-11T12:00:00Z", bounce: { type: "Temporary" } } };
  await recordProviderEvent(event, "w1");
- expect(mockRpc).toHaveBeenCalledWith("record_lifecycle_provider_event", expect.objectContaining({ p_hard_bounce: false, p_at: event.created_at }));
+ expect(mockRpc).toHaveBeenCalledWith("record_lifecycle_provider_event_v2", expect.objectContaining({ p_hard_bounce: false, p_at: event.created_at }));
  mockRpc.mockClear();
  await expect(recordProviderEvent({ ...event, created_at: undefined }, "w2")).rejects.toThrow();
  expect(mockRpc).not.toHaveBeenCalled();
