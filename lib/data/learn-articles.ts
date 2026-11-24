@@ -452,6 +452,11 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/what-is-a-rogue-wave",
         description: "Rogue sets, sneaker waves and how far they run up the beach.",
       },
+      {
+        label: "Where to Watch Mavericks",
+        href: "/learn/where-to-watch-mavericks",
+        description: "Big winter swell at Pillar Point and where to watch it.",
+      },
     ],
   },
 
@@ -1153,6 +1158,11 @@ export const learnArticles: LearnArticle[] = [
         label: "What Is a Rogue Wave?",
         href: "/learn/what-is-a-rogue-wave",
         description: "Rogue sets, sneaker waves and how far they run up the beach.",
+      },
+      {
+        label: "Where to Watch Mavericks",
+        href: "/learn/where-to-watch-mavericks",
+        description: "Why the biggest Mavericks sets run larger than the buoy number.",
       },
     ],
     appHandoff: {
@@ -4290,6 +4300,11 @@ export const learnArticles: LearnArticle[] = [
         href: "/ca/pacifica",
         description: "Today's surf and swell for Pacifica's beaches.",
       },
+      {
+        label: "Where to Watch Mavericks",
+        href: "/learn/where-to-watch-mavericks",
+        description: "The bluff, the beach and the boat, and how to stay dry.",
+      },
     ],
     appHandoff: {
       eyebrow: "Big swell on the way",
@@ -4297,6 +4312,149 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver shows swell height and period for Ocean Beach, Pacifica and the rest of your coast, so you know when a long-period swell is coming and to stay well back from the water.",
       ctaLabel: "Check the swell",
+    },
+  },
+  {
+    slug: "where-to-watch-mavericks",
+    title: "Where to Watch Mavericks: Bluff, Beach or Boat",
+    description:
+      "Mavericks breaks about half a mile off Pillar Point. Watch from Pillar Point Bluff with binoculars, and stay off the jetty and seawall.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-24",
+    dateModified: "2026-11-24",
+    heroImage: "/images/learn/learn-mavericks-contest-wave.webp",
+    thumbnailImage: "/images/learn/learn-mavericks-contest-wave.webp",
+    keywords: [
+      "where to watch mavericks",
+      "mavericks viewing",
+      "can you see mavericks from shore",
+      "mavericks half moon bay",
+      "where is mavericks surf break",
+      "when does mavericks break",
+      "mavericks surf season",
+      "pillar point bluff",
+      "mavericks beach",
+      "how to watch mavericks",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Mavericks breaks about half a mile off Pillar Point, so you watch it from Pillar Point Bluff with binoculars. San Mateo County Parks says the break sits approximately half a mile offshore, due west of the Pillar Point Air Force Tracking station, and is best viewed with binoculars.</p><p>The big days come in winter, November through March. Check <a href="/ca/half-moon-bay/mavericks-half-moon-bay-ca">Mavericks surf today</a> before you drive out to Princeton.</p>`,
+        keyTakeaway: "Half a mile out. No binoculars, no rides, just whitewater.",
+      },
+      {
+        id: "from-shore",
+        heading: "Can you see Mavericks from shore?",
+        content: `<p>Yes, but small. Visit Half Moon Bay, the local visitor bureau, says that from roughly a half-mile away the surfers will look like ants. You'll see the whitewater and the size of the sets. You won't see faces.</p><p>Visit Half Moon Bay says binoculars help, and that the best in-person view is usually from a boat. It names Surfers' Beach and Mavericks Beach as places to stake out a spot.</p>`,
+        keyTakeaway: "Pack binoculars, or you watch sets, not surfers.",
+      },
+      {
+        id: "pillar-point-bluff",
+        heading: "Where to stand: Pillar Point Bluff",
+        content: `<p>Pillar Point Bluff is a 220-acre San Mateo County park on top of the bluff, with a section of the California Coastal Trail running through it. The county lists a 10-car parking lot on Airport Street. The Jean Lauer Trail links that lot with Bernal Avenue. Dogs are fine on leash.</p><p>Ten spaces will not go far on a big swell, so get there early. The county page carries a "Use Caution on Beaches and Bluffs" notice. Stay on the trail and well back from the edge.</p>`,
+        keyTakeaway: "Ten parking spaces. On a big swell, arrive early.",
+      },
+      {
+        id: "mavericks-beach",
+        heading: "Mavericks Beach and the West Trail",
+        content: `<p>The San Mateo County Harbor District calls the West Trail the only access point to Mavericks Beach. It starts at the West Point Avenue parking area.</p><p>The district also says erosion has made the trail hazardous for the people on it. Check the Harbor District for the trail's current status before you go. If you can't confirm it, watch from the bluff.</p>`,
+        keyTakeaway: "One trail in. No word from the Harbor District, use the bluff.",
+      },
+      {
+        id: "boat",
+        heading: "Watching from a boat",
+        content: `<p>Visit Half Moon Bay says the best in-person viewing is usually from a boat. On contest days the channel beside the break fills with spectator boats and jet skis.</p><p>The US Coast Guard sets the rules for that water. Under 33 CFR 100.1106, spectator boats keep a minimum wake and follow the directions of the patrol commander. Go with a skipper who knows Pillar Point Harbor.</p>`,
+        keyTakeaway: "Minimum wake, and the patrol commander's directions come first.",
+        image: {
+          src: "/images/learn/learn-mavericks-spectator-boats.webp",
+          alt: "An aerial view of dozens of spectator boats and jet skis gathered in the channel beside the Mavericks break during a contest",
+          position: "right",
+        },
+      },
+      {
+        id: "when",
+        heading: "When does Mavericks break?",
+        content: `<p>In winter, on big swell. Visit Half Moon Bay says the big waves come in the winter months, November through March. The Coast Guard contest window runs November 1 to March 31, and the contest is only held if 15 to 20 foot waves hold for over 24 hours.</p><p>Watch the buoys. Quiver's Big Swells card treats the San Francisco Bar buoy as big at about 14 feet of swell. That number is the average of the tallest third of the waves, as our guide to <a href="/learn/how-are-waves-measured">how waves are measured</a> explains, so the biggest sets run larger.</p><p>Long-period swell means bigger sets and longer lulls. Our <a href="/learn/swell-period-explained">swell period guide</a> covers why. Check the <a href="/buoys">live buoy readings</a> and the <a href="/best-time-to-surf/half-moon-bay">best time to surf Half Moon Bay</a> before you go.</p>`,
+        keyTakeaway: "About 14 feet on the SF Bar buoy is Quiver's big-swell line.",
+      },
+      {
+        id: "safety",
+        heading: "How to stay safe on a big day",
+        content: `<p>Stay off the jetty, the seawall and the reef. A US Army Corps of Engineers danger sign photographed at Mavericks tells people not to walk on the structure, and says hazardous wave conditions exist even on calm days. Its last line reads: "Waves can wash over structure and sweep people into the ocean."</p><p>It has happened here. NBC Bay Area reported that on February 13, 2010, during the contest, two large waves swept spectators off the seawall at about 9 a.m. Thirteen people were injured.</p><p>San Mateo County Harbor Patrol asks people to watch the big waves from a safe distance and a dry location. The NWS says to watch the ocean for at least 20 minutes and never turn your back on the waves. Sneaker waves often follow 10 to 20 minutes of small waves, as our <a href="/learn/what-is-a-rogue-wave">rogue wave guide</a> explains.</p><p>No forecast can promise a safe beach or bluff. Pick dry ground well above the water.</p>`,
+        keyTakeaway: "If the ground under you is wet, move higher.",
+        image: {
+          src: "/images/learn/learn-mavericks-breakwater-danger-sign.webp",
+          alt: "A torn red \"Danger, extremely hazardous waves\" sign from the US Army Corps of Engineers, photographed at Mavericks in Half Moon Bay, warning that waves can wash over the structure and sweep people into the ocean",
+          position: "left",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: "Where is the best place to watch Mavericks?",
+        answer:
+          "Pillar Point Bluff, the San Mateo County park above Pillar Point. The county says the break is about half a mile offshore and is best viewed with binoculars. Visit Half Moon Bay says the best in-person view is usually from a boat.",
+      },
+      {
+        question: "Can you see Mavericks from the beach?",
+        answer:
+          "Visit Half Moon Bay names Surfers' Beach and Mavericks Beach as places to stake out a spot, but says the surfers will look like ants. The West Trail is the only access to Mavericks Beach, and the Harbor District says erosion has made it hazardous, so check its status first.",
+      },
+      {
+        question: "How far offshore is Mavericks?",
+        answer:
+          "About half a mile. San Mateo County Parks puts the break approximately half a mile offshore, due west of the Pillar Point Air Force Tracking station.",
+      },
+      {
+        question: "When does Mavericks break?",
+        answer:
+          "In winter, on big swell. Visit Half Moon Bay says November through March. The Coast Guard contest window is November 1 to March 31, and the contest is only held if 15 to 20 foot waves hold for over 24 hours.",
+      },
+      {
+        question: "Is it safe to watch Mavericks from the jetty?",
+        answer:
+          "No. Stay off it. A US Army Corps of Engineers danger sign photographed at Mavericks reads \"Waves can wash over structure and sweep people into the ocean.\" San Mateo County Harbor Patrol asks people to watch from a safe distance and a dry location. NBC Bay Area reported that in 2010 two waves swept spectators off the seawall and 13 people were injured.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Mavericks surf today",
+        href: "/ca/half-moon-bay/mavericks-half-moon-bay-ca",
+        description: "Today's swell, wind and tide at Mavericks.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Sneaker waves and why you never turn your back on the ocean.",
+      },
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Why long-period swell brings bigger sets and longer lulls.",
+      },
+      {
+        label: "How Big Is 3 ft Surf?",
+        href: "/learn/how-are-waves-measured",
+        description: "Buoy height, face height, and why some sets run bigger.",
+      },
+      {
+        label: "Live buoy readings",
+        href: "/buoys",
+        description: "Swell height and period from offshore buoys right now.",
+      },
+      {
+        label: "Best time to surf Half Moon Bay",
+        href: "/best-time-to-surf/half-moon-bay",
+        description: "The months and tides that work around Half Moon Bay.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Mavericks swell watch",
+      title: "See the swell before you drive to Pillar Point.",
+      description:
+        "Quiver shows swell height and period for Mavericks and Half Moon Bay, so you know a big long-period swell is coming before you leave home.",
+      ctaLabel: "Check Mavericks swell",
     },
   },
 ];
