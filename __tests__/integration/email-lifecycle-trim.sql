@@ -18,6 +18,7 @@ DECLARE
  we uuid := 'c0c00000-0000-4000-8000-000000000003';
  re uuid := 'c0c00000-0000-4000-8000-000000000004';
  ac uuid := 'c0c00000-0000-4000-8000-000000000005';
+ pr uuid := 'c0c00000-0000-4000-8000-000000000006';
  tz text := 'America/Los_Angeles';
  d jsonb;
 BEGIN
@@ -27,28 +28,37 @@ BEGIN
   (ro,'trim-routine@example.com',now()-interval '22 days',now()-interval '22 days'),
   (we,'trim-welcome@gmail.com',now()-interval '2 hours',now()-interval '2 hours'),
   (re,'abc123xyz@privaterelay.appleid.com',now()-interval '2 hours',now()-interval '2 hours'),
-  (ac,'trim-activation@example.com',now()-interval '4 days',now()-interval '4 days');
+  (ac,'trim-activation@example.com',now()-interval '4 days',now()-interval '4 days'),
+  (pr,'trim-progress@example.com',now()-interval '8 days',now()-interval '8 days');
  INSERT INTO profiles(id,email,analytics_is_real_user,notif_email_enabled,timezone,home_beach_id) VALUES
   (fr,'trim-friction@example.com',true,true,tz,NULL),(ro,'trim-routine@example.com',true,true,tz,NULL),
   (we,'trim-welcome@gmail.com',true,true,tz,NULL),(re,'ABC123xyz@privaterelay.appleid.com',true,true,tz,NULL),
-  (ac,'trim-activation@example.com',true,true,tz,NULL);
+  (ac,'trim-activation@example.com',true,true,tz,NULL),(pr,'trim-progress@example.com',true,true,tz,NULL);
  INSERT INTO email_contact_state(user_id,approved_campaign,lifecycle_consent_at,consent_reference,history_reviewed_at,
   entitlement_verified_until,entitlement_reference,provider_access_active)
- SELECT id,'startup-lifecycle-v1',now(),'trim fixture',now(),now()+interval '1 hour','fixture',false FROM unnest(ARRAY[fr,ro,we,re,ac]) id;
- INSERT INTO user_entitlements(user_id,is_pro,is_trialing) SELECT id,false,false FROM unnest(ARRAY[fr,ro,we,re,ac]) id;
+ SELECT id,'startup-lifecycle-v1',now(),'trim fixture',now(),now()+interval '1 hour','fixture',false FROM unnest(ARRAY[fr,ro,we,re,ac,pr]) id;
+ INSERT INTO user_entitlements(user_id,is_pro,is_trialing) SELECT id,false,false FROM unnest(ARRAY[fr,ro,we,re,ac,pr]) id;
  INSERT INTO user_events(user_id,bot_flagged,event_type,created_at) VALUES
   (fr,false,'beach_view',now()-interval '5 days'),
   (ro,false,'beach_view',now()-interval '1 day'),(ro,false,'beach_view',now()-interval '3 days'),
   (ac,false,'beach_view',now()-interval '1 day');
+ -- pr matches friction and progress: 2 sessions, last use and last completion 5 days ago.
+ -- The sessions trigger stamps email_completed_at with now(); skip it so the completion is 5 days old.
+ PERFORM set_config('session_replication_role','replica',true);
+ INSERT INTO sessions(user_id,status,email_completed_at) VALUES (pr,'completed',now()-interval '6 days'),(pr,'completed',now()-interval '5 days');
+ PERFORM set_config('session_replication_role','origin',true);
 
- -- Disabled jobs: quiet with a clear reason, never due, and the claim refuses them.
+ -- Stopped stage jobs: skipped, never due, and the claim refuses them.
  d := evaluate_email_lifecycle(fr);
- ASSERT d->>'status'='quiet' AND d->>'reason'='job_disabled' AND d->>'job'='friction',d::text;
+ ASSERT d->>'status'='quiet' AND d->>'reason'='no_relevant_job',d::text;
  d := evaluate_email_lifecycle(ro);
- ASSERT d->>'status'='quiet' AND d->>'reason'='job_disabled' AND d->>'job'='routine',d::text;
+ ASSERT d->>'status'='quiet' AND d->>'reason'='no_relevant_job',d::text;
  PERFORM record_email_lifecycle_decision(fr); PERFORM record_email_lifecycle_decision(ro);
- ASSERT (SELECT count(*) FROM email_lifecycle_recipients WHERE user_id IN (fr,ro) AND status='quiet' AND reason='job_disabled' AND first_due_at IS NULL)=2;
- ASSERT claim_email_lifecycle(fr,1,repeat('a',64))->>'reason'='job_disabled';
+ ASSERT (SELECT count(*) FROM email_lifecycle_recipients WHERE user_id IN (fr,ro) AND status='quiet' AND reason='no_relevant_job' AND first_due_at IS NULL)=2;
+ ASSERT claim_email_lifecycle(fr,1,repeat('a',64))->>'reason'='no_relevant_job';
+ -- A stopped friction job does not hold the slot: the user who also matches progress gets progress.
+ d := evaluate_email_lifecycle(pr);
+ ASSERT d->>'job'='progress' AND d->>'status' IN ('due','deferred'),d::text;
  ASSERT NOT EXISTS (SELECT 1 FROM email_contact_attempts WHERE user_id IN (fr,ro));
 
  -- Welcome: a relay address keeps the campaign welcome; any other address is left to the founder's Gmail welcome.
@@ -69,6 +79,8 @@ BEGIN
  ASSERT d->>'job'='friction' AND d->>'status' IN ('due','deferred'),d::text;
  d := evaluate_email_lifecycle(ro);
  ASSERT d->>'job'='routine' AND d->>'status' IN ('due','deferred'),d::text;
+ d := evaluate_email_lifecycle(pr);
+ ASSERT d->>'job'='friction',d::text;
  d := evaluate_email_lifecycle(we);
  ASSERT d->>'job'='welcome' AND d->>'status' IN ('due','deferred'),d::text;
  d := evaluate_email_lifecycle(re);
@@ -79,7 +91,7 @@ BEGIN
  -- Each setting works alone.
  UPDATE email_contact_controls SET disabled_jobs='{routine}' WHERE singleton;
  ASSERT evaluate_email_lifecycle(fr)->>'job'='friction';
- ASSERT evaluate_email_lifecycle(ro)->>'reason'='job_disabled';
+ ASSERT evaluate_email_lifecycle(ro)->>'reason'='no_relevant_job';
  ASSERT evaluate_email_lifecycle(we)->>'job'='welcome';
 
  BEGIN

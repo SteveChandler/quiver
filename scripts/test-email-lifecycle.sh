@@ -74,6 +74,11 @@ psql_local -f "$repo_dir/supabase/migrations/20261117140000_alert_email_earliest
 psql_local -f "$repo_dir/supabase/migrations/20261124161000_lifecycle_disable_friction_routine.sql" \
   -f "$repo_dir/supabase/migrations/20261124161000_lifecycle_disable_friction_routine.sql" \
   -f "$repo_dir/__tests__/integration/email-lifecycle-trim.sql"
+# A later run of the migration must not undo an operator's off switch.
+psql_local -c "UPDATE public.email_contact_controls SET disabled_jobs='{}', welcome_relay_only=false WHERE singleton" \
+  -f "$repo_dir/supabase/migrations/20261124161000_lifecycle_disable_friction_routine.sql" \
+  -c "DO \$\$ BEGIN ASSERT (SELECT disabled_jobs='{}' AND NOT welcome_relay_only FROM public.email_contact_controls WHERE singleton), 'rerun reset the off switch'; END \$\$" \
+  -c "UPDATE public.email_contact_controls SET disabled_jobs='{friction,routine}', welcome_relay_only=true WHERE singleton"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \

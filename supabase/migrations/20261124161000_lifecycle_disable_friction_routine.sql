@@ -1,10 +1,12 @@
 -- Stop the friction and routine lifecycle jobs, and limit the campaign welcome to Apple private-relay addresses
 -- (the founder's personal Gmail welcome skips relay addresses and reaches every other one).
 -- Both are settings on email_contact_controls, not deletions:
---   disabled_jobs: a job in this list returns status 'quiet', reason 'job_disabled' (never 'due').
+--   disabled_jobs: a stage job in this list (welcome, friction, activation, progress, routine) is skipped and the user
+--     falls through to the next rule; trial_feedback, trial_support and offer_ready return 'quiet' / 'job_disabled'.
 --   welcome_relay_only: when true, a non-relay welcome returns status 'quiet', reason 'founder_welcome'.
 -- Turn back on: UPDATE public.email_contact_controls SET disabled_jobs='{}', welcome_relay_only=false WHERE singleton;
--- evaluate_email_lifecycle is the 20261117120000 text plus the two IF blocks after the job selection.
+-- evaluate_email_lifecycle is the 20261117120000 text plus: one DECLARE, one SELECT, a disabled test in five
+-- ELSIF conditions, and the two IF blocks after the job selection.
 -- Precondition (prod): md5(pg_get_functiondef('public.evaluate_email_lifecycle(uuid,uuid)'::regprocedure))
 --   = 'db2509eac2c58be694290b9a7ebe3fee' (the 20261117120000 text).
 -- Rollback: re-apply the evaluate_email_lifecycle block of 20261117120000_lifecycle_trial_falls_through.sql,
@@ -12,12 +14,19 @@
 --   DROP COLUMN IF EXISTS disabled_jobs, DROP COLUMN IF EXISTS welcome_relay_only;
 BEGIN;
 
-ALTER TABLE public.email_contact_controls ADD COLUMN IF NOT EXISTS disabled_jobs text[] NOT NULL DEFAULT '{}';
-ALTER TABLE public.email_contact_controls ADD COLUMN IF NOT EXISTS welcome_relay_only boolean NOT NULL DEFAULT false;
+-- The settings are written only when the columns are created, so a second run never undoes an operator's off switch.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+    AND table_name='email_contact_controls' AND column_name='disabled_jobs') THEN
+    ALTER TABLE public.email_contact_controls ADD COLUMN disabled_jobs text[] NOT NULL DEFAULT '{}';
+    ALTER TABLE public.email_contact_controls ADD COLUMN welcome_relay_only boolean NOT NULL DEFAULT false;
+    UPDATE public.email_contact_controls SET disabled_jobs='{friction,routine}', welcome_relay_only=true WHERE singleton;
+  END IF;
+END $$;
+-- Keep this list equal to lifecycleJobSchema in lib/email/lifecycle.ts.
 ALTER TABLE public.email_contact_controls DROP CONSTRAINT IF EXISTS email_contact_controls_disabled_jobs_check;
 ALTER TABLE public.email_contact_controls ADD CONSTRAINT email_contact_controls_disabled_jobs_check CHECK (disabled_jobs <@
   ARRAY['welcome','activation','progress','friction','trial_support','routine','offer_ready','trial_feedback']::text[]);
-UPDATE public.email_contact_controls SET disabled_jobs='{friction,routine}', welcome_relay_only=true WHERE singleton;
 
 CREATE OR REPLACE FUNCTION public.evaluate_email_lifecycle(p_user_id uuid, p_ignore_attempt uuid DEFAULT NULL::uuid)
  RETURNS jsonb
@@ -33,6 +42,7 @@ DECLARE
   offer public.pro_offer_awards%ROWTYPE; audience text;
   active_days integer; contacts timestamptz[]; local_time timestamp; result jsonb; cap integer;
   v_timezone text; trial_target_reached boolean := false; trial_support_done boolean := false;
+  disabled text[];
 BEGIN
   SELECT * INTO p FROM public.profiles WHERE id=p_user_id;
   v_timezone := public.email_contact_timezone(p.timezone,p.home_beach_id);
@@ -99,6 +109,8 @@ BEGIN
         AND episode=t.provider_event_id AND id IS DISTINCT FROM p_ignore_attempt AND state NOT IN ('cancelled','failed'))
       OR EXISTS(SELECT 1 FROM public.email_send_log WHERE user_id=p_user_id AND email_type='trial_started');
   END IF;
+  -- A stopped stage job must not hold its place in the chain: the user falls through to the next rule.
+  SELECT coalesce((SELECT disabled_jobs FROM public.email_contact_controls WHERE singleton),'{}') INTO disabled;
   IF feedback_trial IS NOT NULL THEN
     job:='trial_feedback'; v_episode:=feedback_trial->>'trial_event_id';
     due:=(feedback_trial->>'cancelled_at')::timestamptz+interval '24 hours';
@@ -110,22 +122,22 @@ BEGIN
     RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','quiet','reason','offer_claim_pending');
   ELSIF offer.earned_at IS NOT NULL THEN
     job:='offer_ready'; v_episode:=offer.id::text; due:=offer.earned_at; expiry:=offer.earned_at+interval '30 days';
-  ELSIF n<registered+interval '48 hours' AND NOT EXISTS (
+  ELSIF NOT 'welcome'=ANY(disabled) AND n<registered+interval '48 hours' AND NOT EXISTS (
     SELECT 1 FROM public.email_send_log WHERE user_id=p_user_id AND email_type IN ('welcome','founder_story','trial_started')
   ) THEN job := 'welcome'; due := registered; expiry := registered+interval '48 hours';
-  ELSIF n>=registered+interval '7 days' AND n<registered+interval '10 days' AND count_sessions<5
+  ELSIF NOT 'friction'=ANY(disabled) AND n>=registered+interval '7 days' AND n<registered+interval '10 days' AND count_sessions<5
     AND coalesce(last_use,registered)<=n-interval '4 days' AND (last_completion IS NULL OR last_completion<=n-interval '4 days') THEN
     job := 'friction'; due := registered+interval '7 days'; expiry := registered+interval '10 days';
-  ELSIF count_sessions=0 AND n<registered+interval '7 days' AND last_use>n-interval '7 days' THEN
+  ELSIF NOT 'activation'=ANY(disabled) AND count_sessions=0 AND n<registered+interval '7 days' AND last_use>n-interval '7 days' THEN
     job := 'activation'; due := registered+interval '3 days'; expiry := registered+interval '7 days';
-  ELSIF count_sessions BETWEEN 1 AND 4 AND last_completion IS NOT NULL AND n<registered+interval '21 days' AND last_use>n-interval '7 days' THEN
+  ELSIF NOT 'progress'=ANY(disabled) AND count_sessions BETWEEN 1 AND 4 AND last_completion IS NOT NULL AND n<registered+interval '21 days' AND last_use>n-interval '7 days' THEN
     job := 'progress'; due := last_completion+interval '72 hours'; expiry := registered+interval '21 days';
-  ELSIF n>=registered+interval '21 days' AND n<registered+interval '28 days' AND active_days>=2 AND last_use>n-interval '7 days' THEN
+  ELSIF NOT 'routine'=ANY(disabled) AND n>=registered+interval '21 days' AND n<registered+interval '28 days' AND active_days>=2 AND last_use>n-interval '7 days' THEN
     job := 'routine'; due := registered+interval '21 days'; expiry := registered+interval '28 days';
   ELSE RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','quiet','reason','no_relevant_job');
   END IF;
-  -- Off switches in email_contact_controls; a quiet result keeps the recipient out of 'due'.
-  IF EXISTS (SELECT 1 FROM public.email_contact_controls WHERE singleton AND job=ANY(disabled_jobs)) THEN
+  -- trial_feedback, trial_support and offer_ready have no later rule to fall to; a quiet result keeps them out of 'due'.
+  IF job=ANY(disabled) THEN
     RETURN jsonb_build_object('user_id',p_user_id,'campaign_id',c.id,'status','quiet','reason','job_disabled','job',job);
   END IF;
   -- The founder's Gmail welcome reaches every address except Apple private relay, so the campaign welcome covers only relay.
