@@ -124,7 +124,7 @@ export function boardReadMismatch(
     + `but fetchBoardClassesByUser returned ${actual.join(", ") || "none"}`;
 }
 
-const REPLAY_SCORING_FLAGS =["HOURLY_BRIDGE_ENABLED", "NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED", "NEXT_PUBLIC_TIDE_SWING_ENABLED"] as const;
+const REPLAY_SCORING_FLAGS = ["HOURLY_BRIDGE_ENABLED", "NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED", "NEXT_PUBLIC_TIDE_SWING_ENABLED"] as const;
 const TRUSTED_FORECAST_PREFIX = "TRUSTED_FORECAST_";
 
 const READ_ONLY_RPCS = new Set([
