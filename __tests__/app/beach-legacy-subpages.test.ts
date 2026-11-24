@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { redirect } from "next/navigation";
+import { permanentRedirect, redirect } from "next/navigation";
 import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import BeachTidesPage from "@/app/beach/[slug]/tides/page";
@@ -15,6 +15,11 @@ jest.mock("next/navigation", () => ({
     throw error;
   }),
   redirect: jest.fn((url: string) => {
+    const error = new Error(`NEXT_REDIRECT:${url}`);
+    (error as { digest?: string }).digest = "NEXT_REDIRECT";
+    throw error;
+  }),
+  permanentRedirect: jest.fn((url: string) => {
     const error = new Error(`NEXT_REDIRECT:${url}`);
     (error as { digest?: string }).digest = "NEXT_REDIRECT";
     throw error;
@@ -65,6 +70,7 @@ describe("legacy /beach/[slug] utility subpages", () => {
     await BeachTidesPage({ params: Promise.resolve({ slug: "legacy-beach" }) });
 
     expect(redirect).not.toHaveBeenCalled();
+    expect(permanentRedirect).not.toHaveBeenCalled();
     expect(renderBeachSubPage).toHaveBeenCalledWith({
       beachSlug: "legacy-beach",
       pageType: "tides",
@@ -76,10 +82,52 @@ describe("legacy /beach/[slug] utility subpages", () => {
     await BeachWaterTempPage({ params: Promise.resolve({ slug: "legacy-beach" }) });
 
     expect(redirect).not.toHaveBeenCalled();
+    expect(permanentRedirect).not.toHaveBeenCalled();
     expect(renderBeachSubPage).toHaveBeenCalledWith({
       beachSlug: "legacy-beach",
       pageType: "water-temp",
       beachPath: "/beach/legacy-beach",
     });
+  });
+
+  it.each([
+    ["tides", BeachTidesPage],
+    ["water-temp", BeachWaterTempPage],
+  ] as const)(
+    "permanently redirects a complete beach's %s page to the hierarchical URL",
+    async (pageType, Page) => {
+      (getBeachBySlugOrId as jest.Mock).mockResolvedValue({
+        ...incompleteBeach,
+        slug: "lower-trestles",
+        city: "San Clemente",
+        state: "CA",
+      });
+
+      await expect(
+        Page({ params: Promise.resolve({ slug: "lower-trestles" }) }),
+      ).rejects.toMatchObject({ digest: "NEXT_REDIRECT" });
+
+      expect(permanentRedirect).toHaveBeenCalledWith(
+        `/ca/san-clemente/lower-trestles/${pageType}`,
+      );
+      expect(redirect).not.toHaveBeenCalled();
+      expect(renderBeachSubPage).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("beach tide page read failure", () => {
+  it("shows the paper error message, not placeholder numbers", async () => {
+    // The lookup failure is the path this catch owns; a sub-page data failure throws on so it is not cached.
+    jest.mocked(getBeachBySlugOrId).mockRejectedValueOnce(new Error("beach lookup failed"));
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const page = await BeachTidesPage({ params: Promise.resolve({ slug: "legacy-beach" }) });
+    const text = JSON.stringify(page);
+
+    expect(text).toContain("Tides did not load");
+    expect(text).toContain("Something broke on our side. Refresh in a minute.");
+    expect(text).not.toContain("Error Loading Tide Chart");
+    jest.restoreAllMocks();
   });
 });

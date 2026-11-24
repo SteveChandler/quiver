@@ -1,4 +1,4 @@
-import type { RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
+import type { InternalRegionEvent, RatingRow, RegionBuild } from "@/lib/alerts/swell-events/regional";
 import type { RegionalSwellEvent } from "../week-scout-story-candidates";
 import { beachDayFactsFromBuild, beachFeel, breakerCharacter, eventFactsFromBuild, faceRangeFt, sizeWordsFor, windHoursFor } from "../week-scout-story-facts";
 import { median } from "@/lib/utils/median";
@@ -18,6 +18,74 @@ function build(): RegionBuild {
     rowsByBeach: Object.fromEntries(heights.map((height, index) => [String(index), [row(height), row("1-2"),
       row("20-25", "2026-10-29T15:00:00Z"), row("10-12", "2026-10-30T17:00:00Z")]])) };
 }
+
+/** A region event as the build stores it, peaking on the test day, with per-beach faces from it alone. */
+function regionEvent(key: string, memberFaceFt: Record<string, number>, overrides: Partial<InternalRegionEvent> = {}): InternalRegionEvent {
+  return { key, kind: "swell", source: "forecast", directionDeg: 270, directionLabel: "W", periodS: 13,
+    arrivalAt: event.arrivalAt, peakAt: event.peakAt, fadeAt: event.fadeAt, peakLocalDate: "2026-10-29",
+    offshoreFt: "5 ft", history: null, memberCount: Object.keys(memberFaceFt).length, memberFaceFt, ...overrides };
+}
+// The detector's per-swell faces at beaches 0–4 for the day's big swell: the same ruler as their totals.
+const LEADER_FACES = { 0: 3, 1: 4, 2: 4, 3: 5, 4: 6 };
+
+describe("size per swell", () => {
+  const south: RegionalSwellEvent = { ...event, regionalKey: "south" };
+
+  it("keeps the day's biggest swell on the total surf, exactly as before", () => {
+    const built = { ...build(), events: [regionEvent("west", LEADER_FACES), regionEvent("south", { 0: 1.5, 1: 1.5, 2: 1.5, 3: 1.5, 4: 1.5 })] };
+    expect(eventFactsFromBuild(built, event)).toEqual(eventFactsFromBuild(build(), event));
+  });
+
+  it("sizes a smaller swell on the same day from its own faces, as its share of each beach's total", () => {
+    const built = { ...build(), events: [regionEvent("west", LEADER_FACES), regionEvent("south", { 0: 1.5, 1: 1.5, 2: 1.5, 3: 1.5, 4: 1.5 })] };
+    expect(eventFactsFromBuild(built, south)).toEqual({ faceFt: { min: 1, max: 2 }, sizes: ["knee"],
+      breaker: { character: "pitching", feel: null, closingOut: false } });
+  });
+
+  it("counts only the beaches where the detector found the smaller swell, and gives no size under three", () => {
+    const built = { ...build(), events: [regionEvent("west", LEADER_FACES), regionEvent("south", { 0: 1.5, 1: 1.5 })] };
+    expect(eventFactsFromBuild(built, south)).toBeNull();
+  });
+
+  it("never sizes a swell above the total at a beach", () => {
+    const built = { ...build(), events: [regionEvent("west", { 0: 30, 1: 30, 2: 30, 3: 30, 4: 30 }), regionEvent("south", { 0: 9, 1: 9, 2: 9, 3: 9, 4: 9 })] };
+    expect(eventFactsFromBuild(built, south)?.faceFt).toEqual(eventFactsFromBuild(build(), event)?.faceFt);
+  });
+
+  it("never lets a storm outrank a groundswell on its day; a groundswell does outrank a storm", () => {
+    const storm: RegionalSwellEvent = { ...event, regionalKey: "storm", kind: "storm", periodS: 9 };
+    // LA, Nov 14 2026: the W 10 s storm read bigger faces than the season's biggest NW groundswell.
+    const stormBigger = { ...build(), events: [regionEvent("storm", LEADER_FACES, { kind: "storm", periodS: 9 }), regionEvent("south", { 0: 1.5, 1: 1.5, 2: 1.5, 3: 1.5, 4: 1.5 })] };
+    expect(eventFactsFromBuild(stormBigger, south)).toEqual(eventFactsFromBuild(build(), event));
+    const swellBigger = { ...build(), events: [regionEvent("west", LEADER_FACES), regionEvent("storm", { 0: 1.5, 1: 1.5, 2: 1.5, 3: 1.5, 4: 1.5 }, { kind: "storm", periodS: 9 })] };
+    expect(eventFactsFromBuild(swellBigger, storm)?.faceFt).toEqual({ min: 1, max: 2 });
+  });
+
+  it("gives neither of two near-equal swells the day's total, so a small refresh cannot swap them", () => {
+    const west: RegionalSwellEvent = { ...event, regionalKey: "west" };
+    const even = { 0: 3.4, 1: 3.4, 2: 3.4, 3: 3.4, 4: 3.4 };
+    const nearly = { 0: 3.2, 1: 3.2, 2: 3.2, 3: 3.2, 4: 3.2 };
+    for (const [a, b] of [[even, even], [even, nearly], [nearly, even]]) {
+      const built = { ...build(), events: [regionEvent("west", a), regionEvent("south", b)] };
+      expect(eventFactsFromBuild(built, west)?.faceFt).not.toEqual(eventFactsFromBuild(build(), event)?.faceFt);
+      expect(eventFactsFromBuild(built, south)?.faceFt).not.toEqual(eventFactsFromBuild(build(), event)?.faceFt);
+    }
+  });
+
+  it("ranks a swell on the faces at its exposed beaches, not at the ones its window shuts out", () => {
+    // Beach 5's window faces east: its 1 ft never enters the west swell's size, so it must not drag
+    // the west swell's rank (6 ft at its exposed beach) under the clear lead over the south's 4 ft.
+    const built = { ...build(), events: [regionEvent("west", { 0: 6, 5: 1 }), regionEvent("south", LEADER_FACES)] };
+    expect(eventFactsFromBuild(built, { ...event, regionalKey: "west" })).toEqual(eventFactsFromBuild(build(), event));
+  });
+
+  it("leaves a swell alone on a day it has to itself, or when the build carries no faces", () => {
+    expect(eventFactsFromBuild({ ...build(), events: [regionEvent("south", { 0: 1, 1: 1, 2: 1 })] }, south))
+      .toEqual(eventFactsFromBuild(build(), event));
+    expect(eventFactsFromBuild({ ...build(), events: [regionEvent("west", LEADER_FACES), regionEvent("south", {})] }, south))
+      .toEqual(eventFactsFromBuild(build(), event));
+  });
+});
 
 describe("candidate surf facts", () => {
   it("calculates the median", () => {

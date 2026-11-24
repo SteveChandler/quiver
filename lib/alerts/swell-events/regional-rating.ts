@@ -1,3 +1,4 @@
+import { zonedFormatter } from "@/lib/utils/zoned-formatter";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { RegionBeachRating, RegionSwellConfidence, RegionSwellEvent } from "@/types/region-swell-events";
 import { SKILL_WAVE_RANGES, type SkillLevel } from "@/lib/domains/user-preferences";
@@ -12,7 +13,7 @@ import { formatCompactWaveHeight } from "@/lib/surf-summary-display";
 import { scoreLabel } from "@/lib/utils/score-color-utils";
 
 import { swellPartitionFaceHeightFt } from "./detector";
-import { SWELL_EVENT_THRESHOLDS, exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
+import { SWELL_EVENT_THRESHOLDS, exposureDirectionOf, exposureFactor, exposureLabel, swellWindowForBeach } from "./exposure";
 import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "./regional";
 
 type Exposure = RegionBeachRating["exposure"];
@@ -61,15 +62,7 @@ export type RegionRatingsByEvent = ReadonlyMap<string, ReadonlyMap<string, Regio
 
 type EventTimes = Pick<InternalRegionEvent, "arrivalAt" | "peakAt" | "fadeAt">;
 
-const weekdayFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function weekdayFormatter(timezone: string): Intl.DateTimeFormat {
-  const formatter = weekdayFormatters.get(timezone);
-  if (formatter) return formatter;
-  const created = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone });
-  weekdayFormatters.set(timezone, created);
-  return created;
-}
+const weekdayFormatter = zonedFormatter("en-US", { weekday: "short" });
 
 /** The span a beach is rated over: arrival (or peak − 12 h) up to, not including, the fade (or peak + 24 h). */
 export function ratingWindow(event: EventTimes): { startMs: number; endMs: number } {
@@ -199,7 +192,7 @@ function rateBeach(
     });
   const best = hours.reduce((max, hour) => (hour.breakdown.score > max.breakdown.score ? hour : max));
   if (best.inputs.waveHeightFt <= 0) return null;
-  const exposure = exposureOf(beach, event.directionDeg).label;
+  const exposure = exposureOf(beach, exposureDirectionOf(event, beach.id)).label;
   const working = isWorking(best.label);
   const window = windowFor(hours, best.label, timezone);
   return {
@@ -239,7 +232,7 @@ function earlyLookFace(beach: RegionBeach, event: InternalRegionEvent, exposure:
  * The face is only an estimate from the offshore swell.
  */
 function earlyLookRating(beach: RegionBeach, event: InternalRegionEvent): RankedRating {
-  const exposure = exposureOf(beach, event.directionDeg);
+  const exposure = exposureOf(beach, exposureDirectionOf(event, beach.id));
   return {
     beachId: beach.id,
     beachName: beach.name,

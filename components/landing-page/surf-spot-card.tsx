@@ -48,10 +48,10 @@ function getImagePlaceholder(imageUrl: string): string | undefined {
   return filename ? getBlurPlaceholder(filename) : undefined;
 }
 
-function formatSkillLevel(value?: string | null): string {
-  if (!value) return "All levels";
-  const cleaned = value.trim();
-  if (!cleaned) return "All levels";
+// Null when the beach has no rated skill level: a default would read as a safety rating.
+function formatSkillLevel(value?: string | null): string | null {
+  const cleaned = value?.trim();
+  if (!cleaned) return null;
   // Normalize common values like "beginner", "intermediate", "advanced", "expert"
   return cleaned
     .replace(/_/g, " ")
@@ -59,14 +59,14 @@ function formatSkillLevel(value?: string | null): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getSkillHelpText(value?: string | null): string {
+function getSkillHelpText(value?: string | null): string | null {
   const normalized = value?.toLowerCase() ?? "";
   if (normalized.includes("beginner")) return "Good starter option";
   if (normalized.includes("intermediate")) return "Some experience helps";
   if (normalized.includes("advanced") || normalized.includes("expert")) {
     return "Confident surfers only";
   }
-  return "Check the local notes";
+  return null;
 }
 
 export function SurfSpotCard({
@@ -97,6 +97,8 @@ export function SurfSpotCard({
 
   // Show fallback if no imageUrl or if image failed to load
   const showFallback = !imageUrl || imageError;
+  const skillLabel = formatSkillLevel(skillLevel);
+  const skillHelpText = getSkillHelpText(skillLevel);
 
   const handleSaveClick = (
     event:
@@ -159,14 +161,18 @@ export function SurfSpotCard({
 
           {/* Content Section */}
           <div className="p-4 flex-1">
-            <div className="mb-3 inline-flex flex-col rounded-[12px_5px_14px_6px] border border-[#F78E42]/30 bg-[#F78E42]/12 px-3 py-1.5">
-              <span className="font-heading text-xs font-bold uppercase tracking-wide text-[#F78E42]">
-                {formatSkillLevel(skillLevel)}
-              </span>
-              <span className="text-[11px] leading-tight text-white/55">
-                {getSkillHelpText(skillLevel)}
-              </span>
-            </div>
+            {skillLabel ? (
+              <div className="mb-3 inline-flex flex-col rounded-[12px_5px_14px_6px] border border-[#F78E42]/30 bg-[#F78E42]/12 px-3 py-1.5">
+                <span className="font-heading text-xs font-bold uppercase tracking-wide text-[#F78E42]">
+                  {skillLabel}
+                </span>
+                {skillHelpText ? (
+                  <span className="text-[11px] leading-tight text-white/55">
+                    {skillHelpText}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
 
             {/* Name */}
             <h3 className="text-base font-semibold font-sans text-white mb-1 line-clamp-1">

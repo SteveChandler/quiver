@@ -8,6 +8,8 @@ import {
   selectFirstSightingCandidates,
   swellDayLabel,
   tideReasonSentence,
+  renderStoryPushTitle,
+  type PushRegionStory,
 } from "@/lib/alerts/swell-outlook/first-sighting";
 import { OUTLOOK_HOME_BEACH_ID as HOME, outlookSwell } from "@/__tests__/helpers/outlook-swell";
 
@@ -26,8 +28,8 @@ it("puts the lead and two options in both the first-sighting text and ranked tap
     { beach_id: OTHER, beach_name: "Scripps", rank: 2, forecast_at: args.swell.peakAt },
     { beach_id: OPTIONS[1].beachId, beach_name: "Del Mar", rank: 3, forecast_at: args.swell.peakAt },
   ]);
-  expect(payload.body).toBe("WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at Blacks Beach. "
-    + "Also: Scripps up to 4 ft, Del Mar up to 3 ft. Showing at 3 nearby breaks.");
+  expect(payload.body).toBe("WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets to 4.5 ft at Blacks Beach, "
+    + "4 ft at Scripps and 3 ft at Del Mar.");
   expect(payload).toEqual({ ...baseline, beaches: payload.beaches, body: payload.body });
 });
 
@@ -38,8 +40,8 @@ it("keeps the entire legacy payload byte-identical with absent or empty options"
     schema_version: "major-swell-notification.v1", beach_id: HOME, beach_name: "Blacks Beach",
     awareness_severity: "significant", would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
     title: "WNW swell Mon, sets to 4.5 ft",
-    body: "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at Blacks Beach. "
-      + "Good size for your longboard. Showing at 3 nearby breaks.",
+    body: "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets to 4.5 ft at Blacks Beach. "
+      + "Good size for your longboard.",
     beaches: [{ beach_id: HOME, beach_name: "Blacks Beach", rank: 1 }],
     event_key: `${HOME}:NW:2026-09-21:p`, title_id: "s31", kind: "coming",
     share_url: `https://www.quiversurf.app/app/swell/${HOME}%3ANW%3A2026-09-21%3Ap?k=coming&t=s31`,
@@ -58,20 +60,20 @@ it.each([undefined, {
   reasons: [],
 }])("drops board, then alternatives, before hazard and core facts at 300 characters with window %j", (surfWindow) => {
   const timezone = "America/Los_Angeles";
-  const core = "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at .";
-  const also = "Also: Scripps up to 4 ft, Del Mar up to 3 ft.";
+  const head = "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets to 4.5 ft at ";
+  const also = ", 4 ft at Scripps and 3 ft at Del Mar";
   const hazard = "NWS high surf advisory in effect.";
   const window = surfWindow ? " Best window Mon 10 AM–12 PM." : "";
-  const nameLength = FIRST_SIGHTING_BODY_MAX_CHARS - `${core}${window} ${also} ${hazard}`.length;
+  const nameLength = FIRST_SIGHTING_BODY_MAX_CHARS - `${head}${also}.${window} ${hazard}`.length;
   for (const extra of [0, 1]) {
     const name = "A".repeat(nameLength + extra);
     const swell = outlookSwell({ beach: { id: HOME, name }, beachCount: 1, options: OPTIONS,
       fit: { status: "in_range", boards: ["longboard"] } });
     const body = renderFirstSightingBody({ swell, timezone, hazard: "high_surf", surfWindow });
-    expect(body).toBe(core.replace("at .", `at ${name}.`) + window + (extra === 0 ? ` ${also}` : "") + ` ${hazard}`);
+    expect(body).toBe(`${head}${name}${extra === 0 ? also : ""}.${window} ${hazard}`);
     expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
     expect(body).not.toContain("longboard");
-    expect(body).toHaveLength(extra === 0 ? FIRST_SIGHTING_BODY_MAX_CHARS : FIRST_SIGHTING_BODY_MAX_CHARS - also.length);
+    expect(body).toHaveLength(extra === 0 ? FIRST_SIGHTING_BODY_MAX_CHARS : FIRST_SIGHTING_BODY_MAX_CHARS + 1 - also.length);
   }
 });
 
@@ -117,7 +119,13 @@ it.each([
 ] as const)("labels the %s anchor inside the first-sighting payload", (anchorSource, suffix) => {
   const payload = buildFirstSightingPayload({ swell: outlookSwell(), timezone: "America/Los_Angeles", anchorSource });
   expect(payload.anchor_source).toBe(anchorSource);
-  expect(payload.body).toContain(`Sets up to 4.5 ft at Blacks Beach${suffix}.`);
+  expect(payload.body).toContain(`Sets to 4.5 ft at Blacks Beach${suffix}.`);
+});
+
+it("names home in the heights list without a comma that reads as one more break", () => {
+  const body = renderFirstSightingBody({ swell: outlookSwell({ options: [OPTIONS[0]] }), timezone: "America/Los_Angeles",
+    hazard: null, anchorSource: "home" });
+  expect(body).toContain("Sets to 4.5 ft at Blacks Beach near home and 4 ft at Scripps.");
 });
 
 it("keeps the home label when optional sentences are trimmed", () => {
@@ -126,7 +134,7 @@ it("keeps the home label when optional sentences are trimmed", () => {
     timezone: "America/Los_Angeles", hazard: "high_surf", anchorSource: "home",
   });
   expect(body).toContain(", near home.");
-  expect(body).not.toContain("Also:");
+  expect(body).not.toContain("Scripps");
   expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
 });
 
@@ -140,8 +148,8 @@ describe("buildFirstSightingPayload", () => {
 
   it("states size, period, direction and day, and makes no rarity claim", () => {
     expect(payload.body).toBe(
-      "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets up to 4.5 ft at Blacks Beach. "
-      + "Good size for your longboard. Showing at 3 nearby breaks.",
+      "WNW swell from the North Pacific, 14s. Peaks Monday morning. Sets to 4.5 ft at Blacks Beach. "
+      + "Good size for your longboard.",
     );
     expect(`${payload.title} ${payload.body}`).not.toMatch(/biggest|first swell|flat|in weeks|rare|the call/i);
   });
@@ -227,8 +235,8 @@ describe("renderFirstSightingBody", () => {
       sizeByOrientation: { westFacing: { min: 2.5, max: 4.5 }, southFacing: { min: 1.5, max: 2.5 } },
     });
     expect(renderFirstSightingBody({ swell, timezone, hazard: "high_rip_current" })).toBe(
-      "SSW swell from the southern hemisphere, 15s. Builds from Thursday, peaks Friday evening. Sets up to 4 ft at Blacks Beach. "
-      + "West-facing spots up to 4.5 ft, south-facing up to 2.5 ft. Showing at 7 nearby breaks. "
+      "SSW swell from the southern hemisphere, 15s. Builds from Thursday, peaks Friday evening. Sets to 4 ft at Blacks Beach. "
+      + "West-facing spots up to 4.5 ft, south-facing up to 2.5 ft. "
       + "NWS beach hazards statement out for rip currents.",
     );
   });
@@ -247,7 +255,7 @@ describe("renderFirstSightingBody", () => {
     expect(body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
     expect(body).toContain("NWS high surf advisory in effect.");
     expect(body).not.toContain("nearby breaks");
-    expect(body).toContain(`Sets up to 4.5 ft at ${"A".repeat(150)}.`);
+    expect(body).toContain(`Sets to 4.5 ft at ${"A".repeat(150)}.`);
   });
 });
 
@@ -320,4 +328,90 @@ it('retains the window within 300 characters with a long beach name', () => {
       localDate: '2026-10-08', timezone: 'America/Los_Angeles', faceHeightFt: { min: 3, max: 4 } }, reasons: [] } });
   expect(payload.body).toContain('Best window Thu 10 AM–12 PM.');
   expect(payload.body.length).toBeLessThanOrEqual(300);
+});
+
+describe("story push (swell_story_push on)", () => {
+  const timezone = "America/Los_Angeles";
+  // Monday Nov 16, 2026, 10:00 PT.
+  const NOW = new Date("2026-11-16T18:00:00.000Z");
+  const swell = outlookSwell({ arrivalAt: "2026-11-19T15:00:00.000Z", peakAt: "2026-11-20T17:00:00.000Z",
+    directionLabel: "W", periodS: 8, faceHeightFt: { min: 3, max: 4 }, beach: { id: HOME, name: "Solana Beach" },
+    beachCount: 1, sizeByOrientation: { southFacing: null, westFacing: null }, source: "unknown" });
+  const WRITTEN = "A west short-period storm swell arrives Thursday and peaks Friday, head-high at most spots and overhead at the standouts.";
+  const story = (overrides: Partial<PushRegionStory> = {}): PushRegionStory => ({
+    regionEventKey: "San Diego:W:2026-11-20:s", storyKey: "6-2-2026-11-20-s", story: WRITTEN, storySource: "written",
+    directionLabel: "W", kind: "storm", periodS: 8, peakAt: "2026-11-20T17:00:00.000Z", ...overrides,
+  });
+
+  it("names the region swell, then 'on the way' and its peak day, with no number", () => {
+    expect(renderStoryPushTitle(story(), timezone, NOW)).toBe("W storm swell on the way, Nov 20");
+    const ssw = story({ directionLabel: "SSW", kind: "swell", periodS: 17, peakAt: "2026-11-23T17:00:00.000Z" });
+    expect(renderStoryPushTitle(ssw, timezone, NOW)).toBe("SSW groundswell on the way, Nov 23");
+    // Three days or less: the weekday.
+    expect(renderStoryPushTitle(story({ peakAt: "2026-11-19T17:00:00.000Z" }), timezone, NOW)).toBe("W storm swell on the way, Thu");
+    expect(renderStoryPushTitle(story({ kind: "swell", periodS: 11 }), timezone, NOW)).toBe("W swell on the way, Nov 20");
+    expect(renderStoryPushTitle(story({ kind: "swell", periodS: 7 }), timezone, NOW)).toBe("W windswell on the way, Nov 20");
+  });
+
+  it("names a holiday peak by the holiday, not the date", () => {
+    // Saturday Nov 21, 2026: the WNW groundswell that peaks on Thanksgiving, five days out.
+    const saturday = new Date("2026-11-21T20:24:00.000Z");
+    const wnw = story({ directionLabel: "WNW", kind: "swell", periodS: 17, peakAt: "2026-11-26T20:00:00.000Z" });
+    expect(renderStoryPushTitle(wnw, timezone, saturday)).toBe("Thanksgiving groundswell on the way");
+    expect(renderStoryPushTitle({ ...wnw, peakAt: "2026-11-27T20:00:00.000Z" }, timezone, saturday))
+      .toBe("WNW groundswell on the way, Nov 27");
+  });
+
+  it("names a too-long title's swell plain 'swell', and gives no title past nine days or in the past", () => {
+    // 41 characters with "storm swell".
+    const long = story({ directionLabel: "WNWNWNWNWN", peakAt: "2026-11-23T17:00:00.000Z" });
+    expect(`WNWNWNWNWN storm swell on the way, Nov 23`.length).toBe(41);
+    expect(renderStoryPushTitle(long, timezone, NOW)).toBe("WNWNWNWNWN swell on the way, Nov 23");
+    expect(renderStoryPushTitle(story({ peakAt: "2026-11-26T17:00:00.000Z" }), timezone, NOW)).toBeNull();
+    expect(renderStoryPushTitle(story({ peakAt: "2026-11-15T17:00:00.000Z" }), timezone, NOW)).toBeNull();
+  });
+
+  it("leads with the card sentence, then the one number, and records the source; keys stay today's", () => {
+    const today = buildFirstSightingPayload({ swell, timezone, now: NOW });
+    const told = buildFirstSightingPayload({ swell, timezone, now: NOW, storyPush: { story: story() } });
+    expect(told.title).toBe("W storm swell on the way, Nov 20");
+    expect(told.body).toBe(`${WRITTEN} Sets to 4 ft at Solana Beach.`);
+    expect(told).toMatchObject({ region_event_key: "San Diego:W:2026-11-20:s", story_key: "6-2-2026-11-20-s", body_source: "written" });
+    expect({ event_key: told.event_key, title_id: told.title_id, share_url: told.share_url })
+      .toEqual({ event_key: today.event_key, title_id: today.title_id, share_url: today.share_url });
+    const { title: _t, body: _b, region_event_key: _r, story_key: _s, body_source: _o, ...rest } = told;
+    const { title: _tt, body: _bb, ...todayRest } = today;
+    expect(rest).toEqual(todayRest);
+  });
+
+  it("sends today's text, marked template, with no match or a body past 300 characters", () => {
+    const today = buildFirstSightingPayload({ swell, timezone, now: NOW });
+    expect(buildFirstSightingPayload({ swell, timezone, now: NOW, storyPush: { story: null } }))
+      .toEqual({ ...today, body_source: "template" });
+    const long = buildFirstSightingPayload({ swell: { ...swell, beach: { id: HOME, name: "B".repeat(80) } }, timezone, now: NOW,
+      storyPush: { story: story({ story: `${"A west storm swell arrives Thursday. ".repeat(6)}`.trim() }) } });
+    expect(long.title).toBe(renderFirstSightingTitle({ ...swell, beach: { id: HOME, name: "B".repeat(80) } }, timezone, NOW));
+    expect(long).toMatchObject({ region_event_key: "San Diego:W:2026-11-20:s", body_source: "template" });
+    expect(long.body.length).toBeLessThanOrEqual(FIRST_SIGHTING_BODY_MAX_CHARS);
+  });
+
+  it("tells the Nov 21 Thanksgiving swell as one report: no beach count, every height in one sentence", () => {
+    const saturday = new Date("2026-11-21T20:24:00.000Z");
+    const wnw = outlookSwell({ arrivalAt: "2026-11-25T16:00:00.000Z", peakAt: "2026-11-26T20:00:00.000Z",
+      fadeAt: "2026-11-27T20:00:00.000Z", directionLabel: "WNW", periodS: 17, faceHeightFt: { min: 2.5, max: 3.5 },
+      beach: { id: HOME, name: "Avalanche" }, beachCount: 2, sizeByOrientation: { southFacing: null, westFacing: null },
+      source: "unknown", options: [{ beachId: OTHER, beachName: "Mission Beach", relation: "nearby", faceHeightFt: { min: 2, max: 3 } }] });
+    const told = buildFirstSightingPayload({ swell: wnw, timezone, now: saturday, storyPush: { story: story({
+      story: "A long-period WNW groundswell fills in Wed Nov 25, peaks Thanksgiving Day and fades Fri.", storySource: "code",
+      directionLabel: "WNW", kind: "swell", periodS: 17, peakAt: "2026-11-26T20:00:00.000Z" }) } });
+    expect(told.title).toBe("Thanksgiving groundswell on the way");
+    expect(told.body).toBe("A long-period WNW groundswell fills in Wed Nov 25, peaks Thanksgiving Day and fades Fri. "
+      + "Sets to 3.5 ft at Avalanche and 3 ft at Mission Beach.");
+  });
+
+  it("keeps the payload field for field today's without storyPush", () => {
+    const today = buildFirstSightingPayload({ swell, timezone, now: NOW });
+    expect(Object.keys(today)).not.toEqual(expect.arrayContaining(["body_source"]));
+    expect("region_event_key" in today || "story_key" in today || "body_source" in today).toBe(false);
+  });
 });

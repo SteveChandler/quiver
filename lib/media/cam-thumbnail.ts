@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 
 /**
@@ -7,7 +8,7 @@ import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 export function getCamThumbnailUrl(
   cameraUrl: string | null | undefined,
 ): string | null {
-  if (!cameraUrl) return null;
+  if (!cameraUrl || isBlockedCameraUrl(cameraUrl)) return null;
 
   const videoId = getYouTubeVideoId(cameraUrl);
   if (videoId) {
@@ -25,7 +26,7 @@ export function getCamThumbnailUrl(
 }
 
 function getSurflineCamId(cameraUrl: string | null | undefined): string | null {
-  if (!cameraUrl) return null;
+  if (!cameraUrl || isBlockedCameraUrl(cameraUrl)) return null;
 
   try {
     const url = new URL(cameraUrl);
@@ -44,7 +45,7 @@ function getSurflineCamId(cameraUrl: string | null | undefined): string | null {
 export function getYouTubeVideoId(
   cameraUrl: string | null | undefined,
 ): string | null {
-  if (!cameraUrl) return null;
+  if (!cameraUrl || isBlockedCameraUrl(cameraUrl)) return null;
 
   try {
     const url = new URL(cameraUrl);
@@ -101,15 +102,10 @@ export const CAM_CARD_FALLBACK_IMAGE_URL = "/images/og-location-default.jpg";
 
 const QUIVER_CAM_THUMBNAIL_BUCKET_PATH =
   "/storage/v1/object/public/cam-thumbnails/";
-const HDONTAP_THUMBNAIL_BUCKET_PATH = "/wowza_stream_thumbnails/";
 const STORED_PAGE_CAPTURE_HOSTS = new Set(["obhotel.com", "www.obhotel.com"]);
 const KNOWN_STALE_YOUTUBE_VIDEO_IDS = new Set(["0bv7YxPWRdw"]);
-const KNOWN_STALE_THUMBNAIL_PATHS = new Set([
-  "/wowza_stream_thumbnails/snapshot_cardiffreef_hs-CUST.stream.jpg",
-]);
-
 function appendUniqueUrl(urls: string[], url: string | null | undefined): void {
-  if (!url || urls.includes(url)) return;
+  if (!url || isBlockedCameraUrl(url) || urls.includes(url)) return;
   urls.push(url);
 }
 
@@ -131,13 +127,7 @@ function isKnownStaleCamThumbnail(thumbnailUrl: string): boolean {
       return KNOWN_STALE_YOUTUBE_VIDEO_IDS.has(videoId?.split("/")[0] ?? "");
     }
 
-    if (url.hostname !== "storage.hdontap.com") return false;
-    if (!url.pathname.startsWith(HDONTAP_THUMBNAIL_BUCKET_PATH)) return false;
-
-    return (
-      /\.stream_[^/]+\.jpg$/i.test(url.pathname) ||
-      KNOWN_STALE_THUMBNAIL_PATHS.has(url.pathname)
-    );
+    return false;
   } catch {
     return false;
   }
@@ -162,7 +152,8 @@ export function getDisplayCamThumbnailUrl({
   cameraUrl: string | null | undefined;
   thumbnailUrl: string | null | undefined;
 }): string | null {
-  if (thumbnailUrl && isKnownStaleCamThumbnail(thumbnailUrl)) {
+  if (isBlockedCameraUrl(cameraUrl)) return null;
+  if (thumbnailUrl && (isBlockedCameraUrl(thumbnailUrl) || isKnownStaleCamThumbnail(thumbnailUrl))) {
     return getCamThumbnailUrl(cameraUrl);
   }
 

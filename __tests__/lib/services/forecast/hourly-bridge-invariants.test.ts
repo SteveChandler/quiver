@@ -59,14 +59,14 @@ describe.each([
   ["tide swing off", undefined],
   ["tide swing on", "true"],
 ])("bridged hours stay within their neighbours (%s)", (_label, tideSwing) => {
-  const original = process.env.TIDE_SWING_ENABLED;
+  const original = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
   beforeAll(() => {
-    if (tideSwing === undefined) delete process.env.TIDE_SWING_ENABLED;
-    else process.env.TIDE_SWING_ENABLED = tideSwing;
+    if (tideSwing === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+    else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = tideSwing;
   });
   afterAll(() => {
-    if (original === undefined) delete process.env.TIDE_SWING_ENABLED;
-    else process.env.TIDE_SWING_ENABLED = original;
+    if (original === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+    else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = original;
   });
 
   it.each(slugs)("%s", (slug) => {

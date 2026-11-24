@@ -11,6 +11,7 @@ import {
   tideFitScorer,
 } from '@/lib/domains/scoring';
 import type { ScorerInput, ScorerPlugin, ScorerResult } from '@/lib/domains/scoring';
+import { formatReasonSentence } from '@/lib/domains/scoring/reason-sentences';
 import type { ConditionsSnapshot } from '@/lib/domains/conditions';
 import {
   createProfile,
@@ -18,6 +19,8 @@ import {
   createInput,
   createMockScorer,
 } from '../__fixtures__';
+
+const SIZE_SENTENCE = formatReasonSentence({ code: 'size_good', heightFt: 4 });
 
 describe('Scoring Engine', () => {
   describe('registration', () => {
@@ -255,6 +258,17 @@ describe('Scoring Engine', () => {
       expect(result.subscores.has('baseConditions')).toBe(true);
     });
 
+    it('carries the base scorer codes beside its formatted sentences', () => {
+      const engine = new ScoringEngine();
+      engine.registerAll([baseConditionsScorer, windQualityScorer, tideFitScorer]);
+
+      const result = engine.score(createInput({ waveHeight: 4, wavePeriod: 12 }));
+
+      expect(result.reasonCodes?.slice(0, 2)).toEqual(['size_good', 'period_good']);
+      expect(result.reasonCodes).toHaveLength(result.reasons.length);
+      expect(result.reasons.slice(0, 2)).toEqual(['Good size at 3–4 ft.', 'Solid swell period behind it.']);
+    });
+
     it('should work with multiple real scorers', () => {
       const engine = new ScoringEngine();
       engine.registerAll([baseConditionsScorer, windQualityScorer, tideFitScorer]);
@@ -299,16 +313,19 @@ describe('Scoring Engine', () => {
       expect(result.subscores.get('baseConditions')).toBe(100);
     });
 
-    it('surfaces a "small wave caps score" reason when the ceiling applies', () => {
+    it('surfaces a "small surf" cap reason (code cap_small_surf) when the ceiling applies', () => {
       const engine = new ScoringEngine();
       engine.register(createMockScorer('perfect', 100, 1));
 
       const input = createInput({ waveHeight: 1.7 });
       const result = engine.score(input);
 
-      expect(
-        result.reasons.some((r) => /caps score at 55/.test(r))
-      ).toBe(true);
+      expect(result.total).toBe(55);
+      // One card, one size story: the cap line shows once, as the warning.
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
+      expect(result.reasons).not.toContain('Small surf at 1–2 ft.');
+      expect(result.warnings).toContain('Small surf at 1–2 ft.');
+      expect(result.warningCodes?.[result.warnings.indexOf('Small surf at 1–2 ft.')]).toBe('cap_small_surf');
     });
 
     it('leaves large-wave composite totals unchanged', () => {
@@ -329,9 +346,7 @@ describe('Scoring Engine', () => {
 
       // 5ft is uncapped (ceiling = 100). Composite should remain > 85.
       expect(result.total).toBeGreaterThan(85);
-      expect(
-        result.reasons.some((r) => /caps score/.test(r))
-      ).toBe(false);
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
     });
 
     it('does not cap when waveHeight is NaN (preserves legacy behavior)', () => {
@@ -342,9 +357,7 @@ describe('Scoring Engine', () => {
       const result = engine.score(input);
 
       expect(result.total).toBe(100);
-      expect(
-        result.reasons.some((r) => /caps score/.test(r))
-      ).toBe(false);
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
     });
 
     it('applies the 75 ceiling to waist-high 2.5ft waves', () => {
@@ -354,18 +367,17 @@ describe('Scoring Engine', () => {
       const input = createInput({ waveHeight: 2.5 });
       const result = engine.score(input);
 
-      expect(result.total).toBeLessThanOrEqual(75);
-      expect(
-        result.reasons.some((r) => /caps score at 75/.test(r))
-      ).toBe(true);
+      expect(result.total).toBe(75);
+      expect(result.warnings[result.warningCodes?.indexOf('cap_small_surf') ?? -1]).toBe('Small surf at 2–3 ft.');
+      expect(result.reasonCodes).not.toContain('cap_small_surf');
     });
   });
 
-  describe('binding effect leads the reasons (TIDE_SWING_ENABLED)', () => {
-    const originalFlag = process.env.TIDE_SWING_ENABLED;
+  describe('binding effect leads the reasons (NEXT_PUBLIC_TIDE_SWING_ENABLED)', () => {
+    const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     afterEach(() => {
-      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-      else process.env.TIDE_SWING_ENABLED = originalFlag;
+      if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+      else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
     });
 
     const tideEffect = {
@@ -381,7 +393,7 @@ describe('Scoring Engine', () => {
       message: 'Turning off as it drains',
     };
 
-    function engineWithEffects(score: number, reasons: string[] = ['Good wave size (4.0ft)']): ScoringEngine {
+    function engineWithEffects(score: number, reasons: string[] = [SIZE_SENTENCE]): ScoringEngine {
       return new ScoringEngine().register({
         name: 'effects',
         weight: 1,
@@ -399,30 +411,32 @@ describe('Scoring Engine', () => {
     }
 
     it('flag off keeps reasons as they were', () => {
-      delete process.env.TIDE_SWING_ENABLED;
+      delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
       const result = engineWithEffects(90).score(createInput({ waveHeight: 5 }));
       expect(result.total).toBe(69);
-      expect(result.reasons).toEqual(['Good wave size (4.0ft)']);
+      expect(result.reasons).toEqual([SIZE_SENTENCE]);
       expect(result.warnings).toEqual([milderEffect.message, tideEffect.message]);
     });
 
     it('puts the lowest binding ceiling\'s message first, once', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
-      const result = engineWithEffects(90, ['Good wave size (4.0ft)', tideEffect.message])
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
+      const result = engineWithEffects(90, [SIZE_SENTENCE, tideEffect.message])
         .score(createInput({ waveHeight: 5 }));
       expect(result.total).toBe(69);
-      expect(result.reasons).toEqual([tideEffect.message, 'Good wave size (4.0ft)']);
+      expect(result.reasons).toEqual([tideEffect.message, SIZE_SENTENCE]);
+      // The tide headline is a caution, so the discovery reorder keeps it first.
+      expect(result.reasonCodes).toEqual(['caution_tide', null]);
       expect(result.warnings).toEqual([milderEffect.message, tideEffect.message]);
     });
 
     it('does not lead with an effect that does not bind', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       expect(engineWithEffects(60).score(createInput({ waveHeight: 5 })).reasons)
-        .toEqual(['Good wave size (4.0ft)']);
+        .toEqual([SIZE_SENTENCE]);
     });
 
     it('leaves the reasons order alone when a non-tide effect binds', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       const crossing = {
         code: 'crossing_swells' as const,
         severity: 'material' as const,
@@ -436,7 +450,7 @@ describe('Scoring Engine', () => {
           name: 'effects',
           score: 90,
           weight: 1,
-          reasons: ['Good wave size (4.0ft)', 'Clean offshore wind'],
+          reasons: [SIZE_SENTENCE, 'Clean offshore wind'],
           warnings: [],
           skip: false,
           skipReason: null,
@@ -445,14 +459,14 @@ describe('Scoring Engine', () => {
       });
       const result = engine.score(createInput({ waveHeight: 5 }));
       expect(result.total).toBe(65);
-      expect(result.reasons).toEqual(['Good wave size (4.0ft)', 'Clean offshore wind']);
+      expect(result.reasons).toEqual([SIZE_SENTENCE, 'Clean offshore wind']);
     });
 
     it('does not lead with an effect when a lower wave-height cap sets the score', () => {
-      process.env.TIDE_SWING_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
       const result = engineWithEffects(90).score(createInput({ waveHeight: 1.7 }));
       expect(result.total).toBe(55);
-      expect(result.reasons[0]).toBe('Good wave size (4.0ft)');
+      expect(result.reasons[0]).toBe(SIZE_SENTENCE);
       expect(result.reasons).not.toContain(tideEffect.message);
     });
   });

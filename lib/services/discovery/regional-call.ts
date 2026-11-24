@@ -212,7 +212,7 @@ function buildWindTrendClause(
 /**
  * Generates a one-line regional conditions synthesis from ranked recommendations.
  *
- * Returns a non-empty string always — falls back to "Small surf, pick your spot for fun."
+ * Returns '' when no clause has data; consumers treat '' as "no regional call".
  */
 export function generateRegionalCall(
   recs: SurfDiscoveryRecommendation[],
@@ -234,8 +234,6 @@ export function generateRegionalCall(
   if (swellClause) parts.push(swellClause);
   if (decoratedAspect) parts.push(decoratedAspect);
   if (windTrendClause) parts.push(windTrendClause);
-
-  if (parts.length === 0) return 'Small surf, pick your spot for fun.';
 
   return parts.join(' · ');
 }

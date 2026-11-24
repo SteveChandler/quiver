@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 import { CAM_REGIONS } from "@/lib/data/cam-regions";
 import { getIndexableSurfCamPages } from "@/lib/seo/funnel-pages";
 import { buildPageMetadata } from "@/lib/seo/meta";
@@ -33,13 +34,13 @@ const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const beaches = await getBeachesWithCameras();
+  const beaches = (await getBeachesWithCameras()).filter(isLiveCamBeach);
   const camCount = beaches.length;
   const stateCount = new Set(beaches.map((b) => b.state)).size;
 
   return buildPageMetadata({
     title: `Live Surf Cams — ${camCount}+ Cameras Across ${stateCount} States`,
-    description: `Watch ${camCount}+ live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more. Updated 24/7 with live conditions.`,
+    description: `Watch ${camCount}+ live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more.`,
     path: "/cams",
     image: "/api/og/cams",
     keywords: [
@@ -57,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CamsHubPage() {
-  const beaches = await getBeachesWithCameras();
+  const beaches = (await getBeachesWithCameras()).filter(isLiveCamBeach);
   const camCount = beaches.length;
   const stateCount = new Set(beaches.map((b) => b.state)).size;
   // Curated /surf-cams pages own the regional cam queries, so the hub must

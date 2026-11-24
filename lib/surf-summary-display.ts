@@ -27,6 +27,14 @@ interface CompactSurfSummary {
 const RANGE_PATTERN =
   /^\s*(-?\d+(?:\.\d+)?)\s*(?:-|\u2013)\s*(-?\d+(?:\.\d+)?)\s*(ft|feet)?\s*$/i;
 
+// The surf-call logic writes "Unknown" as the description when a feed is
+// missing; it must never reach a cell, share card or URL as a reading.
+export function knownConditionText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed || trimmed.toLowerCase() === "unknown") return null;
+  return trimmed;
+}
+
 function clean(value: unknown): string | null {
   if (value == null) return null;
   if (typeof value === "number") {
@@ -34,8 +42,7 @@ function clean(value: unknown): string | null {
   }
   if (typeof value !== "string") return null;
 
-  const trimmed = value.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : null;
+  return knownConditionText(value);
 }
 
 function compactSingleFeet(value: number): string | null {

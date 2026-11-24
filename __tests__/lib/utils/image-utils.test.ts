@@ -1,4 +1,4 @@
-import { getTransformedStorageUrl, getTransformedUrl, isSupabaseStorageUrl, getProxiedImageUrl, isExternalImageUrl, pickPhotoThumbUrl, IMAGE_TRANSFORM_PRESETS, type ImageTransformPreset } from "@/lib/utils/image-utils";
+import { getTransformedStorageUrl, getTransformedUrl, isSupabaseStorageUrl, getProxiedImageUrl, isExternalImageUrl, pickPhotoThumbUrl, toWikimediaThumbUrl, IMAGE_TRANSFORM_PRESETS, type ImageTransformPreset } from "@/lib/utils/image-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 
 describe("Image Transformation Utils", () => {
@@ -282,7 +282,6 @@ describe("Image Proxy Utils", () => {
     });
 
     it.each([
-      "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot.stream",
       "https://img.youtube.com/vi/abc123/mqdefault.jpg",
       "https://camstills.cdn-surfline.com/some-cam/latest_small.jpg",
     ])(
@@ -293,6 +292,12 @@ describe("Image Proxy Utils", () => {
         expect(result).not.toContain("/api/image-proxy");
       },
     );
+
+    it("does not expose retired thumbnails as image URLs", () => {
+      const retired = "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot.stream";
+      expect(getProxiedImageUrl(retired)).toBe("");
+      expect(getProxiedImageUrl(`/api/image-proxy?url=${encodeURIComponent(retired)}`)).toBe("");
+    });
 
     it("should not proxy Supabase .in storage URLs", () => {
       const result = getProxiedImageUrl(SUPABASE_IN_URL);
@@ -391,6 +396,54 @@ describe("Image Proxy Utils", () => {
       expect(pickPhotoThumbUrl(null, FLICKR)).toBe(FLICKR);
       expect(pickPhotoThumbUrl("  ", FLICKR)).toBe(FLICKR);
       expect(pickPhotoThumbUrl(null, null)).toBeNull();
+    });
+  });
+
+  describe("toWikimediaThumbUrl", () => {
+    const COMMONS = "https://upload.wikimedia.org/wikipedia/commons";
+
+    it("rewrites a JPEG original to its 1280px Commons thumb", () => {
+      expect(toWikimediaThumbUrl(`${COMMONS}/e/e9/Rattlesnakes_respect_sign.jpg`)).toBe(
+        `${COMMONS}/thumb/e/e9/Rattlesnakes_respect_sign.jpg/1280px-Rattlesnakes_respect_sign.jpg`,
+      );
+    });
+
+    it("keeps percent-encoded names and drops the utm query", () => {
+      expect(
+        toWikimediaThumbUrl(
+          `${COMMONS}/f/f3/Torrey_Preserve%2C_San_Diego_%284%29.jpg?utm_source=commons.wikimedia.org&utm_content=original`,
+        ),
+      ).toBe(`${COMMONS}/thumb/f/f3/Torrey_Preserve%2C_San_Diego_%284%29.jpg/1280px-Torrey_Preserve%2C_San_Diego_%284%29.jpg`);
+    });
+
+    it("rewrites PNG and upper-case JPG originals", () => {
+      expect(toWikimediaThumbUrl(`${COMMONS}/5/57/Moonstone_Beach.png`)).toBe(
+        `${COMMONS}/thumb/5/57/Moonstone_Beach.png/1280px-Moonstone_Beach.png`,
+      );
+      expect(toWikimediaThumbUrl(`${COMMONS}/f/ff/Beach_at_Assateague_VA.JPG`)).toBe(
+        `${COMMONS}/thumb/f/ff/Beach_at_Assateague_VA.JPG/1280px-Beach_at_Assateague_VA.JPG`,
+      );
+    });
+
+    it("leaves thumbs, other formats, other hosts and bad input unchanged", () => {
+      const unchanged = [
+        `${COMMONS}/thumb/f/ff/Beach_at_Assateague_VA.JPG/1280px-Beach_at_Assateague_VA.JPG`,
+        `${COMMONS}/1/1f/Coastal_hazards.webp`,
+        `${COMMONS}/a/ab/Map.svg`,
+        "https://live.staticflickr.com/65535/1_a.jpg",
+        "https://upload.wikimedia.org.evil.example/wikipedia/commons/e/e9/x.jpg",
+        "/images/local.jpg",
+        "not a url",
+      ];
+      for (const url of unchanged) expect(toWikimediaThumbUrl(url)).toBe(url);
+    });
+
+    it("is applied by both proxy helpers", () => {
+      const original = `${COMMONS}/e/e9/Rattlesnakes_respect_sign.jpg`;
+      const thumb = `${COMMONS}/thumb/e/e9/Rattlesnakes_respect_sign.jpg/1280px-Rattlesnakes_respect_sign.jpg`;
+      const proxied = `/api/image-proxy?url=${encodeURIComponent(thumb)}`;
+      expect(getProxiedImageUrl(original)).toBe(proxied);
+      expect(getOptimizedImageUrl(original)).toBe(proxied);
     });
   });
 });

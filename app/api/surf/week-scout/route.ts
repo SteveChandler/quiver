@@ -9,6 +9,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
+import { reuseWeekScoutAnswer, type AnswerReuse } from '@/lib/services/discovery/week-scout-answer-reuse';
 import { parseSessionTime } from '@/lib/scoring/session-time-preference';
 import {
   buildDriveRangeCandidatePool,
@@ -27,6 +28,7 @@ import {
 } from '@/lib/flags/week-scout-swells';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { bindStory, isWeekScoutStoryEnabled, prepareStory } from '@/lib/services/discovery/week-scout-story-serve';
+import { isWeekScoutStoryUserAllowed } from '@/lib/flags/week-scout-story';
 import {
   formatServerTiming,
   recordStage,
@@ -145,12 +147,14 @@ async function weekScoutHandler(
   if (!parsed.success) {
     return createValidationError('Invalid Week Scout request', parsed.error.flatten());
   }
-  requestTags.set(request, {
+  const tags: RequestTags = {
     dayCount: parsed.data.dayCount,
     platform: request.headers.get('x-quiver-platform'),
     update: request.headers.get('x-quiver-update-id')?.slice(0, 64) ?? null,
-    user: createHash('sha256').update(user.id).digest('hex').slice(0, 8),
-  });
+    user: shortHash(user.id),
+    bodyKey: shortHash(`${user.id}|${JSON.stringify({ ...parsed.data, dayCount: undefined })}`),
+  };
+  requestTags.set(request, tags);
   const completeRadiusScope = parsed.data.candidateScope === 'complete-radius'
     ? { kind: 'complete-radius' as const }
     : parsed.data.candidateScope;
@@ -161,9 +165,11 @@ async function weekScoutHandler(
     readLocationSnapshot(supabase, user.id),
   ]));
   const { profile, error: profileError } = profileRead;
+  tags.profileKey = profileError === null ? shortHash(`${user.id}|${JSON.stringify(profile ?? null)}`) : null;
+  tags.locKey = weekScoutLocationKey(user.id, snapshotRead);
   // The story input depends on neither the pool nor the ranking; only binding
   // needs the live forecast, so it loads from here on. Never rejects.
-  const storyEnabled = isWeekScoutStoryEnabled();
+  const storyEnabled = isWeekScoutStoryEnabled() && isWeekScoutStoryUserAllowed(user.id);
   const pendingStory = storyEnabled
     ? timeStage('story-load', () => prepareStory({
       client: createSupabaseServiceRoleClient(),
@@ -321,7 +327,8 @@ async function weekScoutHandler(
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
   recordStage('pool', performance.now() - poolStartedAt);
-  const forecast = await timeStage('forecast', () => generateWeekScoutForecast(user.id, {
+  tags.candidates = candidateBeachIds.length;
+  const forecastRequest = {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
     localTimezone: parsed.data.localTimezone,
@@ -333,7 +340,18 @@ async function weekScoutHandler(
       ? { requirePerRowFreshness: true }
       : {}),
     ...(swellsEnabled || storyEnabled ? { includeSwells: true } : {}),
-  }));
+  };
+  // Saved spots, location, scope and dates are all in forecastRequest; the profile key adds
+  // skill and session settings. Board and learned-preference changes wait out REUSE_MS (30 s).
+  const answerKey = createHash('sha256')
+    .update(`${user.id}|${tags.profileKey ?? ''}|${JSON.stringify(forecastRequest)}`)
+    .digest('hex');
+  const forecast = await timeStage('forecast', () => reuseWeekScoutAnswer(
+    answerKey,
+    user.id,
+    () => generateWeekScoutForecast(user.id, forecastRequest),
+    (reuse) => { tags.answerReuse = reuse; },
+  ));
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
   const unavailableStory = () => bindStory({ region: null, availability: 'unavailable', input: null, selections: null, live: forecast });
   const bindLiveStory = pendingStory ? await pendingStory : null;
@@ -413,12 +431,34 @@ const requestStarts = new WeakMap<object, number>();
 const requestStartedAt = (request: NextRequest): number => requestStarts.get(request) ?? performance.now();
 // Who asked for what, so the timing line can show which app build sends which horizon
 // and pair a user's back-to-back requests without logging the raw user id.
-const requestTags = new WeakMap<object, {
+// The three keys say which inputs changed between two same-day requests: the body
+// (scope, filters, map bounds, candidates, date), the profile fields the ranking reads,
+// and the phone location rounded as the app's location bucket (2 decimals). Each key is
+// salted with the user id, so a log reader cannot recover a location by enumeration.
+type RequestTags = {
   dayCount: number;
   platform: string | null;
   update: string | null;
   user: string;
-}>();
+  bodyKey: string;
+  profileKey?: string | null;
+  locKey?: string | null;
+  /** Candidate beaches sent to the ranking; its cost grows with this count. */
+  candidates?: number;
+  /** miss = computed here; joined/hit = reused an identical answer on this instance. */
+  answerReuse?: AnswerReuse;
+};
+const requestTags = new WeakMap<object, RequestTags>();
+
+function shortHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 8);
+}
+
+function weekScoutLocationKey(userId: string, snapshot: { lat?: unknown; lon?: unknown } | null): string | null {
+  const { lat, lon } = snapshot ?? {};
+  if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return shortHash(`${userId}|${lat.toFixed(2)},${lon.toFixed(2)}`);
+}
 
 export const POST = async (
   ...args: Parameters<typeof protectedPOST>

@@ -11,6 +11,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron/tide-stations/predictions?maxStations=120",
+      "schedule": "20 * * * *"
+    },
+    {
       "path": "/api/cron/custom-spot-analysis?batchSize=25",
       "schedule": "30 11 * * *"
     },
@@ -61,10 +65,6 @@
     {
       "path": "/api/cron/system-cards",
       "schedule": "0 0-4,13-17 * * *"
-    },
-    {
-      "path": "/api/cron/npc-activity",
-      "schedule": "0 5-20 * * *"
     },
     {
       "path": "/api/cron/refresh-beach-traffic-weights",
@@ -125,6 +125,10 @@
     {
       "path": "/api/cron/rainfall-runoff",
       "schedule": "0 */3 * * *"
+    },
+    {
+      "path": "/api/cron/week-scout-story-staleness",
+      "schedule": "15 16 * * *"
     },
     {
       "path": "/api/cron/week-scout-canary",
@@ -205,10 +209,6 @@
     {
       "path": "/api/cron/first-session-nudge-push",
       "schedule": "0 17 * * *"
-    },
-    {
-      "path": "/api/cron/daily-call-streak-reminder",
-      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/weekly-streak-reminder",

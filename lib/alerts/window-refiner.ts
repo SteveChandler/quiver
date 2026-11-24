@@ -18,7 +18,7 @@ export interface WindowDriver {
   at: string;
   approximate: boolean;
   label: string;
-  /** Tide drivers only, with TIDE_SWING_ENABLED: the band edge crossed; absent for a direction-only change. */
+  /** Tide drivers only, with NEXT_PUBLIC_TIDE_SWING_ENABLED: the band edge crossed; absent for a direction-only change. */
   bandEdge?: "min" | "max";
 }
 

@@ -112,7 +112,7 @@ function SessionPolaroid({
   const initials = getInitials(session.profiles?.full_name ?? session.user?.full_name);
   const displayName = (session.profiles?.full_name ?? session.user?.full_name ?? "Surfer").split(" ").slice(0, 2).join(" ");
   const photoSrc = session.featured_photo_url || session.image_url || fallbackPhoto || null;
-  const caption = truncate(session.notes || session.description || "", 70) || "logged a session";
+  const caption = truncate(session.notes || session.description || "", 70);
   const rating = typeof session.rating === "number" ? Math.max(0, Math.min(5, Math.round(session.rating))) : 0;
   const when = session.created_at
     ? new Date(session.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -149,9 +149,11 @@ function SessionPolaroid({
           {when}
         </span>
       </div>
-      <div className="cap mt-2" style={{ lineHeight: 1.2 }}>
-        &ldquo;{caption}&rdquo;
-      </div>
+      {caption ? (
+        <div className="cap mt-2" style={{ lineHeight: 1.2 }}>
+          &ldquo;{caption}&rdquo;
+        </div>
+      ) : null}
       {rating > 0 && (
         <div className="flex gap-px justify-center mt-2" aria-label={`${rating} of 5 stars`}>
           {[0, 1, 2, 3, 4].map((i) => (

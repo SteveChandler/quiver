@@ -177,6 +177,32 @@ describe("Web Push Notifications", () => {
       expect(mockOnMessage).toHaveBeenCalled();
     });
 
+    it("shows a follow push with no body as its title alone, never 'New notification'", async () => {
+      const shown: Array<{ title: string; options: NotificationOptions }> = [];
+      const NotificationCtor = Object.assign(
+        jest.fn((title: string, options: NotificationOptions) => {
+          shown.push({ title, options });
+        }),
+        { permission: "granted" as NotificationPermission },
+      );
+      Object.defineProperty(global, "Notification", { value: NotificationCtor, writable: true, configurable: true });
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      const dispatchEvent = jest.fn();
+      (global.window as unknown as { dispatchEvent: typeof dispatchEvent }).dispatchEvent = dispatchEvent;
+
+      const { setupWebPushListeners } =
+        await import("@/lib/web/push-notifications");
+      setupWebPushListeners();
+      const handler = mockOnMessage.mock.calls[0][1] as (payload: unknown) => void;
+      handler({ notification: { title: "Kai followed you", body: "" }, data: { type: "follow" } });
+
+      expect(shown).toHaveLength(1);
+      expect(shown[0].title).toBe("Kai followed you");
+      expect(shown[0].options.body).toBe("");
+      const event = dispatchEvent.mock.calls[0][0] as CustomEvent<{ body: string }>;
+      expect(event.detail.body).toBe("");
+    });
+
     it("should not set up listeners if Firebase messaging not available", async () => {
       mockGetMessaging.mockReturnValue(null);
 

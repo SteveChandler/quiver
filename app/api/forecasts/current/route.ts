@@ -13,9 +13,20 @@ import { readLatestForecastMetadata } from "@/lib/utils/forecast-service-utils";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { selectTideSeries } from "@/lib/services/tide-forecast-selection";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
+import {
+  CURRENT_CONDITIONS_TOLERANCE_MS,
+  currentHourForecastRow,
+  designateCurrentRow,
+} from "@/lib/services/current-conditions/current-row";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
+
+const HOUR_MS = 60 * 60 * 1000;
+// Enough newest rows to reach past now even with sub-hourly or duplicate rows
+// in the 3 h after the hour start, so the latest past row stays available.
+const CURRENT_ROW_CANDIDATE_LIMIT = 24;
 
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: "beachId must be a valid UUID" }),
@@ -101,23 +112,25 @@ async function readCurrentRow(
   beachId: string,
   now: Date,
 ): Promise<CurrentForecastRow | null> {
-  // Database equivalent of designateCurrentRow: latest forecast_at <= now,
-  // expressed as a single-row query so this route does not load the window.
+  // The newest rows up to one slot past the current hour hold both the row
+  // every "now" surface reads (nearest the start of the hour) and the latest
+  // past row, which stays the answer when no row is within one slot, so a stale
+  // beach still has a row to show with includeStale.
+  const hourStartMs = Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
   const { data, error } = await supabase
     .from("enhanced_forecasts")
     .select("*")
     .eq("beach_id", beachId)
-    .lte("forecast_at", now.toISOString())
+    .lte("forecast_at", new Date(hourStartMs + CURRENT_CONDITIONS_TOLERANCE_MS).toISOString())
     .order("forecast_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(CURRENT_ROW_CANDIDATE_LIMIT);
 
   if (error) throw new Error(error.message);
-  if (!data) return null;
+  const rows = (data ?? []) as unknown as EnhancedForecastEntity[];
+  const row = currentHourForecastRow(rows, now) ?? designateCurrentRow(rows, now)?.row ?? null;
+  if (!row) return null;
 
-  const [displayRow] = await applyV51DisplayOverrideToForecasts([
-    data as unknown as EnhancedForecastEntity,
-  ]);
+  const [displayRow] = await applyV51DisplayOverrideToForecasts([row]);
   const syncedTideHeight = await readLatestHourlyTide(supabase, beachId, now);
   const sourceFetchedAt =
     displayRow.data_source === "CDIP"
@@ -224,7 +237,9 @@ async function currentForecastHandler(
   return response;
 }
 
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   withAuth(currentForecastHandler, { errorMessage: "Failed to load current conditions" }),
   "surf-discovery",
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/forecasts/current");

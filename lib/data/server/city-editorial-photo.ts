@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
+import { toWikimediaThumbUrl } from "@/lib/utils/image-utils";
 
 export interface CityEditorialPhoto {
   src: string;
@@ -62,7 +63,7 @@ export function pickCityEditorialPhoto(
   const best = candidates[0];
   if (!best) return null;
   return {
-    src: best.image_url,
+    src: toWikimediaThumbUrl(best.image_url),
     beachId: best.beach_id,
     title: best.title,
     creator: best.creator_name,

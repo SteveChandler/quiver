@@ -84,7 +84,7 @@ interface RegistrySyncResult {
 }
 
 /** A shrunken list deactivates nothing only when it is under 80% of the active rows AND more than 2 would go. */
-export function shouldSkipDeactivation(activeStored: number, listed: number, toDeactivate: number): boolean {
+function shouldSkipDeactivation(activeStored: number, listed: number, toDeactivate: number): boolean {
   return (
     activeStored > 0
     && listed < activeStored * MIN_LIST_RATIO_FOR_DEACTIVATION

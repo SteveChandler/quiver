@@ -7,6 +7,7 @@ import {
   loadForecastWindowShareMetadata,
   type ForecastWindowShareMetadata,
 } from "@/lib/share/forecast-window-share";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -292,7 +293,7 @@ async function loadSpaceGroteskData(
   }
 }
 
-export async function GET(request: NextRequest): Promise<Response> {
+async function handleGet(request: NextRequest): Promise<Response> {
   const requestUrl = new URL(request.url);
   const assetBaseUrl =
     process.env.NODE_ENV === "production"
@@ -335,3 +336,5 @@ export async function GET(request: NextRequest): Promise<Response> {
     );
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/og/forecast-window");

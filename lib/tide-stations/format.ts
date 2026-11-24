@@ -1,8 +1,9 @@
+import { getDateTimeFormat } from "./intl-cache";
 import { metresToFeet } from "./series";
 
 function parts(ts: string | number, timeZone: string, options: Intl.DateTimeFormatOptions): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const part of new Intl.DateTimeFormat("en-US", { timeZone, ...options }).formatToParts(new Date(ts))) {
+  for (const part of getDateTimeFormat("en-US", { timeZone, ...options }).formatToParts(new Date(ts))) {
     out[part.type] = part.value;
   }
   return out;
@@ -29,7 +30,9 @@ export function formatDateKey(dateKey: string): string {
 }
 
 export function formatFeet(heightM: number): string {
-  return `${metresToFeet(heightM).toFixed(1)} ft`;
+  const feet = Number(metresToFeet(heightM).toFixed(1));
+  // A height that rounds to zero reads "0.0 ft", never "-0.0 ft".
+  return `${(Object.is(feet, -0) ? 0 : feet).toFixed(1)} ft`;
 }
 
 export function formatMetres(heightM: number): string {

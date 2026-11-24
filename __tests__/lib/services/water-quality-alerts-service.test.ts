@@ -99,6 +99,8 @@ describe("processWaterQualityAlerts — recipient pref gate", () => {
     status: "advisory",
     previous_status: "good",
     status_changed_at: "2026-06-13T12:00:00.000Z",
+    // Alerts need a current sample: a stale one reads unknown and sends nothing.
+    latest_sample_date: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
   };
   const beachRow = { id: BEACH_ID, slug: "ocean-beach", name: "Ocean Beach" };
 

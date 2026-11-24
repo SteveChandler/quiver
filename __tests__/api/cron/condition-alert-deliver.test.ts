@@ -489,7 +489,6 @@ beforeEach(() => {
     status: "allowed",
     candidate: null,
   });
-  delete process.env.ALERTS_DELIVERY_ENABLED;
   process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
 });
@@ -690,7 +689,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("Allowlist set, user not in list, ENABLED=true writes skipped_allowlist", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST =
       "73040cff-afe9-4fa0-a874-2016203fc015";
     seedQueueRow({
@@ -727,7 +725,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
   it("FORECAST_ALERT_DELIVERY_ENABLED=true restores email delivery", async () => {
     process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -934,7 +931,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("sends a beginner window with a no verdict while withholding other matches", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({ best_score: 20 });
     const beginnerQueueId = "00000000-0000-0000-0000-0000000000c2";
     seedQueueRow({
@@ -993,7 +989,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("consumes a real major-event hold as an explainable skip without degrading", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
@@ -1128,7 +1123,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     "provider unavailable",
     "Alert handoff unknown; held for reconciliation",
   ])("degrades on provider failure: %s", async (errorMessage) => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -1169,7 +1163,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("counts email delivery-row insert failure after send without retrying the provider action", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     store.deliveryInsertError = new Error("dedupe insert failed");
     seedQueueRow({
@@ -1208,7 +1201,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("sends every matching forecast alert instead of selecting one canonical beach", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       id: "00000000-0000-0000-0000-0000000000c2",
@@ -1264,6 +1256,66 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       "00000000-0000-0000-0000-0000000000c3",
     ]);
     expectQueueReasonTotals(body);
+  });
+
+  it("sends one card when two rules match the same beach and window (bf4ffdf8, 2026-11-01)", async () => {
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      id: QUEUE_1,
+      rule_id: RULE_1,
+      best_score: 0.64,
+      alert_rules: { name: "Mellow session at your home break", preset_type: "mellow_session", notify_email: true, notify_push: false },
+    });
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000c9",
+      rule_id: "00000000-0000-0000-0000-0000000000a9",
+      best_score: 0.75,
+      alert_rules: { name: "Weekend windows at your home break", preset_type: "weekend_warrior", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    const [{ subject }] = mockEmailsSend.mock.calls[0];
+    expect(subject).not.toMatch(/more spots/);
+    expect(subject).toMatch(/^Test Beach/);
+    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(1);
+    const [props] = mockConsolidatedAlertEmail.mock.calls[0];
+    expect(props.matches).toHaveLength(1);
+    expect(props.matches[0].rule_id).toBe("00000000-0000-0000-0000-0000000000a9");
+    expect((store.deliveryInserts[0] as { payload: { beaches: string[] } }).payload.beaches).toEqual(["Test Beach"]);
+    expect(
+      store.attemptInserts
+        .filter((a: { channel: string; status: string }) => a.channel === "email" && a.status === "sent")
+        .map((a: { queue_id: string }) => a.queue_id)
+        .sort(),
+    ).toEqual([QUEUE_1, "00000000-0000-0000-0000-0000000000c9"].sort());
+  });
+
+  it("keeps separate cards for two windows at the same beach", async () => {
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({ best_score: 0.7 });
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000c9",
+      rule_id: "00000000-0000-0000-0000-0000000000a9",
+      window_start: "2026-04-26T21:00:00Z",
+      window_end: "2026-04-26T23:00:00Z",
+      best_hour: "2026-04-26T22:00:00Z",
+      best_score: 0.75,
+      alert_rules: { name: "Afternoon rule", preset_type: "weekend_warrior", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    const [{ subject }] = mockEmailsSend.mock.calls[0];
+    expect(subject).not.toMatch(/more spots/);
+    const [props] = mockConsolidatedAlertEmail.mock.calls[0];
+    expect(props.matches).toHaveLength(2);
   });
 
   it.each([
@@ -1370,7 +1422,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
     // Regression for the 2026-04-27 failed_provider crash where Resend rejected
     // a null `to` field. The deliver worker must guard before the provider call.
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -1501,7 +1552,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     { fresh: { wave_height: null }, failedCondition: "wave_height=missing,expected min 1.5" },
     { fresh: { wave_height: "3 ft", wind_speed: "12 kt" }, failedCondition: "wind_speed_kt=12>max 8" },
   ])("fresh forecast revalidation records no_matching_window with $failedCondition", async ({ fresh, failedCondition }) => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -1575,7 +1625,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("persists refreshed alert fields and logs rendered match metadata before sending", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     jest.useFakeTimers().setSystemTime(new Date("2026-04-26T12:00:00Z"));
 
@@ -1695,7 +1744,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("rewrites a one-hour queue row to the hourly window on the same row, with one send (ALERT_HOURLY_WINDOWS)", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     process.env.ALERT_HOURLY_WINDOWS_ENABLED = "true";
     process.env.ALERT_HOURLY_WINDOWS_USER_ALLOWLIST = "";
@@ -1926,7 +1974,6 @@ describe("condition-alert-deliver — watched-call queue", () => {
 
 describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   it("fails closed when the recent sent-attempt history query fails", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     store.recentAttemptsError = new Error("attempt history failed");
     seedQueueRow({
@@ -1952,7 +1999,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   });
 
   it("rule cooldown: prior sent attempt 12h ago records skipped_cooldown and skips provider", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -1992,7 +2038,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   });
 
   it("weekly cap: 10 prior sent attempts in last 7d records skipped_user_cap and skips provider", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -2045,7 +2090,6 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   });
 
   it("user-set rule max_frequency_per_week caps that rule before provider send", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
       alert_rules: {
@@ -2145,7 +2189,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient inside quiet hours: email deferred, NOT sent/deduped/marked-sent", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // A 1-hour quiet window that contains the current local hour.
@@ -2235,7 +2278,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient inside DEFAULT_QUIET (no per-rule override) defers", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // Pin the clock to 06:00 UTC = 23:00 PT (previous day) — inside the default
@@ -2266,7 +2308,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient outside DEFAULT_QUIET (no per-rule override) sends", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // 17:00 UTC = 10:00 PT — well outside the default 22→04 window.
@@ -2295,7 +2336,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
   });
 
   it("recipient outside quiet hours: email sends, deduped, marked sent", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     // A 1-hour quiet window that does NOT contain the current local hour.
@@ -2330,7 +2370,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     // Verifies the retry-safety invariant directly: after a deferral there are
     // zero status='sent' rows for the rule, so the next run's cooldownDecision
     // sees no history and the real send proceeds.
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
 
     const start = ptHourNow();
@@ -2356,7 +2395,6 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
 
 describe("condition-alert-deliver — orphaned queue rows", () => {
   it("marks rows sent and records failed_internal when the queued user has no profile", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
     });
@@ -2401,7 +2439,6 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
 
 describe("condition-alert-deliver — push branch enqueues via notifications pipeline (Phase 3d)", () => {
   it("enqueues a forecast_alert notification event instead of sending push directly", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
@@ -2464,7 +2501,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("uses the canonical eligible selection for distinct push provenance", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       id: "00000000-0000-0000-0000-0000000000d1",
       rule_id: "00000000-0000-0000-0000-0000000000e1",
@@ -2547,7 +2583,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("uses a stable synthetic forecast identity for queued compatibility rows", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       conditions_snapshot: { wave_height: 3 },
       alert_rules: {
@@ -2592,7 +2627,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("counts push delivery-row insert failure after enqueue without pre-writing a sent attempt", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     store.deliveryInsertError = new Error("dedupe insert failed");
     seedQueueRow({
       alert_rules: {
@@ -2623,7 +2657,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("records skipped_dedup_collision when enqueue returns duplicate", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
@@ -2648,7 +2681,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("records failed_internal when enqueue returns internal_error", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
@@ -2683,7 +2715,6 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   });
 
   it("does NOT enqueue when notif_push_enabled=false", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       alert_rules: {
         name: "Test rule",
@@ -2699,5 +2730,387 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
     const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
     expect(pushAttempt?.status).toBe("skipped_channel_disabled");
+  });
+});
+
+describe("condition-alert-deliver — skill-aware go checks (SKILL_AWARE_GO_CHECKS)", () => {
+  const OTHER_USER = "00000000-0000-0000-0000-0000000000ff";
+
+  beforeEach(() => {
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+  });
+
+  afterEach(() => {
+    delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+  });
+
+  function flagOnFor(userId: string): void {
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = userId;
+  }
+
+  // 3 ft at score 0.8 is a "go" well under the beginner wave cap, so only the
+  // beach-skill check can veto it.
+  function seedGoAlert(args: { beachSkill: string; experienceLevel: string | null }): void {
+    seedQueueRow({
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-queued" },
+      beaches: {
+        name: "Test Beach",
+        timezone: "America/Los_Angeles",
+        skill_level: args.beachSkill,
+      },
+    });
+    seedProfile({ experience_level: args.experienceLevel });
+  }
+
+  function holdSkills(): unknown[] {
+    return mockResolveNotificationMajorEventHold.mock.calls.map(
+      ([input]) => (input as { profileExperience: unknown }).profileExperience,
+    );
+  }
+
+  function expectSent(): void {
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(
+      mockEnqueueNotification.mock.calls[0][0].payload.session_decision.verdict,
+    ).toBe("go");
+  }
+
+  it.each(["advanced", "intermediate"])(
+    "withholds a flagged no-skill user's alert at a %s beach",
+    async (beachSkill) => {
+      flagOnFor(USER_A);
+      seedGoAlert({ beachSkill, experienceLevel: null });
+
+      const res = await GET(makeRequest());
+
+      expect(res.status).toBe(200);
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+      for (const channel of ["email", "push"]) {
+        expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+          queue_id: QUEUE_1,
+          channel,
+          status: "skipped_disabled",
+          skip_reason: "canonical_decision:verdict_no",
+        }));
+      }
+      expect(holdSkills()).toEqual(["beginner"]);
+    },
+  );
+
+  it("records the beach-skill reason for a flagged no-skill user in shadow mode", async () => {
+    process.env.FORECAST_ALERT_DELIVERY_ENABLED = "false";
+    flagOnFor(USER_A);
+    seedGoAlert({ beachSkill: "advanced", experienceLevel: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: QUEUE_1,
+      values: {
+        delivery_shadow_outcome: expect.objectContaining({
+          verdict: "no",
+          reason_code: "beach_skill_exceeds_user",
+        }),
+      },
+    });
+  });
+
+  it.each(["beginner", "beginner-intermediate"])(
+    "still sends a flagged no-skill user's alert at a %s beach",
+    async (beachSkill) => {
+      flagOnFor(USER_A);
+      seedGoAlert({ beachSkill, experienceLevel: null });
+
+      const res = await GET(makeRequest());
+
+      expect(res.status).toBe(200);
+      expectSent();
+      expect(
+        mockEnqueueNotification.mock.calls[0][0].payload.session_decision
+          .skillEligibility.skill,
+      ).toBe("beginner");
+      expect(holdSkills()).toEqual(["beginner"]);
+    },
+  );
+
+  it.each([
+    { name: "the flag is off", enable: false, allowlist: "" },
+    { name: "the user is not allowlisted", enable: true, allowlist: OTHER_USER },
+  ])("sends a no-skill user's alert at an advanced beach when $name", async ({ enable, allowlist }) => {
+    if (enable) flagOnFor(allowlist);
+    seedGoAlert({ beachSkill: "advanced", experienceLevel: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expectSent();
+    expect(
+      mockEnqueueNotification.mock.calls[0][0].payload.session_decision
+        .skillEligibility.skill,
+    ).toBe("unknown");
+    expect(holdSkills()).toEqual([null]);
+  });
+
+  it.each([
+    { experienceLevel: "advanced", beachSkill: "advanced", sends: true },
+    { experienceLevel: "intermediate", beachSkill: "advanced", sends: false },
+  ])(
+    "keeps a known $experienceLevel skill unchanged at an $beachSkill beach with the flag on",
+    async ({ experienceLevel, beachSkill, sends }) => {
+      flagOnFor(USER_A);
+      seedGoAlert({ beachSkill, experienceLevel });
+
+      const res = await GET(makeRequest());
+
+      expect(res.status).toBe(200);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(sends ? 1 : 0);
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(sends ? 1 : 0);
+      expect(holdSkills()).toEqual([experienceLevel]);
+    },
+  );
+
+  it("keeps the copy and audience fields of a defaulted user equal to flag off", async () => {
+    async function capture(): Promise<Record<string, unknown>> {
+      seedGoAlert({ beachSkill: "beginner", experienceLevel: null });
+      const res = await GET(makeRequest());
+      expect(res.status).toBe(200);
+      expectSent();
+      const email = mockEmailsSend.mock.calls[0][0];
+      const { messageInstanceId: _id, ...emailProps } =
+        mockConsolidatedAlertEmail.mock.calls[0][0];
+      const push = mockEnqueueNotification.mock.calls[0][0].payload;
+      return {
+        subject: email.subject,
+        emailProps,
+        title: push.title,
+        body: push.body,
+        matches: push.matches,
+        rendered_matches: push.rendered_matches,
+        policy_context: push.policy_context,
+      };
+    }
+
+    const flagOff = await capture();
+
+    store.alertQueueRows = [];
+    store.profileRows = [];
+    store.attemptInserts = [];
+    store.deliveryInserts = [];
+    store.existingDeliveries = [];
+    store.seededAttempts = [];
+    store.queueUpdates = [];
+    store.queueRefreshUpdates = [];
+    mockEmailsSend.mockClear();
+    mockEnqueueNotification.mockClear();
+    mockConsolidatedAlertEmail.mockClear();
+    flagOnFor(USER_A);
+    const flagOn = await capture();
+
+    expect(flagOn).toEqual(flagOff);
+    expect(JSON.stringify(flagOn)).not.toMatch(/your level/i);
+  });
+
+  it("sends a defaulted user's safe beach and rejects the vetoed beach push in one run", async () => {
+    flagOnFor(USER_A);
+    const advancedQueueId = QUEUE_1;
+    const beginnerQueueId = "00000000-0000-0000-0000-0000000000c2";
+    seedQueueRow({
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-advanced" },
+      beaches: { name: "Advanced Reef", timezone: "America/Los_Angeles", skill_level: "advanced" },
+    });
+    seedQueueRow({
+      id: beginnerQueueId,
+      rule_id: "00000000-0000-0000-0000-0000000000a2",
+      beach_id: BEACH_2,
+      window_start: "2026-04-26T15:00:00Z",
+      window_end: "2026-04-26T18:00:00Z",
+      best_hour: "2026-04-26T16:00:00Z",
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-beginner" },
+      beaches: { name: "Mellow Cove", timezone: "America/Los_Angeles", skill_level: "beginner" },
+    });
+    seedProfile({ experience_level: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: beginnerQueueId, channel: "email", status: "sent",
+    }));
+    expect(mockConsolidatedAlertEmail.mock.calls.map(([props]) =>
+      props.matches.map((match: { beach_name: string }) => match.beach_name),
+    )).toContainEqual(["Mellow Cove"]);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0]).toMatchObject({
+      entityId: BEACH_2,
+      payload: { session_decision: { verdict: "go", skillEligibility: { skill: "beginner" } } },
+    });
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: advancedQueueId,
+      channel: "push",
+      status: "skipped_disabled",
+      skip_reason: "canonical_decision:beach_skill_exceeds_user",
+    }));
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: advancedQueueId,
+      channel: "email",
+      status: "skipped_disabled",
+      skip_reason: "canonical_decision:beach_skill_exceeds_user",
+    }));
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("condition-alert-deliver — email follows the payload's canonical selection", () => {
+  const VETOED_QUEUE_ID = QUEUE_1;
+  const SAFE_QUEUE_ID = "00000000-0000-0000-0000-0000000000c2";
+
+  beforeEach(() => {
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+  });
+
+  // Two go alerts in one run: the user-level decision selects the safe beach,
+  // so step 4 consumes nothing and each beach reaches its own payload.
+  function seedTwoBeaches(args: {
+    experienceLevel: string | null;
+    vetoedBeachSkill?: string;
+    vetoedWaveHeight?: number;
+  }): void {
+    seedQueueRow({
+      best_score: 0.8,
+      conditions_snapshot: {
+        wave_height: args.vetoedWaveHeight ?? 3,
+        forecast_id: "enhanced-forecast-vetoed",
+      },
+      beaches: {
+        name: "Advanced Reef",
+        timezone: "America/Los_Angeles",
+        skill_level: args.vetoedBeachSkill ?? "advanced",
+      },
+    });
+    seedQueueRow({
+      id: SAFE_QUEUE_ID,
+      rule_id: "00000000-0000-0000-0000-0000000000a2",
+      beach_id: BEACH_2,
+      window_start: "2026-04-26T15:00:00Z",
+      window_end: "2026-04-26T18:00:00Z",
+      best_hour: "2026-04-26T16:00:00Z",
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-safe" },
+      beaches: { name: "Mellow Cove", timezone: "America/Los_Angeles", skill_level: "beginner" },
+    });
+    seedProfile({ experience_level: args.experienceLevel });
+  }
+
+  function emailedBeaches(): string[][] {
+    return mockConsolidatedAlertEmail.mock.calls.map(([props]) =>
+      props.matches.map((match: { beach_name: string }) => match.beach_name),
+    );
+  }
+
+  function expectEmailRejected(reason: string): void {
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: VETOED_QUEUE_ID,
+      channel: "email",
+      status: "skipped_disabled",
+      skip_reason: `canonical_decision:${reason}`,
+    }));
+    expect(store.attemptInserts).not.toContainEqual(expect.objectContaining({
+      queue_id: VETOED_QUEUE_ID,
+      channel: "email",
+      status: "sent",
+    }));
+  }
+
+  it("does not email a beginner the advanced beach while the beginner beach still sends", async () => {
+    seedTwoBeaches({ experienceLevel: "beginner" });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expectEmailRejected("beach_skill_exceeds_user");
+    expect(emailedBeaches()).toEqual([["Mellow Cove"]]);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: SAFE_QUEUE_ID, channel: "email", status: "sent",
+    }));
+    expect(store.deliveryInserts).not.toContainEqual(expect.objectContaining({
+      beach_id: BEACH_1, channel: "email",
+    }));
+    // Pushes as before: the safe beach is enqueued, the vetoed beach is rejected.
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0].entityId).toBe(BEACH_2);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: VETOED_QUEUE_ID,
+      channel: "push",
+      status: "skipped_disabled",
+      skip_reason: "canonical_decision:beach_skill_exceeds_user",
+    }));
+    // Both rows are consumed, so the vetoed row does not retry every run.
+    expect(store.queueUpdates).toEqual(expect.arrayContaining([
+      { ids: [VETOED_QUEUE_ID], sent: true },
+      { ids: [SAFE_QUEUE_ID], sent: true },
+    ]));
+    expect(body.queue_marked_by_reason).toMatchObject({
+      canonical_safety_rejected: 1,
+      delivered: 1,
+    });
+    expectQueueReasonTotals(body);
+  });
+
+  it("still emails both beaches to an unknown-skill user with the flag off", async () => {
+    seedTwoBeaches({ experienceLevel: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(emailedBeaches()).toEqual([["Advanced Reef"], ["Mellow Cove"]]);
+    for (const queueId of [VETOED_QUEUE_ID, SAFE_QUEUE_ID]) {
+      expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+        queue_id: queueId, channel: "email", status: "sent",
+      }));
+    }
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not email a beach whose wave height exceeds the user's skill cap", async () => {
+    seedTwoBeaches({ experienceLevel: "beginner", vetoedBeachSkill: "beginner", vetoedWaveHeight: 6 });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expectEmailRejected("wave_height_exceeds_skill");
+    expect(emailedBeaches()).toEqual([["Mellow Cove"]]);
+  });
+
+  it("does not list a rejected email in the shadow would-use channels", async () => {
+    process.env.FORECAST_ALERT_DELIVERY_ENABLED = "false";
+    seedTwoBeaches({ experienceLevel: "beginner" });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: VETOED_QUEUE_ID,
+      values: { delivery_shadow_outcome: expect.objectContaining({ would_use_channels: [] }) },
+    });
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: SAFE_QUEUE_ID,
+      values: {
+        delivery_shadow_outcome: expect.objectContaining({
+          would_use_channels: expect.arrayContaining(["email", "push"]),
+        }),
+      },
+    });
+    expectEmailRejected("beach_skill_exceeds_user");
   });
 });

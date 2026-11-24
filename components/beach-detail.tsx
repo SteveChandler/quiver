@@ -241,6 +241,7 @@ interface BeachDetailProps {
   heroHeadingLevel?: ZineHeroHeadingLevel;
   heroHeadingSuffix?: string;
   heroSummarySlot?: ReactNode;
+  heroSummaryAboveMedia?: boolean;
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
@@ -273,6 +274,7 @@ function BeachDetailContent({
   heroHeadingLevel,
   heroHeadingSuffix,
   heroSummarySlot,
+  heroSummaryAboveMedia,
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
@@ -987,6 +989,7 @@ function BeachDetailContent({
         heroHeadingLevel={heroHeadingLevel}
         heroHeadingSuffix={heroHeadingSuffix}
         heroSummarySlot={heroSummarySlot}
+        heroSummaryAboveMedia={heroSummaryAboveMedia}
         heroForecastSlot={heroForecastSlot}
       >
         <div id="operational-forecast" tabIndex={-1} className="scroll-mt-20" ref={signupCtaRef} />

@@ -169,8 +169,15 @@ describe("California sea-level adjustment on station pages", () => {
 
   it("gives a California subordinate station its reference station's adjustment", () => {
     expect(
-      californiaAdjustment({ ...base, source_station_id: "TWC0439", reference_station_id: "9410660" })
+      californiaAdjustment({ ...base, source_station_id: "TWC9999", reference_station_id: "9410660" })
     ).toEqual({ appliedByServiceFt: 0, extraFt: 1.5 });
+  });
+
+  it("adds a known subordinate station's adjustment once, through the NOAA service", () => {
+    for (const source_station_id of ["TWC0427", "TWC0439"]) {
+      const { appliedByServiceFt, extraFt } = californiaAdjustment({ source_station_id, reference_station_id: "9410660" });
+      expect({ appliedByServiceFt, extraFt }).toEqual({ appliedByServiceFt: 1.5, extraFt: 0 });
+    }
   });
 
   it("carries it to an Oregon or Baja subordinate station whose reference station is in California", () => {
@@ -181,7 +188,7 @@ describe("California sea-level adjustment on station pages", () => {
 
   it("adds nothing when the reference station has no adjustment", () => {
     expect(
-      californiaAdjustment({ source_station_id: "9435385", reference_station_id: "9435380" })
+      californiaAdjustment({ source_station_id: "9435999", reference_station_id: "9435380" })
     ).toEqual({ appliedByServiceFt: 0, extraFt: 0 });
   });
 });

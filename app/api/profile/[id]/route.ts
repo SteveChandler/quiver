@@ -10,6 +10,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { PROFILE_FULL_SELECT } from "@/lib/profile/constants";
 import type { ProfileDTO } from "@/types/profile";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * Type for profile details query result.
@@ -187,4 +188,6 @@ const profileHandler = withAuth(
 );
 
 // Compose: bot blocking + rate limit → optional-auth handler.
-export const GET = withBotBlockingAndRateLimit(profileHandler, "public-default");
+const handleGet = withBotBlockingAndRateLimit(profileHandler, "public-default");
+
+export const GET = withErrorNoStore(handleGet, "/api/profile/[id]");

@@ -143,6 +143,13 @@ describe('buildRecommendationsV2', () => {
     expect(result.hero).toBeNull();
     expect(result.watch_window?.recommendation_id).toBe('closest-watch');
     expect(result.empty_state.title).toBe('Nothing worth chasing for you right now');
+    expect(result.empty_state.body).toBe('The closest watch window is listed, but it is still small.');
+  });
+
+  it('says the next days stay small when no watch window exists (no "your surfable threshold")', () => {
+    const result = buildRecommendationsV2({ candidates: [], now: new Date('2026-05-31T14:00:00Z') });
+
+    expect(result.empty_state?.body).toBe('It stays small today and for the next 3 days.');
   });
 
   it('surfaces starter, avoidance-learning, low-confidence, and degraded source states', () => {

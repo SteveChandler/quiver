@@ -1,6 +1,7 @@
 import { withObservedCron } from "@/lib/cron/observability";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -207,7 +208,9 @@ async function runRetention(request: Request): Promise<Response> {
   return json({ ok: summary.failed === 0, ...summary });
 }
 
-export const GET = withObservedCron(ROUTE, runRetention, {
+const handleGet = withObservedCron(ROUTE, runRetention, {
   slug: "session-video-retention",
   schedule: "50 9 * * *",
 });
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/session-video-retention");

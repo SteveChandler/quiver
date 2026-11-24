@@ -14,7 +14,7 @@ import type { Beach } from "@/types/database";
 
 // Mock dependencies
 jest.mock("@/lib/utils/forecast-service-utils", () => ({
-  getBatchFreshForecastsFromCache: jest.fn(),
+  getNearbyForecastsFromCache: jest.fn(),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -26,7 +26,7 @@ jest.mock("@/lib/supabase/query-builders", () => ({
 }));
 
 describe("enrichBeachesWithConditions", () => {
-  const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
+  const { getNearbyForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
   const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
   const { withApprovedPhotos } = require("@/lib/supabase/query-builders");
 
@@ -82,7 +82,7 @@ describe("enrichBeachesWithConditions", () => {
       const result = await enrichBeachesWithConditions([]);
 
       expect(result).toEqual([]);
-      expect(getBatchFreshForecastsFromCache).not.toHaveBeenCalled();
+      expect(getNearbyForecastsFromCache).not.toHaveBeenCalled();
       expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
     });
   });
@@ -114,13 +114,12 @@ describe("enrichBeachesWithConditions", () => {
         ],
       ]);
 
-      getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
+      getNearbyForecastsFromCache.mockResolvedValue(forecastMap);
 
       const result = await enrichBeachesWithConditions(beaches);
 
-      expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(
-        ["beach-1", "beach-2"],
-        24
+      expect(getNearbyForecastsFromCache).toHaveBeenCalledWith(
+        ["beach-1", "beach-2"]
       );
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
@@ -141,7 +140,7 @@ describe("enrichBeachesWithConditions", () => {
       const beaches = [createMockBeach({ id: "beach-1" })];
 
       // Mock empty forecast map
-      getBatchFreshForecastsFromCache.mockResolvedValue(new Map());
+      getNearbyForecastsFromCache.mockResolvedValue(new Map());
 
       const result = await enrichBeachesWithConditions(beaches);
 
@@ -165,7 +164,7 @@ describe("enrichBeachesWithConditions", () => {
           },
         ],
       ]);
-      getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
+      getNearbyForecastsFromCache.mockResolvedValue(forecastMap);
 
       const result = await enrichBeachesWithConditions(beaches);
 
@@ -185,7 +184,7 @@ describe("enrichBeachesWithConditions", () => {
           },
         ],
       ]);
-      getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
+      getNearbyForecastsFromCache.mockResolvedValue(forecastMap);
 
       const result = await enrichBeachesWithConditions(beaches);
 
@@ -197,7 +196,7 @@ describe("enrichBeachesWithConditions", () => {
     it("returns null photoUrl when no photos exist", async () => {
       const beaches = [createMockBeach({ id: "beach-1" })];
 
-      getBatchFreshForecastsFromCache.mockResolvedValue(new Map());
+      getNearbyForecastsFromCache.mockResolvedValue(new Map());
 
       const result = await enrichBeachesWithConditions(beaches);
 
@@ -210,7 +209,7 @@ describe("enrichBeachesWithConditions", () => {
         createMockBeach({ id: "beach-2" }),
       ];
 
-      getBatchFreshForecastsFromCache.mockResolvedValue(new Map());
+      getNearbyForecastsFromCache.mockResolvedValue(new Map());
 
       // Mock Supabase with photo data
       const mockSupabase = {
@@ -239,7 +238,7 @@ describe("enrichBeachesWithConditions", () => {
     it("uses first photo per beach (deduplication)", async () => {
       const beaches = [createMockBeach({ id: "beach-1" })];
 
-      getBatchFreshForecastsFromCache.mockResolvedValue(new Map());
+      getNearbyForecastsFromCache.mockResolvedValue(new Map());
 
       // Mock multiple photos for same beach
       const mockSupabase = {
@@ -285,7 +284,7 @@ describe("enrichBeachesWithConditions", () => {
           },
         ],
       ]);
-      getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
+      getNearbyForecastsFromCache.mockResolvedValue(forecastMap);
 
       // Mock photo data
       const mockSupabase = {
@@ -336,7 +335,7 @@ describe("enrichBeachesWithConditions", () => {
         }),
       ];
 
-      getBatchFreshForecastsFromCache.mockResolvedValue(new Map());
+      getNearbyForecastsFromCache.mockResolvedValue(new Map());
 
       const result = await enrichBeachesWithConditions(beaches);
 
@@ -372,7 +371,7 @@ describe("enrichBeachesWithConditions", () => {
         }),
       ];
 
-      getBatchFreshForecastsFromCache.mockResolvedValue(new Map());
+      getNearbyForecastsFromCache.mockResolvedValue(new Map());
 
       const result = await enrichBeachesWithConditions(beaches);
 

@@ -224,9 +224,9 @@ describe("/[intent]/[city] client payload", () => {
             sevenDayExtrema: [],
             hourlyPoints: [],
             beachTidePreferences: [],
+            view: null,
           },
           spots: spotsFor(BEACHES),
-          updatedAt: "Refreshed hourly",
         }),
     ],
     [

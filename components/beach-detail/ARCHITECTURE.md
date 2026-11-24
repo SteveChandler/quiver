@@ -82,7 +82,7 @@ BeachDetailPage
 - **Rendering Logic**:
   1. Passes `camera_url` through `buildCamEmbed()` (`lib/media/cam-embed.ts`) to determine embed kind
   2. Renders based on `kind`:
-     - `"iframe"` -- standard iframe embed (YouTube, Vimeo, HDOnTap, generic)
+     - `"iframe"` -- standard iframe embed (YouTube, Vimeo, generic)
      - `"hls"` -- dynamically imports `HLSVideoPlayer` (code-split, SSR disabled)
      - `"video"` -- native `<video>` element for .mp4/.webm/.ogg
      - `"none"` -- section hidden entirely
@@ -134,7 +134,7 @@ BeachDetailPage
 ```
 camera_url (from beaches.sources)
   → buildCamEmbed(url)                    # lib/media/cam-embed.ts
-     ├─ YouTube / Vimeo / HDOnTap → iframe
+     ├─ YouTube / Vimeo → iframe
      ├─ .mp4 / .webm / .ogg      → video
      ├─ .m3u8 (Surfline)          → hls (proxied via /api/hls-proxy/...)
      ├─ .m3u8 (Surfchex, others)  → hls (direct URL, no CORS issue)

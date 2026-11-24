@@ -12,7 +12,9 @@ export function classifyWaveHeight(
   significantHeightFt: number,
 ): WaveHeightClassification {
   const clampedHeight = Math.max(0.5, Math.min(8, significantHeightFt));
-  const faceHeightMinFt = clampedHeight * 1.5;
+  // Matches lib/utils/wave-height-transformer.ts at an uncalibrated beach open
+  // to the swell: ~1.0x Hs for the average wave at 10 s, ~1.34x at 14 s, sets 1.5x.
+  const faceHeightMinFt = clampedHeight * 1;
   const faceHeightMaxFt = clampedHeight * 2;
 
   return {

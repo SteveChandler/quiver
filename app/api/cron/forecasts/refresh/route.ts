@@ -8,6 +8,11 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip";
+import {
+  forecastWriteConcurrency,
+  getForecastWritePacing,
+  paceForecastWriteChunks,
+} from "@/lib/services/forecast/batch-beach-processor";
 import { NwsWindService, type NwsForecastCache } from "@/lib/services/nws-wind-service";
 import {
   getNearestNDBCStation,
@@ -31,6 +36,7 @@ import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-u
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 // Vercel cron functions have a 5 minute hard limit
@@ -415,8 +421,13 @@ async function _GET(request: Request): Promise<Response> {
       : staleTideBeaches;
 
     if (shouldRunNonTideIngest) {
-      const BATCH_SIZE = Number(process.env.FORECAST_REFRESH_BATCH_SIZE ?? process.env.FORECAST_BATCH_SIZE ?? 3);
-      const BATCH_DELAY_MS = Number(process.env.FORECAST_REFRESH_BATCH_DELAY_MS ?? process.env.FORECAST_BATCH_DELAY_MS ?? 1000);
+      const marinePacing = runMarine ? getForecastWritePacing(25) : null;
+      const batchSize = Number(process.env.FORECAST_REFRESH_BATCH_SIZE ?? process.env.FORECAST_BATCH_SIZE ?? 3);
+      // Keep the default total inter-beach wait budget with two beaches per batch.
+      const batchDelayMs = Number(
+        process.env.FORECAST_REFRESH_BATCH_DELAY_MS ?? process.env.FORECAST_BATCH_DELAY_MS
+        ?? (marinePacing ? 650 : 1000)
+      );
 
       if (runMarine) {
         console.log("[Forecast Refresh] Marine selection", {
@@ -436,7 +447,7 @@ async function _GET(request: Request): Promise<Response> {
       const batches = splitIntoChunks(
         // If both marine + sun are requested, run marine selection set (it’s likely superset during recovery).
         runMarine ? selectedMarineBeaches : selectedSunBeaches,
-        BATCH_SIZE
+        runMarine ? forecastWriteConcurrency(batchSize) : batchSize
       );
 
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -460,9 +471,11 @@ async function _GET(request: Request): Promise<Response> {
               marineCoverage.lastAttemptedBeachId = b.id;
               let waveWritten = false;
               const writeMarine = async (rows: Record<string, unknown>[]): Promise<boolean> => {
-                const { error } = await supabase.from("marine_forecasts")
-                  .upsert(rows as any[], { onConflict: "beach_id,ts,source" });
-                if (error) { rejectMarine("write_failed", b.id); return false; }
+                for await (const batch of paceForecastWriteChunks(rows, marinePacing, msRemaining)) {
+                  const { error } = await supabase.from("marine_forecasts")
+                    .upsert(batch as any[], { onConflict: "beach_id,ts,source" });
+                  if (error) { rejectMarine("write_failed", b.id); return false; }
+                }
                 addedMarine += rows.length;
                 return true;
               };
@@ -679,14 +692,14 @@ async function _GET(request: Request): Promise<Response> {
         }
 
         if (batchIndex < batches.length - 1) {
-          if (hasDeadline && msRemaining() <= BATCH_DELAY_MS) {
+          if (hasDeadline && msRemaining() <= batchDelayMs) {
             console.warn("[Forecast Refresh] Skipping batch delay and stopping early due to time budget", {
               batchIndex,
               remainingMs: msRemaining(),
             });
             break;
           }
-          await sleep(BATCH_DELAY_MS);
+          await sleep(batchDelayMs);
         }
       }
     }
@@ -1112,6 +1125,11 @@ async function _GET(request: Request): Promise<Response> {
       || marineCoverage.rejectedBeachIds.length > marineCoverage.attemptedCoverage * MARINE_TOLERATED_BEACH_FAILURE_SHARE);
     const marineGapSummary = (): string =>
       Object.entries(marineCoverage.coverageGaps).map(([reason, count]) => `${reason} ${count}`).join(", ");
+    const noaaPredictionsGap = source === "tide" && totals.tides === 0
+      && tideIngest.failedStations.length > 0
+      && tideIngest.failedStations.every(({ stationId, reason }) =>
+        stationId !== MODEL_TIDE_STATION_ID && reason === "no_predictions")
+      && tideIngest.failedStations.reduce((count, station) => count + station.beaches, 0) === selectedTideBeaches.length;
     const result = await withCronOutcome(
       {
         job: `/api/cron/forecasts/refresh?source=${source}`,
@@ -1130,12 +1148,15 @@ async function _GET(request: Request): Promise<Response> {
             return `marine refresh failed: ${reasons.length ? reasons.join(", ") : "beaches left unattempted"}`;
           }
           const lapsing = tideIngest.beachesBelowMinCoverage;
-          if (runTide && lapsing > 0) {
+          if (runTide && lapsing > 0 && !noaaPredictionsGap) {
             return `tide coverage under ${TIDE_MIN_COVERAGE_DAYS} days for ${lapsing} beach${lapsing === 1 ? "" : "es"}`;
           }
           return null;
         },
         legitimatelyZero: (value) => {
+          if (noaaPredictionsGap) {
+            return { reason: "NOAA returned no tide predictions for the targeted beaches" };
+          }
           if ((runMarine && marineCoverage.expectedCoverage === 0) || value.totals.beaches === 0) {
             return { reason: runMarine && marineCoverage.expectedCoverage === 0
               ? "No marine caches require refresh" : "No beaches with coordinates were targeted by this refresh" };
@@ -1161,4 +1182,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/forecasts/refresh", _GET);
+const handleGet = withObservedCron("/api/cron/forecasts/refresh", _GET);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/forecasts/refresh");

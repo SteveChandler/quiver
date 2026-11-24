@@ -6,8 +6,7 @@
  * Covers:
  * - Input validation (missing URL, invalid URL, protocol enforcement)
  * - SSRF protection (hostname allowlist)
- * - Regex extraction of HLS URLs from HDOnTap HTML
- * - Unicode unescape handling
+ * - Retired provider blocked before requests
  * - Response size limits
  * - Timeout handling
  * - Extracted URL validation
@@ -40,18 +39,6 @@ function makeRequest(url?: string): NextRequest {
   );
 }
 
-function makeHdontapHtml(hlsUrl: string): string {
-  return `<html><body><script>
-    var config = {"source":"https:\\/\\/live.hdontap.com\\/hls\\/${hlsUrl}"};
-  </script></body></html>`;
-}
-
-function makeHdontapHtmlWithUnicode(hlsUrl: string): string {
-  return `<html><body><script>
-    var config = {"source":"${hlsUrl.replace(/&/g, "\\u0026")}"};
-  </script></body></html>`;
-}
-
 describe("GET /api/cam-resolve", () => {
   let GET: (req: NextRequest) => Promise<Response>;
 
@@ -74,6 +61,32 @@ describe("GET /api/cam-resolve", () => {
     mockFetch.mockReset();
   });
 
+  it.each([
+    "https://hdontap.com/stream/123/",
+    "https://PORTAL.HDONTAP.COM./s/embed",
+    "https://live.%68dontap.com/playlist.m3u8",
+    "https://edge123.us.nginx.hdontap.com/segment.ts",
+    "https://storage.hdontap.com/preview.jpg",
+    "/api/hls-proxy/live.hdontap.com/playlist.m3u8",
+    "/_next/image?url=https%253A%252F%252Fstorage.hdontap.com%252Fstill.jpg",
+  ])("returns 410 before fetch for %s", async (url) => {
+    const res = await GET(makeRequest(url));
+    expect(res.status).toBe(410);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a partner page redirect to the retired provider", async () => {
+    mockFetch.mockResolvedValueOnce(new Response(null, {
+      status: 302,
+      headers: { Location: "https://hdontap.com/stream/123/" },
+    }));
+    const res = await GET(makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php"));
+    expect(res.status).toBe(502);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][1].redirect).toBe("manual");
+  });
+
   // ===== Input Validation =====
 
   describe("Input Validation", () => {
@@ -93,7 +106,7 @@ describe("GET /api/cam-resolve", () => {
 
     it("returns 400 for HTTP (non-HTTPS) URLs", async () => {
       const res = await GET(
-        makeRequest("http://hdontap.com/stream/123/test/")
+        makeRequest("http://obhotel.com/webcam")
       );
       expect(res.status).toBe(400);
       const json = await res.json();
@@ -134,304 +147,27 @@ describe("GET /api/cam-resolve", () => {
 
     it("returns 403 for subdomain spoofing", async () => {
       const res = await GET(
-        makeRequest("https://fake.hdontap.com/stream/123/test/")
+        makeRequest("https://hdontap.com.example.org/stream/123/test/")
       );
       expect(res.status).toBe(403);
     });
 
-    it("allows hdontap.com", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html>no stream here</html>"),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      // Should proceed past host check (may return 404 if no HLS found)
-      expect(res.status).not.toBe(403);
-      expect(mockFetch).toHaveBeenCalled();
-    });
-
-    it("allows www.hdontap.com", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html>no stream</html>"),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://www.hdontap.com/stream/123/test/")
-      );
-      expect(res.status).not.toBe(403);
-    });
-
-    it("allows portal.hdontap.com", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html>no stream here</html>"),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest(
-          "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
-        )
-      );
-      // Should proceed past host check (may return 404 if no HLS found)
-      expect(res.status).not.toBe(403);
-      expect(mockFetch).toHaveBeenCalled();
-    });
-
     it("does not follow redirects to internal hosts", async () => {
-      // The fetch should always go to hdontap.com, never to localhost/internal IPs
+      // The fetch should always go to obhotel.com, never to localhost/internal IPs
       mockFetch.mockResolvedValue({
         ok: true,
         text: () => Promise.resolve("<html></html>"),
         headers: new Headers(),
       });
 
-      await GET(makeRequest("https://hdontap.com/stream/123/test/"));
+      await GET(makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php"));
 
       const fetchedUrl = mockFetch.mock.calls[0][0];
-      expect(fetchedUrl).toContain("hdontap.com");
+      expect(fetchedUrl).toContain("obhotel.com");
     });
   });
 
   // ===== Embed URL Construction =====
-
-  describe("Embed URL Construction", () => {
-    it("appends /embed/ to stream URLs", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html></html>"),
-        headers: new Headers(),
-      });
-
-      await GET(
-        makeRequest("https://hdontap.com/stream/186699/pacific-beach/")
-      );
-
-      const fetchedUrl = mockFetch.mock.calls[0][0];
-      expect(fetchedUrl).toContain("/embed/");
-    });
-
-    it("appends /embed/ to URLs without trailing slash", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html></html>"),
-        headers: new Headers(),
-      });
-
-      await GET(makeRequest("https://hdontap.com/stream/186699"));
-
-      const fetchedUrl = mockFetch.mock.calls[0][0];
-      expect(fetchedUrl).toBe("https://hdontap.com/stream/186699/embed/");
-    });
-
-    it("handles URLs with query parameters correctly", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html></html>"),
-        headers: new Headers(),
-      });
-
-      await GET(
-        makeRequest("https://hdontap.com/stream/123/test?ref=quiver")
-      );
-
-      const fetchedUrl = mockFetch.mock.calls[0][0];
-      // Query params should be preserved, /embed/ added to path
-      expect(fetchedUrl).toMatch(/\/embed\/.*ref=quiver/);
-    });
-
-    it("does NOT append /embed/ to portal.hdontap.com URLs", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html></html>"),
-        headers: new Headers(),
-      });
-
-      await GET(
-        makeRequest(
-          "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
-        )
-      );
-
-      const fetchedUrl = mockFetch.mock.calls[0][0];
-      // The portal URL must be fetched unchanged — no /embed/ suffix added
-      expect(fetchedUrl).toBe(
-        "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
-      );
-    });
-
-    it("includes User-Agent header in fetch request", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html></html>"),
-        headers: new Headers(),
-      });
-
-      await GET(makeRequest("https://hdontap.com/stream/186699"));
-
-      const fetchOptions = mockFetch.mock.calls[0][1];
-      expect(fetchOptions.headers["User-Agent"]).toBe(
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-      );
-    });
-
-    it("sends redirect: manual on the primary page fetch", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve("<html></html>"),
-        headers: new Headers(),
-      });
-
-      await GET(makeRequest("https://hdontap.com/stream/186699"));
-
-      const fetchOptions = mockFetch.mock.calls[0][1];
-      expect(fetchOptions.redirect).toBe("manual");
-    });
-  });
-
-  // ===== HLS URL Extraction =====
-
-  describe("HLS URL Extraction", () => {
-    it("extracts HLS URL from HDOnTap page HTML", async () => {
-      const hlsStream =
-        "hosb1/pacificbeach_pacterrace.stream/playlist.m3u8?t=abc123&e=9999999999";
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () =>
-          Promise.resolve(
-            `<html><script>var src = "https://live.hdontap.com/hls/${hlsStream}";</script></html>`
-          ),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/186699/pacific-beach/")
-      );
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.hlsUrl).toBe(
-        `https://live.hdontap.com/hls/${hlsStream}`
-      );
-    });
-
-    it("returns 404 when no HLS URL found in page", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () =>
-          Promise.resolve(
-            '<html><span class="text-[1.6rem] italic text-white">Currently Offline</span></html>'
-          ),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/255678/hb-pier/")
-      );
-      expect(res.status).toBe(404);
-      const json = await res.json();
-      expect(json.error).toBe("No stream found");
-    });
-
-    it("returns 404 when HTML is empty", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(""),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      expect(res.status).toBe(404);
-      const json = await res.json();
-      expect(json.error).toBe("No stream found");
-    });
-
-    it("handles unicode-escaped ampersands in HLS URLs", async () => {
-      const html = makeHdontapHtmlWithUnicode(
-        "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc&e=123"
-      );
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(html),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.hlsUrl).toContain("?t=abc&e=123");
-    });
-
-    it("handles unicode-escaped equals signs in HLS URLs", async () => {
-      // HDOnTap escapes = as \u003d
-      const html = `<html><script>var src = "https://live.hdontap.com/hls/stream/playlist.m3u8?t\\u003dabc\\u0026e\\u003ddef";</script></html>`;
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(html),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.hlsUrl).toBe(
-        "https://live.hdontap.com/hls/stream/playlist.m3u8?t=abc&e=def"
-      );
-    });
-
-    it("extracts HLS URL with http protocol (not just https)", async () => {
-      const html = `<html><script>var src = "http://live.hdontap.com/hls/stream/playlist.m3u8?t=abc";</script></html>`;
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(html),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.hlsUrl).toBe(
-        "http://live.hdontap.com/hls/stream/playlist.m3u8?t=abc"
-      );
-    });
-
-    it("extracts first HLS URL when multiple are present", async () => {
-      const html = `<html><script>
-        var primary = "https://live.hdontap.com/hls/stream1/playlist.m3u8?t=abc";
-        var backup = "https://live.hdontap.com/hls/stream2/playlist.m3u8?t=def";
-      </script></html>`;
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(html),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      // Should return the first match
-      expect(json.hlsUrl).toBe(
-        "https://live.hdontap.com/hls/stream1/playlist.m3u8?t=abc"
-      );
-    });
-  });
-
-  // ===== Error Handling =====
 
   describe("Error Handling", () => {
     it("returns 502 when upstream returns non-OK status", async () => {
@@ -442,7 +178,7 @@ describe("GET /api/cam-resolve", () => {
       });
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(502);
       const json = await res.json();
@@ -457,7 +193,7 @@ describe("GET /api/cam-resolve", () => {
       });
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(502);
       const json = await res.json();
@@ -472,7 +208,7 @@ describe("GET /api/cam-resolve", () => {
       });
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(502);
       const json = await res.json();
@@ -487,7 +223,7 @@ describe("GET /api/cam-resolve", () => {
       });
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(504);
       const json = await res.json();
@@ -498,7 +234,7 @@ describe("GET /api/cam-resolve", () => {
       mockFetch.mockRejectedValue(new Error("Network failure"));
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(502);
       const json = await res.json();
@@ -514,7 +250,7 @@ describe("GET /api/cam-resolve", () => {
       });
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(502);
       const json = await res.json();
@@ -529,7 +265,7 @@ describe("GET /api/cam-resolve", () => {
       });
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(502);
       const json = await res.json();
@@ -551,7 +287,7 @@ describe("GET /api/cam-resolve", () => {
       });
 
       const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
       );
       expect(res.status).toBe(404);
       const json = await res.json();
@@ -1009,24 +745,6 @@ describe("GET /api/cam-resolve", () => {
   // ===== Response Headers =====
 
   describe("Response Headers", () => {
-    it("includes Cache-Control on success response", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () =>
-          Promise.resolve(
-            '<html>"https://live.hdontap.com/hls/stream.stream/playlist.m3u8?t=x&e=1"</html>'
-          ),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      expect(res.status).toBe(200);
-      expect(res.headers.get("Cache-Control")).toBe(
-        "public, max-age=120, stale-while-revalidate=60"
-      );
-    });
 
     it("includes security headers on error responses", async () => {
       const res = await GET(makeRequest());
@@ -1034,20 +752,5 @@ describe("GET /api/cam-resolve", () => {
       expect(res.headers.get("X-Frame-Options")).toBe("DENY");
     });
 
-    it("includes security headers on success responses", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: () =>
-          Promise.resolve(
-            '<html>"https://live.hdontap.com/hls/s.stream/playlist.m3u8?t=x&e=1"</html>'
-          ),
-        headers: new Headers(),
-      });
-
-      const res = await GET(
-        makeRequest("https://hdontap.com/stream/123/test/")
-      );
-      expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
-    });
   });
 });

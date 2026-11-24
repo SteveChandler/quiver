@@ -10,6 +10,7 @@ import { getFreshForecastFromCache, getStalenessDetails } from '@/lib/utils/fore
 import { getCurrentForecast } from '@/lib/utils/current-forecast-utils';
 import { validateURL } from '@/lib/security/ip-validation';
 import type { Database } from '@/types/supabase';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -136,7 +137,7 @@ async function renderFallback(): Promise<Response> {
   return jpegResponse(response);
 }
 
-export async function GET(request: NextRequest): Promise<Response> {
+async function handleGet(request: NextRequest): Promise<Response> {
   const slug = new URL(request.url).searchParams.get('slug');
   if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/.test(slug)) return renderFallback();
 
@@ -246,3 +247,5 @@ export async function GET(request: NextRequest): Promise<Response> {
     return renderFallback();
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/og/beach");

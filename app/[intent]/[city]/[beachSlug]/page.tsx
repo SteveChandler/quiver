@@ -1,5 +1,7 @@
 import { cache, Suspense } from "react";
 import { describeThrownError } from "@/lib/services/forecast/error-message";
+import { runWithPublicBeachRowCache } from "@/lib/data/server/public-beach-row-cache";
+import { runWithPublicWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -17,6 +19,7 @@ import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-ap
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
+import { insideCountyFeed } from "@/lib/services/water-quality/county-coverage";
 import { withRainfallNotice } from "@/lib/services/water-quality/rainfall-runoff-read";
 import {
   buildBeachUrl,
@@ -26,7 +29,7 @@ import {
   cityToSlug,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Beach } from "@/types/database";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -38,10 +41,12 @@ import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
+import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
 import {
   getCachedBeachAmenities,
   getCachedBeachCameraUrl,
   getCachedBeachFeaturedPhoto,
+  readBeachWaterQualitySample,
 } from "@/lib/data/server/beach-detail-static-reads";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
@@ -52,10 +57,12 @@ import {
 } from "@/lib/utils/public-forecast-facts";
 import {
   evaluateBeachPageIndexability,
+  forecastCoverageFor,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
+import { hasSubPageDataOrUnknown } from "@/lib/seo/sub-page-data-availability";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
 // Rendered per request so forecast revisions and windows are current; the HTML
@@ -93,6 +100,12 @@ async function optionalSection<T>(
     });
     return null;
   }
+}
+
+function withBeachReadScope<T>(beach: Beach, load: () => Promise<T>): Promise<T> {
+  // A badge outside County coverage skips the unfiltered latest-run query.
+  const hasCountyBadge = beach.lat != null && beach.lon != null && insideCountyFeed(beach);
+  return runWithPublicWaterQualityReadScope(load, hasCountyBadge);
 }
 
 /**
@@ -156,7 +169,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       expectedCity: expectedCitySlug,
       providedCity: city,
     });
-    redirect(buildBeachUrl(beach));
+    permanentRedirect(buildBeachUrl(beach));
   }
 
   const beachTimezone = await optionalSection("timezone", () =>
@@ -166,25 +179,30 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       : null),
   );
 
-  // Fetch above-fold and structured-data essentials in parallel. Nearby spot
-  // enrichment streams below the tabs so it does not block the page shell.
+  // Both nearby sections share the lookup and stream after the forecast.
+  const nearbyBeachesRaw = optionalSection("nearby", async (): Promise<Beach[]> => {
+    const { lat, lon } = beach;
+    if (lat == null || lon == null) return [];
+    const result = await runWithPublicBeachRowCache(() => getNearbyBeaches(lat, lon, 25));
+    if (!result.success || !result.data) return [];
+    return result.data
+      .filter((nearby) => nearby.id !== beach.id && nearby.slug !== beach.slug)
+      .slice(0, 4);
+  }).then((beaches) => beaches ?? []);
+
+  // Fetch above-fold and structured-data essentials in parallel.
   const [
     surfReportResult,
     amenitiesResult,
     waterQualityResult,
-    cameraUrl,
+    liveCameraUrl,
     beachPhoto,
-    nearbyResult,
-  ] = await Promise.all([
+  ] = await withBeachReadScope(beach, () => Promise.all([
     optionalSection("forecast", () => getSpotSurfReportPublic(beach)),
     optionalSection("amenities", () => getCachedBeachAmenities(beach.id)),
     optionalSection("waterQuality", async () => {
       const supabase = createPublicReadClient();
-      const { data, error } = await supabase
-        .from("beach_water_quality")
-        .select("*")
-        .eq("beach_id", beach.id)
-        .maybeSingle();
+      const { data, error } = await readBeachWaterQualitySample(supabase, beach.id);
       if (error) {
         console.error("[GenericBeachDetailPage] Optional section unavailable:", {
           section: "waterQuality.sample",
@@ -194,7 +212,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       // An unsampled beach can still carry a County or rainfall notice; the badge hides a bare unknown.
       return (await withRainfallNotice(await currentWaterQuality([data ?? unsampledWaterQualityRow(beach.id)]), [beach]))[0] as WaterQuality;
     }),
-    optionalSection("camera", () => getCachedBeachCameraUrl(beach.id)),
+    // Same rule as the cam directory and the sources API: no player, no VideoObject.
+    optionalSection("camera", async () => {
+      const url = await getCachedBeachCameraUrl(beach.id);
+      if (!url) return null;
+      return (await resolveCamPlayback(url)).kind === "none" ? null : url;
+    }),
     optionalSection("photo", () => getCachedBeachFeaturedPhoto(beach.id).then((photo) =>
       photo
         ? {
@@ -208,10 +231,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }
         : null,
     )),
-    optionalSection("nearby", () => beach.lat != null && beach.lon != null
-      ? getNearbyBeaches(beach.lat, beach.lon, 25)
-      : null),
-  ]);
+  ]));
 
   const surfCallReport = surfReportResult?.report || null;
   const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
@@ -231,14 +251,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
   };
   const returnTo = buildBeachUrl(publicBeach);
-
-  const nearbyBeachesRaw = nearbyResult?.success && nearbyResult.data
-    ? nearbyResult.data
-        .filter((nearbyBeach) =>
-          nearbyBeach.id !== beach.id && nearbyBeach.slug !== beach.slug,
-        )
-        .slice(0, 4)
-    : [];
 
   return (
     <div className="min-h-screen">
@@ -292,10 +304,10 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       />
 
       {/* VideoObject + BroadcastEvent for live cam — earns LIVE badge in SERPs */}
-      {cameraUrl && (
+      {liveCameraUrl && (
         <LiveCamSchema
           beachName={beach.name}
-          cameraUrl={cameraUrl}
+          cameraUrl={liveCameraUrl}
           pageUrl={buildBeachUrl(beach)}
         />
       )}
@@ -319,7 +331,11 @@ export default async function GenericBeachDetailPage(props: PageProps) {
               generalCall={publicGeneralCall}
               isTomorrow={surfCallIsTomorrow}
               publicDecisionWindow={publicDecisionWindow}
-              nearbyBeaches={nearbyBeachesRaw}
+              nearbyBeaches={nearbyBeachesRaw.then((beaches) =>
+                beaches.map(({ id, name, slug, city, state, country }) => ({
+                  id, name, slug, city, state, country,
+                })),
+              )}
               headingLevel="h1"
               returnTo={returnTo}
             />
@@ -423,17 +439,20 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
       getWaterTempMetaData(beach.id),
       getTideMetaData(beach.id, beach.timezone),
     ]);
-    const forecastSnapshot = forecastSnapshots.get(beach.id);
+    const forecastSnapshot = forecastCoverageFor(forecastSnapshots, beach.id);
     const hasWaterTemp = isBeachSubPageIndexable(
       forecastSnapshot,
       `${beachPath}/water-temp`,
-      { hasSubPageData: waterTempData.tempF != null },
+      { hasSubPageData: hasSubPageDataOrUnknown(waterTempData, waterTempData.tempF != null) },
     );
     // Same availability test the tides sub-page applies in its own metadata
     // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the
     // target answers indexable.
     const hasTides = isBeachSubPageIndexable(forecastSnapshot, `${beachPath}/tides`, {
-      hasSubPageData: Boolean(tideData.nextHighTime || tideData.nextLowTime),
+      hasSubPageData: hasSubPageDataOrUnknown(
+        tideData,
+        Boolean(tideData.nextHighTime || tideData.nextLowTime),
+      ),
     });
 
     return (
@@ -453,10 +472,10 @@ async function DeferredZineNearbySpots({
   nearbyBeachesRaw,
 }: {
   beach: Beach;
-  nearbyBeachesRaw: Beach[];
+  nearbyBeachesRaw: Promise<Beach[]>;
 }) {
   return optionalSection("nearbyConditions", async () => {
-    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+    const nearbyBeaches = await enrichBeachesWithConditions(await nearbyBeachesRaw);
 
     return (
       <ZineNearbySpots
@@ -516,7 +535,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     // The title and description use the live report for the wave-height hook.
     // Robots do NOT: they come from the cached coverage snapshot below, the
     // same one the sitemap reads, so both sides answer from one clock.
-    const surfReportResult = await getSpotSurfReportPublic(beach);
+    const surfReportResult = await withBeachReadScope(
+      beach,
+      () => getSpotSurfReportPublic(beach),
+    );
     const forecastContext = surfReportResult?.forecastContext ?? null;
     const forecastData = forecastContext
       ? {
@@ -572,7 +594,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       { id: beach.id, timezone: beach.timezone ?? null },
     ]);
     const decision = evaluateBeachPageIndexability(
-      snapshots.get(beach.id),
+      forecastCoverageFor(snapshots, beach.id),
       path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
     );
     return applyIndexabilityToMetadata(metadata, decision);

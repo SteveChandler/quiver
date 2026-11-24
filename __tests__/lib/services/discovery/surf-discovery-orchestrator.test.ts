@@ -365,11 +365,12 @@ jest.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
+const mockDiscoveryTimingWarn = jest.fn();
 jest.mock('@/lib/logger', () => ({
   createContextLogger: jest.fn(() => ({
     debug: jest.fn(),
     info: jest.fn(),
-    warn: jest.fn(),
+    warn: (...args: unknown[]) => mockDiscoveryTimingWarn(...args),
     error: jest.fn(),
   })),
 }));
@@ -400,7 +401,8 @@ jest.mock('@/lib/domains/scoring', () => ({
       distancePenalty: 0,
     },
     matchQuality: 'excellent',
-    reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+    reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+    reasonCodes: ['size_good', 'period_good', null],
     warnings: [],
     conditionBadges: [],
   })),
@@ -462,6 +464,17 @@ jest.mock('@/lib/utils/timezone-utils.server', () => ({
   getTimezoneFromCoords: jest.fn(() => 'America/Los_Angeles'),
 }));
 
+let mockDistinction: string | null | undefined;
+jest.mock('@/lib/services/discovery/window-distinction', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/window-distinction');
+  return {
+    ...actual,
+    computeWindowDistinctionReason: (...args: unknown[]) => (
+      mockDistinction === undefined ? actual.computeWindowDistinctionReason(...args) : mockDistinction
+    ),
+  };
+});
+
 jest.mock('@/lib/services/discovery/personalization-layer', () => ({
   fetchPersonalizationContext: jest.fn(async () => ({
     implicitPrefs: null,
@@ -505,7 +518,8 @@ function resetDefaultDiscoveryMocks(): void {
       distancePenalty: 0,
     },
     matchQuality: 'excellent',
-    reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+    reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+    reasonCodes: ['size_good', 'period_good', null],
     warnings: [],
     conditionBadges: [],
   });
@@ -644,6 +658,77 @@ describe('discoverSurfSpots - Hotfix Candidate Boundaries', () => {
     });
   });
 
+  it('snapshots the pending dependency and logs exactly once at the deadline', async () => {
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    const { getFavoriteBeachesFromDb } = require('@/lib/services/beach-query-service');
+    getFavoriteBeachesFromDb.mockImplementationOnce(() => new Promise((resolve) => {
+      setTimeout(() => resolve({ success: true, data: [] }), 4651);
+    }));
+    buildCandidatePool.mockImplementationOnce(() => new Promise(() => {}));
+    jest.useFakeTimers();
+    try {
+      const result = discoverSurfSpots('timing-user', {
+        userLocation,
+        overallTimeout: 12000,
+        throwOnFailure: true,
+      }).catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(12000);
+      const error = await result;
+
+      expect(error).toMatchObject({
+        code: 'timeout',
+        stageTimings: {
+          completed: expect.arrayContaining([
+            { stage: 'favorites', durationMs: 4651 },
+          ]),
+          pending: [{ stage: 'candidates', durationMs: 7349 }],
+        },
+      });
+      expect(mockDiscoveryTimingWarn).toHaveBeenCalledTimes(1);
+      expect(mockDiscoveryTimingWarn).toHaveBeenCalledWith('Discovery timed out', {
+        durationMs: 12000,
+        stages: (error as { stageTimings: unknown }).stageTimings,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('attaches completed stages to non-timeout operational failures', async () => {
+    await expect(discoverSurfSpots('timing-outage-user', {
+      userLocation,
+      throwOnFailure: true,
+    })).rejects.toMatchObject({
+      code: 'forecast_unavailable',
+      stageTimings: {
+        completed: expect.arrayContaining([
+          { stage: 'favorites', durationMs: expect.any(Number) },
+          { stage: 'forecasts', durationMs: expect.any(Number) },
+        ]),
+        pending: [],
+      },
+    });
+  });
+
+  it('does not mistake an unexpected error message for the overall deadline', async () => {
+    const { buildCandidatePool } = require('@/lib/services/discovery/candidate-pool-builder');
+    const cause = new Error('Discovery timeout in an unexpected dependency');
+    buildCandidatePool.mockRejectedValueOnce(cause);
+
+    await expect(discoverSurfSpots('timing-internal-user', {
+      userLocation,
+      throwOnFailure: true,
+    })).rejects.toMatchObject({
+      code: 'internal_error',
+      cause,
+      stageTimings: {
+        completed: expect.arrayContaining([
+          { stage: 'candidates', durationMs: expect.any(Number) },
+        ]),
+      },
+    });
+  });
+
   it('classifies an overall timeout as retryable', async () => {
     const { buildCandidatePool } = require(
       '@/lib/services/discovery/candidate-pool-builder',
@@ -746,7 +831,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -1360,7 +1446,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
   test('bounds the embedded board history to 12 months and 300 recent sessions', async () => {
     mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
     mockSupabaseFrom.mockClear();
-    await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', true);
+    await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1');
     const query = mockSupabaseFrom.mock.results.find((_, i) => mockSupabaseFrom.mock.calls[i][0] === 'boards')!.value;
     const [[column, since]] = query.gte.mock.calls;
     expect(column).toBe('sessions.arrival_time');
@@ -1371,17 +1457,10 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(query.limit).toHaveBeenCalledWith(300, { referencedTable: 'sessions' });
   });
 
-  test.each([true, false])('leaves retired boards out of the board context (picks enabled: %s)', async (isPro) => {
-    const previous = process.env.BOARD_PICKS_FREE_ENABLED;
-    delete process.env.BOARD_PICKS_FREE_ENABLED;
+  test('leaves retired boards out of the board context', async () => {
     mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
     mockSupabaseFrom.mockClear();
-    try {
-      await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', isPro);
-    } finally {
-      if (previous === undefined) delete process.env.BOARD_PICKS_FREE_ENABLED;
-      else process.env.BOARD_PICKS_FREE_ENABLED = previous;
-    }
+    await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1');
     const query = mockSupabaseFrom.mock.results.find((_, i) => mockSupabaseFrom.mock.calls[i][0] === 'boards')!.value;
     expect(query.is).toHaveBeenCalledWith('retired_at', null);
   });
@@ -1413,7 +1492,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
         { id: 'lb-1', name: 'Log', board_type: 'longboard' },
       ];
 
-      const context = await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1', true);
+      const context = await fetchUserBoardContext({ from: mockSupabaseFrom } as never, 'user-1');
 
       expect(context.boardClasses).toEqual(expected);
     });
@@ -1461,21 +1540,6 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(beach1Rec?.boardPick).toBeNull();;
   });
 
-  test('fetches board context for free users without leaking Pro board picks', async () => {
-    mockState.boards = [
-      { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28, session_count: 3 },
-    ];
-
-    const result = await discoverSurfSpots(testUserId, {
-      userLocation: defaultUserLocation,
-      maxResults: 5,
-      isPro: false,
-    });
-
-    expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
-    expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
-  });
-
   test('degrades to null board picks when Pro board lookup fails', async () => {
     mockState.boardsError = { message: 'Database connection failed' };
 
@@ -1489,24 +1553,19 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
   });
 
-  test('names free-user board picks when the rollback flag is enabled', async () => {
-    const previous = process.env.BOARD_PICKS_FREE_ENABLED;
-    process.env.BOARD_PICKS_FREE_ENABLED = 'true';
+  test('names board picks for free users with saved boards', async () => {
     mockState.boards = [
       { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28 },
     ];
 
-    try {
-      const result = await discoverSurfSpots(testUserId, {
-        userLocation: defaultUserLocation,
-        maxResults: 5,
-        isPro: false,
-      });
-      expect(result.recommendations.find(r => r.beach.id === 'beach-1')?.boardPick?.boardId).toBe('sb-1');
-    } finally {
-      if (previous === undefined) delete process.env.BOARD_PICKS_FREE_ENABLED;
-      else process.env.BOARD_PICKS_FREE_ENABLED = previous;
-    }
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      isPro: false,
+    });
+
+    expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
+    expect(result.recommendations.find(r => r.beach.id === 'beach-1')?.boardPick?.boardId).toBe('sb-1');
   });
 
   test("uses one dominant board class to rank Old Man's above Blacks for logs and Blacks above Old Man's for shortboards", async () => {
@@ -2472,6 +2531,30 @@ describe('discoverSurfSpots - failed forecast read', () => {
     mockState.favoritesError = null;
   });
 
+  test('preserves pending forecast timing when abort rejects the dependency', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    mockBatchFetch.mockImplementationOnce((_beaches: unknown, options: { signal: AbortSignal }) =>
+      new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted')))));
+    jest.useFakeTimers();
+    try {
+      const result = discoverSurfSpots('test-user-123', {
+        userLocation: defaultUserLocation,
+        overallTimeout: 12000,
+        throwOnFailure: true,
+      }).catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(12000);
+      expect(await result).toMatchObject({
+        code: 'timeout',
+        stageTimings: {
+          completed: expect.arrayContaining([{ stage: 'favorites', durationMs: 0 }]),
+          pending: [{ stage: 'forecasts', durationMs: 12000 }],
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   // The Promise.race only abandons the response; the signal is what releases the database.
   test('aborts the forecast reads when the overall timeout fires', async () => {
     const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
@@ -2597,7 +2680,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -2804,7 +2888,8 @@ describe('discoverSurfSpots - Personalization Integration', () => {
           distancePenalty: 0,
         },
         matchQuality: 'excellent',
-        reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+        reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
         warnings: [],
         conditionBadges: [],
       };
@@ -2894,7 +2979,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     }
   });
 
-  test('personalization reasons are prepended to base reasons', async () => {
+  test('a "no" verdict sends no Good size or period line; other reasons stay (API edge)', async () => {
     const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
 
     calculatePersonalizationBonus.mockReturnValue({
@@ -2907,10 +2992,71 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
 
     const rec = result.recommendations[0];
-    // Personalization reason should come first
-    expect(rec.reasons[0]).toBe('Matches your preferred break type');
-    // Base reasons should follow
-    expect(rec.reasons).toEqual(expect.arrayContaining(['Good wave size']));
+    // The canonical decision says "no" for this mocked row (Skip label).
+    expect(rec.verdict).toBe('no');
+    expect(rec.reasons).not.toContain('Good size at 3–4 ft.');
+    expect(rec.reasons).not.toContain('Solid swell period behind it.');
+    expect(rec.reasons).toEqual(['Matches your preferred break type', 'Light winds']);
+    expect(rec.reasonCodes).toEqual([null, null]);
+  });
+
+  test('the first cut (score step) keeps the tide caution behind five personal lines', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const base = scoreBeachWithEngine();
+    scoreBeachWithEngine.mockReturnValue({
+      ...base,
+      reasons: ['Good size at 3–4 ft.', 'Tide back in range by ~1 PM'],
+      reasonCodes: ['size_good', 'caution_tide'],
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 8, affinityBonus: 0, personalizationBonus: 8,
+      reasons: ['Personal 1', 'Personal 2', 'Personal 3', 'Personal 4', 'Personal 5'],
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    const rec = result.recommendations[0];
+    expect(rec.reasons[0]).toBe('Tide back in range by ~1 PM');
+    expect(rec.reasonCodes?.[0]).toBe('caution_tide');
+  });
+
+  test('the second cut (after the window distinction) keeps the tide caution', async () => {
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const base = scoreBeachWithEngine();
+    scoreBeachWithEngine.mockReturnValue({
+      ...base,
+      reasons: ['Tide back in range by ~1 PM'],
+      reasonCodes: ['caution_tide'],
+    });
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 8, affinityBonus: 0, personalizationBonus: 8,
+      reasons: ['Personal 1', 'Personal 2', 'Personal 3', 'Personal 4'],
+    });
+    mockDistinction = 'Best window of the day';
+    try {
+      const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+      const rec = result.recommendations[0];
+      expect(rec.reasons).toContain('Best window of the day');
+      expect(rec.reasons[0]).toBe('Tide back in range by ~1 PM');
+      expect(rec.reasons).toHaveLength(5);
+    } finally {
+      mockDistinction = undefined;
+    }
+  });
+
+  test('each reason leaves the API with its scorer code beside it', async () => {
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    const rec = result.recommendations[0];
+    expect(rec.reasonCodes).toHaveLength(rec.reasons.length);
+    const scorerCodes: Record<string, string> = {
+      'Good size at 3–4 ft.': 'size_good',
+      'Solid swell period behind it.': 'period_good',
+    };
+    expect(rec.reasonCodes).toEqual(rec.reasons.map((reason) => scorerCodes[reason] ?? null));
   });
 
   test('discovery continues when getUserSurfPreferences throws', async () => {
@@ -3027,9 +3173,10 @@ describe('discoverSurfSpots - Now Discovery Mode', () => {
               ...mockForecast,
               id: 'beach-3-future',
               beach_id: 'beach-3',
-              forecast_at: '2024-01-15T20:00:00.000Z',
+              // More than one slot after the 17:00Z hour, so not "now" at 17:30Z.
+              forecast_at: '2024-01-15T21:00:00.000Z',
               forecast_date: '2024-01-15',
-              forecast_time: '12:00:00',
+              forecast_time: '13:00:00',
             },
           ],
         },
@@ -3070,6 +3217,50 @@ describe('discoverSurfSpots - Now Discovery Mode', () => {
         && window.displayWindowStart.getTime() >= window.start.getTime()
         && window.displayWindowEnd.getTime() <= window.end.getTime(),
     )).toBe(true);
+  });
+
+  describe('the row nearest the start of the current UTC hour', () => {
+    const nowFor = async (at: string) => {
+      jest.setSystemTime(new Date(at));
+      const result = await discoverSurfSpots(testUserId, {
+        userLocation: defaultUserLocation,
+        discoveryMode: 'now',
+        maxResults: 5,
+      });
+      return new Map(result.recommendations.map((rec) => [rec.beach.id, rec]));
+    };
+
+    test('scores the later slot when it is nearer, and keeps the window open at now', async () => {
+      const recs = await nowFor('2024-01-15T19:30:00.000Z');
+      const rec = recs.get('beach-1')!;
+      expect(rec.forecast.id).toBe('beach-1-future');
+      expect(rec.window.start.getTime()).toBeLessThanOrEqual(Date.parse('2024-01-15T19:30:00.000Z'));
+      expect(rec.window.end.getTime()).toBeGreaterThan(Date.parse('2024-01-15T19:30:00.000Z'));
+      expect(recs.get('beach-3')?.forecast.id).toBe('beach-3-future');
+    });
+
+    test('scores the earlier slot when it is nearer', async () => {
+      const recs = await nowFor('2024-01-15T18:30:00.000Z');
+      expect(recs.get('beach-1')?.forecast.id).toBe('beach-1-now');
+    });
+
+    test('scores the slot itself exactly on it', async () => {
+      const recs = await nowFor('2024-01-15T20:00:00.000Z');
+      expect(recs.get('beach-1')?.forecast.id).toBe('beach-1-future');
+    });
+
+    test('has no now call when no row lies within one slot of the hour', async () => {
+      const recs = await nowFor('2024-01-15T16:30:00.000Z');
+      expect(recs.has('beach-3')).toBe(false);
+    });
+
+    test('does not score a FALLBACK nearest row, nor fall back to an older row', async () => {
+      const beach1 = mockState.forecastBatchResponse.successful[0];
+      beach1.forecasts[1] = { ...beach1.forecasts[1], data_source: 'FALLBACK' };
+      const recs = await nowFor('2024-01-15T19:30:00.000Z');
+      expect(recs.has('beach-1')).toBe(false);
+      expect(recs.get('beach-2')?.forecast.id).toBe('beach-2-future');
+    });
   });
 
   test('scores custom spots from active nearest-beach forecast buckets in now mode', async () => {
@@ -3378,7 +3569,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         distancePenalty: 0,
       },
       matchQuality: 'excellent',
-      reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+      reasons: ['Good size at 3–4 ft.', 'Solid swell period behind it.', 'Light winds'],
+      reasonCodes: ['size_good', 'period_good', null],
       warnings: [],
       conditionBadges: [],
     });
@@ -3552,7 +3744,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
         matchQuality: 'excellent',
-        reasons: ['Good wave size'],
+        reasons: ['Good size at 3–4 ft.'],
         warnings: [],
         conditionBadges: [],
       })),
@@ -3752,7 +3944,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
         total: 75,
         subscores: { waveHeightFit: 20, periodEnergyScore: 15, windAlignment: 15, tideFit: 12, affinityBonus: 0, personalizationBonus: 0, distancePenalty: 0 },
         matchQuality: 'excellent',
-        reasons: ['Good wave size'],
+        reasons: ['Good size at 3–4 ft.'],
         warnings: [],
         conditionBadges: [],
       })),
@@ -4685,6 +4877,7 @@ describe('discoverSurfSpots - hourly bridge', () => {
 
 describe('discoverSurfSpots - skill-aware go checks', () => {
   const USER = 'skill-aware-user';
+  // The old skill-match words; no line may use them any more.
   const SKILL_COPY = /your experience level|your usual range|conditions are manageable/;
   const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
   const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
@@ -4808,10 +5001,137 @@ describe('discoverSurfSpots - skill-aware go checks', () => {
   });
 
   it('adds no skill-match reason for a no-skill user with the flag on', async () => {
+    // The skill line is found by its code; its words describe the waves only.
     const control = await run('beginner', true);
-    expect(control.recommendations[0].reasons.join(' ')).toMatch(SKILL_COPY);
+    expect(control.recommendations[0].reasonCodes).toContain('caution_big_surf');
+    expect(control.recommendations[0].reasons[0]).toBe('Heads up: Ocean Beach is pumping at 3–4 ft.');
+    expect(control.recommendations[0].reasons.join(' ')).not.toMatch(SKILL_COPY);
 
     const result = await run(null, true);
+    expect(result.recommendations[0].reasonCodes ?? []).not.toContain('caution_big_surf');
+    expect(result.recommendations[0].reasonCodes ?? []).not.toContain('break_mellow');
     expect(result.recommendations[0].reasons.join(' ')).not.toMatch(SKILL_COPY);
+  });
+});
+
+// Each test fails when its site goes back to the raw skill.
+describe('discoverSurfSpots - skill-aware go checks keep the rating skill at every site', () => {
+  const USER = 'skill-aware-site-user';
+  const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+  const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+  const scorer = scoreWindowConditionScore as jest.Mock;
+
+  function row(beach: Partial<Beach>, id: string, forecastAt: string): Partial<EnhancedForecastEntity> {
+    return { ...mockForecast, id, beach_id: beach.id, forecast_at: forecastAt };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetDefaultDiscoveryMocks();
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    // Rows on both sides of 19:00Z: at 19:30Z the current-hour row starts after now.
+    mockState.forecastBatchResponse = {
+      successful: [mockBeach1, mockBeach2].map((beach) => ({
+        beach,
+        forecasts: [
+          row(beach, `${beach.id}-early`, '2024-01-15T17:00:00.000Z'),
+          row(beach, `${beach.id}-late`, '2024-01-15T20:00:00.000Z'),
+        ],
+      })),
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.boards = [{ id: 'board-1', name: 'Log', board_type: 'longboard' }];
+    mockState.boardsError = null;
+    mockState.favoriteBeaches = [];
+    mockState.customSpots = [];
+    mockState.userPrefs = null;
+    (selectBestWindow as jest.Mock).mockImplementation(() => ({
+      start: new Date('2024-01-15T12:00:00Z'),
+      end: new Date('2024-01-15T15:00:00Z'),
+      tide: 'Rising',
+      wind: '8 mph W',
+      waveHeight: '3-4 ft',
+      wavePeriod: '12s',
+      dataSource: 'CDIP',
+      confidence: 85,
+      timezone: 'America/Los_Angeles',
+    }));
+    (selectBestWindows as jest.Mock).mockImplementation((options: unknown) => [
+      (selectBestWindow as jest.Mock)(options),
+    ]);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+    if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+  });
+
+  it('scores the now window and its display band with the rating skill', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-01-15T19:30:00.000Z'));
+
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      discoveryMode: 'now',
+      maxResults: 5,
+    });
+
+    // precondition: the now path ran, and the display band re-read the later row
+    expect(selectBestWindows).not.toHaveBeenCalled();
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.map((call) => call[2])).not.toContain(null);
+    expect(scorer.mock.calls.every((call) => call[2] === 'beginner')).toBe(true);
+  });
+
+  it('scores a requested forecastAt row with the rating skill', async () => {
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      forecastAt: '2024-01-15T17:00:00.000Z',
+      maxResults: 5,
+    });
+
+    // precondition: the scoped path ran
+    expect(selectBestWindows).not.toHaveBeenCalled();
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.length).toBeGreaterThan(0);
+    expect(scorer.mock.calls.every((call) => call[2] === 'beginner')).toBe(true);
+  });
+
+  it('labels with the beginner rating, so a beach rated above beginner is a Skip', async () => {
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      maxResults: 5,
+    });
+    const labels = new Map(result.recommendations.map((rec) => [rec.beach.id, rec.recommendationLabel]));
+
+    // beach-1 is rated intermediate; beach-2 is rated beginner.
+    expect(labels.get('beach-1')).toBe('Skip');
+    expect(labels.get('beach-2')).toBe('Worth it');
+  });
+
+  it('keeps only the beaches the beginner rating calls Worth it in saved-spots-only', async () => {
+    mockState.favoriteBeaches = [mockBeach1, mockBeach2];
+
+    const result = await discoverSurfSpots(USER, {
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      savedSpotsOnly: true,
+      maxResults: 5,
+    });
+    const ids = result.recommendations.map((rec) => rec.beach.id);
+
+    expect(ids).toContain('beach-2');
+    expect(ids).not.toContain('beach-1');
   });
 });

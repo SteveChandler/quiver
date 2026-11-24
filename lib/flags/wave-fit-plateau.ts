@@ -1,7 +1,4 @@
-const WAVE_FIT_PLATEAU_ENABLED_FLAG = "WAVE_FIT_PLATEAU_ENABLED";
-
-/** Beach Detail also scores in the browser, so its build needs the public companion flag. */
+/** Keep the literal access so Next.js can inline the shared wave-fit flag into the browser build. */
 export function isWaveFitPlateauEnabled(): boolean {
-  return process.env[WAVE_FIT_PLATEAU_ENABLED_FLAG] === "true"
-    || process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED === "true";
+  return process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED === "true";
 }

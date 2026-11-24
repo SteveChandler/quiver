@@ -4,6 +4,7 @@ import { useState, type ReactElement } from "react";
 import Image from "next/image";
 
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 import {
   CAM_CARD_FALLBACK_IMAGE_URL,
   getDisplayCamThumbnailUrls,
@@ -18,19 +19,20 @@ export function CamsHeroContactSheet({
   beaches,
   label,
 }: CamsHeroContactSheetProps): ReactElement | null {
-  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
-  const featuredBeaches = beaches.slice(0, 3).map((beach) => {
-    const [imageUrl = CAM_CARD_FALLBACK_IMAGE_URL] = getDisplayCamThumbnailUrls(
+  // Failed image count per beach; each error moves to the next URL in the chain, as CamCard does.
+  const [failedImages, setFailedImages] = useState<Map<string, number>>(() => new Map());
+  const featuredBeaches = beaches.filter(isLiveCamBeach).slice(0, 3).map((beach) => {
+    const imageUrls = getDisplayCamThumbnailUrls(
       {
         cameraUrl: beach.camera_url,
         thumbnailUrl: beach.thumbnail_url,
         fallbackImageUrl: beach.photo_url,
       },
-    );
+    ).filter((url) => url !== CAM_CARD_FALLBACK_IMAGE_URL);
 
     return {
       ...beach,
-      imageUrl,
+      imageUrl: imageUrls[failedImages.get(beach.id) ?? 0] ?? null,
     };
   });
 
@@ -53,14 +55,25 @@ export function CamsHeroContactSheet({
                   : "halftone-photo relative aspect-[16/7] overflow-hidden border-2 border-[#11100D] bg-[#0D1020]"
               }
             >
-              <Image
-                src={failedImages.has(beach.id) ? CAM_CARD_FALLBACK_IMAGE_URL : beach.imageUrl}
-                onError={() => setFailedImages((current) => current.has(beach.id) ? current : new Set(current).add(beach.id))}
-                alt={`${beach.name} surf cam preview`}
-                fill
-                className="object-cover"
-                sizes="(min-width: 1024px) 38vw, 100vw"
-              />
+              {beach.imageUrl ? (
+                <Image
+                  key={beach.imageUrl}
+                  src={beach.imageUrl}
+                  onError={() =>
+                    setFailedImages((current) =>
+                      new Map(current).set(beach.id, (current.get(beach.id) ?? 0) + 1),
+                    )
+                  }
+                  alt={`${beach.name} surf cam preview`}
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 1024px) 38vw, 100vw"
+                />
+              ) : (
+                <span className="absolute inset-0 flex items-center justify-center bg-[#F0E5CC] font-mono text-xs font-bold uppercase text-[#11100D]">
+                  Preview unavailable
+                </span>
+              )}
               <figcaption className="absolute bottom-2 left-2 bg-[#FBF6E8] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
                 {beach.name}
               </figcaption>

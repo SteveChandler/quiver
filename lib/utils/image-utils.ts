@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 /**
  * Image Utilities
  *
@@ -217,6 +218,34 @@ function cleanOpenverseThumbUrl(url: string): string {
   }
 }
 
+const WIKIMEDIA_THUMB_WIDTH = 1280;
+const WIKIMEDIA_ORIGINAL_PATH = /^\/wikipedia\/commons\/([0-9a-f])\/([0-9a-f]{2})\/([^/]+\.(?:jpe?g|png))$/i;
+
+/**
+ * Rewrites a Wikimedia Commons original to its 1280px Commons thumbnail.
+ *
+ * Originals run to 2–8 MB, and the image optimizer's first fetch of one
+ * sometimes fails (502), which surfaces as a broken photo. Commons serves the
+ * standard 1280px step for every file, including files narrower than that,
+ * but rejects non-standard steps such as 640px. WebP, SVG, GIF and TIFF
+ * originals keep their URL because their thumbs change file extension.
+ */
+export function toWikimediaThumbUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (parsed.hostname !== "upload.wikimedia.org") return url;
+
+  const match = WIKIMEDIA_ORIGINAL_PATH.exec(parsed.pathname);
+  if (!match) return url;
+
+  const [, a, ab, file] = match;
+  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${a}/${ab}/${file}/${WIKIMEDIA_THUMB_WIDTH}px-${file}`;
+}
+
 /**
  * Picks the URL to render for a curated photo thumbnail.
  *
@@ -266,7 +295,6 @@ export function pickPhotoThumbUrl(
  * URLs must stay un-proxied — /api/image-proxy's allowlist rejects them.
  */
 const DIRECT_REMOTE_IMAGE_HOSTS = new Set([
-  "storage.hdontap.com",
   "img.youtube.com",
   "camstills.cdn-surfline.com",
   "ccn-media.coastalcameranetwork.com",
@@ -364,8 +392,10 @@ export function getProxiedImageUrl(url: string | null | undefined): string {
     return '';
   }
 
+  if (isBlockedCameraUrl(url)) return "";
+
   // Normalize known bad thumbnail URLs (Openverse)
-  const normalizedUrl = cleanOpenverseThumbUrl(url.trim());
+  const normalizedUrl = toWikimediaThumbUrl(cleanOpenverseThumbUrl(url.trim()));
 
   // If URL doesn't need proxying, return as-is
   if (!shouldProxyUrl(normalizedUrl)) {

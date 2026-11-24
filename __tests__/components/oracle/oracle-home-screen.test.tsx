@@ -636,6 +636,62 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByText("Today's Windows")).toBeInTheDocument();
   });
 
+  describe("stand-in values", () => {
+    function withTopRec(rec: Record<string, unknown>): void {
+      mockOracleData = {
+        ...mockOracleData,
+        topRecommendation: rec,
+        discovery: { ...mockOracleData.discovery!, recommendations: [rec] },
+      } as unknown as OracleData;
+    }
+
+    function slotRow(time: string): HTMLElement {
+      const row = screen.getByText(time).closest("div.p-1");
+      if (!(row instanceof HTMLElement)) throw new Error(`no slot row for ${time}`);
+      return row;
+    }
+
+    it("leaves Today's Windows slots with no data empty instead of copying the best window", () => {
+      render(<OracleHomeScreen />);
+      expect(slotRow("5am")).toHaveTextContent("3-4ft");
+      for (const time of ["8am", "11am", "2pm", "5pm"]) {
+        expect(slotRow(time)).not.toHaveTextContent("3-4ft");
+        expect(slotRow(time)).toHaveTextContent("—");
+      }
+    });
+
+    it("fills a slot only from its own hourly row, never from the best window's conditions", () => {
+      withTopRec({
+        ...MOCK_TOP_REC,
+        slotForecasts: { 8: { waveHeight: "2-3ft", waveHeightBadge: "2-3ft" } },
+      });
+      render(<OracleHomeScreen />);
+      const morning = slotRow("8am");
+      expect(morning).toHaveTextContent("2-3ft");
+      expect(morning).not.toHaveTextContent("WNW");
+      expect(morning).not.toHaveTextContent("NW 8");
+    });
+
+    it("shows no default swell direction or tide direction when the forecast lacks them", () => {
+      withTopRec({
+        ...MOCK_TOP_REC,
+        forecast: {
+          ...MOCK_FORECAST,
+          swell_1_direction: null,
+          wave_direction: null,
+          swell_1_period: null,
+          wave_period: null,
+          tide_status: "High",
+        },
+      });
+      render(<OracleHomeScreen />);
+      const strip = screen.getByRole("group", { name: "Current conditions" });
+      expect(strip).not.toHaveTextContent(/\bW\b/);
+      expect(strip).not.toHaveTextContent(/falling/i);
+      expect(strip).toHaveTextContent("3.2FT");
+    });
+  });
+
   it("keeps the forecast feed single-column until the layout has desktop width", () => {
     render(<OracleHomeScreen />);
 

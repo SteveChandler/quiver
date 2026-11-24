@@ -5,6 +5,7 @@
 import {
   evaluateWaterQuality,
   syncWQSamples,
+  syncWQStations,
 } from "@/lib/services/water-quality/water-quality-sync-service";
 import type { SupabaseServiceClient } from "@/types/supabase";
 
@@ -167,6 +168,50 @@ describe("water-quality CEDEN ingestion and evaluation", () => {
     );
   });
 
+  it("reads samples from CEDEN only and reports the newest sample date", async () => {
+    const { supabase } = createSampleSyncSupabase();
+    const fetchSpy = mockSourceFetch([
+      {
+        StationCode: "KEEP",
+        SampleDate: `${utcDateOffset(-9)}T00:00:00Z`,
+        Analyte: "Enterococcus",
+        Result: "10",
+      },
+      {
+        StationCode: "PAGE-2",
+        SampleDate: `${utcDateOffset(-4)}T00:00:00Z`,
+        Analyte: "Enterococcus",
+        Result: "20",
+      },
+    ]);
+    // global.fetch is a shared jest.fn from jest.setup, so earlier tests' calls stay on it.
+    fetchSpy.mockClear();
+
+    const result = await syncWQSamples(supabase);
+    const urls = fetchSpy.mock.calls.map(([input]) => String(input));
+
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("data.ca.gov");
+    expect(urls.some((url) => url.includes("pacioos"))).toBe(false);
+    expect(result.newestSampleDate).toBe(utcDateOffset(-4));
+    expect(result.statesFetched).toBe(1);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("leaves the newest sample date null when CEDEN fails", async () => {
+    const { supabase, upsertRows } = createSampleSyncSupabase();
+    jest
+      .spyOn(global, "fetch")
+      .mockImplementation(async () => new Response("down", { status: 500 }));
+
+    const result = await syncWQSamples(supabase);
+
+    expect(result.newestSampleDate).toBeNull();
+    expect(result.samplesUpserted).toBe(0);
+    expect(upsertRows).toEqual([]);
+    expect(result.errors).toEqual(["CEDEN sample fetch failed: HTTP 500"]);
+  });
+
   it("rejects future CEDEN rows and reports the rejection count", async () => {
     const { supabase, upsertRows } = createSampleSyncSupabase();
     mockSourceFetch([
@@ -295,6 +340,64 @@ describe("water-quality CEDEN ingestion and evaluation", () => {
         status: "good",
         total_samples_30d: 1,
         latest_sample_date: validDate,
+      }),
+    ]);
+  });
+});
+
+describe("water-quality station sync", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("reads stations from CEDEN only and matches them to California beaches", async () => {
+    const upsertRows: unknown[][] = [];
+    const from = jest.fn((table: string) => {
+      if (table === "beaches") {
+        return createQueryBuilder(() => ({
+          data: [
+            { id: "beach-ca", name: "Ocean Beach", lat: 32.75, lon: -117.25, state: "CA" },
+            { id: "beach-hi", name: "Waikiki", lat: 32.75, lon: -117.25, state: "HI" },
+          ],
+          error: null,
+        }));
+      }
+      const builder = createQueryBuilder(() => ({ data: null, error: null }));
+      builder.upsert.mockImplementation((rows: unknown[]) => {
+        upsertRows.push(rows);
+        return builder;
+      });
+      return builder;
+    });
+    const fetchSpy = jest.spyOn(global, "fetch").mockImplementation(async () =>
+      new Response(
+        JSON.stringify({
+          result: {
+            records: [
+              { StationCode: "OB1", StationName: "Ocean Beach", TargetLatitude: "32.751", TargetLongitude: "-117.251" },
+            ],
+          },
+        }),
+        { status: 200 }
+      )
+    );
+    // global.fetch is a shared jest.fn from jest.setup, so earlier tests' calls stay on it.
+    fetchSpy.mockClear();
+
+    const result = await syncWQStations({ from } as unknown as SupabaseServiceClient);
+    const urls = fetchSpy.mock.calls.map(([input]) => String(input));
+
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("data.ca.gov");
+    expect(urls.some((url) => url.includes("pacioos"))).toBe(false);
+    expect(result.statesFetched).toBe(1);
+    expect(result.stationsMatched).toBe(1);
+    expect(result.errors).toEqual([]);
+    expect(upsertRows.flat()).toEqual([
+      expect.objectContaining({
+        station_id: "CEDEN-OB1",
+        state: "CA",
+        nearest_beach_id: "beach-ca",
       }),
     ]);
   });

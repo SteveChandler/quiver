@@ -39,6 +39,7 @@ function fakeClient(options: {
   held?: string[];
   failTable?: string;
   missingEvents?: boolean;
+  quality?: Record<string, unknown>[];
 } = {}) {
   const ledger = new Set((options.starts ?? []).map((user) => `${user}|water_quality|rain_advisory:${eventId}:start:${user}`));
   const from = jest.fn((table: string) => {
@@ -59,7 +60,7 @@ function fakeClient(options: {
               return { recipient_user_id, type, dedupe_key };
             })
               : table === "water_quality_held_beaches" ? (options.held ?? []).map((beach_id) => ({ beach_id }))
-                : table === "beach_water_quality" ? [] : [];
+                : table === "beach_water_quality" ? options.quality ?? [] : [];
       const error = table === options.failTable ? { code: "XX000", message: "read failed" }
         : table === "rain_advisory_events" && options.missingEvents ? { code: "PGRST205", message: "missing" } : null;
       return Promise.resolve(resolve({ data: error ? null : all.filter((row) => filters.every((filter) => filter(row))), error }));
@@ -187,4 +188,14 @@ it("skips backfilled events and degrades when the event table is absent", async 
   const missing = fakeClient({ missingEvents: true });
   expect(await processRainAdvisoryPushes(missing.client, now)).toEqual({ status: "table_missing" });
   expect(enqueueNotification).not.toHaveBeenCalled();
+});
+
+it.each([["closure", 0], ["advisory", 0], ["good", 1]])("keeps a stored stale %s holding back the all-clear", async (status, enqueued) => {
+  const ended = { ...baseEvent, region: "malibu_santa_monica", source: "metar_runoff", status: "ended",
+    ended_at: "2026-10-18T11:30:00Z", end_reason: "dry_72h" };
+  // The real projection reads a 3-week-old sample as unknown, with no County status outside San Diego.
+  jest.mocked(currentWaterQuality).mockImplementation(async (rows) => rows.map((row) => ({ ...row, status: "unknown" })));
+  const { client } = fakeClient({ events: [ended], starts: ["user-outside"],
+    quality: [{ beach_id: beachOutside, status, total_samples_30d: 4, latest_sample_date: "2026-09-27" }] });
+  expect(await processRainAdvisoryPushes(client, now)).toMatchObject({ status: "ok", ended: { enqueued } });
 });

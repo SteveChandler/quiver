@@ -20,6 +20,7 @@ jest.mock("@/lib/supabase/server", () => ({ createSupabaseServiceRoleClient: jes
 
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/surf/week-scout/route";
+import { resetWeekScoutAnswerReuseForTests } from "@/lib/services/discovery/week-scout-answer-reuse";
 import { WEEK_SCOUT_CONTRACT_BEACH_ID, WEEK_SCOUT_CONTRACT_FIXTURE } from "@/__tests__/fixtures/week-scout-contract";
 
 const request = (headers: Record<string, string> = {}): NextRequest => new NextRequest("http://localhost/api/surf/week-scout", {
@@ -48,12 +49,36 @@ const call = async (homeBeachId: string | null): Promise<{ raw: string; data: Re
 
 describe("Week Scout story response", () => {
   beforeEach(() => {
+    // Each test asks the same question with different mocks; never reuse across tests.
+    resetWeekScoutAnswerReuseForTests();
     jest.clearAllMocks();
     jest.useFakeTimers().setSystemTime(new Date("2026-10-27T12:00:00Z"));
     mockForecast.mockResolvedValue(WEEK_SCOUT_CONTRACT_FIXTURE);
     delete process.env.WEEK_SCOUT_STORY_ENABLED;
   });
-  afterEach(() => { delete process.env.WEEK_SCOUT_STORY_ENABLED; jest.useRealTimers(); });
+  afterEach(() => {
+    delete process.env.WEEK_SCOUT_STORY_ENABLED;
+    delete process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST;
+    jest.useRealTimers();
+  });
+
+  it("serves the story only to an allowlisted user when an allowlist is set", async () => {
+    const absent = await call(WEEK_SCOUT_CONTRACT_BEACH_ID);
+    process.env.WEEK_SCOUT_STORY_ENABLED = "true";
+    mockStory.mockImplementation(async ({ live }: { live: typeof WEEK_SCOUT_CONTRACT_FIXTURE }) => ({
+      schemaVersion: 3, region: "south-shore", availability: "ready",
+      cover: { text: "A south swell approaches.", swells: [] }, lead: "The week builds.", turn: null,
+      chapters: [], days: storyDays(live),
+    }));
+    process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "someone-else, another-user";
+    const offList = await call(WEEK_SCOUT_CONTRACT_BEACH_ID);
+    expect(offList.raw).toBe(absent.raw);
+    expect(mockStory).not.toHaveBeenCalled();
+
+    process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = "someone-else, story-user";
+    const onList = await call(WEEK_SCOUT_CONTRACT_BEACH_ID);
+    expect((onList.data.story as { availability: string }).availability).toBe("ready");
+  });
 
   it("keeps the complete response byte-identical when the flag is absent or false", async () => {
     const absent = await call(null);
@@ -106,8 +131,59 @@ describe("Week Scout story response", () => {
     const line = info.mock.calls.map(([message]) => String(message)).find((message) => message.startsWith("[WeekScoutTiming] "));
     expect(JSON.parse(line!.slice("[WeekScoutTiming] ".length))).toMatchObject({
       status: 200, cold: expect.any(Boolean), inflight: 1, stages: expect.any(Array),
-      dayCount: 7, platform: "ios", update: "f933afba", user: expect.stringMatching(/^[0-9a-f]{8}$/),
+      dayCount: 7, platform: "ios", update: "f933afba", user: expect.stringMatching(/^[0-9a-f]{8}$/), candidates: 1,
     });
+    info.mockRestore();
+  });
+  it("ranks once for two identical requests and again when an input changes", async () => {
+    resetWeekScoutAnswerReuseForTests();
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const reuseOf = () => info.mock.calls.map(([message]) => String(message))
+      .filter((message) => message.startsWith("[WeekScoutTiming] "))
+      .map((message) => JSON.parse(message.slice("[WeekScoutTiming] ".length)).answerReuse);
+    const [first, second] = await Promise.all([POST(request(), context(null) as never), POST(request(), context(null) as never)]);
+    expect(mockForecast).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(await second.text())).toEqual(JSON.parse(await first.text()));
+    await POST(request(), context("home-b") as never);
+    expect(mockForecast).toHaveBeenCalledTimes(2);
+    expect(reuseOf().sort()).toEqual(["joined", "miss", "miss"]);
+    info.mockRestore();
+  });
+  it("logs input keys that change only when that input changes", async () => {
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const keyed = (body: Record<string, unknown>, homeBeachId: string | null, lat: number) => ({
+      user: { id: "story-user" }, params: {},
+      supabase: { from: (table: string) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({
+        data: table === "user_location_snapshots"
+          ? { lat, lon: -157.8, captured_at: "2026-10-01T00:00:00Z" }
+          : { home_beach_id: homeBeachId, max_drive_minutes: 30 },
+        error: null,
+      }) }) }) }) },
+      body,
+    });
+    const base = { candidateBeachIds: [WEEK_SCOUT_CONTRACT_BEACH_ID], localTimezone: "Pacific/Honolulu", startLocalDate: "2026-07-15", dayCount: 7 };
+    const keysFor = async (body: Record<string, unknown>, homeBeachId: string | null, lat: number) => {
+      info.mockClear();
+      const req = new NextRequest("http://localhost/api/surf/week-scout", { method: "POST", body: JSON.stringify(body) });
+      await POST(req, keyed(body, homeBeachId, lat) as never);
+      const line = info.mock.calls.map(([message]) => String(message)).find((message) => message.startsWith("[WeekScoutTiming] "));
+      const { bodyKey, profileKey, locKey } = JSON.parse(line!.slice("[WeekScoutTiming] ".length));
+      return { bodyKey, profileKey, locKey };
+    };
+    const first = await keysFor(base, "home-a", 21.301);
+    expect(first).toEqual({
+      bodyKey: expect.stringMatching(/^[0-9a-f]{8}$/),
+      profileKey: expect.stringMatching(/^[0-9a-f]{8}$/),
+      locKey: expect.stringMatching(/^[0-9a-f]{8}$/),
+    });
+    // Same inputs, a move inside the same 2-decimal bucket, and a different horizon keep every key.
+    expect(await keysFor({ ...base, dayCount: 10 }, "home-a", 21.302)).toEqual(first);
+    expect(await keysFor({ ...base, startLocalDate: "2026-07-16" }, "home-a", 21.301))
+      .toEqual({ ...first, bodyKey: expect.not.stringMatching(first.bodyKey) });
+    expect(await keysFor(base, "home-b", 21.301))
+      .toEqual({ ...first, profileKey: expect.not.stringMatching(first.profileKey) });
+    expect(await keysFor(base, "home-a", 21.33))
+      .toEqual({ ...first, locKey: expect.not.stringMatching(first.locKey) });
     info.mockRestore();
   });
 });

@@ -17,6 +17,7 @@ import {
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -114,7 +115,7 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/ndbc-direct-sync", _GET);
+const handleGet = withObservedCron("/api/cron/ndbc-direct-sync", _GET);
 
 // ---------------------------------------------------------------------------
 // Phase: stations (weekly)
@@ -485,3 +486,5 @@ async function syncObservations(): Promise<ObservationSyncResult> {
   result.duration_ms = Date.now() - startTime;
   return result;
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/ndbc-direct-sync");

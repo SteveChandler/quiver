@@ -16,6 +16,7 @@ jest.mock('@/lib/services/discovery/weekend-scout', () => ({
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/weekend/route';
+import fixture from '@/__tests__/fixtures/weekend-scout-v1.json';
 
 describe('POST /api/surf/week-scout/weekend', () => {
   const originalFlag = process.env.WEEKEND_WINDOW_ENABLED;
@@ -32,6 +33,14 @@ describe('POST /api/surf/week-scout/weekend', () => {
   });
 
   it('returns a live non-persisted ranking with private no-store caching', async () => {
+    const { snapshotId: _snapshotId, ...fields } = fixture;
+    const ranking = {
+      ...fields,
+      origin: { kind: 'home_beach', beachId: fields.results[0].beachId, beachName: fields.results[0].beachName },
+    };
+    mockBuildRanking.mockResolvedValue({
+      status: 'ready', ranking, maxDriveMinutes: 45, leadWindowTimezone: fields.timezone,
+    });
     const response = await POST(
       new NextRequest('http://localhost/api/surf/week-scout/weekend', { method: 'POST' }),
       { user: { id: 'user-1' }, supabase: {}, params: {} } as never,
@@ -39,6 +48,8 @@ describe('POST /api/surf/week-scout/weekend', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    const { data } = await response.json();
+    expect(data).toEqual({ status: 'ready', ranking, maxDriveMinutes: 45 });
     expect(mockBuildRanking).toHaveBeenCalledWith('user-1');
   });
 

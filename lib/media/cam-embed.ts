@@ -1,6 +1,7 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { findLicensedCamOverride } from "@/lib/media/licensed-cam-overrides";
 
-type CamEmbedIntent =
+export type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
   | { kind: "video"; src: string }
@@ -13,9 +14,10 @@ type CamEmbedIntent =
  * Returns null for .m3u8 URLs (not useful in a browser tab) and invalid URLs.
  */
 export function getViewableUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
+  if (!url || isBlockedCameraUrl(url)) return null;
   try {
     const u = new URL(url);
+    if (!["http:", "https:"].includes(u.protocol) || u.username || u.password) return null;
     if (u.pathname.endsWith(".m3u8")) return null;
     return url;
   } catch {
@@ -24,10 +26,11 @@ export function getViewableUrl(url: string | null | undefined): string | null {
 }
 
 /** Route CORS-blocked HLS hosts through our proxy */
-export function toProxiedHlsUrl(url: string): string {
+export function toProxiedHlsUrl(url: string): string | null {
+  if (isBlockedCameraUrl(url)) return null;
   try {
     const parsed = new URL(url);
-    if (parsed.hostname === "live.hdontap.com" || parsed.hostname === "watch.hdrelay.io") {
+    if (parsed.hostname === "watch.hdrelay.io") {
       return `/api/hls-proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
     }
     return url;
@@ -37,7 +40,7 @@ export function toProxiedHlsUrl(url: string): string {
 }
 
 export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
-  if (!url) return { kind: "none" };
+  if (!url || isBlockedCameraUrl(url)) return { kind: "none" };
   let href = "";
   try {
     const u = new URL(url);
@@ -79,7 +82,7 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       if (u.hostname === "hls.cdn-surfline.com") {
         return { kind: "hls", src: `/api/hls-proxy/${u.hostname}${u.pathname}` };
       }
-      return { kind: "hls", src: u.hostname === "watch.hdrelay.io" ? toProxiedHlsUrl(href) : href };
+      return { kind: "hls", src: toProxiedHlsUrl(href) ?? href };
     }
 
     if (
@@ -99,19 +102,6 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       u.pathname.startsWith("/surf-report/")
     ) {
       return { kind: "external", pageUrl: href, provider: "Surfline" };
-    }
-
-    // HDOnTap - resolve to HLS stream server-side (iframe embedding blocked)
-    if (
-      (u.hostname === "hdontap.com" || u.hostname === "www.hdontap.com") &&
-      u.pathname.startsWith("/stream/")
-    ) {
-      return { kind: "hdontap", pageUrl: href };
-    }
-
-    // HDOnTap portal embeds (private/customer streams)
-    if (u.hostname === "portal.hdontap.com") {
-      return { kind: "hdontap", pageUrl: href };
     }
 
     // OB Hotel webcam (HDRelay-powered) — resolve to HLS stream server-side.
@@ -136,7 +126,7 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       u.pathname.startsWith("/live-cams/")
     ) {
       const licensedOverride = findLicensedCamOverride(href);
-      if (licensedOverride) {
+      if (licensedOverride && !isBlockedCameraUrl(licensedOverride.importCameraUrl)) {
         return { kind: "hdontap", pageUrl: licensedOverride.importCameraUrl };
       }
       return { kind: "external", pageUrl: href, provider: "The Surfers View" };
@@ -169,5 +159,41 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
   } catch {
     // If URL parsing fails, don't render — prevents unvalidated URI injection
     return { kind: "none" };
+  }
+}
+
+/**
+ * What a viewer gets after clicking a cam: a player on the beach page, a
+ * link to the provider's own page, or no camera at all. Mirrors the branches
+ * in components/beach-detail/cams-section.tsx so the cam directory never
+ * promises playback the beach page does not give.
+ *
+ * `embedAllowed` is the iframe preflight result (see cam-embed-preflight.ts):
+ * `false` means the beach page hides the iframe; `null` (preflight could not
+ * read headers) means the beach page still tries it, so it counts as inline.
+ *
+ * YouTube resolves to inline here although the web beach page currently shows
+ * a click-out to YouTube; that card state is kept by design (quiver#1477).
+ */
+export type CamPlaybackState =
+  | { kind: "inline" }
+  | { kind: "external"; provider: string; pageUrl: string }
+  | { kind: "none" };
+
+export function getCamPlaybackState(
+  intent: CamEmbedIntent,
+  embedAllowed: boolean | null,
+): CamPlaybackState {
+  switch (intent.kind) {
+    case "external":
+      return { kind: "external", provider: intent.provider, pageUrl: intent.pageUrl };
+    case "iframe":
+      return embedAllowed === false ? { kind: "none" } : { kind: "inline" };
+    case "hls":
+    case "video":
+    case "hdontap":
+      return { kind: "inline" };
+    case "none":
+      return { kind: "none" };
   }
 }

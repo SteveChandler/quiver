@@ -36,6 +36,7 @@ import type { YesterdayAccuracy } from "@/types/accuracy";
 import { YesterdaysAccuracyCard } from "@/components/beach-detail/yesterdays-accuracy-card";
 import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
+import { tideAlertHeightContext } from "@/lib/surf/tide-height-now";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { aggregateOutlookDays } from "@/lib/utils/ecmwf-outlook-days";
@@ -45,6 +46,8 @@ import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
+import { useStationTide } from "@/components/beach-detail/station-tide-context";
+import { formatStationTime } from "@/lib/tide-stations/format";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { useAuth } from "@/context/auth-context";
 import { useOptionalProfileContext } from "@/context/profile-context";
@@ -196,7 +199,9 @@ export function ForecastTab({
   );
 
   // Dynamic tide computation (always fresh, relative to now)
-  const dynamicTide = useDynamicTide(forecasts, beachTimezone);
+  const stationTide = useStationTide();
+  const tideTimeZone = stationTide?.timeZone ?? beachTimezone ?? null;
+  const dynamicTide = useDynamicTide(forecasts, beachTimezone, stationTide?.schedule);
 
   // Format sun time for display
   const formatSunTime = (date: Date | null) => {
@@ -217,16 +222,32 @@ export function ForecastTab({
       if (status.includes("rising")) effectiveDirection = "rising";
       else if (status.includes("falling")) effectiveDirection = "falling";
     }
+    // "Optimal" needs the height in the spot's range too, read from the curve the tide chart draws.
+    const height = tideAlertHeightContext({
+      schedule: dynamicTide.schedule,
+      minFt: beach.preferred_tide_ft_min,
+      maxFt: beach.preferred_tide_ft_max,
+      preferredDirection: beach.preferred_tide_direction,
+      nowMs: dynamicTide.computedAtMs,
+      timeZone: tideTimeZone ?? resolveBeachTimezone(beachTimezone),
+    });
     return getTideAlert(
       beach.preferred_tide_direction,
       effectiveDirection,
-      dynamicTide.minutesToDirectionChange
+      dynamicTide.minutesToDirectionChange,
+      height
     );
   }, [
     beach.preferred_tide_direction,
+    beach.preferred_tide_ft_min,
+    beach.preferred_tide_ft_max,
     dynamicTide.currentDirection,
     dynamicTide.minutesToDirectionChange,
+    dynamicTide.schedule,
+    dynamicTide.computedAtMs,
     currentForecast?.tide_status,
+    tideTimeZone,
+    beachTimezone,
   ]);
 
   const formatMetric = (
@@ -344,8 +365,9 @@ export function ForecastTab({
   // Helper for next tide time display
   const getNextTideTimeDisplay = () => {
     if (dynamicTide.nextTide) {
-      const date = new Date(dynamicTide.nextTide.time * 1000);
-      return date.toLocaleTimeString([], {
+      const ms = dynamicTide.nextTide.time * 1000;
+      if (tideTimeZone) return formatStationTime(ms, tideTimeZone);
+      return new Date(ms).toLocaleTimeString([], {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
@@ -648,8 +670,12 @@ export function ForecastTab({
         {/* Tides Tab */}
         <TabsContent value="tides" className="space-y-4 mt-6">
           <p className="text-sm">Current tide and upcoming tide cycle · separate from the selected day.</p>
-          <TideStatusStrip dynamicTide={dynamicTide} />
-          <TideChartSection forecasts={forecasts} />
+          <TideStatusStrip dynamicTide={dynamicTide} timeZone={tideTimeZone} />
+          <TideChartSection
+            forecasts={forecasts}
+            stationSchedule={stationTide?.schedule}
+            timeZone={tideTimeZone}
+          />
           {beach.preferred_tide_direction && <TideAlertBadge alert={tideAlert} />}
           <TideConditionsCard
             prose={beach.best_conditions_prose}

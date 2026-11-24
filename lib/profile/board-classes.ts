@@ -6,7 +6,7 @@ import type { Database } from "@/types/database.generated";
 const BOARD_USER_CHUNK_SIZE = 100;
 const BOARD_ROW_PAGE_SIZE = 1000;
 
-function toBoardClasses(boardTypes: ReadonlyArray<string | null>): BoardClass[] {
+export function toBoardClasses(boardTypes: ReadonlyArray<string | null>): BoardClass[] {
   return Array.from(
     new Set(
       boardTypes

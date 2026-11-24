@@ -9,6 +9,56 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import type { Beach } from "@/types/database";
 import type { CDIPSkipReason } from "@/lib/services/cdip/types";
+import { chunk } from "@/lib/utils/chunk";
+
+type ForecastWritePacing = {
+  chunkSize: number;
+  delayMs: number;
+};
+
+export function getForecastWritePacing(defaultChunkSize: number): ForecastWritePacing | null {
+  if (process.env.FORECAST_WRITE_PACING === "false") return null;
+
+  const size = Number(process.env.FORECAST_WRITE_CHUNK_SIZE);
+  const delay = Math.min(Number(process.env.FORECAST_WRITE_DELAY_MS), 1000);
+  return {
+    chunkSize: Number.isSafeInteger(size) && size > 0 ? size : defaultChunkSize,
+    delayMs: Number.isSafeInteger(delay) && delay >= 0 ? delay : 200,
+  };
+}
+
+export function forecastWriteConcurrency(batchSize: number): number {
+  if (process.env.FORECAST_WRITE_PACING === "false") return batchSize;
+  return Number.isSafeInteger(batchSize) && batchSize > 0 ? Math.min(batchSize, 2) : 2;
+}
+
+export async function* paceForecastWriteChunks<T extends object>(
+  rows: T[],
+  pacing: ForecastWritePacing | null,
+  msRemaining: () => number,
+  legacyChunkSize = rows.length,
+): AsyncGenerator<T[]> {
+  if (!rows.length) return;
+  let first = true;
+  for (const group of chunk(rows, legacyChunkSize)) {
+    let batches = [group];
+    if (pacing && group.length > pacing.chunkSize) {
+      // PostgREST derives the written columns from the keys across the whole request.
+      // Preserve that union when a legacy batch mixes rows with optional columns.
+      const columns = new Set(group.flatMap(Object.keys));
+      const shape = Object.fromEntries(Array.from(columns, column => [column, undefined]));
+      batches = chunk(group, pacing.chunkSize).map(batch => batch.map(row => ({ ...shape, ...row })));
+    }
+    for (const batch of batches) {
+      // Finish an in-flight beach without adding idle time as the deadline approaches.
+      if (!first && pacing && pacing.delayMs > 0 && msRemaining() > pacing.delayMs) {
+        await sleep(pacing.delayMs);
+      }
+      yield batch;
+      first = false;
+    }
+  }
+}
 
 /**
  * Result of processing a single beach
@@ -19,8 +69,6 @@ export interface BeachProcessResult {
   error?: string;
   cdip_skip_reason?: CDIPSkipReason;
   cdip_station?: string | null;
-  /** Columns the store dropped after PGRST204 (deploy ran before its migration). */
-  schema_stripped_columns?: string[];
 }
 
 /**
@@ -36,8 +84,6 @@ export interface BatchProcessSummary {
   stopReason?: string;
   remainingMs?: number;
   cdipSkipReasonCounts?: Partial<Record<CDIPSkipReason, number>>;
-  /** Set only when a store dropped columns; those values were not written. */
-  schemaStrippedColumns?: string[];
 }
 
 /**
@@ -48,8 +94,6 @@ export interface BatchProcessResult {
   results: BeachProcessResult[];
   summary?: BatchProcessSummary;
   error?: string;
-  /** Set only when the nowcast anchor read failed and every beach built forecast-only. */
-  nowcastAnchorsUnavailable?: boolean;
 }
 
 /**
@@ -224,18 +268,22 @@ export async function processBeachesInBatches(
     await prefetchCallback(beaches);
   }
 
-  // Split beaches into batches
-  const batches: Beach[][] = [];
-  for (let i = 0; i < beaches.length; i += config.batchSize) {
-    batches.push(beaches.slice(i, i + config.batchSize));
-  }
+  const effectiveBatchSize = forecastWriteConcurrency(config.batchSize);
+  const batches = chunk(beaches, effectiveBatchSize);
+  const batchGaps = batches.length - 1;
+  // Spread the previous wait budget across the extra gaps created by pacing.
+  const canScaleBatchDelay =
+    batchGaps > 0 &&
+    effectiveBatchSize < config.batchSize &&
+    Number.isSafeInteger(config.batchSize);
+  const batchDelayMs = canScaleBatchDelay
+    ? config.batchDelayMs * (Math.ceil(beaches.length / config.batchSize) - 1) / batchGaps
+    : config.batchDelayMs;
 
   const allResults: BeachProcessResult[] = [];
   let successCount = 0;
   let failCount = 0;
   const cdipSkipReasonCounts: Partial<Record<CDIPSkipReason, number>> = {};
-
-  const schemaStrippedColumns = new Set<string>();
 
   const recordCdipSkipReason = (result: BeachProcessResult): void => {
     if (!result.cdip_skip_reason) return;
@@ -271,7 +319,6 @@ export async function processBeachesInBatches(
       if (result.status === "fulfilled") {
         allResults.push(result.value);
         recordCdipSkipReason(result.value);
-        for (const column of result.value.schema_stripped_columns ?? []) schemaStrippedColumns.add(column);
         if (result.value.success) {
           successCount++;
         } else {
@@ -293,7 +340,7 @@ export async function processBeachesInBatches(
 
     // Add delay between batches (except after last batch)
     if (batchIndex < batches.length - 1) {
-      if (!deadlineTracker.hasTimeForDelay(config.batchDelayMs)) {
+      if (!deadlineTracker.hasTimeForDelay(batchDelayMs)) {
         console.warn(`${logPrefix}Skipping batch delay and stopping early due to time budget`, {
           batchIndex,
           attempted: allResults.length,
@@ -301,7 +348,7 @@ export async function processBeachesInBatches(
         });
         break;
       }
-      await sleep(config.batchDelayMs);
+      await sleep(batchDelayMs);
     }
   }
 
@@ -324,9 +371,6 @@ export async function processBeachesInBatches(
         ? deadlineTracker.msRemaining()
         : undefined,
       cdipSkipReasonCounts,
-      ...(schemaStrippedColumns.size > 0
-        ? { schemaStrippedColumns: [...schemaStrippedColumns].sort() }
-        : {}),
     },
   };
 }

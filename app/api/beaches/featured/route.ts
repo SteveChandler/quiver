@@ -14,6 +14,7 @@ import { isValidLatitude, isValidLongitude } from "@/lib/coordinate-validation";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { pickBestNativeForecastSlot } from "@/lib/scoring/native-condition-score";
 import type { EnrichedBeach } from "@/lib/data/server/featured-beaches";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/beaches/featured
@@ -102,9 +103,11 @@ async function featuredBeachesHandler(request: NextRequest) {
 }
 
 // Apply rate limiting
-export const GET = withRateLimit(featuredBeachesHandler, "public-showcase");
+const handleGet = withRateLimit(featuredBeachesHandler, "public-showcase");
 
 const notAllowed = () => methodNotAllowed(["GET"]);
 export const POST = notAllowed;
 export const PUT = notAllowed;
 export const DELETE = notAllowed;
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/featured");

@@ -13,13 +13,15 @@ import {
   type CustomSpotDiscoveryRow,
 } from "@/lib/services/discovery/surf-discovery-orchestrator";
 import {
-  currentMapForecastRow,
+  currentHourForecastRow,
   fetchBulkForecastRowsWithV51Display,
+  modelForecastRow,
   resolveForecastFetchWindow,
 } from "@/lib/services/forecast/map-current-forecast";
 import { resolveSelectedHourDisplay, type ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +80,7 @@ export async function customSpotCurrentDisplayHandler(
     for (const { spot, nearestBeach } of pairs) {
       const adjust = adjusters.get(spot.id);
       if (!adjust) continue;
-      const row = currentMapForecastRow(rowsByBeach.get(nearestBeach.id) ?? [], now);
+      const row = modelForecastRow(currentHourForecastRow(rowsByBeach.get(nearestBeach.id) ?? [], now));
       const display = row ? resolveSelectedHourDisplay(adjust(row)) : null;
       if (display) displays[spot.id] = display;
     }
@@ -91,7 +93,7 @@ export async function customSpotCurrentDisplayHandler(
   }
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(
     withAuth(customSpotCurrentDisplayHandler, {
       optional: true,
@@ -100,3 +102,5 @@ export const GET = withNoStore(
     "public-default",
   ),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/custom-spots/current-display");

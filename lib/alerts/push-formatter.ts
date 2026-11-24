@@ -1,6 +1,7 @@
 import { pushTitle } from "@/lib/notifications/copy/push-title";
 import { fairActionPhrase } from "@/lib/utils/fair-action-phrase";
 import type { MatchingWindow } from "./types";
+import { firstMatchPerBeach } from "./collapse-matches";
 import {
   formatWaveHeightRange,
   formatWindSpeed,
@@ -16,7 +17,7 @@ interface PushContent {
   data: { type: string; beach_id: string; forecast_at?: string };
 }
 
-type PushDecisionVerdict = "go" | "maybe" | "no";
+export type PushDecisionVerdict = "go" | "maybe" | "no";
 
 /**
  * Map a normalized window quality (best_score, 0..1) to a short, factual,
@@ -41,41 +42,53 @@ function shortBeginnerReason(raw: string): string {
   return raw.trim().length > 0 ? "beginner-friendly" : "";
 }
 
+/**
+ * The quality phrase for one match, read from the session decision. Null when
+ * there is no decision, so a caller never states a quality the decision did not make.
+ */
+export function decisionLabel(
+  match: MatchingWindow,
+  decision?: PushDecisionVerdict,
+): string | null {
+  const reason = match.conditions_snapshot?.beginner_window_reason;
+  // A beginner-window rule is intentionally about approachable surf, not
+  // a universal quality claim. Keep the actual wave range in the body and
+  // avoid overselling a 1–2 ft window on the lock screen.
+  if (typeof reason === "string" && reason.trim().length > 0) return "Beginner friendly";
+  if (decision === "go") return "Worth a surf";
+  if (decision === "no") return "Not ideal";
+  if (decision === "maybe") {
+    return fairActionPhrase({ beachId: match.beach_id, instantIso: match.best_hour ?? match.window_start });
+  }
+  return null;
+}
+
 export function formatPushNotification(
   matches: MatchingWindow[],
   decision?: PushDecisionVerdict,
   primaryMatch?: MatchingWindow,
 ): PushContent {
-  const orderedMatches =
-    primaryMatch && matches.includes(primaryMatch)
-      ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
-      : matches;
-  const topMatch = orderedMatches[0];
-  if (!topMatch)
+  if (matches.length === 0)
     throw new Error("formatPushNotification requires at least one match");
 
-  if (orderedMatches.length === 1) {
+  // Canonical producers pass their selected match explicitly. Keep it first so
+  // lock-screen identity and summary order cannot drift from the decision.
+  const sorted =
+    primaryMatch && matches.includes(primaryMatch)
+      ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
+      : [...matches].sort((a, b) => b.best_score - a.best_score);
+  // Two rules at one beach are one break; count beaches, not matches.
+  const beaches = firstMatchPerBeach(sorted);
+
+  if (beaches.length === 1) {
+    const topMatch = sorted[0];
     const snap = topMatch.conditions_snapshot;
     const timeWindow = formatTitleWindow(
       topMatch.window_start,
       topMatch.window_end,
       topMatch.beach_timezone,
     );
-    const isBeginnerWindow =
-      typeof snap.beginner_window_reason === "string" &&
-      snap.beginner_window_reason.trim().length > 0;
-    // A beginner-window rule is intentionally about approachable surf, not
-    // a universal quality claim. Keep the actual wave range in the body and
-    // avoid overselling a 1–2 ft window on the lock screen.
-    const titleLabel = isBeginnerWindow
-      ? "Beginner friendly"
-      : decision === "go"
-        ? "Worth a surf"
-        : decision === "no"
-          ? "Not ideal"
-          : decision === "maybe"
-            ? fairActionPhrase({ beachId: topMatch.beach_id, instantIso: topMatch.best_hour ?? topMatch.window_start })
-            : qualityWord(topMatch.best_score);
+    const titleLabel = decisionLabel(topMatch, decision) ?? qualityWord(topMatch.best_score);
     const title = pushTitle(`${titleLabel} at ${topMatch.beach_name}, ${timeWindow}`);
 
     // Match the email's units + rounding so push and email don't disagree.
@@ -104,7 +117,10 @@ export function formatPushNotification(
       topMatch.window_end,
       topMatch.beach_timezone,
     );
-    const core = `${topMatch.beach_name} ${bodyTimeWindow} — ${waveHeight}${period}${wind}`;
+    // Period and wind read as a tail on the size; with no size, show the window alone.
+    const core = waveHeight
+      ? `${topMatch.beach_name} ${bodyTimeWindow} — ${waveHeight}${period}${wind}`
+      : `${topMatch.beach_name} ${bodyTimeWindow}`;
 
     // Append the beginner reason only when it fits within the budget — never
     // let it trigger the truncation fallback that would drop the real data.
@@ -128,26 +144,20 @@ export function formatPushNotification(
     };
   }
 
-  // Canonical producers pass their selected match explicitly. Keep it first so
-  // lock-screen identity and summary order cannot drift from the decision.
-  const sorted =
-    primaryMatch && matches.includes(primaryMatch)
-      ? orderedMatches
-      : [...matches].sort((a, b) => b.best_score - a.best_score);
-  const best = sorted[0];
-  const others = sorted.length - 1;
+  const best = beaches[0];
+  const others = beaches.length - 1;
   const title = pushTitle(`${best.beach_name} + ${others} more break${others === 1 ? "" : "s"} today`);
 
-  const showCount = Math.min(sorted.length, 2);
+  const showCount = Math.min(beaches.length, 2);
   const parts: string[] = [];
   for (let i = 0; i < showCount; i++) {
-    const m = sorted[i];
+    const m = beaches[i];
     parts.push(
       `${m.beach_name} ${formatTimeRange(m.window_start, m.window_end, m.beach_timezone)}`,
     );
   }
   let body = parts.join(" · ");
-  if (sorted.length > 2) body += ` and ${sorted.length - 2} more`;
+  if (beaches.length > 2) body += ` and ${beaches.length - 2} more`;
   if (body.length > MAX_BODY_LENGTH)
     body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
   return {

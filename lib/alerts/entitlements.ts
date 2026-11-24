@@ -10,6 +10,7 @@ import {
   PERSONALIZATION_LOCKED,
   type PersonalizationResultCode,
 } from "@/lib/personalization/eligibility";
+import { readEntitlementRow } from "@/lib/subscription/read-entitlement-row";
 
 export type Tier = "free" | "premium";
 
@@ -42,23 +43,20 @@ const FREE_PRESETS: PresetType[] = ["mellow_session"];
  *
  * Async because #3 is a DB lookup; pass the caller's supabase client so we
  * inherit its auth context (service-role in cron, user-scoped elsewhere).
+ *
+ * Returns "unknown" when the read fails after one retry. Callers must treat
+ * it as neither tier: no free-tier copy or demotion, and no paid limits.
  */
 export async function getUserEntitlement(
   userId: string,
   supabase: SupabaseClient,
-): Promise<Tier> {
+): Promise<Tier | "unknown"> {
   const bypass = envBypassTier(userId);
   if (bypass) return bypass;
 
-  const { data, error } = await supabase
-    .from("user_entitlements")
-    .select("is_pro, is_trialing, billing_issue, expires_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  // A failed read is not a missing row: resolving it as free would demote a paying user.
-  if (error) {
-    throw new Error(`user_entitlements read failed: ${error.message}`, { cause: error });
-  }
+  const read = await readEntitlementRow(supabase, userId);
+  if (read.status === "unknown") return "unknown";
+  const data = read.row;
 
   const isPro = entitlementFromRow(data) === "premium";
   const billingIssue = data?.billing_issue === true;

@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { JsonLd } from "@/components/seo/funnel/JsonLd";
 interface LiveCamSchemaProps {
   beachName: string;
@@ -12,6 +13,7 @@ export function LiveCamSchema({
   thumbnailUrl,
   pageUrl,
 }: LiveCamSchemaProps) {
+  if (isBlockedCameraUrl(cameraUrl)) return null;
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
   const fullPageUrl = pageUrl.startsWith("http")
@@ -27,7 +29,7 @@ export function LiveCamSchema({
     "@type": "VideoObject",
     name: `${beachName} Live Surf Cam`,
     description: `Live surf cam at ${beachName}. Watch real-time wave and wind conditions before you paddle out.`,
-    thumbnailUrl: thumbnailUrl || `${baseUrl}/api/og/beach?name=${encodeURIComponent(beachName)}`,
+    thumbnailUrl: (!isBlockedCameraUrl(thumbnailUrl) && thumbnailUrl) || `${baseUrl}/api/og/beach?name=${encodeURIComponent(beachName)}`,
     contentUrl: cameraUrl,
     uploadDate: today.toISOString().split("T")[0],
     publication: {

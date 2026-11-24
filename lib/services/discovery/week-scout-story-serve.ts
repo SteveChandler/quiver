@@ -10,6 +10,7 @@ import { faceRangeFt, sizeWordsFor, type CandidateFacts } from "./week-scout-sto
 import { checkWrittenSentence } from "./week-scout-story-claims";
 import { glanceFromBuild } from "./week-scout-glance";
 import { bindGlance, type GlanceWritten, type StoryGlance } from "./week-scout-glance-wording";
+import { loadRegionWaterNotice, waterSentence, withWaterSentence } from "./week-scout-glance-water";
 import { buildRegionGateContext, regionGateHolds, type RegionGateContext } from "./week-scout-story-region-gate";
 import { buildStoryInput, storyEventsFromRegion, StoryInputError, STORY_SAMPLE_VERSION } from "./week-scout-story-source";
 import { activeStoryRegions, loadStoryInput, loadLatestStoryEdition, loadLatestStoryInput } from "./week-scout-story-store";
@@ -21,6 +22,16 @@ type Client = SupabaseClient<Database>;
 type Live = CanonicalWeekScoutResponse;
 type SwellGate = Extract<StoryGate, { kind: "swell" }>;
 const FALLBACK_TTL_MS = 5 * 60_000;
+/** The water sentence never holds the Week Scout response: past this, it is left out. */
+const WATER_READ_TIMEOUT_MS = 2_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 const fallbackInputs = new Map<string, { input: Promise<StoryInput | null>; expiresAt: number }>();
 
 function regionalFallback(client: Client, region: string, editionDate: string, now: Date): Promise<StoryInput | null> {
@@ -166,6 +177,7 @@ export function storyGateHolds(gate: StoryGate, live: Live): boolean {
     case "swell":
     case "exposure":
     case "beach":
+    case "early_look":
       return false;
     case "origin": return false; // No verified track lineage exists in today's swells[] contract.
     case "wind": {
@@ -410,6 +422,14 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
       console.warn("[week-scout-story] region gate read failed", { region, error: String(error) });
       return { regional: CLOSED_REGION, build: null };
     });
+  // Beside the ranking too; never rejects: a failed read leaves the water sentence out.
+  const waterRead: Promise<string | null> = regionRead.then(({ build }) => build
+    ? withTimeout(loadRegionWaterNotice(client, region, build.beaches, now), WATER_READ_TIMEOUT_MS)
+      .then((notice) => waterSentence(notice, editionDate, build.timezone))
+    : null).catch((error: unknown) => {
+    console.warn("[week-scout-story] water notice read failed", { region, error: String(error) });
+    return null;
+  });
   const [edition, cached] = await Promise.all([
     loadLatestStoryEdition(client, region),
     loadLatestStoryInput(client, region, editionDate),
@@ -461,6 +481,8 @@ export async function prepareStory(args: StoryLoadArgs): Promise<StoryBinder> {
     } catch (error) {
       console.warn("[week-scout-story] glance failed", { region, error: String(error) });
     }
+    // A week with no swell sentence still gets the water sentence alone.
+    glance = withWaterSentence(glance, await waterRead);
     return { ...story, glance };
   };
 }

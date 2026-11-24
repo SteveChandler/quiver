@@ -6,7 +6,11 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { chunk } from '@/lib/utils/chunk';
+import type { PostgrestResponse } from '@supabase/supabase-js';
 import { MONITORING_CONFIG, HealthStatus, DataSourceType } from './forecast-monitoring-config';
+
+const BEACH_BATCH_SIZE = 100;
 
 type HealthSourceKey = 'enhanced' | 'marine' | 'tide' | 'sun' | 'ioos';
 
@@ -138,7 +142,29 @@ async function retryOnceAfterStatementTimeout<T extends { error: { message?: str
   return isStatementTimeout(first.error) ? run() : first;
 }
 
-export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
+type LatestViewResult<Row> = Pick<PostgrestResponse<Row>, 'data' | 'error'>;
+
+async function readLatestForecasts<Row>(
+  query: () => PromiseLike<LatestViewResult<Row>> & {
+    in(column: 'beach_id', beachIds: string[]): PromiseLike<LatestViewResult<Row>>;
+  },
+  batches: string[][] | null,
+): Promise<LatestViewResult<Row>> {
+  if (!batches) return retryOnceAfterStatementTimeout(query);
+
+  const rows: Row[] = [];
+  for (const beachIds of batches) {
+    const result = await retryOnceAfterStatementTimeout(() => query().in('beach_id', beachIds));
+    // Partial data would report a coverage gap for a source we couldn't measure.
+    if (result.error) return result;
+    rows.push(...(result.data ?? []));
+  }
+  return { data: rows, error: null };
+}
+
+export async function checkForecastHealth(
+  { serialScans = false }: { serialScans?: boolean } = {},
+): Promise<ForecastHealthMetrics> {
   const supabase = createSupabaseServiceRoleClient();
   
   try {
@@ -159,23 +185,22 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     
     const beachNameMap = new Map(beaches.map(b => [b.id, b.name]));
 
-    /**
-     * Read the latest rows per beach via DB views (1 row/beach).
-     * This avoids PostgREST row-cap pitfalls on base tables.
-     *
-     * PERFORMANCE: All 4 view queries run in parallel to minimize latency.
-     * Each query is independent and can execute concurrently.
-     */
-    const [
-      latestEnhancedResult,
-      latestMarineResult,
-      latestTideResult,
-      latestSunResult,
-      ioosStationsResult,
-    ] = await Promise.all([
-      retryOnceAfterStatementTimeout(() => supabase.from('v_enhanced_forecast_latest').select('beach_id, updated_at, data_source')),
-      retryOnceAfterStatementTimeout(() => supabase.from('v_marine_forecast_latest').select('beach_id, created_at, ts, source, is_observed')),
-      retryOnceAfterStatementTimeout(() => supabase.from('v_tide_forecast_latest').select('beach_id, created_at, ts, source')),
+    const batches = serialScans ? chunk(beaches.map(({ id }) => id), BEACH_BATCH_SIZE) : null;
+    const readEnhanced = () => readLatestForecasts(
+      () => supabase.from('v_enhanced_forecast_latest').select('beach_id, updated_at, data_source'), batches,
+    );
+    const readMarine = () => readLatestForecasts(
+      () => supabase.from('v_marine_forecast_latest').select('beach_id, created_at, ts, source, is_observed'), batches,
+    );
+    const readTide = () => readLatestForecasts(
+      () => supabase.from('v_tide_forecast_latest').select('beach_id, created_at, ts, source'), batches,
+    );
+    const readForecastViews = async () => {
+      if (serialScans) return [await readEnhanced(), await readMarine(), await readTide()] as const;
+      return Promise.all([readEnhanced(), readMarine(), readTide()]);
+    };
+    const [[latestEnhancedResult, latestMarineResult, latestTideResult], latestSunResult, ioosStationsResult] = await Promise.all([
+      readForecastViews(),
       retryOnceAfterStatementTimeout(() => supabase.from('v_sun_times_latest').select('beach_id, created_at, date, source')),
       supabase.from('ioos_stations').select('station_id, source_network, last_seen_at, active, nearest_beach_id').eq('active', true),
     ]);

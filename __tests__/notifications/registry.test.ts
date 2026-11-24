@@ -5,9 +5,93 @@
  * surface as test failures instead of silent regressions.
  */
 
-import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
+import { NOTIFICATION_REGISTRY, weekendWindowVariant } from "@/lib/notifications/registry";
 import { buildFirstSightingPayload } from "@/lib/alerts/swell-outlook/first-sighting";
 import { outlookSwell } from "@/__tests__/helpers/outlook-swell";
+
+describe("Weekend Scout rotating push copy", () => {
+  const def = NOTIFICATION_REGISTRY.weekend_window;
+  const beachId = "22222222-2222-4222-8222-222222222222";
+  const startsAt = "2026-07-25T14:00:00.000Z";
+  const payload = {
+    snapshot_id: "11111111-1111-4111-8111-111111111111",
+    weekend_start: "2026-07-25",
+    weekend_end: "2026-07-26",
+    qualifying_count: 3,
+    beach_id: beachId,
+    lead_beach_id: beachId,
+    lead_beach_name: "La Jolla Shores",
+    lead_window_local: "Saturday morning",
+    lead_window_time: "7–9 AM",
+    lead_window_part_of_day: "morning",
+    lead_wave_height: "5 ft",
+    lead_period: "13s",
+    lead_wind_speed: "5 mph",
+    lead_wind_direction: "E",
+    forecast_at: startsAt,
+    policy_context: {
+      kind: "positive_session_recommendation",
+      beach_id: beachId,
+      starts_at: startsAt,
+      ends_at: "2026-07-25T16:00:00.000Z",
+    },
+  };
+
+  it.each([
+    [0, "Weekend's looking fun near La Jolla Shores", "Sat 7–9 AM: 5 ft at 13s, light wind.", "2 more spots worth a look.", "1 more spot worth a look."],
+    [1, "La Jolla Shores is the pick this weekend", "Sat 7–9 AM brings 5 ft at 13s with light wind.", "2 backups lined up.", "1 backup lined up."],
+    [2, "Set the alarm for Saturday", "La Jolla Shores, 7–9 AM: 5 ft at 13s, light wind.", "See all 3 picks.", "See all 2 picks."],
+    [3, "Good window coming Saturday morning", "La Jolla Shores, 7–9 AM: 5 ft at 13s, light wind.", "2 more spots worth a look.", "1 more spot worth a look."],
+    [4, "Your weekend starts at La Jolla Shores", "Sat 7–9 AM: 5 ft at 13s and light wind.", "2 more picks if it gets crowded.", "1 more pick if it gets crowded."],
+    [5, "Worth a paddle this weekend", "La Jolla Shores leads Sat 7–9 AM: 5 ft at 13s, light wind.", "2 more spots worth a look.", "1 more spot worth a look."],
+  ] as const)("renders variant %i with three, two and one picks", (variant, title, lead, plural, singular) => {
+    for (const [qualifyingCount, body] of [[3, `${lead} ${plural}`], [2, `${lead} ${singular}`], [1, lead]] as const) {
+      const validated = def.validatePayload({ ...payload, variant_index: variant, qualifying_count: qualifyingCount });
+      expect(def.buildPushPayload(validated)).toMatchObject({ title, body });
+    }
+  });
+
+  it.each([
+    { lead_wave_height: undefined },
+    { lead_wave_height: "0 ft" },
+    { lead_period: null },
+    { lead_wind_speed: undefined },
+    { lead_wind_speed: "12 mph", lead_wind_direction: null },
+  ])("uses the legacy copy when forecast information is missing (%j)", (overrides) => {
+    const validated = def.validatePayload({ ...payload, variant_index: 0, ...overrides });
+    expect(def.buildPushPayload(validated)).toMatchObject({
+      title: "3 spots look promising this weekend",
+      body: "La Jolla Shores leads Saturday morning. See your top picks and why.",
+    });
+  });
+
+  it("rounds the period and wind, preserves the height range and uses the inclusive light-wind threshold", () => {
+    const conditions = {
+      ...payload,
+      variant_index: 3,
+      lead_window_part_of_day: "afternoon",
+      lead_window_time: "2–4 PM",
+      lead_wave_height: "4-5ft",
+      lead_period: "12.6s",
+    };
+    expect(def.buildPushPayload(def.validatePayload({ ...conditions, lead_wind_speed: "8 mph" }))).toMatchObject({
+      title: "Good window coming Saturday afternoon",
+      body: "La Jolla Shores, 2–4 PM: 4–5 ft at 13s, light wind. 2 more spots worth a look.",
+    });
+    expect(def.buildPushPayload(def.validatePayload({ ...conditions, lead_wind_speed: "9.6 mph" })).body).toContain("10 mph E");
+  });
+
+  it("rotates through all six variants before repeating, including across the year boundary", () => {
+    const weekends = ["2026-12-19", "2026-12-26", "2027-01-02", "2027-01-09", "2027-01-16", "2027-01-23", "2027-01-30"];
+    for (const userId of ["user-1", "user-2"]) {
+      const variants = weekends.map((date) => weekendWindowVariant(userId, date));
+      expect([...new Set(variants)].sort()).toEqual([0, 1, 2, 3, 4, 5]);
+      expect(variants[6]).toBe(variants[0]);
+      expect(variants.slice(1)).toEqual(variants.slice(0, -1).map((index) => (index + 1) % 6));
+    }
+    expect(weekendWindowVariant("user-1", weekends[0])).not.toBe(weekendWindowVariant("user-2", weekends[0]));
+  });
+});
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
   it("serializes first-sighting beach options with the peak timestamp for native chips", () => {
@@ -897,17 +981,6 @@ describe("NOTIFICATION_REGISTRY — Phase 5i admin types", () => {
 
 
 describe("registry beach title separators", () => {
-  it("cleans a forecast feedback beach name without changing notification data", () => {
-    const def = NOTIFICATION_REGISTRY.forecast_feedback_nudge;
-    const payload = def.validatePayload!({
-      beach_id: "beach-1", beach_name: "Cardiff-by-the-Sea - - North", relevance_confidence: "high",
-    });
-    const push = def.buildPushPayload!(payload);
-    expect(push.title).toBe("Surfed Cardiff-by-the-Sea North today?");
-    expect(push.body).toBe("Log it in one tap.");
-    expect(push.data.beach_id).toBe("beach-1");
-  });
-
   it.each([
     ["closure", "advisory", "Beach closed"],
     ["advisory", "good", "Water advisory"],

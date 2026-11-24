@@ -113,11 +113,11 @@ Authoritative reference for Quiver's gamification system: current status, conden
 
 ---
 
-## NPC Daily Activity System
+## Historical NPC Daily Activity System
 
 **Purpose:** Automated community content generation to keep production environment engaging
 
-**Status:** Production-ready with enhanced realism (January 2026 update)
+**Status:** Persona posting was retired on November 22, 2026. Historical profiles, templates and content are retained.
 
 **Full Documentation:** See [NPC_INTEL_BOTS.md](NPC_INTEL_BOTS.md) for comprehensive details.
 
@@ -136,7 +136,6 @@ The NPC system creates realistic community content using 25 distinct profiles wi
 **Key Files:**
 - `config/npc-roster.ts` - 25 NPC profile definitions
 - `config/regions.ts` - California region mappings
-- `lib/npc/` - Utility libraries (template hydration, beach selection, posting windows)
 
 ### Content Generation
 

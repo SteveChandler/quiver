@@ -17,6 +17,7 @@ const existingRowsResult: { data: Array<{ forecast_at: string }> | null; error: 
 const selectMock = jest.fn();
 
 jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
+jest.mock("node:timers/promises", () => ({ setTimeout: jest.fn().mockResolvedValue(undefined) }));
 
 // Mock Supabase client
 jest.mock("@/lib/supabase/server", () => ({
@@ -40,6 +41,8 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import * as Sentry from "@sentry/nextjs";
+import { setTimeout as sleep } from "node:timers/promises";
+import { DeadlineTracker } from "@/lib/services/forecast/batch-beach-processor";
 import { ForecastStorageService } from "@/lib/services/forecast/storage-service";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
@@ -141,6 +144,42 @@ describe("ForecastStorageService", () => {
   });
 
   describe("storeEnhancedForecasts", () => {
+    it.each([
+      { flag: "true", remainingMs: 1000, sizes: [1, 1, 1], delays: [[75], [75]] },
+      { flag: "true", remainingMs: 50, sizes: [1, 1, 1], delays: [] },
+      { flag: "false", remainingMs: 1000, sizes: [2, 1], delays: [] },
+    ])("paces forecast writes with $flag and $remainingMs ms left", async ({ flag, remainingMs, sizes, delays }) => {
+      const env = jest.replaceProperty(process, "env", {
+        ...process.env,
+        FORECAST_WRITE_PACING: flag,
+        FORECAST_WRITE_CHUNK_SIZE: "1",
+        FORECAST_WRITE_DELAY_MS: "75",
+      });
+      const tracker = new DeadlineTracker();
+      const remaining = jest.spyOn(tracker, "msRemaining").mockReturnValue(remainingMs);
+      try {
+        const pacedService = new ForecastStorageService({ chunkSize: 2, verboseLogging: false });
+        const forecasts = ["10", "11", "12"].map((hour, index) => ({
+          ...mockForecast,
+          forecast_at: `2026-10-18T${hour}:00:00.000Z`,
+          ...(index === 1 ? { wave_height_om: 1.25 } : {}),
+        }));
+        const result = await pacedService.storeEnhancedForecasts(mockBeach, forecasts, tracker);
+
+        expect(result.success).toBe(true);
+        expect(upsertMock.mock.calls.map(([rows]) => rows.length)).toEqual(sizes);
+        expect(jest.mocked(sleep).mock.calls).toEqual(delays);
+        const rows = upsertMock.mock.calls.flatMap(([batch]) => batch);
+        expect(rows.map(({ forecast_at, wave_height_om }) => [forecast_at, wave_height_om]))
+          .toEqual(forecasts.map(row => [row.forecast_at, row.wave_height_om]));
+        expect(Object.hasOwn(rows[0], "wave_height_om")).toBe(flag === "true");
+        expect(Object.hasOwn(rows[2], "wave_height_om")).toBe(false);
+      } finally {
+        remaining.mockRestore();
+        env.restore();
+      }
+    });
+
     it("returns success for valid forecasts", async () => {
       const result = await service.storeEnhancedForecasts(mockBeach, [mockForecast]);
 
@@ -285,7 +324,7 @@ describe("ForecastStorageService", () => {
     const withColumn = (column: string) =>
       ({ ...mockForecast, [column]: 1.2 }) as unknown as EnhancedForecastEntity;
 
-    it("retries without the missing column, returns it, and reports it to Sentry once per process", async () => {
+    it("retries without the missing column and reports it to Sentry once per process", async () => {
       upsertMock
         .mockReturnValueOnce(missingColumn("strip_test_col_a"))
         .mockReturnValueOnce({ data: [], error: null })
@@ -296,8 +335,8 @@ describe("ForecastStorageService", () => {
       const second = await new ForecastStorageService({ verboseLogging: false })
         .storeEnhancedForecasts(mockBeach, [withColumn("strip_test_col_a")]);
 
-      expect(first).toMatchObject({ success: true, strippedColumns: ["strip_test_col_a"] });
-      expect(second).toMatchObject({ success: true, strippedColumns: ["strip_test_col_a"] });
+      expect(first).toEqual({ success: true, data: [] });
+      expect(second).toEqual({ success: true, data: [] });
       const [originalRows] = upsertMock.mock.calls[0];
       const [retriedRows] = upsertMock.mock.calls[1];
       const { strip_test_col_a: _dropped, ...expectedRow } = originalRows[0];
@@ -312,7 +351,7 @@ describe("ForecastStorageService", () => {
       expectConsoleWarnings([/missing column 'strip_test_col_a'/, /missing column 'strip_test_col_a'/]);
     });
 
-    it("a clean write returns no stripped columns and reports nothing", async () => {
+    it("a clean write reports nothing", async () => {
       const result = await service.storeEnhancedForecasts(mockBeach, [mockForecast]);
 
       expect(result).toEqual({ success: true, data: [] });

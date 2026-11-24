@@ -25,6 +25,7 @@ import { fetchBeachTrafficWeights } from "@/lib/npc/traffic-weights";
 import { isSystemCardBlocked, type SystemCardDedupeRecord } from "@/lib/npc/post-quality";
 import { insertSystemFeedPost } from "@/lib/npc/system-feed-posts";
 import { resolveSystemIdentity } from "@/lib/system-identity";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -196,7 +197,7 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = _GET;
+const handleGet = _GET;
 
 async function fetchSystemCardHistory(
   supabase: SupabaseServiceClient,
@@ -292,3 +293,5 @@ function isSystemCardClass(value: unknown): value is SystemCardClass {
 }
 
 type SystemCardClass = import("@/lib/npc/system-card-types").SystemCardClass;
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/system-cards");

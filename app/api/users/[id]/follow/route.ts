@@ -6,6 +6,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
  * GET /api/users/[id]/follow - Get follow status for a user
  * Uses optional auth - works for both authenticated and unauthenticated users
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
     // Validate UUID
     const uuidResult = validateUuidParam(params.id, "user");
@@ -67,4 +68,4 @@ export function POST() {
   return methodNotAllowed(["GET"]);
 }
 
-
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/follow");

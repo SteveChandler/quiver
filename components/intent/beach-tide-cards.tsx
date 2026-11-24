@@ -1,7 +1,5 @@
+import type React from "react";
 import Link from "next/link";
-import { Waves, ArrowUp, ArrowDown, Minus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { cityToSlug } from "@/lib/utils/beach-url-utils";
 import type { BeachTidePreference } from "@/actions/forecast/intent-forecast-actions";
 
@@ -13,130 +11,61 @@ interface BeachTideCardsProps {
   cityName: string;
 }
 
-function DirectionIcon({ direction }: { direction: string | null }) {
-  if (!direction) return <Minus className="h-3.5 w-3.5 text-gray-400" />;
-  const lower = direction.toLowerCase();
-  if (lower.includes("rising")) return <ArrowUp className="h-3.5 w-3.5 text-blue-600" />;
-  if (lower.includes("falling")) return <ArrowDown className="h-3.5 w-3.5 text-indigo-500" />;
-  return <Minus className="h-3.5 w-3.5 text-gray-400" />;
+function formatRangeFt(value: number): string {
+  return value.toFixed(1);
 }
 
-function skillLevelColor(level: string | null): string {
-  if (!level) return "bg-gray-100 text-gray-600";
-  const lower = level.toLowerCase();
-  if (lower.includes("beginner")) return "bg-green-100 text-green-800";
-  if (lower.includes("intermediate")) return "bg-yellow-100 text-yellow-800";
-  if (lower.includes("advanced")) return "bg-red-100 text-red-800";
-  return "bg-gray-100 text-gray-600";
+/** "1.0–3.0 ft · rising", "Rising tide", or null when the spot has no tide notes. */
+export function describeTidePreference(beach: BeachTidePreference): string | null {
+  const hasRange = beach.preferredTideMin != null && beach.preferredTideMax != null;
+  const direction = beach.preferredDirection?.toLowerCase();
+  const directionWord = direction === "rising" || direction === "falling" ? direction : null;
+  if (hasRange) {
+    const range = `${formatRangeFt(beach.preferredTideMin!)}–${formatRangeFt(beach.preferredTideMax!)} ft`;
+    return directionWord ? `${range} · ${directionWord}` : range;
+  }
+  if (directionWord) return `${directionWord === "rising" ? "Rising" : "Falling"} tide`;
+  return null;
 }
 
 /**
- * BeachTideCards - Grid of per-beach tide preferences
- *
- * Shows each beach's preferred tide range and direction.
- * Links to beach detail pages. 1-col mobile, 2-col desktop.
+ * Per-spot tide notes on paper. Describes the water each spot likes; it does not
+ * rate the surfer, so no skill badges here.
  */
-export function BeachTideCards({
-  beaches,
-  citySlug,
-  stateSlug,
-  cityName,
-}: BeachTideCardsProps) {
-  if (beaches.length === 0) {
-    return null;
-  }
-
+export function BeachTideCards({ beaches, citySlug, stateSlug, cityName }: BeachTideCardsProps): React.JSX.Element | null {
   const beachUrlCitySlug = cityToSlug(cityName) || citySlug;
+  const rows = beaches
+    .map((beach) => ({ beach, note: describeTidePreference(beach) }))
+    .filter((row): row is { beach: BeachTidePreference; note: string } => row.note != null);
 
-  // Only show beaches that have at least some tide preference data
-  const beachesWithPrefs = beaches.filter(
-    (b) =>
-      b.preferredTideMin != null ||
-      b.preferredTideMax != null ||
-      b.preferredDirection != null
-  );
-
-  if (beachesWithPrefs.length === 0) {
-    return null;
-  }
+  if (rows.length === 0) return null;
 
   return (
-    <section>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-        Beach Tide Preferences
+    <section aria-labelledby="tide-by-spot-heading" data-testid="tide-by-spot">
+      <h2 id="tide-by-spot-heading" className="mb-1 font-heading text-2xl font-bold text-[#11100D]">
+        Tide by spot
       </h2>
-      <p className="text-sm text-gray-600 mb-4">
-        Each beach performs best at a specific tide range and direction. Plan
-        your session around these windows.
-      </p>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {beachesWithPrefs.map((beach) => {
-          const hasRange =
-            beach.preferredTideMin != null && beach.preferredTideMax != null;
-
-          const beachHref = beach.beachSlug
-            ? `/${stateSlug}/${beachUrlCitySlug}/${beach.beachSlug}/tides`
-            : null;
-
-          const cardContent = (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Waves className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                  <h3 className="font-medium text-gray-800">
-                    {beach.beachName}
-                  </h3>
-                </div>
-                {beach.skillLevel && (
-                  <Badge
-                    variant="secondary"
-                    className={`text-xs ${skillLevelColor(beach.skillLevel)}`}
-                  >
-                    {beach.skillLevel}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                {hasRange && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-blue-800 font-medium">
-                    {formatTideHeight(beach.preferredTideMin!)}&ndash;
-                    {formatTideHeight(beach.preferredTideMax!)}
-                  </span>
-                )}
-                {beach.preferredDirection && (
-                  <span className="inline-flex items-center gap-1 text-gray-700">
-                    <DirectionIcon direction={beach.preferredDirection} />
-                    {beach.preferredDirection}
-                  </span>
-                )}
-                {!hasRange && !beach.preferredDirection && (
-                  <span className="text-gray-400 text-xs">
-                    Works on most tides
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-
-          const uniqueKey = beach.beachSlug || beach.beachName;
-
-          if (beachHref) {
-            return (
-              <Link key={uniqueKey} href={beachHref} className="block">
-                {cardContent}
-              </Link>
-            );
-          }
-
+      <p className="mb-3 text-sm text-[#11100D]/70">The tide height and direction each break likes.</p>
+      <ul className="border-t border-dashed border-[#11100D]/30">
+        {rows.map(({ beach, note }) => {
+          const href = beach.beachSlug ? `/${stateSlug}/${beachUrlCitySlug}/${beach.beachSlug}/tides` : null;
           return (
-            <div key={uniqueKey}>
-              {cardContent}
-            </div>
+            <li
+              key={beach.beachSlug || beach.beachName}
+              className="flex items-baseline justify-between gap-3 border-b border-dashed border-[#11100D]/30 py-2"
+            >
+              {href ? (
+                <Link href={href} className="font-semibold text-[#11100D] hover:text-[#AA4918]">
+                  {beach.beachName}
+                </Link>
+              ) : (
+                <span className="font-semibold text-[#11100D]">{beach.beachName}</span>
+              )}
+              <span className="text-right font-mono text-sm text-[#11100D]/75">{note}</span>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </section>
   );
 }

@@ -44,6 +44,7 @@ interface TodaysWindowsProps {
   forecastUrl?: string;
   isTomorrow?: boolean;
   eveningTransition?: EveningTransition;
+  hasHomeBeach?: boolean;
 }
 
 const INK = "#11100D";
@@ -75,7 +76,7 @@ function buildConditionSegments(w: TimeWindow): string[] {
   }).supportingSegments;
 }
 
-export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow, eveningTransition }: TodaysWindowsProps) {
+export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow, eveningTransition, hasHomeBeach = false }: TodaysWindowsProps) {
   const preferredHour = preferredTime ? PREFERRED_TIME_TO_HOUR[preferredTime] ?? null : null;
 
   return (
@@ -260,7 +261,7 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
             );
           })}
         </div>
-        {windows.filter(w => w.height === "—").length >= 4 && (
+        {!hasHomeBeach && windows.filter(w => w.height === "—").length >= 4 && (
           <p
             className="mt-3 text-center text-xs"
             style={{ color: INK, opacity: 0.55 }}

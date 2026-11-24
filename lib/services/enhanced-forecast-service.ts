@@ -15,6 +15,7 @@ import { chunk } from "@/lib/utils/chunk";
 import { describeThrownError } from "./forecast/error-message";
 import {
   DeadlineTracker,
+  forecastWriteConcurrency,
   getRefreshSelectionWindowHours,
   loadBatchConfig,
   loadCdipBatchConfig,
@@ -63,7 +64,7 @@ import {
   type EnhancedForecastWithRawData,
 } from "@/types/forecast";
 import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
-import { fetchNowcastAnchorsWithStatus } from "@/lib/services/observations/nowcast-anchor";
+import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import {
   fetchSouthOcSanoShadowZoneSnapshot,
@@ -116,7 +117,7 @@ function shouldTryExplicitCDIPStationFailover(
  * nothing usable: a failed fetch, or a latest reading older than the live
  * nowcast window. Unknown and blacklisted stations stay off.
  */
-export function shouldReadStoredCDIPReadings(
+function shouldReadStoredCDIPReadings(
   diagnostic: CDIPBuoyDataDiagnostic,
   nowMs: number,
 ): boolean {
@@ -666,15 +667,17 @@ export class EnhancedForecastService {
    */
   async storeEnhancedForecasts(
     beach: Beach,
-    forecasts: EnhancedForecastEntity[]
+    forecasts: EnhancedForecastEntity[],
+    deadlineTracker?: DeadlineTracker,
   ) {
-    return this.storageService.storeEnhancedForecasts(beach, forecasts);
+    return this.storageService.storeEnhancedForecasts(beach, forecasts, deadlineTracker);
   }
 
   async processBeachForecastUpdate(
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
     southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
+    deadlineTracker?: DeadlineTracker,
   ): Promise<BeachProcessResult> {
     try {
       const { forecasts, cdip } = await this.generateComprehensiveForecastWithDiagnostics(
@@ -682,7 +685,7 @@ export class EnhancedForecastService {
         nowcastAnchor,
         southOcSanoShadowZoneSnapshot,
       );
-      const result = await this.storeEnhancedForecasts(beach, forecasts);
+      const result = await this.storeEnhancedForecasts(beach, forecasts, deadlineTracker);
 
       if (result.success) {
         console.log(`${beach.name}: ${forecasts.length} forecasts stored`);
@@ -696,9 +699,6 @@ export class EnhancedForecastService {
         error: result.error,
         cdip_skip_reason: cdip.skipReason,
         cdip_station: cdip.stationId,
-        ...(result.strippedColumns?.length
-          ? { schema_stripped_columns: result.strippedColumns }
-          : {}),
       };
     } catch (error) {
       const errorMsg = describeThrownError(error);
@@ -745,15 +745,14 @@ export class EnhancedForecastService {
         `Starting batch forecast update for ${beaches.selected.length}/${beaches.eligible.length} beaches${shardInfo} ` +
         `(missing: ${beaches.stats.missing}, due>${beaches.refreshSelectionWindowHours}h: ${beaches.stats.dueForRefresh}, ` +
         `stale at ${config.freshnessWindowHours}h, ` +
-        `selectedMissing: ${beaches.stats.selectedMissing}, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
+        `selectedMissing: ${beaches.stats.selectedMissing}, max ${config.maxBeachesPerRun} per run, batch size: ${forecastWriteConcurrency(config.batchSize)})`
       );
 
       // Fetch nowcast observation anchors once per cron invocation. Failure
-      // returns an empty Map (reported to Sentry and flagged on the result), so
-      // the downstream per-beach builds fall through to the forecast-only path.
+      // returns an empty Map (reported to Sentry once for this run), so the
+      // downstream per-beach builds fall through to the forecast-only path.
       const supabase = await createSupabaseServiceRoleClient();
-      const { anchors: nowcastAnchors, unavailable: nowcastAnchorsUnavailable } =
-        await fetchNowcastAnchorsWithStatus(supabase);
+      const nowcastAnchors = await fetchNowcastAnchors(supabase, { reportScope: "run" });
       log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this run`);
       const southOcSanoShadowZoneSnapshot =
         await fetchSouthOcSanoShadowZoneSnapshot(supabase);
@@ -771,6 +770,7 @@ export class EnhancedForecastService {
             beach,
             nowcastAnchors.get(beach.id) ?? null,
             southOcSanoShadowZoneSnapshot,
+            deadlineTracker,
           ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "📦 ",
@@ -782,7 +782,7 @@ export class EnhancedForecastService {
         }`
       );
 
-      return nowcastAnchorsUnavailable ? { ...result, nowcastAnchorsUnavailable } : result;
+      return result;
     } catch (error) {
       log.error("Error updating all enhanced forecasts:", error);
       return {
@@ -921,7 +921,7 @@ export class EnhancedForecastService {
       log.info(
         `Starting CDIP-only update for ${beaches.selected.length}/${beaches.totalDueForRefresh} CDIP beaches due for refresh ` +
         `(due>${beaches.refreshSelectionWindowHours}h, target ${config.freshnessWindowHours}h, ` +
-        `max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
+        `max ${config.maxBeachesPerRun} per run, batch size: ${forecastWriteConcurrency(config.batchSize)})`
       );
 
       // Fetch nowcast observation anchors once per CDIP cron invocation, mirroring
@@ -929,8 +929,7 @@ export class EnhancedForecastService {
       // silently overwrites anchored values produced by the main rotation cron
       // for any beach with the `observation_anchor` feature flag set.
       const supabase = await createSupabaseServiceRoleClient();
-      const { anchors: nowcastAnchors, unavailable: nowcastAnchorsUnavailable } =
-        await fetchNowcastAnchorsWithStatus(supabase);
+      const nowcastAnchors = await fetchNowcastAnchors(supabase, { reportScope: "run" });
       log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this CDIP run`);
       const southOcSanoShadowZoneSnapshot =
         await fetchSouthOcSanoShadowZoneSnapshot(supabase);
@@ -948,6 +947,7 @@ export class EnhancedForecastService {
             beach,
             nowcastAnchors.get(beach.id) ?? null,
             southOcSanoShadowZoneSnapshot,
+            deadlineTracker,
           ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "CDIP ",
@@ -959,7 +959,7 @@ export class EnhancedForecastService {
         }`
       );
 
-      return nowcastAnchorsUnavailable ? { ...result, nowcastAnchorsUnavailable } : result;
+      return result;
     } catch (error) {
       log.error("Error updating CDIP enhanced forecasts:", error);
       return {

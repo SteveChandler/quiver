@@ -16,6 +16,7 @@ import type {
   EvaluationResult,
 } from "@/lib/services/water-quality";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -42,16 +43,16 @@ interface EvaluatePhaseResult {
 /**
  * GET /api/cron/water-quality-sync
  *
- * Cron job: syncs water quality data from CEDEN (California) and PacIOOS
- * ERDDAP (Hawaii) in three phases:
+ * Cron job: syncs water quality data from CEDEN (California) in three phases.
+ * Hawaii has no live sample source (PacIOOS ERDDAP has no row after 2024-06-13).
  *
  * 1. Stations phase (monthly, 1st at 08:00 UTC):
- *    - Fetches coastal monitoring stations from CEDEN + PacIOOS for CA + HI
+ *    - Fetches coastal monitoring stations from CEDEN (CA)
  *    - Matches each station to the nearest beach (within 5km)
  *    - Upserts into wq_monitoring_stations
  *
  * 2. Samples phase (bi-weekly, Tue/Fri at 12:00 UTC):
- *    - Fetches last 90 days of Enterococcus and Fecal Coliform results
+ *    - Fetches last 90 days of Enterococcus and Fecal Coliform results from CEDEN
  *    - Matches samples to known station IDs
  *    - Upserts into wq_samples
  *
@@ -159,4 +160,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = _GET;
+const handleGet = _GET;
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/water-quality-sync");

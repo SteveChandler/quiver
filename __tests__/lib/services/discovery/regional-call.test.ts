@@ -190,15 +190,13 @@ describe('generateRegionalCall', () => {
     });
   });
 
-  it('returns flat-day fallback when no swell data', () => {
+  it('returns an empty call (no stand-in line) when no clause has data', () => {
     const recs = [
       mockRec({ swell_1_direction: null, swell_1_period: null }),
       mockRec({ swell_1_direction: null, swell_1_period: null }),
     ];
-    const result = generateRegionalCall(recs);
-    expect(result.length).toBeGreaterThan(0);
-    // No wind options → full fallback
-    expect(result).toBe('Small surf, pick your spot for fun.');
+    // No swell, no shared aspect, no wind options → nothing true to say.
+    expect(generateRegionalCall(recs)).toBe('');
   });
 
   it('includes aspect advantage when top recs share facing', () => {

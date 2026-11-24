@@ -142,7 +142,7 @@ describe("GET /api/personalization/match-score", () => {
     expect(json.data.board_tip).toBe("Twin pin");
     expect(json.data.reason_facts).toContainEqual({ kind: "board_fit", value: "Twin pin" });
     expect(json.data.reason_bullets).toContain(pick.reason);
-    expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), "user-1", true);
+    expect(mockFetchUserBoardContext).toHaveBeenCalledWith(expect.anything(), "user-1");
     expect(mockRecommendBoard).toHaveBeenCalledWith(expect.any(Array),
       expect.objectContaining({ forecast_at: "2026-09-28T15:00:00.000Z", wind_direction_deg: 210, tide_status: "rising" }),
       expect.objectContaining({ id: "beach-1" }), "advanced", { requestDerived: true });
@@ -201,6 +201,29 @@ describe("GET /api/personalization/match-score", () => {
 
     expect(missing.data.reason_bullets.join(" ")).not.toMatch(/\bwind\b/i);
     expect(known.data.reason_bullets.join(" ")).toMatch(/4 mph wind/);
+  });
+
+  it("sends no fit label for a starter score with none, never \"Based on your skill level\"", async () => {
+    rpc.mockResolvedValue({ data: { state: "starter", score: 7.1, session_count: 2, sessions_needed: 3, body: "Starter read." }, error: null });
+
+    const json = await (await GET(new NextRequest(
+      "https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&wind_speed=4&wind_direction=210&tide_height=3",
+    ))).json();
+
+    expect(json.data.state).toBe("starter");
+    // Native shows its own starter label when this is null (quiver-native match-score-client.ts defaultFitLabel).
+    expect(json.data.fit_label).toBeNull();
+  });
+
+  it("leaves out the tide line for the request native sends at a beach with no tide", async () => {
+    rpc.mockResolvedValue({ data: { state: "learned", score: 8.4, sessions_in_profile: 15, reason_bullets: [] }, error: null });
+
+    const json = await (await GET(new NextRequest(
+      "https://www.quiversurf.app/api/personalization/match-score?beach_id=beach-1&wave_height=3&wave_period=12&wind_speed=4&wind_direction=210&tide_height=null",
+    ))).json();
+
+    expect(json.data.state).toBe("learned");
+    expect(json.data.reason_bullets.join(" ")).not.toMatch(/null|Tide near/);
   });
 
   it("keeps calm as 0 mph with no direction for the board pick", async () => {

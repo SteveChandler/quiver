@@ -5,6 +5,9 @@
  * only the Supabase client faked.
  */
 
+// The swell_story_push switch is a database row; these pushes are today's text, with it off.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryPushEnabled: jest.fn(async () => false), isSwellStoryCardEnabled: jest.fn(async () => false) }));
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runSwellAlertCron, type SwellAlertProfile } from "@/lib/cron/swell-alert-runner";

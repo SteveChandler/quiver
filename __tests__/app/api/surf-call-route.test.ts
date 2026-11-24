@@ -54,7 +54,7 @@ jest.mock("@/lib/utils/dev-force-verdict", () => ({
 const mockCheckBoardFit = jest.fn((..._args: unknown[]) => ({
   penalty: 0,
   bonus: 0,
-  note: "in the sweet spot for your longboard",
+  note: "Good longboard size at 2–3 ft.",
 }));
 jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
   const actual = jest.requireActual("@/lib/domains/scoring/discovery-adapter");
@@ -786,8 +786,17 @@ describe("GET /api/surf/call", () => {
     expect(body.data.sessionDecision.conditionLabel).toBe("MEH");
   });
 
-  it("returns a retryable error instead of a free call when the entitlement read fails", async () => {
+  it("still makes the call with free access when the entitlement read fails twice", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
+    // The switch is on, so a fallback through founding access would open paid discovery.
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    mockDiscoverSurfSpots.mockResolvedValue({
+      recommendations: [],
+      includedRecommendations: [],
+      recommendationAvailability: { state: "available", holdEpoch: "now-test" },
+      searchCriteria: { maxResults: 1 },
+      metadata: { outcome: "success", generated_at: new Date().toISOString() },
+    });
     mockBeachQuery({
       id: beachId,
       name: "Ocean Beach Pier",
@@ -799,24 +808,50 @@ describe("GET /api/surf/call", () => {
     });
     mockEntitlementResult = {
       data: null,
-      error: { code: "57014", message: "canceling statement due to statement timeout" },
+      error: { code: "08006", message: "connection failure" },
     };
-    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.report.verdict).toEqual(expect.any(String));
+    expect(body.data.planStatus).toBe("unknown");
+    expect(mockSupabase.from.mock.calls.filter(([table]: [string]) => table === "user_entitlements")).toHaveLength(2);
+    expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: false }) }),
+    );
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledWith(
+      mockUser.id,
+      expect.objectContaining({ discoveryMode: "now", isPro: false }),
+    );
+    consoleWarn.mockRestore();
+  });
+
+  it("omits planStatus when the entitlement read succeeds", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
 
     const response = await GET(
       new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
     );
     const body = await response.json();
 
-    expect(response.status).toBe(503);
-    expect(body).toMatchObject({ success: false, retryable: true, code: "internal_error" });
-    expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
-    expect(mockResolveCanonicalSessionDecisionContext).not.toHaveBeenCalled();
-    expect(consoleError).toHaveBeenCalledWith(
-      "[surf-call:entitlement-error]",
-      expect.objectContaining({ code: "57014" }),
-    );
-    consoleError.mockRestore();
+    expect(response.status).toBe(200);
+    expect(body.data).not.toHaveProperty("planStatus");
   });
 
   it("returns a retryable error when canonical discovery fails operationally", async () => {
@@ -1330,8 +1365,10 @@ describe("GET /api/surf/call", () => {
       "longboard",
     );
     expect(body.data.report.whySentence).toContain(
-      "Board fit: in the sweet spot for your longboard.",
+      "Board fit: good longboard size at 2–3 ft.",
     );
+    // The note is a whole sentence; the board line keeps one full stop.
+    expect(body.data.report.whySentence).not.toContain("ft..");
   });
 
   it("ignores invalid boardClass values", async () => {
@@ -1648,6 +1685,34 @@ describe("GET /api/surf/call", () => {
       const body = await callRoute();
 
       expect(body.data.report.whySentence).toMatch(/applied when skill is unknown/);
+    });
+
+    it("holds the includeNow discovery with the rating skill only for an allowlisted user", async () => {
+      const { sanitizeSurfDiscoveryForSerializationMajorEventHold: sanitize } = jest.requireMock(
+        "@/lib/services/discovery/major-event-hold",
+      ) as { sanitizeSurfDiscoveryForSerializationMajorEventHold: jest.Mock };
+      const nowHoldSkill = async (): Promise<unknown> => {
+        sanitize.mockClear();
+        mockDiscoverSurfSpots.mockResolvedValue({ recommendations: [], includedRecommendations: [] });
+        mockBeachQuery({ id: BEACH_ID, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+        await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${BEACH_ID}&includeNow=1`));
+        // precondition: the now discovery ran and reached the hold
+        expect(sanitize).toHaveBeenCalledTimes(1);
+        return sanitize.mock.calls[0][1];
+      };
+
+      try {
+        setFlag(ON);
+        setRead(UNSET);
+        expect(await nowHoldSkill()).toBe("beginner");
+
+        setFlag({});
+        mockGetProfileExperienceLevel.mockResolvedValue(null);
+        expect(await nowHoldSkill()).toBeNull();
+      } finally {
+        // The includeNow block below has no beforeEach and counts these calls.
+        mockDiscoverSurfSpots.mockReset();
+      }
     });
   });
 });

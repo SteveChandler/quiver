@@ -1,4 +1,14 @@
 /** @jest-environment node */
+const mockAfterTasks: Array<() => Promise<void>> = [];
+jest.mock("next/server", () => ({
+  ...jest.requireActual("next/server"),
+  after: jest.fn((task: () => Promise<void>): void => { mockAfterTasks.push(task); }),
+}));
+jest.mock("@/lib/alerts/swell-outlook/state", () => ({ recordSwellOpen: jest.fn() }));
+jest.mock("@/lib/flags/swell-outlook", () => ({
+  isSwellOutlookEnabled: jest.fn(),
+  isSwellOutlookUserAllowed: jest.fn(),
+}));
 // Round-trips JSON like the real data cache, so a Map or Date in the cached value fails a test.
 jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((fn: (...args: unknown[]) => Promise<unknown>) =>
@@ -27,20 +37,26 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/middleware/api-wrappers"),
   withRateLimit: (handler: unknown) => handler,
 }));
+// The story switch is a database row; these tests read it on unless they say otherwise.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryCardEnabled: jest.fn() }));
 
 import { GET } from "@/app/api/beaches/[id]/swell-events/route";
+import { after } from "next/server";
+import { recordSwellOpen } from "@/lib/alerts/swell-outlook/state";
+import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
 import { historyLine, regionModelBuoy } from "@/lib/alerts/swell-events/early-look";
 import { narrateRegionEvents, watchRegionEvents } from "@/lib/alerts/swell-events/regional-narrative";
 import { buildEventCandidates, storyEventsFromRegion } from "@/lib/services/discovery/week-scout-story-candidates";
 import { buildRegionGateContext } from "@/lib/services/discovery/week-scout-story-region-gate";
 import { STORY_SAMPLE_VERSION } from "@/lib/services/discovery/week-scout-story-source";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { isSwellStoryCardEnabled } from "@/lib/flags/swell-story";
 import { createBearerTokenClient } from "@/lib/supabase/bearer-client";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { loadLatestStoryEdition, loadStoryInput } from "@/lib/services/discovery/week-scout-story-store";
 import type { StoryArtifact, StoryInput } from "@/lib/services/discovery/week-scout-story-types";
 import type { RegionSwellEvent, RegionSwellEventsResponse } from "@/types/region-swell-events";
-import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
+import { expectConsoleErrors, expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { FLAT, NOW, TIMEZONE, dayRows, localDate, localIso, type PartitionSpec } from "@/__tests__/helpers/swell-events";
 
 const REGION = "San Diego";
@@ -53,6 +69,8 @@ const STORM_DAY_WAM_M = 3.2;
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 /** The storm's server story line: it arrives and peaks the same Monday. */
 const STORM_STORY = "A west short-period storm swell arrives and peaks Monday, then fades Tuesday: waist-high at most spots.";
+/** The WAM early look's server sentence, nine days after the storm. */
+const EARLY_STORY = "A west long-period groundswell may peak around a week from Wednesday; the size and the day can still move.";
 /** Every staged beach's window is centred on the storm's west. */
 const STORM_WHY = "Faces the west storm swell head on: waist-high and crumbly, glassy early.";
 
@@ -103,13 +121,14 @@ function stormRows(beachId: string, surf: Surf = GOOD, withStorm = true): Array<
 
 interface Scene {
   lookup: { region: string | null; timezone: string } | null;
+  lookupError?: Error;
   beaches?: TestBeach[];
   rows?: Array<Record<string, unknown>>;
   user?: { id: string } | null;
 }
 
 /** Service-role stub: the beach lookup (maybeSingle) and the region's paged reads (range). */
-function stage({ lookup, beaches = [], rows = [], user = null }: Scene): { tables: string[]; client: unknown } {
+function stage({ lookup, lookupError, beaches = [], rows = [], user = null }: Scene): { tables: string[]; client: unknown } {
   const tables: string[] = [];
   const client = {
     from: (table: string) => {
@@ -127,7 +146,7 @@ function stage({ lookup, beaches = [], rows = [], user = null }: Scene): { table
           ids = values;
           return query;
         },
-        maybeSingle: async () => ({ data: lookup, error: null }),
+        maybeSingle: async () => ({ data: lookup, error: lookupError ?? null }),
         range: async (start: number, end: number) => {
           const source = table === "beaches"
             ? beaches
@@ -174,11 +193,17 @@ describe("GET /api/beaches/[id]/swell-events", () => {
 
   beforeEach(() => {
     nextId = 0;
+    mockAfterTasks.length = 0;
+    jest.mocked(after).mockImplementation((task) => { mockAfterTasks.push(task as () => Promise<void>); });
+    jest.mocked(recordSwellOpen).mockReset().mockResolvedValue(undefined);
+    jest.mocked(isSwellOutlookEnabled).mockReturnValue(false);
+    jest.mocked(isSwellOutlookUserAllowed).mockReturnValue(false);
     jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
     jest.setSystemTime(NOW);
     global.fetch = jest.fn(async () => Response.json({ hourly: { time: [] } })) as typeof fetch;
     jest.mocked(loadLatestStoryEdition).mockResolvedValue(null);
     jest.mocked(loadStoryInput).mockResolvedValue(null);
+    jest.mocked(isSwellStoryCardEnabled).mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -230,8 +255,11 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     const storm = stormEvent(data.events)!;
     expect(storm.story).toBe(STORM_STORY);
     expect(storm.here?.why).toBe(STORM_WHY);
+    expect(storm.storySource).toBe("code");
+    // The early look gets the server's hedged sentence, and still no beach line.
     const early = data.events.find((event) => event.source === "wam")!;
-    expect(early.story).toBeNull();
+    expect(early.story).toBe(EARLY_STORY);
+    expect(early.storySource).toBe("code");
     expect(early.here?.why).toBeNull();
   });
 
@@ -560,6 +588,7 @@ describe("GET /api/beaches/[id]/swell-events", () => {
       expect(status).toBe(200);
       const storm = stormEvent(data.events)!;
       expect(storm.story).toBe(writtenStory);
+      expect(storm.storySource).toBe("written");
       expect(storm.here?.why).toBe(writtenHere);
       // The other listed beaches had no written sentence and keep their server lines.
       expect(storm.working.filter((rating) => rating.beachId !== beaches[0].id).map((rating) => rating.why))
@@ -568,6 +597,107 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     // Content-addressed, so the second request reuses the first's input.
     expect(loadStoryInput).toHaveBeenCalledTimes(1);
     expect(loadStoryInput).toHaveBeenCalledWith(client, "written-input-hash");
+  });
+
+  it("sends no event sentence with the switch off, and keeps every beach line, breaker and watch day", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    stage({ lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) });
+    global.fetch = jest.fn(async () => wamResponse()) as typeof fetch;
+    await call(beaches[0].id);
+    const { build } = jest.mocked(narrateRegionEvents).mock.calls[0][0];
+    const today = localDate(0);
+    const facts = buildEventCandidates(build, storyEventsFromRegion(build, today).all, buildRegionGateContext(build, today), NOW);
+    const story = facts.find((fact) => fact.slot.endsWith(":story"))!;
+    const here = facts.find((fact) => fact.slot.endsWith(`:beach:${beaches[0].id}`))!;
+    const generatedAt = new Date(NOW.getTime() - 3_600_000).toISOString();
+    const input: StoryInput = {
+      schemaVersion: 3, region: REGION, editionDate: today, sourcePublishedAt: generatedAt,
+      validUntil: new Date(NOW.getTime() + 86_400_000).toISOString(),
+      briefing: { schemaVersion: 3, editionDate: today, generatedAt, selections: [] }, copyFacts: facts,
+      beachNames: Object.fromEntries(beaches.map((item) => [item.id, item.name])),
+      provenance: { sourceIds: [], sourceHashes: [], generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: [], coverageDates: [] },
+      inputHash: "switch-input-hash",
+    };
+    const writtenHere = "Takes the west storm swell head on, glassy early.";
+    jest.mocked(loadLatestStoryEdition).mockResolvedValue({
+      artifactId: "switch-artifact", schemaVersion: 3, region: REGION, editionDate: today, inputHash: input.inputHash,
+      sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil, generationVersion: "week-scout-story-2", model: "gemma",
+      briefing: { ...input.briefing, selections: facts.map((fact) => fact.id), written: [
+        { slot: story.slot, basedOn: story.id, text: "West storm swell shows up and peaks Monday, then is gone by Tuesday." },
+        { slot: here.slot, basedOn: here.id, text: writtenHere },
+      ] },
+      provenance: input.provenance,
+    });
+    jest.mocked(loadStoryInput).mockResolvedValue(input);
+    const pooled = { nextUrl: new URL(`http://localhost/api/beaches/${beaches[0].id}/swell-events?beaches=${beaches.map((item) => item.id).join(",")}`) };
+
+    const on = await call(beaches[0].id, pooled);
+    jest.mocked(isSwellStoryCardEnabled).mockResolvedValue(false);
+    const off = await call(beaches[0].id, pooled);
+
+    expect(off.status).toBe(200);
+    expect(on.data.events.filter((event) => event.story !== null).map((event) => event.storySource)).toEqual(["written", "code"]);
+    expect(off.data.events.length).toBe(on.data.events.length);
+    expect(off.data.events.every((event) => event.story === null && event.storySource === null)).toBe(true);
+    // Everything else is the switch-on response, the PC's written beach line included.
+    const withoutStory = ({ story: _story, storySource: _source, ...rest }: RegionSwellEvent) => rest;
+    expect(off.data.events.map(withoutStory)).toEqual(on.data.events.map(withoutStory));
+    expect(stormEvent(off.data.events)?.here?.why).toBe(writtenHere);
+    expect(stormEvent(off.data.events)?.watch?.length).toBe(3);
+    expect(off.data).toMatchObject({ region: on.data.region, buoy: on.data.buoy, beachCount: on.data.beachCount });
+  });
+
+  it("serves the written sentences only to an allowlisted user when an allowlist is set", async () => {
+    const beaches = [beach("Ocean Beach"), beach("Sunset Cliffs"), beach("Pacific Beach")];
+    const scene = { lookup: { region: REGION, timezone: TIMEZONE }, beaches, rows: beaches.flatMap((item) => stormRows(item.id)) };
+    stage(scene);
+    await call(beaches[0].id);
+    const { build } = jest.mocked(narrateRegionEvents).mock.calls[0][0];
+    const today = localDate(0);
+    const facts = buildEventCandidates(build, storyEventsFromRegion(build, today).all, buildRegionGateContext(build, today), NOW);
+    const story = facts.find((fact) => fact.slot.endsWith(":story"))!;
+    const generatedAt = new Date(NOW.getTime() - 3_600_000).toISOString();
+    const input: StoryInput = {
+      schemaVersion: 3, region: REGION, editionDate: today, sourcePublishedAt: generatedAt,
+      validUntil: new Date(NOW.getTime() + 86_400_000).toISOString(),
+      briefing: { schemaVersion: 3, editionDate: today, generatedAt, selections: [] }, copyFacts: facts,
+      beachNames: Object.fromEntries(beaches.map((item) => [item.id, item.name])),
+      provenance: { sourceIds: [], sourceHashes: [], generationInputVersion: STORY_SAMPLE_VERSION, representativeBeachIds: [], coverageDates: [] },
+      inputHash: "allowlist-input-hash",
+    };
+    const writtenStory = "West storm swell shows up and peaks Monday, then is gone by Tuesday.";
+    jest.mocked(loadLatestStoryEdition).mockResolvedValue({
+      artifactId: "allowlist-artifact", schemaVersion: 3, region: REGION, editionDate: today, inputHash: input.inputHash,
+      sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil, generationVersion: "week-scout-story-2", model: "gemma",
+      briefing: { ...input.briefing, selections: facts.map((fact) => fact.id), written: [
+        { slot: story.slot, basedOn: story.id, text: writtenStory },
+      ] },
+      provenance: input.provenance,
+    });
+    jest.mocked(loadStoryInput).mockResolvedValue(input);
+    const OTHER_USER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const storyFor = async (user: { id: string } | null): Promise<string | null | undefined> => {
+      stage({ ...scene, user });
+      const { status, data } = await call(beaches[0].id);
+      expect(status).toBe(200);
+      return stormEvent(data.events)?.story;
+    };
+
+    try {
+      process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = `${OTHER_USER}, ${USER_ID}`;
+      jest.mocked(loadLatestStoryEdition).mockClear();
+      expect(await storyFor({ id: USER_ID })).toBe(writtenStory);
+      expect(loadLatestStoryEdition).toHaveBeenCalledTimes(1);
+
+      process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST = OTHER_USER;
+      jest.mocked(loadLatestStoryEdition).mockClear();
+      expect(await storyFor({ id: USER_ID })).toBe(STORM_STORY);
+      expect(await storyFor(null)).toBe(STORM_STORY);
+      // Off the list, the edition is never read.
+      expect(loadLatestStoryEdition).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.WEEK_SCOUT_STORY_USER_ALLOWLIST;
+    }
   });
 
   it("reads no story edition when the region has only early looks", async () => {
@@ -583,7 +713,9 @@ describe("GET /api/beaches/[id]/swell-events", () => {
 
     expect(status).toBe(200);
     expect(data.events.length).toBeGreaterThan(0);
-    expect(data.events.every((event) => event.source === "wam" && event.story === null)).toBe(true);
+    // Early looks only: each has its server sentence, and no edition is read.
+    expect(data.events.every((event) => event.source === "wam" && event.storySource === "code"
+      && /may peak around .+; the size and the day can still move\.$/.test(event.story ?? ""))).toBe(true);
     expect(loadLatestStoryEdition).not.toHaveBeenCalled();
     expect(loadStoryInput).not.toHaveBeenCalled();
   });
@@ -613,5 +745,125 @@ describe("GET /api/beaches/[id]/swell-events", () => {
     stage({ lookup: null });
     expect((await call("ocean-beach")).status).toBe(400);
     expect((await call("00000000-0000-4000-8000-000000000099")).status).toBe(404);
+  });
+
+  describe("swell open recording", () => {
+    const id = "00000000-0000-4000-8000-000000000099";
+    const emptyBody = { success: true, data: { region: null, buoy: null, beachCount: 0, events: [] } };
+
+    function read(beachId: string = id): Promise<Response> {
+      return GET({ nextUrl: new URL(`http://localhost/api/beaches/${beachId}/swell-events`) } as never,
+        { params: Promise.resolve({ id: beachId }) });
+    }
+
+    async function finishBookkeeping(): Promise<void> {
+      for (const task of mockAfterTasks.splice(0)) await task();
+    }
+
+    beforeEach(() => {
+      jest.mocked(isSwellOutlookEnabled).mockReturnValue(true);
+      jest.mocked(isSwellOutlookUserAllowed).mockReturnValue(true);
+    });
+
+    it("records an allowlisted signed-in open exactly once after returning the unchanged response", async () => {
+      const { client } = stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+
+      const response = await read();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(mockAfterTasks).toHaveLength(1);
+      await finishBookkeeping();
+      expect(isSwellOutlookUserAllowed).toHaveBeenCalledWith(USER_ID);
+      expect(recordSwellOpen).toHaveBeenCalledTimes(1);
+      expect(recordSwellOpen).toHaveBeenCalledWith(client, USER_ID, expect.any(Date));
+    });
+
+    it("does not record an anonymous read", async () => {
+      stage({ lookup: { region: null, timezone: TIMEZONE } });
+
+      const response = await read();
+      await finishBookkeeping();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(after).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { enabled: true, allowed: false },
+      { enabled: false, allowed: true },
+    ])("does not record a signed-in read when enabled=$enabled and allowed=$allowed", async ({ enabled, allowed }) => {
+      stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+      jest.mocked(isSwellOutlookEnabled).mockReturnValue(enabled);
+      jest.mocked(isSwellOutlookUserAllowed).mockReturnValue(allowed);
+
+      const response = await read();
+      await finishBookkeeping();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(after).not.toHaveBeenCalled();
+    });
+
+    it("does not record an invalid beach id", async () => {
+      stage({ lookup: null, user: { id: USER_ID } });
+
+      const response = await read("ocean-beach");
+      await finishBookkeeping();
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ success: false, error: "Invalid beach id" });
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      expect(after).not.toHaveBeenCalled();
+    });
+
+    it("preserves the response and warns once if recording fails", async () => {
+      stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+      jest.mocked(recordSwellOpen).mockRejectedValueOnce(new Error("engagement storage unavailable"));
+
+      const response = await read();
+      await finishBookkeeping();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).toHaveBeenCalledTimes(1);
+      const warnings = (globalThis as { __quiverConsoleWarns?: string[] }).__quiverConsoleWarns ?? [];
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("[swell-events] Failed to record swell open:");
+      expectConsoleWarnings([/\[swell-events\] Failed to record swell open:/]);
+    });
+
+    it("preserves the response and warns once if scheduling fails", async () => {
+      stage({ lookup: { region: null, timezone: TIMEZONE }, user: { id: USER_ID } });
+      jest.mocked(after).mockImplementationOnce(() => { throw new Error("after unavailable"); });
+
+      const response = await read();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(emptyBody);
+      expect(recordSwellOpen).not.toHaveBeenCalled();
+      const warnings = (globalThis as { __quiverConsoleWarns?: string[] }).__quiverConsoleWarns ?? [];
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("[swell-events] Failed to schedule swell open:");
+      expectConsoleWarnings([/\[swell-events\] Failed to schedule swell open:/]);
+    });
+
+    it("preserves a beach lookup failure and still records the valid open", async () => {
+      const { client } = stage({ lookup: null, lookupError: new Error("beach lookup failed"), user: { id: USER_ID } });
+
+      const response = await read();
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ success: false, error: "Failed to fetch beach", timestamp: NOW.toISOString() });
+      expectConsoleErrors([/beach lookup failed/]);
+      await finishBookkeeping();
+      expect(recordSwellOpen).toHaveBeenCalledTimes(1);
+      expect(recordSwellOpen).toHaveBeenCalledWith(client, USER_ID, expect.any(Date));
+      expectConsoleWarnings([]);
+    });
   });
 });

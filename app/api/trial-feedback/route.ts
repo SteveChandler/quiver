@@ -5,12 +5,13 @@ import { lifecycleRpc } from "@/lib/email/lifecycle";
 import { refreshLifecycleUserEligibility } from "@/lib/subscription/offer-automation";
 import { feedbackSubmissionSchema } from "@/lib/trial-feedback/contract";
 import { parseFeedbackContext, readFeedbackContext } from "@/lib/trial-feedback/server";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
 function disabled(): NextResponse { return NextResponse.json({ error: "Feedback is not available right now." }, { status: 503, headers }); }
 
-export const GET = withRateLimit(withAuth(async (_request, { user }) => {
+const handleGet = withRateLimit(withAuth(async (_request, { user }) => {
   if (process.env.TRIAL_FEEDBACK_ENABLED !== "true") return disabled();
   await refreshLifecycleUserEligibility(user.id);
   return NextResponse.json(await readFeedbackContext(user.id), { headers });
@@ -30,3 +31,5 @@ export const POST = withRateLimit(withAuth(async (request, { user }) => {
     return NextResponse.json({ error: "We could not confirm your feedback. Refresh to check whether it was saved." }, { status: 409, headers });
   }
 }), { key: "authenticated-default" });
+
+export const GET = withErrorNoStore(handleGet, "/api/trial-feedback");

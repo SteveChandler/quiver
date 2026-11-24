@@ -78,7 +78,7 @@ export function generateIntentFAQ(
       },
       {
         question: `Where can I check tide charts for ${locationName}?`,
-        answer: `You can check tide charts for ${locationName} on Quiver's surf forecast pages, NOAA tide predictions, or various surf forecast apps. Quiver provides real-time tide information integrated with surf conditions for accurate session planning.`,
+        answer: `You can check tide charts for ${locationName} on Quiver's surf forecast pages, NOAA tide predictions, or various surf forecast apps. Quiver shows predicted tide times and heights next to the surf conditions, so you can plan your session around the push or the drain.`,
       },
     ],
     "water-temp": [

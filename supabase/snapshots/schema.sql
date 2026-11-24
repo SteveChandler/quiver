@@ -33191,6 +33191,10 @@ CREATE INDEX "beaches_region_id_idx" ON "public"."beaches" USING "btree" ("regio
 
 
 
+CREATE UNIQUE INDEX "beaches_slug_unique" ON "public"."beaches" USING "btree" ("lower"("slug")) WHERE ("slug" IS NOT NULL);
+
+
+
 CREATE INDEX "cancellation_feedback_user_idx" ON "public"."cancellation_feedback" USING "btree" ("user_id");
 
 

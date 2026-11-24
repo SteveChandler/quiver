@@ -1037,4 +1037,71 @@ describe("BestSurfWindow", () => {
       );
     });
   });
+
+  describe("Daily intel with null condition columns", () => {
+    const sparseIntel = {
+      ...mockIntel,
+      surf_min_ft: null,
+      surf_max_ft: null,
+      wind_speed_mph: null,
+      wind_direction_text: null,
+      wind_quality: null,
+      tide_height_ft: null,
+      tide_time: null,
+    };
+
+    it("omits each missing part instead of writing unknown, mph () or ft @", () => {
+      mockGetWindowStatus.mockReturnValue({
+        status: "passed",
+        message: "Window has passed",
+      });
+      mockUseDataFetcher.mockReturnValue({
+        data: sparseIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      const text = document.body.textContent ?? "";
+      expect(screen.getByText("Current Conditions")).toBeInTheDocument();
+      expect(text).not.toMatch(/unknown surf/i);
+      expect(text).not.toMatch(/mph\s*\(/);
+      expect(text).not.toMatch(/ft @/);
+      expect(screen.getByText(/Check tomorrow.s forecast for next windows/)).toBeInTheDocument();
+    });
+
+    it("shows no wind quality or best tide under an empty cell", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: { ...sparseIntel, wind_quality: "Offshore", tide_optimal_range: "2-4 ft" },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.queryByText("Offshore")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Best: 2-4 ft/)).not.toBeInTheDocument();
+    });
+
+    it("keeps the wind and tide parts that are present", () => {
+      mockGetWindowStatus.mockReturnValue({
+        status: "passed",
+        message: "Window has passed",
+      });
+      mockUseDataFetcher.mockReturnValue({
+        data: { ...sparseIntel, wind_speed_mph: 7, wind_quality: "Onshore", tide_height_ft: 2.1 },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Right now: 7 mph \(Onshore\)\./)).toBeInTheDocument();
+      expect(screen.getByText("2.1 ft")).toBeInTheDocument();
+    });
+  });
 });

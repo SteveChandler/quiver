@@ -8,12 +8,13 @@ import { buildWavesSummary, isCounted, isExcluded, trackSummaryExtras, type Corr
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
 import { readSessionTrackForWaves } from "@/lib/sessions/waves/session-track-query";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
 const countRequest = z.object({ userWaveCount: z.number().int().min(0).max(200).nullable() }).strict();
 
-export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
+const handleGet = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
   if (!z.uuid().safeParse(params.id).success) return createErrorResponse("invalid_request", undefined, 400);
   if (!canViewSessionWaves(user.id)) return createErrorResponse("not_found", undefined, 404);
 
@@ -120,3 +121,5 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (eventError) console.warn("[session waves] Count event failed:", eventError);
   return createSuccessResponse({ summary });
 }, { errorMessage: "Failed to update session wave count" }), "authenticated-default"));
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/sessions/[id]/waves");

@@ -110,9 +110,9 @@ describe("SEO funnel pages", () => {
         "/ca/la-jolla/la-jolla-shores",
         "/ca/la-jolla/la-jolla-shores/tides",
         "/ca/la-jolla/la-jolla-shores/water-temp",
-        "/ca/la-jolla/blacks-beach",
-        "/ca/la-jolla/blacks-beach/tides",
-        "/ca/la-jolla/blacks-beach/water-temp",
+        "/ca/san-diego/blacks",
+        "/ca/san-diego/blacks/tides",
+        "/ca/san-diego/blacks/water-temp",
         "/map?search=Scripps%20Pier",
         "/surf-cams/san-diego",
       ]),
@@ -355,7 +355,7 @@ describe("SEO funnel pages", () => {
     expect(page).not.toBeNull();
     expect(page!.nearbySpots.map((spot) => spot.href)).toEqual(
       expect.arrayContaining([
-        "/ca/huntington-beach/bolsa-chica",
+        "/ca/huntington-beach/bolsa-chica-state-beach-huntington-beach-ca",
         "/ca/huntington-beach/huntington-state-beach",
         "/ca/huntington-beach/goldenwest",
         "/ca/newport-beach/blackies",
@@ -506,7 +506,7 @@ describe("SEO funnel pages", () => {
       getSeoFunnelInternalLinks(santaBarbara!).map((link) => link.href),
     ).toEqual(
       expect.arrayContaining([
-        "/ca/santa-barbara/leadbetter",
+        "/ca/santa-barbara/leadbetter-santa-barbara-ca",
         "/longboard/ventura",
         "/surf-report/malibu-today",
         "/best-time-to-surf/santa-barbara",
@@ -585,7 +585,7 @@ describe("SEO funnel pages", () => {
       expect.arrayContaining([
         "/ca/newport-beach/blackies",
         "/ca/newport-beach/newport-56th-st",
-        "/ca/huntington-beach/bolsa-chica",
+        "/ca/huntington-beach/bolsa-chica-state-beach-huntington-beach-ca",
       ]),
     );
     expect(malibu?.h1).toBe("Malibu Surf Report Today");
@@ -717,5 +717,43 @@ describe("SEO funnel pages", () => {
     expect(filterSeoCamBeaches(page!, beaches)).toEqual([
       { state: "CA", city: "San Diego", regionSlug: "southern-california" },
     ]);
+  });
+
+  it("links renamed California spots at their live beach pages", () => {
+    // Each of these returned 404 in the 2026-11 full-site crawl.
+    const retiredSpotPaths = [
+      "/ca/encinitas/moonlight-beach",
+      "/ca/ventura/mondos",
+      "/ca/santa-barbara/leadbetter",
+      "/ca/capitola/capitola-beach",
+      "/ca/huntington-beach/bolsa-chica",
+      "/ca/dana-point/doheny-beach",
+      "/ca/la-jolla/blacks-beach",
+      "/ca/san-onofre/san-onofre-state-beach",
+    ];
+    const hrefs = SEO_FUNNEL_PAGES.flatMap((page) => [
+      ...page.nearbySpots.map((spot) => spot.href),
+      ...getSeoFunnelInternalLinks(page).map((link) => link.href),
+    ]);
+
+    for (const retired of retiredSpotPaths) {
+      expect(
+        hrefs.filter(
+          (href) => href === retired || href.startsWith(`${retired}/`),
+        ),
+      ).toEqual([]);
+    }
+    expect(hrefs).toEqual(
+      expect.arrayContaining([
+        "/ca/encinitas/moonlight-state-beach",
+        "/ca/ventura/mondos-beach-ventura-ca",
+        "/ca/santa-barbara/leadbetter-santa-barbara-ca",
+        "/ca/capitola/capitola-capitola-ca",
+        "/ca/huntington-beach/bolsa-chica-state-beach-huntington-beach-ca",
+        "/ca/dana-point/doheny",
+        "/ca/san-diego/blacks",
+        "/ca/san-clemente/san-onofre-state-beach",
+      ]),
+    );
   });
 });

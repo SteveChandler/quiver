@@ -52,7 +52,7 @@ describe("beach detail static reads", () => {
 
     await expect(getCachedBeachCameraUrl("beach-1")).resolves.toBe("https://cam.example/1");
     expect(cacheCalls[0]).toEqual({
-      keyParts: [BEACH_DETAIL_STATIC_TAG, "camera-url"],
+      keyParts: [BEACH_DETAIL_STATIC_TAG, "camera-url-v2"],
       options: { revalidate: 3600, tags: [BEACH_DETAIL_STATIC_TAG, `${BEACH_DETAIL_STATIC_TAG}:beach-1`] },
     });
     expect(queryChain.from).toHaveBeenCalledWith("beach_sources");

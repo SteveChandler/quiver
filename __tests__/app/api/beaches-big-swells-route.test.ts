@@ -2,8 +2,17 @@
 import { GET } from "@/app/api/beaches/[id]/big-swells/route";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { bigSwellForecastStory } from "@/lib/alerts/swell-events/big-swell-story";
+import { compareToBigSwells, type BigSwellBuoy } from "@/lib/big-swells";
+import dataset from "@/lib/data/big-swells.json";
+import { isSwellStoryCardEnabled } from "@/lib/flags/swell-story";
+import * as Sentry from "@sentry/nextjs";
 
-jest.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: jest.fn() }));
+jest.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: jest.fn(), createSupabaseServiceRoleClient: jest.fn(() => "service") }));
+// The story switch is a database row: off unless a test turns it on, which is today's response.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryCardEnabled: jest.fn(async () => false) }));
+jest.mock("@/lib/alerts/swell-events/big-swell-story", () => ({ bigSwellForecastStory: jest.fn() }));
+jest.mock("@sentry/nextjs", () => ({ ...jest.requireActual("@sentry/nextjs"), captureException: jest.fn() }));
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/middleware/api-wrappers"),
   withRateLimit: (handler: unknown) => handler,
@@ -43,7 +52,7 @@ jest.mock("@/lib/data/big-swells.json", () => ({
 const BELMAR = "fb0ee60f-a269-47ed-b244-e8dc64fff891";
 const mockClient = createSupabaseServerClient as jest.Mock;
 
-function beachRow(row: { lat: number; lon: number } | null): void {
+function beachRow(row: { lat: number; lon: number; region?: string | null; timezone?: string | null } | null): void {
   const chain = { select: () => chain, eq: () => chain, is: () => chain, maybeSingle: async () => ({ data: row, error: null }) };
   mockClient.mockResolvedValue({ from: () => chain });
 }
@@ -112,6 +121,89 @@ describe("GET /api/beaches/[id]/big-swells", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).data).toEqual({ buoy: null, bigHsM: null, biggest: [], recent: [], forecast: null });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  describe("the swell card's sentence", () => {
+    const soon = () => new Date(Date.now() + 30 * 3_600_000).toISOString().slice(0, 13) + ":00";
+    const wam = () => {
+      const at = soon();
+      global.fetch = jest.fn(async () => Response.json({
+        hourly: { time: [at], wave_height: [4.6], wave_peak_period: [11.5], wave_direction: [110] },
+      })) as typeof fetch;
+      return `${at}:00.000Z`;
+    };
+    const STORY = "A east-southeast mid-period swell arrives and peaks Tuesday: head-high at most spots.";
+
+    it("adds null story fields and builds no region with the switch off", async () => {
+      beachRow({ lat: 40.176, lon: -74.013, region: "New Jersey", timezone: "America/New_York" });
+      const peakAt = wam();
+      const body = await (await call(BELMAR)).json();
+      const { story, storySource, ...today } = body.data.forecast;
+      expect([story, storySource]).toEqual([null, null]);
+      // Everything else is today's forecast object.
+      expect(today).toEqual({ model: "ecmwf_wam025", at: peakAt, hsM: 4.6, periodS: 11.5, dirDeg: 110,
+        ...compareToBigSwells(4.6, (dataset as unknown as { stations: BigSwellBuoy[] }).stations[0]) });
+      expect(bigSwellForecastStory).not.toHaveBeenCalled();
+    });
+
+    it("carries the matched region event's server sentence with the switch on", async () => {
+      jest.mocked(isSwellStoryCardEnabled).mockResolvedValueOnce(true);
+      jest.mocked(bigSwellForecastStory).mockResolvedValueOnce({ story: STORY, storySource: "code" });
+      beachRow({ lat: 40.176, lon: -74.013, region: "New Jersey", timezone: "America/New_York" });
+      const peakAt = wam();
+      const body = await (await call(BELMAR)).json();
+      expect(body.data.forecast).toMatchObject({ hsM: 4.6, story: STORY, storySource: "code" });
+      expect(bigSwellForecastStory).toHaveBeenCalledWith(expect.objectContaining({ client: "service", region: "New Jersey",
+        timezone: "America/New_York", buoyId: "44065", peakAt }));
+    });
+
+    it("keeps the response, with null story fields, when the sentence fails", async () => {
+      jest.mocked(isSwellStoryCardEnabled).mockResolvedValueOnce(true);
+      jest.mocked(bigSwellForecastStory).mockRejectedValueOnce(new Error("region read failed"));
+      beachRow({ lat: 40.176, lon: -74.013, region: "New Jersey", timezone: "America/New_York" });
+      wam();
+      const response = await call(BELMAR);
+      expectConsoleWarnings([/\[big-swells\] story failed/]);
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.forecast).toMatchObject({ hsM: 4.6, story: null, storySource: null });
+    });
+
+    it("reports an unexpected error from the story builder, and still sends the card with story null", async () => {
+      jest.mocked(isSwellStoryCardEnabled).mockResolvedValueOnce(true);
+      const bug = new TypeError("Cannot read properties of undefined (reading 'peakAt')");
+      jest.mocked(bigSwellForecastStory).mockRejectedValueOnce(bug);
+      beachRow({ lat: 40.176, lon: -74.013, region: "New Jersey", timezone: "America/New_York" });
+      wam();
+      const response = await call(BELMAR);
+      expectConsoleWarnings([/\[big-swells\] story failed/]);
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.forecast).toMatchObject({ hsM: 4.6, story: null, storySource: null });
+      expect(Sentry.captureException).toHaveBeenCalledWith(bug, expect.objectContaining({ tags: { component: "big-swells-story" } }));
+    });
+
+    it("leaves a failed beach read to the route's own error, not to the story catch", async () => {
+      jest.mocked(isSwellStoryCardEnabled).mockResolvedValueOnce(true);
+      const chain = { select: () => chain, eq: () => chain, is: () => chain,
+        maybeSingle: async () => ({ data: null, error: { message: "db down", code: "XX000" } }) };
+      mockClient.mockResolvedValue({ from: () => chain });
+      const response = await call(BELMAR);
+      expect(response.status).toBeGreaterThanOrEqual(500);
+      expect(bigSwellForecastStory).not.toHaveBeenCalled();
+      expect(Sentry.captureException).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tags: { component: "big-swells-story" } }));
+    });
+
+    it("asks for no sentence without a forecast peak or a region", async () => {
+      jest.mocked(isSwellStoryCardEnabled).mockResolvedValue(true);
+      beachRow({ lat: 40.176, lon: -74.013, region: null, timezone: null });
+      wam();
+      expect((await (await call(BELMAR)).json()).data.forecast).toMatchObject({ story: null, storySource: null });
+      beachRow({ lat: 40.176, lon: -74.013, region: "New Jersey", timezone: "America/New_York" });
+      global.fetch = jest.fn(async () => new Response("down", { status: 503 })) as typeof fetch;
+      expect((await (await call(BELMAR)).json()).data.forecast).toBeNull();
+      expectConsoleWarnings([/Open-Meteo HTTP failure/]);
+      expect(bigSwellForecastStory).not.toHaveBeenCalled();
+      jest.mocked(isSwellStoryCardEnabled).mockResolvedValue(false);
+    });
   });
 
   it("returns real error statuses for a bad id or a missing beach", async () => {

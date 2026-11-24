@@ -16,7 +16,6 @@
  */
 
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
-import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 
 const WARN_PREFIX = "[apply-beach-height-offset]";
 
@@ -96,8 +95,11 @@ interface FormatDisplayHeightOpts {
 }
 
 /**
- * Re-emit a display height. When `rangeSpread` is null this delegates to
- * `formatWaveHeightRange` (single-value form). When provided, the spread is
+ * Re-emit the STORED height string after an offset. This is storage, not
+ * display: `parseDisplayHeightFt` and other readers re-parse it, so a whole
+ * number stays "3ft" (reads back as 3.0). Screens apply the display band
+ * ("2-3ft") when they render; never route this through
+ * `formatWaveHeightRange`. When `rangeSpread` is provided, the spread is
  * preserved around the corrected midpoint, with low clamped at 0.
  */
 export function formatDisplayHeightFt(opts: FormatDisplayHeightOpts): string {
@@ -106,7 +108,9 @@ export function formatDisplayHeightFt(opts: FormatDisplayHeightOpts): string {
   if (!Number.isFinite(numericFt) || numericFt <= 0) return "Flat";
 
   if (rangeSpread == null) {
-    return formatWaveHeightRange(numericFt);
+    const low = Math.floor(numericFt);
+    const high = Math.ceil(numericFt);
+    return low === high ? `${low}ft` : `${low}-${high}ft`;
   }
 
   const half = rangeSpread / 2;

@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
+import { knownConditionText } from "@/lib/surf-summary-display";
 import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
 import { getBeachByIdFromDb } from "@/lib/services/beach-query-service";
 import {
@@ -10,6 +11,7 @@ import {
   LandscapeInstallShareCard,
   SHARE_CARD_COLORS,
 } from "@/app/api/og/_components/install-share-card";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -132,15 +134,15 @@ async function resolveSurfCallCard(
   return {
     beachName: truncate(beachResult.data.name || "Surf conditions", 40),
     score: report.score,
-    waveHeight: truncate(report.waveHeight || "", 20),
+    waveHeight: truncate(knownConditionText(report.waveHeight) ?? "", 20),
     timeContext: result.isTomorrow ? "Tomorrow" : "Today",
-    conditionLabel: truncate(report.windDescription || "", 28),
+    conditionLabel: truncate(knownConditionText(report.windDescription) ?? "", 28),
     windowTime: truncate(report.peakTime || "", 26),
     message: truncate(report.whySentence || "", 74),
   };
 }
 
-export async function GET(request: NextRequest): Promise<ImageResponse> {
+async function handleGet(request: NextRequest): Promise<ImageResponse> {
   try {
     const origin = new URL(request.url).origin;
     const { searchParams } = new URL(request.url);
@@ -194,3 +196,5 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
     return renderFallback();
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/og/surf-call");

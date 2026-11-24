@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { EnhancedForecastEntity, TideScheduleEntry } from "@/types/forecast";
 import { extractMergedTideSchedule } from "@/lib/utils/tide-schedule";
 
 export interface TideExtreme {
@@ -29,11 +29,17 @@ export interface DynamicTideResult {
   currentDirection: "rising" | "falling" | "slack" | null;
   /** Minutes until tide direction changes (same as minutesUntil) */
   minutesToDirectionChange: number | null;
+  /** The highs and lows these values come from (station table first, else the forecast rows). */
+  schedule?: TideScheduleEntry[] | null;
+  /** The client clock these values were computed at; null before mount. */
+  computedAtMs?: number | null;
 }
 
 export function useDynamicTide(
   forecasts: EnhancedForecastEntity[],
-  _beachTimezone?: string | null
+  _beachTimezone?: string | null,
+  /** The station's own highs and lows; preferred over the forecast rows' schedule. */
+  stationSchedule?: TideScheduleEntry[] | null
 ): DynamicTideResult {
   // Initialize as null to avoid hydration mismatch (Date.now() differs
   // between server and client). Real value is set in useEffect on mount.
@@ -41,9 +47,10 @@ export function useDynamicTide(
 
   // Tide schedules are embedded across multiple forecast rows.
   const tideSchedule = useMemo(() => {
+    if (stationSchedule && stationSchedule.length > 0) return stationSchedule;
     const mergedSchedule = extractMergedTideSchedule(forecasts);
     return mergedSchedule.length > 0 ? mergedSchedule : null;
-  }, [forecasts]);
+  }, [forecasts, stationSchedule]);
 
   // Compute next tides from schedule
   const tideResult = useMemo((): DynamicTideResult => {
@@ -58,6 +65,8 @@ export function useDynamicTide(
         usingFallback: true,
         currentDirection: null,
         minutesToDirectionChange: null,
+        schedule: tideSchedule,
+        computedAtMs: computedAt,
       };
     }
 
@@ -118,6 +127,8 @@ export function useDynamicTide(
       usingFallback: false,
       currentDirection,
       minutesToDirectionChange: minutesUntil,
+      schedule: tideSchedule,
+      computedAtMs: computedAt,
     };
   }, [tideSchedule, computedAt]);
 

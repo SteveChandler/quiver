@@ -198,4 +198,24 @@ describe("TodaysWindows", () => {
     expect(screen.getByText("Swell SSW @ 15s")).toBeInTheDocument();
     expect(container).toMatchSnapshot();
   });
+
+  describe("home beach hint", () => {
+    const EMPTY_WINDOWS: TimeWindow[] = ["5am", "8am", "11am", "2pm", "5pm"].map((time) => ({
+      time,
+      label: "",
+      height: "—",
+      quality: 0,
+      isBest: false,
+    }));
+
+    it("asks for a home beach only when the user has none", () => {
+      render(<TodaysWindows windows={EMPTY_WINDOWS} preferredTime={null} hasHomeBeach={false} />);
+      expect(screen.getByText("Set your home beach for full forecast windows")).toBeInTheDocument();
+    });
+
+    it("does not ask a user who already has a home beach", () => {
+      render(<TodaysWindows windows={EMPTY_WINDOWS} preferredTime={null} hasHomeBeach />);
+      expect(screen.queryByText(/Set your home beach/)).not.toBeInTheDocument();
+    });
+  });
 });

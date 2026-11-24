@@ -10,6 +10,7 @@ import {
   withAuth,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -40,10 +41,12 @@ async function handler(
   }
 }
 
-export const GET = withCommunityPhotoRouteObservability(
+const handleGet = withCommunityPhotoRouteObservability(
   {
     route: "/api/community-photos/mine",
     surface: "read",
   },
   withAuth(handler),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/community-photos/mine");

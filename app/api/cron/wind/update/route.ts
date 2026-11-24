@@ -12,11 +12,22 @@ import { setTimeout as sleep } from "node:timers/promises";
  */
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { validateCronRequest, createSuccessResponse, createErrorResponse } from '@/lib/middleware/api-wrappers';
-import { fetchHourlyWind } from '@/lib/services/open-meteo-wind-service';
+import { fetchHourlyWindOrThrow, isOpenMeteoUpstreamError, type OpenMeteoWindHost } from '@/lib/services/open-meteo-wind-service';
 import { withObservedCron } from '@/lib/cron/observability';
 import { withCronOutcome } from '@/lib/cron/outcome';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const maxDuration = 120;
+
+// Stop before the 120 s kill so the run records its own outcome. A batch that
+// starts just under this limit can take ~10 s (fetch timeout) plus its RPCs.
+const RUN_DEADLINE_MS = 90_000;
+// Batches in a row where every attempted fetch got no HTTP response.
+const UPSTREAM_DOWN_BATCH_LIMIT = 2;
+const JOB = '/api/cron/wind/update';
+const UPSTREAM_GAP_LIMIT_MS = 6 * 60 * 60 * 1000;
+
+type StoppedReason = 'upstream_unavailable' | 'deadline_exceeded';
 
 type OpenMeteoWindUpdateResult = {
   updated_count?: number;
@@ -34,6 +45,7 @@ function parseRpcCount(value: unknown): number {
 }
 
 async function _GET(request: Request): Promise<Response> {
+  const startedAt = Date.now();
   if (!validateCronRequest(request)) {
     return createErrorResponse('Unauthorized', null, 401);
   }
@@ -57,25 +69,50 @@ async function _GET(request: Request): Promise<Response> {
   let skipped = 0;
   let errors = 0;
   let fetchErrors = 0;
+  let upstreamFetchErrors = 0;
+  let attemptedBeaches = 0;
+  let upstreamDownBatches = 0;
+  let windHost: OpenMeteoWindHost = 'primary';
+  let primaryDownDetail: string | null = null;
+  let stoppedReason: StoppedReason | null = null;
+  let stopDetail = '';
+  let upstreamErrorNames = new Set<string>();
+  const allUpstreamErrorNames = new Set<string>();
   const sampleErrors: string[] = [];
   const BATCH_SIZE = 10; // Parallel API fetches per batch (avoid rate limiting)
   const DELAY_BETWEEN_BATCHES_MS = 200;
 
   for (let i = 0; i < beaches.length; i += BATCH_SIZE) {
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > RUN_DEADLINE_MS) {
+      stoppedReason = 'deadline_exceeded';
+      stopDetail = `Open-Meteo wind run passed ${RUN_DEADLINE_MS / 1000} s after ${i} of ${beaches.length} beaches`;
+      break;
+    }
+
     const batch = beaches.slice(i, i + BATCH_SIZE);
+    let batchAttempted = 0;
+    let batchUpstreamFailures = 0;
+    const batchUpstreamErrorNames = new Set<string>();
 
     const results = await Promise.allSettled(
       batch.map(async (beach) => {
         if (beach.lat == null || beach.lon == null) {
           return { beach: beach.name, updated: 0, skipped: 0 };
         }
-        let windPoints: Awaited<ReturnType<typeof fetchHourlyWind>>;
+        let windPoints: Awaited<ReturnType<typeof fetchHourlyWindOrThrow>>;
+        batchAttempted++;
         try {
-          windPoints = await fetchHourlyWind(beach.lat, beach.lon);
+          windPoints = await fetchHourlyWindOrThrow(beach.lat, beach.lon, windHost);
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err);
           const message = `${beach.name}: ${reason}`;
           fetchErrors++;
+          if (isOpenMeteoUpstreamError(err)) {
+            batchUpstreamFailures++;
+            const causeCode = ((err as Error).cause as { code?: unknown } | undefined)?.code;
+            batchUpstreamErrorNames.add(typeof causeCode === 'string' ? `${(err as Error).name}/${causeCode}` : (err as Error).name);
+          }
           if (sampleErrors.length < 5 && !sampleErrors.includes(message)) {
             sampleErrors.push(message);
           }
@@ -132,13 +169,49 @@ async function _GET(request: Request): Promise<Response> {
       }
     }
 
+    attemptedBeaches += batchAttempted;
+    upstreamFetchErrors += batchUpstreamFailures;
+    batchUpstreamErrorNames.forEach((name) => allUpstreamErrorNames.add(name));
+    const batchUpstreamDown = batchAttempted > 0 && batchUpstreamFailures === batchAttempted;
+    upstreamDownBatches = batchUpstreamDown ? upstreamDownBatches + 1 : 0;
+    // The stop reason names only the errors of the consecutive failed batches.
+    upstreamErrorNames = batchUpstreamDown
+      ? new Set([...upstreamErrorNames, ...batchUpstreamErrorNames])
+      : new Set();
+    if (upstreamDownBatches >= UPSTREAM_DOWN_BATCH_LIMIT && windHost === 'primary') {
+      // Retry the failed batches, and the rest of the run, on the fallback host.
+      primaryDownDetail = `primary host gave no HTTP response in ${upstreamDownBatches} consecutive batches `
+        + `(${[...upstreamErrorNames].sort().join(', ')}) after ${attemptedBeaches} of ${beaches.length} beaches`;
+      console.warn(`[Wind] Switching to the Open-Meteo fallback host: ${primaryDownDetail}`);
+      windHost = 'fallback';
+      upstreamDownBatches = 0;
+      upstreamErrorNames = new Set();
+      i -= UPSTREAM_DOWN_BATCH_LIMIT * BATCH_SIZE;
+      continue;
+    }
+    if (upstreamDownBatches >= UPSTREAM_DOWN_BATCH_LIMIT) {
+      stoppedReason = 'upstream_unavailable';
+      stopDetail = `Open-Meteo wind gave no HTTP response in ${upstreamDownBatches} consecutive batches on both hosts `
+        + `(${[...upstreamErrorNames].sort().join(', ')}); stopped after ${attemptedBeaches} of ${beaches.length} beaches`;
+      break;
+    }
+
     // Brief pause between batches to be a good API citizen
     if (i + BATCH_SIZE < beaches.length) {
       await sleep(DELAY_BETWEEN_BATCHES_MS);
     }
   }
 
-  console.log(`[Wind] Done: ${updated} rows updated, ${skipped} skipped (protected), ${errors} errors`);
+  console.log(`[Wind] ${stoppedReason ? `Stopped (${stoppedReason})` : 'Done'}: ${updated} rows updated, ${skipped} skipped (protected), ${errors} errors, ${fetchErrors} fetch errors`);
+  if (fetchErrors > 0) {
+    console.warn(`[Wind] ${fetchErrors} Open-Meteo fetch errors (${upstreamFetchErrors} without HTTP response: ${[...allUpstreamErrorNames].sort().join(', ') || 'none'})`, sampleErrors);
+  }
+
+  let failureReason = stoppedReason === 'deadline_exceeded' && windHost === 'primary'
+    ? `${stoppedReason}: ${stopDetail}` : null;
+  const rowErrorLimit = Math.ceil(0.05 * attemptedBeaches);
+
+  const outcome = stoppedReason || errors > 0 ? 'degraded' : 'ok';
 
   const summary = {
     beaches: beaches.length,
@@ -146,30 +219,51 @@ async function _GET(request: Request): Promise<Response> {
     skipped,
     errors,
     fetchErrors,
+    upstreamFetchErrors,
+    attemptedBeaches,
+    windHost,
+    primaryDownDetail,
+    stoppedReason,
     sampleErrors,
+    outcome,
   };
 
-  if (errors > 0) {
-    return createErrorResponse('Wind update completed with row errors', await withCronOutcome(
-      {
-        job: '/api/cron/wind/update',
-        unit: 'wind_rows_updated',
-        expectedMin: 1,
-        getProduced: (value) => value.updated,
-      },
-      async () => summary,
-    ));
-  }
-
-  return createSuccessResponse(await withCronOutcome(
+  const recorded = await withCronOutcome(
     {
-      job: '/api/cron/wind/update',
+      job: JOB,
       unit: 'wind_rows_updated',
       expectedMin: 1,
       getProduced: (value) => value.updated,
+      legitimatelyZero: (value) => value.errors > 0 && value.errors <= rowErrorLimit && value.fetchErrors === 0
+        ? { reason: 'Wind row errors within tolerated limit' } : undefined,
+      failureReason: () => failureReason ?? (errors > rowErrorLimit ? 'Wind update completed with row errors' : null),
+      upstreamGap: {
+        active: (value) => value.stoppedReason === 'upstream_unavailable'
+          || (value.stoppedReason === 'deadline_exceeded' && value.windHost === 'fallback'),
+        limitMs: UPSTREAM_GAP_LIMIT_MS,
+        describe: (lastProductiveRanAt) => {
+          const cause = stoppedReason === 'upstream_unavailable'
+            ? 'unavailable on both hosts' : 'primary unavailable and fallback deadline exceeded';
+          failureReason = `Open-Meteo wind ${cause} for >6 h; last productive run ${lastProductiveRanAt ?? 'never'}. Action: check Open-Meteo host availability and retry wind update`;
+          return failureReason;
+        },
+      },
     },
     async () => summary,
-  ));
+  );
+
+  if (stoppedReason) {
+    console.warn(`[Wind] Stopped early: ${stoppedReason}: ${stopDetail}`);
+  }
+  if (failureReason) {
+    return createErrorResponse(failureReason, recorded, 503);
+  }
+  if (errors > 0) {
+    return createErrorResponse('Wind update completed with row errors', recorded);
+  }
+  return createSuccessResponse(recorded);
 }
 
-export const GET = withObservedCron('/api/cron/wind/update', _GET);
+const handleGet = withObservedCron(JOB, _GET);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/wind/update");

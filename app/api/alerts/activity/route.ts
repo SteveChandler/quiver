@@ -6,6 +6,7 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { majorSwellSurfWindowSchema } from "@/lib/notifications/types/major-swell";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -260,7 +261,7 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
   };
 }
 
-export const GET = withAuth(
+const handleGet = withAuth(
   async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const url = new URL(request.url);
     const days = parseDays(url.searchParams.get("days"));
@@ -289,3 +290,5 @@ export const GET = withAuth(
   },
   { errorMessage: "Failed to fetch alert activity" },
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/alerts/activity");

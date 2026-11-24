@@ -3,6 +3,9 @@ import userEvent from "@testing-library/user-event";
 
 import { WhyThisCall } from "@/components/session-intelligence";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
+import { formatReasonSentence, type ScoringReasonFact } from "@/lib/domains/scoring/reason-sentences";
+
+const SIZE_FACT: ScoringReasonFact = { code: "size_good", heightFt: 3.9 };
 
 const mockTrack = jest.fn();
 
@@ -57,7 +60,8 @@ function makeRecommendation(
       summary: "Rising, 3.5 ft",
     },
     bestFor: ["intermediate", "longboard", "dawn-patrol"],
-    positives: ["Good wave size", "Light offshore wind"],
+    positives: [formatReasonSentence(SIZE_FACT), "Light offshore wind"],
+    positiveCodes: ["size_good", null],
     watchouts: ["Morning crowd may build"],
     dataNotes: [],
     confidence: {
@@ -100,11 +104,33 @@ describe("WhyThisCall", () => {
 
     expect(screen.getAllByRole("region").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Positive signals" })).toBeInTheDocument();
-    expect(screen.getByText("Good wave size")).toBeInTheDocument();
+    expect(screen.getByText("Good size at 3–4 ft.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Watchouts" })).toBeInTheDocument();
     expect(screen.getByText("Morning crowd may build")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Confidence" })).toBeInTheDocument();
     expect(screen.getByText("Forecast model row is present")).toBeInTheDocument();
+  });
+
+  it("never lists the small-side sentence under Positive signals", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <WhyThisCall
+        recommendation={makeRecommendation({
+          positives: ["On the small side at 1–2 ft.", "Light offshore wind"],
+          positiveCodes: ["size_below_ideal", null],
+        })}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Why this call for Ocean Beach 7:00-9:30 AM",
+      })
+    );
+
+    expect(screen.queryByText("On the small side at 1–2 ft.")).not.toBeInTheDocument();
+    expect(screen.getByText("Light offshore wind")).toBeInTheDocument();
   });
 
   it("renders source chips only for available sources", async () => {

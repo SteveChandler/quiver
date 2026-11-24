@@ -5,7 +5,8 @@ import { angleDifference } from "@/lib/domains/shared/angle-utils";
 import { getLocalDateStr } from "@/lib/services/discovery/window-selector/time-slot-utils";
 import { parseWindSpeedOrNull } from "@/lib/utils/number-parsing";
 import { addDays, localDate, zonedWallClockToUtc } from "./local-date";
-import { directionIndex, directionSector, periodBand, periodClass, storyEventKey, storyEventsFromRegion, type RegionalSwellEvent } from "./week-scout-story-candidates";
+import { directionIndex, directionSector, earlyLooksFromRegion, periodBand, periodClass, storyEventKey, storyEventsFromRegion,
+  type KeyedEarlyLook, type RegionalSwellEvent } from "./week-scout-story-candidates";
 import { beachDayFactsFromBuild, beachRowsByLocalDate, eventFactsFromBuild, LIGHT_WIND_MPH, type CandidateFacts } from "./week-scout-story-facts";
 import type { StoryGate } from "./week-scout-story-types";
 
@@ -18,6 +19,8 @@ type Wind = BeachGate["wind"];
 export interface RegionGateContext {
   /** Every forecast event in the build, chronological. */
   events: RegionalSwellEvent[];
+  /** The build's early looks, each under its story key when it has one; absent reads as none. */
+  earlyLooks?: KeyedEarlyLook[];
   exposure(regionalEventKey: string, beachId: string): Exposure | null;
   /** How squarely an open beach faces the event; null for a partial or shadowed beach, or one without a window. */
   facing(regionalEventKey: string, beachId: string): Facing | null;
@@ -85,18 +88,19 @@ export function buildRegionGateContext(build: RegionBuild, editionDate: string):
     const beach = beaches.get(beachId);
     const window = beach ? swellWindowForBeach(beach) : null;
     if (!event || !window) return null;
-    const factor = exposureFactor(event.directionDeg, window);
+    const factor = exposureFactor(event.memberDirections?.[beachId] ?? event.exposureDirectionDeg ?? event.directionDeg, window);
     return factor === null ? null : { event, window, exposure: exposureLabel(factor) };
   };
   return {
     events: all,
+    earlyLooks: earlyLooksFromRegion(build, byKey.keys()),
     exposure(regionalEventKey, beachId) {
       return sighting(regionalEventKey, beachId)?.exposure ?? null;
     },
     facing(regionalEventKey, beachId) {
       const seen = sighting(regionalEventKey, beachId);
       if (!seen || seen.exposure !== "open") return null;
-      const offset = angleDifference(seen.event.directionDeg, seen.window.centerDeg);
+      const offset = angleDifference(seen.event.memberDirections?.[beachId] ?? seen.event.exposureDirectionDeg ?? seen.event.directionDeg, seen.window.centerDeg);
       return offset <= Math.min(DEAD_ON_MAX_DEG, seen.window.halfWidthDeg * DEAD_ON_WINDOW_SHARE) ? "direct" : "angled";
     },
     eventFacts(regionalEventKey) {
@@ -188,6 +192,15 @@ function beachHolds(gate: BeachGate, region: RegionGateContext): boolean {
     && region.wind(gate.regionalEventKey, gate.beachId, gate.localDate) === gate.wind;
 }
 
+/** The early look is still in the build under the same key, with the same direction, period class and peak day. */
+function earlyLookHolds(gate: Extract<StoryGate, { kind: "early_look" }>, looks: readonly KeyedEarlyLook[]): boolean {
+  return looks.some((look) => look.storyKey === gate.regionalEventKey
+    && look.directionDeg !== null && look.periodS !== null
+    && directionIndex(look.directionDeg) === gate.directionIndex
+    && periodClass(look.periodS) === gate.periodClass
+    && eventDate(look.peakAt, look.timezone) === gate.peakLocalDate);
+}
+
 /** A quiet week can't stand while the region build has an event arriving or peaking on one of its days. */
 function quietRefused(gate: Extract<StoryGate, { kind: "quiet" }>, events: readonly RegionalSwellEvent[]): boolean {
   return events.some((event) => gate.completeDates.includes(eventDate(event.arrivalAt, event.timezone))
@@ -204,6 +217,7 @@ export function regionGateHolds(gate: StoryGate, region: RegionGateContext): boo
     case "swell": return swellHolds(gate, region.events);
     case "exposure": return exposureHolds(gate, region);
     case "beach": return beachHolds(gate, region);
+    case "early_look": return earlyLookHolds(gate, region.earlyLooks ?? []);
     case "quiet": return quietRefused(gate, region.events) ? false : null;
     case "origin":
     case "wind":

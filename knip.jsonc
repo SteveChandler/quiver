@@ -11,8 +11,7 @@
     "e2e/**/*.ts",
     "__tests__/**/*.{ts,tsx}",
     "scripts/**/*.{ts,tsx,mjs}",
-    "store/**/*.{ts,tsx}",
-    "config/**/*.{ts,tsx}"
+    "store/**/*.{ts,tsx}"
   ],
   "entry": [
     "app/**/page.tsx",
@@ -81,7 +80,12 @@
     "scripts/big-swells/build-big-swells.ts",
     "scripts/tides/list-model-tide-beaches.ts",
     "scripts/tides/build-tide-station-registry.ts",
-    "scripts/tides/seed-tide-stations.ts"
+    "scripts/tides/seed-tide-stations.ts",
+    "scripts/backfill-custom-spot-fingerprints.ts",
+    // Hybrid forward-test tools (docs/forecast/hybrid-replay-by-lead-nov-2026.md).
+    "scripts/hybrid-replay-archive.ts",
+    "scripts/hybrid-replay-collect.ts",
+    "scripts/hybrid-replay-repro.ts"
   ],
   "ignoreDependencies": [
     "server-only",
@@ -106,6 +110,7 @@
   },
   "ignoreBinaries": [
     "supabase",
-    "psql"
+    "psql",
+    "scripts/refit-model-swell-tables.sh"
   ]
 }

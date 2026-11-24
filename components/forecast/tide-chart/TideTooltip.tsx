@@ -10,18 +10,22 @@ export const TideTooltip: React.FC<{
   payload?: any;
   label?: any;
   unit: string;
-}> = ({ active, payload, unit }) => {
+  /** IANA zone for the time and day; the viewer's zone when unset. */
+  timeZone?: string;
+}> = ({ active, payload, timeZone }) => {
   if (!active || !payload?.length) return null;
   const p = payload[0]?.payload as TidePoint & { t: any };
   const d = toDate(p.t);
   const time = d.toLocaleTimeString(undefined, {
     hour: "numeric",
     minute: "2-digit",
+    timeZone,
   });
   const day = d.toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone,
   });
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/90 backdrop-blur px-3 py-2 shadow-md">

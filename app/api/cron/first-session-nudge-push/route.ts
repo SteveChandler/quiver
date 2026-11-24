@@ -57,6 +57,7 @@ import {
   type PositiveRecommendationPolicyContext,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import { fromZonedTime } from "date-fns-tz";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -106,6 +107,7 @@ interface Candidate {
   home_beach_id: string | null;
   is_trialing: boolean;
   is_pro: boolean;
+  trial_ends_at: string | null;
   device_tokens: string[];
   experience_level: string | null;
 }
@@ -143,6 +145,7 @@ interface RunSummary {
     no_token: number;
     send_failed: number;
     log_failed: number;
+    beach_lookup_failed: number;
   };
   cohorts: Record<CohortKey, number>;
   errors: number;
@@ -282,10 +285,21 @@ function getStrictUtcDayBounds(
   }
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function trialDaysLeft(trialEndsAt: string | null, now: Date): number | null {
+  const endsMs = Date.parse(trialEndsAt ?? "");
+  if (!Number.isFinite(endsMs)) return null;
+  // Whole days left: a user first enters the [now-8d, now-6d) window at 6-7 days old, so
+  // a 14-day trial has 7.0-8.0 days left and "7 days left" stays true.
+  return Math.floor((endsMs - now.getTime()) / DAY_MS);
+}
+
 async function resolveCohort(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
   candidate: Candidate,
   beachById: Map<string, BeachRow>,
+  now: Date,
 ): Promise<ResolvedCohort> {
   const beach = candidate.home_beach_id
     ? (beachById.get(candidate.home_beach_id) ?? null)
@@ -294,10 +308,13 @@ async function resolveCohort(
 
   if (candidate.is_trialing) {
     if (candidate.home_beach_id && beachName) {
+      // The trial clause names a fixed 7 days; state it only when that is the real count.
       return {
         cohort: "trialing_home",
         title: "Unlock your Quiver",
-        body: "Add your first session when you paddle out — 7 days left in your trial",
+        body: trialDaysLeft(candidate.trial_ends_at, now) === 7
+          ? "Add your first session when you paddle out — 7 days left in your trial"
+          : "Add your first session when you paddle out.",
         beach_id: null,
         beach_name: beachName,
         confidence_score: null,
@@ -387,6 +404,7 @@ async function _GET(request: Request): Promise<Response> {
         no_token: 0,
         send_failed: 0,
         log_failed: 0,
+        beach_lookup_failed: 0,
       },
       cohorts: {
         trialing_home: 0,
@@ -574,7 +592,7 @@ async function _GET(request: Request): Promise<Response> {
     // 7. Entitlement lookup — single batched read, presence = trialing/pro.
     const { data: entitlements, error: entError } = await supabase
       .from("user_entitlements")
-      .select("user_id, is_pro, is_trialing")
+      .select("user_id, is_pro, is_trialing, trial_ends_at")
       .in("user_id", Array.from(pushEnabledIds));
 
     if (entError) {
@@ -583,12 +601,13 @@ async function _GET(request: Request): Promise<Response> {
 
     const entitlementByUser = new Map<
       string,
-      { is_pro: boolean; is_trialing: boolean }
+      { is_pro: boolean; is_trialing: boolean; trial_ends_at: string | null }
     >();
     for (const e of entitlements ?? []) {
       entitlementByUser.set(e.user_id, {
         is_pro: Boolean(e.is_pro),
         is_trialing: Boolean(e.is_trialing),
+        trial_ends_at: typeof e.trial_ends_at === "string" ? e.trial_ends_at : null,
       });
     }
 
@@ -621,6 +640,7 @@ async function _GET(request: Request): Promise<Response> {
         home_beach_id: profile.home_beach_id,
         is_trialing: ent?.is_trialing ?? false,
         is_pro: ent?.is_pro ?? false,
+        trial_ends_at: ent?.trial_ends_at ?? null,
         device_tokens: tokens,
         experience_level: profile.experience_level,
       });
@@ -651,12 +671,14 @@ async function _GET(request: Request): Promise<Response> {
     );
 
     const beachById = new Map<string, BeachRow>();
+    let beachLookupFailed = false;
     if (neededBeachIds.length > 0) {
       const { data: beaches, error: beachesError } = await supabase
         .from("beaches")
         .select("id, name, timezone")
         .in("id", neededBeachIds);
       if (beachesError) {
+        beachLookupFailed = true;
         console.warn(
           `${CONTEXT_TAG} beach lookup failed:`,
           beachesError.message,
@@ -674,8 +696,14 @@ async function _GET(request: Request): Promise<Response> {
 
     // 10. Phase 3e: enqueue per candidate. Worker handles devices/FCM.
     for (const candidate of candidates) {
+      // Without the beach row (a read error, or a missing or nameless row) a user with a
+      // home break would read "Set your home break".
+      if (candidate.home_beach_id && (beachLookupFailed || !beachById.get(candidate.home_beach_id)?.name)) {
+        summary.skipped.beach_lookup_failed++;
+        continue;
+      }
       try {
-        const resolved = await resolveCohort(supabase, candidate, beachById);
+        const resolved = await resolveCohort(supabase, candidate, beachById, now);
         summary.cohorts[resolved.cohort]++;
 
         const payload = {
@@ -791,8 +819,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(
+const handleGet = withObservedCron(
   "/api/cron/first-session-nudge-push",
   _GET,
   SENTRY_MONITOR,
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/first-session-nudge-push");
