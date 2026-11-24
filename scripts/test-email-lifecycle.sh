@@ -83,6 +83,8 @@ psql_local -c "UPDATE public.email_contact_controls SET disabled_jobs='{}', welc
   -f "$repo_dir/supabase/migrations/20261124161000_lifecycle_disable_friction_routine.sql" \
   -c "DO \$\$ BEGIN ASSERT (SELECT disabled_jobs='{}' AND NOT welcome_relay_only FROM public.email_contact_controls WHERE singleton), 'rerun reset the off switch'; END \$\$" \
   -c "UPDATE public.email_contact_controls SET disabled_jobs='{friction,routine}', welcome_relay_only=true WHERE singleton"
+psql_local -f "$repo_dir/supabase/migrations/20261124185600_welcome_relay_only_off.sql" \
+  -c "DO \$\$ BEGIN ASSERT (SELECT NOT welcome_relay_only AND disabled_jobs='{friction,routine}' FROM public.email_contact_controls WHERE singleton), 'welcome_relay_only must be off and the job stops kept'; END \$\$"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \
