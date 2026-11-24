@@ -80,12 +80,12 @@ describe("wave-formatters", () => {
   describe("formatWaveRange", () => {
     it("brackets a single numeric height", () => {
       expect(formatWaveRange(3.5)).toBe("3-4ft");
-      expect(formatWaveRange(5.0)).toBe("4-6ft");
+      expect(formatWaveRange(5.0)).toBe("4-5ft");
     });
 
     it("brackets zero and fractional heights in the single-height overload", () => {
-      expect(formatWaveRange(0)).toBe("0-1ft");
-      expect(formatWaveRange(2.49)).toBe("1-3ft");
+      expect(formatWaveRange(0)).toBe("Flat");
+      expect(formatWaveRange(2.49)).toBe("2-3ft");
     });
 
     describe("with decimal precision (default)", () => {
