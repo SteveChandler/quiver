@@ -4381,11 +4381,11 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "safety",
         heading: "How to stay safe on a big day",
-        content: `<p>Stay off the jetty, the seawall and the reef. The Army Corps of Engineers sign at the breakwater says "Do not walk on structure" and "Hazardous wave conditions exist even on calm days." It also warns that waves can wash over the structure and sweep people into the ocean.</p><p>It has happened here. NBC Bay Area reported that on February 13, 2010, during the contest, two large waves swept spectators off the seawall at about 9 a.m. Thirteen people were injured.</p><p>San Mateo County Harbor Patrol asks people to watch the big waves from a safe distance and a dry location. The NWS says to watch the ocean for at least 20 minutes and never turn your back on the waves. Sneaker waves often follow 10 to 20 minutes of small waves, as our <a href="/learn/what-is-a-rogue-wave">rogue wave guide</a> explains.</p><p>No forecast can promise a safe beach or bluff. Pick dry ground well above the water.</p>`,
+        content: `<p>Stay off the jetty, the seawall and the reef. A US Army Corps of Engineers danger sign photographed at Mavericks tells people not to walk on the structure, and says hazardous wave conditions exist even on calm days. Its last line reads: "Waves can wash over structure and sweep people into the ocean."</p><p>It has happened here. NBC Bay Area reported that on February 13, 2010, during the contest, two large waves swept spectators off the seawall at about 9 a.m. Thirteen people were injured.</p><p>San Mateo County Harbor Patrol asks people to watch the big waves from a safe distance and a dry location. The NWS says to watch the ocean for at least 20 minutes and never turn your back on the waves. Sneaker waves often follow 10 to 20 minutes of small waves, as our <a href="/learn/what-is-a-rogue-wave">rogue wave guide</a> explains.</p><p>No forecast can promise a safe beach or bluff. Pick dry ground well above the water.</p>`,
         keyTakeaway: "If the ground under you is wet, move higher.",
         image: {
           src: "/images/learn/learn-mavericks-breakwater-danger-sign.webp",
-          alt: "A torn red \"Danger, extremely hazardous waves\" sign from the US Army Corps of Engineers at the Pillar Point breakwater near Mavericks, warning that waves can wash over the structure and sweep people into the ocean",
+          alt: "A torn red \"Danger, extremely hazardous waves\" sign from the US Army Corps of Engineers, photographed at Mavericks in Half Moon Bay, warning that waves can wash over the structure and sweep people into the ocean",
           position: "left",
         },
       },
@@ -4399,7 +4399,7 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Can you see Mavericks from the beach?",
         answer:
-          "You can see the sets from Mavericks Beach and Surfers' Beach, but Visit Half Moon Bay says the surfers will look like ants. The West Trail is the only access to Mavericks Beach, and the Harbor District says erosion has made it hazardous, so check its status first.",
+          "Visit Half Moon Bay names Surfers' Beach and Mavericks Beach as places to stake out a spot, but says the surfers will look like ants. The West Trail is the only access to Mavericks Beach, and the Harbor District says erosion has made it hazardous, so check its status first.",
       },
       {
         question: "How far offshore is Mavericks?",
@@ -4414,7 +4414,7 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Is it safe to watch Mavericks from the jetty?",
         answer:
-          "No. Stay off it. The Army Corps of Engineers sign there says \"Do not walk on structure\" and \"Waves can wash over structure and sweep people into the ocean.\" San Mateo County Harbor Patrol asks people to watch from a safe distance and a dry location. NBC Bay Area reported that in 2010 two waves swept spectators off the seawall and 13 people were injured.",
+          "No. Stay off it. A US Army Corps of Engineers danger sign photographed at Mavericks reads \"Waves can wash over structure and sweep people into the ocean.\" San Mateo County Harbor Patrol asks people to watch from a safe distance and a dry location. NBC Bay Area reported that in 2010 two waves swept spectators off the seawall and 13 people were injured.",
       },
     ],
     relatedLinks: [
