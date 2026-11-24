@@ -47,6 +47,7 @@ import {
   rankCandidates,
   rowServesDay,
   runDailyCallCron,
+  RANKING_VERDICT_MISMATCH_RECORD_CAP,
   type DailyCallCandidate,
   type DailyCallDeps,
   type DailyCallProfile,
@@ -1306,6 +1307,108 @@ describe("shared ranking (flag on)", () => {
       skippedCounts: { ranking_verdict_mismatch: 1, no_in_window_row: 0 },
     });
     expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  function loggedMismatches(info: jest.SpyInstance): Array<Record<string, unknown>> {
+    return info.mock.calls
+      .filter(([label]) => label === "[daily-call] ranking_verdict_mismatch")
+      .map(([, line]) => {
+        expect(typeof line).toBe("string");
+        return JSON.parse(line as string) as Record<string, unknown>;
+      });
+  }
+
+  function peakRowMismatch(peakVerdict: (forecast: EnhancedForecastEntity) => "go" | "no" | "missing") {
+    const pick = window(blacksId, { peakTime: "2026-09-16T18:00:00.000Z" });
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => {
+      const base = evaluate(args);
+      const result = peakVerdict(args.forecast);
+      if (result === "missing") return { ...base, forecast: { ...args.forecast, id: `${args.forecast.id}-unread` }, score: 10, verdict: "no" };
+      return { ...base, score: result === "go" ? 84 : 10, verdict: result };
+    });
+    const mocked = sharedDeps(day([pick]), {
+      loadBeachDay: async () => ({ forecasts: [8, 11].map((hour) => gridForecast(blacksId, hour)), tideSamples: null }),
+    });
+    return { pick, mocked };
+  }
+
+  it("logs who hit a peak-row ranking_verdict_mismatch on one line and keeps it in the run summary", async () => {
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const { pick, mocked } = peakRowMismatch((forecast) => forecast.forecast_time === "08:00:00" ? "go" : "no");
+    try {
+      const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+      expect(result).toMatchObject({ sent: 0, silent: 1, skippedCounts: { ranking_verdict_mismatch: 1 } });
+      expect(mocked.enqueue).not.toHaveBeenCalled();
+      expect(result.rankingVerdictMismatches).toEqual([{
+        userId, gate: "peak_row", cronVerdict: "no", cronScore: 10, weekScoutVerdict: "go", weekScoutScore: 82,
+      }]);
+      expect(loggedMismatches(info)).toEqual([{
+        userId, gate: "peak_row", cronVerdict: "no", cronScore: 10, weekScoutVerdict: "go", weekScoutScore: 82,
+        beachId: blacksId, windowId: pick.id, peakTime: pick.peakTime,
+        cronForecastAt: gridForecast(blacksId, 11).forecast_at,
+      }]);
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  it("records a null cron verdict when the peak row has no verdict, and still stays silent", async () => {
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const { mocked } = peakRowMismatch((forecast) => forecast.forecast_time === "08:00:00" ? "go" : "missing");
+    try {
+      const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+      expect(result).toMatchObject({ sent: 0, silent: 1, skippedCounts: { ranking_verdict_mismatch: 1 } });
+      expect(mocked.enqueue).not.toHaveBeenCalled();
+      expect(result.rankingVerdictMismatches).toEqual([expect.objectContaining({ gate: "peak_row", cronVerdict: null, cronScore: null })]);
+      expect(loggedMismatches(info)).toEqual([expect.objectContaining({ cronVerdict: null })]);
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  it("logs the decision gate's verdict and reason when the canonical decision is not go", async () => {
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const pick = window(blacksId);
+    const evaluate = verdict.getMockImplementation()!;
+    verdict.mockImplementation((args) => {
+      const base = evaluate(args);
+      const selection = base.decision.selection!;
+      return {
+        ...base,
+        decision: { ...base.decision, selection: { ...selection, evidence: { ...selection.evidence, recommendationLabel: "Skip" } } },
+      };
+    });
+    const mocked = sharedDeps(day([pick]));
+    try {
+      const result = await runDailyCallCron({ now, supabase, deps: mocked });
+      expect(result).toMatchObject({ sent: 0, silent: 1, skippedCounts: { ranking_verdict_mismatch: 1 } });
+      const [logged] = loggedMismatches(info);
+      expect(logged).toMatchObject({ userId, gate: "decision", beachId: blacksId, weekScoutVerdict: "go", weekScoutScore: 82, cronScore: 90 });
+      expect(logged.cronVerdict).not.toBe("go");
+      expect(typeof logged.cronReasonCode).toBe("string");
+      expect(result.rankingVerdictMismatches).toEqual([{
+        userId, gate: "decision", cronVerdict: logged.cronVerdict, cronScore: 90, weekScoutVerdict: "go", weekScoutScore: 82,
+      }]);
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  it("caps the mismatch records in the run summary, and the count still gives the total", async () => {
+    const info = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    const { mocked } = peakRowMismatch((forecast) => forecast.forecast_time === "08:00:00" ? "go" : "no");
+    const total = RANKING_VERDICT_MISMATCH_RECORD_CAP + 3;
+    const ids = Array.from({ length: total }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`);
+    mocked.loadProfiles = jest.fn(async () => ids.map((id) => ({ ...profile, id })));
+    try {
+      const result = await runDailyCallCron({ now: new Date("2026-09-16T13:08:00.000Z"), supabase, deps: mocked });
+      expect(result.skippedCounts.ranking_verdict_mismatch).toBe(total);
+      expect(result.rankingVerdictMismatches?.map((record) => record.userId)).toEqual(ids.slice(0, RANKING_VERDICT_MISMATCH_RECORD_CAP));
+      expect(Buffer.byteLength(JSON.stringify({ data: result }))).toBeLessThan(8192);
+    } finally {
+      info.mockRestore();
+    }
   });
 
   it.each([
