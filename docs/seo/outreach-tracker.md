@@ -1,6 +1,6 @@
 # SEO Outreach Tracker
 
-Last updated: 2026-10-23 (PR Sea Grant follow-up found sent 10-18; 3 drafts: Maui Now follow-up, OCNJ Daily, Jersey Shore Online)
+Last updated: 2026-11-20 (all six SEO drafts SENT 11-20 at Steven's chat request; at run time the three 11-13 drafts were unsent; 3 drafts: North Shore Surf Girls, Ventura Surf School and Shaka Surf School follow-ups)
 
 ## How This File Works
 
@@ -168,6 +168,10 @@ What *is* under our control is the URL itself: **never append `utm_*`, `?ref=`, 
 parameter to an outreach URL.** A bare path is what should be pasted, so that if a target ever copies
 it onto their own site the backlink is clean. Every URL in the 2026-08-24 drafts is bare.
 
+**A "here's the clean link" follow-up has nothing to deliver (2026-11-06).** Since 09-14 every URL draft uses `htmlBody` anchors, so the
+HTML part already shows clean visible text; only the href and the `text/plain` part are wrapped, and a new draft is wrapped the
+same way. Two follow-ups written on that premise were superseded the same run. Do not use the wrapper as a follow-up hook.
+
 **Do not re-litigate this per-run.** Nine forms have been tested and none works. Every click still
 lands correctly, and there is no SEO effect — a backlink only exists once a target publishes the URL
 on their own site, at which point the wrapper is out of the picture entirely. This is written down so
@@ -224,12 +228,14 @@ belong in the Date or Notes column. Found 2026-09-14, when six contacted rows we
 | Corky Carroll's Surf School | corkysurfschool.com | `huntington-beach-pier` | info@surfschool.net | follow-up | 2026-08-25 | Initial 2026-08-03, follow-ups 2026-08-18 and 2026-08-25 (three emails, one over the limit). **Follow-up exhausted; no response** as of 2026-09-14. Do not contact again. |
 | Santa Cruz Surf School | santacruzsurfschool.com | `steamer-lane-santa-cruz-ca` | **needs manual check** — site 200, no email/phone in raw HTML (JS-rendered) | queued | | |
 | Nor Cal Surf Shop | norcalsurfshop.com | `linda-mar-pacifica-ca` | mia@norcalsurfshop.com | sent | 2026-08-31 | **Sent 2026-08-31 10:50 PT** (row was left at `drafted`; corrected 2026-09-07 09:00 run). Contact form also present. Draft **rewritten in place 2026-08-31 10:2x PT** — the original carried the false "ML-tuned forecasts" claim, the doubled-`your` subject, and school/student wording aimed at a shop. Pitched the verified Linda Mar page as a shop, not a school. Sent as rewritten; no ML claim went out. Follow-up eligible 2026-09-14. **Not drafted on 09-14:** the three-draft cap went to the UML, Whatever Sportfishing and NJ Sea Grant follow-ups, each of which had a verified, still-broken target page to fix. No reply through 09-14. First in line next run. **2026-09-21: follow-up drafted** into the 08-31 thread. The shop's own "Surf Report" nav link still points at `magicseaweed.com/Linda-Mar-Pacifica-Surf-Report/819/`, which 301s to Surfline; the draft offers the Linda Mar page as the replacement. **Follow-up SENT 2026-09-21 10:19 PT**; no reply through 09-25. Follow-up exhausted; do not contact again. |
+| Ventura Surf School | venturasurfschool.com | `mondos-beach-ventura-ca` | venturasurfschool@gmail.com (`mailto:` and footer on its own homepage, 2026-11-06) | follow-up | 2026-11-20 | Ventura County's oldest school (est. 1996), lessons and camps at Mondos. Never contacted (Gmail `in:anywhere` by address and name, trash included: zero). Cold draft carries the 11-03 content Pitch: `/learn/what-is-wave-diffraction` (live, in sitemap) plus the Mondos page (200, embed renders: 2.4 ft @ 11s W after the 11-05 Ventura buoy move). **Sent 2026-11-06 06:13 PT** (Gmail, 11-13 reconciliation); no reply through 11-20. **2026-11-20: follow-up drafted** into the 11-06 thread (the one permitted): the Mondos tide page `/ca/ventura/mondos-beach-ventura-ca/tides` (200, in sitemap). Homepage has zero `quiversurf` references. Follow-up exhausted once sent. **Follow-up SENT 2026-11-20** (Steven's chat request). Follow-up exhausted. |
+| Ohana Surf Camp | ohanasurfcamp.com | `mondos-beach-ventura-ca` | ohanasurfcamp@gmail.com (`mailto:` on its own homepage, 2026-11-06) | queued | | Lessons at Mondos, camps at Marina Park. Never contacted. Verified and draftable; held 11-06 because the cold slot went to Ventura Surf School (same beach). Pitch the diffraction guide with a different opening. |
 
 ### Hawaii
 | Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |
 |--------|---------|---------------------------|----------------------------|--------|------|-------|
 | Hans Hedemann Surf School | hhsurf.com | `waikiki-beach` | info@hhsurf.com | sent | 2026-09-07 | **Sent 2026-09-07 06:35 PT** (row was left at `drafted 2026-08-31`; corrected in the 09:00 run). Follow-up eligible 2026-09-21. **2026-09-25: follow-up drafted** into the 09-07 thread. Their `/oahu-surf-spots/` page describes Queens and Canoes; the draft offers `/hi/honolulu/waikiki-queens` and `/hi/honolulu/waikiki-canoes` (200, in sitemap, embeds render). The homepage no longer carries a YouTube cam embed, so the draft does not mention the cam. Unsent; follow-up exhausted once sent. **Runs own YouTube cam `c5vgnhcxgYU`** — lead with the cam partnership, not the widget. Draft **rewritten in place 2026-08-31 10:2x PT** — the original carried the false "ML-tuned forecasts" claim, the doubled-`your` subject, and ignored the cam angle. It leads with the cam offer and links the verified Waikiki Beach page. Sent as rewritten; no ML claim went out. |
-| North Shore Surf Girls | northshoresurfgirls.com | `haleiwa` | lessons@northshoresurfgirls.com (verified 2026-10-09 on `/contact-us`, Cloudflare-obfuscated `data-cfemail` decoded; the Codex 10-05 brief found it first) | queued | | **Now draftable.** No Gmail history to the address or domain (searched 10-09, trash included). Not drafted 10-09: week 2, and the three-draft cap went to a Sea Grant follow-up and two Surfrider chapters. First in line for a week-1 run. Phone 808-637-2977 and a contact form also on the site. |
+| North Shore Surf Girls | northshoresurfgirls.com | `puaena-point`, `chuns-reef` (was `haleiwa`; their site says lessons run at Puaena Point or Chun's Reef) | lessons@northshoresurfgirls.com (verified 2026-10-09 on `/contact-us`, Cloudflare-obfuscated `data-cfemail` decoded; the Codex 10-05 brief found it first; re-confirmed there 2026-11-20) | sent | 2026-11-20 | **Cold draft created 2026-11-20** (Steven's 11-13 decision). Hook: their `/chuns-beach/` page says winter swell moves first lessons from Chun's Reef to Puaena Point. Offers `/hi/haleiwa/puaena-point` and `/hi/haleiwa/chuns-reef` (200, in sitemap, embeds render) for those two pages. No cam on their site (no YouTube embed found 11-20). Follow-up eligible 14 days after it is sent. **Now draftable.** No Gmail history to the address or domain (searched 10-09, trash included). Not drafted 10-09: week 2, and the three-draft cap went to a Sea Grant follow-up and two Surfrider chapters. First in line for a week-1 run. **Held again 2026-10-30** (week 1): the three-draft cap went to the two due follow-ups and the SC guide pitch. **Held a third time 2026-11-06** (week 1): cap went to the two due Surfrider follow-ups and the diffraction guide pitch. **Held a fourth time 2026-11-13** (week 2). **Steven, 2026-11-13: it takes the next cold slot**, whatever the rotation week. Draft it first in the 2026-11-20 run (recheck the address on `/contact-us` and the `haleiwa` page and embed before creating). Phone 808-637-2977 and a contact form also on the site. **SENT 2026-11-20 by Steven's chat request** (Gmail). Follow-up eligible 2026-12-04. |
 | Hawaiian Surfing Adventures | hawaiiansurfingadventures.com | `hanalei-bay-kauai` | 808-482-0749 (no email published) | queued | | |
 
 ### East Coast
@@ -369,6 +375,247 @@ Do not re-open this, redraft them, or append a correction. Forward looking rules
 new copy claims ML, AI, a spot count, or competitor superiority, and nothing links `/forecast-accuracy`.
 
 ---
+
+## Run log — 2026-11-20 (3 drafts: North Shore Surf Girls, Ventura Surf School and Shaka Surf School follow-ups)
+
+Rotation: **week 3 → coastal businesses.** Digest `Brand-Vault/seo-audit/2026-11-20/OUTREACH-DIGEST.json` (Node 22): 98 rows,
+**0 candidates**. The cold slot went to North Shore Surf Girls (Steven's 11-13 decision). Follow-ups rank above cold, so the
+11-17 content **Pitch** (`/learn/what-is-a-rogue-wave`, live on prod since the 11-17 release, in the sitemap) was **not**
+pitched this run. Its targets were researched and held (below). Visit Pacifica is first in line for it.
+
+### Gmail reconciliation (Step 0)
+
+Drafts: 48 before this run, one page (metadata only; "welcome" is inferred from recipient and time): 37 dated 11-20
+(welcome), 6 other dated 11-13 (welcome), one inbox-owned reply (11-06), one untitled (10-24), and the **three 11-13 SEO
+drafts, all unsent** (OCNJ Daily and Jersey Shore Online follow-ups, California King Tides Project). 51 after this run.
+`in:sent` since 11-12: 27 threads, one page. Welcome sends and two unrelated threads only: **no SEO outreach sent after
+11-06.** Inbound: a named-sender search (Shaka, Ventura, King Tides, OCNJ, JSO, Visit Carlsbad, Lost Coast, Surfrider,
+NSSG, Sea Grant, Ken Merrill, Maui Now) since 11-05, trash included, found none; a broad `in:inbox` primary search since
+11-13 found no outreach reply (one recruiter, one HDOnTap legal-hold thread, account alerts). Bounces: none to outreach.
+Ken Merrill: capecodsurfrider.org home 200, zero `quiversurf`; unchanged, inbox-owned.
+
+| Finding | Correction |
+|---|---|
+| Ventura Surf School, Shaka Surf School: one message each (11-06), no reply in 14 days | Follow-ups drafted (below) |
+| OCNJ Daily, Jersey Shore Online, King Tides Project: drafted 11-13, still unsent | Rows unchanged. King Tides is time-sensitive (run starts Nov 24) |
+| November | **7 sent** through 11-20, recounted from `in:sent` (unchanged since 11-06) |
+
+### Drafted (3)
+
+| Target | Email | Page(s) (200, in sitemap) | Kind |
+|---|---|---|---|
+| North Shore Surf Girls | lessons@northshoresurfgirls.com | `/hi/haleiwa/puaena-point`, `/hi/haleiwa/chuns-reef` (embeds render) | cold; their lesson spots |
+| Ventura Surf School | venturasurfschool@gmail.com | `/ca/ventura/mondos-beach-ventura-ca/tides` | the one permitted follow-up, threaded into the 11-06 original |
+| Shaka Surf School | follybeach@shakasurfschool.com | Washout and pier `/tides` pages | the one permitted follow-up, threaded into the 11-06 original |
+
+Exact addresses checked in Drafts and `in:anywhere` (trash included) immediately before creation. Replies made with
+`replyToMessageId`; both kept the original `threadId`. `update_draft` not used. `htmlBody` anchors with the URL as visible
+text (NSSG read back: visible text clean, hrefs wrapped as expected). No dashes in prose, no competitor, no ML or accuracy
+claim, no `/forecast-accuracy`, no campaign parameters, no wave or tide numbers. Openings and closings differ from each other
+and from the 11-06 and 11-13 sets. No test drafts. Signed "Steve". Voice: no new founder-typed mail since 11-13 (the one
+founder reply in the window is under the HDOnTap legal hold and was not read); checked against the 11-06 sent follow-ups.
+
+### Checked, not drafted (rogue wave Pitch, NorCal; none has Gmail history)
+
+| Target | Contact | Reason |
+|---|---|---|
+| Visit Pacifica (visitpacifica.com) | info@visitpacifica.com, the site's Contact address | **Usable.** Tourism site with Beaches and Surfing pages. Pages: Linda Mar, Rockaway, Sharp Park. Hold for the next cold slot with the rogue wave guide |
+| Point Reyes Light (ptreyeslight.com) | editor@ptreyeslight.com listed on `/contact` | Role not confirmed from the page text. Not draftable yet. Pages: Bolinas, Stinson, Dillon Beach (no Point Reyes Beach page) |
+| Marin Independent Journal (marinij.com) | localnews@marinij.com, labelled "Press releases" | Weak role (press releases, not a named editor). Hold |
+| Point Reyes National Seashore Association (ptreyes.org) | | 403 to a browser UA. Rejected under gate 2 |
+| City of Pacifica (cityofpacifica.org) | | 403 to a browser UA. Rejected under gate 2 |
+| Pacifica Tribune | | Redirects to coastsidenews.com (the sandbox blocked the redirect). Coastside News had only a customer service address on 10-02. Not verified |
+| Visit Half Moon Bay (visithalfmoonbay.org), San Mateo County Parks | | Homepage 200, no email in the HTML; contact pages not checked. Not verified |
+
+`host`/`dig` timed out in the sandbox this run; DNS is evidenced by the curl 200s, not by gate 1.
+
+### Eligible for a follow-up, held
+
+No new row became due this week. The old coastal-business and school rows that still have one delivered email and no
+follow-up stay held for lack of a concrete hook, as in the 09-21 and 09-25 logs: Surf N' Wear, Glide, Corolla Surf Shop
+(08-18); HSS Surf (08-20); Whalebone, Cape Hatteras Surf School, Padre Island, Safari Town, Cannon Beach Surf Lessons
+(08-25); Ho Stevie! (08-10); Odyssey Surf School (08-31). The cap of three was full this run. OCNJ Daily and Jersey Shore
+Online follow-ups and King Tides wait on Steven's send. The three `/tides` pages in the follow-ups were checked for body
+content (high and low tide entries present), not only for status.
+
+### Coverage gaps
+
+None new. Oxnard and Port Hueneme, Rye NH, Long Beach Island NJ and Ocean County NJ tides remain open.
+
+## Run log — 2026-11-13 (3 drafts: OCNJ Daily and Jersey Shore Online follow-ups, California King Tides Project)
+
+Rotation: **week 2 → surf bloggers.** Digest `Brand-Vault/seo-audit/2026-11-13/OUTREACH-DIGEST.json` (Node 22): 97 rows,
+**0 candidates**. The bloggers lane is exhausted (Ben Gravy unverified address, Kale Brock exhausted, Surf Simply inbox-owned,
+Barefoot Surf exhausted). Research went to the 11-10 content **Pitch** (`/learn/what-is-a-king-tide`, live, in the sitemap):
+king tide groups and San Diego and Orange County outlets.
+
+### Gmail reconciliation (Step 0)
+
+Drafts: 17, one page: 15 welcome (11-13), one inbox-owned reply (11-06), one untitled (10-24). **No SEO draft was left.**
+`in:sent` since 11-01: 47 threads, one page. Inbound from every contacted outreach domain since 10-25, trash included: none.
+Bounces: none to outreach (one unrelated tesla.com bounce).
+
+| Finding | Correction |
+|---|---|
+| **All six SEO drafts SENT 2026-11-06 06:12 to 06:14 PT**: Visit Carlsbad, Lost Coast Outpost, Surfrider Rincón and Space Coast follow-ups; Shaka Surf School and Ventura Surf School | Four rows to `follow-up` (exhausted); Shaka and Ventura to `sent`, follow-ups eligible 2026-11-20 |
+| **Space Coast got two follow-ups 17 s apart.** The second is the superseded 10:37Z draft, whose first line falsely says the last link "came through as a Google redirect" | Row `follow-up`, one over the limit. **Steven, 11-13: leave it, no correction. Do not re-raise** |
+| The superseded Rincón draft is gone from Drafts and was not sent (thread has two messages) | Hand deletion no longer needed |
+| OCNJ Daily, Jersey Shore Online: one message each, no reply in 19 days | Follow-ups drafted (below) |
+| Ken Merrill: capecodsurfrider.org home 200, zero `quiversurf` | Unchanged; inbox-owned |
+| November | **7 sent** through 11-13 (all on 11-06), recounted from `in:sent` |
+
+### Drafted (3)
+
+| Target | Email | Page(s) (200, in sitemap) | Kind |
+|---|---|---|---|
+| OCNJ Daily | news@fiderinews.com | `/tide/ocean-city-nj`, `/tide/sea-isle-city` | the one permitted follow-up, threaded into the 10-25 original |
+| Jersey Shore Online | news@jerseyshoreonline.com | `/learn/can-you-surf-in-new-jersey` | the one permitted follow-up, threaded into the 10-25 original |
+| California King Tides Project | kingtides@coastal.ca.gov | king tide guide, `/tide/la-jolla`, `/tide/san-francisco` | cold, `.gov`; carries the 11-10 Pitch |
+
+Exact addresses checked in Drafts and `in:anywhere` (trash included) immediately before creation. Replies made with
+`replyToMessageId`; `update_draft` not used. `htmlBody` anchors with the URL as visible text (read back: visible text clean,
+hrefs wrapped as expected). No dashes in prose, no competitor, no ML or accuracy claim, no `/forecast-accuracy`, no
+campaign parameters, no tide heights quoted. Openings and closings differ from each other and from the 11-06 set. No test
+drafts. Signed "Steve". Voice checked against Steven's typed 11-06 reply to a welcome-email user (short, warm, plain).
+
+### Checked, not drafted
+
+| Target | Reason |
+|---|---|
+| North Shore Surf Girls | Verified, still first cold surf-school candidate; week 2 and the cap went to two due follow-ups and the king tide pitch. **Fourth hold**. Steven, 11-13: takes the next cold slot (11-20 run) |
+| Ohana Surf Camp | Verified; Ventura Surf School (same beach) was pitched 11-06, so held until that one resolves |
+| The Coast News (thecoastnews.com) | Home 200, no email in the HTML. No-email guard |
+| La Jolla Light | Redirects to sandiegouniontribune.com; only an unrelated Rotary address on the page. No editorial email. No-email guard |
+| Surfrider North OC | chair@northoc.surfrider.org re-confirmed on its homepage; zero "king tide" mentions, no page hook. Hold |
+| Washington Sea Grant | Already contacted (08-25); runs king tide programs, but this is a follow-up question, not a new target. Unchanged |
+
+### Eligible for a follow-up, held
+
+Ventura Surf School and Shaka Surf School from 11-20. King Tides Project 14 days after it is sent.
+
+### Coverage gaps
+
+None new. No Ocean County, NJ tide page (`/tide/seaside` is Seaside, Oregon). Oxnard and Port Hueneme, Rye NH and Long
+Beach Island NJ remain open.
+
+## Run log — 2026-11-06 (3 drafts: Surfrider Rincón and Space Coast follow-ups, Ventura Surf School)
+
+Rotation: **week 1 → surf schools.** Digest `Brand-Vault/seo-audit/2026-11-06/OUTREACH-DIGEST.json` (Node 22): 95 rows,
+**1 candidate** (North Shore Surf Girls, held a third time; see its row). Research went to Ventura, Santa Barbara and
+Oxnard surf schools, matching the 11-03 content **Pitch** (`/learn/what-is-wave-diffraction`, live, in the sitemap).
+
+### Gmail reconciliation (Step 0)
+
+Drafts: 45 before this run, one page: 17 welcome (11-06), 20 welcome (10-30), the 3 SEO drafts from 10-30 (Visit
+Carlsbad and Lost Coast Outpost follow-ups, Shaka Surf School, **all still unsent**), inbox-owned replies (10-24 ×2,
+10-26), one untitled (10-24). The inbox-owned Surfrider Monterey reply draft (10-08) is no longer in Drafts and was not
+sent; inbox owner's lane. `in:sent` since 10-25: 28 threads, one page; **no outreach sent after 10-25**. Inbound from
+every contacted outreach domain (recent and older: Sea Grant, Cape Cod Surfrider, Island Free Press, Oregon Coast
+Today, Coastal Review, UML, Surfrider, surf schools) in the last 14 to 30 days, trash included: none. Bounces: none.
+
+| Finding | Correction |
+|---|---|
+| Surfrider Rincón and Space Coast: sent 10-18, no reply in 19 days, no follow-up yet | Follow-ups drafted (below) |
+| OCNJ Daily, Jersey Shore Online: sent 10-25, no reply | Follow-ups eligible 2026-11-08 |
+| Ken Merrill: capecodsurfrider.org home 200, zero `quiversurf`; `/surf-report` 404 | Unchanged; inbox-owned |
+| October | **10 sent, final**; November **0 sent** so far |
+
+### Drafted (3)
+
+| Target | Email | Page(s) (200, in sitemap, embeds render) | Kind |
+|---|---|---|---|
+| Surfrider Rincón chapter | chair@rincon.surfrider.org | `/pr/rincon` hub (six breaks) | the one permitted follow-up, threaded into the 10-18 original |
+| Surfrider Space Coast chapter | chair@spacecoast.surfrider.org | Satellite Beach, Cocoa Beach Pier | the one permitted follow-up, threaded into the 10-18 original |
+| Ventura Surf School | venturasurfschool@gmail.com | diffraction guide, `mondos-beach-ventura-ca` | cold; carries the 11-03 Pitch |
+
+**Two superseded reply drafts (created 10:37Z, same two recipients) need hand deletion.** Their first sentence said the
+earlier link "went out wrapped in a Google redirect" and offered a clean one. Read-back showed the 10-18 originals'
+HTML part already had clean visible text, and the new drafts' hrefs and plain-text part are wrapped the same way, so the
+claim was false. Corrected replies were created at 10:39Z with `replyToMessageId`; `update_draft` was not used.
+
+Exact addresses checked in Drafts and `in:anywhere` (trash included) immediately before creation. `htmlBody` anchors
+with the URL as visible text. No dashes in prose, no competitor, no ML or accuracy claim, no `/forecast-accuracy`, no
+campaign parameters. Openings and closings differ across the three. No test drafts. Signed "Steve". Voice checked
+against Steven's own typed 09-09 reply to a user (short, plain, one direct question).
+
+### Checked, not drafted
+
+| Target | Reason |
+|---|---|
+| North Shore Surf Girls | Still verified and first in line; cap went to the two due follow-ups and the guide pitch. Third hold |
+| Ohana Surf Camp (ohanasurfcamp.com, Mondos) | Verified email on own site; held, same beach as Ventura Surf School. Next cold slot (see row) |
+| iSurf (isurfschool.com) | info@ address on its own homepage; teaching beach not confirmed from the HTML. Not drafted |
+| A-Frame Surf (aframesurf.com, Santa Claus Lane, Carpinteria) | Home 200, no email in the HTML; `/contact` not checked. Nearest Quiver page is Rincon, about 5 miles. Not verified |
+| Lovewater Surf School, Silver Strand Surf School | Guessed domains returned no connection; real sites not found this run. Not verified, not rejected |
+| Santa Barbara Adventure Company (sbadventureco.com) | Home 200, no email in the HTML. No-email guard |
+
+### Eligible for a follow-up, held
+
+OCNJ Daily and Jersey Shore Online from 11-08. Visit Carlsbad and Lost Coast Outpost follow-ups and Shaka Surf School
+are drafted and unsent. WA Sea Grant and Surfrider national unchanged (no hook).
+
+### Coverage gaps
+
+**Oxnard and Port Hueneme have no Quiver beach pages** (Silver Strand, Hollywood Beach, Port Hueneme; nearest page is
+C Street, Ventura, about 6 to 10 miles north across the harbors). Momentum Ride Shop, Silver Strand Surf School and the
+Channel Islands Boating Center teach there. Rye, NH and Long Beach Island, NJ remain open.
+
+## Run log — 2026-10-30 (3 drafts: Visit Carlsbad and Lost Coast Outpost follow-ups, Shaka Surf School)
+
+Rotation: **week 1 → surf schools.** Digest `Brand-Vault/seo-audit/2026-10-30/OUTREACH-DIGEST.json` (Node 22): 93 rows,
+**1 candidate** (North Shore Surf Girls, held; see its row). Research went to Charleston and Folly Beach surf schools,
+matching the content routine's 10-27 **Pitch** (`/learn/can-you-surf-in-south-carolina`, live, in the sitemap).
+
+### Gmail reconciliation (Step 0)
+
+Drafts: page 1 of the full list read (25 at 09:30 UTC; a second page exists only after this run's creates): 21 welcome
+drafts (10-30), inbox-owned replies (10-24 ×2, 10-26), one untitled draft (10-24). **No unsent SEO drafts** before this
+run. `in:sent` since 10-22: 32 threads, one page. Inbound from every contacted outreach domain since 10-15 (trash
+included): none. Bounces: none.
+
+| Finding | Correction |
+|---|---|
+| **All three 10-23 drafts SENT 2026-10-25** (Maui Now follow-up 07:05 PT, OCNJ Daily 07:07 PT, Jersey Shore Online 08:01 PT) | Maui Now → `follow-up`, exhausted; OCNJ, JSO → `sent`, follow-ups eligible 2026-11-08 |
+| Visit Carlsbad, Lost Coast Outpost: no reply in 14 days | Follow-ups drafted (below) |
+| **Isla Surf School was emailed 2026-06-29** from the personal Gmail address and never had a row | Row added as `sent`, not a follow-up candidate |
+| Rob (One More Wave) replied 10-23 to a 10-16 win-back email | Not SEO outreach; inbox owner's lane. Not touched |
+| October | **10 sent**, 1 response (recounted from `in:sent`) |
+
+### Drafted (3)
+
+| Target | Email | Page(s) (200, in sitemap, embeds render) | Kind |
+|---|---|---|---|
+| Visit Carlsbad | maria@visitcarlsbad.com | `/ca/carlsbad` | the one permitted follow-up, threaded into the 10-16 original |
+| Lost Coast Outpost | news@lostcoastoutpost.com | `clam-beach-ca`, `samoa-dunes-surf-area-ca` | the one permitted follow-up, threaded into the 10-16 original |
+| Shaka Surf School | follybeach@shakasurfschool.com | Washout North, Folly pier northside, SC guide | cold; offered for the conditions list in their FAQ; carries the 10-27 Pitch |
+
+Exact addresses searched in Drafts and `in:anywhere` (trash included) immediately before creation. The first Visit
+Carlsbad create returned a connection error; Drafts showed nothing to that address, so it was created once more (one
+draft exists). `htmlBody` anchors with the URL as visible text. No dashes in prose, no competitor named, no ML or
+accuracy claim, no `/forecast-accuracy`, no campaign parameters. Openings and closings differ. No test drafts. Signed
+"Steve". Voice matching not verified: the only recent sent outreach read was routine-drafted.
+
+### Checked, not drafted
+
+| Target | Reason |
+|---|---|
+| North Shore Surf Girls | Still verified and first in line; cap went to the two due follow-ups and the SC guide pitch |
+| Isla Surf School (islasurfschool-charleston.com) | Already emailed 2026-06-29 (untracked, see row) |
+| Carolina Salt (carolinasalt.com, Folly and IOP lessons) | Home and `/contact` 200, no email in the HTML. No-email guard |
+| McKevlin's Surf Shop (mckevlins.com, Folly) | Home 200, no email on home; `/contact` and `/about` 404 |
+| Salt Marsh Surf (saltmarshsurf.com, Isle of Palms) | Home 200, no email; contact paths 404 |
+| Charleston Surf Co, Float Club Surf Co | Guessed domains did not resolve; real sites not found this run. Not verified, not rejected |
+
+`host` timed out inside the sandbox for every domain this run; a curl 200 with a browser UA is the resolution evidence.
+
+### Eligible for a follow-up, held
+
+Rincón and Space Coast from 11-01 (next run); OCNJ Daily and Jersey Shore Online from 11-08. WA Sea Grant and
+Surfrider national unchanged (no hook).
+
+### Coverage gaps
+
+None new. Rye, NH and Long Beach Island, NJ remain open.
 
 ## Run log — 2026-10-23 (3 drafts: Maui Now follow-up, OCNJ Daily, Jersey Shore Online)
 
@@ -1097,18 +1344,22 @@ candidate. Logged as a follow-up, not fixed here — this run was a process test
 | NJ Sea Grant Consortium | `.org` research/extension | skreisler@njseagrant.org — **Samantha Kreisler, Director of Communications** (confirmed on their staff page) | `asbury-park-asbury-park-nj` | follow-up | Sent 2026-08-31; **follow-up SENT 2026-09-14 09:28 PT**, with its visible link as Gmail's `google.com/url?q=` wrapper (lands correctly). Exactly one 09-14 send on the thread; the clean replacement draft was removed unsent. 26 NJ beaches across 13 towns at send time; **28 across 15** in the 09-14 sitemap. The 09-14 follow-up points at their `/ripcurrents/` page, which links the NWS surf zone forecast but no per-beach resource. Follow-up exhausted after it. They publish rip-current and coastal-safety material. |
 | Washington Sea Grant (UW) | `.edu` research/extension | seagrant@uw.edu | `westport-beach` | sent | Sent 2026-08-25. 13 WA beaches. Westport is the state's main surf town. Follow-up eligible since 09-08; **held 2026-10-09**: waseagrant.uw.edu (now the canonical host) rechecked, programs are coastal hazards, king tides, tsunami preparedness and sea-level rise; no beach conditions or resource list to attach a page to. Same reason Barefoot Surf was held 09-25. |
 
-### Added 2026-10-02, 2026-10-09, 2026-10-16 and 2026-10-23 (local news, tourism and Surfrider chapters)
+### Added 2026-10-02 through 2026-11-13 (local news, tourism, Surfrider chapters, SC surf schools, King Tides Project)
 
 | Target | Type | Contact (verified on their own site) | Beach slug (200 + renders) | Status | Date | Notes |
 |--------|------|--------------------------------------|----------------------------|--------|------|-------|
-| Maui Now (PMG Hawaii) | Local news, Maui | newsdesk@mauinow.com | `hookipa` (Paia) | sent | 2026-10-04 | Drafted 10-02, **sent 2026-10-04 16:45 PT**. Runs a Maui Surf Forecast section at `/surf/`. No reply through 10-23. **Follow-up drafted 2026-10-23** into the 10-04 thread (the one permitted); follow-up exhausted once sent. |
+| Maui Now (PMG Hawaii) | Local news, Maui | newsdesk@mauinow.com | `hookipa` (Paia) | follow-up | 2026-10-25 | Drafted 10-02, **sent 2026-10-04 16:45 PT**. Runs a Maui Surf Forecast section at `/surf/`. No reply through 10-23. Follow-up drafted 10-23, **sent 2026-10-25 07:05 PT**. No reply through 10-30. Follow-up exhausted; do not contact again unless they reply. |
 | Surfrider Foundation Monterey chapter | `.org` chapter | chair@monterey.surfrider.org | `del-monte-beach-monterey-ca` | responded | 2026-10-07 | Drafted 10-02, **sent 2026-10-04 16:45 PT**. Chair Peter Adame **replied 2026-10-07**: "This is very cool… checking out the various forecasts for a potential surf this weekend." No link ask was made; the email asked him to pass the page to Jeff White for the KRML report. **Inbox-owned** from here: a reply draft exists (10-08, unsent). This routine does not draft to it. |
-| Surfrider Foundation Rincón chapter | `.org` chapter, Puerto Rico | chair@rincon.surfrider.org (`/about`) | `tres-palmas`, `domes` (`/pr/rincon` hub, six breaks) | sent | 2026-10-18 | Never contacted (Gmail by address and domain, trash included: zero). Their About page: chapter formed 2001 to create the Reserva Marina Tres Palmas; current goal a natural reserve "beginning at Little Malibu and going past Domes". Draft shares the Tres Palmas and Domes pages and asks for a pass-along to whoever runs the site. |
-| Surfrider Foundation Space Coast chapter | `.org` chapter, Brevard County FL | chair@spacecoast.surfrider.org (`/about`, `/beach-guardians`; a named program lead's address is also on `/beach-guardians`) | `cocoa-beach-pier-cocoa-beach-fl` (nine Brevard pages: Cocoa Beach ×2, Cherie Down Park, Indialantic, Satellite Beach ×3, Sebastian Inlet, Spanish House) | sent | 2026-10-18 | Never contacted. Their Beach Guardians program: volunteers each adopt a Brevard beach for monthly/quarterly cleanups, habitat monitoring and "extreme weather event documentation". Draft offers the Cocoa Beach Pier page as a resource for that page. Ron Jon, the Inn at Cocoa Beach and Cocoa Beach Surf School are separate organisations already in this file. |
-| Visit Carlsbad | Tourism board, Carlsbad CA | maria@visitcarlsbad.com (Maria Riley, PR and Communications Manager, `/press-media/`) | `/ca/carlsbad` hub; `/learn/beginner-breaks-carlsbad` | sent | 2026-10-16 | Never contacted. Their Weather & Surf Report page lists Tamarack, State Beach, Ponto and Terramar but embeds only a third-party South Carlsbad widget. Fits the 10-13 content Pitch. |
-| Lost Coast Outpost | Local news, Humboldt County CA | news@lostcoastoutpost.com (editorial inbox, `/about/`; editor Hank Sims at hank@ if needed) | `clam-beach-ca` (McKinleyville), `samoa-dunes-surf-area-ca` | sent | 2026-10-16 | Never contacted. Reposts NWS beach hazards statements on big swells; El Niño prep story 2026-10-03. Draft offers swell numbers ahead of the next sneaker-wave warning. |
-| OCNJ Daily (Fideri News Network) | Local news, Ocean City NJ | news@fiderinews.com ("For news and editorial info", Cloudflare-decoded on `ocnjdaily.com/about/`) | `7th-street-beach-ocean-city-nj`, `1st-street-jetty-ocean-city-nj`, `12th-street-jetty-sea-isle-city-nj` | drafted | 2026-10-23 | Never contacted (Gmail by address and domain, trash included: zero). Hook: their 2026-10-20 "Minor coastal flooding expected in Ocean City" weather story. Same inbox serves sister site Sea Isle News, so it is one target; do not pitch Sea Isle News separately. Offer: link the pages from weather coverage, swell numbers for storm stories. |
-| Jersey Shore Online (Micromedia Publications) | Local news, Ocean County NJ (Toms River Times, Berkeley, Brick, Manchester and other weeklies) | news@jerseyshoreonline.com (`/contact/`: newsroom address for "feedback or story ideas") | `ortley-beach-toms-river-nj`, `seaside-park-seaside-park-nj`; `/learn/can-you-surf-in-new-jersey` | drafted | 2026-10-23 | Never contacted. Covers rough-surf and surf-contest stories (Seaside Park, 2026-06-06). Carries the 10-20 content Pitch: the new NJ guide (live, in sitemap). Draft asks for a mention or a link from a beach story. |
+| Surfrider Foundation Rincón chapter | `.org` chapter, Puerto Rico | chair@rincon.surfrider.org (`/about`) | `tres-palmas`, `domes` (`/pr/rincon` hub, six breaks) | follow-up | 2026-11-06 | Never contacted (Gmail by address and domain, trash included: zero). Their About page: chapter formed 2001 to create the Reserva Marina Tres Palmas; current goal a natural reserve "beginning at Little Malibu and going past Domes". Draft shares the Tres Palmas and Domes pages and asks for a pass-along to whoever runs the site. **Sent 2026-10-18; no reply through 11-06. Follow-up drafted 2026-11-06** into the 10-18 thread (the one permitted): the `/pr/rincon` hub. A first version claimed a "clean link" fix and was superseded the same run; delete the 10:37Z draft by hand. **Follow-up SENT 2026-11-06 06:12 PT** (the corrected 10:39Z draft). The superseded 10:37Z draft is gone from Drafts and was not sent (thread has two messages). No reply through 11-13. Follow-up exhausted. |
+| Surfrider Foundation Space Coast chapter | `.org` chapter, Brevard County FL | chair@spacecoast.surfrider.org (`/about`, `/beach-guardians`; a named program lead's address is also on `/beach-guardians`) | `cocoa-beach-pier-cocoa-beach-fl` (nine Brevard pages: Cocoa Beach ×2, Cherie Down Park, Indialantic, Satellite Beach ×3, Sebastian Inlet, Spanish House) | follow-up | 2026-11-06 | Never contacted. Their Beach Guardians program: volunteers each adopt a Brevard beach for monthly/quarterly cleanups, habitat monitoring and "extreme weather event documentation". Draft offers the Cocoa Beach Pier page as a resource for that page. **Sent 2026-10-18; no reply through 11-06. Follow-up drafted 2026-11-06** into the 10-18 thread (the one permitted): adds Satellite Beach. A first version claimed a "clean link" fix and was superseded the same run; delete the 10:37Z draft by hand. Ron Jon, the Inn at Cocoa Beach and Cocoa Beach Surf School are separate organisations already in this file. **TWO follow-ups SENT 2026-11-06**, 17 s apart: 06:12:31 PT the corrected draft, then 06:12:48 PT the **superseded** draft whose first line falsely says the last link "came through as a Google redirect". One over the limit. No reply through 11-13. Follow-up exhausted; do not contact again. **Settled 2026-11-13 (Steven): no correction. Do not re-raise or draft one.** |
+| Visit Carlsbad | Tourism board, Carlsbad CA | maria@visitcarlsbad.com (Maria Riley, PR and Communications Manager, `/press-media/`) | `/ca/carlsbad` hub; `/learn/beginner-breaks-carlsbad` | follow-up | 2026-11-06 | Never contacted. Their Weather & Surf Report page lists Tamarack, State Beach, Ponto and Terramar but embeds only a third-party South Carlsbad widget. Fits the 10-13 content Pitch. No reply through 10-30. **Follow-up drafted 2026-10-30** into the 10-16 thread (the one permitted; the surf report page still embeds only the South Carlsbad widget). Follow-up exhausted once sent. **Follow-up SENT 2026-11-06 06:14 PT**; no reply through 11-13. Follow-up exhausted; do not contact again unless they reply. |
+| Lost Coast Outpost | Local news, Humboldt County CA | news@lostcoastoutpost.com (editorial inbox, `/about/`; editor Hank Sims at hank@ if needed) | `clam-beach-ca` (McKinleyville), `samoa-dunes-surf-area-ca` | follow-up | 2026-11-06 | Never contacted. Reposts NWS beach hazards statements on big swells; El Niño prep story 2026-10-03. Draft offers swell numbers ahead of the next sneaker-wave warning. No reply through 10-30. **Follow-up drafted 2026-10-30** into the 10-16 thread (the one permitted, a plain nudge; no swell hook on their front page this week). Follow-up exhausted once sent. **Follow-up SENT 2026-11-06 06:14 PT**; no reply through 11-13. Follow-up exhausted. |
+| OCNJ Daily (Fideri News Network) | Local news, Ocean City NJ | news@fiderinews.com ("For news and editorial info", Cloudflare-decoded on `ocnjdaily.com/about/`) | `7th-street-beach-ocean-city-nj`, `1st-street-jetty-ocean-city-nj`, `12th-street-jetty-sea-isle-city-nj` | follow-up | 2026-11-20 | **Sent 2026-10-25 07:07 PT**; no reply through 10-30; follow-up eligible 2026-11-08. Never contacted before (Gmail by address and domain, trash included: zero). Hook: their 2026-10-20 "Minor coastal flooding expected in Ocean City" weather story. Same inbox serves sister site Sea Isle News, so it is one target; do not pitch Sea Isle News separately. Offer: link the pages from weather coverage, swell numbers for storm stories. **2026-11-13: follow-up drafted** into the 10-25 thread (the one permitted): `/tide/ocean-city-nj` and `/tide/sea-isle-city` (both 200, in sitemap, titles say New Jersey) for flood stories. Follow-up exhausted once sent. **Follow-up SENT 2026-11-20** (Steven's chat request). Follow-up exhausted; do not contact again unless they reply. |
+| Jersey Shore Online (Micromedia Publications) | Local news, Ocean County NJ (Toms River Times, Berkeley, Brick, Manchester and other weeklies) | news@jerseyshoreonline.com (`/contact/`: newsroom address for "feedback or story ideas") | `ortley-beach-toms-river-nj`, `seaside-park-seaside-park-nj`; `/learn/can-you-surf-in-new-jersey` | follow-up | 2026-11-20 | **Sent 2026-10-25 08:01 PT**; no reply through 10-30; follow-up eligible 2026-11-08. Never contacted before. Covers rough-surf and surf-contest stories (Seaside Park, 2026-06-06). Carries the 10-20 content Pitch: the new NJ guide (live, in sitemap). Draft asks for a mention or a link from a beach story. **2026-11-13: follow-up drafted** into the 10-25 thread (the one permitted): the NJ guide again, framed for a fall, winter or nor'easter story (the guide says fall is best, winter most consistent). No Ocean County tide page exists (`/tide/seaside` is Seaside, Oregon). Follow-up exhausted once sent. **Follow-up SENT 2026-11-20** (Steven's chat request). Follow-up exhausted; do not contact again unless they reply. |
+| Shaka Surf School | Surf school, Folly Beach SC | follybeach@shakasurfschool.com (site contact email in its own schema.org and footer, `/` and `/about`) | `washout-north-folly-beach-sc`, `folly-beach-pier-northside-folly-beach-sc`; `/learn/can-you-surf-in-south-carolina` | follow-up | 2026-11-20 | Never contacted (Gmail `in:anywhere` + Drafts by address and domain, trash included: zero). Lessons at 6th Street East, between the pier and the Washout. Their `/about` FAQ answers "Where can I find more information on current surf conditions?" with a list of third-party forecast and cam links; the draft offers the Washout and pier pages for that list plus the new SC guide (10-27 content Pitch). Follow-up eligible 14 days after it is sent. **Sent 2026-11-06 06:14 PT**; no reply through 11-20. **2026-11-20: follow-up drafted** into the 11-06 thread (the one permitted): the Washout and pier tide pages (200, in sitemap). Their `/about` FAQ conditions list still has zero `quiversurf` references. Follow-up exhausted once sent. **Follow-up SENT 2026-11-20** (Steven's chat request). Follow-up exhausted. |
+| Isla Surf School | Surf school, Folly Beach and Isle of Palms SC | peter@ and shane@islasurfschool-charleston.com (on `/` and `/contact`, 200) | Folly pages | sent | 2026-06-29 | **Untracked send found 2026-10-30:** "Free surf conditions widget for Isla Surf School" went to peter@ on 2026-06-29 from the personal Gmail address, no reply. Never had a row. Over four months old with no reply; not a follow-up candidate. Do not cold pitch shane@ as if new. |
+| Visit Pacifica | Tourism site, Pacifica CA | info@visitpacifica.com (the site's Contact address on its homepage, 2026-11-20) | `linda-mar-pacifica-ca`, `rockaway-beach-pacifica-ca`, `sharp-park-beach-pacifica-ca`; `/learn/what-is-a-rogue-wave` | queued | | Never contacted (Gmail `in:anywhere` by domain, trash included: zero). Has Beaches and Surfing pages. Verified and draftable; held 11-20 because the cap went to North Shore Surf Girls and two due follow-ups. **First in line for the next cold slot**, with the 11-17 rogue wave Pitch (sneaker waves on Pacifica beaches). Nor Cal Surf Shop (Linda Mar) is a separate, exhausted row. |
+| California King Tides Project (California Coastal Commission) | `.gov` statewide program | kingtides@coastal.ca.gov (project contact, `mailto:` twice on `coastal.ca.gov/kingtides/`, 2026-11-13) | `/learn/what-is-a-king-tide`; `/tide/la-jolla`, `/tide/san-francisco` | sent | 2026-11-20 | Never contacted (Gmail `in:anywhere` + Drafts by address and domain, trash included: zero). Their page lists the same three statewide runs the guide uses (Nov 24-26, Dec 23-25, Jan 21-22), links NOAA tide predictions, and asks participants to prioritize safety. Carries the 11-10 content Pitch. Cold draft offers the guide plus city tide charts for picking a time and a safe spot. No proximity gate (statewide). Follow-up eligible 14 days after it is sent. **Still unsent 2026-11-20.** Time-sensitive: the first king tide run it names starts Nov 24; after Nov 26 its timing hook is weaker. **SENT 2026-11-20 by Steven's chat request** (Gmail), before the Nov 24 run. Follow-up eligible 2026-12-04. |
 
 `.edu` and `.org` links from Sea Grant and Surfrider are worth materially more than a surf-shop
 footer link, and these organisations publish "coastal resources" pages that already link out to
@@ -1270,7 +1521,8 @@ The SEO Outreach Drafter agent follows this rotation:
 | July 2026 | **at least 9** (recounted from Gmail 2026-09-14 — 07-08: Surf Diva, Ben Gravy, Kale Brock, Surf Simply; 07-28: The Inertia, Outside Online, Stab, BeachGrit, Eos) | 2 (Stab, Surf Simply) | 0 | 0 |
 | August 2026 | **43 sent** (34 through 08-25 + a 9-send 08-31 batch the 08-31 recount pre-dated) | 2 (Oregon Coast Today, Island Free Press — both landed in September) | 0 | 0 |
 | September 2026 | **17 sent, 16 delivered** (09-26 08:43 PT follow-ups: Hans Hedemann, Ron Jon, Skudin added; 10-02 drafts Maui Now and Surfrider Monterey unsent) · earlier: **14 sent, 13 delivered** (recounted from `in:sent` 2026-09-25 · 09-07: Barefoot Surf, Hans Hedemann, Ken Merrill, Ron Jon · 09-08 19:03 PT follow-ups: OBX Surf School, Rincon Surf School, and Oregon Surf Adventures, which **bounced** · 09-14 09:28 PT follow-ups: NJ Sea Grant, Whatever Sportfishing · 09-14 09:32 PT follow-up: UMass Lowell · 09-21 10:19 PT follow-ups: Nor Cal Surf Shop, Shoreline OBX, Inn at Cocoa Beach, Coastal Review) · unsent SEO drafts as of 12:10 PT 09-25: this run's 3 follow-ups (Hans Hedemann, Ron Jon, Skudin) | 3 (Island Free Press passed 09-02, Oregon Coast Today intrigued 09-04, Ken Merrill agreed 09-07); none since | **1 link placement, since lost** (capecodsurfrider.org, 2 links, live 09-09 through 09-25, **gone by 10-09**; links, not an embed) | 0 confirmed. Not in GSC Links (09-24 or 10-08); the Ahrefs credit check is **blocked**: newest per-domain export is still 2026-08-25 |
-| October 2026 | **7 sent** so far, recounted from `in:sent` 2026-10-23 (10-04 16:45 PT: Maui Now, Surfrider Monterey; 10-16 17:08 PT: Visit Carlsbad, Lost Coast Outpost; 10-18 07:08 PT: Surfrider Rincón, Surfrider Space Coast; 10-18 07:24 PT: PR Sea Grant follow-up) · unsent SEO drafts as of 10-23: this run's 3 (Maui Now follow-up, OCNJ Daily, Jersey Shore Online) | 1 (Surfrider Monterey chair, 10-07: "This is very cool", exploring the forecasts; inbox-owned reply draft 10-08, unsent) | 0 | 0 |
+| October 2026 | **10 sent, final** (re-checked 2026-11-06: no outreach sent after 10-25), recounted from `in:sent` 2026-10-30 (10-25 07:05 to 08:01 PT: Maui Now follow-up, OCNJ Daily, Jersey Shore Online; 10-04 16:45 PT: Maui Now, Surfrider Monterey; 10-16 17:08 PT: Visit Carlsbad, Lost Coast Outpost; 10-18 07:08 PT: Surfrider Rincón, Surfrider Space Coast; 10-18 07:24 PT: PR Sea Grant follow-up) · unsent SEO drafts as of 10-30: this run's 3 (Visit Carlsbad follow-up, Lost Coast Outpost follow-up, Shaka Surf School) | 1 (Surfrider Monterey chair, 10-07: "This is very cool", exploring the forecasts; inbox-owned reply draft 10-08, unsent) | 0 | 0 |
+| November 2026 | **7 sent** through 2026-11-13, recounted from `in:sent` (all 2026-11-06 06:12 to 06:14 PT: follow-ups to Visit Carlsbad, Lost Coast Outpost, Surfrider Rincón, Surfrider Space Coast ×2 (the second is the superseded draft); cold: Shaka Surf School, Ventura Surf School) · **13 sent as of 2026-11-20**: the 7 on 11-06 plus 6 sent 2026-11-20 at Steven's chat request (King Tides Project, North Shore Surf Girls; follow-ups to OCNJ Daily, Jersey Shore Online, Ventura Surf School, Shaka Surf School); none bounced at check time · at run time: 7 (recounted from `in:sent`; no outreach after 11-06) · unsent SEO drafts as of 11-20: the 3 from 11-13 (OCNJ Daily and Jersey Shore Online follow-ups, California King Tides Project) and the 3 from 11-20 (North Shore Surf Girls; Ventura Surf School and Shaka Surf School follow-ups) | 0 | 0 | 0 |
 
 **Recounted 2026-08-31 from Gmail**, not from this file. The 08-24 recount said 15; the real August
 figure is **34**. Two independent omissions, in opposite directions in time:
