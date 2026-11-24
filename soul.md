@@ -74,7 +74,7 @@ Work directly by default. Named agents, orchestration frameworks, MCP servers, p
 - `graphify query "<question>" --graph /Users/stevenchandler/Desktop/dev/quiver/graphify-out/graph.json`
 - `graphify explain "<table or symbol>" --graph …`, `graphify path "<A>" "<B>" --graph …`, `graphify affected "<table or symbol>" --graph …`
 
-The graph has no code-to-table edges; find callers with `.from('<table>')` or `.rpc('<fn>')`. `graphify-out/BUILT_FROM` gives the commit; confirm in the files before you edit. Rebuild with `/Users/stevenchandler/Desktop/dev/.quiver/bin/graphify-refresh quiver` (schema DDL from `yarn graph:schema`; `.graphifyignore` keeps migrations and raw SQL out).
+Table nodes have the id `schema_public_schema_<name>` (for example `graphify affected "schema_public_schema_beaches"`); use the id, because a bare label such as `beaches` also matches code and fixtures. The graph has no code-to-table edges; find callers with `.from('<table>')` or `.rpc('<fn>')`. `graphify-out/BUILT_FROM` gives the commit; confirm in the files before you edit. Rebuild with `/Users/stevenchandler/Desktop/dev/.quiver/bin/graphify-refresh quiver` (schema DDL from `yarn graph:schema`; `.graphifyignore` keeps migrations and raw SQL out).
 
 Load only the references relevant to the task:
 
