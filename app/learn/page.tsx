@@ -117,6 +117,7 @@ const CATEGORIES: {
       "how-do-tides-work",
       "what-is-a-king-tide",
       "what-is-a-rogue-wave",
+      "where-to-watch-mavericks",
     ],
   },
   {
