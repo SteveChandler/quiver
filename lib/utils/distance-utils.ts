@@ -161,6 +161,16 @@ export function bearingFromTo(
   from: { lat: number; lon: number },
   to: { lat: number; lon: number }
 ): CompassPoint {
+  // 45° buckets centered on each cardinal: round(deg / 45) mod 8.
+  const idx = Math.round(bearingDegreesFromTo(from, to) / 45) % 8;
+  return COMPASS_POINTS[idx];
+}
+
+/** Great-circle initial bearing from `from` → `to` in degrees, 0 (north) to <360. */
+export function bearingDegreesFromTo(
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number }
+): number {
   const phi1 = toRadians(from.lat);
   const phi2 = toRadians(to.lat);
   const dLambda = toRadians(to.lon - from.lon);
@@ -172,11 +182,7 @@ export function bearingFromTo(
 
   // atan2(0, 0) = 0 — same-point degenerate case maps to "N".
   const theta = Math.atan2(y, x);
-  const bearingDeg = ((theta * 180) / Math.PI + 360) % 360;
-
-  // 45° buckets centered on each cardinal: round(deg / 45) mod 8.
-  const idx = Math.round(bearingDeg / 45) % 8;
-  return COMPASS_POINTS[idx];
+  return ((theta * 180) / Math.PI + 360) % 360;
 }
 
 /**

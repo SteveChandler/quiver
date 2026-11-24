@@ -30,6 +30,14 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { bindStory, isWeekScoutStoryEnabled, prepareStory } from '@/lib/services/discovery/week-scout-story-serve';
 import { isWeekScoutStoryUserAllowed } from '@/lib/flags/week-scout-story';
 import {
+  FARTHER_OUT_MAX_MILES,
+  isWeekScoutFartherOutEnabled,
+  loadFartherOutPool,
+  rankFartherOut,
+  settleFartherOut,
+  type FartherOutCandidate,
+} from '@/lib/services/discovery/week-scout-farther-out';
+import {
   formatServerTiming,
   recordStage,
   runWithStageTimings,
@@ -199,6 +207,9 @@ async function weekScoutHandler(
   let scopeNearestBeach: { id: string; name: string; slug: string; lat: number; lon: number; distanceMiles: number } | null = null;
   let rankingLocation = userLocation;
   let candidateBeaches: Array<{ beachId: string; beachName: string; beachSlugOrRef: string; distanceMiles: number | null; timezone: string | null; lat: number; lon: number }> | undefined;
+  // Opt-in so installed clients that never ask pay nothing and see no change.
+  const wantsFartherOut = new URL(request.url).searchParams.get('fartherOut') === '1' && isWeekScoutFartherOutEnabled();
+  let fartherOut: { anchor: { lat: number; lon: number }; innerRadiusMiles: number; pool: Promise<FartherOutCandidate[]> } | null = null;
   if (completeRadiusScope?.kind === 'complete-radius' && !completeRadiusScope.mapBounds) {
     if (profileError !== null) throw new Error(`Failed to load Week Scout profile: ${profileError}`);
     const homeBeachId = profile?.home_beach_id ?? null;
@@ -211,6 +222,18 @@ async function weekScoutHandler(
     scopeAnchor = resolvedAnchor.source;
     rankingLocation = anchor;
     scopeRadiusMiles = Math.min(Math.max(0.5, driveRadiusMiles(profile?.max_drive_minutes)), MAX_RADIUS_MILES);
+    if (wantsFartherOut && scopeRadiusMiles < FARTHER_OUT_MAX_MILES) {
+      const pending = loadFartherOutPool(user.id, {
+        anchor,
+        homeBeachId,
+        innerRadiusMiles: scopeRadiusMiles,
+        experienceLevel: profile?.experience_level ?? null,
+        filters: completeRadiusScope.filters,
+      });
+      // Settled later; the handler keeps a failed read from becoming an unhandled rejection meanwhile.
+      pending.catch(() => undefined);
+      fartherOut = { anchor, innerRadiusMiles: scopeRadiusMiles, pool: pending };
+    }
     const pool = await buildDriveRangeCandidatePool(user.id, {
       anchor,
       homeBeachId,
@@ -222,6 +245,8 @@ async function weekScoutHandler(
     if (pool.widenedFromMiles !== undefined) {
       scopeWidenedFromMiles = pool.widenedFromMiles;
       scopeRadiusMiles = MAX_RADIUS_MILES;
+      // A widened scope already reaches past the outer ring.
+      fartherOut = null;
     }
     scopeNearestBeach = pool.nearestBeach ?? null;
     scopeCandidateCounts = {
@@ -346,12 +371,33 @@ async function weekScoutHandler(
   const answerKey = createHash('sha256')
     .update(`${user.id}|${tags.profileKey ?? ''}|${JSON.stringify(forecastRequest)}`)
     .digest('hex');
-  const forecast = await timeStage('forecast', () => reuseWeekScoutAnswer(
+  const pendingForecast = timeStage('forecast', () => reuseWeekScoutAnswer(
     answerKey,
     user.id,
     () => generateWeekScoutForecast(user.id, forecastRequest),
     (reuse) => { tags.answerReuse = reuse; },
   ));
+  // Ranked beside the main answer and outside its reuse key, so the normal response is untouched.
+  const pendingFartherOut = fartherOut
+    ? settleFartherOut((async () => rankFartherOut(user.id, {
+      pool: await fartherOut.pool,
+      inRangeIds: candidateBeachIds,
+      innerRadiusMiles: fartherOut.innerRadiusMiles,
+      anchor: fartherOut.anchor,
+      request: {
+        ...(sessionTime ? { sessionTime } : {}),
+        localTimezone: parsed.data.localTimezone,
+        startLocalDate: parsed.data.startLocalDate,
+        dayCount: parsed.data.dayCount,
+        userLocation: fartherOut.anchor,
+        ...(surferDriveRadiusMiles !== undefined ? { driveRadiusMiles: surferDriveRadiusMiles } : {}),
+        requirePerRowFreshness: true,
+      },
+      inRange: pendingForecast,
+    }))())
+    : null;
+  const forecast = await pendingForecast;
+  const fartherOutDays = pendingFartherOut ? await pendingFartherOut : null;
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
   const unavailableStory = () => bindStory({ region: null, availability: 'unavailable', input: null, selections: null, live: forecast });
   const bindLiveStory = pendingStory ? await pendingStory : null;
@@ -379,6 +425,14 @@ async function weekScoutHandler(
     : undefined;
   return timeStageSync('serialize', () => createSuccessResponse({
     ...forecastPayload,
+    ...(fartherOutDays && fartherOutDays.size > 0
+      ? {
+          days: forecastPayload.days.map((day) => {
+            const row = fartherOutDays.get(day.localDate);
+            return row ? { ...day, fartherOut: row } : day;
+          }),
+        }
+      : {}),
     ...(candidateBeaches ? { candidateBeaches } : {}),
     ...(coverage ? { coverage } : {}),
     ...(swellsEnabled && swells ? { swells } : {}),
