@@ -840,9 +840,34 @@ async function buildSharedCall(
   const peakMs = Date.parse(pick.peakTime);
   const peak = [...forecasts].sort((left, right) =>
     Math.abs(Date.parse(left.forecast_at) - peakMs) - Math.abs(Date.parse(right.forecast_at) - peakMs))[0];
-  if (verdictById.get(peak.id) !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
+  // The skip count alone cannot say whose call disagreed or with what (quiver#1536).
+  const logMismatch = (gate: "peak_row" | "decision", cron: Record<string, unknown>): void => {
+    console.info("[daily-call] ranking_verdict_mismatch", {
+      userId: profile.id,
+      gate,
+      beachId: pick.beachId,
+      windowId: pick.id,
+      peakTime: pick.peakTime,
+      weekScout: { personalVerdict: pick.personalVerdict, conditionScore: pick.conditionScore },
+      cron,
+    });
+  };
+  const peakVerdict = verdictById.get(peak.id) ?? "no";
+  if (peakVerdict !== "go") {
+    const peakEvaluation = evaluations.find((value) => value.forecast.id === peak.id);
+    logMismatch("peak_row", { verdict: peakVerdict, score: peakEvaluation?.score ?? null, forecastAt: peak.forecast_at });
+    return { skip: "ranking_verdict_mismatch", heldReasons };
+  }
   const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
-  if (decision.verdict !== "go") return { skip: "ranking_verdict_mismatch", heldReasons };
+  if (decision.verdict !== "go") {
+    logMismatch("decision", {
+      verdict: decision.verdict,
+      reasonCode: decision.reasonCode,
+      score: evaluation.score,
+      forecastAt: evaluation.forecast.forecast_at,
+    });
+    return { skip: "ranking_verdict_mismatch", heldReasons };
+  }
   winner.sourceForecast = evaluation.forecast;
   winner.physicalScore = evaluation.score;
   winner.decisionId = decision.decisionId;
