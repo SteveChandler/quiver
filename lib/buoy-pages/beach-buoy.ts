@@ -5,7 +5,7 @@
  */
 
 import { SITE_URL } from "@/lib/constants/seo";
-import type { WaveStationObservationRow } from "@/lib/services/wave-stations/types";
+import type { WaveStationHistoryRow, WaveStationObservationRow } from "@/lib/services/wave-stations/types";
 import { stationPath } from "./geo-names";
 import { buildReadingSentence } from "./reading";
 import { buildTrendSeries, computeHeightTrend, selectNowObservation, type TrendDirection } from "./series";
@@ -75,7 +75,7 @@ function roundTo(value: number, digits: number): number {
   return Math.round(value * factor) / factor;
 }
 
-function toNow(row: WaveStationObservationRow): BeachBuoyNow {
+function toNow(row: WaveStationHistoryRow): BeachBuoyNow {
   return {
     waveHeightM: row.wave_height_m,
     dominantPeriodS: row.dominant_period_s,

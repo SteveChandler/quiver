@@ -47,6 +47,11 @@ describe("daily call copy", () => {
     expect(swellPhrase({ wave_height: "3 ft", wave_period: "11.4", wave_direction: null })).toBe("2–3 ft at 11s");
   });
 
+  it("states no swell phrase without a size, never a bare \"at 15s WSW\"", () => {
+    expect(swellPhrase({ wave_height: null, wave_period: "15", wave_direction: "WSW" })).toBe("");
+    expect(swellPhrase({})).toBe("");
+  });
+
   it("calls light wind light instead of printing its speed", () => {
     expect(windPhrase({ wind_speed: "3", wind_direction: "W" })).toBe("light wind");
     expect(windPhrase({ wind_speed: "8.4", wind_direction: "WNW" })).toBe("8 mph WNW wind");
@@ -64,11 +69,11 @@ describe("daily call copy", () => {
     expect(limitSentence([], end, TZ)).toBe("Good until 11 AM.");
   });
 
-  describe("tide swing (TIDE_SWING_ENABLED)", () => {
-    const originalFlag = process.env.TIDE_SWING_ENABLED;
+  describe("tide swing (NEXT_PUBLIC_TIDE_SWING_ENABLED)", () => {
+    const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     afterEach(() => {
-      if (originalFlag === undefined) delete process.env.TIDE_SWING_ENABLED;
-      else process.env.TIDE_SWING_ENABLED = originalFlag;
+      if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+      else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
     });
 
     // PB Point (band 2-4 ft) on Tue 2026-10-27, its real hourly tide from the 9:47 AM high.
@@ -99,14 +104,14 @@ describe("daily call copy", () => {
     }
 
     it("flag off keeps the falling-tide sentence for a window the drop opens and closes", () => {
-      delete process.env.TIDE_SWING_ENABLED;
+      delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
       const window = dropWindow()!;
       expect(window.drivers.every((value) => value.bandEdge === undefined)).toBe(true);
       expect(limitSentence(window.drivers, window.end, TZ)).toBe("Best before the tide drops around 2 PM.");
     });
 
     it("flag on names the drop through the band, with times from the refined window", () => {
-      process.env.TIDE_SWING_ENABLED = "true";
+      process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = "true";
       const window = dropWindow()!;
       expect(window.drivers.map(({ edge, bandEdge }) => [edge, bandEdge])).toEqual([["start", "max"], ["end", "min"]]);
       expect(limitSentence(window.drivers, window.end, TZ))
@@ -146,5 +151,18 @@ describe("daily call copy", () => {
       .toBe("Less wind than OB Pier today");
     expect(comparisonLine({ forecast: { wave_height: "2.8", wave_period: "11", wind_speed: "3" }, minutes: 180 }, home))
       .toBe("Rated higher than OB Pier today");
+  });
+});
+
+describe("daily body slots are never empty", () => {
+  it.each([[{}], [{ wind_speed: null }], [{ wind_speed: "" }], [{ wind_speed: "0" }], [{ wind_speed: "14", wind_direction: "" }]])(
+    "windPhrase fills the wind slot for %j",
+    (forecast) => {
+      expect(windPhrase(forecast as never).trim().length).toBeGreaterThan(0);
+    },
+  );
+
+  it("limitSentence fills the limit slot with no drivers", () => {
+    expect(limitSentence([], "2026-11-12T19:00:00.000Z", "America/Los_Angeles")).toBe("Good until 11 AM.");
   });
 });

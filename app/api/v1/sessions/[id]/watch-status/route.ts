@@ -3,6 +3,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { isMissingTable, type MergeResult } from "@/lib/sessions/imports/watch-claims";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -47,7 +48,7 @@ async function findSupersedingWatchSession(
 
 // The phone polls this after saving a session that claimed a watch recording. Reads run as the
 // user, so RLS on sessions, session_watch_claims and session_imports scopes every row.
-export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
+const handleGet = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
   if (!z.uuid().safeParse(params.id).success) return createErrorResponse("invalid_request", undefined, 400);
 
   const { data: session, error: sessionError } = await supabase.from("sessions")
@@ -86,3 +87,5 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     keptFields: merge.success ? merge.data.keptFields : [],
   } satisfies WatchStatusResponse);
 }, { errorMessage: "Failed to load watch status" }), "authenticated-default"));
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/sessions/[id]/watch-status");

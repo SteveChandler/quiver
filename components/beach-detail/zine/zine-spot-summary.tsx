@@ -7,7 +7,7 @@ interface ZineSpotSummaryProps {
 }
 
 export function ZineSpotSummary({ beach }: ZineSpotSummaryProps) {
-  const breakType = (beach.break_type || "Beach").toUpperCase();
+  const breakType = beach.break_type ? beach.break_type.toUpperCase() : null;
   const swellCardinal =
     degreeWindowToCardinal(beach.swell_window_min_deg ?? null, beach.swell_window_max_deg ?? null) ?? "—";
   const windCardinal =
@@ -26,8 +26,12 @@ export function ZineSpotSummary({ beach }: ZineSpotSummaryProps) {
     <section className="summary-strip mt-7" aria-label="Spot summary">
       <span className="tape tl" aria-hidden />
       <span className="tape br" aria-hidden />
-      <SummaryItem icon={<DoodleWave size={32} />} label="BREAK TYPE:" value={breakType} />
-      <Sep />
+      {breakType ? (
+        <>
+          <SummaryItem icon={<DoodleWave size={32} />} label="BREAK TYPE:" value={breakType} />
+          <Sep />
+        </>
+      ) : null}
       <SummaryItem icon={<DoodleCompass size={40} />} label="BEST SWELL:" value={swellCardinal} />
       <Sep />
       <SummaryItem icon={<DoodleWind size={40} />} label="BEST WIND / TIDE:" value={`${windCardinal} / ${tideRange}`} />

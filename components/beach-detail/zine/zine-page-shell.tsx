@@ -16,6 +16,7 @@ interface ZinePageShellProps {
   heroHeadingLevel?: ZineHeroHeadingLevel;
   heroHeadingSuffix?: string;
   heroSummarySlot?: ReactNode;
+  heroSummaryAboveMedia?: boolean;
   heroForecastSlot?: ReactNode;
   /**
    * The tabs container is rendered here so the cream-paper styling wraps
@@ -36,6 +37,7 @@ export function ZinePageShell({
   heroHeadingLevel,
   heroHeadingSuffix,
   heroSummarySlot,
+  heroSummaryAboveMedia,
   heroForecastSlot,
   children,
 }: ZinePageShellProps) {
@@ -55,6 +57,7 @@ export function ZinePageShell({
             headingLevel={heroHeadingLevel}
             headingSuffix={heroHeadingSuffix}
             summarySlot={heroSummarySlot}
+            summaryAboveMedia={heroSummaryAboveMedia}
             forecastSlot={heroForecastSlot}
           >
             <div className="zine-tabs-slot mt-7 min-w-0">{children}</div>

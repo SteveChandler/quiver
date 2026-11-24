@@ -55,4 +55,17 @@ describe("surf summary display contract", () => {
       tideSummary: "Tide 3.2 rising",
     });
   });
+
+  it("drops the Unknown sentinel instead of rendering it as a reading", () => {
+    const summary = buildCompactSurfSummary({
+      waveHeight: "Unknown",
+      windSummary: "Unknown",
+      tideStatus: "Unknown",
+    });
+
+    expect(summary.waveHeightHeadline).toBeNull();
+    expect(summary.windSummary).toBeNull();
+    expect(summary.tideSummary).toBeNull();
+    expect(summary.conditionLine).toBeNull();
+  });
 });

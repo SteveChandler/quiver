@@ -8,7 +8,7 @@ import {
   type RainRunoffMetadata,
   type RainfallReading,
 } from "./rainfall-runoff";
-import { RAIN_ADVISORY_EVENTS_TABLE, rainAdvisoryEventSchema, rainEventRegion, type RainAdvisoryEvent } from "./rain-advisory-events";
+import { RAIN_ADVISORY_EVENTS_TABLE, rainAdvisoryEventSchema, validRainAdvisoryEventRows, rainEventRegion, type RainAdvisoryEvent } from "./rain-advisory-events";
 
 export const RAINFALL_READINGS_TABLE = "rainfall_runoff_readings";
 
@@ -43,7 +43,8 @@ async function readActiveEvents(client: ReadingsClient): Promise<Map<string, Rai
   try {
     // Same key as the recommendation hold, so a request reads the events once.
     const { data, error } = await memoizedWaterQualityRead(client, `${RAIN_ADVISORY_EVENTS_TABLE}|*|active|metar_runoff`,
-      () => client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*").eq("status", "active").eq("source", "metar_runoff"));
+      () => client.from(RAIN_ADVISORY_EVENTS_TABLE).select("*").eq("status", "active").eq("source", "metar_runoff"),
+      { isValid: validRainAdvisoryEventRows });
     if (error || !Array.isArray(data)) return null;
     const events = new Map<string, RainAdvisoryEvent>();
     for (const raw of data) {

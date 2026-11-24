@@ -3,7 +3,7 @@ import { BREAKER_WORDS, checkWrittenSentence } from "./week-scout-story-claims";
 
 export interface GlanceWritten { fingerprint: string; text: string }
 export interface StoryGlance { sentences: string[]; source: Array<"code" | "written"> }
-export type GlanceWordingCheck = { ok: true }
+type GlanceWordingCheck = { ok: true }
   | { ok: false; reason: "feel_words" | "repeated_word" | "adjective_list" | "certainty" | "bigger" | "time_words" };
 
 export const CERTAINTY_PHRASES: readonly string[] = ["too early to call", "already in the water", "still in the water",
@@ -17,7 +17,7 @@ const BIGGER = wholePhrase("bigger");
 const FEEL_ENTRIES = BREAKER_WORDS.map((forms) => forms.map(wholePhrase));
 const CERTAINTY_BY_LENGTH = [...CERTAINTY_PHRASES].sort((a, b) => b.length - a.length);
 /** Parts of the day, read in order: the claim check counts them as a set, so it cannot tell an arrival's from a peak's. */
-export const GLANCE_TIME_WORDS: readonly string[] = ["early", "morning", "midday", "afternoon", "evening", "night", "tonight", "overnight"];
+const GLANCE_TIME_WORDS: readonly string[] = ["early", "morning", "midday", "afternoon", "evening", "night", "tonight", "overnight"];
 const TIME_WORD = new RegExp(`(?<![\\p{L}\\p{N}])(?:${GLANCE_TIME_WORDS.join("|")})(?![\\p{L}\\p{N}])`, "giu");
 
 function wholePhrase(phrase: string): RegExp {

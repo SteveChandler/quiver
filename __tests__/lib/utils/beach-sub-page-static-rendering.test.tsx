@@ -16,8 +16,12 @@ import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
+import { BeachTideNow } from "@/components/beach-detail/beach-tide-now";
+import { StationTideProvider } from "@/components/beach-detail/station-tide-context";
+import { buildCityTideView, loadStationTideView } from "@/lib/tides/city-tide-view";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import type { Beach } from "@/types/database";
+import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
 
 type PageTreeElement = ReactElement<{ children?: ReactNode }>;
 
@@ -45,6 +49,12 @@ jest.mock("@/actions/beach/beach-location-actions", () => ({
 
 jest.mock("@/lib/seo/tide-meta-data", () => ({
   getTideMetaData: jest.fn(),
+  tideExtremesWindow: jest.requireActual("@/lib/seo/tide-meta-data").tideExtremesWindow,
+}));
+
+jest.mock("@/lib/tides/city-tide-view", () => ({
+  ...jest.requireActual("@/lib/tides/city-tide-view"),
+  loadStationTideView: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock("@/lib/seo/water-temp-meta-data", () => ({
@@ -123,6 +133,52 @@ describe("renderBeachSubPage static rendering", () => {
     )).toBe(showLine);
   });
 
+  describe("when the sub-page data read is unknown", () => {
+    const mexicoBeach = { ...beach, id: "beach-mx", slug: "san-miguel", name: "San Miguel", city: "Ensenada", state: "Baja California", country: "Mexico" } as Beach;
+    const cases = [
+      ["US", beach, "/ca/san-diego/blacks", undefined],
+      [
+        "Mexico",
+        mexicoBeach,
+        `/mexico/${regionToSlug(mexicoBeach.state)}/${cityToSlug(mexicoBeach.city)}/san-miguel`,
+        { region: regionToSlug(mexicoBeach.state), city: cityToSlug(mexicoBeach.city) },
+      ],
+    ] as const;
+
+    it.each(cases)("fails the %s tides render so ISR keeps the last good page", async (_label, row, beachPath, expectedMexicoLocation) => {
+      jest.mocked(getBeachBySlugOrId).mockResolvedValue(row);
+      jest.mocked(getTideMetaData).mockResolvedValue({
+        source: null, nextHighTime: null, nextHighHeight: null, nextLowTime: null,
+        nextLowHeight: null, nextHighAt: null, nextLowAt: null,
+        availability: "sub-page-data-unknown",
+      });
+
+      // No body, title or Dataset JSON-LD is produced: there is nothing to store.
+      await expect(
+        renderBeachSubPage({ beachSlug: row.slug!, pageType: "tides", beachPath, expectedMexicoLocation }),
+      ).rejects.toMatchObject({ name: "SubPageDataUnknownError" });
+    });
+
+    it.each(cases)("fails the %s water-temp render so ISR keeps the last good page", async (_label, row, beachPath, expectedMexicoLocation) => {
+      jest.mocked(getBeachBySlugOrId).mockResolvedValue(row);
+      jest.mocked(getWaterTempMetaData).mockResolvedValue({
+        tempF: null, wetsuitRec: null, availability: "sub-page-data-unknown",
+      });
+
+      await expect(
+        renderBeachSubPage({ beachSlug: row.slug!, pageType: "water-temp", beachPath, expectedMexicoLocation }),
+      ).rejects.toMatchObject({ name: "SubPageDataUnknownError" });
+    });
+
+    it.each(cases)("renders the %s page when the read found no data", async (_label, row, beachPath, expectedMexicoLocation) => {
+      jest.mocked(getBeachBySlugOrId).mockResolvedValue(row);
+
+      await expect(
+        renderBeachSubPage({ beachSlug: row.slug!, pageType: "tides", beachPath, expectedMexicoLocation }),
+      ).resolves.toBeTruthy();
+    });
+  });
+
   it("never reads request headers", async () => {
     // Reading the request's user-agent here makes static routes silently lose
     // their platform decision. Platform must stay inside the client switch.
@@ -158,6 +214,63 @@ describe("renderBeachSubPage static rendering", () => {
     const dataset = getPageChildren(page).find((child) => child.type === TideDatasetSchema);
 
     expect(dataset).toMatchObject({ props: { source } });
+  });
+
+  it("shows the station's own next tides in the hero and gives the client the same table", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-14T19:13:00Z"));
+    (getTideMetaData as jest.MockedFunction<typeof getTideMetaData>).mockResolvedValue({
+      source: "noaa_hilo_interpolated",
+      stationId: "1612668",
+      nextHighTime: "7:00 PM",
+      nextHighHeight: 0.4,
+      nextLowTime: "2:00 PM",
+      nextLowHeight: 0.3,
+      nextHighAt: "2026-11-15T05:00:00Z",
+      nextLowAt: "2026-11-15T00:00:00Z",
+    });
+    jest.mocked(loadStationTideView).mockResolvedValueOnce(
+      buildCityTideView({
+        timeZone: "Pacific/Honolulu",
+        renderedAtMs: Date.now(),
+        station: { name: "Haleiwa, Waialua Bay", slug: "haleiwa-waialua-bay-hi-1612668", sourceStationId: "1612668" },
+        adjustmentFt: 0,
+        hourly: [],
+        extremes: [
+          { ts: "2026-11-14T23:27:00Z", type: "low", heightM: 0.09 },
+          { ts: "2026-11-15T04:47:00Z", type: "high", heightM: 0.13 },
+        ],
+      }),
+    );
+
+    const page = await renderBeachSubPage({
+      beachSlug: "blacks",
+      pageType: "tides",
+      beachPath: "/ca/san-diego/blacks",
+    }) as PageTreeElement;
+    const children = getPageChildren(page);
+    const provider = children.find((child) => child.type === StationTideProvider) as PageTreeElement | undefined;
+    const beachDetail = provider?.props.children as ReactElement | undefined;
+    const detailProps = beachDetail?.props as {
+      heroHeadingLevel?: string;
+      heroHeadingSuffix?: string;
+      heroSummaryAboveMedia?: boolean;
+      heroSummarySlot?: ReactElement;
+    };
+
+    expect(detailProps).toMatchObject({
+      heroHeadingLevel: "h1",
+      heroHeadingSuffix: "Tide Chart & Surf Windows",
+      heroSummaryAboveMedia: true,
+    });
+    expect(detailProps.heroSummarySlot).toMatchObject({
+      type: BeachTideNow,
+      props: { display: { nextLowTime: "1:27 PM", nextHighTime: "6:47 PM" } },
+    });
+    expect((detailProps.heroSummarySlot?.props as { view?: { extremes: unknown[] } }).view?.extremes).toHaveLength(2);
+    // The old navy band above the field-guide card is gone.
+    expect(children.some((child) => (child.type as { name?: string }).name === "TideSummaryHero")).toBe(false);
+    expect((provider?.props as { value?: { schedule: unknown[] } }).value?.schedule).toHaveLength(2);
+    jest.restoreAllMocks();
   });
 
   it("wires available water-temperature data into the zine hero", async () => {

@@ -1,3 +1,4 @@
+import { zonedFormatter } from "@/lib/utils/zoned-formatter";
 import type { WindowDriver } from "@/lib/alerts/window-refiner";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 
@@ -34,15 +35,7 @@ export function notificationBeachName(beach: { name: string; short_name?: string
   return trimmed || beach.name;
 }
 
-const clockFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function clockFormatter(timezone: string): Intl.DateTimeFormat {
-  const cached = clockFormatters.get(timezone);
-  if (cached) return cached;
-  const created = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit", hour12: true });
-  clockFormatters.set(timezone, created);
-  return created;
-}
+const clockFormatter = zonedFormatter("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
 function clockParts(iso: string, timezone: string): { hour: number; minute: string; meridiem: string } {
   const parts = clockFormatter(timezone).formatToParts(new Date(iso));
@@ -83,10 +76,10 @@ export function formatWindowLabel(
 /** "4–5 ft at 15s WSW", the same height range the app shows. */
 export function swellPhrase(forecast: ForecastNumbers): string {
   const height = numberOf(forecast.wave_height);
+  // Period and direction qualify the size ("at 15s WSW"); alone they read as a broken phrase.
+  if (height === null) return "";
   const period = numberOf(forecast.wave_period);
-  const size = height === null
-    ? null
-    : formatWaveHeightRange(height).replace("-", "–").replace(/ft$/, " ft");
+  const size = formatWaveHeightRange(height).replace("-", "–").replace(/ft$/, " ft");
   return [
     size,
     period === null ? null : `at ${Math.round(period)}s`,
@@ -110,7 +103,7 @@ function swingStartClock(iso: string, timezone: string): string {
 /**
  * A window the tide opens and closes moving one way: it entered the band over
  * one edge and leaves over the other. Only band crossings qualify (bandEdge is
- * set only with TIDE_SWING_ENABLED), so a direction-only change never claims
+ * set only with NEXT_PUBLIC_TIDE_SWING_ENABLED), so a direction-only change never claims
  * "too low" or "too full".
  */
 function tideSwingSentence(drivers: readonly WindowDriver[], endClock: string, timezone: string): string | null {

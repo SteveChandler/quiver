@@ -25,8 +25,23 @@ function match(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 
 describe("buildConsolidatedSubject", () => {
   it("leads with payload details for a single match", () => {
-    expect(buildConsolidatedSubject([match()], "Saturday, April 4")).toBe(
+    expect(buildConsolidatedSubject([match()], "Saturday, April 4", "go")).toBe(
       "Lower Trestles worth a surf: 5 ft @ 15s this morning"
+    );
+  });
+
+  it("takes the quality word from the decision, never from a legacy best_score", () => {
+    expect(
+      buildConsolidatedSubject([match({ best_score: 0 })], "Saturday, April 4", "go")
+    ).toBe("Lower Trestles worth a surf: 5 ft @ 15s this morning");
+    expect(
+      buildConsolidatedSubject([match({ best_score: 0.9 })], "Saturday, April 4", "no")
+    ).toBe("Lower Trestles not ideal: 5 ft @ 15s this morning");
+  });
+
+  it("states no quality word when there is no decision", () => {
+    expect(buildConsolidatedSubject([match({ best_score: 0 })], "Saturday, April 4")).toBe(
+      "Lower Trestles: 5 ft @ 15s this morning"
     );
   });
 
@@ -43,13 +58,50 @@ describe("buildConsolidatedSubject", () => {
     expect(
       buildConsolidatedSubject(
         [
-          match({ beach_name: "Bolsa Chica", best_score: 0.5 }),
-          match({ beach_name: "Blacks", best_score: 0.9 }),
-          match({ beach_name: "Swamis", best_score: 0.7 }),
+          match({ beach_id: "b-bolsa", beach_name: "Bolsa Chica", best_score: 0.5 }),
+          match({ beach_id: "b-blacks", beach_name: "Blacks", best_score: 0.9 }),
+          match({ beach_id: "b-swamis", beach_name: "Swamis", best_score: 0.7 }),
         ],
-        "Saturday, April 4"
+        "Saturday, April 4",
+        "go",
       )
     ).toBe("Blacks + 2 more spots worth a surf Saturday");
+  });
+
+  it("does not count a second rule at the same beach as another spot", () => {
+    const subject = buildConsolidatedSubject(
+      [
+        match({ rule_id: "mellow", best_score: 0.64 }),
+        match({ rule_id: "weekend", best_score: 0.75 }),
+      ],
+      "Sunday, November 1",
+      "go",
+    );
+    expect(subject).not.toMatch(/more spots/);
+    expect(subject).toBe("Lower Trestles worth a surf: 5 ft @ 15s this morning");
+  });
+
+  it("counts distinct beaches, not matches, for the other spots", () => {
+    expect(
+      buildConsolidatedSubject(
+        [
+          match({ beach_id: "b-blacks", beach_name: "Blacks", best_score: 0.9 }),
+          match({ beach_id: "b-blacks", beach_name: "Blacks", rule_id: "rule-2", best_score: 0.8 }),
+          match({ beach_id: "b-swamis", beach_name: "Swamis", best_score: 0.7 }),
+        ],
+        "Saturday, April 4",
+        "go",
+      ),
+    ).toBe("Blacks + 1 more spots worth a surf Saturday");
+  });
+
+  it("states no quality for the other spots unless the decision is go", () => {
+    const matches = [
+      match({ beach_id: "b-blacks", beach_name: "Blacks", best_score: 0.9 }),
+      match({ beach_id: "b-swamis", beach_name: "Swamis", best_score: 0.7 }),
+    ];
+    expect(buildConsolidatedSubject(matches, "Saturday, April 4", "no")).toBe("Blacks + 1 more spots Saturday");
+    expect(buildConsolidatedSubject(matches, "Saturday, April 4")).toBe("Blacks + 1 more spots Saturday");
   });
 
   it("keeps surf numbers while truncating long beach names", () => {

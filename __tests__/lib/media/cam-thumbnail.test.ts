@@ -171,15 +171,15 @@ describe("getDisplayCamThumbnailUrl", () => {
     ).toBeNull();
   });
 
-  it("keeps real provider thumbnails for OB Hotel if one is supplied", () => {
+  it("keeps an independent provider thumbnail for OB Hotel", () => {
     expect(
       getDisplayCamThumbnailUrl({
         cameraUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
         thumbnailUrl:
-          "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_obhotel.stream.jpg",
+          "https://images.example/obhotel.jpg",
       }),
     ).toBe(
-      "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_obhotel.stream.jpg",
+      "https://images.example/obhotel.jpg",
     );
   });
 

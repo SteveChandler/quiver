@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import type React from "react";
 import type { Metadata, Viewport } from "next";
@@ -171,6 +172,7 @@ export default function RootLayout({
     >
       {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
       <head>
+        <Script src="/camera-cache-policy.js" strategy="afterInteractive" />
         {/* Analytics scripts moved to AnalyticsLoader component. This prevents loading GA4 and Ahrefs on the landing page. Performance impact: ~100KB saved, ~20ms faster TTI */}
         {/* Resource hints for performance - ESSENTIAL ONLY */}
         {/* next/font/google handles font preconnect automatically */}

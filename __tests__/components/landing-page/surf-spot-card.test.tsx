@@ -4,7 +4,7 @@
  * Tests skill level rendering via formatSkillLevel():
  * - Standard values (beginner, intermediate, advanced)
  * - Compound values (intermediate-advanced)
- * - Null/undefined fallback to "All levels"
+ * - Null/undefined/empty skill level hides the skill chip (no "All levels" stand-in)
  * - Underscore format normalization
  *
  * Tests wave height rendering:
@@ -51,19 +51,22 @@ const defaultProps = {
 
 describe("SurfSpotCard", () => {
   describe("skill level rendering", () => {
-    it("renders 'All levels' when skillLevel is undefined", () => {
+    it("hides the skill chip when skillLevel is undefined", () => {
       render(<SurfSpotCard {...defaultProps} />);
-      expect(screen.getByText("All levels")).toBeInTheDocument();
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
+      expect(screen.queryByText("Check the local notes")).not.toBeInTheDocument();
     });
 
-    it("renders 'All levels' when skillLevel is null", () => {
+    it("hides the skill chip when skillLevel is null", () => {
       render(<SurfSpotCard {...defaultProps} skillLevel={null} />);
-      expect(screen.getByText("All levels")).toBeInTheDocument();
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
+      expect(screen.queryByText("Check the local notes")).not.toBeInTheDocument();
     });
 
-    it("renders 'All levels' when skillLevel is empty string", () => {
+    it("hides the skill chip when skillLevel is empty string", () => {
       render(<SurfSpotCard {...defaultProps} skillLevel="" />);
-      expect(screen.getByText("All levels")).toBeInTheDocument();
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
+      expect(screen.queryByText("Check the local notes")).not.toBeInTheDocument();
     });
 
     it("renders 'Advanced' for skillLevel='advanced'", () => {

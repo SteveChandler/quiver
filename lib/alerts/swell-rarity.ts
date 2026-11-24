@@ -80,7 +80,11 @@ export function assessRarity(args: {
   return {
     rare: true,
     kind: "best-in-30",
-    rarityLine: `Best in ${Math.min(historyDays, HISTORY_DAYS)} days`,
+    rarityLine: rarityDaysLine(Math.min(historyDays, HISTORY_DAYS)),
     historyDays,
   };
+}
+
+function rarityDaysLine(days: number): string {
+  return days === 1 ? "Best in 1 day" : `Best in ${days} days`;
 }

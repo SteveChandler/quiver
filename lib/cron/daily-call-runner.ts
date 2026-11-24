@@ -20,6 +20,7 @@ import { selectDayCall } from "@/lib/recommendations/day-call";
 import { parseSessionTime, type SessionTime } from "@/lib/scoring/session-time-preference";
 import {
   generateWeekScoutForecastForDays,
+  weekScoutDependenciesAt,
   type CanonicalWeekScoutResponse,
   type WeekScoutDayResponse,
   type WeekScoutWindowResponse,
@@ -55,6 +56,7 @@ import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
 import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
 import type { COOPSForecast } from "@/lib/services/noaa-coops/types";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
+import { chunk } from "@/lib/utils/chunk";
 import {
   getLocalDateString,
   getLocalHour,
@@ -163,20 +165,27 @@ export type RankDay = (args: {
   localDate: string;
   sessionTime: SessionTime | null;
   anchor: { lat: number; lon: number } | null;
+  /** Omitted in production, where Week Scout reads the real clock. */
+  now?: Date;
 }) => Promise<CanonicalWeekScoutResponse>;
 
 /** @public Shared entry point for the swell runner and parity script (plan Tasks 7–8). */
 export const rankDayWithWeekScout: RankDay = ({
-  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor,
-}) => generateWeekScoutForecastForDays(userId, {
-  candidateBeachIds: poolBeachIds,
-  driveRadiusMiles,
-  localTimezone: timezone,
-  startLocalDate: localDate,
-  dayCount: 1,
-  ...(sessionTime ? { sessionTime } : {}),
-  ...(anchor ? { userLocation: anchor } : {}),
-});
+  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor, now,
+}) => {
+  const request = {
+    candidateBeachIds: poolBeachIds,
+    driveRadiusMiles,
+    localTimezone: timezone,
+    startLocalDate: localDate,
+    dayCount: 1,
+    ...(sessionTime ? { sessionTime } : {}),
+    ...(anchor ? { userLocation: anchor } : {}),
+  };
+  return now
+    ? generateWeekScoutForecastForDays(userId, request, weekScoutDependenciesAt(now))
+    : generateWeekScoutForecastForDays(userId, request);
+};
 
 export type LoadBeachDay = (args: {
   beach: Beach;
@@ -262,9 +271,9 @@ export function buildComparisonLine(
   );
 }
 
-function numberValue(value: unknown): number {
+function numberValue(value: unknown): number | null {
   const parsed = Number.parseFloat(String(value ?? ""));
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** A missing wind is unknown, never "0mph". */
@@ -376,9 +385,9 @@ function buildPayload(args: {
     drivers: args.candidate.window.drivers,
     wave_height_ft: numberValue(forecast?.wave_height),
     wave_period_s: numberValue(forecast?.wave_period),
-    swell_dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? "unknown",
+    swell_dir: forecast?.wave_direction ?? forecast?.swell_1_direction ?? null,
     wind_label: windLabel(forecast),
-    tide_label: forecast?.tide_status ?? "Unknown tide",
+    tide_label: forecast?.tide_status ?? null,
     reason: args.title.body || fallbackReason(args.vars),
     title: args.title.title,
     title_id: args.title.id,
@@ -853,29 +862,47 @@ async function buildSharedCall(
   return { winner, options, home, heldReasons };
 }
 
+const IN_FILTER_CHUNK = 100;
+const PROFILE_PAGE_SIZE = 1000;
+
+async function selectInChunks<Row>(
+  ids: readonly string[],
+  query: (ids: string[]) => PromiseLike<{ data: Row[] | null; error: { message: string } | null }>,
+): Promise<{ data: Row[]; error: { message: string } | null }> {
+  const results = await Promise.all(chunk(ids, IN_FILTER_CHUNK).map((ids) => query(ids)));
+  const failed = results.find((result) => result.error);
+  if (failed) return { data: [], error: failed.error };
+  return { data: results.flatMap((result) => result.data ?? []), error: null };
+}
+
 async function loadProfiles(
   supabase: SupabaseClient<Database>,
   userIds?: readonly string[],
 ): Promise<DailyCallProfile[]> {
-  const query = supabase
-    .from("profiles")
-    .select("id, home_beach_id, timezone, daily_call_time, notif_push_enabled, notif_forecast_alerts, experience_level, max_drive_minutes, preferred_session_time")
-    .is("deleted_at", null);
-  const { data, error } = await (userIds ? query.in("id", userIds) : query);
-  if (error) throw new Error(`Failed to load daily-call profiles: ${error.message}`);
-  const rows = data ?? [];
+  // PostgREST returns at most 1,000 rows, so read every page or later signups never get a call.
+  const rows = [];
+  for (let from = 0; ; from += PROFILE_PAGE_SIZE) {
+    const base = supabase
+      .from("profiles")
+      .select("id, home_beach_id, timezone, daily_call_time, notif_push_enabled, notif_forecast_alerts, experience_level, max_drive_minutes, preferred_session_time")
+      .is("deleted_at", null);
+    const { data, error } = await (userIds ? base.in("id", userIds) : base)
+      .order("id")
+      .range(from, from + PROFILE_PAGE_SIZE - 1);
+    if (error) throw new Error(`Failed to load daily-call profiles: ${error.message}`);
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < PROFILE_PAGE_SIZE) break;
+  }
   const loadedUserIds = rows.map((row) => row.id);
-  const homeBeachIds = rows.flatMap((row) => row.home_beach_id ? [row.home_beach_id] : []);
+  const homeBeachIds = [...new Set(rows.flatMap((row) => row.home_beach_id ? [row.home_beach_id] : []))];
+  // One `.in()` over every profile id made a ~25 KB request that the Supabase edge rejected (400 Bad Request) once
+  // profiles passed ~635 on 2026-11-18; chunk so the run scales with signups.
   const [locationsResult, beachesResult] = await Promise.all([
-    loadedUserIds.length === 0
-      ? Promise.resolve({ data: [], error: null })
-      : supabase
-          .from("user_location_snapshots")
-          .select("user_id, lat, lon, timezone, captured_at")
-          .in("user_id", loadedUserIds),
-    homeBeachIds.length === 0
-      ? Promise.resolve({ data: [], error: null })
-      : supabase.from("beaches").select("*").in("id", homeBeachIds),
+    selectInChunks(loadedUserIds, (ids) => supabase
+      .from("user_location_snapshots")
+      .select("user_id, lat, lon, timezone, captured_at")
+      .in("user_id", ids)),
+    selectInChunks(homeBeachIds, (ids) => supabase.from("beaches").select("*").in("id", ids)),
   ]);
   if (locationsResult.error) {
     throw new Error(`Failed to load daily-call locations: ${locationsResult.error.message}`);
@@ -1153,6 +1180,12 @@ export async function runDailyCallCron(args: {
       const comparison = buildComparisonLine(winner, home);
       const windowTimezone = resolveBeachTimezone(winner.pool.beach.timezone || timezone);
       const vars = titleVars(winner, profile, windowTimezone, comparison);
+      // Every Daily Call body opens with the swell size; without it the body would start on an empty slot.
+      if (!vars.swell) {
+        increment(summary, "no_swell_copy");
+        summary.silent += 1;
+        continue;
+      }
       const title = deps.selectTitle({
         pool: "daily",
         tags: titleTags(winner, profile.homeBeachId, windowTimezone, args.now, swellEventKey),

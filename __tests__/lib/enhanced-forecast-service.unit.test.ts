@@ -273,7 +273,7 @@ describe("EnhancedForecastService (unit)", () => {
 
     const result = await service.processBeachForecastUpdate(beach, null);
 
-    expect(service.storeEnhancedForecasts).toHaveBeenCalledWith(beach, mockForecasts);
+    expect(service.storeEnhancedForecasts).toHaveBeenCalledWith(beach, mockForecasts, undefined);
     expect(result).toMatchObject({
       beach: "Test Beach",
       success: true,

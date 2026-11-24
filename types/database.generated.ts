@@ -8348,6 +8348,27 @@ export type Database = {
           },
         ]
       }
+      native_app_minimums: {
+        Row: {
+          minimum_bundle_created_at: string | null
+          minimum_version: string | null
+          platform: string
+          updated_at: string
+        }
+        Insert: {
+          minimum_bundle_created_at?: string | null
+          minimum_version?: string | null
+          platform: string
+          updated_at?: string
+        }
+        Update: {
+          minimum_bundle_created_at?: string | null
+          minimum_version?: string | null
+          platform?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ndbc_direct_observations: {
         Row: {
           created_at: string | null

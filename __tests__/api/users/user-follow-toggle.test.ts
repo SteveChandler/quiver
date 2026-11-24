@@ -398,7 +398,7 @@ describe("POST /api/users/[id]/follow/toggle", () => {
 
 describe("GET /api/users/[id]/follow/toggle", () => {
   it("returns 405 method not allowed", async () => {
-    const res: any = GET();
+    const res: any = await GET();
     expect(res.status).toBe(405);
   });
 });

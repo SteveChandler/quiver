@@ -5,6 +5,7 @@
  * Tide alone never takes a call below FAIR: every ceiling here is >= 55.
  */
 
+import { zonedFormatter } from '@/lib/utils/zoned-formatter';
 import type { ConditionsSnapshot } from '../conditions/types';
 import type { SpotProfile, TidePreferences } from '../spot-profile/types';
 import type { ScoringDecisionEffect } from './types';
@@ -130,16 +131,7 @@ export function softenTideBandCeiling(ceiling: number): number {
 
 // Scoring formats this per forecast row; building a formatter each time cost
 // more than the rest of the tide assessment. Failed constructions are not cached.
-const tideClockFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function tideClockFormatter(timezone: string): Intl.DateTimeFormat {
-  let formatter = tideClockFormatters.get(timezone);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });
-    tideClockFormatters.set(timezone, formatter);
-  }
-  return formatter;
-}
+const tideClockFormatter = zonedFormatter('en-US', { hour: 'numeric', minute: '2-digit' });
 
 /** "by ~1 PM" in the beach's timezone, rounded up to the half hour. */
 export function formatTideWhen(from: Date, hoursAhead: number, timezone: string | null | undefined): string {

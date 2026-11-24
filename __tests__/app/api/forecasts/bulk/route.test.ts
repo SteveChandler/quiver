@@ -873,6 +873,38 @@ describe("/api/forecasts/bulk", () => {
         ),
       ).toBe(false);
     });
+
+    it("scores the hourly timeline with the rating skill only for an allowlisted user", async () => {
+      const requestTimeline = async (): Promise<number[]> => {
+        const rows = [
+          hourlyTimelineRow(BOUND_BEACH_ID, "2", "2026-07-07T18:00:00.000Z"),
+          hourlyTimelineRow(BOUND_BEACH_ID, "3", "2026-07-07T21:00:00.000Z"),
+        ];
+        mockBulkQueries({ extensionOnly: true, hourlyTimelineRows: rows, beachRows: [beachRow(BOUND_BEACH_ID)] });
+        (scoreWindowConditionScore as jest.Mock).mockClear();
+        const response = await bulkForecastHandler(
+          createHourlyTimelineRequest(
+            `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}&timeline=hourly&timelineOnly=true&includeConditions=true&timelineStart=2026-07-07T18:00:00.000Z&timelineHours=4`,
+          ),
+          { params: {}, user: { id: "user-1" } as never, supabase: mockSupabaseClient as never },
+        );
+        const timeline = (await response.json()).data.hourlySwellTimeline;
+        return timeline.partitionsByBeach[BOUND_BEACH_ID].map(
+          (partition: { conditionScore: number | null }) => partition.conditionScore,
+        );
+      };
+
+      setFlag(true);
+      // precondition: the timeline was scored, and only the timeline called the scorer
+      expect((await requestTimeline()).some((score) => score !== null)).toBe(true);
+      expect(scorerSkills().length).toBeGreaterThan(0);
+      expect(scorerSkills().every((skill) => skill === "beginner")).toBe(true);
+
+      setFlag(false);
+      await requestTimeline();
+      expect(scorerSkills().length).toBeGreaterThan(0);
+      expect(scorerSkills().every((skill) => skill === null)).toBe(true);
+    });
   });
 
   it.each([
@@ -1261,7 +1293,7 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe("UNKNOWN");
   });
 
-  it("uses the latest past row for every current-condition surface", async () => {
+  it("uses the row nearest the current hour for every current-condition surface", async () => {
     jest.setSystemTime(Date.parse("2026-09-10T01:40:00.000Z")); // 6:40 PM PDT
     const pastRow = forecastRow(BOUND_BEACH_ID, "5", -5 / 3); // 5:00 PM
     const futureRow = forecastRow(BOUND_BEACH_ID, "8", 4 / 3); // 8:00 PM
@@ -1292,6 +1324,147 @@ describe("/api/forecasts/bulk", () => {
       directionDeg: 270,
       heightFt: 5,
       source: "partition",
+    });
+  });
+
+  describe("now row matches the surf call's current-hour row", () => {
+    const SLOT_12 = "2026-11-19T12:00:00.000Z";
+    const SLOT_15 = "2026-11-19T15:00:00.000Z";
+    let nowRowRequest = 0;
+
+    function slotRow(forecastAt: string, waveHeight: string, overrides: Partial<ForecastRow> = {}): ForecastRow {
+      return { ...hourlyTimelineRow(BOUND_BEACH_ID, waveHeight, forecastAt), ...overrides };
+    }
+
+    // The outer beforeEach resets this to a constant via mockReturnValue.
+    function scoreBySlot(scores: Record<string, number>): void {
+      (scoreWindowConditionScore as jest.Mock).mockImplementation(
+        (forecast: ForecastRow) => scores[forecast.forecast_at] ?? 50,
+      );
+    }
+
+    async function getBulk(query = ""): Promise<BulkForecastResponse> {
+      nowRowRequest += 1;
+      const response = await GET(
+        createMockRequest(
+          "GET",
+          `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}${query}`,
+          { headers: { "x-forwarded-for": `198.18.7.${nowRowRequest}` } },
+        ),
+      );
+      return (await expectSuccessResponse<BulkForecastResponse>(response, 200)).data;
+    }
+
+    function mockSlots(rows: ForecastRow[]): void {
+      mockBulkQueries({ forecastRows: rows, beachRows: [beachRow(BOUND_BEACH_ID)] });
+    }
+
+    it("scores the slot nearest the current hour, not the latest past slot", async () => {
+      jest.setSystemTime(Date.parse("2026-11-19T14:30:00.000Z"));
+      scoreBySlot({ [SLOT_12]: 30, [SLOT_15]: 80 });
+      const row12 = slotRow(SLOT_12, "2");
+      const row15 = slotRow(SLOT_15, "3");
+      mockSlots([row12, row15]);
+
+      const data = await getBulk();
+
+      expect(scoreWindowConditionScore).toHaveBeenCalledTimes(1);
+      expect(scoreWindowConditionScore).toHaveBeenCalledWith(
+        row15, expect.objectContaining({ id: BOUND_BEACH_ID }), null, null, [],
+      );
+      expect(data.conditionScores).toEqual({ [BOUND_BEACH_ID]: 80 });
+      expect(data.conditionSummaries[BOUND_BEACH_ID]).not.toBe("UNKNOWN");
+      expect(data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({ forecastAt: SLOT_15 });
+      expect(data.forecasts).toEqual({ [BOUND_BEACH_ID]: 3 });
+      expect(data.swellPartitions[BOUND_BEACH_ID]).toMatchObject({ s1HeightFt: 3 });
+      expect(data.swellPartitionTimeline[BOUND_BEACH_ID][0]).toMatchObject({ s1HeightFt: 3 });
+
+      mockSlots([row12, row15]);
+      const label12 = (await getBulk(`&forecastAt=${SLOT_12}`)).recommendationLabels[BOUND_BEACH_ID];
+      mockSlots([row12, row15]);
+      const label15 = (await getBulk(`&forecastAt=${SLOT_15}`)).recommendationLabels[BOUND_BEACH_ID];
+      expect(label15).not.toBe(label12);
+      expect(data.recommendationLabels[BOUND_BEACH_ID]).toBe(label15);
+    });
+
+    it("gives the same scored fields as an explicit forecastAt on the nearest slot", async () => {
+      jest.setSystemTime(Date.parse("2026-11-19T14:30:00.000Z"));
+      scoreBySlot({ [SLOT_12]: 30, [SLOT_15]: 80 });
+      const rows = [slotRow(SLOT_12, "2"), slotRow(SLOT_15, "3")];
+
+      mockSlots(rows);
+      const now = await getBulk();
+      mockSlots(rows);
+      const selected = await getBulk(`&forecastAt=${SLOT_15}`);
+
+      const scored = (data: BulkForecastResponse) => ({
+        conditionScores: data.conditionScores,
+        conditionSummaries: data.conditionSummaries,
+        recommendationLabels: data.recommendationLabels,
+        forecasts: data.forecasts,
+        displayForecasts: data.displayForecasts,
+        swellPartitions: data.swellPartitions,
+        displaySwell: data.displaySwell,
+      });
+      expect(scored(now)).toEqual(scored(selected));
+      expect(now.conditionScores).toEqual({ [BOUND_BEACH_ID]: 80 });
+    });
+
+    it("uses the slot itself when now is exactly on a slot", async () => {
+      jest.setSystemTime(Date.parse(SLOT_15));
+      scoreBySlot({ [SLOT_12]: 30, [SLOT_15]: 80 });
+      mockSlots([slotRow(SLOT_12, "2"), slotRow(SLOT_15, "5")]);
+
+      const data = await getBulk();
+
+      expect(data.conditionScores).toEqual({ [BOUND_BEACH_ID]: 80 });
+      expect(data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({ forecastAt: SLOT_15 });
+    });
+
+    it("keeps the earlier slot when the current hour is nearer to it", async () => {
+      jest.setSystemTime(Date.parse("2026-11-19T13:30:00.000Z"));
+      scoreBySlot({ [SLOT_12]: 30, [SLOT_15]: 80 });
+      mockSlots([slotRow(SLOT_12, "2"), slotRow(SLOT_15, "5")]);
+
+      const data = await getBulk();
+
+      expect(data.conditionScores).toEqual({ [BOUND_BEACH_ID]: 30 });
+      expect(data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({ forecastAt: SLOT_12 });
+      expect(data.swellPartitions[BOUND_BEACH_ID]).toMatchObject({ s1HeightFt: 2 });
+    });
+
+    it("returns no current row when no slot lies within one slot of the current hour", async () => {
+      jest.setSystemTime(Date.parse("2026-11-19T14:30:00.000Z"));
+      scoreBySlot({});
+      mockSlots([
+        slotRow("2026-11-19T10:00:00.000Z", "2"),
+        slotRow("2026-11-19T18:00:00.000Z", "5"),
+      ]);
+
+      const data = await getBulk();
+
+      expect(data.displayForecasts).toEqual({});
+      expect(data.forecasts).toEqual({});
+      expect(data.conditionScores).toEqual({});
+      expect(data.conditionSummaries[BOUND_BEACH_ID]).toBe("UNKNOWN");
+      expect(data.swellPartitions).toEqual({});
+      expect(scoreWindowConditionScore).not.toHaveBeenCalled();
+    });
+
+    it("does not score a FALLBACK nearest slot or fall back to the farther slot", async () => {
+      jest.setSystemTime(Date.parse("2026-11-19T14:30:00.000Z"));
+      scoreBySlot({ [SLOT_12]: 30, [SLOT_15]: 80 });
+      mockSlots([
+        slotRow(SLOT_12, "2"),
+        slotRow(SLOT_15, "5", { data_source: "FALLBACK" }),
+      ]);
+
+      const data = await getBulk();
+
+      expect(data.displayForecasts).toEqual({});
+      expect(data.conditionScores).toEqual({});
+      expect(data.conditionSummaries[BOUND_BEACH_ID]).toBe("UNKNOWN");
+      expect(scoreWindowConditionScore).not.toHaveBeenCalled();
     });
   });
 
@@ -1515,7 +1688,8 @@ describe("/api/forecasts/bulk", () => {
       null,
     ]);
     expect(timeline).toMatchObject({ hasMore: false, nextStart: null });
-    expect(hourlyData.data.swellPartitionTimeline["beach-1"]).toHaveLength(42);
+    // Offset 0 now takes the 20:15 row (within one slot of the 18:00 hour); the old latest-past rule had none.
+    expect(hourlyData.data.swellPartitionTimeline["beach-1"]).toHaveLength(43);
   });
 
   it("aligns requested beaches, clamps the window, and keeps a contiguous cursor", async () => {

@@ -79,6 +79,62 @@ describe("BeachConditionsGrid view-all link", () => {
     expect(screen.queryAllByRole("link", { name: /view all/i })).toHaveLength(0);
   });
 
+  // /forecast/washington and /forecast/baja-california linked to
+  // /guides/surfing-{region}, which 404 because those regions have no hub guide.
+  it.each(["washington", "baja-california"])(
+    "is hidden for %s, a region without a hub guide",
+    (regionSlug) => {
+      const { container } = render(
+        <BeachConditionsGrid
+          beaches={makeBeaches(35)}
+          regionSlug={regionSlug}
+          maxBeaches={12}
+          showViewAll
+        />
+      );
+
+      expect(screen.queryAllByRole("link", { name: /view all/i })).toHaveLength(0);
+      expect(container.querySelector('a[href^="/guides/"]')).toBeNull();
+      expect(container.querySelector(".md\\:hidden.text-center")).toBeNull();
+    }
+  );
+
+  // A region with its own hub guide keeps it; regions without one fall back to
+  // the override map (ventura-santa-barbara -> ventura).
+  it.each([
+    ["ventura-santa-barbara", "/guides/surfing-ventura"],
+    ["los-angeles", "/guides/surfing-los-angeles"],
+  ])("links %s to its hub guide %s", (regionSlug, href) => {
+    render(
+      <BeachConditionsGrid
+        beaches={makeBeaches(35)}
+        regionSlug={regionSlug}
+        maxBeaches={12}
+        showViewAll
+      />
+    );
+
+    const links = screen.getAllByRole("link", { name: /view all/i });
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link).toHaveAttribute("href", href);
+    }
+  });
+
+  it("is hidden for a region with no hub guide after mapping", () => {
+    const { container } = render(
+      <BeachConditionsGrid
+        beaches={makeBeaches(35)}
+        regionSlug="not-a-real-region"
+        maxBeaches={12}
+        showViewAll
+      />
+    );
+
+    expect(screen.queryAllByRole("link", { name: /view all/i })).toHaveLength(0);
+    expect(container.querySelector('a[href^="/guides/"]')).toBeNull();
+  });
+
   it("is hidden when showViewAll is false", () => {
     render(
       <BeachConditionsGrid

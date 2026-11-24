@@ -6,6 +6,7 @@ import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
 import { normalizeState } from "@/lib/utils/location-slug";
+import { cityToSlug, isValidStateSlug } from "@/lib/utils/beach-url-utils";
 
 // CityMetadata and BeachEditorialItem are defined in @/types/location; re-export for backward compatibility
 import type { CityMetadata, BeachEditorialItem } from "@/types/location";
@@ -173,6 +174,45 @@ export async function findCitiesMatchingPattern(
   });
 }
 
+interface BeachLocationRow {
+  country: string;
+  state: string;
+  city: string;
+  beach_count: number;
+}
+
+/**
+ * Resolve a city by slug equality over get_all_beach_locations, the same
+ * selection the city hub uses. find_cities_by_pattern compares names, so it
+ * misses cities whose ʻokina slugifies to a hyphen ("Kaʻaʻawa" -> "ka-a-awa").
+ */
+async function findCityBySlugEquality(
+  supabase: ReturnType<typeof createPublicReadClient>,
+  cityPattern: string,
+  stateFilter: string | null
+): Promise<CityMetadata | null> {
+  const { data: locations, error } = await supabase.rpc("get_all_beach_locations");
+
+  if (error) {
+    throw new Error(error.message || "Failed to fetch beach locations");
+  }
+
+  const wantedSlug = cityPattern.replace(/ /g, "-");
+  const matches = ((locations ?? []) as BeachLocationRow[]).filter((loc) => {
+    if (loc.beach_count < 1 || cityToSlug(loc.city) !== wantedSlug) return false;
+    if (stateFilter) return loc.state === stateFilter;
+    return isValidStateSlug(loc.state.toLowerCase());
+  });
+
+  if (matches.length !== 1) {
+    return null;
+  }
+
+  const { city, state } = matches[0];
+  const metadataResult = await getCityMetadata(city, state);
+  return metadataResult.success && metadataResult.data ? metadataResult.data : null;
+}
+
 /**
  * Find a city by its URL slug and return full metadata.
  * Handles both simple slugs ("santa-cruz") and state-suffixed slugs ("newport-ca").
@@ -201,7 +241,7 @@ export async function findCityBySlug(
     }
 
     if (!matches || matches.length === 0) {
-      return null;
+      return findCityBySlugEquality(supabase, cityPattern, stateFilter);
     }
 
     // Filter to cities with at least 1 beach (RPC returns beach_count)
@@ -210,7 +250,7 @@ export async function findCityBySlug(
     );
 
     if (validCities.length === 0) {
-      return null;
+      return findCityBySlugEquality(supabase, cityPattern, stateFilter);
     }
 
     // Handle multiple matches by preferring exact matches

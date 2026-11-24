@@ -13,13 +13,14 @@ import { recommendBoard } from "@/lib/scoring/personal-board";
 import { getDirectionDegrees } from "@/lib/utils/number-parsing";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 function knownParam(value: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed && trimmed.toLowerCase() !== "null" ? trimmed : null;
 }
 
-export const GET = withAuth(
+const handleGet = withAuth(
   async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const searchParams = new URL(request.url).searchParams;
     const beachId = searchParams.get("beach_id");
@@ -67,7 +68,7 @@ export const GET = withAuth(
           const { data: beach, error } = await supabase.from("beaches").select("*").eq("id", beachId).maybeSingle();
           if (error) throw error;
           if (!beach) return null;
-          const { boardsForPicks } = await fetchUserBoardContext(supabase, user.id, true);
+          const { boardsForPicks } = await fetchUserBoardContext(supabase, user.id);
           const experience = await getProfileExperienceLevel(supabase, user.id);
           const boardForecast = {
             beach_id: beachId,
@@ -91,3 +92,5 @@ export const GET = withAuth(
   },
   { errorMessage: "Failed to load personalization match score" },
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/personalization/match-score");

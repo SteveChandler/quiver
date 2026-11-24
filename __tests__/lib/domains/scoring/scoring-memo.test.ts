@@ -84,12 +84,18 @@ describe('request-scoped scoring memo', () => {
   });
 
   it('rescores in a new scope, so nothing carries over between requests', async () => {
+    const originalFlag = process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
     const results = [];
-    for (const flag of [undefined, 'true']) {
-      if (flag) process.env.TIDE_SWING_ENABLED = flag;
-      results.push(await runWithScoringMemo(async () => scoreWindowWithComposite(forecast, beach)));
+    try {
+      for (const flag of [undefined, 'true']) {
+        if (flag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+        else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = flag;
+        results.push(await runWithScoringMemo(async () => scoreWindowWithComposite(forecast, beach)));
+      }
+    } finally {
+      if (originalFlag === undefined) delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+      else process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = originalFlag;
     }
-    delete process.env.TIDE_SWING_ENABLED;
 
     expect(scoreSpy).toHaveBeenCalledTimes(2);
     expect(results[1]).not.toBe(results[0]);

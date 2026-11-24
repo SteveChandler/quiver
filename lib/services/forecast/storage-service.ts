@@ -17,6 +17,11 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import {
+  getForecastWritePacing,
+  paceForecastWriteChunks,
+  type DeadlineTracker,
+} from "./batch-beach-processor";
 // NOTE: the legacy ML-correction merge path was removed alongside the
 // OM-primary scalar override (migration
 // 20260424182324_remove_om_primary_override_from_bulk.sql). Display height
@@ -58,8 +63,6 @@ interface StoreResult {
   success: boolean;
   data?: any;
   error?: string;
-  /** Columns dropped after PGRST204 so the write could succeed; their values were not stored. */
-  strippedColumns?: string[];
 }
 
 /**
@@ -119,7 +122,8 @@ export class ForecastStorageService {
    */
   async storeEnhancedForecasts(
     beach: Beach,
-    forecasts: EnhancedForecastEntity[]
+    forecasts: EnhancedForecastEntity[],
+    deadlineTracker?: DeadlineTracker,
   ): Promise<StoreResult> {
     const supabase = await createSupabaseServiceRoleClient();
 
@@ -146,17 +150,16 @@ export class ForecastStorageService {
       });
 
       // Upsert in chunks to avoid exceeding PostgREST payload limits
+      const pacing = deadlineTracker ? getForecastWritePacing(50) : null;
       let lastData: any = null;
-      const strippedColumns = new Set<string>();
-      for (let i = 0; i < toRows.length; i += this.config.chunkSize) {
-        let chunk: Array<Record<string, unknown>> = toRows.slice(i, i + this.config.chunkSize);
-
-        // Try upsert with schema compatibility handling
+      for await (const chunk of paceForecastWriteChunks(
+        toRows,
+        pacing,
+        () => deadlineTracker?.msRemaining() ?? Infinity,
+        this.config.chunkSize,
+      )) {
         const result = await this.upsertChunkWithRetry(supabase, chunk);
-        for (const column of result.strippedColumns ?? []) strippedColumns.add(column);
-        if (!result.success) {
-          return result;
-        }
+        if (!result.success) return result;
         lastData = result.data;
       }
 
@@ -165,11 +168,7 @@ export class ForecastStorageService {
       // with very old rows that could have stale updated_at timestamps
       await this.cleanupOldForecasts(supabase, beach.id, 7);
 
-      return {
-        success: true,
-        data: lastData,
-        ...(strippedColumns.size > 0 ? { strippedColumns: [...strippedColumns] } : {}),
-      };
+      return { success: true, data: lastData };
     } catch (error) {
       console.error("Error storing enhanced forecasts:", error);
       return {
@@ -272,9 +271,6 @@ export class ForecastStorageService {
   ): Promise<StoreResult> {
     let currentChunk = chunk;
     let lastError: any = null;
-    const strippedColumns: string[] = [];
-    const withStripped = (result: StoreResult): StoreResult =>
-      strippedColumns.length > 0 ? { ...result, strippedColumns: [...strippedColumns] } : result;
 
     // Allow a few "schema strip" retries in case multiple columns are missing
     for (let attempt = 0; attempt < this.config.maxRetries; attempt += 1) {
@@ -285,7 +281,7 @@ export class ForecastStorageService {
         });
 
       if (!error) {
-        return withStripped({ success: true, data });
+        return { success: true, data };
       }
 
       lastError = error;
@@ -300,7 +296,7 @@ export class ForecastStorageService {
           hint: (error as any).hint,
           code: (error as any).code,
         });
-        return withStripped({ success: false, error: error.message });
+        return { success: false, error: error.message };
       }
 
       if (missingColumn && !this.warnedSchemaColumns.has(missingColumn)) {
@@ -323,10 +319,9 @@ export class ForecastStorageService {
           hint: (error as any).hint,
           code: (error as any).code,
         });
-        return withStripped({ success: false, error: error.message });
+        return { success: false, error: error.message };
       }
 
-      strippedColumns.push(missingColumn);
       reportStrippedColumn(missingColumn);
       currentChunk = strippedRows;
     }
@@ -338,7 +333,7 @@ export class ForecastStorageService {
       hint: (lastError as any).hint,
       code: (lastError as any).code,
     });
-    return withStripped({ success: false, error: lastError?.message || "Unknown error after retries" });
+    return { success: false, error: lastError?.message || "Unknown error after retries" };
   }
 
   /**

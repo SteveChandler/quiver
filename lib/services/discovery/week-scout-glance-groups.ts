@@ -4,10 +4,10 @@ import { COMPASS, directionIndex, periodClass, type RegionalSwellEvent } from ".
 import type { CandidateFacts } from "./week-scout-story-facts";
 import { getLocalDateStr } from "./window-selector/time-slot-utils";
 
-export const GROUP_PEAK_WINDOW_MS = 36 * 60 * 60 * 1000;
-export const GROUP_DIRECTION_DEG = 45;
+const GROUP_PEAK_WINDOW_MS = 36 * 60 * 60 * 1000;
+const GROUP_DIRECTION_DEG = 45;
 /** Local days 0–14 from today, the span the Swell Watch strip can show. */
-export const STRIP_DAYS = 15;
+const STRIP_DAYS = 15;
 
 export type GlanceNoun = "groundswell" | "mid-period swell" | "windswell" | "storm swell" | "swell";
 

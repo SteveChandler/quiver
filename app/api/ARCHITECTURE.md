@@ -73,13 +73,14 @@ The API wrappers handle this automatically. When using `withAuth`, `withProtecti
 
 ```typescript
 // CORRECT - params are pre-resolved by the wrapper
-export const GET = withAuth(async (request, { user, supabase, params }) => {
+const handleGet = withAuth(async (request, { user, supabase, params }) => {
   const sessionId = params.id; // Safe - already resolved
   // ...
 });
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]");
 
 // INCORRECT - DO NOT access params outside the wrapper
-export async function GET(request: NextRequest, { params }: RouteContext) {
+async function handleGet(request: NextRequest, { params }: RouteContext) {
   const id = params.id; // DANGER: params.id may be undefined in Next.js 16
   // ...
 }
@@ -118,6 +119,7 @@ interface AuthenticatedContext {
 
 ```typescript
 import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 async function handler(
   request: NextRequest,
@@ -134,8 +136,21 @@ async function handler(
   return createSuccessResponse({ session: data });
 }
 
-export const GET = withAuth(handler);
+export const GET = withErrorNoStore(withAuth(handler), "/api/sessions/[id]");
 ```
+
+### GET errors are never cached
+
+Every exported GET goes through `withErrorNoStore(handler, routePath)` as the
+outermost wrapper; `__tests__/config/api-get-error-no-store.test.ts` fails a
+route that does not. `next.config.mjs` gives every `/api/*` response without
+its own Cache-Control `private, max-age=60, stale-while-revalidate=120`, and
+browsers and iOS would otherwise replay a 401, 404 or 500 for up to three
+minutes. The wrapper marks status >= 400 `no-store`, turns a thrown error into
+a reported `no-store` 500, and leaves 1xx-3xx responses untouched.
+`routePath` is the route as Next names it (`/api/beaches/[id]`), so Sentry
+reports keep the route context. Only GET is wrapped: browsers and NSURLCache
+store only GET (HEAD is answered from GET).
 
 **See Also:**
 - `/docs/API_MIDDLEWARE.md` - Developer guide with patterns and usage
@@ -269,13 +284,6 @@ export const GET = withAuth(handler);
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
   - Keep `CRON_SECRET` in Vercel env if you need to trigger manually
 
-#### `/cron/enhanced-forecast-sync-offset/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Alias entrypoint for the enhanced forecast sync job.
-- **Why it exists**: Enables an effective **90-minute** cron cadence without relying on multiple cron entries targeting the same path.
-  - Scheduled alongside `/api/cron/enhanced-forecast-sync` in `vercel.json` (staggered schedules).
-
 ### 🔮 `/forecasts` - Surf Forecast System
 
 **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC
@@ -332,7 +340,7 @@ export const GET = withAuth(handler);
 
 **Caching**:
 
-HDOnTap media playlists are checked with a HEAD request to the first segment on its live host or `edgeNN[.region].nginx.hdontap.com` CDN. Redirects are rejected. Expired segments (404/410) trigger at most three retries with 2/4/6-second backoff inside the same 15-second deadline. No expired playlist is returned after exhaustion; failures are uncached. The public proxy allowlist is unchanged.
+Camera media routes reject the retired provider by hostname and reject upstream redirects. The HLS proxy checks playlist URIs in media lines and attributes before returning a manifest. The HDRelay and Surfline allowlists continue to apply.
 
 | Resource Type | `Cache-Control` |
 |---------------|-----------------|

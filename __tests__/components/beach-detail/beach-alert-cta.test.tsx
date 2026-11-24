@@ -27,10 +27,11 @@ jest.mock("@/hooks/use-pending-action", () => ({
 
 // Mock useDataFetcher — control rule data per test
 let mockRules: any[] = [];
+let capturedFetchRules: (() => Promise<unknown>) | null = null;
 const mockRefetch = jest.fn();
 const mockInvalidateCache = jest.fn();
 jest.mock("@/hooks/use-data-fetcher", () => ({
-  useDataFetcher: (_fetchFn: any, _opts: any) => ({
+  useDataFetcher: (fetchFn: any, _opts: any) => (capturedFetchRules = fetchFn, {
     data: mockRules,
     loading: false,
     error: null,
@@ -317,6 +318,42 @@ describe("BeachAlertCta", () => {
       mockRules = [{ id: "r1", beach_id: "beach-123" }];
       render(<BeachAlertCta {...defaultProps} compact />);
       expect(screen.getByText("1")).toBeInTheDocument();
+    });
+  });
+
+  describe("alert rules request", () => {
+    const originalFetch = global.fetch;
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    function renderAndGetFetch(): () => Promise<unknown> {
+      mockUseAuth.mockReturnValue(authenticatedAuth);
+      render(<BeachAlertCta {...defaultProps} />);
+      if (!capturedFetchRules) throw new Error("fetch function not captured");
+      return capturedFetchRules;
+    }
+
+    it("throws on a server error so the fetcher does not cache an empty rule list", async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }) as unknown as typeof fetch;
+
+      await expect(renderAndGetFetch()()).rejects.toThrow("500");
+    });
+
+    it("throws for a lapsed session so the empty answer is not cached", async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) }) as unknown as typeof fetch;
+
+      await expect(renderAndGetFetch()()).rejects.toThrow("401");
+    });
+
+    it("returns the user's rules on success", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: "r1", beach_id: "beach-123" }] }),
+      }) as unknown as typeof fetch;
+
+      await expect(renderAndGetFetch()()).resolves.toEqual([{ id: "r1", beach_id: "beach-123" }]);
     });
   });
 });

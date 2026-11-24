@@ -7,6 +7,11 @@ const mockLoadRegion = jest.fn();
 jest.mock("@/lib/alerts/swell-events/regional", () => ({
   loadRegionForecastEvents: (...args: unknown[]) => mockLoadRegion(...args),
 }));
+const mockWaterNotice = jest.fn();
+jest.mock("../week-scout-glance-water", () => ({
+  ...jest.requireActual("../week-scout-glance-water"),
+  loadRegionWaterNotice: (...args: unknown[]) => mockWaterNotice(...args),
+}));
 jest.mock("../week-scout-story-store", () => ({
   activeStoryRegions: (...args: unknown[]) => mockActiveRegions(...args),
   loadLatestStoryEdition: (...args: unknown[]) => mockLatestEdition(...args),
@@ -163,6 +168,7 @@ describe("deterministic fallback and live gates", () => {
     mockBuildInput.mockImplementation(async () => input());
     mockLoadInput.mockResolvedValue(input());
     mockLoadRegion.mockResolvedValue(regionBuild([west]));
+    mockWaterNotice.mockResolvedValue({ rain: null, closedBeaches: [] });
   });
 
   it("selects the first passing candidate per slot, omitting failed gates", () => {
@@ -357,6 +363,25 @@ describe("deterministic fallback and live gates", () => {
 
     expect(story).toMatchObject({ availability: "ready", chapters: [
       { slot: `day:${date}`, text: "On Wednesday, Picked Beach runs chest-high." },
+    ] });
+  });
+
+  it("still serves a server line that names a beach with a bracket in its name", () => {
+    const response = live();
+    const pick = response.days[0].bestDayWindow!;
+    pick.beachId = "pick-beach";
+    pick.forecast.waveHeight = "3-4 ft";
+    const date = response.days[0].localDate;
+    const regional = regionOf([]);
+    regional.context.dayFacts = () => ({ faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null });
+    const input = baseInput();
+    input.beachNames = { "pick-beach": "Cayucos Pier (south side)" };
+    input.copyFacts = [{ id: "stale", slot: `day:${date}`, rank: 50,
+      text: "On Wednesday, Other Beach runs chest-high.", facts: { faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: null },
+      gate: { kind: "day_surf", localDate: date, beachId: "other-beach", faceFt: { min: 3, max: 4 } } }];
+
+    expect(bindFallbackStory(region, input, response, regional)).toMatchObject({ availability: "ready", chapters: [
+      { slot: `day:${date}`, text: "On Wednesday, Cayucos Pier (south side) runs chest-high." },
     ] });
   });
 
@@ -687,6 +712,50 @@ describe("deterministic fallback and live gates", () => {
       expect(story.glance?.sentences.length).toBeGreaterThanOrEqual(1);
       expect(story.glance?.source.every((source) => source === "code")).toBe(true);
       expect(story.glance).toEqual(codeGlance(regionBuild([west]), "2026-07-15"));
+    });
+
+    it("ends the paragraph with the region's water sentence", async () => {
+      mockWaterNotice.mockResolvedValue({ rain: { county: false, endsAt: "2026-07-17T14:00:00Z" }, closedBeaches: [] });
+      const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+        startLocalDate: "2026-07-15", now });
+      const code = codeGlance(regionBuild([west]), "2026-07-15");
+      expect(story.glance).toEqual({
+        sentences: [...code.sentences, "Rain advisory until early Friday if it stays dry: runoff raises bacteria near storm drains, creeks and river mouths."],
+        source: [...code.source, "code"],
+      });
+      expect(mockWaterNotice).toHaveBeenCalledWith(client, region, regionBuild([west]).beaches, now);
+    });
+
+    it("keeps the swell paragraph when the water read fails", async () => {
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      try {
+        mockWaterNotice.mockRejectedValue(new Error("county run timeout"));
+        const story = await loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+          startLocalDate: "2026-07-15", now });
+        expect(story.glance).toEqual(codeGlance(regionBuild([west]), "2026-07-15"));
+        expect(warn).toHaveBeenCalledWith("[week-scout-story] water notice read failed",
+          { region, error: "Error: county run timeout" });
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it("leaves the water sentence out when its read is slow", async () => {
+      jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      try {
+        mockWaterNotice.mockReturnValue(new Promise(() => undefined));
+        const pending = loadAndBindStory({ client: client as never, homeBeachId: "home", live: live(),
+          startLocalDate: "2026-07-15", now });
+        await jest.advanceTimersByTimeAsync(2_100);
+        const story = await pending;
+        expect(story.glance).toEqual(codeGlance(regionBuild([west]), "2026-07-15"));
+        expect(warn).toHaveBeenCalledWith("[week-scout-story] water notice read failed",
+          { region, error: "Error: timed out after 2000 ms" });
+      } finally {
+        warn.mockRestore();
+        jest.useRealTimers();
+      }
     });
 
     it("keeps the glance on a story whose edition fails its gates", async () => {

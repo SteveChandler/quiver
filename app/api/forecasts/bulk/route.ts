@@ -39,11 +39,9 @@ import {
   type DisplaySwell,
   type DisplaySwellWindow,
 } from "@/lib/domains/conditions/display-swell";
-import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
 import {
   BULK_FORECAST_SELECT,
-  CURRENT_CONDITIONS_TOLERANCE_MS,
-  currentMapForecastRow,
+  currentHourForecastRow,
   fetchBulkForecastRowsWithV51Display,
   modelForecastRow,
   resolveForecastFetchWindow,
@@ -66,6 +64,7 @@ import {
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 import { getClientIdentifier } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
 import { withBulkForecastSlot, bulkForecastShedResponse, FORECAST_BULK_DEADLINE_MS } from "@/lib/api/bulk-forecast-guard";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
@@ -416,9 +415,7 @@ function buildSwellPartitionTimeline(
     const partitions = hourOffsets.map((offsetHours) => {
       const targetMs = nowMs + offsetHours * 60 * 60 * 1000;
       const row = offsetHours === 0
-        ? designateCurrentRow(beachRows, now, {
-            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-          })?.row ?? null
+        ? currentHourForecastRow(beachRows, now)
         : nearestForecastRow(beachRows, targetMs);
       return row ? rowToSwellPartition(row) : null;
     }).filter((partition): partition is SwellPartition => partition !== null);
@@ -813,7 +810,7 @@ export async function bulkForecastHandler(
     signal.throwIfAborted();
     const selectedRows = [...groupForecastsByBeach(data).values()].flatMap((rows) => {
       const row = fetchWindow.selectedAt ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : designateCurrentRow(rows, now, { toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS })?.row;
+        : currentHourForecastRow(rows, now);
       return row ? [row] : [];
     });
     const decisionContext = loadScoring ? await fetchBulkDecisionContext(
@@ -861,9 +858,7 @@ export async function bulkForecastHandler(
     for (const [beachId, rows] of timelineByBeach) {
       const row = fetchWindow.selectedAt
         ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : designateCurrentRow(rows, now, {
-            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-          })?.row ?? null;
+        : currentHourForecastRow(rows, now);
       if (row) {
         swellPartitionRows.set(beachId, row);
         swellPartitionMap[beachId] = rowToSwellPartition(row);
@@ -930,7 +925,7 @@ export async function bulkForecastHandler(
       if (fetchWindow.selectedAt) {
         display = resolveSelectedHourDisplay(forecastForScore);
       } else {
-        const currentRow = currentMapForecastRow(beachForecasts, now);
+        const currentRow = modelForecastRow(currentHourForecastRow(beachForecasts, now));
         display = resolveSelectedHourDisplay(currentRow);
         scoreForecast = currentRow;
 
@@ -1080,7 +1075,7 @@ export async function bulkForecastHandler(
 }
 
 // Apply rate limiting to prevent abuse of bulk operations
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(
     withBulkForecastSlot(withAuth(bulkForecastHandler, {
       optional: true,
@@ -1089,3 +1084,5 @@ export const GET = withNoStore(
     "forecast-bulk"
   )
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/forecasts/bulk");

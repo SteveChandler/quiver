@@ -12,6 +12,7 @@ import {
   completeCronCheckIn,
 } from "@/lib/monitoring/sentry-cron";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -298,4 +299,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/sitemap-health", _GET);
+const handleGet = withObservedCron("/api/cron/sitemap-health", _GET);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/sitemap-health");

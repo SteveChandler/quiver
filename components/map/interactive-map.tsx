@@ -35,6 +35,7 @@ import {
   getConditionMarkerGradient,
   getWaterQualityHold,
   getWaterTempBadgeColor,
+  hasCurrentSampleTitle,
   type MarkerPreviewData,
   type MarkerBuilderDeps,
   type MapDisplayMode,
@@ -2974,7 +2975,7 @@ export function InteractiveMap({
       else element.setAttribute("data-condition-score", String(score));
       const beach = beachesRef.current?.find((item) => item.id === beachId);
       const button = element.querySelector("[data-marker-badge]");
-      if (beach && button && (beach as MapBeach).waterQualityEvidence?.source !== "sample") button.setAttribute("title", `${beach.name}: ${getConditionMarkerCall({ recommendationLabel, waterQualityHold: getWaterQualityHold(beach) }).label}`);
+      if (beach && button && !hasCurrentSampleTitle(beach as MapBeach)) button.setAttribute("title", `${beach.name}: ${getConditionMarkerCall({ recommendationLabel, waterQualityHold: getWaterQualityHold(beach) }).label}`);
       const badge = element.querySelector("[data-marker-visual='true']");
       const existingRing = element.querySelector(
         '[data-testid="selection-ring"]'

@@ -5,8 +5,9 @@ import {
   DEFAULT_SECURITY_HEADERS,
   createSuccessResponse,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   try {
     const url = new URL(req.url);
     const host = url.host;
@@ -79,3 +80,4 @@ export async function GET(req: Request) {
   }
 }
 
+export const GET = withErrorNoStore(handleGet, "/api/e2e-login");

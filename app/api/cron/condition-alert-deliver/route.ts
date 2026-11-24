@@ -8,7 +8,6 @@
 //
 // Hardened (Task 4) with:
 //   - FORECAST_ALERT_DELIVERY_ENABLED forecast send switch (default off)
-//   - ALERTS_DELIVERY_ENABLED legacy similarity-alert send switch
 //   - ALERTS_DELIVERY_USER_ALLOWLIST (comma-separated user_ids; empty = all)
 //   - Per-(queue_id, channel) row in `alert_delivery_attempts` for every
 //     decision (sent, skipped_*, failed_*).
@@ -40,6 +39,7 @@ import {
   type QueueItemWithMeta,
 } from "@/lib/alerts/payload-builder";
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
+import { collapseSameWindowMatches } from "@/lib/alerts/collapse-matches";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import {
@@ -66,6 +66,7 @@ import type { MatchingWindow } from "@/lib/alerts/types";
 import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
 import {
   resolveNotificationMajorEventHold,
   type PositiveRecommendationPolicyContext,
@@ -75,6 +76,7 @@ import {
   canonicalAlertCandidateId,
   type CanonicalSessionDecision,
 } from "@/lib/recommendations/canonical-decision";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -388,7 +390,7 @@ function policyContextForMatch(
   };
 }
 
-export async function GET(request: Request): Promise<NextResponse> {
+async function handleGet(request: Request): Promise<NextResponse> {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -1027,8 +1029,14 @@ export async function GET(request: Request): Promise<NextResponse> {
         if (profilesError) throw profilesError;
 
         const profilesByUser = new Map<string, ProfileRow>();
+        // One rating skill per user, so the hold gate and every decision rate the same skill.
+        const ratingSkillByUser = new Map<string, string | null>();
         for (const row of (profileRows ?? []) as ProfileRow[]) {
           profilesByUser.set(row.id, row);
+          ratingSkillByUser.set(
+            row.id,
+            ratingExperience(row.experience_level, isSkillAwareGoChecksOn(row.id)),
+          );
         }
 
         // 3b. Fetch recent 'sent' attempts once for cooldown (per-rule, 24h) and
@@ -1078,7 +1086,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                 forecast_at: match.best_hour,
                 ...(policyContext ? { policy_context: policyContext } : {}),
               },
-              profileExperience: profile.experience_level,
+              profileExperience: ratingSkillByUser.get(userId) ?? null,
             });
             if (
               resolution.status === "suppressed" &&
@@ -1090,7 +1098,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
           const decision = buildAlertSessionDecision({
             matches: userMatches,
-            profileExperience: profile.experience_level,
+            profileExperience: ratingSkillByUser.get(userId) ?? null,
           });
           if (!forecastDeliveryEnabled) {
             for (const item of userItems) {
@@ -1200,7 +1208,9 @@ export async function GET(request: Request): Promise<NextResponse> {
             if (marked) result.errors++;
             continue;
           }
-          const profileExperience = parseSkillLevel(profile.experience_level);
+          const profileExperience = parseSkillLevel(
+            ratingSkillByUser.get(payload.user_id) ?? null,
+          );
 
           // Per-rule cooldown decision (cached) and per-user weekly cap decision.
           // Status priority: skipped_disabled > skipped_allowlist >
@@ -1442,22 +1452,33 @@ export async function GET(request: Request): Promise<NextResponse> {
                       month: "long",
                       day: "numeric",
                     });
-                    if (forecastDeliveryEnabled) {
-                      await rateLimiter.throttle();
-                    }
-
                     const emailDecision = buildAlertSessionDecision({
                       matches: candidateEmailMatches,
                       profileExperience,
                     });
-                    const emailMatches = candidateEmailMatches;
+                    // Same rule as push: no selection means every beach in this
+                    // payload was vetoed, so the email must not name it either.
+                    const primaryEmailMatch = selectedAlertMatch(
+                      candidateEmailMatches,
+                      emailDecision,
+                    );
+                    const emailSelectionRejected = primaryEmailMatch === null;
+                    if (forecastDeliveryEnabled && !emailSelectionRejected) {
+                      await rateLimiter.throttle();
+                    }
+                    // Two rules at one beach and window render as one card.
+                    // Every surviving queue item still records its attempt.
+                    const emailMatches = collapseSameWindowMatches(
+                      candidateEmailMatches,
+                    );
                     const renderedEmailMatches =
                       buildRenderedMatchDetails(emailMatches);
                     const emailSubject = buildConsolidatedSubject(
                       emailMatches,
                       alertDate,
+                      emailDecision.verdict,
                     );
-                    const sendResult = !forecastDeliveryEnabled
+                    const sendResult = emailSelectionRejected || !forecastDeliveryEnabled
                       ? { data: null, error: null }
                       : await sendEmail({
                           purpose: "condition_alert",
@@ -1479,7 +1500,18 @@ export async function GET(request: Request): Promise<NextResponse> {
                         });
                     const { data: sendData, error: sendError } = sendResult;
 
-                    if (!forecastDeliveryEnabled) {
+                    if (emailSelectionRejected) {
+                      for (const item of emailSurvivors) {
+                        await recordAttempt({
+                          queueId: item.id,
+                          ruleId: item.rule_id,
+                          userId: payload.user_id,
+                          channel: "email",
+                          status: "skipped_disabled",
+                          skipReason: `canonical_decision:${emailDecision.reasonCode}`,
+                        });
+                      }
+                    } else if (!forecastDeliveryEnabled) {
                       addShadowChannel(emailSurvivors, "email");
                     } else if ("deferred" in sendResult && sendResult.deferred === "quiet_hours") {
                       // The contact gate has its own quiet window. It has not
@@ -1659,14 +1691,17 @@ export async function GET(request: Request): Promise<NextResponse> {
                     );
                     const canonicalSelectionRejected =
                       primaryPushMatch === null;
-                    const pushMatches = primaryPushMatch
-                      ? [
-                          primaryPushMatch,
-                          ...candidatePushMatches.filter(
-                            (match) => match !== primaryPushMatch,
-                          ),
-                        ]
-                      : candidatePushMatches;
+                    const pushMatches = collapseSameWindowMatches(
+                      primaryPushMatch
+                        ? [
+                            primaryPushMatch,
+                            ...candidatePushMatches.filter(
+                              (match) => match !== primaryPushMatch,
+                            ),
+                          ]
+                        : candidatePushMatches,
+                      primaryPushMatch,
+                    );
                     const renderedPushMatches =
                       buildRenderedMatchDetails(pushMatches);
                     const {
@@ -2044,3 +2079,5 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/condition-alert-deliver");

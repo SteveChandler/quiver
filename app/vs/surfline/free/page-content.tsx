@@ -34,6 +34,7 @@ import { FAQSchema } from "@/components/seo/faq-schema";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 import { LiveCamCard } from "@/app/vs/surfline/free/live-cam-card";
 import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import {
@@ -361,7 +362,7 @@ function StickerBadge({
 // ---------------------------------------------------------------------------
 
 export default async function VsSurflineFreePage() {
-  const camBeaches = await getBeachesWithCameras();
+  const camBeaches = (await getBeachesWithCameras()).filter(isLiveCamBeach);
   const camCount = camBeaches.length;
 
   return (

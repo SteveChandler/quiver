@@ -36,9 +36,11 @@ async function tideNote(source: string, nextHighTime: string | null): Promise<Re
     pageType: "tides",
     beachPath: "/mexico/baja-california-sur/cabo-pulmo/tides",
   }) as ReactElement<{ children?: ReactNode }>;
-  return (Children.toArray(page.props.children).filter(isValidElement) as ReactElement<{ children?: ReactNode }>[]).find(
-    (child) => child.type === "p" && String(Children.toArray(child.props.children)[0]).startsWith("Modelled for this spot"),
-  );
+  // The note sits in the tide block on the field-guide card, not on the stage.
+  const children = Children.toArray(page.props.children).filter(isValidElement) as ReactElement<{ children?: ReactNode }>[];
+  expect(children.some((child) => child.type === "p")).toBe(false);
+  const detail = children.find((child) => (child.props as { heroSummarySlot?: ReactElement }).heroSummarySlot);
+  return (detail?.props as { heroSummarySlot?: ReactElement } | undefined)?.heroSummarySlot;
 }
 
 describe("model tide sub-page note", () => {
@@ -48,13 +50,15 @@ describe("model tide sub-page note", () => {
   });
 
   it.each(["10:00 AM", null])("shows the model attribution with high time %s", async (nextHighTime) => {
-    const note = await tideNote("fes2022", nextHighTime);
-    expect(note).toEqual(expect.objectContaining({ type: "p" }));
-    render(note);
-    expect(screen.getByText(/Modelled for this spot from the FES2022 global tide model, not measured at a tide station\. Not for navigation\./)).toHaveTextContent(FES2022_CITATION);
+    const slot = await tideNote("fes2022", nextHighTime);
+    render(slot);
+    expect(
+      screen.getByText(/Modelled for this spot from the FES2022 global tide model, not measured at a tide station\. Times are to the hour\. Not for navigation\./),
+    ).toHaveTextContent(FES2022_CITATION);
   });
 
   it("omits the model note for NOAA tides", async () => {
-    expect(await tideNote("noaa", "10:00 AM")).toBeUndefined();
+    render(await tideNote("noaa", "10:00 AM"));
+    expect(screen.queryByText(/FES2022/)).toBeNull();
   });
 });

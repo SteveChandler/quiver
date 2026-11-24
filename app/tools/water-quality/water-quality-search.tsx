@@ -10,7 +10,7 @@ interface WaterQualitySearchProps {
 }
 
 export function WaterQualitySearch({
-  placeholder = "Search for a CA or HI beach...",
+  placeholder = "Search for a California beach...",
 }: WaterQualitySearchProps) {
   const router = useRouter();
 

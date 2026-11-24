@@ -629,6 +629,146 @@ describe("City Metadata Actions", () => {
       });
     });
 
+    describe("Slug-equality fallback (ʻokina cities)", () => {
+      const mockRpcByName = (
+        responses: Record<string, { data: unknown; error: unknown }>
+      ): void => {
+        mockSupabaseClient.rpc.mockImplementation((name: string) =>
+          Promise.resolve(responses[name] ?? defaultRpcResponse)
+        );
+      };
+
+      const hawaiiLocations = [
+        { country: "USA", state: "HI", city: "Kaʻaʻawa", beach_count: 2 },
+        { country: "USA", state: "HI", city: "Kāneʻohe", beach_count: 3 },
+        { country: "USA", state: "HI", city: "Haleiwa", beach_count: 4 },
+        { country: "USA", state: "CA", city: "Santa Cruz", beach_count: 3 },
+      ];
+
+      it("resolves ka-a-awa to Kaʻaʻawa when the pattern RPC finds nothing", async () => {
+        mockRpcByName({
+          find_cities_by_pattern: { data: [], error: null },
+          get_all_beach_locations: { data: hawaiiLocations, error: null },
+        });
+        tableChain.order.mockResolvedValue({
+          data: mockSantaCruzBeaches,
+          error: null,
+        });
+
+        const result = await findCityBySlug("ka-a-awa");
+
+        expect(result.success).toBe(true);
+        expect(result.data?.cityName).toBe("Kaʻaʻawa");
+        expect(result.data?.state).toBe("HI");
+        expect(tableChain.ilike).toHaveBeenCalledWith("city", "Kaʻaʻawa");
+        expect(tableChain.eq).toHaveBeenCalledWith("state", "HI");
+      });
+
+      it("resolves kane-ohe to Kāneʻohe when the pattern RPC finds nothing", async () => {
+        mockRpcByName({
+          find_cities_by_pattern: { data: [], error: null },
+          get_all_beach_locations: { data: hawaiiLocations, error: null },
+        });
+        tableChain.order.mockResolvedValue({
+          data: mockSantaCruzBeaches,
+          error: null,
+        });
+
+        const result = await findCityBySlug("kane-ohe");
+
+        expect(result.success).toBe(true);
+        expect(result.data?.cityName).toBe("Kāneʻohe");
+        expect(result.data?.state).toBe("HI");
+      });
+
+      it("does not call the fallback when the pattern RPC errors", async () => {
+        mockRpcByName({
+          find_cities_by_pattern: { data: null, error: { message: "pattern rpc down" } },
+          get_all_beach_locations: { data: hawaiiLocations, error: null },
+        });
+
+        const result = await findCityBySlug("ka-a-awa");
+
+        expect(result.success).toBe(false);
+        expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith("get_all_beach_locations");
+      });
+
+      it("returns an error when the locations RPC errors", async () => {
+        mockRpcByName({
+          find_cities_by_pattern: { data: [], error: null },
+          get_all_beach_locations: { data: null, error: { message: "locations rpc down" } },
+        });
+
+        const result = await findCityBySlug("ka-a-awa");
+
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_all_beach_locations");
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("locations rpc down");
+      });
+
+      it("returns null when the slug matches cities in two US states without a state suffix", async () => {
+        mockRpcByName({
+          find_cities_by_pattern: { data: [], error: null },
+          get_all_beach_locations: {
+            data: [
+              { country: "USA", state: "HI", city: "Kaʻaʻawa", beach_count: 2 },
+              { country: "USA", state: "CA", city: "Kaʻaʻawa", beach_count: 1 },
+            ],
+            error: null,
+          },
+        });
+        tableChain.order.mockResolvedValue({
+          data: mockSantaCruzBeaches,
+          error: null,
+        });
+
+        const result = await findCityBySlug("ka-a-awa");
+
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_all_beach_locations");
+        expect(result.success).toBe(true);
+        expect(result.data).toBeNull();
+      });
+
+      it("does not resolve a non-US city without a state suffix", async () => {
+        mockRpcByName({
+          find_cities_by_pattern: { data: [], error: null },
+          get_all_beach_locations: {
+            data: [
+              { country: "Mexico", state: "Baja California", city: "Kaʻaʻawa", beach_count: 2 },
+            ],
+            error: null,
+          },
+        });
+        tableChain.order.mockResolvedValue({
+          data: mockSantaCruzBeaches,
+          error: null,
+        });
+
+        const result = await findCityBySlug("ka-a-awa");
+
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_all_beach_locations");
+        expect(result.success).toBe(true);
+        expect(result.data).toBeNull();
+      });
+
+      it("returns null for a nonexistent city when no location slug matches", async () => {
+        mockRpcByName({
+          find_cities_by_pattern: { data: [], error: null },
+          get_all_beach_locations: { data: hawaiiLocations, error: null },
+        });
+        tableChain.order.mockResolvedValue({
+          data: mockSantaCruzBeaches,
+          error: null,
+        });
+
+        const result = await findCityBySlug("nonexistent-city-xyz");
+
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_all_beach_locations");
+        expect(result.success).toBe(true);
+        expect(result.data).toBeNull();
+      });
+    });
+
     describe("Exact Match Collision Handling", () => {
       it("prefers exact match over substring match (koloa vs waikoloa)", async () => {
         // RPC returns both Koloa (exact match) and Waikoloa (substring match)

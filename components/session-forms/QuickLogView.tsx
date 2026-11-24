@@ -11,6 +11,7 @@ import {
   RECOMMENDATION_CALL_ACCURACY_OPTIONS,
 } from "./shared/constants";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { SESSION_RATING_SCALE } from "@/lib/share/session-rating";
 import { cn } from "@/lib/utils";
 import type { SessionFormState } from "@/hooks/use-session-form";
 import type { BeachSource } from "@/hooks/use-nearest-beach";
@@ -183,7 +184,7 @@ export function QuickLogView({
         </h2>
         <SessionSlider
           label="Overall"
-          labels={["Rough", "Meh", "Fun", "Great", "Epic"]}
+          labels={SESSION_RATING_SCALE}
           colors={["#9CA3AF", "#F59E0B", "#EA580C"]}
           value={formState.overallRating}
           onChange={(v) => updateField("overallRating", v)}

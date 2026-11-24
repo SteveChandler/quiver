@@ -82,7 +82,7 @@ function BeachCard({
         .replace(/_/g, " ")
         .toLowerCase()
         .replace(/\b\w/g, (c) => c.toUpperCase())
-    : "All levels";
+    : null;
 
   return (
     <Link href={beachUrl} prefetch={false} className="block group">
@@ -132,8 +132,12 @@ function BeachCard({
                 <span className="text-gray-500">({beach.review_count})</span>
               ) : null}
             </div>
-            <span className="text-gray-300">•</span>
-            <span className="text-gray-700">{skillLevel}</span>
+            {skillLevel ? (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="text-gray-700">{skillLevel}</span>
+              </>
+            ) : null}
           </div>
         </div>
       </div>

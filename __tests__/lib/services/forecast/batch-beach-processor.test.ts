@@ -7,8 +7,20 @@
  * - processBeachesInBatches(): batch splitting, deadline early-stop, delay, error handling
  */
 
+jest.mock("node:timers/promises", () => ({
+  setTimeout: jest.fn().mockResolvedValue(undefined),
+}));
+
+import { setTimeout as sleep } from "node:timers/promises";
 import type { Beach } from "@/types/database";
-import { DeadlineTracker, loadBatchConfig, loadCdipBatchConfig, getRefreshSelectionWindowHours, processBeachesInBatches } from "@/lib/services/forecast/batch-beach-processor";
+import {
+  DeadlineTracker,
+  getForecastWritePacing,
+  loadBatchConfig,
+  loadCdipBatchConfig,
+  getRefreshSelectionWindowHours,
+  processBeachesInBatches,
+} from "@/lib/services/forecast/batch-beach-processor";
 import type {
   BatchProcessConfig,
   BeachProcessResult,
@@ -254,6 +266,48 @@ describe("loadCdipBatchConfig", () => {
   });
 });
 
+describe("forecast write pacing", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    { flag: undefined, expectedDelays: [500, 500] },
+    { flag: "false", expectedDelays: [1000] },
+  ])("keeps the previous inter-batch wait budget with pacing flag $flag", async ({ flag, expectedDelays }) => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      FORECAST_WRITE_PACING: flag,
+    });
+    jest.mocked(sleep).mockClear();
+
+    await processBeachesInBatches({
+      beaches: Array.from({ length: 6 }, (_, index) => makeBeach(String(index), `Beach ${index}`)),
+      config: {
+        batchSize: 3,
+        batchDelayMs: 1000,
+        maxBeachesPerRun: 10,
+        freshnessWindowHours: 12,
+        refreshLeadHours: 4,
+      },
+      deadlineTracker: new DeadlineTracker(),
+      processBeach: async beach => ({ beach: beach.name, success: true }),
+    });
+
+    expect(jest.mocked(sleep).mock.calls).toEqual(expectedDelays.map(delay => [delay]));
+  });
+
+  it("caps a configured write delay at one second", () => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      FORECAST_WRITE_DELAY_MS: "2500",
+      FORECAST_WRITE_PACING: "true",
+    });
+
+    expect(getForecastWritePacing(50)?.delayMs).toBe(1000);
+  });
+});
+
 describe("getRefreshSelectionWindowHours", () => {
   it("never returns a negative selection window", () => {
     expect(getRefreshSelectionWindowHours({
@@ -280,6 +334,36 @@ describe("processBeachesInBatches", () => {
     freshnessWindowHours: 12,
     refreshLeadHours: 4,
   };
+
+  it.each([
+    { flag: undefined, peak: 2 },
+    { flag: "false", peak: 3 },
+  ])("bounds concurrent beach writes with FORECAST_WRITE_PACING=$flag", async ({ flag, peak }) => {
+    const env = jest.replaceProperty(process, "env", { ...process.env, FORECAST_WRITE_PACING: flag });
+    try {
+      const beaches = ["A", "B", "C"].map(name => makeBeach(name, name));
+      let release!: () => void;
+      const blocked = new Promise<void>(resolve => { release = resolve; });
+      const processBeach = jest.fn(async (beach: Beach): Promise<BeachProcessResult> => {
+        await blocked;
+        return { beach: beach.name, success: true };
+      });
+
+      const run = processBeachesInBatches({
+        beaches,
+        config: { ...defaultConfig, batchSize: 3 },
+        deadlineTracker: new DeadlineTracker(),
+        processBeach,
+      });
+      expect(processBeach).toHaveBeenCalledTimes(peak);
+      release();
+      const result = await run;
+      expect(result.results.map(row => row.beach)).toEqual(["A", "B", "C"]);
+      expect(result.summary).toMatchObject({ successful: 3, stoppedEarly: false });
+    } finally {
+      env.restore();
+    }
+  });
 
   it("processes all beaches and returns success results", async () => {
     const beaches = [makeBeach("1", "Beach A"), makeBeach("2", "Beach B"), makeBeach("3", "Beach C")];

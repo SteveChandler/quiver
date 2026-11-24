@@ -4,6 +4,7 @@ import { withObservedCron } from '@/lib/cron/observability';
 import { validateCronRequest } from '@/lib/middleware/api-wrappers';
 import { processCustomSpotAnalysisBatch } from '@/lib/services/custom-spot-analysis/processor';
 import { SupabaseCustomSpotAnalysisStore } from '@/lib/services/custom-spot-analysis/supabase-store';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = 'nodejs';
@@ -35,4 +36,6 @@ async function handler(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron('/api/cron/custom-spot-analysis', handler);
+const handleGet = withObservedCron('/api/cron/custom-spot-analysis', handler);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/custom-spot-analysis");

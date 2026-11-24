@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import { parseWeekendScoutSnapshot } from "@/lib/services/discovery/weekend-scout-contract";
+import { parseWeekendScoutRanking, parseWeekendScoutSnapshot } from "@/lib/services/discovery/weekend-scout-contract";
 
 function loadFixture(): Record<string, unknown> {
   return JSON.parse(
@@ -16,6 +16,15 @@ describe("weekend-scout-v1 contract", () => {
     const fixture = loadFixture();
 
     expect(parseWeekendScoutSnapshot(fixture)).toEqual(fixture);
+  });
+
+  it.each([
+    { kind: "location" },
+    { kind: "home_beach", beachId: "22222222-2222-4222-8222-222222222222", beachName: "La Jolla Shores" },
+  ])("supports $kind without a contract version change", (origin) => {
+    const input = { ...loadFixture(), origin };
+    expect(parseWeekendScoutRanking(input)).toMatchObject({ contractVersion: "weekend-scout-v1", origin });
+    expect(parseWeekendScoutSnapshot(input)).toMatchObject({ contractVersion: "weekend-scout-v1", origin });
   });
 
   it("rejects a qualifying count that disagrees with the rows", () => {

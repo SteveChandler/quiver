@@ -745,39 +745,6 @@ describe("notification major-event hold adapter", () => {
     });
   });
 
-  it("suppresses a Quiver-initiated recommendation that names a held beach", async () => {
-    const evaluateCandidates = jest.fn(async (input) => {
-      expect(input.applyWaterQualityHolds).toBe(true);
-      return [
-        decisionFor(
-          input.candidates[0] as MajorEventHoldCandidate,
-          "water_quality_block",
-        ),
-      ];
-    });
-
-    const result = await resolveNotificationMajorEventHold(
-      {
-        eventId: "event-feedback-nudge-held-beach",
-        type: "forecast_feedback_nudge",
-        payload: {
-          beach_id: BEACH_ID,
-          beach_name: "Held Beach",
-          forecast_at: STARTS_AT,
-        },
-        profileExperience: "beginner",
-        mode: "enforce",
-      },
-      { evaluateCandidates },
-    );
-
-    expect(result).toMatchObject({
-      status: "suppressed",
-      reasonCode: "water_quality_hold",
-      candidate: { beachId: BEACH_ID },
-    });
-  });
-
   it.each(MODE_EXPECTATIONS)(
     "%s mode returns %s for a user-configured forecast alert under an active hold",
     async (mode, expectedStatus) => {

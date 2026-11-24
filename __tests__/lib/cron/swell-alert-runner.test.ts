@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { capNearbyPool, type PoolBeach } from "@/lib/alerts/user-pool";
 import type { Database } from "@/types/database";
 import titlePool from "@/lib/notifications/copy/surf-titles.v1.json";
+import { selectTitle } from "@/lib/notifications/copy/select-title";
 import {
   loadSwellAlertProfiles,
   orderSwellCandidatesForTomorrow,
@@ -14,6 +15,7 @@ import {
   type SwellAlertPoolEvaluation,
   type SwellAlertProfile,
 } from "@/lib/cron/swell-alert-runner";
+import type { PushRegionStory } from "@/lib/alerts/swell-outlook/first-sighting";
 import type { RankDay } from "@/lib/cron/daily-call-runner";
 import type {
   CanonicalWeekScoutResponse,
@@ -21,6 +23,13 @@ import type {
   WeekScoutWindowResponse,
 } from "@/lib/services/discovery/week-scout";
 import { beachSwellEvent } from "@/__tests__/helpers/swell-events";
+
+jest.mock("@/lib/notifications/copy/select-title", () => {
+  const actual = jest.requireActual("@/lib/notifications/copy/select-title");
+  return { ...actual, selectTitle: jest.fn(actual.selectTitle) };
+});
+// The swell_story_push switch is a database row; these pushes are today's text, with it off.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryPushEnabled: jest.fn(async () => false), isSwellStoryCardEnabled: jest.fn(async () => false) }));
 
 const NOW = new Date("2026-09-18T00:00:00.000Z");
 const USER_ID = "73040cff-afe9-4fa0-a874-2016203fc015";
@@ -270,6 +279,78 @@ describe("runSwellAlertCron", () => {
     expect(payload?.body).toContain("Your call: Blacks Saturday 6:20–10 AM.");
     expect(payload?.body).toMatch(/peak:? Friday evening/i);
     expect(payload?.peak_date).toBe("2026-09-19");
+  });
+
+  describe("when rotation has used every swell title", () => {
+    const exhausted = (): Partial<SwellAlertDeps> => ({
+      loadAlertState: jest.fn(async () => ({
+        eventExists: false,
+        lastAlertAt: null,
+        recentTitleIds: titlePool.swell.map(({ id }) => id),
+        recentFilmCount: 0,
+      })),
+    });
+
+    it("sends the swell facts under the fallback title, with the hazard after them", async () => {
+      const pool = evaluation();
+      pool.candidates[0] = { ...pool.candidates[0], hazard: "high_rip_current" };
+      const deps = dependencies({ ...exhausted(), evaluatePool: jest.fn(async () => pool) });
+
+      const result = await runSwellAlertCron({ now: NOW, deps });
+
+      expect(result.sent).toBe(1);
+      const { title, body, title_id } = jest.mocked(deps.enqueue).mock.calls[0][0].payload as {
+        title: string;
+        body: string;
+        title_id: string;
+      };
+      expect(title_id).toBe("fallback");
+      expect(title).toMatch(/^Swell peaks /);
+      expect(body).toMatch(/^\S/);
+      expect(body).toContain("@");
+      expect(body).toMatch(/Rip current statement in effect\.$/);
+      expect(body).not.toMatch(/^Rip current/);
+    });
+
+    it("still sends without a hazard instead of losing the alert to an empty body", async () => {
+      const deps = dependencies(exhausted());
+
+      const result = await runSwellAlertCron({ now: NOW, deps });
+
+      expect(result.sent).toBe(1);
+      expect(result.errors).toBe(0);
+      const { body } = jest.mocked(deps.enqueue).mock.calls[0][0].payload as { body: string };
+      expect(body.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("records swell_no_copy and sends nothing when the title pool yields no body", async () => {
+    jest.mocked(selectTitle).mockReturnValueOnce({
+      id: "fallback",
+      title: "Swell peaks Friday",
+      body: "",
+      fallback: true,
+    });
+    const pool = evaluation();
+    pool.candidates[0] = { ...pool.candidates[0], hazard: "high_surf" };
+    const deps = dependencies({ evaluatePool: jest.fn(async () => pool) });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.skippedCounts.swell_no_copy).toBe(1);
+    expect(result.errors).toBe(0);
+    expect(deps.insertAlert).not.toHaveBeenCalled();
+    expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("does not count an unrelated enqueue failure as swell_no_copy", async () => {
+    const deps = dependencies({
+      enqueue: jest.fn(async () => ({ enqueued: false as const, reason: "internal_error" as const, message: "boom" })),
+    });
+
+    const result = await runSwellAlertCron({ now: NOW, deps });
+
+    expect(result.skippedCounts.swell_no_copy).toBeUndefined();
   });
 
   it("selects weekday title copy for a Friday beach peak whose user-zone date is Saturday", async () => {
@@ -831,5 +912,87 @@ describe("swell alert shared ranking", () => {
     expect(ordered.map(({ beach }) => beach.id)).toEqual([first.beach.id, second.beach.id]);
     expect(rankDay).toHaveBeenCalledWith(expect.objectContaining({ sessionTime: null, anchor: null }));
     expect(pool.candidates).toHaveLength(3);
+  });
+});
+
+describe("rare swell push with the swell_story_push switch on", () => {
+  const BLACKS = "11111111-1111-4111-8111-111111111111";
+  const STORY: PushRegionStory = {
+    regionEventKey: "San Diego:NW:2026-09-20", storyKey: "7-5-2026-09-20", storySource: "code",
+    story: "A northwest long-period groundswell arrives Friday Sep 18, peaks Sunday Sep 20 and fades Monday Sep 21: head-high at most spots.",
+    directionLabel: "NW", kind: "swell", periodS: 17, peakAt: "2026-09-20T15:00:00.000Z",
+  };
+  const sent = async (overrides: Partial<SwellAlertDeps>) => {
+    const deps = dependencies(overrides);
+    await runSwellAlertCron({ now: NOW, deps });
+    return { deps, push: (deps.enqueue as jest.Mock).mock.calls[0][0] };
+  };
+
+  it("leads the body with the card sentence, then the call and the rarity line; title and keys stay today's", async () => {
+    const today = await sent({});
+    const told = await sent({ isStoryPushEnabled: jest.fn(async () => true), loadPushStory: jest.fn(async () => STORY) });
+
+    expect(told.deps.loadPushStory).toHaveBeenCalledWith(USER_ID,
+      { eventKey: `${BLACKS}:NW:2026-09-20`, beachId: BLACKS, peakAt: "2026-09-20T15:00:00.000Z", directionDeg: 315 }, NOW,
+      { withoutSize: false });
+    expect(told.push.payload.body).toBe(`${STORY.story} Your call: Blacks. ${today.push.payload.rarity}`);
+    expect(told.push.payload).toMatchObject({ region_event_key: STORY.regionEventKey, story_key: STORY.storyKey, body_source: "code" });
+    expect(told.push.dedupeKey).toBe(today.push.dedupeKey);
+    const { body: _body, region_event_key: _r, story_key: _s, body_source: _o, ...rest } = told.push.payload;
+    const { body: _todayBody, ...todayRest } = today.push.payload;
+    expect(rest).toEqual(todayRest);
+  });
+
+  it("keeps today's title, title_id and share_url when the region swell has another name and period", async () => {
+    const today = await sent({});
+    const todayVars = jest.mocked(selectTitle).mock.calls.at(-1)![0].vars;
+    const told = await sent({ isStoryPushEnabled: jest.fn(async () => true),
+      loadPushStory: jest.fn(async () => ({ ...STORY, directionLabel: "WNW", periodS: 14.9 })) });
+    expect(jest.mocked(selectTitle).mock.calls.at(-1)![0].vars).toEqual(todayVars);
+    const pick = ({ title, title_id, share_url }: Record<string, unknown>) => ({ title, title_id, share_url });
+    expect(pick(told.push.payload)).toEqual(pick(today.push.payload));
+    expect(told.push.payload.body.startsWith(STORY.story)).toBe(true);
+  });
+
+  it("keeps today's body, marked template, with no match, a failed lookup or a body past 300 characters", async () => {
+    const today = await sent({});
+    const none = await sent({ isStoryPushEnabled: jest.fn(async () => true), loadPushStory: jest.fn(async () => null) });
+    expect(none.push.payload).toEqual({ ...today.push.payload, body_source: "template" });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const failed = await sent({ isStoryPushEnabled: jest.fn(async () => true),
+      loadPushStory: jest.fn(async () => { throw new Error("region read failed"); }) });
+    expect(failed.push.payload).toEqual({ ...today.push.payload, body_source: "template" });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Push story lookup failed"), expect.any(Error));
+    warn.mockRestore();
+    const long = await sent({ isStoryPushEnabled: jest.fn(async () => true),
+      loadPushStory: jest.fn(async () => ({ ...STORY, story: `${STORY.story} `.repeat(3).trim() })) });
+    expect(long.push.payload).toMatchObject({ body: today.push.payload.body, body_source: "template", region_event_key: STORY.regionEventKey });
+  });
+
+  it("leaves an unrelated failure to the run's own error count, not to the story fallback", async () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const deps = dependencies({ isStoryPushEnabled: jest.fn(async () => true), loadPushStory: jest.fn(async () => STORY),
+      insertAlert: jest.fn(async () => { throw new Error("insert failed"); }) });
+    const summary = await runSwellAlertCron({ now: NOW, deps });
+    expect(summary.errors).toBe(1);
+    expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("Push story lookup failed"), expect.anything());
+    error.mockRestore();
+    warn.mockRestore();
+  });
+
+  it("leaves the size out of the sentence when the call states one, so the push states one size", async () => {
+    const pool = evaluation();
+    pool.candidates[0] = { ...pool.candidates[0], boardName: "9 ft log" };
+    const loadPushStory = jest.fn(async () => STORY);
+    await sent({ evaluatePool: jest.fn(async () => pool), isStoryPushEnabled: jest.fn(async () => true), loadPushStory });
+    expect(loadPushStory).toHaveBeenCalledWith(USER_ID, expect.anything(), NOW, { withoutSize: true });
+  });
+
+  it("reads no region story with the switch off", async () => {
+    const off = await sent({ isStoryPushEnabled: jest.fn(async () => false), loadPushStory: jest.fn(async () => STORY) });
+    expect(off.deps.loadPushStory).not.toHaveBeenCalled();
+    expect("body_source" in off.push.payload).toBe(false);
   });
 });

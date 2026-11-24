@@ -14,6 +14,7 @@ import {
   normalizeNearbyBeachQuery,
 } from "@/lib/services/nearby-beach-service";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,7 @@ async function mapBootstrapHandler(
   }
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(
     withAuth(mapBootstrapHandler, {
       optional: true,
@@ -86,3 +87,5 @@ export const GET = withNoStore(
     "public-default",
   ),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/map/bootstrap");

@@ -63,6 +63,13 @@ thresholds, calculates coverage percentage, identifies stale beaches with
 details, categorizes issues as healthy/degraded/critical, and provides a
 data-source breakdown.
 
+By default, `/api/monitoring/forecast-health` reads the latest enhanced,
+marine, and tide forecast views one at a time. Each query filters on up to
+100 beach IDs. If a batch fails, the check reports that source as unavailable
+and discards its partial results. Set `FORECAST_HEALTH_SERIAL_SCANS=false` to
+read the three full views in parallel. The deep check at `/api/health?deep=true`
+always uses the parallel reads.
+
 #### Health monitoring API
 
 GET /api/monitoring/forecast-health returns comprehensive health metrics:
@@ -136,8 +143,8 @@ approaches are:
 
 | Job | Path | Schedule | Function |
 | --- | --- | --- | --- |
-| Forecast sync | /api/cron/enhanced-forecast-sync | Every 2 hours (0 */2 * * *) | Updates forecasts for all beaches |
-| Health check | /api/monitoring/forecast-health | Every 30 minutes, at :12 and :42 (12,42 * * * *) | Monitors freshness and logs issues |
+| Forecast sync | /api/cron/enhanced-forecast-sync-dispatch | Every 30 minutes (`0,30 * * * *`) | Updates one forecast shard per run |
+| Health check | /api/monitoring/forecast-health | Hourly at :12 (`12 * * * *`) | Monitors freshness and logs issues |
 
 ## Architecture
 
@@ -153,6 +160,7 @@ Forecast Monitoring System
              v
   checkForecastHealth()
     - Query beaches
+    - Read enhanced, marine, and tide views in beach ID batches
     - Analyze staleness
     - Calculate metrics
              |
@@ -869,7 +877,7 @@ Disable health-check cron by removing this from vercel.json:
 ~~~json
 {
   "path": "/api/monitoring/forecast-health",
-  "schedule": "12,42 * * * *"
+  "schedule": "12 * * * *"
 }
 ~~~
 
@@ -895,91 +903,74 @@ if (process.env.DISABLE_MONITORING === 'true') {
 
 ## Cron architecture
 
-The enhanced forecast sync uses two staggered endpoints to achieve an effective
-90-minute refresh cadence while staying under Vercel's 5-minute timeout per
-execution.
+The enhanced forecast sync runs from one Vercel cron entry,
+`/api/cron/enhanced-forecast-sync-dispatch` (`0,30 * * * *`). Each run picks
+one of 4 shards from the current UTC time, so each shard runs about every
+2 hours. Each run refreshes up to `FORECAST_MAX_BEACHES_PER_RUN` (default 30)
+beaches of its shard, missing and stale first, and stays under Vercel's
+5-minute timeout. The shard comes from the wall-clock minute, so a run that
+starts 30 or more minutes late runs the next shard.
 
-### Staggered sync architecture
+### Sharded sync architecture
 
 ~~~text
 Vercel Cron Scheduler
-  ├── /api/cron/enhanced-forecast-sync        (every 3 hours)
-  └── /api/cron/enhanced-forecast-sync-offset (90-min offset)
+  └── /api/cron/enhanced-forecast-sync-dispatch (every 30 minutes)
 
-_shared.ts: runEnhancedForecastSync()
+_shared.ts: runEnhancedForecastSync(request, { resolveShardFromTime: true })
   ├── Validates environment (production only)
   ├── Validates cron authentication
+  ├── Resolves the shard from the UTC hour and minute
   └── Calls updateAllBeachForecasts()
 
 EnhancedForecastService.updateAllEnhancedForecasts()
   ├── Query beaches (missing -> stale -> by updated_at)
-  ├── Select top MAX_BEACHES_PER_RUN (default: 45)
-  ├── Process in batches of BATCH_SIZE (default: 3)
+  ├── Select top MAX_BEACHES_PER_RUN (default: 30)
+  ├── Process in batches of up to 2 beaches with write pacing on
   │   ├── Generate comprehensive forecasts
   │   ├── Store enhanced forecasts
   │   └── Wait BATCH_DELAY_MS between batches
   └── Return summary (total, successful, failed)
 ~~~
 
-### 90-minute cadence strategy
+Shard mapping (UTC):
 
-Vercel cron jobs have a maximum execution time of 5 minutes. To refresh all
-beaches within a reasonable freshness window (12 hours), use two endpoints on
-staggered schedules.
+| UTC hour | Minute | Shard |
+| --- | --- | --- |
+| even | 00 | 0 |
+| even | 30 | 1 |
+| odd | 00 | 2 |
+| odd | 30 | 3 |
 
-~~~json
-{
-  "crons": [
-    {
-      "path": "/api/cron/enhanced-forecast-sync",
-      "schedule": "0 */3 * * *"
-    },
-    {
-      "path": "/api/cron/enhanced-forecast-sync-offset",
-      "schedule": "30 1-23/3 * * *"
-    }
-  ]
-}
-~~~
-
-Execution timeline (UTC):
-
-| Time | Endpoint |
-| --- | --- |
-| 00:00 | /enhanced-forecast-sync |
-| 01:30 | /enhanced-forecast-sync-offset |
-| 03:00 | /enhanced-forecast-sync |
-| 04:30 | /enhanced-forecast-sync-offset |
-| 06:00 | /enhanced-forecast-sync |
-| ... | continues every 90 minutes |
-
-Throughput:
-
-- Per execution: 45 beaches (MAX_BEACHES_PER_RUN).
-- Executions per day: 16 (every 90 minutes).
-- Total capacity: ~720 beaches/day.
-- Freshness window: all beaches refreshed within 12 hours.
+To run one shard manually, call
+`/api/cron/enhanced-forecast-sync?shard=N&shardCount=4` with
+`Authorization: Bearer <CRON_SECRET>`.
 
 ### Cron file structure
 
 ~~~text
 app/api/cron/
 ├── enhanced-forecast-sync/
-│   ├── route.ts          # Main endpoint (GET/POST/HEAD)
+│   ├── route.ts          # Manual endpoint (GET/POST/HEAD, ?shard=N&shardCount=M)
 │   └── _shared.ts        # Shared handler logic
-└── enhanced-forecast-sync-offset/
-    └── route.ts          # Offset endpoint (reuses _shared.ts)
+└── enhanced-forecast-sync-dispatch/
+    └── route.ts          # Cron endpoint (resolves the shard from the time)
 ~~~
 
 ### Cron environment variables
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| FORECAST_MAX_BEACHES_PER_RUN | 45 | Maximum beaches per cron execution |
-| FORECAST_BATCH_SIZE | 3 | Beaches processed per batch |
-| FORECAST_BATCH_DELAY_MS | 2000 | Delay between batches (ms) |
+| FORECAST_MAX_BEACHES_PER_RUN | 30 | Maximum beaches per cron execution |
+| FORECAST_BATCH_SIZE | 3 | Configured beaches per batch. Write pacing caps it at 2. |
+| FORECAST_BATCH_DELAY_MS | 1000 | Delay between batches (ms) |
+| `FORECAST_WRITE_PACING` | `true` | Limits concurrent beach writes to 2 for dispatch, CDIP, and marine refresh. Set `false` to restore the old batching. |
+| `FORECAST_WRITE_CHUNK_SIZE` | 50 enhanced, 25 marine | Maximum rows per paced write. Use a positive integer. Leave unset for the defaults. |
+| `FORECAST_WRITE_DELAY_MS` | 200 | Delay between paced writes in milliseconds. The maximum is 1000. Set `0` to remove this delay. |
 | FORECAST_VERBOSE_LOGS | false | Enable detailed per-timepoint logs |
 | CRON_SECRET | - | Authentication token for manual triggers |
+
+Both write pacing settings apply only when `FORECAST_WRITE_PACING` is on.
 
 ### Authentication
 

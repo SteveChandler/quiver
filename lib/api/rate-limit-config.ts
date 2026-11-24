@@ -235,7 +235,7 @@ export const RATE_LIMITS = {
    * Risk: SSRF (mitigated by hostname whitelist), scraping
    * Cost: External HTTP request per call
    *
-   * Resolves HDOnTap page URLs to HLS stream URLs.
+   * Resolves supported partner camera pages to HLS stream URLs.
    * One call per camera view; signed URLs cached ~2min.
    */
   "cam-resolve": relaxForE2E({

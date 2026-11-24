@@ -33,6 +33,7 @@ jest.mock('@/lib/supabase/server', () => ({
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
+import { resetWeekScoutAnswerReuseForTests } from '@/lib/services/discovery/week-scout-answer-reuse';
 import type { WeekScoutRequest, WeekScoutServiceDependencies } from '@/lib/services/discovery/week-scout';
 import { expectConsoleWarnings } from '@/__tests__/setup/test-utils';
 import { TIMEZONE, localDate } from '@/__tests__/helpers/swell-events';
@@ -57,6 +58,8 @@ async function callRoute(): Promise<Response> {
 
 describe('POST /api/surf/week-scout swells', () => {
   beforeEach(() => {
+    // Each test asks the same question with different mocks; never reuse across tests.
+    resetWeekScoutAnswerReuseForTests();
     jest.clearAllMocks();
     process.env.WEEK_SCOUT_SWELLS_ENABLED = 'true';
     delete process.env.WEEK_SCOUT_SWELLS_USER_ALLOWLIST;

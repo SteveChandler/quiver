@@ -6,74 +6,24 @@
  * @module lib/services/discovery/window-selector/time-slot-utils
  */
 
+import { zonedFormatter } from '@/lib/utils/zoned-formatter';
 import type { TimeSlot } from '@/types/personalization';
 import { TIME_SLOT_RANGES } from '@/types/personalization';
 
 // Constructing an Intl.DateTimeFormat is ~30µs and dominated Week Scout CPU
 // (~60% of a 40-beach request) because the same handful of beach timezones get
 // formatted tens of thousands of times per request. Formatters are immutable, so
-// keep one per timezone. Construction failures are not cached, which preserves
-// the throw-on-invalid-timezone behaviour every caller's try/catch relies on.
-const localDateFormatters = new Map<string, Intl.DateTimeFormat>();
-const localHourFormatters = new Map<string, Intl.DateTimeFormat>();
-const localTimeLabelFormatters = new Map<string, Intl.DateTimeFormat>();
+// keep one per timezone. Each throws for an invalid IANA timezone, exactly like
+// direct construction, which every caller's try/catch relies on.
 
-function cachedFormatter(
-  cache: Map<string, Intl.DateTimeFormat>,
-  beachTz: string,
-  build: () => Intl.DateTimeFormat
-): Intl.DateTimeFormat {
-  const cached = cache.get(beachTz);
-  if (cached) return cached;
+/** Cached YYYY-MM-DD formatter for a beach timezone. */
+export const getLocalDateFormatter = zonedFormatter("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
 
-  const formatter = build();
-  cache.set(beachTz, formatter);
-  return formatter;
-}
+/** Cached 24-hour hour-of-day formatter for a beach timezone. */
+export const getLocalHourFormatter = zonedFormatter("en-US", { hour: "numeric", hour12: false });
 
-/**
- * Cached YYYY-MM-DD formatter for a beach timezone.
- * Throws for an invalid IANA timezone, exactly like direct construction.
- */
-export function getLocalDateFormatter(beachTz: string): Intl.DateTimeFormat {
-  return cachedFormatter(localDateFormatters, beachTz, () =>
-    new Intl.DateTimeFormat("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone: beachTz,
-    })
-  );
-}
-
-/**
- * Cached 24-hour hour-of-day formatter for a beach timezone.
- * Throws for an invalid IANA timezone, exactly like direct construction.
- */
-export function getLocalHourFormatter(beachTz: string): Intl.DateTimeFormat {
-  return cachedFormatter(localHourFormatters, beachTz, () =>
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      hour12: false,
-      timeZone: beachTz,
-    })
-  );
-}
-
-/**
- * Cached human-readable "h:mm AM/PM" formatter for a beach timezone.
- * Throws for an invalid IANA timezone, exactly like direct construction.
- */
-export function getLocalTimeLabelFormatter(beachTz: string): Intl.DateTimeFormat {
-  return cachedFormatter(localTimeLabelFormatters, beachTz, () =>
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "numeric",
-      hour12: true,
-      timeZone: beachTz,
-    })
-  );
-}
+/** Cached human-readable "h:mm AM/PM" formatter for a beach timezone. */
+export const getLocalTimeLabelFormatter = zonedFormatter("en-US", { hour: "numeric", minute: "numeric", hour12: true });
 
 /**
  * Get local date string for a timestamp in a given timezone.

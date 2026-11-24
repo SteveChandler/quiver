@@ -64,7 +64,8 @@ describe("GET /api/beaches/[id]/buoy", () => {
     mockSource = fixtureSource({ getStationForBeach: async () => ({ kind: "beach-not-found" }) });
     const { status, body, cdn } = await call(BEACH_ID);
     expect(status).toBe(404);
-    expect(cdn).toBe(CDN_CACHE);
+    // Errors are never stored by a CDN or browser (withErrorNoStore).
+    expect(cdn).toBeNull();
     expect(body).toMatchObject({ success: false, error: "Beach not found" });
   });
 
@@ -82,7 +83,7 @@ describe("GET /api/beaches/[id]/buoy", () => {
         );
       },
     });
-    expect(await call(BEACH_ID)).toMatchObject({ status: 404, cdn: CDN_CACHE });
+    expect(await call(BEACH_ID)).toMatchObject({ status: 404, cdn: null });
   });
 
   it("answers 500 for any other read failure", async () => {

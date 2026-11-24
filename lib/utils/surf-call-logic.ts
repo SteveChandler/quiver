@@ -7,6 +7,7 @@
  * @module lib/utils/surf-call-logic
  */
 
+import { zonedFormatter } from '@/lib/utils/zoned-formatter';
 import type { Beach } from '@/types/database';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -470,16 +471,17 @@ function buildWhySentence(
     if (hasGoodTide && tide.phase) {
       parts.push(`${tide.phase} tide`);
     }
+    // No size claim without a size.
     const wavePart = waveHeight && waveHeight !== 'Unknown'
-      ? `with ${waveHeight} swell energy`
-      : 'with solid swell';
+      ? ` with ${waveHeight} swell energy`
+      : '';
     if (parts.length >= 2) {
-      return `${capitalize(parts[0])} + ${parts[1]} ${wavePart}.`;
+      return `${capitalize(parts[0])} + ${parts[1]}${wavePart}.`;
     }
     if (parts.length === 1) {
-      return `${capitalize(parts[0])} ${wavePart}.`;
+      return `${capitalize(parts[0])}${wavePart}.`;
     }
-    return `Good conditions ${wavePart}.`;
+    return `Good conditions${wavePart}.`;
   }
 
   if (skipCause) return skipWhySentence(skipCause);
@@ -506,9 +508,9 @@ function buildWhySentence(
       return 'Good swell, but tide is dropping through the window.';
     }
     const wavePart = waveHeight && waveHeight !== 'Unknown'
-      ? `${waveHeight} surf`
-      : 'modest swell';
-    return `Rideable ${wavePart} — keep an eye on conditions.`;
+      ? ` ${waveHeight} surf`
+      : '';
+    return `Rideable${wavePart} — keep an eye on conditions.`;
   }
 
   // NO — state the primary fail gate
@@ -543,7 +545,7 @@ function lowercaseFirst(s: string): string {
 }
 
 // ============================================================================
-// Tide limiter (TIDE_SWING_ENABLED)
+// Tide limiter (NEXT_PUBLIC_TIDE_SWING_ENABLED)
 // ============================================================================
 
 /** The tide effect holding the call's ceiling, read from the composite of the call's peak row. */
@@ -576,31 +578,15 @@ const BETTER_SPAN_FIRST_HOUR = 5;
 const BETTER_SPAN_END_HOUR = 20;
 
 /** One formatter per timezone: building one per row is the slow part of these reads. */
-const localDayFormatters = new Map<string, Intl.DateTimeFormat>();
-const localHourFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function cachedFormatter(
-  cache: Map<string, Intl.DateTimeFormat>,
-  timezone: string,
-  build: () => Intl.DateTimeFormat,
-): Intl.DateTimeFormat {
-  let formatter = cache.get(timezone);
-  if (!formatter) {
-    formatter = build();
-    cache.set(timezone, formatter);
-  }
-  return formatter;
-}
+const localDayFormatter = zonedFormatter('en-CA', {});
+const localHourFormatter = zonedFormatter('en-US', { hour: 'numeric', hourCycle: 'h23' });
 
 function localDayOf(ms: number, timezone: string): string {
-  return cachedFormatter(localDayFormatters, timezone, () =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: timezone })).format(new Date(ms));
+  return localDayFormatter(timezone).format(new Date(ms));
 }
 
 function localHourOf(ms: number, timezone: string): number {
-  return Number(cachedFormatter(localHourFormatters, timezone, () => new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone, hour: 'numeric', hourCycle: 'h23',
-  })).format(new Date(ms)));
+  return Number(localHourFormatter(timezone).format(new Date(ms)));
 }
 
 /** Rows on `ms`'s local day inside the surfable 05:00–20:00 local hours, in time order. */
@@ -812,7 +798,7 @@ interface CompositeAndCharacter {
   composite: CompositeScore;
   character: ConditionCharacter;
   skipCause: SkipCause | null;
-  /** Always null with TIDE_SWING_ENABLED off. */
+  /** Always null with NEXT_PUBLIC_TIDE_SWING_ENABLED off. */
   tideLimiter: TideLimiter | null;
 }
 
@@ -1215,7 +1201,7 @@ export function computeSurfCall(
 
   // Build explanation — override for small-wave MAYBE to explain the nuance
   const smallWaveOverride = (wavesBelowMin || windowWavesBelowMin) && verdict === 'MAYBE'
-    ? `Small for this break but conditions look fun — ${waveHeight ?? 'modest swell'} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
+    ? `Small for this break but conditions look fun${waveHeight ? ` — ${waveHeight}` : ''} with ${wind.type === 'glassy' || wind.type === 'offshore' ? 'clean winds' : 'manageable wind'}.`
     : undefined;
   const setupRiskOverride = cautions.length > 0
     ? `${cautions[0]}.`

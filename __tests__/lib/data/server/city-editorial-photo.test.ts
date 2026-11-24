@@ -40,6 +40,16 @@ describe("pickCityEditorialPhoto", () => {
     expect(picked?.beachId).toBe("tsb");
   });
 
+  it("serves a Commons original as its 1280px thumb", () => {
+    const picked = pickCityEditorialPhoto(
+      [row({ image_url: "https://upload.wikimedia.org/wikipedia/commons/e/e9/Rattlesnakes_respect_sign.jpg" })],
+      ["b1"],
+    );
+    expect(picked?.src).toBe(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Rattlesnakes_respect_sign.jpg/1280px-Rattlesnakes_respect_sign.jpg",
+    );
+  });
+
   it("falls back to ranking when licences tie", () => {
     const picked = pickCityEditorialPhoto(
       [row({ beach_id: "second" }), row({ beach_id: "first" })],

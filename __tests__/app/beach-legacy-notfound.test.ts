@@ -14,6 +14,13 @@ jest.mock("react", () => {
 import BeachDetailBySlugPage, { generateMetadata } from "@/app/beach/[slug]/page";
 import { notFound } from "next/navigation";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import { canShareLatestCountyRun } from "@/lib/recommendations/major-event-hold/read-scope";
+import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+
+jest.mock("@/lib/supabase/server", () => ({
+  createPublicReadClient: jest.fn(),
+  createSupabaseServiceRoleClient: jest.fn(),
+}));
 
 jest.mock("@/lib/services/beach-query-service", () => ({
   getBeachesBySlugFromDb: jest.fn(),
@@ -174,5 +181,41 @@ describe("legacy /beach/[slug] route", () => {
     expect((metadata.robots as any)?.follow).toBe(true);
     expect((metadata.robots as any)?.googleBot?.index).toBe(false);
     expect((metadata.robots as any)?.googleBot?.follow).toBe(true);
+  });
+
+  it("scopes County reads on a rendered legacy page and loads its forecast preview once", async () => {
+    const beach = {
+      id: "d291411d-d331-4bf1-ad1a-302da3c69de0", name: "Legacy Beach",
+      slug: "legacy-beach", city: null, state: null, lat: 32.8567, lon: -117.2575,
+    };
+    jest.mocked(getBeachesBySlugFromDb).mockResolvedValue({
+      success: true, data: [beach],
+    } as Awaited<ReturnType<typeof getBeachesBySlugFromDb>>);
+
+    const countyRead = jest.fn();
+    const client = {
+      from: (table: string) => ({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        in: jest.fn().mockReturnThis(),
+        maybeSingle: async () => ({ data: null, error: null }),
+        limit: async () => {
+          if (table === "county_beach_advisory_runs") countyRead(canShareLatestCountyRun());
+          return { data: [], error: null };
+        },
+        then: (resolve: (value: { data: unknown; error: null }) => unknown) =>
+          Promise.resolve({ data: table === "beaches" ? [beach] : [], error: null }).then(resolve),
+      }),
+    };
+    jest.mocked(createPublicReadClient).mockReturnValue(client as unknown as ReturnType<typeof createPublicReadClient>);
+    jest.mocked(createSupabaseServiceRoleClient).mockReturnValue(client as unknown as ReturnType<typeof createSupabaseServiceRoleClient>);
+
+    const props = { params: Promise.resolve({ slug: beach.slug }) };
+    await Promise.all([BeachDetailBySlugPage(props), generateMetadata(props)]);
+    expect(countyRead.mock.calls).toEqual([[true]]);
+    expect(getBeachForecastPreview).toHaveBeenCalledTimes(1);
+    expect(getBeachForecastPreview).toHaveBeenCalledWith(beach.id);
+    expect(notFound).not.toHaveBeenCalled();
   });
 });

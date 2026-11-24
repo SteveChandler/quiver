@@ -27,7 +27,9 @@ async function weekendScoutHandler(
   }
 
   const result = await buildWeekendScoutRanking(user.id);
-  return privateNoStore(createSuccessResponse(result));
+  if (result.status !== 'ready') return privateNoStore(createSuccessResponse(result));
+  const { status, ranking, maxDriveMinutes } = result;
+  return privateNoStore(createSuccessResponse({ status, ranking, maxDriveMinutes }));
 }
 
 export const POST = withRateLimit(

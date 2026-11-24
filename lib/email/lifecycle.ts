@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
-export const LIFECYCLE_CAMPAIGN = process.env.TRIAL_FEEDBACK_ENABLED === "true" ? "startup-lifecycle-v3" : "startup-lifecycle-v1";
-export const LIFECYCLE_VERSION = process.env.TRIAL_FEEDBACK_ENABLED === "true" ? 3 : 1;
+// v4 builds on v3 (trial feedback on), so it needs both flags; LIFECYCLE_V4_ENABLED alone changes nothing.
+export const LIFECYCLE_V4_ENABLED = process.env.LIFECYCLE_V4_ENABLED === "true" && process.env.TRIAL_FEEDBACK_ENABLED === "true";
+export const LIFECYCLE_CAMPAIGN = LIFECYCLE_V4_ENABLED ? "startup-lifecycle-v4" : process.env.TRIAL_FEEDBACK_ENABLED === "true" ? "startup-lifecycle-v3" : "startup-lifecycle-v1";
+export const LIFECYCLE_VERSION = LIFECYCLE_V4_ENABLED ? 4 : process.env.TRIAL_FEEDBACK_ENABLED === "true" ? 3 : 1;
 export const lifecycleJobSchema = z.enum(["welcome", "activation", "progress", "friction", "trial_support", "routine", "offer_ready", "trial_feedback"]);
 export type LifecycleJob = z.infer<typeof lifecycleJobSchema>;
 export const lifecycleDecisionSchema = z.object({
@@ -13,7 +15,7 @@ export const lifecycleDecisionSchema = z.object({
   due_at: z.string().optional(), next_eligible_at: z.string().optional(), expires_at: z.string().optional(),
   source: z.object({
     audience: z.enum(["free", "entitled", "trial"]).optional(),
-    email: z.email(), name: z.string().nullable(), home_beach_id: z.uuid().nullable(),
+    email: z.string().trim().pipe(z.email()), name: z.string().nullable(), home_beach_id: z.uuid().nullable(),
     offer_id: z.uuid().nullable().optional(), offer_months: z.union([z.literal(1), z.literal(3)]).nullable().optional(),
     sessions: z.number().int().nonnegative(), last_completion: z.string().nullable(), trial_end: z.string().nullable(),
   }).optional(),

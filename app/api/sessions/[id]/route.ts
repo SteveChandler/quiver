@@ -13,6 +13,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const WaveCharacteristicSchema = z.enum([
   "clean",
@@ -246,7 +247,7 @@ export const PATCH = withAuth(
 /**
  * GET /api/sessions/[id] - Get a session by ID
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
     // Validate UUID
     const uuidResult = validateUuidParam(params.id, "session");
@@ -346,3 +347,5 @@ export const DELETE = withAuth(
   },
   { errorMessage: "Failed to delete session" }
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]");

@@ -1,0 +1,44 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const indexes = [
+  {
+    name: "idx_marine_forecasts_beach_ts_utc",
+    migration: "20261122220000_drop_marine_forecasts_beach_ts_utc_index",
+    original: "20250820132000_add_generated_hourly_columns",
+  },
+  {
+    name: "idx_marine_forecasts_nws_wind_mv_lookup",
+    migration: "20261122220001_drop_marine_forecasts_nws_wind_mv_lookup_index",
+    original: "20260120140000_optimize_mv_beach_hourly_scores_indexes",
+  },
+  {
+    name: "idx_mpl_v5_shadow_comparator",
+    migration: "20261122220002_drop_mpl_v5_shadow_comparator_index",
+    original: "20260502235421_add_v5_shadow_logging",
+  },
+];
+
+function readSql(directory: "migrations" | "rollbacks", name: string): string {
+  return readFileSync(join(__dirname, "../../supabase", directory, `${name}.sql`), "utf8");
+}
+
+describe.each(indexes)("$name", ({ name, migration, original }) => {
+  it("drops one index in a replayable transaction after the Run 2 release hold", () => {
+    const sql = readSql("migrations", migration);
+    expect(sql).toMatch(/^-- Apply after the Nov 28 hybrid-gate Run 2 scores\./);
+    expect(sql).toContain(`-- DROP INDEX CONCURRENTLY IF EXISTS public.${name};`);
+    expect(sql.replace(/^--[^\n]*\n/gm, "").replace(/\s+/g, " ").trim()).toBe(
+      `BEGIN; DROP INDEX IF EXISTS public.${name}; COMMIT;`
+    );
+  });
+
+  it("restores the exact original index definition", () => {
+    const originalCreate = readSql("migrations", original).match(
+      new RegExp(`CREATE INDEX IF NOT EXISTS ${name}\\s[^;]+;`)
+    )?.[0];
+
+    expect(readSql("rollbacks", `${migration}_rollback`).replace(/^--[^\n]*\n/gm, "").trim())
+      .toBe(originalCreate);
+  });
+});

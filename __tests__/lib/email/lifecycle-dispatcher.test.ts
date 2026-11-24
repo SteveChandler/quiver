@@ -274,3 +274,55 @@ it("evaluates candidates a few at a time so one hourly burst cannot hit the stat
   // Decisions stay aligned with their users despite batching.
   expect(result.reasons).toEqual(Object.fromEntries(users.map((_, i) => [`r${i}`, 1])));
 });
+
+const invalidEmailRun = async (badEmail: string, extraFailure?: string) => {
+  process.env.EMAIL_LIFECYCLE_ENABLED = "true";
+  process.env.EMAIL_REPLY_MAILBOX = "support@example.com";
+  const users = cohortUsers(3);
+  mockRpc.mockImplementation(async (name: string, args?: { p_user_id: string }): Promise<unknown> => {
+    if (name === "email_lifecycle_cohort") return users;
+    if (name === "reconcile_email_lifecycle") return { unknown_handoffs: 0, expired_reservations: 0 };
+    if (name === "evaluate_email_lifecycle") {
+      if (args!.p_user_id === users[0]) return { ...dueDecision(users[0]), source: { ...dueDecision(users[0]).source, email: badEmail } };
+      if (args!.p_user_id === users[2] && extraFailure) throw new Error(extraFailure);
+      return dueDecision(args!.p_user_id);
+    }
+    if (name === "claim_email_lifecycle") return { allowed: true, attempt_id: args!.p_user_id, decision: dueDecision(args!.p_user_id) };
+    if (name === "email_automation_health") return { due_unsent: 0, enrollment_pending: 0, approval_unavailable: 0 };
+    return null;
+  });
+  mockSend.mockResolvedValue("accepted");
+  const update = jest.fn().mockReturnValue({ eq: async () => ({ error: null }) });
+  mockDb.mockResolvedValue({ from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "run" }, error: null }) }) }), update }) });
+  return { users, update, result: await runEmailLifecycle(false) };
+};
+
+it("skips a user whose address is not a valid email without failing the run", async () => {
+  const { users, update, result } = await invalidEmailRun("surfer@localhost");
+  expect(result).toMatchObject({ status: "ok", candidates: 3, accepted: 2 });
+  expect(result.reasons).toEqual({ invalid_email: 1, accepted: 2 });
+  expect(rpcUserIds("record_email_lifecycle_decision")).toEqual([users[1], users[2]]);
+  expect(rpcUserIds("claim_email_lifecycle")).not.toContain(users[0]);
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "ok", error_message: null }));
+});
+
+it("trims spaces around a stored address before it checks the format", async () => {
+  const { users, result } = await invalidEmailRun("  surfer@example.com ");
+  expect(result).toMatchObject({ status: "ok", accepted: 3 });
+  expect(rpcUserIds("record_email_lifecycle_decision")).toContain(users[0]);
+});
+
+it("an invalid address does not hide a different evaluation failure", async () => {
+  const timeout = "Lifecycle storage failed: evaluate_email_lifecycle: 57014 canceling statement due to statement timeout";
+  const { update, result } = await invalidEmailRun("not-an-email", timeout);
+  const errorMessage = `Lifecycle evaluation failed for 1 user(s): ${timeout}`;
+  expect(result).toMatchObject({ status: "attention", error_message: errorMessage });
+  expect(result.reasons).toEqual({ invalid_email: 1, accepted: 1 });
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "error", error_message: errorMessage }));
+});
+
+it("dry run counts an invalid address as a reason instead of failing", async () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  mockRpc.mockResolvedValueOnce([userId]).mockResolvedValueOnce({ ...dueDecision(userId), source: { ...dueDecision(userId).source, email: "bad@@example" } });
+  expect(await runEmailLifecycle(true)).toEqual({ mode: "dry_run", candidates: 1, reasons: { invalid_email: 1 }, accepted: 0 });
+});

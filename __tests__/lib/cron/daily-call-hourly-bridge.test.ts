@@ -104,7 +104,7 @@ async function build() {
   return { result, tables };
 }
 
-const flags = ["HOURLY_BRIDGE_ENABLED", "HOURLY_BRIDGE_SURFACES", "TIDE_SWING_ENABLED"] as const;
+const flags = ["HOURLY_BRIDGE_ENABLED", "HOURLY_BRIDGE_SURFACES", "NEXT_PUBLIC_TIDE_SWING_ENABLED"] as const;
 const saved = Object.fromEntries(flags.map((name) => [name, process.env[name]]));
 
 function setFlags(values: Partial<Record<(typeof flags)[number], string>>): void {

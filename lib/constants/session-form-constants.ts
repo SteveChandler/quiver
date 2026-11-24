@@ -2,6 +2,8 @@
  * Session form constants for the session logging flow.
  */
 
+import { SESSION_RATING_LABELS } from "@/lib/share/session-rating";
+
 export type SessionFormMode = "log";
 
 export const SESSION_FORM_TEXT = {
@@ -78,13 +80,7 @@ export const RATING_DESCRIPTIONS = {
     4: "Easy - Close parking",
     5: "Perfect - Right there",
   },
-  overallRating: {
-    1: "Poor Performance",
-    2: "Below Goals",
-    3: "Met Some Goals",
-    4: "Achieved Goals",
-    5: "Exceeded Goals",
-  },
+  overallRating: SESSION_RATING_LABELS,
 } as const;
 
 export const MODE_STYLES = {

@@ -67,6 +67,7 @@ jest.mock("@/lib/flags/founding-access", () => ({
 
 import { NextRequest } from "next/server";
 import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-builder";
+import { DISCOVERY_STAGES } from "@/lib/services/discovery/discovery-stage-timer";
 import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 // Build a fake supabase client that returns a configurable user_entitlements
@@ -174,10 +175,13 @@ function makeDiscoveryResponse() {
           distancePenalty: -5,
         },
         summary: "Best window around late morning",
+        // Personalization lines as the layer writes them now: wind and tide facts.
+        // "Matches your surfing patterns" is no longer produced; an engagement-only
+        // line still exercises the conservative filter.
         reasons: [
-          "Wave size matches your sweet spot",
-          "Wind matches your usual sessions",
-          "Matches your surfing patterns",
+          "Light NE wind.",
+          "Rising tide.",
+          "Lifted by your recent engagement",
         ],
         warnings: [],
         conditionBadges: [
@@ -990,13 +994,13 @@ describe("/api/surf/discover entitlement resolution", () => {
       photo_url: "https://cdn.quiver.test/ob.jpg",
     });
     expect(body.data.recommendations[0].personalExplanation).toEqual(
-      expect.stringContaining("Wave size matches your sweet spot")
+      expect.stringContaining("Light NE wind.")
     );
     expect(body.data.recommendations[0].personalExplanation).toEqual(
-      expect.stringContaining("Wind matches your usual sessions")
+      expect.stringContaining("Rising tide.")
     );
     expect(body.data.recommendations[0].personalExplanation).not.toEqual(
-      expect.stringContaining("Matches your surfing patterns")
+      expect.stringContaining("engagement")
     );
     expect(body.data.sessionDecision).toMatchObject({
       schemaVersion: "canonical-session-decision.v1",
@@ -1263,10 +1267,109 @@ describe("/api/surf/discover entitlement resolution", () => {
     });
   });
 
+  it.each([
+    ["timeout", 504],
+    ["forecast_unavailable", 503],
+    ["internal_error", 503],
+  ])("includes completed and pending dependency timings on %s (%i)", async (code, status) => {
+    mockDiscoverSurfSpots.mockImplementationOnce(async (_userId, options) => {
+      await options.stageTimer?.time("favorites", async () => undefined);
+      options.stageTimer?.start("forecasts");
+      const stageTimings = options.stageTimer?.snapshot();
+      options.stageTimer?.end("forecasts");
+      throw Object.assign(new Error("private failure details"), {
+        code,
+        stageTimings,
+      });
+    });
+
+    const response = await callDiscoverRoute(null);
+    const header = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(status);
+    expect(header).toMatch(/(?:^|, )d-favorites;dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )d-forecasts;desc="pending";dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )entitlement;dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )discover;dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )total;dur=\d+(?:,|$)/);
+    expect(header).not.toContain("private failure details");
+    expect(response.headers.get("Retry-After")).toMatch(/^\d+$/);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: "Recommendations are temporarily unavailable",
+      code,
+      retryable: true,
+    });
+  });
+
+  it("includes dependency timings on a hold-state 503 after discovery", async () => {
+    mockDiscoverSurfSpots.mockImplementationOnce(async (_userId, options) => {
+      await options.stageTimer?.time("favorites", async () => undefined);
+      return makeDiscoveryResponse();
+    });
+    mockSanitizeSerializationBoundary.mockImplementationOnce(async (discovery) => ({
+      ...discovery,
+      recommendationAvailability: { state: "none", reasonCode: "hold_state_unavailable" },
+    }));
+
+    const response = await callDiscoverRoute(null);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Server-Timing")).toMatch(/d-favorites;dur=\d+/);
+    expect(response.headers.get("Server-Timing")).toMatch(/holds;dur=\d+/);
+  });
+
+  it("adds dependency timings on success while bounding and sanitizing the header", async () => {
+    mockDiscoverSurfSpots.mockImplementationOnce(async (_userId, options) => {
+      await options.stageTimer?.time("favorites", async () => undefined);
+      options.onStageTiming?.('user-id;desc="private"', 5);
+      for (let i = 0; i < 100; i++) options.onStageTiming?.("candidates", 12);
+      return makeDiscoveryResponse();
+    });
+
+    const response = await callDiscoverRoute(null);
+    const header = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(200);
+    expect(header).toMatch(/d-favorites;dur=\d+/);
+    expect(header).toContain("entitlement;dur=");
+    expect(header).toContain("discover-candidates;dur=12");
+    expect(header).toContain("holds;dur=");
+    expect(header).toContain("total;dur=");
+    expect(header).not.toContain("user-id");
+    expect(header).not.toContain("private");
+    expect(header.length).toBeLessThanOrEqual(1000);
+    expect(header.split(", ").length).toBeLessThanOrEqual(33);
+  });
+
+  it("caps a full failure snapshot and excludes unknown dependency names", async () => {
+    const stages = DISCOVERY_STAGES.map((stage) => ({ stage, durationMs: 12000 }));
+    mockDiscoverSurfSpots.mockRejectedValueOnce(Object.assign(new Error("timeout"), {
+      code: "timeout",
+      stageTimings: {
+        pending: [...stages, { stage: 'private-id;desc="injected"', durationMs: 1 }],
+        completed: stages,
+      },
+    }));
+
+    const response = await callDiscoverRoute(null);
+    const header = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(504);
+    expect(header).toContain('d-favorites;desc="pending";dur=12000');
+    expect(header).toContain("total;dur=");
+    expect(header).not.toContain("private-id");
+    expect(header).not.toContain("injected");
+    expect(header.length).toBeLessThanOrEqual(1000);
+    expect(header.split(", ").length).toBeLessThanOrEqual(33);
+    expect(header.split(", ").length).toBeLessThan(stages.length * 2);
+  });
+
   it("reports per-stage Server-Timing without changing the body", async () => {
     mockDiscoverSurfSpots.mockImplementation(async (_userId, options) => {
       options.onStageTiming?.("candidates", 12);
       options.onStageTiming?.("forecasts", 34);
+      options.onStageTiming?.("finalize", 5);
       return makeDiscoveryResponse();
     });
     const response = await callDiscoverRoute(null);
@@ -1277,6 +1380,7 @@ describe("/api/surf/discover entitlement resolution", () => {
       "entitlement;dur=",
       "discover-candidates;dur=12",
       "discover-forecasts;dur=34",
+      "discover-finalize;dur=5",
       "discover;dur=",
       "holds;dur=",
       "total;dur=",

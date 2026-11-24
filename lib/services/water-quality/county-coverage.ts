@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COUNTY_FEED_COVERAGE_BOUNDS } from "@/lib/services/county-beach-advisories/types";
+import { readPublicBeachRowsForIds } from "@/lib/data/server/public-beach-row-cache";
 import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
 import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
 
@@ -14,6 +15,8 @@ const beachPointSchema = z.object({
   lon: z.number().nullable(),
 });
 
+const beachPointRowsSchema = z.array(beachPointSchema);
+
 /** Coordinates for the requested beaches, keyed by lowercase id. Null when the read fails. */
 export async function readBeachPoints(
   client: WaterQualityHoldClient,
@@ -27,6 +30,28 @@ export async function readBeachPoints(
       client,
       `beaches|id, lat, lon|${chunk.join(",")}`,
       () => client.from("beaches").select("id, lat, lon").in("id", chunk),
+      {
+        key: "beaches|id, lat, lon",
+        ttl: 900,
+        isValid: (rows) => beachPointRowsSchema.safeParse(rows).success,
+        cacheRead: (load) => readPublicBeachRowsForIds<z.infer<typeof beachPointSchema>, unknown>(
+          client,
+          "beaches|id, lat, lon",
+          900,
+          chunk,
+          (row) => row.id,
+          async () => await client.from("beaches").select("id, lat, lon") as unknown as {
+            data: z.infer<typeof beachPointSchema>[] | null;
+            error: unknown;
+          },
+          () => load() as PromiseLike<{
+            data: z.infer<typeof beachPointSchema>[] | null;
+            error: unknown;
+          }>,
+          (rows) => beachPointRowsSchema.safeParse(rows).success,
+          1,
+        ),
+      },
     );
     if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) {
       console.error(logTag, {

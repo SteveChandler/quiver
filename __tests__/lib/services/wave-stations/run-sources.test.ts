@@ -30,6 +30,61 @@ describe("runPerSource", () => {
     expect(failedSources(runs)).toBe("marine_ie: HTTP 503");
     expect(failedSources(runs.filter((run) => run.ok))).toBeNull();
   });
+
+  it.each(["TimeoutError", "AbortError"])("keeps a %s in the outcome as a warning", async (name) => {
+    const warning = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const runs = await runPerSource([adapter("aodn"), adapter("ndbc")], async (one) => {
+        if (one.source === "aodn") throw new DOMException("The operation was aborted due to timeout", name);
+        return { rowsSent: 5 };
+      });
+
+      expect(runs[0]).toEqual({ source: "aodn", ok: false, error: "The operation was aborted due to timeout", timedOut: true });
+      expect(failedSources(runs)).toBeNull();
+      expect(warning).toHaveBeenCalledWith("[WaveStations] aodn timed out:", "The operation was aborted due to timeout");
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      warning.mockRestore();
+      error.mockRestore();
+    }
+  });
+
+  it("keeps an unrelated error with timeout text as a failure", async () => {
+    const warning = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const runs = await runPerSource([adapter("aodn")], async () => {
+        throw new Error("timeout configuration is invalid");
+      });
+
+      expect(runs[0]).toEqual({ source: "aodn", ok: false, error: "timeout configuration is invalid" });
+      expect(failedSources(runs)).toBe("aodn: timeout configuration is invalid");
+      expect(error).toHaveBeenCalledWith("[WaveStations] aodn failed:", "timeout configuration is invalid");
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      warning.mockRestore();
+      error.mockRestore();
+    }
+  });
+
+  it("still fails a run with a non-timeout source error beside a timeout", async () => {
+    const warning = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const runs = await runPerSource([adapter("aodn"), adapter("marine_ie")], async (one) => {
+        if (one.source === "aodn") throw new DOMException("deadline elapsed", "TimeoutError");
+        throw new Error("HTTP 503");
+      });
+
+      expect(failedSources(runs)).toBe("marine_ie: HTTP 503");
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledTimes(1);
+    } finally {
+      warning.mockRestore();
+      error.mockRestore();
+    }
+  });
 });
 
 describe("isLatestDue", () => {

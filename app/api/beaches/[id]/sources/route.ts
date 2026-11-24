@@ -1,3 +1,5 @@
+import { RETIRED_CAMERA_BEACH_IDS } from "@/lib/media/retired-camera-beaches";
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -6,6 +8,8 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
+import { getCamPreflight, playbackFromPreflight } from "@/lib/media/cam-embed-preflight";
 
 interface BeachLookupRow {
   id: string;
@@ -14,44 +18,12 @@ interface BeachLookupRow {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BEACH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const SURFLINE_HLS_HOST = "hls.cdn-surfline.com";
-const SURFLINE_HEALTH_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-  Referer: "https://www.surfline.com/",
-};
-
 function isBeachUuid(identifier: string): boolean {
   return UUID_PATTERN.test(identifier);
 }
 
 function isBeachSlug(identifier: string): boolean {
   return BEACH_SLUG_PATTERN.test(identifier);
-}
-
-function isSurflineHlsUrl(url: string | null): url is string {
-  if (!url) return false;
-
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname === SURFLINE_HLS_HOST && parsed.pathname.endsWith(".m3u8");
-  } catch {
-    return false;
-  }
-}
-
-async function isSurflineHlsAvailable(url: string): Promise<boolean> {
-  try {
-    const response = await globalThis.fetch(url, {
-      method: "HEAD",
-      headers: SURFLINE_HEALTH_HEADERS,
-      signal: AbortSignal.timeout(3000),
-    });
-
-    return response.status === 200;
-  } catch {
-    return false;
-  }
 }
 
 function createBeachSourcesErrorResponse(
@@ -72,7 +44,7 @@ function createBeachSourcesErrorResponse(
 }
 
 // GET /api/beaches/[id]/sources - fetch external source mappings (e.g., camera_url)
-export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+async function handleGet(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
     const requestedBeachId = params.id?.trim();
@@ -119,11 +91,18 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     let cameraUrl: string | null = (data as any)?.camera_url || null;
     let cameraThumbnailUrl: string | null = (data as any)?.thumbnail_url || null;
 
-    if (isSurflineHlsUrl(cameraUrl)) {
-      const hlsAvailable = await isSurflineHlsAvailable(cameraUrl);
-      if (!hlsAvailable) {
-        cameraUrl = null;
-      }
+    const blockedCamera = isBlockedCameraUrl(cameraUrl);
+    if (blockedCamera) {
+      cameraUrl = null;
+      cameraThumbnailUrl = null;
+    } else if (isBlockedCameraUrl(cameraThumbnailUrl)) {
+      cameraThumbnailUrl = null;
+    }
+
+    // Cached per camera URL and shared with the cam directory, so both read one answer.
+    const preflight = cameraUrl ? await getCamPreflight(cameraUrl) : null;
+    if (preflight?.surflineHls === "down") {
+      cameraUrl = null;
     }
 
     const proxiedCamera = cameraUrl ? toProxiedHlsUrl(cameraUrl) : null;
@@ -168,43 +147,14 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
     // Server-side preflight for embed allow
     let embedAllowed: boolean | null = null;
-    const camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
-    if (cameraUrl) {
-      // Known embeddable sources — buildCamEmbed transforms these to proper embed URLs
-      if (camIntent.kind === "external") {
-        embedAllowed = false;
-      } else if (
-        camIntent.kind === "hls" ||
-        camIntent.kind === "video" ||
-        camIntent.kind === "hdontap"
-      ) {
-        // HLS, video, and resolvable player sources are embeddable via native players
-        embedAllowed = true;
-      } else if (
-        cameraUrl.includes("hdontap.com/") ||
-        cameraUrl.includes("youtube.com/") ||
-        cameraUrl.includes("youtu.be/") ||
-        cameraUrl.includes("vimeo.com/")
-      ) {
-        // Known iframe sources with dedicated embed transforms
-        embedAllowed = true;
-      } else if (camIntent.kind === "iframe") {
-        // Unknown iframe source — do preflight check
-        try {
-          const head = await fetch(cameraUrl, {
-            method: "HEAD",
-            signal: AbortSignal.timeout(3000),
-          });
-          const xfo = head.headers.get("x-frame-options");
-          const csp = head.headers.get("content-security-policy");
-          const deniesXfo = xfo && /deny|sameorigin/i.test(xfo);
-          const deniesCsp =
-            csp && /frame-ancestors\s+('none'|none|self)/i.test(csp);
-          embedAllowed = !(deniesXfo || deniesCsp);
-        } catch {
-          // Network or CORS may block reading headers; be optimistic and let client attempt
-          embedAllowed = null;
-        }
+    let camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
+    if (cameraUrl && preflight) {
+      embedAllowed = preflight.embedAllowed;
+      // The cam directory reads the same rule, so the card, the web player and the native hero agree.
+      if (playbackFromPreflight(cameraUrl, preflight).kind === "none") {
+        cameraUrl = null;
+        cameraThumbnailUrl = null;
+        camIntent = { kind: "none" };
       }
     }
 
@@ -213,23 +163,22 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       forecast_source_id: (data as any)?.forecast_source_id || null,
       camera_url: cameraUrl,
       embed_allowed: embedAllowed,
-      diorama_url: dioramaUrl,
+      diorama_url: isBlockedCameraUrl(dioramaUrl) ? null : dioramaUrl,
       cam_open_url: cameraUrl ? getViewableUrl(cameraUrl) : null,
       cam_thumbnail_url: cameraThumbnailUrl,
       cam_kind: camIntent.kind,
       cam_embed: toNativeCamEmbed(camIntent),
+      ...(blockedCamera || (!cameraUrl && RETIRED_CAMERA_BEACH_IDS.has(beachId))
+        ? { cam_unavailable: true } : {}),
     };
 
-    // PERFORMANCE OPTIMIZATION: Cache sources for 30 minutes (1800s)
-    // Camera URLs and forecast source ids don't change frequently
     const response = createSuccessResponse({ sources: merged });
-    response.headers.set(
-      "Cache-Control",
-      "public, s-maxage=1800, stale-while-revalidate=7200"
-    );
+    response.headers.set("Cache-Control", "no-store");
 
     return response;
   } catch (err) {
     return handleApiError(err, "Failed to fetch beach sources");
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/sources");

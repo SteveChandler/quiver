@@ -31,6 +31,7 @@ interface BeachDetailClientProps {
   heroHeadingLevel?: ZineHeroHeadingLevel;
   heroHeadingSuffix?: string;
   heroSummarySlot?: ReactNode;
+  heroSummaryAboveMedia?: boolean;
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
@@ -50,6 +51,7 @@ export function BeachDetailClient({
   heroHeadingLevel,
   heroHeadingSuffix,
   heroSummarySlot,
+  heroSummaryAboveMedia,
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
@@ -251,6 +253,7 @@ export function BeachDetailClient({
         heroHeadingLevel={heroHeadingLevel}
         heroHeadingSuffix={heroHeadingSuffix}
         heroSummarySlot={heroSummarySlot}
+        heroSummaryAboveMedia={heroSummaryAboveMedia}
         heroForecastSlot={heroForecastSlot}
         beforeTabsContent={beforeTabsContent}
         afterTabsContent={afterTabsContent}

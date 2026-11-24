@@ -48,6 +48,7 @@ jest.mock("sonner", () => ({
 }));
 
 import { useSessionSubmission } from "@/app/sessions/new/useSessionSubmission";
+import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
 
 const createSessionFormData = () => ({
   selectedBeach: "Ocean Beach",
@@ -231,4 +232,35 @@ describe("useSessionSubmission", () => {
       "forecast_feedback_context_id",
     );
   });
+
+  it.each([
+    ["an unrated session", {}, { stars: undefined, rating: undefined }],
+    [
+      "a session rated 4",
+      { overallRating: "4" },
+      { stars: 4, rating: "Great" },
+    ],
+  ])(
+    "builds the post-log share card with only the surfer's own rating for %s",
+    async (_label, ratingFields, expected) => {
+      const { result } = renderHook(() =>
+        useSessionSubmission({
+          mode: "log",
+          user: { id: "user-123" },
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleSessionComplete({
+          ...createSessionFormData(),
+          ...ratingFields,
+        });
+      });
+
+      const params = (buildSessionShareUrl as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(params).toEqual(
+        expect.objectContaining({ ...expected, size: "" }),
+      );
+    },
+  );
 });

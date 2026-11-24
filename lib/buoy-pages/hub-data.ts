@@ -1,6 +1,6 @@
 /**
  * Hub data for /buoys, /buoys/[country] and /buoys/[country]/[region]. One
- * station list read plus one batched latest-reading read per 100 stations.
+ * station list read plus one batched latest-reading read per 50 stations.
  */
 
 import type { LatestWaveReading } from "@/lib/services/wave-stations/lookup";

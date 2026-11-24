@@ -16,6 +16,7 @@
  * end-to-end transform actually runs.
  */
 
+import { createHash } from "node:crypto";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import {
   ForecastBuilder,
@@ -27,6 +28,9 @@ import {
   CALIBRATED_CDIP_HOLD_HOURS,
   CDIP_NOWCAST_HORIZON_HOURS,
 } from "@/lib/config/forecast-staleness";
+import type { ForecastInputs } from "@/lib/services/forecast/forecast-builder";
+import { getWaveDirectionText } from "@/lib/services/noaa-wavewatch/wave-analysis";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import type { Beach } from "@/types/database";
 import { MODEL_SWELL_CALIBRATION_FACTORS } from "@/lib/utils/model-swell-calibration-factors";
 
@@ -43,9 +47,9 @@ const FROZEN_NOW_ISO = "2026-04-19T15:00:00Z";
 const CALIBRATION_COVERAGE_WARNING = /calibrated_shoaling_coverage_gap/;
 const HELPER_NOW_MS = Date.parse("2026-06-15T12:00:00Z");
 
-function makeBuilder(): ForecastBuilder {
+function makeBuilder(directionText: (degrees: number) => string = () => "SW"): ForecastBuilder {
   return new ForecastBuilder({
-    getWaveDirectionText: () => "SW",
+    getWaveDirectionText: directionText,
     getTideStatusAtTime: () => "Rising",
     getTideHeightAtTime: () => 3.5,
     getNextTideFromTime: () => null,
@@ -449,6 +453,193 @@ describe("ForecastBuilder CDIP height semantics", () => {
   afterEach(() => {
     expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
   });
+
+  const fallbackInputs = (ecmwfWamHsM: number | null = 2.6): ForecastInputs => ({
+    beach: makeBeach({
+      id: "cdcf733b-a704-45ef-affc-d8152ffde1e4", // Mission Beach (Central), in the hybrid k table.
+      shoaling_factors: { ...CALIBRATED_SHOALING, calibration: { reference_buoy: "191" } },
+    }),
+    waveData: {
+      ...makeWaveData(FROZEN_NOW_ISO, 1.2),
+      forecast: [{ ...makeWaveData(FROZEN_NOW_ISO, 1.2).forecast[0], swell_1_height: 1 }],
+      ecmwf_wam: ecmwfWamHsM == null ? [] : [{ ms: Date.parse(FROZEN_NOW_ISO), hsM: ecmwfWamHsM }],
+    },
+    tideData: null,
+    weatherData: [],
+    buoyData: null,
+    cdipData: null,
+    ioosWaterTempC: null,
+    coopsWaterTempC: null,
+    heightOffset: null,
+    feedbackCalibrationCandidate: null,
+  });
+
+  const missionBeach = makeBeach({
+    id: "cdcf733b-a704-45ef-affc-d8152ffde1e4",
+    shoaling_factors: {
+      ...CALIBRATED_SHOALING,
+      buckets: [{ tp_min_s: 12, tp_max_s: 16, factor: 0.93 }],
+      calibration: { reference_buoy: "220" },
+    },
+  });
+
+  test.each([2.6, null])("uses the station-matched bucket for 10.24 ft CDIP with ECMWF Hs %s", async (ecmwfWamHsM) => {
+    const inputs = fallbackInputs(ecmwfWamHsM);
+    const waveData = inputs.waveData!;
+    const [row] = await makeBuilder(getWaveDirectionText).buildForecasts({
+      ...inputs,
+      beach: missionBeach,
+      waveData: {
+        ...waveData,
+        forecast: [{ ...waveData.forecast[0], swell_1_height: 1.70, significant_wave_height: 2.58 }],
+      },
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 10.24, 15.4, 274),
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(row).toMatchObject({ wave_height: "9.5 ft", wave_period: "15s", wave_direction: "W", data_source: "CDIP" });
+    const provenance = row.raw_forecast?.wave_height_provenance;
+    expect(provenance).toMatchObject({
+      source: "cdip_sig",
+      station_id: "220",
+      raw_value_ft: 10.24,
+      transform_path: "scalar_calibrated",
+      calibrated_shoaling_fired: true,
+      components_used: false,
+    });
+    expect(provenance?.cdip_rejection).toBeUndefined();
+  });
+
+  test.each([
+    { hs: 8, ecmwfWamHsM: 2.6 },
+    { hs: 12, ecmwfWamHsM: null },
+  ])("$hs ft CDIP outlier with ECMWF Hs $ecmwfWamHsM uses the CDIP-absent model row", async ({ hs, ecmwfWamHsM }) => {
+    const builder = makeBuilder(getWaveDirectionText);
+    const inputs = fallbackInputs(ecmwfWamHsM);
+    const [model] = await builder.buildForecasts(inputs);
+    const [rejected] = await builder.buildForecasts({
+      ...inputs,
+      cdipData: { ...makeCdipBuoyData(FROZEN_NOW_ISO, hs, 15.4, 274), stationId: "191" },
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(rejected.wave_height).toBe(model.wave_height);
+    const { raw_forecast: rejectedRaw, ...rejectedFields } = rejected;
+    const { raw_forecast: modelRaw, ...modelFields } = model;
+    expect(rejectedFields).toEqual(modelFields);
+    const provenance = rejectedRaw?.wave_height_provenance;
+    const modelProvenance = modelRaw?.wave_height_provenance;
+    expect(modelProvenance).toMatchObject({ source: "model_swell", transform_path: "decomposed", components_used: true });
+    const hybrid = (modelProvenance as { ecmwf_hybrid?: { ecmwf_hs_m: number } } | undefined)?.ecmwf_hybrid;
+    expect(hybrid?.ecmwf_hs_m ?? null).toBe(ecmwfWamHsM);
+    expect(provenance).toEqual({
+      ...modelProvenance,
+      cdip_rejection: { reason: "cdip_outlier_vs_model", raw_cdip_hs: hs, raw_model_hs: METERS_TO_FEET },
+    });
+  });
+
+  test.each([
+    { description: "no factors", factors: null },
+    { description: "another station's factors", factors: { ...CALIBRATED_SHOALING, calibration: { reference_buoy: "191" } } },
+    { description: "no recorded reference station", factors: CALIBRATED_SHOALING },
+    { description: "no matching period bucket", factors: { ...CALIBRATED_SHOALING, calibration: { reference_buoy: "220" }, buckets: [{ tp_min_s: 6, tp_max_s: 10, factor: 1.2 }] } },
+  ])("12 ft CDIP with $description uses the full model fallback", async ({ factors }) => {
+    const builder = makeBuilder(getWaveDirectionText);
+    const inputs = fallbackInputs();
+    const waveData = inputs.waveData!;
+    const base = {
+      ...inputs,
+      beach: { ...inputs.beach, shoaling_factors: factors },
+      waveData: { ...waveData, forecast: [{ ...waveData.forecast[0], significant_wave_height: 2.58 }] },
+    };
+    const [model] = await builder.buildForecasts(base);
+    const [rejected] = await builder.buildForecasts({
+      ...base,
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 12, 15.4, 274),
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    const { raw_forecast: rejectedRaw, ...rejectedFields } = rejected;
+    const { raw_forecast: modelRaw, ...modelFields } = model;
+    expect(rejectedFields).toEqual(modelFields);
+    expect(rejectedRaw?.wave_height_provenance).toEqual({
+      ...modelRaw?.wave_height_provenance,
+      cdip_rejection: { reason: "cdip_too_large", raw_cdip_hs: 12, raw_model_hs: METERS_TO_FEET },
+    });
+    expect(modelRaw?.wave_height_provenance).toMatchObject({ source: "model_swell", components_used: true });
+    expect(modelRaw?.wave_height_provenance).toHaveProperty("ecmwf_hybrid.ecmwf_hs_m", 2.6);
+  });
+
+  test("9 ft CDIP can still use the population prior", async () => {
+    const [row] = await makeBuilder(getWaveDirectionText).buildForecasts({
+      ...fallbackInputs(),
+      beach: makeBeach(),
+      waveData: makeWaveData(FROZEN_NOW_ISO, 2.58),
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 9, 15.4, 274),
+    });
+
+    expect(row).toMatchObject({ data_source: "CDIP", wave_period: "15s", wave_direction: "W" });
+    expect(row.raw_forecast?.wave_height_provenance).toMatchObject({
+      source: "cdip_sig",
+      provenance: "population_prior_v1",
+      raw_value_ft: 9,
+      calibrated_shoaling_fired: false,
+    });
+    expect(row.raw_forecast?.wave_height_provenance?.cdip_rejection).toBeUndefined();
+  });
+
+  test.each([6, undefined])("accepts 10.24 ft CDIP without a model or NDBC point (CDIP swell %s)", async (swellHeight) => {
+    const cdipData = makeCdipBuoyData(FROZEN_NOW_ISO, 10.24, 15.4, 274);
+    const [row] = await makeBuilder(getWaveDirectionText).buildForecasts({
+      ...fallbackInputs(),
+      beach: missionBeach,
+      waveData: null,
+      cdipData: { ...cdipData, data: [{ ...cdipData.data[0], swellHeight }] },
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(row).toMatchObject({ wave_height: "9.5 ft", wave_period: "15s", wave_direction: "W", data_source: "CDIP" });
+    expect(row.raw_forecast?.wave_height_provenance).toMatchObject({
+      source: "cdip_sig",
+      station_id: "220",
+      transform_path: "scalar_calibrated",
+      calibrated_shoaling_fired: true,
+      components_used: false,
+    });
+    expect(row.raw_forecast?.wave_height_provenance?.cdip_rejection).toBeUndefined();
+  });
+
+  test("accepted CDIP and the anchor override retain their pre-fix serialized rows", async () => {
+    const builder = makeBuilder(getWaveDirectionText);
+    const inputs = fallbackInputs();
+    const [accepted] = await builder.buildForecasts({
+      ...inputs,
+      cdipData: { ...makeCdipBuoyData(FROZEN_NOW_ISO, 6, 15.4, 274), stationId: "191" },
+    });
+    const [anchored] = await builder.buildForecasts({
+      ...inputs,
+      beach: { ...inputs.beach, features: ["observation_anchor"] },
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 10.24, 15.4, 274),
+      nowcastAnchor: {
+        beachId: inputs.beach.id,
+        stationId: "edu_ucsd_cdip_220",
+        observedAt: FROZEN_NOW_ISO,
+        waveHeightM: 0.4,
+        wavePeriodS: 14,
+        waveDirectionDeg: 240,
+      },
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    expect(accepted.raw_forecast?.wave_height_provenance?.source).toBe("cdip_sig");
+    expect(anchored.raw_forecast?.wave_height_provenance?.source).toBe("nowcast_anchor");
+    expect([accepted, anchored].map((row) => createHash("sha256").update(JSON.stringify(row)).digest("hex")))
+      .toEqual([
+        "32cea6e60d73adbf3fb1da6e22e4f570d8bd7fd022d39b205d8b164e8b053757",
+        "5772777147f0bb1cac072255ba94338ad496ee31100c88eb333ae8bfdd2d3164",
+      ]);
+  });
+
   test("La Jolla Shores CDIP 2.7 ft at 7 s stays calibrated and records the short-period cap", async () => {
     const cdipData = {
       ...makeCdipBuoyData(FROZEN_NOW_ISO, 2.7, 7, 290),

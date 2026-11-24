@@ -107,6 +107,14 @@ import { loadTideSeriesByBeach, type TideSeriesClient, type TideSeriesSample } f
 import { bridgeBeachForecastRows } from '@/lib/services/discovery/hourly-bridge-rows';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { runWithScoringMemo } from '@/lib/domains/scoring/scoring-memo-scope';
+import {
+  codeContradictsVerdict,
+  isLeadCode,
+  prependReasons,
+  reasonList,
+  reasonsForVerdict,
+  type ReasonCode,
+} from '@/lib/domains/scoring/reason-sentences';
 
 const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 /** Window ids hash the scorer version, so bridged scoring gets its own ids and flag-off ids stay. */
@@ -325,6 +333,7 @@ interface PersonalizationBonus {
   affinityBonus: number;
   personalizationBonus: number;
   reasons: string[];
+  reasonCodes?: ReasonCode[];
 }
 
 interface ScoreBeachOptions {
@@ -385,6 +394,8 @@ export interface WeekScoutServiceDependencies {
 interface DraftWindow {
   response: Omit<WeekScoutWindowResponse, 'rankingScore' | 'rankedSpots'>;
   recommendation: SurfDiscoveryRecommendation;
+  /** Code of the takeaway line; the final window verdict decides if it may show. */
+  takeawayCode: ReasonCode;
 }
 
 const BUCKETS: readonly WeekScoutBucket[] = ['morning', 'midday', 'evening'];
@@ -612,7 +623,9 @@ export function weekScoutAnswerExpiry(
 
 function isSafe(score: DetailedScore): boolean {
   return !score.warnings.some((warning) => (
-    /\b(danger|hazard|closure|unsafe|above your usual range)\b/i.test(warning)
+    // "above your usual range" left this list: no warning ever carried it (it was the
+    // orchestrator's Heads up reason, which Week Scout never scores), so the result is unchanged.
+    /\b(danger|hazard|closure|unsafe)\b/i.test(warning)
   ));
 }
 
@@ -630,6 +643,11 @@ function isRideable(
 
 function clampScore(score: number): number {
   return Math.max(0, Math.min(100, score));
+}
+
+/** @public The live dependencies on a fixed clock (scripts/check-call-parity.ts); forecast rows stay the current batch. */
+export function weekScoutDependenciesAt(now: Date): WeekScoutServiceDependencies {
+  return defaultDependencies(now);
 }
 
 function defaultDependencies(now: Date): WeekScoutServiceDependencies {
@@ -785,10 +803,23 @@ function buildDraftWindow(args: {
     ...detailed.subscores,
     personalizationBonus: personalization.personalizationBonus,
   };
-  const reasons = [
-    ...(sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : []),
-    ...personalization.reasons, ...detailed.reasons,
-  ];
+  const allReasons = prependReasons(
+    prependReasons(
+      reasonList(detailed.reasons, detailed.reasonCodes),
+      personalization.reasons,
+      reasonList(personalization.reasons, personalization.reasonCodes).reasonCodes,
+    ),
+    sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : [],
+    ['caution_sources_disagree'],
+  );
+  // The sources warning leads when present; otherwise the wave sentence beats a
+  // personalization line, which can name the surfer's level (Steven: never).
+  const leadIndex = sourcesDisagree ? 0 : Math.max(0, allReasons.reasonCodes.findIndex((code) => isLeadCode(code)));
+  const lead = allReasons.reasons[leadIndex];
+  // The final window verdict (set after the canonical and personal calls) drops a
+  // takeaway that contradicts it; see `dropContradictingTakeaway`.
+  const takeaway = lead ?? null;
+  const takeawayCode = takeaway ? allReasons.reasonCodes[leadIndex] ?? null : null;
 
   return {
     response: {
@@ -818,7 +849,7 @@ function buildDraftWindow(args: {
         tidePhase: forecast.tide_status ?? null,
         freshnessAt: forecast.updated_at ?? forecast.forecast_at,
       },
-      takeaway: reasons[0] ?? null,
+      takeaway,
     },
     recommendation: {
       recommendationId: id,
@@ -831,8 +862,9 @@ function buildDraftWindow(args: {
       effects: detailed.effects,
       matchQuality: detailed.matchQuality,
       subscores,
-      summary: reasons[0] ?? '',
-      reasons,
+      summary: takeaway ?? '',
+      reasons: allReasons.reasons,
+      reasonCodes: allReasons.reasonCodes,
       warnings: detailed.warnings,
       spotProfile: args.deps.beachToSpotProfile(args.beach),
       windowSlotScores: slotScores,
@@ -840,7 +872,28 @@ function buildDraftWindow(args: {
       distanceMiles: args.distanceMiles,
       generated_at: args.generatedAt,
     },
+    takeawayCode,
   };
+}
+
+/**
+ * A "Good size" or period takeaway beside a skip or MEH chip contradicts it;
+ * no line is the honest state. Runs on the returned window after its final
+ * verdict and personal call are set.
+ */
+function dropContradictingTakeaway(
+  window: Pick<WeekScoutWindowResponse, 'personalVerdict' | 'takeaway'> & { verdict: WeekScoutVerdict | null },
+  draft: DraftWindow | undefined,
+): void {
+  if (!draft) return;
+  const negativeVerdict = window.verdict === 'skip' || window.personalVerdict === 'no';
+  // The reason list follows the same shown verdict as the takeaway.
+  const shown = reasonsForVerdict(reasonList(draft.recommendation.reasons, draft.recommendation.reasonCodes), negativeVerdict);
+  draft.recommendation.reasons = shown.reasons;
+  draft.recommendation.reasonCodes = shown.reasonCodes;
+  if (!codeContradictsVerdict(draft.takeawayCode, negativeVerdict)) return;
+  window.takeaway = null;
+  draft.recommendation.summary = '';
 }
 
 function rankDrafts(
@@ -1114,7 +1167,7 @@ interface FinalizeWeekScoutContext {
   userId: string;
   generatedAt: string;
   beachIds: string[];
-  userSkillLevel: SkillLevel | null;
+  ratingSkillLevel: SkillLevel | null;
   distanceByBeachId: ReadonlyMap<string, number | undefined>;
   draftsById: ReadonlyMap<string, DraftWindow>;
   draftsBySlot: ReadonlyMap<string, DraftWindow>;
@@ -1133,7 +1186,7 @@ async function finalizeWeekScoutDays(
   coverageDays: WeekScoutCoverageDay[],
 ): Promise<MajorEventHoldWeekScoutResponse> {
   const {
-    userId, generatedAt, beachIds, userSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
+    userId, generatedAt, beachIds, ratingSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
     skillAware,
   } = context;
   let response: WeekScoutResponse = {
@@ -1217,7 +1270,7 @@ async function finalizeWeekScoutDays(
       candidates,
       await evaluateMajorEventHoldCandidates({
         candidates,
-        profileExperience: userSkillLevel,
+        profileExperience: ratingSkillLevel,
         applyWaterQualityHolds: true,
       }, waterQualityResolution ? {
         // Both gates evaluate the same fresh beach-level evidence within this request.
@@ -1270,7 +1323,7 @@ async function finalizeWeekScoutDays(
       similarity: eligibleForPersonal
         ? similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null
         : null,
-    }, userSkillLevel);
+    }, ratingSkillLevel);
     personalCalls.set(id, call);
     verdicts.set(id, call.verdict === 'go' ? 'worth_it' : call.verdict === 'maybe' ? 'maybe' : 'skip');
   }
@@ -1285,6 +1338,7 @@ async function finalizeWeekScoutDays(
       if (window.verdict === null) continue;
       window.verdict = verdicts.get(window.id) ?? window.verdict;
       attachPersonalCall(window, window.id);
+      dropContradictingTakeaway(window, draftsById.get(window.id));
       for (const spot of window.rankedSpots) {
         const draft = draftsBySlot.get(`${day.localDate}:${window.bucket}:${spot.beachId}`);
         if (!draft) continue;
@@ -1352,14 +1406,15 @@ async function generateWeekScoutForecastScoped(
     : Promise.resolve(null);
   const forecastReadsStartedAt = performance.now();
   const [fetchedForecastsByBeach, sunTimes, personalizationContext, userSkillLevel, boardClasses, tideByBeach] = await Promise.all([
-    forecastRequest,
-    deps.fetchSunTimes(beachIds, sunDates),
-    deps.fetchRankingContext(userId),
-    deps.fetchSkill(userId),
-    deps.fetchBoardClasses?.(userId).then((classes) => (
+    // Each read has its own stage so the timing line shows which one holds ws-reads.
+    timeStage('ws-read-forecasts', () => forecastRequest),
+    timeStage('ws-read-sun', () => deps.fetchSunTimes(beachIds, sunDates)),
+    timeStage('ws-read-context', () => deps.fetchRankingContext(userId)),
+    timeStage('ws-read-skill', () => deps.fetchSkill(userId)),
+    timeStage('ws-read-boards', () => deps.fetchBoardClasses?.(userId).then((classes) => (
       skillAware ? orderBoardClasses(classes) : classes
-    )) ?? Promise.resolve([]),
-    tideRequest,
+    )) ?? Promise.resolve([])),
+    timeStage('ws-read-tide', () => tideRequest),
   ]);
   recordStage('ws-reads', performance.now() - forecastReadsStartedAt);
   // Swells and rideability keep the raw skill; only the engine rates a missing skill as beginner.
@@ -1517,7 +1572,7 @@ async function generateWeekScoutForecastScoped(
   // response-level recommendationAvailability. Early-look days keep the
   // whole-horizon pass, so their per-day results are unchanged.
   const finalize = (segmentDays: WeekScoutDayResponse[], coverageDays: WeekScoutCoverageDay[]) => finalizeWeekScoutDays({
-    userId, generatedAt, beachIds, userSkillLevel: ratingSkillLevel, distanceByBeachId, draftsById, draftsBySlot,
+    userId, generatedAt, beachIds, ratingSkillLevel, distanceByBeachId, draftsById, draftsBySlot,
     compactResponse, deps, skillAware,
   }, segmentDays, coverageDays);
   const isEarlyLook = (localDate: string): boolean => isEarlyLookDay(request.startLocalDate, localDate);

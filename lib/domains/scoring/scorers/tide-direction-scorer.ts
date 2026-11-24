@@ -13,6 +13,7 @@
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS } from '../types';
 import { isTideSwingEnabled } from '@/lib/flags/tide-swing';
+import { isTideHeightInRange } from '@/lib/surf/tide-direction';
 
 const FULL_MISMATCH_RATE_FT_PER_HOUR = 1.0;
 
@@ -75,7 +76,12 @@ export const tideDirectionScorer: ScorerPlugin = {
     // Match
     if (actualDirection === preferredDirection) {
       score = scores.match;
-      reasons.push(getMatchReason(preferredDirection, directionSensitivity));
+      // A "... for this spot" line needs the height too, the same rule as the beach page tide alert.
+      // Only the low line ("Tide direction favorable") stays direction-only.
+      const claimsForThisSpot = preferredDirection === 'slack' || directionSensitivity !== 'low';
+      if (!claimsForThisSpot || heightAllowsOptimal(input)) {
+        reasons.push(getMatchReason(preferredDirection, directionSensitivity));
+      }
     }
     // Slack when movement preferred
     else if (actualDirection === 'slack' && preferredDirection !== 'slack') {
@@ -109,6 +115,16 @@ export const tideDirectionScorer: ScorerPlugin = {
     };
   },
 };
+
+/** With a curated band, a known height in range at the shown precision (toFixed(1)). */
+function heightAllowsOptimal({ snapshot, profile }: ScorerInput): boolean {
+  const { explicitRange, minHeightFt, maxHeightFt } = profile.tidePreferences;
+  if (!explicitRange) return true;
+  const { heightFt, heightKnown } = snapshot.tide;
+  // toFixed throws on null/undefined; a snapshot builder can still pass one.
+  if (heightKnown === false || !Number.isFinite(heightFt)) return false;
+  return isTideHeightInRange(heightFt, { minFt: minHeightFt, maxFt: maxHeightFt });
+}
 
 function getMatchReason(
   direction: 'rising' | 'falling' | 'slack',

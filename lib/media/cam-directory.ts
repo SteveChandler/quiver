@@ -1,3 +1,10 @@
+import type { CamPlaybackState } from "@/lib/media/cam-embed";
+
+/** A cam the directory may count and badge as live: the beach page plays it or links to its provider. */
+export function isLiveCamBeach(beach: { playback: CamPlaybackState }): boolean {
+  return beach.playback.kind !== "none";
+}
+
 export interface CamDirectoryBeach {
   id: string;
   name: string;

@@ -8,6 +8,7 @@ import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 
 export interface BeachSources {
   camera_url?: string | null;
+  cam_unavailable?: boolean;
   cam_thumbnail_url?: string | null;
   embed_allowed?: boolean | null;
   diorama_url?: string | null;
@@ -115,8 +116,7 @@ export function useBeachDetailData({
   // Fetch sources — don't retry on error (sources are non-critical)
   const fetchSources = useCallback(async () => {
     const res = await fetch(`/api/beaches/${beachId}/sources`, {
-      cache: "force-cache",
-      next: { revalidate: 600 },
+      cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();

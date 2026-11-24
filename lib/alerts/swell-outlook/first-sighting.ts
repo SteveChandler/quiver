@@ -1,7 +1,8 @@
 import type { TideAwareWindowResult } from '@/lib/alerts/surf-window/tide-aware-window';
 import { formatWindowLabel } from '@/lib/notifications/copy/daily-call-copy';
 import type { LocationAnchor } from '@/lib/alerts/location-freshness';
-import { buildSwellShareUrl, getSwellCardHeadline } from '@/lib/notifications/copy/swell-card-headline';
+import { confidenceFor, localDayDiff } from '@/lib/alerts/swell-events/regional-rating';
+import { buildSwellShareUrl, getSwellCardHeadline, PUSH_TITLE_MAX_CHARS } from '@/lib/notifications/copy/swell-card-headline';
 import {
   MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
   majorSwellSurfWindowReasonSchema,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/notifications/types/major-swell';
 import type { OutlookSwell } from '@/lib/services/discovery/swell-outlook-types';
 import { getLocalDateString, getLocalHour } from '@/lib/utils/timezone-utils';
+import { surfHoliday } from '@/lib/utils/us-holidays';
 
 const SERIOUS_FACE_HEIGHT_FT = 8;
 /** Android shows the full text when expanded; iOS shows about four lines and the rest on long-press. */
@@ -39,6 +41,11 @@ export function selectFirstSightingCandidates(args: {
 
 export function firstSightingFaceHeightFt(swell: OutlookSwell): number {
   return Math.round(((swell.faceHeightFt.min + swell.faceHeightFt.max) / 2) * 10) / 10;
+}
+
+/** "a and b", "a, b and c". */
+function joinWithAnd(parts: readonly string[]): string {
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 function formatNumber(value: number): string {
@@ -135,6 +142,58 @@ function daySpan(swell: OutlookSwell, timezone: string, withDate: boolean): stri
   return fromDate === toDate ? `${from} ${monthDay(fromDate)}` : `${monthDay(fromDate)}-${monthDay(toDate)}`;
 }
 
+/**
+ * The region swell behind a push's own swell, with its card sentence: the push takes the name, the period and the
+ * sentence from it, so the push and the card agree. `story` is the PC worker's sentence ("written") or the
+ * server's with dated days ("code").
+ */
+export interface PushRegionStory {
+  regionEventKey: string;
+  storyKey: string;
+  story: string;
+  storySource: "written" | "code";
+  directionLabel: string;
+  kind: "swell" | "storm";
+  periodS: number;
+  peakAt: string;
+}
+
+/** Where a story push's text came from; "template" is today's text. */
+type PushBodySource = "written" | "code" | "template";
+
+/** The swell's name as the card's beach lines say it, by kind and period class. */
+function storySwellNoun(story: Pick<PushRegionStory, "kind" | "periodS">): string {
+  if (story.kind === "storm") return "storm swell";
+  if (story.periodS >= 13) return "groundswell";
+  return story.periodS >= 10 ? "swell" : "windswell";
+}
+
+/**
+ * "W storm swell on the way, Nov 20": the region swell's name, then its peak day ("Tue" within three days, else
+ * "Nov 20"); a holiday peak names the holiday instead ("Thanksgiving groundswell on the way"). No number. Up to nine
+ * days out; past 40 characters the name becomes "swell"; still too long, or an early look's lead, gives null.
+ */
+export function renderStoryPushTitle(story: PushRegionStory, timezone: string, now: Date): string | null {
+  const peakDate = getLocalDateString(new Date(story.peakAt), timezone);
+  const lead = localDayDiff(getLocalDateString(now, timezone), peakDate);
+  const confidence = lead < 0 ? null : confidenceFor(lead);
+  if (confidence !== "on_the_way" && confidence !== "likely") return null;
+  const day = lead <= WEEKDAY_ONLY_MAX_DAYS_AHEAD ? shortWeekday(story.peakAt, timezone) : monthDay(peakDate);
+  const holiday = surfHoliday(peakDate);
+  for (const noun of [storySwellNoun(story), "swell"]) {
+    const title = holiday ? `${holiday.name} ${noun} on the way` : `${story.directionLabel} ${noun} on the way, ${day}`;
+    if (title.length <= PUSH_TITLE_MAX_CHARS) return title;
+  }
+  return null;
+}
+
+/** The payload's record of which region swell and which text a story push used; the region keys only on a match. */
+export function storyPushFields(story: Pick<PushRegionStory, "regionEventKey" | "storyKey"> | null, source: PushBodySource): {
+  region_event_key?: string; story_key?: string; body_source: PushBodySource;
+} {
+  return { ...(story ? { region_event_key: story.regionEventKey, story_key: story.storyKey } : {}), body_source: source };
+}
+
 /** Facts, not a title pool: direction, the days it is in the water and how big the sets get. */
 export function renderFirstSightingTitle(swell: OutlookSwell, timezone: string, now: Date = new Date()): string {
   const days = daySpan(swell, timezone, needsDates(swell, timezone, now));
@@ -177,16 +236,28 @@ export function renderFirstSightingBody(args: {
   surfWindow?: TideAwareWindowResult;
   anchorSource?: LocationAnchor['source'];
   now?: Date;
+  /** The region swell's card sentence: it stands in for the name and timing sentences. */
+  story?: string;
 }): string {
   const { swell, timezone, hazard } = args;
   const withDate = needsDates(swell, timezone, args.now ?? new Date());
   const recommendedWindow = args.surfWindow?.state === 'recommended' ? args.surfWindow.window : null;
   const period = swell.periodS === null ? '' : `, ${formatNumber(swell.periodS)}s`;
-  const sentences: Array<{ text: string; priority: number }> = [
-    { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
-    { text: timingSentence(swell, timezone, withDate), priority: recommendedWindow ? 2 : 0 },
-    { text: `Sets up to ${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}${args.anchorSource === 'home' ? ', near home' : ''}.`, priority: 0 },
+  const sentences: Array<{ text: string; priority: number; short?: string }> = [
+    ...(args.story !== undefined ? [{ text: args.story, priority: 0 }] : [
+      { text: `${swell.directionLabel} swell${sourcePhrase(swell)}${period}.`, priority: 0 },
+      { text: timingSentence(swell, timezone, withDate), priority: recommendedWindow ? 2 : 0 },
+    ]),
   ];
+  // One sentence names every break and its height, the lead first; past the cap it keeps the lead alone.
+  const lead = `${formatNumber(swell.faceHeightFt.max)} ft at ${swell.beach.name}`;
+  const home = args.anchorSource === 'home';
+  const others = (swell.options ?? []).map((option) => `${formatNumber(option.faceHeightFt.max)} ft at ${option.beachName}`);
+  const leadOnly = `Sets to ${lead}${home ? ', near home' : ''}.`;
+  // In a list, a comma before "near home" would read as one more break.
+  sentences.push(others.length
+    ? { text: `Sets to ${joinWithAnd([`${lead}${home ? ' near home' : ''}`, ...others])}.`, priority: 2.5, short: leadOnly }
+    : { text: leadOnly, priority: 0 });
   if (recommendedWindow) {
     sentences.push({ text: bestWindowSentence(recommendedWindow, withDate), priority: 0 });
     const tideSentence = tideReasonSentence(args.surfWindow?.reasons ?? []);
@@ -194,12 +265,7 @@ export function renderFirstSightingBody(args: {
   }
   const orientation = orientationSentence(swell);
   if (orientation) sentences.push({ text: orientation, priority: 2 });
-  if (swell.options?.length) sentences.push({
-    text: `Also: ${swell.options.map((option) => `${option.beachName} up to ${formatNumber(option.faceHeightFt.max)} ft`).join(', ')}.`,
-    priority: 2.5,
-  });
   if (swell.fit.boards.length === 1) sentences.push({ text: `Good size for your ${swell.fit.boards[0]}.`, priority: 3 });
-  if (swell.beachCount > 1) sentences.push({ text: `Showing at ${swell.beachCount} nearby breaks.`, priority: 4 });
   if (hazard) sentences.push({ text: HAZARD_SENTENCES[hazard], priority: 1 });
 
   const kept = [...sentences];
@@ -207,7 +273,9 @@ export function renderFirstSightingBody(args: {
   while (length() > FIRST_SIGHTING_BODY_MAX_CHARS) {
     const lowest = kept.reduce((worst, entry, index) => (entry.priority > kept[worst].priority ? index : worst), 0);
     if (kept[lowest].priority === 0) break;
-    kept.splice(lowest, 1);
+    const { short } = kept[lowest];
+    if (short) kept[lowest] = { text: short, priority: 0 };
+    else kept.splice(lowest, 1);
   }
   return kept.map(({ text }) => text).join(' ');
 }
@@ -220,9 +288,23 @@ export function buildFirstSightingPayload(args: {
   surfWindow?: TideAwareWindowResult;
   anchorSource?: LocationAnchor['source'];
   now?: Date;
+  /**
+   * Set only while the `swell_story_push` switch is on; `story` is null when no region swell matched. Absent, the
+   * payload is today's, field for field.
+   */
+  storyPush?: { story: PushRegionStory | null };
 }): MajorSwellNotificationPayload {
   const { swell, timezone } = args;
   const now = args.now ?? new Date();
+  const story = args.storyPush?.story ?? null;
+  const storyTitle = story ? renderStoryPushTitle(story, timezone, now) : null;
+  const storyBody = story && storyTitle
+    ? renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow,
+      anchorSource: args.anchorSource, now, story: story.story })
+    : null;
+  // A story push that can't keep the 300-character cap goes out as today's text, title included, so both name one swell.
+  const told = story && storyTitle && storyBody && storyBody.length <= FIRST_SIGHTING_BODY_MAX_CHARS
+    ? { title: storyTitle, body: storyBody, source: story.storySource } : null;
   const faceHeightFt = firstSightingFaceHeightFt(swell);
   const serious = faceHeightFt >= SERIOUS_FACE_HEIGHT_FT;
   const peakDate = getLocalDateString(new Date(swell.peakAt), timezone);
@@ -234,7 +316,7 @@ export function buildFirstSightingPayload(args: {
     peakDayLabel,
     serious,
   });
-  const body = renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow, anchorSource: args.anchorSource, now });
+  const body = told?.body ?? renderFirstSightingBody({ swell, timezone, hazard: args.hazard ?? null, surfWindow: args.surfWindow, anchorSource: args.anchorSource, now });
   return parseMajorSwellNotificationPayload({
     schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
     ...(args.anchorSource ? { anchor_source: args.anchorSource } : {}),
@@ -252,8 +334,9 @@ export function buildFirstSightingPayload(args: {
     official_evidence_refs: [],
     would_suppress_cohorts: ['beginner', 'intermediate', 'unknown'],
     enforcement: null,
-    title: renderFirstSightingTitle(swell, timezone, now),
+    title: told?.title ?? renderFirstSightingTitle(swell, timezone, now),
     body,
+    ...(args.storyPush ? storyPushFields(story, told?.source ?? 'template') : {}),
     ...(args.surfWindow ? { surf_window: surfWindowPayload(args.surfWindow) } : {}),
     beaches: [
       { beach_id: swell.beach.id, beach_name: swell.beach.name, rank: 1 },

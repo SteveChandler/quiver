@@ -1,14 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 import { buildRegionEvents, rateRegionEventsWithRatings } from "@/lib/alerts/swell-events/regional";
 import { loadRegionNarrativeEdition, narrateRegionEvents, prepareRegionNarration, watchRegionEvents, withoutNarrative } from "@/lib/alerts/swell-events/regional-narrative";
+import { recordSwellOpen } from "@/lib/alerts/swell-outlook/state";
 import type { SkillLevel } from "@/lib/domains/user-preferences";
+import { isSwellOutlookEnabled, isSwellOutlookUserAllowed } from "@/lib/flags/swell-outlook";
+import { isSwellStoryCardEnabled } from "@/lib/flags/swell-story";
+import { isWeekScoutStoryUserAllowed } from "@/lib/flags/week-scout-story";
 import { handleApiError, withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { RegionSwellEventsResponse } from "@/types/region-swell-events";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
@@ -22,6 +27,23 @@ function emptyRegion(region: string | null, beachCount: number): RegionSwellEven
   return { region, buoy: null, beachCount, events: [] };
 }
 
+// Home and Week Scout read this on each app open, replacing /api/swell/outlook
+// as the signal that answers a swell push and lifts a pause.
+function recordOpen(user: OptionalAuthContext["user"]): void {
+  if (!user || !isSwellOutlookEnabled() || !isSwellOutlookUserAllowed(user.id)) return;
+  try {
+    after(async (): Promise<void> => {
+      try {
+        await recordSwellOpen(createSupabaseServiceRoleClient(), user.id, new Date());
+      } catch (error) {
+        console.warn("[swell-events] Failed to record swell open:", error);
+      }
+    });
+  } catch (error) {
+    console.warn("[swell-events] Failed to schedule swell open:", error);
+  }
+}
+
 // GET /api/beaches/[id]/swell-events - every swell and storm in the beach's region, out 15 days,
 // rated for this user's skill. withAuth({ optional }) resolves native Bearer and web cookie
 // sessions; that client is used only for the skill read. Region data comes from the cookie-free
@@ -31,6 +53,8 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
   if (typeof id !== "string" || !UUID_PATTERN.test(id)) {
     return NextResponse.json({ success: false, error: "Invalid beach id" }, { status: 400 });
   }
+
+  recordOpen(user);
 
   try {
     const serviceClient = createSupabaseServiceRoleClient();
@@ -60,11 +84,14 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
     }
 
     // Today's story edition is read beside the skill; a failed read costs only the PC's written sentences.
-    // Only stored-forecast events carry a narrative, so without one there is nothing to read.
-    const narrated = built.events.some((event) => event.source === "forecast");
-    const [profileSkill, edition] = await Promise.all([
+    // Only stored-forecast events carry a narrative, so without one there is nothing to read. A user off
+    // the story allowlist gets no edition, so the server's own lines serve.
+    const narrated = built.events.some((event) => event.source === "forecast")
+      && isWeekScoutStoryUserAllowed(user?.id);
+    const [profileSkill, edition, storyOn] = await Promise.all([
       user ? getProfileExperienceLevel(supabase, user.id) : null,
       narrated ? loadRegionNarrativeEdition({ client: serviceClient, region: built.region, timezone: built.timezone, now }) : null,
+      isSwellStoryCardEnabled(),
     ]);
     const skill = profileSkill ?? DEFAULT_SKILL;
     const requested = request.nextUrl.searchParams.get("beaches");
@@ -94,6 +121,8 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
         console.warn("[swell-events] watch failed", { region: built.region, error: String(watchError) });
       }
     }
+    // Switch off: no event sentence on any surface; beach lines stay.
+    if (!storyOn) events = events.map((event) => ({ ...event, story: null, storySource: null }));
     const data: RegionSwellEventsResponse = {
       region: built.region,
       buoy: built.buoy,
@@ -106,7 +135,9 @@ async function swellEventsHandler(request: NextRequest, { params, user, supabase
   }
 }
 
-export const GET = withRateLimit(
+const handleGet = withRateLimit(
   withAuth(swellEventsHandler, { optional: true, errorMessage: "Failed to load swell events" }),
   { key: "public-default" },
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/swell-events");

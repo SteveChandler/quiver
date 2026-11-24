@@ -4,9 +4,9 @@ describe("classifyWaveHeight", () => {
   it("converts significant height into face-height and Hawaiian ranges", () => {
     expect(classifyWaveHeight(3)).toMatchObject({
       significantHeightFt: 3,
-      faceHeightMinFt: 4.5,
+      faceHeightMinFt: 3,
       faceHeightMaxFt: 6,
-      hawaiianHeightMinFt: 2.25,
+      hawaiianHeightMinFt: 1.5,
       hawaiianHeightMaxFt: 3,
     });
   });

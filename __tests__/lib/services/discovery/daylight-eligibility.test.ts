@@ -11,6 +11,7 @@ import {
   usableLightIntervalForDate,
   type BeachSunTimes,
 } from '@/lib/services/discovery/daylight-eligibility';
+import { currentHourForecastRow } from '@/lib/services/current-conditions/current-row';
 
 const TIMEZONE = 'America/Los_Angeles';
 const SEP23_SUN: BeachSunTimes = {
@@ -104,9 +105,20 @@ describe('current-hour row', () => {
     expect(currentHourRowStart(rows, localTime('2026-09-23', now))).toEqual(localTime('2026-09-23', row));
   });
 
-  it('has no current row before the first row and keeps the last row after it', () => {
-    expect(currentHourRowStart(rows, localTime('2026-09-23', '16:30'))).toBeNull();
+  it('takes a row within one slot of the hour on either side, and none beyond it', () => {
+    expect(currentHourRowStart(rows, localTime('2026-09-23', '16:30'))).toEqual(rows[0]);
+    expect(currentHourRowStart(rows, localTime('2026-09-23', '13:30'))).toBeNull();
     expect(currentHourRowStart(rows, localTime('2026-09-24', '01:15'))).toEqual(rows[2]);
+    expect(currentHourRowStart(rows, localTime('2026-09-24', '03:15'))).toBeNull();
+  });
+
+  it('is the shared current-hour rule', () => {
+    const at = (iso: string) => ({ forecast_at: iso });
+    for (const now of ['16:30', '17:40', '18:31', '19:02', '22:30', '23:59']) {
+      const instant = localTime('2026-09-23', now);
+      expect(currentHourRowStart(rows, instant)?.toISOString() ?? null)
+        .toBe(currentHourForecastRow(rows.map((row) => at(row.toISOString())), instant)?.forecast_at ?? null);
+    }
   });
 
   it('treats the scoped row the app maps the current hour to as the current row', () => {

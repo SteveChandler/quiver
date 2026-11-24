@@ -122,6 +122,25 @@ describe("catalogue reads", () => {
     expect(before - since).toBeLessThan(180 * 24 * 3600 * 1000 + 5000);
   });
 
+  it("getObservationHistory reads only the columns the charts, the Now row and the beach card use", async () => {
+    const { client, chains } = fakeClient(() => []);
+    await getObservationHistory("ndbc:46225", 24, client);
+    const select = chains[0].ops.find(([op]) => op === "select")![1][0] as string;
+    expect(select.split(", ").sort()).toEqual([
+      "dominant_period_s",
+      "mean_wave_direction_deg",
+      "observed_at",
+      "swell_direction_deg",
+      "swell_height_m",
+      "swell_period_s",
+      "water_temp_c",
+      "wave_height_m",
+      "wind_wave_direction_deg",
+      "wind_wave_height_m",
+      "wind_wave_period_s",
+    ]);
+  });
+
   it("getNearbyStations adds distance and rejects bad coordinates", async () => {
     const { client } = fakeClient(() => [{ ...STATION, name: "Torrey" }]);
     const rows = await getNearbyStations(32.85, -117.27, 3, client);

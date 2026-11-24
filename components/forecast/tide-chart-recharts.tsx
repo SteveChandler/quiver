@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { interpolateTideHeight } from "@/lib/utils/tide-interpolation";
+import { formatTideAxisValue, tideYTicks } from "@/lib/utils/tide-axis";
 import {
   calculateTideWindow,
   filterToWindow,
@@ -86,7 +87,45 @@ export type TideChartProps = {
   nowBias?: number;
   /** buffer hours on each edge (default: 1) */
   bufferHours?: number;
+  /** IANA zone for the time and day labels and the tooltip; the viewer's zone when unset. */
+  timeZone?: string | null;
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Offset of `timeZone` from UTC at `ms`, in ms (Pacific/Honolulu: -10 h). */
+function zoneOffsetMs(ms: number, timeZone: string): number {
+  const p: Record<string, number> = {};
+  for (const part of new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  }).formatToParts(new Date(ms))) {
+    if (part.type !== "literal") p[part.type] = Number(part.value);
+  }
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return asUtc - Math.floor(ms / 1000) * 1000;
+}
+
+/** Midnight in `timeZone` of each day that the range touches. */
+export function zoneMidnights(minTs: number, maxTs: number, timeZone: string): Date[] {
+  const out: Date[] = [];
+  const firstOffset = zoneOffsetMs(minTs, timeZone);
+  let localMidnight = Math.floor((minTs + firstOffset) / DAY_MS) * DAY_MS;
+  while (true) {
+    // The offset at the midnight itself, so a DST change inside the range stays on midnight.
+    const utc = localMidnight - zoneOffsetMs(localMidnight - firstOffset, timeZone);
+    if (utc > maxTs) break;
+    out.push(new Date(utc));
+    localMidnight += DAY_MS;
+  }
+  return out;
+}
 
 // --- Backward Compatibility Re-export -------------------------------------
 
@@ -115,7 +154,16 @@ export function TideChart({
   windowHours = 18,
   nowBias = 0.5,
   bufferHours = 1,
+  timeZone,
 }: TideChartProps) {
+  const zone = timeZone ?? undefined;
+  const formatDay = React.useCallback(
+    (d: Date) =>
+      dayFormatter === defaultDayFmt && zone
+        ? d.toLocaleDateString(undefined, { weekday: "short", timeZone: zone })
+        : dayFormatter(d),
+    [dayFormatter, zone]
+  );
   const gradId = useGradientId();
   const animationEnabled =
     typeof isAnimationActive === "boolean"
@@ -223,6 +271,7 @@ export function TideChart({
   }, [windowBounds]);
 
   const days = React.useMemo(() => {
+    if (zone) return zoneMidnights(minTs, maxTs, zone);
     const map = new Map<string, Date>();
     const startDate = new Date(minTs);
     const endDate = new Date(maxTs);
@@ -240,7 +289,7 @@ export function TideChart({
       currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
     }
     return Array.from(map.values());
-  }, [minTs, maxTs]);
+  }, [minTs, maxTs, zone]);
 
   const baseTimeTicks = React.useMemo(() => {
     const totalHours =
@@ -276,6 +325,8 @@ export function TideChart({
     const high = Math.ceil((max + pad) * 2) / 2;
     return [low, high];
   }, [yDomain, chartData]);
+
+  const yTicks = React.useMemo(() => tideYTicks(computedYDomain), [computedYDomain]);
 
   const windowDurationLabel = React.useMemo(
     () => formatWindowDuration(windowBounds),
@@ -351,7 +402,7 @@ export function TideChart({
               dataKey={(p: TidePoint) => +toDate(p.t)}
               type="number"
               domain={[minTs, maxTs]}
-              tickFormatter={(v) => dayFormatter(new Date(v))}
+              tickFormatter={(v) => formatDay(new Date(v))}
               ticks={days.map((d) => +d)}
               axisLine={false}
               tickLine={false}
@@ -368,7 +419,7 @@ export function TideChart({
               domain={[minTs, maxTs]}
               ticks={timeTicks}
               tickFormatter={(v) =>
-                new Date(v).toLocaleTimeString(undefined, { hour: "numeric" })
+                new Date(v).toLocaleTimeString(undefined, { hour: "numeric", timeZone: zone })
               }
               axisLine={false}
               tickLine={false}
@@ -383,8 +434,9 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               width={36}
+              ticks={yTicks}
               tick={{ fontSize: 12, fill: "#B0BFDA", fontWeight: 500 }}
-              tickFormatter={(v) => v.toFixed(0)}
+              tickFormatter={formatTideAxisValue}
             />
 
             <Area
@@ -419,7 +471,7 @@ export function TideChart({
             )}
 
             <Tooltip
-              content={<TideTooltip unit={unit} />}
+              content={<TideTooltip unit={unit} timeZone={zone} />}
               cursor={{ stroke: "#606DA8", strokeDasharray: "2 2" }}
             />
           </AreaChart>

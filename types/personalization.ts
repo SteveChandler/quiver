@@ -1,3 +1,4 @@
+import type { DiscoveryStageTimer } from "@/lib/services/discovery/discovery-stage-timer";
 import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 /**
  * Personalization Types
@@ -9,6 +10,7 @@ import type { RecommendedBoard } from "@/lib/scoring/personal-board";
  */
 
 import type { Beach } from "@/types/database";
+import type { ReasonCode } from "@/lib/domains/scoring/reason-sentences";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { SpotProfile } from "@/lib/domains/spot-profile/types";
@@ -250,8 +252,12 @@ export interface DetailedScore {
   matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
   /** Human-readable reasons (3-5 specific factors) */
   reasons: string[];
+  /** `reasonCodes[i]` is the scorer code of `reasons[i]` (`lib/domains/scoring/reason-sentences.ts`), null for other text. */
+  reasonCodes?: ReasonCode[];
   /** Warnings about conditions, skill level, or crowding */
   warnings: string[];
+  /** `warningCodes[i]` is the code of `warnings[i]` (cautions lead), null for other text. */
+  warningCodes?: ReasonCode[];
   /** Structured scoring effects; decisions must not be inferred from warning strings. */
   effects?: ScoringDecisionEffect[];
   /** Top condition badges explaining why conditions are good */
@@ -390,8 +396,12 @@ export interface SurfDiscoveryRecommendation {
   message?: string;
   /** Specific reasons for this ranking (3-5 factors) */
   reasons: string[];
+  /** Optional and additive: `reasonCodes[i]` is the scorer code of `reasons[i]`, null for other text. */
+  reasonCodes?: ReasonCode[];
   /** Warnings or cautions about the spot */
   warnings: string[];
+  /** Optional and additive: `warningCodes[i]` is the code of `warnings[i]`, null for other text. */
+  warningCodes?: ReasonCode[];
   /** Structured condition effects carried into canonical decisions and presentation. */
   effects?: ScoringDecisionEffect[];
   /** Internal canonical-decision safety markers; not a recommendation endorsement. */
@@ -578,6 +588,8 @@ export interface SurfDiscoveryOptions {
    * Server-Timing and profiling. Never affects results.
    */
   onStageTiming?: (stage: string, durationMs: number) => void;
+  /** Request-local dependency timing, including work pending at the deadline. */
+  stageTimer?: DiscoveryStageTimer;
   /** Maximum concurrent forecast fetches (default: 5) */
   maxConcurrent?: number;
   /** Timeout per beach forecast in ms (default: 5000) */

@@ -5,19 +5,15 @@
  * Oceanographic Products and Services (CO-OPS) API.
  */
 
+import { buildDatagetterUrl, fetchDatagetter, NOAA_USER_AGENT, NoaaTideRequestError } from "./datagetter";
 import type { TideData, TideExtreme, StationInfo } from "./types";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "./tide-analysis";
-
-/** NOAA CO-OPS API base URL */
-const COOPS_BASE_URL =
-  "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
 
 /** NOAA Metadata API base URL */
 const COOPS_METADATA_URL =
   "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations";
 
 /** User agent for API requests */
-const USER_AGENT = "quiver-surf-app (contact@quiver.com)";
 
 /** Timeout for optional API calls (water level, station info) */
 const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
@@ -30,9 +26,34 @@ const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
 // Change seaside QUIVER_SEA_LEVEL_OFFSET_IN with it.
 const CALIFORNIA_SEA_LEVEL_OFFSET_FT = 1.5;
 
-/** Feet to add to predicted tide heights at a CO-OPS station (California IDs start with 941). */
+// Subordinate stations whose ids do not start with 941 but whose NOAA table is a 941* reference
+// station's table plus offsets, so their water carries the same anomaly. From NOAA mdapi
+// stations.json?type=tidepredictions (reference_id), Nov 14 2026; matches tide_stations.
+const SUBORDINATES_OF_CALIFORNIA_REFERENCE = new Set([
+  // 9410170 San Diego
+  "TWC0379", "TWC0381", "TWC0383", "TWC0385", "TWC0387", "TWC0389", "TWC0399", "TWC0401",
+  "TWC0403", "TWC0405", "TWC0413", "TWC0419",
+  // 9410660 Los Angeles
+  "TWC0427", "TWC0439", "TWC0445", "TWC0463",
+  // 9412110 Port San Luis
+  "TWC0473",
+  // 9414290 San Francisco
+  "TWC0547", "TWC0649",
+  // 9416841 Arena Cove
+  "TWC0771", "TWC0777",
+  // 9419750 Crescent City
+  "9430104", "9435362", "9435385", "9436031", "9436101", "9437262", "9437331", "9437581",
+  "9437815", "9437908", "TWC0817", "TWC0857", "TWC0863", "TWC0865",
+]);
+
+/**
+ * Feet to add to predicted tide heights at a CO-OPS station: California ids start with 941, and a
+ * subordinate station takes its 941* reference station's adjustment (Steven, Nov 11 2026).
+ */
 export function seaLevelOffsetFt(stationId: string): number {
-  return stationId.startsWith("941") ? CALIFORNIA_SEA_LEVEL_OFFSET_FT : 0;
+  return stationId.startsWith("941") || SUBORDINATES_OF_CALIFORNIA_REFERENCE.has(stationId)
+    ? CALIFORNIA_SEA_LEVEL_OFFSET_FT
+    : 0;
 }
 
 /**
@@ -62,49 +83,46 @@ export function buildPredictionsUrl(
   beginDate: string,
   endDate: string
 ): string {
-  const url = new URL(COOPS_BASE_URL);
-  url.searchParams.set("application", "quiver-surf-app");
-  url.searchParams.set("station", stationId);
-  url.searchParams.set("begin_date", beginDate);
-  url.searchParams.set("end_date", endDate);
-  url.searchParams.set("product", "predictions");
-  url.searchParams.set("datum", "MLLW"); // Mean Lower Low Water
-  url.searchParams.set("units", "english");
-  url.searchParams.set("time_zone", "gmt"); // UTC timestamps
-  url.searchParams.set("interval", "hilo"); // High and low tides only
-  url.searchParams.set("format", "json");
-  return url.toString();
+  const params = new URLSearchParams();
+  params.set("station", stationId);
+  params.set("begin_date", beginDate);
+  params.set("end_date", endDate);
+  params.set("product", "predictions");
+  params.set("datum", "MLLW"); // Mean Lower Low Water
+  params.set("units", "english");
+  params.set("time_zone", "gmt"); // UTC timestamps
+  params.set("interval", "hilo"); // High and low tides only
+  params.set("format", "json");
+  return buildDatagetterUrl(params);
 }
 
 /**
  * Build the CO-OPS API URL for water level
  */
 function buildWaterLevelUrl(stationId: string): string {
-  const url = new URL(COOPS_BASE_URL);
-  url.searchParams.set("application", "quiver-surf-app");
-  url.searchParams.set("station", stationId);
-  url.searchParams.set("range", "1"); // Last 1 hour of data
-  url.searchParams.set("product", "water_level");
-  url.searchParams.set("datum", "MLLW");
-  url.searchParams.set("units", "english");
-  url.searchParams.set("time_zone", "gmt");
-  url.searchParams.set("format", "json");
-  return url.toString();
+  const params = new URLSearchParams();
+  params.set("station", stationId);
+  params.set("range", "1"); // Last 1 hour of data
+  params.set("product", "water_level");
+  params.set("datum", "MLLW");
+  params.set("units", "english");
+  params.set("time_zone", "gmt");
+  params.set("format", "json");
+  return buildDatagetterUrl(params);
 }
 
 /**
  * Build the CO-OPS API URL for water temperature
  */
 function buildWaterTemperatureUrl(stationId: string): string {
-  const url = new URL(COOPS_BASE_URL);
-  url.searchParams.set("application", "quiver-surf-app");
-  url.searchParams.set("station", stationId);
-  url.searchParams.set("range", "24"); // Last 24 hours
-  url.searchParams.set("product", "water_temperature");
-  url.searchParams.set("units", "metric");
-  url.searchParams.set("time_zone", "gmt");
-  url.searchParams.set("format", "json");
-  return url.toString();
+  const params = new URLSearchParams();
+  params.set("station", stationId);
+  params.set("range", "24"); // Last 24 hours
+  params.set("product", "water_temperature");
+  params.set("units", "metric");
+  params.set("time_zone", "gmt");
+  params.set("format", "json");
+  return buildDatagetterUrl(params);
 }
 
 /**
@@ -136,27 +154,7 @@ async function fetchTidePredictions(
       options.logger.debug(`Fetching NOAA CO-OPS tide data from: ${url}`);
     }
 
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT,
-      },
-    });
-
-    if (!response.ok) {
-      // A forbidden/unavailable station returns [] and the caller reports missing coverage;
-      // log once, with the station, at warn so a stuck station does not page every run.
-      const errorText = (await response.text().catch(() => "")).slice(0, 200);
-      // 400/401 mean our request or key is wrong, which is a bug, not an upstream fault.
-      const log = response.status === 403 || response.status === 404 || response.status >= 500
-        ? options?.logger?.warn
-        : options?.logger?.error;
-      log?.call(options?.logger,
-        `CO-OPS tide API error for station ${stationId}: ${response.status} - ${response.statusText}${errorText ? ` ${errorText}` : ""}`
-      );
-      return [];
-    }
-
-    const data = await response.json();
+    const data = await fetchDatagetter(url);
 
     if (options?.verbose && options?.logger) {
       options.logger.debug(`Received tide data for station ${stationId}:`, data);
@@ -171,7 +169,7 @@ async function fetchTidePredictions(
     }
 
     const offsetFt = seaLevelOffsetFt(stationId);
-    const tideData = data.predictions.map((prediction: TideExtreme) => ({
+    const tideData = data.predictions.map((prediction: TideExtreme): TideData => ({
       time:
         parseCOOPSTimestampToUnixSecondsUTC(prediction.t) ??
         Math.floor(new Date(prediction.t).getTime() / 1000),
@@ -189,9 +187,8 @@ async function fetchTidePredictions(
     return tideData;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const transient =
-      error instanceof Error &&
-      (error.name === "AbortError" || error.name === "TimeoutError" || /fetch failed|network|ECONNRESET|ETIMEDOUT|ENOTFOUND/i.test(message));
+    const transient = error instanceof NoaaTideRequestError &&
+      (error.status === undefined || error.status === 403 || error.status === 404 || error.status === 429 || error.status >= 500);
     if (transient) {
       options?.logger?.warn(`Network error fetching tide predictions for station ${stationId}: ${message}`);
     } else {
@@ -215,18 +212,7 @@ async function fetchCurrentWaterLevel(
   try {
     const url = buildWaterLevelUrl(stationId);
 
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT,
-      },
-      signal: AbortSignal.timeout(OPTIONAL_REQUEST_TIMEOUT_MS),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
+    const data = await fetchDatagetter(url, OPTIONAL_REQUEST_TIMEOUT_MS);
 
     if (!data.data || data.data.length === 0) {
       return null;
@@ -256,18 +242,7 @@ export async function fetchWaterTemperature(
   try {
     const url = buildWaterTemperatureUrl(stationId);
 
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT,
-      },
-      signal: AbortSignal.timeout(OPTIONAL_REQUEST_TIMEOUT_MS),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
+    const data = await fetchDatagetter(url, OPTIONAL_REQUEST_TIMEOUT_MS);
 
     if (!data.data || data.data.length === 0) {
       return null;
@@ -307,7 +282,7 @@ async function fetchStationInfo(
 
     const response = await fetch(url, {
       headers: {
-        "User-Agent": USER_AGENT,
+        "User-Agent": NOAA_USER_AGENT,
       },
       signal: AbortSignal.timeout(OPTIONAL_REQUEST_TIMEOUT_MS),
     });

@@ -485,7 +485,9 @@ describe('Discovery Adapter', () => {
       });
 
       expect(advancedScore.total).toBeLessThan(beginnerScore.total);
-      expect(advancedScore.warnings).toContain('Waves are below your usual range');
+      // The small-wave cap and the floor say the same words; the line shows once.
+      expect(advancedScore.warnings.filter((warning) => warning === 'Small surf at 1–2 ft.')).toHaveLength(1);
+      expect(advancedScore.warnings.join(' ')).not.toMatch(/your usual range/);
     });
   });
 
@@ -496,7 +498,7 @@ describe('Discovery Adapter', () => {
       expect(result).toEqual({
         penalty: 0,
         bonus: 6,
-        note: 'in the sweet spot for your longboard',
+        note: 'Good longboard size at 1–2 ft.',
       });
     });
 
@@ -506,7 +508,7 @@ describe('Discovery Adapter', () => {
       expect(result).toEqual({
         penalty: 2,
         bonus: 0,
-        note: 'too small for your shortboard',
+        note: 'Small for a shortboard at 1–2 ft.',
       });
     });
 
@@ -516,7 +518,7 @@ describe('Discovery Adapter', () => {
       expect(result).toEqual({
         penalty: 18,
         bonus: 0,
-        note: 'too big for your longboard',
+        note: 'Big for a longboard at 4–5 ft.',
       });
     });
 

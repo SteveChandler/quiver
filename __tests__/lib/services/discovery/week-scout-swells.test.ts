@@ -242,7 +242,8 @@ describe('buildWeekScoutSwells', () => {
 
   it('adds a size line naming the best in-range beach when the top beach is above range', () => {
     const input = scenario({ userSkillLevel: 'beginner' });
-    // Blacks' window reads 5-6 ft, over a beginner's 4 ft ceiling; the others read 3 ft.
+    // Blacks' window reads 5-6 ft (fit judged on its first number, 5 → band 4–5 ft), over a
+    // beginner's 4 ft ceiling; the others read 3 ft (band 2–3 ft).
     const [swell] = buildWeekScoutSwells({
       ...input,
       days: input.days.map((day) => ({
@@ -253,7 +254,8 @@ describe('buildWeekScoutSwells', () => {
       })),
     });
     expect(swell.beaches[0]).toMatchObject({ beachName: 'Blacks', sizeFit: 'above_range' });
-    expect(swell.narrative).toMatch(/It may run above your usual range at Blacks; Oceanside is the better size for you\.$/);
+    expect(swell.narrative).toMatch(/It may run big at Blacks, about 4–5 ft; Oceanside is smaller at 2–3 ft\.$/);
+    expect(swell.narrative).not.toMatch(/your usual range|for you/);
   });
 
   it('reuses an earlier run key for the group', () => {
@@ -350,7 +352,7 @@ describe('Week Scout swell exposure ranking and sheltered beaches', () => {
     });
     expect(swell.beaches.find((item) => item.beachId === IDS.shores)?.sizeFit).toBe('above_range');
     expect(swell.beaches[0]).toMatchObject({ beachName: 'Scripps', sizeFit: 'in_range' });
-    expect(swell.narrative).not.toMatch(/above your usual range/);
+    expect(swell.narrative).not.toMatch(/It may run big/);
   });
 
   it('leads with the first partial beach when none is open', () => {
@@ -685,7 +687,7 @@ describe('Week Scout swells review fixes', () => {
       expect(swell.narrative).not.toContain('Held Beach');
     }
     // Shores reads in range but its window is a skip, so nothing is offered as the better size.
-    expect(swells[0].narrative).toMatch(/It may run above your usual range at these spots\.$/);
+    expect(swells[0].narrative).toMatch(/It may run big at these spots\.$/);
   });
 
   it('groups one swell whose 16-point label flips across a band edge (S and SW)', () => {

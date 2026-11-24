@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
+import { getNearbyForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import {
   parseMaxWaveHeightFt,
@@ -74,8 +74,7 @@ export async function enrichBeachesWithConditions(
 
   const beachIds = beaches.map((b) => b.id);
 
-  // Batch fetch forecasts from cache (same pattern as /api/beaches/featured)
-  const forecastMap = await getBatchFreshForecastsFromCache(beachIds, 24);
+  const forecastMap = await getNearbyForecastsFromCache(beachIds);
 
   // Batch fetch photos using cached fetcher to deduplicate within the same SSR render
   const photoMap = await getCachedBeachPhotos(beachIds);

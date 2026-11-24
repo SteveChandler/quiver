@@ -45,7 +45,8 @@ describe("session share helpers", () => {
     expect(parsed.pathname).toBe("/api/og/session");
     expect(parsed.searchParams.get("beach")).toBe("Ocean Beach");
     expect(parsed.searchParams.get("stars")).toBe("4");
-    expect(parsed.searchParams.get("size")).toBe("Chest-Head");
+    // Intended change: the logged feet, sent bare like native, not a "Chest-Head" bucket.
+    expect(parsed.searchParams.get("size")).toBe("3");
     expect(parsed.searchParams.get("board")).toBe("Shortboard");
     expect(parsed.searchParams.get("windLabel")).toBe("Offshore");
     expect(parsed.searchParams.get("tagline")).toBe("Clean morning waves");
@@ -53,6 +54,69 @@ describe("session share helpers", () => {
     expect(new URL(parsed.searchParams.get("shareUrl") ?? "").pathname).toBe(
       "/sessions/session-abc"
     );
+  });
+
+  // The share card reads these columns for a public session only because this image,
+  // shown on the public session page, already gives them to any visitor.
+  it("puts the description or notes, wind and date of the session on the public page image", () => {
+    const parsed = new URL(
+      buildSessionShareImageUrl({
+        ...session,
+        description: null,
+        notes: "Lot of water",
+      } as unknown as SessionWithDetails),
+    );
+
+    expect(parsed.searchParams.get("tagline")).toBe("Lot of water");
+    expect(parsed.searchParams.get("windLabel")).toBe("Offshore");
+    expect(parsed.searchParams.get("windSpeed")).toBe("7 mph");
+    expect(parsed.searchParams.get("date")).toBe("April 30, 2026");
+  });
+
+  it("sends no rating or stars for a session the surfer did not rate", () => {
+    const parsed = new URL(
+      buildSessionShareImageUrl({
+        ...session,
+        rating: null,
+      } as unknown as SessionWithDetails),
+    );
+
+    expect(parsed.searchParams.has("rating")).toBe(false);
+    expect(parsed.searchParams.has("stars")).toBe(false);
+  });
+
+  it("labels the surfer's rating with the session rating words", () => {
+    const labelFor = (rating: number) =>
+      new URL(
+        buildSessionShareImageUrl({
+          ...session,
+          rating,
+        } as unknown as SessionWithDetails),
+      ).searchParams.get("rating");
+
+    expect([1, 2, 3, 4, 5].map(labelFor)).toEqual([
+      "Rough",
+      "Meh",
+      "Fun",
+      "Great",
+      "Epic",
+    ]);
+  });
+
+  it("sends no stand-in size, board or best-session claim", () => {
+    const parsed = new URL(
+      buildSessionShareImageUrl({
+        ...session,
+        wave_height_ft: null,
+        wave_quality: 2,
+        board: null,
+        boards: null,
+      } as unknown as SessionWithDetails),
+    );
+
+    expect(parsed.searchParams.get("size")).toBe("");
+    expect(parsed.searchParams.get("board")).toBe("");
+    expect(parsed.searchParams.has("footer")).toBe(false);
   });
 
   it("uses the uploaded session image as the share-card background", () => {
