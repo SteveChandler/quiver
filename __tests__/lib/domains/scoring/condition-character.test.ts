@@ -533,6 +533,23 @@ describe('getConditionCharacter (domain engine port)', () => {
       expect(result.label).toBe('Big and clean — groundswell, light wind');
     });
 
+    it('reads a capped sand beach above its size as a closeout, not "Big and clean"', () => {
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 8.6,
+        wavePeriod: 14,
+        wind: { speedMph: 5, directionDeg: 90 },
+      });
+      const composite: CompositeScore = {
+        ...makeComposite({ windQuality: 90, tideFit: 80 }),
+        effects: [{ code: 'closeout_size', severity: 'severe', verdictCeiling: 39, message: 'Likely closing out at this size' }],
+      };
+      const result = getConditionCharacter(snap, profile, composite);
+      expect(result).toEqual({ category: 'skip', label: 'Likely closing out at this size' });
+      // The same row without the effect keeps its normal big-day text.
+      expect(getConditionCharacter(snap, profile, makeComposite({ windQuality: 90, tideFit: 80 })).category).toBe('large-clean');
+    });
+
     it('classifies 6ft + strong wind as large-rough', () => {
       const snap = createSnapshot({
         ...baseSnapshot,

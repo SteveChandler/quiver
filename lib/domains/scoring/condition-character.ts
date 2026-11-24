@@ -284,6 +284,10 @@ export function getConditionCharacterDetails(
   const skipCause = getSkipCause(snapshot, profile, composite);
   if (skipCause) return withoutReason(getSkipCharacter(skipCause));
 
+  // A capped sand beach above its size reads as a closeout, never "Big and clean" beside MEH.
+  const closeout = composite.effects?.find((effect) => effect.code === 'closeout_size');
+  if (closeout) return withoutReason({ category: 'skip', label: closeout.message });
+
   // 2. Flat — barely anything to surf, unless nobody measured it
   if (waveHeight < 0.5) {
     return withoutReason({ category: 'flat', label: snapshot.waveHeightKnown === false ? NO_SIZE_FORECAST_LABEL : 'Flat — rest day' });
