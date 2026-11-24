@@ -1501,3 +1501,126 @@ describe("condition-alert-evaluate — hourly windows (ALERT_HOURLY_WINDOWS)", (
     expect(mockFilterToDaylight.mock.calls[0][0]).toHaveLength(2);
   });
 });
+
+// Evaluate has no beach-skill veto of its own (deliver runs the canonical
+// engine). Its only skill input is the hold gate, so these tests pin the
+// skill that each hold call receives.
+describe("condition-alert-evaluate — skill-aware go checks (SKILL_AWARE_GO_CHECKS)", () => {
+  const OTHER_USER = "00000000-0000-0000-0000-0000000000ff";
+
+  afterEach(() => {
+    delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+  });
+
+  function holdSkills(): unknown[] {
+    return mockResolveNotificationMajorEventHold.mock.calls.map(
+      ([input]) => (input as { profileExperience: unknown }).profileExperience,
+    );
+  }
+
+  async function runMatchedWindow(args: {
+    experienceLevel: string | null;
+    beachSkill: string;
+  }): Promise<{ queued: number }> {
+    seedRule();
+    seedProfile({ experience_level: args.experienceLevel });
+    seedBeach({ skill_level: args.beachSkill });
+    seedForecast();
+    seedMatchingWindow(0.9);
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    return res.json();
+  }
+
+  it.each(["advanced", "intermediate", "beginner-intermediate"])(
+    "rates a flagged no-skill user as beginner in the matched-window hold at a %s beach",
+    async (beachSkill) => {
+      process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+      process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER_A;
+
+      const body = await runMatchedWindow({ experienceLevel: null, beachSkill });
+
+      expect(holdSkills()).toEqual(["beginner"]);
+      // Evaluate still queues; deliver's canonical decision applies the beach-skill veto.
+      expect(body.queued).toBe(1);
+    },
+  );
+
+  it("rates a flagged no-skill user as beginner in the watched-call hold", async () => {
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER_A;
+    seedRule({
+      preset_type: "watched_call",
+      conditions: {
+        swell_height_min: 2,
+        watched_call: {
+          version: 1,
+          recommendationId: "recommendation-1",
+          sourceSurface: "home_hero",
+          mode: "best",
+          beachId: BEACH_1,
+          windowStart: "2026-04-26T14:00:00Z",
+          windowEnd: "2026-04-26T16:00:00Z",
+          forecastAt: "2026-04-26T10:00:00Z",
+          recommendationState: "ready_today",
+          conditionScore: 82,
+          personalMatchScore: 76,
+          overallScore: 80,
+          reasonType: "forecast_conditions",
+          dedupeKey: "watched-call.v1:recommendation-1",
+        },
+      },
+    });
+    seedProfile({ experience_level: null });
+    seedBeach({ skill_level: "advanced" });
+    seedForecast();
+    seedMatchingWindow(0.81);
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(holdSkills()).toEqual(["beginner"]);
+  });
+
+  it.each([
+    { name: "flag off", enabled: undefined, allowlist: undefined },
+    { name: "flag on, user not allowlisted", enabled: "true", allowlist: OTHER_USER },
+  ])("keeps the raw null skill when $name", async ({ enabled, allowlist }) => {
+    if (enabled) process.env.SKILL_AWARE_GO_CHECKS_ENABLED = enabled;
+    if (allowlist) process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = allowlist;
+
+    const body = await runMatchedWindow({ experienceLevel: null, beachSkill: "advanced" });
+
+    expect(holdSkills()).toEqual([null]);
+    expect(body.queued).toBe(1);
+  });
+
+  it("keeps a known skill unchanged with the flag on", async () => {
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER_A;
+
+    await runMatchedWindow({ experienceLevel: "advanced", beachSkill: "advanced" });
+
+    expect(holdSkills()).toEqual(["advanced"]);
+  });
+
+  it("writes the same queue row for a defaulted user as with the flag off", async () => {
+    await runMatchedWindow({ experienceLevel: null, beachSkill: "advanced" });
+    const flagOffRows = store.queueUpserts.map(({ send_at: _sendAt, ...row }) => row);
+
+    store.rules = [];
+    store.profiles = [];
+    store.beaches = [];
+    store.forecasts = [];
+    store.queueUpserts = [];
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER_A;
+    await runMatchedWindow({ experienceLevel: null, beachSkill: "advanced" });
+    const flagOnRows = store.queueUpserts.map(({ send_at: _sendAt, ...row }) => row);
+
+    expect(flagOnRows).toHaveLength(1);
+    expect(flagOnRows).toEqual(flagOffRows);
+  });
+});
