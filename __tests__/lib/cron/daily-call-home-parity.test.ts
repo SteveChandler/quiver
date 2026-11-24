@@ -46,10 +46,10 @@ function beach(id: string, name: string, lat: number, lon: number): Beach {
   } as Beach;
 }
 
-function row(beachId: string, forecastAt: string): EnhancedForecastEntity {
+function row(beachId: string, forecastAt: string, waveHeight = '3.5'): EnhancedForecastEntity {
   return {
     id: `${beachId}:${forecastAt}`, beach_id: beachId, forecast_at: forecastAt,
-    wave_height: '3.5', wave_period: '12s', wave_direction: 'NW', wind_speed: '5', wind_direction: 'E',
+    wave_height: waveHeight, wave_period: '12s', wave_direction: 'NW', wind_speed: '5', wind_direction: 'E',
     tide_height: '1.4', tide_status: 'Rising', water_temp: '78°F', confidence_score: 82,
     data_source: 'NOAA_NWS', created_at: '2026-07-31T12:00:00.000Z', updated_at: '2026-07-31T13:30:00.000Z',
   } as EnhancedForecastEntity;
@@ -60,16 +60,43 @@ function row(beachId: string, forecastAt: string): EnhancedForecastEntity {
  * band, so Home's day card picks the nearer beach. Tomorrow both rank higher,
  * so the week's session pick is not on today.
  */
-function dependencies(): WeekScoutServiceDependencies {
-  const beaches = [beach(NEAR, 'Near Break', ANCHOR.lat, ANCHOR.lon), beach(FAR, 'Far Break', 32.749, -117.252)];
-  const rows = new Map(beaches.map((candidate) => [candidate.id, [
+function nearTieRows(beaches: readonly Beach[]): Map<string, EnhancedForecastEntity[]> {
+  return new Map(beaches.map((candidate) => [candidate.id, [
     row(candidate.id, '2026-07-31T16:00:00.000Z'),
     row(candidate.id, '2026-08-01T16:00:00.000Z'),
   ]]));
-  const heroScore = (recommendation: SurfDiscoveryRecommendation): number => {
-    if (recommendation.forecast.forecast_at.startsWith(TOMORROW)) return 95;
-    return recommendation.beach.id === FAR ? 83 : 82;
-  };
+}
+
+function nearTieScore(recommendation: SurfDiscoveryRecommendation): number {
+  if (recommendation.forecast.forecast_at.startsWith(TOMORROW)) return 95;
+  return recommendation.beach.id === FAR ? 83 : 82;
+}
+
+/**
+ * The quiver#1535 shape: today the near beach has only a 6 AM window, below an
+ * intermediate's rideable size but not over the safety limit; the far beach
+ * has a noon window. Tomorrow both have higher 6 AM windows.
+ */
+function morningRows(beaches: readonly Beach[]): Map<string, EnhancedForecastEntity[]> {
+  return new Map(beaches.map((candidate) => [candidate.id, [
+    candidate.id === NEAR
+      ? row(candidate.id, '2026-07-31T16:00:00.000Z', '0.8')
+      : row(candidate.id, '2026-07-31T22:00:00.000Z'),
+    row(candidate.id, '2026-08-01T16:00:00.000Z'),
+  ]]));
+}
+
+function morningScore(recommendation: SurfDiscoveryRecommendation): number {
+  if (recommendation.forecast.forecast_at.startsWith(TOMORROW)) return 95;
+  return recommendation.beach.id === FAR ? 85 : 60;
+}
+
+function dependencies(
+  rowsFor: (beaches: readonly Beach[]) => Map<string, EnhancedForecastEntity[]> = nearTieRows,
+  heroScore: (recommendation: SurfDiscoveryRecommendation) => number = nearTieScore,
+): WeekScoutServiceDependencies {
+  const beaches = [beach(NEAR, 'Near Break', ANCHOR.lat, ANCHOR.lon), beach(FAR, 'Far Break', 32.749, -117.252)];
+  const rows = rowsFor(beaches);
   return {
     now: NOW,
     fetchBeaches: jest.fn(async () => beaches),
@@ -154,5 +181,65 @@ describe('Daily Call and Home pick the same beach on a near tie (quiver#1534)', 
 
     // The one-day session pick lands on today and wins on the raw score.
     expect(todayPickBeach(cron)).toBe(FAR);
+  });
+
+  it('agrees with Home when the morning preference leaves today\'s best outside the morning (quiver#1535)', async () => {
+    mockDependencies.mockImplementation(() => dependencies(morningRows, morningScore));
+    const home = await generateWeekScoutForecast('user', {
+      candidateBeachIds: [NEAR, FAR], localTimezone: 'Pacific/Honolulu', startLocalDate: TODAY,
+      dayCount: 7, userLocation: ANCHOR, driveRadiusMiles: 45, sessionTime: 'morning',
+    }, dependencies(morningRows, morningScore));
+    const cron = await rankDayWithWeekScout({
+      userId: 'user', poolBeachIds: [NEAR, FAR], driveRadiusMiles: 45, timezone: 'Pacific/Honolulu',
+      localDate: TODAY, sessionTime: 'morning', anchor: ANCHOR, now: NOW, weekStartLocalDate: TODAY,
+    });
+
+    expect(todayPickBeach(home)).toBe(FAR);
+    expect(todayPickBeach(cron)).toBe(todayPickBeach(home));
+  });
+});
+
+describe('week ranking faults (quiver#1537 review)', () => {
+  const cronArgs = {
+    userId: 'user', poolBeachIds: [NEAR, FAR], driveRadiusMiles: 45, timezone: 'Pacific/Honolulu',
+    localDate: TODAY, sessionTime: null, anchor: ANCHOR, now: NOW, weekStartLocalDate: TODAY,
+  };
+
+  it('still ranks today when a read for a later day fails', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockDependencies.mockImplementation(() => {
+      const deps = dependencies();
+      // The one-day request reads sun times through tomorrow; the week reaches 2026-08-02 and later.
+      deps.fetchSunTimes = jest.fn(async (_ids: string[], dates: string[]) => {
+        if (dates.includes('2026-08-02')) throw new Error('sun_times read failed');
+        return new Map();
+      });
+      return deps;
+    });
+    try {
+      const cron = await rankDayWithWeekScout(cronArgs);
+      expect(cron.days.map(({ localDate }) => localDate)).toEqual([TODAY]);
+      // The one-day fallback, as before this change.
+      expect(todayPickBeach(cron)).toBe(FAR);
+      expect(warn).toHaveBeenCalledWith('[daily-call] week ranking failed; ranking the day alone', {
+        userId: 'user', localDate: TODAY, error: 'sun_times read failed',
+      });
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('rejects when the fault also breaks the one-day request', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockDependencies.mockImplementation(() => {
+      const deps = dependencies();
+      deps.fetchBeaches = jest.fn(async () => { throw new Error('beaches read failed'); });
+      return deps;
+    });
+    try {
+      await expect(rankDayWithWeekScout(cronArgs)).rejects.toThrow('beaches read failed');
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

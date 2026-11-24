@@ -183,20 +183,32 @@ const HOME_WEEK_DAY_COUNT = 7;
 export const rankDayWithWeekScout: RankDay = async ({
   userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor, now, weekStartLocalDate,
 }) => {
-  const request = {
-    candidateBeachIds: poolBeachIds,
-    driveRadiusMiles,
-    localTimezone: timezone,
-    startLocalDate: weekStartLocalDate ?? localDate,
-    dayCount: weekStartLocalDate ? HOME_WEEK_DAY_COUNT : 1,
-    ...(sessionTime ? { sessionTime } : {}),
-    ...(anchor ? { userLocation: anchor } : {}),
+  const rank = (startLocalDate: string, dayCount: number): Promise<CanonicalWeekScoutResponse> => {
+    const request = {
+      candidateBeachIds: poolBeachIds,
+      driveRadiusMiles,
+      localTimezone: timezone,
+      startLocalDate,
+      dayCount,
+      ...(sessionTime ? { sessionTime } : {}),
+      ...(anchor ? { userLocation: anchor } : {}),
+    };
+    return now
+      ? generateWeekScoutForecastForDays(userId, request, weekScoutDependenciesAt(now))
+      : generateWeekScoutForecastForDays(userId, request);
   };
-  const response = now
-    ? await generateWeekScoutForecastForDays(userId, request, weekScoutDependenciesAt(now))
-    : await generateWeekScoutForecastForDays(userId, request);
-  if (!weekStartLocalDate) return response;
-  return { ...response, days: response.days.filter((day) => day.localDate === localDate) };
+  const rankWeek = weekStartLocalDate !== undefined;
+  if (!rankWeek) return rank(localDate, 1);
+  try {
+    const response = await rank(weekStartLocalDate, HOME_WEEK_DAY_COUNT);
+    return { ...response, days: response.days.filter((day) => day.localDate === localDate) };
+  } catch (error) {
+    // A fault in a later day's reads must not cost today's call; the one-day request still decides.
+    console.warn("[daily-call] week ranking failed; ranking the day alone", {
+      userId, localDate, error: error instanceof Error ? error.message : String(error),
+    });
+    return rank(localDate, 1);
+  }
 };
 
 export type LoadBeachDay = (args: {
@@ -789,7 +801,7 @@ async function buildSharedCall(
     weekStartLocalDate: alertDate,
   });
   // The hold adapter widens scores; the personal and canonical go gates below still apply.
-  const day = response.days[0] as WeekScoutDayResponse | undefined;
+  const day = response.days.find((value) => value.localDate === alertDate) as WeekScoutDayResponse | undefined;
   if (!day) return { skip: "no_forecast" };
   if (day.windows.length === 0) {
     return { skip: day.exclusionReasons.includes("major_event_hold") ? "no_clear_window"

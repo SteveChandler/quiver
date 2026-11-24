@@ -1508,6 +1508,17 @@ describe("shared ranking (flag on)", () => {
     });
   });
 
+  it("reads the alert day from the ranking by date, not by position", async () => {
+    const pick = window(blacksId);
+    const earlier = { ...day([window(ospreyId)]), localDate: "2026-09-15" };
+    const mocked = sharedDeps(undefined, {
+      rankDay: jest.fn(async () => ({ days: [earlier, day([pick])] }) as CanonicalWeekScoutResponse),
+    });
+    const result = await runDailyCallCron({ now, supabase, deps: mocked });
+    expect(result).toMatchObject({ sent: 1, errors: 0 });
+    expect(jest.mocked(mocked.enqueue).mock.calls[0][0].payload).toMatchObject({ beach_id: blacksId });
+  });
+
   it("passes the session preference and resolved pool anchor to ranking", async () => {
     const location = { lat: 21.28, lon: -157.83, timezone: "Pacific/Honolulu", captured_at: now.toISOString() };
     const mocked = sharedDeps(undefined, {
