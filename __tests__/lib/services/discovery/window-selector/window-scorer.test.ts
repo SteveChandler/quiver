@@ -275,7 +275,7 @@ describe('size cap on a partial beach row (bulk route columns)', () => {
 
   it('caps a capped beach above its size and leaves the same row uncapped at the cap', () => {
     const above = scoreWindowConditionDetails(big('8.6 ft'), partial(MISSION_BEACH), 'advanced', null, []);
-    const atCap = scoreWindowConditionDetails(big('8 ft'), partial(MISSION_BEACH), 'advanced', null, []);
+    const atCap = scoreWindowConditionDetails(big('6 ft'), partial(MISSION_BEACH), 'advanced', null, []);
     expect(atCap.score).toBeGreaterThan(39);
     expect(atCap.decisionCeiling).toBe(100);
     expect(above.score).toBeLessThanOrEqual(39);

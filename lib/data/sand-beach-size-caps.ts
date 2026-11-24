@@ -93,8 +93,8 @@ export const SAND_BEACH_SIZE_CAPS_FT: Readonly<Record<string, number>> = {
   '7a093b7e-2230-4bf1-abeb-9b31faa794d5': 8, // Manhattan Beach Pier
   'c0f23f4b-fcc4-4849-88f4-cb6da7206d80': 8, // Marina State Beach
   '9b292a48-7a88-4d79-926f-16601515d7a0': 8, // Marine Street Beach
-  'c02b4ede-69d9-440e-b8de-22ea4bde10ef': 8, // Mission Beach
-  'cdcf733b-a704-45ef-affc-d8152ffde1e4': 8, // Mission Beach (Central)
+  'c02b4ede-69d9-440e-b8de-22ea4bde10ef': 6, // Mission Beach (owner local knowledge, 2026-11-24: closes out at 7 to 8 ft)
+  'cdcf733b-a704-45ef-affc-d8152ffde1e4': 6, // Mission Beach (Central) (owner local knowledge, 2026-11-24)
   'ca0f960e-e859-4b33-8e88-6b2980e48e6a': 8, // Monastery Beach / San Jose Creek Beach
   'deea2ae1-849d-47a1-9c27-b7bd505dbc07': 8, // Moonlight State Beach
   'c0024ced-d774-4e5f-b580-1bc8cb8da136': 8, // Moonstone Beach / Little River

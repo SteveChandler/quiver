@@ -22,12 +22,12 @@ describe('sand beach size caps', () => {
       return acc;
     }, {});
     expect(caps).toHaveLength(116);
-    expect(counts).toEqual({ 6: 2, 8: 103, 10: 5, 12: 4, 18: 1, 20: 1 });
+    expect(counts).toEqual({ 6: 4, 8: 101, 10: 5, 12: 4, 18: 1, 20: 1 });
     expect(sandBeachSizeCapFt(BLACKS_BEACH)).toBeNull();
   });
 
   it('returns the cap for a listed beach and null otherwise', () => {
-    expect(sandBeachSizeCapFt(MISSION_BEACH)).toBe(8);
+    expect(sandBeachSizeCapFt(MISSION_BEACH)).toBe(6);
     expect(sandBeachSizeCapFt(AVALANCHE)).toBe(8);
     expect(sandBeachSizeCapFt(BOLSA_CHICA)).toBe(6);
     expect(sandBeachSizeCapFt(THE_WEDGE)).toBe(20);
@@ -39,13 +39,13 @@ describe('sand beach size caps', () => {
 
 describe('closeoutSizeEffect', () => {
   it('fires only above the cap', () => {
-    expect(closeoutSizeEffect(MISSION_BEACH, 8.1)).toEqual({
+    expect(closeoutSizeEffect(AVALANCHE, 8.1)).toEqual({
       code: 'closeout_size',
       severity: 'severe',
       verdictCeiling: 39,
       message: 'Likely closing out at this size',
     });
-    expect(closeoutSizeEffect(MISSION_BEACH, 8)).toBeNull();
+    expect(closeoutSizeEffect(AVALANCHE, 8)).toBeNull();
     expect(closeoutSizeEffect(BOLSA_CHICA, 6.1)).not.toBeNull();
     expect(closeoutSizeEffect(THE_WEDGE, 12)).toBeNull();
   });
@@ -89,7 +89,7 @@ describe('ScoringEngine closeout size rule', () => {
   }
 
   it('caps a capped sand beach above its cap and turns the verdict to "no"', () => {
-    const result = score(MISSION_BEACH, 8.1);
+    const result = score(AVALANCHE, 8.1);
     expect(result.effects).toContainEqual(
       expect.objectContaining({ code: 'closeout_size', verdictCeiling: 39 }),
     );
@@ -100,7 +100,7 @@ describe('ScoringEngine closeout size rule', () => {
   });
 
   it('leaves the beach alone at exactly the cap', () => {
-    const result = score(MISSION_BEACH, 8);
+    const result = score(AVALANCHE, 8);
     expect((result.effects ?? []).map((effect) => effect.code)).not.toContain('closeout_size');
     expect(result.total).toBe(80);
     expect(verdict(result.effects)).toBe('go');
