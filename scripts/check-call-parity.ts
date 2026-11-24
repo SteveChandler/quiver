@@ -303,13 +303,13 @@ async function main(): Promise<void> {
     };
     const home = await loadHomeAt(at);
     const homePick = showScout(`Home for ${date} (7-day request starts ${date}; pool at ${local(at)})`, home, date, at);
-    const cronScout = await read("Crons -> rankDayWithWeekScout (1 day)", () => rankDayAt(rankDayWithWeekScout, at)({
+    const cronScout = await read("Crons -> rankDayWithWeekScout (7-day week, day D)", () => rankDayAt(rankDayWithWeekScout, at)({
       userId: profile.id, poolBeachIds: pool.map(({ beach }) => beach.id), timezone,
-      localDate: date, sessionTime, anchor: anchorAtCall.anchor,
+      localDate: date, sessionTime, anchor: anchorAtCall.anchor, weekStartLocalDate: date,
       driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes),
     }));
     const cronPick = showScout(`Crons' Week Scout for ${date} (pool at ${local(at)})`, cronScout, date, at);
-    console.log(`D bestWindowId: 7-day=${home?.days.find((day) => day.localDate === date)?.bestWindowId ?? "null"}; 1-day=${cronScout.days[0]?.bestWindowId ?? "null"}`);
+    console.log(`D bestWindowId: Home=${home?.days.find((day) => day.localDate === date)?.bestWindowId ?? "null"}; cron=${cronScout.days[0]?.bestWindowId ?? "null"}`);
 
     console.log(`Daily Call push preferences forced on; real notif_push_enabled=${profile.notifPushEnabled}; notif_forecast_alerts=${profile.notifForecastAlerts}. Dedupe bypassed; enqueue is a successful no-op.`);
     const dailyResults: Array<{ pick: CallPick | null; reason: string }> = [];
@@ -384,7 +384,7 @@ async function main(): Promise<void> {
       const daily = dailyResults[index];
       compareCalls(`Daily Call (flag ${flag}) vs Home D`, daily.pick, homePick, !daily.pick ? `silent: ${daily.reason}` : homeReason(home, date), true);
     }
-    compareCalls("Crons' 1-day pick vs Home D", cronPick, homePick, !cronPick ? "no open 1-day pick" : homeReason(home, date), true);
+    compareCalls("Crons' pick vs Home D", cronPick, homePick, !cronPick ? "no open cron pick" : homeReason(home, date), true);
     for (const [index, flag] of ["off", "on"].entries()) {
       compareCalls(`Swell lead (flag ${flag}) vs Home D+1`, swellLeads[index], homeTomorrow,
         !swellLeads[index] ? `silent: ${swellSilentReason}` : homeReason(eveningHome, tomorrowDate), false);
