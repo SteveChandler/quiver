@@ -1452,14 +1452,20 @@ async function handleGet(request: Request): Promise<NextResponse> {
                       month: "long",
                       day: "numeric",
                     });
-                    if (forecastDeliveryEnabled) {
-                      await rateLimiter.throttle();
-                    }
-
                     const emailDecision = buildAlertSessionDecision({
                       matches: candidateEmailMatches,
                       profileExperience,
                     });
+                    // Same rule as push: no selection means every beach in this
+                    // payload was vetoed, so the email must not name it either.
+                    const primaryEmailMatch = selectedAlertMatch(
+                      candidateEmailMatches,
+                      emailDecision,
+                    );
+                    const emailSelectionRejected = primaryEmailMatch === null;
+                    if (forecastDeliveryEnabled && !emailSelectionRejected) {
+                      await rateLimiter.throttle();
+                    }
                     // Two rules at one beach and window render as one card.
                     // Every surviving queue item still records its attempt.
                     const emailMatches = collapseSameWindowMatches(
@@ -1472,7 +1478,7 @@ async function handleGet(request: Request): Promise<NextResponse> {
                       alertDate,
                       emailDecision.verdict,
                     );
-                    const sendResult = !forecastDeliveryEnabled
+                    const sendResult = emailSelectionRejected || !forecastDeliveryEnabled
                       ? { data: null, error: null }
                       : await sendEmail({
                           purpose: "condition_alert",
@@ -1494,7 +1500,18 @@ async function handleGet(request: Request): Promise<NextResponse> {
                         });
                     const { data: sendData, error: sendError } = sendResult;
 
-                    if (!forecastDeliveryEnabled) {
+                    if (emailSelectionRejected) {
+                      for (const item of emailSurvivors) {
+                        await recordAttempt({
+                          queueId: item.id,
+                          ruleId: item.rule_id,
+                          userId: payload.user_id,
+                          channel: "email",
+                          status: "skipped_disabled",
+                          skipReason: `canonical_decision:${emailDecision.reasonCode}`,
+                        });
+                      }
+                    } else if (!forecastDeliveryEnabled) {
                       addShadowChannel(emailSurvivors, "email");
                     } else if ("deferred" in sendResult && sendResult.deferred === "quiet_hours") {
                       // The contact gate has its own quiet window. It has not
