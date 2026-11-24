@@ -11,6 +11,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import {
   sanitizeScoredForecastForMajorEventHold,
+  scoredSlotDurationsMs,
   type ScoredForecastGoldenWindowBinding,
   type ScoredForecastSlotBinding,
 } from "@/lib/recommendations/major-event-hold/adapters/bulk-forecast";
@@ -23,6 +24,7 @@ import type { BoardClass } from "@/lib/domains/rideability";
 import { getConditionBoardPick, toForecastForScoring, type BoardForPick } from "@/lib/scoring";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
 import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
 import {
   parseWindSpeedOrNull,
@@ -35,12 +37,24 @@ import {
 } from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { entitlementFromRow } from "@/lib/alerts/entitlements";
-import { isBoardPicksFreeEnabled } from "@/lib/flags/board-picks-free";
+import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
+import { readEntitlementRow, UNKNOWN_PLAN_FEATURE_ACCESS } from "@/lib/subscription/read-entitlement-row";
+import { isHourlyBridgeEnabledFor } from "@/lib/flags/tide-swing";
+import { bridgeForecastsHourly } from "@/lib/services/forecast/hourly-bridge";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
+import {
+  loadTideSeriesByBeach,
+  type TideSeriesClient,
+  type TideSeriesSample,
+} from "@/lib/services/tide-series-loader";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
-const SLOT_DURATION_MS = 3 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const SLOT_DURATION_MS = 3 * HOUR_MS;
+/** Hourly slots are filled for the first two days of the response only; later days stay 3-hourly. */
+const HOURLY_BRIDGE_SPAN_MS = 48 * HOUR_MS;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,6 +69,10 @@ interface SwellInfo {
 
 interface TimeSlot {
   forecastAt: string;
+  /** Bridged slots only: an hour filled between two stored 3-hourly rows. Absent means stored. */
+  bridged?: true;
+  /** Bridged slots only: forecastAt of the stored row before this hour. */
+  sourceSlotAt?: string;
   surfHeight: { min: number; max: number };
   swells: SwellInfo[];
   /** Null when the forecast has no wind (unknown, not calm). */
@@ -258,9 +276,12 @@ export function scoreForecastSlots(
 
     // Forecast confidence
     const forecastDataConfidence = forecast.confidence_score ?? 0;
+    const bridge = forecast.raw_forecast?.hourly_bridge;
 
     return {
       forecastAt: forecast.forecast_at,
+      // Stored slots carry neither key, so a flag-off response matches the 3-hourly contract.
+      ...(bridge ? { bridged: true as const, sourceSlotAt: bridge.from } : {}),
       surfHeight,
       swells,
       windSpeed: windSpeedMph,
@@ -307,8 +328,7 @@ export function scoreForecastSlots(
  */
 export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
   const GOLDEN_THRESHOLD = 60;
-  // Each slot represents a 3-hour window
-  const SLOT_DURATION_MS = 3 * 60 * 60 * 1000;
+  const slotDurations = scoredSlotDurationsMs(slots);
 
   const windows: GoldenWindow[] = [];
   let runSlots: TimeSlot[] = [];
@@ -318,8 +338,9 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
 
     const startTime = runSlots[0].forecastAt;
     const lastSlot = runSlots[runSlots.length - 1];
+    const lastSlotDurationMs = slotDurations.get(lastSlot) ?? SLOT_DURATION_MS;
     const endTime = new Date(
-      new Date(lastSlot.forecastAt).getTime() + SLOT_DURATION_MS
+      new Date(lastSlot.forecastAt).getTime() + lastSlotDurationMs
     ).toISOString();
 
     const peakSlot = runSlots.reduce((best, s) =>
@@ -329,7 +350,7 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
     const durationMs =
       new Date(lastSlot.forecastAt).getTime() -
       new Date(startTime).getTime() +
-      SLOT_DURATION_MS;
+      lastSlotDurationMs;
     const durationMinutes = Math.round(durationMs / 60_000);
 
     windows.push({
@@ -359,10 +380,10 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
   return windows;
 }
 
-function slotEnd(forecastAt: string): string {
+function slotEnd(forecastAt: string, durationMs: number): string {
   const startsAtMs = Date.parse(forecastAt);
   return Number.isFinite(startsAtMs)
-    ? new Date(startsAtMs + SLOT_DURATION_MS).toISOString()
+    ? new Date(startsAtMs + durationMs).toISOString()
     : "";
 }
 
@@ -370,13 +391,14 @@ function buildSlotBindings(
   beachId: string,
   timeSlots: readonly TimeSlot[]
 ): ScoredForecastSlotBinding[] {
-  return timeSlots.map(({ forecastAt }) => ({
-    forecastAt,
+  const durations = scoredSlotDurationsMs(timeSlots);
+  return timeSlots.map((slot) => ({
+    forecastAt: slot.forecastAt,
     candidate: {
-      candidateId: `scored-slot:${beachId}:${forecastAt}`,
+      candidateId: `scored-slot:${beachId}:${slot.forecastAt}`,
       beachId,
-      startsAt: forecastAt,
-      endsAt: slotEnd(forecastAt),
+      startsAt: slot.forecastAt,
+      endsAt: slotEnd(slot.forecastAt, durations.get(slot) ?? SLOT_DURATION_MS),
     },
   }));
 }
@@ -398,11 +420,39 @@ function buildGoldenBindings(
 }
 
 
+/**
+ * The beach's hourly tide series for the bridged span, one hour either side so the rate has
+ * neighbours at its edges. A failed read leaves the response 3-hourly (undefined); a beach with
+ * no series still bridges, its hours' tide from the two rows (tide_source row_lerp).
+ */
+async function loadScoredTideSeries(
+  client: TideSeriesClient,
+  beachId: string,
+  startMs: number,
+  endMs: number,
+): Promise<TideSeriesSample[] | undefined> {
+  try {
+    const series = await loadTideSeriesByBeach(
+      client,
+      [beachId],
+      new Date(startMs - HOUR_MS).toISOString(),
+      new Date(endMs + HOUR_MS).toISOString(),
+    );
+    return series.get(beachId) ?? [];
+  } catch (error) {
+    console.warn("[scored] tide series read failed; hourly bridge skipped", {
+      beachId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return undefined;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
-export const GET = withNoStore(withAuth(
+const handleGet = withNoStore(withAuth(
   async (request: NextRequest, context) => {
     const params = context.params ?? {};
     const beachId = (params as Record<string, string>).beachId;
@@ -436,8 +486,12 @@ export const GET = withNoStore(withAuth(
     const nowMs = Date.now();
     const startsAt = new Date(nowMs - (extended ? 8 : 0) * 3_600_000).toISOString();
     const endsAt = new Date(nowMs + (extended ? 14 : 1) * 24 * 3_600_000).toISOString();
+    // Bridged after the fetch, so the row limit still counts stored rows and none is pushed out.
+    const bridgeStartMs = Date.parse(startsAt);
+    const bridgeEndMs = Math.min(Date.parse(endsAt), bridgeStartMs + HOURLY_BRIDGE_SPAN_MS);
+    const bridgeHourly = isHourlyBridgeEnabledFor("scored");
 
-    const [forecastsResult, latestObservation] = await Promise.all([
+    const [forecastsResult, latestObservation, tideSeries] = await Promise.all([
       supabase
         .from("enhanced_forecasts")
         .select("*")
@@ -447,6 +501,9 @@ export const GET = withNoStore(withAuth(
         .order("forecast_at")
         .limit(extended ? 344 : 8),
       fetchLatestObservation(supabase, validBeachId),
+      bridgeHourly
+        ? loadScoredTideSeries(supabase as unknown as TideSeriesClient, validBeachId, bridgeStartMs, bridgeEndMs)
+        : Promise.resolve(undefined),
     ]);
 
     const { data: forecasts, error: forecastError } = forecastsResult;
@@ -455,30 +512,42 @@ export const GET = withNoStore(withAuth(
       throw new Error(forecastError.message);
     }
 
-    const forecastList = await applyV51DisplayOverrideToForecasts(
-      (forecasts ?? []) as EnhancedForecastEntity[]
+    // FALLBACK rows carry no model wave data; scoring them would publish a
+    // flat 0 for slots no model covers yet.
+    const displayForecasts = await applyV51DisplayOverrideToForecasts(
+      ((forecasts ?? []) as EnhancedForecastEntity[]).filter(
+        (forecast) => !isFallbackForecastRow(forecast)
+      )
     );
+    const forecastList = tideSeries === undefined
+      ? displayForecasts
+      : bridgeForecastsHourly(displayForecasts, tideSeries, {
+          timezone: beach.timezone ?? undefined,
+          startMs: bridgeStartMs,
+          endMs: bridgeEndMs,
+        });
 
     // Score all slots
     const userSkillLevel = await getProfileExperienceLevel(
       supabase,
       context.user?.id
     );
+    // Only the scores use the rating skill; the hold gate keeps the raw skill.
+    const ratingSkillLevel = ratingExperience(userSkillLevel, isSkillAwareGoChecksOn(context.user?.id));
 
-    const { data: entitlementRow } = context.user
-      ? await supabase
-          .from("user_entitlements")
-          .select("is_pro, is_trialing, billing_issue, expires_at")
-          .eq("user_id", context.user.id)
-          .maybeSingle()
-      : { data: null };
-    const isPro = entitlementFromRow(entitlementRow ?? null) === "premium";
-    const boardPicksEnabled = isPro || isBoardPicksFreeEnabled();
+    const entitlementRead = context.user
+      ? await readEntitlementRow(supabase, context.user.id)
+      : { status: "ok" as const, row: null };
+    // A failed read still scores the beach, but with no paid features and no plan label.
+    const planUnknown = entitlementRead.status === "unknown";
+    const { isPro } = planUnknown
+      ? UNKNOWN_PLAN_FEATURE_ACCESS
+      : await resolveFeatureAccessFromRow(context.user?.id, entitlementRead.row);
     const boardContext = context.user
-      ? await fetchUserBoardContext(supabase, context.user.id, boardPicksEnabled)
+      ? await fetchUserBoardContext(supabase, context.user.id)
       : null;
     const timeSlots = scoreForecastSlots(
-      forecastList, beach as Beach, userSkillLevel, boardContext?.boardClasses,
+      forecastList, beach as Beach, ratingSkillLevel, boardContext?.boardClasses,
       boardContext?.boardsForPicks,
     );
 
@@ -502,8 +571,9 @@ export const GET = withNoStore(withAuth(
       // Top-level (not per-slot) — the live observation is a single "now"
       // reading that doesn't vary across the 8 forecast slots.
       latestObservation,
-      plan: isPro ? "pro" : "free",
-      boardPicksEnabled,
+      // Installed native builds parse `plan` as "free" | "pro"; an unknown plan omits it.
+      ...(planUnknown ? { planStatus: "unknown" as const } : { plan: isPro ? "pro" as const : "free" as const }),
+      boardPicksEnabled: true,
       generalProfile: { skill: "beginner", board: null },
     };
     const slotBindings = buildSlotBindings(validBeachId, timeSlots);
@@ -528,3 +598,5 @@ export const GET = withNoStore(withAuth(
   },
   { optional: true, rejectInvalidCredentials: true, errorMessage: "Failed to fetch scored forecast" }
 ));
+
+export const GET = withErrorNoStore(handleGet, "/api/forecasts/scored/[beachId]");

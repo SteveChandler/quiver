@@ -32,6 +32,18 @@ const header = {
   surfId, startedAt: "2026-10-18T12:00:00Z", endedAt: "2026-10-18T12:10:00Z",
   sport: "surfing", partNumber: "006-B", deviceName: "Forerunner", appVersion: "1.0", rating: 4, chunkCount: 2,
 };
+it.each([0, 432, 5000])("preserves valid optional watch calories %i", async calories => {
+  const response = await chunk(request({ ...payload, header: { ...header, calories } }), context());
+  expect(response.status).toBe(200);
+  expect(tables.watch_uploads[0].header.calories).toBe(calories);
+});
+
+it.each([-1, 5001, 12.5, "432", null])("ignores invalid watch calories %s", async calories => {
+  const response = await chunk(request({ ...payload, header: { ...header, calories } }), context());
+  expect(response.status).toBe(200);
+  expect(tables.watch_uploads[0].header).not.toHaveProperty("calories");
+});
+
 it.each([1.5, 2.5, 3.5, 5, 7, 8.5, null, undefined])("accepts watch wave size %s", async waveHeightFt => {
   const response = await chunk(request({ ...payload, header: { ...header, ...(waveHeightFt === undefined ? {} : { waveHeightFt }) } }), context());
   expect(response.status).toBe(200);

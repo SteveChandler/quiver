@@ -3,7 +3,7 @@
  * Shoaling Regression Suite (Workstream D)
  *
  * Validates the 2026-04-09 shoaling decomposition + small-wave ceiling fix
- * across six gates (A-F). Gates A-D and F block CI; Gate E is advisory.
+ * across seven gates (A-G). Gates A-D, F and G block CI; Gate E is advisory.
  *
  * Usage:
  *   yarn regression:shoaling            # fixture mode (default, CI-safe)
@@ -22,11 +22,14 @@
  * - Gate C: wind-swell beaches near-neutral (delta in [-20%, +10%]).
  *   Confirms short-period cutoff (8s) does not over-zero legitimate
  *   wind-swell spots.
- * - Gate D: uncalibrated beaches unchanged (byte-identical legacy path).
- *   Confirms the refactor did not accidentally change transformToFaceHeight.
+ * - Gate D: uncalibrated beaches unchanged (byte-identical scalar fallback).
  * - Gate E (ADVISORY): Surfline LOTUS parity for 6 beaches, print only.
- * - Gate F: CDIP→model handoff boundary default-off invariant + enabled
- *   continuity improvement.
+ * - Gate F: CDIP→model handoff seam is measured and never rescales model
+ *   rows (#1236).
+ * - Gate G: replayed real CDIP→model handoffs keep at least
+ *   SEAM_MIN_BEACH_RATIO of the buoy-hour face at every beach. Fails when a
+ *   transform change (or removing a compensator, as #1238 did) drops model
+ *   hours off the buoy ruler.
  *
  * Read the companion markdown at scripts/shoaling-regression.md for the full
  * gate specification.
@@ -35,6 +38,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { config as dotenvConfig } from './load-env.mjs';
+import { SURFLINE_SPOT_IDS } from './surfline-spot-ids';
 
 import {
   transformToFaceHeight,
@@ -44,6 +48,7 @@ import {
   type BeachTerrainConfig,
   type WaveHeightSourceTag,
 } from '@/lib/utils/wave-height-transformer';
+import type { ForecastReplayInput } from '@/lib/utils/forecast-display-replay';
 import {
   createForecastHandoffBlendState,
   processForecastHandoffBlendSlot,
@@ -139,8 +144,17 @@ interface BeachResult {
   passed: boolean;
 }
 
+interface SeamFixture {
+  name: string;
+  pairs: Array<{
+    modelForecastAt: string;
+    cdip: ForecastReplayInput;
+    model: ForecastReplayInput;
+  }>;
+}
+
 interface GateResult {
-  name: 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  name: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
   description: string;
   passed: boolean;
   blocking: boolean;
@@ -156,6 +170,23 @@ const FIXTURE_PATH = resolve(
   __dirname,
   '__fixtures__/shoaling-regression-fixtures.json',
 );
+
+const SEAM_FIXTURE_PATH = resolve(
+  __dirname,
+  '__fixtures__/model-seam-fixtures.json',
+);
+
+/** Per-beach median model/buoy face at the handoff must stay above this. */
+const SEAM_MIN_BEACH_RATIO = 0.45;
+/** Median across beaches of those per-beach medians must stay above this. */
+const SEAM_MIN_FLEET_RATIO = 0.75;
+/**
+ * A fixture day is a model-failure day when the median handoff pair that day
+ * has the model period at least this much shorter than the buoy Tp (Nov 3-4
+ * 2026: a 14-18 s west swell read as 11-12 s). A per-beach factor cannot fix
+ * a mis-periodized swell, so Gate G pairs from those days are report-only.
+ */
+const MODEL_FAILURE_PERIOD_GAP_S = 3;
 
 async function loadFixtures(): Promise<Fixtures> {
   const raw = await readFile(FIXTURE_PATH, 'utf-8');
@@ -197,11 +228,9 @@ function inferSource(dataSource: string): WaveHeightSourceTag | undefined {
 }
 
 /**
- * Compute the PRE-fix face height. This is the legacy scalar path —
- * `transformToFaceHeight` with the `source` gate and the same inputs the
- * old `forecast-builder.getWaveHeight` would have passed. The function
- * itself is unchanged by the fix (Workstream A only ADDED new exports),
- * so we can call it directly as the baseline.
+ * Compute the scalar comparator with the current `transformToFaceHeight`.
+ * The short-period cap changes this comparator too; compare runs saved
+ * before and after that change to measure its effect.
  */
 function computeOldFaceHeight(beach: FixtureBeach): number {
   const f = beach.forecast;
@@ -602,41 +631,31 @@ async function runGateE(
 function runGateF(fixtures: Fixtures): GateResult {
   const entries = Object.entries(fixtures.handoffBoundary ?? {});
   const beaches = entries.map(([slug, fixture]) => {
-    const disabled = runHandoffFixture(fixture, false);
-    const enabled = runHandoffFixture(fixture, true);
-
-    const defaultOffUnchanged = fixture.slots.every(
-      (slot, index) => disabled.waveHeights[index] === slot.wave_height,
-    );
-    const beforeDrop = Math.abs(disabled.handoffDiscontinuityFt ?? Infinity);
-    const afterDrop = Math.abs(enabled.enabledDiscontinuityFt ?? Infinity);
-    const improved = Number.isFinite(beforeDrop) && afterDrop < beforeDrop;
+    // The handoff step returns only a metric, so it cannot change a height.
+    const discontinuityFt = measureHandoffFixture(fixture);
+    const measured = discontinuityFt != null;
+    const drop = Math.abs(discontinuityFt ?? 0);
 
     return {
       slug,
       name: fixture.name,
-      oldFaceFt: beforeDrop,
-      newFaceFt: afterDrop,
-      deltaPct:
-        Number.isFinite(beforeDrop) && beforeDrop > 0
-          ? ((afterDrop - beforeDrop) / beforeDrop) * 100
-          : 0,
+      oldFaceFt: drop,
+      newFaceFt: drop,
+      deltaPct: 0,
       oldScore: 0,
       newScoreBeforeCeiling: 0,
       newScoreAfterCeiling: 0,
       ceiling: 0,
       details:
-        `default-off ${defaultOffUnchanged ? 'unchanged' : 'CHANGED'}, ` +
-        `drop ${beforeDrop.toFixed(2)}ft → ${afterDrop.toFixed(2)}ft, ` +
-        `first model ${enabled.firstModelBeforeFt?.toFixed(2) ?? 'n/a'}ft → ${enabled.firstModelAfterFt?.toFixed(2) ?? 'n/a'}ft`,
-      passed: defaultOffUnchanged && improved,
+        `seam ${measured ? `measured ${drop.toFixed(2)}ft` : 'NOT measured'}`,
+      passed: measured,
     };
   });
 
   return {
     name: 'F',
     description:
-      'CDIP→model handoff boundary blend default-off invariant + enabled continuity improvement.',
+      'CDIP→model handoff seam is measured and never rescales model rows (#1236).',
     passed: beaches.every((b) => b.passed),
     blocking: true,
     beaches,
@@ -644,27 +663,95 @@ function runGateF(fixtures: Fixtures): GateResult {
   };
 }
 
-function runHandoffFixture(
-  fixture: HandoffBoundaryFixture,
-  enabled: boolean,
-): {
-  waveHeights: Array<string | null>;
-  handoffDiscontinuityFt: number | null;
-  enabledDiscontinuityFt: number | null;
-  firstModelBeforeFt: number | null;
-  firstModelAfterFt: number | null;
-} {
+async function runGateG(): Promise<GateResult> {
+  const seam = JSON.parse(
+    await readFile(SEAM_FIXTURE_PATH, 'utf8'),
+  ) as Record<string, SeamFixture>;
+  const median = (xs: number[]): number => {
+    const sorted = [...xs].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  };
+
+  const gapsByDay = new Map<string, number[]>();
+  for (const fixture of Object.values(seam)) {
+    for (const pair of fixture.pairs) {
+      // A pair with no period on either side says nothing about mis-periodizing.
+      if (pair.cdip.periodS == null || pair.model.periodS == null) continue;
+      const day = pair.modelForecastAt.slice(0, 10);
+      gapsByDay.set(day, [...(gapsByDay.get(day) ?? []), pair.cdip.periodS - pair.model.periodS]);
+    }
+  }
+  const failureDays = new Set(
+    [...gapsByDay].filter(([, gaps]) => median(gaps) >= MODEL_FAILURE_PERIOD_GAP_S).map(([day]) => day),
+  );
+  const onFailureDay = (pair: SeamFixture['pairs'][number]): boolean =>
+    failureDays.has(pair.modelForecastAt.slice(0, 10));
+  const ratioOf = (id: string, pair: SeamFixture['pairs'][number]): number => {
+    const cdipFt = transformToFaceHeightDecomposed(pair.cdip).faceHeightFt;
+    // Fixtures store inputs without the id; the live builder passes it.
+    const modelFt = transformToFaceHeightDecomposed({
+      ...pair.model,
+      beach: { ...pair.model.beach, id },
+    }).faceHeightFt;
+    return modelFt / cdipFt;
+  };
+
+  const beaches = Object.entries(seam).map(([id, fixture]) => {
+    const ratios = fixture.pairs.map((pair) => ratioOf(id, pair));
+    const ratio = median(ratios);
+    const clean = ratios.filter((_, i) => !onFailureDay(fixture.pairs[i]));
+    const cleanRatio = clean.length > 0 ? median(clean) : null;
+    return {
+      slug: id,
+      name: fixture.name,
+      oldFaceFt: 1,
+      newFaceFt: ratio,
+      deltaPct: (ratio - 1) * 100,
+      oldScore: 0,
+      newScoreBeforeCeiling: 0,
+      newScoreAfterCeiling: 0,
+      ceiling: 0,
+      details: `model/buoy face at handoff: median ${ratio.toFixed(2)} (${ratios
+        .map((r) => r.toFixed(2))
+        .join(' ')})${cleanRatio == null ? '; all pairs on model-failure days' : clean.length < ratios.length ? `; without model-failure days ${cleanRatio.toFixed(2)}` : ''}`,
+      passed: (cleanRatio ?? ratio) >= SEAM_MIN_BEACH_RATIO,
+      cleanRatio,
+    };
+  });
+  const fleet = median(beaches.map((b) => b.newFaceFt));
+  const cleanBeaches = beaches.filter((b) => b.cleanRatio != null);
+  const cleanFleet = cleanBeaches.length > 0 ? median(cleanBeaches.map((b) => b.cleanRatio!)) : null;
+  const reportOnly = cleanFleet == null;
+
+  return {
+    name: 'G',
+    description: `Real CDIP→model handoffs keep >= ${SEAM_MIN_BEACH_RATIO} of the buoy face per beach and >= ${SEAM_MIN_FLEET_RATIO} fleet-wide.`,
+    passed: cleanFleet == null
+      ? beaches.every((b) => b.passed) && fleet >= SEAM_MIN_FLEET_RATIO
+      : cleanBeaches.every((b) => b.passed) && cleanFleet >= SEAM_MIN_FLEET_RATIO,
+    blocking: !reportOnly,
+    beaches: beaches.map(({ cleanRatio: _clean, ...b }) => b),
+    notes: [
+      `fleet median ${fleet.toFixed(2)}`,
+      ...(failureDays.size > 0
+        ? [
+            `model-failure days (median model period >= ${MODEL_FAILURE_PERIOD_GAP_S} s shorter than buoy Tp): ${[...failureDays].sort().join(', ')}`,
+            cleanFleet == null
+              ? 'every fixture pair is on a model-failure day, so Gate G is report-only for this fixture set'
+              : `blocking check uses the other days: fleet median ${cleanFleet.toFixed(2)}`,
+          ]
+        : []),
+      'Refresh fixtures with scripts/refit-model-swell-tables.sh (or replay-model-swell-calibration.ts --seam-fixtures).',
+    ],
+  };
+}
+
+function measureHandoffFixture(fixture: HandoffBoundaryFixture): number | null {
   const state = createForecastHandoffBlendState();
-  const waveHeights: Array<string | null> = [];
-  let handoffDiscontinuityFt: number | null = null;
-  let firstModelBeforeFt: number | null = null;
-  let firstModelAfterFt: number | null = null;
-  let cdipFaceFt: number | null = null;
 
   for (const slot of fixture.slots) {
     const result = processForecastHandoffBlendSlot({
       state,
-      enabled,
       slot: {
         forecastAt: slot.forecast_at,
         waveHeight: slot.wave_height,
@@ -672,32 +759,9 @@ function runHandoffFixture(
         waveHeightSource: slot.wave_height_source,
       },
     });
-
-    if (result.metric && handoffDiscontinuityFt == null) {
-      handoffDiscontinuityFt = result.metric.handoffDiscontinuityFt;
-      cdipFaceFt = result.metric.cdipFaceFt;
-      firstModelBeforeFt = result.metric.modelFaceFt;
-    }
-
-    const waveHeight = result.adjustment?.waveHeight ?? slot.wave_height;
-    if (result.adjustment && firstModelAfterFt == null) {
-      firstModelAfterFt = parseFt(waveHeight);
-    }
-    waveHeights.push(waveHeight);
+    if (result.metric) return result.metric.handoffDiscontinuityFt;
   }
-
-  const enabledDiscontinuityFt =
-    cdipFaceFt != null && firstModelAfterFt != null
-      ? cdipFaceFt - firstModelAfterFt
-      : handoffDiscontinuityFt;
-
-  return {
-    waveHeights,
-    handoffDiscontinuityFt,
-    enabledDiscontinuityFt,
-    firstModelBeforeFt,
-    firstModelAfterFt,
-  };
+  return null;
 }
 
 /**
@@ -707,17 +771,8 @@ function runHandoffFixture(
  * and logs as a `Skipped.` note. There is no token and no rate limiting here:
  * if we get blocked, we degrade gracefully.
  */
-const SURFLINE_SPOT_IDS: Record<string, string> = {
-  'tourmaline-beach': '5842041f4e65fad6a7708849',
-  'blacks': '5842041f4e65fad6a7708841',
-  'lower-trestles': '5842041f4e65fad6a77088f9',
-  'swamis': '5842041f4e65fad6a770884c',
-  'hb-pier-southside': '5842041f4e65fad6a77088c2',
-  'the-wedge': '5842041f4e65fad6a77088a9',
-};
-
 async function fetchSurflineFaceHeight(slug: string): Promise<number> {
-  const spotId = SURFLINE_SPOT_IDS[slug];
+  const spotId = SURFLINE_SPOT_IDS[slug as keyof typeof SURFLINE_SPOT_IDS];
   if (!spotId) throw new Error(`no Surfline spot ID mapped for ${slug}`);
   const url = `https://services.surfline.com/kbyg/spots/forecasts/wave?spotId=${spotId}&days=1&intervalHours=1&units[waveHeight]=FT`;
   const res = await fetch(url, {
@@ -852,8 +907,9 @@ async function main(): Promise<void> {
   const gateD = runGateD(fixtures);
   const gateE = await runGateE(fixtures, skipE);
   const gateF = runGateF(fixtures);
+  const gateG = await runGateG();
 
-  const results: GateResult[] = [gateA, gateB, gateC, gateD, gateE, gateF];
+  const results: GateResult[] = [gateA, gateB, gateC, gateD, gateE, gateF, gateG];
   for (const g of results) printGate(g);
 
   printTourmalineCanary(gateB);
@@ -870,7 +926,7 @@ async function main(): Promise<void> {
     console.log('='.repeat(70));
     process.exit(1);
   }
-  console.log('PASS: all blocking gates (A-D, F) passed.');
+  console.log(`PASS: all blocking gates (A-D, F${gateG.blocking ? ', G' : ''}) passed.`);
   console.log('='.repeat(70));
 }
 

@@ -1,7 +1,12 @@
-import {
-  fetchAllStationData,
-  fetchWaterTemperature,
-} from "@/lib/services/noaa-coops/api-client";
+export {};
+let client: typeof import("@/lib/services/noaa-coops/api-client");
+let fetchAllStationData: typeof client.fetchAllStationData;
+let fetchWaterTemperature: typeof client.fetchWaterTemperature;
+beforeEach(() => {
+  jest.resetModules();
+  client = require("@/lib/services/noaa-coops/api-client");
+  ({ fetchAllStationData, fetchWaterTemperature } = client);
+});
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -118,4 +123,61 @@ describe("fetchAllStationData", () => {
     expect(result.tideData).toEqual([]);
     expect(result.stationInfo).toEqual({ name: "Test Station" });
   });
+});
+
+describe("California sea-level offset", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("raises California predictions by 1.5 ft and leaves other stations alone", async () => {
+    const predictions = { predictions: [{ t: "2026-11-01 20:48", v: "4.924", type: "H" }] };
+    const station = { stations: [{ name: "Test Station" }] };
+    for (const stationId of ["9410230", "9435380"]) {
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => predictions })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => station });
+    }
+
+    const california = await fetchAllStationData("9410230", 1);
+    const oregon = await fetchAllStationData("9435380", 1);
+
+    expect(california.tideData.map((t) => t.height)).toEqual([6.424]);
+    expect(oregon.tideData.map((t) => t.height)).toEqual([4.924]);
+  });
+
+  it("raises a subordinate station whose reference station is in California, whatever its id", async () => {
+    const predictions = { predictions: [{ t: "2026-11-15 20:42", v: "3.816", type: "H" }] };
+    const station = { stations: [{ name: "Test Station" }] };
+    // TWC0427 Los Patos -> 9410660 LA; 9435385 Yaquina USCG -> 9419750 Crescent City.
+    for (let i = 0; i < 2; i++) {
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => predictions })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => station });
+    }
+
+    const losPatos = await fetchAllStationData("TWC0427", 1);
+    const yaquina = await fetchAllStationData("9435385", 1);
+
+    expect(losPatos.tideData.map((t) => t.height)).toEqual([5.316]);
+    expect(yaquina.tideData.map((t) => t.height)).toEqual([5.316]);
+  });
+});
+
+
+it("identifies every legacy datagetter product through the shared request path", async () => {
+  mockFetch.mockReset().mockImplementation(async () => ({
+    ok: true, json: async () => ({ predictions: [], data: [], stations: [{ name: "Test" }] }),
+  }));
+  await fetchAllStationData("test", 1);
+  await fetchWaterTemperature("test");
+  const requests = mockFetch.mock.calls.filter(([url]) => String(url).includes("datagetter"));
+  expect(requests).toHaveLength(3);
+  expect(new URL(client.buildPredictionsUrl("test", "20261115", "20261116")).searchParams.get("application")).toBe("Quiver");
+  for (const [url, init] of requests) {
+    expect(new URL(url).searchParams.get("application")).toBe("Quiver");
+    expect(new Headers(init.headers).get("User-Agent")).toBe("Quiver/1.0 (+https://quiversurf.app)");
+  }
 });

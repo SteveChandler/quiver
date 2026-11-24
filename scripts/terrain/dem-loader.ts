@@ -52,15 +52,21 @@ interface ElevationGrid {
     west: number
   }
   resolution: number
+  coveragePct: number
 }
 
 // AWS Terrain Tiles config
 const TERRAIN_TILES_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium'
 const TILE_ZOOM = 12
 const TILE_SIZE = 256
+const TILE_FETCH_TIMEOUT_MS = 10_000
 
 // Tile cache
 const tileCache = new Map<string, Uint8Array>()
+
+export interface TerrainLoadOptions {
+  log?: boolean
+}
 
 /**
  * Load DEM tile covering beach location and max radius
@@ -68,24 +74,31 @@ const tileCache = new Map<string, Uint8Array>()
 export async function loadDEMTile(
   latitude: number,
   longitude: number,
-  params: TerrainAnalysisParams
+  params: TerrainAnalysisParams,
+  options: TerrainLoadOptions = {}
 ): Promise<DEMTile> {
+  const shouldLog = options.log !== false
   if (USE_MOCK) {
-    console.log(`[DEM] Loading DEM tile for (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) with radius ${params.max_radius_m}m`)
+    if (shouldLog) console.log(`[DEM] Loading DEM tile for (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) with radius ${params.max_radius_m}m`)
     return createMockDEMTile(latitude, longitude, params.max_radius_m)
   }
 
-  console.log(`[DEM] Loading real elevation data for (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`)
+  if (shouldLog) console.log(`[DEM] Loading real elevation data for (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`)
 
   // Convert beach location to UTM
   const beachUTM = projection.toUTM(latitude, longitude)
 
   // Load elevation grid
-  const elevationGrid = await loadElevationGrid(latitude, longitude, params.max_radius_m)
+  const elevationGrid = await loadElevationGrid(
+    latitude,
+    longitude,
+    params.max_radius_m,
+    options
+  )
 
   if (!elevationGrid) {
-    console.warn('[DEM] Failed to load elevation grid, using flat terrain fallback')
-  } else {
+    if (shouldLog) console.warn('[DEM] Failed to load elevation grid, using flat terrain fallback')
+  } else if (shouldLog) {
     console.log(`[DEM] Loaded ${elevationGrid.width}x${elevationGrid.height} grid, resolution ~${elevationGrid.resolution.toFixed(1)}m`)
   }
 
@@ -227,7 +240,12 @@ function tileBounds(tileX: number, tileY: number, zoom: number) {
 /**
  * Fetch and decode a terrain tile
  */
-async function fetchTile(tileX: number, tileY: number, zoom: number): Promise<Uint8Array | null> {
+async function fetchTile(
+  tileX: number,
+  tileY: number,
+  zoom: number,
+  options: TerrainLoadOptions
+): Promise<Uint8Array | null> {
   const cacheKey = `${zoom}/${tileX}/${tileY}`
   if (tileCache.has(cacheKey)) {
     return tileCache.get(cacheKey)!
@@ -236,20 +254,20 @@ async function fetchTile(tileX: number, tileY: number, zoom: number): Promise<Ui
   const url = `${TERRAIN_TILES_URL}/${zoom}/${tileX}/${tileY}.png`
 
   try {
-    const response = await fetch(url)
+    const response = await fetch(url, { signal: AbortSignal.timeout(TILE_FETCH_TIMEOUT_MS) })
     if (!response.ok) {
-      console.warn(`[DEM] Tile fetch failed: ${url} (${response.status})`)
+      if (options.log !== false) console.warn(`[DEM] Tile fetch failed: ${url} (${response.status})`)
       return null
     }
 
     const arrayBuffer = await response.arrayBuffer()
-    const pixels = decodePNG(new Uint8Array(arrayBuffer))
+    const pixels = decodePNG(new Uint8Array(arrayBuffer), options)
     if (pixels) {
       tileCache.set(cacheKey, pixels)
     }
     return pixels
   } catch (error) {
-    console.warn(`[DEM] Tile fetch error: ${url}`, error)
+    if (options.log !== false) console.warn(`[DEM] Tile fetch error: ${url}`, error)
     return null
   }
 }
@@ -257,7 +275,7 @@ async function fetchTile(tileX: number, tileY: number, zoom: number): Promise<Ui
 /**
  * Decode PNG to RGBA pixels
  */
-function decodePNG(pngData: Uint8Array): Uint8Array | null {
+function decodePNG(pngData: Uint8Array, options: TerrainLoadOptions): Uint8Array | null {
   // Check PNG signature
   if (pngData[0] !== 0x89 || pngData[1] !== 0x50 || pngData[2] !== 0x4E || pngData[3] !== 0x47) {
     return null
@@ -356,7 +374,7 @@ function decodePNG(pngData: Uint8Array): Uint8Array | null {
 
     return pixels
   } catch (error) {
-    console.warn('[DEM] PNG decode error:', error)
+    if (options.log !== false) console.warn('[DEM] PNG decode error:', error)
     return null
   }
 }
@@ -381,7 +399,12 @@ function terrariumToElevation(r: number, g: number, b: number): number {
 /**
  * Load elevation grid for a region
  */
-async function loadElevationGrid(centerLat: number, centerLon: number, radiusM: number): Promise<ElevationGrid | null> {
+async function loadElevationGrid(
+  centerLat: number,
+  centerLon: number,
+  radiusM: number,
+  options: TerrainLoadOptions
+): Promise<ElevationGrid | null> {
   const latDelta = radiusM / 111320
   const lonDelta = radiusM / (111320 * Math.cos((centerLat * Math.PI) / 180))
 
@@ -406,9 +429,14 @@ async function loadElevationGrid(centerLat: number, centerLon: number, radiusM: 
   for (let ty = minTileY; ty <= maxTileY; ty++) {
     const row: (Uint8Array | null)[] = []
     for (let tx = minTileX; tx <= maxTileX; tx++) {
-      row.push(await fetchTile(tx, ty, TILE_ZOOM))
+      row.push(await fetchTile(tx, ty, TILE_ZOOM, options))
     }
     tiles.push(row)
+  }
+
+  if (tiles.some((row) => row.some((tile) => tile === null))) {
+    if (options.log !== false) console.warn('[DEM] Incomplete tile coverage')
+    return null
   }
 
   const nwBounds = tileBounds(minTileX, minTileY, TILE_ZOOM)
@@ -455,6 +483,7 @@ async function loadElevationGrid(centerLat: number, centerLon: number, radiusM: 
       west: nwBounds.west,
     },
     resolution,
+    coveragePct: 100,
   }
 }
 

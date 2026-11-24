@@ -6,6 +6,7 @@ import { acquisitionConfig, acquireSwellWatchCohort, type SwellWatchAcquisitionS
 import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig, SwellWatchStudySkip, type SwellWatchStudyStage } from "@/lib/alerts/swell-watch/study";
 import { getSingleRunTupleDiagnostic } from "@/lib/alerts/swell-watch/single-run-receipt";
 import { z } from "zod";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -79,6 +80,7 @@ function failureCode(error: unknown): string {
     "Collection lease unavailable", "Collection lease release unavailable",
     "Acquisition scope differs from configured cohort",
     "Provider availability read unsuccessful", "Provider availability response exceeds limit",
+    "Provider HTTP response is transient",
     "Provider run is not ready after replication delay",
     "Single Runs HTTP response was unsuccessful", "Single Runs response JSON is invalid",
     "Single Runs response exceeds the durable receipt limit",
@@ -104,6 +106,15 @@ function failureCode(error: unknown): string {
   return "unknown";
 }
 
+// Open-Meteo blips that the next hourly run retries on the same issuance; the 18 h stall check stays the alarm.
+const TRANSIENT_PROVIDER_CODES = new Set(["request_aborted_or_timed_out", "network_fetch_failed", "provider_http_response_is_transient"]);
+type AcquireStage = "client" | "health" | "recovery" | "health_after_recovery" | "acquisition"
+  | SwellWatchAcquisitionStage | SwellWatchStudyStage;
+
+function failureLogger(stage: AcquireStage, code: string): (...data: unknown[]) => void {
+  return stage === "provider_fetch" && TRANSIENT_PROVIDER_CODES.has(code) ? console.warn : console.error;
+}
+
 async function acquire(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
   if (process.env.SWELL_WATCH_ACQUISITION_ENABLED !== "true") {
@@ -124,8 +135,7 @@ async function acquire(request: Request): Promise<Response> {
   } catch {
     return createErrorResponse("Producer unavailable", "Valid server-side acquisition configuration is required", 503);
   }
-  let stage: "client" | "health" | "recovery" | "health_after_recovery" | "acquisition"
-    | SwellWatchAcquisitionStage | SwellWatchStudyStage = "client";
+  let stage: AcquireStage = "client";
   try {
     const client = createSupabaseServiceRoleClient();
     let qualificationRule: SwellWatchQualificationRule = COMPLETE_PARTITIONS_RULE;
@@ -198,17 +208,20 @@ async function acquire(request: Request): Promise<Response> {
   } catch (error) {
     const tuple = getSingleRunTupleDiagnostic(error);
     const diagnostic = { stage, code: failureCode(error), ...(tuple ? { tuple } : {}) };
+    const log = failureLogger(stage, diagnostic.code);
     if (automated) {
-      console.error("[swell-watch-acquire] automated study failed", diagnostic);
+      log("[swell-watch-acquire] automated study failed", diagnostic);
       return setMonitorStatus(createErrorResponse("Study failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500), "error");
     }
-    console.error("[swell-watch-acquire] acquisition failed", diagnostic);
+    log("[swell-watch-acquire] acquisition failed", diagnostic);
     return setMonitorStatus(createErrorResponse("Producer failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500), "error");
   }
 }
 
-export const GET = withObservedCron("/api/cron/swell-watch-acquire", async (request: Request): Promise<Response> => {
+const handleGet = withObservedCron("/api/cron/swell-watch-acquire", async (request: Request): Promise<Response> => {
   const response = await acquire(request);
   response.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
   return response;
 }, { slug: "swell-watch-acquire", schedule: "15 * * * *", maxRuntimeMinutes: 6 });
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/swell-watch-acquire");

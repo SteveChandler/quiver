@@ -4,7 +4,7 @@
  * Tests skill level rendering via formatSkillLevel():
  * - Standard values (beginner, intermediate, advanced)
  * - Compound values (intermediate-advanced)
- * - Null/undefined fallback to "All levels"
+ * - Null/undefined/empty skill level hides the skill chip (no "All levels" stand-in)
  * - Underscore format normalization
  *
  * Tests wave height rendering:
@@ -51,19 +51,22 @@ const defaultProps = {
 
 describe("SurfSpotCard", () => {
   describe("skill level rendering", () => {
-    it("renders 'All levels' when skillLevel is undefined", () => {
+    it("hides the skill chip when skillLevel is undefined", () => {
       render(<SurfSpotCard {...defaultProps} />);
-      expect(screen.getByText("All levels")).toBeInTheDocument();
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
+      expect(screen.queryByText("Check the local notes")).not.toBeInTheDocument();
     });
 
-    it("renders 'All levels' when skillLevel is null", () => {
+    it("hides the skill chip when skillLevel is null", () => {
       render(<SurfSpotCard {...defaultProps} skillLevel={null} />);
-      expect(screen.getByText("All levels")).toBeInTheDocument();
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
+      expect(screen.queryByText("Check the local notes")).not.toBeInTheDocument();
     });
 
-    it("renders 'All levels' when skillLevel is empty string", () => {
+    it("hides the skill chip when skillLevel is empty string", () => {
       render(<SurfSpotCard {...defaultProps} skillLevel="" />);
-      expect(screen.getByText("All levels")).toBeInTheDocument();
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
+      expect(screen.queryByText("Check the local notes")).not.toBeInTheDocument();
     });
 
     it("renders 'Advanced' for skillLevel='advanced'", () => {
@@ -109,14 +112,14 @@ describe("SurfSpotCard", () => {
   });
 
   describe("wave height rendering", () => {
-    it("renders string wave height as rounded integer with ft suffix", () => {
+    it("brackets a string wave height like a numeric one", () => {
       render(<SurfSpotCard {...defaultProps} waveHeight="2.8" />);
-      expect(screen.getByText("3ft")).toBeInTheDocument();
+      expect(screen.getByText("2-3ft")).toBeInTheDocument();
     });
 
-    it("renders string wave height '5.2' as '5ft'", () => {
+    it("renders string wave height '5.2' as '5-6ft'", () => {
       render(<SurfSpotCard {...defaultProps} waveHeight="5.2" />);
-      expect(screen.getByText("5ft")).toBeInTheDocument();
+      expect(screen.getByText("5-6ft")).toBeInTheDocument();
     });
 
     it("does not render wave section for string '0'", () => {
@@ -144,8 +147,8 @@ describe("SurfSpotCard", () => {
     it("renders numeric wave height via formatWaveHeightRange", () => {
       // Numeric path still uses the formatter (backward compat)
       render(<SurfSpotCard {...defaultProps} waveHeight={3} />);
-      // Surfline-parity: floor(3)=3, ceil(3)=3 → "3ft" (no × 1.5 expansion).
-      expect(screen.getByText("3ft")).toBeInTheDocument();
+      // A whole number reads as the band below it, like native: 3 → "2-3ft".
+      expect(screen.getByText("2-3ft")).toBeInTheDocument();
     });
   });
 });

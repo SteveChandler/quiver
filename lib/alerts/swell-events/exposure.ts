@@ -1,9 +1,10 @@
 import { angleDifference } from "@/lib/domains/shared/angle-utils";
+import { FALLBACK_FORECAST_DATA_SOURCE } from "@/lib/utils/forecast-row-source";
 
 export const SWELL_EVENT_DETECTOR_VERSION = "swell-events.v1";
 
-/** Seasonal-curve placeholder rows (fallback generator); never a forecast of the sea. */
-export const SYNTHETIC_FORECAST_DATA_SOURCE = "FALLBACK";
+/** Slots no wave model covers yet; never a forecast of the sea. */
+export const SYNTHETIC_FORECAST_DATA_SOURCE = FALLBACK_FORECAST_DATA_SOURCE;
 
 export const SWELL_EVENT_THRESHOLDS = {
   minPeakFaceHeightFt: 3,
@@ -20,6 +21,17 @@ export const SWELL_EVENT_THRESHOLDS = {
   crossingMinPeriodS: 7,
   crossingMinAngleDeg: 60,
   crossingMinEnergyShare: 0.35,
+} as const;
+
+/** Opt-in class for big short-period (wind/storm) swell below SWELL_EVENT_THRESHOLDS.minPeriodS. */
+export const STORM_EVENT_THRESHOLDS = {
+  // Detection runs on stored Open-Meteo partitions, whose periods read well under buoy peak period:
+  // the Nov 2026 San Diego storm is 5-6 ft at 6 s there. The 6.5 s buoy-tuned floor missed it.
+  // Stored-forecast replay: docs/forecast/storm-class-backtest.md.
+  minPeriodS: 5,
+  minPeakFaceHeightFt: 5,
+  minFaceRiseFt: 3,
+  minEnergyRatio: 2.5,
 } as const;
 
 export interface SwellWindow {
@@ -51,6 +63,18 @@ export function exposureFactor(
 
   const cos = Math.cos(((beyond / taper) * Math.PI) / 2);
   return cos * cos;
+}
+
+/**
+ * The direction a beach's swell window reads for a region event: the direction that beach saw (or the
+ * near-beach lead's), not the open-ocean direction that names the event. Beach windows are drawn in near-beach terms (Imperial
+ * Beach's window is 140–236°, yet a 306° open-ocean swell reaches it at 8 ft).
+ */
+export function exposureDirectionOf(
+  event: { directionDeg: number | null; exposureDirectionDeg?: number | null; memberDirections?: Record<string, number> },
+  beachId?: string,
+): number | null {
+  return (beachId === undefined ? undefined : event.memberDirections?.[beachId]) ?? event.exposureDirectionDeg ?? event.directionDeg;
 }
 
 export function exposureLabel(factor: number): "open" | "partial" | "shadowed" {

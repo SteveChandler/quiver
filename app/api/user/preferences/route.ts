@@ -3,6 +3,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
  *   - sample_size: Number of sessions used to learn preferences
  *   - (or null if no preferences exist yet)
  */
-export const GET = withAuth(async (_request, { user, supabase }) => {
+const handleGet = withAuth(async (_request, { user, supabase }) => {
   // Query user_surf_preferences table
   const { data: preferences, error: prefsError } = await supabase
     .from("user_surf_preferences")
@@ -50,3 +51,5 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
   // Return preferences
   return createSuccessResponse(preferences);
 }, { errorMessage: "Internal server error" });
+
+export const GET = withErrorNoStore(handleGet, "/api/user/preferences");

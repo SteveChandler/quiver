@@ -75,6 +75,42 @@ describe("selectFreshAlertWindow", () => {
     });
   });
 
+  it("never fires a wind-only rule on FALLBACK rows", () => {
+    // A null wave height passes the surfability gate's fail-open, so only the
+    // FALLBACK skip keeps a wind or tide rule from firing on no model data.
+    const fallbackRow = {
+      id: "enhanced-forecast-fallback",
+      forecast_at: "2026-05-13T18:00:00Z",
+      wave_height: null,
+      wave_period: null,
+      wave_direction: null,
+      swell_1_period: null,
+      swell_1_direction: null,
+      wind_speed: "0 mph",
+      wind_direction_deg: 225,
+      tide_height: "3.2",
+      tide_status: "Falling",
+      data_source: "FALLBACK",
+    };
+
+    expect(
+      selectFreshAlertWindow({
+        conditions: { wind_speed_max_kt: 8 },
+        beach: missionBeach,
+        now: new Date("2026-05-13T14:00:00Z"),
+        forecastRows: [fallbackRow],
+      }),
+    ).toEqual({ window: null, diagnostic: "no_daylight_forecasts" });
+
+    const { window } = selectFreshAlertWindow({
+      conditions: { wind_speed_max_kt: 8 },
+      beach: missionBeach,
+      now: new Date("2026-05-13T14:00:00Z"),
+      forecastRows: [{ ...fallbackRow, data_source: "OPEN_METEO" }],
+    });
+    expect(window).toMatchObject({ forecast_id: "enhanced-forecast-fallback" });
+  });
+
   it("returns null when refreshed forecasts no longer match", () => {
     const { window } = selectFreshAlertWindow({
       conditions: mellow,

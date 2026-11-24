@@ -8,6 +8,11 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip";
+import {
+  forecastWriteConcurrency,
+  getForecastWritePacing,
+  paceForecastWriteChunks,
+} from "@/lib/services/forecast/batch-beach-processor";
 import { NwsWindService, type NwsForecastCache } from "@/lib/services/nws-wind-service";
 import {
   getNearestNDBCStation,
@@ -31,14 +36,18 @@ import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-u
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 // Vercel cron functions have a 5 minute hard limit
 export const maxDuration = 300;
 
 const MAX_DURATION_SECONDS = 300;
-const DEFAULT_SAFETY_MARGIN_MS = 20_000;
+const DEFAULT_SAFETY_MARGIN_MS = 60_000;
 const MARINE_INPUT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+// One flaky beach (a single wind fetch or write) is retried by the next hourly run; only a wider
+// failure means the provider or database is down.
+const MARINE_TOLERATED_BEACH_FAILURE_SHARE = 0.1;
 // Stale tides are acceptable; running out of them is not.
 const TIDE_MIN_COVERAGE_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -317,13 +326,19 @@ async function _GET(request: Request): Promise<Response> {
         failures: [] as { beachIds: string[]; attemptedAt: string; attempts: number; code: string }[] },
       lastAttemptedBeachId: null as string | null,
       rejectionCounts: {} as Record<string, number>,
+      rejectedBeachIds: [] as string[],
       // Expected holes, not failures: no wave buoy in range, a buoy with no usable recent reading, or a
       // beach outside NWS wind coverage. Data freshness is judged by forecast-health, not this run.
       coverageGaps: {} as Record<string, number>,
       providerOutcomes: {} as Record<string, number>,
     };
-    const rejectMarine = (reason: string): void => {
+    // A beachId marks a per-beach failure, tolerated up to MARINE_TOLERATED_BEACH_FAILURE_SHARE;
+    // without one the whole run is broken (freshness read, time budget, cursor write).
+    const runLevelMarineRejections = new Set<string>();
+    const rejectMarine = (reason: string, beachId?: string): void => {
       marineCoverage.rejectionCounts[reason] = (marineCoverage.rejectionCounts[reason] ?? 0) + 1;
+      if (!beachId) runLevelMarineRejections.add(reason);
+      else if (!marineCoverage.rejectedBeachIds.includes(beachId)) marineCoverage.rejectedBeachIds.push(beachId);
     };
     const noteMarineGap = (reason: string): void => {
       marineCoverage.coverageGaps[reason] = (marineCoverage.coverageGaps[reason] ?? 0) + 1;
@@ -406,8 +421,13 @@ async function _GET(request: Request): Promise<Response> {
       : staleTideBeaches;
 
     if (shouldRunNonTideIngest) {
-      const BATCH_SIZE = Number(process.env.FORECAST_REFRESH_BATCH_SIZE ?? process.env.FORECAST_BATCH_SIZE ?? 3);
-      const BATCH_DELAY_MS = Number(process.env.FORECAST_REFRESH_BATCH_DELAY_MS ?? process.env.FORECAST_BATCH_DELAY_MS ?? 1000);
+      const marinePacing = runMarine ? getForecastWritePacing(25) : null;
+      const batchSize = Number(process.env.FORECAST_REFRESH_BATCH_SIZE ?? process.env.FORECAST_BATCH_SIZE ?? 3);
+      // Keep the default total inter-beach wait budget with two beaches per batch.
+      const batchDelayMs = Number(
+        process.env.FORECAST_REFRESH_BATCH_DELAY_MS ?? process.env.FORECAST_BATCH_DELAY_MS
+        ?? (marinePacing ? 650 : 1000)
+      );
 
       if (runMarine) {
         console.log("[Forecast Refresh] Marine selection", {
@@ -427,7 +447,7 @@ async function _GET(request: Request): Promise<Response> {
       const batches = splitIntoChunks(
         // If both marine + sun are requested, run marine selection set (it’s likely superset during recovery).
         runMarine ? selectedMarineBeaches : selectedSunBeaches,
-        BATCH_SIZE
+        runMarine ? forecastWriteConcurrency(batchSize) : batchSize
       );
 
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -451,9 +471,11 @@ async function _GET(request: Request): Promise<Response> {
               marineCoverage.lastAttemptedBeachId = b.id;
               let waveWritten = false;
               const writeMarine = async (rows: Record<string, unknown>[]): Promise<boolean> => {
-                const { error } = await supabase.from("marine_forecasts")
-                  .upsert(rows as any[], { onConflict: "beach_id,ts,source" });
-                if (error) { rejectMarine("write_failed"); return false; }
+                for await (const batch of paceForecastWriteChunks(rows, marinePacing, msRemaining)) {
+                  const { error } = await supabase.from("marine_forecasts")
+                    .upsert(batch as any[], { onConflict: "beach_id,ts,source" });
+                  if (error) { rejectMarine("write_failed", b.id); return false; }
+                }
                 addedMarine += rows.length;
                 return true;
               };
@@ -573,10 +595,10 @@ async function _GET(request: Request): Promise<Response> {
                     }
                   }
                 } catch (projErr) {
-                  rejectMarine("projection_failed");
+                  rejectMarine("projection_failed", b.id);
                 }
               } catch (e) {
-                rejectMarine("wave_fetch_failed");
+                rejectMarine("wave_fetch_failed", b.id);
               }
 
               // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows).
@@ -609,7 +631,7 @@ async function _GET(request: Request): Promise<Response> {
                   await writeMarine(windRows);
                 }
               } catch (e) {
-                rejectMarine("wind_fetch_failed");
+                rejectMarine("wind_fetch_failed", b.id);
               }
               if (waveWritten) marineCoverage.actualCoverage += 1;
             }
@@ -619,12 +641,13 @@ async function _GET(request: Request): Promise<Response> {
               try {
                 const tz = resolveBeachTimezone(b.timezone);
                 const today = getLocalDateString(new Date(), tz);
+                const rows = [];
                 for (let i = 0; i < 7; i++) {
                   const d = new Date(`${today}T00:00:00Z`);
                   d.setUTCDate(d.getUTCDate() + i);
                   const localDate = d.toISOString().split("T")[0];
                   const times = SunCalc.getTimes(localDateTimeToUTC(localDate, "12:00:00", tz), b.lat, b.lon);
-                  const row = {
+                  rows.push({
                     beach_id: b.id,
                     // date is the beach-local calendar day.
                     date: localDate,
@@ -632,24 +655,25 @@ async function _GET(request: Request): Promise<Response> {
                     sunset_utc: times.sunset?.toISOString() ?? null,
                     source: "computed",
                     created_at: refreshedAt,
-                  } as any;
-                  const { error } = await supabase
-                    .from("sun_times")
-                    .upsert([row], { onConflict: "beach_id,date,source" });
-                  if (error) {
-                    console.error("[Sun Times] Upsert error for beach", b.name, {
-                      beachId: b.id,
-                      date: row.date,
-                      lat: b.lat,
-                      lon: b.lon,
-                      error: error.message,
-                      code: error.code,
-                      details: error.details,
-                      hint: error.hint,
-                    });
-                  } else {
-                    addedSun += 1;
-                  }
+                  } as any);
+                }
+                // One upsert per beach, not per day: ~260 calls a run instead of ~1,800.
+                const { error } = await supabase
+                  .from("sun_times")
+                  .upsert(rows, { onConflict: "beach_id,date,source" });
+                if (error) {
+                  console.error("[Sun Times] Upsert error for beach", b.name, {
+                    beachId: b.id,
+                    dates: `${rows[0].date}..${rows[rows.length - 1].date}`,
+                    lat: b.lat,
+                    lon: b.lon,
+                    error: error.message,
+                    code: error.code,
+                    details: error.details,
+                    hint: error.hint,
+                  });
+                } else {
+                  addedSun += rows.length;
                 }
               } catch (e) {
                 console.warn("sun ingest error", b.name, e);
@@ -668,14 +692,14 @@ async function _GET(request: Request): Promise<Response> {
         }
 
         if (batchIndex < batches.length - 1) {
-          if (hasDeadline && msRemaining() <= BATCH_DELAY_MS) {
+          if (hasDeadline && msRemaining() <= batchDelayMs) {
             console.warn("[Forecast Refresh] Skipping batch delay and stopping early due to time budget", {
               batchIndex,
               remainingMs: msRemaining(),
             });
             break;
           }
-          await sleep(BATCH_DELAY_MS);
+          await sleep(batchDelayMs);
         }
       }
     }
@@ -1094,12 +1118,18 @@ async function _GET(request: Request): Promise<Response> {
           : source === "sun"
             ? "sun_events_written"
             : "forecast_rows_written";
-    // Fail only when the run broke (a fetch or write error, or beaches left unattempted); coverage gaps
-    // are reported, not failed.
+    // Fail only when the run broke (a run-level error, beaches left unattempted, or more than a tenth of
+    // attempted beaches rejected); coverage gaps and a few flaky beaches are reported, not failed.
     const marineIncomplete = (): boolean => runMarine && (marineCoverage.attemptedCoverage < marineCoverage.expectedCoverage
-      || Object.keys(marineCoverage.rejectionCounts).length > 0);
+      || runLevelMarineRejections.size > 0
+      || marineCoverage.rejectedBeachIds.length > marineCoverage.attemptedCoverage * MARINE_TOLERATED_BEACH_FAILURE_SHARE);
     const marineGapSummary = (): string =>
       Object.entries(marineCoverage.coverageGaps).map(([reason, count]) => `${reason} ${count}`).join(", ");
+    const noaaPredictionsGap = source === "tide" && totals.tides === 0
+      && tideIngest.failedStations.length > 0
+      && tideIngest.failedStations.every(({ stationId, reason }) =>
+        stationId !== MODEL_TIDE_STATION_ID && reason === "no_predictions")
+      && tideIngest.failedStations.reduce((count, station) => count + station.beaches, 0) === selectedTideBeaches.length;
     const result = await withCronOutcome(
       {
         job: `/api/cron/forecasts/refresh?source=${source}`,
@@ -1118,12 +1148,15 @@ async function _GET(request: Request): Promise<Response> {
             return `marine refresh failed: ${reasons.length ? reasons.join(", ") : "beaches left unattempted"}`;
           }
           const lapsing = tideIngest.beachesBelowMinCoverage;
-          if (runTide && lapsing > 0) {
+          if (runTide && lapsing > 0 && !noaaPredictionsGap) {
             return `tide coverage under ${TIDE_MIN_COVERAGE_DAYS} days for ${lapsing} beach${lapsing === 1 ? "" : "es"}`;
           }
           return null;
         },
         legitimatelyZero: (value) => {
+          if (noaaPredictionsGap) {
+            return { reason: "NOAA returned no tide predictions for the targeted beaches" };
+          }
           if ((runMarine && marineCoverage.expectedCoverage === 0) || value.totals.beaches === 0) {
             return { reason: runMarine && marineCoverage.expectedCoverage === 0
               ? "No marine caches require refresh" : "No beaches with coordinates were targeted by this refresh" };
@@ -1149,4 +1182,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/forecasts/refresh", _GET);
+const handleGet = withObservedCron("/api/cron/forecasts/refresh", _GET);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/forecasts/refresh");

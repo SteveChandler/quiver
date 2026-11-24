@@ -118,11 +118,6 @@ export function BeginnerPageContent({
               cityName={cityName}
               citySlug={citySlug}
               conditions={rightNowConditions ?? undefined}
-              decisionSummary={
-                rightNowConditions
-                  ? undefined
-                  : "Live wave, wind, tide, and time-window data is unavailable. Check the beach first."
-              }
               referenceSpotName={
                 conditionsBadge?.spotName ?? beaches[0]?.name
               }

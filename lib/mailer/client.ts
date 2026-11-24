@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from "@/lib/constants/public-services";
 import {
   Resend,
   type CreateEmailOptions,
@@ -93,7 +94,7 @@ export async function sendEmail(
 // Default uses the verified Resend subdomain (send.quiversurf.app). The apex
 // quiversurf.app is NOT verified on Resend, so falling back to it would 403.
 export const MAIL_FROM = process.env.MAIL_FROM || "Quiver <invites@send.quiversurf.app>";
-export const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || MAIL_FROM;
+export const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || SUPPORT_EMAIL;
 
 /**
  * Get the base URL for the application.

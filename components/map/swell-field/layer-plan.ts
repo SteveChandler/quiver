@@ -5,12 +5,3 @@ export function swellFieldLayerIds(
   return [`${baseLayerId}-stage-dim`, baseLayerId, ...particleLayerIds];
 }
 
-export function swellFieldLayerOrder(
-  baseLayerId: string,
-  particleLayerIds: readonly string[],
-  stage: "light" | "dark",
-): string[] {
-  return stage === "dark"
-    ? swellFieldLayerIds(baseLayerId, particleLayerIds)
-    : [baseLayerId, ...particleLayerIds];
-}

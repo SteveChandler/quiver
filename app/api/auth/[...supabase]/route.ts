@@ -1,11 +1,12 @@
 import { NextResponse, NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
 // GET = fetch current session
-export async function GET() {
+async function handleGet() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
@@ -130,3 +131,5 @@ export async function DELETE() {
   await supabase.auth.signOut();
   return new Response(null, { status: 204 });
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/auth/[...supabase]");

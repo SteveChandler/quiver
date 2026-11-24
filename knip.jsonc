@@ -11,8 +11,7 @@
     "e2e/**/*.ts",
     "__tests__/**/*.{ts,tsx}",
     "scripts/**/*.{ts,tsx,mjs}",
-    "store/**/*.{ts,tsx}",
-    "config/**/*.{ts,tsx}"
+    "store/**/*.{ts,tsx}"
   ],
   "entry": [
     "app/**/page.tsx",
@@ -32,6 +31,10 @@
     "scripts/revenuecat-entitlement-reconciliation.ts",
     "scripts/seed-prod-mock-users.ts",
     "scripts/shoaling-regression.ts",
+    "scripts/replay-wave-fit-plateau.ts",
+    "scripts/replay-model-swell-calibration.ts",
+    "scripts/backtest-storm-class.ts",
+    "scripts/replay-storm-class.ts",
     "scripts/terrain-analysis.ts",
     "scripts/db/rollback-validate-advisor-cleanup.mjs",
     "scripts/qa/accounts.ts",
@@ -74,7 +77,15 @@
     "scripts/verify-native-sentry-rls.mjs",
     "scripts/weekly-signup-intel.ts",
     "scripts/climatology/build-surf-climatology.ts",
-    "scripts/tides/list-model-tide-beaches.ts"
+    "scripts/big-swells/build-big-swells.ts",
+    "scripts/tides/list-model-tide-beaches.ts",
+    "scripts/tides/build-tide-station-registry.ts",
+    "scripts/tides/seed-tide-stations.ts",
+    "scripts/backfill-custom-spot-fingerprints.ts",
+    // Hybrid forward-test tools (docs/forecast/hybrid-replay-by-lead-nov-2026.md).
+    "scripts/hybrid-replay-archive.ts",
+    "scripts/hybrid-replay-collect.ts",
+    "scripts/hybrid-replay-repro.ts"
   ],
   "ignoreDependencies": [
     "server-only",
@@ -99,6 +110,7 @@
   },
   "ignoreBinaries": [
     "supabase",
-    "psql"
+    "psql",
+    "scripts/refit-model-swell-tables.sh"
   ]
 }

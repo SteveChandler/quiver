@@ -29,6 +29,7 @@ function makeChain(terminalResult: any = { data: [], error: null }) {
   obj.update = jest.fn(() => obj);
   obj.eq = jest.fn(() => obj);
   obj.neq = jest.fn(() => obj);
+  obj.or = jest.fn(() => obj);
   obj.in = jest.fn(() => obj);
   obj.gte = jest.fn(() => obj);
   obj.lt = jest.fn(() => obj);

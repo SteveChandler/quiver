@@ -69,6 +69,10 @@ describe("next.config private endpoint cache policy", () => {
         .toBe("private, no-store, no-cache, must-revalidate");
     },
   );
+  it("emits no-store for the caller-specific IP region guess", async () => {
+    expect(resolvedCacheControl("/api/geo/region", await loadConfiguredHeaders()))
+      .toBe("private, no-store, no-cache, must-revalidate");
+  });
   it("emits no-store for experiments while retaining the blanket policy for a control API path", async () => {
     const headers = await loadConfiguredHeaders();
 
@@ -79,6 +83,13 @@ describe("next.config private endpoint cache policy", () => {
     expect(resolvedCacheControl("/api/forecasts/update-enhanced", headers))
       .toBe("private, no-store, no-cache, must-revalidate");
     expect(resolvedCacheControl("/api/control-path", headers))
+      .toBe("private, max-age=60, stale-while-revalidate=120");
+  });
+  it("leaves the native minimum-version route's own public cache header in place", async () => {
+    const headers = await loadConfiguredHeaders();
+
+    expect(resolvedCacheControl("/api/v1/app/minimum-version", headers)).toBeUndefined();
+    expect(resolvedCacheControl("/api/v1/app/other", headers))
       .toBe("private, max-age=60, stale-while-revalidate=120");
   });
 });

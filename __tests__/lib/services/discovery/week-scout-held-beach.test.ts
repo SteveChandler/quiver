@@ -39,6 +39,7 @@ jest.mock('@/lib/recommendations/selection', () => ({
 }));
 
 import {
+  generateWeekScoutForecast,
   generateWeekScoutForecastForDays,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
@@ -336,5 +337,118 @@ describe('Week Scout with a water-quality-held beach', () => {
     const windows = response.days.flatMap((day) => day.windows);
     expect(windows.every((window) => window.verdict === null)).toBe(true);
     expect(response.days.every((day) => day.bestWindowId === null)).toBe(true);
+  });
+});
+
+describe('Week Scout holds over a 10-day horizon', () => {
+  // Honolulu midnight starting 2026-08-07, the first early-look day of a 2026-07-31 start.
+  const EARLY_LOOK_STARTS = '2026-08-07T10:00:00.000Z';
+  const startsBeforeEarlyLook = (startsAt: string): boolean => Date.parse(startsAt) < Date.parse(EARLY_LOOK_STARTS);
+
+  function tenDayDependencies(): WeekScoutServiceDependencies {
+    const deps = dependencies();
+    const rows = new Map([CLEAN_BEACH, HELD_BEACH].map((beachId) => [beachId, Array.from({ length: 10 }, (_, day) => (
+      [16, 20, 24].map((hour) => forecast(beachId, new Date(Date.UTC(2026, 6, 31 + day, hour)).toISOString()))
+    )).flat()]));
+    deps.fetchForecasts = jest.fn(async () => rows);
+    return deps;
+  }
+
+  async function generate(dayCount: 7 | 10) {
+    return generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: [CLEAN_BEACH, HELD_BEACH],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount,
+    }, tenDayDependencies());
+  }
+
+  type GateCandidate = { candidateId: string; beachId: string; startsAt: string };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRankBeaches.mockReset();
+    mockEvaluateMajorEventHoldCandidates.mockReset();
+  });
+
+  it('reports a self-lifting water-quality hold over the first week identically at 7 and 10 days', async () => {
+    // Every beach is held until the early-look days begin: the safety filter
+    // keeps only windows after the hold lifts, as the real one does.
+    mockRankBeaches.mockImplementation(async (
+      items: Array<{ window: { start: string } }>,
+    ) => items.filter((item) => !startsBeforeEarlyLook(item.window.start)));
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(async ({ candidates }: { candidates: GateCandidate[] }) =>
+      candidates.map(({ candidateId, beachId, startsAt }) => (startsBeforeEarlyLook(startsAt)
+        ? {
+            candidateId,
+            evaluation: {
+              outcome: 'explicit_none', reasonCode: 'water_quality_hold', holdIds: [`water-quality:${beachId}`],
+              expiresAt: EARLY_LOOK_STARTS, holdEpoch: 'rain-epoch',
+            },
+            recommendationAvailability: {
+              state: 'none', reasonCode: 'water_quality_hold', expiresAt: EARLY_LOOK_STARTS, holdEpoch: 'rain-epoch',
+            },
+          }
+        : {
+            candidateId,
+            evaluation: { outcome: 'allow', holdIds: [], holdEpoch: 'rain-epoch' },
+            recommendationAvailability: { state: 'available', holdEpoch: 'rain-epoch' },
+          })));
+
+    const [seven, ten] = await Promise.all([generate(7), generate(10)]);
+
+    expect(seven.recommendationAvailability).toEqual({
+      state: 'none', reasonCode: 'water_quality_hold', expiresAt: EARLY_LOOK_STARTS, holdEpoch: 'rain-epoch',
+    });
+    expect(seven.sessionDecision).toMatchObject({ verdict: 'no', reasonCode: 'water_quality_hold', selection: null });
+    expect(ten.recommendationAvailability).toStrictEqual(seven.recommendationAvailability);
+    expect(ten.sessionDecision).toStrictEqual(seven.sessionDecision);
+    expect(ten.days.slice(0, 7)).toStrictEqual(seven.days);
+    // The early-look days, after the hold lifts, are still ranked per day.
+    for (const day of ten.days.slice(7)) {
+      expect(day.earlyLook).toBe(true);
+      expect(day.bestWindowId).not.toBeNull();
+      expect(day.windows.every((window) => window.verdict !== null)).toBe(true);
+    }
+  });
+
+  it('keeps the hold epoch and decision when a major-event hold touches only early-look days', async () => {
+    mockRankBeaches.mockImplementation(async (items: unknown[]) => items);
+    // The real resolver's epoch names every hold record the candidates overlap.
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(async ({ candidates }: { candidates: GateCandidate[] }) => {
+      const holdEpoch = candidates.some(({ startsAt }) => !startsBeforeEarlyLook(startsAt))
+        ? 'epoch-with-contest-hold'
+        : 'epoch-without-holds';
+      return candidates.map(({ candidateId, startsAt }) => (startsBeforeEarlyLook(startsAt)
+        ? {
+            candidateId,
+            evaluation: { outcome: 'allow', holdIds: [], holdEpoch },
+            recommendationAvailability: { state: 'available', holdEpoch },
+          }
+        : {
+            candidateId,
+            evaluation: {
+              outcome: 'explicit_none', reasonCode: 'major_event_hold', holdIds: ['contest'],
+              expiresAt: '2026-08-10T10:00:00.000Z', holdEpoch,
+            },
+            recommendationAvailability: {
+              state: 'none', reasonCode: 'major_event_hold', expiresAt: '2026-08-10T10:00:00.000Z', holdEpoch,
+            },
+          }));
+    });
+
+    const [seven, ten] = await Promise.all([generate(7), generate(10)]);
+
+    expect(seven.recommendationAvailability).toEqual({ state: 'available', holdEpoch: 'epoch-without-holds' });
+    expect(ten.recommendationAvailability).toStrictEqual(seven.recommendationAvailability);
+    expect(ten.sessionDecision).toStrictEqual(seven.sessionDecision);
+    expect(ten.sessionDecision.holdEpoch).toBe('epoch-without-holds');
+    expect(ten.days.slice(0, 7)).toStrictEqual(seven.days);
+    // The contest still holds the early-look days themselves.
+    for (const day of ten.days.slice(7)) {
+      expect(day.bestWindowId).toBeNull();
+      expect(day.windows.every((window) => window.verdict === null)).toBe(true);
+      expect(day.exclusionReasons).toEqual(['major_event_hold']);
+    }
   });
 });

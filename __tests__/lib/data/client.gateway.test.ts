@@ -17,6 +17,7 @@ const TEST_BOARD: ClientBoard = {
   model: null,
   size: null,
   volume: 34,
+  retired_at: null,
   session_count: 2,
   shaper: null,
   thickness: null,

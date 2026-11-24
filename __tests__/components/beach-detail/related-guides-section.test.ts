@@ -34,6 +34,7 @@ describe("buildRelatedGuideLinks", () => {
       "/mexico/baja-california/rosarito/alfonsos/water-temp",
       "/map",
       "/beaches/mexico",
+      "/learn/swell-period-explained",
     ]);
     expect(links.guides.map((guide) => guide.href).join(" ")).not.toContain("/beginner/rosarito");
   });
@@ -59,6 +60,7 @@ describe("buildRelatedGuideLinks", () => {
       "/tide/belmar",
       "/nj/belmar/3rd-avenue-jetty-belmar-nj/water-temp",
       "/best-time-to-surf/belmar",
+      "/learn/swell-period-explained",
     ]));
     expect(links.guides.map((guide) => guide.href)).not.toContain("/least-crowded/belmar");
   });

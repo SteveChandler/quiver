@@ -13,7 +13,7 @@ import Link from "next/link";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
-import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
+import { BeachTideNow } from "@/components/beach-detail/beach-tide-now";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
@@ -23,10 +23,12 @@ import {
   buildDynamicTideMetadata,
   buildDynamicWaterTempMetadata,
 } from "@/lib/seo/meta";
-import { getTideMetaData } from "@/lib/seo/tide-meta-data";
-import { FES2022_CITATION, MODEL_TIDE_SOURCE } from "@/lib/services/tides/model-tides";
+import { getBeachTidePageData, type BeachStationTide } from "@/lib/tides/beach-station-tide";
+import type { ReactElement } from "react";
+import { StationTideProvider } from "@/components/beach-detail/station-tide-context";
+import { throwIfSubPageDataUnknown } from "@/lib/seo/sub-page-data-availability";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
@@ -34,11 +36,13 @@ import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
 } from "@/lib/utils/beach-sub-page-crawl-copy";
-import { cityToSlug, isValidStateSlug, regionToSlug, stateToSlug } from "@/lib/utils/beach-url-utils";
+import { buildBeachUrl, cityToSlug, isValidStateSlug, regionToSlug, stateToSlug } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 import {
+  FORECAST_COVERAGE_UNKNOWN,
+  forecastCoverageFor,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
@@ -108,6 +112,28 @@ interface RenderParams {
     region: string;
     city: string;
   };
+  /** US routes: the URL's state and city segments, checked like the beach page. */
+  expectedUsaLocation?: {
+    state: string;
+    city: string;
+  };
+}
+
+type UsaLocationCheck = "match" | "not-found" | "wrong-city";
+
+// Mirrors app/[intent]/[city]/[beachSlug]/page.tsx so a sub-page and its beach
+// page agree on which URLs 404, redirect, or render.
+function checkExpectedUsaLocation(
+  beach: Beach,
+  expectedLocation: RenderParams["expectedUsaLocation"],
+): UsaLocationCheck {
+  if (!expectedLocation) return "match";
+  if (expectedLocation.state.toLowerCase() !== stateToSlug(beach.state)) {
+    return "not-found";
+  }
+  if (!beach.city) return "not-found";
+  if (expectedLocation.city !== cityToSlug(beach.city)) return "wrong-city";
+  return "match";
 }
 
 function matchesExpectedMexicoLocation(
@@ -132,6 +158,7 @@ export async function renderBeachSubPage({
   pageType,
   beachPath,
   expectedMexicoLocation,
+  expectedUsaLocation,
 }: RenderParams) {
   const beach = await getBeachBySlugOrId(beachSlug);
 
@@ -142,6 +169,10 @@ export async function renderBeachSubPage({
   if (!matchesExpectedMexicoLocation(beach, expectedMexicoLocation)) {
     notFound();
   }
+
+  const usaLocation = checkExpectedUsaLocation(beach, expectedUsaLocation);
+  if (usaLocation === "not-found") notFound();
+  if (usaLocation === "wrong-city") permanentRedirect(`${buildBeachUrl(beach)}/${pageType}`);
 
   const beachTimezone =
     beach.lat != null && beach.lon != null
@@ -156,10 +187,14 @@ export async function renderBeachSubPage({
 
   // Fetch dataset schema data — uses React cache() so no extra DB queries when
   // generateBeachSubPageMetadata already called these.
-  const [tideMeta, waterTempMeta] = await Promise.all([
-    pageType === "tides" ? getTideMetaData(beach.id) : Promise.resolve(null),
+  const [tidePage, waterTempMeta] = await Promise.all([
+    pageType === "tides" ? getBeachTidePageData(beach.id, beach.timezone) : Promise.resolve(null),
     pageType === "water-temp" ? getWaterTempMetaData(beach.id) : Promise.resolve(null),
   ]);
+  // A failed read must not become this route's stored page; see SubPageDataUnknownError.
+  throwIfSubPageDataUnknown(tidePage?.rows ?? waterTempMeta, `renderBeachSubPage:${pageType}`);
+  // Hero, schema, CTA and the client tide modules: the station table when it loaded.
+  const tideMeta = tidePage?.display ?? null;
 
   const hasTideHero = pageType === "tides" &&
     Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
@@ -245,14 +280,6 @@ export async function renderBeachSubPage({
         />
       )}
 
-      {hasTideHero && tideMeta && (
-        <TideSummaryHero beachName={beach.name} tideData={tideMeta} />
-      )}
-      {pageType === "tides" && tideMeta?.source === MODEL_TIDE_SOURCE && (
-        <p className="container mx-auto px-4 py-2 text-xs text-medium">
-          Modelled for this spot from the FES2022 global tide model, not measured at a tide station. Not for navigation. {FES2022_CITATION}
-        </p>
-      )}
       {!hasTideHero && !hasWaterTempSummary && (
         <BeachSubPageCrawlIntro copy={crawlCopy} />
       )}
@@ -262,32 +289,42 @@ export async function renderBeachSubPage({
         </p>
       )}
 
-      <BeachDetailClient
-        beach={beach}
-        slug={beachSlug}
-        beachTimezone={beachTimezone}
-        defaultTab={config.defaultTab}
-        defaultSubTab={config.defaultSubTab}
-        heroHeadingLevel={hasWaterTempSummary ? "h1" : "h2"}
-        heroHeadingSuffix={
-          hasWaterTempSummary ? "Water Temp & Wetsuit Guide" : undefined
-        }
-        heroSummarySlot={
-          hasWaterTempSummary && waterTempMeta ? (
-            <WaterTempSummaryHero
-              beachName={beach.name}
-              seasonalTrendsHref={
-                // /water-temp/{city} guides exist only for US cities.
-                isValidStateSlug(stateToSlug(beach.state))
-                  ? `/water-temp/${cityToSlug(beach.city)}#seasonal-trends`
-                  : undefined
-              }
-              seasonalTrendsLocation={beach.city || "the area"}
-              waterTempData={waterTempMeta}
-            />
-          ) : undefined
-        }
-      />
+      {withStationTide(
+        <BeachDetailClient
+          beach={beach}
+          slug={beachSlug}
+          beachTimezone={beachTimezone}
+          defaultTab={config.defaultTab}
+          defaultSubTab={config.defaultSubTab}
+          heroHeadingLevel={hasWaterTempSummary || hasTideHero ? "h1" : "h2"}
+          heroHeadingSuffix={
+            hasWaterTempSummary
+              ? "Water Temp & Wetsuit Guide"
+              : hasTideHero
+                ? "Tide Chart & Surf Windows"
+                : undefined
+          }
+          heroSummaryAboveMedia={pageType === "tides"}
+          heroSummarySlot={
+            pageType === "tides" ? (
+              <BeachTideNow beachName={beach.name} display={tideMeta} view={tidePage?.view ?? null} />
+            ) : hasWaterTempSummary && waterTempMeta ? (
+              <WaterTempSummaryHero
+                beachName={beach.name}
+                seasonalTrendsHref={
+                  // /water-temp/{city} guides exist only for US cities.
+                  isValidStateSlug(stateToSlug(beach.state))
+                    ? `/water-temp/${cityToSlug(beach.city)}#seasonal-trends`
+                    : undefined
+                }
+                seasonalTrendsLocation={beach.city || "the area"}
+                waterTempData={waterTempMeta}
+              />
+            ) : undefined
+          }
+        />,
+        tidePage?.stationTide ?? null,
+      )}
 
       <BeachSubPageCtaSwitch
         beachName={beach.name}
@@ -312,6 +349,12 @@ export async function renderBeachSubPage({
       />
     </>
   );
+}
+
+/** Only tide pages with a loaded station table get a provider; other pages keep BeachDetailClient as a direct child. */
+function withStationTide(client: ReactElement, stationTide: BeachStationTide | null): ReactElement {
+  if (!stationTide) return client;
+  return <StationTideProvider value={stationTide}>{client}</StationTideProvider>;
 }
 
 function BeachSubPageCrawlIntro({ copy }: { copy: BeachSubPageCrawlCopy }) {
@@ -361,32 +404,41 @@ export async function generateBeachSubPageMetadata({
   pageType,
   beachPath,
   expectedMexicoLocation,
+  expectedUsaLocation,
 }: RenderParams): Promise<Metadata> {
   const beach = await getBeachBySlugOrId(beachSlug);
   const config = SUB_PAGE_CONFIGS[pageType];
-  const subPagePath = `${beachPath}/${pageType}`;
+  let subPagePath = `${beachPath}/${pageType}`;
 
   if (beach) {
     if (!matchesExpectedMexicoLocation(beach, expectedMexicoLocation)) {
       notFound();
     }
 
+    // The page redirects a wrong city; like the beach page's metadata, emit the
+    // canonical path rather than redirecting here.
+    const usaLocation = checkExpectedUsaLocation(beach, expectedUsaLocation);
+    if (usaLocation === "not-found") notFound();
+    if (usaLocation === "wrong-city") subPagePath = `${buildBeachUrl(beach)}/${pageType}`;
+
     // Fetch dynamic data for SEO based on page type
     let title: string;
     let description: string;
-    let tideMetaForIndexing: Awaited<ReturnType<typeof getTideMetaData>> | null = null;
+    let tideMetaForIndexing: Awaited<ReturnType<typeof getBeachTidePageData>>["rows"] | null = null;
     let tempMetaForIndexing: Awaited<ReturnType<typeof getWaterTempMetaData>> | null = null;
 
     try {
       if (pageType === "tides") {
-        tideMetaForIndexing = await getTideMetaData(beach.id);
+        const tidePage = await getBeachTidePageData(beach.id, beach.timezone);
+        // Indexing reads the stored rows; the title reads what the page shows.
+        tideMetaForIndexing = tidePage.rows;
         const result = buildDynamicTideMetadata({
           beach,
           tideData: {
-            nextHighTime: tideMetaForIndexing.nextHighTime,
-            nextLowTime: tideMetaForIndexing.nextLowTime,
-            nextHighHeight: tideMetaForIndexing.nextHighHeight,
-            nextLowHeight: tideMetaForIndexing.nextLowHeight,
+            nextHighTime: tidePage.display.nextHighTime,
+            nextLowTime: tidePage.display.nextLowTime,
+            nextHighHeight: tidePage.display.nextHighHeight,
+            nextLowHeight: tidePage.display.nextLowHeight,
           },
         });
         title = result.title;
@@ -412,6 +464,11 @@ export async function generateBeachSubPageMetadata({
       title = result.title;
       description = result.description;
     }
+    // After the catch above, so this throw fails the render instead of degrading.
+    throwIfSubPageDataUnknown(
+      tideMetaForIndexing ?? tempMetaForIndexing,
+      `generateBeachSubPageMetadata:${pageType}`,
+    );
 
     const meta = buildPageMetadata({
       title,
@@ -430,14 +487,19 @@ export async function generateBeachSubPageMetadata({
               tideMetaForIndexing?.nextLowTime,
           )
         : tempMetaForIndexing?.tempF != null || isGscPerformanceProtected(subPagePath);
+    const forecastCoverage = forecastCoverageFor(snapshots, beach.id);
     const indexable = isBeachSubPageIndexable(
-      snapshots.get(beach.id),
+      forecastCoverage,
       subPagePath,
       { hasSubPageData },
     );
     return applyIndexabilityToMetadata(metadata, {
       indexable,
-      reason: indexable ? "forecast-approved" : "forecast-missing",
+      reason: !indexable
+        ? "forecast-missing"
+        : forecastCoverage === FORECAST_COVERAGE_UNKNOWN
+          ? "forecast-coverage-unknown"
+          : "forecast-approved",
     });
   }
 

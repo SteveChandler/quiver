@@ -7,6 +7,7 @@ import { JsonLd } from "@/components/seo/funnel/JsonLd";
  */
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
@@ -158,6 +159,15 @@ export default async function SwellAnalyzerPage({ searchParams }: Props) {
                 </details>
               ))}
             </div>
+            <p className="mt-6 text-sm text-[#B8C7E0]">
+              New to period?{" "}
+              <Link
+                href="/learn/swell-period-explained"
+                className="font-medium text-white underline underline-offset-4"
+              >
+                Wave period and swell period explained
+              </Link>
+            </p>
           </section>
         </div>
       </div>

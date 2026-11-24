@@ -50,6 +50,8 @@ export interface CanonicalPersonalMatchEvidence {
   confidence: CanonicalMatchConfidence;
   sessionCount: number;
   similarSessionCount?: number;
+  /** Biggest face height (ft) among the user's eligible logged sessions. */
+  maxLoggedWaveFt?: number;
   reasons: string[];
 }
 
@@ -138,4 +140,6 @@ export interface BuildCanonicalSessionDecisionInput {
   recommendationAvailability: RecommendationAvailability;
   candidates: readonly CanonicalDecisionCandidate[];
   candidateRejection?: CandidateRejection | null;
+  /** Defaults to 15 minutes; still capped at the scope's end. */
+  ttlMs?: number;
 }

@@ -8,6 +8,7 @@ import { setupApiTestEnvironment } from "@/test-utils/api-test-helpers";
 import { NextRequest } from "next/server";
 
 const eqMock = jest.fn();
+const orMock = jest.fn();
 const orderMock = jest.fn();
 const limitMock = jest.fn();
 
@@ -15,6 +16,7 @@ const buildChain = () => {
   const chain: Record<string, jest.Mock> = {};
   chain.select = jest.fn().mockReturnValue(chain);
   chain.eq = eqMock.mockReturnValue(chain);
+  chain.or = orMock.mockReturnValue(chain);
   chain.order = orderMock.mockReturnValue(chain);
   chain.limit = limitMock.mockResolvedValue({ data: [], error: null });
   return chain;
@@ -39,6 +41,7 @@ describe("GET /api/beaches/[id]/sessions", () => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
     eqMock.mockClear();
+    orMock.mockClear();
     orderMock.mockClear();
     limitMock.mockClear();
     fromMock.mockClear();
@@ -67,6 +70,7 @@ describe("GET /api/beaches/[id]/sessions", () => {
     expect(eqCalls).toContainEqual(["beach_id", "abc"]);
     expect(eqCalls).toContainEqual(["status", "completed"]);
     expect(eqCalls.find((c) => c[0] === "is_public")).toBeUndefined();
+    expect(orMock).toHaveBeenCalledWith("source.is.null,source.neq.conditions_report");
   });
 
   it("does NOT filter is_public when publicOnly is 'false'", async () => {

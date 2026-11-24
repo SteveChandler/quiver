@@ -41,8 +41,11 @@ import type {
 import {
   buildCandidates,
   buildComparisonLine,
+  forecastRowEnds,
   groupGoForecasts,
+  loadDailyCallProfiles,
   rankCandidates,
+  rowServesDay,
   runDailyCallCron,
   type DailyCallCandidate,
   type DailyCallDeps,
@@ -57,7 +60,12 @@ import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-e
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { parseDailyCallPayload } from "@/lib/notifications/types/daily-call";
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
-import type { Database } from "@/types/database";
+import type { Beach, Database } from "@/types/database";
+import type { BoardClass } from "@/lib/domains/rideability";
+import {
+  SKILL_AWARE_GO_CHECKS_ENABLED_FLAG,
+  SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG,
+} from "@/lib/flags/skill-aware-go-checks";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 const now = new Date("2026-09-16T13:00:00.000Z");
@@ -212,11 +220,13 @@ describe("daily call beach-local forecast days", () => {
   interface ForecastQuery {
     table: string;
     select: () => ForecastQuery;
-    in: () => ForecastQuery;
+    in: jest.Mock<ForecastQuery, [string, string[]]>;
     eq: jest.Mock<ForecastQuery, [string, string]>;
     gte: jest.Mock<ForecastQuery, [string, string]>;
     lt: jest.Mock<ForecastQuery, [string, string]>;
-    order: () => Promise<{ data: EnhancedForecastEntity[]; error: null }>;
+    order: () => ForecastQuery;
+    range: () => ForecastQuery;
+    then: (resolve: (value: { data: EnhancedForecastEntity[]; error: null }) => unknown) => unknown;
   }
 
   function forecastClient(rows: EnhancedForecastEntity[]) {
@@ -228,11 +238,13 @@ describe("daily call beach-local forecast days", () => {
       const query: ForecastQuery = {
         table,
         select: () => query,
-        in: () => query,
+        in: jest.fn((_column: string, _values: string[]) => query),
         eq: jest.fn((_column: string, value: string) => { beachId = value; return query; }),
         gte: jest.fn((_column: string, value: string) => { start = Date.parse(value); return query; }),
         lt: jest.fn((_column: string, value: string) => { end = Date.parse(value); return query; }),
-        order: async () => ({
+        order: () => query,
+        range: () => query,
+        then: (resolve) => resolve({
           data: table === "enhanced_forecasts" ? rows.filter((row) =>
             (!beachId || row.beach_id === beachId)
             && Date.parse(row.forecast_at) >= start && Date.parse(row.forecast_at) < end) : [],
@@ -323,7 +335,8 @@ describe("daily call beach-local forecast days", () => {
     expect(result.candidates).toHaveLength(3);
     expect(from.mock.calls.filter(([table]) => table === "tide_forecasts")).toHaveLength(2);
     for (const [beachId, start, end] of [[blacksId, pacificStart, pacificEnd], [ospreyId, hawaiiStart, hawaiiEnd]]) {
-      const tides = queries.find((query) => query.table === "tide_forecasts" && query.eq.mock.calls[0][1] === beachId)!;
+      const tides = queries.find((query) => query.table === "tide_forecasts"
+        && query.in.mock.calls[0][0] === "beach_id" && query.in.mock.calls[0][1].join() === beachId)!;
       expect(tides.gte).toHaveBeenCalledWith("ts", start);
       expect(tides.lt).toHaveBeenCalledWith("ts", end);
     }
@@ -402,7 +415,9 @@ describe("daily call dawn row on the Pacific standard grid", () => {
           select: () => query, in: () => query, eq: () => query,
           gte: (_column: string, value: string) => { start = Date.parse(value); gte(table, value); return query; },
           lt: (_column: string, value: string) => { end = Date.parse(value); return query; },
-          order: async () => ({
+          order: () => query,
+          range: () => query,
+          then: (resolve: (value: unknown) => unknown) => resolve({
             data: table === "enhanced_forecasts" ? rows.filter((row) =>
               Date.parse(row.forecast_at) >= start && Date.parse(row.forecast_at) < end) : [],
             error: null,
@@ -513,17 +528,22 @@ describe("daily call advertised window decisions", () => {
     confidence_score: hour === 5 ? 84 : 70,
   }));
 
-  async function build(forecasts = rows, asOf = runNow): ReturnType<typeof buildCandidates> {
-    const client = {
+  function forecastClient(forecasts: EnhancedForecastEntity[]): SupabaseClient<Database> {
+    return {
       from: jest.fn((table: string) => {
         const query = {
           select: () => query, in: () => query, eq: () => query,
-          gte: () => query, lt: () => query,
-          order: async () => ({ data: table === "enhanced_forecasts" ? forecasts : [], error: null }),
+          gte: () => query, lt: () => query, order: () => query, range: () => query,
+          then: (resolve: (value: unknown) => unknown) =>
+            resolve({ data: table === "enhanced_forecasts" ? forecasts : [], error: null }),
         };
         return query;
       }),
     } as unknown as SupabaseClient<Database>;
+  }
+
+  async function build(forecasts = rows, asOf = runNow): ReturnType<typeof buildCandidates> {
+    const client = forecastClient(forecasts);
     return buildCandidates(client, new TideCache(), {
       profile, pool: [beach], timezone: "America/Los_Angeles", alertDate: "2026-10-15", now: asOf,
     });
@@ -587,6 +607,35 @@ describe("daily call advertised window decisions", () => {
     expect(Date.parse(decision.expiresAt)).toBeGreaterThanOrEqual(Date.parse(payload.window_end as string));
     expect(Date.parse(decision.expiresAt)).toBeGreaterThan(Date.parse(decision.createdAt));
     expect(parseDailyCallPayload(payload)).not.toBeNull();
+  });
+
+  it("shapes the window with the rating skill and boards only on the go-check path (:672)", async () => {
+    const realVerdict = jest.requireActual("@/lib/alerts/canonical-forecast-verdict")
+      .evaluateForecastVerdict as typeof evaluateForecastVerdict;
+    // Both runs need go rows to reach the selector, so the verdict ignores the profile.
+    jest.mocked(evaluateForecastVerdict).mockImplementation(({ goChecks: _goChecks, ...args }) =>
+      realVerdict({ ...args, experienceLevel: "intermediate" } as Parameters<typeof evaluateForecastVerdict>[0]));
+    const shapeArgs = async (override: Partial<DailyCallProfile>): Promise<Record<string, unknown>> => {
+      const selector = jest.mocked(selectBestWindows);
+      selector.mockClear();
+      await buildCandidates(forecastClient(rows), new TideCache(), {
+        profile: { ...profile, ...override },
+        pool: [beach],
+        timezone: "America/Los_Angeles",
+        alertDate: "2026-10-15",
+        now: runNow,
+      });
+      expect(selector).toHaveBeenCalled(); // precondition
+      return selector.mock.calls[0][0] as unknown as Record<string, unknown>;
+    };
+
+    const off = await shapeArgs({ experienceLevel: null });
+    expect(off.userSkillLevel).toBeNull();
+    expect("boardClasses" in off).toBe(false);
+
+    const on = await shapeArgs({ experienceLevel: null, boardClasses: ["longboard"] });
+    expect(on.userSkillLevel).toBe("beginner");
+    expect(on.boardClasses).toEqual(["longboard"]);
   });
 
   it("skips a window at its end even when a row still has grid coverage", async () => {
@@ -1467,7 +1516,7 @@ describe("shared ranking (flag on)", () => {
     await runDailyCallCron({ now, supabase, deps: mocked });
     expect(mocked.rankDay).toHaveBeenCalledWith({
       userId, poolBeachIds: [blacksId, ospreyId], timezone: profile.timezone, localDate: "2026-09-16",
-      sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon }, driveRadiusMiles: 100,
+      sessionTime: "morning", anchor: { lat: location.lat, lon: location.lon }, driveRadiusMiles: 30,
     });
   });
 
@@ -1596,6 +1645,151 @@ describe("shared ranking (flag on)", () => {
     expect(result).toMatchObject({ sent: 1, errors: 0 });
     expect(mocked.rankDay).toHaveBeenCalledTimes(1);
   });
+
+  describe("skill-aware go checks (flag on)", () => {
+    const goChecksEnabledBefore = process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG];
+    const goChecksAllowlistBefore = process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG];
+    const realVerdict = jest.requireActual("@/lib/alerts/canonical-forecast-verdict")
+      .evaluateForecastVerdict as typeof evaluateForecastVerdict;
+    const runAt = new Date("2026-09-16T13:08:00.000Z");
+    const learnerHome: PoolBeach = {
+      ...home,
+      beach: {
+        ...home.beach, lat: 32.89, lon: -117.25, skill_level: "beginner", wind_offshore_deg: 90,
+      } as PoolBeach["beach"],
+    };
+    const peak = sharedForecast(blacksId, {
+      id: "peak",
+      wave_height: "1",
+      wave_period: "11",
+      wind_speed: "3",
+      wind_direction: "E",
+      wind_direction_deg: 90,
+    });
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG] = "true";
+        process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG] = userId;
+        return;
+      }
+      delete process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG];
+      delete process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG];
+    }
+
+    async function runShared(
+      { experienceLevel = "beginner", boardClasses }: {
+        experienceLevel?: string | null;
+        boardClasses?: BoardClass[];
+      },
+      extra: Partial<DailyCallDeps & DailyCallRankingDeps> = {},
+    ): Promise<{
+      result: Awaited<ReturnType<typeof runDailyCallCron>>;
+      mocked: DailyCallDeps & DailyCallRankingDeps;
+    }> {
+      verdict.mockClear();
+      setFlag(boardClasses !== undefined);
+      const mocked = sharedDeps(day([window(blacksId)]), {
+        loadProfiles: jest.fn(async () => [{
+          ...profile,
+          homeBeach: learnerHome.beach,
+          experienceLevel,
+          ...(boardClasses !== undefined ? { boardClasses } : {}),
+        }]),
+        loadPool: jest.fn(async () => [learnerHome]),
+        loadBeachDay: jest.fn(async () => ({ forecasts: [peak], tideSamples: null })),
+        ...extra,
+      });
+      const result = await runDailyCallCron({ now: runAt, supabase, deps: mocked });
+      return { result, mocked };
+    }
+
+    function heldExperience(mocked: DailyCallDeps): unknown[] {
+      return jest.mocked(mocked.resolveHeldBeaches).mock.calls.map(([args]) => args.profileExperience);
+    }
+
+    beforeEach(() => {
+      verdict.mockImplementation(realVerdict);
+    });
+
+    afterEach(() => {
+      if (goChecksEnabledBefore === undefined) delete process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG];
+      else process.env[SKILL_AWARE_GO_CHECKS_ENABLED_FLAG] = goChecksEnabledBefore;
+      if (goChecksAllowlistBefore === undefined) delete process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG];
+      else process.env[SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST_FLAG] = goChecksAllowlistBefore;
+    });
+
+    it("sends a beginner with a longboard on a clean 1 ft row on the shared path", async () => {
+      const off = await runShared({});
+      expect(off.result.sent).toBe(0);
+      expect(off.result.skippedCounts.no_in_window_row).toBe(1); // precondition
+
+      const on = await runShared({ boardClasses: ["longboard"] });
+      expect(on.result.sent).toBe(1);
+    });
+
+    it("rates a no-skill user as beginner in the window decision only on the go-check path (:463)", async () => {
+      verdict.mockImplementation((args) => realVerdict({
+        ...args,
+        beach: args.beach as Beach,
+        experienceLevel: "beginner",
+        goChecks: { boardClasses: ["longboard"] },
+      }));
+      const decisionSkill = (mocked: DailyCallDeps): unknown => {
+        const payload = jest.mocked(mocked.enqueue).mock.calls[0][0].payload!;
+        return (payload.session_decision as ForecastVerdict["decision"]).skillEligibility.skill;
+      };
+
+      const off = await runShared({ experienceLevel: null });
+      expect(off.result.sent).toBe(1); // precondition
+      expect(decisionSkill(off.mocked)).toBe("unknown");
+
+      const on = await runShared({ experienceLevel: null, boardClasses: [] });
+      expect(on.result.sent).toBe(1);
+      expect(decisionSkill(on.mocked)).toBe("beginner");
+    });
+
+    it("passes beginner to the non-shared hold check only on the go-check path (:1092)", async () => {
+      const extra = { usesSharedRanking: () => false };
+
+      const off = await runShared({ experienceLevel: null }, extra);
+      expect(off.mocked.buildCandidates).toHaveBeenCalled(); // precondition
+      expect(heldExperience(off.mocked)).toEqual([null]);
+
+      const on = await runShared({ experienceLevel: null, boardClasses: [] }, extra);
+      expect(on.mocked.buildCandidates).toHaveBeenCalled(); // precondition
+      expect(heldExperience(on.mocked)).toEqual(["beginner"]);
+    });
+
+    it("passes beginner to the shared hold check for a no-skill user only on the go-check path (:791)", async () => {
+      const off = await runShared({ experienceLevel: null });
+      expect(off.mocked.buildCandidates).not.toHaveBeenCalled(); // precondition
+      expect(heldExperience(off.mocked)).toEqual([null]);
+
+      const on = await runShared({ experienceLevel: null, boardClasses: [] });
+      const experiences = heldExperience(on.mocked);
+      expect(experiences.length).toBeGreaterThan(0);
+      expect(experiences.every((experience) => experience === "beginner")).toBe(true);
+    });
+
+    it("behaves as today for the same user with no boards", async () => {
+      const { durationMs: _offDuration, ...off } = (await runShared({})).result;
+      const { durationMs: _onDuration, ...on } = (await runShared({ boardClasses: [] })).result;
+      expect(on).toEqual(off);
+    });
+
+    it("adds goChecks to the verdict arguments only on the go-check path", async () => {
+      await runShared({});
+      const offCalls = verdict.mock.calls.map(([args]) => args);
+      expect(offCalls.length).toBeGreaterThan(0);
+      expect(offCalls.some((args) => "goChecks" in args)).toBe(false);
+
+      await runShared({ boardClasses: ["longboard"] });
+      const onCalls = verdict.mock.calls.map(([args]) => args);
+      expect(onCalls.length).toBeGreaterThan(0);
+      expect(onCalls.every((args) => args.goChecks?.boardClasses[0] === "longboard")).toBe(true);
+    });
+  });
 });
 
 describe("daily call alternatives", () => {
@@ -1651,7 +1845,7 @@ describe("daily call alternatives", () => {
     const parsed = parseDailyCallPayload(payload);
     expect(parsed.options).toEqual(payload.options);
     expect(NOTIFICATION_REGISTRY.daily_call.buildPushPayload!(parsed).body).toBe(
-      `${payload.reason} Also good: Blacks 8–9:40 AM (3 ft) and Custom State Beach 8–9:40 AM.`,
+      `${payload.reason} Also good: Blacks 8–9:40 AM (2–3 ft) and Custom State Beach 8–9:40 AM.`,
     );
   });
 
@@ -1775,6 +1969,45 @@ describe("runDailyCallCron", () => {
     expect(payload.window_local).toBe("8–~11 AM");
     expect(payload.title).toContain("8 to 11 AM");
     expect(payload.reason).toContain("around 11 AM.");
+  });
+
+  it("records no_swell_copy and sends nothing when the winner has no wave height", async () => {
+    const winner = candidate({ pool: favorite, physicalScore: 82 });
+    winner.sourceForecast = { ...winner.sourceForecast, wave_height: null as unknown as string };
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({ candidates: [winner], hadForecasts: true, noInWindowRowCount: 0 })),
+    });
+
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(summary.sent).toBe(0);
+    expect(summary.errors).toBe(0);
+    expect(summary.skippedCounts.no_swell_copy).toBe(1);
+    expect(mocked.selectTitle).not.toHaveBeenCalled();
+    expect(mocked.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("stores null, not 0 or unknown, for missing period, direction and tide", async () => {
+    const winner = candidate({ pool: favorite, physicalScore: 82 });
+    winner.sourceForecast = {
+      ...winner.sourceForecast,
+      wave_period: null as unknown as string,
+      wave_direction: null,
+      swell_1_direction: null,
+      tide_status: null,
+    } as typeof winner.sourceForecast;
+    const mocked = deps({
+      buildCandidates: jest.fn(async () => ({ candidates: [winner], hadForecasts: true, noInWindowRowCount: 0 })),
+      selectTitle: realSelectTitle,
+    });
+
+    const summary = await runDailyCallCron({ now, supabase, deps: mocked });
+
+    expect(summary).toMatchObject({ sent: 1, errors: 0 });
+    expect(summary.skippedCounts.no_swell_copy).toBeUndefined();
+    const payload = parseDailyCallPayload(jest.mocked(mocked.enqueue).mock.calls[0][0].payload);
+    expect(payload).toMatchObject({ wave_height_ft: 3, wave_period_s: null, swell_dir: null, tide_label: null });
+    expect(payload.reason).toMatch(/2–3 ft with /);
   });
 
   it("logs the reason and message when enqueue fails", async () => {
@@ -2059,6 +2292,50 @@ describe("groupGoForecasts", () => {
     expect(ids(groupGoForecasts([row(8, "go"), row(14, "go")])))
       .toEqual([["h8"], ["h14"]]);
   });
+
+  it("joins hourly go rows into one run", () => {
+    expect(ids(groupGoForecasts([row(8, "go"), row(9, "go"), row(10, "go"), row(11, "no"), row(12, "go")])))
+      .toEqual([["h8", "h9", "h10"], ["h12"]]);
+  });
+});
+
+describe("forecast row cadence", () => {
+  const HOUR = 3_600_000;
+  // Local hours on 2026-11-02 (PST, UTC-8).
+  const at = (hour: number): string => new Date(Date.UTC(2026, 10, 2, hour + 8)).toISOString();
+  const rows = (hours: number[]): EnhancedForecastEntity[] =>
+    hours.map((hour) => ({ id: `h${hour}`, forecast_at: at(hour) }) as EnhancedForecastEntity);
+  const ends = (hours: number[]): number[] =>
+    hours.map((hour) => (forecastRowEnds(rows(hours)).get(Date.parse(at(hour))) ?? NaN) - Date.parse(at(hour)));
+
+  it("keeps every 3-hourly row in effect for one grid step, a missing row and the last row included", () => {
+    expect(ends([4, 7, 13, 16])).toEqual([3 * HOUR, 3 * HOUR, 3 * HOUR, 3 * HOUR]);
+    expect(ends([10])).toEqual([3 * HOUR]);
+  });
+
+  it("keeps hourly rows in effect for an hour, the last row too", () => {
+    expect(ends([5, 6, 7, 8])).toEqual([HOUR, HOUR, HOUR, HOUR]);
+  });
+
+  it("lets an unbridged 3-hourly row run until the first hourly row", () => {
+    expect(ends([1, 4, 7, 8, 9, 10])).toEqual([3 * HOUR, 3 * HOUR, HOUR, HOUR, HOUR, HOUR]);
+  });
+
+  it("serves the 05:00 day start from the row in effect then, not from earlier hourly rows", () => {
+    const dayStart = Date.parse(at(5));
+    const dayEnd = Date.parse(at(20));
+    const hourly = rows([2, 3, 4, 5, 6]);
+    const hourlyEnds = forecastRowEnds(hourly);
+    const served = (list: EnhancedForecastEntity[], live?: Map<number, number>): string[] => list
+      .filter((row) => rowServesDay(row, dayStart, dayEnd, live?.get(Date.parse(row.forecast_at))))
+      .map((row) => row.id);
+    expect(served(hourly, hourlyEnds)).toEqual(["h5", "h6"]);
+    // Without live ends a row is in effect for a grid step, as before.
+    expect(served(hourly)).toEqual(["h3", "h4", "h5", "h6"]);
+    const grid = rows([1, 4, 7]);
+    expect(served(grid, forecastRowEnds(grid))).toEqual(["h4", "h7"]);
+    expect(served(grid)).toEqual(["h4", "h7"]);
+  });
 });
 
 describe("rankCandidates", () => {
@@ -2224,7 +2501,7 @@ describe("daily call location freshness", () => {
       const builder: Record<string, unknown> = {};
       let ids: string[] = [];
       builder.select = (fields: string) => { select(fields); return builder; };
-      builder.order = builder.eq = builder.not = () => builder;
+      builder.order = builder.eq = builder.not = builder.range = () => builder;
       builder.in = (_column: string, values: string[]) => { ids = values; return builder; };
       builder.is = () => builder;
       builder.then = (resolve: (value: unknown) => void) => resolve({ data: table === "profiles"
@@ -2345,5 +2622,70 @@ describe("daily call location freshness", () => {
     expect(result.skippedCounts.no_pool).toBe(1);
     expect(injected.loadPool).toHaveBeenCalledWith(expect.objectContaining({ location: null }));
     expect(daylight).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("loadDailyCallProfiles at signup scale", () => {
+  it("splits location and home-beach lookups so no request carries hundreds of ids", async () => {
+    // 2026-11-18: one .in() over ~635 profile ids came back 400 Bad Request and every hourly run failed.
+    const id = (n: number, prefix: string) => `${prefix}-0000-4000-8000-${String(n).padStart(12, "0")}`;
+    const profiles = Array.from({ length: 250 }, (_, n) => ({ id: id(n, "10000000"), home_beach_id: id(n % 3, "20000000"),
+      timezone: "America/Los_Angeles", daily_call_time: "06:00", notif_push_enabled: true, notif_forecast_alerts: true,
+      experience_level: null, max_drive_minutes: null, preferred_session_time: null }));
+    const inSizes: Record<string, number[]> = {};
+    const client = { from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      let ids: string[] = [];
+      builder.select = builder.order = builder.range = () => builder;
+      builder.is = () => builder;
+      builder.in = (_column: string, values: string[]) => { ids = values; (inSizes[table] ??= []).push(values.length); return builder; };
+      builder.then = (resolve: (value: unknown) => void) => resolve({ error: null, data: table === "profiles" ? profiles
+        : table === "user_location_snapshots" ? ids.map((user_id) => ({ user_id, lat: 32.7, lon: -117.2, timezone: null, captured_at: "2026-11-18T00:00:00Z" }))
+        : ids.map((beachId) => ({ ...home.beach, id: beachId })) });
+      return builder;
+    } } as unknown as SupabaseClient<Database>;
+
+    const loaded = await loadDailyCallProfiles(client);
+
+    expect(loaded).toHaveLength(250);
+    expect(loaded.every((row) => row.location?.lat === 32.7 && row.homeBeach?.id === row.homeBeachId)).toBe(true);
+    expect(Math.max(...inSizes.user_location_snapshots)).toBeLessThanOrEqual(100);
+    expect(inSizes.user_location_snapshots.reduce((sum, size) => sum + size, 0)).toBe(250);
+    expect(inSizes.beaches).toEqual([3]);
+  });
+
+  it("still fails the run when one location chunk errors", async () => {
+    const profiles = Array.from({ length: 150 }, (_, n) => ({ id: `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`, home_beach_id: null }));
+    let call = 0;
+    const client = { from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      builder.select = builder.order = builder.range = () => builder;
+      builder.is = () => builder;
+      builder.in = () => builder;
+      builder.then = (resolve: (value: unknown) => void) => resolve(table === "profiles" ? { data: profiles, error: null }
+        : (call += 1) === 2 ? { data: null, error: { message: "Bad Request" } } : { data: [], error: null });
+      return builder;
+    } } as unknown as SupabaseClient<Database>;
+
+    await expect(loadDailyCallProfiles(client)).rejects.toThrow("Failed to load daily-call locations: Bad Request");
+  });
+
+  it("reads profiles past the 1,000-row PostgREST cap", async () => {
+    const all = Array.from({ length: 1500 }, (_, n) => ({ id: `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`, home_beach_id: null }));
+    const client = { from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      let page = [0, 999];
+      builder.select = builder.order = builder.is = builder.in = () => builder;
+      builder.range = (from: number, to: number) => { page = [from, to]; return builder; };
+      builder.then = (resolve: (value: unknown) => void) => resolve({ error: null,
+        data: table === "profiles" ? all.slice(page[0], Math.min(page[1] + 1, page[0] + 1000)) : [] });
+      return builder;
+    } } as unknown as SupabaseClient<Database>;
+
+    const loaded = await loadDailyCallProfiles(client);
+
+    expect(loaded).toHaveLength(1500);
+    expect(new Set(loaded.map((row) => row.id)).size).toBe(1500);
   });
 });

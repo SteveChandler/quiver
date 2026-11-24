@@ -36,7 +36,7 @@ describe("noaa-tide-service", () => {
     global.fetch = mockFetchWithTimeout;
   });
 
-  it("fetches and normalizes exact high/low tide predictions from NOAA", async () => {
+  it("fetches and normalizes exact high/low tide predictions from NOAA, raised by the California sea-level offset", async () => {
     mockFetchWithTimeout.mockResolvedValue(
       jsonResponse({
         predictions: [
@@ -63,15 +63,58 @@ describe("noaa-tide-service", () => {
     expect(result).toEqual([
       {
         ts: "2026-06-30T01:12:00.000Z",
-        tide_height_m: 1.234,
+        tide_height_m: 1.691, // 1.234 + 1.5 ft
         type: "high",
       },
       {
         ts: "2026-06-30T07:44:00.000Z",
-        tide_height_m: 0.102,
+        tide_height_m: 0.559, // 0.102 + 1.5 ft
         type: "low",
       },
     ]);
+  });
+
+  it("keeps raw NOAA heights separate from adjusted cache entries", async () => {
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-17 01:00", v: "1.2345", type: "H" }],
+    }));
+    const start = "2026-11-17T00:00:00Z";
+    const end = "2026-11-18T00:00:00Z";
+    const raw = await fetchHighLowTidePredictions("9410230", start, end, { raw: true });
+    const adjusted = await fetchHighLowTidePredictions("9410230", start, end);
+    expect(raw[0].tide_height_m).toBe(1.2345);
+    expect(adjusted[0].tide_height_m).toBe(1.692);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["hourly", "hilo"])("always fetches fresh %s raw predictions", async (kind) => {
+    const fetchPredictions = kind === "hourly" ? fetchHourlyTidePredictions : fetchHighLowTidePredictions;
+    let heightM = 1;
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-20 01:00", v: String(heightM++), type: "H" }],
+    }));
+    const range = ["2026-11-20T00:00:00Z", "2026-11-21T00:00:00Z"] as const;
+    const first = await fetchPredictions(`raw-refresh-${kind}`, ...range, { raw: true });
+    const second = await fetchPredictions(`raw-refresh-${kind}`, ...range, { raw: true });
+    expect(first[0].tide_height_m).toBe(1);
+    expect(second[0].tide_height_m).toBe(2);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["hourly", "hilo"])("does not let raw %s ingestion evict cached page predictions", async (kind) => {
+    const fetchPredictions = kind === "hourly" ? fetchHourlyTidePredictions : fetchHighLowTidePredictions;
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-22 01:00", v: "1.2", type: "H" }],
+    }));
+    const range = ["2026-11-22T00:00:00Z", "2026-11-23T00:00:00Z"] as const;
+    const station = `cached-page-${kind}`;
+    await fetchPredictions(station, ...range);
+    for (let index = 0; index < 100; index++) {
+      await fetchPredictions(`raw-ingest-${kind}-${index}`, ...range, { raw: true });
+    }
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(101);
+    await fetchPredictions(station, ...range);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(101);
   });
 
   it("caches hourly NOAA predictions by date and filters narrower same-day windows", async () => {
@@ -342,5 +385,104 @@ describe("noaa-tide-service", () => {
     expect(
       hasSufficientCachedTideCoverage(coveredPredictions.slice(0, 5), startIso, endIso)
     ).toBe(false);
+  });
+});
+
+
+describe("NOAA request hardening", () => {
+  let service: typeof import("@/lib/services/noaa-tide-service");
+  const start = "2026-11-15T00:00:00Z";
+  const end = "2026-11-16T00:00:00Z";
+
+  beforeEach(() => {
+    jest.resetModules();
+    service = require("@/lib/services/noaa-tide-service");
+    jest.useFakeTimers({ now: Date.parse(start) });
+    mockFetchWithTimeout.mockReset();
+    global.fetch = mockFetchWithTimeout;
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it.each(["hourly", "hilo"])("identifies Quiver and coalesces concurrent %s requests", async (interval) => {
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({
+      predictions: [{ t: "2026-11-15 06:00", v: "1.2", type: "H" }],
+    }));
+    const fetchPredictions = interval === "hourly"
+      ? service.fetchHourlyTidePredictions : service.fetchHighLowTidePredictions;
+    const results = await Promise.all([
+      fetchPredictions("test", start, end), fetchPredictions("test", start, end),
+    ]);
+    expect(results[0]).toEqual(results[1]);
+    expect(results[0]).toHaveLength(1);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
+    expect(new URL(mockFetchWithTimeout.mock.calls[0][0]).searchParams.get("application")).toBe("Quiver");
+    expect(new Headers(mockFetchWithTimeout.mock.calls[0][1].headers).get("User-Agent"))
+      .toBe("Quiver/1.0 (+https://quiversurf.app)");
+  });
+
+  it.each([403, 429])("cools down globally after %i and recovers after 60 seconds", async (status) => {
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, status));
+    await expect(service.fetchHighLowTidePredictions("a", start, end)).rejects.toThrow();
+    await expect(service.fetchHourlyTidePredictions("b", start, end)).rejects.toThrow();
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(60_000);
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1", type: "H" }] }));
+    await expect(service.fetchHighLowTidePredictions("b", start, end)).resolves.toHaveLength(1);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([500, 503])("does not pause other stations after a %i", async (status) => {
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, status));
+    await expect(service.fetchHighLowTidePredictions("a", start, end)).rejects.toThrow();
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1", type: "H" }] }));
+    await expect(service.fetchHighLowTidePredictions("b", start, end)).resolves.toHaveLength(1);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a cooldown when a request already in flight succeeds", async () => {
+    let releaseOk: (value: unknown) => void = () => undefined;
+    mockFetchWithTimeout
+      .mockImplementationOnce(() => new Promise((resolve) => { releaseOk = resolve; }))
+      .mockResolvedValueOnce(jsonResponse({}, 403));
+    const slow = service.fetchHighLowTidePredictions("slow", start, end);
+    await expect(service.fetchHighLowTidePredictions("throttled", start, end)).rejects.toThrow();
+    releaseOk(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1", type: "H" }] }));
+    await expect(slow).resolves.toHaveLength(1);
+    await expect(service.fetchHighLowTidePredictions("next", start, end)).rejects.toThrow();
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
+  });
+
+  it("doubles cooldown up to ten minutes and resets it on success", async () => {
+    for (const duration of [60_000, 120_000, 240_000, 480_000, 600_000, 600_000]) {
+      mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, 403));
+      await expect(service.fetchHourlyTidePredictions("a", start, end)).rejects.toThrow();
+      const count = mockFetchWithTimeout.mock.calls.length;
+      jest.advanceTimersByTime(duration - 1);
+      await expect(service.fetchHourlyTidePredictions("b", start, end)).rejects.toThrow();
+      expect(mockFetchWithTimeout).toHaveBeenCalledTimes(count);
+      jest.advanceTimersByTime(1);
+    }
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1" }] }));
+    await service.fetchHourlyTidePredictions("recovered", start, end);
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, 403));
+    await expect(service.fetchHourlyTidePredictions("c", start, end)).rejects.toThrow();
+    jest.advanceTimersByTime(60_000);
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1" }] }));
+    await expect(service.fetchHourlyTidePredictions("d", start, end)).resolves.toHaveLength(1);
+  });
+
+  it("does not cool down on 400 and releases a rejected in-flight request", async () => {
+    mockFetchWithTimeout.mockResolvedValueOnce(jsonResponse({}, 400));
+    await expect(service.fetchHighLowTidePredictions("a", start, end)).rejects.toThrow();
+    mockFetchWithTimeout.mockImplementation(async () => jsonResponse({ predictions: [{ t: "2026-11-15 06:00", v: "1", type: "H" }] }));
+    const retry = await Promise.all([
+      service.fetchHighLowTidePredictions("a", start, end),
+      service.fetchHighLowTidePredictions("a", start, end),
+    ]);
+    expect(retry[0]).toHaveLength(1);
+    expect(retry[1]).toEqual(retry[0]);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2);
   });
 });

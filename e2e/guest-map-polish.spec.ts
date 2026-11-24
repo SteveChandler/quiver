@@ -58,7 +58,7 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await page.waitForFunction(() => (window as any).__quiverMapInstance.areTilesLoaded());
       await page.screenshot({ path: ".planning/evidence/map-polish/baja-recovery.png" });
     });
-    if (viewport.width === 390) test("warns about old samples without treating the beach as closed", async ({ page }) => {
+    if (viewport.width === 390) test("says nothing about an old sample", async ({ page }) => {
       // County notices change; fix only this evidence payload, retaining live beach geometry.
       await page.route("**/api/beaches/nearby?**", async (route) => {
         const response = await route.fetch({ headers: { ...route.request().headers(), ...localRateHeaders } });
@@ -78,10 +78,7 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await pin.getByRole("button").click();
       const badge = page.locator('[data-callout-water-quality]');
       await expect(page.locator('[data-conditions-callout="true"]')).toContainText("La Jolla Shores");
-      await expect(badge).toContainText("Water quality not recently verified");
-      await expect(badge).toContainText("Sample: 2026-08-11");
-      await expect(badge).not.toContainText("Closed");
-      await expect(badge).toHaveAttribute("data-callout-water-quality", "unconfirmed");
+      await expect(badge).toHaveCount(0);
       await expect(pin).toHaveAttribute("data-water-quality-hold", "none");
       await page.screenshot({ path: ".planning/evidence/map-polish/advisory-source.png" });
     });

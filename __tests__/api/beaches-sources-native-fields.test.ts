@@ -3,6 +3,11 @@ import { join } from "node:path";
 import { GET } from "@/app/api/beaches/[id]/sources/route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+// The camera preflight is cached per URL with unstable_cache, which needs a Next request context.
+jest.mock("next/cache", () => ({
+  unstable_cache: (fn: unknown) => fn,
+}));
+
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(),
 }));
@@ -51,6 +56,35 @@ describe("GET /api/beaches/[id]/sources", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it.each([true, false])("sanitizes retired camera and thumbnail fields (camera retired: %s)", async (retired) => {
+    const sourceChain = makeChain({
+      data: {
+        beach_id: VALID_BEACH_UUID,
+        forecast_source_id: "forecast",
+        camera_url: retired ? "https://portal.hdontap.com/s/embed" : "https://www.obhotel.com/Webcam-Oceanbeach.php",
+        thumbnail_url: "https://storage.hdontap.com/still.jpg",
+      },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+    mockCreateSupabaseServerClient.mockResolvedValue({ from: (table: string) => table === "beach_sources" ? sourceChain : dioramaChain });
+    const url = new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`);
+    const fetch = jest.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"));
+    const response = await GET({ url: url.href, nextUrl: url } as any, { params: Promise.resolve({ id: VALID_BEACH_UUID }) });
+    const body = await response.json();
+    expect(body.data.sources).toMatchObject({
+      forecast_source_id: "forecast",
+      camera_url: retired ? null : "https://www.obhotel.com/Webcam-Oceanbeach.php",
+      cam_open_url: retired ? null : "https://www.obhotel.com/Webcam-Oceanbeach.php",
+      cam_kind: retired ? "none" : "hdontap",
+      cam_embed: null,
+      cam_thumbnail_url: null,
+      embed_allowed: retired ? null : true,
+    });
+    expect(JSON.stringify(body)).not.toMatch(/\.hdontap\.com/);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("returns an absolute compatible HLS URL for the native HDRelay player", async () => {
@@ -428,5 +462,78 @@ describe("GET /api/beaches/[id]/sources", () => {
     );
 
     expect(response.status).toBe(500);
+  });
+});
+
+describe("GET /api/beaches/[id]/sources and the cam directory share one preflight", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  async function getSources(cameraUrl: string): Promise<Record<string, unknown>> {
+    const sourceChain = makeChain({
+      data: { beach_id: VALID_BEACH_UUID, forecast_source_id: null, camera_url: cameraUrl, thumbnail_url: null },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => (table === "beach_sources" ? sourceChain : dioramaChain)),
+    });
+    const response = await GET(
+      { nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`) } as any,
+      { params: Promise.resolve({ id: VALID_BEACH_UUID }) },
+    );
+    return (await response.json()).data.sources;
+  }
+
+  it("hides the player and the directory card for a camera page that refuses HEAD (Cannon Beach)", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 405, headers: new Headers() } as Response);
+    const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
+    const cameraUrl = "https://cbccstaff.net/whats-new/webcam/";
+
+    // The native hero reads these fields; it must not offer a cam the web shows as none.
+    expect(await getSources(cameraUrl)).toMatchObject({
+      camera_url: null,
+      cam_open_url: null,
+      cam_thumbnail_url: null,
+      cam_kind: "none",
+      cam_embed: null,
+      embed_allowed: false,
+    });
+    await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "none" });
+  });
+
+  it.each([
+    ["a player that denies framing (Galveston)", "https://v.angelcam.com/iframe?v=4oxyn1pr8v&autoplay=1", 404, { "x-frame-options": "DENY" }],
+    ["a Surfline embed that answers 403 (Scripps)", "https://embed.cdn-surfline.com/cams/5834a0733421b20545c4b584/64ba68ebf1c960a93d1faba8f86cc16a3ed05913", 403, {}],
+  ])("reports no cam to native for %s", async (_label, cameraUrl, status, headers) => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status, headers: new Headers(headers) } as Response);
+    const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
+
+    expect(await getSources(cameraUrl)).toMatchObject({ camera_url: null, cam_kind: "none", cam_embed: null });
+    await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "none" });
+  });
+
+  it("keeps a camera page whose headers cannot be read, as the web player still tries it", async () => {
+    jest.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
+    const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
+    const cameraUrl = "https://www.parks.ca.gov/sanonofre";
+
+    expect(await getSources(cameraUrl)).toMatchObject({
+      camera_url: cameraUrl,
+      cam_kind: "iframe",
+      embed_allowed: null,
+      cam_embed: { kind: "external", pageUrl: cameraUrl, provider: "parks.ca.gov" },
+    });
+    await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "inline" });
+  });
+
+  it("keeps a Surfline stream on both sides when its health check times out", async () => {
+    jest.spyOn(globalThis, "fetch").mockRejectedValue(new DOMException("timed out", "TimeoutError"));
+    const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
+    const cameraUrl = "https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8";
+
+    expect(await getSources(cameraUrl)).toMatchObject({ camera_url: cameraUrl, cam_kind: "hls" });
+    await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "inline" });
   });
 });

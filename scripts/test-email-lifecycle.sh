@@ -64,6 +64,25 @@ psql_local -f "$repo_dir/supabase/migrations/20260916180000_email_daily_cap_opti
   -f "$repo_dir/__tests__/integration/email-daily-cap-optional.sql"
 psql_local -f "$repo_dir/supabase/migrations/20261007030000_activate_startup_lifecycle_v2.sql" \
   -f "$repo_dir/__tests__/integration/email-lifecycle-v2-activation.sql"
+psql_local -f "$repo_dir/supabase/migrations/20261031200000_lifecycle_timezone_fallback.sql" \
+  -f "$repo_dir/__tests__/integration/email-lifecycle-timezone-fallback.sql"
+psql_local -f "$repo_dir/supabase/migrations/20261117120000_lifecycle_trial_falls_through.sql" \
+  -f "$repo_dir/__tests__/integration/email-lifecycle-trial-fall-through.sql"
+psql_local -f "$repo_dir/__tests__/integration/email-lifecycle-v4-campaign.sql"
+psql_local -f "$repo_dir/supabase/migrations/20261117140000_alert_email_earliest.sql" \
+  -f "$repo_dir/__tests__/integration/email-alert-earliest.sql"
+psql_local -f "$repo_dir/__tests__/integration/email-bounce-suppression-seed.sql" \
+  -f "$repo_dir/supabase/migrations/20261124160000_email_repeat_bounce_suppression.sql" \
+  -f "$repo_dir/supabase/migrations/20261124160000_email_repeat_bounce_suppression.sql" \
+  -f "$repo_dir/__tests__/integration/email-bounce-suppression.sql"
+psql_local -f "$repo_dir/supabase/migrations/20261124161000_lifecycle_disable_friction_routine.sql" \
+  -f "$repo_dir/supabase/migrations/20261124161000_lifecycle_disable_friction_routine.sql" \
+  -f "$repo_dir/__tests__/integration/email-lifecycle-trim.sql"
+# A later run of the migration must not undo an operator's off switch.
+psql_local -c "UPDATE public.email_contact_controls SET disabled_jobs='{}', welcome_relay_only=false WHERE singleton" \
+  -f "$repo_dir/supabase/migrations/20261124161000_lifecycle_disable_friction_routine.sql" \
+  -c "DO \$\$ BEGIN ASSERT (SELECT disabled_jobs='{}' AND NOT welcome_relay_only FROM public.email_contact_controls WHERE singleton), 'rerun reset the off switch'; END \$\$" \
+  -c "UPDATE public.email_contact_controls SET disabled_jobs='{friction,routine}', welcome_relay_only=true WHERE singleton"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \

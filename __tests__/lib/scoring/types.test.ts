@@ -144,6 +144,8 @@ describe('toForecastForScoring', () => {
     const result = toForecastForScoring(forecast as EnhancedForecastEntity);
 
     expect(result.waveHeight).toBe(0);
+    // Missing height is unknown, not flat: the window card labels it "No size forecast yet".
+    expect(result.waveHeightKnown).toBe(false);
     expect(result.wavePeriod).toBe(0);
     // Missing wind is unknown, not calm.
     expect(result.windSpeed).toBeNull();

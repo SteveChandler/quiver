@@ -29,7 +29,6 @@ jest.mock("@/lib/utils/visitor-id", () => ({
 describe("AndroidBetaPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED = "true";
     (global as any).fetch = jest.fn(() =>
       Promise.resolve(
         new Response(
@@ -42,10 +41,6 @@ describe("AndroidBetaPage", () => {
         ),
       ),
     );
-  });
-
-  afterEach(() => {
-    delete process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED;
   });
 
   it("exports Android beta metadata", () => {
@@ -143,28 +138,6 @@ describe("AndroidBetaPage", () => {
       expect.objectContaining({
         body: expect.stringContaining('"cta_family":"android_install"'),
       }),
-    );
-  });
-
-  it("shows the ordinary Play listing without issuing a token while issuance is off", async () => {
-    delete process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED;
-    const user = userEvent.setup();
-
-    render(<AndroidBetaPage />);
-
-    const installLink = screen.getByRole("link", {
-      name: /^3 · install from google play$/i,
-    });
-    expect(installLink).toHaveAttribute("href", ANDROID_PLAY_STORE_LISTING_URL);
-    expect(
-      screen.queryByRole("button", { name: /prepare play install link/i }),
-    ).not.toBeInTheDocument();
-
-    installLink.addEventListener("click", (event) => event.preventDefault());
-    await user.click(installLink);
-    expect(global.fetch).not.toHaveBeenCalledWith(
-      "/api/install-attribution/issue",
-      expect.anything(),
     );
   });
 

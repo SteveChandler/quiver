@@ -83,7 +83,7 @@ describe("recommendation beach selection", () => {
     expect(rawBeach.id).toBe(SAFE_BEACH_ID);
   });
 
-  it("excludes held beaches from ranking and selection", async () => {
+  it("keeps held beaches in ranking and selection; the hold is only a notice", async () => {
     await configureHoldStore({
       heldRows: [{ beach_id: HELD_BEACH_ID }],
       qualityRows: [],
@@ -97,8 +97,11 @@ describe("recommendation beach selection", () => {
       compare: (left, right) => right.score - left.score,
     });
 
-    expect(ranked).toEqual([{ id: SAFE_BEACH_ID, score: 5 }]);
-    await expect(selectBeach(candidates[0])).resolves.toBeNull();
+    expect(ranked).toEqual([
+      { id: HELD_BEACH_ID, score: 10 },
+      { id: SAFE_BEACH_ID, score: 5 },
+    ]);
+    await expect(selectBeach(candidates[0])).resolves.toEqual(candidates[0]);
   });
 
   it("treats a missing hold table as an empty hold set", async () => {
@@ -169,7 +172,7 @@ describe("recommendation beach selection", () => {
     expectConsoleWarnings([/resolver_returned_unresolved/]);
   });
 
-  it("still suppresses a resolved closure even though probe failures fail open", async () => {
+  it("keeps a resolved closure in ranking and selection; the hold is only a notice", async () => {
     await configureHoldStore({
       heldRows: [{ beach_id: HELD_BEACH_ID }],
       qualityRows: [],
@@ -185,9 +188,12 @@ describe("recommendation beach selection", () => {
           compare: (left, right) => right.score - left.score,
         },
       ),
-    ).resolves.toEqual([{ id: SAFE_BEACH_ID, score: 5 }]);
+    ).resolves.toEqual([
+      { id: HELD_BEACH_ID, score: 10 },
+      { id: SAFE_BEACH_ID, score: 5 },
+    ]);
     await expect(
       selectBeach({ id: HELD_BEACH_ID, score: 10 }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ id: HELD_BEACH_ID, score: 10 });
   });
 });

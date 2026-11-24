@@ -11,9 +11,12 @@ import { haversineDistance } from "@/lib/utils/geo-utils";
 import { retryAfterSeconds } from "@/lib/utils/retry-after";
 import { loadWatchSpots, type WatchSpot } from "@/lib/watch/saved-spots";
 import { withWatchAuth } from "@/lib/watch/with-watch-auth";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const maxDuration = 20;
+
+const SNAPSHOT_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
 const QuerySchema = z.object({
   lat: z.coerce.number().finite().min(-90).max(90).optional(),
@@ -38,7 +41,7 @@ type ForecastRow = {
   beach_id: string;
   forecast_at: string;
   wind_speed: string | null;
-  wind_direction_deg: number | null;
+  wind_direction_deg: number | string | null;
   tide_height: string | null;
   tide_status: string | null;
 };
@@ -104,7 +107,7 @@ function unavailable(): Response {
   return response;
 }
 
-export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { userId, service }) => {
+const handleGet = withNoStore(withRateLimit(withWatchAuth(async (request, { userId, service }) => {
   const { searchParams } = new URL(request.url);
   const validation = validateOrError(QuerySchema, {
     lat: searchParams.get("lat") || undefined,
@@ -118,9 +121,12 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
   };
   if (!position) {
     const { data: snapshot, error } = await service.from("user_location_snapshots")
-      .select("lat, lon").eq("user_id", userId).maybeSingle();
+      .select("lat, lon, captured_at").eq("user_id", userId).maybeSingle();
     if (error) throw error;
-    if (snapshot && Number.isFinite(snapshot.lat) && Number.isFinite(snapshot.lon)) {
+    // An old phone location lists beaches near where the surfer was, not where they are.
+    const capturedMs = snapshot?.captured_at ? Date.parse(snapshot.captured_at) : NaN;
+    if (snapshot && Number.isFinite(snapshot.lat) && Number.isFinite(snapshot.lon)
+      && Number.isFinite(capturedMs) && Date.now() - capturedMs <= SNAPSHOT_MAX_AGE_MS) {
       position = { lat: snapshot.lat, lon: snapshot.lon };
     }
   }
@@ -199,6 +205,10 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
       const display = forecast.displayForecasts?.[beach.id];
       const timestamp = display?.forecastAt;
       const row = timestamp ? rowsByKey.get(`${beach.id}:${Date.parse(timestamp)}`) : undefined;
+      const tideHeight = measure(row?.tide_height);
+      const tideStatus = row?.tide_status?.trim().toLowerCase();
+      const windSpeed = measure(row?.wind_speed);
+      const windDirection = measure(row?.wind_direction_deg);
       const label = beach.held || forecast.recommendationHolds?.[beach.id]
         ? null : forecast.conditionLabels?.[beach.id];
       return {
@@ -210,9 +220,15 @@ export const GET = withNoStore(withRateLimit(withWatchAuth(async (request, { use
         swell: display ? formatSwell(forecast.displaySwell?.[beach.id]) : null,
         wind: formatWind(row),
         tide: formatTide(row),
+        tideFt: tideHeight === null ? null : Math.round(tideHeight * 10) / 10,
+        tideDir: tideStatus === "rising" || tideStatus === "falling" ? tideStatus : null,
+        windMph: windSpeed !== null && windSpeed >= 0 ? Math.round(windSpeed) : null,
+        windDeg: windDirection === null ? null : ((Math.round(windDirection) % 360) + 360) % 360,
         best: display ? formatBest(forecast.todayHeadlines?.[beach.id], timezoneById.get(beach.id) ?? beach.timezone) : null,
       };
     }),
     updatedAt: new Date().toISOString(),
   });
 }, { errorMessage: "Failed to load watch beaches" }), "authenticated-default"));
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/watch/beaches");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { leadReasonLine } from "@/lib/domains/scoring/reason-sentences";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -10,6 +11,7 @@ import { HomeCallPlate } from "@/components/oracle/zine/home-call-plate";
 import { HomeZineShell } from "@/components/oracle/zine/home-zine-shell";
 import {
   HomeZineEmpty,
+  HomeLocationNotice,
   HomeZineLoading,
   HomeZineRechecking,
 } from "@/components/oracle/zine/home-zine-states";
@@ -84,6 +86,10 @@ function formatWindowTime(date: Date, timezone: string): string {
 /**
  * Compute relative time string from an ISO date string.
  */
+function formatMiles(miles: number): string {
+  return Math.round(miles).toLocaleString("en-US");
+}
+
 function formatTimeAgo(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const diffMin = Math.floor(diffMs / 60_000);
@@ -209,27 +215,24 @@ function transformToTimeWindows(
         conditions = extractConditions(matchedRec.forecast);
         isCalibrated = matchedRec.forecast.isCalibrated;
       } else {
-        // Synthetic fallback: quality degrades away from the best slot.
-        // The slot data — when present — is hourly forecast data from the
-        // top rec's SAME beach (see comment on topIsCalibrated above). So
-        // calibration matches the top rec.
-        isCalibrated = topIsCalibrated;
-        const hourDiff = Math.abs(hour - bestHour);
-        quality = Math.max(0.1, bestScore - hourDiff * 0.15);
+        // Height and conditions come only from the top rec's hourly row for
+        // this slot (SAME beach, so calibration matches). A slot with no row
+        // shows the empty "—" state and placeholder bar rather than copying
+        // the best window's values.
         slotLabel = label;
-        // Use per-slot wave height and conditions when available (from slotForecasts on the top rec)
         const slotData = topRec.slotForecasts?.[hour];
-        height = slotData?.waveHeightBadge ?? slotData?.waveHeight ?? waveHeight;
-        if (slotData) {
-          conditions = {
-            swellPeriod: slotData.swellPeriod ?? topConditions.swellPeriod,
-            swellDirection: slotData.swellDirection ?? topConditions.swellDirection,
-            windSpeed: slotData.windSpeed ?? topConditions.windSpeed,
-            windDirection: slotData.windDirection ?? topConditions.windDirection,
-            tideHeight: slotData.tideHeight ?? topConditions.tideHeight,
-            tideStatus: slotData.tideStatus ?? topConditions.tideStatus,
-          };
-        }
+        const hourDiff = Math.abs(hour - bestHour);
+        quality = slotData ? Math.max(0.1, bestScore - hourDiff * 0.15) : 0.2;
+        isCalibrated = slotData ? topIsCalibrated : undefined;
+        height = slotData?.waveHeightBadge || slotData?.waveHeight || "—";
+        conditions = {
+          swellPeriod: slotData?.swellPeriod ?? undefined,
+          swellDirection: slotData?.swellDirection ?? undefined,
+          windSpeed: slotData?.windSpeed ?? undefined,
+          windDirection: slotData?.windDirection ?? undefined,
+          tideHeight: slotData?.tideHeight ?? undefined,
+          tideStatus: slotData?.tideStatus ?? undefined,
+        };
       }
     }
 
@@ -369,8 +372,7 @@ function transformToNearbySpots(
       strategyTag: rec.strategyTag,
       reasonText:
         buildPersonalizedReason(rec, heroContext) ??
-        rec.strategyTag?.reason ??
-        rec.summary,
+        (rec.strategyTag?.reason || rec.summary),
     };
   });
 }
@@ -704,7 +706,7 @@ export function OracleHomeScreen() {
     currentSlot?.swellDirection ??
     forecast?.swell_1_direction ??
     forecast?.wave_direction ??
-    "W";
+    null;
   const swellPeriod = parseNumeric(
     currentSlot?.swellPeriod ??
     forecast?.swell_1_period ??
@@ -720,9 +722,12 @@ export function OracleHomeScreen() {
       : null;
 
   const tideH = parseNumeric(currentSlot?.tideHeight ?? forecast?.tide_height);
-  const tideDir: "rising" | "falling" =
-    (currentSlot?.tideStatus ?? forecast?.tide_status)?.toLowerCase().includes("rising")
-      ? "rising" : "falling";
+  const tideStatusText = (currentSlot?.tideStatus ?? forecast?.tide_status)?.toLowerCase() ?? "";
+  const tideDir: "rising" | "falling" | null = tideStatusText.includes("rising")
+    ? "rising"
+    : tideStatusText.includes("falling")
+      ? "falling"
+      : null;
   const waterTemp = parseNumeric(forecast?.water_temp);
   const windSpd = parseNumeric(currentSlot?.windSpeed ?? forecast?.wind_speed);
   const windDir = currentSlot?.windDirection ?? forecast?.wind_direction ?? "—";
@@ -754,7 +759,8 @@ export function OracleHomeScreen() {
     window,
   );
   // Why the selected window works, from the recommendation's own reasons.
-  const heroReason = heroRec?.reasons?.[0] ?? null;
+  // A caution leads, then the wave sentence; the verdict filter repeats the server's as a harmless second check.
+  const heroReason = leadReasonLine(heroRec?.reasons, heroRec?.reasonCodes, canonicalVerdict === "no");
   // Positive calls switch to planning copy when the window hasn't opened yet.
   const selectedWindowStartMs = Date.parse(selectedCandidate?.windowStart ?? "");
   const heroCallIsUpcoming =
@@ -810,6 +816,56 @@ export function OracleHomeScreen() {
   // gated by profile and initial location readiness — when those are still
   // pending, discoveryLoading is false AND discovery is null.
   // ------------------------------------------------------------------
+  // Where the call comes from, said plainly whenever it is not the surfer's
+  // own fix or home beach. Home never borrows another region's location.
+  const offerUseMyLocation =
+    oracle.geoSource !== "browser" || oracle.origin?.source === "selectedBeach"
+      ? oracle.requestLocation
+      : undefined;
+  const offerSetHomeBeach = homeBeach ? undefined : handleSetHomeBeach;
+  const originMessage =
+    oracle.origin?.source === "selectedBeach"
+      ? `Scouting from ${oracle.origin.label}`
+      : oracle.origin?.approximate
+        ? `Approximate location · ${
+          oracle.origin.source === "lastBeach"
+            ? `near ${oracle.origin.label ?? "your last session spot"}`
+            : oracle.origin.label
+        }`
+        : null;
+  const widenedMessage =
+    oracle.widenedFromMiles != null
+      ? `Nothing within ${
+        oracle.widenedFromMiles >= 1 ? `${formatMiles(oracle.widenedFromMiles)} mi` : "your drive range"
+      } · showing surf up to 100 mi`
+      : null;
+  const noticeMessage = [originMessage, widenedMessage].filter(Boolean).join(" — ");
+  const locationNotice = noticeMessage ? (
+    <HomeLocationNotice
+      message={noticeMessage}
+      onUseMyLocation={offerUseMyLocation}
+      onSetHomeBeach={offerSetHomeBeach}
+    />
+  ) : null;
+
+  if (oracle.locationUnresolved) {
+    return (
+      <HomeZineEmpty
+        beachName="Your surf"
+        heading="Where are you surfing?"
+        reason={
+          oracle.geoLoading
+            ? "Finding your location…"
+            : oracle.locationDenied
+              ? "Location access is blocked for this site. Allow it in your browser settings, or set a home beach."
+              : "Share your location or set a home beach and Quiver will make the call from there."
+        }
+        onUseMyLocation={oracle.requestLocation}
+        onSetHomeBeach={handleSetHomeBeach}
+      />
+    );
+  }
+
   const hasDefinitiveDiscoveryAnswer =
     oracle.discovery !== null || !!oracle.discoveryError;
   const isBootstrapping =
@@ -849,17 +905,26 @@ export function OracleHomeScreen() {
   // honest empty card with a retry affordance instead of letting
   // `parseNumeric(undefined) → 0` leak phantom zeros into the hero UI.
   if (!heroRec) {
+    const nearestBeach =
+      !recommendationsUnavailable && !oracle.discoveryError ? oracle.nearestBeach : null;
     const reason = recommendationsUnavailable
       ? "Session picks aren't available right now."
       : oracle.discoveryError
         ? "We couldn't load conditions for your area."
-        : isNoSurfDecision(sessionDecision?.verdict, sessionDecision?.reasonCode)
-          ? "Doesn't look like a good time to surf."
-          : "We couldn't find any surf spots near you right now.";
+        : nearestBeach
+          ? `Quiver has no beaches within 100 miles of here. The nearest is ${nearestBeach.name}, ${formatMiles(nearestBeach.distanceMiles)} mi away.`
+          : isNoSurfDecision(sessionDecision?.verdict, sessionDecision?.reasonCode)
+            ? "Doesn't look like a good time to surf."
+            : "We couldn't find any surf spots near you right now.";
     return (
       <HomeZineEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
         reason={reason}
+        notice={locationNotice}
+        scoutFrom={nearestBeach ? {
+          beachName: nearestBeach.name,
+          onSelect: () => oracle.scoutFromBeach(nearestBeach),
+        } : undefined}
         onSetHomeBeach={
           recommendationsUnavailable || homeBeach
             ? undefined
@@ -879,6 +944,7 @@ export function OracleHomeScreen() {
   // ------------------------------------------------------------------
   return (
     <HomeZineShell>
+      {locationNotice}
       {/* Desktop is two panes, the way Surfline and AllTrails split place from
           plan: the beach and its call on the left, the day's windows and
           what's around pinned beside it. Below lg it stacks in reading order. */}
@@ -946,6 +1012,7 @@ export function OracleHomeScreen() {
             forecastUrl={forecastUrl}
             isTomorrow={isTomorrow}
             eveningTransition={oracle.discovery?.eveningTransition}
+            hasHomeBeach={!!homeBeach}
           />
 
           <NearbySpots

@@ -1,3 +1,4 @@
+import { zonedFormatter } from '@/lib/utils/zoned-formatter';
 import {
   SWELL_EVENT_THRESHOLDS,
   type BeachSwellEvent,
@@ -45,21 +46,16 @@ function hoursBetween(left: string, right: string): number {
   return Math.abs(Date.parse(left) - Date.parse(right)) / HOUR_MS;
 }
 
-const weekdayFormatters = new Map<string, Intl.DateTimeFormat>();
+const weekdayFormatter = zonedFormatter('en-US', { weekday: 'long' });
 function weekdayName(date: Date, timezone: string): string {
-  let formatter = weekdayFormatters.get(timezone);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: timezone });
-    weekdayFormatters.set(timezone, formatter);
-  }
-  return formatter.format(date);
+  return weekdayFormatter(timezone).format(date);
 }
 
-type PartOfDay = 'early' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+export type PartOfDay = 'early' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
 
 // Same boundaries and wording as native's formatSwellPeakWhen, so the card
 // title and this text never name different parts of the day for one peak.
-function partOfDay(hour: number): PartOfDay {
+export function partOfDay(hour: number): PartOfDay {
   if (hour < 5) return 'early';
   if (hour < 11) return 'morning';
   if (hour < 14) return 'midday';

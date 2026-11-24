@@ -56,10 +56,14 @@ The WebGL swell field lives under `components/map/swell-field/`. `swell-particle
 
 The signed-in home hero draws the primary-swell field in the dark-stage palette on a 2D canvas (`components/oracle/zine/hero-swell-field.tsx`), as native's home hero does. It shares:
 
-- **The look:** `particle-style.ts` (counts, spacing, dash size, speed, fades), plus `SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE` and `SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE`.
+- **The look:** `particle-style.ts` (counts, spacing, dash size, speed, fades), plus `SWELL_FIELD_PARTICLE_COLOR` and `SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE`.
 - **The flow:** `rowToSwellPartition` and `partitionToPoint`, then `flowForPoint` in `field-sampler.ts`, what a field cell reads beside one beach.
 
 It finds water from the static streets-v11 image's pixels (`waterMaskFromPixels` in `water-mask.ts`, a port of native's), since it has no vector water polygons. Change the look in `particle-style.ts` so both surfaces move together.
+
+The field has one style on every web surface, as native does (quiver#830). `/map`, `/embed/map` and the home hero all draw `SWELL_FIELD_PARTICLE_COLOR` (swell `#DCE8FF`, swell 2 `#FDB84B`, wind `#00D4AA`, equal to native's `SWELL_FIELD_LAYER_COLORS` in `src/lib/swell-field/condition-vector-grid.ts`) on the dark stage: a `#252D6B` dim at 0.4 and `#4B78A9` water. The `stage` embed parameter now changes only the map chrome (logo position). Hiding the field restores the basemap water.
+
+Each swell mark is native's crest chip (quiver-native `surf-condition-overlay.tsx` streak sprite): a crest across the direction of travel, with a depth of length / 1.6, a solid leading band (17 of 40 rows) and a wake that fades from 0.85 to clear. Crest length is native's: `DASH_FRACTION` (0.032) x `SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE` (0.81) = native's 0.02584 of the canvas width. Native sizes from a phone canvas, so web sizes crests from at most `CREST_REFERENCE_WIDTH_PX` (390); a desktop window gets native's on-screen size, not a 3x larger chip. The count is 650 per canvas, as native's. Under 640 px web keeps 280 (native's phone base is 420), because 420 doubled the ink on a 390 px map.
 
 ## **PHASE 2 MOTION ENHANCEMENTS**
 

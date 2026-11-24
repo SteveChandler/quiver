@@ -18,6 +18,8 @@
 
 import { toBin5, TERRAIN_BINS } from '@/types/terrain';
 import type { WaveHeightSourceTag } from './wave-height-source';
+import { MODEL_SWELL_CALIBRATION_FACTORS } from './model-swell-calibration-factors';
+import { ECMWF_HYBRID_K_FACTORS } from './ecmwf-hybrid-k-factors';
 
 export type { WaveHeightSourceTag } from './wave-height-source';
 
@@ -48,6 +50,13 @@ export interface ShoalingFactors {
   buckets: ShoalingBucket[];
   /** Provenance metadata for the calibration — not used at runtime */
   calibration?: Record<string, unknown>;
+  /**
+   * Apply calibratedShadowFactor on top of the bucket. Off by default: the
+   * bucket is the median face/Hs over the beach's own direction mix, so it
+   * already holds the beach's sheltering. Set only where an independent check
+   * shows a real direction penalty the period bucket misses.
+   */
+  direction_shadow?: boolean;
 }
 
 /**
@@ -78,6 +87,8 @@ export const POPULATION_PRIOR_BUCKETS: readonly ShoalingBucket[] = [
  * Beach terrain configuration needed for wave height transformation
  */
 export interface BeachTerrainConfig {
+  /** Beach id; keys the per-beach model_swell factor (see `modelSwellCalibrationFactor`). */
+  id?: string | null;
   swell_access_factors?: number[] | null;
   terrain_enabled?: boolean;
   /**
@@ -415,7 +426,7 @@ interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
-  calibrationBucketQuarantined?: boolean;
+  shortPeriodBucketCapped?: boolean;
 }
 
 /**
@@ -466,27 +477,33 @@ export function transformToFaceHeightWithMetadata(
     return { faceHeightFt: 0, isCalibrated: false, provenance: 'generic' };
   }
 
-  let calibrationBucketQuarantined = false;
-
   // Short-circuit: empirically calibrated per-beach shoaling lookup.
-  // GATED on source === 'cdip_sig' because the bucket factor is measured as
-  // `surfline_face_ft / cdip_hs_ft` — applying it to a model-derived height
-  // when CDIP has been rejected (>10ft, outlier, or null) produces the wrong
-  // answer. When source is anything else (or omitted), fall through to the
-  // generic pipeline which is the correct treatment for model inputs.
+  // Gated on CDIP Hs or an eligible nowcast anchor because the bucket factor
+  // is measured as `surfline_face_ft / cdip_hs_ft`. Model inputs use the
+  // generic pipeline instead.
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
-      if (shouldQuarantineCalibratedShoalingBucket(source, periodS, bucketFactor)) {
-        calibrationBucketQuarantined = true;
-      } else {
-        const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
-        return {
-          faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
-          isCalibrated: true,
-          provenance: 'measured',
-        };
-      }
+      // No low-factor quarantine, and the direction shadow only where the
+      // beach opts in (ShoalingFactors.direction_shadow; no beach does as of
+      // Nov 6 2026). Held-out test over 77 calibrated beaches: face MAE 0.557
+      // ft without either, 0.658 with both. At the Point Loma group, shadowed
+      // hours scored 0.48 ft without the shadow against 1.03 with it (5
+      // independent truth groups), and CDIP MOP's fired/non-fired bias was +5%
+      // without it against -27% with it.
+      // The decomposed path excludes this short-period energy entirely.
+      const periodCappedFactor = periodS != null && periodS <= SHORT_PERIOD_CUTOFF_S
+        ? Math.min(bucketFactor, calculatePeriodFactor(periodS))
+        : bucketFactor;
+      const shadow = beach?.shoaling_factors?.direction_shadow === true
+        ? calibratedShadowFactor(swellDirectionDeg, beach)
+        : 1;
+      return {
+        faceHeightFt: Math.round(rawHeightFt * periodCappedFactor * shadow * 10) / 10,
+        isCalibrated: true,
+        provenance: 'measured',
+        ...(periodCappedFactor < bucketFactor ? { shortPeriodBucketCapped: true } : {}),
+      };
     }
   }
 
@@ -512,7 +529,6 @@ export function transformToFaceHeightWithMetadata(
     faceHeightFt: Math.round(faceHeight * 10) / 10,
     isCalibrated: false,
     provenance: baseShoaling.provenance,
-    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }
 
@@ -546,6 +562,19 @@ export function transformToFaceHeightRange(params: TransformParams): WaveHeightR
  * grounds that sub-8s energy is wind-swell / sea-state that doesn't produce
  * organized surf regardless of direction. Exposed as a constant so tests
  * and regression scripts can reference the same threshold.
+ *
+ * The decomposed transform applies it to buoy and other direct sources only.
+ * Model swell partitions (`model_swell` / `model_hs`) are not gated: their
+ * periods read well under buoy peak period, so a 6-8 s model partition is
+ * often real storm swell (San Diego, Nov 6 2026: 3.7 ft @ 7.75 s W was zeroed
+ * and the face fell to 2.2 ft beside a 1.9 ft 13 s swell, while the same
+ * partition alone took the legacy path to 4.8 ft). Those partitions weigh by
+ * `calculateDirectionFactor`, the legacy fallback's weight, so a lone one
+ * reads what it always did and adding a partition never lowers the face.
+ * Replayed against the CDIP-path face over 30 days at 91 calibrated beaches
+ * (factors refit), model-hour MAE fell 0.90 -> 0.78 ft and
+ * short-period-dominant MAE 1.25 -> 0.81 ft; a 5-7 s model cutoff scored
+ * worse at every step.
  */
 export const SHORT_PERIOD_CUTOFF_S = 8;
 
@@ -557,8 +586,6 @@ export const SHORT_PERIOD_CUTOFF_S = 8;
 export const WIND_WAVE_FACE_HEIGHT_CUTOFF_S = 9;
 
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_PERIOD_S = 15;
-const CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S = 15;
-const CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR = 0.8;
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_ACCESS = 0.02;
 const SOUTH_SWELL_FLOOR_MIN_DIRECTION_DEG = 160;
 const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
@@ -576,6 +603,9 @@ const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
  *   zero because the waves simply don't organize into clean faces at the
  *   break. **The cutoff value itself is excluded** (exactly 8.0s returns 0,
  *   8.01s returns positive) so the gate only admits genuine groundswell.
+ *   The decomposed transform passes `shortPeriodCutoffS: 0` for model
+ *   sources (see `SHORT_PERIOD_CUTOFF_S`), so this gate binds buoy and
+ *   direct sources only there.
  * - `0` when the component direction lies outside the window
  *   `[center - halfwidth, center + halfwidth]` (angular, so the short arc).
  * - `cos²` falloff inside the window: `cos²(distance / halfwidth × π/2)`.
@@ -636,7 +666,8 @@ export function alignmentFactor(
 }
 
 /**
- * Direction-aware shadow multiplier for the CDIP calibrated short-circuit.
+ * Direction-aware shadow multiplier for the CDIP calibrated short-circuit,
+ * applied only to beaches whose shoaling_factors set direction_shadow.
  *
  * The period bucket (surfline_face / cdip_hs) is direction-blind, so on the
  * CDIP path a south swell at a Point-Loma-shadowed break can read the full
@@ -713,6 +744,71 @@ function terrainAccessFactor(access: number): number {
   return DIRECTION_FACTOR_MIN + Math.sqrt(access) * DIRECTION_FACTOR_RANGE;
 }
 
+/**
+ * Degrees past a swell-window edge over which an estimated window tapers to
+ * zero instead of cutting off at the edge.
+ */
+export const ESTIMATED_WINDOW_SHOULDER_DEG = 30;
+
+/**
+ * True when a model partition at this beach has only an unmeasured swell
+ * window to go on: no terrain access array, explicitly uncalibrated
+ * (`shoaling_factors === null`, the same signal as the population prior), and
+ * no per-beach model factor fitted against the strict-window transform.
+ */
+function usesEstimatedWindowAccess(
+  beach: BeachTerrainConfig | null | undefined,
+  source: WaveHeightSourceTag | undefined,
+): boolean {
+  if (!isTerrainWeightedModelSource(source) || hasValidSwellAccessFactors(beach)) {
+    return false;
+  }
+  if (beach?.shoaling_factors !== null) return false;
+  const id = beach?.id;
+  return !id || (
+    MODEL_SWELL_CALIBRATION_FACTORS[id] == null &&
+    ECMWF_HYBRID_K_FACTORS[id] == null
+  );
+}
+
+/**
+ * Access factor for a model partition against an estimated swell window.
+ *
+ * Inside the window this is `terrainAccessFactor(cos²)`, the curve a
+ * terrain-enabled beach gets on the model path. Past the edge it tapers from
+ * DIRECTION_FACTOR_MIN to 0 over ESTIMATED_WINDOW_SHOULDER_DEG, so a swell a
+ * few degrees outside an editorial window is not dropped outright (La Fonda,
+ * 2026-11-07: a 5.1 ft 11 s swell at 288° against a 285° edge read 0.8 ft).
+ * Returns null when the window or direction is unusable.
+ */
+export function estimatedWindowAccessFactor(
+  componentDirDeg: number | null | undefined,
+  windowCenterDeg: number | null | undefined,
+  windowHalfwidthDeg: number | null | undefined,
+): number | null {
+  if (
+    componentDirDeg == null || !Number.isFinite(componentDirDeg) ||
+    windowCenterDeg == null || !Number.isFinite(windowCenterDeg) ||
+    windowHalfwidthDeg == null || !Number.isFinite(windowHalfwidthDeg) ||
+    windowHalfwidthDeg <= 0
+  ) {
+    return null;
+  }
+
+  const rawDelta = ((componentDirDeg - windowCenterDeg) % 360 + 540) % 360 - 180;
+  const distance = Math.abs(rawDelta);
+
+  if (distance < windowHalfwidthDeg) {
+    const cosValue = Math.cos(((distance / windowHalfwidthDeg) * Math.PI) / 2);
+    return DIRECTION_FACTOR_MIN + cosValue * DIRECTION_FACTOR_RANGE;
+  }
+
+  const beyond = distance - windowHalfwidthDeg;
+  if (beyond >= ESTIMATED_WINDOW_SHOULDER_DEG) return 0;
+  const taper = Math.cos(((beyond / ESTIMATED_WINDOW_SHOULDER_DEG) * Math.PI) / 2);
+  return DIRECTION_FACTOR_MIN * taper * taper;
+}
+
 function directObservationFloorAccessFactor(access: number): number {
   if (access <= 0) {
     return 0;
@@ -739,18 +835,6 @@ function canUseCalibratedShoaling(
     (source === 'nowcast_anchor' && allowCalibratedShoaling === true);
 }
 
-function shouldQuarantineCalibratedShoalingBucket(
-  source: WaveHeightSourceTag | undefined,
-  periodS: number | null | undefined,
-  bucketFactor: number,
-): boolean {
-  return source === 'cdip_sig' &&
-    periodS != null &&
-    Number.isFinite(periodS) &&
-    periodS >= CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S &&
-    bucketFactor < CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR;
-}
-
 function shouldApplyDeepwaterDecay(
   source: WaveHeightSourceTag | undefined,
 ): boolean {
@@ -763,7 +847,8 @@ function shouldApplyDeepwaterDecay(
  * CDIP and other calibrated/direct sources keep the strict swell-window
  * alignment. Model-derived sources can use terrain swell access instead,
  * because deep-water model partitions otherwise get over-zeroed at protected
- * or canyon-amplified beaches where partial access is real.
+ * or canyon-amplified beaches where partial access is real. Model sources at
+ * uncalibrated beaches without terrain use `estimatedWindowAccessFactor`.
  */
 export function componentAccessFactor(
   componentDirDeg: number | null | undefined,
@@ -813,6 +898,15 @@ export function componentAccessFactor(
     return strictAlignment;
   }
 
+  if (usesEstimatedWindowAccess(beach, source)) {
+    const estimated = estimatedWindowAccessFactor(
+      componentDirDeg,
+      beach?.swell_window_center_deg ?? null,
+      beach?.swell_window_halfwidth_deg ?? null,
+    );
+    if (estimated != null) return estimated;
+  }
+
   return alignmentFactor(
     componentDirDeg,
     periodS,
@@ -855,7 +949,24 @@ interface DecomposedFaceHeightResult {
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
   path: 'decomposed' | 'legacy';
-  calibrationBucketQuarantined?: boolean;
+  shortPeriodBucketCapped?: boolean;
+  /** Per-beach model_swell multiplier, present only when one was applied. */
+  modelCalibrationFactor?: number;
+  /** ECMWF hybrid scale, present only when it replaced the production factor. */
+  ecmwfHybrid?: { r: number; k: number };
+}
+
+/**
+ * Per-beach multiplier that puts a calibrated beach's model_swell hours on
+ * the same ruler as its buoy hours. Only `model_swell` was measured; other
+ * sources return 1.
+ */
+export function modelSwellCalibrationFactor(
+  source: WaveHeightSourceTag | undefined,
+  beach: BeachTerrainConfig,
+): number {
+  if (source !== 'model_swell' || !beach.id) return 1;
+  return MODEL_SWELL_CALIBRATION_FACTORS[beach.id] ?? 1;
 }
 
 /**
@@ -909,6 +1020,44 @@ export function transformToFaceHeightDecomposed(params: {
   beach: BeachTerrainConfig;
   source?: WaveHeightSourceTag;
   allowCalibratedShoaling?: boolean;
+  rawHeightFt: number;
+  periodS: number | null;
+  swellDirectionDeg: number | null;
+  /**
+   * ECMWF hybrid (model_swell only): components and rawHeightFt × r, then
+   * × k in place of the production factor. See ecmwf-hybrid-k-factors.ts.
+   */
+  ecmwfHybrid?: { r: number; k: number } | null;
+}): DecomposedFaceHeightResult {
+  const hybrid = params.source === 'model_swell' ? params.ecmwfHybrid : null;
+  if (hybrid) {
+    const { r, k } = hybrid;
+    const scaled = transformToFaceHeightDecomposedUncalibrated({
+      ...params,
+      rawHeightFt: params.rawHeightFt * r,
+      components: params.components.map((c) => (c ? { ...c, heightFt: c.heightFt * r } : null)),
+    });
+    return {
+      ...scaled,
+      faceHeightFt: k === 1 ? scaled.faceHeightFt : Math.round(scaled.faceHeightFt * k * 10) / 10,
+      ecmwfHybrid: { r, k },
+    };
+  }
+  const result = transformToFaceHeightDecomposedUncalibrated(params);
+  const factor = modelSwellCalibrationFactor(params.source, params.beach);
+  if (factor === 1) return result;
+  return {
+    ...result,
+    faceHeightFt: Math.round(result.faceHeightFt * factor * 10) / 10,
+    modelCalibrationFactor: factor,
+  };
+}
+
+function transformToFaceHeightDecomposedUncalibrated(params: {
+  components: Array<SwellComponentInput | null>;
+  beach: BeachTerrainConfig;
+  source?: WaveHeightSourceTag;
+  allowCalibratedShoaling?: boolean;
   // Legacy fallback inputs (used when no components are populated).
   rawHeightFt: number;
   periodS: number | null;
@@ -951,9 +1100,7 @@ export function transformToFaceHeightDecomposed(params: {
       isCalibrated: legacy.isCalibrated,
       provenance: legacy.provenance,
       path: 'legacy',
-      ...(legacy.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
-        : {}),
+      ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
 
@@ -966,8 +1113,11 @@ export function transformToFaceHeightDecomposed(params: {
     ? beach.deepwater_decay_factor
     : 1.0;
 
+  // The estimated-window taper must not suppress the legacy fallback: when the
+  // strict window would zero every component, keep the fallback as before.
+  const estimatedWindow = usesEstimatedWindowAccess(beach, source);
+  let strictWindowAccess = !estimatedWindow;
   let sumOfSquares = 0;
-  let calibrationBucketQuarantined = false;
   let calibratedBucketUsed = false;
   let populationPriorUsed = false;
   for (const component of populated) {
@@ -978,35 +1128,43 @@ export function transformToFaceHeightDecomposed(params: {
       continue;
     }
 
-    if (component.periodS <= SHORT_PERIOD_CUTOFF_S) {
+    const shortPeriodGated = !isTerrainWeightedModelSource(source);
+    if (shortPeriodGated && component.periodS <= SHORT_PERIOD_CUTOFF_S) {
       continue;
     }
 
-    const accessFactor = componentAccessFactor(
+    const windowAccess = componentAccessFactor(
       component.directionDeg,
       component.periodS,
       beach,
       source,
+      shortPeriodGated ? undefined : { shortPeriodCutoffS: 0 },
     );
-    if (accessFactor === 0) continue;
+    if (windowAccess === 0) continue;
+    if (
+      !strictWindowAccess &&
+      alignmentFactor(
+        component.directionDeg,
+        component.periodS,
+        beach.swell_window_center_deg ?? null,
+        beach.swell_window_halfwidth_deg ?? null,
+        shortPeriodGated ? undefined : { shortPeriodCutoffS: 0 },
+      ) > 0
+    ) {
+      strictWindowAccess = true;
+    }
+    // A model partition under the buoy cutoff weighs by the legacy direction
+    // factor, so on its own it reads exactly what the legacy fallback gave it
+    // and a longer-period partition beside it can only add.
+    const accessFactor = component.periodS <= SHORT_PERIOD_CUTOFF_S
+      ? calculateDirectionFactor(component.directionDeg ?? null, beach)
+      : windowAccess;
 
     // Only use calibrated bucket factors for CDIP sources — the buckets are
     // measured as surfline_face / cdip_hs and produce overshoot on model data.
-    const rawBucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
+    const bucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
       ? lookupShoalingBucket(component.periodS, shoalingFactors)
       : null;
-    const bucketFactor =
-      rawBucketFactor != null &&
-      shouldQuarantineCalibratedShoalingBucket(
-        source,
-        component.periodS,
-        rawBucketFactor,
-      )
-        ? null
-        : rawBucketFactor;
-    if (rawBucketFactor != null && bucketFactor == null) {
-      calibrationBucketQuarantined = true;
-    }
     if (bucketFactor != null) {
       calibratedBucketUsed = true;
     }
@@ -1032,9 +1190,9 @@ export function transformToFaceHeightDecomposed(params: {
     sumOfSquares += faceI * faceI;
   }
 
-  // If every component was zeroed (e.g. all periods ≤ 8s or all components are
-  // outside the beach window), fall back to legacy rather than displaying 0 ft.
-  if (sumOfSquares === 0) {
+  // If every component was zeroed (e.g. all buoy periods ≤ 8s or all components
+  // are outside the beach window), fall back to legacy rather than displaying 0 ft.
+  if (sumOfSquares === 0 || !strictWindowAccess) {
     const legacy = transformToFaceHeightWithMetadata({
       rawHeightFt, periodS, swellDirectionDeg, beach, source,
       allowCalibratedShoaling,
@@ -1044,9 +1202,7 @@ export function transformToFaceHeightDecomposed(params: {
       isCalibrated: legacy.isCalibrated,
       provenance: legacy.provenance,
       path: 'legacy',
-      ...(legacy.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
-        : {}),
+      ...(legacy.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
     };
   }
 
@@ -1062,6 +1218,5 @@ export function transformToFaceHeightDecomposed(params: {
         ? POPULATION_PRIOR_PROVENANCE
         : 'generic',
     path: 'decomposed',
-    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }

@@ -154,6 +154,7 @@ describe('windChopCeiling: onshore-blown big swell', () => {
       new Map([['windQuality', 30]]),
     );
     expect(chop?.ceiling).toBe(54);
-    expect(chop?.reason).toBe('Textured onshore wind (14 mph) caps score at 54');
+    expect(chop?.reason).toBe('Textured onshore wind at 14 mph chops it up.');
+    expect(chop?.code).toBe('cap_wind_chop');
   });
 });

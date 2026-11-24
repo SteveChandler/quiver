@@ -37,7 +37,6 @@ jest.mock("next/dynamic", () => ({
   __esModule: true,
   default: () => {
     // Resolve the lazy bar synchronously; the real loader is exercised in the bar's own test.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("@/components/app-store/install-bar").InstallBar;
   },
 }));
@@ -68,8 +67,6 @@ function ask(withSignup = true) {
   );
 }
 
-const ORIGINAL_FLAG = process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-
 beforeEach(() => {
   pathname = "/ca/san-diego/blacks";
   authState = { user: null, isLoading: false };
@@ -77,14 +74,8 @@ beforeEach(() => {
   Object.defineProperty(window, "scrollY", { value: 900, configurable: true, writable: true });
 });
 
-afterEach(() => {
-  if (ORIGINAL_FLAG === undefined) delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-  else process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = ORIGINAL_FLAG;
-});
-
 describe("StickyInstallAsk", () => {
   it("server-renders exactly what StickySignupBar renders alone, so CDN HTML is shared", () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_SAFARI_UA);
 
     expect(renderToStaticMarkup(ask())).toBe(
@@ -100,7 +91,6 @@ describe("StickyInstallAsk", () => {
     ["Safari", IPHONE_SAFARI_UA],
     ["Chrome on iPhone", IPHONE_CHROME_UA],
   ])("swaps the signup bar for the install bar on iPhone %s, never both", async (_name, userAgent) => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(userAgent);
     render(ask());
 
@@ -109,22 +99,7 @@ describe("StickyInstallAsk", () => {
     expect(screen.getAllByRole("complementary")).toHaveLength(1);
   });
 
-  it("is identical to today with the flag off, on every user agent", async () => {
-    delete process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED;
-
-    for (const userAgent of [IPHONE_SAFARI_UA, IPHONE_CHROME_UA, ANDROID_UA]) {
-      setUserAgent(userAgent);
-      const { unmount } = render(ask());
-      await act(async () => {});
-
-      expect(screen.queryByTestId("install-bar")).not.toBeInTheDocument();
-      expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
-      unmount();
-    }
-  });
-
-  it("keeps the signup bar for Android and desktop even with the flag on", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
+  it("keeps the signup bar for Android and desktop", async () => {
     setUserAgent(ANDROID_UA);
     render(ask());
     await act(async () => {});
@@ -134,7 +109,6 @@ describe("StickyInstallAsk", () => {
   });
 
   it("does not run on pages that are not bar surfaces", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_SAFARI_UA);
     pathname = "/forecast";
     render(ask());
@@ -145,7 +119,6 @@ describe("StickyInstallAsk", () => {
   });
 
   it("falls back to the signup bar after the install bar is dismissed, and remembers it", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_SAFARI_UA);
     const { unmount } = render(ask());
     await waitFor(() => expect(screen.getByTestId("install-bar")).toBeInTheDocument());
@@ -166,7 +139,6 @@ describe("StickyInstallAsk", () => {
   });
 
   it("renders nothing for a bar-owned page with no signup bar once the bar is dismissed", async () => {
-    process.env.NEXT_PUBLIC_INSTALL_BAR_ENABLED = "true";
     setUserAgent(IPHONE_CHROME_UA);
     pathname = "/beaches/usa/ca/san-diego";
     render(ask(false));

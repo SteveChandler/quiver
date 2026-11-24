@@ -119,8 +119,6 @@ function buildBeginnerWindowReason(
   }
   if (forecast.tide_status) {
     reasons.push(`${forecast.tide_status.toLowerCase()} tide`);
-  } else {
-    reasons.push("low-to-mid tide fit");
   }
   return `${reasons.join(", ")}.`;
 }

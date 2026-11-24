@@ -1,3 +1,5 @@
+import { GOOGLE_SITE_VERIFICATION } from "@/lib/constants/public-services";
+
 export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 ).replace(/\/$/, "");
@@ -230,6 +232,6 @@ export const SEO_CONFIG = {
     "apple-mobile-web-app-title": "Quiver",
     
     "format-detection": "telephone=no",
-    "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "", // Add verification code via environment variable
+    "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? GOOGLE_SITE_VERIFICATION,
   },
 } as const;

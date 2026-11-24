@@ -17,6 +17,7 @@ import {
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -114,7 +115,7 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/ndbc-direct-sync", _GET);
+const handleGet = withObservedCron("/api/cron/ndbc-direct-sync", _GET);
 
 // ---------------------------------------------------------------------------
 // Phase: stations (weekly)
@@ -327,15 +328,24 @@ async function syncObservations(): Promise<ObservationSyncResult> {
 
     let activeIOOSIds = new Set<string>();
     if (ioosLinkedIds.length > 0) {
-      const { data: activeIOOS } = await supabase
+      const { data: activeIOOS, error: activeIOOSError } = await supabase
         .from("ioos_stations")
         .select("station_id")
         .in("station_id", ioosLinkedIds)
         .eq("active", true);
 
-      activeIOOSIds = new Set(
-        (activeIOOS || []).map((s) => s.station_id)
-      );
+      if (activeIOOSError) {
+        // Fail safe: an unknown IOOS state must not cause duplicate observations,
+        // so IOOS-linked stations wait for the next run; unlinked stations still sync.
+        result.errors.push(
+          `Failed to fetch active IOOS stations; skipped IOOS-linked stations: ${activeIOOSError.message}`
+        );
+        activeIOOSIds = new Set(ioosLinkedIds);
+      } else {
+        activeIOOSIds = new Set(
+          (activeIOOS || []).map((s) => s.station_id)
+        );
+      }
     }
 
     const exclusiveStations = stations.filter((s) => {
@@ -470,21 +480,11 @@ async function syncObservations(): Promise<ObservationSyncResult> {
     );
   }
 
-  // Refresh observable_beaches materialized view (same as ioos-sync)
-  try {
-    const refreshClient = createSupabaseServiceRoleClient();
-    const { error: refreshError } = await (refreshClient as any).rpc(
-      "refresh_observable_beaches"
-    );
-    if (refreshError) {
-      result.errors.push(
-        `Failed to refresh observable_beaches: ${refreshError.message}`
-      );
-    }
-  } catch {
-    result.errors.push("Failed to refresh observable_beaches: unknown error");
-  }
+  // observable_beaches is refreshed hourly by pg_cron (refresh-observable-beaches-hourly).
+  // Calling it here always hit PostgREST's 8s statement_timeout and rolled back.
 
   result.duration_ms = Date.now() - startTime;
   return result;
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/ndbc-direct-sync");

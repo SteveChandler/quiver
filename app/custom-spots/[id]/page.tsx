@@ -16,8 +16,11 @@ import {
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
-import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
 import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
+import {
+  loadCustomSpotForecastAdjusters,
+  type CustomSpotDiscoveryRow,
+} from "@/lib/services/discovery/surf-discovery-orchestrator";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -86,6 +89,20 @@ async function getBorrowedForecasts(
   if (!result.success || !result.data) return [];
 
   return result.data;
+}
+
+/** Scales the borrowed rows to the spot's own terrain, exactly as Home does. */
+async function adjustForCustomSpot(
+  spot: CustomSpotRow,
+  nearestBeach: Beach | null,
+  forecasts: EnhancedForecastEntity[],
+): Promise<EnhancedForecastEntity[]> {
+  if (!nearestBeach || forecasts.length === 0) return forecasts;
+  const adjusters = await loadCustomSpotForecastAdjusters([
+    { spot: spot as unknown as CustomSpotDiscoveryRow, nearestBeach },
+  ]);
+  const adjust = adjusters.get(spot.id);
+  return adjust ? forecasts.map(adjust) : forecasts;
 }
 
 function normalizePhotoUrl(value: string | null | undefined): string | null {
@@ -163,11 +180,6 @@ function formatSwellWindow(spot: CustomSpotRow): string {
   )} deg`;
 }
 
-function formatDistance(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return "Nearest forecast spot";
-  return `${value.toFixed(1)} mi to nearest forecast spot`;
-}
-
 export async function generateMetadata(
   props: CustomSpotPageProps,
 ): Promise<Metadata> {
@@ -183,7 +195,7 @@ export async function generateMetadata(
 
   return {
     title: `${spot.name} Surf Forecast | Quiver`,
-    description: `Borrowed surf forecast and local conditions for ${spot.name}.`,
+    description: `Surf forecast and local conditions for ${spot.name}.`,
     robots:
       spot.visibility === "public"
         ? { index: true, follow: true }
@@ -200,12 +212,13 @@ export default async function CustomSpotDetailPage(
   if (!spot) notFound();
 
   const viewerId = await getCurrentViewerId();
-  const [nearestBeach, forecasts, borrowedPhotoUrl, customSpotPhotos] = await Promise.all([
+  const [nearestBeach, borrowedForecasts, borrowedPhotoUrl, customSpotPhotos] = await Promise.all([
     getNearestBeach(spot.nearest_beach_id),
     getBorrowedForecasts(spot.nearest_beach_id),
     getNearestBeachPhoto(spot.nearest_beach_id),
     getCustomSpotPhotos(spot.id, viewerId),
   ]);
+  const forecasts = await adjustForCustomSpot(spot, nearestBeach, borrowedForecasts);
   const featuredSpotPhoto = customSpotPhotos[0] ?? null;
   const heroPhotoUrl =
     featuredSpotPhoto?.thumbUrl ??
@@ -213,14 +226,11 @@ export default async function CustomSpotDetailPage(
     borrowedPhotoUrl;
   const currentForecast = getCurrentForecast(forecasts);
   const beachTimezone = nearestBeach?.timezone ?? null;
-  const fullForecastHref = nearestBeach
-    ? buildBeachUrlWithTab(nearestBeach, "forecast")
-    : null;
 
   return (
     <ZineSurface
       sectionLabel="Custom spot"
-      editionLabel="Borrowed forecast"
+      editionLabel="Custom spot"
       data-testid="custom-spot-zine-surface"
     >
       <main className="font-sans text-[#11100D]">
@@ -254,12 +264,6 @@ export default async function CustomSpotDetailPage(
                 <MapPin className="h-4 w-4 text-[#11100D]" aria-hidden="true" />
                 {spot.lat.toFixed(4)}, {spot.lon.toFixed(4)}
               </span>
-              {nearestBeach ? (
-                <>
-                  <span aria-hidden>/</span>
-                  <span>Forecast borrowed from {nearestBeach.name}</span>
-                </>
-              ) : null}
             </div>
           </div>
 
@@ -268,9 +272,7 @@ export default async function CustomSpotDetailPage(
               <div className="photo">
                 <Image
                   src={heroPhotoUrl}
-                  alt={`${
-                    featuredSpotPhoto ? spot.name : nearestBeach?.name ?? spot.name
-                  } surf zone`}
+                  alt={`${spot.name} surf zone`}
                   width={800}
                   height={600}
                   className="h-full w-full object-cover saturate-[0.78]"
@@ -283,19 +285,15 @@ export default async function CustomSpotDetailPage(
                   className="absolute -bottom-5 -right-4 w-28 -rotate-[2deg] drop-shadow-md"
                 />
               </div>
-              <p className="cap">
-                {featuredSpotPhoto ? (
+              {featuredSpotPhoto ? (
+                <p className="cap">
                   <PhotoAttribution
                     attribution={featuredSpotPhoto.attribution}
                     attributionHtml={featuredSpotPhoto.attributionHtml}
                     className="underline-offset-2 hover:underline"
                   />
-                ) : nearestBeach ? (
-                  `Borrowed from ${nearestBeach.name}`
-                ) : (
-                  "Quiver community"
-                )}
-              </p>
+                </p>
+              ) : null}
             </div>
           ) : (
             <div className="torn torn-tb relative hidden min-h-48 border-2 border-[#11100D] bg-[#FBF6E8] p-6 lg:block">
@@ -304,7 +302,7 @@ export default async function CustomSpotDetailPage(
                 className="absolute -right-4 -top-4 w-28 -rotate-[2deg] opacity-85"
               />
               <p className="max-w-xs font-heading text-2xl font-black uppercase leading-tight text-[#11100D]">
-                Forecast borrowed, photo pending.
+                Photo pending.
               </p>
             </div>
           )}
@@ -412,16 +410,6 @@ export default async function CustomSpotDetailPage(
                 value={formatNumber(spot.offshore_direction_deg)}
               />
               <DetailRow label="Swell window" value={formatSwellWindow(spot)} />
-              <DetailRow
-                label="Forecast source"
-                value={
-                  nearestBeach
-                    ? `${nearestBeach.name} (${formatDistance(
-                        spot.nearest_beach_distance_mi,
-                      )})`
-                    : "No nearest beach linked"
-                }
-              />
             </div>
           </section>
 
@@ -429,16 +417,8 @@ export default async function CustomSpotDetailPage(
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-heading text-2xl font-black uppercase leading-tight text-[#11100D]">
                 <Waves className="h-5 w-5" aria-hidden="true" />
-                Borrowed forecast
+                Forecast
               </h2>
-              {fullForecastHref ? (
-                <Link
-                  href={fullForecastHref}
-                  className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition-colors hover:text-[#F78E42]"
-                >
-                  Full forecast
-                </Link>
-              ) : null}
             </div>
             <div
               className="zine-forecast-table overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8] p-3 font-mono shadow-[2px_3px_0_rgba(17,16,13,0.18)]"

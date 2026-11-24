@@ -3,10 +3,11 @@ import { z } from "zod";
 import { withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { lifecycleRpc } from "@/lib/email/lifecycle";
 import { ownedOffersSchema } from "@/lib/subscription/offer-contract";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
-export const GET = withRateLimit(withAuth(async (_request, { user }) => {
+const handleGet = withRateLimit(withAuth(async (_request, { user }) => {
   if (process.env.PRO_OFFERS_ENABLED !== "true") return NextResponse.json({ contract_version: 1, user_id: user.id, offers: [], enrollment: null }, { headers });
   return NextResponse.json(ownedOffersSchema.parse(await lifecycleRpc("list_owned_pro_offers", { p_user_id: user.id })), { headers });
 }), { key: "authenticated-default" });
@@ -21,3 +22,5 @@ export const POST = withRateLimit(withAuth(async (request, { user }) => {
     return NextResponse.json({ error: "Enrollment is unavailable. Refresh to check your account before retrying." }, { status: 409, headers });
   }
 }), { key: "authenticated-default" });
+
+export const GET = withErrorNoStore(handleGet, "/api/offers");

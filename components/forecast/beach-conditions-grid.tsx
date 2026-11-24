@@ -20,6 +20,8 @@ import { ScoreLoginLink } from "./score-login-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { QuiverSticker } from "@/components/zine";
+import { getGuideSlugForRegion } from "@/lib/data/forecast-regions";
+import { getHubRegion } from "@/lib/data/hub-regions";
 import { useOptionalAuth } from "@/context/auth-context";
 import {
   Table,
@@ -334,6 +336,15 @@ export function BeachConditionsGrid({
     .slice(0, maxBeaches);
 
   const hasMoreBeaches = beaches.length > maxBeaches;
+  // The link target is a hub guide; a slug without one 404s there. A region
+  // with its own guide keeps it (los-angeles); the override map is only the
+  // fallback for regions without one (ventura-santa-barbara -> ventura).
+  const guideSlug =
+    getHubRegion(regionSlug) !== null
+      ? regionSlug
+      : getGuideSlugForRegion(regionSlug);
+  const showViewAllLink =
+    showViewAll && hasMoreBeaches && getHubRegion(guideSlug) !== null;
   // Built as a string rather than JSX text: SWC drops the leading whitespace of
   // a JSX text node that contains an HTML entity and a newline, so
   // `{n} beaches &rarr;` across two lines rendered "View all 35beaches →".
@@ -381,9 +392,9 @@ export function BeachConditionsGrid({
             </p>
             </div>
           </div>
-          {showViewAll && hasMoreBeaches && (
+          {showViewAllLink && (
             <Link
-              href={`/guides/surfing-${regionSlug}`}
+              href={`/guides/surfing-${guideSlug}`}
               className={cn(
                 "text-sm font-medium hover:underline transition-colors whitespace-nowrap",
                 "text-[#B56A2B] hover:text-[#11100D]"
@@ -437,11 +448,11 @@ export function BeachConditionsGrid({
       </div>
 
       {/* View All Link for Mobile */}
-      {showViewAll && hasMoreBeaches && (
+      {showViewAllLink && (
         <ScrollReveal variant="fadeUp" delay={displayBeaches.length * 75 + 100}>
           <div className="md:hidden text-center pt-2">
             <Link
-              href={`/guides/surfing-${regionSlug}`}
+              href={`/guides/surfing-${guideSlug}`}
               className={cn(
                 "text-sm font-medium hover:underline transition-colors",
                 "text-[#B56A2B] hover:text-[#11100D]"

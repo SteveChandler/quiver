@@ -6,7 +6,6 @@ import {
   communityPhotoErrorResponse,
   completeCommunityPhotoUpload,
   failCommunityPhotoUpload,
-  getCommunityPhotoFeatureFlags,
   parseCommunityPhotoUploadFields,
   preflightCommunityPhotoUpload,
   reserveCommunityPhotoUpload,
@@ -45,9 +44,6 @@ async function uploadHandler(
   { user }: AuthenticatedContext,
 ): Promise<NextResponse> {
   try {
-    if (!getCommunityPhotoFeatureFlags(user.id).writeEnabled) {
-      throw new CommunityPhotoError("feature_disabled");
-    }
     const idempotencyKey = z
       .string()
       .uuid()

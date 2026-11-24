@@ -4,6 +4,7 @@
 
 import {
   buildWeekendScoutRanking,
+  fetchWeekendScoutHomeBeach,
   type WeekendScoutDependencies,
 } from '@/lib/services/discovery/weekend-scout';
 import type { WeekendScoutCandidate } from '@/lib/services/discovery/weekend-scout-candidate-pool';
@@ -120,6 +121,7 @@ function dependencies(): WeekendScoutDependencies {
       timezone: 'America/Los_Angeles',
       capturedAt: '2026-07-24T19:55:00.000Z',
     })),
+    fetchHomeBeach: jest.fn(async () => null),
     fetchUserContext: jest.fn(async () => ({
       maxDriveMinutes: 90,
       homeBeachId: NEAR,
@@ -140,9 +142,13 @@ describe('buildWeekendScoutRanking', () => {
   it('returns explicit missing and stale location states', async () => {
     const missing = dependencies();
     missing.fetchLocation = jest.fn(async () => null);
+    missing.fetchUserContext = jest.fn(async () => ({
+      homeBeachId: null, maxDriveMinutes: 90, savedBeachIds: new Set<string>(),
+    }));
     await expect(buildWeekendScoutRanking('user-1', missing)).resolves.toEqual({
       status: 'missing_location',
     });
+    expect(missing.fetchHomeBeach).not.toHaveBeenCalled();
 
     const stale = dependencies();
     stale.fetchLocation = jest.fn(async () => ({
@@ -165,6 +171,91 @@ describe('buildWeekendScoutRanking', () => {
     await expect(buildWeekendScoutRanking('user-1', future)).resolves.toEqual({
       status: 'stale_location',
     });
+  });
+
+  it.each([
+    ['missing', null],
+    ['stale', '2026-07-23T19:59:59.999Z'],
+  ])('uses the home beach when the phone fix is %s', async (_reason, capturedAt) => {
+    const deps = dependencies();
+    deps.now = new Date('2026-07-27T02:00:00.000Z');
+    deps.fetchLocation = jest.fn(async () => capturedAt ? {
+      lat: 32.81, lon: -117.27, timezone: 'UTC', capturedAt,
+    } : null);
+    deps.fetchHomeBeach = jest.fn(async () => ({
+      id: NEAR, name: 'Home Beach', lat: 21.3, lon: -157.8, timezone: 'Pacific/Honolulu',
+    }));
+
+    const result = await buildWeekendScoutRanking('user-1', deps);
+
+    expect(deps.fetchHomeBeach).toHaveBeenCalledWith(NEAR);
+    expect(deps.buildCandidatePool).toHaveBeenCalledWith('user-1', {
+      userLocation: { lat: 21.3, lon: -157.8 }, radiusMiles: 45,
+    });
+    expect(deps.generateForecast).toHaveBeenCalledWith('user-1', expect.objectContaining({
+      localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-25',
+    }));
+    expect(result).toMatchObject({
+      status: 'ready',
+      ranking: {
+        contractVersion: 'weekend-scout-v1',
+        origin: { kind: 'home_beach', beachId: NEAR, beachName: 'Home Beach' },
+        weekendEnd: '2026-07-26',
+        locationCapturedAt: '2026-07-24T20:00:00.000Z',
+      },
+      leadWindowTimezone: 'America/Los_Angeles',
+    });
+  });
+
+  it('keeps a fresh phone fix even when a home beach is available', async () => {
+    const deps = dependencies();
+    deps.fetchHomeBeach = jest.fn(async () => ({
+      id: NEAR, name: 'Home Beach', lat: 21.3, lon: -157.8, timezone: 'Pacific/Honolulu',
+    }));
+    expect(await buildWeekendScoutRanking('user-1', deps)).toMatchObject({
+      status: 'ready',
+      ranking: {
+        origin: { kind: 'location' },
+        locationCapturedAt: '2026-07-24T19:55:00.000Z',
+      },
+    });
+    expect(deps.fetchHomeBeach).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { lat: 91 },
+    { lon: -181 },
+    { timezone: null },
+    { timezone: 'Invalid/Zone' },
+  ])('keeps the skip for an unusable home beach (%j)', async (overrides) => {
+    const deps = dependencies();
+    deps.fetchLocation = jest.fn(async () => null);
+    deps.fetchHomeBeach = jest.fn(async () => ({
+      id: NEAR, name: 'Home Beach', lat: 21.3, lon: -157.8, timezone: 'Pacific/Honolulu',
+      ...overrides,
+    }));
+    await expect(buildWeekendScoutRanking('user-1', deps)).resolves.toEqual({ status: 'missing_location' });
+    expect(deps.buildCandidatePool).not.toHaveBeenCalled();
+  });
+
+  it('filters out deleted and private home beaches and propagates read errors', async () => {
+    const maybeSingle = jest.fn()
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: 'connection lost' } });
+    const query = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
+      maybeSingle,
+    };
+    const supabase = { from: jest.fn(() => query) } as unknown as Parameters<typeof fetchWeekendScoutHomeBeach>[1];
+
+    await expect(fetchWeekendScoutHomeBeach(NEAR, supabase)).resolves.toBeNull();
+    await expect(fetchWeekendScoutHomeBeach(NEAR, supabase)).rejects.toThrow('connection lost');
+    expect(query.eq).toHaveBeenCalledWith('id', NEAR);
+    expect(query.is).toHaveBeenCalledWith('deleted_at', null);
+    expect(query.or).toHaveBeenCalledWith('is_private.is.null,is_private.eq.false');
   });
 
   it('scores every current-location candidate and ranks three unique qualifying beaches', async () => {
@@ -331,7 +422,7 @@ describe('buildWeekendScoutRanking', () => {
     });
   });
 
-  it('uses the shared 100-mile radius when max drive time is unset', async () => {
+  it('uses the shared 30-mile radius when max drive time is never set', async () => {
     const deps = dependencies();
     deps.fetchUserContext = jest.fn(async () => ({
       maxDriveMinutes: null,
@@ -344,17 +435,24 @@ describe('buildWeekendScoutRanking', () => {
     expect(result.status).toBe('ready');
     expect(deps.buildCandidatePool).toHaveBeenCalledWith(
       'user-1',
-      expect.objectContaining({ radiusMiles: 100 }),
+      expect.objectContaining({ radiusMiles: 30 }),
     );
     if (result.status !== 'ready') throw new Error('expected ready');
-    expect(result.maxDriveMinutes).toBe(200);
+    expect(result.maxDriveMinutes).toBe(60);
   });
 
   it.each([
-    [-5, 15, 7.5],
-    [500, 90, 45],
+    [Number.NaN, 60, 30],
+    [Infinity, 60, 30],
+    [0, 60, 30],
+    [-5, 60, 30],
+    [10.5, 11, 5.5],
+    [30, 30, 15],
+    [60, 60, 30],
+    [200, 200, 100],
+    [500, 200, 100],
   ])(
-    'clamps configured drive time %i to %i minutes',
+    'resolves configured drive time %p to %i minutes and the shared radius',
     async (configured, expectedMinutes, expectedMiles) => {
       const deps = dependencies();
       deps.fetchUserContext = jest.fn(async () => ({

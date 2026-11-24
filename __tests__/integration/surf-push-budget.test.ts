@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+// The swell_story_push switch is a database row; these pushes are today's text, with it off.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryPushEnabled: jest.fn(async () => false), isSwellStoryCardEnabled: jest.fn(async () => false) }));
 jest.mock("@/lib/services/firebase-admin", () => ({
   getFirebaseAdminMessaging: jest.fn(() => null),
 }));

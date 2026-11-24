@@ -98,7 +98,8 @@ describe("Garmin watch migration", () => {
     expect(fn).toContain("p_user_id: string");
     expect(fn).toContain("p_add: number[]");
     expect(fn).toContain("p_remove: number[]");
-    expect(fn).toContain("Returns: number[] | null");
+    // supabase gen types cannot express the zero-row NULL; the caller ignores the result.
+    expect(fn).toMatch(/Returns: number\[\]( \| null)?$/m);
   });
 
   it("revokes devices and removes link codes during account deletion", () => {

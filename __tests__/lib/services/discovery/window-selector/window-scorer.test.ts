@@ -1,9 +1,11 @@
 import {
   scoreWindowConditionDetails,
+  scoreWindowWithComposite,
 } from '@/lib/services/discovery/window-selector/window-scorer';
 import type { BoardClass } from '@/lib/domains/rideability/board-class';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import tideSwingDay from '../../../../fixtures/tide-swing-20261027.json';
 
 function beach(overrides: Partial<Beach> = {}): Beach {
   return {
@@ -117,5 +119,173 @@ describe('curated tide band ceiling', () => {
     const result = scoreWindowConditionDetails(epicDay('4.4 ft'), uncurated, 'advanced', null, boards);
     expect(result.score).toBeGreaterThanOrEqual(80);
     expect(result.appliedEffects).not.toContain('tide_outside_band');
+  });
+});
+
+describe('band-aware tide term on tomorrow\'s rows (2026-10-27, intermediate, no board)', () => {
+  type Slug = keyof typeof tideSwingDay.beaches;
+  const slugs = Object.keys(tideSwingDay.beaches).sort() as Slug[];
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.DIRECTION_SCORING_ENABLED;
+    delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  function shown(slug: Slug) {
+    const beachRow = tideSwingDay.beaches[slug] as unknown as Beach;
+    return (tideSwingDay.forecasts[slug] as unknown as EnhancedForecastEntity[])
+      .map((row) => scoreWindowConditionDetails(row, beachRow, 'intermediate'));
+  }
+
+  // 5, 8, 11 AM, 2, 5 PM PDT. Prod's displayed scores for these rows, before this change.
+  const today: Record<Slug, number[]> = {
+    'blackies': [33, 32, 32, 28, 32],
+    'lower-trestles': [52, 65, 59, 61, 55],
+    'pb-point': [47, 39, 37, 44, 36],
+    'tourmaline': [49, 41, 39, 42, 47],
+    'windansea': [67, 65, 59, 65, 65],
+  };
+
+  it('flag off reproduces today\'s displayed scores and the fixed tide term exactly', () => {
+    for (const slug of slugs) {
+      const details = shown(slug);
+      expect(details.map((d) => d.score)).toEqual(today[slug]);
+      const rows = tideSwingDay.forecasts[slug] as unknown as EnhancedForecastEntity[];
+      // 2.x ft rising/falling -> 10, 5.x ft moving -> 7, 6+ ft or below 0.5 moving -> 4.
+      expect(details.map((d) => d.components.tide)).toEqual(rows.map((row) => {
+        const ft = parseFloat(row.tide_height ?? '');
+        return ft >= 1.5 && ft <= 4.5 ? 10 : ft >= 0.5 && ft <= 6 ? 7 : 4;
+      }));
+    }
+  });
+
+  it('flag on follows each beach\'s band; unbanded Blackies is unchanged', () => {
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
+    const tide = (slug: Slug) => shown(slug).map((d) => Math.round(d.components.tide * 100) / 100);
+
+    expect(shown('blackies').map((d) => d.score)).toEqual(today.blackies);
+    expect(tide('blackies')).toEqual([10, 7, 7, 10, 4]);
+    // 2-4 point: 5.7 ft at 8 AM loses points, 6.3 ft at 11 AM was already at the floor.
+    expect(shown('pb-point').map((d) => d.score)).toEqual([47, 38, 37, 44, 36]);
+    expect(tide('pb-point')).toEqual([10, 5.65, 4, 10, 4]);
+    // 2-5.5 beach: 5.7 ft is in tolerance, 6.3 ft is 0.55 ft past it.
+    expect(shown('tourmaline').map((d) => d.score)).toEqual([49, 44, 43, 42, 47]);
+    expect(tide('tourmaline')).toEqual([10, 10, 8.35, 10, 4]);
+    // 0-6 reef: high water is in its band.
+    expect(shown('windansea').map((d) => d.score)).toEqual([67, 65, 65, 65, 65]);
+    expect(tide('windansea')).toEqual([10, 10, 10, 10, 8.35]);
+    // 2-6 reef.
+    expect(shown('lower-trestles').map((d) => d.score)).toEqual([52, 65, 62, 61, 55]);
+    expect(tide('lower-trestles')).toEqual([10, 10, 10, 10, 4]);
+  });
+
+  it('flag on: Tourmaline 11 AM says when the tide is back, PB Point keeps its 55', () => {
+    process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED = 'true';
+    const eleven = (slug: Slug) => scoreWindowWithComposite(
+      (tideSwingDay.forecasts[slug] as unknown as EnhancedForecastEntity[])[2],
+      tideSwingDay.beaches[slug] as unknown as Beach,
+    );
+    expect(eleven('tourmaline').effects).toContainEqual(
+      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 79, message: 'Tide back in range by ~12 PM' },
+    );
+    expect(eleven('pb-point').effects).toContainEqual(
+      { code: 'tide_outside_band', severity: 'material', verdictCeiling: 55, message: 'Tide is high' },
+    );
+    expect(shown('pb-point')[2].decisionCeiling).toBe(55);
+    // Every tide-only ceiling stays at or above FAIR.
+    for (const slug of slugs) {
+      for (const d of shown(slug)) expect(d.decisionCeiling).toBeGreaterThanOrEqual(55);
+    }
+  });
+});
+
+
+describe('composite skip ceiling', () => {
+  // Ocean Beach Pier's beach row and its 2026-11-01 21:00Z forecast. Dev served this hour as
+  // MAYBE 65 beside the character "Onshore wind — conditions blown out".
+  const obp = (): Beach => beach({
+    id: '65d177de-e75a-4ad8-aa0d-48a67c0851b0', name: 'Ocean Beach Pier', slug: 'ocean-beach-pier',
+    aspect_deg: 260, skill_level: 'advanced', wind_offshore_deg: 90, wind_offshore_tol_deg: 45,
+    swell_window_center_deg: 293, swell_window_halfwidth_deg: 73,
+    preferred_tide_ft_min: 0, preferred_tide_ft_max: 4, preferred_tide_direction: 'rising',
+  });
+  const hour = (wind_speed: string, wind_direction_deg: number): EnhancedForecastEntity => forecast({
+    beach_id: '65d177de-e75a-4ad8-aa0d-48a67c0851b0', forecast_at: '2026-11-01T21:00:00Z',
+    wave_height: '3.2 ft', wave_period: '14s', wave_direction: 'SSW',
+    swell_1_height: '4.2 ft', swell_1_period: '16s', swell_1_direction: 'SSW',
+    wind_wave_height: '1 ft', wind_wave_period: '9s',
+    wind_speed, wind_direction: 'WNW', wind_direction_deg,
+    tide_height: '4.7 ft', tide_status: 'Falling', data_source: 'CDIP', confidence_score: 100,
+  });
+  const boards: BoardClass[] = ['shortboard', 'longboard'];
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.DIRECTION_SCORING_ENABLED;
+    delete process.env.NEXT_PUBLIC_TIDE_SWING_ENABLED;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('holds a blown-out onshore hour at MEH, with or without boards', () => {
+    const blownOut = hour('22 mph', 299);
+    expect(scoreWindowWithComposite(blownOut, obp()).skipReason).toBe('Blown out (22 mph onshore)');
+
+    const noBoard = scoreWindowConditionDetails(blownOut, obp(), 'advanced', null, []);
+    const withBoards = scoreWindowConditionDetails(blownOut, obp(), 'advanced', null, boards);
+
+    expect(noBoard.score).toBe(39);
+    expect(withBoards.score).toBe(39);
+    expect(noBoard.decisionCeiling).toBe(39);
+    expect(noBoard.appliedEffects).toContain('composite_skip');
+  });
+
+  it('leaves a choppy hour below the blown-out tier to the condition score', () => {
+    const choppy = hour('20 mph', 283);
+    expect(scoreWindowWithComposite(choppy, obp()).skipReason).toBeNull();
+
+    const details = scoreWindowConditionDetails(choppy, obp(), 'advanced', null, []);
+
+    expect(details.decisionCeiling).toBeGreaterThan(39);
+    expect(details.score).toBeGreaterThan(39);
+    expect(details.appliedEffects).not.toContain('composite_skip');
+  });
+});
+
+describe('size cap on a partial beach row (bulk route columns)', () => {
+  // The bulk RPC returns no aspect_deg, so the composite ceilings never ran for these rows.
+  const MISSION_BEACH = 'c02b4ede-69d9-440e-b8de-22ea4bde10ef';
+  const partial = (id: string) => {
+    const { aspect_deg: _aspect, ...row } = beach({ id, name: 'Mission Beach', slug: 'mission-beach' });
+    return row as Beach;
+  };
+  const big = (wave_height: string): EnhancedForecastEntity => forecast({
+    wave_height, wave_period: '14s', swell_1_period: '14s', wind_speed: '3 mph', wind_direction: 'E',
+  });
+
+  it('caps a capped beach above its size and leaves the same row uncapped at the cap', () => {
+    const above = scoreWindowConditionDetails(big('8.6 ft'), partial(MISSION_BEACH), 'advanced', null, []);
+    const atCap = scoreWindowConditionDetails(big('6 ft'), partial(MISSION_BEACH), 'advanced', null, []);
+    expect(atCap.score).toBeGreaterThan(39);
+    expect(atCap.decisionCeiling).toBe(100);
+    expect(above.score).toBeLessThanOrEqual(39);
+    expect(above.decisionCeiling).toBe(39);
+    expect(above.appliedEffects).toEqual(['closeout_size']);
+  });
+
+  it('does not cap a beach outside the list', () => {
+    const result = scoreWindowConditionDetails(big('8.6 ft'), partial('beach-1'), 'advanced', null, []);
+    expect(result.decisionCeiling).toBe(100);
+    expect(result.score).toBeGreaterThan(39);
   });
 });

@@ -1,4 +1,6 @@
-import { calibratedShadowFactor, transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
+import { calibratedShadowFactor, transformToFaceHeight, transformToFaceHeightWithMetadata, transformToFaceHeightRange, transformToFaceHeightDecomposed, alignmentFactor, componentAccessFactor, estimatedWindowAccessFactor, ESTIMATED_WINDOW_SHOULDER_DEG, calculatePeriodFactor, calculateDirectionFactor, lookupShoalingBucket, SHORT_PERIOD_CUTOFF_S, WIND_WAVE_FACE_HEIGHT_CUTOFF_S, ALIGNMENT_FLOOR, BASE_SHOALING, PERIOD_REF, PERIOD_MULT, PERIOD_FACTOR_MIN, PERIOD_FACTOR_MAX, DIRECTION_FACTOR_MIN, DIRECTION_FACTOR_RANGE, SET_WAVE_VARIANCE, POPULATION_PRIOR_BUCKETS, POPULATION_PRIOR_PROVENANCE, type BeachTerrainConfig, type ShoalingFactors, type SwellComponentInput, type TransformParams, type WaveHeightSourceTag } from '@/lib/utils/wave-height-transformer';
+import { ECMWF_HYBRID_K_FACTORS } from '@/lib/utils/ecmwf-hybrid-k-factors';
+import { MODEL_SWELL_CALIBRATION_FACTORS } from '@/lib/utils/model-swell-calibration-factors';
 import { TERRAIN_BINS, toBin5 } from '@/types/terrain';
 import {
   createMockBeach,
@@ -160,56 +162,6 @@ describe('Wave Height Transformer', () => {
     });
   });
 
-  describe('calibratedShadowFactor', () => {
-    // OB Pier-like: window center 293, halfwidth 73 => window 220-366 deg.
-    const obBeach = {
-      swell_window_center_deg: 293,
-      swell_window_halfwidth_deg: 73,
-      swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
-    };
-
-    it('returns 1.0 for in-window directions (bucket already calibrated there)', () => {
-      expect(calibratedShadowFactor(293, obBeach)).toBe(1.0); // dead center
-      expect(calibratedShadowFactor(250, obBeach)).toBe(1.0); // inside halfwidth
-    });
-
-    it('applies the floored shadow for an out-of-window low-access direction', () => {
-      // 202deg is 91deg from center 293 (> halfwidth 73) => out of window.
-      // 0.6 + sqrt(0.008)*0.4 = 0.6353
-      expect(calibratedShadowFactor(202, obBeach)).toBeCloseTo(0.6353, 3);
-    });
-
-    it('floors at 0.6 even when access is exactly 0 (diffraction floor, not zero)', () => {
-      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(202)]: 0 }) };
-      expect(calibratedShadowFactor(202, beach)).toBeCloseTo(0.6, 5);
-    });
-
-    it('returns 1.0 for an out-of-window but fully-exposed direction', () => {
-      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(202)]: 1.0 }) };
-      expect(calibratedShadowFactor(202, beach)).toBeCloseTo(1.0, 5);
-    });
-
-    it('treats the window boundary (distance == halfwidth) as out-of-window', () => {
-      // 220deg is exactly 73deg from center 293 => boundary => shadow applies.
-      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(220)]: 0.01 }) };
-      expect(calibratedShadowFactor(220, beach)).toBeLessThan(1.0);
-    });
-
-    it('is a no-op (1.0) when direction, window, or access is missing/invalid', () => {
-      expect(calibratedShadowFactor(null, obBeach)).toBe(1.0);
-      expect(calibratedShadowFactor(202, {
-        swell_window_center_deg: null,
-        swell_window_halfwidth_deg: null,
-        swell_access_factors: obBeach.swell_access_factors,
-      })).toBe(1.0);
-      expect(calibratedShadowFactor(202, {
-        swell_window_center_deg: 293,
-        swell_window_halfwidth_deg: 73,
-        swell_access_factors: [0.1, 0.2],
-      })).toBe(1.0);
-      expect(calibratedShadowFactor(202, null)).toBe(1.0);
-    });
-  });
 
   describe('lookupShoalingBucket', () => {
     const factors: ShoalingFactors = {
@@ -478,12 +430,12 @@ describe('Wave Height Transformer', () => {
         expect(
           transformToFaceHeight({
             rawHeightFt: 2.0,
-            periodS: 6, // <8 bucket, factor 1.6
+            periodS: 6, // <8 bucket 1.6 capped to period factor 0.8
             swellDirectionDeg: null,
             beach: { shoaling_factors: blacksFactors },
             source: 'cdip_sig',
           })
-        ).toBe(3.2);
+        ).toBe(1.6);
 
         expect(
           transformToFaceHeight({
@@ -614,7 +566,7 @@ describe('Wave Height Transformer', () => {
 
       it('should handle period exactly at bucket boundary using half-open intervals', () => {
         // tp_min_s=8 is inclusive, tp_max_s=8 is exclusive.
-        // Period=8.0 should land in the 8-12 bucket (factor 1.7), not the <8 bucket (1.6).
+        // Period=8.0 lands in the 8-12 bucket, then its 1.7 factor is capped to 0.9.
         const result = transformToFaceHeight({
           rawHeightFt: 2.0,
           periodS: 8.0,
@@ -622,7 +574,7 @@ describe('Wave Height Transformer', () => {
           beach: { shoaling_factors: blacksFactors },
           source: 'cdip_sig',
         });
-        expect(result).toBe(3.4); // 2.0 * 1.7
+        expect(result).toBe(1.8); // 2.0 * 0.9
       });
 
       // =============================================================
@@ -635,7 +587,7 @@ describe('Wave Height Transformer', () => {
       it('should SKIP short-circuit when source is model_swell (not cdip_sig)', () => {
         // Same beach, same factors, same period, same inputs — but the
         // upstream source was model_swell (e.g. CDIP was rejected as an
-        // outlier or exceeded MAX_TRUSTED_CDIP_FT). The bucket factor is
+        // outlier). The bucket factor is
         // measured as surfline_face_ft / cdip_hs_ft — applying it to a
         // model height is a units/semantics mismatch. Must fall through
         // to the legacy base × period × direction pipeline instead.
@@ -896,6 +848,17 @@ describe('Wave Height Transformer', () => {
   });
 
   describe('transformToFaceHeightWithMetadata', () => {
+    const LA_JOLLA_SHORES_SHOALING_FACTORS: ShoalingFactors = {
+      version: 1,
+      type: 'period_lookup',
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.18 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.19 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 1.42 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 1.46 },
+      ],
+    };
+
     // Blacks-style calibration factors, modeled on the 20260407 migration.
     // bucket at 12-16s = 2.1x → 1.7ft CDIP Hs × 2.1 = 3.57 → rounds to 3.6.
     const BLACKS_SHOALING_FACTORS: ShoalingFactors = {
@@ -932,9 +895,7 @@ describe('Wave Height Transformer', () => {
       expect(result.provenance).toBe('measured');
     });
 
-    it('keeps calibrated bucket output byte-for-byte unchanged and never uses the prior', () => {
-      // Regression: adding a population prior must not alter measured beach
-      // output or mutate the measured shoaling_factors payload.
+    it('caps short-period calibration without changing longer buckets or mutating factors', () => {
       const beach = createCalibratedBeach();
       const before = JSON.stringify(beach);
       const outputs = [6, 10, 14, 18].map((periodS) =>
@@ -947,10 +908,114 @@ describe('Wave Height Transformer', () => {
         }),
       );
 
-      expect(outputs.map((result) => result.faceHeightFt)).toEqual([3.2, 3.4, 4.2, 4.8]);
+      expect(outputs.map((result) => result.faceHeightFt)).toEqual([1.6, 3.4, 4.2, 4.8]);
+      expect(outputs.map((result) => result.shortPeriodBucketCapped)).toEqual([
+        true, undefined, undefined, undefined,
+      ]);
       expect(outputs.every((result) => result.provenance === 'measured')).toBe(true);
       expect(outputs.every((result) => result.isCalibrated)).toBe(true);
       expect(JSON.stringify(beach)).toBe(before);
+    });
+
+    it('caps La Jolla Shores 2.7 ft CDIP Hs at 7 s to 2.3 ft', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 7,
+        swellDirectionDeg: 290,
+        beach: { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(2.3);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.provenance).toBe('measured');
+      expect(result.shortPeriodBucketCapped).toBe(true);
+    });
+
+    it('caps Blacks 1.57 bucket at 6 s', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 3,
+        periodS: 6,
+        swellDirectionDeg: 275,
+        beach: { shoaling_factors: BLACKS_SHOALING_FACTORS },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(2.4);
+      expect(result.shortPeriodBucketCapped).toBe(true);
+    });
+
+    it('retains a short-period bucket already below the cap', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 7,
+        swellDirectionDeg: 290,
+        beach: {
+          shoaling_factors: {
+            version: 1,
+            type: 'period_lookup',
+            buckets: [{ tp_min_s: 0, tp_max_s: 8, factor: 0.7 }],
+          },
+        },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(1.9);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.shortPeriodBucketCapped).toBeUndefined();
+    });
+
+    it('caps the 8.0 s edge despite using the 8-12 s bucket', () => {
+      const beach = { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS };
+      const atCutoff = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 8,
+        swellDirectionDeg: 290,
+        beach,
+        source: 'cdip_sig',
+      });
+      const aboveCutoff = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 8.01,
+        swellDirectionDeg: 290,
+        beach,
+        source: 'cdip_sig',
+      });
+
+      expect(lookupShoalingBucket(8, beach.shoaling_factors)).toBe(1.19);
+      expect(atCutoff.faceHeightFt).toBe(2.4);
+      expect(atCutoff.shortPeriodBucketCapped).toBe(true);
+      expect(aboveCutoff.faceHeightFt).toBe(3.2);
+      expect(aboveCutoff.shortPeriodBucketCapped).toBeUndefined();
+    });
+
+    it('leaves La Jolla Shores 13 s bucket unchanged', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 13,
+        swellDirectionDeg: 290,
+        beach: { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(3.8);
+      expect(result.shortPeriodBucketCapped).toBeUndefined();
+    });
+
+    it('applies the same short-period cap to calibrated nowcast anchors', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.7,
+        periodS: 7,
+        swellDirectionDeg: 290,
+        beach: { shoaling_factors: LA_JOLLA_SHORES_SHOALING_FACTORS },
+        source: 'nowcast_anchor',
+        allowCalibratedShoaling: true,
+      });
+
+      expect(result.faceHeightFt).toBe(2.3);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.provenance).toBe('measured');
+      expect(result.shortPeriodBucketCapped).toBe(true);
     });
 
     it('returns isCalibrated false for cdip_sig without shoaling factors', () => {
@@ -982,7 +1047,7 @@ describe('Wave Height Transformer', () => {
       expect(result.provenance).toBe('generic');
     });
 
-    it('quarantines low long-period CDIP buckets and uses the generic path', () => {
+    it('applies a low long-period CDIP bucket as fitted (no quarantine)', () => {
       const rinconStyleFactors: ShoalingFactors = {
         version: 1,
         type: 'period_lookup',
@@ -997,33 +1062,38 @@ describe('Wave Height Transformer', () => {
         source: 'cdip_sig',
       });
 
-      expect(result.faceHeightFt).toBe(5.0);
-      expect(result.faceHeightFt).toBeGreaterThan(4.2 * 0.36);
-      expect(result.isCalibrated).toBe(false);
-      expect(result.calibrationBucketQuarantined).toBe(true);
+      expect(result.faceHeightFt).toBe(1.5);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.provenance).toBe('measured');
     });
 
-    it('keeps normal calibrated behavior for long-period CDIP buckets at or above threshold', () => {
-      const trustedFactors: ShoalingFactors = {
+    it('does not shadow a calibrated CDIP reading from outside the swell window', () => {
+      // OB Pier-like window 220-366 deg with almost no access at 202 deg; the
+      // bucket already holds the beach's sheltering, so no extra cut.
+      const factors: ShoalingFactors = {
         version: 1,
         type: 'period_lookup',
-        buckets: [{ tp_min_s: 15, tp_max_s: 999, factor: 1.2 }],
+        buckets: [{ tp_min_s: 0, tp_max_s: 999, factor: 1.2 }],
       };
 
       const result = transformToFaceHeightWithMetadata({
-        rawHeightFt: 4.2,
-        periodS: 18,
-        swellDirectionDeg: 205,
-        beach: { shoaling_factors: trustedFactors },
+        rawHeightFt: 4.0,
+        periodS: 16,
+        swellDirectionDeg: 202,
+        beach: {
+          shoaling_factors: factors,
+          swell_window_center_deg: 293,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+        },
         source: 'cdip_sig',
       });
 
-      expect(result.faceHeightFt).toBe(5.0);
+      expect(result.faceHeightFt).toBe(4.8);
       expect(result.isCalibrated).toBe(true);
-      expect(result.calibrationBucketQuarantined).toBeUndefined();
     });
 
-    it('does not quarantine model sources even when a matching bucket is low', () => {
+    it('keeps model sources on the generic path even when a matching bucket is low', () => {
       const lowFactors: ShoalingFactors = {
         version: 1,
         type: 'period_lookup',
@@ -1040,7 +1110,6 @@ describe('Wave Height Transformer', () => {
 
       expect(result.faceHeightFt).toBe(5.0);
       expect(result.isCalibrated).toBe(false);
-      expect(result.calibrationBucketQuarantined).toBeUndefined();
     });
 
     it('returns isCalibrated false for cdip_swell with factors', () => {
@@ -1176,7 +1245,10 @@ describe('Wave Height Transformer', () => {
     });
   });
 
-  describe('transformToFaceHeightWithMetadata — CDIP direction shadow', () => {
+  // Nov 2026 held-out test: the shadow double-counted sheltering the buckets
+  // already hold. Ocean Beach / OB Pier face MAE 1.12 / 0.91 ft with it,
+  // 0.55 ft without (bias -1.08 -> -0.08 ft).
+  describe('transformToFaceHeightWithMetadata — no CDIP direction shadow', () => {
     const OB_BUCKETS = {
       version: 1 as const,
       type: 'period_lookup' as const,
@@ -1198,7 +1270,7 @@ describe('Wave Height Transformer', () => {
       ],
     };
 
-    it('shadows OB Pier south swell on the CDIP calibrated path', () => {
+    it('does not shadow OB Pier south swell without the direction_shadow flag', () => {
       const result = transformToFaceHeightWithMetadata({
         rawHeightFt: 4.30,
         periodS: 14,
@@ -1213,7 +1285,37 @@ describe('Wave Height Transformer', () => {
       });
 
       expect(result.isCalibrated).toBe(true);
+      expect(result.faceHeightFt).toBeCloseTo(4.5, 1);
+    });
+
+    it('shadows OB Pier south swell when the beach opts in with direction_shadow', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.30,
+        periodS: 14,
+        swellDirectionDeg: 202,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: { ...OB_BUCKETS, direction_shadow: true },
+          swell_window_center_deg: 293,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+        },
+      });
+
+      expect(result.isCalibrated).toBe(true);
       expect(result.faceHeightFt).toBeCloseTo(2.8, 1);
+    });
+
+    it('calibratedShadowFactor floors an out-of-window low-access direction and passes in-window ones', () => {
+      const obBeach = {
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+      };
+      expect(calibratedShadowFactor(293, obBeach)).toBe(1.0);
+      expect(calibratedShadowFactor(202, obBeach)).toBeCloseTo(0.6353, 3);
+      expect(calibratedShadowFactor(null, obBeach)).toBe(1.0);
+      expect(calibratedShadowFactor(202, null)).toBe(1.0);
     });
 
     it('leaves OB Pier own in-window WNW swell unchanged', () => {
@@ -1492,6 +1594,130 @@ describe('Wave Height Transformer', () => {
       expect(access).toBeLessThan(0.25);
     });
 
+    describe('estimated windows on the model path (no terrain, uncalibrated)', () => {
+      // La Fonda before and after 20261107180000_widen_la_fonda_swell_window.sql.
+      const laFondaOld: BeachTerrainConfig = {
+        id: '803f0345-3d9d-5a3f-a356-083418d48884',
+        terrain_enabled: false,
+        swell_access_factors: null,
+        shoaling_factors: null,
+        swell_window_center_deg: 232.5,
+        swell_window_halfwidth_deg: 52.5,
+        deepwater_decay_factor: 1,
+      };
+      const laFonda: BeachTerrainConfig = {
+        ...laFondaOld,
+        swell_window_center_deg: 255,
+        swell_window_halfwidth_deg: 75,
+      };
+      // Open-Meteo at La Fonda, 2026-11-07 08:00 local.
+      const nov7Components: SwellComponentInput[] = [
+        { heightFt: 5.118, periodS: 11.25, directionDeg: 288, partition: 'swell' },
+        { heightFt: 1.706, periodS: 13.05, directionDeg: 198, partition: 'swell' },
+        { heightFt: 0.066, periodS: 1.3, directionDeg: 31, partition: 'wind_wave' },
+      ];
+      const nov7 = (beach: BeachTerrainConfig, source: WaveHeightSourceTag = 'model_swell') =>
+        transformToFaceHeightDecomposed({
+          components: nov7Components,
+          beach,
+          source,
+          rawHeightFt: 5.381,
+          periodS: 13.7,
+          swellDirectionDeg: 282,
+        });
+
+      it('uses the terrain-style curve inside the window', () => {
+        expect(estimatedWindowAccessFactor(255, 255, 75)).toBeCloseTo(1, 6);
+        expect(estimatedWindowAccessFactor(255 + 37.5, 255, 75)).toBeCloseTo(
+          DIRECTION_FACTOR_MIN + Math.cos(Math.PI / 4) * DIRECTION_FACTOR_RANGE,
+          6,
+        );
+      });
+
+      it('tapers past the edge instead of cutting to zero', () => {
+        const atEdge = estimatedWindowAccessFactor(285, 232.5, 52.5)!;
+        const justPast = estimatedWindowAccessFactor(288, 232.5, 52.5)!;
+        expect(atEdge).toBeCloseTo(DIRECTION_FACTOR_MIN, 1);
+        expect(justPast).toBeGreaterThan(0.5);
+        expect(justPast).toBeLessThan(atEdge);
+        expect(
+          estimatedWindowAccessFactor(285 + ESTIMATED_WINDOW_SHOULDER_DEG, 232.5, 52.5),
+        ).toBe(0);
+        expect(estimatedWindowAccessFactor(30, 232.5, 52.5)).toBe(0);
+      });
+
+      it('returns null for an unusable window or direction', () => {
+        expect(estimatedWindowAccessFactor(null, 255, 75)).toBeNull();
+        expect(estimatedWindowAccessFactor(255, null, 75)).toBeNull();
+        expect(estimatedWindowAccessFactor(255, 255, 0)).toBeNull();
+      });
+
+      it('applies only to model sources at explicitly uncalibrated beaches', () => {
+        expect(componentAccessFactor(288, 11, laFondaOld, 'model_swell')).toBeGreaterThan(0.5);
+        expect(componentAccessFactor(288, 11, laFondaOld, 'model_hs')).toBeGreaterThan(0.5);
+        // CDIP/direct sources keep the strict window.
+        expect(componentAccessFactor(288, 11, laFondaOld, 'cdip_swell')).toBe(0);
+        // shoaling_factors not supplied: the strict window still applies.
+        const { shoaling_factors: _omit, ...unknownCalibration } = laFondaOld;
+        expect(componentAccessFactor(288, 11, unknownCalibration, 'model_swell')).toBe(0);
+      });
+
+      it('keeps the strict window at beaches with fitted model factors', () => {
+        // Point Dume, Leo Carrillo and Latigo have no terrain but were fitted
+        // against the strict-window transform.
+        const fittedId = Object.keys(ECMWF_HYBRID_K_FACTORS)[0];
+        expect(
+          componentAccessFactor(288, 11, { ...laFondaOld, id: fittedId }, 'model_swell'),
+        ).toBe(0);
+        const modelFittedId = Object.keys(MODEL_SWELL_CALIBRATION_FACTORS).find(
+          (id) => ECMWF_HYBRID_K_FACTORS[id] == null,
+        )!;
+        expect(typeof modelFittedId).toBe('string');
+        expect(
+          componentAccessFactor(288, 11, { ...laFondaOld, id: modelFittedId }, 'model_swell'),
+        ).toBe(0);
+      });
+
+      it('reads the Nov 7 WNW swell at La Fonda as surf, not flat', () => {
+        // Before: the 288° swell was dropped and only the 198° swell counted.
+        expect(nov7({ ...laFondaOld, shoaling_factors: undefined }).faceHeightFt).toBeLessThan(1);
+        const codeOnly = nov7(laFondaOld).faceHeightFt;
+        const withWindow = nov7(laFonda).faceHeightFt;
+        expect(codeOnly).toBe(3.7);
+        expect(withWindow).toBe(5.3);
+        expect(nov7(laFondaOld).path).toBe('decomposed');
+        expect(nov7(laFonda).path).toBe('decomposed');
+      });
+
+      it('keeps the legacy fallback when the strict window zeroes every component', () => {
+        // Both swells sit past the 285° edge but inside the taper shoulder.
+        const pastEdge: SwellComponentInput[] = [
+          { heightFt: 4, periodS: 12, directionDeg: 290, partition: 'swell' },
+          { heightFt: 2, periodS: 10, directionDeg: 300, partition: 'swell' },
+        ];
+        const legacyInputs = {
+          rawHeightFt: 5.381,
+          periodS: 13.7,
+          swellDirectionDeg: 282,
+          beach: laFondaOld,
+          source: 'model_swell' as const,
+        };
+        const result = transformToFaceHeightDecomposed({ ...legacyInputs, components: pastEdge });
+        expect(result.path).toBe('legacy');
+        expect(result.faceHeightFt).toBe(
+          transformToFaceHeightWithMetadata(legacyInputs).faceHeightFt,
+        );
+
+        // One swell inside the strict window: the taper applies and the
+        // past-edge swells still add to it.
+        const inside: SwellComponentInput = { heightFt: 2, periodS: 12, directionDeg: 250, partition: 'swell' };
+        const mixed = transformToFaceHeightDecomposed({ ...legacyInputs, components: [...pastEdge, inside] });
+        const insideOnly = transformToFaceHeightDecomposed({ ...legacyInputs, components: [inside] });
+        expect(mixed.path).toBe('decomposed');
+        expect(mixed.faceHeightFt).toBeGreaterThan(insideOnly.faceHeightFt);
+      });
+    });
+
     it('keeps exact-zero terrain-access south swell blocked', () => {
       const accessFactors = createAccessArray(0);
       const blockedCove: BeachTerrainConfig = {
@@ -1590,6 +1816,27 @@ describe('Wave Height Transformer', () => {
       // And strictly positive — we don't want to zero out a real 14s SSW
       // reading just because alignment is imperfect.
       expect(result.faceHeightFt).toBeGreaterThan(0);
+    });
+
+    it('applies a low long-period bucket to a CDIP component (no quarantine)', () => {
+      const result = transformToFaceHeightDecomposed({
+        components: [{ heightFt: 4.2, periodS: 18, directionDeg: 270 }, null, null],
+        beach: {
+          shoaling_factors: {
+            version: 1,
+            type: 'period_lookup',
+            buckets: [{ tp_min_s: 15, tp_max_s: 999, factor: 0.36 }],
+          },
+        },
+        source: 'cdip_sig',
+        rawHeightFt: 4.2,
+        periodS: 18,
+        swellDirectionDeg: 270,
+      });
+
+      expect(result.path).toBe('decomposed');
+      expect(result.isCalibrated).toBe(true);
+      expect(result.faceHeightFt).toBe(1.5);
     });
 
     it('Blacks clean-day scenario — matches legacy within 5%', () => {
@@ -2284,7 +2531,104 @@ describe('Wave Height Transformer', () => {
 
       expect(result.path).toBe('decomposed');
       expect(result.faceHeightFt).toBeGreaterThan(0.5);
-      expect(result.faceHeightFt).toBeLessThanOrEqual(2.0);
+      // The 8 s W partition now counts on model sources, so the bound is the
+      // decayed deep-water RMS Hs (sqrt(3² + 2²) × 0.6 ≈ 2.16 ft) at the
+      // 1.2 period cap, not the old long-period-only 2.0 ft.
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.6);
+    });
+
+    describe('model-source short-period partitions (Nov 2026 San Diego storm)', () => {
+      // Ocean Beach Pier terrain, Open-Meteo partitions for Fri Nov 6 2026 06:00 PT.
+      const OB_ACCESS = createDirectionalAccess(
+        [
+          { directionDeg: 195, access: 0.0221988 },
+          { directionDeg: 275, access: 0.847961 },
+          { directionDeg: 280, access: 0.740404 },
+          { directionDeg: 285, access: 0.601309 },
+        ],
+        0.5,
+      );
+      const OB_BEACH: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: OB_ACCESS,
+        shoaling_factors: null,
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        deepwater_decay_factor: 1,
+      };
+      const STORM: SwellComponentInput = { heightFt: 3.7, periodS: 7.75, directionDeg: 277, partition: 'swell' };
+      const GROUNDSWELL: SwellComponentInput = { heightFt: 1.9, periodS: 12.75, directionDeg: 195, partition: 'swell' };
+      const decomposed = (
+        components: Array<SwellComponentInput | null>,
+        source: WaveHeightSourceTag = 'model_swell',
+      ) => transformToFaceHeightDecomposed({
+        components,
+        beach: OB_BEACH,
+        source,
+        rawHeightFt: 3.7,
+        periodS: 7.75,
+        swellDirectionDeg: 277,
+      });
+
+      it('counts a sub-8 s model swell partition instead of zeroing it', () => {
+        const result = decomposed([STORM, GROUNDSWELL, null]);
+
+        expect(result.path).toBe('decomposed');
+        // 3.7 × 0.89 period × ~0.94 access ≈ 3.1 ft, RMS with the groundswell.
+        expect(result.faceHeightFt).toBeGreaterThan(3);
+      });
+
+      it('reads a lone storm partition exactly as the legacy path did, and a groundswell only adds', () => {
+        const legacy = transformToFaceHeightWithMetadata({
+          rawHeightFt: STORM.heightFt,
+          periodS: STORM.periodS,
+          swellDirectionDeg: STORM.directionDeg ?? null,
+          beach: OB_BEACH,
+          source: 'model_swell',
+        }).faceHeightFt;
+        const alone = decomposed([STORM, null, null]);
+        const mixed = decomposed([STORM, GROUNDSWELL, null]).faceHeightFt;
+
+        expect(alone.path).toBe('decomposed');
+        expect(alone.faceHeightFt).toBe(legacy);
+        expect(mixed).toBeGreaterThan(legacy);
+      });
+
+      it('reads a lone storm partition as the legacy path did at a beach without terrain', () => {
+        const windowOnly: BeachTerrainConfig = { ...OB_BEACH, terrain_enabled: false, swell_access_factors: null };
+        const legacy = transformToFaceHeightWithMetadata({
+          rawHeightFt: STORM.heightFt,
+          periodS: STORM.periodS,
+          swellDirectionDeg: STORM.directionDeg ?? null,
+          beach: windowOnly,
+          source: 'model_swell',
+        }).faceHeightFt;
+        const alone = transformToFaceHeightDecomposed({
+          components: [STORM, null, null],
+          beach: windowOnly,
+          source: 'model_swell',
+          rawHeightFt: STORM.heightFt,
+          periodS: STORM.periodS,
+          swellDirectionDeg: STORM.directionDeg ?? null,
+        }).faceHeightFt;
+
+        expect(alone).toBe(legacy);
+      });
+
+      it('keeps the 8 s gate for buoy sources', () => {
+        const result = decomposed([STORM, GROUNDSWELL, null], 'cdip_sig');
+        const groundswellOnly = decomposed([GROUNDSWELL, null, null], 'cdip_sig');
+
+        expect(result.faceHeightFt).toBe(groundswellOnly.faceHeightFt);
+      });
+
+      it('keeps the 9 s gate for model wind-wave partitions', () => {
+        const windWave: SwellComponentInput = { ...STORM, partition: 'wind_wave' };
+        const withWindWave = decomposed([windWave, GROUNDSWELL, null]).faceHeightFt;
+        const groundswellOnly = decomposed([GROUNDSWELL, null, null]).faceHeightFt;
+
+        expect(withWindWave).toBe(groundswellOnly);
+      });
     });
   });
 });

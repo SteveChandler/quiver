@@ -10,6 +10,8 @@
  * All fields may be null if headers are not available (e.g., local development).
  */
 export interface IPLocationData {
+  /** Set on the development stand-in cookie; it says nothing about where the user is. */
+  synthetic?: boolean;
   /** City name (e.g., "San Diego", "Los Angeles") */
   city: string | null;
   /** State/region code (e.g., "CA", "OR") */

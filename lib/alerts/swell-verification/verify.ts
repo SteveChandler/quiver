@@ -1,3 +1,4 @@
+import { median } from "@/lib/utils/median";
 import { METERS_TO_FEET as FEET_PER_METER } from "@/lib/utils/unit-conversions";
 /**
  * Checks each recorded swell-event forecast against the beach's buoy once the
@@ -85,14 +86,6 @@ function finiteOrNull(value: unknown): number | null {
 function round(value: number, digits: number): number {
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[middle];
 }
 
 function emptyUpdate(stationId: string | null, observationCount: number | null): VerificationUpdate {

@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
-import { SWELL_LAYER_COLOR } from "@/components/map/swell-map-theme";
+import { SWELL_FIELD_PARTICLE_COLOR } from "@/components/map/swell-map-theme";
 
 describe("SwellLayerSelector — pressed-button semantics", () => {
   it("exposes a labelled group of four keyboard-native buttons", () => {
@@ -53,17 +53,17 @@ describe("SwellLayerSelector — combined chip composite swatch", () => {
   it("renders the Combined swatch as a composite of all three layer hues", () => {
     render(<SwellLayerSelector active="s1" onChange={jest.fn()} />);
     // The composite exposes ALL THREE single-layer hues (one solid band each) so
-    // Combined reads as "all layers" rather than a second Primary-orange chip.
-    expect(segBg("s1")).toBe(hexToRgb(SWELL_LAYER_COLOR.s1));
-    expect(segBg("s2")).toBe(hexToRgb(SWELL_LAYER_COLOR.s2));
-    expect(segBg("wind")).toBe(hexToRgb(SWELL_LAYER_COLOR.wind));
+    // Combined reads as "all layers" rather than a second Primary chip.
+    expect(segBg("s1")).toBe(hexToRgb(SWELL_FIELD_PARTICLE_COLOR.s1));
+    expect(segBg("s2")).toBe(hexToRgb(SWELL_FIELD_PARTICLE_COLOR.s2));
+    expect(segBg("wind")).toBe(hexToRgb(SWELL_FIELD_PARTICLE_COLOR.wind));
   });
 
   it("keeps single-layer swatches a single hue (not a composite)", () => {
     render(<SwellLayerSelector active="combined" onChange={jest.fn()} />);
     // Inactive single-layer chip shows exactly its own hue, with no composite segments.
     expect(screen.getByTestId("swell-layer-s2-swatch").style.background).toBe(
-      hexToRgb(SWELL_LAYER_COLOR.s2)
+      hexToRgb(SWELL_FIELD_PARTICLE_COLOR.s2)
     );
     expect(
       screen.queryByTestId("swell-layer-s2-swatch-wind")
@@ -72,9 +72,9 @@ describe("SwellLayerSelector — combined chip composite swatch", () => {
 
   it("keeps the Combined composite even when Combined is the active layer", () => {
     render(<SwellLayerSelector active="combined" onChange={jest.fn()} />);
-    expect(segBg("s1")).toBe(hexToRgb(SWELL_LAYER_COLOR.s1));
-    expect(segBg("s2")).toBe(hexToRgb(SWELL_LAYER_COLOR.s2));
-    expect(segBg("wind")).toBe(hexToRgb(SWELL_LAYER_COLOR.wind));
+    expect(segBg("s1")).toBe(hexToRgb(SWELL_FIELD_PARTICLE_COLOR.s1));
+    expect(segBg("s2")).toBe(hexToRgb(SWELL_FIELD_PARTICLE_COLOR.s2));
+    expect(segBg("wind")).toBe(hexToRgb(SWELL_FIELD_PARTICLE_COLOR.wind));
   });
 });
 

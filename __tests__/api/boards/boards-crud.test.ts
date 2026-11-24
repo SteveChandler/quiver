@@ -118,7 +118,8 @@ describe("Boards CRUD API", () => {
           data: mockBoards,
           error: null,
         });
-        const mockEq = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockIs = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockEq = jest.fn().mockReturnValue({ is: mockIs });
         const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
 
         mockFrom.mockReturnValue({
@@ -143,6 +144,8 @@ describe("Boards CRUD API", () => {
         );
         // Verify RLS filtering by user_id
         expect(mockEq).toHaveBeenCalledWith("user_id", validUserId);
+        // Retired boards stay referenced by sessions but drop out of the quiver list
+        expect(mockIs).toHaveBeenCalledWith("retired_at", null);
         expect(mockOrder).toHaveBeenCalledWith("updated_at", { ascending: false });
       });
 
@@ -158,7 +161,8 @@ describe("Boards CRUD API", () => {
           data: [],
           error: null,
         });
-        const mockEq = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockIs = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockEq = jest.fn().mockReturnValue({ is: mockIs });
         const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
 
         mockFrom.mockReturnValue({
@@ -225,7 +229,8 @@ describe("Boards CRUD API", () => {
           data: mockBoardsWithInvalid,
           error: null,
         });
-        const mockEq = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockIs = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockEq = jest.fn().mockReturnValue({ is: mockIs });
         const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
 
         mockFrom.mockReturnValue({
@@ -260,7 +265,8 @@ describe("Boards CRUD API", () => {
           data: null,
           error: new Error("Database connection failed"),
         });
-        const mockEq = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockIs = jest.fn().mockReturnValue({ order: mockOrder });
+        const mockEq = jest.fn().mockReturnValue({ is: mockIs });
         const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
 
         mockFrom.mockReturnValue({

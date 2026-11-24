@@ -329,7 +329,7 @@ describe('buildCandidatePool', () => {
       ]);
     });
 
-    it('should remove held beaches before discovery pool ordering', async () => {
+    it('should keep held beaches in the discovery pool; the hold is only a notice', async () => {
       const heldId = '550e8400-e29b-41d4-a716-446655440000';
       const safeId = '550e8400-e29b-41d4-a716-446655440001';
       const heldBeach = { ...mockNearbyBeach1, id: heldId };
@@ -351,7 +351,7 @@ describe('buildCandidatePool', () => {
         userLocation: defaultUserLocation,
       });
 
-      expect(result.candidates.map((beach) => beach.id)).toEqual([safeId]);
+      expect(result.candidates.map((beach) => beach.id)).toEqual([heldId, safeId]);
     });
   });
 

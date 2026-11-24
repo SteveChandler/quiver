@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 import { getProfileDTOById, getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 import {
   createSuccessResponse,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { PROFILE_FULL_SELECT } from "@/lib/profile/constants";
 import type { ProfileDTO } from "@/types/profile";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * Type for profile details query result.
@@ -34,6 +36,7 @@ interface ProfileDetails {
   notif_follows: boolean | null;
   notif_reminders: boolean | null;
   notif_xp_updates: boolean | null;
+  timezone: string | null;
   home_beach: { id: string; name: string } | null;
 }
 
@@ -106,7 +109,8 @@ const profileHandler = withAuth(
         .from("sessions")
         .select("id, rating, status")
         .eq("user_id", userId)
-        .eq("is_public", true);
+        .eq("is_public", true)
+        .or(SURF_SESSION_SOURCE_FILTER);
 
       let sessionStats: { session_count: number; average_rating: number | null } = {
         session_count: 0,
@@ -171,6 +175,7 @@ const profileHandler = withAuth(
         ...sessionStats,
         isFollowing: isFollowingUser,
         isOwnProfile: user?.id === userId,
+        ...(user?.id === userId ? { timezone: details?.timezone ?? null } : {}),
       };
 
       return createSuccessResponse(profileWithStats);
@@ -183,4 +188,6 @@ const profileHandler = withAuth(
 );
 
 // Compose: bot blocking + rate limit → optional-auth handler.
-export const GET = withBotBlockingAndRateLimit(profileHandler, "public-default");
+const handleGet = withBotBlockingAndRateLimit(profileHandler, "public-default");
+
+export const GET = withErrorNoStore(handleGet, "/api/profile/[id]");

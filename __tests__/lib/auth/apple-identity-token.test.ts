@@ -13,8 +13,8 @@ const originalAppleClientId = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
 describe("verifyAppleIdentityToken", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.APPLE_APP_BUNDLE_ID;
-    delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+    process.env.APPLE_APP_BUNDLE_ID = "";
+    process.env.NEXT_PUBLIC_APPLE_CLIENT_ID = "";
     process.env.APPLE_RECOVERY_AUDIENCES =
       "app.quiversurf.mobile,com.quiversurf.web";
   });
@@ -98,14 +98,27 @@ describe("verifyAppleIdentityToken", () => {
     ).rejects.toThrow("Apple identity token has expired");
   });
 
-  it("fails closed when the audience configuration is absent", async () => {
+  it("fails closed when every audience is overridden to empty", async () => {
     delete process.env.APPLE_RECOVERY_AUDIENCES;
-    delete process.env.APPLE_APP_BUNDLE_ID;
-    delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
 
     await expect(
       verifyAppleIdentityToken("token", new Date()),
     ).rejects.toThrow("Apple recovery audience is not configured");
     expect(mockJwtVerify).not.toHaveBeenCalled();
+  });
+
+  it("defaults the audiences to the app bundle and the web Sign in with Apple client", async () => {
+    delete process.env.APPLE_RECOVERY_AUDIENCES;
+    delete process.env.APPLE_APP_BUNDLE_ID;
+    delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+
+    await verifyAppleIdentityToken("token", new Date()).catch(() => undefined);
+    expect(mockJwtVerify).toHaveBeenCalledWith(
+      "token",
+      "apple-jwks",
+      expect.objectContaining({
+        audience: ["app.quiversurf.mobile", "app.quiversurf.mobile.web"],
+      }),
+    );
   });
 });

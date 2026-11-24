@@ -11,6 +11,7 @@ import "server-only";
 
 import {
   resolveWaterQualityHolds,
+  WATER_QUALITY_INFORMS_ONLY,
   type WaterQualityHoldResolution,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
@@ -164,6 +165,22 @@ async function resolveSafeBeachIds<T extends { id: string }>(
   }
 }
 
+// Callers still receive the resolution through onWaterQualityResolution.
+function isHeld(
+  { held, heldUntil }: SafeBeachHolds,
+  id: string,
+  startsAt: string | Date | null | undefined,
+  standingHoldsOnly: boolean | undefined,
+): boolean {
+  const beachId = id.toLowerCase();
+  if (!held.has(beachId)) return false;
+  const until = heldUntil[beachId];
+  if (until === undefined) return true;
+  if (standingHoldsOnly) return false;
+  const startsMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+  return !Number.isFinite(startsMs) || startsMs < Date.parse(until);
+}
+
 function brand<T>(candidate: T): RankedBeach<T> {
   return candidate as RankedBeach<T>;
 }
@@ -178,23 +195,25 @@ export async function rankBeaches<T extends { id: string }>(
      * after rain) keeps only candidates that start before it lifts.
      */
     startsAt?: (candidate: T) => string | Date | null | undefined;
+    /**
+     * For lists and readings that are not a call for any session (a city's
+     * spot directory, its water temperature): a hold that lifts on its own
+     * (runoff after rain) keeps the beach; only a standing hold removes it.
+     */
+    standingHoldsOnly?: boolean;
     onWaterQualityResolution?: (
       resolution: WaterQualityHoldResolution,
     ) => void;
   },
 ): Promise<RankedBeach<T>[]> {
-  const { held, heldUntil } = await resolveSafeBeachIds(candidates, opts);
-  const isHeld = (candidate: T): boolean => {
-    const beachId = candidate.id.toLowerCase();
-    if (!held.has(beachId)) return false;
-    const until = heldUntil[beachId];
-    const startsAt = opts.startsAt?.(candidate);
-    const startsMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
-    return until === undefined || !Number.isFinite(startsMs) || startsMs < Date.parse(until);
-  };
+  // With water quality informing only, resolve just for callers that label from it.
+  const holds = WATER_QUALITY_INFORMS_ONLY && !opts.onWaterQualityResolution
+    ? NO_HOLDS
+    : await resolveSafeBeachIds(candidates, opts);
 
   return candidates
-    .filter((candidate) => !isHeld(candidate))
+    .filter((candidate) => WATER_QUALITY_INFORMS_ONLY
+      || !isHeld(holds, candidate.id, opts.startsAt?.(candidate), opts.standingHoldsOnly))
     .slice()
     .sort(opts.compare)
     .map((candidate) => brand(candidate));
@@ -202,12 +221,13 @@ export async function rankBeaches<T extends { id: string }>(
 
 export async function selectBeach<T extends { id: string }>(
   candidate: T | null | undefined,
-  opts?: { asOf?: Date },
+  opts?: { asOf?: Date; standingHoldsOnly?: boolean },
 ): Promise<RankedBeach<T> | null> {
   if (candidate == null) return null;
 
-  const { held } = await resolveSafeBeachIds([candidate], opts);
-  if (held.has(candidate.id.toLowerCase())) {
+  if (WATER_QUALITY_INFORMS_ONLY) return brand(candidate);
+  const holds = await resolveSafeBeachIds([candidate], opts);
+  if (isHeld(holds, candidate.id, undefined, opts?.standingHoldsOnly)) {
     return null;
   }
   return brand(candidate);

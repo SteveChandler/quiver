@@ -2,12 +2,12 @@ import { z } from 'zod';
 import { transformToFaceHeightDecomposed, type BeachTerrainConfig } from './wave-height-transformer';
 import { WAVE_HEIGHT_SOURCE_TAG_SET, type WaveHeightSourceTag } from './wave-height-source';
 import { clampWaveHeight, roundWaveHeight } from './wave-formatters';
-import { createForecastHandoffBlendState, processForecastHandoffBlendSlot } from './forecast-handoff-blend';
 import { METERS_TO_FEET } from './unit-conversions';
 
 const finite = z.number().finite();
 const nullableFinite = finite.nullable();
 const beachSchema = z.object({
+  id: z.string().nullable().optional(),
   terrain_enabled: z.boolean().optional(),
   swell_access_factors: z.array(finite.min(0).max(1)).length(72).nullable().optional(),
   swell_window_center_deg: nullableFinite.optional(),
@@ -17,6 +17,7 @@ const beachSchema = z.object({
     type: z.literal('period_lookup'),
     version: z.literal(1),
     buckets: z.array(z.object({ tp_min_s: finite, tp_max_s: finite, factor: finite })),
+    direction_shadow: z.boolean().optional(),
   }).nullable().optional(),
 });
 const inputSchema = z.object({
@@ -30,12 +31,16 @@ const inputSchema = z.object({
     heightFt: finite.nonnegative(), periodS: finite, directionDeg: nullableFinite,
     partition: z.enum(['swell', 'wind_wave']).optional(),
   }).nullable()).max(3),
+  // v2 only: the ECMWF hybrid scale (components × r, then × k in place of the production factor).
+  ecmwfHybrid: z.object({ r: finite.positive(), k: finite.positive() }).optional(),
 });
 const slotSchema = z.object({ input: inputSchema, supported: z.boolean() });
 const endpointSchema = slotSchema.extend({ forecastAt: z.string().datetime({ offset: true }) });
 // ponytail: v1 excludes conditional guardrails, offsets and decay overrides; version their replay before admitting them.
+// v2 = v1 plus input.ecmwfHybrid; the builder writes v2 only when a slot used the hybrid.
+export const FORECAST_DISPLAY_REPLAY_HYBRID_VERSION = 2;
 const contextSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(FORECAST_DISPLAY_REPLAY_HYBRID_VERSION)]),
   generatedAt: z.string().datetime({ offset: true }),
   forecastAt: z.string().datetime({ offset: true }),
   base: slotSchema,
@@ -52,6 +57,9 @@ export function parseForecastDisplayReplayContext(value: unknown): ForecastDispl
   const parsed = contextSchema.safeParse(value);
   if (!parsed.success) return null;
   const ctx = parsed.data;
+  const inputs = [ctx.base.input, ctx.handoff?.cdip.input, ctx.handoff?.model.input];
+  // The version says whether a slot used the hybrid; reject a context whose inputs disagree.
+  if ((ctx.version === FORECAST_DISPLAY_REPLAY_HYBRID_VERSION) !== inputs.some((input) => input?.ecmwfHybrid)) return null;
   if (ctx.handoff && (Date.parse(ctx.handoff.cdip.forecastAt) > Date.parse(ctx.handoff.model.forecastAt) ||
     Date.parse(ctx.handoff.model.forecastAt) > Date.parse(ctx.forecastAt))) return null;
   if (ctx.handoff && (!['cdip_sig', 'cdip_swell'].includes(ctx.handoff.cdip.input.source) ||
@@ -75,21 +83,6 @@ export function replayForecastDisplayHeightM(
       beach: { ...input.beach, ...patch.data },
     }).faceHeightFt,
   ));
-  let ft = transform(ctx.base.input);
-  if (ctx.handoff) {
-    const { cdip, model } = ctx.handoff;
-    const state = createForecastHandoffBlendState();
-    for (const endpoint of [cdip, model]) {
-      processForecastHandoffBlendSlot({ state, enabled: true, slot: {
-        forecastAt: endpoint.forecastAt, waveHeight: `${transform(endpoint.input)} ft`,
-        dataSource: endpoint === cdip ? 'CDIP' : 'NOAA_NWS', waveHeightSource: endpoint.input.source,
-      } });
-    }
-    const step = processForecastHandoffBlendSlot({ state, enabled: true, slot: {
-      forecastAt: ctx.forecastAt, waveHeight: `${ft} ft`, dataSource: 'NOAA_NWS',
-      waveHeightSource: ctx.base.input.source,
-    } });
-    if (step.adjustment) ft = Number.parseFloat(step.adjustment.waveHeight);
-  }
+  const ft = transform(ctx.base.input);
   return Math.round(ft / METERS_TO_FEET * 1000) / 1000;
 }

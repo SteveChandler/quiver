@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { runWeekScoutCanary } from "@/lib/monitoring/week-scout-canary";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -34,8 +35,10 @@ async function _GET(request: Request): Promise<Response> {
   return NextResponse.json({ success: true, data: result });
 }
 
-export const GET = withObservedCron(ROUTE, _GET, {
+const handleGet = withObservedCron(ROUTE, _GET, {
   slug: "week-scout-canary",
   schedule: "10,40 * * * *",
   maxRuntimeMinutes: 2,
 });
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/week-scout-canary");

@@ -28,7 +28,8 @@ import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getYesterdayAccuracy } from "@/actions/accuracy-actions";
-import type { EnhancedForecastEntity } from "@/types/forecast";
+import { FORECAST_CONSTANTS, type EnhancedForecastEntity } from "@/types/forecast";
+import { rowsWithinForecastDays } from "@/lib/utils/ecmwf-outlook-days";
 import type { Beach } from "@/types/database";
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import {
@@ -200,6 +201,8 @@ const SessionsTab = lazy(() =>
 
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
+/** Every surface but the ECMWF outlook keeps the 10-day window it had before the outlook. */
+const BEACH_PAGE_FORECAST_DAYS = 10;
 
 function getClosestForecastToNow(
   forecasts: EnhancedForecastEntity[],
@@ -238,6 +241,7 @@ interface BeachDetailProps {
   heroHeadingLevel?: ZineHeroHeadingLevel;
   heroHeadingSuffix?: string;
   heroSummarySlot?: ReactNode;
+  heroSummaryAboveMedia?: boolean;
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
@@ -270,6 +274,7 @@ function BeachDetailContent({
   heroHeadingLevel,
   heroHeadingSuffix,
   heroSummarySlot,
+  heroSummaryAboveMedia,
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
@@ -409,7 +414,7 @@ function BeachDetailContent({
   // Secondary tab metrics/calibration load after first paint and active-tab intent.
   const {
     beach,
-    forecasts = EMPTY_FORECASTS,
+    forecasts: storedForecasts = EMPTY_FORECASTS,
     forecastMetadata,
     forecastSource,
     forecastCached,
@@ -421,8 +426,12 @@ function BeachDetailContent({
   } = useBeachDetailData({
     beachId: id,
     initialBeach,
-    forecastDays: 10,
+    forecastDays: FORECAST_CONSTANTS.DAYS,
   });
+  const forecasts = useMemo(
+    () => rowsWithinForecastDays(storedForecasts, BEACH_PAGE_FORECAST_DAYS),
+    [storedForecasts]
+  );
 
   useEffect(() => {
     setSecondaryDataReady(false);
@@ -980,6 +989,7 @@ function BeachDetailContent({
         heroHeadingLevel={heroHeadingLevel}
         heroHeadingSuffix={heroHeadingSuffix}
         heroSummarySlot={heroSummarySlot}
+        heroSummaryAboveMedia={heroSummaryAboveMedia}
         heroForecastSlot={heroForecastSlot}
       >
         <div id="operational-forecast" tabIndex={-1} className="scroll-mt-20" ref={signupCtaRef} />
@@ -1034,6 +1044,7 @@ function BeachDetailContent({
                   beach={beach}
                   beachTimezone={beachTimezone}
                   forecasts={forecasts || []}
+                  outlookForecasts={storedForecasts}
                   forecastsLoading={forecastsLoading}
                   currentForecast={currentForecast}
                   forecastMetadata={forecastMetadata}

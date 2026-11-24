@@ -16,6 +16,7 @@ import {
   createErrorResponse,
   validateCronRequest,
 } from '@/lib/middleware/api-wrappers';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const HEALTH_RANK: Record<HealthStatus, number> = { healthy: 0, degraded: 1, critical: 2 };
 
@@ -25,7 +26,7 @@ export const dynamic = 'force-dynamic';
 const SENTRY_MONITOR = {
   slug: "forecast-health",
   // Must match vercel.json: off minutes 0 and 30, where the forecast writers run.
-  schedule: "12,42 * * * *",
+  schedule: "12 * * * *",
   maxRuntimeMinutes: 3,
 };
 
@@ -59,7 +60,7 @@ async function _GET(request: Request): Promise<Response> {
     // Run health check. Forecast freshness alone missed the 2026-10-02 County outage (fresh forecasts,
     // every pick withheld), so the inputs picks depend on are judged here too.
     const [forecastMetrics, recommendationInputs] = await Promise.all([
-      checkForecastHealth(),
+      checkForecastHealth({ serialScans: process.env.FORECAST_HEALTH_SERIAL_SCANS !== 'false' }),
       checkRecommendationInputsHealth(),
     ]);
     const metrics = {
@@ -187,4 +188,6 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/monitoring/forecast-health", _GET, SENTRY_MONITOR);
+const handleGet = withObservedCron("/api/monitoring/forecast-health", _GET, SENTRY_MONITOR);
+
+export const GET = withErrorNoStore(handleGet, "/api/monitoring/forecast-health");

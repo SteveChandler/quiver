@@ -1,10 +1,6 @@
 /** @jest-environment node */
 import { bulkForecastHandler } from "@/app/api/forecasts/bulk/route";
-import {
-  bulkRecommendationLabel,
-  fetchBulkDecisionContext,
-  type BulkDecisionContext,
-} from "@/lib/services/forecast/bulk-decision-context";
+import { bulkRecommendationLabel, bulkSessionDecision, fetchBulkDecisionContext, type BulkDecisionContext } from "@/lib/services/forecast/bulk-decision-context";
 import { buildCanonicalDecisionFromSurfDiscovery } from "@/lib/recommendations/canonical-decision/discovery-adapter";
 import { recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
@@ -23,6 +19,7 @@ import type {
   SimilarityRecommendation,
   SurfDiscoveryRecommendation,
 } from "@/types/personalization";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 const NOW = new Date("2026-09-23T18:00:00Z");
 const id = (n: number): string =>
@@ -69,6 +66,11 @@ const learned = (label: string): SimilarityRecommendation => ({
 });
 const mockRpc = jest.fn();
 const mockFrom = jest.fn();
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+jest.mock("@/lib/flags/founding-access", () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) =>
+    mockResolveFeatureAccess(...args),
+}));
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: () => ({ rpc: mockRpc, from: mockFrom }),
 }));
@@ -137,6 +139,7 @@ function rpcData(count: number, at: string): Record<string, unknown> {
 beforeEach(() => {
   jest.useFakeTimers({ now: NOW });
   jest.clearAllMocks();
+  mockResolveFeatureAccess.mockImplementation(featureAccessOff);
 });
 afterEach(() => jest.useRealTimers());
 afterAll(() =>
@@ -285,6 +288,23 @@ it.each(
     expect(bulkRecommendationLabel(context, spot, row, score, NOW)).toBe(
       recommendationLabelForVerdict(call.verdict),
     );
+  },
+);
+
+it.each([
+  ["ON", featureAccessOn, true],
+  ["OFF", featureAccessOff, false],
+] as const)(
+  "founding access %s decides whether a free user's match evidence is kept",
+  async (_name, access, kept) => {
+    mockResolveFeatureAccess.mockImplementation(access);
+    const data = rpcData(1, NOW.toISOString());
+    (data.personalization as { entitlement: unknown }).entitlement = null;
+    mockRpc.mockReturnValue(query(data));
+    const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(id(800), false, { billingIssue: false });
+    const match = context.matches.get(matchSlotKey(id(1), NOW.toISOString()));
+    expect(match?.state === "ready" ? match.score : null).toBe(kept ? 3 : null);
   },
 );
 
@@ -494,6 +514,79 @@ it.each([false, true])('feature-detects board history with one RPC (present: %s)
   expect(context.boards).toEqual(hasHistory ? [board] : []);
   expect(mockRpc).toHaveBeenCalledTimes(1);
   expect(mockFrom).not.toHaveBeenCalled();
+});
+
+describe("board class order under skill-aware go checks", () => {
+  const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+  const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+  afterEach(() => {
+    if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+    if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+  });
+
+  it.each([
+    [false, ["shortboard", "longboard"]],
+    [true, ["longboard", "shortboard"]],
+  ] as const)("flag on %s gives board classes %j", async (on, expected) => {
+    if (on) {
+      process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+      process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = id(800);
+    } else {
+      delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    }
+    const data = rpcData(1, NOW.toISOString());
+    data.boards = [{ board_type: "shortboard" }, { board_type: "longboard" }];
+    mockRpc.mockReturnValue(query(data));
+
+    const context = await fetchBulkDecisionContext(id(800), [id(1)], [forecast(1)], NOW, NOW);
+
+    expect(context.boardClasses).toEqual(expected);
+  });
+});
+
+describe("skillAware", () => {
+  const key = (row: EnhancedForecastEntity): string => `${row.beach_id}:${row.forecast_at}`;
+  const spot = beach(1);
+  const mixed25 = {
+    ...forecast(1),
+    wave_height: "2.5 ft",
+    wave_period: "9s",
+    wind_speed: "3 mph",
+    wind_direction_deg: 90,
+  } as EnhancedForecastEntity;
+  const context = {
+    skillLevel: null,
+    boardClasses: [] as BulkDecisionContext["boardClasses"],
+    sunTimes: new Map(),
+    matches: new Map(),
+    rowDurationsMs: new Map([[key(mixed25), 3_600_000]]),
+  } as BulkDecisionContext;
+
+  it("has a medium-mixed fixture (precondition)", () => {
+    // precondition
+    expect(
+      resolveRecommendationLabel({ beach: spot, forecast: mixed25, score: 72 }).character?.category,
+    ).toBe("medium-mixed");
+  });
+
+  it("labels a learner's 2.5 ft medium-mixed row at 72 Worth it only with skillAware", () => {
+    const withBoards = { ...context, boardClasses: ["longboard"] } as BulkDecisionContext;
+    expect(bulkSessionDecision(withBoards, spot, mixed25, 72, NOW).verdict).toBe("maybe");
+    expect(
+      bulkSessionDecision({ ...withBoards, skillAware: true }, spot, mixed25, 72, NOW).verdict,
+    ).toBe("go");
+  });
+
+  it("rates a no-skill user as beginner in the engine with skillAware only", () => {
+    expect(bulkSessionDecision(context, spot, mixed25, 72, NOW).skillEligibility.skill).toBe("unknown");
+    expect(
+      bulkSessionDecision({ ...context, skillAware: true }, spot, mixed25, 72, NOW).skillEligibility.skill,
+    ).toBe("beginner");
+  });
 });
 
 describe("bulk timeline daylight gate", () => {

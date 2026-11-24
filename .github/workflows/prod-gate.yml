@@ -128,7 +128,8 @@ jobs:
   # resolution that fallback hits.
   smoke-tests:
     name: Playwright Smoke Tests
-    runs-on: ubuntu-latest
+    # ubuntu-latest became 26.04 on 2026-10-31; Playwright has no Chromium build for it yet.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [build]
     steps:

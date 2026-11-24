@@ -1,3 +1,6 @@
+import { attachEcmwfOutlook } from "./ecmwf-outlook-rows";
+import { FORECAST_DISPLAY_REPLAY_HYBRID_VERSION } from "@/lib/utils/forecast-display-replay";
+import { ECMWF_HYBRID_FIT_DATE } from "@/lib/utils/ecmwf-hybrid-k-factors";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 /**
  * Forecast Builder
@@ -12,7 +15,6 @@ import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { createContextLogger } from "@/lib/logger";
 import { TrustedForecastLayerError } from "@/lib/errors/forecast-errors";
 import { shouldForceNoDecay } from "@/lib/flags/decay-off";
-import { isForecastHandoffBlendEnabled } from "@/lib/flags/forecast-handoff-blend";
 import { calculateConfidenceScore } from "./confidence-scorer";
 import {
   toFaceHeightFeetDecomposedWithDebug,
@@ -73,9 +75,10 @@ import {
 } from "./calibration-v5";
 import { getForecastAccuracyHorizonBucket } from "./accuracy-metrics";
 import { createServiceRoleClient } from "@/lib/supabase";
-import type {
-  ShoalingFactors,
-  SwellComponentInput,
+import {
+  lookupShoalingBucket,
+  type ShoalingFactors,
+  type SwellComponentInput,
 } from "@/lib/utils/wave-height-transformer";
 import { cardinalToDegrees } from "./forecast-transformer";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
@@ -94,9 +97,11 @@ import {
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
 import {
+  CALIBRATED_CDIP_HOLD_HOURS,
   CDIP_NOWCAST_HORIZON_HOURS,
   STALENESS_THRESHOLDS,
 } from "@/lib/config/forecast-staleness";
+import { calibrationReferenceStation, shoalingFactorsForStation } from "@/lib/services/cdip/calibration-station";
 import {
   createForecastHandoffBlendState,
   processForecastHandoffBlendSlot,
@@ -117,6 +122,8 @@ import {
  * forecast-builder + the display-side `fetchLatestObservation` helper.
  */
 const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
+/** NWS hourly periods are 1 h and day/night periods 12 h; a start farther than this is another day's weather. */
+const WEATHER_PERIOD_MATCH_MS = 6 * 60 * 60 * 1000;
 const ANCHOR_FRESHNESS_MS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR * 60 * 60 * 1000;
 const MPH_TO_METERS_PER_SECOND = 0.44704;
 
@@ -181,6 +188,8 @@ export function resolveCdipNowcastPoint(args: {
   nowMs: number;
   horizonHours: number;
   maxMeasurementAgeHours: number;
+  /** Also reject a reading older than this at the slot's own time. */
+  maxAgeAtTargetHours?: number;
 }): CDIPDataPoint | null {
   const {
     cdipData,
@@ -188,6 +197,7 @@ export function resolveCdipNowcastPoint(args: {
     nowMs,
     horizonHours,
     maxMeasurementAgeHours,
+    maxAgeAtTargetHours,
   } = args;
   if (!cdipData?.data || cdipData.data.length === 0) return null;
 
@@ -211,6 +221,12 @@ export function resolveCdipNowcastPoint(args: {
 
   const measurementAgeHours = (nowMs - latest.timestampMs) / 3_600_000;
   if (measurementAgeHours > maxMeasurementAgeHours) {
+    return null;
+  }
+  if (
+    maxAgeAtTargetHours !== undefined &&
+    (targetMs - latest.timestampMs) / 3_600_000 > maxAgeAtTargetHours
+  ) {
     return null;
   }
 
@@ -497,7 +513,6 @@ export class ForecastBuilder {
     // during the row loop; consumed only after the loop, so a trusted decision
     // always sees the complete local day.
     const trustedSlotBuffer: TrustedSlotRecord[] = [];
-    const handoffBlendEnabled = isForecastHandoffBlendEnabled();
     const handoffBlendState = createForecastHandoffBlendState();
     const calibrationCoverage: CalibrationCoverage = {
       beachId: beach.id,
@@ -519,8 +534,17 @@ export class ForecastBuilder {
     if (buoyData) dataSources.push("NOAA_BUOY");
     if (dataSources.length === 0) dataSources.push("FALLBACK");
 
+    // A beach's own calibrated buoy is held longer than an uncalibrated one;
+    // see CALIBRATED_CDIP_HOLD_HOURS.
+    const cdipHoldHours =
+      shoalingFactorsForStation(beach.shoaling_factors ?? null, cdipData?.stationId) != null
+        ? CALIBRATED_CDIP_HOLD_HOURS
+        : null;
+
     // Track processed dates to store tide_schedule only once per day
     const processedDates = new Set<string>();
+    // Every WAM hour, days 1-9 included: the ECMWF hybrid scale reads it per slot.
+    const wamHsByHour = new Map((waveData?.ecmwf_wam ?? []).map((point) => [point.ms, point.hsM]));
 
     // Rows are stored at forecast_at, the 3-hour grid mark at or before the
     // slot, so every input is resolved at that mark. Resolving at build time
@@ -536,31 +560,13 @@ export class ForecastBuilder {
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
+      const ecmwfWamHsM = wamHsByHour.get(Math.floor(forecastTime.getTime() / 3_600_000) * 3_600_000) ?? null;
       const tideInfo = this.getTideInfo(tideData, forecastTime, beach.timezone);
       const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
-      const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
+      const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime, cdipHoldHours);
 
-      // Determine data source for this time point.
-      // Per-slot wavePoint.data_source is canonical (NOAA_NWS for days 1-3,
-      // OPEN_METEO for days 4-12 after merge). No wrapper-level fallback —
-      // it would mask one source as the other.
       const useBuoyData = i === 0 && buoyData;
       const useCDIPData = !!cdipPoint;
-      const timepointDataSource = useCDIPData
-        ? "CDIP"
-        : wavePoint
-          ? (wavePoint.data_source ?? "FALLBACK")
-          : (useBuoyData ? "NOAA_BUOY" : "FALLBACK");
-
-      // Calculate confidence score
-      const confidenceScore = calculateConfidenceScore({
-        hasWaveData: !!wavePoint,
-        hasTideData: !!tideInfo,
-        hasWeatherData: !!weatherPoint,
-        hasBuoyData: !!useBuoyData,
-        hasCDIPData: useCDIPData,
-        forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
-      });
 
       // Check if this is the first forecast of the day
       const dateString = getNormalizedDateString(forecastTime);
@@ -597,8 +603,7 @@ export class ForecastBuilder {
         weatherPoint,
         buoyData: useBuoyData ? buoyData : null,
         useCDIPData,
-        confidenceScore,
-        timepointDataSource,
+        forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
         dataSources,
         calibration,
         tideData,
@@ -615,11 +620,14 @@ export class ForecastBuilder {
         trustedSlotBuffer,
         calibrationCoverage,
         handoffBlendState,
-        handoffBlendEnabled,
+        ecmwfWamHsM,
       });
 
       forecasts.push(forecast);
     }
+
+    // Outlook rows stay FALLBACK; the outlook rides on raw_forecast only.
+    attachEcmwfOutlook(forecasts, waveData?.ecmwf_outlook);
 
     if (hasCalibrationLoss(calibrationCoverage)) {
       log.warn("calibrated_shoaling_coverage_gap", {
@@ -954,8 +962,7 @@ export class ForecastBuilder {
     weatherPoint: WeatherPeriod | null;
     buoyData: NDBCBuoyRow | null;
     useCDIPData: boolean;
-    confidenceScore: number;
-    timepointDataSource: string;
+    forecastHoursAhead: number;
     dataSources: string[];
     tideData: COOPSForecast | null;
     isFirstOfDay: boolean;
@@ -971,8 +978,9 @@ export class ForecastBuilder {
     trustedSlotBuffer: TrustedSlotRecord[];
     calibrationCoverage: CalibrationCoverage;
     handoffBlendState: ForecastHandoffBlendState;
-    handoffBlendEnabled: boolean;
     calibration: Awaited<ReturnType<typeof getActiveCalibration>>;
+    /** ECMWF WAM total Hs (m) at this slot's valid hour; null when WAM has none. */
+    ecmwfWamHsM?: number | null;
   }): EnhancedForecastWithRawData {
     const {
       beach,
@@ -984,8 +992,7 @@ export class ForecastBuilder {
       weatherPoint,
       buoyData,
       useCDIPData,
-      confidenceScore,
-      timepointDataSource,
+      forecastHoursAhead,
       dataSources,
       tideData,
       isFirstOfDay,
@@ -1001,13 +1008,11 @@ export class ForecastBuilder {
       trustedSlotBuffer,
       calibrationCoverage,
       handoffBlendState,
-      handoffBlendEnabled,
       calibration,
+      ecmwfWamHsM = null,
     } = params;
 
-    // Compute wave height once and capture provenance metadata for raw_forecast.
-    // The debug record explains which source/transform path produced the number,
-    // making post-hoc "why does Quiver show X?" questions answerable from one row.
+    // Capture the wave-height source and transform for raw_forecast.
     let waveHeightResult = this.getWaveHeight(
       cdipPoint,
       wavePoint,
@@ -1015,7 +1020,10 @@ export class ForecastBuilder {
       useCDIPData,
       beach,
       nowcastAnchor,
+      cdipData?.stationId ?? null,
+      ecmwfWamHsM,
     );
+    const cdipRejection = waveHeightResult.debug.cdipRejection;
     const replayBase = waveHeightResult.debug.replayInput
       ? { input: waveHeightResult.debug.replayInput, supported: southOcSanoGuardrail.kind === "noop" }
       : null;
@@ -1029,14 +1037,36 @@ export class ForecastBuilder {
         useCDIPData,
         beach,
         southOcSanoGuardrail.anchor,
+        null,
+        // Same ruler as the base value, so the higher-of comparison is fair at hybrid beaches.
+        ecmwfWamHsM,
       );
       const baseFt = parseDisplayHeightFt(waveHeightResult.value).numericFt;
       const guardedFt = parseDisplayHeightFt(guardedWaveHeightResult.value).numericFt;
       if (guardedFt != null && (baseFt == null || guardedFt > baseFt)) {
+        if (cdipRejection) guardedWaveHeightResult.debug.cdipRejection = cdipRejection;
         waveHeightResult = guardedWaveHeightResult;
         appliedSouthOcSanoGuardrail = southOcSanoGuardrail;
       }
     }
+
+    const guardrailAnchor = appliedSouthOcSanoGuardrail?.anchor;
+    const useCdipWaveFields = !guardrailAnchor && useCDIPData && !cdipRejection;
+    // The NDBC observation has no swell partitions. Preserve model inputs in raw fields.
+    const displayedWavePoint = guardrailAnchor ? null : wavePoint;
+    const timepointDataSource = useCdipWaveFields
+      ? "CDIP"
+      : displayedWavePoint
+        ? (displayedWavePoint.data_source ?? "FALLBACK")
+        : (guardrailAnchor || buoyData ? "NOAA_BUOY" : "FALLBACK");
+    const confidenceScore = calculateConfidenceScore({
+      hasWaveData: !!displayedWavePoint,
+      hasTideData: !!tideInfo,
+      hasWeatherData: !!weatherPoint,
+      hasBuoyData: !!(guardrailAnchor || buoyData),
+      hasCDIPData: useCdipWaveFields,
+      forecastHoursAhead,
+    });
 
     // Compute the forecast horizon in hours from issue time (now) to the
     // forecast slot. Used for the CDIP nowcast coverage log, the offset gate
@@ -1051,7 +1081,6 @@ export class ForecastBuilder {
 
     const handoffStep = processForecastHandoffBlendSlot({
       state: handoffBlendState,
-      enabled: handoffBlendEnabled,
       slot: {
         forecastAt,
         waveHeight: waveHeightResult.value,
@@ -1071,9 +1100,7 @@ export class ForecastBuilder {
       };
       // Metric is stored in existing raw_forecast JSON/debug logs; no schema
       // migration is needed for this generation-time seam instrumentation.
-      const logHandoffMetric =
-        handoffBlendEnabled && handoffStep.adjustment ? log.info : log.debug;
-      logHandoffMetric("handoff_discontinuity_ft", {
+      log.info("handoff_discontinuity_ft", {
         beachId: beach.id,
         beachName: beach.name,
         cdipForecastAt: handoffStep.metric.cdipForecastAt,
@@ -1084,18 +1111,7 @@ export class ForecastBuilder {
           handoffStep.metric.handoffDiscontinuityFt,
         rawRatio: handoffStep.metric.rawRatio,
         clampedRatio: handoffStep.metric.clampedRatio,
-        blendEnabled: handoffBlendEnabled,
-        blendApplied: handoffStep.adjustment != null,
       });
-    }
-    if (handoffStep.adjustment) {
-      waveHeightResult = {
-        value: handoffStep.adjustment.waveHeight,
-        debug: {
-          ...waveHeightResult.debug,
-          handoffBlend: handoffStep.adjustment.metadata,
-        },
-      };
     }
 
     const isCdipNowcastEligibleSlot =
@@ -1255,12 +1271,12 @@ export class ForecastBuilder {
         display_wave_source: waveHeightResult.debug.source,
         display_raw_input_height_m: displayRawInputHeightM,
         display_replay_context: replayBase ? JSON.parse(JSON.stringify({
-          version: 1, generatedAt: now.toISOString(), forecastAt, base: replayBase,
-          handoff: handoffBlendEnabled ? handoffBlendState.replay ?? null : null,
+          version: [replayBase.input, handoffBlendState.replay?.model.input].some((input) => input?.ecmwfHybrid)
+            ? FORECAST_DISPLAY_REPLAY_HYBRID_VERSION : 1,
+          generatedAt: now.toISOString(), forecastAt, base: replayBase,
+          handoff: handoffBlendState.replay ?? null,
           unsupportedReason: (beachOffsetCfgRow.enabled && heightOffset != null) || feedbackCalibrationCandidate != null
-            ? "offset"
-            : handoffBlendEnabled && handoffBlendState.seam && !handoffBlendState.replay
-              ? "missing-handoff" : null,
+            ? "offset" : null,
         })) : null,
         wave_height_om_m: omHeightM,
         noaa_swell_1_height_m: wavePoint?.swell_1_height ?? null,
@@ -1353,22 +1369,26 @@ export class ForecastBuilder {
       // Per-beach offset (when enabled + gates pass) is layered on TOP via
       // applyBeachHeightOffset; otherwise byte-identical to waveHeightResult.value.
       wave_height: finalWaveHeightString,
-      wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
-      wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),
+      wave_period: guardrailAnchor
+        ? formatPeriodSeconds(guardrailAnchor.wavePeriodS)
+        : this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCdipWaveFields),
+      wave_direction: guardrailAnchor
+        ? (guardrailAnchor.waveDirectionDeg == null ? null : this.services.getWaveDirectionText(guardrailAnchor.waveDirectionDeg))
+        : this.getWaveDirection(cdipPoint, wavePoint, useCdipWaveFields),
 
       // Detailed swell information
-      swell_1_height: this.getSwell1Height(cdipPoint, wavePoint, useCDIPData),
-      swell_1_period: this.getSwell1Period(cdipPoint, wavePoint, useCDIPData),
-      swell_1_direction: this.getSwell1Direction(cdipPoint, wavePoint, useCDIPData),
+      swell_1_height: this.getSwell1Height(cdipPoint, displayedWavePoint, useCdipWaveFields),
+      swell_1_period: this.getSwell1Period(cdipPoint, displayedWavePoint, useCdipWaveFields),
+      swell_1_direction: this.getSwell1Direction(cdipPoint, displayedWavePoint, useCdipWaveFields),
 
-      swell_2_height: this.getSwell2Height(wavePoint),
-      swell_2_period: this.getSwell2Period(wavePoint),
-      swell_2_direction: this.getSwell2Direction(wavePoint),
+      swell_2_height: this.getSwell2Height(displayedWavePoint),
+      swell_2_period: this.getSwell2Period(displayedWavePoint),
+      swell_2_direction: this.getSwell2Direction(displayedWavePoint),
 
       // Wind waves
-      wind_wave_height: this.getWindWaveHeight(cdipPoint, wavePoint, useCDIPData),
-      wind_wave_period: this.getWindWavePeriod(cdipPoint, wavePoint, useCDIPData),
-      wind_wave_direction: this.getWindWaveDirection(cdipPoint, wavePoint, useCDIPData),
+      wind_wave_height: this.getWindWaveHeight(cdipPoint, displayedWavePoint, useCdipWaveFields),
+      wind_wave_period: this.getWindWavePeriod(cdipPoint, displayedWavePoint, useCdipWaveFields),
+      wind_wave_direction: this.getWindWaveDirection(cdipPoint, displayedWavePoint, useCdipWaveFields),
 
       // Raw Open-Meteo values co-located on this row (when OM had data for
       // this slot at fetch time). NULL when outside OM's 168h horizon or
@@ -1406,8 +1426,9 @@ export class ForecastBuilder {
       coops_station_id: tideData?.station_id || null,
 
       // Weather conditions
-      weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
-      air_temperature: this.getAirTemperature(weatherPoint, beach, forecastTime),
+      // No NWS point (Mexico, Canada, a failed fetch): store no weather rather than a stand-in.
+      weather_condition: this.weatherForHour(weatherPoint, forecastTime)?.shortForecast?.trim() || null,
+      air_temperature: this.getAirTemperature(this.weatherForHour(weatherPoint, forecastTime)),
 
       beach_id: beach.id,
       confidence_score: effectiveConfidence,
@@ -1427,7 +1448,7 @@ export class ForecastBuilder {
           tideData,
           now,
           waveHeightDebug: waveHeightResult.debug,
-          nowcastAnchor: appliedSouthOcSanoGuardrail?.anchor ?? nowcastAnchor,
+          nowcastAnchor: guardrailAnchor ?? nowcastAnchor,
           southOcSanoGuardrail:
             southOcSanoGuardrail.kind !== "noop" ? southOcSanoGuardrail : null,
           southOcSanoGuardrailHeightFloorApplied:
@@ -1492,6 +1513,7 @@ export class ForecastBuilder {
             stationName: cdipData.stationName,
             lastUpdated: cdipData.lastUpdated,
             dataSource: "CDIP" as const,
+            ...(cdipData.readingSource && { readingSource: cdipData.readingSource }),
             data: Array.isArray(cdipData.data) ? cdipData.data.slice(0, 2) : [],
           },
         }),
@@ -1512,8 +1534,22 @@ export class ForecastBuilder {
         transform_path: waveHeightDebug.transformPath,
         components_used: waveHeightDebug.componentsUsed,
         calibrated_shoaling_fired: waveHeightDebug.calibratedShoalingFired,
-        ...(waveHeightDebug.calibrationBucketQuarantined
-          ? { calibration_bucket_quarantined: true }
+        ...(waveHeightDebug.shortPeriodBucketCapped
+          ? { short_period_bucket_capped: true }
+          : {}),
+        ...(waveHeightDebug.modelCalibrationFactor != null
+          ? { model_calibration_factor: waveHeightDebug.modelCalibrationFactor }
+          : {}),
+        ...(waveHeightDebug.ecmwfHybrid
+          ? {
+              ecmwf_hybrid: {
+                r: waveHeightDebug.ecmwfHybrid.r,
+                r_raw: waveHeightDebug.ecmwfHybrid.rRaw,
+                k: waveHeightDebug.ecmwfHybrid.k,
+                ecmwf_hs_m: waveHeightDebug.ecmwfHybrid.ecmwfHsM,
+                fit_date: ECMWF_HYBRID_FIT_DATE,
+              },
+            }
           : {}),
         ...(waveHeightDebug.cdipRejection
           ? {
@@ -1528,26 +1564,6 @@ export class ForecastBuilder {
           ? {
               handoff_discontinuity_ft:
                 waveHeightDebug.handoffDiscontinuityFt,
-            }
-          : {}),
-        ...(waveHeightDebug.handoffBlend
-          ? {
-              handoff_blend: {
-                cdip_forecast_at: waveHeightDebug.handoffBlend.cdipForecastAt,
-                model_forecast_at:
-                  waveHeightDebug.handoffBlend.modelForecastAt,
-                cdip_face_ft: waveHeightDebug.handoffBlend.cdipFaceFt,
-                model_face_ft: waveHeightDebug.handoffBlend.modelFaceFt,
-                handoff_discontinuity_ft:
-                  waveHeightDebug.handoffBlend.handoffDiscontinuityFt,
-                raw_ratio: waveHeightDebug.handoffBlend.rawRatio,
-                clamped_ratio: waveHeightDebug.handoffBlend.clampedRatio,
-                taper_hours: waveHeightDebug.handoffBlend.taperHours,
-                hours_after_seam: waveHeightDebug.handoffBlend.hoursAfterSeam,
-                taper_factor: waveHeightDebug.handoffBlend.taperFactor,
-                original_face_ft: waveHeightDebug.handoffBlend.originalFaceFt,
-                blended_face_ft: waveHeightDebug.handoffBlend.blendedFaceFt,
-              },
             }
           : {}),
         ...(southOcSanoGuardrail && southOcSanoGuardrail.kind !== "noop"
@@ -1575,12 +1591,8 @@ export class ForecastBuilder {
             }
           : {}),
       },
-      ...(waveHeightDebug.calibrationBucketQuarantined
-        ? {
-            wave_height_debug: {
-              calibrationBucketQuarantined: true,
-            },
-          }
+      ...(waveHeightDebug.shortPeriodBucketCapped
+        ? { wave_height_debug: { shortPeriodBucketCapped: true } }
         : {}),
       ...(isFirstOfDay && tideData && tideData.tides && tideData.tides.length > 0
         ? {
@@ -1604,14 +1616,20 @@ export class ForecastBuilder {
    * Helper methods for data extraction
    */
 
-  private getCDIPDataForTime(cdipData: CDIPBuoyData | null, targetTime: Date) {
+  /** `holdHours` null keeps the 4 h build-time limit; otherwise the reading's age at the slot. */
+  private getCDIPDataForTime(
+    cdipData: CDIPBuoyData | null,
+    targetTime: Date,
+    holdHours: number | null,
+  ) {
     const now = new Date();
     return resolveCdipNowcastPoint({
       cdipData,
       targetMs: targetTime.getTime(),
       nowMs: now.getTime(),
       horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
-      maxMeasurementAgeHours: STALENESS_THRESHOLDS.CDIP,
+      maxMeasurementAgeHours: holdHours ?? STALENESS_THRESHOLDS.CDIP,
+      ...(holdHours !== null && { maxAgeAtTargetHours: holdHours }),
     });
   }
 
@@ -1711,6 +1729,8 @@ export class ForecastBuilder {
     useCDIPData: boolean,
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
+    cdipStationId: string | null = null,
+    ecmwfWamHsM: number | null = null,
   ): { value: string | null; debug: WaveHeightDebugInfo } {
     // Extract period: prefer anchor period when anchored, else CDIP peak, model swell, buoy.
     const periodS =
@@ -1739,9 +1759,13 @@ export class ForecastBuilder {
     // See migration 20260407134519_add_shoaling_factors_to_beaches.sql and
     // 20260211120000_comprehensive_swell_window_fix.sql.
     const beachTerrain = {
+      id: beach.id,
       swell_access_factors: beach.swell_access_factors ?? null,
       terrain_enabled: beach.terrain_enabled ?? false,
-      shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,
+      // Buckets apply only to readings from the buoy they were fitted on.
+      shoaling_factors: (useCDIPData && !nowcastAnchor
+        ? shoalingFactorsForStation(beach.shoaling_factors ?? null, cdipStationId)
+        : beach.shoaling_factors ?? null) as ShoalingFactors | null,
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
       // Default-off scoped rollout: null makes the transformer use decay = 1.
@@ -1801,15 +1825,13 @@ export class ForecastBuilder {
     //
     // Branch priority:
     //   1. Nowcast anchor active → buoy observation drives Hs (scalar path).
-    //   2. CDIP data present → CDIP Hs drives the scalar calibrated path.
+    //   2. CDIP data present → use the scalar path if source selection accepts it.
     //      Without this branch, populated NOAA components would silently
     //      override CDIP `Hs` because the decomposed transformer sums
     //      components and never reads `rawHeightFt` (and so the per-beach
     //      `shoaling_factors` calibration, gated on `cdip_sig` source, is
-    //      bypassed). selectWaveHeightSource still handles CDIP outlier
-    //      rejection (>10ft or >1.8× model); on rejection it falls back to
-    //      model_swell and the legacy generic pipeline runs.
-    //   3. NOAA-only or buoy fallback → original decomposed path.
+    //      bypassed).
+    //   3. CDIP absent or rejected → original model / buoy fallback path.
 
     // Branch 1: Nowcast anchor.
     // Swap in the observation Hs via the explicit nowcastAnchorM slot AND pass empty
@@ -1843,6 +1865,9 @@ export class ForecastBuilder {
       const result = toFaceHeightFeetDecomposedWithDebug({
         cdipSigFt: cdipPoint.significantWaveHeight ?? undefined,
         cdipSwellFt: cdipPoint.swellHeight ?? undefined,
+        cdipHasStationBucket: cdipStationId != null &&
+          calibrationReferenceStation(beachTerrain.shoaling_factors) != null &&
+          lookupShoalingBucket(periodS, beachTerrain.shoaling_factors) != null,
         modelSwellM: wavePoint?.swell_1_height ?? undefined,
         modelHsM: wavePoint?.significant_wave_height ?? undefined,
         ndbcBuoyM: buoyData?.wave_height ?? undefined,
@@ -1851,7 +1876,11 @@ export class ForecastBuilder {
         swellDirectionDeg,
         components: [null, null, null],
       });
-      return result;
+      const { cdipRejection } = result.debug;
+      if (!cdipRejection) return result;
+
+      const fallback = this.getWaveHeight(null, wavePoint, buoyData, false, beach, null, null, ecmwfWamHsM);
+      return { ...fallback, debug: { ...fallback.debug, cdipRejection } };
     }
 
     // Branch 3: NOAA-only / buoy fallback — original decomposed path.
@@ -1865,6 +1894,7 @@ export class ForecastBuilder {
       periodS,
       swellDirectionDeg,
       components,
+      ecmwfWamHsM,
     });
   }
 
@@ -2082,11 +2112,16 @@ export class ForecastBuilder {
     return weatherPoint?.windDirection?.trim() || null;
   }
 
-  private getAirTemperature(weatherPoint: WeatherPeriod | null, beach: Beach, forecastTime: Date): string | null {
-    if (weatherPoint) {
-      return `${weatherPoint.temperature}°F`;
-    }
-    return this.estimateAirTemperature(beach.lat ?? 0, forecastTime);
+  /** Past the NWS horizon the nearest period is days away; its sky and temperature are not this hour's. */
+  private weatherForHour(weatherPoint: WeatherPeriod | null, forecastTime: Date): WeatherPeriod | null {
+    if (!weatherPoint) return null;
+    const gapMs = Math.abs(Date.parse(weatherPoint.startTime) - forecastTime.getTime());
+    return gapMs <= WEATHER_PERIOD_MATCH_MS ? weatherPoint : null;
+  }
+
+  private getAirTemperature(weatherPoint: WeatherPeriod | null): string | null {
+    const temperature = weatherPoint?.temperature;
+    return typeof temperature === "number" && Number.isFinite(temperature) ? `${temperature}°F` : null;
   }
 
   /**
@@ -2143,41 +2178,5 @@ export class ForecastBuilder {
 
     const estimatedTemp = baseTemp + seasonalAdjustment;
     return formatWaterTemp(estimatedTemp);
-  }
-
-  private estimateAirTemperature(lat: number, date: Date): string {
-    const month = date.getMonth();
-    const absLat = Math.abs(lat);
-
-    // Base air temperature varies by latitude zone (in degrees F)
-    let baseTemp: number;
-    let seasonalAmplitude: number;
-
-    if (absLat < 20) {
-      // Tropical: warm year-round
-      baseTemp = 84;
-      seasonalAmplitude = 4;
-    } else if (absLat < 30) {
-      // Subtropical
-      baseTemp = 78;
-      seasonalAmplitude = 10;
-    } else if (absLat < 40) {
-      // Temperate
-      baseTemp = 65;
-      seasonalAmplitude = 15;
-    } else if (absLat < 50) {
-      // Cool temperate
-      baseTemp = 55;
-      seasonalAmplitude = 18;
-    } else {
-      // Northern/polar
-      baseTemp = 48;
-      seasonalAmplitude = 15;
-    }
-
-    // Air temp peaks ~July (month 6), earlier than water temp
-    const seasonalAdjustment = seasonalAmplitude * Math.sin(((month - 3) * Math.PI) / 6);
-    const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
-    return `${estimatedTemp}°F`;
   }
 }

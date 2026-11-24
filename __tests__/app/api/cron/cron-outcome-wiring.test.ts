@@ -14,7 +14,6 @@ const CASES: OutcomeWiringCase[] = [
   { name: "CCC import", route: "ccc-sync", unit: "ccc_locations_written" },
   { name: "CCC match", route: "ccc-sync", unit: "beach_matches_written" },
   { name: "county advisories", route: "county-beach-advisories", unit: "advisories_synced" },
-  { name: "daily call streak reminder", route: "daily-call-streak-reminder", unit: "reminders_sent" },
   { name: "daily intel", route: "daily-intel", unit: "intel_published" },
   { name: "first-session push nudge", route: "first-session-nudge-push", unit: "nudges_sent" },
   { name: "forecast refresh", route: "forecasts/refresh", unit: "marine_forecasts_written" },
@@ -23,11 +22,17 @@ const CASES: OutcomeWiringCase[] = [
   { name: "major-event hold evaluation", route: "major-event-hold-evaluate", unit: "holds_evaluated" },
   { name: "NDBC stations", route: "ndbc-direct-sync", unit: "stations_synced" },
   { name: "NDBC observations", route: "ndbc-direct-sync", unit: "observations_upserted" },
+  { name: "wave-station registry", route: "wave-stations-sync", unit: "stations_upserted" },
+  { name: "wave-station latest observations", route: "wave-stations-sync", unit: "rows_sent" },
+  {
+    name: "wave-station swell split",
+    route: "wave-stations-sync",
+    unit: "stations_checked",
+    legitimatelyZero: true,
+  },
   { name: "notification delivery", route: "notifications-deliver", unit: "notifications_sent", expectedMin: 0 },
-  { name: "NPC activity", route: "npc-activity", unit: "posts_published" },
   { name: "camera thumbnails", route: "resolve-cam-thumbnails", unit: "thumbnails_updated", expectedMin: 0 },
   { name: "trial-ending push", route: "trial-ending-push-deliver", unit: "notifications_sent" },
-  { name: "buoy conditions", route: "update-buoy-conditions", unit: "buoy_conditions_updated" },
   { name: "user preferences", route: "update-user-preferences", unit: "preferences_updated" },
   { name: "water-quality alerts", route: "water-quality-alerts", unit: "notifications_sent" },
   { name: "weekend window", route: "weekend-window", unit: "windows_evaluated", extra: "runWeekendScoutCron(request, undefined" },
@@ -52,7 +57,6 @@ const CASES: OutcomeWiringCase[] = [
     unit: "weights_refreshed",
     legitimatelyZero: true,
   },
-  { name: "NOAA buoy reference sync", route: "sync-buoys", unit: "buoys_synced" },
   { name: "rainfall runoff", route: "rainfall-runoff", unit: "rainfall_readings_written" },
   {
     name: "session conditions enrich",
@@ -70,7 +74,6 @@ const CASES: OutcomeWiringCase[] = [
 
 const ENHANCED_FORECAST_ENTRYPOINTS = [
   "enhanced-forecast-sync",
-  "enhanced-forecast-sync-offset",
   "enhanced-forecast-sync-dispatch",
   "enhanced-forecast-sync-cdip",
 ] as const;
@@ -84,7 +87,7 @@ describe("Cron outcome wiring", () => {
       expect(source).toContain(unit);
       expect(source).toContain(`expectedMin: ${expectedMin}`);
       expect(source).toContain(extra ?? "withCronOutcome(");
-      if (legitimatelyZero) expect(source).toContain("legitimatelyZero");
+      expect(legitimatelyZero ? source : "legitimatelyZero").toContain("legitimatelyZero");
     },
   );
 

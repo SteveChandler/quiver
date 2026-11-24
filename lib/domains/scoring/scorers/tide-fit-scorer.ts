@@ -4,20 +4,26 @@
  * Scores tide height against beach preferences.
  * Some beaches work better at different tide heights.
  *
- * Weight: 0.10 (10% of total score)
+ * Weight: 0.05 (5% of total score)
  *
  * Key behaviors:
  * - Within preferred range: Full score
  * - Outside range: Gradual degradation
  * - Extreme tides: Can trigger warnings
  * - Curated bands: a known tide outside the band caps the verdict
+ * - Tide swing (flag): rate-aware softening and `tide_swing` effects. This is
+ *   the only scorer that emits tide effects.
  */
 
 import type { ScorerPlugin, ScorerInput, ScorerResult, ScoringDecisionEffect } from '../types';
 import { SCORER_WEIGHTS } from '../types';
-
-/** Band edges are approximate; ignore the first quarter foot outside them. */
-const TIDE_BAND_TOLERANCE_FT = 0.25;
+import { isTideSwingEnabled } from '@/lib/flags/tide-swing';
+import {
+  assessTideSwing,
+  softenTideBandCeiling,
+  TIDE_BAND_TOLERANCE_FT,
+  type TideSwingAssessment,
+} from '../tide-swing';
 
 /**
  * Verdict ceilings for a known tide outside a curated band. The first tier
@@ -37,15 +43,39 @@ function tideWarning(diffFt: number, side: 'high' | 'low'): string {
 function tideBandEffect(
   excessFt: number,
   side: 'high' | 'low',
+  reentryMessage: string | null = null,
 ): ScoringDecisionEffect | null {
   if (excessFt <= TIDE_BAND_TOLERANCE_FT) return null;
   const tier = TIDE_BAND_CEILINGS.find((entry) => excessFt <= entry.maxExcessFt)!;
+  if (reentryMessage) {
+    // Back in range within the hour: "better from noon", not a dead day.
+    return {
+      code: 'tide_outside_band',
+      severity: 'material',
+      verdictCeiling: softenTideBandCeiling(tier.ceiling),
+      message: reentryMessage,
+    };
+  }
   return {
     code: 'tide_outside_band',
     severity: 'material',
     verdictCeiling: tier.ceiling,
     // Same text as the scorer warning: the engine drops effect messages it already shows.
     message: tideWarning(excessFt, side),
+  };
+}
+
+function withSwing(
+  result: ScorerResult,
+  swing: TideSwingAssessment | null,
+): ScorerResult {
+  if (!swing) return result;
+  const effects = [...(result.effects ?? []), ...swing.effects];
+  return {
+    ...result,
+    reasons: [...result.reasons, ...swing.reasons],
+    warnings: [...result.warnings, ...swing.warnings],
+    ...(effects.length > 0 ? { effects } : {}),
   };
 }
 
@@ -65,10 +95,11 @@ export const tideFitScorer: ScorerPlugin = {
     const tideHeight = snapshot.tide.heightFt;
     const { tidePreferences } = profile;
     const { minHeightFt, maxHeightFt } = tidePreferences;
+    const swing = isTideSwingEnabled() ? assessTideSwing(snapshot, profile) : null;
 
     // If very wide preferences (no real preference), give moderate score
     if (maxHeightFt - minHeightFt >= 10) {
-      return {
+      return withSwing({
         name: 'tideFit',
         score: 70,
         weight: SCORER_WEIGHTS.tideFit,
@@ -76,7 +107,7 @@ export const tideFitScorer: ScorerPlugin = {
         warnings: [],
         skip: false,
         skipReason: null,
-      };
+      }, swing);
     }
 
     const reasons: string[] = [];
@@ -111,10 +142,10 @@ export const tideFitScorer: ScorerPlugin = {
     // Only a curated band and a real tide reading can cap the verdict.
     const effect =
       tidePreferences.explicitRange && snapshot.tide.heightKnown !== false && offsetFt !== 0
-        ? tideBandEffect(Math.abs(offsetFt), offsetFt > 0 ? 'high' : 'low')
+        ? tideBandEffect(Math.abs(offsetFt), offsetFt > 0 ? 'high' : 'low', swing?.reentryMessage ?? null)
         : null;
 
-    return {
+    return withSwing({
       name: 'tideFit',
       score,
       weight: SCORER_WEIGHTS.tideFit,
@@ -123,6 +154,6 @@ export const tideFitScorer: ScorerPlugin = {
       ...(effect ? { effects: [effect] } : {}),
       skip: false,
       skipReason: null,
-    };
+    }, swing);
   },
 };

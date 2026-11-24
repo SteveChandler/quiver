@@ -28,18 +28,18 @@ describe("formatWaveHeightRange", () => {
   it("formats typical wave heights as Surfline-style face brackets", () => {
     // floor(1.5)=1, ceil(1.5)=2 → "1-2ft"
     expect(formatWaveHeightRange(1.5)).toBe("1-2ft");
-    // floor(2)=2, ceil(2)=2 → collapsed "2ft"
-    expect(formatWaveHeightRange(2)).toBe("2ft");
+    // Whole number 2 reads as the band below it, like native: "1-2ft"
+    expect(formatWaveHeightRange(2)).toBe("1-2ft");
     // floor(2.3)=2, ceil(2.3)=3 → "2-3ft"
     expect(formatWaveHeightRange(2.3)).toBe("2-3ft");
-    // Whole-number 3 collapses to "3ft" (no × 1.5 expansion)
-    expect(formatWaveHeightRange(3)).toBe("3ft");
+    // Whole-number 3 reads as "2-3ft", like native (no × 1.5 expansion)
+    expect(formatWaveHeightRange(3)).toBe("2-3ft");
   });
 
   it("formats larger waves as floor/ceil bracket", () => {
     // Whole-number collapses to single value
-    expect(formatWaveHeightRange(5)).toBe("5ft");
-    expect(formatWaveHeightRange(8)).toBe("8ft");
+    expect(formatWaveHeightRange(5)).toBe("4-5ft");
+    expect(formatWaveHeightRange(8)).toBe("7-8ft");
     // Fractional values keep the bracket
     expect(formatWaveHeightRange(5.4)).toBe("5-6ft");
   });

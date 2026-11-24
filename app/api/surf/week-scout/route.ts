@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -8,6 +9,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
+import { reuseWeekScoutAnswer, type AnswerReuse } from '@/lib/services/discovery/week-scout-answer-reuse';
 import { parseSessionTime } from '@/lib/scoring/session-time-preference';
 import {
   buildDriveRangeCandidatePool,
@@ -24,6 +26,26 @@ import {
   isWeekScoutSwellsEnabled,
   isWeekScoutSwellsUserAllowed,
 } from '@/lib/flags/week-scout-swells';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { bindStory, isWeekScoutStoryEnabled, prepareStory } from '@/lib/services/discovery/week-scout-story-serve';
+import { isWeekScoutStoryUserAllowed } from '@/lib/flags/week-scout-story';
+import {
+  FARTHER_OUT_MAX_MILES,
+  isWeekScoutFartherOutEnabled,
+  loadFartherOutPool,
+  rankFartherOut,
+  settleFartherOut,
+  withinFartherOutBudget,
+  type FartherOutCandidate,
+} from '@/lib/services/discovery/week-scout-farther-out';
+import {
+  formatServerTiming,
+  recordStage,
+  runWithStageTimings,
+  startInstanceProbe,
+  timeStage,
+  timeStageSync,
+} from '@/lib/observability/request-timing';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,7 +124,7 @@ const WeekScoutRequestSchema = z.object({
   candidateScope: z.union([z.literal('complete-radius'), CompleteRadiusScopeSchema]).optional(),
   localTimezone: z.string().min(1).refine(isValidTimezone, 'Invalid IANA timezone'),
   startLocalDate: z.string().refine(isValidLocalDate, 'Invalid local date'),
-  dayCount: z.literal(7),
+  dayCount: z.union([z.literal(7), z.literal(10)]),
 }).refine((value) => Boolean(value.candidateScope) || Boolean(value.candidateBeachIds?.length), {
   message: 'Candidate IDs or complete-radius scope is required',
 });
@@ -111,6 +133,8 @@ async function weekScoutHandler(
   request: NextRequest,
   { user, supabase }: AuthenticatedContext,
 ): Promise<NextResponse> {
+  // Rate limiting plus authentication: everything before the handler runs.
+  recordStage('auth', performance.now() - requestStartedAt(request));
   // Installed native clients need a stable canonical contract. Keep the flag
   // as an emergency kill switch, but default the endpoint on so an omitted
   // preview/production env value cannot turn every mobile forecast into a 404.
@@ -132,16 +156,38 @@ async function weekScoutHandler(
   if (!parsed.success) {
     return createValidationError('Invalid Week Scout request', parsed.error.flatten());
   }
+  const tags: RequestTags = {
+    dayCount: parsed.data.dayCount,
+    platform: request.headers.get('x-quiver-platform'),
+    update: request.headers.get('x-quiver-update-id')?.slice(0, 64) ?? null,
+    user: shortHash(user.id),
+    bodyKey: shortHash(`${user.id}|${JSON.stringify({ ...parsed.data, dayCount: undefined })}`),
+  };
+  requestTags.set(request, tags);
   const completeRadiusScope = parsed.data.candidateScope === 'complete-radius'
     ? { kind: 'complete-radius' as const }
     : parsed.data.candidateScope;
 
   // The profile and the location snapshot are independent reads; run them together.
-  const [profileRead, snapshotRead] = await Promise.all([
+  const [profileRead, snapshotRead] = await timeStage('profile', () => Promise.all([
     readWeekScoutProfile(supabase, user.id),
     readLocationSnapshot(supabase, user.id),
-  ]);
+  ]));
   const { profile, error: profileError } = profileRead;
+  tags.profileKey = profileError === null ? shortHash(`${user.id}|${JSON.stringify(profile ?? null)}`) : null;
+  tags.locKey = weekScoutLocationKey(user.id, snapshotRead);
+  // The story input depends on neither the pool nor the ranking; only binding
+  // needs the live forecast, so it loads from here on. Never rejects.
+  const storyEnabled = isWeekScoutStoryEnabled() && isWeekScoutStoryUserAllowed(user.id);
+  const pendingStory = storyEnabled
+    ? timeStage('story-load', () => prepareStory({
+      client: createSupabaseServiceRoleClient(),
+      homeBeachId: profileError === null ? profile?.home_beach_id ?? null : null,
+      startLocalDate: parsed.data.startLocalDate,
+      now: new Date(),
+    })).catch(() => null)
+    : null;
+  const poolStartedAt = performance.now();
   // Without a profile the legacy ranking stands: no session-time narrowing and
   // distance friction from 10 miles.
   const surferDriveRadiusMiles = profileError === null
@@ -162,6 +208,9 @@ async function weekScoutHandler(
   let scopeNearestBeach: { id: string; name: string; slug: string; lat: number; lon: number; distanceMiles: number } | null = null;
   let rankingLocation = userLocation;
   let candidateBeaches: Array<{ beachId: string; beachName: string; beachSlugOrRef: string; distanceMiles: number | null; timezone: string | null; lat: number; lon: number }> | undefined;
+  // Opt-in so installed clients that never ask pay nothing and see no change.
+  const wantsFartherOut = new URL(request.url).searchParams.get('fartherOut') === '1' && isWeekScoutFartherOutEnabled();
+  let fartherOut: { anchor: { lat: number; lon: number }; innerRadiusMiles: number; pool: Promise<FartherOutCandidate[]> } | null = null;
   if (completeRadiusScope?.kind === 'complete-radius' && !completeRadiusScope.mapBounds) {
     if (profileError !== null) throw new Error(`Failed to load Week Scout profile: ${profileError}`);
     const homeBeachId = profile?.home_beach_id ?? null;
@@ -174,6 +223,18 @@ async function weekScoutHandler(
     scopeAnchor = resolvedAnchor.source;
     rankingLocation = anchor;
     scopeRadiusMiles = Math.min(Math.max(0.5, driveRadiusMiles(profile?.max_drive_minutes)), MAX_RADIUS_MILES);
+    if (wantsFartherOut && scopeRadiusMiles < FARTHER_OUT_MAX_MILES) {
+      const pending = loadFartherOutPool(user.id, {
+        anchor,
+        homeBeachId,
+        innerRadiusMiles: scopeRadiusMiles,
+        experienceLevel: profile?.experience_level ?? null,
+        filters: completeRadiusScope.filters,
+      });
+      // Settled later; the handler keeps a failed read from becoming an unhandled rejection meanwhile.
+      pending.catch(() => undefined);
+      fartherOut = { anchor, innerRadiusMiles: scopeRadiusMiles, pool: pending };
+    }
     const pool = await buildDriveRangeCandidatePool(user.id, {
       anchor,
       homeBeachId,
@@ -185,6 +246,8 @@ async function weekScoutHandler(
     if (pool.widenedFromMiles !== undefined) {
       scopeWidenedFromMiles = pool.widenedFromMiles;
       scopeRadiusMiles = MAX_RADIUS_MILES;
+      // A widened scope already reaches past the outer ring.
+      fartherOut = null;
     }
     scopeNearestBeach = pool.nearestBeach ?? null;
     scopeCandidateCounts = {
@@ -289,7 +352,9 @@ async function weekScoutHandler(
   // The preference only narrows the pick; if it can't be read, rank every window.
   const sessionTime = profileError === null ? parseSessionTime(profile?.preferred_session_time) : null;
   const swellsEnabled = isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(user.id);
-  const forecast = await generateWeekScoutForecast(user.id, {
+  recordStage('pool', performance.now() - poolStartedAt);
+  tags.candidates = candidateBeachIds.length;
+  const forecastRequest = {
     candidateBeachIds,
     ...(sessionTime ? { sessionTime } : {}),
     localTimezone: parsed.data.localTimezone,
@@ -300,9 +365,48 @@ async function weekScoutHandler(
     ...(completeRadiusScope?.kind === 'complete-radius'
       ? { requirePerRowFreshness: true }
       : {}),
-    ...(swellsEnabled ? { includeSwells: true } : {}),
-  });
+    ...(swellsEnabled || storyEnabled ? { includeSwells: true } : {}),
+  };
+  // Saved spots, location, scope and dates are all in forecastRequest; the profile key adds
+  // skill and session settings. Board and learned-preference changes wait out REUSE_MS (30 s).
+  const answerKey = createHash('sha256')
+    .update(`${user.id}|${tags.profileKey ?? ''}|${JSON.stringify(forecastRequest)}`)
+    .digest('hex');
+  const pendingForecast = timeStage('forecast', () => reuseWeekScoutAnswer(
+    answerKey,
+    user.id,
+    () => generateWeekScoutForecast(user.id, forecastRequest),
+    (reuse) => { tags.answerReuse = reuse; },
+  ));
+  // Ranked beside the main answer and outside its reuse key, so the normal response is untouched.
+  const pendingFartherOut = fartherOut
+    ? settleFartherOut((async () => rankFartherOut(user.id, {
+      pool: await fartherOut.pool,
+      inRangeIds: candidateBeachIds,
+      innerRadiusMiles: fartherOut.innerRadiusMiles,
+      anchor: fartherOut.anchor,
+      request: {
+        ...(sessionTime ? { sessionTime } : {}),
+        localTimezone: parsed.data.localTimezone,
+        startLocalDate: parsed.data.startLocalDate,
+        dayCount: parsed.data.dayCount,
+        userLocation: fartherOut.anchor,
+        ...(surferDriveRadiusMiles !== undefined ? { driveRadiusMiles: surferDriveRadiusMiles } : {}),
+        requirePerRowFreshness: true,
+      },
+      inRange: pendingForecast,
+    }))())
+    : null;
+  const forecast = await pendingForecast;
+  const fartherOutDays = pendingFartherOut ? await withinFartherOutBudget(pendingFartherOut) : null;
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
+  const unavailableStory = () => bindStory({ region: null, availability: 'unavailable', input: null, selections: null, live: forecast });
+  const bindLiveStory = pendingStory ? await pendingStory : null;
+  const story = storyEnabled
+    ? await timeStage('story-bind', async () => (bindLiveStory
+      ? await bindLiveStory(forecast).catch(unavailableStory)
+      : unavailableStory()))
+    : null;
   const coverage = completeRadiusScope?.kind === 'complete-radius'
     ? {
         scope: {
@@ -320,12 +424,21 @@ async function weekScoutHandler(
         days: forecastCoverage?.days ?? [],
       }
     : undefined;
-  return createSuccessResponse({
+  return timeStageSync('serialize', () => createSuccessResponse({
     ...forecastPayload,
+    ...(fartherOutDays && fartherOutDays.size > 0
+      ? {
+          days: forecastPayload.days.map((day) => {
+            const row = fartherOutDays.get(day.localDate);
+            return row ? { ...day, fartherOut: row } : day;
+          }),
+        }
+      : {}),
     ...(candidateBeaches ? { candidateBeaches } : {}),
     ...(coverage ? { coverage } : {}),
     ...(swellsEnabled && swells ? { swells } : {}),
-  });
+    ...(story ? { story } : {}),
+  }));
 }
 
 async function readWeekScoutProfile(
@@ -369,10 +482,59 @@ const protectedPOST = withRateLimit(
   'surf-discovery',
 );
 
+const requestStarts = new WeakMap<object, number>();
+const requestStartedAt = (request: NextRequest): number => requestStarts.get(request) ?? performance.now();
+// Who asked for what, so the timing line can show which app build sends which horizon
+// and pair a user's back-to-back requests without logging the raw user id.
+// The three keys say which inputs changed between two same-day requests: the body
+// (scope, filters, map bounds, candidates, date), the profile fields the ranking reads,
+// and the phone location rounded as the app's location bucket (2 decimals). Each key is
+// salted with the user id, so a log reader cannot recover a location by enumeration.
+type RequestTags = {
+  dayCount: number;
+  platform: string | null;
+  update: string | null;
+  user: string;
+  bodyKey: string;
+  profileKey?: string | null;
+  locKey?: string | null;
+  /** Candidate beaches sent to the ranking; its cost grows with this count. */
+  candidates?: number;
+  /** miss = computed here; joined/hit = reused an identical answer on this instance. */
+  answerReuse?: AnswerReuse;
+};
+const requestTags = new WeakMap<object, RequestTags>();
+
+function shortHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 8);
+}
+
+function weekScoutLocationKey(userId: string, snapshot: { lat?: unknown; lon?: unknown } | null): string | null {
+  const { lat, lon } = snapshot ?? {};
+  if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return shortHash(`${userId}|${lat.toFixed(2)},${lon.toFixed(2)}`);
+}
+
 export const POST = async (
   ...args: Parameters<typeof protectedPOST>
 ): Promise<NextResponse> => {
-  const response = await protectedPOST(...args);
+  const startedAt = performance.now();
+  requestStarts.set(args[0], startedAt);
+  const stopProbe = startInstanceProbe();
+  const { stages, result } = runWithStageTimings(() => protectedPOST(...args));
+  let response: NextResponse | null = null;
+  try {
+    response = await result;
+  } finally {
+    const instance = stopProbe();
+    const totalMs = Math.round(performance.now() - startedAt);
+    // One line per request via console.info, which production log levels keep.
+    console.info(`[WeekScoutTiming] ${JSON.stringify({ status: response?.status ?? null, totalMs, ...requestTags.get(args[0]), ...instance, stages })}`);
+  }
+  response.headers.set(
+    'Server-Timing',
+    formatServerTiming([...stages, { name: 'total', ms: Math.round(performance.now() - startedAt) }]),
+  );
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',

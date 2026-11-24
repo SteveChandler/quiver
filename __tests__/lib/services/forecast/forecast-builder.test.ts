@@ -291,6 +291,71 @@ describe("ForecastBuilder", () => {
     expect(f.forecast_time).toBe(utcTime);
   });
 
+  it("stores no weather or air temperature when no NWS point exists, never a stand-in", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].weather_condition).toBeNull();
+    expect(forecasts[0].air_temperature).toBeNull();
+  });
+
+  it("stores the NWS weather and air temperature when a point exists", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [{
+        startTime: mockWaveData.forecast[0].timestamp,
+        temperature: 61,
+        windSpeed: "5 mph",
+        windDirection: "W",
+        shortForecast: "Mostly Sunny",
+      }],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].weather_condition).toBe("Mostly Sunny");
+    expect(forecasts[0].air_temperature).toBe("61°F");
+  });
+
+  it("stores no weather for hours past the last NWS period instead of repeating it", async () => {
+    const start = Date.parse(mockWaveData.forecast[0].timestamp);
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [{
+        startTime: new Date(start).toISOString(),
+        temperature: 61,
+        windSpeed: "5 mph",
+        windDirection: "W",
+        shortForecast: "Mostly Sunny",
+      }],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    const far = forecasts.filter((row) => Date.parse(row.forecast_at!) - start > 6 * 60 * 60 * 1000);
+    expect(far.length).toBeGreaterThan(0);
+    for (const row of far) {
+      expect(row.weather_condition).toBeNull();
+      expect(row.air_temperature).toBeNull();
+    }
+  });
+
   it("uses '-- ft' fallback when tide interpolation fails", async () => {
     const builderNoTide = new ForecastBuilder({
       getWaveDirectionText: (deg: number) => "SW",

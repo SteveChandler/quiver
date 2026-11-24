@@ -51,16 +51,19 @@ export function BeachProseSummary({
       conditionParts.push(`${surfCallReport.waveHeight} waves`);
     }
 
-    if (surfCallReport.windDescription) {
-      conditionParts.push(surfCallReport.windDescription.toLowerCase());
+    // The surf call fills a missing wind or tide with "Unknown"; that is not a condition to state.
+    const windDescription = knownDescription(surfCallReport.windDescription);
+    const tideDescription = knownDescription(surfCallReport.tideDescription);
+    if (windDescription) {
+      conditionParts.push(windDescription.toLowerCase());
     } else if (surfCallReport.windSpeed && surfCallReport.windCompass) {
       conditionParts.push(
         `${surfCallReport.windSpeed} mph ${surfCallReport.windCompass} winds`
       );
     }
 
-    if (surfCallReport.tideDescription) {
-      conditionParts.push(surfCallReport.tideDescription.toLowerCase());
+    if (tideDescription) {
+      conditionParts.push(tideDescription.toLowerCase());
     }
 
     if (conditionParts.length > 0) {
@@ -160,4 +163,9 @@ function formatSkillLevel(skillLevel: string | null | undefined): string | null 
     all: "suitable for all skill levels",
   };
   return labels[skillLevel] || null;
+}
+
+function knownDescription(value: string | null | undefined): string | null {
+  const text = value?.trim();
+  return text && text.toLowerCase() !== "unknown" ? text : null;
 }

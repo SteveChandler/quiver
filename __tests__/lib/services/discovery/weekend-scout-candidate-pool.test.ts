@@ -295,6 +295,28 @@ describe("buildDriveRangeCandidatePool", () => {
     expect(result).toEqual(expect.objectContaining({ enumeratedCount: 3, filteredOutCount: 1 }));
   });
 
+  it("keeps a ring past the inner radius before the nearby cap", async () => {
+    // 30 beaches 1-30 mi out; the inner 10 would fill a nearest-first cap of 5 on their own.
+    const nearby: PoolBeach[] = Array.from({ length: 30 }, (_, index) => ({
+      beach: beach(`nearby-${index + 1}`, { lat: 33, lon: -118 } as Partial<Beach>),
+      relation: "nearby",
+      distanceMiles: index + 1,
+    }));
+    const loadPool = jest.fn().mockResolvedValue(nearby);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor,
+      homeBeachId: null,
+      maxDriveMinutes: 45,
+      beyondMiles: 10,
+      nearbyCap: 5,
+    }, { loadPool, supabase: {} as never });
+
+    expect(result.candidates.map(({ beach: { id } }) => id)).toEqual([
+      "nearby-11", "nearby-12", "nearby-13", "nearby-14", "nearby-15",
+    ]);
+  });
+
   it("scores the 50 nearest beaches plus every saved and home spot in range", async () => {
     const nearby: PoolBeach[] = Array.from({ length: 60 }, (_, index) => ({
       beach: beach(`nearby-${index}`, { lat: 33, lon: -118 } as Partial<Beach>),
@@ -310,7 +332,7 @@ describe("buildDriveRangeCandidatePool", () => {
     const result = await buildDriveRangeCandidatePool("user-1", {
       anchor,
       homeBeachId: "home",
-      maxDriveMinutes: null,
+      maxDriveMinutes: 200,
     }, { loadPool, supabase: {} as never });
 
     const ids = result.candidates.map(({ beach: { id } }) => id);
@@ -329,7 +351,7 @@ describe("buildDriveRangeCandidatePool", () => {
     const result = await buildDriveRangeCandidatePool("user-1", {
       anchor,
       homeBeachId: null,
-      maxDriveMinutes: null,
+      maxDriveMinutes: 200,
       experienceLevel: "beginner",
     }, { loadPool: jest.fn().mockResolvedValue(pool), supabase: {} as never });
 
@@ -339,19 +361,20 @@ describe("buildDriveRangeCandidatePool", () => {
     expect(result).toMatchObject({ cappedCount: 1, farthestNearbyMiles: 51 });
   });
 
-  it("widens an empty drive range to the 100-mile maximum and names the nearest beach", async () => {
+  it.each([[90, 45], [null, 30]])("widens an empty drive range (%p min) to 100 miles and names the nearest beach", async (maxDriveMinutes, expectedMiles) => {
     const jetty: PoolBeach = { beach: beach("jetty", { slug: "jetty", lat: 39.28, lon: -74.57 } as Partial<Beach>), relation: "nearby", distanceMiles: 54.7 };
     const ac: PoolBeach = { beach: beach("ac", { slug: "ac", lat: 39.36, lon: -74.43 } as Partial<Beach>), relation: "nearby", distanceMiles: 56.7 };
     const loadPool = jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([ac, jetty]);
     const findNearest = jest.fn();
 
     const result = await buildDriveRangeCandidatePool("user-1", {
-      anchor, homeBeachId: "home", maxDriveMinutes: 90,
+      anchor, homeBeachId: "home", maxDriveMinutes,
     }, { loadPool, findNearest, supabase: {} as never });
 
-    expect(loadPool).toHaveBeenNthCalledWith(2, expect.objectContaining({ maxDriveMinutes: null }));
+    expect(loadPool).toHaveBeenNthCalledWith(1, expect.objectContaining({ maxDriveMinutes }));
+    expect(loadPool).toHaveBeenNthCalledWith(2, expect.objectContaining({ maxDriveMinutes: 200 }));
     expect(result.candidates.map(({ beach: { id } }) => id)).toEqual(["ac", "jetty"]);
-    expect(result.widenedFromMiles).toBe(45);
+    expect(result.widenedFromMiles).toBe(expectedMiles);
     expect(result.nearestBeach).toEqual({ id: "jetty", name: "jetty", slug: "jetty", lat: 39.28, lon: -74.57, distanceMiles: 54.7 });
     expect(findNearest).not.toHaveBeenCalled();
   });
@@ -375,7 +398,7 @@ describe("buildDriveRangeCandidatePool", () => {
     const findNearest = jest.fn().mockResolvedValue(null);
 
     const result = await buildDriveRangeCandidatePool("user-1", {
-      anchor, homeBeachId: null, maxDriveMinutes: null,
+      anchor, homeBeachId: null, maxDriveMinutes: 200,
     }, { loadPool, findNearest, supabase: {} as never });
 
     expect(loadPool).toHaveBeenCalledTimes(1);

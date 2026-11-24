@@ -13,6 +13,7 @@ export {
   swellPartitionFaceHeightFt,
   toSwellEventBeach,
   type BeachSwellEvent,
+  type DetectOptions,
   type SwellEventBeach,
   type SwellEventForecastRow,
 } from "./detector";

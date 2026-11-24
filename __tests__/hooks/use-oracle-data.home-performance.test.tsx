@@ -18,6 +18,7 @@ jest.mock("@/context/profile-context", () => ({
 }));
 
 jest.mock("@/hooks/use-geolocation", () => ({
+  ...jest.requireActual("@/hooks/use-geolocation"),
   useGeolocation: jest.fn(),
 }));
 
@@ -77,7 +78,7 @@ describe("useOracleData home performance gates", () => {
     });
   });
 
-  it("uses cached/default coordinates on mount and counts primary/fallback requests", () => {
+  it("requests discovery from the home beach and counts each request", () => {
     renderHook(() => useOracleData());
 
     expect(useGeolocation).toHaveBeenCalledWith(
@@ -88,24 +89,22 @@ describe("useOracleData home performance gates", () => {
       })
     );
 
-    const primaryOptions = (useSurfDiscovery as jest.Mock).mock.calls[0][0];
-    const fallbackOptions = (useSurfDiscovery as jest.Mock).mock.calls[1][0];
+    const calls = (useSurfDiscovery as jest.Mock).mock.calls.map(([options]) => options);
+    const locations = calls.map((options) => options.userLocation).filter(Boolean);
+    expect(locations).toEqual(locations.map(() => ({ lat: 32.75, lon: -117.25 })));
+    const options = calls[calls.length - 1];
+    expect(options).toMatchObject({ enabled: true, widenEmptyRange: true });
 
     act(() => {
-      primaryOptions.onRequest();
-      fallbackOptions.onRequest();
+      options.onRequest();
     });
 
     expect(
       (window as HomeDiscoveryWindow).__quiverHomeDiscoveryRequestCount
-    ).toBe(2);
+    ).toBe(1);
     expect(markMock).toHaveBeenNthCalledWith(
       1,
       "quiver:home:discovery-request:1:primary"
-    );
-    expect(markMock).toHaveBeenNthCalledWith(
-      2,
-      "quiver:home:discovery-request:2:fallback"
     );
   });
 

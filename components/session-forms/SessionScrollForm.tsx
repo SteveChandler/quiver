@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SESSION_RATING_SCALE } from "@/lib/share/session-rating";
 import { cn } from "@/lib/utils";
 import {
   SessionFormMode,
@@ -517,7 +518,7 @@ export function SessionScrollForm({
                 <hr className="border-[#404C92]" />
                 <section className="space-y-6">
                   <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">How were the waves?</h2>
-                  <SessionSlider label="Overall" labels={["Rough", "Meh", "Fun", "Great", "Epic"]} colors={["#9CA3AF", "#F59E0B", "#EA580C"]} value={formState.overallRating} onChange={(v) => updateField("overallRating", v)} hero />
+                  <SessionSlider label="Overall" labels={SESSION_RATING_SCALE} colors={["#9CA3AF", "#F59E0B", "#EA580C"]} value={formState.overallRating} onChange={(v) => updateField("overallRating", v)} hero />
                   {sessionFitPicker}
                   <SessionSlider label="Wave Quality" labels={["Flat", "Choppy", "Fun", "Good", "Firing"]} colors={["#0D9488", "#F59E0B", "#EA580C"]} value={formState.waveQuality} onChange={(v) => updateField("waveQuality", v)} />
                   <SessionSlider label="Crowd" labels={["Empty", "Chill", "Moderate", "Busy", "Packed"]} colors={["#16A34A", "#FBBF24", "#DC2626"]} value={formState.crowdLevel} onChange={(v) => updateField("crowdLevel", v)} />

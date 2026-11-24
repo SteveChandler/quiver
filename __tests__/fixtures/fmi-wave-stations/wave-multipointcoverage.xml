@@ -1,0 +1,510 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wfs:FeatureCollection
+  timeStamp="2026-11-11T05:22:56Z"
+  numberMatched="1"
+  numberReturned="1"
+  xmlns:wfs="http://www.opengis.net/wfs/2.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  xmlns:om="http://www.opengis.net/om/2.0"
+  xmlns:ompr="http://inspire.ec.europa.eu/schemas/ompr/3.0"
+  xmlns:omso="http://inspire.ec.europa.eu/schemas/omso/3.0"
+  xmlns:gml="http://www.opengis.net/gml/3.2"
+  xmlns:gmd="http://www.isotc211.org/2005/gmd"
+  xmlns:gco="http://www.isotc211.org/2005/gco"
+  xmlns:swe="http://www.opengis.net/swe/2.0"
+  xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0"
+  xmlns:sam="http://www.opengis.net/sampling/2.0"
+  xmlns:sams="http://www.opengis.net/samplingSpatial/2.0"
+  xmlns:target="http://xml.fmi.fi/namespace/om/atmosphericfeatures/1.1"
+  xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd
+  http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/gmlcovAll.xsd
+  http://www.opengis.net/sampling/2.0 http://schemas.opengis.net/sampling/2.0/samplingFeature.xsd
+  http://www.opengis.net/samplingSpatial/2.0 http://schemas.opengis.net/samplingSpatial/2.0/spatialSamplingFeature.xsd
+  http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd
+  http://inspire.ec.europa.eu/schemas/ompr/3.0 https://inspire.ec.europa.eu/schemas/ompr/3.0/Processes.xsd
+  http://inspire.ec.europa.eu/schemas/omso/3.0 https://inspire.ec.europa.eu/schemas/omso/3.0/SpecialisedObservations.xsd
+  http://xml.fmi.fi/namespace/om/atmosphericfeatures/1.1 https://xml.fmi.fi/schema/om/atmosphericfeatures/1.1/atmosphericfeatures.xsd">
+
+  <wfs:member>
+    <omso:GridSeriesObservation gml:id="WFS-s2QpWJ0vbMqBWliz2HcUoyvn5u.JTowq4WbbpdOt.Lnl5dsPTTv3c3Trvh7ZXTrb12dNPDfp3dMe_tl5Yc.WFpYsufTuqaduW1V_CrVPGeURjY.XOtSLQpx3TpoyauGdl3ZKmnbltVfwq1bhliZ2bbp56cnOS2KORJZFHIkmjjkSWQTSJKMZY0nNkUaT.uWNJBZLGk0x_zSfY_5pK8v80nEk0aS_6mMzteXz338slTo15fPffyyX9_bLy78tPTDi2ZYmZsw9MvPpEzNm_Hh2Za1M2m_GkruvTM4a23D4iaefTDux5aVq6EBpbcPiLw349HOeH0JvbcvTLvoYeWHbl6ZeXOsyvh7ZZHOsavUoVoTd.TDsrxNNZlSvBqRaTW26efPTuz1MvjpWNOwzm1u67Z.an0w9NO_dznCa3Hrh2aenmTuzb4mtz6YemnfuqeeGWtrfwy7smHphv4uu_y3OfTfyy5OPXLy839OStcLNt0unW_Fzy8u2Hpp37ubp13w9srp1t67Omnhv07umPf2y8sOfK0Omnblp9MvCZodNO3La37stY1WpDA--">
+
+                 <om:phenomenonTime>
+        <gml:TimePeriod gml:id="time1-1-1">
+          <gml:beginPosition>2026-11-10T23:30:00Z</gml:beginPosition>
+          <gml:endPosition>2026-11-11T05:00:00Z</gml:endPosition>
+        </gml:TimePeriod>
+      </om:phenomenonTime>
+      <om:resultTime>
+        <gml:TimeInstant gml:id="time2-1-1">
+          <gml:timePosition>2026-11-11T05:00:00Z</gml:timePosition>
+        </gml:TimeInstant>
+      </om:resultTime>
+
+     <om:procedure xlink:href="http://xml.fmi.fi/inspire/process/opendata_buoy"/>
+     
+
+     <om:observedProperty  xlink:href="https://opendata.fmi.fi/meta?observableProperty=observation&amp;param=WaveHs,WTP,ModalWDi,TWATER&amp;language=eng"/>
+     	<om:featureOfInterest>
+        <sams:SF_SpatialSamplingFeature gml:id="sampling-feature-1-1-fmisid">
+
+          <sam:sampledFeature>
+		<target:LocationCollection gml:id="sampled-target-1-1">
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-103807-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">103807</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Oulu Santapankki</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-103807</gml:name>
+			
+			<target:representativePoint xlink:href="#point-103807"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Oulu</target:region>	   			
+			
+		    </target:Location></target:member>
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-103976-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">103976</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Helsinki Suomenlinna aaltopoiju</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-103976</gml:name>
+			
+			<target:representativePoint xlink:href="#point-103976"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Helsinki</target:region>	   			
+			
+		    </target:Location></target:member>
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-104600-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">104600</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Pori Kaijakari</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-104600</gml:name>
+			
+			<target:representativePoint xlink:href="#point-104600"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Pori</target:region>	   			
+			
+		    </target:Location></target:member>
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-108495-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">108495</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Loviisa Orrengrund aaltopoiju</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-108495</gml:name>
+			
+			<target:representativePoint xlink:href="#point-108495"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Loviisa</target:region>	   			
+			
+		    </target:Location></target:member>
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-134220-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">134220</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Pohjois-Itämeri aaltopoiju</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-10022811</gml:name>
+			
+			<target:representativePoint xlink:href="#point-134220"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Kökar</target:region>	   			
+			
+		    </target:Location></target:member>
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-134221-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">134221</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Suomenlahti aaltopoiju</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-10022810</gml:name>
+			
+			<target:representativePoint xlink:href="#point-134221"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Sipoo</target:region>	   			
+			
+		    </target:Location></target:member>
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-134246-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">134246</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Selkämeri aaltopoiju</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-10022812</gml:name>
+			
+			<target:representativePoint xlink:href="#point-134246"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Pori</target:region>	   			
+			
+		    </target:Location></target:member>
+		    <target:member>
+		    <target:Location gml:id="obsloc-fmisid-137228-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">137228</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Perämeri aaltopoiju</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-10022813</gml:name>
+			
+			<target:representativePoint xlink:href="#point-137228"/>					
+			
+			
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Raahe</target:region>	   			
+			
+		    </target:Location></target:member>
+		</target:LocationCollection>
+ 	   </sam:sampledFeature>
+          <sams:shape>
+            <gml:MultiPoint gml:id="mp-1-1-fmisid">
+              <gml:pointMember>
+              <gml:Point gml:id="point-103807" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Oulu Santapankki</gml:name>
+                <gml:pos>65.18083 25.03250 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+              <gml:pointMember>
+              <gml:Point gml:id="point-103976" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Helsinki Suomenlinna aaltopoiju</gml:name>
+                <gml:pos>60.12333 24.97283 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+              <gml:pointMember>
+              <gml:Point gml:id="point-104600" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Pori Kaijakari</gml:name>
+                <gml:pos>61.62160 21.38740 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+              <gml:pointMember>
+              <gml:Point gml:id="point-108495" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Loviisa Orrengrund aaltopoiju</gml:name>
+                <gml:pos>60.23330 26.39160 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+              <gml:pointMember>
+              <gml:Point gml:id="point-134220" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Pohjois-Itämeri aaltopoiju</gml:name>
+                <gml:pos>59.24817 20.99833 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+              <gml:pointMember>
+              <gml:Point gml:id="point-134221" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Suomenlahti aaltopoiju</gml:name>
+                <gml:pos>59.96500 25.23500 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+              <gml:pointMember>
+              <gml:Point gml:id="point-134246" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Selkämeri aaltopoiju</gml:name>
+                <gml:pos>61.80010 20.23267 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+              <gml:pointMember>
+              <gml:Point gml:id="point-137228" srsName="http://www.opengis.net/def/crs/EPSG/0/4258" srsDimension="2">
+                <gml:name>Perämeri aaltopoiju</gml:name>
+                <gml:pos>64.68410 23.23800 </gml:pos>
+            </gml:Point>
+	    </gml:pointMember>
+	    </gml:MultiPoint>
+          </sams:shape>
+        </sams:SF_SpatialSamplingFeature>
+      </om:featureOfInterest>
+
+           <om:result>
+        <gmlcov:MultiPointCoverage gml:id="mpcv1-1-1">
+          <gml:domainSet>
+            <gmlcov:SimpleMultiPoint gml:id="mp1-1-1" srsName="http://xml.fmi.fi/gml/crs/compoundCRS.php?crs=4258&amp;time=unixtime" srsDimension="3">
+              <gmlcov:positions>
+                65.18083 25.03250  1794355200
+                65.18083 25.03250  1794358800
+                65.18083 25.03250  1794362400
+                65.18083 25.03250  1794366000
+                65.18083 25.03250  1794369600
+                65.18083 25.03250  1794373200
+                60.12333 24.97283  1794353400
+                60.12333 24.97283  1794353700
+                60.12333 24.97283  1794354000
+                60.12333 24.97283  1794354300
+                60.12333 24.97283  1794354600
+                60.12333 24.97283  1794354900
+                60.12333 24.97283  1794355200
+                60.12333 24.97283  1794355500
+                60.12333 24.97283  1794355800
+                60.12333 24.97283  1794356100
+                60.12333 24.97283  1794356400
+                60.12333 24.97283  1794356700
+                60.12333 24.97283  1794357000
+                60.12333 24.97283  1794357300
+                60.12333 24.97283  1794357600
+                60.12333 24.97283  1794357900
+                60.12333 24.97283  1794358200
+                60.12333 24.97283  1794358500
+                60.12333 24.97283  1794358800
+                60.12333 24.97283  1794359100
+                60.12333 24.97283  1794359400
+                60.12333 24.97283  1794359700
+                60.12333 24.97283  1794360000
+                60.12333 24.97283  1794360300
+                60.12333 24.97283  1794360600
+                60.12333 24.97283  1794360900
+                60.12333 24.97283  1794361200
+                60.12333 24.97283  1794361500
+                60.12333 24.97283  1794361800
+                60.12333 24.97283  1794362100
+                60.12333 24.97283  1794362400
+                60.12333 24.97283  1794362700
+                60.12333 24.97283  1794363000
+                60.12333 24.97283  1794363300
+                60.12333 24.97283  1794363600
+                60.12333 24.97283  1794363900
+                60.12333 24.97283  1794364200
+                60.12333 24.97283  1794364500
+                60.12333 24.97283  1794364800
+                60.12333 24.97283  1794365100
+                60.12333 24.97283  1794365400
+                60.12333 24.97283  1794365700
+                60.12333 24.97283  1794366000
+                60.12333 24.97283  1794366300
+                60.12333 24.97283  1794366600
+                60.12333 24.97283  1794366900
+                60.12333 24.97283  1794367200
+                60.12333 24.97283  1794367500
+                60.12333 24.97283  1794367800
+                60.12333 24.97283  1794368100
+                60.12333 24.97283  1794368400
+                60.12333 24.97283  1794368700
+                60.12333 24.97283  1794369000
+                60.12333 24.97283  1794369300
+                60.12333 24.97283  1794369600
+                60.12333 24.97283  1794369900
+                60.12333 24.97283  1794370200
+                60.12333 24.97283  1794370500
+                60.12333 24.97283  1794370800
+                60.12333 24.97283  1794371100
+                60.12333 24.97283  1794371400
+                60.12333 24.97283  1794371700
+                60.12333 24.97283  1794372000
+                60.12333 24.97283  1794372300
+                60.12333 24.97283  1794372600
+                60.12333 24.97283  1794372900
+                61.62160 21.38740  1794355200
+                61.62160 21.38740  1794358800
+                61.62160 21.38740  1794362400
+                61.62160 21.38740  1794366000
+                61.62160 21.38740  1794369600
+                61.62160 21.38740  1794373200
+                60.23330 26.39160  1794357000
+                60.23330 26.39160  1794366000
+                59.24817 20.99833  1794353400
+                59.24817 20.99833  1794355200
+                59.24817 20.99833  1794357000
+                59.24817 20.99833  1794360600
+                59.24817 20.99833  1794364200
+                59.24817 20.99833  1794367800
+                59.24817 20.99833  1794369600
+                59.96500 25.23500  1794353400
+                59.96500 25.23500  1794354000
+                59.96500 25.23500  1794354600
+                59.96500 25.23500  1794355200
+                59.96500 25.23500  1794355800
+                59.96500 25.23500  1794356400
+                59.96500 25.23500  1794357000
+                59.96500 25.23500  1794357600
+                59.96500 25.23500  1794358200
+                59.96500 25.23500  1794358800
+                59.96500 25.23500  1794359400
+                59.96500 25.23500  1794360000
+                59.96500 25.23500  1794360600
+                59.96500 25.23500  1794361200
+                59.96500 25.23500  1794361800
+                59.96500 25.23500  1794362400
+                59.96500 25.23500  1794363000
+                59.96500 25.23500  1794363600
+                59.96500 25.23500  1794364200
+                59.96500 25.23500  1794364800
+                59.96500 25.23500  1794365400
+                59.96500 25.23500  1794366000
+                59.96500 25.23500  1794366600
+                59.96500 25.23500  1794367200
+                59.96500 25.23500  1794367800
+                59.96500 25.23500  1794368400
+                59.96500 25.23500  1794369000
+                59.96500 25.23500  1794369600
+                59.96500 25.23500  1794370200
+                59.96500 25.23500  1794370800
+                59.96500 25.23500  1794371400
+                59.96500 25.23500  1794372000
+                59.96500 25.23500  1794372600
+                59.96500 25.23500  1794373200
+                61.80010 20.23267  1794353400
+                61.80010 20.23267  1794355200
+                61.80010 20.23267  1794360600
+                61.80010 20.23267  1794362400
+                61.80010 20.23267  1794364200
+                61.80010 20.23267  1794366000
+                61.80010 20.23267  1794367800
+                64.68410 23.23800  1794355200
+                64.68410 23.23800  1794358800
+                64.68410 23.23800  1794362400
+                64.68410 23.23800  1794364200
+                64.68410 23.23800  1794366000
+                64.68410 23.23800  1794367800
+                64.68410 23.23800  1794369600
+                </gmlcov:positions>
+            </gmlcov:SimpleMultiPoint>
+          </gml:domainSet>
+          <gml:rangeSet>
+            <gml:DataBlock>
+              <gml:rangeParameters/>
+              <gml:doubleOrNilReasonTupleList>
+                NaN NaN NaN 5.0 
+                NaN NaN NaN 5.0 
+                NaN NaN NaN 5.1 
+                NaN NaN NaN 4.9 
+                NaN NaN NaN 4.7 
+                NaN NaN NaN 4.9 
+                0.7 4.4 198.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.6 4.2 195.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.6 4.3 185.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.5 3.9 194.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.5 4.1 195.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.5 3.9 204.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.4 4.0 197.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.4 3.8 197.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                0.4 3.6 204.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.2 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.2 
+                NaN NaN NaN 9.3 
+                0.4 3.2 187.0 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 9.3 
+                NaN NaN NaN 7.1 
+                NaN NaN NaN 7.1 
+                NaN NaN NaN 7.0 
+                NaN NaN NaN 7.0 
+                NaN NaN NaN 6.9 
+                NaN NaN NaN 6.9 
+                1.0 4.4 207.0 9.9 
+                0.7 4.9 224.0 9.9 
+                0.9 5.7 185.0 11.1 
+                0.9 5.9 186.0 11.0 
+                0.8 5.7 185.0 11.0 
+                0.8 5.9 184.0 10.8 
+                0.8 5.6 182.0 10.8 
+                0.7 5.9 188.0 10.7 
+                0.7 5.6 187.0 10.7 
+                1.0 5.4 244.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                1.0 5.3 245.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.9 5.3 246.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.9 5.0 239.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.8 5.4 246.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.7 5.1 246.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.7 5.3 243.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.7 5.1 244.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.6 5.1 246.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.6 4.7 245.0 10.3 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.6 4.9 248.0 10.3 
+                NaN NaN NaN 10.2 
+                NaN NaN NaN 10.3 
+                NaN NaN NaN 10.3 
+                0.9 4.4 343.0 7.3 
+                0.9 4.7 332.0 7.3 
+                0.9 4.9 345.0 7.3 
+                0.8 4.9 345.0 7.3 
+                0.8 4.9 344.0 7.3 
+                0.8 4.7 341.0 7.3 
+                0.8 4.6 347.0 7.3 
+                0.4 3.6 346.0 7.0 
+                0.4 3.6 356.0 7.0 
+                0.4 3.3 339.0 7.0 
+                0.3 3.6 354.0 7.0 
+                0.3 3.5 359.0 7.0 
+                0.3 3.2 345.0 7.0 
+                0.3 3.2 341.0 7.0 
+                </gml:doubleOrNilReasonTupleList>
+            </gml:DataBlock>
+          </gml:rangeSet>
+          <gml:coverageFunction>
+            <gml:CoverageMappingRule>
+              <gml:ruleDefinition>Linear</gml:ruleDefinition>
+            </gml:CoverageMappingRule>
+          </gml:coverageFunction>
+          <gmlcov:rangeType>
+            <swe:DataRecord>
+              <swe:field name="WaveHs"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=observation&amp;param=WaveHs&amp;language=eng"/>
+              <swe:field name="WTP"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=observation&amp;param=WTP&amp;language=eng"/>
+              <swe:field name="ModalWDi"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=observation&amp;param=ModalWDi&amp;language=eng"/>
+              <swe:field name="TWATER"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=observation&amp;param=TWATER&amp;language=eng"/>
+              </swe:DataRecord>
+          </gmlcov:rangeType>
+        </gmlcov:MultiPointCoverage>
+      </om:result>
+
+    </omso:GridSeriesObservation>
+  </wfs:member>
+</wfs:FeatureCollection>

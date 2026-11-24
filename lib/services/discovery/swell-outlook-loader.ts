@@ -17,7 +17,9 @@ import {
 } from '@/lib/alerts/swell-outlook/state';
 import { loadUserPool } from '@/lib/alerts/user-pool';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
-import { parseSkillLevel } from '@/lib/domains/user-preferences';
+import { getSkillLevelOrDefault, parseSkillLevel } from '@/lib/domains/user-preferences';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
+import { orderBoardClasses } from '@/lib/profile/board-classes';
 import type { Database } from '@/types/database';
 
 import type { StoredOutlookList } from './swell-outlook-types';
@@ -101,7 +103,7 @@ async function loadOutlookProfile(client: Client, userId: string, now: Date): Pr
 /** A board type that does not normalise is dropped: guessing a class would move the fit band. */
 async function loadBoardClasses(client: Client, userId: string): Promise<BoardClass[] | null> {
   try {
-    const { data, error } = await client.from('boards').select('board_type').eq('user_id', userId);
+    const { data, error } = await client.from('boards').select('board_type').eq('user_id', userId).is('retired_at', null);
     if (error) throw new Error(error.message);
     if (!Array.isArray(data)) throw new Error('Board data unavailable');
     const classes = data
@@ -140,6 +142,7 @@ export async function loadSwellOutlookForUser(args: {
   const { client, userId, now } = args;
   const deps = { ...DEFAULT_DEPS, ...args.deps };
 
+  const skillAware = isSkillAwareGoChecksOn(userId);
   const profileRead = await loadOutlookProfile(client, userId, now);
   const profile = profileRead.data;
   if (!profile) return emptyResponse(now);
@@ -163,7 +166,7 @@ export async function loadSwellOutlookForUser(args: {
   const [pulseSnapshots, notableSnapshots, boardClasses, storms] = await Promise.all([
     poolIds.length > 0 ? deps.loadSnapshots(client, poolIds, since, SWELL_OUTLOOK_PULSE_DETECTOR_VERSION) : [],
     poolIds.length > 0 ? deps.loadSnapshots(client, poolIds, since) : [],
-    loadBoardClasses(client, userId),
+    loadBoardClasses(client, userId).then((classes) => (classes && skillAware ? orderBoardClasses(classes) : classes)),
     deps.getStorms().catch((): ActiveStorm[] => []),
   ]);
   const degraded = profileRead.failed || stateRead.failed || boardClasses === null;
@@ -177,6 +180,11 @@ export async function loadSwellOutlookForUser(args: {
     : new Map();
 
   const skillLevel = boardClasses === null ? null : parseSkillLevel(profile.experienceLevel);
+  // A null skill also means "preferences unreadable"; only a read profile with no level is rated as beginner.
+  // Swell fit keeps the raw skill; only the week bar scores use the rating skill.
+  const ratingSkillLevel = skillAware && !profileRead.failed && boardClasses !== null
+    ? getSkillLevelOrDefault(skillLevel)
+    : skillLevel;
   const { response, list } = buildSwellOutlook({
     pool,
     homeBeachId: profile.homeBeachId,
@@ -206,7 +214,7 @@ export async function loadSwellOutlookForUser(args: {
         beach: dayBeach,
         now,
         horizonDays: SWELL_OUTLOOK_HORIZON_DAYS,
-        skillLevel,
+        skillLevel: ratingSkillLevel,
         boardClasses,
         sunTimes: sunTimes.get(dayBeach.id),
       });

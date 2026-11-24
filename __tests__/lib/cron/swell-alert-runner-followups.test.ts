@@ -2,6 +2,9 @@
  * @jest-environment node
  */
 
+// The swell_story_push switch is a database row; these pushes are today's text, with it off.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryPushEnabled: jest.fn(async () => false), isSwellStoryCardEnabled: jest.fn(async () => false) }));
+
 import {
   runSwellAlertCron,
   type PinnedSwellEvaluation,
@@ -180,6 +183,19 @@ describe("swell follow-ups", () => {
       recipientUserId: USER_ID,
       dedupeKey: `swell_watch:${USER_ID}:${EVENT_KEY}:bigger`,
     });
+  });
+
+  it("passes beginner to the follow-up hold check only on the go-check path (:1270)", async () => {
+    const followupExperience = async (user: SwellAlertProfile): Promise<unknown> => {
+      const deps = dependencies({ loadProfiles: jest.fn(async () => [user]) });
+      await runSwellAlertCron({ now: MORNING, deps });
+      const call = jest.mocked(deps.resolveHeldBeaches).mock.calls
+        .find(([args]) => args.candidates[0]?.candidateId === "followup")!;
+      return call[0].profileExperience;
+    };
+
+    expect(await followupExperience(profile({ experienceLevel: null }))).toBeNull();
+    expect(await followupExperience(profile({ experienceLevel: null, boardClasses: [] }))).toBe("beginner");
   });
 
   it("re-evaluates the pinned beach and never re-runs the lead-beach pick", async () => {

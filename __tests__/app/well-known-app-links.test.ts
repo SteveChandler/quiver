@@ -112,6 +112,18 @@ describe('.well-known app-link manifests', () => {
     expect(body.applinks.details[0].appID).not.toContain('YOUR');
   });
 
+  it('serves the production Android signing fingerprints when no override is set', async () => {
+    const { GET } = await import('@/app/.well-known/assetlinks.json/route');
+
+    const body = await GET().json();
+
+    expect(body[0].target.sha256_cert_fingerprints).toEqual([
+      '02:EC:D8:87:98:E9:F2:EC:47:EE:EF:90:88:5B:AA:D4:A9:DD:9E:6B:C5:C0:D5:42:07:84:66:46:BE:D4:18:E2',
+      '23:B8:8F:D1:3F:B6:58:4B:AA:1F:8D:89:DB:28:7D:9A:EC:75:A3:7C:87:76:C2:9D:9A:10:C8:32:8C:26:31:62',
+      '0E:28:D0:8C:69:68:CC:8C:91:21:BB:42:79:85:90:FE:E2:54:D9:2A:D8:C1:4F:4B:F4:A5:7F:C8:23:30:88:CF',
+    ]);
+  });
+
   it('emits the Android app-link package with configured fingerprints', async () => {
     process.env.ANDROID_SHA256_FINGERPRINTS = `${VALID_ANDROID_FINGERPRINT_1},${VALID_ANDROID_FINGERPRINT_2}`;
     const { GET } = await import('@/app/.well-known/assetlinks.json/route');

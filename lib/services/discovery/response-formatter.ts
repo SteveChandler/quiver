@@ -20,7 +20,10 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 import type { RecommendationLabel } from '@/lib/scoring';
-import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
+import type { ConditionCharacterCategory, SmallWeakReason } from '@/lib/domains/scoring';
+import { getRideabilityBand, type BoardClass } from '@/lib/domains/rideability';
+import type { SkillLevel } from '@/lib/domains/user-preferences';
+import { joinSentences } from '@/lib/domains/scoring/reason-sentences';
 
 // Re-export FALLBACK_IMAGE_BY_NAME for backward compatibility
 export { FALLBACK_IMAGE_BY_NAME };
@@ -103,7 +106,7 @@ export async function enrichWithPhotos(
  *
  * @example
  * generateDiscoverySummary(beach, window, score)
- * // => "Excellent match at Black's Beach - 4-5 ft with 5 mph offshore. Below your preferred size."
+ * // => "Excellent match at Black's Beach - 4-5 ft with 5 mph offshore."
  */
 export function generateDiscoverySummary(
   beach: Beach,
@@ -121,18 +124,13 @@ export function generateDiscoverySummary(
             ? 'Minimal conditions'
             : 'Fair conditions';
 
-  const preferredSizeWarning = score.warnings.find(
-    (w) =>
-      w.startsWith('Below your preferred size') ||
-      w.startsWith('Above your preferred size')
-  );
-
-  const warningSuffix = preferredSizeWarning ? ` ${preferredSizeWarning}.` : '';
 
   const wind = window.wind?.trim();
   const windClause = wind && wind.toLowerCase() !== 'unknown' ? ` with ${wind}` : '';
+  const height = window.waveHeight?.trim();
+  const heightClause = height && height.toLowerCase() !== 'unknown' ? ` - ${height}` : '';
 
-  return `${matchDesc} at ${beach.name} - ${window.waveHeight}${windClause}.${warningSuffix}`;
+  return `${matchDesc} at ${beach.name}${heightClause}${windClause}.`;
 }
 
 // ============================================================================
@@ -179,6 +177,20 @@ const POSITIVE_CHARACTER_CATEGORIES: ReadonlySet<ConditionCharacterCategory> =
     'small-clean',
   ]);
 
+// A small, soft day that caps an experienced surfer is a good day for a
+// learner. Onshore chop and marginal small-weak days stay capped.
+const LEARNER_MEDIUM_MIXED_MAX_FT = 3;
+const LEARNER_WEAK_SWELL_MIN_FT = 1;
+const LEARNER_WEAK_SWELL_MIN_PERIOD_S = 6;
+
+interface LearnerGateContext {
+  skill: SkillLevel;
+  boardClass: BoardClass | null;
+  waveHeightFt: number;
+  wavePeriodS: number;
+  smallWeakReason: SmallWeakReason | null;
+}
+
 /**
  * Recommendation label gated on the character category, not score alone.
  *
@@ -191,11 +203,13 @@ const POSITIVE_CHARACTER_CATEGORIES: ReadonlySet<ConditionCharacterCategory> =
  *
  * @param score - Total composite score (0-100)
  * @param characterCategory - Optional character category from getConditionCharacter
+ * @param learner - Optional rating context; a learner gets extra "Worth it" cases
  * @returns Recommendation label
  */
 export function getRecommendationLabelGated(
   score: number,
-  characterCategory: ConditionCharacterCategory | null | undefined
+  characterCategory: ConditionCharacterCategory | null | undefined,
+  learner?: LearnerGateContext
 ): RecommendationLabel {
   const baseLabel = getRecommendationLabel(score);
 
@@ -205,7 +219,35 @@ export function getRecommendationLabelGated(
 
   if (!characterCategory) return baseLabel;
 
-  return POSITIVE_CHARACTER_CATEGORIES.has(characterCategory) ? 'Worth it' : 'Maybe';
+  if (POSITIVE_CHARACTER_CATEGORIES.has(characterCategory)) return 'Worth it';
+
+  if (!learner || !isLearnerContext(learner.skill, learner.boardClass)) return 'Maybe';
+
+  return isLearnerWorthIt(characterCategory, learner) ? 'Worth it' : 'Maybe';
+}
+
+export function isLearnerContext(skill: SkillLevel, boardClass: BoardClass | null): boolean {
+  return (
+    skill === 'beginner' ||
+    (boardClass !== null && getRideabilityBand(skill, boardClass).prefersClean)
+  );
+}
+
+function isLearnerWorthIt(
+  characterCategory: ConditionCharacterCategory,
+  learner: LearnerGateContext
+): boolean {
+  if (characterCategory === 'medium-mixed') {
+    return learner.waveHeightFt < LEARNER_MEDIUM_MIXED_MAX_FT;
+  }
+  if (characterCategory === 'small-weak') {
+    return (
+      learner.smallWeakReason === 'weak-swell' &&
+      learner.waveHeightFt >= LEARNER_WEAK_SWELL_MIN_FT &&
+      learner.wavePeriodS >= LEARNER_WEAK_SWELL_MIN_PERIOD_S
+    );
+  }
+  return false;
 }
 
 // ============================================================================
@@ -215,42 +257,49 @@ export function getRecommendationLabelGated(
 /**
  * Build natural language message from score, reasons, and warnings
  *
- * Format: "{Label} - {TopReasons}. Watch: {FirstWarning}"
+ * Format: "{Label} - {TopReasons} Watch: {FirstWarning}"
+ *
+ * The "{Label} - " prefix is wire format: installed native builds strip it
+ * with a "label, optional spaces, hyphen" regex (quiver-native surf-decision.ts
+ * and personal-surf-call-display.ts). The reasons are whole sentences, one
+ * after the other.
  *
  * Examples:
- * - "Worth it - Good wave size, Offshore wind. Watch: Tide is high"
- * - "Maybe - Surfable conditions. Watch: Wind picking up"
- * - "Skip - Conditions not favorable"
+ * - "Worth it - Good size at 3–4 ft. Solid swell period behind it. Watch: Onshore by noon"
+ * - "Maybe - Good swell angle (W). Watch: Wind picking up"
+ * - "Skip - Strong onshore wind"
+ * - undefined when there is nothing to say: JSON omits the field, so native
+ *   `personalExplanation ?? message ?? reasons[0]` falls through instead of
+ *   stopping at "" (quiver-native forecast-context.ts:452).
  *
  * @param score - Total score (0-100)
  * @param reasons - Positive factors for recommendation
  * @param warnings - Cautions or concerns
  * @returns Natural language message
- *
- * @example
- * buildDiscoveryMessage(75, ['Good wave size', 'Offshore wind'], ['Tide is high'])
- * // => "Worth it - Good wave size, Offshore wind. Watch: Tide is high"
  */
 export function buildDiscoveryMessage(
   score: number,
   reasons: string[],
   warnings: string[],
   recommendationLabel?: RecommendationLabel
-): string {
+): string | undefined {
   const label = recommendationLabel ?? getRecommendationLabel(score);
 
+  // No reason means no message: a generic clause would read as a real explanation.
   if (label === 'Skip') {
-    const skipReason = warnings[0] || 'Conditions not favorable';
-    return `Skip - ${skipReason}`;
+    const skipReason = warnings[0];
+    return skipReason ? `Skip - ${skipReason}` : undefined;
   }
 
   // Pick top 2 reasons for concise message
-  const topReasons = reasons.slice(0, 2).join(', ');
-  let message = `${label} - ${topReasons || 'Conditions look surfable'}`;
+  const topReasons = joinSentences(reasons.slice(0, 2));
+  // With no reason, a real warning is still worth saying; with neither, say nothing.
+  if (!topReasons) return warnings[0] ? `${label} - Watch: ${warnings[0]}` : undefined;
+  let message = `${label} - ${topReasons}`;
 
   // Add first warning if present
   if (warnings.length > 0) {
-    message += `. Watch: ${warnings[0]}`;
+    message += ` Watch: ${warnings[0]}`;
   }
 
   return message;

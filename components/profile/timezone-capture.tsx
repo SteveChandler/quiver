@@ -11,7 +11,7 @@ export function TimezoneCapture() {
   const { profile, isLoading } = useProfileContext();
 
   useEffect(() => {
-    if (!user?.id || isLoading || !profile || profile.timezone !== null) return;
+    if (!user?.id || isLoading || !profile || (typeof profile.timezone === "string" && profile.timezone.length > 0)) return;
 
     const sessionKey = `${SESSION_KEY_PREFIX}${user.id}`;
     try {

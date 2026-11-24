@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?><stations created="2026-11-11T03:25:09UTC" count="1357">
+  <!--Excerpt of https://www.ndbc.noaa.gov/activestations.xml fetched 2026-11-11T03:25Z.-->
+  <station id="22101" lat="37.23" lon="126.02" name="" owner="Korean Meteorological Administration" pgm="International Partners" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="32303" lat="5" lon="-95" elev="0" name="5N 95W" owner="NDBC" pgm="TAO" type="tao"/>
+  <station id="41046" lat="23.84" lon="-68.34" elev="0" name="EAST BAHAMAS - 335 NM East of San Salvador Is,  Bahamas " owner="NDBC" pgm="NDBC Meteorological/Ocean" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="41108" lat="33.719" lon="-78.016" elev="0" name="Wilmington Harbor, NC - (200)" owner="SCRIPPS" pgm="IOOS Partners" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="41115" lat="18.376" lon="-67.28" elev="0" name="Rincon, Puerto Rico (181)" owner="Caribbean Integrated Coastal Ocean Observing System (CarICoos)" pgm="IOOS Partners" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="42056" lat="19.82" lon="-84.98" elev="0" name=" Yucatan Basin - 120 NM ESE of Cozumel, MX" owner="NDBC" pgm="NDBC Meteorological/Ocean" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="46086" lat="32.504" lon="-118.029" elev="0" name="SAN CLEMENTE BASIN - 27NM SE Of San Clemente Is, CA" owner="NDBC" pgm="NDBC Meteorological/Ocean" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="46087" lat="48.493" lon="-124.727" elev="0" name="Neah Bay - 6 NM North of Cape Flattery, WA (Traffic Separation Lighted Buoy)" owner="NDBC" pgm="NDBC Meteorological/Ocean" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="46146" lat="49.34" lon="-123.73" elev="0" name="Halibut Bank" owner="Environment and Climate Change Canada" pgm="International Partners" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="46225" lat="32.933" lon="-117.391" elev="0" name="Torrey Pines Outer, CA (100)" owner="SCRIPPS" pgm="IOOS Partners" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="51000" lat="23.534" lon="-153.752" elev="0" name="NORTHERN HAWAII ONE - 245NM NE of Honolulu HI" owner="NDBC" pgm="NDBC Meteorological/Ocean" type="buoy" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="52201" lat="7.078" lon="171.384" elev="0" name="Kalo, Majuro, Marshall Islands (163)" owner="Pacific Islands Ocean Observing System" pgm="IOOS Partners" type="buoy" met="y" currents="y" waterquality="n" dart="n"/>
+  <station id="62149" lat="53.7" lon="1.1" name="West Sole &quot;A&quot; AWS" owner="Private Industry Oil Platform" pgm="International Partners" type="oilrig" met="y" currents="n" waterquality="n" dart="n"/>
+  <station id="aamc1" lat="37.772" lon="-122.3" elev="3.5" name="9414750 - Alameda, CA" owner="NOS" pgm="NOS/CO-OPS" type="fixed" met="y" currents="n" waterquality="n" dart="n"/>
+</stations>

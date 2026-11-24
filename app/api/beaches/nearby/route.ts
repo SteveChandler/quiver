@@ -10,6 +10,7 @@ import {
   handleApiError,
   withRateLimit,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -59,4 +60,6 @@ async function nearbyBeachesHandler(request: NextRequest) {
 }
 
 // Apply rate limiting
-export const GET = withRateLimit(nearbyBeachesHandler, "public-default");
+const handleGet = withRateLimit(nearbyBeachesHandler, "public-default");
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/nearby");

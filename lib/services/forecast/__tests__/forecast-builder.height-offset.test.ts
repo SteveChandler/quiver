@@ -315,6 +315,59 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     }
   });
 
+  describe("ECMWF hybrid scale", () => {
+    const CARLSBAD = "c0977bcd-5475-4745-b4b8-0ca1e16a7faf";
+    const HOUR = 3_600_000;
+    const withWam = (beachId: string, wam: boolean): ForecastInputs => {
+      const inputs = buildInputs({ beach: { ...baseBeach, id: beachId } as Beach, heightOffset: null, feedbackCalibrationCandidate: null });
+      const start = Math.floor(Date.now() / HOUR) * HOUR - 6 * HOUR;
+      const series = Array.from({ length: 48 }, (_, h) => ({ ms: start + h * HOUR, hsM: 1.3 }));
+      return { ...inputs, waveData: { ...inputs.waveData!, ...(wam ? { ecmwf_wam: series } : {}) } };
+    };
+
+    it("writes v2 replay context and ecmwf_hybrid provenance at an eligible beach", async () => {
+      mockUseRealFormatter = true;
+      const { replayForecastDisplayHeightM } = jest.requireActual("@/lib/utils/forecast-display-replay");
+      const { ECMWF_HYBRID_K_FACTORS, ECMWF_HYBRID_FIT_DATE } = jest.requireActual("@/lib/utils/ecmwf-hybrid-k-factors");
+      const carlsbadK = ECMWF_HYBRID_K_FACTORS[CARLSBAD];
+      const forecasts = await newBuilder().buildForecasts(withWam(CARLSBAD, true));
+      const hybridRows = capturedSnapshotRows.filter((row) => row.display_replay_context?.version === 2);
+      expect(hybridRows.length).toBeGreaterThan(0);
+      for (const row of hybridRows) {
+        const { r, k } = row.display_replay_context.base.input.ecmwfHybrid;
+        expect(k).toBe(carlsbadK);
+        expect(r).toBeGreaterThanOrEqual(0.5);
+        expect(r).toBeLessThanOrEqual(2);
+        expect(replayForecastDisplayHeightM(row.display_replay_context)).toBe(row.raw_display_height_m);
+        const forecast = forecasts.find((f) => f.forecast_at === row.predicted_at)!;
+        expect(forecast.raw_forecast?.wave_height_provenance).toMatchObject({
+          ecmwf_hybrid: { r, k: carlsbadK, ecmwf_hs_m: 1.3, fit_date: ECMWF_HYBRID_FIT_DATE },
+        });
+        expect(forecast.raw_forecast?.wave_height_provenance).not.toHaveProperty("model_calibration_factor");
+      }
+    });
+
+    it("leaves a beach off the hybrid table byte-identical with or without WAM", async () => {
+      mockUseRealFormatter = true;
+      const strip = (rows: any[]) => rows.map(({ generatedAt: _g, ...row }) => ({
+        ...row, display_replay_context: row.display_replay_context && { ...row.display_replay_context, generatedAt: null },
+      }));
+      jest.useFakeTimers({ now: new Date("2026-11-06T12:00:00Z"), doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
+      try {
+        const without = await newBuilder().buildForecasts(withWam("beach-1", false));
+        const rowsWithout = strip(capturedSnapshotRows);
+        capturedSnapshotRows = [];
+        const withSeries = await newBuilder().buildForecasts(withWam("beach-1", true));
+        expect(withSeries.map((f) => [f.wave_height, f.raw_forecast?.wave_height_provenance]))
+          .toEqual(without.map((f) => [f.wave_height, f.raw_forecast?.wave_height_provenance]));
+        expect(strip(capturedSnapshotRows)).toEqual(rowsWithout);
+        expect(capturedSnapshotRows.every((row) => row.display_replay_context?.version !== 2)).toBe(true);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
   it("retains offset forecasts but excludes their conditional replay", async () => {
     mockUseRealFormatter = true;
     const { replayForecastDisplayHeightM } = jest.requireActual("@/lib/utils/forecast-display-replay");

@@ -230,7 +230,7 @@ it("stops before new acquisition if recovery reaches the target", async () => {
   });
 
   it.each(["collection_lease", "acquisition_scope", "provider_fetch", "receipt_storage", "lease_release"] as const)("retains the %s I/O substage", async (stage) => {
-    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    const log = jest.spyOn(console, stage === "provider_fetch" ? "warn" : "error").mockImplementation(() => {});
     jest.mocked(acquireSwellWatchCohort).mockImplementationOnce(async (_cohort, _client, onStage) => {
       onStage?.(stage);
       throw new TypeError("fetch failed");
@@ -263,6 +263,28 @@ it("stops before new acquisition if recovery reaches the target", async () => {
     expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "acquisition", code });
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|secret|credentials|payload/);
     expect(completeSwellWatchStudyRun).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [Object.assign(new Error("private URL"), { name: "TimeoutError" }), "request_aborted_or_timed_out", "warn"],
+    [new TypeError("fetch failed"), "network_fetch_failed", "warn"],
+    [new Error("Provider HTTP response is transient"), "provider_http_response_is_transient", "warn"],
+    [new Error("Single Runs HTTP response was unsuccessful"), "single_runs_http_response_was_unsuccessful", "error"],
+    [new Error("Provider availability read unsuccessful"), "provider_availability_read_unsuccessful", "error"],
+    [new Error("provider budget exceeded"), "provider_budget_exceeded", "error"],
+    [new Error("Single Runs tuple is invalid"), "single_runs_tuple_is_invalid", "error"],
+  ] as const)("logs provider fetch failure %# at the right level and still fails the run", async (error, code, level) => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const err = jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.mocked(acquireSwellWatchCohort).mockImplementationOnce(async (_cohort, _client, onStage) => {
+      onStage?.("provider_fetch");
+      throw error;
+    });
+    const response = await call();
+    expect(response.status).toBe(500);
+    const [used, unused] = level === "warn" ? [warn, err] : [err, warn];
+    expect(used).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "provider_fetch", code });
+    expect(unused).not.toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", expect.anything());
   });
 });
 

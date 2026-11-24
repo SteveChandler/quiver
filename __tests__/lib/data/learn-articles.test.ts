@@ -21,9 +21,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "swell-period-explained",
-    title: "Swell Period Explained: What Seconds Mean for Surf",
+    title: "Wave Period & Swell Period Explained: What Seconds Mean",
     description:
-      "Swell period explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read period in a forecast.",
+      "Wave period, or swell period, explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read it in a forecast.",
   },
   {
     slug: "groundswell-vs-wind-swell",
@@ -65,7 +65,7 @@ const expectedLearnMetadata = [
     slug: "how-are-waves-measured",
     title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
     description:
-      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
+      "Buoys report significant wave height (Hs). Quiver turns it into a face height: 3 ft at 14 sec reads about 4 ft, sets near 6 ft.",
   },
   {
     slug: "beginner-breaks-santa-cruz",
@@ -90,11 +90,42 @@ const expectedLearnMetadata = [
     title: "Beginner Surf Spots in Carlsbad: Tamarack to Ponto",
     description:
       "Where beginners surf in Carlsbad: Tamarack, Carlsbad State Beach, and Ponto, the tide and wind each one needs, and when to wait for a smaller day.",
-  },  {
+  },
+  {
     slug: "can-you-surf-in-new-jersey",
     title: "Can You Surf in New Jersey? Seasons, Spots & Wetsuits",
     description:
       "Yes. New Jersey has about 130 miles of beach breaks and jetties. When the Shore actually works, where people surf, and what to wear by season.",
+  },
+  {
+    slug: "can-you-surf-in-south-carolina",
+    title: "Can You Surf in South Carolina? Seasons, Spots & Water",
+    description:
+      "Yes. South Carolina is small, warm beach break most of the year and good on hurricane swell from August to October. Where to go and what to wear.",
+  },
+  {
+    slug: "what-is-wave-diffraction",
+    title: "What Is Wave Diffraction? Surf in the Swell Shadow",
+    description:
+      "Wave diffraction is swell spreading sideways into the shadow behind an island, jetty or harbor wall. On the shadow line, waves run about half size.",
+  },
+  {
+    slug: "what-is-a-king-tide",
+    title: "What Is a King Tide? California Dates and Surf",
+    description:
+      "A king tide is the highest tide of the year, set by a full or new moon at its closest. California's run Nov 24-26, Dec 23-25 and Jan 21-22.",
+  },
+  {
+    slug: "what-is-a-rogue-wave",
+    title: "What Is a Rogue Wave? Sneaker Waves in California",
+    description:
+      "A rogue wave is more than twice the height of the waves around it. On the beach, NWS says a sneaker wave can run 150 feet up the sand.",
+  },
+  {
+    slug: "where-to-watch-mavericks",
+    title: "Where to Watch Mavericks: Bluff, Beach or Boat",
+    description:
+      "Mavericks breaks about half a mile off Pillar Point. Watch from Pillar Point Bluff with binoculars, and stay off the jetty and seawall.",
   },
 ];
 
@@ -171,5 +202,14 @@ describe("learn article imagery", () => {
         expect(fs.existsSync(path.join(process.cwd(), "public", image))).toBe(true);
       }
     }
+  });
+
+  it("links Rincon at its live beach page, not the retired /forecasts path", () => {
+    const hrefs = learnArticles.flatMap((article) =>
+      article.relatedLinks.map((link) => link.href),
+    );
+
+    expect(hrefs.filter((href) => href.startsWith("/forecasts/"))).toEqual([]);
+    expect(hrefs).toContain("/ca/carpinteria/rincon-carpinteria-ca");
   });
 });

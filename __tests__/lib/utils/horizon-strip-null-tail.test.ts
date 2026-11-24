@@ -109,20 +109,18 @@ describe('horizon-strip: trailing null-wave trimming', () => {
     expect(result.map((d) => d.fullDate)).not.toContain(dayAfter);
   });
 
-  it('does NOT trim FALLBACK days with non-null wave values', () => {
+  it('drops FALLBACK days even when the rows carry wave values', () => {
     const today = new Date().toISOString().split('T')[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
     const forecasts = [
       ...makeForecasts(today, 8),
-      // Tomorrow: FALLBACK source BUT has wave values
+      // Rows written by the removed synthetic generator: FALLBACK with values
       ...makeForecasts(tomorrow, 8, { data_source: 'FALLBACK' }),
     ];
 
     const result = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 5 });
-    // Should have 2 days (FALLBACK day NOT trimmed because it has wave values)
-    expect(result.length).toBe(2);
-    expect(result.map((d) => d.fullDate)).toContain(tomorrow);
+    expect(result.map((d) => d.fullDate)).toEqual([today]);
   });
 
   it('trims trailing days with empty string wave_height', () => {

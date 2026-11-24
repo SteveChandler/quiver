@@ -44,10 +44,10 @@ describe("today-headline forecast display", () => {
     jest.clearAllMocks();
   });
 
-  it("formats whole-number rows as a single value", () => {
+  it("formats whole-number rows as native's band below the value", () => {
     expect(parseForecastHeightLabel("2.0ft")).toEqual({
-      label: "2ft",
-      minFt: 2,
+      label: "1-2ft",
+      minFt: 1,
       maxFt: 2,
     });
   });

@@ -157,11 +157,92 @@ describe('Discovery Adapter', () => {
       expect(forecastToSnapshot(highForecast).tide.direction).toBe('slack');
     });
 
+    it('flags a missing wave height instead of presenting it as a real 0 ft reading', () => {
+      const missing = forecastToSnapshot(createForecast({ wave_height: null }));
+      expect(missing.waveHeight).toBe(0);
+      expect(missing.waveHeightKnown).toBe(false);
+      expect(forecastToSnapshot(createForecast({ wave_height: '0 ft' })).waveHeightKnown).toBe(true);
+      expect(forecastToSnapshot(createForecast({ wave_height: '2-3 ft' })).waveHeightKnown).toBe(true);
+    });
+
     it('flags a missing tide height instead of presenting it as a real 0 ft reading', () => {
       const missing = forecastToSnapshot(createForecast({ tide_height: null }));
       expect(missing.tide.heightFt).toBe(0);
       expect(missing.tide.heightKnown).toBe(false);
       expect(forecastToSnapshot(createForecast({ tide_height: '0.0 ft' })).tide.heightKnown).toBe(true);
+    });
+
+    describe('tide rate', () => {
+      // PB Point, 2026-10-27 11:00 PDT: 6.3 ft falling to a -0.9 ft low at 17:00 PDT.
+      const pbPointEleven = {
+        forecast_at: '2026-10-27T18:00:00+00:00',
+        tide_height: '6.3 ft',
+        tide_status: 'Falling',
+        next_tide_height: '-0.9 ft',
+        next_tide_at: '2026-10-28T00:00:00+00:00',
+      };
+
+      it('prefers the hourly series rate the row carries', () => {
+        const tide = forecastToSnapshot(createForecast({ ...pbPointEleven, tide_rate_ft_per_hour: -0.8 })).tide;
+        expect(tide.rateFtPerHour).toBe(-0.8);
+        expect(tide.rateSource).toBe('series');
+      });
+
+      it('falls back to the mean rate to the next high/low', () => {
+        const tide = forecastToSnapshot(createForecast(pbPointEleven)).tide;
+        expect(tide.rateFtPerHour).toBe(-1.2);
+        expect(tide.rateSource).toBe('next_extremum');
+      });
+
+      it('leaves the rate unknown when it cannot be derived', () => {
+        const unknown = (overrides: Partial<EnhancedForecastEntity>) =>
+          forecastToSnapshot(createForecast({ ...pbPointEleven, ...overrides })).tide;
+        for (const tide of [
+          unknown({ next_tide_at: null }),
+          unknown({ next_tide_height: null }),
+          unknown({ tide_height: null }),
+          // In the past, too close to the turn, or beyond half a tidal cycle.
+          unknown({ next_tide_at: '2026-10-27T17:00:00+00:00' }),
+          unknown({ next_tide_at: '2026-10-27T18:15:00+00:00' }),
+          unknown({ next_tide_at: '2026-10-27T19:20:00+00:00' }),
+          unknown({ next_tide_at: '2026-10-28T08:00:00+00:00' }),
+        ]) {
+          expect(tide.rateFtPerHour).toBeNull();
+          expect(tide.rateSource).toBeNull();
+        }
+      });
+
+      it('reads no rate within 1.5 h of the turn, where the tide is slack', () => {
+        // PB Point 4 PM: -0.55 ft, the -0.9 ft low an hour out.
+        const nearLow = forecastToSnapshot(createForecast({
+          forecast_at: '2026-10-27T23:00:00+00:00',
+          tide_height: '-0.55 ft',
+          tide_status: 'Falling',
+          next_tide_height: '-0.9 ft',
+          next_tide_at: '2026-10-28T00:00:00+00:00',
+        })).tide;
+        expect(nearLow.rateFtPerHour).toBeNull();
+        expect(nearLow.rateSource).toBeNull();
+
+        // PB Point 5 PM: the next high is 6 h out, so the mean still reads.
+        const atLow = forecastToSnapshot(createForecast({
+          forecast_at: '2026-10-28T00:00:00+00:00',
+          tide_height: '-0.9 ft',
+          tide_status: 'Rising',
+          next_tide_height: '3.9 ft',
+          next_tide_at: '2026-10-28T06:00:00+00:00',
+        })).tide;
+        expect(atLow.rateFtPerHour).toBe(0.8);
+        expect(atLow.rateSource).toBe('next_extremum');
+
+        const edge = forecastToSnapshot(createForecast({ ...pbPointEleven, next_tide_at: '2026-10-27T19:30:00+00:00' })).tide;
+        expect(edge.rateSource).toBe('next_extremum');
+      });
+
+      it('does not touch the height, status or direction', () => {
+        const tide = forecastToSnapshot(createForecast(pbPointEleven)).tide;
+        expect(tide).toMatchObject({ heightFt: 6.3, status: 'falling', direction: 'falling', heightKnown: true });
+      });
     });
 
     describe('cardinal swell direction parsing', () => {
@@ -404,7 +485,9 @@ describe('Discovery Adapter', () => {
       });
 
       expect(advancedScore.total).toBeLessThan(beginnerScore.total);
-      expect(advancedScore.warnings).toContain('Waves are below your usual range');
+      // The small-wave cap and the floor say the same words; the line shows once.
+      expect(advancedScore.warnings.filter((warning) => warning === 'Small surf at 1–2 ft.')).toHaveLength(1);
+      expect(advancedScore.warnings.join(' ')).not.toMatch(/your usual range/);
     });
   });
 
@@ -415,7 +498,7 @@ describe('Discovery Adapter', () => {
       expect(result).toEqual({
         penalty: 0,
         bonus: 6,
-        note: 'in the sweet spot for your longboard',
+        note: 'Good longboard size at 1–2 ft.',
       });
     });
 
@@ -425,7 +508,7 @@ describe('Discovery Adapter', () => {
       expect(result).toEqual({
         penalty: 2,
         bonus: 0,
-        note: 'too small for your shortboard',
+        note: 'Small for a shortboard at 1–2 ft.',
       });
     });
 
@@ -435,7 +518,7 @@ describe('Discovery Adapter', () => {
       expect(result).toEqual({
         penalty: 18,
         bonus: 0,
-        note: 'too big for your longboard',
+        note: 'Big for a longboard at 4–5 ft.',
       });
     });
 
@@ -561,6 +644,32 @@ describe('Discovery Adapter', () => {
       expect(typeof result.total).toBe('number');
       expect(Array.isArray(result.reasons)).toBe(true);
       expect(Array.isArray(result.warnings)).toBe(true);
+    });
+  });
+
+  describe('scoreBeachWithEngine unknown wind', () => {
+    it('flags unknown wind on a flat (skipped) beach so hero ranking leaves the placeholder out', () => {
+      const engine = createDiscoveryScoringEngine();
+      const result = scoreBeachWithEngine(engine, createBeach(), createForecast({
+        wave_height: '0.2',
+        wind_speed: null,
+        wind_direction_deg: null,
+        wind_direction: null,
+      }));
+
+      expect(result.matchQuality).toBe('fair'); // skip maps to fair
+      expect(result.subscores.windUnknown).toBe(true);
+    });
+
+    it('does not flag a known wind on a skipped beach', () => {
+      const engine = createDiscoveryScoringEngine();
+      const result = scoreBeachWithEngine(engine, createBeach(), createForecast({
+        wave_height: '0.2',
+        wind_speed: '5',
+        wind_direction_deg: 90,
+      }));
+
+      expect(result.subscores.windUnknown).toBeUndefined();
     });
   });
 

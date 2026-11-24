@@ -11,6 +11,7 @@ import {
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
+import { isLiveCamBeach } from "@/lib/media/cam-directory";
 import { CamsLandingNav } from "@/components/cams/cams-landing-nav";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
@@ -39,15 +40,16 @@ export async function CamsRegionDirectoryPage({
   if (!region) notFound();
 
   const allBeaches = await getBeachesWithCameras();
-  const regionBeaches = allBeaches.filter((b) => b.regionSlug === regionSlug);
-
-  if (regionBeaches.length === 0) notFound();
+  const regionBeaches = allBeaches.filter(
+    (beach) => beach.regionSlug === regionSlug && isLiveCamBeach(beach),
+  );
+  const liveCount = regionBeaches.length;
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   const regionCounts = new Map<string, number>();
-  for (const beach of allBeaches) {
+  for (const beach of allBeaches.filter(isLiveCamBeach)) {
     regionCounts.set(
       beach.regionSlug,
       (regionCounts.get(beach.regionSlug) ?? 0) + 1,
@@ -76,9 +78,11 @@ export async function CamsRegionDirectoryPage({
       <CamsLandingNav />
       <ZineSurface
         sectionLabel={`${region.name} cams`}
-        editionLabel={`${regionBeaches.length} live ${
-          regionBeaches.length === 1 ? "cam" : "cams"
-        }`}
+        editionLabel={
+          liveCount > 0
+            ? `${liveCount} live ${liveCount === 1 ? "cam" : "cams"}`
+            : undefined
+        }
         showMasthead={false}
         data-testid="cams-region-zine-surface"
       >
@@ -109,10 +113,12 @@ export async function CamsRegionDirectoryPage({
           {/* Hero */}
           <header className="grid gap-10 pb-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,0.8fr)] lg:items-start">
             <div>
-              <p className="typewriter mb-4">
-                {regionBeaches.length} live{" "}
-                {regionBeaches.length === 1 ? "camera" : "cameras"}
-              </p>
+              {liveCount > 0 ? (
+                <p className="typewriter mb-4">
+                  {liveCount} live{" "}
+                  {liveCount === 1 ? "camera" : "cameras"}
+                </p>
+              ) : null}
               <h1 className="zine-h1 max-w-4xl font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
                 {region.name} Surf Cams
               </h1>
@@ -137,7 +143,13 @@ export async function CamsRegionDirectoryPage({
 
           {/* Camera grid */}
           <section className="pb-16">
-            <CamGrid beaches={regionBeaches} />
+            {liveCount > 0 ? (
+              <CamGrid beaches={regionBeaches} />
+            ) : (
+              <p className="border-2 border-[#11100D] bg-[#FBF6E8] p-6 font-sans text-[#11100D]">
+                No live cams are available in this region right now.
+              </p>
+            )}
           </section>
 
           {/* Inline Signup CTA */}

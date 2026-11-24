@@ -604,6 +604,49 @@ describe("PATCH /api/sessions/[id]", () => {
     });
   });
 
+  describe("wave-height grid range", () => {
+    function mockSessionTable(rangeError: { code: string; message: string } | null = null) {
+      mockAuthGetUser.mockResolvedValue({ data: { user: { id: validUserId } }, error: null });
+      const update = jest.fn();
+      const mainQuery: any = { eq: () => mainQuery, select: () => mainQuery,
+        single: async () => ({ data: { id: validSessionId }, error: null }) };
+      const rangeQuery: any = { eq: () => rangeQuery,
+        then: (resolve: (value: unknown) => void) => resolve({ error: rangeError }) };
+      update.mockImplementation((payload: Record<string, unknown>) =>
+        "wave_height_min_ft" in payload ? rangeQuery : mainQuery);
+      const ownershipQuery: any = { eq: () => ownershipQuery,
+        single: async () => ({ data: { id: validSessionId, user_id: validUserId }, error: null }) };
+      mockFrom.mockReturnValue({ select: () => ownershipQuery, update });
+      return update;
+    }
+
+    function patch(body: Record<string, unknown>) {
+      return PATCH(new NextRequest(`http://localhost/api/sessions/${validSessionId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      }), { params: { id: validSessionId } });
+    }
+
+    it("clears the logged range when an edit sets wave_height_ft", async () => {
+      const update = mockSessionTable();
+      const response = await patch({ wave_height_ft: 5 });
+      expect(response.status).toBe(200);
+      expect(update).toHaveBeenCalledWith({ wave_height_ft: 5 });
+      expect(update).toHaveBeenCalledWith({ wave_height_min_ft: null, wave_height_max_ft: null });
+    });
+
+    it("leaves the range alone when the height is not edited", async () => {
+      const update = mockSessionTable();
+      await patch({ notes: "Glassy" });
+      expect(update).not.toHaveBeenCalledWith({ wave_height_min_ft: null, wave_height_max_ft: null });
+    });
+
+    it.each(["PGRST204", "42703"])("still saves the height before the range columns exist (%s)", async code => {
+      mockSessionTable({ code, message: "Could not find the 'wave_height_min_ft' column" });
+      const response = await patch({ wave_height_ft: 3 });
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe("Successful Updates", () => {
     it("updates the approved session edit fields and derives wave quality", async () => {
       mockAuthGetUser.mockResolvedValue({

@@ -64,6 +64,7 @@ export type IndexabilityReason =
   | "unproven"
   | "forecast-approved"
   | "forecast-missing"
+  | "forecast-coverage-unknown"
   | "forecast-incomplete"
   | "forecast-stale"
   | "invalid-canonical"
@@ -383,6 +384,28 @@ export function evaluateCityDataIntentIndexability(
     return { indexable: true, reason: "gsc-protected" };
   }
 
+  return { indexable: true, reason: "forecast-approved" };
+}
+
+/**
+ * Tide station pages answer with predicted highs and lows. A station whose
+ * prediction source failed this render shows a failure state and stays out of
+ * the index until the next regeneration succeeds.
+ */
+export function evaluateTideStationIndexability(input: {
+  predictionsAvailable: boolean;
+}): IndexabilityDecision {
+  if (!input.predictionsAvailable) {
+    return { indexable: false, reason: "forecast-missing" };
+  }
+  return { indexable: true, reason: "forecast-approved" };
+}
+
+/** Tide hubs are lists of station links; an empty list is thin content. */
+export function evaluateTideHubIndexability(stationCount: number): IndexabilityDecision {
+  if (stationCount <= 0) {
+    return { indexable: false, reason: "insufficient-data" };
+  }
   return { indexable: true, reason: "forecast-approved" };
 }
 

@@ -233,6 +233,37 @@ function withLiveDisplayWindow(
   return anchored.displayWindowStart <= now && now < anchored.displayWindowEnd ? anchored : displayed;
 }
 
+type ForecastRows = WindowSelectorOptions['forecasts'];
+
+/**
+ * Rows by local date, built once per forecast list and zone: Week Scout asks for
+ * each of its days against the same list, and re-filtering formatted every row's
+ * date seven times. Rows keep their order; callers get their own array. The
+ * length guard regroups a list that grew after it was grouped.
+ */
+const rowsByLocalDate = new WeakMap<ForecastRows, Map<string, { length: number; byDate: Map<string, ForecastRows> }>>();
+
+function forecastsForLocalDate(forecasts: ForecastRows, timezone: string, localDate: string): ForecastRows {
+  let byZone = rowsByLocalDate.get(forecasts);
+  if (!byZone) {
+    byZone = new Map();
+    rowsByLocalDate.set(forecasts, byZone);
+  }
+  let grouped = byZone.get(timezone);
+  if (!grouped || grouped.length !== forecasts.length) {
+    const byDate = new Map<string, ForecastRows>();
+    for (const forecast of forecasts) {
+      const date = getLocalDateStr(new Date(forecast.forecast_at), timezone);
+      const rows = byDate.get(date);
+      if (rows) rows.push(forecast);
+      else byDate.set(date, [forecast]);
+    }
+    grouped = { length: forecasts.length, byDate };
+    byZone.set(timezone, grouped);
+  }
+  return [...(grouped.byDate.get(localDate) ?? [])];
+}
+
 export function selectBeachDayWindows(
   options: Omit<WindowSelectorOptions, 'maxWindows'> & {
     localDate: string;
@@ -250,9 +281,7 @@ export function selectBeachDayWindows(
     midday: null,
     evening: null,
   };
-  const dayRows = options.forecasts.filter(
-    (forecast) => getLocalDateStr(new Date(forecast.forecast_at), timezone) === localDate,
-  );
+  const dayRows = forecastsForLocalDate(options.forecasts, timezone, localDate);
 
   if (dayRows.length === 0) {
     return {

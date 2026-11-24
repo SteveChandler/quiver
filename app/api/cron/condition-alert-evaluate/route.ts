@@ -11,15 +11,18 @@ import { prepareAlertForecastHours, type EnhancedForecastAlertRow } from "@/lib/
 import { createAlertTideCache, type AlertTideClient } from "@/lib/alerts/alert-tide-samples";
 import { isAlertHourlyWindowsEnabledFor } from "@/lib/flags/alert-hourly-windows";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
+import { isFoundingAccessEnabled } from "@/lib/flags/founding-access";
 import { getUpcomingSurfDate, getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import type { AlertConditions, BeachAlertMeta } from "@/lib/alerts/types";
 import type { Database } from "@/types/database.generated";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
 import type { Beach } from "@/types/database";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import type { RecommendationHoldReasonCode } from "@/lib/recommendations/major-event-hold/types";
 import { discoverSurfSpots } from "@/lib/services/surf-discovery-service";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -70,6 +73,7 @@ function watchedCallPayload(args: {
   evaluation: ReturnType<typeof evaluateWatchedCall>;
   watched: NonNullable<AlertConditions["watched_call"]>;
   beachName: string;
+  ruleId: string;
 }): Record<string, unknown> | null {
   if (args.evaluation.delivery !== "eligible") return null;
   const current = args.evaluation.update?.currentIdentity.recommendation;
@@ -91,7 +95,8 @@ function watchedCallPayload(args: {
   return {
     category,
     cause: args.evaluation.update?.cause ?? "window_passed",
-    alert_rule_id: args.evaluation.update?.priorIdentity.alertRule.id,
+    // post_window evaluations carry no update, so take the id from the rule itself.
+    alert_rule_id: args.ruleId,
     beach_id: current?.beachId ?? args.watched.beachId,
     beach_name: args.beachName,
     recommendation_id: current?.recommendationId ?? args.watched.recommendationId,
@@ -115,7 +120,7 @@ interface ConditionAlertEvaluationSummary {
   errors: number;
 }
 
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -182,7 +187,8 @@ export async function GET(request: Request) {
         const beachIds = [...new Set(rules.map((r) => r.beach_id))];
 
         // 3. Three flat selects in parallel — no join resolution, no relationship hop.
-        const [profilesRes, beachesRes, entitlementsRes] = await Promise.all([
+        //    The founding access switch is read once per run, not per user.
+        const [profilesRes, beachesRes, entitlementsRes, foundingAccess] = await Promise.all([
           supabase
             .from("profiles")
             .select("id, home_beach_id, timezone, notif_forecast_alerts, notif_email_enabled, notif_push_enabled, experience_level")
@@ -195,6 +201,7 @@ export async function GET(request: Request) {
             .from("user_entitlements")
             .select("user_id, is_pro, is_trialing, billing_issue, expires_at")
             .in("user_id", userIds),
+          isFoundingAccessEnabled(),
         ]);
 
         if (profilesRes.error) throw profilesRes.error;
@@ -254,7 +261,10 @@ export async function GET(request: Request) {
         for (const [userId, userRules] of byUser) {
           try {
             const profile = profilesById.get(userId)!;
-            const profileExperience = parseSkillLevel(profile.experience_level);
+            // The rating skill, not the raw one: deliver holds and decides with the same value.
+            const profileExperience = parseSkillLevel(
+              ratingExperience(profile.experience_level, isSkillAwareGoChecksOn(userId)),
+            );
             const homeBeachId = profile.home_beach_id;
             const homeBeach = homeBeachId ? beachesById.get(homeBeachId) : undefined;
             const now = new Date();
@@ -293,7 +303,7 @@ export async function GET(request: Request) {
 
             // Apply entitlement caps — skip newest rules first.
             const entitlementRow = entitlementByUserId.get(userId) ?? null;
-            const tier = resolveEntitlement(userId, entitlementRow);
+            const tier = resolveEntitlement(userId, entitlementRow, foundingAccess);
             const caps = CAPS[tier];
             const sortedRules = [...eligibleRules].sort(
               (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -331,6 +341,7 @@ export async function GET(request: Request) {
                 evaluation: args.evaluation,
                 watched: args.watched,
                 beachName: args.beach.name,
+                ruleId: args.rule.id,
               });
               if (!payload || args.evaluation.delivery !== "eligible") {
                 result.skipped++;
@@ -703,3 +714,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/condition-alert-evaluate");

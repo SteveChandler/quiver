@@ -1,5 +1,6 @@
 import {
   clampToUsableLight,
+  createDaylightPointChecker,
   currentHourRowStart,
   isDaylightInterval,
   lightMetadata,
@@ -7,8 +8,10 @@ import {
   nextFirstLight,
   pointInterval,
   scopedLightInterval,
+  usableLightIntervalForDate,
   type BeachSunTimes,
 } from '@/lib/services/discovery/daylight-eligibility';
+import { currentHourForecastRow } from '@/lib/services/current-conditions/current-row';
 
 const TIMEZONE = 'America/Los_Angeles';
 const SEP23_SUN: BeachSunTimes = {
@@ -102,9 +105,20 @@ describe('current-hour row', () => {
     expect(currentHourRowStart(rows, localTime('2026-09-23', now))).toEqual(localTime('2026-09-23', row));
   });
 
-  it('has no current row before the first row and keeps the last row after it', () => {
-    expect(currentHourRowStart(rows, localTime('2026-09-23', '16:30'))).toBeNull();
+  it('takes a row within one slot of the hour on either side, and none beyond it', () => {
+    expect(currentHourRowStart(rows, localTime('2026-09-23', '16:30'))).toEqual(rows[0]);
+    expect(currentHourRowStart(rows, localTime('2026-09-23', '13:30'))).toBeNull();
     expect(currentHourRowStart(rows, localTime('2026-09-24', '01:15'))).toEqual(rows[2]);
+    expect(currentHourRowStart(rows, localTime('2026-09-24', '03:15'))).toBeNull();
+  });
+
+  it('is the shared current-hour rule', () => {
+    const at = (iso: string) => ({ forecast_at: iso });
+    for (const now of ['16:30', '17:40', '18:31', '19:02', '22:30', '23:59']) {
+      const instant = localTime('2026-09-23', now);
+      expect(currentHourRowStart(rows, instant)?.toISOString() ?? null)
+        .toBe(currentHourForecastRow(rows.map((row) => at(row.toISOString())), instant)?.forecast_at ?? null);
+    }
   });
 
   it('treats the scoped row the app maps the current hour to as the current row', () => {
@@ -174,5 +188,69 @@ describe('light metadata for an interval', () => {
     const at = localTime('2026-09-23', '06:00');
     expect(lightMetadata(at, TIMEZONE, sun)).toEqual(lightMetadataForInterval(pointInterval(at), TIMEZONE, sun));
     expect(lightMetadata(at, TIMEZONE, sun).isDark).toBe(true);
+  });
+});
+
+describe('usable light interval cache', () => {
+  it('returns the same interval as fresh Dates on every read', () => {
+    const sun: BeachSunTimes = { sunrises: [...SEP23_SUN.sunrises], sunsets: [...SEP23_SUN.sunsets] };
+    const first = usableLightIntervalForDate('2026-09-23', TIMEZONE, sun);
+    first.start.setTime(0);
+    const second = usableLightIntervalForDate('2026-09-23', TIMEZONE, sun);
+
+    expect(second.start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
+    expect(second.end.toISOString()).toBe('2026-09-24T02:04:00.000Z');
+    expect(second.start).not.toBe(first.start);
+  });
+
+  it('keys on zone and date, and rereads a sun list that has grown', () => {
+    const sun: BeachSunTimes = { sunrises: [], sunsets: [] };
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, sun).start).toEqual(localTime('2026-09-23', '06:00'));
+    sun.sunrises.push(...SEP23_SUN.sunrises);
+    sun.sunsets.push(...SEP23_SUN.sunsets);
+
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, sun).start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
+    expect(usableLightIntervalForDate('2026-09-23', 'UTC', sun).start.toISOString()).toBe('2026-09-23T13:07:00.000Z');
+    expect(usableLightIntervalForDate('2026-09-24', TIMEZONE, sun).start).toEqual(localTime('2026-09-24', '06:00'));
+  });
+
+  it('shares one entry across wrappers rebuilt around the same arrays', () => {
+    const sunrises = [...SEP23_SUN.sunrises];
+    const sunsets = [...SEP23_SUN.sunsets];
+    const first = usableLightIntervalForDate('2026-09-23', TIMEZONE, { sunrises, sunsets });
+    // Same length, new value: only a read that hit the cache still returns the first answer.
+    sunrises[0] = new Date('2026-09-23T14:37:00Z');
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, { sunrises, sunsets })).toEqual(first);
+    expect(usableLightIntervalForDate('2026-09-23', TIMEZONE, { sunrises: [...sunrises], sunsets }).start.toISOString())
+      .toBe('2026-09-23T14:07:00.000Z');
+  });
+});
+
+describe('createDaylightPointChecker', () => {
+  const FIVE_MIN = 5 * 60_000;
+  const pointsAcross = (from: string, hours: number): Date[] => Array.from(
+    { length: (hours * 60) / 5 },
+    (_, index) => new Date(Date.parse(from) + index * FIVE_MIN),
+  );
+
+  it.each<[string, BeachSunTimes, string]>([
+    ['America/Los_Angeles', SEP23_SUN, '2026-09-23T12:00:00Z'],
+    // A half-hour zone puts local midnight mid-way through a UTC hour.
+    ['Asia/Kolkata', {
+      sunrises: [new Date('2026-09-23T00:40:00Z'), new Date('2026-09-24T00:40:00Z')],
+      sunsets: [new Date('2026-09-23T12:50:00Z'), new Date('2026-09-24T12:50:00Z')],
+    }, '2026-09-23T00:00:00Z'],
+  ])('answers exactly as a 1 ms isDaylightInterval in %s, midnight hours included', (timezone, sunTimes, from) => {
+    // Rebuilt wrappers around the same arrays, as the edge scan passes them.
+    const check = createDaylightPointChecker(timezone, { sunrises: sunTimes.sunrises, sunsets: sunTimes.sunsets });
+    const points = pointsAcross(from, 36);
+    const expected = points.map((time) => isDaylightInterval(time, new Date(time.getTime() + 1), timezone, sunTimes));
+    expect(points.map(check)).toEqual(expected);
+    expect(expected).toContain(true);
+    expect(expected).toContain(false);
+  });
+
+  it('rejects an invalid time', () => {
+    expect(createDaylightPointChecker(TIMEZONE, SEP23_SUN)(new Date(Number.NaN))).toBe(false);
   });
 });

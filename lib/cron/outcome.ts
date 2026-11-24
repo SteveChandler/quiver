@@ -24,14 +24,31 @@ export interface CronOutcomeOptions<T> {
     result: T,
   ) => CronOutcome["legitimatelyZero"] | undefined;
   failureReason?: (result: T) => string | null;
+  upstreamGap?: {
+    active: (result: T) => boolean;
+    limitMs: number;
+    describe: (lastProductiveRanAt: string | null) => string;
+  };
   /** Report a failed acknowledgement when callers store operational state in the outcome. */
   onPersistenceFailure?: (result: T) => void;
 }
 
 type CronOutcomeStatus = "ok" | "failed" | "error";
 
+type ProductiveRunQuery = {
+  eq: (column: string, value: string) => ProductiveRunQuery;
+  gt: (column: string, value: number) => ProductiveRunQuery;
+  order: (column: string, options: { ascending: boolean }) => ProductiveRunQuery;
+  limit: (count: number) => ProductiveRunQuery;
+  maybeSingle: () => PromiseLike<{
+    data: { ran_at: string } | null;
+    error?: { message?: string } | null;
+  }>;
+};
+
 type CronRunsClient = {
   from: (table: "cron_runs") => {
+    select: (columns: string) => ProductiveRunQuery;
     update: (row: Record<string, unknown>) => {
       eq: (column: string, value: string) => PromiseLike<{ error?: { message?: string } | null }>;
     };
@@ -80,7 +97,7 @@ function outcomeSummary(
   };
 }
 
-async function persistOutcome(outcome: PersistedOutcome): Promise<boolean> {
+async function persistOutcome(outcome: PersistedOutcome, client?: CronRunsClient): Promise<boolean> {
   try {
     const fields = {
       job: outcome.job,
@@ -96,8 +113,9 @@ async function persistOutcome(outcome: PersistedOutcome): Promise<boolean> {
       error_message: outcome.errorMessage ?? null,
     };
     const observedRun = observedCronRun.getStore();
-    if (observedRun?.runId) observedRun.outcome = fields;
-    const supabase = (await createSupabaseServiceRoleClient()) as unknown as CronRunsClient;
+    if (observedRun?.skipIdleRuns && outcome.status === "ok" && outcome.legitimatelyZero) return true;
+    if (observedRun?.runId || observedRun?.skipIdleRuns) observedRun.outcome = fields;
+    const supabase = client ?? (await createSupabaseServiceRoleClient()) as unknown as CronRunsClient;
     const { error } = observedRun?.runId
       ? await supabase.from("cron_runs").update(fields).eq("id", observedRun.runId)
       : await supabase.from("cron_runs").insert({
@@ -164,6 +182,7 @@ export async function withCronOutcome<T>(
   handler: () => Promise<T>,
 ): Promise<T> {
   const startedAt = Date.now();
+  let supabase: CronRunsClient | undefined;
 
   try {
     const result = await handler();
@@ -176,9 +195,33 @@ export async function withCronOutcome<T>(
       extractionError = errorMessage(error);
     }
 
-    const legitimateZero =
+    let legitimateZero =
       produced === 0 ? options.legitimatelyZero?.(result) : undefined;
-    const failureReason = options.failureReason?.(result) ?? null;
+    let failureReason = options.failureReason?.(result) ?? null;
+    if (options.upstreamGap?.active(result)) {
+      let lastProductiveRanAt: string | null = null;
+      let gapExceeded = false;
+      try {
+        supabase = (await createSupabaseServiceRoleClient()) as unknown as CronRunsClient;
+        const { data, error } = await supabase.from("cron_runs").select("ran_at")
+          .eq("job", options.job).eq("status", "ok").gt("produced", 0)
+          .order("ran_at", { ascending: false }).limit(1).maybeSingle();
+        if (error) throw error;
+        lastProductiveRanAt = data?.ran_at ?? null;
+        gapExceeded = lastProductiveRanAt === null
+          || Date.now() - Date.parse(lastProductiveRanAt) > options.upstreamGap.limitMs;
+      } catch (error) {
+        console.warn("[cron-outcome] could not read last productive run", {
+          job: options.job,
+          error: error instanceof Error ? error.name : "unknown_error",
+        });
+      }
+      if (gapExceeded) {
+        failureReason ??= options.upstreamGap.describe(lastProductiveRanAt);
+      } else if (produced === 0) {
+        legitimateZero ??= { reason: "Upstream gap within allowed duration" };
+      }
+    }
     const belowMinimum = produced < options.expectedMin;
     const aboveMaximum =
       options.expectedMax !== undefined && produced > options.expectedMax;
@@ -208,7 +251,7 @@ export async function withCronOutcome<T>(
       ...(failed && reason ? { errorMessage: reason } : {}),
     };
 
-    if (!await persistOutcome(outcome)) options.onPersistenceFailure?.(result);
+    if (!await persistOutcome(outcome, supabase)) options.onPersistenceFailure?.(result);
     if (status === "failed") alertFailedOutcome(outcome, reason);
     return result;
   } catch (error) {
@@ -223,7 +266,7 @@ export async function withCronOutcome<T>(
       ranAt: new Date().toISOString(),
       durationMs: Date.now() - startedAt,
       errorMessage: message,
-    });
+    }, supabase);
     try {
       Sentry.captureException(error instanceof Error ? error : new Error(message), {
         level: "error",

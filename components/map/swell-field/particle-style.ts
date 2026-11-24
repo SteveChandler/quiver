@@ -14,7 +14,8 @@ export interface MercatorBox {
 // Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
 // between dashes. Lower than the earlier dense random blanket (4000/1400).
 export const PARTICLE_COUNT_DESKTOP = 650;
-// Leave room between crests on compact native map cards.
+// Leave room between crests on compact native map cards. Native's phone base is
+// 420 (quiver-native #457); 420 here doubled the ink on a 390 px map, so web keeps 280.
 export const PARTICLE_COUNT_MOBILE = 280;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
@@ -58,10 +59,23 @@ export const DEATH_FADE_PORTION = 0.16;
 // so dashes stay visible no matter how slow they move. Tying length to the
 // per-frame step made slow dashes sub-pixel and invisible.
 export const DASH_FRACTION = 0.032;
-// Dash thickness in device pixels (a quad, so width is real — gl.lineWidth is not).
-// Weak swell ~2.6px, strong swell ~2.6+4.4 ≈ 7px, so strength reads as weight.
-export const DASH_WIDTH_PX_BASE = 2.6;
-export const DASH_WIDTH_PX_GAIN = 4.4;
+// Native sizes crests from a phone canvas (~390 pt wide). On a wider canvas, size
+// them from this width instead, so a crest keeps native's on-screen size and does
+// not grow into a block on a desktop window.
+export const CREST_REFERENCE_WIDTH_PX = 390;
+
+/** Scale for crest size on a canvas `cssWidthPx` wide: 1 up to the reference width. */
+export function crestSizeScale(cssWidthPx: number): number {
+  return cssWidthPx > CREST_REFERENCE_WIDTH_PX ? CREST_REFERENCE_WIDTH_PX / cssWidthPx : 1;
+}
+// A crest mark is native's swell chip (quiver-native surf-condition-overlay.tsx
+// streak sprite): its depth along travel is the crest length / 1.6. The leading
+// 17 of its 40 rows are a solid crest; the other 23 are a wake that fades from
+// 0.85 to clear behind it. Depth scales with length, so the mark keeps one shape
+// at every size.
+export const CREST_DEPTH_ASPECT = 1.6;
+export const CREST_SOLID_PORTION = 17 / 40;
+export const CREST_WAKE_START_ALPHA = 0.85;
 // How aggressively weak cells thin out their particles (higher = sparser weak).
 export const STRENGTH_DENSITY_CULL = 0.8;
 

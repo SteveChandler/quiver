@@ -1,0 +1,789 @@
+import type { InternalRegionEvent, RatingRow, RegionBeach, RegionBuild } from "@/lib/alerts/swell-events/regional";
+import { addDays } from "../local-date";
+import {
+  addSwellHeadlines, beachLine, sizePhrase, windTimingPhrase, beachLineText, buildEventCandidates, buildStoryCandidates, eventStory, eventStoryText, storyEventKey, storyEventsFromRegion, swellChapterPhases,
+  buildEarlyLookCandidates, earlyLookStoryText,
+  type BeachLineFacts, type RegionalDaySignal, type RegionalSwellEvent,
+} from "../week-scout-story-candidates";
+import { sizeWordsFor, type CandidateFacts, type WindHour } from "../week-scout-story-facts";
+import { CLOSED_WORD_SETS } from "../week-scout-story-claims";
+import { buildRegionGateContext, regionGateHolds } from "../week-scout-story-region-gate";
+import { assertStoryArtifactMatchesInput } from "../week-scout-story-validate";
+import { WEEK_SCOUT_STORY_GENERATION_VERSION, type StoryArtifact, type StoryCandidate, type StoryInput } from "../week-scout-story-types";
+
+const start = "2026-10-27";
+const days = (height: number | null = 1): RegionalDaySignal[] => Array.from({ length: 7 }, (_, index) => ({
+  localDate: addDays(start, index), complete: true, sampleBeaches: 3,
+  meanHeightFt: height, directionDeg: 270, periodS: 15,
+  sourceSeries: "enhanced_forecasts:coast", forecastRevision: "2026-10-27T12:00:00Z",
+}));
+const event = (periodS = 13.4): RegionalSwellEvent => ({ directionDeg: 202, periodS,
+  arrivalAt: "2026-10-31T18:00:00Z", peakAt: "2026-11-01T18:00:00Z",
+  fadeAt: "2026-11-02T18:00:00Z", timezone: "America/Los_Angeles",
+  confidence: "likely", minimumBeaches: 3, kind: "swell", regionalKey: "San Diego:SSW:2026-11-01" });
+
+
+const voiceFacts = (): CandidateFacts => ({
+  faceFt: { min: 3, max: 4 }, sizes: ["chest"], breaker: { character: "pitching", feel: "punchy", closingOut: false },
+  windHours: [7, 8, 9, 10, 11, 12, 14, 16].map((hour) => ({ hour, relation: hour < 9 ? "offshore" : hour < 10 ? "cross" : "onshore", mph: 10 })),
+});
+
+describe("surfer voice", () => {
+  it("writes beach-day lines in the surfer voice with size, feel and wind timing", () => {
+    const facts = voiceFacts();
+    const context = { events: [event()], exposure: () => "open" as const, facing: () => "direct" as const,
+      wind: () => "breezy" as const, eventFacts: () => facts, beachDayFacts: jest.fn(() => facts), dayFacts: () => facts };
+    const line = beachLine(event(), "a", context, "2026-11-01");
+    expect(line?.text).toBe("Faces the south-southwest groundswell dead on: chest-high and punchy, offshore early, onshore by 10.");
+    expect(line?.facts).toEqual(facts);
+    expect(context.beachDayFacts).toHaveBeenCalledWith(storyEventKey(event()), "a", "2026-11-01");
+    expect(beachLine(event(), "a", context, "2026-10-31")?.gate.localDate).toBe("2026-10-31");
+  });
+
+  it("writes stories, covers, leads and chapters with size, standouts only when bigger", () => {
+    const facts: CandidateFacts = { ...voiceFacts(), faceFt: { min: 2, max: 4 }, sizes: ["waist", "chest"],
+      standoutFt: { min: 5, max: 6 }, standoutSizes: ["head"] };
+    expect(eventStoryText(event(), start, facts)).toBe("A south-southwest long-period groundswell arrives Saturday, peaks Sunday and fades Monday: waist-to-chest at most spots, head-high at the standouts.");
+    const candidates = buildStoryCandidates(days(3), "San Diego", [event()], () => facts);
+    expect(candidates.find((item) => item.slot === "cover")?.text).toBe("A long-period groundswell from the south-southwest reaches San Diego Saturday and peaks Sunday: waist-to-chest at most spots, head-high at the standouts.");
+    expect(candidates.find((item) => item.slot === "story:lead")?.text).toBe("The south-southwest pulse builds from Saturday into Sunday.");
+    expect(candidates.find((item) => item.slot === `swell:${storyEventKey(event())}`)?.text).toBe("The long-period groundswell arrives Saturday and peaks Sunday before easing Monday: waist-to-chest at most spots, head-high at the standouts.");
+    for (const standoutFt of [undefined, { min: 2, max: 4 }]) {
+      expect(eventStoryText(event(), start, { ...facts, standoutFt })).not.toContain("standouts");
+    }
+    expect(eventStoryText(event(), start, { ...facts, faceFt: null, sizes: [] })).toBe(eventStoryText(event(), start));
+  });
+
+  it("omits a standout clause when its size phrase matches the main size", () => {
+    const facts: CandidateFacts = { faceFt: { min: 3, max: 4 }, sizes: ["chest"],
+      standoutFt: { min: 3, max: 4 }, standoutSizes: ["chest"], breaker: null };
+    const sameEvent = { ...event(), arrivalAt: "2026-10-31T18:00:00Z", peakAt: "2026-11-01T18:00:00Z",
+      fadeAt: "2026-11-02T18:00:00Z" };
+    const story = eventStoryText(sameEvent, start, facts);
+    const candidates = buildStoryCandidates(days(3), "San Diego", [sameEvent], () => facts);
+    expect(story).not.toContain("standouts");
+    expect(candidates.filter((candidate) => candidate.gate.kind === "swell")
+      .every((candidate) => !candidate.text.includes("standouts"))).toBe(true);
+  });
+
+  it("offers each day a swell-and-wind line per top beach, ranked ahead of tide and change lines", () => {
+    const signals = days(3).map((day) => ({ ...day, surfBeaches: ["a", "b", "c", "d"].map((beachId) =>
+      ({ beachId, beachName: "Terramar Point", facts: voiceFacts() })),
+      tide: { bucket: "morning" as const, tidePhase: "rising", windowOrder: "opens" as const, selectorConfirmed: true, orderingConfirmed: true } }));
+    const candidates = buildStoryCandidates(signals, "San Diego", [event()]);
+    expect(candidates.filter((item) => item.gate.kind === "day_surf")).toHaveLength(28);
+    expect(candidates.find((item) => item.id === "surf-2026-11-01-a")).toMatchObject({
+      slot: "day:2026-11-01", rank: 50,
+      text: "On Sunday, Terramar Point runs chest-high and punchy, offshore early, onshore by 10.",
+      gate: { kind: "day_surf", localDate: "2026-11-01", beachId: "a", faceFt: { min: 3, max: 4 } },
+    });
+    expect(candidates.filter((item) => item.gate.kind === "day_surf").map((item) => item.rank)).toEqual(Array(7).fill([50, 51, 52, 53]).flat());
+    expect(candidates.filter((item) => item.gate.kind === "change" || item.gate.kind === "tide").every((item) => item.rank! >= 100)).toBe(true);
+  });
+
+  it.each([
+    [0, 1, "knee-high"], [2, 2, "waist-high"], [3, 4, "chest-high"], [4, 5, "chest-high"],
+    [5, 6, "head-high"], [7, 11, "overhead"], [12, 14, "double overhead"],
+    [2, 4, "waist-to-chest"], [3, 6, "chest-to-head-high"], [5, 8, "head-high to overhead"],
+  ])("formats %s–%s feet as %s", (min, max, expected) => {
+    expect(sizePhrase({ min, max }, sizeWordsFor({ min, max }))).toBe(expected);
+  });
+
+  it("keeps the beach lead when its day has no usable size or wind facts", () => {
+    const sample = event();
+    const line = beachLine(sample, "a", {
+      events: [sample], exposure: () => "open", facing: () => "direct", wind: () => null,
+      eventFacts: () => null, beachDayFacts: () => null, dayFacts: () => null,
+    }, "2026-11-01");
+    expect(line?.text).toBe("Faces the south-southwest groundswell dead on.");
+  });
+
+  it("uses the first sampled onshore hour and requires an earlier non-onshore row for a by-phrase", () => {
+    expect(sizePhrase(null, ["chest"])).toBeNull();
+    expect(sizePhrase({ min: 3, max: 4 }, [])).toBeNull();
+    const hours = (values: number[]): WindHour[] => values.map((hour) => ({ hour, relation: "offshore", mph: 10 }));
+    expect(windTimingPhrase(hours([8, 16]))).toBe("offshore all day");
+    expect(windTimingPhrase(hours([9, 15]))).toBeNull();
+    expect(windTimingPhrase([...hours([8, 10]), { hour: 14, relation: "onshore", mph: 10 }])).toBe("offshore all morning, sea breeze after lunch");
+    expect(windTimingPhrase([...hours([8]), { hour: 14, relation: "onshore", mph: 10 }])).toBe("offshore early");
+    expect(windTimingPhrase([{ hour: 7, relation: "offshore", mph: 10 }, { hour: 10, relation: "onshore", mph: 10 },
+      { hour: 13, relation: "onshore", mph: 10 }, { hour: 16, relation: "onshore", mph: 10 }])).toBe("offshore early, onshore by 10");
+    expect(windTimingPhrase([{ hour: 8, relation: "offshore", mph: 10 }, { hour: 11, relation: "onshore", mph: 10 },
+      { hour: 14, relation: "onshore", mph: 10 }, { hour: 17, relation: "onshore", mph: 10 }])).toBe("offshore early, onshore by 11");
+    expect(windTimingPhrase([{ hour: 7, relation: "onshore", mph: 10 }, { hour: 10, relation: "onshore", mph: 10 },
+      { hour: 13, relation: "onshore", mph: 10 }])).toBeNull();
+    expect(windTimingPhrase([{ hour: 7, relation: "cross", mph: 10 }, { hour: 10, relation: "onshore", mph: 5 },
+      { hour: 13, relation: "onshore", mph: 10 }, { hour: 16, relation: "onshore", mph: 15 }])).toBe("onshore by 10");
+  });
+});
+
+describe("regional Week Scout story candidates", () => {
+  it("refuses sparse coverage and uncertain pulses instead of calling them quiet", () => {
+    const sparse = days(); sparse[3].complete = false;
+    expect(buildStoryCandidates(sparse)).toEqual([]);
+    const uncertain = days(3); uncertain.forEach((day) => { day.directionDeg = null; });
+    expect(buildStoryCandidates(uncertain)).toEqual([]);
+  });
+
+  it("writes specific San Diego swell and exposure copy from regional evidence", () => {
+    const signals = days(3);
+    signals.forEach((day) => { day.directionDeg = 202; day.periodS = 15; });
+    signals[3].meanHeightFt = 5;
+    signals[5].exposedBeaches = { "4-4-2026-11-01": [
+      { beachId: "a", beachName: "Ocean Beach", exposure: "open", qualityScore: 70 },
+      { beachId: "b", beachName: "Blacks", exposure: "open", qualityScore: 60 },
+      { beachId: "c", beachName: "La Jolla Shores", exposure: "shadowed", qualityScore: 40 },
+    ] };
+    signals[3].wind = { bucket: "midday", fromBucket: "morning", fromWindClass: "offshore",
+      windClass: "onshore", selectorConfirmed: true, turnConfirmed: true, beachId: "a",
+      fromDirection: "90", toDirection: "270" };
+    const facts = buildStoryCandidates(signals, "San Diego", [event()]);
+    expect(facts.find((fact) => fact.slot === "cover")?.gate).toMatchObject({
+      kind: "swell", arrivalLocalDate: "2026-10-31", peakLocalDate: "2026-11-01", directionSector: 4,
+    });
+    expect(facts.find((fact) => fact.slot === "cover")?.text).toContain("south-southwest reaches San Diego Saturday and peaks Sunday");
+    expect(facts.find((fact) => fact.gate.kind === "exposure")?.text).toContain("Ocean Beach and Blacks");
+    expect(facts.find((fact) => fact.gate.kind === "wind")?.text).toContain("onshore fills in");
+    expect(facts.some((fact) => fact.gate.kind === "exposure")).toBe(true);
+    expect(facts.some((fact) => fact.gate.kind === "origin")).toBe(false);
+    expect(facts.every((fact) => !/\d/.test(fact.text) && fact.text.length <= 240)).toBe(true);
+    expect(new Set(facts.filter((fact) => fact.slot === "cover").map((fact) => fact.text)).size).toBe(2);
+    expect(facts.some((fact) => fact.id === "cover-pulse-other-period" || fact.id.startsWith("day-"))).toBe(false);
+  });
+
+  it("uses event arrival after Wednesday's height gate and classifies periods", () => {
+    const signals = days(1);
+    signals[1].meanHeightFt = 2;
+    const long = buildStoryCandidates(signals, "San Diego", [event()]);
+    expect(long.find((fact) => fact.slot === "cover")?.text).toBe(
+      "A long-period groundswell from the south-southwest reaches San Diego Saturday and peaks Sunday.");
+    expect(long.filter((fact) => /southwest/.test(fact.text)).every((fact) => /south-southwest/.test(fact.text))).toBe(true);
+    expect(buildStoryCandidates(signals, "San Diego", [event(11)]).find((fact) => fact.slot === "cover")?.text)
+      .toContain("mid-period swell");
+    expect(buildStoryCandidates(signals, "San Diego", [event(9)]).find((fact) => fact.slot === "cover")?.text)
+      .toContain("short-period windswell");
+  });
+
+  it("calls a storm a storm swell: short-period under ten seconds, mid-period from ten", () => {
+    const signals = days(3);
+    const storm = (periodS: number): RegionalSwellEvent => ({ ...event(periodS), kind: "storm" });
+    const short = buildStoryCandidates(signals, "San Diego", [storm(7)]);
+    expect(storyEventKey(storm(7))).toBe("4-2-2026-11-01-s");
+    expect(short.find((fact) => fact.slot === "cover")?.text).toBe(
+      "A short-period storm swell from the south-southwest reaches San Diego Saturday and peaks Sunday.");
+    expect(short.find((fact) => fact.id === "swell-4-2-2026-11-01-s")?.text).toContain("The short-period storm swell arrives Saturday");
+    // The direction leads, as it does for any swell.
+    expect(short.find((fact) => fact.id === "cover-pulse-alt-4-2-2026-11-01-s")?.text).toBe(
+      "San Diego gets a south-southwest short-period storm swell by Saturday, with the most swell Sunday.");
+    expect(buildStoryCandidates(signals, "San Diego", [storm(10)]).find((fact) => fact.slot === "cover")?.text)
+      .toContain("mid-period storm swell");
+    expect(buildStoryCandidates(signals, "San Diego", [storm(14)]).find((fact) => fact.slot === "cover")?.text)
+      .toContain("mid-period storm swell");
+  });
+
+  it("names each day of the swell chapter once, like the card's story line", () => {
+    // Thursday 2026-10-29, Friday 2026-10-30, Saturday 2026-10-31.
+    const chapter = (arrival: string, peak: string, fade: string | null): string | undefined =>
+      buildStoryCandidates(days(3), "San Diego", [{ ...event(), arrivalAt: `${arrival}T18:00:00Z`, peakAt: `${peak}T18:00:00Z`,
+        fadeAt: fade ? `${fade}T18:00:00Z` : null }])
+        .find((fact) => /^swell:[^:]+$/.test(fact.slot) && !fact.id.endsWith("-alt"))?.text;
+    expect(chapter("2026-10-29", "2026-10-29", "2026-10-30")).toBe("The long-period groundswell arrives and peaks Thursday before easing Friday.");
+    expect(chapter("2026-10-29", "2026-10-29", "2026-10-29")).toBe("The long-period groundswell comes and goes Thursday.");
+    expect(chapter("2026-10-29", "2026-10-29", null)).toBe("The long-period groundswell arrives and peaks Thursday.");
+    expect(chapter("2026-10-29", "2026-10-30", "2026-10-30")).toBe("The long-period groundswell arrives Thursday and peaks Friday.");
+    expect(chapter("2026-10-29", "2026-10-30", "2026-10-31")).toBe("The long-period groundswell arrives Thursday and peaks Friday before easing Saturday.");
+    // A peak and fade past the window both read "next week": the word goes once (R27).
+    expect(chapter("2026-11-02", "2026-11-04", "2026-11-05")).toBe("The long-period groundswell arrives Monday and peaks next week.");
+    expect(chapter("2026-10-26", "2026-10-28", "2026-10-29")).toBe("The long-period groundswell is already in the water and peaks Wednesday before easing Thursday.");
+    // Words decide, for either side of the window.
+    expect(swellChapterPhases("next week", "next week", "next week")).toBe("comes and goes next week");
+    expect(swellChapterPhases("next week", "next week", null)).toBe("arrives and peaks next week");
+    expect(swellChapterPhases("earlier in the week", "earlier in the week", "Tuesday"))
+      .toBe("arrives and peaks earlier in the week before easing Tuesday");
+    expect(swellChapterPhases("earlier in the week", "earlier in the week", "earlier in the week")).toBe("comes and goes earlier in the week");
+  });
+
+  it("uses in-water copy for past arrivals on the cover, lead and swell chapter", () => {
+    const upcomingDays = days(3).map((day, index) => ({ ...day, localDate: addDays("2026-11-01", index) }));
+    const alreadyHere = { ...event(), arrivalAt: "2026-10-31T18:00:00Z", peakAt: "2026-11-02T18:00:00Z",
+      fadeAt: "2026-11-03T18:00:00Z" };
+    const candidates = buildStoryCandidates(upcomingDays, "San Diego", [alreadyHere]);
+
+    expect(candidates.find((item) => item.slot === "cover")?.text)
+      .toBe("A long-period groundswell from the south-southwest is already in the water and peaks Monday.");
+    expect(candidates.find((item) => item.slot === "story:lead")?.text)
+      .toBe("The south-southwest pulse is already in the water and peaks Monday.");
+    expect(candidates.find((item) => item.slot.startsWith("swell:"))?.text)
+      .toBe("The long-period groundswell is already in the water and peaks Monday before easing Tuesday.");
+  });
+
+  it("says 'arrives and peaks' on the cover and lead when a swell lands and peaks the same day", () => {
+    const sameDay = { ...event(), arrivalAt: "2026-11-01T15:00:00Z", peakAt: "2026-11-01T20:00:00Z" };
+    const candidates = buildStoryCandidates(days(3), "San Diego", [sameDay]);
+    const headlines = candidates.filter((item) => item.slot === "cover" || item.slot === "story:lead");
+    expect(headlines.map((item) => item.text)).not.toContainEqual(
+      expect.stringMatching(/from (\w+) into \1|(\w+) starts .* toward a \2 peak|by (\w+), with the most swell \3/));
+    expect(candidates.find((item) => item.slot === "cover")?.text)
+      .toBe("A long-period groundswell from the south-southwest reaches San Diego and peaks Sunday.");
+    expect(candidates.find((item) => item.slot === "story:lead")?.text).toBe("The south-southwest pulse arrives and peaks Sunday.");
+    expect(headlines.some((item) => item.id.includes("pulse-alt"))).toBe(false);
+
+    const noRegion: StoryCandidate[] = [];
+    const gate = candidates.find((item) => item.slot === "cover")!.gate;
+    addSwellHeadlines(noRegion, { key: "k", kind: "swell", directionIndex: 9, periodS: 13.4, arrivalDate: "2026-11-01", peakDate: "2026-11-01" },
+      null, start, addDays(start, 6), gate);
+    expect(noRegion.map((item) => item.text)).toEqual([
+      "A long-period groundswell from the south-southwest arrives and peaks Sunday.",
+      "The south-southwest pulse arrives and peaks Sunday.",
+    ]);
+  });
+
+  it("writes no turn line whose peak and fade read the same word", () => {
+    // The window runs 2026-10-27 to 2026-11-02, so a peak Thursday 2026-11-05 and a fade 2026-11-08 both read "next week".
+    const turns = (peakAt: string, fadeAt: string) => buildStoryCandidates(days(3), "San Diego", [{ ...event(),
+      arrivalAt: "2026-11-02T18:00:00Z", peakAt, fadeAt }]).filter((fact) => fact.id.startsWith("turn-fade"));
+    expect(turns("2026-11-05T18:00:00Z", "2026-11-08T18:00:00Z")).toEqual([]);
+    expect(turns("2026-11-02T20:00:00Z", "2026-11-05T18:00:00Z").map((fact) => fact.text))
+      .toContain("After Monday, the south-southwest swell eases into next week.");
+  });
+
+  it("writes keyed copy for every in-week event, earliest peak first, and leaves the fade off cover and lead", () => {
+    const spike = { ...event(18), directionDeg: 275, arrivalAt: "2026-10-27T17:00:00Z",
+      peakAt: "2026-10-27T20:00:00Z", fadeAt: "2026-10-28T06:00:00Z" };
+    const facts = buildStoryCandidates(days(3), "San Diego", [event(), spike]);
+    expect(new Set(facts.map((fact) => fact.id)).size).toBe(facts.length);
+    expect(facts.filter((fact) => fact.slot === "cover").map((fact) => fact.id)).toEqual([
+      // The spike arrives and peaks Tuesday, so it gets no alt cover.
+      "cover-pulse-6-6-2026-10-27",
+      "cover-pulse-4-4-2026-11-01", "cover-pulse-alt-4-4-2026-11-01"]);
+    for (const fact of facts.filter((item) => item.slot === "cover" || item.slot === "story:lead")) {
+      expect(fact.gate).toMatchObject({ kind: "swell", fadeLocalDate: null });
+    }
+    expect(facts.find((fact) => fact.id === "swell-4-4-2026-11-01")?.gate)
+      .toMatchObject({ fadeLocalDate: "2026-11-02" });
+  });
+
+  it("does not name a peak or fade weekday outside the seven-day story", () => {
+    const outside = { ...event(), arrivalAt: "2026-11-02T18:00:00Z",
+      peakAt: "2026-11-03T18:00:00Z", fadeAt: "2026-11-04T18:00:00Z" };
+    const swellFacts = buildStoryCandidates(days(3), "San Diego", [outside])
+      .filter((fact) => fact.gate.kind === "swell");
+    expect(swellFacts.find((fact) => fact.slot === "cover")?.text)
+      .toContain("reaches San Diego Monday and peaks next week");
+    expect(swellFacts.map((fact) => fact.text).join(" ")).not.toMatch(/Tuesday|Wednesday/);
+    // Phrasings that open with the day or follow "by" are dropped rather than read "next week is the peak".
+    expect(swellFacts.some((fact) => fact.id.startsWith("cover-pulse-alt"))).toBe(false);
+    expect(swellFacts.some((fact) => /^next week|by earlier|^earlier/.test(fact.text))).toBe(false);
+  });
+
+  it("ranks exposure by peak-day quality, then beach name", () => {
+    const signals = days(3);
+    const ranked = [
+      { beachId: "a", beachName: "First Open", exposure: "open" as const, qualityScore: 10 },
+      { beachId: "b", beachName: "Home Open", exposure: "open" as const, qualityScore: 60 },
+      { beachId: "c", beachName: "Best Open", exposure: "open" as const, qualityScore: 90 },
+      { beachId: "d", beachName: "First Shadow", exposure: "shadowed" as const, qualityScore: 20 },
+      { beachId: "e", beachName: "Home Shadow", exposure: "shadowed" as const, qualityScore: 80 },
+    ];
+    signals[5].exposedBeaches = { "4-4-2026-11-01": ranked };
+    expect(buildStoryCandidates(signals, "San Diego", [event()]).find((fact) => fact.gate.kind === "exposure")?.text)
+      .toContain("Best Open and Home Open face this swell better than Home Shadow");
+    ranked.push(
+      { beachId: "f", beachName: "Alpha Open", exposure: "open", qualityScore: 90 },
+      { beachId: "g", beachName: "Alpha Shadow", exposure: "shadowed", qualityScore: 80 },
+    );
+    expect(buildStoryCandidates(signals, "San Diego", [event()]).find((fact) => fact.gate.kind === "exposure")?.text)
+      .toContain("Alpha Open and Best Open face this swell better than Alpha Shadow");
+  });
+
+  it("collapses a repeated wind turn into one turn and prioritizes change, then tide", () => {
+    const signals = days(1);
+    signals.forEach((day) => { day.wind = { bucket: "midday", fromBucket: "morning", fromWindClass: "offshore",
+      windClass: "onshore", selectorConfirmed: true, turnConfirmed: true }; });
+    signals[1].tide = { bucket: "morning", tidePhase: "rising", windowOrder: "opens", selectorConfirmed: true, orderingConfirmed: true };
+    const facts = buildStoryCandidates(signals);
+    expect(facts.find((fact) => fact.id === "turn-wind-pattern")?.text).toContain("Mornings stay cleaner");
+    expect(facts.some((fact) => fact.gate.kind === "wind")).toBe(false);
+    expect(facts.find((fact) => fact.slot === `day:${signals[1].localDate}`)?.gate.kind).toBe("tide");
+    signals[6].wind = { ...signals[6].wind!, bucket: "evening", fromWindClass: "onshore", windClass: "offshore" };
+    const mixed = buildStoryCandidates(signals);
+    expect(mixed.some((fact) => fact.id === "turn-wind-pattern")).toBe(true);
+    expect(mixed.filter((fact) => fact.gate.kind === "wind").map((fact) => fact.slot))
+      .toEqual([`day:${signals[6].localDate}`, `day:${signals[6].localDate}`]);
+  });
+
+  it("gates wind and tide on selector evidence, change on comparable scores, and quiet on complete days", () => {
+    const quiet = days();
+    expect(buildStoryCandidates(quiet).some((fact) => fact.gate.kind === "quiet")).toBe(true);
+    quiet[1].wind = { bucket: "morning", fromWindClass: "onshore", windClass: "offshore", selectorConfirmed: false, turnConfirmed: true };
+    quiet[1].tide = { bucket: "morning", tidePhase: "rising", windowOrder: "opens", selectorConfirmed: false, orderingConfirmed: true };
+    expect(buildStoryCandidates(quiet).some((fact) => fact.gate.kind === "wind" || fact.gate.kind === "tide")).toBe(false);
+    quiet[1].wind.selectorConfirmed = true;
+    quiet[1].tide.selectorConfirmed = true;
+    quiet[0].qualityScore = 30; quiet[1].qualityScore = 50;
+    const facts = buildStoryCandidates(quiet);
+    expect(facts.some((fact) => fact.gate.kind === "wind")).toBe(true);
+    expect(facts.some((fact) => fact.gate.kind === "tide")).toBe(true);
+    expect(facts.some((fact) => fact.gate.kind === "change")).toBe(true);
+  });
+});
+
+describe("story artifact candidate validation", () => {
+  const now = new Date("2026-10-27T13:00:00Z");
+  const facts = buildStoryCandidates(days(3), "coast", [{ ...event(15), directionDeg: 270,
+    arrivalAt: "2026-10-27T18:00:00Z", peakAt: "2026-10-27T23:00:00Z", fadeAt: null }]);
+  const input: StoryInput = {
+    schemaVersion: 3, region: "coast", editionDate: start, inputHash: "hash",
+    sourcePublishedAt: "2026-10-27T12:00:00Z", validUntil: "2026-10-29T06:59:59Z",
+    briefing: { schemaVersion: 3, editionDate: start, generatedAt: "2026-10-27T12:00:00Z", selections: [] },
+    copyFacts: facts,
+    beachNames: { beach: "Ocean Beach" },
+    provenance: { sourceIds: ["source"], sourceHashes: ["revision"], generationInputVersion: "1",
+      representativeBeachIds: ["beach"], coverageDates: days().map((day) => day.localDate) },
+  };
+  const artifact = (): StoryArtifact => ({
+    artifactId: "artifact", schemaVersion: 3, region: input.region, editionDate: input.editionDate,
+    inputHash: input.inputHash, sourcePublishedAt: input.sourcePublishedAt, validUntil: input.validUntil,
+    generationVersion: WEEK_SCOUT_STORY_GENERATION_VERSION, model: "local-model",
+    briefing: { ...input.briefing, generatedAt: now.toISOString(), selections: facts.filter((fact) =>
+      /^(cover-pulse|lead-pulse)-\d/.test(fact.id) || fact.id === "swell-6-5-2026-10-27").map((fact) => fact.id) },
+    provenance: input.provenance,
+  });
+
+  it("accepts issued IDs in order, then refuses omitted lead, text injection and duplicate slots", () => {
+    expect(() => assertStoryArtifactMatchesInput(artifact(), input, now)).not.toThrow();
+    const missing = artifact(); missing.briefing.selections.splice(1, 1);
+    expect(() => assertStoryArtifactMatchesInput(missing, input, now)).toThrow("required_slot_missing");
+    const injected = artifact(); (injected.briefing as unknown as Record<string, unknown>).text = "invented";
+    expect(() => assertStoryArtifactMatchesInput(injected, input, now)).toThrow("briefing_values_altered");
+    const extra = artifact(); (extra as unknown as Record<string, unknown>).privateText = "invented";
+    expect(() => assertStoryArtifactMatchesInput(extra, input, now)).toThrow("artifact_values_altered");
+    const duplicate = artifact(); duplicate.briefing.selections.push(facts[0].id);
+    expect(() => assertStoryArtifactMatchesInput(duplicate, input, now)).toThrow("duplicate_candidate");
+  });
+
+  it("accepts up to 200 selections, one per slot", () => {
+    const lines = Array.from({ length: 201 }, (_, index) => ({ id: `event-line-${index}`, slot: `event:line-${index}:story`,
+      text: "A west swell arrives.", gate: facts[0].gate }));
+    const wide = { ...input, copyFacts: [...facts, ...lines] };
+    const picked = (count: number): StoryArtifact => {
+      const value = artifact();
+      value.briefing.selections = [...value.briefing.selections, ...lines.slice(0, count - value.briefing.selections.length).map((line) => line.id)];
+      return value;
+    };
+    expect(picked(200).briefing.selections).toHaveLength(200);
+    expect(() => assertStoryArtifactMatchesInput(picked(200), wide, now)).not.toThrow();
+    expect(() => assertStoryArtifactMatchesInput(picked(201), wide, now)).toThrow("selections_invalid");
+  });
+
+  it("accepts written with week-scout-story-2 and -3 and rejects it with -1", () => {
+    const withWritten = (version: string, written: unknown): StoryArtifact => {
+      const value = artifact();
+      value.generationVersion = version;
+      (value.briefing as unknown as Record<string, unknown>).written = written;
+      return value;
+    };
+    const selected = facts.filter((fact) => artifact().briefing.selections.includes(fact.id));
+    // Claims are checked when the story is served, not here: a digit is structurally fine.
+    const lines = selected.map((fact) => ({ slot: fact.slot, basedOn: fact.id, text: "Gemma's line peaks at 8 feet." }));
+    const refusal = (version: string, written: unknown): string => {
+      try { assertStoryArtifactMatchesInput(withWritten(version, written), input, now); return "accepted"; } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    expect(refusal("week-scout-story-2", lines)).toBe("accepted");
+    expect(refusal("week-scout-story-2", [])).toBe("accepted");
+    const plain = artifact(); plain.generationVersion = "week-scout-story-2";
+    expect(() => assertStoryArtifactMatchesInput(plain, input, now)).not.toThrow();
+    expect(refusal("week-scout-story-1", lines)).toBe("written_not_allowed");
+    // -3 is a superset of -2: it keeps the written lines.
+    expect(refusal("week-scout-story-3", lines)).toBe("accepted");
+    expect(refusal("week-scout-story-4", lines)).toBe("generation_version_unsupported");
+    expect(refusal("week-scout-story-2", null)).toBe("written_invalid");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], text: 7 }])).toBe("written_invalid");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], tone: "hype" }])).toBe("written_invalid");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], text: "x".repeat(241) }])).toBe("written_too_long");
+    const unselected = facts.find((fact) => !artifact().briefing.selections.includes(fact.id))!;
+    expect(refusal("week-scout-story-2", [{ slot: unselected.slot, basedOn: unselected.id, text: "Line." }])).toBe("written_not_selected");
+    expect(refusal("week-scout-story-2", [{ ...lines[0], slot: lines[1].slot }])).toBe("written_slot_mismatch");
+    expect(refusal("week-scout-story-2", [lines[0], lines[0]])).toBe("written_duplicate_slot");
+  });
+});
+
+describe("event and beach lines the card shows", () => {
+  const TIMEZONE = "America/Los_Angeles";
+  const TODAY = "2026-10-27";
+  // Tuesday 8 AM in San Diego.
+  const NOW = new Date("2026-10-27T15:00:00Z");
+  // Intermediate scores at a nine-second period with the tide unknown, as in the rating tests.
+  const SURF = {
+    good75: { wave: "2-3ft", wind: "3 mph" },
+    good72: { wave: "2-3ft", wind: "5 mph" },
+    fair55: { wave: "2-3ft", wind: "14 mph" },
+    meh39: { wave: "0-1ft", wind: "3 mph" },
+    blownOut: { wave: "1-2ft", wind: "20 mph" },
+  };
+  type Surf = (typeof SURF)[keyof typeof SURF];
+
+  /** A beach whose swell window is centred on `centerDeg`, twenty degrees either side. */
+  function beach(id: string, name: string, centerDeg: number): RegionBeach {
+    return { id, name, lat: 32.8, lon: -117.2, aspect_deg: null, wind_offshore_deg: null, wind_offshore_tol_deg: null, punchiness: null, swell_window_center_deg: centerDeg, swell_window_halfwidth_deg: 20 };
+  }
+
+  /** Daylight rows (9 AM, noon, 3 PM) on each of `days` days from Wednesday. */
+  function rows(surf: Surf, days = 6): RatingRow[] {
+    return Array.from({ length: days }, (_, day) => [16, 19, 22].map((hour) => ({
+      forecast_at: new Date(Date.UTC(2026, 9, 28 + day, hour)).toISOString(), wave_height: surf.wave, wave_period: null,
+      wind_speed: surf.wind, wind_direction: null, tide_height: null, tide_status: null, swell_1_period: "9s",
+    }) as RatingRow)).flat();
+  }
+
+  function regionEvent(key: string, directionDeg: number, periodS: number, arrivalAt: string, peakAt: string, fadeAt: string | null,
+    overrides: Partial<InternalRegionEvent> = {}): InternalRegionEvent {
+    return {
+      key, kind: "swell", source: "forecast", directionDeg, directionLabel: "X", periodS, arrivalAt, peakAt, fadeAt,
+      peakLocalDate: new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date(peakAt)),
+      offshoreFt: "5 ft", history: null, memberCount: 4, ...overrides,
+    };
+  }
+
+  function regionBuild(beaches: RegionBeach[], surf: Record<string, Surf>, events: InternalRegionEvent[]): RegionBuild {
+    return { region: "San Diego", timezone: TIMEZONE, buoy: null, wamDays: null, beaches, events,
+      rowsByBeach: Object.fromEntries(beaches.map((item) => [item.id, rows(surf[item.id] ?? SURF.good75, 12)])) };
+  }
+
+  function eventLines(build: RegionBuild) {
+    const events = storyEventsFromRegion(build, TODAY).all;
+    const context = buildRegionGateContext(build, TODAY);
+    return { events, context, facts: buildEventCandidates(build, events, context, NOW) };
+  }
+
+  it("puts a day's biggest swell first, so a small bent copy of it never leads the week", () => {
+    const beaches = [beach("a", "North", 230), beach("b", "Middle", 250), beach("c", "South", 270)];
+    const built = regionBuild(beaches, {}, [
+      // Peaks first that Saturday, but it is the 4 ft north-county copy of the 8 ft W swell.
+      regionEvent("ssw-copy", 202.5, 17, "2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", "2026-10-30T20:00:00Z", { offshoreFt: "4 ft", offshoreHeightFt: 4 }),
+      regionEvent("w", 270, 22, "2026-10-29T15:00:00Z", "2026-10-29T21:00:00Z", "2026-10-30T20:00:00Z", { offshoreFt: "8 ft", offshoreHeightFt: 8 }),
+      regionEvent("later", 290, 14, "2026-10-30T15:00:00Z", "2026-10-31T18:00:00Z", null, { offshoreFt: "9 ft", offshoreHeightFt: 9 }),
+    ]);
+    expect(storyEventsFromRegion(built, TODAY).week.map((item) => item.regionalKey)).toEqual(["w", "ssw-copy", "later"]);
+  });
+
+  it("orders a day's events on the near-beach scale, not a named swell's open-ocean height", () => {
+    const built = regionBuild([beach("a", "North", 270)], {}, [
+      // Named: 14 ft in the open ocean but only 3 ft at the beaches.
+      regionEvent("named", 300, 18, "2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", null, { offshoreHeightFt: 14, nearBeachHeightFt: 3 }),
+      regionEvent("storm", 270, 9, "2026-10-29T15:00:00Z", "2026-10-29T21:00:00Z", null, { kind: "storm", offshoreHeightFt: 6 }),
+    ]);
+    expect(storyEventsFromRegion(built, TODAY).week.map((item) => item.regionalKey)).toEqual(["storm", "named"]);
+  });
+
+  it("carries the near-beach direction for exposure beside the open-ocean name", () => {
+    const built = regionBuild([beach("a", "North", 270)], {}, [
+      regionEvent("nw", 300, 18, "2026-10-29T15:00:00Z", "2026-10-29T21:00:00Z", null, { exposureDirectionDeg: 270 }),
+      regionEvent("plain", 200, 15, "2026-10-30T15:00:00Z", "2026-10-30T21:00:00Z", null),
+    ]);
+    expect(storyEventsFromRegion(built, TODAY).all.map(({ directionDeg, exposureDirectionDeg }) => [directionDeg, exposureDirectionDeg]))
+      .toEqual([[300, 270], [200, 200]]);
+  });
+
+  it("attaches event facts to swell candidates and peak-day facts to beach lines", () => {
+    const built = regionBuild([beach("a", "North", 202), beach("b", "Middle", 202), beach("c", "South", 202)], {}, [
+      regionEvent("ssw", 202, 13, "2026-10-28T15:00:00Z", "2026-10-29T20:00:00Z", "2026-10-30T20:00:00Z")]);
+    const { events, context, facts } = eventLines(built);
+    const key = storyEventKey(events[0]);
+    expect(facts.find((fact) => fact.slot === `event:${key}:story`)?.facts).toMatchObject({ faceFt: { min: 2, max: 3 } });
+    const line = facts.find((fact) => fact.slot === `event:${key}:beach:a`);
+    expect(line?.gate).toMatchObject({ localDate: "2026-10-29" });
+    expect(line?.facts?.windHours).toHaveLength(3);
+    const candidates = buildStoryCandidates(days(3), "coast", events, (item) => context.eventFacts(storyEventKey(item)));
+    const swell = candidates.filter((fact) => fact.gate.kind === "swell");
+    expect(new Set(swell.map((fact) => fact.slot))).toEqual(new Set(["cover", "story:lead", "story:turn", `swell:${key}`]));
+    for (const candidate of swell) expect(candidate.facts).toEqual(context.eventFacts(key));
+  });
+
+  const beachesOf = (facts: ReturnType<typeof buildEventCandidates>, key: string): string[] =>
+    facts.filter((fact) => fact.slot.startsWith(`event:${key}:beach:`)).map((fact) => fact.slot.split(":beach:")[1]).sort();
+
+  // SSW groundswell: arrives Thursday, peaks Friday, fades Saturday. W storm: arrives Saturday, peaks Sunday, fades Monday.
+  const ssw = regionEvent("San Diego:SSW:2026-10-30", 202, 13.4, "2026-10-29T15:00:00Z", "2026-10-30T19:00:00Z", "2026-10-31T19:00:00Z");
+  const storm = regionEvent("San Diego:W:2026-11-01:s", 270, 7, "2026-10-31T15:00:00Z", "2026-11-01T19:00:00Z", "2026-11-02T19:00:00Z",
+    { kind: "storm", directionLabel: "W" });
+  const early = regionEvent("San Diego:W:2026-11-09:s", 270, 9, "2026-11-09T20:00:00Z", "2026-11-09T20:00:00Z", null,
+    { kind: "storm", source: "wam", arrivalAt: null, memberCount: 0 });
+  // To the SSW: Ocean Beach, Blacks and Windansea open, La Jolla Shores partial, Sunset Cliffs shadowed.
+  // To the W: only Sunset Cliffs open.
+  const BEACHES = [beach("a", "Ocean Beach", 202), beach("b", "Blacks", 202), beach("c", "La Jolla Shores", 232),
+    beach("d", "Sunset Cliffs", 292), beach("e", "Windansea", 202)];
+  const SURF_BY_BEACH = { a: SURF.good75, b: SURF.fair55, c: SURF.good72, d: SURF.meh39, e: SURF.blownOut };
+
+  it("writes one story line per forecast event and one line per rated beach, without digits", () => {
+    const build = regionBuild(BEACHES, SURF_BY_BEACH, [ssw, storm, early]);
+    const { context, facts } = eventLines(build);
+
+    // The WAM early look is not a forecast event and gets no line.
+    expect(facts.filter((fact) => fact.slot.endsWith(":story")).map((fact) => [fact.slot, fact.text, fact.rank])).toEqual([
+      ["event:4-4-2026-10-30:story", "A south-southwest long-period groundswell arrives Thursday, peaks Friday and fades Saturday: waist-high at most spots.", 0],
+      ["event:6-2-2026-11-01-s:story", "A west short-period storm swell arrives Saturday, peaks Sunday and fades Monday.", 0],
+    ]);
+    expect(facts.find((fact) => fact.slot === "event:4-4-2026-10-30:story")?.gate).toEqual({
+      kind: "swell", regionalEventKey: "4-4-2026-10-30", directionSector: 4, directionIndex: 9, periodBand: 4, periodClass: "long",
+      arrivalLocalDate: "2026-10-29", peakLocalDate: "2026-10-30", fadeLocalDate: "2026-10-31", confidence: "locked", minimumBeaches: 3,
+    });
+    // SSW: Ocean Beach (here, GOOD), La Jolla Shores (GOOD) and Blacks (FAIR) work; Windansea is blown out and
+    // Sunset Cliffs sheltered. W: Sunset Cliffs is open but small, so it is neither working nor given a reason.
+    expect(beachesOf(facts, "4-4-2026-10-30")).toEqual(["a", "b", "c", "d", "e"]);
+    expect(beachesOf(facts, "6-2-2026-11-01-s")).toEqual(["a", "b", "c", "e"]);
+    expect(facts.every((fact) => !/\d/.test(fact.text) && fact.text.length <= 240)).toBe(true);
+    expect(new Set(facts.map((fact) => fact.id)).size).toBe(facts.length);
+    // Every line is one the region build proves today.
+    expect(facts.map((fact) => regionGateHolds(fact.gate, context))).toEqual(facts.map(() => true));
+  });
+
+  it("names the beach's exposure to the event's direction in its line", () => {
+    const { facts } = eventLines(regionBuild(BEACHES, SURF_BY_BEACH, [ssw, storm]));
+    const line = (key: string, beachId: string) => facts.find((fact) => fact.slot === `event:${key}:beach:${beachId}`);
+    const swellKey = "4-4-2026-10-30";
+    expect(line(swellKey, "a")?.text).toBe("Faces the south-southwest groundswell dead on: waist-high, with light wind in its window.");
+    expect(line(swellKey, "a")?.gate).toEqual({ kind: "beach", localDate: "2026-10-30", regionalEventKey: swellKey, beachId: "a", directionIndex: 9,
+      periodClass: "long", exposure: "open", facing: "direct", wind: "light" });
+    expect(line(swellKey, "b")?.text).toBe("Faces the south-southwest groundswell dead on: waist-high, but it's breezy in its window.");
+    expect(line(swellKey, "b")?.gate).toMatchObject({ exposure: "open", wind: "breezy" });
+    expect(line(swellKey, "e")?.text).toBe("Faces the south-southwest groundswell dead on: knee-high, but the wind is up in its window.");
+    expect(line(swellKey, "e")?.gate).toMatchObject({ exposure: "open", wind: "windy" });
+    expect(line(swellKey, "c")?.text).toBe("Partly sheltered from the south-southwest groundswell: waist-high, with light wind in its window.");
+    expect(line(swellKey, "c")?.gate).toMatchObject({ exposure: "partial", facing: null });
+    expect(line(swellKey, "d")?.text).toBe("Sheltered from the south-southwest groundswell, with light wind in its window.");
+    // The same beach, open to one event, is sheltered from the other's direction.
+    expect(line("6-2-2026-11-01-s", "b")?.text).toBe("Sheltered from the west storm swell, and it's breezy in its window.");
+    expect(line("6-2-2026-11-01-s", "b")?.gate).toMatchObject({ directionIndex: 12, periodClass: "short", exposure: "shadowed",
+      facing: null, wind: "breezy" });
+  });
+
+  it("varies a beach's line with the swell's kind and period class, and across beaches with how they face it and their wind", () => {
+    const facts: BeachLineFacts = { direction: "west", kind: "swell", periodClass: "long", exposure: "open", facing: "direct", wind: "light" };
+    // One open, light-wind beach across four events from the west.
+    expect([
+      beachLineText(facts),
+      beachLineText({ ...facts, periodClass: "mid" }),
+      beachLineText({ ...facts, periodClass: "short" }),
+      beachLineText({ ...facts, kind: "storm", periodClass: "short" }),
+    ]).toEqual([
+      "Faces the west groundswell dead on, with light wind in its window.",
+      "Faces the west mid-period swell straight on, with light wind in its window.",
+      "Faces the west windswell straight on, with light wind in its window.",
+      "Faces the west storm swell head on, with light wind in its window.",
+    ]);
+    // Beaches in one event: how squarely they face it, and their wind.
+    expect(beachLineText({ ...facts, facing: "angled" })).toBe("Faces the west groundswell at an angle, with light wind in its window.");
+    expect(beachLineText({ ...facts, wind: "breezy" })).not.toBe(beachLineText({ ...facts, wind: "windy" }));
+    // A partly sheltered beach never reads "cleaner", whatever its wind.
+    for (const wind of ["light", "breezy", "windy"] as const) {
+      expect(beachLineText({ ...facts, exposure: "partial", facing: null, wind })).not.toMatch(/clean|small/);
+    }
+    expect(beachLineText({ ...facts, exposure: "partial", facing: null, wind: "windy" }))
+      .toBe("Partly sheltered from the west groundswell, and the wind is up in its window.");
+  });
+
+  it("writes a beach line without an exposure lead and omits timing that conflicts with its wind bucket", () => {
+    const voice: CandidateFacts = { ...voiceFacts(), windHours: [{ hour: 8, relation: "offshore", mph: 10 }],
+      breaker: { character: "crumbly", feel: null, closingOut: false } };
+    const line = beachLine(event(), "a", {
+      events: [event()], exposure: () => null, facing: () => null, wind: () => "breezy",
+      eventFacts: () => null, beachDayFacts: () => voice, dayFacts: () => null,
+    }, "2026-11-01");
+    expect(line?.text).toBe("Chest-high and crumbly, with breezy wind in its window.");
+    expect(line?.gate.exposure).toBeNull();
+
+    const noSize: CandidateFacts = { faceFt: null, sizes: [], breaker: { character: "crumbly", feel: "soft", closingOut: false }, windHours: [] };
+    expect(beachLineText({ direction: "west", kind: "swell", periodClass: "long", exposure: null, facing: null, wind: "light" }, noSize))
+      .toBe("With light wind in its window.");
+    expect(beachLineText({ direction: "west", kind: "swell", periodClass: "long", exposure: "open", facing: "direct", wind: "light" }, voiceFacts()))
+      .toBe("Faces the west groundswell dead on: chest-high and punchy, offshore early, onshore by 10.");
+  });
+
+  it("omits a null-exposure beach line when it has neither size nor wind", () => {
+    const line = beachLine(event(), "a", {
+      events: [event()], exposure: () => null, facing: () => null, wind: () => null,
+      eventFacts: () => null, beachDayFacts: () => ({ faceFt: null, sizes: [], breaker: null }), dayFacts: () => null,
+    }, "2026-11-01");
+
+    expect(line).toBeNull();
+  });
+
+  it("words every claim in a beach line from the claim checker's closed word sets", () => {
+    // What's left after the direction and every closed-set phrase come out carries no claim a rewrite could invert.
+    const glue = new Set(["the", "from", "with", "in", "its", "window", "but", "and", "it's", "swell", "wind"]);
+    const claims = Object.values(CLOSED_WORD_SETS).flat().flat().sort((a, b) => b.length - a.length);
+    for (const kind of ["swell", "storm"] as const) {
+      for (const periodClass of ["long", "mid", "short"] as const) {
+        for (const [exposure, facing] of [["open", "direct"], ["open", "angled"], ["partial", null], ["shadowed", null]] as const) {
+          for (const wind of ["light", "breezy", "windy"] as const) {
+            let rest = beachLineText({ direction: "south-southwest", kind, periodClass, exposure, facing, wind }).toLowerCase()
+              .replace("south-southwest", " ");
+            for (const claim of claims) rest = rest.replace(new RegExp(`(?<![a-z])${claim}(?![a-z])`, "g"), " ");
+            expect(rest.split(/[\s,.]+/).filter((word) => word && !glue.has(word))).toEqual([]);
+          }
+        }
+      }
+    }
+  });
+
+  it("caps beach lines at eight per event", () => {
+    // Five GOOD beaches outrank the first region beach (FAIR), and four blown-out beaches fill the three not-working rows:
+    // nine beaches listed, eight lines, and the first region beach keeps its own.
+    const beaches = [beach("a-here", "Here", 202),
+      ...["b", "c", "d", "e", "f"].map((id) => beach(id, `Good ${id}`, 202)),
+      ...["w", "x", "y", "z"].map((id) => beach(id, `Blown ${id}`, 202))];
+    const surf: Record<string, Surf> = { "a-here": SURF.fair55,
+      ...Object.fromEntries(["b", "c", "d", "e", "f"].map((id) => [id, SURF.good75])),
+      ...Object.fromEntries(["w", "x", "y", "z"].map((id) => [id, SURF.blownOut])) };
+    const { facts } = eventLines(regionBuild(beaches, surf, [ssw]));
+    const listed = beachesOf(facts, "4-4-2026-10-30");
+    expect(listed).toHaveLength(8);
+    expect(listed).toEqual(expect.arrayContaining(["a-here", "b", "c", "d", "e", "f"]));
+  });
+
+  it("stays under 200 facts for a 57-beach region with six events", () => {
+    const beaches = Array.from({ length: 57 }, (_, index) => beach(`beach-${String.fromCharCode(97 + Math.floor(index / 26))}${String.fromCharCode(97 + (index % 26))}`,
+      `Beach ${index}`, [202, 232, 270, 292][index % 4]));
+    const surf = Object.fromEntries(beaches.map((item, index) => [item.id, [SURF.good75, SURF.fair55, SURF.blownOut, SURF.meh39][index % 4]]));
+    // Six events across twelve days, each with its own direction or day.
+    const events = [0, 2, 4, 6, 8, 10].map((day, index) => {
+      const at = (offset: number) => new Date(Date.UTC(2026, 9, 28 + day + offset, 19)).toISOString();
+      const directionDeg = [202, 270, 292, 232, 202, 270][index];
+      return regionEvent(`San Diego:${index}`, directionDeg, 14, at(0), at(1), at(2));
+    });
+    const build = regionBuild(beaches, surf, events);
+    const signals = days(3).map((day) => ({ ...day, sampleBeaches: 8, surfBeaches: beaches.slice(0, 4).map((beach) => ({ beachId: beach.id, beachName: "Terramar Point", facts: voiceFacts() })) }));
+    const { events: all, facts: eventFacts } = eventLines(build);
+    const facts = [...buildStoryCandidates(signals, "San Diego", storyEventsFromRegion(build, TODAY).week), ...eventFacts];
+
+    expect(all).toHaveLength(6);
+    expect(eventFacts.slice(0, 6).every((fact) => fact.slot.endsWith(":story"))).toBe(true);
+    expect(facts.filter((fact) => fact.gate.kind === "day_surf")).toHaveLength(28);
+    expect(facts.length).toBeLessThan(200);
+    expect(new Set(facts.map((fact) => fact.id)).size).toBe(facts.length);
+    for (const event of all) {
+      const key = storyEventKey(event);
+      expect(facts.filter((fact) => fact.slot === `event:${key}:story`)).toHaveLength(1);
+      expect(beachesOf(facts, key)).toHaveLength(8);
+    }
+  });
+
+  it("words days the region hasn't reached yet and days already behind it", () => {
+    // Today Tuesday: a swell in the water since Sunday that peaked Monday, and one peaking a week from Thursday.
+    const inWater = { directionDeg: 270, periodS: 11, arrivalAt: "2026-10-25T18:00:00Z", peakAt: "2026-10-26T18:00:00Z",
+      fadeAt: "2026-10-28T18:00:00Z", timezone: TIMEZONE, confidence: "locked" as const, minimumBeaches: 3, kind: "swell" as const,
+      regionalKey: "San Diego:W:2026-10-26" };
+    expect(eventStoryText(inWater, TODAY)).toBe("A west mid-period swell is already in the water, peaked Monday and fades Wednesday.");
+    const later = { ...inWater, directionDeg: 90, periodS: 8, arrivalAt: "2026-11-03T18:00:00Z", peakAt: "2026-11-05T18:00:00Z", fadeAt: null };
+    expect(eventStoryText(later, TODAY)).toBe("An east short-period windswell arrives a week from today and peaks a week from Thursday.");
+    // Days two weeks out all read "later on" and days over a week back all read "earlier": each word goes once.
+    const farOut = { ...inWater, arrivalAt: "2026-11-10T18:00:00Z", peakAt: "2026-11-11T18:00:00Z", fadeAt: "2026-11-12T18:00:00Z" };
+    expect(eventStoryText(farOut, TODAY)).toBe("A west mid-period swell comes and goes later on.");
+    const longGone = { ...inWater, arrivalAt: "2026-10-18T18:00:00Z", peakAt: "2026-10-19T18:00:00Z", fadeAt: "2026-10-20T18:00:00Z" };
+    expect(eventStoryText(longGone, TODAY)).toBe("A west mid-period swell is already in the water and peaked earlier.");
+  });
+
+  it("names each day once when arrival, peak and fade share one, and gates a fade only when it names one", () => {
+    // Today Tuesday. Thursday is 2026-10-29, Friday 2026-10-30.
+    const base = { directionDeg: 270, periodS: 7, timezone: TIMEZONE, confidence: "locked" as const, minimumBeaches: 3,
+      kind: "storm" as const, regionalKey: "San Diego:W:2026-10-29:s" };
+    const story = (arrivalAt: string, peakAt: string, fadeAt: string | null) => eventStory({ ...base, arrivalAt, peakAt, fadeAt }, TODAY);
+
+    const arrivesAndPeaks = story("2026-10-29T15:00:00Z", "2026-10-29T20:00:00Z", "2026-10-30T20:00:00Z");
+    expect(arrivesAndPeaks.text).toBe("A west short-period storm swell arrives and peaks Thursday, then fades Friday.");
+    expect(arrivesAndPeaks.gate.fadeLocalDate).toBe("2026-10-30");
+    const comesAndGoes = story("2026-10-29T15:00:00Z", "2026-10-29T18:00:00Z", "2026-10-29T23:00:00Z");
+    expect(comesAndGoes.text).toBe("A west short-period storm swell comes and goes Thursday.");
+    expect(comesAndGoes.gate.fadeLocalDate).toBe("2026-10-29");
+    const fadesOnPeakDay = story("2026-10-29T15:00:00Z", "2026-10-30T16:00:00Z", "2026-10-30T23:00:00Z");
+    expect(fadesOnPeakDay.text).toBe("A west short-period storm swell arrives Thursday and peaks Friday.");
+    expect(fadesOnPeakDay.gate).toMatchObject({ arrivalLocalDate: "2026-10-29", peakLocalDate: "2026-10-30", fadeLocalDate: null });
+    const noFade = story("2026-10-29T15:00:00Z", "2026-10-29T20:00:00Z", null);
+    expect(noFade.text).toBe("A west short-period storm swell arrives and peaks Thursday.");
+    expect(noFade.gate.fadeLocalDate).toBeNull();
+    // Already in the water, fading the day it peaks: no fade clause.
+    const inWater = story("2026-10-26T15:00:00Z", "2026-10-28T16:00:00Z", "2026-10-28T23:00:00Z");
+    expect(inWater.text).toBe("A west short-period storm swell is already in the water and peaks Wednesday.");
+    expect(inWater.gate.fadeLocalDate).toBeNull();
+    for (const item of [arrivesAndPeaks, comesAndGoes, fadesOnPeakDay, noFade, inWater]) {
+      expect(item.text).not.toMatch(/same day/);
+    }
+    // A gate without a fade still holds when the build's fade moves; one that names a fade does not.
+    const build: RegionBuild = { region: "San Diego", timezone: TIMEZONE, buoy: null, wamDays: null, beaches: [], rowsByBeach: {},
+      events: [regionEvent("San Diego:W:2026-10-30:s", 270, 7, "2026-10-29T15:00:00Z", "2026-10-30T16:00:00Z", "2026-10-31T16:00:00Z",
+        { kind: "storm" })] };
+    const context = buildRegionGateContext(build, TODAY);
+    expect(regionGateHolds(fadesOnPeakDay.gate, context)).toBe(true);
+    expect(regionGateHolds(arrivesAndPeaks.gate, context)).toBe(false);
+  });
+});
+
+describe("early-look sentence and candidates", () => {
+  const TIMEZONE = "America/Los_Angeles";
+  // Monday Nov 16, 19:55 PT: the mock's San Diego frame.
+  const NOW = new Date("2026-11-17T03:55:00Z");
+  const TODAY = "2026-11-16";
+  const look = (directionDeg: number | null, periodS: number | null, peakAt: string, kind: "swell" | "storm" = "swell") =>
+    ({ directionDeg, periodS, peakAt, timezone: TIMEZONE, kind });
+  const early = (key: string, directionDeg: number | null, periodS: number | null, peakAt: string,
+    kind: "swell" | "storm" = "swell"): InternalRegionEvent => ({
+    key, kind, source: "wam", directionDeg, directionLabel: null, periodS, arrivalAt: null, peakAt, fadeAt: null,
+    peakLocalDate: new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date(peakAt)),
+    offshoreFt: "5 ft", history: null, memberCount: 0,
+  });
+  const build = (events: InternalRegionEvent[]): RegionBuild => ({ region: "San Diego", timezone: TIMEZONE, buoy: null, wamDays: null,
+    beaches: [], events, rowsByBeach: {} });
+
+  it("writes the mock's three San Diego early looks: name, one hedged day and no size word", () => {
+    expect(earlyLookStoryText(look(292.5, 16, "2026-11-26T20:00:00Z"), TODAY)).toBe(
+      "A west-northwest long-period groundswell may peak around a week from Thursday; the size and the day can still move.");
+    expect(earlyLookStoryText(look(292.5, 7, "2026-11-26T20:00:00Z", "storm"), TODAY)).toBe(
+      "A west-northwest short-period storm swell may peak around a week from Thursday; the size and the day can still move.");
+    expect(earlyLookStoryText(look(270, 11, "2026-11-29T20:00:00Z"), TODAY)).toBe(
+      "A west mid-period swell may peak around a week from Sunday; the size and the day can still move.");
+  });
+
+  it("writes the short form with no direction or no period, and never 'later on' past thirteen days", () => {
+    expect(earlyLookStoryText(look(null, 16, "2026-11-26T20:00:00Z"), TODAY)).toBe(
+      "A swell may peak around a week from Thursday; the size and the day can still move.");
+    expect(earlyLookStoryText(look(270, null, "2026-11-26T20:00:00Z"), TODAY)).toBe(
+      "A swell may peak around a week from Thursday; the size and the day can still move.");
+    for (const peakAt of ["2026-11-30T20:00:00Z", "2026-12-01T20:00:00Z"]) {
+      expect(earlyLookStoryText(look(270, 15, peakAt), TODAY)).toBe(
+        "A west long-period groundswell may peak around the week after next; the size and the day can still move.");
+    }
+    expect(earlyLookStoryText(look(90, 15, "2026-11-23T20:00:00Z"), TODAY)).toBe(
+      "An east long-period groundswell may peak around a week from today; the size and the day can still move.");
+  });
+
+  it("offers each keyed early look as a hedged card story candidate; a forecast key or an earlier look keeps its key", () => {
+    const events = [
+      early("San Diego:WNW:2026-11-26", 292.5, 16, "2026-11-26T20:00:00Z"),
+      early("San Diego:WNW:2026-11-26:s", 292.5, 7, "2026-11-26T21:00:00Z", "storm"),
+      // Same sector, band and day as the first: no key, no candidate.
+      early("San Diego:WNW:2026-11-26.2", 300, 15, "2026-11-26T22:00:00Z"),
+      // No period: no key, no candidate.
+      early("San Diego:W:2026-11-29", 270, null, "2026-11-29T20:00:00Z"),
+      // Holds the key a forecast event already has.
+      early("San Diego:SSW:2026-11-27", 202, 13.4, "2026-11-27T20:00:00Z"),
+    ];
+    const candidates = buildEarlyLookCandidates(build(events), ["4-4-2026-11-27"], NOW);
+    expect(candidates).toEqual([
+      { id: "event-7-5-2026-11-26-story", slot: "event:7-5-2026-11-26:story", rank: 0, hedge: true,
+        text: "A west-northwest long-period groundswell may peak around a week from Thursday; the size and the day can still move.",
+        gate: { kind: "early_look", regionalEventKey: "7-5-2026-11-26", directionIndex: 13, periodClass: "long", peakLocalDate: "2026-11-26" } },
+      { id: "event-7-2-2026-11-26-s-story", slot: "event:7-2-2026-11-26-s:story", rank: 0, hedge: true,
+        text: "A west-northwest short-period storm swell may peak around a week from Thursday; the size and the day can still move.",
+        gate: { kind: "early_look", regionalEventKey: "7-2-2026-11-26-s", directionIndex: 13, periodClass: "short", peakLocalDate: "2026-11-26" } },
+    ]);
+    // The gate holds against the same build and fails when the look veers to another 16-point direction.
+    const context = buildRegionGateContext(build(events), TODAY);
+    expect(regionGateHolds(candidates[0].gate, context)).toBe(true);
+    const veered = buildRegionGateContext(build([{ ...events[0], directionDeg: 305 }, ...events.slice(1)]), TODAY);
+    expect(regionGateHolds(candidates[0].gate, veered)).toBe(false);
+    expect(regionGateHolds(candidates[0].gate, buildRegionGateContext(build([]), TODAY))).toBe(false);
+  });
+});

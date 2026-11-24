@@ -267,6 +267,37 @@ describe('selectBestWindow', () => {
     expect(result).toBeNull();
   });
 
+  it('never builds a window from FALLBACK rows, including the below-floor fallback', () => {
+    const real = createForecast({ id: 'real', wave_height: '2-3 ft', data_source: 'OPEN_METEO' });
+    const synthetic = createForecast({
+      id: 'synthetic',
+      forecast_at: '2024-01-15T20:00:00Z',
+      forecast_time: '12:00',
+      wave_height: '4-5 ft',
+      data_source: 'FALLBACK',
+    });
+    const pending = createForecast({
+      id: 'pending',
+      forecast_at: '2024-01-15T23:00:00Z',
+      forecast_time: '15:00',
+      wave_height: null,
+      wave_period: null,
+      data_source: 'FALLBACK',
+    });
+
+    const windows = selectBestWindows({
+      forecasts: [real, synthetic, pending],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+      maxWindows: 3,
+    });
+    expect(windows.length).toBeGreaterThan(0);
+    expect(windows.every((window) => window.sourceForecast?.id === 'real')).toBe(true);
+
+    expect(selectBestWindow([synthetic, pending], mockBeach as Beach, null)).toBeNull();
+  });
+
   it('should return null when all forecasts are in the past', () => {
     const pastForecasts = [
       createForecast({
@@ -3176,5 +3207,39 @@ describe('selectBestWindow wind string', () => {
 
   it('shows no wind at all when the speed is unknown, even with a direction', () => {
     expect(windOf({ wind_speed: null, wind_direction: 'NE' })).toBe('');
+  });
+});
+
+describe('selectBestWindow on hourly rows', () => {
+  const fixedNow = new Date('2024-01-15T14:00:00Z'); // 6 AM PST
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // 7 AM to 2 PM PST, one row an hour, as the hourly bridge emits them.
+  const hourly = Array.from({ length: 8 }, (_, index) => createForecast({
+    id: `hourly-${index}`,
+    forecast_at: new Date(Date.UTC(2024, 0, 15, 15 + index)).toISOString(),
+    wave_height: '4',
+    wave_period: '12s',
+  }));
+
+  it('builds a multi-hour window that the session-duration gate keeps', () => {
+    const onRejection = jest.fn();
+    const result = selectBestWindow({
+      forecasts: hourly,
+      beach: mockBeachNoPrefs as Beach,
+      userPrefs: null,
+      onRejection,
+    });
+    expect(result).not.toBeNull();
+    expect((result!.end.getTime() - result!.start.getTime()) / 3_600_000).toBeGreaterThanOrEqual(3);
+    expect(onRejection).not.toHaveBeenCalledWith(expect.objectContaining({ gate: 'session_duration' }));
   });
 });

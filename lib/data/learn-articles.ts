@@ -312,15 +312,18 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "swell-period-explained",
-    title: "Swell Period Explained: What Seconds Mean for Surf",
-    description: "Swell period explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read period in a forecast.",
+    title: "Wave Period & Swell Period Explained: What Seconds Mean",
+    description: "Wave period, or swell period, explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read it in a forecast.",
     datePublished: "2026-03-26",
-    dateModified: "2026-07-06",
+    dateModified: "2026-10-28",
     readingTimeMin: 4,
     heroImage: "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp",
     thumbnailImage: "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp",
     keywords: [
       "swell period",
+      "wave period",
+      "what is wave period",
+      "wave periods",
       "what is swell period",
       "wave period surfing",
       "swell period chart",
@@ -332,7 +335,7 @@ export const learnArticles: LearnArticle[] = [
         id: "answer",
         heading: "The Short Answer",
         figureKey: "swell-period-morph",
-        content: `<p>Swell period is the time in seconds between consecutive wave crests passing a fixed point, typically measured by NDBC and CDIP buoys. It's the single best indicator of wave quality on any forecast. Waves with periods <strong>under 9 seconds</strong> come from local wind and break mushy and chaotic. Waves with periods <strong>above 12 seconds</strong> come from distant storms — like North Pacific or Southern Ocean systems — and break clean, powerful, and organized. A 3-foot swell at 14 seconds at Rincon will always outperform a 6-foot swell at 6 seconds. Check period on every forecast.</p>`,
+        content: `<p>Swell period, also called wave period, is the time in seconds between consecutive wave crests passing a fixed point, typically measured by NDBC and CDIP buoys. It's the single best indicator of wave quality on any forecast. Waves with periods <strong>under 9 seconds</strong> come from local wind and break mushy and chaotic. Waves with periods <strong>above 12 seconds</strong> come from distant storms — like North Pacific or Southern Ocean systems — and break clean, powerful, and organized. A 3-foot swell at 14 seconds at Rincon will always outperform a 6-foot swell at 6 seconds. Check period on every forecast.</p>`,
         keyTakeaway:
           "Swell period (seconds between waves) is the best wave quality indicator: under 9 seconds means local chop, over 12 seconds means powerful distant-storm energy.",
       },
@@ -444,6 +447,16 @@ export const learnArticles: LearnArticle[] = [
         description:
           "Learn how NOAA models predict period and other swell metrics.",
       },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
+      },
+      {
+        label: "Where to Watch Mavericks",
+        href: "/learn/where-to-watch-mavericks",
+        description: "Big winter swell at Pillar Point and where to watch it.",
+      },
     ],
   },
 
@@ -474,7 +487,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "wave-height",
         heading: "What wave height is good for beginners?",
-        content: `<p>Face height of 1 to 3 feet, up to about waist to chest high on you. That's the size at Doheny on a small summer day, or Cowells on a lazy morning. You get 15 or 20 tries a session, and a wipeout is mostly just a swim.</p><p>Forecasts and lifeguards don't always measure the same way. A forecast showing 2 ft can look like 3 to 4 ft faces at the beach. Walk down and look.</p><p>If you can't duck-dive or push through whitewater yet, 4 ft is too big. Watch from the sand for 10 minutes. If you're not sure, don't paddle out.</p>`,
+        content: `<p>Face height of 1 to 3 feet, up to about waist to chest high on you. That's the size at Doheny on a small summer day, or Cowells on a lazy morning. You get 15 or 20 tries a session, and a wipeout is mostly just a swim.</p><p>A buoy number isn't a face number. 2 ft on a buoy at 12 seconds means faces around 2.5 ft, with sets near 4 ft. A Quiver beach forecast already shows the face. Walk down and look anyway.</p><p>If you can't duck-dive or push through whitewater yet, 4 ft is too big. Watch from the sand for 10 minutes. If you're not sure, don't paddle out.</p>`,
         keyTakeaway: "Under 3 ft face while learning; 4 ft needs a confident duck dive.",
         image: {
           src: "/images/activities/beginner-friendly.webp",
@@ -716,6 +729,12 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/can-you-surf-in-new-jersey",
         description:
           "How hurricane groundswell and nor'easters make the Jersey Shore's best days.",
+      },
+      {
+        label: "Can You Surf in South Carolina?",
+        href: "/learn/can-you-surf-in-south-carolina",
+        description:
+          "Why South Carolina waits for 10 to 14 second hurricane swell.",
       },
     ],
     appHandoff: {
@@ -1019,6 +1038,11 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
+        label: "What Is a King Tide?",
+        href: "/learn/what-is-a-king-tide",
+        description: "California's highest tides of the year and how they change the surf.",
+      },
+      {
         label: "How Do Tides Work?",
         href: "/learn/how-do-tides-work",
         description:
@@ -1042,7 +1066,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "how-are-waves-measured",
     title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
     description:
-      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
+      "Buoys report significant wave height (Hs). Quiver turns it into a face height: 3 ft at 14 sec reads about 4 ft, sets near 6 ft.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     dateModified: "2026-09-02",
@@ -1052,7 +1076,7 @@ export const learnArticles: LearnArticle[] = [
       "wave height measurement",
       "significant wave height",
       "how big is 3 foot surf",
-      "face height vs forecast height",
+      "buoy height vs face height",
       "hawaiian scale waves",
       "surf forecast height explained",
     ],
@@ -1060,46 +1084,51 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Surf forecast height is <strong>significant wave height (Hs)</strong> — the average of the tallest third of waves measured by NDBC and CDIP buoys. Face height (what you actually see at the beach) runs <strong>1.5-2x</strong> the forecast number. So a "3-5 ft" forecast means roughly <strong>4.5-10 ft wave faces</strong>. Hawaiian scale uses roughly half of face height, adding further confusion. Always ask: which scale is being used?</p>`,
+        content: `<p>A buoy or wave model gives you <strong>significant wave height (Hs)</strong>: the average of the highest third of the waves. A Quiver beach forecast shows an <strong>estimated face height</strong> built from it, so 3 ft of Hs at 14 seconds reads about <strong>4 ft</strong> on the face, with sets near <strong>6 ft</strong>.</p><p>Check your break on the <a href="/forecast">live forecast</a>, or read raw Hs on the <a href="/buoys">buoy pages</a>.</p>`,
         keyTakeaway:
-          "Forecast height (Hs) is 60-70% of face height. Multiply the forecast by 1.5-2x to estimate what you'll actually see.",
+          "Buoy number is Hs. Quiver's beach number is the face; sets run 1.5x.",
         image: {
           src: "/images/hero/hero-2-barrel-wave.webp",
-          alt: "Barrel wave demonstrating face height vs forecast height",
+          alt: "Barrel wave showing face height compared with buoy height",
           position: "right",
         },
       },
       {
         id: "detail",
-        heading: "The Three Wave Measurement Scales",
+        heading: "Three rulers for one wave",
         figureKey: "wave-height-reference",
-        content: `<p><strong>Significant wave height (Hs)</strong>: Used by NOAA, WaveWatch III, and most forecast models. It's a statistical measure from buoys — the mean of the highest third of waves over a 20-minute sampling window. This is what you see on Quiver and most forecasting apps.</p><p><strong>Face height</strong>: What surfers actually see standing on the beach. A 3-foot Hs reading from a CDIP buoy translates to roughly 4.5-6 foot faces, depending on the break's bathymetry. Sandy beach breaks tend toward the higher multiplier; deep-water reefs toward the lower.</p><p><strong>Hawaiian scale</strong>: Used in Hawaii and by some old-school surfers. Roughly half of face height (or close to Hs). A "6-foot Hawaiian" wave has a 10-12 foot face. If someone in Hawaii says "it's 4 feet," prepare for 8-foot faces.</p>`,
+        content: `<p><strong>Significant wave height (Hs)</strong> is what NOAA and CDIP buoys and models like WaveWatch III report. NDBC averages the highest third of the waves over about 20 minutes, miles offshore.</p><p><strong>Face height</strong> is trough to crest on the front of the wave. Quiver builds it from Hs, period, swell direction and how open the beach is. A 10-second swell reads about the same as Hs; a 14-second groundswell about a third bigger; a 7-second wind swell about a fifth smaller. Sets run about 1.5x the average wave.</p><p>Where Quiver has measured a beach against real surf, it uses that beach's own ratio. Where it hasn't, the number carries a ~ to mark it as approximate.</p><p><strong>Hawaiian scale</strong> is roughly half the face. A "6-foot Hawaiian" wave has a face near 12 feet.</p>`,
         keyTakeaway:
-          "Three scales exist: significant height (buoy/forecast), face height (what you see, 1.5-2x Hs), and Hawaiian scale (~0.5x face height).",
+          "Hs is offshore. Face is what you ride. Hawaiian is half the face.",
       },
       {
         id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p>When Quiver shows "4 ft at 14 sec," expect <strong>6-8 foot faces</strong> at most beach breaks. Beginners comfortable in 3-foot faces should look for forecasts of <strong>1.5-2 ft Hs</strong>. Don't compare numbers across apps without checking their measurement convention — Surfline, Quiver, and Windguru may use different scales or conversions. The best calibration: surf your local break at a known forecast, compare what you see, and build your personal conversion factor. After 10 sessions, you'll know that "3 feet on Quiver" means exactly what at your spot.</p>`,
+        heading: "How big is 3 ft on Quiver?",
+        content: `<p>When a Quiver beach forecast says 3-4 ft, that's the face: about chest to shoulder high at Doheny or Huntington. Don't multiply it again. Beginners want 1-3 ft faces.</p><p>When you read a buoy page, do the math yourself. At Ocean Beach SF, 6 ft of Hs at 14 seconds means faces around 8 ft and sets near 12 ft. If you're not sure, don't paddle out; watch from shore for 10 minutes first.</p><p>Other forecasts use other rulers. Surf your break at a known number a few times and you'll learn what 3 ft means there.</p>`,
         keyTakeaway:
-          "Calibrate forecast numbers to your local break by comparing predictions to what you actually see over several sessions.",
+          "Read Quiver's beach number as is. Only multiply a buoy's Hs.",
       },
     ],
     faqs: [
       {
-        question: "Why don't forecasts just use face height?",
+        question: "Is the Quiver wave height the buoy height?",
         answer:
-          "Significant wave height (Hs) is a standardized measurement from buoys. Face height varies by beach — the same swell produces different face heights at different breaks due to bottom contour, refraction, and focusing effects. Hs is the objective, comparable number.",
+          "No. A Quiver beach forecast shows an estimated face height built from buoy and model Hs. The buoy pages show raw Hs.",
+      },
+      {
+        question: "Why don't buoys report face height?",
+        answer:
+          "A buoy floats in deep water, miles from the break, and Hs is the standard number for that sea state. Face height depends on the bottom: the same swell breaks bigger on a shallow sandbar than over a deep channel.",
       },
       {
         question: "Is a 6-foot wave dangerous for beginners?",
         answer:
-          "If that's 6-foot face height, yes — that's overhead and can hold you under. If it's 6-foot Hs, it means 9-12 foot faces, which is very large surf. Beginners should stay in 1-3 foot face height (roughly 0.5-2 ft Hs).",
+          "Yes. A 6-foot face is overhead and can hold you under. Learn in 1-3 ft faces. If a buoy shows 6 ft of Hs at 14 seconds, faces run around 8 ft with sets near 12 ft.",
       },
       {
         question: "Why do Hawaiians measure waves differently?",
         answer:
-          "Historical tradition from the 1960s-70s surf culture. Hawaiian surfers measured from the back of the wave, not the face. The convention stuck. When a Hawaiian says '10 foot,' they mean a 15-20 foot face — it's not modesty, it's a different ruler.",
+          "Hawaiian surfers measured from the back of the wave, not the face, and the habit stuck. When a Hawaiian says '10 foot,' they mean a face near 20 feet.",
       },
       {
         question: "What's the biggest wave ever measured by a buoy?",
@@ -1123,14 +1152,24 @@ export const learnArticles: LearnArticle[] = [
         label: "Check Wave Heights Now",
         href: "/forecast",
         description:
-          "See current significant wave height at 279+ beaches.",
+          "See the estimated face height at your beach today.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
+      },
+      {
+        label: "Where to Watch Mavericks",
+        href: "/learn/where-to-watch-mavericks",
+        description: "Why the biggest Mavericks sets run larger than the buoy number.",
       },
     ],
     appHandoff: {
       eyebrow: "Same number, your beach",
       title: "See what 3 ft means at your break.",
       description:
-        "Quiver shows forecast height and period for your beach, so you can read the number the way this guide explains it.",
+        "Quiver turns buoy height and period into an estimated face height for your beach, so 3 ft means 3 ft on the face.",
       ctaLabel: "Open my beach's forecast",
     },
   },
@@ -1205,6 +1244,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
+      {
+        label: "What Is Wave Diffraction?",
+        href: "/learn/what-is-wave-diffraction",
+        description: "Why waves shrink behind islands, jetties and harbor walls.",
+      },
       {
         label: "How to Read Surf Conditions",
         href: "/learn/how-to-read-surf-conditions",
@@ -1667,6 +1711,12 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/can-you-surf-in-new-jersey",
         description:
           "Jersey's 40 °F winters and 75 °F summers, matched to a suit by season.",
+      },
+      {
+        label: "Can You Surf in South Carolina?",
+        href: "/learn/can-you-surf-in-south-carolina",
+        description:
+          "From 50 °F winters to 84 °F summers, matched to a suit by month.",
       },
     ],
   },
@@ -2373,6 +2423,11 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
+        label: "What Is a King Tide?",
+        href: "/learn/what-is-a-king-tide",
+        description: "How 7-foot winter tides and backwash change the shorebreak.",
+      },
+      {
         label: "Newport Beach surf report today",
         href: "/surf-report/newport-beach-today",
         description: "Today's size, wind and tide for a classic sandbar beach.",
@@ -2396,6 +2451,11 @@ export const learnArticles: LearnArticle[] = [
         label: "Best Conditions for Beginners",
         href: "/learn/best-surf-conditions-for-beginners",
         description: "Pick safer beaches and days before you paddle out.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Rogue sets, sneaker waves and how far they run up the beach.",
       },
     ],
     appHandoff: {
@@ -2488,6 +2548,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
+      {
+        label: "What Is Wave Diffraction?",
+        href: "/learn/what-is-wave-diffraction",
+        description: "Why waves shrink behind islands, jetties and harbor walls.",
+      },
       {
         label: "Swell Period Explained",
         href: "/learn/swell-period-explained",
@@ -2583,6 +2648,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
+      {
+        label: "What Is a King Tide?",
+        href: "/learn/what-is-a-king-tide",
+        description: "Why the year's biggest tides hit in winter, with this season's dates.",
+      },
       {
         label: "Best Tide for Surfing",
         href: "/learn/best-tide-for-surfing",
@@ -2936,6 +3006,11 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
+        label: "What Is Wave Diffraction?",
+        href: "/learn/what-is-wave-diffraction",
+        description: "Why waves shrink behind islands, jetties and harbor walls.",
+      },
+      {
         label: "How Swell Direction Affects Surf",
         href: "/learn/how-swell-direction-affects-surf",
         description:
@@ -2955,7 +3030,7 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         label: "Rincon Forecast",
-        href: "/forecasts/rincon",
+        href: "/ca/carpinteria/rincon-carpinteria-ca",
         description:
           "Live forecast and refraction-aware conditions for Rincon, CA.",
       },
@@ -3076,7 +3151,7 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         label: "Rincon Forecast",
-        href: "/forecasts/rincon",
+        href: "/ca/carpinteria/rincon-carpinteria-ca",
         description:
           "A calibrated forecast in action at one of California's most direction-sensitive points.",
       },
@@ -3666,6 +3741,12 @@ export const learnArticles: LearnArticle[] = [
         description:
           "Why the west-wind morning is the Jersey window.",
       },
+      {
+        label: "Can You Surf in South Carolina?",
+        href: "/learn/can-you-surf-in-south-carolina",
+        description:
+          "Warmer water and smaller surf, with hurricane swell from August to October.",
+      },
     ],
     appHandoff: {
       eyebrow: "Jersey Shore today",
@@ -3673,6 +3754,707 @@ export const learnArticles: LearnArticle[] = [
       description:
         "Quiver checks wave height, period, wind, tide, and water temperature at New Jersey beaches every hour, so you can see whether today is a go before you drive to the Shore.",
       ctaLabel: "Check New Jersey beaches",
+    },
+  },
+  {
+    slug: "can-you-surf-in-south-carolina",
+    title: "Can You Surf in South Carolina? Seasons, Spots & Water",
+    description:
+      "Yes. South Carolina is small, warm beach break most of the year and good on hurricane swell from August to October. Where to go and what to wear.",
+    readingTimeMin: 5,
+    datePublished: "2026-10-27",
+    dateModified: "2026-10-27",
+    heroImage: "/images/learn/learn-folly-beach-learners.webp",
+    thumbnailImage: "/images/learn/learn-folly-beach-learners.webp",
+    keywords: [
+      "can you surf in south carolina",
+      "surfing in south carolina",
+      "south carolina surfing",
+      "south carolina surf spots",
+      "folly beach surfing",
+      "folly beach washout",
+      "myrtle beach surfing",
+      "isle of palms surf",
+      "best time to surf in south carolina",
+      "south carolina water temperature",
+      "hurricane swell south carolina",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Yes. South Carolina has about 187 miles of Atlantic coast, and most days it is 1 to 3 ft beach break over sand. The good days come from hurricane swell between late August and October, when Folly Beach can get 4 to 6 ft with a light northwest wind. The water runs from about 50 °F in January to the mid 80s in August. Check today's numbers on the <a href="/beaches/usa/sc">South Carolina beaches</a> page before you load the car.</p>`,
+        keyTakeaway: "Go August to October for swell; summer is small, warm and fine for learning.",
+      },
+      {
+        id: "why-small",
+        heading: "Why South Carolina surf is usually small",
+        content: `<p>The coast tucks into a curve between Cape Hatteras and Florida, and the sea floor off it is wide and shallow for miles. Swell loses power crossing that shelf, so a 3 ft day here hits softer than 3 ft at Huntington.</p><p>Period tells you which days are worth it. Summer windswell runs 5 to 7 seconds and looks like close-together mush. A hurricane passing offshore sends 10 to 14 second groundswell with clean lines. The <a href="/learn/groundswell-vs-wind-swell">groundswell vs wind swell</a> guide explains the difference.</p>`,
+        keyTakeaway: "Wait for 10+ seconds of period; under 7 seconds is mostly mush.",
+      },
+      {
+        id: "season-by-season",
+        heading: "When to surf South Carolina, month by month",
+        content: `<p><strong>August to October</strong> is the season. Tropical systems track up the coast, the water is still in the 70s or 80s, and swell can run for several days.</p><p><strong>November to March</strong> brings cold fronts and nor'easters. You get short, windy northeast swell, and the cleanest hours come after the front passes and the wind swings northwest.</p><p><strong>April to July</strong> is mostly flat to knee-high, with an afternoon sea breeze. Go early. The <a href="/best-time-to-surf/folly-beach">best time to surf Folly Beach</a> page shows where this week's windows fall.</p>`,
+        keyTakeaway: "Hurricane season is the season; after a winter front, go when wind turns northwest.",
+        image: {
+          src: "/images/learn/learn-folly-beach-hurricane-irene.webp",
+          alt: "Surfer walking up the beach at Folly Beach, South Carolina, as Hurricane Irene swell breaks behind him",
+          position: "right",
+        },
+      },
+      {
+        id: "where-to-surf",
+        heading: "Where people surf in South Carolina",
+        content: `<p><a href="/sc/folly-beach">Folly Beach</a>, 20 minutes from downtown Charleston, is the center of it. The Washout on the east end picks up the most swell, and the pier sets up sandbars on both sides. It gets crowded on any good day.</p><p>North of Charleston, <a href="/sc/isle-of-palms">Isle of Palms</a> is a softer, wider beach. On the Grand Strand, <a href="/sc/north-myrtle-beach">North Myrtle Beach</a> and Pawleys Island break around piers and shifting bars. Most of the coast is sand, so there is no reef to hit, and the bars move after every storm.</p>`,
+        keyTakeaway: "Folly's Washout gets the most swell; Isle of Palms is gentler.",
+        image: {
+          src: "/images/learn/learn-folly-beach-longboarders.webp",
+          alt: "Two surfers holding longboards in the shorebreak at Folly Beach, South Carolina, watching a set roll in",
+          position: "left",
+        },
+      },
+      {
+        id: "wind-and-tide",
+        heading: "Wind and tide: northwest wind, mid tide",
+        content: `<p>The coast faces southeast, so west and northwest wind is offshore. Summer afternoons bring a southerly sea breeze that chops it up by noon.</p><p>The tide moves about 5 to 6 ft around Charleston, much like San Diego. A bar that peels at mid tide can close out at dead low or go soft at high. Check the <a href="/tide/folly-beach">Folly Beach tide chart</a> and plan for the two hours either side of mid tide.</p>`,
+        keyTakeaway: "Surf mornings with northwest wind, within two hours of mid tide.",
+      },
+      {
+        id: "what-to-wear",
+        heading: "What to wear by water temperature",
+        content: `<p>NOAA's Charleston tide station shows water near 50 °F in January and February and around 84 °F in July and August. In August that is about 10 °F warmer than La Jolla Shores.</p><ul><li><strong>June to October:</strong> trunks or a rash guard.</li><li><strong>April, May and November:</strong> a 3/2 full suit.</li><li><strong>December to March:</strong> a 4/3 with boots.</li></ul><p>Check the reading the morning you go on the <a href="/water-temp/folly-beach">Folly Beach water temperature</a> page.</p>`,
+        keyTakeaway: "Trunks June to October; a 4/3 and boots December to March.",
+      },
+      {
+        id: "safety-and-learning",
+        heading: "Learning, rip currents and rain",
+        content: `<p>Summer's small, warm surf makes South Carolina a good place to learn. The <a href="/beginner/folly-beach">Folly Beach beginner read</a> and the <a href="/beginner/myrtle-beach">Myrtle Beach beginner read</a> say whether today is small and clean enough.</p><p>Rip currents form along piers and between the bars, and the National Weather Service posts a daily rip current risk for the coast. Read <a href="/learn/what-is-a-rip-current">how to spot and escape a rip</a> first. After heavy rain, wait and check for a posted swimming advisory. Nothing here promises a beach is safe on a given day. Watch from shore for 10 minutes before you paddle out.</p>`,
+        keyTakeaway: "Learn in summer, away from the pier; skip the water after heavy rain.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Can you surf in South Carolina?",
+        answer:
+          "Yes. South Carolina has about 187 miles of sand-bottom beach break. Most days are small, 1 to 3 ft, but hurricane swells between August and October can bring 4 to 6 ft waves to Folly Beach and the rest of the coast.",
+      },
+      {
+        question: "Where is the best surfing in South Carolina?",
+        answer:
+          "Folly Beach near Charleston, especially the Washout on the east end, picks up the most swell and has the most surfers. Isle of Palms is gentler, and North Myrtle Beach and Pawleys Island work around piers on the Grand Strand.",
+      },
+      {
+        question: "Is Myrtle Beach good for surfing?",
+        answer:
+          "It is small most of the year and better for learning than for good waves. It gets fun on hurricane and nor'easter swells, mainly around the piers. Go early, before the afternoon sea breeze.",
+      },
+      {
+        question: "When is the best time to surf in South Carolina?",
+        answer:
+          "Late August through October, when tropical systems send groundswell and the water is still in the 70s or 80s °F. Winter fronts bring short northeast swell, and spring and early summer are mostly flat.",
+      },
+      {
+        question: "Do you need a wetsuit to surf in South Carolina?",
+        answer:
+          "Not from about June to October, when the water is in the upper 70s to mid 80s °F. Use a 3/2 in spring and late fall, and a 4/3 with boots from December to March, when the water is near 50 °F.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "South Carolina Surf Beaches",
+        href: "/beaches/usa/sc",
+        description:
+          "Every South Carolina beach Quiver covers, with today's waves, wind, tide and water temperature.",
+      },
+      {
+        label: "Folly Beach Surf Forecast",
+        href: "/sc/folly-beach",
+        description: "Today's swell, wind and tide at Folly Beach.",
+      },
+      {
+        label: "Folly Beach Water Temperature",
+        href: "/water-temp/folly-beach",
+        description: "The current reading and the suit it calls for.",
+      },
+      {
+        label: "Can You Surf in New Jersey?",
+        href: "/learn/can-you-surf-in-new-jersey",
+        description: "The same storm-driven East Coast surf, with colder water.",
+      },
+      {
+        label: "Wind Swell vs Groundswell",
+        href: "/learn/groundswell-vs-wind-swell",
+        description: "Why 12-second hurricane swell beats 6-second windswell.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Folly Beach today",
+      title: "See if the hurricane swell has reached Folly.",
+      description:
+        "Quiver checks wave height, period, wind and tide at Folly Beach, Isle of Palms and the Grand Strand every hour, so you know before you cross the bridge.",
+      ctaLabel: "Check South Carolina beaches",
+    },
+  },
+  {
+    slug: "what-is-wave-diffraction",
+    title: "What Is Wave Diffraction? Surf in the Swell Shadow",
+    description:
+      "Wave diffraction is swell spreading sideways into the shadow behind an island, jetty or harbor wall. On the shadow line, waves run about half size.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-03",
+    dateModified: "2026-11-03",
+    heroImage: "/images/learn/learn-breakwater-diffraction-ashkelon.webp",
+    thumbnailImage: "/images/learn/learn-breakwater-diffraction-ashkelon.webp",
+    keywords: [
+      "wave diffraction",
+      "what is wave diffraction",
+      "wave diffraction vs refraction",
+      "difference between refraction and diffraction",
+      "diffraction of sea waves",
+      "breakwater wave diffraction",
+      "swell shadow",
+      "island shadow surf",
+      "why are waves smaller behind a breakwater",
+      "santa barbara swell shadow",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Wave diffraction is swell spreading sideways into the sheltered water behind an island, jetty or harbor wall. Right on the edge of that shadow, waves run about half the height of the open-ocean swell, and they keep shrinking the deeper into the shadow you go.</p><p>That's why Santa Barbara can be knee-high while the open coast north of Point Conception is overhead. See how the sheltered side is running on the <a href="/best-time-to-surf/santa-barbara">Santa Barbara best time to surf page</a>.</p>`,
+        keyTakeaway:
+          "On the shadow line, expect about half the open-coast size.",
+      },
+      {
+        id: "diffraction-vs-refraction",
+        heading: "What's the difference between diffraction and refraction?",
+        content: `<p>Refraction is swell bending because the bottom gets shallow. The part of the wave in shallow water slows down and the line swings toward it. That's how a point like Rincon lines up a set. Our guide to <a href="/learn/how-swell-wraps-around-points">how swell wraps around a point</a> covers it.</p><p>Diffraction doesn't need a shallow bottom. It happens when a wave line hits the end of a wall or an island. The part that gets past the edge leaks sideways into the calm water behind it, fanning out in arcs. Each arc is smaller than the swell that made it, because the same energy is now spread over more coastline.</p>`,
+        keyTakeaway:
+          "Refraction needs a shallow bottom. Diffraction needs a wall or island edge.",
+        image: {
+          src: "/images/learn/learn-charlestown-harbor-diffraction.webp",
+          alt: "Small waves fanning out in curved ripples after passing through a narrow harbor entrance between two stone walls",
+          position: "right",
+        },
+      },
+      {
+        id: "period",
+        heading: "Why long-period swell reaches further into a shadow",
+        content: `<p>How far a swell bends into a shadow depends on its wavelength compared with the size of the thing blocking it. In deep water, wavelength in feet is about 5.12 times the period squared. An 8-second windswell is about 330 feet from crest to crest. A 16-second groundswell is about 1,300 feet.</p><p>Put a 1,000-foot breakwater in front of both. It's three windswell wavelengths long, so the windswell mostly stops. To the groundswell it's less than one wavelength, so plenty of it leaks around the end. Read the <a href="/learn/swell-period-explained">swell period</a> before you trust a sheltered spot.</p>`,
+        keyTakeaway:
+          "Behind a wall, 14+ seconds leaks in. 8 seconds mostly doesn't.",
+      },
+      {
+        id: "california-shadows",
+        heading: "Which California spots sit in a swell shadow?",
+        content: `<p>Santa Barbara and Ventura sit behind two blockers: Point Conception to the northwest and the Channel Islands to the south. A northwest swell has to bend past Conception, and a south swell has to squeeze through the gaps between Anacapa, Santa Cruz and Santa Rosa islands. What arrives is smaller and pulsier than the buoy outside. CDIP, the Scripps buoy network, runs a Southern California swell model that maps exactly this island blocking.</p><p>That's why Rincon wants a big west swell with long period, and why a beginner day at <a href="/beginner/ventura">Ventura</a> often lines up with a bigger swell everywhere else. Check <a href="/best-time-to-surf/rincon">Rincon's best windows</a> before you drive.</p>`,
+        keyTakeaway:
+          "Islands and points decide which swells your beach ever sees.",
+        image: {
+          src: "/images/learn/learn-anacapa-island-santa-barbara-channel.webp",
+          alt: "Anacapa Island on the horizon across the calm Santa Barbara Channel off Ventura",
+          position: "left",
+        },
+      },
+      {
+        id: "breakwaters",
+        heading: "What happens behind a harbor breakwater?",
+        content: `<p>A breakwater is built to make a shadow. Long Beach has had almost no surf since its federal breakwater went in during the 1940s. Dana Point Harbor's breakwater, built in the late 1960s, ended Killer Dana, a well-known right point.</p><p>Where a wall has a gap, the gap acts like a new source. Waves pass through and spread out in half-circles, smallest at the sides. That's the pattern in the photo at the top of this page. Doheny, just east of the harbor, sits partly in that shadow and is a learner beach today. See <a href="/best-time-to-surf/dana-point">Dana Point's best times</a> and the <a href="/beginner/dana-point">Dana Point beginner guide</a>.</p>`,
+        keyTakeaway:
+          "A gap in a wall sends waves out in arcs, smaller at each side.",
+        image: {
+          src: "/images/learn/learn-dana-point-breakwater-sign.webp",
+          alt: "Sign reading Breakwater Subject to High Surf on the rock jetty at Dana Point Harbor at dusk",
+          position: "right",
+        },
+      },
+      {
+        id: "use-it",
+        heading: "How to use a swell shadow on a big day",
+        content: `<p>When the open coast is double overhead, the spot behind the island, point or wall is often the only rideable one. Waves there are smaller and slower to build, and they arrive in longer gaps between sets.</p><p>Harbor mouths are different. They carry boat traffic and strong tidal current, and you shouldn't surf a harbor entrance. If you're not sure about a sheltered spot, don't paddle out. Watch from shore for 10 minutes first and count the sets. Our guide to <a href="/learn/how-swell-direction-affects-surf">swell direction</a> shows how to match an angle to your beach, and the <a href="/water-temp/santa-barbara">Santa Barbara water temperature</a> tells you what to wear.</p>`,
+        keyTakeaway:
+          "Open coast too big? Try the beach behind the island or wall.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is wave diffraction?",
+        answer:
+          "Wave diffraction is a wave spreading sideways into the sheltered water behind an obstacle, such as an island, jetty or breakwater. The waves that leak into the shadow are smaller than the open swell, about half size right at the shadow line and smaller further in.",
+      },
+      {
+        question: "What is the difference between refraction and diffraction?",
+        answer:
+          "Refraction is a wave bending because the water gets shallower, which is how swell wraps along a point. Diffraction is a wave spreading around the edge of an obstacle into its shadow, and it happens even in deep water.",
+      },
+      {
+        question: "Does diffraction make waves bigger?",
+        answer:
+          "No. It spreads the same energy over more coastline, so each wave is smaller. Where diffracted waves from both ends of a breakwater cross, they can stack into a peak, but each train is still smaller than the open swell.",
+      },
+      {
+        question: "Why does Santa Barbara get so few waves?",
+        answer:
+          "Point Conception blocks most northwest swell and the Channel Islands block most south swell. Santa Barbara only gets what bends past Conception or slips through the gaps between the islands, so it needs a big, long-period west swell to break well.",
+      },
+      {
+        question: "Why is there no surf in Long Beach?",
+        answer:
+          "The Long Beach breakwater, built in the 1940s to protect the harbor, puts the whole beach in a swell shadow. Only a little energy diffracts around its ends, so the shoreline is nearly flat most days.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How Swell Wraps Around a Point",
+        href: "/learn/how-swell-wraps-around-points",
+        description: "Refraction: how a shallow bottom bends swell along a point.",
+      },
+      {
+        label: "How Swell Direction Affects Surf",
+        href: "/learn/how-swell-direction-affects-surf",
+        description: "Match a swell angle to the way your beach faces.",
+      },
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Longer period means longer waves that reach into shadows.",
+      },
+      {
+        label: "Best time to surf Santa Barbara",
+        href: "/best-time-to-surf/santa-barbara",
+        description: "When swell makes it past the islands and Point Conception.",
+      },
+      {
+        label: "Ventura beginner guide",
+        href: "/beginner/ventura",
+        description: "Sheltered learner spots behind the Channel Islands.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Behind the islands today",
+      title: "See if the swell is making it past the Channel Islands.",
+      description:
+        "Quiver shows swell size, period and direction for Santa Barbara, Ventura and Dana Point beaches, so you can tell if a sheltered spot is breaking before you drive.",
+      ctaLabel: "Check Santa Barbara-area beaches",
+    },
+  },
+  {
+    slug: "what-is-a-king-tide",
+    title: "What Is a King Tide? California Dates and Surf",
+    description:
+      "A king tide is the highest tide of the year, set by a full or new moon at its closest. California's run Nov 24-26, Dec 23-25 and Jan 21-22.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-10",
+    dateModified: "2026-11-10",
+    heroImage: "/images/learn/learn-king-tide-malibu-road.webp",
+    thumbnailImage: "/images/learn/learn-king-tide-malibu-road.webp",
+    keywords: [
+      "what is a king tide",
+      "king tide",
+      "king tides california",
+      "king tide san diego",
+      "when is the next king tide",
+      "king tide 2026",
+      "perigean spring tide",
+      "highest tide of the year",
+      "king tide surfing",
+      "what time of day is high tide typically",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>A king tide is the highest tide of the year. It comes when a full or new moon lines up with the moon at its closest point to Earth. In La Jolla, NOAA predicts 7.1 feet at 8:23 a.m. on December 24, almost 2 feet above an average high tide.</p><p>California's 2026-27 king tides fall on November 24-26, December 23-25 and January 21-22. Check the hour-by-hour curve on the <a href="/tide/la-jolla">La Jolla tide page</a> before you plan a morning session.</p>`,
+        keyTakeaway:
+          "About 7 feet in San Diego, roughly 2 feet over a normal high.",
+      },
+      {
+        id: "dates",
+        heading: "When are the next king tides in California?",
+        content: `<p>The California Coastal Commission's King Tides Project lists three runs this winter: November 24-26, December 23-25 and January 21-22. NOAA's predictions agree. December 24 is the biggest: 7.1 feet at La Jolla at 8:23 a.m. and 7.2 feet in San Francisco at 10:37 a.m.</p><p>Every one of these peaks lands in the morning. The same days bring the lowest tides of the year in the afternoon, near -1.9 feet at La Jolla. That's a 9-foot swing between breakfast and sunset. The <a href="/tide/san-francisco">San Francisco tide page</a> shows the Bay version.</p>`,
+        keyTakeaway:
+          "Big highs in the morning, big lows by 3 or 4 p.m.",
+        image: {
+          src: "/images/learn/learn-king-tide-san-francisco-embarcadero.webp",
+          alt: "Bay water splashing over the railing onto the Embarcadero walkway in San Francisco during a January king tide",
+          position: "right",
+        },
+      },
+      {
+        id: "cause",
+        heading: "What causes a king tide?",
+        content: `<p>Tides come from the moon and sun pulling on the ocean. At a full or new moon they pull in a line, which makes a spring tide. When that lines up with perigee, the moon's closest pass, you get what NOAA calls a perigean spring tide. In early January Earth is also at its closest to the sun, which is why California's biggest tides land in winter.</p><p>"King tide" isn't a science word. NOAA calls it a popular term for exceptionally high tides. Our guide to <a href="/learn/how-do-tides-work">how tides work</a> covers spring and neap cycles.</p>`,
+        keyTakeaway:
+          "Full or new moon plus the moon's closest pass equals a king tide.",
+      },
+      {
+        id: "surf",
+        heading: "How does a king tide change the surf?",
+        content: `<p>At 7 feet, most beach breaks stop working. Waves roll in fat and then dump straight on the sand, and the backwash off the steep beach slams into the next wave. Reefs like Cardiff Reef go soft and slow.</p><p>The afternoon low flips it. At -1.9 feet, reefs sit shallow, sandbars close out, and rocks you never see stick out. The mid-tide push between the two is usually the best window. Our guide to the <a href="/learn/best-tide-for-surfing">best tide for surfing</a> matches tide to break type.</p>`,
+        keyTakeaway:
+          "Skip the 7-foot peak. Surf the push from low to mid tide.",
+        image: {
+          src: "/images/learn/learn-king-tide-morro-strand.webp",
+          alt: "The beach at Morro Strand in Morro Bay covered by calm water during a 7.0-foot king tide, with surf breaking offshore",
+          position: "left",
+        },
+      },
+      {
+        id: "running-high",
+        heading: "Why this year's king tides could top the forecast",
+        content: `<p>NOAA's tide tables only predict the moon and sun. They leave out warm water, low pressure and storm surge, all of which push the sea higher. In the 72 hours to November 10, NOAA's own La Jolla gauge read about 1.25 feet above its predicted tide.</p><p>If the water stays that high, a 7.1-foot king tide reaches past 8 feet. Add a winter swell and the surf runs up to the bluffs at Del Mar and across Highway 101 at Cardiff. Check <a href="/tide/del-mar">Del Mar's tide</a> and <a href="/tide/cardiff">Cardiff's tide</a> before you park.</p>`,
+        keyTakeaway:
+          "Tide tables leave out warm water. Add a foot this winter.",
+      },
+      {
+        id: "safety",
+        heading: "Is it safe to surf during a king tide?",
+        content: `<p>The danger is getting in and out, not the waves. Beach access stairs end in water, the dry sand you walk back on is gone, and logs and kelp ride the high water. Strong backwash also feeds rip currents, so read our <a href="/learn/what-is-a-rip-current">rip current guide</a> first.</p><p>No tide is a promise of safe water. If you're not sure, don't paddle out. Watch from shore for 10 minutes and find your exit before you go. New to San Diego? Start with the <a href="/beginner/san-diego">San Diego beginner guide</a>.</p>`,
+        keyTakeaway:
+          "Find your exit first. At 7 feet the beach may not be there.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is a king tide?",
+        answer:
+          "A king tide is a popular name for the highest tides of the year. NOAA calls it a non-scientific term. It happens when a full or new moon lines up with the moon's closest pass to Earth, which is a perigean spring tide.",
+      },
+      {
+        question: "When is the next king tide in California?",
+        answer:
+          "The 2026-27 California king tides fall on November 24-26, December 23-25 and January 21-22. December 24 is the biggest, with NOAA predicting 7.1 feet at La Jolla and 7.2 feet in San Francisco, both in the morning.",
+      },
+      {
+        question: "How high is a king tide in San Diego?",
+        answer:
+          "NOAA predicts 6.9 to 7.1 feet at La Jolla for this winter's king tides, against an average high tide of about 5.3 feet. This fall the water has run about a foot above the predictions, so the real peak can pass 8 feet.",
+      },
+      {
+        question: "What time of day is high tide typically?",
+        answer:
+          "There's no fixed time. High tide comes about 50 minutes later each day. In California's winter, the biggest highs land in the morning and the lowest lows in the afternoon, which is the pattern for every king tide this season.",
+      },
+      {
+        question: "Can you surf during a king tide?",
+        answer:
+          "Most beach breaks shut down at the peak because waves dump on the sand. The better plan is to surf the afternoon low or the mid-tide push. If you can't see a safe way in and out, watch from shore and don't paddle out.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "How Tides Work for Surfing",
+        href: "/learn/how-do-tides-work",
+        description: "Spring tides, neap tides and why high tide shifts each day.",
+      },
+      {
+        label: "What Is the Best Tide for Surfing?",
+        href: "/learn/best-tide-for-surfing",
+        description: "Match the tide to beach, reef and point breaks.",
+      },
+      {
+        label: "La Jolla tide chart",
+        href: "/tide/la-jolla",
+        description: "Hour-by-hour tide heights for La Jolla today.",
+      },
+      {
+        label: "San Francisco tide chart",
+        href: "/tide/san-francisco",
+        description: "Today's highs and lows inside the Golden Gate.",
+      },
+      {
+        label: "What Is a Rip Current?",
+        href: "/learn/what-is-a-rip-current",
+        description: "How backwash and big tides feed rips, and how to get out.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "King tide week",
+      title: "See when the 7-foot tide drops enough to surf.",
+      description:
+        "Quiver plots the tide hour by hour next to swell and wind for La Jolla, Cardiff and Del Mar, so you can pick the window after the king tide peak.",
+      ctaLabel: "Check San Diego tides",
+    },
+  },
+  {
+    slug: "what-is-a-rogue-wave",
+    title: "What Is a Rogue Wave? Sneaker Waves in California",
+    description:
+      "A rogue wave is more than twice the height of the waves around it. On the beach, NWS says a sneaker wave can run 150 feet up the sand.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-17",
+    dateModified: "2026-11-17",
+    heroImage: "/images/learn/learn-rogue-wave-bolinas-sneaker-wave.webp",
+    thumbnailImage: "/images/learn/learn-rogue-wave-bolinas-sneaker-wave.webp",
+    keywords: [
+      "what is a rogue wave",
+      "rogue wave",
+      "rogue waves",
+      "what causes rogue waves",
+      "sneaker wave",
+      "what is a sneaker wave",
+      "sneaker waves california",
+      "never turn your back on the ocean",
+      "is it safe to swim in waves",
+      "extreme storm waves",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>A rogue wave is a wave more than twice the height of the waves around it. NOAA calls them extreme storm waves, and they show up with no warning, often from a different direction than the rest of the swell.</p><p>The version that reaches the beach is the sneaker wave. The National Weather Service says one can run 150 feet up the sand after 10 to 20 minutes of small waves. Before you walk out at Ocean Beach or Pacifica on a big day, check the swell period on the <a href="/buoys">live buoy readings</a>.</p>`,
+        keyTakeaway: "Twice the waves around it. On the sand, 150 feet or more of run-up.",
+      },
+      {
+        id: "causes",
+        heading: "What causes a rogue wave?",
+        content: `<p>NOAA names two causes. The first is swells crossing paths. Swells travel at different speeds and directions, and when their crests line up, they stack into one tall wave that fades fast.</p><p>The second is waves running into a current. When storm waves push against a strong current, like the Gulf Stream, the energy bunches up and the waves grow. Our guide on <a href="/learn/how-are-ocean-waves-formed">how ocean waves form</a> covers where swell comes from in the first place.</p>`,
+        keyTakeaway: "Two swells lining up, or waves hitting a current head-on.",
+      },
+      {
+        id: "sneaker",
+        heading: "What is a sneaker wave?",
+        content: `<p>A sneaker wave is a wave that surges much farther up the beach than the ones before it. The NWS says sneaker waves often come after 10 to 20 minutes of small, gentle waves. People see the small ones, sit down too close, and stop watching.</p><p>One wave can lift beach logs that weigh hundreds of pounds and roll them over people. The NWS says that for much of the West Coast, sneaker waves kill more people than all other weather hazards combined.</p>`,
+        keyTakeaway: "A quiet 10 to 20 minutes is the warning sign.",
+        image: {
+          src: "/images/learn/learn-rogue-wave-gray-whale-cove.webp",
+          alt: "A wave breaking in a burst of spray in front of sea stacks at Gray Whale Cove, south of San Francisco, at sunset",
+          position: "right",
+        },
+      },
+      {
+        id: "when",
+        heading: "When are sneaker waves most likely in California?",
+        content: `<p>Watch for them on long-period groundswell. Those swells come in organized sets with long lulls between them, which is exactly the quiet that fools people. Our <a href="/learn/swell-period-explained">swell period guide</a> explains what the seconds mean.</p><p>Watch closest at beaches open to the full Pacific: Ocean Beach in San Francisco, Pacifica and Gray Whale Cove. Check the <a href="/ca/pacifica">Pacifica surf page</a> and the NWS for a beach hazards statement before you go.</p>`,
+        keyTakeaway: "Long period plus long lulls: stay well back from the water.",
+        image: {
+          src: "/images/learn/learn-rogue-wave-reynisfjara-runup.webp",
+          alt: "A thin sheet of foamy water spread far up the black sand at Reynisfjara beach in Iceland after a sneaker wave",
+          position: "left",
+        },
+      },
+      {
+        id: "surfers",
+        heading: "What a rogue set means for surfers",
+        content: `<p>A buoy's wave height is the average of the tallest third of the waves it measures, as our guide to <a href="/learn/how-are-waves-measured">how waves are measured</a> explains. So some waves always come in bigger than the buoy number. A rogue set can be twice the size of the waves around it.</p><p>Do what the NWS says lifeguards and experienced surfers do: watch the ocean for at least 20 minutes before you paddle out. Count the biggest set, not the average one. If the biggest set would scare you, don't paddle out.</p>`,
+        keyTakeaway: "Watch 20 minutes. Plan for the biggest set, not the average.",
+      },
+      {
+        id: "back-to-ocean",
+        heading: "Why do they say never turn your back on the ocean?",
+        content: `<p>Because the wave that gets you is the one you don't see. The NWS Wave Safe rules say never turn your back on the waves, even when you walk out of the water.</p><p>Stay farther back than you think you need to, and keep off rocks, jetties and logs on big days. If a wave knocks you down and pulls you out, read our <a href="/learn/what-is-a-rip-current">rip current guide</a> on how to get back in. No forecast can promise a safe beach.</p>`,
+        keyTakeaway: "Face the water, stay high, and keep off rocks and logs.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is a rogue wave?",
+        answer:
+          "A rogue wave is a wave more than twice the size of the waves around it. NOAA calls them extreme storm waves. They are hard to predict and often come from a different direction than the rest of the swell.",
+      },
+      {
+        question: "What causes rogue waves?",
+        answer:
+          "NOAA names two main causes: swells crossing paths so their crests stack into one tall wave, and storm waves running against a strong current such as the Gulf Stream, which bunches the energy together.",
+      },
+      {
+        question: "What is a sneaker wave?",
+        answer:
+          "A sneaker wave is a wave that runs much farther up the beach than the waves before it. The National Weather Service says they often follow 10 to 20 minutes of small waves and can surge 150 feet up the sand.",
+      },
+      {
+        question: "Why do they say never turn your back on the ocean?",
+        answer:
+          "Because a bigger wave can arrive with no warning after a quiet stretch. The NWS Wave Safe rules say never turn your back on the waves, and to watch the ocean for at least 20 minutes before you relax on the beach.",
+      },
+      {
+        question: "Is it safe to swim in waves?",
+        answer:
+          "No beach is ever guaranteed safe. Choose a guarded beach, watch the waves for 20 minutes first, and stay out on big long-period days. If you're not sure, don't go in and watch from shore.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Why long-period swell brings bigger sets and longer lulls.",
+      },
+      {
+        label: "How Big Is 3 ft Surf?",
+        href: "/learn/how-are-waves-measured",
+        description: "Buoy height, face height, and why some sets run bigger.",
+      },
+      {
+        label: "What Is a Rip Current?",
+        href: "/learn/what-is-a-rip-current",
+        description: "How to spot a rip and get back to the beach.",
+      },
+      {
+        label: "Live buoy readings",
+        href: "/buoys",
+        description: "Swell height and period from offshore buoys right now.",
+      },
+      {
+        label: "Pacifica surf",
+        href: "/ca/pacifica",
+        description: "Today's surf and swell for Pacifica's beaches.",
+      },
+      {
+        label: "Where to Watch Mavericks",
+        href: "/learn/where-to-watch-mavericks",
+        description: "The bluff, the beach and the boat, and how to stay dry.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Big swell on the way",
+      title: "See the swell period before the long lulls start.",
+      description:
+        "Quiver shows swell height and period for Ocean Beach, Pacifica and the rest of your coast, so you know when a long-period swell is coming and to stay well back from the water.",
+      ctaLabel: "Check the swell",
+    },
+  },
+  {
+    slug: "where-to-watch-mavericks",
+    title: "Where to Watch Mavericks: Bluff, Beach or Boat",
+    description:
+      "Mavericks breaks about half a mile off Pillar Point. Watch from Pillar Point Bluff with binoculars, and stay off the jetty and seawall.",
+    readingTimeMin: 4,
+    datePublished: "2026-11-24",
+    dateModified: "2026-11-24",
+    heroImage: "/images/learn/learn-mavericks-contest-wave.webp",
+    thumbnailImage: "/images/learn/learn-mavericks-contest-wave.webp",
+    keywords: [
+      "where to watch mavericks",
+      "mavericks viewing",
+      "can you see mavericks from shore",
+      "mavericks half moon bay",
+      "where is mavericks surf break",
+      "when does mavericks break",
+      "mavericks surf season",
+      "pillar point bluff",
+      "mavericks beach",
+      "how to watch mavericks",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Mavericks breaks about half a mile off Pillar Point, so you watch it from Pillar Point Bluff with binoculars. San Mateo County Parks says the break sits approximately half a mile offshore, due west of the Pillar Point Air Force Tracking station, and is best viewed with binoculars.</p><p>The big days come in winter, November through March. Check <a href="/ca/half-moon-bay/mavericks-half-moon-bay-ca">Mavericks surf today</a> before you drive out to Princeton.</p>`,
+        keyTakeaway: "Half a mile out. No binoculars, no rides, just whitewater.",
+      },
+      {
+        id: "from-shore",
+        heading: "Can you see Mavericks from shore?",
+        content: `<p>Yes, but small. Visit Half Moon Bay, the local visitor bureau, says that from roughly a half-mile away the surfers will look like ants. You'll see the whitewater and the size of the sets. You won't see faces.</p><p>Visit Half Moon Bay says binoculars help, and that the best in-person view is usually from a boat. It names Surfers' Beach and Mavericks Beach as places to stake out a spot.</p>`,
+        keyTakeaway: "Pack binoculars, or you watch sets, not surfers.",
+      },
+      {
+        id: "pillar-point-bluff",
+        heading: "Where to stand: Pillar Point Bluff",
+        content: `<p>Pillar Point Bluff is a 220-acre San Mateo County park on top of the bluff, with a section of the California Coastal Trail running through it. The county lists a 10-car parking lot on Airport Street. The Jean Lauer Trail links that lot with Bernal Avenue. Dogs are fine on leash.</p><p>Ten spaces will not go far on a big swell, so get there early. The county page carries a "Use Caution on Beaches and Bluffs" notice. Stay on the trail and well back from the edge.</p>`,
+        keyTakeaway: "Ten parking spaces. On a big swell, arrive early.",
+      },
+      {
+        id: "mavericks-beach",
+        heading: "Mavericks Beach and the West Trail",
+        content: `<p>The San Mateo County Harbor District calls the West Trail the only access point to Mavericks Beach. It starts at the West Point Avenue parking area.</p><p>The district also says erosion has made the trail hazardous for the people on it. Check the Harbor District for the trail's current status before you go. If you can't confirm it, watch from the bluff.</p>`,
+        keyTakeaway: "One trail in. No word from the Harbor District, use the bluff.",
+      },
+      {
+        id: "boat",
+        heading: "Watching from a boat",
+        content: `<p>Visit Half Moon Bay says the best in-person viewing is usually from a boat. On contest days the channel beside the break fills with spectator boats and jet skis.</p><p>The US Coast Guard sets the rules for that water. Under 33 CFR 100.1106, spectator boats keep a minimum wake and follow the directions of the patrol commander. Go with a skipper who knows Pillar Point Harbor.</p>`,
+        keyTakeaway: "Minimum wake, and the patrol commander's directions come first.",
+        image: {
+          src: "/images/learn/learn-mavericks-spectator-boats.webp",
+          alt: "An aerial view of dozens of spectator boats and jet skis gathered in the channel beside the Mavericks break during a contest",
+          position: "right",
+        },
+      },
+      {
+        id: "when",
+        heading: "When does Mavericks break?",
+        content: `<p>In winter, on big swell. Visit Half Moon Bay says the big waves come in the winter months, November through March. The Coast Guard contest window runs November 1 to March 31, and the contest is only held if 15 to 20 foot waves hold for over 24 hours.</p><p>Watch the buoys. Quiver's Big Swells card treats the San Francisco Bar buoy as big at about 14 feet of swell. That number is the average of the tallest third of the waves, as our guide to <a href="/learn/how-are-waves-measured">how waves are measured</a> explains, so the biggest sets run larger.</p><p>Long-period swell means bigger sets and longer lulls. Our <a href="/learn/swell-period-explained">swell period guide</a> covers why. Check the <a href="/buoys">live buoy readings</a> and the <a href="/best-time-to-surf/half-moon-bay">best time to surf Half Moon Bay</a> before you go.</p>`,
+        keyTakeaway: "About 14 feet on the SF Bar buoy is Quiver's big-swell line.",
+      },
+      {
+        id: "safety",
+        heading: "How to stay safe on a big day",
+        content: `<p>Stay off the jetty, the seawall and the reef. A US Army Corps of Engineers danger sign photographed at Mavericks tells people not to walk on the structure, and says hazardous wave conditions exist even on calm days. Its last line reads: "Waves can wash over structure and sweep people into the ocean."</p><p>It has happened here. NBC Bay Area reported that on February 13, 2010, during the contest, two large waves swept spectators off the seawall at about 9 a.m. Thirteen people were injured.</p><p>San Mateo County Harbor Patrol asks people to watch the big waves from a safe distance and a dry location. The NWS says to watch the ocean for at least 20 minutes and never turn your back on the waves. Sneaker waves often follow 10 to 20 minutes of small waves, as our <a href="/learn/what-is-a-rogue-wave">rogue wave guide</a> explains.</p><p>No forecast can promise a safe beach or bluff. Pick dry ground well above the water.</p>`,
+        keyTakeaway: "If the ground under you is wet, move higher.",
+        image: {
+          src: "/images/learn/learn-mavericks-breakwater-danger-sign.webp",
+          alt: "A torn red \"Danger, extremely hazardous waves\" sign from the US Army Corps of Engineers, photographed at Mavericks in Half Moon Bay, warning that waves can wash over the structure and sweep people into the ocean",
+          position: "left",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: "Where is the best place to watch Mavericks?",
+        answer:
+          "Pillar Point Bluff, the San Mateo County park above Pillar Point. The county says the break is about half a mile offshore and is best viewed with binoculars. Visit Half Moon Bay says the best in-person view is usually from a boat.",
+      },
+      {
+        question: "Can you see Mavericks from the beach?",
+        answer:
+          "Visit Half Moon Bay names Surfers' Beach and Mavericks Beach as places to stake out a spot, but says the surfers will look like ants. The West Trail is the only access to Mavericks Beach, and the Harbor District says erosion has made it hazardous, so check its status first.",
+      },
+      {
+        question: "How far offshore is Mavericks?",
+        answer:
+          "About half a mile. San Mateo County Parks puts the break approximately half a mile offshore, due west of the Pillar Point Air Force Tracking station.",
+      },
+      {
+        question: "When does Mavericks break?",
+        answer:
+          "In winter, on big swell. Visit Half Moon Bay says November through March. The Coast Guard contest window is November 1 to March 31, and the contest is only held if 15 to 20 foot waves hold for over 24 hours.",
+      },
+      {
+        question: "Is it safe to watch Mavericks from the jetty?",
+        answer:
+          "No. Stay off it. A US Army Corps of Engineers danger sign photographed at Mavericks reads \"Waves can wash over structure and sweep people into the ocean.\" San Mateo County Harbor Patrol asks people to watch from a safe distance and a dry location. NBC Bay Area reported that in 2010 two waves swept spectators off the seawall and 13 people were injured.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Mavericks surf today",
+        href: "/ca/half-moon-bay/mavericks-half-moon-bay-ca",
+        description: "Today's swell, wind and tide at Mavericks.",
+      },
+      {
+        label: "What Is a Rogue Wave?",
+        href: "/learn/what-is-a-rogue-wave",
+        description: "Sneaker waves and why you never turn your back on the ocean.",
+      },
+      {
+        label: "Swell Period Explained",
+        href: "/learn/swell-period-explained",
+        description: "Why long-period swell brings bigger sets and longer lulls.",
+      },
+      {
+        label: "How Big Is 3 ft Surf?",
+        href: "/learn/how-are-waves-measured",
+        description: "Buoy height, face height, and why some sets run bigger.",
+      },
+      {
+        label: "Live buoy readings",
+        href: "/buoys",
+        description: "Swell height and period from offshore buoys right now.",
+      },
+      {
+        label: "Best time to surf Half Moon Bay",
+        href: "/best-time-to-surf/half-moon-bay",
+        description: "The months and tides that work around Half Moon Bay.",
+      },
+    ],
+    appHandoff: {
+      eyebrow: "Mavericks swell watch",
+      title: "See the swell before you drive to Pillar Point.",
+      description:
+        "Quiver shows swell height and period for Mavericks and Half Moon Bay, so you know a big long-period swell is coming before you leave home.",
+      ctaLabel: "Check Mavericks swell",
     },
   },
 ];

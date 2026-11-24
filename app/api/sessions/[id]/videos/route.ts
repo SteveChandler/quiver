@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, requireOwnership, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 import type { Database } from "@/types/database.generated";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const MAX_SIZE = 62914560;
 const noStore = (response: NextResponse): NextResponse => { response.headers.set("Cache-Control", "no-store"); return response; };
@@ -19,6 +20,16 @@ export const POST = withAuth(async (request: NextRequest, { params, user, supaba
   const prefix = `${params.id}/${user.id}/`;
   if (!storagePath.startsWith(prefix) || storagePath.includes("..")) return error("bad_path");
   if (!/\.(mp4|mov)$/i.test(storagePath)) return error("bad_type");
+  // Native retries finalize after timeouts; the same file must map to one row.
+  const { data: existing, error: existingError } = await supabase
+    .from("session_media")
+    .select("id")
+    .eq("session_id", params.id)
+    .eq("storage_path", storagePath)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing) return noStore(NextResponse.json({ mediaId: existing.id }, { status: 200 }));
   const insert: Database["public"]["Tables"]["session_media"]["Insert"] = {
     session_id: params.id, user_id: user.id, storage_path: storagePath, public_url: "",
     file_size: sizeBytes, media_type: "video", metadata: { durationSec },
@@ -29,4 +40,6 @@ export const POST = withAuth(async (request: NextRequest, { params, user, supaba
   return noStore(NextResponse.json({ mediaId: data.id }, { status: 201 }));
 }, { errorMessage: "Failed to finalize session video" });
 
-export const GET = () => error("Method Not Allowed", 405);
+const handleGet = () => error("Method Not Allowed", 405);
+
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]/videos");

@@ -3,8 +3,11 @@ import type { Database } from '@/types/supabase';
 import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-service';
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
-import { entitlementFromRow } from '@/lib/alerts/entitlements';
-import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { resolveFeatureAccessFromRow } from '@/lib/alerts/entitlements';
+import { readEntitlementRow, UNKNOWN_PLAN_FEATURE_ACCESS } from '@/lib/subscription/read-entitlement-row';
+import { getProfileExperienceLevel, readProfileSkill } from '@/lib/profile/skill-level';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
+import { getSkillLevelOrDefault } from '@/lib/domains/user-preferences/skill-level';
 import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
 import { conditionLabelForVerdict } from '@/lib/recommendations/canonical-decision/engine';
 import type { CanonicalSessionDecision } from '@/lib/recommendations/canonical-decision/types';
@@ -26,8 +29,13 @@ import {
   resolveForecastAlignment,
   type SurfCallForecastAlignment,
 } from '@/lib/services/discovery/forecast-alignment';
+import { isHourlyBridgeEnabledFor } from '@/lib/flags/tide-swing';
+import { bridgeBeachForecastRows, SCOPED_BRIDGE_RADIUS_MS } from '@/lib/services/discovery/hourly-bridge-rows';
+import type { EnhancedForecastEntity } from '@/types/forecast';
 
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
+  /** Present only when the plan read failed; the call was made with free access. */
+  planStatus?: 'unknown';
   waterQuality: SurfCallWaterQuality;
   sessionDecision: CanonicalSessionDecision;
   candidateRejection: CanonicalSessionDecision['candidateRejection'];
@@ -70,9 +78,13 @@ function surfCallWaterQuality(
   beachId: string,
 ): SurfCallWaterQuality {
   beachId = beachId.toLowerCase();
-  if (resolution.state !== 'resolved' || !resolution.heldBeachIds.includes(beachId)) return null;
-  const evidence = resolution.waterQualityEvidenceByBeachId?.[beachId];
-  const status = resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
+  // An unresolved read lists only the holds it already knows (owner holds). The call is
+  // never withheld for water quality, so those still show as the notice.
+  const held = resolution.heldBeachIds.includes(beachId);
+  const notice = resolution.heldBeachIds.includes(beachId) ? undefined : resolution.waterQualityNoticeByBeachId?.[beachId];
+  if (!held && !notice) return null;
+  const evidence = notice ?? resolution.waterQualityEvidenceByBeachId?.[beachId];
+  const status = notice ? 'advisory' : resolution.waterQualityStatusByBeachId[beachId] ?? 'hold';
   if (evidence?.source === 'county') return { status, source: 'county',
     ...(evidence.countyKind ? { countyKind: evidence.countyKind } : {}),
     ...(evidence.countyKind === 'general' && evidence.rainAdvisory ? { rainAdvisory: evidence.rainAdvisory } : {}),
@@ -157,34 +169,49 @@ async function readForecastAlignment(
   supabase: SupabaseClient<Database>,
   beachId: string,
   requestedForecastAt: string,
+  timezone: string,
 ): Promise<SurfCallForecastAlignment> {
   const requestedMs = Date.parse(requestedForecastAt);
   const toleranceMs = FORECAST_ALIGNMENT_TOLERANCE_MINUTES * 60 * 1000;
+  // Discovery scored the scoped hour from bridged rows; the alignment applies the same bridge,
+  // so it reads the stored rows either side of every hour the bridge can fill.
+  const bridgeHourly = isHourlyBridgeEnabledFor('discover');
+  const reachMs = bridgeHourly ? SCOPED_BRIDGE_RADIUS_MS + 60 * 60 * 1000 : toleranceMs;
   const { data, error } = await supabase
     .from('enhanced_forecasts')
-    .select('forecast_at')
+    .select(bridgeHourly ? 'id, beach_id, forecast_at' : 'forecast_at')
     .eq('beach_id', beachId)
-    .gte('forecast_at', new Date(requestedMs - toleranceMs).toISOString())
-    .lte('forecast_at', new Date(requestedMs + toleranceMs).toISOString())
+    .gte('forecast_at', new Date(requestedMs - reachMs).toISOString())
+    .lte('forecast_at', new Date(requestedMs + reachMs).toISOString())
     .order('forecast_at', { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
+  const rows = (data ?? []) as unknown as Array<Pick<EnhancedForecastEntity, 'forecast_at'>>;
   return resolveForecastAlignment(
-    data ?? [],
+    bridgeHourly
+      ? bridgeBeachForecastRows(rows as EnhancedForecastEntity[], { timezone, tide: null, scopedAtMs: requestedMs })
+      : rows,
     requestedForecastAt,
   ).alignment;
 }
 
 function appendBoardNote(whySentence: string, boardNote: string | null): string {
   if (!boardNote) return whySentence;
-  const sentence = `Board fit: ${boardNote}.`;
+  // The note is a whole sentence ("Big for a longboard at 5–6 ft."). After the label it reads
+  // as a clause: lower-case first word (Big/Small/Good, never a name), one full stop.
+  const note = boardNote.replace(/\.+$/, '');
+  const sentence = `Board fit: ${note.charAt(0).toLowerCase()}${note.slice(1)}.`;
   return whySentence ? `${whySentence} ${sentence}` : sentence;
 }
 
-function safetyReason(decision: CanonicalSessionDecision, beachName: string): string {
+function safetyReason(
+  decision: CanonicalSessionDecision,
+  beachName: string,
+  skillDefaulted = false,
+): string {
   const rejection = decision.candidateRejection;
   const waterQualityReason = rejection?.observed?.status === 'advisory'
     ? `Water quality is under an advisory at ${beachName}; an open status is required.`
@@ -231,13 +258,16 @@ function safetyReason(decision: CanonicalSessionDecision, beachName: string): st
     case 'major_event_hold':
       return 'Major-event conditions are unresolved.';
     case 'beach_skill_exceeds_user':
+      if (skillDefaulted) {
+        return `This break calls for ${rejection?.observed?.skill ?? 'a higher skill level'}. You haven't set a level, so Quiver rates you as a beginner.`;
+      }
       return `This break requires ${rejection?.observed?.skill ?? 'a higher skill level'}; your profile is ${rejection?.allowed?.skill ?? decision.skillEligibility.skill}.`;
     case 'wave_height_exceeds_skill':
       if (rejection?.observed?.waveHeightFt !== undefined && rejection.allowed?.minimumWaveHeightFt !== undefined && rejection.allowed.maximumWaveHeightFt !== undefined) {
         const observed = `${rejection.observed.waveHeightFt} ft`;
         const range = `${rejection.allowed.minimumWaveHeightFt}-${rejection.allowed.maximumWaveHeightFt} ft`;
         const appliedSkill = rejection.allowed.skill ?? 'profile';
-        return decision.skillEligibility?.skill === 'unknown'
+        return decision.skillEligibility?.skill === 'unknown' || skillDefaulted
           ? `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range} applied when skill is unknown.`
           : `Forecast ${observed} exceeds the ${appliedSkill} safety range of ${range}.`;
       }
@@ -264,6 +294,8 @@ function buildCanonicalSurfCall(
   profileExperience: SkillLevel | null,
   boardClass: BoardClass | null,
   recommendationAvailability: RecommendationAvailability,
+  skillDefaultApplied = false,
+  skillDefaulted = false,
 ): Omit<CanonicalSurfCallResponse, 'waterQuality'> {
   const selection = decision.selection;
   const selectedRecommendation = selection
@@ -328,7 +360,7 @@ function buildCanonicalSurfCall(
     selection?.evidence.personalMatch?.reasons.join(' ') ?? '';
   const whySentence = appendBoardNote(
     decision.decisionBasis === 'safety_override'
-      ? safetyReason(decision, beach.name)
+      ? safetyReason(decision, beach.name, skillDefaulted)
       : personalReasons || baseline.whySentence,
     boardNote,
   );
@@ -352,6 +384,7 @@ function buildCanonicalSurfCall(
         : null,
     userTier: profileExperience,
     skillSource: profileExperience ? 'profile' as const : null,
+    ...(skillDefaultApplied ? { skillDefaultApplied: true as const } : {}),
     recommendationAvailability,
   };
 
@@ -431,23 +464,34 @@ export async function computeCanonicalSurfCall({
   }
   const typedBeach = beach as unknown as RecommendationGateBeach;
 
+  const skillAware = isSkillAwareGoChecksOn(userId);
   let profileExperience: SkillLevel | null = null;
-  if (userId) {
+  let ratingSkill: SkillLevel | null = null;
+  // A failed read stays unknown skill; only a read row with no level is rated as beginner.
+  let skillBlank = false;
+  let skillDefaulted = false;
+  if (userId && skillAware) {
+    const read = await readProfileSkill(supabase, userId);
+    profileExperience = read.ok ? read.level : null;
+    ratingSkill = read.ok ? getSkillLevelOrDefault(read.level) : null;
+    skillBlank = read.ok && read.blank;
+    skillDefaulted = read.ok && read.level === null;
+  } else if (userId) {
     try {
       profileExperience = await getProfileExperienceLevel(supabase, userId);
     } catch {
       profileExperience = null;
     }
+    ratingSkill = profileExperience;
   }
-  let isPro = false;
-  if (userId) {
-    const { data: entitlementRow } = await supabase
-      .from('user_entitlements')
-      .select('is_pro, is_trialing, billing_issue, expires_at')
-      .eq('user_id', userId)
-      .maybeSingle();
-    isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
-  }
+  const entitlementRead = userId
+    ? await readEntitlementRow(supabase, userId)
+    : { status: 'ok' as const, row: null };
+  // A failed read still makes the call, but with no paid gates opened.
+  const planUnknown = entitlementRead.status === 'unknown';
+  const access = planUnknown
+    ? UNKNOWN_PLAN_FEATURE_ACCESS
+    : await resolveFeatureAccessFromRow(userId, entitlementRead.row);
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
   const requestedForecastTime = forecastAt
@@ -474,8 +518,8 @@ export async function computeCanonicalSurfCall({
     ? loadNowRecommendation({
         userId,
         beach: typedBeach,
-        isPro,
-        profileExperience,
+        access,
+        profileExperience: ratingSkill,
         now: anchor,
       })
     : null;
@@ -493,7 +537,7 @@ export async function computeCanonicalSurfCall({
   try {
     canonicalContext = await resolveCanonicalSessionDecisionContext({
       userId,
-      profileExperience,
+      profileExperience: ratingSkill,
       anchorTime,
       candidateBeachIds: [beachId],
       scope: {
@@ -512,7 +556,7 @@ export async function computeCanonicalSurfCall({
         ...(forecastAt ? { forecastAt } : {}),
         includeBeachIds: [beachId],
         allowRecommendationIneligibleIncludes: true,
-        isPro,
+        isPro: access.hasFeatureAccess,
         throwOnFailure: true,
       },
     });
@@ -546,6 +590,8 @@ export async function computeCanonicalSurfCall({
       profileExperience,
       boardClass,
       recommendationAvailability,
+      skillBlank && sessionDecision.skillEligibility?.skill === 'beginner',
+      skillDefaulted,
     ),
     waterQuality,
     ...(nowRecommendationResult
@@ -573,6 +619,7 @@ export async function computeCanonicalSurfCall({
           supabase,
           beachId,
           forecastAt,
+          typedBeach.timezone ?? 'UTC',
         ),
       }
     : canonicalResult;
@@ -583,5 +630,5 @@ export async function computeCanonicalSurfCall({
   ) as CanonicalSurfCallResponse;
   const result = applyRecommendationEligibilityGate(forcedResult, typedBeach);
 
-  return { status: 'ok', result };
+  return { status: 'ok', result: planUnknown ? { ...result, planStatus: 'unknown' } : result };
 }

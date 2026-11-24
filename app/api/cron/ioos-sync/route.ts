@@ -19,6 +19,7 @@ import { IOOSStation, IOOSObservation, PRIORITY_NETWORKS } from "@/types/ioos";
 import { ParsedObservation } from "@/lib/services/ioos";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -44,7 +45,6 @@ interface ObservationSyncResult {
   stationsFailed: number;
   stationsSkipped: number;
   stationsDeactivated404: number;
-  observableBeachesRefreshed: boolean;
   errors: string[];
   duration_ms: number;
 }
@@ -136,7 +136,7 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/ioos-sync", _GET);
+const handleGet = withObservedCron("/api/cron/ioos-sync", _GET);
 
 /**
  * Station Discovery Phase
@@ -283,12 +283,17 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
 
       // Safety cap: if discovery found <50% of active stations, skip deactivation
       // (ERDDAP catalog may be partially down; activeCount includes just-upserted stations by design)
-      const { count: activeCount } = await supabase
+      const { count: activeCount, error: activeCountError } = await supabase
         .from("ioos_stations")
         .select("*", { count: "exact", head: true })
         .eq("active", true);
 
-      if (seenIds.length < (activeCount ?? 0) * 0.5) {
+      if (activeCountError || activeCount === null) {
+        // Without the active count the safety cap cannot run, so miss counters must not move
+        result.errors.push(
+          `Failed to count active stations; skipped deactivation: ${activeCountError?.message ?? "count missing"}`
+        );
+      } else if (seenIds.length < activeCount * 0.5) {
         console.warn(
           `[IOOS] Discovery found only ${seenIds.length}/${activeCount} active stations. Skipping deactivation to prevent mass-deactivation from incomplete ERDDAP results.`
         );
@@ -377,7 +382,6 @@ async function syncObservations(
     stationsFailed: 0,
     stationsSkipped: 0,
     stationsDeactivated404: 0,
-    observableBeachesRefreshed: false,
     errors: [],
     duration_ms: 0,
   };
@@ -653,15 +657,8 @@ async function syncObservations(
       result.errors.push(`Failed to mark stale stations: ${staleError.message}`);
     }
 
-    // Refresh observable_beaches materialized view so ML health metrics stay current
-    // TODO: RPC function missing from DB types
-    const { error: refreshError } = await (supabase as any).rpc("refresh_observable_beaches");
-    if (refreshError) {
-      result.errors.push(`Failed to refresh observable_beaches: ${refreshError.message}`);
-    } else {
-      result.observableBeachesRefreshed = true;
-      console.log("✅ Refreshed observable_beaches materialized view");
-    }
+    // observable_beaches is refreshed hourly by pg_cron (refresh-observable-beaches-hourly).
+    // Calling it here always hit PostgREST's 8s statement_timeout and rolled back.
   } catch (error) {
     result.errors.push(
       error instanceof Error ? error.message : "Unknown error during observation sync"
@@ -697,3 +694,5 @@ function calculateDistance(
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/ioos-sync");

@@ -53,6 +53,8 @@ const track = {
   track_geojson: { type: "LineString", coordinates: [[-119, 34], [-119.001, 34.001]] },
   speed_series: [{ t: start, mps: 3 }], recorded_by: "Garmin",
   paddle_distance_m: 1200, hr_avg: 118, hr_max: 156, source_device: "Forerunner 965",
+  water_temp_c: 20,
+  calories: 432, water_temp_start_c: 21, water_temp_end_c: 19,
 };
 
 type Table = "sessions" | "session_tracks" | "session_waves" | "session_wave_corrections" | "profiles" | "session_imports" | "user_events";
@@ -67,11 +69,11 @@ type Query = Record<string, jest.Mock>;
 const queries: Record<string, Query[]> = {};
 function queryFor(table: string): Query {
   const query: Query = {
-    select: jest.fn(), eq: jest.fn(), is: jest.fn(), lt: jest.fn(), gt: jest.fn(), order: jest.fn(),
+    select: jest.fn(), eq: jest.fn(), is: jest.fn(), lt: jest.fn(), gt: jest.fn(), in: jest.fn(), order: jest.fn(),
     maybeSingle: jest.fn(), insert: jest.fn(), update: jest.fn(), delete: jest.fn(),
     then: jest.fn(),
   };
-  for (const method of ["select", "eq", "is", "lt", "gt", "order", "insert", "update", "delete"]) {
+  for (const method of ["select", "eq", "is", "lt", "gt", "in", "order", "insert", "update", "delete"]) {
     query[method].mockReturnValue(query);
   }
   const result = (): { data: unknown; error: null } => ({ data: rows[table as Table], error: null });
@@ -175,7 +177,8 @@ it("returns the native waves contract with corrections, override count, track an
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     success: true, data: {
-      summary: { waveCount: 4, detectedWaveCount: 0, userWaveCount: 4, speedReliable: false, detectionVersion: "wd-1.0.0" },
+      summary: { waveCount: 4, detectedWaveCount: 0, userWaveCount: 4, speedReliable: false, detectionVersion: "wd-1.0.0",
+        calories: 432, waterTempC: 20, waterTempStartC: 21, waterTempEndC: 19 },
       waves: [{ id: waveId, index: 1, startedAt: start, endedAt: end, durationS: 20, distanceM: 42,
         maxSpeedMps: null, avgSpeedMps: null, headingDeg: 270, confidence: 0.9, excluded: true, counted: false,
         tideFt: 2.4, start: { lat: 34, lon: -119 }, end: { lat: 34.001, lon: -119.001 } }],
@@ -184,7 +187,53 @@ it("returns the native waves contract with corrections, override count, track an
   });
   expect(queries.session_waves[0].eq).toHaveBeenCalledWith("is_current", true);
   expect(queries.session_waves[0].order).toHaveBeenCalledWith("wave_index");
+  const getTrackColumns = queries.session_tracks[0].select.mock.calls[0][0] as string;
+  expect(getTrackColumns).toContain("water_temp_c");
+  expect(getTrackColumns).toContain("water_temp_start_c");
+  expect(getTrackColumns).toContain("water_temp_end_c");
+  expect(getTrackColumns).toContain("calories");
+  expect(getTrackColumns).toContain("track_geojson");
   expect(response.headers.get("Cache-Control")).toContain("no-store");
+});
+
+it("returns null track extras before the watch stats migration", async () => {
+  const { calories, water_temp_c, water_temp_start_c, water_temp_end_c, ...legacyTrack } = track;
+  void calories; void water_temp_c; void water_temp_start_c; void water_temp_end_c;
+  rows.session_tracks = legacyTrack;
+  const response = await GET(request("GET"), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    calories: null, waterTempStartC: null, waterTempEndC: null,
+    waterTempC: null,
+  } } });
+  expect(queries.session_tracks[0].select).toHaveBeenCalledWith(expect.stringContaining("water_temp_start_c"));
+});
+
+it.each(["42703", "PGRST204"])("retries the waves track read without newer scalar columns after %s", async code => {
+  const { calories, water_temp_c, water_temp_start_c, water_temp_end_c, ...legacyTrack } = track;
+  void calories; void water_temp_c; void water_temp_start_c; void water_temp_end_c;
+  rows.session_tracks = legacyTrack;
+  mockUserFrom.mockImplementation((table: string) => {
+    const query = queryFor(table);
+    if (table === "session_tracks" && queries.session_tracks.length === 1) {
+      query.maybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code, message: "column session_tracks.water_temp_start_c does not exist" },
+      });
+    }
+    return query;
+  });
+
+  const response = await GET(request("GET"), context);
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: {
+    calories: null, waterTempC: null, waterTempStartC: null, waterTempEndC: null,
+  } } });
+  expect(queries.session_tracks).toHaveLength(2);
+  expect(queries.session_tracks[0].select.mock.calls[0][0]).toContain("water_temp_c");
+  expect(queries.session_tracks[1].select.mock.calls[0][0]).not.toContain("water_temp_c");
+  expect(queries.session_tracks[1].select.mock.calls[0][0]).toContain("track_geojson");
 });
 
 it("returns Garmin track metrics and the recorded-with label", async () => {
@@ -199,6 +248,8 @@ it("returns Garmin track metrics and the recorded-with label", async () => {
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ data: { summary: {
     paddleDistanceM: 1200, heartRateAvg: 118, heartRateMax: 156,
+    calories: 432, waterTempStartC: 21, waterTempEndC: 19,
+    waterTempC: 20,
     setIntervalMin: 8, recordedWith: "Quiver for Garmin · Forerunner 965",
   } } });
   expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
@@ -221,7 +272,13 @@ it.each(["count", "exclude", "restore"])("preserves Garmin summary fields after 
     setIntervalMin: 10, recordedWith: "Quiver for Garmin · Forerunner 965",
   } } });
   expect(queries.sessions[0].select).toHaveBeenCalledWith(expect.stringContaining("source"));
-  expect(queries.session_tracks[0].select).toHaveBeenCalledWith(expect.stringContaining("source_device"));
+  const patchTrackColumns = queries.session_tracks[0].select.mock.calls[0][0] as string;
+  expect(patchTrackColumns).toContain("water_temp_c");
+  expect(patchTrackColumns).toContain("water_temp_start_c");
+  expect(patchTrackColumns).toContain("water_temp_end_c");
+  expect(patchTrackColumns).toContain("calories");
+  expect(patchTrackColumns).not.toContain("track_geojson");
+  expect(patchTrackColumns).not.toContain("speed_series");
 });
 
 it.each(["other owner", "soft deleted"])("returns 404 for %s", async reason => {
@@ -319,6 +376,73 @@ it("inserts an exclusion correction with a UUID and emits an event", async () =>
   expect(queries.user_events[0].insert).toHaveBeenCalledWith(expect.objectContaining({ event_type: "session_wave_excluded" }));
 });
 
+it("counts an uncounted attempt and updates the returned wave count", async () => {
+  rows.session_tracks = { ...track, user_wave_count: null };
+  rows.session_waves = [{ ...wave, confidence: 0.4 }];
+  rows.session_wave_corrections = [];
+  const response = await patchWave(request("PATCH", { counted: true }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ success: true, data: { summary: {
+    waveCount: 1, detectedWaveCount: 1,
+  } } });
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert).toHaveBeenCalledWith(
+    expect.objectContaining({ action: "include", started_at: start, ended_at: end }),
+  );
+  expect(queries.user_events[0].insert).toHaveBeenCalledWith(expect.objectContaining({
+    user_id: userId, event_type: "session_wave_included",
+    metadata: { session_id: sessionId, wave_id: waveId },
+  }));
+  rows.session_wave_corrections = [{ action: "include", started_at: start, ended_at: end }];
+  const refreshed = await GET(request("GET"), context);
+  expect(await refreshed.json()).toMatchObject({ data: { waves: [{ counted: true, excluded: false }],
+    summary: { waveCount: 1, detectedWaveCount: 1 } } });
+});
+
+it("returns unavailable with Retry-After when include violates the old correction constraint", async () => {
+  rows.session_wave_corrections = [];
+  mockUserFrom.mockImplementation((table: string) => {
+    const query = queryFor(table);
+    if (table === "session_wave_corrections" && queries.session_wave_corrections.length === 3) {
+      query.then.mockImplementation((resolve: (value: unknown) => unknown) => resolve({
+        data: null, error: { code: "23514", message: "action violates old check constraint" },
+      }));
+    }
+    return query;
+  });
+
+  const response = await patchWave(request("PATCH", { counted: true }), context);
+
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ success: false, error: "unavailable" });
+  expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
+  expect(mockServiceFrom).not.toHaveBeenCalledWith("user_events");
+});
+
+it("counted=true replaces a conflicting exclusion correction", async () => {
+  rows.session_tracks = { ...track, user_wave_count: null };
+  rows.session_waves = [{ ...wave, confidence: 0.4 }];
+  rows.session_wave_corrections = [
+    { started_at: start, ended_at: end, action: "exclude" },
+    { started_at: start, ended_at: end, action: "include" },
+  ];
+  const response = await patchWave(request("PATCH", { counted: true }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: { waveCount: 1, detectedWaveCount: 1 } } });
+  expect(queries.session_wave_corrections.find(q => q.delete.mock.calls.length)?.delete).toHaveBeenCalled();
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert)
+    .toHaveBeenCalledWith(expect.objectContaining({ action: "include" }));
+});
+
+it("stores counted=false through the existing exclusion correction action", async () => {
+  rows.session_tracks = { ...track, user_wave_count: null };
+  rows.session_wave_corrections = [];
+  const response = await patchWave(request("PATCH", { counted: false }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ data: { summary: { waveCount: 0, detectedWaveCount: 0 } } });
+  expect(queries.session_wave_corrections.find(q => q.insert.mock.calls.length)?.insert)
+    .toHaveBeenCalledWith(expect.objectContaining({ action: "exclude" }));
+});
+
 it.each([
   ["fully", end],
   ["half", "2026-10-17T12:00:10Z"],
@@ -347,7 +471,7 @@ it("redetects from the stored file for an admin and returns the counted waves", 
   mockAuth.mockResolvedValue({ data: { user: { id: userId, app_metadata: { is_admin: true } } }, error: null });
   const response = await redetect(request("POST"), context);
   expect(response.status).toBe(200);
-  expect(await response.json()).toMatchObject({ success: true, data: { detectionVersion: "wd-1.0.0", waveCount: 1 } });
+  expect(await response.json()).toMatchObject({ success: true, data: { detectionVersion: "wd-1.1.0", waveCount: 1 } });
   expect(mockDownload).toHaveBeenCalledWith("track.fit");
   expect(mockReadTrackFile).toHaveBeenCalledWith(expect.any(Uint8Array), "track.fit", expect.any(Date));
   expect(mockLoadBeach).toHaveBeenCalledWith(expect.anything(), beachId);

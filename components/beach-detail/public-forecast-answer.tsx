@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense, use, type ReactElement } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import type { Beach } from "@/types/database";
@@ -27,6 +28,9 @@ const DECK_VALUE =
 const STRIP_LABEL =
   "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#11100D]";
 
+type NearbyForecastBeach = Pick<Beach, "id" | "name" | "slug" | "city" | "state" | "country">;
+type NearbyForecastBeaches = NearbyForecastBeach[] | Promise<NearbyForecastBeach[]>;
+
 interface PublicForecastAnswerProps {
   beach: Beach;
   waterQuality?: WaterQuality | null;
@@ -39,9 +43,7 @@ interface PublicForecastAnswerProps {
     start: string | null;
     end: string | null;
   };
-  nearbyBeaches?: Array<
-    Pick<Beach, "id" | "name" | "slug" | "city" | "state" | "country">
-  >;
+  nearbyBeaches?: NearbyForecastBeaches;
   headingLevel: "h1" | "h2";
   returnTo: string;
 }
@@ -133,7 +135,7 @@ export function PublicForecastAnswer({
   generalCall = null,
   isTomorrow: publicIsTomorrow,
   publicDecisionWindow,
-  nearbyBeaches = [],
+  nearbyBeaches,
   headingLevel,
   returnTo,
 }: PublicForecastAnswerProps) {
@@ -413,22 +415,33 @@ export function PublicForecastAnswer({
 
       </details>
 
-      {nearbyBeaches.length > 0 && (
-        <nav aria-label="Nearby spots" className="mt-5">
-          <p className={DECK_LABEL}>Nearby spots</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {nearbyBeaches.slice(0, 3).map((backup) => (
-              <Link
-                key={backup.id}
-                href={buildBeachUrl(backup)}
-                className="border-2 border-[#11100D] bg-[#EFE5CF] px-2.5 py-1 font-mono text-xs font-bold uppercase tracking-[0.08em] text-[#11100D] shadow-[2px_2px_0_#11100D] hover:bg-[#F7E7BE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
-              >
-                {backup.name}
-              </Link>
-            ))}
-          </div>
-        </nav>
+      {nearbyBeaches && (
+        <Suspense fallback={null}>
+          <NearbyForecastLinks beaches={nearbyBeaches} />
+        </Suspense>
       )}
     </section>
+  );
+}
+
+function NearbyForecastLinks({ beaches }: { beaches: NearbyForecastBeaches }): ReactElement | null {
+  const nearbyBeaches = Array.isArray(beaches) ? beaches : use(beaches);
+  if (!nearbyBeaches.length) return null;
+
+  return (
+    <nav aria-label="Nearby spots" className="mt-5">
+      <p className={DECK_LABEL}>Nearby spots</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {nearbyBeaches.slice(0, 3).map((backup) => (
+          <Link
+            key={backup.id}
+            href={buildBeachUrl(backup)}
+            className="border-2 border-[#11100D] bg-[#EFE5CF] px-2.5 py-1 font-mono text-xs font-bold uppercase tracking-[0.08em] text-[#11100D] shadow-[2px_2px_0_#11100D] hover:bg-[#F7E7BE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
+          >
+            {backup.name}
+          </Link>
+        ))}
+      </div>
+    </nav>
   );
 }

@@ -19,7 +19,7 @@
  *     used for the large-clean branch) becomes `... >= 60`.
  *
  * WIND SKIP-GATE OWNERSHIP (PR 4):
- *   Skip semantics now flow entirely through `windQualityScorer`'s tier
+ *   Wind skip semantics flow entirely through `windQualityScorer`'s tier
  *   table — when the scorer returns `skip = true` (Blown-out tier: ≥22 mph
  *   onshore-or-cross OR ≥30 mph offshore), the composite carries that
  *   skip reason and the classifier reads `skipReason` directly instead of
@@ -37,7 +37,14 @@ import type { ConditionsSnapshot } from '../conditions/types';
 import type { SpotProfile } from '../spot-profile/types';
 import type { CompositeScore } from './types';
 import { angleDifference } from '../shared';
-import { isWindQualityUnknown } from './scorers/wind-quality-scorer';
+import {
+  classifyDirection,
+  isBlownOutWind,
+  isWindQualityUnknown,
+  type WindDirectionClass,
+} from './scorers/wind-quality-scorer';
+import { FLAT_CONDITIONS_SKIP_REASON } from './scorers/base-conditions-scorer';
+import { LOW_TIDE_HEAVY_SWELL_WARNING } from './scorers/setup-risk-scorer';
 
 /**
  * Condition character categories (mirrors legacy `lib/scoring/types.ts`).
@@ -68,6 +75,22 @@ export interface ConditionCharacter {
   /** Short descriptive label, e.g. "Small but powerful — long-period energy" */
   label: string;
   category: ConditionCharacterCategory;
+}
+
+/** Which small-weak branch the classifier took. */
+export type SmallWeakReason = 'onshore-chop' | 'weak-swell' | 'marginal';
+
+/**
+ * The character plus the small-weak branch. The reason sits beside the
+ * character, not on it, because callers serialize the whole character.
+ */
+interface ConditionCharacterDetails {
+  character: ConditionCharacter;
+  smallWeakReason: SmallWeakReason | null;
+}
+
+function withoutReason(character: ConditionCharacter): ConditionCharacterDetails {
+  return { character, smallWeakReason: null };
 }
 
 /**
@@ -142,10 +165,84 @@ function isWindOnshoreForCharacter(
 }
 
 /**
+ * Why an hour is a skip, with that hour's own numbers, so the condition label
+ * and the Daily Call why sentence can't name different causes.
+ */
+export type SkipCause =
+  | { kind: 'wind'; speedMph: number; direction: WindDirectionClass }
+  | { kind: 'flat' }
+  /** A flat skip on a row with no wave height: the scorer read the missing height as 0 ft. */
+  | { kind: 'no-data' }
+  | { kind: 'setup-risk' }
+  | { kind: 'other' };
+
+/** The label for an hour whose row has no wave height, which must never read as flat. */
+const NO_SIZE_FORECAST_LABEL = 'No size forecast yet';
+
+/** The hour's wind against the spot's offshore bearing; null when it can't be judged. */
+function hourWind(
+  snapshot: ConditionsSnapshot,
+  profile: SpotProfile
+): { speedMph: number; direction: WindDirectionClass } | null {
+  const { speedMph, directionDeg } = snapshot.wind;
+  const { offshoreDeg, offshoreToleranceDeg } = profile.windThresholds;
+  if (speedMph === null || !Number.isFinite(speedMph) || directionDeg === null || offshoreDeg === null) {
+    return null;
+  }
+  return { speedMph, direction: classifyDirection(directionDeg, offshoreDeg, offshoreToleranceDeg) };
+}
+
+/**
+ * Read the skip cause off the composite's skip reason (only
+ * `windQualityScorer`'s Blown-out tier is about wind) and the same hour's
+ * wind. Unknown wind is neutral and unspoken. Null when the hour isn't a skip.
+ */
+export function getSkipCause(
+  snapshot: ConditionsSnapshot,
+  profile: SpotProfile,
+  composite: CompositeScore
+): SkipCause | null {
+  const skipReason = composite.skipReason;
+  if (!skipReason) return null;
+  if (skipReason === LOW_TIDE_HEAVY_SWELL_WARNING) return { kind: 'setup-risk' };
+
+  const wind = hourWind(snapshot, profile);
+  if (skipReason === FLAT_CONDITIONS_SKIP_REASON) {
+    // The flat check ends scoring before the wind scorer runs, so a flat
+    // hour's reason never says the wind blows it out. Blown out outranks flat.
+    if (!wind || !isBlownOutWind(wind.speedMph, wind.direction)) {
+      return snapshot.waveHeightKnown === false ? { kind: 'no-data' } : { kind: 'flat' };
+    }
+  } else if (!wind || !skipReason.toLowerCase().startsWith('blown out')) {
+    return { kind: 'other' };
+  }
+  return { kind: 'wind', speedMph: Math.round(wind.speedMph), direction: wind.direction };
+}
+
+/** The condition label for a skip cause. */
+export function getSkipCharacter(cause: SkipCause): ConditionCharacter {
+  if (cause.kind === 'wind') {
+    return cause.direction === 'onshore'
+      ? { category: 'skip', label: 'Onshore wind — conditions blown out' }
+      : { category: 'skip', label: 'Blown out — too much wind' };
+  }
+  if (cause.kind === 'flat') {
+    return { category: 'skip', label: 'Flat — rest day' };
+  }
+  if (cause.kind === 'no-data') {
+    return { category: 'skip', label: NO_SIZE_FORECAST_LABEL };
+  }
+  if (cause.kind === 'setup-risk') {
+    return { category: 'skip', label: 'Likely closing out — dropping low tide' };
+  }
+  return { category: 'skip', label: 'Skip — conditions not favorable' };
+}
+
+/**
  * Determine the qualitative condition character.
  *
  * Priority-ordered decision tree (first matching rule wins):
- *   1. Skip — blown out or dominated by onshore wind
+ *   1. Skip — blown out, flat, or a setup risk (per `getSkipCause`)
  *   2. Flat — barely anything to surf (< 0.5ft)
  *   3. Small (0.5–2ft) — weak / quality / clean / fallback
  *   4. Medium (2–5ft) — clean / mixed
@@ -161,6 +258,18 @@ export function getConditionCharacter(
   profile: SpotProfile,
   composite: CompositeScore
 ): ConditionCharacter {
+  return getConditionCharacterDetails(snapshot, profile, composite).character;
+}
+
+/**
+ * `getConditionCharacter` plus which small-weak branch it took
+ * (null for every other category).
+ */
+export function getConditionCharacterDetails(
+  snapshot: ConditionsSnapshot,
+  profile: SpotProfile,
+  composite: CompositeScore
+): ConditionCharacterDetails {
   const waveHeight = snapshot.waveHeight;
   const wavePeriod = snapshot.wavePeriod;
   const windSpeed = snapshot.wind.speedMph;
@@ -170,26 +279,18 @@ export function getConditionCharacter(
   // Unknown wind is neutral and unspoken: no wind words, no wind-driven downgrade.
   const windUnknown = isWindQualityUnknown(snapshot, profile);
 
-  // 1. Skip conditions — read the composite's skip reason directly. The
-  //    `windQualityScorer` (post-PR 4) raises `skip` only at the Blown-out
-  //    tier (≥22 mph onshore-or-cross OR ≥30 mph offshore), which is the
-  //    new single source of truth for "too windy to surf". Skip from any
-  //    other scorer (e.g. `baseConditionsScorer` for >25 ft) also lands
-  //    here — surface a generic blown-out label since wind is the most
-  //    common cause; downstream callers display the composite's actual
-  //    skipReason when more detail is needed.
-  if (composite.skipReason) {
-    if (windUnknown) return { category: 'skip', label: 'Skip — conditions not favorable' };
-    const lower = composite.skipReason.toLowerCase();
-    const label = lower.includes('onshore')
-      ? 'Onshore wind — conditions blown out'
-      : 'Blown out — too much wind';
-    return { category: 'skip', label };
-  }
+  // 1. Skip conditions — label by the cause, so a flat row or a setup risk
+  //    never reads as wind and a blown-out flat row never reads as flat.
+  const skipCause = getSkipCause(snapshot, profile, composite);
+  if (skipCause) return withoutReason(getSkipCharacter(skipCause));
 
-  // 2. Flat — barely anything to surf
+  // A capped sand beach above its size reads as a closeout, never "Big and clean" beside MEH.
+  const closeout = composite.effects?.find((effect) => effect.code === 'closeout_size');
+  if (closeout) return withoutReason({ category: 'skip', label: closeout.message });
+
+  // 2. Flat — barely anything to surf, unless nobody measured it
   if (waveHeight < 0.5) {
-    return { category: 'flat', label: 'Flat — rest day' };
+    return withoutReason({ category: 'flat', label: snapshot.waveHeightKnown === false ? NO_SIZE_FORECAST_LABEL : 'Flat — rest day' });
   }
 
   // 3. Small waves (0.5–2ft)
@@ -197,9 +298,15 @@ export function getConditionCharacter(
     // Small-weak: short period wind chop (checked early, like legacy)
     if (wavePeriod < 8) {
       if (isOnshore && windSpeed !== null && windSpeed > 5) {
-        return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
+        return {
+          character: { category: 'small-weak', label: 'Small & choppy — onshore wind' },
+          smallWeakReason: 'onshore-chop',
+        };
       }
-      return { category: 'small-weak', label: 'Weak swell — minimal energy' };
+      return {
+        character: { category: 'small-weak', label: 'Weak swell — minimal energy' },
+        smallWeakReason: 'weak-swell',
+      };
     }
 
     // Small-quality: long period + good direction alignment + non-onshore.
@@ -213,36 +320,42 @@ export function getConditionCharacter(
         snapshot.primarySwell?.directionDeg ?? snapshot.waveDirection ?? null;
       const directionFit = calculateSwellDirectionFit(swellDirection, profile);
       if (directionFit >= 0.85) {
-        return {
+        return withoutReason({
           category: 'small-quality',
           label: 'Small but powerful — long-period energy',
-        };
+        });
       }
       if (directionFit >= 0.4) {
-        return {
+        return withoutReason({
           category: 'small-quality',
           label: 'Small with some push — angled swell',
-        };
+        });
       }
     }
 
     // Unknown wind neither blocks nor earns "clean": a neutral small day.
     if (windUnknown) {
-      return { category: 'small-clean', label: 'Small but surfable' };
+      return withoutReason({ category: 'small-clean', label: 'Small but surfable' });
     }
 
     // Small-clean: light wind, not onshore (8s+ period).
     if (windSpeed !== null && windSpeed <= 5 && !isOnshore) {
-      return { category: 'small-clean', label: 'Small & clean — glassy conditions' };
+      return withoutReason({ category: 'small-clean', label: 'Small & clean — glassy conditions' });
     }
 
     // Small-weak: onshore wind (8-11s period)
     if (isOnshore && windSpeed !== null && windSpeed > 5) {
-      return { category: 'small-weak', label: 'Small & choppy — onshore wind' };
+      return {
+        character: { category: 'small-weak', label: 'Small & choppy — onshore wind' },
+        smallWeakReason: 'onshore-chop',
+      };
     }
 
     // Catch-all small fallback
-    return { category: 'small-weak', label: 'Small — marginal conditions' };
+    return {
+      character: { category: 'small-weak', label: 'Small — marginal conditions' },
+      smallWeakReason: 'marginal',
+    };
   }
 
   // 4. Medium waves (2–5ft)
@@ -252,32 +365,36 @@ export function getConditionCharacter(
   if (waveHeight < 5) {
     const tideIsGood = tideFit >= TIDE_FIT_GOOD_THRESHOLD;
     if (windUnknown) {
-      return tideIsGood && wavePeriod >= 10
-        ? { category: 'medium-clean', label: 'Lined up — good swell and tide' }
-        : { category: 'medium-mixed', label: 'Decent — some quality in the mix' };
+      return withoutReason(
+        tideIsGood && wavePeriod >= 10
+          ? { category: 'medium-clean', label: 'Lined up — good swell and tide' }
+          : { category: 'medium-mixed', label: 'Decent — some quality in the mix' }
+      );
     }
     const windIsGood = windQuality >= WIND_QUALITY_GOOD_THRESHOLD;
     if (windIsGood && tideIsGood && wavePeriod >= 10) {
-      return { category: 'medium-clean', label: 'Lined up — clean wind, good tide' };
+      return withoutReason({ category: 'medium-clean', label: 'Lined up — clean wind, good tide' });
     }
     if (windQuality < WIND_QUALITY_ROUGH_THRESHOLD) {
-      return {
+      return withoutReason({
         category: 'medium-rough',
         label: 'Mixed and choppy — wind-affected',
-      };
+      });
     }
-    return { category: 'medium-mixed', label: 'Decent — some quality in the mix' };
+    return withoutReason({ category: 'medium-mixed', label: 'Decent — some quality in the mix' });
   }
 
   // 5. Large waves (5ft+)
   if (windUnknown) {
-    return wavePeriod >= 10
-      ? { category: 'large-clean', label: 'Big groundswell — experts only' }
-      : { category: 'large-rough', label: 'Big surf — experts only' };
+    return withoutReason(
+      wavePeriod >= 10
+        ? { category: 'large-clean', label: 'Big groundswell — experts only' }
+        : { category: 'large-rough', label: 'Big surf — experts only' }
+    );
   }
   const windIsClean = windQuality >= WIND_QUALITY_CLEAN_THRESHOLD;
   if (windIsClean && wavePeriod >= 10) {
-    return { category: 'large-clean', label: 'Big and clean — groundswell, light wind' };
+    return withoutReason({ category: 'large-clean', label: 'Big and clean — groundswell, light wind' });
   }
-  return { category: 'large-rough', label: 'Big and rough — experts only' };
+  return withoutReason({ category: 'large-rough', label: 'Big and rough — experts only' });
 }

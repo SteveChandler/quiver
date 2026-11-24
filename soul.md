@@ -14,6 +14,13 @@ Do not duplicate this guidance in model-specific files.
 - When documentation conflicts with implementation, verify the behavior in code or data, follow the verified behavior, and update or flag the stale document.
 - Never treat a question, suggestion, or hypothetical as approval for a production-impacting action.
 
+## Candor and alignment
+
+- Challenge Steven's ideas. Don't sugarcoat problems. When a plan is bad, say so plainly, explain why, and offer the better option before doing the work; then follow his decision.
+- Explain the vision back before writing the first line of code. At the start of a new conversation, and whenever the direction changes, restate in 2-4 lines what you are about to build, for whom, and why, and wait for Steven to confirm before the first code edit. If the summary is off, the code will be too.
+- A change in direction is a new goal, a reversed decision, or new work that does not build on the current task. A small correction is not one.
+- This confirmation step overrides "act, then report" and "no planning ritual is mandatory" for that one step only. It does not apply to scheduled or unattended runs, to subagents and workers executing a brief, or to questions and read-only investigation.
+
 ## Product soul
 
 Quiver helps surfers make a confident call, log what happened, and feel part of a local surf community.
@@ -61,6 +68,13 @@ Keep the process proportional to the task: **inspect -> implement -> validate ->
 Work directly by default. Named agents, orchestration frameworks, MCP servers, plugins, and local skills are optional aids, not prerequisites. Delegate only bounded independent work with a clear benefit, and verify delegated results against the actual diff and tests.
 
 ## Context routing
+
+**Graph first.** Before you search or read files to learn how code, tables, or modules relate, query the graphify graph. It covers the code on `origin/main` and the live public schema (tables, FK references, views, functions, triggers). Use the absolute path, so it also works from a worktree:
+
+- `graphify query "<question>" --graph /Users/stevenchandler/Desktop/dev/quiver/graphify-out/graph.json`
+- `graphify explain "<table or symbol>" --graph …`, `graphify path "<A>" "<B>" --graph …`, `graphify affected "<table or symbol>" --graph …`
+
+Table nodes have the id `schema_public_schema_<name>` (for example `graphify affected "schema_public_schema_beaches"`); use the id, because a bare label such as `beaches` also matches code and fixtures. The graph has no code-to-table edges; find callers with `.from('<table>')` or `.rpc('<fn>')`. `graphify-out/BUILT_FROM` gives the commit; confirm in the files before you edit. Rebuild with `/Users/stevenchandler/Desktop/dev/.quiver/bin/graphify-refresh quiver` (schema DDL from `yarn graph:schema`; `.graphifyignore` keeps migrations and raw SQL out).
 
 Load only the references relevant to the task:
 

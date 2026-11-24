@@ -23,6 +23,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather", "drifter"],
+    ndbcTwinId: "46225",
   },
 
   "155": {
@@ -33,6 +34,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 18,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46235",
   },
 
   "191": {
@@ -43,6 +45,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46232",
   },
 
   "201": {
@@ -53,6 +56,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 20,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46254",
   },
 
   "153": {
@@ -63,6 +67,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 15,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46266",
   },
 
   "220": {
@@ -73,6 +78,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 100,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46258",
   },
 
   "208": {
@@ -85,26 +91,6 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     parameters: ["wave"],
   },
 
-  "46225": {
-    id: "46225",
-    name: "Point Reyes",
-    latitude: 37.751,
-    longitude: -122.839,
-    deployDepth: 430,
-    hullType: "3-meter discus buoy",
-    parameters: ["wave", "weather"],
-  },
-
-  "46236": {
-    id: "46236",
-    name: "Monterey Bay",
-    latitude: 36.771,
-    longitude: -122.186,
-    deployDepth: 1100,
-    hullType: "3-meter discus buoy",
-    parameters: ["wave", "weather", "sst"],
-  },
-
   // Orange County / Camp Pendleton area
   "45": {
     id: "45",
@@ -114,69 +100,118 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     deployDepth: 200,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46224",
   },
 
-  // Ventura / Channel Islands area
-  "179": {
-    id: "179",
-    name: "Anacapa Passage",
-    latitude: 34.0008,
-    longitude: -119.3592,
-    deployDepth: 200,
+  // Outside the Channel Islands; the measured buoy for the Ventura beaches
+  // (Nov 2026: held-out face error 0.25-0.52 ft vs 0.67-1.40 on "179").
+  "203": {
+    id: "203",
+    name: "Santa Cruz Basin",
+    latitude: 33.7685,
+    longitude: -119.563,
+    deployDepth: 1890,
     hullType: "Waverider buoy",
     parameters: ["wave"],
+    ndbcTwinId: "46251",
+  },
+
+  // The measured buoy for Point Dume, Leo Carrillo and Latigo (Nov 2026:
+  // Leo held-out face error 0.31 ft vs 2.05 model-only). Explicit-only: as a
+  // fallback it would move 10 uncalibrated Santa Monica Bay beaches off "67".
+  "103": {
+    id: "103",
+    name: "Topanga Nearshore",
+    latitude: 34.02305,
+    longitude: -118.5783,
+    deployDepth: 20,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    ndbcTwinId: "46268",
+    fallbackEligible: false,
   },
 
   // Additional SoCal Stations
+  // The real San Pedro buoy, at the coordinates "67" used to carry. No beach
+  // forecast falls back to it (every station-less beach within 150 km is
+  // pinned to model_only); it keeps the cron's 80 km marine-observation
+  // fallback for South Bay, Santa Monica Bay and north Orange County on a
+  // local buoy instead of San Nicolas Island.
+  "092": {
+    id: "092",
+    name: "San Pedro",
+    latitude: 33.61428,
+    longitude: -118.31417,
+    deployDepth: 457,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    ndbcTwinId: "46222",
+  },
+
+  // CDIP 067 is San Nicolas Island (CDIP metadata and NDBC 46219), ~150 km
+  // offshore. This entry was labelled "San Pedro South" at San Pedro's
+  // coordinates (that buoy is CDIP 092), which made it the nearest-station
+  // fallback for Santa Monica Bay, South Bay and north Orange County beaches.
   "67": {
     id: "67",
-    name: "San Pedro South",
-    latitude: 33.618,
-    longitude: -118.318,
-    deployDepth: 880,
+    name: "San Nicolas Island",
+    latitude: 33.2255,
+    longitude: -119.8915,
+    deployDepth: 315,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46219",
   },
 
   "071": {
     id: "071",
     name: "Harvest",
-    latitude: 34.443,
-    longitude: -120.775,
-    deployDepth: 476,
+    latitude: 34.4515,
+    longitude: -120.78,
+    deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46218",
   },
 
-  "46221": {
-    id: "46221",
-    name: "Point Arena",
-    latitude: 38.837,
-    longitude: -123.737,
-    deployDepth: 100,
-    hullType: "3-meter discus buoy",
-    parameters: ["wave", "weather"],
-  },
-
-  // Central California
+  // Same buoy as "071" (ERDDAP pads "71" to "071"; NDBC 46218). Kept because
+  // Jalama's cdip_station is "71". It was labelled "Half Moon Bay" at Half Moon
+  // Bay's coordinates, which made Harvest (~370 km south) the nearest-station
+  // fallback for Pacifica, Mavericks and Santa Cruz.
   "71": {
     id: "71",
-    name: "Half Moon Bay",
-    latitude: 37.494,
-    longitude: -122.469,
-    deployDepth: 274,
+    name: "Harvest",
+    latitude: 34.4515,
+    longitude: -120.78,
+    deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46218",
+  },
+
+  // 12 km off Ocean Beach SF; the measured buoy for Sloat (Nov 2026: 0.38 ft
+  // lower held-out face error than Harvest). Shallow, so it saturates on the
+  // biggest days.
+  "142": {
+    id: "142",
+    name: "San Francisco Bar",
+    latitude: 37.788,
+    longitude: -122.6318,
+    deployDepth: 15,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+    ndbcTwinId: "46237",
   },
 
   "157": {
     id: "157",
     name: "Pt. Sur",
-    latitude: 36.3,
-    longitude: -121.892,
-    deployDepth: 384,
+    latitude: 36.3416,
+    longitude: -122.1096,
+    deployDepth: 366,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather"],
+    ndbcTwinId: "46239",
   },
 };
 

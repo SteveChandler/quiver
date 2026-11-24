@@ -32,7 +32,7 @@ interface StoreTable {
 }
 interface SyncClient { from(table: string): StoreTable }
 type EventRef = { id: string; region: string };
-export type RainAdvisorySyncResult =
+type RainAdvisorySyncResult =
   | { status: "ok"; opened: EventRef[]; extended: EventRef[]; ended: EventRef[] }
   | { status: "table_missing" }
   | { status: "error"; error: unknown };

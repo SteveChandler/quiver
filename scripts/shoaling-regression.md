@@ -53,10 +53,12 @@ Fixtures encode the 2026-04-09 bimodal reading that triggered the fix:
 
 ### Gate C — wind-swell beaches near-neutral (`-20%` to `+10%`)
 
-**Set:** HB Pier Southside, The Wedge
+**Set:** HB Pier Southside, The Wedge, La Jolla Shores
 **Check:** delta in `[-20%, +10%]`
 **Failure signal:** short-period cutoff over-zeros legitimate wind-swell
-spots. Both fixtures use swell periods just above the 8 s cutoff (9–10 s).
+spots. HB Pier Southside and The Wedge use periods just above the 8 s cutoff
+(9–10 s). La Jolla Shores has 2.7 ft CDIP Hs at 7 s; its short-period
+component is dropped and the scalar fallback must retain the capped height.
 
 ### Gate D — uncalibrated beaches byte-identical to legacy
 
@@ -87,14 +89,42 @@ GET https://services.surfline.com/kbyg/spots/forecasts/wave
 No token is used. If the endpoint is ever gated behind auth, Gate E will
 degrade gracefully — it is deliberately best-effort.
 
-### Gate F — CDIP→model handoff boundary default-off invariant + enabled blend
+### Gate F — CDIP→model handoff seam measured, rows unchanged
 
 **Set:** Lower Trestles CDIP→NOAA_NWS handoff fixture
-**Check:** with the blend flag off, the first model slot remains byte-identical;
-with the blend flag on, the first model slot moves toward the last CDIP face
-height through the bounded 48h taper.
-**Failure signal:** the handoff instrumentation changed default behavior, or the
-enabled blend no longer improves the discontinuity at the CDIP/model seam.
+**Check:** the CDIP/model seam discontinuity is measured, and every slot stays
+byte-identical. The 48 h taper that rescaled model rows was removed in #1236: a
+buoy replay showed the seam's face-height ratio does not predict the later
+buoy/model gap, and the taper made heights fall while the swell grew.
+**Failure signal:** the seam is no longer measured, or the handoff code changed
+a forecast height.
+
+### Gate G — model hours stay on the buoy ruler at the handoff
+
+**Set:** `scripts/__fixtures__/model-seam-fixtures.json`, the five most recent
+real CDIP→model handoffs at each regression beach plus Del Mar, taken from
+`ml_predictions_log.display_replay_context`.
+**Check:** each pair's buoy slot and model slot are replayed through the
+current transformer (model slot with the beach id, so the per-beach factor in
+`lib/utils/model-swell-calibration-factors.ts` applies). The per-beach median
+model/buoy face ratio must be >= 0.45, and the median across beaches >= 0.75.
+**Why:** #1238 removed the 48 h seam taper after checking only whether the
+seam ratio predicted the later gap. Nobody replayed the seam without the
+taper, so model hours in Orange County dropped to about a third of the buoy
+hour before them. With the factors removed this gate fails (Lower Trestles
+0.32, fleet 0.70).
+**Failure signal:** a transform change, or removal of a compensator, drops
+model hours off the buoy ruler. Replay the seam before removing anything that
+was masking it.
+**Model-failure days:** a fixture day is a model-failure day when the median
+pair that day has the model period at least 3 s shorter than the buoy Tp
+(Nov 3–4 2026: a 14–18 s west swell read as 11–12 s). A per-beach factor
+cannot fix a mis-periodized swell. The gate prints every pair, but the
+blocking check uses only the pairs from other days. When every fixture pair is
+on a model-failure day, Gate G is report-only (advisory) for that fixture set.
+**Refresh:** `scripts/refit-model-swell-tables.sh .env.local 30 --write`
+(read-only against prod). It refits both model-hour factor tables and writes
+the fixtures.
 
 ## Fixtures
 

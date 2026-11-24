@@ -21,71 +21,36 @@ export const API_ENDPOINTS = {
 } as const;
 
 /**
- * Geographic regions and their baseline wave characteristics
+ * Geographic regions and their prevailing swell direction
  */
 export const WAVE_REGIONS = {
   /** Pacific Coast (California) */
   PACIFIC_COAST: {
     longitudeRange: { min: -130, max: -115 },
     latitudeRange: { min: 30, max: 50 },
-    baseWaveHeight: 0.7, // meters (~2.3ft typical San Diego conditions)
     prevailingDirection: 270, // West
   },
   /** Atlantic Coast */
   ATLANTIC_COAST: {
     longitudeRange: { min: -85, max: -70 },
     latitudeRange: { min: 25, max: 45 },
-    baseWaveHeight: 0.8, // meters
     prevailingDirection: 120, // Southeast
   },
   /** Gulf of Mexico */
   GULF_OF_MEXICO: {
     longitudeRange: { min: -100, max: -80 },
     latitudeRange: { min: 25, max: 35 },
-    baseWaveHeight: 0.6, // meters
     prevailingDirection: 225, // Southwest
   },
   /** Hawaii */
   HAWAII: {
     longitudeRange: { min: -161, max: -154 },
     latitudeRange: { min: 18, max: 23 },
-    baseWaveHeight: 1.0, // meters (~3.3ft, Hawaii gets larger swells)
     prevailingDirection: 340, // NNW (dominant winter swell)
   },
   /** Default ocean conditions */
   DEFAULT_OCEAN: {
-    baseWaveHeight: 0.8, // meters
     prevailingDirection: 225, // Southwest
-  },
-} as const;
-
-/**
- * Seasonal factors for wave height variations
- */
-export const SEASONAL_FACTORS = {
-  /** Northern hemisphere winter months (higher waves) */
-  NORTHERN_WINTER: {
-    months: [11, 0, 1], // Dec, Jan, Feb
-    factor: 1.3,
-  },
-  /** Northern hemisphere summer months (smaller waves) */
-  NORTHERN_SUMMER: {
-    months: [5, 6, 7], // Jun, Jul, Aug
-    factor: 0.8,
-  },
-  /** Southern hemisphere winter months (smaller waves) */
-  SOUTHERN_WINTER: {
-    months: [11, 0, 1],
-    factor: 0.8,
-  },
-  /** Southern hemisphere summer months (higher waves) */
-  SOUTHERN_SUMMER: {
-    months: [5, 6, 7],
-    factor: 1.3,
-  },
-  /** Spring/Fall default */
-  DEFAULT: {
-    factor: 1.0,
   },
 } as const;
 
@@ -101,12 +66,6 @@ export const FORECAST_CONFIG = {
   OPEN_METEO_MAX_DAYS: 12,
   /** Maximum forecast days for Open-Meteo API (hard API limit) */
   OPEN_METEO_API_LIMIT: 16,
-  /** Minimum wave period for Pacific swells (seconds) */
-  MIN_PACIFIC_SWELL_PERIOD: 10,
-  /** Minimum wind wave period (seconds) */
-  MIN_WIND_WAVE_PERIOD: 3,
-  /** Minimum significant wave height (meters) */
-  MIN_WAVE_HEIGHT: 0.3,
 } as const;
 
 /**

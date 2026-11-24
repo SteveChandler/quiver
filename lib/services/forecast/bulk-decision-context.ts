@@ -1,15 +1,20 @@
 import { isDaylightInterval } from "@/lib/services/discovery/daylight-eligibility";
-import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector/window-scorer";
+import {
+  scoreWindowConditionDetails,
+  scoreWindowWithComposite,
+} from "@/lib/services/discovery/window-selector/window-scorer";
 import { type PersonalBoard } from "@/lib/scoring/personal-board";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { entitlementFromRow } from "@/lib/alerts/entitlements";
+import { resolveFeatureAccessFromRow } from "@/lib/alerts/entitlements";
+import { type BoardClass } from "@/lib/domains/rideability";
 import {
-  normalizeBoardClass,
-  type BoardClass,
-} from "@/lib/domains/rideability";
-import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+  getSkillLevelOrDefault,
+  parseSkillLevel,
+} from "@/lib/domains/user-preferences/skill-level";
+import { isSkillAwareGoChecksOn } from "@/lib/flags/skill-aware-go-checks";
+import { orderBoardClasses, toBoardClasses } from "@/lib/profile/board-classes";
 import {
   forecastToMatchSlot,
   interpretRpcResult,
@@ -41,6 +46,8 @@ export interface BulkDecisionContext {
   matches: Map<string, SimilarityRecommendation>;
   rowDurationsMs: Map<string, number>;
   waterQuality: WaterQualityHoldClient;
+  // Set only for an allowlisted user: rate a no-skill user as beginner and gate labels for learners.
+  skillAware?: true;
 }
 
 // Adapt the already-loaded snapshot to the existing safety resolver. Its freshness,
@@ -138,11 +145,13 @@ export async function fetchBulkDecisionContext(
     if (row.sunset_utc) times.sunsets.push(new Date(row.sunset_utc));
     sunTimes.set(row.beach_id, times);
   }
-  const premium =
-    entitlementFromRow(data.personalization?.entitlement) === "premium";
+  const { hasFeatureAccess } = await resolveFeatureAccessFromRow(
+    userId,
+    data.personalization?.entitlement,
+  );
   const matches: BulkDecisionContext["matches"] = new Map();
   for (const match of data.personalization?.matches ?? []) {
-    const interpreted = premium ? interpretRpcResult(match.result) : null;
+    const interpreted = hasFeatureAccess ? interpretRpcResult(match.result) : null;
     matches.set(matchSlotKey(match.beach_id, match.forecast_at), interpreted);
   }
   const forecastsByBeach = Map.groupBy(forecasts, (forecast) => forecast.beach_id);
@@ -169,23 +178,22 @@ export async function fetchBulkDecisionContext(
       );
     }
   }
+  const skillAware = isSkillAwareGoChecksOn(userId);
+  const boardClasses = toBoardClasses(
+    (data.boards as Array<{ board_type: string }>).map((board) => board.board_type),
+  );
   return {
     beaches: data.beaches,
     boards: Array.isArray(data.personalization?.boards) ? data.personalization.boards : [],
     skillLevel: parseSkillLevel(data.profile?.experience_level),
-    boardClasses: [
-      ...new Set(
-        (data.boards as Array<{ board_type: string }>)
-          .map((board) => normalizeBoardClass(board.board_type))
-          .filter((board): board is BoardClass => board !== null),
-      ),
-    ],
+    boardClasses: skillAware ? orderBoardClasses(boardClasses) : boardClasses,
     sunTimes,
     matches,
     rowDurationsMs,
     // The resolver reads beach coordinates to scope a stale County feed to the
     // beaches it covers; the RPC already returns them.
     waterQuality: waterQualitySnapshot({ ...data.water_quality, beaches: data.beaches }),
+    ...(skillAware ? { skillAware: true as const } : {}),
   };
 }
 
@@ -208,7 +216,21 @@ export function bulkSessionDecision(
     && !isDaylightInterval(at, new Date(end), timezone, context.sunTimes.get(beach.id));
   // One resolution per row: the label and the character come from the same
   // forecast row and score, so the condition label cannot disagree with them.
-  const resolved = resolveRecommendationLabel({ beach, forecast, score });
+  const skill = context.skillAware ? getSkillLevelOrDefault(context.skillLevel) : null;
+  const resolved = resolveRecommendationLabel({
+    beach,
+    forecast,
+    score,
+    ...(skill
+      ? {
+          learner: {
+            skill,
+            boardClass: scoreWindowConditionDetails(forecast, beach, skill, null, context.boardClasses)
+              .boardClass,
+          },
+        }
+      : {}),
+  });
   const decision = buildCanonicalSessionDecision({
     anchorTime: at.toISOString(),
     scope: {
@@ -217,7 +239,7 @@ export function bulkSessionDecision(
       windowEnd: end,
       timezone,
     },
-    profileExperience: context.skillLevel,
+    profileExperience: skill ?? context.skillLevel,
     recommendationAvailability: { state: "available", holdEpoch: "bulk" },
     candidates: outsideLight ? [] : [
           {

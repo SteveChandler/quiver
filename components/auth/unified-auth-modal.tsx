@@ -1,5 +1,6 @@
 "use client";
 
+import { APPLE_SIGN_IN_WEB_CLIENT_ID } from "@/lib/constants/public-services";
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -568,7 +569,7 @@ export function UnifiedAuthModal({
             enablePassword={true}
             enableMagicLink={true}
             loading={loading}
-            onAppleClick={process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ? handleAppleSignIn : undefined}
+            onAppleClick={(process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ?? APPLE_SIGN_IN_WEB_CLIENT_ID) ? handleAppleSignIn : undefined}
             onGoogleClick={handleGoogleOAuth}
             onEmailPasswordClick={() => setView("email-password")}
             onMagicLinkClick={() => setView("magic-link")}

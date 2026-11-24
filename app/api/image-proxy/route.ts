@@ -1,6 +1,9 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { validateURL } from "@/lib/security/ip-validation";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
+import { toWikimediaThumbUrl } from "@/lib/utils/image-utils";
 
 // Force dynamic rendering - this route uses request.url
 export const dynamic = 'force-dynamic';
@@ -91,18 +94,27 @@ const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
  */
 const REQUEST_TIMEOUT = 10000; // 10 seconds in milliseconds
 
+const IMAGE_PROXY_USER_AGENT = "QuiverImageProxy/1.0 (https://www.quiversurf.app/about)";
+
 async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
-    const imageUrl = searchParams.get("url");
+    const requestedUrl = searchParams.get("url");
 
-    if (!imageUrl) {
+    if (!requestedUrl) {
       return new NextResponse("Missing url parameter", { status: 400 });
     }
+
+    // Old pages and crawlers still request Commons originals; fetch the thumb instead.
+    const imageUrl = toWikimediaThumbUrl(requestedUrl);
 
     // ============================================================================
     // SECURITY VALIDATION: Comprehensive SSRF Prevention
     // ============================================================================
+
+    if (isBlockedCameraUrl(imageUrl)) {
+      return new NextResponse("Image unavailable", { status: 410, headers: { "Cache-Control": "no-store" } });
+    }
 
     // Validate URL against whitelist, DNS resolution, and private IP ranges
     // This prevents:
@@ -135,8 +147,10 @@ async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
     try {
       // Fetch the image with security headers and timeout
       const response = await fetch(imageUrl, {
+        redirect: "error",
         headers: {
-          "User-Agent": "QuiverApp/1.0",
+          // Wikimedia's User-Agent policy requires contact details; generic agents get throttled.
+          "User-Agent": IMAGE_PROXY_USER_AGENT,
         },
         signal: controller.signal,
         // Cache for 7 days
@@ -147,6 +161,10 @@ async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        console.warn("Image proxy: upstream refused", {
+          host: new URL(imageUrl).hostname,
+          status: response.status,
+        });
         return new NextResponse(`Failed to fetch image: ${response.statusText}`, {
           status: response.status,
         });
@@ -217,4 +235,6 @@ async function imageProxyHandler(request: NextRequest): Promise<NextResponse> {
 }
 
 // Apply rate limiting to prevent SSRF attacks
-export const GET = withRateLimit(imageProxyHandler, "image-proxy");
+const handleGet = withRateLimit(imageProxyHandler, "image-proxy");
+
+export const GET = withErrorNoStore(handleGet, "/api/image-proxy");

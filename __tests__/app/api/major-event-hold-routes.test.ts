@@ -336,16 +336,20 @@ describe("major-event hold route integration", () => {
       "/api/og/forecast-window",
     ];
     const blanketIndex = rules.findIndex(
-      ({ source }) => source === "/api/(.*)",
+      ({ source, headers }) =>
+        headers.some(({ key }) => key === "Cache-Control") &&
+        new RegExp(`^${source}$`).test("/api/unlisted-route"),
     );
     expect(blanketIndex).toBeGreaterThan(-1);
 
+    const blanketMatcher = new RegExp(`^${rules[blanketIndex].source}$`);
     for (const endpoint of endpoints) {
+      expect(blanketMatcher.test(endpoint.replace(":beachId", "test-beach"))).toBe(true);
       const exactIndex = rules.findIndex(({ source }) => source === endpoint);
       expect(exactIndex).toBeGreaterThan(blanketIndex);
       const matchingCacheControl = rules
         .filter(
-          ({ source }) => source === "/api/(.*)" || source === endpoint,
+          ({ source }, index) => index === blanketIndex || source === endpoint,
         )
         .flatMap(({ headers }) => headers)
         .filter(({ key }) => key === "Cache-Control")

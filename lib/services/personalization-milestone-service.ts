@@ -80,8 +80,7 @@ async function getUserPreferenceState(
   const learned = learnedResult.error?.code === "PGRST116" ? null : learnedResult.data;
   const implicit = implicitResult.error?.code === "PGRST116" ? null : implicitResult.data;
 
-  // Advanced milestone queries — these depend on intel_confirmations table
-  // which may not exist yet; fail gracefully to 0/null.
+  // Advanced milestone queries; fail gracefully to 0/null.
   let intelConfirmationCount = 0;
   let topIntelBeach: UserPreferenceState["topIntelBeach"] = null;
 
@@ -97,13 +96,13 @@ async function getUserPreferenceState(
     // Guard against empty array — skip query if user has no intel posts
     if (postIds.length > 0) {
       const { count } = await supabase
-        .from("intel_confirmations")
+        .from("intel_post_confirmations")
         .select("id", { count: "exact", head: true })
-        .in("post_id", postIds);
+        .in("intel_post_id", postIds);
       intelConfirmationCount = count ?? 0;
     }
   } catch {
-    // Table may not exist yet — skip
+    // Leave the count at 0
   }
 
   try {

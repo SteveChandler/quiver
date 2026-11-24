@@ -6,19 +6,19 @@
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getMessaging, type Messaging } from "firebase/messaging";
+import { FIREBASE_WEB_CONFIG } from "@/lib/constants/public-services";
 
-// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? FIREBASE_WEB_CONFIG.apiKey,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? FIREBASE_WEB_CONFIG.authDomain,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? FIREBASE_WEB_CONFIG.projectId,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? FIREBASE_WEB_CONFIG.storageBucket,
+  messagingSenderId:
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? FIREBASE_WEB_CONFIG.messagingSenderId,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? FIREBASE_WEB_CONFIG.appId,
 };
 
-// Check if all required config values are present
-function isFirebaseConfigured(): boolean {
+export function isFirebaseConfigured(): boolean {
   return !!(
     firebaseConfig.apiKey &&
     firebaseConfig.authDomain &&
@@ -42,7 +42,7 @@ function getFirebaseApp(): FirebaseApp | null {
   if (!isFirebaseConfigured()) {
     if (process.env.NODE_ENV === "development") {
       console.warn(
-        "Firebase web SDK not configured. Add NEXT_PUBLIC_FIREBASE_* environment variables."
+        "Firebase web SDK not configured (a NEXT_PUBLIC_FIREBASE_* override is empty)."
       );
     }
     return null;

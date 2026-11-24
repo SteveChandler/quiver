@@ -28,6 +28,7 @@ jest.mock('@/lib/services/nws-wind-service', () => ({ NwsWindService: jest.fn(()
 const mockCdipNearest = jest.fn();
 const mockWind = jest.fn();
 let beachCountry: string | null;
+let beachIds: string[];
 const mockCdipFetch = jest.fn();
 const mockFrom = jest.fn();
 const mockNearest = jest.fn();
@@ -40,6 +41,7 @@ let ledgerAttempts: number;
 let latest: Record<string, unknown>[];
 let written: Record<string, unknown>[][];
 let failWrite: boolean;
+let failWriteAtCall: number | null;
 let observed: Record<string, unknown> | null;
 
 function query(data: unknown): Record<string, unknown> {
@@ -55,7 +57,7 @@ beforeEach(() => {
   jest.useFakeTimers({ now, doNotFake: ['nextTick', 'setImmediate'] });
   jest.spyOn(console, 'log').mockImplementation(() => {});
   jest.spyOn(console, 'warn').mockImplementation(() => {});
-  previous = null; written = []; failWrite = false; observed = null;
+  previous = null; written = []; failWrite = false; failWriteAtCall = null; observed = null;
   ledger = []; failLedger = false; latest = []; ledgerAttempts = 0;
   mockNearest.mockReset().mockResolvedValue(null);
   mockCdipNearest.mockReset().mockResolvedValue(null);
@@ -63,8 +65,9 @@ beforeEach(() => {
   mockObservation.mockReset().mockResolvedValue(null);
   mockWind.mockReset().mockResolvedValue([]);
   beachCountry = 'USA';
+  beachIds = ['a', 'b', 'c'];
   mockFrom.mockImplementation((table: string) => {
-    if (table === 'beaches') return query(['a', 'b', 'c'].map((id, i) => ({ id, name: id, lat: 33 + i, lon: -117, country: beachCountry })));
+    if (table === 'beaches') return query(beachIds.map((id, i) => ({ id, name: id, lat: 33 + i, lon: -117, country: beachCountry })));
     if (table === 'v_marine_forecast_latest') return query(latest);
     if (table === 'cron_runs') return {
       ...query(ledger.length ? [ledger[ledger.length - 1]] : [{ summary: { result: { marineCoverage: { lastAttemptedBeachId: previous } } } }]),
@@ -80,13 +83,58 @@ beforeEach(() => {
       select: (fields: string) => query(fields.includes('beach_id') ? latest : observed),
       upsert: async (rows: Record<string, unknown>[]) => {
         written.push(rows);
-        return { error: failWrite ? { message: 'private database error' } : null };
+        return {
+          error: failWrite || written.length === failWriteAtCall
+            ? { message: 'private database error' }
+            : null,
+        };
       },
     };
     throw new Error(`Unexpected table ${table}`);
   });
 });
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
+
+it.each([
+  { flag: undefined, peak: 2, sizes: [1, 1] },
+  { flag: 'false', peak: 3, sizes: [2] },
+])('paces the marine cron with FORECAST_WRITE_PACING=$flag', async ({ flag, peak, sizes }) => {
+  jest.replaceProperty(process, 'env', {
+    ...process.env,
+    FORECAST_WRITE_PACING: flag,
+    FORECAST_REFRESH_BATCH_SIZE: '3',
+    FORECAST_REFRESH_BATCH_DELAY_MS: '0',
+    FORECAST_WRITE_CHUNK_SIZE: '1',
+    FORECAST_WRITE_DELAY_MS: '0',
+  });
+  let release!: (points: unknown) => void;
+  const pending = new Promise(resolve => { release = resolve; });
+  mockWind.mockReturnValue(pending);
+
+  const run = GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=3'));
+  await jest.advanceTimersByTimeAsync(0);
+  expect(mockWind).toHaveBeenCalledTimes(peak);
+  const points = ['13', '14'].map(hour => ({
+    ts: `2026-09-09T${hour}:00:00.000Z`, wind_speed_ms: 3.2, wind_direction_deg: 90,
+  }));
+  release(points);
+  const response = await run;
+
+  expect(response.status).toBe(200);
+  expect((await response.json()).data).toMatchObject({
+    totals: { marine: 6 },
+    marineCoverage: { expectedCoverage: 3, attemptedCoverage: 3, lastAttemptedBeachId: 'c' },
+  });
+  for (const beachId of beachIds) {
+    const batches = written.filter(rows => rows[0]?.beach_id === beachId);
+    expect(batches.map(rows => rows.length)).toEqual(sizes);
+    expect(batches.flat()).toEqual(points.map(point => ({
+      ...point, beach_id: beachId, created_at: now.toISOString(),
+      wave_height_m: null, wave_period_s: null, wave_direction_deg: null,
+      source: 'nws_wind', is_observed: false,
+    })));
+  }
+});
 
 it.each(['ndbc', 'cdip'])('shares the in-flight %s fetch and still writes rows for both beaches', async (provider) => {
   let release!: (value: unknown) => void;
@@ -248,6 +296,34 @@ it('still fails the run when NWS wind fails for a US beach', async () => {
   expect(JSON.stringify(body)).not.toContain('private');
 });
 
+it.each([
+  { failing: 1, status: 200 },
+  { failing: 2, status: 503 },
+])('tolerates per-beach failures up to a tenth of attempted beaches ($failing of 11)', async ({ failing, status }) => {
+  beachIds = Array.from({ length: 11 }, (_, i) => `beach-${i}`);
+  mockWind.mockImplementation(async ({ lat }: { lat: number }) => {
+    if (lat < 33 + failing) throw new Error('private NWS outage');
+    return [];
+  });
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=11'));
+  const body = await response.json();
+  expect(response.status).toBe(status);
+  expect(body.data.marineCoverage).toMatchObject({ attemptedCoverage: 11,
+    rejectionCounts: { wind_fetch_failed: failing },
+    rejectedBeachIds: beachIds.slice(0, failing) });
+  expect(ledger[ledger.length - 1].status).toBe(status === 200 ? 'ok' : 'failed');
+});
+
+it('still fails a large run on a run-level rejection with no beach failures', async () => {
+  beachIds = Array.from({ length: 11 }, (_, i) => `beach-${i}`);
+  failLedger = true;
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=11'));
+  const body = await response.json();
+  expect(response.status).toBe(503);
+  expect(body.data.marineCoverage).toMatchObject({ attemptedCoverage: 11,
+    rejectionCounts: { cursor_write_failed: 1 }, rejectedBeachIds: [] });
+});
+
 it('reports failed writes without exposing database errors', async () => {
   mockNearest.mockResolvedValue({ id: 'fixture' });
   observed = { ts: '2026-09-09T11:00:00Z', wave_height_m: 1.6, wave_period_s: 10, source: 'ndbc' };
@@ -259,6 +335,29 @@ it('reports failed writes without exposing database errors', async () => {
   expect(body.data.totals.marine).toBe(0);
   expect(body.data.marineCoverage.rejectionCounts.write_failed).toBeGreaterThan(0);
   expect(JSON.stringify(body)).not.toContain('private');
+});
+
+it('does not count a marine write when a later paced chunk fails', async () => {
+  jest.replaceProperty(process, 'env', {
+    ...process.env,
+    FORECAST_WRITE_PACING: 'true',
+    FORECAST_WRITE_CHUNK_SIZE: '1',
+    FORECAST_WRITE_DELAY_MS: '0',
+  });
+  beachIds = ['a'];
+  mockWind.mockResolvedValue([
+    { ts: '2026-09-09T13:00:00.000Z', wind_speed_ms: 3, wind_direction_deg: 90 },
+    { ts: '2026-09-09T14:00:00.000Z', wind_speed_ms: 4, wind_direction_deg: 180 },
+  ]);
+  failWriteAtCall = 2;
+
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
+  const body = await response.json();
+
+  expect(response.status).toBe(503);
+  expect(written.map(rows => rows.length)).toEqual([1, 1]);
+  expect(body.data.totals.marine).toBe(0);
+  expect(body.data.marineCoverage.rejectionCounts).toMatchObject({ write_failed: 1 });
 });
 
 

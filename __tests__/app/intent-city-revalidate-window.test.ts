@@ -205,6 +205,28 @@ describe("/[intent]/[city] effective ISR window", () => {
     expect(getIntentForecastSummary).toHaveBeenCalled();
   });
 
+  // The directory keeps rain-held spots; the live pick applies holds itself,
+  // so cutting the list to five first would let held spots fill every slot.
+  it("hands every listed spot to the live pick", async () => {
+    const rows = Array.from({ length: 7 }, (_, index) => ({
+      ...BEACH_ROWS[0],
+      id: `00000000-0000-4000-8000-00000000001${index}`,
+      name: `Spot ${index}`,
+      slug: `spot-${index}`,
+    }));
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "or", "eq", "order", "limit", "in", "is", "not"]) {
+      builder[method] = jest.fn(() => builder);
+    }
+    builder.then = (resolve: (value: unknown) => unknown) => resolve({ data: rows, error: null });
+    (createPublicReadClient as jest.Mock).mockReturnValue({ from: jest.fn(() => builder) });
+
+    await IntentPage({ params: Promise.resolve({ intent: "longboard", city: "test-harbor" }) });
+
+    const [passed] = (getIntentForecastSummary as jest.Mock).mock.calls[0];
+    expect(passed.map(({ id }: { id: string }) => id)).toEqual(rows.map(({ id }) => id));
+  });
+
   it("stays hourly when a tide page falls back to live recommendations", async () => {
     (getCityTideDataExpanded as jest.Mock).mockResolvedValue(null);
 

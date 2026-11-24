@@ -26,18 +26,31 @@ import { getSkillLevelOrDefault, parseSkillLevel, SKILL_WAVE_RANGES as SKILL_WAV
 import type { SkillWaveRanges } from '../user-preferences/skill-level';
 import { getRideabilityBand, type BoardClass } from '../rideability';
 import { createSpotProfile } from '../spot-profile';
+import { memoizedSpotProfile } from './scoring-memo';
 import { createSwellComponent, pickDominantSwell } from '../conditions';
 import type { SwellPartition, SwellPartitions } from '../conditions';
 import { ScoringEngine } from './scoring-engine';
 import { baseConditionsScorer } from './scorers/base-conditions-scorer';
 import { swellAlignmentScorer } from './scorers/swell-alignment-scorer';
 import { swellInterferenceScorer } from './scorers/swell-interference-scorer';
-import { windQualityScorer } from './scorers/wind-quality-scorer';
+import { isWindQualityUnknown, windQualityScorer } from './scorers/wind-quality-scorer';
 import { tideFitScorer } from './scorers/tide-fit-scorer';
 import { tideDirectionScorer } from './scorers/tide-direction-scorer';
 import { setupRiskScorer } from './scorers/setup-risk-scorer';
 import { windowStabilityScorer } from './scorers/window-stability-scorer';
 import { trendPreferenceScorer } from './scorers/trend-preference-scorer';
+import {
+  formatBigSurfCaution,
+  formatBoardFit,
+  formatMellowBreak,
+  formatSmallSide,
+  formatSmallSurf,
+  oneSizeStory,
+  prependReasons,
+  reasonList,
+  takeReasons,
+  type ReasonCode,
+} from './reason-sentences';
 
 /**
  * Create a pre-configured scoring engine with all standard scorers.
@@ -67,7 +80,7 @@ export function getDiscoveryScoringEngine(): ScoringEngine {
  * Convert Beach database row to SpotProfile.
  */
 export function beachToSpotProfile(beach: Beach): SpotProfile {
-  return createSpotProfile(beach);
+  return memoizedSpotProfile(beach, () => createSpotProfile(beach));
 }
 
 /**
@@ -111,6 +124,7 @@ export function forecastToSnapshot(
   const tideHeight = Number.isFinite(parsedTideHeight) ? parsedTideHeight : 0;
   const tideStatus = parseTideStatus(forecast.tide_status);
   const tideDirection = parseTideDirection(forecast.tide_status);
+  const tideRate = resolveTideRate(forecast, Number.isFinite(parsedTideHeight) ? parsedTideHeight : null);
 
   const partitions: SwellPartitions = {
     swell_1: parsePartition(forecast.swell_1_height, forecast.swell_1_period, forecast.swell_1_direction),
@@ -147,6 +161,7 @@ export function forecastToSnapshot(
   return {
     timestamp: new Date(forecast.forecast_at),
     waveHeight,
+    waveHeightKnown: Number.isFinite(parseFloat(forecast.wave_height ?? '')),
     wavePeriod,
     waveDirection,
     primarySwell,
@@ -161,6 +176,8 @@ export function forecastToSnapshot(
       status: tideStatus,
       direction: tideDirection,
       heightKnown: Number.isFinite(parsedTideHeight),
+      rateFtPerHour: tideRate.rateFtPerHour,
+      rateSource: tideRate.rateSource,
     },
     confidence: resolveConfidence(
       forecast.confidence_score,
@@ -213,7 +230,9 @@ function energy(p: SwellPartition): number {
 export function compositeToDetailedScore(
   composite: CompositeScore,
   affinityBonus: number = 0,
-  distancePenalty: number = 0
+  distancePenalty: number = 0,
+  // A skip exits before windQuality runs, so its absence only proves unknown wind on a full run.
+  windUnknown: boolean = !composite.skipReason && !composite.subscores.has('windQuality')
 ): DetailedScore {
   // Only track missing subscores for non-skip results.
   // Skip results are disqualified beaches where subscores are intentionally
@@ -234,7 +253,7 @@ export function compositeToDetailedScore(
     affinityBonus,
     personalizationBonus: 0,
     distancePenalty,
-    ...(!composite.skipReason && !composite.subscores.has('windQuality') ? { windUnknown: true } : {}),
+    ...(windUnknown ? { windUnknown: true } : {}),
   };
 
   // Adjust total with affinity and distance
@@ -250,8 +269,10 @@ export function compositeToDetailedScore(
     total: adjustedTotal,
     subscores,
     matchQuality,
-    reasons: [...composite.reasons].slice(0, 5),
+    // One card, one size story: no "Good size" beside a small-surf line, and no line twice.
+    ...takeReasons(oneSizeStory(reasonList(composite.reasons, composite.reasonCodes), composite.warningCodes), 5),
     warnings: [...composite.warnings],
+    warningCodes: reasonList(composite.warnings, composite.warningCodes).reasonCodes,
     effects: [...(composite.effects ?? [])],
     conditionBadges: [], // Will be generated separately if needed
   };
@@ -309,7 +330,8 @@ export function scoreBeachWithEngine(
   return compositeToDetailedScore(
     adjustedComposite,
     options?.affinityBonus ?? 0,
-    options?.distancePenalty ?? 0
+    options?.distancePenalty ?? 0,
+    isWindQualityUnknown(snapshot, profile)
   );
 }
 
@@ -366,6 +388,8 @@ interface SkillCeilingResult {
   penalty: number;
   /** Warning message if over skill limit */
   warning: string | null;
+  /** A big-surf warning is a caution: it leads the warnings and is never cut. */
+  warningCode?: ReasonCode;
 }
 
 /**
@@ -392,14 +416,15 @@ export function checkSkillCeiling(
   const penalty = Math.round(overSkill * WAVE_SIZE_SCORING_CONFIG.skillCeilingPenaltyPerFoot);
 
   // Determine warning severity based on how far over skill level
-  const warning =
+  const kind =
     overSkill >= WAVE_SIZE_SCORING_CONFIG.warnings.dangerousThreshold
-      ? 'Dangerous: Waves far exceed your skill level'
+      ? 'far_over'
       : overSkill >= WAVE_SIZE_SCORING_CONFIG.warnings.significantThreshold
-        ? 'Waves significantly exceed your skill level'
-        : 'Waves may exceed your skill level';
+        ? 'well_over'
+        : 'over';
 
-  return { penalty, warning };
+  const warning = formatBigSurfCaution({ kind, heightFt: waveHeight });
+  return { penalty, warning, warningCode: warning ? 'caution_size_over' : undefined };
 }
 
 /**
@@ -408,8 +433,9 @@ export function checkSkillCeiling(
 interface SkillFloorResult {
   /** Penalty points (0 if wave height is within/above the user's ideal floor) */
   penalty: number;
-  /** Warning string if conditions are smaller than the user's usual range */
+  /** The small-surf line with its band ("Small surf at 1–2 ft." / "On the small side at 2–3 ft."), or null */
   warning: string | null;
+  warningCode?: ReasonCode;
 }
 
 /**
@@ -443,12 +469,17 @@ export function checkSkillFloor(
     return { penalty: 0, warning: null };
   }
 
-  const warning =
-    waveHeight < skillRanges.acceptable.min
-      ? 'Waves are below your usual range'
-      : 'Waves are smaller than your ideal range';
-
-  return { penalty, warning };
+  // A missing or zero height (an empty forecast row parses to 0) keeps the penalty
+  // but gets no line: "Small surf" would be a claim the row cannot back.
+  if (!Number.isFinite(waveHeight) || waveHeight <= 0) {
+    return { penalty, warning: null };
+  }
+  const below = waveHeight < skillRanges.acceptable.min;
+  return {
+    penalty,
+    warning: below ? formatSmallSurf(waveHeight) : formatSmallSide(waveHeight),
+    warningCode: below ? 'small_surf' : 'small_side',
+  };
 }
 
 /**
@@ -482,7 +513,7 @@ export function checkBoardFit(
     return {
       penalty: Math.round(over * WAVE_SIZE_SCORING_CONFIG.boardFitPenaltyPerFoot),
       bonus: 0,
-      note: `too big for your ${board}`,
+      note: formatBoardFit('big', board, waveHeight),
     };
   }
 
@@ -494,7 +525,7 @@ export function checkBoardFit(
         Math.round(under * WAVE_SIZE_SCORING_CONFIG.boardFitPenaltyPerFoot)
       ),
       bonus: 0,
-      note: `too small for your ${board}`,
+      note: formatBoardFit('small', board, waveHeight),
     };
   }
 
@@ -502,7 +533,7 @@ export function checkBoardFit(
     return {
       penalty: 0,
       bonus: WAVE_SIZE_SCORING_CONFIG.boardFitIdealBonus,
-      note: `in the sweet spot for your ${board}`,
+      note: formatBoardFit('good', board, waveHeight),
     };
   }
 
@@ -519,6 +550,8 @@ interface BeachSkillMatchResult {
   reason: string | null;
   /** Warning string if conditions are challenging */
   warning: string | null;
+  reasonCode?: ReasonCode;
+  warningCode?: ReasonCode;
 }
 
 /** Numeric ordering for skill level comparisons. */
@@ -553,7 +586,9 @@ export function calculateBeachSkillMatchBonus(
   beachSkillLevel: string | null,
   userSkillLevel: SkillLevel
 ): BeachSkillMatchResult {
-  const beachSkill: SkillLevel = parseSkillLevel(beachSkillLevel) ?? 'intermediate';
+  // The score treats an unknown level as intermediate; the copy does not name a level it does not know.
+  const knownBeachSkill = parseSkillLevel(beachSkillLevel);
+  const beachSkill: SkillLevel = knownBeachSkill ?? 'intermediate';
   const userRanges = SKILL_WAVE_RANGES[userSkillLevel];
   const skillGap = SKILL_ORDER[beachSkill] - SKILL_ORDER[userSkillLevel];
   const wavesInIdealRange = waveHeight >= userRanges.ideal.min && waveHeight <= userRanges.ideal.max;
@@ -561,19 +596,20 @@ export function calculateBeachSkillMatchBonus(
 
   // Beach at or below user level with ideal wave conditions — best match
   if (skillGap <= 0 && wavesInIdealRange) {
+    // The bonus stays; the line is gone (Steven: it named the surfer's level).
     return {
       adjustment: WAVE_SIZE_SCORING_CONFIG.skillIdealBonus,
-      reason: 'Conditions match your experience level today',
+      reason: null,
       warning: null,
     };
   }
 
   // Beach harder than user but conditions are mild enough
   if (skillGap > 0 && wavesManageable) {
-    const label = beachSkill.charAt(0).toUpperCase() + beachSkill.slice(1);
     return {
       adjustment: skillGap === 1 ? 1 : 0,
-      reason: `${label} spot, but today's conditions are manageable`,
+      reason: knownBeachSkill ? formatMellowBreak(knownBeachSkill) : null,
+      reasonCode: knownBeachSkill ? 'break_mellow' : undefined,
       warning: null,
     };
   }
@@ -581,19 +617,41 @@ export function calculateBeachSkillMatchBonus(
   // Beach harder than user and conditions aren't easy
   // Note: checkSkillCeiling handles the heavy wave-height penalties separately
   if (skillGap > 0) {
-    const label = beachSkill.charAt(0).toUpperCase() + beachSkill.slice(1);
     const penalty = Math.min(skillGap * 2, 6);
+    const warning = skillGap >= 2 && knownBeachSkill
+      ? formatBigSurfCaution({ kind: 'advanced_break', level: knownBeachSkill, heightFt: waveHeight })
+      : null;
     return {
       adjustment: -penalty,
       reason: null,
-      warning: skillGap >= 2
-        ? `${label} spot — conditions may be challenging for your level`
-        : null,
+      warning,
+      warningCode: warning ? 'caution_advanced_break' : undefined,
     };
   }
 
   // Beach at or below user level, waves outside ideal range — neutral
   return { adjustment: 0, reason: null, warning: null };
+}
+
+/**
+ * Adds one warning with its code. A caution (big surf, harder break) goes in
+ * front, so the message reads it first ("Watch: …") and no later cut drops it;
+ * other warnings keep their place at the end. Order is display only.
+ */
+function withWarning(
+  composite: CompositeScore,
+  warning: string | null,
+  code: ReasonCode | undefined,
+): Pick<CompositeScore, 'warnings' | 'warningCodes'> {
+  const current = reasonList(composite.warnings, composite.warningCodes);
+  // The cap line and the floor line can read the same ("Small surf at 1–2 ft."); show it once.
+  if (!warning || current.reasons.includes(warning)) {
+    return { warnings: current.reasons, warningCodes: current.reasonCodes };
+  }
+  const next = code?.startsWith('caution_')
+    ? prependReasons(current, [warning], [code])
+    : { reasons: [...current.reasons, warning], reasonCodes: [...current.reasonCodes, code ?? null] };
+  return { warnings: next.reasons, warningCodes: next.reasonCodes };
 }
 
 /**
@@ -604,7 +662,8 @@ function applyScoreAdjustment(
   composite: CompositeScore,
   adjustment: number,
   reason: string | null,
-  warning: string | null
+  warning: string | null,
+  codes: { reasonCode?: ReasonCode; warningCode?: ReasonCode } = {},
 ): CompositeScore {
   if (adjustment === 0 && !reason && !warning) {
     return composite;
@@ -614,7 +673,10 @@ function applyScoreAdjustment(
     ...composite,
     total: Math.max(0, Math.min(100, composite.total + adjustment)),
     reasons: reason ? [...composite.reasons, reason] : composite.reasons,
-    warnings: warning ? [...composite.warnings, warning] : composite.warnings,
+    reasonCodes: reason
+      ? [...reasonList(composite.reasons, composite.reasonCodes).reasonCodes, codes.reasonCode ?? null]
+      : composite.reasonCodes,
+    ...withWarning(composite, warning, codes.warningCode),
   };
 }
 
@@ -641,35 +703,35 @@ function applySkillBasedAdjustment(
   const skillLevel = getSkillLevelOrDefault(userSkillLevel);
 
   // 1. Safety first - check skill ceiling
-  const { penalty, warning: skillWarning } = checkSkillCeiling(waveHeight, skillLevel);
-  if (penalty > 0) {
+  const ceilingCheck = checkSkillCeiling(waveHeight, skillLevel);
+  if (ceilingCheck.penalty > 0) {
     return {
       ...composite,
-      total: Math.max(0, composite.total - penalty),
-      warnings: [...composite.warnings, skillWarning!],
+      total: Math.max(0, composite.total - ceilingCheck.penalty),
+      ...withWarning(composite, ceilingCheck.warning, ceilingCheck.warningCode),
     };
   }
 
   // 2. Preference floor - small practice waves should not score the same for
   // experienced surfers as they do for beginners.
-  const { penalty: floorPenalty, warning: floorWarning } = checkSkillFloor(
-    waveHeight,
-    skillLevel
-  );
+  const floorCheck = checkSkillFloor(waveHeight, skillLevel);
   const floorAdjusted =
-    floorPenalty > 0
+    floorCheck.penalty > 0
       ? {
           ...composite,
-          total: Math.max(0, composite.total - floorPenalty),
-          warnings: floorWarning ? [...composite.warnings, floorWarning] : composite.warnings,
+          total: Math.max(0, composite.total - floorCheck.penalty),
+          ...withWarning(composite, floorCheck.warning, floorCheck.warningCode),
         }
       : composite;
 
   // 3. Condition-aware skill-based scoring
-  const { adjustment, reason, warning } = calculateBeachSkillMatchBonus(
+  const match = calculateBeachSkillMatchBonus(
     waveHeight, beachSkillLevel ?? null, skillLevel
   );
-  return applyScoreAdjustment(floorAdjusted, adjustment, reason, warning);
+  return applyScoreAdjustment(floorAdjusted, match.adjustment, match.reason, match.warning, {
+    reasonCode: match.reasonCode,
+    warningCode: match.warningCode,
+  });
 }
 
 // =============================================================================
@@ -692,6 +754,36 @@ function parseTideStatus(
   if (lower.includes('slack')) return 'slack-high';
 
   return 'unknown';
+}
+
+/** A mean rate over more than half a tidal cycle isn't this row's rate. */
+const MAX_NEXT_EXTREMUM_HOURS = 13;
+/** Near the turn the tide is slack, but the mean to it reads as a real swing. */
+const MIN_NEXT_EXTREMUM_HOURS = 1.5;
+
+/**
+ * Signed tide rate (ft/h, + rising): the hourly series' own rate when the row
+ * carries one, else the mean rate to the next high/low. The mean overstates
+ * the rate near the turn and understates it mid-swing.
+ */
+function resolveTideRate(
+  forecast: EnhancedForecastEntity,
+  tideHeightFt: number | null,
+): { rateFtPerHour: number | null; rateSource: 'series' | 'next_extremum' | null } {
+  const seriesRate = forecast.tide_rate_ft_per_hour;
+  if (typeof seriesRate === 'number' && Number.isFinite(seriesRate)) {
+    return { rateFtPerHour: seriesRate, rateSource: 'series' };
+  }
+  const none = { rateFtPerHour: null, rateSource: null };
+  if (tideHeightFt === null || !forecast.next_tide_at) return none;
+  const nextHeightFt = parseFloat(forecast.next_tide_height || '');
+  const hours = (Date.parse(forecast.next_tide_at) - Date.parse(forecast.forecast_at)) / 3_600_000;
+  if (!Number.isFinite(nextHeightFt) || !Number.isFinite(hours)) return none;
+  if (hours < MIN_NEXT_EXTREMUM_HOURS || hours > MAX_NEXT_EXTREMUM_HOURS) return none;
+  return {
+    rateFtPerHour: Math.round(((nextHeightFt - tideHeightFt) / hours) * 100) / 100,
+    rateSource: 'next_extremum',
+  };
 }
 
 /**

@@ -11,6 +11,7 @@ import { BFR_PAGE_TYPES } from "@/lib/analytics/event-taxonomy";
 import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import {
   buildOpenInQuiverUrl,
+  EMAIL_ATTRIBUTION_PARAMS,
   isGoHost,
   loadShareLandingMetadata,
   parseShareId,
@@ -176,6 +177,9 @@ export default async function AppSpotHandoffPage({
     windowValue: windowId,
     shareId,
     inviteToken: firstSearchValue(resolvedSearchParams.invite),
+    emailAttribution: Object.fromEntries(
+      EMAIL_ATTRIBUTION_PARAMS.map((key) => [key, firstSearchValue(resolvedSearchParams[key])]),
+    ),
   });
   const hasPositiveWindow = !shareMetadata.isFallback;
   const displayWindowLabel = hasPositiveWindow

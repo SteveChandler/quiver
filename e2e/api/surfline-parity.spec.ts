@@ -20,6 +20,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { createIsolatedApiContext } from "../utils/api-request-helpers";
+import { SURFLINE_SPOT_IDS } from "../../scripts/surfline-spot-ids";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const RUN_SURFLINE_PARITY = process.env.RUN_SURFLINE_PARITY === "1";
@@ -64,7 +65,7 @@ const SURFLINE_PARITY_TARGETS: SurflineParityTarget[] = [
     quiverName: "Blacks Beach",
     quiverBeachId: "01330afc-00d3-461b-88f3-b173774766f4",
     surflineName: "Blacks Beach",
-    surflineSpotId: "5842041f4e65fad6a770883b",
+    surflineSpotId: SURFLINE_SPOT_IDS.blacks,
     relation: "exact",
     maxMidpointDeltaFt: 2.5,
     maxTimestampDeltaHours: 4,
@@ -72,9 +73,9 @@ const SURFLINE_PARITY_TARGETS: SurflineParityTarget[] = [
   {
     quiverName: "Windansea",
     quiverBeachId: "6f42d47d-215b-47cb-ac14-b83bf8c2a797",
-    surflineName: "Blacks Beach",
-    surflineSpotId: "5842041f4e65fad6a770883b",
-    relation: "similar",
+    surflineName: "Windansea",
+    surflineSpotId: SURFLINE_SPOT_IDS.windansea,
+    relation: "exact",
     maxMidpointDeltaFt: 3.5,
     maxTimestampDeltaHours: 4,
   },
@@ -82,7 +83,7 @@ const SURFLINE_PARITY_TARGETS: SurflineParityTarget[] = [
     quiverName: "Huntington Beach Pier Southside",
     quiverBeachId: "025cfc18-8357-49d6-994e-e0abf0a16f6d",
     surflineName: "Huntington Beach Pier Southside",
-    surflineSpotId: "5842041f4e65fad6a77088ed",
+    surflineSpotId: SURFLINE_SPOT_IDS["hb-pier-southside"],
     relation: "exact",
     maxMidpointDeltaFt: 4,
     maxTimestampDeltaHours: 4,
@@ -91,7 +92,7 @@ const SURFLINE_PARITY_TARGETS: SurflineParityTarget[] = [
     quiverName: "Huntington Beach Pier",
     quiverBeachId: "071db1df-b5ee-4af6-a022-ea8a09667cbe",
     surflineName: "Huntington Beach Pier Northside",
-    surflineSpotId: "5842041f4e65fad6a7708827",
+    surflineSpotId: SURFLINE_SPOT_IDS["hb-pier-northside"],
     relation: "similar",
     maxMidpointDeltaFt: 3.5,
     maxTimestampDeltaHours: 4,
@@ -100,7 +101,7 @@ const SURFLINE_PARITY_TARGETS: SurflineParityTarget[] = [
     quiverName: "Huntington Beach Pier Northside",
     quiverBeachId: "72726bcb-bed0-4b76-8336-f90d7fb57159",
     surflineName: "Huntington Beach Pier Northside",
-    surflineSpotId: "5842041f4e65fad6a7708827",
+    surflineSpotId: SURFLINE_SPOT_IDS["hb-pier-northside"],
     relation: "exact",
     maxMidpointDeltaFt: 4,
     maxTimestampDeltaHours: 4,
@@ -109,7 +110,7 @@ const SURFLINE_PARITY_TARGETS: SurflineParityTarget[] = [
     quiverName: "The Wedge",
     quiverBeachId: "c2c7cc01-4920-4fd9-941c-68df6b46ced0",
     surflineName: "The Wedge",
-    surflineSpotId: "5842041f4e65fad6a77088a9",
+    surflineSpotId: SURFLINE_SPOT_IDS["the-wedge"],
     relation: "exact",
     maxMidpointDeltaFt: 3.5,
     maxTimestampDeltaHours: 4,

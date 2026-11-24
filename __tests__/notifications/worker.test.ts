@@ -914,61 +914,7 @@ describe("swell_watch dispatch revalidation", () => {
 });
 
 describe("worker recommendation-hold integration", () => {
-  it("suppresses a Quiver feedback nudge through the worker's real resolver", async () => {
-    const beachId = "11111111-1111-4111-8111-111111111111";
-    mockWaterQualityHeldBeachIds.add(beachId);
-
-    const state = emptyState();
-    state.events.push(
-      buildEvent({
-        id: "evt-water-quality-worker",
-        actor_user_id: null,
-        type: "forecast_feedback_nudge",
-        entity_type: "beach",
-        entity_id: beachId,
-        payload: {
-          beach_id: beachId,
-          forecast_at: "2026-04-29T19:00:00.000Z",
-        },
-      }),
-    );
-    state.profiles.set("user-recipient", buildProfile());
-
-    const summary = await processPendingEventsReal(
-      buildMockSupabase(state) as never,
-      {
-        now: NOON_PT,
-        fcm: null,
-        resolveMajorEventHold: (input) =>
-          resolveNotificationMajorEventHold({ ...input, mode: "enforce" }),
-      },
-    );
-
-    expect(summary.by_status.skipped_disabled).toBe(1);
-    expect(state.attempts).toEqual([
-      expect.objectContaining({
-        notification_event_id: "evt-water-quality-worker",
-        channel: "push",
-        status: "skipped_disabled",
-        provider_response: {
-          audit_code: "major_event_hold",
-          reason_code: "water_quality_hold",
-        },
-      }),
-    ]);
-    expect(state.eventUpdates).toEqual([
-      {
-        id: "evt-water-quality-worker",
-        status: "processed",
-        skip_reason: "all_channels_skipped",
-      },
-    ]);
-    expect(mockWaterQualityFrom).toHaveBeenCalledWith(
-      "water_quality_held_beaches",
-    );
-  });
-
-  it("skips a Daily Call naming a water-quality-held alternative with major-event holds off", async () => {
+  it("delivers a Daily Call naming a water-quality-held alternative with major-event holds off", async () => {
     const leadId = "11111111-1111-4111-8111-111111111111";
     const heldId = "22222222-2222-4222-8222-222222222222";
     mockWaterQualityHeldBeachIds.add(heldId);
@@ -1005,15 +951,11 @@ describe("worker recommendation-hold integration", () => {
       },
     );
 
-    expect(summary.by_status.skipped_disabled).toBeGreaterThanOrEqual(1);
-    expect(state.attempts).toContainEqual(
+    expect(summary.by_status.skipped_disabled).toBeUndefined();
+    expect(state.attempts).not.toContainEqual(
       expect.objectContaining({
         notification_event_id: "evt-daily-call-held-option",
-        status: "skipped_disabled",
-        provider_response: {
-          audit_code: "major_event_hold",
-          reason_code: "water_quality_hold",
-        },
+        provider_response: expect.objectContaining({ audit_code: "major_event_hold" }),
       }),
     );
   });

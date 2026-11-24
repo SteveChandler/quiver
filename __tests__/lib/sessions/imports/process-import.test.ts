@@ -1,4 +1,5 @@
 /** @jest-environment node */
+/* eslint-disable jest/no-conditional-expect -- parameterized failure cases assert only their relevant state */
 jest.mock("server-only", () => ({}));
 jest.mock("@/lib/sessions/wave-detection/detect-waves", () => {
   const actual = jest.requireActual("@/lib/sessions/wave-detection/detect-waves");
@@ -163,6 +164,7 @@ it("parses OB bytes, creates a private completed session, stores waves and prese
     started_at: track.meta.startedAt, ended_at: track.meta.endedAt, sample_count: summary.sampleCount,
     max_gap_s: summary.maxGapS, gps_coverage: summary.gpsCoverage, speed_reliable: summary.speedReliable,
     track_geojson: persisted.trackGeojson, speed_series: persisted.speedSeries, water_temp_c: summary.waterTempC,
+    water_temp_start_c: summary.waterTempStartC, water_temp_end_c: summary.waterTempEndC, calories: null,
     sha256: createHash("sha256").update(bytes).digest("hex"), timing_from_track: true,
   } });
   expect(rows.sessions[0]).toMatchObject({ water_temp: Math.round(summary.waterTempC! * 9 / 5 + 32), water_temp_source: "watch" });
@@ -172,6 +174,23 @@ it("parses OB bytes, creates a private completed session, stores waves and prese
     wave_count: expect.any(Number), recorded_by_family: expect.any(String),
   }) }));
   expect(download).toHaveBeenCalledWith("import-1/user-1/watch.fit");
+});
+
+it.each(["42703", "PGRST204"])("imports tracks before the watch stats columns exist (%s)", async code => {
+  let rejected = false;
+  queryFailure = mutation => {
+    if (!rejected && mutation.table === "session_tracks" && mutation.operation === "insert"
+      && mutation.payload?.water_temp_start_c !== undefined) {
+      rejected = true;
+      return { code, message: "column missing" };
+    }
+    return null;
+  };
+  const result = await processImport(deps, importId, userId);
+  expect(result.status).toBe("completed");
+  expect(rejected).toBe(true);
+  expect(rows.session_tracks).toHaveLength(1);
+  expect(rows.session_tracks[0].water_temp_start_c).toBeUndefined();
 });
 
 it("attaches a planned session 60 minutes away and preserves user timing and temperature", async () => {
@@ -530,7 +549,7 @@ it("loads only the track fields needed to resume an import", async () => {
 });
 
 
-function useWatch(track?: NormalizedTrack, rating: number | null = 3, waveHeightFt?: number | null): NormalizedTrack {
+function setWatchImport(track?: NormalizedTrack, rating: number | null = 3, waveHeightFt?: number | null): NormalizedTrack {
   const file = track ? encodeWatchTrack(track) : structuredClone(watchFixture);
   file.header.rating = rating;
   if (waveHeightFt !== undefined) Object.assign(file.header, { waveHeightFt });
@@ -540,13 +559,13 @@ function useWatch(track?: NormalizedTrack, rating: number | null = 3, waveHeight
 }
 
 it("stores the watch observation on a new session", async () => {
-  useWatch(undefined, 3, 3.5);
+  setWatchImport(undefined, 3, 3.5);
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed" });
   expect(rows.sessions[0].wave_height_ft).toBe(3.5);
 });
 
 it("links a recent exposed call for a new watch session", async () => {
-  const track = useWatch(undefined, 3, 3.5);
+  const track = setWatchImport(undefined, 3, 3.5);
   const arrivalTime = summarizeTrack(track).inWaterStart;
   rows.user_events = [{ user_id: userId, beach_id: beach.id, event_type: "board_pick_exposed",
     created_at: new Date(Date.parse(arrivalTime) - 3600000).toISOString(),
@@ -556,7 +575,7 @@ it("links a recent exposed call for a new watch session", async () => {
 });
 
 it("links a recent exposed call when a watch surf attaches", async () => {
-  const track = useWatch();
+  const track = setWatchImport();
   const arrivalTime = summarizeTrack(track).inWaterStart;
   rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id,
     arrival_time: arrivalTime, duration_minutes: 90, status: "completed", call_id: null });
@@ -568,7 +587,7 @@ it("links a recent exposed call when a watch surf attaches", async () => {
 });
 
 it.each([false, true])("uses the existing session's beach for a watch call link (resuming: %s)", async resuming => {
-  const track = useWatch();
+  const track = setWatchImport();
   const arrivalTime = summarizeTrack(track).inWaterStart;
   const sessionBeachId = "session-beach";
   rows.sessions.push({ id: "attached", user_id: userId, beach_id: sessionBeachId,
@@ -583,7 +602,7 @@ it.each([false, true])("uses the existing session's beach for a watch call link 
   }));
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "attached" });
   expect(rows.sessions[0].call_id).toBe(`call-${sessionBeachId}`);
-  expect(selections).toContainEqual({ table: "sessions", columns: "id, beach_id, arrival_time, duration_minutes, status" });
+  expect(selections).toContainEqual({ table: "sessions", columns: "id, beach_id, arrival_time, duration_minutes, status, rating, wave_height_ft, wave_height_source, water_temp, timing_user_set" });
 });
 
 it("skips the wave-height write and call link for a file import", async () => {
@@ -601,7 +620,7 @@ it("skips the wave-height write and call link for a file import", async () => {
 });
 
 it("completes a watch import when recent-call lookup fails", async () => {
-  useWatch();
+  setWatchImport();
   queryFailure = mutation => mutation.table === "user_events" && mutation.operation === "select"
     ? { message: "lookup failed" } : null;
   const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -620,7 +639,7 @@ it.each([
   { existing: 7, source: "user", expected: { wave_height_ft: 7, wave_height_source: "user" } },
   { existing: 7, source: null, expected: { wave_height_ft: 7, wave_height_source: null } },
 ])("writes the attached wave height only over an empty or forecast-prefilled one ($existing, $source)", async ({ existing, source, expected }) => {
-  const track = useWatch(undefined, 3, 3.5);
+  const track = setWatchImport(undefined, 3, 3.5);
   rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id,
     arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90,
     status: "completed", wave_height_ft: existing, wave_height_source: source });
@@ -633,7 +652,7 @@ it.each([
 });
 
 it("leaves wave_height_source unset on a new watch session", async () => {
-  useWatch(undefined, 3, 3.5);
+  setWatchImport(undefined, 3, 3.5);
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
   expect(inserts("sessions")[0].payload).not.toHaveProperty("wave_height_source");
 });
@@ -645,12 +664,14 @@ function watchSlice(seconds: number): NormalizedTrack {
   return { ...track, samples, meta: { ...track.meta, startedAt: samples[0].t, endedAt: samples.at(-1)!.t } };
 }
 
-it("creates a public Garmin watch session with rating, stats, device and watch analytics", async () => {
-  const track = useWatch();
+it("publishes the Ocean Beach watch surf with three qualifying rides and stores its stats", async () => {
+  const track = setWatchImport();
   deps.userClient = deps.serviceClient;
   const summary = summarizeTrack(track);
   const hr = track.samples.filter(sample => sample.t >= summary.inWaterStart && sample.t <= summary.inWaterEnd && sample.hr !== null).map(sample => sample.hr!);
-  expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
+  expect(await processImport(deps, importId, userId)).toMatchObject({
+    status: "completed", attached: false, summary: { waveCount: 3, detectedWaveCount: 3 },
+  });
   expect(rows.sessions[0]).toMatchObject({ source: "garmin_watch", is_public: true, rating: 3, status: "completed" });
   expect(rows.session_tracks[0]).toMatchObject({
     format: "quiver_watch", source_device: "Forerunner 165",
@@ -663,8 +684,18 @@ it("creates a public Garmin watch session with rating, stats, device and watch a
   expect(sessionIndex).toBeLessThan(waveIndex);
 });
 
+it("stores valid watch header calories and returns them with the imported summary", async () => {
+  const file = structuredClone(watchFixture);
+  Object.assign(file.header, { calories: 432 });
+  bytes = new TextEncoder().encode(JSON.stringify(file));
+  Object.assign(rows.session_imports[0], { origin: "garmin_watch", original_filename: "watch.json" });
+  const result = await processImport(deps, importId, userId);
+  expect(result).toMatchObject({ status: "completed", summary: { calories: 432 } });
+  expect(rows.session_tracks[0].calories).toBe(432);
+});
+
 it("keeps a seven-minute fixture slice with no counted waves private", async () => {
-  const track = useWatch(watchSlice(420));
+  const track = setWatchImport(watchSlice(420));
   const summary = summarizeTrack(track);
   const spanS = (Date.parse(summary.inWaterEnd) - Date.parse(summary.inWaterStart)) / 1000;
   expect(spanS).toBeGreaterThanOrEqual(300);
@@ -674,7 +705,7 @@ it("keeps a seven-minute fixture slice with no counted waves private", async () 
 });
 
 it("fails a four-minute Garmin slice as too_short before persisting a session", async () => {
-  useWatch(watchSlice(240));
+  setWatchImport(watchSlice(240));
   await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "too_short" });
   expect(rows.session_imports[0]).toMatchObject({ status: "failed", error: "too_short" });
   expect(inserts("sessions")).toHaveLength(0);
@@ -698,7 +729,7 @@ it("preserves file-import behavior for a four-minute GPX track", async () => {
 });
 
 it.each([null, 5])("fills only a null attachment rating and preserves source and visibility (rating %s)", async rating => {
-  const track = useWatch();
+  const track = setWatchImport();
   rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id, arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90, status: "planned", rating, source: "manual", is_public: false });
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: true });
   expect(rows.sessions[0]).toMatchObject({ rating: rating ?? 3, source: "manual", is_public: false, status: "completed" });
@@ -707,7 +738,7 @@ it.each([null, 5])("fills only a null attachment rating and preserves source and
 });
 
 it("rejects a watch-format track uploaded through a file import before creating a session", async () => {
-  useWatch();
+  setWatchImport();
   rows.session_imports[0].origin = "file";
   rows.session_imports[0].original_filename = "spoofed.fit";
   await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "unsupported_format" });
@@ -729,7 +760,7 @@ function boundaryTrack(seconds: number, direction: number = 1): NormalizedTrack 
   const start = Date.parse("2026-10-17T16:20:00Z");
   const samples = Array.from({ length: seconds + 1 }, (_, index) => ({
     t: new Date(start + index * 1000).toISOString(), lat: beach.lat,
-    lon: beach.lon + direction * Math.max(0, Math.min(10, index - 20)) * 0.00001,
+    lon: beach.lon + direction * Math.max(0, Math.min(10, index - 20)) * 0.00004,
     speedMps: index >= 20 && index <= 30 ? 4 : 0, hr: null, tempC: null, cadence: null,
   }));
   return { meta: { format: "quiver_watch", sport: "surfing", subSport: null, recordedBy: null, startedAt: samples[0].t, endedAt: samples.at(-1)!.t }, samples };
@@ -745,7 +776,7 @@ function noGpsWatch(): NormalizedTrack {
     meta: { format: "quiver_watch", sport: "surfing", subSport: null, recordedBy: null,
       startedAt: samples[0].t, endedAt: samples.at(-1)!.t }, samples,
   };
-  useWatch(track, 4, 3.5);
+  setWatchImport(track, 4, 3.5);
   return track;
 }
 
@@ -821,7 +852,7 @@ it("creates separate sessions for zero-fix watch surfs 60 minutes apart", async 
   const secondTrack = { ...firstTrack,
     meta: { ...firstTrack.meta, startedAt: later(firstTrack.meta.startedAt), endedAt: later(firstTrack.meta.endedAt) },
     samples: firstTrack.samples.map(sample => ({ ...sample, t: later(sample.t) })) };
-  useWatch(secondTrack);
+  setWatchImport(secondTrack);
   rows.user_location_snapshots[0].captured_at = secondTrack.meta.startedAt;
   rows.session_imports.push({ id: "second-no-gps", user_id: userId, origin: "garmin_watch",
     storage_path: "second-no-gps/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
@@ -842,7 +873,7 @@ it("creates a separate GPS watch session beside a zero-fix watch session", async
 
   const later = (value: string): string => new Date(Date.parse(value) + 60_000).toISOString();
   const gpsTrack = boundaryTrack(600);
-  useWatch({ ...gpsTrack,
+  setWatchImport({ ...gpsTrack,
     meta: { ...gpsTrack.meta, startedAt: later(gpsTrack.meta.startedAt), endedAt: later(gpsTrack.meta.endedAt) },
     samples: gpsTrack.samples.map(sample => ({ ...sample, t: later(sample.t) })) });
   rows.session_imports.push({ id: "gps-near-watch", user_id: userId, origin: "garmin_watch",
@@ -858,13 +889,13 @@ it("creates a separate GPS watch session beside a zero-fix watch session", async
 it("rejects a zero-fix watch surf shorter than 300 seconds", async () => {
   const longTrack = noGpsWatch();
   const samples = longTrack.samples.slice(0, 241);
-  useWatch({ ...longTrack, samples, meta: { ...longTrack.meta, endedAt: samples.at(-1)!.t } });
+  setWatchImport({ ...longTrack, samples, meta: { ...longTrack.meta, endedAt: samples.at(-1)!.t } });
   await expect(processImport(deps, importId, userId)).rejects.toMatchObject({ code: "too_short" });
   expect(inserts("sessions")).toHaveLength(0);
 });
 
 it.each([300, 599, 600])("accepts a %s s in-water span and publishes only at 600 s with a counted wave", async seconds => {
-  const track = useWatch(boundaryTrack(seconds), null);
+  const track = setWatchImport(boundaryTrack(seconds), null);
   const summary = summarizeTrack(track);
   expect((Date.parse(summary.inWaterEnd) - Date.parse(summary.inWaterStart)) / 1000).toBe(seconds);
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", summary: { waveCount: 1 } });
@@ -872,7 +903,7 @@ it.each([300, 599, 600])("accepts a %s s in-water span and publishes only at 600
 });
 
 it("does not publish or exclude paddling for low-confidence waves even in a ten-minute surf", async () => {
-  const track = useWatch(boundaryTrack(600, -1));
+  const track = setWatchImport(boundaryTrack(600, -1));
   expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", summary: { waveCount: 0 } });
   expect(rows.session_waves.length).toBeGreaterThan(0);
   expect(rows.sessions[0]).toMatchObject({ is_public: false });
@@ -892,7 +923,7 @@ it("stores HR from FIT file imports", async () => {
 });
 
 it("preserves a rating written concurrently while attaching a watch import", async () => {
-  const track = useWatch();
+  const track = setWatchImport();
   rows.sessions.push({ id: "attached", user_id: userId, beach_id: beach.id, arrival_time: summarizeTrack(track).inWaterStart, duration_minutes: 90, status: "completed", rating: null });
   let attemptedRating = false;
   queryFailure = mutation => {
@@ -919,12 +950,12 @@ it("rejects a FIT track uploaded through a watch import before creating a sessio
 });
 
 it("keeps both sessions and tracks for different watch surfs at the same beach 60 minutes apart", async () => {
-  const firstTrack = useWatch(boundaryTrack(600));
+  const firstTrack = setWatchImport(boundaryTrack(600));
   const first = await processImport(deps, importId, userId);
   expect(first).toMatchObject({ status: "completed", attached: false });
   if (first.status !== "completed") throw new Error("Expected the first watch surf to complete");
   const later = (value: string): string => new Date(Date.parse(value) + 60 * 60 * 1000).toISOString();
-  useWatch({
+  setWatchImport({
     ...firstTrack,
     meta: { ...firstTrack.meta, startedAt: later(firstTrack.meta.startedAt), endedAt: later(firstTrack.meta.endedAt) },
     samples: firstTrack.samples.map(sample => ({ ...sample, t: later(sample.t) })),
@@ -946,7 +977,7 @@ it("keeps both sessions and tracks for different watch surfs at the same beach 6
 });
 
 it("still rejects identical watch bytes as a SHA duplicate", async () => {
-  useWatch(boundaryTrack(600));
+  setWatchImport(boundaryTrack(600));
   const first = await processImport(deps, importId, userId);
   if (first.status !== "completed") throw new Error("Expected the first watch surf to complete");
   rows.session_imports.push({ id: "duplicate", user_id: userId, origin: "garmin_watch", storage_path: "duplicate/user-1/watch.json", original_filename: "watch.json", status: "uploaded" });
@@ -957,7 +988,7 @@ it("still rejects identical watch bytes as a SHA duplicate", async () => {
 });
 
 it.each(["session_waves", "session_tracks"])("adopts a watch orphan on a fresh retry after %s failure", async table => {
-  useWatch(boundaryTrack(600));
+  setWatchImport(boundaryTrack(600));
   let failed = false;
   queryFailure = mutation => {
     if (!failed && mutation.table === table && mutation.operation === "insert") {
@@ -992,7 +1023,7 @@ it.each([false, true])("persists a supplied wave list without recomputing it (em
 });
 
 it("uses one detection for watch visibility, persistence and the returned wave count", async () => {
-  useWatch(boundaryTrack(600));
+  setWatchImport(boundaryTrack(600));
   const callsBefore = jest.mocked(detectWaves).mock.calls.length;
   const result = await processImport(deps, importId, userId);
   expect(jest.mocked(detectWaves).mock.calls).toHaveLength(callsBefore + 1);
@@ -1003,7 +1034,7 @@ it("uses one detection for watch visibility, persistence and the returned wave c
 
 
 it("isolates a watch import from another user's matching SHA, attach candidate, track and waves with one service client", async () => {
-  const track = useWatch();
+  const track = setWatchImport();
   deps.userClient = deps.serviceClient;
   const otherUserId = "user-2";
   const otherSessionId = "user-2-session";
@@ -1049,4 +1080,343 @@ it("isolates a watch import from another user's matching SHA, attach candidate, 
     const inserted = Array.isArray(mutation.payload) ? mutation.payload : [mutation.payload];
     expect(inserted.every(row => row.user_id === userId && row.session_id !== otherSessionId && row.import_id !== otherImportId)).toBe(true);
   }
+});
+
+describe("phone-claimed watch recordings", () => {
+  // 2026-11-03 (user 73040cff): watch in water 14:30:00–15:59:24, phone form opened 15:54:56
+  // and saved its default "now" time for 60 min at 16:00:38; import completed 16:01:59. Shifted
+  // to the fixture day so the track stays before `now`.
+  const inWaterStart = "2026-10-20T14:30:00.000Z";
+  const inWaterEnd = "2026-10-20T15:59:24.000Z";
+  const phoneDefaultArrival = "2026-10-20T15:54:56.000Z";
+  const phoneSavedAt = "2026-10-20T16:00:38.000Z";
+  const minutes = (iso: string, delta: number): string => new Date(Date.parse(iso) + delta * 60000).toISOString();
+
+  function stationaryWatch(start = inWaterStart, end = inWaterEnd, rating: number | null = 3, waveHeightFt: number | null = 3.5) {
+    const startMs = Date.parse(start);
+    const count = Math.floor((Date.parse(end) - startMs) / 4000) + 1;
+    const samples = Array.from({ length: count }, (_, index) => ({
+      t: new Date(startMs + index * 4000).toISOString(), lat: beach.lat, lon: beach.lon,
+      speedMps: 0, hr: null, tempC: 18, cadence: null,
+    }));
+    const track: NormalizedTrack = { meta: { format: "quiver_watch", sport: "surfing", subSport: null,
+      recordedBy: null, startedAt: samples[0].t, endedAt: samples.at(-1)!.t }, samples };
+    setWatchImport(track, rating, waveHeightFt);
+    rows.session_imports[0].device_id = "device-1";
+    deps.userClient = deps.serviceClient;
+    const summary = summarizeTrack(readTrackFile(bytes, "watch.json", now));
+    expect([summary.inWaterStart, summary.inWaterEnd]).toEqual([start, end]);
+    return summary;
+  }
+
+  function phoneSession(id: string, arrival: string, extra: Row = {}): Row {
+    const session = { id, user_id: userId, beach_id: beach.id, arrival_time: arrival, duration_minutes: 60,
+      status: "completed", source: "manual", rating: 4, wave_height_ft: null, wave_height_source: null,
+      water_temp: null, timing_user_set: false, ...extra };
+    rows.sessions.push(session);
+    return session;
+  }
+
+  function claim(sessionId: string, extra: Row = {}): Row {
+    const row = { session_id: sessionId, user_id: userId, device_id: "device-1",
+      window_start: minutes(phoneDefaultArrival, -120), window_end: minutes(phoneSavedAt, 30),
+      created_at: phoneSavedAt, claimed_import_id: null, claimed_at: null, merge_result: null, ...extra };
+    (rows.session_watch_claims ??= []).push(row);
+    return row;
+  }
+
+  it("attaches today's exact timeline by claim and takes the watch's time over the phone's default", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival, { wave_height_ft: 4, wave_height_source: "forecast_prefill" });
+    const claimRow = claim("phone");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "phone", attached: true });
+    expect(inserts("sessions")).toHaveLength(0);
+    expect(rows.sessions[0]).toMatchObject({ arrival_time: inWaterStart, duration_minutes: 89, rating: 4,
+      wave_height_ft: 3.5, wave_height_source: "user", water_temp: 64, water_temp_source: "watch" });
+    expect(rows.session_tracks[0]).toMatchObject({ user_arrival_time: phoneDefaultArrival, user_duration_minutes: 60,
+      timing_from_track: true });
+    expect(claimRow).toMatchObject({ claimed_import_id: importId, claimed_at: now.toISOString(), merge_result: {
+      mergedFields: ["arrival_time", "duration_minutes", "wave_height_ft", "water_temp"],
+      keptFields: [{ field: "rating", phoneValue: 4, watchValue: 3 }],
+    } });
+  });
+
+  it("attaches by claim even when the phone time is outside every time window", async () => {
+    stationaryWatch();
+    const lateArrival = minutes(inWaterEnd, 110);
+    phoneSession("claimed", lateArrival);
+    claim("claimed", { window_start: minutes(inWaterStart, -60), window_end: minutes(lateArrival, 10) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "claimed", attached: true });
+    expect(inserts("sessions")).toHaveLength(0);
+  });
+
+  it("prefers the claimed session over a closer time match", async () => {
+    stationaryWatch();
+    phoneSession("time-match", inWaterStart);
+    phoneSession("claimed", minutes(inWaterEnd, 100));
+    claim("claimed", { window_start: minutes(inWaterStart, -60), window_end: minutes(inWaterEnd, 110) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "claimed", attached: true });
+    expect(rows.sessions.find(row => row.id === "time-match")).toMatchObject({ arrival_time: inWaterStart, duration_minutes: 60 });
+    expect(rows.session_tracks).toEqual([expect.objectContaining({ session_id: "claimed" })]);
+  });
+
+  it("prefers the claim from the recording device", async () => {
+    stationaryWatch();
+    phoneSession("other-device", phoneDefaultArrival);
+    phoneSession("same-device", phoneDefaultArrival);
+    claim("other-device", { device_id: "device-2", created_at: minutes(phoneSavedAt, 5) });
+    claim("same-device");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "same-device" });
+    expect(rows.session_watch_claims.map(row => row.claimed_import_id)).toEqual([null, importId]);
+  });
+
+  it("keeps the phone's time when the user set it, and records both values", async () => {
+    stationaryWatch();
+    const userArrival = "2026-10-20T14:15:00.000Z";
+    phoneSession("phone", userArrival, { duration_minutes: 120, status: "planned", timing_user_set: true,
+      wave_height_ft: 2, wave_height_source: "user" });
+    const claimRow = claim("phone", { window_start: userArrival, window_end: minutes(userArrival, 150) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rows.sessions[0]).toMatchObject({ arrival_time: userArrival, duration_minutes: 120, status: "completed", rating: 4 });
+    expect(rows.session_tracks[0]).toMatchObject({ timing_from_track: false, user_arrival_time: userArrival });
+    expect(claimRow.merge_result).toEqual({
+      mergedFields: ["water_temp"],
+      keptFields: [
+        { field: "arrival_time", phoneValue: userArrival, watchValue: inWaterStart },
+        { field: "duration_minutes", phoneValue: 120, watchValue: 89 },
+        { field: "rating", phoneValue: 4, watchValue: 3 },
+        { field: "wave_height_ft", phoneValue: 2, watchValue: 3.5 },
+      ],
+    });
+  });
+
+  it("never overwrites a user-set wave height or water temperature", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival, { wave_height_ft: 5, wave_height_source: "user", water_temp: 60 });
+    claim("phone");
+    await processImport(deps, importId, userId);
+    expect(rows.sessions[0]).toMatchObject({ wave_height_ft: 5, wave_height_source: "user", water_temp: 60, rating: 4 });
+  });
+
+  it("never merges a watch surf into a conditions report, by claim or by time", async () => {
+    stationaryWatch();
+    phoneSession("report", inWaterStart, { source: "conditions_report", duration_minutes: 0, rating: null });
+    const claimRow = claim("report");
+    const result = await processImport(deps, importId, userId);
+    expect(result).toMatchObject({ status: "completed", attached: false });
+    expect(result).not.toMatchObject({ sessionId: "report" });
+    expect(inserts("sessions")).toHaveLength(1);
+    expect(rows.sessions.find(row => row.id === "report")).toMatchObject({ arrival_time: inWaterStart, duration_minutes: 0 });
+    expect(claimRow.claimed_import_id).toBeNull();
+  });
+
+  it("is idempotent: a retry keeps the claim, its time and its first merge record", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone");
+    await processImport(deps, importId, userId);
+    const first = structuredClone(claimRow);
+    Object.assign(rows.session_imports[0], { status: "uploaded" });
+    expect(await processImport({ ...deps, now: new Date(now.getTime() + 60000) }, importId, userId))
+      .toMatchObject({ status: "completed", sessionId: "phone" });
+    expect(claimRow).toEqual(first);
+    expect(rows.sessions).toHaveLength(1);
+    expect(rows.session_tracks).toHaveLength(1);
+  });
+
+  it("does not reuse a claim another import already took", async () => {
+    stationaryWatch();
+    phoneSession("phone", minutes(inWaterEnd, 110));
+    const claimRow = claim("phone", { claimed_import_id: "other-import", claimed_at: phoneSavedAt,
+      window_end: minutes(inWaterEnd, 120) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch" } });
+    expect(claimRow.claimed_import_id).toBe("other-import");
+  });
+
+  it("falls through a claim whose session was deleted", async () => {
+    stationaryWatch();
+    phoneSession("deleted", phoneDefaultArrival, { deleted_at: phoneSavedAt });
+    claim("deleted");
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch" } });
+  });
+
+  it("never attaches to another user's claimed session", async () => {
+    stationaryWatch();
+    phoneSession("theirs", phoneDefaultArrival, { user_id: "user-2" });
+    const theirs = claim("theirs", { user_id: "user-2", device_id: null });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(rows.sessions.find(row => row.id === "theirs")).toMatchObject({ arrival_time: phoneDefaultArrival, duration_minutes: 60 });
+    expect(theirs.claimed_import_id).toBeNull();
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { user_id: userId, source: "garmin_watch" } });
+  });
+
+  it("attaches an untouched phone session saved an hour after the surf without a claim", async () => {
+    stationaryWatch();
+    phoneSession("after", minutes(inWaterEnd, 60), { created_at: minutes(inWaterEnd, 61) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "after", attached: true });
+    expect(inserts("sessions")).toHaveLength(0);
+  });
+
+  it.each(["2026-10-20T09:15:00.000Z", "2026-10-20T09:35:00.000Z"])(
+    "keeps a late-synced dawn surf off a later surf whose time the user set (%s)", async arrival => {
+      stationaryWatch("2026-10-20T06:00:00.000Z", "2026-10-20T08:00:00.000Z");
+      phoneSession("later-surf", arrival, { timing_user_set: true, created_at: arrival });
+      expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+      expect(rows.sessions.find(row => row.id === "later-surf")).toMatchObject({ arrival_time: arrival, duration_minutes: 60 });
+      expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: "2026-10-20T06:00:00.000Z" } });
+      expect(rows.session_watch_claims ?? []).toHaveLength(0);
+    });
+
+  it("attaches an untouched \"now\" phone save made 40 minutes after a dawn surf", async () => {
+    stationaryWatch("2026-10-20T06:00:00.000Z", "2026-10-20T08:00:00.000Z");
+    phoneSession("saved-now", "2026-10-20T08:40:00.000Z", { created_at: "2026-10-20T08:41:00.000Z" });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "saved-now", attached: true });
+    expect(inserts("sessions")).toHaveLength(0);
+  });
+
+  it("keeps a dawn surf off an old-build phone log whose time was set long before it was saved", async () => {
+    stationaryWatch("2026-10-20T06:00:00.000Z", "2026-10-20T08:00:00.000Z");
+    phoneSession("old-build", "2026-10-20T09:15:00.000Z", { timing_user_set: false, created_at: "2026-10-20T12:00:00.000Z" });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(rows.sessions.find(row => row.id === "old-build")).toMatchObject({ arrival_time: "2026-10-20T09:15:00.000Z", duration_minutes: 60 });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: "2026-10-20T06:00:00.000Z" } });
+  });
+
+  it("records a claimed merge for a time-matched attach with no claim row", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rows.session_watch_claims).toEqual([expect.objectContaining({ session_id: "phone", user_id: userId,
+      device_id: "device-1", window_start: inWaterStart, window_end: inWaterEnd, claimed_import_id: importId,
+      claimed_at: now.toISOString(), merge_result: expect.objectContaining({
+        mergedFields: expect.arrayContaining(["arrival_time", "duration_minutes"]) }) })]);
+  });
+
+  it("leaves a claim held by another import alone on a time-matched attach", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone", { claimed_import_id: "other-import", claimed_at: phoneSavedAt });
+    const before = structuredClone(claimRow);
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rows.session_watch_claims).toEqual([before]);
+  });
+
+  it("compares phone and watch times as instants and numbers, not strings", async () => {
+    stationaryWatch();
+    phoneSession("phone", "2026-10-20T14:30:00+00:00", { duration_minutes: 89, timing_user_set: true,
+      wave_height_ft: 3.5, wave_height_source: "user", water_temp: 64 });
+    const claimRow = claim("phone");
+    await processImport(deps, importId, userId);
+    expect(claimRow.merge_result.keptFields).toEqual([{ field: "rating", phoneValue: 4, watchValue: 3 }]);
+  });
+
+  it("releases a reserved claim when the import loses the SHA race", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone");
+    let collided = false;
+    queryFailure = mutation => {
+      if (!collided && mutation.table === "session_imports" && mutation.payload?.sha256) {
+        collided = true;
+        expect(claimRow.claimed_import_id).toBe(importId);
+        rows.session_imports.push({ id: "winner", user_id: userId, sha256: mutation.payload.sha256, status: "uploaded", session_id: "winning-session" });
+        rows.sessions.push({ id: "winning-session", user_id: userId, deleted_at: null });
+        return { code: "23505", message: "duplicate key value violates unique constraint" };
+      }
+      return null;
+    };
+    expect(await processImport(deps, importId, userId)).toEqual({ status: "duplicate", sessionId: "winning-session" });
+    expect(claimRow).toMatchObject({ claimed_import_id: null, claimed_at: null, merge_result: null });
+  });
+
+  it("releases a reserved claim when the import throws after reserving, and the retry takes it", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone");
+    let failed = false;
+    queryFailure = mutation => {
+      if (!failed && mutation.table === "session_tracks" && mutation.operation === "insert") {
+        failed = true;
+        return { code: "57014", message: "statement timeout" };
+      }
+      return null;
+    };
+    await expect(processImport(deps, importId, userId)).rejects.toThrow("statement timeout");
+    expect(claimRow).toMatchObject({ claimed_import_id: null, claimed_at: null, merge_result: null });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "phone", attached: true });
+    expect(claimRow.claimed_import_id).toBe(importId);
+  });
+
+  it("deletes the claim row it created when the import throws after a time-matched attach", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    let failed = false;
+    queryFailure = mutation => {
+      if (!failed && mutation.table === "session_tracks" && mutation.operation === "insert") {
+        failed = true;
+        return { code: "57014", message: "statement timeout" };
+      }
+      return null;
+    };
+    await expect(processImport(deps, importId, userId)).rejects.toThrow("statement timeout");
+    expect(rows.session_watch_claims ?? []).toHaveLength(0);
+  });
+
+  it("settles a claim whose window missed when the session attaches by time", async () => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    const claimRow = claim("phone", { window_start: minutes(inWaterEnd, 10), window_end: minutes(inWaterEnd, 40) });
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(claimRow).toMatchObject({ claimed_import_id: importId, merge_result: expect.objectContaining({
+      mergedFields: expect.arrayContaining(["arrival_time"]) }) });
+  });
+
+  it("creates a new session for a phone log two hours after the surf without a claim", async () => {
+    stationaryWatch();
+    phoneSession("later", minutes(inWaterEnd, 120));
+    expect(await processImport(deps, importId, userId)).toMatchObject({ attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: inWaterStart } });
+  });
+
+  it("keeps the watch-first path: no phone session creates a garmin_watch session and touches no claim", async () => {
+    stationaryWatch();
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", attached: false });
+    expect(inserts("sessions")[0]).toMatchObject({ payload: { source: "garmin_watch", arrival_time: inWaterStart,
+      duration_minutes: 89, rating: 3, wave_height_ft: 3.5 } });
+    expect(mutations.filter(mutation => mutation.table === "session_watch_claims" && mutation.payload?.claimed_import_id))
+      .toHaveLength(0);
+  });
+
+  it.each(["42P01", "PGRST205"])("imports before the claims table exists (%s)", async code => {
+    stationaryWatch();
+    phoneSession("phone", phoneDefaultArrival);
+    queryFailure = mutation => mutation.table === "session_watch_claims" ? { code, message: "missing" } : null;
+    expect(await processImport(deps, importId, userId)).toMatchObject({ status: "completed", sessionId: "phone", attached: true });
+  });
+
+  it("treats phone time as a default before the timing_user_set column exists", async () => {
+    stationaryWatch();
+    delete phoneSession("phone", phoneDefaultArrival).timing_user_set;
+    claim("phone");
+    let rejected = false;
+    const read = deps.userClient.from.bind(deps.userClient);
+    deps.userClient = { ...deps.userClient, from: (table: string) => {
+      const query: any = read(table);
+      if (table !== "sessions") return query;
+      const select = query.select;
+      query.select = (columns?: string) => {
+        if (columns?.includes("timing_user_set") && !rejected) {
+          rejected = true;
+          return { eq: () => ({ eq: () => ({ is: () => ({ single: () => Promise.resolve({ data: null, error: { code: "42703", message: "no column" } }) }) }) }) };
+        }
+        return select(columns);
+      };
+      return query;
+    } } as unknown as SupabaseClient;
+    expect(await processImport(deps, importId, userId)).toMatchObject({ sessionId: "phone", attached: true });
+    expect(rejected).toBe(true);
+    expect(rows.sessions[0]).toMatchObject({ arrival_time: inWaterStart, duration_minutes: 89 });
+  });
 });

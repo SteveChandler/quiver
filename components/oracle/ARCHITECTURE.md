@@ -7,8 +7,9 @@ The authenticated `/` route. `components/landing-page/auth-aware-landing-wrapper
 ```
 useOracleData (hooks/use-oracle-data.ts)
   ├─ useProfileContext        profile + home beach
-  ├─ useGeolocation           explicit GPS only (autoRequest: false)
-  ├─ useSurfDiscovery ×2      primary + San Diego fallback, /api/surf/discover
+  ├─ useGeolocation           explicit GPS only (autoRequest: false), remembers each fix
+  ├─ origin                   see "Origin" below
+  ├─ useSurfDiscovery         one request from the origin, /api/surf/discover?widenEmpty=1
   └─ heroPhotoUrl             real photo of the hero beach, or null
 OracleHomeScreen
   ├─ canonical gate           hero only when sessionDecision.selection matches topRecommendation
@@ -18,6 +19,12 @@ OracleHomeScreen
 ```
 
 Discovery is projected to the canonical selection on the client (`lib/recommendations/canonical-decision/client-projection.ts`). `recommendations` then holds only the hero, so `NearbySpots` is usually empty. It renders no heading over an empty rail and keeps only the "Use my location" action. Surfacing more spots needs a data source that has its own safety gating (native uses a separate ranked rail). Don't just relax the projection.
+
+## Origin
+
+Home scouts from the first of: a beach the surfer chose to scout from → a browser fix → a browser fix this account took in the last 24 hours → the home beach → the IP cookie, only when the browser timezone agrees with its longitude (`lib/location/approximate-origin.ts`) → the last beach a session was logged at. The last two are labelled approximate, with "Use my location" and "Set your home beach" beside the label. With none of these, Home asks where the surfer is and sends no discovery request. It never substitutes another region.
+
+An empty result stays at the origin. With `widenEmpty=1` the route widens a drive range that holds no beach to 100 miles (`scope.widenedFromMiles`, labelled on the call) and, past that, names the nearest beach (`scope.nearestBeach`), which the empty card offers as "Scout from <beach>". This mirrors Week Scout (#1093). Installed native apps don't send the flag and see no change.
 
 ## Layout
 

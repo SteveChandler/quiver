@@ -100,6 +100,12 @@ import { toMapBeach, toCityMapSpot } from "@/lib/utils/map-client-props";
 export const dynamic = "force-static";
 export const revalidate = 3600;
 
+// generateMetadata and the page body share one tide series per render, so the
+// title's "Next Low" is the same low the page shows.
+const getTidePageData = cache(
+  (cityName: string, state: string): Promise<CityTideDataExpanded | null> => getCityTideDataExpanded(cityName, state)
+);
+
 // Next.js lowers this page's revalidate to the shortest unstable_cache window a
 // render reads, so the beach-list window is the page window. Tide, water-temp,
 // and sun-time renders show no live recommendation and keep the declared hour.
@@ -238,7 +244,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
     const metadata = buildPageMetadata({
       title: `${definition.label} Spots in ${stateName}`,
-      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`,
+      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. Conditions, crowd data & surf windows.`,
       path: `/${params.intent}/${params.city}`,
       image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(stateName)}`,
     });
@@ -329,7 +335,8 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     const beginnerBeaches = await getBeginnerBeachesForPage(params.city, cityMetadata.state.toLowerCase());
     beginnerSpotNamesForMeta = beginnerBeaches.map((beach) => beach.name);
   } else if (params.intent === "tide") {
-    tideDataForMeta = await getCityTideData(cityMetadata.cityName, cityMetadata.state);
+    // Same series as the page body, so the title names the low the page shows.
+    tideDataForMeta = await getTidePageData(cityMetadata.cityName, cityMetadata.state);
     intentDataAvailability = tideDataForMeta
       ? "available"
       : await getCityIntentDataAvailability("tide", cityMetadata.cityName, cityMetadata.state);
@@ -485,7 +492,7 @@ export default async function IntentPage(props: IntentPageParams) {
         <WebPageSchema
           name={`${intentDefinition.label} Surf Spots in ${stateName}`}
           url={statePageUrl}
-          description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`}
+          description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. Conditions, crowd data & surf windows.`}
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
@@ -702,7 +709,7 @@ export default async function IntentPage(props: IntentPageParams) {
     const tidePageContent = buildIntentPageContent("tide", cityMetadata);
 
     const [expandedTideData, tideBeachesResult, bestTimeToSurfUrl, excludeIntents] = await Promise.all([
-      getCityTideDataExpanded(cityMetadata.cityName, cityMetadata.state),
+      getTidePageData(cityMetadata.cityName, cityMetadata.state),
       getBeachesByIntentAndCity("tide", cityMetadata.cityName, stateSlugLower, {
         revalidateSeconds: BEACH_METADATA_WINDOW_SECONDS,
       }),
@@ -773,7 +780,6 @@ export default async function IntentPage(props: IntentPageParams) {
             pageContent={tidePageContent}
             tideData={expandedTideData}
             spots={tideSpots}
-            updatedAt="Refreshed hourly"
             baseUrl={baseUrl}
             bestTimeToSurfUrl={bestTimeToSurfUrl}
             excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
@@ -1118,7 +1124,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
   // Fetch forecast summary for "Today's Plan" module (needs beach data)
   const forecastSummary = await getIntentForecastSummary(
-    beachesResult.data.slice(0, 5).map(b => ({
+    beachesResult.data.map(b => ({
       id: b.id,
       name: b.name,
       slug: b.slug ?? "",

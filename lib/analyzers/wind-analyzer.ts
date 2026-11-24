@@ -29,6 +29,8 @@ export const CALM_MPH = 3;
 /** Within this many degrees of straight onshore counts as onshore. */
 const ONSHORE_CONE_DEG = 45;
 
+export type WindRelation = NonNullable<WindMetrics["relation"]>;
+
 const UNKNOWN_WIND: WindMetrics = {
   // WindMetrics requires numbers; N/A marks these as sentinels, not measured zero or north.
   speed: 0,
@@ -58,6 +60,23 @@ export function isWindUnknown(wind: WindMetrics): boolean {
   // Stored intel from before `relation` existed carries its relation in the description.
   if (wind.relation === undefined) return false;
   return wind.speed > CALM_MPH && wind.relation === null;
+}
+
+/**
+ * How a wind direction sits against the beach's resolved orientation; null
+ * when either side is missing.
+ */
+export function windRelation(
+  windDirDeg: number | null,
+  orientation: WindOrientation | null,
+): WindRelation | null {
+  const offshoreDeg = orientation?.offshoreDeg ?? null;
+  if (windDirDeg == null || !Number.isFinite(windDirDeg) || !orientation || offshoreDeg == null) {
+    return null;
+  }
+  const fromOffshore = angleDifference(windDirDeg, offshoreDeg);
+  if (fromOffshore <= orientation.toleranceDeg) return "offshore";
+  return fromOffshore >= 180 - ONSHORE_CONE_DEG ? "onshore" : "cross-shore";
 }
 
 /**
@@ -109,14 +128,7 @@ export function windAt(
   if (windSpeed === null) return UNKNOWN_WIND;
   const windDir = closestForecast.wind_direction;
   const hasDirection = windDir != null && Number.isFinite(windDir);
-  const offshoreDeg = orientation?.offshoreDeg ?? null;
-  let relation: WindMetrics["relation"] = null;
-  if (hasDirection && orientation && offshoreDeg != null) {
-    const fromOffshore = angleDifference(windDir, offshoreDeg);
-    relation = fromOffshore <= orientation.toleranceDeg
-      ? "offshore"
-      : fromOffshore >= 180 - ONSHORE_CONE_DEG ? "onshore" : "cross-shore";
-  }
+  const relation = windRelation(windDir ?? null, orientation);
   const offshore = relation === "offshore";
 
   let description: string;

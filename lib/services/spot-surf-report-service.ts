@@ -187,7 +187,7 @@ interface BuildReportOptions {
 
 /**
  * Wrap `computeSurfCall` to also attach the per-skill tier verdict ladder.
- * The wrapper exists so the return sites in `getRequestSurfReport` stay terse.
+ * The wrapper exists so the return sites in `buildRequestSurfReport` stay terse.
  */
 function buildReport(
   window: PersonalizedForecastWindow | null,
@@ -220,12 +220,7 @@ export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfRep
   await connection();
 
   try {
-    const cached = await getRequestSurfReport(
-      JSON.stringify(canonicalizeBeachForSurfCall(beach)),
-    );
-    return cached
-      ? await applySurfCallMajorEventHold(cached, beach.id, null, null)
-      : null;
+    return await getRequestSurfReport(JSON.stringify(canonicalizeBeachForSurfCall(beach)));
   } catch (error) {
     console.error('[getSpotSurfReportPublic] Error:', {
       beachId: beach.id,
@@ -295,164 +290,49 @@ function toPublicForecastHour(forecast: EnhancedForecastEntity): PublicForecastH
   ) as PublicForecastHour;
 }
 
-// A forecast revision or clock change must be visible on the next request.
-const getRequestSurfReport = cache(
-  async (beachKey: string): Promise<CachedSpotSurfReportResult | null> => {
-    const beach = JSON.parse(beachKey) as Beach;
-    const beachId = beach.id;
-    // 1. Determine beach timezone
-    const beachTz = beach.lat != null && beach.lon != null
-      ? getTimezoneFromCoords(beach.lat, beach.lon)
-      : DEFAULT_TIMEZONE;
+// Share the safety decision with metadata and the body for this render only.
+const getRequestSurfReport = cache(async (beachKey: string): Promise<SpotSurfReportResult> => {
+  const beach = JSON.parse(beachKey) as Beach;
+  const result = await buildRequestSurfReport(beach);
+  return applySurfCallMajorEventHold(result, beach.id, null, null);
+});
 
-    // 2. Determine "today" and "tomorrow" in beach timezone
-    const now = new Date();
-    const todayStr = formatDateInTimezone(now, beachTz);
-    // Advance the calendar date; elapsed 24-hour periods skip/repeat dates at DST.
-    const tomorrow = new Date(`${todayStr}T00:00:00Z`);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+async function buildRequestSurfReport(beach: Beach): Promise<CachedSpotSurfReportResult> {
+  const beachId = beach.id;
+  // 1. Determine beach timezone
+  const beachTz = beach.lat != null && beach.lon != null
+    ? getTimezoneFromCoords(beach.lat, beach.lon)
+    : DEFAULT_TIMEZONE;
 
-    // 2.5. Fetch sun times for sunset capping
-    const sunTimesCache = await getBatchSunTimes([beachId], [todayStr, tomorrowStr]);
+  // 2. Determine "today" and "tomorrow" in beach timezone
+  const now = new Date();
+  const todayStr = formatDateInTimezone(now, beachTz);
+  // Advance the calendar date; elapsed 24-hour periods skip/repeat dates at DST.
+  const tomorrow = new Date(`${todayStr}T00:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
-    // 3. Query enhanced_forecasts directly with timezone-aware dates
-    const dayAfterTomorrow = new Date(new Date(tomorrowStr + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-    const supabase = await createSupabaseServiceRoleClient();
-    const { data, error } = await supabase
-      .from('enhanced_forecasts')
-      .select('*')
-      .eq('beach_id', beachId)
-      .gte('forecast_at', localDateTimeToUTC(todayStr, '00:00:00', beachTz).toISOString())
-      .lt('forecast_at', localDateTimeToUTC(dayAfterTomorrow, '00:00:00', beachTz).toISOString())
-      .order('forecast_at', { ascending: true })
-      .limit(48);
+  const dayAfterTomorrow = new Date(new Date(tomorrowStr + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
+  const forecastQuery = createSupabaseServiceRoleClient()
+    .from('enhanced_forecasts')
+    .select('*')
+    .eq('beach_id', beachId)
+    .gte('forecast_at', localDateTimeToUTC(todayStr, '00:00:00', beachTz).toISOString())
+    .lt('forecast_at', localDateTimeToUTC(dayAfterTomorrow, '00:00:00', beachTz).toISOString())
+    .order('forecast_at', { ascending: true })
+    .limit(48);
 
-    if (error) {
-      console.error('[getRequestSurfReport] Database error:', {
-        beachId,
-        message: error.message,
-        code: error.code,
-      });
-      return {
-        report: buildReport(null, [], beach, {}),
-        isTomorrow: false,
-        forecastContext: null,
-        hourlyForecasts: [],
-        hourlyForecastDay: 'today',
-      };
-    }
+  const [sunTimesCache, { data, error }] = await Promise.all([
+    getBatchSunTimes([beachId], [todayStr, tomorrowStr]),
+    forecastQuery,
+  ]);
 
-    if (!data || data.length === 0) {
-      return {
-        report: buildReport(null, [], beach, {}),
-        isTomorrow: false,
-        forecastContext: null,
-        hourlyForecasts: [],
-        hourlyForecastDay: 'today',
-      };
-    }
-
-    const forecasts = await applyV51DisplayOverrideToForecasts(
-      data as EnhancedForecastEntity[],
-      { enabled: true },
-    );
-
-    // 4. Filter to today first; fall back to tomorrow if no viable window today
-    const todayForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === todayStr);
-    const tomorrowForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === tomorrowStr);
-    const hasTodayForecasts = todayForecasts.length > 0;
-    const publicHourlyForecasts = hasTodayForecasts ? todayForecasts : tomorrowForecasts;
-    const hourlyForecastDay: PublicForecastDay = hasTodayForecasts ? 'today' : 'tomorrow';
-    // Try today's forecasts first
-    if (todayForecasts.length > 0) {
-      const headline = resolveTodayHeadline({
-        forecasts: todayForecasts,
-        beach,
-        userPrefs: null,
-        horizonHours: 24,
-        sunTimesCache,
-        rideabilityBand: null,
-        userSkillLevel: null,
-      });
-
-      if (headline) {
-        const forecastContext = buildForecastRecommendationContext({
-          beach,
-          forecasts: todayForecasts,
-          window: headline.window,
-          timezone: beachTz,
-        });
-        delete headline.window.sourceForecast;
-        return {
-          report: buildReport(headline.window, todayForecasts, beach, { isTomorrow: false }),
-          isTomorrow: false,
-          forecastContext,
-          hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-          hourlyForecastDay,
-        };
-      }
-    }
-
-    // Fall back to tomorrow if today has no viable window (or no data)
-    if (tomorrowForecasts.length > 0) {
-      const headline = resolveTodayHeadline({
-        forecasts: tomorrowForecasts,
-        beach,
-        userPrefs: null,
-        horizonHours: 48,
-        sunTimesCache,
-        rideabilityBand: null,
-        userSkillLevel: null,
-      });
-
-      if (headline) {
-        const forecastContext = buildForecastRecommendationContext({
-          beach,
-          forecasts: tomorrowForecasts,
-          window: headline.window,
-          timezone: beachTz,
-        });
-        delete headline.window.sourceForecast;
-        return {
-          report: buildReport(headline.window, tomorrowForecasts, beach, { isTomorrow: true }),
-          isTomorrow: true,
-          forecastContext,
-          hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-          hourlyForecastDay,
-        };
-      }
-      return {
-        report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }),
-        isTomorrow: true,
-        forecastContext: buildForecastRecommendationContext({
-          beach,
-          forecasts: tomorrowForecasts,
-          window: null,
-          timezone: beachTz,
-        }),
-        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-        hourlyForecastDay,
-      };
-    }
-
-    // Keep today's physical forecast crawlable even when no recommendation window exists.
-    if (todayForecasts.length > 0) {
-      return {
-        report: buildReport(null, todayForecasts, beach, { isTomorrow: false }),
-        isTomorrow: false,
-        forecastContext: buildForecastRecommendationContext({
-          beach,
-          forecasts: todayForecasts,
-          window: null,
-          timezone: beachTz,
-        }),
-        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-        hourlyForecastDay,
-      };
-    }
-
-    // No forecast data for either day
+  if (error) {
+    console.error('[getRequestSurfReport] Database error:', {
+      beachId,
+      message: error.message,
+      code: error.code,
+    });
     return {
       report: buildReport(null, [], beach, {}),
       isTomorrow: false,
@@ -460,5 +340,123 @@ const getRequestSurfReport = cache(
       hourlyForecasts: [],
       hourlyForecastDay: 'today',
     };
-  },
-);
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      report: buildReport(null, [], beach, {}),
+      isTomorrow: false,
+      forecastContext: null,
+      hourlyForecasts: [],
+      hourlyForecastDay: 'today',
+    };
+  }
+
+  const forecasts = await applyV51DisplayOverrideToForecasts(
+    data as EnhancedForecastEntity[],
+    { enabled: true },
+  );
+
+  // 4. Filter to today first; fall back to tomorrow if no viable window today
+  const todayForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === todayStr);
+  const tomorrowForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === tomorrowStr);
+  const hasTodayForecasts = todayForecasts.length > 0;
+  const publicHourlyForecasts = hasTodayForecasts ? todayForecasts : tomorrowForecasts;
+  const hourlyForecastDay: PublicForecastDay = hasTodayForecasts ? 'today' : 'tomorrow';
+  // Try today's forecasts first
+  if (todayForecasts.length > 0) {
+    const headline = resolveTodayHeadline({
+      forecasts: todayForecasts,
+      beach,
+      userPrefs: null,
+      horizonHours: 24,
+      sunTimesCache,
+      rideabilityBand: null,
+      userSkillLevel: null,
+    });
+
+    if (headline) {
+      const forecastContext = buildForecastRecommendationContext({
+        beach,
+        forecasts: todayForecasts,
+        window: headline.window,
+        timezone: beachTz,
+      });
+      delete headline.window.sourceForecast;
+      return {
+        report: buildReport(headline.window, todayForecasts, beach, { isTomorrow: false }),
+        isTomorrow: false,
+        forecastContext,
+        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+        hourlyForecastDay,
+      };
+    }
+  }
+
+  // Fall back to tomorrow if today has no viable window (or no data)
+  if (tomorrowForecasts.length > 0) {
+    const headline = resolveTodayHeadline({
+      forecasts: tomorrowForecasts,
+      beach,
+      userPrefs: null,
+      horizonHours: 48,
+      sunTimesCache,
+      rideabilityBand: null,
+      userSkillLevel: null,
+    });
+
+    if (headline) {
+      const forecastContext = buildForecastRecommendationContext({
+        beach,
+        forecasts: tomorrowForecasts,
+        window: headline.window,
+        timezone: beachTz,
+      });
+      delete headline.window.sourceForecast;
+      return {
+        report: buildReport(headline.window, tomorrowForecasts, beach, { isTomorrow: true }),
+        isTomorrow: true,
+        forecastContext,
+        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+        hourlyForecastDay,
+      };
+    }
+    return {
+      report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }),
+      isTomorrow: true,
+      forecastContext: buildForecastRecommendationContext({
+        beach,
+        forecasts: tomorrowForecasts,
+        window: null,
+        timezone: beachTz,
+      }),
+      hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+      hourlyForecastDay,
+    };
+  }
+
+  // Keep today's physical forecast crawlable even when no recommendation window exists.
+  if (todayForecasts.length > 0) {
+    return {
+      report: buildReport(null, todayForecasts, beach, { isTomorrow: false }),
+      isTomorrow: false,
+      forecastContext: buildForecastRecommendationContext({
+        beach,
+        forecasts: todayForecasts,
+        window: null,
+        timezone: beachTz,
+      }),
+      hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+      hourlyForecastDay,
+    };
+  }
+
+  // No forecast data for either day
+  return {
+    report: buildReport(null, [], beach, {}),
+    isTomorrow: false,
+    forecastContext: null,
+    hourlyForecasts: [],
+    hourlyForecastDay: 'today',
+  };
+}

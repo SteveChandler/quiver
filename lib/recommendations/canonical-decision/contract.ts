@@ -47,6 +47,7 @@ const personalMatchEvidenceSchema = z.object({
   confidence: z.enum(["low", "medium", "high"]),
   sessionCount: z.number().int().nonnegative(),
   similarSessionCount: z.number().int().nonnegative().optional(),
+  maxLoggedWaveFt: z.number().finite().positive().optional(),
   reasons: z.array(z.string().min(1)),
 }).strict();
 const decisionEffectSchema = z.object({
@@ -222,8 +223,8 @@ export function persistableSessionDecision<T>(decision: T): T {
   } = decision as Record<string, unknown>;
   const selection = rest.selection as { evidence?: { personalMatch?: Record<string, unknown> | null } } | null | undefined;
   const personalMatch = selection?.evidence?.personalMatch;
-  if (personalMatch && "similarSessionCount" in personalMatch) {
-    const { similarSessionCount: _similarSessionCount, ...match } = personalMatch;
+  if (personalMatch && ("similarSessionCount" in personalMatch || "maxLoggedWaveFt" in personalMatch)) {
+    const { similarSessionCount: _similarSessionCount, maxLoggedWaveFt: _maxLoggedWaveFt, ...match } = personalMatch;
     rest.selection = { ...selection, evidence: { ...selection!.evidence, personalMatch: match } };
   }
   return rest as T;

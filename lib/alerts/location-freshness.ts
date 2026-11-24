@@ -1,7 +1,7 @@
 import { MAX_DRIVE_RADIUS_MILES } from "@/lib/profile/drive-range";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 
-export const LOCATION_FIX_MAX_AGE_HOURS = 24;
+const LOCATION_FIX_MAX_AGE_HOURS = 24;
 /**
  * The morning Daily Call trusts only a fix from the last 12 hours. Returning
  * users reopen the app every ~14 h at the median (PostHog, 2026-10-11), so an
@@ -13,7 +13,7 @@ export const DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS = 12;
  * A fix too old to rank around still says where the surfer went. Three days
  * covers a trip's first mornings without the app being reopened.
  */
-export const AWAY_FROM_HOME_FIX_MAX_AGE_HOURS = 72;
+const AWAY_FROM_HOME_FIX_MAX_AGE_HOURS = 72;
 
 export interface LocationSnapshot {
   lat: number;

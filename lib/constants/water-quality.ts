@@ -48,14 +48,6 @@ export const CEDEN_CONFIG = {
   queryLimit: 10_000,
 } as const;
 
-/** PacIOOS ERDDAP (Hawaii DOH Clean Water Branch) API configuration */
-export const PACIOOS_CONFIG = {
-  /** ERDDAP tabledap dataset base URL */
-  baseUrl: "https://pae-paha.pacioos.hawaii.edu/erddap/tabledap/cwb_water_quality",
-  matchRadiusM: 5000,
-  requestTimeoutMs: 30_000,
-} as const;
-
 /** Display policy: old samples cannot establish current water conditions. */
 export function isCurrentWaterQualitySample(sampleDate: unknown, now: number = Date.now()): boolean {
   if (typeof sampleDate !== "string") return false;
@@ -83,3 +75,12 @@ export function waterQualityWarning(
   if (rainRunoff && !countyAdvisoryKind) return "Rain runoff advisory — avoid storm drains and river mouths until 72 hours after rain stops";
   return "Water quality advisory — elevated bacteria levels";
 }
+
+/**
+ * Water quality never holds a call (Steven, 2026-10-28). Closures, County site
+ * advisories, sampled advisories and owner holds show as a notice beside the
+ * call, as rain advisories have since #1194. The hold resolver still reports
+ * them, and /api/surf/call returns them as `waterQuality`; the gates that used to
+ * withhold a call read this switch so the hold can be restored in one place.
+ */
+export const WATER_QUALITY_INFORMS_ONLY = true;

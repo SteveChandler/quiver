@@ -18,6 +18,8 @@ docs/
 # Scripts (dev-only). playwright.config.ts imports load-env.mjs and is type-checked by `next build`.
 scripts/*
 !scripts/load-env.mjs
+# The custom-spot analysis cron runs the terrain pipeline at runtime.
+!scripts/terrain/
 
 # Supabase config/migrations (deployed separately)
 /supabase/

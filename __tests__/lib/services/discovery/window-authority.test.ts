@@ -330,4 +330,31 @@ describe('selectBeachDayWindows', () => {
       dayparts: { morning: null, midday: null, evening: null },
     });
   });
+
+  it('reuses one grouping per list across days and regroups a list that grew', () => {
+    const selectWindows = jest.fn().mockReturnValue([]);
+    const rows = [
+      forecast('d8-late', '2026-09-09T06:00:00Z'),
+      forecast('d9-early', '2026-09-09T14:00:00Z'),
+      forecast('d9-late', '2026-09-10T02:00:00Z'),
+      forecast('d10', '2026-09-10T15:00:00Z'),
+    ];
+    const rowsFor = (localDate: string) => {
+      selectWindows.mockClear();
+      selectBeachDayWindows({
+        beach,
+        forecasts: rows,
+        userPrefs: null,
+        localDate,
+        selectWindows: selectWindows as unknown as typeof selectBestWindows,
+      });
+      return selectWindows.mock.calls[0]?.[0].forecasts.map((row: EnhancedForecastEntity) => row.id);
+    };
+
+    expect(rowsFor('2026-09-08')).toEqual(['d8-late']);
+    expect(rowsFor('2026-09-09')).toEqual(['d9-early', 'd9-late']);
+    rows.push(forecast('d9-added', '2026-09-10T03:00:00Z'));
+    expect(rowsFor('2026-09-09')).toEqual(['d9-early', 'd9-late', 'd9-added']);
+    expect(rowsFor('2026-09-10')).toEqual(['d10']);
+  });
 });

@@ -8,6 +8,7 @@ import type {
   SurfDiscoveryResponse,
 } from '@/types/personalization';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
+import type { FeatureAccess } from '@/lib/flags/founding-access';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 
@@ -59,14 +60,14 @@ function selectNowRecommendation(
 export async function loadNowRecommendation(args: {
   userId: string;
   beach: Beach;
-  isPro: boolean;
+  access: FeatureAccess;
   profileExperience: SkillLevel | null;
   now: Date;
 }): Promise<{
   recommendation: SurfDiscoveryRecommendation | null;
   daylightAvailability?: SurfDiscoveryResponse['daylightAvailability'];
 }> {
-  const { userId, beach, isPro, profileExperience, now } = args;
+  const { userId, beach, access, profileExperience, now } = args;
   try {
     const discovery = await discoverSurfSpots(userId, {
       userLocation:
@@ -79,7 +80,7 @@ export async function loadNowRecommendation(args: {
       includeBeachIds: [beach.id],
       allowRecommendationIneligibleIncludes: false,
       discoveryMode: 'now',
-      isPro,
+      isPro: access.hasFeatureAccess,
       throwOnFailure: true,
     });
     const sanitized = await sanitizeSurfDiscoveryForSerializationMajorEventHold(
@@ -87,9 +88,10 @@ export async function loadNowRecommendation(args: {
       profileExperience,
     );
     const entitlement: SurfDiscoveryEntitlement = {
-      tier: isPro ? 'premium' : 'free',
-      hasPaidAccess: isPro,
-      canSeeBestSpot: isPro,
+      tier: access.isPro ? 'premium' : 'free',
+      hasPaidAccess: access.hasFeatureAccess,
+      canSeeBestSpot: access.hasFeatureAccess,
+      foundingAccess: access.foundingAccess,
     };
     const gated = gateSurfDiscoveryResponse(sanitized, entitlement);
     return {

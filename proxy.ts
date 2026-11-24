@@ -1,3 +1,4 @@
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { stripCollisionStateSuffix } from "@/lib/seo/city-slug-utils";
 import { NextResponse, type NextRequest } from "next/server";
@@ -64,6 +65,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "app",
   "beach",
   "beaches",
+  "buoys",
   "discover",
   "embed",
   "features",
@@ -76,6 +78,8 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "sessions",
   "share",
   "spots",
+  // Tide station pages and hubs: /tides/station/{slug}, /tides/{country}/{region}
+  "tides",
   "p",
   "s",
   "user",
@@ -128,6 +132,16 @@ function log(message: string, data?: any) {
  * Cyclomatic Complexity: Reduced from 37 → 6
  */
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/_next/image") {
+    if (isBlockedCameraUrl(request.nextUrl.href)) {
+      return new NextResponse("Image unavailable", {
+        status: 410,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+    return NextResponse.next();
+  }
+
   // Canonical domain redirect: non-www → www with 301 (permanent) for SEO link equity
   const hostname = request.headers.get("host") || "";
   if (hostname === GO_HOST && !isGoAppHandoffPath(request.nextUrl.pathname)) {
@@ -770,6 +784,7 @@ function captureIPLocation(
         country: process.env.DEV_IP_COUNTRY || 'US',
         latitude: parseFloat(process.env.DEV_IP_LAT || '32.7157'),
         longitude: parseFloat(process.env.DEV_IP_LON || '-117.1611'),
+        synthetic: true,
       };
     }
 
@@ -880,6 +895,7 @@ function checkAdminPrivileges(user: any) {
 
 export const config = {
   matcher: [
+    "/_next/image",
     /*
      * Match all page routes but exclude:
      * - API routes (/api/*)

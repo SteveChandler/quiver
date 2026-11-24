@@ -5,6 +5,7 @@ Rules and protocols for database migrations in the Quiver project.
 ## Migration File Convention
 
 All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descriptive_name.sql`.
+Use a UTC timestamp. Never date a migration in the future.
 
 ## PROHIBITED in Migrations
 
@@ -19,7 +20,7 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
 1. Wrap in `BEGIN;` ... `COMMIT;`
 2. Add `WHERE NOT EXISTS` for inserts
 3. Create rollback migrations for destructive changes
-4. Test locally first: `supabase db reset`
+4. Test locally first. Keep migrations compatible with `supabase db reset`. See the [local snapshot setup](setup/SUPABASE_SETUP.md#local-database-bootstrap) for the current test procedure.
 5. Document schema changes in migration comments
 6. When recreating views (`DROP VIEW` + `CREATE VIEW`), carry forward `WITH (security_invoker = true)` if the view previously had it — this option is silently lost on `DROP`
 
@@ -37,6 +38,14 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
   1. **PLAN** - Output: exact SQL or migration file, target connection/role, objects affected, backup artifact name
   2. **APPROVAL** - Maintainer replies with `APPROVE: <sha>` of the plan text
 - **No approval = no changes.** Refuse mutations without the approval token.
+
+### Large-table indexes
+
+1. Use plain `CREATE INDEX IF NOT EXISTS` or `DROP INDEX IF EXISTS` inside `BEGIN;` and `COMMIT;` in the migration file. This keeps the file replayable in `supabase db reset`.
+2. After production approval, run the matching `CREATE INDEX CONCURRENTLY IF NOT EXISTS` or `DROP INDEX CONCURRENTLY IF EXISTS` by hand with `psql`. Run each command outside a transaction block. Check that the new index is valid and matches its definition, or that the dropped index is absent.
+3. Apply the migration file. The index statement skips work. Other statements still run. Confirm that `supabase_migrations.schema_migrations` contains the migration version. If you apply the file directly with `psql`, record the tracking row after the file succeeds.
+
+See [20261122053900](../supabase/migrations/20261122053900_ml_predictions_created_at_index.sql) for the transaction and concurrent build commands. See [20260120140000](../supabase/migrations/20260120140000_optimize_mv_beach_hourly_scores_indexes.sql) for an earlier use of plain index DDL with a concurrent build note.
 
 ## Drift Repair Protocol
 

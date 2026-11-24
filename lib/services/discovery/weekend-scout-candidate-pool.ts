@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { capNearbyPool, findNearestBeach, loadUserPool, type NearestBeach, type PoolBeach } from "@/lib/alerts/user-pool";
-import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from "@/lib/profile/drive-range";
+import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES, NO_LIMIT_DRIVE_MINUTES } from "@/lib/profile/drive-range";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import type { Beach, Database } from "@/types/database";
@@ -311,6 +311,10 @@ interface BuildDriveRangeCandidatePoolOptions {
   filters?: readonly WeekScoutFilter[];
   /** Widen an empty drive range to 100 miles and name the nearest beach (Home/Explore scope). */
   widenEmptyRange?: boolean;
+  /** Keep only beaches farther than this; applied before the nearby cap so a ring is not capped away. */
+  beyondMiles?: number;
+  /** Nearby cap override; the default is the Daily Call's own. */
+  nearbyCap?: number;
 }
 
 interface DriveRangeCandidatePoolDependencies {
@@ -363,7 +367,7 @@ export async function buildDriveRangeCandidatePool(
   let widenedFromMiles: number | undefined;
   const rangeWasEmpty = pool.length === 0 && options.widenEmptyRange !== false;
   if (rangeWasEmpty && requestedRadiusMiles < MAX_DRIVE_RADIUS_MILES) {
-    pool = await load(null);
+    pool = await load(NO_LIMIT_DRIVE_MINUTES);
     if (pool.length > 0) widenedFromMiles = requestedRadiusMiles;
   }
   // Past the maximum range there is still a nearest beach to scout from.
@@ -382,12 +386,15 @@ export async function buildDriveRangeCandidatePool(
     filters: options.filters,
     nearbyLocation: options.anchor,
   };
+  const beyondMiles = options.beyondMiles;
   const matching = pool.filter(({ beach, distanceMiles }) => (
     matchesScope({ beach, distanceMiles: distanceMiles ?? 0 }, scope)
+    && (beyondMiles === undefined || (distanceMiles !== null && distanceMiles > beyondMiles))
   ));
-  const capped = capNearbyPool(matching, "experienceLevel" in options
-    ? { experienceLevel: options.experienceLevel }
-    : {});
+  const capped = capNearbyPool(matching, {
+    ...("experienceLevel" in options ? { experienceLevel: options.experienceLevel } : {}),
+    ...(options.nearbyCap !== undefined ? { cap: options.nearbyCap } : {}),
+  });
   return {
     candidates: capped.pool.map(({ beach, distanceMiles }) => ({ beach, distanceMiles })),
     enumeratedCount: pool.length,

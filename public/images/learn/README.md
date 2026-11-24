@@ -57,5 +57,29 @@ crop, no upscale; the three 5000+ px originals are stored downscaled to 1600 px 
 | `learn-manasquan-inlet-jetty.webp` | `/learn/can-you-surf-in-new-jersey` | Manasquan Beach Inlet (7.13.08) | Luigi Novi (Nightscream) | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:ManasquanBeachInlet7.13.08ByLuigiNovi8.jpg |
 | `learn-cape-may-wetsuit-surfer.webp` | `/learn/can-you-surf-in-new-jersey` | AtlanticSurfing (Cape May, New Jersey) | Shiva Shenoy | CC BY 4.0 | https://www.flickr.com/photos/shivashenoy/55312082547/ |
 
+## Sourced 2026-10-27 (Openverse → Flickr, Creative Commons)
+
+Each licence was checked on the Flickr source page. WebP q82 at native resolution,
+no crop, no upscale.
+
+| File | Guide | Title | Creator | Licence | Source |
+| --- | --- | --- | --- | --- | --- |
+| `learn-folly-beach-learners.webp` | `/learn/can-you-surf-in-south-carolina` | 'Learning to Ride the Waves' No.1 -- Folly Beach (SC) July 2012 | Ron Cogswell | CC BY 2.0 | https://www.flickr.com/photos/22711505@N05/7794455966 |
+| `learn-folly-beach-hurricane-irene.webp` | `/learn/can-you-surf-in-south-carolina` | H. Irene | Gretchen Esbensen | CC BY 2.0 | https://www.flickr.com/photos/59435511@N02/6663054411 |
+| `learn-folly-beach-longboarders.webp` | `/learn/can-you-surf-in-south-carolina` | 'Looking for the Perfect Wave' -- Folly Beach (SC) 2012 | Ron Cogswell | CC BY 2.0 | https://www.flickr.com/photos/22711505@N05/7770892728 |
+| `learn-breakwater-diffraction-ashkelon.webp` | `/learn/what-is-wave-diffraction` | BreakWaterDiffraction Ashkelon2 | Dmitris1 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:BreakWaterDiffraction_Ashkelon2.jpg |
+| `learn-charlestown-harbor-diffraction.webp` | `/learn/what-is-wave-diffraction` | Charlestown - wave diffraction | Stephen Craven | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Charlestown_-_wave_diffraction_-_geograph.org.uk_-_6002891.jpg |
+| `learn-anacapa-island-santa-barbara-channel.webp` | `/learn/what-is-wave-diffraction` | Anacapa Island from Excursion on Santa Barbara Channel Between Ventura and Santa Cruz Island, California 2 | Ken Lund | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Anacapa_Island_from_Excursion_on_Santa_Barbara_Channel_Between_Ventura_and_Santa_Cruz_Island,_California_2_(4066985844).jpg |
+| `learn-dana-point-breakwater-sign.webp` | `/learn/what-is-wave-diffraction` | Dana Point, Orange County, California - Breakwater | Steve Hedin | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Dana_Point,_Orange_County,_California_-_Breakwater_-_panoramio.jpg |
+| `learn-king-tide-malibu-road.webp` | `/learn/what-is-a-king-tide` | King Tides 2012: Water under beachfront homes | LA Waterkeeper | CC BY 2.0 | https://www.flickr.com/photos/75139013@N06/6757727785 |
+| `learn-king-tide-morro-strand.webp` | `/learn/what-is-a-king-tide` | Morro Strand Beach, Morro Bay - During King Tide of 7.0 on 12/13/2012 | docentjoyce | CC BY 2.0 | https://www.flickr.com/photos/99003655@N00/8279439698 |
+| `learn-king-tide-san-francisco-embarcadero.webp` | `/learn/what-is-a-king-tide` | San Francisco King Tide \| January 22, 2016 | Chris Martin | CC BY 2.0 | https://www.flickr.com/photos/42982698@N00/24249380510 |
+| `learn-rogue-wave-bolinas-sneaker-wave.webp` | `/learn/what-is-a-rogue-wave` | Sneaker Wave | Jesse Wagstaff | CC BY 2.0 | https://www.flickr.com/photos/49503128117@N01/12419949853 |
+| `learn-rogue-wave-gray-whale-cove.webp` | `/learn/what-is-a-rogue-wave` | Lively Gray Whale Cove beach - Pacific Ocean south of San Francisco, California, USA | Wonderlane | CC0 1.0 | https://www.flickr.com/photos/71401718@N00/3272164111 |
+| `learn-rogue-wave-reynisfjara-runup.webp` | `/learn/what-is-a-rogue-wave` | Sneaker Wave At High Tide | Eric Kilby | CC BY-SA 2.0 | https://www.flickr.com/photos/8749778@N06/51910048834 |
+| `learn-mavericks-contest-wave.webp` | `/learn/where-to-watch-mavericks` | Mavericks Surf Contest 2010b | Shalom Jacobovitz | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Mavericks_Surf_Contest_2010b.jpg |
+| `learn-mavericks-breakwater-danger-sign.webp` | `/learn/where-to-watch-mavericks` | D'NGER ELY HAZARDOUS WAVES, warning sign, bad condition, Mavericks, Half Moon Bay, California, USA | Wonderlane | CC BY 2.0 | https://www.flickr.com/photos/71401718@N00/3180878107 |
+| `learn-mavericks-spectator-boats.webp` | `/learn/where-to-watch-mavericks` | Mavericks Surf Contest | Steve Jurvetson | CC BY 2.0 | https://www.flickr.com/photos/44124348109@N01/8171362329 |
+
 The older `learn-*.jpg` files in this directory predate the ledger and have no
 recorded provenance.

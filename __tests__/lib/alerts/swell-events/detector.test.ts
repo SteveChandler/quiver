@@ -4,8 +4,13 @@ import {
   detectBeachSwellEvents,
   exposureFactor,
   exposureLabel,
+  swellPartitionFaceHeightFt,
+  type BeachSwellEvent,
+  type DetectOptions,
+  type SwellEventBeach,
   type SwellEventForecastRow,
 } from "@/lib/alerts/swell-events";
+import { MODEL_SWELL_CALIBRATION_FACTORS } from "@/lib/utils/model-swell-calibration-factors";
 import {
   BEACH_ID,
   FLAT,
@@ -18,8 +23,23 @@ import {
   type PartitionSpec,
 } from "@/__tests__/helpers/swell-events";
 
-function detect(forecasts: SwellEventForecastRow[], beach = swellBeach()) {
-  return detectBeachSwellEvents({ beach, forecasts, now: NOW, timezone: TIMEZONE });
+/** A storm run must return every default event with the same key and values. */
+function expectStormRunKeepsDefaultEvents(
+  forecasts: SwellEventForecastRow[],
+  beach: SwellEventBeach,
+  options: DetectOptions = {},
+): BeachSwellEvent[] {
+  const input = { beach, forecasts, now: NOW, timezone: TIMEZONE };
+  const defaults = detectBeachSwellEvents(input, options);
+  const withStorms = detectBeachSwellEvents(input, { ...options, stormClass: true });
+  for (const event of defaults) expect(withStorms).toContainEqual(event);
+  return defaults;
+}
+
+// Every default run in this file also checks the storm run against it.
+function detect(forecasts: SwellEventForecastRow[], beach = swellBeach(), options?: DetectOptions) {
+  if (options?.stormClass) return detectBeachSwellEvents({ beach, forecasts, now: NOW, timezone: TIMEZONE }, options);
+  return expectStormRunKeepsDefaultEvents(forecasts, beach, options);
 }
 
 const BUILD: PartitionSpec = { heightFt: 2.5, periodS: 15, direction: 270 };
@@ -279,5 +299,221 @@ describe("detectBeachSwellEvents", () => {
       ...dayRows(9, PEAK),
     ];
     expect(detect(rows)).toEqual([]);
+  });
+});
+
+describe("detectBeachSwellEvents options", () => {
+  const STORM_CLASS: DetectOptions = { stormClass: true };
+  const GROUNDSWELL_LULL: PartitionSpec = { heightFt: 2, periodS: 13, direction: 270 };
+  const STORM: PartitionSpec = { heightFt: 7, periodS: 8, direction: 270 };
+
+  function stormWeek(peak: PartitionSpec, lull: PartitionSpec = GROUNDSWELL_LULL): SwellEventForecastRow[] {
+    return [
+      ...dayRows(0, lull),
+      ...dayRows(1, lull),
+      ...dayRows(2, lull),
+      ...dayRows(3, peak, { noonBumpFt: 0.2 }),
+    ];
+  }
+
+  function lullThen(...days: Array<{ primary: PartitionSpec; secondary?: PartitionSpec }>): SwellEventForecastRow[] {
+    return [
+      ...dayRows(0, GROUNDSWELL_LULL),
+      ...dayRows(1, GROUNDSWELL_LULL),
+      ...dayRows(2, GROUNDSWELL_LULL),
+      ...days.flatMap((day, index) => dayRows(3 + index, day.primary, { secondary: day.secondary })),
+    ];
+  }
+
+  // Each pair tracks as one component (periods within trackPeriodS).
+  const stormGrowsIntoSwell = () => lullThen(
+    { primary: { heightFt: 7, periodS: 10, direction: 270 } },
+    { primary: { heightFt: 8, periodS: 12, direction: 270 } },
+  );
+  const swellThenStorm = () => lullThen(
+    { primary: { heightFt: 3.5, periodS: 11, direction: 270 } },
+    { primary: { heightFt: 7, periodS: 10, direction: 270 } },
+  );
+  const sameDaySwellAndStorm = (swell: PartitionSpec, storm: PartitionSpec) => lullThen(
+    { primary: swell, secondary: storm },
+  );
+
+  it("default options are unchanged: a 6 ft 8 s rise is no event", () => {
+    const rows = stormWeek({ heightFt: 6, periodS: 8, direction: 270 });
+    expect(detect(rows)).toEqual([]);
+    // The same rise is storm-sized, so [] above is the default ignoring it.
+    expect(detect(rows, swellBeach(), STORM_CLASS)).toHaveLength(1);
+  });
+
+  it("stormClass detects a big short-period event", () => {
+    const events = detect(stormWeek(STORM), swellBeach(), STORM_CLASS);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "storm",
+      eventKey: `${BEACH_ID}:W:${localDate(3)}:s`,
+      periodS: 8,
+      peakLocalDate: localDate(3),
+      peakAt: localIso(3, 12),
+    });
+  });
+
+  it("the storm period floor is 5 s, the stored partitions' period scale", () => {
+    const at = (periodS: number): PartitionSpec => ({ ...STORM, periodS });
+    const face = (periodS: number) => swellPartitionFaceHeightFt(
+      [{ heightFt: STORM.heightFt, periodS, directionDeg: 270 }],
+      swellBeach(),
+    )!;
+    // Storm-sized at both periods, so only the period floor decides.
+    expect(face(4.9)).toBeGreaterThanOrEqual(5);
+
+    expect(detect(stormWeek(at(5)), swellBeach(), STORM_CLASS)).toEqual([
+      expect.objectContaining({ kind: "storm", periodS: 5, peakLocalDate: localDate(3) }),
+    ]);
+    // The Nov 2026 San Diego storm reads 6 s on the stored swell_1 partition.
+    expect(detect(stormWeek(at(6)), swellBeach(), STORM_CLASS)).toEqual([
+      expect.objectContaining({ kind: "storm", periodS: 6, peakLocalDate: localDate(3) }),
+    ]);
+    expect(detect(stormWeek(at(4.9)), swellBeach(), STORM_CLASS)).toEqual([]);
+  });
+
+  it("a small short-period bump is not a storm", () => {
+    const lull: PartitionSpec = { heightFt: 1.3, periodS: 8, direction: 270 };
+    const bump: PartitionSpec = { heightFt: 4, periodS: 8, direction: 270 };
+    const face = (spec: PartitionSpec) => swellPartitionFaceHeightFt(
+      [{ heightFt: spec.heightFt, periodS: spec.periodS, directionDeg: 270 }],
+      swellBeach(),
+    )!;
+    expect(face(bump) - face(lull)).toBeCloseTo(2.5, 1);
+    expect(detect([
+      ...dayRows(0, lull),
+      ...dayRows(1, lull),
+      ...dayRows(2, lull),
+      ...dayRows(3, bump),
+    ], swellBeach(), STORM_CLASS)).toEqual([]);
+  });
+
+  it("a storm-sized short-period bump still needs a 3 ft rise or a 2.5x energy jump", () => {
+    const at9s = (heightFt: number): PartitionSpec => ({ heightFt, periodS: 9, direction: 270 });
+    const face = (heightFt: number) => swellPartitionFaceHeightFt(
+      [{ heightFt, periodS: 9, directionDeg: 270 }],
+      swellBeach(),
+    )!;
+    // One 9 s component throughout, so the lull days are the storm's own baseline.
+    const run = (lullFt: number, bumpFt: number) => detect([
+      ...dayRows(0, at9s(lullFt)),
+      ...dayRows(1, at9s(lullFt)),
+      ...dayRows(2, at9s(lullFt)),
+      ...dayRows(3, at9s(bumpFt)),
+    ], swellBeach(), STORM_CLASS);
+
+    // Clears the 5 ft face, but rises 1.5 ft at (6.5 / 5)² ≈ 1.7x energy.
+    expect(face(6.5)).toBeGreaterThanOrEqual(5);
+    expect(face(6.5) - face(5)).toBeCloseTo(1.5, 1);
+    expect(run(5, 6.5)).toEqual([]);
+
+    // Same lull, a bigger jump: a storm.
+    expect(run(5, 8.5)).toEqual([expect.objectContaining({ kind: "storm", peakLocalDate: localDate(3) })]);
+
+    // Either half alone is enough.
+    const [riseOnly] = run(7, 10.5);
+    expect(riseOnly).toMatchObject({ kind: "storm", peakLocalDate: localDate(3) });
+    expect(riseOnly.peakFaceHeightFt - riseOnly.baselineFaceHeightFt).toBeGreaterThanOrEqual(3);
+    expect(riseOnly.energyRatio).toBeLessThan(2.5);
+
+    const [ratioOnly] = run(3.5, 5.7);
+    expect(ratioOnly).toMatchObject({ kind: "storm", peakLocalDate: localDate(3) });
+    expect(ratioOnly.peakFaceHeightFt - ratioOnly.baselineFaceHeightFt).toBeLessThan(3);
+    expect(ratioOnly.energyRatio).toBeGreaterThanOrEqual(2.5);
+  });
+
+  it("swell and storm on the same day stay separate", () => {
+    const swell: PartitionSpec = { heightFt: 4, periodS: 13, direction: 270 };
+    const events = detect(sameDaySwellAndStorm(swell, STORM), swellBeach(), STORM_CLASS);
+
+    expect(events).toHaveLength(2);
+    const storm = events.find((event) => event.kind === "storm");
+    const groundswell = events.find((event) => event.kind === undefined);
+    expect(storm).toMatchObject({ periodS: 8, eventKey: `${BEACH_ID}:W:${localDate(3)}:s` });
+    expect(groundswell).toMatchObject({ periodS: 13, eventKey: `${BEACH_ID}:W:${localDate(3)}` });
+    expect(groundswell).not.toHaveProperty("kind");
+  });
+
+  it("keeps a storm and a swell of close periods apart instead of merging them as duplicates", () => {
+    const swell: PartitionSpec = { heightFt: 4, periodS: 12, direction: 270 };
+    const storm: PartitionSpec = { heightFt: 6, periodS: 10, direction: 270 };
+    const events = detect(sameDaySwellAndStorm(swell, storm), swellBeach(), STORM_CLASS);
+    expect(events.map((event) => [event.kind ?? "swell", event.periodS])).toEqual(
+      expect.arrayContaining([["swell", 12], ["storm", 10]]),
+    );
+    expect(events).toHaveLength(2);
+  });
+
+  it("keeps a swell and the bigger storm after it on the same component as separate events", () => {
+    const events = detect(swellThenStorm(), swellBeach(), STORM_CLASS);
+    expect(events).toHaveLength(2);
+    const [swell, storm] = events;
+    // The storm day does not extend the swell event, and the swell event does not hide the storm.
+    expect(swell).toMatchObject({ periodS: 11, peakLocalDate: localDate(3) });
+    expect(swell).not.toHaveProperty("kind");
+    expect(storm).toMatchObject({
+      kind: "storm",
+      periodS: 10,
+      peakLocalDate: localDate(4),
+      eventKey: `${BEACH_ID}:W:${localDate(4)}:s`,
+    });
+  });
+
+  it("keeps the default swell when a storm grows into it on the same component", () => {
+    const rows = stormGrowsIntoSwell();
+    const defaults = detect(rows);
+    expect(defaults).toHaveLength(1);
+    expect(defaults[0]).toMatchObject({ periodS: 12, peakLocalDate: localDate(4), peakFaceHeightFt: 9.8 });
+
+    const events = detect(rows, swellBeach(), STORM_CLASS);
+    expect(events.map((event) => [event.kind ?? "swell", event.periodS, event.peakLocalDate])).toEqual([
+      ["storm", 10, localDate(3)],
+      ["swell", 12, localDate(4)],
+    ]);
+    expect(events[1]).toEqual(defaults[0]);
+  });
+
+  it("a storm run keeps every default event unchanged", () => {
+    // detect() checks this on every default run in this file; these fixtures
+    // put swells and storms on the same days and the same components.
+    const fixtures = [
+      singleSwellWeek(),
+      stormGrowsIntoSwell(),
+      swellThenStorm(),
+      sameDaySwellAndStorm({ heightFt: 4, periodS: 13, direction: 270 }, STORM),
+      sameDaySwellAndStorm({ heightFt: 4, periodS: 12, direction: 270 }, { heightFt: 6, periodS: 10, direction: 270 }),
+    ];
+    for (const rows of fixtures) {
+      expect(expectStormRunKeepsDefaultEvents(rows, swellBeach()).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("horizonDays extends reach", () => {
+    const rows = [
+      ...Array.from({ length: 10 }, (_, index) => dayRows(index, FLAT)).flat(),
+      ...dayRows(10, PEAK),
+      ...dayRows(11, FLAT),
+    ];
+    expect(detect(rows)).toEqual([]);
+    const events = detect(rows, swellBeach(), { horizonDays: 12 });
+    expect(events).toHaveLength(1);
+    expect(events[0].peakLocalDate).toBe(localDate(10));
+  });
+});
+
+describe("per-beach model_swell factor", () => {
+  it("scales swell-event faces like the forecast rows at the same beach", () => {
+    const [calibratedId, k] = Object.entries(MODEL_SWELL_CALIBRATION_FACTORS).find(([, factor]) => factor > 1.2)!;
+    const plain = swellPartitionFaceHeightFt([{ heightFt: 3, periodS: 15, directionDeg: 270 }], swellBeach());
+    const calibrated = swellPartitionFaceHeightFt(
+      [{ heightFt: 3, periodS: 15, directionDeg: 270 }],
+      { ...swellBeach(), id: calibratedId },
+    );
+    expect(plain).not.toBeNull();
+    expect(calibrated).toBeCloseTo(plain! * k, 1);
   });
 });

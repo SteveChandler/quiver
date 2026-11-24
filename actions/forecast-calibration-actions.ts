@@ -1,7 +1,7 @@
 "use server";
 
 import { withAuthenticatedAction, withDatabaseOperation, type ServerActionResponse } from "@/lib/server-action-utils";
-import type { SessionForecastSnapshot, BeachForecastAccuracy } from "@/types/database";
+import type { SessionForecastSnapshot } from "@/types/database";
 
 /**
  * Get session forecast snapshots for a specific beach
@@ -34,21 +34,6 @@ export async function getBeachSessionSnapshots(
       .order("session_date", { ascending: false })
       .limit(limit);
   });
-}
-
-/**
- * Get forecast accuracy statistics for a beach
- */
-export async function getBeachForecastAccuracy(
-  beachId: string
-): Promise<ServerActionResponse<BeachForecastAccuracy | null>> {
-  return withDatabaseOperation(async (supabase) => {
-    return supabase
-      .from("beach_forecast_accuracy")
-      .select("*")
-      .eq("beach_id", beachId)
-      .maybeSingle();
-  }, { allowNull: true });
 }
 
 /**

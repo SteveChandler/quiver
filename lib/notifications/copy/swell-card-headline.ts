@@ -24,7 +24,7 @@ const SWELL_SHARE_BASE_URL = "https://www.quiversurf.app/app/swell";
 const COMING_FALLBACK_TITLE_ID = "fallback";
 // Same limit as TITLE_MAX_CHARS in select-title.ts, which imports node:crypto
 // and so cannot be pulled into the edge and client code that renders cards.
-const PUSH_TITLE_MAX_CHARS = 40;
+export const PUSH_TITLE_MAX_CHARS = 40;
 // Tags that state no fact about the swell; only these are safe without the push's own context.
 const COMING_NEUTRAL_TAGS = new Set(["generic", "manageable", "serious"]);
 const MOVE_DIRECTION_TAGS: readonly string[] = ["later", "earlier"];

@@ -6906,6 +6906,11 @@ gtoken@^7.0.0:
     gaxios "^6.0.0"
     jws "^4.0.0"
 
+h5wasm@^0.10.3:
+  version "0.10.3"
+  resolved "https://registry.yarnpkg.com/h5wasm/-/h5wasm-0.10.3.tgz#fd58a1cdcbc27d21bf639d65d00fce9948238141"
+  integrity sha512-W4Jy5ExtX/VNbyD8GdOBckDuj6AL16TemppVNxZsV3rJZEWCv2sxlCzOttZLer3zkMttbDYsWHl0qt1z3Bln+Q==
+
 has-bigints@^1.0.2:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/has-bigints/-/has-bigints-1.1.0.tgz#28607e965ac967e03cd2a2c70a2636a1edad49fe"

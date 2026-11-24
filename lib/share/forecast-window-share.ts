@@ -6,6 +6,7 @@ import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-
 import type { EvaluateMajorEventHoldCandidatesInput } from "@/lib/recommendations/major-event-hold/service";
 import type { MajorEventHoldCandidateDecision } from "@/lib/recommendations/major-event-hold/types";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 
 type ConditionSegment = string | number | null | undefined;
 
@@ -330,7 +331,7 @@ async function defaultLoadForecast(
   const result = await supabase
     .from("enhanced_forecasts")
     .select(
-      "beach_id,forecast_at,wave_height,wave_height_om,swell_1_period,swell_1_direction,wave_direction,wind_speed,wind_direction,tide_height,tide_status",
+      "beach_id,forecast_at,wave_height,wave_height_om,swell_1_period,swell_1_direction,wave_direction,wind_speed,wind_direction,tide_height,tide_status,data_source",
     )
     .eq("beach_id", beachId)
     .eq("forecast_at", forecastAt)
@@ -338,6 +339,8 @@ async function defaultLoadForecast(
     .maybeSingle();
 
   if (result.error || !result.data) return null;
+  // No model covers a FALLBACK slot, so there is no window to share.
+  if (isFallbackForecastRow(result.data)) return null;
   return {
     beach_id: result.data.beach_id,
     forecast_at: result.data.forecast_at,

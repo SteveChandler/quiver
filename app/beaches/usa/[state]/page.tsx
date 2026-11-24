@@ -76,7 +76,7 @@ export async function generateMetadata(
   const stateName = getUsStateDisplayNameFromSlug(stateSlug);
   return buildPageMetadata({
     title: `Surf Beaches in ${stateName} — Every City & Break`,
-    description: `Explore every surf city and beach break in ${stateName} with real-time conditions, calibrated forecasts, and community reviews. Find your next session from beginner-friendly waves to expert reef breaks.`,
+    description: `Explore every surf city and beach break in ${stateName} with conditions, calibrated forecasts, and community reviews. Find your next session from beginner-friendly waves to expert reef breaks.`,
     path: `/beaches/usa/${stateSlug}`,
   });
 }
@@ -256,7 +256,7 @@ export default async function UsaStatePage(
       <WebPageSchema
         name={`Surf Beaches in ${stateName} — Every City & Break`}
         url={statePageUrl}
-        description={`Explore every surf city and beach break in ${stateName} with real-time conditions, calibrated forecasts, and community reviews.`}
+        description={`Explore every surf city and beach break in ${stateName} with conditions, calibrated forecasts, and community reviews.`}
       />
       <ItemListSchema
         items={cityItemListItems}
@@ -360,7 +360,7 @@ export default async function UsaStatePage(
       <SeoFunnelNextSteps
         variant="paper"
         title={`Plan a ${stateName} surf session`}
-        description="Use the state hub to choose a city, then move into live conditions, water temperature, or the map before you drive."
+        description="Use the state hub to choose a city, then move into conditions, water temperature, or the map before you drive."
         steps={[
           {
             label: `Browse ${stateName} surf cities`,

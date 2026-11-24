@@ -30,7 +30,7 @@ import {
   resolveOffshoreToleranceDeg,
   type WindOrientation,
 } from "@/lib/domains/shared/wind-orientation";
-import { scoreNativeConditionInputs } from "@/lib/scoring/native-condition-score";
+import { displayTideBand, scoreNativeConditionInputs } from "@/lib/scoring/native-condition-score";
 import {
   getBatchSunTimes,
   selectBeachDayWindows,
@@ -94,11 +94,19 @@ export class IntelGenerationService {
     // 3. Fetch water quality (optional — missing rows are handled gracefully)
     // Cast through `any` because the typed client was constructed before beach_water_quality
     // was added to the generated Database type and is regenerated separately.
-    const { data: wqData } = await (this.supabase as any)
+    const { data: wqData, error: wqError } = await (this.supabase as any)
       .from("beach_water_quality")
       .select("status, latest_sample_date")
       .eq("beach_id", beachId)
-      .maybeSingle() as { data: { status: string; latest_sample_date: string | null } | null };
+      .maybeSingle() as {
+        data: { status: string; latest_sample_date: string | null } | null;
+        error: { message: string } | null;
+      };
+
+    // A missing row means no advisory; a failed read must not publish intel without one.
+    if (wqError) {
+      throw new Error(`Failed to fetch water quality for beach ${beachId}: ${wqError.message}`);
+    }
 
     const sunTimesCache = await getBatchSunTimes([beachId], [forecasts.localDate]);
     const bestDayWindow = beach
@@ -146,7 +154,11 @@ export class IntelGenerationService {
       .eq("id", beachId)
       .single();
 
-    if (error || !beach) return null;
+    // PGRST116 = no row: keep the beach-missing path; other errors must not drop the prefs.
+    if (error && error.code !== "PGRST116") {
+      throw new Error(`Failed to fetch beach ${beachId}: ${error.message}`);
+    }
+    if (!beach) return null;
 
     return beach as unknown as Beach;
   }
@@ -539,12 +551,18 @@ export class IntelGenerationService {
     if (intel.surf && intel.wind && intel.tide) {
       const waveHeight = (intel.surf.min + intel.surf.max) / 2;
       const wavePeriod = intel.swells.primary?.period ?? 0;
+      // beachPreferences carries the beach row's preferred_tide_ft_min/max.
+      const tideBand = displayTideBand({
+        preferred_tide_ft_min: intel.beachPreferences?.tideMinFt,
+        preferred_tide_ft_max: intel.beachPreferences?.tideMaxFt,
+      });
       unifiedScore = scoreNativeConditionInputs({
         waveHeightFt: waveHeight,
         windSpeedMph: hasWindSpeed ? intel.wind.speed : null,
         periodSec: wavePeriod,
         tideHeightFt: intel.tide.height,
         tideStatus: intel.tide.direction ?? null,
+        ...(tideBand ? { tideBand } : {}),
       });
     }
 

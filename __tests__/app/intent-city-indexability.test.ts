@@ -109,6 +109,15 @@ describe("city intent indexability", () => {
     (getCityEditorialContent as jest.Mock).mockResolvedValue(null);
   });
 
+  it("does not promise live, hourly conditions on a state intent page", async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "longboard", city: "ca" }),
+    });
+
+    expect(String(metadata.description)).toContain("Conditions, crowd data & surf windows.");
+    expect(String(metadata.description)).not.toMatch(/live conditions|updated hourly/i);
+  });
+
   it("indexes /water-temp/{city} with a live reading and no editorial row", async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ intent: "water-temp", city: "corolla" }),

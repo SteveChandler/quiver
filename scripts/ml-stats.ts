@@ -89,12 +89,6 @@ interface ForecastAccuracyMetricRow {
   bias_m: number | null;
 }
 
-interface CorrectionStats {
-  latest_corrected_at: string | null;
-  count_24h: number;
-  total: number;
-}
-
 interface PredictionDayCount {
   day: string;
   count: number;
@@ -333,47 +327,6 @@ async function fetchModelRegistry(
   return { data: (data as ModelRegistryRow[]) ?? [], error: null };
 }
 
-async function fetchCorrectionStats(
-  supabase: SupabaseClient
-): Promise<{ data: CorrectionStats | null; error: string | null }> {
-  // Latest correction time
-  const { data: latest, error: e1 } = await supabase
-    .from("corrected_forecasts")
-    .select("corrected_at")
-    .order("corrected_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (e1 && e1.code !== "PGRST116") {
-    return { data: null, error: e1.message };
-  }
-
-  // Count in last 24h
-  const since = new Date(Date.now() - 86_400_000).toISOString();
-  const { count: count24h, error: e2 } = await supabase
-    .from("corrected_forecasts")
-    .select("id", { count: "exact", head: true })
-    .gte("corrected_at", since);
-
-  if (e2) return { data: null, error: e2.message };
-
-  // Total count
-  const { count: total, error: e3 } = await supabase
-    .from("corrected_forecasts")
-    .select("id", { count: "exact", head: true });
-
-  if (e3) return { data: null, error: e3.message };
-
-  return {
-    data: {
-      latest_corrected_at: latest?.corrected_at ?? null,
-      count_24h: count24h ?? 0,
-      total: total ?? 0,
-    },
-    error: null,
-  };
-}
-
 async function fetchPredictionStats(
   supabase: SupabaseClient
 ): Promise<{ data: PredictionStats | null; error: string | null }> {
@@ -472,7 +425,6 @@ function detectAnomalies(
   cron: CronStatus | null,
   pipeline: PipelineHealthRow | null,
   registry: ModelRegistryRow[] | null,
-  corrections: CorrectionStats | null,
   predictions: PredictionStats | null
 ): string[] {
   const flags: string[] = [];
@@ -482,16 +434,6 @@ function detectAnomalies(
     flags.push("ML service unreachable");
   } else if (!health.model_loaded) {
     flags.push("Model not loaded on Fly.io service");
-  }
-
-  // Correction freshness
-  if (corrections) {
-    const corrAge = hoursAgo(corrections.latest_corrected_at);
-    if (corrAge !== null && corrAge > 6) {
-      flags.push(
-        `Corrections stale — last correction ${corrAge.toFixed(1)}h ago (threshold: 6h)`
-      );
-    }
   }
 
   // Predictions in last 24h
@@ -834,26 +776,6 @@ function formatModelRegistry(
   return lines.join("\n");
 }
 
-function formatCorrectionStats(
-  data: CorrectionStats | null,
-  error: string | null
-): string {
-  if (error || !data) {
-    return `### Correction Freshness\n\nWarning: ${error ?? "No data"}\n`;
-  }
-
-  const lines = [
-    "### Correction Freshness",
-    "",
-    "| Metric | Value |",
-    "|--------|-------|",
-    `| Latest Correction | ${relativeTime(data.latest_corrected_at)} |`,
-    `| Corrections (24h) | ${data.count_24h.toLocaleString()} |`,
-    `| Total Corrections | ${data.total.toLocaleString()} |`,
-  ];
-  return lines.join("\n");
-}
-
 function formatPredictionStats(
   data: PredictionStats | null,
   error: string | null
@@ -1000,7 +922,6 @@ async function main(): Promise<void> {
     forecastAccuracyResult,
     weeklyResult,
     registryResult,
-    correctionResult,
     predictionResult,
     sessionWaveObservationResult,
   ] = await Promise.all([
@@ -1010,7 +931,6 @@ async function main(): Promise<void> {
     fetchForecastAccuracyMetrics(supabase),
     fetchWeeklyMetrics(supabase),
     fetchModelRegistry(supabase),
-    fetchCorrectionStats(supabase),
     fetchPredictionStats(supabase),
     fetchSessionWaveObservationAnalytics(supabase),
   ]);
@@ -1022,7 +942,6 @@ async function main(): Promise<void> {
     cronResult.data,
     pipelineResult.data,
     registryResult.data,
-    correctionResult.data,
     predictionResult.data
   );
 
@@ -1051,8 +970,6 @@ async function main(): Promise<void> {
       sessionWaveObservationResult.data,
       sessionWaveObservationResult.error
     ),
-    "",
-    formatCorrectionStats(correctionResult.data, correctionResult.error),
     "",
     "### Anomaly Flags",
     "",

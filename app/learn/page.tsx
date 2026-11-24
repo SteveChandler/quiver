@@ -111,7 +111,14 @@ const CATEGORIES: {
     label: "Ocean Science",
     desc: "How waves and tides actually work.",
     sticker: "breakingWave",
-    slugs: ["how-are-ocean-waves-formed", "how-do-tides-work"],
+    slugs: [
+      "how-are-ocean-waves-formed",
+      "what-is-wave-diffraction",
+      "how-do-tides-work",
+      "what-is-a-king-tide",
+      "what-is-a-rogue-wave",
+      "where-to-watch-mavericks",
+    ],
   },
   {
     label: "Local Beginner Breaks",
@@ -123,6 +130,7 @@ const CATEGORIES: {
       "beginner-breaks-orange-county",
       "beginner-breaks-santa-cruz",
       "can-you-surf-in-new-jersey",
+      "can-you-surf-in-south-carolina",
     ],
   },
 ];

@@ -567,9 +567,9 @@ export const TERMS_CONTENT = {
   hero: {
     title: "Terms of Service",
     subtitle: "Rules and guidelines for using Quiver",
-    lastUpdated: "July 25, 2026",
+    lastUpdated: "November 11, 2026",
     effectiveDate:
-      "This policy is effective as of July 25, 2026. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of November 11, 2026. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver",
@@ -585,7 +585,7 @@ export const TERMS_CONTENT = {
         {
           subtitle: "Agreement to Terms",
           details:
-            "By creating an account or using Quiver, you confirm that you are at least 13 years old and agree to these Terms. If you are under 18, you represent that your parent or guardian has reviewed and agreed to these Terms on your behalf. If you do not agree, do not use the Service.",
+            "By creating an account or using Quiver, you confirm that you are at least 16 years old and agree to these Terms. If you are under 18, you represent that your parent or guardian has reviewed and agreed to these Terms on your behalf. If you do not agree, do not use the Service.",
         },
       ],
     },

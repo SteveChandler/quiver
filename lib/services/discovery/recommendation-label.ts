@@ -3,8 +3,11 @@ import {
   getDiscoveryScoringEngine,
   forecastToSnapshot,
   getConditionCharacter,
+  getConditionCharacterDetails,
   type ConditionCharacterCategory,
 } from "@/lib/domains/scoring";
+import type { BoardClass } from "@/lib/domains/rideability";
+import type { SkillLevel } from "@/lib/domains/user-preferences";
 import type { RecommendationLabel } from "@/lib/scoring";
 import {
   getRecommendationLabel,
@@ -13,14 +16,21 @@ import {
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
+interface LabelLearnerInput {
+  skill: SkillLevel;
+  boardClass: BoardClass | null;
+}
+
 export function resolveRecommendationLabel({
   beach,
   forecast,
   score,
+  learner,
 }: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   score: number;
+  learner?: LabelLearnerInput;
 }): {
   label: RecommendationLabel;
   character: { label: string; category: ConditionCharacterCategory } | undefined;
@@ -34,10 +44,26 @@ export function resolveRecommendationLabel({
       window: null,
       preferences: null,
     });
-    const character = getConditionCharacter(snapshot, profile, composite);
+    if (!learner) {
+      const character = getConditionCharacter(snapshot, profile, composite);
+      return {
+        label: getRecommendationLabelGated(score, character.category),
+        // Only the two fields the recommendation contract exposes.
+        character: { label: character.label, category: character.category },
+      };
+    }
+    const { character, smallWeakReason } = getConditionCharacterDetails(
+      snapshot,
+      profile,
+      composite,
+    );
     return {
-      label: getRecommendationLabelGated(score, character.category),
-      // Only the two fields the recommendation contract exposes.
+      label: getRecommendationLabelGated(score, character.category, {
+        ...learner,
+        waveHeightFt: snapshot.waveHeight,
+        wavePeriodS: snapshot.wavePeriod,
+        smallWeakReason,
+      }),
       character: { label: character.label, category: character.category },
     };
   } catch {

@@ -117,6 +117,7 @@ describe("/api/users/[id]/profile", () => {
     const sessionsChain: any = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
       then: jest.fn((onResolve: any) =>
         onResolve({
           data: [
@@ -194,6 +195,7 @@ describe("/api/users/[id]/profile", () => {
     const sessionsChain: any = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
       then: jest.fn((onResolve: any) =>
         onResolve({ data: [], error: null })
       ),
@@ -253,6 +255,7 @@ describe("/api/users/[id]/profile", () => {
     const sessionsChain: any = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
       then: jest.fn((onResolve: any) =>
         onResolve({ data: [], error: null })
       ),

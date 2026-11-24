@@ -1,19 +1,20 @@
 import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
-import { COUNT_MIN_CONFIDENCE } from "@/lib/sessions/wave-detection/constants";
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
 import { tideFtAtWaves } from "@/lib/sessions/waves/wave-tides";
 import type { SessionWave, SessionWavesResponse } from "@/lib/sessions/waves/waves-api-types";
-import { buildWavesSummary, isExcluded, trackSummaryExtras, type StoredWave } from "@/lib/sessions/waves/waves-summary";
+import { buildWavesSummary, isCounted, isExcluded, trackSummaryExtras, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
+import { readSessionTrackForWaves } from "@/lib/sessions/waves/session-track-query";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 
 const countRequest = z.object({ userWaveCount: z.number().int().min(0).max(200).nullable() }).strict();
 
-export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
+const handleGet = withNoStore(withRateLimit(withAuth(async (_request, { user, supabase, params }) => {
   if (!z.uuid().safeParse(params.id).success) return createErrorResponse("invalid_request", undefined, 400);
   if (!canViewSessionWaves(user.id)) return createErrorResponse("not_found", undefined, 404);
 
@@ -23,8 +24,9 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
-  const { data: track, error: trackError } = await supabase.from("session_tracks")
-    .select("*").eq("session_id", session.id).eq("user_id", user.id).maybeSingle();
+  const { data: track, error: trackError } = await readSessionTrackForWaves(
+    supabase, session.id, user.id, { includeTrackData: true },
+  );
   if (trackError) throw new Error(trackError.message);
   if (!track) return createErrorResponse("not_found", undefined, 404);
 
@@ -32,7 +34,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     .select("*").eq("session_id", session.id).eq("is_current", true).order("wave_index");
   if (wavesError) throw new Error(wavesError.message);
   const { data: correctionRows, error: correctionsError } = await supabase.from("session_wave_corrections")
-    .select("started_at, ended_at").eq("session_id", session.id).eq("action", "exclude");
+    .select("started_at, ended_at, action").eq("session_id", session.id).in("action", ["exclude", "include"]);
   if (correctionsError) throw new Error(correctionsError.message);
 
   const waves: StoredWave[] = (rows ?? []).map(row => ({
@@ -41,7 +43,8 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     avgSpeedMps: row.avg_speed_mps, headingDeg: row.heading_deg, confidence: row.confidence,
     start: { lat: row.start_lat, lon: row.start_lon }, end: { lat: row.end_lat, lon: row.end_lon },
   }));
-  const corrections = (correctionRows ?? []).map(row => ({ startedAt: row.started_at, endedAt: row.ended_at }));
+  const corrections: Correction[] = (correctionRows ?? []).map(row => ({ startedAt: row.started_at,
+    endedAt: row.ended_at, action: row.action === "include" ? "include" : "exclude" }));
   const summary = buildWavesSummary(waves, corrections, {
     gpsCoverage: track.gps_coverage, speedReliable: track.speed_reliable, userWaveCount: track.user_wave_count,
     ...trackSummaryExtras(session.source, track),
@@ -59,7 +62,7 @@ export const GET = withNoStore(withRateLimit(withAuth(async (_request, { user, s
     ...wave,
     maxSpeedMps: track.speed_reliable ? wave.maxSpeedMps : null,
     avgSpeedMps: track.speed_reliable ? wave.avgSpeedMps : null,
-    counted: wave.confidence >= COUNT_MIN_CONFIDENCE && !isExcluded(wave, corrections),
+    counted: isCounted(wave, corrections),
     excluded: isExcluded(wave, corrections), tideFt: tideFt.get(wave.id) ?? null,
   }));
   const data: SessionWavesResponse = {
@@ -83,9 +86,7 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
-  const { data: track, error: trackError } = await supabase.from("session_tracks")
-    .select("gps_coverage, speed_reliable, user_wave_count, paddle_distance_m, hr_avg, hr_max, recorded_by, source_device")
-    .eq("session_id", session.id).eq("user_id", user.id).maybeSingle();
+  const { data: track, error: trackError } = await readSessionTrackForWaves(supabase, session.id, user.id);
   if (trackError) throw new Error(trackError.message);
   if (!track) return createErrorResponse("not_found", undefined, 404);
 
@@ -98,7 +99,7 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
     .select("*").eq("session_id", session.id).eq("is_current", true).order("wave_index");
   if (wavesError) throw new Error(wavesError.message);
   const { data: correctionRows, error: correctionsError } = await supabase.from("session_wave_corrections")
-    .select("started_at, ended_at").eq("session_id", session.id).eq("action", "exclude");
+    .select("started_at, ended_at, action").eq("session_id", session.id).in("action", ["exclude", "include"]);
   if (correctionsError) throw new Error(correctionsError.message);
   const waves: StoredWave[] = (rows ?? []).map(row => ({
     id: row.id, index: row.wave_index, startedAt: row.started_at, endedAt: row.ended_at,
@@ -107,7 +108,8 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
     start: { lat: row.start_lat, lon: row.start_lon }, end: { lat: row.end_lat, lon: row.end_lon },
   }));
   const summary = buildWavesSummary(waves,
-    (correctionRows ?? []).map(row => ({ startedAt: row.started_at, endedAt: row.ended_at })),
+    (correctionRows ?? []).map(row => ({ startedAt: row.started_at, endedAt: row.ended_at,
+      action: row.action === "include" ? "include" as const : "exclude" as const })),
     { gpsCoverage: track.gps_coverage, speedReliable: track.speed_reliable, userWaveCount: parsed.data.userWaveCount,
       ...trackSummaryExtras(session.source, track) },
     rows?.[0]?.detection_version ?? WAVE_DETECTION_VERSION,
@@ -119,3 +121,5 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (eventError) console.warn("[session waves] Count event failed:", eventError);
   return createSuccessResponse({ summary });
 }, { errorMessage: "Failed to update session wave count" }), "authenticated-default"));
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/sessions/[id]/waves");

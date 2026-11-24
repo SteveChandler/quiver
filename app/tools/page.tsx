@@ -47,7 +47,7 @@ const TOOLS = [
     slug: "tide-clock",
     name: "Tide Clock",
     description:
-      "Real-time tide height, next high/low, and 24-hour tide curve for any beach.",
+      "Predicted tide height, next high/low, and 24-hour tide curve for any beach.",
     icon: Waves,
     color: "text-blue-500",
     bg: "bg-blue-50",
@@ -114,7 +114,7 @@ const TOOLS = [
     slug: "water-quality",
     name: "Water Quality Check",
     description:
-      "Bacteria levels and swim safety status from EPA monitoring stations. CA & HI.",
+      "Bacteria levels and swim safety status from EPA monitoring stations. California.",
     icon: Droplets,
     color: "text-teal-500",
     bg: "bg-teal-50",

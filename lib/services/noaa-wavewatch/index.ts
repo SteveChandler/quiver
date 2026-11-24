@@ -2,8 +2,7 @@
  * NOAA WaveWatch III Wave Forecast Service
  *
  * Provides wave forecast data from NOAA's WaveWatch III model via the
- * National Weather Service API, with fallback to Open-Meteo Marine API
- * and synthetic data generation.
+ * National Weather Service API, with fallback to Open-Meteo Marine API.
  *
  * @module noaa-wavewatch
  */

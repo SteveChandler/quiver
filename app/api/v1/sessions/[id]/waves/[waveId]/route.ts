@@ -3,13 +3,18 @@ import { z } from "zod";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-utils";
 import { withAuth, withNoStore, withRateLimit } from "@/lib/middleware/api-wrappers";
 import { WAVE_DETECTION_VERSION } from "@/lib/sessions/wave-detection/detect-waves";
-import { buildWavesSummary, isExcluded, trackSummaryExtras, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
+import { buildWavesSummary, isExcluded, isIncluded, trackSummaryExtras, type Correction, type StoredWave } from "@/lib/sessions/waves/waves-summary";
 import { canViewSessionWaves } from "@/lib/sessions/waves/waves-access";
+import { readSessionTrackForWaves } from "@/lib/sessions/waves/session-track-query";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { retryAfterSeconds } from "@/lib/utils/retry-after";
 
 export const runtime = "nodejs";
 
-const correctionRequest = z.object({ excluded: z.boolean() }).strict();
+const correctionRequest = z.union([
+  z.object({ excluded: z.boolean() }).strict(),
+  z.object({ counted: z.boolean() }).strict(),
+]);
 
 export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, supabase, params }) => {
   if (!z.uuid().safeParse(params.id).success || !z.uuid().safeParse(params.waveId).success) {
@@ -25,10 +30,7 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (sessionError) throw new Error(sessionError.message);
   if (!session || session.user_id !== user.id || session.deleted_at) return createErrorResponse("not_found", undefined, 404);
 
-  const { data: track, error: trackError } = await supabase.from("session_tracks")
-    .select("gps_coverage, speed_reliable, user_wave_count, paddle_distance_m, hr_avg, hr_max, recorded_by, source_device")
-    .eq("session_id", session.id)
-    .eq("user_id", user.id).maybeSingle();
+  const { data: track, error: trackError } = await readSessionTrackForWaves(supabase, session.id, user.id);
   if (trackError) throw new Error(trackError.message);
   if (!track) return createErrorResponse("not_found", undefined, 404);
 
@@ -45,24 +47,21 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
   if (!target) return createErrorResponse("not_found", undefined, 404);
 
   const { data: correctionRows, error: correctionsError } = await supabase.from("session_wave_corrections")
-    .select("started_at, ended_at").eq("session_id", session.id).eq("action", "exclude");
+    .select("started_at, ended_at, action").eq("session_id", session.id).in("action", ["exclude", "include"]);
   if (correctionsError) throw new Error(correctionsError.message);
 
   const waveSpan: Correction = { startedAt: target.startedAt, endedAt: target.endedAt };
-  let corrections: Correction[] = (correctionRows ?? []).map(row => ({ startedAt: row.started_at, endedAt: row.ended_at }));
-  if (parsed.data.excluded && !isExcluded(target, corrections)) {
-    const { error } = await supabase.from("session_wave_corrections").insert({
-      id: randomUUID(), session_id: session.id, user_id: user.id, action: "exclude",
-      started_at: target.startedAt, ended_at: target.endedAt,
-    });
-    if (error) throw new Error(error.message);
-    corrections = [...corrections, waveSpan];
-    const { error: eventError } = await createServiceRoleClient().from("user_events").insert({
-      user_id: user.id, event_type: "session_wave_excluded",
-      metadata: { session_id: session.id, wave_id: target.id },
-    });
-    if (eventError) console.warn("[session waves] Exclusion event failed:", eventError);
-  } else if (!parsed.data.excluded) {
+  let corrections: Correction[] = (correctionRows ?? []).map(row => ({ startedAt: row.started_at,
+    endedAt: row.ended_at, action: row.action === "include" ? "include" : "exclude" }));
+  const desiredAction = "counted" in parsed.data
+    ? parsed.data.counted ? "include" : "exclude"
+    : parsed.data.excluded ? "exclude" : null;
+  const alreadyApplied = desiredAction === "include"
+    ? isIncluded(target, corrections) && !isExcluded(target, corrections)
+    : desiredAction === "exclude"
+      ? isExcluded(target, corrections) && !isIncluded(target, corrections)
+      : false;
+  if (desiredAction === null || !alreadyApplied) {
     const { error } = await supabase.from("session_wave_corrections").delete()
       .eq("session_id", session.id).eq("user_id", user.id)
       .lt("started_at", target.endedAt).gt("ended_at", target.startedAt);
@@ -71,6 +70,27 @@ export const PATCH = withNoStore(withRateLimit(withAuth(async (request, { user, 
     const targetEnd = Date.parse(target.endedAt);
     corrections = corrections.filter(correction =>
       Date.parse(correction.startedAt) >= targetEnd || Date.parse(correction.endedAt) <= targetStart);
+    if (desiredAction) {
+      const { error: insertError } = await supabase.from("session_wave_corrections").insert({
+        id: randomUUID(), session_id: session.id, user_id: user.id, action: desiredAction,
+        started_at: target.startedAt, ended_at: target.endedAt,
+      });
+      if (insertError?.code === "23514" && desiredAction === "include") {
+        const response = createErrorResponse("unavailable", undefined, 503);
+        response.headers.set("Retry-After", String(retryAfterSeconds()));
+        return response;
+      }
+      if (insertError) throw new Error(insertError.message);
+      corrections = [...corrections, { ...waveSpan, action: desiredAction }];
+      if (desiredAction === "exclude" || desiredAction === "include") {
+        const { error: eventError } = await createServiceRoleClient().from("user_events").insert({
+          user_id: user.id,
+          event_type: desiredAction === "include" ? "session_wave_included" : "session_wave_excluded",
+          metadata: { session_id: session.id, wave_id: target.id },
+        });
+        if (eventError) console.warn(`[session waves] ${desiredAction === "include" ? "Inclusion" : "Exclusion"} event failed:`, eventError);
+      }
+    }
   }
 
   const summary = buildWavesSummary(waves, corrections, {

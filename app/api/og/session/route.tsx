@@ -1,15 +1,36 @@
 import { jpegResponse } from "@/lib/seo/og-image";
 import { ImageResponse } from "next/og";
-import { type NextRequest } from "next/server";
+import { type NextRequest, type NextResponse } from "next/server";
 
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
 import {
   createQrCodeDataUri,
   SHARE_CARD_COLORS,
 } from "@/app/api/og/_components/install-share-card";
-import { buildSessionShareDetails } from "@/lib/share/session-share-card-details";
+import {
+  buildSessionShareDetails,
+  formatShareWaveSize,
+} from "@/lib/share/session-share-card-details";
+import {
+  isQuiverShareUrl,
+  lookupPublicSessionShare,
+  sessionIdFromShareUrl,
+} from "@/lib/share/public-session-share-record";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import {
+  sessionRatingLabel,
+  sessionRatingStars,
+} from "@/lib/share/session-rating";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
+
+// A card with no session id is built only from its URL, so it can be cached for a day.
+const URL_ONLY_CACHE =
+  "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800";
+// A card tied to a session id shows stored data that can change (rating, is_public, deleted_at).
+const SESSION_CACHE =
+  "public, max-age=300, s-maxage=300, stale-while-revalidate=60";
 
 const TRUSTED_IMAGE_HOSTS = new Set(["cdn.quiversurf.app"]);
 
@@ -106,8 +127,8 @@ function formatShareUrl(value: string): string {
 
 interface SessionShareCardProps {
   beach: string;
-  rating: string;
-  stars: number;
+  /** The surfer's own 1-5 rating; null hides the rating pill, stars and label. */
+  stars: number | null;
   size: string;
   board: string;
   date: string;
@@ -128,11 +149,17 @@ function buildSessionSubtitle(params: {
   windSpeed: string;
   tagline: string;
 }): string {
-  const headlineParts = [
-    `${params.beach} session`,
-    params.rating ? `${params.rating.toLowerCase()} rating` : "",
-    params.size,
-  ].filter(Boolean);
+  const size = formatShareWaveSize(params.size);
+  // The rating alone ("epic rating") repeats the stars and label above it, so it
+  // joins the line only beside a beach or a size (Steven, Nov 12: "Remove the line").
+  const headlineParts =
+    params.beach || size
+      ? [
+          params.beach ? `${params.beach} session` : "",
+          params.rating ? `${params.rating.toLowerCase()} rating` : "",
+          size,
+        ].filter(Boolean)
+      : [];
   const details = [params.board, params.windLabel, params.windSpeed]
     .filter(Boolean)
     .join(" · ");
@@ -161,7 +188,6 @@ function ShareStar({ filled }: { filled: boolean }) {
 
 function SessionShareCard({
   beach,
-  rating,
   stars,
   size,
   board,
@@ -173,8 +199,13 @@ function SessionShareCard({
   bg,
   qrImageSrc,
 }: SessionShareCardProps) {
-  const detailCards = buildSessionShareDetails({ size, board, windSpeed, windLabel });
-  const clampedStars = Math.max(0, Math.min(5, Math.round(stars)));
+  const detailCards = buildSessionShareDetails({
+    size,
+    board,
+    windSpeed,
+    windLabel,
+  });
+  const rating = stars === null ? "" : sessionRatingLabel(stars);
   const subtitle = buildSessionSubtitle({
     beach,
     rating,
@@ -261,22 +292,24 @@ function SessionShareCard({
             gap: 22,
           }}
         >
-          <div
-            style={{
-              alignSelf: "flex-start",
-              display: "flex",
-              borderRadius: 999,
-              background: SHARE_CARD_COLORS.orange,
-              color: SHARE_CARD_COLORS.navy,
-              padding: "16px 26px",
-              fontSize: 34,
-              fontWeight: 900,
-              letterSpacing: 2,
-              textTransform: "uppercase",
-            }}
-          >
-            {rating} session
-          </div>
+          {rating ? (
+            <div
+              style={{
+                alignSelf: "flex-start",
+                display: "flex",
+                borderRadius: 999,
+                background: SHARE_CARD_COLORS.orange,
+                color: SHARE_CARD_COLORS.navy,
+                padding: "16px 26px",
+                fontSize: 34,
+                fontWeight: 900,
+                letterSpacing: 2,
+                textTransform: "uppercase",
+              }}
+            >
+              {rating} session
+            </div>
+          ) : null}
           <div
             style={{
               display: "flex",
@@ -286,9 +319,11 @@ function SessionShareCard({
               textShadow: "0 6px 24px rgba(0,0,0,0.35)",
             }}
           >
-            <div style={{ display: "flex", fontSize: 92, fontWeight: 900 }}>
-              {beach}
-            </div>
+            {beach ? (
+              <div style={{ display: "flex", fontSize: 92, fontWeight: 900 }}>
+                {beach}
+              </div>
+            ) : null}
             <div style={{ display: "flex", fontSize: 38, fontWeight: 700 }}>
               {date || "Logged on Quiver"}
             </div>
@@ -305,84 +340,90 @@ function SessionShareCard({
           flex: 1,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 58,
-              color: SHARE_CARD_COLORS.orange,
-              gap: 6,
-            }}
-          >
-            {Array.from({ length: 5 }, (_, index) => (
-              <ShareStar key={index} filled={index < clampedStars} />
-            ))}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 34,
-              fontWeight: 800,
-              color: SHARE_CARD_COLORS.muted,
-            }}
-          >
-            {rating}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            fontSize: 40,
-            lineHeight: 1.28,
-            fontWeight: 700,
-            color: SHARE_CARD_COLORS.ink,
-          }}
-        >
-          {tagline || subtitle}
-        </div>
-
-        <div style={{ display: "flex", gap: 18 }}>
-          {detailCards.map((card) => (
+        {stars !== null ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <div
-              key={card.label}
               style={{
                 display: "flex",
-                flex: 1,
-                flexDirection: "column",
-                gap: 12,
-                borderRadius: 28,
-                background: "#F4EBD8",
-                border: "2px solid #E5D4B3",
-                padding: 24,
+                fontSize: 58,
+                color: SHARE_CARD_COLORS.orange,
+                gap: 6,
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: 24,
-                  fontWeight: 900,
-                  color: SHARE_CARD_COLORS.muted,
-                  letterSpacing: 3,
-                  textTransform: "uppercase",
-                }}
-              >
-                {card.label}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: 34,
-                  fontWeight: 900,
-                  color: SHARE_CARD_COLORS.ink,
-                  lineHeight: 1.08,
-                }}
-              >
-                {card.value}
-              </div>
+              {Array.from({ length: 5 }, (_, index) => (
+                <ShareStar key={index} filled={index < stars} />
+              ))}
             </div>
-          ))}
-        </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 34,
+                fontWeight: 800,
+                color: SHARE_CARD_COLORS.muted,
+              }}
+            >
+              {rating}
+            </div>
+          </div>
+        ) : null}
+
+        {tagline || subtitle ? (
+          <div
+            style={{
+              display: "flex",
+              fontSize: 40,
+              lineHeight: 1.28,
+              fontWeight: 700,
+              color: SHARE_CARD_COLORS.ink,
+            }}
+          >
+            {tagline || subtitle}
+          </div>
+        ) : null}
+
+        {detailCards.length > 0 ? (
+          <div style={{ display: "flex", gap: 18 }}>
+            {detailCards.map((card) => (
+              <div
+                key={card.label}
+                style={{
+                  display: "flex",
+                  flex: 1,
+                  flexDirection: "column",
+                  gap: 12,
+                  borderRadius: 28,
+                  background: "#F4EBD8",
+                  border: "2px solid #E5D4B3",
+                  padding: 24,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 24,
+                    fontWeight: 900,
+                    color: SHARE_CARD_COLORS.muted,
+                    letterSpacing: 3,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {card.label}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 34,
+                    fontWeight: 900,
+                    color: SHARE_CARD_COLORS.ink,
+                    lineHeight: 1.08,
+                  }}
+                >
+                  {card.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <div
           style={{
@@ -413,16 +454,18 @@ function SessionShareCard({
             >
               Open this session on Quiver
             </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 24,
-                fontWeight: 700,
-                color: SHARE_CARD_COLORS.muted,
-              }}
-            >
-              {footer}
-            </div>
+            {footer ? (
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: SHARE_CARD_COLORS.muted,
+                }}
+              >
+                {footer}
+              </div>
+            ) : null}
           </div>
           <div
             style={{
@@ -452,24 +495,52 @@ function SessionShareCard({
   );
 }
 
-export async function GET(request: NextRequest): Promise<Response> {
+async function renderSessionShareCard(request: NextRequest): Promise<Response> {
   const { searchParams } = new URL(request.url);
   const useJpeg = searchParams.get("format") === "jpeg";
   try {
-    const beach = truncate(searchParams.get("beach") || "Your surf session", 38);
-    const rating = truncate(searchParams.get("rating") || "Good", 18);
-    const size = truncate(searchParams.get("size") || "Waist-Chest", 24);
-    const board = truncate(searchParams.get("board") || "", 34);
-    const windLabel = truncate(searchParams.get("windLabel") || "", 28);
-    const windSpeed = truncate(searchParams.get("windSpeed") || "", 18);
-    const tagline = truncate(searchParams.get("tagline") || "", 64);
-    const date = truncate(searchParams.get("date") || "", 32);
+    const param = (name: string): string => searchParams.get(name) || "";
+    const requestHost = new URL(request.url).host;
+    const sessionId = sessionIdFromShareUrl(
+      searchParams.get("shareUrl"),
+      requestHost,
+    );
+    const lookup = sessionId ? await lookupPublicSessionShare(sessionId) : null;
+    const stored = lookup?.status === "found" ? lookup.record : null;
+    // A public session's stored values win over the URL: installed native builds send
+    // "Fair"/3 stars for an unrated session. When the read fails, nothing proves the URL's
+    // rating is real, so the card shows none.
+    const stars = stored
+      ? stored.rating
+      : lookup?.status === "error"
+        ? null
+        : sessionRatingStars(searchParams.get("stars"));
+    const beach = truncate(stored?.beach || param("beach"), 38);
+    const size = truncate(stored ? stored.waveHeight : param("size"), 24);
+    const board = truncate(
+      stored && !stored.hasBoard ? "" : param("board"),
+      34,
+    );
+    const windLabel = truncate(
+      stored ? stored.windLabel : param("windLabel"),
+      28,
+    );
+    const windSpeed = truncate(
+      stored ? stored.windSpeed : param("windSpeed"),
+      18,
+    );
+    const tagline = truncate(stored?.tagline || param("tagline"), 64);
+    const date = truncate(stored?.date || param("date"), 32);
     const bg = trustedBackgroundUrl(searchParams.get("bg"));
-    const stars = Number(searchParams.get("stars") || 4);
+    const shareUrl = searchParams.get("shareUrl");
+    // Only a Quiver address is printed. For any other host the card keeps its
+    // "Open this session on Quiver" line and shows no address.
     const footer = truncate(
-      searchParams.get("shareUrl")
-        ? `Open this session at ${formatShareUrl(searchParams.get("shareUrl") || "")}`
-        : searchParams.get("footer") || "Free surf forecasts and session tracking by Quiver",
+      shareUrl
+        ? isQuiverShareUrl(shareUrl, requestHost)
+          ? `Open this session at ${formatShareUrl(shareUrl)}`
+          : ""
+        : knownFooter(searchParams.get("footer")),
       86,
     );
 
@@ -484,28 +555,29 @@ export async function GET(request: NextRequest): Promise<Response> {
     const qrImageSrc = await createQrCodeDataUri(qrValue);
 
     const response = new ImageResponse(
-      (
-        <SessionShareCard
-          beach={beach}
-          rating={rating}
-          stars={Number.isFinite(stars) ? stars : 4}
-          size={size}
-          board={board}
-          date={date}
-          windLabel={windLabel}
-          windSpeed={windSpeed}
-          tagline={tagline}
-          footer={footer}
-          bg={bg}
-          qrImageSrc={qrImageSrc}
-        />
-      ),
+      <SessionShareCard
+        beach={beach}
+        stars={stars}
+        size={size}
+        board={board}
+        date={date}
+        windLabel={windLabel}
+        windSpeed={windSpeed}
+        tagline={tagline}
+        footer={footer}
+        bg={bg}
+        qrImageSrc={qrImageSrc}
+      />,
       { width: 1080, height: 1920 },
     );
 
     response.headers.set(
       "Cache-Control",
-      "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      !lookup
+        ? URL_ONLY_CACHE
+        : lookup.status === "error"
+          ? "no-store"
+          : SESSION_CACHE,
     );
     return useJpeg ? await jpegResponse(response) : response;
   } catch {
@@ -513,3 +585,19 @@ export async function GET(request: NextRequest): Promise<Response> {
     return useJpeg ? jpegResponse(fallback) : fallback;
   }
 }
+
+// ImageResponse is a plain Response; the wrapper only reads and sets its headers.
+/** Footer text the apps send; any other text could point a Quiver card at another site. */
+const KNOWN_FOOTERS = new Set(["Logged on Quiver"]);
+const DEFAULT_FOOTER = "Free surf forecasts and session tracking by Quiver";
+
+function knownFooter(value: string | null): string {
+  return value && KNOWN_FOOTERS.has(value.trim()) ? value.trim() : DEFAULT_FOOTER;
+}
+
+const handleGet = withRateLimit(
+  renderSessionShareCard as (request: NextRequest) => Promise<NextResponse>,
+  "public-default",
+);
+
+export const GET = withErrorNoStore(handleGet, "/api/og/session");

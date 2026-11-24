@@ -6,9 +6,11 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 import { PROFILE_PUBLIC_SESSION_RELATION_SELECT } from "@/lib/profile/constants";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 // GET /api/beaches/[id]/sessions?limit=5 - fetch recent completed sessions for beach
-export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+async function handleGet(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
     const supabase = await createSupabaseServerClient();
@@ -27,7 +29,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       `
       )
       .eq("beach_id", params.id)
-      .eq("status", "completed");
+      .eq("status", "completed")
+      .or(SURF_SESSION_SOURCE_FILTER);
 
     if (publicOnly) {
       query = query.eq("is_public", true);
@@ -51,3 +54,5 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     return handleApiError(err, "Failed to fetch sessions by beach");
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/beaches/[id]/sessions");

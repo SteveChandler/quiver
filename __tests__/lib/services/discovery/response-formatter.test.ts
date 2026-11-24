@@ -15,6 +15,7 @@ import type {
   DetailedScore,
 } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { formatReasonSentence } from '@/lib/domains/scoring/reason-sentences';
 
 // Mock Supabase client
 const mockSelect = jest.fn().mockReturnThis();
@@ -38,6 +39,8 @@ jest.mock('@/lib/supabase/query-builders', () => ({
 // Import after mocks
 import {
   getRecommendationLabel,
+  getRecommendationLabelGated,
+  isLearnerContext,
   buildDiscoveryMessage,
   generateDiscoverySummary,
   enrichWithPhotos,
@@ -168,10 +171,96 @@ describe('getRecommendationLabel', () => {
 });
 
 // ============================================================================
+// getRecommendationLabelGated learner context
+// ============================================================================
+
+type LearnerGateContext = NonNullable<Parameters<typeof getRecommendationLabelGated>[2]>;
+
+describe('getRecommendationLabelGated learner context', () => {
+  const ctx = (o: Partial<LearnerGateContext> = {}): LearnerGateContext => ({
+    skill: 'beginner',
+    boardClass: null,
+    waveHeightFt: 2.5,
+    wavePeriodS: 9,
+    smallWeakReason: null,
+    ...o,
+  });
+
+  it("lets a learner's medium-mixed day under 3 ft be Worth it", () => {
+    expect(getRecommendationLabelGated(72, 'medium-mixed', ctx())).toBe('Worth it');
+    expect(getRecommendationLabelGated(72, 'medium-mixed', ctx({ waveHeightFt: 3 }))).toBe('Maybe');
+    expect(getRecommendationLabelGated(72, 'medium-mixed', ctx({ waveHeightFt: 3.5 }))).toBe('Maybe');
+    expect(getRecommendationLabelGated(69, 'medium-mixed', ctx())).toBe('Maybe');
+  });
+
+  it('keeps medium-rough capped for a learner', () => {
+    expect(getRecommendationLabelGated(80, 'medium-rough', ctx())).toBe('Maybe');
+  });
+
+  it('lets only the weak-swell small-weak branch through, from 1 ft and 6 s', () => {
+    const weak: Partial<LearnerGateContext> = {
+      waveHeightFt: 1,
+      wavePeriodS: 6,
+      smallWeakReason: 'weak-swell',
+    };
+    expect(getRecommendationLabelGated(72, 'small-weak', ctx(weak))).toBe('Worth it');
+    expect(getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, waveHeightFt: 0.9 }))).toBe('Maybe');
+    expect(getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, wavePeriodS: 5.9 }))).toBe('Maybe');
+    expect(
+      getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, smallWeakReason: 'onshore-chop' }))
+    ).toBe('Maybe');
+    expect(
+      getRecommendationLabelGated(72, 'small-weak', ctx({ ...weak, smallWeakReason: 'marginal' }))
+    ).toBe('Maybe');
+  });
+
+  it('keeps onshore chop capped for an intermediate on a foamie', () => {
+    expect(
+      getRecommendationLabelGated(
+        75,
+        'small-weak',
+        ctx({
+          skill: 'intermediate',
+          boardClass: 'foamie',
+          waveHeightFt: 1.5,
+          wavePeriodS: 7,
+          smallWeakReason: 'onshore-chop',
+        })
+      )
+    ).toBe('Maybe');
+  });
+
+  it('treats an intermediate on a prefers-clean board as a learner, not on a fish or shortboard', () => {
+    expect(isLearnerContext('intermediate', 'longboard')).toBe(true);
+    expect(isLearnerContext('intermediate', 'fish')).toBe(false);
+    expect(isLearnerContext('intermediate', null)).toBe(false);
+    expect(
+      getRecommendationLabelGated(
+        72,
+        'medium-mixed',
+        ctx({ skill: 'intermediate', boardClass: 'shortboard' })
+      )
+    ).toBe('Maybe');
+  });
+
+  it("is today's gate without a learner context", () => {
+    expect(getRecommendationLabelGated(72, 'medium-mixed')).toBe('Maybe');
+    expect(getRecommendationLabelGated(72, 'small-clean')).toBe('Worth it');
+    expect(getRecommendationLabelGated(55, 'medium-clean')).toBe('Maybe');
+  });
+});
+
+// ============================================================================
 // buildDiscoveryMessage Tests
 // ============================================================================
 
 describe('buildDiscoveryMessage', () => {
+  const sizeSentence = formatReasonSentence({ code: 'size_good', heightFt: 3.9 });
+  const periodSentence = formatReasonSentence({ code: 'period_good' });
+  // The exact regex installed native builds use to strip the label
+  // (quiver-native src/lib/surf-decision.ts:198, personal-surf-call-display.ts:214).
+  const NATIVE_LABEL_PREFIX = /^(Worth it|Maybe|Skip)\s*-\s*/i;
+
   it('should build Skip message with first warning', () => {
     const message = buildDiscoveryMessage(
       30,
@@ -182,30 +271,29 @@ describe('buildDiscoveryMessage', () => {
     expect(message).toBe('Skip - Strong onshore wind');
   });
 
-  it('should build Skip message with default when no warnings', () => {
+  it('returns no message (no stand-in reason) for a Skip with no warnings', () => {
     const message = buildDiscoveryMessage(25, [], []);
 
-    expect(message).toBe('Skip - Conditions not favorable');
+    expect(message).toBeUndefined();
   });
 
-  it('should build Worth it message with reasons', () => {
-    const message = buildDiscoveryMessage(
-      80,
-      ['Good wave size', 'Offshore wind', 'Rising tide'],
-      []
-    );
+  it('shows two scorer sentences one after the other', () => {
+    const message = buildDiscoveryMessage(80, [sizeSentence, periodSentence, 'Rising tide'], []);
 
-    expect(message).toBe('Worth it - Good wave size, Offshore wind');
+    expect(sizeSentence).toBe('Good size at 3–4 ft.');
+    expect(message).toBe('Worth it - Good size at 3–4 ft. Solid swell period behind it.');
   });
 
   it('should include Watch warning when present', () => {
-    const message = buildDiscoveryMessage(
-      75,
-      ['Good wave size', 'Clean swell'],
-      ['Tide getting high']
-    );
+    const message = buildDiscoveryMessage(75, [sizeSentence, periodSentence], ['Onshore by noon']);
 
-    expect(message).toBe('Worth it - Good wave size, Clean swell. Watch: Tide getting high');
+    expect(message).toBe('Worth it - Good size at 3–4 ft. Solid swell period behind it. Watch: Onshore by noon');
+  });
+
+  it('ends a reason from another scorer with one full stop', () => {
+    const message = buildDiscoveryMessage(75, [sizeSentence, 'Clean swell'], ['Tide getting high']);
+
+    expect(message).toBe('Worth it - Good size at 3–4 ft. Clean swell. Watch: Tide getting high');
   });
 
   it('should build Maybe message with reasons', () => {
@@ -219,20 +307,14 @@ describe('buildDiscoveryMessage', () => {
   });
 
   it('uses a gated label override when character caps a high score', () => {
-    const message = buildDiscoveryMessage(
-      75,
-      ['Good wave size', 'Clean swell'],
-      ['Side-shore wind'],
-      'Maybe'
-    );
+    const message = buildDiscoveryMessage(75, [sizeSentence, periodSentence], ['Side-shore wind'], 'Maybe');
 
-    expect(message).toBe('Maybe - Good wave size, Clean swell. Watch: Side-shore wind');
+    expect(message).toBe('Maybe - Good size at 3–4 ft. Solid swell period behind it. Watch: Side-shore wind');
   });
 
-  it('should handle empty reasons gracefully', () => {
-    const message = buildDiscoveryMessage(70, [], []);
-
-    expect(message).toBe('Worth it - Conditions look surfable');
+  it('returns no message (no stand-in reason) when there are no reasons', () => {
+    expect(buildDiscoveryMessage(70, [], [])).toBeUndefined();
+    expect(buildDiscoveryMessage(55, [], ['Wind picking up'])).toBe('Maybe - Watch: Wind picking up');
   });
 
   it('should only use top 2 reasons', () => {
@@ -242,14 +324,44 @@ describe('buildDiscoveryMessage', () => {
       []
     );
 
-    expect(message).toBe('Worth it - Reason 1, Reason 2');
+    expect(message).toBe('Worth it - Reason 1. Reason 2.');
     expect(message).not.toContain('Reason 3');
   });
-});
 
-// ============================================================================
-// generateDiscoverySummary Tests
-// ============================================================================
+  it('sends no message when there is nothing to say, so native falls through to reasons[0] (contract)', () => {
+    const rec = {
+      personalExplanation: undefined as string | undefined,
+      message: buildDiscoveryMessage(30, ['Good tide'], []),
+      reasons: ['Good tide'],
+    };
+    // JSON omits the field, the same as an installed build receives it.
+    const sent = JSON.parse(JSON.stringify(rec)) as typeof rec;
+
+    expect('message' in sent).toBe(false);
+    // quiver-native src/lib/forecast-context.ts:452
+    expect(sent.personalExplanation ?? sent.message ?? sent.reasons[0] ?? null).toBe('Good tide');
+  });
+
+  it('keeps the label prefix that installed native builds strip (contract)', () => {
+    const messages = [
+      buildDiscoveryMessage(80, [sizeSentence, periodSentence], ['Onshore by noon']),
+      buildDiscoveryMessage(55, [sizeSentence], []),
+      buildDiscoveryMessage(55, [], ['Wind picking up']),
+      buildDiscoveryMessage(30, [sizeSentence], ['Strong onshore wind']),
+    ];
+
+    for (const message of messages) {
+      expect(message).toMatch(NATIVE_LABEL_PREFIX);
+      expect(message?.replace(NATIVE_LABEL_PREFIX, '')).not.toMatch(/^(Worth it|Maybe|Skip)\b/i);
+    }
+    expect(messages.map((message) => message?.replace(NATIVE_LABEL_PREFIX, ''))).toEqual([
+      'Good size at 3–4 ft. Solid swell period behind it. Watch: Onshore by noon',
+      'Good size at 3–4 ft.',
+      'Watch: Wind picking up',
+      'Strong onshore wind',
+    ]);
+  });
+});
 
 describe('generateDiscoverySummary', () => {
   it('should include match quality and conditions', () => {
@@ -287,24 +399,15 @@ describe('generateDiscoverySummary', () => {
     expect(summary).toContain('Fair conditions');
   });
 
-  it('should append wave size warning if present', () => {
+  it('adds no warning suffix: no warning carries the old "preferred size" words any more', () => {
     const score = createDetailedScore({
-      warnings: ['Below your preferred size (2-3 ft vs 4-6 ft)', 'Other warning'],
+      warnings: ['Heads up: bigger surf today at 4–5 ft.', 'Small surf at 1–2 ft.'],
     });
 
     const summary = generateDiscoverySummary(mockBeach, mockWindow, score);
 
-    expect(summary).toContain('Below your preferred size');
-  });
-
-  it('should append above preferred size warning if present', () => {
-    const score = createDetailedScore({
-      warnings: ['Above your preferred size (8-10 ft vs 4-6 ft)'],
-    });
-
-    const summary = generateDiscoverySummary(mockBeach, mockWindow, score);
-
-    expect(summary).toContain('Above your preferred size');
+    expect(summary).not.toMatch(/Heads up|Small surf|preferred size/);
+    expect(summary.endsWith('.')).toBe(true);
   });
 
   it('should not include non-wave-size warnings in suffix', () => {
@@ -495,5 +598,14 @@ describe('generateDiscoverySummary without wind', () => {
 
     expect(summary).not.toMatch(/with|Unknown|null/);
     expect(summary).toContain('4-5 ft.');
+  });
+});
+
+describe('generateDiscoverySummary without wave height', () => {
+  it.each(['', 'Unknown'])('leaves the height clause out for %j', (waveHeight) => {
+    const summary = generateDiscoverySummary(mockBeach, { ...mockWindow, waveHeight }, createDetailedScore({}));
+
+    expect(summary).not.toMatch(/Unknown| - \./);
+    expect(summary).toContain("Black's Beach with 5 mph offshore.");
   });
 });

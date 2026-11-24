@@ -28,6 +28,8 @@ interface UseSurfDiscoveryOptions {
   userLocation?: { lat: number; lon: number };
   /** Search radius in miles; omitted lets discovery expand from 25 to 100 as needed */
   radiusMiles?: number;
+  /** Ask the server to widen an empty drive range and name the nearest beach. */
+  widenEmptyRange?: boolean;
   /** Hard cap for window start time in hours (e.g. 24 for next-day UX) */
   horizonHours?: number;
   /** Maximum recommendations to return (default: 5, max: 10) */
@@ -118,6 +120,7 @@ export function useSurfDiscovery(
   const {
     userLocation,
     radiusMiles,
+    widenEmptyRange = false,
     horizonHours,
     maxResults,
     timeSlot,
@@ -173,6 +176,9 @@ export function useSurfDiscovery(
       params.set("lon", userLon.toString());
       if (radiusMiles) {
         params.set("radius", radiusMiles.toString());
+      }
+      if (widenEmptyRange) {
+        params.set("widenEmpty", "1");
       }
     }
 
@@ -245,6 +251,7 @@ export function useSurfDiscovery(
     userLat,
     userLon,
     radiusMiles,
+    widenEmptyRange,
     horizonHours,
     maxResults,
     timeSlot,

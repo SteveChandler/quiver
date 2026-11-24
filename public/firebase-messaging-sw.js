@@ -39,7 +39,8 @@ messaging.onBackgroundMessage((payload) => {
 
   const notificationTitle = payload.notification?.title || "Quiver";
   const notificationOptions = {
-    body: payload.notification?.body || "New notification",
+    // Follow and like pushes have no body by design; the title carries them.
+    body: payload.notification?.body ?? "",
     icon: "/icons/icon-192x192.png",
     badge: "/icons/icon-192x192.png",
     data: payload.data,

@@ -3,7 +3,7 @@
  *
  * Tests skill_level prop pass-through to SurfSpotCard:
  * - Real skill levels render correctly in both desktop and mobile layouts
- * - Null skill_level falls back to "All levels"
+ * - Null skill_level hides the skill chip (no "All levels" stand-in)
  * - Mixed skill levels across multiple cards
  */
 
@@ -148,7 +148,7 @@ describe("NearbyBeachesEnriched", () => {
       ).toBeGreaterThan(0);
     });
 
-    it("renders 'All levels' when skill_level is null", () => {
+    it("shows no skill chip when skill_level is null", () => {
       const beaches = [
         createMockEnrichedBeach({
           id: "b1",
@@ -157,7 +157,8 @@ describe("NearbyBeachesEnriched", () => {
         }),
       ];
       render(<NearbyBeachesEnriched {...defaultProps} beaches={beaches} />);
-      expect(screen.getAllByText("All levels").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Unknown Level").length).toBeGreaterThan(0);
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
     });
 
     it("renders mixed skill levels across multiple cards", () => {
@@ -185,7 +186,7 @@ describe("NearbyBeachesEnriched", () => {
       expect(
         screen.getAllByText("Beginner-Intermediate").length
       ).toBeGreaterThan(0);
-      expect(screen.getAllByText("All levels").length).toBeGreaterThan(0);
+      expect(screen.queryByText("All levels")).not.toBeInTheDocument();
     });
   });
 });

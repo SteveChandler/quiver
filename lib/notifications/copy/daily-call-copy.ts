@@ -1,3 +1,4 @@
+import { zonedFormatter } from "@/lib/utils/zoned-formatter";
 import type { WindowDriver } from "@/lib/alerts/window-refiner";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 
@@ -34,13 +35,10 @@ export function notificationBeachName(beach: { name: string; short_name?: string
   return trimmed || beach.name;
 }
 
+const clockFormatter = zonedFormatter("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
 function clockParts(iso: string, timezone: string): { hour: number; minute: string; meridiem: string } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).formatToParts(new Date(iso));
+  const parts = clockFormatter(timezone).formatToParts(new Date(iso));
   return {
     hour: Number(parts.find((part) => part.type === "hour")?.value ?? 0),
     minute: parts.find((part) => part.type === "minute")?.value ?? "00",
@@ -78,10 +76,10 @@ export function formatWindowLabel(
 /** "4–5 ft at 15s WSW", the same height range the app shows. */
 export function swellPhrase(forecast: ForecastNumbers): string {
   const height = numberOf(forecast.wave_height);
+  // Period and direction qualify the size ("at 15s WSW"); alone they read as a broken phrase.
+  if (height === null) return "";
   const period = numberOf(forecast.wave_period);
-  const size = height === null
-    ? null
-    : formatWaveHeightRange(height).replace("-", "–").replace(/ft$/, " ft");
+  const size = formatWaveHeightRange(height).replace("-", "–").replace(/ft$/, " ft");
   return [
     size,
     period === null ? null : `at ${Math.round(period)}s`,
@@ -97,10 +95,38 @@ export function windPhrase(forecast: ForecastNumbers): string {
   return [`${Math.round(speed)} mph`, forecast.wind_direction?.trim() || null, "wind"].filter(Boolean).join(" ");
 }
 
+function swingStartClock(iso: string, timezone: string): string {
+  const clock = formatClock12(iso, timezone);
+  return clock === "12 PM" ? "noon" : clock;
+}
+
+/**
+ * A window the tide opens and closes moving one way: it entered the band over
+ * one edge and leaves over the other. Only band crossings qualify (bandEdge is
+ * set only with NEXT_PUBLIC_TIDE_SWING_ENABLED), so a direction-only change never claims
+ * "too low" or "too full".
+ */
+function tideSwingSentence(drivers: readonly WindowDriver[], endClock: string, timezone: string): string | null {
+  const start = drivers.find((driver) => driver.edge === "start");
+  const end = drivers.find((driver) => driver.edge === "end");
+  if (start?.kind !== "tide" || end?.kind !== "tide") return null;
+  const falling = start.label.startsWith("falling") && end.label.startsWith("falling");
+  const rising = start.label.startsWith("rising") && end.label.startsWith("rising");
+  if (falling && start.bandEdge === "max" && end.bandEdge === "min") {
+    return `Best on the drop from ${swingStartClock(start.at, timezone)} until it gets too low around ${endClock}.`;
+  }
+  if (rising && start.bandEdge === "min" && end.bandEdge === "max") {
+    return `Best on the push from ${swingStartClock(start.at, timezone)} until it gets too full around ${endClock}.`;
+  }
+  return null;
+}
+
 /** What closes the window, read from the driver the refiner chose for its end. */
 export function limitSentence(drivers: readonly WindowDriver[], endIso: string, timezone: string): string {
   const end = drivers.find((driver) => driver.edge === "end");
   const at = formatClock12(end?.at ?? endIso, timezone);
+  const swing = tideSwingSentence(drivers, at, timezone);
+  if (swing) return swing;
   switch (end?.kind) {
     case "tide":
       return end.label.startsWith("rising")

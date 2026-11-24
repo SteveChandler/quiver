@@ -1,8 +1,9 @@
 import { cache } from "react";
-import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
+import { getNearbyForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import {
   parseMaxWaveHeightFt,
+  displayTideBand,
   pickBestNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -73,8 +74,7 @@ export async function enrichBeachesWithConditions(
 
   const beachIds = beaches.map((b) => b.id);
 
-  // Batch fetch forecasts from cache (same pattern as /api/beaches/featured)
-  const forecastMap = await getBatchFreshForecastsFromCache(beachIds, 24);
+  const forecastMap = await getNearbyForecastsFromCache(beachIds);
 
   // Batch fetch photos using cached fetcher to deduplicate within the same SSR render
   const photoMap = await getCachedBeachPhotos(beachIds);
@@ -89,6 +89,7 @@ export async function enrichBeachesWithConditions(
       const forecasts = forecastResult.forecasts;
       const best = pickBestNativeForecastSlot(forecasts, undefined, {
         beachTz: beach.timezone ?? undefined,
+        tideBand: displayTideBand(beach),
       });
       score = best && best.score > 0 ? best.score : null;
       waveHeight = best ? parseMaxWaveHeightFt(best.forecast.wave_height) || null : null;

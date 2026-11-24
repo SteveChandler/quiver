@@ -20,6 +20,13 @@ type GeoSource = "browser" | "lastUsedBeach" | "default";
 
 const DEFAULT_LAST_BEACH_KEY = "quiver:lastBeach";
 
+export function isValidCoordinates(value: { lat?: unknown; lon?: unknown } | null | undefined): value is Coordinates {
+  return (
+    typeof value?.lat === "number" && Number.isFinite(value.lat) && Math.abs(value.lat) <= 90 &&
+    typeof value?.lon === "number" && Number.isFinite(value.lon) && Math.abs(value.lon) <= 180
+  );
+}
+
 type LastBeachMeta = Coordinates & {
   id?: string;
   name?: string;
@@ -77,11 +84,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       const raw = window.localStorage.getItem(lastBeachStorageKey);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (
-        parsed &&
-        typeof parsed.lat === "number" &&
-        typeof parsed.lon === "number"
-      ) {
+      if (isValidCoordinates(parsed)) {
         return parsed as LastBeachMeta;
       }
       return null;
@@ -409,5 +412,6 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       void getUserLocation(true, "explicit");
     },
     setLastBeach,
+    lastBeach,
   };
 }

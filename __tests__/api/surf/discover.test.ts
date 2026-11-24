@@ -53,8 +53,22 @@ jest.mock("@/lib/recommendations/canonical-decision", () => ({
     mockBuildCanonicalDecisionFromSurfDiscovery(...args),
 }));
 
+const mockFindNearestBeach = jest.fn();
+jest.mock("@/lib/alerts/user-pool", () => ({
+  ...jest.requireActual("@/lib/alerts/user-pool"),
+  findNearestBeach: (...args: unknown[]) => mockFindNearestBeach(...args),
+}));
+
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+jest.mock("@/lib/flags/founding-access", () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) =>
+    mockResolveFeatureAccess(...args),
+}));
+
 import { NextRequest } from "next/server";
 import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-builder";
+import { DISCOVERY_STAGES } from "@/lib/services/discovery/discovery-stage-timer";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
 
 // Build a fake supabase client that returns a configurable user_entitlements
 // row from .from("user_entitlements").select(...).eq(...).maybeSingle().
@@ -161,10 +175,13 @@ function makeDiscoveryResponse() {
           distancePenalty: -5,
         },
         summary: "Best window around late morning",
+        // Personalization lines as the layer writes them now: wind and tide facts.
+        // "Matches your surfing patterns" is no longer produced; an engagement-only
+        // line still exercises the conservative filter.
         reasons: [
-          "Wave size matches your sweet spot",
-          "Wind matches your usual sessions",
-          "Matches your surfing patterns",
+          "Light NE wind.",
+          "Rising tide.",
+          "Lifted by your recent engagement",
         ],
         warnings: [],
         conditionBadges: [
@@ -287,6 +304,7 @@ describe("/api/surf/discover entitlement resolution", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
     delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
     mockGetProfileExperienceLevel.mockResolvedValue("advanced");
     mockBuildCanonicalDecisionFromSurfDiscovery.mockReturnValue({
@@ -511,6 +529,56 @@ describe("/api/surf/discover entitlement resolution", () => {
     );
   });
 
+  describe("skill-aware go checks", () => {
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = "user-contract";
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    it("passes beginner to the decision for an allowlisted user with no skill", async () => {
+      mockGetProfileExperienceLevel.mockResolvedValue(null);
+      mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+
+      setFlag(true);
+      const onResponse = await callDiscoverRoute(null);
+      expect(onResponse.status).toBe(200);
+      expect(mockBuildCanonicalDecisionFromSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: "beginner" }),
+      );
+      expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+        expect.anything(),
+        "beginner",
+      );
+
+      jest.clearAllMocks();
+      setFlag(false);
+      const offResponse = await callDiscoverRoute(null);
+      expect(offResponse.status).toBe(200);
+      expect(mockBuildCanonicalDecisionFromSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: null }),
+      );
+      expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+        expect.anything(),
+        null,
+      );
+    });
+  });
+
   it("does not normalize an explicit major-event hold as a legacy empty result", async () => {
     const heldDiscovery = {
       recommendations: [],
@@ -615,7 +683,8 @@ describe("/api/surf/discover entitlement resolution", () => {
 
   it.each([
     [{ max_drive_minutes: 60 }, 30],
-    [{ max_drive_minutes: null }, 100],
+    [{ max_drive_minutes: null }, 30],
+    [{ max_drive_minutes: 200 }, 100],
   ])("uses the profile drive range %p as the discovery radius", async (profileRow, expectedMiles) => {
     const supabase = makeSupabaseStub(null, { data: profileRow, error: null });
     const { GET } = await import("@/app/api/surf/discover/route");
@@ -630,6 +699,133 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({
       radiusMiles: expectedMiles,
       driveRadiusMiles: expectedMiles,
+    });
+  });
+
+  describe("widenEmpty", () => {
+    const NEAREST = { id: "near-1", name: "Nearest Point", slug: "nearest-point", lat: 41.1, lon: -71.5, distanceMiles: 212.4 };
+    const emptyScope = () => ({
+      recommendations: [],
+      searchCriteria: { maxResults: 10 },
+      metadata: {
+        outcome: "no_candidates",
+        totalBeachesConsidered: 0,
+        successfulForecasts: 0,
+        partialSuccess: false,
+        failedBeaches: 0,
+        staleBeaches: 0,
+        generated_at: new Date().toISOString(),
+      },
+      regionalCall: "",
+    });
+
+    async function call(query: string, profileRow: Record<string, unknown> | null) {
+      const supabase = makeSupabaseStub(null, { data: profileRow, error: null });
+      const { GET } = await import("@/app/api/surf/discover/route");
+      const response = await GET(makeRequest(query), {
+        user: { id: "user-widen" } as any,
+        supabase: supabase as any,
+        params: {},
+      } as any);
+      return { response, body: await response.json(), supabase };
+    }
+
+    beforeEach(() => {
+      mockFindNearestBeach.mockResolvedValue(NEAREST);
+    });
+
+    it("widens an empty drive range to 100 miles from the same origin and keeps the surfer's range for ranking", async () => {
+      mockDiscoverSurfSpots
+        .mockResolvedValueOnce(emptyScope())
+        .mockResolvedValueOnce(makeDiscoveryResponse());
+
+      const { response, body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(response.status).toBe(200);
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(2);
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: 15, driveRadiusMiles: 15 });
+      expect(mockDiscoverSurfSpots.mock.calls[1][1]).toMatchObject({
+        userLocation: { lat: 39.95, lon: -75.16 },
+        radiusMiles: 100,
+        driveRadiusMiles: 15,
+      });
+      expect(body.data.scope).toEqual({ widenedFromMiles: 15 });
+      expect(body.data.recommendations).toHaveLength(1);
+      expect(mockFindNearestBeach).not.toHaveBeenCalled();
+    });
+
+    it("names the nearest beach when an explicit No limit range is empty", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+
+      const { response, body, supabase } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 200 });
+
+      expect(response.status).toBe(200);
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+      expect(mockFindNearestBeach).toHaveBeenCalledWith({
+        supabase,
+        userId: "user-widen",
+        location: { lat: 39.95, lon: -75.16 },
+      });
+      expect(body.data.scope).toEqual({ nearestBeach: NEAREST });
+      expect(body.data.recommendations).toEqual([]);
+    });
+
+    it("names the nearest beach when the widened range is empty too", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+
+      const { body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(2);
+      expect(body.data.scope).toEqual({ nearestBeach: NEAREST });
+    });
+
+    it("still answers 200 without a scope when the nearest-beach lookup fails", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+      mockFindNearestBeach.mockRejectedValueOnce(new Error("boom"));
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const { response, body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: null });
+
+      expect(response.status).toBe(200);
+      expect(body.data).not.toHaveProperty("scope");
+      warn.mockRestore();
+    });
+
+    it.each([
+      ["without the opt-in (installed apps)", "lat=39.95&lon=-75.16"],
+      ["with an explicit radius", "lat=39.95&lon=-75.16&radius=20&widenEmpty=1"],
+      ["for my-spots", "lat=39.95&lon=-75.16&mode=my-spots&widenEmpty=1"],
+    ])("leaves an empty result alone %s", async (_label, query) => {
+      mockDiscoverSurfSpots.mockResolvedValue(emptyScope());
+
+      const { body } = await call(query, { max_drive_minutes: 30 });
+
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+      expect(mockFindNearestBeach).not.toHaveBeenCalled();
+      expect(body.data).not.toHaveProperty("scope");
+    });
+
+    it("does not widen when beaches were in range but none had a window", async () => {
+      mockDiscoverSurfSpots.mockResolvedValue({
+        ...emptyScope(),
+        metadata: { ...emptyScope().metadata, outcome: "success", totalBeachesConsidered: 4 },
+      });
+
+      const { body } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+      expect(mockFindNearestBeach).not.toHaveBeenCalled();
+      expect(body.data).not.toHaveProperty("scope");
+    });
+
+    it("returns a retryable error when the widened discovery fails", async () => {
+      mockDiscoverSurfSpots
+        .mockResolvedValueOnce(emptyScope())
+        .mockRejectedValueOnce(new Error("timeout"));
+
+      const { response } = await call("lat=39.95&lon=-75.16&widenEmpty=1", { max_drive_minutes: 30 });
+
+      expect(response.status).toBeGreaterThanOrEqual(500);
     });
   });
 
@@ -648,7 +844,7 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(mockDiscoverSurfSpots.mock.calls[0][1]).not.toHaveProperty("driveRadiusMiles");
   });
 
-  it("keeps the default radius when the profile drive range cannot be read", async () => {
+  it("uses the never-set default radius when the profile drive range cannot be read", async () => {
     const supabase = makeSupabaseStub(null, { data: null, error: { message: "boom" } });
     const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
     const { GET } = await import("@/app/api/surf/discover/route");
@@ -660,8 +856,7 @@ describe("/api/surf/discover entitlement resolution", () => {
     } as any);
 
     expect(response.status).toBe(200);
-    expect(mockDiscoverSurfSpots.mock.calls[0][1].radiusMiles).toBeUndefined();
-    expect(mockDiscoverSurfSpots.mock.calls[0][1]).not.toHaveProperty("driveRadiusMiles");
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ radiusMiles: 30, driveRadiusMiles: 30 });
     warn.mockRestore();
   });
 
@@ -799,13 +994,13 @@ describe("/api/surf/discover entitlement resolution", () => {
       photo_url: "https://cdn.quiver.test/ob.jpg",
     });
     expect(body.data.recommendations[0].personalExplanation).toEqual(
-      expect.stringContaining("Wave size matches your sweet spot")
+      expect.stringContaining("Light NE wind.")
     );
     expect(body.data.recommendations[0].personalExplanation).toEqual(
-      expect.stringContaining("Wind matches your usual sessions")
+      expect.stringContaining("Rising tide.")
     );
     expect(body.data.recommendations[0].personalExplanation).not.toEqual(
-      expect.stringContaining("Matches your surfing patterns")
+      expect.stringContaining("engagement")
     );
     expect(body.data.sessionDecision).toMatchObject({
       schemaVersion: "canonical-session-decision.v1",
@@ -923,6 +1118,78 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(responseText).not.toContain("https://cdn.quiver.test/saved.jpg");
   });
 
+  describe("founding access", () => {
+    beforeEach(() => {
+      process.env.SURF_DISCOVERY_BEST_SPOT_GATE = "1";
+      mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+    });
+
+    it("ON: a free user is treated as paid while tier stays free", async () => {
+      mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+
+      const response = await callDiscoverRoute(null);
+      const body = await response.json();
+
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", false, { billingIssue: false });
+      expect(body.data.entitlement).toEqual({
+        tier: "free",
+        hasPaidAccess: true,
+        canSeeBestSpot: true,
+        foundingAccess: true,
+      });
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ isPro: true });
+      expect(body.data.lockedBestSpotTeaser).toBeNull();
+      expect(body.data.recommendations[0].beach).toMatchObject({ id: "beach-secret-id" });
+      expect(body.data.recommendations[0].personalExplanation).toEqual(expect.any(String));
+    });
+
+    it("OFF: a free user keeps today's gates and a false foundingAccess", async () => {
+      const response = await callDiscoverRoute(null);
+      const body = await response.json();
+
+      expect(body.data.entitlement).toEqual({
+        tier: "free",
+        hasPaidAccess: false,
+        canSeeBestSpot: false,
+        foundingAccess: false,
+      });
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ isPro: false });
+      expect(body.data.recommendations).toEqual([]);
+      expect(body.data.lockedBestSpotTeaser).toMatchObject({ subtitle: expect.stringContaining("Unlock Pro") });
+    });
+
+    it("ON: a billing-issue row without Pro is not founding and keeps today's gates", async () => {
+      mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+
+      const response = await callDiscoverRoute({ is_pro: false, is_trialing: false, billing_issue: true });
+      const body = await response.json();
+
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", false, { billingIssue: true });
+      expect(body.data.entitlement).toEqual({
+        tier: "free",
+        hasPaidAccess: false,
+        canSeeBestSpot: false,
+        foundingAccess: false,
+      });
+      expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({ isPro: false });
+    });
+
+    it("ON: a Pro user keeps tier premium and is not marked founding", async () => {
+      mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+
+      const response = await callDiscoverRoute({ is_pro: true });
+      const body = await response.json();
+
+      expect(mockResolveFeatureAccess).toHaveBeenCalledWith("user-contract", true, { billingIssue: false });
+      expect(body.data.entitlement).toEqual({
+        tier: "premium",
+        hasPaidAccess: true,
+        canSeeBestSpot: true,
+        foundingAccess: false,
+      });
+    });
+  });
+
   it("sanitizes after calibration and before entitlement gating using verified profile experience", async () => {
     mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
     mockSanitizeSerializationBoundary.mockImplementationOnce(
@@ -1000,10 +1267,109 @@ describe("/api/surf/discover entitlement resolution", () => {
     });
   });
 
+  it.each([
+    ["timeout", 504],
+    ["forecast_unavailable", 503],
+    ["internal_error", 503],
+  ])("includes completed and pending dependency timings on %s (%i)", async (code, status) => {
+    mockDiscoverSurfSpots.mockImplementationOnce(async (_userId, options) => {
+      await options.stageTimer?.time("favorites", async () => undefined);
+      options.stageTimer?.start("forecasts");
+      const stageTimings = options.stageTimer?.snapshot();
+      options.stageTimer?.end("forecasts");
+      throw Object.assign(new Error("private failure details"), {
+        code,
+        stageTimings,
+      });
+    });
+
+    const response = await callDiscoverRoute(null);
+    const header = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(status);
+    expect(header).toMatch(/(?:^|, )d-favorites;dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )d-forecasts;desc="pending";dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )entitlement;dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )discover;dur=\d+(?:,|$)/);
+    expect(header).toMatch(/(?:^|, )total;dur=\d+(?:,|$)/);
+    expect(header).not.toContain("private failure details");
+    expect(response.headers.get("Retry-After")).toMatch(/^\d+$/);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: "Recommendations are temporarily unavailable",
+      code,
+      retryable: true,
+    });
+  });
+
+  it("includes dependency timings on a hold-state 503 after discovery", async () => {
+    mockDiscoverSurfSpots.mockImplementationOnce(async (_userId, options) => {
+      await options.stageTimer?.time("favorites", async () => undefined);
+      return makeDiscoveryResponse();
+    });
+    mockSanitizeSerializationBoundary.mockImplementationOnce(async (discovery) => ({
+      ...discovery,
+      recommendationAvailability: { state: "none", reasonCode: "hold_state_unavailable" },
+    }));
+
+    const response = await callDiscoverRoute(null);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Server-Timing")).toMatch(/d-favorites;dur=\d+/);
+    expect(response.headers.get("Server-Timing")).toMatch(/holds;dur=\d+/);
+  });
+
+  it("adds dependency timings on success while bounding and sanitizing the header", async () => {
+    mockDiscoverSurfSpots.mockImplementationOnce(async (_userId, options) => {
+      await options.stageTimer?.time("favorites", async () => undefined);
+      options.onStageTiming?.('user-id;desc="private"', 5);
+      for (let i = 0; i < 100; i++) options.onStageTiming?.("candidates", 12);
+      return makeDiscoveryResponse();
+    });
+
+    const response = await callDiscoverRoute(null);
+    const header = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(200);
+    expect(header).toMatch(/d-favorites;dur=\d+/);
+    expect(header).toContain("entitlement;dur=");
+    expect(header).toContain("discover-candidates;dur=12");
+    expect(header).toContain("holds;dur=");
+    expect(header).toContain("total;dur=");
+    expect(header).not.toContain("user-id");
+    expect(header).not.toContain("private");
+    expect(header.length).toBeLessThanOrEqual(1000);
+    expect(header.split(", ").length).toBeLessThanOrEqual(33);
+  });
+
+  it("caps a full failure snapshot and excludes unknown dependency names", async () => {
+    const stages = DISCOVERY_STAGES.map((stage) => ({ stage, durationMs: 12000 }));
+    mockDiscoverSurfSpots.mockRejectedValueOnce(Object.assign(new Error("timeout"), {
+      code: "timeout",
+      stageTimings: {
+        pending: [...stages, { stage: 'private-id;desc="injected"', durationMs: 1 }],
+        completed: stages,
+      },
+    }));
+
+    const response = await callDiscoverRoute(null);
+    const header = response.headers.get("Server-Timing") ?? "";
+
+    expect(response.status).toBe(504);
+    expect(header).toContain('d-favorites;desc="pending";dur=12000');
+    expect(header).toContain("total;dur=");
+    expect(header).not.toContain("private-id");
+    expect(header).not.toContain("injected");
+    expect(header.length).toBeLessThanOrEqual(1000);
+    expect(header.split(", ").length).toBeLessThanOrEqual(33);
+    expect(header.split(", ").length).toBeLessThan(stages.length * 2);
+  });
+
   it("reports per-stage Server-Timing without changing the body", async () => {
     mockDiscoverSurfSpots.mockImplementation(async (_userId, options) => {
       options.onStageTiming?.("candidates", 12);
       options.onStageTiming?.("forecasts", 34);
+      options.onStageTiming?.("finalize", 5);
       return makeDiscoveryResponse();
     });
     const response = await callDiscoverRoute(null);
@@ -1014,6 +1380,7 @@ describe("/api/surf/discover entitlement resolution", () => {
       "entitlement;dur=",
       "discover-candidates;dur=12",
       "discover-forecasts;dur=34",
+      "discover-finalize;dur=5",
       "discover;dur=",
       "holds;dur=",
       "total;dur=",

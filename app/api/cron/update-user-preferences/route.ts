@@ -9,6 +9,7 @@ import {
 } from '@/lib/middleware/api-wrappers';
 import { withObservedCron } from '@/lib/cron/observability';
 import { withCronOutcome } from '@/lib/cron/outcome';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 interface UserPreferenceUpdateResult {
   totalUsers: number;
@@ -105,12 +106,17 @@ async function _GET(request: Request): Promise<Response> {
 
     // First, get NPC/bot user IDs to exclude from production preference learning.
     // Manual cron calls can pass includeMock=true to exercise seeded data.
-    const { data: npcUsers } = includeMockUsers
-      ? { data: [] as Array<{ id: string }> }
+    const { data: npcUsers, error: npcUsersError } = includeMockUsers
+      ? { data: [] as Array<{ id: string }>, error: null }
       : await supabase
           .from('profiles')
           .select('id')
           .eq('is_mock', true);
+
+    if (npcUsersError) {
+      console.error('❌ Failed to query NPC users:', npcUsersError);
+      throw new Error(`Failed to query NPC users: ${npcUsersError.message}`);
+    }
 
     const npcUserIds = new Set(npcUsers?.map((u) => u.id) || []);
 
@@ -317,5 +323,7 @@ async function _POST(request: Request): Promise<Response> {
   return _GET(request);
 }
 
-export const GET = withObservedCron("/api/cron/update-user-preferences", _GET);
+const handleGet = withObservedCron("/api/cron/update-user-preferences", _GET);
 export const POST = withObservedCron("/api/cron/update-user-preferences", _POST);
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/update-user-preferences");

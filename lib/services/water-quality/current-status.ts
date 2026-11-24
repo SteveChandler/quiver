@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   COUNTY_FEED_SOURCE_IDENTIFIER,
@@ -10,23 +11,51 @@ import {
 import { distanceMeters } from "@/lib/services/county-beach-advisories/normalizer";
 import { resolveCountyGeneralAdvisory, type CountyGeneralAdvisory } from "@/lib/services/county-beach-advisories/general-streak";
 import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
+import type { PublicBeachCacheRejectReason } from "@/lib/data/server/public-beach-row-cache";
 import {
   memoizedBeachRowsRead,
   memoizedWaterQualityRead,
+  type WaterQualityReadResult,
 } from "@/lib/recommendations/major-event-hold/read-scope";
 import { insideCountyFeed, readBeachPoints, type BeachPoint } from "./county-coverage";
 
 const RUN_SELECT = "id, status, source_identifier, fetched_at, advisory_count, closure_count, warning_count";
 const NOTICE_SELECT = "beach_id, source_site_identifier, advisory_type, county_latitude, county_longitude";
 
-const runSchema = z.object({
-  id: z.string().uuid(), status: z.literal("completed"),
+export function readLatestCountyRun(client: WaterQualityHoldClient): Promise<WaterQualityReadResult> {
+  return memoizedWaterQualityRead(
+    client,
+    `county_beach_advisory_runs|${RUN_SELECT}|latest|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
+    () => client.from("county_beach_advisory_runs")
+      .select(RUN_SELECT)
+      .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
+      .order("fetched_at", { ascending: false }).limit(1),
+    { isValid: validLatestCountyRunCacheRows, invalidReason: latestCountyRunCacheRejectReason },
+  );
+}
+
+const latestRunSchema = z.object({
+  id: z.string().uuid(), status: z.enum(["started", "completed", "failed"]),
   source_identifier: z.literal(COUNTY_FEED_SOURCE_IDENTIFIER),
   fetched_at: z.string().datetime({ offset: true }),
   advisory_count: z.number().int().nonnegative(),
   closure_count: z.number().int().nonnegative(),
   warning_count: z.number().int().nonnegative(),
 });
+function validLatestCountyRunCacheRows(rows: unknown): boolean {
+  if (!Array.isArray(rows) || rows.length > 1) return false;
+  if (rows.length === 0) return true;
+  const parsed = latestRunSchema.safeParse(rows[0]);
+  return parsed.success && parsed.data.status === "completed";
+}
+
+function latestCountyRunCacheRejectReason(rows: unknown): PublicBeachCacheRejectReason {
+  if (Array.isArray(rows) && rows.length === 1 && typeof rows[0] === "object" && rows[0] !== null &&
+    ["started", "failed"].includes(String((rows[0] as { status?: unknown }).status))) return "not-completed";
+  return "invalid-rows";
+}
+
+const runSchema = latestRunSchema.extend({ status: z.literal("completed") });
 const noticeSchema = z.object({
   beach_id: z.string().uuid().nullable(),
   source_site_identifier: z.string().min(1),
@@ -35,9 +64,37 @@ const noticeSchema = z.object({
   county_longitude: z.number().min(-180).max(180),
 });
 
+const noticeRowsSchema = z.array(noticeSchema);
+const ownerRowSchema = z.object({ beach_id: z.string().uuid() });
+
+export function validCountyNoticeRows(rows: unknown): boolean {
+  const parsed = noticeRowsSchema.safeParse(rows);
+  if (!parsed.success) return false;
+  return new Set(parsed.data.map((row) => `${row.advisory_type}:${row.source_site_identifier}`)).size === parsed.data.length;
+}
+
+export function validOwnerHoldRows(rows: unknown): boolean {
+  return z.array(ownerRowSchema).safeParse(rows).success;
+}
+
 interface SampleQualityRow {
   beach_id: string;
   status: string;
+  /** Required so a caller cannot drop it from its select and have every row read as stale. */
+  latest_sample_date: string | null;
+}
+
+const SAMPLED_STATUSES: ReadonlySet<string> = new Set(["good", "advisory", "closure"]);
+
+/**
+ * CEDEN posts results about 20 days after the sample, so a stored status can
+ * be weeks old. A sampled status that fails the current-sample rule reads as
+ * unknown: not a closure, and never "good".
+ */
+function withCurrentSampleStatus<T extends SampleQualityRow>(row: T, now: Date): T {
+  if (!SAMPLED_STATUSES.has(row.status)) return row;
+  if (isCurrentWaterQualitySample(row.latest_sample_date, now.getTime())) return row;
+  return { ...row, status: "unknown" };
 }
 export interface CountyStatusMetadata {
   county_advisory_status?: "clear" | "advisory" | "closure" | "unavailable";
@@ -49,7 +106,7 @@ export interface CountyStatusMetadata {
   county_rain_advisory?: { started_at: string; last_rain_at: string | null; expires_at: string };
 }
 
-export interface CountyProjectionInput {
+interface CountyProjectionInput {
   run: unknown;
   notices: unknown;
   owners: unknown;
@@ -101,8 +158,8 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
   const { points, now = new Date() } = input;
   const covered = coveredIds(rows, points, input.onlyBeachIds);
   const parsedRun = runSchema.safeParse(input.run);
-  const parsedNotices = z.array(noticeSchema).safeParse(input.notices);
-  const parsedOwners = z.array(z.object({ beach_id: z.string().uuid() })).safeParse(input.owners);
+  const parsedNotices = noticeRowsSchema.safeParse(input.notices);
+  const parsedOwners = z.array(ownerRowSchema).safeParse(input.owners);
   if (!parsedRun.success || !parsedNotices.success || !parsedOwners.success) return unavailable(rows, covered);
   const fetchedAt = Date.parse(parsedRun.data.fetched_at);
   const age = now.getTime() - fetchedAt;
@@ -156,18 +213,20 @@ export function projectCurrentWaterQuality<T extends SampleQualityRow>(
   });
 }
 
-export interface CurrentWaterQualityOptions {
+interface CurrentWaterQualityOptions {
   /** Limit County coverage to these beaches (the recommendation hold path). */
   onlyBeachIds?: readonly string[];
 }
 
 /** Apply the same read-time policy to every consumer; old rows need no rewrite. */
 export async function currentWaterQuality<T extends SampleQualityRow>(
-  rows: readonly T[],
+  storedRows: readonly T[],
   providedClient?: WaterQualityHoldClient,
   now: Date = new Date(),
   options: CurrentWaterQualityOptions = {},
 ): Promise<Array<T & CountyStatusMetadata>> {
+  // First, so every exit below (no coverage, County unavailable, errors) returns the same sample rule.
+  const rows = storedRows.map((row) => withCurrentSampleStatus(row, now));
   const allowed = options.onlyBeachIds ? new Set(options.onlyBeachIds.map((beachId) => beachId.toLowerCase())) : null;
   const candidateIds = [...new Set(rows.map((row) => row.beach_id.toLowerCase()))]
     .filter((beachId) => !allowed || allowed.has(beachId));
@@ -182,14 +241,7 @@ export async function currentWaterQuality<T extends SampleQualityRow>(
     if (points === null) return [...rows];
     covered = coveredIds(rows, points, options.onlyBeachIds);
     if (covered.size === 0) return [...rows];
-    const { data: runs, error } = await memoizedWaterQualityRead(
-      client,
-      `county_beach_advisory_runs|${RUN_SELECT}|latest|${COUNTY_FEED_SOURCE_IDENTIFIER}`,
-      () => client.from("county_beach_advisory_runs")
-        .select(RUN_SELECT)
-        .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
-        .order("fetched_at", { ascending: false }).limit(1),
-    );
+    const { data: runs, error } = await readLatestCountyRun(client);
     if (error || !Array.isArray(runs) || !runs[0]) return unavailable(rows, covered);
     // Do not fall back to an earlier success after a failed/in-progress run.
     const run = runSchema.safeParse(runs[0]);
@@ -202,6 +254,7 @@ export async function currentWaterQuality<T extends SampleQualityRow>(
         () => client.from("county_beach_advisories")
           .select(NOTICE_SELECT)
           .eq("run_id", run.data.id),
+        { isValid: validCountyNoticeRows },
       ),
       memoizedBeachRowsRead(
         client,
@@ -209,6 +262,7 @@ export async function currentWaterQuality<T extends SampleQualityRow>(
         coveredBeachIds,
         () => client.from("water_quality_held_beaches").select("beach_id")
           .in("beach_id", coveredBeachIds),
+        { load: () => client.from("water_quality_held_beaches").select("beach_id").limit(1_000), isValid: validOwnerHoldRows },
       ),
       resolveCountyGeneralAdvisory(client, run.data, now),
     ]);

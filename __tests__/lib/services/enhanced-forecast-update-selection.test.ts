@@ -279,12 +279,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     const { EnhancedForecastService: Service } = await import(
       "@/lib/services/enhanced-forecast-service"
     );
-    const service = new Service() as any;
+    const service = new Service();
 
     process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS = "2";
     process.env.FORECAST_CDIP_MAX_BEACHES_PER_RUN = "10";
 
     const anchorByBeach: Record<string, unknown> = {};
+    const store = jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
     jest
       .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
       .mockImplementation(async (beach: any, anchor: any) => {
@@ -294,10 +295,9 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
           cdip: { stationId: null, skipReason: "no_station" },
         };
       });
-    jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
-    jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
+    jest.spyOn(service as any, "prefetchTideStations").mockResolvedValue(undefined);
 
-    const run = service.updateCdipEnhancedForecasts();
+    const run = service.updateCdipEnhancedForecasts({ deadlineMs: Date.now() + 30_000 });
     await jest.runAllTimersAsync();
     await run;
 
@@ -308,6 +308,7 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
       waveHeightM: 0.6,
     });
     expect(anchorByBeach["b-no-anchor"]).toBeNull();
+    expect(store.mock.calls.map(([, , tracker]) => tracker?.msRemaining())).toEqual([30_000, 30_000]);
   });
 
   it("updateCdipEnhancedForecasts() fetches and passes South OC/SanO validation snapshot per beach", async () => {
@@ -468,5 +469,85 @@ describe("EnhancedForecastService latest-view reads are bounded", () => {
       expect(ids.length).toBeLessThanOrEqual(50);
     }
     expect(new Set(seenIdBatches.flat())).toEqual(shardIds);
+  });
+  describe("degraded-input reporting", () => {
+    async function runWith(args: {
+      mode: "all" | "cdip";
+      rpcResult: { data: unknown; error: { code?: string; message: string } | null };
+    }) {
+      const allBeaches = [{ ...makeBeach("b1", "Beach 1"), cdip_eligible: true }];
+      const latestRows = [{ beach_id: "b1", updated_at: "2025-12-09T08:00:00Z", data_source: "CDIP" }];
+      const captureException = jest.fn();
+      jest.doMock("@sentry/nextjs", () => ({ captureException }));
+      const mockSupabase = {
+        from: (table: string) => {
+          if (table === "beaches") {
+            const all = Promise.resolve({ data: allBeaches, error: null });
+            return {
+              select: () => Object.assign(all, { eq: () => Promise.resolve({ data: allBeaches, error: null }) }),
+            };
+          }
+          if (table === "v_enhanced_forecast_latest") {
+            return {
+              select: () => ({ in: () => Promise.resolve({ data: latestRows, error: null }) }),
+            };
+          }
+          throw new Error(`Unexpected table: ${table}`);
+        },
+        rpc: () => Promise.resolve(args.rpcResult),
+      };
+      jest.doMock("@/lib/supabase/server", () => ({
+        createSupabaseServiceRoleClient: async () => mockSupabase,
+      }));
+
+      const { EnhancedForecastService: Service } = await import(
+        "@/lib/services/enhanced-forecast-service"
+      );
+      const service = new Service() as any;
+      process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS = "2";
+      process.env.FORECAST_FRESHNESS_WINDOW_HOURS = "12";
+      jest
+        .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
+        .mockResolvedValue({ forecasts: [], cdip: { stationId: null, skipReason: "no_station" } });
+      jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
+      jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+      const run = args.mode === "all"
+        ? service.updateAllEnhancedForecasts()
+        : service.updateCdipEnhancedForecasts();
+      await jest.runAllTimersAsync();
+      const result = await run;
+      warn.mockRestore();
+      return { result, captureException };
+    }
+
+    it.each(["all", "cdip"] as const)(
+      "%s run reports a failed nowcast anchor read once and still builds forecast-only",
+      async (mode) => {
+        const { result, captureException } = await runWith({
+          mode,
+          rpcResult: { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } },
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.summary.successful).toBe(1);
+        expect(captureException).toHaveBeenCalledTimes(1);
+        expect(captureException).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ tags: expect.objectContaining({ nowcast_anchor_scope: "run" }) }),
+        );
+      },
+    );
+
+    it.each(["all", "cdip"] as const)(
+      "%s run does not report an anchor read that returns zero rows",
+      async (mode) => {
+        const { result, captureException } = await runWith({ mode, rpcResult: { data: [], error: null } });
+
+        expect(result.summary.successful).toBe(1);
+        expect(captureException).not.toHaveBeenCalled();
+      },
+    );
   });
 });

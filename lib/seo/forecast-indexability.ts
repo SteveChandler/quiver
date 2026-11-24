@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/nextjs";
+
 import { chunk } from "@/lib/utils/chunk";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
@@ -41,15 +43,52 @@ interface SubPageDataAvailability {
 const FORECAST_COVERAGE_SELECT =
   "beach_id, forecast_at, wave_height, updated_at, data_source";
 const BEACH_ID_BATCH_SIZE = 20;
+// The sitemap asks for every beach at once. Unbounded, that was ~29 reads in
+// the same instant against a 60-connection database. Same shape and limit as
+// the sub-page coverage loader in app/sitemap.ts.
+const COVERAGE_READ_CONCURRENCY = 4;
+
+/**
+ * The coverage read failed and this instance has no earlier answer for the
+ * beach, so its forecast state is not known. Distinct from "no snapshot",
+ * which means the beach has no forecast.
+ */
+export const FORECAST_COVERAGE_UNKNOWN = "forecast-coverage-unknown" as const;
+
+type ForecastCoverage =
+  | ForecastIndexabilitySnapshot
+  | undefined
+  | typeof FORECAST_COVERAGE_UNKNOWN;
+
+/** Snapshot by beach id; a beach is unknown only when its read failed. */
+export type ForecastCoverageLookup = ReadonlyMap<
+  string,
+  ForecastIndexabilitySnapshot | typeof FORECAST_COVERAGE_UNKNOWN
+>;
+
+export function forecastCoverageFor(
+  lookup: ForecastCoverageLookup,
+  beachId: string,
+): ForecastCoverage {
+  return lookup.get(beachId);
+}
 
 /**
  * One decision for the beach detail page, shared by the sitemap and the page's
  * generateMetadata so a submitted URL cannot answer with noindex.
+ *
+ * Unknown coverage skips only the forecast gate: an ISR page or sitemap must not
+ * store noindex for an hour because one coverage read failed.
  */
 export function evaluateBeachPageIndexability(
-  snapshot: ForecastIndexabilitySnapshot | undefined,
+  snapshot: ForecastCoverage,
   canonicalValid: boolean,
 ): IndexabilityDecision {
+  if (snapshot === FORECAST_COVERAGE_UNKNOWN) {
+    return canonicalValid
+      ? { indexable: true, reason: "forecast-coverage-unknown" }
+      : { indexable: false, reason: "invalid-canonical" };
+  }
   if (!snapshot) return { indexable: false, reason: "forecast-missing" };
 
   return evaluateBeachForecastIndexability({
@@ -65,12 +104,13 @@ export function evaluateBeachPageIndexability(
  * and generateMetadata so a submitted URL cannot answer with noindex.
  */
 export function isBeachSubPageIndexable(
-  snapshot: ForecastIndexabilitySnapshot | undefined,
+  snapshot: ForecastCoverage,
   canonicalPath: string,
   availability: SubPageDataAvailability,
 ): boolean {
-  if (!snapshot) return false;
   if (!availability.hasSubPageData) return false;
+  if (snapshot === FORECAST_COVERAGE_UNKNOWN) return !canonicalPath.startsWith("/beach/");
+  if (!snapshot) return false;
 
   return evaluateBeachForecastIndexability({
     canonicalValid: !canonicalPath.startsWith("/beach/"),
@@ -161,6 +201,53 @@ export function buildForecastIndexabilitySnapshot(
 
 
 /**
+ * The coverage read failed. Thrown, not returned as an empty Map, so a cache
+ * layer does not store "no forecast" for every beach.
+ */
+export class ForecastIndexabilityUnavailableError extends Error {
+  constructor(stage: string, detail: string) {
+    super(`[getForecastIndexabilityForBeaches] ${stage}: ${detail}`);
+    this.name = "ForecastIndexabilityUnavailableError";
+  }
+}
+
+const UNAVAILABLE_REPORT_WINDOW_MS = 5 * 60 * 1000;
+let lastUnavailableReportAtMs: number | null = null;
+
+let suppressedUnavailableReports = 0;
+
+/**
+ * Report a coverage read failure at most once per five minutes; every page
+ * render hits it during one outage. The window is module state, so it is per
+ * server instance: N warm instances can each report once per window. The log
+ * line uses the same window and carries the count it suppressed.
+ */
+export function reportForecastCoverageUnavailable(
+  error: ForecastIndexabilityUnavailableError,
+): void {
+  const nowMs = Date.now();
+  if (
+    lastUnavailableReportAtMs !== null &&
+    nowMs - lastUnavailableReportAtMs < UNAVAILABLE_REPORT_WINDOW_MS
+  ) {
+    suppressedUnavailableReports += 1;
+    return;
+  }
+  console.error(error.message, {
+    suppressedSinceLastReport: suppressedUnavailableReports,
+  });
+  lastUnavailableReportAtMs = nowMs;
+  suppressedUnavailableReports = 0;
+  Sentry.captureException(error, {
+    level: "warning",
+    tags: { area: "seo-indexability" },
+  });
+}
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+/**
  * Fetch the small forecast-coverage envelope needed by the sitemap. Keeping
  * this separate from the page report avoids one full forecast query per URL.
  */
@@ -189,48 +276,41 @@ export async function getForecastIndexabilityForBeaches(
   try {
     supabase = await createSupabaseServiceRoleClient();
   } catch (error) {
-    console.error("[getForecastIndexabilityForBeaches] Client creation failed", {
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return new Map();
+    throw new ForecastIndexabilityUnavailableError("client creation failed", errorMessage(error));
   }
 
-  let responses: Array<{
-    data: ForecastCoverageRow[];
-    error: { message: string } | null;
-  }>;
+  const readBatch = async (batch: string[]) => {
+    const result = await supabase
+      .from("enhanced_forecasts")
+      .select(FORECAST_COVERAGE_SELECT)
+      .in("beach_id", batch)
+      .gte("forecast_at", start)
+      .lt("forecast_at", end)
+      .order("forecast_at", { ascending: true })
+      .limit(1000);
+
+    return {
+      data: (result.data ?? []) as ForecastCoverageRow[],
+      error: result.error as { message: string } | null,
+    };
+  };
+
+  const batches = chunk(ids, BEACH_ID_BATCH_SIZE);
+  const responses: Awaited<ReturnType<typeof readBatch>>[] = [];
   try {
-    responses = await Promise.all(
-      chunk(ids, BEACH_ID_BATCH_SIZE).map(async (batch) => {
-        const result = await supabase
-          .from("enhanced_forecasts")
-          .select(FORECAST_COVERAGE_SELECT)
-          .in("beach_id", batch)
-          .gte("forecast_at", start)
-          .lt("forecast_at", end)
-          .order("forecast_at", { ascending: true })
-          .limit(1000);
-
-        return {
-          data: (result.data ?? []) as ForecastCoverageRow[],
-          error: result.error,
-        };
-      }),
-    );
+    for (let index = 0; index < batches.length; index += COVERAGE_READ_CONCURRENCY) {
+      const group = batches.slice(index, index + COVERAGE_READ_CONCURRENCY);
+      responses.push(...(await Promise.all(group.map(readBatch))));
+      // One failed batch fails the whole read, so do not start more.
+      if (responses.some(({ error }) => error)) break;
+    }
   } catch (error) {
-    console.error("[getForecastIndexabilityForBeaches] Coverage query failed", {
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return new Map();
+    throw new ForecastIndexabilityUnavailableError("coverage query failed", errorMessage(error));
   }
 
-  if (responses.some(({ error }) => error)) {
-    console.error("[getForecastIndexabilityForBeaches] Coverage query failed", {
-      errors: responses
-        .map(({ error }) => error?.message)
-        .filter(Boolean),
-    });
-    return new Map();
+  const failed = responses.flatMap(({ error }) => (error ? [error.message] : []));
+  if (failed.length > 0) {
+    throw new ForecastIndexabilityUnavailableError("coverage query failed", failed.join("; "));
   }
 
   const rowsByBeach = new Map<string, ForecastCoverageRow[]>();

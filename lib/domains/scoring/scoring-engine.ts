@@ -19,8 +19,12 @@ import type {
   ScoringDecisionEffect,
 } from "./types";
 import { DEFAULT_SCORING_CONFIG } from "./types";
+import { dedupeReasons, formatHeightBand, formatSmallSurf, oneSizeStory, takeReasons, type ReasonCode } from "./reason-sentences";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
+import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
+import { TIDE_EFFECT_CODES } from "./tide-swing";
+import { CLOSEOUT_SIZE_VERDICT_CEILING, closeoutSizeEffect } from "./closeout-size";
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.
@@ -106,16 +110,24 @@ export class ScoringEngine {
     const subscores = new Map<string, number>();
     const allReasons: string[] = [];
     const allWarnings: string[] = [];
+    const allWarningCodes: ReasonCode[] = [];
     const allEffects: ScoringDecisionEffect[] = [];
+    const allReasonCodes: ReasonCode[] = [];
 
     for (const result of weightedResults) {
       const normalizedWeight = result.weight / totalWeight;
       weightedSum += result.score * normalizedWeight;
       subscores.set(result.name, result.score);
       allReasons.push(...result.reasons);
+      // The base scorer formats `reasons` from `reasonFacts` in order, so the codes line up.
+      allReasonCodes.push(...result.reasons.map((_, index) => result.reasonFacts?.[index]?.code ?? null));
       allWarnings.push(...result.warnings);
+      allWarningCodes.push(...result.warnings.map(() => null));
       allEffects.push(...(result.effects ?? []));
     }
+
+    const closeout = closeoutSizeEffect(input.profile.id, input.snapshot.waveHeight);
+    if (closeout) allEffects.push(closeout);
 
     const rawTotal = Math.round(weightedSum);
 
@@ -135,16 +147,17 @@ export class ScoringEngine {
     );
 
     if (ceiling < rawTotal) {
-      const heightStr = Number.isFinite(input.snapshot.waveHeight)
-        ? input.snapshot.waveHeight.toFixed(1)
-        : "unknown";
-      const capMessage = `Small wave (${heightStr}ft) caps score at ${ceiling}`;
+      const capMessage = formatSmallSurf(input.snapshot.waveHeight);
       allReasons.push(capMessage);
+      allReasonCodes.push("cap_small_surf");
       allWarnings.push(capMessage);
+      allWarningCodes.push("cap_small_surf");
     }
     if (chopCeiling && chopCeiling.ceiling < rawTotal) {
       allReasons.push(chopCeiling.reason);
+      allReasonCodes.push(chopCeiling.code);
       allWarnings.push(chopCeiling.reason);
+      allWarningCodes.push(chopCeiling.code);
     }
     if (effectCeiling < rawTotal) {
       for (const effect of allEffects) {
@@ -154,11 +167,37 @@ export class ScoringEngine {
           !allWarnings.includes(effect.message)
         ) {
           allWarnings.push(effect.message);
+          allWarningCodes.push(null);
+        }
+      }
+      // A binding tide effect is the headline (Week Scout takeaway); other effects keep today's order.
+      const otherCeiling = Math.min(ceiling, chopCeiling?.ceiling ?? 100);
+      if (isTideSwingEnabled() && effectCeiling <= otherCeiling) {
+        const binding = allEffects.find(
+          (effect) => TIDE_EFFECT_CODES.has(effect.code) && effect.verdictCeiling === effectCeiling,
+        );
+        if (binding) {
+          allReasons.unshift(binding.message);
+          allReasonCodes.unshift('caution_tide');
         }
       }
     }
 
+    // Past its size cap, the closeout line leads (Week Scout takeaway), not "Bigger surf at…".
+    if (closeout && CLOSEOUT_SIZE_VERDICT_CEILING < rawTotal && input.snapshot.waveHeight != null) {
+      allReasons.unshift(`Likely closing out at ${formatHeightBand(input.snapshot.waveHeight)}.`);
+      allReasonCodes.unshift('caution_size_over');
+    }
+
     const matchQuality = this.classifyScore(total);
+    const shownWarnings = takeReasons(
+      dedupeReasons({ reasons: allWarnings, reasonCodes: allWarningCodes }),
+      DEFAULT_SCORING_CONFIG.maxReasons,
+    );
+    const shownReasons = takeReasons(
+      oneSizeStory(dedupeReasons({ reasons: allReasons, reasonCodes: allReasonCodes }), allWarningCodes),
+      DEFAULT_SCORING_CONFIG.maxReasons,
+    );
 
     // Get confidence from input snapshot
     const confidence = input.snapshot.confidence;
@@ -167,8 +206,10 @@ export class ScoringEngine {
       total,
       subscores,
       matchQuality,
-      reasons: this.dedupeAndLimit(allReasons, DEFAULT_SCORING_CONFIG.maxReasons),
-      warnings: this.dedupeAndLimit(allWarnings, DEFAULT_SCORING_CONFIG.maxReasons),
+      reasons: shownReasons.reasons,
+      reasonCodes: shownReasons.reasonCodes,
+      warnings: shownWarnings.reasons,
+      warningCodes: shownWarnings.reasonCodes,
       skipReason: null,
       confidence,
       effects: dedupeEffects(allEffects),

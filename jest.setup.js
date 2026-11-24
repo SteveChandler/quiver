@@ -56,6 +56,11 @@ jest.mock("next/navigation", () => {
     useSelectedLayoutSegments: jest.fn(() => []),
     // Server navigation helpers used by App Router pages.
     // We throw with the same `digest` markers Next uses so tests can assert behavior.
+    // Next marks every control-flow error (redirect, notFound, dynamic usage,
+    // postpone, bailout) with a string digest and re-throws it; do the same.
+    unstable_rethrow: jest.fn((err) => {
+      if (err && typeof err.digest === "string") throw err;
+    }),
     redirect: jest.fn((url) => {
       const err = new Error(`NEXT_REDIRECT: ${url}`);
       err.digest = "NEXT_REDIRECT";

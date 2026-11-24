@@ -26,9 +26,9 @@ interface ReadClient { from(table: string): ReadQuery }
 
 interface Beach { id: string; slug: string | null; name: string | null; lat: number; lon: number }
 interface Profile { id: string; home_beach_id: string | null; notif_water_quality: boolean; is_mock: boolean }
-interface QualityRow { beach_id: string; status: string }
+interface QualityRow { beach_id: string; status: string; latest_sample_date: string | null }
 interface Count { candidates: number; enqueued: number; duplicates: number; skipped: number }
-export type RainAdvisoryPushResult =
+type RainAdvisoryPushResult =
   | { status: "disabled" }
   | { status: "table_missing" }
   | { status: "ok"; started: Count; ended: Count; errors: string[] };
@@ -125,7 +125,7 @@ async function safeEndBeachIds(
   const qualityRows: QualityRow[] = [];
   const held = new Set<string>();
   for (const group of chunks(ids)) {
-    qualityRows.push(...(await rows(client.from("beach_water_quality").select("beach_id, status, total_samples_30d")
+    qualityRows.push(...(await rows(client.from("beach_water_quality").select("beach_id, status, total_samples_30d, latest_sample_date")
       .in("beach_id", group))) as QualityRow[]);
     for (const raw of await rows(client.from("water_quality_held_beaches").select("beach_id").in("beach_id", group))) {
       if (raw && typeof raw === "object" && "beach_id" in raw && typeof raw.beach_id === "string") held.add(raw.beach_id);
@@ -143,7 +143,12 @@ async function safeEndBeachIds(
   }
   const safe = new Set<string>();
   for (const row of projected) {
-    if (held.has(row.beach_id) || row.status === "advisory" || row.status === "closure"
+    // A stale sample reads unknown, but this push says the advisory ended, so a stored
+    // advisory or closure still holds it back where the County status does not apply.
+    const stored = byId.get(row.beach_id)?.status;
+    const storedNotice = (stored === "advisory" || stored === "closure")
+      && !row.county_advisory_status && !row.county_general_expired;
+    if (held.has(row.beach_id) || storedNotice || row.status === "advisory" || row.status === "closure"
       || row.county_advisory_status === "advisory" || row.county_advisory_status === "closure"
       || row.county_advisory_status === "unavailable") continue;
     safe.add(row.beach_id);

@@ -13,7 +13,10 @@ import {
   getBeachHrefSafe,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
-import type { BeachWithMetrics } from "@/types/location";
+import type { BeachWithMetrics, LocationIdentifier } from "@/types/location";
+import { buildCitySlug } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 
 export const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -57,6 +60,32 @@ export function resolveMetroConfig(
   citySlug: string
 ): MetroAreaConfig | null {
   return isMetroArea(citySlug) ? getMetroConfig(citySlug) : null;
+}
+
+/**
+ * Slug of the city's /[intent]/[city] pages (tide, water-temp, best-time), or
+ * null when the hub has none.
+ *
+ * Intent pages put a state suffix on city names that exist in several states
+ * (/tide/long-beach-ca), so the bare hub slug 404s there. Every other hub keeps
+ * its route slug: island-suffixed Hawaii slugs differ from slugifyAscii(city).
+ * A metro has intent pages only when it is also one of its own cities
+ * (San Diego yes, Orange County no).
+ */
+export function resolveIntentCitySlug(
+  params: LocationPageParams,
+  location: LocationIdentifier,
+  metroConfig: MetroAreaConfig | null
+): string | null {
+  if (metroConfig) {
+    const metroIsOwnCity = metroConfig.cities.some(
+      (city) => slugifyAscii(city) === metroConfig.slug
+    );
+    return metroIsOwnCity ? params.city : null;
+  }
+  if (params.country.toLowerCase() !== "usa") return params.city;
+  if (!COLLISION_CITY_MAP.has(slugifyAscii(location.city))) return params.city;
+  return buildCitySlug(location.city, location.state, COLLISION_CITY_MAP);
 }
 
 /**

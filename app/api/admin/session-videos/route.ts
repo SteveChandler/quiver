@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAdminAuth, type AdminAuthenticatedContext } from "@/lib/middleware/api-wrappers";
 import type { Database } from "@/types/database.generated";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const headers = { "Cache-Control": "private, no-store" };
-export const GET = withAdminAuth(async (_request: NextRequest, { supabase }: AdminAuthenticatedContext) => {
+const handleGet = withAdminAuth(async (_request: NextRequest, { supabase }: AdminAuthenticatedContext) => {
   const { data, error } = await supabase
     .from("session_media")
     .select("id, session_id, user_id, storage_path, file_size, metadata, created_at, moderation_status, sessions!inner(is_public, beach_name)")
@@ -33,3 +34,5 @@ export const POST = withAdminAuth(async (request: NextRequest, { supabase }: Adm
   if (error) throw error;
   return NextResponse.json({ ok: true }, { headers });
 });
+
+export const GET = withErrorNoStore(handleGet, "/api/admin/session-videos");

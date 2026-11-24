@@ -277,25 +277,86 @@ export function HomeZineRechecking(beach: PendingBeach) {
  * discovery errored, or picks are held. Honest copy plus the one action that
  * actually changes the outcome.
  */
+const SECONDARY_ACTION_STYLE: React.CSSProperties = {
+  cursor: "pointer",
+  fontFamily: "var(--font-mono), monospace",
+  fontSize: 12,
+  letterSpacing: "0.14em",
+  textTransform: "uppercase",
+  fontWeight: 700,
+  color: STAMP_BLUE,
+  background: "transparent",
+  border: `1.5px dashed ${STAMP_BLUE}`,
+  padding: "9px 16px",
+};
+
+/**
+ * Says where Home is scouting from whenever that is not a fresh GPS fix or
+ * the home beach, with the corrections one tap away.
+ */
+export function HomeLocationNotice({
+  message,
+  onUseMyLocation,
+  onSetHomeBeach,
+}: {
+  message: string;
+  onUseMyLocation?: () => void;
+  onSetHomeBeach?: () => void;
+}) {
+  return (
+    <section
+      aria-label="Discovery location"
+      data-testid="home-location-notice"
+      className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 pb-4"
+      style={{ borderBottom: "1.5px dashed rgba(17,16,13,0.4)" }}
+    >
+      <p className="typewriter" style={{ color: INK, margin: 0 }}>
+        {message}
+      </p>
+      {onUseMyLocation && (
+        <button type="button" onClick={onUseMyLocation} style={SECONDARY_ACTION_STYLE} className="focus-ring">
+          Use my location
+        </button>
+      )}
+      {onSetHomeBeach && (
+        <button type="button" onClick={onSetHomeBeach} style={SECONDARY_ACTION_STYLE} className="focus-ring">
+          Set your home beach
+        </button>
+      )}
+    </section>
+  );
+}
+
 export function HomeZineEmpty({
   beachName,
   reason,
+  heading = "No call today",
+  notice,
+  scoutFrom,
+  onUseMyLocation,
   onSetHomeBeach,
   onRetry,
 }: {
   beachName: string;
   reason: string;
+  heading?: string;
+  /** Rendered above the page, e.g. a HomeLocationNotice. */
+  notice?: React.ReactNode;
+  /** Offer to scout from a named beach instead of the surfer's location. */
+  scoutFrom?: { beachName: string; onSelect: () => void };
+  onUseMyLocation?: () => void;
   onSetHomeBeach?: () => void;
   onRetry?: () => void;
 }) {
   return (
     <HomeZineShell>
+      {notice}
       <div className="typewriter" style={{ opacity: 0.65 }}>
         {beachName}
       </div>
 
       <div className="mt-3">
-        <StencilHeading>No call today</StencilHeading>
+        <StencilHeading>{heading}</StencilHeading>
       </div>
 
       <p
@@ -318,6 +379,26 @@ export function HomeZineEmpty({
       />
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
+        {scoutFrom && (
+          <button
+            type="button"
+            onClick={scoutFrom.onSelect}
+            className="label-black rot-1 focus-ring"
+            style={{ cursor: "pointer", border: "none" }}
+          >
+            Scout from {scoutFrom.beachName}
+          </button>
+        )}
+        {onUseMyLocation && (
+          <button
+            type="button"
+            onClick={onUseMyLocation}
+            className="label-black rot-1 focus-ring"
+            style={{ cursor: "pointer", border: "none" }}
+          >
+            Use my location
+          </button>
+        )}
         {onSetHomeBeach && (
           <button
             type="button"
@@ -332,18 +413,8 @@ export function HomeZineEmpty({
           <button
             type="button"
             onClick={onRetry}
-            style={{
-              cursor: "pointer",
-              fontFamily: "var(--font-mono), monospace",
-              fontSize: 12,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              fontWeight: 700,
-              color: STAMP_BLUE,
-              background: "transparent",
-              border: `1.5px dashed ${STAMP_BLUE}`,
-              padding: "9px 16px",
-            }} className="focus-ring"
+            style={SECONDARY_ACTION_STYLE}
+            className="focus-ring"
           >
             Try again
           </button>

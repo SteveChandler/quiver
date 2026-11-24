@@ -60,6 +60,42 @@ describe("resolveMatchScoreState", () => {
     });
   });
 
+  it("leaves out the starter Current window line when native sends null height and period", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, waveHeight: "null", wavePeriod: "null", tideHeight: "null" },
+      rpcResult: { state: "onboarding", session_count: 0, sessions_needed: 5 },
+    });
+
+    expect(result.reason_bullets.join(" ")).not.toMatch(/null|NaN|undefined|Current window/);
+    expect(result.reason_facts).toEqual(expect.arrayContaining([
+      { kind: "wave_height", value: null },
+      { kind: "wave_period", value: null },
+      { kind: "tide_height", value: null },
+    ]));
+  });
+
+  it("keeps a 0 ft height and a negative tide as real values in the starter line", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, waveHeight: "0", wavePeriod: "9", tideHeight: "-0.4" },
+      rpcResult: { state: "onboarding", session_count: 0, sessions_needed: 5 },
+    });
+
+    expect(result.reason_bullets.join(" ")).toMatch(/Current window: 0 ft, 9s period/);
+    expect(result.reason_facts).toEqual(expect.arrayContaining([{ kind: "tide_height", value: "-0.4" }]));
+  });
+
+  it("leaves out the Current window line for a 0 s period", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, wavePeriod: "0" },
+      rpcResult: { state: "onboarding", session_count: 0, sessions_needed: 5 },
+    });
+
+    expect(result.reason_bullets.join(" ")).not.toMatch(/0s period/);
+  });
+
   it("passes through starter prior score and backend copy", () => {
     const body =
       "A starter read from your skill and this spot's setup. It gets more personal as you rate sessions.";
@@ -329,6 +365,27 @@ describe("resolveMatchScoreState", () => {
     expect(result.reason_bullets.join(" ")).not.toMatch(
       /profile peak|raw score|confidence low/i,
     );
+  });
+
+  it("leaves out the tide line when native sends tide_height \"null\"", () => {
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast: { ...forecast, tideHeight: "null" },
+      rpcResult: {
+        state: "learned",
+        score: 7.4,
+        label: "GOOD",
+        reason_bullets: ["raw score 7 confidence low"],
+        sessions_in_profile: 12,
+        profile_kind: "preference_only",
+      },
+    });
+
+    expect(result.reason_bullets.join(" ")).not.toMatch(/null|NaN|undefined/);
+    expect(result.reason_bullets).toEqual([
+      "This window sits around 3 ft at 12s with 4 mph wind.",
+      "Keep rating sessions to sharpen the call.",
+    ]);
   });
 
   it("uses cautious low-signal copy without exposing confidence labels", () => {

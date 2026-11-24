@@ -1,0 +1,30 @@
+New and changed tests run against the source of b43c5db06 (the reviewed head):
+  ● BestSurfWindows › picks the Why line by reason code, after the size line
+  ● BestSurfWindows › shows a dated zine decision with visible caveats and one selection-preserving action
+  ● Scoring Engine › integration with real scorers › carries the base scorer codes beside its formatted sentences
+  ● Test suite failed to run
+  ● TopRankedBeachHero › does not render an immediate action for a future qualifying window
+  ● TopRankedBeachHero › uses one current qualifying window for the score call and window display
+  ● Week Scout takeaway from scorer reasons › prefers the wave sentence over a personalization line, so the takeaway never names the surfer level
+  ● Week Scout takeaway from scorer reasons › shows no takeaway that contradicts a Skip window
+  ● WhyThisCall › never lists the small-side sentence under Positive signals
+  ● buildDiscoveryMessage › ends a reason from another scorer with one full stop
+  ● buildDiscoveryMessage › keeps the label prefix that installed native builds strip (contract)
+  ● buildDiscoveryMessage › returns no message (no stand-in reason) when there are no reasons
+  ● buildDiscoveryMessage › should build Maybe message with reasons
+  ● buildDiscoveryMessage › should build Skip message with first warning
+  ● buildDiscoveryMessage › should include Watch warning when present
+  ● buildDiscoveryMessage › should only use top 2 reasons
+  ● buildDiscoveryMessage › shows two scorer sentences one after the other
+  ● buildDiscoveryMessage › uses a gated label override when character caps a high score
+  ● buildSurfCallShareUrl › new parameters (redesigned card) › includes message parameter when provided
+  ● buildSurfWindowRecommendations positives › drops size_good and period lines from a Skip window before they leave the API
+  ● buildSurfWindowRecommendations positives › sends each positive with its scorer code beside it
+  ● discoverSurfSpots - Personalization Integration › a "no" verdict sends no Good size or period line; other reasons stay (API edge)
+  ● discoverSurfSpots - Personalization Integration › each reason leaves the API with its scorer code beside it
+  ● discoverSurfSpots — personal match evidence stays separate from physical score › uses the canonical personal verdict on ranked and explicitly included recommendations without reordering
+  ● gateSurfDiscoveryResponse personal explanation › joins scorer sentences with one full stop each, never ".."
+  ● gateSurfDiscoveryResponse personal explanation › keeps a specific explanation built from the window's own parts
+Tests:       25 failed, 587 passed, 612 total
+
+The score-pin test passes on origin/main 1efb98665 (the pins are main's numbers).

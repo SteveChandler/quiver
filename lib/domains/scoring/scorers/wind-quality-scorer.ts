@@ -214,6 +214,11 @@ function resolveTier(
   };
 }
 
+/** True when this wind sits in the tier the scorer skips on. */
+export function isBlownOutWind(speedMph: number, direction: WindDirectionClass): boolean {
+  return resolveTier(speedMph, direction).tier === 'blownOut';
+}
+
 // ============================================================================
 // Wave-height + period modifiers
 // ============================================================================

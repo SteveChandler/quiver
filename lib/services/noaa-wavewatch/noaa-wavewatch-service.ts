@@ -2,7 +2,7 @@
  * NOAA WaveWatch III Service
  *
  * Main orchestration class for fetching and processing wave forecast data.
- * Coordinates between NOAA NWS API, Open-Meteo API, and fallback data generation.
+ * Coordinates between the NOAA NWS API and the Open-Meteo API.
  *
  * @module noaa-wavewatch/noaa-wavewatch-service
  */
@@ -12,13 +12,22 @@ import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logge
 import { fetchNOAAPointData, fetchNOAAGridData, fetchOpenMeteoData, constructGridUrl } from "./api-client";
 import { processNOAAGridData, processOpenMeteoData } from "./data-processors";
 import { mergeWaveSources } from "./source-selection";
-import { generateFallbackData, generateFallbackSlotsFrom } from "./fallback-generator";
+import { buildEcmwfOutlookSeries, fetchEcmwfWamSeries, WAM_FETCH_TIMEOUT_MS } from "./ecmwf-outlook";
 import { FORECAST_CONFIG } from "./constants";
 import { hasValidWaveData, logWaveDataAvailability, metersToFeet, getWaveDirectionText } from "./wave-analysis";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
-import type { WaveWatchForecast, WaveWatchData } from "./types";
+import { pointAlongBearing } from "@/lib/utils/geo-utils";
+import type { OpenMeteoMarineResponse, WaveWatchForecast, WaveWatchData } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch");
+
+// About 5 km of arc. Open-Meteo snaps some shore points to a land cell with no waves.
+// One step seaward along the beach's facing reaches the nearest sea cell.
+const SEAWARD_RETRY_STEP_DEG = 5 / 111.32;
+
+function hasReportedWaveHeight(data: OpenMeteoMarineResponse): boolean {
+  return (data.hourly?.wave_height ?? []).some((value) => typeof value === "number" && Number.isFinite(value));
+}
 
 /**
  * Service for fetching NOAA WaveWatch III wave forecast data
@@ -37,12 +46,13 @@ export class NOAAWaveWatchService {
   /**
    * Fetch wave forecast data for a specific location
    *
-   * Attempts to fetch real NOAA data, falls back to Open-Meteo, and generates
-   * synthetic data as a last resort.
+   * Attempts to fetch real NOAA data and falls back to Open-Meteo. Never
+   * synthesizes wave values: with no real source it returns null.
    *
    * @param latitude - Latitude in decimal degrees
    * @param longitude - Longitude in decimal degrees
    * @param days - Number of forecast days (default: 10)
+   * @param aspectDeg - Beach facing; lets Open-Meteo retry seaward when the beach's cell is land
    * @returns Wave forecast or null if all sources fail
    */
   async fetchWaveWatchForecast(
@@ -50,12 +60,13 @@ export class NOAAWaveWatchService {
     longitude: number,
     days: number = 10,
     reviewedNwsPoint?: readonly [number, number],
+    aspectDeg?: number | null,
   ): Promise<WaveWatchForecast | null> {
     try {
       log.debug(`Fetching NOAA wave forecast for ${latitude}, ${longitude}`);
 
       // First, try to get real NOAA data
-      const noaaData = await this.fetchRealNOAAData(latitude, longitude, days, reviewedNwsPoint);
+      const noaaData = await this.fetchRealNOAAData(latitude, longitude, days, reviewedNwsPoint, aspectDeg);
       if (noaaData) {
         // OM starts at midnight; past slots must not consume the forward-horizon budget.
         const intervalMs = FORECAST_CONFIG.FORECAST_INTERVAL_HOURS * 3600000;
@@ -64,23 +75,13 @@ export class NOAAWaveWatchService {
       }
 
       if (noaaData && noaaData.forecast.length > 0) {
+        // Slots past the last model timestamp stay empty. The builder stores
+        // them as FALLBACK rows with null wave fields, which readers treat as
+        // "model data pending" rather than a forecast.
         const expectedSlots = days * FORECAST_CONFIG.FORECASTS_PER_DAY;
-        // Fill any remaining horizon gaps with fallback slots
         if (noaaData.forecast.length < expectedSlots) {
-          const lastTimestamp = new Date(
-            noaaData.forecast[noaaData.forecast.length - 1].timestamp
-          );
-          const slotsNeeded = expectedSlots - noaaData.forecast.length;
-          const fillSlots = generateFallbackSlotsFrom(
-            latitude,
-            longitude,
-            lastTimestamp,
-            slotsNeeded
-          );
-          // Safe to mutate: noaaData is local to this call
-          noaaData.forecast.push(...fillSlots);
           log.info(
-            `Filled ${fillSlots.length} horizon gap slots (${noaaData.forecast.length} total for ${days}d request)`
+            `Real wave data covers ${noaaData.forecast.length} of ${expectedSlots} slots for ${days}d request`
           );
         }
 
@@ -90,40 +91,25 @@ export class NOAAWaveWatchService {
         return noaaData;
       }
 
-      // If NOAA data fails, fall back to simulated data with clear indication
-      log.warn(`Using FALLBACK synthetic data for ${latitude}, ${longitude} — both NOAA and Open-Meteo returned no usable forecasts`);
+      log.warn(`No wave forecast for ${latitude}, ${longitude} — both NOAA and Open-Meteo returned no usable forecasts`);
       trackFallback({
         domain: "noaa-wavewatch",
         field: "wave_forecast",
-        fallbackValue: "synthetic",
+        fallbackValue: "unavailable",
         reason: "both_sources_empty",
         context: { latitude, longitude, days },
       });
-      const fallbackData = generateFallbackData(latitude, longitude, days);
-
-      return {
-        lat: latitude,
-        lng: longitude,
-        forecast: fallbackData,
-      };
+      return null;
     } catch (error) {
-      log.error(`Using FALLBACK synthetic data for ${latitude}, ${longitude} due to error:`, error);
+      log.error(`No wave forecast for ${latitude}, ${longitude} due to error:`, error);
       trackFallback({
         domain: "noaa-wavewatch",
         field: "wave_forecast",
-        fallbackValue: "synthetic",
+        fallbackValue: "unavailable",
         reason: "fetch_error",
         context: { latitude, longitude, days, error: String(error) },
       });
-
-      // Generate fallback data on error
-      const fallbackData = generateFallbackData(latitude, longitude, days);
-
-      return {
-        lat: latitude,
-        lng: longitude,
-        forecast: fallbackData,
-      };
+      return null;
     }
   }
 
@@ -143,52 +129,67 @@ export class NOAAWaveWatchService {
     longitude: number,
     days: number,
     reviewedNwsPoint?: readonly [number, number],
+    aspectDeg?: number | null,
   ): Promise<WaveWatchForecast | null> {
     try {
       log.debug(
         `Fetching NOAA + Open-Meteo in parallel for ${latitude}, ${longitude}`
       );
 
-      // Fetch both sources in parallel
-      const [noaaResult, openMeteoResult] = await Promise.allSettled([
+      // Fetch all sources in parallel. WAM is its own request: one model per call.
+      const [noaaResult, openMeteoResult, wamResult] = await Promise.allSettled([
         this.fetchNOAANWSData(latitude, longitude, days, reviewedNwsPoint),
-        this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, FORECAST_CONFIG.OPEN_METEO_MAX_DAYS)),
+        this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, FORECAST_CONFIG.OPEN_METEO_MAX_DAYS), aspectDeg),
+        fetchEcmwfWamSeries(latitude, longitude, AbortSignal.timeout(WAM_FETCH_TIMEOUT_MS)),
       ]);
 
       const noaaData =
         noaaResult.status === "fulfilled" ? noaaResult.value : null;
       const openMeteoData =
         openMeteoResult.status === "fulfilled" ? openMeteoResult.value : null;
-
-      // If we have both, select by input quality at each valid time.
-      if (noaaData?.forecast.length && openMeteoData?.forecast.length) {
-        return this.mergeForecasts(noaaData, openMeteoData, latitude, longitude);
-      }
-
-      // If only one source, use it. When OM is unavailable but NOAA is not,
-      // the downstream rows will be written with NULL _om columns — expected.
-      if (noaaData?.forecast.length) {
-        if (!openMeteoData?.forecast.length) {
-          trackFallback({
-            domain: "noaa-wavewatch",
-            field: "open_meteo_values",
-            fallbackValue: "null",
-            reason: "open_meteo_unavailable",
-            context: { latitude, longitude },
-          });
-        }
-        return { ...noaaData, forecast: mergeWaveSources(noaaData.forecast, []) };
-      }
-      if (openMeteoData?.forecast.length) return { ...openMeteoData, forecast: mergeWaveSources([], openMeteoData.forecast) };
-
-      log.debug(
-        `Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
-      );
-      return null;
+      const wam = wamResult.status === "fulfilled" ? wamResult.value : null;
+      const merged = this.mergeAvailable(noaaData, openMeteoData, latitude, longitude);
+      if (!merged) return null;
+      const outlook = buildEcmwfOutlookSeries(merged.forecast, wam);
+      const withWam = wam ? { ...merged, ecmwf_wam: wam } : merged;
+      return outlook ? { ...withWam, ecmwf_outlook: outlook } : withWam;
     } catch (error) {
       log.error("Error fetching real wave data:", error);
       return null;
     }
+  }
+
+  private mergeAvailable(
+    noaaData: WaveWatchForecast | null,
+    openMeteoData: WaveWatchForecast | null,
+    latitude: number,
+    longitude: number,
+  ): WaveWatchForecast | null {
+    // If we have both, select by input quality at each valid time.
+    if (noaaData?.forecast.length && openMeteoData?.forecast.length) {
+      return this.mergeForecasts(noaaData, openMeteoData, latitude, longitude);
+    }
+
+    // If only one source, use it. When OM is unavailable but NOAA is not,
+    // the downstream rows will be written with NULL _om columns — expected.
+    if (noaaData?.forecast.length) {
+      if (!openMeteoData?.forecast.length) {
+        trackFallback({
+          domain: "noaa-wavewatch",
+          field: "open_meteo_values",
+          fallbackValue: "null",
+          reason: "open_meteo_unavailable",
+          context: { latitude, longitude },
+        });
+      }
+      return { ...noaaData, forecast: mergeWaveSources(noaaData.forecast, []) };
+    }
+    if (openMeteoData?.forecast.length) return { ...openMeteoData, forecast: mergeWaveSources([], openMeteoData.forecast) };
+
+    log.debug(
+      `Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
+    );
+    return null;
   }
 
   /**
@@ -296,15 +297,17 @@ export class NOAAWaveWatchService {
    * @param latitude - Latitude in decimal degrees
    * @param longitude - Longitude in decimal degrees
    * @param days - Number of forecast days
+   * @param aspectDeg - Beach facing, for the seaward retry
    * @returns Wave forecast or null if unavailable
    */
   private async fetchOpenMeteoDataWrapper(
     latitude: number,
     longitude: number,
-    days: number
+    days: number,
+    aspectDeg?: number | null,
   ): Promise<WaveWatchForecast | null> {
     try {
-      const data = await fetchOpenMeteoData(latitude, longitude, days);
+      const data = await this.fetchOpenMeteoSeawardIfLand(latitude, longitude, days, aspectDeg);
       if (!data) {
         return null;
       }
@@ -327,6 +330,34 @@ export class NOAAWaveWatchService {
       log.error("Error fetching Open-Meteo data:", error);
       return null;
     }
+  }
+
+  /**
+   * When the beach's own cell returns no wave height (a land cell), ask once more ~5 km
+   * seaward along the beach's facing. The rows keep the beach's coordinates.
+   */
+  private async fetchOpenMeteoSeawardIfLand(
+    latitude: number,
+    longitude: number,
+    days: number,
+    aspectDeg?: number | null,
+  ): Promise<OpenMeteoMarineResponse | null> {
+    const data = await fetchOpenMeteoData(latitude, longitude, days);
+    if (!data?.hourly?.time?.length || hasReportedWaveHeight(data)) return data;
+    if (typeof aspectDeg !== "number" || !Number.isFinite(aspectDeg)) return data;
+
+    const seaward = pointAlongBearing(latitude, longitude, aspectDeg, SEAWARD_RETRY_STEP_DEG);
+    const retry = await fetchOpenMeteoData(seaward.lat, seaward.lon, days);
+    if (!retry || !hasReportedWaveHeight(retry)) {
+      log.debug(`Open-Meteo has no wave height at ${latitude}, ${longitude} or seaward ${seaward.lat}, ${seaward.lon}`);
+      return data;
+    }
+
+    // A land cell is permanent, so this is a log line, not a fallback event on every sync.
+    log.debug(
+      `Open-Meteo cell at ${latitude}, ${longitude} is land; using seaward point ${seaward.lat}, ${seaward.lon} (aspect ${aspectDeg}°)`
+    );
+    return retry;
   }
 
   /**

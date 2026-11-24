@@ -192,7 +192,7 @@ function ForecastDayTable({
   };
 
   const getWeatherIcon = (condition: string | null | undefined) => {
-    if (!condition) return "🌤️"; // Default icon for null/undefined
+    if (!condition) return "—";
     const lower = condition.toLowerCase();
     if (lower.includes("sunny") || lower.includes("clear")) return "☀️";
     if (lower.includes("partly cloudy") || lower.includes("scattered"))
@@ -331,7 +331,7 @@ function ForecastDayTable({
                       </span>
                       <div className="text-xs">
                         <div className="font-medium text-foreground">
-                          {forecast.air_temperature}
+                          {forecast.air_temperature || "—"}
                         </div>
                         <div className="text-muted-foreground">
                           {forecast.water_temp}

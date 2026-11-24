@@ -8,7 +8,7 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 - `POST /api/install-attribution/issue` creates a 30-day Google Play referrer token after the guided Android beta handoff unlocks. The database stores only the token's SHA-256 hash and bounded acquisition dimensions.
 - `POST /api/install-attribution/redeem` is intentionally public so Android can resolve the Play Install Referrer before authentication. It ignores optional bearer credentials, uses only the static rate limiter, and atomically consumes tokens through the service-role RPC.
-- `INSTALL_ATTRIBUTION_ISSUANCE_ENABLED` and `INSTALL_ATTRIBUTION_REDEMPTION_ENABLED` are independent, exact-`true`, default-off controls. Issuance-off returns the ordinary Play listing. Redemption-off returns a retryable unattributed response before any RPC so active tokens remain drainable later.
+- Install attribution issuance and redemption are always on (their env flags were retired in Nov 2026). Turning either off now means a code change; keep redemption live for 30 days after issuance stops so issued tokens can drain.
 - Both routes and their explicit Next.js header override use `private, no-store, no-cache, must-revalidate`.
 - Schema, replay behavior, rollout approval, and production monitoring are documented in [`docs/install-attribution-runbook.md`](../../docs/install-attribution-runbook.md).
 
@@ -73,13 +73,14 @@ The API wrappers handle this automatically. When using `withAuth`, `withProtecti
 
 ```typescript
 // CORRECT - params are pre-resolved by the wrapper
-export const GET = withAuth(async (request, { user, supabase, params }) => {
+const handleGet = withAuth(async (request, { user, supabase, params }) => {
   const sessionId = params.id; // Safe - already resolved
   // ...
 });
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]");
 
 // INCORRECT - DO NOT access params outside the wrapper
-export async function GET(request: NextRequest, { params }: RouteContext) {
+async function handleGet(request: NextRequest, { params }: RouteContext) {
   const id = params.id; // DANGER: params.id may be undefined in Next.js 16
   // ...
 }
@@ -118,6 +119,7 @@ interface AuthenticatedContext {
 
 ```typescript
 import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 async function handler(
   request: NextRequest,
@@ -134,8 +136,21 @@ async function handler(
   return createSuccessResponse({ session: data });
 }
 
-export const GET = withAuth(handler);
+export const GET = withErrorNoStore(withAuth(handler), "/api/sessions/[id]");
 ```
+
+### GET errors are never cached
+
+Every exported GET goes through `withErrorNoStore(handler, routePath)` as the
+outermost wrapper; `__tests__/config/api-get-error-no-store.test.ts` fails a
+route that does not. `next.config.mjs` gives every `/api/*` response without
+its own Cache-Control `private, max-age=60, stale-while-revalidate=120`, and
+browsers and iOS would otherwise replay a 401, 404 or 500 for up to three
+minutes. The wrapper marks status >= 400 `no-store`, turns a thrown error into
+a reported `no-store` 500, and leaves 1xx-3xx responses untouched.
+`routePath` is the route as Next names it (`/api/beaches/[id]`), so Sentry
+reports keep the route context. Only GET is wrapped: browsers and NSURLCache
+store only GET (HEAD is answered from GET).
 
 **See Also:**
 - `/docs/API_MIDDLEWARE.md` - Developer guide with patterns and usage
@@ -150,38 +165,6 @@ export const GET = withAuth(handler);
 **Access Level**: Admin-only
 **Authentication**: Role-based admin verification
 
-#### `/admin/cleanup-inactive-buoys/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Maintains buoy data quality through automated cleanup
-- **Features**:
-  - Dry-run mode for testing
-  - Configurable removal vs deactivation
-  - Batch processing with progress tracking
-- **Security**: Development mode bypass, Bearer token authentication
-- **Usage**: Scheduled maintenance operations
-
-#### `/admin/sync-buoys/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Synchronizes NOAA buoy data for beach coverage areas
-- **Features**:
-  - Geographic filtering (200km radius from beaches)
-  - Service role and admin authentication support
-  - Configurable distance parameters
-- **Data Source**: NOAA NDBC (National Data Buoy Center)
-- **Performance**: Rate limiting integration
-
-#### `/admin/update-buoy-conditions/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Updates real-time buoy conditions
-- **Features**:
-  - Development mode authentication bypass
-  - Batch condition updates
-  - Success/failure tracking
-- **Data Source**: NOAA real-time feeds
-- **Scheduling**: Designed for cron job integration
 
 ### 📊 `/analytics` - User Analytics & Insights
 
@@ -301,13 +284,6 @@ export const GET = withAuth(handler);
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
   - Keep `CRON_SECRET` in Vercel env if you need to trigger manually
 
-#### `/cron/enhanced-forecast-sync-offset/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Alias entrypoint for the enhanced forecast sync job.
-- **Why it exists**: Enables an effective **90-minute** cron cadence without relying on multiple cron entries targeting the same path.
-  - Scheduled alongside `/api/cron/enhanced-forecast-sync` in `vercel.json` (staggered schedules).
-
 ### 🔮 `/forecasts` - Surf Forecast System
 
 **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC
@@ -364,7 +340,7 @@ export const GET = withAuth(handler);
 
 **Caching**:
 
-HDOnTap media playlists are checked with a HEAD request to the first segment on its live host or `edgeNN[.region].nginx.hdontap.com` CDN. Redirects are rejected. Expired segments (404/410) trigger at most three retries with 2/4/6-second backoff inside the same 15-second deadline. No expired playlist is returned after exhaustion; failures are uncached. The public proxy allowlist is unchanged.
+Camera media routes reject the retired provider by hostname and reject upstream redirects. The HLS proxy checks playlist URIs in media lines and attributes before returning a manifest. The HDRelay and Surfline allowlists continue to apply.
 
 | Resource Type | `Cache-Control` |
 |---------------|-----------------|

@@ -1,3 +1,4 @@
+import { zonedFormatter } from "@/lib/utils/zoned-formatter";
 import type { HourlySwellTimeline, SwellPartition } from "@/lib/domains/conditions/map-forecast";
 
 export interface TimelineDaySegment {
@@ -7,7 +8,6 @@ export interface TimelineDaySegment {
   endIndex: number;
 }
 
-const dateTimeFormatterByTimezone = new Map<string, Intl.DateTimeFormat>();
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_CALENDAR_HORIZON_HOURS = 14 * 24;
 export const PLAYBACK_TARGET_DURATION_MS = 18_000;
@@ -25,23 +25,15 @@ export function getPlaybackVisualFrameMs(timestampCount: number): number {
   );
 }
 
-function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
-  const cached = dateTimeFormatterByTimezone.get(timezone);
-  if (cached) return cached;
-
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "2-digit",
-    day: "numeric",
-    hour: "numeric",
-    hour12: true,
-    timeZoneName: "short",
-    timeZone: timezone,
-  });
-  dateTimeFormatterByTimezone.set(timezone, formatter);
-  return formatter;
-}
+const getDateTimeFormatter = zonedFormatter("en-US", {
+  weekday: "short",
+  year: "numeric",
+  month: "2-digit",
+  day: "numeric",
+  hour: "numeric",
+  hour12: true,
+  timeZoneName: "short",
+});
 
 function dateTimeParts(timestamp: string, timezone: string): Intl.DateTimeFormatPart[] {
   const date = new Date(timestamp);

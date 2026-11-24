@@ -22,8 +22,9 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
   const seasonLabel =
     beach.best_months && beach.best_months.length > 0 ? formatMonthRange(beach.best_months) : null;
   const breakType = (beach.break_type || "spot").toLowerCase();
+  // The tide clause names a direction; without one it is left out, not filled with "select".
   const tideRange =
-    beach.preferred_tide_ft_min != null && beach.preferred_tide_ft_max != null
+    beach.preferred_tide_direction && beach.preferred_tide_ft_min != null && beach.preferred_tide_ft_max != null
       ? `${beach.preferred_tide_ft_min}–${beach.preferred_tide_ft_max} ft`
       : null;
 
@@ -67,7 +68,7 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
           {tideRange ? (
             <>
               {" "}that works best on{" "}
-              <span className="hl">{beach.preferred_tide_direction || "select"} tide at {tideRange}</span>
+              <span className="hl">{beach.preferred_tide_direction} tide at {tideRange}</span>
             </>
           ) : null}
           .
@@ -86,7 +87,7 @@ function AboutSpotArticle({ beach, beachPhoto }: { beach: Beach; beachPhoto?: Zi
         >
           <span className="tape tl" aria-hidden />
           <span className="tape br" aria-hidden />
-          <HalftonePhoto src={beachPhoto.image_url} alt={`${beach.name} reef`} label="REEF · LOW TIDE" height={140} />
+          <HalftonePhoto src={beachPhoto.image_url} alt={`${beach.name} photo`} height={140} />
         </div>
       )}
 

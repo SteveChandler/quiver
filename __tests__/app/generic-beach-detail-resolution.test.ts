@@ -17,15 +17,40 @@ import {
 } from "@/lib/seo/forecast-indexability";
 import { isValidElement, type ReactNode } from "react";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
+import { isBeachSubPageIndexable } from "@/lib/seo/forecast-indexability";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
-import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
-import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
+import { currentWaterQuality, unsampledWaterQualityRow } from "@/lib/services/water-quality/current-status";
+import {
+  getCachedBeachCameraUrl,
+  getCachedBeachFeaturedPhoto,
+} from "@/lib/data/server/beach-detail-static-reads";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+import { LiveCamSchema } from "@/components/seo/live-cam-schema";
+import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
-import { notFound, redirect } from "next/navigation";
-import { renderToStaticMarkup } from "react-dom/server";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { renderToPipeableStream, renderToStaticMarkup } from "react-dom/server";
+import { PassThrough } from "node:stream";
 import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
+
+function streamPage(page: ReactNode, onChunk?: (html: string) => void): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const output = new PassThrough();
+    let content = "";
+    output.setEncoding("utf8");
+    output.on("data", (chunk: string) => {
+      content += chunk;
+      onChunk?.(content);
+    });
+    output.on("end", () => resolve(content));
+    output.on("error", reject);
+    const stream = renderToPipeableStream(page, {
+      onShellReady: () => stream.pipe(output),
+      onError: reject,
+    });
+  });
+}
 
 // Mock React's cache function for server components
 jest.mock("react", () => ({
@@ -58,6 +83,11 @@ jest.mock("next/navigation", () => ({
     (err as any).digest = `NEXT_REDIRECT;replace;${url};307;`;
     throw err;
   }),
+  permanentRedirect: jest.fn((url: string) => {
+    const err = new Error("NEXT_REDIRECT");
+    (err as any).digest = `NEXT_REDIRECT;replace;${url};308;`;
+    throw err;
+  }),
 }));
 
 // Mock dependencies used during page rendering
@@ -68,8 +98,10 @@ jest.mock("@/lib/services/spot-surf-report-service", () => ({
   }),
 }));
 
-jest.mock("@/actions/spot/spot-data-actions", () => ({
-  getSpotFeaturedPhoto: jest.fn().mockResolvedValue(null),
+jest.mock("@/lib/data/server/beach-detail-static-reads", () => ({
+  ...jest.requireActual("@/lib/data/server/beach-detail-static-reads"),
+  getCachedBeachCameraUrl: jest.fn().mockResolvedValue(null),
+  getCachedBeachFeaturedPhoto: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
@@ -139,7 +171,11 @@ jest.mock("@/components/seo/web-page-schema", () => ({
 }));
 
 jest.mock("@/components/seo/live-cam-schema", () => ({
-  LiveCamSchema: () => null,
+  LiveCamSchema: jest.fn(() => null),
+}));
+
+jest.mock("@/lib/media/cam-embed-preflight", () => ({
+  resolveCamPlayback: jest.fn().mockResolvedValue({ kind: "none" }),
 }));
 
 jest.mock("@/components/beach-detail/nearby-spots-enriched", () => ({
@@ -165,6 +201,20 @@ jest.mock("next/cache", () => ({
 
 jest.mock("@/lib/seo/water-temp-meta-data", () => ({
   getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
+}));
+
+// The service-role client double here does not model tide queries; the tide
+// reader now lets that TypeError propagate, so stub the reader like water temp.
+jest.mock("@/lib/seo/tide-meta-data", () => ({
+  getTideMetaData: jest.fn().mockResolvedValue({
+    source: null,
+    nextHighTime: "2:30 PM",
+    nextLowTime: "8:45 AM",
+    nextHighHeight: 4.2,
+    nextLowHeight: 0.4,
+    nextHighAt: null,
+    nextLowAt: null,
+  }),
 }));
 
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
@@ -220,9 +270,6 @@ jest.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-jest.mock("@/actions/beach/cam-actions", () => ({
-  getBeachCameraUrl: jest.fn().mockResolvedValue(null),
-}));
 
 jest.mock("@/actions/forecast-actions", () => ({
   getBeachForecastPreview: jest.fn().mockResolvedValue({ success: true, data: null }),
@@ -414,6 +461,12 @@ describe("GenericBeachDetailPage slug resolution", () => {
     const factory = createSupabaseServiceRoleClient as jest.Mock;
     const original = factory.getMockImplementation();
     factory.mockReturnValue(client);
+    if (notice === "County closure") {
+      jest.mocked(getSpotSurfReportPublic).mockImplementationOnce(async () => {
+        await currentWaterQuality([unsampledWaterQualityRow(beach.id)]);
+        return null;
+      });
+    }
     const log = jest.spyOn(console, "error").mockImplementation(() => {});
     try {
       const page = await GenericBeachDetailPage({
@@ -429,6 +482,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
           ? { status: "closure", county_advisory_status: "closure" }
           : { status: "advisory", rain_runoff: { total_in: 0.4 } }),
       });
+      expect(client.from.mock.calls.filter(([table]) => table === "county_beach_advisory_runs"))
+        .toHaveLength(notice === "County closure" ? 1 : 0);
       expect(notFound).not.toHaveBeenCalled();
       expect(log).toHaveBeenCalledWith(
         "[GenericBeachDetailPage] Optional section unavailable:",
@@ -467,8 +522,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
 
   it.each([
     ["forecast", getSpotSurfReportPublic],
-    ["photo", getSpotFeaturedPhoto],
-    ["camera", getBeachCameraUrl],
+    ["photo", getCachedBeachFeaturedPhoto],
+    ["camera", getCachedBeachCameraUrl],
     ["nearby", getNearbyBeaches],
   ] as const)("renders the beach when the %s loader throws", async (section, loader) => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
@@ -491,6 +546,62 @@ describe("GenericBeachDetailPage slug resolution", () => {
     } finally {
       log.mockRestore();
     }
+  });
+
+  it.each([
+    ["no player", { kind: "none" }, false],
+    ["an inline player", { kind: "inline" }, true],
+    ["a provider link", { kind: "external", provider: "Surfline", pageUrl: "https://example.com/cam" }, true],
+  ] as const)("emits the live-cam VideoObject only when the cam has %s", async (_label, playback, emitted) => {
+    const cameraUrl = "https://cbccstaff.net/whats-new/webcam/";
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({ success: true, data: [makeBeach({})] });
+    (getCachedBeachCameraUrl as jest.Mock).mockResolvedValueOnce(cameraUrl);
+    (resolveCamPlayback as jest.Mock).mockResolvedValueOnce(playback);
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    renderToStaticMarkup(page);
+
+    expect(resolveCamPlayback).toHaveBeenCalledWith(cameraUrl);
+    expect(jest.mocked(LiveCamSchema).mock.calls.map(([props]) => props.cameraUrl))
+      .toEqual(emitted ? [cameraUrl] : []);
+  });
+
+  it("keeps the water-temp guide link gate open when the water-temp read failed", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    (getWaterTempMetaData as jest.Mock).mockResolvedValueOnce({
+      tempF: null,
+      wetsuitRec: null,
+      availability: "sub-page-data-unknown",
+    });
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    const pending: unknown[] = [page];
+    let rendered = false;
+    while (pending.length > 0 && !rendered) {
+      const node = pending.pop();
+      if (Array.isArray(node)) {
+        pending.push(...node);
+        continue;
+      }
+      if (!isValidElement<Record<string, unknown>>(node)) continue;
+      if (typeof node.type === "function" && node.type.name === "DeferredRelatedGuidesSection") {
+        await (node.type as (props: Record<string, unknown>) => Promise<ReactNode>)(node.props);
+        rendered = true;
+        continue;
+      }
+      pending.push(...Object.values(node.props));
+    }
+
+    expect(rendered).toBe(true);
+    const waterTempCall = jest.mocked(isBeachSubPageIndexable).mock.calls
+      .find(([, path]) => path.endsWith("/water-temp"));
+    expect(waterTempCall?.[2]).toEqual({ hasSubPageData: true });
   });
 
   it.each([
@@ -639,7 +750,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(renderToStaticMarkup(page)).toContain("2-3 ft");
   });
 
-  it("renders the forecast answer and hourly rows in initial HTML", async () => {
+  it("streams the forecast and hourly rows before nearby spots are ready", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -654,7 +765,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     forecastResult.forecastContext.displayWindowStart = "2026-09-07T15:00:00.000Z";
     forecastResult.forecastContext.displayWindowEnd = "2026-09-07T17:30:00.000Z";
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
-    (getNearbyBeaches as jest.Mock).mockResolvedValueOnce({
+    const nearbyResult = {
       success: true,
       data: [
         makeBeach({ id: "backup-1", name: "Swami's", slug: "swamis", city: "Encinitas" }),
@@ -662,16 +773,39 @@ describe("GenericBeachDetailPage slug resolution", () => {
         makeBeach({ id: "backup-3", name: "Pipeline", slug: "pipeline", city: "Haleiwa", state: "HI" }),
         makeBeach({ id: "backup-4", name: "Malibu", slug: "malibu", city: "Malibu" }),
       ],
-    });
-
-    const page = await GenericBeachDetailPage({
+    };
+    const nearby = Promise.withResolvers<typeof nearbyResult>();
+    jest.mocked(getNearbyBeaches).mockImplementationOnce(() =>
+      nearby.promise as ReturnType<typeof getNearbyBeaches>,
+    );
+    const pageResult = GenericBeachDetailPage({
       params: Promise.resolve({
         intent: "ca",
         city: "del-mar",
         beachSlug: "del-mar",
       }),
     });
-    const html = renderToStaticMarkup(page);
+    const page = await Promise.race([
+      pageResult,
+      new Promise<null>((resolve) => setImmediate(() => resolve(null))),
+    ]);
+    if (!page) {
+      nearby.resolve(nearbyResult);
+      await pageResult;
+      throw new Error("Page blocked on the nearby beach lookup");
+    }
+
+    let initialHtml = "";
+    const html = await streamPage(page, (content) => {
+      if (!initialHtml && content.includes('data-testid="public-forecast-hourly"')) {
+        initialHtml = content;
+        nearby.resolve(nearbyResult);
+      }
+    });
+
+    expect(getHeadingTexts(initialHtml, 1)).toEqual(["Del Mar Surf Forecast"]);
+    expect(initialHtml).not.toContain("Nearby spots");
+    expect(getNearbyBeaches).toHaveBeenCalledTimes(1);
 
     expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
     expect(getHeadingTexts(html, 2)).toContain("Del Mar");
@@ -697,6 +831,42 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).toContain("3.2 ft · Rising");
     expect(html).toContain("92%");
   });
+
+  it.each(["rejected lookup", "unsuccessful lookup", "missing coordinates"] as const)(
+    "completes the forecast stream without nearby links for %s",
+    async (scenario) => {
+      const hasCoordinates = scenario !== "missing coordinates";
+      jest.mocked(getBeachesBySlug).mockResolvedValue({
+        success: true,
+        data: [makeBeach({
+          name: "Del Mar",
+          slug: "del-mar",
+          city: "Del Mar",
+          ...(hasCoordinates ? {} : { lat: null, lon: null }),
+        })],
+      });
+      (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+      if (scenario === "rejected lookup") {
+        jest.mocked(getNearbyBeaches).mockRejectedValueOnce(new Error("Nearby source unavailable"));
+      } else if (scenario === "unsuccessful lookup") {
+        jest.mocked(getNearbyBeaches).mockResolvedValueOnce({ success: false, error: "Nearby source unavailable" });
+      }
+      const log = jest.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const page = await GenericBeachDetailPage({
+          params: Promise.resolve({ intent: "ca", city: "del-mar", beachSlug: "del-mar" }),
+        });
+        const html = await streamPage(page);
+        expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
+        expect(html).toContain('data-testid="public-forecast-hourly"');
+        expect(html).toContain('data-testid="public-forecast-hour"');
+        expect(html).not.toContain('aria-label="Nearby spots"');
+        expect(getNearbyBeaches).toHaveBeenCalledTimes(hasCoordinates ? 1 : 0);
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
 
   it("keeps the surf-forecast H1 when live forecast details are unavailable", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
@@ -840,7 +1010,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     ]);
   });
 
-  it("redirects stale city slugs to the canonical beach URL", async () => {
+  it("permanently redirects stale city slugs to the canonical beach URL", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -866,7 +1036,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
     });
 
     expectConsoleWarnings([/\[GenericBeachDetailPage\] City slug mismatch/]);
-    expect(redirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
+    expect(permanentRedirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
+    expect(redirect).not.toHaveBeenCalled();
     expect(notFound).not.toHaveBeenCalled();
     expect(getNearbyBeaches).not.toHaveBeenCalled();
   });

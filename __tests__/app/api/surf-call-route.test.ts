@@ -6,6 +6,8 @@ import { NextRequest } from "next/server";
 import { GET } from "@/app/api/surf/call/route";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { memoizedWaterQualityRead } from "@/lib/recommendations/major-event-hold/read-scope";
+import { featureAccessOff, featureAccessOn } from "@/__tests__/setup/founding-access";
+import fixture from "@/__tests__/fixtures/surf-call-skill-default-v1.json";
 
 const mockSupabase = {
   from: jest.fn(),
@@ -52,7 +54,7 @@ jest.mock("@/lib/utils/dev-force-verdict", () => ({
 const mockCheckBoardFit = jest.fn((..._args: unknown[]) => ({
   penalty: 0,
   bonus: 0,
-  note: "in the sweet spot for your longboard",
+  note: "Good longboard size at 2–3 ft.",
 }));
 jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
   const actual = jest.requireActual("@/lib/domains/scoring/discovery-adapter");
@@ -70,6 +72,11 @@ jest.mock("@/lib/recommendations/major-event-hold/water-quality", () => ({
 jest.mock("@/lib/recommendations/canonical-decision", () => ({
   resolveCanonicalSessionDecisionContext: (...args: unknown[]) =>
     mockResolveCanonicalSessionDecisionContext(...args),
+}));
+
+const mockResolveFeatureAccess = jest.fn(featureAccessOff);
+jest.mock("@/lib/flags/founding-access", () => ({
+  resolveFeatureAccess: (...args: Parameters<typeof featureAccessOff>) => mockResolveFeatureAccess(...args),
 }));
 
 const mockDiscoverSurfSpots = jest.fn();
@@ -93,10 +100,17 @@ jest.mock("@/lib/services/discovery/major-event-hold", () => ({
 }));
 
 const mockGetProfileExperienceLevel = jest.fn();
+const mockReadProfileSkill = jest.fn();
 jest.mock("@/lib/profile/skill-level", () => ({
   getProfileExperienceLevel: (...args: unknown[]) =>
     mockGetProfileExperienceLevel(...args),
+  readProfileSkill: (...args: unknown[]) => mockReadProfileSkill(...args),
 }));
+
+let mockEntitlementResult: { data: unknown; error: { code: string; message: string } | null } = {
+  data: null,
+  error: null,
+};
 
 function mockBeachQuery(
   beach: Record<string, unknown> | null,
@@ -124,7 +138,7 @@ function mockBeachQuery(
       return {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
-            maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+            maybeSingle: jest.fn(async () => mockEntitlementResult),
           })),
         })),
       };
@@ -164,11 +178,13 @@ let canonicalContext: {
 describe("GET /api/surf/call", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResolveFeatureAccess.mockImplementation(featureAccessOff);
     mockRateLimitInvocations.length = 0;
     mockEqCalls.length = 0;
     mockRequestUser = mockUser;
     mockInvalidCredentials = false;
     mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
+    mockEntitlementResult = { data: null, error: null };
     mockResolveWaterQualityHolds.mockResolvedValue({ state: "resolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "empty" });
     const decision = {
       schemaVersion: "canonical-session-decision.v1",
@@ -253,8 +269,6 @@ describe("GET /api/surf/call", () => {
     ["site advisory", "advisory", { source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" }],
     ["closure", "closure", { source: "county", countyKind: "site", checkedAt: "2026-10-14T20:00:43Z" }],
     ["owner hold", undefined, { source: "hold" }],
-    ["gauge rain hold", "advisory", { source: "rain", rainAdvisory: { startedAt: "2026-10-22T12:00:00Z",
-      lastRainAt: "2026-10-22T11:00:00Z", expiresAt: "2026-10-25T11:00:00Z" } }],
   ])("exposes a held %s independent of the forecast candidate", async (_label, status, evidence) => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     canonicalContext.discovery.recommendations = [];
@@ -282,6 +296,33 @@ describe("GET /api/surf/call", () => {
       waterQualityEvidenceByBeachId: { [beachId]: { source: "county", countyKind: "general", rainAdvisory } } });
     const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
     expect((await response.json()).data.waterQuality).toMatchObject({ source: "county", countyKind: "general", rainAdvisory });
+  });
+
+  it.each([
+    ["gauge rain", { source: "rain", rainAdvisory: { startedAt: "2026-10-22T12:00:00Z",
+      lastRainAt: "2026-10-22T11:00:00Z", expiresAt: "2026-10-25T11:00:00Z" } }],
+    ["County general rain", { source: "county", countyKind: "general", checkedAt: "2026-10-22T13:00:43Z",
+      rainAdvisory: { startedAt: "2026-10-22T12:00:00Z", lastRainAt: null, expiresAt: "2026-10-25T11:00:00Z" } }],
+  ])("exposes a %s notice on an unheld beach as an advisory", async (_label, notice) => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier",
+      lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "resolved", heldBeachIds: [],
+      waterQualityStatusByBeachId: {}, waterQualityNoticeByBeachId: { [beachId]: notice }, epoch: "rain" });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toEqual({ status: "advisory", ...notice });
+  });
+
+  it("keeps a rain notice when the hold read is unresolved, without claiming a hold", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const rain = { source: "rain", rainAdvisory: { startedAt: "2026-10-22T12:00:00Z",
+      lastRainAt: "2026-10-22T11:00:00Z", expiresAt: "2026-10-25T11:00:00Z" } };
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier",
+      lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [],
+      waterQualityStatusByBeachId: {}, waterQualityNoticeByBeachId: { [beachId]: rain }, epoch: "unknown" });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toEqual({ status: "advisory", ...rain });
   });
 
   it("returns null for an unheld or unresolved beach", async () => {
@@ -329,9 +370,17 @@ describe("GET /api/surf/call", () => {
     expect(mockResolveWaterQualityHolds).toHaveBeenCalledTimes(1);
   });
 
-  it("returns null for an unresolved hold read", async () => {
+  it("still names a hold an unresolved read already knows, because the call is no longer withheld", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
-    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [beachId], waterQualityStatusByBeachId: { [beachId]: "advisory" }, epoch: "unknown" });
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [beachId], waterQualityStatusByBeachId: {}, epoch: "unknown" });
+    mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+    const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+    expect((await response.json()).data.waterQuality).toEqual({ status: "hold", source: "hold" });
+  });
+
+  it("returns null for an unresolved read that knows no hold", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockResolveWaterQualityHolds.mockResolvedValueOnce({ state: "unresolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "unknown" });
     mockBeachQuery({ id: beachId, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
     const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
     expect((await response.json()).data.waterQuality).toBeNull();
@@ -447,6 +496,66 @@ describe("GET /api/surf/call", () => {
     expect(mockSupabase.from).not.toHaveBeenCalledWith("boards");
     expect(mockSupabase.from).not.toHaveBeenCalledWith("favorite_beaches");
     expect(mockSupabase.from).not.toHaveBeenCalledWith("user_surf_preferences");
+  });
+
+  it.each([
+    ["ON", featureAccessOn, true],
+    ["OFF", featureAccessOff, false],
+  ])("founding access %s decides paid discovery for a signed-in free user", async (_name, access, paid) => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockResolveFeatureAccess.mockImplementation(access);
+    mockDiscoverSurfSpots.mockResolvedValue({
+      recommendations: [],
+      includedRecommendations: [],
+      recommendationAvailability: { state: "available", holdEpoch: "now-test" },
+      searchCriteria: { maxResults: 1 },
+      metadata: { outcome: "success", generated_at: new Date().toISOString() },
+    });
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(mockUser.id, false, { billingIssue: false });
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: paid }) }),
+    );
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledWith(
+      mockUser.id,
+      expect.objectContaining({ discoveryMode: "now", isPro: paid }),
+    );
+  });
+
+  it("anonymous viewers never get founding access", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockRequestUser = null;
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`));
+
+    expect(mockResolveFeatureAccess).toHaveBeenCalledWith(null, false, { billingIssue: false });
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: false }) }),
+    );
   });
 
   it("returns 401 for an invalid bearer token", async () => {
@@ -677,6 +786,74 @@ describe("GET /api/surf/call", () => {
     expect(body.data.sessionDecision.conditionLabel).toBe("MEH");
   });
 
+  it("still makes the call with free access when the entitlement read fails twice", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    // The switch is on, so a fallback through founding access would open paid discovery.
+    mockResolveFeatureAccess.mockImplementation(featureAccessOn);
+    mockDiscoverSurfSpots.mockResolvedValue({
+      recommendations: [],
+      includedRecommendations: [],
+      recommendationAvailability: { state: "available", holdEpoch: "now-test" },
+      searchCriteria: { maxResults: 1 },
+      metadata: { outcome: "success", generated_at: new Date().toISOString() },
+    });
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+    mockEntitlementResult = {
+      data: null,
+      error: { code: "08006", message: "connection failure" },
+    };
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.report.verdict).toEqual(expect.any(String));
+    expect(body.data.planStatus).toBe("unknown");
+    expect(mockSupabase.from.mock.calls.filter(([table]: [string]) => table === "user_entitlements")).toHaveLength(2);
+    expect(mockResolveFeatureAccess).not.toHaveBeenCalled();
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({ discoveryOptions: expect.objectContaining({ isPro: false }) }),
+    );
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledWith(
+      mockUser.id,
+      expect.objectContaining({ discoveryMode: "now", isPro: false }),
+    );
+    consoleWarn.mockRestore();
+  });
+
+  it("omits planStatus when the entitlement read succeeds", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).not.toHaveProperty("planStatus");
+  });
+
   it("returns a retryable error when canonical discovery fails operationally", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({
@@ -815,6 +992,75 @@ describe("GET /api/surf/call", () => {
       matchedForecastAt: null,
       matchType: "none",
       deltaMinutes: null,
+    });
+  });
+
+  describe("with the hourly bridge", () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    // 3-hourly stored rows; 22:00Z is a bridged hour between them.
+    const storedRows = [
+      { id: "row-21", beach_id: beachId, forecast_at: "2026-05-08T21:00:00.000Z" },
+      { id: "row-00", beach_id: beachId, forecast_at: "2026-05-09T00:00:00.000Z" },
+    ];
+    const forecastAt = "2026-05-08T22:00:00.000Z";
+    const beachRow = {
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    };
+
+    afterEach(() => {
+      delete process.env.HOURLY_BRIDGE_ENABLED;
+    });
+
+    it("reports a bridged scoped hour as an exact match, as discovery scored it", async () => {
+      process.env.HOURLY_BRIDGE_ENABLED = "true";
+      const recommendation = canonicalContext.discovery.recommendations[0];
+      recommendation.recommendationId = `beach:${beachId}:${forecastAt}`;
+      recommendation.forecast = { ...(recommendation.forecast as object), id: "row-21:h+1", forecast_at: forecastAt };
+      const selection = canonicalContext.decision.selection as Record<string, unknown>;
+      selection.candidateId = `beach:${beachId}:${forecastAt}`;
+      selection.forecastRef = { forecastId: "row-21:h+1", beachId, forecastAt };
+      mockBeachQuery(beachRow, storedRows);
+
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+        ),
+      );
+      const body = await response.json();
+
+      expect(body.data.forecastAlignment).toEqual({
+        requestedForecastAt: forecastAt,
+        matchedForecastAt: forecastAt,
+        matchType: "exact",
+        deltaMinutes: 0,
+      });
+      expect(body.data.forecastContext.selectedRowTime).toBe(forecastAt);
+      expect(body.data.sessionDecision.selection.forecastRef.forecastAt).toBe(forecastAt);
+      expect(body.data.report.score).toBe(72);
+    });
+
+    it("keeps the stored-row alignment with the flag off", async () => {
+      mockBeachQuery(beachRow, storedRows);
+
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+        ),
+      );
+      const body = await response.json();
+
+      expect(body.data.forecastAlignment).toEqual({
+        requestedForecastAt: forecastAt,
+        matchedForecastAt: "2026-05-08T21:00:00.000Z",
+        matchType: "nearest",
+        deltaMinutes: 60,
+      });
     });
   });
 
@@ -1119,8 +1365,10 @@ describe("GET /api/surf/call", () => {
       "longboard",
     );
     expect(body.data.report.whySentence).toContain(
-      "Board fit: in the sweet spot for your longboard.",
+      "Board fit: good longboard size at 2–3 ft.",
     );
+    // The note is a whole sentence; the board line keeps one full stop.
+    expect(body.data.report.whySentence).not.toContain("ft..");
   });
 
   it("ignores invalid boardClass values", async () => {
@@ -1297,6 +1545,174 @@ describe("GET /api/surf/call", () => {
         reasonCode: "major_event_hold",
         holdEpoch: "major-event-epoch",
       });
+    });
+  });
+
+  describe("skill default (flag on)", () => {
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    type FlagEnv = { enabled?: string; allow?: string };
+    type SkillRead = { ok: true; level: string | null; blank: boolean } | { ok: false };
+    const BEACH_ID = "11111111-1111-4111-8111-111111111111";
+    const ON: FlagEnv = { enabled: "true", allow: "native-user-123" };
+    const UNSET: SkillRead = { ok: true, level: null, blank: true };
+
+    afterEach(() => {
+      // The includeNow block below has no beforeEach and reads this mock as left here.
+      mockResolveCanonicalSessionDecisionContext.mockResolvedValue(canonicalContext);
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    function setFlag(env: FlagEnv) {
+      if (env.enabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = env.enabled;
+      if (env.allow === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = env.allow;
+    }
+
+    function setRead(read: SkillRead) {
+      mockReadProfileSkill.mockResolvedValue(read);
+    }
+
+    // Each helper gives the mock a fresh decision, so the shared canned context stays as beforeEach built it.
+    function withDecision(changes: Record<string, unknown>) {
+      mockResolveCanonicalSessionDecisionContext.mockResolvedValue({
+        ...canonicalContext,
+        decision: { ...canonicalContext.decision, ...changes },
+      });
+    }
+
+    function decisionSkill(skill: string) {
+      withDecision({ skillEligibility: { skill, state: "eligible", reasonCodes: [] } });
+    }
+
+    function vetoDecision(reasonCode: string, candidateRejection: Record<string, unknown>) {
+      withDecision({
+        verdict: "no",
+        decisionBasis: "safety_override",
+        reasonCode,
+        candidateRejection,
+        selection: null,
+        skillEligibility: { skill: "beginner", state: "eligible", reasonCodes: [] },
+      });
+    }
+
+    async function callRoute() {
+      mockBeachQuery({ id: BEACH_ID, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+      const response = await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${BEACH_ID}`));
+      return response.json();
+    }
+
+    it("sets skillDefaultApplied for an allowlisted user with no skill and keeps the audience fields null", async () => {
+      setFlag(ON);
+      setRead(UNSET);
+      withDecision({ skillEligibility: fixture.skillEligibility });
+
+      const body = await callRoute();
+
+      expect(body.data.report).toMatchObject(fixture.report);
+      expect(body.data.sessionDecision.skillEligibility).toEqual(fixture.skillEligibility);
+      expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: "beginner" }),
+      );
+    });
+
+    it("does not read the skill twice with the flag off", async () => {
+      setFlag({});
+
+      await callRoute();
+
+      expect(mockReadProfileSkill).not.toHaveBeenCalled();
+      expect(mockGetProfileExperienceLevel).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["flag off", {}, UNSET],
+      ["not allowlisted", { enabled: "true", allow: "someone-else" }, UNSET],
+      ["known skill", ON, { ok: true, level: "intermediate", blank: false }],
+      ["garbage skill", ON, { ok: true, level: null, blank: false }],
+      ["failed read", ON, { ok: false }],
+    ] as const)("omits skillDefaultApplied when %s", async (_label, env: FlagEnv, read: SkillRead) => {
+      setFlag(env);
+      setRead(read);
+      mockGetProfileExperienceLevel.mockResolvedValue(read.ok ? read.level : null);
+      decisionSkill(read.ok && read.level ? read.level : "beginner");
+
+      const body = await callRoute();
+
+      expect(body.data.report).not.toHaveProperty("skillDefaultApplied");
+    });
+
+    it("omits skillDefaultApplied for an anonymous viewer", async () => {
+      setFlag({ enabled: "true", allow: "" });
+      mockRequestUser = null;
+
+      const body = await callRoute();
+
+      expect(body.data.report).not.toHaveProperty("skillDefaultApplied");
+      expect(mockReadProfileSkill).not.toHaveBeenCalled();
+    });
+
+    it("never says 'your profile is beginner' for an allowlisted user with no skill", async () => {
+      setFlag(ON);
+      setRead(UNSET);
+      vetoDecision("beach_skill_exceeds_user", { observed: { skill: "intermediate" }, allowed: { skill: "beginner" } });
+
+      const body = await callRoute();
+
+      expect(body.data.report.whySentence).not.toMatch(/your profile is/i);
+      expect(body.data.report.whySentence).toContain("You haven't set a level");
+    });
+
+    it("keeps 'your profile is beginner' for a user who set beginner (control)", async () => {
+      setFlag(ON);
+      setRead({ ok: true, level: "beginner", blank: false });
+      vetoDecision("beach_skill_exceeds_user", { observed: { skill: "intermediate" }, allowed: { skill: "beginner" } });
+
+      const body = await callRoute();
+
+      expect(body.data.report.whySentence).toMatch(/your profile is beginner/);
+    });
+
+    it("keeps the 'applied when skill is unknown' wave text for a defaulted skill", async () => {
+      setFlag(ON);
+      setRead(UNSET);
+      vetoDecision("wave_height_exceeds_skill", { observed: { waveHeightFt: 5 }, allowed: { skill: "beginner", minimumWaveHeightFt: 1, maximumWaveHeightFt: 4 } });
+
+      const body = await callRoute();
+
+      expect(body.data.report.whySentence).toMatch(/applied when skill is unknown/);
+    });
+
+    it("holds the includeNow discovery with the rating skill only for an allowlisted user", async () => {
+      const { sanitizeSurfDiscoveryForSerializationMajorEventHold: sanitize } = jest.requireMock(
+        "@/lib/services/discovery/major-event-hold",
+      ) as { sanitizeSurfDiscoveryForSerializationMajorEventHold: jest.Mock };
+      const nowHoldSkill = async (): Promise<unknown> => {
+        sanitize.mockClear();
+        mockDiscoverSurfSpots.mockResolvedValue({ recommendations: [], includedRecommendations: [] });
+        mockBeachQuery({ id: BEACH_ID, name: "Ocean Beach Pier", slug: "ocean-beach-pier", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles", deleted_at: null });
+        await GET(new NextRequest(`http://localhost:3000/api/surf/call?beachId=${BEACH_ID}&includeNow=1`));
+        // precondition: the now discovery ran and reached the hold
+        expect(sanitize).toHaveBeenCalledTimes(1);
+        return sanitize.mock.calls[0][1];
+      };
+
+      try {
+        setFlag(ON);
+        setRead(UNSET);
+        expect(await nowHoldSkill()).toBe("beginner");
+
+        setFlag({});
+        mockGetProfileExperienceLevel.mockResolvedValue(null);
+        expect(await nowHoldSkill()).toBeNull();
+      } finally {
+        // The includeNow block below has no beforeEach and counts these calls.
+        mockDiscoverSurfSpots.mockReset();
+      }
     });
   });
 });

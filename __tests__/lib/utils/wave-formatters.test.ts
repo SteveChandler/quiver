@@ -1,5 +1,6 @@
 import { formatWaveHeightDecimal, formatWaveHeightBucket, formatWaveRange, formatWaveHeightRangeString, getWaveSizeDescription, getWaveSizeLabel, WAVE_SIZE_LABELS, parseWaveHeight, toFaceHeightFeet, toFaceHeightRangeFeet, extractNumericWaveHeight, selectWaveHeightSource, metersToFeet, roundWaveHeight, clampWaveHeight, WAVE_HEIGHT_NUMBER_PATTERN } from "@/lib/utils/wave-formatters";
 import type { ShoalingFactors } from "@/lib/utils/wave-height-transformer";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { TERRAIN_BINS } from "@/types/terrain";
 
 describe("wave-formatters", () => {
@@ -77,6 +78,16 @@ describe("wave-formatters", () => {
   // formatWaveRange
   // =========================================================================
   describe("formatWaveRange", () => {
+    it("brackets a single numeric height", () => {
+      expect(formatWaveRange(3.5)).toBe("3-4ft");
+      expect(formatWaveRange(5.0)).toBe("4-5ft");
+    });
+
+    it("brackets zero and fractional heights in the single-height overload", () => {
+      expect(formatWaveRange(0)).toBe("Flat");
+      expect(formatWaveRange(2.49)).toBe("2-3ft");
+    });
+
     describe("with decimal precision (default)", () => {
       it("formats ranges with one decimal place", () => {
         expect(formatWaveRange([3.2, 5.8])).toBe("3.2-5.8ft");
@@ -101,13 +112,14 @@ describe("wave-formatters", () => {
       });
 
       it("formats single value ranges", () => {
-        expect(formatWaveRange([4, 4], "integer")).toBe("4ft");
-        expect(formatWaveRange([3.5, 3.5], "integer")).toBe("4ft");
+        // Integer precision uses the shared face bracket, so a whole 4 reads like native.
+        expect(formatWaveRange([4, 4], "integer")).toBe("3-4ft");
+        expect(formatWaveRange([3.5, 3.5], "integer")).toBe("3-4ft");
       });
 
-      it("rounds correctly", () => {
+      it("brackets floor/ceil like native", () => {
         expect(formatWaveRange([2.4, 5.6], "integer")).toBe("2-6ft");
-        expect(formatWaveRange([2.5, 5.5], "integer")).toBe("3-6ft");
+        expect(formatWaveRange([2.5, 5.5], "integer")).toBe("2-6ft");
       });
     });
 
@@ -509,23 +521,16 @@ describe("wave-formatters", () => {
         expect(result).toBe("3.6 ft");
       });
 
-      it("SKIPS short-circuit when CDIP > MAX_TRUSTED_CDIP_FT (falls back to model_swell)", () => {
-        // XL day: CDIP reports 12 ft, which exceeds the 10 ft trust threshold.
-        // selectWaveHeightSource falls back to model_swell (3.0m = 9.84 ft raw).
-        // The transformer MUST use the legacy pipeline on the model input,
-        // not multiply the model height by Blacks's CDIP-denominated 2.1x
-        // factor (which would display ~20.7 ft — wildly wrong).
+      it.each([12, 15, 18])("uses the CDIP bucket and caps the face at 15 ft for %s ft Hs", (cdipSigFt) => {
         const result = toFaceHeightFeet({
-          cdipSigFt: 12.0, // outside MAX_TRUSTED_CDIP_FT
-          modelSwellM: 3.0, // 9.84 ft raw
+          cdipSigFt,
+          cdipHasStationBucket: true,
+          modelSwellM: 3.0,
+          modelHsM: 4.0,
           periodS: 14,
           beach: blacksBeach,
         });
-        // Legacy: 9.84 * 1.0 (base) * 1.2 (capped period at 14s) * 1.0 = 11.808 → 11.8 ft
-        expect(result).toBe("11.8 ft");
-        // Guard against a regression that applies the CDIP bucket factor here:
-        const numeric = parseFloat(result!);
-        expect(numeric).toBeLessThan(15);
+        expect(result).toBe("15 ft");
       });
 
       it("SKIPS short-circuit when CDIP is an outlier vs model swell", () => {
@@ -633,8 +638,8 @@ describe("wave-formatters", () => {
     it("collapses to a single value when floor and ceil match", () => {
       // floor(0.8)=0, ceil(1.2)=2 -> "0-2ft" (range still meaningful)
       expect(formatWaveHeightRangeString(0.8, 1.2)).toBe("0-2ft");
-      // Both bounds collapse to 2
-      expect(formatWaveHeightRangeString(2.0, 2.0)).toBe("2ft");
+      // Both bounds collapse to 2, which reads as native's band below it
+      expect(formatWaveHeightRangeString(2.0, 2.0)).toBe("1-2ft");
       // floor(1.8)=1, ceil(2.2)=3 -> "1-3ft"
       expect(formatWaveHeightRangeString(1.8, 2.2)).toBe("1-3ft");
     });
@@ -655,7 +660,7 @@ describe("wave-formatters", () => {
       // Single-point face Hs idiom: pass low === high, get floor/ceil bracket.
       expect(formatWaveHeightRangeString(3.2, 3.2)).toBe("3-4ft");
       expect(formatWaveHeightRangeString(2.5, 2.5)).toBe("2-3ft");
-      expect(formatWaveHeightRangeString(5, 5)).toBe("5ft");
+      expect(formatWaveHeightRangeString(5, 5)).toBe("4-5ft");
     });
   });
 
@@ -792,12 +797,21 @@ describe("wave-formatters", () => {
       expect(result).toEqual({ heightFt: 8.0, source: "cdip_sig" });
     });
 
-    it("should reject untrusted high CDIP values", () => {
+    it("rejects 12 ft CDIP with a station bucket when the model does not corroborate it", () => {
       const result = selectWaveHeightSource({
-        cdipSigFt: 12.0, // > 10ft threshold
-        modelSwellM: 2.0,
+        cdipSigFt: 12.0,
+        cdipHasStationBucket: true,
+        modelSwellM: 1.0,
       });
-      expect(result?.source).toBe("model_swell");
+      expect(result).toEqual({
+        source: "model_swell",
+        heightFt: METERS_TO_FEET,
+        cdipRejection: {
+          reason: "cdip_outlier_vs_model",
+          rawCdipHs: 12,
+          rawModelHs: METERS_TO_FEET,
+        },
+      });
     });
 
     it("should fall back to CDIP swell when model unavailable", () => {
@@ -902,8 +916,8 @@ describe("wave-formatters", () => {
         cdipSigFt: 2.0,
         periodS: 10,
       });
-      // 2.0 * 1.0 = 2.0ft face → floor/ceil bracket collapses to "2ft" (Surfline parity, no × 1.5).
-      expect(result).toBe("2ft");
+      // 2.0 * 1.0 = 2.0ft face → a whole number reads as native's band below it (no × 1.5).
+      expect(result).toBe("1-2ft");
     });
 
     it("should return null when no data available", () => {
@@ -941,7 +955,7 @@ describe("wave-formatters", () => {
 
     it("should apply beach terrain direction factor", () => {
       const fullAccess = toFaceHeightRangeFeet({
-        cdipSigFt: 2.0,
+        cdipSigFt: 4.0,
         periodS: 10,
         swellDirectionDeg: 180,
         beach: {
@@ -950,7 +964,7 @@ describe("wave-formatters", () => {
         },
       });
       const noAccess = toFaceHeightRangeFeet({
-        cdipSigFt: 2.0,
+        cdipSigFt: 4.0,
         periodS: 10,
         swellDirectionDeg: 180,
         beach: {
@@ -958,6 +972,9 @@ describe("wave-formatters", () => {
           swell_access_factors: Array(72).fill(0.0),
         },
       });
+      // 4.0 ft full access vs 2.4 ft at the 0.6 direction floor. At 2.0 ft both
+      // (2.0 and 1.2) read "1-2ft" under the whole-number band, so use a size where
+      // the terrain factor moves the bracket.
       // Full access should produce larger range
       expect(fullAccess).not.toBe(noAccess);
     });

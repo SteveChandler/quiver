@@ -32,7 +32,7 @@ import {
 } from "@/actions/city/city-metadata-actions";
 import {
   getCityIntentDataAvailability,
-  getCityTideData,
+  getCityTideDataExpanded,
   getCityWaterTempHistory,
 } from "@/actions/forecast/intent-forecast-actions";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
@@ -74,10 +74,11 @@ describe("legacy state/city URLs", () => {
     });
     (getCityExcludeIntents as jest.Mock).mockResolvedValue([]);
     (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("unknown");
-    (getCityTideData as jest.Mock).mockResolvedValue({
-      nextTideType: "high",
+    // The tide page title reads the same expanded series as the page body.
+    (getCityTideDataExpanded as jest.Mock).mockResolvedValue({
+      nextTideType: "High",
       nextTideTime: "8:00 PM",
-      nextTideHeight: 4.2,
+      nextTideHeight: "4.2 ft",
     });
     (getCityWaterTempHistory as jest.Mock).mockResolvedValue({
       currentTemp: 68,
@@ -227,7 +228,7 @@ describe("legacy state/city URLs", () => {
   );
 
   test.each([
-    ["tide", getCityTideData],
+    ["tide", getCityTideDataExpanded],
     ["water-temp", getCityWaterTempHistory],
   ])(
     "noindexes %s city pages only when live data is confirmed missing",
@@ -257,7 +258,7 @@ describe("legacy state/city URLs", () => {
   );
 
   test.each([
-    ["tide", getCityTideData],
+    ["tide", getCityTideDataExpanded],
     ["water-temp", getCityWaterTempHistory],
   ])(
     "noindexes %s city pages when no reading resolves and availability is unknown",

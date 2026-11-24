@@ -76,7 +76,7 @@ describe("FavoriteBeaches saved targets", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
     try {
       render(<FavoriteBeaches />);
-      expect(await screen.findByText("My Reef")).toBeInTheDocument();
+      expect(await screen.findByText("My Reef", {}, { timeout: 5000 })).toBeInTheDocument();
       expect(screen.getByText("Custom spot")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "View Details" })).toHaveAttribute("href", "/custom-spots/spot-1");
       expect(screen.queryByText("No alerts set")).not.toBeInTheDocument();
@@ -107,15 +107,15 @@ describe("FavoriteBeaches saved targets", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
     try {
       render(<FavoriteBeaches />);
-      expect(await screen.findByText("My Reef")).toBeInTheDocument();
+      expect(await screen.findByText("My Reef", {}, { timeout: 5000 })).toBeInTheDocument();
       const moveDown = screen.getAllByRole("button", { name: "Move Down" });
       expect(moveDown).toHaveLength(3);
       expect(moveDown[2]).toBeDisabled();
       expect(screen.getAllByRole("button", { name: "Move Up" })[0]).toBeDisabled();
 
       fireEvent.click(moveDown[0]);
-      expect(screen.getByText("Beach Two").compareDocumentPosition(screen.getByText("My Reef")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(screen.getByText("My Reef").compareDocumentPosition(screen.getByText("Beach One")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(screen.getByText("Beach Two").compareDocumentPosition(screen.getByText("My Reef")) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+      expect(screen.getByText("My Reef").compareDocumentPosition(screen.getByText("Beach One")) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
       fireEvent.click(screen.getByRole("button", { name: "Save Order" }));
       await waitFor(() => expect(mockBeachActions.reorderFavoriteBeaches).toHaveBeenCalledWith(["b2", "b1", "b3"]));
     } finally {

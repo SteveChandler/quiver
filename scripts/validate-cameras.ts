@@ -11,6 +11,7 @@
  * Output: single JSON object to stdout (see .claude/commands/cam-health.md for schema)
  */
 
+import { isBlockedCameraUrl } from "../lib/media/camera-provider-policy";
 import { config } from "./load-env.mjs";
 import { createClient } from "@supabase/supabase-js";
 import pLimit from "p-limit";
@@ -22,7 +23,6 @@ config({ path: ".env.local" });
 // ---------------------------------------------------------------------------
 
 type CameraType =
-  | "hdontap"
   | "youtube"
   | "surfline_hls"
   | "surfchex_hls"
@@ -86,7 +86,6 @@ interface ValidationReport {
 function classifyCameraType(url: string): CameraType {
   const lower = url.toLowerCase();
 
-  if (lower.includes("hdontap.com")) return "hdontap";
   if (lower.includes("youtube.com") || lower.includes("youtu.be"))
     return "youtube";
   if (lower.includes("surfline") && lower.endsWith(".m3u8"))
@@ -113,7 +112,8 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    if (isBlockedCameraUrl(url)) throw new Error("Retired camera provider");
+    const response = await fetch(url, { ...init, signal: controller.signal, redirect: "manual" });
     return response;
   } finally {
     clearTimeout(timer);
@@ -124,35 +124,6 @@ async function fetchWithTimeout(
 // Type-specific validators
 // Returns { live: boolean; detail: string }
 // ---------------------------------------------------------------------------
-
-async function validateHdontap(
-  url: string
-): Promise<{ live: boolean; detail: string }> {
-  // Fetch the embed/stream page and look for an HLS manifest URL in the body
-  const response = await fetchWithTimeout(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; QuiverBot/1.0; +https://quiversurf.app)",
-    },
-  });
-
-  if (!response.ok) {
-    return { live: false, detail: `HTTP ${response.status}` };
-  }
-
-  const text = await response.text();
-  const hasHls =
-    text.includes(".m3u8") ||
-    text.includes("application/vnd.apple.mpegurl") ||
-    text.includes("hls") ||
-    text.includes("stream");
-
-  if (!hasHls) {
-    return { live: false, detail: "No HLS URL found in page" };
-  }
-
-  return { live: true, detail: "" };
-}
 
 async function validateYoutube(
   url: string
@@ -313,8 +284,6 @@ async function validateCamera(
   type: CameraType
 ): Promise<{ live: boolean; detail: string }> {
   switch (type) {
-    case "hdontap":
-      return validateHdontap(url);
     case "youtube":
       return validateYoutube(url);
     case "surfline_hls":

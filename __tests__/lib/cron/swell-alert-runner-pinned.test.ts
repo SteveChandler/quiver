@@ -5,6 +5,9 @@
  * only the Supabase client faked.
  */
 
+// The swell_story_push switch is a database row; these pushes are today's text, with it off.
+jest.mock("@/lib/flags/swell-story", () => ({ isSwellStoryPushEnabled: jest.fn(async () => false), isSwellStoryCardEnabled: jest.fn(async () => false) }));
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runSwellAlertCron, type SwellAlertProfile } from "@/lib/cron/swell-alert-runner";
@@ -556,7 +559,7 @@ describe("pinned swell follow-ups on the real detector", () => {
       peak_height_ft: Number(state.last_face_height_ft),
     });
     expect(state).toMatchObject({ event_key: saturdayKey, last_peak_at: event.peakAt, last_period_s: String(event.periodS) });
-    expect(first.payload?.body).toContain("Saturday morning");
+    expect(first.payload?.body).toContain("peaks Saturday Oct 10 in the morning");
   });
 
   it("never turns a Todos Santos 1.5 ft @ 10 s pin into a different 3 ft @ 11 s swell two days later", async () => {

@@ -9,6 +9,9 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 jest.mock("@/lib/seo/forecast-indexability", () => ({
+  ForecastIndexabilityUnavailableError: jest.requireActual("@/lib/seo/forecast-indexability")
+    .ForecastIndexabilityUnavailableError,
+  reportForecastCoverageUnavailable: jest.fn(),
   getForecastIndexabilityForBeaches: jest.fn(async (beaches: Array<{ id: string }>) =>
     new Map(
       beaches.map((beach) => [
@@ -34,7 +37,11 @@ import {
   flattenIndexNowUrlGroups,
   type IndexNowUrlGroups,
 } from "@/lib/seo/indexnow-url-collectors";
-import { getForecastIndexabilityForBeaches } from "@/lib/seo/forecast-indexability";
+import {
+  ForecastIndexabilityUnavailableError,
+  getForecastIndexabilityForBeaches,
+  reportForecastCoverageUnavailable,
+} from "@/lib/seo/forecast-indexability";
 import { getIndexableSeoFunnelRoutes } from "@/lib/seo/funnel-pages";
 
 type MockQueryChain = {
@@ -288,5 +295,30 @@ describe("IndexNow URL collectors", () => {
     expect(groups.beachDetailUrls).not.toContain(
       `${SITE_URL}/ca/san-diego/stale-break`,
     );
+  });
+
+  it("skips beach URLs and reports when forecast coverage is unknown", async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    const beachDetailChain = createQueryChain();
+    beachDetailChain.range.mockResolvedValue({
+      data: [{ id: "beach-1", slug: "blacks", city: "San Diego", state: "CA", country: "USA" }],
+      error: null,
+    });
+    const bestTimeChain = createQueryChain();
+    bestTimeChain.then.mockImplementation((resolve) => resolve({ data: [], error: null }));
+    mockFrom.mockImplementation((table: string) => {
+      if (table !== "beaches") return createQueryChain();
+      const beachesCallIndex = mockFrom.mock.calls.filter(([calledTable]) => calledTable === "beaches").length;
+      return beachesCallIndex === 1 ? beachDetailChain : bestTimeChain;
+    });
+    const failure = new ForecastIndexabilityUnavailableError("coverage query failed", "timeout");
+    (getForecastIndexabilityForBeaches as jest.Mock).mockRejectedValueOnce(failure);
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const groups = await collectIndexNowUrlGroups();
+
+    expect(groups.beachDetailUrls).toEqual([]);
+    expect(reportForecastCoverageUnavailable).toHaveBeenCalledWith(failure);
+    consoleError.mockRestore();
   });
 });

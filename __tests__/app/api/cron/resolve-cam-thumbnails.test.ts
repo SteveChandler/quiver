@@ -45,10 +45,6 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-jest.mock("@/lib/media/cam-thumbnail", () => ({
-  getCamThumbnailUrl: jest.fn(() => null),
-}));
-
 type EmptyBeachSourcesQuery = {
   update: jest.Mock;
   select: jest.Mock<EmptyBeachSourcesQuery, [string]>;
@@ -166,41 +162,37 @@ describe("resolve cam thumbnails cron route", () => {
     expect(beachSourcesQuery.update).not.toHaveBeenCalled();
   });
 
-  it("reports an ok zero when the only eligible partner page exposes no snapshot", async () => {
+  it("skips retired sources during forced refresh without any network calls", async () => {
     beachSourcesQuery = createEmptyBeachSourcesQuery([
-      { beach_id: "ob", camera_url: "https://www.obhotel.com/Webcam-Oceanbeach.php", thumbnail_url: null },
+      { beach_id: "portal", camera_url: "https://portal.hdontap.com/?stream=beach", thumbnail_url: null },
+      { beach_id: "page", camera_url: "https://HDONTAP.COM./stream/1/", thumbnail_url: null },
+      { beach_id: "thumbnail-only", camera_url: null, thumbnail_url: "https://storage.hdontap.com/still.jpg" },
     ]);
-    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue(
-      new Response("<script>HDRelay.create({})</script>", { headers: { "content-type": "text/html" } })
-    );
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchSpy = jest.spyOn(global, "fetch").mockRejectedValue(new Error("Unexpected network call"));
     try {
-      const response = await GET(new NextRequest("http://localhost/api/cron/resolve-cam-thumbnails"));
-      expect((await response.json()).data).toMatchObject({ total: 1, updated: 0, skipped: 1, failed: 0 });
-      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-        status: "ok", produced: 0, legitimately_zero_reason: "1 partner camera page(s) exposed no HDOnTap snapshot",
-      }));
-      expect(Sentry.captureMessage).not.toHaveBeenCalled();
+      const response = await GET(new NextRequest("http://localhost/api/cron/resolve-cam-thumbnails?force=true"));
+      expect((await response.json()).data).toMatchObject({ total: 3, updated: 0, skipped: 3, failed: 0 });
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(beachSourcesQuery.update).not.toHaveBeenCalled();
     } finally {
       fetchSpy.mockRestore();
-      warnSpy.mockRestore();
     }
   });
 
   it.each([false, true])("keeps a failure when an eligible thumbnail cannot be stored (write fails: %s)", async (writeFails) => {
     beachSourcesQuery = createEmptyBeachSourcesQuery([
-      { beach_id: "supported", camera_url: "https://portal.hdontap.com/?stream=beach", thumbnail_url: null },
+      { beach_id: "supported", camera_url: "https://www.youtube.com/watch?v=Yc6q3zprw0Q", thumbnail_url: null },
     ]);
-    beachSourcesQuery.update.mockReturnValue({ eq: jest.fn().mockResolvedValue({
+    beachSourcesQuery.update.mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({
       error: writeFails ? { message: "write failed" } : null,
-    }) });
+    }) }) });
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     try {
       const response = await GET(new NextRequest("http://localhost/api/cron/resolve-cam-thumbnails"));
       expect(response.status).toBe(200);
       expect((await response.json()).data).toMatchObject({ updated: writeFails ? 0 : 1, failed: writeFails ? 1 : 0 });
       expect(beachSourcesQuery.update).toHaveBeenCalledWith({
-        thumbnail_url: "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_beach.stream.jpg",
+        thumbnail_url: "https://img.youtube.com/vi/Yc6q3zprw0Q/hqdefault.jpg",
       });
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
         status: writeFails ? "failed" : "ok", produced: writeFails ? 0 : 1, expected_min: 0,

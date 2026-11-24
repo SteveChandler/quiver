@@ -54,6 +54,10 @@ export async function getBeachesBySlug(slug: string) {
   return getBeachesBySlugFromDb(slug);
 }
 
+// Spot directories list beaches for any day, so runoff after rain (a hold that
+// lifts on its own) must not empty them; standing holds still remove a beach.
+const DIRECTORY_RANKING = { compare: () => 0, standingHoldsOnly: true } as const;
+
 /**
  * Intent to skill_level mapping for database queries.
  */
@@ -132,7 +136,7 @@ async function _getBeachesByIntentAndCityInternal(
   const { data, error } = await query.order("name");
   if (error) throw error;
 
-  return rankBeaches((data ?? []) as Beach[], { compare: () => 0 });
+  return rankBeaches((data ?? []) as Beach[], DIRECTORY_RANKING);
 }
 
 const DEFAULT_INTENT_CITY_BEACHES_REVALIDATE_SECONDS = 900;
@@ -214,7 +218,7 @@ async function _getBeachesByStateInternal(stateSlug: string): Promise<Beach[]> {
     .order("name");
 
   if (error) throw error;
-  return rankBeaches((data ?? []) as Beach[], { compare: () => 0 });
+  return rankBeaches((data ?? []) as Beach[], DIRECTORY_RANKING);
 }
 
 /**
@@ -282,9 +286,7 @@ async function _getBeachesByIntentAndStateInternal(
 
   if (error) throw error;
 
-  const ranked = await rankBeaches((data ?? []) as Beach[], {
-    compare: () => 0,
-  });
+  const ranked = await rankBeaches((data ?? []) as Beach[], DIRECTORY_RANKING);
   return ranked.slice(0, 100);
 }
 

@@ -146,6 +146,17 @@ describe("condition and greeting copy voice", () => {
     expect(loud(labels)).toEqual([]);
   });
 
+  it("keeps the Daily Call skip sentences calm", () => {
+    const source = readFileSync(path.join(process.cwd(), "lib/utils/surf-call-logic.ts"), "utf8");
+    const start = source.indexOf("function skipWhySentence(");
+    expect(start).toBeGreaterThan(-1);
+    const body = source.slice(start, source.indexOf("\n}\n", start));
+    const sentences = [...body.matchAll(/(['`])(.*?)\1/g)].map((found) => found[2]);
+
+    expect(sentences.filter((sentence) => sentence.endsWith(".")).length).toBeGreaterThanOrEqual(5);
+    expect(loud(sentences)).toEqual([]);
+  });
+
   it("keeps the swell analyzer share text calm", () => {
     expect(loud((["optimal", "acceptable", "poor"] as const).map((status) => (
       swellMatchShareText(status, "Blacks")

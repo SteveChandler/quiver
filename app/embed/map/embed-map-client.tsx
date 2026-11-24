@@ -9,7 +9,6 @@ import type { Beach } from "@/types/database";
 import type { HourlySwellTimeline } from "@/lib/domains/conditions/map-forecast";
 import {
   SWELL_FIELD_PARTICLE_COLOR,
-  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
   type SwellLayerId,
 } from "@/components/map/swell-map-theme";
 import type { MapSpotConditions } from "@/components/map/interactive-map";
@@ -157,9 +156,7 @@ function restoredForecastIndex(
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
   const swellFieldStage = embedMapStage(searchParams.get("stage"));
-  const particleColors = swellFieldStage === "dark"
-    ? SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE
-    : SWELL_FIELD_PARTICLE_COLOR;
+  const particleColors = SWELL_FIELD_PARTICLE_COLOR;
   const mapChromeTopOffsetPx = embedMapChromeTopOffsetPx(searchParams.get("chromeTop"));
   const isHourlyTimeline = searchParams.get("timeline") === "hourly";
   const timelineTimezone = useMemo(

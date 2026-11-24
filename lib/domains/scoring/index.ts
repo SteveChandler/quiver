@@ -35,8 +35,15 @@ export { trendPreferenceScorer } from './scorers/trend-preference-scorer';
 export type {
   ConditionCharacter,
   ConditionCharacterCategory,
+  SkipCause,
+  SmallWeakReason,
 } from './condition-character';
-export { getConditionCharacter } from './condition-character';
+export {
+  getConditionCharacter,
+  getConditionCharacterDetails,
+  getSkipCause,
+  getSkipCharacter,
+} from './condition-character';
 
 // Discovery adapter (backwards compatibility with surf-discovery-service)
 export {

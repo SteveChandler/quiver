@@ -11,6 +11,7 @@
 
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
 import { resolveOffshoreDeg } from '@/lib/domains/shared/wind-orientation';
+import { median } from '@/lib/utils/median';
 import { getDirectionDegrees } from '@/lib/utils/number-parsing';
 import { classifyWindRelation } from '@/lib/utils/wind-relation';
 
@@ -48,16 +49,6 @@ function mode(arr: string[]): string | undefined {
     }
   }
   return best;
-}
-
-/** Median of a numeric array. Returns undefined when array is empty. */
-function median(arr: number[]): number | undefined {
-  if (arr.length === 0) return undefined;
-  const sorted = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
 }
 
 /**
@@ -133,7 +124,7 @@ function buildSwellClause(recs: SurfDiscoveryRecommendation[]): string | null {
       .filter((p): p is string => p !== null && p !== undefined && p.trim() !== '')
       .map(p => parseFloat(p))
       .filter(p => !isNaN(p) && p > 0);
-    period = median(periods);
+    period = periods.length ? median(periods) : undefined;
   }
 
   if (period === undefined) return dominantDir;
@@ -221,7 +212,7 @@ function buildWindTrendClause(
 /**
  * Generates a one-line regional conditions synthesis from ranked recommendations.
  *
- * Returns a non-empty string always — falls back to "Small surf, pick your spot for fun."
+ * Returns '' when no clause has data; consumers treat '' as "no regional call".
  */
 export function generateRegionalCall(
   recs: SurfDiscoveryRecommendation[],
@@ -243,8 +234,6 @@ export function generateRegionalCall(
   if (swellClause) parts.push(swellClause);
   if (decoratedAspect) parts.push(decoratedAspect);
   if (windTrendClause) parts.push(windTrendClause);
-
-  if (parts.length === 0) return 'Small surf, pick your spot for fun.';
 
   return parts.join(' · ');
 }

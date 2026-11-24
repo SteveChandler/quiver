@@ -11,6 +11,7 @@ import {
   withAuth,
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ async function getHandler(
       viewerId: user?.id ?? null,
     });
     return NextResponse.json(
-      { photos, feature: getCommunityPhotoFeatureFlags(user?.id ?? null) },
+      { photos, feature: getCommunityPhotoFeatureFlags() },
       {
         headers: {
           "Cache-Control": "private, no-store, no-cache, must-revalidate",
@@ -49,10 +50,12 @@ async function getHandler(
   }
 }
 
-export const GET = withCommunityPhotoRouteObservability(
+const handleGet = withCommunityPhotoRouteObservability(
   {
     route: "/api/community-photos",
     surface: "read",
   },
   withAuth(getHandler, { optional: true }),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/community-photos");

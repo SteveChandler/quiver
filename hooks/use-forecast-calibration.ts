@@ -6,14 +6,9 @@ import { toast } from "sonner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import {
   createForecastSnapshot,
-  getBeachForecastAccuracy,
   getBeachSessionSnapshots,
 } from "@/actions/forecast-calibration-actions";
-import type {
-  BeachForecastAccuracy,
-  SessionForecastSnapshot,
-  Session,
-} from "@/types/database";
+import type { Session } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ForecastFeedback } from "@/components/forecast/forecast-feedback-form";
 
@@ -27,20 +22,6 @@ export function useForecastCalibration({
   beachId,
 }: UseForecastCalibrationProps = {}) {
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-
-  // Fetch beach accuracy data
-  const fetchBeachAccuracy = useCallback(async () => {
-    if (!beachId) return null;
-    const result = await getBeachForecastAccuracy(beachId);
-    return result.success ? result.data : null;
-  }, [beachId]);
-
-  const {
-    data: beachAccuracy,
-    loading: accuracyLoading,
-    error: accuracyError,
-    refetch: refetchAccuracy,
-  } = useDataFetcher(fetchBeachAccuracy);
 
   // Fetch session snapshots for comparison
   const fetchSessionSnapshots = useCallback(async () => {
@@ -116,8 +97,6 @@ export function useForecastCalibration({
             "Forecast feedback submitted! Thank you for helping improve forecasts."
           );
 
-          // Refetch data to show updated accuracy
-          refetchAccuracy();
           refetchSnapshots();
 
           return result.data;
@@ -136,7 +115,7 @@ export function useForecastCalibration({
         setSubmittingFeedback(false);
       }
     },
-    [refetchAccuracy, refetchSnapshots]
+    [refetchSnapshots]
   );
 
   // Check if feedback has already been submitted for a session
@@ -148,21 +127,6 @@ export function useForecastCalibration({
     },
     [sessionSnapshots]
   );
-
-  // Get accuracy statistics
-  const getAccuracyStats = useCallback(() => {
-    if (!beachAccuracy) return null;
-
-    return {
-      overallScore: beachAccuracy.overall_accuracy_score,
-      waveHeightDelta: beachAccuracy.avg_wave_height_delta,
-      windSpeedDelta: beachAccuracy.avg_wind_speed_delta,
-      totalSessions: beachAccuracy.total_sessions_count,
-      last30Days: beachAccuracy.last_30_days_count,
-      last7Days: beachAccuracy.last_7_days_count,
-      lastUpdated: beachAccuracy.updated_at,
-    };
-  }, [beachAccuracy]);
 
   // Get confidence level based on accuracy score
   const getConfidenceLevel = useCallback((score?: number | null) => {
@@ -201,24 +165,19 @@ export function useForecastCalibration({
 
   return {
     // Data
-    beachAccuracy,
     sessionSnapshots,
-    accuracyStats: getAccuracyStats(),
 
     // Loading states
-    accuracyLoading,
     snapshotsLoading,
     submittingFeedback,
-    loading: accuracyLoading || snapshotsLoading,
+    loading: snapshotsLoading,
 
     // Error states
-    accuracyError,
     snapshotsError,
-    error: accuracyError || snapshotsError,
+    error: snapshotsError,
 
     // Actions
     submitForecastFeedback,
-    refetchAccuracy,
     refetchSnapshots,
 
     // Utilities

@@ -87,6 +87,37 @@ it.each([
   expect(selectBestWindow({ ...args, now: localTime(expired) })).toBeNull();
 });
 
+describe('hourly rows', () => {
+  const HOURLY_DAY = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
+
+  it('keep the row under way live for an hour, not a 3-hour grid step', () => {
+    const args = { ...options(HOURLY_DAY.slice(0, 4), '09:59'), timeSlot: 'dawn-patrol' as const };
+    expect(selectBestWindow(args)?.start).toEqual(localTime('09:00'));
+    expect(selectBestWindow({ ...args, now: localTime('10:00') })).toBeNull();
+  });
+
+  it('build a multi-hour window that the session-duration gate keeps', () => {
+    const rejections: string[] = [];
+    const window = selectBestWindow({
+      ...options(HOURLY_DAY, '09:30'),
+      onRejection: (rejection) => rejections.push(rejection.gate),
+    });
+    expect(window?.start.getTime()).toBeLessThanOrEqual(localTime('09:30').getTime());
+    expect((window!.end.getTime() - window!.start.getTime()) / 3_600_000).toBeGreaterThanOrEqual(3);
+    expect(rejections).not.toContain('session_duration');
+  });
+
+  it('end the window inside the hour the score drops, interpolated across one hour', () => {
+    jest.mocked(windowScorer.scoreWindowForSelection).mockImplementation((forecast) => (
+      forecast.forecast_at < localTime('10:00').toISOString() ? 70 : 10
+    ));
+    const window = selectBestWindow(options(HOURLY_DAY, '06:45'));
+    expect(window?.start.getTime()).toBeLessThanOrEqual(localTime('07:00').getTime());
+    expect(window!.end.getTime()).toBeGreaterThan(localTime('09:00').getTime());
+    expect(window!.end.getTime()).toBeLessThanOrEqual(localTime('10:00').getTime());
+  });
+});
+
 it.each([90, 10])('returns tomorrow when today expired at last light (today score %s)', (todayScore) => {
   jest.mocked(windowScorer.scoreWindowForSelection).mockImplementation((forecast) => (
     forecast.forecast_at >= localTime('00:00', '2026-10-17').toISOString() ? 10 : todayScore

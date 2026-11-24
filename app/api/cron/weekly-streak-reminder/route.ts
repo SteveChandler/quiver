@@ -9,6 +9,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { readAllPages } from "@/lib/alerts/swell-events/paging";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { chunk } from "@/lib/utils/chunk";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
 import { normalizeIanaTimezone } from "@/lib/utils/iana-timezone";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { buildNotificationRelevanceMetadata } from "@/lib/notifications/relevance";
@@ -21,6 +22,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -273,6 +275,7 @@ async function _GET(request: Request): Promise<Response> {
           .select("user_id, arrival_time")
           .in("user_id", userIds)
           .is("deleted_at", null)
+          .or(SURF_SESSION_SOURCE_FILTER)
           .gte("arrival_time", startsAt)
           .lt("arrival_time", endsAt)
           .order("id")
@@ -404,8 +407,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(
+const handleGet = withObservedCron(
   "/api/cron/weekly-streak-reminder",
   _GET,
   SENTRY_MONITOR
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/weekly-streak-reminder");

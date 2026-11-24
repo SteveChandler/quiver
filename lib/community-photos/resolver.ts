@@ -1,7 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase";
 import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 
-import { getCommunityPhotoFeatureFlags } from "./contracts";
 import { CommunityPhotoError } from "./errors";
 import { mergeResolvedSpotPhotos } from "./ranking";
 import type {
@@ -118,9 +117,6 @@ export async function getCommunityPhotoById({
   photoId: string;
   viewerId: string;
 }): Promise<ResolvedSpotPhoto> {
-  if (!getCommunityPhotoFeatureFlags(viewerId).readEnabled) {
-    throw new CommunityPhotoError("feature_disabled");
-  }
   const database = createServiceRoleClient() as unknown as ResolverClient;
   const { data, error } = await database.rpc(
     "resolve_community_spot_photo_by_id_v1",
@@ -148,8 +144,6 @@ export async function getCommunityPhotosForTarget({
   viewerId?: string | null;
   limit?: number;
 }): Promise<ResolvedSpotPhoto[]> {
-  if (!getCommunityPhotoFeatureFlags(viewerId).readEnabled) return [];
-
   const client = createServiceRoleClient() as unknown as ResolverClient;
   const { data, error } = await client.rpc("resolve_community_spot_photos_v1", {
     p_target_type: target.type,
@@ -176,23 +170,20 @@ export async function getResolvedSpotPhotoMap({
   for (const target of targets) result.set(communityPhotoTargetKey(target), []);
   if (targets.length === 0) return result;
 
-  const readEnabled = getCommunityPhotoFeatureFlags(viewerId).readEnabled;
   const client = createServiceRoleClient() as unknown as ResolverClient;
   const beachTargets = targets.filter(({ type }) => type === "beach");
   const curatedPromise = getCuratedPhotoRowsForPublicBeaches(
     beachTargets.map(({ id }) => id),
     limitPerTarget,
   );
-  const communityPromise = readEnabled
-    ? client.rpc("resolve_community_spot_photo_batch_v1", {
-        p_targets: targets.map((target) => ({
-          target_type: target.type,
-          target_id: target.id,
-        })),
-        p_viewer_id: viewerId,
-        p_limit_per_target: limitPerTarget,
-      })
-    : Promise.resolve({ data: [], error: null });
+  const communityPromise = client.rpc("resolve_community_spot_photo_batch_v1", {
+    p_targets: targets.map((target) => ({
+      target_type: target.type,
+      target_id: target.id,
+    })),
+    p_viewer_id: viewerId,
+    p_limit_per_target: limitPerTarget,
+  });
   const [curatedResult, communityResult] = await Promise.all([
     curatedPromise,
     communityPromise,

@@ -10,11 +10,12 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { BoardCreateSchema } from "@/lib/validation/schemas";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 /**
  * GET /api/boards - List user's boards
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { data, error } = await supabase
       .from("boards")
@@ -22,6 +23,7 @@ export const GET = withAuth(
         "id, user_id, name, board_type, dimensions, description, image_url, size, volume, session_count, created_at, updated_at"
       )
       .eq("user_id", user.id)
+      .is("retired_at", null)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;
@@ -110,3 +112,5 @@ export function PATCH() {
 export function DELETE() {
   return methodNotAllowed(["GET", "POST"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/boards");

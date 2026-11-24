@@ -153,7 +153,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
 
     // Mock successful weather API responses
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url.includes("points")) {
+      if (url.includes("/points/")) {
         // Mock points API response
         return Promise.resolve({
           ok: true,
@@ -233,7 +233,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
       });
     });
 
-    it("should have forecasts spanning from today to 12 days ahead", async () => {
+    it("should have forecasts spanning the stored horizon", async () => {
       const result = await fetchBeachForecasts("462bfb3b-b402-485d-b907-7eedfe5e828e");
 
       const dates = Object.keys(result.forecastsByDate).sort();
@@ -245,16 +245,15 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
         (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      // Should span approximately 11 days (from day 0 to day 11 = 12 days total)
-      expect(dayDifference).toBe(11);
+      // Day 0 to day DAYS - 1.
+      expect(dayDifference).toBe(FORECAST_CONSTANTS.DAYS - 1);
     });
   });
 
   describe("generateComprehensiveForecast", () => {
-    it("should generate forecasts for 12 days", async () => {
+    it("should generate forecasts for the stored horizon", async () => {
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      // Should generate 96 total forecasts (12 days × 8 per day)
       expect(forecasts.length).toBe(TOTAL_FORECASTS);
 
       // Verify forecasts span the expected date range
@@ -361,8 +360,8 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
 
       // Should still generate forecasts using fallback data
       expect(forecasts.length).toBe(TOTAL_FORECASTS);
-      // All forecasts should have fallback values
-      expect(forecasts[0].weather_condition).toBe("Partly Cloudy");
+      // Without NWS weather the row stores no weather, never a stand-in
+      expect(forecasts[0].weather_condition).toBeNull();
       // Wind is never invented: no NWS data means no wind.
       expect(forecasts[0].wind_speed).toBeNull();
       expect(forecasts[0].wind_direction).toBeNull();
@@ -381,7 +380,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
     it("should handle empty API responses", async () => {
       // Mock fetch to return empty responses
       (global.fetch as jest.Mock).mockImplementation((url: string) => {
-        if (url.includes("points")) {
+        if (url.includes("/points/")) {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve({ properties: {} }),
@@ -409,8 +408,8 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
 
       // Should gracefully degrade and still return forecasts
       expect(forecasts.length).toBe(TOTAL_FORECASTS);
-      // Should use fallback data
-      expect(forecasts[0].weather_condition).toBe("Partly Cloudy");
+      // Without NWS weather the row stores no weather
+      expect(forecasts[0].weather_condition).toBeNull();
     }, 15000);
 
     it("should handle malformed API responses gracefully", async () => {
@@ -426,7 +425,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
 
       // Should still generate forecasts with fallback data
       expect(forecasts.length).toBe(TOTAL_FORECASTS);
-      expect(forecasts[0].weather_condition).toBe("Partly Cloudy");
+      expect(forecasts[0].weather_condition).toBeNull();
     }, 10000);
 
     it("should handle rate limiting errors gracefully", async () => {
@@ -443,7 +442,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
 
       // Should gracefully degrade and still return forecasts
       expect(forecasts.length).toBe(TOTAL_FORECASTS);
-      expect(forecasts[0].weather_condition).toBe("Partly Cloudy");
+      expect(forecasts[0].weather_condition).toBeNull();
     }, 10000);
   });
 

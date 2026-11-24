@@ -12,6 +12,37 @@ import type { RecommendationLabel } from "@/lib/scoring";
 
 const SCORED_SLOT_DURATION_MS = 3 * 60 * 60 * 1000;
 
+/**
+ * How long each scored slot is in effect: until the next slot, at most one 3-hour
+ * grid step. The last slot repeats the gap before it (3 h when there is none),
+ * so hourly slots last an hour and the 3-hourly grid is unchanged. A stored
+ * last slot after bridged hours repeats the stored cadence instead: its next
+ * stored row was beyond the fetch, not an hour away. The scored route binds its
+ * hold candidates with this, and the boundary below checks them against it.
+ */
+export function scoredSlotDurationsMs<T extends { forecastAt: string; bridged?: boolean }>(
+  slots: readonly T[],
+): Map<T, number> {
+  const durations = new Map<T, number>();
+  let durationMs = SCORED_SLOT_DURATION_MS;
+  let storedGapMs = SCORED_SLOT_DURATION_MS;
+  let lastStoredMs = Number.NaN;
+  slots.forEach((slot, index) => {
+    const atMs = Date.parse(slot.forecastAt);
+    if (!slot.bridged) {
+      const storedGap = atMs - lastStoredMs;
+      if (Number.isFinite(storedGap) && storedGap > 0) storedGapMs = Math.min(storedGap, SCORED_SLOT_DURATION_MS);
+      lastStoredMs = atMs;
+    }
+    const next = slots[index + 1];
+    const gapMs = next ? Date.parse(next.forecastAt) - atMs : Number.NaN;
+    if (Number.isFinite(gapMs) && gapMs > 0) durationMs = Math.min(gapMs, SCORED_SLOT_DURATION_MS);
+    else if (!next && !slot.bridged) durationMs = storedGapMs;
+    durations.set(slot, durationMs);
+  });
+  return durations;
+}
+
 export interface BulkForecastCandidateBinding {
   beachId: string;
   candidate: MajorEventHoldCandidate;
@@ -62,6 +93,7 @@ export interface ScoredForecastGoldenWindowBinding {
 interface ScoredForecastSlotLike {
   forecastAt: string;
   compositeScore: number;
+  bridged?: boolean;
 }
 
 interface ScoredForecastGoldenWindowLike {
@@ -328,21 +360,24 @@ function validateScoredBindings(
   const slotByForecastAt = new Map(
     response.timeSlots.map((slot) => [slot.forecastAt, slot]),
   );
+  const slotDurations = scoredSlotDurationsMs(response.timeSlots);
   for (const binding of slotBindings) {
     const slot = slotByForecastAt.get(binding.forecastAt);
+    const durationMs = slot ? slotDurations.get(slot) : undefined;
     const startsAtMs = instant(binding.candidate?.startsAt);
     const endsAtMs = instant(binding.candidate?.endsAt);
     const expectedEnd =
-      startsAtMs === null
+      startsAtMs === null || durationMs === undefined
         ? null
-        : new Date(startsAtMs + SCORED_SLOT_DURATION_MS).toISOString();
+        : new Date(startsAtMs + durationMs).toISOString();
     if (
       !slot ||
+      durationMs === undefined ||
       !isNonEmptyString(binding.candidate?.candidateId) ||
       binding.candidate.beachId !== beachId ||
       binding.candidate.startsAt !== slot.forecastAt ||
       startsAtMs === null ||
-      endsAtMs !== startsAtMs + SCORED_SLOT_DURATION_MS ||
+      endsAtMs !== startsAtMs + durationMs ||
       binding.candidate.endsAt !== expectedEnd
     ) {
       return null;

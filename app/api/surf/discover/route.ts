@@ -9,23 +9,33 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
+import {
+  DISCOVERY_STAGES,
+  DiscoveryStageTimer,
+  type DiscoveryStageSnapshot,
+} from '@/lib/services/discovery/discovery-stage-timer';
 import { CANDIDATE_POOL_LIMIT } from '@/lib/services/discovery/candidate-pool-builder';
 import {
   hasExplicitMajorEventHold,
   hasNoDiscoveryCandidates,
 } from '@/lib/services/discovery/discovery-availability';
-import { entitlementFromRow } from '@/lib/alerts/entitlements';
+import { resolveFeatureAccessFromRow } from '@/lib/alerts/entitlements';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { getSkillLevelOrDefault } from '@/lib/domains/user-preferences/skill-level';
+import { isSkillAwareGoChecksOn } from '@/lib/flags/skill-aware-go-checks';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
-import { driveRadiusMiles } from '@/lib/profile/drive-range';
+import { driveRadiusMiles, MAX_DRIVE_RADIUS_MILES } from '@/lib/profile/drive-range';
+import { findNearestBeach } from '@/lib/alerts/user-pool';
 import type {
   SurfDiscoveryEntitlement,
   SurfDiscoveryResponse,
+  SurfDiscoveryScope,
   TimeSlot,
 } from '@/types/personalization';
 import { retryAfterSeconds } from '@/lib/utils/retry-after';
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
@@ -46,6 +56,8 @@ const QuerySchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(10).optional(),
   // Discovery mode
   mode: z.enum(['best-window', 'now', 'my-spots']).optional(),
+  // Opt-in (web Home): widen an empty drive range and name the nearest beach.
+  widenEmpty: z.literal('1').optional(),
   // Explicit curated beaches to score in the same batch as nearby discovery.
   includeBeachIds: z.string().optional().transform((value, ctx) => {
     if (!value) return [];
@@ -75,7 +87,39 @@ const QuerySchema = z.object({
   }),
 });
 
-function retryableDiscoveryResponse(error: unknown): NextResponse {
+function discoveryServerTiming(
+  timings: Array<[string, number]>,
+  stages: DiscoveryStageSnapshot,
+  startedAt: number,
+): string {
+  const knownStage = (stage: string): boolean =>
+    (DISCOVERY_STAGES as readonly string[]).includes(stage);
+  const duration = (ms: number): number => Math.max(0, Math.round(ms));
+  const entries = [
+    ...stages.pending.filter(({ stage }) => knownStage(stage))
+      .map(({ stage, durationMs }) => `d-${stage};desc="pending";dur=${duration(durationMs)}`),
+    // Only plain stage tokens reach the header, so no value can add its own parameters.
+    ...Array.from(new Map(timings)).filter(([stage]) => /^[a-z][a-z-]{0,39}$/.test(stage))
+      .map(([stage, ms]) => `${stage};dur=${duration(ms)}`),
+    ...stages.completed.filter(({ stage }) => knownStage(stage))
+      .sort((a, b) => b.durationMs - a.durationMs)
+      .map(({ stage, durationMs }) => `d-${stage};dur=${duration(durationMs)}`),
+  ];
+  // Reserve total and prioritize pending dependencies when the header fills up.
+  let header = `total;dur=${duration(Date.now() - startedAt)}`;
+  for (const entry of entries.slice(0, 32)) {
+    if (header.length + entry.length + 2 > 1000) continue;
+    header += `, ${entry}`;
+  }
+  return header;
+}
+
+function retryableDiscoveryResponse(
+  error: unknown,
+  timings: Array<[string, number]>,
+  stageTimer: DiscoveryStageTimer,
+  startedAt: number,
+): NextResponse {
   const candidateCode =
     error && typeof error === 'object' && 'code' in error
       ? error.code
@@ -88,6 +132,9 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       ? candidateCode
       : 'internal_error';
 
+  const stages = error && typeof error === 'object' && 'stageTimings' in error
+    ? (error.stageTimings as DiscoveryStageSnapshot | undefined) ?? stageTimer.snapshot()
+    : stageTimer.snapshot();
   return NextResponse.json(
     {
       success: false,
@@ -97,19 +144,22 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
     },
     {
       status: code === 'timeout' ? 504 : 503,
-      headers: { 'Retry-After': String(retryAfterSeconds()) },
+      headers: {
+        'Retry-After': String(retryAfterSeconds()),
+        'Server-Timing': discoveryServerTiming(timings, stages, startedAt),
+      },
     },
   );
 }
 
 /**
  * Radius from the user's saved drive range. The profile read is best-effort:
- * on failure we return undefined so discovery keeps its 100-mile default.
+ * on failure we use the never-set default rather than widening to 100 miles.
  */
 async function resolveProfileRadiusMiles(
   supabase: AuthenticatedContext['supabase'],
   userId: string,
-): Promise<number | undefined> {
+): Promise<number> {
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -118,12 +168,12 @@ async function resolveProfileRadiusMiles(
       .maybeSingle();
     if (error) {
       console.warn('[surf/discover] Failed to load drive range:', error.message);
-      return undefined;
+      return driveRadiusMiles(null);
     }
     return driveRadiusMiles(data?.max_drive_minutes);
   } catch (err) {
     console.warn('[surf/discover] Error loading drive range:', err);
-    return undefined;
+    return driveRadiusMiles(null);
   }
 }
 
@@ -142,11 +192,15 @@ async function resolveProfileRadiusMiles(
  * - lat (required): User's latitude for GPS discovery
  * - lon (required): User's longitude for GPS discovery
  * - radius (optional): Search radius in miles. When omitted, the user's
- *   profile drive range (max_drive_minutes) sets it; "No limit" = 100.
+ *   profile drive range (max_drive_minutes) sets it; never set = 30 miles,
+ *   explicit "No limit" (200 minutes) = 100 miles.
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - mode (optional): Discovery mode ('best-window' default, 'now' for immediate current-condition ranking)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')
  * - includeBeachIds (optional): Comma-separated curated beach UUIDs to score alongside nearby discovery
+ * - widenEmpty (optional): "1" widens a drive range that holds no beach to
+ *   100 miles (scope.widenedFromMiles) and, when nothing is within 100 miles,
+ *   names the nearest beach (scope.nearestBeach). The origin never moves.
  *
  * Authentication: Required (user session)
  * Rate Limit: 10 requests/minute
@@ -162,6 +216,7 @@ async function surfDiscoveryHandler(
   { user, supabase }: AuthenticatedContext
 ): Promise<NextResponse> {
   const anchor = new Date();
+  const stageTimer = new DiscoveryStageTimer(anchor.getTime());
   // 1. Parse and validate query parameters
   const { searchParams } = new URL(request.url);
   const queryData = {
@@ -171,6 +226,7 @@ async function surfDiscoveryHandler(
     horizonHours: searchParams.get('horizonHours') || undefined,
     maxResults: searchParams.get('maxResults') || undefined,
     mode: searchParams.get('mode') || undefined,
+    widenEmpty: searchParams.get('widenEmpty') || undefined,
     includeBeachIds: searchParams.get('includeBeachIds') || undefined,
   };
 
@@ -179,7 +235,7 @@ async function surfDiscoveryHandler(
     return validationResult.error;
   }
 
-  const { lat, lon, radius, horizonHours, maxResults, mode, includeBeachIds } = validationResult.data;
+  const { lat, lon, radius, horizonHours, maxResults, mode, widenEmpty, includeBeachIds } = validationResult.data;
 
   // Parse timeSlot query parameter
   const timeSlotParam = searchParams.get('timeSlot');
@@ -241,19 +297,25 @@ async function surfDiscoveryHandler(
   // The saved drive range also waives distance friction inside it. An explicit
   // radius is a search extent, not the surfer's range, so it keeps the friction.
   const driveRadiusMiles = radius === undefined ? radiusMiles : undefined;
-  const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+  const { isPro, hasFeatureAccess, foundingAccess } = await resolveFeatureAccessFromRow(
+    user.id,
+    entitlementRow,
+  );
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
-    hasPaidAccess: isPro,
-    canSeeBestSpot: isPro,
+    hasPaidAccess: hasFeatureAccess,
+    canSeeBestSpot: hasFeatureAccess,
+    foundingAccess,
   };
 
   // 4. Call service to get ranked recommendations
-  let discovery;
-  try {
-    discovery = await time('discover', discoverSurfSpots(user.id, {
+  const runDiscovery = (
+    stage: string,
+    searchRadiusMiles: number | undefined,
+  ): ReturnType<typeof discoverSurfSpots> =>
+    time(stage, discoverSurfSpots(user.id, {
       userLocation,
-      radiusMiles,
+      radiusMiles: searchRadiusMiles,
       ...(driveRadiusMiles !== undefined ? { driveRadiusMiles } : {}),
       horizonHours: mode === 'my-spots' ? 72 : horizonHours,
       maxResults,
@@ -268,15 +330,43 @@ async function surfDiscoveryHandler(
       discoveryMode: mode === 'my-spots' ? 'best-window' : mode ?? 'best-window',
       savedSpotsOnly: mode === 'my-spots',
       timeSlot,
-      isPro,
+      isPro: hasFeatureAccess,
       includeBeachIds,
       throwOnFailure: true,
-      onStageTiming: (stage, durationMs) => {
-        timings.push([`discover-${stage}`, durationMs]);
+      stageTimer,
+      onStageTiming: (discoverStage, durationMs) => {
+        timings.push([`${stage}-${discoverStage}`, durationMs]);
       },
     }));
+  let discovery;
+  let scope: SurfDiscoveryScope | undefined;
+  try {
+    discovery = await runDiscovery('discover', radiusMiles);
+    // Mirrors Week Scout (#1093): a range with no beach in it widens to the
+    // maximum from the same origin; past that, name the nearest beach so the
+    // client can offer to scout from it. Ranking keeps the surfer's own range.
+    if (widenEmpty && radius === undefined && mode !== 'my-spots' && userLocation && isEmptyScope(discovery)) {
+      const fromMiles = radiusMiles ?? MAX_DRIVE_RADIUS_MILES;
+      if (fromMiles < MAX_DRIVE_RADIUS_MILES) {
+        const widened = await runDiscovery('discover-widened', MAX_DRIVE_RADIUS_MILES);
+        if (!isEmptyScope(widened)) {
+          discovery = widened;
+          scope = { widenedFromMiles: fromMiles };
+        }
+      }
+      if (!scope) {
+        const nearestBeach = await time(
+          'nearest',
+          findNearestBeach({ supabase, userId: user.id, location: userLocation }),
+        ).catch((err: unknown) => {
+          console.warn('[surf/discover] Nearest beach lookup failed:', err);
+          return null;
+        });
+        if (nearestBeach) scope = { nearestBeach };
+      }
+    }
   } catch (error) {
-    return retryableDiscoveryResponse(error);
+    return retryableDiscoveryResponse(error, timings, stageTimer, anchor.getTime());
   }
 
   // 3a. Stamp empirical shoaling calibration status onto each recommendation's
@@ -342,7 +432,10 @@ async function surfDiscoveryHandler(
     }));
   }
 
-  const profileExperience = await profileExperiencePromise;
+  const rawExperience = await profileExperiencePromise;
+  const profileExperience = isSkillAwareGoChecksOn(user.id)
+    ? getSkillLevelOrDefault(rawExperience)
+    : rawExperience;
   const hasIncomingMajorEventHold = hasExplicitMajorEventHold(discovery);
   const isSuccessfulNoCandidateResult =
     hasNoDiscoveryCandidates(discovery) &&
@@ -378,6 +471,9 @@ async function surfDiscoveryHandler(
       Object.assign(new Error('Recommendation hold state unavailable'), {
         code: 'hold_state_unavailable',
       }),
+      timings,
+      stageTimer,
+      anchor.getTime(),
     );
   }
   const gatedDiscovery = gateSurfDiscoveryResponse(
@@ -411,13 +507,21 @@ async function surfDiscoveryHandler(
   // `rankingScore` is an internal ordering value. Ranking has already happened
   // by this point, so strip it here rather than shipping a second, larger
   // number next to `score` that a client could mistake for the real one.
-  const response = createSuccessResponse(stripInternalRankingScore(gatedDiscovery));
-  timings.push(['total', Date.now() - anchor.getTime()]);
+  const response = createSuccessResponse(stripInternalRankingScore(
+    scope ? { ...gatedDiscovery, scope } : gatedDiscovery,
+  ));
   response.headers.set(
     'Server-Timing',
-    timings.map(([stage, ms]) => `${stage};dur=${ms}`).join(', '),
+    discoveryServerTiming(timings, stageTimer.snapshot(), anchor.getTime()),
   );
   return response;
+}
+
+/** The candidate pool itself was empty, as opposed to beaches without a window. */
+function isEmptyScope(discovery: SurfDiscoveryResponse): boolean {
+  return discovery.metadata.outcome === 'no_candidates'
+    && discovery.metadata.totalBeachesConsidered === 0
+    && hasNoDiscoveryCandidates(discovery);
 }
 
 /**
@@ -446,7 +550,7 @@ const protectedGET = withRateLimit(
   'surf-discovery'
 );
 
-export const GET = async (
+const handleGet = async (
   ...args: Parameters<typeof protectedGET>
 ): Promise<NextResponse> => {
   const response = await protectedGET(...args);
@@ -457,3 +561,5 @@ export const GET = async (
   );
   return response;
 };
+
+export const GET = withErrorNoStore(handleGet, "/api/surf/discover");

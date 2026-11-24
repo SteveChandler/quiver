@@ -7,6 +7,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 interface FollowWithNotificationResult {
   followed: boolean;
@@ -110,7 +111,7 @@ export const POST = withAuth(
   { errorMessage: "Failed to toggle follow" },
 );
 
-export function GET() {
+function handleGet() {
   return methodNotAllowed(["POST"]);
 }
 
@@ -146,3 +147,5 @@ async function getFollowCounts(
     followingCount: profile?.following_count ?? 0,
   };
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/follow/toggle");

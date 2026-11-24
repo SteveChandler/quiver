@@ -8,8 +8,10 @@ import {
   methodNotAllowed,
 } from "@/lib/middleware/api-wrappers";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
+import { SURF_SESSION_SOURCE_FILTER } from "@/lib/sessions/surf-session-filter";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
-export const GET = withAuth(async (_request, { user, supabase, params }) => {
+const handleGet = withAuth(async (_request, { user, supabase, params }) => {
   const targetUserId = params.id;
   if (!targetUserId || !isValidUuid(targetUserId)) {
     return createValidationError("Invalid user id format");
@@ -35,20 +37,23 @@ export const GET = withAuth(async (_request, { user, supabase, params }) => {
   const { count: sessionCount, error: sessionError } = await supabase
     .from("sessions")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", targetUserId);
+    .eq("user_id", targetUserId)
+    .or(SURF_SESSION_SOURCE_FILTER);
   if (sessionError) throw sessionError;
 
   const { count: boardCount, error: boardError } = await supabase
     .from("boards")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", targetUserId);
+    .eq("user_id", targetUserId)
+    .is("retired_at", null);
   if (boardError) throw boardError;
 
   // Average wave_quality (rating in this tile is effectively wave quality)
   const { data: qualityData, error: qualityError } = await supabase
     .from("sessions")
     .select("wave_quality")
-    .eq("user_id", targetUserId);
+    .eq("user_id", targetUserId)
+    .or(SURF_SESSION_SOURCE_FILTER);
   if (qualityError) throw qualityError;
 
   let averageRating = 0;
@@ -103,3 +108,5 @@ export function PATCH() {
 export function DELETE() {
   return methodNotAllowed(["GET"]);
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/users/[id]/stats");

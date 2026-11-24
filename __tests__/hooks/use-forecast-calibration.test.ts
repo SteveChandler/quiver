@@ -13,20 +13,6 @@ jest.mock("sonner", () => ({
   },
 }));
 
-const mockBeachAccuracy = {
-  id: "accuracy-1",
-  beach_id: "beach-1",
-  avg_wave_height_delta: 0.5,
-  avg_wind_speed_delta: 2.0,
-  total_sessions_count: 25,
-  last_30_days_count: 8,
-  last_7_days_count: 3,
-  overall_accuracy_score: 78,
-  calculation_date: "2024-01-15",
-  created_at: "2024-01-15T08:00:00Z",
-  updated_at: "2024-01-15T08:00:00Z",
-};
-
 const mockSessionSnapshots = [
   {
     id: "snapshot-1",
@@ -91,47 +77,22 @@ describe("useForecastCalibration", () => {
     jest.clearAllMocks();
 
     // Default mock implementations
-    mockUseDataFetcher
-      .mockReturnValueOnce({
-        data: mockBeachAccuracy,
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      })
-      .mockReturnValueOnce({
-        data: mockSessionSnapshots,
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+    mockUseDataFetcher.mockReturnValue({
+      data: mockSessionSnapshots,
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
   });
 
-  it("returns beach accuracy data", () => {
+  it("returns session snapshots", () => {
     const { result } = renderHook(() =>
       useForecastCalibration({ beachId: "beach-1" })
     );
 
-    expect(result.current.beachAccuracy).toEqual(mockBeachAccuracy);
     expect(result.current.sessionSnapshots).toEqual(mockSessionSnapshots);
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBe(null);
-  });
-
-  it("returns accuracy statistics", () => {
-    const { result } = renderHook(() =>
-      useForecastCalibration({ beachId: "beach-1" })
-    );
-
-    const stats = result.current.accuracyStats;
-    expect(stats).toEqual({
-      overallScore: 78,
-      waveHeightDelta: 0.5,
-      windSpeedDelta: 2.0,
-      totalSessions: 25,
-      last30Days: 8,
-      last7Days: 3,
-      lastUpdated: "2024-01-15T08:00:00Z",
-    });
   });
 
   it("returns correct confidence levels", () => {
@@ -179,24 +140,16 @@ describe("useForecastCalibration", () => {
       data: mockSessionSnapshots[0],
     } as any);
 
-    const mockRefetchAccuracy = jest.fn();
     const mockRefetchSnapshots = jest.fn();
 
     // Reset the mock and set up fresh mocks
     mockUseDataFetcher.mockReset();
-    mockUseDataFetcher
-      .mockReturnValueOnce({
-        data: mockBeachAccuracy,
-        loading: false,
-        error: null,
-        refetch: mockRefetchAccuracy,
-      })
-      .mockReturnValueOnce({
-        data: mockSessionSnapshots,
-        loading: false,
-        error: null,
-        refetch: mockRefetchSnapshots,
-      });
+    mockUseDataFetcher.mockReturnValue({
+      data: mockSessionSnapshots,
+      loading: false,
+      error: null,
+      refetch: mockRefetchSnapshots,
+    });
 
     const { result } = renderHook(() =>
       useForecastCalibration({ beachId: "beach-1" })
@@ -251,7 +204,6 @@ describe("useForecastCalibration", () => {
     expect(toast.success).toHaveBeenCalledWith(
       "Forecast feedback submitted! Thank you for helping improve forecasts."
     );
-    expect(mockRefetchAccuracy).toHaveBeenCalled();
     expect(mockRefetchSnapshots).toHaveBeenCalled();
   });
 
@@ -337,26 +289,18 @@ describe("useForecastCalibration", () => {
   it("handles loading states correctly", () => {
     // Reset the mock completely for this test
     mockUseDataFetcher.mockReset();
-    mockUseDataFetcher
-      .mockReturnValueOnce({
-        data: null,
-        loading: true,
-        error: null,
-        refetch: jest.fn(),
-      })
-      .mockReturnValueOnce({
-        data: [],
-        loading: true,
-        error: null,
-        refetch: jest.fn(),
-      });
+    mockUseDataFetcher.mockReturnValue({
+      data: [],
+      loading: true,
+      error: null,
+      refetch: jest.fn(),
+    });
 
     const { result } = renderHook(() =>
       useForecastCalibration({ beachId: "beach-1" })
     );
 
     expect(result.current.loading).toBe(true);
-    expect(result.current.accuracyLoading).toBe(true);
     expect(result.current.snapshotsLoading).toBe(true);
   });
 });

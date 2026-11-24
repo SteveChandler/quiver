@@ -1,9 +1,13 @@
 import {
   NATIVE_SKILL_THRESHOLDS,
+  WAVE_FIT_PLATEAU_START_FRACTION,
   OUT_OF_BAND_SCORE_CEILING,
+  nativeScoreInputsFromForecast,
+  nativeTideTermPoints,
   pickBestNativeForecastSlot,
   scoreNativeConditionBreakdown,
   scoreNativeConditionInputs,
+  scoreNativeForecastDay,
   scoreNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -31,6 +35,17 @@ function forecast(
 }
 
 describe("native-condition-score", () => {
+  const originalWaveFitFlag = process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+  });
+
+  afterEach(() => {
+    if (originalWaveFitFlag === undefined) delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    else process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = originalWaveFitFlag;
+  });
+
   const direction = {
     windDirectionDeg: 90,
     swellDirectionDeg: 218,
@@ -46,6 +61,81 @@ describe("native-condition-score", () => {
     tideHeightFt: 3,
     tideStatus: "Rising",
   };
+
+  it("keeps the midpoint triangle byte-identical with the plateau flag off", () => {
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    for (const [skill, height, expected] of [
+      ["beginner", 1, 15],
+      ["intermediate", 2, 18],
+      ["advanced", 3.5, 19.285714285714285],
+      ["expert", 4, 15],
+    ] as const) {
+      const actual = scoreNativeConditionBreakdown(
+        { waveHeightFt: height, ...pristineInputs }, skill,
+      ).components.waveFit;
+      expect(actual).toBeCloseTo(expected, 10);
+    }
+  });
+
+  it("gives full points from a quarter into the ideal range, linear shoulders, and zero outside the band", () => {
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
+    for (const skill of ["beginner", "intermediate", "advanced", "expert"] as const) {
+      const { waveMinFt, idealMinFt, idealMaxFt, waveMaxFt } = NATIVE_SKILL_THRESHOLDS[skill];
+      const plateauStart = idealMinFt + WAVE_FIT_PLATEAU_START_FRACTION * (idealMaxFt - idealMinFt);
+      const waveFit = (waveHeightFt: number): number => scoreNativeConditionBreakdown(
+        { waveHeightFt, ...pristineInputs }, skill,
+      ).components.waveFit;
+      expect(waveFit(waveMinFt - 0.1)).toBe(0);
+      expect(waveFit(waveMinFt)).toBe(0);
+      expect(waveFit((waveMinFt + plateauStart) / 2)).toBeCloseTo(22.5, 10);
+      expect(waveFit(idealMinFt)).toBeLessThan(45);
+      expect(waveFit(plateauStart)).toBe(45);
+      expect(waveFit(idealMaxFt)).toBe(45);
+      expect(waveFit((idealMaxFt + waveMaxFt) / 2)).toBe(22.5);
+      expect(waveFit(waveMaxFt)).toBe(0);
+      expect(waveFit(waveMaxFt + 0.1)).toBe(0);
+      expect(scoreNativeConditionBreakdown(
+        { waveHeightFt: waveMaxFt + 0.1, ...pristineInputs }, skill,
+      ).score).toBeLessThanOrEqual(OUT_OF_BAND_SCORE_CEILING);
+    }
+  });
+
+  it("does not call the bottom of an ideal range GOOD on size alone", () => {
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
+    const waveFit = (skill: "beginner" | "intermediate" | "advanced", waveHeightFt: number): number =>
+      scoreNativeConditionBreakdown({ waveHeightFt, ...pristineInputs }, skill).components.waveFit;
+    expect(waveFit("beginner", 1)).toBeCloseTo(45 * (0.5 / 1), 5);
+    expect(waveFit("intermediate", 2)).toBeCloseTo(45 * (1 / 1.75), 5);
+    expect(waveFit("advanced", 3.5)).toBeCloseTo(45 * (1.5 / 2.25), 5);
+  });
+
+  it("uses the plateau when the public flag is on", () => {
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
+    expect(scoreNativeConditionBreakdown(
+      { waveHeightFt: 5, ...pristineInputs }, "advanced",
+    ).components.waveFit).toBe(45);
+  });
+
+  it("applies the plateau to a rideability-band override", () => {
+    const band = getRideabilityBand("advanced", "longboard");
+    const waveHeightFt = band.ideal.min;
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    const before = scoreNativeConditionInputs({ waveHeightFt, ...pristineInputs }, "advanced", band);
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
+    const after = scoreNativeConditionInputs({ waveHeightFt, ...pristineInputs }, "advanced", band);
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it("promotes a clean advanced 3.5 ft groundswell from FAIR to GOOD", () => {
+    const inputs = { waveHeightFt: 3.5, ...pristineInputs, windSpeedMph: 8 };
+    delete process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED;
+    const before = scoreNativeConditionInputs(inputs, "advanced");
+    process.env.NEXT_PUBLIC_WAVE_FIT_PLATEAU_ENABLED = "true";
+    const after = scoreNativeConditionInputs(inputs, "advanced");
+    expect(before).toBeGreaterThanOrEqual(55);
+    expect(before).toBeLessThan(70);
+    expect(after).toBeGreaterThanOrEqual(70);
+  });
 
   it("preserves current in-band scores", () => {
     const cases = [
@@ -300,6 +390,18 @@ describe("native-condition-score", () => {
     });
   });
 
+  it("never selects or scores a FALLBACK row", () => {
+    const real = forecast({ id: "real", wave_height: "0.3 ft" });
+    const synthetic = forecast({ id: "synthetic", wave_height: "2 ft", data_source: "FALLBACK" });
+    const pending = forecast({ id: "pending", wave_height: null, data_source: "FALLBACK" });
+
+    expect(pickBestNativeForecastSlot([real, synthetic, pending], "beginner")).toMatchObject({
+      forecast: { id: "real" },
+    });
+    expect(pickBestNativeForecastSlot([synthetic, pending], "beginner")).toBeNull();
+    expect(scoreNativeForecastDay([pending], "beginner")).toBe(0);
+  });
+
   it("selects from daylight rows when a beach timezone is provided", () => {
     const night = forecast({
       id: "night",
@@ -334,6 +436,74 @@ describe("native-condition-score", () => {
       }),
     ).toMatchObject({
       forecast: { id: "night" },
+    });
+  });
+
+  describe("tide term", () => {
+    // The fixed table every beach got before band-aware scoring.
+    function legacyTidePoints(heightFt: number | null, status: string | null): number {
+      let points = 7;
+      if (heightFt != null) {
+        if (heightFt >= 1.5 && heightFt <= 4.5) points = 8;
+        else if (heightFt >= 0.5 && heightFt <= 6) points = 5;
+        else points = 2;
+      }
+      const lower = status?.toLowerCase() ?? "";
+      if (lower.includes("rising") || lower.includes("falling")) points += 2;
+      if (lower.includes("high") || lower.includes("low")) points -= 1;
+      return Math.max(0, Math.min(10, points));
+    }
+
+    it("keeps the fixed table for a beach without a band", () => {
+      for (let heightFt = -3; heightFt <= 9; heightFt += 0.1) {
+        const rounded = Math.round(heightFt * 10) / 10;
+        for (const status of ["Rising", "Falling", "High", "Low", "High Slack", null]) {
+          expect(nativeTideTermPoints({ heightFt: rounded, status })).toBe(legacyTidePoints(rounded, status));
+          expect(nativeTideTermPoints({ heightFt: rounded, status, band: null })).toBe(legacyTidePoints(rounded, status));
+        }
+      }
+      expect(nativeTideTermPoints({ heightFt: null, status: "Rising" })).toBe(9);
+    });
+
+    it("gives full points inside a band and within its quarter-foot tolerance", () => {
+      const band = { minFt: 0, maxFt: 6 };
+      // Windansea 11 AM: 6.1 ft on 0-6 -> 10 (the fixed table gave 4).
+      expect(nativeTideTermPoints({ heightFt: 6.1, status: "Falling", band })).toBe(10);
+      expect(nativeTideTermPoints({ heightFt: 3, status: "High", band })).toBe(7);
+      expect(nativeTideTermPoints({ heightFt: -0.25, status: null, band })).toBe(8);
+    });
+
+    it("tapers 3 points per foot beyond the tolerance, floor 2", () => {
+      // Tourmaline 11 AM: 6.3 ft on 2-5.5 is 0.55 ft past tolerance -> 8 - 1.65 + 2.
+      expect(nativeTideTermPoints({ heightFt: 6.3, status: "Falling", band: { minFt: 2, maxFt: 5.5 } })).toBeCloseTo(8.35, 5);
+      // PB Point 8 AM: 5.7 ft on 2-4 -> 8 - 4.35 + 2 (the fixed table gave 7).
+      expect(nativeTideTermPoints({ heightFt: 5.7, status: "Rising", band: { minFt: 2, maxFt: 4 } })).toBeCloseTo(5.65, 5);
+      // PB Point 11 AM: 6.3 ft on 2-4 hits the floor -> 2 + 2, same as the fixed table.
+      expect(nativeTideTermPoints({ heightFt: 6.3, status: "Falling", band: { minFt: 2, maxFt: 4 } })).toBe(4);
+      // Below the band mirrors above it.
+      expect(nativeTideTermPoints({ heightFt: 0.75, status: null, band: { minFt: 2, maxFt: 4 } })).toBeCloseTo(5, 5);
+    });
+
+    it("never leaves 0-10", () => {
+      for (let heightFt = -4; heightFt <= 10; heightFt += 0.25) {
+        for (const status of ["Rising", "Low", "High Rising", null]) {
+          const points = nativeTideTermPoints({ heightFt, status, band: { minFt: 1, maxFt: 2 } });
+          expect(points).toBeGreaterThanOrEqual(0);
+          expect(points).toBeLessThanOrEqual(10);
+        }
+      }
+    });
+
+    it("threads an optional band through the forecast inputs", () => {
+      const row = forecast({ tide_height: "6.3 ft", tide_status: "Falling" });
+      expect(nativeScoreInputsFromForecast(row)).not.toHaveProperty("tideBand");
+      expect(nativeScoreInputsFromForecast(row, null)).not.toHaveProperty("tideBand");
+      const banded = nativeScoreInputsFromForecast(row, { minFt: 2, maxFt: 5.5 });
+      expect(banded.tideBand).toEqual({ minFt: 2, maxFt: 5.5 });
+      expect(scoreNativeConditionBreakdown(banded, "intermediate").components.tide).toBeCloseTo(8.35, 5);
+      expect(scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(row), "intermediate").components.tide).toBe(4);
+      expect(scoreNativeConditionInputs(nativeScoreInputsFromForecast(row), "intermediate"))
+        .toBe(scoreNativeForecastSlot(row, "intermediate"));
     });
   });
 });

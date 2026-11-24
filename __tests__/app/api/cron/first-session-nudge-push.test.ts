@@ -20,6 +20,7 @@ jest.mock("@/lib/cron/outcome", () => ({
   ),
 }));
 
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { GET } from "@/app/api/cron/first-session-nudge-push/route";
 import { NextRequest } from "next/server";
 import { readFileSync } from "fs";
@@ -86,6 +87,7 @@ interface TableRows {
   window?: unknown[]; // profiles.gte().lt() — signup window
   in?: unknown[]; // generic .in() terminator (with optional post-.eq() filtering)
   maybeSingle?: unknown | null;
+  inError?: { message: string } | null;
 }
 
 const tableState: Record<
@@ -105,7 +107,9 @@ const mockInsert = jest.fn();
 function buildQuery(table: string) {
   const row = tableState[table] ?? {};
   const windowResolved = { data: row.window ?? [], error: null };
-  const inResolved = { data: row.in ?? [], error: null };
+  const inResolved = row.inError
+    ? { data: null, error: row.inError }
+    : { data: row.in ?? [], error: null };
   const maybeSingleResolved = { data: row.maybeSingle ?? null, error: null };
 
   let mode: "window" | "in" | "maybeSingle" = "in";
@@ -446,7 +450,7 @@ describe("First-Session-Nudge Push Cron", () => {
       userId: string,
       overrides: {
         home_beach_id?: string | null;
-        entitlement?: { is_pro: boolean; is_trialing: boolean } | null;
+        entitlement?: { is_pro: boolean; is_trialing: boolean; trial_ends_at?: string | null } | null;
         beachName?: string;
         beachTimezone?: string | null;
         confidenceScore?: number | null;
@@ -494,9 +498,10 @@ describe("First-Session-Nudge Push Cron", () => {
     };
 
     it("trialing_home → 'Unlock your Quiver' + beach name in body (Phase 3e: enqueued)", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));
       setupBase("u-th", {
         home_beach_id: "beach-1",
-        entitlement: { is_pro: true, is_trialing: true },
+        entitlement: { is_pro: true, is_trialing: true, trial_ends_at: "2026-07-24T17:00:00.000Z" },
         beachName: "Swami's",
       });
 
@@ -527,6 +532,59 @@ describe("First-Session-Nudge Push Cron", () => {
           }),
         }),
       );
+    });
+
+    it.each([
+      ["12 days left", "2026-07-29T17:00:00.000Z"],
+      ["6.9 days left", "2026-07-24T14:36:00.000Z"],
+      ["no trial end", null],
+    ])("trialing_home with %s drops the fixed 7-day clause", async (_label, trialEndsAt) => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));
+      setupBase("u-th12", {
+        home_beach_id: "beach-1",
+        entitlement: { is_pro: true, is_trialing: true, trial_ends_at: trialEndsAt },
+        beachName: "Swami's",
+      });
+
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+      const call = mockEnqueueNotification.mock.calls[0][0];
+      expect(call.payload.cohort).toBe("trialing_home");
+      expect(call.payload.body).toBe("Add your first session when you paddle out.");
+    });
+
+    it("skips a user with a home break when the beach lookup fails", async () => {
+      setupBase("u-bf", {
+        home_beach_id: "beach-1",
+        entitlement: { is_pro: true, is_trialing: true },
+      });
+      tableState.beaches = { inError: { message: "connection reset" } };
+
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
+      const data = await response.json();
+      expectConsoleWarnings([/beach lookup failed: connection reset/]);
+
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+      expect(data.data.summary.skipped.beach_lookup_failed).toBe(1);
+      expect(data.data.summary.cohorts.trialing_no_home).toBe(0);
+    });
+
+    it("skips a user whose home beach row is missing, not 'Set your home break'", async () => {
+      // The read succeeded but returned no row for the home break.
+      setupBase("u-bm", {
+        home_beach_id: "beach-1",
+        entitlement: { is_pro: true, is_trialing: true },
+      });
+
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
+      const data = await response.json();
+
+      expect(data.data.summary.skipped.beach_lookup_failed).toBe(1);
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
     });
 
     it("trialing_no_home → 'Set your home break'", async () => {

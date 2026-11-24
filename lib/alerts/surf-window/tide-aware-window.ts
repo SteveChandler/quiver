@@ -7,6 +7,7 @@ import { MIN_SESSION_HOURS } from '@/lib/services/discovery/window-selector/cons
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { getLocalDateString } from '@/lib/utils/timezone-utils';
 import type { ForecastVerdict } from '@/lib/alerts/canonical-forecast-verdict';
+import type { BoardClass } from '@/lib/domains/rideability';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
@@ -33,6 +34,7 @@ interface TideAwareWindowArgs {
   now: Date;
   verdictFor: (forecast: EnhancedForecastEntity) => ForecastVerdict;
   skillLevel: string | null;
+  boardClasses?: readonly BoardClass[];
   isTideReasonEligible?: (beach: Beach) => boolean;
 }
 
@@ -128,7 +130,8 @@ export function findTideAwareWindow(args: TideAwareWindowArgs): TideAwareWindowR
         verdictAt: (row) => verdictById.get(row.id) ?? 'no' });
       if (!refined) continue;
       const best = selectBestWindows({ forecasts: group.map(({ forecast }) => forecast),
-        beach: { ...args.beach, timezone: args.timezone }, userPrefs: null, now: args.now, maxWindows: 1, userSkillLevel: args.skillLevel })[0];
+        beach: { ...args.beach, timezone: args.timezone }, userPrefs: null, now: args.now, maxWindows: 1, userSkillLevel: args.skillLevel,
+        ...(args.boardClasses ? { boardClasses: args.boardClasses } : {}) })[0];
       const capped = capToBestWindow(refined, best);
       const start = new Date(Math.max(dayStart, daylight.sunrise.getTime(), Date.parse(capped.start))).toISOString();
       const end = new Date(Math.min(dayEnd, daylight.sunset.getTime(), Date.parse(capped.end))).toISOString();

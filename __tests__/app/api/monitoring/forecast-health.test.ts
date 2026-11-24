@@ -11,7 +11,7 @@ jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 
 const mockStaleDataDetected = jest.fn() as jest.MockedFunction<(...args: any[]) => any>;
-const mockHealthCheck = jest.fn() as jest.MockedFunction<() => Promise<any>>;
+const mockHealthCheck = jest.fn() as jest.MockedFunction<(options?: { serialScans: boolean }) => Promise<any>>;
 const mockLogHealthCheck = jest.fn() as jest.MockedFunction<(...args: any[]) => any>;
 
 jest.mock("@/lib/cron/observability", () => ({
@@ -21,7 +21,7 @@ jest.mock("@/lib/cron/observability", () => ({
 }));
 
 jest.mock("@/lib/monitoring/forecast-health-check", () => ({
-  checkForecastHealth: () => mockHealthCheck(),
+  checkForecastHealth: (options?: { serialScans: boolean }) => mockHealthCheck(options),
 }));
 
 const mockInputsHealth = jest.fn() as jest.MockedFunction<() => Promise<any>>;
@@ -40,10 +40,12 @@ jest.mock("@/lib/monitoring/forecast-logger", () => ({
 
 describe("GET /api/monitoring/forecast-health", () => {
   const originalCronSecret = process.env.CRON_SECRET;
+  const originalSerialScans = process.env.FORECAST_HEALTH_SERIAL_SCANS;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.CRON_SECRET = "test-cron-secret";
+    delete process.env.FORECAST_HEALTH_SERIAL_SCANS;
     mockInputsHealth.mockResolvedValue({ status: "healthy", issues: [] });
   });
 
@@ -91,11 +93,25 @@ describe("GET /api/monitoring/forecast-health", () => {
   });
 
   afterEach(() => {
+    if (originalSerialScans === undefined) delete process.env.FORECAST_HEALTH_SERIAL_SCANS;
+    else process.env.FORECAST_HEALTH_SERIAL_SCANS = originalSerialScans;
     if (originalCronSecret === undefined) {
       delete process.env.CRON_SECRET;
     } else {
       process.env.CRON_SECRET = originalCronSecret;
     }
+  });
+
+  it.each([[undefined, true], ["false", false]])("uses the configured forecast scan mode (%s)", async (flag, serialScans) => {
+    if (flag !== undefined) process.env.FORECAST_HEALTH_SERIAL_SCANS = flag;
+    mockHealthCheck.mockResolvedValueOnce(healthyForecastMetrics());
+    const { GET } = await import("@/app/api/monitoring/forecast-health/route");
+    const response = await GET(new Request("http://localhost:3000/api/monitoring/forecast-health", {
+      headers: { authorization: "Bearer test-cron-secret" },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mockHealthCheck).toHaveBeenCalledWith({ serialScans });
   });
 
   it("rejects unauthenticated cron requests before running the health check", async () => {

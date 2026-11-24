@@ -26,7 +26,7 @@ jest.mock("@/lib/email/lifecycle", () => ({
 }));
 
 const routes = [
-  { get: lifecycle, slug: "email-lifecycle", flag: "EMAIL_LIFECYCLE_ENABLED", schedule: "25 * * * *", margin: 15, runtime: 3 },
+  { get: lifecycle, slug: "email-lifecycle", flag: "EMAIL_LIFECYCLE_ENABLED", schedule: "25 0,1,13-23 * * *", margin: 15, runtime: 3 },
   { get: offers, slug: "pro-offer-reconcile", flag: "PRO_OFFERS_ENABLED", schedule: "*/15 * * * *", margin: 15, runtime: 3 },
 ];
 const originalEnv = { ...process.env };

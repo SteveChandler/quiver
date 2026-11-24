@@ -39,11 +39,22 @@ interface CountyDatabaseClient {
   from(table: CountyTableName): CountyQuery;
 }
 
+// PostgrestError is a plain object, so String() alone logs "[object Object]".
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null) {
+    const { message, code } = error as { message?: unknown; code?: unknown };
+    if (typeof message === "string" && message) {
+      return typeof code === "string" && code ? `${message} (${code})` : message;
+    }
+    return JSON.stringify(error);
+  }
+  return String(error);
+}
+
 function assertNoError(error: unknown, operation: string): void {
   if (error !== null && error !== undefined) {
-    throw new Error(
-      `${operation}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    throw new Error(`${operation}: ${describeError(error)}`);
   }
 }
 

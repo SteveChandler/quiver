@@ -11,6 +11,7 @@
  * @module lib/utils/wave-formatters
  */
 
+import { bracketFaceHeightFeet } from '@/lib/formatters/surf-data';
 import {
   transformToFaceHeight,
   transformToFaceHeightDecomposed,
@@ -27,12 +28,9 @@ import {
   metersToFeet as convertMetersToFeet,
 } from './unit-conversions';
 import { createContextLogger } from '@/lib/logger';
-import {
-  CDIP_OUTLIER_THRESHOLD,
-  MAX_TRUSTED_CDIP_FT,
-} from '@/lib/config/forecast-staleness';
+import { CDIP_OUTLIER_THRESHOLD, MAX_TRUSTED_CDIP_FT } from '@/lib/config/forecast-staleness';
 import type { ForecastReplayInput } from './forecast-display-replay';
-import type { ForecastHandoffBlendMetadata } from './forecast-handoff-blend';
+import { resolveEcmwfHybridScale, type ResolvedEcmwfHybridScale } from './ecmwf-hybrid-scale';
 
 // Re-export for backward compatibility (consumers may import from here)
 export { METERS_TO_FEET };
@@ -172,6 +170,7 @@ export function formatWaveHeightBucket(waveHeight?: number | string | null): str
  * formatWaveRange([3.2, 5.8], "integer")  // "3-6ft"
  * formatWaveRange([4, 4])                 // "4.0ft"
  * formatWaveRange(3.5)                   // "3-4ft"
+ * formatWaveRange(3)                     // "2-3ft"
  * formatWaveRange(2, 4)                   // "2-4ft"
  * ```
  */
@@ -186,30 +185,16 @@ export function formatWaveRange(
   precisionOrMax: "decimal" | "integer" | number = "decimal"
 ): string {
   if (typeof rangeOrMin === "number") {
-    if (typeof precisionOrMax !== "number") {
-      const lower = Math.max(0, Math.floor(rangeOrMin - 0.5));
-      const upper = Math.ceil(rangeOrMin + 0.5);
-      return `${lower}-${upper}ft`;
-    }
-
-    const minHeight = rangeOrMin;
-    const maxHeight = precisionOrMax;
-    if (minHeight <= 0 && maxHeight <= 0) return "Flat";
-
-    const minInt = Math.max(0, Math.floor(minHeight));
-    const maxInt = Math.ceil(maxHeight);
-    if (minInt === maxInt) return `${minInt}ft`;
-    return `${minInt}-${maxInt}ft`;
+    // A single height reads the same as formatWaveHeightRange.
+    const max = typeof precisionOrMax === "number" ? precisionOrMax : rangeOrMin;
+    return bracketFaceHeightFeet(rangeOrMin, max);
   }
 
   const [min, max] = rangeOrMin;
   const precision = precisionOrMax === "integer" ? "integer" : "decimal";
 
   if (precision === "integer") {
-    const minInt = Math.round(min);
-    const maxInt = Math.round(max);
-    if (minInt === maxInt) return `${minInt}ft`;
-    return `${minInt}-${maxInt}ft`;
+    return bracketFaceHeightFeet(min, max);
   }
 
   if (min === max) {
@@ -371,13 +356,10 @@ export function parseWaveHeight(
  *
  * @param low Lower face wave height in feet
  * @param high Upper face wave height in feet (pass `low` for single-point inputs)
- * @returns Formatted range like "3-4ft" or "4ft"
+ * @returns Formatted range like "3-4ft" ("2-3ft" for a whole 3), or "Flat"
  */
 export function formatWaveHeightRangeString(low: number, high: number): string {
-  const lo = Math.floor(low);
-  const hi = Math.ceil(high);
-  if (lo === hi) return `${lo}ft`;
-  return `${lo}-${hi}ft`;
+  return bracketFaceHeightFeet(low, high);
 }
 
 // ============================================================================
@@ -392,6 +374,8 @@ interface WaveHeightSourceParams {
   nowcastAnchorM?: number | null;
   cdipSigFt?: number | null;
   cdipSwellFt?: number | null;
+  /** Whether the beach has a measured bucket for this station and reading's period. */
+  cdipHasStationBucket?: boolean;
   modelSwellM?: number | null;
   modelHsM?: number | null;
   /** NDBC buoy wave height in meters */
@@ -412,8 +396,7 @@ interface WaveHeightSource {
    */
   source: WaveHeightSourceTag;
   /**
-   * Set when CDIP Hs was passed in but the selector rejected it as an
-   * outlier and fell back to a non-CDIP source. Populated for traceability
+   * Set when the selector rejected CDIP Hs. Populated for traceability
    * (see `WaveHeightDebugInfo`). Absent when CDIP was either chosen as the
    * source or simply not available.
    */
@@ -422,6 +405,25 @@ interface WaveHeightSource {
     rawCdipHs: number;
     rawModelHs: number | null;
   };
+}
+
+function getCdipWaveHeightRejection(params: WaveHeightSourceParams): WaveHeightSource['cdipRejection'] {
+  const cdipSig = validateWaveHeight(params.cdipSigFt);
+  if (cdipSig === undefined) return undefined;
+
+  const modelSwell = metersToFeet(params.modelSwellM);
+  if (cdipSig > MAX_TRUSTED_CDIP_FT && !params.cdipHasStationBucket) {
+    return { reason: 'cdip_too_large', rawCdipHs: cdipSig, rawModelHs: modelSwell ?? null };
+  }
+
+  if (
+    modelSwell !== undefined &&
+    cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD &&
+    !isCdipCorroboratedByModelHs(cdipSig, metersToFeet(params.modelHsM))
+  ) {
+    return { reason: 'cdip_outlier_vs_model', rawCdipHs: cdipSig, rawModelHs: modelSwell };
+  }
+  return undefined;
 }
 
 /**
@@ -452,44 +454,17 @@ export function selectWaveHeightSource(
     return { heightFt: nowcastAnchor, source: 'nowcast_anchor' };
   }
 
-  // Prefer CDIP significant height when available and within reasonable range
-  if (cdipSig !== undefined && cdipSig <= MAX_TRUSTED_CDIP_FT) {
-    // If we also have model swell and CDIP is a large outlier, defer to model
-    if (
-      modelSwell !== undefined &&
-      cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD &&
-      !isCdipCorroboratedByModelHs(cdipSig, modelHs)
-    ) {
-      return {
-        heightFt: modelSwell,
-        source: 'model_swell',
-        cdipRejection: {
-          reason: 'cdip_outlier_vs_model',
-          rawCdipHs: cdipSig,
-          rawModelHs: modelSwell,
-        },
-      };
-    }
+  const cdipRejection = getCdipWaveHeightRejection(params);
+  if (cdipSig !== undefined && !cdipRejection) {
     return { heightFt: cdipSig, source: 'cdip_sig' };
   }
-
-  // CDIP present but exceeds MAX_TRUSTED_CDIP_FT — record rejection so the
-  // caller can surface why we fell off the CDIP path.
-  const cdipTooLargeRejection: WaveHeightSource['cdipRejection'] | undefined =
-    cdipSig !== undefined && cdipSig > MAX_TRUSTED_CDIP_FT
-      ? {
-          reason: 'cdip_too_large',
-          rawCdipHs: cdipSig,
-          rawModelHs: modelSwell ?? null,
-        }
-      : undefined;
 
   // Prefer model primary swell
   if (modelSwell !== undefined) {
     return {
       heightFt: modelSwell,
       source: 'model_swell',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -498,7 +473,7 @@ export function selectWaveHeightSource(
     return {
       heightFt: cdipSwell,
       source: 'cdip_swell',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -507,7 +482,7 @@ export function selectWaveHeightSource(
     return {
       heightFt: modelHs,
       source: 'model_hs',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -516,7 +491,7 @@ export function selectWaveHeightSource(
     return {
       heightFt: ndbcBuoy,
       source: 'ndbc_buoy',
-      ...(cdipTooLargeRejection ? { cdipRejection: cdipTooLargeRejection } : {}),
+      ...(cdipRejection ? { cdipRejection } : {}),
     };
   }
 
@@ -629,6 +604,12 @@ export interface DecomposedFaceHeightParams extends FaceHeightParams {
    * "no data" for that component.
    */
   components: Array<SwellComponentInput | null>;
+  /**
+   * ECMWF WAM total Hs (m) at this valid hour. Only the forecast builder
+   * passes it; with it, a model_swell hour at a beach in the hybrid k table
+   * takes the ECMWF hybrid scale (see ecmwf-hybrid-scale.ts).
+   */
+  ecmwfWamHsM?: number | null;
 }
 
 /**
@@ -648,9 +629,9 @@ export interface DecomposedFaceHeightParams extends FaceHeightParams {
  *   - `'decomposed'`: per-component RMS sum with alignment weighting.
  * - `componentsUsed`: true when the decomposed branch RMS-summed components.
  * - `calibratedShoalingFired`: true when the empirical bucket lookup hit
- *   (only possible when source is `cdip_sig` and the beach has factors).
- * - `calibrationBucketQuarantined`: true when a low long-period CDIP bucket
- *   was skipped and the generic transformer path rendered the row instead.
+ *   (CDIP Hs or an eligible nowcast anchor at a calibrated beach).
+ * - `shortPeriodBucketCapped`: true when the short-period cap reduced a
+ *   calibrated bucket factor.
  * - `cdipRejection`: present when `selectWaveHeightSource` rejected CDIP as
  *   an outlier and fell back to model/NDBC. Records the why for traceability.
  */
@@ -661,15 +642,13 @@ export interface WaveHeightDebugInfo {
   transformPath: 'scalar_calibrated' | 'scalar_generic' | 'decomposed' | null;
   componentsUsed: boolean;
   calibratedShoalingFired: boolean;
-  calibrationBucketQuarantined?: boolean;
+  shortPeriodBucketCapped?: boolean;
+  modelCalibrationFactor?: number;
+  /** Present only when the ECMWF hybrid replaced the production factor. */
+  ecmwfHybrid?: ResolvedEcmwfHybridScale;
   handoffDiscontinuityFt?: number;
-  handoffBlend?: ForecastHandoffBlendMetadata;
   replayInput?: ForecastReplayInput;
-  cdipRejection?: {
-    reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
-    rawCdipHs: number;
-    rawModelHs: number | null;
-  };
+  cdipRejection?: WaveHeightSource['cdipRejection'];
 }
 
 /**
@@ -681,6 +660,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
 ): { value: string | null; debug: WaveHeightDebugInfo } {
   const source = selectWaveHeightSource(params);
   if (!source) {
+    const cdipRejection = getCdipWaveHeightRejection(params);
     return {
       value: null,
       debug: {
@@ -690,10 +670,18 @@ export function toFaceHeightFeetDecomposedWithDebug(
         transformPath: null,
         componentsUsed: false,
         calibratedShoalingFired: false,
+        ...(cdipRejection ? { cdipRejection } : {}),
       },
     };
   }
 
+  const hybrid = resolveEcmwfHybridScale({
+    beachId: params.beach?.id,
+    source: source.source,
+    components: params.components,
+    ecmwfHsM: params.ecmwfWamHsM,
+  });
+  // Components stay unscaled here; r and k ride beside them so a replay can tell the bases apart.
   const replayInput = {
     components: params.components,
     beach: params.beach ?? {},
@@ -702,6 +690,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
     periodS: params.periodS ?? null,
     swellDirectionDeg: params.swellDirectionDeg ?? null,
     allowCalibratedShoaling: params.allowCalibratedShoaling,
+    ...(hybrid ? { ecmwfHybrid: { r: hybrid.r, k: hybrid.k } } : {}),
   };
   const result = transformToFaceHeightDecomposed(replayInput);
 
@@ -725,9 +714,11 @@ export function toFaceHeightFeetDecomposedWithDebug(
       transformPath,
       componentsUsed: result.path === 'decomposed',
       calibratedShoalingFired: result.isCalibrated,
-      ...(result.calibrationBucketQuarantined
-        ? { calibrationBucketQuarantined: true }
+      ...(result.shortPeriodBucketCapped ? { shortPeriodBucketCapped: true } : {}),
+      ...(result.modelCalibrationFactor != null
+        ? { modelCalibrationFactor: result.modelCalibrationFactor }
         : {}),
+      ...(hybrid ? { ecmwfHybrid: hybrid } : {}),
       ...(source.cdipRejection ? { cdipRejection: source.cdipRejection } : {}),
     },
   };

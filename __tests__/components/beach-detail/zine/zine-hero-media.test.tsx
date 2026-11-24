@@ -54,6 +54,18 @@ describe("ZineHeroMedia", () => {
     expect(screen.getByRole("link", { name: "Jo" })).toHaveAttribute("href", "/profile/profile-1");
   });
 
+  it("shows no camera label when a beach's camera was retired", () => {
+    render(
+      <ZineHeroMedia
+        {...mediaProps}
+        sources={{ camera_url: null, cam_unavailable: true } as BeachSources}
+      />,
+    );
+
+    expect(screen.queryByText(/camera unavailable/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cam-still")).not.toBeInTheDocument();
+  });
+
   it("uses the labeled map when media is missing", () => {
     render(<ZineHeroMedia {...mediaProps} />);
 
@@ -113,5 +125,31 @@ describe("ZineHeroMedia", () => {
       variant: "hero",
       beachName: "Lower Trestles",
     });
+  });
+
+  it("leads with the live cam over a photo or diorama", () => {
+    const sources: BeachSources = {
+      camera_url: "https://cams.example.com/tourmaline.mp4",
+      diorama_url: "/trestles.mp4",
+    };
+    render(
+      <ZineHeroMedia
+        {...mediaProps}
+        hasLiveCam
+        photoUrl="/photo.jpg"
+        sources={sources}
+        attributionHtml="Photo by Jo"
+      />,
+    );
+
+    expect(screen.getByTestId("cam-still")).toBeInTheDocument();
+    expect(jest.mocked(CamsSection).mock.calls[0][0]).toEqual({
+      sources,
+      variant: "hero",
+      beachName: "Lower Trestles",
+    });
+    expect(screen.queryByAltText("Lower Trestles, San Onofre, CA")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Illustrated scene/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Photo by Jo")).not.toBeInTheDocument();
   });
 });

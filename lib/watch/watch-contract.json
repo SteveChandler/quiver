@@ -14,6 +14,7 @@
   ],
   "ratingMin": 1,
   "ratingMax": 5,
+  "headerOptional": ["calories"],
   "appVersionHeader": "X-Quiver-App-Version",
   "failedUploadStatus": "failed"
 }

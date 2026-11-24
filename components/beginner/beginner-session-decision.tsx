@@ -13,16 +13,20 @@ interface BeginnerSessionDecisionProps {
   stateSlug: string;
   conditions?: RightNowConditions;
   referenceSpotName?: string;
-  decisionSummary?: string;
+  /** The page's own editorial text, shown as the field guide when live data is missing. */
+  guideSummary?: string;
   bestTimeToSurfUrl?: string;
 }
 
 const STICKER_SRC = "/images/quiver-stickers/surf-wax.png";
 
+const LIVE_DATA_UNAVAILABLE_SUMMARY =
+  "Live wave, wind, tide, and time-window data is unavailable. Check the beach first.";
+
 const VERDICT_COPY: Record<
   BeginnerVerdictRating,
   {
-    label: "YES" | "MAYBE" | "NO";
+    label: "YES" | "MAYBE" | "NO" | null;
     headline: string;
     nextStep: string;
     tone: string;
@@ -47,8 +51,9 @@ const VERDICT_COPY: Record<
       "Wait for a smaller, lighter-wind window or book a lesson at a protected beginner break.",
     tone: "border-rose-300 bg-rose-50 text-rose-800",
   },
+  // No rating means no verdict pill: "MAYBE" would read as a real rating.
   unknown: {
-    label: "MAYBE",
+    label: null,
     headline: "Check the beach first",
     nextStep:
       "Confirm the sets, wind, and current before deciding whether this window fits you.",
@@ -62,16 +67,16 @@ export function BeginnerSessionDecision({
   stateSlug,
   conditions,
   referenceSpotName,
-  decisionSummary,
+  guideSummary,
   bestTimeToSurfUrl,
 }: BeginnerSessionDecisionProps): ReactElement {
   const seasonalHref = bestTimeToSurfUrl ?? `/best-time-to-surf/${citySlug}`;
   const spotHref = `/${stateSlug}/${citySlug}`;
   const spotName = conditions?.spotName ?? referenceSpotName ?? cityName;
-  const summary =
-    conditions?.summary ??
-    decisionSummary ??
-    `Use this ${cityName} beginner guide as the first filter.`;
+  const summary = conditions?.summary ?? LIVE_DATA_UNAVAILABLE_SUMMARY;
+  // Editorial text never stands in for the live read; it shows beside the
+  // unavailable notice, labelled as the guide, so each page keeps its own copy.
+  const guide = conditions ? null : guideSummary;
   const rating = conditions?.beginnerVerdict.rating ?? "unknown";
   const verdict = VERDICT_COPY[rating];
   const reasons = conditions?.beginnerVerdict.reasons ?? [];
@@ -109,11 +114,13 @@ export function BeginnerSessionDecision({
             Can a beginner surf here today?
           </h2>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <span
-              className={`inline-flex rounded-full border px-3 py-1 font-mono text-sm font-black tracking-[0.12em] ${verdict.tone}`}
-            >
-              {verdict.label}
-            </span>
+            {verdict.label ? (
+              <span
+                className={`inline-flex rounded-full border px-3 py-1 font-mono text-sm font-black tracking-[0.12em] ${verdict.tone}`}
+              >
+                {verdict.label}
+              </span>
+            ) : null}
             <p className="text-lg font-bold text-slate-900">
               {verdict.headline}
             </p>
@@ -121,6 +128,11 @@ export function BeginnerSessionDecision({
           <p className="mt-2 text-sm leading-6 text-slate-700">
             <strong>{spotName}:</strong> {summary}
           </p>
+          {guide ? (
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              <strong>Field guide:</strong> {guide}
+            </p>
+          ) : null}
           {reasons.length > 0 ? (
             <dl className="mt-4 grid gap-2 sm:grid-cols-2">
               {reasons.map((reason) => (

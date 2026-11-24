@@ -23,7 +23,7 @@ import {
 
 // Allow up to 5 minutes for the cron job to complete (Vercel limit)
 const MAX_DURATION_SECONDS = 300;
-const DEFAULT_SAFETY_MARGIN_MS = 20_000;
+const DEFAULT_SAFETY_MARGIN_MS = 60_000;
 
 function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safetyMarginMs: number } {
   const hardLimitMs = MAX_DURATION_SECONDS * 1000;

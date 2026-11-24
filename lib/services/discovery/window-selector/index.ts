@@ -55,6 +55,7 @@ export {
   scoreWindowConditionScore,
   scoreWindowWithComposite,
 } from './window-scorer';
+export type { WindowConditionScoreDetails } from './window-scorer';
 
 // Re-export scoring engine singleton
 

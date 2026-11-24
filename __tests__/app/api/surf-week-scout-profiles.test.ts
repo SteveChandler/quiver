@@ -32,6 +32,7 @@ jest.mock('@/lib/services/discovery/weekend-scout-candidate-pool', () => ({
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
+import { REUSE_MS, resetWeekScoutAnswerReuseForTests } from '@/lib/services/discovery/week-scout-answer-reuse';
 import type {
   CanonicalWeekScoutResponse, WeekScoutRequest, WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
@@ -207,6 +208,8 @@ function radiusContractBeaches(): Beach[] {
 describe('Week Scout route → real ranking profile contracts', () => {
   const originalFlag = process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
   beforeEach(() => {
+    // Each test asks the same question with different mocks; never reuse across tests.
+    resetWeekScoutAnswerReuseForTests();
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     jest.setSystemTime(NOW);
     process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
@@ -280,7 +283,7 @@ describe('Week Scout route → real ranking profile contracts', () => {
     expect(near).toHaveLength(8);
   });
 
-  it('retains a real-scored ninth canonical winner when the compacted day best is held', async () => {
+  it('keeps a held beach in the ranking and the real-scored ninth canonical winner; the hold is only a notice', async () => {
     const beaches = radiusContractBeaches().slice(0, 9);
     const near = beaches.slice(0, 8);
     const lateWinner = beaches[8];
@@ -316,8 +319,8 @@ describe('Week Scout route → real ranking profile contracts', () => {
 
     expect(best(held)?.beachId).toBe(lateWinner.id);
     expect(held.sessionDecision.selection?.beachId).toBe(lateWinner.id);
-    expect(held.days[0].windows.every((window) => window.beachId !== near[0].id)).toBe(true);
-    expect(held.days[0].windows.every((window) => window.rankedSpots.every((spot) => spot.beachId !== near[0].id))).toBe(true);
+    expect(held.days[0].windows).toHaveLength(9);
+    expect(held.days[0].windows.some((window) => window.beachId === near[0].id)).toBe(true);
   });
 
   it('preserves EPIC-eligible 2.9-ft longboard scoring for the reported account', async () => {
@@ -422,17 +425,19 @@ describe('Week Scout route → real ranking profile contracts', () => {
     const before = await call([BEACHES[0].id]);
     expect(best(before)).toEqual(expect.objectContaining({ beachId: BEACHES[0].id }));
     mockDependencies.fetchForecasts = async () => new Map([[BEACHES[0].id, rows(BEACHES[0], 8)]]);
+    // The corrected rows arrive with a later sync, past the instance's answer reuse window.
+    jest.setSystemTime(new Date(Date.now() + REUSE_MS + 1000));
     const after = await call([BEACHES[0].id]);
     expect(after.days[0].bestWindowId).toBeNull();
     expect(after.sessionDecision.selection).toBeNull();
   });
 
-  it('removes a held winner from both selections and suggestions', async () => {
+  it('keeps a held winner in selections and suggestions; the hold is only a notice', async () => {
     mockDependencies = dependencies('advanced', ACCOUNT_BOARDS, new Map(BEACHES.slice(0, 2).map((beach, index) => [beach.id, rows(beach, index ? 4.4 : 2.9)])));
     mockResolveWaterQuality.mockResolvedValue({ state: 'resolved', heldBeachIds: [BEACHES[1].id], waterQualityStatusByBeachId: { [BEACHES[1].id]: 'closure' }, epoch: 'held' });
     const response = await call(BEACHES.slice(0, 2).map((beach) => beach.id));
-    expect(best(response)?.beachId).toBe(BEACHES[0].id);
-    expect(response.days[0].windows.every((window) => window.rankedSpots.every((spot) => spot.beachId !== BEACHES[1].id))).toBe(true);
+    expect(best(response)?.beachId).toBe(BEACHES[1].id);
+    expect(response.days[0].windows.some((window) => window.rankedSpots.some((spot) => spot.beachId === BEACHES[1].id))).toBe(true);
   });
 
   it('keeps a full seven-day 30-beach request batched and ranked spot previews bounded', async () => {

@@ -10,7 +10,7 @@ import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/date-time";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
-import { buildCompactSurfSummary } from "@/lib/surf-summary-display";
+import { buildCompactSurfSummary, knownConditionText } from "@/lib/surf-summary-display";
 import { cn } from "@/lib/utils";
 import { getSurfCallVerdictCall, SCORE_LABEL_PAPER_WASH } from "@/components/forecast/score-band-call";
 
@@ -145,7 +145,7 @@ export function UnifiedSurfCard({
   );
   const tideStatus = surfCall.tidePhase
     ? surfCall.tidePhase.charAt(0).toUpperCase() + surfCall.tidePhase.slice(1)
-    : surfCall.tideDescription;
+    : knownConditionText(surfCall.tideDescription);
   const compactSummary = useMemo(
     () =>
       buildCompactSurfSummary({
@@ -522,8 +522,8 @@ export function UnifiedSurfCard({
           beach: beachName,
           verdict: surfCall.verdict,
           window: `${windowStart} - ${windowEnd}`,
-          waveHeight: surfCall.waveHeight || "",
-          wind: surfCall.windDescription || "",
+          waveHeight: knownConditionText(surfCall.waveHeight) ?? "",
+          wind: knownConditionText(surfCall.windDescription) ?? undefined,
           tags: surfCall.trendTags.length > 0 ? surfCall.trendTags.join(",") : undefined,
         })}
         type="wave"

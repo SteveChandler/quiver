@@ -5,9 +5,10 @@ import { useEffect, useRef } from "react";
 import { flowForPoint, partitionToPoint } from "@/components/map/swell-field/field-sampler";
 import {
   BIRTH_FADE_PORTION,
+  CREST_DEPTH_ASPECT,
+  CREST_SOLID_PORTION,
+  CREST_WAKE_START_ALPHA,
   DASH_FRACTION,
-  DASH_WIDTH_PX_BASE,
-  DASH_WIDTH_PX_GAIN,
   DEATH_FADE_PORTION,
   FRAME_MS,
   LIFE_JITTER_FRAMES,
@@ -16,15 +17,22 @@ import {
   PARTICLE_DASH_LENGTH_SCALE,
   STEP_FRACTION,
   STRENGTH_DENSITY_CULL,
+  crestSizeScale,
   gridDimensions,
   resolveParticleCount,
 } from "@/components/map/swell-field/particle-style";
 import { waterMaskFromPixels } from "@/components/map/swell-field/water-mask";
 import {
   SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
-  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
+  SWELL_FIELD_PARTICLE_COLOR,
 } from "@/components/map/swell-map-theme";
 import type { SwellPartition } from "@/lib/domains/conditions/map-forecast";
+
+/** `#RRGGBB` as an `rgba()` string with the given alpha. */
+function hexWithAlpha(hex: string, alpha: number): string {
+  const value = parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${alpha})`;
+}
 
 /** A loaded map image. `src` changes when `<picture>` swaps sources at a breakpoint. */
 export interface LoadedMapImage {
@@ -142,17 +150,23 @@ export function HeroSwellField({
       const cellWidth = width / cols;
       const cellHeight = height / rows;
       const step = width * STEP_FRACTION * flow.speed * deltaFrames;
-      const halfLength = width * DASH_FRACTION * PARTICLE_DASH_LENGTH_SCALE.s1
+      const halfLength = width * crestSizeScale(width) * DASH_FRACTION * PARTICLE_DASH_LENGTH_SCALE.s1
         * SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE * (0.45 + strength) * 0.5;
-      // The crest runs across the direction of travel.
-      const crestX = -flow.vy * halfLength;
-      const crestY = flow.vx * halfLength;
+      // /map's crest chip: a solid band at the leading edge and a wake fading
+      // behind it, drawn in a frame whose x runs along the crest and y along travel.
+      const travel = Math.hypot(flow.vx, flow.vy) || 1;
+      const ux = flow.vx / travel;
+      const uy = flow.vy / travel;
+      const depth = (halfLength * 2) / CREST_DEPTH_ASPECT;
+      const solid = Math.max(depth * CREST_SOLID_PORTION, 1 / ratio);
+      const front = depth * 0.5;
+      const mid = front - solid;
+      const back = -depth * 0.5;
       const densityFloor = 0.55 + strength * 0.45;
-
-      context.strokeStyle = SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE.s1;
-      context.lineCap = "butt";
-      // /map sets crest weight in device pixels.
-      context.lineWidth = (DASH_WIDTH_PX_BASE + strength * DASH_WIDTH_PX_GAIN) / ratio;
+      const color = SWELL_FIELD_PARTICLE_COLOR.s1;
+      const wake = context.createLinearGradient(0, mid, 0, back);
+      wake.addColorStop(0, hexWithAlpha(color, CREST_WAKE_START_ALPHA));
+      wake.addColorStop(1, hexWithAlpha(color, 0));
 
       for (let i = 0; i < count; i += 1) {
         px[i] += flow.vx * step;
@@ -172,12 +186,14 @@ export function HeroSwellField({
         const fade = Math.min(1, age / BIRTH_FADE_PORTION, (1 - age) / DEATH_FADE_PORTION);
         if (fade <= 0) continue;
         context.globalAlpha = baseAlpha * fade;
-        context.beginPath();
-        context.moveTo(px[i] - crestX, py[i] - crestY);
-        context.lineTo(px[i] + crestX, py[i] + crestY);
-        context.stroke();
+        context.setTransform(-uy * ratio, ux * ratio, ux * ratio, uy * ratio, px[i] * ratio, py[i] * ratio);
+        context.fillStyle = color;
+        context.fillRect(-halfLength, mid, halfLength * 2, solid);
+        context.fillStyle = wake;
+        context.fillRect(-halfLength, back, halfLength * 2, mid - back);
       }
 
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.globalAlpha = 1;
       context.globalCompositeOperation = "destination-in";
       context.imageSmoothingEnabled = true;

@@ -51,6 +51,8 @@ describe("buildWavesSummary", () => {
       gpsCoverage: 0.49, lowCoverage: true, speedReliable: true,
       detectionVersion: "wd-1.0.0",
       paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      calories: null, waterTempStartC: null, waterTempEndC: null,
+      waterTempC: null,
       setIntervalMin: null, recordedWith: null,
     });
   });
@@ -64,6 +66,8 @@ describe("buildWavesSummary", () => {
       gpsCoverage: 0.5, lowCoverage: false, speedReliable: false,
       detectionVersion: "wd-1.0.0",
       paddleDistanceM: null, heartRateAvg: null, heartRateMax: null,
+      calories: null, waterTempStartC: null, waterTempEndC: null,
+      waterTempC: null,
       setIntervalMin: null, recordedWith: null,
     });
   });
@@ -75,6 +79,20 @@ describe("buildWavesSummary", () => {
       waveCount: 0, detectedWaveCount: 0, longestRideS: null,
       longestRideM: null, topSpeedMps: null,
     });
+  });
+
+  it("returns the single water temperature when endpoint temperatures are unknown", () => {
+    expect(buildWavesSummary([], [], {
+      gpsCoverage: 1, speedReliable: true, userWaveCount: null, waterTempC: 19,
+    }, "wd-1.1.0")).toMatchObject({ waterTempC: 19, waterTempStartC: null, waterTempEndC: null });
+  });
+
+  it("counts a manually included attempt in the detected summary", () => {
+    const attempt = wave("6", 0, 20, { confidence: 0.4 });
+    const summary = buildWavesSummary([attempt], [{
+      startedAt: attempt.startedAt, endedAt: attempt.endedAt, action: "include",
+    }], { gpsCoverage: 1, speedReliable: true, userWaveCount: null }, "wd-1.1.0");
+    expect(summary).toMatchObject({ waveCount: 1, detectedWaveCount: 1 });
   });
 
   it("counts a wave at exactly the confidence threshold", () => {

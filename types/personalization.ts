@@ -1,3 +1,4 @@
+import type { DiscoveryStageTimer } from "@/lib/services/discovery/discovery-stage-timer";
 import type { RecommendedBoard } from "@/lib/scoring/personal-board";
 /**
  * Personalization Types
@@ -9,6 +10,7 @@ import type { RecommendedBoard } from "@/lib/scoring/personal-board";
  */
 
 import type { Beach } from "@/types/database";
+import type { ReasonCode } from "@/lib/domains/scoring/reason-sentences";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { SpotProfile } from "@/lib/domains/spot-profile/types";
@@ -250,8 +252,12 @@ export interface DetailedScore {
   matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
   /** Human-readable reasons (3-5 specific factors) */
   reasons: string[];
+  /** `reasonCodes[i]` is the scorer code of `reasons[i]` (`lib/domains/scoring/reason-sentences.ts`), null for other text. */
+  reasonCodes?: ReasonCode[];
   /** Warnings about conditions, skill level, or crowding */
   warnings: string[];
+  /** `warningCodes[i]` is the code of `warnings[i]` (cautions lead), null for other text. */
+  warningCodes?: ReasonCode[];
   /** Structured scoring effects; decisions must not be inferred from warning strings. */
   effects?: ScoringDecisionEffect[];
   /** Top condition badges explaining why conditions are good */
@@ -289,12 +295,18 @@ export type SimilarityRecommendation =
       reasons: string[];
       sessionCount: number;
       similarSessionCount?: number;
+      /** Biggest face height (ft) among the user's eligible logged sessions. */
+      maxLoggedWaveFt?: number;
     };
 
 export interface SurfDiscoveryEntitlement {
+  /** Real subscription tier. */
   tier: 'free' | 'premium';
+  /** Pro feature access: real Pro or founding access. */
   hasPaidAccess: boolean;
   canSeeBestSpot: boolean;
+  /** Founding access switch is on and this signed-in user is not Pro. */
+  foundingAccess: boolean;
 }
 
 export interface LockedBestSpotTeaser {
@@ -386,8 +398,12 @@ export interface SurfDiscoveryRecommendation {
   message?: string;
   /** Specific reasons for this ranking (3-5 factors) */
   reasons: string[];
+  /** Optional and additive: `reasonCodes[i]` is the scorer code of `reasons[i]`, null for other text. */
+  reasonCodes?: ReasonCode[];
   /** Warnings or cautions about the spot */
   warnings: string[];
+  /** Optional and additive: `warningCodes[i]` is the code of `warnings[i]`, null for other text. */
+  warningCodes?: ReasonCode[];
   /** Structured condition effects carried into canonical decisions and presentation. */
   effects?: ScoringDecisionEffect[];
   /** Internal canonical-decision safety markers; not a recommendation endorsement. */
@@ -511,6 +527,22 @@ export interface SurfDiscoveryResponse {
   eveningTransition?: EveningTransition;
   /** Major-event safety boundary applied to recommendation semantics. */
   recommendationAvailability?: RecommendationAvailability;
+  /** Set only for `widenEmpty` requests whose drive range held no beach. */
+  scope?: SurfDiscoveryScope;
+}
+
+export interface SurfDiscoveryScope {
+  /** The surfer's drive radius; results come from the 100-mile maximum around the same origin. */
+  widenedFromMiles?: number;
+  /** Closest recommendable beach at any distance, when nothing was within 100 miles. */
+  nearestBeach?: {
+    id: string;
+    name: string;
+    slug: string;
+    lat: number;
+    lon: number;
+    distanceMiles: number;
+  };
 }
 
 /**
@@ -558,6 +590,8 @@ export interface SurfDiscoveryOptions {
    * Server-Timing and profiling. Never affects results.
    */
   onStageTiming?: (stage: string, durationMs: number) => void;
+  /** Request-local dependency timing, including work pending at the deadline. */
+  stageTimer?: DiscoveryStageTimer;
   /** Maximum concurrent forecast fetches (default: 5) */
   maxConcurrent?: number;
   /** Timeout per beach forecast in ms (default: 5000) */
@@ -567,7 +601,8 @@ export interface SurfDiscoveryOptions {
   /** Propagate retryable operational failures instead of returning a legacy empty response. */
   throwOnFailure?: boolean;
   /**
-   * Whether the requesting user has Pro/trial entitlement.
+   * Whether the requesting user has Pro feature access: Pro/trial
+   * entitlement or founding access (`resolveFeatureAccess().hasFeatureAccess`).
    * Default false: free user, similarity layer is skipped and every
    * recommendation gets `similarity: null`. When true, the similarity
    * layer bulk-scores eligible candidates via compute_user_match_score_batch

@@ -3,6 +3,10 @@ import userEvent from "@testing-library/user-event";
 
 import { BestSurfWindows } from "@/components/session-intelligence";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
+import { formatReasonSentence, type ScoringReasonFact } from "@/lib/domains/scoring/reason-sentences";
+
+const SIZE_FACT: ScoringReasonFact = { code: "size_good", heightFt: 4 };
+const PERIOD_FACT: ScoringReasonFact = { code: "period_good" };
 
 const mockTrack = jest.fn();
 
@@ -73,7 +77,8 @@ function makeRecommendation(
       summary: "Rising, 3.5 ft",
     },
     bestFor: ["intermediate", "longboard", "dawn-patrol"],
-    positives: ["Good wave size", "Light offshore wind"],
+    positives: [formatReasonSentence(SIZE_FACT), "Light offshore wind"],
+    positiveCodes: ["size_good", null],
     watchouts: ["Morning crowd may build"],
     dataNotes: [],
     confidence: {
@@ -127,6 +132,34 @@ describe("BestSurfWindows", () => {
       screen.getByRole("link", { name: "Open this beach in Quiver" })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /why this call/i })).toBeInTheDocument();
+  });
+
+  it("picks the Why line by reason code, after the size line", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[makeRecommendation(1, {
+          positives: [formatReasonSentence(SIZE_FACT), formatReasonSentence(PERIOD_FACT)],
+          positiveCodes: ["size_good", "period_good"],
+        })]}
+        variant="zine"
+      />,
+    );
+    const why = screen.getByText("Why:").parentElement;
+    expect(why).toHaveTextContent("Why: Solid swell period behind it.");
+  });
+
+  it("does not pick the Why line by its words when the code is missing", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[makeRecommendation(1, {
+          positives: [formatReasonSentence(SIZE_FACT), formatReasonSentence(PERIOD_FACT)],
+          positiveCodes: undefined,
+        })]}
+        variant="zine"
+      />,
+    );
+    const why = screen.getByText("Why:").parentElement;
+    expect(why).toHaveTextContent("Why: Good size at 3–4 ft.");
   });
 
   it("shows a dated zine decision with visible caveats and one selection-preserving action", async () => {

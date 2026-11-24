@@ -3,7 +3,6 @@ import type { WaveHeightSourceTag } from "./wave-height-source";
 
 const HANDOFF_BLEND_RATIO_MIN = 0.5;
 const HANDOFF_BLEND_RATIO_MAX = 2.0;
-const DEFAULT_HANDOFF_BLEND_TAPER_HOURS = 48;
 
 interface ForecastHandoffBlendSlot {
   replay?: ForecastReplaySlot;
@@ -36,23 +35,8 @@ export interface ForecastHandoffDiscontinuityMetric {
   clampedRatio: number;
 }
 
-export interface ForecastHandoffBlendMetadata
-  extends ForecastHandoffDiscontinuityMetric {
-  taperHours: number;
-  hoursAfterSeam: number;
-  taperFactor: number;
-  originalFaceFt: number;
-  blendedFaceFt: number;
-}
-
-interface ForecastHandoffBlendAdjustment {
-  waveHeight: string;
-  metadata: ForecastHandoffBlendMetadata;
-}
-
 interface ForecastHandoffBlendStep {
   metric: ForecastHandoffDiscontinuityMetric | null;
-  adjustment: ForecastHandoffBlendAdjustment | null;
 }
 
 export function createForecastHandoffBlendState(): ForecastHandoffBlendState {
@@ -69,34 +53,21 @@ function clampHandoffBlendRatio(ratio: number): number {
   );
 }
 
-export function calculateForecastHandoffBlendFactor(args: {
-  clampedRatio: number;
-  hoursAfterSeam: number;
-  taperHours?: number;
-}): number {
-  const taperHours = args.taperHours ?? DEFAULT_HANDOFF_BLEND_TAPER_HOURS;
-  if (!Number.isFinite(args.clampedRatio) || args.clampedRatio <= 0) return 1;
-  if (!Number.isFinite(args.hoursAfterSeam) || args.hoursAfterSeam < 0) {
-    return 1;
-  }
-  if (!Number.isFinite(taperHours) || taperHours <= 0) return 1;
-  if (args.hoursAfterSeam >= taperHours) return 1;
-
-  const remaining = 1 - args.hoursAfterSeam / taperHours;
-  return 1 + (args.clampedRatio - 1) * remaining;
-}
-
+// Measures the CDIP→model seam; it no longer rescales model rows (#1236). A
+// 14-day replay against CDIP buoys found the seam's face-height ratio does not
+// predict the later buoy/model gap (slope ≈ 0 at ~22 h and ~70 h): the gap is
+// mostly the two face transforms disagreeing, not the model being wrong. The
+// old 48 h taper scored worse than no blend at ~22 h and made heights fall
+// while the swell grew.
 export function processForecastHandoffBlendSlot(args: {
   state: ForecastHandoffBlendState;
   slot: ForecastHandoffBlendSlot;
-  enabled: boolean;
-  taperHours?: number;
 }): ForecastHandoffBlendStep {
   const faceFt = parsePositiveSingleFaceHeight(args.slot.waveHeight);
   const forecastAtMs = Date.parse(args.slot.forecastAt);
   if (faceFt == null || !Number.isFinite(forecastAtMs)) {
     resetForecastHandoffBlendState(args.state);
-    return { metric: null, adjustment: null };
+    return { metric: null };
   }
 
   if (isCdipDerivedSlot(args.slot)) {
@@ -108,12 +79,12 @@ export function processForecastHandoffBlendSlot(args: {
     };
     args.state.seam = null;
     delete args.state.replay;
-    return { metric: null, adjustment: null };
+    return { metric: null };
   }
 
   if (!isModelDerivedSlot(args.slot)) {
     resetForecastHandoffBlendState(args.state);
-    return { metric: null, adjustment: null };
+    return { metric: null };
   }
 
   const metric = args.state.seam ?? buildMetric(args.state.lastCdip, {
@@ -123,7 +94,7 @@ export function processForecastHandoffBlendSlot(args: {
   });
 
   if (!metric) {
-    return { metric: null, adjustment: null };
+    return { metric: null };
   }
 
   const isNewMetric = args.state.seam == null;
@@ -138,42 +109,7 @@ export function processForecastHandoffBlendSlot(args: {
     }
   }
 
-  if (!args.enabled) {
-    return { metric: isNewMetric ? metric : null, adjustment: null };
-  }
-
-  const hoursAfterSeam =
-    (forecastAtMs - Date.parse(metric.modelForecastAt)) / 3_600_000;
-  const taperHours = args.taperHours ?? DEFAULT_HANDOFF_BLEND_TAPER_HOURS;
-  const taperFactor = calculateForecastHandoffBlendFactor({
-    clampedRatio: metric.clampedRatio,
-    hoursAfterSeam,
-    taperHours,
-  });
-
-  if (taperFactor === 1) {
-    return { metric: isNewMetric ? metric : null, adjustment: null };
-  }
-
-  const blendedFaceFt = roundOneDecimal(faceFt * taperFactor);
-  if (!Number.isFinite(blendedFaceFt) || blendedFaceFt <= 0) {
-    return { metric: isNewMetric ? metric : null, adjustment: null };
-  }
-
-  return {
-    metric: isNewMetric ? metric : null,
-    adjustment: {
-      waveHeight: `${blendedFaceFt} ft`,
-      metadata: {
-        ...metric,
-        taperHours,
-        hoursAfterSeam: roundThreeDecimals(hoursAfterSeam),
-        taperFactor: roundThreeDecimals(taperFactor),
-        originalFaceFt: faceFt,
-        blendedFaceFt,
-      },
-    },
-  };
+  return { metric: isNewMetric ? metric : null };
 }
 
 function resetForecastHandoffBlendState(state: ForecastHandoffBlendState): void {

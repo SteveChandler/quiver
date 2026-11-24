@@ -25,20 +25,27 @@ import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-ev
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
-import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { getSkillLevelOrDefault, parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {
   resolveSelectedHourDisplay,
   resolveTodayHeadline,
   type ForecastDisplay,
 } from "@/lib/services/forecast/today-headline";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
+import { isFallbackForecastRow } from "@/lib/utils/forecast-row-source";
 import { withDisplayWindow } from "@/lib/services/discovery/window-authority";
 import {
   resolveDisplaySwell,
   type DisplaySwell,
   type DisplaySwellWindow,
 } from "@/lib/domains/conditions/display-swell";
-import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
+import {
+  BULK_FORECAST_SELECT,
+  currentHourForecastRow,
+  fetchBulkForecastRowsWithV51Display,
+  modelForecastRow,
+  resolveForecastFetchWindow,
+} from "@/lib/services/forecast/map-current-forecast";
 import type { RecommendationLabel } from "@/lib/scoring";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -57,14 +64,11 @@ import {
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 import { getClientIdentifier } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
 import { withBulkForecastSlot, bulkForecastShedResponse, FORECAST_BULK_DEADLINE_MS } from "@/lib/api/bulk-forecast-guard";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = 'force-dynamic';
 
 const BULK_CANDIDATE_DURATION_MS = 3 * 60 * 60 * 1000;
-// A forecast row may stand in for "current conditions" only within one
-// 3-hourly slot of now. Beyond that we are showing a stale or next-day row
-// as current, which is worse than an honest gap.
-const CURRENT_CONDITIONS_TOLERANCE_MS = 3 * 60 * 60 * 1000;
 const UNAVAILABLE_RECOMMENDATION: RecommendationAvailability = {
   state: "none",
   reasonCode: "hold_state_unavailable",
@@ -86,9 +90,6 @@ const emptyBulkForecastResponse = {
   swellPartitions: {},
   swellPartitionTimeline: {},
 };
-
-const BULK_FORECAST_SELECT =
-  "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_period, wave_period_om, wave_direction, wave_height_om, wave_direction_om, swell_height_om, swell_period_om, swell_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction, wind_speed, wind_direction, wind_direction_deg, water_temp, tide_height, tide_status, confidence_score, data_source" as const;
 
 const HOURLY_TIMELINE_SELECT =
   "beach_id, forecast_at, swell_height_om, swell_period_om, swell_direction_om, wave_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_speed, wind_direction_deg" as const;
@@ -226,29 +227,6 @@ function parseLegacyWaveHeight(value: string | number | null | undefined): numbe
   if (value.trim().toLowerCase() === "flat") return 0;
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function resolveForecastFetchWindow(forecastAt: string | null): {
-  start: Date;
-  end: Date;
-  selectedAt: Date | null;
-} {
-  const selectedMs = forecastAt ? Date.parse(forecastAt) : NaN;
-  if (Number.isFinite(selectedMs)) {
-    const selectedAt = new Date(selectedMs);
-    return {
-      selectedAt,
-      start: new Date(selectedMs - 2 * 60 * 1000),
-      end: new Date(selectedMs + 2 * 60 * 1000),
-    };
-  }
-
-  const now = new Date();
-  return {
-    selectedAt: null,
-    start: new Date(now.getTime() - 18 * 60 * 60 * 1000),
-    end: new Date(now.getTime() + 42 * 60 * 60 * 1000),
-  };
 }
 
 function parseIsoTimestampWithTimezone(value: string): number | null {
@@ -437,9 +415,7 @@ function buildSwellPartitionTimeline(
     const partitions = hourOffsets.map((offsetHours) => {
       const targetMs = nowMs + offsetHours * 60 * 60 * 1000;
       const row = offsetHours === 0
-        ? designateCurrentRow(beachRows, now, {
-            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-          })?.row ?? null
+        ? currentHourForecastRow(beachRows, now)
         : nearestForecastRow(beachRows, targetMs);
       return row ? rowToSwellPartition(row) : null;
     }).filter((partition): partition is SwellPartition => partition !== null);
@@ -666,14 +642,15 @@ async function buildScoredHourlySwellTimeline(
   const displayByTime = new Map(displayRows.map((row) => [`${row.beach_id}:${row.forecast_at}`, row]));
   let scores: Map<EnhancedForecastEntity, number | null> | undefined;
   let beaches: Map<string, Beach> | undefined;
+  const ratingSkillLevel = context?.skillAware ? getSkillLevelOrDefault(context.skillLevel) : context?.skillLevel;
   if (context) {
     beaches = new Map(context.beaches.map((beach) => [beach.id, beach]));
     scores = new Map();
     for (const row of rows) {
       const displayRow = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
       const beach = beaches.get(row.beach_id);
-      const score = beach && displayRow.wave_height != null
-        ? scoreWindowConditionScore(displayRow, beach, context.skillLevel, null, context.boardClasses)
+      const score = beach && displayRow.wave_height != null && !isFallbackForecastRow(displayRow)
+        ? scoreWindowConditionScore(displayRow, beach, ratingSkillLevel, null, context.boardClasses)
         : null;
       scores.set(row, score != null && Number.isFinite(score) ? score : null);
     }
@@ -700,7 +677,7 @@ async function buildScoredHourlySwellTimeline(
         endsAt: new Date(Date.parse(timeline.timestamps[index]) + HOUR_MS).toISOString(),
       }]),
     );
-    const decisions = await evaluateMajorEventHoldCandidates({ candidates, profileExperience: context.skillLevel, applyWaterQualityHolds: true }, {
+    const decisions = await evaluateMajorEventHoldCandidates({ candidates, profileExperience: ratingSkillLevel, applyWaterQualityHolds: true }, {
       resolveWaterQualityHolds: (rows) => resolveWaterQualityHolds(rows, { client: context.waterQuality }),
     });
     const boundary = resolveMajorEventHoldBoundary(candidates, candidates, decisions);
@@ -715,48 +692,6 @@ async function buildScoredHourlySwellTimeline(
     }
   }
   return timeline;
-}
-
-async function fetchBulkForecastRowsWithV51Display(
-  supabase: SupabaseClient<Database>,
-  beachIds: string[],
-  start: Date,
-  end: Date,
-  signal?: AbortSignal,
-): Promise<{
-  data: EnhancedForecastEntity[] | null;
-  timelineRows: EnhancedForecastEntity[];
-  error: { message: string } | null;
-}> {
-  signal?.throwIfAborted();
-  const query = supabase
-    .from("enhanced_forecasts")
-    .select(BULK_FORECAST_SELECT)
-    .in("beach_id", beachIds)
-    .gte("forecast_at", start.toISOString())
-    .lt("forecast_at", end.toISOString())
-    .order("forecast_at", { ascending: true });
-  const { data, error } = await (signal ? query.abortSignal(signal) : query);
-  signal?.throwIfAborted();
-
-  if (error || !data) {
-    return {
-      data: null,
-      timelineRows: [],
-      error: error ? { message: error.message } : null,
-    };
-  }
-
-  const displayRows = await applyV51DisplayOverrideToForecasts(
-    data as unknown as EnhancedForecastEntity[]
-  );
-  signal?.throwIfAborted();
-
-  return {
-    data: displayRows,
-    timelineRows: data as unknown as EnhancedForecastEntity[],
-    error: null,
-  };
 }
 
 function groupForecastsByBeach(
@@ -875,7 +810,7 @@ export async function bulkForecastHandler(
     signal.throwIfAborted();
     const selectedRows = [...groupForecastsByBeach(data).values()].flatMap((rows) => {
       const row = fetchWindow.selectedAt ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : designateCurrentRow(rows, now, { toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS })?.row;
+        : currentHourForecastRow(rows, now);
       return row ? [row] : [];
     });
     const decisionContext = loadScoring ? await fetchBulkDecisionContext(
@@ -887,6 +822,8 @@ export async function bulkForecastHandler(
     signal.throwIfAborted();
     const userSkillLevel = decisionContext?.skillLevel ?? parseSkillLevel(searchParams.get("skillLevel"));
     if (decisionContext) decisionContext.skillLevel = userSkillLevel;
+    // Rating and window shape use the beginner default; the board pick keeps the raw skill.
+    const ratingSkillLevel = decisionContext?.skillAware ? getSkillLevelOrDefault(userSkillLevel) : userSkillLevel;
     const boardClasses = decisionContext?.boardClasses ?? [];
     const sunTimesCache = decisionContext?.sunTimes;
     const hourlySwellTimeline = hourlyTimelineWindow ? await buildScoredHourlySwellTimeline(
@@ -921,9 +858,7 @@ export async function bulkForecastHandler(
     for (const [beachId, rows] of timelineByBeach) {
       const row = fetchWindow.selectedAt
         ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : designateCurrentRow(rows, now, {
-            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-          })?.row ?? null;
+        : currentHourForecastRow(rows, now);
       if (row) {
         swellPartitionRows.set(beachId, row);
         swellPartitionMap[beachId] = rowToSwellPartition(row);
@@ -977,10 +912,12 @@ export async function bulkForecastHandler(
 
     for (const beach of scoringBeachRows) {
       const beachForecasts = forecastsByBeach.get(beach.id) ?? [];
+      // A FALLBACK row carries no model wave data: no height to display and
+      // a null height that would score as a flat 0 / MEH.
       const forecastForScore =
         fetchWindow.selectedAt === null
           ? null
-          : closestForecastRow(beachForecasts, fetchWindow.selectedAt);
+          : modelForecastRow(closestForecastRow(beachForecasts, fetchWindow.selectedAt));
 
       let display: ForecastDisplay | null = null;
       let scoreForecast: EnhancedForecastEntity | null = forecastForScore;
@@ -988,9 +925,7 @@ export async function bulkForecastHandler(
       if (fetchWindow.selectedAt) {
         display = resolveSelectedHourDisplay(forecastForScore);
       } else {
-        const currentRow = designateCurrentRow(beachForecasts, now, {
-          toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-        })?.row ?? null;
+        const currentRow = modelForecastRow(currentHourForecastRow(beachForecasts, now));
         display = resolveSelectedHourDisplay(currentRow);
         scoreForecast = currentRow;
 
@@ -1008,7 +943,8 @@ export async function bulkForecastHandler(
           userPrefs: null,
           horizonHours: 24,
           sunTimesCache,
-          userSkillLevel,
+          userSkillLevel: ratingSkillLevel,
+          ...(decisionContext?.skillAware ? { boardClasses } : {}),
         });
         if (headline) {
           const window = withDisplayWindow(
@@ -1041,7 +977,7 @@ export async function bulkForecastHandler(
         const score = scoreWindowConditionScore(
           forecast,
           beach,
-          userSkillLevel,
+          ratingSkillLevel,
           null,
           boardClasses,
         );
@@ -1124,7 +1060,7 @@ export async function bulkForecastHandler(
       await sanitizeBulkResponse(
         response,
         selectedScoreForecastAtByBeach,
-        userSkillLevel,
+        ratingSkillLevel,
         decisionContext,
       )
     );
@@ -1139,7 +1075,7 @@ export async function bulkForecastHandler(
 }
 
 // Apply rate limiting to prevent abuse of bulk operations
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withRateLimit(
     withBulkForecastSlot(withAuth(bulkForecastHandler, {
       optional: true,
@@ -1148,3 +1084,5 @@ export const GET = withNoStore(
     "forecast-bulk"
   )
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/forecasts/bulk");

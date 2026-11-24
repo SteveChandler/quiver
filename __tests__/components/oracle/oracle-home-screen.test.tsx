@@ -367,6 +367,11 @@ const MOCK_ORACLE_DATA_BASE = {
   markAnimationPlayed: jest.fn(),
   reducedMotion: false,
   userLocation: { lat: 32.88, lon: -117.25 },
+  origin: { lat: 32.88, lon: -117.25, source: "browser", approximate: false, label: null },
+  locationUnresolved: false,
+  widenedFromMiles: null,
+  nearestBeach: null,
+  scoutFromBeach: jest.fn(),
   geoSource: "browser",
   requestLocation: jest.fn(),
   geoLoading: false,
@@ -458,6 +463,72 @@ describe("OracleHomeScreen", () => {
     );
 
     expect(requestLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks for a place instead of showing a call when no location is known", async () => {
+    const requestLocation = jest.fn();
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      homeBeach: null,
+      discovery: null,
+      topRecommendation: null,
+      userLocation: null,
+      origin: null,
+      locationUnresolved: true,
+      geoSource: "default",
+      requestLocation,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByRole("heading", { name: "Where are you surfing?" })).toBeInTheDocument();
+    expect(screen.queryByText("Today's Windows")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set your home beach" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Use my location" }));
+    expect(requestLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels an approximate origin and a widened drive range on the call", () => {
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      homeBeach: null,
+      origin: { lat: 30.5, lon: -81.4, source: "ip", approximate: true, label: "Testville, ZZ" },
+      widenedFromMiles: 15,
+      geoSource: "default",
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    const notice = screen.getByRole("region", { name: "Discovery location" });
+    expect(notice).toHaveTextContent(
+      "Approximate location · Testville, ZZ — Nothing within 15 mi · showing surf up to 100 mi",
+    );
+    expect(screen.getByText("Today's Windows")).toBeInTheDocument();
+  });
+
+  it("names the nearest beach on an empty result and scouts from it on request", async () => {
+    const scoutFromBeach = jest.fn();
+    const nearestBeach = { id: "near-1", name: "Nearest Point", slug: "nearest-point", lat: 41.1, lon: -71.5, distanceMiles: 212.4 };
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      discovery: {
+        ...MOCK_ORACLE_DATA_BASE.discovery,
+        recommendations: [],
+        sessionDecision: undefined,
+        scope: { nearestBeach },
+      },
+      topRecommendation: null,
+      nearestBeach,
+      scoutFromBeach,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(
+      screen.getByText("Quiver has no beaches within 100 miles of here. The nearest is Nearest Point, 212 mi away."),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Scout from Nearest Point" }));
+    expect(scoutFromBeach).toHaveBeenCalledWith(nearestBeach);
   });
 
   it("keeps populated conditions visible while GPS is resolving", () => {
@@ -563,6 +634,62 @@ describe("OracleHomeScreen", () => {
   it("renders Today's Windows section", () => {
     render(<OracleHomeScreen />);
     expect(screen.getByText("Today's Windows")).toBeInTheDocument();
+  });
+
+  describe("stand-in values", () => {
+    function withTopRec(rec: Record<string, unknown>): void {
+      mockOracleData = {
+        ...mockOracleData,
+        topRecommendation: rec,
+        discovery: { ...mockOracleData.discovery!, recommendations: [rec] },
+      } as unknown as OracleData;
+    }
+
+    function slotRow(time: string): HTMLElement {
+      const row = screen.getByText(time).closest("div.p-1");
+      if (!(row instanceof HTMLElement)) throw new Error(`no slot row for ${time}`);
+      return row;
+    }
+
+    it("leaves Today's Windows slots with no data empty instead of copying the best window", () => {
+      render(<OracleHomeScreen />);
+      expect(slotRow("5am")).toHaveTextContent("3-4ft");
+      for (const time of ["8am", "11am", "2pm", "5pm"]) {
+        expect(slotRow(time)).not.toHaveTextContent("3-4ft");
+        expect(slotRow(time)).toHaveTextContent("—");
+      }
+    });
+
+    it("fills a slot only from its own hourly row, never from the best window's conditions", () => {
+      withTopRec({
+        ...MOCK_TOP_REC,
+        slotForecasts: { 8: { waveHeight: "2-3ft", waveHeightBadge: "2-3ft" } },
+      });
+      render(<OracleHomeScreen />);
+      const morning = slotRow("8am");
+      expect(morning).toHaveTextContent("2-3ft");
+      expect(morning).not.toHaveTextContent("WNW");
+      expect(morning).not.toHaveTextContent("NW 8");
+    });
+
+    it("shows no default swell direction or tide direction when the forecast lacks them", () => {
+      withTopRec({
+        ...MOCK_TOP_REC,
+        forecast: {
+          ...MOCK_FORECAST,
+          swell_1_direction: null,
+          wave_direction: null,
+          swell_1_period: null,
+          wave_period: null,
+          tide_status: "High",
+        },
+      });
+      render(<OracleHomeScreen />);
+      const strip = screen.getByRole("group", { name: "Current conditions" });
+      expect(strip).not.toHaveTextContent(/\bW\b/);
+      expect(strip).not.toHaveTextContent(/falling/i);
+      expect(strip).toHaveTextContent("3.2FT");
+    });
   });
 
   it("keeps the forecast feed single-column until the layout has desktop width", () => {

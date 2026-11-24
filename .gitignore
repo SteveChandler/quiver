@@ -207,3 +207,4 @@ ios/App/Pods/
 graphify-out/
 
 /.cache/
+scripts/.hybrid-cache/

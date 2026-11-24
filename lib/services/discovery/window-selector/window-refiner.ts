@@ -13,7 +13,7 @@ import { interpolateTideHeight } from '@/lib/utils/tide-interpolation';
 import { extractTideSchedule } from './tide-boundary-calculator';
 import { MIN_SCORE_THRESHOLD } from './constants';
 import type { CandidateWindow } from './types';
-import { isDaylightInterval } from '../daylight-eligibility';
+import { createDaylightPointChecker } from '../daylight-eligibility';
 
 /**
  * Apply sub-hour refinement to a window that used hourly boundaries.
@@ -80,12 +80,7 @@ export function applySubHourRefinement(
         height: t.height,
       })) ?? [];
 
-    const isLightOk = (time: Date): boolean => isDaylightInterval(
-      time,
-      new Date(time.getTime() + 1),
-      beachTz,
-      { sunrises, sunsets },
-    );
+    const isLightOk = createDaylightPointChecker(beachTz, { sunrises, sunsets });
 
     // Apply refinement
     const refined = refineWindowBounds({

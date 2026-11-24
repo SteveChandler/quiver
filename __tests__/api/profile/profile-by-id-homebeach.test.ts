@@ -103,6 +103,7 @@ describe("/api/profile/[id] includes home_beach", () => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
+          or: jest.fn().mockReturnThis(),
           data: [],
           error: null,
         } as any;
@@ -179,6 +180,7 @@ describe("/api/profile/[id] includes home_beach", () => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
+          or: jest.fn().mockReturnThis(),
           data: [],
           error: null,
         } as any;

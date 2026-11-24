@@ -11,13 +11,16 @@ type FitDevice = { manufacturer: number; product: number; productName?: string; 
 
 function fitBytes(withPositions = true, devices: FitDevice[] = [
   { manufacturer: 1, product: 4655, productName: "Edge MTB" },
-]): Uint8Array {
+], calories?: number): Uint8Array {
   const encoder = new FitEncoder();
   encoder.writeMessage(18, [
     { number: 253, size: 4, baseType: FitBaseType.Uint32,
       value: FitEncoder.toFitTimestamp(new Date(Date.parse(START) + 120_000)) },
     { number: 5, size: 1, baseType: FitBaseType.Enum, value: 38 },
     { number: 6, size: 1, baseType: FitBaseType.Enum, value: 0 },
+    ...(calories === undefined ? [] : [
+      { number: 11, size: 2, baseType: FitBaseType.Uint16, value: calories },
+    ]),
   ]);
   for (const device of devices) {
     const name = device.productName === undefined ? null : FitEncoder.string(device.productName);
@@ -77,6 +80,10 @@ function zipWithDeclaredTrackSize(size: number, includeValidTrack = false): Uint
 }
 
 describe("readTrackFile", () => {
+  it("reads session calories from FIT", () => {
+    expect(readTrackFile(fitBytes(true, undefined, 432), "watch.fit").meta.calories).toBe(432);
+  });
+
   it("reads a FIT export inside a Garmin ZIP", () => {
     const track = readTrackFile(zipSync({ "1_ACTIVITY.fit": fitBytes() }), "1.zip");
     expect(track.meta.format).toBe("fit");

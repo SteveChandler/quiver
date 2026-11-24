@@ -16,16 +16,31 @@ jest.mock('@/lib/supabase/server', () => ({
     })),
   })),
 }));
+jest.mock('@/lib/services/discovery/week-scout-swells', () => {
+  const actual = jest.requireActual('@/lib/services/discovery/week-scout-swells');
+  return { ...actual, buildWeekScoutSwells: jest.fn(actual.buildWeekScoutSwells) };
+});
+jest.mock('@/lib/recommendations/canonical-decision/discovery-adapter', () => {
+  const actual = jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter');
+  return { ...actual, getCanonicalPersonalCall: jest.fn(actual.getCanonicalPersonalCall) };
+});
 
 import {
   generateWeekScoutForecast,
   generateWeekScoutForecastForDays,
   generateWeekScoutRankingForDays,
   alignDayBestWithSessionPick,
+  type CanonicalWeekScoutResponse,
   type WeekScoutRequest,
+  weekScoutAnswerExpiry,
+  weekScoutDependenciesAt,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
-import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import {
+  buildCanonicalDecisionFromSurfDiscovery,
+  getCanonicalPersonalCall,
+} from '@/lib/recommendations/canonical-decision/discovery-adapter';
+import { buildWeekScoutSwells } from '@/lib/services/discovery/week-scout-swells';
 import { verdictScoreLabel } from '@/lib/recommendations/canonical-decision/engine';
 import { resolveRecommendationLabel } from '@/lib/services/discovery/recommendation-label';
 import { getQualityLabel } from '@/lib/utils/score-color-utils';
@@ -33,6 +48,7 @@ import { verdictFromRecommendationLabel } from '@/lib/utils/surf-call-logic';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
 import type { Beach } from '@/types/database';
+import { formatReasonSentence } from '@/lib/domains/scoring/reason-sentences';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { weekScoutPersonalCallViolations } from '@/__tests__/fixtures/week-scout-contract';
 import { scoreLabel } from '@/lib/utils/score-color-utils';
@@ -42,9 +58,11 @@ import {
 } from '@/lib/services/discovery/distance-friction';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
+import { runWithStageTimings } from '@/lib/observability/request-timing';
 import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
+import { expectConsoleWarnings } from '@/__tests__/setup/test-utils';
 
 const BEACH_A = '11111111-1111-4111-8111-111111111111';
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
@@ -220,6 +238,20 @@ describe('generateWeekScoutForecast', () => {
           },
         })),
     );
+  });
+
+  it('times each parallel read inside ws-reads', async () => {
+    const deps = dependencies();
+    deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Avalanche')]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [forecast(BEACH_A, '2026-09-23T18:00:00.000Z')]]]));
+    const { stages, result } = runWithStageTimings(() => generateWeekScoutRankingForDays('user-timing', {
+      candidateBeachIds: [BEACH_A], localTimezone: 'America/Los_Angeles',
+      startLocalDate: '2026-09-23', dayCount: 1,
+    }, deps));
+    await result;
+    expect(stages.map((stage) => stage.name)).toEqual(expect.arrayContaining([
+      'ws-read-forecasts', 'ws-read-sun', 'ws-read-context', 'ws-read-skill', 'ws-read-boards', 'ws-read-tide', 'ws-reads',
+    ]));
   });
 
   it('keeps Avalanche at 64 MAYBE/FAIR despite an advanced longboard personalization boost', async () => {
@@ -684,7 +716,7 @@ describe('generateWeekScoutForecast', () => {
     ))).toBe(true);
   });
 
-  it.each([0, 8, 1.5])('rejects unsupported internal dayCount %s', async (dayCount) => {
+  it.each([0, 11, 1.5])('rejects unsupported internal dayCount %s', async (dayCount) => {
     await expect(
       generateWeekScoutForecastForDays(
         'user-week-scout',
@@ -980,6 +1012,89 @@ describe('generateWeekScoutForecast', () => {
     expect(deps.rankWindows).toHaveBeenCalledTimes(3);
   });
 
+  describe('10-day horizon', () => {
+    const START = '2026-07-31';
+    const EARLY_LOOK_DATE = '2026-08-08';
+
+    function tenDayDependencies(): WeekScoutServiceDependencies {
+      const deps = dependencies();
+      const rows = new Map([BEACH_A, BEACH_B].map((beachId) => [beachId, Array.from({ length: 10 }, (_, day) => (
+        [16, 20, 24].map((hour) => forecast(beachId, new Date(Date.UTC(2026, 6, 31 + day, hour)).toISOString()))
+      )).flat()]));
+      deps.fetchForecasts = jest.fn(async () => rows);
+      // An early-look day that out-scores the whole first week: the headline must still ignore it.
+      const earlyLook = (row: EnhancedForecastEntity): boolean => row.forecast_at.startsWith(EARLY_LOOK_DATE);
+      deps.scoreWindowCondition = jest.fn((row, candidateBeach) => (
+        earlyLook(row) ? 97 : candidateBeach.id === BEACH_B ? 84 : 78
+      ));
+      const rankWindows = dependencies().rankWindows as jest.Mock;
+      deps.rankWindows = jest.fn((recommendations: SurfDiscoveryRecommendation[]) => {
+        const ranked = rankWindows(recommendations) as ReturnType<WeekScoutServiceDependencies['rankWindows']>;
+        return {
+          ...ranked,
+          diagnostics: ranked.diagnostics.map((diagnostic, index) => (
+            earlyLook(recommendations[index].forecast)
+              ? { ...diagnostic, heroWindowScore: 99 }
+              : diagnostic
+          )),
+        };
+      });
+      return deps;
+    }
+
+    async function generate(dayCount: 7 | 10) {
+      return generateWeekScoutForecast('user-week-scout', {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: START,
+        dayCount,
+      }, tenDayDependencies());
+    }
+
+    it('keeps the session decision and the first seven days identical to a 7-day request', async () => {
+      const [seven, ten] = await Promise.all([generate(7), generate(10)]);
+
+      expect(ten.days).toHaveLength(10);
+      expect(ten.days[8].localDate).toBe(EARLY_LOOK_DATE);
+      // The early-look day is the strongest of the horizon, and still not the headline.
+      expect(ten.days[8].bestDayWindow?.rankingScore).toBe(99);
+      expect(ten.sessionDecision.selection).not.toBeNull();
+      expect(Date.parse(ten.sessionDecision.selection!.windowStart))
+        .toBeLessThan(Date.parse('2026-08-07T10:00:00.000Z'));
+      expect(ten.sessionDecision).toStrictEqual(seven.sessionDecision);
+      expect(ten.days.slice(0, 7)).toStrictEqual(seven.days);
+      expect(ten.recommendationAvailability).toStrictEqual(seven.recommendationAvailability);
+      expect(ten.sessionTimePreference).toStrictEqual(seven.sessionTimePreference);
+    });
+
+    it('marks only days seven and later as an early look', async () => {
+      const [seven, ten] = await Promise.all([generate(7), generate(10)]);
+
+      for (const day of seven.days) expect(day).not.toHaveProperty('earlyLook');
+      expect(JSON.stringify(seven)).not.toContain('earlyLook');
+      for (const day of ten.days.slice(0, 7)) expect(day).not.toHaveProperty('earlyLook');
+      expect(ten.days.slice(7).map((day) => [day.localDate, day.earlyLook])).toEqual([
+        ['2026-08-07', true],
+        ['2026-08-08', true],
+        ['2026-08-09', true],
+      ]);
+      // Early-look days are still ranked per day.
+      for (const day of ten.days.slice(7)) {
+        expect(day.bestWindowId).not.toBeNull();
+        expect(day.bestDayWindow?.id).toBe(day.bestWindowId);
+      }
+    });
+
+    it('accepts a ten-day internal request', async () => {
+      const response = await generateWeekScoutForecastForDays('user-week-scout', {
+        candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: START, dayCount: 10,
+      }, tenDayDependencies());
+
+      expect(response.days).toHaveLength(10);
+      expect(response.days.filter((day) => day.earlyLook === true)).toHaveLength(3);
+    });
+  });
+
   it('week scout names the same window as the full-day selector for the same beach and day', async () => {
     const deps = dependencies();
     const morningForecast = forecast(BEACH_A, '2026-07-31T16:00:00.000Z');
@@ -1065,6 +1180,39 @@ describe('generateWeekScoutForecast', () => {
     expect(day.bestDayWindow).toBeNull();
     expect(day.exclusionReasons).toEqual(['no_recommendable_windows']);
     expect(response.sessionDecision.selection).toBeNull();
+  });
+
+  it('keeps the answer live when the sync has not revisited a beach for hours', async () => {
+    const deps = dependencies();
+    const ingestedLongAgo = { ...forecast(BEACH_A, '2026-07-31T18:00:00.000Z'), data_source: 'CDIP', updated_at: '2026-07-31T02:00:00.000Z' } as EnhancedForecastEntity;
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [ingestedLongAgo]]]));
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 1,
+    }, deps);
+
+    // 04:00 in Honolulu; the answer lasts until the local midnight that ends Jul 31.
+    expect(response.coverage!.expiresAt).toBe('2026-08-01T10:00:00.000Z');
+    expect(response.sessionDecision.expiresAt).toBe('2026-08-01T10:00:00.000Z');
+  });
+
+  it('keeps an answer until the end of the local day, falling back to an hour', () => {
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-09', 'America/Los_Angeles'))
+      .toBe('2026-11-10T08:00:00.000Z');
+    // The Nov 1 DST change: midnight after Oct 31 is still PDT.
+    expect(weekScoutAnswerExpiry('2026-10-31T20:00:00.000Z', '2026-10-31', 'America/Los_Angeles'))
+      .toBe('2026-11-01T07:00:00.000Z');
+    // A stale client date never yields an already-expired answer.
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-07', 'America/Los_Angeles'))
+      .toBe('2026-11-09T19:06:00.000Z');
+    // A client date ahead of the server's never stretches an answer past 25 hours.
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-12', 'America/Los_Angeles'))
+      .toBe('2026-11-10T19:06:00.000Z');
+    expect(weekScoutAnswerExpiry('2026-11-09T18:06:00.000Z', '2026-11-09', 'Not/AZone'))
+      .toBe('2026-11-09T19:06:00.000Z');
   });
 
   it('assigns dayparts and coverage in the beach timezone', async () => {
@@ -1904,5 +2052,523 @@ describe('generateWeekScoutForecast', () => {
       { beachId: BEACH_B, rankingScore: rawScores[BEACH_B] },
       { beachId: BEACH_A, rankingScore: rawScores[BEACH_A] },
     ]);
+  });
+
+  describe('board order under skill-aware go checks', () => {
+    const USER = 'go-check-user';
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    async function scoredBoardClasses(on: boolean): Promise<unknown> {
+      setFlag(on);
+      const deps = dependencies();
+      const row = forecast(BEACH_A, '2026-07-31T20:00:00.000Z');
+      deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Ala Moana')]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [row]]]));
+      deps.fetchBoardClasses = jest.fn(async () => ['shortboard' as const, 'longboard' as const]);
+      deps.scoreWindowCondition = jest.fn(() => 64);
+      await generateWeekScoutRankingForDays(USER, {
+        candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31', dayCount: 1,
+      }, deps);
+      // precondition: the scorer ran for the row
+      expect(deps.scoreWindowCondition).toHaveBeenCalled();
+      return (deps.scoreWindowCondition as jest.Mock).mock.calls[0][3];
+    }
+
+    it('keeps the read order with the flag off', async () => {
+      await expect(scoredBoardClasses(false)).resolves.toEqual(['shortboard', 'longboard']);
+    });
+
+    it('gives the scorer the fixed class order with the flag on', async () => {
+      await expect(scoredBoardClasses(true)).resolves.toEqual(['longboard', 'shortboard']);
+    });
+  });
+
+  describe('skill-aware go checks', () => {
+    const USER = 'go-check-user';
+    const savedEnabled = process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    const savedAllowlist = process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+    const learnerBeach: Beach = { ...beach(BEACH_A, 'Ala Moana'), skill_level: 'beginner' };
+    // Clean 2.5 ft at 9 s with a light offshore: medium-mixed.
+    const row = {
+      ...forecast(BEACH_A, '2026-07-31T16:00:00.000Z'),
+      wave_height: '2.5',
+      wave_period: '9s',
+      wind_speed: '3',
+      wind_direction: 'E',
+      wind_direction_deg: 90,
+    } as EnhancedForecastEntity;
+    const request: WeekScoutRequest = {
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 7,
+    };
+    let deps: WeekScoutServiceDependencies;
+
+    function setFlag(on: boolean): void {
+      if (on) {
+        process.env.SKILL_AWARE_GO_CHECKS_ENABLED = 'true';
+        process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = USER;
+      } else {
+        delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+        delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      }
+    }
+
+    beforeEach(() => {
+      deps = dependencies();
+      deps.fetchBeaches = jest.fn(async () => [learnerBeach]);
+      deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [row]]]));
+      deps.fetchSkill = jest.fn(async (): Promise<SkillLevel | null> => null);
+      deps.fetchBoardClasses = jest.fn(async () => ['longboard' as const]);
+      deps.scoreWindowCondition = jest.fn(() => 72);
+      deps.scoreWindowConditionDetails = jest.fn(() => ({ score: 72, boardClass: 'longboard' as const }));
+    });
+
+    afterEach(() => {
+      if (savedEnabled === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+      else process.env.SKILL_AWARE_GO_CHECKS_ENABLED = savedEnabled;
+      if (savedAllowlist === undefined) delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+      else process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = savedAllowlist;
+    });
+
+    function rankedRecommendations(fromCall = 0): SurfDiscoveryRecommendation[] {
+      return (deps.rankWindows as jest.Mock).mock.calls
+        .slice(fromCall)
+        .flatMap(([recommendations]: [SurfDiscoveryRecommendation[]]) => recommendations);
+    }
+
+    async function runBoth() {
+      setFlag(false);
+      const off = await generateWeekScoutForecast(USER, request, deps);
+      const offRecommendations = rankedRecommendations();
+      const onFromCall = (deps.rankWindows as jest.Mock).mock.calls.length;
+      setFlag(true);
+      const on = await generateWeekScoutForecast(USER, request, deps);
+      return {
+        off,
+        on,
+        offWindow: off.days[0].windows[0],
+        onWindow: on.days[0].windows[0],
+        offRecommendations,
+        onRecommendations: rankedRecommendations(onFromCall),
+      };
+    }
+
+    function labelsOf(response: CanonicalWeekScoutResponse): unknown[] {
+      return response.days.flatMap((day) => day.windows.map((window) => [
+        window.beachId,
+        day.localDate,
+        window.bucket,
+        window.verdict,
+        window.personalVerdict,
+        window.conditionScore,
+      ]));
+    }
+
+    it("labels a beginner's clean 2.5 ft medium-mixed window Worth it only when allowlisted", async () => {
+      const { off, on, offWindow, onWindow, offRecommendations, onRecommendations } = await runBoth();
+
+      // precondition: both runs resolved the character (the label catch returns no character)
+      for (const [window, recommendations] of [
+        [offWindow, offRecommendations],
+        [onWindow, onRecommendations],
+      ] as const) {
+        expect(recommendations.find((candidate) => candidate.recommendationId === window.id)?.character?.category)
+          .toBe('medium-mixed');
+      }
+      expect(offWindow).toMatchObject({ verdict: 'maybe', personalVerdict: 'maybe' });
+      expect(onWindow).toMatchObject({ verdict: 'worth_it', personalVerdict: 'go' });
+      expect(onWindow.id).not.toBe(offWindow.id);
+      expect(on.scorerVersion).toMatch(/\+skill-aware-go-v1$/);
+      expect(off.scorerVersion).not.toMatch(/skill-aware/);
+    });
+
+    it('keeps labels for an intermediate with no boards', async () => {
+      deps.fetchSkill = jest.fn(async (): Promise<SkillLevel | null> => 'intermediate');
+      deps.fetchBoardClasses = jest.fn(async () => []);
+      deps.scoreWindowConditionDetails = jest.fn(() => ({ score: 72, boardClass: null }));
+      const { off, on } = await runBoth();
+
+      expect(labelsOf(off).length).toBeGreaterThan(0);
+      expect(labelsOf(on)).toEqual(labelsOf(off));
+    });
+
+    it('passes beginner to the engine but keeps the raw skill for swells', async () => {
+      setFlag(true);
+      deps.fetchBoardClasses = jest.fn(async () => []);
+      deps.scoreWindowConditionDetails = jest.fn(() => ({ score: 72, boardClass: null }));
+      deps.loadSwellSnapshots = jest.fn(async () => []);
+      await generateWeekScoutForecast(USER, { ...request, includeSwells: true }, deps);
+
+      expect(buildWeekScoutSwells).toHaveBeenCalledWith(expect.objectContaining({ userSkillLevel: null }));
+      const skills = (getCanonicalPersonalCall as jest.Mock).mock.calls.map(([, skill]) => skill);
+      expect(skills.length).toBeGreaterThan(0);
+      expect(new Set(skills)).toEqual(new Set(['beginner']));
+    });
+
+    it('rates a no-skill user as beginner in the hold check (:1183) and the session decision (:1629) only when allowlisted', async () => {
+      const holdSkills = (): unknown[] => mockEvaluateMajorEventHoldCandidates.mock.calls
+        .map(([args]: [{ profileExperience: unknown }]) => args.profileExperience);
+
+      setFlag(false);
+      mockEvaluateMajorEventHoldCandidates.mockClear();
+      const off = await generateWeekScoutForecast(USER, request, deps);
+      // precondition: the hold check ran
+      expect(holdSkills().length).toBeGreaterThan(0);
+      expect(new Set(holdSkills())).toEqual(new Set([null]));
+      expect(off.sessionDecision.skillEligibility.skill).toBe('unknown');
+
+      setFlag(true);
+      mockEvaluateMajorEventHoldCandidates.mockClear();
+      const on = await generateWeekScoutForecast(USER, request, deps);
+      expect(holdSkills().length).toBeGreaterThan(0);
+      expect(new Set(holdSkills())).toEqual(new Set(['beginner']));
+      expect(on.sessionDecision.skillEligibility.skill).toBe('beginner');
+    });
+
+    it('keeps an unsafe above-beginner window as a vetoed candidate only when allowlisted (:1604)', async () => {
+      deps.fetchBeaches = jest.fn(async () => [{ ...learnerBeach, skill_level: 'advanced' }]);
+      deps.scoreBeach = jest.fn(() => ({
+        total: 82,
+        matchQuality: 'excellent',
+        subscores: {
+          waveHeightFit: 22,
+          periodEnergyScore: 18,
+          windAlignment: 19,
+          tideFit: 14,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        reasons: ['Strong conditions'],
+        warnings: ['Unsafe hazard at this beach'],
+      }));
+      const { off, on, onWindow } = await runBoth();
+
+      // precondition: the window is an unsafe skip
+      expect(onWindow).toMatchObject({ safe: false, verdict: 'skip' });
+      expect(off.sessionDecision.reasonCode).not.toBe('beach_skill_exceeds_user');
+      expect(on.sessionDecision.reasonCode).toBe('beach_skill_exceeds_user');
+    });
+
+    it('applies the flag to Weekend Scout rankings, with the Week Scout label for the same window', async () => {
+      setFlag(false);
+      const off = await generateWeekScoutRankingForDays(USER, request, deps);
+      expect(deps.scoreWindowConditionDetails).not.toHaveBeenCalled();
+      expect(off.days[0].windows[0].verdict).toBe('maybe');
+
+      setFlag(true);
+      const on = await generateWeekScoutRankingForDays(USER, request, deps);
+      const week = await generateWeekScoutForecast(USER, request, deps);
+      const onWindow = on.days[0].windows[0];
+      expect(onWindow.verdict).toBe('worth_it');
+      expect(onWindow.id).toBe(week.days[0].windows[0].id);
+      expect(onWindow.verdict).toBe(week.days[0].windows[0].verdict);
+      expect(on.scorerVersion).toMatch(/\+skill-aware-go-v1$/);
+      expect(off.scorerVersion).not.toMatch(/skill-aware/);
+      expect(deps.scoreWindowConditionDetails).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('Week Scout hourly bridge', () => {
+  const START = '2026-07-31';
+  const HOUR = 60 * 60 * 1000;
+  // 05:00 HST on day 0, every 3 h through day 10. Without sun times, light is 06:00-18:00 HST.
+  const FIRST_ROW_MS = Date.parse('2026-07-31T15:00:00.000Z');
+  const HEADLINE_END_MS = Date.parse('2026-08-07T10:00:00.000Z'); // 2026-08-07 00:00 HST
+
+  function bridgeDependencies() {
+    const deps = dependencies();
+    const rows = new Map([BEACH_A, BEACH_B].map((beachId) => [
+      beachId,
+      Array.from({ length: 11 * 8 }, (_, index) => ({
+        ...forecast(beachId, new Date(FIRST_ROW_MS + index * 3 * HOUR).toISOString()),
+        id: `${beachId}-${index}`,
+        tide_height: `${(1 + (index % 4) * 0.5).toFixed(1)} ft`,
+      })),
+    ]));
+    deps.fetchForecasts = jest.fn(async () => rows);
+    deps.fetchTideSeries = jest.fn(async () => new Map());
+    return deps;
+  }
+
+  function selectedRows(deps: WeekScoutServiceDependencies): EnhancedForecastEntity[] {
+    return (deps.selectBestWindows as unknown as jest.Mock).mock.calls
+      .flatMap(([options]: [WindowSelectorOptions]) => options.forecasts);
+  }
+
+  async function generate(deps: WeekScoutServiceDependencies) {
+    return generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: START, dayCount: 10,
+    }, deps);
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(
+      async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        candidates.map(({ candidateId }) => ({
+          candidateId,
+          evaluation: { outcome: 'allow', holdIds: [], holdEpoch: 'week-scout-test-epoch' },
+          recommendationAvailability: { state: 'available', holdEpoch: 'week-scout-test-epoch' },
+        })),
+    );
+  });
+
+  afterEach(() => {
+    delete process.env.HOURLY_BRIDGE_ENABLED;
+    delete process.env.HOURLY_BRIDGE_SURFACES;
+  });
+
+  it('flag off: scores the stored rows only and reads no tide series', async () => {
+    const deps = bridgeDependencies();
+    await generate(deps);
+
+    expect(selectedRows(deps).some((row) => row.id.includes(':h+'))).toBe(false);
+    expect(deps.fetchTideSeries).not.toHaveBeenCalled();
+  });
+
+  it('flag on: bridges daylight hours of days 0-6 only, never an early-look day', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const deps = bridgeDependencies();
+    const response = await generate(deps);
+
+    const bridged = selectedRows(deps).filter((row) => row.id.includes(':h+'));
+    expect(bridged.length).toBeGreaterThan(0);
+    for (const row of bridged) {
+      const ms = Date.parse(row.forecast_at);
+      expect(ms).toBeLessThan(HEADLINE_END_MS);
+      const hst = getLocalHour(new Date(ms), 'Pacific/Honolulu');
+      expect(hst).toBeGreaterThanOrEqual(6);
+      expect(hst).toBeLessThan(18);
+    }
+    // Day 0, both beaches: 06, 07, 09, 10, 12, 13, 15, 16 HST.
+    const dayZero = bridged.filter((row) => row.beach_id === BEACH_A && row.forecast_at < '2026-08-01T10:00:00.000Z');
+    expect([...new Set(dayZero.map((row) => getLocalHour(new Date(row.forecast_at), 'Pacific/Honolulu')))])
+      .toEqual([6, 7, 9, 10, 12, 13, 15, 16]);
+    expect(response.days.slice(7).every((day) => day.earlyLook === true)).toBe(true);
+    expect(deps.fetchTideSeries).toHaveBeenCalledWith(
+      [BEACH_A, BEACH_B],
+      '2026-07-31T12:00:00.000Z',
+      new Date(HEADLINE_END_MS + 6 * HOUR).toISOString(),
+    );
+  });
+
+  it('flag on: window ids are deterministic and distinct from flag-off ids', async () => {
+    const off = await generate(bridgeDependencies());
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const [first, second] = [await generate(bridgeDependencies()), await generate(bridgeDependencies())];
+    const ids = (response: Awaited<ReturnType<typeof generate>>): string[] =>
+      response.days.flatMap((day) => day.windows.map((window) => window.id));
+
+    expect(ids(first)).toEqual(ids(second));
+    expect(ids(first).length).toBeGreaterThan(0);
+    expect(ids(first).filter((id) => ids(off).includes(id))).toEqual([]);
+  });
+
+  it('flag on for another surface leaves Week Scout ids unchanged', async () => {
+    const off = await generate(bridgeDependencies());
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    process.env.HOURLY_BRIDGE_SURFACES = 'discover';
+    const deps = bridgeDependencies();
+    const other = await generate(deps);
+
+    expect(other.days.map((day) => day.windows.map((window) => window.id)))
+      .toEqual(off.days.map((day) => day.windows.map((window) => window.id)));
+    expect(deps.fetchTideSeries).not.toHaveBeenCalled();
+  });
+
+  it('flag on: a failed tide read still bridges, from the row tides', async () => {
+    process.env.HOURLY_BRIDGE_ENABLED = 'true';
+    const deps = bridgeDependencies();
+    deps.fetchTideSeries = jest.fn(async () => { throw new Error('tide read down'); });
+    await generate(deps);
+    expectConsoleWarnings([/Hourly bridge tide series read failed/]);
+
+    const bridged = selectedRows(deps).filter((row) => row.id.includes(':h+'));
+    expect(bridged.length).toBeGreaterThan(0);
+    expect(bridged.every((row) => row.raw_forecast?.hourly_bridge?.tide_source === 'row_lerp')).toBe(true);
+  });
+});
+
+describe('Week Scout takeaway from scorer reasons', () => {
+  const sizeFact = { code: 'size_good', heightFt: 3.9 } as const;
+
+  function depsWithReasons(conditionScore: number): WeekScoutServiceDependencies {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => conditionScore);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({
+      ...scoreBeach(beach, row, options),
+      reasons: [formatReasonSentence(sizeFact), 'Light trade wind'],
+      reasonCodes: ['size_good' as const, null],
+    }));
+    return deps;
+  }
+
+  async function windows(conditionScore: number) {
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      depsWithReasons(conditionScore),
+    );
+    return response.days.flatMap((day) => day.windows);
+  }
+
+  it('uses the formatted first reason as the takeaway', async () => {
+    const shown = await windows(78);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+  });
+
+  it('shows no takeaway that contradicts a Skip window', async () => {
+    const shown = await windows(25);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === null)).toBe(true);
+  });
+
+  it('drops a Good size takeaway when the FINAL verdict is skip/MEH, even at conditionScore 63', async () => {
+    const personalCall = getCanonicalPersonalCall as jest.Mock;
+    personalCall.mockReturnValue({ verdict: 'no', label: 'MEH' });
+    try {
+      const shown = await windows(63);
+      expect(shown.length).toBeGreaterThan(0);
+      expect(shown.every((window) => window.conditionScore === 63 && window.verdict === 'skip')).toBe(true);
+      expect(shown.every((window) => window.personalLabel === 'MEH')).toBe(true);
+      expect(shown.map((window) => window.takeaway)).toEqual(shown.map(() => null));
+    } finally {
+      personalCall.mockReset();
+      personalCall.mockImplementation(
+        jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter').getCanonicalPersonalCall,
+      );
+    }
+  });
+
+  it('keeps the Good size takeaway when the final verdict is not negative', async () => {
+    const personalCall = getCanonicalPersonalCall as jest.Mock;
+    personalCall.mockReturnValue({ verdict: 'maybe', label: 'FAIR' });
+    try {
+      const shown = await windows(63);
+      expect(shown.length).toBeGreaterThan(0);
+      expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+    } finally {
+      personalCall.mockReset();
+      personalCall.mockImplementation(
+        jest.requireActual('@/lib/recommendations/canonical-decision/discovery-adapter').getCanonicalPersonalCall,
+      );
+    }
+  });
+
+  it('reads the code, not the words: an uncoded line is never treated as a scorer sentence', async () => {
+    const deps = depsWithReasons(25);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({ ...scoreBeach(beach, row, options), reasonCodes: undefined }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+  });
+
+  it('keeps a binding tide caution as the takeaway ahead of the wave sentence', async () => {
+    const deps = depsWithReasons(78);
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({
+      ...scoreBeach(beach, row, options),
+      reasons: ['Tide back in range by ~1 PM', formatReasonSentence(sizeFact)],
+      reasonCodes: ['caution_tide' as const, 'size_good' as const],
+    }));
+    deps.calculatePersonalizationBonus = jest.fn(() => ({
+      affinityBonus: 0, personalizationBonus: 0, reasons: ['Conditions at Avalanche match your experience level today'],
+    }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Tide back in range by ~1 PM')).toBe(true);
+  });
+
+  it('prefers the wave sentence over a personalization line, so the takeaway never names the surfer level', async () => {
+    const deps = depsWithReasons(78);
+    deps.calculatePersonalizationBonus = jest.fn(() => ({
+      affinityBonus: 0, personalizationBonus: 0, reasons: ['Conditions at Avalanche match your experience level today'],
+    }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    const shown = response.days.flatMap((day) => day.windows);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.every((window) => window.takeaway === 'Good size at 3–4 ft.')).toBe(true);
+  });
+});
+
+describe('Week Scout safe flag with the new warning words', () => {
+  // isSafe reads warnings by text. The old list also held "above your usual range",
+  // which no warning ever carried; these cases pin the same safe result.
+  async function safeWith(warnings: string[]): Promise<boolean[]> {
+    const deps = dependencies();
+    const scoreBeach = deps.scoreBeach;
+    deps.scoreBeach = jest.fn((beach, row, options) => ({ ...scoreBeach(beach, row, options), warnings }));
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      { candidateBeachIds: [BEACH_A, BEACH_B], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7 },
+      deps,
+    );
+    return response.days.flatMap((day) => day.windows).map((window) => window.safe as boolean);
+  }
+
+  it.each([
+    ['row 9', 'Heads up: bigger surf today at 4–5 ft.'],
+    ['row 8', 'Heads up: much bigger surf today at 6–7 ft.'],
+    ['row 7 (was "Dangerous: …", which the \\bdanger\\b test never matched)', 'Heads up: a big jump in size today at 8–9 ft. Watch it from the beach first.'],
+    ['row 6', 'Heads up: an advanced break, with more size today at 5–6 ft.'],
+    ['12 ft override', 'Heads up: big, powerful surf at 12–13 ft.'],
+    ['row 10', 'Small surf at 1–2 ft.'],
+  ])('a %s warning keeps the window safe, as its old words did', async (_label, warning) => {
+    const safe = await safeWith([warning]);
+    expect(safe.length).toBeGreaterThan(0);
+    expect(safe.every(Boolean)).toBe(true);
+  });
+
+  it('a hazard warning still makes the window unsafe', async () => {
+    const safe = await safeWith(['Shark hazard reported']);
+    expect(safe.length).toBeGreaterThan(0);
+    expect(safe.some(Boolean)).toBe(false);
+  });
+});
+
+describe('weekScoutDependenciesAt', () => {
+  it('pins the clock to the given instant, not the real clock', () => {
+    const at = new Date('2026-11-16T14:00:00.000Z');
+    expect(weekScoutDependenciesAt(at).now).toBe(at);
   });
 });

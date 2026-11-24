@@ -6,14 +6,30 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
+let mockRenderCache = new Map<() => unknown, Map<string, unknown>>();
+jest.mock("react", () => ({
+  ...jest.requireActual("react"),
+  cache: (load: (...args: unknown[]) => unknown) => (...args: unknown[]) => {
+    const results = mockRenderCache.get(load) ?? new Map<string, unknown>();
+    mockRenderCache.set(load, results);
+    const key = JSON.stringify(args);
+    if (!results.has(key)) results.set(key, load(...args));
+    return results.get(key);
+  },
+}));
+
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { runWithWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
+import { runWithPublicWaterQualityReadScope, runWithWaterQualityReadScope } from "@/lib/recommendations/major-event-hold/read-scope";
 import {
   resolveWaterQualityHolds,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import { rankBeaches } from "@/lib/recommendations/selection";
+
+// Selection reads water quality only for callers that label from it (discovery, Week Scout).
+const labelFromResolution = (): void => {};
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
+import { resolveCountyGeneralAdvisory } from "@/lib/services/county-beach-advisories/general-streak";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import {
   expectConsoleErrors,
@@ -28,7 +44,8 @@ const COUNTY_COVERED = "d291411d-d331-4bf1-ad1a-302da3c69de0";
 const RUN_ID = "44444444-4444-4444-8444-444444444444";
 
 type Result = { data: unknown; error: unknown };
-type Responder = (table: string, call: number) => Result | undefined;
+type Filters = Array<[operator: "eq" | "lt" | "gt", column: string, value: string | number]>;
+type Responder = (table: string, call: number, filters: Filters) => Result | undefined;
 
 interface RecordingClient {
   client: WaterQualityHoldClient;
@@ -68,8 +85,20 @@ function recordingClient(options: {
     from: (table: string) => ({
       select: () => {
         let beachIds: string[] | null = null;
+        const filters: Filters = [];
         const query = {
-          eq: () => query,
+          eq: (column: string, value: string) => {
+            filters.push(["eq", column, value]);
+            return query;
+          },
+          lt: (column: string, value: string | number) => {
+            filters.push(["lt", column, value]);
+            return query;
+          },
+          gt: (column: string, value: string | number) => {
+            filters.push(["gt", column, value]);
+            return query;
+          },
           order: () => query,
           limit: () => query,
           in: (_column: string, values: readonly string[]) => {
@@ -81,7 +110,7 @@ function recordingClient(options: {
             onrejected?: ((reason: unknown) => T2 | PromiseLike<T2>) | null,
           ): Promise<T1 | T2> => {
             executions[table] = (executions[table] ?? 0) + 1;
-            const custom = options.respond?.(table, executions[table]);
+            const custom = options.respond?.(table, executions[table], filters);
             const rows = defaults[table] as Array<{ beach_id?: string; id?: string }>;
             const result = custom ?? {
               data: beachIds === null
@@ -114,9 +143,9 @@ const POOL = [OWNER_HELD, SAMPLE_HELD, CLEAN, COUNTY_COVERED];
 /** The order /api/surf/call resolves holds in: pool, discovery ranking, decision. */
 async function surfCallShapedResolution(): Promise<string[][]> {
   const rank = async (ids: string[]) =>
-    (await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0 })).map(({ id }) => id);
+    (await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0, onWaterQualityResolution: labelFromResolution })).map(({ id }) => id);
   const pool = await rank(POOL);
-  await currentWaterQuality([{ beach_id: COUNTY_COVERED, status: "good" }]);
+  await currentWaterQuality([{ beach_id: COUNTY_COVERED, status: "good", latest_sample_date: null }]);
   const discovery = await rank([SAMPLE_HELD, CLEAN, COUNTY_COVERED]);
   const decision = await rank([CLEAN]);
   return [pool, discovery, decision];
@@ -134,6 +163,86 @@ function holdCandidate(beachId: string): MajorEventHoldCandidate {
 describe("water-quality hold read scope", () => {
   beforeEach(() => {
     jest.mocked(createSupabaseServiceRoleClient).mockReset();
+    mockRenderCache = new Map();
+  });
+
+  it.each([
+    ["open", "clear", 1],
+    ["closed", "closure", 1],
+    ["failed latest", "unavailable", 2],
+    ["stale", "unavailable", 1],
+    ["missing", "unavailable", 1],
+  ] as const)("preserves %s County status while sharing page and metadata reads", async (state, countyStatus, expectedReads) => {
+    const now = new Date();
+    const fetchedAt = state === "stale"
+      ? new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
+      : now.toISOString();
+    const closure = state === "closed" || state === "failed latest";
+    const completed = {
+      id: RUN_ID, fetched_at: fetchedAt, status: "completed",
+      source_identifier: "county-san-diego-dehq-sdbeachinfo",
+      advisory_count: 0, closure_count: closure ? 1 : 0, warning_count: 0,
+    };
+    const respond: Responder = (table, _call, filters) => {
+      if (table === "county_beach_advisory_runs") {
+        const completedOnly = filters.some(([, column, value]) => column === "status" && value === "completed");
+        const latest = state === "failed latest" && !completedOnly ? { ...completed, status: "failed" } : completed;
+        return { data: state === "missing" ? [] : [latest], error: null };
+      }
+      if (closure && table === "county_beach_advisories") {
+        return { data: [{
+          beach_id: COUNTY_COVERED, source_site_identifier: "FM-080",
+          advisory_type: "closure", county_latitude: 32.8567, county_longitude: -117.2575,
+        }], error: null };
+      }
+    };
+    const render = async (client: WaterQualityHoldClient) => Promise.all([
+      runWithPublicWaterQualityReadScope(() =>
+        currentWaterQuality([{ beach_id: COUNTY_COVERED, status: "unknown", latest_sample_date: null }], client, now),
+      ),
+      runWithPublicWaterQualityReadScope(() =>
+        resolveWaterQualityHolds([holdCandidate(COUNTY_COVERED)], { client, now }),
+      ),
+    ]);
+
+    const shared = recordingClient({ respond });
+    const legacy = recordingClient({ respond });
+    const original = process.env.PUBLIC_READ_SHARING;
+    try {
+      delete process.env.PUBLIC_READ_SHARING;
+      const result = await render(shared.client);
+      expect(shared.executions.county_beach_advisory_runs).toBe(expectedReads);
+      expect(result[0][0].county_advisory_status).toBe(countyStatus);
+      expect(result[1].waterQualityStatusByBeachId[COUNTY_COVERED]).toBe(closure ? "closure" : undefined);
+
+      process.env.PUBLIC_READ_SHARING = "false";
+      expect(await render(legacy.client)).toEqual(result);
+      expect(legacy.executions.county_beach_advisory_runs).toBe(3);
+
+      delete process.env.PUBLIC_READ_SHARING;
+      mockRenderCache = new Map();
+      expect(await render(shared.client)).toEqual(result);
+      expect(shared.executions.county_beach_advisory_runs).toBe(2 * expectedReads);
+    } finally {
+      if (original === undefined) delete process.env.PUBLIC_READ_SHARING;
+      else process.env.PUBLIC_READ_SHARING = original;
+    }
+  });
+
+  it("uses the completed-only lookup when the page has no County badge read", async () => {
+    const runFilters: Filters[] = [];
+    const { client } = recordingClient({
+      respond: (table, _call, filters) => {
+        if (table === "county_beach_advisory_runs") runFilters.push(filters);
+        return undefined;
+      },
+    });
+    await runWithPublicWaterQualityReadScope(
+      () => resolveWaterQualityHolds([holdCandidate(CLEAN)], { client }),
+      false,
+    );
+    expect(runFilters).toHaveLength(1);
+    expect(runFilters[0]).toContainEqual(["eq", "status", "completed"]);
   });
 
   it("reads each hold table once per request across every layer", async () => {
@@ -142,9 +251,10 @@ describe("water-quality hold read scope", () => {
 
     const ranked = await runWithWaterQualityReadScope(surfCallShapedResolution);
 
+    // Held beaches stay in the ranking; the resolver is still read once per request.
     expect(ranked).toEqual([
-      [CLEAN, COUNTY_COVERED],
-      [CLEAN, COUNTY_COVERED],
+      POOL,
+      [SAMPLE_HELD, CLEAN, COUNTY_COVERED],
       [CLEAN],
     ]);
     expect(executions.water_quality_held_beaches).toBe(1);
@@ -155,13 +265,31 @@ describe("water-quality hold read scope", () => {
     expect(executions.county_beach_advisory_runs).toBe(2);
   });
 
+  it("shares each of the two distinct streak lookups across public readers", async () => {
+    const latest = { id: RUN_ID, fetched_at: "2026-10-13T20:00:00Z", advisory_count: 30 };
+    const baseline = { id: CLEAN, fetched_at: "2026-10-12T08:00:00Z", advisory_count: 0 };
+    const first = { id: COUNTY_COVERED, fetched_at: "2026-10-12T09:00:00Z", advisory_count: 30 };
+    const { client, executions } = recordingClient({
+      respond: (table, _call, filters) => table === "county_beach_advisory_runs"
+        ? { data: filters.some(([operator]) => operator === "gt") ? [first] : [baseline], error: null }
+        : undefined,
+    });
+    const readStreak = () => runWithPublicWaterQualityReadScope(() =>
+      resolveCountyGeneralAdvisory(client, latest, new Date(latest.fetched_at)),
+    );
+    const [badge, hold] = await Promise.all([readStreak(), readStreak()]);
+    expect(badge).toMatchObject({ general: true, expired: false, streakStartedAt: first.fetched_at });
+    expect(hold).toEqual(badge);
+    expect(executions.county_beach_advisory_runs).toBe(2);
+  });
+
   it("reads the County run once when no County-projected beach is in play", async () => {
     const { client, executions } = recordingClient();
     useServiceClient(client);
 
     await runWithWaterQualityReadScope(async () => {
       for (const ids of [[OWNER_HELD, SAMPLE_HELD, CLEAN], [SAMPLE_HELD, CLEAN], [CLEAN]]) {
-        await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0 });
+        await rankBeaches(ids.map((id) => ({ id })), { compare: () => 0, onWaterQualityResolution: labelFromResolution });
       }
     });
 
@@ -180,7 +308,7 @@ describe("water-quality hold read scope", () => {
 
     const ranked = await surfCallShapedResolution();
 
-    expect(ranked[0]).toEqual([CLEAN, COUNTY_COVERED]);
+    expect(ranked[0]).toEqual(POOL);
     expect(executions).toMatchObject({
       water_quality_held_beaches: 6,
       beach_water_quality: 3,
@@ -215,10 +343,10 @@ describe("water-quality hold read scope", () => {
 
     const ranked = await runWithWaterQualityReadScope(surfCallShapedResolution);
 
-    // The failed pool read fails open, as before; the next layer re-reads and
-    // the held beaches are still excluded from what gets recommended.
+    // The failed pool read fails open, as before; the next layer re-reads. Held
+    // beaches stay in the ranking either way (the hold is only a notice).
     expect(ranked[0]).toEqual(POOL);
-    expect(ranked[1]).toEqual([CLEAN, COUNTY_COVERED]);
+    expect(ranked[1]).toEqual([SAMPLE_HELD, CLEAN, COUNTY_COVERED]);
     // Failed pool read, then a fresh read for the County projection and one for
     // the discovery set it did not cover. The failure was never served again.
     expect(executions.water_quality_held_beaches).toBe(3);

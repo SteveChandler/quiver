@@ -23,6 +23,13 @@ describe("next image remote patterns", () => {
       /hostname:\s*"auth\.quiversurf\.app",[\s\S]*?pathname:\s*"\/storage\/v1\/object\/\*\*"/,
     );
   });
+
+  it("does not let next/image fetch Openverse, whose thumbs crash the optimizer fallback", () => {
+    const configPath = path.join(process.cwd(), "next.config.mjs");
+    const configSource = fs.readFileSync(configPath, "utf8");
+
+    expect(configSource).not.toMatch(/hostname:\s*"[^"]*openverse\.org"/);
+  });
 });
 
 describe("next image optimization volume", () => {

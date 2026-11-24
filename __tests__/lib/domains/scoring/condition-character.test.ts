@@ -12,11 +12,12 @@
  *   skip → flat → small → medium → large → fallback
  */
 
-import { getConditionCharacter } from '@/lib/domains/scoring/condition-character';
+import { getConditionCharacter, getConditionCharacterDetails, getSkipCause } from '@/lib/domains/scoring/condition-character';
+import { baseConditionsScorer, setupRiskScorer, windQualityScorer } from '@/lib/domains/scoring';
 import type { CompositeScore } from '@/lib/domains/scoring';
 import type { SpotProfile } from '@/lib/domains/spot-profile';
 import type { ConditionsSnapshot } from '@/lib/domains/conditions';
-import { createProfile, createSnapshot, createSwell } from '../__fixtures__';
+import { createInput, createProfile, createSnapshot, createSwell } from '../__fixtures__';
 
 /**
  * Build a CompositeScore stub with just the subscore Map values
@@ -107,6 +108,200 @@ describe('getConditionCharacter (domain engine port)', () => {
       const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('skip');
       expect(result.label).toMatch(/onshore/i);
+    });
+
+    it.each([
+      ['onshore', 25, 270, 'Onshore wind — conditions blown out'],
+      ['offshore', 31, 90, 'Blown out — too much wind'],
+      ['sideshore', 24, 180, 'Blown out — too much wind'],
+    ])('keeps the wind label for a blown-out %s skip', (_direction, speedMph, directionDeg, label) => {
+      const snap = createSnapshot({ ...baseSnapshot, wind: { speedMph, directionDeg } });
+      const wind = windQualityScorer.score(createInput(snap, profile));
+      expect(wind.skip).toBe(true);
+
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: wind.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label });
+    });
+
+    it('drops wind words from a blown-out skip when the beach orientation is unknown', () => {
+      const unknownOrientation = createProfile({
+        ...profile,
+        windThresholds: { ...profile.windThresholds, offshoreDeg: null },
+      });
+      const result = getConditionCharacter(baseSnapshot, unknownOrientation, {
+        ...baseComposite,
+        skipReason: 'Blown out (25 mph onshore)',
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Skip — conditions not favorable' });
+    });
+
+    it('labels a flat skip as flat, not wind', () => {
+      const flat = baseConditionsScorer.score(createInput({ waveHeight: 0.3 }, profile));
+      expect(flat.skip).toBe(true);
+
+      const snap = createSnapshot({ ...baseSnapshot, waveHeight: 0.3 });
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: flat.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Flat — rest day' });
+    });
+
+    it('labels a flat skip as flat when the wind is unknown', () => {
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 0.3,
+        wind: { speedMph: null, directionDeg: null },
+      });
+      const flat = baseConditionsScorer.score(createInput(snap, profile));
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: flat.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Flat — rest day' });
+    });
+
+    // The flat check ends scoring before the wind scorer runs, so a flat
+    // hour's skip reason never mentions a wind that blows it out.
+    it.each([
+      ['onshore', 30, 270, 'Onshore wind — conditions blown out'],
+      ['sideshore', 25, 180, 'Blown out — too much wind'],
+    ])('labels a flat skip by the wind when the same hour is blown out %s', (_direction, speedMph, directionDeg, label) => {
+      const snap = createSnapshot({ ...baseSnapshot, waveHeight: 0.3, wind: { speedMph, directionDeg } });
+      expect(windQualityScorer.score(createInput(snap, profile)).skip).toBe(true);
+      const flat = baseConditionsScorer.score(createInput(snap, profile));
+      expect(flat.skip).toBe(true);
+
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: flat.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label });
+    });
+
+    it('keeps a flat label when the same hour is windy but not blown out', () => {
+      const snap = createSnapshot({ ...baseSnapshot, waveHeight: 0.3, wind: { speedMph: 20, directionDeg: 270 } });
+      expect(windQualityScorer.score(createInput(snap, profile)).skip).toBe(false);
+      const flat = baseConditionsScorer.score(createInput(snap, profile));
+
+      const result = getConditionCharacter(snap, profile, {
+        ...baseComposite,
+        skipReason: flat.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Flat — rest day' });
+    });
+
+    it('labels a setup-risk skip by the tide, not the wind', () => {
+      const input = createInput(
+        {
+          ...baseSnapshot,
+          waveHeight: 7,
+          wavePeriod: 12,
+          tide: { heightFt: -0.4, status: 'falling', direction: 'falling' },
+        },
+        { ...profile, breakType: 'beach' }
+      );
+      const setupRisk = setupRiskScorer.score(input);
+      expect(setupRisk.skip).toBe(true);
+
+      const result = getConditionCharacter(input.snapshot, input.profile, {
+        ...baseComposite,
+        skipReason: setupRisk.skipReason,
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Likely closing out — dropping low tide' });
+    });
+
+    it('gives a skip with no named source a neutral label', () => {
+      const result = getConditionCharacter(baseSnapshot, profile, {
+        ...baseComposite,
+        skipReason: 'Conditions not favorable',
+      });
+      expect(result).toEqual({ category: 'skip', label: 'Skip — conditions not favorable' });
+    });
+  });
+
+  describe('getSkipCause', () => {
+    it('is null when the hour is not a skip', () => {
+      expect(getSkipCause(baseSnapshot, profile, baseComposite)).toBeNull();
+    });
+
+    it('reads the wind numbers off the same hour the wind scorer skipped', () => {
+      const snap = createSnapshot({ ...baseSnapshot, wind: { speedMph: 24.6, directionDeg: 270 } });
+      const wind = windQualityScorer.score(createInput(snap, profile));
+
+      expect(getSkipCause(snap, profile, { ...baseComposite, skipReason: wind.skipReason }))
+        .toEqual({ kind: 'wind', speedMph: 25, direction: 'onshore' });
+    });
+
+    it('names a flat hour flat unless the same hour is blown out', () => {
+      const flat = createSnapshot({ ...baseSnapshot, waveHeight: 0.3 });
+      const flatAndBlownOut = createSnapshot({ ...flat, wind: { speedMph: 32, directionDeg: 90 } });
+      const composite = {
+        ...baseComposite,
+        skipReason: baseConditionsScorer.score(createInput(flat, profile)).skipReason,
+      };
+
+      expect(getSkipCause(flat, profile, composite)).toEqual({ kind: 'flat' });
+      expect(getSkipCause(flatAndBlownOut, profile, composite))
+        .toEqual({ kind: 'wind', speedMph: 32, direction: 'offshore' });
+    });
+
+    it('names a setup risk and an unnamed skip', () => {
+      const setupInput = createInput(
+        {
+          ...baseSnapshot,
+          waveHeight: 7,
+          wavePeriod: 12,
+          tide: { heightFt: -0.4, status: 'falling', direction: 'falling' },
+        },
+        { ...profile, breakType: 'beach' }
+      );
+      const setupRisk = setupRiskScorer.score(setupInput);
+
+      expect(getSkipCause(setupInput.snapshot, setupInput.profile, {
+        ...baseComposite,
+        skipReason: setupRisk.skipReason,
+      })).toEqual({ kind: 'setup-risk' });
+      expect(getSkipCause(baseSnapshot, profile, {
+        ...baseComposite,
+        skipReason: 'Conditions not favorable',
+      })).toEqual({ kind: 'other' });
+    });
+
+    // The snapshot reads a missing wave height as 0 ft, so the flat check skips a row nobody measured.
+    it('names a flat skip with no wave height on the row no-data, unless the same hour is blown out', () => {
+      const unknown = createSnapshot({ ...baseSnapshot, waveHeight: 0, waveHeightKnown: false });
+      const unknownAndBlownOut = createSnapshot({ ...unknown, wind: { speedMph: 32, directionDeg: 90 } });
+      const composite = {
+        ...baseComposite,
+        skipReason: baseConditionsScorer.score(createInput(unknown, profile)).skipReason,
+      };
+
+      expect(getSkipCause(unknown, profile, composite)).toEqual({ kind: 'no-data' });
+      expect(getSkipCause(unknownAndBlownOut, profile, composite))
+        .toEqual({ kind: 'wind', speedMph: 32, direction: 'offshore' });
+      expect(getSkipCause(createSnapshot({ ...unknown, waveHeightKnown: true }), profile, composite))
+        .toEqual({ kind: 'flat' });
+    });
+  });
+
+  describe('no wave height on the row', () => {
+    const unknown = createSnapshot({ ...baseSnapshot, waveHeight: 0, waveHeightKnown: false });
+
+    it('labels the flat skip "No size forecast yet", never "Flat — rest day"', () => {
+      const flat = baseConditionsScorer.score(createInput(unknown, profile));
+      expect(flat.skip).toBe(true);
+
+      expect(getConditionCharacter(unknown, profile, { ...baseComposite, skipReason: flat.skipReason }))
+        .toEqual({ category: 'skip', label: 'No size forecast yet' });
+    });
+
+    it('keeps the flat category but drops the flat label when the composite did not skip', () => {
+      expect(getConditionCharacter(unknown, profile, baseComposite))
+        .toEqual({ category: 'flat', label: 'No size forecast yet' });
     });
   });
 
@@ -226,6 +421,56 @@ describe('getConditionCharacter (domain engine port)', () => {
       expect(result.category).toBe('small-weak');
       expect(result.label).toMatch(/choppy/i);
     });
+
+    // The profile's offshore bearing is 90° with a 45° tolerance.
+    const WIND_DEG = { onshore: 270, offshore: 90, cross: 180 } as const;
+
+    function snapshotWith(
+      waves: { heightFt: number; periodS: number },
+      wind: 'onshore' | 'offshore' | 'cross',
+      mph: number
+    ): ConditionsSnapshot {
+      return createSnapshot({
+        ...baseSnapshot,
+        waveHeight: waves.heightFt,
+        wavePeriod: waves.periodS,
+        waveDirection: 260,
+        primarySwell: createSwell(waves.heightFt, waves.periodS, 260),
+        wind: { speedMph: mph, directionDeg: WIND_DEG[wind] },
+      });
+    }
+
+    it.each([
+      ['onshore-chop', 1.5, 7, 'onshore', 8],
+      ['weak-swell', 1.5, 7, 'offshore', 3],
+      ['onshore-chop', 1.5, 9, 'onshore', 8],
+      ['marginal', 1.5, 9, 'cross', 10],
+    ] as const)('names the %s small-weak branch', (reason, heightFt, periodS, wind, mph) => {
+      const details = getConditionCharacterDetails(
+        snapshotWith({ heightFt, periodS }, wind, mph),
+        profile,
+        baseComposite
+      );
+      expect(details.character.category).toBe('small-weak');
+      expect(details.smallWeakReason).toBe(reason);
+    });
+
+    it('returns no reason outside small-weak', () => {
+      const details = getConditionCharacterDetails(
+        snapshotWith({ heightFt: 3, periodS: 9 }, 'cross', 10),
+        profile,
+        makeComposite({ windQuality: 50, tideFit: 50 })
+      );
+      expect(details.character.category).toBe('medium-mixed');
+      expect(details.smallWeakReason).toBeNull();
+    });
+
+    it('keeps the character object shape', () => {
+      const snap = snapshotWith({ heightFt: 1.5, periodS: 7 }, 'onshore', 8);
+      const character = getConditionCharacter(snap, profile, baseComposite);
+      expect(Object.keys(character).sort()).toEqual(['category', 'label']);
+      expect(getConditionCharacterDetails(snap, profile, baseComposite).character).toEqual(character);
+    });
   });
 
   describe('medium wave conditions (2-5ft)', () => {
@@ -286,6 +531,23 @@ describe('getConditionCharacter (domain engine port)', () => {
       const result = getConditionCharacter(snap, profile, composite);
       expect(result.category).toBe('large-clean');
       expect(result.label).toBe('Big and clean — groundswell, light wind');
+    });
+
+    it('reads a capped sand beach above its size as a closeout, not "Big and clean"', () => {
+      const snap = createSnapshot({
+        ...baseSnapshot,
+        waveHeight: 8.6,
+        wavePeriod: 14,
+        wind: { speedMph: 5, directionDeg: 90 },
+      });
+      const composite: CompositeScore = {
+        ...makeComposite({ windQuality: 90, tideFit: 80 }),
+        effects: [{ code: 'closeout_size', severity: 'severe', verdictCeiling: 39, message: 'Likely closing out at this size' }],
+      };
+      const result = getConditionCharacter(snap, profile, composite);
+      expect(result).toEqual({ category: 'skip', label: 'Likely closing out at this size' });
+      // The same row without the effect keeps its normal big-day text.
+      expect(getConditionCharacter(snap, profile, makeComposite({ windQuality: 90, tideFit: 80 })).category).toBe('large-clean');
     });
 
     it('classifies 6ft + strong wind as large-rough', () => {

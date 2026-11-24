@@ -34,15 +34,8 @@ const communityRow = {
 };
 
 describe("community photo resolver", () => {
-  const originalRead = process.env.COMMUNITY_PHOTOS_READ_ENABLED;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.COMMUNITY_PHOTOS_READ_ENABLED = "true";
-  });
-
-  afterAll(() => {
-    process.env.COMMUNITY_PHOTOS_READ_ENABLED = originalRead;
   });
 
   it("returns stable gated URLs, structured attribution, dimensions and controls", async () => {
@@ -142,16 +135,6 @@ describe("community photo resolver", () => {
       "resolve_community_spot_photo_by_id_v1",
       { p_photo_id: PHOTO_ID, p_viewer_id: VIEWER_ID },
     );
-  });
-
-  it("returns a fail-closed empty response without touching the database", async () => {
-    process.env.COMMUNITY_PHOTOS_READ_ENABLED = "false";
-    await expect(
-      getCommunityPhotosForTarget({
-        target: { type: "beach", id: TARGET_ID },
-      }),
-    ).resolves.toEqual([]);
-    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("resolves a batch through one RPC without N+1 calls", async () => {

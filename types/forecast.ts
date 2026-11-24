@@ -56,8 +56,8 @@ export interface TimeRange {
 
 // Weather conditions
 export interface WeatherConditions {
-  readonly airTemperature: string;
-  readonly weatherCondition: string;
+  readonly airTemperature: string | null;
+  readonly weatherCondition: string | null;
   readonly windSpeed: string;
   readonly windDirection: string;
 }
@@ -188,6 +188,8 @@ export interface EnhancedForecastEntity {
   next_tide_height?: string | null;
   /** UTC timestamp of next tide event (ISO 8601) for timezone-aware formatting */
   next_tide_at?: string | null;
+  /** Signed tide rate in ft/h (+ rising) at this row; set on hourly-bridged rows. */
+  tide_rate_ft_per_hour?: number | null;
   /** NOAA CO-OPS station ID used for tide data (e.g., "9410230" for La Jolla) */
   coops_station_id?: string | null;
   weather_condition?: string | null;
@@ -254,6 +256,10 @@ export interface EnhancedForecastEntity {
     tide_station?: TideStationInfo;
     /** Per-row wave_height provenance (source, shoaling basis, transform path, etc.). */
     wave_height_provenance?: WaveHeightProvenance;
+    /** Set only on synthetic hourly rows built by bridgeForecastsHourly. */
+    hourly_bridge?: HourlyBridgeProvenance;
+    /** Long-range outlook on a FALLBACK row; never a forecast height. */
+    ecmwf_outlook?: EcmwfOutlookSlot;
   } | null;
 }
 
@@ -314,6 +320,18 @@ export interface TidePoint {
   readonly type: "H" | "L";
 }
 
+/** Where a synthetic hourly row came from: the two stored rows it sits between. */
+export interface HourlyBridgeProvenance {
+  /** forecast_at of the earlier stored row. */
+  from: string;
+  /** forecast_at of the later stored row. */
+  to: string;
+  /** Fraction of the way from `from` to `to`. */
+  t: number;
+  /** series: every tide field from the hourly tide series; row_lerp: from the two rows; none: no tide. */
+  tide_source: "series" | "row_lerp" | "none";
+}
+
 /** A tide extreme (high or low) from the tide schedule */
 export interface TideScheduleEntry {
   /** Unix timestamp in seconds */
@@ -365,7 +383,9 @@ export interface ForecastCardVariant {
 
 // Constants
 export const FORECAST_CONSTANTS = {
-  DAYS: 12,
+  // Stored horizon. Model swell ends near day 9.3; later slots are FALLBACK
+  // rows that carry only the ECMWF WAM outlook (to about day 14.3).
+  DAYS: 15,
   INTERVAL_HOURS: 3,
   FORECASTS_PER_DAY: 8,
   MAX_CONFIDENCE: 100,
@@ -386,7 +406,8 @@ export interface ForecastPreview {
   wave_height: string;
   wind_speed: string;
   wind_direction: string;
-  weather_condition: string;
+  /** Null when NWS has no period within 6 h of the hour (no coverage, or past its horizon). */
+  weather_condition: string | null;
   confidence_score?: number;
 }
 
@@ -430,6 +451,8 @@ export interface CDIPBuoyData {
   data: CDIPDataPoint[];
   dataSource: "CDIP";
   lastUpdated: string;
+  /** "stored" = read from ioos_observations / ndbc_direct_observations after the live fetch failed or lagged. */
+  readingSource?: "live" | "stored";
 }
 
 export interface CDIPMetaResponse {
@@ -473,6 +496,13 @@ export interface CDIPStationConfig {
   deployDepth: number;
   hullType: string;
   parameters: string[];
+  /**
+   * false = served only to beaches that name it in beaches.cdip_station;
+   * never picked as a nearest-station fallback or failover target.
+   */
+  fallbackEligible?: boolean;
+  /** The same physical buoy in ndbc_direct_observations, an ingest path independent of CDIP ERDDAP. */
+  ndbcTwinId?: string;
 }
 
 // Tide Chart Types - see components/forecast/tide-chart-recharts.tsx for TidePoint and TideChartProps
@@ -552,11 +582,13 @@ export interface WaveHeightProvenance {
   components_used: boolean;
   /** True when the per-beach `shoaling_factors` lookup actually fired. */
   calibrated_shoaling_fired: boolean;
-  /** True when a low long-period CDIP bucket was skipped by quarantine rules. */
-  calibration_bucket_quarantined?: boolean;
+  /** True when a short-period calibrated bucket exceeded the period cap. */
+  short_period_bucket_capped?: boolean;
+  /** Per-beach multiplier applied to a model_swell face (lib/utils/model-swell-calibration-factors.ts). */
+  model_calibration_factor?: number;
   /** Last CDIP face height minus first following model face height at the source handoff. */
   handoff_discontinuity_ft?: number;
-  /** Optional default-off boundary blend applied to model rows after a CDIP handoff. */
+  /** Seam blend on rows written before #1236; the blend no longer rescales model rows. */
   handoff_blend?: {
     cdip_forecast_at: string;
     model_forecast_at: string;
@@ -620,5 +652,24 @@ export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
     tide_station?: TideStationInfo;
     /** Per-row wave_height provenance metadata (source, transform path, etc.). */
     wave_height_provenance?: WaveHeightProvenance;
+    /** Long-range outlook on a FALLBACK row; never a forecast height. */
+    ecmwf_outlook?: EcmwfOutlookSlot;
   };
+}
+
+/**
+ * ECMWF WAM outlook for one FALLBACK slot past the model seam. A coarse size
+ * for a range-and-trend outlook only: no partitions, no score, no alert.
+ */
+export interface EcmwfOutlookSlot {
+  model: "ecmwf_wam025";
+  /** WAM total Hs scaled by this beach's seam face ratio (ft). */
+  face_ft: number;
+  /** Raw WAM total Hs (m). */
+  hs_m: number;
+  /** Median displayed face ft per WAM Hs m over the seam window. */
+  face_ft_per_m: number;
+  seam_pairs: number;
+  /** Median WAM/model total Hs over the seam window (the trust gate). */
+  model_ratio: number;
 }

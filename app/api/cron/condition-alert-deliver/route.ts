@@ -8,7 +8,6 @@
 //
 // Hardened (Task 4) with:
 //   - FORECAST_ALERT_DELIVERY_ENABLED forecast send switch (default off)
-//   - ALERTS_DELIVERY_ENABLED legacy similarity-alert send switch
 //   - ALERTS_DELIVERY_USER_ALLOWLIST (comma-separated user_ids; empty = all)
 //   - Per-(queue_id, channel) row in `alert_delivery_attempts` for every
 //     decision (sent, skipped_*, failed_*).
@@ -40,6 +39,7 @@ import {
   type QueueItemWithMeta,
 } from "@/lib/alerts/payload-builder";
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
+import { collapseSameWindowMatches } from "@/lib/alerts/collapse-matches";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import {
@@ -64,8 +64,16 @@ import { isAlertHourlyWindowsEnabledFor } from "@/lib/flags/alert-hourly-windows
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
 import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
+import { isAlertEmailGateEnabled } from "@/lib/flags/alert-email-gate";
+import {
+  ALERT_EMAIL_HISTORY_DAYS,
+  alertEmailDaysEngagedByUser,
+  decideAlertEmail,
+} from "@/lib/alerts/email-gate";
+import { selectAllPages } from "@/lib/services/wave-stations/paging";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
 import {
   resolveNotificationMajorEventHold,
   type PositiveRecommendationPolicyContext,
@@ -75,6 +83,7 @@ import {
   canonicalAlertCandidateId,
   type CanonicalSessionDecision,
 } from "@/lib/recommendations/canonical-decision";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -388,7 +397,7 @@ function policyContextForMatch(
   };
 }
 
-export async function GET(request: Request): Promise<NextResponse> {
+async function handleGet(request: Request): Promise<NextResponse> {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -1010,6 +1019,9 @@ export async function GET(request: Request): Promise<NextResponse> {
           display_name: string | null;
           notif_email_enabled: boolean;
           notif_push_enabled: boolean;
+          // The push worker's per-type gate for forecast_alert; the email gate
+          // must not count push as delivered when this is false.
+          notif_forecast_alerts: boolean | null;
           experience_level: string | null;
           // Drives the email quiet-hours window resolution (same source the
           // push worker uses via resolveNotificationTimezone). Nullable;
@@ -1020,15 +1032,21 @@ export async function GET(request: Request): Promise<NextResponse> {
         const { data: profileRows, error: profilesError } = await supabase
           .from("profiles")
           .select(
-            "id, email, display_name, notif_email_enabled, notif_push_enabled, timezone, experience_level",
+            "id, email, display_name, notif_email_enabled, notif_push_enabled, notif_forecast_alerts, timezone, experience_level",
           )
           .in("id", userIds);
 
         if (profilesError) throw profilesError;
 
         const profilesByUser = new Map<string, ProfileRow>();
+        // One rating skill per user, so the hold gate and every decision rate the same skill.
+        const ratingSkillByUser = new Map<string, string | null>();
         for (const row of (profileRows ?? []) as ProfileRow[]) {
           profilesByUser.set(row.id, row);
+          ratingSkillByUser.set(
+            row.id,
+            ratingExperience(row.experience_level, isSkillAwareGoChecksOn(row.id)),
+          );
         }
 
         // 3b. Fetch recent 'sent' attempts once for cooldown (per-rule, 24h) and
@@ -1051,6 +1069,66 @@ export async function GET(request: Request): Promise<NextResponse> {
             skip_reason: r.skip_reason ?? null,
           }),
         );
+
+        // 3c. Email gate inputs, read once per run. A failed read turns the
+        //     gate off for this run (emails send as before) rather than
+        //     stopping push delivery with a throw.
+        const emailGateEnabled =
+          forecastDeliveryEnabled && isAlertEmailGateEnabled();
+        const activeDeviceUserIds = new Set<string>();
+        let alertEmailDaysEngaged = new Map<string, boolean[]>();
+        let emailGateReadable = emailGateEnabled;
+        const emailGateUserIds = Array.from(
+          new Set(
+            scoreEligibleItems
+              .filter((item) => item.notify_email)
+              .map((item) => item.user_id),
+          ),
+        );
+        if (emailGateEnabled && emailGateUserIds.length > 0) {
+          try {
+            // Same device definition as the push worker (lib/notifications/worker.ts dispatchPush).
+            const devices = await selectAllPages<{ user_id: string }>(
+              (from, to) =>
+                supabase
+                  .from("user_devices")
+                  .select("user_id")
+                  .in("user_id", emailGateUserIds)
+                  .is("retired_at", null)
+                  .order("id", { ascending: true })
+                  .range(from, to),
+            );
+            for (const device of devices) activeDeviceUserIds.add(device.user_id);
+
+            const alertEmailHistoryStart = new Date(
+              Date.now() - ALERT_EMAIL_HISTORY_DAYS * 24 * 60 * 60 * 1000,
+            ).toISOString();
+            const alertEmails = await selectAllPages<{
+              user_id: string;
+              local_date: string | null;
+              sent_at: string;
+              opened_at: string | null;
+              clicked_at: string | null;
+            }>((from, to) =>
+              supabase
+                .from("email_send_log")
+                .select("user_id, local_date, sent_at, opened_at, clicked_at")
+                .in("user_id", emailGateUserIds)
+                .eq("email_type", "conditions_alert")
+                .gte("sent_at", alertEmailHistoryStart)
+                .order("sent_at", { ascending: false })
+                .order("id", { ascending: false })
+                .range(from, to),
+            );
+            alertEmailDaysEngaged = alertEmailDaysEngagedByUser(alertEmails);
+          } catch (gateReadError) {
+            emailGateReadable = false;
+            console.error(
+              `${CONTEXT_TAG} email gate read failed; sending alert emails ungated this run`,
+              gateReadError,
+            );
+          }
+        }
 
         // 4. Resolve active operator holds and record the canonical decision
         // for shadow observability before applying delivery gates.
@@ -1078,7 +1156,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                 forecast_at: match.best_hour,
                 ...(policyContext ? { policy_context: policyContext } : {}),
               },
-              profileExperience: profile.experience_level,
+              profileExperience: ratingSkillByUser.get(userId) ?? null,
             });
             if (
               resolution.status === "suppressed" &&
@@ -1090,7 +1168,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
           const decision = buildAlertSessionDecision({
             matches: userMatches,
-            profileExperience: profile.experience_level,
+            profileExperience: ratingSkillByUser.get(userId) ?? null,
           });
           if (!forecastDeliveryEnabled) {
             for (const item of userItems) {
@@ -1200,7 +1278,9 @@ export async function GET(request: Request): Promise<NextResponse> {
             if (marked) result.errors++;
             continue;
           }
-          const profileExperience = parseSkillLevel(profile.experience_level);
+          const profileExperience = parseSkillLevel(
+            ratingSkillByUser.get(payload.user_id) ?? null,
+          );
 
           // Per-rule cooldown decision (cached) and per-user weekly cap decision.
           // Status priority: skipped_disabled > skipped_allowlist >
@@ -1361,11 +1441,46 @@ export async function GET(request: Request): Promise<NextResponse> {
                 // trip throttle get an attempt row written here and don't proceed
                 // to channel-pref/dedup/provider. Status priority places these
                 // skips above channel_disabled/dedup_collision.
-                const emailSurvivors = await applyThrottle(emailItems, "email");
-                if (emailSurvivors.length === 0) {
+                const emailThrottleSurvivors = await applyThrottle(
+                  emailItems,
+                  "email",
+                );
+                const emailGateSkips: Array<{
+                  item: QueueItemWithMeta;
+                  reason: string;
+                }> = [];
+                const emailSurvivors = emailThrottleSurvivors.filter((item) => {
+                  if (!emailGateReadable) return true;
+                  const decision = decideAlertEmail({
+                    ruleNotifyPush: item.notify_push,
+                    profilePushEnabled: profile.notif_push_enabled,
+                    profileForecastAlertsPush: profile.notif_forecast_alerts,
+                    hasActiveDevice: activeDeviceUserIds.has(payload.user_id),
+                    recentAlertEmailDaysEngaged:
+                      alertEmailDaysEngaged.get(payload.user_id) ?? [],
+                  });
+                  if (decision.send) return true;
+                  emailGateSkips.push({ item, reason: decision.reason });
+                  return false;
+                });
+                // channel_disabled consumes the queue row: push (if any) marks
+                // it delivered, and an email cut for no opens is not retried.
+                async function recordEmailGateSkips(): Promise<void> {
+                  for (const { item, reason } of emailGateSkips) {
+                    await recordAttempt({
+                      queueId: item.id,
+                      ruleId: item.rule_id,
+                      userId: payload.user_id,
+                      channel: "email",
+                      status: "skipped_channel_disabled",
+                      skipReason: reason,
+                    });
+                  }
+                }
+                if (emailThrottleSurvivors.length === 0) {
                   // All items blocked by throttle; rows already recorded.
                 } else if (!profile.notif_email_enabled) {
-                  for (const item of emailSurvivors) {
+                  for (const item of emailThrottleSurvivors) {
                     await recordAttempt({
                       queueId: item.id,
                       ruleId: item.rule_id,
@@ -1380,7 +1495,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                   // `string`.", which surfaced as failed_provider on 2026-04-27.
                   // Guard before the provider call. Push delivery is independent
                   // and continues for the same user below.
-                  for (const item of emailSurvivors) {
+                  for (const item of emailThrottleSurvivors) {
                     await recordAttempt({
                       queueId: item.id,
                       ruleId: item.rule_id,
@@ -1390,7 +1505,10 @@ export async function GET(request: Request): Promise<NextResponse> {
                       skipReason: "profile.email is null or empty",
                     });
                   }
+                } else if (emailSurvivors.length === 0) {
+                  await recordEmailGateSkips();
                 } else {
+                  await recordEmailGateSkips();
                   // Dedup: only send if no email delivery recorded today
                   const { data: existingEmail, error: existingEmailError } =
                     await supabase
@@ -1442,22 +1560,33 @@ export async function GET(request: Request): Promise<NextResponse> {
                       month: "long",
                       day: "numeric",
                     });
-                    if (forecastDeliveryEnabled) {
-                      await rateLimiter.throttle();
-                    }
-
                     const emailDecision = buildAlertSessionDecision({
                       matches: candidateEmailMatches,
                       profileExperience,
                     });
-                    const emailMatches = candidateEmailMatches;
+                    // Same rule as push: no selection means every beach in this
+                    // payload was vetoed, so the email must not name it either.
+                    const primaryEmailMatch = selectedAlertMatch(
+                      candidateEmailMatches,
+                      emailDecision,
+                    );
+                    const emailSelectionRejected = primaryEmailMatch === null;
+                    if (forecastDeliveryEnabled && !emailSelectionRejected) {
+                      await rateLimiter.throttle();
+                    }
+                    // Two rules at one beach and window render as one card.
+                    // Every surviving queue item still records its attempt.
+                    const emailMatches = collapseSameWindowMatches(
+                      candidateEmailMatches,
+                    );
                     const renderedEmailMatches =
                       buildRenderedMatchDetails(emailMatches);
                     const emailSubject = buildConsolidatedSubject(
                       emailMatches,
                       alertDate,
+                      emailDecision.verdict,
                     );
-                    const sendResult = !forecastDeliveryEnabled
+                    const sendResult = emailSelectionRejected || !forecastDeliveryEnabled
                       ? { data: null, error: null }
                       : await sendEmail({
                           purpose: "condition_alert",
@@ -1479,7 +1608,18 @@ export async function GET(request: Request): Promise<NextResponse> {
                         });
                     const { data: sendData, error: sendError } = sendResult;
 
-                    if (!forecastDeliveryEnabled) {
+                    if (emailSelectionRejected) {
+                      for (const item of emailSurvivors) {
+                        await recordAttempt({
+                          queueId: item.id,
+                          ruleId: item.rule_id,
+                          userId: payload.user_id,
+                          channel: "email",
+                          status: "skipped_disabled",
+                          skipReason: `canonical_decision:${emailDecision.reasonCode}`,
+                        });
+                      }
+                    } else if (!forecastDeliveryEnabled) {
                       addShadowChannel(emailSurvivors, "email");
                     } else if ("deferred" in sendResult && sendResult.deferred === "quiet_hours") {
                       // The contact gate has its own quiet window. It has not
@@ -1659,14 +1799,17 @@ export async function GET(request: Request): Promise<NextResponse> {
                     );
                     const canonicalSelectionRejected =
                       primaryPushMatch === null;
-                    const pushMatches = primaryPushMatch
-                      ? [
-                          primaryPushMatch,
-                          ...candidatePushMatches.filter(
-                            (match) => match !== primaryPushMatch,
-                          ),
-                        ]
-                      : candidatePushMatches;
+                    const pushMatches = collapseSameWindowMatches(
+                      primaryPushMatch
+                        ? [
+                            primaryPushMatch,
+                            ...candidatePushMatches.filter(
+                              (match) => match !== primaryPushMatch,
+                            ),
+                          ]
+                        : candidatePushMatches,
+                      primaryPushMatch,
+                    );
                     const renderedPushMatches =
                       buildRenderedMatchDetails(pushMatches);
                     const {
@@ -2044,3 +2187,5 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/condition-alert-deliver");

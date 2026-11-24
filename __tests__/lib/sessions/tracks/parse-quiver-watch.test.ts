@@ -13,6 +13,16 @@ const original = obFixture.track as unknown as NormalizedTrack;
 const watchFile = encodeWatchTrack(original);
 
 describe("quiver_watch track format", () => {
+  it.each([0, 5000, 321])("reads valid optional watch calories %i", calories => {
+    const file = { ...watchFile, header: { ...watchFile.header, calories } };
+    expect(parseQuiverWatch(file).meta.calories).toBe(calories);
+  });
+
+  it.each([-1, 5001, 12.5, "321", null])("ignores invalid watch calories %s", calories => {
+    const file = { ...watchFile, header: { ...watchFile.header, calories } };
+    expect(parseQuiverWatch(file).meta.calories).toBeUndefined();
+  });
+
   it("keeps the committed watch fixture generated from the offset JSON track", () => {
     expect(watchFixture).toEqual(watchFile);
     expect(parseQuiverWatch(watchFixture).samples).toHaveLength(original.samples.length);

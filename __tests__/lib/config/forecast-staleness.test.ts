@@ -1,7 +1,6 @@
 import {
   CDIP_NOWCAST_HORIZON_HOURS,
   CDIP_OUTLIER_THRESHOLD,
-  MAX_TRUSTED_CDIP_FT,
   STALENESS_THRESHOLDS,
   getStalenessThreshold,
   getStalenessInfo,
@@ -21,9 +20,8 @@ describe('Forecast Staleness Configuration', () => {
       expect(CDIP_NOWCAST_HORIZON_HOURS).toBe(STALENESS_THRESHOLDS.CDIP);
     });
 
-    it('should expose CDIP trust thresholds from forecast staleness config', () => {
+    it('should expose the CDIP model-outlier threshold', () => {
       expect(CDIP_OUTLIER_THRESHOLD).toBe(1.8);
-      expect(MAX_TRUSTED_CDIP_FT).toBe(10);
     });
   });
 

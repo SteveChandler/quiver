@@ -121,35 +121,16 @@ describe("buildCamEmbed", () => {
     });
   });
 
-  // --- HDOnTap ---
-  it("returns hdontap kind with pageUrl for HDOnTap stream URLs", () => {
-    const result = buildCamEmbed(
-      "https://hdontap.com/stream/994481/dana-point-harbor-laguna-cliffs-resort-live-webcam/"
-    );
-    expect(result).toEqual({
-      kind: "hdontap",
-      pageUrl: "https://hdontap.com/stream/994481/dana-point-harbor-laguna-cliffs-resort-live-webcam/",
-    });
-  });
-
-  it("returns hdontap kind for HDOnTap URL without trailing slash", () => {
-    const result = buildCamEmbed(
-      "https://hdontap.com/stream/994481/dana-point-harbor"
-    );
-    expect(result).toEqual({
-      kind: "hdontap",
-      pageUrl: "https://hdontap.com/stream/994481/dana-point-harbor",
-    });
-  });
-
-  it("returns hdontap kind with pageUrl for portal.hdontap.com embed URLs", () => {
-    const result = buildCamEmbed(
-      "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
-    );
-    expect(result).toEqual({
-      kind: "hdontap",
-      pageUrl: "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST",
-    });
+  it.each([
+    "https://hdontap.com/stream/1/",
+    "https://portal.hdontap.com/s/embed?stream=test",
+    "https://live.hdontap.com/live.mp4",
+    "https://HDONTAP.COM./live.m3u8",
+    "https://www.quiversurf.app/api/hls-proxy/live.hdontap.com/live.m3u8",
+  ])("does not build a player for %s", (url) => {
+    expect(buildCamEmbed(url)).toEqual({ kind: "none" });
+    expect(getViewableUrl(url)).toBeNull();
+    expect(toProxiedHlsUrl(url)).toBeNull();
   });
 
   it("returns hdontap kind for obhotel.com webcam pages", () => {
@@ -232,19 +213,7 @@ describe("buildCamEmbed", () => {
 });
 
 describe("toProxiedHlsUrl", () => {
-  it("rewrites live.hdontap.com URLs through the proxy", () => {
-    const input =
-      "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999";
-    expect(toProxiedHlsUrl(input)).toBe(
-      "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
-    );
-  });
 
-  it("preserves query string including token and expiry", () => {
-    const input =
-      "https://live.hdontap.com/hls/path/playlist.m3u8?t=TOKEN&e=1234567890";
-    expect(toProxiedHlsUrl(input)).toContain("?t=TOKEN&e=1234567890");
-  });
 
   it("passes through non-HDOnTap URLs unchanged", () => {
     const surflineUrl =
@@ -252,31 +221,13 @@ describe("toProxiedHlsUrl", () => {
     expect(toProxiedHlsUrl(surflineUrl)).toBe(surflineUrl);
   });
 
-  it("passes through already-proxied HDOnTap URLs unchanged", () => {
-    const already =
-      "/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8?t=abc";
-    expect(toProxiedHlsUrl(already)).toBe(already);
-  });
 
   it("handles malformed URL input without throwing", () => {
     expect(() => toProxiedHlsUrl("not a url")).not.toThrow();
     expect(toProxiedHlsUrl("not a url")).toBe("not a url");
   });
 
-  it("rewrites http:// HDOnTap URLs", () => {
-    const httpUrl =
-      "http://live.hdontap.com/hls/stream/playlist.m3u8?t=abc";
-    expect(toProxiedHlsUrl(httpUrl)).toBe(
-      "/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8?t=abc"
-    );
-  });
 
-  it("handles HDOnTap URLs without query params", () => {
-    const url = "https://live.hdontap.com/hls/stream/playlist.m3u8";
-    expect(toProxiedHlsUrl(url)).toBe(
-      "/api/hls-proxy/live.hdontap.com/hls/stream/playlist.m3u8"
-    );
-  });
 });
 
 describe("getViewableUrl", () => {
@@ -301,10 +252,6 @@ describe("getViewableUrl", () => {
     expect(getViewableUrl(url)).toBe(url);
   });
 
-  it("passes through HDOnTap URLs", () => {
-    const url = "https://hdontap.com/stream/994481/dana-point";
-    expect(getViewableUrl(url)).toBe(url);
-  });
 
   it("passes through generic HTTPS URLs", () => {
     const url = "https://example.com/cam";

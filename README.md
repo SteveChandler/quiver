@@ -1,6 +1,6 @@
 # Quiver 🏄‍♂️
 
-> **Community-driven surf tracking platform** — Track sessions, find perfect waves, and connect with surfers worldwide.
+> **Surf forecasts, live conditions, and session logs for West Coast and Hawaii surfers.** Know when to go, where to go, and remember how it was.
 
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
@@ -11,18 +11,25 @@
 
 ## 🌊 Overview
 
-Quiver is a full-stack surf tracking application that combines session logging, multi-source forecasting, and social features to create the ultimate surf companion app.
+### What Quiver does
 
-**Key Features:**
+Quiver tells surfers when and where to paddle out, then helps them remember how it went.
 
-- 📱 **Mobile-Ready**: Installable PWA with a responsive web experience
-- 🌐 **Web Platform**: Full-featured web application
-- 🔮 **Smart Forecasting**: Multi-source forecast aggregation (NOAA, NDBC, CDIP)
-- 📊 **Session Tracking**: Log sessions with photos, ratings, and conditions
-- 🏆 **Gamification**: XP system, badges, and leaderboards
-- 👥 **Social Features**: Follow surfers, like sessions, comment
-- 🗺️ **Beach Discovery**: Searchable database of surf spots worldwide
-- ⚡ **Real-time Updates**: Live activity feeds via WebSocket subscriptions
+- **Forecasts and the best window**: swell, wind, and tide combined into a score per beach, with the best time to surf each day.
+- **Live conditions**: nearby buoys, tides, water temperature, water-quality advisories, and surf cams.
+- **Alerts**: a push when your beach is about to turn on.
+- **Session logging**: record where you surfed, the board you rode, and how it was.
+- **Community**: see what local surfers are logging at your breaks.
+
+Quiver runs on the web at [quiversurf.app](https://www.quiversurf.app) and as an iOS and Android app (separate `quiver-native` repository).
+
+### Who it's for
+
+Surfers who check conditions before dawn and want a straight answer, from beginners picking a forgiving beach to regulars choosing between their local breaks.
+
+### Current focus (October 2026)
+
+User growth: getting more surfers to find Quiver, sign up, and come back. When choosing between pieces of work, favor the one that brings in or keeps users.
 
 **Coverage Area:** California, Oregon, Washington, Hawaii & Northern Baja California. [See full coverage details](docs/COVERAGE_AREAS.md).
 

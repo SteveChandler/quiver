@@ -16,22 +16,26 @@ import { beachToSpotProfile, forecastToSnapshot } from "@/lib/domains/scoring";
 import {
   resolveNativeSkillLevel,
   scoreNativeConditionBreakdown,
-  scoreNativeForecastSlot,
+  scoreNativeConditionInputs,
   nativeScoreInputsFromForecast,
+  displayTideBand,
   type NativeConditionScoreBreakdown,
 } from "@/lib/scoring/native-condition-score";
 import { getRideabilityBand } from "@/lib/domains/rideability";
 import { getDirectionDegrees } from "./direction-utils";
 import { resolveWindOrientation } from "@/lib/domains/shared/wind-orientation";
 import { getDiscoveryScoringEngine } from "@/lib/domains/scoring";
+import { memoizedComposite } from "@/lib/domains/scoring/scoring-memo";
 import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
 import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
+import { CLOSEOUT_SIZE_VERDICT_CEILING, closeoutSizeEffect } from "@/lib/domains/scoring/closeout-size";
 import type { NativeDirectionScoreInput } from "@/lib/scoring/native-condition-score";
 
 const SELECTOR_IDEAL_RIDEABILITY_BONUS = 4;
 const SELECTOR_ACCEPTABLE_RIDEABILITY_BONUS = 1;
 const SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT = 5;
 const SELECTOR_OUT_OF_BAND_PENALTY_CAP = 12;
+const COMPOSITE_SKIP_CEILING = 39; // top of MEH
 
 /**
  * Score a forecast window using the native-compatible condition score.
@@ -43,7 +47,7 @@ const SELECTOR_OUT_OF_BAND_PENALTY_CAP = 12;
  * @param beach - Beach metadata
  * @returns Score from 0-100
  */
-interface WindowConditionScoreDetails {
+export interface WindowConditionScoreDetails {
   score: number;
   boardClass: BoardClass | null;
   rideabilityBand: RideabilityBand | null;
@@ -63,6 +67,13 @@ function decisionEffectDetails(
     (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
     100,
   );
+  // The condition character reads a composite skip as "blown out"; the score beside it must not read FAIR.
+  if (composite.skipReason && COMPOSITE_SKIP_CEILING < ceiling) {
+    return {
+      ceiling: COMPOSITE_SKIP_CEILING,
+      effects: [...effects.map((effect) => effect.code), 'composite_skip'],
+    };
+  }
   if (isDirectionScoringEnabledForBeach(beach)) {
     const chop = windChopCeiling(
       {
@@ -113,6 +124,21 @@ function isFullBeach(beach: BeachWithThresholds): beach is Beach {
 }
 
 /**
+ * A partial beach row (the bulk route's RPC columns) cannot run the composite, so its hourly
+ * score had no ceiling. The size cap needs only the id and the height, so it still applies;
+ * without it the bulk score reads FAIR beside a "no" verdict.
+ */
+function partialBeachEffectDetails(
+  forecast: EnhancedForecastEntity,
+  beach: BeachWithThresholds,
+): { ceiling: number; effects: string[] } {
+  const closeout = closeoutSizeEffect(beach.id, parseFloat(forecast.wave_height || "0"));
+  return closeout
+    ? { ceiling: CLOSEOUT_SIZE_VERDICT_CEILING, effects: [closeout.code] }
+    : { ceiling: 100, effects: [] };
+}
+
+/**
  * Scores the best saved board, but never below the no-board baseline. A null
  * boardClass means no saved board improved the displayed score.
  */
@@ -130,20 +156,21 @@ export function scoreWindowConditionDetails(
   const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
   const effectDetails = isFullBeach(beach)
     ? decisionEffectDetails(forecast, beach)
-    : { ceiling: 100, effects: [] };
+    : partialBeachEffectDetails(forecast, beach);
   const { ceiling } = effectDetails;
   const applyCeiling = (score: number): number => Math.min(score, ceiling);
   const appliedEffects = (score: number): string[] =>
     score > ceiling ? effectDetails.effects : [];
   const direction = directionInput(forecast, beach);
-  const baselineScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel, null, direction);
+  const inputs = nativeScoreInputsFromForecast(forecast, displayTideBand(beach));
+  const baselineScore = scoreNativeConditionInputs(inputs, resolvedSkillLevel, null, direction);
 
   if (uniqueBoardClasses.length === 0) {
     const score = rideabilityBand
       ? Math.max(
           baselineScore,
-          scoreNativeForecastSlot(
-            forecast,
+          scoreNativeConditionInputs(
+            inputs,
             resolvedSkillLevel,
             rideabilityBand,
             direction,
@@ -155,7 +182,7 @@ export function scoreWindowConditionDetails(
       boardClass: null,
       rideabilityBand: rideabilityBand ?? null,
       decisionCeiling: ceiling,
-      components: scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(forecast), resolvedSkillLevel, null, direction).components,
+      components: scoreNativeConditionBreakdown(inputs, resolvedSkillLevel, null, direction).components,
       appliedEffects: appliedEffects(score),
     };
   }
@@ -165,12 +192,12 @@ export function scoreWindowConditionDetails(
     boardClass: null,
     rideabilityBand: null,
     decisionCeiling: ceiling,
-    components: scoreNativeConditionBreakdown(nativeScoreInputsFromForecast(forecast), resolvedSkillLevel, null, direction).components,
+    components: scoreNativeConditionBreakdown(inputs, resolvedSkillLevel, null, direction).components,
     appliedEffects: appliedEffects(baselineScore),
   };
   for (const boardClass of uniqueBoardClasses) {
     const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
-    const rawScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand, direction);
+    const rawScore = scoreNativeConditionInputs(inputs, resolvedSkillLevel, boardBand, direction);
     const score = applyCeiling(rawScore);
     if (score > best.score) {
       best = {
@@ -179,7 +206,7 @@ export function scoreWindowConditionDetails(
         rideabilityBand: boardBand,
         decisionCeiling: ceiling,
         components: scoreNativeConditionBreakdown(
-          nativeScoreInputsFromForecast(forecast),
+          inputs,
           resolvedSkillLevel,
           boardClass,
           direction,
@@ -248,16 +275,12 @@ export function scoreWindowWithComposite(
   forecast: EnhancedForecastEntity,
   beach: Beach,
 ): CompositeScore {
-  const engine = getDiscoveryScoringEngine();
-  const profile = beachToSpotProfile(beach);
-  const snapshot = forecastToSnapshot(forecast);
-
-  return engine.score({
-    profile,
-    snapshot,
+  return memoizedComposite(forecast, beach, () => getDiscoveryScoringEngine().score({
+    profile: beachToSpotProfile(beach),
+    snapshot: forecastToSnapshot(forecast),
     window: null,
     preferences: null,
-  });
+  }));
 }
 
 function getRideabilitySelectionAdjustment(

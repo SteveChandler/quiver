@@ -12,15 +12,18 @@ import {
   type UserScoringPreferences,
 } from '@/lib/scoring/types';
 import {
+  displayTideBand,
   pickBestNativeForecastSlot,
   type NativeScoredForecast,
 } from '@/lib/scoring/native-condition-score';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
+import type { TideBand } from '@/lib/domains/scoring/tide-swing';
 import {
   DEFAULT_TIMEZONE,
   getLocalDateString,
 } from '@/lib/utils/timezone-utils';
 import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
+import { isFallbackForecastRow } from '@/lib/utils/forecast-row-source';
 import {
   type ConditionTier,
   getConditionTier,
@@ -151,11 +154,12 @@ function findBestForecast(
   dayForecasts: EnhancedForecastEntity[],
   skillLevel?: SkillLevel | string | null,
   beachTz?: string,
-  _userPreferences?: UserScoringPreferences
+  _userPreferences?: UserScoringPreferences,
+  tideBand?: TideBand | null,
 ): NativeScoredForecast | null {
   if (dayForecasts.length === 0) return null;
 
-  return pickBestNativeForecastSlot(dayForecasts, skillLevel, { beachTz });
+  return pickBestNativeForecastSlot(dayForecasts, skillLevel, { beachTz, tideBand });
 }
 
 /**
@@ -246,13 +250,18 @@ export function aggregateDayForecasts(
 ): DaySummary[] {
   const { maxDays = 12, timezone = beach.timezone || DEFAULT_TIMEZONE } = options;
   const userPreferences = options.userPreferences;
+  const tideBand = displayTideBand(beach);
 
   if (!forecasts || forecasts.length === 0) {
     return [];
   }
 
-  // Group forecasts by date
-  const forecastsByDate = groupForecastsByDate(forecasts, timezone);
+  // FALLBACK rows carry no model wave data, so they never shape a day's
+  // score, best time or height range. Days with nothing else drop out.
+  const forecastsByDate = groupForecastsByDate(
+    forecasts.filter((forecast) => !isFallbackForecastRow(forecast)),
+    timezone
+  );
 
   // Sort dates chronologically
   const sortedDates = Array.from(forecastsByDate.keys()).sort();
@@ -271,7 +280,7 @@ export function aggregateDayForecasts(
     const dayForecasts = forecastsByDate.get(dateStr) || [];
 
     // Find best forecast for scoring
-    const bestResult = findBestForecast(dayForecasts, options.skillLevel, timezone, userPreferences);
+    const bestResult = findBestForecast(dayForecasts, options.skillLevel, timezone, userPreferences, tideBand);
 
     if (!bestResult) continue;
 
@@ -323,8 +332,6 @@ export function aggregateDayForecasts(
   }
 
   // Trim trailing days where ALL forecasts have null/empty wave_height.
-  // This catches truly-null tail data while allowing FALLBACK-sourced days
-  // with generated values to render (e.g., gap-filled slots).
   while (summaries.length > 0) {
     const lastDate = summaries[summaries.length - 1].fullDate;
     const lastDayForecasts = forecastsByDate.get(lastDate) || [];

@@ -9,6 +9,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createServiceRoleClient } from "@/lib/supabase";
 import { EXPERIMENT_KEYS, type ExperimentKey } from "@/lib/experiments/assignment-hash";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,8 @@ async function handler(
   });
 }
 
-export const GET = withNoStore(
+const handleGet = withNoStore(
   withAuth(handler, { errorMessage: "Failed to load assignment" })
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/v1/experiments/assignment");

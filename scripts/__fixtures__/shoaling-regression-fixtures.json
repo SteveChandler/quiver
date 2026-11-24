@@ -39,6 +39,43 @@
         "tide_status": "rising"
       }
     },
+    "la-jolla-shores": {
+      "id": "d291411d-d331-4bf1-ad1a-302da3c69de0",
+      "name": "La Jolla Shores",
+      "shoaling_factors": {
+        "version": 1,
+        "type": "period_lookup",
+        "buckets": [
+          {"tp_min_s": 0, "tp_max_s": 8, "factor": 1.18},
+          {"tp_min_s": 8, "tp_max_s": 12, "factor": 1.19},
+          {"tp_min_s": 12, "tp_max_s": 16, "factor": 1.42},
+          {"tp_min_s": 16, "tp_max_s": 999, "factor": 1.46}
+        ]
+      },
+      "swell_window_center_deg": 290,
+      "swell_window_halfwidth_deg": 95,
+      "terrain_enabled": true,
+      "swell_access_factors": null,
+      "forecast": {
+        "wave_height": "2.7",
+        "wave_period": "7s",
+        "swell_1_height": "2.2",
+        "swell_1_period": "7s",
+        "swell_1_direction": "290",
+        "swell_2_height": null,
+        "swell_2_period": null,
+        "swell_2_direction": null,
+        "wind_wave_height": null,
+        "wind_wave_period": null,
+        "wind_wave_direction": null,
+        "data_source": "CDIP",
+        "wind_speed": "6",
+        "wind_direction": "E",
+        "wind_direction_deg": 90,
+        "tide_height": "3.0",
+        "tide_status": "rising"
+      }
+    },
     "blacks": {
       "id": "01330afc-00d3-461b-88f3-b173774766f4",
       "name": "Blacks Beach",
@@ -510,7 +547,7 @@
   "gates": {
     "A": ["lower-trestles", "blacks", "rincon", "malibu-first-point"],
     "B": ["tourmaline-beach", "tourmaline-surf-park", "windansea"],
-    "C": ["hb-pier-southside", "the-wedge"],
+    "C": ["hb-pier-southside", "the-wedge", "la-jolla-shores"],
     "D": ["hb-pier", "hb-pier-northside", "crystal-cove"],
     "E": ["tourmaline-beach", "blacks", "lower-trestles", "swamis", "hb-pier-southside", "the-wedge"]
   }

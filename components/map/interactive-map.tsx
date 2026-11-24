@@ -35,6 +35,7 @@ import {
   getConditionMarkerGradient,
   getWaterQualityHold,
   getWaterTempBadgeColor,
+  hasCurrentSampleTitle,
   type MarkerPreviewData,
   type MarkerBuilderDeps,
   type MapDisplayMode,
@@ -73,7 +74,6 @@ import type {
 import {
   degreesToCompass,
   SWELL_FIELD_PARTICLE_COLOR,
-  SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE,
   SWELL_FIELD_DARK_STAGE_DIM,
   SWELL_FIELD_DARK_STAGE_WATER,
   SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE,
@@ -117,6 +117,7 @@ import { useExpandableSwellTimeline } from "@/hooks/use-expandable-swell-timelin
 import { calendarDayTimelineHours } from "@/components/map/hourly-swell-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
+import { useCustomSpotCurrentDisplays } from "@/hooks/use-custom-spot-current-displays";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
@@ -677,6 +678,17 @@ export function InteractiveMap({
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
   const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
+  const customSpotIds = useMemo(() => customSpots.map((spot) => spot.id), [customSpots]);
+  // Refetch exactly when an anchor's current row moves, so pin and anchor share an hour.
+  const customSpotAnchorRowsKey = customSpots
+    .map((spot) => (spot.nearestBeachId ? displayForecastMap.get(spot.nearestBeachId)?.forecastAt ?? "" : ""))
+    .join("|");
+  const customSpotDisplays = useCustomSpotCurrentDisplays(
+    customSpotIds,
+    customSpotAnchorRowsKey,
+    getAccessToken,
+    onAuthTokenExpired,
+  );
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [initialConditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [initialRecommendationLabelMap, setRecommendationLabelMap] = useState<Map<string, RecommendationLabel>>(new Map());
@@ -2291,7 +2303,7 @@ export function InteractiveMap({
             : swellLayerId === "wind"
               ? "wind"
               : "swell"
-        }|${reducedMotion ? "rm" : "mo"}|${swellFieldStage}`;
+        }|${reducedMotion ? "rm" : "mo"}`;
     // Skip the teardown only when the shape is unchanged AND the layer is genuinely
     // still mounted (a style reload can wipe layers while the ref says otherwise).
     const mountedProbeId =
@@ -2304,7 +2316,9 @@ export function InteractiveMap({
     if (alreadyCorrect) return;
 
     teardown();
-    if (swellFieldStage !== "dark" && darkStageWaterOriginalColorRef.current) {
+    // Restore the basemap water whenever the field comes down; it is re-tinted below
+    // if the field is re-added, so hiding the field leaves the plain basemap.
+    if (darkStageWaterOriginalColorRef.current) {
       if (map.getLayer("water")) {
         map.setPaintProperty(
           "water",
@@ -2320,31 +2334,33 @@ export function InteractiveMap({
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
     const baseParticleCount = resolveParticleCount(viewportWidthPx);
-    const particlePalette = swellFieldStage === "dark"
-      ? SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE
-      : SWELL_FIELD_PARTICLE_COLOR;
-    const dashStageScale = swellFieldStage === "dark"
-      ? SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE
-      : 1;
+    // One particle style on every surface (native parity): the dark stage always
+    // rides under the field, so the palette and dash scale never switch by stage.
+    const particlePalette = SWELL_FIELD_PARTICLE_COLOR;
+    const dashStageScale = SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE;
 
-    if (swellFieldStage === "dark") {
-      if (map.getLayer("water")) {
-        if (!darkStageWaterOriginalColorRef.current) {
-          darkStageWaterOriginalColorRef.current = {
-            value: map.getPaintProperty("water", "fill-color"),
-          };
-        }
-        map.setPaintProperty("water", "fill-color", SWELL_FIELD_DARK_STAGE_WATER);
-      }
-      map.addLayer({
+    if (map.getLayer("water")) {
+      darkStageWaterOriginalColorRef.current = {
+        value: map.getPaintProperty("water", "fill-color"),
+      };
+      map.setPaintProperty("water", "fill-color", SWELL_FIELD_DARK_STAGE_WATER);
+    }
+    // Dim only the base fills: insert under the style's first symbol layer, so
+    // roads, labels and shields above it keep full contrast.
+    const firstSymbolLayerId = map
+      .getStyle()
+      ?.layers?.find((layer) => layer.type === "symbol")?.id;
+    map.addLayer(
+      {
         id: `${SWELL_FIELD_LAYER_ID}-stage-dim`,
         type: "background",
         paint: {
           "background-color": SWELL_FIELD_DARK_STAGE_DIM.color,
           "background-opacity": SWELL_FIELD_DARK_STAGE_DIM.opacity,
         },
-      });
-    }
+      },
+      firstSymbolLayerId,
+    );
     if (swellLayerId === "combined") {
       // Overlay the three components, each its own colored layer + flow field. Cap
       // per-layer particle count so three stacked layers stay in budget.
@@ -2401,7 +2417,7 @@ export function InteractiveMap({
     swellLayerKeyRef.current = shapeKey;
     // No cleanup teardown: the layer persists across same-shape switches and is
     // removed on the next shape change (or with the map on unmount).
-  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, swellFieldStage, mapStyleRevision]);
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, mapStyleRevision]);
 
   // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
   // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion
@@ -2959,7 +2975,7 @@ export function InteractiveMap({
       else element.setAttribute("data-condition-score", String(score));
       const beach = beachesRef.current?.find((item) => item.id === beachId);
       const button = element.querySelector("[data-marker-badge]");
-      if (beach && button && (beach as MapBeach).waterQualityEvidence?.source !== "sample") button.setAttribute("title", `${beach.name}: ${getConditionMarkerCall({ recommendationLabel, waterQualityHold: getWaterQualityHold(beach) }).label}`);
+      if (beach && button && !hasCurrentSampleTitle(beach as MapBeach)) button.setAttribute("title", `${beach.name}: ${getConditionMarkerCall({ recommendationLabel, waterQualityHold: getWaterQualityHold(beach) }).label}`);
       const badge = element.querySelector("[data-marker-visual='true']");
       const existingRing = element.querySelector(
         '[data-testid="selection-ring"]'
@@ -3262,7 +3278,10 @@ export function InteractiveMap({
         ? {
             recommendationLabel: recommendationLabelMap.get(nearestBeachId),
             conditionScore: conditionScoreMap.get(nearestBeachId),
-            waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
+            // Same label Home shows: adjusted to the spot's terrain when analyzed.
+            waveLabel: customSpotDisplays.get(spot.id)?.label
+              ?? displayForecastMap.get(nearestBeachId)?.label
+              ?? null,
           }
         : undefined;
       const lngLat: [number, number] = [spot.lon, spot.lat];
@@ -3338,6 +3357,7 @@ export function InteractiveMap({
   }, [
     clusters,
     customSpots,
+    customSpotDisplays,
     onCustomSpotClick,
     isMapReady,
     conditionScoreMap,

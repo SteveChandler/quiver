@@ -10,7 +10,7 @@ import { NOAAWaveWatchService } from "@/lib/services/noaa-wavewatch/noaa-wavewat
 import type { WaveWatchData } from "@/lib/services/noaa-wavewatch/types";
 import { fetchNOAAPointData, fetchOpenMeteoData } from "@/lib/services/noaa-wavewatch/api-client";
 
-// Mock API + fallback internals so we can feed synthetic NOAA / OM forecasts.
+// Mock API internals so we can feed synthetic NOAA / OM forecasts.
 jest.mock("@/lib/services/noaa-wavewatch/api-client", () => ({
   fetchNOAAPointData: jest.fn(async () => ({ properties: { gridId: "X", gridX: 1, gridY: 1 } })),
   constructGridUrl: jest.fn(() => "https://example.test/grid"),
@@ -30,11 +30,6 @@ jest.mock("@/lib/services/noaa-wavewatch/wave-analysis", () => {
 jest.mock("@/lib/services/noaa-wavewatch/data-processors", () => ({
   processNOAAGridData: jest.fn(),
   processOpenMeteoData: jest.fn(),
-}));
-
-jest.mock("@/lib/services/noaa-wavewatch/fallback-generator", () => ({
-  generateFallbackData: jest.fn(() => []),
-  generateFallbackSlotsFrom: jest.fn(() => []),
 }));
 
 jest.mock("@/lib/monitoring/fallback-tracker", () => ({
@@ -63,7 +58,9 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
   it("forwards the reviewed point only to NOAA, preserving Open-Meteo beach coordinates", async () => {
     await new NOAAWaveWatchService().fetchWaveWatchForecast(35.22, -75.63, 3, [35.17, -75.61]);
     expect(fetchNOAAPointData).toHaveBeenLastCalledWith(35.22, -75.63, [35.17, -75.61]);
-    expect(fetchOpenMeteoData).toHaveBeenLastCalledWith(35.22, -75.63, 3);
+    expect(fetchOpenMeteoData).toHaveBeenCalledWith(35.22, -75.63, 3);
+    // The ECMWF outlook is its own request at the beach coordinates.
+    expect(fetchOpenMeteoData).toHaveBeenCalledWith(35.22, -75.63, 16, expect.objectContaining({ model: "ecmwf_wam025" }));
   });
   const snapSlot = (d: Date): Date => {
     const ms = Math.round(d.getTime() / (3 * 3600000)) * (3 * 3600000);

@@ -64,10 +64,9 @@ describe("TodaysWindows", () => {
     render(<TodaysWindows windows={SAMPLE_WINDOWS} preferredTime={null} />);
     // Pre-formatted ranges pass through unchanged. Single-point inputs go
     // through the formatter, which uses floor/ceil on face Hs (no × 1.5
-    // expansion) — so "4 ft" → "4ft", not "4-6ft sets".
+    // expansion) — so "4 ft" → "3-4ft" (native's whole-number band), not "4-6ft sets".
     expect(screen.getByText("4-5ft")).toBeInTheDocument();
-    expect(screen.getByText("4ft")).toBeInTheDocument();
-    expect(screen.getByText("3-4ft")).toBeInTheDocument();
+    expect(screen.getAllByText("3-4ft")).toHaveLength(2);
   });
 
   it("marks the preferred time slot", () => {
@@ -140,7 +139,7 @@ describe("TodaysWindows", () => {
     );
 
     expect(screen.queryByText(/0\.5-5\.5/)).not.toBeInTheDocument();
-    expect(screen.getByText("3ft")).toBeInTheDocument();
+    expect(screen.getByText("2-3ft")).toBeInTheDocument();
     expect(screen.getByText("Swell WNW @ 14s")).toBeInTheDocument();
     expect(screen.getByText("Wind NW 8 mph")).toBeInTheDocument();
     expect(screen.getByText("Tide 3.2 ft Rising")).toBeInTheDocument();
@@ -198,5 +197,25 @@ describe("TodaysWindows", () => {
     expect(screen.getByText("Wind NE 6 mph")).toBeInTheDocument();
     expect(screen.getByText("Swell SSW @ 15s")).toBeInTheDocument();
     expect(container).toMatchSnapshot();
+  });
+
+  describe("home beach hint", () => {
+    const EMPTY_WINDOWS: TimeWindow[] = ["5am", "8am", "11am", "2pm", "5pm"].map((time) => ({
+      time,
+      label: "",
+      height: "—",
+      quality: 0,
+      isBest: false,
+    }));
+
+    it("asks for a home beach only when the user has none", () => {
+      render(<TodaysWindows windows={EMPTY_WINDOWS} preferredTime={null} hasHomeBeach={false} />);
+      expect(screen.getByText("Set your home beach for full forecast windows")).toBeInTheDocument();
+    });
+
+    it("does not ask a user who already has a home beach", () => {
+      render(<TodaysWindows windows={EMPTY_WINDOWS} preferredTime={null} hasHomeBeach />);
+      expect(screen.queryByText(/Set your home beach/)).not.toBeInTheDocument();
+    });
   });
 });

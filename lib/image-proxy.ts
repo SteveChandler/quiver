@@ -1,3 +1,5 @@
+import { toWikimediaThumbUrl } from "@/lib/utils/image-utils";
+
 /**
  * Image Proxy Utilities
  *
@@ -35,12 +37,12 @@ function shouldProxyImage(url: string): boolean {
 /**
  * Returns a proxied URL if needed, otherwise returns the original URL
  */
-export function getOptimizedImageUrl(url: string): string {
-  if (!shouldProxyImage(url)) {
-    return url;
+export function getOptimizedImageUrl(rawUrl: string): string {
+  if (!shouldProxyImage(rawUrl)) {
+    return rawUrl;
   }
 
   // Encode the URL and return the proxy URL
-  const encodedUrl = encodeURIComponent(url);
+  const encodedUrl = encodeURIComponent(toWikimediaThumbUrl(rawUrl));
   return `/api/image-proxy?url=${encodedUrl}`;
 }

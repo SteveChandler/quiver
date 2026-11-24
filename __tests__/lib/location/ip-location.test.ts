@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { matchToMetroArea, DEFAULT_LOCATION } from "@/lib/location/ip-location";
+import { extractIPLocation, parseIPLocationCookie, serializeIPLocation, matchToMetroArea, DEFAULT_LOCATION } from "@/lib/location/ip-location";
 import type { IPLocationData } from "@/lib/location/types";
 
 describe("matchToMetroArea", () => {
@@ -128,5 +128,20 @@ describe("matchToMetroArea", () => {
     // Should match San Diego by proximity
     expect(result.slug).toBe("san-diego");
     expect(result.displayName).toBe("San Diego");
+  });
+});
+
+describe("IP cookie provenance", () => {
+  it.each([true, false])("round-trips the synthetic flag %s", (synthetic) => {
+    const ip = { city: "San Diego", region: "CA", country: "US", latitude: 32.7157, longitude: -117.1611, synthetic };
+    expect(parseIPLocationCookie(serializeIPLocation(ip))).toEqual(ip);
+  });
+  it("does not mark Vercel header evidence as synthetic", () => {
+    const ip = extractIPLocation(new Headers({ "x-vercel-ip-city": "San Diego", "x-vercel-ip-latitude": "32.7157", "x-vercel-ip-longitude": "-117.1611" }));
+    expect(ip).not.toHaveProperty("synthetic");
+    expect(parseIPLocationCookie(serializeIPLocation(ip))).toEqual(ip);
+  });
+  it("ignores a non-boolean synthetic field", () => {
+    expect(parseIPLocationCookie('{"synthetic":"true"}')).not.toHaveProperty("synthetic");
   });
 });

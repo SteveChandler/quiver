@@ -1,14 +1,10 @@
+import * as Sentry from "@sentry/nextjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LatestObservation, NowcastAnchor } from "./nowcast-anchor.types";
 import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
 
 const DEFAULT_MAX_AGE_HOURS = STALENESS_THRESHOLDS.NOWCAST_ANCHOR;
 const LOG_PREFIX = "[nowcast-anchor]";
-
-type FetchOptions = {
-  maxAgeHours?: number;
-  beachId?: string;
-};
 
 type RpcRow = {
   beach_id: string;
@@ -25,6 +21,63 @@ function toNumberOrNull(v: number | string | null | undefined): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+type ReportScope = "run" | "request";
+
+type FetchOptions = {
+  maxAgeHours?: number;
+  beachId?: string;
+  /**
+   * "run" (a cron that reads anchors once per run) reports every failure.
+   * "request" (the default; request paths) reports at most once per process
+   * per REQUEST_REPORT_WINDOW_MS, so an RPC outage is not one event per request.
+   */
+  reportScope?: ReportScope;
+};
+
+export const REQUEST_REPORT_WINDOW_MS = 5 * 60 * 1000;
+
+// Module state, so the window is per server instance: N warm instances in an
+// outage send up to N events per window. Failures suppressed inside a window are
+// counted and sent as suppressed_since_last_report on the next report; if no
+// later failure comes on this instance, that count is lost.
+let lastRequestReportAt: number | null = null;
+let suppressedRequestReports = 0;
+
+/** Test hook: forget the request-scope report window. */
+export function resetNowcastAnchorReportWindow(): void {
+  lastRequestReportAt = null;
+  suppressedRequestReports = 0;
+}
+
+function reportAnchorFailure(error: unknown, failure: "rpc_error" | "throw", scope: ReportScope): void {
+  let suppressed = 0;
+  if (scope === "request") {
+    const now = Date.now();
+    if (lastRequestReportAt !== null && now - lastRequestReportAt < REQUEST_REPORT_WINDOW_MS) {
+      suppressedRequestReports += 1;
+      return;
+    }
+    lastRequestReportAt = now;
+    suppressed = suppressedRequestReports;
+    suppressedRequestReports = 0;
+  }
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof (error as { message?: unknown })?.message === "string"
+        ? (error as { message: string }).message
+        : String(error);
+  Sentry.captureException(error instanceof Error ? error : new Error(message), {
+    level: "warning",
+    tags: {
+      component: "nowcast-anchor",
+      nowcast_anchor_failure: failure,
+      nowcast_anchor_scope: scope,
+    },
+    ...(scope === "request" ? { extra: { suppressed_since_last_report: suppressed } } : {}),
+  });
+}
+
 /**
  * Fetch the latest buoy observation per observable beach via the
  * `get_nowcast_anchors` RPC (see migration 20260419150000).
@@ -34,8 +87,9 @@ function toNumberOrNull(v: number | string | null | undefined): number | null {
  * recent observation are absent from the map (caller treats missing
  * as "no anchor, forecast-only path").
  *
- * Failures are logged and swallowed — a broken observation pipeline
- * must never halt the forecast build cron. Downstream callers check
+ * Failures are logged and reported to Sentry (see `reportScope`), then fall
+ * through to an empty map — a broken observation pipeline must never halt the
+ * forecast build cron. Downstream callers check
  * `map.get(beachId)` truthiness and fall through on miss.
  */
 export async function fetchNowcastAnchors(
@@ -43,6 +97,7 @@ export async function fetchNowcastAnchors(
   options: FetchOptions = {},
 ): Promise<Map<string, NowcastAnchor>> {
   const maxAgeHours = options.maxAgeHours ?? DEFAULT_MAX_AGE_HOURS;
+  const scope = options.reportScope ?? "request";
 
   try {
     const query = supabase.rpc("get_nowcast_anchors", {
@@ -54,6 +109,7 @@ export async function fetchNowcastAnchors(
 
     if (error) {
       console.warn(`${LOG_PREFIX} RPC error, falling through to forecast-only`, error);
+      reportAnchorFailure(error, "rpc_error", scope);
       return new Map();
     }
 
@@ -74,6 +130,7 @@ export async function fetchNowcastAnchors(
     return map;
   } catch (err) {
     console.warn(`${LOG_PREFIX} unexpected failure, falling through to forecast-only`, err);
+    reportAnchorFailure(err, "throw", scope);
     return new Map();
   }
 }

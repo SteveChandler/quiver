@@ -25,7 +25,7 @@ const CANARY_TIMEZONE = "America/Los_Angeles";
 const CANARY_DAY_COUNT = 3;
 
 type WeekScoutCanaryResult =
-  | { healthy: true; rankedWindows: number; heldBy?: string }
+  | { healthy: true; rankedWindows: number; scoredWindows?: number; heldBy?: string }
   | { healthy: false; reason: "hold_state_unavailable" | "no_windows" | "threw"; detail: string };
 
 interface WeekScoutCanaryDependencies {
@@ -77,12 +77,14 @@ export async function runWeekScoutCanary(
   if (availability.state === "none") {
     return { healthy: true, rankedWindows, heldBy: availability.reasonCode ?? "unknown" };
   }
-  if (rankedWindows === 0) {
-    return {
-      healthy: false,
-      reason: "no_windows",
-      detail: `Week Scout ranked no window for ${WEEK_SCOUT_CANARY_BEACH_IDS.length} beaches over ${CANARY_DAY_COUNT} days`,
-    };
-  }
-  return { healthy: true, rankedWindows };
+  if (rankedWindows > 0) return { healthy: true, rankedWindows };
+  // rankedSpots leaves out every "skip" window, so a big or blown-out swell ranks
+  // nothing while Week Scout is up. Only no scored window at all is an outage.
+  const scoredWindows = forecast.days.reduce((count, day) => count + day.windows.length, 0);
+  if (scoredWindows > 0) return { healthy: true, rankedWindows, scoredWindows };
+  return {
+    healthy: false,
+    reason: "no_windows",
+    detail: `Week Scout ranked no window for ${WEEK_SCOUT_CANARY_BEACH_IDS.length} beaches over ${CANARY_DAY_COUNT} days`,
+  };
 }

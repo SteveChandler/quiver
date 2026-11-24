@@ -23,6 +23,8 @@ import * as outlookState from "@/lib/alerts/swell-outlook/state";
 import { SWELL_OUTLOOK_PULSE_DETECTOR_VERSION, type SwellEventForecastRow, type SwellEventSnapshot } from "@/lib/alerts/swell-events";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 import { NOW, TIMEZONE, dayRows } from "@/__tests__/helpers/swell-events";
+import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 const USER = "eeeeeeee-0000-4000-8000-000000000001";
 const HOME = "eeeeeeee-0000-4000-8000-0000000000a1";
@@ -50,6 +52,7 @@ type QueryResult = { data: Row | null; error: { message: string } | null };
 interface FakeQueryBuilder {
   select: () => FakeQueryBuilder;
   eq: (key: string, value: unknown) => FakeQueryBuilder;
+  is: (key: string, value: null) => FakeQueryBuilder;
   update: (row: Row) => FakeQueryBuilder;
   maybeSingle: () => Promise<QueryResult>;
   upsert: (row: Row, options: Row) => Promise<{ error: { message: string } | null }>;
@@ -58,7 +61,7 @@ interface FakeQueryBuilder {
 
 function fakeClient(tables: {
   profile?: Row | null;
-  boards?: Array<{ board_type: string }>;
+  boards?: Array<{ board_type: string; retired_at?: string | null }>;
   state?: Row | null;
   upsertError?: string;
   stateError?: string;
@@ -87,6 +90,7 @@ function fakeClient(tables: {
       const builder: FakeQueryBuilder = {
         select: (): FakeQueryBuilder => builder,
         eq: (key: string, value: unknown): FakeQueryBuilder => { filters[key] = value; return builder; },
+        is: (key: string, value: null): FakeQueryBuilder => { filters[`is:${key}`] = value; return builder; },
         update: (row: Row): FakeQueryBuilder => { patch = copy(row); return builder; },
         maybeSingle: async (): Promise<QueryResult> => {
           if (table === "profiles" && tables.profileThrow) throw new Error(tables.profileThrow);
@@ -112,7 +116,8 @@ function fakeClient(tables: {
         },
         then: (resolve: (value: unknown) => unknown): unknown => {
           if (table === "boards" && tables.boardsThrow) throw new Error(tables.boardsThrow);
-          return resolve({ data: tables.boards ?? [], error: tables.boardsError ? { message: tables.boardsError } : null });
+          const boards = (tables.boards ?? []).filter((board) => !("is:retired_at" in filters) || board.retired_at == null);
+          return resolve({ data: boards, error: tables.boardsError ? { message: tables.boardsError } : null });
         },
       };
       return builder;
@@ -224,6 +229,12 @@ describe("loadSwellOutlookForUser", () => {
     expect(unknown.swells[0].fit).toEqual({ status: "in_range", boards: [] });
     const mixed = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, boards: [{ board_type: "Fish" }, { board_type: "shortboard" }, { board_type: "gizmo" }] }).client, userId: USER, now: NOW, recordOpen: false, deps: deps() });
     expect(mixed.swells[0].fit).toEqual({ status: "in_range", boards: ["fish", "shortboard"] });
+  });
+
+  it("leaves retired boards out of the fit classes", async () => {
+    const boards = [{ board_type: "shortboard" }, { board_type: "longboard", retired_at: "2026-10-01T00:00:00.000Z" }];
+    const response = await loadSwellOutlookForUser({ client: fakeClient({ profile: PROFILE, boards }).client, userId: USER, now: NOW, recordOpen: false, deps: deps() });
+    expect(response.swells[0].fit).toEqual({ status: "in_range", boards: ["shortboard"] });
   });
 
   it("uses the default skill band when no boards are recorded", async () => {
@@ -558,4 +569,101 @@ describe("loadSwellOutlookForUser", () => {
     expect(mockAfterTasks).toEqual([]);
   });
 
+});
+
+describe("loadSwellOutlookForUser week bars with skill-aware go checks", () => {
+  const ENV_KEYS = ["SKILL_AWARE_GO_CHECKS_ENABLED", "SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST"] as const;
+  const savedEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+  const row = {
+    forecast_at: new Date(NOW.getTime() + 2 * 3_600_000).toISOString(), wave_height: "5-6 ft",
+    swell_1_height: "5 ft", swell_1_period: "14s", swell_1_direction: "W",
+  };
+  const beginnerScore = Math.round(scoreWindowConditionScore(row as unknown as EnhancedForecastEntity, homeBeach, "beginner", null, []));
+  const unknownSkillScore = Math.round(scoreWindowConditionScore(row as unknown as EnhancedForecastEntity, homeBeach, null, null, []));
+  const advancedScore = Math.round(scoreWindowConditionScore(row as unknown as EnhancedForecastEntity, homeBeach, "advanced", null, []));
+
+  function setFlag(enabled: boolean, allowlist = ""): void {
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = enabled ? "true" : "false";
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = allowlist;
+  }
+
+  async function firstDayScore(tables: Parameters<typeof fakeClient>[0]): Promise<number | null | undefined> {
+    const response = await loadSwellOutlookForUser({
+      client: fakeClient(tables).client, userId: USER, now: NOW, recordOpen: false, includeDays: true,
+      deps: deps({ loadDayRows: jest.fn(async () => [row] as never) }),
+    });
+    return response.days?.[0]?.score;
+  }
+
+  beforeEach(() => {
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      if (savedEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = savedEnv[key];
+    }
+    jest.restoreAllMocks();
+  });
+
+  it("has a row that a beginner and an unknown skill score differently", () => {
+    expect(beginnerScore).not.toBe(unknownSkillScore);
+  });
+
+  it("rates an allowlisted user with no skill as a beginner", async () => {
+    setFlag(true, USER);
+    expect(await firstDayScore({ profile: { ...PROFILE, experience_level: null }, boards: [] })).toBe(beginnerScore);
+  });
+
+  it("rates a blank skill as a beginner with the flag on for everyone", async () => {
+    setFlag(true);
+    expect(await firstDayScore({ profile: { ...PROFILE, experience_level: "  " }, boards: [] })).toBe(beginnerScore);
+  });
+
+  it.each([
+    ["the flag is off", false, USER],
+    ["the user is not allowlisted", true, "eeeeeeee-0000-4000-8000-0000000000ff"],
+  ])("keeps today's unknown-skill score when %s", async (_label: string, enabled: boolean, allowlist: string) => {
+    setFlag(enabled, allowlist);
+    expect(await firstDayScore({ profile: { ...PROFILE, experience_level: null }, boards: [] })).toBe(unknownSkillScore);
+  });
+
+  it("keeps a known skill unchanged with the flag on", async () => {
+    setFlag(true, USER);
+    expect(await firstDayScore({ profile: PROFILE, boards: [] })).toBe(advancedScore);
+  });
+
+  it.each([
+    ["returned error", { profileError: "profiles unavailable" }],
+    ["query rejection", { profileThrow: "profiles unavailable" }],
+  ])("does not rate an unreadable profile (%s) as a beginner", async (_label: string, failure: { profileError?: string; profileThrow?: string }) => {
+    setFlag(true, USER);
+    expect(await firstDayScore({ profile: PROFILE, boards: [], ...failure })).toBe(unknownSkillScore);
+  });
+
+  it("keeps unreadable boards without a bar score", async () => {
+    setFlag(true, USER);
+    expect(await firstDayScore({ profile: { ...PROFILE, experience_level: null }, boardsError: "boards unavailable" })).toBeNull();
+  });
+
+  it("keeps the swell fit on the raw skill for a no-skill user", async () => {
+    setFlag(true, USER);
+    const response = await loadSwellOutlookForUser({
+      client: fakeClient({ profile: { ...PROFILE, experience_level: null }, boards: [] }).client,
+      userId: USER, now: NOW, recordOpen: false, deps: deps(),
+    });
+    expect(response.swells[0].fit).toEqual({ status: "unknown", boards: [] });
+  });
+
+  it.each([
+    ["on", true, ["fish", "shortboard"]],
+    ["off", false, ["shortboard", "fish"]],
+  ])("orders the board classes the shared way only with the flag %s", async (_label: string, enabled: boolean, expected: string[]) => {
+    setFlag(enabled, USER);
+    const response = await loadSwellOutlookForUser({
+      client: fakeClient({ profile: PROFILE, boards: [{ board_type: "shortboard" }, { board_type: "fish" }] }).client,
+      userId: USER, now: NOW, recordOpen: false, deps: deps(),
+    });
+    expect(response.swells[0].fit.boards).toEqual(expected);
+  });
 });

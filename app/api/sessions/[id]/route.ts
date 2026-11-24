@@ -13,6 +13,7 @@ import {
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 const WaveCharacteristicSchema = z.enum([
   "clean",
@@ -225,6 +226,19 @@ export const PATCH = withAuth(
 
     if (updateError) throw updateError;
 
+    // A height set here is no longer the Log Session grid's range. A separate,
+    // best-effort write so the edit saves before the range migration lands.
+    if (validation.data.wave_height_ft !== undefined) {
+      const { error: rangeError } = await (supabase as any)
+        .from("sessions")
+        .update({ wave_height_min_ft: null, wave_height_max_ft: null })
+        .eq("id", sessionId)
+        .eq("user_id", user.id);
+      if (rangeError && rangeError.code !== "PGRST204" && rangeError.code !== "42703") {
+        console.warn("Failed to clear session wave-height range", rangeError.message);
+      }
+    }
+
     return createSuccessResponse({ session: updated });
   },
   { errorMessage: "Failed to update session" }
@@ -233,7 +247,7 @@ export const PATCH = withAuth(
 /**
  * GET /api/sessions/[id] - Get a session by ID
  */
-export const GET = withAuth(
+const handleGet = withAuth(
   async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
     // Validate UUID
     const uuidResult = validateUuidParam(params.id, "session");
@@ -333,3 +347,5 @@ export const DELETE = withAuth(
   },
   { errorMessage: "Failed to delete session" }
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/sessions/[id]");

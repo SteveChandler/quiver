@@ -59,26 +59,23 @@ export const SWELL_MAP_TIMELINE_CSS_VARIABLES = {
   "--swell-timeline-sticker-shadow": SWELL_MAP_TIMELINE.stickerShadow,
 } as const;
 
-// Particle-trail colors for the Windy-style swell flow field. The field rides the
-// LIGHT Windy-style basemap (no recolor, see interactive-map.tsx), so these are
-// darker, high-contrast brand colors. S1/S2/Wind intentionally use different hue
-// families so the Combined/All view remains legible.
+// Particle-trail colors for the swell flow field, one style on every web surface.
+// Reference: quiver-native src/lib/swell-field/condition-vector-grid.ts
+// SWELL_FIELD_LAYER_COLORS. Keep these equal to it. Light marks need the dark stage,
+// which dims the basemap and recolors its water.
 export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
-  s1: "#8A3B0A",   // primary swell - deep Charming Orange
-  s2: "#252D6B",   // secondary swell - Deep Twilight navy for hue separation
-  wind: "#004C40", // wind - dark Pacific Teal, distinct from S2 navy
-  combined: "#8A3B0A",
-};
-
-export const SWELL_FIELD_PARTICLE_COLOR_DARK_STAGE: Record<SwellLayerId, string> = {
-  s1: "#F4EBD8",
+  s1: "#DCE8FF",
   s2: "#FDB84B",
   wind: "#00D4AA",
-  combined: "#F4EBD8",
+  combined: "#DCE8FF",
 };
+
 export const SWELL_FIELD_DARK_STAGE_DIM = { color: "#252D6B", opacity: 0.4 } as const;
 export const SWELL_FIELD_DARK_STAGE_WATER = "#4B78A9";
-export const SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE = 1.9;
+// Native crest length is viewport width x 0.008 x 3.23 x layer scale x (0.45 + strength)
+// (quiver-native condition-vector-grid.ts spriteWidthForFrame). Web draws
+// DASH_FRACTION (0.032) x this scale x the same terms, so 0.02584 / 0.032 = 0.81.
+export const SWELL_FIELD_DARK_STAGE_DASH_LENGTH_SCALE = 0.81;
 
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue
 // (#9E5010, AA-safe), NEVER bg-[#f78e42] white-text (2.36:1 AA fail). Decorative orange

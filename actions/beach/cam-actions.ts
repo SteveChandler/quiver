@@ -1,5 +1,6 @@
 "use server";
 
+import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { getRegionForBeach } from "@/lib/data/cam-regions";
 import {
@@ -10,7 +11,16 @@ import {
   communityPhotoTargetKey,
   getResolvedSpotPhotoMap,
 } from "@/lib/community-photos";
+import { pickPhotoThumbUrl } from "@/lib/utils/image-utils";
 import { unstable_cache } from "next/cache";
+import type { CamPlaybackState } from "@/lib/media/cam-embed";
+import { resolveCamPlayback } from "@/lib/media/cam-embed-preflight";
+
+const sourcedCamBeachPhotos: Record<string, string> = {
+  "f73cea3d-d7c7-57cf-b2d1-9a4370f75123": "/images/cams/muir-beach.jpg",
+  "313e745b-4521-57d4-9d33-808acaca4761": "/images/cams/kaunaoa-beach.jpg",
+  "34e148b8-08cc-50cb-908f-012464b7fa74": "/images/cams/virginia-beach-oceanfront.jpg",
+};
 
 interface CamBeach {
   id: string;
@@ -25,32 +35,14 @@ interface CamBeach {
 
 export interface CamBeachWithRegion extends CamBeach {
   regionSlug: string;
+  /** Same resolution as the beach page player (GET /api/beaches/[id]/sources). */
+  playback: CamPlaybackState;
 }
 
-type CameraBeachResult = CamBeachWithRegion &
+type CameraBeachResult = Omit<CamBeachWithRegion, "playback"> &
   CamDirectoryBeach & {
     cameraTitleHint: string | null;
   };
-
-/**
- * Get the camera URL for a single beach, if one exists.
- * Used for VideoObject structured data on beach pages.
- */
-export async function getBeachCameraUrl(
-  beachId: string,
-): Promise<string | null> {
-  const supabase = createPublicReadClient();
-  const { data } = await supabase
-    .from("beach_sources")
-    .select("camera_url")
-    .eq("beach_id", beachId)
-    .not("camera_url", "is", null)
-    .neq("camera_url", "")
-    .limit(1)
-    .single();
-
-  return data?.camera_url ?? null;
-}
 
 /**
  * Fetch all beaches that have a camera_url in beach_sources.
@@ -91,6 +83,7 @@ export const getBeachesWithCameras = unstable_cache(
     const results: CameraBeachResult[] = [];
 
     for (const row of data) {
+      if (isBlockedCameraUrl(row.camera_url)) continue;
       const beach = (row as any).beaches;
       if (!beach?.slug || !beach?.city || !beach?.state) continue;
 
@@ -101,7 +94,7 @@ export const getBeachesWithCameras = unstable_cache(
         city: beach.city,
         state: beach.state,
         camera_url: row.camera_url!,
-        thumbnail_url: row.thumbnail_url ?? null,
+        thumbnail_url: isBlockedCameraUrl(row.thumbnail_url) ? null : row.thumbnail_url ?? null,
         photo_url: null,
         lat: beach.lat ?? null,
         lon: beach.lon ?? null,
@@ -111,6 +104,13 @@ export const getBeachesWithCameras = unstable_cache(
     }
 
     const dedupedResults = dedupeCameraBeachesForDirectory(results);
+    const playbackById = new Map(
+      await Promise.all(
+        dedupedResults.map(
+          async (beach) => [beach.id, await resolveCamPlayback(beach.camera_url)] as const,
+        ),
+      ),
+    );
 
     const beachIds = dedupedResults.map((beach) => beach.id);
     if (beachIds.length > 0) {
@@ -128,7 +128,7 @@ export const getBeachesWithCameras = unstable_cache(
         const photoByBeachId = new Map<string, string>();
 
         for (const photo of photos) {
-          const photoUrl = photo.thumb_url ?? photo.image_url;
+          const photoUrl = pickPhotoThumbUrl(photo.thumb_url, photo.image_url);
           if (!photo.beach_id || !photoUrl) continue;
 
           photoByBeachId.set(photo.beach_id, photoUrl);
@@ -179,10 +179,11 @@ export const getBeachesWithCameras = unstable_cache(
       state: beach.state,
       camera_url: beach.camera_url,
       thumbnail_url: beach.thumbnail_url,
-      photo_url: beach.photo_url,
+      photo_url: beach.photo_url || sourcedCamBeachPhotos[beach.id] || null,
       regionSlug: beach.regionSlug,
+      playback: playbackById.get(beach.id) ?? { kind: "none" },
     }));
   },
-  ["beaches-with-unique-cameras"],
+  ["beaches-with-unique-cameras-v4"],
   { revalidate: 3600 },
 );

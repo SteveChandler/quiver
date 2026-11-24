@@ -1,4 +1,8 @@
-import { fetchOpenMeteoData, fetchNOAAPointData } from "@/lib/services/noaa-wavewatch/api-client";
+import {
+  fetchOpenMeteoData,
+  fetchNOAAPointData,
+  OPEN_METEO_ATTEMPT_TIMEOUT_MS,
+} from "@/lib/services/noaa-wavewatch/api-client";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 describe("fetchOpenMeteoData", () => {
@@ -61,9 +65,10 @@ describe("fetchOpenMeteoData", () => {
     expect(params.get("models")).toBe("ncep_gfswave016");
     expect(params.get("timeformat")).toBe("unixtime");
     expect(params.get("timezone")).toBe("America/Los_Angeles");
-    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
-      expect.objectContaining({ signal: controller.signal }),
-    );
+    const passed = (fetchMock.mock.calls[0]?.[1] as RequestInit).signal as AbortSignal;
+    expect(passed.aborted).toBe(false);
+    controller.abort();
+    expect(passed.aborted).toBe(true);
   });
   describe("retries", () => {
     beforeEach(() => {
@@ -72,7 +77,7 @@ describe("fetchOpenMeteoData", () => {
 
     afterEach(() => {
       jest.useRealTimers();
-      expectConsoleWarnings([/Open-Meteo (fetch failed|returned \d+).*; retrying/]);
+      expectConsoleWarnings([/Open-Meteo (fetch failed|returned \d+).*; retrying/, /Error fetching Open-Meteo data/]);
     });
 
     async function runWithTimers<T>(promise: Promise<T>): Promise<T> {
@@ -142,6 +147,33 @@ describe("fetchOpenMeteoData", () => {
       await runWithTimers(fetchOpenMeteoData(23.0, -109.7, 8));
 
       expect(cancel).toHaveBeenCalledTimes(1);
+    });
+
+    function hangUntilAborted(_url: string, init?: RequestInit): Promise<never> {
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+      });
+    }
+
+    it("times out a stalled attempt and retries instead of hanging", async () => {
+      fetchMock
+        .mockImplementationOnce(hangUntilAborted)
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ hourly: { time: ["t0"] } }) });
+
+      const pending = fetchOpenMeteoData(23.0, -109.7, 8);
+      await jest.advanceTimersByTimeAsync(OPEN_METEO_ATTEMPT_TIMEOUT_MS + 500);
+
+      expect(await pending).toEqual({ hourly: { time: ["t0"] } });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("returns null when every attempt stalls", async () => {
+      fetchMock.mockImplementation(hangUntilAborted);
+
+      const data = await runWithTimers(fetchOpenMeteoData(23.0, -109.7, 8));
+
+      expect(data).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
     it("does not retry once the caller aborts", async () => {

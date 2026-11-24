@@ -178,6 +178,7 @@ export function deriveSurfaceFromPath(pathname?: string | null): string {
   if (path === "/forecast" || path.startsWith("/forecast/")) return "forecast";
   if (path === "/best-time-to-surf" || path.startsWith("/best-time-to-surf/")) return "best-time";
   if (path === "/surf-report" || path.startsWith("/surf-report/")) return "surf-report";
+  if (path === "/buoys" || path.startsWith("/buoys/")) return "buoys";
 
   if (path === "/profile" || path.startsWith("/profile/")) return "auth-gated";
   if (path === "/settings" || path.startsWith("/settings/")) return "auth-gated";

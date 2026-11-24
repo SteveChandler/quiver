@@ -21,6 +21,7 @@ jest.mock("@/context/profile-context", () => ({
 }));
 
 jest.mock("@/hooks/use-geolocation", () => ({
+  ...jest.requireActual("@/hooks/use-geolocation"),
   useGeolocation: () => ({
     coords: { lat: 21.31, lon: -157.86 },
     loading: false,
@@ -102,26 +103,23 @@ describe("useOracleData major-event hold precedence", () => {
     jest.clearAllMocks();
   });
 
-  it("does not start the San Diego fallback when primary discovery is explicit none", () => {
+  it("runs one discovery at the surfer's origin when primary discovery is explicit none", () => {
     const held = response([], {
       state: "none",
       reasonCode: "major_event_hold",
       holdEpoch: "hold-1:1",
     });
-    const fallback = response([recommendation("fallback")]);
 
-    mockUseSurfDiscovery.mockImplementation((options) =>
-      options?.userLocation?.lat === 32.715
-        ? hookResult(fallback)
-        : hookResult(held),
-    );
+    mockUseSurfDiscovery.mockReturnValue(hookResult(held));
 
     const { result } = renderHook(() => useOracleData());
-    const fallbackCall = mockUseSurfDiscovery.mock.calls.find(
-      ([options]) => options?.userLocation?.lat === 32.715,
-    );
 
-    expect(fallbackCall?.[0]?.enabled).toBe(false);
+    const locations = mockUseSurfDiscovery.mock.calls
+      .map(([options]) => options?.userLocation)
+      .filter(Boolean);
+    expect(locations.length).toBeGreaterThan(0);
+    expect(new Set(locations.map((location) => JSON.stringify(location))))
+      .toEqual(new Set([JSON.stringify({ lat: 21.31, lon: -157.86 })]));
     expect(result.current.discovery).toBe(held);
     expect(result.current.topRecommendation).toBeNull();
     expect(result.current.remainingSpots).toEqual([]);
@@ -151,26 +149,23 @@ describe("useOracleData major-event hold precedence", () => {
       { state: "available", holdEpoch: "ordinary-1" } as const,
     ],
   ])(
-    "keeps the legacy San Diego fallback when availability is %s",
+    "shows an empty result from the surfer's own origin when availability is %s",
     (_label, availability) => {
       const primary = response([], availability);
-      const fallbackPositive = recommendation("fallback");
-      const fallback = response([fallbackPositive], availability);
-
-      mockUseSurfDiscovery.mockImplementation((options) =>
-        options?.userLocation?.lat === 32.715
-          ? hookResult(fallback)
-          : hookResult(primary),
-      );
+      mockUseSurfDiscovery.mockReturnValue(hookResult(primary));
 
       const { result } = renderHook(() => useOracleData());
-      const fallbackCall = mockUseSurfDiscovery.mock.calls.find(
-        ([options]) => options?.userLocation?.lat === 32.715,
-      );
 
-      expect(fallbackCall?.[0]?.enabled).toBe(true);
-      expect(result.current.discovery).toBe(fallback);
-      expect(result.current.topRecommendation).toBe(fallbackPositive);
+      const locations = mockUseSurfDiscovery.mock.calls
+        .map(([options]) => options?.userLocation)
+        .filter(Boolean);
+      expect(locations.length).toBeGreaterThan(0);
+      for (const location of locations) {
+        expect(location).toEqual({ lat: 21.31, lon: -157.86 });
+      }
+      expect(result.current.discovery).toBe(primary);
+      expect(result.current.topRecommendation).toBeNull();
+      expect(result.current.origin?.source).toBe("browser");
     },
   );
 });

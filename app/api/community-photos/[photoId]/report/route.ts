@@ -2,9 +2,7 @@ import { z } from "zod";
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  CommunityPhotoError,
   communityPhotoErrorResponse,
-  getCommunityPhotoFeatureFlags,
   parseCommunityPhotoReport,
   reportCommunityPhoto,
   withCommunityPhotoRouteObservability,
@@ -25,9 +23,6 @@ async function reportHandler(
   { params, user }: AuthenticatedContext,
 ): Promise<NextResponse> {
   try {
-    if (!getCommunityPhotoFeatureFlags(user.id).writeEnabled) {
-      throw new CommunityPhotoError("feature_disabled");
-    }
     const photoId = idSchema.parse(params.photoId);
     const input = parseCommunityPhotoReport(await request.json());
     const result = await reportCommunityPhoto({

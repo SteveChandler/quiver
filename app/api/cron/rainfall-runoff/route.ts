@@ -8,6 +8,7 @@ import { fetchAwcMetars, runRainfallRunoffIngest } from "@/lib/services/water-qu
 import { RAINFALL_READINGS_TABLE } from "@/lib/services/water-quality/rainfall-runoff-read";
 import { syncMetarRainAdvisories } from "@/lib/services/water-quality/rain-advisory-events-sync";
 import { processRainAdvisoryPushes } from "@/lib/services/water-quality/rain-advisory-push";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -64,8 +65,10 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron(ROUTE, _GET, {
+const handleGet = withObservedCron(ROUTE, _GET, {
   slug: "rainfall-runoff",
   schedule: SCHEDULE,
   maxRuntimeMinutes: 5,
 });
+
+export const GET = withErrorNoStore(handleGet, "/api/cron/rainfall-runoff");

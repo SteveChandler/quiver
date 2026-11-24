@@ -3,16 +3,15 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import {
-  CommunityPhotoError,
   communityPhotoErrorResponse,
   downloadCommunityPhoto,
-  getCommunityPhotoFeatureFlags,
   withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAuth,
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
+import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,9 +25,6 @@ async function imageHandler(
 ): Promise<NextResponse> {
   try {
     const photoId = idSchema.parse(params.photoId);
-    if (!getCommunityPhotoFeatureFlags(user?.id ?? null).readEnabled) {
-      throw new CommunityPhotoError("feature_disabled");
-    }
     const image = await downloadCommunityPhoto({
       photoId,
       viewerId: user?.id ?? null,
@@ -48,7 +44,7 @@ async function imageHandler(
   }
 }
 
-export const GET = withCommunityPhotoRouteObservability(
+const handleGet = withCommunityPhotoRouteObservability(
   {
     route: "/api/community-photos/:photoId/image",
     surface: "read",
@@ -56,3 +52,5 @@ export const GET = withCommunityPhotoRouteObservability(
   },
   withAuth(imageHandler, { optional: true }),
 );
+
+export const GET = withErrorNoStore(handleGet, "/api/community-photos/[photoId]/image");

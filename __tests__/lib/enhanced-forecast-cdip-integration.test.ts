@@ -6,7 +6,7 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { CDIPService } from "@/lib/services/cdip";
-import { CDIPBuoyData } from "@/types/forecast";
+import { CDIPBuoyData, TOTAL_FORECASTS } from "@/types/forecast";
 import type { CDIPBuoyDataDiagnostic } from "@/lib/services/cdip/types";
 
 // Create spy for Supabase upsert
@@ -35,6 +35,12 @@ jest.mock("@/lib/supabase/server", () => ({
       upsert: mockUpsert,
     })),
   })),
+}));
+
+const mockFetchStoredCDIPBuoyData = jest.fn();
+jest.mock("@/lib/services/cdip/stored-readings", () => ({
+  ...jest.requireActual("@/lib/services/cdip/stored-readings"),
+  fetchStoredCDIPBuoyData: (...args: unknown[]) => mockFetchStoredCDIPBuoyData(...args),
 }));
 
 // Mock CDIP Service
@@ -170,7 +176,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
     // Setup default NOAA weather API mocks
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url.includes("points")) {
+      if (url.includes("/points/")) {
         return Promise.resolve({
           ok: true,
           json: () =>
@@ -304,6 +310,96 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       },
     );
 
+    describe("calibrated beach on its own buoy", () => {
+      const calibratedBeach = {
+        ...mockBeach,
+        cdip_station: "155",
+        shoaling_factors: {
+          version: 1,
+          type: "period_lookup",
+          buckets: [{ tp_min_s: 0, tp_max_s: 999, factor: 1.2 }],
+          calibration: { reference_buoy: "CDIP 155" },
+        },
+      };
+      const storedReading = (iso: string): CDIPBuoyData => ({
+        ...mockCDIPData,
+        stationId: "155",
+        readingSource: "stored",
+        data: [{ ...mockCDIPData.data[0], timestamp: iso }],
+      });
+
+      beforeEach(() => mockFetchStoredCDIPBuoyData.mockReset());
+
+      it("never fails over a 404 to another buoy; it reads its own buoy from storage", async () => {
+        mockCDIPService.fetchBuoyDataWithDiagnostics.mockResolvedValue({
+          data: null, stationId: "155", skipReason: "cdip_404", status: 404,
+        });
+        mockFetchStoredCDIPBuoyData.mockResolvedValue(storedReading("2024-01-15T09:00:00Z"));
+
+        const result = await (service as any).fetchCDIPDataWithRetry(calibratedBeach);
+
+        expect(mockCDIPService.getNearestStation).not.toHaveBeenCalled();
+        expect(mockFetchStoredCDIPBuoyData).toHaveBeenCalledWith("155", 12);
+        expect(result).toMatchObject({ stationId: "155", skipReason: "success" });
+        expect(result.data.readingSource).toBe("stored");
+      });
+
+      it("returns the failed fetch, still without failover, when nothing is stored", async () => {
+        const failed = { data: null, stationId: "155", skipReason: "cdip_404", status: 404 } as const;
+        mockCDIPService.fetchBuoyDataWithDiagnostics.mockResolvedValue(failed as CDIPBuoyDataDiagnostic);
+        mockFetchStoredCDIPBuoyData.mockResolvedValue(null);
+
+        const result = await (service as any).fetchCDIPDataWithRetry(calibratedBeach);
+
+        expect(result).toEqual(failed);
+        expect(mockCDIPService.getNearestStation).not.toHaveBeenCalled();
+      });
+
+      it("reads storage after a 5xx too", async () => {
+        mockCDIPService.fetchBuoyDataWithDiagnostics.mockResolvedValue({
+          data: null, stationId: "155", skipReason: "cdip_unavailable", status: 500,
+        });
+        mockFetchStoredCDIPBuoyData.mockResolvedValue(storedReading("2024-01-15T10:00:00Z"));
+
+        const result = await (service as any).fetchCDIPDataWithRetry(calibratedBeach);
+
+        expect(result.data.readingSource).toBe("stored");
+      });
+
+      it("keeps a fresh live reading and does not query storage", async () => {
+        mockCDIPService.fetchBuoyData.mockResolvedValue({ ...mockCDIPData, stationId: "155" });
+
+        const result = await (service as any).fetchCDIPDataWithRetry(calibratedBeach);
+
+        expect(mockFetchStoredCDIPBuoyData).not.toHaveBeenCalled();
+        expect(result.data.readingSource).toBeUndefined();
+      });
+
+      it("prefers a newer stored reading over a lagging live one", async () => {
+        mockCDIPService.fetchBuoyData.mockResolvedValue({
+          ...mockCDIPData,
+          stationId: "155",
+          data: [{ ...mockCDIPData.data[0], timestamp: "2024-01-15T06:00:00Z" }],
+        });
+        mockFetchStoredCDIPBuoyData.mockResolvedValue(storedReading("2024-01-15T11:30:00Z"));
+
+        const result = await (service as any).fetchCDIPDataWithRetry(calibratedBeach);
+
+        expect(result.data.readingSource).toBe("stored");
+        expect(result.data.data[0].timestamp).toBe("2024-01-15T11:30:00Z");
+      });
+
+      it("leaves unknown stations model-only", async () => {
+        mockCDIPService.fetchBuoyDataWithDiagnostics.mockResolvedValue({
+          data: null, stationId: "155", skipReason: "unknown_station",
+        });
+
+        await (service as any).fetchCDIPDataWithRetry(calibratedBeach);
+
+        expect(mockFetchStoredCDIPBuoyData).not.toHaveBeenCalled();
+      });
+    });
+
     it("should use CDIP data as primary source for Southern California", async () => {
       mockCDIPService.getNearestStation.mockResolvedValue("100");
       mockCDIPService.fetchBuoyData.mockResolvedValue(mockCDIPData);
@@ -417,8 +513,9 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      // Without premium CDIP data, confidence should be lower than with CDIP
-      expect(forecasts[0].confidence_score).toBeLessThan(95);
+      // Without premium CDIP data, confidence should be lower than with CDIP.
+      // The NOAA weather mock now reaches the builder (+10), so the non-CDIP hour-0 score is 95; CDIP gives 100.
+      expect(forecasts[0].confidence_score).toBeLessThan(100);
       expect(forecasts[0].confidence_score).toBeGreaterThan(70);
     });
 
@@ -508,7 +605,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      expect(forecasts).toHaveLength(96); // Should still generate 12 days of forecasts
+      expect(forecasts).toHaveLength(TOTAL_FORECASTS);
       expect(forecasts[0].data_source).toBe("NOAA_NWS");
     });
 
@@ -523,7 +620,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      expect(forecasts).toHaveLength(96);
+      expect(forecasts).toHaveLength(TOTAL_FORECASTS);
       expect(forecasts[0].data_source).toBe("CDIP");
     });
 
@@ -547,7 +644,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       // Invalid/future-unusable CDIP rows are ignored by the nowcast resolver.
       expect(forecasts[0].data_source).toBe("NOAA_NWS");
-      expect(forecasts).toHaveLength(96);
+      expect(forecasts).toHaveLength(TOTAL_FORECASTS);
     });
   });
 
@@ -561,8 +658,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const forecast2 = await service.generateComprehensiveForecast(mockBeach);
 
       // Both forecasts should be generated successfully
-      expect(forecast1).toHaveLength(96); // 12 days * 8 forecasts per day
-      expect(forecast2).toHaveLength(96);
+      expect(forecast1).toHaveLength(TOTAL_FORECASTS);
+      expect(forecast2).toHaveLength(TOTAL_FORECASTS);
       expect(forecast1[0].data_source).toBe("CDIP");
       expect(forecast2[0].data_source).toBe("CDIP");
 

@@ -77,7 +77,9 @@ export function TideDatasetSchema({
           }
         : {}),
     },
-    dateModified: now.toISOString(),
+    // Day precision keeps the cached page identical between regenerations; a
+    // render-time value forces a new ISR write each time with no data change.
+    dateModified: todayIso,
     provider: {
       "@type": "Organization",
       name: "Quiver",
