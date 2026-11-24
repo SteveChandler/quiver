@@ -130,6 +130,7 @@ describe('POST /api/surf/week-scout?fartherOut=1', () => {
       beachName: 'Outer Point',
       waveHeight: WEEK_SCOUT_CONTRACT_FIXTURE.days[0].bestDayWindow!.forecast.waveHeight,
       personalLabel: 'GOOD',
+      bucket: WEEK_SCOUT_CONTRACT_FIXTURE.days[0].bestDayWindow!.bucket,
       displayWindowStart: WEEK_SCOUT_CONTRACT_FIXTURE.days[0].bestDayWindow!.displayWindowStart,
       displayWindowEnd: WEEK_SCOUT_CONTRACT_FIXTURE.days[0].bestDayWindow!.displayWindowEnd,
       driveMinutes: 25,
