@@ -21,6 +21,8 @@ import { buildStationDescription, buildStationTitle } from "@/lib/tide-stations/
 import { tideStationPath } from "@/lib/tide-stations/slug";
 import type { TideStationRow } from "@/lib/tide-stations/types";
 
+import { TideStationPredictionsTracker } from "./tide-station-predictions-tracker";
+
 // Pages render on first request (no generateStaticParams: ~7k stations and every
 // prod deploy empties the cache). Stored predictions cover the nine-day series;
 // the "now" panel re-reads the visitor's clock on load.
@@ -141,6 +143,7 @@ export default async function TideStationPage(props: PageProps) {
 
         {ok ? (
           <div className="space-y-8">
+            {station.source === "noaa" && <TideStationPredictionsTracker stationSlug={station.slug} />}
             <TideStationNow
               extremes={extremes}
               timeZone={station.timezone}
