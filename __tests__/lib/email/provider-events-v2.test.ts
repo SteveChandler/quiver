@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { recordProviderEvent } from "@/lib/email/provider-events";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // Real lifecycleRpc, so the fallback sees the same wrapped error shape as production.
 const mockRpc = jest.fn();
@@ -50,6 +51,7 @@ it.each([
   await expect(recordProviderEvent(bounced, "w1")).resolves.toBe(true);
   expect(mockRpc).toHaveBeenCalledTimes(2);
   expect(mockRpc).toHaveBeenLastCalledWith("record_lifecycle_provider_event", oldArgs);
+  expectConsoleWarnings([/record_lifecycle_provider_event_v2 is missing/]);
 });
 
 it.each([
@@ -67,4 +69,20 @@ it("propagates a failure of the fallback call so the webhook is retried", async 
   mockRpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202", message: "missing" } })
     .mockResolvedValueOnce({ data: null, error: { code: "57014", message: "timeout" } });
   await expect(recordProviderEvent(bounced, "w1")).rejects.toThrow("Lifecycle storage failed: record_lifecycle_provider_event: 57014 timeout");
+  expectConsoleWarnings([/record_lifecycle_provider_event_v2 is missing/]);
+});
+
+it("accepts a null bounce subtype", async () => {
+  await expect(recordProviderEvent({ ...bounced, data: { ...bounced.data, bounce: { message: "x", subType: null, type: "Transient" } } }, "w1")).resolves.toBe(true);
+  expect(mockRpc).toHaveBeenCalledWith("record_lifecycle_provider_event_v2", expect.objectContaining({ p_bounce_type: "Transient", p_bounce_subtype: null }));
+});
+
+it("warns when it falls back, and not when v2 works", async () => {
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  await recordProviderEvent(bounced, "w1");
+  expect(warn).not.toHaveBeenCalled();
+  mockRpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST202", message: "missing" } });
+  await recordProviderEvent(bounced, "w1");
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining("record_lifecycle_provider_event_v2 is missing"), { code: "PGRST202" });
+  warn.mockRestore();
 });

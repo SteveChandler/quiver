@@ -1,4 +1,4 @@
--- Suppress an address after one hard bounce or complaint (unchanged) or after a second bounced message of any type.
+-- Suppress an address after one hard bounce or complaint (unchanged) or after a second bounced message of any type inside 90 days.
 -- Expand only: record_lifecycle_provider_event stays as it is for code that deploys before this file is applied;
 -- lib/email/provider-events.ts calls record_lifecycle_provider_event_v2 and falls back only while v2 does not exist.
 -- Safe to run more than once.
@@ -40,11 +40,13 @@ BEGIN
   bounced_at=CASE WHEN p_type='email.bounced' THEN least(bounced_at,p_at) ELSE bounced_at END
  WHERE id=log_id;
  -- Count distinct bounced messages (not webhook deliveries) to the address, this one included.
+ -- Only the last 90 days count, so two soft bounces far apart do not suppress a working mailbox.
+ -- An address with no profile row is not counted (limit: bounces after an email change).
  IF p_type='email.bounced' AND NOT p_hard_bounce THEN
    FOREACH recipient IN ARRAY coalesce(p_recipients,'{}') LOOP
     SELECT count(*) INTO bounced_messages FROM (
      SELECT l.resend_message_id FROM public.email_send_log l JOIN public.profiles p ON p.id=l.user_id
-     WHERE l.bounced_at IS NOT NULL AND l.resend_message_id IS NOT NULL AND lower(trim(p.email))=lower(trim(recipient))
+     WHERE l.bounced_at > now()-interval '90 days' AND l.resend_message_id IS NOT NULL AND lower(trim(p.email))=lower(trim(recipient))
      UNION SELECT p_provider_id) messages;
     IF bounced_messages>=2 THEN
      INSERT INTO public.email_suppression_list(email,reason) VALUES(lower(trim(recipient)),'repeat_bounce') ON CONFLICT(email) DO NOTHING;
@@ -61,12 +63,12 @@ END; $$;
 REVOKE ALL ON FUNCTION public.record_lifecycle_provider_event_v2(text,text,text,timestamptz,text[],boolean,text,text,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.record_lifecycle_provider_event_v2(text,text,text,timestamptz,text[],boolean,text,text,text,text) TO service_role;
 
--- Backfill: addresses whose profile already has two or more bounced send-log messages.
+-- Backfill: addresses whose profile already has two or more bounced send-log messages in the last 90 days.
 INSERT INTO public.email_suppression_list(email,reason)
 SELECT lower(trim(p.email)),'repeat_bounce' FROM public.email_send_log l JOIN public.profiles p ON p.id=l.user_id
-WHERE l.bounced_at IS NOT NULL AND nullif(trim(p.email),'') IS NOT NULL
+WHERE l.bounced_at > now()-interval '90 days' AND l.resend_message_id IS NOT NULL AND nullif(trim(p.email),'') IS NOT NULL
  AND NOT EXISTS (SELECT 1 FROM public.email_suppression_list s WHERE lower(trim(s.email))=lower(trim(p.email)))
-GROUP BY lower(trim(p.email)) HAVING count(*)>=2
+GROUP BY lower(trim(p.email)) HAVING count(DISTINCT l.resend_message_id)>=2
 ON CONFLICT(email) DO NOTHING;
 UPDATE public.email_contact_state SET paused_at=coalesce(paused_at,now())
 WHERE user_id IN (SELECT p.id FROM public.profiles p JOIN public.email_suppression_list s ON s.email=lower(trim(p.email))

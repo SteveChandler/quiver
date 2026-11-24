@@ -9,7 +9,7 @@ const eventSchema = z.object({
     created_at: z.string().datetime({ offset: true }),
     from: z.string().optional(),
     to: z.array(z.email()).max(100).optional(),
-    bounce: z.object({ type: z.string(), subType: z.string().max(256).optional() }).optional(),
+    bounce: z.object({ type: z.string(), subType: z.string().nullish() }).optional(),
     click: z.object({ link: z.string().max(4096).optional(), userAgent: z.string().max(1024).optional() }).optional(),
   }),
 });
@@ -38,6 +38,7 @@ export async function recordProviderEvent(raw: unknown, webhookId: string): Prom
   } catch (error) {
     // Code deploys before 20261124160000_email_repeat_bounce_suppression.sql is applied; only a missing v2 falls back.
     if (!isMissingFunction(error)) throw error;
+    console.warn("[email] record_lifecycle_provider_event_v2 is missing; used the old function", { code: missingFunctionCode(error) });
     await lifecycleRpc("record_lifecycle_provider_event", args);
   }
   return true;
@@ -45,8 +46,12 @@ export async function recordProviderEvent(raw: unknown, webhookId: string): Prom
 
 const MISSING_FUNCTION_CODES: ReadonlySet<string> = new Set(["PGRST202", "42883"]);
 
-function isMissingFunction(error: unknown): boolean {
+function missingFunctionCode(error: unknown): string | null {
   const cause = error instanceof Error ? error.cause : undefined;
   const code = typeof cause === "object" && cause !== null ? (cause as { code?: unknown }).code : undefined;
-  return typeof code === "string" && MISSING_FUNCTION_CODES.has(code);
+  return typeof code === "string" && MISSING_FUNCTION_CODES.has(code) ? code : null;
+}
+
+function isMissingFunction(error: unknown): boolean {
+  return missingFunctionCode(error) !== null;
 }

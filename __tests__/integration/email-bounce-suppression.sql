@@ -10,6 +10,8 @@ DO $$ BEGIN
  ASSERT (SELECT paused_at FROM email_contact_state WHERE user_id='b0b00000-0000-4000-8000-000000000002') IS NULL;
  ASSERT (SELECT reason FROM email_suppression_list WHERE email='hard-backfill@example.com')='hard_bounce';
  ASSERT (SELECT count(*) FROM email_suppression_list WHERE email='hard-backfill@example.com')=1;
+ -- A bounce older than 90 days does not count.
+ ASSERT NOT EXISTS (SELECT 1 FROM email_suppression_list WHERE email='old-backfill@example.com');
 END $$;
 
 BEGIN;
@@ -75,6 +77,10 @@ BEGIN
  -- A bounce for a message missing from email_send_log still counts as one message.
  PERFORM record_lifecycle_provider_event_v2('wh-n2','unlogged-message','email.bounced',now(),ARRAY['live-unlogged@example.com'],false,'Transient','General');
  ASSERT (SELECT reason FROM email_suppression_list WHERE email='live-unlogged@example.com')='repeat_bounce';
+
+ -- A second webhook for the 5-day-old bounce: the 200-day-old bounce is outside the window, so this is one message.
+ PERFORM record_lifecycle_provider_event_v2('wh-old-window','backfill-o2','email.bounced',now(),ARRAY['old-backfill@example.com'],false,'Transient','MailboxFull');
+ ASSERT NOT EXISTS (SELECT 1 FROM email_suppression_list WHERE email='old-backfill@example.com');
 
  -- Complaint suppresses at once (existing rule).
  PERFORM record_lifecycle_provider_event_v2('wh-c1','live-c1','email.complained',now(),ARRAY['live-complaint@example.com'],false,NULL,NULL);
