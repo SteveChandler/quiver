@@ -69,6 +69,14 @@ describe('ScoringEngine closeout size rule', () => {
     return engine.score(createInput({ waveHeight }, { id: beachId }));
   }
 
+  it('leads the reasons with the closeout line and its height above the cap only', () => {
+    const over = score(MISSION_BEACH, 8.6);
+    expect(over.reasons[0]).toBe('Likely closing out at 8–9 ft.');
+    expect(over.reasonCodes?.[0]).toBe('caution_size_over');
+    expect(score(MISSION_BEACH, 6.5).reasons.join(' ')).not.toMatch(/closing out/);
+    expect(score(BLACKS_BEACH, 9.8).reasons.join(' ')).not.toMatch(/closing out/);
+  });
+
   function verdict(effects: ReturnType<typeof score>['effects']) {
     return canonicalCandidateVerdict(
       {
