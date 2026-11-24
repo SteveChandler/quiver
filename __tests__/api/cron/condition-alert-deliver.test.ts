@@ -131,6 +131,9 @@ interface MockStore {
   deliverySelectError: Error | null;
   deliveryInsertError: Error | null;
   deviceRows: { user_id: string; device_token: string }[];
+  // Newest first, as the route orders by sent_at desc.
+  alertEmailLogRows: { user_id: string; email_type: string; local_date: string; sent_at: string; opened_at: string | null; clicked_at: string | null }[];
+  alertEmailLogError: { message: string } | null;
   attemptInserts: AttemptRow[];
   recentAttemptsError: Error | null;
   deliveryInserts: DeliveryRow[];
@@ -153,6 +156,8 @@ const store: MockStore = {
   deliverySelectError: null,
   deliveryInsertError: null,
   deviceRows: [],
+  alertEmailLogRows: [],
+  alertEmailLogError: null,
   attemptInserts: [],
   recentAttemptsError: null,
   deliveryInserts: [],
@@ -262,9 +267,33 @@ function mockFrom(table: string) {
     return chain;
   }
   if (table === "user_devices") {
-    return makeChain(() =>
-      store.deviceRows.map((d) => ({ device_token: d.device_token })),
+    const chain: any = makeChain(() =>
+      store.deviceRows
+        .filter(
+          (d) =>
+            !chain._filters.user_id?.in ||
+            chain._filters.user_id.in.includes(d.user_id),
+        )
+        .map((d) => ({ user_id: d.user_id, device_token: d.device_token })),
     );
+    return chain;
+  }
+  if (table === "email_send_log") {
+    const chain: any = makeChain(() =>
+      store.alertEmailLogRows.filter(
+        (row) =>
+          (!chain._filters.user_id?.in ||
+            chain._filters.user_id.in.includes(row.user_id)) &&
+          (chain._filters.email_type == null ||
+            row.email_type === chain._filters.email_type),
+      ),
+    );
+    if (store.alertEmailLogError) {
+      chain.then = jest.fn((resolve: any) =>
+        resolve({ data: null, error: store.alertEmailLogError }),
+      );
+    }
+    return chain;
   }
   if (table === "alert_delivery_attempts") {
     // Reads on this table are the throttle's recent-sent fetch:
@@ -470,6 +499,8 @@ beforeEach(() => {
   store.deliverySelectError = null;
   store.deliveryInsertError = null;
   store.deviceRows = [];
+  store.alertEmailLogRows = [];
+  store.alertEmailLogError = null;
   store.attemptInserts = [];
   store.recentAttemptsError = null;
   store.deliveryInserts = [];
@@ -490,6 +521,7 @@ beforeEach(() => {
     candidate: null,
   });
   process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
+  process.env.ALERT_EMAIL_GATE_ENABLED = "true";
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
 });
 
@@ -3112,5 +3144,207 @@ describe("condition-alert-deliver — email follows the payload's canonical sele
       },
     });
     expectEmailRejected("beach_skill_exceeds_user");
+  });
+});
+
+describe("alert email gate", () => {
+  const OPENED = "2026-04-20T15:00:00Z";
+  // One email per day, newest first.
+  function seedAlertEmails(openedAt: Array<string | null>) {
+    openedAt.forEach((opened, index) => {
+      const day = `2026-04-${String(19 - index).padStart(2, "0")}`;
+      store.alertEmailLogRows.push({
+        user_id: USER_A,
+        email_type: "conditions_alert",
+        local_date: day,
+        sent_at: `${day}T14:00:00Z`,
+        opened_at: opened,
+        clicked_at: null,
+      });
+    });
+  }
+  function emailAttempts() {
+    return store.attemptInserts.filter((attempt) => attempt.channel === "email");
+  }
+
+  it("skips the email and still delivers the row when push will deliver the alert", async () => {
+    seedQueueRow();
+    seedProfile();
+    store.deviceRows.push({ user_id: USER_A, device_token: "device-token" });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockLogDelivery).not.toHaveBeenCalled();
+    expect(emailAttempts()).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        status: "skipped_channel_disabled",
+        skip_reason: "email_gate:push_delivered",
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(body).toMatchObject({ status: "ok", queueMarked: 1, queue_marked_by_reason: { delivered: 1 } });
+    expectQueueReasonTotals(body);
+  });
+
+  it("skips and consumes an email-only alert when the last three alert emails were unopened", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile({ notif_push_enabled: false });
+    seedAlertEmails([null, null, null, OPENED]);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(emailAttempts()).toEqual([
+      expect.objectContaining({
+        status: "skipped_channel_disabled",
+        skip_reason: "email_gate:last_3_alert_email_days_unopened",
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(body).toMatchObject({ status: "ok", queue_marked_by_reason: { channel_disabled: 1 } });
+    expectQueueReasonTotals(body);
+  });
+
+  it("sends when there is no push device and one of the last three alert emails was opened", async () => {
+    seedQueueRow();
+    seedProfile();
+    seedAlertEmails([null, OPENED, null]);
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(emailAttempts()).toEqual([expect.objectContaining({ status: "sent" })]);
+  });
+
+  it("applies the open rule, not the push rule, to an email-only rule for a push-capable user", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile();
+    store.deviceRows.push({ user_id: USER_A, device_token: "device-token" });
+    seedAlertEmails([OPENED, null, null]);
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it("sends as before when the gate read fails", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile();
+    seedAlertEmails([null, null, null]);
+    store.alertEmailLogError = { message: "email_send_log unavailable" };
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(makeRequest());
+    const gateErrors = consoleErrorSpy.mock.calls.filter((call) =>
+      String(call[0]).includes("email gate read failed"),
+    );
+    consoleErrorSpy.mockRestore();
+
+    expect(res.status).toBe(200);
+    expect(gateErrors).toHaveLength(1);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not catch an email provider failure in the gate fallback", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile();
+    mockEmailsSend.mockResolvedValue({ data: null, error: { message: "provider down" } });
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await GET(makeRequest());
+    const gateErrors = consoleErrorSpy.mock.calls.filter((call) =>
+      String(call[0]).includes("email gate read failed"),
+    );
+    consoleErrorSpy.mockRestore();
+
+    expect(gateErrors).toHaveLength(0);
+    expect(emailAttempts()).toEqual([
+      expect.objectContaining({ status: "failed_provider", skip_reason: "provider down" }),
+    ]);
+    expectConsoleWarnings([/degraded queue consumption/]);
+  });
+
+  it("sends every email when ALERT_EMAIL_GATE_ENABLED=false", async () => {
+    process.env.ALERT_EMAIL_GATE_ENABLED = "false";
+    seedQueueRow();
+    seedProfile();
+    store.deviceRows.push({ user_id: USER_A, device_token: "device-token" });
+    seedAlertEmails([null, null, null]);
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("still sends when three unopened alert emails all went out on one morning", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile({ notif_push_enabled: false });
+    for (let i = 0; i < 3; i++) {
+      store.alertEmailLogRows.push({
+        user_id: USER_A,
+        email_type: "conditions_alert",
+        local_date: "2026-04-19",
+        sent_at: "2026-04-19T14:00:00Z",
+        opened_at: null,
+        clicked_at: null,
+      });
+    }
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts a click with no recorded open as engagement", async () => {
+    seedQueueRow({ alert_rules: { name: "Test rule", notify_email: true, notify_push: false } });
+    seedProfile({ notif_push_enabled: false });
+    seedAlertEmails([null, null, null]);
+    store.alertEmailLogRows[1].clicked_at = OPENED;
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("splits a payload: push covers the push rule, the email-only rule still gets its email", async () => {
+    const emailOnlyQueue = "00000000-0000-4000-8000-0000000000e1";
+    const emailOnlyRule = "00000000-0000-4000-8000-0000000000e2";
+    seedQueueRow();
+    seedQueueRow({
+      id: emailOnlyQueue,
+      rule_id: emailOnlyRule,
+      alert_rules: { name: "Email only rule", preset_type: "mellow_session", notify_email: true, notify_push: false },
+    });
+    seedProfile();
+    store.deviceRows.push({ user_id: USER_A, device_token: "device-token" });
+    seedAlertEmails([OPENED, null, null]);
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(emailAttempts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ queue_id: QUEUE_1, status: "skipped_channel_disabled", skip_reason: "email_gate:push_delivered" }),
+        expect.objectContaining({ queue_id: emailOnlyQueue, status: "sent" }),
+      ]),
+    );
+    expect(emailAttempts()).toHaveLength(2);
   });
 });
