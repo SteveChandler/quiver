@@ -1167,7 +1167,7 @@ interface FinalizeWeekScoutContext {
   userId: string;
   generatedAt: string;
   beachIds: string[];
-  userSkillLevel: SkillLevel | null;
+  ratingSkillLevel: SkillLevel | null;
   distanceByBeachId: ReadonlyMap<string, number | undefined>;
   draftsById: ReadonlyMap<string, DraftWindow>;
   draftsBySlot: ReadonlyMap<string, DraftWindow>;
@@ -1186,7 +1186,7 @@ async function finalizeWeekScoutDays(
   coverageDays: WeekScoutCoverageDay[],
 ): Promise<MajorEventHoldWeekScoutResponse> {
   const {
-    userId, generatedAt, beachIds, userSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
+    userId, generatedAt, beachIds, ratingSkillLevel, distanceByBeachId, draftsById, draftsBySlot, compactResponse, deps,
     skillAware,
   } = context;
   let response: WeekScoutResponse = {
@@ -1270,7 +1270,7 @@ async function finalizeWeekScoutDays(
       candidates,
       await evaluateMajorEventHoldCandidates({
         candidates,
-        profileExperience: userSkillLevel,
+        profileExperience: ratingSkillLevel,
         applyWaterQualityHolds: true,
       }, waterQualityResolution ? {
         // Both gates evaluate the same fresh beach-level evidence within this request.
@@ -1323,7 +1323,7 @@ async function finalizeWeekScoutDays(
       similarity: eligibleForPersonal
         ? similarity.get(`${forecast.beach_id}:${forecast.forecast_at}`) ?? null
         : null,
-    }, userSkillLevel);
+    }, ratingSkillLevel);
     personalCalls.set(id, call);
     verdicts.set(id, call.verdict === 'go' ? 'worth_it' : call.verdict === 'maybe' ? 'maybe' : 'skip');
   }
@@ -1572,7 +1572,7 @@ async function generateWeekScoutForecastScoped(
   // response-level recommendationAvailability. Early-look days keep the
   // whole-horizon pass, so their per-day results are unchanged.
   const finalize = (segmentDays: WeekScoutDayResponse[], coverageDays: WeekScoutCoverageDay[]) => finalizeWeekScoutDays({
-    userId, generatedAt, beachIds, userSkillLevel: ratingSkillLevel, distanceByBeachId, draftsById, draftsBySlot,
+    userId, generatedAt, beachIds, ratingSkillLevel, distanceByBeachId, draftsById, draftsBySlot,
     compactResponse, deps, skillAware,
   }, segmentDays, coverageDays);
   const isEarlyLook = (localDate: string): boolean => isEarlyLookDay(request.startLocalDate, localDate);
