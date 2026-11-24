@@ -2732,3 +2732,232 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     expect(pushAttempt?.status).toBe("skipped_channel_disabled");
   });
 });
+
+describe("condition-alert-deliver — skill-aware go checks (SKILL_AWARE_GO_CHECKS)", () => {
+  const OTHER_USER = "00000000-0000-0000-0000-0000000000ff";
+
+  beforeEach(() => {
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+  });
+
+  afterEach(() => {
+    delete process.env.SKILL_AWARE_GO_CHECKS_ENABLED;
+    delete process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST;
+  });
+
+  function flagOnFor(userId: string): void {
+    process.env.SKILL_AWARE_GO_CHECKS_ENABLED = "true";
+    process.env.SKILL_AWARE_GO_CHECKS_USER_ALLOWLIST = userId;
+  }
+
+  // 3 ft at score 0.8 is a "go" well under the beginner wave cap, so only the
+  // beach-skill check can veto it.
+  function seedGoAlert(args: { beachSkill: string; experienceLevel: string | null }): void {
+    seedQueueRow({
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-queued" },
+      beaches: {
+        name: "Test Beach",
+        timezone: "America/Los_Angeles",
+        skill_level: args.beachSkill,
+      },
+    });
+    seedProfile({ experience_level: args.experienceLevel });
+  }
+
+  function holdSkills(): unknown[] {
+    return mockResolveNotificationMajorEventHold.mock.calls.map(
+      ([input]) => (input as { profileExperience: unknown }).profileExperience,
+    );
+  }
+
+  function expectSent(): void {
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(
+      mockEnqueueNotification.mock.calls[0][0].payload.session_decision.verdict,
+    ).toBe("go");
+  }
+
+  it.each(["advanced", "intermediate"])(
+    "withholds a flagged no-skill user's alert at a %s beach",
+    async (beachSkill) => {
+      flagOnFor(USER_A);
+      seedGoAlert({ beachSkill, experienceLevel: null });
+
+      const res = await GET(makeRequest());
+
+      expect(res.status).toBe(200);
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+      for (const channel of ["email", "push"]) {
+        expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+          queue_id: QUEUE_1,
+          channel,
+          status: "skipped_disabled",
+          skip_reason: "canonical_decision:verdict_no",
+        }));
+      }
+      expect(holdSkills()).toEqual(["beginner"]);
+    },
+  );
+
+  it("records the beach-skill reason for a flagged no-skill user in shadow mode", async () => {
+    process.env.FORECAST_ALERT_DELIVERY_ENABLED = "false";
+    flagOnFor(USER_A);
+    seedGoAlert({ beachSkill: "advanced", experienceLevel: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: QUEUE_1,
+      values: {
+        delivery_shadow_outcome: expect.objectContaining({
+          verdict: "no",
+          reason_code: "beach_skill_exceeds_user",
+        }),
+      },
+    });
+  });
+
+  it.each(["beginner", "beginner-intermediate"])(
+    "still sends a flagged no-skill user's alert at a %s beach",
+    async (beachSkill) => {
+      flagOnFor(USER_A);
+      seedGoAlert({ beachSkill, experienceLevel: null });
+
+      const res = await GET(makeRequest());
+
+      expect(res.status).toBe(200);
+      expectSent();
+      expect(
+        mockEnqueueNotification.mock.calls[0][0].payload.session_decision
+          .skillEligibility.skill,
+      ).toBe("beginner");
+      expect(holdSkills()).toEqual(["beginner"]);
+    },
+  );
+
+  it.each([
+    { name: "the flag is off", enable: false, allowlist: "" },
+    { name: "the user is not allowlisted", enable: true, allowlist: OTHER_USER },
+  ])("sends a no-skill user's alert at an advanced beach when $name", async ({ enable, allowlist }) => {
+    if (enable) flagOnFor(allowlist);
+    seedGoAlert({ beachSkill: "advanced", experienceLevel: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expectSent();
+    expect(
+      mockEnqueueNotification.mock.calls[0][0].payload.session_decision
+        .skillEligibility.skill,
+    ).toBe("unknown");
+    expect(holdSkills()).toEqual([null]);
+  });
+
+  it.each([
+    { experienceLevel: "advanced", beachSkill: "advanced", sends: true },
+    { experienceLevel: "intermediate", beachSkill: "advanced", sends: false },
+  ])(
+    "keeps a known $experienceLevel skill unchanged at an $beachSkill beach with the flag on",
+    async ({ experienceLevel, beachSkill, sends }) => {
+      flagOnFor(USER_A);
+      seedGoAlert({ beachSkill, experienceLevel });
+
+      const res = await GET(makeRequest());
+
+      expect(res.status).toBe(200);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(sends ? 1 : 0);
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(sends ? 1 : 0);
+      expect(holdSkills()).toEqual([experienceLevel]);
+    },
+  );
+
+  it("keeps the copy and audience fields of a defaulted user equal to flag off", async () => {
+    async function capture(): Promise<Record<string, unknown>> {
+      seedGoAlert({ beachSkill: "beginner", experienceLevel: null });
+      const res = await GET(makeRequest());
+      expect(res.status).toBe(200);
+      expectSent();
+      const email = mockEmailsSend.mock.calls[0][0];
+      const { messageInstanceId: _id, ...emailProps } =
+        mockConsolidatedAlertEmail.mock.calls[0][0];
+      const push = mockEnqueueNotification.mock.calls[0][0].payload;
+      return {
+        subject: email.subject,
+        emailProps,
+        title: push.title,
+        body: push.body,
+        matches: push.matches,
+        rendered_matches: push.rendered_matches,
+        policy_context: push.policy_context,
+      };
+    }
+
+    const flagOff = await capture();
+
+    store.alertQueueRows = [];
+    store.profileRows = [];
+    store.attemptInserts = [];
+    store.deliveryInserts = [];
+    store.existingDeliveries = [];
+    store.seededAttempts = [];
+    store.queueUpdates = [];
+    store.queueRefreshUpdates = [];
+    mockEmailsSend.mockClear();
+    mockEnqueueNotification.mockClear();
+    mockConsolidatedAlertEmail.mockClear();
+    flagOnFor(USER_A);
+    const flagOn = await capture();
+
+    expect(flagOn).toEqual(flagOff);
+    expect(JSON.stringify(flagOn)).not.toMatch(/your level/i);
+  });
+
+  it("sends a defaulted user's safe beach and rejects the vetoed beach push in one run", async () => {
+    flagOnFor(USER_A);
+    const advancedQueueId = QUEUE_1;
+    const beginnerQueueId = "00000000-0000-0000-0000-0000000000c2";
+    seedQueueRow({
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-advanced" },
+      beaches: { name: "Advanced Reef", timezone: "America/Los_Angeles", skill_level: "advanced" },
+    });
+    seedQueueRow({
+      id: beginnerQueueId,
+      rule_id: "00000000-0000-0000-0000-0000000000a2",
+      beach_id: BEACH_2,
+      window_start: "2026-04-26T15:00:00Z",
+      window_end: "2026-04-26T18:00:00Z",
+      best_hour: "2026-04-26T16:00:00Z",
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-beginner" },
+      beaches: { name: "Mellow Cove", timezone: "America/Los_Angeles", skill_level: "beginner" },
+    });
+    seedProfile({ experience_level: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: beginnerQueueId, channel: "email", status: "sent",
+    }));
+    expect(mockConsolidatedAlertEmail.mock.calls.map(([props]) =>
+      props.matches.map((match: { beach_name: string }) => match.beach_name),
+    )).toContainEqual(["Mellow Cove"]);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0]).toMatchObject({
+      entityId: BEACH_2,
+      payload: { session_decision: { verdict: "go", skillEligibility: { skill: "beginner" } } },
+    });
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: advancedQueueId,
+      channel: "push",
+      status: "skipped_disabled",
+      skip_reason: "canonical_decision:beach_skill_exceeds_user",
+    }));
+    // The email outcome for the vetoed beach is tracked separately (two-beach email leak).
+  });
+});
