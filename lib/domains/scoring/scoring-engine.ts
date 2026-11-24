@@ -24,6 +24,7 @@ import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
 import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
 import { TIDE_EFFECT_CODES } from "./tide-swing";
+import { closeoutSizeEffect } from "./closeout-size";
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.
@@ -124,6 +125,9 @@ export class ScoringEngine {
       allWarningCodes.push(...result.warnings.map(() => null));
       allEffects.push(...(result.effects ?? []));
     }
+
+    const closeout = closeoutSizeEffect(input.profile.id, input.snapshot.waveHeight);
+    if (closeout) allEffects.push(closeout);
 
     const rawTotal = Math.round(weightedSum);
 
