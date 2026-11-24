@@ -35,6 +35,7 @@ import {
   loadFartherOutPool,
   rankFartherOut,
   settleFartherOut,
+  withinFartherOutBudget,
   type FartherOutCandidate,
 } from '@/lib/services/discovery/week-scout-farther-out';
 import {
@@ -397,7 +398,7 @@ async function weekScoutHandler(
     }))())
     : null;
   const forecast = await pendingForecast;
-  const fartherOutDays = pendingFartherOut ? await pendingFartherOut : null;
+  const fartherOutDays = pendingFartherOut ? await withinFartherOutBudget(pendingFartherOut) : null;
   const { coverage: forecastCoverage, swells, ...forecastPayload } = forecast;
   const unavailableStory = () => bindStory({ region: null, availability: 'unavailable', input: null, selections: null, live: forecast });
   const bindLiveStory = pendingStory ? await pendingStory : null;

@@ -50,11 +50,12 @@ function pool(candidates: unknown[]) {
   return { candidates, enumeratedCount: candidates.length, filteredOutCount: 0, cappedCount: 0, farthestNearbyMiles: null };
 }
 
-/** The contract fixture with its day best relabelled and moved to `beachId`. */
+/** The contract fixture with every window relabelled and its day best moved to `beachId`. */
 function answer(label: Label, beachId = INNER_BEACH, overrides: Partial<CanonicalWeekScoutResponse> = {}): CanonicalWeekScoutResponse {
   const copy = JSON.parse(JSON.stringify(WEEK_SCOUT_CONTRACT_FIXTURE)) as CanonicalWeekScoutResponse;
   const verdict = label === 'GOOD' || label === 'EPIC' ? 'go' : label === 'MEH' ? 'no' : 'maybe';
   for (const day of copy.days) {
+    day.windows = day.windows.map((window) => ({ ...window, personalLabel: label, personalVerdict: verdict }));
     if (!day.bestDayWindow) continue;
     day.bestDayWindow = { ...day.bestDayWindow, beachId, personalLabel: label, personalVerdict: verdict };
   }

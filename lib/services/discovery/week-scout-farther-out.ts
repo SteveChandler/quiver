@@ -16,10 +16,10 @@ import { buildDriveRangeCandidatePool } from './weekend-scout-candidate-pool';
 
 const log = createContextLogger('WeekScoutFartherOut');
 
-export const FARTHER_OUT_MAX_DRIVE_MINUTES = 45;
+const FARTHER_OUT_MAX_DRIVE_MINUTES = 45;
 export const FARTHER_OUT_MAX_MILES = FARTHER_OUT_MAX_DRIVE_MINUTES * MILES_PER_DRIVE_MINUTE;
 /** Nearest outer-ring beaches ranked (skill-first, as the in-range cap); bounds the extra ranking CPU. */
-export const FARTHER_OUT_POOL_CAP = 20;
+const FARTHER_OUT_POOL_CAP = 20;
 /** Early-look days (7+) get no row, so the outer pass ranks only the headline week. */
 const FARTHER_OUT_DAY_COUNT = 7;
 const LABEL_RANK: Record<WeekScoutPersonalLabel, number> = { MEH: 0, RIDEABLE: 1, FAIR: 2, GOOD: 3, EPIC: 4 };
@@ -114,7 +114,7 @@ export function selectFartherOut(
   const poolById = new Map(outerPool.map((candidate) => [candidate.beach.id, candidate]));
   const outerByDate = new Map(outer.days.map((day) => [day.localDate, day]));
   for (const day of inRange.days) {
-    const inRangeLabel = day.bestDayWindow?.personalLabel;
+    const inRangeLabel = day.bestDayWindow ? topInRangeLabel(day) : undefined;
     if (day.earlyLook || !inRangeLabel) continue;
     const best = outerByDate.get(day.localDate)?.bestDayWindow;
     if (!best?.personalLabel || best.personalVerdict === 'no') continue;
@@ -136,6 +136,21 @@ export function selectFartherOut(
   return selected;
 }
 
+/**
+ * The highest label among the day's recommendable in-range windows, not only the
+ * ranked best: the row must not call an outer beach better than one the list shows.
+ */
+function topInRangeLabel(day: DaysSource['days'][number]): WeekScoutPersonalLabel | undefined {
+  return [day.bestDayWindow, ...day.windows]
+    .flatMap((window) => (
+      window?.personalLabel && window.isBeachDayBest && window.safe === true && window.rideable === true
+      && window.verdict !== null && window.verdict !== 'skip'
+        ? [window.personalLabel]
+        : []
+    ))
+    .sort((left, right) => LABEL_RANK[right] - LABEL_RANK[left])[0];
+}
+
 /** Never rejects: any outer-pass failure means no row, never a changed or failed response. */
 export function settleFartherOut(pending: Promise<FartherOutDays>): Promise<FartherOutDays | null> {
   return pending.catch((error: unknown) => {
@@ -144,4 +159,23 @@ export function settleFartherOut(pending: Promise<FartherOutDays>): Promise<Fart
     });
     return null;
   });
+}
+
+/** How long the normal answer, once ready, may wait for the outer pass. */
+const FARTHER_OUT_WAIT_MS = 1000;
+
+/** Waits for a settled outer pass at most `budgetMs`; past it the response goes without the row. */
+export function withinFartherOutBudget(
+  settled: Promise<FartherOutDays | null>,
+  budgetMs: number = FARTHER_OUT_WAIT_MS,
+): Promise<FartherOutDays | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      log.warn('Week Scout farther-out pass ran past its budget; omitting fartherOut');
+      resolve(null);
+    }, budgetMs);
+    timer.unref?.();
+  });
+  return Promise.race([settled, timeout]).finally(() => clearTimeout(timer));
 }

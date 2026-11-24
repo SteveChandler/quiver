@@ -33,7 +33,8 @@ import {
   generateWeekScoutForecastForDays,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
-import { selectFartherOut, type FartherOutCandidate } from '@/lib/services/discovery/week-scout-farther-out';
+import { selectFartherOut, withinFartherOutBudget, type FartherOutCandidate } from '@/lib/services/discovery/week-scout-farther-out';
+import { expectConsoleWarnings } from '@/__tests__/setup/test-utils';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
@@ -235,6 +236,16 @@ describe('Week Scout farther-out selection', () => {
     expect(selectFartherOut(inRange, outer, pool(OUTER), ANCHOR).size).toBe(0);
   });
 
+  it('names no beach when a lower-ranked in-range beach already has the outer label', async () => {
+    const [inRange, outer] = await Promise.all([rank([INNER_BEACH]), rank([OUTER_BEACH])]);
+    const best = inRange.days[0].bestDayWindow!;
+    const goodNearby = { ...best, id: `${best.id}-nearby`, personalLabel: 'GOOD' as const, personalVerdict: 'go' as const, verdict: 'worth_it' as const };
+    const withGood = { ...inRange, days: [{ ...inRange.days[0], windows: [...inRange.days[0].windows, goodNearby] }] };
+    expect(selectFartherOut({ ...inRange, days: [inRange.days[0]] }, outer, pool(OUTER), ANCHOR).size).toBe(1);
+
+    expect(selectFartherOut(withGood, outer, pool(OUTER), ANCHOR).size).toBe(0);
+  });
+
   it('never names a beach the safety filter holds, even when it would rank first', async () => {
     SCORES = { [INNER_BEACH]: 60, [OUTER_BEACH]: 60, [HELD_BEACH]: 95 };
     const unheld = await rank([OUTER_BEACH, HELD_BEACH]);
@@ -301,5 +312,18 @@ describe('Week Scout farther-out selection', () => {
     ]);
 
     expect(JSON.stringify(beside)).toBe(JSON.stringify(alone));
+  });
+});
+
+describe('Week Scout farther-out wait budget', () => {
+  it('returns a pass that settles inside the budget', async () => {
+    const rows = new Map();
+    await expect(withinFartherOutBudget(Promise.resolve(rows), 50)).resolves.toBe(rows);
+  });
+
+  it('gives up on a pass that runs past the budget', async () => {
+    const never = new Promise<null>(() => undefined);
+    await expect(withinFartherOutBudget(never, 10)).resolves.toBeNull();
+    expectConsoleWarnings([/ran past its budget/]);
   });
 });
