@@ -88,6 +88,22 @@ export interface DailyCallCandidate {
   sessionDecision: unknown;
 }
 
+interface RankingVerdictMismatch {
+  userId: string;
+  gate: "peak_row" | "decision";
+  cronVerdict: string | null;
+  cronScore: number | null;
+  weekScoutVerdict: string | null;
+  weekScoutScore: number;
+}
+
+/**
+ * The route stores the response body in cron_runs.summary, and a body over
+ * 8 KB is replaced with a stub; 20 records stay near 3 KB. The skip count
+ * still gives the total.
+ */
+export const RANKING_VERDICT_MISMATCH_RECORD_CAP = 20;
+
 interface DailyCallRunSummary {
   evaluated: number;
   sent: number;
@@ -95,6 +111,8 @@ interface DailyCallRunSummary {
   skippedCounts: Record<string, number>;
   errors: number;
   durationMs: number;
+  /** Present only when a mismatch happened; capped at RANKING_VERDICT_MISMATCH_RECORD_CAP. */
+  rankingVerdictMismatches?: RankingVerdictMismatch[];
 }
 
 export interface DailyCallProfile {
@@ -763,7 +781,7 @@ async function buildSharedCall(
   options: DailyCallCandidate[];
   home: DailyCallCandidate | null;
   heldReasons: string[];
-} | { skip: string; heldReasons?: string[] }> {
+} | { skip: string; heldReasons?: string[]; mismatch?: RankingVerdictMismatch }> {
   const { profile, pool, timezone, alertDate, now } = args;
   const response = await deps.rankDay({
     userId: profile.id,
@@ -841,32 +859,44 @@ async function buildSharedCall(
   const peak = [...forecasts].sort((left, right) =>
     Math.abs(Date.parse(left.forecast_at) - peakMs) - Math.abs(Date.parse(right.forecast_at) - peakMs))[0];
   // The skip count alone cannot say whose call disagreed or with what (quiver#1536).
-  const logMismatch = (gate: "peak_row" | "decision", cron: Record<string, unknown>): void => {
-    console.info("[daily-call] ranking_verdict_mismatch", {
+  const mismatch = (
+    gate: RankingVerdictMismatch["gate"],
+    cron: { verdict: string | null; score: number | null; forecastAt: string; reasonCode?: string },
+  ): { skip: string; heldReasons: string[]; mismatch: RankingVerdictMismatch } => {
+    const record: RankingVerdictMismatch = {
       userId: profile.id,
       gate,
+      cronVerdict: cron.verdict,
+      cronScore: cron.score,
+      weekScoutVerdict: pick.personalVerdict ?? null,
+      weekScoutScore: pick.conditionScore,
+    };
+    // One line, so the Vercel log keeps the record on one row.
+    console.info("[daily-call] ranking_verdict_mismatch", JSON.stringify({
+      ...record,
       beachId: pick.beachId,
       windowId: pick.id,
       peakTime: pick.peakTime,
-      weekScout: { personalVerdict: pick.personalVerdict, conditionScore: pick.conditionScore },
-      cron,
-    });
+      cronForecastAt: cron.forecastAt,
+      ...(cron.reasonCode ? { cronReasonCode: cron.reasonCode } : {}),
+    }));
+    return { skip: "ranking_verdict_mismatch", heldReasons, mismatch: record };
   };
-  const peakVerdict = verdictById.get(peak.id) ?? "no";
+  const peakVerdict = verdictById.get(peak.id);
   if (peakVerdict !== "go") {
     const peakEvaluation = evaluations.find((value) => value.forecast.id === peak.id);
-    logMismatch("peak_row", { verdict: peakVerdict, score: peakEvaluation?.score ?? null, forecastAt: peak.forecast_at });
-    return { skip: "ranking_verdict_mismatch", heldReasons };
+    return mismatch("peak_row", {
+      verdict: peakVerdict ?? null, score: peakEvaluation?.score ?? null, forecastAt: peak.forecast_at,
+    });
   }
   const decision = decisionForWindow(profile, entry, evaluation, winner.window, timezone, now);
   if (decision.verdict !== "go") {
-    logMismatch("decision", {
+    return mismatch("decision", {
       verdict: decision.verdict,
-      reasonCode: decision.reasonCode,
       score: evaluation.score,
       forecastAt: evaluation.forecast.forecast_at,
+      reasonCode: decision.reasonCode,
     });
-    return { skip: "ranking_verdict_mismatch", heldReasons };
   }
   winner.sourceForecast = evaluation.forecast;
   winner.physicalScore = evaluation.score;
@@ -1130,6 +1160,11 @@ export async function runDailyCallCron(args: {
         if ("skip" in shared) {
           increment(summary, shared.skip);
           summary.silent += 1;
+          if (shared.mismatch) {
+            const records = summary.rankingVerdictMismatches ?? [];
+            if (records.length < RANKING_VERDICT_MISMATCH_RECORD_CAP) records.push(shared.mismatch);
+            summary.rankingVerdictMismatches = records;
+          }
           continue;
         }
         ({ winner, options, home } = shared);
