@@ -24,6 +24,7 @@ import type { BoardClass } from "@/lib/domains/rideability";
 import { getConditionBoardPick, toForecastForScoring, type BoardForPick } from "@/lib/scoring";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { isSkillAwareGoChecksOn, ratingExperience } from "@/lib/flags/skill-aware-go-checks";
 import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
 import {
   parseWindSpeedOrNull,
@@ -531,6 +532,8 @@ const handleGet = withNoStore(withAuth(
       supabase,
       context.user?.id
     );
+    // Only the scores use the rating skill; the hold gate keeps the raw skill.
+    const ratingSkillLevel = ratingExperience(userSkillLevel, isSkillAwareGoChecksOn(context.user?.id));
 
     const entitlementRead = context.user
       ? await readEntitlementRow(supabase, context.user.id)
@@ -544,7 +547,7 @@ const handleGet = withNoStore(withAuth(
       ? await fetchUserBoardContext(supabase, context.user.id)
       : null;
     const timeSlots = scoreForecastSlots(
-      forecastList, beach as Beach, userSkillLevel, boardContext?.boardClasses,
+      forecastList, beach as Beach, ratingSkillLevel, boardContext?.boardClasses,
       boardContext?.boardsForPicks,
     );
 
