@@ -28,6 +28,7 @@ import { getDiscoveryScoringEngine } from "@/lib/domains/scoring";
 import { memoizedComposite } from "@/lib/domains/scoring/scoring-memo";
 import { isDirectionScoringEnabledForBeach } from "@/lib/flags/direction-scoring";
 import { windChopCeiling } from "@/lib/domains/scoring/wind-chop-ceiling";
+import { CLOSEOUT_SIZE_VERDICT_CEILING, closeoutSizeEffect } from "@/lib/domains/scoring/closeout-size";
 import type { NativeDirectionScoreInput } from "@/lib/scoring/native-condition-score";
 
 const SELECTOR_IDEAL_RIDEABILITY_BONUS = 4;
@@ -123,6 +124,21 @@ function isFullBeach(beach: BeachWithThresholds): beach is Beach {
 }
 
 /**
+ * A partial beach row (the bulk route's RPC columns) cannot run the composite, so its hourly
+ * score had no ceiling. The size cap needs only the id and the height, so it still applies;
+ * without it the bulk score reads FAIR beside a "no" verdict.
+ */
+function partialBeachEffectDetails(
+  forecast: EnhancedForecastEntity,
+  beach: BeachWithThresholds,
+): { ceiling: number; effects: string[] } {
+  const closeout = closeoutSizeEffect(beach.id, parseFloat(forecast.wave_height || "0"));
+  return closeout
+    ? { ceiling: CLOSEOUT_SIZE_VERDICT_CEILING, effects: [closeout.code] }
+    : { ceiling: 100, effects: [] };
+}
+
+/**
  * Scores the best saved board, but never below the no-board baseline. A null
  * boardClass means no saved board improved the displayed score.
  */
@@ -140,7 +156,7 @@ export function scoreWindowConditionDetails(
   const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
   const effectDetails = isFullBeach(beach)
     ? decisionEffectDetails(forecast, beach)
-    : { ceiling: 100, effects: [] };
+    : partialBeachEffectDetails(forecast, beach);
   const { ceiling } = effectDetails;
   const applyCeiling = (score: number): number => Math.min(score, ceiling);
   const appliedEffects = (score: number): string[] =>
