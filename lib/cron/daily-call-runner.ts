@@ -167,24 +167,48 @@ export type RankDay = (args: {
   anchor: { lat: number; lon: number } | null;
   /** Omitted in production, where Week Scout reads the real clock. */
   now?: Date;
+  /**
+   * Ranks Home's week from this date and returns only `localDate`. A one-day
+   * request makes the week's session pick land on `localDate`, and that pick
+   * replaces the day's best, so on a near tie it can name a different beach
+   * than Home's day card (quiver#1534).
+   */
+  weekStartLocalDate?: string;
 }) => Promise<CanonicalWeekScoutResponse>;
 
+/** Native Home asks Week Scout for this many days. */
+const HOME_WEEK_DAY_COUNT = 7;
+
 /** @public Shared entry point for the swell runner and parity script (plan Tasks 7–8). */
-export const rankDayWithWeekScout: RankDay = ({
-  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor, now,
+export const rankDayWithWeekScout: RankDay = async ({
+  userId, poolBeachIds, driveRadiusMiles, timezone, localDate, sessionTime, anchor, now, weekStartLocalDate,
 }) => {
-  const request = {
-    candidateBeachIds: poolBeachIds,
-    driveRadiusMiles,
-    localTimezone: timezone,
-    startLocalDate: localDate,
-    dayCount: 1,
-    ...(sessionTime ? { sessionTime } : {}),
-    ...(anchor ? { userLocation: anchor } : {}),
+  const rank = (startLocalDate: string, dayCount: number): Promise<CanonicalWeekScoutResponse> => {
+    const request = {
+      candidateBeachIds: poolBeachIds,
+      driveRadiusMiles,
+      localTimezone: timezone,
+      startLocalDate,
+      dayCount,
+      ...(sessionTime ? { sessionTime } : {}),
+      ...(anchor ? { userLocation: anchor } : {}),
+    };
+    return now
+      ? generateWeekScoutForecastForDays(userId, request, weekScoutDependenciesAt(now))
+      : generateWeekScoutForecastForDays(userId, request);
   };
-  return now
-    ? generateWeekScoutForecastForDays(userId, request, weekScoutDependenciesAt(now))
-    : generateWeekScoutForecastForDays(userId, request);
+  const rankWeek = weekStartLocalDate !== undefined;
+  if (!rankWeek) return rank(localDate, 1);
+  try {
+    const response = await rank(weekStartLocalDate, HOME_WEEK_DAY_COUNT);
+    return { ...response, days: response.days.filter((day) => day.localDate === localDate) };
+  } catch (error) {
+    // A fault in a later day's reads must not cost today's call; the one-day request still decides.
+    console.warn("[daily-call] week ranking failed; ranking the day alone", {
+      userId, localDate, error: error instanceof Error ? error.message : String(error),
+    });
+    return rank(localDate, 1);
+  }
 };
 
 export type LoadBeachDay = (args: {
@@ -773,9 +797,11 @@ async function buildSharedCall(
     localDate: alertDate,
     sessionTime: profile.preferredSessionTime ?? null,
     anchor: profile.anchor ?? null,
+    // Home's week starts today too, so both read the same day best.
+    weekStartLocalDate: alertDate,
   });
   // The hold adapter widens scores; the personal and canonical go gates below still apply.
-  const day = response.days[0] as WeekScoutDayResponse | undefined;
+  const day = response.days.find((value) => value.localDate === alertDate) as WeekScoutDayResponse | undefined;
   if (!day) return { skip: "no_forecast" };
   if (day.windows.length === 0) {
     return { skip: day.exclusionReasons.includes("major_event_hold") ? "no_clear_window"
