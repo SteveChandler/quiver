@@ -77,6 +77,9 @@ no crop, no upscale.
 | `learn-rogue-wave-bolinas-sneaker-wave.webp` | `/learn/what-is-a-rogue-wave` | Sneaker Wave | Jesse Wagstaff | CC BY 2.0 | https://www.flickr.com/photos/49503128117@N01/12419949853 |
 | `learn-rogue-wave-gray-whale-cove.webp` | `/learn/what-is-a-rogue-wave` | Lively Gray Whale Cove beach - Pacific Ocean south of San Francisco, California, USA | Wonderlane | CC0 1.0 | https://www.flickr.com/photos/71401718@N00/3272164111 |
 | `learn-rogue-wave-reynisfjara-runup.webp` | `/learn/what-is-a-rogue-wave` | Sneaker Wave At High Tide | Eric Kilby | CC BY-SA 2.0 | https://www.flickr.com/photos/8749778@N06/51910048834 |
+| `learn-mavericks-contest-wave.webp` | `/learn/where-to-watch-mavericks` | Mavericks Surf Contest 2010b | Shalom Jacobovitz | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Mavericks_Surf_Contest_2010b.jpg |
+| `learn-mavericks-breakwater-danger-sign.webp` | `/learn/where-to-watch-mavericks` | D'NGER ELY HAZARDOUS WAVES, warning sign, bad condition, Mavericks, Half Moon Bay, California, USA | Wonderlane | CC BY 2.0 | https://www.flickr.com/photos/71401718@N00/3180878107 |
+| `learn-mavericks-spectator-boats.webp` | `/learn/where-to-watch-mavericks` | Mavericks Surf Contest | Steve Jurvetson | CC BY 2.0 | https://www.flickr.com/photos/44124348109@N01/8171362329 |
 
 The older `learn-*.jpg` files in this directory predate the ledger and have no
 recorded provenance.

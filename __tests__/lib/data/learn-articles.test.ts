@@ -121,6 +121,12 @@ const expectedLearnMetadata = [
     description:
       "A rogue wave is more than twice the height of the waves around it. On the beach, NWS says a sneaker wave can run 150 feet up the sand.",
   },
+  {
+    slug: "where-to-watch-mavericks",
+    title: "Where to Watch Mavericks: Bluff, Beach or Boat",
+    description:
+      "Mavericks breaks about half a mile off Pillar Point. Watch from Pillar Point Bluff with binoculars, and stay off the jetty and seawall.",
+  },
 ];
 
 describe("learn article SEO metadata", () => {
