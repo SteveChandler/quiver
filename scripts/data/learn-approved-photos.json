@@ -362,5 +362,44 @@
     "licenseStatus": "defensible",
     "usageNotes": "Rogue wave guide section image: sneaker-wave run-up across Reynisfjara beach, Iceland (named in alt text, not shown as California). Licence checked on the source page on 2026-11-17; stored at the 1600 px Flickr size, no crop, no upscale.",
     "runtimeAssetPath": "public/images/learn/learn-rogue-wave-reynisfjara-runup.webp"
+  },
+  {
+    "slug": "where-to-watch-mavericks",
+    "name": "learn-mavericks-contest-wave",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Mavericks_Surf_Contest_2010b.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Mavericks_Surf_Contest_2010b.jpg",
+    "title": "Mavericks Surf Contest 2010b",
+    "creator": "Shalom Jacobovitz",
+    "licenseCode": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Mavericks viewing guide hero and thumbnail: a surfer in a yellow contest vest drops down a huge wave at Mavericks, 2010. Licence checked on the Commons source page on 2026-11-24; no crop, no upscale, stored downscaled from 4272 px to 1600 px wide.",
+    "runtimeAssetPath": "public/images/learn/learn-mavericks-contest-wave.webp"
+  },
+  {
+    "slug": "where-to-watch-mavericks",
+    "name": "learn-mavericks-breakwater-danger-sign",
+    "imageUrl": "https://live.staticflickr.com/3439/3180878107_598ea2f92d_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/71401718@N00/3180878107",
+    "title": "D'NGER ELY HAZARDOUS WAVES, warning sign, bad condition, Mavericks, Half Moon Bay, California, USA",
+    "creator": "Wonderlane",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Mavericks viewing guide safety section image: torn Army Corps of Engineers danger sign at the Pillar Point breakwater. Licence checked on the Flickr source page on 2026-11-24; stored at the native 1024 px Flickr size, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-mavericks-breakwater-danger-sign.webp"
+  },
+  {
+    "slug": "where-to-watch-mavericks",
+    "name": "learn-mavericks-spectator-boats",
+    "imageUrl": "https://live.staticflickr.com/8068/8171362329_d953321184_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/44124348109@N01/8171362329",
+    "title": "Mavericks Surf Contest",
+    "creator": "Steve Jurvetson",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Mavericks viewing guide boat section image: aerial view of spectator boats and jet skis beside the break during a contest. Licence checked on the Flickr source page on 2026-11-24; stored at the native 1023 px Flickr size, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-mavericks-spectator-boats.webp"
   }
 ]
