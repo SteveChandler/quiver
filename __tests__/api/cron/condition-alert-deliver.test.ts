@@ -2915,4 +2915,49 @@ describe("condition-alert-deliver — skill-aware go checks (SKILL_AWARE_GO_CHEC
     expect(flagOn).toEqual(flagOff);
     expect(JSON.stringify(flagOn)).not.toMatch(/your level/i);
   });
+
+  it("sends a defaulted user's safe beach and rejects the vetoed beach push in one run", async () => {
+    flagOnFor(USER_A);
+    const advancedQueueId = QUEUE_1;
+    const beginnerQueueId = "00000000-0000-0000-0000-0000000000c2";
+    seedQueueRow({
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-advanced" },
+      beaches: { name: "Advanced Reef", timezone: "America/Los_Angeles", skill_level: "advanced" },
+    });
+    seedQueueRow({
+      id: beginnerQueueId,
+      rule_id: "00000000-0000-0000-0000-0000000000a2",
+      beach_id: BEACH_2,
+      window_start: "2026-04-26T15:00:00Z",
+      window_end: "2026-04-26T18:00:00Z",
+      best_hour: "2026-04-26T16:00:00Z",
+      best_score: 0.8,
+      conditions_snapshot: { wave_height: 3, forecast_id: "enhanced-forecast-beginner" },
+      beaches: { name: "Mellow Cove", timezone: "America/Los_Angeles", skill_level: "beginner" },
+    });
+    seedProfile({ experience_level: null });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: beginnerQueueId, channel: "email", status: "sent",
+    }));
+    expect(mockConsolidatedAlertEmail.mock.calls.map(([props]) =>
+      props.matches.map((match: { beach_name: string }) => match.beach_name),
+    )).toContainEqual(["Mellow Cove"]);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0]).toMatchObject({
+      entityId: BEACH_2,
+      payload: { session_decision: { verdict: "go", skillEligibility: { skill: "beginner" } } },
+    });
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: advancedQueueId,
+      channel: "push",
+      status: "skipped_disabled",
+      skip_reason: "canonical_decision:beach_skill_exceeds_user",
+    }));
+    // The email outcome for the vetoed beach is tracked separately (two-beach email leak).
+  });
 });
