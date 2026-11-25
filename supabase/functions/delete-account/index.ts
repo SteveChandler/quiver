@@ -23,6 +23,7 @@
 // of that requirement.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolvePublishableKey, resolveSecretKey } from "../_shared/api-keys.ts";
 
 interface DeleteResult {
   audit_id: string;
@@ -55,8 +56,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const getEnv = (name: string): string | undefined => Deno.env.get(name);
+  const serviceRoleKey = resolveSecretKey(getEnv);
+  const anonKey = resolvePublishableKey(getEnv);
 
   if (!supabaseUrl || !serviceRoleKey || !anonKey) {
     console.error("[delete-account] Missing required env vars", {

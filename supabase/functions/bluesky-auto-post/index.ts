@@ -16,6 +16,7 @@ import type {
   HoldAuthorizationResolution,
 } from "./hold-policy.ts";
 import { filterBeachesByWaterQualityHolds } from "./water-quality-filter.ts";
+import { resolveSecretKey } from "../_shared/api-keys.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1581,7 +1582,7 @@ Deno.serve(async (req: Request) => {
 
     // Initialize Supabase client with service role (bypasses RLS)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseKey = resolveSecretKey((name) => Deno.env.get(name))!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Check posting config
