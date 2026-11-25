@@ -182,6 +182,20 @@ jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
   ),
 }));
 
+const CLEAN_WATER_QUALITY = { state: "resolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "clean" };
+const mockResolveWaterQualityHolds = jest.fn();
+// Lazy: the real module is part of an import cycle, so it cannot be spread at mock time.
+jest.mock("@/lib/recommendations/major-event-hold/water-quality", () => {
+  let actual: Record<string | symbol, unknown> | undefined;
+  const load = (): Record<string | symbol, unknown> =>
+    (actual ??= jest.requireActual<Record<string | symbol, unknown>>("@/lib/recommendations/major-event-hold/water-quality"));
+  return new Proxy({}, {
+    get: (_target, key) => key === "__esModule" ? true
+      : key === "resolveWaterQualityHolds" ? (...args: unknown[]) => mockResolveWaterQualityHolds(...args)
+      : load()[key],
+  });
+});
+
 jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
   evaluateMajorEventHoldCandidates: (input: unknown) =>
     mockEvaluateMajorEventHoldCandidates(input),
@@ -598,6 +612,7 @@ describe("/api/forecasts/bulk", () => {
           candidates.map(({ candidateId }) => majorEventDecision(candidateId)),
         ),
     );
+    mockResolveWaterQualityHolds.mockResolvedValue(CLEAN_WATER_QUALITY);
     mockSupabaseClient.from = jest.fn(() =>
       queryChain({ data: null, error: null }),
     ) as any;
@@ -2727,5 +2742,125 @@ describe("/api/forecasts/bulk", () => {
     } finally {
       consoleErrorSpy.mockRestore();
     }
+  });
+  describe("water-quality status beside the rating", () => {
+    const RAIN_ADVISORY = { startedAt: "2026-07-07T10:00:00.000Z", lastRainAt: "2026-07-07T12:00:00.000Z", expiresAt: "2026-07-10T12:00:00.000Z" };
+
+    async function bulkFor(beachIds: string[], ip: string) {
+      const response = await GET(
+        createMockRequest(
+          "GET",
+          `http://localhost:3000/api/forecasts/bulk?beachIds=${beachIds.join(",")}&includeWaterQuality=true`,
+          { headers: { "x-forwarded-for": ip } },
+        ),
+      );
+      return expectSuccessResponse<any>(response, 200);
+    }
+
+    it("sends the rating and the water status for advisory and closure beaches", async () => {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1), forecastRow(BOUND_BEACH_ID_TWO, "2.5", -1), forecastRow(BOUND_BEACH_ID_THREE, "2.5", -1)],
+        beachRows: [beachRow(BOUND_BEACH_ID), beachRow(BOUND_BEACH_ID_TWO), beachRow(BOUND_BEACH_ID_THREE)],
+      });
+      mockResolveWaterQualityHolds.mockResolvedValue({
+        state: "resolved",
+        heldBeachIds: [BOUND_BEACH_ID_TWO],
+        waterQualityStatusByBeachId: { [BOUND_BEACH_ID_TWO]: "closure" },
+        waterQualityEvidenceByBeachId: { [BOUND_BEACH_ID_TWO]: { source: "county", countyKind: "site", checkedAt: "2026-07-07T17:00:00.000Z" } },
+        waterQualityNoticeByBeachId: { [BOUND_BEACH_ID]: { source: "rain", rainAdvisory: RAIN_ADVISORY } },
+        epoch: "wq",
+      });
+
+      const body = await bulkFor([BOUND_BEACH_ID, BOUND_BEACH_ID_TWO, BOUND_BEACH_ID_THREE], "203.0.113.250");
+
+      expect(body.data.waterQuality).toEqual({
+        [BOUND_BEACH_ID]: { status: "advisory", source: "rain", rainAdvisory: RAIN_ADVISORY },
+        [BOUND_BEACH_ID_TWO]: { status: "closure", source: "county", countyKind: "site", checkedAt: "2026-07-07T17:00:00.000Z" },
+        [BOUND_BEACH_ID_THREE]: null,
+      });
+      for (const beachId of [BOUND_BEACH_ID, BOUND_BEACH_ID_TWO]) {
+        expect(body.data.conditionScores[beachId]).toBe(72);
+        expect(body.data.conditionSummaries[beachId]).not.toBe("UNKNOWN");
+        expect(body.data.recommendationLabels[beachId]).not.toBeNull();
+      }
+      expect(body.data.recommendationHolds).toEqual({});
+      // Live reads, as /api/surf/call: the RPC snapshot has no rain events.
+      expect(mockResolveWaterQualityHolds).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.objectContaining({ beachId: BOUND_BEACH_ID })]),
+        {},
+      );
+    });
+
+    it("keeps the default request as it was: no field and no water-quality read", async () => {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1)],
+        beachRows: [beachRow(BOUND_BEACH_ID)],
+      });
+      const response = await GET(
+        createMockRequest("GET", `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`, { headers: { "x-forwarded-for": "203.0.113.254" } }),
+      );
+      const body = await expectSuccessResponse<any>(response, 200);
+      expect(body.data).not.toHaveProperty("waterQuality");
+      expect(mockResolveWaterQualityHolds).not.toHaveBeenCalled();
+    });
+
+    it("rejects an includeWaterQuality value that is not true or false", async () => {
+      const response = await GET(
+        createMockRequest("GET", `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}&includeWaterQuality=yes`, { headers: { "x-forwarded-for": "203.0.113.249" } }),
+      );
+      expect(response.status).toBe(400);
+    });
+
+    it("leaves out a beach whose County feed is stale", async () => {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1), forecastRow(BOUND_BEACH_ID_TWO, "2.5", -1)],
+        beachRows: [beachRow(BOUND_BEACH_ID), beachRow(BOUND_BEACH_ID_TWO)],
+      });
+      mockResolveWaterQualityHolds.mockResolvedValue({ ...CLEAN_WATER_QUALITY, unverifiedBeachIds: [BOUND_BEACH_ID_TWO] });
+
+      const body = await bulkFor([BOUND_BEACH_ID, BOUND_BEACH_ID_TWO], "203.0.113.251");
+
+      expect(body.data.waterQuality).toEqual({ [BOUND_BEACH_ID]: null });
+    });
+
+    it.each([
+      ["the read fails", () => mockResolveWaterQualityHolds.mockRejectedValue(new Error("water quality down"))],
+      ["the read is unresolved", () => mockResolveWaterQualityHolds.mockResolvedValue({ ...CLEAN_WATER_QUALITY, state: "unresolved" })],
+    ])("omits the water status but keeps the rating when %s", async (_label, arrange) => {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1)],
+        beachRows: [beachRow(BOUND_BEACH_ID)],
+      });
+      arrange();
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const body = await bulkFor([BOUND_BEACH_ID], "203.0.113.252");
+        expect(body.data).not.toHaveProperty("waterQuality");
+        expect(body.data.conditionScores[BOUND_BEACH_ID]).toBe(72);
+        expect(body.data.recommendationLabels[BOUND_BEACH_ID]).not.toBeNull();
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it("still fails the request on an unrelated error", async () => {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1)],
+        beachRows: [beachRow(BOUND_BEACH_ID)],
+      });
+      mockResolveWaterQualityHolds.mockRejectedValue(new Error("water quality down"));
+      mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(() => {
+        throw new Error("hold service broke");
+      });
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const response = await GET(
+          createMockRequest("GET", `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}&includeWaterQuality=true`, { headers: { "x-forwarded-for": "203.0.113.253" } }),
+        );
+        expect(response.status).toBe(500);
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
   });
 });

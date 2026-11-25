@@ -3,6 +3,7 @@ import { recommendBoard, type RecommendedBoard } from "@/lib/scoring/personal-bo
 import { conditionLabelForVerdict, recommendationLabelForVerdict } from "@/lib/recommendations/canonical-decision/engine";
 import type { CanonicalDecisionReasonCode } from "@/lib/recommendations/canonical-decision/types";
 import { lightMetadata } from "@/lib/services/discovery/daylight-eligibility";
+import { resolveBulkWaterQuality } from '@/lib/services/forecast/bulk-water-quality';
 import { fetchBulkDecisionContext, bulkSessionDecision, bulkRecommendationLabel, type BulkDecisionContext } from '@/lib/services/forecast/bulk-decision-context';
 import { resolveWaterQualityHolds } from '@/lib/recommendations/major-event-hold/water-quality';
 import type { NextRequest, NextResponse } from "next/server";
@@ -130,6 +131,7 @@ type HourlyTimelineWindowParseResult =
  * - beachIds: comma-separated list of beach IDs (required)
  * - timelineOnly=true: omit today-headline enrichment
  * - includeConditions=true: add safety-checked suitability scores to hourly partitions
+ * - includeWaterQuality=true: add the per-beach `waterQuality` notice (live reads, as /api/surf/call)
  *
  * Returns:
  * {
@@ -161,6 +163,9 @@ type HourlyTimelineWindowParseResult =
  *     recommendationHolds: {
  *       [beachId]: "water_quality_hold" | "major_event_hold" | "hold_state_unavailable"
  *     }
+ *     waterQuality?: { // only with includeWaterQuality=true; same shape as /api/surf/call data.waterQuality
+ *       [beachId]: { status, source, countyKind?, checkedAt?, sampleDate?, rainAdvisory? } | null
+ *     } // null = resolved clean; a missing field or beach = status not known
  *   }
  * }
  */
@@ -744,6 +749,14 @@ export async function bulkForecastHandler(
     ) {
       return createValidationError("timelineOnly must be true or false");
     }
+    const includeWaterQualityParam = searchParams.get("includeWaterQuality");
+    if (
+      includeWaterQualityParam !== null
+      && includeWaterQualityParam !== "true"
+      && includeWaterQualityParam !== "false"
+    ) {
+      return createValidationError("includeWaterQuality must be true or false");
+    }
     const isHourlyTimelineOnly =
       isHourlyTimeline && timelineOnlyParam === "true";
     if (timelineOnlyParam === "true" && !isHourlyTimeline) {
@@ -838,6 +851,11 @@ export async function bulkForecastHandler(
       });
     }
 
+    // Water quality informs and never holds the call (Steven, 2026-10-28); the map shows it beside the rating.
+    // Opt-in: the live water-quality reads sit outside the one-RPC read budget of the default request.
+    const waterQualityPromise = decisionContext && includeWaterQualityParam === "true"
+      ? resolveBulkWaterQuality(decisionContext.beaches.map((beach) => beach.id), fetchWindow.selectedAt ?? now)
+      : Promise.resolve(null);
     const forecastsByBeach = groupForecastsByBeach(data);
     const waveHeightMap: Record<string, number | undefined> = {};
     const displayForecastMap: Record<string, ForecastDisplay | undefined> = {};
@@ -1036,6 +1054,8 @@ export async function bulkForecastHandler(
       }
     }
 
+    const waterQuality = await waterQualityPromise;
+    signal.throwIfAborted();
     const response = {
       forecasts: waveHeightMap,
       displayForecasts: displayForecastMap,
@@ -1055,6 +1075,7 @@ export async function bulkForecastHandler(
       swellPartitions: swellPartitionMap,
       swellPartitionTimeline,
       ...(hourlySwellTimeline ? { hourlySwellTimeline } : {}),
+      ...(waterQuality ? { waterQuality } : {}),
     };
     return createSuccessResponse(
       await sanitizeBulkResponse(
