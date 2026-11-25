@@ -5,7 +5,6 @@ on:
     branches: [prod, main]
     paths:
       - "lib/alerts/swell-watch/**"
-      - "app/api/cron/swell-watch-acquire/**"
       - "__tests__/**/swell-watch*"
       - "__tests__/lib/alerts/swell-watch/**"
       - "scripts/swell-watch-provider-probe.mjs"

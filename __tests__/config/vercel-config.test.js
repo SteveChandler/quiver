@@ -175,6 +175,14 @@ describe("vercel.json", () => {
     );
   });
 
+  // 2026-11-25: the Swell Watch study completed; acquisition was retired and evaluation is a callback, never a cron.
+  it("schedules no Swell Watch acquisition or evaluation cron", () => {
+    const config = JSON.parse(fs.readFileSync(path.join(process.cwd(), "vercel.json"), "utf8"));
+    const paths = config.crons.map((cron) => cron.path);
+    expect(paths).not.toContain("/api/cron/swell-watch-acquire");
+    expect(paths).not.toContain("/api/cron/swell-watch-evaluate");
+  });
+
   // 2026-10-02: /api/surf/call and every other route ran in iad1 (x-vercel-id sfo1::iad1) against
   // the us-west-1 database; Beach Detail's call took 3-9 s and even trivial authed routes 1.4 s.
   it("runs every function next to the Northern California database", () => {
