@@ -35,7 +35,7 @@ interface CamBeach {
 
 export interface CamBeachWithRegion extends CamBeach {
   regionSlug: string;
-  /** Same resolution as the beach page player (GET /api/beaches/[id]/sources). */
+  /** Same resolution as the web beach page player. */
   playback: CamPlaybackState;
 }
 
@@ -184,6 +184,6 @@ export const getBeachesWithCameras = unstable_cache(
       playback: playbackById.get(beach.id) ?? { kind: "none" },
     }));
   },
-  ["beaches-with-unique-cameras-v4"],
+  ["beaches-with-unique-cameras-v5"],
   { revalidate: 3600 },
 );

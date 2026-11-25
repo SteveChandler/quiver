@@ -220,6 +220,28 @@ describe("ZineHero heading level", () => {
     expect(document.querySelector("details summary")?.textContent).not.toMatch(/map|cam/i);
   });
 
+  it("offers the forecast and shows a still when the web cam is unavailable", () => {
+    const { container, rerender } = render(
+      <ZineHero beach={createMockBeach({ name: "Waikiki Canoes" })} />,
+    );
+    rerender(
+      <ZineHero
+        beach={createMockBeach({ name: "Waikiki Canoes" })}
+        sources={{
+          camera_url: "https://www.earthcam.com/usa/hawaii/waikiki/beach/",
+          cam_thumbnail_url: "/still.jpg",
+          web_cam_unavailable: true,
+        }}
+        forecastSlot={<h2>Waikiki Canoes Surf Forecast</h2>}
+      />,
+    );
+
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(screen.getByText("Live stream unavailable right now")).toBeVisible();
+    expect(screen.getByRole("link", { name: "View forecast" })).toHaveAttribute("href", "#beach-forecast");
+    expect(screen.getByRole("heading", { name: "Waikiki Canoes Surf Forecast" }).closest("#beach-forecast")).toBeInTheDocument();
+  });
+
   it("does not claim a lineup location on a beach photo", () => {
     render(
       <ZineHero

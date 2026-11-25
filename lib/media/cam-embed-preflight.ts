@@ -4,6 +4,7 @@ import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import {
   buildCamEmbed,
   getCamPlaybackState,
+  isWebCamPlaybackUnverified,
   type CamEmbedIntent,
   type CamPlaybackState,
 } from "@/lib/media/cam-embed";
@@ -134,11 +135,11 @@ export function playbackFromPreflight(
   return getCamPlaybackState(buildCamEmbed(cameraUrl), preflight.embedAllowed);
 }
 
-/** The playback the beach page will give for this camera. */
+/** The playback the web beach page will give for this camera. */
 export async function resolveCamPlayback(
   cameraUrl: string | null | undefined,
 ): Promise<CamPlaybackState> {
-  if (!cameraUrl || isBlockedCameraUrl(cameraUrl)) return { kind: "none" };
+  if (!cameraUrl || isWebCamPlaybackUnverified(cameraUrl)) return { kind: "none" };
   if (buildCamEmbed(cameraUrl).kind === "none") return { kind: "none" };
   return playbackFromPreflight(cameraUrl, await getCamPreflight(cameraUrl));
 }

@@ -6,7 +6,7 @@ import {
   createSuccessResponse,
   handleApiError,
 } from "@/lib/middleware/api-wrappers";
-import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl, isWebCamPlaybackUnverified, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 import { toNativeCamEmbed } from "@/lib/media/native-cam-embed";
 import { withErrorNoStore } from "@/lib/middleware/api-wrappers/error-cache-wrapper";
 import { getCamPreflight, playbackFromPreflight } from "@/lib/media/cam-embed-preflight";
@@ -90,6 +90,7 @@ async function handleGet(request: NextRequest, props: { params: Promise<{ id: st
 
     let cameraUrl: string | null = (data as any)?.camera_url || null;
     let cameraThumbnailUrl: string | null = (data as any)?.thumbnail_url || null;
+    const webCamUnavailable = isWebCamPlaybackUnverified(cameraUrl);
 
     const blockedCamera = isBlockedCameraUrl(cameraUrl);
     if (blockedCamera) {
@@ -150,7 +151,7 @@ async function handleGet(request: NextRequest, props: { params: Promise<{ id: st
     let camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
     if (cameraUrl && preflight) {
       embedAllowed = preflight.embedAllowed;
-      // The cam directory reads the same rule, so the card, the web player and the native hero agree.
+      // Keep the existing playback fields for native consumers.
       if (playbackFromPreflight(cameraUrl, preflight).kind === "none") {
         cameraUrl = null;
         cameraThumbnailUrl = null;
@@ -168,6 +169,7 @@ async function handleGet(request: NextRequest, props: { params: Promise<{ id: st
       cam_thumbnail_url: cameraThumbnailUrl,
       cam_kind: camIntent.kind,
       cam_embed: toNativeCamEmbed(camIntent),
+      ...(webCamUnavailable ? { web_cam_unavailable: true } : {}),
       ...(blockedCamera || (!cameraUrl && RETIRED_CAMERA_BEACH_IDS.has(beachId))
         ? { cam_unavailable: true } : {}),
     };
