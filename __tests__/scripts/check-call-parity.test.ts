@@ -1,6 +1,10 @@
 /** @jest-environment node */
 
-import { missingParityEnv, parseParityArgs, rankDayAt } from "@/scripts/check-call-parity";
+import { DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS, resolveLocationAnchor } from "@/lib/alerts/location-freshness";
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import {
+  describeAnchor, HOME_REPLAY_LABELS, homeReplayUserLocation, missingParityEnv, parseParityArgs, rankDayAt,
+} from "@/scripts/check-call-parity";
 
 const USER_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -85,5 +89,38 @@ describe("rankDayAt", () => {
     await rankDayAt(rankDay, at)({ ...args, now: new Date("2026-11-16T15:43:00.000Z") });
     expect(rankDay).toHaveBeenNthCalledWith(1, { ...args, now: at });
     expect(rankDay).toHaveBeenNthCalledWith(2, { ...args, now: at });
+  });
+});
+
+describe("Home replay anchor", () => {
+  const home = { lat: 32.75, lon: -117.25 };
+  const fix = { lat: 32.8, lon: -117.21, captured_at: "2026-11-14T11:00:00Z" };
+  const at = new Date("2026-11-14T14:00:00Z");
+
+  it("gives Home the cron's anchor for a 3 h old fix 4 mi from home", () => {
+    expect(calculateDistanceInMiles(fix, home)).toBeCloseTo(4, 0);
+    const cron = resolveLocationAnchor(fix, at, home, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
+    expect(cron).toEqual({ source: "location", anchor: { lat: 32.8, lon: -117.21 } });
+    expect(homeReplayUserLocation("cron-anchor", fix, at, cron)).toEqual(cron.anchor);
+    expect(describeAnchor("location", homeReplayUserLocation("cron-anchor", fix, at, cron)!, fix.captured_at, at))
+      .toBe(describeAnchor(cron.source, cron.anchor, fix.captured_at, at));
+  });
+
+  it("keeps the no-fix model on the home beach when the fix is past Home's 15 minutes", () => {
+    const cron = resolveLocationAnchor(fix, at, home, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
+    expect(homeReplayUserLocation("no-fix", fix, at, cron)).toBeUndefined();
+    expect(homeReplayUserLocation("no-fix", fix, new Date("2026-11-14T11:10:00Z"), cron)).toEqual({ lat: 32.8, lon: -117.21 });
+    expect(HOME_REPLAY_LABELS["no-fix"]).toBe("Home with no fix (home anchor)");
+  });
+
+  it("uses the home beach on both models when the cron used the home beach", () => {
+    const cron = resolveLocationAnchor(fix, new Date("2026-11-15T11:00:01Z"), home, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
+    expect(cron.source).toBe("home");
+    expect(homeReplayUserLocation("cron-anchor", fix, at, cron)).toBeUndefined();
+  });
+
+  it("states source, coordinates to 2 decimals and the snapshot age", () => {
+    expect(describeAnchor("location", { lat: 32.8049, lon: -117.2051 }, fix.captured_at, at)).toBe("location (32.80, -117.21); snapshot age 3.00 h");
+    expect(describeAnchor("none", null, null, at)).toBe("none (none); snapshot age none");
   });
 });
