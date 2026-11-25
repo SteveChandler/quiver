@@ -261,3 +261,31 @@ describe('composite skip ceiling', () => {
     expect(details.appliedEffects).not.toContain('composite_skip');
   });
 });
+
+describe('size cap on a partial beach row (bulk route columns)', () => {
+  // The bulk RPC returns no aspect_deg, so the composite ceilings never ran for these rows.
+  const MISSION_BEACH = 'c02b4ede-69d9-440e-b8de-22ea4bde10ef';
+  const partial = (id: string) => {
+    const { aspect_deg: _aspect, ...row } = beach({ id, name: 'Mission Beach', slug: 'mission-beach' });
+    return row as Beach;
+  };
+  const big = (wave_height: string): EnhancedForecastEntity => forecast({
+    wave_height, wave_period: '14s', swell_1_period: '14s', wind_speed: '3 mph', wind_direction: 'E',
+  });
+
+  it('caps a capped beach above its size and leaves the same row uncapped at the cap', () => {
+    const above = scoreWindowConditionDetails(big('8.6 ft'), partial(MISSION_BEACH), 'advanced', null, []);
+    const atCap = scoreWindowConditionDetails(big('6 ft'), partial(MISSION_BEACH), 'advanced', null, []);
+    expect(atCap.score).toBeGreaterThan(39);
+    expect(atCap.decisionCeiling).toBe(100);
+    expect(above.score).toBeLessThanOrEqual(39);
+    expect(above.decisionCeiling).toBe(39);
+    expect(above.appliedEffects).toEqual(['closeout_size']);
+  });
+
+  it('does not cap a beach outside the list', () => {
+    const result = scoreWindowConditionDetails(big('8.6 ft'), partial('beach-1'), 'advanced', null, []);
+    expect(result.decisionCeiling).toBe(100);
+    expect(result.score).toBeGreaterThan(39);
+  });
+});

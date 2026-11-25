@@ -58,6 +58,7 @@
     "typecheck:strict-unused": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "db:types": "supabase gen types typescript --local 2>/dev/null > types/database.generated.ts",
     "db:types:remote": "supabase gen types typescript --linked 2>/dev/null > types/database.generated.ts",
+    "graph:schema": "node --import tsx scripts/db/graphify-schema.ts",
     "db:reset": "supabase db reset",
     "db:reset:types": "supabase db reset && yarn db:types",
     "db:advisor:rollback": "node scripts/db/rollback-validate-advisor-cleanup.mjs",

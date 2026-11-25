@@ -69,6 +69,13 @@ Work directly by default. Named agents, orchestration frameworks, MCP servers, p
 
 ## Context routing
 
+**Graph first.** Before you search or read files to learn how code, tables, or modules relate, query the graphify graph. It covers the code on `origin/main` and the live public schema (tables, FK references, views, functions, triggers). Use the absolute path, so it also works from a worktree:
+
+- `graphify query "<question>" --graph /Users/stevenchandler/Desktop/dev/quiver/graphify-out/graph.json`
+- `graphify explain "<table or symbol>" --graph …`, `graphify path "<A>" "<B>" --graph …`, `graphify affected "<table or symbol>" --graph …`
+
+Table nodes have the id `schema_public_schema_<name>` (for example `graphify affected "schema_public_schema_beaches"`); use the id, because a bare label such as `beaches` also matches code and fixtures. The graph has no code-to-table edges; find callers with `.from('<table>')` or `.rpc('<fn>')`. `graphify-out/BUILT_FROM` gives the commit; confirm in the files before you edit. Rebuild with `/Users/stevenchandler/Desktop/dev/.quiver/bin/graphify-refresh quiver` (schema DDL from `yarn graph:schema`; `.graphifyignore` keeps migrations and raw SQL out).
+
 Load only the references relevant to the task:
 
 - Repository architecture and directory map: `docs/ARCHITECTURE.md`, then the nearest local `ARCHITECTURE.md`

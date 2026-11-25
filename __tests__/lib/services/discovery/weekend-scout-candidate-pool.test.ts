@@ -295,6 +295,28 @@ describe("buildDriveRangeCandidatePool", () => {
     expect(result).toEqual(expect.objectContaining({ enumeratedCount: 3, filteredOutCount: 1 }));
   });
 
+  it("keeps a ring past the inner radius before the nearby cap", async () => {
+    // 30 beaches 1-30 mi out; the inner 10 would fill a nearest-first cap of 5 on their own.
+    const nearby: PoolBeach[] = Array.from({ length: 30 }, (_, index) => ({
+      beach: beach(`nearby-${index + 1}`, { lat: 33, lon: -118 } as Partial<Beach>),
+      relation: "nearby",
+      distanceMiles: index + 1,
+    }));
+    const loadPool = jest.fn().mockResolvedValue(nearby);
+
+    const result = await buildDriveRangeCandidatePool("user-1", {
+      anchor,
+      homeBeachId: null,
+      maxDriveMinutes: 45,
+      beyondMiles: 10,
+      nearbyCap: 5,
+    }, { loadPool, supabase: {} as never });
+
+    expect(result.candidates.map(({ beach: { id } }) => id)).toEqual([
+      "nearby-11", "nearby-12", "nearby-13", "nearby-14", "nearby-15",
+    ]);
+  });
+
   it("scores the 50 nearest beaches plus every saved and home spot in range", async () => {
     const nearby: PoolBeach[] = Array.from({ length: 60 }, (_, index) => ({
       beach: beach(`nearby-${index}`, { lat: 33, lon: -118 } as Partial<Beach>),

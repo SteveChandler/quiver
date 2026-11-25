@@ -9,7 +9,7 @@ const eventSchema = z.object({
     created_at: z.string().datetime({ offset: true }),
     from: z.string().optional(),
     to: z.array(z.email()).max(100).optional(),
-    bounce: z.object({ type: z.string() }).optional(),
+    bounce: z.object({ type: z.string(), subType: z.string().nullish() }).optional(),
     click: z.object({ link: z.string().max(4096).optional(), userAgent: z.string().max(1024).optional() }).optional(),
   }),
 });
@@ -28,9 +28,30 @@ export async function recordProviderEvent(raw: unknown, webhookId: string): Prom
       p_sender: z.email().parse(from).toLowerCase(), p_received_at: event.created_at });
     return true;
   }
-  await lifecycleRpc("record_lifecycle_provider_event", { p_webhook_id: webhookId, p_provider_id: event.data.email_id,
+  const args = { p_webhook_id: webhookId, p_provider_id: event.data.email_id,
     p_type: event.type, p_at: event.created_at, p_recipients: event.data.to ?? [],
     p_hard_bounce: ["permanent", "hard"].includes(event.data.bounce?.type.toLowerCase() ?? ""), p_link: event.data.click?.link ?? null,
-    p_user_agent: event.data.click?.userAgent ?? null });
+    p_user_agent: event.data.click?.userAgent ?? null };
+  try {
+    await lifecycleRpc("record_lifecycle_provider_event_v2", { ...args,
+      p_bounce_type: event.data.bounce?.type ?? null, p_bounce_subtype: event.data.bounce?.subType ?? null });
+  } catch (error) {
+    // Code deploys before 20261124160000_email_repeat_bounce_suppression.sql is applied; only a missing v2 falls back.
+    if (!isMissingFunction(error)) throw error;
+    console.warn("[email] record_lifecycle_provider_event_v2 is missing; used the old function", { code: missingFunctionCode(error) });
+    await lifecycleRpc("record_lifecycle_provider_event", args);
+  }
   return true;
+}
+
+const MISSING_FUNCTION_CODES: ReadonlySet<string> = new Set(["PGRST202", "42883"]);
+
+function missingFunctionCode(error: unknown): string | null {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const code = typeof cause === "object" && cause !== null ? (cause as { code?: unknown }).code : undefined;
+  return typeof code === "string" && MISSING_FUNCTION_CODES.has(code) ? code : null;
+}
+
+function isMissingFunction(error: unknown): boolean {
+  return missingFunctionCode(error) !== null;
 }

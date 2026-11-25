@@ -19,11 +19,12 @@ import type {
   ScoringDecisionEffect,
 } from "./types";
 import { DEFAULT_SCORING_CONFIG } from "./types";
-import { dedupeReasons, formatSmallSurf, oneSizeStory, takeReasons, type ReasonCode } from "./reason-sentences";
+import { dedupeReasons, formatHeightBand, formatSmallSurf, oneSizeStory, takeReasons, type ReasonCode } from "./reason-sentences";
 import { waveHeightCeiling } from "./wave-height-ceiling";
 import { windChopCeiling } from "./wind-chop-ceiling";
 import { isTideSwingEnabled } from "@/lib/flags/tide-swing";
 import { TIDE_EFFECT_CODES } from "./tide-swing";
+import { CLOSEOUT_SIZE_VERDICT_CEILING, closeoutSizeEffect } from "./closeout-size";
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.
@@ -125,6 +126,9 @@ export class ScoringEngine {
       allEffects.push(...(result.effects ?? []));
     }
 
+    const closeout = closeoutSizeEffect(input.profile.id, input.snapshot.waveHeight);
+    if (closeout) allEffects.push(closeout);
+
     const rawTotal = Math.round(weightedSum);
 
     // Apply post-composite quality ceilings. The underlying subscores remain
@@ -177,6 +181,12 @@ export class ScoringEngine {
           allReasonCodes.unshift('caution_tide');
         }
       }
+    }
+
+    // Past its size cap, the closeout line leads (Week Scout takeaway), not "Bigger surf at…".
+    if (closeout && CLOSEOUT_SIZE_VERDICT_CEILING < rawTotal && input.snapshot.waveHeight != null) {
+      allReasons.unshift(`Likely closing out at ${formatHeightBand(input.snapshot.waveHeight)}.`);
+      allReasonCodes.unshift('caution_size_over');
     }
 
     const matchQuality = this.classifyScore(total);

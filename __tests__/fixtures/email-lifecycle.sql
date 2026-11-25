@@ -25,7 +25,7 @@ CREATE TABLE user_events(user_id uuid,bot_flagged boolean,event_type text,create
 CREATE TABLE revenuecat_provider_events(provider_event_id text PRIMARY KEY,app_user_id uuid,environment text,processed_at timestamptz,product_id text,period_type text,event_type text,purchased_at timestamptz,expiration_at timestamptz,event_timestamp timestamptz);
 ALTER TABLE email_send_log ADD COLUMN id bigserial PRIMARY KEY, ADD COLUMN subject text, ADD COLUMN local_date date, ADD COLUMN meta jsonb, ADD COLUMN message_instance_id uuid;
 
-ALTER TABLE email_suppression_list ADD COLUMN reason text;
+ALTER TABLE email_suppression_list ADD COLUMN reason text CONSTRAINT email_suppression_list_reason_check CHECK (reason IN ('hard_bounce','typo','manual','complaint'));
 CREATE UNIQUE INDEX ON email_suppression_list(email);
 ALTER TABLE email_send_log ADD COLUMN delivered_at timestamptz,ADD COLUMN opened_at timestamptz,ADD COLUMN clicked_at timestamptz,ADD COLUMN bounced_at timestamptz;
 CREATE TABLE email_delivery_events(id bigserial PRIMARY KEY,email_send_log_id bigint,resend_message_id text,webhook_message_id text UNIQUE,event_type text CONSTRAINT email_delivery_events_event_type_check CHECK(event_type IN ('email.delivered','email.opened','email.clicked','email.bounced')),event_at timestamptz);

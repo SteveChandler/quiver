@@ -295,6 +295,8 @@ export type SimilarityRecommendation =
       reasons: string[];
       sessionCount: number;
       similarSessionCount?: number;
+      /** Biggest face height (ft) among the user's eligible logged sessions. */
+      maxLoggedWaveFt?: number;
     };
 
 export interface SurfDiscoveryEntitlement {
