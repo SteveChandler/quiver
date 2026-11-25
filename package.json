@@ -257,7 +257,7 @@
     "resend/**/uuid": "^11.1.1",
     "@supabase/supabase-js/**/ws": "^8.20.1",
     "jest-environment-jsdom/**/ws": "^8.20.1",
-    "dompurify": "^3.4.13",
+    "dompurify": "^3.5.0",
     "sharp": "^0.35.4",
     "esbuild": "^0.28.1"
   }
