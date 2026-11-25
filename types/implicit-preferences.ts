@@ -852,6 +852,8 @@ export interface MapLoadFailedMetadata {
   error_type: 'token_invalid' | 'network' | 'webgl_unsupported' | 'tile_error' | 'timeout' | 'unknown';
   /** Time from mount to failure, in ms */
   time_to_failure_ms?: number;
+  /** True when the map already made its silent retry after a load timeout */
+  auto_retried?: boolean;
 }
 
 /** Metadata for forecast_ready events */
