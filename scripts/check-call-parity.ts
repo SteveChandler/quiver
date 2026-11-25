@@ -1,4 +1,5 @@
-import type { LocationAnchor } from "@/lib/alerts/location-freshness";
+import type { LocationAnchor, LocationSnapshot } from "@/lib/alerts/location-freshness";
+import { getWeekScoutLocation } from "@/lib/services/discovery/week-scout-scope";
 import type { RankDay } from "@/lib/cron/daily-call-runner";
 import type { DailyCallPayload } from "@/lib/notifications/types/daily-call";
 import type { CanonicalWeekScoutResponse, WeekScoutDayResponse, WeekScoutWindowResponse } from "@/lib/services/discovery/week-scout";
@@ -46,6 +47,40 @@ export function missingParityEnv(env: Readonly<Record<string, string | undefined
   return ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"].filter((name) => !env[name]?.trim());
 }
 
+/**
+ * A surfer who taps the push normally gives Home a fresh fix near the snapshot the cron ranked
+ * around, so "cron-anchor" is the like-for-like Home. "no-fix" is a cold open with no fix under
+ * Home's 15-minute rule, where Home falls back to the home beach.
+ */
+export type HomeReplayModel = "cron-anchor" | "no-fix";
+export const HOME_REPLAY_MODELS: readonly HomeReplayModel[] = ["cron-anchor", "no-fix"];
+export const HOME_REPLAY_LABELS: Readonly<Record<HomeReplayModel, string>> = {
+  "cron-anchor": "Home with the cron's anchor",
+  "no-fix": "Home with no fix (home anchor)",
+};
+
+/** The userLocation the Week Scout route would get; undefined makes it use the home beach. */
+export function homeReplayUserLocation(
+  model: HomeReplayModel,
+  snapshot: LocationSnapshot | null | undefined,
+  at: Date,
+  cronAnchor: LocationAnchor,
+): { lat: number; lon: number } | undefined {
+  if (model === "no-fix") return getWeekScoutLocation(snapshot ?? null, at.getTime());
+  return cronAnchor.source === "location" && cronAnchor.anchor ? cronAnchor.anchor : undefined;
+}
+
+export function describeAnchor(
+  source: string,
+  anchor: { lat: number; lon: number } | null,
+  snapshotCapturedAt: string | null | undefined,
+  at: Date,
+): string {
+  const coordinates = anchor ? `(${anchor.lat.toFixed(2)}, ${anchor.lon.toFixed(2)})` : "(none)";
+  const ageMs = snapshotCapturedAt ? at.getTime() - Date.parse(snapshotCapturedAt) : NaN;
+  return `${source} ${coordinates}; snapshot age ${Number.isFinite(ageMs) ? `${(ageMs / 3_600_000).toFixed(2)} h` : "none"}`;
+}
+
 const READ_ONLY_RPCS = new Set([
   // STABLE SELECT of eligible beaches: 20260902093602_add_humboldt_surf_beaches.sql.
   "get_weekend_scout_candidates",
@@ -72,9 +107,9 @@ function sameAnchor(left: LocationAnchor, right: LocationAnchor): boolean {
     && left.anchor?.lon === right.anchor?.lon;
 }
 
-function compareCalls(label: string, left: CallPick | null, right: CallPick | null, reason: string, window: boolean): void {
+function compareCalls(label: string, left: CallPick | null, right: CallPick | null, reason: string, window: boolean, anchors: string): void {
   if (!left || !right) {
-    console.log(`${label}: n/a (${reason})`);
+    console.log(`${label}: n/a (${reason}); ${anchors}`);
     return;
   }
   const differences: string[] = [];
@@ -82,7 +117,7 @@ function compareCalls(label: string, left: CallPick | null, right: CallPick | nu
   if (window && (Date.parse(left.start) !== Date.parse(right.start) || Date.parse(left.end) !== Date.parse(right.end))) {
     differences.push("display window");
   }
-  console.log(`${label}: ${differences.length ? `DIFFER (${differences.join(", ")})` : "AGREE"}`);
+  console.log(`${label}: ${differences.length ? `DIFFER (${differences.join(", ")})` : "AGREE"}; ${anchors}`);
 }
 
 async function main(): Promise<void> {
@@ -173,7 +208,7 @@ async function main(): Promise<void> {
     const { capNearbyPool, loadUserPool } = await import("@/lib/alerts/user-pool");
     const { buildDriveRangeCandidatePool } = await import("@/lib/services/discovery/weekend-scout-candidate-pool");
     const { DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS, isAwayFromHome, resolveLocationAnchor } = await import("@/lib/alerts/location-freshness");
-    const { getWeekScoutLocation, resolveWeekScoutScopeAnchor } = await import("@/lib/services/discovery/week-scout-scope");
+    const { resolveWeekScoutScopeAnchor } = await import("@/lib/services/discovery/week-scout-scope");
     const { isWeekScoutSwellsEnabled, isWeekScoutSwellsUserAllowed } = await import("@/lib/flags/week-scout-swells");
     const { getLocalDateString, resolveBeachTimezone } = await import("@/lib/utils/timezone-utils");
     const { localDateTimeToUTC } = await import("@/lib/utils/forecast-time-resolver");
@@ -200,6 +235,15 @@ async function main(): Promise<void> {
     assert.equal(sameAnchor(fixtureCall, { source: "home", anchor: { lat: 1, lon: 4 } }), false);
     assert.equal(sameAnchor(fixtureCall, { ...fixtureCall, source: "location" }), false);
     assert.equal(sameAnchor({ anchor: null, source: "none" }, { anchor: null, source: "none" }), true);
+    // A 3 h old fix 4 mi from home: the cron ranks around it, and so must the like-for-like Home.
+    const nearHome = { lat: 32.75, lon: -117.25 };
+    const nearFix = { lat: 32.80, lon: -117.21, captured_at: "2026-11-14T11:00:00Z" };
+    const nearAt = new Date("2026-11-14T14:00:00Z");
+    assert.ok(Math.abs(calculateDistanceInMiles(nearFix, nearHome) - 4) < 0.5);
+    const nearCron = resolveLocationAnchor(nearFix, nearAt, nearHome, DAILY_CALL_LOCATION_FIX_MAX_AGE_HOURS);
+    assert.equal(nearCron.source, "location");
+    assert.deepEqual(homeReplayUserLocation("cron-anchor", nearFix, nearAt, nearCron), nearCron.anchor);
+    assert.equal(homeReplayUserLocation("no-fix", nearFix, nearAt, nearCron), undefined);
 
     // Libraries may catch fetch errors and degrade; a latched violation must still stop the CLI.
     const read = async <T>(path: string, run: () => Promise<T>): Promise<T> => {
@@ -282,11 +326,20 @@ async function main(): Promise<void> {
       console.log(`  ${beachName(pick.beachId)} (${pick.beachId}); ${local(pick.displayWindowStart)} – ${local(pick.displayWindowEnd)}; personalVerdict=${pick.personalVerdict ?? "missing"}; personalLabel=${pick.personalLabel ?? "missing"}; conditionScore=${pick.conditionScore}`);
       return { beachId: pick.beachId, start: pick.displayWindowStart, end: pick.displayWindowEnd };
     };
-    const loadHomeAt = async (poolAt: Date): Promise<CanonicalWeekScoutResponse | null> => {
-      const resolved = await read(`Home anchor at ${poolAt.toISOString()}`, () => resolveWeekScoutScopeAnchor(
-        client, null, getWeekScoutLocation(profile.location, poolAt.getTime()), profile.homeBeachId,
+    interface HomeReplay { response: CanonicalWeekScoutResponse | null; anchor: string }
+    const homeCache = new Map<string, Promise<CanonicalWeekScoutResponse | null>>();
+    const loadHomeAt = async (poolAt: Date, model: HomeReplayModel, cronAnchor: LocationAnchor): Promise<HomeReplay> => {
+      const resolved = await read(`${HOME_REPLAY_LABELS[model]} anchor at ${poolAt.toISOString()}`, () => resolveWeekScoutScopeAnchor(
+        client, null, homeReplayUserLocation(model, profile.location, poolAt, cronAnchor), profile.homeBeachId,
       ));
-      if (!resolved) return null;
+      const anchor = describeAnchor(resolved?.source ?? "none", resolved?.anchor ?? null, profile.location?.captured_at, poolAt);
+      console.log(`${HOME_REPLAY_LABELS[model]} anchor at ${local(poolAt)}: ${anchor}`);
+      if (!resolved) return { response: null, anchor };
+      const key = `${poolAt.toISOString()}|${resolved.anchor.lat}|${resolved.anchor.lon}`;
+      if (!homeCache.has(key)) homeCache.set(key, buildHomeAt(poolAt, resolved));
+      return { response: await homeCache.get(key)!, anchor };
+    };
+    const buildHomeAt = async (poolAt: Date, resolved: { anchor: { lat: number; lon: number }; source: string }): Promise<CanonicalWeekScoutResponse | null> => {
       const homePool = await read(`Home pool at ${poolAt.toISOString()}`, () => buildDriveRangeCandidatePool(profile.id, {
         anchor: resolved.anchor, homeBeachId: profile.homeBeachId,
         maxDriveMinutes: profile.maxDriveMinutes, filters: undefined,
@@ -301,15 +354,24 @@ async function main(): Promise<void> {
         ...(isWeekScoutSwellsEnabled() && isWeekScoutSwellsUserAllowed(profile.id) ? { includeSwells: true } : {}),
       }, weekScoutDependenciesAt(poolAt)));
     };
-    const home = await loadHomeAt(at);
-    const homePick = showScout(`Home for ${date} (7-day request starts ${date}; pool at ${local(at)})`, home, date, at);
+    const cronAnchorText = describeAnchor(anchorAtCall.source, anchorAtCall.anchor, profile.location?.captured_at, at);
+    const eveningAnchorText = describeAnchor(anchorAtEvening.source, anchorAtEvening.anchor, profile.location?.captured_at, eveningAt);
+    console.log(`Cron anchor at ${local(at)}: ${cronAnchorText}`);
+    const homeD = new Map<HomeReplayModel, HomeReplay & { pick: CallPick | null }>();
+    for (const model of HOME_REPLAY_MODELS) {
+      const replay = await loadHomeAt(at, model, anchorAtCall);
+      const pick = showScout(`${HOME_REPLAY_LABELS[model]} for ${date} (7-day request starts ${date}; pool at ${local(at)}; anchor ${replay.anchor})`, replay.response, date, at);
+      homeD.set(model, { ...replay, pick });
+    }
     const cronScout = await read("Crons -> rankDayWithWeekScout (7-day week, day D)", () => rankDayAt(rankDayWithWeekScout, at)({
       userId: profile.id, poolBeachIds: pool.map(({ beach }) => beach.id), timezone,
       localDate: date, sessionTime, anchor: anchorAtCall.anchor, weekStartLocalDate: date,
       driveRadiusMiles: driveRadiusMiles(profile.maxDriveMinutes),
     }));
-    const cronPick = showScout(`Crons' Week Scout for ${date} (pool at ${local(at)})`, cronScout, date, at);
-    console.log(`D bestWindowId: Home=${home?.days.find((day) => day.localDate === date)?.bestWindowId ?? "null"}; cron=${cronScout.days[0]?.bestWindowId ?? "null"}`);
+    const cronPick = showScout(`Crons' Week Scout for ${date} (pool at ${local(at)}; anchor ${cronAnchorText})`, cronScout, date, at);
+    for (const model of HOME_REPLAY_MODELS) {
+      console.log(`D bestWindowId: ${HOME_REPLAY_LABELS[model]}=${homeD.get(model)!.response?.days.find((day) => day.localDate === date)?.bestWindowId ?? "null"}; cron=${cronScout.days[0]?.bestWindowId ?? "null"}`);
+    }
 
     console.log(`Daily Call push preferences forced on; real notif_push_enabled=${profile.notifPushEnabled}; notif_forecast_alerts=${profile.notifForecastAlerts}. Dedupe bypassed; enqueue is a successful no-op.`);
     const dailyResults: Array<{ pick: CallPick | null; reason: string }> = [];
@@ -355,7 +417,8 @@ async function main(): Promise<void> {
       for (const { beach } of removed) console.log(`  - ${beach.name} (${beach.id})`);
     }
     for (const { beach } of eveningPool) beachNames.set(beach.id, beach.name);
-    const eveningHome = await loadHomeAt(eveningAt);
+    const homeTomorrowByModel = new Map<HomeReplayModel, HomeReplay>();
+    for (const model of HOME_REPLAY_MODELS) homeTomorrowByModel.set(model, await loadHomeAt(eveningAt, model, anchorAtEvening));
     console.log(`Swell evening at: ${local(eveningAt)} (${eveningAt.toISOString()}); target D+1: ${tomorrowDate}`);
     const swellProfile = (await read("loadSwellAlertProfiles", () => loadSwellAlertProfiles(client, eveningAt, [args.userId])))[0];
     const swellLeads: Array<CallPick | null> = [];
@@ -377,17 +440,28 @@ async function main(): Promise<void> {
         swellLeads.push(ordered[0] ? { beachId: ordered[0].beach.id, start: "", end: "" } : null);
       }
     }
-    const homeTomorrow = showScout(`Home tomorrow card for ${tomorrowDate} (pool at ${local(eveningAt)})`, eveningHome, tomorrowDate, eveningAt);
+    const homeTomorrowPicks = new Map<HomeReplayModel, CallPick | null>();
+    for (const model of HOME_REPLAY_MODELS) {
+      const replay = homeTomorrowByModel.get(model)!;
+      homeTomorrowPicks.set(model, showScout(`${HOME_REPLAY_LABELS[model]}, tomorrow card for ${tomorrowDate} (pool at ${local(eveningAt)}; anchor ${replay.anchor})`, replay.response, tomorrowDate, eveningAt));
+    }
     const homeReason = (response: CanonicalWeekScoutResponse | null, dayDate: string): string => !response ? "no location/home anchor"
       : !response.days.some((day) => day.localDate === dayDate) ? `${dayDate} outside Home's 7 days` : "no open Home pick";
-    for (const [index, flag] of ["off", "on"].entries()) {
-      const daily = dailyResults[index];
-      compareCalls(`Daily Call (flag ${flag}) vs Home D`, daily.pick, homePick, !daily.pick ? `silent: ${daily.reason}` : homeReason(home, date), true);
-    }
-    compareCalls("Crons' pick vs Home D", cronPick, homePick, !cronPick ? "no open cron pick" : homeReason(home, date), true);
-    for (const [index, flag] of ["off", "on"].entries()) {
-      compareCalls(`Swell lead (flag ${flag}) vs Home D+1`, swellLeads[index], homeTomorrow,
-        !swellLeads[index] ? `silent: ${swellSilentReason}` : homeReason(eveningHome, tomorrowDate), false);
+    for (const model of HOME_REPLAY_MODELS) {
+      const label = HOME_REPLAY_LABELS[model];
+      const { response: home, anchor: homeAnchor, pick: homePick } = homeD.get(model)!;
+      const dAnchors = `cron anchor: ${cronAnchorText}; Home anchor: ${homeAnchor}`;
+      for (const [index, flag] of ["off", "on"].entries()) {
+        const daily = dailyResults[index];
+        compareCalls(`Daily Call (flag ${flag}) vs ${label} D`, daily.pick, homePick, !daily.pick ? `silent: ${daily.reason}` : homeReason(home, date), true, dAnchors);
+      }
+      compareCalls(`Crons' pick vs ${label} D`, cronPick, homePick, !cronPick ? "no open cron pick" : homeReason(home, date), true, dAnchors);
+      const evening = homeTomorrowByModel.get(model)!;
+      for (const [index, flag] of ["off", "on"].entries()) {
+        compareCalls(`Swell lead (flag ${flag}) vs ${label} D+1`, swellLeads[index], homeTomorrowPicks.get(model) ?? null,
+          !swellLeads[index] ? `silent: ${swellSilentReason}` : homeReason(evening.response, tomorrowDate), false,
+          `swell anchor: ${eveningAnchorText}; Home anchor: ${evening.anchor}`);
+      }
     }
   } catch (error) {
     const failure = violation ?? error;
