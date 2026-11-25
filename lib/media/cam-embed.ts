@@ -9,6 +9,17 @@ export type CamEmbedIntent =
   | { kind: "hdontap"; pageUrl: string }
   | { kind: "external"; pageUrl: string; provider: string };
 
+export function isWebCamPlaybackUnverified(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    // EarthCam pages can permit framing while the signed-out video stays blank.
+    const hostname = new URL(url).hostname.replace(/^www\./, "").replace(/\.$/, "");
+    return hostname === "earthcam.com";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Returns a browser-navigable URL for "Open cam" links.
  * Returns null for .m3u8 URLs (not useful in a browser tab) and invalid URLs.

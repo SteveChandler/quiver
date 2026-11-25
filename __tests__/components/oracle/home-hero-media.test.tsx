@@ -116,6 +116,14 @@ describe("HomeHeroMedia", () => {
     expect(await screen.findByTestId("hero-cam")).toHaveTextContent("Live cam of Ocean Beach Pier");
   });
 
+  it("does not offer a cam that web playback cannot verify", () => {
+    renderMedia({
+      sources: { camera_url: "https://www.earthcam.com/usa/hawaii/waikiki/beach/", web_cam_unavailable: true },
+    });
+
+    expect(screen.queryByRole("tab", { name: "Cam" })).toBeNull();
+  });
+
   it("never offers a photo it does not have, or a map without a provider", () => {
     mockGetStaticMapImageUrl.mockReturnValue("data:image/svg+xml;base64,placeholder");
     renderMedia({ photoUrl: null });
