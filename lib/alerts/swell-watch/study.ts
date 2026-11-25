@@ -26,7 +26,7 @@ export class SwellWatchStudySkip extends Error {
   }
 }
 
-export type SwellWatchStudyStage = "study_completion" | "study_evaluation" | "study_recording";
+type SwellWatchStudyStage = "study_completion" | "study_evaluation" | "study_recording";
 
 export async function readSwellWatchStudyStatus(
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
