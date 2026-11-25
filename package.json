@@ -239,7 +239,7 @@
     "@types/mapbox__point-geometry": "0.1.4",
     "serialize-javascript": "^7.0.5",
     "@tootallnate/once": "2.0.1",
-    "node-forge": "^1.4.0",
+    "node-forge": "^1.4.4",
     "picomatch": "^2.3.2",
     "flatted": "^3.3.3",
     "path-to-regexp": "^8.0.0",
