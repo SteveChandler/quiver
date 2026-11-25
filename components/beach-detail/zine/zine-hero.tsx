@@ -5,6 +5,7 @@ import type { ZineBeachPhoto } from "./types";
 import { ZineHeroMedia } from "./zine-hero-media";
 import { isBlockedCameraUrl } from "@/lib/media/camera-provider-policy";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
+import { Button } from "@/components/ui/button";
 import {
   SaltyEyebrow,
   SkillBars,
@@ -33,7 +34,7 @@ interface ZineHeroProps {
 export function ZineHero({
   beach,
   beachPhoto,
-  sources,
+  sources: rawSources,
   headingLevel = "h1",
   headingSuffix,
   summarySlot,
@@ -58,6 +59,8 @@ export function ZineHero({
   // The hero panel shows the live cam when there is one, else real imagery,
   // else the spot map. The collapsed map below appears only when the hero
   // shows something other than the map.
+  const webCamUnavailable = rawSources?.web_cam_unavailable;
+  const sources = webCamUnavailable ? { ...rawSources, camera_url: null } : rawSources;
   const hasLiveCam =
     !!sources?.camera_url && buildCamEmbed(sources.camera_url).kind !== "none";
   const heroShowsImagery = hasLiveCam || !!(
@@ -125,9 +128,17 @@ export function ZineHero({
           features={beach.features}
         />
 
+        {webCamUnavailable ? (
+          <Button asChild variant="link" className="mt-2 px-0 underline">
+            <a href={forecastSlot ? "#beach-forecast" : "?tab=forecast#operational-forecast"}>
+              View forecast
+            </a>
+          </Button>
+        ) : null}
+
         {summarySlot && !summaryAboveMedia ? <div className="mt-5">{summarySlot}</div> : null}
 
-        {forecastSlot ? <div className="mt-5">{forecastSlot}</div> : null}
+        {forecastSlot ? <div id="beach-forecast" className="mt-5 scroll-mt-20">{forecastSlot}</div> : null}
         {children}
         {metaItems.length > 0 || beach.best_conditions_prose ? (
         <details className="mt-6 border-t border-[#11100D]/30 pt-4">
