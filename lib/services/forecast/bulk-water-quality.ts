@@ -17,6 +17,7 @@ export type BulkWaterQuality = Record<string, SurfCallWaterQuality>;
 interface ResolveBulkWaterQualityOptions {
   client?: WaterQualityHoldClient;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 /**
@@ -25,10 +26,11 @@ interface ResolveBulkWaterQualityOptions {
  * events or County streak history, so it would drop rain notices that Beach
  * Detail shows.
  *
- * Returns null when the status is not known (read error, timeout, unresolved
- * read), so a client never reads a missing status as clean water. A beach
- * whose County feed is stale is left out for the same reason. A clean beach
- * maps to null.
+ * Returns null when nothing is known (read error, timeout, abort). A beach
+ * whose status is not known (unresolved read, stale County feed) is left out
+ * unless the read still found its notice, as `/api/surf/call` shows it, so a
+ * client never reads a missing status as clean water. A clean beach maps to
+ * null.
  */
 export async function resolveBulkWaterQuality(
   beachIds: readonly string[],
@@ -45,8 +47,13 @@ export async function resolveBulkWaterQuality(
     endsAt,
   }));
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<"timeout">((resolve) => {
+  let onAbort: (() => void) | undefined;
+  // The notice is optional, so a slow read or a request past its deadline skips it.
+  const timeout = new Promise<"timeout" | "aborted">((resolve) => {
     timer = setTimeout(() => resolve("timeout"), options.timeoutMs ?? BULK_WATER_QUALITY_TIMEOUT_MS);
+    onAbort = () => resolve("aborted");
+    if (options.signal?.aborted) onAbort();
+    else options.signal?.addEventListener("abort", onAbort, { once: true });
   });
   // Only the read is caught; a fault in the mapping below still fails the request.
   const read = resolveWaterQualityHolds(candidates, options.client ? { client: options.client } : {})
@@ -54,17 +61,21 @@ export async function resolveBulkWaterQuality(
       console.error("[forecast-bulk:water-quality-error]", error);
       return "error" as const;
     });
-  const resolution = await Promise.race([read, timeout]).finally(() => clearTimeout(timer));
+  const resolution = await Promise.race([read, timeout]).finally(() => {
+    clearTimeout(timer);
+    if (onAbort) options.signal?.removeEventListener("abort", onAbort);
+  });
   if (resolution === "timeout") {
     console.warn("[forecast-bulk:water-quality-timeout]", { beachCount: beachIds.length });
     return null;
   }
-  if (resolution === "error" || resolution.state !== "resolved") return null;
+  if (resolution === "error" || resolution === "aborted") return null;
   const unverified = new Set((resolution.unverifiedBeachIds ?? []).map((id) => id.toLowerCase()));
   const result: BulkWaterQuality = {};
   for (const beachId of beachIds) {
-    if (unverified.has(beachId.toLowerCase())) continue;
-    result[beachId] = surfCallWaterQuality(resolution, beachId);
+    const notice = surfCallWaterQuality(resolution, beachId);
+    const known = resolution.state === "resolved" && !unverified.has(beachId.toLowerCase());
+    if (notice !== null || known) result[beachId] = notice;
   }
   return result;
 }

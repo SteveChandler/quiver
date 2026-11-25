@@ -792,6 +792,9 @@ export async function bulkForecastHandler(
     const includeConditions = searchParams.get("includeConditions") === "true";
     const timelineResponseOnly = (isHourlyTimelineExtension && timelineOnlyParam !== "false") || isHourlyTimelineOnly;
     const loadScoring = includeConditions || !timelineResponseOnly;
+    if (includeWaterQualityParam === "true" && timelineResponseOnly) {
+      return createValidationError("includeWaterQuality requires the forecast response, not timelineOnly");
+    }
     const now = new Date();
     const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
     const [forecastResult, hourlyRowsResult, nextStartResult] = await Promise.all([
@@ -854,8 +857,10 @@ export async function bulkForecastHandler(
     // Water quality informs and never holds the call (Steven, 2026-10-28); the map shows it beside the rating.
     // Opt-in: the live water-quality reads sit outside the one-RPC read budget of the default request.
     const waterQualityPromise = decisionContext && includeWaterQualityParam === "true"
-      ? resolveBulkWaterQuality(decisionContext.beaches.map((beach) => beach.id), fetchWindow.selectedAt ?? now)
+      ? resolveBulkWaterQuality(decisionContext.beaches.map((beach) => beach.id), fetchWindow.selectedAt ?? now, { signal })
       : Promise.resolve(null);
+    // An early return leaves it unawaited; the await below still sees a rejection.
+    waterQualityPromise.catch(() => undefined);
     const forecastsByBeach = groupForecastsByBeach(data);
     const waveHeightMap: Record<string, number | undefined> = {};
     const displayForecastMap: Record<string, ForecastDisplay | undefined> = {};
@@ -1055,7 +1060,6 @@ export async function bulkForecastHandler(
     }
 
     const waterQuality = await waterQualityPromise;
-    signal.throwIfAborted();
     const response = {
       forecasts: waveHeightMap,
       displayForecasts: displayForecastMap,

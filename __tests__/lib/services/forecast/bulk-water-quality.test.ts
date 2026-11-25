@@ -25,6 +25,14 @@ it("returns null when the read runs past its time limit", async () => {
   warn.mockRestore();
 });
 
+it("returns null when the request aborts during the read", async () => {
+  mockResolve.mockReturnValue(new Promise(() => {}));
+  const controller = new AbortController();
+  const pending = resolveBulkWaterQuality([BEACH], AT, { signal: controller.signal });
+  controller.abort();
+  await expect(pending).resolves.toBeNull();
+});
+
 it("asks the live resolver for every beach at the selected hour", async () => {
   mockResolve.mockResolvedValue({ state: "resolved", heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: "e" });
   await expect(resolveBulkWaterQuality([BEACH], AT)).resolves.toEqual({ [BEACH]: null });

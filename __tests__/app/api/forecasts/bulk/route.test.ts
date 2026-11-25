@@ -2816,22 +2816,61 @@ describe("/api/forecasts/bulk", () => {
         forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1), forecastRow(BOUND_BEACH_ID_TWO, "2.5", -1)],
         beachRows: [beachRow(BOUND_BEACH_ID), beachRow(BOUND_BEACH_ID_TWO)],
       });
-      mockResolveWaterQualityHolds.mockResolvedValue({ ...CLEAN_WATER_QUALITY, unverifiedBeachIds: [BOUND_BEACH_ID_TWO] });
+      mockResolveWaterQualityHolds.mockResolvedValue({ ...CLEAN_WATER_QUALITY, unverifiedBeachIds: [BOUND_BEACH_ID_TWO, BOUND_BEACH_ID_THREE] });
 
       const body = await bulkFor([BOUND_BEACH_ID, BOUND_BEACH_ID_TWO], "203.0.113.251");
 
       expect(body.data.waterQuality).toEqual({ [BOUND_BEACH_ID]: null });
     });
 
-    it.each([
-      ["the read fails", () => mockResolveWaterQualityHolds.mockRejectedValue(new Error("water quality down"))],
-      ["the read is unresolved", () => mockResolveWaterQualityHolds.mockResolvedValue({ ...CLEAN_WATER_QUALITY, state: "unresolved" })],
-    ])("omits the water status but keeps the rating when %s", async (_label, arrange) => {
+    it("still shows a rain notice on a beach whose County feed is stale", async () => {
       mockBulkQueries({
         forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1)],
         beachRows: [beachRow(BOUND_BEACH_ID)],
       });
-      arrange();
+      mockResolveWaterQualityHolds.mockResolvedValue({
+        ...CLEAN_WATER_QUALITY,
+        unverifiedBeachIds: [BOUND_BEACH_ID],
+        waterQualityNoticeByBeachId: { [BOUND_BEACH_ID]: { source: "rain", rainAdvisory: RAIN_ADVISORY } },
+      });
+
+      const body = await bulkFor([BOUND_BEACH_ID], "203.0.113.246");
+
+      expect(body.data.waterQuality).toEqual({ [BOUND_BEACH_ID]: { status: "advisory", source: "rain", rainAdvisory: RAIN_ADVISORY } });
+    });
+
+    it("keeps the holds an unresolved read knows and leaves out the rest", async () => {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1), forecastRow(BOUND_BEACH_ID_TWO, "2.5", -1)],
+        beachRows: [beachRow(BOUND_BEACH_ID), beachRow(BOUND_BEACH_ID_TWO)],
+      });
+      mockResolveWaterQualityHolds.mockResolvedValue({
+        ...CLEAN_WATER_QUALITY,
+        state: "unresolved",
+        heldBeachIds: [BOUND_BEACH_ID_TWO],
+        waterQualityEvidenceByBeachId: { [BOUND_BEACH_ID_TWO]: { source: "hold" } },
+      });
+
+      const body = await bulkFor([BOUND_BEACH_ID, BOUND_BEACH_ID_TWO], "203.0.113.248");
+
+      expect(body.data.waterQuality).toEqual({ [BOUND_BEACH_ID_TWO]: { status: "hold", source: "hold" } });
+      expect(body.data.conditionScores[BOUND_BEACH_ID_TWO]).toBe(72);
+    });
+
+    it("rejects includeWaterQuality on a timeline-only request", async () => {
+      const response = await GET(
+        createMockRequest("GET", `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}&timeline=hourly&timelineOnly=true&includeWaterQuality=true`, { headers: { "x-forwarded-for": "203.0.113.247" } }),
+      );
+      expect(response.status).toBe(400);
+      expect(mockResolveWaterQualityHolds).not.toHaveBeenCalled();
+    });
+
+    it("omits the water status but keeps the rating when the read fails", async () => {
+      mockBulkQueries({
+        forecastRows: [forecastRow(BOUND_BEACH_ID, "2.5", -1)],
+        beachRows: [beachRow(BOUND_BEACH_ID)],
+      });
+      mockResolveWaterQualityHolds.mockRejectedValue(new Error("water quality down"));
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       try {
         const body = await bulkFor([BOUND_BEACH_ID], "203.0.113.252");
