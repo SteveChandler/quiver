@@ -111,8 +111,7 @@ for USER_ID in "${USER_IDS[@]}"; do
     # Make DELETE request
     HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/delete-response.txt -X DELETE \
       "https://${PROJECT_REF}.supabase.co/auth/v1/admin/users/${USER_ID}" \
-      -H "apikey: ${SERVICE_ROLE_KEY}" \
-      -H "Authorization: Bearer ${SERVICE_ROLE_KEY}")
+      -H "apikey: ${SERVICE_ROLE_KEY}")
     
     # Check response
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
