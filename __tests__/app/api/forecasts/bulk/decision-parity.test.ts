@@ -10,6 +10,7 @@ import {
   isDaylightInterval,
 } from "@/lib/services/discovery/daylight-eligibility";
 import { resolveWaterQualityHolds } from "@/lib/recommendations/major-event-hold/water-quality";
+import { surfCallWaterQuality } from "@/lib/services/surf-call/water-quality-notice";
 import { createMockRequest } from "@/test-utils/api-test-helpers";
 import { getCachedRateLimiter } from "@/lib/utils/enhanced-rate-limiter";
 import { RATE_LIMITS } from "@/lib/api/rate-limit-config";
@@ -617,5 +618,79 @@ describe("bulk timeline daylight gate", () => {
     const context = contextFor(row);
     expect(bulkRecommendationLabel(context, beach(1), row, 94, at, { daylightOnly: true }))
       .toBe(bulkRecommendationLabel(context, beach(1), row, 94, at));
+  });
+});
+
+describe("includeWaterQuality=true", () => {
+  const rainEvent = {
+    id: "55555555-5555-4555-8555-555555555555", region: "san_diego_gauges", source: "metar_runoff",
+    status: "active", started_at: "2026-09-23T12:00:00Z", last_rain_at: "2026-09-23T11:00:00Z",
+    expires_at: "2026-09-26T11:00:00Z", ended_at: null, end_reason: null,
+    sources: { metar: { stations: ["KSAN"], total_in: 0.23 } },
+    created_at: "2026-09-23T12:00:00Z", updated_at: "2026-09-23T12:00:00Z",
+  };
+
+  function liveTables(count: number, raining: boolean) {
+    const rows = Array.from({ length: count }, (_, i) => forecast(i + 1));
+    const tables: Record<string, unknown[]> = {
+      enhanced_forecasts: rows,
+      beach_water_quality: [],
+      water_quality_held_beaches: [],
+      county_beach_advisory_runs: [{ id: id(900), fetched_at: NOW.toISOString(), status: "completed", advisory_count: 0, source_identifier: "county-san-diego-dehq-sdbeachinfo" }],
+      county_beach_advisories: [],
+      rain_advisory_events: raining ? [rainEvent] : [],
+      rainfall_runoff_readings: [],
+      beaches: Array.from({ length: count }, (_, i) => ({ id: id(i + 1), lat: 32.8, lon: -117.2 })),
+    };
+    mockFrom.mockImplementation((table: string) => {
+      if (!(table in tables)) throw new Error(`unexpected read: ${table}`);
+      return query(tables[table]);
+    });
+    mockRpc.mockReturnValue(query(rpcData(count, NOW.toISOString())));
+    return rows;
+  }
+
+  async function bulk(rows: EnhancedForecastEntity[]) {
+    const response = await bulkForecastHandler(
+      createMockRequest("GET", `http://localhost/api/forecasts/bulk?beachIds=${rows.map((r) => r.beach_id)}&includeWaterQuality=true`),
+      { params: {}, user: null, supabase: { from: mockFrom } } as never,
+    );
+    expect(response.status).toBe(200);
+    return (await response.json()).data;
+  }
+
+  it.each([false, true])("matches the surf call's notice and keeps the rating (raining: %s)", async (raining) => {
+    const rows = liveTables(2, raining);
+    const body = await bulk(rows);
+    const surfCall = surfCallWaterQuality(
+      await resolveWaterQualityHolds([{ candidateId: "surf-call", beachId: id(1), startsAt: NOW.toISOString(), endsAt: NOW.toISOString() }], { now: NOW }),
+      id(1),
+    );
+    expect(body.waterQuality[id(1)]).toEqual(surfCall);
+    const expected = { status: "advisory", source: "rain", rainAdvisory: { startedAt: rainEvent.started_at, lastRainAt: rainEvent.last_rain_at, expiresAt: rainEvent.expires_at } };
+    expect(body.waterQuality[id(1)]).toEqual(raining ? expected : null);
+    expect(body.conditionScores[id(1)]).toEqual(expect.any(Number));
+    expect(body.recommendationLabels[id(1)]).not.toBeNull();
+    expect(body.recommendationHolds ?? {}).toEqual({});
+  });
+
+  it.each([
+    { count: 1, raining: false }, { count: 50, raining: false },
+    { count: 1, raining: true }, { count: 50, raining: true },
+  ])("pins the extra reads of the opt-in: %j", async ({ count, raining }) => {
+    const rows = liveTables(count, raining);
+    await bulk(rows);
+    const extraTables = mockFrom.mock.calls.map(([table]) => table).filter((table) => table !== "enhanced_forecasts");
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    // Five small reads, one more (beach points) while rain is active; flat in the beach count.
+    expect(extraTables.length).toBe(raining ? 6 : 5);
+    expect([...new Set(extraTables)].sort()).toEqual([
+      "beach_water_quality",
+      ...(raining ? ["beaches"] : []),
+      "county_beach_advisories",
+      "county_beach_advisory_runs",
+      "rain_advisory_events",
+      "water_quality_held_beaches",
+    ]);
   });
 });
