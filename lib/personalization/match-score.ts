@@ -16,7 +16,7 @@ import {
 } from "@/lib/personalization/match-state-compat";
 
 export const STARTER_MATCH_BODY =
-  "A starter read from your skill. It gets more personal as you rate sessions.";
+  "Your forecast gets more personal as you rate sessions.";
 
 const AVOIDANCE_BODY =
   "We know what you tend to avoid. Rate a few good sessions to sharpen your match.";
