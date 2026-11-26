@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import { createPublicReadClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import { errorWithCode, selectAllPages } from "./paging";
@@ -30,6 +31,9 @@ const HISTORY_COLUMNS = [
 ].join(", ");
 
 const MAX_HISTORY_HOURS = 180 * 24;
+const HOUR_MS = 60 * 60 * 1000;
+const HISTORY_CACHE_SECONDS = 24 * 60 * 60;
+const HISTORY_CACHE_MS = HISTORY_CACHE_SECONDS * 1000;
 const NEARBY_BEACH_RADIUS_M = 50_000;
 const NEARBY_BEACH_LIMIT = 10;
 
@@ -131,6 +135,31 @@ export async function getLatestObservation(
   };
 }
 
+function historyStartMs(nowMs: number, hours: number): number {
+  const safeHours = Math.min(MAX_HISTORY_HOURS, Math.max(1, Number.isFinite(hours) ? hours : 1));
+  return nowMs - safeHours * 60 * 60 * 1000;
+}
+
+function readObservationHistory(
+  db: ReadClient,
+  stationId: string,
+  since: string,
+  before?: string,
+): Promise<WaveStationHistoryRow[]> {
+  return selectAllPages<WaveStationHistoryRow>((from, to) => {
+    const query = db
+      .from("wave_station_observations")
+      .select(HISTORY_COLUMNS)
+      .eq("station_id", stationId)
+      .gte("observed_at", since);
+    const bounded = before ? query.lt("observed_at", before) : query;
+    return bounded.order("observed_at", { ascending: true }).range(from, to) as unknown as PromiseLike<{
+      data: WaveStationHistoryRow[] | null;
+      error: { message: string; code?: string } | null;
+    }>;
+  });
+}
+
 /** Rows from the last `hours` hours, oldest first. Hours are clamped to 1..4320 (retention). */
 export async function getObservationHistory(
   stationId: string,
@@ -138,20 +167,37 @@ export async function getObservationHistory(
   client?: ReadClient,
 ): Promise<WaveStationHistoryRow[]> {
   const db = publicClient(client);
-  const safeHours = Math.min(MAX_HISTORY_HOURS, Math.max(1, Number.isFinite(hours) ? hours : 1));
-  const since = new Date(Date.now() - safeHours * 60 * 60 * 1000).toISOString();
-  return selectAllPages<WaveStationHistoryRow>((from, to) =>
-    db
-      .from("wave_station_observations")
-      .select(HISTORY_COLUMNS)
-      .eq("station_id", stationId)
-      .gte("observed_at", since)
-      .order("observed_at", { ascending: true })
-      .range(from, to) as unknown as PromiseLike<{
-      data: WaveStationHistoryRow[] | null;
-      error: { message: string; code?: string } | null;
-    }>,
+  return readObservationHistory(db, stationId, new Date(historyStartMs(Date.now(), hours)).toISOString());
+}
+
+export async function getStationPageObservationHistory(
+  stationId: string,
+  hours: number,
+  lastWaveObservedAt: string | null,
+): Promise<WaveStationHistoryRow[]> {
+  if (process.env.BUOY_STATION_HISTORY_CACHE === "false") return getObservationHistory(stationId, hours);
+
+  const db = publicClient();
+  const nowMs = Date.now();
+  const since = new Date(historyStartMs(nowMs, hours));
+  const windowStart = Math.floor(nowMs / HISTORY_CACHE_MS) * HISTORY_CACHE_MS;
+  const latestWaveMs = Date.parse(lastWaveObservedAt ?? "");
+  // Keep the reading's swell split and seven-hour trend inputs live, even at a stale station.
+  const liveSince = Number.isFinite(latestWaveMs) ? latestWaveMs - 7 * HOUR_MS : nowMs;
+  const cutMs = Math.floor(Math.min(windowStart - HISTORY_CACHE_MS, liveSince) / HISTORY_CACHE_MS) * HISTORY_CACHE_MS;
+  if (cutMs <= since.getTime()) return readObservationHistory(db, stationId, since.toISOString());
+
+  const cut = new Date(cutMs).toISOString();
+  const completedSince = new Date(Math.floor(since.getTime() / HISTORY_CACHE_MS) * HISTORY_CACHE_MS).toISOString();
+  const readCompleted = unstable_cache(
+    () => readObservationHistory(db, stationId, completedSince, cut),
+    // Rotate even when a stale station's cut stays put, so Next cannot reuse an expired entry on error.
+    ["buoy-station-completed-history-v1", stationId, completedSince, cut, String(windowStart)],
+    { revalidate: HISTORY_CACHE_SECONDS },
   );
+  // Keep the original lower-only bound for the live tail, including readings slightly ahead of the clock.
+  const [completed, tail] = await Promise.all([readCompleted(), readObservationHistory(db, stationId, cut)]);
+  return [...completed.filter((row) => Date.parse(row.observed_at) >= since.getTime()), ...tail];
 }
 
 export type NearbyWaveStation = WaveStationRow & { distance_km: number };
@@ -335,21 +381,25 @@ export async function getStationForBeach(
   return { kind: "found", match: { relation: "nearby", station, distance_km } };
 }
 
+type StationForBeaches = Pick<WaveStationRow, "id" | "source" | "source_station_id" | "cdip_station_id" | "lat" | "lon">;
+
 export async function getBeachesForStation(
-  stationId: string,
+  stationOrId: StationForBeaches | string,
   clients: { publicRead?: ReadClient; serviceRole?: ReadClient } = {},
 ): Promise<StationBeaches> {
   const db = publicClient(clients.publicRead);
-  const { data: stationData, error: stationError } = await db
-    .from("wave_stations")
-    .select("id, source, source_station_id, cdip_station_id, lat, lon")
-    .eq("id", stationId)
-    .maybeSingle();
-  if (stationError) fail("getBeachesForStation", stationError);
-  const station = stationData as Pick<
-    WaveStationRow,
-    "id" | "source" | "source_station_id" | "cdip_station_id" | "lat" | "lon"
-  > | null;
+  let station: StationForBeaches | null;
+  if (typeof stationOrId === "string") {
+    const { data, error } = await db
+      .from("wave_stations")
+      .select("id, source, source_station_id, cdip_station_id, lat, lon")
+      .eq("id", stationOrId)
+      .maybeSingle();
+    if (error) fail("getBeachesForStation", error);
+    station = data as StationForBeaches | null;
+  } else {
+    station = stationOrId;
+  }
   if (!station) return { relation: "nearby", beaches: [] };
 
   const links = new Map<string, Set<BeachLink>>();
