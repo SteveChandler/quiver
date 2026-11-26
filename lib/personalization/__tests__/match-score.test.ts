@@ -60,6 +60,12 @@ describe("resolveMatchScoreState", () => {
     });
   });
 
+  it("keeps the starter body free of starter-read and spot-setup copy", () => {
+    expect(STARTER_MATCH_BODY).toBe("This gets more personal as you rate sessions.");
+    expect(STARTER_MATCH_BODY).toContain("more personal as you rate");
+    expect(STARTER_MATCH_BODY).not.toMatch(/starter read|setup/i);
+  });
+
   it("leaves out the starter Current window line when native sends null height and period", () => {
     const result = resolveMatchScoreState({
       eligibilitySource: "entitlement",
@@ -98,7 +104,7 @@ describe("resolveMatchScoreState", () => {
 
   it("passes through starter prior score and backend copy", () => {
     const body =
-      "A starter read from your skill and this spot's setup. It gets more personal as you rate sessions.";
+      "This gets more personal as you rate sessions.";
     const result = resolveMatchScoreState({
       eligibilitySource: "entitlement",
       forecast,
