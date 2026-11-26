@@ -2,16 +2,22 @@
  * @jest-environment node
  */
 
+import { unstable_cache } from "next/cache";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import {
   forecastStationIds,
   getBeachesForStation,
   getLatestObservation,
   getNearbyStations,
   getObservationHistory,
+  getStationPageObservationHistory,
   getStationBySlug,
   getStationForBeach,
   listStations,
 } from "@/lib/services/wave-stations";
+import type { WaveStationHistoryRow } from "@/lib/services/wave-stations/types";
+
+jest.mock("next/cache", () => ({ unstable_cache: jest.fn() }));
 
 jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(() => {
@@ -25,12 +31,15 @@ jest.mock("@/lib/supabase/server", () => ({
 type Ops = Array<[string, unknown[]]>;
 
 /** Each from()/rpc() chain resolves to `respond(table, ops)`. */
-function fakeClient(respond: (table: string, ops: Ops) => unknown) {
+function fakeClient(
+  respond: (table: string, ops: Ops) => unknown,
+  readError?: (ops: Ops) => { message: string; code: string } | null,
+) {
   const chains: Array<{ table: string; ops: Ops }> = [];
   const chain = (table: string, ops: Ops) => {
     chains.push({ table, ops });
     const builder: Record<string, unknown> = {};
-    for (const op of ["select", "eq", "order", "range", "limit", "in", "not", "is", "gte", "or"]) {
+    for (const op of ["select", "eq", "order", "range", "limit", "in", "not", "is", "gte", "lt", "or"]) {
       builder[op] = (...args: unknown[]) => {
         ops.push([op, args]);
         return builder;
@@ -40,8 +49,10 @@ function fakeClient(respond: (table: string, ops: Ops) => unknown) {
       ops.push(["maybeSingle", []]);
       return builder;
     };
-    builder.then = (resolve: (value: unknown) => unknown) =>
-      Promise.resolve({ data: respond(table, ops), error: null }).then(resolve);
+    builder.then = (resolve: (value: unknown) => unknown) => {
+      const error = readError?.(ops) ?? null;
+      return Promise.resolve({ data: error ? null : respond(table, ops), error }).then(resolve);
+    };
     return builder;
   };
   const client = {
@@ -166,8 +177,166 @@ describe("catalogue reads", () => {
   });
 });
 
+describe("getStationPageObservationHistory", () => {
+  const now = new Date("2026-11-11T03:46:00Z");
+  const cut = "2026-11-10T18:00:00.000Z";
+  const hours = 31 * 24;
+  const cache = jest.mocked(unstable_cache);
+  const originalFlag = process.env.BUOY_STATION_HISTORY_CACHE;
+  const readError = { message: "canceling statement due to statement timeout", code: "57014" };
+
+  function row(observed_at: string, wave_height_m: number): WaveStationHistoryRow {
+    return {
+      observed_at, wave_height_m, dominant_period_s: 12, mean_wave_direction_deg: 270,
+      swell_height_m: 1, swell_period_s: 13, swell_direction_deg: 260,
+      wind_wave_height_m: null, wind_wave_period_s: null, wind_wave_direction_deg: null, water_temp_c: 18,
+    };
+  }
+
+  const old = row("2026-11-10T17:59:59.999Z", 1.2);
+  const boundary = row(cut, 1.4);
+  const recent = row("2026-11-11T03:00:00.000Z", 1.6);
+  const agedOut = row("2026-10-11T03:45:59.999Z", 2.5);
+
+  function historyClient(rows: WaveStationHistoryRow[], fail?: (completed: boolean) => boolean) {
+    const mock = fakeClient((table, ops) => {
+      const since = String(ops.find(([op]) => op === "gte")?.[1][1]);
+      const before = ops.find(([op]) => op === "lt")?.[1][1] as string | undefined;
+      const ascending = (ops.find(([op]) => op === "order")?.[1][1] as { ascending: boolean }).ascending;
+      const [from, to] = ops.find(([op]) => op === "range")?.[1] as [number, number];
+      expect(table).toBe("wave_station_observations");
+      return rows.filter(({ observed_at }) => observed_at >= since && (!before || observed_at < before))
+        .sort((a, b) => (ascending ? 1 : -1) * a.observed_at.localeCompare(b.observed_at))
+        .slice(from, to + 1);
+    }, fail && ((ops) => fail(ops.some(([op]) => op === "lt")) ? readError : null));
+    jest.mocked(createPublicReadClient).mockReturnValue(mock.client);
+    return mock;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now });
+    delete process.env.BUOY_STATION_HISTORY_CACHE;
+    const entries = new Map<string, unknown>();
+    cache.mockImplementation((read, parts) => async (...args) => {
+      const key = JSON.stringify([parts, args]);
+      if (entries.has(key)) return structuredClone(entries.get(key));
+      const result = await read(...args);
+      entries.set(key, structuredClone(result));
+      return result;
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.mocked(createPublicReadClient).mockReset();
+    cache.mockReset();
+    if (originalFlag === undefined) delete process.env.BUOY_STATION_HISTORY_CACHE;
+    else process.env.BUOY_STATION_HISTORY_CACHE = originalFlag;
+  });
+
+  it.each([
+    { label: "rows on both sides", rows: [recent, agedOut, old] },
+    { label: "only old rows", rows: [old] },
+    { label: "only live rows", rows: [recent] },
+    { label: "no rows", rows: [] },
+    { label: "a row exactly at the cut", rows: [recent, boundary, old] },
+  ])("matches the one-piece read for $label", async ({ rows }) => {
+    const { client, chains } = historyClient(rows);
+    const direct = await getObservationHistory(STATION.id, hours, client);
+    const split = await getStationPageObservationHistory(STATION.id, hours, null);
+    expect(split).toEqual(direct);
+    expect(chains.map(({ ops }) => ops.find(([op]) => op === "lt")?.[1])).toEqual([
+      undefined, ["observed_at", cut], undefined,
+    ]);
+    expect(chains[2].ops).toContainEqual(["gte", ["observed_at", cut]]);
+    const select = chains[0].ops.find(([op]) => op === "select");
+    expect(chains[1].ops).toContainEqual(select);
+    expect(chains[2].ops).toContainEqual(select);
+  });
+
+  it("reuses completed pages within a window and reads the tail on every call", async () => {
+    const rows = [old, recent];
+    const { chains } = historyClient(rows);
+    await getStationPageObservationHistory(STATION.id, hours, null);
+    const updatedRecent = { ...recent, wave_height_m: 2 };
+    rows.splice(1, 1, updatedRecent);
+    jest.setSystemTime(new Date("2026-11-11T04:01:00Z"));
+    await expect(getStationPageObservationHistory(STATION.id, hours, null)).resolves.toEqual([old, updatedRecent]);
+    expect(chains).toHaveLength(3);
+    expect(cache).toHaveBeenCalledWith(expect.any(Function), expect.any(Array), { revalidate: 21_600 });
+  });
+
+  it("reads the completed part again for a new station or six-hour block with the same cut", async () => {
+    const staleWaveAt = "2026-11-10T15:00:00.000Z";
+    const historyHours = hours + 2;
+    let shouldFail = false;
+    const { chains } = historyClient([old, recent], (completed) => shouldFail && completed);
+    await getStationPageObservationHistory(STATION.id, historyHours, staleWaveAt);
+    await getStationPageObservationHistory("ndbc:46086", historyHours, staleWaveAt);
+    jest.setSystemTime(new Date("2026-11-11T06:00:00Z"));
+    shouldFail = true;
+    await expect(getStationPageObservationHistory(STATION.id, historyHours, staleWaveAt)).rejects.toMatchObject(readError);
+    const completedReads = chains.flatMap(({ ops }) => ops.filter(([op]) => op === "lt"));
+    expect(completedReads).toEqual(Array.from({ length: 3 }, () => ["lt", ["observed_at", "2026-11-10T06:00:00.000Z"]]));
+  });
+
+  it("keeps the rows around a stale latest reading live for the observation age", async () => {
+    const latest = row("2026-11-10T15:00:00.000Z", 1.7);
+    const split = row("2026-11-10T14:00:00.000Z", 1.6);
+    const rows = [latest];
+    const { chains } = historyClient(rows);
+    await getStationPageObservationHistory(STATION.id, hours, latest.observed_at);
+    rows.push(split);
+    await expect(getStationPageObservationHistory(STATION.id, hours, latest.observed_at)).resolves.toEqual([split, latest]);
+    expect(chains).toHaveLength(3);
+  });
+
+  it.each([true, false])("propagates a timeout and retries when the completed part = %s failed", async (completed) => {
+    let shouldFail = true;
+    const { chains } = historyClient([old, recent], (part) => shouldFail && part === completed);
+    await expect(getStationPageObservationHistory(STATION.id, hours, null)).rejects.toMatchObject(readError);
+    shouldFail = false;
+    await expect(getStationPageObservationHistory(STATION.id, hours, null)).resolves.toEqual([old, recent]);
+    expect(chains.filter(({ ops }) => ops.some(([op]) => op === "lt") === completed)).toHaveLength(2);
+  });
+
+  it("uses only the direct read when the requested range is entirely live", async () => {
+    const { chains } = historyClient([old, recent], () => true);
+    await expect(getStationPageObservationHistory(STATION.id, 1, null)).rejects.toMatchObject(readError);
+    expect(cache).not.toHaveBeenCalled();
+    expect(chains).toHaveLength(1);
+    expect(chains[0].ops).toContainEqual(["gte", ["observed_at", "2026-11-11T02:46:00.000Z"]]);
+  });
+
+  it("uses the direct read, including its errors, when disabled", async () => {
+    process.env.BUOY_STATION_HISTORY_CACHE = "false";
+    let shouldFail = false;
+    const { chains } = historyClient([old, recent], () => shouldFail);
+    await expect(getStationPageObservationHistory(STATION.id, hours, null)).resolves.toEqual([old, recent]);
+    shouldFail = true;
+    await expect(getStationPageObservationHistory(STATION.id, hours, null)).rejects.toMatchObject(readError);
+    expect(cache).not.toHaveBeenCalled();
+    expect(chains).toHaveLength(2);
+    expect(chains[0].ops).toContainEqual(["gte", ["observed_at", "2026-10-11T03:46:00.000Z"]]);
+  });
+});
+
 describe("getBeachesForStation", () => {
   const beach = { id: "b1", name: "Torrey Pines", slug: "torrey-pines", state: "CA", lat: 32.92, lon: -117.26 };
+
+  it("returns the same links from the loaded row without reading wave_stations again", async () => {
+    const publicRead = fakeClient((table) => {
+      if (table === "wave_stations") return STATION;
+      if (table === "beaches") return [beach];
+      return [];
+    });
+    const serviceRole = fakeClient(() => [{ beach_id: beach.id }]);
+    const clients = { publicRead: publicRead.client, serviceRole: serviceRole.client };
+    const direct = await getBeachesForStation(STATION.id, clients);
+    publicRead.chains.length = 0;
+    await expect(getBeachesForStation({ ...STATION, source: "ndbc" }, clients)).resolves.toEqual(direct);
+    expect(publicRead.chains.map(({ table }) => table)).toEqual(["beaches", "beaches"]);
+  });
 
   it("returns fed_by beaches from the forecast station map and cdip_station", async () => {
     const publicRead = fakeClient((table, ops) => {

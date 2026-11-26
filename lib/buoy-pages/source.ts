@@ -8,6 +8,7 @@ import {
   getLatestObservation,
   getNearbyStations,
   getObservationHistory,
+  getStationPageObservationHistory,
   getStationBySlug,
   getStationForBeach,
   getStationSlugById,
@@ -34,12 +35,16 @@ export interface BuoyPageSource {
   findStationsByAlternateId(alternateId: string): Promise<StationIdMatch[]>;
   listStations(filter: ListStationsFilter): Promise<WaveStationRow[]>;
   getLatestObservation(stationId: string): Promise<LatestObservation>;
-  getObservationHistory(stationId: string, hours: number): Promise<WaveStationHistoryRow[]>;
+  getObservationHistory(
+    stationId: string,
+    hours: number,
+    stationPage?: { lastWaveObservedAt: string | null },
+  ): Promise<WaveStationHistoryRow[]>;
   getNearbyStations(lat: number, lon: number, limit: number): Promise<NearbyWaveStation[]>;
   getLatestWaveObservations(
     stations: Array<Pick<WaveStationRow, "id" | "last_wave_observed_at">>,
   ): Promise<Map<string, LatestWaveReading>>;
-  getBeachesForStation(stationId: string): Promise<StationBeaches>;
+  getBeachesForStation(stationId: string, station?: WaveStationRow): Promise<StationBeaches>;
   getStationForBeach(beachId: string): Promise<BeachStationLookup>;
   getBeachForecastSummaries(beachIds: string[], now: Date): Promise<Map<string, BeachForecastSummary>>;
   fetchModelAtBuoy(lat: number, lon: number): Promise<ModelSeries | null>;
@@ -51,10 +56,13 @@ const catalogueSource: BuoyPageSource = {
   findStationsByAlternateId: (alternateId) => findStationsByAlternateId(alternateId),
   listStations: (filter) => listStations(filter),
   getLatestObservation: (stationId) => getLatestObservation(stationId),
-  getObservationHistory: (stationId, hours) => getObservationHistory(stationId, hours),
+  getObservationHistory: (stationId, hours, stationPage) =>
+    stationPage
+      ? getStationPageObservationHistory(stationId, hours, stationPage.lastWaveObservedAt)
+      : getObservationHistory(stationId, hours),
   getNearbyStations: (lat, lon, limit) => getNearbyStations(lat, lon, limit),
   getLatestWaveObservations: (stations) => getLatestWaveObservations(stations),
-  getBeachesForStation: (stationId) => getBeachesForStation(stationId),
+  getBeachesForStation: (stationId, station) => getBeachesForStation(station ?? stationId),
   getStationForBeach: (beachId) => getStationForBeach(beachId),
   getBeachForecastSummaries: (beachIds, now) => getBeachForecastSummaries(beachIds, now),
   fetchModelAtBuoy: (lat, lon) => fetchModelAtBuoy(lat, lon),
