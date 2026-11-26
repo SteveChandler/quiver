@@ -19,6 +19,23 @@ const MISSING_TABLE = new Error(
 );
 
 describe("loadStationPage", () => {
+  it("opts into completed-history caching and reuses the station row for beach links", async () => {
+    const fixture = source();
+    const getObservationHistory = jest.fn(fixture.getObservationHistory);
+    const getBeachesForStation = jest.fn(fixture.getBeachesForStation);
+    const result = await loadStationPage(
+      { ...fixture, getObservationHistory, getBeachesForStation },
+      "torrey-pines-outer-ca-46225",
+      NOW,
+    );
+    if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
+    const { station } = result.data;
+    expect(getObservationHistory).toHaveBeenCalledWith(station.id, 31 * 24, {
+      lastWaveObservedAt: station.last_wave_observed_at,
+    });
+    expect(getBeachesForStation).toHaveBeenCalledWith(station.id, station);
+  });
+
   it("loads a live station with swell split, trend, model block and beaches", async () => {
     const result = await loadStationPage(source(), "torrey-pines-outer-ca-46225", NOW);
     if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
