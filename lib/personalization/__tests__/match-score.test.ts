@@ -61,7 +61,7 @@ describe("resolveMatchScoreState", () => {
   });
 
   it("keeps the starter body free of starter-read and spot-setup copy", () => {
-    expect(STARTER_MATCH_BODY).toBe("This gets more personal as you rate sessions.");
+    expect(STARTER_MATCH_BODY).toBe("Your forecast gets more personal as you rate sessions.");
     expect(STARTER_MATCH_BODY).toContain("more personal as you rate");
     expect(STARTER_MATCH_BODY).not.toMatch(/starter read|setup/i);
   });
@@ -104,7 +104,7 @@ describe("resolveMatchScoreState", () => {
 
   it("passes through starter prior score and backend copy", () => {
     const body =
-      "This gets more personal as you rate sessions.";
+      "Your forecast gets more personal as you rate sessions.";
     const result = resolveMatchScoreState({
       eligibilitySource: "entitlement",
       forecast,

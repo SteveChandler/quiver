@@ -1,5 +1,5 @@
 -- Starter match body copy: the starter result (fewer than 5 rated sessions) now says only
--- "This gets more personal as you rate sessions." for every starter result. The old text ("A starter
+-- "Your forecast gets more personal as you rate sessions." for every starter result. The old text ("A starter
 -- read from your skill [and this spot's setup]. ...") read as "beginner" and "this spot's setup" did
 -- not mean anything to surfers (quiver-native#797). Older app builds show the server body as is.
 -- Copy only: the function is 20261124180000_match_score_max_logged_wave.sql verbatim except the
@@ -397,7 +397,7 @@ WITH board_usage AS (
       'state','starter', 'score',round(prior_score,1), 'session_count',session_count,
       'sessions_needed',5-session_count,
       'fit_label',CASE WHEN has_wind OR has_tide THEN 'Based on your skill + this spot' ELSE 'Based on your skill level' END,
-      'body','This gets more personal as you rate sessions.',
+      'body','Your forecast gets more personal as you rate sessions.',
       'quality_band','starter',
       'prior_dimensions',jsonb_build_array('skill_wave') || CASE WHEN has_wind THEN '["spot_wind_direction"]'::jsonb ELSE '[]'::jsonb END
         || CASE WHEN has_tide THEN '["spot_tide"]'::jsonb ELSE '[]'::jsonb END,

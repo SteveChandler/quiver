@@ -14,7 +14,7 @@ const fn = (sql: string): string => {
 };
 const OLD_BODY =
   "'body','A starter read from your skill' || CASE WHEN has_wind OR has_tide THEN ' and this spot''s setup' ELSE '' END || '. It gets more personal as you rate sessions.',";
-const NEW_BODY = "'body','This gets more personal as you rate sessions.',";
+const NEW_BODY = "'body','Your forecast gets more personal as you rate sessions.',";
 
 // Older native builds show the server starter body as is (quiver-native#797).
 describe("match score starter body copy migration", () => {
