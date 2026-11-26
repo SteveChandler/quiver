@@ -179,7 +179,7 @@ describe("catalogue reads", () => {
 
 describe("getStationPageObservationHistory", () => {
   const now = new Date("2026-11-11T03:46:00Z");
-  const cut = "2026-11-10T18:00:00.000Z";
+  const cut = "2026-11-10T00:00:00.000Z";
   const hours = 31 * 24;
   const cache = jest.mocked(unstable_cache);
   const originalFlag = process.env.BUOY_STATION_HISTORY_CACHE;
@@ -193,7 +193,7 @@ describe("getStationPageObservationHistory", () => {
     };
   }
 
-  const old = row("2026-11-10T17:59:59.999Z", 1.2);
+  const old = row("2026-11-09T23:59:59.999Z", 1.2);
   const boundary = row(cut, 1.4);
   const recent = row("2026-11-11T03:00:00.000Z", 1.6);
   const agedOut = row("2026-10-11T03:45:59.999Z", 2.5);
@@ -263,26 +263,42 @@ describe("getStationPageObservationHistory", () => {
     jest.setSystemTime(new Date("2026-11-11T04:01:00Z"));
     await expect(getStationPageObservationHistory(STATION.id, hours, null)).resolves.toEqual([old, updatedRecent]);
     expect(chains).toHaveLength(3);
-    expect(cache).toHaveBeenCalledWith(expect.any(Function), expect.any(Array), { revalidate: 21_600 });
+    expect(cache).toHaveBeenCalledWith(expect.any(Function), expect.any(Array), { revalidate: 86_400 });
   });
 
-  it("reads the completed part again for a new station or six-hour block with the same cut", async () => {
-    const staleWaveAt = "2026-11-10T15:00:00.000Z";
+  it("reads completed history once across regenerations hours apart on the same UTC day", async () => {
+    const rollsOut = row("2026-10-11T10:00:00.000Z", 2.1);
+    const laterReading = row("2026-11-11T20:00:00.000Z", 1.8);
+    const rows = [rollsOut, old, recent];
+    const { chains } = historyClient(rows);
+    await expect(getStationPageObservationHistory(STATION.id, hours, recent.observed_at))
+      .resolves.toEqual([rollsOut, old, recent]);
+
+    jest.setSystemTime(new Date("2026-11-11T20:15:00Z"));
+    rows.push(laterReading);
+    await expect(getStationPageObservationHistory(STATION.id, hours, laterReading.observed_at))
+      .resolves.toEqual([old, recent, laterReading]);
+    expect(chains.filter(({ ops }) => ops.some(([op]) => op === "lt"))).toHaveLength(1);
+    expect(chains).toHaveLength(3);
+  });
+
+  it("reads the completed part again for a new station or UTC day with the same cut", async () => {
+    const staleWaveAt = "2026-11-09T15:00:00.000Z";
     const historyHours = hours + 2;
     let shouldFail = false;
     const { chains } = historyClient([old, recent], (completed) => shouldFail && completed);
     await getStationPageObservationHistory(STATION.id, historyHours, staleWaveAt);
     await getStationPageObservationHistory("ndbc:46086", historyHours, staleWaveAt);
-    jest.setSystemTime(new Date("2026-11-11T06:00:00Z"));
+    jest.setSystemTime(new Date("2026-11-12T00:00:00Z"));
     shouldFail = true;
     await expect(getStationPageObservationHistory(STATION.id, historyHours, staleWaveAt)).rejects.toMatchObject(readError);
     const completedReads = chains.flatMap(({ ops }) => ops.filter(([op]) => op === "lt"));
-    expect(completedReads).toEqual(Array.from({ length: 3 }, () => ["lt", ["observed_at", "2026-11-10T06:00:00.000Z"]]));
+    expect(completedReads).toEqual(Array.from({ length: 3 }, () => ["lt", ["observed_at", "2026-11-09T00:00:00.000Z"]]));
   });
 
   it("keeps the rows around a stale latest reading live for the observation age", async () => {
-    const latest = row("2026-11-10T15:00:00.000Z", 1.7);
-    const split = row("2026-11-10T14:00:00.000Z", 1.6);
+    const latest = row("2026-11-09T15:00:00.000Z", 1.7);
+    const split = row("2026-11-09T14:00:00.000Z", 1.6);
     const rows = [latest];
     const { chains } = historyClient(rows);
     await getStationPageObservationHistory(STATION.id, hours, latest.observed_at);
