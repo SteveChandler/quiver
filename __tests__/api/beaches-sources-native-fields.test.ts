@@ -486,6 +486,29 @@ describe("GET /api/beaches/[id]/sources and the cam directory share one prefligh
     return (await response.json()).data.sources;
   }
 
+  it.each([
+    ["https://www.earthcam.com/usa/hawaii/waikiki/beach/", true],
+    ["https://www.earthcam.com/usa/hawaii/bigisland/waikoloa/", null],
+  ])("keeps %s forecast-only on web while preserving native playback fields", async (cameraUrl, embedAllowed) => {
+    const fetchMock = jest.spyOn(globalThis, "fetch");
+    if (embedAllowed) {
+      fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    } else {
+      fetchMock.mockRejectedValue(new DOMException("timed out", "TimeoutError"));
+    }
+    const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");
+
+    expect(await getSources(cameraUrl)).toMatchObject({
+      web_cam_unavailable: true,
+      camera_url: cameraUrl,
+      cam_embed: { kind: "external", pageUrl: cameraUrl, provider: "earthcam.com" },
+      embed_allowed: embedAllowed,
+    });
+    fetchMock.mockClear();
+    await expect(resolveCamPlayback(cameraUrl)).resolves.toEqual({ kind: "none" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("hides the player and the directory card for a camera page that refuses HEAD (Cannon Beach)", async () => {
     jest.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 405, headers: new Headers() } as Response);
     const { resolveCamPlayback } = await import("@/lib/media/cam-embed-preflight");

@@ -75,6 +75,10 @@ export function ZineHeroMedia({
             src={getOptimizedImageUrl(photoUrl)}
             alt={`${beachName}, ${locationName}`}
             className="block h-[240px] w-full object-cover sm:h-[320px] md:h-[380px]"
+            ref={(image) => {
+              // A server-rendered photo can fail before React attaches onError.
+              if (image?.complete && image.naturalWidth === 0) handleMediaError(photoUrl);
+            }}
             onError={() => handleMediaError(photoUrl)}
           />
         ) : videoUrl ? (

@@ -119,6 +119,7 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
 import { useCustomSpotCurrentDisplays } from "@/hooks/use-custom-spot-current-displays";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
+import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
 import { MapPreloadPreview } from "@/components/map/map-preload-preview";
@@ -448,6 +449,8 @@ const FULL_FORECAST_TIMELINE_HOURS = 14 * 24;
 const INITIAL_EXPANDABLE_TIMELINE_HOURS = 10 * 24;
 const PUBLIC_MAP_TIMELINE_HORIZON_DAYS = 10;
 const MAP_LOAD_TIMEOUT_MS = 15_000;
+// Silent remounts after a load timeout before the error panel shows; 0 turns them off.
+const MAP_LOAD_AUTO_RETRIES = 1;
 
 type SwellFieldLoadStatus = "loading" | "ready" | "empty" | "unavailable";
 type MapLoadFailure = "token_invalid" | "webgl_unsupported" | "timeout";
@@ -784,6 +787,8 @@ export function InteractiveMap({
   );
   const hasEmittedReadyRef = useRef(false);
   const emittedFailureTypesRef = useRef<Set<string>>(new Set());
+  // Lives outside the mount effect: the silent retry re-runs that effect.
+  const mapLoadAutoRetriesUsedRef = useRef(0);
   const lastEmptyStateKeyRef = useRef<string | null>(null);
   // Mirror latest clusters/beaches so emission helpers can read them synchronously
   const clustersRef = useRef<ClusterPoint[]>([]);
@@ -2601,6 +2606,7 @@ export function InteractiveMap({
       trackRef.current('map_load_failed', {
         metadata: {
           error_type: errorType,
+          auto_retried: mapLoadAutoRetriesUsedRef.current > 0,
           ...(timeToFailureMs !== undefined
             ? { time_to_failure_ms: timeToFailureMs }
             : {}),
@@ -2610,7 +2616,23 @@ export function InteractiveMap({
     };
     const loadTimeout = window.setTimeout(() => {
       if (readyMarked) return;
+      // Set before the remount so a late load on this abandoned map cannot mark it ready.
       terminalLoadFailure = true;
+      const isOffline =
+        typeof navigator !== "undefined" && navigator.onLine === false;
+      if (
+        !isOffline &&
+        mapLoadAutoRetriesUsedRef.current < MAP_LOAD_AUTO_RETRIES
+      ) {
+        mapLoadAutoRetriesUsedRef.current += 1;
+        captureClientPostHogEventAfterConsent("map_load_retried", {
+          error_type: "timeout",
+          attempt: mapLoadAutoRetriesUsedRef.current,
+          timeout_ms: MAP_LOAD_TIMEOUT_MS,
+        });
+        setMapRetryNonce((current) => current + 1);
+        return;
+      }
       reportMapFailure("timeout");
       setMapLoadFailure("timeout");
     }, MAP_LOAD_TIMEOUT_MS);

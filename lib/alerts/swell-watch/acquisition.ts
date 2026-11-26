@@ -11,7 +11,7 @@ export const acquisitionConfig = z.object({
     .min(1).max(500).refine((scopes) => new Set(scopes.map((scope) => scope.sourcePointId)).size === scopes.length),
 }).strict();
 
-export type SwellWatchAcquisitionStage =
+type SwellWatchAcquisitionStage =
   | "collection_lease"
   | "acquisition_scope"
   | "provider_fetch"

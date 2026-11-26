@@ -114,6 +114,13 @@ jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
     mockTrackSignupCtaClick(...args),
 }));
 
+const mockCapturePostHog = jest.fn((_event: string, _properties?: unknown) => true);
+jest.mock("@/lib/posthog-client", () => ({
+  ...jest.requireActual("@/lib/posthog-client"),
+  captureClientPostHogEventAfterConsent: (event: string, properties?: unknown) =>
+    mockCapturePostHog(event, properties),
+}));
+
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrackEvent }),
 }));
@@ -253,23 +260,172 @@ describe("InteractiveMap", () => {
     consoleError.mockRestore();
   });
 
-  it("ends silent map loading with a retryable timeout state", async () => {
-    jest.useFakeTimers();
-    mockAutoLoadMap = false;
-    const onMapLoadFailure = jest.fn();
-    const { InteractiveMap } = await import("@/components/map/interactive-map");
-    render(<InteractiveMap beaches={[]} onMapLoadFailure={onMapLoadFailure} />);
+  describe("map load timeout auto retry", () => {
+    const mapConstructor = (): jest.Mock => require("mapbox-gl").Map as jest.Mock;
+    const retriedCalls = (): unknown[][] =>
+      mockCapturePostHog.mock.calls.filter(([event]) => event === "map_load_retried");
+    const failedCalls = (): unknown[][] =>
+      mockTrackEvent.mock.calls.filter(([event]) => event === "map_load_failed");
+    let onLineSpy: jest.SpyInstance | null = null;
 
-    act(() => {
-      jest.advanceTimersByTime(15_000);
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockAutoLoadMap = false;
     });
 
-    expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
-    expect(onMapLoadFailure).toHaveBeenCalledWith("timeout");
-    act(() => mockMapHandlers.idle[0]?.());
-    expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry map" })).toHaveFocus();
-    jest.useRealTimers();
+    afterEach(() => {
+      onLineSpy?.mockRestore();
+      onLineSpy = null;
+      jest.useRealTimers();
+    });
+
+    it("retries silently on the first timeout and keeps the loading state", async () => {
+      const onMapLoadFailure = jest.fn();
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      render(<InteractiveMap beaches={[]} onMapLoadFailure={onMapLoadFailure} />);
+      expect(mapConstructor()).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(15_000);
+      });
+
+      expect(screen.queryByTestId("map-error-overlay")).not.toBeInTheDocument();
+      expect(screen.getByTestId("map-loading-overlay")).toBeInTheDocument();
+      expect(mapConstructor()).toHaveBeenCalledTimes(2);
+      expect(retriedCalls()).toEqual([
+        ["map_load_retried", { error_type: "timeout", attempt: 1, timeout_ms: 15_000 }],
+      ]);
+      expect(failedCalls()).toHaveLength(0);
+      expect(onMapLoadFailure).not.toHaveBeenCalled();
+    });
+
+    it("shows the retry panel when the automatic retry also times out", async () => {
+      const onMapLoadFailure = jest.fn();
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      render(<InteractiveMap beaches={[]} onMapLoadFailure={onMapLoadFailure} />);
+
+      act(() => {
+        jest.advanceTimersByTime(15_000);
+      });
+      act(() => {
+        jest.advanceTimersByTime(15_000);
+      });
+
+      expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+      expect(mapConstructor()).toHaveBeenCalledTimes(2);
+      expect(retriedCalls()).toHaveLength(1);
+      expect(failedCalls()).toEqual([
+        [
+          "map_load_failed",
+          {
+            metadata: expect.objectContaining({ error_type: "timeout", auto_retried: true }),
+          },
+        ],
+      ]);
+      expect(onMapLoadFailure).toHaveBeenCalledTimes(1);
+      expect(onMapLoadFailure).toHaveBeenCalledWith("timeout");
+      // A late load still stays behind the panel.
+      act(() => mockMapHandlers.idle.at(-1)?.());
+      expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Retry map" })).toHaveFocus();
+
+      // A manual retry does not earn a second silent retry.
+      fireEvent.click(screen.getByRole("button", { name: "Retry map" }));
+      expect(mapConstructor()).toHaveBeenCalledTimes(3);
+      act(() => {
+        jest.advanceTimersByTime(15_000);
+      });
+      expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+      expect(retriedCalls()).toHaveLength(1);
+    });
+
+    it("shows the panel at once for token_invalid without a retry", async () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      render(<InteractiveMap beaches={[]} />);
+
+      act(() => {
+        mockMapHandlers.error[0]({ error: new Error("401 Unauthorized access token") });
+      });
+
+      expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+      expect(failedCalls()).toEqual([
+        [
+          "map_load_failed",
+          {
+            metadata: expect.objectContaining({ error_type: "token_invalid", auto_retried: false }),
+          },
+        ],
+      ]);
+      act(() => {
+        jest.advanceTimersByTime(30_000);
+      });
+      expect(mapConstructor()).toHaveBeenCalledTimes(1);
+      expect(retriedCalls()).toHaveLength(0);
+      consoleError.mockRestore();
+    });
+
+    it("shows the panel at the first timeout when the browser is offline", async () => {
+      onLineSpy = jest.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      render(<InteractiveMap beaches={[]} />);
+
+      act(() => {
+        jest.advanceTimersByTime(15_000);
+      });
+
+      expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+      expect(mapConstructor()).toHaveBeenCalledTimes(1);
+      expect(retriedCalls()).toHaveLength(0);
+      expect(failedCalls()).toEqual([
+        [
+          "map_load_failed",
+          { metadata: expect.objectContaining({ error_type: "timeout", auto_retried: false }) },
+        ],
+      ]);
+    });
+
+    it("shows the map with no panel when the automatic retry loads", async () => {
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      render(<InteractiveMap beaches={[]} />);
+
+      act(() => {
+        jest.advanceTimersByTime(15_000);
+      });
+      act(() => mockMapHandlers.load.at(-1)?.());
+      act(() => {
+        jest.advanceTimersByTime(30_000);
+      });
+
+      expect(screen.queryByTestId("map-error-overlay")).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { hidden: true })).toHaveAttribute("aria-hidden", "false");
+      expect(mockTrackEvent).toHaveBeenCalledWith("map_ready", {
+        metadata: expect.objectContaining({ load_time_ms: expect.any(Number) }),
+      });
+      expect(failedCalls()).toHaveLength(0);
+      expect(mapConstructor()).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps an unrelated map error out of the retry path", async () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      render(<InteractiveMap beaches={[]} />);
+
+      act(() => {
+        mockMapHandlers.error[0]({ error: new Error("something odd happened") });
+      });
+
+      expect(mapConstructor()).toHaveBeenCalledTimes(1);
+      expect(retriedCalls()).toHaveLength(0);
+      expect(screen.queryByTestId("map-error-overlay")).not.toBeInTheDocument();
+      expect(failedCalls()).toEqual([
+        [
+          "map_load_failed",
+          { metadata: expect.objectContaining({ error_type: "unknown", auto_retried: false }) },
+        ],
+      ]);
+      consoleError.mockRestore();
+    });
   });
 
   it("starts forecast loading before the Mapbox style is ready", async () => {

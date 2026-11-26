@@ -121,7 +121,8 @@ export function HomeHeroMedia({
     () => mapSourcesOrNull(lat, lon, "mapbox/satellite-streets-v12", 15),
     [lat, lon],
   );
-  const cameraUrl = sources?.camera_url ?? null;
+  // Same rule as the beach hero: an unverified web cam is not offered.
+  const cameraUrl = sources?.web_cam_unavailable ? null : sources?.camera_url ?? null;
 
   const available = useMemo(() => {
     const kinds: HeroViewpoint[] = [];
