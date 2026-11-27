@@ -18,6 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { config } from "./load-env.mjs";
 import fs from "node:fs";
 import path from "node:path";
+import { classifyGateEvent, type GateScopeRule } from "./signup-intel-gate-scope";
 
 config({ path: path.resolve(process.cwd(), ".env.local") });
 
@@ -66,6 +67,11 @@ type FrictionGate = {
    * alongside a real one still counts.
    */
   excludeWhen?: { key: string; values: string[] };
+  /**
+   * Surfaces that share the event names but are not what the gate measures.
+   * Dropped from failures AND baseline, then reported on their own line.
+   */
+  outOfScope?: GateScopeRule;
   /** Metadata keys summarized so the report names the failing thing, not just the count. */
   reasonKeys?: string[];
   /**
@@ -100,7 +106,17 @@ const FRICTION_GATES: FrictionGate[] = [
     minCount: 5,
     owner: "components/auth/ (web) + quiver-native auth modal",
     fix: "Check whether the modal is opening unprompted. An unprompted modal is a bounce, not a decision.",
+    // /auth/sign-in, /auth/sign-up and the native welcome gate are screens the
+    // visitor navigates to or launches into. Leaving one is not a dismissed
+    // prompt, and they made 25 of the 37 "failures" in the 2026-11-27 report.
+    outOfScope: {
+      key: "source",
+      values: ["auth-page", "redirect", "email-confirmed", "welcome_gate"],
+      label: "full-page auth screens and the native welcome gate",
+    },
     reasonKeys: ["source", "entry_point"],
+    // These events fire before sign-in, so the client session is the only actor id.
+    flowKeys: ["launch_primer_session_id", "browser_session_id"],
   },
   {
     id: "auth-failure",
@@ -211,6 +227,7 @@ type CohortMember = {
 
 function isGateFailure(gate: FrictionGate, event: EventRow): boolean {
   if (!gate.failEvents.includes(event.event_type)) return false;
+  if (classifyGateEvent(event, gate.outOfScope) !== "counted") return false;
   if (!gate.excludeWhen) return true;
   const { key, values } = gate.excludeWhen;
   const value = asRecord(event.metadata)[key];
@@ -407,9 +424,6 @@ async function main(): Promise<void> {
     };
   });
 
-  const sumEvents = (types: string[]): number =>
-    types.reduce((total, type) => total + (eventCounts.get(type) ?? 0), 0);
-
   const firedGates = FRICTION_GATES.map((gate) => {
     const failRows = events.filter((event) => isGateFailure(gate, event));
 
@@ -436,7 +450,14 @@ async function main(): Promise<void> {
     }
 
     const fails = failRows.length;
-    const base = sumEvents(gate.baseEvents);
+    const baseRows = events.filter((event) => gate.baseEvents.includes(event.event_type));
+    const base = baseRows.filter((event) => classifyGateEvent(event, gate.outOfScope) === "counted").length;
+    const isOutOfScope = (event: EventRow): boolean =>
+      classifyGateEvent(event, gate.outOfScope) === "out-of-scope";
+    const outOfScopeFails = events.filter(
+      (event) => gate.failEvents.includes(event.event_type) && isOutOfScope(event)
+    ).length;
+    const outOfScopeBase = baseRows.filter(isOutOfScope).length;
     const ratio = (() => {
       if (gate.mode === "share") return fails + base === 0 ? 0 : fails / (fails + base);
       if (gate.mode === "unresolved") return fails === 0 ? 0 : Math.max(0, fails - base) / fails;
@@ -447,6 +468,8 @@ async function main(): Promise<void> {
       fails,
       base,
       ratio,
+      outOfScopeFails,
+      outOfScopeBase,
       distinctUsers,
       distinctFlows: flows.size,
       topFlowShare: topFlow && fails > 0 ? topFlow[1] / fails : 0,
@@ -581,9 +604,15 @@ async function main(): Promise<void> {
   }
   lines.push("");
   lines.push(
-    "Thresholds, denominators, and benign-reason exclusions live in `FRICTION_GATES` in `scripts/weekly-signup-intel.ts`. A gate fires only when the failure count also clears its `minCount`, so a two-event week cannot manufacture a priority."
+    "Thresholds, denominators, and benign-reason exclusions live in `FRICTION_GATES` in `scripts/weekly-signup-intel.ts`. A gate fires only when the failure count also clears its `minCount`, so a two-event week cannot manufacture a priority. Events from emulator and development builds are not counted in any gate."
   );
   lines.push("");
+  for (const row of firedGates.filter((r) => r.gate.outOfScope && r.outOfScopeFails + r.outOfScopeBase > 0)) {
+    lines.push(
+      `${row.gate.label}: not counted, ${row.outOfScopeFails} failures against ${row.outOfScopeBase} baseline events on ${row.gate.outOfScope?.label}. These are screens, not prompted modals.`
+    );
+    lines.push("");
+  }
 
   for (const row of firedGates.filter((r) => r.fails > 0 && r.topReasons.length > 0)) {
     // Sessions stand in as the denominator when `user_id` is null.
