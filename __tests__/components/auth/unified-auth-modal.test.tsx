@@ -86,6 +86,29 @@ describe("UnifiedAuthModal", () => {
     (appleSignIn.signInWithApple as jest.Mock).mockResolvedValue({});
   });
 
+  describe("Dismissal", () => {
+    it("calls onDismiss, not onClose, when the visitor closes without an auth action", () => {
+      const onDismiss = jest.fn();
+      render(
+        <UnifiedAuthModal isOpen={true} onClose={mockOnClose} onDismiss={onDismiss} mode="signup" source="auth-page" />
+      );
+
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+      expect(authEvents.trackAuthModalClosedWithoutAction).toHaveBeenCalledWith({ mode: "signup", source: "auth-page" });
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+
+    it("falls back to onClose when no onDismiss is given", () => {
+      render(<UnifiedAuthModal isOpen={true} onClose={mockOnClose} mode="signup" />);
+
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("Modal rendering", () => {
     it("does not overwrite the return destination while the header modal is closed", () => {
       render(<UnifiedAuthModal isOpen={false} onClose={mockOnClose} mode="signup" returnTo="/auth/sign-up" />);
