@@ -1,10 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SignInPage from "@/app/auth/sign-in/page";
+import SignUpClient from "@/app/auth/sign-up/sign-up-client";
 
 jest.mock("next/navigation", () => ({ useRouter: jest.fn(), useSearchParams: jest.fn() }));
 jest.mock("@/components/auth/unified-auth-modal", () => ({
-  UnifiedAuthModal: ({ onClose }: { onClose: () => void }) => <button onClick={onClose}>Complete sign in</button>,
+  UnifiedAuthModal: ({ onClose, onDismiss }: { onClose: () => void; onDismiss?: () => void }) => (
+    <>
+      <button onClick={onClose}>Complete sign in</button>
+      <button onClick={onDismiss ?? onClose}>Dismiss</button>
+    </>
+  ),
 }));
 
 it.each([
@@ -20,4 +26,29 @@ it.each([
   render(<SignInPage />);
   fireEvent.click(screen.getByRole("button", { name: "Complete sign in" }));
   expect(push).toHaveBeenCalledWith(expected);
+});
+
+describe("dismissing a dedicated auth page", () => {
+  const router = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(useRouter).mockReturnValue(router as never);
+  });
+
+  it("does not push the protected page again when a redirected sign-in is dismissed", () => {
+    jest.mocked(useSearchParams).mockReturnValue(new URLSearchParams({ redirectTo: "/alerts" }) as never);
+    render(<SignInPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith("/");
+  });
+
+  it("does not leave sign-up in history when it is dismissed", () => {
+    jest.mocked(useSearchParams).mockReturnValue(new URLSearchParams() as never);
+    render(<SignUpClient />);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith("/");
+  });
 });
