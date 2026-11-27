@@ -1145,3 +1145,117 @@ describe("canonical session decision engine", () => {
     });
   });
 });
+
+describe("canonical session decision ranks by verdict tier first", () => {
+  type Decision = {
+    verdict: string;
+    conditionLabel: string;
+    reasonCode: string;
+    selection: { candidateId: string; evidence: { recommendationLabel: string } } | null;
+  };
+  const at = (hour: number): Partial<TestCandidate> => {
+    const start = `2026-07-23T${String(hour).padStart(2, "0")}:00:00.000Z`;
+    const end = `2026-07-23T${String(hour + 2).padStart(2, "0")}:00:00.000Z`;
+    return { windowStart: start, windowEnd: end, forecastAt: start };
+  };
+  const decide = (candidates: TestCandidate[]): Decision =>
+    loadEngine().buildCanonicalSessionDecision(input(candidates)) as Decision;
+
+  it("picks a go over a maybe with a higher utility score", () => {
+    const decision = decide([
+      candidate({ candidateId: "maybe-high", utilityScore: 97.5, recommendationLabel: "Maybe", ...at(16) }),
+      candidate({ candidateId: "go-lower", utilityScore: 80, recommendationLabel: "Worth it", ...at(14) }),
+    ]);
+
+    expect(decision.selection?.candidateId).toBe("go-lower");
+    expect(decision).toMatchObject({ verdict: "go", conditionLabel: "GOOD", reasonCode: "selected_go" });
+    expect(decision.selection?.evidence.recommendationLabel).toBe("Worth it");
+  });
+
+  it("ranks a Worth it held to maybe by a verdict ceiling inside the maybe tier", () => {
+    const ceiling: ScoringDecisionEffect = {
+      code: "crossing_swells",
+      severity: "material",
+      verdictCeiling: 65,
+      message: "Crossing swells may create unstable peaks.",
+    };
+    const decision = decide([
+      candidate({ candidateId: "capped", utilityScore: 95, recommendationLabel: "Worth it", effects: [ceiling], ...at(14) }),
+      candidate({ candidateId: "clean-go", utilityScore: 75, recommendationLabel: "Worth it", ...at(16) }),
+    ]);
+
+    expect(decision.selection?.candidateId).toBe("clean-go");
+    expect(decision.verdict).toBe("go");
+  });
+
+  it("keeps utility, then start time, then candidate id as tie breakers inside a tier", () => {
+    expect(decide([
+      candidate({ candidateId: "go-70", utilityScore: 70, ...at(12) }),
+      candidate({ candidateId: "go-90", utilityScore: 90, ...at(16) }),
+    ]).selection?.candidateId).toBe("go-90");
+    expect(decide([
+      candidate({ candidateId: "go-late", utilityScore: 80, ...at(16) }),
+      candidate({ candidateId: "go-early", utilityScore: 80, ...at(12) }),
+    ]).selection?.candidateId).toBe("go-early");
+    expect(decide([
+      candidate({ candidateId: "go-b", utilityScore: 80, ...at(12) }),
+      candidate({ candidateId: "go-a", utilityScore: 80, ...at(12) }),
+    ]).selection?.candidateId).toBe("go-a");
+  });
+
+  it("keeps the highest-utility maybe when no go candidate exists", () => {
+    const decision = decide([
+      candidate({ candidateId: "maybe-60", utilityScore: 60, recommendationLabel: "Maybe", ...at(12) }),
+      candidate({ candidateId: "maybe-97", utilityScore: 97, recommendationLabel: "Maybe", ...at(16) }),
+    ]);
+
+    expect(decision.selection?.candidateId).toBe("maybe-97");
+    expect(decision.verdict).toBe("maybe");
+  });
+
+  it("keeps the safe-candidate fallback when every safe candidate is a skip", () => {
+    const decision = decide([
+      candidate({ candidateId: "skip-50", utilityScore: 50, recommendationLabel: "Skip", ...at(12) }),
+      candidate({ candidateId: "skip-96", utilityScore: 96, recommendationLabel: "Skip", ...at(16) }),
+    ]);
+
+    expect(decision.selection?.candidateId).toBe("skip-96");
+    expect(decision).toMatchObject({ verdict: "no", reasonCode: "selected_no" });
+  });
+
+  it("picks a learned go over a learned maybe with a higher personal match score", () => {
+    const lowConfidence = (score: number) => ({
+      score,
+      label: "GOOD" as const,
+      confidence: "low" as const,
+      sessionCount: 6,
+      reasons: ["Some history"],
+    });
+    const decision = decide([
+      candidate({ candidateId: "learned-maybe", utilityScore: 60, recommendationLabel: "Maybe", personalMatch: lowConfidence(9.1), ...at(12) }),
+      candidate({ candidateId: "learned-go", utilityScore: 82, recommendationLabel: "Worth it", personalMatch: lowConfidence(6.2), ...at(16) }),
+    ]);
+
+    expect(decision.selection?.candidateId).toBe("learned-go");
+    expect(decision.verdict).toBe("go");
+  });
+
+  it("ranks learned candidates by the personal verdict the decision prints", () => {
+    const highConfidence = (score: number, label: "GOOD" | "MEH") => ({
+      score,
+      label,
+      confidence: "high" as const,
+      sessionCount: 30,
+      similarSessionCount: 8,
+      reasons: ["Long history"],
+    });
+    // MEH history steps a physical go down to maybe; GOOD history lifts a physical maybe to go.
+    const decision = decide([
+      candidate({ candidateId: "stepped-down", utilityScore: 90, recommendationLabel: "Worth it", personalMatch: highConfidence(9.5, "MEH"), ...at(12) }),
+      candidate({ candidateId: "lifted", utilityScore: 60, recommendationLabel: "Maybe", personalMatch: highConfidence(7.0, "GOOD"), ...at(16) }),
+    ]);
+
+    expect(decision.selection?.candidateId).toBe("lifted");
+    expect(decision).toMatchObject({ verdict: "go", reasonCode: "selected_go" });
+  });
+});
