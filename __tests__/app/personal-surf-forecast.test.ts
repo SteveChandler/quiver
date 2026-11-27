@@ -41,6 +41,12 @@ describe("Personal surf forecast SEO page", () => {
     expect(normalizedSource).toContain("personal match requires quiver pro");
   });
 
+  // Surfers read "starter" as "beginner" (quiver-native#797).
+  it("does not call the pre-threshold match a starter read", () => {
+    expect(pageSource).not.toMatch(/starter/i);
+    expect(pageSource).toContain("your profile and the spot");
+  });
+
   /**
    * Every Quiver page that currently ranks carries its target query in the H1
    * near-verbatim (/vs/surfline -> "Surfline Alternative...", /learn/best-tide-for-surfing
