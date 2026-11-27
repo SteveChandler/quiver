@@ -197,6 +197,14 @@ export function canonicalCandidateVerdict(
 ): "go" | "maybe" | "no" {
   const skill = canonicalSkill(profileExperience);
   if (candidateSafetyReasons(candidate, skill).length > 0) return "no";
+  return safeCandidateVerdict(candidate, skill);
+}
+
+/** The verdict of a candidate already known to pass the safety gates. */
+function safeCandidateVerdict(
+  candidate: CanonicalDecisionCandidate,
+  skill: CanonicalDecisionSkill,
+): "go" | "maybe" | "no" {
   const physical = physicalVerdictForCandidate(candidate);
   const personal = skill === "unknown" ? null : personalMatchVerdict(candidate);
   if (personal === null) return physical;
@@ -369,7 +377,7 @@ export function buildCanonicalSessionDecision(
   const verdictTier = new Map(
     safeCandidates.map((candidate) => [
       candidate,
-      VERDICT_RANK[canonicalCandidateVerdict(candidate, input.profileExperience)],
+      VERDICT_RANK[safeCandidateVerdict(candidate, skill)],
     ]),
   );
   const tierOf = (candidate: CanonicalDecisionCandidate): number => verdictTier.get(candidate) ?? 0;
