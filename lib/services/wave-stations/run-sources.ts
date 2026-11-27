@@ -3,11 +3,12 @@
  * others. The cron route reports each source's outcome.
  */
 
+import { WaveStationHttpError } from "./http-error";
 import type { WaveStationSource, WaveStationSourceAdapter } from "./types";
 
 export type SourceRun<T> =
   | { source: WaveStationSource; ok: true; result: T }
-  | { source: WaveStationSource; ok: false; error: string; timedOut?: true };
+  | { source: WaveStationSource; ok: false; error: string; timedOut?: true; upstreamServerError?: true };
 
 export async function runPerSource<T>(
   adapters: readonly WaveStationSourceAdapter[],
@@ -24,6 +25,10 @@ export async function runPerSource<T>(
           console.warn(`[WaveStations] ${adapter.source} timed out:`, message);
           return { source: adapter.source, ok: false, error: message, timedOut: true };
         }
+        if (error instanceof WaveStationHttpError && error.status >= 500 && error.status < 600) {
+          console.warn(`[WaveStations] ${adapter.source} upstream error:`, message);
+          return { source: adapter.source, ok: false, error: message, upstreamServerError: true };
+        }
         console.error(`[WaveStations] ${adapter.source} failed:`, message);
         return { source: adapter.source, ok: false, error: message };
       }
@@ -36,9 +41,11 @@ export function sumOk<T>(runs: Array<SourceRun<T>>, pick: (result: T) => number)
   return runs.reduce((total, run) => total + (run.ok ? pick(run.result) : 0), 0);
 }
 
-/** Non-timeout source failures, or null when none occurred. */
+/** Source failures excluding timeout and upstream HTTP 5xx warnings. */
 export function failedSources<T>(runs: Array<SourceRun<T>>): string | null {
-  const failed = runs.filter((run): run is Extract<SourceRun<T>, { ok: false }> => !run.ok && !run.timedOut);
+  const failed = runs.filter((run): run is Extract<SourceRun<T>, { ok: false }> =>
+    !run.ok && !run.timedOut && !run.upstreamServerError,
+  );
   return failed.length > 0 ? failed.map((run) => `${run.source}: ${run.error}`).join("; ") : null;
 }
 

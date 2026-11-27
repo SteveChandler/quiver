@@ -2,6 +2,9 @@
  * @jest-environment node
  */
 
+import { SOURCE_ADAPTERS } from "@/lib/services/wave-stations/adapters";
+import { aodnAdapter } from "@/lib/services/wave-stations/aodn/adapter";
+import { ndbcAdapter } from "@/lib/services/wave-stations/ndbc/adapter";
 import {
   failedSources,
   isLatestDue,
@@ -18,6 +21,51 @@ const adapter = (source: WaveStationSourceAdapter["source"], every: 15 | 30 | 60
 });
 
 describe("runPerSource", () => {
+  it.each(SOURCE_ADAPTERS)("keeps a $source HTTP 502 in the outcome as a warning", async (upstream) => {
+    const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 502 }));
+    const warning = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const healthy = adapter(upstream.source === "ndbc" ? "aodn" : "ndbc");
+      const runs = await runPerSource([upstream, healthy], async (one) => {
+        if (one === upstream) await one.fetchStations();
+        return { rowsSent: 5 };
+      });
+
+      expect(runs[0]).toEqual({ source: upstream.source, ok: false, error: expect.stringContaining("HTTP 502"), upstreamServerError: true });
+      expect(sumOk(runs, (value) => value.rowsSent)).toBe(5);
+      expect(failedSources(runs)).toBeNull();
+      expect(warning).toHaveBeenCalledWith(`[WaveStations] ${upstream.source} upstream error:`, expect.stringContaining("HTTP 502"));
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      fetch.mockRestore();
+      warning.mockRestore();
+      error.mockRestore();
+    }
+  });
+
+  it.each([
+    { label: "HTTP 404", failure: async () => new Response(null, { status: 404 }), message: "NDBC /data/latest_obs/latest_obs.txt failed: HTTP 404" },
+    { label: "TypeError", failure: async () => { throw new TypeError("invalid response: HTTP 502"); }, message: "invalid response: HTTP 502" },
+  ])("keeps a $label as an error alongside an AODN HTTP 502", async ({ failure, message }) => {
+    const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(null, { status: 502 })).mockImplementation(failure);
+    const warning = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const runs = await runPerSource([aodnAdapter, ndbcAdapter], async (one) => one.fetchLatestObservations?.());
+
+      expect(failedSources(runs)).toBe(`ndbc: ${message}`);
+      expect(error).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledWith("[WaveStations] ndbc failed:", message);
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning).toHaveBeenCalledWith("[WaveStations] aodn upstream error:", "AODN WFS failed: HTTP 502");
+    } finally {
+      fetch.mockRestore();
+      warning.mockRestore();
+      error.mockRestore();
+    }
+  });
+
   it("keeps going when one source fails and names the failure", async () => {
     const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
     const runs = await runPerSource([adapter("ndbc"), adapter("marine_ie"), adapter("aodn")], async (one) => {

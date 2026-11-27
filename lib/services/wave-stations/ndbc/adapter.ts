@@ -1,3 +1,4 @@
+import { WaveStationHttpError } from "../http-error";
 import type {
   SourceObservation,
   SourceStation,
@@ -25,7 +26,7 @@ async function fetchText(path: string): Promise<string> {
     cache: "no-store",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`NDBC ${path} failed: HTTP ${res.status}`);
+  if (!res.ok) throw new WaveStationHttpError(`NDBC ${path} failed`, res.status);
   return res.text();
 }
 
@@ -94,7 +95,7 @@ async function fetchStationHistory(
   );
   if (res.status === 304) return { status: "not_modified" };
   if (res.status === 404) return { status: "not_found" };
-  if (!res.ok) throw new Error(`NDBC ${sourceStationId}.${file} failed: HTTP ${res.status}`);
+  if (!res.ok) throw new WaveStationHttpError(`NDBC ${sourceStationId}.${file} failed`, res.status);
   const text = await res.text();
   return {
     status: "ok",

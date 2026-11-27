@@ -9,6 +9,7 @@
  */
 
 import { isErddapNoRows } from "../erddap";
+import { WaveStationHttpError } from "../http-error";
 import type { SourceObservation, SourceStation, WaveStationSourceAdapter } from "../types";
 import { parseIwbObservations, parseIwbRegistry } from "./parsers";
 
@@ -30,10 +31,9 @@ export function erddapUrl(columns: string[], constraints: string[]): string {
 /** Text body, or null when ERDDAP answers "no matching results" (an empty window). */
 async function fetchCsv(url: string): Promise<string | null> {
   const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  const body = await res.text();
-  if (isErddapNoRows(res.status, body)) return null;
-  if (!res.ok) throw new Error(`Marine Institute ERDDAP failed: HTTP ${res.status}`);
-  return body;
+  if (res.ok) return res.text();
+  if (res.status === 404 && isErddapNoRows(res.status, await res.text())) return null;
+  throw new WaveStationHttpError("Marine Institute ERDDAP failed", res.status);
 }
 
 async function fetchStations(): Promise<SourceStation[]> {

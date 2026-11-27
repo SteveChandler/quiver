@@ -14,6 +14,7 @@
  *   txt_last_modified.
  */
 
+import { WaveStationHttpError } from "../http-error";
 import type {
   SourceObservation,
   SourceStation,
@@ -55,18 +56,20 @@ const LISTING_TTL_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function fetchWithRetry(url: string): Promise<Response> {
+  const errorMessage = `Copernicus ${url.slice(BUCKET_URL.length)} failed`;
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= FILE_RETRIES; attempt++) {
     try {
       const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
       // 404 is an answer, not a transient failure.
       if (res.ok || res.status === 404) return res;
-      lastError = new Error(`HTTP ${res.status}`);
+      lastError = new WaveStationHttpError(errorMessage, res.status);
     } catch (error) {
       lastError = error;
     }
   }
-  throw new Error(`Copernicus ${url.slice(BUCKET_URL.length)} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  if (lastError instanceof WaveStationHttpError) throw lastError;
+  throw new Error(`${errorMessage}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }
 
 export function listingUrl(day: string, continuationToken: string | null): string {
@@ -81,7 +84,7 @@ async function listDay(day: string): Promise<MooringFile[]> {
   let token: string | null = null;
   for (let page = 0; page < MAX_LISTING_PAGES_PER_DAY; page++) {
     const res = await fetchWithRetry(listingUrl(day, token));
-    if (!res.ok) throw new Error(`Copernicus listing ${day} failed: HTTP ${res.status}`);
+    if (!res.ok) throw new WaveStationHttpError(`Copernicus listing ${day} failed`, res.status);
     const parsed = parseListingPage(await res.text());
     for (const entry of parsed.entries) {
       const file = parseMooringKey(entry, DATASET_PREFIX);
@@ -125,7 +128,7 @@ function latestFilesByPlatform(nowMs: number): Promise<Map<string, MooringFile[]
 
 async function downloadFile(file: MooringFile): Promise<Uint8Array> {
   const res = await fetchWithRetry(`${BUCKET_URL}/${DATASET_PREFIX}${file.path}`);
-  if (!res.ok) throw new Error(`Copernicus ${file.path} failed: HTTP ${res.status}`);
+  if (!res.ok) throw new WaveStationHttpError(`Copernicus ${file.path} failed`, res.status);
   return new Uint8Array(await res.arrayBuffer());
 }
 
