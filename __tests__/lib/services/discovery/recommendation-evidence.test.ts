@@ -89,6 +89,12 @@ describe('buildRecommendationEvidence', () => {
     expect(evidence.proofSummary).toBe('Board fit: Friendly board fit.');
   });
 
+  it('words the starter_fit proof without a skill-level label', () => {
+    const { proofSummary } = buildRecommendationEvidence(input({ sourceState: 'starter_fit' }));
+    expect(proofSummary).toBe("Based on your preferences and today's conditions.");
+    expect(proofSummary).not.toMatch(/starter|beginner|intermediate|advanced/i);
+  });
+
   it('returns honest weak-profile copy', () => {
     expect(buildRecommendationEvidence(input({ sourceState: 'avoidance_learning' })).proofSummary)
       .toBe('Learning from what you avoid. Rate this one after you surf.');
