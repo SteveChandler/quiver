@@ -367,7 +367,8 @@ describe("API Wrappers", () => {
       expect((await optionalHandler(nextRequest)).status).toBe(200);
       expect(handler).toHaveBeenNthCalledWith(1, request, { params: {}, user, supabase: client });
 
-      client.auth.getUser.mockResolvedValue({ data: { user: null }, error: new Error("JWT expired") });
+      const expired = { data: { user: null }, error: new Error("JWT expired") };
+      client.auth.getUser.mockResolvedValueOnce(expired).mockResolvedValueOnce(expired);
       expect((await optionalHandler(nextRequest)).status).toBe(200);
       expect(handler).toHaveBeenNthCalledWith(2, request, {
         params: {},
