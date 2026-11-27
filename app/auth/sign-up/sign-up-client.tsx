@@ -1,6 +1,7 @@
 "use client";
 
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { leaveAuthPage } from "@/lib/auth/leave-auth-page";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
@@ -20,6 +21,7 @@ export default function SignUpClient() {
       <UnifiedAuthModal
         isOpen={true}
         onClose={() => router.push("/")}
+        onDismiss={() => leaveAuthPage(router)}
         mode="signup"
         source="auth-page"
         showCloseButton={true}

@@ -82,6 +82,11 @@ interface UnifiedAuthModalProps {
   isOpen: boolean;
   /** Callback when modal is closed */
   onClose: () => void;
+  /**
+   * Callback when the visitor dismisses the modal without an auth action.
+   * Dedicated auth pages use it to leave the page; defaults to `onClose`.
+   */
+  onDismiss?: () => void;
 
   /** Modal mode: login, signup, or auto-detect */
   mode: "login" | "signup" | "auto";
@@ -117,6 +122,7 @@ type AuthView =
 export function UnifiedAuthModal({
   isOpen,
   onClose,
+  onDismiss,
   mode,
   returnTo,
   source = "unknown",
@@ -529,6 +535,8 @@ export function UnifiedAuthModal({
   const handleClose = () => {
     if (!authActionTakenRef.current && view !== "verify-email" && view !== "success") {
       trackAuthModalClosedWithoutAction({ mode, source });
+      (onDismiss ?? onClose)();
+      return;
     }
     onClose();
   };
