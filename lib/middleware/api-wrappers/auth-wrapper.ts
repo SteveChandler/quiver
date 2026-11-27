@@ -61,6 +61,12 @@ async function createRequestCookieClient(
     return await createSupabaseServerClient();
   }
 
+  return createCookieClient(() => requestCookies.getAll());
+}
+
+function createCookieClient(
+  getAll: () => { name: string; value: string }[]
+): SupabaseClient<Database> {
   const supabaseUrl = (
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.SUPABASE_URL ||
@@ -83,9 +89,7 @@ async function createRequestCookieClient(
       fetch: createNoStoreFetch(globalThis.fetch) as typeof fetch,
     },
     cookies: {
-      getAll() {
-        return requestCookies.getAll();
-      },
+      getAll,
       setAll() {
         // API auth wrappers do not own the final response object here.
       },
@@ -98,13 +102,13 @@ async function createRequestCookieClient(
  * either an `Authorization: Bearer <jwt>` header (mobile/native clients) or
  * the SSR cookie session (web clients). Bearer takes precedence when present.
  *
- * The returned Supabase client is always scoped to the authenticated user so
- * RLS policies enforce `auth.uid()` correctly regardless of the auth path.
+ * The returned Supabase client carries the request credentials. Handlers can
+ * use it for user-scoped queries after authentication succeeds.
  *
  * Why the try/catch: `supabase.auth.getUser()` normally returns an AuthError
  * inside `{ error }` on auth failures, but can throw on transport failures
  * (DNS / TLS / fetch). Without catching, those bubble to `handleApiError` and
- * return 500. An auth resolution failure should always translate to a 401.
+ * return 500. The wrapper decides whether to return 401 or allow guest access.
  */
 async function resolveAuth(request: NextRequest): Promise<{
   supabase: SupabaseClient<Database>;
@@ -210,9 +214,6 @@ export function withAuth(
 
   return async (request: NextRequest, context?: RouteContext) => {
     try {
-      // Resolve auth from Bearer header (native) or SSR cookies (web).
-      // The returned `supabase` client is already scoped to the authenticated
-      // user so downstream queries enforce RLS against auth.uid() correctly.
       const {
         supabase,
         user,
@@ -242,19 +243,16 @@ export function withAuth(
         return await (handler as AuthenticatedHandler)(request, authContext);
       }
 
-      // Optional auth
-      if (
-        rejectInvalidCredentials &&
-        credentialsPresented &&
-        (userError || !user)
-      ) {
+      const invalidCredentials = credentialsPresented && (!user || Boolean(userError));
+      if (rejectInvalidCredentials && invalidCredentials) {
         return createAuthError(authErrorMessage);
       }
 
       const optionalContext: OptionalAuthContext = {
         params: resolvedParams,
         user: userError ? null : user,
-        supabase,
+        // The request client can still send the rejected JWT to PostgREST.
+        supabase: invalidCredentials ? createCookieClient(() => []) : supabase,
       };
 
       return await (handler as OptionalAuthHandler)(request, optionalContext);
