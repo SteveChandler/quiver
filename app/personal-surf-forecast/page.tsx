@@ -76,7 +76,7 @@ const DECISION_ITEMS: DecisionItem[] = [
     label: "Log rated sessions",
     title: "You want to build useful history",
     description:
-      "A free account can capture and rate sessions. Five eligible rated sessions are required before Quiver presents a learned profile instead of a starter read.",
+      "A free account can capture and rate sessions. After five eligible rated sessions, Quiver matches the forecast to your own history. Before that, the match comes from your profile and the spot.",
     icon: <ClipboardCheck className="h-5 w-5" aria-hidden />,
   },
   {
@@ -143,7 +143,7 @@ const MECHANISM_ITEMS: MechanismItem[] = [
     step: "03",
     title: "Cross the learning threshold",
     description:
-      "Below five eligible rated sessions, Quiver gives an explicit starter read. At five or more qualifying sessions, it can use learned condition ranges.",
+      "Below five eligible rated sessions, the match comes from your profile and the spot. At five or more qualifying sessions, it can use condition ranges learned from your own history.",
     icon: <BrainCircuit className="h-5 w-5" aria-hidden />,
   },
   {
@@ -169,7 +169,7 @@ const FAQ_ITEMS = [
   {
     question: "How many sessions does Quiver need to learn my preferences?",
     answer:
-      "Quiver requires at least five eligible rated sessions before it presents a learned profile. Below that threshold, it labels the result as a starter read instead of implying that your history has produced a learned match.",
+      "Quiver requires at least five eligible rated sessions before it presents a learned profile. Below that threshold, the match comes from your profile and the spot, and Quiver does not present it as learned from your history.",
   },
   {
     question: "What conditions does the personal-fit layer use?",
@@ -332,8 +332,8 @@ export default function PersonalSurfForecastPage(): ReactElement {
                       History ranks the fit. It does not change the waves.
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#252D6B]">
-                      Learned after five eligible rated sessions; starter read
-                      before then.
+                      Learned after five eligible rated sessions. Before then,
+                      your profile and the spot.
                     </p>
                   </div>
                 </div>
