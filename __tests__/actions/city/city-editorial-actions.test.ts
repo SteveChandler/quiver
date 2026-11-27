@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
+import { unstable_cache } from "next/cache";
 
 /**
  * Tests for City Editorial Actions
@@ -31,6 +32,20 @@ jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(),
 }));
 
+const mockRenderMemo = new Map<string, unknown>();
+jest.mock("react", () => ({
+  ...jest.requireActual("react"),
+  cache: (load: (...args: unknown[]) => unknown) => (...args: unknown[]) => {
+    const key = JSON.stringify(args);
+    if (!mockRenderMemo.has(key)) mockRenderMemo.set(key, load(...args));
+    return mockRenderMemo.get(key);
+  },
+}));
+jest.mock("next/cache", () => ({ unstable_cache: jest.fn() }));
+
+const nextCache = jest.mocked(unstable_cache);
+const normalizedSanDiegoEditorial = { ...mockSanDiegoEditorial, editorial_sources: [] };
+
 // Chain builder for Supabase query mocking
 const makeChain = () => {
   const obj: Record<string, jest.Mock> = {};
@@ -49,6 +64,15 @@ describe("City Editorial Actions", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRenderMemo.clear();
+    const entries = new Map<string, unknown>();
+    nextCache.mockReset().mockImplementation((load, keyParts) => async (...args) => {
+      const key = JSON.stringify([keyParts, args]);
+      if (entries.has(key)) return entries.get(key);
+      const value = await load(...args);
+      entries.set(key, JSON.parse(JSON.stringify(value)));
+      return value;
+    });
     tableChain = makeChain();
 
     mockSupabaseClient = {
@@ -71,6 +95,129 @@ describe("City Editorial Actions", () => {
   });
 
   describe("getCityEditorialContent", () => {
+    describe("caching", () => {
+      beforeEach(() => {
+        jest.replaceProperty(process, "env", { ...process.env });
+        delete process.env.PUBLIC_CITY_EDITORIAL_CACHE;
+      });
+
+      afterEach(() => {
+        jest.restoreAllMocks();
+      });
+
+      it("shares metadata and body reads with the persistent cache off", async () => {
+        process.env.PUBLIC_CITY_EDITORIAL_CACHE = "false";
+        mockSupabaseClient.rpc.mockResolvedValue(mockRpcSuccessResponse);
+
+        const [metadata, body] = await Promise.all([
+          getCityEditorialContent("san-diego"),
+          getCityEditorialContent("san-diego", "ca", "usa", null, true),
+        ]);
+
+        expect(body).toBe(metadata);
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+        expect(nextCache).not.toHaveBeenCalled();
+
+        mockRenderMemo.clear();
+        await getCityEditorialContent("san-diego");
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(2);
+      });
+
+      it("keys both caches by city, state, country, intent, and fallback policy", async () => {
+        mockSupabaseClient.rpc.mockResolvedValue(mockRpcSuccessResponse);
+        const render = async (): Promise<void> => {
+          await getCityEditorialContent("waimea-kauai", "hi", "usa", "tide", true);
+          await getCityEditorialContent("waimea-big-island", "hi", "usa", "tide", true);
+          await getCityEditorialContent("waimea-kauai", "ca", "usa", "tide", true);
+          await getCityEditorialContent("waimea-kauai", "hi", "mexico", "tide", true);
+          await getCityEditorialContent("waimea-kauai", "hi", "usa", "sunset", true);
+          await getCityEditorialContent("waimea-kauai", "hi", "usa", "tide", false);
+        };
+
+        await render();
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(6);
+        mockRenderMemo.clear();
+        await render();
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(6);
+      });
+
+      it("runs the Hawaii fallback once for concurrent reads of the same intent", async () => {
+        mockSupabaseClient.rpc.mockImplementation((_name, { p_city }) =>
+          p_city === "waimea-kauai" ? mockRpcNotFoundResponse : mockRpcSuccessResponse,
+        );
+
+        const [metadata, body] = await Promise.all([
+          getCityEditorialContent("waimea-kauai", "hi", "usa", "tide"),
+          getCityEditorialContent("waimea-kauai", "hi", "usa", "tide"),
+        ]);
+
+        expect(metadata).toEqual(normalizedSanDiegoEditorial);
+        expect(body).toBe(metadata);
+        expect(mockSupabaseClient.rpc.mock.calls).toEqual([
+          ["get_city_editorial", { p_city: "waimea-kauai", p_state: "hi", p_country: "usa", p_intent: "tide" }],
+          ["get_city_editorial", { p_city: "waimea", p_state: "hi", p_country: "usa", p_intent: "tide" }],
+        ]);
+      });
+
+      it.each([
+        ["editorial", mockRpcSuccessResponse, normalizedSanDiegoEditorial],
+        ["a successful miss", mockRpcNotFoundResponse, null],
+      ])("shares %s across renders and reads again in the next daily window", async (_label, response, editorial) => {
+        const clock = jest.spyOn(Date, "now").mockReturnValue(Date.UTC(2026, 10, 26));
+        mockSupabaseClient.rpc.mockResolvedValue(response);
+        const read = () => getCityEditorialContent("san-diego", "ca", "usa", "tide");
+
+        expect(await read()).toEqual(editorial);
+        mockRenderMemo.clear();
+        clock.mockReturnValue(Date.UTC(2026, 10, 27) - 1);
+        expect(await read()).toEqual(editorial);
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+        expect(nextCache).toHaveBeenCalledWith(expect.any(Function), expect.any(Array), {
+          revalidate: 86_400,
+          tags: ["city-editorial"],
+        });
+
+        mockRenderMemo.clear();
+        clock.mockReturnValue(Date.UTC(2026, 10, 27));
+        expect(await read()).toEqual(editorial);
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(2);
+      });
+
+      it.each([
+        ["the primary RPC", [mockRpcErrorResponse], null],
+        ["the general fallback", [mockRpcNotFoundResponse, mockRpcErrorResponse, mockRpcSuccessResponse], normalizedSanDiegoEditorial],
+        ["the Hawaii fallback", [mockRpcNotFoundResponse, mockRpcNotFoundResponse, mockRpcErrorResponse], null],
+      ])("preserves the result when %s fails and retries the same lookup", async (_label, responses, editorial) => {
+        const logError = jest.spyOn(console, "error").mockImplementation(() => {});
+        for (const response of responses) {
+          mockSupabaseClient.rpc.mockResolvedValueOnce(response);
+        }
+        mockSupabaseClient.rpc.mockResolvedValue(mockRpcSuccessResponse);
+        const read = () => getCityEditorialContent("waimea-kauai", "hi", "usa");
+
+        expect(await read()).toEqual(editorial);
+        expect(logError).toHaveBeenCalledTimes(responses.length === 1 ? 1 : 0);
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(responses.length);
+        expect(await read()).toEqual(normalizedSanDiegoEditorial);
+
+        mockRenderMemo.clear();
+        expect(await read()).toEqual(normalizedSanDiegoEditorial);
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(responses.length + 1);
+      });
+
+      it("propagates unrelated cache errors and retries without changing the result", async () => {
+        const error = new Error("Cache read failed");
+        nextCache.mockImplementationOnce(() => async () => { throw error; });
+        mockSupabaseClient.rpc.mockResolvedValue(mockRpcSuccessResponse);
+        const read = () => getCityEditorialContent("san-diego");
+
+        await expect(read()).rejects.toBe(error);
+        expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+        expect(await read()).toEqual(normalizedSanDiegoEditorial);
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it("does not reuse city-wide Waimea editorial on an island page", async () => {
       mockSupabaseClient.rpc.mockResolvedValue(mockRpcNotFoundResponse);
 

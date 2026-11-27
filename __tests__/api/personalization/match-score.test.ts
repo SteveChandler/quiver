@@ -264,7 +264,7 @@ describe("GET /api/personalization/match-score", () => {
 
   it("returns starter prior scores through the authenticated route", async () => {
     const body =
-      "A starter read from your skill and this spot's setup. It gets more personal as you rate sessions.";
+      "Your forecast gets more personal as you rate sessions.";
     rpc.mockResolvedValue({
       data: {
         state: "starter",

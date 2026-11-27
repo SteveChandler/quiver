@@ -201,8 +201,10 @@ export async function loadStationPage(
   const timeZone = stationTimeZone(station);
   const [latest, historyRaw, beachLinks, nearbyRaw, model] = await Promise.all([
     source.getLatestObservation(station.id),
-    source.getObservationHistory(station.id, (HISTORY_DAYS + 1) * 24),
-    source.getBeachesForStation(station.id).catch((error: unknown) => {
+    source.getObservationHistory(station.id, (HISTORY_DAYS + 1) * 24, {
+      lastWaveObservedAt: station.last_wave_observed_at,
+    }),
+    source.getBeachesForStation(station.id, station).catch((error: unknown) => {
       // Beach links are a side block; a failed read must not take the buoy page down.
       console.warn("[buoy-pages] beach links failed", {
         station: station.id,
