@@ -16,6 +16,7 @@ DROP POLICY IF EXISTS "Service role can upload ML artifacts" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete their own avatar" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete their own intel photos" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete their own session media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can read their own avatar" ON storage.objects;
 DROP POLICY IF EXISTS "Users can read their own session media objects" ON storage.objects;
 DROP POLICY IF EXISTS "Users can read their own session tracks" ON storage.objects;
 DROP POLICY IF EXISTS "Users can read their own session videos" ON storage.objects;
@@ -47,6 +48,8 @@ CREATE POLICY "Users can delete their own avatar" ON "storage"."objects" FOR DEL
 CREATE POLICY "Users can delete their own intel photos" ON "storage"."objects" FOR DELETE USING ((("bucket_id" = 'intel-photos'::"text") AND (("storage"."foldername"("name"))[1] = 'intel-posts'::"text") AND (("auth"."uid"())::"text" = ("storage"."foldername"("name"))[2])));
 
 CREATE POLICY "Users can delete their own session media" ON "storage"."objects" FOR DELETE USING ((("bucket_id" = 'session-media'::"text") AND (("auth"."uid"())::"text" = ("storage"."foldername"("name"))[2])));
+
+CREATE POLICY "Users can read their own avatar" ON "storage"."objects" FOR SELECT TO "authenticated" USING ((("bucket_id" = 'avatars'::"text") AND ((( SELECT "auth"."uid"() AS "uid"))::"text" = ("storage"."foldername"("name"))[1])));
 
 CREATE POLICY "Users can read their own session media objects" ON "storage"."objects" FOR SELECT TO "authenticated" USING ((("bucket_id" = 'session-media'::"text") AND ((( SELECT "auth"."uid"() AS "uid"))::"text" = ("storage"."foldername"("name"))[2])));
 
