@@ -361,15 +361,35 @@ export async function withRetry<T>(
  * Log errors with proper context
  */
 export function logError(
-  error: ForecastError | Error | unknown,
-  additionalContext?: Record<string, any>
-) {
+  error: unknown,
+  additionalContext?: Record<string, unknown>,
+  { handled = false }: { handled?: boolean } = {},
+): void {
   if (error instanceof ForecastError) {
+    const maxApiMessageLength = 256;
+    const message =
+      error instanceof ApiError && error.message.length > maxApiMessageLength
+        ? `${error.message.slice(0, maxApiMessageLength - 3)}...`
+        : error.message;
     const logData = {
       ...error.toJSON(),
+      message,
+      stack: error.stack?.replace(error.message, () => message),
       ...additionalContext,
     };
-    console.error(`[ForecastError] ${error.code}: ${error.message}`, logData);
+    const status = error.context.statusCode;
+    if (
+      handled &&
+      error instanceof ApiError &&
+      error.isRetryable &&
+      status !== undefined &&
+      status >= 500 &&
+      status < 600
+    ) {
+      console.warn(`[ForecastWarning] ${error.code}: ${message}`, logData);
+      return;
+    }
+    console.error(`[ForecastError] ${error.code}: ${message}`, logData);
   } else if (error instanceof Error) {
     const logData = {
       name: error.name,

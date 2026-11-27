@@ -239,10 +239,11 @@ export class EnhancedForecastService {
         if (tideData.status === "rejected")
           logError(tideData.reason, { beachId: beach.id, dataSource: "tide" });
         if (weatherData.status === "rejected")
-          logError(weatherData.reason, {
-            beachId: beach.id,
-            dataSource: "weather",
-          });
+          logError(
+            weatherData.reason,
+            { beachId: beach.id, dataSource: "weather" },
+            { handled: true },
+          );
         if (cdipData.status === "rejected")
           logError(cdipData.reason, { beachId: beach.id, dataSource: "cdip" });
         if (ioosWaterTempResult.status === "rejected")
