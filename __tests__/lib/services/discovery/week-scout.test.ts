@@ -813,6 +813,34 @@ describe('generateWeekScoutForecast', () => {
     }
   });
 
+  it('picks a worth_it window over a maybe window with a higher ranking score, and names it the day best', async () => {
+    // Ala Moana scores GOOD conditions but ranks lower; Diamond Head ranks higher on a FAIR score.
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn((_forecast, candidateBeach) => (candidateBeach.id === BEACH_A ? 78 : 55));
+    deps.rankWindows = k40Dependencies({ [BEACH_A]: 70, [BEACH_B]: 95 }).rankWindows;
+    const request = {
+      candidateBeachIds: [BEACH_A, BEACH_B],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 1 as const,
+    };
+
+    const ranking = await generateWeekScoutRankingForDays('user-week-scout', request, deps);
+    const rankedBest = ranking.days[0].windows.find(({ id }) => id === ranking.days[0].bestWindowId);
+    expect(rankedBest).toMatchObject({ beachId: BEACH_B, verdict: 'maybe' });
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', request, deps);
+    const goWindow = response.days[0].windows.find(
+      ({ beachId, isBeachDayBest, verdict }) => beachId === BEACH_A && isBeachDayBest && verdict === 'worth_it',
+    );
+    expect(goWindow).toMatchObject({ beachId: BEACH_A, verdict: 'worth_it' });
+    expect(goWindow!.rankingScore ?? Infinity).toBeLessThan(rankedBest!.rankingScore ?? -Infinity);
+    expect(response.sessionDecision.verdict).toBe('go');
+    expect(response.sessionDecision.selection?.candidateId).toBe(goWindow!.id);
+    expect(response.days[0].bestWindowId).toBe(goWindow!.id);
+    expect(alignDayBestWithSessionPick(ranking, response.sessionDecision).days[0].bestWindowId).toBe(goWindow!.id);
+  });
+
   it('checks the preferred session time against the displayed window, not the raw window', async () => {
     const base = dependencies();
     // One long window per beach: raw 9 AM–4 PM HST, peak 3 PM. The raw span

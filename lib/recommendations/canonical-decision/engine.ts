@@ -197,6 +197,14 @@ export function canonicalCandidateVerdict(
 ): "go" | "maybe" | "no" {
   const skill = canonicalSkill(profileExperience);
   if (candidateSafetyReasons(candidate, skill).length > 0) return "no";
+  return safeCandidateVerdict(candidate, skill);
+}
+
+/** The verdict of a candidate already known to pass the safety gates. */
+function safeCandidateVerdict(
+  candidate: CanonicalDecisionCandidate,
+  skill: CanonicalDecisionSkill,
+): "go" | "maybe" | "no" {
   const physical = physicalVerdictForCandidate(candidate);
   const personal = skill === "unknown" ? null : personalMatchVerdict(candidate);
   if (personal === null) return physical;
@@ -364,10 +372,20 @@ export function buildCanonicalSessionDecision(
   const physicallyRecommendableCandidates = safeCandidates.filter(
     (candidate) => physicalVerdictForCandidate(candidate) !== "no",
   );
+  // Rank by the verdict the decision will print, so a "maybe" with a higher
+  // score can never be picked over an available "go".
+  const verdictTier = new Map(
+    safeCandidates.map((candidate) => [
+      candidate,
+      VERDICT_RANK[safeCandidateVerdict(candidate, skill)],
+    ]),
+  );
+  const tierOf = (candidate: CanonicalDecisionCandidate): number => verdictTier.get(candidate) ?? 0;
   const selected =
     learnedCandidates.length > 0
       ? [...learnedCandidates].sort(
           (left, right) =>
+            tierOf(right) - tierOf(left) ||
             (right.personalMatch?.score ?? -1) -
               (left.personalMatch?.score ?? -1) ||
             confidenceRank(right) - confidenceRank(left) ||
@@ -381,6 +399,7 @@ export function buildCanonicalSessionDecision(
             : safeCandidates),
         ].sort(
           (left, right) =>
+            tierOf(right) - tierOf(left) ||
             right.utilityScore - left.utilityScore ||
             Date.parse(left.windowStart) - Date.parse(right.windowStart) ||
             left.candidateId.localeCompare(right.candidateId),
