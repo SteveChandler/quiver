@@ -176,7 +176,9 @@ export function InstallBar({
             ),
       )}
     >
-      <div className="flex items-center gap-3 px-3 py-2">
+      {/* Headline row, then a full-width button: long spot names wrap in the
+          text column instead of squeezing it beside the button. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
         <Image
           src="/quiver-app-icon-128.png"
           alt=""
@@ -191,13 +193,6 @@ export function InstallBar({
           </p>
           <p className="text-xs leading-4 text-white/75">{copy.subline}</p>
         </div>
-        <a
-          href={href}
-          onClick={handleClick}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-[#F78E42] px-4 text-sm font-semibold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-        >
-          {copy.cta}
-        </a>
         <button
           type="button"
           onClick={handleDismiss}
@@ -206,6 +201,13 @@ export function InstallBar({
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
+        <a
+          href={href}
+          onClick={handleClick}
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#F78E42] px-4 text-sm font-semibold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+        >
+          {copy.cta}
+        </a>
       </div>
     </aside>
   );
