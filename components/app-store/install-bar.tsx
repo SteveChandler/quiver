@@ -197,7 +197,7 @@ export function InstallBar({
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss app install bar"
-          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-[rgba(255,255,255,0.1)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
