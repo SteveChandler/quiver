@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CameraOff, Loader2 } from "lucide-react";
+import { useCamPlaybackReport } from "@/hooks/use-cam-playback-report";
 
 interface HLSVideoPlayerProps {
   src: string;
@@ -16,6 +17,8 @@ export default function HLSVideoPlayer({ src, title, onError }: HLSVideoPlayerPr
   onErrorRef.current = onError;
   const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Feeds the cam install sheet's playback clock; stream setup is unchanged.
+  useCamPlaybackReport(videoRef, src);
 
   // Propagate error to parent (stable ref avoids re-render loops)
   useEffect(() => {

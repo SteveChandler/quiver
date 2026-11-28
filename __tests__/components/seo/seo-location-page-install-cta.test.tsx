@@ -283,7 +283,9 @@ describe("SeoLocationPage install CTA on /surf-cams", () => {
     expect(screen.queryByTestId("sticky-signup-bar")).not.toBeInTheDocument();
     expect(screen.queryByTestId(HANDOFF)).not.toBeInTheDocument();
     expect(screen.queryByTestId("iphone-app-banner")).not.toBeInTheDocument();
-    expect(screen.getByText("Forecast and alerts for San Diego")).toBeInTheDocument();
+    // Intended copy change (approved mock, 2026-11-27): the place ask.
+    expect(screen.getByText("Free alerts for your home break")).toBeInTheDocument();
+    expect(screen.getByText("Pick a spot near San Diego. We ping you when it turns on.")).toBeInTheDocument();
   });
 
   it("tracks the install bar's view and tap under the surf_cams surface", async () => {
@@ -299,7 +301,7 @@ describe("SeoLocationPage install CTA on /surf-cams", () => {
       pathname: "/surf-cams/san-diego",
     });
 
-    const link = screen.getByRole("link", { name: "Get the app" });
+    const link = screen.getByRole("link", { name: "Get free alerts" });
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
 

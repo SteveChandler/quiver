@@ -341,7 +341,6 @@ export async function SeoLocationPage({
         }
         bar={{
           placeName: page.locationName,
-          valueLabel: null,
           source: `${page.type}-${page.slug}`,
         }}
       />

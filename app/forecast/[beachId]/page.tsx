@@ -24,7 +24,7 @@ import {
 } from "@/components/forecast";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 
@@ -412,8 +412,11 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
         </main>
       </ZineSurface>
 
-      {/* Mobile Sticky Signup Bar */}
-      <StickySignupBar source={`forecast-${region.slug}`} />
+      {/* One fixed-bottom ask: the iPhone install bar, else the signup bar. */}
+      <StickyInstallAsk
+        stickySignup={{ source: `forecast-${region.slug}` }}
+        bar={{ placeName: region.name, source: `forecast-${region.slug}` }}
+      />
     </>
   );
 }

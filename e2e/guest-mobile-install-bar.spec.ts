@@ -64,7 +64,7 @@ test.describe('Install bar on beach detail', () => {
         await expect(page.locator(VISIBLE_BAR)).toBeVisible();
         await expect(page.locator(SIGNUP_BAR)).toHaveCount(0);
 
-        const link = page.getByRole('link', { name: 'Get the app' });
+        const link = page.getByRole('link', { name: 'Get free alerts' });
         const href = (await link.getAttribute('href')) ?? '';
         expect(href).toContain('https://go.quiversurf.app/app/handoff');
         expect(new URL(href).searchParams.get('placement')).toBe('install_bar');

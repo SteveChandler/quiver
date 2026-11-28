@@ -12,6 +12,7 @@ import {
   type ReactElement,
 } from "react";
 
+import { useOptionalAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
 import {
@@ -32,8 +33,8 @@ import { cn } from "@/lib/utils";
 interface InstallBarProps {
   surface: InstallBarSurface;
   placeName: string;
-  valueLabel: string | null;
-  isTomorrow?: boolean;
+  /** Copy B height (spot surfaces only), or null for copy A. */
+  tomorrowHeight?: string | null;
   source: string;
   pathname: string;
   onDismiss: () => void;
@@ -51,20 +52,27 @@ interface InstallBarProps {
 export function InstallBar({
   surface,
   placeName,
-  valueLabel,
-  isTomorrow = false,
+  tomorrowHeight = null,
   source,
   pathname,
   onDismiss,
 }: InstallBarProps): ReactElement {
+  const auth = useOptionalAuth();
+  // A signed-in hero can show a personal value; B's number is the public one.
+  const isAnonymous = Boolean(auth) && !auth?.isLoading && !auth?.user;
   const reducedMotion = useReducedMotion();
   const barRef = useRef<HTMLElement>(null);
   const hasTrackedView = useRef(false);
   const [isVisible, setIsVisible] = useState(false);
 
   const copy = useMemo(
-    () => buildInstallBarCopy({ surface, placeName, valueLabel, isTomorrow }),
-    [surface, placeName, valueLabel, isTomorrow],
+    () =>
+      buildInstallBarCopy({
+        surface,
+        placeName,
+        tomorrowHeight: isAnonymous ? tomorrowHeight : null,
+      }),
+    [surface, placeName, isAnonymous, tomorrowHeight],
   );
   const href = useMemo(
     () =>
@@ -135,9 +143,10 @@ export function InstallBar({
         ctaText: copy.cta,
         destinationUrl: handoff.url,
         handoffId: handoff.handoffId,
+        variant: copy.variant,
       });
     },
-    [copy.cta, pathname, source, surface],
+    [copy.cta, copy.variant, pathname, source, surface],
   );
 
   const handleDismiss = useCallback(() => {
@@ -167,7 +176,9 @@ export function InstallBar({
             ),
       )}
     >
-      <div className="flex items-center gap-3 px-3 py-2">
+      {/* Headline row, then a full-width button: long spot names wrap in the
+          text column instead of squeezing it beside the button. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
         <Image
           src="/quiver-app-icon-128.png"
           alt=""
@@ -182,13 +193,6 @@ export function InstallBar({
           </p>
           <p className="text-xs leading-4 text-white/75">{copy.subline}</p>
         </div>
-        <a
-          href={href}
-          onClick={handleClick}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-[#F78E42] px-4 text-sm font-semibold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-        >
-          {copy.cta}
-        </a>
         <button
           type="button"
           onClick={handleDismiss}
@@ -197,6 +201,13 @@ export function InstallBar({
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
+        <a
+          href={href}
+          onClick={handleClick}
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#F78E42] px-4 text-sm font-semibold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+        >
+          {copy.cta}
+        </a>
       </div>
     </aside>
   );

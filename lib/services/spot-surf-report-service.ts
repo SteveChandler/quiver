@@ -26,6 +26,8 @@ import {
 } from '@/lib/recommendations/major-event-hold/adapters/surf-call';
 import { evaluateMajorEventHoldCandidates } from '@/lib/recommendations/major-event-hold/service';
 import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
+import { aggregateDayForecasts, formatWaveRange } from '@/lib/utils/horizon-strip-utils';
+import type { SpotAskTomorrowInputs } from '@/lib/app-store/spot-ask-tomorrow-height';
 
 export interface SpotSurfReportResult {
   report: MajorEventHoldSurfCallResult;
@@ -34,6 +36,8 @@ export interface SpotSurfReportResult {
   /** Only produced by the cached spot report; `/api/surf/call` omits it. */
   hourlyForecasts?: PublicForecastHour[];
   hourlyForecastDay?: PublicForecastDay;
+  /** Tomorrow's figures for the spot install asks; only set while the hero shows today. */
+  tomorrowAsk?: SpotAskTomorrowInputs | null;
 }
 
 interface CachedSpotSurfReportResult {
@@ -42,6 +46,7 @@ interface CachedSpotSurfReportResult {
   forecastContext: ForecastRecommendationContext | null;
   hourlyForecasts: PublicForecastHour[];
   hourlyForecastDay: PublicForecastDay;
+  tomorrowAsk?: SpotAskTomorrowInputs | null;
 }
 
 export type PublicForecastDay = 'today' | 'tomorrow';
@@ -145,13 +150,12 @@ async function applySurfCallMajorEventHold(
     const report = hasPositiveSurfCallSemantics(result.report)
       ? unavailableUnboundSurfCall(result.report)
       : availableNonPositiveSurfCall(result.report);
+    const held = report.recommendationAvailability.state === 'none';
     return {
       ...result,
       report,
-      forecastContext:
-        report.recommendationAvailability.state === 'none'
-          ? null
-          : result.forecastContext,
+      forecastContext: held ? null : result.forecastContext,
+      tomorrowAsk: held ? null : result.tomorrowAsk,
     };
   }
 
@@ -171,13 +175,12 @@ async function applySurfCallMajorEventHold(
     decisions,
   );
 
+  const held = report.recommendationAvailability.state === 'none';
   return {
     ...result,
     report,
-    forecastContext:
-      report.recommendationAvailability.state === 'none'
-        ? null
-        : result.forecastContext,
+    forecastContext: held ? null : result.forecastContext,
+    tomorrowAsk: held ? null : result.tomorrowAsk,
   };
 }
 
@@ -297,6 +300,46 @@ const getRequestSurfReport = cache(async (beachKey: string): Promise<SpotSurfRep
   return applySurfCallMajorEventHold(result, beach.id, null, null);
 });
 
+/**
+ * Tomorrow as this page would show it: the hero's resolver and context builder
+ * in tomorrow mode, and the day strip's tomorrow card, from the rows the hero
+ * already read. No extra query.
+ */
+function buildTomorrowAskInputs(
+  beach: Beach,
+  tomorrowForecasts: EnhancedForecastEntity[],
+  sunTimesCache: Awaited<ReturnType<typeof getBatchSunTimes>>,
+  timezone: string,
+): SpotAskTomorrowInputs | null {
+  if (tomorrowForecasts.length === 0) return null;
+
+  const headline = resolveTodayHeadline({
+    forecasts: tomorrowForecasts,
+    beach,
+    userPrefs: null,
+    horizonHours: 48,
+    sunTimesCache,
+    rideabilityBand: null,
+    userSkillLevel: null,
+  });
+  const context = buildForecastRecommendationContext({
+    beach,
+    forecasts: tomorrowForecasts,
+    window: headline?.window ?? null,
+    timezone,
+  });
+  const [day] = aggregateDayForecasts(tomorrowForecasts, beach, {
+    maxDays: 1,
+    timezone,
+    sunTimesCache,
+  });
+  const tableLabel = day
+    ? day.headlineLabel ?? formatWaveRange(day.minHeight, day.maxHeight)
+    : null;
+
+  return { context, tableLabel };
+}
+
 async function buildRequestSurfReport(beach: Beach): Promise<CachedSpotSurfReportResult> {
   const beachId = beach.id;
   // 1. Determine beach timezone
@@ -389,6 +432,7 @@ async function buildRequestSurfReport(beach: Beach): Promise<CachedSpotSurfRepor
         forecastContext,
         hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
         hourlyForecastDay,
+        tomorrowAsk: buildTomorrowAskInputs(beach, tomorrowForecasts, sunTimesCache, beachTz),
       };
     }
   }
@@ -448,6 +492,7 @@ async function buildRequestSurfReport(beach: Beach): Promise<CachedSpotSurfRepor
       }),
       hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
       hourlyForecastDay,
+      tomorrowAsk: buildTomorrowAskInputs(beach, tomorrowForecasts, sunTimesCache, beachTz),
     };
   }
 

@@ -4,6 +4,7 @@ import { useRoutePathname } from "@/hooks/use-route-pathname";
 import { useEffect, useState, type ReactElement } from "react";
 
 import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
+import { useInstallAskClaim } from "@/hooks/use-install-ask-claim";
 import {
   installBarOwnsInstallAsk,
   isStandaloneDisplay,
@@ -17,6 +18,8 @@ import {
 export function IphoneAppBannerGate(): ReactElement | null {
   const pathname = useRoutePathname() ?? "";
   const [showBanner, setShowBanner] = useState(false);
+  // The cam install sheet owns the rest of the visit once it has shown.
+  const claim = useInstallAskClaim();
 
   useEffect(() => {
     setShowBanner(
@@ -28,5 +31,5 @@ export function IphoneAppBannerGate(): ReactElement | null {
     );
   }, [pathname]);
 
-  return showBanner ? <IphoneAppBanner /> : null;
+  return showBanner && claim === "none" ? <IphoneAppBanner /> : null;
 }

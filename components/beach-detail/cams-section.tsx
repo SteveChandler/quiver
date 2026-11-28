@@ -19,6 +19,7 @@ import {
   isYouTubeCameraUrl,
 } from "@/lib/media/cam-thumbnail";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
+import { useCamPlaybackReport } from "@/hooks/use-cam-playback-report";
 
 const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
   ssr: false,
@@ -37,6 +38,7 @@ export function CamsSection({
   beachName,
 }: CamsSectionProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const directVideoRef = useRef<HTMLVideoElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
   const [resolvedHlsUrl, setResolvedHlsUrl] = useState<string | null>(null);
@@ -53,6 +55,8 @@ export function CamsSection({
   }, [cameraUrl]);
 
   const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
+  // Direct video cams feed the cam install sheet's playback clock.
+  useCamPlaybackReport(directVideoRef, `${intent?.kind === "video" ? intent.src : ""}:${playerKey}`);
   const viewableUrl = useMemo(() => getViewableUrl(cameraUrl), [cameraUrl]);
   const youtubeThumbnailUrl = useMemo(() => getCamThumbnailUrl(cameraUrl), [cameraUrl]);
   const youtubeClickoutUrl = useMemo(() => {
@@ -206,6 +210,7 @@ export function CamsSection({
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
         <video
+          ref={directVideoRef}
           src={intent.src}
           controls
           autoPlay

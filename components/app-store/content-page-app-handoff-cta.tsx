@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, type MouseEvent, type ReactElement } from "react";
 
+import { useInstallAskClaim } from "@/hooks/use-install-ask-claim";
 import { useCtaImpression } from "@/hooks/use-cta-impression";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { useOptionalAuth } from "@/context/auth-context";
@@ -39,6 +40,8 @@ export function ContentPageAppHandoffCta({
   const { track } = useTrackEvent();
   const user = auth?.user ?? null;
   const isLoading = auth?.isLoading ?? false;
+  // The cam install sheet owns the rest of the visit once it has shown.
+  const claim = useInstallAskClaim();
   const handoffPath = useMemo(
     () =>
       buildAppHandoffUrl({
@@ -104,7 +107,7 @@ export function ContentPageAppHandoffCta({
     void track("cta_click", { metadata, debounceMs: 0 });
   }, [ctaId, ctaLabel, isLoading, placement, source, surface, target, track, user]);
 
-  if (user || isLoading) return null;
+  if (user || isLoading || claim !== "none") return null;
 
   return (
     <section

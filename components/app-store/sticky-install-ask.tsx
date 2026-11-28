@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { useInstallAskClaim } from "@/hooks/use-install-ask-claim";
 import { usePersistedDismissal } from "@/hooks/use-persisted-dismissal";
 import {
   getInstallBarOwnedSurface,
@@ -29,10 +30,10 @@ interface StickyInstallAskProps {
   /** The page's existing fixed-bottom signup bar, if it has one. */
   stickySignup?: ComponentProps<typeof StickySignupBar>;
   bar: {
+    /** Spot name on spot pages, place name on place pages. */
     placeName: string;
-    /** A figure the page already shows (wave height or water temperature). */
-    valueLabel: string | null;
-    isTomorrow?: boolean;
+    /** Copy B height on spot pages (see `selectSpotAskTomorrowHeight`). */
+    tomorrowHeight?: string | null;
     source: string;
   };
 }
@@ -45,12 +46,16 @@ interface StickyInstallAskProps {
  * after mount. An iPhone visitor on a bar surface gets the install bar in that
  * slot instead, never both; once they dismiss it the slot falls back to the
  * signup bar, so the two asks are sequential, never simultaneous.
+ *
+ * Once the cam install sheet claims the visit, the bar never shows again in it;
+ * the slot stays empty while the sheet is open, then falls back to the signup bar.
  */
 export function StickyInstallAsk({
   stickySignup,
   bar,
 }: StickyInstallAskProps): ReactElement | null {
   const pathname = useRoutePathname() ?? "";
+  const claim = useInstallAskClaim();
   const { isDismissed, handleDismiss } = usePersistedDismissal(
     INSTALL_BAR_DISMISSAL_KEY,
     { durationDays: INSTALL_BAR_DISMISSAL_DAYS, storage: "local" },
@@ -73,13 +78,14 @@ export function StickyInstallAsk({
     [pathname, ready],
   );
 
-  if (surface && !isDismissed) {
+  if (claim === "open") return null;
+
+  if (surface && !isDismissed && claim === "none") {
     return (
       <InstallBar
         surface={surface}
         placeName={bar.placeName}
-        valueLabel={bar.valueLabel}
-        isTomorrow={bar.isTomorrow}
+        tomorrowHeight={bar.tomorrowHeight ?? null}
         source={bar.source}
         pathname={pathname}
         onDismiss={handleDismiss}

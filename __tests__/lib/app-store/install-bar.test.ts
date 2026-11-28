@@ -30,20 +30,50 @@ describe("getInstallBarSurface", () => {
     ["/hi/honolulu/waikiki/", "beach_detail"],
     ["/water-temp/san-diego", "water_temp"],
     ["/beaches/usa/ca/san-diego", "city_hub"],
+    // Visitors see the short hub URL; proxy.ts rewrites it to /beaches/usa/...
+    ["/ca/san-diego", "city_hub"],
+    ["/ca/san-diego/", "city_hub"],
+    ["/hi/haleiwa", "city_hub"],
     ["/surf-cams/san-diego", "surf_cams"],
     ["/surf-cams/southern-california/", "surf_cams"],
+    ["/forecast/san-diego", "forecast_region"],
+    ["/forecast/orange-county/", "forecast_region"],
+    ["/best-time-to-surf/san-diego", "best_time"],
+    ["/ca/san-diego/blacks/tides", "beach_tides"],
     ["/surf-cams", null],
     ["/surf-cams/san-diego/blacks", null],
     ["/cams/southern-california", null],
-    ["/ca/san-diego", null],
     ["/ca/san-diego/blacks/water-temp", null],
-    ["/ca/san-diego/blacks/tides", null],
     ["/", null],
     ["/forecast", null],
+    ["/best-time-to-surf", null],
     ["/learn/rip-currents", null],
     ["/beaches/usa/ca", null],
   ])("classifies %s as %s", (pathname, surface) => {
     expect(getInstallBarSurface(pathname)).toBe(surface);
+  });
+
+  // A matched path is also a suppression switch (banner gate, in-page asks),
+  // so a 2-segment route that is not a city hub must never match.
+  it.each([
+    "/vs/surfline",
+    "/vs/surfline/free",
+    "/beginner/ca",
+    "/beginner/san-diego",
+    "/water-temp/ca/san-diego",
+    "/hi/waimea-kauai",
+    "/hi/waimea-big-island",
+    "/p/abc123",
+    "/mexico/baja-california",
+    "/blog/some-post",
+    "/guides/san-diego",
+    "/tides/station/la-jolla",
+    "/ca",
+    "/zz/san-diego",
+    "/ca/san-diego/blacks/forecast",
+    "/forecast/san-diego/extra",
+  ])("does not treat %s as a bar surface", (pathname) => {
+    expect(getInstallBarSurface(pathname)).toBeNull();
   });
 });
 
@@ -80,6 +110,10 @@ describe("getInstallBarOwnedSurface", () => {
     expect(getInstallBarOwnedSurface({ userAgent, pathname: "/water-temp/san-diego" })).toBe("water_temp");
     expect(getInstallBarOwnedSurface({ userAgent, pathname: "/beaches/usa/ca/san-diego" })).toBe("city_hub");
     expect(getInstallBarOwnedSurface({ userAgent, pathname: "/surf-cams/san-diego" })).toBe("surf_cams");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/ca/san-diego" })).toBe("city_hub");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/forecast/san-diego" })).toBe("forecast_region");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/best-time-to-surf/san-diego" })).toBe("best_time");
+    expect(getInstallBarOwnedSurface({ userAgent, pathname: "/ca/san-diego/blacks/tides" })).toBe("beach_tides");
   });
 });
 
@@ -106,40 +140,72 @@ describe("one install ask at a time", () => {
 });
 
 describe("buildInstallBarCopy", () => {
-  it("names the place and the figure the page already shows", () => {
-    expect(
-      buildInstallBarCopy({ surface: "beach_detail", placeName: "Blacks", valueLabel: "2-3 ft" }),
-    ).toEqual({
-      headline: "Now at Blacks: 2-3 ft",
-      subline: "Hourly forecast and alerts in the app",
-      cta: "Get the app",
-    });
-    expect(
-      buildInstallBarCopy({ surface: "beach_detail", placeName: "Blacks", valueLabel: "2-3 ft", isTomorrow: true })
-        .headline,
-    ).toBe("Tomorrow at Blacks: 2-3 ft");
-    expect(
-      buildInstallBarCopy({ surface: "water_temp", placeName: "San Diego", valueLabel: "64°F" }).headline,
-    ).toBe("San Diego water: 64°F");
+  // Intended change (2026-11-27 approved mock): the bar's copy moved from
+  // "Now at {Spot}: {H}" / "Get the app" to the free home-break ask.
+  it("uses copy A on spot pages by default", () => {
+    for (const surface of ["beach_detail", "beach_tides"] as const) {
+      expect(buildInstallBarCopy({ surface, placeName: "Blacks Beach" })).toEqual({
+        headline: "Make Blacks Beach your home break",
+        subline: "Free alerts",
+        cta: "Get free alerts",
+        variant: "a",
+      });
+    }
   });
 
-  it("falls back to a figure-free line when there is no value", () => {
+  it("uses copy B on spot pages when tomorrow is bigger", () => {
     expect(
-      buildInstallBarCopy({ surface: "city_hub", placeName: "San Diego", valueLabel: null }),
+      buildInstallBarCopy({ surface: "beach_detail", placeName: "Blacks Beach", tomorrowHeight: "6-7 ft" }),
     ).toEqual({
-      headline: "Forecast and alerts for San Diego",
-      subline: "Free in the app",
-      cta: "Get the app",
+      headline: "6-7 ft at Blacks Beach tomorrow",
+      subline: "Dawn ping",
+      cta: "Ping me at dawn",
+      variant: "b",
     });
+  });
+
+  it.each(["water_temp", "city_hub", "surf_cams", "forecast_region", "best_time"] as const)(
+    "uses the place ask on %s and never a height",
+    (surface) => {
+      expect(
+        buildInstallBarCopy({ surface, placeName: "San Diego", tomorrowHeight: "6-7 ft" }),
+      ).toEqual({
+        headline: "Free alerts for your home break",
+        subline: "Pick a spot near San Diego. We ping you when it turns on.",
+        cta: "Get free alerts",
+        variant: "place",
+      });
+    },
+  );
+
+  it.each([
+    ["missing", ""],
+    ["blank", "   "],
+  ])("never shows a placeholder when the spot name is %s", (_case, placeName) => {
+    const spot = buildInstallBarCopy({ surface: "beach_detail", placeName, tomorrowHeight: "6-7 ft" });
+    const place = buildInstallBarCopy({ surface: "city_hub", placeName });
+
+    for (const copy of [spot, place]) {
+      expect(copy.headline).toBe("Free alerts for your home break");
+      expect(copy.subline).toBe("Alerts for your home break are free. We ping you when it turns on.");
+      expect(Object.values(copy).join(" ")).not.toMatch(/undefined|null|—|\{|\}|\bnear\s*\./);
+    }
+  });
+
+  it.each([null, "", "—", "Flat"])("falls back to copy A when tomorrow's height is %p", (tomorrowHeight) => {
+    expect(
+      buildInstallBarCopy({ surface: "beach_detail", placeName: "Blacks Beach", tomorrowHeight }).variant,
+    ).toBe("a");
   });
 
   it.each([
-    ["beach_detail", "2-3 ft"],
-    ["water_temp", "64°F"],
+    ["beach_detail", "6-7 ft"],
+    ["beach_detail", null],
+    ["water_temp", null],
     ["city_hub", null],
-  ] as const)("never uses call, AI or ML wording on %s", (surface, valueLabel) => {
+  ] as const)("never uses call, AI or ML wording on %s", (surface, tomorrowHeight) => {
     const copy = Object.values(
-      buildInstallBarCopy({ surface, placeName: "Blacks", valueLabel }),
+      buildInstallBarCopy({ surface, placeName: "Blacks", tomorrowHeight }),
     ).join(" ");
 
     expect(copy).not.toMatch(/\bcalls?\b/i);

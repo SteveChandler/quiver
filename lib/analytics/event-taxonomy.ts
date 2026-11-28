@@ -883,6 +883,8 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'android_install_cta_click',
   'android_waitlist_cta_click',
   'android_waitlist_cta_view',
+  'cam_install_sheet_dismiss',
+  'cam_install_sheet_view',
   'forecast_alerts_enabled',
   'install_bar_dismiss',
   'install_bar_view',
