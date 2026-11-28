@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
+import { leaveAuthPage } from "@/lib/auth/leave-auth-page";
 
 // Human-friendly copy for common error param values from /auth/callback.
 // Raw error strings from Supabase (e.g. "Sign in failed. Please try again.")
@@ -100,6 +101,9 @@ function SignInPageContent() {
       <UnifiedAuthModal
         isOpen={true}
         onClose={handleClose}
+        // A dismissed redirect must not push the protected page again: the
+        // route guard would send the visitor straight back here.
+        onDismiss={() => leaveAuthPage(router)}
         mode="login"
         source={source}
         modalContext={redirectTo}

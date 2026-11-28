@@ -37,7 +37,9 @@ export function buildRecommendationEvidence(
   if (input.sourceState === 'starter_fit') {
     return {
       reasonType: 'starter_preferences',
-      proofSummary: "Starter fit based on your preferences and today's conditions.",
+      // Older native builds prefix this with "Starter fit: ", so it must read
+      // correctly alone and behind that prefix.
+      proofSummary: "Based on your preferences and today's conditions.",
       evidenceFacts: [
         ...baseFacts(input.sourceState),
         {
