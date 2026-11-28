@@ -2,11 +2,12 @@ import type { MetadataRoute } from "next";
 
 import { US_COUNTRY_SLUG } from "./geography";
 import { loadRegionCounts } from "./hubs";
+import { isTideStationKept } from "./prune";
 import { listTideStationSlugsForSitemap } from "./queries";
 import { tideStationPath } from "./slug";
 
 /**
- * Tide hubs and every active station. Empty before the registry migration is
+ * Tide hubs and every open station (closed ones redirect; see prune.ts). Empty before the registry migration is
  * applied; a query failure drops only these URLs, never the whole sitemap.
  * Stations whose predictions fail at render serve noindex; the sitemap lists
  * them anyway because one fetch per station here would cost ~7k NOAA calls.
@@ -24,7 +25,7 @@ export async function getTideStationSitemapRoutes(baseUrl: string): Promise<Meta
     }
     return [
       ...[...hubPaths].map((path) => ({ url: `${baseUrl}${path}` })),
-      ...slugs.map((slug) => ({ url: `${baseUrl}${tideStationPath(slug)}` })),
+      ...slugs.filter(isTideStationKept).map((slug) => ({ url: `${baseUrl}${tideStationPath(slug)}` })),
     ];
   } catch (error) {
     console.error("Sitemap: tide station routes failed", {
