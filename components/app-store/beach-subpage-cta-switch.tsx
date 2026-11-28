@@ -8,8 +8,12 @@ import {
 } from "react";
 
 import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { shouldShowBeachSubPageInstallCta } from "@/lib/app-store/beach-subpage-install-cta";
+import {
+  installBarOwnsInstallAsk,
+  isStandaloneDisplay,
+} from "@/lib/app-store/install-bar";
 
 interface BeachSubPageCtaSwitchProps {
   beachName: string;
@@ -47,12 +51,21 @@ export function BeachSubPageCtaSwitch({
       return;
     }
 
+    const userAgent = navigator.userAgent;
+    // One ask at a time: where the install bar owns the page (beach tides, every
+    // iPhone browser) the bar is the ask and this section stays out.
+    const barOwnsPage = installBarOwnsInstallAsk({
+      userAgent,
+      pathname,
+      isStandalone: isStandaloneDisplay(),
+    });
     setShouldRenderInstallCta(
-      shouldShowBeachSubPageInstallCta({
-        enabled: installCtaEnabled,
-        pathname,
-        userAgent: navigator.userAgent,
-      }),
+      !barOwnsPage &&
+        shouldShowBeachSubPageInstallCta({
+          enabled: installCtaEnabled,
+          pathname,
+          userAgent,
+        }),
     );
   }, [installCtaEnabled, pathname]);
 
@@ -74,11 +87,14 @@ export function BeachSubPageCtaSwitch({
       {children}
 
       {shouldRenderInstallCta ? null : (
-        <StickySignupBar
-          source={source}
-          ctaText={stickyCtaText}
-          supportingText={stickySupportingText}
-          searchReferralCta={searchReferralCta}
+        <StickyInstallAsk
+          stickySignup={{
+            source,
+            ctaText: stickyCtaText,
+            supportingText: stickySupportingText,
+            searchReferralCta,
+          }}
+          bar={{ placeName: beachName, source }}
         />
       )}
     </>

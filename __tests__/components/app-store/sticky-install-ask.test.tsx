@@ -3,6 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server.node";
 
 import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import {
+  closeInstallAskClaim,
+  openInstallAskClaim,
+  resetInstallAskClaimForTests,
+} from "@/lib/app-store/install-ask-claim";
 
 let pathname = "/ca/san-diego/blacks";
 jest.mock("next/navigation", () => ({
@@ -62,7 +67,7 @@ function ask(withSignup = true) {
   return (
     <StickyInstallAsk
       stickySignup={withSignup ? stickySignup : undefined}
-      bar={{ placeName: "Blacks", valueLabel: "2-3 ft", isTomorrow: false, source: "beach-detail-blacks" }}
+      bar={{ placeName: "Blacks", tomorrowHeight: null, source: "beach-detail-blacks" }}
     />
   );
 }
@@ -71,6 +76,8 @@ beforeEach(() => {
   pathname = "/ca/san-diego/blacks";
   authState = { user: null, isLoading: false };
   window.localStorage.clear();
+  window.sessionStorage.clear();
+  resetInstallAskClaimForTests();
   Object.defineProperty(window, "scrollY", { value: 900, configurable: true, writable: true });
 });
 
@@ -134,6 +141,30 @@ describe("StickyInstallAsk", () => {
     unmount();
     render(ask());
     await act(async () => {});
+    expect(screen.queryByTestId("install-bar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
+  });
+
+  it("hides the bar the moment the cam sheet opens, then hands the slot to the signup bar", async () => {
+    setUserAgent(IPHONE_SAFARI_UA);
+    render(ask());
+    await waitFor(() => expect(screen.getByTestId("install-bar")).toBeInTheDocument());
+
+    act(() => openInstallAskClaim());
+    expect(screen.queryByTestId("install-bar")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sticky-signup-bar")).not.toBeInTheDocument();
+
+    act(() => closeInstallAskClaim());
+    expect(screen.queryByTestId("install-bar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
+  });
+
+  it("keeps the bar away for the rest of the visit after the sheet has shown", async () => {
+    setUserAgent(IPHONE_SAFARI_UA);
+    window.sessionStorage.setItem("quiver_install_ask_claimed_v1", "cam_install_sheet");
+    render(ask());
+    await act(async () => {});
+
     expect(screen.queryByTestId("install-bar")).not.toBeInTheDocument();
     expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
   });

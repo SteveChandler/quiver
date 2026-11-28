@@ -136,3 +136,59 @@ describe("install ask selectors", () => {
     }
   });
 });
+
+describe("after the cam install sheet claims the visit", () => {
+  const { openInstallAskClaim, resetInstallAskClaimForTests } = jest.requireActual<
+    typeof import("@/lib/app-store/install-ask-claim")
+  >("@/lib/app-store/install-ask-claim");
+  const RealSection = jest.requireActual<{ InstallAppCtaSection: typeof InstallAppCtaSection }>(
+    "@/components/app-store/install-app-cta-section",
+  ).InstallAppCtaSection;
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    resetInstallAskClaimForTests();
+  });
+
+  it("drops the iPhone banner off bar pages too", async () => {
+    setUserAgent(IPHONE_CHROME_UA);
+    pathname = "/forecast";
+    render(<IphoneAppBannerGate />);
+    await waitFor(() => expect(screen.getByTestId("iphone-app-banner")).toBeInTheDocument());
+
+    act(() => openInstallAskClaim());
+    expect(screen.queryByTestId("iphone-app-banner")).not.toBeInTheDocument();
+  });
+
+  it("drops the in-page handoff CTA for every platform", async () => {
+    document.body.innerHTML = "";
+    setUserAgent(ANDROID_UA);
+    render(
+      <>
+        <ContentPageAppHandoffCta
+          source="s"
+          surface="beach_detail"
+          placement="p"
+          target="beach:blacks"
+          eyebrow="e"
+          title="t"
+          description="d"
+          ctaLabel="c"
+        />
+      </>,
+    );
+    await act(async () => {});
+    expect(document.querySelector('[data-testid^="content-page-app-handoff-cta"]')).not.toBeNull();
+
+    act(() => openInstallAskClaim());
+    expect(document.querySelector('[data-testid^="content-page-app-handoff-cta"]')).toBeNull();
+  });
+
+  it("server-renders the in-page asks unchanged, so CDN HTML never depends on the visit", () => {
+    window.sessionStorage.setItem("quiver_install_ask_claimed_v1", "cam_install_sheet");
+    const html = renderToStaticMarkup(
+      <RealSection platform="ios" source="s" surface="beach-detail" placement="after-tabs" />,
+    );
+    expect(html).toContain('aria-label="Get the Quiver app"');
+  });
+});

@@ -15,6 +15,8 @@ import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { HideWhenInstallBarOwns } from "@/components/app-store/install-bar-owned-slot";
 import { BeachDetailInstallCta } from "@/components/app-store/beach-detail-install-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
+import { CamInstallSheetMount } from "@/components/app-store/cam-install-sheet-mount";
+import { selectSpotAskTomorrowHeight } from "@/lib/app-store/spot-ask-tomorrow-height";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
@@ -251,6 +253,13 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
   };
   const returnTo = buildBeachUrl(publicBeach);
+  // Copy B of the install asks: tomorrow's height from the hero's own rows,
+  // only when it is bigger than the hero's figure today. Null means copy A.
+  const askTomorrowHeight = selectSpotAskTomorrowHeight({
+    today: forecastContext,
+    heroIsTomorrow: surfCallIsTomorrow,
+    tomorrow: surfReportResult?.tomorrowAsk,
+  });
 
   return (
     <div className="min-h-screen">
@@ -417,14 +426,19 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         }}
         bar={{
           placeName: beach.name,
-          valueLabel:
-            forecastContext?.waveHeightRangeLabel ??
-            forecastContext?.waveHeight ??
-            null,
-          isTomorrow: surfCallIsTomorrow,
+          tomorrowHeight: askTomorrowHeight,
           source: `beach-detail-${beachSlug}`,
         }}
       />
+
+      {liveCameraUrl ? (
+        <CamInstallSheetMount
+          spotName={beach.name}
+          tomorrowHeight={askTomorrowHeight}
+          source={`beach-detail-${beachSlug}`}
+          target={`beach:${beachSlug}`}
+        />
+      ) : null}
     </div>
   );
 }

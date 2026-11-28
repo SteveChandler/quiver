@@ -10,6 +10,14 @@ jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
   trackIosAppCtaView: jest.fn(),
 }));
 
+let authState: { user: { id: string } | null; isLoading: boolean } | null = {
+  user: null,
+  isLoading: false,
+};
+jest.mock("@/context/auth-context", () => ({
+  useOptionalAuth: () => authState,
+}));
+
 let reducedMotion = false;
 jest.mock("@/hooks/use-reduced-motion", () => ({
   useReducedMotion: () => reducedMotion,
@@ -28,8 +36,6 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof InstallBar>> =
     <InstallBar
       surface="beach_detail"
       placeName="Blacks"
-      valueLabel="2-3 ft"
-      isTomorrow={false}
       source="beach-detail-blacks"
       pathname="/ca/san-diego/blacks"
       onDismiss={onDismiss}
@@ -42,6 +48,7 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof InstallBar>> =
 beforeEach(() => {
   jest.clearAllMocks();
   reducedMotion = false;
+  authState = { user: null, isLoading: false };
   Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
   setScroll(0);
   document.body.innerHTML = "";
@@ -74,12 +81,13 @@ describe("InstallBar", () => {
     setScroll(600);
     renderBar();
 
+    // Intended copy change (approved mock, 2026-11-27): copy A on spot pages.
     const bar = screen.getByRole("complementary", { name: "Quiver iPhone app install" });
-    expect(bar).toHaveTextContent("Now at Blacks: 2-3 ft");
-    expect(bar).toHaveTextContent("Hourly forecast and alerts in the app");
+    expect(bar).toHaveTextContent("Make Blacks your home break");
+    expect(bar).toHaveTextContent("Free alerts");
     expect(bar).not.toHaveTextContent(/\bcall\b/i);
 
-    const link = screen.getByRole("link", { name: "Get the app" });
+    const link = screen.getByRole("link", { name: "Get free alerts" });
     const url = new URL(link.getAttribute("href")!);
     expect(url.origin + url.pathname).toBe("https://go.quiversurf.app/app/handoff");
     expect(url.searchParams.get("source")).toBe("beach-detail-blacks");
@@ -93,7 +101,7 @@ describe("InstallBar", () => {
     setScroll(600);
     renderBar({ surface: "water_temp", source: "water-temp-san-diego" });
 
-    const link = screen.getByRole("link", { name: "Get the app" });
+    const link = screen.getByRole("link", { name: "Get free alerts" });
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
 
@@ -103,8 +111,9 @@ describe("InstallBar", () => {
       source: "water-temp-san-diego",
       surface: "water_temp",
       placement: "install_bar",
-      cta_text: "Get the app",
+      cta_text: "Get free alerts",
       link_kind: "handoff",
+      variant: "place",
     });
     expect(metadata.handoff_id).toEqual(expect.any(String));
     expect(metadata.destination_url).toContain(`handoff_id=${metadata.handoff_id}`);
@@ -178,11 +187,37 @@ describe("InstallBar", () => {
     expect(bar.innerHTML).not.toContain("truncate");
   });
 
-  it("falls back to figure-free copy without a value", () => {
+  it("uses the place ask on place pages", () => {
     setScroll(600);
-    renderBar({ surface: "city_hub", valueLabel: null, placeName: "San Diego" });
+    renderBar({ surface: "city_hub", placeName: "San Diego" });
 
-    expect(screen.getByTestId("install-bar")).toHaveTextContent("Forecast and alerts for San Diego");
-    expect(screen.getByTestId("install-bar")).toHaveTextContent("Free in the app");
+    expect(screen.getByTestId("install-bar")).toHaveTextContent("Free alerts for your home break");
+    expect(screen.getByTestId("install-bar")).toHaveTextContent(
+      "Pick a spot near San Diego. We ping you when it turns on.",
+    );
+  });
+
+  it("shows copy B for anonymous visitors when tomorrow is bigger, and tags the tap", () => {
+    setScroll(600);
+    renderBar({ tomorrowHeight: "6-7 ft" });
+
+    expect(screen.getByTestId("install-bar")).toHaveTextContent("6-7 ft at Blacks tomorrow");
+    expect(screen.getByTestId("install-bar")).toHaveTextContent("Dawn ping");
+    const link = screen.getByRole("link", { name: "Ping me at dawn" });
+    link.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(link);
+    expect(clickMock.mock.calls[0][0]).toMatchObject({ variant: "b", cta_text: "Ping me at dawn" });
+  });
+
+  it.each([
+    ["signed in", { user: { id: "u1" }, isLoading: false }],
+    ["auth still loading", { user: null, isLoading: true }],
+    ["no auth provider", null],
+  ])("uses copy A when %s, because the hero can show a personal value", (_case, state) => {
+    authState = state;
+    setScroll(600);
+    renderBar({ tomorrowHeight: "6-7 ft" });
+
+    expect(screen.getByTestId("install-bar")).toHaveTextContent("Make Blacks your home break");
   });
 });

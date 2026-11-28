@@ -225,7 +225,6 @@ export function WaterTempPageContent({
       <StickyInstallAsk
         bar={{
           placeName: cityName,
-          valueLabel: `${roundedCurrentTemp}°F`,
           source: `water-temp-${citySlug}`,
         }}
       />

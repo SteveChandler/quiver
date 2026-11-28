@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 
 import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import { useInstallAskClaim } from "@/hooks/use-install-ask-claim";
 import {
   getFirstTouchPlatform,
   type FirstTouchPlatform,
@@ -52,8 +53,10 @@ export function InstallAppCtaSection({
   }, [platform]);
 
   const resolvedPlatform = platform ?? detectedPlatform;
+  // The cam install sheet owns the rest of the visit once it has shown.
+  const claim = useInstallAskClaim();
 
-  if (!resolvedPlatform) return null;
+  if (!resolvedPlatform || claim !== "none") return null;
 
   return (
     <section

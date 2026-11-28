@@ -12,6 +12,7 @@ import {
   type ReactElement,
 } from "react";
 
+import { useOptionalAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { createClientAppHandoffLink } from "@/lib/analytics/app-handoff-link";
 import {
@@ -32,8 +33,8 @@ import { cn } from "@/lib/utils";
 interface InstallBarProps {
   surface: InstallBarSurface;
   placeName: string;
-  valueLabel: string | null;
-  isTomorrow?: boolean;
+  /** Copy B height (spot surfaces only), or null for copy A. */
+  tomorrowHeight?: string | null;
   source: string;
   pathname: string;
   onDismiss: () => void;
@@ -51,20 +52,27 @@ interface InstallBarProps {
 export function InstallBar({
   surface,
   placeName,
-  valueLabel,
-  isTomorrow = false,
+  tomorrowHeight = null,
   source,
   pathname,
   onDismiss,
 }: InstallBarProps): ReactElement {
+  const auth = useOptionalAuth();
+  // A signed-in hero can show a personal value; B's number is the public one.
+  const isAnonymous = Boolean(auth) && !auth?.isLoading && !auth?.user;
   const reducedMotion = useReducedMotion();
   const barRef = useRef<HTMLElement>(null);
   const hasTrackedView = useRef(false);
   const [isVisible, setIsVisible] = useState(false);
 
   const copy = useMemo(
-    () => buildInstallBarCopy({ surface, placeName, valueLabel, isTomorrow }),
-    [surface, placeName, valueLabel, isTomorrow],
+    () =>
+      buildInstallBarCopy({
+        surface,
+        placeName,
+        tomorrowHeight: isAnonymous ? tomorrowHeight : null,
+      }),
+    [surface, placeName, isAnonymous, tomorrowHeight],
   );
   const href = useMemo(
     () =>
@@ -135,9 +143,10 @@ export function InstallBar({
         ctaText: copy.cta,
         destinationUrl: handoff.url,
         handoffId: handoff.handoffId,
+        variant: copy.variant,
       });
     },
-    [copy.cta, pathname, source, surface],
+    [copy.cta, copy.variant, pathname, source, surface],
   );
 
   const handleDismiss = useCallback(() => {

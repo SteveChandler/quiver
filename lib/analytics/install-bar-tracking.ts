@@ -37,6 +37,8 @@ interface InstallBarClickInput extends InstallBarTrackingBase {
   ctaText: string;
   destinationUrl: string;
   handoffId: string;
+  /** Copy variant: spot asks "a" or "b", place asks "place". */
+  variant?: string;
 }
 
 /**
@@ -51,6 +53,7 @@ export function trackInstallBarClick({
   ctaText,
   destinationUrl,
   handoffId,
+  variant,
 }: InstallBarClickInput): void {
   trackIosAppCtaClick({
     source,
@@ -61,5 +64,6 @@ export function trackInstallBarClick({
     handoff_id: handoffId,
     link_kind: "handoff",
     pathname,
+    ...(variant ? { variant } : {}),
   });
 }

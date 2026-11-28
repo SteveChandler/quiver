@@ -633,6 +633,58 @@ describe("spot surf report service", () => {
     });
   });
 
+  // Tomorrow row at 07:00 PST on 2024-01-16, beside today's 06:00 PST row.
+  const tomorrowRow: Partial<EnhancedForecastEntity> = {
+    ...forecast,
+    id: "forecast-2",
+    forecast_at: "2024-01-16T15:00Z",
+    forecast_date: "2024-01-16",
+    forecast_time: "15:00",
+  };
+
+  it("carries tomorrow's ask inputs from the same rows while the hero shows today", async () => {
+    setupDatabase([forecast, tomorrowRow]);
+    mockSelectBestWindow.mockImplementation(({ forecasts }: { forecasts: EnhancedForecastEntity[] }) => {
+      const first = forecasts[0];
+      return {
+        start: new Date(first.forecast_at),
+        end: new Date(new Date(first.forecast_at).getTime() + 2 * 3600_000),
+        score: 80,
+        waveHeight: first.wave_height,
+        peakTime: new Date(first.forecast_at),
+        sourceForecast: first,
+      };
+    });
+    const { getSpotSurfReportPublic } = await import(
+      "@/lib/services/spot-surf-report-service"
+    );
+
+    const result = await getSpotSurfReportPublic(beach);
+
+    expect(result?.isTomorrow).toBe(false);
+    expect(result?.tomorrowAsk?.context).toMatchObject({
+      localDate: "2024-01-16",
+      // The V5 display projection applies to tomorrow's rows too ("6 ft").
+      waveHeightRangeLabel: "5-6 ft",
+    });
+    expect(result?.tomorrowAsk?.tableLabel).toBe("5-6ft");
+    // One query for both days.
+    expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops tomorrow's ask inputs when the hold hides the hero's context", async () => {
+    setupDatabase([forecast, tomorrowRow]);
+    mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
+    const { getSpotSurfReportPublic } = await import(
+      "@/lib/services/spot-surf-report-service"
+    );
+
+    const result = await getSpotSurfReportPublic(beach);
+
+    expect(result?.forecastContext).toBeNull();
+    expect(result?.tomorrowAsk).toBeNull();
+  });
+
   it("returns a safe empty report when forecasts are absent", async () => {
     setupDatabase([]);
     const { getSpotSurfReportPublic } = await import(

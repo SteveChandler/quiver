@@ -43,7 +43,7 @@ import {
   SeoFunnelNextSteps,
   type SeoFunnelNextStep,
 } from "@/components/seo/seo-funnel-next-steps";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { StickyInstallAsk } from "@/components/app-store/sticky-install-ask";
 import { SITE_URL } from "@/lib/constants/seo";
 import { INTENT_DEFINITIONS, buildCityIntentUrl, type IntentKey } from "@/lib/constants/intent-definitions";
 import { SeoScenePanel } from "@/components/seo/seo-scene-panel";
@@ -1030,10 +1030,13 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           />
         )}
       </div>
-      <StickySignupBar
-        source={`best-time-${citySlug}`}
-        ctaText="Save Window"
-        supportingText={`Best surf windows for ${cityName}`}
+      <StickyInstallAsk
+        stickySignup={{
+          source: `best-time-${citySlug}`,
+          ctaText: "Save Window",
+          supportingText: `Best surf windows for ${cityName}`,
+        }}
+        bar={{ placeName: cityName, source: `best-time-${citySlug}` }}
       />
     </div>
   );

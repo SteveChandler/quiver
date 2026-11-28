@@ -220,7 +220,6 @@ export async function CamsRegionDirectoryPage({
         }}
         bar={{
           placeName: region.name,
-          valueLabel: null,
           source: `surf-cams-${region.slug}`,
         }}
       />

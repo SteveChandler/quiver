@@ -1,6 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 
 import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
+import {
+  openInstallAskClaim,
+  resetInstallAskClaimForTests,
+} from "@/lib/app-store/install-ask-claim";
 
 const mockGetFirstTouchPlatform = jest.fn();
 jest.mock("@/lib/analytics/web-context", () => ({
@@ -18,6 +22,18 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
 describe("InstallAppCtaSection", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.sessionStorage.clear();
+    resetInstallAskClaimForTests();
+  });
+
+  it("leaves the page once the cam install sheet claims the visit, on desktop too", () => {
+    render(
+      <InstallAppCtaSection platform="desktop" source="s" surface="beach-detail" placement="after-tabs" />,
+    );
+    expect(screen.getByRole("heading", { name: "Check the surf in the app" })).toBeInTheDocument();
+
+    act(() => openInstallAskClaim());
+    expect(screen.queryByRole("heading", { name: "Check the surf in the app" })).not.toBeInTheDocument();
   });
 
   it.each(["ios", "android", "desktop"] as const)(

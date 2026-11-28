@@ -109,7 +109,6 @@ export default async function LocationPage(props: LocationPageProps) {
     <StickyInstallAsk
       bar={{
         placeName: displayCityName,
-        valueLabel: null,
         source: `city-hub-${params.city}-${params.state}`,
       }}
     />
