@@ -292,6 +292,17 @@ describe("CamInstallSheetMount", () => {
     expect(getInstallAskClaimState()).toBe("none");
   });
 
+  it("uses no bg-white class, which .theme-retro-dark repaints as a solid fill", () => {
+    setUserAgent(UAS.iphone);
+    render(sheet());
+    play(45);
+    const el = screen.getByTestId("cam-install-sheet");
+    const painted = [el, ...Array.from(el.querySelectorAll("*"))].filter((node) =>
+      (node.getAttribute("class") ?? "").includes("bg-white"),
+    );
+    expect(painted).toHaveLength(0);
+  });
+
   it("stays off when NEXT_PUBLIC_CAM_INSTALL_SHEET is false", () => {
     process.env.NEXT_PUBLIC_CAM_INSTALL_SHEET = "false";
     render(sheet());

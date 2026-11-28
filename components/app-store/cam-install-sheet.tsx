@@ -185,7 +185,7 @@ export function CamInstallSheet({
     <button
       type="button"
       onClick={() => onClose("not_now")}
-      className="min-h-11 w-full rounded-full !bg-transparent text-sm text-white/75 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      className="min-h-11 w-full rounded-full bg-transparent text-sm text-white/75 transition hover:bg-[rgba(255,255,255,0.1)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
     >
       Not now
     </button>
@@ -269,7 +269,7 @@ export function CamInstallSheet({
       )}
     >
       <div className="flex flex-col gap-3 px-4 pb-3 pt-2">
-        <span aria-hidden="true" className="h-1 w-8 self-center rounded-full bg-white/35" />
+        <span aria-hidden="true" className="h-1 w-8 self-center rounded-full bg-[rgba(255,255,255,0.35)]" />
         {heading}
         <p className="text-sm leading-5 text-white/75">{copy.body}</p>
         <a
