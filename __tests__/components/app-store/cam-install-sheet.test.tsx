@@ -9,7 +9,10 @@ import {
   reportCamPlayback,
   resetCamSheetPageLoadForTests,
 } from "@/lib/app-store/cam-install-sheet";
-import { resetInstallAskClaimForTests } from "@/lib/app-store/install-ask-claim";
+import {
+  getInstallAskClaimState,
+  resetInstallAskClaimForTests,
+} from "@/lib/app-store/install-ask-claim";
 
 let pathname = "/ca/san-diego/blacks";
 jest.mock("next/navigation", () => ({ usePathname: () => pathname }));
@@ -277,6 +280,16 @@ describe("CamInstallSheetMount", () => {
     expect(url.searchParams.get("placement")).toBe("cam_sheet");
     expect(url.searchParams.get("utm_medium")).toBe("desktop_handoff");
     expect(url.searchParams.get("handoff_id")).toEqual(expect.any(String));
+  });
+
+  it("does not claim the visit on desktop, so in-page asks stay in the page", () => {
+    setUserAgent(UAS.desktop);
+    render(sheet());
+    play(45);
+    expect(screen.getByTestId("cam-install-sheet")).toHaveAttribute("data-platform", "desktop");
+    expect(getInstallAskClaimState()).toBe("none");
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(getInstallAskClaimState()).toBe("none");
   });
 
   it("stays off when NEXT_PUBLIC_CAM_INSTALL_SHEET is false", () => {

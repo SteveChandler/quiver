@@ -63,7 +63,7 @@ export function CamInstallSheetMount({
     if (isStandaloneDisplay() || isInstallAskClaimed()) return;
     if (!isCamSheetAllowed(readCamSheetCap())) return;
 
-    const detected = getCamInstallSheetPlatform(navigator.userAgent);
+    const detected = getCamInstallSheetPlatform(navigator.userAgent, navigator.maxTouchPoints);
     if (detected === "none") return;
 
     let playedSeconds = 0;
@@ -76,7 +76,10 @@ export function CamInstallSheetMount({
       if (isInstallAskClaimed() || !isCamSheetAllowed(readCamSheetCap())) return;
       writeCamSheetCap();
       markCamSheetShownThisPageLoad();
-      openInstallAskClaim();
+      // Only the iPhone sheet claims the visit. The desktop card sits in a
+      // corner; claiming would pull the in-page asks out of the page (layout
+      // shift) and keep them hidden for the rest of the tab.
+      if (detected === "iphone") openInstallAskClaim();
       setPlatform(detected);
       setOpen(true);
     });
@@ -100,7 +103,7 @@ export function CamInstallSheetMount({
       if (platform !== "none" && method !== "cta") {
         trackCamInstallSheetDismiss({ pathname, variant: copy.variant, platform, method });
       }
-      closeInstallAskClaim();
+      if (platform === "iphone") closeInstallAskClaim();
       setOpen(false);
     },
     [copy.variant, pathname, platform],

@@ -185,7 +185,7 @@ export function CamInstallSheet({
     <button
       type="button"
       onClick={() => onClose("not_now")}
-      className="min-h-11 w-full rounded-full bg-transparent text-sm text-white/75 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      className="min-h-11 w-full rounded-full !bg-transparent text-sm text-white/75 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
     >
       Not now
     </button>

@@ -29,11 +29,16 @@ export function isCamInstallSheetEnabled(): boolean {
 
 export type CamInstallSheetPlatform = "iphone" | "desktop" | "none";
 
-export function getCamInstallSheetPlatform(userAgent: string): CamInstallSheetPlatform {
+export function getCamInstallSheetPlatform(
+  userAgent: string,
+  maxTouchPoints = 0,
+): CamInstallSheetPlatform {
   if (/android/i.test(userAgent)) return "none";
   if (/iPhone|iPod/.test(userAgent)) return "iphone";
-  // Older iPads say so; there is no iPad layout for the sheet.
+  // There is no iPad layout. Older iPads say iPad; iPadOS 13+ Safari sends a
+  // Mac user agent, so a touch "Mac" is an iPad.
   if (/iPad/.test(userAgent)) return "none";
+  if (/Macintosh/.test(userAgent) && maxTouchPoints > 1) return "none";
   return "desktop";
 }
 

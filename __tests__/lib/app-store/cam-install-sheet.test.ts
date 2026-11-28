@@ -120,6 +120,13 @@ describe("platform", () => {
   ])("maps %s to %s", (userAgent, platform) => {
     expect(getCamInstallSheetPlatform(userAgent)).toBe(platform);
   });
+
+  it("treats a touch Mac user agent (iPadOS 13+ Safari) as iPad: none", () => {
+    const ipadOsSafari =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15";
+    expect(getCamInstallSheetPlatform(ipadOsSafari, 5)).toBe("none");
+    expect(getCamInstallSheetPlatform(ipadOsSafari, 0)).toBe("desktop");
+  });
 });
 
 describe("off switch NEXT_PUBLIC_CAM_INSTALL_SHEET", () => {
