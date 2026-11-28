@@ -89,7 +89,7 @@ interface StationPageData {
 }
 
 type StationLookup =
-  | { kind: "found"; data: StationPageData }
+  | { kind: "found"; data: StationPageData; degraded: boolean }
   | { kind: "redirect"; slug: string }
   | { kind: "not-found" };
 
@@ -203,6 +203,12 @@ export async function loadStationPage(
     source.getLatestObservation(station.id),
     source.getObservationHistory(station.id, (HISTORY_DAYS + 1) * 24, {
       lastWaveObservedAt: station.last_wave_observed_at,
+    }).catch((error: unknown) => {
+      console.warn("[buoy-pages] observation history failed", {
+        station: station.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
     }),
     source.getBeachesForStation(station.id, station).catch((error: unknown) => {
       // Beach links are a side block; a failed read must not take the buoy page down.
@@ -212,14 +218,20 @@ export async function loadStationPage(
       });
       return { relation: "nearby", beaches: [] } as StationBeaches;
     }),
-    source.getNearbyStations(station.lat, station.lon, NEARBY_LIMIT + 1),
+    source.getNearbyStations(station.lat, station.lon, NEARBY_LIMIT + 1).catch((error: unknown) => {
+      console.warn("[buoy-pages] nearby stations failed", {
+        station: station.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }),
     source.fetchModelAtBuoy(station.lat, station.lon),
   ]);
 
   // Start the history at a UTC midnight so regenerations within a day keep the same window.
   const historyStart = Math.floor(nowMs / DAY_MS) * DAY_MS - HISTORY_DAYS * DAY_MS;
-  const history = historyRaw.filter((row) => Date.parse(row.observed_at) >= historyStart);
-  const nearbyStations = withinNearbyRadius(nearbyRaw.filter((candidate) => candidate.id !== station.id)).slice(0, NEARBY_LIMIT);
+  const history = (historyRaw ?? []).filter((row) => Date.parse(row.observed_at) >= historyStart);
+  const nearbyStations = withinNearbyRadius((nearbyRaw ?? []).filter((candidate) => candidate.id !== station.id)).slice(0, NEARBY_LIMIT);
   const listedBeaches = beachLinks.beaches.slice(0, BEACH_SUMMARY_LIMIT);
   const [nearbyLatest, beachSummaries] = await Promise.all([
     source.getLatestWaveObservations(nearbyStations),
@@ -239,6 +251,7 @@ export async function loadStationPage(
 
   return {
     kind: "found",
+    degraded: historyRaw === null || nearbyRaw === null,
     data: {
       station,
       timeZone,
