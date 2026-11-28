@@ -2,7 +2,74 @@ import {
   ApiError,
   isNoaaForecastGridExpiredError,
   isNoaaMarineForecastNotSupportedError,
+  logError,
 } from "@/lib/errors/forecast-errors";
+
+describe("logError", () => {
+  const apiUrl = "https://api.weather.gov/gridpoints/HFO/239,86/forecast/hourly";
+
+  beforeEach(() => {
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("warns for a handled retryable 503 and truncates its HTML in the log", () => {
+    const body = `<HTML>${"Service unavailable ".repeat(30)}</HTML>`;
+    const error = new ApiError(apiUrl, 503, body);
+    const context = { beachId: "beach-1", dataSource: "weather" };
+    const shortened = `${error.message.slice(0, 253)}...`;
+
+    logError(error, context, { handled: true });
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith(
+      `[ForecastWarning] NOAA_API_ERROR: ${shortened}`,
+      expect.objectContaining({
+        ...context,
+        context: { apiUrl, statusCode: 503 },
+        isRetryable: true,
+        message: shortened,
+        stack: expect.stringContaining(`ApiError: ${shortened}\n`),
+      }),
+    );
+    expect(console.error).not.toHaveBeenCalled();
+    expect(error.message).toBe(`API request failed: 503 ${body}`);
+  });
+
+  it.each([400, 429])("keeps a handled HTTP %i at error level", (status) => {
+    logError(new ApiError(apiUrl, status, "Unexpected response"), {}, { handled: true });
+
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining(`API request failed: ${status}`),
+      expect.objectContaining({ context: { apiUrl, statusCode: status } }),
+    );
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("keeps an unhandled retryable 503 at error level", () => {
+    logError(new ApiError(apiUrl, 503, "Service unavailable"));
+
+    expect(console.error).toHaveBeenCalledWith(
+      "[ForecastError] NOAA_API_ERROR: API request failed: 503 Service unavailable",
+      expect.objectContaining({ isRetryable: true }),
+    );
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("keeps a non-ForecastError at error level", () => {
+    logError(new Error("Weather fetch failed"), {}, { handled: true });
+
+    expect(console.error).toHaveBeenCalledWith(
+      "[Error] Weather fetch failed",
+      expect.objectContaining({ message: "Weather fetch failed" }),
+    );
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+});
 
 describe("forecast-errors NOAA helpers", () => {
   describe("isNoaaMarineForecastNotSupportedError", () => {
