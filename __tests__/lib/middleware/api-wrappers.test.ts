@@ -69,7 +69,7 @@ jest.mock("@/lib/monitoring/rate-limit-telemetry", () => ({
   logRateLimitViolation: jest.fn(),
 }));
 
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import {
   withErrorHandler,
   withAuth,
@@ -92,6 +92,16 @@ const mockSupabaseClient = {
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => Promise.resolve(mockSupabaseClient)),
+}));
+
+const mockCookieSupabaseClient = { auth: { getUser: jest.fn() } };
+const mockAnonymousSupabaseClient = { from: jest.fn() };
+
+jest.mock("@supabase/ssr", () => ({
+  createServerClient: jest.fn(
+    (_url: string, _key: string, { cookies }: { cookies: { getAll: () => unknown[] } }) =>
+      cookies.getAll().length ? mockCookieSupabaseClient : mockAnonymousSupabaseClient,
+  ),
 }));
 
 // Separate mock for the bearer-token client so withAuth's Bearer branch can
@@ -332,6 +342,44 @@ describe("API Wrappers", () => {
       );
     });
 
+    const sessionCookie = { name: "sb-test-auth-token.0", value: "test-session" };
+    const cookieRequest = createTestRequest();
+    cookieRequest.headers.set("cookie", `${sessionCookie.name}=${sessionCookie.value}`);
+
+    it.each([
+      {
+        credential: "bearer token",
+        request: createBearerRequest("test-jwt"),
+        client: mockBearerSupabaseClient,
+      },
+      {
+        credential: "session cookie",
+        request: { ...cookieRequest, cookies: { getAll: () => [sessionCookie] } },
+        client: mockCookieSupabaseClient,
+      },
+    ])("uses anonymous access only when the $credential expires on an optional route", async ({ request, client }) => {
+      const user = createMockUser();
+      client.auth.getUser.mockResolvedValueOnce({ data: { user }, error: null });
+      const nextRequest = request as unknown as NextRequest;
+      const handler = jest.fn().mockResolvedValue(NextResponse.json({ success: true }));
+      const optionalHandler = withAuth(handler, { optional: true });
+
+      expect((await optionalHandler(nextRequest)).status).toBe(200);
+      expect(handler).toHaveBeenNthCalledWith(1, request, { params: {}, user, supabase: client });
+
+      const expired = { data: { user: null }, error: new Error("JWT expired") };
+      client.auth.getUser.mockResolvedValueOnce(expired).mockResolvedValueOnce(expired);
+      expect((await optionalHandler(nextRequest)).status).toBe(200);
+      expect(handler).toHaveBeenNthCalledWith(2, request, {
+        params: {},
+        user: null,
+        supabase: mockAnonymousSupabaseClient,
+      });
+
+      expect((await withAuth(handler)(nextRequest)).status).toBe(401);
+      expect(handler).toHaveBeenCalledTimes(2);
+    });
+
     describe("Bearer token auth (native clients)", () => {
       it("should use the bearer-scoped client when Authorization: Bearer is present", async () => {
         const mockUser = createMockUser();
@@ -380,34 +428,6 @@ describe("API Wrappers", () => {
 
         expect(response.status).toBe(401);
         expect(handler).not.toHaveBeenCalled();
-      });
-
-      it("should run handler with user: null when Bearer is invalid but auth is optional", async () => {
-        mockBearerSupabaseClient.auth.getUser.mockResolvedValue({
-          data: { user: null },
-          error: { name: "AuthError", message: "expired JWT" } as any,
-        });
-
-        const handler = jest.fn().mockResolvedValue(
-          NextResponse.json({ success: true, data: { isLoggedIn: false } })
-        );
-
-        const wrappedHandler = withAuth(handler, { optional: true });
-        const request = createBearerRequest("stale-jwt");
-
-        const response = await wrappedHandler(request as any);
-        const data = await response.json();
-
-        expect(data.success).toBe(true);
-        expect(handler).toHaveBeenCalledWith(
-          request,
-          expect.objectContaining({
-            user: null,
-            // Still uses the bearer-scoped client even with a bad token —
-            // the handler decides what it can do anonymously.
-            supabase: mockBearerSupabaseClient,
-          })
-        );
       });
 
       it("should return 401 for invalid Bearer credentials when opted in", async () => {
@@ -552,19 +572,13 @@ describe("API Wrappers", () => {
       const validUuid = "123e4567-e89b-12d3-a456-426614174000";
       const result = validateUuidParam(validUuid);
 
-      expect("value" in result).toBe(true);
-      if ("value" in result) {
-        expect(result.value).toBe(validUuid);
-      }
+      expect(result).toEqual({ value: validUuid });
     });
 
     it("should return error for invalid UUID", () => {
       const result = validateUuidParam("invalid-uuid");
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        expect(result.error.status).toBe(400);
-      }
+      expect(result).toMatchObject({ error: { status: 400 } });
     });
 
     it("should return error for undefined", () => {
@@ -582,11 +596,8 @@ describe("API Wrappers", () => {
     it("should use custom parameter name in error", async () => {
       const result = validateUuidParam("invalid", "session");
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        const data = await result.error.json();
-        expect(data.error).toContain("session");
-      }
+      const data = await ("error" in result ? result.error.json() : undefined);
+      expect(data?.error).toContain("session");
     });
   });
 
@@ -602,12 +613,9 @@ describe("API Wrappers", () => {
       const params = { lat: "33.75" };
       const result = validateRequiredParams(params, ["lat", "lon"]);
 
-      expect(result).not.toBeNull();
-      if (result) {
-        expect(result.status).toBe(400);
-        const data = await result.json();
-        expect(data.error).toContain("lon");
-      }
+      expect(result?.status).toBe(400);
+      const data = await result?.json();
+      expect(data?.error).toContain("lon");
     });
 
     it("should return error for null params", () => {
@@ -621,12 +629,9 @@ describe("API Wrappers", () => {
       const params = { name: "test" };
       const result = validateRequiredParams(params, ["lat", "lon", "name"]);
 
-      expect(result).not.toBeNull();
-      if (result) {
-        const data = await result.json();
-        expect(data.details.missing).toContain("lat");
-        expect(data.details.missing).toContain("lon");
-      }
+      const data = await result?.json();
+      expect(data?.details.missing).toContain("lat");
+      expect(data?.details.missing).toContain("lon");
     });
   });
 
@@ -675,12 +680,10 @@ describe("API Wrappers", () => {
         "Session"
       );
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        expect(result.error.status).toBe(404);
-        const data = await result.error.json();
-        expect(data.error).toBe("Session not found");
-      }
+      const response = "error" in result ? result.error : undefined;
+      expect(response?.status).toBe(404);
+      const data = await response?.json();
+      expect(data?.error).toBe("Session not found");
     });
 
     it("should return 403 for resource owned by different user", async () => {
@@ -701,12 +704,10 @@ describe("API Wrappers", () => {
         "Session"
       );
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        expect(result.error.status).toBe(403);
-        const data = await result.error.json();
-        expect(data.error).toBe("Forbidden");
-      }
+      const response = "error" in result ? result.error : undefined;
+      expect(response?.status).toBe(403);
+      const data = await response?.json();
+      expect(data?.error).toBe("Forbidden");
     });
 
     it("should throw for other database errors", async () => {
