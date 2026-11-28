@@ -7,6 +7,7 @@
  */
 
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
@@ -56,6 +57,9 @@ interface PageProps {
 
 const loadPage = cache(async (slug: string) => loadStationPage(await getBuoyPageSource(), slug, new Date()));
 
+// Next uses the shortest cache window read during an ISR render.
+const shortenDegradedRevalidation = unstable_cache(async () => null, ["buoy-station-degraded-render"], { revalidate: 60 });
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadPage(slug);
@@ -81,6 +85,7 @@ export default async function BuoyStationPage({ params }: PageProps) {
   const result = await loadPage(slug);
   if (result.kind === "redirect") permanentRedirect(stationPath(result.slug));
   if (result.kind === "not-found") notFound();
+  if (result.degraded) await shortenDegradedRevalidation();
 
   const data = result.data;
   const { station, timeZone, status, latestWave, nowObservation } = data;

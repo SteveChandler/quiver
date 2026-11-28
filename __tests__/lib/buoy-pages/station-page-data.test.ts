@@ -6,6 +6,7 @@ import { createFixtureSource } from "@/lib/buoy-pages/dev-fixture-source";
 import { loadAreaHub, loadRootHub, mapPins } from "@/lib/buoy-pages/hub-data";
 import { isMissingCatalogueError, type BuoyPageSource } from "@/lib/buoy-pages/source";
 import { loadStationPage, resolveStationSlug, withinNearbyRadius } from "@/lib/buoy-pages/station-page-data";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // The newest capture in the fixtures is 2026-11-11T03:26Z (46225).
 const NOW = new Date("2026-11-11T03:46:00Z");
@@ -39,6 +40,7 @@ describe("loadStationPage", () => {
   it("loads a live station with swell split, trend, model block and beaches", async () => {
     const result = await loadStationPage(source(), "torrey-pines-outer-ca-46225", NOW);
     if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
+    expect(result.degraded).toBe(false);
     const { data } = result;
     expect(data.station.id).toBe("ndbc:46225");
     expect(data.timeZone).toBe("America/Los_Angeles");
@@ -54,6 +56,44 @@ describe("loadStationPage", () => {
     expect(data.beaches.relation).toBe("fed_by");
     // Halibut Bank (1,898 km) is past the 600 km cap.
     expect(data.nearby.map((item) => item.station.id)).toEqual(["ndbc:46086"]);
+  });
+
+  it("shows the latest reading with empty chart ranges when station history fails", async () => {
+    const result = await loadStationPage(
+      source({ getObservationHistory: jest.fn().mockRejectedValue(new Error("statement timeout")) }),
+      "torrey-pines-outer-ca-46225",
+      NOW,
+    );
+    expectConsoleWarnings([/\[buoy-pages\] observation history failed/]);
+    if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
+    expect(result.degraded).toBe(true);
+    expect(result.data.nowObservation).toMatchObject({
+      observed_at: "2026-11-11T03:26:00.000Z",
+      wave_height_m: 1.4,
+    });
+    expect(result.data.trend).toEqual([]);
+    expect(result.data.chartRanges).toEqual({});
+    expect(result.data.nearby.map((item) => item.station.id)).toEqual(["ndbc:46086"]);
+  });
+
+  it("keeps the chart and omits nearby buoys when the nearby read fails", async () => {
+    const result = await loadStationPage(
+      source({ getNearbyStations: jest.fn().mockRejectedValue(new Error("statement timeout")) }),
+      "torrey-pines-outer-ca-46225",
+      NOW,
+    );
+    expectConsoleWarnings([/\[buoy-pages\] nearby stations failed/]);
+    if (result.kind !== "found") throw new Error(`expected found, got ${result.kind}`);
+    expect(result.degraded).toBe(true);
+    expect(result.data.nowObservation?.wave_height_m).toBe(1.4);
+    expect(Object.keys(result.data.chartRanges).sort()).toEqual(["24h", "30d", "5d"]);
+    expect(result.data.nearby).toEqual([]);
+  });
+
+  it("still propagates a failed latest-observation read", async () => {
+    const error = new Error("latest observation statement timeout");
+    const broken = source({ getLatestObservation: jest.fn().mockRejectedValue(error) });
+    await expect(loadStationPage(broken, "torrey-pines-outer-ca-46225", NOW)).rejects.toBe(error);
   });
 
   it("shows a buoy that stopped sending waves as stale, without a 6-hour trend", async () => {
