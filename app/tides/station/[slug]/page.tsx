@@ -34,7 +34,7 @@ const NEARBY_SHOWN = 6;
 // Extra candidates so the list still fills when nearby stations are closed.
 const NEARBY_CANDIDATES = 24;
 
-const baseUrl =(process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app").replace(/\/$/, "");
+const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app").replace(/\/$/, "");
 
 interface PageProps {
   params: Promise<{ slug: string }>;

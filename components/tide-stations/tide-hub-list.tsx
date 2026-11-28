@@ -25,7 +25,7 @@ export function TideHubList({ items, label }: TideHubListProps) {
                 {body}
               </Link>
             ) : (
-              <div className={ROW}>{body}</div>
+              <div className={`${ROW} text-[#11100D]/65`}>{body}</div>
             )}
           </li>
         );
