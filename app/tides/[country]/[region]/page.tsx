@@ -8,6 +8,7 @@ import { applyIndexabilityToMetadata, evaluateTideHubIndexability } from "@/lib/
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { countryName, US_COUNTRY_SLUG, usRegionName } from "@/lib/tide-stations/geography";
 import { loadRegionCounts, stationCountLabel } from "@/lib/tide-stations/hubs";
+import { isTideStationKept } from "@/lib/tide-stations/prune";
 import { listTideStationsInPlace } from "@/lib/tide-stations/queries";
 import { buildHubDescription, buildHubTitle } from "@/lib/tide-stations/seo";
 import { tideStationPath } from "@/lib/tide-stations/slug";
@@ -77,7 +78,7 @@ export default async function TideRegionPage(props: PageProps) {
             items={stations.map((s) => ({
               key: s.id,
               name: s.name,
-              href: tideStationPath(s.slug),
+              href: isTideStationKept(s.slug) ? tideStationPath(s.slug) : undefined,
               meta: s.station_kind === "reference" ? "reference" : undefined,
             }))}
           />

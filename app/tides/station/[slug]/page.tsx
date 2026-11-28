@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { JsonLd } from "@/components/seo/funnel/JsonLd";
 import { NearbyBuoysSlot } from "@/components/tide-stations/nearby-buoys-slot";
@@ -14,7 +14,8 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildStationCopy, stationPlaceLabel, stationTideType, tideTypeLabel } from "@/lib/tide-stations/copy";
 import { formatZoneOffset } from "@/lib/tide-stations/format";
 import { countryName, US_COUNTRY_SLUG, usRegionName } from "@/lib/tide-stations/geography";
-import { getStationPageData } from "@/lib/tide-stations/page-data";
+import { getStationAccess, getStationPageData } from "@/lib/tide-stations/page-data";
+import { isTideStationKept } from "@/lib/tide-stations/prune";
 import { getNearbyBeachLinks, getNearbyTideStations, getTideStationLink } from "@/lib/tide-stations/queries";
 import { groupExtremesByLocalDay } from "@/lib/tide-stations/series";
 import { buildStationDescription, buildStationTitle } from "@/lib/tide-stations/seo";
@@ -29,7 +30,11 @@ import { TideStationPredictionsTracker } from "./tide-station-predictions-tracke
 export const dynamic = "force-static";
 export const revalidate = 43200;
 
-const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app").replace(/\/$/, "");
+const NEARBY_SHOWN = 6;
+// Extra candidates so the list still fills when nearby stations are closed.
+const NEARBY_CANDIDATES = 24;
+
+const baseUrl =(process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app").replace(/\/$/, "");
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -48,7 +53,9 @@ function placeCrumbs(station: TideStationRow): Array<{ name: string; path: strin
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const { slug } = await props.params;
-  const data = await getStationPageData(slug);
+  const access = await getStationAccess(slug);
+  if (access.kind === "closed") permanentRedirect(access.redirectPath);
+  const data = access.kind === "open" ? await getStationPageData(slug) : null;
   if (!data) {
     return { title: "Tide station not found", robots: { index: false, follow: false } };
   }
@@ -67,15 +74,20 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 
 export default async function TideStationPage(props: PageProps) {
   const { slug } = await props.params;
+  const access = await getStationAccess(slug);
+  if (access.kind === "closed") permanentRedirect(access.redirectPath);
+  if (access.kind === "not-found") notFound();
   const data = await getStationPageData(slug);
   if (!data) notFound();
   const { station, series, renderedAtMs } = data;
 
-  const [nearbyStations, nearbyBeaches, reference] = await Promise.all([
-    getNearbyTideStations(station.lat, station.lon, 6, { excludeId: station.id }),
+  const [nearbyCandidates, nearbyBeaches, reference] = await Promise.all([
+    getNearbyTideStations(station.lat, station.lon, NEARBY_CANDIDATES, { excludeId: station.id }),
     getNearbyBeachLinks(station.lat, station.lon),
     station.reference_station_id ? getTideStationLink(`noaa:${station.reference_station_id}`) : Promise.resolve(null),
   ]);
+  // Closed stations redirect to their hub, so the page links only open ones.
+  const nearbyStations = nearbyCandidates.filter((nearby) => isTideStationKept(nearby.slug)).slice(0, NEARBY_SHOWN);
 
   const place = stationPlaceLabel(station);
   const path = tideStationPath(station.slug);
@@ -206,10 +218,12 @@ export default async function TideStationPage(props: PageProps) {
               <div>
                 <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[#11100D]/60">Reference station</dt>
                 <dd>
-                  {reference ? (
+                  {reference && isTideStationKept(reference.slug) ? (
                     <Link href={tideStationPath(reference.slug)} className="font-semibold text-[#AA4918] underline">
                       {reference.name}
                     </Link>
+                  ) : reference ? (
+                    <span>{reference.name}</span>
                   ) : (
                     <span className="font-mono">{station.reference_station_id ?? "—"}</span>
                   )}

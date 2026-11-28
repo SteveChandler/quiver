@@ -1,6 +1,6 @@
 # Extends the default gitleaks ruleset — every built-in rule still applies
-# everywhere else in the repo. This file only carves out one narrow, verified
-# false positive.
+# everywhere else in the repo. This file only carves out narrow, verified
+# false positives, one path each.
 [extend]
 useDefault = true
 
@@ -19,4 +19,15 @@ enforced by the default rules.
 """
 paths = [
   '''lib/services/forecast/__tests__/fixtures/trusted-forecast-issues\.real\.json''',
+]
+
+[[allowlists]]
+description = """
+Kept tide station snapshot: public page slugs such as "garibaldi-or-9437540"
+(station name, state code, NOAA station id). The generic-api-key rule reads the
+name-plus-digits shape as a key. The file holds only these slugs and a source
+line. Scoped to this single path.
+"""
+paths = [
+  '''lib/tide-stations/kept-station-slugs\.json''',
 ]

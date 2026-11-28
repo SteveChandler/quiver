@@ -76,6 +76,34 @@ export async function getNoaaTideStationBySourceId(sourceStationId: string): Pro
   }
 }
 
+const BEACH_LINK_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * True when a beach's recent tide rows name this NOAA station, so a beach, city
+ * tide or native tide card links it. One index lookup on (station_id, ts). A read
+ * error keeps the page: a wrong redirect costs more than one extra render.
+ */
+export async function isTideStationLinkedFromBeach(
+  station: Pick<TideStationRow, "source" | "source_station_id">,
+  nowMs: number
+): Promise<boolean> {
+  if (station.source !== "noaa") return false;
+  const { data, error } = await db()
+    .from("tide_forecasts")
+    .select("station_id")
+    .eq("station_id", station.source_station_id)
+    .gte("ts", new Date(nowMs - BEACH_LINK_WINDOW_MS).toISOString())
+    .limit(1);
+  if (error) {
+    console.warn("Tide station beach-link query failed", {
+      stationId: station.source_station_id,
+      message: error.message,
+    });
+    return true;
+  }
+  return (data ?? []).length > 0;
+}
+
 /** Name and slug of another station (a subordinate station's reference), or null. */
 export async function getTideStationLink(id: string): Promise<{ name: string; slug: string } | null> {
   const { data, error } = await db()

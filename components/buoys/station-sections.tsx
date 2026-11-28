@@ -19,6 +19,7 @@ import { STATUS_LABELS } from "@/lib/buoy-pages/status";
 import type { WaveStationObservationRow, WaveStationRow } from "@/lib/services/wave-stations/types";
 import { licenseLabel, licenseRequiresChangeNote, licenseUrl, stationCode } from "@/lib/seo/buoy-meta";
 import { sourceStationUrl } from "@/lib/services/wave-stations/source-links";
+import { isTideStationKept } from "@/lib/tide-stations/prune";
 
 export const SECTION = "mb-12";
 export const HEADING = "mb-4 font-display text-2xl font-black uppercase text-[#11100D]";
@@ -133,9 +134,13 @@ export function TideStationSlot({
   return (
     <p className="mb-12 text-sm" data-testid="buoy-tide-station">
       Nearest tide station:{" "}
-      <Link href={`/tides/station/${tideStation.slug}`} className="underline underline-offset-2">
-        {tideStation.name}
-      </Link>{" "}
+      {isTideStationKept(tideStation.slug) ? (
+        <Link href={`/tides/station/${tideStation.slug}`} className="underline underline-offset-2">
+          {tideStation.name}
+        </Link>
+      ) : (
+        <span className="font-semibold">{tideStation.name}</span>
+      )}{" "}
       <span className="font-mono text-xs text-[#11100D]/62">{Math.round(tideStation.distanceKm)} km</span>
       {" "}for today’s highs and lows.
     </p>

@@ -9,7 +9,10 @@ import type { TideStationRow } from "@/lib/tide-stations/types";
 
 jest.mock("@/components/tide-stations/nearby-buoys-slot", () => ({ NearbyBuoysSlot: () => null }));
 jest.mock("@/lib/posthog-client", () => ({ captureClientPostHogEventAfterConsent: jest.fn() }));
-jest.mock("@/lib/tide-stations/page-data", () => ({ getStationPageData: jest.fn() }));
+jest.mock("@/lib/tide-stations/page-data", () => ({
+  getStationAccess: jest.fn().mockResolvedValue({ kind: "open" }),
+  getStationPageData: jest.fn(),
+}));
 jest.mock("@/lib/tide-stations/queries", () => ({
   getNearbyBeachLinks: jest.fn().mockResolvedValue([]),
   getNearbyTideStations: jest.fn().mockResolvedValue([]),
