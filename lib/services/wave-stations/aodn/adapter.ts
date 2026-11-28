@@ -7,6 +7,7 @@
  * asks every 30 minutes for the last 6 hours of every buoy in one request.
  */
 
+import { WaveStationHttpError } from "../http-error";
 import type { SourceObservation, SourceStation, WaveStationSourceAdapter } from "../types";
 import { aodnObservations, aodnStations, parseAodnCsv, REQUIRED_COLUMNS, WAVE_COLUMNS } from "./parsers";
 
@@ -33,7 +34,7 @@ export function aodnUrl(columns: readonly string[], sinceMs: number): string {
 
 async function fetchCsv(url: string): Promise<string> {
   const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`AODN WFS failed: HTTP ${res.status}`);
+  if (!res.ok) throw new WaveStationHttpError("AODN WFS failed", res.status);
   const body = await res.text();
   // GeoServer reports query errors as an XML exception with HTTP 200.
   if (/<(ows:)?ExceptionReport|<ServiceExceptionReport/.test(body)) {

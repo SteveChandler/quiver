@@ -4,6 +4,7 @@
  * latest phase runs once an hour. Licence and field notes are in ./parsers.ts.
  */
 
+import { WaveStationHttpError } from "../http-error";
 import type { SourceObservation, SourceStation, WaveStationSourceAdapter } from "../types";
 import { mergeSmhiData, parseSmhiStations, SMHI_PARAMETERS, type SmhiParameter } from "./parsers";
 
@@ -12,7 +13,7 @@ const REQUEST_TIMEOUT_MS = 20_000;
 
 async function fetchJson(url: string): Promise<unknown> {
   const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`SMHI ${url.slice(BASE.length)} failed: HTTP ${res.status}`);
+  if (!res.ok) throw new WaveStationHttpError(`SMHI ${url.slice(BASE.length)} failed`, res.status);
   return res.json();
 }
 

@@ -9,6 +9,7 @@
  * (emptyStationListReason): stored buoys stay active and show offline.
  */
 
+import { WaveStationHttpError } from "../http-error";
 import type { SourceObservation, SourceStation, WaveStationSourceAdapter } from "../types";
 import { FMI_PARAMETERS, fmiObservations, fmiStations, parseFmiCoverage } from "./parsers";
 
@@ -35,7 +36,7 @@ export function fmiUrl(sinceMs: number): string {
 
 async function fetchCoverage(sinceMs: number) {
   const res = await fetch(fmiUrl(sinceMs), { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`FMI WFS failed: HTTP ${res.status}`);
+  if (!res.ok) throw new WaveStationHttpError("FMI WFS failed", res.status);
   return parseFmiCoverage(await res.text());
 }
 
